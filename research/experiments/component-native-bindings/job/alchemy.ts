@@ -1,6 +1,7 @@
 import * as Cloudflare from "alchemy/Cloudflare";
 import * as Effect from "effect/Effect";
 import type * as Redacted from "effect/Redacted";
+import { fileURLToPath } from "node:url";
 
 type Inputs = {
   secret: Redacted.Redacted<string>;
@@ -16,7 +17,7 @@ export const Processor = (inputs: Inputs) =>
 
 const Worker = (storage: Cloudflare.R2.Bucket, inputs: Inputs) =>
   Cloudflare.Worker("Processor", {
-    main: "./job/worker.ts",
+    main: fileURLToPath(new URL("./worker.ts", import.meta.url)),
     env: { SECRET: inputs.secret, STORAGE: storage, ARCHIVE: inputs.archive },
     dev: { host: "127.0.0.1", port: 33442, strictPort: true },
   });

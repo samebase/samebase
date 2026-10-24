@@ -23,6 +23,7 @@ const phase = z
     "renamed",
     "unlinked",
     "missing-parent",
+    "between-failures",
     "invalid",
     "recovered",
   ])
@@ -40,16 +41,18 @@ export default Alchemy.Stack(
     const worker = yield* Namespace.push(
       "Processing",
       Effect.gen(function* () {
+        const namespace = toPath(yield* Namespace.CurrentNamespace);
         yield* Cloudflare.R2.Bucket("Receipts");
-        yield* deployment.bind("processing", {
+        yield* deployment.bind(namespace.join("/"), {
           componentPath: parent.join("/"),
-          namespace: phase === "unlinked" ? null : toPath(yield* Namespace.CurrentNamespace),
+          namespace: phase === "unlinked" ? null : namespace,
           uses: [],
           env: {},
         });
         return yield* Namespace.push(
           "Jobs",
           Effect.gen(function* () {
+            const namespace = toPath(yield* Namespace.CurrentNamespace);
             const worker = yield* Processor({
               secret,
               archive: Cloudflare.R2.Bucket.ref(archiveAddress.fqn, {
@@ -57,12 +60,12 @@ export default Alchemy.Stack(
                 stage: archiveAddress.stage,
               }),
             });
-            yield* deployment.bind("jobs", {
+            yield* deployment.bind(namespace.join("/"), {
               componentPath: componentPath(
                 processingComponents.jobs,
                 phase === "missing-parent" ? [] : parent,
               ).join("/"),
-              namespace: phase === "unlinked" ? null : toPath(yield* Namespace.CurrentNamespace),
+              namespace: phase === "unlinked" ? null : namespace,
               uses: [archiveAddress],
               env: {
                 JOBS_WORKER_URL:

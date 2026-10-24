@@ -4,6 +4,7 @@ import { randomBytes } from "node:crypto";
 import { access, mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { globSync } from "node:fs";
 import { resolve } from "node:path";
+import { createConnection } from "node:net";
 import { setTimeout } from "node:timers/promises";
 import { isDeepStrictEqual } from "node:util";
 import { ConvexHttpClient } from "convex/browser";
@@ -55,6 +56,30 @@ const redact = (message: string) =>
   secrets.reduce((text, value) => text.replaceAll(value, "[REDACTED]"), message);
 const children: ReturnType<typeof spawn>[] = [];
 let logs = "";
+const interruption = new AbortController();
+for (const signal of ["SIGINT", "SIGTERM", "SIGHUP"])
+  process.on(signal, () => {
+    interruption.abort();
+  });
+
+function portOpen(port: number): Promise<boolean> {
+  return new Promise((done, fail) => {
+    const socket = createConnection({ host: "127.0.0.1", port });
+    socket.setTimeout(1000, () => {
+      socket.destroy();
+      fail(new Error(`Port ${port} did not respond`));
+    });
+    socket.once("connect", () => {
+      socket.destroy();
+      done(true);
+    });
+    socket.once("error", (error) => {
+      socket.destroy();
+      if ("code" in error && error.code === "ECONNREFUSED") done(false);
+      else fail(error);
+    });
+  });
+}
 function start(args: string[], phase?: string) {
   const child = spawn(process.execPath, args, {
     cwd,
@@ -72,19 +97,64 @@ function start(args: string[], phase?: string) {
   return child;
 }
 async function stop(child: ReturnType<typeof spawn>) {
-  if (child.pid === undefined || child.exitCode !== null) return;
-  if (process.platform === "win32") spawnSync("taskkill", ["/pid", String(child.pid), "/T", "/F"]);
-  else process.kill(-child.pid, "SIGINT");
-  await Promise.race([
-    new Promise<void>((done) => child.once("exit", () => done())),
-    setTimeout(3000),
-  ]);
+  const pid = child.pid;
+  if (pid === undefined) return;
+  if (process.platform === "win32") {
+    if (child.exitCode !== null || child.signalCode !== null) return;
+    const exited = new Promise<boolean>((done) => child.once("exit", () => done(true)));
+    spawnSync("taskkill", ["/pid", String(pid), "/T", "/F"]);
+    assert(await Promise.race([exited, setTimeout(3000, false)]), "Sample process did not stop");
+    return;
+  }
+  const signalGroup = (signal: NodeJS.Signals | 0) => {
+    try {
+      process.kill(-pid, signal);
+      return true;
+    } catch (error) {
+      if (error instanceof Error && "code" in error && error.code === "ESRCH") return false;
+      // EPERM is ambiguous during teardown. Confirm that no live group members remain.
+      if (error instanceof Error && "code" in error && error.code === "EPERM") {
+        const groups = spawnSync("ps", ["-eo", "pgid=,stat="], { encoding: "utf8" });
+        if (
+          groups.status === 0 &&
+          !groups.stdout
+            .trim()
+            .split("\n")
+            .some((line) => {
+              const fields = line.trim().split(/\s+/);
+              const group = fields.at(0);
+              const status = fields.at(1);
+              return group === String(pid) && status !== undefined && !status.startsWith("Z");
+            })
+        )
+          return false;
+      }
+      throw new Error(
+        `Cannot send ${signal} to sample group ${pid}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  };
+  // A leader can exit before its backend/workerd children. Wait for the whole owned group.
+  for (const signal of ["SIGINT", "SIGKILL"] as const) {
+    if (!signalGroup(signal)) return;
+    for (let attempt = 0; attempt < 30; attempt++) {
+      await setTimeout(100);
+      if (!signalGroup(0)) return;
+    }
+  }
+  throw new Error("Sample process group did not stop");
 }
-async function waitFor(check: () => Promise<boolean>, child: ReturnType<typeof spawn>) {
+
+async function waitFor(
+  check: () => Promise<boolean>,
+  child: ReturnType<typeof spawn>,
+  expectedFailure = false,
+) {
   for (let attempt = 0; attempt < 180; attempt++) {
+    if (interruption.signal.aborted) throw new Error("Sample interrupted");
     if (await check()) return;
-    if (child.exitCode !== null) throw new Error(logs);
-    if (logs.includes("alchemy dev: apply failed")) throw new Error(logs);
+    if (child.exitCode !== null || child.signalCode !== null) throw new Error(logs);
+    if (!expectedFailure && logs.includes("alchemy dev: apply failed")) throw new Error(logs);
     await setTimeout(500);
   }
   throw new Error(`Sample timed out: ${logs}`);
@@ -101,7 +171,11 @@ async function state() {
     const result = stateSchema.safeParse(
       JSON.parse(await readFile(resolve(cwd, ".alchemy", path), "utf8")),
     );
-    if (result.success) return result.data;
+    if (result.success)
+      return {
+        ...result.data,
+        mtimeNs: (await stat(resolve(cwd, ".alchemy", path), { bigint: true })).mtimeNs,
+      };
   }
   throw new Error("Alchemy did not persist the deployment resource");
 }
@@ -152,13 +226,7 @@ async function verifyRuntime(input: string) {
   return latest;
 }
 
-if (
-  await fetch(backendUrl).then(
-    () => true,
-    () => false,
-  )
-)
-  throw new Error("Port 33440 is in use");
+for (const port of [33440, 33441, 33442]) assert(!(await portOpen(port)), `Port ${port} is in use`);
 for (const path of [
   ".local",
   ".alchemy",
@@ -176,7 +244,18 @@ const authorPaths = [
   "convex/jobs.ts",
   "job/alchemy.ts",
 ];
-const authorSources = await Promise.all(authorPaths.map((path) => readFile(path, "utf8")));
+const authorSources = new Map(
+  await Promise.all(authorPaths.map(async (path) => [path, await readFile(path, "utf8")] as const)),
+);
+for (const source of authorSources.values()) {
+  assert(
+    !source.includes("components.pipeline") &&
+      !source.includes('name: "pipeline"') &&
+      !source.includes('R2.Bucket("Cache")'),
+    "Sample sources contain changes from an interrupted run; restore them before starting",
+  );
+}
+const failures: unknown[] = [];
 try {
   const backend = start([
     cli,
@@ -213,9 +292,11 @@ try {
     .object({ adminKey: z.string() })
     .parse(JSON.parse(await readFile(resolve(cwd, ".convex/local/default/config.json"), "utf8")));
   secrets.push(local.adminKey);
+  assert(await portOpen(33440));
+  assert(await portOpen(33441));
   const { components } = await import("./convex/_generated/api.js");
   assert.deepEqual(componentPath(components.processing), ["processing"]);
-  assert.throws(() => componentPath(components.processing.jobs.run));
+  assert.throws(() => componentPath(components.processing.jobs.run), z.ZodError);
   assert(!(await convex(["env", "list", "--names-only"])).includes("JOBS_WORKER_"));
   console.log("Fresh backend and generated APIs ready; required Worker env is still absent.");
 
@@ -255,6 +336,11 @@ try {
   const firstState = await committedState(first, initial);
   assert.deepEqual(first.envNames, ["JOBS_MARKER", "JOBS_WORKER_SECRET", "JOBS_WORKER_URL"]);
   const firstInventory = await inventory("component-native-bindings", first.associations);
+  assert(
+    first.associations.every((item) =>
+      firstInventory.some((row) => row.componentPath === item.componentPath),
+    ),
+  );
   assert.equal(
     firstInventory.find((row) => row.fqn === "Processing/Receipts")?.componentPath,
     "processing",
@@ -273,6 +359,40 @@ try {
   );
   assert(!firstInventory.some((row) => row.fqn === archiveAddress.fqn));
   assert.deepEqual(first.associations[1]?.uses, [archiveAddress]);
+  const sharedOutput = z
+    .object({ archiveName: z.string() })
+    .parse(
+      JSON.parse(
+        await readFile(
+          ".alchemy/state/component-binding-shared/local-experiment/__stack_output__.json",
+          "utf8",
+        ),
+      ),
+    );
+  const workerState = z
+    .object({ bindings: z.array(z.object({ data: z.object({ bindings: z.array(z.unknown()) }) })) })
+    .parse(
+      JSON.parse(
+        await readFile(
+          ".alchemy/state/component-native-bindings/local-experiment/Processing__Jobs__Processor.json",
+          "utf8",
+        ),
+      ),
+    );
+  const archiveBinding = workerState.bindings
+    .flatMap(({ data }) => data.bindings)
+    .flatMap((value) => {
+      const parsed = z
+        .object({
+          type: z.literal("r2_bucket"),
+          name: z.literal("ARCHIVE"),
+          bucketName: z.string(),
+        })
+        .safeParse(value);
+      return parsed.success ? [parsed.data] : [];
+    });
+  assert.equal(archiveBinding.length, 1);
+  assert.equal(archiveBinding.at(0)?.bucketName, sharedOutput.archiveName);
   const workerUrl = (await convex(["env", "get", "JOBS_WORKER_URL"])).trim();
   assert.equal(new URL(workerUrl).port, "33442");
   for (const headers of [new Headers(), new Headers({ Authorization: "Bearer wrong-secret" })]) {
@@ -430,15 +550,14 @@ try {
     lifecycle.push({ phase, attributes: applied, resources, result });
     await stop(child);
   }
-  const unlinked = lifecycle.at(-1);
-  assert(unlinked !== undefined);
-
   logs = "";
+  const beforeMissingParent = await state();
+  assert.equal(beforeMissingParent.status, "updated");
   const missingParent = start(
     [alchemy, "dev", "alchemy.run.ts", "--stage", "local-experiment", "--no-input"],
     "missing-parent",
   );
-  await waitFor(async () => logs.includes("Component jobs is not mounted"), missingParent);
+  await waitFor(async () => logs.includes("Component jobs is not mounted"), missingParent, true);
   assert.equal(
     await access(".local/applied-missing-parent.json").then(
       () => true,
@@ -447,6 +566,7 @@ try {
     false,
   );
   assert.equal((await state()).status, "updating");
+  assert((await state()).mtimeNs > beforeMissingParent.mtimeNs);
   assert.equal(
     (
       await stat(
@@ -459,11 +579,32 @@ try {
   await stop(missingParent);
 
   logs = "";
+  const betweenFailures = start(
+    [alchemy, "dev", "alchemy.run.ts", "--stage", "local-experiment", "--no-input"],
+    "between-failures",
+  );
+  await waitFor(
+    () =>
+      access(".local/applied-between-failures.json").then(
+        () => true,
+        () => false,
+      ),
+    betweenFailures,
+  );
+  const betweenAttributes = attributes.parse(
+    JSON.parse(await readFile(".local/applied-between-failures.json", "utf8")),
+  );
+  await committedState(betweenAttributes, betweenFailures);
+  await stop(betweenFailures);
+
+  logs = "";
+  const beforeInvalid = await state();
+  assert.equal(beforeInvalid.status, "updated");
   const invalid = start(
     [alchemy, "dev", "alchemy.run.ts", "--stage", "local-experiment", "--no-input"],
     "invalid",
   );
-  await waitFor(async () => logs.includes("Invalid URL"), invalid);
+  await waitFor(async () => logs.includes("Invalid URL"), invalid, true);
   assert.equal(
     await access(".local/applied-invalid.json").then(
       () => true,
@@ -474,7 +615,8 @@ try {
   assert.match(await convex(["env", "get", "JOBS_WORKER_URL"]), /\?revision=2/);
   const failedState = await state();
   assert.equal(failedState.status, "updating");
-  assert.deepEqual(failedState.old?.attr, unlinked.attributes);
+  assert.deepEqual(failedState.old?.attr, betweenAttributes);
+  assert(failedState.mtimeNs > beforeInvalid.mtimeNs);
   assert.equal(
     (
       await stat(
@@ -513,6 +655,10 @@ try {
     firstInventory,
     changedInventory,
     sharedInventory: sharedBefore,
+    archiveBinding: {
+      bucketName: archiveBinding.at(0)?.bucketName,
+      sharedStackBucketName: sharedOutput.archiveName,
+    },
     lifecycle,
     convexDataMigratedOnRename: false,
     updated,
@@ -543,21 +689,32 @@ try {
   };
   await writeFile(".local/result.json", JSON.stringify(report, null, 2));
   console.log(JSON.stringify(report, null, 2));
-  await stop(invalid);
-  for (const [index, path] of authorPaths.entries()) {
-    const source = authorSources.at(index);
-    assert(source !== undefined);
-    await writeFile(path, source);
-  }
+  for (const [path, source] of authorSources) await writeFile(path, source);
   // Leave generated types consistent with the restored author files for the separate check command.
   await convex(["codegen", "--typecheck", "disable"]);
 } catch (error) {
-  throw new Error(redact(error instanceof Error ? error.message : String(error)));
+  failures.push(error);
 } finally {
-  for (const child of children.toReversed()) await stop(child);
-  for (const [index, path] of authorPaths.entries()) {
-    const source = authorSources.at(index);
-    assert(source !== undefined);
-    await writeFile(path, source);
+  const stopped = await Promise.allSettled(children.toReversed().map((child) => stop(child)));
+  const closed = await Promise.allSettled(
+    [33440, 33441, 33442].map(async (port) => {
+      assert(!(await portOpen(port)), `Port ${port} is still in use`);
+    }),
+  );
+  // Restore every source even if a process or another source failed to clean up.
+  const restored = await Promise.allSettled(
+    [...authorSources].map(([path, source]) => writeFile(path, source)),
+  );
+  for (const result of [...stopped, ...closed, ...restored]) {
+    if (result.status === "rejected") failures.push(result.reason);
   }
+}
+if (interruption.signal.aborted) failures.push(new Error("Sample interrupted"));
+if (failures.length) {
+  throw new AggregateError(
+    failures.map(
+      (error) => new Error(redact(error instanceof Error ? error.message : String(error))),
+    ),
+    "Sample failed",
+  );
 }

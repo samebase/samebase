@@ -28,7 +28,7 @@
       "fqn": "App",
       "type": "Experiment.ConvexDeployment",
       "namespace": [],
-      "instanceId": "56c492e5b8773e2595e86a8a481a9e5a",
+      "instanceId": "6baa3c7bad5aa1946ef837b7040ca00c",
       "status": "created",
       "componentPath": null
     },
@@ -36,7 +36,7 @@
       "fqn": "Processing/Jobs/Processor",
       "type": "Cloudflare.Worker",
       "namespace": ["Processing", "Jobs"],
-      "instanceId": "f944da5b6cf451d00990936e443a6c1c",
+      "instanceId": "0432bd24ed04a651bc269452c0f00a9f",
       "status": "created",
       "componentPath": "processing/jobs"
     },
@@ -44,7 +44,7 @@
       "fqn": "Processing/Jobs/Storage",
       "type": "Cloudflare.R2.Bucket",
       "namespace": ["Processing", "Jobs"],
-      "instanceId": "e55487b6395c2789053a56ef02716237",
+      "instanceId": "260332bbea1eabf108158244746437ea",
       "status": "created",
       "componentPath": "processing/jobs"
     },
@@ -52,7 +52,7 @@
       "fqn": "Processing/Lookalike",
       "type": "Cloudflare.R2.Bucket",
       "namespace": [],
-      "instanceId": "d6f886138377811b432dd627962143ab",
+      "instanceId": "5e2832552697cf4a59973b1927a01043",
       "status": "created",
       "componentPath": null
     },
@@ -60,7 +60,7 @@
       "fqn": "Processing/Receipts",
       "type": "Cloudflare.R2.Bucket",
       "namespace": ["Processing"],
-      "instanceId": "d660ce6e08a0918d445a1f529cef40bf",
+      "instanceId": "da9e1d69dca95e95a9cafc7907968086",
       "status": "created",
       "componentPath": "processing"
     }
@@ -70,7 +70,7 @@
       "fqn": "App",
       "type": "Experiment.ConvexDeployment",
       "namespace": [],
-      "instanceId": "56c492e5b8773e2595e86a8a481a9e5a",
+      "instanceId": "6baa3c7bad5aa1946ef837b7040ca00c",
       "status": "updated",
       "componentPath": null
     },
@@ -78,7 +78,7 @@
       "fqn": "Processing/Jobs/Cache",
       "type": "Cloudflare.R2.Bucket",
       "namespace": ["Processing", "Jobs"],
-      "instanceId": "cd761ad831f0c374be702f8c985b3ffc",
+      "instanceId": "53d400a02dd602ff9b98ef3faf141a8f",
       "status": "created",
       "componentPath": "processing/jobs"
     },
@@ -86,7 +86,7 @@
       "fqn": "Processing/Jobs/Processor",
       "type": "Cloudflare.Worker",
       "namespace": ["Processing", "Jobs"],
-      "instanceId": "f944da5b6cf451d00990936e443a6c1c",
+      "instanceId": "0432bd24ed04a651bc269452c0f00a9f",
       "status": "updated",
       "componentPath": "processing/jobs"
     },
@@ -94,7 +94,7 @@
       "fqn": "Processing/Jobs/Storage",
       "type": "Cloudflare.R2.Bucket",
       "namespace": ["Processing", "Jobs"],
-      "instanceId": "e55487b6395c2789053a56ef02716237",
+      "instanceId": "260332bbea1eabf108158244746437ea",
       "status": "created",
       "componentPath": "processing/jobs"
     },
@@ -102,7 +102,7 @@
       "fqn": "Processing/Lookalike",
       "type": "Cloudflare.R2.Bucket",
       "namespace": [],
-      "instanceId": "d6f886138377811b432dd627962143ab",
+      "instanceId": "5e2832552697cf4a59973b1927a01043",
       "status": "created",
       "componentPath": null
     },
@@ -110,7 +110,7 @@
       "fqn": "Processing/Receipts",
       "type": "Cloudflare.R2.Bucket",
       "namespace": ["Processing"],
-      "instanceId": "d660ce6e08a0918d445a1f529cef40bf",
+      "instanceId": "da9e1d69dca95e95a9cafc7907968086",
       "status": "created",
       "componentPath": "processing"
     }
@@ -120,11 +120,15 @@
       "fqn": "Archive",
       "type": "Cloudflare.R2.Bucket",
       "namespace": [],
-      "instanceId": "c5489fdc2b05ac865b19408cabad5cc6",
+      "instanceId": "65cb94650484d1a8016b101842d85553",
       "status": "created",
       "componentPath": null
     }
   ],
+  "archiveBinding": {
+    "bucketName": "dev:86694e89-97c0-4fd3-a42b-b82cb3fee5b5",
+    "sharedStackBucketName": "dev:86694e89-97c0-4fd3-a42b-b82cb3fee5b5"
+  },
   "lifecycle": [
     {
       "phase": "renamed",
@@ -154,7 +158,7 @@
           "fqn": "App",
           "type": "Experiment.ConvexDeployment",
           "namespace": [],
-          "instanceId": "56c492e5b8773e2595e86a8a481a9e5a",
+          "instanceId": "6baa3c7bad5aa1946ef837b7040ca00c",
           "status": "updated",
           "componentPath": null
         },
@@ -162,7 +166,7 @@
           "fqn": "Processing/Jobs/Cache",
           "type": "Cloudflare.R2.Bucket",
           "namespace": ["Processing", "Jobs"],
-          "instanceId": "cd761ad831f0c374be702f8c985b3ffc",
+          "instanceId": "53d400a02dd602ff9b98ef3faf141a8f",
           "status": "created",
           "componentPath": "pipeline/jobs"
         },
@@ -170,7 +174,7 @@
           "fqn": "Processing/Jobs/Processor",
           "type": "Cloudflare.Worker",
           "namespace": ["Processing", "Jobs"],
-          "instanceId": "f944da5b6cf451d00990936e443a6c1c",
+          "instanceId": "0432bd24ed04a651bc269452c0f00a9f",
           "status": "updated",
           "componentPath": "pipeline/jobs"
         },
@@ -178,7 +182,7 @@
           "fqn": "Processing/Jobs/Storage",
           "type": "Cloudflare.R2.Bucket",
           "namespace": ["Processing", "Jobs"],
-          "instanceId": "e55487b6395c2789053a56ef02716237",
+          "instanceId": "260332bbea1eabf108158244746437ea",
           "status": "created",
           "componentPath": "pipeline/jobs"
         },
@@ -186,7 +190,7 @@
           "fqn": "Processing/Lookalike",
           "type": "Cloudflare.R2.Bucket",
           "namespace": [],
-          "instanceId": "d6f886138377811b432dd627962143ab",
+          "instanceId": "5e2832552697cf4a59973b1927a01043",
           "status": "created",
           "componentPath": null
         },
@@ -194,7 +198,7 @@
           "fqn": "Processing/Receipts",
           "type": "Cloudflare.R2.Bucket",
           "namespace": ["Processing"],
-          "instanceId": "d660ce6e08a0918d445a1f529cef40bf",
+          "instanceId": "da9e1d69dca95e95a9cafc7907968086",
           "status": "created",
           "componentPath": "pipeline"
         }
@@ -215,7 +219,7 @@
           "fqn": "App",
           "type": "Experiment.ConvexDeployment",
           "namespace": [],
-          "instanceId": "56c492e5b8773e2595e86a8a481a9e5a",
+          "instanceId": "6baa3c7bad5aa1946ef837b7040ca00c",
           "status": "updated",
           "componentPath": null
         },
@@ -223,7 +227,7 @@
           "fqn": "Processing/Jobs/Cache",
           "type": "Cloudflare.R2.Bucket",
           "namespace": ["Processing", "Jobs"],
-          "instanceId": "cd761ad831f0c374be702f8c985b3ffc",
+          "instanceId": "53d400a02dd602ff9b98ef3faf141a8f",
           "status": "created",
           "componentPath": null
         },
@@ -231,7 +235,7 @@
           "fqn": "Processing/Jobs/Processor",
           "type": "Cloudflare.Worker",
           "namespace": ["Processing", "Jobs"],
-          "instanceId": "f944da5b6cf451d00990936e443a6c1c",
+          "instanceId": "0432bd24ed04a651bc269452c0f00a9f",
           "status": "updated",
           "componentPath": null
         },
@@ -239,7 +243,7 @@
           "fqn": "Processing/Jobs/Storage",
           "type": "Cloudflare.R2.Bucket",
           "namespace": ["Processing", "Jobs"],
-          "instanceId": "e55487b6395c2789053a56ef02716237",
+          "instanceId": "260332bbea1eabf108158244746437ea",
           "status": "created",
           "componentPath": null
         },
@@ -247,7 +251,7 @@
           "fqn": "Processing/Lookalike",
           "type": "Cloudflare.R2.Bucket",
           "namespace": [],
-          "instanceId": "d6f886138377811b432dd627962143ab",
+          "instanceId": "5e2832552697cf4a59973b1927a01043",
           "status": "created",
           "componentPath": null
         },
@@ -255,7 +259,7 @@
           "fqn": "Processing/Receipts",
           "type": "Cloudflare.R2.Bucket",
           "namespace": ["Processing"],
-          "instanceId": "d660ce6e08a0918d445a1f529cef40bf",
+          "instanceId": "da9e1d69dca95e95a9cafc7907968086",
           "status": "created",
           "componentPath": null
         }
