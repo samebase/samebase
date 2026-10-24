@@ -908,6 +908,7 @@ describe("Alchemy stack cards", () => {
           href: "https://ideal-dolphin-15.convex.site",
           label: "ideal-dolphin-15.convex.site",
         },
+        addressWorker: null,
         resources: [
           {
             kind: "destination",
@@ -1167,49 +1168,78 @@ describe("Alchemy stack cards", () => {
     ]);
   });
 
-  it("shows a Worker of the store without a build state", () => {
+  it("shows the URL of a Worker-only stack once, as its address", () => {
     // The `main` Worker row measured in research/2026-10-21-alchemy-state-rows-for-workers-and-convex.md.
     const worker =
       '{"status":"created","fqn":"Worker","logicalId":"Worker","instanceId":"4fb5acd8a74d8a46633a8e57084e0bc1","resourceType":"Cloudflare.Worker","props":{"name":"tmp-k7m2-rows","main":"./worker.ts","env":{"CONVEX_URL":"https://modest-guanaco-252.convex.cloud"},"isExternal":true},"attr":{"workerId":"6d2434039c4343a9a02300ba85841b70","workerName":"tmp-k7m2-rows","logpush":false,"url":"https://tmp-k7m2-rows.pfp.workers.dev","urls":["https://tmp-k7m2-rows.pfp.workers.dev"],"tags":["alchemy:stack:samebase/tmp-k7m2-rows","alchemy:stage:main","alchemy:id:Worker"],"durableObjectNamespaces":{},"accountId":"fe57d01d7ab41f60d00ba1aade20eb33","routes":[],"crons":[],"tailConsumers":[],"hash":{"bundle":"b132832cbda33e15a9cffc4ff168139206ddccf97b0a7c2230801d3710200e85","metadata":"6692e8262512d066c344158cd4e091a1287954eb8b43208b87b336715b99bb65"}},"bindings":[{"sid":"CONVEX_URL","data":{"bindings":[{"type":"plain_text","name":"CONVEX_URL","text":"https://modest-guanaco-252.convex.cloud"}]}}],"providerVersion":0,"downstream":[],"removalPolicy":"destroy","providerMode":"live"}';
-    const { cards } = renderStackCards(
-      {
-        store: "found",
-        liveDeployments: [],
-        stacks: [
-          {
-            name: "samebase/tmp-k7m2-rows",
-            stages: [
-              {
-                name: "prod",
-                record: {
-                  version: 1,
-                  repository: "samebase/tmp-k7m2-rows",
-                  stackFile: "alchemy.run.ts",
-                  branch: "main",
-                  pullRequest: null,
-                  headCommit: "a".repeat(40),
-                  runUrl: null,
-                  source: "laptop",
-                  recordedAt: "2026-10-21T12:00:00.000Z",
-                },
-                deployedHeadCommit: "a".repeat(40),
-                resources: [{ fqn: "Worker", value: worker }],
-                output: "{}",
+    const stacksWith = (value: string): RepositoryAlchemyStacks => ({
+      store: "found",
+      liveDeployments: [],
+      stacks: [
+        {
+          name: "samebase/tmp-k7m2-rows",
+          stages: [
+            {
+              name: "prod",
+              record: {
+                version: 1,
+                repository: "samebase/tmp-k7m2-rows",
+                stackFile: "alchemy.run.ts",
+                branch: "main",
+                pullRequest: null,
+                headCommit: "a".repeat(40),
+                runUrl: null,
+                source: "laptop",
+                recordedAt: "2026-10-21T12:00:00.000Z",
               },
-            ],
-          },
-        ],
-      },
-      makeRepositorySettingsBuilderRepository({}),
-    );
+              deployedHeadCommit: "a".repeat(40),
+              resources: [{ fqn: "Worker", value }],
+              output: "{}",
+            },
+          ],
+        },
+      ],
+    });
+    const repository = makeRepositorySettingsBuilderRepository({});
+    const { cards } = renderStackCards(stacksWith(worker), repository);
 
-    // A run from a laptop has no run URL, so its line links nowhere.
+    // A run from a laptop has no run URL, so its line links nowhere. The address is the one URL of
+    // the Worker, so the Worker row shows no URL and no build state.
     expect(cards.map((card) => card.textContent)).toEqual([
-      "aaaaaaatmp-k7m2-rows.pfp.workers.devtmp-k7m2-rowstmp-k7m2-rows.pfp.workers.dev",
+      "aaaaaaatmp-k7m2-rows.pfp.workers.devtmp-k7m2-rows",
     ]);
     expect([...cards[0].querySelectorAll("a")].map((link) => link.getAttribute("href"))).toEqual([
       "https://tmp-k7m2-rows.pfp.workers.dev",
-      "https://tmp-k7m2-rows.pfp.workers.dev",
+    ]);
+    // The same row with a custom domain, which Alchemy puts first: the row keeps the other URL.
+    expect(
+      stackCardsOf(
+        stacksWith(
+          worker.replace(
+            '"url":"https://tmp-k7m2-rows.pfp.workers.dev","urls":[',
+            '"url":"https://rows.samebase.com","urls":["https://rows.samebase.com",',
+          ),
+        ),
+        repository,
+      ).map((card) => ({
+        address: card.address,
+        destinations: card.resources.map((resource) =>
+          resource.kind === "cloudflare_worker" ? resource.worker.destination : resource.kind,
+        ),
+      })),
+    ).toEqual([
+      {
+        address: { href: "https://rows.samebase.com", label: "rows.samebase.com" },
+        destinations: [
+          {
+            state: "available",
+            href: "https://tmp-k7m2-rows.pfp.workers.dev",
+            label: "tmp-k7m2-rows.pfp.workers.dev",
+            provenance: "production",
+            title: "Open production app",
+          },
+        ],
+      },
     ]);
   });
 

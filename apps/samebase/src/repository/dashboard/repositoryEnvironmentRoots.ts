@@ -430,7 +430,8 @@ A Worker links to its custom domains and workers.dev URL, `attr.urls`, and witho
 routes. A route shows its host, such as `e.samebase.com` for `e.samebase.com/*`, with the path when
 the route covers only a path, such as `example.com/api/`, and links to that path. A route with a
 wildcard host, such as `*.json.md/*`, has no URL and shows without a link. The first one is the
-Worker's destination and the others are in its menu.
+Worker's destination and the others are in its menu. The Worker whose URL is the address of the card
+(`addressWorker`) leaves that URL out.
 
 A Convex deployment takes its dashboard link and region from the live reads of its project and
 production deployment, like an attached project. The Schema route reads schema snapshots stored for
@@ -462,9 +463,12 @@ export function buildAlchemyStackCards({
     ): RepositoryEnvironmentSortedResource<RepositoryEnvironmentComponentResource> => {
       const { fqn, state, rootDirectory } = worker;
       const { routes, urls, workerName } = state.attr;
+      // The card title shows the address, so the row of its Worker keeps only the other URLs.
+      const rowUrls =
+        fqn === card.addressWorker ? urls.filter((url) => url !== card.address) : urls;
       const destinations: RepositoryEnvironmentAction[] =
         urls.length > 0
-          ? urls.map((url) => ({
+          ? rowUrls.map((url) => ({
               destination: "external",
               href: url,
               label: buildProductionUrlLabel(url),

@@ -1,4 +1,4 @@
-import { isRecord, notEmpty } from "@samebase/dependent/main";
+import { isRecord } from "@samebase/dependent/main";
 import { validate } from "convex-helpers/validators";
 import { v, type Infer } from "convex/values";
 import type { AlchemyStateObservation } from "./alchemyStateModel";
@@ -227,7 +227,9 @@ repository has no card. `deployedHeadCommit` is the last completed deploy, and `
 
 `address` is where the stack serves: the first Convex deployment by fqn at its first `convexSite`
 custom domain, else at its `siteUrl`, which a failed read of the custom domains also gives. A stack
-without a Convex deployment serves at the first Worker URL, and a stack with neither has no address.
+without a Convex deployment serves at the URL of its first Worker that has one, `addressWorker` (its
+fqn), and a stack with neither has no address. The row of `addressWorker` in the card does not
+repeat the address.
 */
 export function stackCards({
   stacks,
@@ -253,6 +255,9 @@ export function stackCards({
             .find((live) => live.deploymentName === deployment.state.attr.name)
             ?.customDomains.find((domain) => domain.requestDestination === "convexSite")
         : undefined;
+      const addressWorker = deployment
+        ? undefined
+        : resources.workers.find(({ state }) => state.attr.url);
       return [
         {
           stack: stack.name,
@@ -262,10 +267,11 @@ export function stackCards({
           recordedAt: record.recordedAt,
           runUrl: record.runUrl,
           address: !deployment
-            ? (resources.workers.map(({ state }) => state.attr.url).find(notEmpty) ?? null)
+            ? (addressWorker?.state.attr.url ?? null)
             : siteDomain
               ? `https://${siteDomain.domain}`
               : deployment.state.attr.siteUrl,
+          addressWorker: addressWorker?.fqn ?? null,
           resources,
         },
       ];

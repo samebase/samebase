@@ -275,6 +275,19 @@ describe("stackCards", () => {
     ).toEqual(["https://happy-otter-123.convex.site"]);
   });
 
+  it("names the Worker whose URL is the address, so that its row does not repeat it", () => {
+    const addressWorkerOf = (resources: readonly { fqn: string; value: string }[]) =>
+      stackCards({
+        liveDeployments: [],
+        stacks: [prodStack("samebase/samebase", "alchemy.run.ts", resources)],
+      }).map((card) => card.addressWorker);
+
+    expect(addressWorkerOf([proxy, proxyWithUrl])).toEqual(["Proxy"]);
+    // A site URL or no address comes from no Worker.
+    expect(addressWorkerOf([proxyWithUrl, site])).toEqual([null]);
+    expect(addressWorkerOf([proxy])).toEqual([null]);
+  });
+
   it("serves a stack without a Convex deployment at its first Worker URL, else at none", () => {
     expect(addressOf([], [proxy, proxyWithUrl])).toEqual([
       "https://samebase-posthog-proxy.samebase.workers.dev",

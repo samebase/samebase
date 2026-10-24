@@ -371,7 +371,7 @@ function RepositoryStackCards({ cards }: { cards: readonly RepositoryStackCard[]
                   target="_blank"
                   title={card.address.href}
                 >
-                  <span className="truncate">{card.address.label}</span>
+                  <span className="min-w-0 [overflow-wrap:anywhere]">{card.address.label}</span>
                 </a>
               ) : null}
             </div>
