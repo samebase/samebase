@@ -1,6 +1,6 @@
 # Convex component and Worker binding experiments
 
-Date: 2026-10-23. Status: local experiments, not an accepted product contract.
+Date: 2026-10-23. Updated: 2026-10-24. Status: local experiments, not an accepted product contract.
 
 ## Decision
 
@@ -36,7 +36,7 @@ authorization. The samples are disposable development apps, not production job A
 | Explicit component registration | Passed with Alchemy local Worker | Deployment URL and component path passed to an Alchemy Action                    | Repeated mount identity, a configuration table, and a custom update step |
 | Native resource modules         | Passed with Wrangler/workerd     | Imported Worker and secret Outputs supplied to typed Convex env                  | Explicit component environment mapping                                   |
 | Analyzed component graph        | Passed with Alchemy local Worker | Actual Convex analysis response, including mount path and environment references | Private deployment protocol and analysis before resource declaration     |
-| Native provider bindings        | Passed with Alchemy local Worker | Native binding records resolved by Alchemy and consumed by provider reconcile    | Convex provider extension; mount and env mapping remain explicit         |
+| Native provider bindings        | Passed with Alchemy local Worker | Native binding records resolved by Alchemy and consumed by provider reconcile    | Provider extension; private component-root adapter; explicit env mapping |
 | Native Output runtime bridge    | Passed with Wrangler/workerd     | Shared Ref expression captured at construction and read through runtime context  | Runtime bundle, context adapter, and state fixture; no provider apply    |
 
 Reproduction commands and the complete code are in the isolated probes:
@@ -133,34 +133,49 @@ Convex generated the API files needed by the analysis build. The final runner re
 directories and waits for real Convex code generation before it captures the request. This keeps the
 test independent of files left by an earlier run.
 
-### D. Native Alchemy provider bindings
+### D. Native Alchemy provider bindings and namespace associations
 
-The [native binding probe](experiments/component-native-bindings/README.md) defines a local Convex
-deployment Resource with a typed binding contract. The stack calls its real `Resource.bind` method
-with a component path, Worker resource identity, and component-local env values. Alchemy resolves
-the Worker Outputs and supplies the active bindings to the provider's `reconcile` method.
+The [native binding probe](experiments/component-native-bindings/README.md#the-connection) defines a
+local Convex deployment Resource with a typed binding contract. The stack uses its real
+`Resource.bind` method. The binding carries the installed component path, the current native Alchemy
+namespace, explicit shared-resource references, and root environment values. Alchemy resolves
+Outputs before the provider sets env, pushes normal Convex code, validates the mounted paths, and
+returns nonsecret association attributes. This needs a provider extension; it is not an API in
+`@samebase/alchemy-convex` 0.8.0.
 
-That method derives the root env values and nonsecret component association from the same records.
-It sets env, runs the ordinary Convex CLI push, and checks the mounted path before returning
-attributes. Normal component actions, schemas, and generated APIs remain unchanged. This is a
-provider extension experiment, not an API available in `@samebase/alchemy-convex` 0.8.0.
+The October 24 extension reads generated component-root references. A small pinned adapter decodes
+Convex's private reference format. Nested references are relative to their parent, so the stack
+combines the app's parent reference with the parent's child reference. The provider rejects a child
+reference without its parent when that path is not mounted. A reference is not installation proof,
+and a mounted-tree check does not prove arbitrary env wiring. The runtime test checks the wiring for
+this sample.
 
-The supervisor independently ran initial, changed, and secret-only local applies. The component
-called the local Worker and stored its result. A URL query change reached Convex. Removing a second
-binding removed its env value. Secret rotation kept the URL fixed: the old secret returned 401, the
-new secret returned 200, and the component saved its result. Each successful phase waited for the
-committed resource state and a fresh stack output. Their associations matched the reconcile result.
+The package exports an ordinary Effect that creates a Worker and a private R2 bucket. The app
+supplies a secret and a native Ref to a shared bucket. The Worker writes and reads both buckets,
+then the component saves its result in a normal Convex table. During the next apply the runner adds
+a Cache bucket inside the package. The app stack and association metadata stay unchanged, and the
+state reader finds the new bucket under the nested component.
 
-Invalid URL input failed before env writes, preserved the prior env value, and left the last
-successful attributes in Alchemy's failed-update state. This failure does not prove rollback after
-partial external writes. The URL query change proves propagation to the same Worker, not routing to
-a different Worker.
+Membership is read after the full apply from actual resource namespace chains. The deepest
+associated namespace selects the direct owner. A root resource named `Processing/Lookalike` is not a
+member of the Processing namespace. The shared Ref keeps its resource record in the shared stack;
+the binding records a separate `uses` link from the same address used by the Ref.
 
-The mount name still appears in normal Convex config and binding data. A private dashboard query
-checks that path after deployment; it does not establish that the mount's env mapping matches every
-binding. The local provider omits production ownership checks, content hashing, rollback, and
-deletion. Its purpose is to prove that native bindings can carry this connection without an Alchemy
-Platform or a replacement Convex function DSL.
+The mount rename from `processing` to `pipeline` changes the component paths while every Alchemy FQN
+and instance ID stays fixed. Convex creates a new component instance with an empty table. This is
+not a component data migration. Removing both namespace associations keeps the env, resources, and
+working component action. These tests do not delete a component or test cloud retention.
+
+The earlier URL, marker-removal, secret-only rotation, and authorization checks still pass. An
+invalid URL fails before env writes. Missing-parent validation fails after the push. Both failures
+leave the previous full stack output unchanged and the deployment resource in `updating`. A valid
+recovery commits fresh association output and runs the component action successfully.
+
+The local parent config first lived at `processing/convex/`. Runtime passed, but full TypeScript
+validation found Convex 1.46.0's generated relative child API import was wrong. Keeping this local
+parent config at `processing/`, the same depth as the app config, produces correct generated
+imports. The probe does not patch generated files or disable its final TypeScript check. Other
+package layouts remain a separate compatibility check.
 
 ### E. Native Outputs inside a normal component action
 
@@ -206,6 +221,16 @@ The native module sample resets its disposable backend for repeat checks after a
 caused a 401 in the first independent rerun. The binding runner waits for committed state, after
 review found that its earlier reconcile marker preceded Alchemy's final state write.
 
+The October 24 extension uses Claude Opus 5.5 at xhigh for design and final code review. The
+supervisor implements and runs the experiment in the existing research worktree. The design review
+confirmed post-apply membership reads, independent association removal, and private-reference
+validation. It also led to moving env removal after mounted-path validation. The final review
+identified stale evidence between consecutive failed applies and incomplete cleanup checks. Each
+failure now starts from a successful apply and requires a fresh state write. Cleanup restores all
+source files, checks that all three ports refuse connections, and preserves both run and cleanup
+errors. The Worker ARCHIVE binding is checked against the shared stack's actual bucket name.
+Failed-write env ownership and concurrent Convex watcher pushes are explicit prototype limits.
+
 The checked versions are Node 24.22.1, Convex 1.46.0, Alchemy 2.0.0-beta.83, Effect 4.0.4, and
 Convex provider 0.8.0 where used. The graph probe pins backend `precompiled-2026-10-10-72ce13c`.
 Standard generated Convex files and duplicate dependency lockfiles are local artifacts, excluded
@@ -219,10 +244,12 @@ configuration through native Alchemy bindings. The local probe shows this works 
 component handlers. Keep the direct Convex config import. Keep resource IDs stable when a component
 path changes.
 
-The binding must carry runtime values and actual resource identities together. The provider should
-derive the component association from the same records it applies. That removes separate display
-configuration. A public mount identity and env-analysis contract is still needed for automatic
-installation discovery.
+The binding should carry runtime values and a component-to-namespace association together. The
+provider returns the successful association; a reader derives resource membership from native
+namespace state after apply. Shared references retain their original ownership and have explicit
+usage links. Use the resolved deployment identity, stack, and stage to scope these records. A public
+mount identity and env-analysis contract is still needed for automatic installation discovery. The
+passing private-reference adapter does not supply that public contract.
 
 Before calling the integration ready for production, implement the binding contract in the real
 Convex provider and test one isolated cloud deployment, a secret change, a failed apply, and Worker
