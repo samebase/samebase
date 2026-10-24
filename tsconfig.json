@@ -11,5 +11,5 @@
     "strictFunctionTypes": true,
     "sourceMap": true
   },
-  "exclude": ["node_modules", "**/node_modules/*", "apps/posthog-proxy"]
+  "exclude": ["node_modules", "**/node_modules/*"]
 }

@@ -308,12 +308,6 @@ importers:
         specifier: 5.20261013.1
         version: 5.20261013.1
 
-  apps/posthog-proxy:
-    devDependencies:
-      '@cloudflare/workers-types':
-        specifier: 5.20261013.1
-        version: 5.20261013.1
-
   apps/remotion-studio:
     dependencies:
       '@react-three/fiber':

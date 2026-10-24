@@ -8,6 +8,12 @@ const POSTHOG_API_HOST = "eu.i.posthog.com";
 const POSTHOG_ASSET_HOST = "eu-assets.i.posthog.com";
 const SAMEBASE_APP_ORIGIN = "https://samebase.com";
 
+/**
+The part of the `ctx` argument of a Workers `fetch` handler that this Worker uses. The app checks this
+file with the DOM lib, which has no Workers types.
+*/
+type ExecutionContext = { waitUntil: (promise: Promise<unknown>) => void };
+
 export default {
   fetch(request: Request, _env: unknown, ctx: ExecutionContext) {
     return handleRequest(request, ctx);
@@ -52,13 +58,17 @@ async function retrievePostHogAsset(
   pathWithSearch: string,
   ctx: ExecutionContext,
 ) {
-  const cachedResponse = await caches.default.match(request);
+  // The Workers runtime adds the default cache of the zone to `caches` as `default`. The DOM lib
+  // types `caches` as a CacheStorage without it.
+  // @ts-expect-error `caches.default` exists in the Workers runtime only.
+  const cache: Cache = caches.default;
+  const cachedResponse = await cache.match(request);
   if (cachedResponse) {
     return withPostHogProxyCorsHeaders(cachedResponse, request);
   }
 
   const response = await fetch(`https://${POSTHOG_ASSET_HOST}${pathWithSearch}`);
-  ctx.waitUntil(caches.default.put(request, response.clone()));
+  ctx.waitUntil(cache.put(request, response.clone()));
   return withPostHogProxyCorsHeaders(response, request);
 }
 
