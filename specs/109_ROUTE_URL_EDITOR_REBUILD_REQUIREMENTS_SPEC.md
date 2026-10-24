@@ -264,11 +264,22 @@ These stories should stay covered with real route-level interactions, not mocked
   and opens the next query slot.
 - `/logo?zoom=0.5`: query-key rows can preview `?zoom=0.5`; selecting the row keeps `?zoom=0.5` and
   places the cursor after `zoom=` so numeric value rows stay visible.
-- Suggestions are chosen by cursor segment, not by filtering against typed text. A cursor in the
-  path shows path rows. A cursor in a query key shows query-key rows and selecting one replaces the
-  whole active query token. A cursor in a color value before `-` shows color-family rows and
-  selecting one replaces the whole value with the unfinished family prefix. A cursor after `-` shows
-  shade rows for that family and selecting one replaces the whole value.
+- Suggestions use the cursor segment and a case-sensitive prefix match against text before the
+  cursor. Path rows match the full path prefix. Query-key rows match only the active key prefix,
+  after `?` or `&`. Value rows match the active value prefix. Text after the cursor does not
+  restrict suggestions, and an empty prefix shows all eligible rows for that segment. For a
+  selection range, the prefix ends at its start, before the text that typing would replace.
+- A cursor immediately before `?` still filters paths. For example, a cursor at the end of
+  `/repo/samebase/convex-cloudflare-email-inbox` includes that path and its accessible child paths.
+  Moving after `?` opens query-key suggestions. Access, route scope, and duplicate-key rules still
+  apply. No matches produce an empty list.
+- Filtering reads `draftRouteAddress` and the stored `selection`, including during pointer,
+  keyboard, and touch previews. Preview text and the preview's DOM cursor must not change the
+  filtered list.
+- Selecting a query key replaces the whole active token. Selecting a path replaces the path and
+  preserves query and hash text. A cursor in a color value before `-` filters color-family rows;
+  after `-`, it filters that family's shades. Selection still replaces the whole value and places
+  the cursor at the next editing boundary.
 - `/logo?dark&light`: conflicting theme flags may canonicalize the browser route to `/logo`, but the
   focused editor still owns the visible draft until blur/Escape.
 - `/logo?dark&reset`: `reset` may canonicalize the browser route to `/logo`, but the focused editor
