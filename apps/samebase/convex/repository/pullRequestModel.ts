@@ -300,44 +300,6 @@ const vPullRequestHostingPreviews = object({
   cloudflare: vCloudflareHostingPreviewResult,
   netlify: vNetlifyHostingPreviewResult,
 });
-/**
-The preview of the pull request in the Alchemy state store of the team: the stages `pr-<number>` of
-the stacks of the repository. Each resource has its directory of the repository, `rootDirectory`
-(`/` for the root), and `headCommit`: the head commit of the pull request when the run record of its
-stage names it, so the stage is current, else null.
-
-absent = the store holds no stack for the repository, or no stack has a stage for the pull request.
-
-unavailable = the store could not be read.
-*/
-const vPullRequestAlchemyPreview = union(
-  object({
-    state: literal("available"),
-    /**
-    Each `Convex.Deployment` resource of the stages, in stack and fqn order. `href` is the `url` of
-    the stage output, or the client URL of the deployment when the output has none.
-    */
-    convexDeployments: array(
-      object({
-        name: string(),
-        href: string(),
-        rootDirectory: string(),
-        headCommit: union(string(), v.null()),
-      }),
-    ),
-    /** Each `Cloudflare.Worker` resource of the stages, in stack and fqn order, with its URL. */
-    workers: array(
-      object({
-        name: string(),
-        url: union(string(), v.null()),
-        rootDirectory: string(),
-        headCommit: union(string(), v.null()),
-      }),
-    ),
-  }),
-  object({ state: literal("absent") }),
-  object({ state: literal("unavailable") }),
-);
 export const vPullRequestResources = union(
   object({
     state: literal("available"),
@@ -345,12 +307,12 @@ export const vPullRequestResources = union(
     cloudflareBuilds: vPullRequestCloudflareBuilds,
     /**
     `workers` and `convexProjects` hold the attached resources. They are empty when the team store
-    holds a stack of the repository, whose previews are in `alchemyPreview`.
+    holds a stack of the repository: the stages `pr-<number>` of its stacks hold the previews, which
+    the browser reads from the store.
     */
     workers: array(vPullRequestWorkerResource),
     convexProjects: array(vPullRequestConvexResource),
     hostingPreviews: vPullRequestHostingPreviews,
-    alchemyPreview: vPullRequestAlchemyPreview,
   }),
   object({
     state: literal("unavailable"),
@@ -361,7 +323,6 @@ export const vPullRequestResources = union(
 export type PullRequestWorkerResource = Infer<typeof vPullRequestWorkerResource>;
 export type PullRequestConvexResource = Infer<typeof vPullRequestConvexResource>;
 export type PullRequestHostingPreviews = Infer<typeof vPullRequestHostingPreviews>;
-export type PullRequestAlchemyPreview = Infer<typeof vPullRequestAlchemyPreview>;
 export type PullRequestResourceRead = Infer<typeof vPullRequestResources>;
 export type PullRequestResources = Omit<
   Extract<PullRequestResourceRead, { state: "available" }>,

@@ -281,7 +281,6 @@ describe("pull request resources from the Alchemy state of the team", () => {
       state: "available",
       pullRequestId: "PR_24",
       convexProjects: [{ state: "absent", convexProjectId, rootDirectory: "/" }],
-      alchemyPreview: { state: "absent" },
     });
   });
 });

@@ -265,7 +265,6 @@ const healthyObservations: RepositoryObservations = {
       cloudflare: { state: "available" as const, previews: [] },
       netlify: { state: "available" as const, previews: [] },
     },
-    alchemyPreview: { state: "absent" as const },
   })),
   setupStack: null,
 };

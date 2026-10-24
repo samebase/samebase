@@ -185,15 +185,11 @@ function DestinationResource({
           <EnvironmentActionsMenu actions={resource.actions} label={resource.label} />
         ) : null}
       </div>
-      {resource.provenance === "production" && !resource.components ? null : (
+      {resource.provenance !== "pull_request_branch" && !resource.components ? null : (
         <div className="ml-2.5 grid min-w-0 border-l border-border pl-3">
           {resource.provenance === "pull_request_branch" ? (
             <span className="text-xs leading-5 text-muted-foreground">
               May be from an earlier commit
-            </span>
-          ) : resource.provenance === "pull_request_head" ? (
-            <span className="font-mono text-xs leading-5 text-muted-foreground">
-              {resource.headCommit.slice(0, 7)}
             </span>
           ) : null}
           {resource.components?.map((component) => (
@@ -738,14 +734,10 @@ function CloudflareWorkerResource({
               <EnvironmentActionsMenu actions={worker.actions} label={worker.workerName} />
             ) : null}
           </div>
-          {worker.destination.state !== "available" ? null : worker.destination.provenance ===
-            "earlier_check" ? (
+          {worker.destination.state === "available" &&
+          worker.destination.provenance === "earlier_check" ? (
             <span className="text-xs leading-5 text-muted-foreground">
               May be from an earlier commit
-            </span>
-          ) : worker.destination.provenance === "pull_request_head" ? (
-            <span className="font-mono text-xs leading-5 text-muted-foreground">
-              {worker.destination.headCommit.slice(0, 7)}
             </span>
           ) : null}
         </div>
@@ -872,7 +864,12 @@ export function PullRequestResources({
   });
   const cloudflareBuildStatusUnavailable =
     resource.resources.cloudflareBuilds.state === "unavailable";
-  if (!cloudflareBuildStatusUnavailable && roots.length === 0 && otherPreviews.length === 0) {
+  if (
+    !cloudflareBuildStatusUnavailable &&
+    resource.stackCards.length === 0 &&
+    roots.length === 0 &&
+    otherPreviews.length === 0
+  ) {
     return null;
   }
 
@@ -883,6 +880,7 @@ export function PullRequestResources({
           Could not load Cloudflare build status
         </div>
       ) : null}
+      <RepositoryStackCards cards={resource.stackCards} />
       <RepositoryEnvironmentTree roots={roots} />
       <OtherPreviews previews={otherPreviews} />
     </>

@@ -8,7 +8,7 @@ import { ConvexError } from "convex/values";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
-import { placeStageResources } from "../../../shared/alchemyState";
+import { stageResources } from "../../../shared/alchemyState";
 import {
   ALCHEMY_CONNECTION_UNAVAILABLE,
   vAlchemyStacksRead,
@@ -217,7 +217,7 @@ export function useRepositoryAlchemyState(
           stack.stages
             .filter((stage) => stage.name === "prod")
             .flatMap((stage) =>
-              placeStageResources({
+              stageResources({
                 stackFile: stage.record.stackFile,
                 resources: stage.resources,
               }).convexDeployments.map(({ state }) => `${state.attr.projectId}/${state.attr.name}`),

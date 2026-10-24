@@ -36,19 +36,18 @@ export type RepositoryEnvironmentAction =
   | { destination: "none"; label: string };
 
 /**
-pull_request_head = a preview of the Alchemy state store whose run record names the head commit of
-the pull request, `headCommit`.
-*/
-type RepositoryEnvironmentPullRequestHead = { provenance: "pull_request_head"; headCommit: string };
-
-/**
 unlinked = a host that no URL reaches, such as the wildcard host `*.json.md` of a zone route.
+
+The `provenance` stack is a row of a stack card, whose run line names the deployed commit.
 */
 type RepositoryEnvironmentWorkerDestination =
-  | ({ state: "available"; href: string; label: string; title: string } & (
-      | { provenance: "production" | "selected_result" | "earlier_check" }
-      | RepositoryEnvironmentPullRequestHead
-    ))
+  | {
+      state: "available";
+      href: string;
+      label: string;
+      title: string;
+      provenance: "production" | "selected_result" | "earlier_check" | "stack";
+    }
   | { state: "unlinked"; label: string }
   | { state: "absent" };
 
@@ -78,7 +77,7 @@ type RepositoryProductionBuildState = Extract<
 >["buildState"];
 
 export type RepositoryEnvironmentResource =
-  | ({
+  | {
       kind: "destination";
       id: string;
       actions: readonly RepositoryEnvironmentLink[];
@@ -93,17 +92,16 @@ export type RepositoryEnvironmentResource =
       */
       components?: readonly RepositoryEnvironmentComponent[];
       title: string;
-    } & (
-      | { provenance: "production" | "pull_request_branch" }
-      | RepositoryEnvironmentPullRequestHead
-    ))
+      /** stack = a row of a stack card, whose run line names the deployed commit. */
+      provenance: "production" | "pull_request_branch" | "stack";
+    }
   | {
       kind: "convex_loading";
       id: Id<"repositoryConvexProjects">;
     }
   | {
       kind: "cloudflare_worker";
-      /** The attachment id, or `alchemy:<fqn>` for a Worker of the Alchemy state store. */
+      /** The attachment id, or `alchemy:<stack>:<fqn>` for a Worker of the Alchemy state store. */
       id: string;
       worker: RepositoryEnvironmentWorker;
     }
@@ -422,9 +420,27 @@ export function buildProductionEnvironmentRoots({
 }
 
 /**
-The default-branch block from the stacks of the repository in the Alchemy state store: one card for
-each stack with its stage `prod` (`stackCards`), with the resource rows of that stage. The store
-records no build, so no build state shows.
+prod = the stage of the default branch `branch`: a deployment row offers the Samebase routes of the
+deployment.
+
+pr-<number> = the stage of a pull request: a preview deployment row offers no route.
+*/
+type RepositoryStackCardStage =
+  | {
+      name: "prod";
+      branch: string;
+      owner: string;
+      repoName: string;
+      schemaGraphEnabled: boolean;
+      repository: RepositoryDashboardRepository;
+    }
+  | { name: `pr-${number}` };
+
+/**
+The stack cards of the default-branch block and of a pull request row, from the stacks of the
+repository in the Alchemy state store: one card for each stack with the stage (`stackCards`), with
+the resource rows of that stage. The store records no build, so no build state shows, and the run
+line of a card names the deployed commit, so a row adds no note about it.
 
 A Worker links to its custom domains and workers.dev URL, `attr.urls`, and without them to its zone
 routes. A route shows its host, such as `e.samebase.com` for `e.samebase.com/*`, with the path when
@@ -433,35 +449,32 @@ wildcard host, such as `*.json.md/*`, has no URL and shows without a link. The f
 Worker's destination and the others are in its menu. The Worker whose URL is the address of the card
 (`addressWorker`) leaves that URL out.
 
-A Convex deployment takes its dashboard link and region from the live reads of its project and
-production deployment, like an attached project. The Schema route reads schema snapshots stored for
-an attachment row, so a deployment offers it only when its project is attached.
+A production Convex deployment takes its dashboard link and region from the live reads of its
+project and production deployment, like an attached project. A deployment without a live read,
+such as a preview deployment, links to its dashboard by name. The Schema route reads schema
+snapshots stored for an attachment row, so a deployment offers it only when its project is attached.
 
 A Worker or an R2 bucket in a namespace that a deployment binds to an installed component
 (`groupResourcesByComponent`) shows under that component, below that deployment. A component that
 owns neither shows no row.
 */
 export function buildAlchemyStackCards({
-  branch,
-  owner,
-  repoName,
-  schemaGraphEnabled,
-  repository,
   stacks,
+  stage,
 }: {
-  branch: string;
-  owner: string;
-  repoName: string;
-  schemaGraphEnabled: boolean;
-  repository: RepositoryDashboardRepository;
   stacks: RepositoryAlchemyStacks;
+  stage: RepositoryStackCardStage;
 }) {
-  return stackCards(stacks).map((card) => {
+  return stackCards({
+    stacks: stacks.stacks,
+    liveDeployments: stacks.liveDeployments,
+    stage: stage.name,
+  }).map((card) => {
     const { convexDeployments, workers, r2Buckets } = card.resources;
     const workerInput = (
       worker: (typeof workers)[number],
     ): RepositoryEnvironmentSortedResource<RepositoryEnvironmentComponentResource> => {
-      const { fqn, state, rootDirectory } = worker;
+      const { fqn, state } = worker;
       const { routes, urls, workerName } = state.attr;
       // The card title shows the address, so the row of its Worker keeps only the other URLs.
       const rowUrls =
@@ -501,11 +514,8 @@ export function buildAlchemyStackCards({
                     state: "available",
                     href: primary.href,
                     label: primary.label,
-                    provenance: "production",
-                    title:
-                      rootDirectory === "/"
-                        ? "Open production app"
-                        : `Open production app for ${rootDirectory}`,
+                    provenance: "stack",
+                    title: `Open ${workerName}`,
                   },
             actions: destinations.slice(1),
           },
@@ -542,12 +552,15 @@ export function buildAlchemyStackCards({
         const live = stacks.liveDeployments.find(
           (candidate) => candidate.deploymentName === attr.name,
         );
-        // The deployment links to its site only when the live project read failed.
-        const href = live?.dashboardUrl ?? attr.siteUrl;
+        const href =
+          live?.dashboardUrl ?? `https://dashboard.convex.dev/d/${encodeURIComponent(attr.name)}`;
         const region = live?.region;
-        const attachedProject = repository.convexProjects.find(
-          (candidate) => candidate.projectId === String(attr.projectId),
-        );
+        const attachedProject =
+          stage.name === "prod"
+            ? stage.repository.convexProjects.find(
+                (candidate) => candidate.projectId === String(attr.projectId),
+              )
+            : undefined;
         const deploymentComponents = components.flatMap((component) => {
           if (component.deployment !== deployment) {
             return [];
@@ -567,21 +580,24 @@ export function buildAlchemyStackCards({
           resource: {
             kind: "destination",
             id: `alchemy:${card.stack}:${fqn}`,
-            actions: buildConvexProductionActions({
-              branch,
-              convexProjectId: attachedProject?.convexProjectId ?? String(attr.projectId),
-              deploymentName: attr.name,
-              owner,
-              repoName,
-              schemaGraphEnabled: schemaGraphEnabled && attachedProject !== undefined,
-            }),
+            actions:
+              stage.name === "prod"
+                ? buildConvexProductionActions({
+                    branch: stage.branch,
+                    convexProjectId: attachedProject?.convexProjectId ?? String(attr.projectId),
+                    deploymentName: attr.name,
+                    owner: stage.owner,
+                    repoName: stage.repoName,
+                    schemaGraphEnabled: stage.schemaGraphEnabled && attachedProject !== undefined,
+                  })
+                : [],
             href,
             label: attr.name,
             provider: "convex",
-            provenance: "production",
+            provenance: "stack",
             ...(region ? { region } : {}),
             ...(deploymentComponents.length > 0 ? { components: deploymentComponents } : {}),
-            title: `Open production Convex deployment ${attr.name}`,
+            title: `Open Convex deployment ${attr.name}`,
           },
         };
       }),
@@ -667,66 +683,8 @@ export function buildPullRequestEnvironmentRoots({
       },
     ];
   });
-  // A stage whose run record names the head of the pull request is current; any other stage may
-  // be from an earlier commit.
-  const alchemyPreview = resources.alchemyPreview;
-  const alchemyWorkers =
-    alchemyPreview.state === "available"
-      ? alchemyPreview.workers.map((worker) => ({
-          rootDirectory: worker.rootDirectory,
-          sortKey: `0:${worker.name}:alchemy`,
-          resource: {
-            kind: "cloudflare_worker" as const,
-            id: `alchemy:${worker.name}`,
-            worker: {
-              workerName: worker.name,
-              build: { state: "unrecorded" as const },
-              destination:
-                worker.url === null
-                  ? { state: "absent" as const }
-                  : {
-                      state: "available" as const,
-                      href: worker.url,
-                      label: "Branch preview",
-                      title: buildProductionUrlLabel(worker.url),
-                      ...(worker.headCommit === null
-                        ? { provenance: "earlier_check" as const }
-                        : {
-                            provenance: "pull_request_head" as const,
-                            headCommit: worker.headCommit,
-                          }),
-                    },
-              actions: [],
-            },
-          },
-        }))
-      : [];
-  const alchemyDeployments =
-    alchemyPreview.state === "available"
-      ? alchemyPreview.convexDeployments.map((deployment) => ({
-          rootDirectory: deployment.rootDirectory,
-          sortKey: `1:${deployment.name}:alchemy`,
-          resource: {
-            kind: "destination" as const,
-            id: `alchemy:${deployment.name}`,
-            actions: [],
-            href: deployment.href,
-            label: deployment.name,
-            provider: "convex" as const,
-            title: `Open the preview of Convex deployment ${deployment.name}`,
-            ...(deployment.headCommit === null
-              ? { provenance: "pull_request_branch" as const }
-              : { provenance: "pull_request_head" as const, headCommit: deployment.headCommit }),
-          },
-        }))
-      : [];
 
-  return groupRepositoryEnvironmentResources([
-    ...workers,
-    ...convexDeployments,
-    ...alchemyWorkers,
-    ...alchemyDeployments,
-  ]);
+  return groupRepositoryEnvironmentResources([...workers, ...convexDeployments]);
 }
 
 export function buildPullRequestOtherPreviews({

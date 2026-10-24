@@ -143,12 +143,15 @@ export function useRepositoryWorkspaceModel(
         ? {
             source: "stacks",
             cards: buildAlchemyStackCards({
-              branch: defaultBranch,
-              owner: accessibleSelectedRepository.githubOwnerLogin,
-              repoName: accessibleSelectedRepository.githubRepositoryName,
-              schemaGraphEnabled,
-              repository: accessibleSelectedRepository,
               stacks: alchemyStacks,
+              stage: {
+                name: "prod",
+                branch: defaultBranch,
+                owner: accessibleSelectedRepository.githubOwnerLogin,
+                repoName: accessibleSelectedRepository.githubRepositoryName,
+                schemaGraphEnabled,
+                repository: accessibleSelectedRepository,
+              },
             }),
           }
         : {

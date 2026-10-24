@@ -19,7 +19,7 @@ import { useInfiniteQuery, useQueries } from "@tanstack/react-query";
 import { useAction } from "convex/react";
 import { useCallback, useMemo } from "react";
 import type { ConvexCodeLocation } from "../../../shared/convexCodeLocation";
-import { buildPullRequestAlchemyPreview } from "../../../shared/pullRequestAlchemyPreview";
+import { buildAlchemyStackCards, type RepositoryStackCard } from "./repositoryEnvironmentRoots";
 import type { RepositoryAlchemyState } from "./useRepositoryAlchemyState";
 
 const PULL_REQUEST_STALE_MS = 60_000;
@@ -59,11 +59,19 @@ export type RepositoryDefaultBranchObservation = {
   checks: RepositoryCheckSummary;
 };
 
+/**
+`stackCards` are the cards of the stacks in the team store with the stage of the pull request,
+`pr-<number>`, which the browser builds from its store subscription.
+*/
 export type PullRequestResourceState =
   | { state: "loading" }
   | { state: "failed" }
-  | { state: "current"; resources: PullRequestResources }
-  | { state: "stale"; resources: PullRequestResources };
+  | {
+      state: "current";
+      resources: PullRequestResources;
+      stackCards: readonly RepositoryStackCard[];
+    }
+  | { state: "stale"; resources: PullRequestResources; stackCards: readonly RepositoryStackCard[] };
 
 export type RepositoryPullRequestLoadMoreState =
   | { state: "available"; load: () => void }
@@ -180,12 +188,13 @@ export function useRepositoryPullRequests(args: {
     () =>
       args.source !== "attachments" &&
       args.alchemyState.state === "loaded" &&
-      args.alchemyState.observation.store === "found"
-        ? args.alchemyState.observation.stacks
-        : [],
+      args.alchemyState.observation.store === "found" &&
+      args.alchemyState.observation.stacks.length > 0
+        ? args.alchemyState.observation
+        : null,
     [args.source, args.alchemyState],
   );
-  const resourceSource = alchemyStacks.length > 0 ? "alchemy" : "attachments";
+  const resourceSource = alchemyStacks ? "alchemy" : "attachments";
 
   const workerAttachments = [...(args.repository?.cloudflareWorkers ?? [])]
     .map((worker) => ({
@@ -301,13 +310,6 @@ export function useRepositoryPullRequests(args: {
         }
         const pullRequest = pullRequestsById.get(pullRequestId);
         if (!pullRequest) continue;
-        const alchemyPreview = buildPullRequestAlchemyPreview({
-          stack:
-            args.alchemyState.state === "failed"
-              ? { state: "failed" }
-              : { state: "found", stacks: alchemyStacks },
-          head: { number: pullRequest.number, headRefOid: pullRequest.headRefOid },
-        });
         resources.set(pullRequestId, {
           state: resourceQuery.isRefetchError ? "stale" : "current",
           resources: {
@@ -316,19 +318,18 @@ export function useRepositoryPullRequests(args: {
             workers: pullRequestResources.workers,
             convexProjects: pullRequestResources.convexProjects,
             hostingPreviews: pullRequestResources.hostingPreviews,
-            alchemyPreview,
           },
+          stackCards: alchemyStacks
+            ? buildAlchemyStackCards({
+                stacks: alchemyStacks,
+                stage: { name: `pr-${pullRequest.number}` },
+              })
+            : [],
         });
       }
     });
     return resources;
-  }, [
-    pullRequestResourceIdentityPages,
-    resourceQueries,
-    allPullRequests,
-    alchemyStacks,
-    args.alchemyState,
-  ]);
+  }, [pullRequestResourceIdentityPages, resourceQueries, allPullRequests, alchemyStacks]);
 
   const { fetchNextPage, refetch } = pullRequestQuery;
   const loadMore = useCallback(() => {

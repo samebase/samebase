@@ -5,7 +5,7 @@ import {
   observedSamebaseRepositoryReply,
   observedSamebaseStackReply,
 } from "../convex/repository/fixtures/observedSamebaseAlchemyState";
-import { groupResourcesByComponent, placeStageResources, stackCards } from "./alchemyState";
+import { groupResourcesByComponent, stackCards } from "./alchemyState";
 import { vAlchemyStacksRead, type AlchemyStack } from "./alchemyStateModel";
 
 const [, , prod] = observedAlchemyStackReply.value.stages;
@@ -13,66 +13,6 @@ const [deploymentRow, projectRow] = prod.resources;
 
 const [, , samebaseProd] = observedSamebaseStackReply.value.stages;
 const [, proxyRow, , siteRow] = samebaseProd.resources;
-
-/**
-The directories of the Workers of a stage of `stackFile`: the captured Site row with each `rootDir`,
-and the captured PosthogProxy row with each `main`, or without `main` for null.
-*/
-function placeWorkers(
-  stackFile: string,
-  rootDirs: readonly string[],
-  mains: readonly (string | null)[],
-) {
-  const { workers } = placeStageResources({
-    stackFile,
-    resources: [
-      ...rootDirs.map((rootDir, index) => ({
-        fqn: `Site${index}`,
-        value: siteRow.value.replace('"type":"prod"', `"type":"prod","rootDir":"${rootDir}"`),
-      })),
-      ...mains.map((main, index) => ({
-        fqn: `PosthogProxy${index}`,
-        value: proxyRow.value.replace(
-          '"main":"../posthog-proxy/src/index.ts",',
-          main === null ? "" : `"main":"${main}",`,
-        ),
-      })),
-    ],
-  });
-  return workers.map(({ rootDirectory }) => rootDirectory);
-}
-
-describe("placeStageResources", () => {
-  it("places a Worker in the app directory that holds its main, by whole path segments", () => {
-    expect(
-      placeWorkers(
-        "alchemy.run.ts",
-        ["apps/samebase"],
-        [
-          "apps/samebase/workers/posthog-proxy/index.ts",
-          "apps/other/src/index.ts",
-          "apps/samebase-tools/x.ts",
-        ],
-      ),
-    ).toEqual(["apps/samebase", "/", "/"]);
-  });
-
-  it("resolves main against the stack directory and takes the deepest app directory", () => {
-    expect(
-      placeWorkers(
-        "infra/alchemy.run.ts",
-        ["../apps", "../apps/samebase"],
-        [
-          "../apps/samebase/workers/posthog-proxy/index.ts",
-          "../apps/other/src/index.ts",
-          "./worker.ts",
-          "../../outside.ts",
-          null,
-        ],
-      ),
-    ).toEqual(["apps/samebase", "apps", "infra", "infra", "infra"]);
-  });
-});
 
 /**
 The captured Project row as `fqn`, with `namespace` as alchemy 2.0.0-beta.83 writes it: the last key,
@@ -178,6 +118,7 @@ function addressOf(
   resources: readonly { fqn: string; value: string }[],
 ) {
   return stackCards({
+    stage: "prod",
     liveDeployments,
     stacks: [prodStack("samebase/samebase", "alchemy.run.ts", resources)],
   }).map((card) => card.address);
@@ -199,6 +140,7 @@ const siteAndCloudDomains: LiveDeployment["customDomains"] = [
 describe("stackCards", () => {
   it("makes one card for each stack with a stage prod, in stack file order", () => {
     const cards = stackCards({
+      stage: "prod",
       liveDeployments: [],
       stacks: [
         prodStack("samebase/samebase", "infra/alchemy.run.ts", [site]),
@@ -221,9 +163,45 @@ describe("stackCards", () => {
     ]);
   });
 
+  it("makes the cards of a pull request from the stacks with its stage, at the preview site", () => {
+    // The captured `pr-1768` and `prod` stages of samebase/samebase, and a stack with only `prod`.
+    const cards = stackCards({
+      stage: "pr-1768",
+      liveDeployments: [],
+      stacks: [
+        { name: "samebase/samebase", stages: [readerStage("pr-1768"), readerStage("prod")] },
+        prodStack(
+          "samebase/samebase/apps/sidebars-example",
+          "apps/sidebars-example/alchemy.run.ts",
+          [proxyWithUrl],
+        ),
+      ],
+    });
+
+    expect(
+      cards.map(({ resources, ...card }) => ({
+        ...card,
+        deployments: resources.convexDeployments.map(({ state }) => state.attr.name),
+      })),
+    ).toEqual([
+      {
+        stack: "samebase/samebase",
+        stackFile: "alchemy.run.ts",
+        folder: null,
+        deployedHeadCommit: "429c1218a16d2ee74b9da68d684dc460a0a67ce8",
+        recordedAt: "2026-10-22T09:34:35.577Z",
+        runUrl: "https://github.com/samebase/samebase/actions/runs/39756039340/attempts/1",
+        address: "https://aware-bobcat-542.convex.site",
+        addressWorker: null,
+        deployments: ["aware-bobcat-542"],
+      },
+    ]);
+  });
+
   it("names no folder only for the one card of a stack file at the root", () => {
     const foldersOf = (stackFiles: readonly string[]) =>
       stackCards({
+        stage: "prod",
         liveDeployments: [],
         stacks: stackFiles.map((stackFile) => prodStack(stackFile, stackFile, [proxy])),
       }).map((card) => card.folder);
@@ -239,6 +217,7 @@ describe("stackCards", () => {
   it("takes the commit, time, and link of the run line from the stage", () => {
     expect(
       stackCards({
+        stage: "prod",
         liveDeployments: [],
         stacks: [prodStack("samebase/samebase", "apps/samebase/alchemy.run.ts", [site])],
       }).map(({ deployedHeadCommit, recordedAt, runUrl }) => ({
@@ -278,6 +257,7 @@ describe("stackCards", () => {
   it("names the Worker whose URL is the address, so that its row does not repeat it", () => {
     const addressWorkerOf = (resources: readonly { fqn: string; value: string }[]) =>
       stackCards({
+        stage: "prod",
         liveDeployments: [],
         stacks: [prodStack("samebase/samebase", "alchemy.run.ts", resources)],
       }).map((card) => card.addressWorker);

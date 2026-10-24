@@ -1,6 +1,6 @@
 import { isRecord } from "@samebase/dependent/main";
 import { validate } from "convex-helpers/validators";
-import { v, type Infer } from "convex/values";
+import { v } from "convex/values";
 import type { AlchemyStateObservation } from "./alchemyStateModel";
 import { REPOSITORY_ROOT_DIRECTORY } from "./repositoryRootDirectory";
 
@@ -63,21 +63,17 @@ export const vAlchemyConvexProjectState = object({
 });
 
 /**
-The state of a `Cloudflare.Worker` resource. `props.main` is the entry module as the stack wrote it,
-relative to the directory where the stack runs, and a Worker of assets only or of an inline `script`
-has none. `attr.url` is the most significant URL of the Worker: its custom domain, else an alias,
-else its workers.dev URL. A Worker that no URL reaches has none. `attr.urls` lists every URL that
-serves the Worker, `attr.url` first, and no zone route. `attr.routes` lists the zone routes, such as
-`e.samebase.com/*`: the `url` of a route is the origin of its host, and a route with a wildcard
-host, such as `*.json.md/*`, has none.
+The state of a `Cloudflare.Worker` resource. `attr.url` is the most significant URL of the Worker:
+its custom domain, else an alias, else its workers.dev URL. A Worker that no URL reaches has none.
+`attr.urls` lists every URL that serves the Worker, `attr.url` first, and no zone route.
+`attr.routes` lists the zone routes, such as `e.samebase.com/*`: the `url` of a route is the origin
+of its host, and a route with a wildcard host, such as `*.json.md/*`, has none.
 
-@see https://github.com/alchemy-run/alchemy/blob/v2.0.0-beta.83/packages/alchemy/src/Cloudflare/Workers/Worker.ts#L706-L717
 @see https://github.com/alchemy-run/alchemy/blob/v2.0.0-beta.83/packages/alchemy/src/Cloudflare/Workers/Worker.ts#L1149-L1198
 @see https://github.com/alchemy-run/alchemy/blob/v2.0.0-beta.83/packages/alchemy/src/Cloudflare/Workers/RoutePattern.ts#L88-L95
 */
 export const vAlchemyCloudflareWorkerState = object({
   resourceType: literal("Cloudflare.Worker"),
-  props: object({ main: optional(string()) }),
   attr: object({
     workerName: string(),
     url: optional(string()),
@@ -121,95 +117,46 @@ export function stackPath(stackFile: string, ...paths: readonly string[]): strin
   return parts.length === 0 ? "." : parts.join("/");
 }
 
-/** A repository path as the overview names a root directory: `/` for the root. */
-function rootDirectoryOf(path: string): string {
-  return path === "." ? REPOSITORY_ROOT_DIRECTORY : path;
-}
-
 /**
-The deployed resources of one stage of a stack, each Convex deployment and Worker with the directory
-of the repository that it belongs to (`/` for the root). `stackFile` is the stack file of the
-stage's run record.
-
-A Convex deployment sits in its app directory, `props.rootDir` below the directory of the stack
-file, and its code location adds `source` (null without `source`). Alchemy's `Cloudflare.Worker` has
-no `rootDir`: its `main` is relative to the directory where the stack runs, the directory of the
-stack file. A Worker sits in the deepest app directory of a deployment of the stage that holds its
-`main`, by whole path segments: `apps/web` holds `apps/web/worker.ts` and not
-`apps/web-tools/worker.ts`. A Worker whose `main` no app directory holds, and a Worker without
-`main`, sits in the directory of the stack file. A row that no validator accepts, such as one
-without `attr` from an interrupted deploy, and a path outside the repository are left out.
+The deployed resources of one stage of a stack, by type. `stackFile` is the stack file of the
+stage's run record. The code location of a Convex deployment is its `source` below `props.rootDir`
+below the directory of the stack file, and null without `source`. A row that no validator accepts,
+such as one without `attr` from an interrupted deploy, and a deployment whose `rootDir` leaves the
+repository are left out.
 */
-export function placeStageResources(stage: {
+export function stageResources(stage: {
   stackFile: string;
   resources: readonly { fqn: string; value: string }[];
-}): {
-  convexDeployments: {
-    fqn: string;
-    state: Infer<typeof vAlchemyConvexDeploymentState>;
-    rootDirectory: string;
-    codeLocation: string | null;
-  }[];
-  workers: {
-    fqn: string;
-    state: Infer<typeof vAlchemyCloudflareWorkerState>;
-    rootDirectory: string;
-  }[];
-  r2Buckets: { fqn: string; state: Infer<typeof vAlchemyCloudflareR2BucketState> }[];
-} {
+}) {
   const { stackFile } = stage;
-  const stackDirectory = stackPath(stackFile);
   const states = stage.resources.map((resource) => {
     const state: unknown = JSON.parse(resource.value);
     return { fqn: resource.fqn, state };
   });
 
-  const convexDeployments = states.flatMap(({ fqn, state }) => {
-    if (!validate(vAlchemyConvexDeploymentState, state, { allowUnknownFields: true })) {
-      return [];
-    }
-    const { rootDir, source } = state.props;
-    const appDirectory = stackPath(stackFile, rootDir);
-    const sourcePath = typeof source === "string" ? source : source?.path;
-    return appDirectory === null
-      ? []
-      : [
-          {
-            fqn,
-            state,
-            rootDirectory: rootDirectoryOf(appDirectory),
-            codeLocation:
-              sourcePath === undefined ? null : stackPath(stackFile, rootDir, sourcePath),
-          },
-        ];
-  });
-
   return {
-    convexDeployments,
-    workers: states.flatMap(({ fqn, state }) => {
-      if (
-        stackDirectory === null ||
-        !validate(vAlchemyCloudflareWorkerState, state, { allowUnknownFields: true })
-      ) {
+    convexDeployments: states.flatMap(({ fqn, state }) => {
+      if (!validate(vAlchemyConvexDeploymentState, state, { allowUnknownFields: true })) {
         return [];
       }
-      const { main } = state.props;
-      const mainPath = main ? stackPath(stackFile, main) : null;
-      // Each app directory as a prefix of the paths that it holds, `apps/web/` for `apps/web` and
-      // the empty prefix for the root, so the longest prefix of `mainPath` is the deepest directory.
-      const app =
-        mainPath === null
-          ? undefined
-          : convexDeployments
-              .map(({ rootDirectory }) => ({
-                rootDirectory,
-                prefix: rootDirectory === REPOSITORY_ROOT_DIRECTORY ? "" : `${rootDirectory}/`,
-              }))
-              .filter(({ prefix }) => mainPath.startsWith(prefix))
-              .sort((left, right) => right.prefix.length - left.prefix.length)
-              .at(0);
-      return [{ fqn, state, rootDirectory: app?.rootDirectory ?? rootDirectoryOf(stackDirectory) }];
+      const { rootDir, source } = state.props;
+      const sourcePath = typeof source === "string" ? source : source?.path;
+      return stackPath(stackFile, rootDir) === null
+        ? []
+        : [
+            {
+              fqn,
+              state,
+              codeLocation:
+                sourcePath === undefined ? null : stackPath(stackFile, rootDir, sourcePath),
+            },
+          ];
     }),
+    workers: states.flatMap(({ fqn, state }) =>
+      validate(vAlchemyCloudflareWorkerState, state, { allowUnknownFields: true })
+        ? [{ fqn, state }]
+        : [],
+    ),
     r2Buckets: states.flatMap(({ fqn, state }) =>
       validate(vAlchemyCloudflareR2BucketState, state, { allowUnknownFields: true })
         ? [{ fqn, state }]
@@ -219,14 +166,16 @@ export function placeStageResources(stage: {
 }
 
 /**
-The stacks of a repository as the overview shows them: one card for each stack with a stage `prod`,
-in stack file order. `folder` is the directory of the stack file, `/` for the root, and null for
-the only card of a repository when its stack file is at the root. A stack file outside the
-repository has no card. `deployedHeadCommit` is the last completed deploy, and `recordedAt` and
-`runUrl` come from the run record of the stage.
+The stacks of a repository as the overview shows them at the stage `stage`, such as `prod` for the
+default branch or `pr-12` for pull request 12: one card for each stack with that stage, in stack
+file order. `folder` is the directory of the stack file, `/` for the root, and null for the only
+card when its stack file is at the root. A stack file outside the repository has no card.
+`deployedHeadCommit` is the last completed deploy, and `recordedAt` and `runUrl` come from the run
+record of the stage.
 
 `address` is where the stack serves: the first Convex deployment by fqn at its first `convexSite`
-custom domain, else at its `siteUrl`, which a failed read of the custom domains also gives. A stack
+custom domain, else at its `siteUrl`, which a failed read of the custom domains also gives. Only the
+production deployments have a live read, so a preview deployment serves at its `siteUrl`. A stack
 without a Convex deployment serves at the URL of its first Worker that has one, `addressWorker` (its
 fqn), and a stack with neither has no address. The row of `addressWorker` in the card does not
 repeat the address.
@@ -234,17 +183,20 @@ repeat the address.
 export function stackCards({
   stacks,
   liveDeployments,
-}: Pick<Extract<AlchemyStateObservation, { store: "found" }>, "stacks" | "liveDeployments">) {
+  stage: stageName,
+}: Pick<Extract<AlchemyStateObservation, { store: "found" }>, "stacks" | "liveDeployments"> & {
+  stage: string;
+}) {
   const cards = stacks
     .flatMap((stack) => {
-      const stage = stack.stages.find((candidate) => candidate.name === "prod");
+      const stage = stack.stages.find((candidate) => candidate.name === stageName);
       const directory = stage ? stackPath(stage.record.stackFile) : null;
       if (!stage || directory === null) {
         return [];
       }
 
       const { record } = stage;
-      const resources = placeStageResources({
+      const resources = stageResources({
         stackFile: record.stackFile,
         resources: stage.resources,
       });
@@ -262,7 +214,7 @@ export function stackCards({
         {
           stack: stack.name,
           stackFile: record.stackFile,
-          folder: rootDirectoryOf(directory),
+          folder: directory === "." ? REPOSITORY_ROOT_DIRECTORY : directory,
           deployedHeadCommit: stage.deployedHeadCommit,
           recordedAt: record.recordedAt,
           runUrl: record.runUrl,

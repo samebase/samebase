@@ -5,7 +5,7 @@ import { Fragment, type ReactNode } from "react";
 import {
   ALCHEMY_REDACTED_MARKER,
   groupResourcesByComponent,
-  placeStageResources,
+  stageResources,
 } from "../../shared/alchemyState";
 import type { AlchemyStage, AlchemyStateObservation } from "../../shared/alchemyStateModel";
 import { formatRelativeTimeAgo } from "@/lib/formatRelativeTime";
@@ -152,7 +152,7 @@ function AlchemyStageDetails({ stage }: { stage: AlchemyStage }) {
     const state: unknown = JSON.parse(resource.value);
     return { fqn: resource.fqn, state };
   });
-  const { convexDeployments, workers } = placeStageResources({
+  const { convexDeployments, workers } = stageResources({
     stackFile: stage.record.stackFile,
     resources: stage.resources,
   });

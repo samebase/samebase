@@ -193,6 +193,27 @@ test("shows one card per Alchemy stack on desktop and mobile", async ({ page }) 
   }
 });
 
+test("shows the stack card of a pull request preview on mobile", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const fixture = await openRepositoryOverviewV2(page, "repository-overview-v2-r2");
+  const pullRequestRow = fixture.locator('[data-pull-request-number="1260"]');
+
+  await pullRequestRow.getByRole("button", { name: "Show pull request #1260 details" }).click();
+  await expect(
+    pullRequestRow.getByRole("group", { name: "Alchemy stack samebase/samebase" }),
+  ).toBeVisible();
+  await expect(pullRequestRow.getByRole("group", { name: /^Alchemy stack / })).toHaveCount(1);
+  await expect(pullRequestRow).toHaveScreenshot(
+    "repository-overview-v2-r2-pull-request-mobile.png",
+    {
+      animations: "disabled",
+      caret: "hide",
+      maxDiffPixelRatio: 0.02,
+      scale: "css",
+    },
+  );
+});
+
 test("shows comment-discovered hosting previews on desktop", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
   const fixture = await openRepositoryOverviewV2(page, "repository-overview-v2");

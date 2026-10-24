@@ -224,7 +224,6 @@ function installResourceHandler(args: { unavailablePullRequestId?: string } = {}
           cloudflare: { state: "available", previews: [] },
           netlify: { state: "available", previews: [] },
         },
-        alchemyPreview: { state: "absent" },
       };
     });
   });
@@ -273,7 +272,7 @@ async function renderHarness(): Promise<void> {
 }
 
 describe("useRepositoryPullRequests", () => {
-  it("updates Alchemy previews without repeating provider enrichment", async () => {
+  it("updates the stack cards of a pull request without repeating provider enrichment", async () => {
     const headRefOid = "a".repeat(40);
     actionState.handlersByFunctionName.set(
       getFunctionName(api.repositoryPullRequests.listOpenPullRequests),
@@ -325,26 +324,28 @@ describe("useRepositoryPullRequests", () => {
       expect([...settledState().resourcesByPullRequestId.values()]).toMatchObject([
         {
           state: "current",
-          resources: {
-            alchemyPreview: { convexDeployments: [{ href: "https://first-preview.example.com" }] },
-          },
+          stackCards: [
+            {
+              stack: "samebase/base-alchemy",
+              deployedHeadCommit: headRefOid,
+              address: { href: "https://aware-bobcat-542.convex.site" },
+            },
+          ],
         },
       ]);
     });
     expect(resourceHandler).toHaveBeenCalledWith(expect.objectContaining({ source: "alchemy" }));
     const calls = resourceHandler.mock.calls.length;
-    observation.stacks[0].stages[0].output = JSON.stringify({
-      url: "https://next-preview.example.com",
-    });
+    observation.stacks[0].stages[0].deployedHeadCommit = "b".repeat(40);
     currentAlchemyState = { ...currentAlchemyState, observation: { ...observation } };
     await renderHarness();
     expect([...settledState().resourcesByPullRequestId.values()]).toMatchObject([
       {
         state: "current",
         resources: {
-          alchemyPreview: { convexDeployments: [{ href: "https://next-preview.example.com" }] },
           hostingPreviews: { cloudflare: { state: "available" }, netlify: { state: "available" } },
         },
+        stackCards: [{ deployedHeadCommit: "b".repeat(40) }],
       },
     ]);
     expect(resourceHandler).toHaveBeenCalledTimes(calls);

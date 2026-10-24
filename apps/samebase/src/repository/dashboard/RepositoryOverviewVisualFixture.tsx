@@ -27,6 +27,7 @@ import {
 import { SidebarLayoutFixtureFrame } from "@/components/SidebarLayoutFixtureFrame";
 import type { UserRepositoryResult } from "../../../convex/repository/contracts/getUserRepositories";
 import type {
+  PullRequestResourceState,
   RepositoryDefaultBranchObservation,
   RepositoryPullRequest,
   RepositoryPullRequestsState,
@@ -194,13 +195,16 @@ function fixtureWorkerRow(workerName: string): string {
 }
 
 /**
-The stacks of samebase/samebase from the captured rows of its stage `prod`: the root stack, whose
-Site deployment serves at its custom domain samebase.com and binds the `mail` component to the
-namespace `Mail` of an inbox Worker and a Scout bucket, and the stack of apps/sidebars-example with
-only a Worker.
+The stacks of samebase/samebase from the captured rows of its stages `prod` and `pr-1768`: the root
+stack, whose Site deployment serves at its custom domain samebase.com and binds the `mail` component
+to the namespace `Mail` of an inbox Worker and a Scout bucket, and the stack of apps/sidebars-example
+with only a Worker. The root stack has the captured preview of pull request 1768 as the stage
+`pr-1260` of the first fixture pull request.
 */
 const FIXTURE_STACKS = ((): RepositoryAlchemyStacks => {
-  const [, , projectRow, siteRow] = observedSamebaseStackReply.value.stages[2].resources;
+  const [, preview, prod] = observedSamebaseStackReply.value.stages;
+  const [, , projectRow, siteRow] = prod.resources;
+  const [, , previewSiteRow] = preview.resources;
   const [, workspacesProdRow] = observedScoutR2Resources;
   const inMail = (value: string) => value.replace(/}$/, ',"namespace":{"Id":"Mail"}}');
   // The captured run record of the stage with the stack file at the repository root.
@@ -232,6 +236,21 @@ const FIXTURE_STACKS = ((): RepositoryAlchemyStacks => {
       {
         name: "samebase/samebase",
         stages: [
+          {
+            name: "pr-1260",
+            // The captured run record of `pr-1768`.
+            record: {
+              ...record,
+              branch: "alchemy-root-stack",
+              pullRequest: 1260,
+              headCommit: "429c1218a16d2ee74b9da68d684dc460a0a67ce8",
+              runUrl: "https://github.com/samebase/samebase/actions/runs/39756039340/attempts/1",
+              recordedAt: "2026-10-22T09:34:35.577Z",
+            },
+            deployedHeadCommit: "429c1218a16d2ee74b9da68d684dc460a0a67ce8",
+            resources: [previewSiteRow],
+            output: '{"url":"https://aware-bobcat-542.convex.site"}',
+          },
           {
             name: "prod",
             record,
@@ -1002,8 +1021,8 @@ function fixturePullRequests(
                       cloudflare: { state: "available" as const, previews: [] },
                       netlify: { state: "available" as const, previews: [] },
                     },
-            alchemyPreview: { state: "absent" as const },
           },
+          stackCards: [],
         },
       ]),
     ),
@@ -1633,13 +1652,43 @@ export function RepositoryOverviewVisualFixture({ mode }: { mode: RepositoryOver
           production: {
             source: "stacks",
             cards: buildAlchemyStackCards({
-              branch: "main",
-              owner: LIST_SPACING_REPOSITORY.githubOwnerLogin,
-              repoName: LIST_SPACING_REPOSITORY.githubRepositoryName,
-              schemaGraphEnabled: ROLE_ACCESS_GRANTS.role_member.includes("access_schema_graph"),
-              repository: LIST_SPACING_REPOSITORY,
               stacks: FIXTURE_STACKS,
+              stage: {
+                name: "prod",
+                branch: "main",
+                owner: LIST_SPACING_REPOSITORY.githubOwnerLogin,
+                repoName: LIST_SPACING_REPOSITORY.githubRepositoryName,
+                schemaGraphEnabled: ROLE_ACCESS_GRANTS.role_member.includes("access_schema_graph"),
+                repository: LIST_SPACING_REPOSITORY,
+              },
             }),
+          },
+          // A repository with stacks in the team store reads no attached resource for a pull
+          // request, and the stages `pr-<number>` of its stacks give the cards of the row.
+          pullRequests: {
+            ...currentPullRequests,
+            resourcesByPullRequestId: new Map(
+              currentPullRequests.allPullRequests.flatMap(
+                (pullRequest): [string, PullRequestResourceState][] => {
+                  const resource = currentPullRequests.resourcesByPullRequestId.get(pullRequest.id);
+                  return resource?.state === "current"
+                    ? [
+                        [
+                          pullRequest.id,
+                          {
+                            state: "current",
+                            resources: { ...resource.resources, workers: [], convexProjects: [] },
+                            stackCards: buildAlchemyStackCards({
+                              stacks: FIXTURE_STACKS,
+                              stage: { name: `pr-${pullRequest.number}` },
+                            }),
+                          },
+                        ],
+                      ]
+                    : [];
+                },
+              ),
+            ),
           },
         }
       : attachmentsWorkspace;
