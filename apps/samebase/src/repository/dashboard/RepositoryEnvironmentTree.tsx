@@ -283,7 +283,7 @@ export function RepositoryEnvironmentTree({
   const hideRootDirectory = roots.length === 1 && roots[0]?.rootDirectory === "/";
 
   return (
-    <div className={hideRootDirectory ? undefined : "ml-2.5 pl-5"}>
+    <>
       {roots.map((root) => (
         <div key={root.rootDirectory}>
           {hideRootDirectory ? null : (
@@ -303,7 +303,7 @@ export function RepositoryEnvironmentTree({
           </div>
         </div>
       ))}
-    </div>
+    </>
   );
 }
 
@@ -737,7 +737,7 @@ function OtherPreviews({ previews }: { previews: readonly RepositoryOtherPreview
     return null;
   }
   return (
-    <div aria-label="Other previews" className="ml-2.5 pl-5" role="group">
+    <div aria-label="Other previews" role="group">
       <div className="pt-3">
         <RootDirectoryLabel rootDirectory="Other previews" />
       </div>
