@@ -44,10 +44,9 @@ test("adding only a trailing newline still renders a visible diff", async ({ pag
   await page.goto("/visual-fixture?mode=trailing-newline-only");
   await page.waitForLoadState("networkidle");
 
-  const xUrlCount = await page
-    .locator("text=https://x.com/matteocollina/status/2033590124919787819")
-    .count();
-  expect(xUrlCount).toBeGreaterThan(0);
+  await expect(
+    page.locator("text=https://x.com/matteocollina/status/2033590124919787819").first(),
+  ).toBeVisible();
 
   const visibleDeletedChunks = await page
     .locator(".cm-deletedChunk")

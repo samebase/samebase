@@ -185,8 +185,10 @@ test("landing preview FAQ answers the direct-agent questions", async ({ page }) 
     timeout: 30_000,
   });
 
+  // Base UI 1.6 removed arrow-key focus movement between accordion triggers, following the APG
+  // accordion pattern, so Tab moves to the next question.
   await firstQuestion.focus();
-  await firstQuestion.press("ArrowDown");
+  await firstQuestion.press("Tab");
   await expect(secondQuestion).toBeFocused();
   await secondQuestion.press("Enter");
   await expect(secondQuestion).toHaveAttribute("aria-expanded", "true");
