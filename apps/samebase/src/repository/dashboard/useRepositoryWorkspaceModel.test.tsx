@@ -276,7 +276,7 @@ describe("useRepositoryWorkspaceModel", () => {
               region: "aws-us-east-1",
             },
           ],
-          // The captured stage as `alchemyState:observe` returns it, with the `rootDir` "." on its
+          // The captured stage as `reader:repository` returns it, with the `rootDir` "." on its
           // Deployment row that @samebase/alchemy-convex 0.8.0 writes for a stack file at the root.
           stacks: [
             {

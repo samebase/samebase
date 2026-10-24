@@ -6,7 +6,7 @@ const { array, literal, number, object, string, union } = v;
 /** Renewal may retry provider failures. Samebase access failures remain separate. */
 export const ALCHEMY_CONNECTION_UNAVAILABLE = "Alchemy state is temporarily unavailable.";
 
-/** The run that last wrote stage state, or the last full deploy for stores before version 3. */
+/** The run that last wrote the state of a stage. */
 export const vAlchemyRunRecord = object({
   version: literal(1),
   /** GitHub `owner/name`. */
@@ -53,13 +53,9 @@ export const vAlchemyLiveDeployments = array(
   }),
 );
 
-export const vAlchemyStateObservation = union(
-  object({ store: literal("missing") }),
-  object({
-    store: literal("found"),
-    stacks: array(vAlchemyStack),
-    /** Management API metadata for each Convex production deployment. */
-    liveDeployments: vAlchemyLiveDeployments,
-  }),
-);
-export type AlchemyStateObservation = Infer<typeof vAlchemyStateObservation>;
+/** The read of the store, with Management API metadata for each Convex production deployment. */
+export type AlchemyStateObservation =
+  | { store: "missing" }
+  | (Extract<AlchemyStacksRead, { store: "found" }> & {
+      liveDeployments: Infer<typeof vAlchemyLiveDeployments>;
+    });

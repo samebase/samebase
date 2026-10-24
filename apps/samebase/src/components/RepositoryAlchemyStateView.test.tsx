@@ -16,7 +16,7 @@ type AlchemyStage = Extract<
 const [, , prod] = observedAlchemyStackReply.value.stages;
 const [, pr1768, samebaseProd] = observedSamebaseStackReply.value.stages;
 
-/** The run record of the captured pr-1768 output, as `observe` returns it. */
+/** The run record of the captured pr-1768 stage, as `reader:repository` returns it. */
 const pr1768Record = {
   version: 1,
   repository: "samebase/samebase",
@@ -29,7 +29,7 @@ const pr1768Record = {
   recordedAt: "2026-10-22T09:34:35.577Z",
 } as const;
 
-/** The run record of the captured samebase/samebase prod output, as `observe` returns it. */
+/** The run record of the captured `prod` stage of samebase/samebase, as the reader returns it. */
 const prodRecord = {
   version: 1,
   repository: "samebase/samebase",

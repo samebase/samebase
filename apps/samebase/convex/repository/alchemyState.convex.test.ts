@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { api } from "../_generated/api";
 import { isRecord } from "../jsonUtils";
 import { insertTestOrganizationBillingAccount, makeConvexTest } from "../test.setup";
+import { readAlchemyStacks } from "./alchemyState";
 import {
   observedAlchemyStackReply,
   observedBaseAlchemyProductionDeployment,
@@ -26,6 +27,8 @@ const appProject = {
   teamSlug: "nicu",
 };
 const [, , prod] = observedAlchemyStackReply.value.stages;
+/** The inspection target that `readTarget` gives for the API key of the seeded organization. */
+const target = { authMethod: "api_key", teamId: "38516", token: "convex-api-key" } as const;
 
 type RecordedRequest = {
   authorization: string | null;
@@ -248,10 +251,7 @@ describe("repository Alchemy state", () => {
     expect(
       requests.find((request) => request.url.endsWith("/create_deploy_key"))?.body,
     ).toMatchObject({
-      allowedActions: [
-        "deployment:functions:runInternalQueries",
-        "deployment:functions:runInternalMutations",
-      ],
+      allowedActions: ["deployment:functions:runInternalMutations"],
     });
     expect(
       requests
@@ -333,40 +333,23 @@ describe("repository Alchemy state", () => {
       },
     ]);
   });
+});
 
+describe("readAlchemyStacks", () => {
   it("lists the stacks and reads only the stack of the repository with a revoked inspection key", async () => {
-    const t = makeConvexTest();
-    const { ids, user } = await seedAlchemyRepository(t);
     vi.spyOn(Date, "now").mockReturnValue(1_710_000_000_000);
     const requests: RecordedRequest[] = [];
-    // The captured stack with the `rootDir` "." on the `prod` Deployment row that
-    // @samebase/alchemy-convex 0.8.0 writes for a stack file at the repository root.
-    const storeReply = withProdStage((stage) => {
-      stage.resources[0].value = stage.resources[0].value.replace(
-        '"type":"prod"',
-        '"type":"prod","rootDir":"."',
-      );
-    });
     installAlchemyStateFetchStub({
       requests,
-      storeReply,
+      storeReply: observedAlchemyStackReply,
       teamProjects: [appProject, storeProject],
     });
 
-    const observation = await user.action(api.repository.alchemyState.observe, {
-      repositoryId: ids.repositoryId,
-    });
+    const observation = await readAlchemyStacks({ repository: "samebase/base-alchemy", target });
 
     // pr-24 and pr-25 have no run record, so they are not stages of the repository.
     expect(observation).toEqual({
       store: "found",
-      liveDeployments: [
-        {
-          deploymentName: "ideal-dolphin-15",
-          dashboardUrl: "https://dashboard.convex.dev/t/nicu/base-alchemy/ideal-dolphin-15",
-          region: "aws-us-east-1",
-        },
-      ],
       stacks: [
         {
           name: "samebase/base-alchemy",
@@ -386,7 +369,7 @@ describe("repository Alchemy state", () => {
                 recordedAt: "2026-10-21T19:58:06.882Z",
               },
               deployedHeadCommit: "a4d98f2ad150dee07e19fa9c348e70240aca1dac",
-              resources: storeReply.value.stages[2]?.resources,
+              resources: prod.resources,
               output: '{"url":"https://ideal-dolphin-15.convex.site"}',
             },
           ],
@@ -423,8 +406,6 @@ describe("repository Alchemy state", () => {
   });
 
   it("reports a missing store when the team has no alchemy-state project", async () => {
-    const t = makeConvexTest();
-    const { ids, user } = await seedAlchemyRepository(t);
     const requests: RecordedRequest[] = [];
     installAlchemyStateFetchStub({
       requests,
@@ -433,14 +414,12 @@ describe("repository Alchemy state", () => {
     });
 
     await expect(
-      user.action(api.repository.alchemyState.observe, { repositoryId: ids.repositoryId }),
+      readAlchemyStacks({ repository: "samebase/base-alchemy", target }),
     ).resolves.toEqual({ store: "missing" });
     expect(requests.some((request) => request.url.endsWith("/create_deploy_key"))).toBe(false);
   });
 
   it("reports no stacks when the store does not hold the repository", async () => {
-    const t = makeConvexTest();
-    const { ids, user } = await seedAlchemyRepository(t);
     const requests: RecordedRequest[] = [];
     installAlchemyStateFetchStub({
       requests,
@@ -450,8 +429,8 @@ describe("repository Alchemy state", () => {
     });
 
     await expect(
-      user.action(api.repository.alchemyState.observe, { repositoryId: ids.repositoryId }),
-    ).resolves.toEqual({ store: "found", liveDeployments: [], stacks: [] });
+      readAlchemyStacks({ repository: "samebase/base-alchemy", target }),
+    ).resolves.toEqual({ store: "found", stacks: [] });
     expect(
       requests.filter(
         (request) => isRecord(request.body) && request.body["path"] === "state:readStack",
@@ -460,8 +439,6 @@ describe("repository Alchemy state", () => {
   });
 
   it("reads the stacks in folders of the repository and keeps the stages that its records name", async () => {
-    const t = makeConvexTest();
-    const { ids, user } = await seedAlchemyRepository(t);
     // Mutations of the captured stack: the same stages in a stack of the folder apps/web, whose
     // `prod` was deployed from that folder, and in a stack whose `prod` names another repository.
     const folderReply = withProdStage((stage) => {
@@ -484,9 +461,7 @@ describe("repository Alchemy state", () => {
       teamProjects: [storeProject],
     });
 
-    const observation = await user.action(api.repository.alchemyState.observe, {
-      repositoryId: ids.repositoryId,
-    });
+    const observation = await readAlchemyStacks({ repository: "samebase/base-alchemy", target });
 
     // A stage counts only with a run record of the repository, and a stack whose name only starts
     // with the repository name is another repository.
@@ -512,8 +487,6 @@ describe("repository Alchemy state", () => {
   });
 
   it("keeps the key of a secret and never returns its value", async () => {
-    const t = makeConvexTest();
-    const { ids, user } = await seedAlchemyRepository(t);
     // The captured state holds no secret, so this adds the envelope that `encodeState` writes for a
     // `Redacted` attribute and output value.
     installAlchemyStateFetchStub({
@@ -534,9 +507,7 @@ describe("repository Alchemy state", () => {
       teamProjects: [storeProject],
     });
 
-    const observation = await user.action(api.repository.alchemyState.observe, {
-      repositoryId: ids.repositoryId,
-    });
+    const observation = await readAlchemyStacks({ repository: "samebase/base-alchemy", target });
 
     expect(JSON.stringify(observation)).not.toContain("secret-value");
     if (observation.store !== "found") {
@@ -552,8 +523,6 @@ describe("repository Alchemy state", () => {
   });
 
   it("has no deployed commit when the run record in the output has an unknown version", async () => {
-    const t = makeConvexTest();
-    const { ids, user } = await seedAlchemyRepository(t);
     installAlchemyStateFetchStub({
       requests: [],
       storeReply: withProdStage((stage) => {
@@ -568,9 +537,7 @@ describe("repository Alchemy state", () => {
     });
 
     // The current run record of the stage still makes it a stage of the repository.
-    const observation = await user.action(api.repository.alchemyState.observe, {
-      repositoryId: ids.repositoryId,
-    });
+    const observation = await readAlchemyStacks({ repository: "samebase/base-alchemy", target });
     if (observation.store !== "found") {
       throw new Error("Expected the team store.");
     }

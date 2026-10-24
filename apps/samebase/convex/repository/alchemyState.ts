@@ -9,11 +9,9 @@ import {
 import {
   ALCHEMY_CONNECTION_UNAVAILABLE,
   vAlchemyRunRecord,
-  vAlchemyStateObservation,
   vAlchemyLiveDeployments,
   type AlchemyStage,
   type AlchemyStack,
-  type AlchemyStateObservation,
   type AlchemyStacksRead,
 } from "../../shared/alchemyStateModel";
 import { internal } from "../_generated/api";
@@ -218,32 +216,6 @@ export function readProductionConvexDeployments(stacks: readonly AlchemyStack[])
     });
   });
 }
-
-/**
-Reads the stacks of the repository from the Alchemy state store of the Convex team that the
-organization connected: their stages with the run record of each, the resources of each stage, and
-the stage output, plus the live region of each production Convex deployment.
-*/
-export const observe = action({
-  access: "access_dashboard",
-  args: {
-    repositoryId: id("repositories"),
-  },
-  returns: vAlchemyStateObservation,
-  handler: async (ctx, args): Promise<AlchemyStateObservation> => {
-    const target = await ctx.runQuery(internal.repository.convexDeploymentInspection.readTarget, {
-      repositoryId: args.repositoryId,
-      userId: ctx.viewer.userId,
-    });
-    const read = await readAlchemyStacks({ repository: target.githubRepositoryFullName, target });
-    if (read.store === "missing") {
-      return read;
-    }
-
-    const liveDeployments = await readLiveDeployments(read.stacks, target);
-    return { ...read, liveDeployments };
-  },
-});
 
 const vAlchemyConnection = union(
   object({ store: literal("missing") }),

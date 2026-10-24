@@ -3,6 +3,7 @@ import type { UserRepositoryResult } from "../../../convex/repository/contracts/
 import { useQuery } from "@tanstack/react-query";
 import { useAction } from "convex/react";
 import { repositoryExternalDataQueryKey } from "@/repository/dashboard/repositoryExternalDataQueryKey";
+import type { AlchemyStateObservation } from "../../../shared/alchemyStateModel";
 import {
   useRepositoryAlchemyState,
   type RepositoryAlchemyState,
@@ -17,10 +18,7 @@ export type RepositoryCloudflareWorkerConvexBuildAccessObservation =
 export type RepositoryConvexProjectObservation =
   (typeof api.repository.providerObservations.observeConvexProjects)["_returnType"][number];
 /** The stacks of the repository in the Alchemy state store of its Convex team. */
-export type RepositoryAlchemyStacks = Extract<
-  (typeof api.repository.alchemyState.observe)["_returnType"],
-  { store: "found" }
->;
+export type RepositoryAlchemyStacks = Extract<AlchemyStateObservation, { store: "found" }>;
 
 export type RepositoryProviderObservationState<TObservation> =
   | { state: "loading" }

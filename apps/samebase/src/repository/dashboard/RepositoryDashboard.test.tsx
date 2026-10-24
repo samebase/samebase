@@ -661,7 +661,7 @@ describe("buildProductionEnvironmentRoots", () => {
 });
 
 /**
-The stacks as `alchemyState:observe` returns the captured stage `prod` of samebase/base-alchemy,
+The stacks as `reader:repository` returns the captured stage `prod` of samebase/base-alchemy,
 with the `rootDir` "." on its Deployment row that @samebase/alchemy-convex 0.8.0 writes for a stack
 file at the repository root.
 */

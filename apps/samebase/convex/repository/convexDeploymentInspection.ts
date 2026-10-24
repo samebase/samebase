@@ -42,14 +42,12 @@ const CONVEX_INSPECTION_REQUEST_TIMEOUT_MS = 10_000;
 const CONVEX_INSPECTION_KEY_TTL_MS = 31 * 60 * 1000;
 /**
 The components and schema reads call system queries, which need `deployment:data:view`. The
-Alchemy reader connection also calls an internal mutation to issue a repository read token.
+Alchemy state reads call internal queries of the store, and the Alchemy reader connection calls only
+the internal mutation `reader:authorize`, which issues a repository read token.
 */
 const CONVEX_INSPECTION_DEPLOY_KEY_ALLOWED_ACTIONS = {
   alchemyState: ["deployment:functions:runInternalQueries"],
-  alchemyReader: [
-    "deployment:functions:runInternalQueries",
-    "deployment:functions:runInternalMutations",
-  ],
+  alchemyReader: ["deployment:functions:runInternalMutations"],
   components: ["deployment:data:view"],
   schema: ["deployment:data:view"],
 } satisfies Record<string, ConvexDeployKeyAllowedAction[]>;
