@@ -909,7 +909,10 @@ describe("repository environment roots", () => {
     ]);
     const container = document.createElement("div");
     container.innerHTML = renderToStaticMarkup(<RepositoryEnvironmentTree roots={roots} />);
-    expect(container.textContent).toBe("ideal-dolphin-15Convex deployment🇺🇸 US East (N. Virginia)");
+    expect(container.textContent).toBe("ideal-dolphin-15Convex deployment🇺🇸US East (N. Virginia)");
+    const region = container.querySelector('[title="US East (N. Virginia)"]');
+    expect(region?.querySelector('[aria-hidden="true"]')?.textContent).toBe("🇺🇸");
+    expect(region?.querySelector(".sr-only")?.textContent).toBe("US East (N. Virginia)");
   });
 
   it("renders the production stacks of the team store while the GitHub pull-request query loads", () => {
@@ -1323,7 +1326,7 @@ describe("repository environment roots", () => {
       deployment?.querySelector('[aria-label="Cloudflare Worker samebase-domains"]'),
     ).toBeNull();
     expect(container.textContent).toBe(
-      "apps/mailsamebase-domainsWorker*.json.mdideal-dolphin-15Convex deployment🇺🇸 US East (N. Virginia)mailConvex componentsamebase-posthog-proxyWorkere.samebase.comscout-workspacesR2 bucket",
+      "apps/mailsamebase-domainsWorker*.json.mdideal-dolphin-15Convex deployment🇺🇸US East (N. Virginia)mailConvex componentsamebase-posthog-proxyWorkere.samebase.comscout-workspacesR2 bucket",
     );
   });
 

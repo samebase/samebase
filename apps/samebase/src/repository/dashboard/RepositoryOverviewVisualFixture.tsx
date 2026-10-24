@@ -1517,10 +1517,44 @@ export function RepositoryOverviewVisualFixture({ mode }: { mode: RepositoryOver
       rootDirectory: "/",
       resources: [
         {
-          kind: "cloudflare_r2_bucket",
-          id: "alchemy:samebase/scout:WorkspacesProd",
-          bucketName: "scout-workspaces-prod",
-          href: "https://dash.cloudflare.com/fe57d01d7ab41f60d00ba1aade20eb33/r2/default/buckets/scout-workspaces-prod",
+          kind: "destination",
+          id: "alchemy:samebase/mail:Deployment",
+          actions: [],
+          href: "https://dashboard.convex.dev/d/ideal-dolphin-15",
+          label: "ideal-dolphin-15",
+          provider: "convex",
+          provenance: "production",
+          region: "aws-us-east-1",
+          components: [
+            {
+              path: "mail",
+              resources: [
+                {
+                  kind: "cloudflare_worker",
+                  id: "alchemy:samebase/mail:Mail/Inbox",
+                  worker: {
+                    workerName: "samebasemail-inbox-prod-lozzg2cltoglxke7",
+                    build: { state: "unrecorded" },
+                    destination: {
+                      state: "available",
+                      href: "https://samebasemail-inbox-prod-lozzg2cltoglxke7.samebase.workers.dev",
+                      label: "samebasemail-inbox-prod-lozzg2cltoglxke7.samebase.workers.dev",
+                      provenance: "production",
+                      title: "Open production app",
+                    },
+                    actions: [],
+                  },
+                },
+                {
+                  kind: "cloudflare_r2_bucket",
+                  id: "alchemy:samebase/scout:WorkspacesProd",
+                  bucketName: "scout-workspaces-prod",
+                  href: "https://dash.cloudflare.com/fe57d01d7ab41f60d00ba1aade20eb33/r2/default/buckets/scout-workspaces-prod",
+                },
+              ],
+            },
+          ],
+          title: "Open production Convex deployment ideal-dolphin-15",
         },
       ],
     });
