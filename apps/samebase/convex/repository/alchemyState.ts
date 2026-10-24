@@ -32,15 +32,15 @@ import {
 } from "./convexProjectResources";
 import { buildConvexDeploymentDashboardUrl } from "./providerDashboardUrls";
 
-const { array, id, literal, object, optional, string, union } = v;
+const { array, id, literal, object, string, union } = v;
 
 /** The Convex project of a team whose production deployment holds the Alchemy state of the team. */
 const ALCHEMY_STATE_PROJECT_NAME = "alchemy-state";
 
 /**
-The key of the run record in a stage output.
+The key of the run record of the last full deploy in a stage output.
 
-@see https://github.com/samebase/alchemy-convex/blob/v0.8.0/src/RunRecord.ts#L16
+@see https://github.com/samebase/alchemy-convex/blob/v0.9.0/src/RunRecord.ts#L16
 */
 const RUN_RECORD_KEY = "samebase.run";
 
@@ -48,22 +48,21 @@ const RUN_RECORD_KEY = "samebase.run";
 The reply of `state:stacks`: the name of every stack of the store with a resource or an output, in
 name order.
 
-@see https://github.com/samebase/alchemy-convex/blob/v0.8.0/src/store/convex/state.ts#L63-L88
+@see https://github.com/samebase/alchemy-convex/blob/v0.9.0/src/store/convex/state.ts#L74-L99
 */
 const vStoreStacksReply = object({ status: literal("success"), value: array(string()) });
 
 /**
-The reply of `state:readStack` `{ stack }`: every stage of the stack in name order, each with its
-resources in fqn order and its output, as the JSON texts that the rows hold. A stack that the store
-does not hold has no stages. The function name is a wire contract of samebase/alchemy-convex since
-store version 2 (0.7.0): a name is never renamed or removed. The function is an internal query of
-the root app: only `POST /api/function` reaches it, with a deploy key that allows
-`deployment:functions:runInternalQueries`. A function error fails the request, which
-`fetchConvexDeploymentJson` throws.
+The reply of `state:readStack` `{ stack }` of store version 3 (samebase/alchemy-convex 0.9.0): every
+stage of the stack in name order, each with its resources in fqn order and its output, as the JSON
+texts that the rows hold, and `record`, the run record of the run that last wrote the stage. A first
+deploy has its record before it writes its output (`output: null`). `record` is null when the last
+write carried no record, such as a run before 0.9.0. A stack that the store does not hold has no
+stages. The function is an internal query of the root app: only `POST /api/function` reaches it,
+with a deploy key that allows `deployment:functions:runInternalQueries`. A function error fails the
+request, which `fetchConvexDeploymentJson` throws.
 
-Store version 3 also returns the current run record, before a full deploy writes its output.
-
-@see https://github.com/samebase/alchemy-convex/blob/v0.8.0/src/store/convex/state.ts#L221-L265
+@see https://github.com/samebase/alchemy-convex/blob/v0.9.0/src/store/convex/state.ts#L242-L291
 */
 const vStoreStackReply = object({
   status: literal("success"),
@@ -71,7 +70,7 @@ const vStoreStackReply = object({
     stages: array(
       object({
         stage: string(),
-        record: optional(union(vAlchemyRunRecord, v.null())),
+        record: union(vAlchemyRunRecord, v.null()),
         resources: array(object({ fqn: string(), value: string() })),
         output: union(string(), v.null()),
       }),
@@ -92,36 +91,35 @@ function parseWithoutSecretValues(text: string): unknown {
   );
 }
 
-/** A stage whose current run record names `repository`, including a deploy with no output yet. */
+/**
+A stage whose current run record names `repository`, including a deploy with no output yet. The
+deployed commit is the one of the run record in the output, which the last full deploy wrote.
+*/
 function readStage(stage: StoreStage, repository: string): AlchemyStage | null {
+  const { record } = stage;
+  if (record?.repository !== repository) {
+    return null;
+  }
   const output = stage.output === null ? {} : parseWithoutSecretValues(stage.output);
   if (!isRecord(output)) {
     return null;
   }
-  const { [RUN_RECORD_KEY]: outputRecord, ...stackOutput } = output;
-  const record = stage.record ?? outputRecord;
-  if (!validate(vAlchemyRunRecord, record, { allowUnknownFields: true })) {
-    return null;
-  }
 
-  const recorded = parse(vAlchemyRunRecord, record);
-  const deployedHeadCommit =
-    validate(vAlchemyRunRecord, outputRecord, { allowUnknownFields: true }) &&
-    outputRecord.repository === repository
-      ? outputRecord.headCommit
-      : null;
-  return recorded.repository === repository
-    ? {
-        name: stage.stage,
-        record: recorded,
-        deployedHeadCommit,
-        resources: stage.resources.map((resource) => ({
-          fqn: resource.fqn,
-          value: JSON.stringify(parseWithoutSecretValues(resource.value)),
-        })),
-        output: JSON.stringify(stackOutput),
-      }
-    : null;
+  const { [RUN_RECORD_KEY]: deployed, ...stackOutput } = output;
+  return {
+    name: stage.stage,
+    record,
+    deployedHeadCommit:
+      validate(vAlchemyRunRecord, deployed, { allowUnknownFields: true }) &&
+      deployed.repository === repository
+        ? deployed.headCommit
+        : null,
+    resources: stage.resources.map((resource) => ({
+      fqn: resource.fqn,
+      value: JSON.stringify(parseWithoutSecretValues(resource.value)),
+    })),
+    output: JSON.stringify(stackOutput),
+  };
 }
 
 /** The production deployment of the connected team's `alchemy-state` project. */

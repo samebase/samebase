@@ -9,11 +9,8 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import type { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
-import { observedSamebaseStackReply } from "../../../convex/repository/fixtures/observedSamebaseAlchemyState";
-import {
-  ALCHEMY_CONNECTION_UNAVAILABLE,
-  type AlchemyStacksRead,
-} from "../../../shared/alchemyStateModel";
+import { observedSamebaseRepositoryReply } from "../../../convex/repository/fixtures/observedSamebaseAlchemyState";
+import { ALCHEMY_CONNECTION_UNAVAILABLE } from "../../../shared/alchemyStateModel";
 import {
   useRepositoryAlchemyState,
   type RepositoryAlchemyState,
@@ -26,34 +23,38 @@ const transportError =
   "[CONVEX A(repository/alchemyState:connect)] Connection lost while action was in flight\n  Called by client";
 const deploymentMetadata: DeploymentMetadata = [
   {
-    deploymentName: "aware-bobcat-542",
-    dashboardUrl: "https://dashboard.convex.dev/d/aware-bobcat-542",
+    deploymentName: "clear-butterfly-858",
+    dashboardUrl: "https://dashboard.convex.dev/d/clear-butterfly-858",
     region: null,
   },
 ];
-const productionStack = {
-  name: "samebase/samebase",
-  stages: [
-    {
-      name: "prod",
-      resources: observedSamebaseStackReply.value.stages[1].resources,
-      output: "{}",
-      record: {
-        version: 1 as const,
-        repository: "samebase/samebase",
-        stackFile: "alchemy.run.ts",
-        branch: "main",
-        pullRequest: null,
-        headCommit: "429c1218a16d2ee74b9da68d684dc460a0a67ce8",
-        runUrl: null,
-        source: "laptop" as const,
-        recordedAt: "2026-10-22T09:34:35.577Z",
-      },
-      deployedHeadCommit: "429c1218a16d2ee74b9da68d684dc460a0a67ce8",
-    },
-  ],
-};
-const liveRead = { store: "found", stacks: [productionStack] } satisfies AlchemyStacksRead;
+/** The read with `change` applied to every row of the stage `prod`. */
+function withProdRows(
+  read: typeof observedSamebaseRepositoryReply,
+  change: (row: { fqn: string; value: string }) => string,
+): typeof observedSamebaseRepositoryReply {
+  return {
+    ...read,
+    stacks: read.stacks.map((stack) => ({
+      ...stack,
+      stages: stack.stages.map((stage) =>
+        stage.name === "prod"
+          ? { ...stage, resources: stage.resources.map((row) => ({ ...row, value: change(row) })) }
+          : stage,
+      ),
+    })),
+  };
+}
+/**
+The captured `reader:repository` reply of samebase/samebase, `pr-1768` and `prod`, with the
+`rootDir` "." on the `prod` Site row that 0.8.0 writes for the stack file of `prod` in
+apps/samebase, so `prod` has a Convex deployment whose metadata the hook reads.
+*/
+const liveRead = withProdRows(observedSamebaseRepositoryReply, (row) =>
+  row.fqn === "Site"
+    ? row.value.replace('"type":"prod"', '"type":"prod","rootDir":"."')
+    : row.value,
+);
 type ClientState = {
   value: ((value: unknown) => void) | undefined;
   error: ((error: Error) => void) | undefined;
@@ -316,23 +317,9 @@ describe("useRepositoryAlchemyState", () => {
       await act(async () => vi.advanceTimersByTimeAsync(0));
       expect(latest).toMatchObject({ observation: { liveDeployments: deploymentMetadata } });
       mocks.metadata.mockReturnValue(new Promise<DeploymentMetadata>(() => {}));
-      const nextRead = {
-        ...liveRead,
-        stacks: [
-          {
-            ...productionStack,
-            stages: [
-              {
-                ...productionStack.stages[0],
-                resources: productionStack.stages[0].resources.map((resource) => ({
-                  ...resource,
-                  value: resource.value.replaceAll("aware-bobcat-542", "new-deployment"),
-                })),
-              },
-            ],
-          },
-        ],
-      };
+      const nextRead = withProdRows(liveRead, (row) =>
+        row.value.replaceAll("clear-butterfly-858", "new-deployment"),
+      );
       await act(async () => client().value?.(nextRead));
       expect(mocks.metadata).toHaveBeenCalledTimes(2);
       expect(latest).toMatchObject({ observation: { liveDeployments: deploymentMetadata } });

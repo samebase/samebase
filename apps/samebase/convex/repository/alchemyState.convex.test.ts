@@ -465,16 +465,12 @@ describe("repository Alchemy state", () => {
     // Mutations of the captured stack: the same stages in a stack of the folder apps/web, whose
     // `prod` was deployed from that folder, and in a stack whose `prod` names another repository.
     const folderReply = withProdStage((stage) => {
-      stage.output = stage.output.replace(
-        '"stackFile":"alchemy.run.ts"',
-        '"stackFile":"apps/web/alchemy.run.ts"',
-      );
+      if (!stage.record) throw new Error("Expected the captured run record.");
+      stage.record.stackFile = "apps/web/alchemy.run.ts";
     });
     const otherRepositoryReply = withProdStage((stage) => {
-      stage.output = stage.output.replace(
-        '"repository":"samebase/base-alchemy"',
-        '"repository":"samebase/other"',
-      );
+      if (!stage.record) throw new Error("Expected the captured run record.");
+      stage.record.repository = "samebase/other";
     });
     const requests: RecordedRequest[] = [];
     installAlchemyStateFetchStub({
@@ -555,7 +551,7 @@ describe("repository Alchemy state", () => {
     );
   });
 
-  it("leaves out a stage whose run record has an unknown version without failing the read", async () => {
+  it("has no deployed commit when the run record in the output has an unknown version", async () => {
     const t = makeConvexTest();
     const { ids, user } = await seedAlchemyRepository(t);
     installAlchemyStateFetchStub({
@@ -571,9 +567,17 @@ describe("repository Alchemy state", () => {
       teamProjects: [storeProject],
     });
 
-    // prod was the only stage with a run record, so the repository has no stack left.
-    await expect(
-      user.action(api.repository.alchemyState.observe, { repositoryId: ids.repositoryId }),
-    ).resolves.toEqual({ store: "found", liveDeployments: [], stacks: [] });
+    // The current run record of the stage still makes it a stage of the repository.
+    const observation = await user.action(api.repository.alchemyState.observe, {
+      repositoryId: ids.repositoryId,
+    });
+    if (observation.store !== "found") {
+      throw new Error("Expected the team store.");
+    }
+    expect(
+      observation.stacks.flatMap((stack) =>
+        stack.stages.map((stage) => [stage.name, stage.deployedHeadCommit]),
+      ),
+    ).toEqual([["prod", null]]);
   });
 });
