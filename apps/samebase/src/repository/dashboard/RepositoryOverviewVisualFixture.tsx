@@ -9,7 +9,10 @@ import {
   RepositoryOverviewOrganizationSidebar,
   RepositoryOverviewSidebarLoading,
 } from "@/repository/dashboard/RepositoryOverviewSidebar";
-import { buildProductionEnvironmentRoots } from "@/repository/dashboard/repositoryEnvironmentRoots";
+import {
+  buildAlchemyStackCards,
+  buildProductionEnvironmentRoots,
+} from "@/repository/dashboard/repositoryEnvironmentRoots";
 import { buildRepositorySettingsState } from "@/repository/dashboard/repositorySettingsState";
 import type {
   RepositoryFolderState,
@@ -30,11 +33,14 @@ import type {
 } from "@/repository/dashboard/useRepositoryPullRequests";
 import type { RepositorySidebarSummariesState } from "@/repository/dashboard/useRepositorySidebarSummaries";
 import type {
+  RepositoryAlchemyStacks,
   RepositoryCloudflareProviderObservationState,
   RepositoryConvexProjectObservation,
   RepositoryProviderObservationState,
 } from "@/repository/dashboard/useRepositoryProviderObservations";
 import type { Id } from "../../../convex/_generated/dataModel";
+import { observedSamebaseStackReply } from "../../../convex/repository/fixtures/observedSamebaseAlchemyState";
+import { observedScoutR2Resources } from "../../../convex/repository/fixtures/observedScoutR2Resources";
 import { ROLE_ACCESS_GRANTS } from "../../../shared/accessModel";
 import {
   RepositoryOverviewDialogsVisualFixture,
@@ -174,6 +180,100 @@ const LIST_SPACING_REPOSITORY = {
     },
   ],
 } satisfies UserRepositoryResult;
+
+/**
+The Worker of the captured PosthogProxy row of samebase/samebase as `workerName`, served at its
+workers.dev URL.
+*/
+function fixtureWorkerRow(workerName: string): string {
+  const [, proxyRow] = observedSamebaseStackReply.value.stages[2].resources;
+  const url = `https://${workerName}.samebase.workers.dev`;
+  return proxyRow.value
+    .replaceAll("samebase-posthog-proxy", workerName)
+    .replace('"urls":[]', `"url":"${url}","urls":["${url}"]`);
+}
+
+/**
+The stacks of samebase/samebase from the captured rows of its stage `prod`: the root stack, whose
+Site deployment serves at its custom domain samebase.com and binds the `mail` component to the
+namespace `Mail` of an inbox Worker and a Scout bucket, and the stack of apps/sidebars-example with
+only a Worker.
+*/
+const FIXTURE_STACKS = ((): RepositoryAlchemyStacks => {
+  const [, , projectRow, siteRow] = observedSamebaseStackReply.value.stages[2].resources;
+  const [, workspacesProdRow] = observedScoutR2Resources;
+  const inMail = (value: string) => value.replace(/}$/, ',"namespace":{"Id":"Mail"}}');
+  // The captured run record of the stage with the stack file at the repository root.
+  const record = {
+    version: 1,
+    repository: "samebase/samebase",
+    stackFile: "alchemy.run.ts",
+    branch: "main",
+    pullRequest: null,
+    headCommit: "1592243a49970f5c5142009b7ca7b2d71d31f104",
+    runUrl: "https://github.com/samebase/samebase/actions/runs/39746887572/attempts/1",
+    source: "github-actions",
+    recordedAt: "2026-10-22T08:22:58.152Z",
+  } as const;
+  return {
+    store: "found",
+    liveDeployments: [
+      {
+        deploymentName: "clear-butterfly-858",
+        dashboardUrl: "https://dashboard.convex.dev/t/nicu/samebase/clear-butterfly-858",
+        region: "aws-us-east-1",
+        customDomains: [
+          { domain: "cloud.samebase.com", requestDestination: "convexCloud" },
+          { domain: "samebase.com", requestDestination: "convexSite" },
+        ],
+      },
+    ],
+    stacks: [
+      {
+        name: "samebase/samebase",
+        stages: [
+          {
+            name: "prod",
+            record,
+            deployedHeadCommit: record.headCommit,
+            resources: [
+              {
+                fqn: "Mail/Inbox",
+                value: inMail(fixtureWorkerRow("samebasemail-inbox-prod-lozzg2cltoglxke7")),
+              },
+              { fqn: "Mail/WorkspacesProd", value: inMail(workspacesProdRow.value) },
+              projectRow,
+              {
+                fqn: "Site",
+                value: siteRow.value
+                  .replace('"type":"prod"', '"type":"prod","rootDir":"apps/samebase"')
+                  .replace(
+                    '"bindings":[]',
+                    '"bindings":[{"sid":"convex.component:[\\"Mail\\"]","data":{"type":"component","path":"mail","namespace":["Mail"]}}]',
+                  ),
+              },
+            ],
+            output: '{"url":"https://clear-butterfly-858.convex.site"}',
+          },
+        ],
+      },
+      {
+        name: "samebase/samebase/apps/sidebars-example",
+        stages: [
+          {
+            name: "prod",
+            record: { ...record, stackFile: "apps/sidebars-example/alchemy.run.ts" },
+            deployedHeadCommit: record.headCommit,
+            resources: [
+              { fqn: "Site", value: fixtureWorkerRow("samebase-monorepo-sidebars-example") },
+            ],
+            output: "{}",
+          },
+        ],
+      },
+    ],
+  };
+})();
 
 const LIST_SPACING_CLOUDFLARE_OBSERVATIONS = {
   workers: {
@@ -958,18 +1058,21 @@ function buildFixtureWorkspace({
     },
     cloudflareObservations,
     convexObservations,
-    environmentRoots: repository.defaultBranch
-      ? buildProductionEnvironmentRoots({
-          branch: repository.defaultBranch,
-          cloudflareObservations,
-          convexObservations,
-          owner: repository.githubOwnerLogin,
-          repoName: repository.githubRepositoryName,
-          schemaGraphEnabled: ROLE_ACCESS_GRANTS.role_member.includes("access_schema_graph"),
-          repository,
-        })
-      : [],
     githubRepositoryUrl,
+    production: {
+      source: "attachments",
+      roots: repository.defaultBranch
+        ? buildProductionEnvironmentRoots({
+            branch: repository.defaultBranch,
+            cloudflareObservations,
+            convexObservations,
+            owner: repository.githubOwnerLogin,
+            repoName: repository.githubRepositoryName,
+            schemaGraphEnabled: ROLE_ACCESS_GRANTS.role_member.includes("access_schema_graph"),
+            repository,
+          })
+        : [],
+    },
     pullRequests,
     repository,
   } satisfies RepositoryWorkspaceSelected;
@@ -1502,7 +1605,7 @@ export function RepositoryOverviewVisualFixture({ mode }: { mode: RepositoryOver
               },
         }
       : currentPullRequests;
-  const { settingsState, workspace } = buildFixtureWorkspace({
+  const { settingsState, workspace: attachmentsWorkspace } = buildFixtureWorkspace({
     cloudflareAccountId: "fe57d01d7ab41f60d00ba1aade20eb33",
     cloudflareAccountName: "Samebase",
     cloudflareObservations,
@@ -1511,54 +1614,35 @@ export function RepositoryOverviewVisualFixture({ mode }: { mode: RepositoryOver
     pullRequests,
     repository: LIST_SPACING_REPOSITORY,
   });
-
-  if (mode === "repository-overview-v2-r2") {
-    workspace.environmentRoots.unshift({
-      rootDirectory: "/",
-      resources: [
-        {
-          kind: "destination",
-          id: "alchemy:samebase/mail:Deployment",
-          actions: [],
-          href: "https://dashboard.convex.dev/d/ideal-dolphin-15",
-          label: "ideal-dolphin-15",
-          provider: "convex",
-          provenance: "production",
-          region: "aws-us-east-1",
-          components: [
-            {
-              path: "mail",
-              resources: [
-                {
-                  kind: "cloudflare_worker",
-                  id: "alchemy:samebase/mail:Mail/Inbox",
-                  worker: {
-                    workerName: "samebasemail-inbox-prod-lozzg2cltoglxke7",
-                    build: { state: "unrecorded" },
-                    destination: {
-                      state: "available",
-                      href: "https://samebasemail-inbox-prod-lozzg2cltoglxke7.samebase.workers.dev",
-                      label: "samebasemail-inbox-prod-lozzg2cltoglxke7.samebase.workers.dev",
-                      provenance: "production",
-                      title: "Open production app",
-                    },
-                    actions: [],
-                  },
-                },
-                {
-                  kind: "cloudflare_r2_bucket",
-                  id: "alchemy:samebase/scout:WorkspacesProd",
-                  bucketName: "scout-workspaces-prod",
-                  href: "https://dash.cloudflare.com/fe57d01d7ab41f60d00ba1aade20eb33/r2/default/buckets/scout-workspaces-prod",
-                },
-              ],
-            },
-          ],
-          title: "Open production Convex deployment ideal-dolphin-15",
-        },
-      ],
-    });
-  }
+  const workspace: RepositoryWorkspaceSelected =
+    mode === "repository-overview-v2-r2"
+      ? {
+          ...attachmentsWorkspace,
+          alchemyObservations: {
+            state: "loaded",
+            observations: [FIXTURE_STACKS],
+            refreshFailed: false,
+            reload: () => {},
+          },
+          alchemyState: {
+            state: "loaded",
+            observation: FIXTURE_STACKS,
+            refreshFailed: false,
+            reload: () => {},
+          },
+          production: {
+            source: "stacks",
+            cards: buildAlchemyStackCards({
+              branch: "main",
+              owner: LIST_SPACING_REPOSITORY.githubOwnerLogin,
+              repoName: LIST_SPACING_REPOSITORY.githubRepositoryName,
+              schemaGraphEnabled: ROLE_ACCESS_GRANTS.role_member.includes("access_schema_graph"),
+              repository: LIST_SPACING_REPOSITORY,
+              stacks: FIXTURE_STACKS,
+            }),
+          },
+        }
+      : attachmentsWorkspace;
 
   return (
     <SidebarLayoutFixtureFrame

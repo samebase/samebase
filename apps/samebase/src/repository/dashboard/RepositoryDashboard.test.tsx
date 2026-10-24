@@ -42,7 +42,7 @@ import { observedAlchemyStackReply } from "../../../convex/repository/fixtures/o
 import { observedSamebaseStackReply } from "../../../convex/repository/fixtures/observedSamebaseAlchemyState";
 import { observedScoutR2Resources } from "../../../convex/repository/fixtures/observedScoutR2Resources";
 import {
-  buildAlchemyEnvironmentRoots,
+  buildAlchemyStackCards,
   buildProductionEnvironmentRoots,
   buildPullRequestEnvironmentRoots,
 } from "./repositoryEnvironmentRoots";
@@ -718,10 +718,9 @@ The stacks of samebase/samebase after the move of its stack to the repository ro
 apps/sidebars-example. The `prod` record is the captured one with the stack file and commit that the
 first push after the move writes, and its Site row the captured one with the `rootDir` that the
 captured `pr-1768` row holds. Its PosthogProxy row is the captured one with the `main` that the root
-stack writes, in apps/samebase, so it sits with the Site deployment. Its Domains row keeps the
-captured `main`, which is relative to apps/samebase and leaves the repository from the root, so it
-sits at the root. The sidebars stack has no row yet, so its Worker is the captured PosthogProxy row
-renamed.
+stack writes, in apps/samebase. Its Domains row keeps the captured `main`, which is relative to
+apps/samebase and leaves the repository from the root. The sidebars stack has no row yet, so its
+Worker is the captured PosthogProxy row renamed.
 */
 function samebaseStacksAfterTheMove(): RepositoryAlchemyStacks {
   const [, , prod] = observedSamebaseStackReply.value.stages;
@@ -820,57 +819,74 @@ function samebaseStacksWithRows(replace: (value: string) => string): RepositoryA
   };
 }
 
-describe("repository environment roots", () => {
-  it.each([
-    ["alchemy.run.ts", "/"],
-    ["infrastructure/alchemy.run.ts", "infrastructure"],
-  ])(
-    "places R2 buckets beside %s and links their Cloudflare dashboard",
-    (stackFile, rootDirectory) => {
-      const stacks = observedBaseAlchemyStack();
-      const roots = buildAlchemyEnvironmentRoots({
-        branch: "main",
-        owner: "samebase",
-        repoName: "scout",
-        schemaGraphEnabled: false,
-        repository: makeRepositorySettingsBuilderRepository({}),
-        stacks: {
-          ...stacks,
-          stacks: stacks.stacks.map((stack) => ({
-            name: "samebase/scout",
-            stages: stack.stages.map((stage) => ({
-              ...stage,
-              record: { ...stage.record, stackFile },
-              resources: observedScoutR2Resources,
-            })),
-          })),
-        },
-      });
+/** The cards of `stacks` for `repository` on the default branch `main`. */
+function stackCardsOf(
+  stacks: RepositoryAlchemyStacks,
+  repository: RepositorySettingsBuilderRepository,
+) {
+  return buildAlchemyStackCards({
+    branch: "main",
+    owner: repository.githubOwnerLogin,
+    repoName: repository.githubRepositoryName,
+    schemaGraphEnabled: true,
+    repository,
+    stacks,
+  });
+}
 
-      expect(roots.map((root) => root.rootDirectory)).toEqual([rootDirectory]);
-      const container = document.createElement("div");
-      container.innerHTML = renderToStaticMarkup(<RepositoryEnvironmentTree roots={roots} />);
-      expect(container.textContent.match(/R2 bucket/g)).toHaveLength(3);
-      expect(
-        [...container.querySelectorAll("a")].map((link) => [link.textContent, link.href]),
-      ).toEqual([
-        [
-          "scout-public-media",
-          "https://dash.cloudflare.com/fe57d01d7ab41f60d00ba1aade20eb33/r2/default/buckets/scout-public-media",
-        ],
-        [
-          "scout-workspaces",
-          "https://dash.cloudflare.com/fe57d01d7ab41f60d00ba1aade20eb33/r2/default/buckets/scout-workspaces",
-        ],
-        [
-          "scout-workspaces-prod",
-          "https://dash.cloudflare.com/fe57d01d7ab41f60d00ba1aade20eb33/r2/default/buckets/scout-workspaces-prod",
-        ],
-      ]);
-    },
+/**
+The default-branch block of `repository` with the stacks of the team store while the GitHub
+pull-request query loads, and its stack cards without the relative times of their runs.
+*/
+function renderStackCards(
+  stacks: RepositoryAlchemyStacks,
+  repository: RepositorySettingsBuilderRepository,
+) {
+  const container = document.createElement("div");
+  container.innerHTML = renderToStaticMarkup(
+    <TestRouterProvider initialEntries={[`/repo/${repository.githubRepositoryFullName}`]}>
+      <DefaultBranchSection
+        filesReadEnabled={false}
+        workspace={{
+          access: { state: "ready", accessKeys: [] },
+          alchemyObservations: {
+            state: "loaded",
+            observations: [stacks],
+            refreshFailed: false,
+            reload: () => {},
+          },
+          alchemyState: {
+            state: "loaded",
+            observation: stacks,
+            refreshFailed: false,
+            reload: () => {},
+          },
+          cloudflareConnection: { state: "loading" },
+          cloudflareObservations: {
+            workers: { state: "loading" },
+            builds: { state: "loading" },
+            convexBuildAccess: { state: "loading" },
+          },
+          convexObservations: { state: "loading" },
+          githubRepositoryUrl: `https://github.com/${repository.githubRepositoryFullName}`,
+          production: { source: "stacks", cards: stackCardsOf(stacks, repository) },
+          pullRequests: { state: "loading" },
+          repository,
+        }}
+      />
+    </TestRouterProvider>,
   );
+  for (const time of container.querySelectorAll("time")) {
+    time.remove();
+  }
+  return {
+    section: container,
+    cards: [...container.querySelectorAll('[aria-label^="Alchemy stack "]')],
+  };
+}
 
-  it("builds the default-branch block from the stage prod of the stack in the team store", () => {
+describe("Alchemy stack cards", () => {
+  it("builds a card from the stage prod of the stack while the GitHub pull-request query loads", () => {
     // Like the preview deployment of Samebase: the repository has no attachment rows.
     const repository = makeRepositorySettingsBuilderRepository({
       githubOwnerLogin: "samebase",
@@ -878,18 +894,20 @@ describe("repository environment roots", () => {
       githubRepositoryFullName: "samebase/base-alchemy",
       convexTeamId: "38516",
     });
-    const roots = buildAlchemyEnvironmentRoots({
-      branch: "main",
-      owner: "samebase",
-      repoName: "base-alchemy",
-      schemaGraphEnabled: false,
-      repository,
-      stacks: observedBaseAlchemyStack(),
-    });
+    const stacks = observedBaseAlchemyStack();
 
-    expect(roots).toEqual([
+    expect(stackCardsOf(stacks, repository)).toEqual([
       {
-        rootDirectory: "/",
+        stack: "samebase/base-alchemy",
+        stackFile: "alchemy.run.ts",
+        folder: null,
+        deployedHeadCommit: "a4d98f2ad150dee07e19fa9c348e70240aca1dac",
+        recordedAt: "2026-10-21T19:58:06.882Z",
+        runUrl: "https://github.com/samebase/base-alchemy/actions/runs/39666079880/attempts/1",
+        address: {
+          href: "https://ideal-dolphin-15.convex.site",
+          label: "ideal-dolphin-15.convex.site",
+        },
         resources: [
           {
             kind: "destination",
@@ -917,138 +935,107 @@ describe("repository environment roots", () => {
         ],
       },
     ]);
-    const container = document.createElement("div");
-    container.innerHTML = renderToStaticMarkup(<RepositoryEnvironmentTree roots={roots} />);
-    expect(container.textContent).toBe("ideal-dolphin-15Convex deployment🇺🇸US East (N. Virginia)");
-    const region = container.querySelector('[title="US East (N. Virginia)"]');
+    const { section, cards } = renderStackCards(stacks, repository);
+    expect(section.querySelector("section")?.getAttribute("aria-label")).toBe(
+      "Default branch main",
+    );
+    expect(section.querySelectorAll('[aria-label="Loading default branch commit"]')).toHaveLength(
+      1,
+    );
+    expect(cards.map((card) => card.textContent)).toEqual([
+      "a4d98f2ideal-dolphin-15.convex.siteideal-dolphin-15🇺🇸US East (N. Virginia)",
+    ]);
+    expect(
+      [...section.querySelectorAll("a")].map((link) => [
+        link.textContent,
+        link.getAttribute("href"),
+      ]),
+    ).toEqual([
+      ["main", "https://github.com/samebase/base-alchemy/tree/main"],
+      ["a4d98f2", "https://github.com/samebase/base-alchemy/actions/runs/39666079880/attempts/1"],
+      ["ideal-dolphin-15.convex.site", "https://ideal-dolphin-15.convex.site"],
+      ["ideal-dolphin-15", "https://dashboard.convex.dev/t/nicu/base-alchemy/ideal-dolphin-15"],
+    ]);
+    const region = section.querySelector('[title="US East (N. Virginia)"]');
     expect(region?.querySelector('[aria-hidden="true"]')?.textContent).toBe("🇺🇸");
     expect(region?.querySelector(".sr-only")?.textContent).toBe("US East (N. Virginia)");
   });
 
-  it("renders the production stacks of the team store while the GitHub pull-request query loads", () => {
-    const repository = makeRepositorySettingsBuilderRepository({
-      githubOwnerLogin: "samebase",
-      githubRepositoryName: "base-alchemy",
-      githubRepositoryFullName: "samebase/base-alchemy",
-      convexTeamId: "38516",
-    });
-    const stacks = observedBaseAlchemyStack();
-    const container = document.createElement("div");
-    container.innerHTML = renderToStaticMarkup(
-      <TestRouterProvider initialEntries={["/repo/samebase/base-alchemy"]}>
-        <DefaultBranchSection
-          filesReadEnabled={false}
-          workspace={{
-            access: { state: "ready", accessKeys: [] },
-            alchemyObservations: {
-              state: "loaded",
-              observations: [stacks],
-              refreshFailed: false,
-              reload: () => {},
-            },
-            alchemyState: {
-              state: "loaded",
-              observation: stacks,
-              refreshFailed: false,
-              reload: () => {},
-            },
-            cloudflareConnection: { state: "loading" },
-            cloudflareObservations: {
-              workers: { state: "loading" },
-              builds: { state: "loading" },
-              convexBuildAccess: { state: "loading" },
-            },
-            convexObservations: { state: "loading" },
-            environmentRoots: buildAlchemyEnvironmentRoots({
-              branch: "main",
-              owner: "samebase",
-              repoName: "base-alchemy",
-              schemaGraphEnabled: false,
-              repository,
-              stacks,
-            }),
-            githubRepositoryUrl: "https://github.com/samebase/base-alchemy",
-            pullRequests: { state: "loading" },
-            repository,
-          }}
-        />
-      </TestRouterProvider>,
+  it("shows one card for each stack with its folder and rows without type labels", () => {
+    const { cards } = renderStackCards(
+      samebaseStacksAfterTheMove(),
+      makeRepositorySettingsBuilderRepository({ convexTeamId: "38516" }),
     );
 
-    expect(container.querySelector("section")?.getAttribute("aria-label")).toBe(
-      "Default branch main",
-    );
-    expect(container.querySelectorAll('[aria-label="Loading default branch commit"]')).toHaveLength(
-      1,
-    );
-    expect(
-      [...container.querySelectorAll("a")].map((link) => [link.textContent, link.href]),
-    ).toEqual([
-      ["main", "https://github.com/samebase/base-alchemy/tree/main"],
-      ["ideal-dolphin-15", "https://dashboard.convex.dev/t/nicu/base-alchemy/ideal-dolphin-15"],
+    expect(cards.map((card) => [card.getAttribute("aria-label"), card.textContent])).toEqual([
+      [
+        "Alchemy stack samebase/samebase",
+        "/1592243clear-butterfly-858.convex.sitesamebase-domains*.json.mdsamebase-posthog-proxye.samebase.comclear-butterfly-858",
+      ],
+      [
+        "Alchemy stack samebase/samebase/apps/sidebars-example",
+        "apps/sidebars-example1592243samebase-monorepo-sidebars-examplee.samebase.com",
+      ],
     ]);
   });
 
-  it("places the resources of every stack of samebase/samebase by stack file, rootDir, and main", () => {
-    const roots = buildAlchemyEnvironmentRoots({
-      branch: "main",
-      owner: "samebase",
-      repoName: "samebase",
-      schemaGraphEnabled: false,
-      repository: makeRepositorySettingsBuilderRepository({
-        githubOwnerLogin: "samebase",
-        githubRepositoryName: "samebase",
-        githubRepositoryFullName: "samebase/samebase",
-        convexTeamId: "38516",
-      }),
-      stacks: samebaseStacksAfterTheMove(),
-    });
+  it.each([
+    ["alchemy.run.ts", ""],
+    ["infrastructure/alchemy.run.ts", "infrastructure"],
+  ])("shows the R2 buckets of %s and links their Cloudflare dashboard", (stackFile, folder) => {
+    const stacks = observedBaseAlchemyStack();
+    const { cards } = renderStackCards(
+      {
+        ...stacks,
+        stacks: stacks.stacks.map((stack) => ({
+          name: "samebase/scout",
+          stages: stack.stages.map((stage) => ({
+            ...stage,
+            record: { ...stage.record, stackFile },
+            resources: observedScoutR2Resources,
+          })),
+        })),
+      },
+      makeRepositorySettingsBuilderRepository({}),
+    );
 
+    expect(cards.map((card) => card.textContent)).toEqual([
+      `${folder}a4d98f2scout-public-mediascout-workspacesscout-workspaces-prod`,
+    ]);
     expect(
-      roots.map((root) => ({
-        rootDirectory: root.rootDirectory,
-        resources: root.resources.map((resource) =>
-          resource.kind === "cloudflare_worker" ? resource.worker.workerName : resource.id,
-        ),
-      })),
+      [...cards[0].querySelectorAll('a[title^="Open R2 bucket"]')].map((link) =>
+        link.getAttribute("href"),
+      ),
     ).toEqual([
-      { rootDirectory: "/", resources: ["samebase-domains"] },
-      {
-        rootDirectory: "apps/samebase",
-        resources: ["samebase-posthog-proxy", "alchemy:samebase/samebase:Site"],
-      },
-      {
-        rootDirectory: "apps/sidebars-example",
-        resources: ["samebase-monorepo-sidebars-example"],
-      },
+      "https://dash.cloudflare.com/fe57d01d7ab41f60d00ba1aade20eb33/r2/default/buckets/scout-public-media",
+      "https://dash.cloudflare.com/fe57d01d7ab41f60d00ba1aade20eb33/r2/default/buckets/scout-workspaces",
+      "https://dash.cloudflare.com/fe57d01d7ab41f60d00ba1aade20eb33/r2/default/buckets/scout-workspaces-prod",
     ]);
   });
 
   it("links the Workers of samebase/samebase without URLs to their routes", () => {
     // The captured Domains and PosthogProxy rows: no custom domain and no workers.dev URL.
-    const roots = buildAlchemyEnvironmentRoots({
-      branch: "main",
-      owner: "samebase",
-      repoName: "samebase",
-      schemaGraphEnabled: false,
-      repository: makeRepositorySettingsBuilderRepository({ convexTeamId: "38516" }),
-      stacks: samebaseStacksAfterTheMove(),
-    });
-    const workerRoots = roots
-      .filter((root) => root.rootDirectory !== "apps/sidebars-example")
-      .map((root) => ({
-        rootDirectory: root.rootDirectory,
-        resources: root.resources.filter((resource) => resource.kind === "cloudflare_worker"),
-      }));
+    const cards = stackCardsOf(
+      samebaseStacksAfterTheMove(),
+      makeRepositorySettingsBuilderRepository({ convexTeamId: "38516" }),
+    );
 
     expect(
-      workerRoots.flatMap((root) =>
-        root.resources.map(({ worker }) => ({
-          workerName: worker.workerName,
-          destination: worker.destination,
-          actions: worker.actions,
-        })),
-      ),
+      cards
+        .filter((card) => card.stack === "samebase/samebase")
+        .flatMap((card) =>
+          card.resources.flatMap((resource) =>
+            resource.kind === "cloudflare_worker"
+              ? [
+                  {
+                    workerName: resource.worker.workerName,
+                    destination: resource.worker.destination,
+                    actions: resource.worker.actions,
+                  },
+                ]
+              : [],
+          ),
+        ),
     ).toEqual([
       {
         workerName: "samebase-domains",
@@ -1067,36 +1054,24 @@ describe("repository environment roots", () => {
         actions: [],
       },
     ]);
-    const container = document.createElement("div");
-    container.innerHTML = renderToStaticMarkup(<RepositoryEnvironmentTree roots={workerRoots} />);
-    expect(container.textContent).toBe(
-      "/samebase-domainsWorker*.json.mdapps/samebasesamebase-posthog-proxyWorkere.samebase.com",
-    );
-    expect([...container.querySelectorAll("a")].map((link) => link.getAttribute("href"))).toEqual([
-      "https://e.samebase.com/",
-    ]);
   });
 
   it("links a route that covers a path of its host to that path", () => {
     // The captured PosthogProxy row with a second route on a path of its host. Alchemy gives every
     // route of the host the same url, the origin.
-    const roots = buildAlchemyEnvironmentRoots({
-      branch: "main",
-      owner: "samebase",
-      repoName: "samebase",
-      schemaGraphEnabled: false,
-      repository: makeRepositorySettingsBuilderRepository({ convexTeamId: "38516" }),
-      stacks: samebaseStacksWithRows((value) =>
+    const cards = stackCardsOf(
+      samebaseStacksWithRows((value) =>
         value.replace(
           '"url":"https://e.samebase.com"}]',
           '"url":"https://e.samebase.com"},{"id":"static","pattern":"e.samebase.com/static/*","zoneId":"2f2e7713e926a7282b25796b02826f02","url":"https://e.samebase.com"}]',
         ),
       ),
-    });
+      makeRepositorySettingsBuilderRepository({ convexTeamId: "38516" }),
+    );
 
     expect(
-      roots.flatMap((root) =>
-        root.resources.flatMap((resource) =>
+      cards.flatMap((card) =>
+        card.resources.flatMap((resource) =>
           resource.kind === "cloudflare_worker" &&
           resource.worker.workerName === "samebase-posthog-proxy"
             ? [resource.worker.actions]
@@ -1116,15 +1091,10 @@ describe("repository environment roots", () => {
 
   it("shows no Convex deployment for a row without rootDir", () => {
     // The captured `prod` of samebase/samebase: its Site row has no rootDir, so only the Workers
-    // show, in the directory of the stack file.
+    // show, and they serve at no URL.
     const [, , prod] = observedSamebaseStackReply.value.stages;
-    const roots = buildAlchemyEnvironmentRoots({
-      branch: "main",
-      owner: "samebase",
-      repoName: "samebase",
-      schemaGraphEnabled: false,
-      repository: makeRepositorySettingsBuilderRepository({ convexTeamId: "38516" }),
-      stacks: {
+    const cards = stackCardsOf(
+      {
         store: "found",
         liveDeployments: [],
         stacks: [
@@ -1153,21 +1123,26 @@ describe("repository environment roots", () => {
           },
         ],
       },
-    });
+      makeRepositorySettingsBuilderRepository({ convexTeamId: "38516" }),
+    );
 
     expect(
-      roots.map((root) => [root.rootDirectory, root.resources.map((resource) => resource.kind)]),
-    ).toEqual([["apps/samebase", ["cloudflare_worker", "cloudflare_worker"]]]);
+      cards.map((card) => [
+        card.folder,
+        card.address,
+        card.resources.map((resource) => resource.kind),
+      ]),
+    ).toEqual([["apps/samebase", null, ["cloudflare_worker", "cloudflare_worker"]]]);
   });
 
   it("routes a Convex deployment of the store through its attachment row when one exists", () => {
     const convexProjectId = fakeConvexProjectId("convex-project-base-alchemy");
-    const roots = buildAlchemyEnvironmentRoots({
-      branch: "main",
-      owner: "samebase",
-      repoName: "base-alchemy",
-      schemaGraphEnabled: true,
-      repository: makeRepositorySettingsBuilderRepository({
+    const cards = stackCardsOf(
+      observedBaseAlchemyStack(),
+      makeRepositorySettingsBuilderRepository({
+        githubOwnerLogin: "samebase",
+        githubRepositoryName: "base-alchemy",
+        githubRepositoryFullName: "samebase/base-alchemy",
         convexTeamId: "38516",
         convexProjects: [
           makeRepositorySettingsConvexProject({
@@ -1177,12 +1152,11 @@ describe("repository environment roots", () => {
           }),
         ],
       }),
-      stacks: observedBaseAlchemyStack(),
-    });
+    );
 
     expect(
-      roots.flatMap((root) =>
-        root.resources.flatMap((resource) =>
+      cards.flatMap((card) =>
+        card.resources.flatMap((resource) =>
           resource.kind === "destination" ? resource.actions.map((action) => action.href) : [],
         ),
       ),
@@ -1197,13 +1171,8 @@ describe("repository environment roots", () => {
     // The `main` Worker row measured in research/2026-10-21-alchemy-state-rows-for-workers-and-convex.md.
     const worker =
       '{"status":"created","fqn":"Worker","logicalId":"Worker","instanceId":"4fb5acd8a74d8a46633a8e57084e0bc1","resourceType":"Cloudflare.Worker","props":{"name":"tmp-k7m2-rows","main":"./worker.ts","env":{"CONVEX_URL":"https://modest-guanaco-252.convex.cloud"},"isExternal":true},"attr":{"workerId":"6d2434039c4343a9a02300ba85841b70","workerName":"tmp-k7m2-rows","logpush":false,"url":"https://tmp-k7m2-rows.pfp.workers.dev","urls":["https://tmp-k7m2-rows.pfp.workers.dev"],"tags":["alchemy:stack:samebase/tmp-k7m2-rows","alchemy:stage:main","alchemy:id:Worker"],"durableObjectNamespaces":{},"accountId":"fe57d01d7ab41f60d00ba1aade20eb33","routes":[],"crons":[],"tailConsumers":[],"hash":{"bundle":"b132832cbda33e15a9cffc4ff168139206ddccf97b0a7c2230801d3710200e85","metadata":"6692e8262512d066c344158cd4e091a1287954eb8b43208b87b336715b99bb65"}},"bindings":[{"sid":"CONVEX_URL","data":{"bindings":[{"type":"plain_text","name":"CONVEX_URL","text":"https://modest-guanaco-252.convex.cloud"}]}}],"providerVersion":0,"downstream":[],"removalPolicy":"destroy","providerMode":"live"}';
-    const roots = buildAlchemyEnvironmentRoots({
-      branch: "main",
-      owner: "samebase",
-      repoName: "tmp-k7m2-rows",
-      schemaGraphEnabled: false,
-      repository: makeRepositorySettingsBuilderRepository({}),
-      stacks: {
+    const { cards } = renderStackCards(
+      {
         store: "found",
         liveDeployments: [],
         stacks: [
@@ -1231,15 +1200,17 @@ describe("repository environment roots", () => {
           },
         ],
       },
-    });
-
-    const markup = renderToStaticMarkup(<RepositoryEnvironmentTree roots={roots} />);
-    const container = document.createElement("div");
-    container.innerHTML = markup;
-    expect(container.textContent).toBe("tmp-k7m2-rowsWorkertmp-k7m2-rows.pfp.workers.dev");
-    expect(container.querySelector("a")?.getAttribute("href")).toBe(
-      "https://tmp-k7m2-rows.pfp.workers.dev",
+      makeRepositorySettingsBuilderRepository({}),
     );
+
+    // A run from a laptop has no run URL, so its line links nowhere.
+    expect(cards.map((card) => card.textContent)).toEqual([
+      "aaaaaaatmp-k7m2-rows.pfp.workers.devtmp-k7m2-rowstmp-k7m2-rows.pfp.workers.dev",
+    ]);
+    expect([...cards[0].querySelectorAll("a")].map((link) => link.getAttribute("href"))).toEqual([
+      "https://tmp-k7m2-rows.pfp.workers.dev",
+      "https://tmp-k7m2-rows.pfp.workers.dev",
+    ]);
   });
 
   it("shows the resources of a bound namespace under their component, below its deployment", () => {
@@ -1260,43 +1231,36 @@ describe("repository environment roots", () => {
     const [bucketRow] = observedScoutR2Resources;
     const inMail = (value: string) => value.replace(/}$/, ',"namespace":{"Id":"Mail"}}');
     const stacks = observedBaseAlchemyStack();
-    const roots = buildAlchemyEnvironmentRoots({
-      branch: "main",
-      owner: "samebase",
-      repoName: "convex-cloudflare-email-inbox",
-      schemaGraphEnabled: false,
-      repository: makeRepositorySettingsBuilderRepository({ convexTeamId: "38516" }),
-      stacks: {
-        ...stacks,
-        stacks: stacks.stacks.map((stack) => ({
-          ...stack,
-          stages: stack.stages.map((stage) => ({
-            ...stage,
-            record: { ...stage.record, stackFile: "apps/mail/alchemy.run.ts" },
-            resources: [
-              ...stage.resources.map((resource) => ({
-                fqn: resource.fqn,
-                value:
-                  resource.fqn === "Deployment"
-                    ? resource.value.replace(
-                        '"bindings":[]',
-                        '"bindings":[{"sid":"convex.component:[\\"Mail\\"]","data":{"type":"component","path":"mail","namespace":["Mail"]}}]',
-                      )
-                    : resource.value,
-              })),
-              workerRow("Domains"),
-              { fqn: "Mail/PosthogProxy", value: inMail(workerRow("PosthogProxy").value) },
-              { fqn: `Mail/${bucketRow.fqn}`, value: inMail(bucketRow.value) },
-            ],
-          })),
+    const mailStacks: RepositoryAlchemyStacks = {
+      ...stacks,
+      stacks: stacks.stacks.map((stack) => ({
+        ...stack,
+        stages: stack.stages.map((stage) => ({
+          ...stage,
+          record: { ...stage.record, stackFile: "apps/mail/alchemy.run.ts" },
+          resources: [
+            ...stage.resources.map((resource) => ({
+              fqn: resource.fqn,
+              value:
+                resource.fqn === "Deployment"
+                  ? resource.value.replace(
+                      '"bindings":[]',
+                      '"bindings":[{"sid":"convex.component:[\\"Mail\\"]","data":{"type":"component","path":"mail","namespace":["Mail"]}}]',
+                    )
+                  : resource.value,
+            })),
+            workerRow("Domains"),
+            { fqn: "Mail/PosthogProxy", value: inMail(workerRow("PosthogProxy").value) },
+            { fqn: `Mail/${bucketRow.fqn}`, value: inMail(bucketRow.value) },
+          ],
         })),
-      },
-    });
+      })),
+    };
+    const repository = makeRepositorySettingsBuilderRepository({ convexTeamId: "38516" });
 
     expect(
-      roots.map((root) => ({
-        rootDirectory: root.rootDirectory,
-        resources: root.resources.map((resource) =>
+      stackCardsOf(mailStacks, repository).map((card) =>
+        card.resources.map((resource) =>
           resource.kind === "destination"
             ? {
                 id: resource.id,
@@ -1307,41 +1271,39 @@ describe("repository environment roots", () => {
               }
             : resource.id,
         ),
-      })),
+      ),
     ).toEqual([
-      {
-        rootDirectory: "apps/mail",
-        resources: [
-          "alchemy:samebase/base-alchemy:Domains",
-          {
-            id: "alchemy:samebase/base-alchemy:Deployment",
-            components: [
-              {
-                path: "mail",
-                resources: [
-                  "alchemy:samebase/base-alchemy:Mail/PosthogProxy",
-                  "alchemy:samebase/base-alchemy:Mail/Workspaces",
-                ],
-              },
-            ],
-          },
-        ],
-      },
+      [
+        "alchemy:samebase/base-alchemy:Domains",
+        {
+          id: "alchemy:samebase/base-alchemy:Deployment",
+          components: [
+            {
+              path: "mail",
+              resources: [
+                "alchemy:samebase/base-alchemy:Mail/PosthogProxy",
+                "alchemy:samebase/base-alchemy:Mail/Workspaces",
+              ],
+            },
+          ],
+        },
+      ],
     ]);
-    const container = document.createElement("div");
-    container.innerHTML = renderToStaticMarkup(<RepositoryEnvironmentTree roots={roots} />);
-    const deployment = container.querySelector('[aria-label="Convex deployment ideal-dolphin-15"]');
+    const { cards } = renderStackCards(mailStacks, repository);
+    const deployment = cards[0].querySelector('[aria-label="Convex deployment ideal-dolphin-15"]');
     expect(deployment?.querySelector('[aria-label="Convex component mail"]')?.textContent).toBe(
-      "mailConvex componentsamebase-posthog-proxyWorkere.samebase.comscout-workspacesR2 bucket",
+      "mailConvex componentsamebase-posthog-proxye.samebase.comscout-workspaces",
     );
     expect(
       deployment?.querySelector('[aria-label="Cloudflare Worker samebase-domains"]'),
     ).toBeNull();
-    expect(container.textContent).toBe(
-      "apps/mailsamebase-domainsWorker*.json.mdideal-dolphin-15Convex deployment🇺🇸US East (N. Virginia)mailConvex componentsamebase-posthog-proxyWorkere.samebase.comscout-workspacesR2 bucket",
-    );
+    expect(cards.map((card) => card.textContent)).toEqual([
+      "apps/maila4d98f2ideal-dolphin-15.convex.sitesamebase-domains*.json.mdideal-dolphin-15🇺🇸US East (N. Virginia)mailConvex componentsamebase-posthog-proxye.samebase.comscout-workspaces",
+    ]);
   });
+});
 
+describe("repository environment roots", () => {
   it("keeps a Convex row under its known root while deployment details load", () => {
     const convexProjectId = fakeConvexProjectId();
     const repository = makeRepositorySettingsBuilderRepository({
@@ -2473,7 +2435,7 @@ describe("RepositoryOverviewPage", () => {
             cloudflareConnection: { state: "loading" },
             cloudflareObservations,
             convexObservations,
-            environmentRoots: [],
+            production: { source: "attachments", roots: [] },
             githubRepositoryUrl: "https://github.com/ada/demo",
             pullRequests: { state: "not_requested" },
             repository,
@@ -2553,7 +2515,7 @@ describe("RepositoryOverviewPage", () => {
               cloudflareConnection: { state: "loading" },
               cloudflareObservations,
               convexObservations,
-              environmentRoots: [],
+              production: { source: "attachments", roots: [] },
               githubRepositoryUrl: "https://github.com/ada/demo",
               pullRequests: { state: "not_requested" },
               repository: currentRepository,
@@ -2602,7 +2564,7 @@ describe("RepositoryOverviewPage", () => {
         reload: () => {},
         observations: [],
       },
-      environmentRoots: [],
+      production: { source: "attachments" as const, roots: [] },
       githubRepositoryUrl: "https://github.com/ada/demo",
       pullRequests: { state: "not_requested" as const },
       repository,
@@ -2684,7 +2646,7 @@ describe("RepositoryOverviewPage", () => {
         reload: () => {},
         observations: [],
       },
-      environmentRoots: [],
+      production: { source: "attachments" as const, roots: [] },
       githubRepositoryUrl: "https://github.com/ada/plugin",
       pullRequests: { state: "not_requested" as const },
       repository,

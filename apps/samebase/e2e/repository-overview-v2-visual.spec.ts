@@ -174,7 +174,7 @@ test("opens the production Convex Schema route", async ({ page }) => {
   );
 });
 
-test("shows an R2 bucket with the production resources on desktop and mobile", async ({ page }) => {
+test("shows one card per Alchemy stack on desktop and mobile", async ({ page }) => {
   for (const viewport of [
     { width: 1280, height: 900 },
     { width: 390, height: 844 },

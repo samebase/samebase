@@ -4,7 +4,7 @@ import type {
   PullRequestResources,
   PullRequestWorkerResource,
 } from "../../../convex/repository/pullRequestModel";
-import { groupResourcesByComponent, placeStageResources } from "../../../shared/alchemyState";
+import { groupResourcesByComponent, stackCards } from "../../../shared/alchemyState";
 import { getConvexCodeRootDirectory } from "../../../shared/convexCodeLocation";
 import type { ConvexDeploymentRegion } from "../../../shared/convexDeploymentRegions";
 import {
@@ -144,17 +144,20 @@ const repositoryOtherPreviewProviderOrder = {
   netlify: 2,
 } as const;
 
-type RepositoryEnvironmentResourceInput<
+type RepositoryEnvironmentSortedResource<
   Resource extends RepositoryEnvironmentResource = RepositoryEnvironmentResource,
 > = {
   resource: Resource;
-  rootDirectory: string;
   sortKey: string;
 };
 
+type RepositoryEnvironmentResourceInput = RepositoryEnvironmentSortedResource & {
+  rootDirectory: string;
+};
+
 function compareRepositoryEnvironmentResourceInputs(
-  left: RepositoryEnvironmentResourceInput,
-  right: RepositoryEnvironmentResourceInput,
+  left: RepositoryEnvironmentSortedResource,
+  right: RepositoryEnvironmentSortedResource,
 ): number {
   return (
     left.sortKey.localeCompare(right.sortKey) || left.resource.id.localeCompare(right.resource.id)
@@ -419,9 +422,9 @@ export function buildProductionEnvironmentRoots({
 }
 
 /**
-The default-branch block from the stacks of the repository in the Alchemy state store: the stage
-`prod` of each stack, each resource in its directory of the repository (`placeStageResources`). The
-store records no build, so no build state shows.
+The default-branch block from the stacks of the repository in the Alchemy state store: one card for
+each stack with its stage `prod` (`stackCards`), with the resource rows of that stage. The store
+records no build, so no build state shows.
 
 A Worker links to its custom domains and workers.dev URL, `attr.urls`, and without them to its zone
 routes. A route shows its host, such as `e.samebase.com` for `e.samebase.com/*`, with the path when
@@ -435,9 +438,9 @@ an attachment row, so a deployment offers it only when its project is attached.
 
 A Worker or an R2 bucket in a namespace that a deployment binds to an installed component
 (`groupResourcesByComponent`) shows under that component, below that deployment. A component that
-owns neither shows no row, and the deployment rows stay in their directories.
+owns neither shows no row.
 */
-export function buildAlchemyEnvironmentRoots({
+export function buildAlchemyStackCards({
   branch,
   owner,
   repoName,
@@ -451,149 +454,148 @@ export function buildAlchemyEnvironmentRoots({
   schemaGraphEnabled: boolean;
   repository: RepositoryDashboardRepository;
   stacks: RepositoryAlchemyStacks;
-}): RepositoryEnvironmentRoot[] {
-  return groupRepositoryEnvironmentResources(
-    stacks.stacks.flatMap((stack): RepositoryEnvironmentResourceInput[] => {
-      const stage = stack.stages.find((candidate) => candidate.name === "prod");
-      if (!stage) {
-        return [];
-      }
-      const { convexDeployments, workers, r2Buckets } = placeStageResources({
-        stackFile: stage.record.stackFile,
-        resources: stage.resources,
-      });
-      const workerInput = (
-        worker: (typeof workers)[number],
-      ): RepositoryEnvironmentResourceInput<RepositoryEnvironmentComponentResource> => {
-        const { fqn, state, rootDirectory } = worker;
-        const { routes, urls, workerName } = state.attr;
-        const destinations: RepositoryEnvironmentAction[] =
-          urls.length > 0
-            ? urls.map((url) => ({
-                destination: "external",
-                href: url,
-                label: buildProductionUrlLabel(url),
-              }))
-            : routes.map((route) => {
-                // The pattern without its scheme and its last `*`, such as `e.samebase.com/` or
-                // `example.com/api/`: the route reaches the Worker only on that path of the host.
-                const target = route.pattern.replace(/^https?:\/\//i, "").replace(/\*$/, "");
-                const host = target.replace(/\/.*$/, "");
-                const path = target.slice(host.length);
-                const label = path === "/" ? host : target;
-                return route.url === undefined
-                  ? { destination: "none", label }
-                  : { destination: "external", href: `${route.url}${path}`, label };
-              });
-        const primary = destinations.at(0);
-        return {
-          rootDirectory,
-          sortKey: `0:${workerName}:${stack.name}:${fqn}`,
-          resource: {
-            kind: "cloudflare_worker",
-            id: `alchemy:${stack.name}:${fqn}`,
-            worker: {
-              workerName,
-              build: { state: "unrecorded" },
-              destination: !primary
-                ? { state: "absent" }
-                : primary.destination === "none"
-                  ? { state: "unlinked", label: primary.label }
-                  : {
-                      state: "available",
-                      href: primary.href,
-                      label: primary.label,
-                      provenance: "production",
-                      title:
-                        rootDirectory === "/"
-                          ? "Open production app"
-                          : `Open production app for ${rootDirectory}`,
-                    },
-              actions: destinations.slice(1),
-            },
+}) {
+  return stackCards(stacks).map((card) => {
+    const { convexDeployments, workers, r2Buckets } = card.resources;
+    const workerInput = (
+      worker: (typeof workers)[number],
+    ): RepositoryEnvironmentSortedResource<RepositoryEnvironmentComponentResource> => {
+      const { fqn, state, rootDirectory } = worker;
+      const { routes, urls, workerName } = state.attr;
+      const destinations: RepositoryEnvironmentAction[] =
+        urls.length > 0
+          ? urls.map((url) => ({
+              destination: "external",
+              href: url,
+              label: buildProductionUrlLabel(url),
+            }))
+          : routes.map((route) => {
+              // The pattern without its scheme and its last `*`, such as `e.samebase.com/` or
+              // `example.com/api/`: the route reaches the Worker only on that path of the host.
+              const target = route.pattern.replace(/^https?:\/\//i, "").replace(/\*$/, "");
+              const host = target.replace(/\/.*$/, "");
+              const path = target.slice(host.length);
+              const label = path === "/" ? host : target;
+              return route.url === undefined
+                ? { destination: "none", label }
+                : { destination: "external", href: `${route.url}${path}`, label };
+            });
+      const primary = destinations.at(0);
+      return {
+        sortKey: `0:${workerName}:${card.stack}:${fqn}`,
+        resource: {
+          kind: "cloudflare_worker",
+          id: `alchemy:${card.stack}:${fqn}`,
+          worker: {
+            workerName,
+            build: { state: "unrecorded" },
+            destination: !primary
+              ? { state: "absent" }
+              : primary.destination === "none"
+                ? { state: "unlinked", label: primary.label }
+                : {
+                    state: "available",
+                    href: primary.href,
+                    label: primary.label,
+                    provenance: "production",
+                    title:
+                      rootDirectory === "/"
+                        ? "Open production app"
+                        : `Open production app for ${rootDirectory}`,
+                  },
+            actions: destinations.slice(1),
           },
-        };
+        },
       };
-      const r2BucketInput = (
-        bucket: (typeof r2Buckets)[number],
-      ): RepositoryEnvironmentResourceInput<RepositoryEnvironmentComponentResource> => {
-        const { fqn, state, rootDirectory } = bucket;
-        const { accountId, bucketName, jurisdiction } = state.attr;
-        return {
-          rootDirectory,
-          sortKey: `2:${bucketName}`,
-          resource: {
-            kind: "cloudflare_r2_bucket",
-            id: `alchemy:${stack.name}:${fqn}`,
-            bucketName,
-            href: `https://dash.cloudflare.com/${encodeURIComponent(accountId)}/r2/${encodeURIComponent(jurisdiction)}/buckets/${encodeURIComponent(bucketName)}`,
-          },
-        };
+    };
+    const r2BucketInput = (
+      bucket: (typeof r2Buckets)[number],
+    ): RepositoryEnvironmentSortedResource<RepositoryEnvironmentComponentResource> => {
+      const { fqn, state } = bucket;
+      const { accountId, bucketName, jurisdiction } = state.attr;
+      return {
+        sortKey: `2:${bucketName}`,
+        resource: {
+          kind: "cloudflare_r2_bucket",
+          id: `alchemy:${card.stack}:${fqn}`,
+          bucketName,
+          href: `https://dash.cloudflare.com/${encodeURIComponent(accountId)}/r2/${encodeURIComponent(jurisdiction)}/buckets/${encodeURIComponent(bucketName)}`,
+        },
       };
-      const { components } = groupResourcesByComponent([
-        ...convexDeployments,
-        ...workers,
-        ...r2Buckets,
-      ]);
-      const owned = new Set(components.flatMap(({ resources }) => resources));
+    };
+    const { components } = groupResourcesByComponent([
+      ...convexDeployments,
+      ...workers,
+      ...r2Buckets,
+    ]);
+    const owned = new Set(components.flatMap(({ resources }) => resources));
 
-      return [
-        ...workers.filter((worker) => !owned.has(worker)).map(workerInput),
-        ...convexDeployments.map((deployment): RepositoryEnvironmentResourceInput => {
-          const { fqn, state, rootDirectory } = deployment;
-          const { attr } = state;
-          const live = stacks.liveDeployments.find(
-            (candidate) => candidate.deploymentName === attr.name,
-          );
-          // The deployment links to its site only when the live project read failed.
-          const href = live?.dashboardUrl ?? attr.siteUrl;
-          const region = live?.region;
-          const attachedProject = repository.convexProjects.find(
-            (candidate) => candidate.projectId === String(attr.projectId),
-          );
-          const deploymentComponents = components.flatMap((component) => {
-            if (component.deployment !== deployment) {
-              return [];
-            }
-            const resources = [
-              ...workers.filter((worker) => component.resources.includes(worker)).map(workerInput),
-              ...r2Buckets
-                .filter((bucket) => component.resources.includes(bucket))
-                .map(r2BucketInput),
-            ]
-              .sort(compareRepositoryEnvironmentResourceInputs)
-              .map((input) => input.resource);
-            return resources.length === 0 ? [] : [{ path: component.path, resources }];
-          });
-          return {
-            rootDirectory,
-            sortKey: `1:${attr.name}:${stack.name}:${fqn}`,
-            resource: {
-              kind: "destination",
-              id: `alchemy:${stack.name}:${fqn}`,
-              actions: buildConvexProductionActions({
-                branch,
-                convexProjectId: attachedProject?.convexProjectId ?? String(attr.projectId),
-                deploymentName: attr.name,
-                owner,
-                repoName,
-                schemaGraphEnabled: schemaGraphEnabled && attachedProject !== undefined,
-              }),
-              href,
-              label: attr.name,
-              provider: "convex",
-              provenance: "production",
-              ...(region ? { region } : {}),
-              ...(deploymentComponents.length > 0 ? { components: deploymentComponents } : {}),
-              title: `Open production Convex deployment ${attr.name}`,
-            },
-          };
-        }),
-        ...r2Buckets.filter((bucket) => !owned.has(bucket)).map(r2BucketInput),
-      ];
-    }),
-  );
+    const rows = [
+      ...workers.filter((worker) => !owned.has(worker)).map(workerInput),
+      ...convexDeployments.map((deployment): RepositoryEnvironmentSortedResource => {
+        const { fqn, state } = deployment;
+        const { attr } = state;
+        const live = stacks.liveDeployments.find(
+          (candidate) => candidate.deploymentName === attr.name,
+        );
+        // The deployment links to its site only when the live project read failed.
+        const href = live?.dashboardUrl ?? attr.siteUrl;
+        const region = live?.region;
+        const attachedProject = repository.convexProjects.find(
+          (candidate) => candidate.projectId === String(attr.projectId),
+        );
+        const deploymentComponents = components.flatMap((component) => {
+          if (component.deployment !== deployment) {
+            return [];
+          }
+          const resources = [
+            ...workers.filter((worker) => component.resources.includes(worker)).map(workerInput),
+            ...r2Buckets
+              .filter((bucket) => component.resources.includes(bucket))
+              .map(r2BucketInput),
+          ]
+            .sort(compareRepositoryEnvironmentResourceInputs)
+            .map((input) => input.resource);
+          return resources.length === 0 ? [] : [{ path: component.path, resources }];
+        });
+        return {
+          sortKey: `1:${attr.name}:${card.stack}:${fqn}`,
+          resource: {
+            kind: "destination",
+            id: `alchemy:${card.stack}:${fqn}`,
+            actions: buildConvexProductionActions({
+              branch,
+              convexProjectId: attachedProject?.convexProjectId ?? String(attr.projectId),
+              deploymentName: attr.name,
+              owner,
+              repoName,
+              schemaGraphEnabled: schemaGraphEnabled && attachedProject !== undefined,
+            }),
+            href,
+            label: attr.name,
+            provider: "convex",
+            provenance: "production",
+            ...(region ? { region } : {}),
+            ...(deploymentComponents.length > 0 ? { components: deploymentComponents } : {}),
+            title: `Open production Convex deployment ${attr.name}`,
+          },
+        };
+      }),
+      ...r2Buckets.filter((bucket) => !owned.has(bucket)).map(r2BucketInput),
+    ];
+
+    return {
+      ...card,
+      address:
+        card.address === null
+          ? null
+          : { href: card.address, label: buildProductionUrlLabel(card.address) },
+      resources: rows.sort(compareRepositoryEnvironmentResourceInputs).map((row) => row.resource),
+    };
+  });
 }
+
+export type RepositoryStackCard = ReturnType<typeof buildAlchemyStackCards>[number];
 
 export function buildPullRequestEnvironmentRoots({
   resources,

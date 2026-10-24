@@ -46,10 +46,7 @@ export function RepositoryWorkspaceDataInspector({
         />
         <DataObject label="Cloudflare observations" value={workspace.cloudflareObservations} />
         <DataObject label="Convex observations" value={workspace.convexObservations} />
-        <DataObject
-          label="Derived presentation"
-          value={{ environmentRoots: workspace.environmentRoots }}
-        />
+        <DataObject label="Derived presentation" value={{ production: workspace.production }} />
       </div>
     </section>
   );

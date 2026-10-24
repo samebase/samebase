@@ -158,8 +158,8 @@ function makeWorkspace(repository: UserRepositoryResult): RepositoryWorkspaceSel
       refreshFailed: false,
       reload: () => {},
     },
-    environmentRoots: [],
     githubRepositoryUrl: `https://github.com/${repository.githubRepositoryFullName}`,
+    production: { source: "attachments", roots: [] },
     pullRequests: { state: "not_requested" },
     repository,
   };

@@ -127,8 +127,9 @@ function rootDirectoryOf(path: string): string {
 }
 
 /**
-The deployed resources of one stage of a stack, each with the directory of the repository that it
-belongs to (`/` for the root). `stackFile` is the stack file of the stage's run record.
+The deployed resources of one stage of a stack, each Convex deployment and Worker with the directory
+of the repository that it belongs to (`/` for the root). `stackFile` is the stack file of the
+stage's run record.
 
 A Convex deployment sits in its app directory, `props.rootDir` below the directory of the stack
 file, and its code location adds `source` (null without `source`). Alchemy's `Cloudflare.Worker` has
@@ -136,9 +137,8 @@ no `rootDir`: its `main` is relative to the directory where the stack runs, the 
 stack file. A Worker sits in the deepest app directory of a deployment of the stage that holds its
 `main`, by whole path segments: `apps/web` holds `apps/web/worker.ts` and not
 `apps/web-tools/worker.ts`. A Worker whose `main` no app directory holds, and a Worker without
-`main`, sits in the directory of the stack file. R2 buckets sit in the stack directory. A row that no
-validator accepts, such as one without `attr` from an interrupted deploy, and a path outside the
-repository are left out.
+`main`, sits in the directory of the stack file. A row that no validator accepts, such as one
+without `attr` from an interrupted deploy, and a path outside the repository are left out.
 */
 export function placeStageResources(stage: {
   stackFile: string;
@@ -155,11 +155,7 @@ export function placeStageResources(stage: {
     state: Infer<typeof vAlchemyCloudflareWorkerState>;
     rootDirectory: string;
   }[];
-  r2Buckets: {
-    fqn: string;
-    state: Infer<typeof vAlchemyCloudflareR2BucketState>;
-    rootDirectory: string;
-  }[];
+  r2Buckets: { fqn: string; state: Infer<typeof vAlchemyCloudflareR2BucketState> }[];
 } {
   const { stackFile } = stage;
   const stackDirectory = stackPath(stackFile);
@@ -215,9 +211,8 @@ export function placeStageResources(stage: {
       return [{ fqn, state, rootDirectory: app?.rootDirectory ?? rootDirectoryOf(stackDirectory) }];
     }),
     r2Buckets: states.flatMap(({ fqn, state }) =>
-      stackDirectory !== null &&
       validate(vAlchemyCloudflareR2BucketState, state, { allowUnknownFields: true })
-        ? [{ fqn, state, rootDirectory: rootDirectoryOf(stackDirectory) }]
+        ? [{ fqn, state }]
         : [],
     ),
   };
