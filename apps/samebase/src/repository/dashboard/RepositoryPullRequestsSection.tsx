@@ -219,11 +219,6 @@ export function PullRequestsSection({
           </div>
         ) : (
           <>
-            {pullRequests.state === "stale" || pullRequests.resourcesStale ? (
-              <div className="border-b border-border px-1 py-2 text-xs text-muted-foreground">
-                Some pull request data may be out of date.
-              </div>
-            ) : null}
             {pullRequests.allPullRequests.map((pullRequest) => (
               <PullRequestRow
                 filesReadEnabled={filesReadEnabled}

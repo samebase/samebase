@@ -799,9 +799,6 @@ test("reproduces the observed new repository provisioning states", async ({ page
     page,
     "repository-overview-v2-provisioning-stale-empty",
   );
-  await expect(
-    staleEmptyFixture.getByText("Some pull request data may be out of date."),
-  ).toBeVisible();
   await expect(staleEmptyFixture.getByText(/^No open pull requests\.?$/)).toHaveCount(1);
 
   const commitFixture = await openRepositoryOverviewV2(

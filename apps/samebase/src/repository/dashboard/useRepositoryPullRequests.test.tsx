@@ -456,15 +456,12 @@ describe("useRepositoryPullRequests", () => {
     const resourceHandler = installResourceHandler();
 
     await renderHarness();
-    await waitFor(
-      (state) => (state.state === "current" || state.state === "stale") && !state.resourcesStale,
-    );
+    await waitFor((state) => state.state === "current" || state.state === "stale");
     act(() => loadMore());
     await waitFor(
       (state) =>
         (state.state === "current" || state.state === "stale") &&
-        state.allPullRequests.length === 2 &&
-        !state.resourcesStale,
+        state.allPullRequests.length === 2,
     );
 
     expect(resourceHandler.mock.calls.map((call) => call[0])).toEqual([
@@ -501,8 +498,7 @@ describe("useRepositoryPullRequests", () => {
     await waitFor(
       (state) =>
         (state.state === "current" || state.state === "stale") &&
-        resourceHandler.mock.calls.length === 4 &&
-        !state.resourcesStale,
+        resourceHandler.mock.calls.length === 4,
     );
 
     expect(resourceHandler.mock.calls.slice(2).map((call) => call[0])).toEqual([
@@ -527,8 +523,7 @@ describe("useRepositoryPullRequests", () => {
     await waitFor(
       (state) =>
         (state.state === "current" || state.state === "stale") &&
-        resourceHandler.mock.calls.length === 6 &&
-        !state.resourcesStale,
+        resourceHandler.mock.calls.length === 6,
     );
 
     expect(resourceHandler.mock.calls.slice(4).map((call) => call[0])).toEqual([

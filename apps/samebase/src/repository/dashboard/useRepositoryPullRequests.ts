@@ -85,7 +85,6 @@ type SettledPullRequests = {
   openPullRequestCount: number;
   allPullRequests: RepositoryPullRequest[];
   refreshing: boolean;
-  resourcesStale: boolean;
   resourcesByPullRequestId: ReadonlyMap<string, PullRequestResourceState>;
   loadMore: RepositoryPullRequestLoadMoreState;
 };
@@ -366,9 +365,6 @@ export function useRepositoryPullRequests(args: {
     openPullRequestCount,
     allPullRequests,
     refreshing: pullRequestQuery.isFetching || resourceQueries.some((query) => query.isFetching),
-    resourcesStale: [...resourcesByPullRequestId.values()].some(
-      (resource) => resource.state === "stale",
-    ),
     resourcesByPullRequestId,
     loadMore: loadMoreState,
   };

@@ -1895,7 +1895,6 @@ describe("PullRequestsSection", () => {
       openPullRequestCount: 1,
       refreshing: false,
       allPullRequests: [pullRequest],
-      resourcesStale: false,
       resourcesByPullRequestId: new Map([
         [
           pullRequest.id,

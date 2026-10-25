@@ -909,7 +909,6 @@ function fixturePullRequests(
     openPullRequestCount: pullRequests.length,
     refreshing: false,
     allPullRequests: [...pullRequests],
-    resourcesStale: false,
     resourcesByPullRequestId: new Map(
       pullRequests.map((pullRequest) => [
         pullRequest.id,

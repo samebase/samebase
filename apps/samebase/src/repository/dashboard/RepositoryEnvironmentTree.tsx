@@ -500,9 +500,6 @@ function DefaultBranchCommit({
         <div className="line-clamp-3 text-base font-medium leading-6 text-foreground [overflow-wrap:anywhere]">
           {observation.headCommitTitle}
         </div>
-        {pullRequests.state === "stale" ? (
-          <div className="mt-1 text-xs leading-5 text-muted-foreground">May be out of date</div>
-        ) : null}
       </div>
       <div className="justify-self-start @4xl:justify-self-end">
         <RepositoryChecksPopover
