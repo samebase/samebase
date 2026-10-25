@@ -2,6 +2,7 @@ import { describe, expect, it } from "vite-plus/test";
 import { getRouter } from "@/router";
 import {
   readCurrentRouteUrlEditorSuggestionIndex,
+  readSuggestionLabel,
   readSuggestions,
 } from "./RouteUrlEditorSuggestions";
 import type { RouteAccessViewer } from "@/routing/permissions";
@@ -15,6 +16,73 @@ const staffViewer = {
 const memberViewer = {
   accessKeys: ROLE_ACCESS_GRANTS.role_member,
 } as const satisfies RouteAccessViewer;
+
+describe("readSuggestionLabel", () => {
+  it.each([
+    ["/repo/samebase/in", ["…/inbox", "…/inbox/alchemy", "…/inbox/settings"]],
+    ["/repo/samebase/inbox", ["…/inbox", "…/alchemy", "…/settings"]],
+    ["/repo/samebase/inbox/", ["…/alchemy", "…/settings"]],
+    ["/repo/samebase/inbox/se", ["…/settings"]],
+  ])("keeps the active segment visible at %s", (pathPrefix, expected) => {
+    const routeAddress = "/repo/samebase/inbox/settings?attachments#top";
+    const suggestions = readRows({ routeAddress, routeTextBeforeCursor: pathPrefix });
+
+    expect(
+      suggestions.map((suggestion) => {
+        const label = readSuggestionLabel({
+          prefix,
+          routeAddress,
+          selection: cursorAfter(pathPrefix),
+          suggestion,
+          suggestions,
+        });
+        expect(label.matchEnd).toBe(pathPrefix.length);
+        return `${label.start > 0 ? "…" : ""}${suggestion.value.slice(label.start)}`;
+      }),
+    ).toEqual(expected);
+  });
+
+  it("keeps parent context when a repository and child have the same name", () => {
+    const routeAddress = "/repo/samebase/settings";
+    const suggestions = readRows({ routeAddress, routeTextBeforeCursor: routeAddress });
+
+    expect(
+      suggestions.map((suggestion) => {
+        const label = readSuggestionLabel({
+          prefix,
+          routeAddress,
+          selection: cursorAfter(routeAddress),
+          suggestion,
+          suggestions,
+        });
+        return `${label.start > 0 ? "…" : ""}${suggestion.value.slice(label.start)}`;
+      }),
+    ).toEqual(["…/samebase/settings", "…/alchemy", "…/settings/settings"]);
+  });
+
+  it.each([
+    ["/logo?depth=2", "/logo?de", "?depth=2", "?de"],
+    ["/logo?dark&depth=2", "/logo?dark&de", "&depth=2", "&de"],
+    ["/logo?zoom=0.5", "/logo?zoom=0.", "0.5", "0."],
+    ["/logo?top=blue-200", "/logo?top=bl", "blue-500", "bl"],
+    ["/logo?top=blue-200", "/logo?top=blue-2", "200", "2"],
+    ["/logo?axis=screen-vertical", "/logo?axis=screen-v", "screen-vertical", "screen-v"],
+  ])("highlights the active token in %s", (routeAddress, beforeCursor, value, matched) => {
+    const suggestions = readRows({ routeAddress, routeTextBeforeCursor: beforeCursor });
+    const suggestion = suggestions.find((row) => row.value === value);
+    if (!suggestion) throw new Error(`Missing suggestion ${value}`);
+
+    const label = readSuggestionLabel({
+      prefix,
+      routeAddress,
+      selection: cursorAfter(beforeCursor),
+      suggestion,
+      suggestions,
+    });
+    expect(label.start).toBe(0);
+    expect(suggestion.value.slice(0, label.matchEnd)).toBe(matched);
+  });
+});
 
 function cursorAfter(routeTextBeforeCursor: string) {
   const position = prefix.length + routeTextBeforeCursor.length - 1;

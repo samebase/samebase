@@ -5,6 +5,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { TestRouterProvider } from "@/test/TestRouterProvider";
 import { RouteUrlEditorNext } from "./RouteUrlEditorNext";
+import { ROLE_ACCESS_GRANTS } from "../../../shared/accessModel";
 
 const { act } = React;
 
@@ -192,6 +193,33 @@ describe("RouteUrlEditorNext", () => {
     expect(readSuggestionValues()).not.toEqual(
       expect.arrayContaining(["?top=sky-500", "?auto-rotate", "?rot=46"]),
     );
+  });
+
+  it("renders compact path labels with a highlighted prefix and full accessible names", () => {
+    useQueryMock.mockReturnValue({ accessKeys: ROLE_ACCESS_GRANTS.role_member });
+    const path = "/repo/samebase/inbox";
+    const display = renderEditor([`${path}/settings`]);
+
+    act(() => {
+      display.focus();
+    });
+    const input = readRequiredInput();
+    const cursor = input.value.indexOf(path) + path.length;
+    act(() => {
+      input.setSelectionRange(cursor, cursor);
+      input.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    const rows = [...(rootElement?.querySelectorAll<HTMLElement>('[role="option"]') ?? [])];
+    expect(rows.map((row) => row.textContent)).toEqual(["…/inbox", "…/alchemy", "…/settings"]);
+    expect(rows.map((row) => row.getAttribute("aria-label"))).toEqual([
+      path,
+      `${path}/alchemy`,
+      `${path}/settings`,
+    ]);
+    expect(
+      rows.map((row) => [...row.querySelectorAll("mark")].map((mark) => mark.textContent).join("")),
+    ).toEqual(["…/inbox", "…", "…"]);
   });
 
   it("uses a blue pill and subtle blue row tint for developer logo routes in dev mode", () => {
