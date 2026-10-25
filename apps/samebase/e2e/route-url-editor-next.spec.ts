@@ -869,6 +869,58 @@ test("route URL editor scrolls same-page hash destinations into view", async ({ 
   await expect(page.locator("#landing-note-tokens")).toBeInViewport();
 });
 
+test("route URL editor filters at the cursor and keeps the draft filter during previews", async ({
+  page,
+}) => {
+  const { input, prefix } = await focusRouteAddressInputDirectly(page, "/terms");
+  const values = page.getByTestId("route-url-editor-suggestion-value");
+  const pathEnd = `${prefix}terms`.length;
+
+  await setInputSelection(input, { start: pathEnd, end: pathEnd });
+  await input.press("ArrowRight");
+  await input.press("ArrowLeft");
+  await expect(values).toHaveText(["/terms"]);
+  await input.press("Home");
+  await expect(page.getByRole("option", { exact: true, name: "/privacy" })).toBeVisible();
+
+  await input.fill(`${prefix}pr`);
+  const pathValues = ["/pricing", "/privacy"];
+  await expect(values).toHaveText(pathValues);
+  await input.press("ArrowDown");
+  await expect(input).toHaveValue(`${prefix}pricing?`);
+  await expect(values).toHaveText(pathValues);
+  await input.press("ArrowDown");
+  await expect(input).toHaveValue(`${prefix}privacy?`);
+  await expect(values).toHaveText(pathValues);
+  await input.press("Escape");
+  await expect(page.getByTestId("route-url-editor-display")).toHaveValue("/terms");
+
+  await page.getByTestId("route-url-editor-display").focus();
+  await input.fill(`${prefix}terms?border=stone-300&dark`);
+  const keyStart = `${prefix}terms?border=stone-300&`.length;
+  await input.press("End");
+  await input.press("Shift+ArrowLeft");
+  await input.press("Shift+ArrowLeft");
+  await input.press("Shift+ArrowLeft");
+  await expect(input).toHaveJSProperty("selectionStart", keyStart + 1);
+  await expect(input).toHaveJSProperty("selectionEnd", keyStart + 4);
+  await expect(values).toHaveText(["&dark"]);
+  await input.press("ArrowLeft");
+  await expect(values).toHaveText(["&dark"]);
+  await input.press("ArrowLeft");
+  await expect(page.getByRole("option", { exact: true, name: "&light" })).toBeVisible();
+  await expect(page.getByRole("option", { exact: true, name: "&border=rose-300" })).toHaveCount(0);
+  await input.press("ArrowRight");
+  await expect(values).toHaveText(["&dark"]);
+
+  await page.getByRole("option", { exact: true, name: "&dark" }).hover();
+  await expect(values).toHaveText(["&dark"]);
+  await input.press("Enter");
+  await expect(input).toHaveValue(`${prefix}terms?border=stone-300&dark&`);
+  await expectInputSelection(input, `${prefix}terms?border=stone-300&dark&`.length);
+  await expect(page.getByRole("option", { exact: true, name: "&light" })).toBeVisible();
+});
+
 test("route URL editor puts the cursor in the selected value slot for middle query tokens", async ({
   page,
 }) => {
@@ -876,7 +928,7 @@ test("route URL editor puts the cursor in the selected value slot for middle que
     page,
     "/logo?dark&depth=2&secondary=rose-500",
   );
-  const depthCursor = `${prefix}logo?dark&de`.length;
+  const depthCursor = `${prefix}logo?dark&`.length;
 
   await setInputSelection(input, {
     end: depthCursor,
@@ -1010,23 +1062,23 @@ test("route URL editor cancels pointer path preview when clicking back into the 
 test("route URL editor keeps deletion in control after a query suggestion was previewed", async ({
   page,
 }) => {
-  const { input, prefix } = await focusRouteAddressInputDirectly(page, "/terms?dev");
+  const { input, prefix } = await focusRouteAddressInputDirectly(page, "/terms?dark");
 
-  await expect(input).toHaveValue(`${prefix}terms?dev&`);
+  await expect(input).toHaveValue(`${prefix}terms?dark&`);
   await input.press("End");
   await input.press("Backspace");
-  await expect(input).toHaveValue(`${prefix}terms?dev`);
+  await expect(input).toHaveValue(`${prefix}terms?dark`);
 
   await page.getByRole("option", { exact: true, name: "?dark" }).hover();
   await expect(input).toHaveValue(`${prefix}terms?dark&`);
   await expectInputSelection(input, `${prefix}terms?`.length);
 
   await input.press("End");
-  await expect(input).toHaveValue(`${prefix}terms?dev`);
-  await expectInputSelection(input, `${prefix}terms?dev`.length);
+  await expect(input).toHaveValue(`${prefix}terms?dark`);
+  await expectInputSelection(input, `${prefix}terms?dark`.length);
 
   await input.press("Backspace");
-  await expect(input).toHaveValue(`${prefix}terms?de`);
+  await expect(input).toHaveValue(`${prefix}terms?dar`);
 });
 
 test("route URL editor previews path suggestions from keyboard and restores on Escape", async ({

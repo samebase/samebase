@@ -164,7 +164,7 @@ describe("readSuggestions", () => {
   it("preserves query text when building path suggestion rows", () => {
     const rows = readRows({
       routeAddress: "/terms?top=red-",
-      routeTextBeforeCursor: "/te",
+      routeTextBeforeCursor: "/",
     });
 
     expect(rows).toContainEqual({
@@ -180,7 +180,7 @@ describe("readSuggestions", () => {
   it("preserves hash text when building path suggestion rows", () => {
     const rows = readRows({
       routeAddress: "/terms?top=red-#top",
-      routeTextBeforeCursor: "/te",
+      routeTextBeforeCursor: "/",
     });
 
     expect(rows).toContainEqual({
@@ -196,11 +196,11 @@ describe("readSuggestions", () => {
   it("places the cursor before the hash when path rows open a query slot", () => {
     const rows = readRows({
       routeAddress: "/terms#top",
-      routeTextBeforeCursor: "/te",
+      routeTextBeforeCursor: "/",
     });
     const focusedDraftRows = readRows({
       routeAddress: "/terms?#top",
-      routeTextBeforeCursor: "/te",
+      routeTextBeforeCursor: "/",
     });
 
     expect(rows).toContainEqual({
@@ -235,7 +235,7 @@ describe("readSuggestions", () => {
   it("offers the routes of a repository with the owner and name of the draft", () => {
     const values = readValues({
       routeAddress: "/repo/samebase/samebase/?",
-      routeTextBeforeCursor: "/repo/samebase/samebase/",
+      routeTextBeforeCursor: "/repo/samebase/samebase",
     });
 
     expect(values.filter((value) => value.startsWith("/repo/samebase/samebase"))).toEqual([
@@ -336,20 +336,75 @@ describe("readSuggestions", () => {
     });
   });
 
-  it("shows all query key suggestions for the key under the cursor", () => {
+  it.each([
+    [
+      "/repo/samebase/convex-cloudflare-email-inbox",
+      [
+        "/repo/samebase/convex-cloudflare-email-inbox",
+        "/repo/samebase/convex-cloudflare-email-inbox/alchemy",
+        "/repo/samebase/convex-cloudflare-email-inbox/settings",
+      ],
+    ],
+    [
+      "/repo/samebase/convex-cloudflare-email-inbox/",
+      [
+        "/repo/samebase/convex-cloudflare-email-inbox/alchemy",
+        "/repo/samebase/convex-cloudflare-email-inbox/settings",
+      ],
+    ],
+    [
+      "/repo/samebase/convex-cloudflare-email-inbox/a",
+      ["/repo/samebase/convex-cloudflare-email-inbox/alchemy"],
+    ],
+  ])("filters concrete repository paths by prefix %s", (pathPrefix, expected) => {
+    expect(
+      readValues({
+        routeAddress: "/repo/samebase/convex-cloudflare-email-inbox/alchemy?attachments&#top",
+        routeTextBeforeCursor: pathPrefix,
+      }),
+    ).toEqual(expected);
+  });
+
+  it.each([
+    ["/pr", ["/pricing", "/privacy"]],
+    ["/privacy", ["/privacy"]],
+  ])("ignores path text after cursor prefix %s", (pathPrefix, expected) => {
+    expect(
+      readValues({
+        routeAddress: "/privacy?dark#top",
+        routeTextBeforeCursor: pathPrefix,
+      }),
+    ).toEqual(expected);
+  });
+
+  it("returns no suggestions for unmatched path and key prefixes", () => {
+    expect(readValues({ routeAddress: "/unmatched", routeTextBeforeCursor: "/unmatched" })).toEqual(
+      [],
+    );
+    expect(
+      readValues({ routeAddress: "/logo?unmatched", routeTextBeforeCursor: "/logo?unmatched" }),
+    ).toEqual([]);
+  });
+
+  it("filters query keys using only the key text before the cursor", () => {
     const values = readValues({
-      routeAddress: "/logo?to",
+      routeAddress: "/logo?top=blue-200&dark#top",
       routeTextBeforeCursor: "/logo?to",
     });
 
-    expect(values).toContain("?top=sky-500");
-    expect(values).toContain("?border=rose-300");
+    expect(values).toEqual(["?top=sky-500"]);
+    expect(
+      readValues({
+        routeAddress: "/logo?dark&top=blue-200#top",
+        routeTextBeforeCursor: "/logo?dark&top",
+      }),
+    ).toEqual(["&top=sky-500"]);
   });
 
   it("replaces the active key-value token when selecting a query key", () => {
     const rows = readRows({
       routeAddress: "/logo?dark&depth=2&top=blue-200",
-      routeTextBeforeCursor: "/logo?dark&de",
+      routeTextBeforeCursor: "/logo?dark&",
     });
 
     expect(rows).toContainEqual({
@@ -367,7 +422,7 @@ describe("readSuggestions", () => {
   it("hides query keys that are already present outside the active token", () => {
     const values = readValues({
       routeAddress: "/terms?border=stone-300&dev&depth=2&gridSize=2&light&",
-      routeTextBeforeCursor: "/terms?bo",
+      routeTextBeforeCursor: "/terms?",
     });
 
     expect(values).toContain("?border=rose-300");
@@ -402,7 +457,7 @@ describe("readSuggestions", () => {
   it("uses member access for route and query suggestions", () => {
     const pathValues = readValues({
       routeAddress: "/v",
-      routeTextBeforeCursor: "/v",
+      routeTextBeforeCursor: "/",
       viewer: memberViewer,
     });
     const rootDashboardValues = readValues({
@@ -447,9 +502,10 @@ describe("readSuggestions", () => {
     });
     expect(values).not.toContain("/logo");
     expect(values).not.toContain("?top=sky-500");
+    expect(values).toEqual(["200"]);
   });
 
-  it("shows all Tailwind color families while the cursor is before the family dash", () => {
+  it("filters color families before the cursor and preserves parameter sample shades", () => {
     const topRows = readRows({
       routeAddress: "/logo?top=blue-200",
       routeTextBeforeCursor: "/logo?top=bl",
@@ -477,16 +533,7 @@ describe("readSuggestions", () => {
       selectedRouteAddress: "/logo?top=blue-500",
       value: "blue-500",
     });
-    expect(topRows).toContainEqual({
-      kind: "searchValuePrefix",
-      nextSelectionRouteIndex: "/logo?top=red-".length,
-      previewRouteAddress: "/logo?top=red-500",
-      previewSelectionRouteIndex: "/logo?top=".length,
-      sampleValueStart: "red-".length,
-      selectedRouteAddress: "/logo?top=red-500",
-      value: "red-500",
-    });
-    expect(topValues).not.toContain("blue-");
+    expect(topValues).toEqual(["blue-500", "black-"]);
     expect(backgroundValues).toContain("red-50");
     expect(backgroundValues).not.toContain("red-500");
     expect(borderValues).toContain("red-300");
@@ -496,7 +543,7 @@ describe("readSuggestions", () => {
   it("replaces the whole active query value when showing family suggestions", () => {
     const rows = readRows({
       routeAddress: "/logo?dark&top=blue-200&secondary=rose-500",
-      routeTextBeforeCursor: "/logo?dark&top=bl",
+      routeTextBeforeCursor: "/logo?dark&top=",
     });
 
     expect(rows).toContainEqual({
@@ -529,7 +576,7 @@ describe("readSuggestions", () => {
   it("keeps enough cursor information to continue editing after selection", () => {
     const pathRows = readRows({
       routeAddress: "/privacy?",
-      routeTextBeforeCursor: "/pri",
+      routeTextBeforeCursor: "/",
     });
 
     expect(pathRows).toContainEqual({
@@ -627,6 +674,21 @@ describe("readSuggestions", () => {
       selectedRouteAddress: "/logo?axis=screen-vertical&",
       value: "screen-vertical",
     });
+  });
+
+  it.each([
+    [
+      "/logo?zoom=0.5",
+      "/logo?zoom=0.",
+      ["0.1", "0.2", "0.3", "0.4", "0.5", "0.6", "0.7", "0.8", "0.9"],
+    ],
+    ["/logo?zoom=0.5", "/logo?zoom=0.5", ["0.5"]],
+    ["/logo?axis=screen-vertical", "/logo?axis=screen-v", ["screen-vertical"]],
+    ["/logo?top=blue-200", "/logo?top=blue-2", ["200"]],
+    ["/logo?top=unmatched", "/logo?top=unmatched", []],
+    ["/logo?zoom=9", "/logo?zoom=9", []],
+  ])("filters value suggestions in %s at %s", (routeAddress, routeTextBeforeCursor, expected) => {
+    expect(readValues({ routeAddress, routeTextBeforeCursor })).toEqual(expected);
   });
 
   it("shows numeric value rows from metadata range after selecting the key", () => {

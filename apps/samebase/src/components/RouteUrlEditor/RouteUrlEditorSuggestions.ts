@@ -322,7 +322,7 @@ function canRecommendSearchParam(
 /**
 Turns route metadata into query-key dropdown rows.
 
-Example: in `/logo?dark&depth=2&top=blue-200`, a cursor inside `depth` shows
+Example: in `/logo?dark&depth=2&top=blue-200`, a cursor before `depth` shows
 all query-key rows. The `&border=rose-300` row selects
 `/logo?dark&border=rose-300&top=blue-200`, but places the cursor after `border=` so the user can
 still choose a different value.
@@ -330,6 +330,7 @@ still choose a different value.
 function readSearchRows(args: {
   routeAddress: string;
   routeSearchParamSuggestions: readonly RouteSearchParamSuggestion[];
+  searchKeyPrefix: string;
   searchKeyToken: RouteAddressSearchToken;
   viewer: RouteAccessViewer;
 }): SearchSuggestion[] {
@@ -344,6 +345,10 @@ function readSearchRows(args: {
     args.routeSearchParamSuggestions,
     args.viewer,
   )) {
+    if (!searchParamSuggestion.key.startsWith(args.searchKeyPrefix)) {
+      continue;
+    }
+
     if (!canRecommendSearchParam(searchParamSuggestion.group, routePath)) {
       continue;
     }
@@ -467,31 +472,33 @@ function readValueRows(args: {
   }
 
   if (replacementValues) {
-    return replacementValues.map((value): Suggestion => {
-      const selectedRouteAddress = replaceRouteAddressSearchValue({
-        routeAddress: args.routeAddress,
-        token: args.token,
-        value,
-      });
-      const shouldPromptForNextKey = isRouteAddressFinalSearchToken({
-        routeAddress: args.routeAddress,
-        token: args.token,
-      });
-      const finalSelectedRoute = shouldPromptForNextKey
-        ? openRouteAddressQuerySlot(selectedRouteAddress)
-        : { routeAddress: selectedRouteAddress, selectionRouteIndex: null };
+    return replacementValues
+      .filter((value) => value.startsWith(args.valuePrefix))
+      .map((value): Suggestion => {
+        const selectedRouteAddress = replaceRouteAddressSearchValue({
+          routeAddress: args.routeAddress,
+          token: args.token,
+          value,
+        });
+        const shouldPromptForNextKey = isRouteAddressFinalSearchToken({
+          routeAddress: args.routeAddress,
+          token: args.token,
+        });
+        const finalSelectedRoute = shouldPromptForNextKey
+          ? openRouteAddressQuerySlot(selectedRouteAddress)
+          : { routeAddress: selectedRouteAddress, selectionRouteIndex: null };
 
-      return {
-        kind: "searchValue",
-        nextSelectionRouteIndex: shouldPromptForNextKey
-          ? (finalSelectedRoute.selectionRouteIndex ?? args.token.valueStart)
-          : args.token.valueStart + value.length,
-        previewRouteAddress: selectedRouteAddress,
-        previewSelectionRouteIndex: args.token.valueStart,
-        selectedRouteAddress: finalSelectedRoute.routeAddress,
-        value,
-      };
-    });
+        return {
+          kind: "searchValue",
+          nextSelectionRouteIndex: shouldPromptForNextKey
+            ? (finalSelectedRoute.selectionRouteIndex ?? args.token.valueStart)
+            : args.token.valueStart + value.length,
+          previewRouteAddress: selectedRouteAddress,
+          previewSelectionRouteIndex: args.token.valueStart,
+          selectedRouteAddress: finalSelectedRoute.routeAddress,
+          value,
+        };
+      });
   }
 
   if (searchParamSuggestion.valueType !== "completion") {
@@ -500,8 +507,9 @@ function readValueRows(args: {
 
   const colorValueCursor = readTailwindColorValueCursor(args.valuePrefix);
   if (colorValueCursor.kind === "family") {
-    return readTailwindColorFamilyValues(searchParamSuggestion.valueSuggestions).map(
-      (value): Suggestion => {
+    return readTailwindColorFamilyValues(searchParamSuggestion.valueSuggestions)
+      .filter((value) => value.startsWith(args.valuePrefix))
+      .map((value): Suggestion => {
         const sampleValue = readTailwindColorFamilySampleValue(
           value,
           searchParamSuggestion.sampleValue,
@@ -525,14 +533,13 @@ function readValueRows(args: {
           }),
           value: sampleValue,
         };
-      },
-    );
+      });
   }
 
   const shadePrefix = `${colorValueCursor.family}-`;
 
   return searchParamSuggestion.valueSuggestions
-    .filter((value) => value.startsWith(shadePrefix))
+    .filter((value) => value.startsWith(args.valuePrefix))
     .map((value): Suggestion => {
       const selectedRouteAddress = replaceRouteAddressSearchValue({
         routeAddress: args.routeAddress,
@@ -672,7 +679,8 @@ export function readSuggestions(args: {
   const cursorContext = readRouteAddressCursorContext(routeAddressParts, selectionRouteIndex);
 
   if (cursorContext.kind === "path") {
-    return readPathRows(args);
+    const pathPrefix = routeAddressParts.path.slice(0, selectionRouteIndex);
+    return readPathRows(args).filter((suggestion) => suggestion.value.startsWith(pathPrefix));
   }
 
   if (cursorContext.kind === "hash") {
@@ -699,6 +707,10 @@ export function readSuggestions(args: {
     return readSearchRows({
       routeAddress: args.routeAddress,
       routeSearchParamSuggestions,
+      searchKeyPrefix: cursorContext.token.key.slice(
+        0,
+        selectionRouteIndex - cursorContext.token.tokenStart - 1,
+      ),
       searchKeyToken: cursorContext.token,
       viewer: args.viewer,
     });
