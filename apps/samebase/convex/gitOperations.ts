@@ -1,5 +1,26 @@
 import { v } from "convex/values";
-import { internalMutation, internalQuery } from "./_generated/server";
+import { internalMutation, internalQuery, type MutationCtx } from "./_generated/server";
+import { components } from "./_generated/api";
+
+/** Root storage and component reference checks share the caller's mutation. */
+export async function deleteReleasedStagingStorage(
+  ctx: Pick<MutationCtx, "db" | "storage" | "runQuery">,
+  releasedStorageIds: string[],
+) {
+  for (const storageKey of new Set(releasedStorageIds)) {
+    const storageId = ctx.db.system.normalizeId("_storage", storageKey);
+    if (!storageId) throw new Error("Staged storage reference is invalid.");
+    const staged = await ctx.runQuery(components.gitWorkspace.staging.hasStorageReference, {
+      storageId: storageKey,
+    });
+    if (staged) continue;
+    const cached = await ctx.db
+      .query("observations_repositoryFiles_blobs")
+      .withIndex("by_storageId", (q) => q.eq("storageId", storageId))
+      .first();
+    if (!cached) await ctx.storage.delete(storageId);
+  }
+}
 
 // MARK: Public
 

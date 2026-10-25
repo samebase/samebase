@@ -13,7 +13,7 @@ vi.mock("./githubAppAccess", async (importOriginal) => {
   };
 });
 
-import { api, internal } from "./_generated/api";
+import { api, components, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { makeConvexTest } from "./test.setup";
 
@@ -55,7 +55,9 @@ function createFakeGitHub(files: Map<string, Map<string, string>>) {
     rest: {
       git: {
         getTree: vi.fn(async (args: { tree_sha: string }) => ({
-          data: readTree(args.tree_sha.replace(/^(heads\/|tree-)/, "")),
+          data: readTree(
+            args.tree_sha === "head-tree" ? "main" : args.tree_sha.replace(/^(heads\/|tree-)/, ""),
+          ),
         })),
         getBlob: vi.fn(async (args: { file_sha: string }) => {
           const content = Array.from(files.values())
@@ -155,45 +157,52 @@ async function insertStagedFile(
     content: string;
   },
 ) {
-  return await t.run(async (ctx) => {
-    return await ctx.db.insert("repositoryStagedFiles", {
-      repositoryId: args.repositoryId,
-      branch: args.branch,
-      filePath: args.filePath,
-      initialFilePath: args.filePath,
-      fileDeleted: false,
-      kind: "text",
-      content: args.content,
-      initialContent: args.initialContent,
-      parentCommitSha: gitBlobSha(args.initialContent),
-      lastEditTime: 1,
-      lastEditUserId: args.userId,
-      version: 0,
-    });
+  const file = await t.mutation(components.gitWorkspace.staging.saveToStaging, {
+    repositoryId: args.repositoryId,
+    branch: args.branch,
+    initialFilePath: args.filePath,
+    content: args.content,
+    initialContent: args.initialContent,
+    parentCommitSha: gitBlobSha(args.initialContent),
+    userId: args.userId,
   });
+  return file._id;
 }
 
-async function readStagedFiles(t: ConvexTest) {
-  return await t.run(async (ctx) => {
-    const rows = await ctx.db.query("repositoryStagedFiles").collect();
-    return rows
-      .map((row) => ({
-        branch: row.branch,
-        filePath: row.filePath,
-        initialFilePath: row.initialFilePath,
-        content: row.content,
-        initialContent: row.initialContent,
-        parentCommitSha: row.parentCommitSha,
-      }))
-      .sort((left, right) => left.filePath.localeCompare(right.filePath));
+async function readStagedFiles(t: ConvexTest, repositoryId: Id<"repositories">) {
+  const rows = await t.query(components.gitWorkspace.staging.listAllStagedFiles, {
+    repositoryId,
+    includeUnchanged: true,
   });
+  return rows
+    .map((row) => ({
+      branch: row.branch,
+      filePath: row.filePath,
+      initialFilePath: row.initialFilePath,
+      content: row.content,
+      initialContent: row.initialContent,
+      parentCommitSha: row.parentCommitSha,
+    }))
+    .sort((left, right) => left.filePath.localeCompare(right.filePath));
 }
 
-async function readCollaborativeUpdatePaths(t: ConvexTest) {
-  return await t.run(async (ctx) => {
-    const updates = await ctx.db.query("repositoryStagedFileUpdates").collect();
-    return updates.map((update) => `${update.branch}:${update.filePath}`).sort();
-  });
+async function readCollaborativeUpdatePaths(
+  t: ConvexTest,
+  repositoryId: Id<"repositories">,
+  paths: [string, string][],
+) {
+  const updates = await Promise.all(
+    paths.map(async ([branch, filePath]) => {
+      const result = await t.query(components.gitWorkspace.collaborative.pullUpdates, {
+        repositoryId,
+        branch,
+        filePath,
+        version: 0,
+      });
+      return result.map(() => branch + ":" + filePath);
+    }),
+  );
+  return updates.flat().sort();
 }
 
 beforeEach(() => {
@@ -203,6 +212,72 @@ beforeEach(() => {
 afterEach(() => {
   vi.useRealTimers();
   vi.clearAllMocks();
+});
+
+describe("saveToStaging", () => {
+  it("preserves a concurrent edit when a delayed open finishes", async () => {
+    const t = makeConvexTest();
+    const { repositoryId, userId } = await seedConnectedRepository(t);
+    const baseContent = "base\n";
+    const editedContent = "base\nconcurrent edit\n";
+
+    // Both open actions can read no staging before either GitHub fetch returns.
+    expect(
+      await t.query(internal.fileStaging.getByOriginalPath, {
+        repositoryId,
+        originalFilePath: "notes.md",
+        branch: "main",
+      }),
+    ).toBeNull();
+
+    await t.mutation(internal.fileStaging.saveToStaging, {
+      repositoryId,
+      initialFilePath: "notes.md",
+      content: baseContent,
+      initialContent: baseContent,
+      parentCommitSha: gitBlobSha(baseContent),
+      branch: "main",
+      userId,
+    });
+    await t.mutation(internal.collaborative.pushContentUpdate, {
+      repositoryId,
+      filePath: "notes.md",
+      branch: "main",
+      expectedVersion: 0,
+      newContent: editedContent,
+      userId,
+    });
+    expect(
+      await t.query(internal.fileStaging.getByOriginalPath, {
+        repositoryId,
+        originalFilePath: "notes.md",
+        branch: "main",
+      }),
+    ).toMatchObject({ content: editedContent, version: 1 });
+
+    // The slower open now returns its older GitHub content.
+    const delayedResult = await t.mutation(internal.fileStaging.saveToStaging, {
+      repositoryId,
+      initialFilePath: "notes.md",
+      content: baseContent,
+      initialContent: baseContent,
+      parentCommitSha: gitBlobSha(baseContent),
+      branch: "main",
+      userId,
+    });
+    const updates = await t.query(components.gitWorkspace.collaborative.pullUpdates, {
+      repositoryId,
+      branch: "main",
+      filePath: "notes.md",
+      version: 0,
+    });
+
+    expect({
+      content: delayedResult.content,
+      version: delayedResult.version,
+      updateVersions: updates.map((update) => update.version),
+    }).toEqual({ content: editedContent, version: 1, updateVersions: [1] });
+  });
 });
 
 describe("commitAllStaged", () => {
@@ -269,7 +344,10 @@ describe("commitAllStaged", () => {
     await t.finishAllScheduledFunctions(vi.runAllTimers);
 
     expect(github.rest.git.updateRef).toHaveBeenCalledOnce();
-    expect(await readStagedFiles(t)).toEqual([
+    expect(
+      await t.query(internal.gitOperations.getBlobBySha, { sha: gitBlobSha("a\nb\n") }),
+    ).toMatchObject({ text: "a\nb\n" });
+    expect(await readStagedFiles(t, repositoryId)).toEqual([
       {
         branch: "main",
         filePath: "notes.md",
@@ -279,7 +357,13 @@ describe("commitAllStaged", () => {
         parentCommitSha: gitBlobSha("a\nb\n"),
       },
     ]);
-    expect(await readCollaborativeUpdatePaths(t)).toEqual(["main:notes.md"]);
+    expect(
+      await readCollaborativeUpdatePaths(t, repositoryId, [
+        ["main", "notes.md"],
+        ["main", "plain.md"],
+        ["main", "undo.md"],
+      ]),
+    ).toEqual(["main:notes.md"]);
   });
 });
 
@@ -325,10 +409,9 @@ describe("pullFromGitHubInternal", () => {
     await t.action(internal.fileStagingActions.pullFromGitHubInternal, { userId, repositoryId });
     await t.finishAllScheduledFunctions(vi.runAllTimers);
 
-    expect((await readStagedFiles(t)).map((row) => `${row.branch}:${row.filePath}`)).toEqual([
-      "merged:draft.md",
-      "main:kept.md",
-    ]);
+    expect(
+      (await readStagedFiles(t, repositoryId)).map((row) => `${row.branch}:${row.filePath}`),
+    ).toEqual(["merged:draft.md", "main:kept.md"]);
   });
 
   it("keeps the base of a staged delete whose file changed upstream", async () => {
@@ -350,8 +433,13 @@ describe("pullFromGitHubInternal", () => {
       initialContent: "old\n",
       content: "old\n",
     });
-    await t.run(async (ctx) => {
-      await ctx.db.patch(stagingId, { fileDeleted: true });
+    await t.mutation(components.gitWorkspace.staging.markFileForDeletion, {
+      repositoryId,
+      branch: "main",
+      filePath: "gone.md",
+      userId,
+      parentCommitSha: gitBlobSha("old\n"),
+      seed: { initialContent: "old\n", kind: "text" },
     });
 
     await t.action(internal.fileStagingActions.pullFromGitHubInternal, { userId, repositoryId });
@@ -363,6 +451,7 @@ describe("pullFromGitHubInternal", () => {
         {
           action: "update",
           stagingId,
+          branch: "main",
           parentCommitSha: gitBlobSha("upstream edit\n"),
           initialContent: "upstream edit\n",
         },
@@ -371,7 +460,11 @@ describe("pullFromGitHubInternal", () => {
 
     expect(
       await t.run(async (ctx) => {
-        const row = await ctx.db.get(stagingId);
+        const row = await ctx.runQuery(components.gitWorkspace.staging.getById, {
+          repositoryId,
+          branch: "main",
+          stagingId,
+        });
         return row && [row.fileDeleted, row.initialContent, row.parentCommitSha];
       }),
     ).toEqual([true, "old\n", gitBlobSha("old\n")]);
@@ -426,17 +519,22 @@ describe("reconcileStagingWithTree", () => {
       repositoryId,
       userId,
       instructions: [
-        { action: "delete", stagingId: editedId },
-        { action: "delete", stagingId: unchangedId },
+        { action: "delete", stagingId: editedId, branch: "main" },
+        { action: "delete", stagingId: unchangedId, branch: "main" },
       ],
     });
     await t.finishAllScheduledFunctions(vi.runAllTimers);
 
-    expect((await readStagedFiles(t)).map((row) => `${row.branch}:${row.filePath}`)).toEqual([
-      "main:edited.md",
-      "feature:other.md",
-    ]);
-    expect(await readCollaborativeUpdatePaths(t)).toEqual(["feature:other.md", "main:edited.md"]);
+    expect(
+      (await readStagedFiles(t, repositoryId)).map((row) => `${row.branch}:${row.filePath}`),
+    ).toEqual(["main:edited.md", "feature:other.md"]);
+    expect(
+      await readCollaborativeUpdatePaths(t, repositoryId, [
+        ["main", "edited.md"],
+        ["main", "unchanged.md"],
+        ["feature", "other.md"],
+      ]),
+    ).toEqual(["feature:other.md", "main:edited.md"]);
   });
 });
 
@@ -460,23 +558,17 @@ describe("deletePendingUploadBlob", () => {
         ctx.storage.store(new Blob(["other"])),
       ]);
     });
-    await t.run(async (ctx) => {
-      await ctx.db.insert("repositoryStagedFiles", {
-        repositoryId: otherRepositoryId,
-        branch: "main",
-        filePath: "image.png",
-        initialFilePath: "image.png",
-        fileDeleted: false,
-        kind: "binary",
-        content: "",
-        initialContent: "",
-        storageId: otherStorageId,
-        stagedBlobSha: "other-blob-sha",
-        parentCommitSha: null,
-        lastEditTime: 1,
-        lastEditUserId: userId,
-        version: 0,
-      });
+    await t.mutation(components.gitWorkspace.staging.saveBinaryUploadToStaging, {
+      repositoryId: otherRepositoryId,
+      branch: "main",
+      filePath: "image.png",
+      storageId: otherStorageId,
+      mime: "image/png",
+      size: 5,
+      stagedBlobSha: "other-blob-sha",
+      parentCommitSha: null,
+      userId,
+      replaceExisting: false,
     });
     const asUser = t.withIdentity({
       subject: userId,
@@ -500,5 +592,187 @@ describe("deletePendingUploadBlob", () => {
         other: (await ctx.db.system.get(otherStorageId)) !== null,
       })),
     ).toEqual({ pending: false, other: true });
+  });
+});
+
+describe("component scope", () => {
+  it.each(["repository", "branch"] as const)(
+    "rejects a document ID from another %s",
+    async (scope) => {
+      const t = makeConvexTest();
+      const { repositoryId, userId } = await seedConnectedRepository(t);
+      const file = await t.mutation(components.gitWorkspace.staging.saveToStaging, {
+        repositoryId: scope === "repository" ? "another-repository" : repositoryId,
+        branch: scope === "branch" ? "feature" : "main",
+        initialFilePath: "notes.md",
+        content: "original",
+        initialContent: "original",
+        parentCommitSha: "original-sha",
+        userId,
+      });
+      const asUser = t.withIdentity({ subject: userId, tokenIdentifier: `test:${userId}` });
+      await expect(
+        asUser.mutation(api.fileStaging.updateStagedFileContent, {
+          repositoryId,
+          branch: "main",
+          stagingId: file._id,
+          expectedVersion: 0,
+          content: "wrong edit",
+        }),
+      ).rejects.toThrow("Staged file belongs to a different repository or branch.");
+      expect(
+        await t.query(components.gitWorkspace.staging.getById, {
+          repositoryId: file.repositoryId,
+          branch: file.branch,
+          stagingId: file._id,
+        }),
+      ).toMatchObject({ content: "original", version: 0 });
+    },
+  );
+});
+
+describe("clearMatchingStagingSnapshot", () => {
+  it("keeps later edits while removing the captured snapshot and its update stream", async () => {
+    const t = makeConvexTest();
+    const { repositoryId, userId } = await seedConnectedRepository(t);
+    for (const filePath of ["remove.md", "keep.md"]) {
+      await insertStagedFile(t, {
+        repositoryId,
+        userId,
+        branch: "main",
+        filePath,
+        initialContent: "base",
+        content: "base",
+      });
+      await t.mutation(internal.collaborative.pushContentUpdate, {
+        repositoryId,
+        userId,
+        branch: "main",
+        filePath,
+        expectedVersion: 0,
+        newContent: "first edit",
+      });
+    }
+    await t.mutation(components.gitWorkspace.staging.rename, {
+      repositoryId,
+      userId,
+      branch: "main",
+      initialFilePath: "remove.md",
+      newPath: "renamed.md",
+      existsInRepository: false,
+    });
+    await t.mutation(internal.collaborative.pushContentUpdate, {
+      repositoryId,
+      userId,
+      branch: "main",
+      filePath: "renamed.md",
+      expectedVersion: 1,
+      newContent: "renamed edit",
+    });
+    const files = await t.query(internal.fileStaging.listAllStagedFiles, {
+      repositoryId,
+      branch: "main",
+      includeUnchanged: true,
+    });
+    const snapshots = files.map(({ _creationTime: _ignored, ...snapshot }) => snapshot);
+    await t.mutation(internal.collaborative.pushContentUpdate, {
+      repositoryId,
+      userId,
+      branch: "main",
+      filePath: "keep.md",
+      expectedVersion: 1,
+      newContent: "later edit",
+    });
+    await t.mutation(internal.fileStaging.clearMatchingStagingSnapshot, {
+      repositoryId,
+      branch: "main",
+      stagedFiles: snapshots,
+    });
+    await t.finishAllScheduledFunctions(vi.runAllTimers);
+    expect(await readStagedFiles(t, repositoryId)).toMatchObject([
+      { filePath: "keep.md", content: "later edit" },
+    ]);
+    expect(
+      await readCollaborativeUpdatePaths(t, repositoryId, [
+        ["main", "remove.md"],
+        ["main", "renamed.md"],
+        ["main", "keep.md"],
+      ]),
+    ).toEqual(["main:keep.md", "main:keep.md"]);
+  });
+});
+
+describe("released binary storage", () => {
+  it("retains shared bytes until staging and blob caches in all repositories release them", async () => {
+    const t = makeConvexTest();
+    const { repositoryId, organizationId, userId } = await seedConnectedRepository(t);
+    const { repositoryId: otherRepositoryId } = await t.mutation(
+      internal.repository.records.createInitializingExistingRepositoryForUser,
+      {
+        organizationId,
+        userId,
+        githubRepositoryDatabaseId: "9002",
+        githubOwnerLogin: "staging",
+        githubRepositoryName: "other",
+      },
+    );
+    const storageId = await t.run(
+      async (ctx) => await ctx.storage.store(new Blob(["shared image"])),
+    );
+    const cachedBlobId = await t.mutation(internal.gitOperations.saveFileBlob, {
+      repositoryId: otherRepositoryId,
+      storageId,
+      sha: "shared-sha",
+      size: 12,
+      mime: "image/png",
+      ext: "png",
+    });
+    for (const targetRepositoryId of [repositoryId, otherRepositoryId]) {
+      await t.mutation(components.gitWorkspace.staging.saveBinaryUploadToStaging, {
+        repositoryId: targetRepositoryId,
+        branch: "main",
+        filePath: "image.png",
+        storageId,
+        mime: "image/png",
+        size: 12,
+        stagedBlobSha: "shared-sha",
+        parentCommitSha: null,
+        userId,
+        replaceExisting: false,
+      });
+    }
+    const asUser = t.withIdentity({ subject: userId, tokenIdentifier: `test:${userId}` });
+    await asUser.mutation(api.fileStaging.clearAllStaging, {
+      repositoryId,
+      branch: "main",
+      skipTreeUpdate: true,
+    });
+    expect(await t.run(async (ctx) => (await ctx.storage.get(storageId)) !== null)).toBe(true);
+    await asUser.mutation(api.fileStaging.clearAllStaging, {
+      repositoryId: otherRepositoryId,
+      branch: "main",
+      skipTreeUpdate: true,
+    });
+    expect(await t.run(async (ctx) => (await ctx.storage.get(storageId)) !== null)).toBe(true);
+    await t.mutation(components.gitWorkspace.staging.saveBinaryUploadToStaging, {
+      repositoryId,
+      branch: "main",
+      filePath: "image.png",
+      storageId,
+      mime: "image/png",
+      size: 12,
+      stagedBlobSha: "shared-sha",
+      parentCommitSha: null,
+      userId,
+      replaceExisting: false,
+    });
+    await t.run(async (ctx) => await ctx.db.delete(cachedBlobId));
+    await asUser.mutation(api.fileStaging.clearAllStaging, {
+      repositoryId,
+      branch: "main",
+      skipTreeUpdate: true,
+    });
+    expect(await t.run(async (ctx) => (await ctx.storage.get(storageId)) !== null)).toBe(false);
+    await t.finishAllScheduledFunctions(vi.runAllTimers);
   });
 });

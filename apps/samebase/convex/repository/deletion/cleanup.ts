@@ -3,13 +3,14 @@ import { internalMutation, type MutationCtx } from "../../_generated/server";
 import type { Doc, Id } from "../../_generated/dataModel";
 import { requireActiveRepositoryDeletionRun } from "../../repositoryWorkflowAuthority";
 import { vRepositoryDeletionCleanupStep, type RepositoryDeletionCleanupStep } from "./model";
+import { components } from "../../_generated/api";
+import { deleteReleasedStagingStorage } from "../../gitOperations";
 
 const { id, literal, number, object, union } = v;
 
 const deleteOnlyByRepositoryCleanupTables = union(
   literal("ui_repositoryPullRequests_filters"),
   literal("ui_repositoryResourceLinks_settings"),
-  literal("repositoryStagedFileUpdates"),
   literal("ui_repositoryFileTree_folderExpansions"),
   literal("repositoryConvexProjects"),
   literal("observations_repositoryConvexSchema_snapshots"),
@@ -23,7 +24,8 @@ type DeleteOnlyByRepositoryCleanupTable = Infer<typeof deleteOnlyByRepositoryCle
 const repositoryLocalCleanupTable = union(
   deleteOnlyByRepositoryCleanupTables,
   literal("ui_repositoryTree_folderAssignments"),
-  literal("repositoryStagedFiles"),
+  literal("gitWorkspace.stagedFiles"),
+  literal("gitWorkspace.fileUpdates"),
   literal("observations_repositoryFiles_blobs"),
   literal("observations_repository_branchTrees"),
   literal("workflow_repositoryProvisioning_events"),
@@ -47,7 +49,7 @@ export type RepositoryLocalCleanupStepBatchResult = Infer<
 
 export const REPOSITORY_LOCAL_CLEANUP_BATCH_SIZE = 50;
 
-type RepositoryLocalCleanupCtx = Pick<MutationCtx, "db" | "storage">;
+type RepositoryLocalCleanupCtx = Pick<MutationCtx, "db" | "storage" | "runQuery" | "runMutation">;
 type RepositoryLocalCleanupArgs = {
   repositoryId: Id<"repositories">;
   runId: Id<"workflow_repositoryDeletion_runs">;
@@ -115,47 +117,39 @@ async function deleteFolderAssignmentsByRepositoryBatch(
   return rows.length;
 }
 
-function deleteStorageBackedByRepositoryBatch(
-  tableName: "repositoryStagedFiles" | "observations_repositoryFiles_blobs",
+async function deleteStorageBackedByRepositoryBatch(
+  ctx: RepositoryLocalCleanupCtx,
+  args: RepositoryLocalCleanupArgs,
+): Promise<number> {
+  const rows = await ctx.db
+    .query("observations_repositoryFiles_blobs")
+    .withIndex("by_repository", (q) => q.eq("repositoryId", args.repositoryId))
+    .take(REPOSITORY_LOCAL_CLEANUP_BATCH_SIZE);
+  const storageIds = new Set<Id<"_storage">>();
+
+  for (const row of rows) {
+    if (row.storageId) {
+      storageIds.add(row.storageId);
+    }
+
+    await ctx.db.delete(row._id);
+  }
+
+  await deleteReleasedStagingStorage(ctx, [...storageIds]);
+
+  return rows.length;
+}
+
+function deleteWorkingCopyBatch(
+  table: "stagedFiles" | "fileUpdates",
 ): RepositoryLocalCleanupHandler {
-  return async function deleteStorageBackedByRepository(ctx, args) {
-    const rows = await ctx.db
-      .query(tableName)
-      .withIndex("by_repository", (q) => q.eq("repositoryId", args.repositoryId))
-      .take(REPOSITORY_LOCAL_CLEANUP_BATCH_SIZE);
-    const storageIds = new Set<Id<"_storage">>();
-
-    for (const row of rows) {
-      if (row.storageId) {
-        storageIds.add(row.storageId);
-      }
-
-      await ctx.db.delete(row._id);
-    }
-
-    for (const storageId of storageIds) {
-      const survivingStaging = await ctx.db
-        .query("repositoryStagedFiles")
-        .withIndex("by_storageId", (q) => q.eq("storageId", storageId))
-        .first();
-
-      if (survivingStaging) {
-        continue;
-      }
-
-      const survivingBlob = await ctx.db
-        .query("observations_repositoryFiles_blobs")
-        .withIndex("by_storageId", (q) => q.eq("storageId", storageId))
-        .first();
-
-      if (survivingBlob) {
-        continue;
-      }
-
-      await ctx.storage.delete(storageId);
-    }
-
-    return rows.length;
+  return async (ctx, args) => {
+    const result = await ctx.runMutation(components.gitWorkspace.staging.deleteRepositoryBatch, {
+      repositoryId: args.repositoryId,
+      table,
+    });
+    await deleteReleasedStagingStorage(ctx, result.releasedStorageIds);
+    return result.rowsChanged;
   };
 }
 
@@ -217,16 +211,16 @@ const repositoryLocalCleanupRegistry = [
     cleanup: deleteFolderAssignmentsByRepositoryBatch,
   },
   {
-    table: "repositoryStagedFiles",
-    cleanup: deleteStorageBackedByRepositoryBatch("repositoryStagedFiles"),
+    table: "gitWorkspace.stagedFiles",
+    cleanup: deleteWorkingCopyBatch("stagedFiles"),
   },
   {
-    table: "repositoryStagedFileUpdates",
-    cleanup: deleteByRepositoryBatch("repositoryStagedFileUpdates"),
+    table: "gitWorkspace.fileUpdates",
+    cleanup: deleteWorkingCopyBatch("fileUpdates"),
   },
   {
     table: "observations_repositoryFiles_blobs",
-    cleanup: deleteStorageBackedByRepositoryBatch("observations_repositoryFiles_blobs"),
+    cleanup: deleteStorageBackedByRepositoryBatch,
   },
   {
     table: "ui_repositoryFileTree_folderExpansions",
@@ -275,8 +269,8 @@ const repositoryLocalCleanupRegistry = [
 
 const repositoryLocalCleanupRegistryByStep = {
   cleanup_editor_state: [
-    "repositoryStagedFiles",
-    "repositoryStagedFileUpdates",
+    "gitWorkspace.stagedFiles",
+    "gitWorkspace.fileUpdates",
     "observations_repositoryFiles_blobs",
   ],
   cleanup_source_caches: [

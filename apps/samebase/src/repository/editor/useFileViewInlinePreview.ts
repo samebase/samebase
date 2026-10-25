@@ -2,7 +2,8 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import type { ProsemarkMergeEditorOptions } from "@/components/ProsemarkMergeEditor";
 import { getReviewSplitDiffHighlights } from "@/repository/editor/reviewSplitDiff";
 import { usePageLeaveGuard } from "@/lib/pageLeaveGuard";
-import { isStaleBaseVersionError } from "../../../shared/stagingErrors";
+import { isStaleBaseVersionError } from "@samebase/git-workspace/stagingErrors";
+import type { api } from "../../../convex/_generated/api";
 import {
   buildInlinePreviewAutosaveContextKey,
   type CommitReviewMode,
@@ -14,13 +15,14 @@ import {
   type StagedFileRecord,
 } from "./fileViewShared";
 
-type UpdateStagedFileContent = (args: {
-  stagingId: StagedFileRecord["_id"];
-  content: string;
-  expectedVersion: number;
-}) => Promise<Pick<StagedFileRecord, "version">>;
+type UpdateStagedFileContentArgs = (typeof api.fileStaging.updateStagedFileContent)["_args"];
+type UpdateStagedFileContent = (
+  args: UpdateStagedFileContentArgs,
+) => Promise<Pick<StagedFileRecord, "version">>;
 
 export function useFileViewInlinePreview({
+  repositoryId,
+  branch,
   commitReviewMode,
   selectedFile,
   selectedPreviewBaseContent,
@@ -28,6 +30,8 @@ export function useFileViewInlinePreview({
   selectedPreviewStagedFile,
   updateStagedFileContent,
 }: {
+  repositoryId: UpdateStagedFileContentArgs["repositoryId"];
+  branch: string;
   commitReviewMode: CommitReviewMode;
   selectedFile: string;
   selectedPreviewBaseContent: string;
@@ -116,6 +120,8 @@ export function useFileViewInlinePreview({
         setInlinePreviewInFlightSave(nextSave);
       }
       void updateStagedFileContent({
+        repositoryId,
+        branch,
         stagingId: nextSave.stagingId,
         content: nextSave.content,
         expectedVersion: nextSave.baseVersion,
@@ -156,7 +162,7 @@ export function useFileViewInlinePreview({
           setInlinePreviewSaveError(message);
         });
     },
-    [updateStagedFileContent],
+    [branch, repositoryId, updateStagedFileContent],
   );
 
   const flushPendingInlinePreviewSave = useCallback(() => {

@@ -29,13 +29,13 @@ const testState = vi.hoisted(() => ({
 vi.mock("convex/react", async (importOriginal) => {
   const actual = await importOriginal<typeof import("convex/react")>();
   const client = { mutation: testState.mutation, query: testState.query };
-  return { ...actual, useConvex: () => client };
+  return {
+    ...actual,
+    useConvex: () => client,
+    useQuery: (_reference: unknown, args: { version: number }) =>
+      testState.pulledUpdatesByVersion.get(args.version),
+  };
 });
-
-vi.mock("@/lib/convexQueryCache", () => ({
-  useCacheQuery: (_reference: unknown, args: { version: number }) =>
-    testState.pulledUpdatesByVersion.get(args.version),
-}));
 
 vi.mock("@/repository/editor/useProjectFiles", () => ({
   useProjectFiles: () => ({ files: [], scopePrefix: "" }),

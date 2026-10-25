@@ -479,6 +479,9 @@ importers:
       '@samebase/dependent':
         specifier: workspace:*
         version: link:../../packages/dependent
+      '@samebase/git-workspace':
+        specifier: workspace:*
+        version: link:../../packages/git-workspace
       '@samebase/logo-model':
         specifier: workspace:*
         version: link:../../packages/logo-model
@@ -820,6 +823,49 @@ importers:
         version: 1.3.0(@arethetypeswrong/core@0.18.5)(@edge-runtime/vm@5.0.0)(@opentelemetry/api@1.9.1)(@types/node@24.19.2)(@typescript/native-preview@7.0.0-dev.20260707.2)(@vitest/ui@5.0.5)(esbuild@0.28.2)(jiti@2.7.0)(jsdom@30.1.2(@noble/hashes@2.4.0))(msw@2.13.4(@types/node@24.19.2)(typescript@6.0.3))(playwright@1.58.2)(publint@0.3.25)(terser@5.49.0)(typescript@6.0.3)(yaml@2.9.1)
 
   packages/dependent: {}
+
+  packages/git-workspace:
+    dependencies:
+      '@codemirror/collab':
+        specifier: ^6.1.1
+        version: 6.1.1
+      '@codemirror/state':
+        specifier: ^6.7.6
+        version: 6.7.6
+      '@codemirror/view':
+        specifier: ^6.43.14
+        version: 6.43.14
+      '@monaco-editor/react':
+        specifier: ^4.7.0
+        version: 4.7.0(monaco-editor@0.57.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+      '@octokit/rest':
+        specifier: ^22.0.1
+        version: 22.0.1
+      convex:
+        specifier: ^1.48.0
+        version: 1.48.0(react@19.3.0)
+      diff:
+        specifier: ^9.0.0
+        version: 9.0.0
+      react:
+        specifier: ^19.3.0
+        version: 19.3.0
+    devDependencies:
+      '@types/node':
+        specifier: ^24.19.2
+        version: 24.19.2
+      '@types/react':
+        specifier: ^19.3.0
+        version: 19.3.0
+      convex-test:
+        specifier: ^0.0.61
+        version: 0.0.61(convex@1.48.0(react@19.3.0))
+      vite:
+        specifier: npm:@voidzero-dev/vite-plus-core@1.3.0
+        version: '@voidzero-dev/vite-plus-core@1.3.0(@arethetypeswrong/core@0.18.5)(@types/node@24.19.2)(@typescript/native-preview@7.0.0-dev.20260707.2)(esbuild@0.28.2)(jiti@2.7.0)(publint@0.3.25)(terser@5.49.0)(typescript@6.0.3)(yaml@2.9.1)'
+      vite-plus:
+        specifier: 'catalog:'
+        version: 1.3.0(@arethetypeswrong/core@0.18.5)(@edge-runtime/vm@5.0.0)(@opentelemetry/api@1.9.1)(@types/node@24.19.2)(@typescript/native-preview@7.0.0-dev.20260707.2)(@vitest/ui@5.0.5)(esbuild@0.28.2)(jiti@2.7.0)(jsdom@30.1.2(@noble/hashes@2.4.0))(msw@2.13.4(@types/node@24.19.2)(typescript@6.0.3))(playwright@1.58.2)(publint@0.3.25)(terser@5.49.0)(typescript@6.0.3)(yaml@2.9.1)
 
   packages/logo-model:
     dependencies:

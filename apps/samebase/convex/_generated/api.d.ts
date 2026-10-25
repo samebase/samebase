@@ -169,6 +169,7 @@ import type * as repository_editorModel from "../repository/editorModel.js";
 import type * as repository_eventOrderModel from "../repository/eventOrderModel.js";
 import type * as repository_fixtures_observedAlchemyState from "../repository/fixtures/observedAlchemyState.js";
 import type * as repository_fixtures_observedConvexComponents from "../repository/fixtures/observedConvexComponents.js";
+import type * as repository_fixtures_observedConvexCustomDomains from "../repository/fixtures/observedConvexCustomDomains.js";
 import type * as repository_fixtures_observedSamebaseAlchemyState from "../repository/fixtures/observedSamebaseAlchemyState.js";
 import type * as repository_fixtures_observedScoutR2Resources from "../repository/fixtures/observedScoutR2Resources.js";
 import type * as repository_fixtures_observedSetupOutput from "../repository/fixtures/observedSetupOutput.js";
@@ -206,8 +207,6 @@ import type * as repositoryProvisioningWorkflowActions from "../repositoryProvis
 import type * as repositoryPullRequests from "../repositoryPullRequests.js";
 import type * as repositoryWorkflowAuthority from "../repositoryWorkflowAuthority.js";
 import type * as slugUtils from "../slugUtils.js";
-import type * as stagingChanges from "../stagingChanges.js";
-import type * as stagingRebase from "../stagingRebase.js";
 import type * as starterSeed from "../starterSeed.js";
 import type * as toolRuntime_actionCatalog from "../toolRuntime/actionCatalog.js";
 import type * as toolRuntime_convexSchemas from "../toolRuntime/convexSchemas.js";
@@ -388,6 +387,7 @@ declare const fullApi: ApiFromModules<{
   "repository/eventOrderModel": typeof repository_eventOrderModel;
   "repository/fixtures/observedAlchemyState": typeof repository_fixtures_observedAlchemyState;
   "repository/fixtures/observedConvexComponents": typeof repository_fixtures_observedConvexComponents;
+  "repository/fixtures/observedConvexCustomDomains": typeof repository_fixtures_observedConvexCustomDomains;
   "repository/fixtures/observedSamebaseAlchemyState": typeof repository_fixtures_observedSamebaseAlchemyState;
   "repository/fixtures/observedScoutR2Resources": typeof repository_fixtures_observedScoutR2Resources;
   "repository/fixtures/observedSetupOutput": typeof repository_fixtures_observedSetupOutput;
@@ -425,8 +425,6 @@ declare const fullApi: ApiFromModules<{
   repositoryPullRequests: typeof repositoryPullRequests;
   repositoryWorkflowAuthority: typeof repositoryWorkflowAuthority;
   slugUtils: typeof slugUtils;
-  stagingChanges: typeof stagingChanges;
-  stagingRebase: typeof stagingRebase;
   starterSeed: typeof starterSeed;
   "toolRuntime/actionCatalog": typeof toolRuntime_actionCatalog;
   "toolRuntime/convexSchemas": typeof toolRuntime_convexSchemas;
@@ -474,4 +472,5 @@ export declare const components: {
   workflow: import("@convex-dev/workflow/_generated/component.js").ComponentApi<"workflow">;
   mail: import("@samebase/convex-cloudflare-email-inbox/_generated/component.js").ComponentApi<"mail">;
   hosting: import("@samebase/convex-hosting/_generated/component.js").ComponentApi<"hosting">;
+  gitWorkspace: import("@samebase/git-workspace/_generated/component.js").ComponentApi<"gitWorkspace">;
 };

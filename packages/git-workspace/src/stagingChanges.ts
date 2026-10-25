@@ -1,3 +1,5 @@
+import type { Infer } from "convex/values";
+import type { stagedFilesCategoryCounts, StagedFile } from "./model.js";
 export type StagedFileKind = "text" | "binary";
 
 export type StagedFileStatus = "added" | "modified" | "renamed" | "deleted";
@@ -63,4 +65,36 @@ export function getStagedFileStatus(file: StagedFileChangeCandidate): StagedFile
     return "modified";
   }
   return null;
+}
+
+type StagedFileSummaryInput = StagedFileChangeCandidate & Pick<StagedFile, "branch">;
+type StagedFilesCategoryCounts = Infer<typeof stagedFilesCategoryCounts>;
+export function summarizeStagedFilesByBranch(files: StagedFileSummaryInput[]) {
+  const countsByBranch = new Map<string, StagedFilesCategoryCounts>();
+  for (const file of files) {
+    if (!hasStagedFileChanges(file)) continue;
+    const category = file.fileDeleted
+      ? "deleted"
+      : file.parentCommitSha === null
+        ? "new"
+        : file.filePath !== file.initialFilePath
+          ? hasStagedFileContentChange(file)
+            ? "renamedAndModified"
+            : "renamed"
+          : "modified";
+    const counts = countsByBranch.get(file.branch) ?? {
+      modified: 0,
+      deleted: 0,
+      new: 0,
+      renamed: 0,
+      renamedAndModified: 0,
+      total: 0,
+    };
+    counts[category] += 1;
+    counts.total += 1;
+    countsByBranch.set(file.branch, counts);
+  }
+  return Array.from(countsByBranch, ([branch, counts]) => ({ branch, counts })).sort(
+    (left, right) => left.branch.localeCompare(right.branch),
+  );
 }

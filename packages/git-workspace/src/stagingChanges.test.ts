@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { hasStagedFileChanges } from "./stagedFiles";
+import { hasStagedFileChanges } from "./stagingChanges";
 
 describe("hasStagedFileChanges", () => {
   const unchanged = {

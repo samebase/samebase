@@ -6,6 +6,7 @@ import { registerGoogleOauth } from "@convex-dev/auth/components/google/test";
 import { registerPasswordProvider } from "@convex-dev/auth/components/password/test";
 import workflowTest from "@convex-dev/workflow/test";
 import { register as registerEmailInbox } from "@samebase/convex-cloudflare-email-inbox/test";
+import { register as registerGitWorkspace } from "@samebase/git-workspace/test";
 import { convexTest } from "convex-test";
 import { vi } from "vitest";
 
@@ -30,6 +31,7 @@ export function makeConvexTest() {
   const t = convexTest(schema, modules);
   workflowTest.register(t);
   registerEmailInbox(t, "mail");
+  registerGitWorkspace(t, "gitWorkspace");
   registerCore(t);
   registerGithubOauth(t);
   registerGoogleOauth(t);

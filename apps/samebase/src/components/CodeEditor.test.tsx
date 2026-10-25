@@ -16,12 +16,8 @@ const testState = vi.hoisted(() => ({
 vi.mock("convex/react", async (importOriginal) => {
   const actual = await importOriginal<typeof import("convex/react")>();
   const client = { mutation: testState.mutation, query: testState.query };
-  return { ...actual, useConvex: () => client };
+  return { ...actual, useConvex: () => client, useQuery: () => undefined };
 });
-
-vi.mock("@/lib/convexQueryCache", () => ({
-  useCacheQuery: () => undefined,
-}));
 
 vi.mock("./MonacoEditor", () => ({
   MonacoEditor: () => null,

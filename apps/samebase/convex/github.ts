@@ -16,7 +16,7 @@ import {
   isSvgRepositoryMediaPath,
 } from "../shared/repositoryMedia";
 import { TREE_REFRESH_DEBOUNCE_MS, TREE_REFRESH_FAILURE_COOLDOWN_MS } from "../shared/treeRefresh";
-import { readStagedFileKind } from "./stagingChanges";
+import { readStagedFileKind } from "@samebase/git-workspace/stagingChanges";
 import type { GitHubTreeData } from "./repository/model";
 
 const { array, boolean, id, literal, number, object, optional, string, union } = v;

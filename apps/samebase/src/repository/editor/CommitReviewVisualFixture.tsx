@@ -244,7 +244,6 @@ const DELETED_STAGED_CATEGORIES_FIXTURE = {
   new: [],
 };
 
-// @ts-expect-error Visual fixtures use plain string ids instead of Convex-branded ids.
 const DELETED_STAGED_CATEGORIES: FixtureEditedFileCategories = DELETED_STAGED_CATEGORIES_FIXTURE;
 
 function FixtureRouteLabel() {

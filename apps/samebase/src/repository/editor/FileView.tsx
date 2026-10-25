@@ -1833,6 +1833,8 @@ function FileViewInner({
     showInlinePreviewPatch,
     showInlinePreviewSideBySide,
   } = useFileViewInlinePreview({
+    repositoryId: repository.repositoryId,
+    branch,
     commitReviewMode,
     selectedFile,
     selectedPreviewBaseContent,

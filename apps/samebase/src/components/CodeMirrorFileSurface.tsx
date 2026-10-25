@@ -97,8 +97,6 @@ export function CodeMirrorFileSurface({
           doc: initialValueRef.current,
           selection: prosemarkSelectionAnchor,
           extensions: [
-            // Collaborative updates and selection offsets preserve CR as line content.
-            EditorState.lineSeparator.of("\n"),
             ...fileCodeMirrorBaseExtensions,
             languageCompartment.of(getInitialCodeMirrorLanguageExtension(filePath)),
             prosemarkBasicSetup(),

@@ -1,14 +1,10 @@
 export const STALE_BASE_VERSION_ERROR_CODE = "STALE_BASE_VERSION";
 
-function buildErrorCodePrefix(code: string): string {
-  return `[${code}]`;
-}
-
 export function buildStaleBaseVersionErrorMessage(args: {
   expectedVersion: number;
   actualVersion: number;
 }): string {
-  return `${buildErrorCodePrefix(STALE_BASE_VERSION_ERROR_CODE)} pushContentUpdate failed: stale base version (expected ${args.expectedVersion}, got ${args.actualVersion})`;
+  return `[${STALE_BASE_VERSION_ERROR_CODE}] pushContentUpdate failed: stale base version (expected ${args.expectedVersion}, got ${args.actualVersion})`;
 }
 
 export function readTaggedErrorCode(error: unknown): string | null {
