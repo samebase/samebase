@@ -862,6 +862,96 @@ describe("createCommitWithMultipleFiles", () => {
     vi.spyOn(octokit.rest.git, "getTree").mockResolvedValue(makeGetTreeResponse("head-tree", []));
   });
 
+  it("preserves upstream same-file edits and acknowledgement content after a ref retry", async () => {
+    const baseContent = `Title\nlocal base\n\nFooter\n`;
+    const stagedContent = `Title\nlocal changed\n\nFooter\n`;
+    const upstreamContent = `Title\nlocal base\n\nFooter\nupstream addition\n`;
+    const expectedContent = `Title\nlocal changed\n\nFooter\nupstream addition\n`;
+    const trees = new Map([
+      ["tree-before", baseContent],
+      ["tree-after", upstreamContent],
+    ]);
+    const commits = new Map<string, { tree: string; parent: string | null }>([
+      ["head-before", { tree: "tree-before", parent: null }],
+      ["head-after", { tree: "tree-after", parent: "head-before" }],
+    ]);
+    let head = "head-before";
+    let didAdvanceUpstream = false;
+
+    vi.spyOn(octokit.rest.git, "getTree").mockImplementation(async ({ tree_sha }) =>
+      makeGetTreeResponse(tree_sha, [
+        { path: "notes.md", sha: tree_sha === "tree-before" ? "blob-before" : "blob-after" },
+      ]),
+    );
+    vi.spyOn(octokit.rest.git, "getBlob").mockImplementation(async ({ file_sha }) =>
+      makeGetBlobResponse(file_sha, file_sha === "blob-before" ? baseContent : upstreamContent),
+    );
+    vi.spyOn(octokit.rest.git, "getRef").mockImplementation(async () => makeGetRefResponse(head));
+    vi.spyOn(octokit.rest.git, "getCommit").mockImplementation(async ({ commit_sha }) => {
+      const commit = commits.get(commit_sha);
+      if (!commit) throw new Error("Unknown probe commit");
+      return makeGetCommitResponse(commit.tree, commit_sha);
+    });
+    vi.spyOn(octokit.rest.git, "createTree").mockImplementation(async ({ base_tree, tree }) => {
+      const base = base_tree ? trees.get(base_tree) : undefined;
+      if (base === undefined) throw new Error("Unknown probe tree");
+      const entry = tree.find((candidate) => candidate.path === "notes.md");
+      const treeSha = `created-tree-${trees.size}`;
+      trees.set(treeSha, entry ? readInlineContent(entry) : base);
+      return makeCreateTreeResponse(treeSha);
+    });
+    vi.spyOn(octokit.rest.git, "createCommit").mockImplementation(async ({ tree, parents }) => {
+      const parent = parents?.[0];
+      if (!parent) throw new Error("Probe commit needs a parent");
+      const commitSha = `created-commit-${commits.size}`;
+      commits.set(commitSha, { tree, parent });
+      return makeCreateCommitResponse(tree, commitSha);
+    });
+    vi.spyOn(octokit.rest.git, "updateRef").mockImplementation(async ({ sha, force }) => {
+      if (!didAdvanceUpstream) {
+        didAdvanceUpstream = true;
+        head = "head-after";
+        throw Object.assign(new Error("Reference update failed: not a fast forward"), {
+          status: 422,
+        });
+      }
+      const commit = commits.get(sha);
+      if (!commit || commit.parent !== head || force) {
+        throw new Error("Probe accepts only a fast-forward child of the current head");
+      }
+      head = sha;
+      return makeUpdateRefResponse(sha);
+    });
+
+    const result = await createCommitWithMultipleFiles({
+      octokit,
+      owner: "test-owner",
+      repo: "test-repo",
+      stagedFiles: [
+        {
+          filePath: "notes.md",
+          content: stagedContent,
+          fileDeleted: false,
+          initialFilePath: "notes.md",
+          initialContent: baseContent,
+          parentCommitSha: "blob-before",
+          snapshot: { content: stagedContent, version: 1 },
+        },
+      ],
+      branch: "main",
+    });
+
+    const published = commits.get(head);
+    if (!published) throw new Error("Probe did not publish a commit");
+    const actual = { parent: published.parent, content: trees.get(published.tree) };
+    expect(actual).toEqual({ parent: "head-after", content: expectedContent });
+    expect(result.committedFiles[0]).toMatchObject({
+      content: expectedContent,
+      initialContent: upstreamContent,
+      snapshot: { content: stagedContent, version: 1 },
+    });
+  });
+
   /**
    * Test 1: Single file edit
    * Input: One modified file
@@ -990,7 +1080,7 @@ describe("createCommitWithMultipleFiles", () => {
 
     expect(getTreeSpy).toHaveBeenCalledWith(
       expect.objectContaining({
-        tree_sha: `heads/${targetBranch}`,
+        tree_sha: "tree123",
       }),
     );
 
@@ -1209,7 +1299,7 @@ describe("createCommitWithMultipleFiles", () => {
     });
   });
 
-  it("Test 1c: skipRebase avoids extra head-tree lookups", async () => {
+  it("rebases against the attempted parent tree before writing", async () => {
     vi.spyOn(octokit.rest.git, "getRef").mockResolvedValue(makeGetRefResponse("abc123"));
     vi.spyOn(octokit.rest.git, "getCommit").mockResolvedValue(
       makeGetCommitResponse("tree123", "abc123"),
@@ -1239,10 +1329,14 @@ describe("createCommitWithMultipleFiles", () => {
         },
       ],
       branch: "main",
-      skipRebase: true,
     });
 
-    expect(getTreeSpy).not.toHaveBeenCalled();
+    expect(getTreeSpy).toHaveBeenCalledExactlyOnceWith({
+      owner: "test-owner",
+      repo: "test-repo",
+      tree_sha: "tree123",
+      recursive: "1",
+    });
     expect(getBlobSpy).not.toHaveBeenCalled();
 
     const createTreeCall = createTreeSpy.mock.calls[0]?.[0];

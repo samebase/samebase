@@ -487,7 +487,7 @@ async function getTreeMapForRef(args: {
   const treeResponse = await args.octokit.rest.git.getTree({
     owner: args.owner,
     repo: args.repo,
-    tree_sha: toGitTreeRef(args.ref),
+    tree_sha: args.ref,
     recursive: "1",
   });
 
@@ -515,7 +515,7 @@ async function getBranchTreeMap(args: {
     octokit: args.octokit,
     owner: args.owner,
     repo: args.repo,
-    ref: args.branch,
+    ref: toGitTreeRef(args.branch),
   });
 }
 
@@ -828,6 +828,32 @@ export async function inspectStagedFilesAgainstLatestHead<File extends StagedFil
     return { rebasedFiles: [], conflicts: [] };
   }
 
+  const shaByPath = await getBranchTreeMap({
+    octokit: args.octokit,
+    owner: args.owner,
+    repo: args.repo,
+    branch: args.branch,
+  });
+  return inspectStagedFilesAgainstTree({
+    octokit: args.octokit,
+    owner: args.owner,
+    repo: args.repo,
+    stagedFiles: args.stagedFiles,
+    shaByPath,
+  });
+}
+
+async function inspectStagedFilesAgainstTree<File extends StagedFileForCommit>(args: {
+  octokit: Octokit;
+  owner: string;
+  repo: string;
+  stagedFiles: File[];
+  shaByPath: Map<string, string>;
+}): Promise<{
+  rebasedFiles: File[];
+  conflicts: StagedFileRebaseConflict[];
+}> {
+  const { shaByPath } = args;
   const initialContentMatchesUpstreamCache = new Map<
     StagedFileForCommit,
     { upstreamSha: string; matches: boolean }
@@ -852,13 +878,6 @@ export async function inspectStagedFilesAgainstLatestHead<File extends StagedFil
   };
   const shouldSkipFastPathRebase = (file: StagedFileForCommit, upstreamSha: string): boolean =>
     upstreamSha === file.parentCommitSha && initialContentMatchesUpstream(file, upstreamSha);
-
-  const shaByPath = await getBranchTreeMap({
-    octokit: args.octokit,
-    owner: args.owner,
-    repo: args.repo,
-    branch: args.branch,
-  });
 
   const blobTextBySha = new Map<string, Promise<string>>();
   const getBlobText = (sha: string): Promise<string> => {
@@ -3079,13 +3098,13 @@ export const getBranchComparePreview = action({
       octokit,
       owner: repository.githubOwnerLogin,
       repo: repository.githubRepositoryName,
-      ref: mergeBaseSha,
+      ref: toGitTreeRef(mergeBaseSha),
     });
     const headShaByPath = await getTreeMapForRef({
       octokit,
       owner: repository.githubOwnerLogin,
       repo: repository.githubRepositoryName,
-      ref: branch,
+      ref: toGitTreeRef(branch),
     });
     const blobBufferBySha = new Map<string, Promise<Uint8Array>>();
     const getBlobBufferBySha = (sha: string): Promise<Uint8Array> => {
@@ -3219,7 +3238,7 @@ export const restoreComparedDeletedFileToStaging = action({
         octokit,
         owner: repository.githubOwnerLogin,
         repo: repository.githubRepositoryName,
-        ref: mergeBaseSha,
+        ref: toGitTreeRef(mergeBaseSha),
       });
       const basePath =
         typeof args.previousPath === "string" && baseShaByPath.has(args.previousPath)
@@ -3390,22 +3409,20 @@ export const getRebaseConflictBundle = action({
 // MARK: Internal
 
 // Helper function to create a commit with multiple files
-export async function createCommitWithMultipleFiles({
+export async function createCommitWithMultipleFiles<File extends StagedFileForCommit>({
   octokit,
   owner,
   repo,
   stagedFiles,
   branch,
   loadStorageBlob,
-  skipRebase = false,
 }: {
   octokit: Octokit;
   owner: string;
   repo: string;
-  stagedFiles: StagedFileForCommit[];
+  stagedFiles: File[];
   branch: string;
   loadStorageBlob?: (storageId: Id<"_storage">) => Promise<Blob | null>;
-  skipRebase?: boolean;
 }) {
   // Helper to compute modified (added) line ranges in the new content
   const computeModifiedLineRanges = (
@@ -3433,142 +3450,11 @@ export async function createCommitWithMultipleFiles({
     return ranges;
   };
 
-  const normalizedStagedFiles: StagedFileForCommit[] = stagedFiles.map((file) => ({
+  const normalizedStagedFiles = stagedFiles.map((file) => ({
     ...file,
     initialContent: file.initialContent,
     branch,
   }));
-
-  const resolvedStagedFiles = skipRebase
-    ? normalizedStagedFiles
-    : await rebaseStagedFilesOnLatestHead({
-        octokit,
-        owner,
-        repo,
-        branch,
-        stagedFiles: normalizedStagedFiles,
-      });
-  const changedResolvedStagedFiles = resolvedStagedFiles.filter(hasStagedFileChanges);
-
-  // Summarize all changes to craft a commit message
-  const changesInfo: Array<{
-    deleted: boolean;
-    isBinary: boolean;
-    modifiedLines: Array<{ from: number; to: number }>;
-    filePath: string;
-    initialFilePath: string;
-    wasModified: boolean;
-  }> = changedResolvedStagedFiles.map((file) => ({
-    deleted: file.fileDeleted,
-    isBinary: isBinaryStagedFile(file),
-    filePath: file.filePath,
-    initialFilePath: file.initialFilePath,
-    modifiedLines:
-      file.fileDeleted || isBinaryStagedFile(file)
-        ? []
-        : computeModifiedLineRanges(file.initialContent, file.content),
-    wasModified: !file.fileDeleted && hasStagedFileContentChange(file),
-  }));
-
-  // 1. Prepare file lists
-  const pathsToDelete = new Set<string>();
-  const filesToAdd: Array<
-    | {
-        kind: "text";
-        filePath: string;
-        content: string;
-      }
-    | {
-        kind: "binary";
-        filePath: string;
-        parentCommitSha: string | null;
-        storageId?: Id<"_storage">;
-        stagedBlobSha?: string;
-      }
-  > = [];
-
-  for (const file of changedResolvedStagedFiles) {
-    if (file.fileDeleted) {
-      // Only delete paths that actually exist in the repo. A renamed row still
-      // exists upstream at initialFilePath.
-      if (file.parentCommitSha !== null) {
-        pathsToDelete.add(file.initialFilePath);
-      }
-    } else {
-      const isRenamed = file.filePath !== file.initialFilePath;
-      if (isRenamed && file.parentCommitSha !== null) {
-        pathsToDelete.add(file.initialFilePath);
-      }
-      if (isBinaryStagedFile(file)) {
-        filesToAdd.push({
-          kind: "binary",
-          filePath: file.filePath,
-          parentCommitSha: file.parentCommitSha,
-          storageId: file.storageId,
-          stagedBlobSha: file.stagedBlobSha,
-        });
-      } else {
-        filesToAdd.push({
-          kind: "text",
-          filePath: file.filePath,
-          content: file.content,
-        });
-      }
-    }
-  }
-
-  // 2. Prepare tree deletions up front. File additions are rebuilt per retry so
-  //    binary blob creation can stay deterministic across attempts.
-  const baseTreeEntries: CreateTreeEntry[] = [];
-
-  for (const path of pathsToDelete) {
-    baseTreeEntries.push({
-      path,
-      mode: "100644",
-      type: "blob",
-      sha: null,
-    });
-  }
-
-  // 3. Build commit message
-  const basename = (p: string) => {
-    const parts = p.split("/");
-    return parts[parts.length - 1] || p;
-  };
-  const shortRanges = (ranges: Array<{ from: number; to: number }>, max = 2) => {
-    const items = ranges
-      .slice(0, max)
-      .map((r) => (r.from === r.to ? `${r.from}` : `${r.from}-${r.to}`));
-    return ranges.length > max ? `${items.join(",")},…` : items.join(",");
-  };
-  const subjectTokens: string[] = [];
-  for (const info of changesInfo) {
-    const renamed = info.initialFilePath !== info.filePath;
-    if (info.deleted) {
-      subjectTokens.push(`D ${basename(info.initialFilePath)}`);
-    } else if (info.isBinary && renamed) {
-      subjectTokens.push(`${basename(info.initialFilePath)}->${basename(info.filePath)}`);
-    } else if (info.isBinary) {
-      subjectTokens.push(`${basename(info.filePath)}`);
-    } else if (renamed && info.modifiedLines.length > 0) {
-      subjectTokens.push(
-        `${basename(info.initialFilePath)}->${basename(info.filePath)}[${shortRanges(info.modifiedLines)}]`,
-      );
-    } else if (renamed) {
-      subjectTokens.push(`${basename(info.initialFilePath)}->${basename(info.filePath)}`);
-    } else if (info.modifiedLines.length > 0) {
-      subjectTokens.push(`${basename(info.filePath)}[${shortRanges(info.modifiedLines)}]`);
-    } else if (info.wasModified) {
-      subjectTokens.push(`${basename(info.filePath)}[]`);
-    }
-  }
-  const maxTokens = 4;
-  const commitMessage =
-    subjectTokens.length === 0
-      ? "Update files"
-      : subjectTokens.length > maxTokens
-        ? `${subjectTokens.slice(0, maxTokens).join(", ")} …`
-        : subjectTokens.join(", ");
 
   // 4. Retry loop for ref-dependent operations (getRef → getCommit → createTree → createCommit → updateRef)
   //    Retries handle transient GitHub 422 (GitRPC::BadObjectState) and 409 (conflict) errors.
@@ -3588,14 +3474,157 @@ export async function createCommitWithMultipleFiles({
         commit_sha: currentCommitSha,
       });
 
+      const currentTreeSha = currentCommit.tree.sha;
+      const shaByPath = await getTreeMapForRef({
+        octokit,
+        owner,
+        repo,
+        ref: currentTreeSha,
+      });
+      const inspection = await inspectStagedFilesAgainstTree({
+        octokit,
+        owner,
+        repo,
+        stagedFiles: normalizedStagedFiles,
+        shaByPath,
+      });
+      if (inspection.conflicts.length > 0) {
+        throw new Error(
+          formatUpstreamConflictError(inspection.conflicts.map((file) => file.filePath)),
+        );
+      }
+      const resolvedStagedFiles = inspection.rebasedFiles;
+
+      const changedResolvedStagedFiles = resolvedStagedFiles.filter(hasStagedFileChanges);
+
+      // Summarize all changes to craft a commit message
+      const changesInfo: Array<{
+        deleted: boolean;
+        isBinary: boolean;
+        modifiedLines: Array<{ from: number; to: number }>;
+        filePath: string;
+        initialFilePath: string;
+        wasModified: boolean;
+      }> = changedResolvedStagedFiles.map((file) => ({
+        deleted: file.fileDeleted,
+        isBinary: isBinaryStagedFile(file),
+        filePath: file.filePath,
+        initialFilePath: file.initialFilePath,
+        modifiedLines:
+          file.fileDeleted || isBinaryStagedFile(file)
+            ? []
+            : computeModifiedLineRanges(file.initialContent, file.content),
+        wasModified: !file.fileDeleted && hasStagedFileContentChange(file),
+      }));
+
+      // 1. Prepare file lists
+      const pathsToDelete = new Set<string>();
+      const filesToAdd: Array<
+        | {
+            kind: "text";
+            filePath: string;
+            content: string;
+          }
+        | {
+            kind: "binary";
+            filePath: string;
+            parentCommitSha: string | null;
+            storageId?: Id<"_storage">;
+            stagedBlobSha?: string;
+          }
+      > = [];
+
+      for (const file of changedResolvedStagedFiles) {
+        if (file.fileDeleted) {
+          // Only delete paths that actually exist in the repo. A renamed row still
+          // exists upstream at initialFilePath.
+          if (file.parentCommitSha !== null) {
+            pathsToDelete.add(file.initialFilePath);
+          }
+        } else {
+          const isRenamed = file.filePath !== file.initialFilePath;
+          if (isRenamed && file.parentCommitSha !== null) {
+            pathsToDelete.add(file.initialFilePath);
+          }
+          if (isBinaryStagedFile(file)) {
+            filesToAdd.push({
+              kind: "binary",
+              filePath: file.filePath,
+              parentCommitSha: file.parentCommitSha,
+              storageId: file.storageId,
+              stagedBlobSha: file.stagedBlobSha,
+            });
+          } else {
+            filesToAdd.push({
+              kind: "text",
+              filePath: file.filePath,
+              content: file.content,
+            });
+          }
+        }
+      }
+
+      // 2. Prepare tree deletions up front. File additions are rebuilt per retry so
+      //    binary blob creation can stay deterministic across attempts.
+      const baseTreeEntries: CreateTreeEntry[] = [];
+
+      for (const path of pathsToDelete) {
+        baseTreeEntries.push({
+          path,
+          mode: "100644",
+          type: "blob",
+          sha: null,
+        });
+      }
+
+      // 3. Build commit message
+      const basename = (p: string) => {
+        const parts = p.split("/");
+        return parts[parts.length - 1] || p;
+      };
+      const shortRanges = (ranges: Array<{ from: number; to: number }>, max = 2) => {
+        const items = ranges
+          .slice(0, max)
+          .map((r) => (r.from === r.to ? `${r.from}` : `${r.from}-${r.to}`));
+        return ranges.length > max ? `${items.join(",")},…` : items.join(",");
+      };
+      const subjectTokens: string[] = [];
+      for (const info of changesInfo) {
+        const renamed = info.initialFilePath !== info.filePath;
+        if (info.deleted) {
+          subjectTokens.push(`D ${basename(info.initialFilePath)}`);
+        } else if (info.isBinary && renamed) {
+          subjectTokens.push(`${basename(info.initialFilePath)}->${basename(info.filePath)}`);
+        } else if (info.isBinary) {
+          subjectTokens.push(`${basename(info.filePath)}`);
+        } else if (renamed && info.modifiedLines.length > 0) {
+          subjectTokens.push(
+            `${basename(info.initialFilePath)}->${basename(info.filePath)}[${shortRanges(info.modifiedLines)}]`,
+          );
+        } else if (renamed) {
+          subjectTokens.push(`${basename(info.initialFilePath)}->${basename(info.filePath)}`);
+        } else if (info.modifiedLines.length > 0) {
+          subjectTokens.push(`${basename(info.filePath)}[${shortRanges(info.modifiedLines)}]`);
+        } else if (info.wasModified) {
+          subjectTokens.push(`${basename(info.filePath)}[]`);
+        }
+      }
+      const maxTokens = 4;
+      const commitMessage =
+        subjectTokens.length === 0
+          ? "Update files"
+          : subjectTokens.length > maxTokens
+            ? `${subjectTokens.slice(0, maxTokens).join(", ")} …`
+            : subjectTokens.join(", ");
+
       if (baseTreeEntries.length === 0 && filesToAdd.length === 0) {
         return {
           sha: currentCommitSha,
           url: currentCommit.html_url,
+          committedFiles: resolvedStagedFiles,
         };
       }
 
-      const currentTreeSha = currentCommit.tree.sha;
       const createdBlobShaBySourceSha = new Map<string, string>();
       const treeEntries: CreateTreeEntry[] = [...baseTreeEntries];
 
@@ -3696,6 +3725,7 @@ export async function createCommitWithMultipleFiles({
       return {
         sha: newCommit.sha,
         url: newCommit.html_url,
+        committedFiles: resolvedStagedFiles,
       };
     } catch (error) {
       const status = getErrorStatus(error);
@@ -3769,26 +3799,16 @@ export const commitAllStaged = internalAction({
         owner: repoOwner,
         repo: repoName,
       }));
-    const resolvedChangedFiles = await rebaseStagedFilesOnLatestHead({
+    const { committedFiles } = await createCommitWithMultipleFiles({
       octokit,
       owner: repoOwner,
       repo: repoName,
-      branch: commitBranch,
       stagedFiles: changedFiles.map((file) => ({
         ...file,
         snapshot: stripCreationTimeFromStagingRecord(file),
       })),
-    });
-
-    // Create a commit with all staged files
-    await createCommitWithMultipleFiles({
-      octokit,
-      owner: repoOwner,
-      repo: repoName,
-      stagedFiles: resolvedChangedFiles,
       branch: commitBranch,
       loadStorageBlob: async (storageId) => await ctx.storage.get(storageId),
-      skipRebase: true,
     });
 
     // 1. Refresh branch/default tree caches and re-read the updated repository.
@@ -3817,7 +3837,7 @@ export const commitAllStaged = internalAction({
     //    the correct content immediately without hitting GitHub API
     if (updatedRepository) {
       try {
-        for (const file of resolvedChangedFiles.filter(hasStagedFileChanges)) {
+        for (const file of committedFiles.filter(hasStagedFileChanges)) {
           if (file.fileDeleted) continue;
 
           const newSha = updatedRepository.treeData?.tree.find(
@@ -3869,7 +3889,7 @@ export const commitAllStaged = internalAction({
     await ctx.runMutation(internal.fileStaging.clearCommittedStaging, {
       repositoryId: args.repositoryId,
       branch: commitBranch,
-      committedFiles: resolvedChangedFiles.map((file) => ({
+      committedFiles: committedFiles.map((file) => ({
         snapshot: file.snapshot,
         committedContent: file.content,
         committedBlobSha: file.fileDeleted
