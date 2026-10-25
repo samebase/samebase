@@ -166,25 +166,23 @@ describe("stackCards", () => {
     ]);
   });
 
-  it("frames the cards and names the root folder only when the repository has several stacks", () => {
-    const framing = (stacks: Parameters<typeof stackCards>[0]["stacks"]) =>
+  it("names the root folder only when the repository has several stacks", () => {
+    const folders = (stacks: Parameters<typeof stackCards>[0]["stacks"]) =>
       stackCards({ stage: "prod", headCommit: null, liveDeployments: [], stacks }).map(
-        ({ framed, folder }) => ({ framed, folder }),
+        ({ folder }) => folder,
       );
 
-    // The only stack, at the root: no frame and no folder.
-    expect(framing([prodStack("samebase/base-alchemy", "alchemy.run.ts", [site])])).toEqual([
-      { framed: false, folder: null },
-    ]);
-    // The only stack, in a folder: no frame, and the folder says where the app lives.
+    // The only stack, at the root: no folder.
+    expect(folders([prodStack("samebase/base-alchemy", "alchemy.run.ts", [site])])).toEqual([null]);
+    // The only stack, in a folder: the folder says where the app lives.
     expect(
-      framing([
+      folders([
         prodStack("samebase/convex-cloudflare-email-inbox", "apps/mail/alchemy.run.ts", [site]),
       ]),
-    ).toEqual([{ framed: false, folder: "apps/mail" }]);
-    // Two stacks: both cards are framed, and the root stack names its folder.
+    ).toEqual(["apps/mail"]);
+    // Two stacks: the root stack names its folder.
     expect(
-      framing([
+      folders([
         prodStack("samebase/samebase", "alchemy.run.ts", [site]),
         prodStack(
           "samebase/samebase/apps/sidebars-example",
@@ -192,10 +190,7 @@ describe("stackCards", () => {
           [proxy],
         ),
       ]),
-    ).toEqual([
-      { framed: true, folder: "/" },
-      { framed: true, folder: "apps/sidebars-example" },
-    ]);
+    ).toEqual(["/", "apps/sidebars-example"]);
   });
 
   it("makes the cards of a pull request from the stacks with its stage, at the preview site", () => {
@@ -223,9 +218,7 @@ describe("stackCards", () => {
       {
         stack: "samebase/samebase",
         stackFile: "alchemy.run.ts",
-        // The repository has two stacks, so the card is framed and names its folder as on the
-        // default branch.
-        framed: true,
+        // The repository has two stacks, so the card names its folder as on the default branch.
         folder: "/",
         // The stage deployed the head of the pull request.
         run: null,
