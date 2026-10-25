@@ -428,7 +428,7 @@ function DefaultBranchCommit({
   ) : null;
   const branchLink = branch ? (
     <a
-      className="inline-flex min-h-8 items-center text-xs font-medium text-foreground underline decoration-border underline-offset-4 hover:decoration-foreground"
+      className="inline-flex min-h-10 items-center text-xs font-medium text-foreground underline decoration-border underline-offset-4 hover:decoration-foreground @4xl:min-h-8"
       href={branch.url}
       rel="noreferrer noopener"
       target="_blank"
@@ -487,7 +487,7 @@ function DefaultBranchCommit({
           {/* The commit and its time wrap together, so a long branch name never leaves them apart. */}
           <span className="inline-flex items-center gap-2">
             <a
-              className="inline-flex min-h-8 items-center font-mono text-xs text-muted-foreground underline decoration-border underline-offset-4 hover:text-foreground"
+              className="inline-flex min-h-10 items-center font-mono text-xs text-muted-foreground underline decoration-border underline-offset-4 hover:text-foreground @4xl:min-h-8"
               href={observation.headCommitUrl}
               rel="noreferrer noopener"
               target="_blank"
