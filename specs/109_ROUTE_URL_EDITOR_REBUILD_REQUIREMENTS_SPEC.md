@@ -276,6 +276,12 @@ These stories should stay covered with real route-level interactions, not mocked
 - Filtering reads `draftRouteAddress` and the stored `selection`, including during pointer,
   keyboard, and touch previews. Preview text and the preview's DOM cursor must not change the
   filtered list.
+- Suggestion labels highlight their matching text before that stored cursor. Path labels collapse
+  completed parent segments to `…`, but keep a partially edited segment visible. The exact parent
+  path retains its final segment, and paths with the same ending retain enough parent segments to
+  stay distinct. Long labels give the final path segment space before truncating earlier segments.
+  Labels and highlights stay fixed during previews. Accessible names, preview addresses, and
+  selected addresses keep the full path.
 - Selecting a query key replaces the whole active token. Selecting a path replaces the path and
   preserves query and hash text. A cursor in a color value before `-` filters color-family rows;
   after `-`, it filters that family's shades. Selection still replaces the whole value and places

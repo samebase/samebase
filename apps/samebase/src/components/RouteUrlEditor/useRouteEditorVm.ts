@@ -30,6 +30,7 @@ import { api } from "../../../convex/_generated/api";
 import {
   readCurrentRouteUrlEditorSuggestionIndex,
   readSuggestions,
+  readSuggestionLabel,
   type Suggestion,
 } from "./RouteUrlEditorSuggestions";
 import {
@@ -1514,27 +1515,36 @@ next suggestions come from the path/query boundary. Prefix-protection still uses
 
   const suggestionSelection = state.kind === "focused" ? state.selection : null;
 
-  const suggestions = useMemo(
-    () =>
-      readSuggestions({
-        currentRouteAddress: committedRouteAddress,
-        pageHashKeys,
+  const suggestions = useMemo(() => {
+    const rows = readSuggestions({
+      currentRouteAddress: committedRouteAddress,
+      pageHashKeys,
+      prefix: state.prefix,
+      routeAddress: suggestionsRouteAddress,
+      routesByPath: router.routesByPath,
+      selection: suggestionSelection,
+      viewer: routeAccessViewer,
+    });
+
+    return rows.map((suggestion) => ({
+      ...suggestion,
+      label: readSuggestionLabel({
         prefix: state.prefix,
         routeAddress: suggestionsRouteAddress,
-        routesByPath: router.routesByPath,
         selection: suggestionSelection,
-        viewer: routeAccessViewer,
+        suggestion,
+        suggestions: rows,
       }),
-    [
-      router.routesByPath,
-      committedRouteAddress,
-      pageHashKeys,
-      state.prefix,
-      suggestionSelection,
-      suggestionsRouteAddress,
-      routeAccessViewer,
-    ],
-  );
+    }));
+  }, [
+    router.routesByPath,
+    committedRouteAddress,
+    pageHashKeys,
+    state.prefix,
+    suggestionSelection,
+    suggestionsRouteAddress,
+    routeAccessViewer,
+  ]);
 
   const suggestionsVisible = state.kind === "focused" && suggestions.length > 0;
   const activeSuggestionIndex =

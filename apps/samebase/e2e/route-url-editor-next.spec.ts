@@ -886,9 +886,13 @@ test("route URL editor filters at the cursor and keeps the draft filter during p
   await input.fill(`${prefix}pr`);
   const pathValues = ["/pricing", "/privacy"];
   await expect(values).toHaveText(pathValues);
+  await expect(values.locator("mark")).toHaveText(["/pr", "/pr"]);
+  await input.press("ArrowLeft");
+  await expect(values.locator("mark")).toHaveText(["/p", "/p"]);
   await input.press("ArrowDown");
   await expect(input).toHaveValue(`${prefix}pricing?`);
   await expect(values).toHaveText(pathValues);
+  await expect(values.locator("mark")).toHaveText(["/p", "/p"]);
   await input.press("ArrowDown");
   await expect(input).toHaveValue(`${prefix}privacy?`);
   await expect(values).toHaveText(pathValues);
@@ -905,6 +909,7 @@ test("route URL editor filters at the cursor and keeps the draft filter during p
   await expect(input).toHaveJSProperty("selectionStart", keyStart + 1);
   await expect(input).toHaveJSProperty("selectionEnd", keyStart + 4);
   await expect(values).toHaveText(["&dark"]);
+  await expect(values.locator("mark")).toHaveText(["&d"]);
   await input.press("ArrowLeft");
   await expect(values).toHaveText(["&dark"]);
   await input.press("ArrowLeft");
@@ -915,6 +920,7 @@ test("route URL editor filters at the cursor and keeps the draft filter during p
 
   await page.getByRole("option", { exact: true, name: "&dark" }).hover();
   await expect(values).toHaveText(["&dark"]);
+  await expect(values.locator("mark")).toHaveText(["&d"]);
   await input.press("Enter");
   await expect(input).toHaveValue(`${prefix}terms?border=stone-300&dark&`);
   await expectInputSelection(input, `${prefix}terms?border=stone-300&dark&`.length);

@@ -7,7 +7,6 @@ import {
 import { LOGO_PRESENTATION_TILT_SUSPEND_ATTRIBUTE } from "@/components/logo/logoPresentationTilt";
 import { Badge } from "@/components/ui/badge";
 import { useRouteEditorVm } from "./useRouteEditorVm";
-import type { Suggestion } from "./RouteUrlEditorSuggestions";
 import { readRouteEditorNavigationApi, useNavigationControls } from "./useNavigationControls";
 import { useRouteUrlEditorPageHashSuggestions } from "./useRouteUrlEditorPageHashSuggestions";
 import {
@@ -66,19 +65,43 @@ const routeUrlEditorNextTouchScrollSlateClassName =
 const routeUrlEditorNextTouchScrollApplyButtonClassName =
   "pointer-events-auto absolute right-1 top-1/2 h-6 -translate-y-1/2 bg-background px-2 text-xs font-medium text-foreground shadow-sm ring-1 ring-foreground/20";
 
-function renderRouteUrlEditorNextSuggestionValue(suggestion: {
-  sampleValueStart?: number;
-  value: string;
-}) {
-  if (typeof suggestion.sampleValueStart !== "number") {
-    return suggestion.value;
+function renderRouteUrlEditorNextSuggestionValue(
+  suggestion: ReturnType<typeof useRouteEditorVm>["suggestions"][number],
+) {
+  const { start, matchEnd } = suggestion.label;
+  const sampleStart = suggestion.sampleValueStart ?? suggestion.value.length;
+
+  function renderRange(from: number, to: number) {
+    const matchedEnd = Math.min(to, Math.max(from, matchEnd));
+    const normalEnd = Math.min(to, Math.max(matchedEnd, sampleStart));
+
+    return (
+      <>
+        {matchedEnd > from ? (
+          <mark className="bg-primary/15 text-inherit">
+            {suggestion.value.slice(from, matchedEnd)}
+          </mark>
+        ) : null}
+        {suggestion.value.slice(matchedEnd, normalEnd)}
+        <span className={routeUrlEditorNextSuggestionSampleClassName}>
+          {suggestion.value.slice(normalEnd, to)}
+        </span>
+      </>
+    );
   }
+
+  if (suggestion.kind !== "path") {
+    return renderRange(0, suggestion.value.length);
+  }
+
+  const lastSegmentStart = Math.max(start, suggestion.value.lastIndexOf("/"));
 
   return (
     <>
-      {suggestion.value.slice(0, suggestion.sampleValueStart)}
-      <span className={routeUrlEditorNextSuggestionSampleClassName}>
-        {suggestion.value.slice(suggestion.sampleValueStart)}
+      {start > 0 ? <mark className="shrink-0 bg-primary/15 text-inherit">…</mark> : null}
+      <span className="min-w-0 shrink-[1000] truncate">{renderRange(start, lastSegmentStart)}</span>
+      <span className="min-w-0 truncate">
+        {renderRange(lastSegmentStart, suggestion.value.length)}
       </span>
     </>
   );
@@ -119,7 +142,7 @@ export function RouteUrlEditorNext() {
     firstGroupedSuggestionIndex === -1 ? vm.suggestions.length : firstGroupedSuggestionIndex;
 
   function renderSuggestionRows(
-    suggestionRows: readonly Suggestion[],
+    suggestionRows: typeof vm.suggestions,
     firstSuggestionIndex: number,
   ) {
     return suggestionRows.map((suggestion, relativeSuggestionIndex) => {
@@ -128,6 +151,7 @@ export function RouteUrlEditorNext() {
 
       return (
         <button
+          aria-label={suggestion.value}
           className={
             suggestion.dev
               ? touchScrollPicker.active
@@ -149,7 +173,11 @@ export function RouteUrlEditorNext() {
           type="button"
         >
           <span
-            className="min-w-0 flex-1 truncate text-left"
+            className={
+              suggestion.kind === "path"
+                ? "flex min-w-0 flex-1 text-left"
+                : "min-w-0 flex-1 truncate text-left"
+            }
             data-testid="route-url-editor-suggestion-value"
           >
             {renderRouteUrlEditorNextSuggestionValue(suggestion)}

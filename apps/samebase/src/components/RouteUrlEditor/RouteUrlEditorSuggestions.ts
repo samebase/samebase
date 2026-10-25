@@ -66,6 +66,60 @@ export type Suggestion =
 
 type SearchSuggestion = Extract<Suggestion, { kind: "search" }>;
 
+/** Label offsets use the draft selection, never the cursor moved by a suggestion preview. */
+export function readSuggestionLabel(args: {
+  prefix: string;
+  routeAddress: string;
+  selection: Selection | null;
+  suggestion: Suggestion;
+  suggestions: readonly Suggestion[];
+}) {
+  if (args.selection === null) {
+    return { start: 0, matchEnd: 0 };
+  }
+
+  const { suggestion } = args;
+  const selectionIndex = readSelectionIndex({
+    prefix: args.prefix,
+    routeAddress: args.routeAddress,
+    selection: args.selection,
+  });
+  const tokenStart =
+    suggestion.kind === "path"
+      ? 0
+      : suggestion.previewSelectionRouteIndex -
+        (suggestion.kind === "search" || suggestion.kind === "hash" ? 1 : 0);
+  const typedPrefix = args.routeAddress.slice(tokenStart, Math.max(tokenStart, selectionIndex));
+  const matchEnd = suggestion.value.startsWith(typedPrefix) ? typedPrefix.length : 0;
+
+  if (suggestion.kind !== "path" || matchEnd === 0) {
+    return { start: 0, matchEnd };
+  }
+
+  const completedSegment = args.suggestions.every(
+    (row) => row.value.length === matchEnd || row.value[matchEnd] === "/",
+  );
+  let start = Math.max(
+    0,
+    Math.min(
+      completedSegment ? matchEnd : typedPrefix.lastIndexOf("/"),
+      suggestion.value.lastIndexOf("/"),
+    ),
+  );
+
+  // Keep enough parent segments to distinguish paths with the same ending.
+  while (
+    start > 0 &&
+    args.suggestions.some(
+      (row) => row.value !== suggestion.value && row.value.endsWith(suggestion.value.slice(start)),
+    )
+  ) {
+    start = suggestion.value.lastIndexOf("/", start - 1);
+  }
+
+  return { start, matchEnd };
+}
+
 export function readCurrentRouteUrlEditorSuggestionIndex(args: {
   prefix: string;
   routeAddress: string;
