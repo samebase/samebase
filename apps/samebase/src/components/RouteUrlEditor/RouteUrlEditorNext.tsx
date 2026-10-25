@@ -99,9 +99,11 @@ function renderRouteUrlEditorNextSuggestionValue(
   return (
     <>
       {start > 0 ? <mark className="shrink-0 bg-primary/15 text-inherit">…</mark> : null}
-      <span className="min-w-0 shrink-[1000] truncate">{renderRange(start, lastSegmentStart)}</span>
-      <span className="min-w-0 truncate">
-        {renderRange(lastSegmentStart, suggestion.value.length)}
+      <span className="flex min-w-0">
+        <span className="min-w-0 truncate">{renderRange(start, lastSegmentStart)}</span>
+        <span className="max-w-full shrink-0 truncate">
+          {renderRange(lastSegmentStart, suggestion.value.length)}
+        </span>
       </span>
     </>
   );
