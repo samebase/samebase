@@ -35,7 +35,7 @@ const routeUrlEditorNextTouchSuggestionsScrollportClassName =
   "relative h-[min(18rem,calc(100dvh-4rem))] snap-y snap-mandatory overflow-y-auto overscroll-contain py-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden";
 
 const routeUrlEditorNextSuggestionButtonClassName =
-  "group flex h-7 w-full min-w-0 snap-start snap-always items-center px-2 font-mono text-sm text-foreground outline-none focus-visible:bg-accent focus-visible:text-accent-foreground data-[active=true]:bg-accent data-[active=true]:text-accent-foreground";
+  "group h-7 w-full min-w-0 snap-start snap-always items-center px-2 font-mono text-sm text-foreground outline-none focus-visible:bg-accent focus-visible:text-accent-foreground data-[active=true]:bg-accent data-[active=true]:text-accent-foreground";
 
 const routeUrlEditorNextTouchSuggestionButtonClassName = `${routeUrlEditorNextSuggestionButtonClassName} pr-24`;
 
@@ -47,7 +47,7 @@ const routeUrlEditorNextSuggestionSampleClassName =
   "text-muted-foreground group-data-[active=true]:text-accent-foreground/60";
 
 const routeUrlEditorNextDevBadgeClassName =
-  "h-4 border-sky-500/40 bg-sky-500/10 px-1.5 py-0 text-[10px] text-sky-700 dark:border-sky-400/40 dark:bg-sky-400/10 dark:text-sky-300";
+  "h-4 justify-self-end border-sky-500/40 bg-sky-500/10 px-1.5 py-0 text-[10px] text-sky-700 dark:border-sky-400/40 dark:bg-sky-400/10 dark:text-sky-300";
 
 const routeUrlEditorNextSuggestionGroupLabelClassName =
   "mt-2 flex h-7 items-center px-2 text-sm font-bold";
@@ -67,6 +67,7 @@ const routeUrlEditorNextTouchScrollApplyButtonClassName =
 
 function renderRouteUrlEditorNextSuggestionValue(
   suggestion: ReturnType<typeof useRouteEditorVm>["suggestions"][number],
+  sharedPathEnd: number | null,
 ) {
   const { start, matchEnd } = suggestion.label;
   const sampleStart = suggestion.sampleValueStart ?? suggestion.value.length;
@@ -96,8 +97,22 @@ function renderRouteUrlEditorNextSuggestionValue(
 
   const lastSegmentStart = Math.max(start, suggestion.value.lastIndexOf("/"));
 
+  if (sharedPathEnd !== null) {
+    return (
+      <>
+        <span className="flex min-w-0" data-testid="route-url-editor-suggestion-path-prefix">
+          {start > 0 ? <mark className="shrink-0 bg-primary/15 text-inherit">…</mark> : null}
+          <span className="min-w-0 truncate">{renderRange(start, sharedPathEnd)}</span>
+        </span>
+        <span className="min-w-0 truncate">
+          {renderRange(sharedPathEnd, suggestion.value.length)}
+        </span>
+      </>
+    );
+  }
+
   return (
-    <>
+    <span className="col-span-2 flex min-w-0">
       {start > 0 ? <mark className="shrink-0 bg-primary/15 text-inherit">…</mark> : null}
       <span className="flex min-w-0">
         <span className="min-w-0 truncate">{renderRange(start, lastSegmentStart)}</span>
@@ -105,7 +120,7 @@ function renderRouteUrlEditorNextSuggestionValue(
           {renderRange(lastSegmentStart, suggestion.value.length)}
         </span>
       </span>
-    </>
+    </span>
   );
 }
 
@@ -147,14 +162,31 @@ export function RouteUrlEditorNext() {
     suggestionRows: typeof vm.suggestions,
     firstSuggestionIndex: number,
   ) {
-    return suggestionRows.map((suggestion, relativeSuggestionIndex) => {
+    const rows = suggestionRows.map((suggestion, relativeSuggestionIndex) => {
       const suggestionIndex = firstSuggestionIndex + relativeSuggestionIndex;
       const suggestionProps = vm.getSuggestionProps(suggestion, suggestionIndex);
+      const sharedPathEnd = suggestionRows.some((row) =>
+        row.value.startsWith(`${suggestion.value}/`),
+      )
+        ? suggestion.value.length
+        : Math.max(suggestion.label.start, suggestion.value.lastIndexOf("/"));
+      const sharedPath = suggestion.value.slice(0, sharedPathEnd);
+      const pathPrefix =
+        suggestion.kind === "path" &&
+        sharedPathEnd > suggestion.label.start &&
+        suggestionRows.some(
+          (row) =>
+            row !== suggestion &&
+            row.label.start === suggestion.label.start &&
+            (row.value === sharedPath || row.value.startsWith(`${sharedPath}/`)),
+        )
+          ? sharedPath
+          : null;
 
-      return (
+      const row = (
         <button
           aria-label={suggestion.value}
-          className={
+          className={`${
             suggestion.dev
               ? touchScrollPicker.active
                 ? routeUrlEditorNextTouchDevSuggestionButtonClassName
@@ -162,7 +194,7 @@ export function RouteUrlEditorNext() {
               : touchScrollPicker.active
                 ? routeUrlEditorNextTouchSuggestionButtonClassName
                 : routeUrlEditorNextSuggestionButtonClassName
-          }
+          } ${suggestion.kind === "path" ? "col-span-3 grid grid-cols-subgrid" : "flex"}`}
           data-route-url-editor-suggestion-index={suggestionIndex}
           data-testid="route-url-editor-suggestion"
           key={`${suggestion.kind}:${suggestion.value}`}
@@ -177,12 +209,15 @@ export function RouteUrlEditorNext() {
           <span
             className={
               suggestion.kind === "path"
-                ? "flex min-w-0 flex-1 text-left"
+                ? "col-span-2 grid min-w-0 grid-cols-subgrid text-left"
                 : "min-w-0 flex-1 truncate text-left"
             }
             data-testid="route-url-editor-suggestion-value"
           >
-            {renderRouteUrlEditorNextSuggestionValue(suggestion)}
+            {renderRouteUrlEditorNextSuggestionValue(
+              suggestion,
+              pathPrefix === null ? null : sharedPathEnd,
+            )}
           </span>
           {suggestion.dev ? (
             <Badge
@@ -195,6 +230,37 @@ export function RouteUrlEditorNext() {
           ) : null}
         </button>
       );
+
+      return { row, pathPrefix, start: suggestion.label.start };
+    });
+
+    if (!suggestionRows.some((suggestion) => suggestion.kind === "path")) {
+      return rows.map(({ row }) => row);
+    }
+
+    // Only adjacent rows with the same visible prefix share columns. Other prefixes must not
+    // introduce a gap between a shorter path and its suffix, or reorder keyboard navigation.
+    let groupStart = 0;
+    return rows.flatMap((row, index) => {
+      const next = rows.at(index + 1);
+      if (
+        row.pathPrefix !== null &&
+        row.pathPrefix === next?.pathPrefix &&
+        row.start === next.start
+      ) {
+        return [];
+      }
+
+      const group = rows.slice(groupStart, index + 1);
+      groupStart = index + 1;
+      return [
+        <div
+          className="grid grid-cols-[minmax(0,max-content)_fit-content(100%)_1fr]"
+          key={row.row.key}
+        >
+          {group.map(({ row }) => row)}
+        </div>,
+      ];
     });
   }
 

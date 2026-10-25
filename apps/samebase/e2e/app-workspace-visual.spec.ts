@@ -4,7 +4,9 @@ import { signInIfNeeded } from "./liveHelpers";
 test.describe("route URL editor compact mobile suggestions", () => {
   test.use({ hasTouch: true, isMobile: true, viewport: { width: 390, height: 844 } });
 
-  test("keeps path endings visible and highlights the draft cursor prefix", async ({ page }) => {
+  test("shortens shared paths consistently and highlights the draft cursor prefix", async ({
+    page,
+  }) => {
     await page.addInitScript(() => {
       Math.random = () => 0.57;
     });
@@ -26,7 +28,15 @@ test.describe("route URL editor compact mobile suggestions", () => {
       element.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     }, `${origin}/rep`.length);
     await expect(values).toHaveText(["/repo", path, `${path}/alchemy`, `${path}/settings`]);
-    for (const ending of ["/convex-cloudflare-email-inbox", "/alchemy", "/settings"]) {
+    const sharedPaths = popover
+      .getByTestId("route-url-editor-suggestion-path-prefix")
+      .filter({ hasText: path });
+    await expect(sharedPaths).toHaveText([path, path, path]);
+    const prefixWidths = await sharedPaths.evaluateAll((elements) =>
+      elements.map((element) => element.getBoundingClientRect().width),
+    );
+    expect(new Set(prefixWidths).size).toBe(1);
+    for (const ending of ["/alchemy", "/settings"]) {
       const metrics = await popover.getByText(ending, { exact: true }).evaluate((element) => {
         const text = document.createRange();
         text.selectNodeContents(element);
