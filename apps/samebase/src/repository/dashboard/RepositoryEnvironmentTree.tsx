@@ -40,6 +40,7 @@ import {
   CircleX,
   ExternalLink,
   MoreHorizontal,
+  Pencil,
 } from "lucide-react";
 import type { RepositoryWorkspaceSelected } from "./repositoryWorkspaceModel";
 
@@ -408,14 +409,26 @@ renders in the first frame and only this part waits for that query.
 */
 function DefaultBranchCommit({
   branch,
+  filesHref,
   pullRequests,
 }: {
   branch: { name: string; url: string } | undefined;
+  filesHref: string | null;
   pullRequests: RepositoryPullRequestsState;
 }) {
+  const filesLink = filesHref ? (
+    <Link
+      aria-label="Open Files in Samebase"
+      className="inline-flex h-10 w-10 shrink-0 items-center justify-center text-muted-foreground hover:text-foreground @4xl:h-8 @4xl:w-8"
+      title="Open Files in Samebase"
+      to={filesHref}
+    >
+      <Pencil aria-hidden="true" className="h-4 w-4" />
+    </Link>
+  ) : null;
   const branchLink = branch ? (
     <a
-      className="inline-flex min-h-8 items-center text-xs font-medium text-foreground underline decoration-border underline-offset-4 hover:decoration-foreground"
+      className="inline-flex min-h-10 items-center text-xs font-medium text-foreground underline decoration-border underline-offset-4 hover:decoration-foreground @4xl:min-h-8"
       href={branch.url}
       rel="noreferrer noopener"
       target="_blank"
@@ -432,7 +445,12 @@ function DefaultBranchCommit({
   ) {
     return (
       <>
-        {branchLink ? <div className="flex">{branchLink}</div> : null}
+        {branchLink ? (
+          <div className="flex min-w-0 items-center justify-between gap-2">
+            {branchLink}
+            {filesLink}
+          </div>
+        ) : null}
         {pullRequests.state === "loading" ? (
           <div aria-label="Loading default branch commit">
             <RepositoryOverviewLoadingLines rows={1} />
@@ -462,26 +480,23 @@ function DefaultBranchCommit({
     : observation.headCommitCommittedAt;
 
   return (
-    <div className="grid gap-3 @4xl:grid-cols-[minmax(0,1fr)_auto] @4xl:items-start">
-      <div className="min-w-0">
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+    <div className="min-w-0">
+      <div className="flex min-w-0 items-start gap-2">
+        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1">
           {branchLink}
-          <span className="text-xs text-muted-foreground">·</span>
-          <a
-            className="inline-flex min-h-8 items-center font-mono text-xs text-muted-foreground underline decoration-border underline-offset-4 hover:text-foreground"
-            href={observation.headCommitUrl}
-            rel="noreferrer noopener"
-            target="_blank"
-          >
-            {observation.headCommitOid.slice(0, 7)}
-          </a>
-          <span className="text-xs text-muted-foreground">{relativeCommitTime}</span>
+          {/* The commit and its time wrap together, so a long branch name never leaves them apart. */}
+          <span className="inline-flex items-center gap-2">
+            <a
+              className="inline-flex min-h-10 items-center font-mono text-xs text-muted-foreground underline decoration-border underline-offset-4 hover:text-foreground @4xl:min-h-8"
+              href={observation.headCommitUrl}
+              rel="noreferrer noopener"
+              target="_blank"
+            >
+              {observation.headCommitOid.slice(0, 7)}
+            </a>
+            <span className="text-xs text-muted-foreground">{relativeCommitTime}</span>
+          </span>
         </div>
-        <div className="line-clamp-3 text-base font-medium leading-6 text-foreground [overflow-wrap:anywhere]">
-          {observation.headCommitTitle}
-        </div>
-      </div>
-      <div className="justify-self-start @4xl:justify-self-end">
         <RepositoryChecksPopover
           checks={observation.checks}
           detailsUrl={`${observation.headCommitUrl}/checks`}
@@ -489,6 +504,10 @@ function DefaultBranchCommit({
           statusCheckRollup={observation.statusCheckRollup}
           triggerTitle={`Show ${branch.name} checks`}
         />
+        {filesLink}
+      </div>
+      <div className="line-clamp-3 text-base font-medium leading-6 text-foreground [overflow-wrap:anywhere]">
+        {observation.headCommitTitle}
       </div>
     </div>
   );
@@ -515,7 +534,7 @@ export function DefaultBranchSection({
   if (!branch) {
     return (
       <section className="pb-5">
-        <DefaultBranchCommit branch={branch} pullRequests={pullRequests} />
+        <DefaultBranchCommit branch={branch} filesHref={null} pullRequests={pullRequests} />
       </section>
     );
   }
@@ -547,19 +566,11 @@ export function DefaultBranchSection({
       }
       className="pb-5"
     >
-      <DefaultBranchCommit branch={branch} pullRequests={pullRequests} />
-      {filesReadEnabled ? (
-        <div className="mt-2 flex min-w-0 flex-wrap gap-x-3 gap-y-1 text-xs">
-          <Link
-            className="inline-flex min-h-8 items-center gap-1 font-medium text-foreground underline decoration-border underline-offset-4 hover:decoration-foreground"
-            title="Open Files in Samebase"
-            to={filesHref}
-          >
-            <SamebaseLogoMark />
-            Files
-          </Link>
-        </div>
-      ) : null}
+      <DefaultBranchCommit
+        branch={branch}
+        filesHref={filesReadEnabled ? filesHref : null}
+        pullRequests={pullRequests}
+      />
       {production.source === "stacks" ? (
         <RepositoryStackCards cards={production.cards} />
       ) : productionLoading && production.roots.length === 0 ? (
