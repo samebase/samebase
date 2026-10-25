@@ -1,0 +1,226 @@
+diff --git a/apps/samebase/convex/fileStaging.convex.test.ts b/apps/samebase/convex/fileStaging.convex.test.ts
+index 00eed5a0b..f855ab585 100644
+--- a/apps/samebase/convex/fileStaging.convex.test.ts
++++ b/apps/samebase/convex/fileStaging.convex.test.ts
+@@ -205,6 +205,69 @@ afterEach(() => {
+   vi.clearAllMocks();
+ });
+
++describe("saveToStaging research probe", () => {
++  it("preserves a concurrent edit when a delayed open finishes", async () => {
++    const t = makeConvexTest();
++    const { repositoryId, userId } = await seedConnectedRepository(t);
++    const baseContent = "base\n";
++    const editedContent = "base\nconcurrent edit\n";
++
++    // Both open actions can read no staging before either GitHub fetch returns.
++    expect(
++      await t.query(internal.fileStaging.getByOriginalPath, {
++        repositoryId,
++        originalFilePath: "notes.md",
++        branch: "main",
++      }),
++    ).toBeNull();
++
++    await t.mutation(internal.fileStaging.saveToStaging, {
++      repositoryId,
++      initialFilePath: "notes.md",
++      content: baseContent,
++      initialContent: baseContent,
++      parentCommitSha: gitBlobSha(baseContent),
++      branch: "main",
++      userId,
++    });
++    await t.mutation(internal.collaborative.pushContentUpdate, {
++      repositoryId,
++      filePath: "notes.md",
++      branch: "main",
++      expectedVersion: 0,
++      newContent: editedContent,
++      userId,
++    });
++    expect(
++      await t.query(internal.fileStaging.getByOriginalPath, {
++        repositoryId,
++        originalFilePath: "notes.md",
++        branch: "main",
++      }),
++    ).toMatchObject({ content: editedContent, version: 1 });
++
++    // The slower open now returns its older GitHub content.
++    const delayedResult = await t.mutation(internal.fileStaging.saveToStaging, {
++      repositoryId,
++      initialFilePath: "notes.md",
++      content: baseContent,
++      initialContent: baseContent,
++      parentCommitSha: gitBlobSha(baseContent),
++      branch: "main",
++      userId,
++    });
++    const updates = await t.run(async (ctx) =>
++      ctx.db.query("repositoryStagedFileUpdates").collect(),
++    );
++
++    expect({
++      content: delayedResult.content,
++      version: delayedResult.version,
++      updateVersions: updates.map((update) => update.version),
++    }).toEqual({ content: editedContent, version: 1, updateVersions: [1] });
++  });
++});
++
+ describe("commitAllStaged", () => {
+   it("clears only the staged rows it committed and keeps edits made during the commit", async () => {
+     const t = makeConvexTest();
+diff --git a/apps/samebase/convex/fileStagingActions.test.ts b/apps/samebase/convex/fileStagingActions.test.ts
+index 4c8245a5b..58aaa9ff4 100644
+--- a/apps/samebase/convex/fileStagingActions.test.ts
++++ b/apps/samebase/convex/fileStagingActions.test.ts
+@@ -862,6 +862,91 @@ describe("createCommitWithMultipleFiles", () => {
+     vi.spyOn(octokit.rest.git, "getTree").mockResolvedValue(makeGetTreeResponse("head-tree", []));
+   });
+
++  it("research probe: preserves upstream same-file edits when a ref retry observes a newer head", async () => {
++    const baseContent = `Title\nlocal base\n\nFooter\n`;
++    const stagedContent = `Title\nlocal changed\n\nFooter\n`;
++    const upstreamContent = `Title\nlocal base\n\nFooter\nupstream addition\n`;
++    const expectedContent = `Title\nlocal changed\n\nFooter\nupstream addition\n`;
++    const trees = new Map([
++      ["tree-before", baseContent],
++      ["tree-after", upstreamContent],
++    ]);
++    const commits = new Map<string, { tree: string; parent: string | null }>([
++      ["head-before", { tree: "tree-before", parent: null }],
++      ["head-after", { tree: "tree-after", parent: "head-before" }],
++    ]);
++    let head = "head-before";
++    let didAdvanceUpstream = false;
++
++    vi.spyOn(octokit.rest.git, "getTree").mockImplementation(async () =>
++      makeGetTreeResponse(head === "head-before" ? "tree-before" : "tree-after", [
++        { path: "notes.md", sha: head === "head-before" ? "blob-before" : "blob-after" },
++      ]),
++    );
++    vi.spyOn(octokit.rest.git, "getBlob").mockImplementation(async ({ file_sha }) =>
++      makeGetBlobResponse(file_sha, file_sha === "blob-before" ? baseContent : upstreamContent),
++    );
++    vi.spyOn(octokit.rest.git, "getRef").mockImplementation(async () => makeGetRefResponse(head));
++    vi.spyOn(octokit.rest.git, "getCommit").mockImplementation(async ({ commit_sha }) => {
++      const commit = commits.get(commit_sha);
++      if (!commit) throw new Error("Unknown probe commit");
++      return makeGetCommitResponse(commit.tree, commit_sha);
++    });
++    vi.spyOn(octokit.rest.git, "createTree").mockImplementation(async ({ base_tree, tree }) => {
++      const base = base_tree ? trees.get(base_tree) : undefined;
++      if (base === undefined) throw new Error("Unknown probe tree");
++      const entry = tree.find((candidate) => candidate.path === "notes.md");
++      const treeSha = `created-tree-${trees.size}`;
++      trees.set(treeSha, entry ? readInlineContent(entry) : base);
++      return makeCreateTreeResponse(treeSha);
++    });
++    vi.spyOn(octokit.rest.git, "createCommit").mockImplementation(async ({ tree, parents }) => {
++      const parent = parents?.[0];
++      if (!parent) throw new Error("Probe commit needs a parent");
++      const commitSha = `created-commit-${commits.size}`;
++      commits.set(commitSha, { tree, parent });
++      return makeCreateCommitResponse(tree, commitSha);
++    });
++    vi.spyOn(octokit.rest.git, "updateRef").mockImplementation(async ({ sha, force }) => {
++      if (!didAdvanceUpstream) {
++        didAdvanceUpstream = true;
++        head = "head-after";
++        throw Object.assign(new Error("Reference update failed: not a fast forward"), {
++          status: 422,
++        });
++      }
++      const commit = commits.get(sha);
++      if (!commit || commit.parent !== head || force) {
++        throw new Error("Probe accepts only a fast-forward child of the current head");
++      }
++      head = sha;
++      return makeUpdateRefResponse(sha);
++    });
++
++    await createCommitWithMultipleFiles({
++      octokit,
++      owner: "test-owner",
++      repo: "test-repo",
++      stagedFiles: [
++        {
++          filePath: "notes.md",
++          content: stagedContent,
++          fileDeleted: false,
++          initialFilePath: "notes.md",
++          initialContent: baseContent,
++          parentCommitSha: "blob-before",
++        },
++      ],
++      branch: "main",
++    });
++
++    const published = commits.get(head);
++    if (!published) throw new Error("Probe did not publish a commit");
++    const actual = { parent: published.parent, content: trees.get(published.tree) };
++    console.info("RESEARCH_PROBE_PUBLISHED", JSON.stringify(actual));
++    expect(actual).toEqual({ parent: "head-after", content: expectedContent });
++  });
++
+   /**
+    * Test 1: Single file edit
+    * Input: One modified file
+diff --git a/apps/samebase/src/components/CodeEditor.test.tsx b/apps/samebase/src/components/CodeEditor.test.tsx
+index c2b90e3dd..bf182d0b9 100644
+--- a/apps/samebase/src/components/CodeEditor.test.tsx
++++ b/apps/samebase/src/components/CodeEditor.test.tsx
+@@ -71,6 +71,51 @@ describe("CodeEditor", () => {
+     vi.useRealTimers();
+   });
+
++  it("research probe: prose edits preserve CRLF content and reach the server", async () => {
++    vi.useFakeTimers();
++    const initialContent = "\r\na\r\nb\r\n";
++    const server = createCollaborativeServer(initialContent);
++    testState.mutation.mockImplementation(async (_reference: unknown, args: PushArgs) =>
++      server.pushUpdates(args),
++    );
++    testState.query.mockImplementation(async (_reference: unknown, args: { version: number }) =>
++      server.pullUpdates(args),
++    );
++    const rootElement = document.createElement("div");
++    document.body.append(rootElement);
++    const root = createRoot(rootElement);
++
++    try {
++      await act(async () => {
++        root.render(
++          <CodeEditor
++            firstDoc={{ version: 0, content: initialContent }}
++            githubRepositoryFullName="samebase/samebase"
++            branch="main"
++            filePath="notes.md"
++          />,
++        );
++      });
++      const editorElement = rootElement.querySelector<HTMLElement>(".cm-editor");
++      if (!editorElement) throw new Error("CodeEditor did not mount a CodeMirror view.");
++      const view = EditorView.findFromDOM(editorElement);
++      if (!view) throw new Error("CodeEditor did not mount a CodeMirror view.");
++      console.info(
++        "RESEARCH_PROSE_CRLF_LENGTHS",
++        JSON.stringify({ client: view.state.doc.length, server: initialContent.length }),
++      );
++      await act(async () => {
++        typeAtEnd(view, "!");
++        await vi.advanceTimersByTimeAsync(500);
++      });
++      console.info("RESEARCH_PROSE_CRLF_SERVER", JSON.stringify(server.content()));
++      expect(server.content()).toBe(`${initialContent}!`);
++    } finally {
++      await act(async () => root.unmount());
++      rootElement.remove();
++    }
++  });
++
+   it("sends edits typed during an in-flight push after the editor unmounts", async () => {
+     vi.useFakeTimers();
+     const server = createCollaborativeServer("hello");
