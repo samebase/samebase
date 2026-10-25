@@ -481,19 +481,21 @@ function DefaultBranchCommit({
 
   return (
     <div className="min-w-0">
-      <div className="flex min-w-0 items-center gap-2">
+      <div className="flex min-w-0 items-start gap-2">
         <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1">
           {branchLink}
-          <span className="text-xs text-muted-foreground">·</span>
-          <a
-            className="inline-flex min-h-8 items-center font-mono text-xs text-muted-foreground underline decoration-border underline-offset-4 hover:text-foreground"
-            href={observation.headCommitUrl}
-            rel="noreferrer noopener"
-            target="_blank"
-          >
-            {observation.headCommitOid.slice(0, 7)}
-          </a>
-          <span className="text-xs text-muted-foreground">{relativeCommitTime}</span>
+          {/* The commit and its time wrap together, so a long branch name never leaves them apart. */}
+          <span className="inline-flex items-center gap-2">
+            <a
+              className="inline-flex min-h-8 items-center font-mono text-xs text-muted-foreground underline decoration-border underline-offset-4 hover:text-foreground"
+              href={observation.headCommitUrl}
+              rel="noreferrer noopener"
+              target="_blank"
+            >
+              {observation.headCommitOid.slice(0, 7)}
+            </a>
+            <span className="text-xs text-muted-foreground">{relativeCommitTime}</span>
+          </span>
         </div>
         <RepositoryChecksPopover
           checks={observation.checks}

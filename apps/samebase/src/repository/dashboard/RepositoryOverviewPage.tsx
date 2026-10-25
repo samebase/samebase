@@ -57,9 +57,9 @@ function RepositoryHeader({
   const settingsRoute = buildRepositorySettingsRoute({ owner, repoName });
   const repositoryIdentity = (
     <>
-      <div className="min-w-0 flex-1 text-base">
-        <span className="text-muted-foreground [overflow-wrap:anywhere]">{owner}/</span>
-        <h1 className="ml-1 inline font-semibold text-foreground [overflow-wrap:anywhere]">
+      <div className="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-1 text-base">
+        <span className="min-w-0 text-muted-foreground [overflow-wrap:anywhere]">{owner}/</span>
+        <h1 className="min-w-0 font-semibold text-foreground [overflow-wrap:anywhere]">
           {repoName}
         </h1>
       </div>
