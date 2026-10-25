@@ -177,8 +177,9 @@ the head of the default branch or of the pull request, so a stage that deployed 
 run line. A stage without a completed deploy, or a `headCommit` that is not known yet (null), also
 has none. The run record and GitHub both give full commit hashes.
 
-`address` is where the stack serves: the first Convex deployment by fqn at its first `convexSite`
-custom domain, else at its `siteUrl`, which a failed read of the custom domains also gives. Only the
+`address` is where the stack serves: the first Convex deployment by fqn at its `convexSite` custom
+domain with the fewest labels, such as samebase.com before api.samebase.com (the oldest on a tie),
+else at its `siteUrl`, which a failed read of the custom domains also gives. Only the
 production deployments have a live read, so a preview deployment serves at its `siteUrl`. A stack
 without a Convex deployment serves at the URL of its first Worker that has one, `addressWorker` (its
 fqn), and a stack with neither has no address. The row of `addressWorker` in the card does not
@@ -211,7 +212,9 @@ export function stackCards({
       const siteDomain = deployment
         ? liveDeployments
             .find((live) => live.deploymentName === deployment.state.attr.name)
-            ?.customDomains.find((domain) => domain.requestDestination === "convexSite")
+            ?.customDomains.filter((domain) => domain.requestDestination === "convexSite")
+            .sort((left, right) => left.domain.split(".").length - right.domain.split(".").length)
+            .at(0)
         : undefined;
       const addressWorker = deployment
         ? undefined

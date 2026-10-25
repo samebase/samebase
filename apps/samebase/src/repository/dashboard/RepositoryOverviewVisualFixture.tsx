@@ -231,6 +231,7 @@ const FIXTURE_STACKS = ((): RepositoryAlchemyStacks => {
         dashboardUrl: "https://dashboard.convex.dev/t/nicu/samebase/clear-butterfly-858",
         region: "aws-us-east-1",
         customDomains: [
+          { domain: "api.samebase.com", requestDestination: "convexSite" },
           { domain: "cloud.samebase.com", requestDestination: "convexCloud" },
           { domain: "samebase.com", requestDestination: "convexSite" },
         ],

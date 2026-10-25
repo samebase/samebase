@@ -465,6 +465,7 @@ describe("repository Alchemy state", () => {
         dashboardUrl: "https://dashboard.convex.dev/t/nicu/base-alchemy/ideal-dolphin-15",
         region: "aws-us-east-1",
         customDomains: [
+          { domain: "api.samebase.com", requestDestination: "convexSite" },
           { domain: "cloud.samebase.com", requestDestination: "convexCloud" },
           { domain: "samebase.com", requestDestination: "convexSite" },
         ],

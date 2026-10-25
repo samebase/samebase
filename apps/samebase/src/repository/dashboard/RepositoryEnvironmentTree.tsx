@@ -41,41 +41,12 @@ import {
   ExternalLink,
   MoreHorizontal,
 } from "lucide-react";
-import { useState } from "react";
 import type { RepositoryWorkspaceSelected } from "./repositoryWorkspaceModel";
 
 type EnvironmentBuildState = Extract<
   RepositoryEnvironmentWorker["build"],
   { state: "available" }
 >["buildState"];
-
-function DestinationIcon({ href }: { href: string }) {
-  const [faviconFailed, setFaviconFailed] = useState(false);
-  let origin: URL;
-  try {
-    origin = new URL(href);
-  } catch {
-    return <CloudflareProviderLogo />;
-  }
-
-  if (origin.hostname.endsWith(".workers.dev") || faviconFailed) {
-    return <CloudflareProviderLogo />;
-  }
-
-  const faviconUrl = `${origin.origin}/favicon.ico`;
-
-  return (
-    <img
-      alt=""
-      aria-hidden="true"
-      className="h-4 w-4"
-      loading="lazy"
-      referrerPolicy="no-referrer"
-      src={faviconUrl}
-      onError={() => setFaviconFailed(true)}
-    />
-  );
-}
 
 export function RootDirectoryLabel({ rootDirectory }: { rootDirectory: string }) {
   return (
@@ -713,23 +684,17 @@ function CloudflareWorkerResource({
           <div className="flex min-w-0 items-center gap-1 text-sm">
             {worker.destination.state === "available" ? (
               <a
-                className="inline-flex min-h-10 min-w-0 items-center gap-2.5 text-muted-foreground underline decoration-border underline-offset-4 hover:text-foreground @4xl:min-h-8"
+                className="inline-flex min-h-10 min-w-0 items-center gap-1.5 text-muted-foreground underline decoration-border underline-offset-4 hover:text-foreground @4xl:min-h-8"
                 href={worker.destination.href}
                 rel="noreferrer noopener"
                 target="_blank"
                 title={worker.destination.title}
               >
-                <span className="flex h-4 w-5 shrink-0 items-center justify-center">
-                  <DestinationIcon href={worker.destination.href} />
-                </span>
                 <span className="min-w-0 break-all leading-5">{worker.destination.label}</span>
                 <ExternalLink className="h-3 w-3 shrink-0" />
               </a>
             ) : worker.destination.state === "unlinked" ? (
-              <span className="inline-flex min-h-10 min-w-0 items-center gap-2.5 text-muted-foreground @4xl:min-h-8">
-                <span className="flex h-4 w-5 shrink-0 items-center justify-center">
-                  <CloudflareProviderLogo />
-                </span>
+              <span className="inline-flex min-h-10 min-w-0 items-center text-muted-foreground @4xl:min-h-8">
                 <span className="min-w-0 break-all leading-5">{worker.destination.label}</span>
               </span>
             ) : null}

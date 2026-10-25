@@ -134,6 +134,7 @@ function liveSite(customDomains: LiveDeployment["customDomains"]): LiveDeploymen
 
 /** The live read gives the recorded reply of `observedConvexCustomDomains.ts` oldest first. */
 const siteAndCloudDomains: LiveDeployment["customDomains"] = [
+  { domain: "api.samebase.com", requestDestination: "convexSite" },
   { domain: "cloud.samebase.com", requestDestination: "convexCloud" },
   { domain: "samebase.com", requestDestination: "convexSite" },
 ];
@@ -248,8 +249,19 @@ describe("stackCards", () => {
     expect(addressOf(liveSite(siteAndCloudDomains), [site, proxyWithUrl])).toEqual([
       "https://samebase.com",
     ]);
+    // The site domain with the fewest labels wins over the older api.samebase.com, and the
+    // oldest wins a tie.
+    expect(
+      addressOf(
+        liveSite([
+          { domain: "samebase.dev", requestDestination: "convexSite" },
+          { domain: "samebase.app", requestDestination: "convexSite" },
+        ]),
+        [site],
+      ),
+    ).toEqual(["https://samebase.dev"]);
     // A `convexCloud` domain serves the client API, not the site.
-    expect(addressOf(liveSite([siteAndCloudDomains[0]]), [site])).toEqual([
+    expect(addressOf(liveSite([siteAndCloudDomains[1]]), [site])).toEqual([
       "https://clear-butterfly-858.convex.site",
     ]);
     // Convex refused the custom domains, or the live read failed.
