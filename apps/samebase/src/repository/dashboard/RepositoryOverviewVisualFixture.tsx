@@ -199,7 +199,8 @@ The stacks of samebase/samebase from the captured rows of its stages `prod` and 
 stack, whose Site deployment serves at its custom domain samebase.com and binds the `mail` component
 to the namespace `Mail` of an inbox Worker and a Scout bucket, and the stack of apps/sidebars-example
 with only a Worker. The root stack has the captured preview of pull request 1768 as the stage
-`pr-1260` of the first fixture pull request.
+`pr-1260` of the first fixture pull request. Each stage deployed the head commit that the overview
+shows, so no card has a run line.
 */
 const FIXTURE_STACKS = ((): RepositoryAlchemyStacks => {
   const [, preview, prod] = observedSamebaseStackReply.value.stages;
@@ -207,18 +208,21 @@ const FIXTURE_STACKS = ((): RepositoryAlchemyStacks => {
   const [, , previewSiteRow] = preview.resources;
   const [, workspacesProdRow] = observedScoutR2Resources;
   const inMail = (value: string) => value.replace(/}$/, ',"namespace":{"Id":"Mail"}}');
-  // The captured run record of the stage with the stack file at the repository root.
+  // The captured run record of the stage with the stack file at the repository root, for the head
+  // commit of the fixture default branch.
   const record = {
     version: 1,
     repository: "samebase/samebase",
     stackFile: "alchemy.run.ts",
     branch: "main",
     pullRequest: null,
-    headCommit: "1592243a49970f5c5142009b7ca7b2d71d31f104",
+    headCommit: "81145b7d2a32186823452c7515b2d5ba2d79b350",
     runUrl: "https://github.com/samebase/samebase/actions/runs/39746887572/attempts/1",
     source: "github-actions",
     recordedAt: "2026-10-22T08:22:58.152Z",
   } as const;
+  // The head commit of the fixture pull request 1260.
+  const pullRequestHead = "0000000000000000000000000000000000000001";
   return {
     store: "found",
     liveDeployments: [
@@ -238,16 +242,16 @@ const FIXTURE_STACKS = ((): RepositoryAlchemyStacks => {
         stages: [
           {
             name: "pr-1260",
-            // The captured run record of `pr-1768`.
+            // The captured run record of `pr-1768`, for the head commit of the pull request.
             record: {
               ...record,
               branch: "alchemy-root-stack",
               pullRequest: 1260,
-              headCommit: "429c1218a16d2ee74b9da68d684dc460a0a67ce8",
+              headCommit: pullRequestHead,
               runUrl: "https://github.com/samebase/samebase/actions/runs/39756039340/attempts/1",
               recordedAt: "2026-10-22T09:34:35.577Z",
             },
-            deployedHeadCommit: "429c1218a16d2ee74b9da68d684dc460a0a67ce8",
+            deployedHeadCommit: pullRequestHead,
             resources: [previewSiteRow],
             output: '{"url":"https://aware-bobcat-542.convex.site"}',
           },
@@ -1655,6 +1659,7 @@ export function RepositoryOverviewVisualFixture({ mode }: { mode: RepositoryOver
               stacks: FIXTURE_STACKS,
               stage: {
                 name: "prod",
+                headCommit: currentPullRequests.defaultBranch?.headCommitOid ?? null,
                 branch: "main",
                 owner: LIST_SPACING_REPOSITORY.githubOwnerLogin,
                 repoName: LIST_SPACING_REPOSITORY.githubRepositoryName,
@@ -1680,7 +1685,10 @@ export function RepositoryOverviewVisualFixture({ mode }: { mode: RepositoryOver
                             resources: { ...resource.resources, workers: [], convexProjects: [] },
                             stackCards: buildAlchemyStackCards({
                               stacks: FIXTURE_STACKS,
-                              stage: { name: `pr-${pullRequest.number}` },
+                              stage: {
+                                name: `pr-${pullRequest.number}`,
+                                headCommit: pullRequest.headRefOid,
+                              },
                             }),
                           },
                         ],

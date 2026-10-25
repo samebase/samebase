@@ -146,6 +146,11 @@ export function useRepositoryWorkspaceModel(
               stacks: alchemyStacks,
               stage: {
                 name: "prod",
+                // The head commit that the default-branch block shows above the cards.
+                headCommit:
+                  pullRequests.state === "current" || pullRequests.state === "stale"
+                    ? (pullRequests.defaultBranch?.headCommitOid ?? null)
+                    : null,
                 branch: defaultBranch,
                 owner: accessibleSelectedRepository.githubOwnerLogin,
                 repoName: accessibleSelectedRepository.githubRepositoryName,

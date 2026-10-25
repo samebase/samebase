@@ -170,8 +170,12 @@ The stacks of a repository as the overview shows them at the stage `stage`, such
 default branch or `pr-12` for pull request 12: one card for each stack with that stage, in stack
 file order. `folder` is the directory of the stack file, `/` for the root, and null for the only
 card when its stack file is at the root. A stack file outside the repository has no card.
-`deployedHeadCommit` is the last completed deploy, and `recordedAt` and `runUrl` come from the run
-record of the stage.
+
+`run` is the run line of the card: the last completed deploy of the stage, `deployedHeadCommit`,
+with `recordedAt` and `runUrl` of its run record. The overview shows `headCommit` above the cards,
+the head of the default branch or of the pull request, so a stage that deployed that commit has no
+run line. A stage without a completed deploy, or a `headCommit` that is not known yet (null), also
+has none. The run record and GitHub both give full commit hashes.
 
 `address` is where the stack serves: the first Convex deployment by fqn at its first `convexSite`
 custom domain, else at its `siteUrl`, which a failed read of the custom domains also gives. Only the
@@ -184,8 +188,10 @@ export function stackCards({
   stacks,
   liveDeployments,
   stage: stageName,
+  headCommit,
 }: Pick<Extract<AlchemyStateObservation, { store: "found" }>, "stacks" | "liveDeployments"> & {
   stage: string;
+  headCommit: string | null;
 }) {
   const cards = stacks
     .flatMap((stack) => {
@@ -210,14 +216,16 @@ export function stackCards({
       const addressWorker = deployment
         ? undefined
         : resources.workers.find(({ state }) => state.attr.url);
+      const { deployedHeadCommit } = stage;
       return [
         {
           stack: stack.name,
           stackFile: record.stackFile,
           folder: directory === "." ? REPOSITORY_ROOT_DIRECTORY : directory,
-          deployedHeadCommit: stage.deployedHeadCommit,
-          recordedAt: record.recordedAt,
-          runUrl: record.runUrl,
+          run:
+            !headCommit || !deployedHeadCommit || deployedHeadCommit === headCommit
+              ? null
+              : { deployedHeadCommit, recordedAt: record.recordedAt, runUrl: record.runUrl },
           address: !deployment
             ? (addressWorker?.state.attr.url ?? null)
             : siteDomain

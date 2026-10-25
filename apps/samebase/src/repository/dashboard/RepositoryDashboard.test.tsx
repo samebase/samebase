@@ -819,15 +819,17 @@ function samebaseStacksWithRows(replace: (value: string) => string): RepositoryA
   };
 }
 
-/** The cards of `stacks` for `repository` on the default branch `main`. */
+/** The cards of `stacks` for `repository` on the default branch `main` at `headCommit`. */
 function stackCardsOf(
   stacks: RepositoryAlchemyStacks,
   repository: RepositorySettingsBuilderRepository,
+  headCommit: string | null,
 ) {
   return buildAlchemyStackCards({
     stacks,
     stage: {
       name: "prod",
+      headCommit,
       branch: "main",
       owner: repository.githubOwnerLogin,
       repoName: repository.githubRepositoryName,
@@ -839,11 +841,13 @@ function stackCardsOf(
 
 /**
 The default-branch block of `repository` with the stacks of the team store while the GitHub
-pull-request query loads, and its stack cards without the relative times of their runs.
+pull-request query loads, and its stack cards for the head `headCommit` without the relative times
+of their runs.
 */
 function renderStackCards(
   stacks: RepositoryAlchemyStacks,
   repository: RepositorySettingsBuilderRepository,
+  headCommit: string | null,
 ) {
   const container = document.createElement("div");
   container.innerHTML = renderToStaticMarkup(
@@ -872,7 +876,7 @@ function renderStackCards(
           },
           convexObservations: { state: "loading" },
           githubRepositoryUrl: `https://github.com/${repository.githubRepositoryFullName}`,
-          production: { source: "stacks", cards: stackCardsOf(stacks, repository) },
+          production: { source: "stacks", cards: stackCardsOf(stacks, repository, headCommit) },
           pullRequests: { state: "loading" },
           repository,
         }}
@@ -899,14 +903,13 @@ describe("Alchemy stack cards", () => {
     });
     const stacks = observedBaseAlchemyStack();
 
-    expect(stackCardsOf(stacks, repository)).toEqual([
+    expect(stackCardsOf(stacks, repository, null)).toEqual([
       {
         stack: "samebase/base-alchemy",
         stackFile: "alchemy.run.ts",
         folder: null,
-        deployedHeadCommit: "a4d98f2ad150dee07e19fa9c348e70240aca1dac",
-        recordedAt: "2026-10-21T19:58:06.882Z",
-        runUrl: "https://github.com/samebase/base-alchemy/actions/runs/39666079880/attempts/1",
+        // The GitHub pull-request query loads, so the head is not known and no run line shows.
+        run: null,
         address: {
           href: "https://ideal-dolphin-15.convex.site",
           label: "ideal-dolphin-15.convex.site",
@@ -939,7 +942,7 @@ describe("Alchemy stack cards", () => {
         ],
       },
     ]);
-    const { section, cards } = renderStackCards(stacks, repository);
+    const { section, cards } = renderStackCards(stacks, repository, null);
     expect(section.querySelector("section")?.getAttribute("aria-label")).toBe(
       "Default branch main",
     );
@@ -947,7 +950,7 @@ describe("Alchemy stack cards", () => {
       1,
     );
     expect(cards.map((card) => card.textContent)).toEqual([
-      "a4d98f2ideal-dolphin-15.convex.siteideal-dolphin-15🇺🇸US East (N. Virginia)",
+      "ideal-dolphin-15.convex.siteideal-dolphin-15🇺🇸US East (N. Virginia)",
     ]);
     expect(
       [...section.querySelectorAll("a")].map((link) => [
@@ -956,7 +959,6 @@ describe("Alchemy stack cards", () => {
       ]),
     ).toEqual([
       ["main", "https://github.com/samebase/base-alchemy/tree/main"],
-      ["a4d98f2", "https://github.com/samebase/base-alchemy/actions/runs/39666079880/attempts/1"],
       ["ideal-dolphin-15.convex.site", "https://ideal-dolphin-15.convex.site"],
       ["ideal-dolphin-15", "https://dashboard.convex.dev/t/nicu/base-alchemy/ideal-dolphin-15"],
     ]);
@@ -969,16 +971,17 @@ describe("Alchemy stack cards", () => {
     const { cards } = renderStackCards(
       samebaseStacksAfterTheMove(),
       makeRepositorySettingsBuilderRepository({ convexTeamId: "38516" }),
+      "1592243a49970f5c5142009b7ca7b2d71d31f104",
     );
 
     expect(cards.map((card) => [card.getAttribute("aria-label"), card.textContent])).toEqual([
       [
         "Alchemy stack samebase/samebase",
-        "/1592243clear-butterfly-858.convex.sitesamebase-domains*.json.mdsamebase-posthog-proxye.samebase.comclear-butterfly-858",
+        "/clear-butterfly-858.convex.sitesamebase-domains*.json.mdsamebase-posthog-proxye.samebase.comclear-butterfly-858",
       ],
       [
         "Alchemy stack samebase/samebase/apps/sidebars-example",
-        "apps/sidebars-example1592243samebase-monorepo-sidebars-examplee.samebase.com",
+        "apps/sidebars-examplesamebase-monorepo-sidebars-examplee.samebase.com",
       ],
     ]);
   });
@@ -1001,10 +1004,11 @@ describe("Alchemy stack cards", () => {
         })),
       },
       makeRepositorySettingsBuilderRepository({}),
+      null,
     );
 
     expect(cards.map((card) => card.textContent)).toEqual([
-      `${folder}a4d98f2scout-public-mediascout-workspacesscout-workspaces-prod`,
+      `${folder}scout-public-mediascout-workspacesscout-workspaces-prod`,
     ]);
     expect(
       [...cards[0].querySelectorAll('a[title^="Open R2 bucket"]')].map((link) =>
@@ -1022,6 +1026,7 @@ describe("Alchemy stack cards", () => {
     const cards = stackCardsOf(
       samebaseStacksAfterTheMove(),
       makeRepositorySettingsBuilderRepository({ convexTeamId: "38516" }),
+      null,
     );
 
     expect(
@@ -1071,6 +1076,7 @@ describe("Alchemy stack cards", () => {
         ),
       ),
       makeRepositorySettingsBuilderRepository({ convexTeamId: "38516" }),
+      null,
     );
 
     expect(
@@ -1128,6 +1134,7 @@ describe("Alchemy stack cards", () => {
         ],
       },
       makeRepositorySettingsBuilderRepository({ convexTeamId: "38516" }),
+      null,
     );
 
     expect(
@@ -1156,6 +1163,7 @@ describe("Alchemy stack cards", () => {
           }),
         ],
       }),
+      null,
     );
 
     expect(
@@ -1204,7 +1212,7 @@ describe("Alchemy stack cards", () => {
       ],
     });
     const repository = makeRepositorySettingsBuilderRepository({});
-    const { cards } = renderStackCards(stacksWith(worker), repository);
+    const { cards } = renderStackCards(stacksWith(worker), repository, "b".repeat(40));
 
     // A run from a laptop has no run URL, so its line links nowhere. The address is the one URL of
     // the Worker, so the Worker row shows no URL and no build state.
@@ -1224,6 +1232,7 @@ describe("Alchemy stack cards", () => {
           ),
         ),
         repository,
+        null,
       ).map((card) => ({
         address: card.address,
         destinations: card.resources.map((resource) =>
@@ -1292,7 +1301,7 @@ describe("Alchemy stack cards", () => {
     const repository = makeRepositorySettingsBuilderRepository({ convexTeamId: "38516" });
 
     expect(
-      stackCardsOf(mailStacks, repository).map((card) =>
+      stackCardsOf(mailStacks, repository, null).map((card) =>
         card.resources.map((resource) =>
           resource.kind === "destination"
             ? {
@@ -1322,7 +1331,7 @@ describe("Alchemy stack cards", () => {
         },
       ],
     ]);
-    const { cards } = renderStackCards(mailStacks, repository);
+    const { cards } = renderStackCards(mailStacks, repository, null);
     const deployment = cards[0].querySelector('[aria-label="Convex deployment ideal-dolphin-15"]');
     expect(deployment?.querySelector('[aria-label="Convex component mail"]')?.textContent).toBe(
       "mailConvex componentsamebase-posthog-proxye.samebase.comscout-workspaces",
@@ -1331,7 +1340,7 @@ describe("Alchemy stack cards", () => {
       deployment?.querySelector('[aria-label="Cloudflare Worker samebase-domains"]'),
     ).toBeNull();
     expect(cards.map((card) => card.textContent)).toEqual([
-      "apps/maila4d98f2ideal-dolphin-15.convex.sitesamebase-domains*.json.mdideal-dolphin-15🇺🇸US East (N. Virginia)mailConvex componentsamebase-posthog-proxye.samebase.comscout-workspaces",
+      "apps/mailideal-dolphin-15.convex.sitesamebase-domains*.json.mdideal-dolphin-15🇺🇸US East (N. Virginia)mailConvex componentsamebase-posthog-proxye.samebase.comscout-workspaces",
     ]);
   });
 
@@ -1386,7 +1395,11 @@ describe("Alchemy stack cards", () => {
               netlify: { state: "available", previews: [] },
             },
           },
-          stackCards: buildAlchemyStackCards({ stacks: withPreview, stage: { name: "pr-1768" } }),
+          // The pull request has a newer head than the deployed commit, so the card has a run line.
+          stackCards: buildAlchemyStackCards({
+            stacks: withPreview,
+            stage: { name: "pr-1768", headCommit: "e63be559a98682f3b67090f9d9e294694e87fad2" },
+          }),
         }}
         settingsHref="/repo/samebase/samebase/settings"
       />,

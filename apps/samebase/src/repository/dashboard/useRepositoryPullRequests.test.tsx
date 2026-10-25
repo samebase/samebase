@@ -327,7 +327,8 @@ describe("useRepositoryPullRequests", () => {
           stackCards: [
             {
               stack: "samebase/base-alchemy",
-              deployedHeadCommit: headRefOid,
+              // The stage deployed the head of the pull request.
+              run: null,
               address: { href: "https://aware-bobcat-542.convex.site" },
             },
           ],
@@ -345,7 +346,7 @@ describe("useRepositoryPullRequests", () => {
         resources: {
           hostingPreviews: { cloudflare: { state: "available" }, netlify: { state: "available" } },
         },
-        stackCards: [{ deployedHeadCommit: "b".repeat(40) }],
+        stackCards: [{ run: { deployedHeadCommit: "b".repeat(40) } }],
       },
     ]);
     expect(resourceHandler).toHaveBeenCalledTimes(calls);

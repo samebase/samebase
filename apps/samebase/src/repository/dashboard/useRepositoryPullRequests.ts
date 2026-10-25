@@ -322,7 +322,7 @@ export function useRepositoryPullRequests(args: {
           stackCards: alchemyStacks
             ? buildAlchemyStackCards({
                 stacks: alchemyStacks,
-                stage: { name: `pr-${pullRequest.number}` },
+                stage: { name: `pr-${pullRequest.number}`, headCommit: pullRequest.headRefOid },
               })
             : [],
         });

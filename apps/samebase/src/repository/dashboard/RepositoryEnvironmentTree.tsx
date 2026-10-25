@@ -316,6 +316,34 @@ export function RepositoryEnvironmentTree({
   );
 }
 
+/** The deployed commit of a stack and the time of its run, which links to the run when it has a URL. */
+function StackRunLine({ run }: { run: NonNullable<RepositoryStackCard["run"]> }) {
+  const recordedAt = Date.parse(run.recordedAt);
+  const line = (
+    <>
+      <span className="font-mono">{run.deployedHeadCommit.slice(0, 7)}</span>
+      <time dateTime={run.recordedAt} title={run.recordedAt}>
+        {Number.isFinite(recordedAt) ? formatRelativeTimeAgo(recordedAt) : run.recordedAt}
+      </time>
+    </>
+  );
+
+  return run.runUrl ? (
+    <a
+      className="inline-flex min-h-8 items-center gap-2 text-xs text-muted-foreground underline decoration-border underline-offset-4 hover:text-foreground"
+      href={run.runUrl}
+      rel="noreferrer noopener"
+      target="_blank"
+    >
+      {line}
+    </a>
+  ) : (
+    <span className="inline-flex min-h-8 items-center gap-2 text-xs text-muted-foreground">
+      {line}
+    </span>
+  );
+}
+
 function RepositoryStackCards({ cards }: { cards: readonly RepositoryStackCard[] }) {
   if (cards.length === 0) {
     return null;
@@ -324,18 +352,6 @@ function RepositoryStackCards({ cards }: { cards: readonly RepositoryStackCard[]
   return (
     <div className="mt-3 grid gap-3">
       {cards.map((card) => {
-        const recordedAt = Date.parse(card.recordedAt);
-        const run = (
-          <>
-            {card.deployedHeadCommit ? (
-              <span className="font-mono">{card.deployedHeadCommit.slice(0, 7)}</span>
-            ) : null}
-            <time dateTime={card.recordedAt} title={card.recordedAt}>
-              {Number.isFinite(recordedAt) ? formatRelativeTimeAgo(recordedAt) : card.recordedAt}
-            </time>
-          </>
-        );
-
         return (
           <div
             key={card.stack}
@@ -345,20 +361,7 @@ function RepositoryStackCards({ cards }: { cards: readonly RepositoryStackCard[]
           >
             <div className="flex flex-col items-start px-3 pt-3 pb-1">
               {card.folder ? <RootDirectoryLabel rootDirectory={card.folder} /> : null}
-              {card.runUrl ? (
-                <a
-                  className="inline-flex min-h-8 items-center gap-2 text-xs text-muted-foreground underline decoration-border underline-offset-4 hover:text-foreground"
-                  href={card.runUrl}
-                  rel="noreferrer noopener"
-                  target="_blank"
-                >
-                  {run}
-                </a>
-              ) : (
-                <span className="inline-flex min-h-8 items-center gap-2 text-xs text-muted-foreground">
-                  {run}
-                </span>
-              )}
+              {card.run ? <StackRunLine run={card.run} /> : null}
               {card.address ? (
                 <a
                   className="inline-flex min-h-10 max-w-full items-center text-base font-medium text-foreground underline decoration-border underline-offset-4 hover:decoration-foreground @4xl:min-h-8"

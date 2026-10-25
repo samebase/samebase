@@ -421,20 +421,22 @@ export function buildProductionEnvironmentRoots({
 
 /**
 prod = the stage of the default branch `branch`: a deployment row offers the Samebase routes of the
-deployment.
+deployment. `headCommit` is the head of the default branch, null until the GitHub read gives it.
 
-pr-<number> = the stage of a pull request: a preview deployment row offers no route.
+pr-<number> = the stage of a pull request with the head `headCommit`: a preview deployment row
+offers no route.
 */
 type RepositoryStackCardStage =
   | {
       name: "prod";
+      headCommit: string | null;
       branch: string;
       owner: string;
       repoName: string;
       schemaGraphEnabled: boolean;
       repository: RepositoryDashboardRepository;
     }
-  | { name: `pr-${number}` };
+  | { name: `pr-${number}`; headCommit: string };
 
 /**
 The stack cards of the default-branch block and of a pull request row, from the stacks of the
@@ -469,6 +471,7 @@ export function buildAlchemyStackCards({
     stacks: stacks.stacks,
     liveDeployments: stacks.liveDeployments,
     stage: stage.name,
+    headCommit: stage.headCommit,
   }).map((card) => {
     const { convexDeployments, workers, r2Buckets } = card.resources;
     const workerInput = (

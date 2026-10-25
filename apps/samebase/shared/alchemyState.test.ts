@@ -119,6 +119,7 @@ function addressOf(
 ) {
   return stackCards({
     stage: "prod",
+    headCommit: null,
     liveDeployments,
     stacks: [prodStack("samebase/samebase", "alchemy.run.ts", resources)],
   }).map((card) => card.address);
@@ -141,6 +142,7 @@ describe("stackCards", () => {
   it("makes one card for each stack with a stage prod, in stack file order", () => {
     const cards = stackCards({
       stage: "prod",
+      headCommit: null,
       liveDeployments: [],
       stacks: [
         prodStack("samebase/samebase", "infra/alchemy.run.ts", [site]),
@@ -167,6 +169,7 @@ describe("stackCards", () => {
     // The captured `pr-1768` and `prod` stages of samebase/samebase, and a stack with only `prod`.
     const cards = stackCards({
       stage: "pr-1768",
+      headCommit: "429c1218a16d2ee74b9da68d684dc460a0a67ce8",
       liveDeployments: [],
       stacks: [
         { name: "samebase/samebase", stages: [readerStage("pr-1768"), readerStage("prod")] },
@@ -188,9 +191,8 @@ describe("stackCards", () => {
         stack: "samebase/samebase",
         stackFile: "alchemy.run.ts",
         folder: null,
-        deployedHeadCommit: "429c1218a16d2ee74b9da68d684dc460a0a67ce8",
-        recordedAt: "2026-10-22T09:34:35.577Z",
-        runUrl: "https://github.com/samebase/samebase/actions/runs/39756039340/attempts/1",
+        // The stage deployed the head of the pull request.
+        run: null,
         address: "https://aware-bobcat-542.convex.site",
         addressWorker: null,
         deployments: ["aware-bobcat-542"],
@@ -202,6 +204,7 @@ describe("stackCards", () => {
     const foldersOf = (stackFiles: readonly string[]) =>
       stackCards({
         stage: "prod",
+        headCommit: null,
         liveDeployments: [],
         stacks: stackFiles.map((stackFile) => prodStack(stackFile, stackFile, [proxy])),
       }).map((card) => card.folder);
@@ -214,24 +217,31 @@ describe("stackCards", () => {
     ]);
   });
 
-  it("takes the commit, time, and link of the run line from the stage", () => {
-    expect(
+  it("shows the run line only when the deployed commit differs from the head above the cards", () => {
+    // The captured stage `prod` of samebase/samebase, which deployed 1592243.
+    const deployed = "1592243a49970f5c5142009b7ca7b2d71d31f104";
+    const runsOf = (headCommit: string | null, deployedHeadCommit: string | null) =>
       stackCards({
         stage: "prod",
+        headCommit,
         liveDeployments: [],
-        stacks: [prodStack("samebase/samebase", "apps/samebase/alchemy.run.ts", [site])],
-      }).map(({ deployedHeadCommit, recordedAt, runUrl }) => ({
-        deployedHeadCommit,
-        recordedAt,
-        runUrl,
-      })),
-    ).toEqual([
+        stacks: [
+          { name: "samebase/samebase", stages: [{ ...readerStage("prod"), deployedHeadCommit }] },
+        ],
+      }).map((card) => card.run);
+
+    expect(runsOf(deployed, deployed)).toEqual([null]);
+    expect(runsOf("81145b7d2a32186823452c7515b2d5ba2d79b350", deployed)).toEqual([
       {
-        deployedHeadCommit: "1592243a49970f5c5142009b7ca7b2d71d31f104",
+        deployedHeadCommit: deployed,
         recordedAt: "2026-10-22T08:22:58.152Z",
         runUrl: "https://github.com/samebase/samebase/actions/runs/39746887572/attempts/1",
       },
     ]);
+    // The GitHub read has not given the head yet.
+    expect(runsOf(null, deployed)).toEqual([null]);
+    // The first deploy of the stage has not completed.
+    expect(runsOf(deployed, null)).toEqual([null]);
   });
 
   it("serves a stack at the site custom domain of its first Convex deployment, else at its site URL", () => {
@@ -258,6 +268,7 @@ describe("stackCards", () => {
     const addressWorkerOf = (resources: readonly { fqn: string; value: string }[]) =>
       stackCards({
         stage: "prod",
+        headCommit: null,
         liveDeployments: [],
         stacks: [prodStack("samebase/samebase", "alchemy.run.ts", resources)],
       }).map((card) => card.addressWorker);
