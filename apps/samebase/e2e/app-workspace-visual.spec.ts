@@ -1,4 +1,80 @@
 import { expect, test } from "@playwright/test";
+import { signInIfNeeded } from "./liveHelpers";
+
+test.describe("route URL editor compact mobile suggestions", () => {
+  test.use({ hasTouch: true, isMobile: true, viewport: { width: 390, height: 844 } });
+
+  test("keeps path endings visible and highlights the draft cursor prefix", async ({ page }) => {
+    await page.addInitScript(() => {
+      Math.random = () => 0.57;
+    });
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.goto("/repo", { waitUntil: "networkidle" });
+    await signInIfNeeded(page, "/terms");
+    await page.waitForLoadState("networkidle");
+    await page.getByTestId("route-url-editor-display").focus();
+
+    const origin = new URL(page.url()).origin;
+    const path = "/repo/samebase/tmp-checking-something";
+    const input = page.getByTestId("route-url-editor-input");
+    const popover = page.getByTestId("route-url-editor-suggestions-popover");
+    const values = popover.getByTestId("route-url-editor-suggestion-value");
+    await input.fill(`${origin}${path}?attachments&`);
+    await input.evaluate((element, position) => {
+      if (!(element instanceof HTMLInputElement)) throw new Error("Expected URL input.");
+      element.setSelectionRange(position, position);
+      element.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    }, `${origin}${path}`.length);
+
+    await expect(values).toHaveText(["…/tmp-checking-something", "…/alchemy", "…/settings"]);
+    await expect(
+      popover.getByRole("option", { name: `${path}/alchemy`, exact: true }),
+    ).toBeVisible();
+    await expect(popover).toHaveScreenshot("route-url-editor-compact-paths-mobile.png", {
+      animations: "disabled",
+      caret: "hide",
+      scale: "css",
+    });
+
+    await input.evaluate((element, position) => {
+      if (!(element instanceof HTMLInputElement)) throw new Error("Expected URL input.");
+      element.setSelectionRange(position, position);
+      element.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    }, `${origin}/repo/samebase/tmp-che`.length);
+    const labels = [
+      "…/tmp-checking-something",
+      "…/tmp-checking-something/alchemy",
+      "…/tmp-checking-something/settings",
+    ];
+    await expect(values).toHaveText(labels);
+    await expect(values.locator("mark")).toHaveText([
+      "…",
+      "/tmp-che",
+      "…",
+      "/tmp-che",
+      "…",
+      "/tmp-che",
+    ]);
+    await expect(popover).toHaveScreenshot("route-url-editor-middle-path-mobile.png", {
+      animations: "disabled",
+      caret: "hide",
+      scale: "css",
+    });
+
+    await input.press("ArrowDown");
+    await expect(values).toHaveText(labels);
+    await expect(values.locator("mark")).toHaveText([
+      "…",
+      "/tmp-che",
+      "…",
+      "/tmp-che",
+      "…",
+      "/tmp-che",
+    ]);
+    await input.press("Enter");
+    await expect(input).toHaveValue(`${origin}${path}?attachments&`);
+  });
+});
 
 test("app workspace address chrome exposes the route URL editor", async ({ page }) => {
   await page.addInitScript(() => {
