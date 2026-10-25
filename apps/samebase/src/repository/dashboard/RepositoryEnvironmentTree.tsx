@@ -361,18 +361,21 @@ function RepositoryStackCards({ cards }: { cards: readonly RepositoryStackCard[]
           >
             <div className="flex flex-col items-start px-3 pt-3 pb-1">
               {card.folder ? <RootDirectoryLabel rootDirectory={card.folder} /> : null}
-              {card.run ? <StackRunLine run={card.run} /> : null}
               {card.address ? (
                 <a
-                  className="inline-flex min-h-10 max-w-full items-center text-base font-medium text-foreground underline decoration-border underline-offset-4 hover:decoration-foreground @4xl:min-h-8"
+                  className="inline-flex min-h-10 min-w-0 max-w-full items-center gap-1.5 text-sm text-muted-foreground underline decoration-border underline-offset-4 hover:text-foreground @4xl:min-h-8"
                   href={card.address.href}
                   rel="noreferrer noopener"
                   target="_blank"
                   title={card.address.href}
                 >
-                  <span className="min-w-0 [overflow-wrap:anywhere]">{card.address.label}</span>
+                  <span className="min-w-0 leading-5 [overflow-wrap:anywhere]">
+                    {card.address.label}
+                  </span>
+                  <ExternalLink className="h-3 w-3 shrink-0" />
                 </a>
               ) : null}
+              {card.run ? <StackRunLine run={card.run} /> : null}
             </div>
             <div className="border-t border-border px-3">
               {card.resources.map((resource) => (

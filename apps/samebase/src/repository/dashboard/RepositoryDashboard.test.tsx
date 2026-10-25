@@ -1217,7 +1217,7 @@ describe("Alchemy stack cards", () => {
     // A run from a laptop has no run URL, so its line links nowhere. The address is the one URL of
     // the Worker, so the Worker row shows no URL and no build state.
     expect(cards.map((card) => card.textContent)).toEqual([
-      "aaaaaaatmp-k7m2-rows.pfp.workers.devtmp-k7m2-rows",
+      "tmp-k7m2-rows.pfp.workers.devaaaaaaatmp-k7m2-rows",
     ]);
     expect([...cards[0].querySelectorAll("a")].map((link) => link.getAttribute("href"))).toEqual([
       "https://tmp-k7m2-rows.pfp.workers.dev",
@@ -1411,11 +1411,11 @@ describe("Alchemy stack cards", () => {
 
     // One card at the root shows no folder, and a preview deployment has no live read or route.
     expect(cards.map((card) => [card.getAttribute("aria-label"), card.textContent])).toEqual([
-      ["Alchemy stack samebase/samebase", "429c121aware-bobcat-542.convex.siteaware-bobcat-542"],
+      ["Alchemy stack samebase/samebase", "aware-bobcat-542.convex.site429c121aware-bobcat-542"],
     ]);
     expect([...cards[0].querySelectorAll("a")].map((link) => link.getAttribute("href"))).toEqual([
-      "https://github.com/samebase/samebase/actions/runs/39756039340/attempts/1",
       "https://aware-bobcat-542.convex.site",
+      "https://github.com/samebase/samebase/actions/runs/39756039340/attempts/1",
       "https://dashboard.convex.dev/d/aware-bobcat-542",
     ]);
     expect(cards[0].querySelectorAll("button")).toHaveLength(0);
