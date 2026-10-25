@@ -58,10 +58,8 @@ function RepositoryHeader({
   const repositoryIdentity = (
     <>
       <div className="min-w-0 flex-1 text-base">
-        <span className="block line-clamp-2 text-muted-foreground [overflow-wrap:anywhere] @3xl:inline">
-          {owner}/
-        </span>
-        <h1 className="block line-clamp-3 font-semibold text-foreground [overflow-wrap:anywhere] @3xl:ml-1 @3xl:inline">
+        <span className="text-muted-foreground [overflow-wrap:anywhere]">{owner}/</span>
+        <h1 className="ml-1 inline font-semibold text-foreground [overflow-wrap:anywhere]">
           {repoName}
         </h1>
       </div>
