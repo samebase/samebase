@@ -1411,7 +1411,7 @@ describe("Alchemy stack cards", () => {
 
     // One card at the root shows no folder, and a preview deployment has no live read or route.
     expect(cards.map((card) => [card.getAttribute("aria-label"), card.textContent])).toEqual([
-      ["Alchemy stack samebase/samebase", "aware-bobcat-542.convex.site429c121aware-bobcat-542"],
+      ["Alchemy stack samebase/samebase", "/aware-bobcat-542.convex.site429c121aware-bobcat-542"],
     ]);
     expect([...cards[0].querySelectorAll("a")].map((link) => link.getAttribute("href"))).toEqual([
       "https://aware-bobcat-542.convex.site",

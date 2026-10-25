@@ -191,7 +191,8 @@ describe("stackCards", () => {
       {
         stack: "samebase/samebase",
         stackFile: "alchemy.run.ts",
-        folder: null,
+        // The repository has two stacks, so the card names its folder as on the default branch.
+        folder: "/",
         // The stage deployed the head of the pull request.
         run: null,
         address: "https://aware-bobcat-542.convex.site",
