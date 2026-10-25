@@ -21,6 +21,7 @@ import {
   type RepositoryEnvironmentRoot,
   type RepositoryEnvironmentWorker,
   type RepositoryOtherPreview,
+  type RepositoryStackCard,
 } from "@/repository/dashboard/repositoryEnvironmentRoots";
 import type {
   PullRequestResourceState,
@@ -40,41 +41,12 @@ import {
   ExternalLink,
   MoreHorizontal,
 } from "lucide-react";
-import { useState } from "react";
 import type { RepositoryWorkspaceSelected } from "./repositoryWorkspaceModel";
 
 type EnvironmentBuildState = Extract<
   RepositoryEnvironmentWorker["build"],
   { state: "available" }
 >["buildState"];
-
-function DestinationIcon({ href }: { href: string }) {
-  const [faviconFailed, setFaviconFailed] = useState(false);
-  let origin: URL;
-  try {
-    origin = new URL(href);
-  } catch {
-    return <CloudflareProviderLogo />;
-  }
-
-  if (origin.hostname.endsWith(".workers.dev") || faviconFailed) {
-    return <CloudflareProviderLogo />;
-  }
-
-  const faviconUrl = `${origin.origin}/favicon.ico`;
-
-  return (
-    <img
-      alt=""
-      aria-hidden="true"
-      className="h-4 w-4"
-      loading="lazy"
-      referrerPolicy="no-referrer"
-      src={faviconUrl}
-      onError={() => setFaviconFailed(true)}
-    />
-  );
-}
 
 export function RootDirectoryLabel({ rootDirectory }: { rootDirectory: string }) {
   return (
@@ -141,8 +113,10 @@ function EnvironmentActionsMenu({
 
 function DestinationResource({
   resource,
+  showTypeLabel,
 }: {
   resource: Extract<RepositoryEnvironmentResource, { kind: "destination" }>;
+  showTypeLabel: boolean;
 }) {
   const presentation = resourceTypePresentation("Convex.Deployment");
   const region = resource.region ? convexDeploymentRegionDetails[resource.region] : undefined;
@@ -169,7 +143,9 @@ function DestinationResource({
           </span>
           <ExternalLink className="h-3 w-3 shrink-0 text-muted-foreground" />
         </a>
-        <span className="shrink-0 text-xs text-muted-foreground">{presentation.label}</span>
+        {showTypeLabel ? (
+          <span className="shrink-0 text-xs text-muted-foreground">{presentation.label}</span>
+        ) : null}
         {region ? (
           <span className="text-xs" title={region.displayName}>
             <span aria-hidden="true">{region.icon}</span>
@@ -180,15 +156,11 @@ function DestinationResource({
           <EnvironmentActionsMenu actions={resource.actions} label={resource.label} />
         ) : null}
       </div>
-      {resource.provenance === "production" && !resource.components ? null : (
+      {resource.provenance !== "pull_request_branch" && !resource.components ? null : (
         <div className="ml-2.5 grid min-w-0 border-l border-border pl-3">
           {resource.provenance === "pull_request_branch" ? (
             <span className="text-xs leading-5 text-muted-foreground">
               May be from an earlier commit
-            </span>
-          ) : resource.provenance === "pull_request_head" ? (
-            <span className="font-mono text-xs leading-5 text-muted-foreground">
-              {resource.headCommit.slice(0, 7)}
             </span>
           ) : null}
           {resource.components?.map((component) => (
@@ -209,6 +181,7 @@ function DestinationResource({
                   <RepositoryEnvironmentResourceRow
                     key={`${child.kind}:${child.id}`}
                     resource={child}
+                    showTypeLabel={showTypeLabel}
                   />
                 ))}
               </div>
@@ -220,14 +193,20 @@ function DestinationResource({
   );
 }
 
+/**
+`showTypeLabel` shows the resource type beside the name, such as "Worker", in the rows of a
+directory. A stack card shows the rows without it.
+*/
 function RepositoryEnvironmentResourceRow({
   resource,
+  showTypeLabel,
 }: {
   resource: RepositoryEnvironmentResource;
+  showTypeLabel: boolean;
 }) {
   switch (resource.kind) {
     case "destination":
-      return <DestinationResource resource={resource} />;
+      return <DestinationResource resource={resource} showTypeLabel={showTypeLabel} />;
     case "convex_loading":
       return (
         <div
@@ -244,11 +223,11 @@ function RepositoryEnvironmentResourceRow({
         </div>
       );
     case "cloudflare_worker":
-      return <CloudflareWorkerResource worker={resource.worker} />;
-    case "cloudflare_r2_bucket": {
-      const presentation = resourceTypePresentation("Cloudflare.R2.Bucket");
+      return <CloudflareWorkerResource worker={resource.worker} showTypeLabel={showTypeLabel} />;
+    case "cloudflare_r2_bucket":
+      // Only a stack card shows an R2 bucket, so its row has no type label.
       return (
-        <div className="flex min-w-0 items-center gap-2.5">
+        <div className="flex">
           <a
             className="inline-flex min-h-10 min-w-0 items-center gap-2.5 py-1.5 text-foreground no-underline hover:no-underline"
             href={resource.href}
@@ -257,17 +236,15 @@ function RepositoryEnvironmentResourceRow({
             title={`Open R2 bucket ${resource.bucketName}`}
           >
             <span className="flex h-4 w-5 shrink-0 items-center justify-center">
-              {presentation.icon}
+              {resourceTypePresentation("Cloudflare.R2.Bucket").icon}
             </span>
             <span className="min-w-0 text-sm font-medium leading-5 underline decoration-border underline-offset-4 [overflow-wrap:anywhere]">
               {resource.bucketName}
             </span>
             <ExternalLink className="h-3 w-3 shrink-0 text-muted-foreground" />
           </a>
-          <span className="shrink-0 text-xs text-muted-foreground">{presentation.label}</span>
         </div>
       );
-    }
     default:
       resource satisfies never;
       return null;
@@ -300,12 +277,96 @@ export function RepositoryEnvironmentTree({
               <RepositoryEnvironmentResourceRow
                 key={`${resource.kind}:${resource.id}`}
                 resource={resource}
+                showTypeLabel
               />
             ))}
           </div>
         </div>
       ))}
     </>
+  );
+}
+
+/** The deployed commit of a stack and the time of its run, which links to the run when it has a URL. */
+function StackRunLine({ run }: { run: NonNullable<RepositoryStackCard["run"]> }) {
+  const recordedAt = Date.parse(run.recordedAt);
+  const line = (
+    <>
+      <span className="font-mono">{run.deployedHeadCommit.slice(0, 7)}</span>
+      <time dateTime={run.recordedAt} title={run.recordedAt}>
+        {Number.isFinite(recordedAt) ? formatRelativeTimeAgo(recordedAt) : run.recordedAt}
+      </time>
+    </>
+  );
+
+  return run.runUrl ? (
+    <a
+      className="inline-flex min-h-8 items-center gap-2 text-xs text-muted-foreground underline decoration-border underline-offset-4 hover:text-foreground"
+      href={run.runUrl}
+      rel="noreferrer noopener"
+      target="_blank"
+    >
+      {line}
+    </a>
+  ) : (
+    <span className="inline-flex min-h-8 items-center gap-2 text-xs text-muted-foreground">
+      {line}
+    </span>
+  );
+}
+
+function RepositoryStackCards({ cards }: { cards: readonly RepositoryStackCard[] }) {
+  if (cards.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="mt-3 grid gap-3">
+      {cards.map((card) => {
+        return (
+          <div
+            key={card.stack}
+            aria-label={`Alchemy stack ${card.stack}`}
+            className={card.framed ? "min-w-0 border border-border" : "min-w-0"}
+            role="group"
+          >
+            <div
+              className={
+                card.framed
+                  ? "flex flex-col items-start px-3 pt-3 pb-1"
+                  : "flex flex-col items-start"
+              }
+            >
+              {card.folder ? <RootDirectoryLabel rootDirectory={card.folder} /> : null}
+              {card.address ? (
+                <a
+                  className="inline-flex min-h-10 min-w-0 max-w-full items-center gap-1.5 text-sm text-muted-foreground underline decoration-border underline-offset-4 hover:text-foreground @4xl:min-h-8"
+                  href={card.address.href}
+                  rel="noreferrer noopener"
+                  target="_blank"
+                  title={card.address.href}
+                >
+                  <span className="min-w-0 leading-5 [overflow-wrap:anywhere]">
+                    {card.address.label}
+                  </span>
+                  <ExternalLink className="h-3 w-3 shrink-0" />
+                </a>
+              ) : null}
+              {card.run ? <StackRunLine run={card.run} /> : null}
+            </div>
+            <div className={card.framed ? "border-t border-border px-3" : undefined}>
+              {card.resources.map((resource) => (
+                <RepositoryEnvironmentResourceRow
+                  key={`${resource.kind}:${resource.id}`}
+                  resource={resource}
+                  showTypeLabel={false}
+                />
+              ))}
+            </div>
+          </div>
+        );
+      })}
+    </div>
   );
 }
 
@@ -419,9 +480,6 @@ function DefaultBranchCommit({
         <div className="line-clamp-3 text-base font-medium leading-6 text-foreground [overflow-wrap:anywhere]">
           {observation.headCommitTitle}
         </div>
-        {pullRequests.state === "stale" ? (
-          <div className="mt-1 text-xs leading-5 text-muted-foreground">May be out of date</div>
-        ) : null}
       </div>
       <div className="justify-self-start @4xl:justify-self-end">
         <RepositoryChecksPopover
@@ -477,7 +535,7 @@ export function DefaultBranchSection({
   const productionStatusStale = productionObservationStates.some(
     (state) => state.state === "loaded" && state.refreshFailed,
   );
-  const environmentRoots = workspace.environmentRoots;
+  const production = workspace.production;
 
   return (
     <section
@@ -502,13 +560,15 @@ export function DefaultBranchSection({
           </Link>
         </div>
       ) : null}
-      {productionLoading && environmentRoots.length === 0 ? (
+      {production.source === "stacks" ? (
+        <RepositoryStackCards cards={production.cards} />
+      ) : productionLoading && production.roots.length === 0 ? (
         <div className="grid gap-2 py-2" aria-label="Loading production destinations">
           <div className="h-3 w-44 max-w-full bg-muted motion-safe:animate-pulse" />
           <div className="h-3 w-32 max-w-full bg-muted motion-safe:animate-pulse" />
         </div>
       ) : (
-        <RepositoryEnvironmentTree roots={environmentRoots} />
+        <RepositoryEnvironmentTree roots={production.roots} />
       )}
       {productionStatusUnavailable || productionStatusStale ? (
         <div className="mt-2 flex flex-wrap items-center justify-between gap-3 text-sm text-muted-foreground">
@@ -579,7 +639,13 @@ function BuildState({ state }: { state: EnvironmentBuildState }) {
   }
 }
 
-function CloudflareWorkerResource({ worker }: { worker: RepositoryEnvironmentWorker }) {
+function CloudflareWorkerResource({
+  worker,
+  showTypeLabel,
+}: {
+  worker: RepositoryEnvironmentWorker;
+  showTypeLabel: boolean;
+}) {
   const presentation = resourceTypePresentation("Cloudflare.Worker");
 
   return (
@@ -595,7 +661,9 @@ function CloudflareWorkerResource({ worker }: { worker: RepositoryEnvironmentWor
         <span className="min-w-0 text-sm font-medium leading-5 text-foreground [overflow-wrap:anywhere]">
           {worker.workerName}
         </span>
-        <span className="shrink-0 text-xs text-muted-foreground">{presentation.label}</span>
+        {showTypeLabel ? (
+          <span className="shrink-0 text-xs text-muted-foreground">{presentation.label}</span>
+        ) : null}
         {worker.build.state === "available" ? (
           <a
             className="inline-flex min-h-10 shrink-0 items-center gap-1 text-sm underline decoration-border underline-offset-4 @4xl:min-h-8"
@@ -622,23 +690,17 @@ function CloudflareWorkerResource({ worker }: { worker: RepositoryEnvironmentWor
           <div className="flex min-w-0 items-center gap-1 text-sm">
             {worker.destination.state === "available" ? (
               <a
-                className="inline-flex min-h-10 min-w-0 items-center gap-2.5 text-muted-foreground underline decoration-border underline-offset-4 hover:text-foreground @4xl:min-h-8"
+                className="inline-flex min-h-10 min-w-0 items-center gap-1.5 text-muted-foreground underline decoration-border underline-offset-4 hover:text-foreground @4xl:min-h-8"
                 href={worker.destination.href}
                 rel="noreferrer noopener"
                 target="_blank"
                 title={worker.destination.title}
               >
-                <span className="flex h-4 w-5 shrink-0 items-center justify-center">
-                  <DestinationIcon href={worker.destination.href} />
-                </span>
                 <span className="min-w-0 break-all leading-5">{worker.destination.label}</span>
                 <ExternalLink className="h-3 w-3 shrink-0" />
               </a>
             ) : worker.destination.state === "unlinked" ? (
-              <span className="inline-flex min-h-10 min-w-0 items-center gap-2.5 text-muted-foreground @4xl:min-h-8">
-                <span className="flex h-4 w-5 shrink-0 items-center justify-center">
-                  <CloudflareProviderLogo />
-                </span>
+              <span className="inline-flex min-h-10 min-w-0 items-center text-muted-foreground @4xl:min-h-8">
                 <span className="min-w-0 break-all leading-5">{worker.destination.label}</span>
               </span>
             ) : null}
@@ -646,14 +708,10 @@ function CloudflareWorkerResource({ worker }: { worker: RepositoryEnvironmentWor
               <EnvironmentActionsMenu actions={worker.actions} label={worker.workerName} />
             ) : null}
           </div>
-          {worker.destination.state !== "available" ? null : worker.destination.provenance ===
-            "earlier_check" ? (
+          {worker.destination.state === "available" &&
+          worker.destination.provenance === "earlier_check" ? (
             <span className="text-xs leading-5 text-muted-foreground">
               May be from an earlier commit
-            </span>
-          ) : worker.destination.provenance === "pull_request_head" ? (
-            <span className="font-mono text-xs leading-5 text-muted-foreground">
-              {worker.destination.headCommit.slice(0, 7)}
             </span>
           ) : null}
         </div>
@@ -780,7 +838,12 @@ export function PullRequestResources({
   });
   const cloudflareBuildStatusUnavailable =
     resource.resources.cloudflareBuilds.state === "unavailable";
-  if (!cloudflareBuildStatusUnavailable && roots.length === 0 && otherPreviews.length === 0) {
+  if (
+    !cloudflareBuildStatusUnavailable &&
+    resource.stackCards.length === 0 &&
+    roots.length === 0 &&
+    otherPreviews.length === 0
+  ) {
     return null;
   }
 
@@ -791,6 +854,7 @@ export function PullRequestResources({
           Could not load Cloudflare build status
         </div>
       ) : null}
+      <RepositoryStackCards cards={resource.stackCards} />
       <RepositoryEnvironmentTree roots={roots} />
       <OtherPreviews previews={otherPreviews} />
     </>

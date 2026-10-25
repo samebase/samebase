@@ -32,6 +32,7 @@ const deploymentMetadata: DeploymentMetadata = [
     deploymentName: "clear-butterfly-858",
     dashboardUrl: "https://dashboard.convex.dev/d/clear-butterfly-858",
     region: null,
+    customDomains: [{ domain: "samebase.com", requestDestination: "convexSite" }],
   },
 ];
 /** The read with `change` applied to every row of the stage `prod`. */

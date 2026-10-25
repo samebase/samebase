@@ -1497,3 +1497,22 @@ export type GetTokenDetailsResponses = {
 };
 
 export type GetTokenDetailsResponse = GetTokenDetailsResponses[keyof GetTokenDetailsResponses];
+
+export type GetDeploymentsByDeploymentNameCustomDomainsData = {
+  body?: never;
+  path: {
+    /**
+     * Deployment name
+     */
+    deployment_name: unknown;
+  };
+  query?: never;
+  url: "/deployments/{deployment_name}/custom_domains";
+};
+
+export type GetDeploymentsByDeploymentNameCustomDomainsResponses = {
+  200: PlatformListCustomDomainsResponse;
+};
+
+export type GetDeploymentsByDeploymentNameCustomDomainsResponse =
+  GetDeploymentsByDeploymentNameCustomDomainsResponses[keyof GetDeploymentsByDeploymentNameCustomDomainsResponses];

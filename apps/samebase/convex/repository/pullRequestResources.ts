@@ -4,10 +4,6 @@ import type { Octokit } from "@octokit/rest";
 import { v } from "convex/values";
 import { z } from "zod";
 
-import {
-  buildPullRequestAlchemyPreview,
-  type PullRequestAlchemyStackRead,
-} from "../../shared/pullRequestAlchemyPreview";
 import { getConvexCodeRootDirectory } from "../../shared/convexCodeLocation";
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
@@ -23,7 +19,6 @@ import { readAlchemyStacks } from "./alchemyState";
 import { readConvexPreviewDeployments, readConvexProjectResource } from "./convexProjectResources";
 import {
   vPullRequestResources,
-  type PullRequestAlchemyPreview,
   type PullRequestConvexResource,
   type PullRequestHostingPreviews,
   type PullRequestResourceRead,
@@ -537,7 +532,6 @@ type PullRequestResourceAccumulator = {
   workers: PullRequestWorkerResource[];
   convexProjects: PullRequestConvexResource[];
   hostingPreviews: PullRequestHostingPreviews;
-  alchemyPreview: PullRequestAlchemyPreview;
 };
 type ConvexPreviewRead =
   | {
@@ -650,18 +644,21 @@ export function resolveConvexPreviewDeployment(args: {
   return { state: "branch", deployment: branchMatches[0] };
 }
 
-/** Reads the stacks of the repository once for every pull request of one resources read. */
-async function readPullRequestAlchemyStack(
+/**
+Whether the Alchemy state store of the team holds a stack of the repository, read once for every
+pull request of one resources read. A failed read counts as no stack.
+*/
+async function readStoreHoldsStack(
   ctx: ActionCtx,
   args: {
     context: RepositoryProviderObservationContext;
     source: "attachments" | "alchemy" | undefined;
     userId: Id<"users">;
   },
-): Promise<PullRequestAlchemyStackRead> {
+): Promise<boolean> {
   const teamId = args.context.convexTeamId;
   if (args.source !== undefined || !teamId) {
-    return { state: "missing" };
+    return false;
   }
 
   try {
@@ -671,11 +668,11 @@ async function readPullRequestAlchemyStack(
     );
     const credential = connection?.credential;
     if (!connection || !credential) {
-      return { state: "missing" };
+      return false;
     }
     const token = credential.auth.credential.trim();
     if (!token) {
-      return { state: "missing" };
+      return false;
     }
 
     const read = await readAlchemyStacks({
@@ -686,12 +683,10 @@ async function readPullRequestAlchemyStack(
         token,
       },
     });
-    return read.store === "found" && read.stacks.length > 0
-      ? { state: "found", stacks: read.stacks }
-      : { state: "missing" };
+    return read.store === "found" && read.stacks.length > 0;
   } catch (error) {
     console.warn("Pull request Alchemy state read failed.", { message: toErrorMessage(error) });
-    return { state: "failed" };
+    return false;
   }
 }
 
@@ -1284,7 +1279,7 @@ export async function getPullRequestResourcesForUser(
     }),
   ]);
   const signal = createGitHubRequestDeadlineSignal();
-  const alchemyStackRead = readPullRequestAlchemyStack(ctx, {
+  const storeHoldsStackRead = readStoreHoldsStack(ctx, {
     context,
     source: args.source,
     userId: args.userId,
@@ -1296,10 +1291,9 @@ export async function getPullRequestResourcesForUser(
     pullRequestIds: args.pullRequestIds,
   });
   const heads = headReads.flatMap((read) => (read.state === "available" ? [read.head] : []));
-  const alchemyStack = await alchemyStackRead;
   // With stacks in the team store, the stages `pr-<number>` hold the preview of each pull request,
   // and the attached Workers and Convex projects are not read.
-  const alchemyOwnsResources = args.source === "alchemy" || alchemyStack.state === "found";
+  const alchemyOwnsResources = args.source === "alchemy" || (await storeHoldsStackRead);
   const attachedWorkers = alchemyOwnsResources ? [] : context.cloudflareWorkers;
   const attachedConvexProjects = alchemyOwnsResources ? [] : context.convexProjects;
   const nativePreviewUrlsByWorker = new Map<StableWorker["workerId"], Map<string, string>>();
@@ -1372,7 +1366,6 @@ export async function getPullRequestResourcesForUser(
       workers: cloudflareWorkers.state === "available" ? cloudflareWorkers.workers : [],
       convexProjects: [],
       hostingPreviews,
-      alchemyPreview: buildPullRequestAlchemyPreview({ stack: alchemyStack, head }),
     });
   }
 

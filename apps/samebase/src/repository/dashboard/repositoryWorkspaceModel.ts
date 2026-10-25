@@ -3,7 +3,7 @@ import type { UserRepositoryResult } from "../../../convex/repository/contracts/
 import type { AccessKey } from "../../../shared/accessModel";
 import type { RepositoryPullRequestsState } from "@/repository/dashboard/useRepositoryPullRequests";
 import type { RepositorySidebarSummariesState } from "@/repository/dashboard/useRepositorySidebarSummaries";
-import type { RepositoryEnvironmentRoot } from "./repositoryEnvironmentRoots";
+import type { RepositoryEnvironmentRoot, RepositoryStackCard } from "./repositoryEnvironmentRoots";
 import type { RepositoryAlchemyState } from "./useRepositoryAlchemyState";
 import type {
   RepositoryAlchemyStacks,
@@ -32,16 +32,26 @@ export type RepositoryWorkspaceCloudflareConnectionState =
       connection: (typeof api.users.getCloudflareConnectionStatus)["_returnType"];
     };
 
+/**
+stacks = the team store holds a stack of the repository: one card for each stack.
+
+attachments = the attachment rows with their live reads, grouped by root directory. Nothing shows
+without a default branch and while the store read runs.
+*/
+export type RepositoryWorkspaceProduction =
+  | { source: "stacks"; cards: readonly RepositoryStackCard[] }
+  | { source: "attachments"; roots: readonly RepositoryEnvironmentRoot[] };
+
 export type RepositoryWorkspaceSelected = {
   access: RepositoryWorkspaceAccessState;
-  /** One observation when the team store holds the stack of the repository: it then owns `environmentRoots`. */
+  /** One observation when the team store holds the stack of the repository: it then owns `production`. */
   alchemyObservations: RepositoryProviderObservationState<RepositoryAlchemyStacks>;
   alchemyState: RepositoryAlchemyState;
   cloudflareObservations: RepositoryCloudflareProviderObservationState;
   cloudflareConnection: RepositoryWorkspaceCloudflareConnectionState;
   convexObservations: RepositoryProviderObservationState<RepositoryConvexProjectObservation>;
-  environmentRoots: readonly RepositoryEnvironmentRoot[];
   githubRepositoryUrl: string;
+  production: RepositoryWorkspaceProduction;
   pullRequests: RepositoryPullRequestsState;
   repository: UserRepositoryResult;
 };

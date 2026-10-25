@@ -4,6 +4,8 @@ import * as v from "valibot";
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from "./client";
 import type {
+  GetDeploymentsByDeploymentNameCustomDomainsData,
+  GetDeploymentsByDeploymentNameCustomDomainsResponses,
   GetProjectsByProjectIdData,
   GetProjectsByProjectIdDeploymentData,
   GetProjectsByProjectIdDeploymentResponses,
@@ -32,6 +34,8 @@ import type {
   PostTeamsByTeamIdCreateProjectResponses,
 } from "./types.gen";
 import {
+  vGetDeploymentsByDeploymentNameCustomDomainsPath,
+  vGetDeploymentsByDeploymentNameCustomDomainsResponse,
   vGetProjectsByProjectIdDeploymentPath,
   vGetProjectsByProjectIdDeploymentQuery,
   vGetProjectsByProjectIdDeploymentResponse,
@@ -816,6 +820,66 @@ export class GET {
         },
       ],
       url: "/token_details",
+      ...options,
+    });
+  }
+
+  /**
+   * List custom domains
+   *
+   * Get all custom domains configured for a deployment.
+   */
+  public static "/deployments/{deployment_name}/custom_domains"<
+    ThrowOnError extends boolean = true,
+  >(
+    options: Options<GetDeploymentsByDeploymentNameCustomDomainsData, ThrowOnError>,
+  ): RequestResult<
+    GetDeploymentsByDeploymentNameCustomDomainsResponses,
+    unknown,
+    ThrowOnError,
+    "data"
+  > {
+    return options.client.get<
+      GetDeploymentsByDeploymentNameCustomDomainsResponses,
+      unknown,
+      ThrowOnError,
+      "data"
+    >({
+      requestValidator: async (data) =>
+        await v.parseAsync(
+          v.object({
+            body: v.optional(v.never()),
+            path: vGetDeploymentsByDeploymentNameCustomDomainsPath,
+            query: v.optional(v.never()),
+          }),
+          data,
+        ),
+      responseValidator: async (data) =>
+        await v.parseAsync(vGetDeploymentsByDeploymentNameCustomDomainsResponse, data),
+      responseStyle: "data",
+      security: [
+        {
+          key: "PAT",
+          scheme: "bearer",
+          type: "http",
+        },
+        {
+          key: "OAuth Team Token",
+          scheme: "bearer",
+          type: "http",
+        },
+        {
+          key: "Team Token",
+          scheme: "bearer",
+          type: "http",
+        },
+        {
+          key: "OAuth Project Token",
+          scheme: "bearer",
+          type: "http",
+        },
+      ],
+      url: "/deployments/{deployment_name}/custom_domains",
       ...options,
     });
   }

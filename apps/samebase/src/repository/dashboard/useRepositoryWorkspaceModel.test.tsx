@@ -274,6 +274,7 @@ describe("useRepositoryWorkspaceModel", () => {
               deploymentName: "ideal-dolphin-15",
               dashboardUrl: "https://dashboard.convex.dev/t/nicu/base-alchemy/ideal-dolphin-15",
               region: "aws-us-east-1",
+              customDomains: [],
             },
           ],
           // The captured stage as `reader:repository` returns it, with the `rootDir` "." on its
@@ -325,16 +326,19 @@ describe("useRepositoryWorkspaceModel", () => {
       if (latest?.state !== "ready" || latest.selection.state !== "selected") {
         throw new Error("Expected the selected repository workspace.");
       }
+      const { production } = latest.selection.workspace;
       expect(
-        latest.selection.workspace.environmentRoots.map((root) => ({
-          rootDirectory: root.rootDirectory,
-          labels: root.resources.map((resource) =>
-            resource.kind === "destination" ? [resource.label, resource.href] : resource.kind,
-          ),
-        })),
+        production.source === "stacks"
+          ? production.cards.map((card) => ({
+              stack: card.stack,
+              labels: card.resources.map((resource) =>
+                resource.kind === "destination" ? [resource.label, resource.href] : resource.kind,
+              ),
+            }))
+          : production,
       ).toEqual([
         {
-          rootDirectory: "/",
+          stack: "samebase/base-alchemy",
           labels: [
             [
               "ideal-dolphin-15",
@@ -405,9 +409,12 @@ describe("useRepositoryWorkspaceModel", () => {
         source: "attachments",
         alchemyState: { state: "loaded", observation: { store: "missing" } },
       });
-      expect(latest.selection.workspace.environmentRoots).toEqual([
-        { rootDirectory: "/", resources: [{ kind: "convex_loading", id: convexProjectId }] },
-      ]);
+      expect(latest.selection.workspace.production).toEqual({
+        source: "attachments",
+        roots: [
+          { rootDirectory: "/", resources: [{ kind: "convex_loading", id: convexProjectId }] },
+        ],
+      });
     } finally {
       await mounted.unmount();
     }

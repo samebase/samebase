@@ -1237,3 +1237,14 @@ export const vPostProjectsByProjectIdDeletePreviewDeployKeyPath = v.pipe(
 );
 
 export const vGetTokenDetailsResponse = vPlatformTokenDetailsResponse;
+
+export const vGetDeploymentsByDeploymentNameCustomDomainsPath = v.pipe(
+  v.unknown(),
+  v.check((input) => !Array.isArray(input)),
+  v.object({
+    deployment_name: v.unknown(),
+  }),
+);
+
+export const vGetDeploymentsByDeploymentNameCustomDomainsResponse =
+  vPlatformListCustomDomainsResponse;

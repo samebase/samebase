@@ -8,10 +8,13 @@ import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { useQuery as useConvexQuery } from "convex/react";
 import { useMemo } from "react";
 import {
-  buildAlchemyEnvironmentRoots,
+  buildAlchemyStackCards,
   buildProductionEnvironmentRoots,
 } from "./repositoryEnvironmentRoots";
-import type { RepositoryWorkspaceModel } from "./repositoryWorkspaceModel";
+import type {
+  RepositoryWorkspaceModel,
+  RepositoryWorkspaceProduction,
+} from "./repositoryWorkspaceModel";
 import { useRepositoryProviderObservations } from "./useRepositoryProviderObservations";
 
 function selectRepository(
@@ -135,28 +138,42 @@ export function useRepositoryWorkspaceModel(
     const defaultBranch = accessibleSelectedRepository.defaultBranch;
     // By presence: the stacks in the team store build the default-branch block, and the attachment
     // rows with their live reads build it otherwise. Neither builds it while the store read runs.
-    const environmentRoots = !defaultBranch
-      ? []
-      : alchemyStacks
-        ? buildAlchemyEnvironmentRoots({
-            branch: defaultBranch,
-            owner: accessibleSelectedRepository.githubOwnerLogin,
-            repoName: accessibleSelectedRepository.githubRepositoryName,
-            schemaGraphEnabled,
-            repository: accessibleSelectedRepository,
-            stacks: alchemyStacks,
-          })
-        : alchemyObservations.state === "loading"
-          ? []
-          : buildProductionEnvironmentRoots({
-              branch: defaultBranch,
-              cloudflareObservations: providerObservations.cloudflare,
-              convexObservations: providerObservations.convex,
-              owner: accessibleSelectedRepository.githubOwnerLogin,
-              repoName: accessibleSelectedRepository.githubRepositoryName,
-              schemaGraphEnabled,
-              repository: accessibleSelectedRepository,
-            });
+    const production: RepositoryWorkspaceProduction =
+      defaultBranch && alchemyStacks
+        ? {
+            source: "stacks",
+            cards: buildAlchemyStackCards({
+              stacks: alchemyStacks,
+              stage: {
+                name: "prod",
+                // The head commit that the default-branch block shows above the cards.
+                headCommit:
+                  pullRequests.state === "current" || pullRequests.state === "stale"
+                    ? (pullRequests.defaultBranch?.headCommitOid ?? null)
+                    : null,
+                branch: defaultBranch,
+                owner: accessibleSelectedRepository.githubOwnerLogin,
+                repoName: accessibleSelectedRepository.githubRepositoryName,
+                schemaGraphEnabled,
+                repository: accessibleSelectedRepository,
+              },
+            }),
+          }
+        : {
+            source: "attachments",
+            roots:
+              !defaultBranch || alchemyObservations.state === "loading"
+                ? []
+                : buildProductionEnvironmentRoots({
+                    branch: defaultBranch,
+                    cloudflareObservations: providerObservations.cloudflare,
+                    convexObservations: providerObservations.convex,
+                    owner: accessibleSelectedRepository.githubOwnerLogin,
+                    repoName: accessibleSelectedRepository.githubRepositoryName,
+                    schemaGraphEnabled,
+                    repository: accessibleSelectedRepository,
+                  }),
+          };
     return {
       folderState,
       organizationTreeSettings,
@@ -179,8 +196,8 @@ export function useRepositoryWorkspaceModel(
             ? { state: "ready", connection: cloudflareConnection }
             : { state: "loading" },
           convexObservations: providerObservations.convex,
-          environmentRoots,
           githubRepositoryUrl: `https://github.com/${accessibleSelectedRepository.githubOwnerLogin}/${accessibleSelectedRepository.githubRepositoryName}`,
+          production,
           pullRequests,
           repository: accessibleSelectedRepository,
         },

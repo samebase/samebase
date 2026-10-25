@@ -45,11 +45,22 @@ export const vAlchemyStacksRead = union(
 );
 export type AlchemyStacksRead = Infer<typeof vAlchemyStacksRead>;
 
+/**
+`customDomains` are the verified custom domains of the deployment, oldest first: a `convexSite`
+domain serves its HTTP actions and a `convexCloud` domain its client API. A deployment whose domains
+Convex does not give, such as to a credential without `deployment:customDomain:view`, has none.
+*/
 export const vAlchemyLiveDeployments = array(
   object({
     deploymentName: string(),
     dashboardUrl: union(string(), v.null()),
     region: union(vConvexDeploymentRegion, v.null()),
+    customDomains: array(
+      object({
+        domain: string(),
+        requestDestination: union(literal("convexCloud"), literal("convexSite")),
+      }),
+    ),
   }),
 );
 
