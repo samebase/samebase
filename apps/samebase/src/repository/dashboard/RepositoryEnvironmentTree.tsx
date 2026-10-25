@@ -327,10 +327,16 @@ function RepositoryStackCards({ cards }: { cards: readonly RepositoryStackCard[]
           <div
             key={card.stack}
             aria-label={`Alchemy stack ${card.stack}`}
-            className="min-w-0 border border-border"
+            className={card.framed ? "min-w-0 border border-border" : "min-w-0"}
             role="group"
           >
-            <div className="flex flex-col items-start px-3 pt-3 pb-1">
+            <div
+              className={
+                card.framed
+                  ? "flex flex-col items-start px-3 pt-3 pb-1"
+                  : "flex flex-col items-start"
+              }
+            >
               {card.folder ? <RootDirectoryLabel rootDirectory={card.folder} /> : null}
               {card.address ? (
                 <a
@@ -348,7 +354,7 @@ function RepositoryStackCards({ cards }: { cards: readonly RepositoryStackCard[]
               ) : null}
               {card.run ? <StackRunLine run={card.run} /> : null}
             </div>
-            <div className="border-t border-border px-3">
+            <div className={card.framed ? "border-t border-border px-3" : undefined}>
               {card.resources.map((resource) => (
                 <RepositoryEnvironmentResourceRow
                   key={`${resource.kind}:${resource.id}`}

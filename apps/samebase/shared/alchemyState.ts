@@ -168,8 +168,10 @@ export function stageResources(stage: {
 /**
 The stacks of a repository as the overview shows them at the stage `stage`, such as `prod` for the
 default branch or `pr-12` for pull request 12: one card for each stack with that stage, in stack
-file order. `folder` is the directory of the stack file, `/` for the root, and null when the
-repository has one stack and its stack file is at the root, on every stage. A stack file outside the repository has no card.
+file order. `framed` is true when the repository has more than one stack: the overview frames each
+card to tell the stacks apart, and shows the only stack of a repository without a frame. `folder`
+is the directory of the stack file, `/` for the root, and null when the repository has one stack
+and its stack file is at the root, on every stage. A stack file outside the repository has no card.
 
 `run` is the run line of the card: the last completed deploy of the stage, `deployedHeadCommit`,
 with `recordedAt` and `runUrl` of its run record. The overview shows `headCommit` above the cards,
@@ -246,6 +248,7 @@ export function stackCards({
 
   return cards.map((card) => ({
     ...card,
+    framed: stacks.length > 1,
     folder: stacks.length === 1 && card.folder === REPOSITORY_ROOT_DIRECTORY ? null : card.folder,
   }));
 }

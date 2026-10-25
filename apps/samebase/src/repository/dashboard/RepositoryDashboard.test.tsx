@@ -907,6 +907,8 @@ describe("Alchemy stack cards", () => {
       {
         stack: "samebase/base-alchemy",
         stackFile: "alchemy.run.ts",
+        // The only stack of the repository shows without a frame and without its root folder.
+        framed: false,
         folder: null,
         // The GitHub pull-request query loads, so the head is not known and no run line shows.
         run: null,
@@ -1222,6 +1224,8 @@ describe("Alchemy stack cards", () => {
     expect([...cards[0].querySelectorAll("a")].map((link) => link.getAttribute("href"))).toEqual([
       "https://tmp-k7m2-rows.pfp.workers.dev",
     ]);
+    // The only stack of the repository has no frame.
+    expect(cards[0].className).not.toContain("border");
     // The same row with a custom domain, which Alchemy puts first: the row keeps the other URL.
     expect(
       stackCardsOf(

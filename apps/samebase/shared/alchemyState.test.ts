@@ -166,6 +166,38 @@ describe("stackCards", () => {
     ]);
   });
 
+  it("frames the cards and names the root folder only when the repository has several stacks", () => {
+    const framing = (stacks: Parameters<typeof stackCards>[0]["stacks"]) =>
+      stackCards({ stage: "prod", headCommit: null, liveDeployments: [], stacks }).map(
+        ({ framed, folder }) => ({ framed, folder }),
+      );
+
+    // The only stack, at the root: no frame and no folder.
+    expect(framing([prodStack("samebase/base-alchemy", "alchemy.run.ts", [site])])).toEqual([
+      { framed: false, folder: null },
+    ]);
+    // The only stack, in a folder: no frame, and the folder says where the app lives.
+    expect(
+      framing([
+        prodStack("samebase/convex-cloudflare-email-inbox", "apps/mail/alchemy.run.ts", [site]),
+      ]),
+    ).toEqual([{ framed: false, folder: "apps/mail" }]);
+    // Two stacks: both cards are framed, and the root stack names its folder.
+    expect(
+      framing([
+        prodStack("samebase/samebase", "alchemy.run.ts", [site]),
+        prodStack(
+          "samebase/samebase/apps/sidebars-example",
+          "apps/sidebars-example/alchemy.run.ts",
+          [proxy],
+        ),
+      ]),
+    ).toEqual([
+      { framed: true, folder: "/" },
+      { framed: true, folder: "apps/sidebars-example" },
+    ]);
+  });
+
   it("makes the cards of a pull request from the stacks with its stage, at the preview site", () => {
     // The captured `pr-1768` and `prod` stages of samebase/samebase, and a stack with only `prod`.
     const cards = stackCards({
@@ -191,7 +223,9 @@ describe("stackCards", () => {
       {
         stack: "samebase/samebase",
         stackFile: "alchemy.run.ts",
-        // The repository has two stacks, so the card names its folder as on the default branch.
+        // The repository has two stacks, so the card is framed and names its folder as on the
+        // default branch.
+        framed: true,
         folder: "/",
         // The stage deployed the head of the pull request.
         run: null,
