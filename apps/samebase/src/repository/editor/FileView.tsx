@@ -1791,6 +1791,15 @@ function FileViewInner({
     ? (selectedComparedFile ?? selectedCommitPreviewFile)
     : selectedCommitPreviewFile;
   const selectedPreviewStagedFile = stagedFile ?? null;
+  const selectedMediaContentKey = stagedFile
+    ? JSON.stringify([
+        stagedFile._id,
+        stagedFile.version,
+        stagedFile.fileDeleted,
+        stagedFile.stagedBlobSha,
+        stagedFile.storageId,
+      ])
+    : (repository.treeData.tree.find((entry) => entry.path === selectedFile)?.sha ?? null);
   const sidebarSelectedFile = selectedFile;
   // Compare-only text files do not have staging rows, so their merge view has
   // to come from the preview payload instead of repositoryStagedFiles.
@@ -2454,6 +2463,7 @@ function FileViewInner({
                                     selectedRebaseConflictFile.path
                                   }
                                   branch={branch}
+                                  contentKey={selectedRebaseConflictFile.upstreamBlobSha}
                                   skipStaging={true}
                                 />
                               </div>
@@ -2574,6 +2584,7 @@ function FileViewInner({
                             githubRepositoryFullName={githubRepositoryFullName}
                             filePath={selectedFile}
                             branch={branch}
+                            contentKey={selectedMediaContentKey}
                           />
                         ) : null}
                       </div>
@@ -2590,6 +2601,7 @@ function FileViewInner({
             githubRepositoryFullName={githubRepositoryFullName}
             filePath={selectedFile}
             branch={branch}
+            contentKey={selectedMediaContentKey}
           />
         ) : stagedFile && !stagedFile.fileDeleted ? (
           <CodeEditorWrapper
