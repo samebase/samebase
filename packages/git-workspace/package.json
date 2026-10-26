@@ -16,6 +16,7 @@
     "./stagingRebase": "./src/stagingRebase.ts",
     "./stagingErrors": "./src/stagingErrors.ts",
     "./github": "./src/github.ts",
+    "./reads": "./src/reads.ts",
     "./operations": "./src/operations.ts",
     "./operationsContext": "./src/operationsContext.ts",
     "./previews": "./src/previews.ts",

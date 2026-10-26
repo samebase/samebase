@@ -2,12 +2,14 @@ import { Octokit } from "@octokit/rest";
 import { describe, expect, it } from "vite-plus/test";
 
 import {
-  isRepositoryMediaPreviewTooLarge,
   listGitHubRepositories,
   listGitHubRepositoryPreview,
   normalizeGitHubRepositoryListItem,
-  resolveStagedRepositoryMediaAsset,
 } from "./github";
+import {
+  isRepositoryMediaPreviewTooLarge,
+  resolveStagedRepositoryMediaAsset,
+} from "@samebase/git-workspace/reads";
 
 // Subset of GitHub's documented GET /installation/repositories response.
 // https://docs.github.com/en/rest/apps/installations#list-repositories-accessible-to-the-app-installation
