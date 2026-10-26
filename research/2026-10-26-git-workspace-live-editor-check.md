@@ -1,0 +1,102 @@
+# Git workspace live editor check
+
+Date: 2026-10-26. This records browser acceptance checks for the private `@samebase/git-workspace`
+extraction and the fixes made during those checks.
+
+## Scope
+
+The worktree app ran at [localhost:5176](http://localhost:5176), with a local Convex backend and a
+real temporary GitHub repository, `samebase-live-tests/tmp-git-workspace-package-editor-check`. No
+public tunnel URL was recorded. Two browser tabs used the same signed-in account. Monaco and
+CodeMirror edits went through the app's public functions and the extracted component. Saved
+component content and GitHub file reads were used to check bytes that browser text rendering cannot
+show. After the checks, the test browser was closed and the development server was stopped. No local
+preview is running.
+
+This is a bounded acceptance run. It does not cover a forced Git ref retry, update-history
+compaction beyond 200 updates, many simultaneous users, large files, mobile behavior, offline
+recovery, or cross-account and cross-organization authorization. Unit-test results are not used as
+acceptance evidence here. A separate fresh browser context checked the signed-out route only.
+
+## Browser matrix
+
+| Scenario                                                     | Result                        | Observed result                                                                                                                                                                                                                                                                                                        |
+| ------------------------------------------------------------ | ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| LF text, Monaco and CodeMirror                               | Passed                        | Both clients' markers reached the shared document. Saved text contained `// client B`, both original declarations, and `// client A` in the expected order.                                                                                                                                                            |
+| CRLF text, Monaco and CodeMirror                             | Passed after fix              | Both clients edited `code-crlf.ts`. Monaco's rows, sorted by screen position, matched CodeMirror's lines. Push reached **All Synced**. GitHub retained CRLF endings and both clients' edits.                                                                                                                           |
+| CRLF line-end insertion                                      | Passed after fix              | Typing `!`, Enter, and `New CRLF line` in Markdown saved `Alpha!\r\nNew CRLF line\r\nBeta\r\n`. The GitHub read matched.                                                                                                                                                                                               |
+| Undo, redo, and reload                                       | Passed                        | Undo removed the new CRLF line. Redo restored it. Reloading the other tab showed the restored line, and push retained the exact CRLF bytes.                                                                                                                                                                            |
+| Immediate push after editing                                 | Passed for the observed order | The first push after rename left the later `EDIT_AFTER_RENAME` edit staged. The push control remained available. A second push reached **All Synced** and retained that edit.                                                                                                                                          |
+| Edit from another client during push                         | Passed for the observed race  | The browser first observed **Pushing...**, then the other client added `// EDIT_DURING_PUSH`. GitHub received the resolved content without the new marker. The marker remained staged with that first commit as its base. A second push reached **All Synced**; reload retained the marker.                            |
+| Rename and continue editing                                  | Passed                        | `notes-lf.md` became `notes-renamed.md`. Editing continued after rename. After push and reload, the route and GitHub path used the new name and the content retained both test markers.                                                                                                                                |
+| Delete while another client has a pending edit, then restore | Passed after fix              | Before the fix, the deleted row lost the pending marker. After the fix, the deleted row retained `PENDING_DELETE_AFTER_FIX` at version 1. **Revert deletion** restored the marker in the editor.                                                                                                                       |
+| Upload a new binary file                                     | Passed after fix              | The upload dialog accepted the file and push reached **All Synced**. The provider blob hash matched the local 158-byte source: `80b7966d37b7eb1fb31a85b2eaf9c8b365d4f4ab`.                                                                                                                                             |
+| Replace and reset a binary file                              | Passed after fix              | Replacement enabled push. Reset returned the preview to width 32. A later replacement, push, and reload produced a loaded preview with natural width 512. GitHub reported 1,947 bytes and blob SHA `1e15c54059102b141fc8d5fed2ed0382c4f48efb`, equal to the local replacement file.                                    |
+| New file and draft pull request                              | Passed for creation           | The UI created `created-in-editor.md`, accepted its text, moved to `draft/created-in-editor-mvoiif1l`, showed pull request 1, and reached **All Synced**. The separate GitHub browser tab lacked access; it is not evidence of a reviewed PR page.                                                                     |
+| Mixed LF and lone-CR insertion                               | Passed on a fresh fixture     | From `a\nb\rc`, Enter and `X` before `c` saved `a\nb\r\r\nXc` at version 2. Both the editor and a fresh reload showed four lines: `a`, `b`, empty, `Xc`.                                                                                                                                                               |
+| Mixed-line deletion                                          | Passed on a fresh fixture     | The deletion case saved `a\r\r\nc` at version 1. The editor showed three lines: `a`, empty, `c`. The two logical breaks did not merge into one CRLF.                                                                                                                                                                   |
+| Branch isolation                                             | Passed                        | GitHub reads showed `// DRAFT_ONLY` only on `draft/created-in-editor-mvoiif1l`. Main contained `UPSTREAM_ALPHA` and the original beta value, with no draft marker. The main-branch editor also stayed unchanged during the draft edit.                                                                                 |
+| Upstream conflict handling                                   | Passed after fix              | Push rejected the conflict and preserved local and GitHub content. **Rebase onto latest GitHub** then saved both versions with conflict markers and the latest GitHub content as the new base. A manual resolution combined `UPSTREAM_ALPHA` with `LOCAL_BETA`; the first GitHub read matched that resolution.         |
+| Signed-out editor route                                      | Passed                        | A fresh browser context redirected to sign-in and showed zero Monaco or CodeMirror editors. This does not test access between signed-in accounts or organizations.                                                                                                                                                     |
+| Temporary repository cleanup                                 | Passed                        | All three provider deletion options were selected in the dashboard. The workflow completed the Cloudflare, Convex, and GitHub steps and finished with state `succeeded` and a scrubbed snapshot. The repository row was absent, GitHub returned 404, and component counts were zero for staged files and file updates. |
+
+## Bugs found
+
+1. **CRLF positions:** a line-end insertion could split a CRLF pair. The saved row contained
+   `Alpha\r!\n`. The fix maps CodeMirror's logical positions to raw string positions and preserves
+   unchanged line endings. Fresh CRLF typing, shared editing, reload, and GitHub reads passed.
+2. **Mixed-line splice fusion:** joining a slice ending in lone CR to one starting with LF could
+   reduce two logical line breaks to one. The fix preserves separate breaks at that boundary. Fresh
+   insertion and deletion fixtures passed with the saved bytes listed above.
+3. **Deletion final flush:** rejecting collaboration updates after deletion lost an edit that was
+   still pending in another client. The fix lets that final update reach the deleted row while
+   retaining its deleted state. The restore check recovered the marker.
+4. **Existing upload event bug:** the upload trigger passed its click event as a folder argument.
+   The callback now passes no event argument. The browser file chooser, upload dialog, and push then
+   completed.
+5. **Existing binary change predicate:** text-only change detection could omit a changed binary from
+   the file view's actions. The view now uses the shared staged-file change predicate. Replace,
+   reset, push, preview, and provider-hash checks then completed.
+6. **Existing conflict error parser:** the parser required the conflict prefix at the start of the
+   error, so the Convex error envelope hid the resolution controls. It now finds the prefix inside
+   the envelope and reads paths from that error line only. The live rebase, manual resolution, and
+   push flow then completed.
+
+## Evidence and exclusions
+
+Raw run files remain in the ignored `scratchpad/git-workspace` directory. The durable observations
+above come from the browser logs and these saved results: `live-saved-files.json`,
+`crlf-end-saved.json`, `crlf-after-fix-saved.json`, `delete-pending-before-saved.json`,
+`delete-pending-after-saved.json`, `live-github-text-evidence.jsonl`, `binary-github-final.json`,
+`mixed-insert-verified-saved.json`, `mixed-fixed-delete-saved.json`,
+`branch-isolation-github.jsonl`, `browser-signed-out-check.log`, `upstream-rebased-saved.json`,
+`during-push-first-github.json`, and `during-push-staged.json`. The final reload was recorded in
+`browser-edit-during-push-final.log`. Cleanup was checked with `browser-cleanup-options.log`,
+`cleanup-final-run.json`, `cleanup-provider-events.json`, `cleanup-github-status.log`, and
+`cleanup-component-rows.json`. User IDs and credentials are not included in this report.
+
+Some attempts used stale selectors, reached a loading page, or read Monaco's DOM order instead of
+its visible line order. These attempts are not product failures or passed acceptance checks. A
+temporary missing-module reload also caused an image wait to time out; the later width-512 result is
+the completed check.
+
+The backend watcher initially did not load a helper-only edit for mixed-line handling. The helper
+was moved into the component, function readiness was checked, and fresh fixtures were used for the
+two passed cases. An earlier route attempt redirected to README because the tree cache was stale;
+its accidental temporary edits were reset. That attempt is excluded from mixed-line acceptance.
+
+The first cleanup observation returned `removed: false` while the workflow was queued. The final
+succeeded run and zero-row checks establish completion. Stale browser tab titles are not used as
+repository-existence evidence.
+
+## Summary
+
+The completed checks cover shared LF and CRLF editing, edit preservation, rename, delete and
+restore, binary upload and replacement, and draft creation. Fresh mixed-line checks also pass.
+Branch isolation, the signed-out route, and upstream conflict resolution pass. An edit made while
+**Pushing...** was visible remained staged against the first commit and survived the second push and
+reload. The temporary repository, its requested provider resources, and its component rows were
+removed through the dashboard workflow. All listed acceptance checks have completed; the scope
+limits above still apply. No local preview is running. This run does not satisfy the separate
+production deployment requirements in the
+[package README](../packages/git-workspace/README.md#deployment).

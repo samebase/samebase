@@ -9,6 +9,7 @@
  */
 
 import type * as collaborative from "../collaborative.js";
+import type * as collaborativeText from "../collaborativeText.js";
 import type * as staging from "../staging.js";
 
 import type {
@@ -20,6 +21,7 @@ import { anyApi, componentsGeneric } from "convex/server";
 
 const fullApi: ApiFromModules<{
   collaborative: typeof collaborative;
+  collaborativeText: typeof collaborativeText;
   staging: typeof staging;
 }> = anyApi as any;
 

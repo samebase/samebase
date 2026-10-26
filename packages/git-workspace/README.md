@@ -65,13 +65,48 @@ final-flush code. This extraction does not add offline storage or a cursor-prese
 Run `pnpm run dev --once` from the repository root to prepare a linked worktree. Run Convex codegen
 from the host app after component API changes. It generates both the component and host bindings.
 
-`pnpm --filter @samebase/git-workspace check` checks package types and lint. Host Convex tests use
-`register` from `@samebase/git-workspace/test` to install the component into `convex-test`. Existing
-editor interaction tests exercise the package through the Samebase editor surfaces.
+`pnpm --filter @samebase/git-workspace check` checks package types, lint, and unit tests. Host
+Convex tests use `register` from `@samebase/git-workspace/test` to install the component into
+`convex-test`. Existing editor interaction tests exercise the package through the Samebase editor
+surfaces.
+
+The [live editor check](../../research/2026-10-26-git-workspace-live-editor-check.md#browser-matrix)
+records completed browser checks and their coverage limits. Its temporary repository cleanup does
+not replace the production cutover checks below.
 
 ## Deployment
 
-The component owns a new database namespace. It does not read the former app staging tables. Before
-deployment, commit or export pending edits from the existing app and close old editor sessions.
-Deploy the component and its host integration together. This package does not include a data
-migration or a dual-write path.
+The component starts with an empty database namespace. It does not read the former app staging
+tables. This package includes no data migration or compatibility path. Production deployment
+requires a cutover rehearsal on a disposable deployment and a recorded cleanup check.
+
+The rehearsal must establish how to stop writes, clean old state, deploy the component and host
+together, and resume service. Convex [pausing](https://docs.convex.dev/production/pause-deployment)
+blocks new function calls while allowing dashboard edits and code pushes. Samebase's
+`convex-hosting deploy` also calls component functions to upload assets. Do not assume the normal
+deployment command works while paused. The order of asset upload, pause, cleanup, code push, and
+resume has not been verified for this cutover.
+
+Before switching production to the component, all of these checks must pass:
+
+- Preserve pending edits, including binary bytes. Take a completed backup with file storage and
+  record every old staged `storageId` before deleting its row. Follow the
+  [production-read procedure](../../docs/convex-production-reads.md) when selecting the deployment.
+- Stop browser and MCP writes, close old editor sessions, and wait for in-progress editor, upload,
+  and GitHub actions to finish. No old editor work may run after the code switch. Pausing queues
+  scheduled jobs; it does not discard them. Drain or cancel calls to
+  `fileStaging:deleteCollaborativeUpdatesBatch` and
+  `fileStaging:deleteCollaborativeUpdatesForFilePathBatch`.
+- Deliberately clear both root tables, `repositoryStagedFiles` and `repositoryStagedFileUpdates`,
+  across every repository and branch. Verify that both contain zero rows. Include unchanged opened
+  files and orphan history; a zero changed-file count is insufficient.
+- Check each recorded storage ID against all `observations_repositoryFiles_blobs` references. Retain
+  referenced bytes. Delete only unreferenced bytes from the recorded set, then verify each ID is
+  either absent or retained with a cache reference. The old `clearAllStaging` does not delete these
+  bytes. Do not clear all root storage.
+- Recheck the empty root tables before the switch. Remove the empty legacy tables after the old
+  schema definitions are gone. Confirm the new component starts empty and resume with fresh editor
+  sessions.
+
+These are deployment requirements, not completed production checks. Do not deploy this extraction
+until the rehearsal and cleanup evidence exist.
