@@ -1,6 +1,6 @@
-# Git workspace live editor check
+# Git editor live editor check
 
-Date: 2026-10-26. This records browser acceptance checks for the private `@samebase/git-workspace`
+Date: 2026-10-26. This records browser acceptance checks for the private `@samebase/git-editor`
 extraction and the fixes made during those checks.
 
 ## First run
@@ -194,6 +194,31 @@ and `boundary-cleanup-github.json`.
    the envelope and reads paths from that error line only. The live rebase, manual resolution, and
    push flow then completed.
 
+## Package name check
+
+The package is now `@samebase/git-editor`, and the component mount is `gitEditor`. The rename
+updated imports, generated references, test registration, package commands, and repository cleanup.
+The integration worktree and this report keep their existing paths.
+
+A fresh browser check used `samebase-live-tests/tmp-git-workspace-package-rename-check`:
+
+- Monaco and CodeMirror exchanged edits in `vite.config.ts`. Push and reload retained both edits,
+  and the GitHub file contained both markers.
+- A 32-pixel PNG uploaded through the browser, reached GitHub as 158 bytes, and loaded after reload.
+  The bytes appeared in `gitEditor` storage. Root storage remained empty.
+- Dashboard removal deleted the temporary GitHub repository, Convex project, and Cloudflare Worker.
+  The deletion run succeeded. All five component tables and component storage were empty afterward.
+- Package and app type checks and lint passed. Existing package tests passed 50 checks, the host
+  staging suite passed 20, and the branch-cache suite passed four.
+
+The initial CodeMirror selector searched for text outside its rendered area. Scrolling to the end
+resolved that check. Cleanup first waited for the wrong destination URL; the app correctly returned
+to `/repo`. The backend deletion result and empty component tables confirmed cleanup. The browser
+also logged Monaco TypeScript worker `DataCloneError` messages and failed external type-package
+lookups while opening the starter's Vite configuration. These checks establish editing and storage
+behavior, not language-service diagnostics. Raw evidence uses the `rename-` prefix in the existing
+ignored evidence directory.
+
 ## Evidence and exclusions
 
 Raw run files remain in the ignored `scratchpad/git-workspace` directory. The durable observations
@@ -231,7 +256,7 @@ reload. The temporary repository, its requested provider resources, and its comp
 removed through the dashboard workflow. All listed acceptance checks have completed; the scope
 limits above still apply. No local preview is running. Production has not been changed. The owner
 confirmed that they are the only editor user; the simplified deployment procedure is in the
-[package README](../packages/git-workspace/README.md#deployment).
+[package README](../packages/git-editor/README.md#deployment).
 
 The expanded five-table component also passed fresh cache initialization, shared CRLF editing,
 edit-during-push, draft rollback and retry, branch isolation, deleted-branch edit retention, and

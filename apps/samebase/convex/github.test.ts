@@ -9,7 +9,7 @@ import {
 import {
   isRepositoryMediaPreviewTooLarge,
   resolveStagedRepositoryMediaAsset,
-} from "@samebase/git-workspace/reads";
+} from "@samebase/git-editor/reads";
 
 // Subset of GitHub's documented GET /installation/repositories response.
 // https://docs.github.com/en/rest/apps/installations#list-repositories-accessible-to-the-app-installation

@@ -27,7 +27,7 @@ export const pullUpdates = query({
       branch: args.branch,
     });
     if (!repository) throw new Error("Repository not found");
-    return await ctx.runQuery(components.gitWorkspace.collaborative.pullUpdates, {
+    return await ctx.runQuery(components.gitEditor.collaborative.pullUpdates, {
       repositoryId: repository.repositoryId,
       branch: args.branch,
       filePath: args.filePath,
@@ -52,7 +52,7 @@ export const pushUpdates = mutation({
       branch: args.branch,
     });
     if (!repository) throw new Error("Repository not found");
-    return await ctx.runMutation(components.gitWorkspace.collaborative.pushUpdates, {
+    return await ctx.runMutation(components.gitEditor.collaborative.pushUpdates, {
       repositoryId: repository.repositoryId,
       branch: args.branch,
       filePath: args.filePath,
@@ -78,7 +78,7 @@ export const pushContentUpdate = internalMutation({
       userId: args.userId,
     });
     assertConnectedRepository(repository);
-    return await ctx.runMutation(components.gitWorkspace.collaborative.pushContentUpdate, {
+    return await ctx.runMutation(components.gitEditor.collaborative.pushContentUpdate, {
       repositoryId: args.repositoryId,
       filePath: args.filePath,
       branch: args.branch,

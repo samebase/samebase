@@ -5,7 +5,7 @@ import {
   stagedFile,
   stagedFileSnapshot,
   stagedFilesBranchSummary,
-} from "@samebase/git-workspace/model";
+} from "@samebase/git-editor/model";
 import { internalMutation, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { components, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
@@ -49,7 +49,7 @@ export const generateUploadUrl = mutation({
       userId: ctx.viewer.userId,
     });
     return {
-      uploadUrl: await ctx.runMutation(components.gitWorkspace.storage.generateUploadUrl, {}),
+      uploadUrl: await ctx.runMutation(components.gitEditor.storage.generateUploadUrl, {}),
     };
   },
 });
@@ -62,7 +62,7 @@ export const deletePendingUploadBlob = mutation({
       repositoryId: args.repositoryId,
       userId: ctx.viewer.userId,
     });
-    return await ctx.runMutation(components.gitWorkspace.storage.deletePendingUpload, {
+    return await ctx.runMutation(components.gitEditor.storage.deletePendingUpload, {
       storageId: args.storageId,
     });
   },
@@ -77,7 +77,7 @@ export const getByNewPath = query({
       userId: ctx.viewer.userId,
     });
     if (!repository) return null;
-    return await ctx.runQuery(components.gitWorkspace.staging.getByNewPath, {
+    return await ctx.runQuery(components.gitEditor.staging.getByNewPath, {
       repositoryId: args.repositoryId,
       branch: args.branch,
       newPath: args.newPath,
@@ -94,7 +94,7 @@ export const listStagedFiles = query({
       userId: ctx.viewer.userId,
     });
     if (!repository) return [];
-    return await ctx.runQuery(components.gitWorkspace.staging.listAllStagedFiles, {
+    return await ctx.runQuery(components.gitEditor.staging.listAllStagedFiles, {
       repositoryId: args.repositoryId,
       branch: args.branch,
       includeUnchanged: args.includeUnchanged,
@@ -111,7 +111,7 @@ export const listStagedFilesBranchSummaries = query({
       userId: ctx.viewer.userId,
     });
     if (!repository) return [];
-    return await ctx.runQuery(components.gitWorkspace.staging.listBranchSummaries, {
+    return await ctx.runQuery(components.gitEditor.staging.listBranchSummaries, {
       repositoryId: args.repositoryId,
     });
   },
@@ -130,12 +130,9 @@ export const listStagedFilesBranchSummariesByRepository = query({
         userId: ctx.viewer.userId,
       });
       if (!repository) continue;
-      const branchSummaries = await ctx.runQuery(
-        components.gitWorkspace.staging.listBranchSummaries,
-        {
-          repositoryId,
-        },
-      );
+      const branchSummaries = await ctx.runQuery(components.gitEditor.staging.listBranchSummaries, {
+        repositoryId,
+      });
       summaries.push({ repositoryId, branchSummaries });
     }
     return summaries;
@@ -155,7 +152,7 @@ export const duplicateBranchStaging = internalMutation({
       repositoryId: args.repositoryId,
       userId: args.userId,
     });
-    return await ctx.runMutation(components.gitWorkspace.staging.duplicateBranchStaging, {
+    return await ctx.runMutation(components.gitEditor.staging.duplicateBranchStaging, {
       repositoryId: args.repositoryId,
       sourceBranch: args.sourceBranch,
       targetBranch: args.targetBranch,
@@ -167,7 +164,7 @@ export const clearMatchingStagingSnapshot = internalMutation({
   args: { ...scope, stagedFiles: snapshots },
   returns: v.null(),
   handler: async (ctx, args) => {
-    await ctx.runMutation(components.gitWorkspace.staging.clearMatchingStagingSnapshot, {
+    await ctx.runMutation(components.gitEditor.staging.clearMatchingStagingSnapshot, {
       repositoryId: args.repositoryId,
       branch: args.branch,
       stagedFiles: args.stagedFiles,
@@ -179,7 +176,7 @@ export const clearCommittedStaging = internalMutation({
   args: { ...scope, committedFiles: array(committedStagedFile) },
   returns: v.null(),
   handler: async (ctx, args) => {
-    await ctx.runMutation(components.gitWorkspace.staging.clearCommittedStaging, {
+    await ctx.runMutation(components.gitEditor.staging.clearCommittedStaging, {
       repositoryId: args.repositoryId,
       branch: args.branch,
       committedFiles: args.committedFiles,
@@ -197,7 +194,7 @@ async function clearStaging(
   },
 ) {
   const repository = await ctx.db.get(args.repositoryId);
-  await ctx.runMutation(components.gitWorkspace.staging.clearAllStaging, {
+  await ctx.runMutation(components.gitEditor.staging.clearAllStaging, {
     repositoryId: args.repositoryId,
     branch: args.branch,
   });
@@ -256,7 +253,7 @@ export const markFileForDeletion = mutation({
       repositoryId: args.repositoryId,
       userId: ctx.viewer.userId,
     });
-    return await ctx.runMutation(components.gitWorkspace.staging.markFileForDeletion, {
+    return await ctx.runMutation(components.gitEditor.staging.markFileForDeletion, {
       repositoryId: args.repositoryId,
       branch: args.branch,
       filePath: args.filePath,
@@ -279,7 +276,7 @@ async function createStagedFile(
     repositoryId: args.repositoryId,
     userId: args.userId,
   });
-  return await ctx.runMutation(components.gitWorkspace.staging.createFileInStaging, {
+  return await ctx.runMutation(components.gitEditor.staging.createFileInStaging, {
     repositoryId: args.repositoryId,
     branch: args.branch,
     filePath: args.filePath,
@@ -314,7 +311,7 @@ export const revertDeletedFileInStaging = mutation({
       repositoryId: args.repositoryId,
       userId: ctx.viewer.userId,
     });
-    return await ctx.runMutation(components.gitWorkspace.staging.revertDeletedFileInStaging, {
+    return await ctx.runMutation(components.gitEditor.staging.revertDeletedFileInStaging, {
       repositoryId: args.repositoryId,
       branch: args.branch,
       filePath: args.filePath,
@@ -331,7 +328,7 @@ export const updateStagedFileContent = mutation({
       repositoryId: args.repositoryId,
       userId: ctx.viewer.userId,
     });
-    return await ctx.runMutation(components.gitWorkspace.staging.updateStagedFileContent, {
+    return await ctx.runMutation(components.gitEditor.staging.updateStagedFileContent, {
       repositoryId: args.repositoryId,
       branch: args.branch,
       stagingId: args.stagingId,
@@ -356,7 +353,7 @@ export const saveToStaging = internalMutation({
       repositoryId: args.repositoryId,
       userId: args.userId,
     });
-    return await ctx.runMutation(components.gitWorkspace.staging.saveToStaging, {
+    return await ctx.runMutation(components.gitEditor.staging.saveToStaging, {
       repositoryId: args.repositoryId,
       branch: args.branch,
       initialFilePath: args.initialFilePath,
@@ -383,7 +380,7 @@ export const initializeBinaryFile = internalMutation({
       repositoryId: args.repositoryId,
       userId: args.userId,
     });
-    return await ctx.runMutation(components.gitWorkspace.staging.initializeBinaryFile, {
+    return await ctx.runMutation(components.gitEditor.staging.initializeBinaryFile, {
       repositoryId: args.repositoryId,
       branch: args.branch,
       filePath: args.filePath,
@@ -412,7 +409,7 @@ export const saveBinaryUploadToStaging = internalMutation({
       repositoryId: args.repositoryId,
       userId: args.userId,
     });
-    return await ctx.runMutation(components.gitWorkspace.staging.saveBinaryUploadToStaging, {
+    return await ctx.runMutation(components.gitEditor.staging.saveBinaryUploadToStaging, {
       repositoryId: args.repositoryId,
       branch: args.branch,
       filePath: args.filePath,
@@ -441,7 +438,7 @@ export const rename = internalMutation({
       repositoryId: args.repositoryId,
       userId: args.userId,
     });
-    return await ctx.runMutation(components.gitWorkspace.staging.rename, {
+    return await ctx.runMutation(components.gitEditor.staging.rename, {
       repositoryId: args.repositoryId,
       branch: args.branch,
       initialFilePath: args.initialFilePath,
@@ -462,7 +459,7 @@ export const reconcileStagingWithTree = internalMutation({
       repositoryId: args.repositoryId,
       userId: args.userId,
     });
-    await ctx.runMutation(components.gitWorkspace.staging.reconcileStagingWithTree, {
+    await ctx.runMutation(components.gitEditor.staging.reconcileStagingWithTree, {
       repositoryId: args.repositoryId,
       instructions: args.instructions,
     });

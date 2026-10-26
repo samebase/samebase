@@ -989,11 +989,11 @@ async function getRepositoryByRepositoryHelper(
 
   const resolvedBranch = requestedBranch ?? repository.defaultBranch;
 
-  const branchTree = await ctx.runQuery(components.gitWorkspace.branches.get, {
+  const branchTree = await ctx.runQuery(components.gitEditor.branches.get, {
     repositoryId: repository._id,
     branch: resolvedBranch,
   });
-  const sync = await ctx.runQuery(components.gitWorkspace.branches.getSyncState, {
+  const sync = await ctx.runQuery(components.gitEditor.branches.getSyncState, {
     repositoryId: repository._id,
   });
 

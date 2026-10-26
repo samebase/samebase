@@ -14,7 +14,7 @@ import { buildPathWithTanStackSearch } from "@/lib/tanstackSearchParams";
 import { buildRepositoryFileRoute } from "@/lib/repositoryRoutes";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { tryParseGitHubRepositoryFullName } from "../../../shared/githubRepositoryName";
-import { hasStagedFileContentChange } from "@samebase/git-workspace/stagingChanges";
+import { hasStagedFileContentChange } from "@samebase/git-editor/stagingChanges";
 
 type StagedFile = NonNullable<Awaited<(typeof api.fileStaging.getByNewPath)["_returnType"]>>;
 type StagedFilesSummary = NonNullable<

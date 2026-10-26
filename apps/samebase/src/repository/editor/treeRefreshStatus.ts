@@ -1,4 +1,4 @@
-import { TREE_REFRESH_STALE_LOCK_MS } from "@samebase/git-workspace/treeRefresh";
+import { TREE_REFRESH_STALE_LOCK_MS } from "@samebase/git-editor/treeRefresh";
 
 type TreeRefreshFailureKind = "failed" | "rate_limited";
 

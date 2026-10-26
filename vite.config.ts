@@ -46,7 +46,7 @@ export default defineConfig({
     ignorePatterns: [
       "**/.agents/**",
       "**/convex/_generated/**",
-      "packages/git-workspace/src/component/_generated/**",
+      "packages/git-editor/src/component/_generated/**",
       "apps/samebase/AGENTS.md",
       "apps/samebase/CLAUDE.md",
       "apps/samebase/src/routeTree.gen.ts",
@@ -69,7 +69,7 @@ export default defineConfig({
     ignorePatterns: [
       "**/dist",
       "**/convex/_generated",
-      "packages/git-workspace/src/component/_generated/**",
+      "packages/git-editor/src/component/_generated/**",
       // Hey API owns these SDK and validator files.
       "apps/samebase/convex/cloudflareApi/generated/**",
       "apps/samebase/convex/convexManagementApi/generated/**",

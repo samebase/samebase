@@ -49,7 +49,7 @@ import {
   getOpenPullRequestForBranch,
   getPullRequestCompareFiles,
 } from "./pullRequests.js";
-import type { GitWorkspace } from "./operationsContext.js";
+import type { GitEditor } from "./operationsContext.js";
 function sanitizeSlug(input: string, maxLen = 58): string {
   const sanitized = input
     .toLowerCase()
@@ -302,7 +302,7 @@ async function stageRepositoryBinaryBlobForEditing<
   RepositoryId extends string,
   UserId extends string,
 >(
-  workspace: GitWorkspace<RepositoryId, UserId>,
+  workspace: GitEditor<RepositoryId, UserId>,
   args: {
     originalFilePath: string;
     targetBranch: string;
@@ -336,7 +336,7 @@ async function stageRepositoryBinaryBlobForEditing<
   return readEditableFileState(stagedFile);
 }
 async function cleanupTemporaryDraftBranch<RepositoryId extends string, UserId extends string>(
-  workspace: GitWorkspace<RepositoryId, UserId>,
+  workspace: GitEditor<RepositoryId, UserId>,
   args: {
     branch: string;
   },
@@ -368,7 +368,7 @@ async function cleanupTemporaryDraftBranch<RepositoryId extends string, UserId e
 }
 
 export async function openFile<RepositoryId extends string, UserId extends string>(
-  workspace: GitWorkspace<RepositoryId, UserId>,
+  workspace: GitEditor<RepositoryId, UserId>,
   args: { originalFilePath: string; branch?: string },
 ): Promise<EditableFileState> {
   const { ctx, component, host, repository, userId, octokit } = workspace;
@@ -519,7 +519,7 @@ export async function openFile<RepositoryId extends string, UserId extends strin
 }
 
 export async function stageUploadedMedia<RepositoryId extends string, UserId extends string>(
-  workspace: GitWorkspace<RepositoryId, UserId>,
+  workspace: GitEditor<RepositoryId, UserId>,
   args: {
     filePath: string;
     storageId: string;
@@ -566,7 +566,7 @@ export async function stageUploadedMedia<RepositoryId extends string, UserId ext
 }
 
 export async function createDraftPullRequest<RepositoryId extends string, UserId extends string>(
-  workspace: GitWorkspace<RepositoryId, UserId>,
+  workspace: GitEditor<RepositoryId, UserId>,
   args: { branch?: string },
 ): Promise<DraftPullRequestResult> {
   const { ctx, component, repository, octokit } = workspace;
@@ -662,7 +662,7 @@ export async function createDraftPullRequestFromDefaultBranch<
   RepositoryId extends string,
   UserId extends string,
 >(
-  workspace: GitWorkspace<RepositoryId, UserId>,
+  workspace: GitEditor<RepositoryId, UserId>,
   args: { branch?: string },
 ): Promise<DefaultBranchDraftPullRequestResult> {
   const { ctx, component, host, repository, userId, octokit } = workspace;
@@ -803,7 +803,7 @@ export async function createDraftPullRequestFromDefaultBranch<
 }
 
 export async function pullFromGitHub<RepositoryId extends string, UserId extends string>(
-  workspace: GitWorkspace<RepositoryId, UserId>,
+  workspace: GitEditor<RepositoryId, UserId>,
 ): Promise<null> {
   const { ctx, component, host, repository, userId, octokit } = workspace;
   // 1. Read all staging records for this repository (including unchanged)
@@ -1027,7 +1027,7 @@ export async function pullFromGitHub<RepositoryId extends string, UserId extends
 }
 
 export async function batchReadFiles<RepositoryId extends string, UserId extends string>(
-  workspace: GitWorkspace<RepositoryId, UserId>,
+  workspace: GitEditor<RepositoryId, UserId>,
   args: { branch?: string; filePaths: string[] },
 ): Promise<Array<{ path: string; content: string }>> {
   const { ctx, component, host, repository, octokit } = workspace;
@@ -1142,7 +1142,7 @@ export async function batchReadFiles<RepositoryId extends string, UserId extends
 }
 
 export async function getCommitPreview<RepositoryId extends string, UserId extends string>(
-  workspace: GitWorkspace<RepositoryId, UserId>,
+  workspace: GitEditor<RepositoryId, UserId>,
   args: { branch?: string; includePatch?: boolean },
 ): Promise<CommitPreviewResult> {
   const { ctx, component, repository, octokit } = workspace;
@@ -1188,7 +1188,7 @@ export async function getCommitPreview<RepositoryId extends string, UserId exten
 }
 
 export async function getBranchComparePreview<RepositoryId extends string, UserId extends string>(
-  workspace: GitWorkspace<RepositoryId, UserId>,
+  workspace: GitEditor<RepositoryId, UserId>,
   args: { branch?: string; includePatch?: boolean },
 ): Promise<BranchComparePreviewResult> {
   const { ctx, component, repository, octokit } = workspace;
@@ -1334,7 +1334,7 @@ export async function restoreComparedDeletedFileToStaging<
   RepositoryId extends string,
   UserId extends string,
 >(
-  workspace: GitWorkspace<RepositoryId, UserId>,
+  workspace: GitEditor<RepositoryId, UserId>,
   args: { branch?: string; filePath: string; previousPath?: string },
 ): Promise<null> {
   const { ctx, host, repository, userId, octokit } = workspace;
@@ -1408,7 +1408,7 @@ export async function restoreComparedDeletedFileToStaging<
 }
 
 export async function getRebaseConflictPreview<RepositoryId extends string, UserId extends string>(
-  workspace: GitWorkspace<RepositoryId, UserId>,
+  workspace: GitEditor<RepositoryId, UserId>,
   args: { branch?: string },
 ): Promise<RebaseConflictPreviewResult> {
   const { ctx, component, repository, octokit } = workspace;
@@ -1453,7 +1453,7 @@ export async function getRebaseConflictPreview<RepositoryId extends string, User
 }
 
 export async function getRebaseConflictBundle<RepositoryId extends string, UserId extends string>(
-  workspace: GitWorkspace<RepositoryId, UserId>,
+  workspace: GitEditor<RepositoryId, UserId>,
   args: { branch?: string },
 ): Promise<string> {
   const { ctx, component, repository, octokit } = workspace;
@@ -1503,7 +1503,7 @@ export async function getRebaseConflictBundle<RepositoryId extends string, UserI
 }
 
 export async function commitAllStaged<RepositoryId extends string, UserId extends string>(
-  workspace: GitWorkspace<RepositoryId, UserId>,
+  workspace: GitEditor<RepositoryId, UserId>,
   args: { branch?: string },
 ): Promise<null> {
   const { ctx, component, host, repository, userId, octokit } = workspace;
@@ -1630,7 +1630,7 @@ export async function commitAllStaged<RepositoryId extends string, UserId extend
 }
 
 export async function renameFile<RepositoryId extends string, UserId extends string>(
-  workspace: GitWorkspace<RepositoryId, UserId>,
+  workspace: GitEditor<RepositoryId, UserId>,
   args: { originalPath: string; newPath: string; branch: string },
 ) {
   await openFile(workspace, { originalFilePath: args.originalPath, branch: args.branch });

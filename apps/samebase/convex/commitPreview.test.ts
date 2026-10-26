@@ -2,7 +2,7 @@ import { describe, expect, it } from "vite-plus/test";
 import {
   buildCommitPreviewFromStagedFiles,
   buildRebaseConflictPreviewFromStagedFiles,
-} from "@samebase/git-workspace/previews";
+} from "@samebase/git-editor/previews";
 
 type BuildCommitPreviewArgs = Parameters<typeof buildCommitPreviewFromStagedFiles>[0];
 type StagedFileForCommitPreview = BuildCommitPreviewArgs["stagedFiles"][number];

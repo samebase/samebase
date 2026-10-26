@@ -1,7 +1,7 @@
 import type { Octokit } from "@octokit/rest";
 import { v, type Infer } from "convex/values";
 import type { vGitHubTreeData } from "./model.js";
-import type { GitWorkspace } from "./operationsContext.js";
+import type { GitEditor } from "./operationsContext.js";
 import { uploadBlob } from "./storage.js";
 import { guessMime, withRetry } from "./fileContent.js";
 import { getGitHubErrorStatus } from "./github.js";
@@ -11,14 +11,14 @@ import { readStagedFileKind } from "./stagingChanges.js";
 const { literal, object, string, union } = v;
 
 /** The host authorizes the repository before a read. Provider access stays lazy. */
-export type GitWorkspaceReads<RepositoryId extends string> = {
-  ctx: GitWorkspace<RepositoryId, string>["ctx"];
-  component: Pick<GitWorkspace<RepositoryId, string>["component"], "staging" | "blobs" | "storage">;
+export type GitEditorReads<RepositoryId extends string> = {
+  ctx: GitEditor<RepositoryId, string>["ctx"];
+  component: Pick<GitEditor<RepositoryId, string>["component"], "staging" | "blobs" | "storage">;
   repository: Pick<
-    GitWorkspace<RepositoryId, string>["repository"],
+    GitEditor<RepositoryId, string>["repository"],
     "repositoryId" | "githubOwnerLogin" | "githubRepositoryName"
   > & { treeData?: Infer<typeof vGitHubTreeData> | null };
-  host: Pick<GitWorkspace<RepositoryId, string>["host"], "saveFileBlob">;
+  host: Pick<GitEditor<RepositoryId, string>["host"], "saveFileBlob">;
   getOctokit: () => Promise<Octokit>;
 };
 
@@ -290,7 +290,7 @@ function getRepositoryMediaExtension(filePath: string): string {
 }
 
 export async function readRepositoryFileContent<RepositoryId extends string>(
-  workspace: GitWorkspaceReads<RepositoryId>,
+  workspace: GitEditorReads<RepositoryId>,
   args: { filePath: string; branch: string | undefined },
 ): Promise<RepositoryFileContent> {
   const { ctx, repository } = workspace;
@@ -352,7 +352,7 @@ export async function readRepositoryFileContent<RepositoryId extends string>(
 }
 
 export async function readRepositoryMediaAsset<RepositoryId extends string>(
-  workspace: GitWorkspaceReads<RepositoryId>,
+  workspace: GitEditorReads<RepositoryId>,
   args: {
     filePath: string;
     branch: string | undefined;

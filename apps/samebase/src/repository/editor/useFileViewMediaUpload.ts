@@ -1,6 +1,6 @@
 import { useCallback, useRef, useState, type ChangeEvent, type DragEvent } from "react";
 import { api } from "../../../convex/_generated/api";
-import { isRenderableRepositoryMediaPath } from "@samebase/git-workspace/repositoryMedia";
+import { isRenderableRepositoryMediaPath } from "@samebase/git-editor/repositoryMedia";
 import {
   readUploadStorageId,
   uploadMediaWithCleanup,

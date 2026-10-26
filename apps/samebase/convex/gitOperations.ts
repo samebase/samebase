@@ -1,5 +1,5 @@
 import { v, type Infer } from "convex/values";
-import { fileBlob, fileBlobFields } from "@samebase/git-workspace/model";
+import { fileBlob, fileBlobFields } from "@samebase/git-editor/model";
 import { internalMutation } from "./_generated/server";
 import { components } from "./_generated/api";
 import { isLiveConnectedRepository } from "./repository/state";
@@ -19,13 +19,13 @@ export const saveFileBlob = internalMutation({
     const repository = await ctx.db.get(args.repositoryId);
     if (!isLiveConnectedRepository(repository)) {
       if (args.storageId) {
-        await ctx.runMutation(components.gitWorkspace.storage.releaseUnreferenced, {
+        await ctx.runMutation(components.gitEditor.storage.releaseUnreferenced, {
           storageIds: [args.storageId],
         });
       }
       return null;
     }
-    return await ctx.runMutation(components.gitWorkspace.blobs.save, {
+    return await ctx.runMutation(components.gitEditor.blobs.save, {
       repositoryId: args.repositoryId,
       sha: args.sha,
       size: args.size,

@@ -3,7 +3,7 @@
 import { Infer, v } from "convex/values";
 import { internal } from "./_generated/api";
 import { action } from "./functions";
-import { readCommitChecks } from "@samebase/git-workspace/checks";
+import { readCommitChecks } from "@samebase/git-editor/checks";
 import { resolveGitHubAppAccess } from "./githubAppAccess";
 import { isRecord } from "./jsonUtils";
 

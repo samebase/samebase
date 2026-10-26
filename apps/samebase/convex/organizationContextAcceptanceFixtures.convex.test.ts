@@ -90,7 +90,7 @@ describe("organization context acceptance fixtures", () => {
       snapshot.repositories.flatMap((repository) =>
         repository.state === "connected"
           ? [
-              t.query(components.gitWorkspace.branches.get, {
+              t.query(components.gitEditor.branches.get, {
                 repositoryId: repository._id,
                 branch: repository.defaultBranch,
               }),

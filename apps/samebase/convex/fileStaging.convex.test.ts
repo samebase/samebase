@@ -18,20 +18,20 @@ import type { Id } from "./_generated/dataModel";
 import type {
   ActionCtx as ComponentActionCtx,
   MutationCtx as ComponentMutationCtx,
-} from "../../../packages/git-workspace/src/component/_generated/server";
+} from "../../../packages/git-editor/src/component/_generated/server";
 import { makeConvexTest } from "./test.setup";
-import type { StagedFile } from "@samebase/git-workspace/model";
+import type { StagedFile } from "@samebase/git-editor/model";
 
 type ConvexTest = ReturnType<typeof makeConvexTest>;
 
-function runInGitWorkspace<Output>(
+function runInGitEditor<Output>(
   t: ConvexTest,
   handler: (
     ctx: Pick<ComponentMutationCtx, "db"> & Pick<ComponentActionCtx, "storage">,
   ) => Promise<Output>,
 ): Promise<Output> {
   // @ts-expect-error convex-test 0.0.61 exposes runInComponent at runtime but omits it from its public type.
-  return t.runInComponent("gitWorkspace", handler);
+  return t.runInComponent("gitEditor", handler);
 }
 
 function gitBlobSha(content: string): string {
@@ -184,7 +184,7 @@ async function insertStagedFile(
     content: string;
   },
 ) {
-  const file = await t.mutation(components.gitWorkspace.staging.saveToStaging, {
+  const file = await t.mutation(components.gitEditor.staging.saveToStaging, {
     repositoryId: args.repositoryId,
     branch: args.branch,
     initialFilePath: args.filePath,
@@ -197,7 +197,7 @@ async function insertStagedFile(
 }
 
 async function readStagedFiles(t: ConvexTest, repositoryId: Id<"repositories">) {
-  const rows = await t.query(components.gitWorkspace.staging.listAllStagedFiles, {
+  const rows = await t.query(components.gitEditor.staging.listAllStagedFiles, {
     repositoryId,
     includeUnchanged: true,
   });
@@ -220,7 +220,7 @@ async function readCollaborativeUpdatePaths(
 ) {
   const updates = await Promise.all(
     paths.map(async ([branch, filePath]) => {
-      const result = await t.query(components.gitWorkspace.collaborative.pullUpdates, {
+      const result = await t.query(components.gitEditor.collaborative.pullUpdates, {
         repositoryId,
         branch,
         filePath,
@@ -250,7 +250,7 @@ describe("saveToStaging", () => {
 
     // Both open actions can read no staging before either GitHub fetch returns.
     expect(
-      await t.query(components.gitWorkspace.staging.getByOriginalPath, {
+      await t.query(components.gitEditor.staging.getByOriginalPath, {
         repositoryId,
         originalFilePath: "notes.md",
         branch: "main",
@@ -275,7 +275,7 @@ describe("saveToStaging", () => {
       userId,
     });
     expect(
-      await t.query(components.gitWorkspace.staging.getByOriginalPath, {
+      await t.query(components.gitEditor.staging.getByOriginalPath, {
         repositoryId,
         originalFilePath: "notes.md",
         branch: "main",
@@ -292,7 +292,7 @@ describe("saveToStaging", () => {
       branch: "main",
       userId,
     });
-    const updates = await t.query(components.gitWorkspace.collaborative.pullUpdates, {
+    const updates = await t.query(components.gitEditor.collaborative.pullUpdates, {
       repositoryId,
       branch: "main",
       filePath: "notes.md",
@@ -316,13 +316,13 @@ describe("binary file opening", () => {
       const baseContent = "\0".repeat(12);
       const baseSha = gitBlobSha(baseContent);
       const replacementContent = "replacement image";
-      const [baseStorageId, replacementStorageId] = await runInGitWorkspace(t, async (ctx) =>
+      const [baseStorageId, replacementStorageId] = await runInGitEditor(t, async (ctx) =>
         Promise.all([
           ctx.storage.store(new Blob([baseContent], { type: "image/png" })),
           ctx.storage.store(new Blob([replacementContent], { type: "image/png" })),
         ]),
       );
-      await t.mutation(components.gitWorkspace.branches.upsert, {
+      await t.mutation(components.gitEditor.branches.upsert, {
         repositoryId,
         branch: "main",
         commitSHA: "cached-head",
@@ -361,7 +361,7 @@ describe("binary file opening", () => {
             userId,
           });
           if (change === "deletion") {
-            await t.mutation(components.gitWorkspace.staging.markFileForDeletion, {
+            await t.mutation(components.gitEditor.staging.markFileForDeletion, {
               repositoryId,
               branch: "main",
               filePath: "image.png",
@@ -377,7 +377,7 @@ describe("binary file opening", () => {
               userId,
             });
           }
-          expected = await t.query(components.gitWorkspace.staging.getByOriginalPath, {
+          expected = await t.query(components.gitEditor.staging.getByOriginalPath, {
             repositoryId,
             branch: "main",
             originalFilePath: "image.png",
@@ -395,7 +395,7 @@ describe("binary file opening", () => {
         userId,
       });
 
-      const current = await t.query(components.gitWorkspace.staging.getByOriginalPath, {
+      const current = await t.query(components.gitEditor.staging.getByOriginalPath, {
         repositoryId,
         branch: "main",
         originalFilePath: "image.png",
@@ -403,7 +403,7 @@ describe("binary file opening", () => {
       if (change === "stale tree") {
         expect(current).toMatchObject({ parentCommitSha: baseSha, stagedBlobSha: baseSha });
         expect(
-          await t.query(components.gitWorkspace.staging.listAllStagedFiles, {
+          await t.query(components.gitEditor.staging.listAllStagedFiles, {
             repositoryId,
             branch: "main",
           }),
@@ -412,14 +412,14 @@ describe("binary file opening", () => {
         expect(expected).not.toBeNull();
         expect(current).toEqual(expected);
         expect(
-          await runInGitWorkspace(
+          await runInGitEditor(
             t,
             async (ctx) => (await ctx.storage.get(replacementStorageId))?.text() ?? null,
           ),
         ).toBe(replacementContent);
       }
       expect(
-        await runInGitWorkspace(
+        await runInGitEditor(
           t,
           async (ctx) => (await ctx.storage.get(baseStorageId))?.text() ?? null,
         ),
@@ -493,7 +493,7 @@ describe("commitAllStaged", () => {
 
     expect(github.rest.git.updateRef).toHaveBeenCalledOnce();
     expect(
-      await t.query(components.gitWorkspace.blobs.getBySha, { sha: gitBlobSha("a\nb\n") }),
+      await t.query(components.gitEditor.blobs.getBySha, { sha: gitBlobSha("a\nb\n") }),
     ).toMatchObject({ text: "a\nb\n" });
     expect(await readStagedFiles(t, repositoryId)).toEqual([
       {
@@ -581,7 +581,7 @@ describe("pullFromGitHubInternal", () => {
       initialContent: "old\n",
       content: "old\n",
     });
-    await t.mutation(components.gitWorkspace.staging.markFileForDeletion, {
+    await t.mutation(components.gitEditor.staging.markFileForDeletion, {
       repositoryId,
       branch: "main",
       filePath: "gone.md",
@@ -607,7 +607,7 @@ describe("pullFromGitHubInternal", () => {
 
     expect(
       await t.run(async (ctx) => {
-        const row = await ctx.runQuery(components.gitWorkspace.staging.getByNewPath, {
+        const row = await ctx.runQuery(components.gitEditor.staging.getByNewPath, {
           repositoryId,
           branch: "main",
           newPath: "gone.md",
@@ -699,19 +699,19 @@ describe("deletePendingUploadBlob", () => {
         githubRepositoryName: "other",
       },
     );
-    const [pendingStorageId, otherStorageId] = await runInGitWorkspace(t, async (ctx) => {
+    const [pendingStorageId, otherStorageId] = await runInGitEditor(t, async (ctx) => {
       return await Promise.all([
         ctx.storage.store(new Blob(["pending"])),
         ctx.storage.store(new Blob(["other"])),
       ]);
     });
-    await t.mutation(components.gitWorkspace.branches.upsert, {
+    await t.mutation(components.gitEditor.branches.upsert, {
       repositoryId: otherRepositoryId,
       branch: "main",
       commitSHA: "head",
       treeData: { sha: "tree", truncated: false, tree: [] },
     });
-    await t.mutation(components.gitWorkspace.staging.saveBinaryUploadToStaging, {
+    await t.mutation(components.gitEditor.staging.saveBinaryUploadToStaging, {
       repositoryId: otherRepositoryId,
       branch: "main",
       filePath: "image.png",
@@ -739,7 +739,7 @@ describe("deletePendingUploadBlob", () => {
     ).rejects.toThrow("Cannot delete a blob that is already attached to staging.");
 
     expect(
-      await runInGitWorkspace(t, async (ctx) => ({
+      await runInGitEditor(t, async (ctx) => ({
         pending: (await ctx.db.system.get(pendingStorageId)) !== null,
         other: (await ctx.db.system.get(otherStorageId)) !== null,
       })),
@@ -776,7 +776,7 @@ describe("deletion snapshots", () => {
   ] as const)("keeps the cached $kind base when deleting an unopened file", async (blob) => {
     const t = makeConvexTest();
     const { repositoryId, userId } = await seedConnectedRepository(t);
-    await t.mutation(components.gitWorkspace.branches.upsert, {
+    await t.mutation(components.gitEditor.branches.upsert, {
       repositoryId,
       branch: "main",
       commitSHA: "head",
@@ -788,10 +788,7 @@ describe("deletion snapshots", () => {
     });
     const storageId =
       blob.kind === "binary"
-        ? await runInGitWorkspace(
-            t,
-            async (ctx) => await ctx.storage.store(new Blob(["binary base"])),
-          )
+        ? await runInGitEditor(t, async (ctx) => await ctx.storage.store(new Blob(["binary base"])))
         : undefined;
     await t.mutation(internal.gitOperations.saveFileBlob, {
       repositoryId,
@@ -810,7 +807,7 @@ describe("deletion snapshots", () => {
       parentCommitSha: "blob-sha",
     });
     expect(
-      await t.query(components.gitWorkspace.staging.getByNewPath, {
+      await t.query(components.gitEditor.staging.getByNewPath, {
         repositoryId,
         branch: "main",
         newPath: `unopened.${blob.ext}`,
@@ -830,7 +827,7 @@ describe("deletion snapshots", () => {
   it("does not seed a deletion from another repository or branch tree", async () => {
     const t = makeConvexTest();
     const { repositoryId, userId } = await seedConnectedRepository(t);
-    await t.mutation(components.gitWorkspace.blobs.save, {
+    await t.mutation(components.gitEditor.blobs.save, {
       repositoryId: "another-repository",
       sha: "foreign-sha",
       text: "foreign cached content",
@@ -843,7 +840,7 @@ describe("deletion snapshots", () => {
       { repositoryId, branch: "feature", sha: "foreign-sha" },
       { repositoryId, branch: "main", sha: "current-sha" },
     ]) {
-      await t.mutation(components.gitWorkspace.branches.upsert, {
+      await t.mutation(components.gitEditor.branches.upsert, {
         repositoryId: scope.repositoryId,
         branch: scope.branch,
         commitSHA: "head",
@@ -864,7 +861,7 @@ describe("deletion snapshots", () => {
       }),
     ).rejects.toThrow("File changed since deletion was requested.");
     expect(
-      await t.query(components.gitWorkspace.staging.getByNewPath, {
+      await t.query(components.gitEditor.staging.getByNewPath, {
         repositoryId,
         branch: "main",
         newPath: "notes.md",
@@ -883,7 +880,7 @@ describe("deletion snapshots", () => {
       mime: "text/plain",
       ext: "md",
     });
-    await t.mutation(components.gitWorkspace.branches.upsert, {
+    await t.mutation(components.gitEditor.branches.upsert, {
       repositoryId,
       branch: "main",
       commitSHA: "new-head",
@@ -903,7 +900,7 @@ describe("deletion snapshots", () => {
       }),
     ).rejects.toThrow("File changed since deletion was requested.");
     expect(
-      await t.query(components.gitWorkspace.staging.getByNewPath, {
+      await t.query(components.gitEditor.staging.getByNewPath, {
         repositoryId,
         branch: "main",
         newPath: "notes.md",
@@ -930,7 +927,7 @@ describe("deletion snapshots", () => {
       parentCommitSha: null,
     });
     expect(
-      await t.query(components.gitWorkspace.staging.getByNewPath, {
+      await t.query(components.gitEditor.staging.getByNewPath, {
         repositoryId,
         branch: "deleted-branch",
         newPath: "notes.md",
@@ -951,7 +948,7 @@ describe("component scope", () => {
     async (scope) => {
       const t = makeConvexTest();
       const { repositoryId, userId } = await seedConnectedRepository(t);
-      const file = await t.mutation(components.gitWorkspace.staging.saveToStaging, {
+      const file = await t.mutation(components.gitEditor.staging.saveToStaging, {
         repositoryId: scope === "repository" ? "another-repository" : repositoryId,
         branch: scope === "branch" ? "feature" : "main",
         initialFilePath: "notes.md",
@@ -971,7 +968,7 @@ describe("component scope", () => {
         }),
       ).rejects.toThrow("Staged file belongs to a different repository or branch.");
       expect(
-        await t.query(components.gitWorkspace.staging.getByNewPath, {
+        await t.query(components.gitEditor.staging.getByNewPath, {
           repositoryId: file.repositoryId,
           branch: file.branch,
           newPath: file.filePath,
@@ -985,7 +982,7 @@ describe("clearMatchingStagingSnapshot", () => {
   it("keeps later edits while removing the captured snapshot and its update stream", async () => {
     const t = makeConvexTest();
     const { repositoryId, userId } = await seedConnectedRepository(t);
-    await t.mutation(components.gitWorkspace.branches.upsert, {
+    await t.mutation(components.gitEditor.branches.upsert, {
       repositoryId,
       branch: "main",
       commitSHA: "head",
@@ -1009,7 +1006,7 @@ describe("clearMatchingStagingSnapshot", () => {
         newContent: "first edit",
       });
     }
-    await t.mutation(components.gitWorkspace.staging.rename, {
+    await t.mutation(components.gitEditor.staging.rename, {
       repositoryId,
       userId,
       branch: "main",
@@ -1024,7 +1021,7 @@ describe("clearMatchingStagingSnapshot", () => {
       expectedVersion: 1,
       newContent: "renamed edit",
     });
-    const files = await t.query(components.gitWorkspace.staging.listAllStagedFiles, {
+    const files = await t.query(components.gitEditor.staging.listAllStagedFiles, {
       repositoryId,
       branch: "main",
       includeUnchanged: true,
@@ -1081,7 +1078,7 @@ describe("released binary storage", () => {
       defaultBranch: "main",
       visibility: "private",
     });
-    const storageId = await runInGitWorkspace(
+    const storageId = await runInGitEditor(
       t,
       async (ctx) => await ctx.storage.store(new Blob(["shared image"])),
     );
@@ -1093,7 +1090,7 @@ describe("released binary storage", () => {
       mime: "image/png",
       ext: "png",
     });
-    const duplicateStorageId = await runInGitWorkspace(
+    const duplicateStorageId = await runInGitEditor(
       t,
       async (ctx) => await ctx.storage.store(new Blob(["shared image"])),
     );
@@ -1107,16 +1104,16 @@ describe("released binary storage", () => {
     });
     expect(chosenBlob?.storageId).toBe(storageId);
     expect(
-      await runInGitWorkspace(t, async (ctx) => await ctx.storage.get(duplicateStorageId)),
+      await runInGitEditor(t, async (ctx) => await ctx.storage.get(duplicateStorageId)),
     ).toBeNull();
     for (const targetRepositoryId of [repositoryId, otherRepositoryId]) {
-      await t.mutation(components.gitWorkspace.branches.upsert, {
+      await t.mutation(components.gitEditor.branches.upsert, {
         repositoryId: targetRepositoryId,
         branch: "main",
         commitSHA: "head",
         treeData: { sha: "tree", truncated: false, tree: [] },
       });
-      await t.mutation(components.gitWorkspace.staging.saveBinaryUploadToStaging, {
+      await t.mutation(components.gitEditor.staging.saveBinaryUploadToStaging, {
         repositoryId: targetRepositoryId,
         branch: "main",
         filePath: "image.png",
@@ -1135,7 +1132,7 @@ describe("released binary storage", () => {
       skipTreeUpdate: true,
     });
     expect(
-      await runInGitWorkspace(t, async (ctx) => (await ctx.storage.get(storageId)) !== null),
+      await runInGitEditor(t, async (ctx) => (await ctx.storage.get(storageId)) !== null),
     ).toBe(true);
     await asUser.mutation(api.fileStaging.clearAllStaging, {
       repositoryId: otherRepositoryId,
@@ -1143,9 +1140,9 @@ describe("released binary storage", () => {
       skipTreeUpdate: true,
     });
     expect(
-      await runInGitWorkspace(t, async (ctx) => (await ctx.storage.get(storageId)) !== null),
+      await runInGitEditor(t, async (ctx) => (await ctx.storage.get(storageId)) !== null),
     ).toBe(true);
-    await t.mutation(components.gitWorkspace.staging.saveBinaryUploadToStaging, {
+    await t.mutation(components.gitEditor.staging.saveBinaryUploadToStaging, {
       repositoryId,
       branch: "main",
       filePath: "image.png",
@@ -1156,7 +1153,7 @@ describe("released binary storage", () => {
       userId,
       replaceExisting: false,
     });
-    await t.mutation(components.gitWorkspace.blobs.deleteRepositoryBatch, {
+    await t.mutation(components.gitEditor.blobs.deleteRepositoryBatch, {
       repositoryId: otherRepositoryId,
     });
     await asUser.mutation(api.fileStaging.clearAllStaging, {
@@ -1165,7 +1162,7 @@ describe("released binary storage", () => {
       skipTreeUpdate: true,
     });
     expect(
-      await runInGitWorkspace(t, async (ctx) => (await ctx.storage.get(storageId)) !== null),
+      await runInGitEditor(t, async (ctx) => (await ctx.storage.get(storageId)) !== null),
     ).toBe(false);
     await t.finishAllScheduledFunctions(vi.runAllTimers);
   });
@@ -1205,7 +1202,7 @@ describe("released binary storage", () => {
         deletion: { state: "deleting", runId, requestedAt: 1 },
       });
     });
-    const storageId = await runInGitWorkspace(
+    const storageId = await runInGitEditor(
       t,
       async (ctx) => await ctx.storage.store(new Blob(["late image"])),
     );
@@ -1219,7 +1216,7 @@ describe("released binary storage", () => {
         ext: "png",
       }),
     ).toBeNull();
-    expect(await t.query(components.gitWorkspace.blobs.getBySha, { sha: "late-sha" })).toBeNull();
-    expect(await runInGitWorkspace(t, async (ctx) => await ctx.storage.get(storageId))).toBeNull();
+    expect(await t.query(components.gitEditor.blobs.getBySha, { sha: "late-sha" })).toBeNull();
+    expect(await runInGitEditor(t, async (ctx) => await ctx.storage.get(storageId))).toBeNull();
   });
 });

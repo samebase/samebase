@@ -7,7 +7,7 @@ import password from "@convex-dev/auth/components/password/convex.config";
 import workflow from "@convex-dev/workflow/convex.config";
 import mail from "@samebase/convex-cloudflare-email-inbox/convex.config.js";
 import hosting from "@samebase/convex-hosting/convex.config";
-import gitWorkspace from "@samebase/git-workspace/convex.config";
+import gitEditor from "@samebase/git-editor/convex.config";
 
 const app = defineApp({
   env: {
@@ -72,6 +72,6 @@ app.use(mail, {
   },
 });
 app.use(hosting);
-app.use(gitWorkspace);
+app.use(gitEditor);
 
 export default app;

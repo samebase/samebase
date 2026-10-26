@@ -1,8 +1,10 @@
-# Git workspace
+# Git editor
 
-Private Samebase package for GitHub file editing and collaborative text editing. It contains one
-Convex component, server operations, and React bindings for CodeMirror and Monaco. Samebase consumes
-the TypeScript source directly. There is no separate release or build step.
+Collaborative GitHub file editing for Convex and React.
+
+This private Samebase package contains one Convex component, server operations, and React bindings
+for CodeMirror and Monaco. Samebase consumes the TypeScript source directly. There is no separate
+release or build step.
 
 ## Ownership
 
@@ -41,33 +43,31 @@ buckets and a principal-wide delay for secondary limits.
 Mount the component in the app's `convex.config.ts`:
 
 ```ts
-import gitWorkspace from "@samebase/git-workspace/convex.config";
+import gitEditor from "@samebase/git-editor/convex.config";
 
-app.use(gitWorkspace);
+app.use(gitEditor);
 ```
 
-The app calls `components.gitWorkspace.staging`, `collaborative`, `branches`, `blobs`, and `storage`
+The app calls `components.gitEditor.staging`, `collaborative`, `branches`, `blobs`, and `storage`
 from its own Convex functions. Public wrappers must authorize access before each component call. The
 component does not expose an authenticated browser API by itself.
 
-`@samebase/git-workspace/model` exports the boundary validators and inferred types.
-`@samebase/git-workspace/stagingChanges` exports file-change classification helpers.
-`@samebase/git-workspace/github` exports GitHub commit and rebase functions that take an
-authenticated Octokit client from the host. Component functions use their own generated server and
-database types.
+`@samebase/git-editor/model` exports the boundary validators and inferred types.
+`@samebase/git-editor/stagingChanges` exports file-change classification helpers.
+`@samebase/git-editor/github` exports GitHub commit and rebase functions that take an authenticated
+Octokit client from the host. Component functions use their own generated server and database types.
 
-`@samebase/git-workspace/pullRequests` owns branch comparison, open PR lookup, draft creation, and
-PR file reads. `@samebase/git-workspace/checks` reads GitHub checks and commit statuses. The host
-keeps its public result validators and combines provider results for the dashboard. Check and status
-reads retain the editor's current first-page limit.
+`@samebase/git-editor/pullRequests` owns branch comparison, open PR lookup, draft creation, and PR
+file reads. `@samebase/git-editor/checks` reads GitHub checks and commit statuses. The host keeps
+its public result validators and combines provider results for the dashboard. Check and status reads
+retain the editor's current first-page limit.
 
-`@samebase/git-workspace/operations` owns file opening, upload staging, rename, pull, rebase,
-commit, and draft pull request creation. `reads` owns cached file and media reads.
-`repositoryRefresh` owns branch-tree refresh sequencing. These are server entry points. Their typed
-contexts receive the component reference, the authorized repository, an Octokit client or lazy
-credential loader, and the host mutation references needed to check repository state before
-publishing component changes. Import the editor hooks and pure model helpers directly in the
-frontend.
+`@samebase/git-editor/operations` owns file opening, upload staging, rename, pull, rebase, commit,
+and draft pull request creation. `reads` owns cached file and media reads. `repositoryRefresh` owns
+branch-tree refresh sequencing. These are server entry points. Their typed contexts receive the
+component reference, the authorized repository, an Octokit client or lazy credential loader, and the
+host mutation references needed to check repository state before publishing component changes.
+Import the editor hooks and pure model helpers directly in the frontend.
 
 File initialization returns an existing staged row without overwriting it. Commit acknowledgement
 checks the saved snapshot so edits made during a GitHub request remain staged.
@@ -93,15 +93,15 @@ authenticated client checks these records before a request and records new provi
 
 Editor, dashboard, provisioning, and deletion access resolvers use this client. Initial OAuth and
 bootstrap calls that run before the provider identity is known keep their existing raw clients. This
-is a shared app utility, not another package or Convex component. The Git workspace component stores
+is a shared app utility, not another package or Convex component. The Git editor component stores
 only repository refresh claims, failures, and retry delays.
 
 ## Editors
 
-Use `useCodeMirrorCollaboration` from `@samebase/git-workspace/codemirror` or
-`useMonacoCollaboration` from `@samebase/git-workspace/monaco`. Each hook accepts the host's typed
-`pullUpdates` and `pushUpdates` references, file scope, initial document state, and page-leave
-guard. The hooks use the host's Convex React provider.
+Use `useCodeMirrorCollaboration` from `@samebase/git-editor/codemirror` or `useMonacoCollaboration`
+from `@samebase/git-editor/monaco`. Each hook accepts the host's typed `pullUpdates` and
+`pushUpdates` references, file scope, initial document state, and page-leave guard. The hooks use
+the host's Convex React provider.
 
 The CodeMirror hook returns extensions and a sync error. The Monaco hook returns an `onMount`
 binding and a sync error. The app owns the editor surface and decides how to show errors. Mount a
@@ -116,10 +116,9 @@ final-flush code. This extraction does not add offline storage or a cursor-prese
 Run `pnpm run dev --once` from the repository root to prepare a linked worktree. Run Convex codegen
 from the host app after component API changes. It generates both the component and host bindings.
 
-`pnpm --filter @samebase/git-workspace check` checks package types, lint, and unit tests. Host
-Convex tests use `register` from `@samebase/git-workspace/test` to install the component into
-`convex-test`. Existing editor interaction tests exercise the package through the Samebase editor
-surfaces.
+`pnpm --filter @samebase/git-editor check` checks package types, lint, and unit tests. Host Convex
+tests use `register` from `@samebase/git-editor/test` to install the component into `convex-test`.
+Existing editor interaction tests exercise the package through the Samebase editor surfaces.
 
 The [live editor check](../../research/2026-10-26-git-workspace-live-editor-check.md#browser-matrix)
 records completed browser checks and their coverage limits. Production uses the one-time cutover

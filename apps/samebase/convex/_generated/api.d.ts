@@ -474,5 +474,5 @@ export declare const components: {
   workflow: import("@convex-dev/workflow/_generated/component.js").ComponentApi<"workflow">;
   mail: import("@samebase/convex-cloudflare-email-inbox/_generated/component.js").ComponentApi<"mail">;
   hosting: import("@samebase/convex-hosting/_generated/component.js").ComponentApi<"hosting">;
-  gitWorkspace: import("@samebase/git-workspace/_generated/component.js").ComponentApi<"gitWorkspace">;
+  gitEditor: import("@samebase/git-editor/_generated/component.js").ComponentApi<"gitEditor">;
 };

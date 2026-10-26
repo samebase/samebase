@@ -2,7 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import type { ProsemarkMergeEditorOptions } from "@/components/ProsemarkMergeEditor";
 import { getReviewSplitDiffHighlights } from "@/repository/editor/reviewSplitDiff";
 import { usePageLeaveGuard } from "@/lib/pageLeaveGuard";
-import { isStaleBaseVersionError } from "@samebase/git-workspace/stagingErrors";
+import { isStaleBaseVersionError } from "@samebase/git-editor/stagingErrors";
 import type { api } from "../../../convex/_generated/api";
 import {
   buildInlinePreviewAutosaveContextKey,

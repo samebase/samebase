@@ -76,7 +76,7 @@
     "@samebase/convex-hosting": "0.13.1",
     "@samebase/convex-hosting-tanstack-start": "0.11.0",
     "@samebase/dependent": "workspace:*",
-    "@samebase/git-workspace": "workspace:*",
+    "@samebase/git-editor": "workspace:*",
     "@samebase/logo-model": "workspace:*",
     "@samebase/sidebars": "workspace:*",
     "@samebase/sure": "workspace:*",

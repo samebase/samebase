@@ -97,7 +97,7 @@ async function seedRunningDeletion() {
       cloudflareAccountId: "cloudflare-account",
       deletion: { state: "not_deleting" },
     });
-    await ctx.runMutation(components.gitWorkspace.staging.saveToStaging, {
+    await ctx.runMutation(components.gitEditor.staging.saveToStaging, {
       repositoryId,
       initialFilePath: "README.md",
       content: "shared edit",
@@ -697,7 +697,7 @@ describe("account deletion organization boundary", () => {
       organization: await ctx.db.get(ids.organizationId),
       organizationBilling: await ctx.db.get(ids.organizationBillingId),
       repository: await ctx.db.get(ids.repositoryId),
-      stagedFile: await ctx.runQuery(components.gitWorkspace.staging.getByNewPath, {
+      stagedFile: await ctx.runQuery(components.gitEditor.staging.getByNewPath, {
         repositoryId: ids.repositoryId,
         branch: "main",
         newPath: "README.md",
@@ -1187,7 +1187,7 @@ describe("account deletion organization boundary", () => {
       branch: "main",
       userId: ids.teammateUserId,
     });
-    const stagedFile = await t.query(components.gitWorkspace.staging.getByOriginalPath, {
+    const stagedFile = await t.query(components.gitEditor.staging.getByOriginalPath, {
       repositoryId: ids.repositoryId,
       originalFilePath: "README.md",
       branch: "main",

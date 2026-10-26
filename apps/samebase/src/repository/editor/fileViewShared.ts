@@ -1,9 +1,9 @@
 import { guard } from "@samebase/dependent";
 import { api } from "../../../convex/_generated/api";
-import type { GitHubTree } from "@samebase/git-workspace/model";
+import type { GitHubTree } from "@samebase/git-editor/model";
 import type { ProsemarkMergeEditorOptions } from "@/components/ProsemarkMergeEditor";
 import { type CommitReviewFileStatus as CommitPreviewFileStatus } from "@/repository/editor/commitReviewStatus";
-import { getStagedFileStatus as getSharedStagedFileStatus } from "@samebase/git-workspace/stagingChanges";
+import { getStagedFileStatus as getSharedStagedFileStatus } from "@samebase/git-editor/stagingChanges";
 
 /**
  * Keep FileView-specific helpers and derived types together so the main route

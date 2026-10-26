@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { selectBatchReadRepositoryTree } from "@samebase/git-workspace/operations";
+import { selectBatchReadRepositoryTree } from "@samebase/git-editor/operations";
 
 const featureTree = [
   {

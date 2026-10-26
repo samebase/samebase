@@ -9,21 +9,21 @@ import { action } from "./functions";
 import { resolveGitHubAppAccess, type GitHubAppInstallationAccess } from "./githubAppAccess";
 import { createGitHubInstallationOctokit, readGitHubAppInstallation } from "./githubApp";
 import { isRecord } from "./jsonUtils";
-import { getRepositoryMediaKind } from "@samebase/git-workspace/repositoryMedia";
+import { getRepositoryMediaKind } from "@samebase/git-editor/repositoryMedia";
 import {
   readRepositoryFileContent,
   readRepositoryMediaAsset,
   repositoryFileContentResult,
   repositoryMediaAssetResult,
-  type GitWorkspaceReads,
+  type GitEditorReads,
   type RepositoryFileContent,
   type RepositoryMediaAsset,
-} from "@samebase/git-workspace/reads";
+} from "@samebase/git-editor/reads";
 import {
   refreshRepositoryBranch,
   vExactRepositoryBranchRefreshResult,
   type ExactRepositoryBranchRefreshResult,
-} from "@samebase/git-workspace/repositoryRefresh";
+} from "@samebase/git-editor/repositoryRefresh";
 
 const { array, boolean, id, literal, number, object, optional, string, union } = v;
 
@@ -572,12 +572,12 @@ function getRepositoryReads(
   ctx: ActionCtx,
   args: {
     userId: Id<"users">;
-    repository: GitWorkspaceReads<Id<"repositories">>["repository"];
+    repository: GitEditorReads<Id<"repositories">>["repository"];
   },
-): GitWorkspaceReads<Id<"repositories">> {
+): GitEditorReads<Id<"repositories">> {
   return {
     ctx,
-    component: components.gitWorkspace,
+    component: components.gitEditor,
     repository: {
       repositoryId: args.repository.repositoryId,
       githubOwnerLogin: args.repository.githubOwnerLogin,
@@ -670,7 +670,7 @@ async function refreshExactRepositoryBranchForUser(
     intent: "passive" | "manual";
   },
 ): Promise<ExactRepositoryBranchRefreshResult> {
-  return await refreshRepositoryBranch(ctx, components.gitWorkspace, {
+  return await refreshRepositoryBranch(ctx, components.gitEditor, {
     repositoryId: args.repositoryId,
     repo: args.repo,
     branch: args.branch,

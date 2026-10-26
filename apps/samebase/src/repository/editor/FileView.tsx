@@ -37,7 +37,7 @@ import { FileCreationDialog } from "@/repository/editor/FileCreationDialog";
 import { FolderCreationDialog } from "@/repository/editor/FolderCreationDialog";
 import { ProsemarkMergeEditor } from "@/components/ProsemarkMergeEditor";
 import { notEmpty } from "@samebase/dependent";
-import { hasStagedFileChanges } from "@samebase/git-workspace/stagingChanges";
+import { hasStagedFileChanges } from "@samebase/git-editor/stagingChanges";
 import {
   filterSimpleViewTreeItems,
   getSimpleViewPreferenceStorageKey,
@@ -50,7 +50,7 @@ import {
 import { type CommitReviewFileStatus as CommitPreviewFileStatus } from "@/repository/editor/commitReviewStatus";
 import { claimRefreshDebounce } from "@/lib/refreshDebounce";
 import { getAncestorFolderPaths } from "@/repository/editor/fileTreeState";
-import { type GitHubTree } from "@samebase/git-workspace/model";
+import { type GitHubTree } from "@samebase/git-editor/model";
 import { formatStopwatchDuration } from "@/lib/stopwatch";
 import { DraftPullRequestFeedbackBanner } from "@/repository/editor/DraftPullRequestFeedbackBanner";
 import { RepositorySyncStatus } from "@/repository/editor/RepositorySyncStatus";
@@ -58,8 +58,8 @@ import { RepositoryMediaViewer } from "@/repository/editor/RepositoryMediaViewer
 import { useRepositorySimpleViewConfig } from "@/repository/editor/useRepositorySimpleViewConfig";
 import { RepositoryWorkspacePaneHeader } from "@/repository/editor/RepositoryWorkspacePaneHeader";
 import { MediaUploadDialog } from "@/repository/editor/MediaUploadDialog";
-import { isRenderableRepositoryMediaPath } from "@samebase/git-workspace/repositoryMedia";
-import { TREE_REFRESH_STALE_LOCK_MS } from "@samebase/git-workspace/treeRefresh";
+import { isRenderableRepositoryMediaPath } from "@samebase/git-editor/repositoryMedia";
+import { TREE_REFRESH_STALE_LOCK_MS } from "@samebase/git-editor/treeRefresh";
 import { buildRepositoryFileRoute, parseRepositoryPathContext } from "@/lib/repositoryRoutes";
 import { resolveLegacyBranchlessFilePath } from "@/lib/legacyBranchlessRoute";
 import { buildPathWithTanStackSearch } from "@/lib/tanstackSearchParams";

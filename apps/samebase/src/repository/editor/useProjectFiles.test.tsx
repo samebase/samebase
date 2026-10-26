@@ -5,7 +5,7 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import type { Id } from "../../../convex/_generated/dataModel";
-import type { GitHubTree } from "@samebase/git-workspace/model";
+import type { GitHubTree } from "@samebase/git-editor/model";
 import { useProjectFiles, type ProjectFile } from "./useProjectFiles";
 
 const testState = vi.hoisted(() => ({

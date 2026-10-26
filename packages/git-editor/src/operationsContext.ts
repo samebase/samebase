@@ -24,7 +24,7 @@ type AuthorizedArgs<Args, RepositoryId extends string, UserId extends string> = 
  * transaction as each component write. The ID parameters preserve the host's
  * own repository and user ID types without teaching the package its schema.
  */
-export type GitWorkspace<RepositoryId extends string, UserId extends string> = {
+export type GitEditor<RepositoryId extends string, UserId extends string> = {
   ctx: Pick<GenericActionCtx<GenericDataModel>, "runQuery" | "runMutation">;
   component: ComponentApi;
   octokit: Octokit;

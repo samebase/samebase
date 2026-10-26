@@ -3,7 +3,7 @@ import {
   branchTree,
   vGitHubTreeData,
   vRepositoryTreeRefreshFailureKind,
-} from "@samebase/git-workspace/model";
+} from "@samebase/git-editor/model";
 import { components } from "../_generated/api";
 import { internalMutation, internalQuery } from "../_generated/server";
 import { isLiveConnectedRepository } from "./state";
@@ -18,7 +18,7 @@ export const getRepositoryBranchTree = internalQuery({
   args: { repositoryId: id("repositories"), branch: string() },
   returns: union(branchTree, v.null()),
   handler: async (ctx, args) =>
-    await ctx.runQuery(components.gitWorkspace.branches.get, {
+    await ctx.runQuery(components.gitEditor.branches.get, {
       repositoryId: args.repositoryId,
       branch: args.branch,
     }),
@@ -39,7 +39,7 @@ export const upsertRepositoryBranchTree = internalMutation({
     }
     const repository = await ctx.db.get(args.repositoryId);
     if (!isLiveConnectedRepository(repository)) return null;
-    await ctx.runMutation(components.gitWorkspace.branches.upsert, {
+    await ctx.runMutation(components.gitEditor.branches.upsert, {
       repositoryId: args.repositoryId,
       branch: args.branch,
       treeData: args.treeData,
@@ -65,7 +65,7 @@ export const upsertClaimedRepositoryBranchTree = internalMutation({
   handler: async (ctx, args) => {
     const repository = await ctx.db.get(args.repositoryId);
     if (!isLiveConnectedRepository(repository)) return { written: false };
-    return await ctx.runMutation(components.gitWorkspace.branches.upsert, {
+    return await ctx.runMutation(components.gitEditor.branches.upsert, {
       repositoryId: args.repositoryId,
       branch: args.branch,
       treeData: args.treeData,
@@ -92,7 +92,7 @@ export const claimTreeRefresh = internalMutation({
   handler: async (ctx, args): Promise<TreeRefreshClaim> => {
     const repository = await ctx.db.get(args.repositoryId);
     if (!isLiveConnectedRepository(repository)) return { claimed: false, reason: "unavailable" };
-    return await ctx.runMutation(components.gitWorkspace.branches.claimRefresh, {
+    return await ctx.runMutation(components.gitEditor.branches.claimRefresh, {
       repositoryId: args.repositoryId,
     });
   },
@@ -111,7 +111,7 @@ export const releaseTreeRefresh = internalMutation({
   handler: async (ctx, args) => {
     const repository = await ctx.db.get(args.repositoryId);
     if (!isLiveConnectedRepository(repository)) return { released: false };
-    return await ctx.runMutation(components.gitWorkspace.branches.releaseRefresh, {
+    return await ctx.runMutation(components.gitEditor.branches.releaseRefresh, {
       repositoryId: args.repositoryId,
       startedAt: args.startedAt,
       markRefreshed: args.markRefreshed,
@@ -134,7 +134,7 @@ export const recordTreeRefreshFailure = internalMutation({
   handler: async (ctx, args) => {
     const repository = await ctx.db.get(args.repositoryId);
     if (!isLiveConnectedRepository(repository)) return null;
-    return await ctx.runMutation(components.gitWorkspace.branches.recordRefreshFailure, {
+    return await ctx.runMutation(components.gitEditor.branches.recordRefreshFailure, {
       repositoryId: args.repositoryId,
       startedAt: args.startedAt,
       failureKind: args.failureKind,

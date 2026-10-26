@@ -479,9 +479,9 @@ importers:
       '@samebase/dependent':
         specifier: workspace:*
         version: link:../../packages/dependent
-      '@samebase/git-workspace':
+      '@samebase/git-editor':
         specifier: workspace:*
-        version: link:../../packages/git-workspace
+        version: link:../../packages/git-editor
       '@samebase/logo-model':
         specifier: workspace:*
         version: link:../../packages/logo-model
@@ -824,7 +824,7 @@ importers:
 
   packages/dependent: {}
 
-  packages/git-workspace:
+  packages/git-editor:
     dependencies:
       '@codemirror/collab':
         specifier: ^6.1.1

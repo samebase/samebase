@@ -1,7 +1,8 @@
 {
-  "name": "@samebase/git-workspace",
+  "name": "@samebase/git-editor",
   "version": "0.0.0",
   "private": true,
+  "description": "Collaborative GitHub file editing for Convex and React.",
   "files": [
     "src"
   ],
@@ -29,10 +30,10 @@
     "./test": "./src/test.ts"
   },
   "scripts": {
-    "codegen": "pnpm --dir ../../apps/samebase exec convex codegen --component-dir ../../packages/git-workspace/src/component",
-    "typecheck": "pnpm --dir ../.. exec tsgo -p packages/git-workspace/tsconfig.json --pretty false",
-    "lint": "pnpm --dir ../.. exec vp lint --tsconfig packages/git-workspace/tsconfig.json --report-unused-disable-directives packages/git-workspace/src",
-    "test": "pnpm --dir ../.. exec vp test run --project unit packages/git-workspace/src",
+    "codegen": "pnpm --dir ../../apps/samebase exec convex codegen --component-dir ../../packages/git-editor/src/component",
+    "typecheck": "pnpm --dir ../.. exec tsgo -p packages/git-editor/tsconfig.json --pretty false",
+    "lint": "pnpm --dir ../.. exec vp lint --tsconfig packages/git-editor/tsconfig.json --report-unused-disable-directives packages/git-editor/src",
+    "test": "pnpm --dir ../.. exec vp test run --project unit packages/git-editor/src",
     "check": "pnpm run typecheck && pnpm run lint && pnpm run test"
   },
   "dependencies": {

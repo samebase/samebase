@@ -1,8 +1,8 @@
-import { useCodeMirrorCollaboration } from "@samebase/git-workspace/codemirror";
+import { useCodeMirrorCollaboration } from "@samebase/git-editor/codemirror";
 import { api } from "../../convex/_generated/api";
 import type { GetFunctionReferenceReturnType } from "@/lib/convexUtils";
 import type { Id } from "../../convex/_generated/dataModel";
-import type { GitHubTree } from "@samebase/git-workspace/model";
+import type { GitHubTree } from "@samebase/git-editor/model";
 import { MonacoEditor } from "./MonacoEditor";
 import { CodeMirrorFileSurface } from "@/components/CodeMirrorFileSurface";
 import { registerPageLeaveGuard } from "@/lib/pageLeaveGuard";

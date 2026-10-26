@@ -1,10 +1,10 @@
 import { useRef, useEffect } from "react";
 import { createClientOnlyFn } from "@tanstack/react-start";
 import type { OnMount, Monaco } from "@monaco-editor/react";
-import { useMonacoCollaboration } from "@samebase/git-workspace/monaco";
+import { useMonacoCollaboration } from "@samebase/git-editor/monaco";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
-import type { GitHubTree } from "@samebase/git-workspace/model";
+import type { GitHubTree } from "@samebase/git-editor/model";
 import { parseTsConfig, applyTsConfigToMonaco } from "./monaco/setupEditor";
 import { useProjectFiles, type ProjectFile } from "@/repository/editor/useProjectFiles";
 import { buildMonacoAppliedCacheKey } from "@/repository/editor/editorCacheKeys";

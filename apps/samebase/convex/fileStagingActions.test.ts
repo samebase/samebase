@@ -4,16 +4,16 @@ import {
   stripCreationTimeFromStagingRecord,
   getDraftPullRequestCreateErrorMessage,
   shouldAdvanceBinaryPullParentCommit,
-} from "@samebase/git-workspace/operations";
+} from "@samebase/git-editor/operations";
 import {
   buildDraftPullRequestTitle,
   readOpenPullRequestForBranch,
-} from "@samebase/git-workspace/pullRequests";
+} from "@samebase/git-editor/pullRequests";
 import {
   buildCommitPreviewFromStagedFiles,
   buildComparedCommitPreviewFileFromStagedFile,
   buildRemoteComparePreviewFile,
-} from "@samebase/git-workspace/previews";
+} from "@samebase/git-editor/previews";
 
 describe("draft pull request helpers", () => {
   it("matches the current branch pull request in the same repository", () => {

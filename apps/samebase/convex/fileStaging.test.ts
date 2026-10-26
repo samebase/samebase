@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
-import { summarizeStagedFilesByBranch } from "@samebase/git-workspace/stagingChanges";
+import { summarizeStagedFilesByBranch } from "@samebase/git-editor/stagingChanges";
 
 describe("summarizeStagedFilesByBranch", () => {
   it("returns per-branch category counts for changed files only", () => {

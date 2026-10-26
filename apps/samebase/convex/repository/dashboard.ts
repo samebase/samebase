@@ -473,7 +473,7 @@ export const listRepositoryFolderSuggestions = query({
       return [];
     }
 
-    const defaultBranchTree = await ctx.runQuery(components.gitWorkspace.branches.get, {
+    const defaultBranchTree = await ctx.runQuery(components.gitEditor.branches.get, {
       repositoryId: args.repositoryId,
       branch: repository.defaultBranch,
     });
@@ -828,7 +828,7 @@ export async function readOrganizationRepositories(
       }
 
       const { fileCount, lastEditTime } = await ctx.runQuery(
-        components.gitWorkspace.staging.getRepositorySummary,
+        components.gitEditor.staging.getRepositorySummary,
         { repositoryId: repository._id },
       );
 

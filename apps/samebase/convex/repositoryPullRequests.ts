@@ -5,7 +5,7 @@ import { z } from "zod";
 import {
   compareBranches,
   getOpenPullRequestForBranch as readBranchPullRequest,
-} from "@samebase/git-workspace/pullRequests";
+} from "@samebase/git-editor/pullRequests";
 
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";

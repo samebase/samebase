@@ -6,9 +6,9 @@ import { action } from "./functions";
 import type { Id } from "./_generated/dataModel";
 import { resolveGitHubAppAccess } from "./githubAppAccess";
 import { assertConnectedRepository } from "./repository/state";
-import * as workspaceOperations from "@samebase/git-workspace/operations";
-import type { EditableFileState } from "@samebase/git-workspace/operations";
-import type { GitWorkspace } from "@samebase/git-workspace/operationsContext";
+import * as workspaceOperations from "@samebase/git-editor/operations";
+import type { EditableFileState } from "@samebase/git-editor/operations";
+import type { GitEditor } from "@samebase/git-editor/operationsContext";
 import {
   commitPreviewResult,
   branchComparePreviewResult,
@@ -22,12 +22,12 @@ import {
   type StagedMediaUploadResult,
   type DefaultBranchDraftPullRequestResult,
   type RebaseConflictPreviewResult,
-} from "@samebase/git-workspace/previews";
+} from "@samebase/git-editor/previews";
 const { boolean, optional, string } = v;
 async function getWorkspace(
   ctx: ActionCtx,
   args: { repositoryId: Id<"repositories">; userId: Id<"users"> },
-): Promise<GitWorkspace<Id<"repositories">, Id<"users">>> {
+): Promise<GitEditor<Id<"repositories">, Id<"users">>> {
   const repository = await ctx.runQuery(internal.repository.records.getByIdForUser, {
     repositoryId: args.repositoryId,
     userId: args.userId,
@@ -40,7 +40,7 @@ async function getWorkspace(
   });
   return {
     ctx,
-    component: components.gitWorkspace,
+    component: components.gitEditor,
     octokit: access.octokit,
     userId: args.userId,
     repository: {
@@ -111,7 +111,7 @@ export const renameFileInStaging = action({
 
 /**
  * Initial request to get the file.
- * Calls GitHub and saves the file in the Git workspace component.
+ * Calls GitHub and saves the file in the Git editor component.
  */
 export const getFileForEditing = action({
   access: "access_files_read",

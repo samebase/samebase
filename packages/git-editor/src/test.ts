@@ -10,7 +10,7 @@ const modules = import.meta.glob([
 
 export function register(
   t: Pick<TestConvexForDataModelAndIdentity<GenericDataModel>, "registerComponent">,
-  name = "gitWorkspace",
+  name = "gitEditor",
 ) {
   t.registerComponent(name, schema, modules);
 }
