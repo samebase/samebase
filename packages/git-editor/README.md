@@ -121,7 +121,7 @@ tests use `register` from `@samebase/git-editor/test` to install the component i
 Existing editor interaction tests exercise the package through the Samebase editor surfaces.
 
 The [live editor check](../../research/2026-10-26-git-workspace-live-editor-check.md#browser-matrix)
-records completed browser checks and their coverage limits. Production uses the one-time cutover
+records completed browser checks and their coverage limits. The production cutover is recorded
 below.
 
 ## Deployment
@@ -167,5 +167,22 @@ After the editor check, perform one-time cleanup:
   `deletePendingUploadBlob` operates only on component storage and cannot clean up old root bytes.
   Do not clear unrelated root storage.
 
-Cleanup does not move data and does not require a compatibility layer. This procedure is documented;
-the production switch and cleanup have not been performed.
+Cleanup does not move data and does not require a compatibility layer.
+
+### Completed production cutover
+
+Production switched to `gitEditor` on 2026-10-26 after
+[PR 1788](https://github.com/samebase/samebase/pull/1788) merged. The
+[production deployment](https://github.com/samebase/samebase/actions/runs/40363158098) and
+[main CI](https://github.com/samebase/samebase/actions/runs/40363158095) passed.
+
+After the owner confirmed permanent deletion, the four old root tables were removed: 44 staged
+files, 4 edit-history rows, 57 cached branch trees, and 393 cached files. All 44 old staged files
+matched their initial contents and paths, with no pending deletions. The old file cache referenced
+one unused 27,326-byte WebM in root storage. Its reference was absent from current component data,
+and the current app had no root-storage owner. That file was also deleted.
+
+Fresh production reads confirmed that all four tables were absent, root storage was empty, and
+neither obsolete cleanup function had a scheduled job. Before-and-after component reads retained the
+same record IDs, versions, and storage references: one staged file, no edit-history rows, one branch
+tree, two cached files, and one repository sync-state row.
