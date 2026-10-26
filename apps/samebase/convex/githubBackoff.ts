@@ -1,14 +1,14 @@
 import { v } from "convex/values";
 import { notEmpty } from "@samebase/dependent";
 import { internalMutation, internalQuery } from "./_generated/server";
-import { githubBackoff, githubBackoffPrincipal } from "./githubBackoffModel";
+import { vGitHubBackoff, vGitHubBackoffPrincipal } from "./githubBackoffModel";
 
 export const get = internalQuery({
   args: {
-    principal: githubBackoffPrincipal,
+    principal: vGitHubBackoffPrincipal,
     resource: v.union(v.string(), v.null()),
   },
-  returns: v.union(githubBackoff, v.null()),
+  returns: v.union(vGitHubBackoff, v.null()),
   handler: async (ctx, args) => {
     const resources = args.resource === null ? [null] : [null, args.resource];
     const rows = await Promise.all(
@@ -37,8 +37,8 @@ export const get = internalQuery({
 
 export const record = internalMutation({
   args: {
-    principal: githubBackoffPrincipal,
-    ...githubBackoff.fields,
+    principal: vGitHubBackoffPrincipal,
+    ...vGitHubBackoff.fields,
   },
   returns: v.null(),
   handler: async (ctx, args) => {

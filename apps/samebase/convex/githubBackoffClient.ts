@@ -4,7 +4,7 @@ import { isRecord } from "@samebase/dependent";
 import type { Infer } from "convex/values";
 import { internal } from "./_generated/api";
 import type { ActionCtx } from "./_generated/server";
-import type { githubBackoffPrincipal } from "./githubBackoffModel";
+import type { vGitHubBackoffPrincipal } from "./githubBackoffModel";
 
 /** Only the resource families used by the shared authenticated clients are classified here. */
 function requestResource(path: string): string | null {
@@ -53,7 +53,7 @@ single resource, so they pause this provider identity across REST and GraphQL.
 export function attachGitHubBackoff(
   ctx: Pick<ActionCtx, "runQuery" | "runMutation">,
   octokit: Octokit,
-  principal: Infer<typeof githubBackoffPrincipal>,
+  principal: Infer<typeof vGitHubBackoffPrincipal>,
 ): Octokit {
   const observe = async (
     status: number,

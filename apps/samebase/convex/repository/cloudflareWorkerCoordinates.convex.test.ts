@@ -96,6 +96,7 @@ beforeEach(() => {
     },
   });
   providerMocks.createRepositoryOctokit.mockResolvedValue({
+    hook: { wrap: vi.fn() },
     rest: { repos: { get: providerMocks.getRepository } },
   });
 });

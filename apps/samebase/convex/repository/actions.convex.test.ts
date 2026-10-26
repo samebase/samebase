@@ -109,6 +109,7 @@ beforeEach(() => {
     },
   });
   const octokit = {
+    hook: { wrap: vi.fn() },
     request: githubMocks.listRepositories,
     rest: {
       git: { getTree: githubMocks.getTree },

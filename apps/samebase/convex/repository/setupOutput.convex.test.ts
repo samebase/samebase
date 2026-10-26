@@ -617,6 +617,7 @@ function mockGitHub(options?: {
     }
   });
   githubMocks.createRepositoryOctokit.mockResolvedValue({
+    hook: { wrap: vi.fn() },
     request: githubMocks.request,
     rest: {
       repos: { get: githubMocks.getRepository },

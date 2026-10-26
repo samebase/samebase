@@ -171,10 +171,11 @@ function stubCloudflareCiToken({ denied = [] }: { denied?: string[] } = {}) {
 beforeEach(() => {
   vi.clearAllMocks();
   providerMocks.createGitHubInstallationOctokit.mockReturnValue({
+    hook: { wrap: vi.fn() },
     rest: { repos: { get: providerMocks.getRepository } },
   });
   providerMocks.getRepository.mockRejectedValue(githubRequestError(404));
-  providerMocks.createGitHubUserOctokit.mockReturnValue({});
+  providerMocks.createGitHubUserOctokit.mockReturnValue({ hook: { wrap: vi.fn() } });
   providerMocks.isCloudflareWorkerNameAvailable.mockResolvedValue(true);
   providerMocks.listConvexManagementProjects.mockResolvedValue([]);
   providerMocks.requireCloudflareBuildTokenUuid.mockResolvedValue("selected-token");
