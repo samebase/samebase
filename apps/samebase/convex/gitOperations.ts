@@ -1,7 +1,8 @@
 import { v, type Infer } from "convex/values";
 import { fileBlob } from "@samebase/git-workspace/model";
 import { internalMutation, internalQuery, type MutationCtx } from "./_generated/server";
-import { components } from "./_generated/api";
+import { components, internal } from "./_generated/api";
+import { isLiveConnectedRepository } from "./repository/state";
 
 const { id, optional, string } = v;
 const hostFileBlob = fileBlob.extend({ storageId: optional(id("_storage")) });
@@ -54,11 +55,14 @@ export const saveFileBlob = internalMutation({
     // Only used for debugging.
     debugFilePath: optional(string()),
   },
-  returns: string(),
-  handler: async (ctx, args): Promise<string> => {
+  returns: v.union(hostFileBlob, v.null()),
+  handler: async (ctx, args): Promise<HostFileBlob | null> => {
     const repository = await ctx.db.get(args.repositoryId);
-    if (!repository) throw new Error("Repository not found");
-    return await ctx.runMutation(components.gitWorkspace.blobs.save, {
+    if (!isLiveConnectedRepository(repository)) {
+      if (args.storageId) await deleteReleasedStagingStorage(ctx, [args.storageId]);
+      return null;
+    }
+    await ctx.runMutation(components.gitWorkspace.blobs.save, {
       repositoryId: args.repositoryId,
       sha: args.sha,
       size: args.size,
@@ -67,5 +71,9 @@ export const saveFileBlob = internalMutation({
       ext: args.ext,
       mime: args.mime,
     });
+    // A concurrent reader can already have cached this SHA with another upload.
+    // The chosen cache row protects its bytes while the unused upload is released.
+    if (args.storageId) await deleteReleasedStagingStorage(ctx, [args.storageId]);
+    return await ctx.runQuery(internal.gitOperations.getBlobBySha, { sha: args.sha });
   },
 });

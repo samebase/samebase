@@ -706,7 +706,7 @@ describe("released binary storage", () => {
   it("retains shared bytes until staging and blob caches in all repositories release them", async () => {
     const t = makeConvexTest();
     const { repositoryId, organizationId, userId } = await seedConnectedRepository(t);
-    const { repositoryId: otherRepositoryId } = await t.mutation(
+    const { repositoryId: otherRepositoryId, runId: otherRunId } = await t.mutation(
       internal.repository.records.createInitializingExistingRepositoryForUser,
       {
         organizationId,
@@ -716,6 +716,16 @@ describe("released binary storage", () => {
         githubRepositoryName: "other",
       },
     );
+    await t.mutation(internal.repository.records.connectExistingRepositoryGitHub, {
+      repositoryId: otherRepositoryId,
+      runId: otherRunId,
+      userId,
+      githubRepositoryDatabaseId: "9002",
+      githubOwnerLogin: "staging",
+      githubRepositoryName: "other",
+      defaultBranch: "main",
+      visibility: "private",
+    });
     const storageId = await t.run(
       async (ctx) => await ctx.storage.store(new Blob(["shared image"])),
     );
@@ -727,6 +737,19 @@ describe("released binary storage", () => {
       mime: "image/png",
       ext: "png",
     });
+    const duplicateStorageId = await t.run(
+      async (ctx) => await ctx.storage.store(new Blob(["shared image"])),
+    );
+    const chosenBlob = await t.mutation(internal.gitOperations.saveFileBlob, {
+      repositoryId,
+      storageId: duplicateStorageId,
+      sha: "shared-sha",
+      size: 12,
+      mime: "image/png",
+      ext: "png",
+    });
+    expect(chosenBlob?.storageId).toBe(storageId);
+    expect(await t.run(async (ctx) => await ctx.storage.get(duplicateStorageId))).toBeNull();
     for (const targetRepositoryId of [repositoryId, otherRepositoryId]) {
       await t.mutation(components.gitWorkspace.staging.saveBinaryUploadToStaging, {
         repositoryId: targetRepositoryId,
@@ -776,5 +799,55 @@ describe("released binary storage", () => {
     });
     expect(await t.run(async (ctx) => (await ctx.storage.get(storageId)) !== null)).toBe(false);
     await t.finishAllScheduledFunctions(vi.runAllTimers);
+  });
+
+  it("rejects a late cache write and releases its bytes after repository deletion starts", async () => {
+    const t = makeConvexTest();
+    const { repositoryId, organizationId, userId } = await seedConnectedRepository(t);
+    const storageId = await t.run(async (ctx) => {
+      const runId = await ctx.db.insert("workflow_repositoryDeletion_runs", {
+        state: "running",
+        organizationId,
+        userId,
+        repositoryId,
+        githubRepositoryFullName: "staging/notes",
+        createdAt: 1,
+        updatedAt: 1,
+        attempt: { kind: "initial" },
+        workflow: { state: "started", workflowId: "late-cache-write" },
+        currentStep: "cleanup_editor_state",
+        snapshot: {
+          state: "retained_for_retry",
+          plan: {
+            target: {
+              kind: "samebase_managed_repository",
+              githubRepositoryDatabaseId: "9001",
+              githubOwnerLogin: "staging",
+              githubRepositoryName: "notes",
+              githubRepositoryFullName: "staging/notes",
+            },
+            convex: { action: "skip", reason: "not_requested" },
+            cloudflare: { action: "skip", reason: "not_requested" },
+            githubRepository: { action: "skip", reason: "not_requested" },
+          },
+        },
+      });
+      await ctx.db.patch(repositoryId, {
+        deletion: { state: "deleting", runId, requestedAt: 1 },
+      });
+      return await ctx.storage.store(new Blob(["late image"]));
+    });
+    expect(
+      await t.mutation(internal.gitOperations.saveFileBlob, {
+        repositoryId,
+        storageId,
+        sha: "late-sha",
+        size: 10,
+        mime: "image/png",
+        ext: "png",
+      }),
+    ).toBeNull();
+    expect(await t.query(internal.gitOperations.getBlobBySha, { sha: "late-sha" })).toBeNull();
+    expect(await t.run(async (ctx) => await ctx.storage.get(storageId))).toBeNull();
   });
 });

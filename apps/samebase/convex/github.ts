@@ -1066,7 +1066,7 @@ export const getRepositoryMediaAsset = action({
         ctx.storage.store(new Blob([buffer], { type: mimeType })),
       );
 
-      await ctx.runMutation(internal.gitOperations.saveFileBlob, {
+      const savedBlob = await ctx.runMutation(internal.gitOperations.saveFileBlob, {
         repositoryId: repository.repositoryId,
         sha: targetFileSha,
         size: buffer.byteLength,
@@ -1077,18 +1077,20 @@ export const getRepositoryMediaAsset = action({
         debugFilePath: args.filePath,
       });
 
-      const url = await ctx.storage.getUrl(storageId);
-      if (typeof url !== "string" || url.length === 0) {
+      if (!savedBlob) {
+        return { found: false, reason: "unavailable", message: "Repository is unavailable." };
+      }
+      const savedAsset = await resolveCachedRepositoryMediaAsset(
+        ctx,
+        savedBlob,
+        args.filePath,
+        mediaKind,
+        fileName,
+      );
+      if (!savedAsset) {
         throw new Error("Failed to create media preview URL");
       }
-
-      return {
-        found: true,
-        kind: mediaKind,
-        mimeType,
-        url,
-        fileName,
-      };
+      return savedAsset;
     } catch (error: unknown) {
       if (getRepositoryMediaErrorStatus(error) === 404) {
         return { found: false, reason: "missing" };
