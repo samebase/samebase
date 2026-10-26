@@ -58,7 +58,7 @@ import { RepositoryMediaViewer } from "@/repository/editor/RepositoryMediaViewer
 import { useRepositorySimpleViewConfig } from "@/repository/editor/useRepositorySimpleViewConfig";
 import { RepositoryWorkspacePaneHeader } from "@/repository/editor/RepositoryWorkspacePaneHeader";
 import { MediaUploadDialog } from "@/repository/editor/MediaUploadDialog";
-import { isRenderableRepositoryMediaPath } from "../../../shared/repositoryMedia";
+import { isRenderableRepositoryMediaPath } from "@samebase/git-workspace/repositoryMedia";
 import { TREE_REFRESH_STALE_LOCK_MS } from "@samebase/git-workspace/treeRefresh";
 import { buildRepositoryFileRoute, parseRepositoryPathContext } from "@/lib/repositoryRoutes";
 import { resolveLegacyBranchlessFilePath } from "@/lib/legacyBranchlessRoute";

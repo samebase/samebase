@@ -4,7 +4,7 @@ import {
   getRepositoryMediaKind,
   isRenderableRepositoryMediaPath,
   isSvgRepositoryMediaPath,
-} from "../../shared/repositoryMedia";
+} from "@samebase/git-workspace/repositoryMedia";
 
 describe("repositoryMedia", () => {
   it("recognizes supported repository media extensions from the file name", () => {

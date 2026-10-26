@@ -841,6 +841,9 @@ importers:
       '@octokit/rest':
         specifier: ^22.0.1
         version: 22.0.1
+      '@samebase/dependent':
+        specifier: workspace:*
+        version: link:../dependent
       convex:
         specifier: ^1.48.0
         version: 1.48.0(react@19.3.0)

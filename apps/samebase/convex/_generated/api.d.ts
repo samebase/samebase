@@ -61,7 +61,6 @@ import type * as fileStagingActions from "../fileStagingActions.js";
 import type * as folderExpansion from "../folderExpansion.js";
 import type * as functions from "../functions.js";
 import type * as gitOperations from "../gitOperations.js";
-import type * as gitOperationsActions from "../gitOperationsActions.js";
 import type * as github from "../github.js";
 import type * as githubActionsSecrets from "../githubActionsSecrets.js";
 import type * as githubApp from "../githubApp.js";
@@ -278,7 +277,6 @@ declare const fullApi: ApiFromModules<{
   folderExpansion: typeof folderExpansion;
   functions: typeof functions;
   gitOperations: typeof gitOperations;
-  gitOperationsActions: typeof gitOperationsActions;
   github: typeof github;
   githubActionsSecrets: typeof githubActionsSecrets;
   githubApp: typeof githubApp;

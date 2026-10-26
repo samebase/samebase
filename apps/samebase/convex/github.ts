@@ -8,13 +8,13 @@ import { Octokit } from "@octokit/rest";
 import { action } from "./functions";
 import { resolveGitHubAppAccess, type GitHubAppInstallationAccess } from "./githubAppAccess";
 import { createGitHubInstallationOctokit, readGitHubAppInstallation } from "./githubApp";
-import { guessMime, withRetry } from "./gitOperationsActions";
+import { guessMime, withRetry } from "@samebase/git-workspace/fileContent";
 import { isRecord } from "./jsonUtils";
 import {
   getRepositoryMediaKind,
   type RepositoryMediaKind,
   isSvgRepositoryMediaPath,
-} from "../shared/repositoryMedia";
+} from "@samebase/git-workspace/repositoryMedia";
 import { readStagedFileKind } from "@samebase/git-workspace/stagingChanges";
 import {
   refreshRepositoryBranch,

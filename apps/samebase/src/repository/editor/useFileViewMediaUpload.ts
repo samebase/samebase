@@ -1,7 +1,7 @@
 import { useCallback, useRef, useState, type ChangeEvent, type DragEvent } from "react";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
-import { isRenderableRepositoryMediaPath } from "../../../shared/repositoryMedia";
+import { isRenderableRepositoryMediaPath } from "@samebase/git-workspace/repositoryMedia";
 import {
   readUploadStorageId,
   uploadMediaWithCleanup,
