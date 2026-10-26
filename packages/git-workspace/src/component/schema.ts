@@ -7,7 +7,7 @@ import {
   stagedFileFields,
 } from "../model.js";
 
-const { number, string } = v;
+const { id, number, optional, string } = v;
 
 export default defineSchema({
   /** Exact Git tree cache for one repository branch at one observed commit. */
@@ -15,15 +15,15 @@ export default defineSchema({
     "repositoryId",
     "branch",
   ]),
-  /** Git blob contents observed by SHA and cached inline or in host storage. */
-  fileBlobs: defineTable(fileBlobFields)
+  /** Git blob contents observed by SHA and cached inline or in component storage. */
+  fileBlobs: defineTable({ ...fileBlobFields, storageId: optional(id("_storage")) })
     .index("by_sha", ["sha"])
     .index("by_repository", ["repositoryId"])
     .index("by_storageId", ["storageId"]),
   repositorySyncState: defineTable(repositorySyncStateFields).index("by_repository", [
     "repositoryId",
   ]),
-  stagedFiles: defineTable(stagedFileFields)
+  stagedFiles: defineTable({ ...stagedFileFields, storageId: optional(id("_storage")) })
     .index("by_repository_and_branch_and_path", ["repositoryId", "branch", "filePath"])
     .index("by_repository_and_branch", ["repositoryId", "branch"])
     .index("by_repository_and_branch_and_initial_path", [

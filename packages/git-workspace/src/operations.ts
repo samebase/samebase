@@ -1,7 +1,8 @@
-import { type GenericId, type Infer } from "convex/values";
+import { type Infer } from "convex/values";
 import type { Octokit } from "@octokit/rest";
 import { notEmpty, isRecord } from "@samebase/dependent/main";
 import { guessMime, INLINE_TEXT_MAX, isTextBuffer, withRetry } from "./fileContent.js";
+import { loadBlob, uploadBlob } from "./storage.js";
 import { getRepositoryMediaKind } from "./repositoryMedia.js";
 import { describeRepositoryTreeRefreshFailure } from "./repositoryRefresh.js";
 import { rebaseStagedContent } from "./stagingRebase.js";
@@ -337,12 +338,11 @@ async function stageRepositoryBinaryBlobForEditing<
   }
 
   const { ctx, host, repository, userId } = workspace;
-  const storageId = await ctx.runQuery(host.normalizeStorageId, { storageId: args.storageId });
   const stagedFile = await ctx.runMutation(host.initializeBinaryFile, {
     repositoryId: repository.repositoryId,
     filePath: args.originalFilePath,
     branch: args.targetBranch,
-    storageId,
+    storageId: args.storageId,
     mime: args.mime ?? guessMime(args.filePath),
     size: args.size,
     blobSha: args.fileSha,
@@ -486,7 +486,9 @@ export async function openFile<RepositoryId extends string, UserId extends strin
         ? { text: buffer.toString("utf-8"), storageId: undefined }
         : {
             text: undefined,
-            storageId: await withRetry(() => ctx.storage.store(new Blob([buffer], { type: mime }))),
+            storageId: await withRetry(() =>
+              uploadBlob(ctx, component, new Blob([buffer], { type: mime })),
+            ),
           };
     const savedBlob = await ctx.runMutation(host.saveFileBlob, {
       repositoryId: repository.repositoryId,
@@ -536,7 +538,7 @@ export async function stageUploadedMedia<RepositoryId extends string, UserId ext
   workspace: GitWorkspace<RepositoryId, UserId>,
   args: {
     filePath: string;
-    storageId: GenericId<"_storage">;
+    storageId: string;
     branch?: string;
     replaceExisting: boolean;
   },
@@ -552,7 +554,7 @@ export async function stageUploadedMedia<RepositoryId extends string, UserId ext
       repo: repository.githubRepositoryName,
     }));
 
-  const uploadedBlob = await ctx.storage.get(args.storageId);
+  const uploadedBlob = await loadBlob(ctx, workspace.component, args.storageId);
   if (!uploadedBlob) {
     throw new Error("Uploaded media is no longer available.");
   }
@@ -1579,12 +1581,7 @@ export async function commitAllStaged<RepositoryId extends string, UserId extend
       snapshot: stripCreationTimeFromStagingRecord(file),
     })),
     branch: commitBranch,
-    loadStorageBlob: async (storageId) => {
-      const hostStorageId = await ctx.runQuery(host.normalizeStorageId, {
-        storageId,
-      });
-      return await ctx.storage.get(hostStorageId);
-    },
+    loadStorageBlob: (storageId) => loadBlob(ctx, component, storageId),
   });
 
   // 1. Refresh branch/default tree caches and re-read the updated repository.
@@ -1617,16 +1614,12 @@ export async function commitAllStaged<RepositoryId extends string, UserId extend
             continue;
           }
 
-          const storageId = await ctx.runQuery(host.normalizeStorageId, {
-            storageId: file.storageId,
-          });
-
           await ctx.runMutation(host.saveFileBlob, {
             repositoryId: repository.repositoryId,
             sha: newSha,
             size: file.size ?? 0,
             text: undefined,
-            storageId,
+            storageId: file.storageId,
             ext: file.filePath.split(".").pop()?.toLowerCase() ?? "",
             mime: file.mime ?? guessMime(file.filePath),
           });

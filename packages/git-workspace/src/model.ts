@@ -115,8 +115,6 @@ export const stagedFilesBranchSummary = object({
   counts: stagedFilesCategoryCounts,
 });
 
-export const storageReleaseResult = object({ releasedStorageIds: array(string()) });
-
 export const reconcileInstruction = union(
   object({ action: literal("delete"), stagingId: string(), branch: string() }),
   object({

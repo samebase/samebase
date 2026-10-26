@@ -585,7 +585,6 @@ function getRepositoryReads(
       treeData: args.repository.treeData,
     },
     host: {
-      getBlobBySha: internal.gitOperations.getBlobBySha,
       saveFileBlob: internal.gitOperations.saveFileBlob,
     },
     getOctokit: async () => {

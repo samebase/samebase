@@ -1,8 +1,8 @@
 import type { Octokit } from "@octokit/rest";
-import type { FunctionReference } from "convex/server";
 import { v, type Infer } from "convex/values";
-import type { FileBlob, vGitHubTreeData } from "./model.js";
+import type { vGitHubTreeData } from "./model.js";
 import type { GitWorkspace } from "./operationsContext.js";
+import { uploadBlob } from "./storage.js";
 import { guessMime, withRetry } from "./fileContent.js";
 import { getGitHubErrorStatus } from "./github.js";
 import { type RepositoryMediaKind, isSvgRepositoryMediaPath } from "./repositoryMedia.js";
@@ -13,14 +13,12 @@ const { literal, object, string, union } = v;
 /** The host authorizes the repository before a read. Provider access stays lazy. */
 export type GitWorkspaceReads<RepositoryId extends string> = {
   ctx: GitWorkspace<RepositoryId, string>["ctx"];
-  component: Pick<GitWorkspace<RepositoryId, string>["component"], "staging">;
+  component: Pick<GitWorkspace<RepositoryId, string>["component"], "staging" | "blobs" | "storage">;
   repository: Pick<
     GitWorkspace<RepositoryId, string>["repository"],
     "repositoryId" | "githubOwnerLogin" | "githubRepositoryName"
   > & { treeData?: Infer<typeof vGitHubTreeData> | null };
-  host: Pick<GitWorkspace<RepositoryId, string>["host"], "saveFileBlob"> & {
-    getBlobBySha: FunctionReference<"query", "internal", { sha: string }, FileBlob | null>;
-  };
+  host: Pick<GitWorkspace<RepositoryId, string>["host"], "saveFileBlob">;
   getOctokit: () => Promise<Octokit>;
 };
 
@@ -307,7 +305,7 @@ export async function readRepositoryFileContent<RepositoryId extends string>(
       return { exists: false };
     }
 
-    const blobFile = await ctx.runQuery(workspace.host.getBlobBySha, {
+    const blobFile = await ctx.runQuery(workspace.component.blobs.getBySha, {
       sha: targetFile.sha,
     });
 
@@ -363,6 +361,9 @@ export async function readRepositoryMediaAsset<RepositoryId extends string>(
   },
 ): Promise<RepositoryMediaAsset> {
   const { ctx, repository } = workspace;
+  const storage = {
+    getUrl: (storageId: string) => ctx.runQuery(workspace.component.storage.getUrl, { storageId }),
+  };
   const { mediaKind } = args;
   const requestedBranch = args.branch;
   const fileName = getRepositoryMediaFileName(args.filePath);
@@ -376,8 +377,8 @@ export async function readRepositoryMediaAsset<RepositoryId extends string>(
     });
     if (stagedFile) {
       const stagedAsset = await resolveStagedRepositoryMediaAsset({
-        storage: ctx.storage,
-        loadCachedBlobBySha: (sha) => ctx.runQuery(workspace.host.getBlobBySha, { sha }),
+        storage,
+        loadCachedBlobBySha: (sha) => ctx.runQuery(workspace.component.blobs.getBySha, { sha }),
         stagedFile,
         filePath: args.filePath,
         mediaKind,
@@ -411,11 +412,11 @@ export async function readRepositoryMediaAsset<RepositoryId extends string>(
     }
 
     targetFileSha = targetFile.sha;
-    const cachedBlob = await ctx.runQuery(workspace.host.getBlobBySha, {
+    const cachedBlob = await ctx.runQuery(workspace.component.blobs.getBySha, {
       sha: targetFileSha,
     });
     const resolvedCachedAsset = await resolveCachedRepositoryMediaAsset(
-      ctx,
+      { storage },
       cachedBlob,
       args.filePath,
       mediaKind,
@@ -440,11 +441,11 @@ export async function readRepositoryMediaAsset<RepositoryId extends string>(
       if (targetFileSha === null) {
         return { found: false, reason: "missing" };
       }
-      const cachedBlob = await ctx.runQuery(workspace.host.getBlobBySha, {
+      const cachedBlob = await ctx.runQuery(workspace.component.blobs.getBySha, {
         sha: targetFileSha,
       });
       const resolvedCachedAsset = await resolveCachedRepositoryMediaAsset(
-        ctx,
+        { storage },
         cachedBlob,
         args.filePath,
         mediaKind,
@@ -476,7 +477,7 @@ export async function readRepositoryMediaAsset<RepositoryId extends string>(
     const content = blob.data.content.replace(/\n/g, "");
     const buffer = Buffer.from(content, "base64");
     const storageId = await withRetry(() =>
-      ctx.storage.store(new Blob([buffer], { type: mimeType })),
+      uploadBlob(ctx, workspace.component, new Blob([buffer], { type: mimeType })),
     );
 
     const savedBlob = await ctx.runMutation(workspace.host.saveFileBlob, {
@@ -493,7 +494,7 @@ export async function readRepositoryMediaAsset<RepositoryId extends string>(
       return { found: false, reason: "unavailable", message: "Repository is unavailable." };
     }
     const savedAsset = await resolveCachedRepositoryMediaAsset(
-      ctx,
+      { storage },
       savedBlob,
       args.filePath,
       mediaKind,

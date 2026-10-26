@@ -4,7 +4,6 @@ import type { Doc, Id } from "../../_generated/dataModel";
 import { requireActiveRepositoryDeletionRun } from "../../repositoryWorkflowAuthority";
 import { vRepositoryDeletionCleanupStep, type RepositoryDeletionCleanupStep } from "./model";
 import { components } from "../../_generated/api";
-import { deleteReleasedStagingStorage } from "../../gitOperations";
 
 const { id, literal, number, object, union } = v;
 
@@ -50,7 +49,7 @@ export type RepositoryLocalCleanupStepBatchResult = Infer<
 
 export const REPOSITORY_LOCAL_CLEANUP_BATCH_SIZE = 50;
 
-type RepositoryLocalCleanupCtx = Pick<MutationCtx, "db" | "storage" | "runQuery" | "runMutation">;
+type RepositoryLocalCleanupCtx = Pick<MutationCtx, "db" | "runQuery" | "runMutation">;
 type RepositoryLocalCleanupArgs = {
   repositoryId: Id<"repositories">;
   runId: Id<"workflow_repositoryDeletion_runs">;
@@ -122,23 +121,19 @@ async function deleteStorageBackedByRepositoryBatch(
   ctx: RepositoryLocalCleanupCtx,
   args: RepositoryLocalCleanupArgs,
 ): Promise<number> {
-  const result = await ctx.runMutation(components.gitWorkspace.blobs.deleteRepositoryBatch, {
+  return await ctx.runMutation(components.gitWorkspace.blobs.deleteRepositoryBatch, {
     repositoryId: args.repositoryId,
   });
-  await deleteReleasedStagingStorage(ctx, result.releasedStorageIds);
-  return result.rowsChanged;
 }
 
 function deleteWorkingCopyBatch(
   table: "stagedFiles" | "fileUpdates",
 ): RepositoryLocalCleanupHandler {
   return async (ctx, args) => {
-    const result = await ctx.runMutation(components.gitWorkspace.staging.deleteRepositoryBatch, {
+    return await ctx.runMutation(components.gitWorkspace.staging.deleteRepositoryBatch, {
       repositoryId: args.repositoryId,
       table,
     });
-    await deleteReleasedStagingStorage(ctx, result.releasedStorageIds);
-    return result.rowsChanged;
   };
 }
 

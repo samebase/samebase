@@ -2,8 +2,9 @@ import { v } from "convex/values";
 // eslint-disable-next-line samebase/no-raw-public-convex-function-builders -- Component entrypoints are internal to the host; host wrappers enforce access.
 import { mutation, query } from "./_generated/server.js";
 import { fileBlob, fileBlobFields } from "../model.js";
+import { deleteUnreferencedStorage } from "./storage.js";
 
-const { array, boolean, number, object, string, union } = v;
+const { id, number, optional, string, union } = v;
 
 export const getBySha = query({
   args: { sha: string() },
@@ -16,10 +17,10 @@ export const getBySha = query({
 });
 
 export const save = mutation({
-  args: { ...fileBlobFields, ext: string(), mime: string() },
-  returns: v.id("fileBlobs"),
+  args: { ...fileBlobFields, storageId: optional(id("_storage")), ext: string(), mime: string() },
+  returns: fileBlob,
   handler: async (ctx, args) => {
-    // Empty text is also valid. A blob is stored inline or in host storage.
+    // Empty text is also valid. A blob is stored inline or in component storage.
     const textDefined = typeof args.text === "string";
     if (textDefined && args.storageId)
       throw new Error("Only one of text or storageId should be provided");
@@ -31,34 +32,30 @@ export const save = mutation({
       .query("fileBlobs")
       .withIndex("by_sha", (q) => q.eq("sha", args.sha))
       .first();
-    if (existing) return existing._id;
-    return await ctx.db.insert("fileBlobs", args);
+    if (existing) {
+      if (args.storageId) await deleteUnreferencedStorage(ctx, [args.storageId]);
+      return existing;
+    }
+    const blobId = await ctx.db.insert("fileBlobs", args);
+    const saved = await ctx.db.get(blobId);
+    if (!saved) throw new Error("Cached blob disappeared after insert.");
+    return saved;
   },
-});
-
-export const hasStorageReference = query({
-  args: { storageId: string() },
-  returns: boolean(),
-  handler: async (ctx, args) =>
-    (await ctx.db
-      .query("fileBlobs")
-      .withIndex("by_storageId", (q) => q.eq("storageId", args.storageId))
-      .first()) !== null,
 });
 
 export const deleteRepositoryBatch = mutation({
   args: { repositoryId: string() },
-  returns: object({ rowsChanged: number(), releasedStorageIds: array(string()) }),
+  returns: number(),
   handler: async (ctx, args) => {
     const rows = await ctx.db
       .query("fileBlobs")
       .withIndex("by_repository", (q) => q.eq("repositoryId", args.repositoryId))
       .take(50);
-    const storageIds = new Set<string>();
-    for (const row of rows) {
-      if (row.storageId) storageIds.add(row.storageId);
-      await ctx.db.delete(row._id);
-    }
-    return { rowsChanged: rows.length, releasedStorageIds: [...storageIds] };
+    for (const row of rows) await ctx.db.delete(row._id);
+    await deleteUnreferencedStorage(
+      ctx,
+      rows.flatMap((row) => (row.storageId ? [row.storageId] : [])),
+    );
+    return rows.length;
   },
 });

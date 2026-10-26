@@ -2,23 +2,27 @@ import { v } from "convex/values";
 import { api, internal } from "./_generated/api.js";
 // oxlint-disable-next-line samebase/no-raw-public-convex-function-builders -- Component entrypoints are internal to the host; host wrappers enforce access.
 import { internalMutation, mutation, query, type MutationCtx } from "./_generated/server.js";
-import type { Doc } from "./_generated/dataModel.js";
+import type { Doc, Id } from "./_generated/dataModel.js";
 import {
   committedStagedFile,
   stagedFile,
   stagedFileSnapshot,
   stagedFilesBranchSummary,
-  storageReleaseResult,
 } from "../model.js";
 import {
   hasStagedFileChanges,
   readStagedFileKind,
   summarizeStagedFilesByBranch,
 } from "../stagingChanges.js";
+import { deleteUnreferencedStorage } from "./storage.js";
 
 const { array, boolean, id, literal, number, object, optional, string, union } = v;
 const scope = { repositoryId: string(), branch: string() };
-const localSnapshot = object({ ...stagedFileSnapshot.fields, _id: id("stagedFiles") });
+const localSnapshot = object({
+  ...stagedFileSnapshot.fields,
+  _id: id("stagedFiles"),
+  storageId: optional(id("_storage")),
+});
 const BATCH_SIZE = 500;
 
 function requireScope(file: Doc<"stagedFiles">, repositoryId: string, branch: string) {
@@ -154,16 +158,6 @@ export const getRepositorySummary = query({
         files.length > 0 ? Math.max(...files.map((file) => file.lastEditTime)) : undefined,
     };
   },
-});
-
-export const hasStorageReference = query({
-  args: { storageId: string() },
-  returns: boolean(),
-  handler: async (ctx, args) =>
-    (await ctx.db
-      .query("stagedFiles")
-      .withIndex("by_storageId", (q) => q.eq("storageId", args.storageId))
-      .first()) !== null,
 });
 
 export const saveToStaging = mutation({
@@ -411,7 +405,7 @@ export const initializeBinaryFile = mutation({
   args: {
     ...scope,
     filePath: string(),
-    storageId: string(),
+    storageId: id("_storage"),
     mime: string(),
     size: number(),
     blobSha: string(),
@@ -429,7 +423,10 @@ export const initializeBinaryFile = mutation({
       )
       .unique();
     // A remote read can finish after an upload, deletion, or rename changed this file.
-    if (existing) return existing;
+    if (existing) {
+      await deleteUnreferencedStorage(ctx, [args.storageId]);
+      return existing;
+    }
     const existingPath = await ctx.db
       .query("stagedFiles")
       .withIndex("by_repository_and_branch_and_path", (q) =>
@@ -468,14 +465,14 @@ export const saveBinaryUploadToStaging = mutation({
   args: {
     ...scope,
     filePath: string(),
-    storageId: string(),
+    storageId: id("_storage"),
     mime: string(),
     size: number(),
     stagedBlobSha: string(),
     replaceExisting: boolean(),
     userId: string(),
   },
-  returns: object({ file: stagedFile, releasedStorageIds: array(string()) }),
+  returns: stagedFile,
   handler: async (ctx, args) => {
     const tree = await requireBranchTree(ctx, args.repositoryId, args.branch);
     const parentCommitSha =
@@ -533,7 +530,8 @@ export const saveBinaryUploadToStaging = mutation({
     if (existing) await ctx.db.patch(existing._id, fields);
     const file = await ctx.db.get(stagingId);
     if (!file) throw new Error("Staged binary upload disappeared while saving");
-    return { file, releasedStorageIds };
+    await deleteUnreferencedStorage(ctx, releasedStorageIds);
+    return file;
   },
 });
 
@@ -618,9 +616,9 @@ export const duplicateBranchStaging = mutation({
 
 export const clearMatchingStagingSnapshot = mutation({
   args: { ...scope, stagedFiles: array(localSnapshot) },
-  returns: storageReleaseResult,
+  returns: v.null(),
   handler: async (ctx, args) => {
-    const releasedStorageIds: string[] = [];
+    const releasedStorageIds: Id<"_storage">[] = [];
     for (const snapshot of args.stagedFiles) {
       if (snapshot.repositoryId !== args.repositoryId || snapshot.branch !== args.branch)
         throw new Error("Staging snapshot belongs to a different repository or branch.");
@@ -632,7 +630,8 @@ export const clearMatchingStagingSnapshot = mutation({
       if (current.storageId) releasedStorageIds.push(current.storageId);
       await scheduleFileCleanup(ctx, current, snapshot.lastEditTime + 1);
     }
-    return { releasedStorageIds };
+    await deleteUnreferencedStorage(ctx, releasedStorageIds);
+    return null;
   },
 });
 
@@ -646,9 +645,9 @@ export const clearCommittedStaging = mutation({
       }),
     ),
   },
-  returns: storageReleaseResult,
+  returns: v.null(),
   handler: async (ctx, args) => {
-    const releasedStorageIds: string[] = [];
+    const releasedStorageIds: Id<"_storage">[] = [];
     for (const { snapshot, committedContent, committedBlobSha } of args.committedFiles) {
       if (snapshot.repositoryId !== args.repositoryId || snapshot.branch !== args.branch)
         throw new Error("Staging snapshot belongs to a different repository or branch.");
@@ -680,13 +679,14 @@ export const clearCommittedStaging = mutation({
         );
       }
     }
-    return { releasedStorageIds };
+    await deleteUnreferencedStorage(ctx, releasedStorageIds);
+    return null;
   },
 });
 
 export const clearAllStaging = mutation({
   args: { repositoryId: string(), branch: optional(string()) },
-  returns: storageReleaseResult,
+  returns: v.null(),
   handler: async (ctx, args) => {
     const branch = args.branch;
     const files =
@@ -701,7 +701,7 @@ export const clearAllStaging = mutation({
               q.eq("repositoryId", args.repositoryId).eq("branch", branch),
             )
             .collect();
-    const releasedStorageIds: string[] = [];
+    const releasedStorageIds: Id<"_storage">[] = [];
     for (const file of files) {
       await ctx.db.delete(file._id);
       if (file.storageId) releasedStorageIds.push(file.storageId);
@@ -711,7 +711,8 @@ export const clearAllStaging = mutation({
       branch: args.branch,
       cutoffTimestamp: Date.now() + 1,
     });
-    return { releasedStorageIds };
+    await deleteUnreferencedStorage(ctx, releasedStorageIds);
+    return null;
   },
 });
 
@@ -731,9 +732,9 @@ export const reconcileStagingWithTree = mutation({
       ),
     ),
   },
-  returns: storageReleaseResult,
+  returns: v.null(),
   handler: async (ctx, args) => {
-    const releasedStorageIds: string[] = [];
+    const releasedStorageIds: Id<"_storage">[] = [];
     const cutoff = Date.now() + 1;
     for (const instruction of args.instructions) {
       const file = await ctx.db.get(instruction.stagingId);
@@ -757,7 +758,8 @@ export const reconcileStagingWithTree = mutation({
         );
       }
     }
-    return { releasedStorageIds };
+    await deleteUnreferencedStorage(ctx, releasedStorageIds);
+    return null;
   },
 });
 
@@ -822,9 +824,9 @@ export const deleteFileUpdates = internalMutation({
 
 export const deleteRepositoryBatch = mutation({
   args: { repositoryId: string(), table: union(literal("stagedFiles"), literal("fileUpdates")) },
-  returns: object({ rowsChanged: number(), releasedStorageIds: array(string()) }),
+  returns: number(),
   handler: async (ctx, args) => {
-    const releasedStorageIds: string[] = [];
+    const releasedStorageIds: Id<"_storage">[] = [];
     if (args.table === "stagedFiles") {
       const rows = await ctx.db
         .query("stagedFiles")
@@ -834,13 +836,14 @@ export const deleteRepositoryBatch = mutation({
         await ctx.db.delete(row._id);
         if (row.storageId) releasedStorageIds.push(row.storageId);
       }
-      return { rowsChanged: rows.length, releasedStorageIds };
+      await deleteUnreferencedStorage(ctx, releasedStorageIds);
+      return rows.length;
     }
     const rows = await ctx.db
       .query("fileUpdates")
       .withIndex("by_repository", (q) => q.eq("repositoryId", args.repositoryId))
       .take(50);
     for (const row of rows) await ctx.db.delete(row._id);
-    return { rowsChanged: rows.length, releasedStorageIds };
+    return rows.length;
   },
 });

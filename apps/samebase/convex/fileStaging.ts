@@ -6,35 +6,19 @@ import {
   stagedFileSnapshot,
   stagedFilesBranchSummary,
 } from "@samebase/git-workspace/model";
-import {
-  internalMutation,
-  internalQuery,
-  type MutationCtx,
-  type QueryCtx,
-} from "./_generated/server";
+import { internalMutation, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { components, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { mutation, query } from "./functions";
 import { findRepositoryForUser } from "./organizationAccess";
 import { assertConnectedRepository, isLiveConnectedRepository } from "./repository/state";
 import { readActiveUser } from "./identity/lifecycle";
-import { deleteReleasedStagingStorage } from "./gitOperations";
 
 const { array, boolean, id, number, object, optional, string, union } = v;
 const scope = { repositoryId: id("repositories"), branch: string() };
 const fileOrNull = union(stagedFile, v.null());
 const snapshots = array(stagedFileSnapshot);
 const createFileArgs = { ...scope, filePath: string(), content: string() };
-
-export const normalizeStorageId = internalQuery({
-  args: { storageId: string() },
-  returns: id("_storage"),
-  handler: async (ctx, args) => {
-    const storageId = ctx.db.system.normalizeId("_storage", args.storageId);
-    if (!storageId) throw new Error("Invalid host storage ID.");
-    return storageId;
-  },
-});
 
 async function assertRepositoryForStagingAccess(
   ctx: Pick<QueryCtx | MutationCtx, "db">,
@@ -64,28 +48,23 @@ export const generateUploadUrl = mutation({
       repositoryId: args.repositoryId,
       userId: ctx.viewer.userId,
     });
-    return { uploadUrl: await ctx.storage.generateUploadUrl() };
+    return {
+      uploadUrl: await ctx.runMutation(components.gitWorkspace.storage.generateUploadUrl, {}),
+    };
   },
 });
 export const deletePendingUploadBlob = mutation({
   access: "access_files_write",
-  args: { repositoryId: id("repositories"), storageId: id("_storage") },
+  args: { repositoryId: id("repositories"), storageId: string() },
   returns: v.null(),
   handler: async (ctx, args) => {
     await assertConnectedRepositoryForStagingWrite(ctx, {
       repositoryId: args.repositoryId,
       userId: ctx.viewer.userId,
     });
-    const staged = await ctx.runQuery(components.gitWorkspace.staging.hasStorageReference, {
+    return await ctx.runMutation(components.gitWorkspace.storage.deletePendingUpload, {
       storageId: args.storageId,
     });
-    const cached = await ctx.runQuery(components.gitWorkspace.blobs.hasStorageReference, {
-      storageId: args.storageId,
-    });
-    if (staged || cached)
-      throw new Error("Cannot delete a blob that is already attached to staging.");
-    await ctx.storage.delete(args.storageId);
-    return null;
   },
 });
 export const getByNewPath = query({
@@ -188,11 +167,11 @@ export const clearMatchingStagingSnapshot = internalMutation({
   args: { ...scope, stagedFiles: snapshots },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const result = await ctx.runMutation(
-      components.gitWorkspace.staging.clearMatchingStagingSnapshot,
-      { repositoryId: args.repositoryId, branch: args.branch, stagedFiles: args.stagedFiles },
-    );
-    await deleteReleasedStagingStorage(ctx, result.releasedStorageIds);
+    await ctx.runMutation(components.gitWorkspace.staging.clearMatchingStagingSnapshot, {
+      repositoryId: args.repositoryId,
+      branch: args.branch,
+      stagedFiles: args.stagedFiles,
+    });
     return null;
   },
 });
@@ -200,12 +179,11 @@ export const clearCommittedStaging = internalMutation({
   args: { ...scope, committedFiles: array(committedStagedFile) },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const result = await ctx.runMutation(components.gitWorkspace.staging.clearCommittedStaging, {
+    await ctx.runMutation(components.gitWorkspace.staging.clearCommittedStaging, {
       repositoryId: args.repositoryId,
       branch: args.branch,
       committedFiles: args.committedFiles,
     });
-    await deleteReleasedStagingStorage(ctx, result.releasedStorageIds);
     return null;
   },
 });
@@ -219,11 +197,10 @@ async function clearStaging(
   },
 ) {
   const repository = await ctx.db.get(args.repositoryId);
-  const result = await ctx.runMutation(components.gitWorkspace.staging.clearAllStaging, {
+  await ctx.runMutation(components.gitWorkspace.staging.clearAllStaging, {
     repositoryId: args.repositoryId,
     branch: args.branch,
   });
-  await deleteReleasedStagingStorage(ctx, result.releasedStorageIds);
   if (isLiveConnectedRepository(repository) && !args.skipTreeUpdate) {
     await ctx.scheduler.runAfter(0, internal.github.updateRepositoryTree, {
       userId: args.userId,
@@ -394,7 +371,7 @@ export const initializeBinaryFile = internalMutation({
   args: {
     ...scope,
     filePath: string(),
-    storageId: id("_storage"),
+    storageId: string(),
     mime: string(),
     size: number(),
     blobSha: string(),
@@ -406,7 +383,7 @@ export const initializeBinaryFile = internalMutation({
       repositoryId: args.repositoryId,
       userId: args.userId,
     });
-    const file = await ctx.runMutation(components.gitWorkspace.staging.initializeBinaryFile, {
+    return await ctx.runMutation(components.gitWorkspace.staging.initializeBinaryFile, {
       repositoryId: args.repositoryId,
       branch: args.branch,
       filePath: args.filePath,
@@ -416,16 +393,13 @@ export const initializeBinaryFile = internalMutation({
       blobSha: args.blobSha,
       userId: args.userId,
     });
-    // A losing initializer can release only bytes that neither staging nor the cache kept.
-    await deleteReleasedStagingStorage(ctx, [args.storageId]);
-    return file;
   },
 });
 export const saveBinaryUploadToStaging = internalMutation({
   args: {
     ...scope,
     filePath: string(),
-    storageId: id("_storage"),
+    storageId: string(),
     mime: string(),
     size: number(),
     stagedBlobSha: string(),
@@ -438,22 +412,17 @@ export const saveBinaryUploadToStaging = internalMutation({
       repositoryId: args.repositoryId,
       userId: args.userId,
     });
-    const result = await ctx.runMutation(
-      components.gitWorkspace.staging.saveBinaryUploadToStaging,
-      {
-        repositoryId: args.repositoryId,
-        branch: args.branch,
-        filePath: args.filePath,
-        storageId: args.storageId,
-        mime: args.mime,
-        size: args.size,
-        stagedBlobSha: args.stagedBlobSha,
-        replaceExisting: args.replaceExisting,
-        userId: args.userId,
-      },
-    );
-    await deleteReleasedStagingStorage(ctx, result.releasedStorageIds);
-    return result.file;
+    return await ctx.runMutation(components.gitWorkspace.staging.saveBinaryUploadToStaging, {
+      repositoryId: args.repositoryId,
+      branch: args.branch,
+      filePath: args.filePath,
+      storageId: args.storageId,
+      mime: args.mime,
+      size: args.size,
+      stagedBlobSha: args.stagedBlobSha,
+      replaceExisting: args.replaceExisting,
+      userId: args.userId,
+    });
   },
 });
 export const assertWriteAccess = internalMutation({
@@ -493,11 +462,10 @@ export const reconcileStagingWithTree = internalMutation({
       repositoryId: args.repositoryId,
       userId: args.userId,
     });
-    const result = await ctx.runMutation(components.gitWorkspace.staging.reconcileStagingWithTree, {
+    await ctx.runMutation(components.gitWorkspace.staging.reconcileStagingWithTree, {
       repositoryId: args.repositoryId,
       instructions: args.instructions,
     });
-    await deleteReleasedStagingStorage(ctx, result.releasedStorageIds);
     return null;
   },
 });

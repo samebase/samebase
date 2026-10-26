@@ -4,7 +4,6 @@ import type {
   GenericActionCtx,
   GenericDataModel,
 } from "convex/server";
-import type { GenericId } from "convex/values";
 import type { Octokit } from "@octokit/rest";
 import type { ComponentApi } from "./component/_generated/component.js";
 import type { FileBlob, StagedFile } from "./model.js";
@@ -21,12 +20,12 @@ type AuthorizedArgs<Args, RepositoryId extends string, UserId extends string> = 
   HostScope<RepositoryId, UserId>;
 
 /**
- * These host mutations keep access checks and root-storage cleanup in the same
+ * These host mutations keep access checks in the same
  * transaction as each component write. The ID parameters preserve the host's
  * own repository and user ID types without teaching the package its schema.
  */
 export type GitWorkspace<RepositoryId extends string, UserId extends string> = {
-  ctx: Pick<GenericActionCtx<GenericDataModel>, "runQuery" | "runMutation" | "storage">;
+  ctx: Pick<GenericActionCtx<GenericDataModel>, "runQuery" | "runMutation">;
   component: ComponentApi;
   octokit: Octokit;
   userId: UserId;
@@ -41,10 +40,7 @@ export type GitWorkspace<RepositoryId extends string, UserId extends string> = {
     initializeBinaryFile: FunctionReference<
       "mutation",
       "internal",
-      Omit<
-        AuthorizedArgs<FunctionArgs<Staging["initializeBinaryFile"]>, RepositoryId, UserId>,
-        "storageId"
-      > & { storageId: GenericId<"_storage"> },
+      AuthorizedArgs<FunctionArgs<Staging["initializeBinaryFile"]>, RepositoryId, UserId>,
       StagedFile
     >;
     saveToStaging: FunctionReference<
@@ -56,10 +52,7 @@ export type GitWorkspace<RepositoryId extends string, UserId extends string> = {
     saveBinaryUploadToStaging: FunctionReference<
       "mutation",
       "internal",
-      Omit<
-        AuthorizedArgs<FunctionArgs<Staging["saveBinaryUploadToStaging"]>, RepositoryId, UserId>,
-        "storageId"
-      > & { storageId: GenericId<"_storage"> },
+      AuthorizedArgs<FunctionArgs<Staging["saveBinaryUploadToStaging"]>, RepositoryId, UserId>,
       StagedFile
     >;
     duplicateBranchStaging: FunctionReference<
@@ -120,18 +113,11 @@ export type GitWorkspace<RepositoryId extends string, UserId extends string> = {
       >,
       null
     >;
-    normalizeStorageId: FunctionReference<
-      "query",
-      "internal",
-      { storageId: string },
-      GenericId<"_storage">
-    >;
     saveFileBlob: FunctionReference<
       "mutation",
       "internal",
-      Omit<FunctionArgs<ComponentApi["blobs"]["save"]>, "repositoryId" | "storageId"> & {
+      Omit<FunctionArgs<ComponentApi["blobs"]["save"]>, "repositoryId"> & {
         repositoryId: RepositoryId;
-        storageId?: GenericId<"_storage">;
       },
       FileBlob | null
     >;

@@ -28,7 +28,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         "mutation",
         "internal",
         { repositoryId: string },
-        { releasedStorageIds: Array<string>; rowsChanged: number },
+        number,
         Name
       >;
       getBySha: FunctionReference<
@@ -48,13 +48,6 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         } | null,
         Name
       >;
-      hasStorageReference: FunctionReference<
-        "query",
-        "internal",
-        { storageId: string },
-        boolean,
-        Name
-      >;
       save: FunctionReference<
         "mutation",
         "internal",
@@ -67,7 +60,17 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           storageId?: string;
           text?: string;
         },
-        string,
+        {
+          _creationTime: number;
+          _id: string;
+          ext?: string;
+          mime?: string;
+          repositoryId: string;
+          sha: string;
+          size: number;
+          storageId?: string;
+          text?: string;
+        },
         Name
       >;
     };
@@ -235,7 +238,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         "mutation",
         "internal",
         { branch?: string; repositoryId: string },
-        { releasedStorageIds: Array<string> },
+        null,
         Name
       >;
       clearCommittedStaging: FunctionReference<
@@ -268,7 +271,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           }>;
           repositoryId: string;
         },
-        { releasedStorageIds: Array<string> },
+        null,
         Name
       >;
       clearMatchingStagingSnapshot: FunctionReference<
@@ -297,7 +300,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             version: number;
           }>;
         },
-        { releasedStorageIds: Array<string> },
+        null,
         Name
       >;
       createFileInStaging: FunctionReference<
@@ -317,7 +320,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         "mutation",
         "internal",
         { repositoryId: string; table: "stagedFiles" | "fileUpdates" },
-        { releasedStorageIds: Array<string>; rowsChanged: number },
+        number,
         Name
       >;
       duplicateBranchStaging: FunctionReference<
@@ -407,13 +410,6 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         "internal",
         { repositoryId: string },
         { fileCount: number; lastEditTime?: number },
-        Name
-      >;
-      hasStorageReference: FunctionReference<
-        "query",
-        "internal",
-        { storageId: string },
-        boolean,
         Name
       >;
       initializeBinaryFile: FunctionReference<
@@ -523,7 +519,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           >;
           repositoryId: string;
         },
-        { releasedStorageIds: Array<string> },
+        null,
         Name
       >;
       rename: FunctionReference<
@@ -585,27 +581,24 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           userId: string;
         },
         {
-          file: {
-            _creationTime: number;
-            _id: string;
-            branch: string;
-            content: string;
-            fileDeleted: boolean;
-            filePath: string;
-            initialContent: string;
-            initialFilePath: string;
-            kind?: "text" | "binary";
-            lastEditTime: number;
-            lastEditUserId: string;
-            mime?: string;
-            parentCommitSha: string | null;
-            repositoryId: string;
-            size?: number;
-            stagedBlobSha?: string;
-            storageId?: string;
-            version: number;
-          };
-          releasedStorageIds: Array<string>;
+          _creationTime: number;
+          _id: string;
+          branch: string;
+          content: string;
+          fileDeleted: boolean;
+          filePath: string;
+          initialContent: string;
+          initialFilePath: string;
+          kind?: "text" | "binary";
+          lastEditTime: number;
+          lastEditUserId: string;
+          mime?: string;
+          parentCommitSha: string | null;
+          repositoryId: string;
+          size?: number;
+          stagedBlobSha?: string;
+          storageId?: string;
+          version: number;
         },
         Name
       >;
@@ -674,6 +667,36 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           storageId?: string;
           version: number;
         },
+        Name
+      >;
+    };
+    storage: {
+      deletePendingUpload: FunctionReference<
+        "mutation",
+        "internal",
+        { storageId: string },
+        null,
+        Name
+      >;
+      generateUploadUrl: FunctionReference<
+        "mutation",
+        "internal",
+        {},
+        string,
+        Name
+      >;
+      getUrl: FunctionReference<
+        "query",
+        "internal",
+        { storageId: string },
+        string | null,
+        Name
+      >;
+      releaseUnreferenced: FunctionReference<
+        "mutation",
+        "internal",
+        { storageIds: Array<string> },
+        null,
         Name
       >;
     };

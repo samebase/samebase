@@ -15,10 +15,24 @@ vi.mock("./githubAppAccess", async (importOriginal) => {
 
 import { api, components, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
+import type {
+  ActionCtx as ComponentActionCtx,
+  MutationCtx as ComponentMutationCtx,
+} from "../../../packages/git-workspace/src/component/_generated/server";
 import { makeConvexTest } from "./test.setup";
 import type { StagedFile } from "@samebase/git-workspace/model";
 
 type ConvexTest = ReturnType<typeof makeConvexTest>;
+
+function runInGitWorkspace<Output>(
+  t: ConvexTest,
+  handler: (
+    ctx: Pick<ComponentMutationCtx, "db"> & Pick<ComponentActionCtx, "storage">,
+  ) => Promise<Output>,
+): Promise<Output> {
+  // @ts-expect-error convex-test 0.0.61 exposes runInComponent at runtime but omits it from its public type.
+  return t.runInComponent("gitWorkspace", handler);
+}
 
 function gitBlobSha(content: string): string {
   const buffer = Buffer.from(content, "utf-8");
@@ -302,7 +316,7 @@ describe("binary file opening", () => {
       const baseContent = "\0".repeat(12);
       const baseSha = gitBlobSha(baseContent);
       const replacementContent = "replacement image";
-      const [baseStorageId, replacementStorageId] = await t.run(async (ctx) =>
+      const [baseStorageId, replacementStorageId] = await runInGitWorkspace(t, async (ctx) =>
         Promise.all([
           ctx.storage.store(new Blob([baseContent], { type: "image/png" })),
           ctx.storage.store(new Blob([replacementContent], { type: "image/png" })),
@@ -398,11 +412,17 @@ describe("binary file opening", () => {
         expect(expected).not.toBeNull();
         expect(current).toEqual(expected);
         expect(
-          await t.run(async (ctx) => (await ctx.storage.get(replacementStorageId))?.text() ?? null),
+          await runInGitWorkspace(
+            t,
+            async (ctx) => (await ctx.storage.get(replacementStorageId))?.text() ?? null,
+          ),
         ).toBe(replacementContent);
       }
       expect(
-        await t.run(async (ctx) => (await ctx.storage.get(baseStorageId))?.text() ?? null),
+        await runInGitWorkspace(
+          t,
+          async (ctx) => (await ctx.storage.get(baseStorageId))?.text() ?? null,
+        ),
       ).toBe(baseContent);
     },
   );
@@ -473,7 +493,7 @@ describe("commitAllStaged", () => {
 
     expect(github.rest.git.updateRef).toHaveBeenCalledOnce();
     expect(
-      await t.query(internal.gitOperations.getBlobBySha, { sha: gitBlobSha("a\nb\n") }),
+      await t.query(components.gitWorkspace.blobs.getBySha, { sha: gitBlobSha("a\nb\n") }),
     ).toMatchObject({ text: "a\nb\n" });
     expect(await readStagedFiles(t, repositoryId)).toEqual([
       {
@@ -679,7 +699,7 @@ describe("deletePendingUploadBlob", () => {
         githubRepositoryName: "other",
       },
     );
-    const [pendingStorageId, otherStorageId] = await t.run(async (ctx) => {
+    const [pendingStorageId, otherStorageId] = await runInGitWorkspace(t, async (ctx) => {
       return await Promise.all([
         ctx.storage.store(new Blob(["pending"])),
         ctx.storage.store(new Blob(["other"])),
@@ -719,11 +739,21 @@ describe("deletePendingUploadBlob", () => {
     ).rejects.toThrow("Cannot delete a blob that is already attached to staging.");
 
     expect(
-      await t.run(async (ctx) => ({
+      await runInGitWorkspace(t, async (ctx) => ({
         pending: (await ctx.db.system.get(pendingStorageId)) !== null,
         other: (await ctx.db.system.get(otherStorageId)) !== null,
       })),
     ).toEqual({ pending: false, other: true });
+    const rootStorageId = await t.run(async (ctx) => await ctx.storage.store(new Blob(["root"])));
+    await expect(
+      asUser.mutation(api.fileStaging.deletePendingUploadBlob, {
+        repositoryId,
+        storageId: rootStorageId,
+      }),
+    ).rejects.toThrow();
+    expect(await t.run(async (ctx) => (await ctx.storage.get(rootStorageId))?.text() ?? null)).toBe(
+      "root",
+    );
   });
 });
 
@@ -758,7 +788,10 @@ describe("deletion snapshots", () => {
     });
     const storageId =
       blob.kind === "binary"
-        ? await t.run(async (ctx) => await ctx.storage.store(new Blob(["binary base"])))
+        ? await runInGitWorkspace(
+            t,
+            async (ctx) => await ctx.storage.store(new Blob(["binary base"])),
+          )
         : undefined;
     await t.mutation(internal.gitOperations.saveFileBlob, {
       repositoryId,
@@ -1048,7 +1081,8 @@ describe("released binary storage", () => {
       defaultBranch: "main",
       visibility: "private",
     });
-    const storageId = await t.run(
+    const storageId = await runInGitWorkspace(
+      t,
       async (ctx) => await ctx.storage.store(new Blob(["shared image"])),
     );
     await t.mutation(internal.gitOperations.saveFileBlob, {
@@ -1059,7 +1093,8 @@ describe("released binary storage", () => {
       mime: "image/png",
       ext: "png",
     });
-    const duplicateStorageId = await t.run(
+    const duplicateStorageId = await runInGitWorkspace(
+      t,
       async (ctx) => await ctx.storage.store(new Blob(["shared image"])),
     );
     const chosenBlob = await t.mutation(internal.gitOperations.saveFileBlob, {
@@ -1071,7 +1106,9 @@ describe("released binary storage", () => {
       ext: "png",
     });
     expect(chosenBlob?.storageId).toBe(storageId);
-    expect(await t.run(async (ctx) => await ctx.storage.get(duplicateStorageId))).toBeNull();
+    expect(
+      await runInGitWorkspace(t, async (ctx) => await ctx.storage.get(duplicateStorageId)),
+    ).toBeNull();
     for (const targetRepositoryId of [repositoryId, otherRepositoryId]) {
       await t.mutation(components.gitWorkspace.branches.upsert, {
         repositoryId: targetRepositoryId,
@@ -1097,13 +1134,17 @@ describe("released binary storage", () => {
       branch: "main",
       skipTreeUpdate: true,
     });
-    expect(await t.run(async (ctx) => (await ctx.storage.get(storageId)) !== null)).toBe(true);
+    expect(
+      await runInGitWorkspace(t, async (ctx) => (await ctx.storage.get(storageId)) !== null),
+    ).toBe(true);
     await asUser.mutation(api.fileStaging.clearAllStaging, {
       repositoryId: otherRepositoryId,
       branch: "main",
       skipTreeUpdate: true,
     });
-    expect(await t.run(async (ctx) => (await ctx.storage.get(storageId)) !== null)).toBe(true);
+    expect(
+      await runInGitWorkspace(t, async (ctx) => (await ctx.storage.get(storageId)) !== null),
+    ).toBe(true);
     await t.mutation(components.gitWorkspace.staging.saveBinaryUploadToStaging, {
       repositoryId,
       branch: "main",
@@ -1123,14 +1164,16 @@ describe("released binary storage", () => {
       branch: "main",
       skipTreeUpdate: true,
     });
-    expect(await t.run(async (ctx) => (await ctx.storage.get(storageId)) !== null)).toBe(false);
+    expect(
+      await runInGitWorkspace(t, async (ctx) => (await ctx.storage.get(storageId)) !== null),
+    ).toBe(false);
     await t.finishAllScheduledFunctions(vi.runAllTimers);
   });
 
   it("rejects a late cache write and releases its bytes after repository deletion starts", async () => {
     const t = makeConvexTest();
     const { repositoryId, organizationId, userId } = await seedConnectedRepository(t);
-    const storageId = await t.run(async (ctx) => {
+    await t.run(async (ctx) => {
       const runId = await ctx.db.insert("workflow_repositoryDeletion_runs", {
         state: "running",
         organizationId,
@@ -1161,8 +1204,11 @@ describe("released binary storage", () => {
       await ctx.db.patch(repositoryId, {
         deletion: { state: "deleting", runId, requestedAt: 1 },
       });
-      return await ctx.storage.store(new Blob(["late image"]));
     });
+    const storageId = await runInGitWorkspace(
+      t,
+      async (ctx) => await ctx.storage.store(new Blob(["late image"])),
+    );
     expect(
       await t.mutation(internal.gitOperations.saveFileBlob, {
         repositoryId,
@@ -1173,7 +1219,7 @@ describe("released binary storage", () => {
         ext: "png",
       }),
     ).toBeNull();
-    expect(await t.query(internal.gitOperations.getBlobBySha, { sha: "late-sha" })).toBeNull();
-    expect(await t.run(async (ctx) => await ctx.storage.get(storageId))).toBeNull();
+    expect(await t.query(components.gitWorkspace.blobs.getBySha, { sha: "late-sha" })).toBeNull();
+    expect(await runInGitWorkspace(t, async (ctx) => await ctx.storage.get(storageId))).toBeNull();
   });
 });
