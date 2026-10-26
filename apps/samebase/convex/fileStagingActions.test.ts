@@ -1,13 +1,14 @@
 import { describe, it, expect, vi } from "vite-plus/test";
 import {
   buildDraftBranchName,
-  buildDraftPullRequestTitle,
   stripCreationTimeFromStagingRecord,
   getDraftPullRequestCreateErrorMessage,
-  readLatestOpenPullRequestForBranch,
-  readOpenPullRequestForBranch,
   shouldAdvanceBinaryPullParentCommit,
 } from "@samebase/git-workspace/operations";
+import {
+  buildDraftPullRequestTitle,
+  readOpenPullRequestForBranch,
+} from "@samebase/git-workspace/pullRequests";
 import {
   buildCommitPreviewFromStagedFiles,
   buildComparedCommitPreviewFileFromStagedFile,
@@ -53,6 +54,7 @@ describe("draft pull request helpers", () => {
     ).toEqual({
       url: "https://github.com/test-owner/test-repo/pull/42",
       number: 42,
+      baseBranch: "main",
     });
   });
 
@@ -135,6 +137,28 @@ describe("draft pull request helpers", () => {
     ).toEqual({
       url: "https://github.com/test-owner/test-repo/pull/42",
       number: 42,
+      baseBranch: "main",
+    });
+  });
+
+  it("uses the higher PR number when activity timestamps match", () => {
+    const pullRequests = [43, 42].map((number) => ({
+      number,
+      html_url: `https://github.com/test-owner/test-repo/pull/${number}`,
+      updated_at: "2026-03-22T10:00:00Z",
+      base: { ref: "main" },
+      head: { ref: "feature-branch", repo: { full_name: "test-owner/test-repo" } },
+    }));
+    expect(
+      readOpenPullRequestForBranch({
+        branch: "feature-branch",
+        githubRepositoryFullName: "test-owner/test-repo",
+        pullRequests,
+      }),
+    ).toEqual({
+      url: "https://github.com/test-owner/test-repo/pull/43",
+      number: 43,
+      baseBranch: "main",
     });
   });
 
@@ -218,7 +242,7 @@ describe("draft pull request helpers", () => {
 
   it("keeps the latest open pull request for compare mode even when the base branch differs", () => {
     expect(
-      readLatestOpenPullRequestForBranch({
+      readOpenPullRequestForBranch({
         branch: "feature-branch",
         githubRepositoryFullName: "test-owner/test-repo",
         pullRequests: [

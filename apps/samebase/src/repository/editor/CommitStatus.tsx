@@ -207,9 +207,7 @@ function buildCommitStatusQueryData(args: {
   const emptyResultAttempt = isEmpty ? (previousWasEmpty ? previous.emptyResultAttempt + 1 : 0) : 0;
   let nextRefetchAtMs: number | null = null;
 
-  if (result.kind === "cooldown") {
-    nextRefetchAtMs = Math.max(result.cooldownUntilMs, fetchedAtMs + MIN_FETCH_GAP_MS);
-  } else if (result.kind === "rate_limited") {
+  if (result.kind === "rate_limited") {
     const retryCandidates: number[] = [];
     if (result.retryAfterMs !== null && result.retryAfterMs > 0) {
       retryCandidates.push(fetchedAtMs + result.retryAfterMs);
@@ -352,18 +350,16 @@ export function CommitStatus({ owner, repo, commitSha, className = "" }: CommitS
     : null;
   const checksPaused: ChecksPausedState | null = statusQuery.isError
     ? null
-    : result?.kind === "cooldown"
-      ? { message: result.message, untilMs: result.cooldownUntilMs }
-      : result?.kind === "rate_limited"
-        ? {
-            message: result.message,
-            untilMs:
-              result.resetAtMs ??
-              (result.retryAfterMs === null || statusQuery.data === undefined
-                ? null
-                : statusQuery.data.fetchedAtMs + result.retryAfterMs),
-          }
-        : null;
+    : result?.kind === "rate_limited"
+      ? {
+          message: result.message,
+          untilMs:
+            result.resetAtMs ??
+            (result.retryAfterMs === null || statusQuery.data === undefined
+              ? null
+              : statusQuery.data.fetchedAtMs + result.retryAfterMs),
+        }
+      : null;
 
   if (!commitSha) {
     return <InlineState label="Missing commit SHA" className={cn("text-red-600", className)} />;

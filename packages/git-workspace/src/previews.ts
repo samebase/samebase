@@ -1,5 +1,4 @@
 import { v, type Infer } from "convex/values";
-import type { Octokit } from "@octokit/rest";
 import { createTwoFilesPatch, diffLines } from "diff";
 import { guessMime, INLINE_TEXT_MAX, isTextBuffer } from "./fileContent.js";
 import {
@@ -826,30 +825,4 @@ export async function buildBranchComparePreviewFiles(args: {
   }
 
   return finalizeCommitPreviewFiles([...remoteFilesByPath.values(), ...overlayFiles]);
-}
-
-export async function getPullRequestCompareFiles(args: {
-  octokit: Octokit;
-  owner: string;
-  repo: string;
-  pullRequestNumber: number;
-}): Promise<GitHubCompareFileCandidate[]> {
-  const files: GitHubCompareFileCandidate[] = [];
-
-  for (let page = 1; page <= 50; page += 1) {
-    const response = await args.octokit.rest.pulls.listFiles({
-      owner: args.owner,
-      repo: args.repo,
-      pull_number: args.pullRequestNumber,
-      per_page: 100,
-      page,
-    });
-    files.push(...response.data);
-
-    if (response.data.length < 100) {
-      break;
-    }
-  }
-
-  return files;
 }

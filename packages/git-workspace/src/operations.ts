@@ -31,7 +31,6 @@ import {
   buildRebaseConflictPreviewFromStagedFiles,
   buildRebaseConflictBundleMarkdown,
   canHydrateInlineDiffText,
-  getPullRequestCompareFiles,
   buildRemoteComparePreviewFile,
   buildBranchComparePreviewFiles,
   finalizeCommitPreviewFiles,
@@ -44,6 +43,12 @@ import {
   type DefaultBranchDraftPullRequestResult,
   type RebaseConflictPreviewResult,
 } from "./previews.js";
+import {
+  compareBranches,
+  createDraftPullRequestForBranch,
+  getOpenPullRequestForBranch,
+  getPullRequestCompareFiles,
+} from "./pullRequests.js";
 import type { GitWorkspace } from "./operationsContext.js";
 function sanitizeSlug(input: string, maxLen = 58): string {
   const sanitized = input
@@ -110,81 +115,6 @@ async function getRepositoryDefaultBranch(args: {
   return readDefaultBranch(response.data);
 }
 
-type OpenPullRequestCandidate = {
-  number: number;
-  html_url?: string | null;
-  updated_at?: string | null;
-  created_at?: string | null;
-  base: {
-    ref?: string | null;
-  };
-  head: {
-    ref: string;
-    repo?: {
-      full_name?: string | null;
-    } | null;
-  };
-};
-
-function readPullRequestActivityAt(pullRequest: OpenPullRequestCandidate): number {
-  const updatedAt = Date.parse(pullRequest.updated_at ?? "");
-  if (!Number.isNaN(updatedAt)) {
-    return updatedAt;
-  }
-
-  const createdAt = Date.parse(pullRequest.created_at ?? "");
-  return Number.isNaN(createdAt) ? 0 : createdAt;
-}
-
-function readMatchingOpenPullRequestForBranch(args: {
-  branch: string;
-  githubRepositoryFullName: string;
-  pullRequests: OpenPullRequestCandidate[];
-  baseBranch?: string;
-}): { url: string; number: number; baseBranch: string } | null {
-  const normalizedRepositoryFullName = args.githubRepositoryFullName.toLowerCase();
-  let latestMatch: {
-    url: string;
-    number: number;
-    baseBranch: string;
-    activityAt: number;
-  } | null = null;
-
-  for (const pullRequest of args.pullRequests) {
-    const pullRequestRepositoryFullName = pullRequest.head.repo?.full_name;
-    if (
-      pullRequest.head.ref !== args.branch ||
-      (typeof args.baseBranch === "string" && pullRequest.base.ref !== args.baseBranch) ||
-      typeof pullRequestRepositoryFullName !== "string" ||
-      pullRequestRepositoryFullName.toLowerCase() !== normalizedRepositoryFullName ||
-      typeof pullRequest.base.ref !== "string" ||
-      pullRequest.base.ref.length === 0 ||
-      typeof pullRequest.html_url !== "string" ||
-      pullRequest.html_url.length === 0
-    ) {
-      continue;
-    }
-
-    const activityAt = readPullRequestActivityAt(pullRequest);
-    if (!latestMatch || activityAt >= latestMatch.activityAt) {
-      latestMatch = {
-        url: pullRequest.html_url,
-        number: pullRequest.number,
-        baseBranch: pullRequest.base.ref,
-        activityAt,
-      };
-    }
-  }
-
-  return latestMatch
-    ? {
-        url: latestMatch.url,
-        number: latestMatch.number,
-        baseBranch: latestMatch.baseBranch,
-      }
-    : null;
-}
-
 function readEditableFileState(stagedFile: EditableFileState): EditableFileState {
   return {
     content: stagedFile.content,
@@ -193,87 +123,6 @@ function readEditableFileState(stagedFile: EditableFileState): EditableFileState
     branch: stagedFile.branch,
     version: stagedFile.version,
   };
-}
-
-export function readOpenPullRequestForBranch(args: {
-  branch: string;
-  baseBranch: string;
-  githubRepositoryFullName: string;
-  pullRequests: OpenPullRequestCandidate[];
-}): { url: string; number: number } | null {
-  const latestMatch = readMatchingOpenPullRequestForBranch(args);
-  if (!latestMatch) {
-    return null;
-  }
-
-  return {
-    url: latestMatch.url,
-    number: latestMatch.number,
-  };
-}
-
-export function readLatestOpenPullRequestForBranch(args: {
-  branch: string;
-  githubRepositoryFullName: string;
-  pullRequests: OpenPullRequestCandidate[];
-}): { url: string; number: number; baseBranch: string } | null {
-  return readMatchingOpenPullRequestForBranch(args);
-}
-
-async function getOpenPullRequestForBranch(args: {
-  octokit: Octokit;
-  owner: string;
-  repo: string;
-  branch: string;
-  baseBranch: string;
-}): Promise<{ url: string; number: number } | null> {
-  const response = await args.octokit.rest.pulls.list({
-    owner: args.owner,
-    repo: args.repo,
-    state: "open",
-    head: `${args.owner}:${args.branch}`,
-    per_page: 100,
-  });
-
-  return readOpenPullRequestForBranch({
-    branch: args.branch,
-    baseBranch: args.baseBranch,
-    githubRepositoryFullName: `${args.owner}/${args.repo}`,
-    pullRequests: response.data,
-  });
-}
-
-async function getLatestOpenPullRequestForBranch(args: {
-  octokit: Octokit;
-  owner: string;
-  repo: string;
-  branch: string;
-}): Promise<{ url: string; number: number; baseBranch: string } | null> {
-  const response = await args.octokit.rest.pulls.list({
-    owner: args.owner,
-    repo: args.repo,
-    state: "open",
-    head: `${args.owner}:${args.branch}`,
-    per_page: 100,
-  });
-
-  return readLatestOpenPullRequestForBranch({
-    branch: args.branch,
-    githubRepositoryFullName: `${args.owner}/${args.repo}`,
-    pullRequests: response.data,
-  });
-}
-
-export function buildDraftPullRequestTitle(args: {
-  branch: string;
-  commitMessage: string | null;
-}): string {
-  const commitSubject = args.commitMessage?.split("\n")[0]?.trim();
-  if (typeof commitSubject === "string" && commitSubject.length > 0) {
-    return commitSubject;
-  }
-
-  return `Update ${args.branch}`;
 }
 
 /**
@@ -309,25 +158,6 @@ export function stripCreationTimeFromStagingRecord<
 >(file: T): Omit<T, "_creationTime"> {
   const { _creationTime: _ignored, ...snapshot } = file;
   return snapshot;
-}
-
-async function getBranchHeadCommitMessage(args: {
-  octokit: Octokit;
-  owner: string;
-  repo: string;
-  branch: string;
-}): Promise<string | null> {
-  const branchRef = await args.octokit.rest.git.getRef({
-    owner: args.owner,
-    repo: args.repo,
-    ref: `heads/${args.branch}`,
-  });
-  const commit = await args.octokit.rest.git.getCommit({
-    owner: args.owner,
-    repo: args.repo,
-    commit_sha: branchRef.data.object.sha,
-  });
-  return commit.data.message;
 }
 
 /**
@@ -787,41 +617,35 @@ export async function createDraftPullRequest<RepositoryId extends string, UserId
   });
   if (existingPullRequest) {
     return {
-      ...existingPullRequest,
+      url: existingPullRequest.url,
+      number: existingPullRequest.number,
       existing: true,
     };
   }
 
-  const comparison = await octokit.rest.repos.compareCommitsWithBasehead({
+  const comparison = await compareBranches({
+    octokit,
     owner: repository.githubOwnerLogin,
     repo: repository.githubRepositoryName,
-    basehead: `${defaultBranch}...${branch}`,
+    baseBranch: defaultBranch,
+    branch,
   });
-  if (comparison.data.ahead_by === 0) {
+  if (comparison.ahead_by === 0) {
     throw new Error("This branch has no changes to open as a pull request.");
   }
 
   try {
-    const response = await octokit.rest.pulls.create({
+    const response = await createDraftPullRequestForBranch({
+      octokit,
       owner: repository.githubOwnerLogin,
       repo: repository.githubRepositoryName,
-      title: buildDraftPullRequestTitle({
-        branch,
-        commitMessage: await getBranchHeadCommitMessage({
-          octokit,
-          owner: repository.githubOwnerLogin,
-          repo: repository.githubRepositoryName,
-          branch,
-        }),
-      }),
-      head: branch,
-      base: defaultBranch,
-      draft: true,
+      branch,
+      baseBranch: defaultBranch,
     });
 
     return {
-      url: response.data.html_url,
-      number: response.data.number,
+      url: response.html_url,
+      number: response.number,
       existing: false,
     };
   } catch (error) {
@@ -834,7 +658,8 @@ export async function createDraftPullRequest<RepositoryId extends string, UserId
     });
     if (currentPullRequest) {
       return {
-        ...currentPullRequest,
+        url: currentPullRequest.url,
+        number: currentPullRequest.number,
         existing: true,
       };
     }
@@ -938,24 +763,15 @@ export async function createDraftPullRequestFromDefaultBranch<
     let url: string;
     let number: number;
     try {
-      const response = await octokit.rest.pulls.create({
+      const response = await createDraftPullRequestForBranch({
+        octokit,
         owner: repository.githubOwnerLogin,
         repo: repository.githubRepositoryName,
-        title: buildDraftPullRequestTitle({
-          branch: targetBranch,
-          commitMessage: await getBranchHeadCommitMessage({
-            octokit,
-            owner: repository.githubOwnerLogin,
-            repo: repository.githubRepositoryName,
-            branch: targetBranch,
-          }),
-        }),
-        head: targetBranch,
-        base: defaultBranch,
-        draft: true,
+        branch: targetBranch,
+        baseBranch: defaultBranch,
       });
-      url = response.data.html_url;
-      number = response.data.number;
+      url = response.html_url;
+      number = response.number;
     } catch (error) {
       const currentPullRequest = await getOpenPullRequestForBranch({
         octokit,
@@ -1430,20 +1246,22 @@ export async function getBranchComparePreview<RepositoryId extends string, UserI
     repo: repository.githubRepositoryName,
   });
   const branch = args.branch?.trim() || stagedBranches.at(0) || defaultBranch;
-  const currentPullRequest = await getLatestOpenPullRequestForBranch({
+  const currentPullRequest = await getOpenPullRequestForBranch({
     octokit,
     owner: repository.githubOwnerLogin,
     repo: repository.githubRepositoryName,
     branch,
   });
   const baseBranch = currentPullRequest?.baseBranch ?? defaultBranch;
-  const compareResponse = await octokit.rest.repos.compareCommitsWithBasehead({
+  const compareResponse = await compareBranches({
+    octokit,
     owner: repository.githubOwnerLogin,
     repo: repository.githubRepositoryName,
-    basehead: `${baseBranch}...${branch}`,
+    baseBranch,
+    branch,
   });
-  const mergeBaseCommitSha = compareResponse.data.merge_base_commit.sha;
-  const baseCommitSha = compareResponse.data.base_commit.sha;
+  const mergeBaseCommitSha = compareResponse.merge_base_commit.sha;
+  const baseCommitSha = compareResponse.base_commit.sha;
   const mergeBaseSha =
     mergeBaseCommitSha.length > 0
       ? mergeBaseCommitSha
@@ -1499,7 +1317,7 @@ export async function getBranchComparePreview<RepositoryId extends string, UserI
         repo: repository.githubRepositoryName,
         pullRequestNumber: currentPullRequest.number,
       })
-    : (compareResponse.data.files ?? []);
+    : (compareResponse.files ?? []);
   const remoteFiles = (
     await Promise.all(
       remoteFileCandidates.map((file) =>
@@ -1557,20 +1375,22 @@ export async function restoreComparedDeletedFileToStaging<
     repo: repository.githubRepositoryName,
   });
   const branch = args.branch?.trim() || defaultBranch;
-  const currentPullRequest = await getLatestOpenPullRequestForBranch({
+  const currentPullRequest = await getOpenPullRequestForBranch({
     octokit,
     owner: repository.githubOwnerLogin,
     repo: repository.githubRepositoryName,
     branch,
   });
   const baseBranch = currentPullRequest?.baseBranch ?? defaultBranch;
-  const compareResponse = await octokit.rest.repos.compareCommitsWithBasehead({
+  const compareResponse = await compareBranches({
+    octokit,
     owner: repository.githubOwnerLogin,
     repo: repository.githubRepositoryName,
-    basehead: `${baseBranch}...${branch}`,
+    baseBranch,
+    branch,
   });
-  const mergeBaseCommitSha = compareResponse.data.merge_base_commit.sha;
-  const baseCommitSha = compareResponse.data.base_commit.sha;
+  const mergeBaseCommitSha = compareResponse.merge_base_commit.sha;
+  const baseCommitSha = compareResponse.base_commit.sha;
   const mergeBaseSha =
     mergeBaseCommitSha.length > 0
       ? mergeBaseCommitSha

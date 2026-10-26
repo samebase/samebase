@@ -17,6 +17,8 @@
     "./stagingErrors": "./src/stagingErrors.ts",
     "./github": "./src/github.ts",
     "./reads": "./src/reads.ts",
+    "./pullRequests": "./src/pullRequests.ts",
+    "./checks": "./src/checks.ts",
     "./operations": "./src/operations.ts",
     "./operationsContext": "./src/operationsContext.ts",
     "./previews": "./src/previews.ts",

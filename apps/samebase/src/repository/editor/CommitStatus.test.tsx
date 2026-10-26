@@ -149,20 +149,21 @@ describe("CommitStatus", () => {
     );
   });
 
-  it("uses the server cooldown time", async () => {
-    const cooldownUntilMs = Date.now() + 45_000;
+  it("uses the shared GitHub rate-limit reset time", async () => {
+    const resetAtMs = Date.now() + 45_000;
     testState.getCommitStatus
       .mockResolvedValueOnce({
-        cooldownUntilMs,
-        kind: "cooldown",
-        message: "GitHub sync is cooling down.",
+        resetAtMs,
+        retryAfterMs: null,
+        kind: "rate_limited",
+        message: "GitHub API rate limited.",
       })
       .mockResolvedValueOnce(finalResult);
 
     await renderStatus();
     expect(rootElement.textContent).toBe("Checks paused");
     expect(rootElement.querySelector("span")?.getAttribute("aria-label")).toContain(
-      "GitHub sync is cooling down.",
+      "GitHub API rate limited.",
     );
 
     await act(async () => vi.advanceTimersByTimeAsync(44_999));
