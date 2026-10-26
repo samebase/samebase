@@ -6,17 +6,18 @@ the TypeScript source directly. There is no separate release or build step.
 
 ## Ownership
 
-| Package                                                               | Host app                                                  |
-| --------------------------------------------------------------------- | --------------------------------------------------------- |
-| Staged files, edit versions, and update history                       | Login, repository access, and write permissions           |
-| Branch heads and file trees, file content caches, and refresh control | Repository identity, provisioning, and deletion authority |
-| File loading, commit/rebase, draft branch and PR operations           | GitHub credentials and authorized entry points            |
-| CodeMirror collaboration and Monaco edit binding                      | Editor appearance, language services, and routes          |
-| References to binary data and conditional acknowledgement             | Binary bytes, upload URLs, and guarded storage deletion   |
+| Package                                                                       | Host app                                                    |
+| ----------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| Staged files, edit versions, and update history                               | Login, repository access, and write permissions             |
+| Branch heads and file trees, file content caches, and refresh control         | Repository identity, provisioning, and deletion authority   |
+| File loading, commit/rebase, draft branch and PR operations                   | GitHub credentials and authorized entry points              |
+| Repository PR lookup, comparison, and raw GitHub check reads                  | Dashboard aggregation across GitHub, Cloudflare, and Convex |
+| CodeMirror collaboration and Monaco edit binding                              | Editor appearance, language services, and routes            |
+| Binary bytes, upload URLs, reference cleanup, and conditional acknowledgement | Shared GitHub request backoff                               |
 
-The component has no access to app tables. Repository IDs, actor IDs, and host storage keys are
-opaque strings inside it. Staged file IDs belong to the component and remain strings in the app. An
-operation addressed by staged file ID also checks its repository and branch.
+The component has no access to app tables. Repository IDs and actor IDs are opaque strings inside
+it. Staged file and storage IDs belong to the component and remain strings in the app. An operation
+addressed by staged file ID also checks its repository and branch.
 
 ## Stored state
 
@@ -25,13 +26,15 @@ operation addressed by staged file ID also checks its repository and branch.
 | `stagedFiles`         | Repository, branch, and file path          | Current and original file contents, rename/delete state, base revision, binary references, and collaboration version |
 | `fileUpdates`         | Repository, branch, file path, and version | Text changes used to synchronize editors                                                                             |
 | `branchTrees`         | Repository and branch                      | Last observed GitHub commit and its exact file tree                                                                  |
-| `fileBlobs`           | Git blob SHA                               | Cached text or a reference to binary bytes in host storage                                                           |
-| `repositorySyncState` | Repository                                 | Refresh claim, last failure, and shared GitHub request cooldown                                                      |
+| `fileBlobs`           | Git blob SHA                               | Cached text or a reference to binary bytes in component storage                                                      |
+| `repositorySyncState` | Repository                                 | Refresh claim, last failure, and repository refresh retry delay                                                      |
 
 GitHub remains the source for branch existence, commits, and pull requests. Cached branch state must
 not replace a staged file's original content or base revision. A deleted remote branch must not
-erase unpublished edits. Refresh claims remain repository-wide, and commit-status checks use the
-same cooldown as tree refresh.
+erase unpublished edits. Refresh claims and retry delays remain repository-wide. A failed tree
+refresh does not pause commit-status checks. The host's GitHub client shares observed provider
+backoff across repositories that use the same GitHub installation or user, with separate resource
+buckets and a principal-wide delay for secondary limits.
 
 ## Backend
 
@@ -43,8 +46,8 @@ import gitWorkspace from "@samebase/git-workspace/convex.config";
 app.use(gitWorkspace);
 ```
 
-The app calls `components.gitWorkspace.staging`, `collaborative`, `branches`, and `blobs` from its
-own Convex functions. Public wrappers must authorize access before each component call. The
+The app calls `components.gitWorkspace.staging`, `collaborative`, `branches`, `blobs`, and `storage`
+from its own Convex functions. Public wrappers must authorize access before each component call. The
 component does not expose an authenticated browser API by itself.
 
 `@samebase/git-workspace/model` exports the boundary validators and inferred types.
@@ -53,25 +56,45 @@ component does not expose an authenticated browser API by itself.
 authenticated Octokit client from the host. Component functions use their own generated server and
 database types.
 
+`@samebase/git-workspace/pullRequests` owns branch comparison, open PR lookup, draft creation, and
+PR file reads. `@samebase/git-workspace/checks` reads GitHub checks and commit statuses. The host
+keeps its public result validators and combines provider results for the dashboard. Check and status
+reads retain the editor's current first-page limit.
+
 `@samebase/git-workspace/operations` owns file opening, upload staging, rename, pull, rebase,
 commit, and draft pull request creation. `reads` owns cached file and media reads.
 `repositoryRefresh` owns branch-tree refresh sequencing. These are server entry points. Their typed
 contexts receive the component reference, the authorized repository, an Octokit client or lazy
-credential loader, and the host mutation references needed to check repository state and manage root
-storage. Import the editor hooks and pure model helpers directly in the frontend.
+credential loader, and the host mutation references needed to check repository state before
+publishing component changes. Import the editor hooks and pure model helpers directly in the
+frontend.
 
 File initialization returns an existing staged row without overwriting it. Commit acknowledgement
 checks the saved snapshot so edits made during a GitHub request remain staged.
 
-When a component mutation removes or replaces a binary reference, it returns released host storage
-keys. The host must check both staging and blob-cache references in the component before it deletes
-bytes. These checks and deletion run inside the same host mutation as the component call. Repository
-cleanup follows the same rule.
+The component stores binary bytes in its own Convex File Storage. Browser uploads and bytes fetched
+from GitHub use component-generated upload URLs. When a mutation removes or replaces a binary
+reference, the component checks both staging and blob-cache references before it deletes bytes.
+Reference updates and deletion share the same transaction. Host mutations still check repository
+access and lifecycle in that transaction. Repository cleanup follows the same rule.
 
-The current host's pending-upload cleanup is staff-only. It checks that no staged file or cached
-blob uses the storage ID, but it does not check who uploaded it. A caller who knows another pending
-upload ID can delete that upload before it is attached. Add upload ownership before granting this
-operation to a wider set of users. This extraction does not add an upload registry or sweeper.
+The current host's upload operations are staff-only. Cleanup checks that no staged file or cached
+blob uses the storage ID, but upload attachment and cleanup do not check who uploaded it. A caller
+who knows another upload ID can attach those bytes, or delete them while they are unreferenced. Add
+upload ownership before granting these operations to a wider set of users. This extraction does not
+add an upload registry or sweeper.
+
+## GitHub request backoff
+
+The app stores observed provider delays in `githubRateLimitCooldowns`. Each record identifies a
+GitHub installation or user, a resource bucket, and the time when requests can resume. It does not
+store a token or count requests. A secondary limit uses a principal-wide record. The shared
+authenticated client checks these records before a request and records new provider limits.
+
+Editor, dashboard, provisioning, and deletion access resolvers use this client. Initial OAuth and
+bootstrap calls that run before the provider identity is known keep their existing raw clients. This
+is a shared app utility, not another package or Convex component. The Git workspace component stores
+only repository refresh claims, failures, and retry delays.
 
 ## Editors
 
@@ -140,9 +163,10 @@ After the editor check, perform one-time cleanup:
   `observations_repository_branchTrees`, and `observations_repositoryFiles_blobs`. Cancel any
   remaining scheduled `fileStaging:deleteCollaborativeUpdatesBatch` and
   `fileStaging:deleteCollaborativeUpdatesForFilePathBatch` calls.
-- Delete recorded binary bytes only if neither component staging nor its blob cache references them.
-  The host's `deletePendingUploadBlob` already checks both. Keep referenced bytes and do not clear
-  unrelated root storage.
+- Delete the recorded old binary bytes through a one-time root-storage cleanup after checking that
+  no current app records reference them. New component storage is a separate namespace. The new
+  `deletePendingUploadBlob` operates only on component storage and cannot clean up old root bytes.
+  Do not clear unrelated root storage.
 
 Cleanup does not move data and does not require a compatibility layer. This procedure is documented;
 the production switch and cleanup have not been performed.

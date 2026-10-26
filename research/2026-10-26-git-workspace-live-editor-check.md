@@ -99,6 +99,65 @@ Cleanup evidence is in `expanded-cleanup-before.json`, `expanded-cleanup-submitt
 `expanded-cleanup-github.log`. The test browser and local development processes were stopped after
 cleanup.
 
+## Storage and GitHub boundary checks
+
+The next change moved binary bytes into the component, added shared GitHub request backoff in the
+app, and moved PR and check requests into package server functions. Fable reviewed the ownership
+split. After a follow-up challenge, it agreed that provider backoff must use the GitHub principal
+rather than the repository. GitHub documents separate
+[installation and user limits](https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api#primary-rate-limit-for-github-app-installations)
+and a separate
+[GraphQL limit](https://docs.github.com/en/graphql/overview/rate-limits-and-query-limits-for-the-graphql-api#primary-rate-limit).
+Repository refresh claims and failures remain in the component. The app keeps provider credentials
+and dashboard composition. No extra package, component, request scheduler, or upload registry was
+added.
+
+Three new isolated agent worktrees implemented storage, provider backoff, and PR/CI reads. The main
+worktree integrated their commits. Opus 5.5 reviewed the source. Its actionable finding was a clock
+check inside a cached Convex query. The query now returns the stored deadline, and the action checks
+whether it has expired. A separate local replay proved recovery after expiry without a database
+write. The constructors return new clients, so no hook-deduplication marker was needed. Inspection
+of the full binary initializer rejected a speculative missing-cleanup finding: its other success
+path stores the reference, and its collision path throws as before.
+
+The combined app used `samebase-live-tests/tmp-git-workspace-package-boundary-check` for another
+real-browser run. These checks are additional acceptance evidence:
+
+| Check                               | Result                                                                                                                                                                                           |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Shared text editing                 | Monaco and CodeMirror each added a marker. Both saw both edits. Push and reload retained them, and GitHub held CRLF line endings.                                                                |
+| Component upload and push           | The browser uploaded a 32-pixel image and pushed it. Both open tabs displayed it. The component had the 158-byte storage record; root storage remained empty.                                    |
+| Replacement and reset               | Both open tabs changed to the 512-pixel replacement, then returned to the 32-pixel original on reset, without reload.                                                                            |
+| Draft rollback                      | An upstream text conflict blocked a draft containing text and an image. GitHub had only `main` afterward. Component staging retained both source files, and the image still loaded at width 512. |
+| Conflict resolution and draft retry | The editor showed conflict markers. After manual resolution, it created a draft PR. GitHub held the 1,947-byte replacement image on the draft and the 158-byte original on `main`.               |
+| Provider cooldown in the editor     | A short local cooldown showed `Checks paused`. Checks resumed automatically after expiry. This used a local state fixture, not real GitHub quota exhaustion.                                     |
+
+Two local backend probes checked the new boundaries directly:
+
+- Actual upload URLs and HTTP downloads preserved bytes in component storage. Duplicate uploads
+  selected the existing cache row and deleted the unused bytes. A second repository's staging kept
+  shared bytes alive until its final reference was removed. Component reads and deletion rejected
+  root-storage IDs and left the root bytes intact. All probe data was removed.
+- Separate actions with fresh GitHub clients shared one persisted cooldown. A second repository
+  under the same installation made no HTTP request. GraphQL and other installation/user principals
+  still proceeded. A third action proceeded after expiry with the same unchanged deadline row. The
+  transport was an injected fixture; it made no external provider calls. The probe record and
+  temporary source were removed.
+
+App and package type checks, affected lint and formatting, and focused existing tests passed. These
+checks supplement the browser run. CI/status reads still use their existing first page. Raw GitHub
+clients outside the shared access resolvers keep their current behavior. Upload attachment and
+cleanup still require an ownership model before wider user access, as documented in the package
+README.
+
+Evidence is in the ignored `scratchpad/git-workspace` directory:
+`component-storage-live-result.json`, `github-backoff-live.json`, `boundary-two-editors.log`,
+`boundary-pushed-text.json`, `boundary-binary-push.log`, `boundary-binary-replace-reset.log`,
+`boundary-rollback-staging.json`, `boundary-rollback-branches.json`,
+`boundary-rollback-retained.log`, `boundary-rebase.log`, `boundary-draft-success.log`,
+`boundary-created-pr.json`, `boundary-draft-binary.json`, `boundary-main-binary.json`,
+`boundary-checks-paused.log`, and `boundary-checks-recovered.log`.
+
 ## Bugs found in the first run
 
 1. **CRLF positions:** a line-end insertion could split a CRLF pair. The saved row contained
