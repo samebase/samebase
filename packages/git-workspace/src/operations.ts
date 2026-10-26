@@ -508,15 +508,14 @@ async function stageRepositoryBinaryBlobForEditing<
 
   const { ctx, host, repository, userId } = workspace;
   const storageId = await ctx.runQuery(host.normalizeStorageId, { storageId: args.storageId });
-  const stagedFile = await ctx.runMutation(host.saveBinaryUploadToStaging, {
+  const stagedFile = await ctx.runMutation(host.initializeBinaryFile, {
     repositoryId: repository.repositoryId,
     filePath: args.originalFilePath,
     branch: args.targetBranch,
     storageId,
     mime: args.mime ?? guessMime(args.filePath),
     size: args.size,
-    stagedBlobSha: args.fileSha,
-    replaceExisting: true,
+    blobSha: args.fileSha,
     userId,
   });
 

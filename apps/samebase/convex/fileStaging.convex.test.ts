@@ -16,6 +16,7 @@ vi.mock("./githubAppAccess", async (importOriginal) => {
 import { api, components, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { makeConvexTest } from "./test.setup";
+import type { StagedFile } from "@samebase/git-workspace/model";
 
 type ConvexTest = ReturnType<typeof makeConvexTest>;
 
@@ -80,6 +81,18 @@ function createFakeGitHub(files: Map<string, Map<string, string>>) {
       },
       repos: {
         get: vi.fn(async () => ({ data: {} })),
+        getContent: vi.fn(async (args: { ref: string; path: string }) => {
+          const content = readBranchFiles(args.ref).get(args.path);
+          if (content === undefined) throw notFoundError();
+          return {
+            data: {
+              type: "file",
+              path: args.path,
+              sha: gitBlobSha(content),
+              size: Buffer.byteLength(content),
+            },
+          };
+        }),
         getBranch: vi.fn(async (args: { branch: string }) => {
           readBranchFiles(args.branch);
           return {
@@ -278,6 +291,121 @@ describe("saveToStaging", () => {
       updateVersions: updates.map((update) => update.version),
     }).toEqual({ content: editedContent, version: 1, updateVersions: [1] });
   });
+});
+
+describe("binary file opening", () => {
+  it.each(["replacement", "deletion", "rename", "stale tree"] as const)(
+    "keeps the current file state after a delayed open with %s",
+    async (change) => {
+      const t = makeConvexTest();
+      const { organizationId, repositoryId, userId } = await seedConnectedRepository(t);
+      const baseContent = "\0".repeat(12);
+      const baseSha = gitBlobSha(baseContent);
+      const replacementContent = "replacement image";
+      const [baseStorageId, replacementStorageId] = await t.run(async (ctx) =>
+        Promise.all([
+          ctx.storage.store(new Blob([baseContent], { type: "image/png" })),
+          ctx.storage.store(new Blob([replacementContent], { type: "image/png" })),
+        ]),
+      );
+      await t.mutation(components.gitWorkspace.branches.upsert, {
+        repositoryId,
+        branch: "main",
+        commitSHA: "cached-head",
+        treeData: {
+          sha: "cached-tree",
+          truncated: false,
+          tree: [{ path: "image.png", type: "blob", mode: "100644", sha: "stale-blob" }],
+        },
+      });
+      await t.mutation(internal.gitOperations.saveFileBlob, {
+        repositoryId,
+        sha: baseSha,
+        storageId: baseStorageId,
+        size: baseContent.length,
+        mime: "image/png",
+        ext: "png",
+      });
+      const github = createFakeGitHub(new Map([["main", new Map([["image.png", baseContent]])]]));
+      githubMocks.resolveGitHubAppAccess.mockResolvedValue({
+        organizationId,
+        githubOwnerLogin: "staging",
+        octokit: github,
+      });
+      let expected: StagedFile | null = null;
+      github.rest.repos.getContent.mockImplementationOnce(async () => {
+        if (change !== "stale tree") {
+          await t.mutation(internal.fileStaging.saveBinaryUploadToStaging, {
+            repositoryId,
+            branch: "main",
+            filePath: "image.png",
+            storageId: replacementStorageId,
+            mime: "image/png",
+            size: replacementContent.length,
+            stagedBlobSha: gitBlobSha(replacementContent),
+            replaceExisting: true,
+            userId,
+          });
+          if (change === "deletion") {
+            await t.mutation(components.gitWorkspace.staging.markFileForDeletion, {
+              repositoryId,
+              branch: "main",
+              filePath: "image.png",
+              parentCommitSha: "stale-blob",
+              userId,
+            });
+          } else if (change === "rename") {
+            await t.mutation(internal.fileStaging.rename, {
+              repositoryId,
+              branch: "main",
+              initialFilePath: "image.png",
+              newPath: "renamed.png",
+              userId,
+            });
+          }
+          expected = await t.query(components.gitWorkspace.staging.getByOriginalPath, {
+            repositoryId,
+            branch: "main",
+            originalFilePath: "image.png",
+          });
+        }
+        return {
+          data: { type: "file", path: "image.png", sha: baseSha, size: baseContent.length },
+        };
+      });
+
+      await t.action(internal.fileStagingActions.getFileForEditingInternal, {
+        githubRepositoryFullName: "staging/notes",
+        originalFilePath: "image.png",
+        branch: "main",
+        userId,
+      });
+
+      const current = await t.query(components.gitWorkspace.staging.getByOriginalPath, {
+        repositoryId,
+        branch: "main",
+        originalFilePath: "image.png",
+      });
+      if (change === "stale tree") {
+        expect(current).toMatchObject({ parentCommitSha: baseSha, stagedBlobSha: baseSha });
+        expect(
+          await t.query(components.gitWorkspace.staging.listAllStagedFiles, {
+            repositoryId,
+            branch: "main",
+          }),
+        ).toEqual([]);
+      } else {
+        expect(expected).not.toBeNull();
+        expect(current).toEqual(expected);
+        expect(
+          await t.run(async (ctx) => (await ctx.storage.get(replacementStorageId))?.text() ?? null),
+        ).toBe(replacementContent);
+      }
+      expect(
+        await t.run(async (ctx) => (await ctx.storage.get(baseStorageId))?.text() ?? null),
+      ).toBe(baseContent);
+    },
+  );
 });
 
 describe("commitAllStaged", () => {

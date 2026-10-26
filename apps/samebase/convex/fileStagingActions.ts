@@ -50,6 +50,7 @@ async function getWorkspace(
       defaultBranch: connected.defaultBranch,
     },
     host: {
+      initializeBinaryFile: internal.fileStaging.initializeBinaryFile,
       saveToStaging: internal.fileStaging.saveToStaging,
       saveBinaryUploadToStaging: internal.fileStaging.saveBinaryUploadToStaging,
       duplicateBranchStaging: internal.fileStaging.duplicateBranchStaging,

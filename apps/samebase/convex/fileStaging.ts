@@ -390,6 +390,37 @@ export const saveToStaging = internalMutation({
     });
   },
 });
+export const initializeBinaryFile = internalMutation({
+  args: {
+    ...scope,
+    filePath: string(),
+    storageId: id("_storage"),
+    mime: string(),
+    size: number(),
+    blobSha: string(),
+    userId: id("users"),
+  },
+  returns: stagedFile,
+  handler: async (ctx, args) => {
+    await assertConnectedRepositoryForStagingWrite(ctx, {
+      repositoryId: args.repositoryId,
+      userId: args.userId,
+    });
+    const file = await ctx.runMutation(components.gitWorkspace.staging.initializeBinaryFile, {
+      repositoryId: args.repositoryId,
+      branch: args.branch,
+      filePath: args.filePath,
+      storageId: args.storageId,
+      mime: args.mime,
+      size: args.size,
+      blobSha: args.blobSha,
+      userId: args.userId,
+    });
+    // A losing initializer can release only bytes that neither staging nor the cache kept.
+    await deleteReleasedStagingStorage(ctx, [args.storageId]);
+    return file;
+  },
+});
 export const saveBinaryUploadToStaging = internalMutation({
   args: {
     ...scope,

@@ -407,6 +407,63 @@ export const rename = mutation({
   },
 });
 
+export const initializeBinaryFile = mutation({
+  args: {
+    ...scope,
+    filePath: string(),
+    storageId: string(),
+    mime: string(),
+    size: number(),
+    blobSha: string(),
+    userId: string(),
+  },
+  returns: stagedFile,
+  handler: async (ctx, args) => {
+    const existing = await ctx.db
+      .query("stagedFiles")
+      .withIndex("by_repository_and_branch_and_initial_path", (q) =>
+        q
+          .eq("repositoryId", args.repositoryId)
+          .eq("branch", args.branch)
+          .eq("initialFilePath", args.filePath),
+      )
+      .unique();
+    // A remote read can finish after an upload, deletion, or rename changed this file.
+    if (existing) return existing;
+    const existingPath = await ctx.db
+      .query("stagedFiles")
+      .withIndex("by_repository_and_branch_and_path", (q) =>
+        q
+          .eq("repositoryId", args.repositoryId)
+          .eq("branch", args.branch)
+          .eq("filePath", args.filePath),
+      )
+      .unique();
+    if (existingPath) throw new Error("A staged file already uses this path");
+    const stagingId = await ctx.db.insert("stagedFiles", {
+      repositoryId: args.repositoryId,
+      branch: args.branch,
+      filePath: args.filePath,
+      initialFilePath: args.filePath,
+      fileDeleted: false,
+      kind: "binary",
+      content: "",
+      initialContent: "",
+      storageId: args.storageId,
+      mime: args.mime,
+      size: args.size,
+      stagedBlobSha: args.blobSha,
+      parentCommitSha: args.blobSha,
+      lastEditTime: Date.now(),
+      lastEditUserId: args.userId,
+      version: 0,
+    });
+    const file = await ctx.db.get(stagingId);
+    if (!file) throw new Error("Staged binary file disappeared after insert");
+    return file;
+  },
+});
+
 export const saveBinaryUploadToStaging = mutation({
   args: {
     ...scope,

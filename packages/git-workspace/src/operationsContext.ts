@@ -38,6 +38,15 @@ export type GitWorkspace<RepositoryId extends string, UserId extends string> = {
   };
   refreshBranch: (branch: string) => Promise<boolean>;
   host: {
+    initializeBinaryFile: FunctionReference<
+      "mutation",
+      "internal",
+      Omit<
+        AuthorizedArgs<FunctionArgs<Staging["initializeBinaryFile"]>, RepositoryId, UserId>,
+        "storageId"
+      > & { storageId: GenericId<"_storage"> },
+      StagedFile
+    >;
     saveToStaging: FunctionReference<
       "mutation",
       "internal",

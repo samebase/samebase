@@ -416,6 +416,41 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         boolean,
         Name
       >;
+      initializeBinaryFile: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          blobSha: string;
+          branch: string;
+          filePath: string;
+          mime: string;
+          repositoryId: string;
+          size: number;
+          storageId: string;
+          userId: string;
+        },
+        {
+          _creationTime: number;
+          _id: string;
+          branch: string;
+          content: string;
+          fileDeleted: boolean;
+          filePath: string;
+          initialContent: string;
+          initialFilePath: string;
+          kind?: "text" | "binary";
+          lastEditTime: number;
+          lastEditUserId: string;
+          mime?: string;
+          parentCommitSha: string | null;
+          repositoryId: string;
+          size?: number;
+          stagedBlobSha?: string;
+          storageId?: string;
+          version: number;
+        },
+        Name
+      >;
       listAllStagedFiles: FunctionReference<
         "query",
         "internal",
