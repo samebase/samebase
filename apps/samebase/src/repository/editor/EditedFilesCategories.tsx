@@ -14,6 +14,7 @@ import { buildPathWithTanStackSearch } from "@/lib/tanstackSearchParams";
 import { buildRepositoryFileRoute } from "@/lib/repositoryRoutes";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { tryParseGitHubRepositoryFullName } from "../../../shared/githubRepositoryName";
+import { hasStagedFileContentChange } from "@samebase/git-editor/stagingChanges";
 
 type StagedFile = NonNullable<Awaited<(typeof api.fileStaging.getByNewPath)["_returnType"]>>;
 type StagedFilesSummary = NonNullable<
@@ -53,14 +54,14 @@ function categorizeStagedFiles(stagedFiles: StagedFile[]) {
       categories.new.push(file);
     } else if (file.filePath !== file.initialFilePath) {
       // It's a rename
-      if (file.content !== file.initialContent) {
+      if (hasStagedFileContentChange(file)) {
         // Renamed AND modified
         categories.renamedAndModified.push(file);
       } else {
         // Just renamed
         categories.renamed.push(file);
       }
-    } else if (file.content !== file.initialContent) {
+    } else if (hasStagedFileContentChange(file)) {
       // Just modified
       categories.modified.push(file);
     }

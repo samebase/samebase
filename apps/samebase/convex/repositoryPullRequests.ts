@@ -2,6 +2,10 @@
 
 import { Infer, v } from "convex/values";
 import { z } from "zod";
+import {
+  compareBranches,
+  getOpenPullRequestForBranch as readBranchPullRequest,
+} from "@samebase/git-editor/pullRequests";
 
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
@@ -707,28 +711,26 @@ export const getOpenPullRequestForBranch = action({
       target: { kind: "repository", repositoryId: repository._id },
     });
     const signal = createGitHubRequestDeadlineSignal();
-    const [comparison, pullRequests] = await Promise.all([
-      octokit.rest.repos.compareCommitsWithBasehead({
+    const [comparison, pullRequest] = await Promise.all([
+      compareBranches({
+        octokit,
         owner: githubOwnerLogin,
         repo: repository.githubRepositoryName,
-        basehead: `${repository.defaultBranch}...${branch}`,
-        request: { signal },
+        baseBranch: repository.defaultBranch,
+        branch,
+        signal,
       }),
-      octokit.rest.pulls.list({
+      readBranchPullRequest({
+        octokit,
         owner: githubOwnerLogin,
         repo: repository.githubRepositoryName,
-        state: "open",
-        head: `${githubOwnerLogin}:${branch}`,
-        sort: "updated",
-        direction: "desc",
-        per_page: 1,
-        request: { signal },
+        branch,
+        signal,
       }),
     ]);
-    const pullRequest = pullRequests.data.at(0);
     return {
-      aheadBy: comparison.data.ahead_by,
-      pullRequest: pullRequest ? { number: pullRequest.number, url: pullRequest.html_url } : null,
+      aheadBy: comparison.ahead_by,
+      pullRequest: pullRequest ? { number: pullRequest.number, url: pullRequest.url } : null,
     };
   },
 });

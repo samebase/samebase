@@ -69,6 +69,7 @@ describe("RepositoryMediaViewer", () => {
     props: {
       branch?: string;
       filePath?: string;
+      contentKey?: string;
       skipStaging?: boolean;
     } = {},
   ): Promise<void> {
@@ -79,6 +80,7 @@ describe("RepositoryMediaViewer", () => {
             githubRepositoryFullName="samebase/samebase"
             branch={props.branch ?? "main"}
             filePath={props.filePath ?? "assets/example.png"}
+            contentKey={props.contentKey ?? "original-blob"}
             skipStaging={props.skipStaging}
           />
         </QueryClientProvider>,
@@ -130,6 +132,32 @@ describe("RepositoryMediaViewer", () => {
     );
     await flushQueryUpdates();
     expect(rootElement.querySelector(".animate-spin")).toBeNull();
+  });
+
+  it("refreshes a mounted image after replacement and reset", async () => {
+    testState.getRepositoryMediaAsset
+      .mockResolvedValueOnce(imageAsset("example.png", "https://storage.example/original"))
+      .mockResolvedValueOnce(imageAsset("example.png", "https://storage.example/replacement"))
+      .mockResolvedValueOnce(imageAsset("example.png", "https://storage.example/reset"));
+
+    await renderViewer({ contentKey: "original-blob" });
+    await flushQueryUpdates();
+    expect(rootElement.querySelector("img")?.getAttribute("src")).toBe(
+      "https://storage.example/original",
+    );
+
+    await renderViewer({ contentKey: "staged-replacement" });
+    await flushQueryUpdates();
+    expect(rootElement.querySelector("img")?.getAttribute("src")).toBe(
+      "https://storage.example/replacement",
+    );
+
+    await renderViewer({ contentKey: "original-blob" });
+    await flushQueryUpdates();
+    expect(rootElement.querySelector("img")?.getAttribute("src")).toBe(
+      "https://storage.example/reset",
+    );
+    expect(testState.getRepositoryMediaAsset).toHaveBeenCalledTimes(3);
   });
 
   it("does not show a late result for the previous file key", async () => {
@@ -217,6 +245,7 @@ describe("RepositoryMediaViewer", () => {
               githubRepositoryFullName="samebase/samebase"
               branch="main"
               filePath="assets/example.png"
+              contentKey="original-blob"
             />
           </QueryClientProvider>
         </StrictMode>,

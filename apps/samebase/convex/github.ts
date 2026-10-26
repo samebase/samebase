@@ -3,21 +3,27 @@
 import { internalAction, type ActionCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { Infer, v } from "convex/values";
-import { internal } from "./_generated/api";
+import { components, internal } from "./_generated/api";
 import { Octokit } from "@octokit/rest";
 import { action } from "./functions";
 import { resolveGitHubAppAccess, type GitHubAppInstallationAccess } from "./githubAppAccess";
 import { createGitHubInstallationOctokit, readGitHubAppInstallation } from "./githubApp";
-import { guessMime, withRetry } from "./gitOperationsActions";
 import { isRecord } from "./jsonUtils";
+import { getRepositoryMediaKind } from "@samebase/git-editor/repositoryMedia";
 import {
-  getRepositoryMediaKind,
-  type RepositoryMediaKind,
-  isSvgRepositoryMediaPath,
-} from "../shared/repositoryMedia";
-import { TREE_REFRESH_DEBOUNCE_MS, TREE_REFRESH_FAILURE_COOLDOWN_MS } from "../shared/treeRefresh";
-import { readStagedFileKind } from "./stagingChanges";
-import type { GitHubTreeData } from "./repository/model";
+  readRepositoryFileContent,
+  readRepositoryMediaAsset,
+  repositoryFileContentResult,
+  repositoryMediaAssetResult,
+  type GitEditorReads,
+  type RepositoryFileContent,
+  type RepositoryMediaAsset,
+} from "@samebase/git-editor/reads";
+import {
+  refreshRepositoryBranch,
+  vExactRepositoryBranchRefreshResult,
+  type ExactRepositoryBranchRefreshResult,
+} from "@samebase/git-editor/repositoryRefresh";
 
 const { array, boolean, id, literal, number, object, optional, string, union } = v;
 
@@ -82,44 +88,10 @@ const githubIdentityObservation = object({
 
 type GitHubIdentityObservation = Infer<typeof githubIdentityObservation>;
 
-type CachedRepositoryBlob = {
-  size?: number | null;
-  storageId?: string | null;
-  text?: string | null;
-  mime?: string | undefined;
-};
-type HeaderValue = string | number | readonly string[] | undefined;
-type HeaderMap = Record<string, HeaderValue>;
-type TreeRefreshFailureDescriptor = {
-  kind: "failed" | "rate_limited";
-  message: string;
-  cooldownUntil: number;
-};
 const publicRefreshRepositoryIntent = union(literal("passive"), literal("manual"));
-const exactRepositoryBranchRefreshResult = union(
-  object({
-    kind: literal("ready"),
-    refreshed: boolean(),
-  }),
-  object({
-    kind: literal("not_found"),
-  }),
-  object({
-    kind: literal("deferred"),
-    reason: union(literal("cooldown"), literal("in_progress")),
-  }),
-  object({
-    kind: literal("unavailable"),
-  }),
-  object({
-    kind: literal("failed"),
-  }),
-);
-type ExactRepositoryBranchRefreshResult = Infer<typeof exactRepositoryBranchRefreshResult>;
 const GITHUB_REPOSITORY_PREVIEW_PAGE_SIZE = 10;
 const GITHUB_REPOSITORY_DISCOVERY_PAGE_SIZE = 100;
 const MAX_GITHUB_REPOSITORY_PAGES = 100;
-const GITHUB_RATE_LIMIT_FALLBACK_MS = 5 * 60 * 1000;
 
 /** An omitted branch means default; a provided branch always remains exact. */
 function normalizeOptionalRepositoryBranch(branch: string | undefined): string | undefined {
@@ -134,107 +106,6 @@ function normalizeOptionalRepositoryBranch(branch: string | undefined): string |
   return trimmedBranch;
 }
 
-type ExactRepositoryBranchRead =
-  | {
-      kind: "ready";
-      commitSha: string;
-      treeData: GitHubTreeData;
-    }
-  | {
-      kind: "not_found";
-    }
-  | {
-      kind: "unavailable";
-      error: unknown;
-    }
-  | {
-      kind: "failed";
-      error: unknown;
-    };
-
-/**
- * Reads one branch generation without observing the repository branch list.
- * The branch response fixes the commit and tree identity before the immutable
- * tree is fetched, so a concurrent push cannot mix two generations.
- */
-export async function readExactRepositoryBranch(args: {
-  getBranch: () => Promise<{ commitSha: string; treeSha: string }>;
-  getTree: (treeSha: string) => Promise<GitHubTreeData>;
-  confirmRepository: () => Promise<void>;
-}): Promise<ExactRepositoryBranchRead> {
-  let branch: { commitSha: string; treeSha: string };
-  try {
-    branch = await args.getBranch();
-  } catch (error) {
-    if (getErrorStatus(error) !== 404) {
-      return { kind: "failed", error };
-    }
-    try {
-      await args.confirmRepository();
-      return { kind: "not_found" };
-    } catch (repositoryError) {
-      const repositoryStatus = getErrorStatus(repositoryError);
-      return repositoryStatus === 401 || repositoryStatus === 403 || repositoryStatus === 404
-        ? { kind: "unavailable", error: repositoryError }
-        : { kind: "failed", error: repositoryError };
-    }
-  }
-
-  try {
-    const treeData = await args.getTree(branch.treeSha);
-    if (treeData.truncated) {
-      return {
-        kind: "failed",
-        error: new Error("GitHub returned an incomplete recursive repository tree."),
-      };
-    }
-
-    return {
-      kind: "ready",
-      commitSha: branch.commitSha,
-      treeData,
-    };
-  } catch (error) {
-    return { kind: "failed", error };
-  }
-}
-
-/**
- * Branch-scoped work already chose a branch before this point. Empty strings
- * fail here instead of falling back to another branch.
- */
-function normalizeRequiredRepositoryBranch(branch: string): string {
-  const trimmedBranch = branch.trim();
-  if (trimmedBranch.length === 0) {
-    throw new Error("Branch is required.");
-  }
-  return trimmedBranch;
-}
-
-function toHeaderMap(value: unknown): HeaderMap | null {
-  if (!isRecord(value)) {
-    return null;
-  }
-
-  const headers: HeaderMap = {};
-  for (const [key, headerValue] of Object.entries(value)) {
-    if (
-      typeof headerValue === "string" ||
-      typeof headerValue === "number" ||
-      headerValue === undefined
-    ) {
-      headers[key] = headerValue;
-      continue;
-    }
-
-    if (Array.isArray(headerValue) && headerValue.every((item) => typeof item === "string")) {
-      headers[key] = headerValue;
-    }
-  }
-
-  return headers;
-}
-
 function getErrorStatus(error: unknown): number | null {
   if (!isRecord(error)) {
     return null;
@@ -242,124 +113,6 @@ function getErrorStatus(error: unknown): number | null {
 
   const status = error["status"];
   return typeof status === "number" ? status : null;
-}
-
-function getErrorMessage(error: unknown): string | null {
-  if (!isRecord(error)) {
-    return null;
-  }
-
-  const message = error["message"];
-  return typeof message === "string" && message.length > 0 ? message : null;
-}
-
-function getErrorHeaders(error: unknown): HeaderMap | null {
-  if (!isRecord(error)) {
-    return null;
-  }
-
-  const response = error["response"];
-  if (!isRecord(response)) {
-    return null;
-  }
-
-  return toHeaderMap(response["headers"]);
-}
-
-function getHeaderValue(headers: HeaderMap | null, name: string): string | null {
-  if (!headers) {
-    return null;
-  }
-
-  const target = name.toLowerCase();
-  for (const [key, value] of Object.entries(headers)) {
-    if (key.toLowerCase() !== target) {
-      continue;
-    }
-
-    if (typeof value === "string") {
-      return value;
-    }
-    if (typeof value === "number") {
-      return String(value);
-    }
-    if (Array.isArray(value)) {
-      return value.length > 0 ? value[0] : null;
-    }
-    return null;
-  }
-
-  return null;
-}
-
-function parsePositiveInteger(value: string | null): number | null {
-  if (value === null) {
-    return null;
-  }
-
-  const parsed = Number.parseInt(value, 10);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
-}
-
-function isRateLimitError(
-  status: number | null,
-  headers: HeaderMap | null,
-  message: string | null,
-): boolean {
-  if (status === 429) {
-    return true;
-  }
-  if (status !== 403) {
-    return false;
-  }
-
-  if (getHeaderValue(headers, "retry-after") !== null) {
-    return true;
-  }
-
-  if (getHeaderValue(headers, "x-ratelimit-remaining") === "0") {
-    return true;
-  }
-
-  return (message ?? "").toLowerCase().includes("rate limit");
-}
-
-export function describeRepositoryTreeRefreshFailure(
-  error: unknown,
-  now: number = Date.now(),
-): TreeRefreshFailureDescriptor {
-  const status = getErrorStatus(error);
-  const headers = getErrorHeaders(error);
-  const message = getErrorMessage(error);
-
-  if (!isRateLimitError(status, headers, message)) {
-    return {
-      kind: "failed",
-      message: "GitHub sync failed. Showing cached state.",
-      cooldownUntil: now + TREE_REFRESH_FAILURE_COOLDOWN_MS,
-    };
-  }
-
-  const retryAfterSeconds = parsePositiveInteger(getHeaderValue(headers, "retry-after"));
-  const rateLimitRemaining = getHeaderValue(headers, "x-ratelimit-remaining");
-  const resetAtSeconds = parsePositiveInteger(getHeaderValue(headers, "x-ratelimit-reset"));
-
-  if (retryAfterSeconds !== null) {
-    return {
-      kind: "rate_limited",
-      message: "GitHub API rate limited. Auto-refresh paused.",
-      cooldownUntil: now + retryAfterSeconds * 1000,
-    };
-  }
-
-  return {
-    kind: "rate_limited",
-    message: "GitHub API rate limited. Auto-refresh paused.",
-    cooldownUntil:
-      rateLimitRemaining === "0" && resetAtSeconds !== null
-        ? resetAtSeconds * 1000
-        : now + GITHUB_RATE_LIMIT_FALLBACK_MS,
-  };
 }
 
 export function normalizeGitHubRepositoryListItem(value: unknown): GitHubRepositoryListItem | null {
@@ -815,276 +568,33 @@ export const listRepositories = action({
   },
 });
 
-const repositoryFileContentResult = union(
-  object({ exists: literal(false) }),
-  object({ exists: literal(true), content: string() }),
-);
-
-type RepositoryFileContent = Infer<typeof repositoryFileContentResult>;
-const MAX_REPOSITORY_MEDIA_BYTES = 1_000_000;
-const REPOSITORY_MEDIA_TOO_LARGE_MESSAGE = "Preview unavailable for files larger than 1 MB.";
-
-const repositoryMediaAssetResult = union(
-  object({
-    found: literal(false),
-    reason: literal("missing"),
-  }),
-  object({
-    found: literal(false),
-    reason: literal("unavailable"),
-    message: string(),
-  }),
-  object({
-    found: literal(true),
-    kind: literal("image"),
-    mimeType: string(),
-    url: string(),
-    fileName: string(),
-  }),
-  object({
-    found: literal(true),
-    kind: literal("vox"),
-    mimeType: string(),
-    url: string(),
-    fileName: string(),
-  }),
-);
-
-type RepositoryMediaAsset = Infer<typeof repositoryMediaAssetResult>;
-
-type RepositoryMediaUnavailableAsset = Extract<
-  RepositoryMediaAsset,
-  { found: false; reason: "unavailable" }
->;
-type StagedRepositoryMediaAssetCandidate = {
-  fileDeleted: boolean;
-  kind?: "text" | "binary";
-  storageId?: string | null;
-  stagedBlobSha?: string | null;
-  mime?: string;
-  size?: number;
-  content: string;
-};
-/**
- * Mirror GitHub's preview size ceiling for cached blobs so storage-backed media
- * cannot bypass the same protection the live Contents API path already applies.
- */
-export function isRepositoryMediaPreviewTooLarge(size: number | null | undefined): boolean {
-  return typeof size === "number" && size > MAX_REPOSITORY_MEDIA_BYTES;
-}
-
-function getRepositoryMediaErrorMessage(error: unknown): string {
-  if (!(error instanceof Error)) {
-    return "";
-  }
-
-  return error.message;
-}
-
-function isRepositoryMediaTooLargeError(error: unknown): boolean {
-  if (getRepositoryMediaErrorStatus(error) !== 403) {
-    return false;
-  }
-
-  const message = getRepositoryMediaErrorMessage(error).toLowerCase();
-  return (
-    message.includes("too large") ||
-    message.includes("too_large") ||
-    message.includes("blobs up to 1 mb")
-  );
-}
-
-function getRepositoryMediaTooLargeAsset(): RepositoryMediaUnavailableAsset {
-  return {
-    found: false,
-    reason: "unavailable",
-    message: REPOSITORY_MEDIA_TOO_LARGE_MESSAGE,
-  };
-}
-
-function toGitTreeRef(branch: string): string {
-  if (branch.startsWith("refs/heads/")) {
-    return branch.slice("refs/".length);
-  }
-  if (branch.startsWith("heads/")) {
-    return branch;
-  }
-  return `heads/${branch}`;
-}
-
-function buildDataUrl(mimeType: string, content: Buffer): string {
-  return `data:${mimeType};base64,${content.toString("base64")}`;
-}
-
-function readStoredMimeType(filePath: string, blobMime: string | undefined): string {
-  if (typeof blobMime === "string" && blobMime.includes("/")) {
-    return blobMime;
-  }
-  return guessMime(filePath);
-}
-
-async function resolveCachedRepositoryMediaAsset(
-  ctx: {
-    storage: {
-      getUrl(storageId: string): Promise<string | null>;
-    };
+function getRepositoryReads(
+  ctx: ActionCtx,
+  args: {
+    userId: Id<"users">;
+    repository: GitEditorReads<Id<"repositories">>["repository"];
   },
-  cachedBlob: CachedRepositoryBlob | null,
-  filePath: string,
-  mediaKind: RepositoryMediaKind,
-  fileName: string,
-): Promise<RepositoryMediaAsset | null> {
-  if (isRepositoryMediaPreviewTooLarge(cachedBlob?.size)) {
-    return getRepositoryMediaTooLargeAsset();
-  }
-
-  if (typeof cachedBlob?.storageId === "string") {
-    const url = await ctx.storage.getUrl(cachedBlob.storageId);
-    if (typeof url === "string" && url.length > 0) {
-      return {
-        found: true,
-        kind: mediaKind,
-        mimeType: readStoredMimeType(filePath, cachedBlob.mime),
-        url,
-        fileName,
-      };
-    }
-  }
-
-  if (typeof cachedBlob?.text === "string" && isSvgRepositoryMediaPath(filePath)) {
-    return {
-      found: true,
-      kind: mediaKind,
-      mimeType: "image/svg+xml",
-      url: buildDataUrl("image/svg+xml", Buffer.from(cachedBlob.text, "utf-8")),
-      fileName,
-    };
-  }
-
-  return null;
-}
-
-async function getRepositoryBlobShaForBranchPath(args: {
-  octokit: Octokit;
-  owner: string;
-  repo: string;
-  branch: string;
-  filePath: string;
-}): Promise<string | null> {
-  const tree = await args.octokit.rest.git.getTree({
-    owner: args.owner,
-    repo: args.repo,
-    tree_sha: toGitTreeRef(args.branch),
-    recursive: "1",
-  });
-  const targetFile = tree.data.tree.find(
-    (item) =>
-      item.type === "blob" &&
-      item.path === args.filePath &&
-      typeof item.sha === "string" &&
-      item.sha.length > 0,
-  );
-
-  return targetFile?.sha ?? null;
-}
-
-export async function resolveStagedRepositoryMediaAsset(args: {
-  storage: {
-    getUrl(storageId: string): Promise<string | null>;
-  };
-  loadCachedBlobBySha: (sha: string) => Promise<CachedRepositoryBlob | null>;
-  stagedFile: StagedRepositoryMediaAssetCandidate;
-  filePath: string;
-  mediaKind: RepositoryMediaKind;
-  fileName: string;
-}): Promise<RepositoryMediaAsset> {
-  if (args.stagedFile.fileDeleted) {
-    return { found: false, reason: "missing" };
-  }
-
-  const stagedKind = readStagedFileKind(args.stagedFile.kind);
-  const directAsset = await resolveCachedRepositoryMediaAsset(
-    { storage: args.storage },
-    {
-      storageId: args.stagedFile.storageId,
-      text: args.stagedFile.content,
-      mime: args.stagedFile.mime,
-      size: args.stagedFile.size,
-    },
-    args.filePath,
-    args.mediaKind,
-    args.fileName,
-  );
-  if (directAsset) {
-    return directAsset;
-  }
-
-  if (
-    stagedKind === "binary" &&
-    typeof args.stagedFile.stagedBlobSha === "string" &&
-    args.stagedFile.stagedBlobSha.length > 0
-  ) {
-    const cachedBlob = await args.loadCachedBlobBySha(args.stagedFile.stagedBlobSha);
-    const resolvedCachedAsset = await resolveCachedRepositoryMediaAsset(
-      { storage: args.storage },
-      cachedBlob,
-      args.filePath,
-      args.mediaKind,
-      args.fileName,
-    );
-    if (resolvedCachedAsset) {
-      return resolvedCachedAsset;
-    }
-  }
-
-  if (stagedKind === "binary") {
-    return {
-      found: false,
-      reason: "unavailable",
-      message: "Staged upload is missing storage reference.",
-    };
-  }
-
-  if (isSvgRepositoryMediaPath(args.filePath)) {
-    return {
-      found: true,
-      kind: args.mediaKind,
-      mimeType: "image/svg+xml",
-      url: buildDataUrl("image/svg+xml", Buffer.from(args.stagedFile.content, "utf-8")),
-      fileName: args.fileName,
-    };
-  }
-
+): GitEditorReads<Id<"repositories">> {
   return {
-    found: false,
-    reason: "unavailable",
-    message: "Preview unavailable for this staged file.",
+    ctx,
+    component: components.gitEditor,
+    repository: {
+      repositoryId: args.repository.repositoryId,
+      githubOwnerLogin: args.repository.githubOwnerLogin,
+      githubRepositoryName: args.repository.githubRepositoryName,
+      treeData: args.repository.treeData,
+    },
+    host: {
+      saveFileBlob: internal.gitOperations.saveFileBlob,
+    },
+    getOctokit: async () => {
+      const access = await resolveGitHubAppAccess(ctx, {
+        userId: args.userId,
+        target: { kind: "repository", repositoryId: args.repository.repositoryId },
+      });
+      return access.octokit;
+    },
   };
-}
-
-function getRepositoryMediaFileName(filePath: string): string {
-  return filePath.split("/").pop() ?? filePath;
-}
-
-function getRepositoryMediaExtension(filePath: string): string {
-  const fileName = getRepositoryMediaFileName(filePath);
-  const extensionStart = fileName.lastIndexOf(".");
-  if (extensionStart === -1 || extensionStart === fileName.length - 1) {
-    return "";
-  }
-  return fileName.slice(extensionStart + 1).toLowerCase();
-}
-
-function getRepositoryMediaErrorStatus(error: unknown): number | null {
-  if (
-    typeof error === "object" &&
-    error !== null &&
-    "status" in error &&
-    typeof error.status === "number"
-  ) {
-    return error.status;
-  }
-  return null;
 }
 
 export const getRepositoryFileContent = action({
@@ -1107,63 +617,10 @@ export const getRepositoryFileContent = action({
       throw new Error("Repository not found");
     }
 
-    if (!requestedBranch) {
-      const targetFile = repository.treeData?.tree.find(
-        (item: { path: string; type: string; sha?: string }) =>
-          item.path === args.filePath && item.type === "blob",
-      );
-
-      if (!targetFile?.sha) {
-        return { exists: false };
-      }
-
-      const blobFile = await ctx.runQuery(internal.gitOperations.getBlobBySha, {
-        sha: targetFile.sha,
-      });
-
-      if (blobFile && typeof blobFile.text === "string") {
-        return {
-          exists: true,
-          content: blobFile.text,
-        };
-      }
-    }
-
-    const { octokit } = await resolveGitHubAppAccess(ctx, {
-      userId,
-      target: { kind: "repository", repositoryId: repository.repositoryId },
+    return await readRepositoryFileContent(getRepositoryReads(ctx, { userId, repository }), {
+      filePath: args.filePath,
+      branch: requestedBranch,
     });
-
-    try {
-      const file = await octokit.rest.repos.getContent({
-        owner: repository.githubOwnerLogin,
-        repo: repository.githubRepositoryName,
-        path: args.filePath,
-        ref: requestedBranch,
-      });
-
-      if (Array.isArray(file.data) || file.data.type !== "file") {
-        return { exists: false };
-      }
-
-      const contentBuffer = Buffer.from(file.data.content, "base64");
-      return {
-        exists: true,
-        content: contentBuffer.toString("utf-8"),
-      };
-    } catch (error: unknown) {
-      if (
-        typeof error === "object" &&
-        error !== null &&
-        "status" in error &&
-        typeof error.status === "number" &&
-        error.status === 404
-      ) {
-        return { exists: false };
-      }
-
-      throw error;
-    }
   },
 });
 
@@ -1193,156 +650,12 @@ export const getRepositoryMediaAsset = action({
       throw new Error("Repository not found");
     }
 
-    const fileName = getRepositoryMediaFileName(args.filePath);
-    const shouldSkipStaging = args.skipStaging === true;
-
-    if (requestedBranch && !shouldSkipStaging) {
-      const stagedFile = await ctx.runQuery(internal.fileStaging.getByNewPathInternal, {
-        repositoryId: repository.repositoryId,
-        branch: requestedBranch,
-        newPath: args.filePath,
-      });
-      if (stagedFile) {
-        const stagedAsset = await resolveStagedRepositoryMediaAsset({
-          storage: ctx.storage,
-          loadCachedBlobBySha: (sha) => ctx.runQuery(internal.gitOperations.getBlobBySha, { sha }),
-          stagedFile,
-          filePath: args.filePath,
-          mediaKind,
-          fileName,
-        });
-        if (
-          !stagedAsset.found &&
-          stagedAsset.reason === "unavailable" &&
-          readStagedFileKind(stagedFile.kind) === "binary"
-        ) {
-          console.warn("Staged binary media preview is missing storage data", {
-            repositoryId: repository.repositoryId,
-            branch: requestedBranch,
-            filePath: args.filePath,
-            stagingId: stagedFile._id,
-          });
-        }
-        return stagedAsset;
-      }
-    }
-
-    let targetFileSha: string | null = null;
-    if (!requestedBranch) {
-      const targetFile = repository.treeData?.tree.find(
-        (item: { path: string; type: string; sha?: string }) =>
-          item.path === args.filePath && item.type === "blob",
-      );
-
-      if (!targetFile?.sha) {
-        return { found: false, reason: "missing" };
-      }
-
-      targetFileSha = targetFile.sha;
-      const cachedBlob = await ctx.runQuery(internal.gitOperations.getBlobBySha, {
-        sha: targetFileSha,
-      });
-      const resolvedCachedAsset = await resolveCachedRepositoryMediaAsset(
-        ctx,
-        cachedBlob,
-        args.filePath,
-        mediaKind,
-        fileName,
-      );
-      if (resolvedCachedAsset) {
-        return resolvedCachedAsset;
-      }
-    }
-
-    const { octokit } = await resolveGitHubAppAccess(ctx, {
-      userId,
-      target: { kind: "repository", repositoryId: repository.repositoryId },
+    return await readRepositoryMediaAsset(getRepositoryReads(ctx, { userId, repository }), {
+      filePath: args.filePath,
+      branch: requestedBranch,
+      skipStaging: args.skipStaging,
+      mediaKind,
     });
-
-    try {
-      if (requestedBranch) {
-        targetFileSha = await getRepositoryBlobShaForBranchPath({
-          octokit,
-          owner: repository.githubOwnerLogin,
-          repo: repository.githubRepositoryName,
-          branch: requestedBranch,
-          filePath: args.filePath,
-        });
-        if (targetFileSha === null) {
-          return { found: false, reason: "missing" };
-        }
-        const cachedBlob = await ctx.runQuery(internal.gitOperations.getBlobBySha, {
-          sha: targetFileSha,
-        });
-        const resolvedCachedAsset = await resolveCachedRepositoryMediaAsset(
-          ctx,
-          cachedBlob,
-          args.filePath,
-          mediaKind,
-          fileName,
-        );
-        if (resolvedCachedAsset) {
-          return resolvedCachedAsset;
-        }
-      }
-
-      if (targetFileSha === null) {
-        return { found: false, reason: "missing" };
-      }
-
-      const blob = await octokit.rest.git.getBlob({
-        owner: repository.githubOwnerLogin,
-        repo: repository.githubRepositoryName,
-        file_sha: targetFileSha,
-      });
-      if (typeof blob.data.content !== "string" || blob.data.content.length === 0) {
-        return {
-          found: false,
-          reason: "unavailable",
-          message: "Preview unavailable for this file.",
-        };
-      }
-
-      const mimeType = guessMime(args.filePath);
-      const content = blob.data.content.replace(/\n/g, "");
-      const buffer = Buffer.from(content, "base64");
-      const storageId = await withRetry(() =>
-        ctx.storage.store(new Blob([buffer], { type: mimeType })),
-      );
-
-      await ctx.runMutation(internal.gitOperations.saveFileBlob, {
-        repositoryId: repository.repositoryId,
-        sha: targetFileSha,
-        size: buffer.byteLength,
-        mime: mimeType,
-        text: undefined,
-        storageId,
-        ext: getRepositoryMediaExtension(args.filePath),
-        debugFilePath: args.filePath,
-      });
-
-      const url = await ctx.storage.getUrl(storageId);
-      if (typeof url !== "string" || url.length === 0) {
-        throw new Error("Failed to create media preview URL");
-      }
-
-      return {
-        found: true,
-        kind: mediaKind,
-        mimeType,
-        url,
-        fileName,
-      };
-    } catch (error: unknown) {
-      if (getRepositoryMediaErrorStatus(error) === 404) {
-        return { found: false, reason: "missing" };
-      }
-
-      if (isRepositoryMediaTooLargeError(error)) {
-        return getRepositoryMediaTooLargeAsset();
-      }
-      throw error;
-    }
   },
 });
 
@@ -1357,152 +670,24 @@ async function refreshExactRepositoryBranchForUser(
     intent: "passive" | "manual";
   },
 ): Promise<ExactRepositoryBranchRefreshResult> {
-  const branch = normalizeRequiredRepositoryBranch(args.branch);
-  const cachedTree = await ctx.runQuery(internal.repository.branches.getRepositoryBranchTree, {
+  return await refreshRepositoryBranch(ctx, components.gitEditor, {
     repositoryId: args.repositoryId,
-    branch,
-  });
-  if (
-    args.intent === "passive" &&
-    cachedTree &&
-    Date.now() - cachedTree.lastTreeRefreshAt < TREE_REFRESH_DEBOUNCE_MS
-  ) {
-    return { kind: "ready", refreshed: false };
-  }
-
-  const claim:
-    | { claimed: true; startedAt: number }
-    | { claimed: false; reason: "cooldown" | "in_progress" | "unavailable" } =
-    await ctx.runMutation(internal.repository.branches.claimTreeRefresh, {
-      repositoryId: args.repositoryId,
-    });
-  if (!claim.claimed) {
-    switch (claim.reason) {
-      case "cooldown":
-      case "in_progress":
-        return { kind: "deferred", reason: claim.reason };
-      case "unavailable":
-        return { kind: "failed" };
-      default:
-        claim.reason satisfies never;
-        return { kind: "failed" };
-    }
-  }
-
-  let octokit: Octokit;
-  let owner: string;
-  try {
-    ({ octokit, githubOwnerLogin: owner } = await resolveGitHubAppAccess(ctx, {
-      userId: args.userId,
-      target: { kind: "repository", repositoryId: args.repositoryId },
-    }));
-  } catch {
-    await ctx.runMutation(internal.repository.branches.releaseTreeRefresh, {
-      repositoryId: args.repositoryId,
-      startedAt: claim.startedAt,
-      markRefreshed: false,
-      failureKind: "failed",
-      failureMessage: "GitHub access is unavailable.",
-    });
-    return { kind: "unavailable" };
-  }
-
-  const read = await readExactRepositoryBranch({
-    getBranch: async () => {
-      const response = await octokit.rest.repos.getBranch({
-        owner,
-        repo: args.repo,
-        branch,
-      });
-      return {
-        commitSha: response.data.commit.sha,
-        treeSha: response.data.commit.commit.tree.sha,
-      };
-    },
-    getTree: async (treeSha) => {
-      const response = await octokit.rest.git.getTree({
-        owner,
-        repo: args.repo,
-        tree_sha: treeSha,
-        recursive: "1",
-      });
-      return response.data;
-    },
-    confirmRepository: async () => {
-      await octokit.rest.repos.get({
-        owner,
-        repo: args.repo,
-      });
-    },
-  });
-
-  if (read.kind === "ready") {
-    const write = await ctx.runMutation(
-      internal.repository.branches.upsertClaimedRepositoryBranchTree,
-      {
-        repositoryId: args.repositoryId,
-        branch,
-        startedAt: claim.startedAt,
-        treeData: read.treeData,
-        commitSHA: read.commitSha,
-      },
-    );
-    if (!write.written) {
-      return { kind: "deferred", reason: "in_progress" };
-    }
-    const release = await ctx.runMutation(internal.repository.branches.releaseTreeRefresh, {
-      repositoryId: args.repositoryId,
-      startedAt: claim.startedAt,
-      markRefreshed: true,
-    });
-    if (!release.released) {
-      return { kind: "deferred", reason: "in_progress" };
-    }
-    return { kind: "ready", refreshed: true };
-  }
-
-  if (read.kind === "not_found") {
-    const release = await ctx.runMutation(internal.repository.branches.releaseTreeRefresh, {
-      repositoryId: args.repositoryId,
-      startedAt: claim.startedAt,
-      markRefreshed: true,
-    });
-    if (!release.released) {
-      return { kind: "deferred", reason: "in_progress" };
-    }
-    return { kind: "not_found" };
-  }
-
-  const failure = describeRepositoryTreeRefreshFailure(read.error);
-  const release = await ctx.runMutation(internal.repository.branches.releaseTreeRefresh, {
-    repositoryId: args.repositoryId,
-    startedAt: claim.startedAt,
-    markRefreshed: false,
-    failureKind: failure.kind,
-    failureMessage: failure.message,
-    cooldownUntil: failure.cooldownUntil,
-  });
-  if (!release.released) {
-    return { kind: "deferred", reason: "in_progress" };
-  }
-  console.error("Failed to hydrate exact repository branch", {
-    owner,
     repo: args.repo,
-    branch,
-    providerStatus: getErrorStatus(read.error),
-    result: read.kind,
+    branch: args.branch,
+    intent: args.intent,
+    resolveGitHubAccess: async () => {
+      const access = await resolveGitHubAppAccess(ctx, {
+        userId: args.userId,
+        target: { kind: "repository", repositoryId: args.repositoryId },
+      });
+      return { owner: access.githubOwnerLogin, octokit: access.octokit };
+    },
+    mutations: {
+      claimRefresh: internal.repository.branches.claimTreeRefresh,
+      publishBranchTree: internal.repository.branches.upsertClaimedRepositoryBranchTree,
+      releaseRefresh: internal.repository.branches.releaseTreeRefresh,
+    },
   });
-  if (failure.kind === "rate_limited") {
-    return { kind: "deferred", reason: "cooldown" };
-  }
-  if (
-    read.kind === "unavailable" ||
-    getErrorStatus(read.error) === 401 ||
-    getErrorStatus(read.error) === 403
-  ) {
-    return { kind: "unavailable" };
-  }
-  return { kind: "failed" };
 }
 
 /**
@@ -1520,7 +705,7 @@ export const refreshRepositoryTree = action({
     branch: string(),
     intent: publicRefreshRepositoryIntent,
   },
-  returns: exactRepositoryBranchRefreshResult,
+  returns: vExactRepositoryBranchRefreshResult,
   handler: async (ctx, args): Promise<ExactRepositoryBranchRefreshResult> => {
     const userId = ctx.viewer.userId;
     const repository = await ctx.runQuery(internal.repository.records.getByIdForUser, {
@@ -1553,7 +738,6 @@ export const updateRepositoryTree = internalAction({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const branch = normalizeRequiredRepositoryBranch(args.branch);
     const repository = await ctx.runQuery(internal.repository.records.getByIdForUser, {
       repositoryId: args.repositoryId,
       userId: args.userId,
@@ -1569,7 +753,7 @@ export const updateRepositoryTree = internalAction({
       userId: args.userId,
       repositoryId: repository._id,
       repo: repository.githubRepositoryName,
-      branch,
+      branch: args.branch,
       intent: "manual",
     });
     if (refresh.kind !== "ready") {

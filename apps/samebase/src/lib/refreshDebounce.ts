@@ -1,4 +1,4 @@
-import { TREE_REFRESH_DEBOUNCE_MS } from "../../shared/treeRefresh";
+import { TREE_REFRESH_DEBOUNCE_MS } from "@samebase/git-editor/treeRefresh";
 
 const refreshDebounceByScopeAndKey = new Map<string, number>();
 

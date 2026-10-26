@@ -5,6 +5,7 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { CommitStatus } from "./CommitStatus";
+import { RepositorySyncStatusContent } from "./RepositorySyncStatus";
 
 const testState = vi.hoisted(() => ({
   getCommitStatus: vi.fn(),
@@ -149,20 +150,57 @@ describe("CommitStatus", () => {
     );
   });
 
-  it("uses the server cooldown time", async () => {
-    const cooldownUntilMs = Date.now() + 45_000;
+  it("keeps checks mounted across tree cooldown, syncing, and idle states", async () => {
+    testState.getCommitStatus.mockResolvedValue(finalResult);
+    const now = Date.now();
+    const treeStates = [
+      {
+        lastTreeRefreshFailedAt: now - 1_000,
+        treeRefreshFailureKind: "failed" as const,
+        treeRefreshCooldownUntil: now + 300_000,
+      },
+      { treeRefreshStartedAt: now },
+      { lastTreeRefreshAt: now },
+    ];
+
+    for (const treeState of treeStates) {
+      await act(async () => {
+        root.render(
+          <QueryClientProvider client={queryClient}>
+            <RepositorySyncStatusContent
+              githubRepositoryFullName="samebase/samebase"
+              branch="main"
+              owner="samebase"
+              repoName="samebase"
+              commitSha="abc123"
+              now={now}
+              {...treeState}
+            />
+          </QueryClientProvider>,
+        );
+      });
+      await flushQueryUpdates();
+      expect(rootElement.querySelector("a")?.getAttribute("aria-label")).toContain("1 passed");
+      expect(testState.getCommitStatus).toHaveBeenCalledTimes(1);
+      await act(async () => vi.advanceTimersByTimeAsync(5_000));
+    }
+  });
+
+  it("uses the shared GitHub rate-limit reset time", async () => {
+    const resetAtMs = Date.now() + 45_000;
     testState.getCommitStatus
       .mockResolvedValueOnce({
-        cooldownUntilMs,
-        kind: "cooldown",
-        message: "GitHub sync is cooling down.",
+        resetAtMs,
+        retryAfterMs: null,
+        kind: "rate_limited",
+        message: "GitHub API rate limited.",
       })
       .mockResolvedValueOnce(finalResult);
 
     await renderStatus();
     expect(rootElement.textContent).toBe("Checks paused");
     expect(rootElement.querySelector("span")?.getAttribute("aria-label")).toContain(
-      "GitHub sync is cooling down.",
+      "GitHub API rate limited.",
     );
 
     await act(async () => vi.advanceTimersByTimeAsync(44_999));

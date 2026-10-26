@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
-import { internal } from "./_generated/api";
+import { components, internal } from "./_generated/api";
 import { makeConvexTest } from "./test.setup";
 
 afterEach(() => {
@@ -79,13 +79,25 @@ describe("organization context acceptance fixtures", () => {
 
     const snapshot = await t.run(async (ctx) => ({
       billingAccounts: await ctx.db.query("organizationBillingAccounts").collect(),
-      branchTrees: await ctx.db.query("observations_repository_branchTrees").collect(),
       memberships: await ctx.db.query("organizationMemberships").collect(),
       organizations: await ctx.db.query("organizations").collect(),
       repositories: await ctx.db.query("repositories").collect(),
       runs: await ctx.db.query("workflow_repositoryProvisioning_runs").collect(),
       user: await ctx.db.get(userId),
     }));
+
+    const branchTrees = await Promise.all(
+      snapshot.repositories.flatMap((repository) =>
+        repository.state === "connected"
+          ? [
+              t.query(components.gitEditor.branches.get, {
+                repositoryId: repository._id,
+                branch: repository.defaultBranch,
+              }),
+            ]
+          : [],
+      ),
+    );
 
     expect(snapshot.user).toMatchObject({
       isApproved: true,
@@ -103,11 +115,13 @@ describe("organization context acceptance fixtures", () => {
       });
     }
     expect(snapshot.billingAccounts).toHaveLength(3);
-    expect(snapshot.branchTrees).toHaveLength(2);
+    expect(branchTrees).toHaveLength(2);
     expect(
-      snapshot.branchTrees.every(
+      branchTrees.every(
         (branchTree) =>
-          branchTree.branch === "main" && branchTree.treeData.tree[0]?.path === "README.md",
+          branchTree !== null &&
+          branchTree.branch === "main" &&
+          branchTree.treeData.tree[0]?.path === "README.md",
       ),
     ).toBe(true);
     expect(snapshot.memberships).toHaveLength(2);

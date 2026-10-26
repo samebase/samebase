@@ -1,5 +1,3 @@
-"use node";
-
 export const INLINE_TEXT_MAX = 900_000;
 
 /**
@@ -75,11 +73,9 @@ export async function withRetry<T>(fn: () => Promise<T>, attempts = 3): Promise<
 }
 
 export function isTextBuffer(buf: Uint8Array): boolean {
-  const len = Math.min(buf.length, 8000); // sample first 8KB
   let suspicious = 0;
 
-  for (let i = 0; i < len; i++) {
-    const byte = buf[i];
+  for (const byte of buf.subarray(0, 8000)) {
     // Allow: tab, line feed, carriage return
     if (byte === 9 || byte === 10 || byte === 13) continue;
     // Printable ASCII

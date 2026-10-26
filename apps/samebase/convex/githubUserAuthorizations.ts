@@ -1,5 +1,6 @@
 import { createOAuthUserAuth } from "@octokit/auth-app";
 import { RequestError } from "@octokit/request-error";
+import { attachGitHubBackoff } from "./githubBackoffClient";
 import type { Octokit } from "@octokit/rest";
 import { ConvexError, Infer, v } from "convex/values";
 
@@ -816,19 +817,22 @@ async function resolveGitHubUserOctokitForAuthority(
     githubUserId,
   });
   if (previewOctokit !== null) {
-    return previewOctokit;
+    return attachGitHubBackoff(ctx, previewOctokit, { kind: "user", id: githubUserId });
   }
   const use = await claimGitHubUserAuthorization(ctx, authority, githubUserId);
   return await resolveGitHubUserOctokitFromUse(ctx, authority, use);
 }
 
 async function resolveGitHubUserOctokitFromUse(
-  ctx: Pick<ActionCtx, "runMutation">,
+  ctx: Pick<ActionCtx, "runMutation" | "runQuery">,
   authority: GitHubUserOctokitAuthority,
   use: Infer<typeof vGitHubUserAuthorizationUse>,
 ): Promise<Octokit> {
   if (use.kind === "ready") {
-    return createGitHubUserOctokit(use.authorization.accessToken);
+    return attachGitHubBackoff(ctx, createGitHubUserOctokit(use.authorization.accessToken), {
+      kind: "user",
+      id: use.authorization.githubUserId,
+    });
   }
   if (use.kind === "busy") {
     throw new Error("GitHub user authorization refresh is in progress.");
@@ -851,7 +855,10 @@ async function resolveGitHubUserOctokitFromUse(
       refreshStartedAt: use.refreshStartedAt,
       ...refreshed,
     });
-    return createGitHubUserOctokit(refreshed.accessToken);
+    return attachGitHubBackoff(ctx, createGitHubUserOctokit(refreshed.accessToken), {
+      kind: "user",
+      id: use.authorization.githubUserId,
+    });
   } catch (error) {
     await releaseGitHubUserAuthorizationRefresh(ctx, authority, {
       authorizationId: use.authorization.authorizationId,
@@ -867,7 +874,7 @@ export type GitHubUserAuthorizationForAppConnectionResult =
   | { status: "ready"; githubUserId: string; octokit: Octokit };
 
 export async function resolveGitHubUserAuthorizationForAppConnection(
-  ctx: Pick<ActionCtx, "runMutation">,
+  ctx: Pick<ActionCtx, "runMutation" | "runQuery">,
   userId: Id<"users">,
 ): Promise<GitHubUserAuthorizationForAppConnectionResult> {
   const authority: GitHubUserOctokitAuthority = { kind: "user", userId };

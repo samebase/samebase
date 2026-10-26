@@ -1,7 +1,6 @@
 import { useCallback, useRef, useState, type ChangeEvent, type DragEvent } from "react";
 import { api } from "../../../convex/_generated/api";
-import type { Id } from "../../../convex/_generated/dataModel";
-import { isRenderableRepositoryMediaPath } from "../../../shared/repositoryMedia";
+import { isRenderableRepositoryMediaPath } from "@samebase/git-editor/repositoryMedia";
 import {
   readUploadStorageId,
   uploadMediaWithCleanup,
@@ -16,7 +15,6 @@ import { usePageLeaveGuard } from "@/lib/pageLeaveGuard";
 type RepositoryId = NonNullable<
   (typeof api.repository.records.getRepositoryByRepository)["_returnType"]
 >["repositoryId"];
-type StorageId = Id<"_storage">;
 
 type GenerateUploadUrl = (args: { repositoryId: RepositoryId }) => Promise<{
   uploadUrl: string;
@@ -25,13 +23,13 @@ type StageUploadedMedia = (args: {
   githubRepositoryFullName: string;
   repositoryId: RepositoryId;
   filePath: string;
-  storageId: StorageId;
+  storageId: string;
   branch: string;
   replaceExisting: boolean;
 }) => Promise<unknown>;
 type DeletePendingUploadBlob = (args: {
   repositoryId: RepositoryId;
-  storageId: StorageId;
+  storageId: string;
 }) => Promise<unknown>;
 
 export function useFileViewMediaUpload({
@@ -136,9 +134,6 @@ export function useFileViewMediaUpload({
             githubRepositoryFullName,
             repositoryId,
             filePath: targetPath,
-            // Convex returns upload ids as opaque strings over HTTP even though
-            // the generated client types brand storage ids locally.
-            // @ts-expect-error Upload responses cannot preserve the `_storage` brand across fetch JSON.
             storageId,
             branch,
             replaceExisting,
@@ -147,8 +142,6 @@ export function useFileViewMediaUpload({
         deleteUploadedMedia: async (storageId) => {
           await deletePendingUploadBlob({
             repositoryId,
-            // Upload responses cannot preserve the storage id brand.
-            // @ts-expect-error Upload responses are plain strings from fetch JSON.
             storageId,
           });
         },

@@ -37,6 +37,7 @@ import { FileCreationDialog } from "@/repository/editor/FileCreationDialog";
 import { FolderCreationDialog } from "@/repository/editor/FolderCreationDialog";
 import { ProsemarkMergeEditor } from "@/components/ProsemarkMergeEditor";
 import { notEmpty } from "@samebase/dependent";
+import { hasStagedFileChanges } from "@samebase/git-editor/stagingChanges";
 import {
   filterSimpleViewTreeItems,
   getSimpleViewPreferenceStorageKey,
@@ -49,7 +50,7 @@ import {
 import { type CommitReviewFileStatus as CommitPreviewFileStatus } from "@/repository/editor/commitReviewStatus";
 import { claimRefreshDebounce } from "@/lib/refreshDebounce";
 import { getAncestorFolderPaths } from "@/repository/editor/fileTreeState";
-import { type GitHubTree } from "../../../convex/repository/model";
+import { type GitHubTree } from "@samebase/git-editor/model";
 import { formatStopwatchDuration } from "@/lib/stopwatch";
 import { DraftPullRequestFeedbackBanner } from "@/repository/editor/DraftPullRequestFeedbackBanner";
 import { RepositorySyncStatus } from "@/repository/editor/RepositorySyncStatus";
@@ -57,8 +58,8 @@ import { RepositoryMediaViewer } from "@/repository/editor/RepositoryMediaViewer
 import { useRepositorySimpleViewConfig } from "@/repository/editor/useRepositorySimpleViewConfig";
 import { RepositoryWorkspacePaneHeader } from "@/repository/editor/RepositoryWorkspacePaneHeader";
 import { MediaUploadDialog } from "@/repository/editor/MediaUploadDialog";
-import { isRenderableRepositoryMediaPath } from "../../../shared/repositoryMedia";
-import { TREE_REFRESH_STALE_LOCK_MS } from "../../../shared/treeRefresh";
+import { isRenderableRepositoryMediaPath } from "@samebase/git-editor/repositoryMedia";
+import { TREE_REFRESH_STALE_LOCK_MS } from "@samebase/git-editor/treeRefresh";
 import { buildRepositoryFileRoute, parseRepositoryPathContext } from "@/lib/repositoryRoutes";
 import { resolveLegacyBranchlessFilePath } from "@/lib/legacyBranchlessRoute";
 import { buildPathWithTanStackSearch } from "@/lib/tanstackSearchParams";
@@ -924,18 +925,7 @@ function FileViewInner({
 
   const createFileInStaging = useMutation(api.fileStaging.createFileInStaging);
   const hasStagedChangesToCommit = useMemo(
-    () =>
-      Boolean(
-        stagedFiles &&
-        stagedFiles.length > 0 &&
-        stagedFiles.some(
-          (file) =>
-            file.content !== file.initialContent ||
-            file.filePath !== file.initialFilePath ||
-            file.fileDeleted ||
-            file.parentCommitSha === null,
-        ),
-      ),
+    () => stagedFiles?.some(hasStagedFileChanges) ?? false,
     [stagedFiles],
   );
   const showMobileEditorLineNumbers = useMemo(() => {
@@ -1440,7 +1430,16 @@ function FileViewInner({
         const deletedStagedFile =
           stagedFiles?.find(
             (candidate) => candidate.filePath === filePath && candidate.fileDeleted,
-          ) ?? null;
+          ) ??
+          // Compare mode lists a deleted rename at its original path.
+          stagedFiles?.find(
+            (candidate) =>
+              candidate.fileDeleted &&
+              (candidate.initialFilePath === filePath ||
+                candidate.initialFilePath === originalPath),
+          ) ??
+          null;
+        const restoredFilePath = deletedStagedFile?.filePath ?? filePath;
         const comparedDeletedFile =
           branchComparePreview?.files.find(
             (file) => file.path === filePath && file.status === "deleted",
@@ -1449,7 +1448,7 @@ function FileViewInner({
         if (deletedStagedFile) {
           await revertDeletedFileInStaging({
             repositoryId: repository.repositoryId,
-            filePath,
+            filePath: deletedStagedFile.filePath,
             branch,
           });
         } else if (comparedDeletedFile) {
@@ -1464,9 +1463,14 @@ function FileViewInner({
           throw new Error("Deleted file is not available to restore.");
         }
 
-        if (selectedFile === filePath) {
-          navigateByHref(buildRepositoryFileUrl(filePath, { reviewMode: "editor" }), {
+        if (selectedFile === filePath || selectedFile === restoredFilePath) {
+          await router.navigate({
+            href: buildRepositoryFileUrl(restoredFilePath, {
+              reviewMode: "editor",
+              compare: false,
+            }),
             replace: true,
+            state: true,
           });
         }
       } catch (error) {
@@ -1482,10 +1486,10 @@ function FileViewInner({
       branch,
       branchComparePreview,
       buildRepositoryFileUrl,
-      navigateByHref,
       githubRepositoryFullName,
       restoreComparedDeletedFileToStaging,
       revertDeletedFileInStaging,
+      router,
       selectedFile,
       stagedFiles,
       repository.repositoryId,
@@ -1787,6 +1791,15 @@ function FileViewInner({
     ? (selectedComparedFile ?? selectedCommitPreviewFile)
     : selectedCommitPreviewFile;
   const selectedPreviewStagedFile = stagedFile ?? null;
+  const selectedMediaContentKey = stagedFile
+    ? JSON.stringify([
+        stagedFile._id,
+        stagedFile.version,
+        stagedFile.fileDeleted,
+        stagedFile.stagedBlobSha,
+        stagedFile.storageId,
+      ])
+    : (repository.treeData.tree.find((entry) => entry.path === selectedFile)?.sha ?? null);
   const sidebarSelectedFile = selectedFile;
   // Compare-only text files do not have staging rows, so their merge view has
   // to come from the preview payload instead of repositoryStagedFiles.
@@ -1833,6 +1846,8 @@ function FileViewInner({
     showInlinePreviewPatch,
     showInlinePreviewSideBySide,
   } = useFileViewInlinePreview({
+    repositoryId: repository.repositoryId,
+    branch,
     commitReviewMode,
     selectedFile,
     selectedPreviewBaseContent,
@@ -2086,7 +2101,7 @@ function FileViewInner({
    * the user to the first compared file so compare mode always shows real data.
    */
   useEffect(() => {
-    if (!isCompareRequested || !branchComparePreview) {
+    if (!isCompareRequested || !branchComparePreview || restoringDeletedFilePath !== null) {
       return;
     }
 
@@ -2112,6 +2127,7 @@ function FileViewInner({
     buildRepositoryFileUrl,
     isCompareRequested,
     navigateByHref,
+    restoringDeletedFilePath,
     selectedFile,
   ]);
 
@@ -2447,6 +2463,7 @@ function FileViewInner({
                                     selectedRebaseConflictFile.path
                                   }
                                   branch={branch}
+                                  contentKey={selectedRebaseConflictFile.upstreamBlobSha}
                                   skipStaging={true}
                                 />
                               </div>
@@ -2567,6 +2584,7 @@ function FileViewInner({
                             githubRepositoryFullName={githubRepositoryFullName}
                             filePath={selectedFile}
                             branch={branch}
+                            contentKey={selectedMediaContentKey}
                           />
                         ) : null}
                       </div>
@@ -2583,6 +2601,7 @@ function FileViewInner({
             githubRepositoryFullName={githubRepositoryFullName}
             filePath={selectedFile}
             branch={branch}
+            contentKey={selectedMediaContentKey}
           />
         ) : stagedFile && !stagedFile.fileDeleted ? (
           <CodeEditorWrapper

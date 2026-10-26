@@ -2,13 +2,13 @@ import { defineSchema } from "convex/server";
 
 import { accountDeletionTables } from "./accountDeletion/model";
 import { githubAppSetupTables } from "./githubAppSetupModel";
+import { githubBackoffTables } from "./githubBackoffModel";
 import { githubUserAuthorizationTables } from "./githubUserAuthorizationModel";
 import { identityTables } from "./identity/model";
 import { mcpTables } from "./mcp/model";
 import { organizationTables } from "./organization/model";
 import { organizationInvitationTables } from "./organization/invitationModel";
 import { organizationProviderCredentialTables } from "./organization/providerCredentialModel";
-import { repositoryBranchTables } from "./repository/branchModel";
 import { repositoryConfirmationTables } from "./repository/confirmationModel";
 import { repositoryConvexSchemaGraphTables } from "./repository/convexSchemaGraphModel";
 import { repositoryDashboardTables } from "./repository/dashboardModel";
@@ -25,6 +25,7 @@ export default defineSchema({
   ...organizationTables,
   ...organizationInvitationTables,
   ...githubAppSetupTables,
+  ...githubBackoffTables,
   ...githubUserAuthorizationTables,
   ...accountDeletionTables,
   ...organizationProviderCredentialTables,
@@ -34,7 +35,6 @@ export default defineSchema({
   ...repositoryOrganizationTreeTables,
   ...repositoryTables,
   ...repositoryConfirmationTables,
-  ...repositoryBranchTables,
   ...repositoryConvexSchemaGraphTables,
   ...repositoryProvisioningTables,
   ...repositoryDeletionTables,

@@ -90,7 +90,7 @@ its run read by id, until one belongs to a finished run on the live default bran
 (readSetupOutputSource); then that one archive, whose state must match how its run ended.
 */
 async function readLatestSetupOutput(
-  ctx: Pick<ActionCtx, "runQuery">,
+  ctx: Pick<ActionCtx, "runQuery" | "runMutation">,
   args: { userId: Id<"users">; repositoryId: Id<"repositories"> },
 ): Promise<SetupOutputRead> {
   const [context, githubAccess] = await Promise.all([

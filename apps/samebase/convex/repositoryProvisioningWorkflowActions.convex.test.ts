@@ -224,10 +224,12 @@ beforeEach(() => {
   githubMocks.getBranch.mockResolvedValue({ data: { name: "master" } });
   githubMocks.createStarterSeedClient.mockReturnValue({});
   githubMocks.createUserOctokit.mockReturnValue({
+    hook: { wrap: vi.fn() },
     rest: { repos: { createForAuthenticatedUser: githubMocks.createUserRepository } },
   });
   githubMocks.seedRepository.mockResolvedValue(undefined);
   githubMocks.createRepositoryOctokit.mockResolvedValue({
+    hook: { wrap: vi.fn() },
     request: githubMocks.listRepositories,
     rest: {
       repos: {

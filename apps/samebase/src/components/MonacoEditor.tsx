@@ -1,76 +1,26 @@
-import { useRef, useEffect, useState, useCallback } from "react";
-import { useConvex, type ConvexReactClient } from "convex/react";
+import { useRef, useEffect } from "react";
 import { createClientOnlyFn } from "@tanstack/react-start";
 import type { OnMount, Monaco } from "@monaco-editor/react";
-import { ChangeSet, EditorState } from "@codemirror/state";
-import {
-  collab,
-  getSyncedVersion,
-  sendableUpdates,
-  receiveUpdates,
-  Update,
-} from "@codemirror/collab";
+import { useMonacoCollaboration } from "@samebase/git-editor/monaco";
 import { api } from "../../convex/_generated/api";
-import { Id } from "../../convex/_generated/dataModel";
-import { type GitHubTree } from "../../convex/repository/model";
-import { useCacheQuery as useQuery } from "@/lib/convexQueryCache";
+import type { Id } from "../../convex/_generated/dataModel";
+import type { GitHubTree } from "@samebase/git-editor/model";
 import { parseTsConfig, applyTsConfigToMonaco } from "./monaco/setupEditor";
 import { useProjectFiles, type ProjectFile } from "@/repository/editor/useProjectFiles";
 import { buildMonacoAppliedCacheKey } from "@/repository/editor/editorCacheKeys";
 import { buildMonacoFileUri } from "@/lib/monacoFileUri";
 import { MonacoEditorSurface } from "@/components/MonacoEditorSurface";
 import { registerPageLeaveGuard } from "@/lib/pageLeaveGuard";
-import { flushCollaborativeUpdates } from "@/lib/collaborativeUpdates";
 
-// ---------------------------------------------------------------------------
-// Collab helpers (shared logic with CodeEditor.tsx)
-// ---------------------------------------------------------------------------
-
-const PUSH_DELAY = 500;
+const collaborationApi = {
+  pullUpdates: api.collaborative.pullUpdates,
+  pushUpdates: api.collaborative.pushUpdates,
+};
 
 // Type acquisition runs the TypeScript compiler in the browser. The server render never mounts an
 // editor, and the compiler's CommonJS requires of Node modules cannot load in a Convex HTTP action,
 // so the server build leaves the module out.
 const loadEditorATA = createClientOnlyFn(() => import("./monaco/ata"));
-
-function awaitTimeout(timeout: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, timeout));
-}
-
-async function pushUpdatesToServer({
-  client,
-  version,
-  githubRepositoryFullName,
-  branch,
-  filePath,
-  fullUpdates,
-}: {
-  client: ConvexReactClient;
-  version: number;
-  githubRepositoryFullName: string;
-  branch: string;
-  filePath: string;
-  fullUpdates: readonly Update[];
-}): Promise<boolean> {
-  await awaitTimeout(PUSH_DELAY);
-  const updates = fullUpdates.map((u) => ({
-    clientId: u.clientID,
-    changes: JSON.stringify(u.changes.toJSON()),
-  }));
-  return client
-    .mutation(api.collaborative.pushUpdates, {
-      githubRepositoryFullName,
-      branch,
-      filePath,
-      version,
-      updates,
-    })
-    .then((result) => result.success);
-}
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
 
 const TS_EXTENSIONS = new Set(["ts", "tsx"]);
 
@@ -78,11 +28,6 @@ function isTypeScriptPath(path: string): boolean {
   const ext = path.split(".").pop()?.toLowerCase();
   return !!ext && TS_EXTENSIONS.has(ext);
 }
-
-/** Detect Monaco language from file extension (for createModel). */
-// ---------------------------------------------------------------------------
-// Project file type context
-// ---------------------------------------------------------------------------
 
 // Track which files we've already added as extra libs (survives remounts)
 const addedExtraLibs = new Set<string>();
@@ -133,12 +78,6 @@ function applyTsConfigFromProject(monaco: Monaco, projectFiles: ProjectFile[]) {
 // Track whether we already applied tsconfig + models for a cache key
 const appliedCacheKeys = new Set<string>();
 
-// ---------------------------------------------------------------------------
-// MonacoEditor component
-// ---------------------------------------------------------------------------
-
-type MonacoEditorInstance = Parameters<OnMount>[0];
-
 export function MonacoEditor({
   firstDoc,
   githubRepositoryFullName,
@@ -158,8 +97,6 @@ export function MonacoEditor({
   treeSHA: string;
   showMobileLineNumbers?: boolean;
 }) {
-  const client = useConvex();
-  // ---- Project files for import resolution ----
   const { files: projectFiles, scopePrefix } = useProjectFiles(
     repositoryId,
     branch,
@@ -167,185 +104,18 @@ export function MonacoEditor({
     treeSHA,
     filePath,
   );
+  const { onMount: mountCollaboration, syncError } = useMonacoCollaboration({
+    api: collaborationApi,
+    firstDoc,
+    githubRepositoryFullName,
+    branch,
+    filePath,
+    registerPageLeaveGuard,
+  });
 
-  // Store Monaco instance for use in effects
   // eslint-disable-next-line @typescript-eslint/no-redundant-type-constituents -- Monaco resolves to any from library types
   const monacoRef = useRef<Monaco | null>(null);
 
-  // ---- Headless CodeMirror state for OT collab ----
-  const cmStateRef = useRef(
-    EditorState.create({
-      doc: firstDoc.content,
-      extensions: [
-        collab({ startVersion: firstDoc.version }),
-        // The server splits staged content on "\n" only, and Monaco offsets
-        // count "\r\n" as two characters, so "\r" stays line content here.
-        EditorState.lineSeparator.of("\n"),
-      ],
-    }),
-  );
-
-  // Monaco editor instance (set on mount)
-  const editorRef = useRef<MonacoEditorInstance | null>(null);
-  // A pulled batch that lands before Monaco mounts must be applied on mount;
-  // the batch itself does not change again to rerun the effect.
-  const [isEditorMounted, setIsEditorMounted] = useState(false);
-
-  // Suppression flag: true while we are programmatically applying remote
-  // changes to Monaco so the onDidChangeModelContent handler ignores them.
-  const isApplyingRemoteRef = useRef(false);
-
-  // Guard against concurrent pushes
-  const pushingRef = useRef(false);
-  const releasePageLeaveGuardRef = useRef<(() => void) | null>(null);
-  // Push retries outlive unmount; after it the final flush owns the remaining edits.
-  const isMountedRef = useRef(false);
-
-  // Collab version – drives the pullUpdates subscription
-  const [version, setVersion] = useState(firstDoc.version);
-  const [syncError, setSyncError] = useState<string | null>(null);
-
-  const syncPageLeaveGuard = useCallback(() => {
-    const hasLocalUpdates = sendableUpdates(cmStateRef.current).length > 0;
-
-    if (hasLocalUpdates && releasePageLeaveGuardRef.current === null) {
-      releasePageLeaveGuardRef.current = registerPageLeaveGuard(
-        `Unsynced editor changes in ${filePath}`,
-      );
-      return;
-    }
-
-    if (!hasLocalUpdates && releasePageLeaveGuardRef.current !== null) {
-      releasePageLeaveGuardRef.current();
-      releasePageLeaveGuardRef.current = null;
-    }
-  }, [filePath]);
-
-  // Unmount stops the retry that sends edits typed during an in-flight push, so
-  // flush them here and keep the page-leave guard until that flush settles.
-  useEffect(() => {
-    isMountedRef.current = true;
-    return () => {
-      isMountedRef.current = false;
-      const releasePageLeaveGuard = releasePageLeaveGuardRef.current;
-      releasePageLeaveGuardRef.current = null;
-      void flushCollaborativeUpdates({
-        client,
-        state: cmStateRef.current,
-        githubRepositoryFullName,
-        branch,
-        filePath,
-      }).then(() => releasePageLeaveGuard?.());
-    };
-  }, [client, githubRepositoryFullName, branch, filePath]);
-
-  // ---- Pull remote updates via Convex real-time query ----
-  const remoteUpdates = useQuery(
-    api.collaborative.pullUpdates,
-    { githubRepositoryFullName, branch, filePath, version },
-    { dontCache: true },
-  );
-
-  // ---- Push local changes to server ----
-  const pushToServer = useCallback(async () => {
-    const state = cmStateRef.current;
-    const pending = sendableUpdates(state);
-    if (!isMountedRef.current || pushingRef.current || !pending.length) return;
-
-    pushingRef.current = true;
-    const ver = getSyncedVersion(state);
-    setVersion(ver);
-
-    let retryDelayMs = 100;
-    try {
-      const success = await pushUpdatesToServer({
-        client,
-        version: ver,
-        githubRepositoryFullName,
-        branch,
-        filePath,
-        fullUpdates: pending,
-      });
-
-      if (success) {
-        setSyncError(null);
-      } else {
-        retryDelayMs = 200;
-        setSyncError("Syncing latest remote changes...");
-      }
-    } catch (error) {
-      retryDelayMs = 1000;
-      const message =
-        error instanceof Error && error.message.length > 0
-          ? error.message
-          : "Failed to sync edits. Retrying...";
-      setSyncError(message);
-      console.error("Failed to push collaborative Monaco updates:", error);
-    } finally {
-      pushingRef.current = false;
-    }
-
-    // Retry if more updates accumulated while we were pushing
-    if (sendableUpdates(cmStateRef.current).length) {
-      setTimeout(() => void pushToServer(), retryDelayMs);
-    }
-  }, [client, githubRepositoryFullName, branch, filePath]);
-
-  // ---- Apply incoming remote updates ----
-  useEffect(() => {
-    if (!remoteUpdates?.length || !editorRef.current) return;
-
-    const cmUpdates: Update[] = remoteUpdates.map((u: (typeof remoteUpdates)[number]) => ({
-      changes: ChangeSet.fromJSON(JSON.parse(u.changes)),
-      clientID: u.clientID,
-    }));
-
-    // Apply to headless CM (handles OT rebasing of any unconfirmed local edits)
-    const spec = receiveUpdates(cmStateRef.current, cmUpdates);
-    const tr = cmStateRef.current.update(spec);
-
-    // Mirror the diff into Monaco
-    const model = editorRef.current.getModel();
-    if (model && !tr.changes.empty) {
-      isApplyingRemoteRef.current = true;
-
-      const edits: Array<{
-        range: {
-          startLineNumber: number;
-          startColumn: number;
-          endLineNumber: number;
-          endColumn: number;
-        };
-        text: string;
-      }> = [];
-
-      tr.changes.iterChanges((fromA, toA, _fromB, _toB, inserted) => {
-        const startPos = model.getPositionAt(fromA);
-        const endPos = model.getPositionAt(toA);
-        edits.push({
-          range: {
-            startLineNumber: startPos.lineNumber,
-            startColumn: startPos.column,
-            endLineNumber: endPos.lineNumber,
-            endColumn: endPos.column,
-          },
-          text: inserted.toString(),
-        });
-      });
-
-      if (edits.length) {
-        model.applyEdits(edits);
-      }
-
-      isApplyingRemoteRef.current = false;
-    }
-
-    cmStateRef.current = tr.state;
-    setVersion(getSyncedVersion(tr.state));
-    syncPageLeaveGuard();
-  }, [remoteUpdates, syncPageLeaveGuard, isEditorMounted]);
-
-  // ---- Sync project files into Monaco models ----
   useEffect(() => {
     if (!monacoRef.current || projectFiles.length === 0) return;
 
@@ -367,14 +137,7 @@ export function MonacoEditor({
     applyTsConfigFromProject(monacoRef.current, projectFiles);
   }, [projectFiles, repositoryId, branch, treeSHA, scopePrefix]);
 
-  useEffect(() => {
-    setSyncError(null);
-  }, [githubRepositoryFullName, filePath]);
-
-  // ---- Monaco mount handler ----
   const handleMount: OnMount = (editor, monaco) => {
-    editorRef.current = editor;
-    setIsEditorMounted(true);
     monacoRef.current = monaco;
 
     // If project files are already loaded (cache hit), sync immediately
@@ -401,23 +164,7 @@ export function MonacoEditor({
     if (isTypeScriptPath(filePath)) {
       void loadEditorATA().then(({ setupEditorATA }) => setupEditorATA(editor, monaco));
     }
-
-    // Bridge local Monaco edits → headless CM → Convex
-    editor.onDidChangeModelContent((e) => {
-      if (isApplyingRemoteRef.current) return;
-
-      const changes = e.changes.map((c) => ({
-        from: c.rangeOffset,
-        to: c.rangeOffset + c.rangeLength,
-        insert: c.text,
-      }));
-
-      const tr = cmStateRef.current.update({ changes });
-      cmStateRef.current = tr.state;
-      syncPageLeaveGuard();
-
-      void pushToServer();
-    });
+    mountCollaboration(editor, monaco);
   };
 
   return (

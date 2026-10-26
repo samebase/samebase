@@ -13,7 +13,7 @@ import {
   resolveRepositoryDeletionEligibility,
 } from "./deletion/eligibility";
 import { isRepositoryDeletingOrDeleteFailed } from "./deletion/state";
-import { hasStagedFileChanges } from "../../shared/stagedFiles";
+import { components } from "../_generated/api";
 import { vRepositoryResourceLinksState } from "./dashboardModel";
 import type { RepositoryProvisioningRunStep } from "./provisioningModel";
 import { isSamebaseProvisioningPlan, readRepositoryProvisioningMode } from "./provisioningPlan";
@@ -473,12 +473,10 @@ export const listRepositoryFolderSuggestions = query({
       return [];
     }
 
-    const defaultBranchTree = await ctx.db
-      .query("observations_repository_branchTrees")
-      .withIndex("by_repository_and_branch", (q) =>
-        q.eq("repositoryId", args.repositoryId).eq("branch", repository.defaultBranch),
-      )
-      .first();
+    const defaultBranchTree = await ctx.runQuery(components.gitEditor.branches.get, {
+      repositoryId: args.repositoryId,
+      branch: repository.defaultBranch,
+    });
     if (!defaultBranchTree) {
       return [];
     }
@@ -645,7 +643,7 @@ function groupRepositoryRows<Row extends { repositoryId: Id<"repositories"> }>(
 
 /** The repository list that `repository:list` and `repository:listForUser` return. */
 export async function readOrganizationRepositories(
-  ctx: Pick<QueryCtx, "db">,
+  ctx: Pick<QueryCtx, "db" | "runQuery">,
   organizationIds: Id<"organizations">[],
 ): Promise<UserRepositoriesResult> {
   const organizationRows = await Promise.all(
@@ -829,15 +827,10 @@ export async function readOrganizationRepositories(
         };
       }
 
-      const stagingData = await ctx.db
-        .query("repositoryStagedFiles")
-        .withIndex("by_repository", (q) => q.eq("repositoryId", repository._id))
-        .collect();
-
-      const fileCount = stagingData.filter(hasStagedFileChanges).length;
-
-      const lastEditTime =
-        stagingData.length > 0 ? Math.max(...stagingData.map((s) => s.lastEditTime)) : undefined;
+      const { fileCount, lastEditTime } = await ctx.runQuery(
+        components.gitEditor.staging.getRepositorySummary,
+        { repositoryId: repository._id },
+      );
 
       const githubRepositoryFullName = `${githubOwnerLogin}/${repository.githubRepositoryName}`;
       const sourceSetup = await resolveSourceSetupSummary(ctx, repository, providerPlan);

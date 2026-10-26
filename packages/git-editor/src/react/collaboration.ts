@@ -1,7 +1,63 @@
 import { ChangeSet, type EditorState } from "@codemirror/state";
-import { getSyncedVersion, receiveUpdates, sendableUpdates } from "@codemirror/collab";
+import { getSyncedVersion, receiveUpdates, sendableUpdates, type Update } from "@codemirror/collab";
 import type { ConvexReactClient } from "convex/react";
-import { api } from "../../convex/_generated/api";
+import type { FunctionReference } from "convex/server";
+
+export type CollaborationScope = {
+  githubRepositoryFullName: string;
+  branch: string;
+  filePath: string;
+};
+
+export type CollaborationApi = {
+  pullUpdates: FunctionReference<
+    "query",
+    "public",
+    CollaborationScope & { version: number },
+    Array<{ clientID: string; changes: string }>
+  >;
+  pushUpdates: FunctionReference<
+    "mutation",
+    "public",
+    CollaborationScope & {
+      version: number;
+      updates: Array<{ clientId: string; changes: string }>;
+    },
+    { success: boolean; newVersion: number }
+  >;
+};
+
+export type RegisterPageLeaveGuard = (reason: string) => () => void;
+
+const PUSH_DELAY_MS = 500;
+
+export async function pushCollaborativeUpdates({
+  client,
+  api,
+  version,
+  githubRepositoryFullName,
+  branch,
+  filePath,
+  fullUpdates,
+}: CollaborationScope & {
+  client: ConvexReactClient;
+  api: CollaborationApi;
+  version: number;
+  fullUpdates: readonly Update[];
+}): Promise<boolean> {
+  await new Promise((resolve) => setTimeout(resolve, PUSH_DELAY_MS));
+  const result = await client.mutation(api.pushUpdates, {
+    githubRepositoryFullName,
+    branch,
+    filePath,
+    version,
+    updates: fullUpdates.map((update) => ({
+      clientId: update.clientID,
+      changes: JSON.stringify(update.changes.toJSON()),
+    })),
+  });
+  return result.success;
+}
 
 /** Enough to absorb the unmounted editor's own in-flight push plus one concurrent remote edit. */
 const FINAL_FLUSH_ATTEMPTS = 3;
@@ -14,23 +70,22 @@ rejects any push that races the editor's own in-flight push.
 */
 export async function flushCollaborativeUpdates({
   client,
+  api,
   state,
   githubRepositoryFullName,
   branch,
   filePath,
-}: {
+}: CollaborationScope & {
   client: ConvexReactClient;
+  api: CollaborationApi;
   state: EditorState;
-  githubRepositoryFullName: string;
-  branch: string;
-  filePath: string;
 }): Promise<void> {
   let current = state;
   try {
     for (let attempt = 0; attempt < FINAL_FLUSH_ATTEMPTS; attempt++) {
       if (!sendableUpdates(current).length) return;
 
-      const remoteUpdates = await client.query(api.collaborative.pullUpdates, {
+      const remoteUpdates = await client.query(api.pullUpdates, {
         githubRepositoryFullName,
         branch,
         filePath,
@@ -47,7 +102,7 @@ export async function flushCollaborativeUpdates({
       const pending = sendableUpdates(current);
       if (!pending.length) return;
 
-      const { success } = await client.mutation(api.collaborative.pushUpdates, {
+      const { success } = await client.mutation(api.pushUpdates, {
         githubRepositoryFullName,
         branch,
         filePath,

@@ -8,9 +8,7 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import type { Id } from "../../convex/_generated/dataModel";
 import { MonacoEditor } from "./MonacoEditor";
 
-type ContentChangeListener = (event: {
-  changes: Array<{ rangeOffset: number; rangeLength: number; text: string }>;
-}) => void;
+type ContentChangeListener = (event: { changes: ModelEdit[] }) => void;
 
 type PulledUpdate = { clientID: string; changes: string; version: number; userId: string };
 
@@ -29,13 +27,15 @@ const testState = vi.hoisted(() => ({
 vi.mock("convex/react", async (importOriginal) => {
   const actual = await importOriginal<typeof import("convex/react")>();
   const client = { mutation: testState.mutation, query: testState.query };
-  return { ...actual, useConvex: () => client };
+  return {
+    ...actual,
+    useConvex: () => client,
+    useQuery_experimental: ({ args }: { args: { version: number } }) => {
+      const data = testState.pulledUpdatesByVersion.get(args.version);
+      return data === undefined ? { status: "pending" } : { status: "success", data };
+    },
+  };
 });
-
-vi.mock("@/lib/convexQueryCache", () => ({
-  useCacheQuery: (_reference: unknown, args: { version: number }) =>
-    testState.pulledUpdatesByVersion.get(args.version),
-}));
 
 vi.mock("@/repository/editor/useProjectFiles", () => ({
   useProjectFiles: () => ({ files: [], scopePrefix: "" }),
@@ -66,10 +66,11 @@ vi.mock("@/components/MonacoEditorSurface", () => ({
 type PushArgs = { version: number; updates: Array<{ clientId: string; changes: string }> };
 
 function createCollaborativeServer(content: string) {
-  let doc = Text.of(content.split("\n"));
+  const lineSeparator = content.includes("\r\n") ? "\r\n" : "\n";
+  let doc = Text.of(content.split(/\r\n?|\n/));
   const updates: PulledUpdate[] = [];
   return {
-    content: () => doc.toString(),
+    content: () => doc.sliceString(0, doc.length, lineSeparator),
     pushUpdates: (args: PushArgs) => {
       if (args.version !== updates.length) {
         return { success: false, newVersion: updates.length };
@@ -118,9 +119,22 @@ function createFakeMonacoEditor() {
       listeners.length = 0;
     },
     typeAt: (rangeOffset: number, text: string) => {
+      const position = model.getPositionAt(rangeOffset);
       value = value.slice(0, rangeOffset) + text + value.slice(rangeOffset);
       for (const listener of listeners) {
-        listener({ changes: [{ rangeOffset, rangeLength: 0, text }] });
+        listener({
+          changes: [
+            {
+              range: {
+                startLineNumber: position.lineNumber,
+                startColumn: position.column,
+                endLineNumber: position.lineNumber,
+                endColumn: position.column,
+              },
+              text,
+            },
+          ],
+        });
       }
     },
     editor: {

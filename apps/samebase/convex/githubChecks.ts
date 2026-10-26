@@ -3,7 +3,7 @@
 import { Infer, v } from "convex/values";
 import { internal } from "./_generated/api";
 import { action } from "./functions";
-import { describeRepositoryTreeRefreshFailure } from "./github";
+import { readCommitChecks } from "@samebase/git-editor/checks";
 import { resolveGitHubAppAccess } from "./githubAppAccess";
 import { isRecord } from "./jsonUtils";
 
@@ -38,15 +38,8 @@ const commitStatusRateLimitedResultValidator = object({
   retryAfterMs: union(number(), v.null()),
 });
 
-const commitStatusCooldownResultValidator = object({
-  kind: literal("cooldown"),
-  message: string(),
-  cooldownUntilMs: number(),
-});
-
 const commitStatusResultValidator = union(
   commitStatusOkResultValidator,
-  commitStatusCooldownResultValidator,
   commitStatusRateLimitedResultValidator,
 );
 
@@ -55,24 +48,7 @@ type HeaderMap = Record<string, HeaderValue>;
 
 type CommitStatusResult = Infer<typeof commitStatusResultValidator>;
 type CommitStatusOkResult = Infer<typeof commitStatusOkResultValidator>;
-type CommitStatusCooldownResult = Infer<typeof commitStatusCooldownResultValidator>;
 type CommitStatusRateLimitedResult = Infer<typeof commitStatusRateLimitedResultValidator>;
-
-function readSharedCooldownMessage(repository: {
-  treeRefreshFailureKind?: "failed" | "rate_limited";
-  treeRefreshFailureMessage?: string;
-}): string {
-  if (
-    typeof repository.treeRefreshFailureMessage === "string" &&
-    repository.treeRefreshFailureMessage.length > 0
-  ) {
-    return repository.treeRefreshFailureMessage;
-  }
-
-  return repository.treeRefreshFailureKind === "rate_limited"
-    ? "GitHub API rate limited. Auto-refresh paused."
-    : "GitHub sync failed. Showing cached state.";
-}
 
 function toHeaderMap(value: unknown): HeaderMap | null {
   if (!isRecord(value)) {
@@ -174,7 +150,7 @@ function isRateLimitError(
   }
 
   const remaining = getHeaderValue(headers, "x-ratelimit-remaining");
-  if (remaining === "0") {
+  if (remaining === "0" || getHeaderValue(headers, "retry-after") !== null) {
     return true;
   }
 
@@ -197,18 +173,6 @@ export const getCommitStatus = action({
     if (!repository) {
       throw new Error("Repository not found");
     }
-    if (
-      typeof repository.treeRefreshCooldownUntil === "number" &&
-      repository.treeRefreshCooldownUntil > Date.now()
-    ) {
-      const cooldownResult: CommitStatusCooldownResult = {
-        kind: "cooldown",
-        message: readSharedCooldownMessage(repository),
-        cooldownUntilMs: repository.treeRefreshCooldownUntil,
-      };
-      return cooldownResult;
-    }
-
     const githubAccess = await resolveGitHubAppAccess(ctx, {
       userId: ctx.viewer.userId,
       target: { kind: "repository", repositoryId: repository.repositoryId },
@@ -216,29 +180,18 @@ export const getCommitStatus = action({
     const octokit = githubAccess.octokit;
 
     try {
-      const [checksResponse, combinedStatusResponse] = await Promise.all([
-        octokit.checks.listForRef({
-          owner,
-          repo,
-          ref,
-        }),
-        octokit.repos.getCombinedStatusForRef({
-          owner,
-          repo,
-          ref,
-        }),
-      ]);
+      const checks = await readCommitChecks({ octokit, owner, repo, ref });
 
       const okResult: CommitStatusOkResult = {
         kind: "ok",
-        check_runs: checksResponse.data.check_runs.map((run) => ({
+        check_runs: checks.check_runs.map((run) => ({
           id: run.id,
           name: run.name,
           status: run.status,
           conclusion: run.conclusion ?? null,
           html_url: run.html_url ?? "",
         })),
-        statuses: combinedStatusResponse.data.statuses.map((status) => ({
+        statuses: checks.statuses.map((status) => ({
           id: status.id,
           state: status.state,
           context: status.context,
@@ -256,20 +209,12 @@ export const getCommitStatus = action({
         throw error;
       }
 
-      const failure = describeRepositoryTreeRefreshFailure(error);
-      await ctx.runMutation(internal.repository.branches.recordTreeRefreshFailure, {
-        repositoryId: repository.repositoryId,
-        failureKind: failure.kind,
-        failureMessage: failure.message,
-        cooldownUntil: failure.cooldownUntil,
-      });
-
       const resetAtSeconds = parsePositiveInteger(getHeaderValue(headers, "x-ratelimit-reset"));
       const retryAfterSeconds = parsePositiveInteger(getHeaderValue(headers, "retry-after"));
 
       const rateLimitedResult: CommitStatusRateLimitedResult = {
         kind: "rate_limited",
-        message: failure.message,
+        message,
         resetAtMs: resetAtSeconds === null ? null : resetAtSeconds * 1000,
         retryAfterMs: retryAfterSeconds === null ? null : retryAfterSeconds * 1000,
       };

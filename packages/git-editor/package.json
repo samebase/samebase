@@ -1,0 +1,67 @@
+{
+  "name": "@samebase/git-editor",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Collaborative GitHub file editing for Convex and React.",
+  "files": [
+    "src"
+  ],
+  "type": "module",
+  "exports": {
+    "./convex.config": "./src/component/convex.config.ts",
+    "./_generated/component.js": "./src/component/_generated/component.ts",
+    "./model": "./src/model.ts",
+    "./treeRefresh": "./src/treeRefresh.ts",
+    "./repositoryRefresh": "./src/repositoryRefresh.ts",
+    "./stagingChanges": "./src/stagingChanges.ts",
+    "./stagingRebase": "./src/stagingRebase.ts",
+    "./stagingErrors": "./src/stagingErrors.ts",
+    "./github": "./src/github.ts",
+    "./reads": "./src/reads.ts",
+    "./pullRequests": "./src/pullRequests.ts",
+    "./checks": "./src/checks.ts",
+    "./operations": "./src/operations.ts",
+    "./operationsContext": "./src/operationsContext.ts",
+    "./previews": "./src/previews.ts",
+    "./fileContent": "./src/fileContent.ts",
+    "./repositoryMedia": "./src/repositoryMedia.ts",
+    "./codemirror": "./src/codemirror/useCodeMirrorCollaboration.ts",
+    "./monaco": "./src/monaco/useMonacoCollaboration.ts",
+    "./test": "./src/test.ts"
+  },
+  "scripts": {
+    "codegen": "pnpm --dir ../../apps/samebase exec convex codegen --component-dir ../../packages/git-editor/src/component",
+    "typecheck": "pnpm --dir ../.. exec tsgo -p packages/git-editor/tsconfig.json --pretty false",
+    "lint": "pnpm --dir ../.. exec vp lint --tsconfig packages/git-editor/tsconfig.json --report-unused-disable-directives packages/git-editor/src",
+    "test": "pnpm --dir ../.. exec vp test run --project unit packages/git-editor/src",
+    "check": "pnpm run typecheck && pnpm run lint && pnpm run test"
+  },
+  "dependencies": {
+    "@octokit/rest": "^22.0.1",
+    "@samebase/dependent": "workspace:*",
+    "diff": "^9.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.2",
+    "@types/react": "^19.3.0",
+    "convex-test": "^0.0.61",
+    "vite": "catalog:",
+    "vite-plus": "catalog:"
+  },
+  "peerDependencies": {
+    "@codemirror/collab": "^6.1.1",
+    "@codemirror/state": "^6.7.6",
+    "@codemirror/view": "^6.43.14",
+    "@monaco-editor/react": "^4.7.0",
+    "convex": "^1.48.0",
+    "react": "^19.3.0"
+  },
+  "peerDependenciesMeta": {
+    "@monaco-editor/react": {
+      "optional": true
+    }
+  },
+  "engines": {
+    "node": ">=24.11.0"
+  }
+}

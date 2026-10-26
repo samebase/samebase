@@ -97,18 +97,14 @@ async function seedRunningDeletion() {
       cloudflareAccountId: "cloudflare-account",
       deletion: { state: "not_deleting" },
     });
-    const stagedFileId = await ctx.db.insert("repositoryStagedFiles", {
+    await ctx.runMutation(components.gitEditor.staging.saveToStaging, {
       repositoryId,
-      fileDeleted: false,
-      filePath: "README.md",
       initialFilePath: "README.md",
       content: "shared edit",
       initialContent: "",
       parentCommitSha: null,
-      lastEditTime: 1,
-      lastEditUserId: deletingUserId,
+      userId: deletingUserId,
       branch: "main",
-      version: 1,
     });
     const organizationProviderCredentialsId = await ctx.db.insert(
       "organizationProviderCredentials",
@@ -211,7 +207,6 @@ async function seedRunningDeletion() {
       organizationBillingId,
       runId,
       repositoryId,
-      stagedFileId,
       organizationProviderCredentialsId,
       organizationTreeSettingId,
       teammateProviderCredentialsId,
@@ -702,7 +697,11 @@ describe("account deletion organization boundary", () => {
       organization: await ctx.db.get(ids.organizationId),
       organizationBilling: await ctx.db.get(ids.organizationBillingId),
       repository: await ctx.db.get(ids.repositoryId),
-      stagedFile: await ctx.db.get(ids.stagedFileId),
+      stagedFile: await ctx.runQuery(components.gitEditor.staging.getByNewPath, {
+        repositoryId: ids.repositoryId,
+        branch: "main",
+        newPath: "README.md",
+      }),
       organizationProviderCredentials: await ctx.db.get(ids.organizationProviderCredentialsId),
       teammateProviderCredentials: await ctx.db.get(ids.teammateProviderCredentialsId),
       memberships: await ctx.db
@@ -1180,15 +1179,20 @@ describe("account deletion organization boundary", () => {
       });
     });
 
-    const stagedFile = await t.mutation(internal.fileStaging.saveToStaging, {
+    await t.mutation(internal.collaborative.pushContentUpdate, {
       repositoryId: ids.repositoryId,
-      initialFilePath: "README.md",
-      content: "teammate edit",
-      initialContent: "",
-      parentCommitSha: null,
+      filePath: "README.md",
+      newContent: "teammate edit",
+      expectedVersion: 0,
       branch: "main",
       userId: ids.teammateUserId,
     });
+    const stagedFile = await t.query(components.gitEditor.staging.getByOriginalPath, {
+      repositoryId: ids.repositoryId,
+      originalFilePath: "README.md",
+      branch: "main",
+    });
+    if (!stagedFile) throw new Error("Shared staging disappeared.");
 
     expect(stagedFile.content).toBe("teammate edit");
     expect(stagedFile.lastEditUserId).toBe(ids.teammateUserId);

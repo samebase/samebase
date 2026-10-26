@@ -16,12 +16,12 @@ const testState = vi.hoisted(() => ({
 vi.mock("convex/react", async (importOriginal) => {
   const actual = await importOriginal<typeof import("convex/react")>();
   const client = { mutation: testState.mutation, query: testState.query };
-  return { ...actual, useConvex: () => client };
+  return {
+    ...actual,
+    useConvex: () => client,
+    useQuery_experimental: () => ({ status: "pending" }),
+  };
 });
-
-vi.mock("@/lib/convexQueryCache", () => ({
-  useCacheQuery: () => undefined,
-}));
 
 vi.mock("./MonacoEditor", () => ({
   MonacoEditor: () => null,
@@ -30,10 +30,11 @@ vi.mock("./MonacoEditor", () => ({
 type PushArgs = { version: number; updates: Array<{ clientId: string; changes: string }> };
 
 function createCollaborativeServer(content: string) {
-  let doc = Text.of(content.split("\n"));
+  const lineSeparator = content.includes("\r\n") ? "\r\n" : "\n";
+  let doc = Text.of(content.split(/\r\n?|\n/));
   const updates: Array<{ clientID: string; changes: string; version: number; userId: string }> = [];
   return {
-    content: () => doc.toString(),
+    content: () => doc.sliceString(0, doc.length, lineSeparator),
     pushUpdates: (args: PushArgs) => {
       if (args.version !== updates.length) {
         return { success: false, newVersion: updates.length };
@@ -69,6 +70,47 @@ describe("CodeEditor", () => {
     testState.mutation.mockReset();
     testState.query.mockReset();
     vi.useRealTimers();
+  });
+
+  it("mounts and syncs prose without changing CRLF line endings", async () => {
+    vi.useFakeTimers();
+    const initialContent = "a\r\nb\r\n";
+    const server = createCollaborativeServer(initialContent);
+    testState.mutation.mockImplementation(async (_reference: unknown, args: PushArgs) =>
+      server.pushUpdates(args),
+    );
+    testState.query.mockImplementation(async (_reference: unknown, args: { version: number }) =>
+      server.pullUpdates(args),
+    );
+    const rootElement = document.createElement("div");
+    document.body.append(rootElement);
+    const root = createRoot(rootElement);
+
+    try {
+      await act(async () => {
+        root.render(
+          <CodeEditor
+            firstDoc={{ version: 0, content: initialContent }}
+            githubRepositoryFullName="samebase/samebase"
+            branch="main"
+            filePath="notes.md"
+          />,
+        );
+      });
+      const editorElement = rootElement.querySelector<HTMLElement>(".cm-editor");
+      if (!editorElement) throw new Error("CodeEditor did not mount a CodeMirror view.");
+      const view = EditorView.findFromDOM(editorElement);
+      if (!view) throw new Error("CodeEditor did not mount a CodeMirror view.");
+
+      await act(async () => {
+        typeAtEnd(view, "!");
+        await vi.advanceTimersByTimeAsync(500);
+      });
+      expect(server.content()).toBe(`${initialContent}!`);
+    } finally {
+      await act(async () => root.unmount());
+      rootElement.remove();
+    }
   });
 
   it("sends edits typed during an in-flight push after the editor unmounts", async () => {

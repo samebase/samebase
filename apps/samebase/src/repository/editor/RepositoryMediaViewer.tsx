@@ -86,11 +86,13 @@ export function RepositoryMediaViewer({
   githubRepositoryFullName,
   filePath,
   branch,
+  contentKey,
   skipStaging = false,
 }: {
   githubRepositoryFullName: string;
   filePath: string;
   branch: string;
+  contentKey: string | null;
   skipStaging?: boolean;
 }) {
   const loadMediaAsset = useAction(api.github.getRepositoryMediaAsset);
@@ -105,8 +107,15 @@ export function RepositoryMediaViewer({
   const queryEnabled = Boolean(githubRepositoryFullName && branch && filePath);
   const queryKey = useMemo(
     () =>
-      ["repository-media-asset", githubRepositoryFullName, branch, filePath, skipStaging] as const,
-    [branch, filePath, githubRepositoryFullName, skipStaging],
+      [
+        "repository-media-asset",
+        githubRepositoryFullName,
+        branch,
+        filePath,
+        skipStaging,
+        contentKey,
+      ] as const,
+    [branch, contentKey, filePath, githubRepositoryFullName, skipStaging],
   );
   const queryIdentity = JSON.stringify(queryKey);
   const queryLifecycleRef = useRef<{

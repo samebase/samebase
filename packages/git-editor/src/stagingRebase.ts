@@ -70,10 +70,14 @@ function mergeInsertionOnlyEdits(args: RebaseInput): string | null {
   const upstreamTrailingNewline = args.upstreamContent.endsWith("\n");
   const mergedLines = splitLogicalLines(args.upstreamContent);
   let searchCursor = 0;
+  const contextParts = parts.filter((part) => !part.added).values();
+  let nextContextPart = contextParts.next();
+  let previousContextPartLines: string[] | null = null;
 
-  for (let index = 0; index < parts.length; index++) {
-    const part = parts[index];
+  for (const part of parts) {
     if (!part.added) {
+      previousContextPartLines = splitDiffPartLines(part.value);
+      nextContextPart = contextParts.next();
       continue;
     }
 
@@ -82,27 +86,9 @@ function mergeInsertionOnlyEdits(args: RebaseInput): string | null {
       continue;
     }
 
-    const previousContextPartLines = (() => {
-      for (let previousIndex = index - 1; previousIndex >= 0; previousIndex--) {
-        const previousPart = parts[previousIndex];
-        if (previousPart.added) {
-          continue;
-        }
-        return splitDiffPartLines(previousPart.value);
-      }
-      return null;
-    })();
-
-    const nextContextPartLines = (() => {
-      for (let nextIndex = index + 1; nextIndex < parts.length; nextIndex++) {
-        const nextPart = parts[nextIndex];
-        if (nextPart.added) {
-          continue;
-        }
-        return splitDiffPartLines(nextPart.value);
-      }
-      return null;
-    })();
+    const nextContextPartLines = nextContextPart.done
+      ? null
+      : splitDiffPartLines(nextContextPart.value.value);
 
     const previousContextLines =
       previousContextPartLines === null

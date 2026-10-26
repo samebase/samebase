@@ -150,7 +150,7 @@ async function readProviderAttachmentRepositoryContext(
 }
 
 export async function discoverConvexCodeLocations(
-  ctx: Pick<ActionCtx, "runQuery">,
+  ctx: Pick<ActionCtx, "runQuery" | "runMutation">,
   args: { repositoryId: Id<"repositories">; userId: Id<"users"> },
 ): Promise<{
   context: ProviderAttachmentRepositoryContext;

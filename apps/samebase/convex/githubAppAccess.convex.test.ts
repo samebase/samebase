@@ -8,6 +8,7 @@ const githubMocks = vi.hoisted(() => ({
 vi.mock("@octokit/rest", () => ({
   Octokit: class {
     readonly request = githubMocks.request;
+    readonly hook = { wrap: vi.fn() };
   },
 }));
 
@@ -26,7 +27,10 @@ type ConvexTest = ReturnType<typeof makeConvexTest>;
 
 beforeEach(() => {
   vi.clearAllMocks();
-  githubMocks.createRepositoryOctokit.mockResolvedValue({ request: githubMocks.request });
+  githubMocks.createRepositoryOctokit.mockResolvedValue({
+    request: githubMocks.request,
+    hook: { wrap: vi.fn() },
+  });
   vi.stubEnv("GITHUB_APP_ID", "42");
   vi.stubEnv("GITHUB_APP_SLUG", "samebase-test");
   vi.stubEnv("GITHUB_APP_CLIENT_ID", "client-id");
@@ -288,6 +292,7 @@ describe("repository GitHub token scope", () => {
     const listForRef = vi.fn().mockResolvedValue({ data: { check_runs: [] } });
     const getCombinedStatusForRef = vi.fn().mockResolvedValue({ data: { statuses: [] } });
     githubMocks.createRepositoryOctokit.mockResolvedValue({
+      hook: { wrap: vi.fn() },
       checks: { listForRef },
       repos: { getCombinedStatusForRef },
     });

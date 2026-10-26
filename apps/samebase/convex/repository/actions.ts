@@ -282,7 +282,7 @@ async function startConnectExistingRepositoryProvisioningOrFail(
 }
 
 async function checkGitHubRepositoryNameAvailability(
-  ctx: Pick<ActionCtx, "runQuery">,
+  ctx: Pick<ActionCtx, "runQuery" | "runMutation">,
   args: {
     userId: Id<"users">;
     organizationId: Id<"organizations">;
@@ -594,7 +594,7 @@ async function checkCloudflareWorkerNameAvailabilityForConnection(
 }
 
 async function checkCreateResourceNameAvailabilityForUser(
-  ctx: Pick<ActionCtx, "runAction" | "runQuery">,
+  ctx: Pick<ActionCtx, "runAction" | "runQuery" | "runMutation">,
   args: {
     userId: Id<"users">;
     organizationId: Id<"organizations">;
