@@ -198,7 +198,7 @@ export function FileViewSidebarFooter({
             ? "border-primary bg-primary/5 text-foreground"
             : "border-foreground/45 text-foreground/80 hover:border-foreground/65 hover:text-foreground"
         }`}
-        onClick={onRequestMediaUpload}
+        onClick={() => onRequestMediaUpload()}
         onDragOver={(event) => {
           event.preventDefault();
           onMediaUploadDragOverChange(true);

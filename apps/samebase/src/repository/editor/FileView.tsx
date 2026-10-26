@@ -37,6 +37,7 @@ import { FileCreationDialog } from "@/repository/editor/FileCreationDialog";
 import { FolderCreationDialog } from "@/repository/editor/FolderCreationDialog";
 import { ProsemarkMergeEditor } from "@/components/ProsemarkMergeEditor";
 import { notEmpty } from "@samebase/dependent";
+import { hasStagedFileChanges } from "@samebase/git-workspace/stagingChanges";
 import {
   filterSimpleViewTreeItems,
   getSimpleViewPreferenceStorageKey,
@@ -924,18 +925,7 @@ function FileViewInner({
 
   const createFileInStaging = useMutation(api.fileStaging.createFileInStaging);
   const hasStagedChangesToCommit = useMemo(
-    () =>
-      Boolean(
-        stagedFiles &&
-        stagedFiles.length > 0 &&
-        stagedFiles.some(
-          (file) =>
-            file.content !== file.initialContent ||
-            file.filePath !== file.initialFilePath ||
-            file.fileDeleted ||
-            file.parentCommitSha === null,
-        ),
-      ),
+    () => stagedFiles?.some(hasStagedFileChanges) ?? false,
     [stagedFiles],
   );
   const showMobileEditorLineNumbers = useMemo(() => {

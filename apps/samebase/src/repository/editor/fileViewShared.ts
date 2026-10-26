@@ -161,12 +161,17 @@ const UPSTREAM_CONFLICT_ERROR_PREFIX =
   "Commit conflicts with upstream changes. Resolve and retry: ";
 
 export function parseUpstreamConflictPaths(message: string | null): string[] {
-  if (!message || !message.startsWith(UPSTREAM_CONFLICT_ERROR_PREFIX)) {
+  const conflictLine = message
+    ?.split(/\r?\n/)
+    .find((line) => line.includes(UPSTREAM_CONFLICT_ERROR_PREFIX));
+  if (!conflictLine) {
     return [];
   }
 
-  return message
-    .slice(UPSTREAM_CONFLICT_ERROR_PREFIX.length)
+  return conflictLine
+    .slice(
+      conflictLine.indexOf(UPSTREAM_CONFLICT_ERROR_PREFIX) + UPSTREAM_CONFLICT_ERROR_PREFIX.length,
+    )
     .split(",")
     .map((path) => path.trim())
     .filter((path) => path.length > 0);
