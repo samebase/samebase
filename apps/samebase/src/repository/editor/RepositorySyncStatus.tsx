@@ -66,8 +66,6 @@ export function RepositorySyncStatusContent({
     treeRefreshCooldownUntil,
   });
   const isSyncing = treeRefreshUiState.kind === "syncing";
-  const suppressChecks =
-    treeRefreshUiState.kind === "rate_limited" || treeRefreshUiState.kind === "cooldown";
 
   return (
     <div className={cn("flex items-center gap-2 text-xs text-muted-foreground", className)}>
@@ -79,77 +77,79 @@ export function RepositorySyncStatusContent({
         />
       )}
 
-      {isSyncing ? (
-        <span className="inline-flex items-center gap-1">
-          <UpdateIcon className="animate-spin" />
-          Syncing…
-        </span>
-      ) : treeRefreshUiState.kind === "rate_limited" ? (
-        <span
-          className="inline-flex items-center gap-1 text-amber-700"
-          title={treeRefreshFailureMessage ?? "GitHub API rate limited. Auto-refresh paused."}
-        >
-          <span>GitHub rate limited</span>
-          <span>·</span>
-          <span className="font-mono tabular-nums">
-            {formatRelativeTimeUntil(treeRefreshUiState.cooldownUntil, now)}
+      <span className="inline-flex items-center gap-1">
+        {showChecks && (
+          <CommitStatus owner={owner} repo={repoName} commitSha={commitSha} className="mr-1" />
+        )}
+        {isSyncing ? (
+          <span className="inline-flex items-center gap-1">
+            <UpdateIcon className="animate-spin" />
+            Syncing…
           </span>
-        </span>
-      ) : treeRefreshUiState.kind === "cooldown" ? (
-        <span
-          className="inline-flex items-center gap-1 text-amber-700"
-          title={treeRefreshFailureMessage ?? "Auto-refresh paused after a failed sync."}
-        >
-          <span>Paused</span>
-          <span>·</span>
-          <span className="font-mono tabular-nums">
-            {formatRelativeTimeUntil(treeRefreshUiState.cooldownUntil, now)}
-          </span>
-        </span>
-      ) : (
-        <span className="inline-flex items-center gap-1">
-          {treeRefreshUiState.kind === "failed" && (
-            <>
-              <span
-                className="text-amber-700"
-                title={treeRefreshFailureMessage ?? "Last sync failed. Showing cached state."}
-              >
-                Last sync failed
-              </span>
-              <span>·</span>
-            </>
-          )}
-          {showChecks && !suppressChecks && (
-            <CommitStatus owner={owner} repo={repoName} commitSha={commitSha} className="mr-1" />
-          )}
-          {commitSha && commitUrl ? (
-            <a
-              className={`font-mono ${linkStyle}`}
-              href={commitUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              title="View commit on GitHub"
-            >
-              {commitSha.slice(0, 7)}
-            </a>
-          ) : (
-            <span
-              className="font-mono text-red-600"
-              title="Missing commit SHA. Refresh repository tree to backfill."
-            >
-              missing commit SHA
+        ) : treeRefreshUiState.kind === "rate_limited" ? (
+          <span
+            className="inline-flex items-center gap-1 text-amber-700"
+            title={treeRefreshFailureMessage ?? "GitHub API rate limited. Auto-refresh paused."}
+          >
+            <span>GitHub rate limited</span>
+            <span>·</span>
+            <span className="font-mono tabular-nums">
+              {formatRelativeTimeUntil(treeRefreshUiState.cooldownUntil, now)}
             </span>
-          )}
-          {lastTreeRefreshAt && (
-            <>
-              <span>·</span>
-              <span className="font-mono tabular-nums">
-                {formatRelativeTimeAgoWithSeconds(lastTreeRefreshAt, now)}
+          </span>
+        ) : treeRefreshUiState.kind === "cooldown" ? (
+          <span
+            className="inline-flex items-center gap-1 text-amber-700"
+            title={treeRefreshFailureMessage ?? "Auto-refresh paused after a failed sync."}
+          >
+            <span>Paused</span>
+            <span>·</span>
+            <span className="font-mono tabular-nums">
+              {formatRelativeTimeUntil(treeRefreshUiState.cooldownUntil, now)}
+            </span>
+          </span>
+        ) : (
+          <>
+            {treeRefreshUiState.kind === "failed" && (
+              <>
+                <span
+                  className="text-amber-700"
+                  title={treeRefreshFailureMessage ?? "Last sync failed. Showing cached state."}
+                >
+                  Last sync failed
+                </span>
+                <span>·</span>
+              </>
+            )}
+            {commitSha && commitUrl ? (
+              <a
+                className={`font-mono ${linkStyle}`}
+                href={commitUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                title="View commit on GitHub"
+              >
+                {commitSha.slice(0, 7)}
+              </a>
+            ) : (
+              <span
+                className="font-mono text-red-600"
+                title="Missing commit SHA. Refresh repository tree to backfill."
+              >
+                missing commit SHA
               </span>
-            </>
-          )}
-        </span>
-      )}
+            )}
+            {lastTreeRefreshAt && (
+              <>
+                <span>·</span>
+                <span className="font-mono tabular-nums">
+                  {formatRelativeTimeAgoWithSeconds(lastTreeRefreshAt, now)}
+                </span>
+              </>
+            )}
+          </>
+        )}
+      </span>
     </div>
   );
 }

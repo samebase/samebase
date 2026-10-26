@@ -5,6 +5,7 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { CommitStatus } from "./CommitStatus";
+import { RepositorySyncStatusContent } from "./RepositorySyncStatus";
 
 const testState = vi.hoisted(() => ({
   getCommitStatus: vi.fn(),
@@ -147,6 +148,42 @@ describe("CommitStatus", () => {
     await vi.waitFor(() =>
       expect(rootElement.querySelector("a")?.getAttribute("aria-label")).toContain("1 passed"),
     );
+  });
+
+  it("keeps checks mounted across tree cooldown, syncing, and idle states", async () => {
+    testState.getCommitStatus.mockResolvedValue(finalResult);
+    const now = Date.now();
+    const treeStates = [
+      {
+        lastTreeRefreshFailedAt: now - 1_000,
+        treeRefreshFailureKind: "failed" as const,
+        treeRefreshCooldownUntil: now + 300_000,
+      },
+      { treeRefreshStartedAt: now },
+      { lastTreeRefreshAt: now },
+    ];
+
+    for (const treeState of treeStates) {
+      await act(async () => {
+        root.render(
+          <QueryClientProvider client={queryClient}>
+            <RepositorySyncStatusContent
+              githubRepositoryFullName="samebase/samebase"
+              branch="main"
+              owner="samebase"
+              repoName="samebase"
+              commitSha="abc123"
+              now={now}
+              {...treeState}
+            />
+          </QueryClientProvider>,
+        );
+      });
+      await flushQueryUpdates();
+      expect(rootElement.querySelector("a")?.getAttribute("aria-label")).toContain("1 passed");
+      expect(testState.getCommitStatus).toHaveBeenCalledTimes(1);
+      await act(async () => vi.advanceTimersByTimeAsync(5_000));
+    }
   });
 
   it("uses the shared GitHub rate-limit reset time", async () => {
