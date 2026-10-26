@@ -277,7 +277,7 @@ async function resolveCloudflareConnectionForAuthority(
 }
 
 async function resolveGitHubAppAccessForAuthority(
-  ctx: Pick<ActionCtx, "runQuery">,
+  ctx: Pick<ActionCtx, "runQuery" | "runMutation">,
   authority: RepositoryActionAuthority,
 ): Promise<GitHubAppAccess> {
   switch (authority.kind) {

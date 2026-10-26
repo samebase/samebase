@@ -32,6 +32,7 @@ export const ACCOUNT_DELETION_TABLE_REGISTRY = {
   organizationBillingAccounts: "organization_preserved",
   githubAppSetupStates: "account_data",
   githubUserAuthorizations: "credential_revocation",
+  githubRateLimitCooldowns: "global",
   workflow_accountDeletion_runs: "receipt",
   workflow_accountDeletion_events: "receipt",
   organizationProviderCredentials: "credential_revocation",

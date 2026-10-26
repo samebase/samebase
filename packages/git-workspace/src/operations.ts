@@ -4,7 +4,6 @@ import { notEmpty, isRecord } from "@samebase/dependent/main";
 import { guessMime, INLINE_TEXT_MAX, isTextBuffer, withRetry } from "./fileContent.js";
 import { loadBlob, uploadBlob } from "./storage.js";
 import { getRepositoryMediaKind } from "./repositoryMedia.js";
-import { describeRepositoryTreeRefreshFailure } from "./repositoryRefresh.js";
 import { rebaseStagedContent } from "./stagingRebase.js";
 import { hasStagedFileChanges, readStagedFileKind } from "./stagingChanges.js";
 import { isStaleBaseVersionError } from "./stagingErrors.js";
@@ -73,7 +72,6 @@ export type EditableFileState = {
   branch: string;
   version: number;
 };
-const githubRateLimitResetByUser = new Map<string, number>();
 const PULL_REQUEST_COMPARE_FILE_LIST_LIMIT = 3_000;
 
 export function selectBatchReadRepositoryTree(args: {
@@ -290,20 +288,6 @@ function isGitHubRateLimitError(error: unknown): boolean {
   }
 
   return getErrorMessage(error).toLowerCase().includes("rate limit");
-}
-
-function getKnownRateLimitResetAtMs(userId: string): number | null {
-  const resetAtMs = githubRateLimitResetByUser.get(userId);
-  if (typeof resetAtMs !== "number") {
-    return null;
-  }
-
-  if (resetAtMs <= Date.now()) {
-    githubRateLimitResetByUser.delete(userId);
-    return null;
-  }
-
-  return resetAtMs;
 }
 
 export function shouldAdvanceBinaryPullParentCommit(args: {
@@ -1046,7 +1030,7 @@ export async function batchReadFiles<RepositoryId extends string, UserId extends
   workspace: GitWorkspace<RepositoryId, UserId>,
   args: { branch?: string; filePaths: string[] },
 ): Promise<Array<{ path: string; content: string }>> {
-  const { ctx, component, host, repository, userId, octokit } = workspace;
+  const { ctx, component, host, repository, octokit } = workspace;
   const requestedBranch =
     typeof args.branch === "string" && args.branch.trim().length > 0
       ? args.branch.trim()
@@ -1111,18 +1095,6 @@ export async function batchReadFiles<RepositoryId extends string, UserId extends
   }
 
   for (const miss of misses) {
-    const knownResetAtMs = getKnownRateLimitResetAtMs(userId);
-    if (knownResetAtMs !== null) {
-      console.warn(
-        "batchReadFiles: skipping uncached GitHub reads due to active rate-limit cooldown",
-        {
-          userId,
-          resetAtMs: knownResetAtMs,
-        },
-      );
-      break;
-    }
-
     // 2. Fetch from GitHub (blob API by SHA – lightweight)
     try {
       const blob = await octokit.rest.git.getBlob({
@@ -1155,12 +1127,7 @@ export async function batchReadFiles<RepositoryId extends string, UserId extends
       results.push({ path: miss.path, content: text });
     } catch (error) {
       if (isGitHubRateLimitError(error)) {
-        const failure = describeRepositoryTreeRefreshFailure(error);
-        const resetAtMs = failure.cooldownUntil;
-        githubRateLimitResetByUser.set(userId, resetAtMs);
         console.warn("batchReadFiles: hit GitHub rate limit, stopping uncached reads for now", {
-          userId,
-          resetAtMs,
           failedPath: miss.path,
         });
         break;

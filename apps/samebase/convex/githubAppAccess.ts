@@ -5,6 +5,7 @@ import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { internalQuery, type ActionCtx, type QueryCtx } from "./_generated/server";
 import { action } from "./functions";
+import { attachGitHubBackoff } from "./githubBackoffClient";
 import {
   createGitHubInstallationOctokit,
   createGitHubRepositoryInstallationOctokit,
@@ -200,7 +201,7 @@ export const loadInstallationAccessForRepositoryDeletionRun = internalQuery({
 });
 
 export async function resolveGitHubAppAccess(
-  ctx: Pick<ActionCtx, "runQuery">,
+  ctx: Pick<ActionCtx, "runQuery" | "runMutation">,
   args: {
     userId: Id<"users">;
     target: GitHubAppAccessTarget;
@@ -226,12 +227,15 @@ export async function resolveGitHubAppAccess(
     githubOwnerId: access.githubOwnerId,
     githubOwnerType: access.githubOwnerType,
     githubOwnerLogin: access.githubOwnerLogin,
-    octokit,
+    octokit: attachGitHubBackoff(ctx, octokit, {
+      kind: "installation",
+      id: access.githubInstallationId,
+    }),
   };
 }
 
 export async function resolveGitHubAppAccessForProvisioningRun(
-  ctx: Pick<ActionCtx, "runQuery">,
+  ctx: Pick<ActionCtx, "runQuery" | "runMutation">,
   args: {
     runId: Id<"workflow_repositoryProvisioning_runs">;
     userId: Id<"users">;
@@ -248,12 +252,16 @@ export async function resolveGitHubAppAccessForProvisioningRun(
   );
   return {
     ...access,
-    octokit: createGitHubInstallationOctokit(access.githubInstallationId),
+    octokit: attachGitHubBackoff(
+      ctx,
+      createGitHubInstallationOctokit(access.githubInstallationId),
+      { kind: "installation", id: access.githubInstallationId },
+    ),
   };
 }
 
 export async function resolveGitHubAppAccessForRepositoryDeletionRun(
-  ctx: Pick<ActionCtx, "runQuery">,
+  ctx: Pick<ActionCtx, "runQuery" | "runMutation">,
   args: {
     runId: Id<"workflow_repositoryDeletion_runs">;
   },
@@ -266,7 +274,11 @@ export async function resolveGitHubAppAccessForRepositoryDeletionRun(
   );
   return {
     ...access,
-    octokit: createGitHubInstallationOctokit(access.githubInstallationId),
+    octokit: attachGitHubBackoff(
+      ctx,
+      createGitHubInstallationOctokit(access.githubInstallationId),
+      { kind: "installation", id: access.githubInstallationId },
+    ),
   };
 }
 
@@ -288,7 +300,11 @@ export const checkViewerInstallation = action({
       );
       access = {
         ...installationAccess,
-        octokit: createGitHubInstallationOctokit(installationAccess.githubInstallationId),
+        octokit: attachGitHubBackoff(
+          ctx,
+          createGitHubInstallationOctokit(installationAccess.githubInstallationId),
+          { kind: "installation", id: installationAccess.githubInstallationId },
+        ),
       };
     } catch (error) {
       console.warn("github:installation_access_probe_failed", { check: "initialization" }, error);

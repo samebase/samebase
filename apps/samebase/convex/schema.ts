@@ -2,6 +2,7 @@ import { defineSchema } from "convex/server";
 
 import { accountDeletionTables } from "./accountDeletion/model";
 import { githubAppSetupTables } from "./githubAppSetupModel";
+import { githubBackoffTables } from "./githubBackoffModel";
 import { githubUserAuthorizationTables } from "./githubUserAuthorizationModel";
 import { identityTables } from "./identity/model";
 import { mcpTables } from "./mcp/model";
@@ -24,6 +25,7 @@ export default defineSchema({
   ...organizationTables,
   ...organizationInvitationTables,
   ...githubAppSetupTables,
+  ...githubBackoffTables,
   ...githubUserAuthorizationTables,
   ...accountDeletionTables,
   ...organizationProviderCredentialTables,
