@@ -1430,7 +1430,16 @@ function FileViewInner({
         const deletedStagedFile =
           stagedFiles?.find(
             (candidate) => candidate.filePath === filePath && candidate.fileDeleted,
-          ) ?? null;
+          ) ??
+          // Compare mode lists a deleted rename at its original path.
+          stagedFiles?.find(
+            (candidate) =>
+              candidate.fileDeleted &&
+              (candidate.initialFilePath === filePath ||
+                candidate.initialFilePath === originalPath),
+          ) ??
+          null;
+        const restoredFilePath = deletedStagedFile?.filePath ?? filePath;
         const comparedDeletedFile =
           branchComparePreview?.files.find(
             (file) => file.path === filePath && file.status === "deleted",
@@ -1439,7 +1448,7 @@ function FileViewInner({
         if (deletedStagedFile) {
           await revertDeletedFileInStaging({
             repositoryId: repository.repositoryId,
-            filePath,
+            filePath: deletedStagedFile.filePath,
             branch,
           });
         } else if (comparedDeletedFile) {
@@ -1454,8 +1463,8 @@ function FileViewInner({
           throw new Error("Deleted file is not available to restore.");
         }
 
-        if (selectedFile === filePath) {
-          navigateByHref(buildRepositoryFileUrl(filePath, { reviewMode: "editor" }), {
+        if (selectedFile === filePath || selectedFile === restoredFilePath) {
+          navigateByHref(buildRepositoryFileUrl(restoredFilePath, { reviewMode: "editor" }), {
             replace: true,
           });
         }
