@@ -95,21 +95,28 @@ function renderRouteUrlEditorNextSuggestionValue(
     return renderRange(0, suggestion.value.length);
   }
 
-  const lastSegmentStart = Math.max(start, suggestion.value.lastIndexOf("/"));
-
   if (sharedPathEnd !== null) {
     return (
       <>
-        <span className="flex min-w-0" data-testid="route-url-editor-suggestion-path-prefix">
+        <span
+          className={
+            sharedPathEnd === suggestion.value.length ? "col-span-2 flex min-w-0" : "flex min-w-0"
+          }
+          data-testid="route-url-editor-suggestion-path-prefix"
+        >
           {start > 0 ? <mark className="shrink-0 bg-primary/15 text-inherit">…</mark> : null}
           <span className="min-w-0 truncate">{renderRange(start, sharedPathEnd)}</span>
         </span>
-        <span className="min-w-0 truncate">
-          {renderRange(sharedPathEnd, suggestion.value.length)}
-        </span>
+        {sharedPathEnd < suggestion.value.length ? (
+          <span className="min-w-0 truncate">
+            {renderRange(sharedPathEnd, suggestion.value.length)}
+          </span>
+        ) : null}
       </>
     );
   }
+
+  const lastSegmentStart = Math.max(start, suggestion.value.lastIndexOf("/"));
 
   return (
     <span className="col-span-2 flex min-w-0">

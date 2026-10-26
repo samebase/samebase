@@ -35,7 +35,8 @@ test.describe("route URL editor compact mobile suggestions", () => {
     const prefixWidths = await sharedPaths.evaluateAll((elements) =>
       elements.map((element) => element.getBoundingClientRect().width),
     );
-    expect(new Set(prefixWidths).size).toBe(1);
+    expect(prefixWidths[0]).toBeGreaterThan(prefixWidths[1]);
+    expect(prefixWidths[1]).toBe(prefixWidths[2]);
     for (const ending of ["/alchemy", "/settings"]) {
       const metrics = await popover.getByText(ending, { exact: true }).evaluate((element) => {
         const text = document.createRange();
