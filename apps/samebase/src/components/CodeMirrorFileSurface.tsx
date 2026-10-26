@@ -87,14 +87,15 @@ export function CodeMirrorFileSurface({
       const effectiveTheme =
         themeRef.current === "system" ? systemThemeRef.current : themeRef.current;
       const isDark = effectiveTheme === "dark";
+      const initialText = initialValueRef.current.replace(/\r\n?/g, "\n");
       const prosemarkSelectionAnchor =
         languageKind === "code"
           ? undefined
-          : EditorSelection.single(findInitialSafeSelectionAnchor(initialValueRef.current));
+          : EditorSelection.single(findInitialSafeSelectionAnchor(initialText));
 
       editor = new EditorView({
         state: EditorState.create({
-          doc: initialValueRef.current,
+          doc: initialText,
           selection: prosemarkSelectionAnchor,
           extensions: [
             ...fileCodeMirrorBaseExtensions,

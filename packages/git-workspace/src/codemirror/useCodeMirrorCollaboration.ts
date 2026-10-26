@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useConvex, useQuery, type ConvexReactClient } from "convex/react";
-import { ChangeSet, EditorState } from "@codemirror/state";
+import { useConvex, useQuery_experimental, type ConvexReactClient } from "convex/react";
+import { ChangeSet } from "@codemirror/state";
 import { type EditorView, ViewPlugin, type ViewUpdate } from "@codemirror/view";
 import {
   collab,
@@ -158,12 +158,7 @@ function peerExtension({
       }
     },
   );
-  return [
-    // The server splits text on LF only, so CR remains part of each line.
-    EditorState.lineSeparator.of("\n"),
-    collab({ startVersion }),
-    plugin,
-  ];
+  return [collab({ startVersion }), plugin];
 }
 
 /** Mount a new editor for each repository, branch and file path. */
@@ -185,12 +180,16 @@ export function useCodeMirrorCollaboration({
   const mountedFileVersionRef = useRef(initialVersion);
   const [version, setVersion] = useState(mountedFileVersionRef.current);
   const [syncError, setSyncError] = useState<string | null>(null);
-  const updates = useQuery(api.pullUpdates, {
-    githubRepositoryFullName,
-    branch,
-    filePath,
-    version,
+  const pulledUpdates = useQuery_experimental({
+    query: api.pullUpdates,
+    args: {
+      githubRepositoryFullName,
+      branch,
+      filePath,
+      version,
+    },
   });
+  const updates = pulledUpdates.status === "success" ? pulledUpdates.data : undefined;
 
   useEffect(() => {
     if (!updates || !pullRef.current) return;
@@ -227,5 +226,8 @@ export function useCodeMirrorCollaboration({
     [api, branch, client, filePath, githubRepositoryFullName, registerPageLeaveGuard],
   );
 
-  return { extensions, syncError };
+  return {
+    extensions,
+    syncError: pulledUpdates.status === "error" ? pulledUpdates.error.message : syncError,
+  };
 }

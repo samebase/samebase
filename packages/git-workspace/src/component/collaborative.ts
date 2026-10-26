@@ -2,12 +2,13 @@ import {
   buildStaleBaseVersionErrorMessage,
   STALE_BASE_VERSION_ERROR_CODE,
 } from "../stagingErrors.js";
-import { ChangeSet, Text } from "@codemirror/state";
+import { ChangeSet } from "@codemirror/state";
 import { v } from "convex/values";
 import { internal } from "./_generated/api.js";
 // oxlint-disable-next-line samebase/no-raw-public-convex-function-builders -- Component entrypoints are internal to the host; host wrappers enforce access.
 import { internalMutation, mutation, query } from "./_generated/server.js";
 import { readStagedFileKind } from "../stagingChanges.js";
+import { applyCollaborativeChanges, createCollaborativeText } from "./collaborativeText.js";
 
 const { array, boolean, number, object, string } = v;
 const scope = { repositoryId: string(), branch: string(), filePath: string() };
@@ -58,16 +59,19 @@ export const pushUpdates = mutation({
       )
       .unique();
     if (!staging) throw new Error("Staging not found");
-    if (staging.fileDeleted) throw new Error("Cannot update content for a deleted staged file.");
     if (readStagedFileKind(staging.kind) === "binary")
       throw new Error("Cannot edit binary staged content as text.");
     let currentVersion = staging.version;
     if (args.version !== currentVersion) return { success: false, newVersion: currentVersion };
     const timestamp = Date.now();
-    let doc = Text.of(staging.content.split("\n"));
+    let content = staging.content;
     for (const update of args.updates) {
       currentVersion++;
-      doc = ChangeSet.fromJSON(JSON.parse(update.changes)).apply(doc);
+      content = applyCollaborativeChanges(
+        content,
+        ChangeSet.fromJSON(JSON.parse(update.changes)),
+        staging.initialContent,
+      );
       await ctx.db.insert("fileUpdates", {
         repositoryId: args.repositoryId,
         branch: args.branch,
@@ -80,7 +84,7 @@ export const pushUpdates = mutation({
       });
     }
     await ctx.db.patch(staging._id, {
-      content: doc.toString(),
+      content,
       version: currentVersion,
       lastEditTime: timestamp,
       lastEditUserId: args.userId,
@@ -124,9 +128,9 @@ export const pushContentUpdate = mutation({
       throw error;
     }
     if (staging.content === args.newContent) return null;
-    const oldDoc = Text.of(staging.content.split("\n"));
+    const oldDoc = createCollaborativeText(staging.content);
     const changes = ChangeSet.of(
-      { from: 0, to: oldDoc.length, insert: args.newContent },
+      { from: 0, to: oldDoc.length, insert: createCollaborativeText(args.newContent) },
       oldDoc.length,
     );
     const newVersion = staging.version + 1;

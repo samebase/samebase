@@ -16,7 +16,11 @@ const testState = vi.hoisted(() => ({
 vi.mock("convex/react", async (importOriginal) => {
   const actual = await importOriginal<typeof import("convex/react")>();
   const client = { mutation: testState.mutation, query: testState.query };
-  return { ...actual, useConvex: () => client, useQuery: () => undefined };
+  return {
+    ...actual,
+    useConvex: () => client,
+    useQuery_experimental: () => ({ status: "pending" }),
+  };
 });
 
 vi.mock("./MonacoEditor", () => ({
@@ -26,10 +30,11 @@ vi.mock("./MonacoEditor", () => ({
 type PushArgs = { version: number; updates: Array<{ clientId: string; changes: string }> };
 
 function createCollaborativeServer(content: string) {
-  let doc = Text.of(content.split("\n"));
+  const lineSeparator = content.includes("\r\n") ? "\r\n" : "\n";
+  let doc = Text.of(content.split(/\r\n?|\n/));
   const updates: Array<{ clientID: string; changes: string; version: number; userId: string }> = [];
   return {
-    content: () => doc.toString(),
+    content: () => doc.sliceString(0, doc.length, lineSeparator),
     pushUpdates: (args: PushArgs) => {
       if (args.version !== updates.length) {
         return { success: false, newVersion: updates.length };

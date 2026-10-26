@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useConvex, useQuery } from "convex/react";
+import { useConvex, useQuery_experimental } from "convex/react";
 import type { OnMount } from "@monaco-editor/react";
 import { ChangeSet, EditorState } from "@codemirror/state";
 import {
@@ -16,6 +16,7 @@ import {
   type CollaborationScope,
   type RegisterPageLeaveGuard,
 } from "../react/collaboration.js";
+import { createCollaborativeText } from "../component/collaborativeText.js";
 
 type MonacoEditorInstance = Parameters<OnMount>[0];
 
@@ -36,13 +37,8 @@ export function useMonacoCollaboration({
   // Headless CodeMirror state performs OT for the Monaco model.
   const cmStateRef = useRef(
     EditorState.create({
-      doc: firstDoc.content,
-      extensions: [
-        collab({ startVersion: firstDoc.version }),
-        // The server splits staged content on "\n" only, and Monaco offsets
-        // count "\r\n" as two characters, so "\r" stays line content here.
-        EditorState.lineSeparator.of("\n"),
-      ],
+      doc: createCollaborativeText(firstDoc.content),
+      extensions: [collab({ startVersion: firstDoc.version })],
     }),
   );
   const editorRef = useRef<MonacoEditorInstance | null>(null);
@@ -91,12 +87,16 @@ export function useMonacoCollaboration({
     };
   }, [api, client, githubRepositoryFullName, branch, filePath]);
 
-  const remoteUpdates = useQuery(api.pullUpdates, {
-    githubRepositoryFullName,
-    branch,
-    filePath,
-    version,
+  const pulledUpdates = useQuery_experimental({
+    query: api.pullUpdates,
+    args: {
+      githubRepositoryFullName,
+      branch,
+      filePath,
+      version,
+    },
   });
+  const remoteUpdates = pulledUpdates.status === "success" ? pulledUpdates.data : undefined;
 
   const pushToServer = useCallback(
     async function pushToServer() {
@@ -170,14 +170,15 @@ export function useMonacoCollaboration({
       }> = [];
 
       transaction.changes.iterChanges((fromA, toA, _fromB, _toB, inserted) => {
-        const startPos = model.getPositionAt(fromA);
-        const endPos = model.getPositionAt(toA);
+        // OT counts every line break once; Monaco offsets count CRLF twice.
+        const startLine = cmStateRef.current.doc.lineAt(fromA);
+        const endLine = cmStateRef.current.doc.lineAt(toA);
         edits.push({
           range: {
-            startLineNumber: startPos.lineNumber,
-            startColumn: startPos.column,
-            endLineNumber: endPos.lineNumber,
-            endColumn: endPos.column,
+            startLineNumber: startLine.number,
+            startColumn: fromA - startLine.from + 1,
+            endLineNumber: endLine.number,
+            endColumn: toA - endLine.from + 1,
           },
           text: inserted.toString(),
         });
@@ -202,9 +203,10 @@ export function useMonacoCollaboration({
     editor.onDidChangeModelContent((event) => {
       if (isApplyingRemoteRef.current) return;
 
+      const previousDoc = cmStateRef.current.doc;
       const changes = event.changes.map((change) => ({
-        from: change.rangeOffset,
-        to: change.rangeOffset + change.rangeLength,
+        from: previousDoc.line(change.range.startLineNumber).from + change.range.startColumn - 1,
+        to: previousDoc.line(change.range.endLineNumber).from + change.range.endColumn - 1,
         insert: change.text,
       }));
       cmStateRef.current = cmStateRef.current.update({ changes }).state;
@@ -213,5 +215,8 @@ export function useMonacoCollaboration({
     });
   };
 
-  return { onMount, syncError };
+  return {
+    onMount,
+    syncError: pulledUpdates.status === "error" ? pulledUpdates.error.message : syncError,
+  };
 }
