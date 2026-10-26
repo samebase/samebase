@@ -297,13 +297,16 @@ export const markFileForDeletion = mutation({
         lastEditUserId: args.userId,
       });
     } else {
-      const { parentCommitSha } = args;
-      const blob = parentCommitSha
-        ? await ctx.db
-            .query("fileBlobs")
-            .withIndex("by_sha", (q) => q.eq("sha", parentCommitSha))
-            .first()
-        : null;
+      const tree = await requireBranchTree(ctx, args.repositoryId, args.branch);
+      const entry = tree.find((item) => item.type === "blob" && item.path === args.filePath);
+      if (!entry) throw new Error("File not found in the cached branch tree.");
+      // A newer cached tree must not hide an upstream edit since the user selected this base.
+      if (entry.sha !== args.parentCommitSha)
+        throw new Error("File changed since deletion was requested. Refresh and retry.");
+      const blob = await ctx.db
+        .query("fileBlobs")
+        .withIndex("by_sha", (q) => q.eq("sha", entry.sha))
+        .first();
       const binaryBlob = blob && typeof blob.text !== "string" ? blob : null;
       const initialContent = blob?.text ?? "";
       await ctx.db.insert("stagedFiles", {
@@ -317,7 +320,7 @@ export const markFileForDeletion = mutation({
         mime: binaryBlob?.mime,
         size: binaryBlob?.size,
         stagedBlobSha: binaryBlob?.sha,
-        parentCommitSha: args.parentCommitSha,
+        parentCommitSha: entry.sha,
         lastEditTime: Date.now(),
         lastEditUserId: args.userId,
         branch: args.branch,

@@ -618,6 +618,16 @@ describe("deletion snapshots", () => {
   ] as const)("keeps the cached $kind base when deleting an unopened file", async (blob) => {
     const t = makeConvexTest();
     const { repositoryId, userId } = await seedConnectedRepository(t);
+    await t.mutation(components.gitWorkspace.branches.upsert, {
+      repositoryId,
+      branch: "main",
+      commitSHA: "head",
+      treeData: {
+        sha: "tree",
+        truncated: false,
+        tree: [{ path: `unopened.${blob.ext}`, mode: "100644", type: "blob", sha: "blob-sha" }],
+      },
+    });
     const storageId =
       blob.kind === "binary"
         ? await t.run(async (ctx) => await ctx.storage.store(new Blob(["binary base"])))
@@ -653,6 +663,123 @@ describe("deletion snapshots", () => {
       ...(blob.kind === "binary"
         ? { mime: blob.mime, size: blob.size, stagedBlobSha: "blob-sha" }
         : {}),
+    });
+  });
+
+  it("does not seed a deletion from another repository or branch tree", async () => {
+    const t = makeConvexTest();
+    const { repositoryId, userId } = await seedConnectedRepository(t);
+    await t.mutation(components.gitWorkspace.blobs.save, {
+      repositoryId: "another-repository",
+      sha: "foreign-sha",
+      text: "foreign cached content",
+      size: 22,
+      mime: "text/plain",
+      ext: "md",
+    });
+    for (const scope of [
+      { repositoryId: "another-repository", branch: "main", sha: "foreign-sha" },
+      { repositoryId, branch: "feature", sha: "foreign-sha" },
+      { repositoryId, branch: "main", sha: "current-sha" },
+    ]) {
+      await t.mutation(components.gitWorkspace.branches.upsert, {
+        repositoryId: scope.repositoryId,
+        branch: scope.branch,
+        commitSHA: "head",
+        treeData: {
+          sha: "tree",
+          truncated: false,
+          tree: [{ path: "notes.md", mode: "100644", type: "blob", sha: scope.sha }],
+        },
+      });
+    }
+    const asUser = t.withIdentity({ subject: userId, tokenIdentifier: `test:${userId}` });
+    await expect(
+      asUser.mutation(api.fileStaging.markFileForDeletion, {
+        repositoryId,
+        branch: "main",
+        filePath: "notes.md",
+        parentCommitSha: "foreign-sha",
+      }),
+    ).rejects.toThrow("File changed since deletion was requested.");
+    expect(
+      await t.query(components.gitWorkspace.staging.getByNewPath, {
+        repositoryId,
+        branch: "main",
+        newPath: "notes.md",
+      }),
+    ).toBeNull();
+  });
+
+  it("rejects a stale deletion base after the scoped tree changes", async () => {
+    const t = makeConvexTest();
+    const { repositoryId, userId } = await seedConnectedRepository(t);
+    await t.mutation(internal.gitOperations.saveFileBlob, {
+      repositoryId,
+      sha: "old-sha",
+      text: "old content",
+      size: 11,
+      mime: "text/plain",
+      ext: "md",
+    });
+    await t.mutation(components.gitWorkspace.branches.upsert, {
+      repositoryId,
+      branch: "main",
+      commitSHA: "new-head",
+      treeData: {
+        sha: "new-tree",
+        truncated: false,
+        tree: [{ path: "notes.md", mode: "100644", type: "blob", sha: "new-sha" }],
+      },
+    });
+    const asUser = t.withIdentity({ subject: userId, tokenIdentifier: `test:${userId}` });
+    await expect(
+      asUser.mutation(api.fileStaging.markFileForDeletion, {
+        repositoryId,
+        branch: "main",
+        filePath: "notes.md",
+        parentCommitSha: "old-sha",
+      }),
+    ).rejects.toThrow("File changed since deletion was requested.");
+    expect(
+      await t.query(components.gitWorkspace.staging.getByNewPath, {
+        repositoryId,
+        branch: "main",
+        newPath: "notes.md",
+      }),
+    ).toBeNull();
+  });
+
+  it("keeps an existing staged base when the branch tree is absent", async () => {
+    const t = makeConvexTest();
+    const { repositoryId, userId } = await seedConnectedRepository(t);
+    await insertStagedFile(t, {
+      repositoryId,
+      userId,
+      branch: "deleted-branch",
+      filePath: "notes.md",
+      initialContent: "saved base",
+      content: "pending edit",
+    });
+    const asUser = t.withIdentity({ subject: userId, tokenIdentifier: `test:${userId}` });
+    await asUser.mutation(api.fileStaging.markFileForDeletion, {
+      repositoryId,
+      branch: "deleted-branch",
+      filePath: "notes.md",
+      parentCommitSha: null,
+    });
+    expect(
+      await t.query(components.gitWorkspace.staging.getByNewPath, {
+        repositoryId,
+        branch: "deleted-branch",
+        newPath: "notes.md",
+      }),
+    ).toMatchObject({
+      fileDeleted: true,
+      content: "pending edit",
+      initialContent: "saved base",
+      parentCommitSha: gitBlobSha("saved base"),
+      version: 0,
     });
   });
 });
