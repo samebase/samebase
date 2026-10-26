@@ -132,6 +132,17 @@ real-browser run. These checks are additional acceptance evidence:
 | Conflict resolution and draft retry | The editor showed conflict markers. After manual resolution, it created a draft PR. GitHub held the 1,947-byte replacement image on the draft and the 158-byte original on `main`.               |
 | Provider cooldown in the editor     | A short local cooldown showed `Checks paused`. Checks resumed automatically after expiry. This used a local state fixture, not real GitHub quota exhaustion.                                     |
 
+The browser then found a remaining UI dependency: `RepositorySyncStatus` removed the CI view while
+tree refresh was paused. The fix keeps the CI view mounted beside the tree status. A fresh browser
+load showed three checks and the existing PR link while a two-minute tree-refresh pause was still
+active. Provider backoff remained empty. This check used the final combined app after rebase onto
+the current main branch.
+
+The dashboard removal flow then deleted the temporary GitHub, Convex, and Cloudflare resources. The
+deletion workflow succeeded, the root repository row was absent, and GitHub returned 404. All five
+component tables and component file storage were empty. Root storage remained empty, and the local
+backoff fixture was removed. The test browser was closed.
+
 Two local backend probes checked the new boundaries directly:
 
 - Actual upload URLs and HTTP downloads preserved bytes in component storage. Duplicate uploads
@@ -156,7 +167,10 @@ Evidence is in the ignored `scratchpad/git-workspace` directory:
 `boundary-rollback-staging.json`, `boundary-rollback-branches.json`,
 `boundary-rollback-retained.log`, `boundary-rebase.log`, `boundary-draft-success.log`,
 `boundary-created-pr.json`, `boundary-draft-binary.json`, `boundary-main-binary.json`,
-`boundary-checks-paused.log`, and `boundary-checks-recovered.log`.
+`boundary-checks-paused.log`, `boundary-checks-recovered.log`, and
+`boundary-tree-failure-independent-checks.log`. Cleanup evidence is in
+`boundary-cleanup-submitted.log`, `boundary-cleanup-run.json`, `boundary-cleanup-component.json`,
+and `boundary-cleanup-github.json`.
 
 ## Bugs found in the first run
 
