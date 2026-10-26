@@ -16,6 +16,11 @@
     "./stagingRebase": "./src/stagingRebase.ts",
     "./stagingErrors": "./src/stagingErrors.ts",
     "./github": "./src/github.ts",
+    "./operations": "./src/operations.ts",
+    "./operationsContext": "./src/operationsContext.ts",
+    "./previews": "./src/previews.ts",
+    "./fileContent": "./src/fileContent.ts",
+    "./repositoryMedia": "./src/repositoryMedia.ts",
     "./codemirror": "./src/codemirror/useCodeMirrorCollaboration.ts",
     "./monaco": "./src/monaco/useMonacoCollaboration.ts",
     "./test": "./src/test.ts"
@@ -29,6 +34,7 @@
   },
   "dependencies": {
     "@octokit/rest": "^22.0.1",
+    "@samebase/dependent": "workspace:*",
     "diff": "^9.0.0"
   },
   "devDependencies": {

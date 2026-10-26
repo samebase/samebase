@@ -1,16 +1,18 @@
 import { describe, it, expect, vi } from "vite-plus/test";
 import {
-  buildCommitPreviewFromStagedFiles,
-  buildComparedCommitPreviewFileFromStagedFile,
   buildDraftBranchName,
   buildDraftPullRequestTitle,
   stripCreationTimeFromStagingRecord,
-  buildRemoteComparePreviewFile,
   getDraftPullRequestCreateErrorMessage,
   readLatestOpenPullRequestForBranch,
   readOpenPullRequestForBranch,
   shouldAdvanceBinaryPullParentCommit,
-} from "./fileStagingActions";
+} from "@samebase/git-workspace/operations";
+import {
+  buildCommitPreviewFromStagedFiles,
+  buildComparedCommitPreviewFileFromStagedFile,
+  buildRemoteComparePreviewFile,
+} from "@samebase/git-workspace/previews";
 
 describe("draft pull request helpers", () => {
   it("matches the current branch pull request in the same repository", () => {

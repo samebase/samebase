@@ -4,7 +4,7 @@ import {
   listTouchedBranchesForRefresh,
   runPostCommitTreeRefresh,
   selectBatchReadRepositoryTree,
-} from "./fileStagingActions";
+} from "@samebase/git-workspace/operations";
 
 const featureTree = [
   {
@@ -60,38 +60,34 @@ describe("listTouchedBranchesForRefresh", () => {
 });
 
 describe("runPostCommitTreeRefresh", () => {
-  it("returns updated repository when refresh succeeds", async () => {
+  it("returns success when the host refresh completes", async () => {
     const calls: string[] = [];
     const result = await runPostCommitTreeRefresh({
       refreshBranchTree: async () => {
         calls.push("branch");
-      },
-      loadUpdatedRepository: async () => {
-        calls.push("load");
-        return { treeSHA: "abc" };
+        return true;
       },
       onWarning: () => {
         throw new Error("Unexpected warning callback");
       },
     });
 
-    expect(calls).toEqual(["branch", "load"]);
-    expect(result).toEqual({ treeSHA: "abc" });
+    expect(calls).toEqual(["branch"]);
+    expect(result).toBe(true);
   });
 
-  it("swallows refresh errors and returns null", async () => {
+  it("swallows refresh errors and returns false", async () => {
     const warnings: unknown[] = [];
     const result = await runPostCommitTreeRefresh({
       refreshBranchTree: async () => {
         throw new Error("network");
       },
-      loadUpdatedRepository: async () => ({ treeSHA: "abc" }),
       onWarning: (error) => {
         warnings.push(error);
       },
     });
 
-    expect(result).toBeNull();
+    expect(result).toBe(false);
     expect(warnings).toHaveLength(1);
     expect(warnings[0]).toBeInstanceOf(Error);
   });
