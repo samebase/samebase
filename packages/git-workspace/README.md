@@ -53,6 +53,13 @@ component does not expose an authenticated browser API by itself.
 authenticated Octokit client from the host. Component functions use their own generated server and
 database types.
 
+`@samebase/git-workspace/operations` owns file opening, upload staging, rename, pull, rebase,
+commit, and draft pull request creation. `reads` owns cached file and media reads.
+`repositoryRefresh` owns branch-tree refresh sequencing. These are server entry points. Their typed
+contexts receive the component reference, the authorized repository, an Octokit client or lazy
+credential loader, and the host mutation references needed to check repository state and manage root
+storage. Import the editor hooks and pure model helpers directly in the frontend.
+
 File initialization returns an existing staged row without overwriting it. Commit acknowledgement
 checks the saved snapshot so edits made during a GitHub request remain staged.
 
@@ -60,6 +67,11 @@ When a component mutation removes or replaces a binary reference, it returns rel
 keys. The host must check both staging and blob-cache references in the component before it deletes
 bytes. These checks and deletion run inside the same host mutation as the component call. Repository
 cleanup follows the same rule.
+
+The current host's pending-upload cleanup is staff-only. It checks that no staged file or cached
+blob uses the storage ID, but it does not check who uploaded it. A caller who knows another pending
+upload ID can delete that upload before it is attached. Add upload ownership before granting this
+operation to a wider set of users. This extraction does not add an upload registry or sweeper.
 
 ## Editors
 

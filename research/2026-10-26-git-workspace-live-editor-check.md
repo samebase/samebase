@@ -3,7 +3,7 @@
 Date: 2026-10-26. This records browser acceptance checks for the private `@samebase/git-workspace`
 extraction and the fixes made during those checks.
 
-## Scope
+## First run
 
 The worktree app ran at [localhost:5176](http://localhost:5176), with a local Convex backend and a
 real temporary GitHub repository, `samebase-live-tests/tmp-git-workspace-package-editor-check`. No
@@ -40,7 +40,66 @@ acceptance evidence here. A separate fresh browser context checked the signed-ou
 | Signed-out editor route                                      | Passed                        | A fresh browser context redirected to sign-in and showed zero Monaco or CodeMirror editors. This does not test access between signed-in accounts or organizations.                                                                                                                                                     |
 | Temporary repository cleanup                                 | Passed                        | All three provider deletion options were selected in the dashboard. The workflow completed the Cloudflare, Convex, and GitHub steps and finished with state `succeeded` and a scrubbed snapshot. The repository row was absent, GitHub returned 404, and component counts were zero for staged files and file updates. |
 
-## Bugs found
+## Expanded component checks
+
+The second run used `samebase-live-tests/tmp-git-workspace-package-expanded-check`. It checked the
+five-table component after branch trees, blob caches, refresh state, Git operations, and file/media
+reads moved into the package. The same two editor clients used the actual app and GitHub.
+
+| Scenario                                               | Result                        | Observed result                                                                                                                                                                                                                                                                   |
+| ------------------------------------------------------ | ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Empty component caches on an existing local repository | Passed                        | Branch trees, blobs, and sync state started at zero. Opening an existing file loaded the right text and populated the new caches.                                                                                                                                                 |
+| Shared CRLF editing                                    | Passed                        | Monaco and CodeMirror markers appeared in both clients. The saved component text and GitHub content retained CRLF bytes.                                                                                                                                                          |
+| Edit during push                                       | Passed for the observed order | After **Pushing...** appeared, the other client inserted `EXPANDED_DURING_PUSH`. The first commit excluded it. Staging retained it against the first commit, and the second push and reload retained it.                                                                          |
+| Rename, edit, delete, and restore                      | Passed after fix              | Compare mode showed the deletion at the original path. Restore initially failed with `File already exists in staging`. The caller now locates the existing renamed row. The renamed path and `RENAMED_CONTENT` survived push and reload, and the GitHub read matched.             |
+| Restore navigation with another changed file           | Passed after fix              | Compare auto-selection could move to the image while restore finished. The restore handler now keeps that selection update paused until navigation completes. A fresh replay opened `restored.md`, removed compare/diff, and kept `RENAMED_CONTENT` with the image still staged.  |
+| Binary upload and draft commit                         | Passed                        | The original image had 158 bytes and SHA `80b7966d37b7eb1fb31a85b2eaf9c8b365d4f4ab`. The draft received the 1,947-byte replacement with SHA `1e15c54059102b141fc8d5fed2ed0382c4f48efb`, and its preview loaded at width 512.                                                      |
+| Image replacement and reset in two open tabs           | Passed after fix              | The mounted preview initially kept the old image after replacement. Its query now includes the staged content identity or Git blob SHA. Both tabs changed from width 32 to 512 on replacement, then from 512 to 32 on reset, with no reload.                                      |
+| Failed draft with staged text and binary               | Passed                        | An upstream text conflict rejected the draft commit. GitHub had only `main` and no PR. No temporary draft staging remained. Source text and the staged binary reference remained available.                                                                                       |
+| Rebase, resolution, and draft retry                    | Passed                        | The editor showed conflict markers. A manual resolution saved `UPSTREAM_ALPHA` and `LOCAL_BETA`. Draft creation then reached **All Synced**. GitHub confirmed those bytes on the draft branch, while main retained its upstream-only text and original image.                     |
+| Deleted remote branch                                  | Passed                        | Pull removed the unchanged staged file and kept the changed file with its original base. The open editor still showed `DELETED_BRANCH_KEEP`. GitHub did not recreate the branch. The branch PR lookup showed an error because the branch no longer existed.                       |
+| Signed-out access after extraction                     | Passed                        | A fresh browser context showed sign-in and zero CodeMirror or Monaco editors.                                                                                                                                                                                                     |
+| Expanded component and provider cleanup                | Passed                        | The dashboard removal flow deleted GitHub, Convex, and Cloudflare resources. The workflow succeeded with a scrubbed snapshot. The root repository row was absent, GitHub returned 404, all five component table counts were zero, and all three recorded storage IDs were absent. |
+
+Two additional checks used real local Convex backends, with no provider calls:
+
+- A binary initialization replay kept an existing replacement, deletion, and rename unchanged. A
+  stale tree did not replace the fetched blob SHA as the new file's base. The stale-tree case had no
+  changed files. Probe records and binary bytes were removed afterward.
+- Blob-cache publication returned the existing winning blob on a duplicate save and removed the
+  unused incoming bytes. Publication after repository deletion began returned no row and removed the
+  late bytes. The winning bytes remained available. Probe records were removed afterward.
+
+These mutation replays check server behavior. They are separate from the browser acceptance run and
+are not described as simultaneous browser races.
+
+Claude Opus 5.5 reviewed the expanded boundary and supplied a source review. That review found the
+late binary-open overwrite, stale binary base, and caller-selected deletion SHA. The first two now
+use a non-replacing initializer with the exact fetched SHA. New deletion snapshots now verify the
+SHA against the component's repository and branch tree before reading the shared blob cache.
+Existing staged files retain their base and can be deleted without a cached branch tree.
+
+The review also identified the existing staff-only pending-upload ownership limit. The package
+README records that limit. No upload registry, sweeper, or generic provider framework was added.
+
+The three delegated lanes covered component state, Git operations, and reads/frontend integration in
+separate worktrees. The main worktree integrated their commits and performed the browser run.
+
+The expanded run is supported by `expanded-cold-cache-check.log`, `expanded-two-editors-saved.json`,
+`expanded-first-push-github.json`, `expanded-first-push-staged.json`,
+`expanded-second-push-reload.log`, `expanded-restored-push-reload.log`,
+`expanded-binary-refresh-fixed.log`, `expanded-restore-navigation-fixed.log`,
+`expanded-signed-out.log`, `expanded-draft-rollback.log`, `expanded-rollback-staging.json`,
+`expanded-rebase.log`, `expanded-resolved-saved.json`, `expanded-draft-github-text.json`,
+`expanded-main-github-text.json`, `expanded-draft-github-binary.json`,
+`expanded-deleted-branch-after-pull.json`, `expanded-draft-media-deleted-final.log`,
+`binary-initializer-live.json`, and `state-storage-live-result.json` in the ignored scratchpad.
+Cleanup evidence is in `expanded-cleanup-before.json`, `expanded-cleanup-submitted.log`,
+`expanded-cleanup-run.json`, `expanded-cleanup-component.json`, `expanded-cleanup-storage.json`, and
+`expanded-cleanup-github.log`. The test browser and local development processes were stopped after
+cleanup.
+
+## Bugs found in the first run
 
 1. **CRLF positions:** a line-end insertion could split a CRLF pair. The saved row contained
    `Alpha\r!\n`. The fix maps CodeMirror's logical positions to raw string positions and preserves
@@ -100,3 +159,8 @@ removed through the dashboard workflow. All listed acceptance checks have comple
 limits above still apply. No local preview is running. Production has not been changed. The owner
 confirmed that they are the only editor user; the simplified deployment procedure is in the
 [package README](../packages/git-workspace/README.md#deployment).
+
+The expanded five-table component also passed fresh cache initialization, shared CRLF editing,
+edit-during-push, draft rollback and retry, branch isolation, deleted-branch edit retention, and
+cleanup of all component rows and binary references. The final UI checks confirmed restored-file
+navigation and live image replacement/reset in both clients. The package and app checks passed.
