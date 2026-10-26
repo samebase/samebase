@@ -5,25 +5,7 @@ import { normalizeRepositoryRootDirectory } from "../../shared/repositoryRootDir
 import { vRepositoryDeletionState } from "./deletion/model";
 export { parseGitHubRepositoryFullName } from "../../shared/githubRepositoryName";
 
-const { array, boolean, id, literal, number, object, optional, string, union } = v;
-
-export const vGitHubTree = object({
-  path: string(),
-  mode: string(),
-  type: string(),
-  sha: string(),
-  size: optional(number()),
-  url: optional(string()),
-});
-export type GitHubTree = Infer<typeof vGitHubTree>;
-
-export const vGitHubTreeData = object({
-  sha: string(),
-  url: optional(string()),
-  truncated: boolean(),
-  tree: array(vGitHubTree),
-});
-export type GitHubTreeData = Infer<typeof vGitHubTreeData>;
+const { array, id, literal, number, object, optional, string, union } = v;
 
 export const vGitHubRepositoryVisibility = union(literal("private"), literal("public"));
 
@@ -35,9 +17,6 @@ export const vRepositoryConnectedGitHubTarget = object({
   defaultBranch: string(),
 });
 export type RepositoryConnectedGitHubTarget = Infer<typeof vRepositoryConnectedGitHubTarget>;
-
-export const vRepositoryTreeRefreshFailureKind = union(literal("failed"), literal("rate_limited"));
-export type RepositoryTreeRefreshFailureKind = Infer<typeof vRepositoryTreeRefreshFailureKind>;
 
 /**
 provisioned = Samebase created the resource; removal from Samebase may delete it
@@ -129,14 +108,6 @@ const repositoryBaseFields = {
   createdAt: number(),
 } as const;
 
-const repositoryTreeRefreshFields = {
-  treeRefreshStartedAt: optional(number()),
-  lastTreeRefreshFailedAt: optional(number()),
-  treeRefreshFailureKind: optional(vRepositoryTreeRefreshFailureKind),
-  treeRefreshFailureMessage: optional(string()),
-  treeRefreshCooldownUntil: optional(number()),
-} as const;
-
 export const repositoryTables = {
   /** Durable Samebase repositories with explicit GitHub connection states. */
   repositories: defineTable(
@@ -175,7 +146,6 @@ export const repositoryTables = {
         ...repositoryBaseFields,
         convexTeamId: string(),
         cloudflareAccountId: string(),
-        ...repositoryTreeRefreshFields,
         runId: id("workflow_repositoryProvisioning_runs"),
         githubRepositoryDatabaseId: string(),
         defaultBranch: string(),
@@ -189,7 +159,6 @@ export const repositoryTables = {
         ...repositoryBaseFields,
         convexTeamId: optional(string()),
         cloudflareAccountId: optional(string()),
-        ...repositoryTreeRefreshFields,
         runId: id("workflow_repositoryProvisioning_runs"),
         githubRepositoryDatabaseId: string(),
         defaultBranch: string(),
@@ -227,7 +196,6 @@ export const repositoryTables = {
       "state",
       "deletion.state",
     ])
-    .index("by_tree_refresh_started_at", ["treeRefreshStartedAt"])
     .index("by_github_repository_database_id", ["githubRepositoryDatabaseId"])
     .index("by_organization_and_github_repository_name", [
       "organizationId",

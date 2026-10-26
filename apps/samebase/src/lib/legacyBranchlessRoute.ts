@@ -1,4 +1,4 @@
-import { type GitHubTree } from "../../convex/repository/model";
+import { type GitHubTree } from "@samebase/git-workspace/model";
 
 export function resolveLegacyBranchlessFilePath(args: {
   branchSegment?: string;

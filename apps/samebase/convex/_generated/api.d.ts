@@ -124,7 +124,6 @@ import type * as providerResponseValidation from "../providerResponseValidation.
 import type * as repository from "../repository.js";
 import type * as repository_actions from "../repository/actions.js";
 import type * as repository_alchemyState from "../repository/alchemyState.js";
-import type * as repository_branchModel from "../repository/branchModel.js";
 import type * as repository_branches from "../repository/branches.js";
 import type * as repository_cloudflare from "../repository/cloudflare.js";
 import type * as repository_cloudflareBuildMatching from "../repository/cloudflareBuildMatching.js";
@@ -342,7 +341,6 @@ declare const fullApi: ApiFromModules<{
   repository: typeof repository;
   "repository/actions": typeof repository_actions;
   "repository/alchemyState": typeof repository_alchemyState;
-  "repository/branchModel": typeof repository_branchModel;
   "repository/branches": typeof repository_branches;
   "repository/cloudflare": typeof repository_cloudflare;
   "repository/cloudflareBuildMatching": typeof repository_cloudflareBuildMatching;

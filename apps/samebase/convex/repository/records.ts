@@ -1,4 +1,5 @@
 import { v } from "convex/values";
+import { components } from "../_generated/api";
 import type { Doc, Id } from "../_generated/dataModel";
 import {
   internalMutation,
@@ -988,12 +989,13 @@ async function getRepositoryByRepositoryHelper(
 
   const resolvedBranch = requestedBranch ?? repository.defaultBranch;
 
-  const branchTree = await ctx.db
-    .query("observations_repository_branchTrees")
-    .withIndex("by_repository_and_branch", (q) =>
-      q.eq("repositoryId", repository._id).eq("branch", resolvedBranch),
-    )
-    .first();
+  const branchTree = await ctx.runQuery(components.gitWorkspace.branches.get, {
+    repositoryId: repository._id,
+    branch: resolvedBranch,
+  });
+  const sync = await ctx.runQuery(components.gitWorkspace.branches.getSyncState, {
+    repositoryId: repository._id,
+  });
 
   return {
     repositoryId: repository._id,
@@ -1006,12 +1008,12 @@ async function getRepositoryByRepositoryHelper(
     treeSHA: branchTree?.treeData.sha,
     commitSHA: branchTree?.commitSHA,
     treeData: branchTree?.treeData,
-    treeRefreshStartedAt: repository.treeRefreshStartedAt,
+    treeRefreshStartedAt: sync?.treeRefreshStartedAt,
     lastTreeRefreshAt: branchTree?.lastTreeRefreshAt,
-    lastTreeRefreshFailedAt: repository.lastTreeRefreshFailedAt,
-    treeRefreshFailureKind: repository.treeRefreshFailureKind,
-    treeRefreshFailureMessage: repository.treeRefreshFailureMessage,
-    treeRefreshCooldownUntil: repository.treeRefreshCooldownUntil,
+    lastTreeRefreshFailedAt: sync?.lastTreeRefreshFailedAt,
+    treeRefreshFailureKind: sync?.treeRefreshFailureKind,
+    treeRefreshFailureMessage: sync?.treeRefreshFailureMessage,
+    treeRefreshCooldownUntil: sync?.treeRefreshCooldownUntil,
     branchTreeState: branchTree ? ("ready" as const) : ("unhydrated" as const),
     defaultBranch: repository.defaultBranch,
     resolvedBranch,

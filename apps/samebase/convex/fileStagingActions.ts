@@ -8,14 +8,14 @@ import { createTwoFilesPatch, diffLines } from "diff";
 import { notEmpty } from "@samebase/dependent/main";
 import { action } from "./functions";
 import type { Id } from "./_generated/dataModel";
-import type { GitHubTree } from "./repository/model";
+import type { GitHubTree } from "@samebase/git-workspace/model";
 import { guessMime, INLINE_TEXT_MAX, isTextBuffer, withRetry } from "./gitOperationsActions";
 import { isRecord } from "./jsonUtils";
 import { rebaseStagedContent } from "@samebase/git-workspace/stagingRebase";
 import { selectRepositoryTreeForBranch } from "./fileStaging";
 import { hasStagedFileChanges, readStagedFileKind } from "@samebase/git-workspace/stagingChanges";
 import { sanitizeSlug } from "./slugUtils";
-import { describeRepositoryTreeRefreshFailure } from "./github";
+import { describeRepositoryTreeRefreshFailure } from "@samebase/git-workspace/repositoryRefresh";
 import { resolveGitHubAppAccess } from "./githubAppAccess";
 import { assertConnectedRepository } from "./repository/state";
 import { getRepositoryMediaKind } from "../shared/repositoryMedia";
@@ -1723,7 +1723,7 @@ export const stageUploadedMedia = action({
   returns: stagedMediaUploadResult,
   handler: async (ctx, args): Promise<StagedMediaUploadResult> => {
     const userId = ctx.viewer.userId;
-    await ctx.runMutation(internal.fileStaging.assertMediaUploadAccess, {
+    await ctx.runMutation(internal.fileStaging.assertWriteAccess, {
       repositoryId: args.repositoryId,
       userId,
     });

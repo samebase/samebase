@@ -4,7 +4,7 @@ import type { OnMount, Monaco } from "@monaco-editor/react";
 import { useMonacoCollaboration } from "@samebase/git-workspace/monaco";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
-import type { GitHubTree } from "../../convex/repository/model";
+import type { GitHubTree } from "@samebase/git-workspace/model";
 import { parseTsConfig, applyTsConfigToMonaco } from "./monaco/setupEditor";
 import { useProjectFiles, type ProjectFile } from "@/repository/editor/useProjectFiles";
 import { buildMonacoAppliedCacheKey } from "@/repository/editor/editorCacheKeys";

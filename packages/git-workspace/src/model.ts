@@ -2,6 +2,71 @@ import { v, type Infer } from "convex/values";
 
 const { array, boolean, literal, number, object, optional, string, union } = v;
 
+export const vGitHubTree = object({
+  path: string(),
+  mode: string(),
+  type: string(),
+  sha: string(),
+  size: optional(number()),
+  url: optional(string()),
+});
+export type GitHubTree = Infer<typeof vGitHubTree>;
+
+export const vGitHubTreeData = object({
+  sha: string(),
+  url: optional(string()),
+  truncated: boolean(),
+  tree: array(vGitHubTree),
+});
+export type GitHubTreeData = Infer<typeof vGitHubTreeData>;
+
+export const branchTreeFields = {
+  repositoryId: string(),
+  branch: string(),
+  commitSHA: string(),
+  treeData: vGitHubTreeData,
+  lastTreeRefreshAt: number(),
+};
+export const branchTree = object({
+  _id: string(),
+  _creationTime: number(),
+  ...branchTreeFields,
+});
+export type BranchTree = Infer<typeof branchTree>;
+
+export const fileBlobFields = {
+  repositoryId: string(),
+  sha: string(),
+  size: number(),
+  text: optional(string()),
+  storageId: optional(string()),
+  mime: optional(string()),
+  ext: optional(string()),
+};
+export const fileBlob = object({
+  _id: string(),
+  _creationTime: number(),
+  ...fileBlobFields,
+});
+export type FileBlob = Infer<typeof fileBlob>;
+
+export const vRepositoryTreeRefreshFailureKind = union(literal("failed"), literal("rate_limited"));
+export type RepositoryTreeRefreshFailureKind = Infer<typeof vRepositoryTreeRefreshFailureKind>;
+export const repositorySyncStateFields = {
+  repositoryId: string(),
+  treeRefreshStartedAt: optional(number()),
+  lastTreeRefreshFailedAt: optional(number()),
+  treeRefreshFailureKind: optional(vRepositoryTreeRefreshFailureKind),
+  treeRefreshFailureMessage: optional(string()),
+  treeRefreshCooldownUntil: optional(number()),
+};
+export const repositorySyncState = object({
+  _id: string(),
+  _creationTime: number(),
+  ...repositorySyncStateFields,
+});
+export type RepositorySyncState = Infer<typeof repositorySyncState>;
+
 export const stagedFileFields = {
   repositoryId: string(),
   fileDeleted: boolean(),

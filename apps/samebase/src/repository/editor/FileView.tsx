@@ -50,7 +50,7 @@ import {
 import { type CommitReviewFileStatus as CommitPreviewFileStatus } from "@/repository/editor/commitReviewStatus";
 import { claimRefreshDebounce } from "@/lib/refreshDebounce";
 import { getAncestorFolderPaths } from "@/repository/editor/fileTreeState";
-import { type GitHubTree } from "../../../convex/repository/model";
+import { type GitHubTree } from "@samebase/git-workspace/model";
 import { formatStopwatchDuration } from "@/lib/stopwatch";
 import { DraftPullRequestFeedbackBanner } from "@/repository/editor/DraftPullRequestFeedbackBanner";
 import { RepositorySyncStatus } from "@/repository/editor/RepositorySyncStatus";
@@ -59,7 +59,7 @@ import { useRepositorySimpleViewConfig } from "@/repository/editor/useRepository
 import { RepositoryWorkspacePaneHeader } from "@/repository/editor/RepositoryWorkspacePaneHeader";
 import { MediaUploadDialog } from "@/repository/editor/MediaUploadDialog";
 import { isRenderableRepositoryMediaPath } from "../../../shared/repositoryMedia";
-import { TREE_REFRESH_STALE_LOCK_MS } from "../../../shared/treeRefresh";
+import { TREE_REFRESH_STALE_LOCK_MS } from "@samebase/git-workspace/treeRefresh";
 import { buildRepositoryFileRoute, parseRepositoryPathContext } from "@/lib/repositoryRoutes";
 import { resolveLegacyBranchlessFilePath } from "@/lib/legacyBranchlessRoute";
 import { buildPathWithTanStackSearch } from "@/lib/tanstackSearchParams";

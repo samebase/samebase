@@ -473,12 +473,10 @@ export const listRepositoryFolderSuggestions = query({
       return [];
     }
 
-    const defaultBranchTree = await ctx.db
-      .query("observations_repository_branchTrees")
-      .withIndex("by_repository_and_branch", (q) =>
-        q.eq("repositoryId", args.repositoryId).eq("branch", repository.defaultBranch),
-      )
-      .first();
+    const defaultBranchTree = await ctx.runQuery(components.gitWorkspace.branches.get, {
+      repositoryId: args.repositoryId,
+      branch: repository.defaultBranch,
+    });
     if (!defaultBranchTree) {
       return [];
     }

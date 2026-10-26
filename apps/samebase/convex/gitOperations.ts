@@ -1,6 +1,11 @@
-import { v } from "convex/values";
+import { v, type Infer } from "convex/values";
+import { fileBlob } from "@samebase/git-workspace/model";
 import { internalMutation, internalQuery, type MutationCtx } from "./_generated/server";
 import { components } from "./_generated/api";
+
+const { id, optional, string } = v;
+const hostFileBlob = fileBlob.extend({ storageId: optional(id("_storage")) });
+type HostFileBlob = Infer<typeof hostFileBlob>;
 
 /** Root storage and component reference checks share the caller's mutation. */
 export async function deleteReleasedStagingStorage(
@@ -14,78 +19,46 @@ export async function deleteReleasedStagingStorage(
       storageId: storageKey,
     });
     if (staged) continue;
-    const cached = await ctx.db
-      .query("observations_repositoryFiles_blobs")
-      .withIndex("by_storageId", (q) => q.eq("storageId", storageId))
-      .first();
+    const cached = await ctx.runQuery(components.gitWorkspace.blobs.hasStorageReference, {
+      storageId: storageKey,
+    });
     if (!cached) await ctx.storage.delete(storageId);
   }
 }
 
-// MARK: Public
-
-// MARK: Internal
-
 export const getBlobBySha = internalQuery({
-  args: {
-    sha: v.string(),
-  },
-  handler: async (ctx, args) => {
-    return await ctx.db
-      .query("observations_repositoryFiles_blobs")
-      .withIndex("by_sha", (q) => q.eq("sha", args.sha))
-      .first();
+  args: { sha: string() },
+  returns: v.union(hostFileBlob, v.null()),
+  handler: async (ctx, args): Promise<HostFileBlob | null> => {
+    const blob = await ctx.runQuery(components.gitWorkspace.blobs.getBySha, { sha: args.sha });
+    if (!blob) return null;
+    const storageId =
+      blob.storageId === undefined
+        ? undefined
+        : ctx.db.system.normalizeId("_storage", blob.storageId);
+    if (storageId === null) throw new Error("Cached storage reference is invalid.");
+    return { ...blob, storageId };
   },
 });
 
-/**
- * Internal mutation to save a file blob to the database
- */
+/** Internal mutation to save a file blob to the component cache. */
 export const saveFileBlob = internalMutation({
   args: {
-    repositoryId: v.id("repositories"),
-    sha: v.string(),
+    repositoryId: id("repositories"),
+    sha: string(),
     size: v.number(),
-    text: v.optional(v.string()),
-    storageId: v.optional(v.id("_storage")),
-    ext: v.string(),
-    mime: v.string(),
-
-    // only used for debugging
-    debugFilePath: v.optional(v.string()),
+    text: optional(string()),
+    storageId: optional(id("_storage")),
+    ext: string(),
+    mime: string(),
+    // Only used for debugging.
+    debugFilePath: optional(string()),
   },
-  returns: v.id("observations_repositoryFiles_blobs"),
-  handler: async (ctx, args) => {
+  returns: string(),
+  handler: async (ctx, args): Promise<string> => {
     const repository = await ctx.db.get(args.repositoryId);
-    if (!repository) {
-      throw new Error("Repository not found");
-    }
-
-    // empty text is also valid
-    const textDefined = typeof args.text === "string";
-
-    // Only text or storageId should be provided
-    if (textDefined && args.storageId) {
-      console.log("saveFileBlob", args);
-      throw new Error("Only one of text or storageId should be provided");
-    }
-    if (!textDefined && !args.storageId) {
-      console.log("saveFileBlob", args);
-      throw new Error("One of text or storageId must be provided");
-    }
-
-    // Check if file blob already exists
-    const existingBlob = await ctx.db
-      .query("observations_repositoryFiles_blobs")
-      .withIndex("by_sha", (q) => q.eq("sha", args.sha))
-      .first();
-
-    if (existingBlob) {
-      console.log(`File blob already exists for SHA: ${args.sha}`);
-      return existingBlob._id;
-    }
-
-    return await ctx.db.insert("observations_repositoryFiles_blobs", {
+    if (!repository) throw new Error("Repository not found");
+    return await ctx.runMutation(components.gitWorkspace.blobs.save, {
       repositoryId: args.repositoryId,
       sha: args.sha,
       size: args.size,

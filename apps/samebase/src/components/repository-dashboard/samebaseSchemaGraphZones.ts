@@ -100,7 +100,6 @@ export const SAMEBASE_SCHEMA_GRAPH_TABLE_ZONES: Readonly<
   ui_repositoryFileTree_folderExpansions: "workspace",
 
   repositories: "repositoryCore",
-  observations_repository_branchTrees: "repository",
 
   repositoryCloudflareWorkers: "infrastructure",
   repositoryConvexProjects: "infrastructure",
@@ -112,10 +111,6 @@ export const SAMEBASE_SCHEMA_GRAPH_TABLE_ZONES: Readonly<
   workflow_repositoryProvisioning_events: "infrastructure",
   workflow_repositoryDeletion_runs: "infrastructure",
   workflow_repositoryDeletion_events: "infrastructure",
-
-  repositoryStagedFiles: "files",
-  observations_repositoryFiles_blobs: "files",
-  repositoryStagedFileUpdates: "files",
 
   mcpOauthClients: "mcp",
   mcpAuthorizationRequests: "mcp",

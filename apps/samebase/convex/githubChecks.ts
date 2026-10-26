@@ -3,7 +3,7 @@
 import { Infer, v } from "convex/values";
 import { internal } from "./_generated/api";
 import { action } from "./functions";
-import { describeRepositoryTreeRefreshFailure } from "./github";
+import { describeRepositoryTreeRefreshFailure } from "@samebase/git-workspace/repositoryRefresh";
 import { resolveGitHubAppAccess } from "./githubAppAccess";
 import { isRecord } from "./jsonUtils";
 

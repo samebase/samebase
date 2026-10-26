@@ -10,6 +10,8 @@
     "./convex.config": "./src/component/convex.config.ts",
     "./_generated/component.js": "./src/component/_generated/component.ts",
     "./model": "./src/model.ts",
+    "./treeRefresh": "./src/treeRefresh.ts",
+    "./repositoryRefresh": "./src/repositoryRefresh.ts",
     "./stagingChanges": "./src/stagingChanges.ts",
     "./stagingRebase": "./src/stagingRebase.ts",
     "./stagingErrors": "./src/stagingErrors.ts",

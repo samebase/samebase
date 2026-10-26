@@ -8,6 +8,8 @@
  * @module
  */
 
+import type * as blobs from "../blobs.js";
+import type * as branches from "../branches.js";
 import type * as collaborative from "../collaborative.js";
 import type * as collaborativeText from "../collaborativeText.js";
 import type * as staging from "../staging.js";
@@ -20,6 +22,8 @@ import type {
 import { anyApi, componentsGeneric } from "convex/server";
 
 const fullApi: ApiFromModules<{
+  blobs: typeof blobs;
+  branches: typeof branches;
   collaborative: typeof collaborative;
   collaborativeText: typeof collaborativeText;
   staging: typeof staging;

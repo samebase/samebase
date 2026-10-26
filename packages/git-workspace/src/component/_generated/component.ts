@@ -23,6 +23,166 @@ import type { FunctionReference } from "convex/server";
  */
 export type ComponentApi<Name extends string | undefined = string | undefined> =
   {
+    blobs: {
+      deleteRepositoryBatch: FunctionReference<
+        "mutation",
+        "internal",
+        { repositoryId: string },
+        { releasedStorageIds: Array<string>; rowsChanged: number },
+        Name
+      >;
+      getBySha: FunctionReference<
+        "query",
+        "internal",
+        { sha: string },
+        {
+          _creationTime: number;
+          _id: string;
+          ext?: string;
+          mime?: string;
+          repositoryId: string;
+          sha: string;
+          size: number;
+          storageId?: string;
+          text?: string;
+        } | null,
+        Name
+      >;
+      hasStorageReference: FunctionReference<
+        "query",
+        "internal",
+        { storageId: string },
+        boolean,
+        Name
+      >;
+      save: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          ext: string;
+          mime: string;
+          repositoryId: string;
+          sha: string;
+          size: number;
+          storageId?: string;
+          text?: string;
+        },
+        string,
+        Name
+      >;
+    };
+    branches: {
+      claimRefresh: FunctionReference<
+        "mutation",
+        "internal",
+        { repositoryId: string },
+        | { claimed: true; startedAt: number }
+        | { claimed: false; reason: "cooldown" | "in_progress" },
+        Name
+      >;
+      deleteRepositoryBatch: FunctionReference<
+        "mutation",
+        "internal",
+        { repositoryId: string; table: "branchTrees" | "repositorySyncState" },
+        number,
+        Name
+      >;
+      get: FunctionReference<
+        "query",
+        "internal",
+        { branch: string; repositoryId: string },
+        {
+          _creationTime: number;
+          _id: string;
+          branch: string;
+          commitSHA: string;
+          lastTreeRefreshAt: number;
+          repositoryId: string;
+          treeData: {
+            sha: string;
+            tree: Array<{
+              mode: string;
+              path: string;
+              sha: string;
+              size?: number;
+              type: string;
+              url?: string;
+            }>;
+            truncated: boolean;
+            url?: string;
+          };
+        } | null,
+        Name
+      >;
+      getSyncState: FunctionReference<
+        "query",
+        "internal",
+        { repositoryId: string },
+        {
+          _creationTime: number;
+          _id: string;
+          lastTreeRefreshFailedAt?: number;
+          repositoryId: string;
+          treeRefreshCooldownUntil?: number;
+          treeRefreshFailureKind?: "failed" | "rate_limited";
+          treeRefreshFailureMessage?: string;
+          treeRefreshStartedAt?: number;
+        } | null,
+        Name
+      >;
+      recordRefreshFailure: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          cooldownUntil?: number;
+          failureKind?: "failed" | "rate_limited";
+          failureMessage?: string;
+          repositoryId: string;
+          startedAt?: number;
+        },
+        null,
+        Name
+      >;
+      releaseRefresh: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          cooldownUntil?: number;
+          failureKind?: "failed" | "rate_limited";
+          failureMessage?: string;
+          markRefreshed: boolean;
+          repositoryId: string;
+          startedAt: number;
+        },
+        { released: boolean },
+        Name
+      >;
+      upsert: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          branch: string;
+          commitSHA: string;
+          repositoryId: string;
+          startedAt?: number;
+          treeData: {
+            sha: string;
+            tree: Array<{
+              mode: string;
+              path: string;
+              sha: string;
+              size?: number;
+              type: string;
+              url?: string;
+            }>;
+            truncated: boolean;
+            url?: string;
+          };
+        },
+        { written: boolean },
+        Name
+      >;
+    };
     collaborative: {
       pullUpdates: FunctionReference<
         "query",

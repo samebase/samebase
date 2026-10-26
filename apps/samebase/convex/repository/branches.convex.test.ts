@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vite-plus/test";
+import { assert, describe, expect, it } from "vite-plus/test";
 
 import { internal } from "../_generated/api";
 import { makeConvexTest } from "../test.setup";
@@ -57,10 +57,13 @@ describe("repository branch mutations", () => {
         defaultBranch: "main",
         visibility: "private",
         connectedAt: 4,
-        treeRefreshStartedAt: 200,
       });
       return { repositoryId };
     });
+    const claim = await t.mutation(internal.repository.branches.claimTreeRefresh, {
+      repositoryId: ids.repositoryId,
+    });
+    assert(claim.claimed);
     const treeData = {
       sha: "feature-tree",
       truncated: false,
@@ -71,40 +74,32 @@ describe("repository branch mutations", () => {
       t.mutation(internal.repository.branches.upsertClaimedRepositoryBranchTree, {
         repositoryId: ids.repositoryId,
         branch: "feature/pr",
-        startedAt: 100,
+        startedAt: claim.startedAt - 1,
         commitSHA: "feature-commit",
         treeData,
       }),
     ).resolves.toEqual({ written: false });
     await expect(
-      t.run(async (ctx) =>
-        ctx.db
-          .query("observations_repository_branchTrees")
-          .withIndex("by_repository_and_branch", (q) =>
-            q.eq("repositoryId", ids.repositoryId).eq("branch", "feature/pr"),
-          )
-          .collect(),
-      ),
-    ).resolves.toEqual([]);
+      t.query(internal.repository.branches.getRepositoryBranchTree, {
+        repositoryId: ids.repositoryId,
+        branch: "feature/pr",
+      }),
+    ).resolves.toEqual(null);
 
     await expect(
       t.mutation(internal.repository.branches.upsertClaimedRepositoryBranchTree, {
         repositoryId: ids.repositoryId,
         branch: "feature/pr",
-        startedAt: 200,
+        startedAt: claim.startedAt,
         commitSHA: "feature-commit",
         treeData,
       }),
     ).resolves.toEqual({ written: true });
     await expect(
-      t.run(async (ctx) =>
-        ctx.db
-          .query("observations_repository_branchTrees")
-          .withIndex("by_repository_and_branch", (q) =>
-            q.eq("repositoryId", ids.repositoryId).eq("branch", "feature/pr"),
-          )
-          .unique(),
-      ),
+      t.query(internal.repository.branches.getRepositoryBranchTree, {
+        repositoryId: ids.repositoryId,
+        branch: "feature/pr",
+      }),
     ).resolves.toMatchObject({
       repositoryId: ids.repositoryId,
       branch: "feature/pr",

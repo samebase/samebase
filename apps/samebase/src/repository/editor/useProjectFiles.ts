@@ -3,7 +3,7 @@ import { useAction } from "convex/react";
 import { useMemo } from "react";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
-import { type GitHubTree } from "../../../convex/repository/model";
+import { type GitHubTree } from "@samebase/git-workspace/model";
 
 // ---------------------------------------------------------------------------
 // File extensions to load into Monaco models for import resolution

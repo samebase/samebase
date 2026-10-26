@@ -26,8 +26,9 @@ const repositoryLocalCleanupTable = union(
   literal("ui_repositoryTree_folderAssignments"),
   literal("gitWorkspace.stagedFiles"),
   literal("gitWorkspace.fileUpdates"),
-  literal("observations_repositoryFiles_blobs"),
-  literal("observations_repository_branchTrees"),
+  literal("gitWorkspace.fileBlobs"),
+  literal("gitWorkspace.branchTrees"),
+  literal("gitWorkspace.repositorySyncState"),
   literal("workflow_repositoryProvisioning_events"),
   literal("workflow_repositoryProvisioning_runs"),
 );
@@ -121,23 +122,11 @@ async function deleteStorageBackedByRepositoryBatch(
   ctx: RepositoryLocalCleanupCtx,
   args: RepositoryLocalCleanupArgs,
 ): Promise<number> {
-  const rows = await ctx.db
-    .query("observations_repositoryFiles_blobs")
-    .withIndex("by_repository", (q) => q.eq("repositoryId", args.repositoryId))
-    .take(REPOSITORY_LOCAL_CLEANUP_BATCH_SIZE);
-  const storageIds = new Set<Id<"_storage">>();
-
-  for (const row of rows) {
-    if (row.storageId) {
-      storageIds.add(row.storageId);
-    }
-
-    await ctx.db.delete(row._id);
-  }
-
-  await deleteReleasedStagingStorage(ctx, [...storageIds]);
-
-  return rows.length;
+  const result = await ctx.runMutation(components.gitWorkspace.blobs.deleteRepositoryBatch, {
+    repositoryId: args.repositoryId,
+  });
+  await deleteReleasedStagingStorage(ctx, result.releasedStorageIds);
+  return result.rowsChanged;
 }
 
 function deleteWorkingCopyBatch(
@@ -153,18 +142,14 @@ function deleteWorkingCopyBatch(
   };
 }
 
-async function deleteRepositoryBranchTreesBatch(
-  ctx: RepositoryLocalCleanupCtx,
-  args: RepositoryLocalCleanupArgs,
-): Promise<number> {
-  const rows = await ctx.db
-    .query("observations_repository_branchTrees")
-    .withIndex("by_repository_and_branch", (q) => q.eq("repositoryId", args.repositoryId))
-    .take(REPOSITORY_LOCAL_CLEANUP_BATCH_SIZE);
-  for (const row of rows) {
-    await ctx.db.delete(row._id);
-  }
-  return rows.length;
+function deleteBranchStateBatch(
+  table: "branchTrees" | "repositorySyncState",
+): RepositoryLocalCleanupHandler {
+  return async (ctx, args) =>
+    await ctx.runMutation(components.gitWorkspace.branches.deleteRepositoryBatch, {
+      repositoryId: args.repositoryId,
+      table,
+    });
 }
 
 async function deleteRepositoryProvisioningEventsBatch(
@@ -219,7 +204,7 @@ const repositoryLocalCleanupRegistry = [
     cleanup: deleteWorkingCopyBatch("fileUpdates"),
   },
   {
-    table: "observations_repositoryFiles_blobs",
+    table: "gitWorkspace.fileBlobs",
     cleanup: deleteStorageBackedByRepositoryBatch,
   },
   {
@@ -227,8 +212,12 @@ const repositoryLocalCleanupRegistry = [
     cleanup: deleteByRepositoryBatch("ui_repositoryFileTree_folderExpansions"),
   },
   {
-    table: "observations_repository_branchTrees",
-    cleanup: deleteRepositoryBranchTreesBatch,
+    table: "gitWorkspace.branchTrees",
+    cleanup: deleteBranchStateBatch("branchTrees"),
+  },
+  {
+    table: "gitWorkspace.repositorySyncState",
+    cleanup: deleteBranchStateBatch("repositorySyncState"),
   },
   {
     table: "repositoryConvexProjects",
@@ -271,14 +260,15 @@ const repositoryLocalCleanupRegistryByStep = {
   cleanup_editor_state: [
     "gitWorkspace.stagedFiles",
     "gitWorkspace.fileUpdates",
-    "observations_repositoryFiles_blobs",
+    "gitWorkspace.fileBlobs",
   ],
   cleanup_source_caches: [
     "ui_repositoryPullRequests_filters",
     "ui_repositoryResourceLinks_settings",
     "ui_repositoryTree_folderAssignments",
     "ui_repositoryFileTree_folderExpansions",
-    "observations_repository_branchTrees",
+    "gitWorkspace.branchTrees",
+    "gitWorkspace.repositorySyncState",
   ],
   cleanup_runtime_state: [
     "repositoryConvexProjects",

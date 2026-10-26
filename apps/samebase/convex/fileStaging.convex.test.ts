@@ -719,7 +719,7 @@ describe("released binary storage", () => {
     const storageId = await t.run(
       async (ctx) => await ctx.storage.store(new Blob(["shared image"])),
     );
-    const cachedBlobId = await t.mutation(internal.gitOperations.saveFileBlob, {
+    await t.mutation(internal.gitOperations.saveFileBlob, {
       repositoryId: otherRepositoryId,
       storageId,
       sha: "shared-sha",
@@ -766,7 +766,9 @@ describe("released binary storage", () => {
       userId,
       replaceExisting: false,
     });
-    await t.run(async (ctx) => await ctx.db.delete(cachedBlobId));
+    await t.mutation(components.gitWorkspace.blobs.deleteRepositoryBatch, {
+      repositoryId: otherRepositoryId,
+    });
     await asUser.mutation(api.fileStaging.clearAllStaging, {
       repositoryId,
       branch: "main",

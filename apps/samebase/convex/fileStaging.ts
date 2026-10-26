@@ -17,7 +17,7 @@ import { components, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { mutation, query } from "./functions";
 import { findRepositoryForUser } from "./organizationAccess";
-import type { GitHubTree } from "./repository/model";
+import type { GitHubTree } from "@samebase/git-workspace/model";
 import { assertConnectedRepository, isLiveConnectedRepository } from "./repository/state";
 import { readActiveUser } from "./identity/lifecycle";
 import { deleteReleasedStagingStorage } from "./gitOperations";
@@ -127,10 +127,9 @@ export const deletePendingUploadBlob = mutation({
     const staged = await ctx.runQuery(components.gitWorkspace.staging.hasStorageReference, {
       storageId: args.storageId,
     });
-    const cached = await ctx.db
-      .query("observations_repositoryFiles_blobs")
-      .withIndex("by_storageId", (q) => q.eq("storageId", args.storageId))
-      .first();
+    const cached = await ctx.runQuery(components.gitWorkspace.blobs.hasStorageReference, {
+      storageId: args.storageId,
+    });
     if (staged || cached)
       throw new Error("Cannot delete a blob that is already attached to staging.");
     await ctx.storage.delete(args.storageId);
@@ -542,7 +541,7 @@ export const saveBinaryUploadToStaging = internalMutation({
     return result.file;
   },
 });
-export const assertMediaUploadAccess = internalMutation({
+export const assertWriteAccess = internalMutation({
   args: { repositoryId: id("repositories"), userId: id("users") },
   returns: v.null(),
   handler: async (ctx, args) => {

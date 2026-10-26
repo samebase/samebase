@@ -1,10 +1,28 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
-import { stagedFileFields } from "../model.js";
+import {
+  branchTreeFields,
+  fileBlobFields,
+  repositorySyncStateFields,
+  stagedFileFields,
+} from "../model.js";
 
 const { number, string } = v;
 
 export default defineSchema({
+  /** Exact Git tree cache for one repository branch at one observed commit. */
+  branchTrees: defineTable(branchTreeFields).index("by_repository_and_branch", [
+    "repositoryId",
+    "branch",
+  ]),
+  /** Git blob contents observed by SHA and cached inline or in host storage. */
+  fileBlobs: defineTable(fileBlobFields)
+    .index("by_sha", ["sha"])
+    .index("by_repository", ["repositoryId"])
+    .index("by_storageId", ["storageId"]),
+  repositorySyncState: defineTable(repositorySyncStateFields).index("by_repository", [
+    "repositoryId",
+  ]),
   stagedFiles: defineTable(stagedFileFields)
     .index("by_repository_and_branch_and_path", ["repositoryId", "branch", "filePath"])
     .index("by_repository_and_branch", ["repositoryId", "branch"])
