@@ -1464,8 +1464,13 @@ function FileViewInner({
         }
 
         if (selectedFile === filePath || selectedFile === restoredFilePath) {
-          navigateByHref(buildRepositoryFileUrl(restoredFilePath, { reviewMode: "editor" }), {
+          await router.navigate({
+            href: buildRepositoryFileUrl(restoredFilePath, {
+              reviewMode: "editor",
+              compare: false,
+            }),
             replace: true,
+            state: true,
           });
         }
       } catch (error) {
@@ -1481,10 +1486,10 @@ function FileViewInner({
       branch,
       branchComparePreview,
       buildRepositoryFileUrl,
-      navigateByHref,
       githubRepositoryFullName,
       restoreComparedDeletedFileToStaging,
       revertDeletedFileInStaging,
+      router,
       selectedFile,
       stagedFiles,
       repository.repositoryId,
@@ -2087,7 +2092,7 @@ function FileViewInner({
    * the user to the first compared file so compare mode always shows real data.
    */
   useEffect(() => {
-    if (!isCompareRequested || !branchComparePreview) {
+    if (!isCompareRequested || !branchComparePreview || restoringDeletedFilePath !== null) {
       return;
     }
 
@@ -2113,6 +2118,7 @@ function FileViewInner({
     buildRepositoryFileUrl,
     isCompareRequested,
     navigateByHref,
+    restoringDeletedFilePath,
     selectedFile,
   ]);
 
