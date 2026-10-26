@@ -1,44 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
 import { summarizeStagedFilesByBranch } from "@samebase/git-workspace/stagingChanges";
-import { selectRepositoryTreeForBranch } from "./fileStaging";
-
-const branchTree = [
-  {
-    path: "src/feature.ts",
-    mode: "100644",
-    type: "blob",
-    sha: "feature-sha",
-  },
-];
-
-describe("selectRepositoryTreeForBranch", () => {
-  it("returns the branch-scoped tree when it exists", () => {
-    expect(
-      selectRepositoryTreeForBranch({
-        requestedBranch: "feature/login",
-        branchTree,
-      }),
-    ).toEqual(branchTree);
-  });
-
-  it("throws for missing branch trees", () => {
-    expect(() =>
-      selectRepositoryTreeForBranch({
-        requestedBranch: "feature/login",
-        branchTree: null,
-      }),
-    ).toThrow('Branch tree is not cached for "feature/login"');
-  });
-
-  it("throws for the default branch before its exact tree observation exists", () => {
-    expect(() =>
-      selectRepositoryTreeForBranch({
-        requestedBranch: "main",
-        branchTree: null,
-      }),
-    ).toThrow('Branch tree is not cached for "main"');
-  });
-});
 
 describe("summarizeStagedFilesByBranch", () => {
   it("returns per-branch category counts for changed files only", () => {

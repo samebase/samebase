@@ -223,7 +223,7 @@ describe("saveToStaging", () => {
 
     // Both open actions can read no staging before either GitHub fetch returns.
     expect(
-      await t.query(internal.fileStaging.getByOriginalPath, {
+      await t.query(components.gitWorkspace.staging.getByOriginalPath, {
         repositoryId,
         originalFilePath: "notes.md",
         branch: "main",
@@ -248,7 +248,7 @@ describe("saveToStaging", () => {
       userId,
     });
     expect(
-      await t.query(internal.fileStaging.getByOriginalPath, {
+      await t.query(components.gitWorkspace.staging.getByOriginalPath, {
         repositoryId,
         originalFilePath: "notes.md",
         branch: "main",
@@ -736,7 +736,7 @@ describe("clearMatchingStagingSnapshot", () => {
       expectedVersion: 1,
       newContent: "renamed edit",
     });
-    const files = await t.query(internal.fileStaging.listAllStagedFiles, {
+    const files = await t.query(components.gitWorkspace.staging.listAllStagedFiles, {
       repositoryId,
       branch: "main",
       includeUnchanged: true,

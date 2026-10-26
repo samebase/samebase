@@ -4,6 +4,7 @@ import { v, type Infer } from "convex/values";
 import type { FileBlob, vGitHubTreeData } from "./model.js";
 import type { GitWorkspace } from "./operationsContext.js";
 import { guessMime, withRetry } from "./fileContent.js";
+import { getGitHubErrorStatus } from "./github.js";
 import { type RepositoryMediaKind, isSvgRepositoryMediaPath } from "./repositoryMedia.js";
 import { readStagedFileKind } from "./stagingChanges.js";
 
@@ -97,7 +98,7 @@ function getRepositoryMediaErrorMessage(error: unknown): string {
 }
 
 function isRepositoryMediaTooLargeError(error: unknown): boolean {
-  if (getRepositoryMediaErrorStatus(error) !== 403) {
+  if (getGitHubErrorStatus(error) !== 403) {
     return false;
   }
 
@@ -288,18 +289,6 @@ function getRepositoryMediaExtension(filePath: string): string {
     return "";
   }
   return fileName.slice(extensionStart + 1).toLowerCase();
-}
-
-function getRepositoryMediaErrorStatus(error: unknown): number | null {
-  if (
-    typeof error === "object" &&
-    error !== null &&
-    "status" in error &&
-    typeof error.status === "number"
-  ) {
-    return error.status;
-  }
-  return null;
 }
 
 export async function readRepositoryFileContent<RepositoryId extends string>(
@@ -498,7 +487,6 @@ export async function readRepositoryMediaAsset<RepositoryId extends string>(
       text: undefined,
       storageId,
       ext: getRepositoryMediaExtension(args.filePath),
-      debugFilePath: args.filePath,
     });
 
     if (!savedBlob) {
@@ -516,7 +504,7 @@ export async function readRepositoryMediaAsset<RepositoryId extends string>(
     }
     return savedAsset;
   } catch (error: unknown) {
-    if (getRepositoryMediaErrorStatus(error) === 404) {
+    if (getGitHubErrorStatus(error) === 404) {
       return { found: false, reason: "missing" };
     }
 

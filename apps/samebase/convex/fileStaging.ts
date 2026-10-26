@@ -16,7 +16,6 @@ import { components, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { mutation, query } from "./functions";
 import { findRepositoryForUser } from "./organizationAccess";
-import type { GitHubTree } from "@samebase/git-workspace/model";
 import { assertConnectedRepository, isLiveConnectedRepository } from "./repository/state";
 import { readActiveUser } from "./identity/lifecycle";
 import { deleteReleasedStagingStorage } from "./gitOperations";
@@ -54,16 +53,6 @@ async function assertConnectedRepositoryForStagingWrite(
   const user = await ctx.db.get(args.userId);
   if (!user || readActiveUser(user) === null) throw new Error("Account deletion is in progress.");
   return assertConnectedRepository(repository);
-}
-
-export function selectRepositoryTreeForBranch(args: {
-  requestedBranch: string;
-  branchTree: GitHubTree[] | null;
-}): GitHubTree[] {
-  if (args.branchTree) return args.branchTree;
-  throw new Error(
-    `Branch tree is not cached for "${args.requestedBranch}". Refresh branch and retry.`,
-  );
 }
 
 export const generateUploadUrl = mutation({
@@ -116,26 +105,6 @@ export const getByNewPath = query({
     });
   },
 });
-export const getByNewPathInternal = internalQuery({
-  args: { ...scope, newPath: string() },
-  returns: fileOrNull,
-  handler: async (ctx, args) =>
-    await ctx.runQuery(components.gitWorkspace.staging.getByNewPath, {
-      repositoryId: args.repositoryId,
-      branch: args.branch,
-      newPath: args.newPath,
-    }),
-});
-export const getByOriginalPath = internalQuery({
-  args: { ...scope, originalFilePath: string() },
-  returns: fileOrNull,
-  handler: async (ctx, args) =>
-    await ctx.runQuery(components.gitWorkspace.staging.getByOriginalPath, {
-      repositoryId: args.repositoryId,
-      branch: args.branch,
-      originalFilePath: args.originalFilePath,
-    }),
-});
 export const listStagedFiles = query({
   access: "access_files_read",
   args: { ...scope, includeUnchanged: optional(boolean()) },
@@ -152,20 +121,6 @@ export const listStagedFiles = query({
       includeUnchanged: args.includeUnchanged,
     });
   },
-});
-export const listAllStagedFiles = internalQuery({
-  args: {
-    repositoryId: id("repositories"),
-    branch: optional(string()),
-    includeUnchanged: optional(boolean()),
-  },
-  returns: array(stagedFile),
-  handler: async (ctx, args) =>
-    await ctx.runQuery(components.gitWorkspace.staging.listAllStagedFiles, {
-      repositoryId: args.repositoryId,
-      branch: args.branch,
-      includeUnchanged: args.includeUnchanged,
-    }),
 });
 export const listStagedFilesBranchSummaries = query({
   access: "access_files_read",

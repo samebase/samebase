@@ -1187,7 +1187,7 @@ describe("account deletion organization boundary", () => {
       branch: "main",
       userId: ids.teammateUserId,
     });
-    const stagedFile = await t.query(internal.fileStaging.getByOriginalPath, {
+    const stagedFile = await t.query(components.gitWorkspace.staging.getByOriginalPath, {
       repositoryId: ids.repositoryId,
       originalFilePath: "README.md",
       branch: "main",

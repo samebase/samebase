@@ -85,22 +85,6 @@ export function selectBatchReadRepositoryTree(args: {
   );
 }
 
-export function listTouchedBranchesForRefresh(branches: string[]): string[] {
-  return Array.from(new Set(branches));
-}
-
-export async function runPostCommitTreeRefresh(args: {
-  refreshBranchTree: () => Promise<boolean>;
-  onWarning: (error: unknown) => void;
-}): Promise<boolean> {
-  try {
-    return await args.refreshBranchTree();
-  } catch (error) {
-    args.onWarning(error);
-    return false;
-  }
-}
-
 function readDefaultBranch(repoData: unknown): string {
   if (!isRecord(repoData)) {
     return "main";
@@ -491,11 +475,6 @@ function getKnownRateLimitResetAtMs(userId: string): number | null {
   return resetAtMs;
 }
 
-function rememberRateLimitResetAtMs(userId: string, resetAtMs: number): number {
-  githubRateLimitResetByUser.set(userId, resetAtMs);
-  return resetAtMs;
-}
-
 export function shouldAdvanceBinaryPullParentCommit(args: {
   stagedBlobSha?: string | null;
   fileDeleted?: boolean;
@@ -688,7 +667,6 @@ export async function openFile<RepositoryId extends string, UserId extends strin
       text: blobContent.text,
       storageId: blobContent.storageId,
       ext,
-      debugFilePath: filePath,
     });
 
     if (!savedBlob) {
@@ -1232,7 +1210,7 @@ export async function pullFromGitHub<RepositoryId extends string, UserId extends
   }
 
   // 5. Refresh touched branch caches after reconciliation
-  const touchedBranches = listTouchedBranchesForRefresh([
+  const touchedBranches = new Set([
     ...allStaged.map((item) => item.branch),
     repository.defaultBranch,
   ]);
@@ -1354,7 +1332,6 @@ export async function batchReadFiles<RepositoryId extends string, UserId extends
           storageId: undefined,
           ext,
           mime: "text/plain; charset=utf-8",
-          debugFilePath: miss.path,
         });
       }
 
@@ -1362,7 +1339,8 @@ export async function batchReadFiles<RepositoryId extends string, UserId extends
     } catch (error) {
       if (isGitHubRateLimitError(error)) {
         const failure = describeRepositoryTreeRefreshFailure(error);
-        const resetAtMs = rememberRateLimitResetAtMs(userId, failure.cooldownUntil);
+        const resetAtMs = failure.cooldownUntil;
+        githubRateLimitResetByUser.set(userId, resetAtMs);
         console.warn("batchReadFiles: hit GitHub rate limit, stopping uncached reads for now", {
           userId,
           resetAtMs,
@@ -1792,16 +1770,17 @@ export async function commitAllStaged<RepositoryId extends string, UserId extend
 
   // 1. Refresh branch/default tree caches and re-read the updated repository.
   //    This is best-effort: upstream commit already succeeded.
-  const updatedRepository = await runPostCommitTreeRefresh({
-    refreshBranchTree: () => workspace.refreshBranch(commitBranch),
-    onWarning: (error) =>
-      console.error("Post-commit tree refresh failed; continuing with cleanup:", error),
-  });
+  let treeRefreshed = false;
+  try {
+    treeRefreshed = await workspace.refreshBranch(commitBranch);
+  } catch (error) {
+    console.error("Post-commit tree refresh failed; continuing with cleanup:", error);
+  }
 
   // 3. Save committed file contents into the blob cache under their new SHAs
   //    so that when the client re-fetches after staging is cleared, it gets
   //    the correct content immediately without hitting GitHub API
-  if (updatedRepository) {
+  if (treeRefreshed) {
     try {
       for (const file of committedFiles.filter(hasStagedFileChanges)) {
         if (file.fileDeleted) continue;
@@ -1831,7 +1810,6 @@ export async function commitAllStaged<RepositoryId extends string, UserId extend
             storageId,
             ext: file.filePath.split(".").pop()?.toLowerCase() ?? "",
             mime: file.mime ?? guessMime(file.filePath),
-            debugFilePath: file.filePath,
           });
           continue;
         }
@@ -1845,7 +1823,6 @@ export async function commitAllStaged<RepositoryId extends string, UserId extend
             storageId: undefined,
             ext: file.filePath.split(".").pop()?.toLowerCase() ?? "",
             mime: "text/plain; charset=utf-8",
-            debugFilePath: file.filePath,
           });
         }
       }

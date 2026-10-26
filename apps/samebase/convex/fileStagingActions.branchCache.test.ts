@@ -1,10 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import {
-  listTouchedBranchesForRefresh,
-  runPostCommitTreeRefresh,
-  selectBatchReadRepositoryTree,
-} from "@samebase/git-workspace/operations";
+import { selectBatchReadRepositoryTree } from "@samebase/git-workspace/operations";
 
 const featureTree = [
   {
@@ -48,47 +44,5 @@ describe("selectBatchReadRepositoryTree", () => {
         branchTree: null,
       }),
     ).toThrow("Default branch tree is not cached. Refresh and retry.");
-  });
-});
-
-describe("listTouchedBranchesForRefresh", () => {
-  it("deduplicates branches while preserving first-seen order", () => {
-    expect(
-      listTouchedBranchesForRefresh(["main", "feature/a", "main", "feature/b", "feature/a"]),
-    ).toEqual(["main", "feature/a", "feature/b"]);
-  });
-});
-
-describe("runPostCommitTreeRefresh", () => {
-  it("returns success when the host refresh completes", async () => {
-    const calls: string[] = [];
-    const result = await runPostCommitTreeRefresh({
-      refreshBranchTree: async () => {
-        calls.push("branch");
-        return true;
-      },
-      onWarning: () => {
-        throw new Error("Unexpected warning callback");
-      },
-    });
-
-    expect(calls).toEqual(["branch"]);
-    expect(result).toBe(true);
-  });
-
-  it("swallows refresh errors and returns false", async () => {
-    const warnings: unknown[] = [];
-    const result = await runPostCommitTreeRefresh({
-      refreshBranchTree: async () => {
-        throw new Error("network");
-      },
-      onWarning: (error) => {
-        warnings.push(error);
-      },
-    });
-
-    expect(result).toBe(false);
-    expect(warnings).toHaveLength(1);
-    expect(warnings[0]).toBeInstanceOf(Error);
   });
 });

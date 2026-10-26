@@ -49,7 +49,7 @@ export type GitWorkspace<RepositoryId extends string, UserId extends string> = {
       "internal",
       Omit<
         AuthorizedArgs<FunctionArgs<Staging["saveBinaryUploadToStaging"]>, RepositoryId, UserId>,
-        "parentCommitSha" | "storageId"
+        "storageId"
       > & { storageId: GenericId<"_storage"> },
       StagedFile
     >;
@@ -92,19 +92,13 @@ export type GitWorkspace<RepositoryId extends string, UserId extends string> = {
     createFileInStagingForOperation: FunctionReference<
       "mutation",
       "internal",
-      Omit<
-        AuthorizedArgs<FunctionArgs<Staging["createFileInStaging"]>, RepositoryId, UserId>,
-        "existsInRepository"
-      >,
+      AuthorizedArgs<FunctionArgs<Staging["createFileInStaging"]>, RepositoryId, UserId>,
       null
     >;
     rename: FunctionReference<
       "mutation",
       "internal",
-      Omit<
-        AuthorizedArgs<FunctionArgs<Staging["rename"]>, RepositoryId, UserId>,
-        "existsInRepository"
-      >,
+      AuthorizedArgs<FunctionArgs<Staging["rename"]>, RepositoryId, UserId>,
       StagedFile
     >;
     pushContentUpdate: FunctionReference<
@@ -129,7 +123,6 @@ export type GitWorkspace<RepositoryId extends string, UserId extends string> = {
       Omit<FunctionArgs<ComponentApi["blobs"]["save"]>, "repositoryId" | "storageId"> & {
         repositoryId: RepositoryId;
         storageId?: GenericId<"_storage">;
-        debugFilePath?: string;
       },
       FileBlob | null
     >;

@@ -52,8 +52,6 @@ export const saveFileBlob = internalMutation({
     storageId: optional(id("_storage")),
     ext: string(),
     mime: string(),
-    // Only used for debugging.
-    debugFilePath: optional(string()),
   },
   returns: v.union(hostFileBlob, v.null()),
   handler: async (ctx, args): Promise<HostFileBlob | null> => {

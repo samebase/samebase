@@ -1,21 +1,37 @@
 # Git workspace
 
-Private Samebase package for staged Git files and collaborative text editing. It contains one Convex
-component and React bindings for CodeMirror and Monaco. Samebase consumes the TypeScript source
-directly. There is no separate release or build step.
+Private Samebase package for GitHub file editing and collaborative text editing. It contains one
+Convex component, server operations, and React bindings for CodeMirror and Monaco. Samebase consumes
+the TypeScript source directly. There is no separate release or build step.
 
 ## Ownership
 
-| Package                                                                     | Host app                                                       |
-| --------------------------------------------------------------------------- | -------------------------------------------------------------- |
-| Staged files, edit versions, and update history                             | Login, repository access, and write permissions                |
-| File changes, GitHub commit/rebase helpers, and conditional acknowledgement | GitHub credentials, action orchestration, and cache updates    |
-| CodeMirror collaboration and Monaco edit binding                            | Editor appearance, language services, routes, and file loading |
-| References to binary data                                                   | Binary bytes, upload URLs, blob cache, and storage deletion    |
+| Package                                                               | Host app                                                  |
+| --------------------------------------------------------------------- | --------------------------------------------------------- |
+| Staged files, edit versions, and update history                       | Login, repository access, and write permissions           |
+| Branch heads and file trees, file content caches, and refresh control | Repository identity, provisioning, and deletion authority |
+| File loading, commit/rebase, draft branch and PR operations           | GitHub credentials and authorized entry points            |
+| CodeMirror collaboration and Monaco edit binding                      | Editor appearance, language services, and routes          |
+| References to binary data and conditional acknowledgement             | Binary bytes, upload URLs, and guarded storage deletion   |
 
 The component has no access to app tables. Repository IDs, actor IDs, and host storage keys are
 opaque strings inside it. Staged file IDs belong to the component and remain strings in the app. An
 operation addressed by staged file ID also checks its repository and branch.
+
+## Stored state
+
+| Component table       | Record scope                               | Purpose                                                                                                              |
+| --------------------- | ------------------------------------------ | -------------------------------------------------------------------------------------------------------------------- |
+| `stagedFiles`         | Repository, branch, and file path          | Current and original file contents, rename/delete state, base revision, binary references, and collaboration version |
+| `fileUpdates`         | Repository, branch, file path, and version | Text changes used to synchronize editors                                                                             |
+| `branchTrees`         | Repository and branch                      | Last observed GitHub commit and its exact file tree                                                                  |
+| `fileBlobs`           | Git blob SHA                               | Cached text or a reference to binary bytes in host storage                                                           |
+| `repositorySyncState` | Repository                                 | Refresh claim, last failure, and shared GitHub request cooldown                                                      |
+
+GitHub remains the source for branch existence, commits, and pull requests. Cached branch state must
+not replace a staged file's original content or base revision. A deleted remote branch must not
+erase unpublished edits. Refresh claims remain repository-wide, and commit-status checks use the
+same cooldown as tree refresh.
 
 ## Backend
 
@@ -27,7 +43,7 @@ import gitWorkspace from "@samebase/git-workspace/convex.config";
 app.use(gitWorkspace);
 ```
 
-The app calls `components.gitWorkspace.staging` and `components.gitWorkspace.collaborative` from its
+The app calls `components.gitWorkspace.staging`, `collaborative`, `branches`, and `blobs` from its
 own Convex functions. Public wrappers must authorize access before each component call. The
 component does not expose an authenticated browser API by itself.
 
@@ -41,9 +57,9 @@ File initialization returns an existing staged row without overwriting it. Commi
 checks the saved snapshot so edits made during a GitHub request remain staged.
 
 When a component mutation removes or replaces a binary reference, it returns released host storage
-keys. The host must check remaining component references and its own blob-cache references before it
-deletes bytes. These checks and deletion run inside the same host mutation as the component call.
-Repository cleanup follows the same rule.
+keys. The host must check both staging and blob-cache references in the component before it deletes
+bytes. These checks and deletion run inside the same host mutation as the component call. Repository
+cleanup follows the same rule.
 
 ## Editors
 
@@ -79,16 +95,23 @@ below.
 The owner is the only person using file editing. The app grants file access to staff accounts, not
 ordinary members. This allows a short break in editing during the normal deployment.
 
-The component starts with empty staging and edit-history tables. Repository content remains on
-GitHub. Old staging rows are not copied into the component, so save wanted edits to GitHub first.
-This package needs no data migration or compatibility path for this cutover.
+The component starts with empty staging, edit-history, and cache tables. Repository content remains
+on GitHub. Old staging rows are not copied into the component, so save wanted edits to GitHub first.
+Branch trees and file caches are fetched again. This package needs no data migration or
+compatibility path for this cutover.
 
 1. Stop MCP and agent operations that edit through Samebase. Push all wanted changes on every edited
    repository and branch, including new files, renamed files, and images. Wait for pushes and
    uploads to finish.
 2. Close all Samebase editor tabs and wait for any active rebase or other editor action to finish.
-3. Deploy the component and host app through the normal deployment flow.
-4. Open a fresh editor tab. Check that a file opens, an edit saves, push succeeds, and reload
+3. Confirm that repository rows have none of the removed refresh fields: `treeRefreshStartedAt`,
+   `lastTreeRefreshFailedAt`, `treeRefreshFailureKind`, `treeRefreshFailureMessage`, and
+   `treeRefreshCooldownUntil`. Follow the production-read procedure below. These fields were absent
+   from all 41 production repositories at `2026-10-26T10:38:12.724Z`. Repeat the check after editing
+   stops because a later failed request can set them again. If any remain, clear that obsolete
+   operational state before changing the repository schema. Do not copy it into the component.
+4. Deploy the component and host app through the normal deployment flow.
+5. Open a fresh editor tab. Check that a file opens, an edit saves, push succeeds, and reload
    retains the result. Editing resumes with fresh collaboration history.
 
 A database pause, separate rehearsal, and pre-deployment table purge are not required for this
@@ -100,13 +123,14 @@ editor actions still running at deployment, must be resolved before the switch.
 After the editor check, perform one-time cleanup:
 
 - Follow the [production-read procedure](../../docs/convex-production-reads.md) when selecting the
-  deployment. Record old staged `storageId` values before removing old rows.
-- Remove the unused root tables `repositoryStagedFiles` and `repositoryStagedFileUpdates`. Cancel
-  any remaining scheduled `fileStaging:deleteCollaborativeUpdatesBatch` and
+  deployment. Record `storageId` values from old staging and blob-cache rows before removing them.
+- Remove the unused root tables `repositoryStagedFiles`, `repositoryStagedFileUpdates`,
+  `observations_repository_branchTrees`, and `observations_repositoryFiles_blobs`. Cancel any
+  remaining scheduled `fileStaging:deleteCollaborativeUpdatesBatch` and
   `fileStaging:deleteCollaborativeUpdatesForFilePathBatch` calls.
-- Delete recorded binary bytes only if neither the new component nor
-  `observations_repositoryFiles_blobs` references them. The host's `deletePendingUploadBlob` already
-  checks both. Keep referenced bytes and do not clear unrelated root storage.
+- Delete recorded binary bytes only if neither component staging nor its blob cache references them.
+  The host's `deletePendingUploadBlob` already checks both. Keep referenced bytes and do not clear
+  unrelated root storage.
 
 Cleanup does not move data and does not require a compatibility layer. This procedure is documented;
 the production switch and cleanup have not been performed.

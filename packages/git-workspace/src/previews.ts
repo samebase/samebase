@@ -107,18 +107,18 @@ export const rebaseConflictPreviewResult = v.object({
   files: v.array(rebaseConflictPreviewFile),
 });
 
-export type CommitPreviewFile = Infer<typeof commitPreviewFile>;
-export type CommitPreviewTotals = Infer<typeof commitPreviewTotals>;
-export type CommitPreviewSafety = Infer<typeof commitPreviewSafety>;
+type CommitPreviewFile = Infer<typeof commitPreviewFile>;
+type CommitPreviewTotals = Infer<typeof commitPreviewTotals>;
+type CommitPreviewSafety = Infer<typeof commitPreviewSafety>;
 export type CommitPreviewResult = Infer<typeof commitPreviewResult>;
 export type BranchComparePreviewResult = Infer<typeof branchComparePreviewResult>;
 export type DraftPullRequestResult = Infer<typeof draftPullRequestResult>;
 export type StagedMediaUploadResult = Infer<typeof stagedMediaUploadResult>;
 export type DefaultBranchDraftPullRequestResult = Infer<typeof defaultBranchDraftPullRequestResult>;
-export type RebaseConflictPreviewFile = Infer<typeof rebaseConflictPreviewFile>;
+type RebaseConflictPreviewFile = Infer<typeof rebaseConflictPreviewFile>;
 export type RebaseConflictPreviewResult = Infer<typeof rebaseConflictPreviewResult>;
 
-export type GitHubCompareFileCandidate = {
+type GitHubCompareFileCandidate = {
   filename?: string | null;
   previous_filename?: string | null;
   status?: string | null;
