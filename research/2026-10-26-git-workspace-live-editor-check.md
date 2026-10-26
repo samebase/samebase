@@ -97,6 +97,6 @@ Branch isolation, the signed-out route, and upstream conflict resolution pass. A
 **Pushing...** was visible remained staged against the first commit and survived the second push and
 reload. The temporary repository, its requested provider resources, and its component rows were
 removed through the dashboard workflow. All listed acceptance checks have completed; the scope
-limits above still apply. No local preview is running. This run does not satisfy the separate
-production deployment requirements in the
+limits above still apply. No local preview is running. Production has not been changed. The owner
+confirmed that they are the only editor user; the simplified deployment procedure is in the
 [package README](../packages/git-workspace/README.md#deployment).

@@ -71,42 +71,42 @@ Convex tests use `register` from `@samebase/git-workspace/test` to install the c
 surfaces.
 
 The [live editor check](../../research/2026-10-26-git-workspace-live-editor-check.md#browser-matrix)
-records completed browser checks and their coverage limits. Its temporary repository cleanup does
-not replace the production cutover checks below.
+records completed browser checks and their coverage limits. Production uses the one-time cutover
+below.
 
 ## Deployment
 
-The component starts with an empty database namespace. It does not read the former app staging
-tables. This package includes no data migration or compatibility path. Production deployment
-requires a cutover rehearsal on a disposable deployment and a recorded cleanup check.
+The owner is the only person using file editing. The app grants file access to staff accounts, not
+ordinary members. This allows a short break in editing during the normal deployment.
 
-The rehearsal must establish how to stop writes, clean old state, deploy the component and host
-together, and resume service. Convex [pausing](https://docs.convex.dev/production/pause-deployment)
-blocks new function calls while allowing dashboard edits and code pushes. Samebase's
-`convex-hosting deploy` also calls component functions to upload assets. Do not assume the normal
-deployment command works while paused. The order of asset upload, pause, cleanup, code push, and
-resume has not been verified for this cutover.
+The component starts with empty staging and edit-history tables. Repository content remains on
+GitHub. Old staging rows are not copied into the component, so save wanted edits to GitHub first.
+This package needs no data migration or compatibility path for this cutover.
 
-Before switching production to the component, all of these checks must pass:
+1. Stop MCP and agent operations that edit through Samebase. Push all wanted changes on every edited
+   repository and branch, including new files, renamed files, and images. Wait for pushes and
+   uploads to finish.
+2. Close all Samebase editor tabs and wait for any active rebase or other editor action to finish.
+3. Deploy the component and host app through the normal deployment flow.
+4. Open a fresh editor tab. Check that a file opens, an edit saves, push succeeds, and reload
+   retains the result. Editing resumes with fresh collaboration history.
 
-- Preserve pending edits, including binary bytes. Take a completed backup with file storage and
-  record every old staged `storageId` before deleting its row. Follow the
-  [production-read procedure](../../docs/convex-production-reads.md) when selecting the deployment.
-- Stop browser and MCP writes, close old editor sessions, and wait for in-progress editor, upload,
-  and GitHub actions to finish. No old editor work may run after the code switch. Pausing queues
-  scheduled jobs; it does not discard them. Drain or cancel calls to
-  `fileStaging:deleteCollaborativeUpdatesBatch` and
-  `fileStaging:deleteCollaborativeUpdatesForFilePathBatch`.
-- Deliberately clear both root tables, `repositoryStagedFiles` and `repositoryStagedFileUpdates`,
-  across every repository and branch. Verify that both contain zero rows. Include unchanged opened
-  files and orphan history; a zero changed-file count is insufficient.
-- Check each recorded storage ID against all `observations_repositoryFiles_blobs` references. Retain
-  referenced bytes. Delete only unreferenced bytes from the recorded set, then verify each ID is
-  either absent or retained with a cache reference. The old `clearAllStaging` does not delete these
-  bytes. Do not clear all root storage.
-- Recheck the empty root tables before the switch. Remove the empty legacy tables after the old
-  schema definitions are gone. Confirm the new component starts empty and resume with fresh editor
-  sessions.
+A database pause, separate rehearsal, and pre-deployment table purge are not required for this
+one-user cutover. Convex
+[validates only tables listed in the schema](https://docs.convex.dev/database/schemas#schema-validation),
+so the ignored old tables do not block deployment. Wanted edits that remain only in old staging, or
+editor actions still running at deployment, must be resolved before the switch.
 
-These are deployment requirements, not completed production checks. Do not deploy this extraction
-until the rehearsal and cleanup evidence exist.
+After the editor check, perform one-time cleanup:
+
+- Follow the [production-read procedure](../../docs/convex-production-reads.md) when selecting the
+  deployment. Record old staged `storageId` values before removing old rows.
+- Remove the unused root tables `repositoryStagedFiles` and `repositoryStagedFileUpdates`. Cancel
+  any remaining scheduled `fileStaging:deleteCollaborativeUpdatesBatch` and
+  `fileStaging:deleteCollaborativeUpdatesForFilePathBatch` calls.
+- Delete recorded binary bytes only if neither the new component nor
+  `observations_repositoryFiles_blobs` references them. The host's `deletePendingUploadBlob` already
+  checks both. Keep referenced bytes and do not clear unrelated root storage.
+
+Cleanup does not move data and does not require a compatibility layer. This procedure is documented;
+the production switch and cleanup have not been performed.
