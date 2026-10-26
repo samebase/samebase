@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 import { summarizeStagedFilesByBranch } from "@samebase/git-workspace/stagingChanges";
-import { buildDeletionSnapshotSeed, selectRepositoryTreeForBranch } from "./fileStaging";
+import { selectRepositoryTreeForBranch } from "./fileStaging";
 
 const branchTree = [
   {
@@ -132,39 +132,5 @@ describe("summarizeStagedFilesByBranch", () => {
         },
       },
     ]);
-  });
-});
-
-describe("buildDeletionSnapshotSeed", () => {
-  it("preserves the base blob sha for binary deletion seeds", () => {
-    expect(
-      buildDeletionSnapshotSeed({
-        parentCommitSha: "blob-sha",
-        blob: {
-          mime: "image/png",
-          size: 42,
-        },
-      }),
-    ).toEqual({
-      initialContent: "",
-      kind: "binary",
-      mime: "image/png",
-      size: 42,
-      stagedBlobSha: "blob-sha",
-    });
-  });
-
-  it("keeps inline text content for text deletion seeds", () => {
-    expect(
-      buildDeletionSnapshotSeed({
-        parentCommitSha: "blob-sha",
-        blob: {
-          text: "hello\n",
-        },
-      }),
-    ).toEqual({
-      initialContent: "hello\n",
-      kind: "text",
-    });
   });
 });

@@ -97,7 +97,7 @@ async function seedRunningDeletion() {
       cloudflareAccountId: "cloudflare-account",
       deletion: { state: "not_deleting" },
     });
-    const stagedFile = await ctx.runMutation(components.gitWorkspace.staging.saveToStaging, {
+    await ctx.runMutation(components.gitWorkspace.staging.saveToStaging, {
       repositoryId,
       initialFilePath: "README.md",
       content: "shared edit",
@@ -106,7 +106,6 @@ async function seedRunningDeletion() {
       userId: deletingUserId,
       branch: "main",
     });
-    const stagedFileId = stagedFile._id;
     const organizationProviderCredentialsId = await ctx.db.insert(
       "organizationProviderCredentials",
       {
@@ -208,7 +207,6 @@ async function seedRunningDeletion() {
       organizationBillingId,
       runId,
       repositoryId,
-      stagedFileId,
       organizationProviderCredentialsId,
       organizationTreeSettingId,
       teammateProviderCredentialsId,
@@ -699,10 +697,10 @@ describe("account deletion organization boundary", () => {
       organization: await ctx.db.get(ids.organizationId),
       organizationBilling: await ctx.db.get(ids.organizationBillingId),
       repository: await ctx.db.get(ids.repositoryId),
-      stagedFile: await ctx.runQuery(components.gitWorkspace.staging.getById, {
+      stagedFile: await ctx.runQuery(components.gitWorkspace.staging.getByNewPath, {
         repositoryId: ids.repositoryId,
         branch: "main",
-        stagingId: ids.stagedFileId,
+        newPath: "README.md",
       }),
       organizationProviderCredentials: await ctx.db.get(ids.organizationProviderCredentialsId),
       teammateProviderCredentials: await ctx.db.get(ids.teammateProviderCredentialsId),

@@ -439,7 +439,6 @@ describe("pullFromGitHubInternal", () => {
       filePath: "gone.md",
       userId,
       parentCommitSha: gitBlobSha("old\n"),
-      seed: { initialContent: "old\n", kind: "text" },
     });
 
     await t.action(internal.fileStagingActions.pullFromGitHubInternal, { userId, repositoryId });
@@ -460,10 +459,10 @@ describe("pullFromGitHubInternal", () => {
 
     expect(
       await t.run(async (ctx) => {
-        const row = await ctx.runQuery(components.gitWorkspace.staging.getById, {
+        const row = await ctx.runQuery(components.gitWorkspace.staging.getByNewPath, {
           repositoryId,
           branch: "main",
-          stagingId,
+          newPath: "gone.md",
         });
         return row && [row.fileDeleted, row.initialContent, row.parentCommitSha];
       }),
@@ -558,6 +557,12 @@ describe("deletePendingUploadBlob", () => {
         ctx.storage.store(new Blob(["other"])),
       ]);
     });
+    await t.mutation(components.gitWorkspace.branches.upsert, {
+      repositoryId: otherRepositoryId,
+      branch: "main",
+      commitSHA: "head",
+      treeData: { sha: "tree", truncated: false, tree: [] },
+    });
     await t.mutation(components.gitWorkspace.staging.saveBinaryUploadToStaging, {
       repositoryId: otherRepositoryId,
       branch: "main",
@@ -566,7 +571,6 @@ describe("deletePendingUploadBlob", () => {
       mime: "image/png",
       size: 5,
       stagedBlobSha: "other-blob-sha",
-      parentCommitSha: null,
       userId,
       replaceExisting: false,
     });
@@ -592,6 +596,64 @@ describe("deletePendingUploadBlob", () => {
         other: (await ctx.db.system.get(otherStorageId)) !== null,
       })),
     ).toEqual({ pending: false, other: true });
+  });
+});
+
+describe("deletion snapshots", () => {
+  it.each([
+    {
+      kind: "text",
+      text: "hello\n",
+      mime: "text/plain",
+      ext: "md",
+      size: 6,
+    },
+    {
+      kind: "binary",
+      text: undefined,
+      mime: "image/png",
+      ext: "png",
+      size: 42,
+    },
+  ] as const)("keeps the cached $kind base when deleting an unopened file", async (blob) => {
+    const t = makeConvexTest();
+    const { repositoryId, userId } = await seedConnectedRepository(t);
+    const storageId =
+      blob.kind === "binary"
+        ? await t.run(async (ctx) => await ctx.storage.store(new Blob(["binary base"])))
+        : undefined;
+    await t.mutation(internal.gitOperations.saveFileBlob, {
+      repositoryId,
+      sha: "blob-sha",
+      text: blob.text,
+      storageId,
+      mime: blob.mime,
+      size: blob.size,
+      ext: blob.ext,
+    });
+    const asUser = t.withIdentity({ subject: userId, tokenIdentifier: `test:${userId}` });
+    await asUser.mutation(api.fileStaging.markFileForDeletion, {
+      repositoryId,
+      branch: "main",
+      filePath: `unopened.${blob.ext}`,
+      parentCommitSha: "blob-sha",
+    });
+    expect(
+      await t.query(components.gitWorkspace.staging.getByNewPath, {
+        repositoryId,
+        branch: "main",
+        newPath: `unopened.${blob.ext}`,
+      }),
+    ).toMatchObject({
+      fileDeleted: true,
+      kind: blob.kind,
+      content: blob.text ?? "",
+      initialContent: blob.text ?? "",
+      parentCommitSha: "blob-sha",
+      ...(blob.kind === "binary"
+        ? { mime: blob.mime, size: blob.size, stagedBlobSha: "blob-sha" }
+        : {}),
+    });
   });
 });
 
@@ -621,10 +683,10 @@ describe("component scope", () => {
         }),
       ).rejects.toThrow("Staged file belongs to a different repository or branch.");
       expect(
-        await t.query(components.gitWorkspace.staging.getById, {
+        await t.query(components.gitWorkspace.staging.getByNewPath, {
           repositoryId: file.repositoryId,
           branch: file.branch,
-          stagingId: file._id,
+          newPath: file.filePath,
         }),
       ).toMatchObject({ content: "original", version: 0 });
     },
@@ -635,6 +697,12 @@ describe("clearMatchingStagingSnapshot", () => {
   it("keeps later edits while removing the captured snapshot and its update stream", async () => {
     const t = makeConvexTest();
     const { repositoryId, userId } = await seedConnectedRepository(t);
+    await t.mutation(components.gitWorkspace.branches.upsert, {
+      repositoryId,
+      branch: "main",
+      commitSHA: "head",
+      treeData: { sha: "tree", truncated: false, tree: [] },
+    });
     for (const filePath of ["remove.md", "keep.md"]) {
       await insertStagedFile(t, {
         repositoryId,
@@ -659,7 +727,6 @@ describe("clearMatchingStagingSnapshot", () => {
       branch: "main",
       initialFilePath: "remove.md",
       newPath: "renamed.md",
-      existsInRepository: false,
     });
     await t.mutation(internal.collaborative.pushContentUpdate, {
       repositoryId,
@@ -751,6 +818,12 @@ describe("released binary storage", () => {
     expect(chosenBlob?.storageId).toBe(storageId);
     expect(await t.run(async (ctx) => await ctx.storage.get(duplicateStorageId))).toBeNull();
     for (const targetRepositoryId of [repositoryId, otherRepositoryId]) {
+      await t.mutation(components.gitWorkspace.branches.upsert, {
+        repositoryId: targetRepositoryId,
+        branch: "main",
+        commitSHA: "head",
+        treeData: { sha: "tree", truncated: false, tree: [] },
+      });
       await t.mutation(components.gitWorkspace.staging.saveBinaryUploadToStaging, {
         repositoryId: targetRepositoryId,
         branch: "main",
@@ -759,7 +832,6 @@ describe("released binary storage", () => {
         mime: "image/png",
         size: 12,
         stagedBlobSha: "shared-sha",
-        parentCommitSha: null,
         userId,
         replaceExisting: false,
       });
@@ -785,7 +857,6 @@ describe("released binary storage", () => {
       mime: "image/png",
       size: 12,
       stagedBlobSha: "shared-sha",
-      parentCommitSha: null,
       userId,
       replaceExisting: false,
     });

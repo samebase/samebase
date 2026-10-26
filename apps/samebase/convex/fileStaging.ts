@@ -6,7 +6,6 @@ import {
   stagedFileSnapshot,
   stagedFilesBranchSummary,
 } from "@samebase/git-workspace/model";
-import { readStagedFileKind } from "@samebase/git-workspace/stagingChanges";
 import {
   internalMutation,
   internalQuery,
@@ -65,42 +64,6 @@ export function selectRepositoryTreeForBranch(args: {
   throw new Error(
     `Branch tree is not cached for "${args.requestedBranch}". Refresh branch and retry.`,
   );
-}
-
-async function resolveRepositoryTreeForRepository(
-  ctx: MutationCtx,
-  repositoryId: Id<"repositories">,
-  branch: string,
-): Promise<GitHubTree[]> {
-  const tree = await ctx.runQuery(internal.repository.branches.getRepositoryBranchTree, {
-    repositoryId,
-    branch,
-  });
-  return selectRepositoryTreeForBranch({
-    requestedBranch: branch,
-    branchTree: tree?.treeData.tree ?? null,
-  });
-}
-
-export function buildDeletionSnapshotSeed(args: {
-  parentCommitSha: string | null;
-  blob: { text?: string; mime?: string; size?: number } | null;
-}): {
-  initialContent: string;
-  kind: "text" | "binary";
-  mime?: string;
-  size?: number;
-  stagedBlobSha?: string;
-} {
-  if (!args.parentCommitSha || !args.blob) return { initialContent: "", kind: "text" };
-  if (typeof args.blob.text === "string") return { initialContent: args.blob.text, kind: "text" };
-  return {
-    initialContent: "",
-    kind: "binary",
-    mime: args.blob.mime,
-    size: args.blob.size,
-    stagedBlobSha: args.parentCommitSha,
-  };
 }
 
 export const generateUploadUrl = mutation({
@@ -361,23 +324,12 @@ export const markFileForDeletion = mutation({
       repositoryId: args.repositoryId,
       userId: ctx.viewer.userId,
     });
-    const blob = args.parentCommitSha
-      ? await ctx.runQuery(internal.gitOperations.getBlobBySha, { sha: args.parentCommitSha })
-      : null;
-    const seed = buildDeletionSnapshotSeed({ parentCommitSha: args.parentCommitSha, blob });
     return await ctx.runMutation(components.gitWorkspace.staging.markFileForDeletion, {
       repositoryId: args.repositoryId,
       branch: args.branch,
       filePath: args.filePath,
       parentCommitSha: args.parentCommitSha,
       userId: ctx.viewer.userId,
-      seed: {
-        initialContent: seed.initialContent,
-        kind: seed.kind,
-        mime: seed.mime,
-        size: seed.size,
-        stagedBlobSha: seed.stagedBlobSha,
-      },
     });
   },
 });
@@ -395,14 +347,12 @@ async function createStagedFile(
     repositoryId: args.repositoryId,
     userId: args.userId,
   });
-  const tree = await resolveRepositoryTreeForRepository(ctx, args.repositoryId, args.branch);
   return await ctx.runMutation(components.gitWorkspace.staging.createFileInStaging, {
     repositoryId: args.repositoryId,
     branch: args.branch,
     filePath: args.filePath,
     content: args.content,
     userId: args.userId,
-    existsInRepository: tree.some((entry) => entry.type === "blob" && entry.path === args.filePath),
   });
 }
 export const createFileInStaging = mutation({
@@ -449,31 +399,14 @@ export const updateStagedFileContent = mutation({
       repositoryId: args.repositoryId,
       userId: ctx.viewer.userId,
     });
-    const current = await ctx.runQuery(components.gitWorkspace.staging.getById, {
+    return await ctx.runMutation(components.gitWorkspace.staging.updateStagedFileContent, {
       repositoryId: args.repositoryId,
       branch: args.branch,
       stagingId: args.stagingId,
-    });
-    if (!current) throw new Error("Staged file not found");
-    if (current.fileDeleted) throw new Error("Cannot update content for a deleted staged file.");
-    if (readStagedFileKind(current.kind) === "binary")
-      throw new Error("Cannot edit binary staged content as text.");
-    if (current.content === args.content) return current;
-    await ctx.runMutation(components.gitWorkspace.collaborative.pushContentUpdate, {
-      repositoryId: args.repositoryId,
-      branch: args.branch,
-      filePath: current.filePath,
+      content: args.content,
       expectedVersion: args.expectedVersion,
-      newContent: args.content,
       userId: ctx.viewer.userId,
     });
-    const updated = await ctx.runQuery(components.gitWorkspace.staging.getById, {
-      repositoryId: args.repositoryId,
-      branch: args.branch,
-      stagingId: args.stagingId,
-    });
-    if (!updated) throw new Error("Staged file disappeared while saving");
-    return updated;
   },
 });
 export const saveToStaging = internalMutation({
@@ -519,9 +452,6 @@ export const saveBinaryUploadToStaging = internalMutation({
       repositoryId: args.repositoryId,
       userId: args.userId,
     });
-    const tree = await resolveRepositoryTreeForRepository(ctx, args.repositoryId, args.branch);
-    const parentCommitSha =
-      tree.find((entry) => entry.type === "blob" && entry.path === args.filePath)?.sha ?? null;
     const result = await ctx.runMutation(
       components.gitWorkspace.staging.saveBinaryUploadToStaging,
       {
@@ -534,7 +464,6 @@ export const saveBinaryUploadToStaging = internalMutation({
         stagedBlobSha: args.stagedBlobSha,
         replaceExisting: args.replaceExisting,
         userId: args.userId,
-        parentCommitSha,
       },
     );
     await deleteReleasedStagingStorage(ctx, result.releasedStorageIds);
@@ -557,19 +486,12 @@ export const rename = internalMutation({
       repositoryId: args.repositoryId,
       userId: args.userId,
     });
-    const tree = await resolveRepositoryTreeForRepository(ctx, args.repositoryId, args.branch);
     return await ctx.runMutation(components.gitWorkspace.staging.rename, {
       repositoryId: args.repositoryId,
       branch: args.branch,
       initialFilePath: args.initialFilePath,
       newPath: args.newPath,
       userId: args.userId,
-      existsInRepository: tree.some(
-        (entry) =>
-          entry.type === "blob" &&
-          entry.path === args.newPath &&
-          entry.path !== args.initialFilePath,
-      ),
     });
   },
 });

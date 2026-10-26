@@ -1,11 +1,10 @@
 import { v } from "convex/values";
-import { internal } from "./_generated/api.js";
+import { api, internal } from "./_generated/api.js";
 // oxlint-disable-next-line samebase/no-raw-public-convex-function-builders -- Component entrypoints are internal to the host; host wrappers enforce access.
 import { internalMutation, mutation, query, type MutationCtx } from "./_generated/server.js";
 import type { Doc } from "./_generated/dataModel.js";
 import {
   committedStagedFile,
-  deletionSnapshotSeed,
   stagedFile,
   stagedFileSnapshot,
   stagedFilesBranchSummary,
@@ -26,6 +25,19 @@ function requireScope(file: Doc<"stagedFiles">, repositoryId: string, branch: st
   if (file.repositoryId !== repositoryId || file.branch !== branch) {
     throw new Error("Staged file belongs to a different repository or branch.");
   }
+}
+
+async function requireBranchTree(ctx: MutationCtx, repositoryId: string, branch: string) {
+  const cached = await ctx.db
+    .query("branchTrees")
+    .withIndex("by_repository_and_branch", (q) =>
+      q.eq("repositoryId", repositoryId).eq("branch", branch),
+    )
+    .first();
+  if (!cached) {
+    throw new Error(`Branch tree is not cached for "${branch}". Refresh branch and retry.`);
+  }
+  return cached.treeData.tree;
 }
 
 function matchesSnapshot(current: Doc<"stagedFiles">, snapshot: typeof localSnapshot.type) {
@@ -89,16 +101,6 @@ export const getByOriginalPath = query({
           .eq("initialFilePath", args.originalFilePath),
       )
       .unique(),
-});
-
-export const getById = query({
-  args: { ...scope, stagingId: id("stagedFiles") },
-  returns: union(stagedFile, v.null()),
-  handler: async (ctx, args) => {
-    const file = await ctx.db.get(args.stagingId);
-    if (file) requireScope(file, args.repositoryId, args.branch);
-    return file;
-  },
 });
 
 export const listAllStagedFiles = query({
@@ -226,10 +228,10 @@ export const createFileInStaging = mutation({
     filePath: string(),
     content: string(),
     userId: string(),
-    existsInRepository: boolean(),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
+    const tree = await requireBranchTree(ctx, args.repositoryId, args.branch);
     const byInitialPath = await ctx.db
       .query("stagedFiles")
       .withIndex("by_repository_and_branch_and_initial_path", (q) =>
@@ -250,7 +252,8 @@ export const createFileInStaging = mutation({
       )
       .unique();
     if (byPath) throw new Error("A staged file already uses this path");
-    if (args.existsInRepository) throw new Error("File already exists in repository");
+    if (tree.some((entry) => entry.type === "blob" && entry.path === args.filePath))
+      throw new Error("File already exists in repository");
     await ctx.db.insert("stagedFiles", {
       repositoryId: args.repositoryId,
       filePath: args.filePath,
@@ -275,7 +278,6 @@ export const markFileForDeletion = mutation({
     filePath: string(),
     parentCommitSha: union(string(), v.null()),
     userId: string(),
-    seed: deletionSnapshotSeed,
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -295,17 +297,26 @@ export const markFileForDeletion = mutation({
         lastEditUserId: args.userId,
       });
     } else {
+      const { parentCommitSha } = args;
+      const blob = parentCommitSha
+        ? await ctx.db
+            .query("fileBlobs")
+            .withIndex("by_sha", (q) => q.eq("sha", parentCommitSha))
+            .first()
+        : null;
+      const binaryBlob = blob && typeof blob.text !== "string" ? blob : null;
+      const initialContent = blob?.text ?? "";
       await ctx.db.insert("stagedFiles", {
         repositoryId: args.repositoryId,
         filePath: args.filePath,
         initialFilePath: args.filePath,
         fileDeleted: true,
-        kind: args.seed.kind,
-        content: args.seed.initialContent,
-        initialContent: args.seed.initialContent,
-        mime: args.seed.mime,
-        size: args.seed.size,
-        stagedBlobSha: args.seed.stagedBlobSha,
+        kind: binaryBlob ? "binary" : "text",
+        content: initialContent,
+        initialContent,
+        mime: binaryBlob?.mime,
+        size: binaryBlob?.size,
+        stagedBlobSha: binaryBlob?.sha,
         parentCommitSha: args.parentCommitSha,
         lastEditTime: Date.now(),
         lastEditUserId: args.userId,
@@ -347,10 +358,10 @@ export const rename = mutation({
     initialFilePath: string(),
     newPath: string(),
     userId: string(),
-    existsInRepository: boolean(),
   },
   returns: stagedFile,
   handler: async (ctx, args) => {
+    const tree = await requireBranchTree(ctx, args.repositoryId, args.branch);
     const file = await ctx.db
       .query("stagedFiles")
       .withIndex("by_repository_and_branch_and_initial_path", (q) =>
@@ -373,7 +384,15 @@ export const rename = mutation({
       .unique();
     if (existing && existing._id !== file._id)
       throw new Error("A staged file already uses this path");
-    if (args.existsInRepository) throw new Error("A repository file already exists at this path");
+    if (
+      tree.some(
+        (entry) =>
+          entry.type === "blob" &&
+          entry.path === args.newPath &&
+          entry.path !== args.initialFilePath,
+      )
+    )
+      throw new Error("A repository file already exists at this path");
     await ctx.db.patch(file._id, {
       filePath: args.newPath,
       lastEditTime: Date.now(),
@@ -395,10 +414,12 @@ export const saveBinaryUploadToStaging = mutation({
     stagedBlobSha: string(),
     replaceExisting: boolean(),
     userId: string(),
-    parentCommitSha: union(string(), v.null()),
   },
   returns: object({ file: stagedFile, releasedStorageIds: array(string()) }),
   handler: async (ctx, args) => {
+    const tree = await requireBranchTree(ctx, args.repositoryId, args.branch);
+    const parentCommitSha =
+      tree.find((entry) => entry.type === "blob" && entry.path === args.filePath)?.sha ?? null;
     const byPath = await ctx.db
       .query("stagedFiles")
       .withIndex("by_repository_and_branch_and_path", (q) =>
@@ -426,7 +447,7 @@ export const saveBinaryUploadToStaging = mutation({
       existing.initialFilePath === args.filePath
     )
       throw new Error("An existing staged rename already owns this file path");
-    if ((existing || args.parentCommitSha !== null) && !args.replaceExisting)
+    if ((existing || parentCommitSha !== null) && !args.replaceExisting)
       throw new Error("A file already exists at this path");
     const fields = {
       repositoryId: args.repositoryId,
@@ -440,7 +461,7 @@ export const saveBinaryUploadToStaging = mutation({
       mime: args.mime,
       size: args.size,
       stagedBlobSha: args.stagedBlobSha,
-      parentCommitSha: args.parentCommitSha ?? existing?.parentCommitSha ?? null,
+      parentCommitSha: parentCommitSha ?? existing?.parentCommitSha ?? null,
       lastEditTime: Date.now(),
       lastEditUserId: args.userId,
       branch: args.branch,
@@ -453,6 +474,37 @@ export const saveBinaryUploadToStaging = mutation({
     const file = await ctx.db.get(stagingId);
     if (!file) throw new Error("Staged binary upload disappeared while saving");
     return { file, releasedStorageIds };
+  },
+});
+
+export const updateStagedFileContent = mutation({
+  args: {
+    ...scope,
+    stagingId: id("stagedFiles"),
+    content: string(),
+    expectedVersion: number(),
+    userId: string(),
+  },
+  returns: stagedFile,
+  handler: async (ctx, args): Promise<typeof stagedFile.type> => {
+    const current = await ctx.db.get(args.stagingId);
+    if (!current) throw new Error("Staged file not found");
+    requireScope(current, args.repositoryId, args.branch);
+    if (current.fileDeleted) throw new Error("Cannot update content for a deleted staged file.");
+    if (readStagedFileKind(current.kind) === "binary")
+      throw new Error("Cannot edit binary staged content as text.");
+    if (current.content === args.content) return current;
+    await ctx.runMutation(api.collaborative.pushContentUpdate, {
+      repositoryId: args.repositoryId,
+      branch: args.branch,
+      filePath: current.filePath,
+      expectedVersion: args.expectedVersion,
+      newContent: args.content,
+      userId: args.userId,
+    });
+    const updated = await ctx.db.get(args.stagingId);
+    if (!updated) throw new Error("Staged file disappeared while saving");
+    return updated;
   },
 });
 

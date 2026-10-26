@@ -117,14 +117,6 @@ export const stagedFilesBranchSummary = object({
 
 export const storageReleaseResult = object({ releasedStorageIds: array(string()) });
 
-export const deletionSnapshotSeed = object({
-  initialContent: string(),
-  kind: union(literal("text"), literal("binary")),
-  mime: optional(string()),
-  size: optional(number()),
-  stagedBlobSha: optional(string()),
-});
-
 export const reconcileInstruction = union(
   object({ action: literal("delete"), stagingId: string(), branch: string() }),
   object({

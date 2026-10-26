@@ -306,7 +306,6 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         {
           branch: string;
           content: string;
-          existsInRepository: boolean;
           filePath: string;
           repositoryId: string;
           userId: string;
@@ -349,32 +348,6 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           targetBranch: string;
         },
         null,
-        Name
-      >;
-      getById: FunctionReference<
-        "query",
-        "internal",
-        { branch: string; repositoryId: string; stagingId: string },
-        {
-          _creationTime: number;
-          _id: string;
-          branch: string;
-          content: string;
-          fileDeleted: boolean;
-          filePath: string;
-          initialContent: string;
-          initialFilePath: string;
-          kind?: "text" | "binary";
-          lastEditTime: number;
-          lastEditUserId: string;
-          mime?: string;
-          parentCommitSha: string | null;
-          repositoryId: string;
-          size?: number;
-          stagedBlobSha?: string;
-          storageId?: string;
-          version: number;
-        } | null,
         Name
       >;
       getByNewPath: FunctionReference<
@@ -494,13 +467,6 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           filePath: string;
           parentCommitSha: string | null;
           repositoryId: string;
-          seed: {
-            initialContent: string;
-            kind: "text" | "binary";
-            mime?: string;
-            size?: number;
-            stagedBlobSha?: string;
-          };
           userId: string;
         },
         null,
@@ -530,7 +496,6 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         "internal",
         {
           branch: string;
-          existsInRepository: boolean;
           initialFilePath: string;
           newPath: string;
           repositoryId: string;
@@ -577,7 +542,6 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           branch: string;
           filePath: string;
           mime: string;
-          parentCommitSha: string | null;
           replaceExisting: boolean;
           repositoryId: string;
           size: number;
@@ -620,6 +584,39 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           initialFilePath: string;
           parentCommitSha: string | null;
           repositoryId: string;
+          userId: string;
+        },
+        {
+          _creationTime: number;
+          _id: string;
+          branch: string;
+          content: string;
+          fileDeleted: boolean;
+          filePath: string;
+          initialContent: string;
+          initialFilePath: string;
+          kind?: "text" | "binary";
+          lastEditTime: number;
+          lastEditUserId: string;
+          mime?: string;
+          parentCommitSha: string | null;
+          repositoryId: string;
+          size?: number;
+          stagedBlobSha?: string;
+          storageId?: string;
+          version: number;
+        },
+        Name
+      >;
+      updateStagedFileContent: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          branch: string;
+          content: string;
+          expectedVersion: number;
+          repositoryId: string;
+          stagingId: string;
           userId: string;
         },
         {
