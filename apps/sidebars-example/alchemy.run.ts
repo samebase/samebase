@@ -9,9 +9,9 @@
 // needs the team token CONVEX_ACCESS_TOKEN, or the Convex CLI login (`npx convex login`) on a
 // laptop, and a Cloudflare login (`npx alchemy login`, or CLOUDFLARE_API_TOKEN and
 // CLOUDFLARE_ACCOUNT_ID in .env) with Workers Scripts Edit.
+import * as Cloudflare from "@alchemy.run/cloudflare";
 import * as Convex from "@samebase/alchemy-convex";
 import * as Alchemy from "alchemy";
-import * as Cloudflare from "alchemy/Cloudflare";
 import * as Effect from "effect/Effect";
 
 export default Alchemy.Stack(
