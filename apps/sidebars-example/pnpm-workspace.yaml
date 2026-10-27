@@ -6,10 +6,26 @@ minimumReleaseAgeExclude:
   # Reviewed security fix: https://github.com/7rulnik/source-map-js/pull/79
   # Remove after 2026-10-07, when the 7-day cooling period is complete.
   - "source-map-js@1.2.2"
-  # Reviewed first-party release (alchemy.run.ts keeps the state of this example's stack in the
-  # team store with it), published 2026-10-24 13:04 UTC. Remove after 2026-10-31 13:05 UTC.
-  - "@samebase/alchemy-convex@0.9.0"
-  # Reviewed release: the Convex CLI that @samebase/alchemy-convex 0.9.0 (peer ^1.48.0) pushes its
+  # First-party release for Alchemy 2.0.0-beta.84 (alchemy.run.ts keeps the state of this
+  # example's stack in the team store with it), published 2026-10-27 15:18 UTC. Remove after
+  # 2026-11-03 15:19 UTC.
+  - "@samebase/alchemy-convex@0.11.0"
+  # Alchemy 2.0.0-beta.84 with its provider package @alchemy.run/cloudflare (alchemy.run.ts deploys
+  # this example with it), and the @alchemy.run and @distilled.cloud versions that they install.
+  # Published 2026-10-23 23:03 UTC to 2026-10-24 04:03 UTC. Remove after 2026-10-31 04:03 UTC.
+  - "alchemy@2.0.0-beta.84"
+  - "@alchemy.run/acme@2.0.0-beta.84"
+  - "@alchemy.run/cloudflare@2.0.0-beta.84"
+  - "@alchemy.run/cloudflare-runtime@2.0.0-beta.84"
+  - "@alchemy.run/docker@2.0.0-beta.84"
+  - "@alchemy.run/node-utils@2.0.0-beta.84"
+  - "@alchemy.run/sql@2.0.0-beta.84"
+  - "@distilled.cloud/acme@1.0.0-rc.17"
+  - "@distilled.cloud/aws4signer@1.0.0-rc.17"
+  - "@distilled.cloud/cloudflare@1.0.0-rc.17"
+  - "@distilled.cloud/core@1.0.0-rc.17"
+  - "@distilled.cloud/iceberg@1.0.0-rc.17"
+  # Reviewed release: the Convex CLI that @samebase/alchemy-convex 0.11.0 (peer ^1.48.0) pushes its
   # store with; the store signs its read tokens with the native JWT signing of 1.48.0. Published
   # 2026-10-22 23:32 UTC. Remove after 2026-10-29 23:33 UTC.
   - "convex@1.48.0"
@@ -51,9 +67,9 @@ audit:
     - GHSA-vfj7-8cjw-p6xm
 overrides:
   # Alchemy loads one Effect: every @effect package that it depends on takes the version of effect.
-  "@effect/platform-node-shared": 4.0.4
-  "@effect/sql-d1": 4.0.4
-  "@effect/sql-sqlite-do": 4.0.4
+  "@effect/platform-node-shared": 4.0.5
+  "@effect/sql-d1": 4.0.5
+  "@effect/sql-sqlite-do": 4.0.5
   esbuild: 0.28.2
   js-yaml: 5.4.3
   "semver@6": 7.8.5
