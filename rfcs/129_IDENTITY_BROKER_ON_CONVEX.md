@@ -5,6 +5,20 @@
 - Status: Proposal
 - Owner: Nicu Chiciuc
 - Created: 2026-10-28
+- Execution notes, 2026-10-28, second half: registration moved out of the starter into an Alchemy
+  resource, `IdentityHub.Client` in `@samebase/alchemy-identity-hub`, a second package in the
+  component repository; a consumer adds it to its stack next to three `Convex.EnvironmentVariable`
+  resources, and base-hosting PR 17 was closed unmerged. Both packages are on npm (the owner
+  publishes; the agent's permission system refuses a publish). The hub's Cloudflare Email Sending
+  credentials are set. One parallel Codex review pass (gpt-6-astra) covered the broker, the
+  resource, the hub and Bristol; its findings landed in
+  [identity-broker PR 7](https://github.com/samebase/identity-broker/pull/7),
+  [identity-hub PR 5](https://github.com/samebase/identity-hub/pull/5) and
+  [Bristol PR 42](https://github.com/nicu-chiciuc/bristol_tsx/pull/42), with two documented limits:
+  a preview client the hub pruned after 30 idle days is not re-registered, and the resource cannot
+  delete at the hub. Bristol's preview deploy registered through the resource in CI. Decision of the
+  owner the same day: the hub repository is our team hub first, public and generic; the template
+  role waits for Phase 5, so no forker first-run work now.
 - Execution notes, 2026-10-28: Phase 1 is
   [samebase/identity-broker](https://github.com/samebase/identity-broker) (35 tests, openid-client
   conformance; PR 4 with the connector tests awaits a merge). Phase 2 is
@@ -384,28 +398,31 @@ registration token, callback host outside the app's allow list).
 - Another team forks the template, sets its issuer, connectors and secrets, and has a hub. Creating
   it from Samebase is Phase 5.
 
-### Phase 3. The consumer path in the starter
+### Phase 3. The consumer path
 
-In `samebase/base-hosting` (Convex Auth 2.0.0-beta.0):
+A consumer is an app on Convex Auth 2.0.0-beta.0 with an Alchemy stack. The starter carries nothing
+hub-related: the generic OAuth component requires its client env on every deployment, so a starter
+without a hub must not mount the method, and the registration step is not the starter's either.
 
-- In the starter, the registration script and a guide (`docs/identity-hub.md`) with the three edits
-  below, because the generic OAuth component requires its client env on every deployment and a
-  starter without a hub must still deploy. Bristol mounts the method as written here. A `hub`
-  sign-in method:
+- A `hub` sign-in method:
   `setupOauth(auth, "hub", hubCatalog, callbacks, { component: components.authHub, allowedRedirectOrigins })`
   with the component mounted at `httpPrefix: "/oauth/hub"` in `convex.config.ts`. The catalog is the
   broker issuer, `/authorize`, `/token`, scopes `openid email profile`, and a `profile` mapping from
   the `id_token` claims with `id: claims.sub`. Component env: `CLIENT_ID` and `CLIENT_SECRET` from
   `HUB_CLIENT_ID` and `HUB_CLIENT_SECRET` on each deployment.
-- `scripts/register-hub-client.ts`: runs after a deployment exists, with `HUB_REGISTRATION_TOKEN`
-  from the CI secret store or the developer's `.env.local`, posts the deployment's callback URL,
-  `deployment_type` and name to `/register`, and writes `HUB_CLIENT_ID` and `HUB_CLIENT_SECRET` to
-  that deployment with `npx convex env set --deployment <name>`. It skips when the deployment
-  already has a client id. `pnpm run dev --once`, `deploy` and `deploy:preview` call it. The
-  registration token never lives in a Convex deployment env; it sits where `CONVEX_DEPLOY_KEY`
-  already sits.
-- One-time setup per app: the hub admin runs `createApp` and `mintRegistrationToken` and hands the
-  token to the app's CI secrets. Samebase provisioning does this step in Phase 5.
+- Registration is a resource in the consumer's stack: `IdentityHub.Client` from
+  `@samebase/alchemy-identity-hub` (the second package in the component repository) posts the
+  deployment's callback URL, `deployment_type` and name to `/register` with the registration token,
+  and three `Convex.EnvironmentVariable` resources write `HUB_ISSUER`, `HUB_CLIENT_ID` and
+  `HUB_CLIENT_SECRET` on the deployment. The resource registers once, again when the issuer, the
+  callback URL or the deployment type changes, and never calls the hub on destroy: the hub removes a
+  preview client idle for 30 days. The token is a Redacted prop, so it sits in the encrypted Alchemy
+  state next to the deploy key, never on a deployment. A deployment that Alchemy does not deploy,
+  the development deployment of a checkout, is registered by a small script in the consumer with the
+  same request.
+- One-time setup per app: the hub admin runs `createApp` and `mintRegistrationToken` (a long-lived
+  token for CI, because every new preview deployment uses it once) and hands the token to the app's
+  CI secrets. Samebase provisioning does this step in Phase 5.
 - Bristol is the first consumer because it is the simplest real app with users, then the personal
   apps. Samebase waits for Phase 4.
 
