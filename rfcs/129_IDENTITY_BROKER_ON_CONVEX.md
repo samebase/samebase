@@ -5,6 +5,11 @@
 - Status: Proposal
 - Owner: Nicu Chiciuc
 - Created: 2026-10-28
+- Revised on 2026-10-28 (7), after Phase 1 shipped in `samebase/identity-broker`: the email code
+  state lives on the authorization request, not in an `emailCodes` table; connectors are the generic
+  `oauth` and `oidc` kinds with `github()`, `google()` and `email()` wrappers, and no `@auth/core`
+  dependency; the chooser continues through `/continue`; administration is `broker.admin()` exported
+  by the host; the key set format is `IDENTITY_BROKER_KEYS` version 1 with the salt inside.
 - Revised on 2026-10-28 (6): no new upstream registrations and no change to the GitHub App. The hub
   starts with the email connector, adds Google by one more redirect URI on the existing client, and
   adds GitHub on the existing login OAuth App through GitHub's subdomain wildcard matching, because
@@ -294,16 +299,15 @@ Tables, all inside the component:
   `prompt` and `maxAge` when sent, `expiresAt`; the upstream `state` and `codeVerifier` while
   `upstream`; the claims snapshot and `authTime` while `completed`.
 - `authorizationCodes`: `codeHash`, `authRequestId`, `expiresAt`, `usedAt`.
-- `emailCodes`: `authRequestId`, `email`, `codeHash`, `attempts`, `expiresAt`.
 - `signIns`: `clientId`, `connector`, `sub`, `at`.
 
 Connectors are configuration passed at mount time, not code in the component. A connector is one of:
 `{ kind: "oidc", name, issuer, scopes, profile }`,
 `{ kind: "oauth", name, authorizationEndpoint, tokenEndpoint, userInfoEndpoints, scopes, profile }`,
 or `{ kind: "email", name, send }` where `send` is a host function reference. `github()` and
-`google()` are thin wrappers over the `@auth/core` definitions; any other Auth.js provider wraps the
-same way. Each connector's `CLIENT_ID` and `CLIENT_SECRET` come from the component env under the
-connector's name.
+`google()` are the two wrappers shipped; any provider the Auth.js catalog lists fits one of the two
+kinds with its endpoints copied in. The package does not depend on `@auth/core`. Each connector's
+`CLIENT_ID` and `CLIENT_SECRET` come from the component env under the connector's name.
 
 Lifecycle values: authorization requests live ten minutes, email codes ten minutes and five
 attempts, authorization codes sixty seconds and one use, `id_token` and the userinfo access token
@@ -321,9 +325,10 @@ redeploys env after each. The same command creates the pairwise salt once, in th
 
 HTTP routes, mounted at the issuer root: `/.well-known/openid-configuration`,
 `/.well-known/oauth-authorization-server`, `/.well-known/jwks.json`, `/authorize` (GET, POST),
-`/register` (POST), `/token` (POST), `/userinfo` (GET, POST), `/connectors/<name>/callback` (GET),
-`/connectors/email` (POST for the code form). The host passes the issuer URL at mount time, and the
-component derives both metadata locations from it.
+`/continue` (GET, the chooser's choice or deny), `/register` (POST), `/token` (POST), `/userinfo`
+(GET, POST), `/connectors/<name>/callback` (GET), `/connectors/email` (POST for the address and code
+forms). The host passes the issuer URL at mount time, and the component derives both metadata
+locations from it.
 
 Administration is internal functions run by the deployment owners with the Convex CLI: `createApp`,
 `mintRegistrationToken`, `deleteApp`, `listClients`. No admin UI in this phase.
