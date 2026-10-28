@@ -2,9 +2,8 @@
 
 Every repository of the team deploys the same way. The reference implementation is
 [samebase/base-alchemy](https://github.com/samebase/base-alchemy): copy its `alchemy.run.ts` and
-`.github/workflows/alchemy.yml` and change only what the app needs. The decision behind it is
-recorded in `rfcs/`-adjacent session notes of 2026-10-21 (one state project per team) and in the
-Samebase stack `alchemy.run.ts` at the repository root.
+`.github/workflows/alchemy.yml` and change only what the app needs. The Samebase stack,
+`alchemy.run.ts` at the root of this repository, is the same shape with Cloudflare resources added.
 
 ## The rules
 
