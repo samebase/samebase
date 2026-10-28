@@ -19,6 +19,19 @@
   delete at the hub. Bristol's preview deploy registered through the resource in CI. Decision of the
   owner the same day: the hub repository is our team hub first, public and generic; the template
   role waits for Phase 5, so no forker first-run work now.
+- Revised on 2026-10-28 (8), after Bristol PRs 45 and 46 and a review of the final code: on every
+  cloud deployment Bristol shows one "Sign in with Google" button through the hub, with the
+  connector named in the authorize URL so the first-party app skips the chooser; the password method
+  exists only on a linked worktree, for its synthetic account; no deployment holds an owner password
+  and previews seed nothing. The review's defects and their fate: fresh-login attestation (the
+  broker now requires an upstream `auth_time` not older than the request when a client asked for a
+  fresh login) and strict key set validation, in the broker; key initialization by variable
+  existence, in the hub; the three development flows above, in Bristol. Deferred with reasons: abuse
+  of the shared email allowance by an unauthenticated caller (a bot check on the address page is the
+  fix; email is not the main door while Google is), re-registration of a pruned preview client (the
+  known limit above), and replayed workflow events (a check of the pull request's current state
+  belongs with the workflow split into one file per trigger). This document's Phase 3, lifecycle and
+  decision 4 texts were reconciled with the code the same day.
 - Execution notes, 2026-10-28, evening: the Google connector is live on the team hub
   ([identity-hub PR 9](https://github.com/samebase/identity-hub/pull/9)): the redirect URI
   `https://auth.samebase.com/connectors/google/callback` on the existing Samebase production client,
@@ -353,11 +366,12 @@ kinds with its endpoints copied in. The package does not depend on `@auth/core`.
 
 Lifecycle values: authorization requests live ten minutes, email codes ten minutes and five
 attempts, authorization codes sixty seconds and one use, `id_token` and the userinfo access token
-five minutes, audit rows ninety days, registration tokens thirty days. A cron deletes expired
-requests, codes, and preview clients whose `lastSignInAt` or `createdAt` is older than 30 days.
-Production and development clients are never pruned; the admin deletes them. Deleting an app deletes
-its clients and tokens at once, which is the emergency revocation. Rotating the signing key is the
-other one.
+five minutes, audit rows ninety days, registration tokens as long as the admin mints them
+(`expiresInDays`; the team hub's token for Bristol is minted for ten years, because every new
+preview deployment spends it once in CI). A cron deletes expired requests, codes, and preview
+clients whose `lastSignInAt` or `createdAt` is older than 30 days. Production and development
+clients are never pruned; the admin deletes them. Deleting an app deletes its clients and tokens at
+once, which is the emergency revocation. Rotating the signing key is the other one.
 
 Keys live in the host's env as a JSON JWK set in `IDENTITY_BROKER_KEYS`: one private key marked
 current, plus the public halves of retired keys with a `retiredAt`.
@@ -404,12 +418,13 @@ registration token, callback host outside the app's allow list).
   Connectors arrive in this order, with no new upstream registration: `email` first, on the existing
   Cloudflare Email Sending token, which is enough for Bristol and the personal apps; `google` by
   adding `https://auth.samebase.com/connectors/google/callback` to the existing Samebase Google
-  client; `github` on the existing login OAuth App (`AUTH_GITHUB_CLIENT_ID` and its secret), with
-  the hub's GitHub callback mounted at `/auth/github/callback` so that GitHub's subdomain wildcard
-  matching accepts `https://auth.samebase.com/auth/github/callback` next to Samebase's own callback;
-  nothing changes at GitHub, and the GitHub App for provisioning is not involved. The one setting to
-  confirm is that wildcard matching is on for that OAuth App. Samebase the app is not involved: the
-  hub is owned by the team, and Samebase becomes a client of it in Phase 4.
+  client; `github` on the existing login OAuth App (`AUTH_GITHUB_CLIENT_ID` and its secret) is
+  planned, not built: GitHub matches the callback host without its subdomains but requires the path
+  to be under the registered one, and the broker's connector callback path is fixed at
+  `/connectors/<name>/callback`, so either the broker gains a callback path option or the hub gets
+  its own OAuth App; neither is exercised yet. The GitHub App for provisioning is not involved.
+  Samebase the app is not involved: the hub is owned by the team, and Samebase becomes a client of
+  it in Phase 4.
 - Another team forks the template, sets its issuer, connectors and secrets, and has a hub. Creating
   it from Samebase is Phase 5.
 
@@ -428,13 +443,19 @@ without a hub must not mount the method, and the registration step is not the st
 - Registration is a resource in the consumer's stack: `IdentityHub.Client` from
   `@samebase/alchemy-identity-hub` (the second package in the component repository) posts the
   deployment's callback URL, `deployment_type` and name to `/register` with the registration token,
-  and three `Convex.EnvironmentVariable` resources write `HUB_ISSUER`, `HUB_CLIENT_ID` and
-  `HUB_CLIENT_SECRET` on the deployment. The resource registers once, again when the issuer, the
-  callback URL or the deployment type changes, and never calls the hub on destroy: the hub removes a
-  preview client idle for 30 days. The token is a Redacted prop, so it sits in the encrypted Alchemy
-  state next to the deploy key, never on a deployment. A deployment that Alchemy does not deploy,
-  the development deployment of a checkout, is registered by a small script in the consumer with the
-  same request.
+  and the consumer's `Convex.Deployment` resource hands `HUB_ISSUER`, `HUB_CLIENT_ID` and
+  `HUB_CLIENT_SECRET` to the deployment as its `env` before the push; there are no separate variable
+  resources. A preview is declared as two resources, one that creates the deployment and one that
+  sets its variables and pushes, until `@samebase/alchemy-convex` can set variables on an existing
+  deployment. The resource registers once, again when the issuer, the callback URL or the deployment
+  type changes, and never calls the hub on destroy: the hub removes a preview client idle for 30
+  days, and a pruned client is not registered again (recovery: destroy and deploy the stage), a
+  known limit. The token is a Redacted prop: hidden from logs, stored as is in the state records,
+  which members of the Convex team can read. A deployment that Alchemy does not deploy, the
+  development deployment of a checkout, is registered by a small script in the consumer with the
+  same request, which registers again when the stored client is incomplete or belongs to another
+  issuer. A linked worktree has no hub: its local deployment holds explicit no-hub values for the
+  three variables, and the app hides the hub where the profile is `local_worktree`.
 - One-time setup per app: the hub admin runs `createApp` and `mintRegistrationToken` (a long-lived
   token for CI, because every new preview deployment uses it once) and hands the token to the app's
   CI secrets. Samebase provisioning does this step in Phase 5.
@@ -478,9 +499,10 @@ token, and stores it in the repository's CI secrets next to the deploy key.
    9700 forbid pattern matching and preview names are random, so registration must be automatic;
    per-deployment clients keep production credentials out of previews, remove the replace-on-PUT
    race, and remove any need to return a stored secret. The registration token is app-scoped,
-   expires in 30 days, and lives in CI secrets and the developer's `.env.local`, the same places as
-   the deploy key, which can already deploy code to production. `aud` differs per deployment and
-   `sub` does not, because the sector is the app.
+   expires when the admin says (ten years for the team hub's Bristol token, because CI spends it on
+   every new preview), and lives in CI secrets and the developer's shell, the same places as the
+   deploy key, which can already deploy code to production. `aud` differs per deployment and `sub`
+   does not, because the sector is the app.
 5. **Pairwise subjects with the app as the sector.** Reason: separate accounts per app do not need
    public subjects, a public `connector:id` would be a permanent cross-app correlator, and the app
    sector keeps `sub` stable across prod, dev and previews, which `sector_identifier_uri` cannot do
