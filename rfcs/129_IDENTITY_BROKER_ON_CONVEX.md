@@ -5,6 +5,9 @@
 - Status: Proposal
 - Owner: Nicu Chiciuc
 - Created: 2026-10-28
+- Revised on 2026-10-28 (6): no new upstream registrations. The hub starts with the email connector,
+  adds Google by one more redirect URI on the existing client, and adds GitHub on the existing
+  Samebase GitHub App, which accepts up to 10 callback URLs.
 - Revised on 2026-10-28 (5): the hub at `auth.samebase.com` is the team's hub, and Samebase is one
   consumer of it, after Bristol and the personal apps; Samebase's own login moving onto the hub
   becomes Phase 4, and product provisioning for other organizations becomes Phase 5.
@@ -131,6 +134,16 @@
   after 5 days (14 on paid plans)
   ([preview deployments](https://docs.convex.dev/production/hosting/preview-deployments)).
   `npx convex env set` accepts `--deployment <name>` (convex 1.48.0).
+- GitHub: an OAuth App has one callback URL; with wildcard matching on, a redirect on another
+  subdomain of the same host and under the callback path matches, otherwise the match is exact. A
+  GitHub App accepts up to 10 callback URLs, each with its own wildcard setting, and signs users in
+  through `/login/oauth/authorize` with the app's client id; it requests no scopes, so reading the
+  user's email needs the app's Email addresses user permission
+  ([callback URL](https://docs.github.com/en/apps/creating-github-apps/registering-a-github-app/about-the-user-authorization-callback-url),
+  [user tokens](https://docs.github.com/en/apps/creating-github-apps/authenticating-with-a-github-app/generating-a-user-access-token-for-a-github-app)).
+  Samebase has both: a login OAuth App (`AUTH_GITHUB_CLIENT_ID`) and a GitHub App for repository
+  provisioning (`GITHUB_APP_CLIENT_ID`, `apps/samebase/convex/githubApp.ts`). A Google OAuth client
+  accepts a list of redirect URIs.
 - Prior art for the semantics. Dex ([dexidp.io](https://dexidp.io/docs/connectors/)) is a federated
   OpenID Provider with upstream connectors and no user accounts; it builds `sub` from the connector
   id and the upstream user id and has no RFC 7591 support.
@@ -334,11 +347,16 @@ registration token, callback host outside the app's allow list).
   `CONVEX_SITE_URL`, which is host-only, so a hub works before any DNS record or custom domain and
   without the Pro plan. Setting a custom domain changes the issuer that every consuming app names,
   so it happens before the first consumer registers.
-- The team hub is an app in the samebase organization created from that template, with connectors
-  `github`, `google`, `email`, two new OAuth apps registered once for
-  `https://auth.samebase.com/connectors/<name>/callback`, and the custom domain `auth.samebase.com`
-  set in the Convex dashboard as a proxied `CNAME` to `convex.domains`. Samebase the app is not
-  involved: the hub is owned by the team, and Samebase becomes a client of it in Phase 4.
+- The team hub is an app in the samebase organization created from that template, with the custom
+  domain `auth.samebase.com` set in the Convex dashboard as a proxied `CNAME` to `convex.domains`.
+  Connectors arrive in this order, with no new upstream registration: `email` first, on the existing
+  Cloudflare Email Sending token, which is enough for Bristol and the personal apps; `google` by
+  adding `https://auth.samebase.com/connectors/google/callback` to the existing Samebase Google
+  client; `github` on the existing Samebase GitHub App, by adding the hub callback to its list and
+  giving the app the Email addresses user permission, with the hub connector using
+  `GITHUB_APP_CLIENT_ID` and its secret. The login OAuth App behind `AUTH_GITHUB_CLIENT_ID` is not
+  touched until Phase 4. Samebase the app is not involved: the hub is owned by the team, and
+  Samebase becomes a client of it in Phase 4.
 - Another team forks the template, sets its issuer, connectors and secrets, and has a hub. Creating
   it from Samebase is Phase 5.
 
@@ -369,11 +387,11 @@ In `samebase/base-hosting` (Convex Auth 2.0.0-beta.0):
 After Bristol and at least one personal app sign in through the hub, Samebase's own GitHub and
 Google sign-in move onto it: the `hub` method replaces `setupGithub` and `setupGoogle` in
 `apps/samebase/convex/auth.ts`, the `createUser` and `onSignIn` callbacks attach the hub subject to
-the existing `users` rows, and the two login OAuth apps retire. The password method stays local,
-because the hub has no password connector by design. The GitHub App used for repository provisioning
-is unrelated to login and stays. The MCP authorization server is unchanged: it keeps running on
-Samebase's own session, which the hub now establishes. Samebase dev and preview deployments get
-GitHub sign-in for the first time.
+the existing `users` rows, and the login OAuth App behind `AUTH_GITHUB_CLIENT_ID` retires. The
+Google client and the GitHub App stay: the hub uses them, and the GitHub App keeps provisioning
+repositories. The password method stays local, because the hub has no password connector by design.
+The MCP authorization server is unchanged: it keeps running on Samebase's own session, which the hub
+now establishes. Samebase dev and preview deployments get GitHub sign-in for the first time.
 
 ### Phase 5. Samebase provisioning
 
@@ -408,9 +426,12 @@ token, and stores it in the repository's CI secrets next to the deploy key.
    public subjects, a public `connector:id` would be a permanent cross-app correlator, and the app
    sector keeps `sub` stable across prod, dev and previews, which `sector_identifier_uri` cannot do
    for random preview hosts.
-6. **Connectors are hub configuration.** Reason: which providers a team uses is the team's choice,
-   and the Auth.js catalog already describes 321 of them; a fixed GitHub-plus-Google set would make
-   the component Samebase-shaped. The team hub configures GitHub, Google and email.
+6. **Connectors are hub configuration, and the team hub registers nothing new upstream.** Reason:
+   which providers a team uses is the team's choice, and the Auth.js catalog already describes 321
+   of them; a fixed GitHub-plus-Google set would make the component Samebase-shaped. The team hub
+   starts with email, then Google and GitHub on the clients the team already owns, because a Google
+   client takes several redirect URIs and a GitHub App takes ten callback URLs. A password connector
+   is impossible: a password is a stored credential, which is an account.
 7. **Two public repositories, maintained there.** Reason: both the component and the hub must be
    open source, this monorepo stays private until token management is fixed, the consumers (the
    `base-hosting` starter, Bristol) already live outside it, and `samebase/base-hosting` set the
@@ -438,8 +459,9 @@ token, and stores it in the repository's CI secrets next to the deploy key.
 - Phase 1: the `openid-client` conformance test, the ported edge cases, and the real-payload parser
   tests.
 - Phase 2: a GitHub sign-in to a scratch Convex Auth v2 app through `auth.samebase.com` from a dev
-  deployment and from a preview deployment, each registered by the script, without any change at
-  GitHub. The audit row shows the client, the connector and the pairwise subject and nothing else.
+  deployment and from a preview deployment, each registered by the script, with one callback URL
+  added to the GitHub App and one redirect URI added to the Google client, and no new app. The audit
+  row shows the client, the connector and the pairwise subject and nothing else.
   `npx convex env set --deployment <preview name>` under the preview deploy key is the one CLI claim
   to prove here.
 - Phase 3: Bristol signs in through the hub on prod, dev and a preview; the Bristol GitHub OAuth app
