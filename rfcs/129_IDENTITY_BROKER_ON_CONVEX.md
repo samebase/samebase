@@ -5,47 +5,58 @@
 - Status: Proposal
 - Owner: Nicu Chiciuc
 - Created: 2026-10-28
-- Base: `origin/main` at `3e5d7c658` (v2158)
-- Revised on 2026-10-28 (2): the code lives in a new public repository, not in this monorepo, so
-  both the package and the self-hostable hub can be open source. See Decision 7.
+- Revised on 2026-10-28 (3): connectors are hub configuration, not a fixed set; two public
+  repositories, the component and a hub template; the hub template is built on the Alchemy setup
+  stack; the provider surface starts from `codefox-inc/convex-oauth-provider`.
+- Revised on 2026-10-28 (2): the code lives outside this monorepo so both the package and the
+  self-hostable hub can be open source. See Decision 7.
 - Revised on 2026-10-28 after one Codex design review: dedicated hub deployment instead of a mount
   in the Samebase app, one client per deployment through RFC 7591 instead of a shared client updated
   through RFC 7592, pairwise subjects with the app as the sector, lifecycle values fixed.
 - Evidence: the Convex Auth v2 generic OAuth method installed at
   `apps/samebase/node_modules/@convex-dev/auth` (2.0.0-beta.0), the Samebase MCP OAuth server in
   `apps/samebase/convex/mcp/oauth.ts`, the Samebase email sender in `apps/samebase/convex/email.ts`,
-  the standards cited inline, and the prior-art survey in the session notes of 2026-10-27 and
-  2026-10-28 (Dex, codefox-inc/convex-oauth-provider, WorkOS AuthKit, Cloudflare Access)
+  `templates/base-actions/alchemy.run.ts`, the standards cited inline, and the prior-art and reuse
+  surveys in the session notes of 2026-10-27 and 2026-10-28
 - Related: `rfcs/128_SAMEBASE_SSR_WITH_COOKIE_SESSIONS_ROLLOUT.md` (Convex Auth 2 in Samebase),
   `specs/117_MANUAL_PASSWORD_AUTH_SPEC.md`,
   `rfcs/062_MCP_DUAL_ORIGIN_CONSENT_LOGIN_REDIRECT_SPEC.md` (the MCP authorization server),
   `docs/repository-exports.md` (the one-way export path, not used here),
+  `research/2026-10-05-alchemy-setup-stack-and-wrangler-split.md`,
   `research/2026-06-22-cloudflare-oauth-apps-mcp-fit.md`
 
 ## Summary
 
 1. The per-project cost of login is not code. It is credentials bound to a domain: an OAuth client
-   whose callback URL is registered at GitHub or Google, and an email sender with a verified domain
-   and an API token. Convex Auth puts the OAuth callback on each deployment's `CONVEX_SITE_URL`, so
-   every dev and preview deployment needs its own registration, and in practice previews cannot use
-   GitHub sign-in. The fallback today is email and password plus a Cloudflare Email token copied
-   into every app.
-2. This RFC adds an identity broker: one Convex deployment per team that holds the GitHub app, the
-   Google client, and the email sender once, and acts as an OpenID Provider for the team's apps. The
-   broker keeps no user accounts and no login sessions. Every sign-in goes upstream again, and the
-   broker returns an `id_token` from which each app creates its own user with its own Convex Auth.
-   Apps keep separate accounts, and each app sees its own pairwise subjects. The broker is a hub of
-   provider connections, not a hub of accounts.
-3. The broker is a new public repository, `samebase/identity-broker`: the Convex component package
-   `@samebase/identity-broker` and a small host app, `hub/`, that mounts it. The hub runs as its own
-   Convex deployment at `https://auth.samebase.com`, not inside the Samebase app. This monorepo
-   keeps only this RFC and, in Phase 4, the provisioning call. The consumer side needs no new
-   library: a Convex Auth v2 app points its generic OAuth method at the broker, and its deploy step
-   registers each deployment as a client.
-4. The design follows OAuth 2.1, OpenID Connect Core and Discovery, RFC 7591 for client
-   registration, RFC 8414 for metadata, RFC 9207 for the `iss` response parameter, and RFC 9700 for
-   the security profile. Every departure is named in the Standards section. The differentiator is
-   the runtime: one Convex deployment, no Docker, no database to run, one key pair to generate.
+   whose callback URL is registered at an upstream provider, and an email sender with a verified
+   domain and an API token. Convex Auth puts the OAuth callback on each deployment's
+   `CONVEX_SITE_URL`, so every dev and preview deployment needs its own registration, and in
+   practice previews cannot use GitHub sign-in. The fallback today is email and password plus a
+   Cloudflare Email token copied into every app.
+2. This RFC adds an identity broker: one Convex deployment per team that holds the team's upstream
+   connections once and acts as an OpenID Provider for the team's apps. Which connections is hub
+   configuration: any OAuth or OpenID Connect provider from the Auth.js provider catalog, plus an
+   email code connector. Samebase's own hub configures GitHub, Google and email. The broker keeps no
+   user accounts and no login sessions. Every sign-in goes upstream again, and the broker returns an
+   `id_token` from which each app creates its own user with its own Convex Auth. Apps keep separate
+   accounts, and each app sees its own pairwise subjects. The broker is a hub of provider
+   connections, not a hub of accounts.
+3. Two public repositories. `samebase/identity-broker` is the Convex component, published to npm as
+   `@samebase/identity-broker`. `samebase/identity-hub` is a GitHub template repository: the host
+   app that mounts the component, built on the Alchemy setup stack of `templates/base-actions`, and
+   maintained in its own repository like `samebase/base-hosting`. Samebase's hub at
+   `https://auth.samebase.com` is an app created from that template. Another team forks the
+   template, or creates it from Samebase once the product has a manifest for it. This monorepo keeps
+   only this RFC and, in Phase 4, the provisioning work.
+4. The provider surface is not written from scratch. It starts from
+   `codefox-inc/convex-oauth-provider` (Apache-2.0), a Convex component that already has discovery,
+   JWKS, RS256 `id_token`s through `jose`, PKCE S256, RFC 7591 registration and a test suite. The
+   work is the broker half: connectors, the app and registration-token model, pairwise subjects,
+   claims, and key rotation. Upstream sign-ins use `oauth4webapi` and the `@auth/core` provider
+   definitions, which Convex Auth v1 already runs inside the Convex runtime.
+5. The design follows OAuth 2.1, OpenID Connect Core and Discovery, RFC 7591, RFC 8414, RFC 9207,
+   and RFC 9700. Every departure is named in the Standards section. The differentiator is the
+   runtime: one Convex deployment, no Docker, no database to run, one key set to generate.
 
 ## Facts
 
@@ -60,42 +71,54 @@
   `aud` exactly the client id, `azp` if present, and `exp` (`dist/lib/oauth/callback.js:143`). It
   does not verify the signature, which OIDC Core 3.1.3.7 permits for a token received directly from
   the token endpoint over TLS. So a broker that is a plain OpenID Provider with `client_secret_post`
-  needs no app-side code beyond a catalog constant and one env pair. The internal `dist/lib/oauth`
-  paths are not public exports.
+  needs no app-side code beyond a catalog constant and one env pair.
 - Convex Auth v1 (0.0.94, the `templates/base` version) carries the Auth.js redirect proxy only as a
-  TODO (`dist/server/provider_utils.js:72`, `dist/server/oauth/authorizationUrl.js:26`). Convex Auth
-  v2 fixes the callback to the deployment URL. Neither solves preview deployments.
-- Samebase already runs an OAuth 2.1 authorization server for MCP clients with dynamic client
-  registration, PKCE, exact redirect URI checks, consent, refresh token rotation, and audit rows
+  TODO (`dist/server/provider_utils.js:72`). It runs `oauth4webapi` and the `@auth/core` provider
+  definitions inside Convex HTTP actions (`dist/server/oauth/callback.js:3`), which proves both run
+  in the Convex runtime. Convex Auth v2 fixes the callback to the deployment URL. Neither solves
+  preview deployments.
+- `@auth/core` (ISC) ships 321 provider definitions. `providers/github.js` and `providers/google.js`
+  import nothing: they are functions that return the endpoints, scopes and a `profile` mapping, so a
+  hub can import one definition without running Auth.js. GitHub's definition falls back to
+  `/user/emails` without checking `verified`; the broker must check it. Google's definition is only
+  `{ type: "oidc", issuer }`, so OIDC connectors use discovery through `oauth4webapi`.
+- `codefox-inc/convex-oauth-provider` 0.4.2
+  ([repo](https://github.com/codefox-inc/convex-oauth-provider), Apache-2.0): a Convex component
+  (`defineComponent("oauthProvider")`) with discovery at both well-known locations, JWKS,
+  `/authorize`, `/token`, `/userinfo`, and opt-in `/register` (RFC 7591); `authorization_code` and
+  rotating `refresh_token` grants; PKCE S256 required; RS256 `id_token` with `sub`, `iss`, `aud`,
+  `nonce`, `auth_time` through `jose`; RFC 9068 access tokens; codes and tokens stored as SHA-256
+  hashes; one signing key from env with no rotation. End-user identity comes from a host hook,
+  `getUserId(ctx, request)`, and consent from a host `authorizeHandler`. No upstream connectors, no
+  account system. About 4,200 lines of TypeScript and 9,100 lines of vitest and convex-test tests,
+  one maintainer, last commit 2026-05-17. The alternatives (`VortexNYC/convex-auth`,
+  `robelest/convex-auth`) are full account libraries whose provider parts are not separable.
+- Samebase already runs an OAuth 2.1 authorization server for MCP clients
   (`apps/samebase/convex/mcp/oauth.ts`, routes at `apps/samebase/convex/http.ts:91` to `:117`). It
-  owns `/.well-known/oauth-authorization-server` at the root of the Samebase deployment, it issues
-  opaque access tokens looked up by hash, and its authorize flow signs the user in with Samebase
-  accounts and MCP grants (`mcp/oauth.ts:697`). None of that can serve end users of other apps.
-- Samebase sends email through Cloudflare Email with `CLOUDFLARE_EMAIL_API_TOKEN` and
-  `CLOUDFLARE_EMAIL_ACCOUNT_ID` (`apps/samebase/convex/email.ts:50`). That is the per-app setup the
-  broker centralizes.
-- Convex 1.48.0 adds `ctx.auth.signJwt` (ES256, deployment key, issuer fixed to the deployment's
-  `CONVEX_CLOUD_URL`, max one hour). It is not usable for this broker: OpenID Connect requires RS256
-  support from every OP
-  ([Core 15.1](https://openid.net/specs/openid-connect-core-1_0.html#ServerMTI)) and Discovery
-  requires the metadata document under the issuer URL
-  ([Discovery 4](https://openid.net/specs/openid-connect-discovery-1_0.html#ProviderConfig)), which
-  `convex.cloud` does not serve.
-- A Convex deployment can serve HTTP actions on a custom domain on the Pro plan, through a `CNAME`
-  to `convex.domains`, with the Cloudflare proxy enabled when the domain sits in the team's own zone
-  ([custom domains](https://docs.convex.dev/production/custom-domains)). The Convex HTTP router
-  dispatches on path only, so two issuers on one deployment would share `/.well-known/*`.
+  owns `/.well-known/oauth-authorization-server` at the root of the Samebase deployment, issues
+  opaque tokens, and signs the user in with Samebase accounts and MCP grants. None of that can serve
+  end users of other apps.
+- Samebase sends email through Cloudflare Email Sending with `CLOUDFLARE_EMAIL_API_TOKEN` and
+  `CLOUDFLARE_EMAIL_ACCOUNT_ID` (`apps/samebase/convex/email.ts:50`). Alchemy's Cloudflare `Email`
+  resources cover routing, not sending, so the sending token stays an env secret.
+- `templates/base-actions/alchemy.run.ts` is the Alchemy setup stack: `Convex.Project`,
+  `Convex.DeployKey`, `Convex.PreviewDeployKey` from `@samebase/alchemy-convex`, plus Workers Builds
+  for the frontend Worker. Alchemy also has Cloudflare `DNS.Record`. There is no Alchemy resource
+  for a Convex custom domain; the dashboard sets it once
+  ([custom domains](https://docs.convex.dev/production/custom-domains): Pro plan, `CNAME` to
+  `convex.domains`, Cloudflare proxy allowed).
+- Convex 1.48.0 adds `ctx.auth.signJwt` (ES256, deployment key, issuer fixed to `CONVEX_CLOUD_URL`,
+  max one hour). It is not usable here: OIDC requires RS256 from every OP
+  ([Core 15.1](https://openid.net/specs/openid-connect-core-1_0.html#ServerMTI)) and the metadata
+  document under the issuer URL
+  ([Discovery 4](https://openid.net/specs/openid-connect-discovery-1_0.html#ProviderConfig)).
 - Preview deployments get their own deployment name and `CONVEX_SITE_URL`, and they are deleted
   after 5 days (14 on paid plans)
   ([preview deployments](https://docs.convex.dev/production/hosting/preview-deployments)).
-  `npx convex env set` accepts `--deployment <name>`, so a deploy step can write env vars to the
-  deployment it just created (`npx convex env set --help`, convex 1.48.0).
-- Prior art. Dex ([dexidp.io](https://dexidp.io/docs/connectors/)) is a federated OpenID Provider
-  with upstream connectors and no user accounts; it stores clients, auth requests, codes, refresh
-  tokens and keys, builds `sub` from the connector id and the upstream user id, and has no RFC 7591
-  support. [codefox-inc/convex-oauth-provider](https://github.com/codefox-inc/convex-oauth-provider)
-  is a beta Convex component that is an OAuth 2.1 and OIDC provider for MCP clients. Nothing
-  documents one Convex deployment as the login server for many Convex apps.
+  `npx convex env set` accepts `--deployment <name>` (convex 1.48.0).
+- Prior art for the semantics. Dex ([dexidp.io](https://dexidp.io/docs/connectors/)) is a federated
+  OpenID Provider with upstream connectors and no user accounts; it builds `sub` from the connector
+  id and the upstream user id and has no RFC 7591 support.
   [Convex Auth issue 49](https://github.com/convex/convex-auth/issues/49) asks for shared auth
   across domains and is open since 2024.
 
@@ -110,11 +133,12 @@ One sign-in, with Bristol as the app and GitHub as the connector:
    comparison, stores the authorization request for ten minutes, and, because `connector=github`
    names a configured connector and the client's app is first-party, redirects straight to GitHub
    with the broker's own `state` and PKCE pair. Without `connector`, it renders a minimal page: the
-   app name and one button per connector. A third-party app gets a consent page before any redirect.
+   app name and one button per configured connector. A third-party app gets a consent page before
+   any redirect.
 3. GitHub returns to `https://auth.samebase.com/connectors/github/callback`. The broker exchanges
-   the code with the broker's GitHub secret, reads the GitHub user, mints a one-time authorization
-   code bound to Bristol's request, and redirects to Bristol's `redirect_uri` with `code`, `state`
-   and `iss=https://auth.samebase.com`.
+   the code with the hub's GitHub secret, reads the GitHub user and a verified email, mints a
+   one-time authorization code bound to Bristol's request, and redirects to Bristol's `redirect_uri`
+   with `code`, `state` and `iss=https://auth.samebase.com`.
 4. Bristol's Convex Auth callback posts `code`, `client_id`, `client_secret` and `code_verifier` to
    `https://auth.samebase.com/token`. The broker verifies the PKCE challenge and the secret, and
    returns `id_token`, a short-lived `access_token` for `/userinfo`, `token_type`, `expires_in`.
@@ -131,19 +155,21 @@ with `email_verified: true`.
 
 ## Standards
 
-| Area                                                                           | Standard                                                                                                                                                                                        | What the broker does                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
-| ------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Authorization code flow, PKCE, redirect URI matching, `iss` response parameter | [OAuth 2.1 draft 16](https://datatracker.ietf.org/doc/draft-ietf-oauth-v2-1/), [RFC 9207](https://www.rfc-editor.org/rfc/rfc9207)                                                               | `response_type=code` only. PKCE S256 required for every client. Exact string comparison of `redirect_uri`, with no loopback exception: a local dev deployment registers its exact `http://127.0.0.1:<port>/...` URI. `iss` on every authorization response, success and error.                                                                                                                                                                                                                                                                                              |
-| ID token, claims, `sub`, `prompt`, `max_age`, `nonce`                          | [OIDC Core 1.0](https://openid.net/specs/openid-connect-core-1_0.html)                                                                                                                          | `/authorize` accepts GET and POST. `iss`, `sub`, `aud`, `exp`, `iat`, and `nonce` when the request carried one. `sub` is pairwise per app, at most 255 ASCII characters, never reassigned. `prompt=none` returns `login_required` because the broker has no session. `prompt=login` and `max_age` are forwarded to connectors that can reauthenticate (Google `prompt=login`, the email code is always fresh) and `auth_time` is set from that completion; a connector that cannot force reauthentication (GitHub) answers such a request with `login_required`.            |
-| Metadata                                                                       | [OIDC Discovery](https://openid.net/specs/openid-connect-discovery-1_0.html), [RFC 8414](https://www.rfc-editor.org/rfc/rfc8414)                                                                | The component serves both layouts for its configured issuer: `<issuer>/.well-known/openid-configuration` and `<origin>/.well-known/oauth-authorization-server<issuer path>`, same content. For `https://auth.samebase.com` the issuer has no path, so both sit at the host root. `id_token_signing_alg_values_supported: ["RS256"]`, `code_challenge_methods_supported: ["S256"]`, `authorization_response_iss_parameter_supported: true`, `subject_types_supported: ["pairwise"]`, `token_endpoint_auth_methods_supported: ["client_secret_post", "client_secret_basic"]`. |
-| Client registration                                                            | [RFC 7591](https://www.rfc-editor.org/rfc/rfc7591)                                                                                                                                              | `POST /register` requires an initial access token that the hub admin mints per app. The response carries `client_id` and `client_secret`. `software_id` is the app id, `software_version` is the deployment name, and the extension field `deployment_type` is `production`, `development` or `preview`. Open registration is off. RFC 7592 is not implemented: a deployment registers once and never edits its client.                                                                                                                                                     |
-| Keys                                                                           | [RFC 7517](https://www.rfc-editor.org/rfc/rfc7517), [RFC 7518](https://www.rfc-editor.org/rfc/rfc7518), [OIDC Core 10.1.1](https://openid.net/specs/openid-connect-core-1_0.html#RotateSigKeys) | JWKS at `<issuer>/.well-known/jwks.json` with `kid` on every key and token. RS256 only. One current private key; a rotation adds a new current key and keeps only the public half of the old key in the set for 14 days.                                                                                                                                                                                                                                                                                                                                                    |
-| Security profile                                                               | [RFC 9700](https://www.rfc-editor.org/rfc/rfc9700)                                                                                                                                              | No pattern matching on redirect URIs (4.1.3). Distinct callback path per upstream connector, the mix-up defense of 4.4.2.2 for the broker as a client of GitHub and Google. The broker authenticates the user before any redirect and auto-redirects upstream only for first-party apps (4.11). A `code_verifier` without a stored `code_challenge` is rejected (4.8.2). Codes are single use and expire after 60 seconds.                                                                                                                                                  |
-| UserInfo                                                                       | [OIDC Core 5.3](https://openid.net/specs/openid-connect-core-1_0.html#UserInfo)                                                                                                                 | `/userinfo` accepts GET and POST with the access token from the token response. The access token is a broker-signed JWT with `aud` equal to the issuer, five minutes, usable only there.                                                                                                                                                                                                                                                                                                                                                                                    |
+| Area                                                                           | Standard                                                                                                                                                                                        | What the broker does                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| ------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Authorization code flow, PKCE, redirect URI matching, `iss` response parameter | [OAuth 2.1 draft 16](https://datatracker.ietf.org/doc/draft-ietf-oauth-v2-1/), [RFC 9207](https://www.rfc-editor.org/rfc/rfc9207)                                                               | `response_type=code` only. PKCE S256 required for every client. Exact string comparison of `redirect_uri`, with no loopback exception: a local dev deployment registers its exact `http://127.0.0.1:<port>/...` URI. `iss` on every authorization response, success and error.                                                                                                                                                                                                                                                                                                    |
+| ID token, claims, `sub`, `prompt`, `max_age`, `nonce`                          | [OIDC Core 1.0](https://openid.net/specs/openid-connect-core-1_0.html)                                                                                                                          | `/authorize` accepts GET and POST. `iss`, `sub`, `aud`, `exp`, `iat`, and `nonce` when the request carried one. `sub` is pairwise per app, at most 255 ASCII characters, never reassigned. `prompt=none` returns `login_required` because the broker has no session. `prompt=login` and `max_age` are forwarded to connectors that can reauthenticate (OIDC connectors through `prompt=login`, the email code is always fresh) and `auth_time` is set from that completion; a connector that cannot force reauthentication (GitHub) answers such a request with `login_required`. |
+| Metadata                                                                       | [OIDC Discovery](https://openid.net/specs/openid-connect-discovery-1_0.html), [RFC 8414](https://www.rfc-editor.org/rfc/rfc8414)                                                                | The component serves both layouts for its configured issuer: `<issuer>/.well-known/openid-configuration` and `<origin>/.well-known/oauth-authorization-server<issuer path>`, same content. For `https://auth.samebase.com` the issuer has no path, so both sit at the host root. `id_token_signing_alg_values_supported: ["RS256"]`, `code_challenge_methods_supported: ["S256"]`, `authorization_response_iss_parameter_supported: true`, `subject_types_supported: ["pairwise"]`, `token_endpoint_auth_methods_supported: ["client_secret_post", "client_secret_basic"]`.       |
+| Client registration                                                            | [RFC 7591](https://www.rfc-editor.org/rfc/rfc7591)                                                                                                                                              | `POST /register` requires an initial access token that the hub admin mints per app. The response carries `client_id` and `client_secret`. `software_id` is the app id, `software_version` is the deployment name, and the extension field `deployment_type` is `production`, `development` or `preview`. Open registration is off. RFC 7592 is not implemented: a deployment registers once and never edits its client.                                                                                                                                                           |
+| Keys                                                                           | [RFC 7517](https://www.rfc-editor.org/rfc/rfc7517), [RFC 7518](https://www.rfc-editor.org/rfc/rfc7518), [OIDC Core 10.1.1](https://openid.net/specs/openid-connect-core-1_0.html#RotateSigKeys) | JWKS at `<issuer>/.well-known/jwks.json` with `kid` on every key and token. RS256 only. One current private key; a rotation adds a new current key and keeps only the public half of the old key in the set for 14 days.                                                                                                                                                                                                                                                                                                                                                          |
+| Security profile                                                               | [RFC 9700](https://www.rfc-editor.org/rfc/rfc9700)                                                                                                                                              | No pattern matching on redirect URIs (4.1.3). Distinct callback path per upstream connector, the mix-up defense of 4.4.2.2 for the broker as a client of several providers. The broker authenticates the user before any redirect and auto-redirects upstream only for first-party apps (4.11). A `code_verifier` without a stored `code_challenge` is rejected (4.8.2). Codes are single use and expire after 60 seconds.                                                                                                                                                        |
+| UserInfo                                                                       | [OIDC Core 5.3](https://openid.net/specs/openid-connect-core-1_0.html#UserInfo)                                                                                                                 | `/userinfo` accepts GET and POST with the access token from the token response. The access token is a broker-signed JWT with `aud` equal to the issuer, five minutes, usable only there.                                                                                                                                                                                                                                                                                                                                                                                          |
+| Upstream sign-in                                                               | [OIDC Discovery](https://openid.net/specs/openid-connect-discovery-1_0.html), [RFC 6749](https://www.rfc-editor.org/rfc/rfc6749)                                                                | OIDC connectors are configured by issuer and discovered; plain OAuth connectors by explicit endpoints and a profile mapping. Both run the authorization code flow with PKCE through `oauth4webapi`, which is an OpenID-certified relying party.                                                                                                                                                                                                                                                                                                                                   |
 
 Named departures and gaps:
 
-- No refresh tokens and no `offline_access`. Apps hold their own sessions. Dex differs here.
+- No refresh tokens and no `offline_access`. Apps hold their own sessions. Dex and the codefox
+  component differ here; the broker removes that grant.
 - No sessions at the broker, so no single sign-on across apps. This is the point, not a gap.
 - `response_type=code` only. OAuth 2.1 removes `token`; the OIDC `id_token` response types are
   omitted by choice, so the "dynamic OP" profile of Core 15.2 is not met.
@@ -165,11 +191,21 @@ Named departures and gaps:
 - `token_endpoint_auth_method: "none"`, native clients, ES256, and the Client ID Metadata Document
   draft are deferred until a consumer needs them.
 
+## What it builds on
+
+| Piece             | Source                                                | Used for                                                                                         | Kept, changed, or removed                                                                                                                                                                                                                                                                                         |
+| ----------------- | ----------------------------------------------------- | ------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Provider surface  | `codefox-inc/convex-oauth-provider` 0.4.2, Apache-2.0 | discovery, JWKS, `/authorize`, `/token`, `/userinfo`, `/register`, PKCE, hashed codes, the tests | Forked as the first commit of `samebase/identity-broker`, with its NOTICE kept. Removed: `refresh_token`, the per-user `oauthAuthorizations` consent table, the host `getUserId` hook, RFC 8707 resources. Changed: registration gated by app tokens, `id_token` claims, pairwise `sub`, a key set with rotation. |
+| Connector catalog | `@auth/core/providers/*`, ISC                         | endpoints, scopes, profile mappings for 321 providers                                            | Imported one definition at a time. The broker adds the verified-email check.                                                                                                                                                                                                                                      |
+| Upstream flow     | `oauth4webapi`, MIT                                   | authorization code with PKCE, discovery for OIDC connectors                                      | Kept as is.                                                                                                                                                                                                                                                                                                       |
+| Signing           | `jose`, MIT                                           | RS256 keys, JWKS export, sign and verify                                                         | Kept as is.                                                                                                                                                                                                                                                                                                       |
+| Design            | Dex                                                   | federated OP with connectors and no accounts                                                     | Reference only.                                                                                                                                                                                                                                                                                                   |
+
 ## Changes
 
-### Phase 1. The package
+### Phase 1. The component
 
-The component package at the root of the new repository, built with `defineComponent`, following
+`samebase/identity-broker`, forked from `codefox-inc/convex-oauth-provider`, following
 `$convex-create-component` and the same tooling contract as this monorepo: Vite+, Oxlint, Oxfmt, and
 an `AGENTS.md` with the code guardrails that apply.
 
@@ -187,6 +223,14 @@ Tables, all inside the component:
 - `authorizationCodes`: `codeHash`, `authRequestId`, `expiresAt`, `usedAt`.
 - `emailCodes`: `authRequestId`, `email`, `codeHash`, `attempts`, `expiresAt`.
 - `signIns`: `clientId`, `connector`, `sub`, `at`.
+
+Connectors are configuration passed at mount time, not code in the component. A connector is one of:
+`{ kind: "oidc", name, issuer, scopes, profile }`,
+`{ kind: "oauth", name, authorizationEndpoint, tokenEndpoint, userInfoEndpoints, scopes, profile }`,
+or `{ kind: "email", name, send }` where `send` is a host function reference. `github()` and
+`google()` are thin wrappers over the `@auth/core` definitions; any other Auth.js provider wraps the
+same way. Each connector's `CLIENT_ID` and `CLIENT_SECRET` come from the component env under the
+connector's name.
 
 Lifecycle values: authorization requests live ten minutes, email codes ten minutes and five
 attempts, authorization codes sixty seconds and one use, `id_token` and the userinfo access token
@@ -210,32 +254,36 @@ component derives both metadata locations from it.
 Administration is internal functions run by the deployment owners with the Convex CLI: `createApp`,
 `mintRegistrationToken`, `deleteApp`, `listClients`. No admin UI in this phase.
 
-Connectors, chosen at mount time: `github` and `google` with `CLIENT_ID` and `CLIENT_SECRET` per
-connector in the component env, and `email` with a sender function reference supplied by the host,
-in the shape Convex Auth v2 uses for user callbacks. The upstream OAuth code copies the catalog
-shape of Convex Auth v2's generic method rather than importing its internal paths.
+The component depends on nothing in this monorepo. Adapters, such as the email sender, live in the
+hub app.
 
-The repository depends on nothing in this monorepo. The email sender and any other adapter live in
-the hub app, not in the component.
+Tests keep the forked suite where it still applies, use real payloads from GitHub and Google mutated
+only for negative cases, and add a conformance test that runs `openid-client` as an independent
+relying party against the component in `convex-test`: discovery at both locations, registration with
+an initial access token, code flow with PKCE, token validation with and without `nonce`, userinfo,
+`prompt=none`, and the rejections (wrong `redirect_uri`, reused code, missing `code_challenge`,
+expired request, bad secret, expired registration token, callback host outside the app's allow
+list).
 
-Tests use real payloads from GitHub and Google, mutated only for negative cases, per the guardrails.
-The conformance test runs `openid-client` as an independent relying party against the component in
-`convex-test`: discovery at both locations, registration with an initial access token, code flow
-with PKCE, token validation with and without `nonce`, userinfo, `prompt=none`, and the rejections
-(wrong `redirect_uri`, reused code, missing `code_challenge`, expired request, bad secret, expired
-registration token, callback host outside the app's allow list).
+### Phase 2. The hub template and Samebase's hub
 
-### Phase 2. The hub deployment
-
-- `hub/` in the same repository: a host app with `convex.config.ts` that mounts the component with
-  issuer `https://auth.samebase.com`, the GitHub and Google credentials of two new OAuth apps
-  registered once for `https://auth.samebase.com/connectors/<name>/callback`, and a `sendEmail`
-  action on Cloudflare Email with its own token. No frontend beyond the pages the component renders.
-- Its own Convex project on the Samebase team, deployed by a GitHub Actions workflow with a deploy
-  key, with the custom domain `auth.samebase.com` as a proxied `CNAME` to `convex.domains` in the
-  Samebase Cloudflare zone.
-- This host app is also the self-host starter: another team forks the repository, sets its issuer
-  and credentials, and has a hub.
+- `samebase/identity-hub`, a GitHub template repository maintained there, like
+  `samebase/base-hosting`. It is the Alchemy setup stack of `templates/base-actions` without the
+  Worker: `Convex.Project`, `Convex.DeployKey`, `Convex.PreviewDeployKey`, and a Cloudflare
+  `DNS.Record` for the hub hostname. GitHub Actions runs `npx convex deploy` on `main` with the
+  deploy key. `convex.config.ts` mounts the component with the issuer URL and the connector list
+  from `convex/connectors.ts`; a `sendEmail` action on Cloudflare Email Sending with its own token;
+  no frontend beyond the pages the component renders. Env: the connector secrets,
+  `IDENTITY_BROKER_KEYS`, the email token. The issuer defaults to the deployment's
+  `CONVEX_SITE_URL`, which is host-only, so a hub works before any DNS record or custom domain and
+  without the Pro plan. Setting a custom domain changes the issuer that every consuming app names,
+  so it happens before the first consumer registers.
+- Samebase's hub is an app in the samebase organization created from that template, with connectors
+  `github`, `google`, `email`, two new OAuth apps registered once for
+  `https://auth.samebase.com/connectors/<name>/callback`, and the custom domain `auth.samebase.com`
+  set in the Convex dashboard as a proxied `CNAME` to `convex.domains`.
+- Another team forks the template, sets its issuer, connectors and secrets, and has a hub. Creating
+  it from Samebase is Phase 4.
 
 ### Phase 3. The consumer path in the starter
 
@@ -260,10 +308,10 @@ In `samebase/base-hosting` (Convex Auth 2.0.0-beta.0):
 
 ### Phase 4. Samebase provisioning
 
-When Samebase creates or repairs an app whose organization has a hub, it calls the hub's admin
-functions over an admin token to create the app and mint a registration token, stores that token in
-the repository's CI secrets next to the deploy key, and leaves the rest to the deploy step. This
-phase gets its own plan after Phase 3 has run on two apps.
+Two product steps, planned after Phase 3 has run on two apps: a manifest for the hub template, so an
+organization creates its hub from Samebase like any other app; and, for an app in an organization
+that has a hub, a call to the hub's admin functions over an admin token that creates the app, mints
+a registration token, and stores it in the repository's CI secrets next to the deploy key.
 
 ## Decisions
 
@@ -276,38 +324,44 @@ phase gets its own plan after Phase 3 has run on two apps.
    Revisit if Convex adds configurable issuers and RS256.
 3. **A dedicated hub deployment at `https://auth.samebase.com`, not a mount in the Samebase app.**
    Reason: the Convex router dispatches on path only, and the Samebase deployment already owns
-   `/.well-known/oauth-authorization-server` for MCP, so a second issuer there needs host dispatch
-   in handlers; a shared deployment also couples releases, outages, signing keys and email capacity.
-   The review proposed the path issuer `https://samebase.com/identity` as the cheap conformant
-   alternative; it is correct, and the component supports path issuers, but a separate deployment
-   removes the coupling as well and keeps the host-only issuer. Cost: one more Convex project and
-   one email token.
+   `/.well-known/oauth-authorization-server` for MCP; a shared deployment also couples releases,
+   outages, signing keys and email capacity. The path issuer `https://samebase.com/identity` is the
+   cheap conformant alternative, and the component supports path issuers, but a separate deployment
+   removes the coupling as well and keeps the host-only issuer.
 4. **One app, one client per deployment through RFC 7591, no RFC 7592.** Reason: OAuth 2.1 and RFC
    9700 forbid pattern matching and preview names are random, so registration must be automatic;
    per-deployment clients keep production credentials out of previews, remove the replace-on-PUT
    race, and remove any need to return a stored secret. The registration token is app-scoped,
    expires in 30 days, and lives in CI secrets and the developer's `.env.local`, the same places as
-   the deploy key, which can already deploy code to production. A leaked token can register clients
-   under that app only on the app's allowed callback hosts until the admin deletes the app. `aud`
-   differs per deployment and `sub` does not, because the sector is the app.
+   the deploy key, which can already deploy code to production. `aud` differs per deployment and
+   `sub` does not, because the sector is the app.
 5. **Pairwise subjects with the app as the sector.** Reason: separate accounts per app do not need
    public subjects, a public `connector:id` would be a permanent cross-app correlator, and the app
    sector keeps `sub` stable across prod, dev and previews, which `sector_identifier_uri` cannot do
    for random preview hosts.
-6. **The MCP authorization server stays separate.** Reason: it issues opaque tokens for Samebase's
-   own resource with Samebase accounts and scopes, a different product boundary. Shared helpers move
-   into the package only when the MCP server imports them back from npm.
-7. **A new public repository, `samebase/identity-broker`, from day one.** Reason: both the package
-   and the self-hostable hub are meant to be open source, this monorepo stays private until token
-   management is fixed, and the consumers (the `base-hosting` starter, Bristol) already live outside
-   it. The one-way repository export used for `templates/base` would publish a mirror that cannot
-   take pull requests. Cost: a second checkout with the same tooling contract.
-8. **First-party is an app-level admin decision.** Reason: RFC 9700 4.11. A registration token
-   cannot change it. Third-party apps get a consent page.
+6. **Connectors are hub configuration.** Reason: which providers a team uses is the team's choice,
+   and the Auth.js catalog already describes 321 of them; a fixed GitHub-plus-Google set would make
+   the component Samebase-shaped. Samebase's hub configures GitHub, Google and email.
+7. **Two public repositories, maintained there.** Reason: both the component and the hub must be
+   open source, this monorepo stays private until token management is fixed, the consumers (the
+   `base-hosting` starter, Bristol) already live outside it, and `samebase/base-hosting` set the
+   precedent that a public artifact the monorepo gives nothing to stays out of it. The one-way
+   repository export would publish a mirror that cannot take pull requests. The hub is a GitHub
+   template repository so it is forkable without Samebase, and a Samebase manifest later makes it a
+   one-click app.
+8. **Start from `codefox-inc/convex-oauth-provider`.** Reason: it is the only Convex component with
+   an OpenID Provider surface and no account system, its license allows the fork, and its tests
+   cover the protocol edge cases that are expensive to rediscover. Its maintainer has been inactive
+   since May, so the fork is owned, not tracked.
+9. **The MCP authorization server stays separate.** Reason: it issues opaque tokens for Samebase's
+   own resource with Samebase accounts and scopes, a different product boundary.
+10. **First-party is an app-level admin decision.** Reason: RFC 9700 4.11. A registration token
+    cannot change it. Third-party apps get a consent page.
 
 ## Validation
 
-- Phase 1: the `openid-client` conformance test above, plus the real-payload parser tests.
+- Phase 1: the forked suite, the `openid-client` conformance test, and the real-payload parser
+  tests.
 - Phase 2: a GitHub sign-in to a scratch Convex Auth v2 app through `auth.samebase.com` from a dev
   deployment and from a preview deployment, each registered by the script, without any change at
   GitHub. The audit row shows the client, the connector and the pairwise subject and nothing else.
@@ -322,11 +376,10 @@ phase gets its own plan after Phase 3 has run on two apps.
 - Single sign-on across apps, sessions at the broker, refresh tokens, `offline_access`.
 - MFA, passkeys, SAML, account management, a hosted account page, an admin UI.
 - Replacing the MCP authorization server or Samebase's own login.
-- Serving other teams from `auth.samebase.com`. Another team forks the repository and deploys the
-  hub itself.
+- Serving other teams from `auth.samebase.com`. Another team forks the hub template.
 
 ## Open Questions
 
-- Package name: `@samebase/identity-broker` or a product name.
+- Repository and package names: `identity-broker` and `identity-hub`, or a product name.
 - Whether Samebase's own login should later move onto the hub, which would make the MCP consent flow
   a client of it.
