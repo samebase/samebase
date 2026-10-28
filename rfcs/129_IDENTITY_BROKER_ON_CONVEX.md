@@ -5,6 +5,19 @@
 - Status: Proposal
 - Owner: Nicu Chiciuc
 - Created: 2026-10-28
+- Execution notes, 2026-10-28: Phase 1 is
+  [samebase/identity-broker](https://github.com/samebase/identity-broker) (35 tests, openid-client
+  conformance; PR 4 with the connector tests awaits a merge). Phase 2 is
+  [samebase/identity-hub](https://github.com/samebase/identity-hub), deployed as the team hub at
+  `https://secret-chickadee-10.convex.site` (Convex project `identity-hub`, team `nicu`) with the
+  email connector; the package is vendored into the hub as a packed tarball until the npm trusted
+  publisher exists. Phase 3 in the starter is the registration script plus a guide
+  ([base-hosting PR 17](https://github.com/samebase/base-hosting/pull/17)), not a mounted method,
+  because Convex Auth's generic OAuth component declares `CLIENT_ID` and `CLIENT_SECRET` as required
+  env, which would make every starter deployment depend on a hub; the mounted method lands in
+  Bristol. Still open for the owner: the Cloudflare Email Sending credentials on the hub, the custom
+  domain and `ISSUER`, the Google redirect URI, the GitHub wildcard check, Bristol's
+  `HUB_REGISTRATION_TOKEN` secret, the npm trusted publisher.
 - Revised on 2026-10-28 (7), after Phase 1 shipped in `samebase/identity-broker`: the email code
   state lives on the authorization request, not in an `emailCodes` table; connectors are the generic
   `oauth` and `oidc` kinds with `github()`, `google()` and `email()` wrappers, and no `@auth/core`
@@ -375,7 +388,10 @@ registration token, callback host outside the app's allow list).
 
 In `samebase/base-hosting` (Convex Auth 2.0.0-beta.0):
 
-- A `hub` sign-in method:
+- In the starter, the registration script and a guide (`docs/identity-hub.md`) with the three edits
+  below, because the generic OAuth component requires its client env on every deployment and a
+  starter without a hub must still deploy. Bristol mounts the method as written here. A `hub`
+  sign-in method:
   `setupOauth(auth, "hub", hubCatalog, callbacks, { component: components.authHub, allowedRedirectOrigins })`
   with the component mounted at `httpPrefix: "/oauth/hub"` in `convex.config.ts`. The catalog is the
   broker issuer, `/authorize`, `/token`, scopes `openid email profile`, and a `profile` mapping from
