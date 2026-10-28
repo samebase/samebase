@@ -16,19 +16,35 @@
 // CLOUDFLARE_ACCOUNT_ID in .env). That token needs Workers Scripts Edit and Account Settings Read,
 // plus Workers Routes Edit and Zone Read on samebase.com. The build reads the variables that
 // alchemy.yml sets on each deploy step, such as VITE_SAMEBASE_ROUTE_ENVIRONMENT.
+//
+// Each deployment is a client of the team's identity hub, which signs in with GitHub and Google.
+// Every run, a destroy too, reads HUB_ISSUER and HUB_REGISTRATION_TOKEN (in .env on a laptop), and
+// stops before any resource when one is missing. IdentityHub.Client registers the deployment's
+// callback URL once, and the deployment's `env` writes HUB_ISSUER, HUB_CLIENT_ID, and
+// HUB_CLIENT_SECRET before the push, which fails without them.
 //   npx alchemy plan --stage prod --no-input
 import { execFileSync } from "node:child_process";
 import * as Cloudflare from "@alchemy.run/cloudflare";
 import * as GitHub from "@alchemy.run/github";
 import * as Convex from "@samebase/alchemy-convex";
+import * as IdentityHub from "@samebase/alchemy-identity-hub";
 import * as Alchemy from "alchemy";
 import { adopt } from "alchemy/AdoptPolicy";
 import * as Output from "alchemy/Output";
+import * as Config from "effect/Config";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import * as Redacted from "effect/Redacted";
 
 /** The Convex team of the project and of the state. */
 const team = "nicu";
+/**
+The site of production. Its deployment overrides CONVEX_SITE_URL to it (RFC 127), so Convex Auth
+builds the hub callback on it.
+*/
+const PRODUCTION_SITE_URL = "https://samebase.com";
+/** The identity hub's callback into Convex Auth, after CONVEX_SITE_URL (convex/convex.config.ts). */
+const HUB_CALLBACK_PATH = "/auth/hub/callback";
 
 /**
 The commit of this checkout. The build puts it and its number into the app (vite.config.ts), so it is
@@ -40,11 +56,24 @@ const commit = execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).
 export default Alchemy.Stack(
   "samebase/samebase",
   {
-    providers: Layer.mergeAll(Cloudflare.providers(), GitHub.providers(), Convex.providers()),
+    providers: Layer.mergeAll(
+      Cloudflare.providers(),
+      GitHub.providers(),
+      Convex.providers(),
+      IdentityHub.providers(),
+    ),
     state: Convex.state({ team }),
   },
   Effect.gen(function* () {
     const { stage } = yield* Alchemy.Stack;
+    // Read before any resource. alchemy.yml passes the repository variable HUB_ISSUER and the
+    // repository secret HUB_REGISTRATION_TOKEN; an empty value fails like a missing one.
+    const hub = {
+      issuer: yield* Config.NonEmptyString("HUB_ISSUER"),
+      registrationToken: Redacted.make(yield* Config.NonEmptyString("HUB_REGISTRATION_TOKEN")),
+      clientName: stage,
+      softwareVersion: commit,
+    };
 
     if (stage !== "prod") {
       // The project of samebase.com, read by its slug: this stage never creates, changes, or
@@ -53,16 +82,36 @@ export default Alchemy.Stack(
         adopt(true),
       );
 
+      // A preview's hub callback is on its own `.convex.site` URL, which exists only after Convex
+      // creates the deployment, and its push needs the client in `env`. A Convex.Deployment cannot
+      // take an env value from its own outputs, so "Preview" creates the deployment, the client
+      // registers its URL, and "Site" takes the same deployment over with adopt(true), writes the
+      // variables, and pushes. Both delete it on destroy; the second delete finds it gone. adopt(true)
+      // also takes over a preview with the name of this stage that an interrupted run left behind.
+      const preview = yield* Convex.Deployment("Preview", {
+        project,
+        type: "preview",
+        name: stage,
+      }).pipe(adopt(true), Alchemy.RemovalPolicy.destroy());
+      const client = yield* IdentityHub.Client("HubClient", {
+        ...hub,
+        redirectUri: Output.map(preview.siteUrl, (siteUrl) => `${siteUrl}${HUB_CALLBACK_PATH}`),
+        deploymentType: "preview",
+      });
+
       // Built like production with the route environment `preview`. The push command, relative to
       // rootDir, also sets SITE_URL to the preview's site URL and seeds the password account.
-      // adopt(true) takes over a preview with the name of this stage that an interrupted run left
-      // behind.
       const site = yield* Convex.Deployment("Site", {
         project,
         type: "preview",
         name: stage,
         rootDir: "apps/samebase",
-        env: { SAMEBASE_COMMIT: commit },
+        env: {
+          SAMEBASE_COMMIT: commit,
+          HUB_ISSUER: client.issuer,
+          HUB_CLIENT_ID: client.clientId,
+          HUB_CLIENT_SECRET: client.clientSecret,
+        },
         source: { path: "./convex", command: ["node", "./scripts/deploy-preview.ts"] },
       }).pipe(adopt(true), Alchemy.RemovalPolicy.destroy());
 
@@ -90,6 +139,13 @@ Dashboard: https://dashboard.convex.dev/d/${site.name}`,
       Alchemy.RemovalPolicy.retain(),
     );
 
+    // The production client of the identity hub, on the callback of samebase.com.
+    const client = yield* IdentityHub.Client("HubClient", {
+      ...hub,
+      redirectUri: `${PRODUCTION_SITE_URL}${HUB_CALLBACK_PATH}`,
+      deploymentType: "production",
+    });
+
     // The production deployment that serves samebase.com. The push runs in rootDir, the app with
     // its package.json: the `deploy` script, which is the build, the upload of the site, and
     // `convex deploy`. A run takes over a production deployment with code that is not in state only
@@ -98,7 +154,12 @@ Dashboard: https://dashboard.convex.dev/d/${site.name}`,
       project,
       type: "prod",
       rootDir: "apps/samebase",
-      env: { SAMEBASE_COMMIT: commit },
+      env: {
+        SAMEBASE_COMMIT: commit,
+        HUB_ISSUER: client.issuer,
+        HUB_CLIENT_ID: client.clientId,
+        HUB_CLIENT_SECRET: client.clientSecret,
+      },
       source: { path: "./convex", command: ["node", "--run", "deploy"] },
     });
 
