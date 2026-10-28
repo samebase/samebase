@@ -121,6 +121,9 @@ if (process.env.CONVEX_AGENT_MODE === "anonymous") {
 
 const readmeSnapshot = captureConvexReadme();
 await maybeStopLocalBackendIfRunning();
+// convex/convex.config.ts requires a hub client, so the development deployment gets one before
+// the push.
+run("node", ["scripts/register-hub-client.ts"]);
 run("node", ["scripts/convex-dev.ts", "--until-success", "--codegen=enable"]);
 restoreConvexReadmeIfOverwritten(readmeSnapshot);
 run("node", ["scripts/setup.ts", "--once"]);
