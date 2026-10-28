@@ -381,6 +381,8 @@ UI code:
 ## Task-Specific References
 
 - Git, PR, and shipping details: `docs/agent-workflows.md`.
+- How every repository deploys (Alchemy stack, team state store, one secret):
+  `docs/alchemy-deploy-standard.md`.
 - Repository exports: `docs/repository-exports.md`.
 - Safe Convex production reads: `docs/convex-production-reads.md`.
 - Test selection, run scope, and failure ownership: `$samebase-test-policy`.
