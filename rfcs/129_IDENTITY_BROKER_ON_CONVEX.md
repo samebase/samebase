@@ -19,19 +19,30 @@
   delete at the hub. Bristol's preview deploy registered through the resource in CI. Decision of the
   owner the same day: the hub repository is our team hub first, public and generic; the template
   role waits for Phase 5, so no forker first-run work now.
-- Revised on 2026-10-28 (8), after Bristol PRs 45 and 46 and a review of the final code: on every
+- Revised on 2026-10-28 (8), after Bristol PRs 45 and 46 and two reviews of the final code: on every
   cloud deployment Bristol shows one "Sign in with Google" button through the hub, with the
   connector named in the authorize URL so the first-party app skips the chooser; the password method
-  exists only on a linked worktree, for its synthetic account; no deployment holds an owner password
-  and previews seed nothing. The review's defects and their fate: fresh-login attestation (the
-  broker now requires an upstream `auth_time` not older than the request when a client asked for a
-  fresh login) and strict key set validation, in the broker; key initialization by variable
-  existence, in the hub; the three development flows above, in Bristol. Deferred with reasons: abuse
-  of the shared email allowance by an unauthenticated caller (a bot check on the address page is the
-  fix; email is not the main door while Google is), re-registration of a pruned preview client (the
-  known limit above), and replayed workflow events (a check of the pull request's current state
-  belongs with the workflow split into one file per trigger). This document's Phase 3, lifecycle and
-  decision 4 texts were reconciled with the code the same day.
+  exists only on a linked worktree, for its synthetic account; no deployment creates or accepts an
+  owner password (the production owner account keeps its stored hash until it is deleted), and
+  previews seed nothing. The reviews' findings and their state: done in Bristol
+  ([PR 47](https://github.com/nicu-chiciuc/bristol_tsx/pull/47)): a worktree pushes without a hub,
+  through explicit no-hub values that are a workaround for the OAuth component's required variables;
+  the development deployment admits the Vite origin; the dev registration registers again on a
+  missing secret or another issuer; the workflow checks the pull request's current state before a
+  preview deploy or destroy. Done in the hub
+  ([PR 10](https://github.com/samebase/identity-hub/pull/10)): key creation is an explicit one-time
+  command and the deploy only checks, except that a preview creates its own set; the same workflow
+  check. Done in the broker ([PR 10](https://github.com/samebase/identity-broker/pull/10), release
+  pending): a fresh-login request sends `max_age=0` upstream and requires an `auth_time` within a
+  minute of the request, else `login_required`; key sets are checked structurally and then by a
+  sign-and-verify round trip through the broker's own signer and JWKS; pruning of idle preview
+  clients is off unless the host sets `previewClientIdleDays`, because a pruned client is not
+  registered again. Awaiting that release: the hub's deploy check calls the usability check.
+  Deferred with a reason: abuse of the shared email allowance by an unauthenticated caller, whose
+  fix is a bot check on the address page that runs before the allowance is spent, on both hub
+  hostnames; and re-registration of a pruned preview client, which needs an authenticated way for
+  the resource to learn that a client is gone. This document's Phase 3, lifecycle and decision 4
+  texts were reconciled with the code the same day.
 - Execution notes, 2026-10-28, evening: the Google connector is live on the team hub
   ([identity-hub PR 9](https://github.com/samebase/identity-hub/pull/9)): the redirect URI
   `https://auth.samebase.com/connectors/google/callback` on the existing Samebase production client,
