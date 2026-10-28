@@ -244,21 +244,37 @@ Every deployment needs these Convex environment variables:
   `https://auth.samebase.com`, and this deployment's client at it. A deployment gets its client by
   posting its callback URL `<site>/auth/hub/callback` to `<HUB_ISSUER>/register` with the app's
   registration token as a Bearer token. A linked worktree and CI have no hub: their setup writes
-  `HUB_ISSUER=http://127.0.0.1:1` and `no-hub` as the client id and secret, and their sign-in page
-  offers only the password form (`?prod-ui` shows the hub buttons of the production page).
+  `HUB_ISSUER=http://127.0.0.1:1` and `no-hub` as the client id and secret, and their pages offer
+  only the password form (`?prod-ui` shows the hub buttons of the production page).
 - `SITE_URL`: the app origin. OAuth sign-ins may return only to `SITE_URL` and to the deployment's
   own `CONVEX_SITE_URL`.
 
 The identity hub needs two steps outside this repository, once:
 
-1. The hub admin runs `createApp` on the hub for the app `Samebase`, with the callback hosts
-   `samebase.com` and `*.convex.site`, then `mintRegistrationToken` for that app.
-2. The repository secret `HUB_REGISTRATION_TOKEN` holds that token.
+1. The hub admin runs `createApp` on the hub for the first-party app `Samebase`, with the callback
+   hosts `samebase.com` and `*.convex.site`, then `mintRegistrationToken` for that app. The hub
+   sends `connector_account_id`, which keeps existing users on their accounts, only to first-party
+   apps.
+2. The repository variable `HUB_ISSUER` holds `https://auth.samebase.com`, and the repository secret
+   `HUB_REGISTRATION_TOKEN` holds that token.
 
-The root `alchemy.run.ts` does not register deployments at the hub yet. That step adds
-`IdentityHub.Client` of `@samebase/alchemy-identity-hub` next to each Convex deployment, which
-registers the deployment with `HUB_REGISTRATION_TOKEN` and hands the three variables to it before
-its push. Until then, a deployment without the three variables refuses the push.
+The root `alchemy.run.ts` registers production and each preview with `IdentityHub.Client`, on
+`https://samebase.com/auth/hub/callback` and `<preview site>/auth/hub/callback`, and writes the
+three variables to the deployment before its push. A run without the variable or the secret stops
+before it touches anything.
+
+The development deployment of the primary checkout gets its client from
+`apps/samebase/scripts/register-hub-client.ts`, which `pnpm run dev` runs before its first push. Put
+the hub values in `apps/samebase/.env.local` once:
+
+```bash
+HUB_ISSUER=https://auth.samebase.com
+HUB_REGISTRATION_TOKEN=<the registration token>
+```
+
+The script registers once and writes `HUB_ISSUER`, `HUB_CLIENT_ID`, and `HUB_CLIENT_SECRET` to the
+development deployment; it registers again only when the stored secret is missing or the stored
+issuer is another one. It leaves the no-hub values of a linked worktree.
 
 Password sign-in is for accounts that only server functions create. Local worktrees use their seeded
 password account. Preview deployments use `DEV_SEED_AUTH_EMAIL` and `DEV_SEED_AUTH_PASSWORD` (at
