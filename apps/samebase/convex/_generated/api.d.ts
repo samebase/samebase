@@ -468,8 +468,7 @@ export declare const internal: FilterApi<
 
 export declare const components: {
   auth: import("@convex-dev/auth/_generated/component.js").ComponentApi<"auth">;
-  authGithub: import("@convex-dev/auth/components/github/_generated/component.js").ComponentApi<"authGithub">;
-  authGoogle: import("@convex-dev/auth/components/google/_generated/component.js").ComponentApi<"authGoogle">;
+  authHub: import("@convex-dev/auth/components/oauth/_generated/component.js").ComponentApi<"authHub">;
   authPassword: import("@convex-dev/auth/components/password/_generated/component.js").ComponentApi<"authPassword">;
   workflow: import("@convex-dev/workflow/_generated/component.js").ComponentApi<"workflow">;
   mail: import("@samebase/convex-cloudflare-email-inbox/_generated/component.js").ComponentApi<"mail">;

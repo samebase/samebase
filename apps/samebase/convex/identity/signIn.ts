@@ -1,5 +1,4 @@
-import { vGithubProfile } from "@convex-dev/auth/methods/github/server";
-import { vGoogleProfile } from "@convex-dev/auth/methods/google/server";
+import { parse } from "convex-helpers/validators";
 import { createFunctionHandle } from "convex/server";
 import { ConvexError, v, type Infer } from "convex/values";
 
@@ -14,18 +13,55 @@ import {
   resolvePasswordAuthMode,
 } from "../deploymentProfile";
 import { readOptionalEnv } from "../oauthUtils";
-import type { AuthAccountProvider } from "./accountModel";
+import { type AuthAccountProvider, vAuthAccountProvider } from "./accountModel";
 import { readNonDeletedUser } from "./lifecycle";
 import { buildNewUserNotification } from "./newUserNotification";
 
-const { id, literal, null: vNull, number, object, string, union } = v;
+const { boolean, id, literal, null: vNull, number, object, optional, string, union } = v;
 
-/** The OAuth identities that the GitHub and Google components hand to the user callbacks. */
-const vOAuthSignInProvider = union(
-  object({ name: literal("github"), accountId: string(), profile: vGithubProfile }),
-  object({ name: literal("google"), accountId: string(), profile: vGoogleProfile }),
-);
-type OAuthSignInProvider = Infer<typeof vOAuthSignInProvider>;
+/**
+The id_token claims of the identity hub that a sign-in reads. `sub` is pairwise: stable for
+Samebase, different in every other app of the hub, and different for each connector.
+`connector_account_id` is the connector's own account id: GitHub's numeric user id as a string, or
+Google's `sub`. Convex Auth checks the issuer, audience, and expiry of the id_token, which it
+received over TLS from the hub's token endpoint, but not the types of its claims, so `parse` checks
+them and drops the other claims.
+*/
+const vHubClaims = object({
+  sub: string(),
+  connector: vAuthAccountProvider,
+  connector_account_id: string(),
+  email: optional(string()),
+  email_verified: optional(boolean()),
+  name: optional(string()),
+  picture: optional(string()),
+});
+
+/**
+The profile mapping of the hub methods in convex/auth.ts. The callbacks below find existing users by
+the email, so only an address that the hub verified counts.
+*/
+export function readHubProfile(claims: unknown) {
+  const { sub, email, email_verified, ...profile } = parse(vHubClaims, claims);
+  return {
+    id: sub,
+    ...profile,
+    ...(email_verified === true && email !== undefined ? { email } : {}),
+  };
+}
+
+/**
+The sign-ins that the `hub-github` and `hub-google` methods of convex/auth.ts hand to the user
+callbacks, with the profile of `readHubProfile`. `accountId` and `profile.id` are the hub's pairwise
+subject. The connector and its own account id are the provider and the account id of the
+`authAccounts` key.
+*/
+const vHubSignInProvider = object({
+  name: union(literal("hub-github"), literal("hub-google")),
+  accountId: string(),
+  profile: vHubClaims.omit("sub", "email_verified").extend({ id: string() }),
+});
+type HubSignInProvider = Infer<typeof vHubSignInProvider>;
 
 /**
 The session the core mints for a sign-in. The core declares no validator for it, so the custom
@@ -50,43 +86,23 @@ function readProviderLabel(provider: AuthAccountProvider): "Google" | "GitHub" {
 }
 
 /**
-Reads the provider identity that a sign-in may use. Both providers must attest a verified email:
-Samebase matches existing accounts by it and stores it as the account email of a new user.
+Reads the identity that a hub sign-in may use. The hub must attest a verified email: Samebase
+matches existing accounts by it and stores it as the account email of a new user.
 */
-function readOAuthIdentity(provider: OAuthSignInProvider) {
-  switch (provider.name) {
-    case "github": {
-      const { profile } = provider;
-      if (!profile.emailVerified || profile.email === undefined) {
-        throw new ConvexError("GitHub did not provide a verified email address.");
-      }
-      return {
-        provider: provider.name,
-        providerAccountId: provider.accountId,
-        email: normalizeAccountEmail(profile.email),
-        name: profile.name,
-        image: profile.avatarUrl,
-        githubLogin: profile.login,
-      };
-    }
-    case "google": {
-      const { profile } = provider;
-      if (!profile.emailVerified || profile.email === undefined) {
-        throw new ConvexError("Google did not verify the email address.");
-      }
-      return {
-        provider: provider.name,
-        providerAccountId: provider.accountId,
-        email: normalizeAccountEmail(profile.email),
-        name: profile.name,
-        image: profile.picture,
-        githubLogin: undefined,
-      };
-    }
-    default:
-      provider satisfies never;
-      throw new Error("This OAuth provider is not supported.");
+function readHubIdentity(provider: HubSignInProvider) {
+  const { connector, connector_account_id, email, name, picture } = provider.profile;
+  if (email === undefined) {
+    throw new ConvexError(
+      `${readProviderLabel(connector)} did not provide a verified email address.`,
+    );
   }
+  return {
+    provider: connector,
+    providerAccountId: connector_account_id,
+    email: normalizeAccountEmail(email),
+    name,
+    image: picture,
+  };
 }
 
 /** Every new session is for an active user: deleting and deleted users cannot sign in. */
@@ -186,16 +202,17 @@ async function assertGitHubAccessIdentity(
 }
 
 /**
-Called by the GitHub and Google components the first time the core sees a provider identity. The
-user is the one that `authAccounts` already maps the identity to (identities from before Convex
-Auth 2), else the user whose verified account email is the provider's verified email, else a new
-user. `onSignIn` runs next and records the identity.
+Called by the hub methods the first time the core sees a hub subject. The user is the one that
+`authAccounts` already maps the connector's account to (every identity from before the hub), else
+the user whose verified account email is the hub's verified email, else a new user. The core then
+keeps the subject for that user, so a later sign-in finds it directly. `onSignIn` runs next and
+records the identity.
 */
 export const createUser = internalMutation({
-  args: { provider: vOAuthSignInProvider },
+  args: { provider: vHubSignInProvider },
   returns: id("users"),
   handler: async (ctx, args) => {
-    const identity = readOAuthIdentity(args.provider);
+    const identity = readHubIdentity(args.provider);
 
     const account = await ctx.db
       .query("authAccounts")
@@ -241,15 +258,17 @@ export const createUser = internalMutation({
 });
 
 /**
-Called by the GitHub and Google components on every sign-in, the first one included. It rejects
-users that cannot sign in and records the identity with its latest email and GitHub login
-observations in `authAccounts`, where Samebase reads a user's sign-in identities.
+Called by the hub methods on every sign-in, the first one included. It rejects users that cannot
+sign in and records the identity with its latest email observation in `authAccounts`, where
+Samebase reads a user's sign-in identities; the GitHub row holds the raw GitHub user id that the
+GitHub App authorization must match. The hub reports no GitHub login, so a GitHub row keeps the
+login that the GitHub method before the hub observed.
 */
 export const onSignIn = internalMutation({
-  args: { provider: vOAuthSignInProvider, userId: id("users") },
+  args: { provider: vHubSignInProvider, userId: id("users") },
   returns: vNull(),
   handler: async (ctx, args) => {
-    const identity = readOAuthIdentity(args.provider);
+    const identity = readHubIdentity(args.provider);
     requireUserCanSignIn(await ctx.db.get(args.userId));
     if (identity.provider === "github") {
       await assertGitHubAccessIdentity(ctx, args.userId, identity.providerAccountId);
@@ -265,10 +284,7 @@ export const onSignIn = internalMutation({
       if (account.userId !== args.userId) {
         throw new Error(`This ${readProviderLabel(identity.provider)} identity is inconsistent.`);
       }
-      await ctx.db.patch(account._id, {
-        emailVerified: identity.email,
-        githubLogin: identity.githubLogin,
-      });
+      await ctx.db.patch(account._id, { emailVerified: identity.email });
       return null;
     }
 
@@ -288,7 +304,6 @@ export const onSignIn = internalMutation({
       provider: identity.provider,
       providerAccountId: identity.providerAccountId,
       emailVerified: identity.email,
-      ...(identity.githubLogin === undefined ? {} : { githubLogin: identity.githubLogin }),
     });
     return null;
   },

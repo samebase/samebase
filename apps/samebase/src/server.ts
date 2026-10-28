@@ -42,8 +42,8 @@ const server = {
         refreshSession: api.auth.refreshSession,
         signOut: api.auth.signOut,
         signIn: [
-          api.auth.completeSignInWithGithub,
-          api.auth.completeSignInWithGoogle,
+          api.auth.completeSignInWithHubGithub,
+          api.auth.completeSignInWithHubGoogle,
           api.auth.signInWithPassword,
           api.auth.signUpWithPassword,
           api.agentBrowserHandoff.signInWithAgentBrowserHandoff,

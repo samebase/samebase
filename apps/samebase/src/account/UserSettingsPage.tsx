@@ -288,9 +288,11 @@ export function UserSettingsPage() {
           <div>
             <dt className="text-sm font-medium">GitHub</dt>
             <dd className="text-sm text-muted-foreground [overflow-wrap:anywhere]">
-              {settings.signInMethods.github
-                ? `@${settings.signInMethods.github.login}`
-                : "Not connected"}
+              {settings.signInMethods.github === null
+                ? "Not connected"
+                : settings.signInMethods.github.login === undefined
+                  ? settings.signInMethods.github.email
+                  : `@${settings.signInMethods.github.login}`}
             </dd>
           </div>
           {settings.signInMethods.password ? (

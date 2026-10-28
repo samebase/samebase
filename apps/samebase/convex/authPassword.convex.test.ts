@@ -1,8 +1,13 @@
-import { afterEach, describe, expect, it, vi } from "vite-plus/test";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { api, internal } from "./_generated/api";
 import { makeConvexTest, stubConvexAuthEnv } from "./test.setup";
 
 const PASSWORD = "manual-account-password";
+
+beforeEach(() => {
+  // convex/auth.ts builds the hub sign-in methods from HUB_ISSUER when it loads.
+  vi.stubEnv("HUB_ISSUER", "https://hub.example.invalid");
+});
 
 afterEach(() => {
   vi.unstubAllEnvs();

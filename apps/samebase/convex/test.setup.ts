@@ -1,8 +1,7 @@
 /// <reference types="vite/client" />
 
 import { registerCore } from "@convex-dev/auth/test";
-import { registerGithubOauth } from "@convex-dev/auth/components/github/test";
-import { registerGoogleOauth } from "@convex-dev/auth/components/google/test";
+import { registerOauth } from "@convex-dev/auth/components/oauth/test";
 import { registerPasswordProvider } from "@convex-dev/auth/components/password/test";
 import workflowTest from "@convex-dev/workflow/test";
 import { register as registerEmailInbox } from "@samebase/convex-cloudflare-email-inbox/test";
@@ -33,8 +32,7 @@ export function makeConvexTest() {
   registerEmailInbox(t, "mail");
   registerGitEditor(t, "gitEditor");
   registerCore(t);
-  registerGithubOauth(t);
-  registerGoogleOauth(t);
+  registerOauth(t, "authHub");
   registerPasswordProvider(t);
   return t;
 }

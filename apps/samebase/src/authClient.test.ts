@@ -32,12 +32,10 @@ vi.mock("react", async () => {
   };
 });
 
-vi.mock("@convex-dev/auth/methods/github/react", () => ({
-  useSignInWithGithub: () => ({ signIn: githubSignInMock }),
-}));
-
-vi.mock("@convex-dev/auth/methods/google/react", () => ({
-  useSignInWithGoogle: () => ({ signIn: googleSignInMock }),
+vi.mock("@convex-dev/auth/methods/oauth/react", () => ({
+  useOauthSignIn: ({ providerName }: { providerName: string }) => ({
+    signIn: providerName === "hub-github" ? githubSignInMock : googleSignInMock,
+  }),
 }));
 
 vi.mock("@tanstack/react-router", () => ({
