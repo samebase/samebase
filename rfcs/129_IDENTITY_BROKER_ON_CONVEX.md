@@ -5,6 +5,9 @@
 - Status: Proposal
 - Owner: Nicu Chiciuc
 - Created: 2026-10-28
+- Revised on 2026-10-28 (5): the hub at `auth.samebase.com` is the team's hub, and Samebase is one
+  consumer of it, after Bristol and the personal apps; Samebase's own login moving onto the hub
+  becomes Phase 4, and product provisioning for other organizations becomes Phase 5.
 - Revised on 2026-10-28 (4): the provider surface is written fresh from the Samebase MCP OAuth
   server pattern instead of forked from `codefox-inc/convex-oauth-provider`; the patterns shared by
   Dex, Ory Hydra, Keycloak, Logto, Zitadel, Cloudflare Access, Supabase and Auth.js are recorded,
@@ -40,18 +43,19 @@
 2. This RFC adds an identity broker: one Convex deployment per team that holds the team's upstream
    connections once and acts as an OpenID Provider for the team's apps. Which connections is hub
    configuration: any OAuth or OpenID Connect provider from the Auth.js provider catalog, plus an
-   email code connector. Samebase's own hub configures GitHub, Google and email. The broker keeps no
-   user accounts and no login sessions. Every sign-in goes upstream again, and the broker returns an
+   email code connector. The team hub configures GitHub, Google and email. The broker keeps no user
+   accounts and no login sessions. Every sign-in goes upstream again, and the broker returns an
    `id_token` from which each app creates its own user with its own Convex Auth. Apps keep separate
    accounts, and each app sees its own pairwise subjects. The broker is a hub of provider
    connections, not a hub of accounts.
 3. Two public repositories. `samebase/identity-broker` is the Convex component, published to npm as
    `@samebase/identity-broker`. `samebase/identity-hub` is a GitHub template repository: the host
    app that mounts the component, built on the Alchemy setup stack of `templates/base-actions`, and
-   maintained in its own repository like `samebase/base-hosting`. Samebase's hub at
-   `https://auth.samebase.com` is an app created from that template. Another team forks the
-   template, or creates it from Samebase once the product has a manifest for it. This monorepo keeps
-   only this RFC and, in Phase 4, the provisioning work.
+   maintained in its own repository like `samebase/base-hosting`. The team hub at
+   `https://auth.samebase.com` is an app created from that template. Samebase is one consumer of
+   that hub, after Bristol and the personal apps have proven it. Another team forks the template, or
+   creates it from Samebase once the product has a manifest for it. This monorepo keeps this RFC,
+   the Phase 4 login change, and the Phase 5 provisioning work.
 4. The provider surface is not designed from scratch. Samebase already owns an OAuth 2.1
    authorization server for MCP clients, about 2,000 lines with tests in this repository's
    guardrails: dynamic registration, PKCE, exact redirect checks, the token endpoint, errors and
@@ -317,7 +321,7 @@ with PKCE, token validation with and without `nonce`, userinfo, `prompt=none`, a
 (wrong `redirect_uri`, reused code, missing `code_challenge`, expired request, bad secret, expired
 registration token, callback host outside the app's allow list).
 
-### Phase 2. The hub template and Samebase's hub
+### Phase 2. The hub template and the team hub
 
 - `samebase/identity-hub`, a GitHub template repository maintained there, like
   `samebase/base-hosting`. It is the Alchemy setup stack of `templates/base-actions` without the
@@ -330,12 +334,13 @@ registration token, callback host outside the app's allow list).
   `CONVEX_SITE_URL`, which is host-only, so a hub works before any DNS record or custom domain and
   without the Pro plan. Setting a custom domain changes the issuer that every consuming app names,
   so it happens before the first consumer registers.
-- Samebase's hub is an app in the samebase organization created from that template, with connectors
+- The team hub is an app in the samebase organization created from that template, with connectors
   `github`, `google`, `email`, two new OAuth apps registered once for
   `https://auth.samebase.com/connectors/<name>/callback`, and the custom domain `auth.samebase.com`
-  set in the Convex dashboard as a proxied `CNAME` to `convex.domains`.
+  set in the Convex dashboard as a proxied `CNAME` to `convex.domains`. Samebase the app is not
+  involved: the hub is owned by the team, and Samebase becomes a client of it in Phase 4.
 - Another team forks the template, sets its issuer, connectors and secrets, and has a hub. Creating
-  it from Samebase is Phase 4.
+  it from Samebase is Phase 5.
 
 ### Phase 3. The consumer path in the starter
 
@@ -355,15 +360,27 @@ In `samebase/base-hosting` (Convex Auth 2.0.0-beta.0):
   registration token never lives in a Convex deployment env; it sits where `CONVEX_DEPLOY_KEY`
   already sits.
 - One-time setup per app: the hub admin runs `createApp` and `mintRegistrationToken` and hands the
-  token to the app's CI secrets. Samebase provisioning does this step in Phase 4.
-- Bristol is the first consumer, then the Samebase-made personal apps.
+  token to the app's CI secrets. Samebase provisioning does this step in Phase 5.
+- Bristol is the first consumer because it is the simplest real app with users, then the personal
+  apps. Samebase waits for Phase 4.
 
-### Phase 4. Samebase provisioning
+### Phase 4. Samebase as a consumer
 
-Two product steps, planned after Phase 3 has run on two apps: a manifest for the hub template, so an
-organization creates its hub from Samebase like any other app; and, for an app in an organization
-that has a hub, a call to the hub's admin functions over an admin token that creates the app, mints
-a registration token, and stores it in the repository's CI secrets next to the deploy key.
+After Bristol and at least one personal app sign in through the hub, Samebase's own GitHub and
+Google sign-in move onto it: the `hub` method replaces `setupGithub` and `setupGoogle` in
+`apps/samebase/convex/auth.ts`, the `createUser` and `onSignIn` callbacks attach the hub subject to
+the existing `users` rows, and the two login OAuth apps retire. The password method stays local,
+because the hub has no password connector by design. The GitHub App used for repository provisioning
+is unrelated to login and stays. The MCP authorization server is unchanged: it keeps running on
+Samebase's own session, which the hub now establishes. Samebase dev and preview deployments get
+GitHub sign-in for the first time.
+
+### Phase 5. Samebase provisioning
+
+Two product steps, planned after Phase 4: a manifest for the hub template, so an organization
+creates its hub from Samebase like any other app; and, for an app in an organization that has a hub,
+a call to the hub's admin functions over an admin token that creates the app, mints a registration
+token, and stores it in the repository's CI secrets next to the deploy key.
 
 ## Decisions
 
@@ -393,7 +410,7 @@ a registration token, and stores it in the repository's CI secrets next to the d
    for random preview hosts.
 6. **Connectors are hub configuration.** Reason: which providers a team uses is the team's choice,
    and the Auth.js catalog already describes 321 of them; a fixed GitHub-plus-Google set would make
-   the component Samebase-shaped. Samebase's hub configures GitHub, Google and email.
+   the component Samebase-shaped. The team hub configures GitHub, Google and email.
 7. **Two public repositories, maintained there.** Reason: both the component and the hub must be
    open source, this monorepo stays private until token management is fixed, the consumers (the
    `base-hosting` starter, Bristol) already live outside it, and `samebase/base-hosting` set the
@@ -408,8 +425,12 @@ a registration token, and stores it in the repository's CI secrets next to the d
    fork was the first choice and is kept as the edge-case reference; its Apache-2.0 license allows
    porting individual test cases with attribution.
 9. **The MCP authorization server stays separate.** Reason: it issues opaque tokens for Samebase's
-   own resource with Samebase accounts and scopes, a different product boundary.
-10. **First-party is an app-level admin decision.** Reason: RFC 9700 4.11. A registration token
+   own resource with Samebase accounts and scopes, a different product boundary. In Phase 4 it is a
+   consumer of the hub through Samebase's login, not a client of it.
+10. **Samebase is a consumer, not the owner of the hub, and the last of the first three.** Reason:
+    the hub must be proven on an app with fewer moving parts first; Bristol has users and no
+    provisioning, MCP or password flows. Samebase follows once two apps run on the hub.
+11. **First-party is an app-level admin decision.** Reason: RFC 9700 4.11. A registration token
     cannot change it. Third-party apps get a consent page.
 
 ## Validation
@@ -423,6 +444,8 @@ a registration token, and stores it in the repository's CI secrets next to the d
   to prove here.
 - Phase 3: Bristol signs in through the hub on prod, dev and a preview; the Bristol GitHub OAuth app
   is deleted afterwards.
+- Phase 4: the existing Samebase users sign in through the hub and land on their existing `users`
+  rows; a Samebase preview deployment signs in with GitHub; the password flow is unchanged.
 - A log and screenshot check that no token, code, or email appears in Convex logs.
 
 ## Non-Goals
@@ -435,5 +458,3 @@ a registration token, and stores it in the repository's CI secrets next to the d
 ## Open Questions
 
 - Repository and package names: `identity-broker` and `identity-hub`, or a product name.
-- Whether Samebase's own login should later move onto the hub, which would make the MCP consent flow
-  a client of it.
