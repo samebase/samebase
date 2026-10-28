@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { spawn, spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
-import { generateConvexAuthKeys } from "./lib/convexAuthKeys.ts";
+import { generateConvexAuthKeys, NO_HUB_ENVIRONMENT } from "./lib/convexAuthKeys.ts";
 import { readEnvFile, type EnvFile } from "./lib/envFile.ts";
 import { resolveRepoRoot } from "./lib/scriptRuntime.ts";
 import { samebaseAppFilePath, trackedFilePath } from "./lib/trackedFilePath.ts";
@@ -157,6 +157,11 @@ try {
     for (const [name, value] of Object.entries(generateConvexAuthKeys())) {
       setLocalConvexEnv(name, value);
     }
+  }
+  // A worktree backend has no identity hub. Every setup writes the no-hub values, so a worktree set
+  // up before the hub methods existed gets them too.
+  for (const [name, value] of Object.entries(NO_HUB_ENVIRONMENT)) {
+    setLocalConvexEnv(name, value);
   }
 
   // convex/http.ts imports .convex-hosting/version.js, which only a deploy writes, and the server

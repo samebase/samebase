@@ -238,6 +238,26 @@ describe("PasswordAuthForm", () => {
     expect(markup).not.toContain("Password sign in");
   });
 
+  it("offers only the password form on a local worktree, which has no identity hub", () => {
+    componentState.deploymentAuthPolicy = {
+      deploymentProfile: { kind: "local_worktree" },
+      passwordAuthMode: "local_worktree_seed",
+    };
+
+    const worktreeMarkup = renderToStaticMarkup(
+      <PublicLandingAuthControls oauthAuthFlow="public-signup" />,
+    );
+    expect(worktreeMarkup).not.toContain("GitHub");
+    expect(worktreeMarkup).toContain("Password auth (dev)");
+
+    componentState.search = { "prod-ui": true };
+    const prodUiMarkup = renderToStaticMarkup(
+      <PublicLandingAuthControls oauthAuthFlow="public-signup" />,
+    );
+    expect(prodUiMarkup).toContain("Continue with GitHub");
+    expect(prodUiMarkup).not.toContain("Password auth (dev)");
+  });
+
   it("renders manual password auth even in prod-ui mode", async () => {
     componentState.deploymentAuthPolicy = {
       deploymentProfile: { kind: "production" },

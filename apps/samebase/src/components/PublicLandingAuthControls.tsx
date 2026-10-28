@@ -42,7 +42,8 @@ function readLocalWorktreePasswordCredentials(): {
   return { email, password };
 }
 
-function usePublicLandingPasswordAuthControls(): {
+function usePublicLandingAuthMethods(): {
+  hubSignInVisible: boolean;
   passwordAuthSurface: PasswordAuthSurface;
 } {
   const location = useLocation({
@@ -68,6 +69,10 @@ function usePublicLandingPasswordAuthControls(): {
     passwordAuthMode,
     prodUiModeEnabled,
   });
+  // A linked worktree has no identity hub, so it offers only the password form. `?prod-ui` keeps
+  // the hub buttons of the production shell. Until the policy loads they show, as on the
+  // prerendered page.
+  const hubSignInVisible = prodUiModeEnabled || deploymentProfile?.kind !== "local_worktree";
 
   useEffect(() => {
     // Router search state intentionally drives this effect even though the URL
@@ -90,7 +95,7 @@ function usePublicLandingPasswordAuthControls(): {
     window.history.replaceState(window.history.state, "", nextPath);
   }, [deploymentProfile, prodUiQueryEnabled, productionPublicOrigin]);
 
-  return { passwordAuthSurface };
+  return { hubSignInVisible, passwordAuthSurface };
 }
 
 export function PublicLandingAuthControls({
@@ -112,7 +117,7 @@ export function PublicLandingAuthControls({
     rootRouteSearch,
     signInRejection !== null,
   );
-  const { passwordAuthSurface } = usePublicLandingPasswordAuthControls();
+  const { hubSignInVisible, passwordAuthSurface } = usePublicLandingAuthMethods();
 
   if (isAuthenticated || showOAuthReturnNotice) {
     return null;
@@ -126,18 +131,20 @@ export function PublicLandingAuthControls({
   // does not know the deployment's password policy, and the form appears below them once it loads.
   return (
     <div className="flex flex-col items-center gap-2 self-stretch">
-      {GOOGLE_AUTH_UI_ENABLED ? (
+      {hubSignInVisible && GOOGLE_AUTH_UI_ENABLED ? (
         <SignInWithOAuth
           provider="google"
           authReturn={publicSignup ? "dashboard" : undefined}
           markPublicSignupReturn={markPublicSignupReturn}
         />
       ) : null}
-      <SignInWithOAuth
-        provider="github"
-        authReturn={publicSignup ? "dashboard" : undefined}
-        markPublicSignupReturn={markPublicSignupReturn}
-      />
+      {hubSignInVisible ? (
+        <SignInWithOAuth
+          provider="github"
+          authReturn={publicSignup ? "dashboard" : undefined}
+          markPublicSignupReturn={markPublicSignupReturn}
+        />
+      ) : null}
       {passwordAuthSurface !== "hidden" ? (
         <PasswordAuthForm
           onSignIn={

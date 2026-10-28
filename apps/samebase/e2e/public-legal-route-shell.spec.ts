@@ -29,8 +29,10 @@ async function expectPublicRouteRightSidebarAccount(page: Page) {
   await expect(
     accountSection.getByText("Sign in or create an account", { exact: true }),
   ).toBeVisible();
+  // The local backend has no identity hub, so the account section offers only the password form.
   await expect(accountSection.getByRole("button", { name: "Continue with Google" })).toHaveCount(0);
-  await expect(accountSection.getByRole("button", { name: "Continue with GitHub" })).toBeVisible();
+  await expect(accountSection.getByRole("button", { name: "Continue with GitHub" })).toHaveCount(0);
+  await expect(accountSection.getByPlaceholder("you@example.com")).toBeVisible();
   return accountSection;
 }
 
