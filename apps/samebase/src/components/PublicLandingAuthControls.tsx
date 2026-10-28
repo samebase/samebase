@@ -2,6 +2,7 @@ import { useAppSignInActions } from "@/authClient";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { GOOGLE_AUTH_UI_ENABLED } from "@/lib/authMethodAvailability";
+import { useHubSignInVisible } from "@/lib/hubSignInVisibility";
 import { DASHBOARD_ROUTE } from "@/lib/dashboardRoute";
 import { useOAuthSignInRejection } from "@/lib/oauthSignInRejection";
 import {
@@ -42,8 +43,7 @@ function readLocalWorktreePasswordCredentials(): {
   return { email, password };
 }
 
-function usePublicLandingAuthMethods(): {
-  hubSignInVisible: boolean;
+function usePublicLandingPasswordAuthControls(): {
   passwordAuthSurface: PasswordAuthSurface;
 } {
   const location = useLocation({
@@ -69,10 +69,6 @@ function usePublicLandingAuthMethods(): {
     passwordAuthMode,
     prodUiModeEnabled,
   });
-  // A linked worktree has no identity hub, so it offers only the password form. `?prod-ui` keeps
-  // the hub buttons of the production shell. Until the policy loads they show, as on the
-  // prerendered page.
-  const hubSignInVisible = prodUiModeEnabled || deploymentProfile?.kind !== "local_worktree";
 
   useEffect(() => {
     // Router search state intentionally drives this effect even though the URL
@@ -95,7 +91,7 @@ function usePublicLandingAuthMethods(): {
     window.history.replaceState(window.history.state, "", nextPath);
   }, [deploymentProfile, prodUiQueryEnabled, productionPublicOrigin]);
 
-  return { hubSignInVisible, passwordAuthSurface };
+  return { passwordAuthSurface };
 }
 
 export function PublicLandingAuthControls({
@@ -117,7 +113,8 @@ export function PublicLandingAuthControls({
     rootRouteSearch,
     signInRejection !== null,
   );
-  const { hubSignInVisible, passwordAuthSurface } = usePublicLandingAuthMethods();
+  const { passwordAuthSurface } = usePublicLandingPasswordAuthControls();
+  const hubSignInVisible = useHubSignInVisible();
 
   if (isAuthenticated || showOAuthReturnNotice) {
     return null;
