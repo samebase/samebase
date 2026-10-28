@@ -5,6 +5,10 @@
 - Status: Proposal
 - Owner: Nicu Chiciuc
 - Created: 2026-10-28
+- Revised on 2026-10-28 (4): the provider surface is written fresh from the Samebase MCP OAuth
+  server pattern instead of forked from `codefox-inc/convex-oauth-provider`; the patterns shared by
+  Dex, Ory Hydra, Keycloak, Logto, Zitadel, Cloudflare Access, Supabase and Auth.js are recorded,
+  with the five points where an account-less broker has no precedent.
 - Revised on 2026-10-28 (3): connectors are hub configuration, not a fixed set; two public
   repositories, the component and a hub template; the hub template is built on the Alchemy setup
   stack; the provider surface starts from `codefox-inc/convex-oauth-provider`.
@@ -48,12 +52,16 @@
    `https://auth.samebase.com` is an app created from that template. Another team forks the
    template, or creates it from Samebase once the product has a manifest for it. This monorepo keeps
    only this RFC and, in Phase 4, the provisioning work.
-4. The provider surface is not written from scratch. It starts from
-   `codefox-inc/convex-oauth-provider` (Apache-2.0), a Convex component that already has discovery,
-   JWKS, RS256 `id_token`s through `jose`, PKCE S256, RFC 7591 registration and a test suite. The
-   work is the broker half: connectors, the app and registration-token model, pairwise subjects,
-   claims, and key rotation. Upstream sign-ins use `oauth4webapi` and the `@auth/core` provider
-   definitions, which Convex Auth v1 already runs inside the Convex runtime.
+4. The provider surface is not designed from scratch. Samebase already owns an OAuth 2.1
+   authorization server for MCP clients, about 2,000 lines with tests in this repository's
+   guardrails: dynamic registration, PKCE, exact redirect checks, the token endpoint, errors and
+   audit rows. The component copies that pattern into the new repository and adds what a broker
+   needs: `jose` for RS256 `id_token`s and JWKS, discovery and userinfo, connectors, the app and
+   registration-token model, pairwise subjects, and key rotation. Upstream sign-ins use
+   `oauth4webapi` and the `@auth/core` provider definitions, which Convex Auth v1 already runs
+   inside the Convex runtime. `codefox-inc/convex-oauth-provider` is the reference for protocol edge
+   cases, not the code base. The broker semantics follow the patterns that Dex, Ory Hydra, Keycloak,
+   Logto, Zitadel and Cloudflare Access share, recorded below.
 5. The design follows OAuth 2.1, OpenID Connect Core and Discovery, RFC 7591, RFC 8414, RFC 9207,
    and RFC 9700. Every departure is named in the Standards section. The differentiator is the
    runtime: one Convex deployment, no Docker, no database to run, one key set to generate.
@@ -95,9 +103,12 @@
   `robelest/convex-auth`) are full account libraries whose provider parts are not separable.
 - Samebase already runs an OAuth 2.1 authorization server for MCP clients
   (`apps/samebase/convex/mcp/oauth.ts`, routes at `apps/samebase/convex/http.ts:91` to `:117`). It
-  owns `/.well-known/oauth-authorization-server` at the root of the Samebase deployment, issues
-  opaque tokens, and signs the user in with Samebase accounts and MCP grants. None of that can serve
-  end users of other apps.
+  is about 2,000 lines (`mcp/oauth.ts`, `mcp/protocol.ts` with the registration, authorize and token
+  request validation, `mcp/tokens.ts` with PKCE S256 and hashing, `mcp/http.ts`) plus `convex-test`
+  suites, written to this repository's guardrails. It owns `/.well-known/oauth-authorization-server`
+  at the root of the Samebase deployment, issues opaque tokens, and signs the user in with Samebase
+  accounts and MCP grants. The protocol half is the pattern for the broker; the identity half cannot
+  serve end users of other apps.
 - Samebase sends email through Cloudflare Email Sending with `CLOUDFLARE_EMAIL_API_TOKEN` and
   `CLOUDFLARE_EMAIL_ACCOUNT_ID` (`apps/samebase/convex/email.ts:50`). Alchemy's Cloudflare `Email`
   resources cover routing, not sending, so the sending token stays an env secret.
@@ -191,23 +202,63 @@ Named departures and gaps:
 - `token_endpoint_auth_method: "none"`, native clients, ES256, and the Client ID Metadata Document
   draft are deferred until a consumer needs them.
 
+## Patterns from other brokers
+
+Surveyed on 2026-10-28: [Dex](https://dexidp.io/docs/configuration/tokens/),
+[Ory Hydra](https://www.ory.com/docs/hydra/guides/openid),
+[Keycloak](https://www.keycloak.org/securing-apps/client-registration),
+[Logto](https://docs.logto.io/end-user-flows/sign-up-and-sign-in/social-sign-in),
+[Zitadel](https://zitadel.com/docs/guides/integrate/login/oidc/webkeys),
+[Cloudflare Access](https://developers.cloudflare.com/cloudflare-one/access-controls/applications/http-apps/authorization-cookie/validating-json/),
+[Supabase](https://supabase.com/docs/guides/auth/auth-identity-linking),
+[Auth.js](https://authjs.dev/reference/core/providers#allowdangerousemailaccountlinking).
+
+| Settled pattern                                                                                         | Who                                                                                | The broker                                                                                                                         |
+| ------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| One signing key; retired public keys stay in the JWKS for an overlap window                             | Dex, Hydra, Keycloak, Zitadel, Logto, Cloudflare Access (6 weeks, 7 days overlap)  | Same, 14 days overlap.                                                                                                             |
+| The identity key is (connector, upstream user id), never the email                                      | Dex, Keycloak, Logto, Supabase                                                     | Same, hashed into the pairwise subject.                                                                                            |
+| Linking accounts by email is off by default, prompted, or named dangerous; only a verified email counts | Keycloak, Auth.js, Supabase, Logto, Zitadel                                        | The broker never links; `email_verified` is a claim for the app.                                                                   |
+| Open client registration is off by default                                                              | Hydra, Keycloak, Logto; Dex and Zitadel have no endpoint                           | Same; app-scoped tokens.                                                                                                           |
+| Dynamically registered clients get less trust (forced consent)                                          | Hydra, Keycloak, Logto                                                             | Departure: trust comes from the app the token belongs to, because every deployment of a first-party app is registered dynamically. |
+| The login transaction is short-lived or sealed                                                          | Dex (stored, 24h), Hydra (encrypted into the challenge), Auth.js (encrypted state) | Stored, ten minutes.                                                                                                               |
+
+Five points where an account-less broker has no precedent, and what the RFC decides:
+
+1. A stable `sub` with no stored row. Only Dex does this, by encoding the connector and the upstream
+   id; Keycloak's transient users change `sub` every login. Decision 5: a hash of app, connector,
+   upstream id and a hub salt, with no row.
+2. Linking across connectors without accounts. No system does it; every system that links stores a
+   user. The broker does not link: two connectors give two subjects, and the app decides.
+3. An email-code subject with no record. No system derives one. The canonical address is the
+   upstream id.
+4. Pairwise subjects for preview clients. Hydra's sector is the redirect host, so `sub` would change
+   per preview. The sector is the app, and the hub salt is created once with the key set and never
+   rotated.
+5. No broker session. Every other system keeps one for single sign-on or logout. The broker has
+   none, so there is no RP-initiated or front-channel logout; sign-out is the app's.
+
+The MCP draft specification now deprecates RFC 7591 registration in favor of Client ID Metadata
+Documents, and Logto uses them for dynamic apps. The broker keeps RFC 7591 with app tokens for now
+and lists the metadata document as the deferred alternative.
+
 ## What it builds on
 
-| Piece             | Source                                                | Used for                                                                                         | Kept, changed, or removed                                                                                                                                                                                                                                                                                         |
-| ----------------- | ----------------------------------------------------- | ------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Provider surface  | `codefox-inc/convex-oauth-provider` 0.4.2, Apache-2.0 | discovery, JWKS, `/authorize`, `/token`, `/userinfo`, `/register`, PKCE, hashed codes, the tests | Forked as the first commit of `samebase/identity-broker`, with its NOTICE kept. Removed: `refresh_token`, the per-user `oauthAuthorizations` consent table, the host `getUserId` hook, RFC 8707 resources. Changed: registration gated by app tokens, `id_token` claims, pairwise `sub`, a key set with rotation. |
-| Connector catalog | `@auth/core/providers/*`, ISC                         | endpoints, scopes, profile mappings for 321 providers                                            | Imported one definition at a time. The broker adds the verified-email check.                                                                                                                                                                                                                                      |
-| Upstream flow     | `oauth4webapi`, MIT                                   | authorization code with PKCE, discovery for OIDC connectors                                      | Kept as is.                                                                                                                                                                                                                                                                                                       |
-| Signing           | `jose`, MIT                                           | RS256 keys, JWKS export, sign and verify                                                         | Kept as is.                                                                                                                                                                                                                                                                                                       |
-| Design            | Dex                                                   | federated OP with connectors and no accounts                                                     | Reference only.                                                                                                                                                                                                                                                                                                   |
+| Piece             | Source                                                                      | Used for                                                                                                                       | Kept, changed, or removed                                                                                                                                          |
+| ----------------- | --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Provider surface  | Samebase's MCP OAuth server (`apps/samebase/convex/mcp/*`), this repository | registration, authorize and token request validation, PKCE S256, hashed codes, exact redirect checks, error shapes, audit rows | Copied into the new repository and adapted: no MCP scopes, no Samebase accounts, no refresh tokens, plus discovery, JWKS, `id_token`, userinfo, and the app model. |
+| Edge cases        | `codefox-inc/convex-oauth-provider` 0.4.2, Apache-2.0                       | its `rfc-compliance.test.ts` as a checklist of protocol edge cases                                                             | Reference. Individual cases ported with attribution where the broker shares the behavior.                                                                          |
+| Connector catalog | `@auth/core/providers/*`, ISC                                               | endpoints, scopes, profile mappings for 321 providers                                                                          | Imported one definition at a time. The broker adds the verified-email check.                                                                                       |
+| Upstream flow     | `oauth4webapi`, MIT                                                         | authorization code with PKCE, discovery for OIDC connectors                                                                    | Kept as is.                                                                                                                                                        |
+| Signing           | `jose`, MIT                                                                 | RS256 keys, JWKS export, sign and verify                                                                                       | Kept as is.                                                                                                                                                        |
+| Design            | Dex                                                                         | federated OP with connectors and no accounts                                                                                   | Reference only.                                                                                                                                                    |
 
 ## Changes
 
 ### Phase 1. The component
 
-`samebase/identity-broker`, forked from `codefox-inc/convex-oauth-provider`, following
-`$convex-create-component` and the same tooling contract as this monorepo: Vite+, Oxlint, Oxfmt, and
-an `AGENTS.md` with the code guardrails that apply.
+`samebase/identity-broker`, a new component following `$convex-create-component` and the same
+tooling contract as this monorepo: Vite+, Oxlint, Oxfmt, and an `AGENTS.md` with the code guardrails
+that apply.
 
 Tables, all inside the component:
 
@@ -243,7 +294,8 @@ other one.
 Keys live in the host's env as a JSON JWK set in `IDENTITY_BROKER_KEYS`: one private key marked
 current, plus the public halves of retired keys with a `retiredAt`.
 `npx @samebase/identity-broker keys` creates the set and `keys --rotate` advances it; the host
-redeploys env after each.
+redeploys env after each. The same command creates the pairwise salt once, in the same env var, and
+`--rotate` never touches it: changing the salt changes every subject.
 
 HTTP routes, mounted at the issuer root: `/.well-known/openid-configuration`,
 `/.well-known/oauth-authorization-server`, `/.well-known/jwks.json`, `/authorize` (GET, POST),
@@ -257,13 +309,13 @@ Administration is internal functions run by the deployment owners with the Conve
 The component depends on nothing in this monorepo. Adapters, such as the email sender, live in the
 hub app.
 
-Tests keep the forked suite where it still applies, use real payloads from GitHub and Google mutated
-only for negative cases, and add a conformance test that runs `openid-client` as an independent
-relying party against the component in `convex-test`: discovery at both locations, registration with
-an initial access token, code flow with PKCE, token validation with and without `nonce`, userinfo,
-`prompt=none`, and the rejections (wrong `redirect_uri`, reused code, missing `code_challenge`,
-expired request, bad secret, expired registration token, callback host outside the app's allow
-list).
+Tests use real payloads from GitHub and Google mutated only for negative cases, port the protocol
+edge cases from the Samebase MCP suites and the codefox checklist that apply, and add a conformance
+test that runs `openid-client` as an independent relying party against the component in
+`convex-test`: discovery at both locations, registration with an initial access token, code flow
+with PKCE, token validation with and without `nonce`, userinfo, `prompt=none`, and the rejections
+(wrong `redirect_uri`, reused code, missing `code_challenge`, expired request, bad secret, expired
+registration token, callback host outside the app's allow list).
 
 ### Phase 2. The hub template and Samebase's hub
 
@@ -349,10 +401,12 @@ a registration token, and stores it in the repository's CI secrets next to the d
    repository export would publish a mirror that cannot take pull requests. The hub is a GitHub
    template repository so it is forkable without Samebase, and a Samebase manifest later makes it a
    one-click app.
-8. **Start from `codefox-inc/convex-oauth-provider`.** Reason: it is the only Convex component with
-   an OpenID Provider surface and no account system, its license allows the fork, and its tests
-   cover the protocol edge cases that are expensive to rediscover. Its maintainer has been inactive
-   since May, so the fork is owned, not tracked.
+8. **Write the provider surface fresh from the Samebase MCP OAuth server, not from a fork.** Reason:
+   the broker would delete most of what `codefox-inc/convex-oauth-provider` adds (host identity
+   hook, per-user consent grants, refresh tokens, resource indicators) and rewrite its tests, and
+   the protocol surface that remains is code this repository already owns in its own guardrails. The
+   fork was the first choice and is kept as the edge-case reference; its Apache-2.0 license allows
+   porting individual test cases with attribution.
 9. **The MCP authorization server stays separate.** Reason: it issues opaque tokens for Samebase's
    own resource with Samebase accounts and scopes, a different product boundary.
 10. **First-party is an app-level admin decision.** Reason: RFC 9700 4.11. A registration token
@@ -360,7 +414,7 @@ a registration token, and stores it in the repository's CI secrets next to the d
 
 ## Validation
 
-- Phase 1: the forked suite, the `openid-client` conformance test, and the real-payload parser
+- Phase 1: the `openid-client` conformance test, the ported edge cases, and the real-payload parser
   tests.
 - Phase 2: a GitHub sign-in to a scratch Convex Auth v2 app through `auth.samebase.com` from a dev
   deployment and from a preview deployment, each registered by the script, without any change at
