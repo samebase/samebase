@@ -19,6 +19,21 @@
   delete at the hub. Bristol's preview deploy registered through the resource in CI. Decision of the
   owner the same day: the hub repository is our team hub first, public and generic; the template
   role waits for Phase 5, so no forker first-run work now.
+- Execution notes, 2026-10-28, evening: the Google connector is live on the team hub
+  ([identity-hub PR 9](https://github.com/samebase/identity-hub/pull/9)): the redirect URI
+  `https://auth.samebase.com/connectors/google/callback` on the existing Samebase production client,
+  whose id and secret the stack hands to every hub deployment from repository secrets. The owner
+  signed in to Bristol production and to a Bristol preview through the hub with Google.
+  [Bristol PR 45](https://github.com/nicu-chiciuc/bristol_tsx/pull/45) names the hub button "Sign in
+  with Samebase" and admits the owner's verified address on preview deployments through the hub; the
+  password sign-in keeps its rule, so previews keep the synthetic password account until the hub
+  offers a test identity for preview clients. Bristol's hub app is first-party, so
+  `connector=google` on the authorize request would skip the chooser; the owner keeps the chooser
+  while exploring the hub. Decision of the owner on the deploy standard: the Alchemy stack with the
+  team state store and one `CONVEX_ACCESS_TOKEN` stays the standard; base-hosting and scout are
+  deploy-key apps not yet migrated; the one layout change wanted is one workflow per trigger
+  (`deploy.yml`, and `preview.yml` with the destroy job) instead of one job with conditional steps,
+  prepared on local branches of base-alchemy and identity-hub for a separate thread.
 - Execution notes, 2026-10-28: Phase 1 is
   [samebase/identity-broker](https://github.com/samebase/identity-broker) (35 tests, openid-client
   conformance; PR 4 with the connector tests awaits a merge). Phase 2 is
