@@ -6,6 +6,8 @@
 - Owner: Nicu Chiciuc
 - Created: 2026-10-28
 - Base: `origin/main` at `3e5d7c658` (v2158)
+- Revised on 2026-10-28 (2): the code lives in a new public repository, not in this monorepo, so
+  both the package and the self-hostable hub can be open source. See Decision 7.
 - Revised on 2026-10-28 after one Codex design review: dedicated hub deployment instead of a mount
   in the Samebase app, one client per deployment through RFC 7591 instead of a shared client updated
   through RFC 7592, pairwise subjects with the app as the sector, lifecycle values fixed.
@@ -17,7 +19,7 @@
 - Related: `rfcs/128_SAMEBASE_SSR_WITH_COOKIE_SESSIONS_ROLLOUT.md` (Convex Auth 2 in Samebase),
   `specs/117_MANUAL_PASSWORD_AUTH_SPEC.md`,
   `rfcs/062_MCP_DUAL_ORIGIN_CONSENT_LOGIN_REDIRECT_SPEC.md` (the MCP authorization server),
-  `research/2026-08-28-sidebars-package-publishing.md` (how a package leaves this monorepo),
+  `docs/repository-exports.md` (the one-way export path, not used here),
   `research/2026-06-22-cloudflare-oauth-apps-mcp-fit.md`
 
 ## Summary
@@ -34,10 +36,10 @@
    broker returns an `id_token` from which each app creates its own user with its own Convex Auth.
    Apps keep separate accounts, and each app sees its own pairwise subjects. The broker is a hub of
    provider connections, not a hub of accounts.
-3. The broker is a Convex component, `@samebase/identity-broker` in `packages/identity-broker`, plus
-   a small host app, `apps/identity-hub`, that mounts it. The hub runs as its own Convex deployment
-   at `https://auth.samebase.com`, not inside the Samebase app. The package imports nothing from
-   `apps/samebase` and is published like `packages/sidebars`. The consumer side needs no new
+3. The broker is a new public repository, `samebase/identity-broker`: the Convex component package
+   `@samebase/identity-broker` and a small host app, `hub/`, that mounts it. The hub runs as its own
+   Convex deployment at `https://auth.samebase.com`, not inside the Samebase app. This monorepo
+   keeps only this RFC and, in Phase 4, the provisioning call. The consumer side needs no new
    library: a Convex Auth v2 app points its generic OAuth method at the broker, and its deploy step
    registers each deployment as a client.
 4. The design follows OAuth 2.1, OpenID Connect Core and Discovery, RFC 7591 for client
@@ -167,8 +169,9 @@ Named departures and gaps:
 
 ### Phase 1. The package
 
-`packages/identity-broker`, a Convex component built with `defineComponent`, following
-`$convex-create-component` and `docs/code-guardrails.md`.
+The component package at the root of the new repository, built with `defineComponent`, following
+`$convex-create-component` and the same tooling contract as this monorepo: Vite+, Oxlint, Oxfmt, and
+an `AGENTS.md` with the code guardrails that apply.
 
 Tables, all inside the component:
 
@@ -212,9 +215,8 @@ connector in the component env, and `email` with a sender function reference sup
 in the shape Convex Auth v2 uses for user callbacks. The upstream OAuth code copies the catalog
 shape of Convex Auth v2's generic method rather than importing its internal paths.
 
-The package must not import Samebase's generated API or types, its access wrappers, `users` or
-`organizations`, deployment profiles, the email implementation, MCP grants or scopes, or Convex Auth
-internals. Adapters stay in the host.
+The repository depends on nothing in this monorepo. The email sender and any other adapter live in
+the hub app, not in the component.
 
 Tests use real payloads from GitHub and Google, mutated only for negative cases, per the guardrails.
 The conformance test runs `openid-client` as an independent relying party against the component in
@@ -225,14 +227,15 @@ registration token, callback host outside the app's allow list).
 
 ### Phase 2. The hub deployment
 
-- `apps/identity-hub`: a host app with `convex.config.ts` that mounts the component with issuer
-  `https://auth.samebase.com`, the GitHub and Google credentials of two new OAuth apps registered
-  once for `https://auth.samebase.com/connectors/<name>/callback`, and a `sendEmail` action on
-  Cloudflare Email with its own token. No frontend beyond the pages the component renders.
-- Its own Convex project on the Samebase team, with the custom domain `auth.samebase.com` as a
-  proxied `CNAME` to `convex.domains` in the Samebase Cloudflare zone.
-- This host app is also the self-host starter: another team copies it, sets its issuer and
-  credentials, and has a hub.
+- `hub/` in the same repository: a host app with `convex.config.ts` that mounts the component with
+  issuer `https://auth.samebase.com`, the GitHub and Google credentials of two new OAuth apps
+  registered once for `https://auth.samebase.com/connectors/<name>/callback`, and a `sendEmail`
+  action on Cloudflare Email with its own token. No frontend beyond the pages the component renders.
+- Its own Convex project on the Samebase team, deployed by a GitHub Actions workflow with a deploy
+  key, with the custom domain `auth.samebase.com` as a proxied `CNAME` to `convex.domains` in the
+  Samebase Cloudflare zone.
+- This host app is also the self-host starter: another team forks the repository, sets its issuer
+  and credentials, and has a hub.
 
 ### Phase 3. The consumer path in the starter
 
@@ -293,11 +296,12 @@ phase gets its own plan after Phase 3 has run on two apps.
    for random preview hosts.
 6. **The MCP authorization server stays separate.** Reason: it issues opaque tokens for Samebase's
    own resource with Samebase accounts and scopes, a different product boundary. Shared helpers move
-   into the package only when the MCP server imports them back; the package never imports from
-   `apps/samebase`.
-7. **Built in the monorepo, published from it.** Reason: the monorepo is private until token
-   management is fixed, and `packages/sidebars` already proves the export path to a separate public
-   repository. Publication waits for a consumer outside the monorepo (Bristol).
+   into the package only when the MCP server imports them back from npm.
+7. **A new public repository, `samebase/identity-broker`, from day one.** Reason: both the package
+   and the self-hostable hub are meant to be open source, this monorepo stays private until token
+   management is fixed, and the consumers (the `base-hosting` starter, Bristol) already live outside
+   it. The one-way repository export used for `templates/base` would publish a mirror that cannot
+   take pull requests. Cost: a second checkout with the same tooling contract.
 8. **First-party is an app-level admin decision.** Reason: RFC 9700 4.11. A registration token
    cannot change it. Third-party apps get a consent page.
 
@@ -318,7 +322,8 @@ phase gets its own plan after Phase 3 has run on two apps.
 - Single sign-on across apps, sessions at the broker, refresh tokens, `offline_access`.
 - MFA, passkeys, SAML, account management, a hosted account page, an admin UI.
 - Replacing the MCP authorization server or Samebase's own login.
-- Serving other teams from `auth.samebase.com`. Another team deploys `apps/identity-hub` itself.
+- Serving other teams from `auth.samebase.com`. Another team forks the repository and deploys the
+  hub itself.
 
 ## Open Questions
 
