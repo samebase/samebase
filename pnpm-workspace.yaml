@@ -89,9 +89,6 @@ minimumReleaseAgeExclude:
   # header decoding), published 2026-10-17 15:06 UTC with npm provenance. Remove after 2026-10-24
   # 15:07 UTC.
   - "postal-mime@4.0.8"
-  # TODO(2026-09-06): Remove after qs 6.16.0 completes the normal
-  # 7-day cooling period.
-  - qs@6.16.0
 minimumReleaseAgeStrict: true
 minimumReleaseAgeIgnoreMissingTime: false
 # Blocks transitive git/tarball dependencies, including the remote GitHub
@@ -113,6 +110,10 @@ audit:
     # exists yet (latest is 3.0.3). braces only reaches build and dev tooling
     # through chokidar and micromatch, not shipped Worker code.
     - GHSA-vfj7-8cjw-p6xm
+    # TODO(2026-11-11): Remove once deepmerge publishes a fix. No patched release
+    # exists yet (latest is 4.3.1). deepmerge only reaches the shadcn CLI, a
+    # devDependency of apps/samebase, not shipped Worker code.
+    - GHSA-gcqx-w48m-w2h4
 overrides:
   # Shared adapter 4.0.6 requires Effect ^4.0.6.
   "@effect/platform-node-shared": 4.0.5
@@ -149,7 +150,7 @@ overrides:
   postcss-selector-parser: 7.1.6
   protobufjs: 8.8.1
   proxy-addr: 2.0.8
-  qs: 6.16.0
+  qs: 6.16.1
   sharp: 0.35.5
   "semver@6": 7.8.5
   shell-quote: 1.12.0
