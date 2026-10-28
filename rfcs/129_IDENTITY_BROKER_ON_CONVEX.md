@@ -5,9 +5,10 @@
 - Status: Proposal
 - Owner: Nicu Chiciuc
 - Created: 2026-10-28
-- Revised on 2026-10-28 (6): no new upstream registrations. The hub starts with the email connector,
-  adds Google by one more redirect URI on the existing client, and adds GitHub on the existing
-  Samebase GitHub App, which accepts up to 10 callback URLs.
+- Revised on 2026-10-28 (6): no new upstream registrations and no change to the GitHub App. The hub
+  starts with the email connector, adds Google by one more redirect URI on the existing client, and
+  adds GitHub on the existing login OAuth App through GitHub's subdomain wildcard matching, because
+  production `CONVEX_SITE_URL` is `https://samebase.com`.
 - Revised on 2026-10-28 (5): the hub at `auth.samebase.com` is the team's hub, and Samebase is one
   consumer of it, after Bristol and the personal apps; Samebase's own login moving onto the hub
   becomes Phase 4, and product provisioning for other organizations becomes Phase 5.
@@ -134,11 +135,15 @@
   after 5 days (14 on paid plans)
   ([preview deployments](https://docs.convex.dev/production/hosting/preview-deployments)).
   `npx convex env set` accepts `--deployment <name>` (convex 1.48.0).
-- GitHub: an OAuth App has one callback URL; with wildcard matching on, a redirect on another
-  subdomain of the same host and under the callback path matches, otherwise the match is exact. A
-  GitHub App accepts up to 10 callback URLs, each with its own wildcard setting, and signs users in
-  through `/login/oauth/authorize` with the app's client id; it requests no scopes, so reading the
-  user's email needs the app's Email addresses user permission
+- GitHub: an OAuth App has one callback URL; with wildcard matching on, which is the state of
+  single-callback apps created before 2026-08-03, a redirect on another subdomain of the same host
+  and at or under the callback path matches (`https://oauth.example.com/path` matches the callback
+  `https://example.com/path`); otherwise the match is exact. Samebase's production `CONVEX_SITE_URL`
+  is `https://samebase.com` (RFC 127), so its login OAuth App callback is
+  `https://samebase.com/auth/github/callback`, and `https://auth.samebase.com/auth/github/callback`
+  matches it. A GitHub App accepts up to 10 callback URLs, but Samebase's GitHub App is the
+  provisioning app (`apps/samebase/convex/githubApp.ts`: installation and user tokens for
+  repositories) and is not touched by this RFC
   ([callback URL](https://docs.github.com/en/apps/creating-github-apps/registering-a-github-app/about-the-user-authorization-callback-url),
   [user tokens](https://docs.github.com/en/apps/creating-github-apps/authenticating-with-a-github-app/generating-a-user-access-token-for-a-github-app)).
   Samebase has both: a login OAuth App (`AUTH_GITHUB_CLIENT_ID`) and a GitHub App for repository
@@ -352,11 +357,12 @@ registration token, callback host outside the app's allow list).
   Connectors arrive in this order, with no new upstream registration: `email` first, on the existing
   Cloudflare Email Sending token, which is enough for Bristol and the personal apps; `google` by
   adding `https://auth.samebase.com/connectors/google/callback` to the existing Samebase Google
-  client; `github` on the existing Samebase GitHub App, by adding the hub callback to its list and
-  giving the app the Email addresses user permission, with the hub connector using
-  `GITHUB_APP_CLIENT_ID` and its secret. The login OAuth App behind `AUTH_GITHUB_CLIENT_ID` is not
-  touched until Phase 4. Samebase the app is not involved: the hub is owned by the team, and
-  Samebase becomes a client of it in Phase 4.
+  client; `github` on the existing login OAuth App (`AUTH_GITHUB_CLIENT_ID` and its secret), with
+  the hub's GitHub callback mounted at `/auth/github/callback` so that GitHub's subdomain wildcard
+  matching accepts `https://auth.samebase.com/auth/github/callback` next to Samebase's own callback;
+  nothing changes at GitHub, and the GitHub App for provisioning is not involved. The one setting to
+  confirm is that wildcard matching is on for that OAuth App. Samebase the app is not involved: the
+  hub is owned by the team, and Samebase becomes a client of it in Phase 4.
 - Another team forks the template, sets its issuer, connectors and secrets, and has a hub. Creating
   it from Samebase is Phase 5.
 
@@ -387,11 +393,11 @@ In `samebase/base-hosting` (Convex Auth 2.0.0-beta.0):
 After Bristol and at least one personal app sign in through the hub, Samebase's own GitHub and
 Google sign-in move onto it: the `hub` method replaces `setupGithub` and `setupGoogle` in
 `apps/samebase/convex/auth.ts`, the `createUser` and `onSignIn` callbacks attach the hub subject to
-the existing `users` rows, and the login OAuth App behind `AUTH_GITHUB_CLIENT_ID` retires. The
-Google client and the GitHub App stay: the hub uses them, and the GitHub App keeps provisioning
-repositories. The password method stays local, because the hub has no password connector by design.
-The MCP authorization server is unchanged: it keeps running on Samebase's own session, which the hub
-now establishes. Samebase dev and preview deployments get GitHub sign-in for the first time.
+the existing `users` rows, and nothing retires upstream: the login OAuth App and the Google client
+stay, now used only by the hub, and the GitHub App keeps provisioning repositories. The password
+method stays local, because the hub has no password connector by design. The MCP authorization
+server is unchanged: it keeps running on Samebase's own session, which the hub now establishes.
+Samebase dev and preview deployments get GitHub sign-in for the first time.
 
 ### Phase 5. Samebase provisioning
 
@@ -430,8 +436,9 @@ token, and stores it in the repository's CI secrets next to the deploy key.
    which providers a team uses is the team's choice, and the Auth.js catalog already describes 321
    of them; a fixed GitHub-plus-Google set would make the component Samebase-shaped. The team hub
    starts with email, then Google and GitHub on the clients the team already owns, because a Google
-   client takes several redirect URIs and a GitHub App takes ten callback URLs. A password connector
-   is impossible: a password is a stored credential, which is an account.
+   client takes several redirect URIs and GitHub's wildcard matching accepts the hub subdomain on
+   the existing login OAuth App. The GitHub App for provisioning stays a provisioning app. A
+   password connector is impossible: a password is a stored credential, which is an account.
 7. **Two public repositories, maintained there.** Reason: both the component and the hub must be
    open source, this monorepo stays private until token management is fixed, the consumers (the
    `base-hosting` starter, Bristol) already live outside it, and `samebase/base-hosting` set the
@@ -459,11 +466,10 @@ token, and stores it in the repository's CI secrets next to the deploy key.
 - Phase 1: the `openid-client` conformance test, the ported edge cases, and the real-payload parser
   tests.
 - Phase 2: a GitHub sign-in to a scratch Convex Auth v2 app through `auth.samebase.com` from a dev
-  deployment and from a preview deployment, each registered by the script, with one callback URL
-  added to the GitHub App and one redirect URI added to the Google client, and no new app. The audit
-  row shows the client, the connector and the pairwise subject and nothing else.
-  `npx convex env set --deployment <preview name>` under the preview deploy key is the one CLI claim
-  to prove here.
+  deployment and from a preview deployment, each registered by the script, with one redirect URI
+  added to the Google client and no change at GitHub. The audit row shows the client, the connector
+  and the pairwise subject and nothing else. `npx convex env set --deployment <preview name>` under
+  the preview deploy key is the one CLI claim to prove here.
 - Phase 3: Bristol signs in through the hub on prod, dev and a preview; the Bristol GitHub OAuth app
   is deleted afterwards.
 - Phase 4: the existing Samebase users sign in through the hub and land on their existing `users`
