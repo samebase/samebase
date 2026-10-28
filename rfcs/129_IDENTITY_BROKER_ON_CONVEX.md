@@ -334,6 +334,22 @@ The MCP draft specification now deprecates RFC 7591 registration in favor of Cli
 Documents, and Logto uses them for dynamic apps. The broker keeps RFC 7591 with app tokens for now
 and lists the metadata document as the deferred alternative.
 
+Checked on 2026-10-29, after the hub was live: the Convex components directory lists eighteen
+authentication components and no broker. The nearest is
+[`@codefox-inc/oauth-provider`](https://www.convex.dev/components/codefox-inc/oauth-provider)
+(0.4.2, beta), which makes one Convex app an OAuth 2.1 and OIDC provider for MCP clients and third
+parties: its `getUserId` hook must return the host app's signed-in user, its `sub` is that user's id
+for every client, registration is an admin mutation or open dynamic registration, and every
+authorization is a consent of a logged-in user. Building the broker on it would mean a hub with its
+own users and sessions in front of it, public subjects, and registration without app-scoped tokens
+or first-party trust: the Keycloak shape this document rejects in decisions 2, 4 and 5. It is the
+right candidate for Samebase's own MCP authorization server, which does have users, not for the hub.
+The preview problem the hub solves is known and unsolved elsewhere: in the Convex Discord
+([Preview Deployments and SITE_URL for Convex Auth](https://discord-questions.convex.dev/m/1309029035812061234),
+2024-11), Convex staff answered that every backend preview has its own callback URL and that
+password sign-in available only in dev and preview is the easier way out, with proxying tools as the
+alternative; that was Bristol's state before the hub.
+
 ## What it builds on
 
 | Piece             | Source                                                                      | Used for                                                                                                                       | Kept, changed, or removed                                                                                                                                          |
