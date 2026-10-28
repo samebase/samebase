@@ -491,14 +491,37 @@ without a hub must not mount the method, and the registration step is not the st
 
 ### Phase 4. Samebase as a consumer
 
-After Bristol and at least one personal app sign in through the hub, Samebase's own GitHub and
-Google sign-in move onto it: the `hub` method replaces `setupGithub` and `setupGoogle` in
-`apps/samebase/convex/auth.ts`, the `createUser` and `onSignIn` callbacks attach the hub subject to
-the existing `users` rows, and nothing retires upstream: the login OAuth App and the Google client
-stay, now used only by the hub, and the GitHub App keeps provisioning repositories. The password
-method stays local, because the hub has no password connector by design. The MCP authorization
-server is unchanged: it keeps running on Samebase's own session, which the hub now establishes.
-Samebase dev and preview deployments get GitHub sign-in for the first time.
+Samebase's own GitHub and Google sign-in move onto the hub, which holds the same two upstream
+clients, so every user keeps the email and the upstream account the hub reports. Read against the
+code on 2026-10-29 (`apps/samebase/convex/auth.ts`, `identity/signIn.ts`,
+`githubUserAuthorizations.ts`):
+
+- Two hub methods on one component mount, `hub-github` and `hub-google`, replace `setupGithub` and
+  `setupGoogle`: Convex Auth fixes the authorize URL per method, and the hub wants the connector
+  named in it, so each button is a method whose endpoint ends in `?connector=github` or
+  `?connector=google`. Both share `components.authHub`, one client per deployment, one callback.
+- Existing users keep their ids. `createUser` today finds the user by the `authAccounts` row keyed
+  by provider and upstream account id, then by verified email, then creates one. The hub's id_token
+  carries `connector` and `connector_account_id` (the upstream id), so the lookup is the same:
+  provider = connector, account id = `connector_account_id`. The core then records the hub subject
+  for that user, and the next sign-in finds it directly.
+- The GitHub access boundary stays. `assertGitHubAccessIdentity` compares the login's raw GitHub id
+  with the GitHub App authorization's; the raw id comes from the `authAccounts` row with provider
+  `github`. A hub sign-in through the GitHub connector keeps writing that row from
+  `connector_account_id`, so the comparison reads the same table as before and new users get the row
+  on their first sign-in.
+- Every Samebase deployment registers at the hub from its stack (`IdentityHub.Client` next to the
+  deployment, as Bristol does), with `HUB_ISSUER`, `HUB_CLIENT_ID` and `HUB_CLIENT_SECRET` handed
+  down. Samebase dev and preview deployments get GitHub sign-in for the first time.
+- The return path uses Samebase's cookie sessions on the server (RFC 127, route A), which Bristol's
+  does not: the first pull request proves it on a preview before production.
+- Nothing retires upstream: the login OAuth App and the Google client stay, now used only by the
+  hub. The password method stays local, because the hub has no password connector. The MCP
+  authorization server is unchanged: it keeps running on Samebase's own session.
+
+Order: the broker's delete-first release with `connector_account_id` first, then the hub on it, then
+one Samebase pull request with the identity tests extended for the two hub providers, verified on
+its preview, then production.
 
 ### Phase 5. Samebase provisioning
 
