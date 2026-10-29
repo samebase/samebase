@@ -1,8 +1,9 @@
 // The Alchemy stack of samebase.com. .github/workflows/alchemy.yml runs it from the repository root:
 //
 // - Stage `prod`, on each push to main: the Convex project `samebase`, its production deployment,
-//   which serves samebase.com through convex-hosting, and the PostHog proxy Worker of the app, so
-//   its route and settings are code instead of settings in the Cloudflare dashboard.
+//   which serves samebase.com through convex-hosting, the account API token that production sends
+//   email with, and the PostHog proxy Worker of the app, so its route and settings are code instead
+//   of settings in the Cloudflare dashboard.
 // - Stage `pr-<number>`, on each pull request: a Convex preview deployment with the name of the
 //   stage, which `alchemy destroy` deletes when the pull request closes. It reads the project by its
 //   slug, so it does not depend on the state of `prod`, and it creates no Workers.
@@ -13,9 +14,9 @@
 // and runs from its folder. Every run needs the team token CONVEX_ACCESS_TOKEN, or the Convex CLI
 // login (`npx convex login`) on a laptop; it mints the deploy key of each push itself. The stage
 // `prod` also needs a Cloudflare login (`npx alchemy login`, or CLOUDFLARE_API_TOKEN and
-// CLOUDFLARE_ACCOUNT_ID in .env). That token needs Workers Scripts Edit and Account Settings Read,
-// plus Workers Routes Edit and Zone Read on samebase.com. The build reads the variables that
-// alchemy.yml sets on each deploy step, such as VITE_SAMEBASE_ROUTE_ENVIRONMENT.
+// CLOUDFLARE_ACCOUNT_ID in .env). That token needs Workers Scripts Edit, Account Settings Read, and
+// Account API Tokens Write, plus Workers Routes Edit and Zone Read on samebase.com. The build reads
+// the variables that alchemy.yml sets on each deploy step, such as VITE_SAMEBASE_ROUTE_ENVIRONMENT.
 //
 // Each deployment is a client of the team's identity hub, which signs in with GitHub and Google.
 // Every run, a destroy too, reads HUB_ISSUER and HUB_REGISTRATION_TOKEN (in .env on a laptop), and
@@ -146,10 +147,29 @@ Dashboard: https://dashboard.convex.dev/d/${site.name}`,
       deploymentType: "production",
     });
 
+    // apps/samebase/convex/email.ts sends application email with this account token, which can
+    // only send email. Minting it needs Account API Tokens Write on the Cloudflare token of the
+    // deploy. Cloudflare returns the value only on creation: the resource keeps it in state, and an
+    // update, such as a new name or policy, keeps that value. A deploy mints a new token only when
+    // this one is gone. Retained on destroy: production sends with it.
+    const { accountId } = yield* yield* Cloudflare.CloudflareEnvironment;
+    const emailToken = yield* Cloudflare.ApiToken.AccountApiToken("EmailToken", {
+      name: "samebase production email sending",
+      policies: [
+        {
+          effect: "allow",
+          permissionGroups: ["Email Sending Write"],
+          resources: { [`com.cloudflare.api.account.${accountId}`]: "*" },
+        },
+      ],
+    }).pipe(Alchemy.RemovalPolicy.retain());
+
     // The production deployment that serves samebase.com. The push runs in rootDir, the app with
     // its package.json: the `deploy` script, which is the build, the upload of the site, and
-    // `convex deploy`. A run takes over a production deployment with code that is not in state only
-    // with --adopt.
+    // `convex deploy`. adopt(true): the stack owns the variables in `env`, so a deploy overwrites a
+    // value that was set by hand, such as the email token before the stack minted it, and a run
+    // takes over a production deployment with code that is not in state, such as after a move of
+    // the state. A takeover never changes or deletes the deployment.
     const site = yield* Convex.Deployment("Site", {
       project,
       type: "prod",
@@ -159,9 +179,11 @@ Dashboard: https://dashboard.convex.dev/d/${site.name}`,
         HUB_ISSUER: client.issuer,
         HUB_CLIENT_ID: client.clientId,
         HUB_CLIENT_SECRET: client.clientSecret,
+        CLOUDFLARE_EMAIL_ACCOUNT_ID: accountId,
+        CLOUDFLARE_EMAIL_API_TOKEN: emailToken.value,
       },
       source: { path: "./convex", command: ["node", "--run", "deploy"] },
-    });
+    }).pipe(adopt(true));
 
     // The PostHog reverse proxy on e.samebase.com, part of the Samebase app, with its code in the
     // folder of the app. The name is the Worker that Workers Builds deployed before this stack, so
