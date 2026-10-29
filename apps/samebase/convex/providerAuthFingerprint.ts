@@ -3,26 +3,32 @@ import type {
   ConvexProviderCredential,
 } from "./organization/providerCredentialModel";
 import type { ProviderAuth } from "./providerAuth";
+import type { SealedSecret } from "./sealedSecret";
 import { sha256Hex } from "./mcp/tokens";
+
+/** A fixed field order, so the hash does not depend on the key order of the stored object. */
+function serializeSealedSecret(sealed: SealedSecret): [string, string, string] {
+  return [sealed.keyId, sealed.iv, sealed.ciphertext];
+}
 
 function serializeProviderAuth(auth: ProviderAuth): string {
   switch (auth.method) {
     case "api_key":
-      return JSON.stringify(["api_key", auth.credential]);
+      return JSON.stringify(["api_key", serializeSealedSecret(auth.credential)]);
     case "oauth":
       return "refreshCredential" in auth
         ? JSON.stringify([
             "cloudflare_oauth",
-            auth.credential,
-            auth.refreshCredential,
+            serializeSealedSecret(auth.credential),
+            serializeSealedSecret(auth.refreshCredential),
             auth.credentialExpiresAt,
           ])
-        : JSON.stringify(["convex_oauth", auth.credential]);
+        : JSON.stringify(["convex_oauth", serializeSealedSecret(auth.credential)]);
     case "mcp_oauth":
       return JSON.stringify([
         "cloudflare_mcp_oauth",
-        auth.credential,
-        auth.refreshCredential,
+        serializeSealedSecret(auth.credential),
+        serializeSealedSecret(auth.refreshCredential),
         auth.credentialExpiresAt,
         auth.clientId,
       ]);

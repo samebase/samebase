@@ -207,6 +207,7 @@ import type * as repositoryProvisioningWorkflow from "../repositoryProvisioningW
 import type * as repositoryProvisioningWorkflowActions from "../repositoryProvisioningWorkflowActions.js";
 import type * as repositoryPullRequests from "../repositoryPullRequests.js";
 import type * as repositoryWorkflowAuthority from "../repositoryWorkflowAuthority.js";
+import type * as sealedSecret from "../sealedSecret.js";
 import type * as slugUtils from "../slugUtils.js";
 import type * as starterSeed from "../starterSeed.js";
 import type * as toolRuntime_actionCatalog from "../toolRuntime/actionCatalog.js";
@@ -426,6 +427,7 @@ declare const fullApi: ApiFromModules<{
   repositoryProvisioningWorkflowActions: typeof repositoryProvisioningWorkflowActions;
   repositoryPullRequests: typeof repositoryPullRequests;
   repositoryWorkflowAuthority: typeof repositoryWorkflowAuthority;
+  sealedSecret: typeof sealedSecret;
   slugUtils: typeof slugUtils;
   starterSeed: typeof starterSeed;
   "toolRuntime/actionCatalog": typeof toolRuntime_actionCatalog;

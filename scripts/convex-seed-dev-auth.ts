@@ -1,7 +1,11 @@
 #!/usr/bin/env node
 import { spawn, spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
-import { generateConvexAuthKeys, NO_HUB_ENVIRONMENT } from "./lib/convexAuthKeys.ts";
+import {
+  generateConvexAuthKeys,
+  generateCredentialKeys,
+  NO_HUB_ENVIRONMENT,
+} from "./lib/convexAuthKeys.ts";
 import { readEnvFile, type EnvFile } from "./lib/envFile.ts";
 import { resolveRepoRoot } from "./lib/scriptRuntime.ts";
 import { samebaseAppFilePath, trackedFilePath } from "./lib/trackedFilePath.ts";
@@ -155,6 +159,13 @@ try {
   // before the deploy below pushes. A worktree backend keeps the keys it already has.
   if (readLocalConvexEnv("AUTH_PRIVATE_KEY") === null || readLocalConvexEnv("AUTH_JWKS") === null) {
     for (const [name, value] of Object.entries(generateConvexAuthKeys())) {
+      setLocalConvexEnv(name, value);
+    }
+  }
+  // convex/convex.config.ts requires the provider credential key ring. A worktree backend keeps the
+  // ring it already has: its credential rows are sealed under it.
+  if (readLocalConvexEnv("CREDENTIAL_KEYS") === null) {
+    for (const [name, value] of Object.entries(generateCredentialKeys())) {
       setLocalConvexEnv(name, value);
     }
   }

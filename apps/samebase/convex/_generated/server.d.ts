@@ -36,6 +36,7 @@ type Env = {
   readonly AUTO_APPROVE_NEW_USERS: "true" | "false" | undefined;
   readonly CLOUDFLARE_EMAIL_ACCOUNT_ID: string | undefined;
   readonly CLOUDFLARE_EMAIL_API_TOKEN: string | undefined;
+  readonly CREDENTIAL_KEYS: string;
   readonly DEV_SEED_GITHUB_API_KEY: string | undefined;
   readonly DEV_SEED_SAMEBASE_CLOUDFLARE_ACCOUNT_ID: string | undefined;
   readonly DEV_SEED_SAMEBASE_CLOUDFLARE_API_KEY: string | undefined;
