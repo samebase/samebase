@@ -11,12 +11,27 @@ import {
   LandingPage,
 } from "@/components/LandingPreviewPage";
 import { LANDING_INLINE_80_PERCENT_MARK_SVG_URL } from "@/components/compactIdentitySvgAsset";
+import { type PublicDeploymentAuthPolicy } from "../../convex/deploymentProfile";
 
 const authState = vi.hoisted(() => ({ isAuthenticated: false, isLoading: false }));
+const policyState = vi.hoisted<{
+  deploymentAuthPolicy: PublicDeploymentAuthPolicy | undefined;
+}>(() => ({ deploymentAuthPolicy: undefined }));
 
 vi.mock("convex/react", async (importOriginal) => ({
   ...(await importOriginal<typeof import("convex/react")>()),
   useConvexAuth: () => authState,
+}));
+
+// The page reads one query: the root loader's deployment auth policy.
+vi.mock("@tanstack/react-query", () => ({
+  useQuery: () => ({ data: policyState.deploymentAuthPolicy }),
+}));
+
+// This server render has no Start request.
+vi.mock("@/lib/isomorphic", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/isomorphic")>()),
+  readIsomorphicOrigin: () => "http://127.0.0.1:4173",
 }));
 
 vi.mock("@/components/AppWorkspaceShell", () => ({
@@ -107,6 +122,7 @@ vi.mock("@samebase/sidebars/SidebarRuntime", () => ({
 describe("LandingPage", () => {
   afterEach(() => {
     authState.isAuthenticated = false;
+    policyState.deploymentAuthPolicy = undefined;
   });
 
   it("renders the agent-first landing overview by default", () => {
@@ -255,6 +271,17 @@ describe("LandingPage", () => {
 
     expect(markup.split(">Continue with GitHub</span></button>").length - 1).toBe(2);
     expect(markup.split('<div class="hidden"><a').length - 1).toBe(2);
+  });
+
+  it("leaves out the GitHub action on a local worktree, which has no identity hub", () => {
+    policyState.deploymentAuthPolicy = {
+      deploymentProfile: { kind: "local_worktree" },
+      passwordAuthMode: "local_worktree_seed",
+    };
+
+    const markup = renderToStaticMarkup(<LandingPage />);
+
+    expect(markup).not.toContain("Continue with GitHub");
   });
 
   it("links both signed-in landing CTA positions to the dashboard", () => {

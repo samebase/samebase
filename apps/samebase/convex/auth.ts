@@ -1,18 +1,20 @@
-import { setupGithub } from "@convex-dev/auth/methods/github/server";
-import { setupGoogle } from "@convex-dev/auth/methods/google/server";
+import { setupOauth } from "@convex-dev/auth/methods/oauth/server";
 import { setupConvexAuth } from "@convex-dev/auth/server";
 import { ConvexError, v } from "convex/values";
 
 import { normalizeAccountEmail } from "../shared/accountPresentation";
 import { components, internal } from "./_generated/api";
+import { env } from "./_generated/server";
 import {
   assertPasswordAuthFlowAllowed,
   resolveDeploymentProfile,
   resolvePasswordAuthMode,
 } from "./deploymentProfile";
 import { mutation } from "./functions";
+import type { AuthAccountProvider } from "./identity/accountModel";
 import { readPasswordAccount, writePasswordAccount } from "./identity/passwordAccounts";
 import {
+  readHubProfile,
   requireUserCanSignIn,
   sendNewUserNotification,
   startCustomSignInSession,
@@ -31,21 +33,41 @@ const allowedRedirectOrigins = [readOptionalEnv("SITE_URL"), readOptionalEnv("CO
   .filter((origin) => origin !== null)
   .map((origin) => new URL(origin).origin);
 
-export const { startSignInWithGithub, completeSignInWithGithub } = setupGithub(auth, {
-  component: components.authGithub,
-  allowedRedirectOrigins,
-}).attachUserCallbacks({
-  createUser: internal.identity.signIn.createUser,
-  onSignIn: internal.identity.signIn.onSignIn,
-});
+/**
+The sign-in method `hub-<connector>` of the identity hub. Convex Auth fixes the authorize URL of a
+method, and the URL names the connector, so each button is a method. Both methods share the
+`authHub` component: one hub client per deployment, one callback. The return annotation gives the
+exports below their types without the call, which reads the type of `internal`, which contains this
+module.
+*/
+function setupHubMethod<Connector extends AuthAccountProvider>(
+  connector: Connector,
+): ReturnType<typeof setupOauth> {
+  return setupOauth(
+    auth,
+    `hub-${connector}` as const,
+    {
+      authorizationEndpoint: `${env.HUB_ISSUER}/authorize?connector=${connector}`,
+      tokenEndpoint: `${env.HUB_ISSUER}/token`,
+      issuer: env.HUB_ISSUER,
+      scopes: ["openid", "email", "profile"],
+      profile: (claims) => readHubProfile(claims, connector),
+    },
+    {
+      createUser: internal.identity.signIn.createUser,
+      onSignIn: internal.identity.signIn.onSignIn,
+    },
+    { component: components.authHub, allowedRedirectOrigins },
+  );
+}
 
-export const { startSignInWithGoogle, completeSignInWithGoogle } = setupGoogle(auth, {
-  component: components.authGoogle,
-  allowedRedirectOrigins,
-}).attachUserCallbacks({
-  createUser: internal.identity.signIn.createUser,
-  onSignIn: internal.identity.signIn.onSignIn,
-});
+const hubGithub = setupHubMethod("github");
+export const startSignInWithHubGithub = hubGithub.startSignIn;
+export const completeSignInWithHubGithub = hubGithub.completeSignIn;
+
+const hubGoogle = setupHubMethod("google");
+export const startSignInWithHubGoogle = hubGoogle.startSignIn;
+export const completeSignInWithHubGoogle = hubGoogle.completeSignIn;
 
 const vPasswordSignInResult = union(
   object({ status: literal("complete"), tokens: vTokenBundle }),

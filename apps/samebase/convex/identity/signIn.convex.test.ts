@@ -1,9 +1,12 @@
+import { ConvexError } from "convex/values";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { api, components, internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
+import { readGitHubSignInMatch } from "../githubUserAuthorizations";
 import { makeConvexTest } from "../test.setup";
+import { readHubProfile } from "./signIn";
 
 type ConvexTest = ReturnType<typeof makeConvexTest>;
 
@@ -17,44 +20,58 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-function githubProvider(args: {
+type HubIdentity = {
+  /** The connector's own account id, which `authAccounts` keys the identity by. */
+  id: string;
   email: string;
   emailVerified?: boolean;
-  id: string;
-  login?: string;
-}) {
+};
+
+/**
+The sign-in that a hub method hands to the user callbacks: the profile mapping of convex/auth.ts
+applied to id_token claims. The claims have the shape of `signIdToken` in
+`packages/identity-broker/src/client/jwt.ts` of samebase/identity-broker, with
+`connector_account_id` from its next release.
+*/
+function hubProvider(connector: "github" | "google", identity: HubIdentity) {
+  // The hub's pairwise subject differs from the connector's account id.
+  const subject = `${connector}-subject-${identity.id}`;
   return {
-    name: "github" as const,
-    accountId: args.id,
-    profile: {
-      id: args.id,
-      login: args.login ?? "oauth-user",
-      name: "OAuth User",
-      email: args.email,
-      emailVerified: args.emailVerified ?? true,
-      avatarUrl: "https://example.com/avatar.png",
-    },
+    name: `hub-${connector}` as const,
+    accountId: subject,
+    profile: readHubProfile(
+      {
+        iss: "https://auth.samebase.com",
+        aud: "samebase-client",
+        iat: 1_800_000_000,
+        exp: 1_800_000_300,
+        sub: subject,
+        connector,
+        connector_account_id: identity.id,
+        email: identity.email,
+        email_verified: identity.emailVerified ?? true,
+        name: "OAuth User",
+        picture: "https://example.com/avatar.png",
+      },
+      connector,
+    ),
   };
 }
 
-function googleProvider(args: { email: string; emailVerified?: boolean; id: string }) {
-  return {
-    name: "google" as const,
-    accountId: args.id,
-    profile: {
-      id: args.id,
-      email: args.email,
-      emailVerified: args.emailVerified ?? true,
-      name: "OAuth User",
-      picture: "https://example.com/avatar.png",
-    },
-  };
+function githubProvider(identity: HubIdentity) {
+  return hubProvider("github", identity);
 }
 
-type OAuthProvider = ReturnType<typeof githubProvider> | ReturnType<typeof googleProvider>;
+function googleProvider(identity: HubIdentity) {
+  return hubProvider("google", identity);
+}
 
-/** Runs the two user callbacks the way the core runs them for one OAuth sign-in. */
-async function signIn(t: ConvexTest, provider: OAuthProvider, knownUserId?: Id<"users">) {
+/** Runs the two user callbacks the way the core runs them for one hub sign-in. */
+async function signIn(
+  t: ConvexTest,
+  provider: ReturnType<typeof hubProvider>,
+  knownUserId?: Id<"users">,
+) {
   const userId =
     knownUserId ?? (await t.mutation(internal.identity.signIn.createUser, { provider }));
   await t.mutation(internal.identity.signIn.onSignIn, { provider, userId });
@@ -138,7 +155,7 @@ describe("Samebase OAuth sign-in callbacks", () => {
 
     const userId = await signIn(
       t,
-      githubProvider({ id: "github-new", email: " NEW-GITHUB@example.com ", login: "new-login" }),
+      githubProvider({ id: "github-new", email: " NEW-GITHUB@example.com " }),
     );
 
     const user = await t.run(async (ctx) => await ctx.db.get(userId));
@@ -151,14 +168,16 @@ describe("Samebase OAuth sign-in callbacks", () => {
       isApproved: true,
     });
     expect(user).not.toHaveProperty("termsVersion");
-    await expect(readAccounts(t, userId)).resolves.toMatchObject([
+    // The GitHub row holds the raw GitHub user id; the hub reports no GitHub login.
+    const accounts = await readAccounts(t, userId);
+    expect(accounts).toMatchObject([
       {
         provider: "github",
         providerAccountId: "github-new",
         emailVerified: "new-github@example.com",
-        githubLogin: "new-login",
       },
     ]);
+    expect(accounts[0]).not.toHaveProperty("githubLogin");
     await expect(
       t.withIdentity({ subject: userId }).query(api.users.currentViewerAccess, {}),
     ).resolves.toMatchObject({ role: "role_terms_pending" });
@@ -186,7 +205,7 @@ describe("Samebase OAuth sign-in callbacks", () => {
     });
   });
 
-  it("returns the user of an identity from before Convex Auth 2 and keeps its account email", async () => {
+  it("returns the user of a GitHub identity from before the hub and keeps its account email", async () => {
     const t = makeConvexTest();
     const userId = await t.run(async (ctx) => {
       const userId = await insertUser(ctx, "original@example.com");
@@ -201,10 +220,7 @@ describe("Samebase OAuth sign-in callbacks", () => {
     });
 
     await expect(
-      signIn(
-        t,
-        githubProvider({ id: "github-known", email: "changed@example.com", login: "new-login" }),
-      ),
+      signIn(t, githubProvider({ id: "github-known", email: "changed@example.com" })),
     ).resolves.toBe(userId);
 
     await expect(t.run(async (ctx) => await ctx.db.get(userId))).resolves.toMatchObject({
@@ -214,12 +230,79 @@ describe("Samebase OAuth sign-in callbacks", () => {
       {
         providerAccountId: "github-known",
         emailVerified: "changed@example.com",
-        githubLogin: "new-login",
+        githubLogin: "old-login",
       },
     ]);
     await expect(t.run(async (ctx) => await ctx.db.query("users").collect())).resolves.toHaveLength(
       1,
     );
+  });
+
+  it("returns the user of a Google identity from before the hub when its email changed", async () => {
+    const t = makeConvexTest();
+    const userId = await t.run(async (ctx) => {
+      const userId = await insertUser(ctx, "google-original@example.com");
+      await ctx.db.insert("authAccounts", {
+        userId,
+        provider: "google",
+        providerAccountId: "google-known",
+        emailVerified: "google-original@example.com",
+      });
+      return userId;
+    });
+
+    await expect(
+      signIn(t, googleProvider({ id: "google-known", email: "google-changed@example.com" })),
+    ).resolves.toBe(userId);
+
+    await expect(
+      t.run(async (ctx) => await ctx.db.query("users").collect()),
+    ).resolves.toMatchObject([{ _id: userId, email: "google-original@example.com" }]);
+    await expect(readAccounts(t, userId)).resolves.toMatchObject([
+      {
+        provider: "google",
+        providerAccountId: "google-known",
+        emailVerified: "google-changed@example.com",
+      },
+    ]);
+  });
+
+  it("writes the missing GitHub row with the raw GitHub user id on a GitHub sign-in", async () => {
+    const t = makeConvexTest();
+    const userId = await t.run(async (ctx) => await insertUser(ctx, "raw-id@example.com"));
+
+    // The core already knows the hub subject, so only onSignIn runs.
+    await signIn(t, githubProvider({ id: "12345", email: "raw-id@example.com" }), userId);
+
+    await expect(readAccounts(t, userId)).resolves.toMatchObject([
+      { provider: "github", providerAccountId: "12345", emailVerified: "raw-id@example.com" },
+    ]);
+    await expect(
+      t.run(async (ctx) => await readGitHubSignInMatch(ctx.db, { userId, githubUserId: "12345" })),
+    ).resolves.toBe("matched");
+  });
+
+  it("leaves the GitHub row unchanged on a Google sign-in", async () => {
+    const t = makeConvexTest();
+    const { githubAccount, userId } = await t.run(async (ctx) => {
+      const userId = await insertUser(ctx, "both@example.com");
+      const githubAccountId = await ctx.db.insert("authAccounts", {
+        userId,
+        provider: "github",
+        providerAccountId: "67890",
+        emailVerified: "github-observation@example.com",
+        githubLogin: "both-login",
+      });
+      return { githubAccount: await ctx.db.get(githubAccountId), userId };
+    });
+
+    await expect(
+      signIn(t, googleProvider({ id: "google-both", email: "Both@Example.com" })),
+    ).resolves.toBe(userId);
+
+    const accounts = await readAccounts(t, userId);
+    expect(accounts).toHaveLength(2);
+    expect(accounts.find((account) => account.provider === "github")).toEqual(githubAccount);
   });
 
   it("attaches a new identity to the user with the same verified account email", async () => {
@@ -268,7 +351,7 @@ describe("Samebase OAuth sign-in callbacks", () => {
         t,
         googleProvider({ id: "google-unverified", email: "u@example.com", emailVerified: false }),
       ),
-    ).rejects.toMatchObject({ data: "Google did not verify the email address." });
+    ).rejects.toMatchObject({ data: "Google did not provide a verified email address." });
     await expect(t.run(async (ctx) => await ctx.db.query("users").collect())).resolves.toEqual([]);
   });
 
@@ -376,5 +459,21 @@ describe("Samebase OAuth sign-in callbacks", () => {
       state: "active",
       email: "returning@example.com",
     });
+  });
+});
+
+describe("hub profile mapping", () => {
+  it.each([
+    // The broker before `connector_account_id`: its users cannot be mapped to existing accounts.
+    ["without the connector's account id", { sub: "s", connector: "github", email_verified: true }],
+    [
+      "with a string email_verified",
+      { sub: "s", connector: "github", connector_account_id: "1", email_verified: "true" },
+    ],
+    ["of another connector", { sub: "s", connector: "google", connector_account_id: "1" }],
+  ])("refuses claims %s with a message for the sign-in page", (_name, claims) => {
+    expect(() => readHubProfile(claims, "github")).toThrow(
+      new ConvexError("The identity hub did not complete the GitHub sign-in. Try again later."),
+    );
   });
 });

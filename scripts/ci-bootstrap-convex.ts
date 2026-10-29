@@ -4,7 +4,7 @@ import { closeSync, existsSync, openSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { generateConvexAuthKeys } from "./lib/convexAuthKeys.ts";
+import { generateConvexAuthKeys, NO_HUB_ENVIRONMENT } from "./lib/convexAuthKeys.ts";
 import { samebaseAppFilePath } from "./lib/trackedFilePath.ts";
 
 const samebaseAppDirectory = path.join("apps", "samebase");
@@ -77,10 +77,7 @@ async function main(): Promise<void> {
 
     for (const [key, value] of [
       ...Object.entries(generateConvexAuthKeys()),
-      ["AUTH_GITHUB_CLIENT_ID", "ci-placeholder"],
-      ["AUTH_GITHUB_CLIENT_SECRET", "ci-placeholder"],
-      ["AUTH_GOOGLE_CLIENT_ID", "ci-placeholder"],
-      ["AUTH_GOOGLE_CLIENT_SECRET", "ci-placeholder"],
+      ...Object.entries(NO_HUB_ENVIRONMENT),
       ["CONVEX_AGENT_MODE", "anonymous"],
       ["GITHUB_APP_CLIENT_ID", "ci-placeholder"],
       ["GITHUB_APP_CLIENT_SECRET", "ci-placeholder"],

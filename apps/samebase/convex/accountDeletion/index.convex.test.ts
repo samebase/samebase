@@ -657,18 +657,18 @@ describe("account deletion with Convex Auth 2", () => {
     const issuer = "https://samebase-test.convex.site";
     const email = "deleted-github-user@example.invalid";
     const password = "deleted-user-password-1234";
-    // The arguments that the GitHub component passes to the core for a first sign-in.
+    // The arguments that the hub-github method passes to the core for a first sign-in.
     const githubSignUp = {
       claims: {
-        providerName: "github",
-        providerAccountId: "github-deleted-account",
+        providerName: "hub-github",
+        providerAccountId: "hub-subject-deleted-account",
         profile: {
-          id: "github-deleted-account",
-          login: "deleted-user",
+          id: "hub-subject-deleted-account",
+          connector: "github",
+          connector_account_id: "github-deleted-account",
           name: "Deleted User",
           email,
-          emailVerified: true,
-          avatarUrl: "https://example.com/avatar.png",
+          picture: "https://example.com/avatar.png",
         },
       },
       ...(await t.run(async () => ({
@@ -690,8 +690,8 @@ describe("account deletion with Convex Auth 2", () => {
     await t.mutation(internal.authAdmin.createOrUpdatePasswordAccount, { email, password });
     await expect(
       t.query(components.auth.public.getUserIdByAccount, {
-        provider: "github",
-        providerAccountId: "github-deleted-account",
+        provider: "hub-github",
+        providerAccountId: "hub-subject-deleted-account",
       }),
     ).resolves.toBe(userId);
 
@@ -722,11 +722,11 @@ describe("account deletion with Convex Auth 2", () => {
       t.mutation(components.authPassword.public.verifyPassword, { userId, password }),
     ).rejects.toThrow(`No password stored for userId ${userId}.`);
 
-    // The GitHub component signs up an identity that the core does not know.
+    // The hub method signs up a subject that the core does not know.
     await expect(
       t.query(components.auth.public.getUserIdByAccount, {
-        provider: "github",
-        providerAccountId: "github-deleted-account",
+        provider: "hub-github",
+        providerAccountId: "hub-subject-deleted-account",
       }),
     ).resolves.toBeNull();
     const nextSession = await t.mutation(components.auth.public.signUp, githubSignUp);

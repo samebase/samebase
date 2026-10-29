@@ -1,5 +1,4 @@
-import { useSignInWithGithub } from "@convex-dev/auth/methods/github/react";
-import { useSignInWithGoogle } from "@convex-dev/auth/methods/google/react";
+import { useOauthSignIn } from "@convex-dev/auth/methods/oauth/react";
 import { useAuthActions, useAuthToken } from "@convex-dev/auth/react";
 import { useSignOutSession } from "@samebase/convex-auth-tanstack-start";
 import { useRouter } from "@tanstack/react-router";
@@ -50,13 +49,21 @@ const deferredPostHogResetClient: PostHogResetClient = {
 };
 
 /**
- * Starts the provider redirect. The browser leaves the page when the start succeeds, and the
- * Convex Auth client finishes the sign-in when the provider returns to `redirectTo`, a path on
- * this origin.
+ * Starts the redirect to the identity hub, which signs in with the provider of the button. The
+ * browser leaves the page when the start succeeds, and the Convex Auth client finishes the sign-in
+ * when the hub returns to `redirectTo`, a path on this origin.
  */
 function useOAuthSignIn() {
-  const { signIn: signInWithGithub } = useSignInWithGithub(api.auth);
-  const { signIn: signInWithGoogle } = useSignInWithGoogle(api.auth);
+  const { signIn: signInWithGithub } = useOauthSignIn({
+    providerName: "hub-github",
+    startSignIn: api.auth.startSignInWithHubGithub,
+    completeSignIn: api.auth.completeSignInWithHubGithub,
+  });
+  const { signIn: signInWithGoogle } = useOauthSignIn({
+    providerName: "hub-google",
+    startSignIn: api.auth.startSignInWithHubGoogle,
+    completeSignIn: api.auth.completeSignInWithHubGoogle,
+  });
 
   return useCallback(
     async (provider: OAuthAuthProvider, redirectTo: string) => {

@@ -236,6 +236,24 @@ describe("UserSettingsPage", () => {
     expect(container.textContent).not.toContain("Personal repository creation");
   });
 
+  it("shows the GitHub email of an identity that the hub reported without a login", async () => {
+    testState.queries.set(getFunctionName(api.users.getUserSettings), {
+      accountEmail: "account@samebase.com",
+      displayName: "Current name",
+      signInMethods: {
+        github: { email: "octocat@example.com" },
+        google: null,
+        password: null,
+      },
+    });
+    const container = await mountSettingsPage();
+    const signInMethodsSection = container.querySelector(
+      '[aria-labelledby="settings-sign-in-methods-heading"]',
+    );
+
+    expect(signInMethodsSection?.textContent).toContain("GitHuboctocat@example.com");
+  });
+
   it("labels the stable address as Account email", async () => {
     testState.queries.set(getFunctionName(api.users.getUserSettings), {
       accountEmail: "account@samebase.com",

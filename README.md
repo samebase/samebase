@@ -205,16 +205,25 @@ immediately. An unset value keeps the seven-day wait.
 
 ## Sign-in
 
-Samebase signs in with Convex Auth 2. Its components serve their own HTTP routes on the deployment's
-site: the key set under `/auth`, the GitHub callback under `/auth/github`, and the Google callback
-under `/auth/google`. The GitHub App installation callback keeps `/oauth/github/callback` in
-`convex/http.ts`.
+Samebase signs in with Convex Auth 2. GitHub and Google sign-in run through the team's identity hub
+at `https://auth.samebase.com`, an OpenID Provider (`@samebase/identity-broker`) that holds the
+GitHub and Google clients. Each button is a method of `convex/auth.ts`, `hub-github` or
+`hub-google`, whose authorize URL names its connector: `<HUB_ISSUER>/authorize?connector=github`.
+Both methods share the `authHub` component, one hub client per deployment, which serves the hub's
+callback at `<site>/auth/hub/callback`. The core component serves the key set under `/auth`. The
+GitHub App installation callback keeps `/oauth/github/callback` in `convex/http.ts`.
+
+The hub's `sub` is pairwise for each app and connector. `convex/identity/signIn.ts` finds a user by
+the `authAccounts` row of the connector and the connector's own account id (`connector_account_id`:
+GitHub's numeric user id, or Google's `sub`), then by the verified email, so an account from before
+the hub keeps its user. A GitHub sign-in keeps the `github` row with the raw GitHub user id, which
+the GitHub App authorization must match.
 
 The session lives in two httpOnly cookies, `__convexAuthJWT` and `__convexAuthRefreshToken`, through
 [`@samebase/convex-auth-tanstack-start`](https://github.com/samebase/convex-hosting/tree/main/packages/convex-auth-tanstack-start).
 `src/server.ts` answers `POST /auth/signin`, `/auth/refresh`, and `/auth/signout`, and
 `convex/http.ts` routes these three exact paths to it. Every mutation that mints a session (the
-`completeSignIn*` functions of GitHub and Google, the password sign-in and sign-up, and the agent
+`completeSignIn*` functions of the two hub methods, the password sign-in and sign-up, and the agent
 browser handoff) is in the `signIn` list of `src/server.ts`, and the browser calls it through
 `/auth/signin`, so the refresh token lands in the cookie and the browser keeps only the access
 token. The server renders a page with the session of the request; a private page under the `_authed`
@@ -231,12 +240,41 @@ Every deployment needs these Convex environment variables:
   node -e 'import("../../scripts/lib/convexAuthKeys.ts").then(({ generateConvexAuthKeys }) => { for (const [name, value] of Object.entries(generateConvexAuthKeys())) require("node:child_process").spawnSync("npx", ["convex", "env", "set", name], { input: value, stdio: ["pipe", "inherit", "inherit"] }); })'
   ```
 
-- `AUTH_GITHUB_CLIENT_ID` and `AUTH_GITHUB_CLIENT_SECRET`: the GitHub OAuth App. Its callback URL is
-  `<site>/auth/github/callback`, for example `https://samebase.com/auth/github/callback`.
-- `AUTH_GOOGLE_CLIENT_ID` and `AUTH_GOOGLE_CLIENT_SECRET`: the Google OAuth client. Its redirect URI
-  is `<site>/auth/google/callback`.
+- `HUB_ISSUER`, `HUB_CLIENT_ID`, and `HUB_CLIENT_SECRET`: the identity hub,
+  `https://auth.samebase.com`, and this deployment's client at it. A deployment gets its client by
+  posting its callback URL `<site>/auth/hub/callback` to `<HUB_ISSUER>/register` with the app's
+  registration token as a Bearer token. A linked worktree and CI have no hub: their setup writes
+  `HUB_ISSUER=http://127.0.0.1:1` and `no-hub` as the client id and secret, and their pages offer
+  only the password form (`?prod-ui` shows the hub buttons of the production page).
 - `SITE_URL`: the app origin. OAuth sign-ins may return only to `SITE_URL` and to the deployment's
   own `CONVEX_SITE_URL`.
+
+The identity hub needs two steps outside this repository, once:
+
+1. The hub admin runs `createApp` on the hub for the first-party app `Samebase`, with the callback
+   hosts `samebase.com` and `*.convex.site`, then `mintRegistrationToken` for that app. The hub
+   sends `connector_account_id`, which keeps existing users on their accounts, only to first-party
+   apps.
+2. The repository variable `HUB_ISSUER` holds `https://auth.samebase.com`, and the repository secret
+   `HUB_REGISTRATION_TOKEN` holds that token.
+
+The root `alchemy.run.ts` registers production and each preview with `IdentityHub.Client`, on
+`https://samebase.com/auth/hub/callback` and `<preview site>/auth/hub/callback`, and writes the
+three variables to the deployment before its push. A run without the variable or the secret stops
+before it touches anything.
+
+The development deployment of the primary checkout gets its client from
+`apps/samebase/scripts/register-hub-client.ts`, which `pnpm run dev` runs before its first push. Put
+the hub values in `apps/samebase/.env.local` once:
+
+```bash
+HUB_ISSUER=https://auth.samebase.com
+HUB_REGISTRATION_TOKEN=<the registration token>
+```
+
+The script registers once and writes `HUB_ISSUER`, `HUB_CLIENT_ID`, and `HUB_CLIENT_SECRET` to the
+development deployment; it registers again only when the stored secret is missing or the stored
+issuer is another one. It leaves the no-hub values of a linked worktree.
 
 Password sign-in is for accounts that only server functions create. Local worktrees use their seeded
 password account. Preview deployments use `DEV_SEED_AUTH_EMAIL` and `DEV_SEED_AUTH_PASSWORD` (at

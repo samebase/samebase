@@ -57,7 +57,7 @@ const vSessionRecordingConsentStatus = union(
 );
 
 const vSignInMethod = object({ email: string() });
-const vGitHubSignInMethod = object({ email: string(), login: string() });
+const vGitHubSignInMethod = object({ email: string(), login: optional(string()) });
 const vSignInMethods = object({
   google: union(vSignInMethod, v.null()),
   github: union(vGitHubSignInMethod, v.null()),
@@ -320,7 +320,7 @@ export const getUserSettings = query({
       .withIndex("userIdAndProvider", (query) => query.eq("userId", user._id))
       .collect();
     let google: { email: string } | null = null;
-    let github: { email: string; login: string } | null = null;
+    let github: Infer<typeof vGitHubSignInMethod> | null = null;
     let password: { email: string } | null = null;
     for (const account of accounts) {
       switch (account.provider) {
@@ -331,16 +331,14 @@ export const getUserSettings = query({
           google = { email: normalizeAccountEmail(account.emailVerified) };
           break;
         case "github":
-          if (
-            github !== null ||
-            account.emailVerified === undefined ||
-            account.githubLogin === undefined
-          ) {
+          if (github !== null || account.emailVerified === undefined) {
             throw new Error("GitHub sign-in identity is inconsistent.");
           }
+          // The hub reports no GitHub login: only an identity that the GitHub method before the
+          // hub signed in has one.
           github = {
             email: normalizeAccountEmail(account.emailVerified),
-            login: account.githubLogin,
+            ...(account.githubLogin === undefined ? {} : { login: account.githubLogin }),
           };
           break;
         case "password":
