@@ -15,10 +15,16 @@
 import { spawnSync } from "node:child_process";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
+import { validate } from "convex-helpers/validators";
+import { v } from "convex/values";
 import { NO_HUB_ENVIRONMENT } from "../../../scripts/lib/convexAuthKeys.ts";
 import { readEnvFile } from "./convex-local-utils.ts";
 
 const CALLBACK_PATH = "/auth/hub/callback";
+const { object, string } = v;
+/** The hub's RFC 7591 answer to a registration, and its OAuth error answer. */
+const vHubRegistration = object({ client_id: string(), client_secret: string() });
+const vHubError = object({ error: string() });
 const CONVEX_CLI_PATH = fileURLToPath(
   new URL("../node_modules/convex/bin/main.js", import.meta.url),
 );
@@ -91,23 +97,19 @@ export async function registerHubClient(
     }),
   });
   const body: unknown = await response.json();
-  const record =
-    typeof body === "object" && body !== null ? Object.fromEntries(Object.entries(body)) : {};
-  const clientId = record["client_id"];
-  const clientSecret = record["client_secret"];
-  if (response.status !== 201 || typeof clientId !== "string" || typeof clientSecret !== "string") {
-    throw new Error(
-      `Hub registration failed with ${response.status}: ${String(record["error"] ?? "")}`.trim(),
-    );
+  if (response.status !== 201 || !validate(vHubRegistration, body, { allowUnknownFields: true })) {
+    // The hub's OAuth error code only, never its description.
+    const code = validate(vHubError, body, { allowUnknownFields: true }) ? body.error : "";
+    throw new Error(`Hub registration failed with ${response.status}: ${code}`.trim());
   }
   // One request on standard input, so the secret stays out of the process arguments. `--force`
   // replaces the values of an earlier client.
   runConvex(
     ["env", "set", "--force"],
-    `HUB_ISSUER='${issuer}'\nHUB_CLIENT_ID='${clientId}'\nHUB_CLIENT_SECRET='${clientSecret}'\n`,
+    `HUB_ISSUER='${issuer}'\nHUB_CLIENT_ID='${body.client_id}'\nHUB_CLIENT_SECRET='${body.client_secret}'\n`,
   );
   console.log(`Hub client registered for ${callbackUrl}.`);
-  return { clientId, callbackUrl };
+  return { clientId: body.client_id, callbackUrl };
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {

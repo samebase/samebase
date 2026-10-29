@@ -98,7 +98,7 @@ describe("registerHubClient", () => {
     });
   });
 
-  it("leaves the no-hub values of a linked worktree, whatever .env.local holds", async () => {
+  it("leaves the no-hub values of a linked worktree with the hub values given", async () => {
     const noHub = {
       HUB_ISSUER: "http://127.0.0.1:1",
       HUB_CLIENT_ID: "no-hub",
