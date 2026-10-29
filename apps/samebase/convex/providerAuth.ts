@@ -1,32 +1,32 @@
 import { Infer, v } from "convex/values";
 
-import { sameSealedSecret, vStoredSecret } from "./sealedSecret";
+import { sameSealedSecret, vSealedSecret } from "./sealedSecret";
 
 const { literal, number, object, string, union } = v;
 
 export const vOAuthAuth = object({
   method: literal("oauth"),
-  credential: vStoredSecret,
+  credential: vSealedSecret,
 });
 
 export const vCloudflareOAuthAuth = object({
   method: literal("oauth"),
-  credential: vStoredSecret,
-  refreshCredential: vStoredSecret,
+  credential: vSealedSecret,
+  refreshCredential: vSealedSecret,
   credentialExpiresAt: number(),
 });
 
 export const vMcpOAuthAuth = object({
   method: literal("mcp_oauth"),
-  credential: vStoredSecret,
-  refreshCredential: vStoredSecret,
+  credential: vSealedSecret,
+  refreshCredential: vSealedSecret,
   credentialExpiresAt: number(),
   clientId: string(),
 });
 
 export const vApiKeyAuth = object({
   method: literal("api_key"),
-  credential: vStoredSecret,
+  credential: vSealedSecret,
 });
 
 export const vStandardProviderAuth = union(vOAuthAuth, vApiKeyAuth);

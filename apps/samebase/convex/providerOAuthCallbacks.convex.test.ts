@@ -40,7 +40,7 @@ import { makeConvexTest, testCredential } from "./test.setup";
 import { buildAuthorizationErrorUrl } from "../shared/authorizationError";
 import { buildProviderOAuthCompletionUrl } from "../shared/providerOAuthReturn";
 import type { OAuthProvider } from "./oauthState";
-import { openSecret, type StoredSecret } from "./sealedSecret";
+import { openSecret, type SealedSecret } from "./sealedSecret";
 import { organizationProviderCredentialAad } from "./organization/providerCredentialModel";
 
 const callbackScenarios = [
@@ -734,7 +734,7 @@ describe("provider OAuth callback organization returns", () => {
       expect(snapshot.oauthState).toBeNull();
       // The callback seals the exchanged tokens for this organization and field.
       const open = (
-        sealed: StoredSecret,
+        sealed: SealedSecret,
         field: Parameters<typeof organizationProviderCredentialAad>[1],
       ) => openSecret({ sealed, aad: organizationProviderCredentialAad(organizationId, field) });
       if (scenario.provider === "convex") {

@@ -15,7 +15,7 @@ import { isRecord, toErrorMessage } from "../jsonUtils";
 import { requireRepositoryForUser } from "../organizationAccess";
 import { getOrganizationProviderConfiguration } from "../organizationProviderCredentials";
 import { organizationProviderCredentialAad } from "../organization/providerCredentialModel";
-import { openSecret, vStoredSecret } from "../sealedSecret";
+import { openSecret, vSealedSecret } from "../sealedSecret";
 import {
   createConvexDeploymentDeployKey,
   deleteConvexDeploymentDeployKey,
@@ -59,7 +59,7 @@ const CONVEX_INSPECTION_DEPLOY_KEY_ALLOWED_ACTIONS = {
 const vConvexProviderAuthMethod = union(literal("api_key"), literal("oauth"));
 const vSealedConvexInspectionTarget = object({
   organizationId: id("organizations"),
-  credential: vStoredSecret,
+  credential: vSealedSecret,
   authMethod: vConvexProviderAuthMethod,
   githubRepositoryFullName: string(),
   projects: array(vRepositoryConvexProjectDocument),

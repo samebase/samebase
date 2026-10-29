@@ -12,7 +12,7 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { toErrorMessage } from "./jsonUtils";
 import { requireCompleteCiCredentials } from "./organization/ciCredentials";
 import { readCiCredentialRevision } from "./organization/providerCredentialModel";
-import { vStoredSecret } from "./sealedSecret";
+import { vSealedSecret } from "./sealedSecret";
 import { getOrganizationCiCredentials } from "./organizationProviderCredentials";
 import {
   REPOSITORY_ACTIONS_DEFAULT_BRANCH,
@@ -106,9 +106,9 @@ export function readRetryProvisioning(
 }
 const actionsSecretsTarget = object({
   organizationId: id("organizations"),
-  cloudflareApiToken: vStoredSecret,
+  cloudflareApiToken: vSealedSecret,
   cloudflareAccountId: string(),
-  convexAccessToken: vStoredSecret,
+  convexAccessToken: vSealedSecret,
   convexTeamId: string(),
   credentialRevision: number(),
 });
