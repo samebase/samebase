@@ -109,12 +109,13 @@ test.describe("sidebar layout touch-first phone", () => {
     await gotoSidebarLayoutStatusBarFixture(page);
     await expectTouchFirstViewport(page, 390);
 
-    const fixture = page
-      .locator('[data-sidebar-layout-part="root"]')
-      .filter({ has: page.getByTestId("sidebar-layout-main-editor-surface") });
+    const mainSurface = page.getByTestId("sidebar-layout-main-editor-surface");
+    const fixture = page.locator('[data-sidebar-layout-part="root"]').filter({ has: mainSurface });
     const mainPane = page.locator('[data-sidebar-layout-part="pane"][data-pane-side="main"]');
 
     await expect(fixture).toBeVisible();
+    // Monaco paints "Loading..." until the editor mounts.
+    await expect(mainSurface.locator(".view-lines").first()).toBeVisible();
     await expect
       .poll(async () => getHorizontalSeparatorWidths(mainPane))
       .toEqual({ left: "0px", right: "0px" });
