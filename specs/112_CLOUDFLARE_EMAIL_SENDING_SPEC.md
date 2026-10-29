@@ -39,20 +39,20 @@ onboarded sending domain. The account ID is configuration, not a secret.
 
 ## Deployment Contract
 
-Samebase owns two account-owned API tokens:
+Samebase sends with two API tokens:
 
-1. `samebase production email sending`, minted by stage `prod` of `alchemy.run.ts`
-   (`Cloudflare.ApiToken.AccountApiToken`, retained on destroy). Every production deploy writes
-   `CLOUDFLARE_EMAIL_ACCOUNT_ID` and `CLOUDFLARE_EMAIL_API_TOKEN` to the production deployment
-   before its push. Do not set them on production by hand: the next deploy overwrites them. Minting
-   needs `Account API Tokens: Edit` on the Cloudflare token of the deploy, the repository secret
-   `CLOUDFLARE_API_TOKEN`.
-2. `samebase-email-nonproduction`, created by hand under `Manage Account > Account API Tokens` and
-   shared by the Convex development deployment and Convex preview defaults.
+1. The account-owned token `samebase production email sending`, minted by stage `prod` of
+   `alchemy.run.ts` (`Cloudflare.ApiToken.AccountApiToken`, retained on destroy). Every production
+   deploy writes `CLOUDFLARE_EMAIL_ACCOUNT_ID` and `CLOUDFLARE_EMAIL_API_TOKEN` to the production
+   deployment before its push. Do not set them on production by hand: the next deploy overwrites
+   them. Minting needs `Account API Tokens: Edit` on the Cloudflare token of the deploy, the
+   repository secret `CLOUDFLARE_API_TOKEN`.
+2. The user token `samebase-email-nonproduction`, created by hand under `My Profile > API Tokens`
+   and shared by the Convex development deployment and Convex preview defaults.
 
-The hand-made production token `samebase-email-production` is revoked under
-`Manage Account > Account API Tokens` after the first successful production deploy that minted its
-replacement and one email received from production.
+The user token `samebase-email-production` is revoked under `My Profile > API Tokens` after the
+first successful production deploy that minted its replacement and one email received from
+production.
 
 Both token values use the same `CLOUDFLARE_EMAIL_API_TOKEN` variable name. Code does not select a
 token or maintain an email-specific environment discriminator. It uses the existing
@@ -150,8 +150,8 @@ The reusable Samebase stack pattern is:
 4. Keep one SPF record per hostname. Google Workspace SPF remains on the root; Cloudflare's bounce
    SPF belongs on the Cloudflare-provided bounce hostname.
 5. Publish one root DMARC policy after all legitimate senders have aligned SPF or DKIM.
-6. Use separate production and non-production account-owned Email Sending API tokens: the deploy
-   mints production's, and the non-production one is created by hand.
+6. Use separate production and non-production Email Sending API tokens: the deploy mints
+   production's account-owned token, and the non-production one is a hand-made user token.
 7. Store credentials in each backend deployment, never in frontend or build-time public variables.
 8. Label non-production messages from the application's existing deployment classification.
 
