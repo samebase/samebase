@@ -1,3 +1,4 @@
+import { ConvexError } from "convex/values";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { api, components, internal } from "../_generated/api";
@@ -38,19 +39,22 @@ function hubProvider(connector: "github" | "google", identity: HubIdentity) {
   return {
     name: `hub-${connector}` as const,
     accountId: subject,
-    profile: readHubProfile({
-      iss: "https://auth.samebase.com",
-      aud: "samebase-client",
-      iat: 1_800_000_000,
-      exp: 1_800_000_300,
-      sub: subject,
+    profile: readHubProfile(
+      {
+        iss: "https://auth.samebase.com",
+        aud: "samebase-client",
+        iat: 1_800_000_000,
+        exp: 1_800_000_300,
+        sub: subject,
+        connector,
+        connector_account_id: identity.id,
+        email: identity.email,
+        email_verified: identity.emailVerified ?? true,
+        name: "OAuth User",
+        picture: "https://example.com/avatar.png",
+      },
       connector,
-      connector_account_id: identity.id,
-      email: identity.email,
-      email_verified: identity.emailVerified ?? true,
-      name: "OAuth User",
-      picture: "https://example.com/avatar.png",
-    }),
+    ),
   };
 }
 
@@ -459,15 +463,17 @@ describe("Samebase OAuth sign-in callbacks", () => {
 });
 
 describe("hub profile mapping", () => {
-  it("refuses claims without the connector's account id", () => {
+  it.each([
     // The broker before `connector_account_id`: its users cannot be mapped to existing accounts.
-    expect(() =>
-      readHubProfile({
-        sub: "github-subject",
-        connector: "github",
-        email: "x@example.com",
-        email_verified: true,
-      }),
-    ).toThrow();
+    ["without the connector's account id", { sub: "s", connector: "github", email_verified: true }],
+    [
+      "with a string email_verified",
+      { sub: "s", connector: "github", connector_account_id: "1", email_verified: "true" },
+    ],
+    ["of another connector", { sub: "s", connector: "google", connector_account_id: "1" }],
+  ])("refuses claims %s with a message for the sign-in page", (_name, claims) => {
+    expect(() => readHubProfile(claims, "github")).toThrow(
+      new ConvexError("The identity hub did not complete the GitHub sign-in. Try again later."),
+    );
   });
 });

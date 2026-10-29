@@ -51,7 +51,7 @@ function setupHubMethod<Connector extends AuthAccountProvider>(
       tokenEndpoint: `${env.HUB_ISSUER}/token`,
       issuer: env.HUB_ISSUER,
       scopes: ["openid", "email", "profile"],
-      profile: readHubProfile,
+      profile: (claims) => readHubProfile(claims, connector),
     },
     {
       createUser: internal.identity.signIn.createUser,

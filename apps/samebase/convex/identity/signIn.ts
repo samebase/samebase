@@ -1,4 +1,4 @@
-import { parse } from "convex-helpers/validators";
+import { parse, validate } from "convex-helpers/validators";
 import { createFunctionHandle } from "convex/server";
 import { ConvexError, v, type Infer } from "convex/values";
 
@@ -38,10 +38,20 @@ const vHubClaims = object({
 });
 
 /**
-The profile mapping of the hub methods in convex/auth.ts. The callbacks below find existing users by
-the email, so only an address that the hub verified counts.
+The profile mapping of the hub method of `connector` in convex/auth.ts. It refuses claims of
+another shape, such as those of a broker without `connector_account_id`, and claims of another
+connector than the method's, with a message for the sign-in page. The callbacks below find existing
+users by the email, so only an address that the hub verified counts.
 */
-export function readHubProfile(claims: unknown) {
+export function readHubProfile(claims: unknown, connector: AuthAccountProvider) {
+  if (
+    !validate(vHubClaims, claims, { allowUnknownFields: true }) ||
+    claims.connector !== connector
+  ) {
+    throw new ConvexError(
+      `The identity hub did not complete the ${readProviderLabel(connector)} sign-in. Try again later.`,
+    );
+  }
   const { sub, email, email_verified, ...profile } = parse(vHubClaims, claims);
   return {
     id: sub,

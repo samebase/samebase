@@ -30,7 +30,9 @@ The hub's `sub` is pairwise: stable for Samebase and different for each connecto
 one account for each hub subject. The id_token also carries `connector` (`github` or `google`) and
 `connector_account_id`, the connector's own account id: GitHub's numeric user id as a string, or
 Google's `sub`. A GitHub or Google `authAccounts` row is keyed by the connector and that id, the
-same key as before the hub.
+same key as before the hub. The hub sends `connector_account_id` only to first-party apps. A method
+refuses an id_token without it, with claims of another type, or of another connector than its own,
+with a message on the sign-in page.
 
 `users.email` is one stable, verified email on a non-deleted Samebase account. One normalized
 account email belongs to at most one active Samebase account. A deleted row has no email. The email
