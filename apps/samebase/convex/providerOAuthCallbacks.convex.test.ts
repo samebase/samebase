@@ -36,10 +36,12 @@ vi.mock("../.convex-hosting/version.js", () => ({ versionId: "test" }));
 
 import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
-import { makeConvexTest } from "./test.setup";
+import { makeConvexTest, testCredential } from "./test.setup";
 import { buildAuthorizationErrorUrl } from "../shared/authorizationError";
 import { buildProviderOAuthCompletionUrl } from "../shared/providerOAuthReturn";
 import type { OAuthProvider } from "./oauthState";
+import { openSecret, type StoredSecret } from "./sealedSecret";
+import { organizationProviderCredentialAad } from "./organization/providerCredentialModel";
 
 const callbackScenarios = [
   {
@@ -95,7 +97,7 @@ const storageBoundaryScenarios = [
       access_token: "convex-access-token",
       token_type: "bearer",
     },
-    storedAuth: { method: "oauth", credential: "convex-access-token" },
+    storedAuth: { method: "oauth" },
   },
   {
     completionEventType: "cloudflare-oauth-complete",
@@ -107,12 +109,7 @@ const storageBoundaryScenarios = [
       refresh_token: "cloudflare-refresh-token",
       expires_in: 3_600,
     },
-    storedAuth: {
-      method: "oauth",
-      credential: "cloudflare-access-token",
-      refreshCredential: "cloudflare-refresh-token",
-      credentialExpiresAt: expect.any(Number),
-    },
+    storedAuth: { method: "oauth", credentialExpiresAt: expect.any(Number) },
   },
   {
     completionEventType: "cloudflare-mcp-oauth-complete",
@@ -126,8 +123,6 @@ const storageBoundaryScenarios = [
     },
     storedAuth: {
       method: "mcp_oauth",
-      credential: "cloudflare-mcp-access-token",
-      refreshCredential: "cloudflare-mcp-refresh-token",
       credentialExpiresAt: expect.any(Number),
       clientId: "cloudflare-mcp-client",
     },
@@ -145,8 +140,8 @@ const reusedCloudflareGrantScenarios = [
     codeVerifier: undefined,
     auth: {
       method: "oauth" as const,
-      credential: "stored-access-token",
-      refreshCredential: "shared-refresh-token",
+      credential: testCredential("stored-access-token"),
+      refreshCredential: testCredential("shared-refresh-token"),
       credentialExpiresAt: Date.now() + 60_000,
     },
     tokenResponse: {
@@ -163,8 +158,8 @@ const reusedCloudflareGrantScenarios = [
     codeVerifier: "cloudflare-mcp-code-verifier",
     auth: {
       method: "mcp_oauth" as const,
-      credential: "stored-access-token",
-      refreshCredential: "shared-refresh-token",
+      credential: testCredential("stored-access-token"),
+      refreshCredential: testCredential("shared-refresh-token"),
       credentialExpiresAt: Date.now() + 60_000,
       clientId: "shared-client-id",
     },
@@ -737,11 +732,33 @@ describe("provider OAuth callback organization returns", () => {
       expect(fetch).toHaveBeenCalledOnce();
       const snapshot = await readProviderOAuthSnapshot(t, { organizationId, state });
       expect(snapshot.oauthState).toBeNull();
-      expect(
-        scenario.provider === "convex"
-          ? snapshot.credentials?.convex
-          : snapshot.credentials?.cloudflare,
-      ).toMatchObject({ auth: scenario.storedAuth, connectedByUserId: userId });
+      // The callback seals the exchanged tokens for this organization and field.
+      const open = (
+        sealed: StoredSecret,
+        field: Parameters<typeof organizationProviderCredentialAad>[1],
+      ) => openSecret({ sealed, aad: organizationProviderCredentialAad(organizationId, field) });
+      if (scenario.provider === "convex") {
+        const credential = snapshot.credentials?.convex;
+        expect(credential).toMatchObject({ auth: scenario.storedAuth, connectedByUserId: userId });
+        if (credential === undefined) {
+          throw new Error("Expected the Convex credential.");
+        }
+        await expect(open(credential.auth.credential, "convex.auth.credential")).resolves.toBe(
+          scenario.tokenResponse.access_token,
+        );
+      } else {
+        const credential = snapshot.credentials?.cloudflare;
+        expect(credential).toMatchObject({ auth: scenario.storedAuth, connectedByUserId: userId });
+        if (credential === undefined || credential.auth.method === "api_key") {
+          throw new Error("Expected the Cloudflare OAuth credential.");
+        }
+        await expect(open(credential.auth.credential, "cloudflare.auth.credential")).resolves.toBe(
+          scenario.tokenResponse.access_token,
+        );
+        await expect(
+          open(credential.auth.refreshCredential, "cloudflare.auth.refreshCredential"),
+        ).resolves.toBe(scenario.tokenResponse.refresh_token);
+      }
     },
   );
 
@@ -1005,14 +1022,14 @@ describe("provider OAuth callback organization returns", () => {
           : scenario.provider === "cloudflare"
             ? {
                 method: "oauth" as const,
-                credential: "old-access-token",
-                refreshCredential: "old-refresh-token",
+                credential: testCredential("old-access-token"),
+                refreshCredential: testCredential("old-refresh-token"),
                 credentialExpiresAt: Date.now() + 60_000,
               }
             : {
                 method: "mcp_oauth" as const,
-                credential: "old-access-token",
-                refreshCredential: "old-refresh-token",
+                credential: testCredential("old-access-token"),
+                refreshCredential: testCredential("old-refresh-token"),
                 credentialExpiresAt: Date.now() + 60_000,
                 clientId: scenario.clientId,
               };
@@ -1155,7 +1172,10 @@ describe("provider OAuth callback organization returns", () => {
         githubInstallationId: "convex-target-installation",
       },
     );
-    const storedAuth = { method: "oauth" as const, credential: "stored-convex-token" };
+    const storedAuth = {
+      method: "oauth" as const,
+      credential: testCredential("stored-convex-token"),
+    };
     await t.run(async (ctx) => {
       await ctx.db.patch(organizationId, {
         convexTeam: { teamId: "configured-team", teamSlug: "configured-team" },

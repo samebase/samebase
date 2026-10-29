@@ -13,6 +13,8 @@ import { createCloudflareClient, resolveCloudflareApiTransport } from "./cloudfl
 import { Cloudflare } from "./cloudflareApi/generated/sdk.gen";
 import { CLOUDFLARE_MCP_OAUTH_SCOPES } from "./cloudflareMcpOAuth";
 import { deriveMcpTokenStatusFromExpiry, type McpTokenHealth } from "./mcpTokenHealth";
+import { organizationProviderCredentialAad } from "./organization/providerCredentialModel";
+import { openSecret } from "./sealedSecret";
 
 const { array, boolean, id, literal, object, string, union } = v;
 
@@ -125,7 +127,12 @@ export const checkCloudflareConnectionAccess = action({
 
     const resolvedConnection = connection;
     const authMethod = resolvedConnection.auth.method;
-    const token = resolvedConnection.auth.credential.trim();
+    const token = (
+      await openSecret({
+        sealed: resolvedConnection.auth.credential,
+        aad: organizationProviderCredentialAad(organizationId, "cloudflare.auth.credential"),
+      })
+    ).trim();
     const transport = resolveCloudflareApiTransport(authMethod);
     const checks: CloudflareAccessCheck[] = [];
 

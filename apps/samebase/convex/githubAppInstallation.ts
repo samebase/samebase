@@ -22,6 +22,7 @@ import {
   verifyGitHubUserAuthorization,
 } from "./githubApp";
 import { vGitHubAppSetupPurpose } from "./githubAppSetupModel";
+import { githubUserAuthorizationAad } from "./githubUserAuthorizationModel";
 import {
   hasMatchingGitHubUserAuthorization,
   readGitHubSignInProviderAccountId,
@@ -42,6 +43,7 @@ import {
   classifyAuthorizationCallbackError,
 } from "./authorizationCompletion";
 import { readActiveUser } from "./identity/lifecycle";
+import { openSecret, sealSecret, vSealedSecret, vStoredSecret } from "./sealedSecret";
 
 const { boolean, id, literal, number, object, optional, string, union } = v;
 
@@ -75,7 +77,7 @@ const vGitHubAppSetupCompletion = union(
   object({ status: literal("organization_owner_required"), githubOwnerLogin: string() }),
 );
 const vGitHubUserAuthorizationCompletion = union(
-  object({ status: literal("stored"), displacedAccessToken: optional(string()) }),
+  object({ status: literal("stored"), displacedAccessToken: optional(vStoredSecret) }),
   object({ status: literal("access_lost") }),
   object({ status: literal("github_sign_in_required") }),
   object({ status: literal("github_sign_in_mismatch") }),
@@ -404,9 +406,9 @@ export const completeUserAuthorization = internalMutation({
     state: string(),
     githubUserId: string(),
     githubUserLogin: string(),
-    accessToken: string(),
+    accessToken: vSealedSecret,
     accessTokenExpiresAt: number(),
-    refreshToken: string(),
+    refreshToken: vSealedSecret,
     refreshTokenExpiresAt: number(),
   },
   returns: vGitHubUserAuthorizationCompletion,
@@ -715,9 +717,15 @@ export const finishGitHubAppInstallation = httpAction(async (ctx, request) => {
               {
                 setupStateId: setupState.setupStateId,
                 state,
-                accessToken: authorization.accessToken,
+                accessToken: await sealSecret(ctx, {
+                  plaintext: authorization.accessToken,
+                  aad: githubUserAuthorizationAad(setupState.userId, "accessToken"),
+                }),
                 accessTokenExpiresAt: authorization.accessTokenExpiresAt,
-                refreshToken: authorization.refreshToken,
+                refreshToken: await sealSecret(ctx, {
+                  plaintext: authorization.refreshToken,
+                  aad: githubUserAuthorizationAad(setupState.userId, "refreshToken"),
+                }),
                 refreshTokenExpiresAt: authorization.refreshTokenExpiresAt,
                 githubUserId: authorization.githubUserId,
                 githubUserLogin: authorization.githubUserLogin,
@@ -754,7 +762,13 @@ export const finishGitHubAppInstallation = httpAction(async (ctx, request) => {
           if (completion.status !== "stored") {
             await revokeUncommittedGitHubUserToken(authorization.accessToken);
           } else if (completion.displacedAccessToken !== undefined) {
-            await revokeUncommittedGitHubUserToken(completion.displacedAccessToken);
+            const displacedAccessToken = await openSecret({
+              sealed: completion.displacedAccessToken,
+              aad: githubUserAuthorizationAad(setupState.userId, "accessToken"),
+            });
+            if (displacedAccessToken !== authorization.accessToken) {
+              await revokeUncommittedGitHubUserToken(displacedAccessToken);
+            }
           }
           console.log("github:authorization:callback_completed", {
             outcome: completion.status,

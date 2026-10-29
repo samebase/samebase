@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
 
 import { api, internal } from "./_generated/api";
-import { makeConvexTest } from "./test.setup";
+import { makeConvexTest, testCredential } from "./test.setup";
 
 describe("GitHub-backed organizations", () => {
   it("denies organization inventory before account approval", async () => {
@@ -65,7 +65,7 @@ describe("GitHub-backed organizations", () => {
       return await ctx.db.insert("organizationProviderCredentials", {
         organizationId: created.organizationId,
         convex: {
-          auth: { method: "api_key", credential: "convex-credential" },
+          auth: { method: "api_key", credential: testCredential("convex-credential") },
           connectedByUserId: userId,
           updatedAt: 1,
         },
@@ -122,7 +122,7 @@ describe("GitHub-backed organizations", () => {
     expect(snapshot.providerCredentials).toMatchObject({
       organizationId: created.organizationId,
       convex: {
-        auth: { method: "api_key", credential: "convex-credential" },
+        auth: { method: "api_key", credential: testCredential("convex-credential") },
         connectedByUserId: userId,
       },
     });
@@ -310,9 +310,9 @@ describe("GitHub-backed organizations", () => {
         userId,
         githubUserId: "personal-owner-id",
         githubUserLogin: "personal-owner",
-        accessToken: "personal-capability-access-token",
+        accessToken: testCredential("personal-capability-access-token"),
         accessTokenExpiresAt: now + 60_000,
-        refreshToken: "personal-capability-refresh-token",
+        refreshToken: testCredential("personal-capability-refresh-token"),
         refreshTokenExpiresAt: now + 120_000,
         createdAt: now,
         updatedAt: now,

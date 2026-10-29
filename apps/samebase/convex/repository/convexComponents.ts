@@ -11,7 +11,6 @@ import {
   unknown as sureUnknown,
 } from "@samebase/sure";
 import { Infer, v } from "convex/values";
-import { internal } from "../_generated/api";
 import { action } from "../functions";
 import { isRecord } from "../jsonUtils";
 import { readAlchemyStacks, readProductionConvexDeployments } from "./alchemyState";
@@ -19,6 +18,7 @@ import { readConvexProductionDeployment } from "./convexProjectResources";
 import { fieldsFromDeclaredDocumentType, readDeclaredTables } from "./convexSchemaGraph";
 import {
   fetchConvexSystemQueryBatch,
+  readConvexInspectionTarget,
   withConvexInspectionDeployKey,
   type ConvexInspectionTarget,
 } from "./convexDeploymentInspection";
@@ -144,7 +144,7 @@ export const observe = action({
   },
   returns: vConvexComponentsObservation,
   handler: async (ctx, args): Promise<ConvexComponentsObservation> => {
-    const target = await ctx.runQuery(internal.repository.convexDeploymentInspection.readTarget, {
+    const target = await readConvexInspectionTarget(ctx, {
       repositoryId: args.repositoryId,
       userId: ctx.viewer.userId,
     });

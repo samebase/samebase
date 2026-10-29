@@ -1,16 +1,25 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { internal } from "./_generated/api";
-import type { CloudflareProviderCredential } from "./organization/providerCredentialModel";
-import { insertTestOrganizationBillingAccount, makeConvexTest } from "./test.setup";
+import {
+  organizationProviderCredentialAad,
+  type CloudflareProviderCredential,
+} from "./organization/providerCredentialModel";
+import { openSecret, type StoredSecret } from "./sealedSecret";
+import {
+  insertTestOrganizationBillingAccount,
+  makeConvexTest,
+  sealTestCredentials,
+  testCredential,
+} from "./test.setup";
 
 const actionId = "rotate-keys";
 const now = 1_800_000_000_000;
 const account = { accountId: "cloudflare-account", accountName: "Cloudflare account" };
 const oauth = {
   method: "oauth",
-  credential: "old-access",
-  refreshCredential: "old-refresh",
+  credential: testCredential("old-access"),
+  refreshCredential: testCredential("old-refresh"),
   credentialExpiresAt: now - 1,
 } as const;
 
@@ -73,13 +82,26 @@ async function seedManualWrite(auth: CloudflareProviderCredential["auth"]) {
     });
     return { userId, organizationId, repositoryId, credentialId };
   });
+  await sealTestCredentials(t);
   await t.mutation(internal.repository.infrastructureOperation.claimManualProviderWrite, {
     repositoryId: ids.repositoryId,
     userId: ids.userId,
     actionId,
     action: "rotate_convex_deploy_keys_for_workers_builds",
   });
-  return { t, ...ids };
+  const stored = await t.run(async (ctx) => await ctx.db.get(ids.credentialId));
+  if (stored?.cloudflare === undefined) {
+    throw new Error("Expected the Cloudflare credential.");
+  }
+  return { t, ...ids, sealedAuth: stored.cloudflare.auth };
+}
+
+function openCloudflareCredential(
+  seed: Awaited<ReturnType<typeof seedManualWrite>>,
+  sealed: StoredSecret,
+  field: "cloudflare.auth.credential" | "cloudflare.auth.refreshCredential",
+) {
+  return openSecret({ sealed, aad: organizationProviderCredentialAad(seed.organizationId, field) });
 }
 
 function resolveManualWrite(seed: Awaited<ReturnType<typeof seedManualWrite>>) {
@@ -137,19 +159,27 @@ describe("Cloudflare connection for manual provider writes", () => {
     const connection = await resolveManualWrite(seed);
 
     expect(connection).toMatchObject({
-      auth: {
-        method: auth.method,
-        credential: "new-access",
-        refreshCredential: "new-refresh",
-        credentialExpiresAt: now + 3_600_000,
-      },
+      auth: { method: auth.method, credentialExpiresAt: now + 3_600_000 },
       account,
       tokenHealth: { status: "valid", source: "refresh_attempt" },
     });
+    if (connection === null || connection.auth.method === "api_key") {
+      throw new Error("Expected a refreshed OAuth connection.");
+    }
+    await expect(
+      openCloudflareCredential(seed, connection.auth.credential, "cloudflare.auth.credential"),
+    ).resolves.toBe("new-access");
+    await expect(
+      openCloudflareCredential(
+        seed,
+        connection.auth.refreshCredential,
+        "cloudflare.auth.refreshCredential",
+      ),
+    ).resolves.toBe("new-refresh");
     const credentials = await seed.t.run(async (ctx) => await ctx.db.get(seed.credentialId));
     expect(credentials?.cloudflare).toMatchObject({
-      auth: connection?.auth,
-      tokenHealth: connection?.tokenHealth,
+      auth: connection.auth,
+      tokenHealth: connection.tokenHealth,
       lastTokenRefreshAt: now,
     });
     expect(credentials?.cloudflare?.tokenRefreshLease).toBeUndefined();
@@ -157,14 +187,20 @@ describe("Cloudflare connection for manual provider writes", () => {
   });
 
   it.each([
-    { name: "API key", auth: { method: "api_key" as const, credential: "api-key" } },
+    {
+      name: "API key",
+      auth: { method: "api_key" as const, credential: testCredential("api-key") },
+    },
     { name: "valid OAuth", auth: { ...oauth, credentialExpiresAt: now + 3_600_000 } },
   ])("uses $name without a refresh", async ({ auth }) => {
     const seed = await seedManualWrite(auth);
     const fetch = vi.fn();
     vi.stubGlobal("fetch", fetch);
 
-    await expect(resolveManualWrite(seed)).resolves.toMatchObject({ auth, account });
+    await expect(resolveManualWrite(seed)).resolves.toMatchObject({
+      auth: seed.sealedAuth,
+      account,
+    });
     expect(fetch).not.toHaveBeenCalled();
   });
 
@@ -191,7 +227,7 @@ describe("Cloudflare connection for manual provider writes", () => {
       {
         organizationId: seed.organizationId,
         userId: seed.userId,
-        expectedAuth: oauth,
+        expectedAuth: seed.sealedAuth,
       },
     );
     if (!claim.claimed) throw new Error("Expected a refresh lease.");
@@ -217,7 +253,7 @@ describe("Cloudflare connection for manual provider writes", () => {
 
     const credentials = await seed.t.run(async (ctx) => await ctx.db.get(seed.credentialId));
     expect(credentials?.cloudflare).toMatchObject({
-      auth: oauth,
+      auth: seed.sealedAuth,
       tokenHealth: { status: "invalid", source: "refresh_attempt" },
     });
     expect(credentials?.cloudflare?.tokenRefreshLease).toBeUndefined();

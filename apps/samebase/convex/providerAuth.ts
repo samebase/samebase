@@ -1,30 +1,32 @@
 import { Infer, v } from "convex/values";
 
+import { sameSealedSecret, vStoredSecret } from "./sealedSecret";
+
 const { literal, number, object, string, union } = v;
 
 export const vOAuthAuth = object({
   method: literal("oauth"),
-  credential: string(),
+  credential: vStoredSecret,
 });
 
 export const vCloudflareOAuthAuth = object({
   method: literal("oauth"),
-  credential: string(),
-  refreshCredential: string(),
+  credential: vStoredSecret,
+  refreshCredential: vStoredSecret,
   credentialExpiresAt: number(),
 });
 
 export const vMcpOAuthAuth = object({
   method: literal("mcp_oauth"),
-  credential: string(),
-  refreshCredential: string(),
+  credential: vStoredSecret,
+  refreshCredential: vStoredSecret,
   credentialExpiresAt: number(),
   clientId: string(),
 });
 
 export const vApiKeyAuth = object({
   method: literal("api_key"),
-  credential: string(),
+  credential: vStoredSecret,
 });
 
 export const vStandardProviderAuth = union(vOAuthAuth, vApiKeyAuth);
@@ -39,16 +41,16 @@ export function providerAuthMatches(left: ProviderAuth, right: ProviderAuth): bo
 
   switch (left.method) {
     case "api_key":
-      return right.method === "api_key" && left.credential === right.credential;
+      return right.method === "api_key" && sameSealedSecret(left.credential, right.credential);
     case "oauth":
-      if (right.method !== "oauth" || left.credential !== right.credential) {
+      if (right.method !== "oauth" || !sameSealedSecret(left.credential, right.credential)) {
         return false;
       }
       if ("refreshCredential" in left || "refreshCredential" in right) {
         return (
           "refreshCredential" in left &&
           "refreshCredential" in right &&
-          left.refreshCredential === right.refreshCredential &&
+          sameSealedSecret(left.refreshCredential, right.refreshCredential) &&
           left.credentialExpiresAt === right.credentialExpiresAt
         );
       }
@@ -56,8 +58,8 @@ export function providerAuthMatches(left: ProviderAuth, right: ProviderAuth): bo
     case "mcp_oauth":
       return (
         right.method === "mcp_oauth" &&
-        left.credential === right.credential &&
-        left.refreshCredential === right.refreshCredential &&
+        sameSealedSecret(left.credential, right.credential) &&
+        sameSealedSecret(left.refreshCredential, right.refreshCredential) &&
         left.credentialExpiresAt === right.credentialExpiresAt &&
         left.clientId === right.clientId
       );

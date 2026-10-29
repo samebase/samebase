@@ -21,6 +21,11 @@ import {
   requireConvexCiTeamAccess,
 } from "../organization/ciCredentials";
 import { resolveGitHubRepositoryById } from "../githubRepoApi";
+import {
+  organizationCiCredentialAad,
+  organizationProviderCredentialAad,
+} from "../organization/providerCredentialModel";
+import { openSecret } from "../sealedSecret";
 import { resolveGitHubUserOctokit } from "../githubUserAuthorizations";
 import {
   toSafeGitHubRepositoryName,
@@ -343,7 +348,14 @@ async function resolveOrganizationConvexProvisioningConnection(
   );
   const credential = configuration.convexCredential;
   const convexTeamId = configuration.convexTeam?.teamId.trim();
-  const convexToken = credential?.auth.credential.trim();
+  const convexToken =
+    credential &&
+    (
+      await openSecret({
+        sealed: credential.auth.credential,
+        aad: organizationProviderCredentialAad(args.organizationId, "convex.auth.credential"),
+      })
+    ).trim();
   if (!credential || !convexToken || !convexTeamId) {
     throw new ConvexError(
       "Convex connection is required to provision infrastructure. Connect Convex and retry.",
@@ -379,7 +391,12 @@ async function resolveOrganizationCloudflareProvisioningConnection(
     );
   }
 
-  const cloudflareToken = resolved.auth.credential.trim();
+  const cloudflareToken = (
+    await openSecret({
+      sealed: resolved.auth.credential,
+      aad: organizationProviderCredentialAad(args.organizationId, "cloudflare.auth.credential"),
+    })
+  ).trim();
   if (!cloudflareToken) {
     throw new ConvexError(
       "Cloudflare connection is required to provision infrastructure. Connect Cloudflare and retry.",
@@ -976,11 +993,17 @@ async function createRepositoryActionsAppForUser(
     githubOwnerLogin: githubAccess.githubOwnerLogin,
   });
   await requireCloudflareCiTokenPermissions({
-    token: ciCredentials.cloudflare.apiToken,
+    token: await openSecret({
+      sealed: ciCredentials.cloudflare.apiToken,
+      aad: organizationCiCredentialAad(githubAccess.organizationId, "cloudflare.apiToken"),
+    }),
     account: cloudflareAccount,
   });
   await requireConvexCiTeamAccess({
-    token: ciCredentials.convex.accessToken,
+    token: await openSecret({
+      sealed: ciCredentials.convex.accessToken,
+      aad: organizationCiCredentialAad(githubAccess.organizationId, "convex.accessToken"),
+    }),
     teamId: convexTeam.teamId,
     teamLabel: convexTeam.teamSlug ?? convexTeam.teamId,
   });

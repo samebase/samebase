@@ -28,6 +28,11 @@ import type { ProjectResponse } from "../convexManagementApi/generated/types.gen
 import { action } from "../functions";
 import { resolveGitHubAppAccess } from "../githubAppAccess";
 import { resolveConvexProvisioningConnectionForRepositoryWorkflow } from "../infraProvisioning";
+import {
+  organizationProviderCredentialAad,
+  type ConvexProviderCredential,
+} from "../organization/providerCredentialModel";
+import { openSecret } from "../sealedSecret";
 import type { ConvexDeploymentRegion } from "../../shared/convexDeploymentRegions";
 import {
   fetchGitHubConvexCodeLocationDiscovery,
@@ -68,7 +73,8 @@ type ConvexAttachmentProject = Infer<typeof vConvexAttachmentProject>;
 type ConvexCodeLocationSelection = Infer<typeof vConvexCodeLocationSelection>;
 type ConvexActionConnection = {
   organizationId: Id<"organizations">;
-  auth: { method: "api_key" | "oauth"; credential: string };
+  auth: ConvexProviderCredential["auth"];
+  /** The opened `auth.credential`. */
   token: string;
   teamId: string;
 };
@@ -106,7 +112,12 @@ async function resolveConvexConnectionForTeam(
   if (!connection || !credential) {
     throw new ConvexError("Convex connection is required for the attached project team.");
   }
-  const token = credential.auth.credential.trim();
+  const token = (
+    await openSecret({
+      sealed: credential.auth.credential,
+      aad: organizationProviderCredentialAad(args.organizationId, "convex.auth.credential"),
+    })
+  ).trim();
   if (!token) {
     throw new ConvexError("Convex connection is required for the attached project team.");
   }
@@ -130,7 +141,7 @@ async function resolveConvexConnectionForProvisioningRun(
   const connection = await resolveConvexProvisioningConnectionForRepositoryWorkflow(ctx, args);
   return {
     organizationId: connection.organizationId,
-    auth: { method: connection.convexAuthMethod, credential: connection.convexToken },
+    auth: connection.convexAuth,
     token: connection.convexToken,
     teamId: connection.convexTeamId,
   };
@@ -401,7 +412,17 @@ async function readConvexWorkerReferences(
         organizationId: args.context.organizationId,
       },
     );
-    const token = connection?.auth.credential.trim();
+    const token =
+      connection &&
+      (
+        await openSecret({
+          sealed: connection.auth.credential,
+          aad: organizationProviderCredentialAad(
+            args.context.organizationId,
+            "cloudflare.auth.credential",
+          ),
+        })
+      ).trim();
     if (!connection || !token || connection.account.accountId !== accountId) {
       return new Map();
     }

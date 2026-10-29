@@ -16,7 +16,7 @@ vi.mock("./githubApp", async (importOriginal) => {
 import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import type { MutationCtx } from "./_generated/server";
-import { makeConvexTest } from "./test.setup";
+import { makeConvexTest, testCredential } from "./test.setup";
 
 async function insertUser(ctx: MutationCtx, email: string): Promise<Id<"users">> {
   return await ctx.db.insert("users", {
@@ -45,9 +45,9 @@ async function insertAuthorizedUser(
     userId,
     githubUserId: args.githubUserId,
     githubUserLogin: args.githubUserLogin,
-    accessToken: `${args.githubUserLogin}-access-token`,
+    accessToken: testCredential(`${args.githubUserLogin}-access-token`),
     accessTokenExpiresAt: now + 60_000,
-    refreshToken: `${args.githubUserLogin}-refresh-token`,
+    refreshToken: testCredential(`${args.githubUserLogin}-refresh-token`),
     refreshTokenExpiresAt: now + 120_000,
     createdAt: now,
     updatedAt: now,

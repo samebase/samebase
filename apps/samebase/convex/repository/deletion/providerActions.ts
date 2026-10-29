@@ -14,6 +14,8 @@ import {
 } from "../../cloudflareResources";
 import { resolveCloudflareApiTransport } from "../../cloudflareApi/client";
 import { resolveGitHubAppAccessForRepositoryDeletionRun } from "../../githubAppAccess";
+import { organizationProviderCredentialAad } from "../../organization/providerCredentialModel";
+import { openSecret } from "../../sealedSecret";
 import { readRetainedSnapshot } from "./runs";
 import { type RepositoryDeletionEventLevel, type RepositoryDeletionStep } from "./model";
 
@@ -104,12 +106,16 @@ export const deleteCloudflare = internalAction({
     if (!connection || connection.account.accountId !== firstWorker.accountId) {
       throw new Error("Cloudflare connection is required to remove resources.");
     }
+    const cloudflareToken = await openSecret({
+      sealed: connection.auth.credential,
+      aad: organizationProviderCredentialAad(run.organizationId, "cloudflare.auth.credential"),
+    });
     for (const worker of workers) {
       try {
         await deleteCloudflareResources({
           accountId: worker.accountId,
           workerTag: worker.workerTag,
-          cloudflareToken: connection.auth.credential,
+          cloudflareToken,
           transport: resolveCloudflareApiTransport(connection.auth.method),
         });
       } catch (error) {
@@ -149,17 +155,23 @@ export const deleteConvex = internalAction({
       internal.organizationProviderCredentials.loadForRepositoryProviderWorkflow,
       { authority: { kind: "deletion", runId: args.runId } },
     );
+    const credential = provider.configuration.convexCredential;
+    const convexToken =
+      credential &&
+      (await openSecret({
+        sealed: credential.auth.credential,
+        aad: organizationProviderCredentialAad(provider.organizationId, "convex.auth.credential"),
+      }));
     for (const project of plan.convex.projects) {
-      const credential = provider.configuration.convexCredential;
       if (
         provider.configuration.convexTeam?.teamId !== project.teamId ||
-        credential === undefined
+        convexToken === undefined
       ) {
         throw new Error("Convex connection is required to remove resources.");
       }
       try {
         await ConvexManagement.POST["/projects/{project_id}/delete"]({
-          client: createConvexManagementClient({ token: credential.auth.credential }),
+          client: createConvexManagementClient({ token: convexToken }),
           path: { project_id: project.projectId },
         });
       } catch (error) {

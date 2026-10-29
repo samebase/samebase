@@ -4,7 +4,11 @@ import { closeSync, existsSync, openSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { generateConvexAuthKeys, NO_HUB_ENVIRONMENT } from "./lib/convexAuthKeys.ts";
+import {
+  generateConvexAuthKeys,
+  generateCredentialKeys,
+  NO_HUB_ENVIRONMENT,
+} from "./lib/convexAuthKeys.ts";
 import { samebaseAppFilePath } from "./lib/trackedFilePath.ts";
 
 const samebaseAppDirectory = path.join("apps", "samebase");
@@ -77,6 +81,7 @@ async function main(): Promise<void> {
 
     for (const [key, value] of [
       ...Object.entries(generateConvexAuthKeys()),
+      ...Object.entries(generateCredentialKeys()),
       ...Object.entries(NO_HUB_ENVIRONMENT),
       ["CONVEX_AGENT_MODE", "anonymous"],
       ["GITHUB_APP_CLIENT_ID", "ci-placeholder"],

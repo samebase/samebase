@@ -11,7 +11,13 @@ import { vi } from "vitest";
 
 import type { Id } from "./_generated/dataModel";
 import type { DatabaseWriter } from "./_generated/server";
+import { githubUserAuthorizationAad } from "./githubUserAuthorizationModel";
+import {
+  organizationCiCredentialAad,
+  organizationProviderCredentialAad,
+} from "./organization/providerCredentialModel";
 import schema from "./schema";
+import { sealSecret, type SealedSecret, type StoredSecret } from "./sealedSecret";
 
 const modules = import.meta.glob([
   "./**/*.ts",
@@ -22,11 +28,19 @@ const modules = import.meta.glob([
   "!./test.setup.ts",
 ]);
 
+/** A throwaway key ring: one key of 32 zero bytes. */
+const TEST_CREDENTIAL_KEYS = JSON.stringify({
+  current: "test",
+  keys: { test: `${"A".repeat(43)}=` },
+});
+
 /**
  * Create an isolated Convex test backend with the same components installed as
  * the app so contract tests exercise registered functions through real refs.
+ * It stubs CREDENTIAL_KEYS, which every credential seal and open reads.
  */
 export function makeConvexTest() {
+  vi.stubEnv("CREDENTIAL_KEYS", TEST_CREDENTIAL_KEYS);
   const t = convexTest(schema, modules);
   workflowTest.register(t);
   registerEmailInbox(t, "mail");
@@ -35,6 +49,93 @@ export function makeConvexTest() {
   registerOauth(t, "authHub");
   registerPasswordProvider(t);
   return t;
+}
+
+const TEST_CREDENTIAL_IV = "placeholder";
+
+/**
+A credential that a fixture writes inside `t.run`, where no action can seal it. No key opens it
+until sealTestCredentials seals `plaintext` for its field.
+*/
+export function testCredential(plaintext: string): SealedSecret {
+  return { keyId: "test", iv: TEST_CREDENTIAL_IV, ciphertext: plaintext };
+}
+
+/**
+Seals every testCredential in the provider, CI, and GitHub user credential rows for its owner and
+field, in an action as the connect flows do, so the code under test opens them like rows that a
+connect flow wrote.
+*/
+export async function sealTestCredentials(t: ReturnType<typeof makeConvexTest>): Promise<void> {
+  const seal = async (value: StoredSecret, aad: string) =>
+    typeof value !== "string" && value.iv === TEST_CREDENTIAL_IV
+      ? await t.action(async (ctx) => await sealSecret(ctx, { plaintext: value.ciphertext, aad }))
+      : value;
+  const rows = await t.run(async (ctx) => ({
+    provider: await ctx.db.query("organizationProviderCredentials").collect(),
+    ci: await ctx.db.query("organizationCiCredentials").collect(),
+    github: await ctx.db.query("githubUserAuthorizations").collect(),
+  }));
+
+  for (const { _id, organizationId, convex, cloudflare } of rows.provider) {
+    const aad = (field: Parameters<typeof organizationProviderCredentialAad>[1]) =>
+      organizationProviderCredentialAad(organizationId, field);
+    let sealedCloudflare = cloudflare;
+    if (cloudflare) {
+      const credential = await seal(cloudflare.auth.credential, aad("cloudflare.auth.credential"));
+      sealedCloudflare = {
+        ...cloudflare,
+        auth:
+          cloudflare.auth.method === "api_key"
+            ? { ...cloudflare.auth, credential }
+            : {
+                ...cloudflare.auth,
+                credential,
+                refreshCredential: await seal(
+                  cloudflare.auth.refreshCredential,
+                  aad("cloudflare.auth.refreshCredential"),
+                ),
+              },
+      };
+    }
+    const patch = {
+      convex: convex && {
+        ...convex,
+        auth: {
+          ...convex.auth,
+          credential: await seal(convex.auth.credential, aad("convex.auth.credential")),
+        },
+      },
+      cloudflare: sealedCloudflare,
+    };
+    await t.run(async (ctx) => await ctx.db.patch(_id, patch));
+  }
+  for (const { _id, organizationId, cloudflare, convex } of rows.ci) {
+    const patch = {
+      cloudflare: cloudflare && {
+        ...cloudflare,
+        apiToken: await seal(
+          cloudflare.apiToken,
+          organizationCiCredentialAad(organizationId, "cloudflare.apiToken"),
+        ),
+      },
+      convex: convex && {
+        ...convex,
+        accessToken: await seal(
+          convex.accessToken,
+          organizationCiCredentialAad(organizationId, "convex.accessToken"),
+        ),
+      },
+    };
+    await t.run(async (ctx) => await ctx.db.patch(_id, patch));
+  }
+  for (const { _id, userId, accessToken, refreshToken } of rows.github) {
+    const patch = {
+      accessToken: await seal(accessToken, githubUserAuthorizationAad(userId, "accessToken")),
+      refreshToken: await seal(refreshToken, githubUserAuthorizationAad(userId, "refreshToken")),
+    };
+    await t.run(async (ctx) => await ctx.db.patch(_id, patch));
+  }
 }
 
 function toBase64(bytes: ArrayBuffer): string {

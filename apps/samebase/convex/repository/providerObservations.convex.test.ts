@@ -51,7 +51,12 @@ import { CloudflareApiResponseError } from "../cloudflareApi/client";
 import { ConvexManagementApiResponseError } from "../convexManagementApi/client";
 import type { Cloudflare } from "../cloudflareApi/generated/sdk.gen";
 import { observedNativeWorkerBuildSettings } from "../cloudflareApi/fixtures/observedWorkerBuildSettings";
-import { insertTestOrganizationBillingAccount, makeConvexTest } from "../test.setup";
+import {
+  insertTestOrganizationBillingAccount,
+  makeConvexTest,
+  sealTestCredentials,
+  testCredential,
+} from "../test.setup";
 
 afterEach(() => {
   vi.unstubAllEnvs();
@@ -112,15 +117,15 @@ describe("repository provider observations", () => {
       await ctx.db.insert("organizationProviderCredentials", {
         organizationId,
         convex: {
-          auth: { method: "api_key", credential: "convex-token" },
+          auth: { method: "api_key", credential: testCredential("convex-token") },
           connectedByUserId: userId,
           updatedAt: 1,
         },
         cloudflare: {
           auth: {
             method: "oauth",
-            credential: "expired-access-token",
-            refreshCredential: "refresh-token",
+            credential: testCredential("expired-access-token"),
+            refreshCredential: testCredential("refresh-token"),
             credentialExpiresAt: 0,
           },
           connectedByUserId: userId,
@@ -191,6 +196,7 @@ describe("repository provider observations", () => {
       });
       return { convexProjectId, firstWorkerId, secondWorkerId, userId, repositoryId };
     });
+    await sealTestCredentials(t);
     const refresh = vi.fn(async (input: string | URL | Request) => {
       const url = input instanceof Request ? input.url : String(input);
       expect(url).toBe("https://dash.cloudflare.com/oauth2/token");

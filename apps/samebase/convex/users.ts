@@ -21,6 +21,11 @@ import {
 } from "./organization/ciCredentials";
 import { hashOrganizationProviderSnapshot } from "./providerAuthFingerprint";
 import {
+  organizationCiCredentialAad,
+  organizationProviderCredentialAad,
+} from "./organization/providerCredentialModel";
+import { sealSecret } from "./sealedSecret";
+import {
   CLOUDFLARE_TOKEN_REFRESH_DEBOUNCE_MS,
   CLOUDFLARE_TOKEN_REFRESH_EARLY_WINDOW_MS,
   CLOUDFLARE_TOKEN_REFRESH_PAGE_LOAD_DEBOUNCE_MS,
@@ -947,7 +952,10 @@ export const connectCloudflareWithApiToken = action({
       expectedProviderSnapshotHash,
       auth: {
         method: "api_key",
-        credential: token,
+        credential: await sealSecret(ctx, {
+          plaintext: token,
+          aad: organizationProviderCredentialAad(organizationId, "cloudflare.auth.credential"),
+        }),
       },
       account,
     });
@@ -996,7 +1004,10 @@ export const connectConvexWithApiKey = action({
       expectedProviderSnapshotHash,
       auth: {
         method: "api_key" as const,
-        credential: token,
+        credential: await sealSecret(ctx, {
+          plaintext: token,
+          aad: organizationProviderCredentialAad(organizationId, "convex.auth.credential"),
+        }),
       },
       teamId: details.teamId,
     });
@@ -1093,7 +1104,10 @@ export const setCloudflareCiToken = action({
     await ctx.runMutation(internal.organizationProviderCredentials.setCloudflareCiCredential, {
       organizationId,
       userId: ctx.viewer.userId,
-      apiToken: token,
+      apiToken: await sealSecret(ctx, {
+        plaintext: token,
+        aad: organizationCiCredentialAad(organizationId, "cloudflare.apiToken"),
+      }),
       accountId: account.accountId,
     });
     return null;
@@ -1138,7 +1152,10 @@ export const setConvexCiToken = action({
     await ctx.runMutation(internal.organizationProviderCredentials.setConvexCiCredential, {
       organizationId,
       userId: ctx.viewer.userId,
-      accessToken: token,
+      accessToken: await sealSecret(ctx, {
+        plaintext: token,
+        aad: organizationCiCredentialAad(organizationId, "convex.accessToken"),
+      }),
       teamId: team.teamId,
     });
     return null;

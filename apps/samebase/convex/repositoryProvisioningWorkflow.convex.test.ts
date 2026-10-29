@@ -38,7 +38,12 @@ import type { Id } from "./_generated/dataModel";
 import { actionsStarterTemplateManifest } from "./starterSeedManifest.actions.generated";
 import { isSamebaseProvisioningPlan } from "./repository/provisioningPlan";
 import { startRepositoryInfrastructureProvisioningWorkflow } from "./repositoryProvisioningWorkflow";
-import { insertTestOrganizationBillingAccount, makeConvexTest } from "./test.setup";
+import {
+  insertTestOrganizationBillingAccount,
+  makeConvexTest,
+  sealTestCredentials,
+  testCredential,
+} from "./test.setup";
 
 async function createComposedRepository(buildTokenUuid: string | null = "build-token") {
   const t = makeConvexTest();
@@ -731,12 +736,12 @@ async function createRepositoryActionsRepository(github: ReturnType<typeof creat
     await ctx.db.insert("organizationProviderCredentials", {
       organizationId,
       convex: {
-        auth: { method: "api_key", credential: "samebase-convex-test-token" },
+        auth: { method: "api_key", credential: testCredential("samebase-convex-test-token") },
         connectedByUserId: userId,
         updatedAt: 1,
       },
       cloudflare: {
-        auth: { method: "api_key", credential: "samebase-cloudflare-test-token" },
+        auth: { method: "api_key", credential: testCredential("samebase-cloudflare-test-token") },
         connectedByUserId: userId,
         updatedAt: 1,
       },
@@ -744,13 +749,13 @@ async function createRepositoryActionsRepository(github: ReturnType<typeof creat
     await ctx.db.insert("organizationCiCredentials", {
       organizationId,
       cloudflare: {
-        apiToken: "cloudflare-ci-test-token",
+        apiToken: testCredential("cloudflare-ci-test-token"),
         accountId: "cloudflare-account",
         connectedByUserId: userId,
         updatedAt: 20,
       },
       convex: {
-        accessToken: "convex-ci-test-token",
+        accessToken: testCredential("convex-ci-test-token"),
         teamId: "41",
         connectedByUserId: userId,
         updatedAt: 30,
@@ -758,6 +763,7 @@ async function createRepositoryActionsRepository(github: ReturnType<typeof creat
     });
     return { organizationId, userId };
   });
+  await sealTestCredentials(t);
   githubMocks.resolveAppAccess.mockResolvedValue({
     organizationId: ids.organizationId,
     githubInstallationId: "1001",

@@ -40,6 +40,8 @@ import {
   type ConvexProjectObservation,
 } from "./providerObservationModel";
 import type { RepositoryProviderObservationContext } from "./providerObservationQueries";
+import { organizationProviderCredentialAad } from "../organization/providerCredentialModel";
+import { openSecret } from "../sealedSecret";
 
 const { array, id } = v;
 
@@ -115,7 +117,14 @@ export async function readCloudflareObservationInput(
   }
 
   const connection = connectionResolution.connection;
-  const token = connection?.auth.credential.trim();
+  const token =
+    connection &&
+    (
+      await openSecret({
+        sealed: connection.auth.credential,
+        aad: organizationProviderCredentialAad(args.organizationId, "cloudflare.auth.credential"),
+      })
+    ).trim();
   if (!connection || !token || connection.account.accountId !== args.accountId) {
     return { state: "failed" as const, reason: "connection_required" as const };
   }
@@ -556,7 +565,12 @@ export async function observeConvexProjectsForUser(
         };
       }
 
-      const token = credential.auth.credential.trim();
+      const token = (
+        await openSecret({
+          sealed: credential.auth.credential,
+          aad: organizationProviderCredentialAad(context.organizationId, "convex.auth.credential"),
+        })
+      ).trim();
       if (!token) {
         provider = { state: "unavailable", reason: "connection_required" };
         return {

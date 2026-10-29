@@ -22,7 +22,11 @@ import { vProviderOAuthStoreResult, type ProviderOAuthStoreResult } from "./oaut
 import { requireCloudflareAuthUsableDuringRefresh, vCloudflareProviderAuth } from "./providerAuth";
 import { connectCloudflareCredential } from "./organizationProviderCredentials";
 import { vOrganizationCloudflareAccount } from "./organization/model";
-import { vCloudflareTokenRefreshLease } from "./organization/providerCredentialModel";
+import {
+  organizationProviderCredentialAad,
+  vCloudflareTokenRefreshLease,
+} from "./organization/providerCredentialModel";
+import { openSecret, sealSecret, vSealedSecret } from "./sealedSecret";
 import {
   listCloudflareAccountsForToken,
   resolveCloudflareAccountAfterAuthorization,
@@ -281,8 +285,8 @@ const storeCloudflareOauthConnectionArgs = {
   organizationId: id("organizations"),
   connectedByUserId: id("users"),
   expectedProviderSnapshotHash: string(),
-  accessToken: string(),
-  refreshToken: string(),
+  accessToken: vSealedSecret,
+  refreshToken: vSealedSecret,
   expiresAt: number(),
   account: union(vCloudflareAccount, v.null()),
   oauthStateId: id("providerOAuthCallbackStates"),
@@ -597,7 +601,12 @@ async function resolveConnectionForAuthority(
     };
   }
 
-  const refreshToken = credential.auth.refreshCredential.trim();
+  const refreshToken = (
+    await openSecret({
+      sealed: credential.auth.refreshCredential,
+      aad: organizationProviderCredentialAad(organizationId, "cloudflare.auth.refreshCredential"),
+    })
+  ).trim();
   let metadataError: string | undefined;
   if (!refreshToken) {
     metadataError = "Cloudflare OAuth refresh token is empty. Reconnect Cloudflare and retry.";
@@ -669,8 +678,17 @@ async function resolveConnectionForAuthority(
           });
           refreshedAuth = {
             method: "oauth",
-            credential: refreshed.accessToken,
-            refreshCredential: refreshed.refreshToken,
+            credential: await sealSecret(ctx, {
+              plaintext: refreshed.accessToken,
+              aad: organizationProviderCredentialAad(organizationId, "cloudflare.auth.credential"),
+            }),
+            refreshCredential: await sealSecret(ctx, {
+              plaintext: refreshed.refreshToken,
+              aad: organizationProviderCredentialAad(
+                organizationId,
+                "cloudflare.auth.refreshCredential",
+              ),
+            }),
             credentialExpiresAt: Date.now() + refreshed.expiresIn * 1000,
           };
           break;
@@ -682,8 +700,17 @@ async function resolveConnectionForAuthority(
           });
           refreshedAuth = {
             method: "mcp_oauth",
-            credential: refreshed.access_token,
-            refreshCredential: refreshed.refresh_token,
+            credential: await sealSecret(ctx, {
+              plaintext: refreshed.access_token,
+              aad: organizationProviderCredentialAad(organizationId, "cloudflare.auth.credential"),
+            }),
+            refreshCredential: await sealSecret(ctx, {
+              plaintext: refreshed.refresh_token,
+              aad: organizationProviderCredentialAad(
+                organizationId,
+                "cloudflare.auth.refreshCredential",
+              ),
+            }),
             credentialExpiresAt: Date.now() + refreshed.expires_in * 1000,
             clientId: client.clientId,
           };
@@ -1035,8 +1062,20 @@ export async function completeCloudflareOAuth(
         organizationId: oauthState.organizationId,
         connectedByUserId: oauthState.userId,
         expectedProviderSnapshotHash: oauthState.expectedProviderSnapshotHash,
-        accessToken: token.accessToken,
-        refreshToken: token.refreshToken,
+        accessToken: await sealSecret(ctx, {
+          plaintext: token.accessToken,
+          aad: organizationProviderCredentialAad(
+            oauthState.organizationId,
+            "cloudflare.auth.credential",
+          ),
+        }),
+        refreshToken: await sealSecret(ctx, {
+          plaintext: token.refreshToken,
+          aad: organizationProviderCredentialAad(
+            oauthState.organizationId,
+            "cloudflare.auth.refreshCredential",
+          ),
+        }),
         expiresAt,
         account,
         oauthStateId: oauthState._id,

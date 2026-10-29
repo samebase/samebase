@@ -7,6 +7,8 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { mutation } from "./functions";
 import { requireOrganizationOwnerAccessContext } from "./organizationAccess";
 import { connectConvexCredential } from "./organizationProviderCredentials";
+import { organizationProviderCredentialAad } from "./organization/providerCredentialModel";
+import { sealSecret, vSealedSecret } from "./sealedSecret";
 import { vProviderOAuthStoreResult, type ProviderOAuthStoreResult } from "./oauthState";
 import {
   createCodeChallenge,
@@ -191,7 +193,7 @@ export const storeConvexOauthTokens = internalMutation({
     organizationId: v.id("organizations"),
     connectedByUserId: v.id("users"),
     expectedProviderSnapshotHash: v.string(),
-    accessToken: v.string(),
+    accessToken: vSealedSecret,
     teamId: v.string(),
     oauthStateId: v.id("providerOAuthCallbackStates"),
     oauthState: v.string(),
@@ -409,7 +411,13 @@ export async function completeConvexOAuth(
         organizationId: oauthState.organizationId,
         connectedByUserId: oauthState.userId,
         expectedProviderSnapshotHash: oauthState.expectedProviderSnapshotHash,
-        accessToken: token.accessToken,
+        accessToken: await sealSecret(ctx, {
+          plaintext: token.accessToken,
+          aad: organizationProviderCredentialAad(
+            oauthState.organizationId,
+            "convex.auth.credential",
+          ),
+        }),
         teamId: details.teamId,
         oauthStateId: oauthState._id,
         oauthState: oauthState.state,

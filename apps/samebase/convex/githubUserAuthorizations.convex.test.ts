@@ -16,8 +16,18 @@ vi.mock("@octokit/auth-app", async (importOriginal) => {
 import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import type { MutationCtx } from "./_generated/server";
-import { upsertGitHubUserAuthorization } from "./githubUserAuthorizations";
-import { insertTestOrganizationBillingAccount, makeConvexTest } from "./test.setup";
+import { githubUserAuthorizationAad } from "./githubUserAuthorizationModel";
+import {
+  resolveGitHubUserOctokit,
+  upsertGitHubUserAuthorization,
+} from "./githubUserAuthorizations";
+import { openSecret } from "./sealedSecret";
+import {
+  insertTestOrganizationBillingAccount,
+  makeConvexTest,
+  sealTestCredentials,
+  testCredential,
+} from "./test.setup";
 
 const accountDeletionWorkflowId = "github-refresh-account-deletion";
 
@@ -68,9 +78,9 @@ async function seedGitHubRefreshCandidate(email: string, githubUserId: string) {
       userId,
       githubUserId,
       githubUserLogin: `refresh-${githubUserId}`,
-      accessToken: "old-access-token",
+      accessToken: testCredential("old-access-token"),
       accessTokenExpiresAt: now - 1,
-      refreshToken: "old-refresh-token",
+      refreshToken: testCredential("old-refresh-token"),
       refreshTokenExpiresAt: now + 120_000,
       createdAt: now,
       updatedAt: now,
@@ -221,9 +231,9 @@ describe("viewer GitHub user authorization", () => {
         userId,
         githubUserId: "101",
         githubUserLogin: "octocat",
-        accessToken: "secret-access-token",
+        accessToken: testCredential("secret-access-token"),
         accessTokenExpiresAt: now - 1,
-        refreshToken: "secret-refresh-token",
+        refreshToken: testCredential("secret-refresh-token"),
         refreshTokenExpiresAt,
         createdAt: now,
         updatedAt: now,
@@ -280,15 +290,16 @@ describe("viewer GitHub user authorization", () => {
         userId,
         githubUserId: "202",
         githubUserLogin: "monalisa",
-        accessToken: "revoke-access-token",
+        accessToken: testCredential("revoke-access-token"),
         accessTokenExpiresAt: now + 60_000,
-        refreshToken: "revoke-refresh-token",
+        refreshToken: testCredential("revoke-refresh-token"),
         refreshTokenExpiresAt: now + 120_000,
         createdAt: now,
         updatedAt: now,
       });
       return { userId, authorizationId };
     });
+    await sealTestCredentials(t);
     vi.stubEnv("GITHUB_APP_ID", "42");
     vi.stubEnv("GITHUB_APP_SLUG", "samebase-test");
     vi.stubEnv("GITHUB_APP_CLIENT_ID", "client-id");
@@ -330,9 +341,9 @@ describe("GitHub user authorization identity boundaries", () => {
         userId,
         githubUserId: "301",
         githubUserLogin: "first-user",
-        accessToken: "first-access-token",
+        accessToken: testCredential("first-access-token"),
         accessTokenExpiresAt: now + 60_000,
-        refreshToken: "first-refresh-token",
+        refreshToken: testCredential("first-refresh-token"),
         refreshTokenExpiresAt: now + 120_000,
         createdAt: now,
         updatedAt: now,
@@ -351,9 +362,9 @@ describe("GitHub user authorization identity boundaries", () => {
           userId,
           githubUserId: "302",
           githubUserLogin: "second-user",
-          accessToken: "second-access-token",
+          accessToken: testCredential("second-access-token"),
           accessTokenExpiresAt: Date.now() + 60_000,
-          refreshToken: "second-refresh-token",
+          refreshToken: testCredential("second-refresh-token"),
           refreshTokenExpiresAt: Date.now() + 120_000,
         });
       }),
@@ -362,8 +373,8 @@ describe("GitHub user authorization identity boundaries", () => {
     await expect(t.run(async (ctx) => await ctx.db.get(authorizationId))).resolves.toMatchObject({
       githubUserId: "301",
       githubUserLogin: "first-user",
-      accessToken: "first-access-token",
-      refreshToken: "first-refresh-token",
+      accessToken: testCredential("first-access-token"),
+      refreshToken: testCredential("first-refresh-token"),
     });
   });
 
@@ -389,9 +400,9 @@ describe("GitHub user authorization identity boundaries", () => {
         userId: firstUserId,
         githubUserId: "401",
         githubUserLogin: "shared-user",
-        accessToken: "owner-access-token",
+        accessToken: testCredential("owner-access-token"),
         accessTokenExpiresAt: now + 60_000,
-        refreshToken: "owner-refresh-token",
+        refreshToken: testCredential("owner-refresh-token"),
         refreshTokenExpiresAt: now + 120_000,
         createdAt: now,
         updatedAt: now,
@@ -410,9 +421,9 @@ describe("GitHub user authorization identity boundaries", () => {
           userId: secondUserId,
           githubUserId: "401",
           githubUserLogin: "shared-user",
-          accessToken: "other-access-token",
+          accessToken: testCredential("other-access-token"),
           accessTokenExpiresAt: Date.now() + 60_000,
-          refreshToken: "other-refresh-token",
+          refreshToken: testCredential("other-refresh-token"),
           refreshTokenExpiresAt: Date.now() + 120_000,
         });
       }),
@@ -427,7 +438,7 @@ describe("GitHub user authorization identity boundaries", () => {
     }));
     expect(snapshot.ownerAuthorization).toMatchObject({
       githubUserId: "401",
-      accessToken: "owner-access-token",
+      accessToken: testCredential("owner-access-token"),
     });
     expect(snapshot.otherAuthorization).toBeNull();
   });
@@ -457,9 +468,9 @@ describe("GitHub user authorization identity boundaries", () => {
           userId,
           githubUserId: "502",
           githubUserLogin: "different-user",
-          accessToken: "different-access-token",
+          accessToken: testCredential("different-access-token"),
           accessTokenExpiresAt: Date.now() + 60_000,
-          refreshToken: "different-refresh-token",
+          refreshToken: testCredential("different-refresh-token"),
           refreshTokenExpiresAt: Date.now() + 120_000,
         });
       }),
@@ -512,9 +523,9 @@ describe("GitHub user authorization identity boundaries", () => {
           userId: secondUserId,
           githubUserId: "601",
           githubUserLogin: "sign-in-owner",
-          accessToken: "access-token",
+          accessToken: testCredential("access-token"),
           accessTokenExpiresAt: Date.now() + 60_000,
-          refreshToken: "refresh-token",
+          refreshToken: testCredential("refresh-token"),
           refreshTokenExpiresAt: Date.now() + 120_000,
         });
       }),
@@ -548,9 +559,9 @@ describe("GitHub user authorization identity boundaries", () => {
           userId,
           githubUserId: "701",
           githubUserLogin: "required-user",
-          accessToken: "access-token",
+          accessToken: testCredential("access-token"),
           accessTokenExpiresAt: Date.now() + 60_000,
-          refreshToken: "refresh-token",
+          refreshToken: testCredential("refresh-token"),
           refreshTokenExpiresAt: Date.now() + 120_000,
         });
       }),
@@ -572,9 +583,9 @@ describe("GitHub user authorization identity boundaries", () => {
         userId,
         githubUserId: "801",
         githubUserLogin: "legacy-user",
-        accessToken: "legacy-access-token",
+        accessToken: testCredential("legacy-access-token"),
         accessTokenExpiresAt: now + 60_000,
-        refreshToken: "legacy-refresh-token",
+        refreshToken: testCredential("legacy-refresh-token"),
         refreshTokenExpiresAt: now + 120_000,
         createdAt: now,
         updatedAt: now,
@@ -604,9 +615,9 @@ describe("GitHub user authorization identity boundaries", () => {
     const finishArgs = {
       authorizationId,
       refreshStartedAt: claim.refreshStartedAt,
-      accessToken: "new-access-token",
+      accessToken: testCredential("new-access-token"),
       accessTokenExpiresAt: Date.now() + 60_000,
-      refreshToken: "new-refresh-token",
+      refreshToken: testCredential("new-refresh-token"),
       refreshTokenExpiresAt: Date.now() + 120_000,
     };
     await expect(
@@ -616,6 +627,7 @@ describe("GitHub user authorization identity boundaries", () => {
       }),
     ).rejects.toThrow("GitHub user authorization refresh lock changed.");
     await t.mutation(internal.githubUserAuthorizations.finishRefresh, finishArgs);
+    await sealTestCredentials(t);
 
     vi.stubEnv("GITHUB_APP_ID", "42");
     vi.stubEnv("GITHUB_APP_SLUG", "samebase-test");
@@ -637,6 +649,52 @@ describe("GitHub user authorization identity boundaries", () => {
     await expect(t.run(async (ctx) => await ctx.db.get(authorizationId))).resolves.toBeNull();
   });
 
+  it("opens the stored tokens for a refresh and stores the refreshed tokens sealed", async () => {
+    const { authorizationId, t, userId } = await seedGitHubRefreshCandidate(
+      "github-refresh-sealed@example.test",
+      "904",
+    );
+    await sealTestCredentials(t);
+    vi.stubEnv("GITHUB_APP_ID", "42");
+    vi.stubEnv("GITHUB_APP_SLUG", "samebase-test");
+    vi.stubEnv("GITHUB_APP_CLIENT_ID", "client-id");
+    vi.stubEnv("GITHUB_APP_CLIENT_SECRET", "client-secret");
+    vi.stubEnv("GITHUB_APP_PRIVATE_KEY", "private-key");
+    vi.stubEnv("GITHUB_APP_OAUTH_CALLBACK_URL", "https://samebase.test/oauth/github/callback");
+    githubAuthMocks.auth.mockResolvedValue({
+      token: "refreshed-access-token",
+      expiresAt: new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString(),
+      refreshToken: "refreshed-refresh-token",
+      refreshTokenExpiresAt: new Date(Date.now() + 180 * 24 * 60 * 60 * 1000).toISOString(),
+    });
+
+    await t.action(async (ctx) => {
+      await resolveGitHubUserOctokit(ctx, { userId, githubUserId: "904" });
+    });
+
+    expect(githubAuthMocks.createOAuthUserAuth).toHaveBeenCalledWith(
+      expect.objectContaining({ token: "old-access-token", refreshToken: "old-refresh-token" }),
+    );
+    expect(githubAuthMocks.auth).toHaveBeenCalledWith({ type: "refresh" });
+    const authorization = await t.run(async (ctx) => await ctx.db.get(authorizationId));
+    if (authorization === null) {
+      throw new Error("Expected the GitHub user authorization.");
+    }
+    expect(authorization.refreshStartedAt).toBeUndefined();
+    await expect(
+      openSecret({
+        sealed: authorization.accessToken,
+        aad: githubUserAuthorizationAad(userId, "accessToken"),
+      }),
+    ).resolves.toBe("refreshed-access-token");
+    await expect(
+      openSecret({
+        sealed: authorization.refreshToken,
+        aad: githubUserAuthorizationAad(userId, "refreshToken"),
+      }),
+    ).resolves.toBe("refreshed-refresh-token");
+  });
+
   it("releases a claimed refresh after the Samebase user starts deletion", async () => {
     const email = "github-refresh-release@example.test";
     const { authorizationId, claim, t, userId } = await seedClaimedGitHubRefresh(email, "902");
@@ -648,8 +706,8 @@ describe("GitHub user authorization identity boundaries", () => {
     });
     const authorization = await t.run(async (ctx) => await ctx.db.get(authorizationId));
     expect(authorization).toMatchObject({
-      accessToken: "old-access-token",
-      refreshToken: "old-refresh-token",
+      accessToken: testCredential("old-access-token"),
+      refreshToken: testCredential("old-refresh-token"),
     });
     expect(authorization?.refreshStartedAt).toBeUndefined();
   });
@@ -668,9 +726,9 @@ describe("GitHub user authorization identity boundaries", () => {
       t.mutation(internal.githubUserAuthorizations.finishRefresh, {
         authorizationId,
         refreshStartedAt: claim.refreshStartedAt,
-        accessToken: "new-access-token",
+        accessToken: testCredential("new-access-token"),
         accessTokenExpiresAt: Date.now() + 60_000,
-        refreshToken: "new-refresh-token",
+        refreshToken: testCredential("new-refresh-token"),
         refreshTokenExpiresAt: Date.now() + 120_000,
       }),
     ).rejects.toThrow("GitHub user authorization refresh lock changed.");

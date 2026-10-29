@@ -1,8 +1,11 @@
 import { defineTable } from "convex/server";
 import { Infer, v } from "convex/values";
 
+import type { Id } from "../_generated/dataModel";
+
 import { vMcpTokenHealth } from "../mcpTokenHealth";
 import { vCloudflareProviderAuth, vStandardProviderAuth } from "../providerAuth";
+import { vStoredSecret } from "../sealedSecret";
 
 const { id, literal, number, object, optional, string, union } = v;
 
@@ -32,12 +35,12 @@ export const vCloudflareProviderCredential = object({
 export type CloudflareProviderCredential = Infer<typeof vCloudflareProviderCredential>;
 
 const vCloudflareCiCredential = object({
-  apiToken: string(),
+  apiToken: vStoredSecret,
   accountId: string(),
   ...providerCredentialIdentity,
 });
 const vConvexCiCredential = object({
-  accessToken: string(),
+  accessToken: vStoredSecret,
   teamId: string(),
   ...providerCredentialIdentity,
 });
@@ -71,6 +74,28 @@ Saving either token again gives a higher revision, so the repositories with a lo
 */
 export function readCiCredentialRevision(ci: CompleteOrganizationCiCredentials): number {
   return Math.max(ci.cloudflare.updatedAt, ci.convex.updatedAt);
+}
+
+/**
+The additional authenticated data of a sealed provider credential: a sealed value opens only in the
+organization and the field it was sealed for.
+*/
+export function organizationProviderCredentialAad(
+  organizationId: Id<"organizations">,
+  field:
+    | "convex.auth.credential"
+    | "cloudflare.auth.credential"
+    | "cloudflare.auth.refreshCredential",
+): string {
+  return `organizationProviderCredentials/${organizationId}/${field}`;
+}
+
+/** The additional authenticated data of a sealed CI token. */
+export function organizationCiCredentialAad(
+  organizationId: Id<"organizations">,
+  field: "cloudflare.apiToken" | "convex.accessToken",
+): string {
+  return `organizationCiCredentials/${organizationId}/${field}`;
 }
 
 export const vOrganizationProviderCredentials = union(

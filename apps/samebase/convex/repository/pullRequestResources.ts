@@ -46,6 +46,8 @@ import {
 } from "./pullRequestHostingPreviews";
 import { buildConvexDeploymentDashboardUrl } from "./providerDashboardUrls";
 import type { RepositoryProviderObservationContext } from "./providerObservationQueries";
+import { organizationProviderCredentialAad } from "../organization/providerCredentialModel";
+import { openSecret } from "../sealedSecret";
 import { readCloudflareObservationInput } from "./providerObservations";
 
 const { array, id, literal, string, union } = v;
@@ -670,7 +672,15 @@ async function readStoreHoldsStack(
     if (!connection || !credential) {
       return false;
     }
-    const token = credential.auth.credential.trim();
+    const token = (
+      await openSecret({
+        sealed: credential.auth.credential,
+        aad: organizationProviderCredentialAad(
+          args.context.organizationId,
+          "convex.auth.credential",
+        ),
+      })
+    ).trim();
     if (!token) {
       return false;
     }
@@ -1383,7 +1393,12 @@ export async function getPullRequestResourcesForUser(
       if (!connection || !credential) {
         return unavailableConvexProjectResources({ heads, project });
       }
-      const token = credential.auth.credential.trim();
+      const token = (
+        await openSecret({
+          sealed: credential.auth.credential,
+          aad: organizationProviderCredentialAad(context.organizationId, "convex.auth.credential"),
+        })
+      ).trim();
       if (!token) {
         return unavailableConvexProjectResources({ heads, project });
       }

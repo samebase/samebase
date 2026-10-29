@@ -4,7 +4,23 @@
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
+import { generateCredentialKeys } from "../../../scripts/lib/convexAuthKeys.ts";
+
 const convex = fileURLToPath(new URL("../node_modules/convex/bin/main.js", import.meta.url));
+
+// convex/convex.config.ts requires the provider credential key ring, and the deploy below refuses a
+// push without it. A preview keeps the ring it has: its credential rows are sealed under it. The CLI
+// exits 0 with an empty stdout when the variable is absent.
+const existingRing = execFileSync(process.execPath, [convex, "env", "get", "CREDENTIAL_KEYS"], {
+  encoding: "utf8",
+  stdio: ["ignore", "pipe", "inherit"],
+}).trim();
+if (existingRing.length === 0) {
+  execFileSync(process.execPath, [convex, "env", "set", "CREDENTIAL_KEYS"], {
+    input: generateCredentialKeys().CREDENTIAL_KEYS,
+    stdio: ["pipe", "inherit", "inherit"],
+  });
+}
 
 // The build, the upload of the site, and `convex deploy`, as in production.
 execFileSync(process.execPath, ["--run", "deploy"], { stdio: "inherit" });

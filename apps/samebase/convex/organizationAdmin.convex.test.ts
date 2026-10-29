@@ -3,7 +3,7 @@ import { describe, expect, it } from "vite-plus/test";
 import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import type { MutationCtx } from "./_generated/server";
-import { makeConvexTest } from "./test.setup";
+import { makeConvexTest, testCredential } from "./test.setup";
 
 async function insertFailedRepositoryRemoval(
   ctx: MutationCtx,
@@ -224,7 +224,7 @@ describe("organization deletion", () => {
       await ctx.db.insert("organizationProviderCredentials", {
         organizationId: seed.organizationId,
         convex: {
-          auth: { method: "api_key", credential: "test-credential" },
+          auth: { method: "api_key", credential: testCredential("test-credential") },
           connectedByUserId: seed.ownerId,
           updatedAt: 1,
         },
@@ -232,7 +232,7 @@ describe("organization deletion", () => {
       await ctx.db.insert("organizationCiCredentials", {
         organizationId: seed.organizationId,
         convex: {
-          accessToken: "convex-ci-test-token",
+          accessToken: testCredential("convex-ci-test-token"),
           teamId: "41",
           connectedByUserId: seed.ownerId,
           updatedAt: 1,

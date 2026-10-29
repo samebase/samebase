@@ -14,6 +14,7 @@ import { isLiveConnectedRepository } from "./state";
 import {
   fetchConvexDeploymentJson,
   fetchConvexSystemQuery,
+  readConvexInspectionTarget,
   withConvexInspectionDeployKey,
 } from "./convexDeploymentInspection";
 import {
@@ -970,7 +971,7 @@ export const refresh = action({
     ctx,
     args,
   ): Promise<{ snapshotId: Id<"observations_repositoryConvexSchema_snapshots"> }> => {
-    const target = await ctx.runQuery(internal.repository.convexDeploymentInspection.readTarget, {
+    const target = await readConvexInspectionTarget(ctx, {
       repositoryId: args.repositoryId,
       userId: ctx.viewer.userId,
     });

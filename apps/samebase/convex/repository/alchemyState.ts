@@ -15,7 +15,6 @@ import {
   type AlchemyStack,
   type AlchemyStacksRead,
 } from "../../shared/alchemyStateModel";
-import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { env, type ActionCtx } from "../_generated/server";
 import {
@@ -27,6 +26,7 @@ import { action } from "../functions";
 import { isRecord } from "../jsonUtils";
 import {
   fetchConvexDeploymentJson,
+  readConvexInspectionTarget,
   withConvexInspectionDeployKey,
   type ConvexInspectionTarget,
 } from "./convexDeploymentInspection";
@@ -251,7 +251,7 @@ async function connectReader(
   ctx: Pick<ActionCtx, "runQuery">,
   args: { repositoryId: Id<"repositories">; userId: Id<"users"> },
 ): Promise<Infer<typeof vAlchemyConnection>> {
-  const target = await ctx.runQuery(internal.repository.convexDeploymentInspection.readTarget, {
+  const target = await readConvexInspectionTarget(ctx, {
     repositoryId: args.repositoryId,
     userId: args.userId,
   });
@@ -337,7 +337,7 @@ export const readDeploymentMetadata = action({
   args: { repositoryId: id("repositories") },
   returns: vAlchemyLiveDeployments,
   handler: async (ctx, args): Promise<Infer<typeof vAlchemyLiveDeployments>> => {
-    const target = await ctx.runQuery(internal.repository.convexDeploymentInspection.readTarget, {
+    const target = await readConvexInspectionTarget(ctx, {
       repositoryId: args.repositoryId,
       userId: ctx.viewer.userId,
     });

@@ -28,6 +28,11 @@ import {
 } from "./repository/provisioningModel";
 import type { ProviderApiCallRecorder } from "./providerApiLog";
 import { requireActiveRepositoryProvisioningRun } from "./repositoryWorkflowAuthority";
+import {
+  organizationProviderCredentialAad,
+  type ConvexProviderCredential,
+} from "./organization/providerCredentialModel";
+import { openSecret } from "./sealedSecret";
 
 type ConvexDeployKeyAllowedAction = NonNullable<
   PlatformCreateDeployKeyArgs["allowedActions"]
@@ -416,8 +421,9 @@ export async function resolveConvexProvisioningConnection(
   },
 ): Promise<{
   organizationId: Id<"organizations">;
+  /** The opened `convexAuth.credential`. */
   convexToken: string;
-  convexAuthMethod: ConvexProvisioningAuthMethod;
+  convexAuth: ConvexProviderCredential["auth"];
   convexTeamId: string;
 }> {
   const convexConnection = await ctx.runQuery(
@@ -435,7 +441,12 @@ export async function resolveConvexProvisioningConnection(
     );
   }
 
-  const convexToken = credential.auth.credential.trim();
+  const convexToken = (
+    await openSecret({
+      sealed: credential.auth.credential,
+      aad: organizationProviderCredentialAad(args.organizationId, "convex.auth.credential"),
+    })
+  ).trim();
   const convexTeamId = convexConnection.teamId.trim();
 
   if (!convexToken || !convexTeamId) {
@@ -447,7 +458,7 @@ export async function resolveConvexProvisioningConnection(
   return {
     organizationId: args.organizationId,
     convexToken,
-    convexAuthMethod: credential.auth.method,
+    convexAuth: credential.auth,
     convexTeamId,
   };
 }
@@ -462,8 +473,9 @@ export async function resolveConvexProvisioningConnectionForRepositoryWorkflow(
   },
 ): Promise<{
   organizationId: Id<"organizations">;
+  /** The opened `convexAuth.credential`. */
   convexToken: string;
-  convexAuthMethod: ConvexProvisioningAuthMethod;
+  convexAuth: ConvexProviderCredential["auth"];
   convexTeamId: string;
 }> {
   const loaded = await ctx.runQuery(
@@ -485,7 +497,12 @@ export async function resolveConvexProvisioningConnectionForRepositoryWorkflow(
     );
   }
 
-  const convexToken = credential.auth.credential.trim();
+  const convexToken = (
+    await openSecret({
+      sealed: credential.auth.credential,
+      aad: organizationProviderCredentialAad(loaded.organizationId, "convex.auth.credential"),
+    })
+  ).trim();
   const convexTeamId = team.teamId.trim();
   if (!convexToken || !convexTeamId) {
     throw new Error(
@@ -496,7 +513,7 @@ export async function resolveConvexProvisioningConnectionForRepositoryWorkflow(
   return {
     organizationId: loaded.organizationId,
     convexToken,
-    convexAuthMethod: credential.auth.method,
+    convexAuth: credential.auth,
     convexTeamId,
   };
 }

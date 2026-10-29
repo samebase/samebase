@@ -240,6 +240,15 @@ Every deployment needs these Convex environment variables:
   node -e 'import("../../scripts/lib/convexAuthKeys.ts").then(({ generateConvexAuthKeys }) => { for (const [name, value] of Object.entries(generateConvexAuthKeys())) require("node:child_process").spawnSync("npx", ["convex", "env", "set", name], { input: value, stdio: ["pipe", "inherit", "inherit"] }); })'
   ```
 
+- `CREDENTIAL_KEYS`: the key ring that seals the stored provider credentials
+  (`specs/130_PROVIDER_CREDENTIAL_ENCRYPTION_AT_REST_SPEC.md`). A linked worktree gets it from
+  `pnpm run dev --once`, CI from its bootstrap, and a preview from its push. For production and the
+  development deployment, run this from `apps/samebase` with the deployment selected:
+
+  ```bash
+  node -e 'import("../../scripts/lib/convexAuthKeys.ts").then(({ generateCredentialKeys }) => { for (const [name, value] of Object.entries(generateCredentialKeys())) require("node:child_process").spawnSync("npx", ["convex", "env", "set", name], { input: value, stdio: ["pipe", "inherit", "inherit"] }); })'
+  ```
+
 - `HUB_ISSUER`, `HUB_CLIENT_ID`, and `HUB_CLIENT_SECRET`: the identity hub,
   `https://auth.samebase.com`, and this deployment's client at it. A deployment gets its client by
   posting its callback URL `<site>/auth/hub/callback` to `<HUB_ISSUER>/register` with the app's

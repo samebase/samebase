@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { api, internal } from "./_generated/api";
-import { makeConvexTest } from "./test.setup";
+import { testCredential, makeConvexTest } from "./test.setup";
 
 afterEach(() => {
   vi.unstubAllEnvs();
@@ -33,7 +33,7 @@ describe("Convex organization OAuth", () => {
       await ctx.db.insert("organizationProviderCredentials", {
         organizationId,
         convex: {
-          auth: { method: "api_key", credential: "convex-credential" },
+          auth: { method: "api_key", credential: testCredential("convex-credential") },
           connectedByUserId: userId,
           updatedAt: 1,
         },

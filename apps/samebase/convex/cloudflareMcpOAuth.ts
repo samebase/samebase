@@ -15,6 +15,8 @@ import { isRecord } from "./jsonUtils";
 import { deriveMcpTokenStatusFromExpiry } from "./mcpTokenHealth";
 import { vProviderOAuthStoreResult, type ProviderOAuthStoreResult } from "./oauthState";
 import { connectCloudflareCredential } from "./organizationProviderCredentials";
+import { organizationProviderCredentialAad } from "./organization/providerCredentialModel";
+import { sealSecret, vSealedSecret } from "./sealedSecret";
 import {
   listCloudflareAccountsForToken,
   resolveCloudflareAccountAfterAuthorization,
@@ -365,8 +367,8 @@ const storeCloudflareMcpOauthConnectionArgs = {
   organizationId: id("organizations"),
   connectedByUserId: id("users"),
   expectedProviderSnapshotHash: string(),
-  accessToken: string(),
-  refreshToken: string(),
+  accessToken: vSealedSecret,
+  refreshToken: vSealedSecret,
   expiresAt: number(),
   clientId: string(),
   account: union(vCloudflareAccount, v.null()),
@@ -625,8 +627,20 @@ export async function completeCloudflareMcpOAuth(
         organizationId: oauthState.organizationId,
         connectedByUserId: oauthState.userId,
         expectedProviderSnapshotHash: oauthState.expectedProviderSnapshotHash,
-        accessToken: token.access_token,
-        refreshToken: token.refresh_token,
+        accessToken: await sealSecret(ctx, {
+          plaintext: token.access_token,
+          aad: organizationProviderCredentialAad(
+            oauthState.organizationId,
+            "cloudflare.auth.credential",
+          ),
+        }),
+        refreshToken: await sealSecret(ctx, {
+          plaintext: token.refresh_token,
+          aad: organizationProviderCredentialAad(
+            oauthState.organizationId,
+            "cloudflare.auth.refreshCredential",
+          ),
+        }),
         expiresAt,
         clientId,
         account,

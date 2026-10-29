@@ -1,20 +1,31 @@
 import { defineTable } from "convex/server";
 import { v } from "convex/values";
 
+import type { Id } from "./_generated/dataModel";
+import { vStoredSecret } from "./sealedSecret";
+
 const { id, number, object, optional, string } = v;
 
 export const vGitHubUserAuthorization = object({
   userId: id("users"),
   githubUserId: string(),
   githubUserLogin: string(),
-  accessToken: string(),
+  accessToken: vStoredSecret,
   accessTokenExpiresAt: number(),
-  refreshToken: string(),
+  refreshToken: vStoredSecret,
   refreshTokenExpiresAt: number(),
   refreshStartedAt: optional(number()),
   createdAt: number(),
   updatedAt: number(),
 });
+
+/** The additional authenticated data of a sealed GitHub user token. */
+export function githubUserAuthorizationAad(
+  userId: Id<"users">,
+  field: "accessToken" | "refreshToken",
+): string {
+  return `githubUserAuthorizations/${userId}/${field}`;
+}
 
 export const githubUserAuthorizationTables = {
   /** The one refreshable GitHub App user authorization for a matching Samebase GitHub identity. */

@@ -4,6 +4,8 @@ import type { Id } from "./_generated/dataModel";
 import type { ActionCtx } from "./_generated/server";
 import { resolveCloudflareApiTransport } from "./cloudflareApi/client";
 import { listCloudflareBuildTokens } from "./cloudflareResources";
+import { organizationProviderCredentialAad } from "./organization/providerCredentialModel";
+import { openSecret } from "./sealedSecret";
 import { action } from "./functions";
 import {
   cloudflareListWorkersBuildTokensContract,
@@ -21,7 +23,14 @@ export async function listWorkersBuildTokensForUser(
       organizationId: args.organizationId,
     },
   );
-  const token = connection?.auth.credential.trim();
+  const token =
+    connection &&
+    (
+      await openSecret({
+        sealed: connection.auth.credential,
+        aad: organizationProviderCredentialAad(args.organizationId, "cloudflare.auth.credential"),
+      })
+    ).trim();
   const accountId = connection?.account.accountId.trim();
   if (!connection || !token || !accountId) {
     throw new ConvexError("Cloudflare connection is required.");

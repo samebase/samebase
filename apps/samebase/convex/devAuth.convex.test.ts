@@ -15,7 +15,42 @@ vi.mock("./githubApp", async (importOriginal) => {
 });
 
 import { internal } from "./_generated/api";
-import { makeConvexTest } from "./test.setup";
+import type { Doc } from "./_generated/dataModel";
+import {
+  organizationCiCredentialAad,
+  organizationProviderCredentialAad,
+} from "./organization/providerCredentialModel";
+import { openSecret } from "./sealedSecret";
+import { makeConvexTest, testCredential } from "./test.setup";
+
+/** The seeded provider and CI tokens of one organization, opened for their fields. */
+async function openSeededCredentials(
+  provider: Doc<"organizationProviderCredentials"> | undefined,
+  ci: Doc<"organizationCiCredentials"> | undefined,
+) {
+  if (!provider?.convex || !provider.cloudflare || !ci?.convex || !ci.cloudflare) {
+    throw new Error("Expected seeded provider and CI credentials.");
+  }
+  const { organizationId } = provider;
+  return {
+    convex: await openSecret({
+      sealed: provider.convex.auth.credential,
+      aad: organizationProviderCredentialAad(organizationId, "convex.auth.credential"),
+    }),
+    cloudflare: await openSecret({
+      sealed: provider.cloudflare.auth.credential,
+      aad: organizationProviderCredentialAad(organizationId, "cloudflare.auth.credential"),
+    }),
+    convexCi: await openSecret({
+      sealed: ci.convex.accessToken,
+      aad: organizationCiCredentialAad(organizationId, "convex.accessToken"),
+    }),
+    cloudflareCi: await openSecret({
+      sealed: ci.cloudflare.apiToken,
+      aad: organizationCiCredentialAad(organizationId, "cloudflare.apiToken"),
+    }),
+  };
+}
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -105,39 +140,46 @@ describe("devAuth password account seed", () => {
         isApproved: true,
       });
     });
-    const seed = {
-      userId,
+    const owner = {
       githubOwnerId: "285392744",
       githubOwnerType: "organization",
       githubOwnerLogin: "samebase",
       githubInstallationId: "151325701",
-      convexConnection: {
-        credential: "convex-test-credential",
-        teamId: "convex-team-id",
-        teamSlug: "samebase",
-      },
-      cloudflareConnection: {
-        credential: "cloudflare-test-credential",
-        accountId: "cloudflare-account-id",
-      },
     } as const;
+    const seed = async (version: string) => {
+      const { organizationId } = await t.mutation(
+        internal.organizations.createOrReconnectVerifiedOrganization,
+        {
+          userId,
+          githubOwnerId: owner.githubOwnerId,
+          githubOwnerType: owner.githubOwnerType,
+          githubOwnerLogin: owner.githubOwnerLogin,
+          githubInstallationId: owner.githubInstallationId,
+        },
+      );
+      await t.mutation(internal.devAuth.seedOrganizationProviderCredentials, {
+        userId,
+        organizationId,
+        convexConnection: {
+          credential: testCredential(`convex-${version}`),
+          ciAccessToken: testCredential(`convex-ci-${version}`),
+          teamId: "convex-team-id",
+          teamSlug: "samebase",
+        },
+        cloudflareConnection: {
+          credential: testCredential(`cloudflare-${version}`),
+          ciApiToken: testCredential(`cloudflare-ci-${version}`),
+          accountId: "cloudflare-account-id",
+        },
+      });
+    };
 
-    await t.mutation(internal.devAuth.seedOrganizationWithProviderCredentials, seed);
+    await seed("initial");
     const initial = await t.run(async (ctx) => ({
       providerCredentials: await ctx.db.query("organizationProviderCredentials").unique(),
       ciCredentials: await ctx.db.query("organizationCiCredentials").unique(),
     }));
-    await t.mutation(internal.devAuth.seedOrganizationWithProviderCredentials, {
-      ...seed,
-      convexConnection: {
-        ...seed.convexConnection,
-        credential: "convex-updated-credential",
-      },
-      cloudflareConnection: {
-        ...seed.cloudflareConnection,
-        credential: "cloudflare-updated-credential",
-      },
-    });
+    await seed("updated");
 
     const snapshot = await t.run(async (ctx) => {
       return {
@@ -157,18 +199,15 @@ describe("devAuth password account seed", () => {
 
     const organization = snapshot.organizations[0];
     expect(organization).toMatchObject({
-      githubOwnerId: seed.githubOwnerId,
-      githubOwnerType: seed.githubOwnerType,
-      githubOwnerLogin: seed.githubOwnerLogin,
-      githubOwnerLoginNormalized: seed.githubOwnerLogin,
-      githubInstallationId: seed.githubInstallationId,
-      convexTeam: {
-        teamId: seed.convexConnection.teamId,
-        teamSlug: seed.convexConnection.teamSlug,
-      },
+      githubOwnerId: owner.githubOwnerId,
+      githubOwnerType: owner.githubOwnerType,
+      githubOwnerLogin: owner.githubOwnerLogin,
+      githubOwnerLoginNormalized: owner.githubOwnerLogin,
+      githubInstallationId: owner.githubInstallationId,
+      convexTeam: { teamId: "convex-team-id", teamSlug: "samebase" },
       cloudflareAccount: {
-        accountId: seed.cloudflareConnection.accountId,
-        accountName: seed.cloudflareConnection.accountId,
+        accountId: "cloudflare-account-id",
+        accountName: "cloudflare-account-id",
       },
     });
     expect(snapshot.memberships[0]).toMatchObject({
@@ -187,24 +226,24 @@ describe("devAuth password account seed", () => {
       organizationId: organization._id,
       convex: {
         connectedByUserId: userId,
-        auth: { credential: "convex-updated-credential" },
+        auth: { credential: testCredential("convex-updated") },
       },
       cloudflare: {
         connectedByUserId: userId,
-        auth: { credential: "cloudflare-updated-credential" },
+        auth: { credential: testCredential("cloudflare-updated") },
       },
     });
     expect(snapshot.ciCredentials[0]).toMatchObject({
       _id: initial.ciCredentials?._id,
       organizationId: organization._id,
       convex: {
-        accessToken: "convex-updated-credential",
-        teamId: seed.convexConnection.teamId,
+        accessToken: testCredential("convex-ci-updated"),
+        teamId: "convex-team-id",
         connectedByUserId: userId,
       },
       cloudflare: {
-        apiToken: "cloudflare-updated-credential",
-        accountId: seed.cloudflareConnection.accountId,
+        apiToken: testCredential("cloudflare-ci-updated"),
+        accountId: "cloudflare-account-id",
         connectedByUserId: userId,
       },
     });
@@ -219,25 +258,34 @@ describe("devAuth password account seed", () => {
         isApproved: true,
       });
     });
-    const seed = {
+    const { organizationId } = await t.mutation(
+      internal.organizations.createOrReconnectVerifiedOrganization,
+      {
+        userId,
+        githubOwnerId: "285392744",
+        githubOwnerType: "organization",
+        githubOwnerLogin: "samebase",
+        githubInstallationId: "151325701",
+      },
+    );
+
+    await t.mutation(internal.devAuth.seedOrganizationProviderCredentials, {
       userId,
-      githubOwnerId: "285392744",
-      githubOwnerType: "organization",
-      githubOwnerLogin: "samebase",
-      githubInstallationId: "151325701",
+      organizationId,
       convexConnection: null,
       cloudflareConnection: null,
-    } as const;
-
-    await t.mutation(internal.devAuth.seedOrganizationWithProviderCredentials, seed);
+    });
     await expect(
       t.run(async (ctx) => await ctx.db.query("organizationCiCredentials").collect()),
     ).resolves.toEqual([]);
 
-    await t.mutation(internal.devAuth.seedOrganizationWithProviderCredentials, {
-      ...seed,
+    await t.mutation(internal.devAuth.seedOrganizationProviderCredentials, {
+      userId,
+      organizationId,
+      convexConnection: null,
       cloudflareConnection: {
-        credential: "cloudflare-test-credential",
+        credential: testCredential("cloudflare-test-credential"),
+        ciApiToken: testCredential("cloudflare-ci-test-credential"),
         accountId: "cloudflare-account-id",
       },
     });
@@ -246,7 +294,10 @@ describe("devAuth password account seed", () => {
     );
     expect(ciCredentials).toHaveLength(1);
     expect(ciCredentials[0]).toMatchObject({
-      cloudflare: { apiToken: "cloudflare-test-credential", accountId: "cloudflare-account-id" },
+      cloudflare: {
+        apiToken: testCredential("cloudflare-ci-test-credential"),
+        accountId: "cloudflare-account-id",
+      },
     });
     expect(ciCredentials[0].convex).toBeUndefined();
   });
@@ -365,25 +416,18 @@ describe("devAuth password account seed", () => {
       convexTeam: { teamId: "samebase-convex-team-id" },
       cloudflareAccount: { accountId: "samebase-cloudflare-account-id" },
     });
-    expect(samebaseCredentials).toMatchObject({
-      convex: { auth: { credential: "samebase-convex-credential" } },
-      cloudflare: { auth: { credential: "samebase-cloudflare-credential" } },
+    const samebaseCi = snapshot.ciCredentials.find(
+      ({ organizationId }) => organizationId === samebaseOrganization?._id,
+    );
+    expect(samebaseCi).toMatchObject({
+      convex: { teamId: "samebase-convex-team-id", connectedByUserId: seedUserId },
+      cloudflare: { accountId: "samebase-cloudflare-account-id", connectedByUserId: seedUserId },
     });
-    expect(
-      snapshot.ciCredentials.find(
-        ({ organizationId }) => organizationId === samebaseOrganization?._id,
-      ),
-    ).toMatchObject({
-      convex: {
-        accessToken: "samebase-convex-credential",
-        teamId: "samebase-convex-team-id",
-        connectedByUserId: seedUserId,
-      },
-      cloudflare: {
-        apiToken: "samebase-cloudflare-credential",
-        accountId: "samebase-cloudflare-account-id",
-        connectedByUserId: seedUserId,
-      },
+    await expect(openSeededCredentials(samebaseCredentials, samebaseCi)).resolves.toEqual({
+      convex: "samebase-convex-credential",
+      cloudflare: "samebase-cloudflare-credential",
+      convexCi: "samebase-convex-credential",
+      cloudflareCi: "samebase-cloudflare-credential",
     });
 
     const personalOrganization = snapshot.organizations.find(
@@ -396,9 +440,16 @@ describe("devAuth password account seed", () => {
       convexTeam: { teamId: "samebase-convex-team-id" },
       cloudflareAccount: { accountId: "samebase-cloudflare-account-id" },
     });
-    expect(personalCredentials).toMatchObject({
-      convex: { auth: { credential: "samebase-convex-credential" } },
-      cloudflare: { auth: { credential: "samebase-cloudflare-credential" } },
+    await expect(
+      openSeededCredentials(
+        personalCredentials,
+        snapshot.ciCredentials.find(
+          ({ organizationId }) => organizationId === personalOrganization?._id,
+        ),
+      ),
+    ).resolves.toMatchObject({
+      convex: "samebase-convex-credential",
+      cloudflare: "samebase-cloudflare-credential",
     });
 
     const liveTestsOrganization = snapshot.organizations.find(
@@ -411,20 +462,18 @@ describe("devAuth password account seed", () => {
       convexTeam: { teamId: "preview-convex-team-id" },
       cloudflareAccount: { accountId: "preview-cloudflare-account-id" },
     });
-    expect(liveTestsCredentials).toMatchObject({
-      convex: { auth: { credential: "preview-convex-credential" } },
-      cloudflare: { auth: { credential: "preview-cloudflare-credential" } },
+    const liveTestsCi = snapshot.ciCredentials.find(
+      ({ organizationId }) => organizationId === liveTestsOrganization?._id,
+    );
+    expect(liveTestsCi).toMatchObject({
+      convex: { teamId: "preview-convex-team-id" },
+      cloudflare: { accountId: "preview-cloudflare-account-id" },
     });
-    expect(
-      snapshot.ciCredentials.find(
-        ({ organizationId }) => organizationId === liveTestsOrganization?._id,
-      ),
-    ).toMatchObject({
-      convex: { accessToken: "preview-convex-credential", teamId: "preview-convex-team-id" },
-      cloudflare: {
-        apiToken: "preview-cloudflare-credential",
-        accountId: "preview-cloudflare-account-id",
-      },
+    await expect(openSeededCredentials(liveTestsCredentials, liveTestsCi)).resolves.toEqual({
+      convex: "preview-convex-credential",
+      cloudflare: "preview-cloudflare-credential",
+      convexCi: "preview-convex-credential",
+      cloudflareCi: "preview-cloudflare-credential",
     });
   });
 

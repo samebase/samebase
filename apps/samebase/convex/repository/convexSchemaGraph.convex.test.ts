@@ -2,17 +2,15 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { api, internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
-import { insertTestOrganizationBillingAccount, makeConvexTest } from "../test.setup";
+import {
+  insertTestOrganizationBillingAccount,
+  makeConvexTest,
+  sealTestCredentials,
+  testCredential,
+} from "../test.setup";
+import { type ConvexProviderCredential } from "../organization/providerCredentialModel";
 
-type ConvexAuth =
-  | {
-      method: "api_key";
-      credential: string;
-    }
-  | {
-      method: "oauth";
-      credential: string;
-    };
+type ConvexAuth = ConvexProviderCredential["auth"];
 
 type RecordedRequest = {
   authorization: string | null;
@@ -165,6 +163,7 @@ async function seedSchemaGraphRepository(
 
     return { convexProjectId, userId, repositoryId };
   });
+  await sealTestCredentials(t);
 
   return { ids, user: asUser(t, ids.userId) };
 }
@@ -262,7 +261,7 @@ describe("repository Convex schema graph", () => {
     const t = makeConvexTest();
     const { ids, user } = await seedSchemaGraphRepository(t, {
       method: "oauth",
-      credential: "convex-oauth-token",
+      credential: testCredential("convex-oauth-token"),
     });
     await t.run(async (ctx) => {
       await ctx.db.delete(ids.convexProjectId);
@@ -280,7 +279,7 @@ describe("repository Convex schema graph", () => {
     const t = makeConvexTest();
     const { ids, user } = await seedSchemaGraphRepository(t, {
       method: "oauth",
-      credential: "convex-oauth-token",
+      credential: testCredential("convex-oauth-token"),
     });
     vi.spyOn(Date, "now").mockReturnValue(1_710_000_000_000);
     const requests: RecordedRequest[] = [];
@@ -336,7 +335,7 @@ describe("repository Convex schema graph", () => {
     const t = makeConvexTest();
     const { ids, user } = await seedSchemaGraphRepository(t, {
       method: "api_key",
-      credential: "convex-api-key",
+      credential: testCredential("convex-api-key"),
     });
     vi.spyOn(Date, "now").mockReturnValue(1_710_000_000_000);
     const requests: RecordedRequest[] = [];
@@ -363,7 +362,7 @@ describe("repository Convex schema graph", () => {
     const t = makeConvexTest();
     const { ids } = await seedSchemaGraphRepository(t, {
       method: "oauth",
-      credential: "convex-oauth-token",
+      credential: testCredential("convex-oauth-token"),
     });
     const graph = {
       tables: [],
