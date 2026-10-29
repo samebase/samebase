@@ -272,6 +272,12 @@ that required-field narrowings ship without migrations. If Samebase has many org
 time this ships, the alternative is a one-off internal action that seals each existing row before
 the schema narrows, run once by the operator.
 
+The rollout changed to in-place sealing: production holds the provider connections and GitHub user
+authorizations of other users, and removing their rows would break them. The stored fields accept a
+plain string for one transitional deploy, `resealCredentials:run` seals the existing rows, and a
+follow-up change narrows the fields again.
+`specs/130_PROVIDER_CREDENTIAL_ENCRYPTION_AT_REST_SPEC.md` has the steps.
+
 ### 5.8 Tests
 
 Start from the state axes: key id present or absent in the ring, AAD matching or moved, ciphertext

@@ -36,6 +36,12 @@ without the matching authorization code.
 `sealSecret` and `openSecret` in `apps/samebase/convex/sealedSecret.ts` use Web Crypto. They run in
 the default Convex runtime and in `"use node"` modules.
 
+During the transition the stored fields accept a plain string too (`vStoredSecret`), so the rows
+written before sealing pass the schema until the reseal action seals them. `openSecret` refuses a
+plain string with "Stored credential is not sealed yet" and never quotes the value. Every writer
+stores a sealed object. The narrowing change after the reseal run removes the string and
+`vStoredSecret`.
+
 ### Key ring
 
 The key ring is one Convex environment variable, `CREDENTIAL_KEYS`, which `convex/convex.config.ts`
@@ -90,17 +96,29 @@ table shapes: `organizationProviderCredentialAad` and `organizationCiCredentialA
 
 Concurrent-change checks compare sealed objects: `providerAuthMatches` compares `keyId`, `iv`, and
 `ciphertext`, and the provider snapshot hash hashes the same three fields. Every seal draws a new
-IV, so equal sealed objects mean an unchanged row.
+IV, so equal sealed objects mean an unchanged row. During the transition two plain strings compare
+by equality, and a plain string never equals a sealed object.
 
 ### Rotation
 
-Rotation is an operator step. Add a new key to `keys` and set `current` to its id. New seals use the
-new key; rows sealed under an older key still open. An old key stays in the ring until the normal
-refresh and reconnect flows have rewritten every row that it sealed.
+Rotation is an operator step:
+
+1. Add a new key to `keys` and set `current` to its id. New seals use the new key; rows sealed under
+   an older key still open.
+2. Run `resealCredentials:run` on the deployment. It opens each value under an older key with that
+   key and seals it again under `current`, with the same AAD.
+3. Remove the old key from the ring.
+
+`resealCredentials:run` in `apps/samebase/convex/resealCredentials.ts` also seals a plain string.
+The return of its `readRows` query is the one internal boundary that a plain string crosses. Its
+write mutations receive a plain field only as its SHA-256, re-read the row, and change a field only
+when it still holds the value that the action read, so a concurrent refresh or reconnect keeps its
+value; the action counts that field as `skippedChanged`, and the next run handles it. A second run
+reports every field unchanged. The action returns counts only.
 
 ## Non-Goals
 
-- A KMS, envelope encryption, per-row data keys, HKDF, or a reseal action.
+- A KMS, envelope encryption, per-row data keys, or HKDF.
 - Protection against a Convex team role that reads environment variables, or against a compromised
   deployment. The research note names the triggers for a KMS.
 - Sealing Samebase's own secrets, which are environment variables, or the MCP and handoff tokens,
@@ -120,15 +138,23 @@ refresh and reconnect flows have rewritten every row that it sealed.
   seeded CI tokens are sealed.
 - `convex/repositoryProvisioningWorkflow.convex.test.ts`: the Actions secrets step writes the opened
   CI tokens.
+- `convex/resealCredentials.convex.test.ts`: the reseal run seals the plain provider, CI, and GitHub
+  fields for their AAD and a second run changes nothing; a value under an older key moves to the
+  current key; a write keeps a field that changed after the read.
+- `convex/sealedSecret.test.ts`: `openSecret` refuses a plain string without quoting it.
 
 ## Rollout
 
-The change narrows the stored fields from strings to sealed objects with no migration:
+The rows that exist before this change hold plain strings, and production holds the connections of
+other users, so the rows are sealed in place:
 
-1. Set `CREDENTIAL_KEYS` on production and on the dev deployment. The push fails without it. A
-   preview gets its ring on its next push, from `deploy-preview.ts`.
-2. Remove the current credential rows: disconnect Convex and Cloudflare on the Providers page of
-   each organization, remove the CI tokens, and revoke the GitHub user authorization. Convex refuses
-   a deploy whose rows do not match the schema.
-3. Deploy.
-4. Reconnect the providers, save the CI tokens, and authorize GitHub again.
+1. `CREDENTIAL_KEYS` is set on production and on the dev deployment (done 2026-10-29).
+2. Merge this change. The deploy passes because the stored fields accept the old strings.
+3. Run `resealCredentials:run` once on production and once on the dev deployment, from
+   `apps/samebase` (for production with the prefix of `docs/convex-production-reads.md`):
+   `npx convex run --prod resealCredentials:run`. Between the deploy and the run, a provider call
+   that meets a plain string fails with the "not sealed yet" error.
+4. Confirm with a read-only count that no stored field holds a string.
+5. A follow-up change narrows the fields to the sealed object and deletes `vStoredSecret`.
+
+Previews, linked worktrees, and CI need nothing: their rows are new and sealed.
