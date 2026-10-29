@@ -205,13 +205,15 @@ through the typed `env`:
 CREDENTIAL_KEYS={"current":"2026-10","keys":{"2026-10":"<base64 of 32 random bytes>"}}
 ```
 
-Generate a key with
-`node -e "console.log(require('node:crypto').randomBytes(32).toString('base64'))"` and set it with
-`npx convex env set` on production, on the dev deployment, and as a project default so preview
-deployments get it. Env values may hold 8 KiB, so the ring can carry several keys. Rotation: add the
-new key as `current`, run an internal action once that opens each row with its `keyId` and seals it
-again with the current key, then remove the old key from the ring. Nothing in the stored shape
-changes, so this is an operator task and not a data migration.
+The operator sets the ring with `npx convex env set` on production and on the dev deployment
+(`generateCredentialKeys` in `scripts/lib/convexAuthKeys.ts` makes one). A preview deployment, a
+linked worktree backend and the CI backend generate their own ring when they have none, and keep the
+ring they have. Env values may hold 8 KiB, so the ring can carry several keys. Rotation as shipped:
+add the new key and set `current` to it; new seals use it, and rows sealed under an older key still
+open, so the old key stays in the ring until the refresh and reconnect flows have rewritten its
+rows. A one-off internal action that opens each row and seals it again is the step to add only when
+a key must be retired before that. Nothing in the stored shape changes, so rotation is an operator
+task and not a data migration.
 
 ### 5.4 Seal only in actions
 

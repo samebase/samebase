@@ -242,9 +242,8 @@ Every deployment needs these Convex environment variables:
 
 - `CREDENTIAL_KEYS`: the key ring that seals the stored provider credentials
   (`specs/130_PROVIDER_CREDENTIAL_ENCRYPTION_AT_REST_SPEC.md`). A linked worktree gets it from
-  `pnpm run dev --once`, and CI from its bootstrap. For production and the development deployment,
-  run this from `apps/samebase` with the deployment selected; preview deployments read the same ring
-  as a project default environment variable:
+  `pnpm run dev --once`, CI from its bootstrap, and a preview from its push. For production and the
+  development deployment, run this from `apps/samebase` with the deployment selected:
 
   ```bash
   node -e 'import("../../scripts/lib/convexAuthKeys.ts").then(({ generateCredentialKeys }) => { for (const [name, value] of Object.entries(generateCredentialKeys())) require("node:child_process").spawnSync("npx", ["convex", "env", "set", name], { input: value, stdio: ["pipe", "inherit", "inherit"] }); })'

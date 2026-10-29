@@ -232,7 +232,12 @@ function readLocalConvexEnv(name: string): string | null {
     encoding: "utf8",
     stdio: ["ignore", "pipe", "inherit"],
   });
-  const value = result.status === 0 ? result.stdout.trim() : "";
+  if (result.status !== 0) {
+    exitWithError(`Failed to read ${name} from local Convex env`);
+  }
+  // The CLI exits 0 with an empty stdout when the variable is absent. A failed read must not count
+  // as absence: the caller would then generate new keys over the ones the backend's rows need.
+  const value = result.stdout.trim();
   return value.length > 0 ? value : null;
 }
 

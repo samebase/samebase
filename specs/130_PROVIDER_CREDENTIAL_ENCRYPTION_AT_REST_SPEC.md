@@ -51,9 +51,10 @@ read the variable on every call and fail closed when it is missing or is not JSO
 variable.
 
 The operator sets the ring with `npx convex env set` on production (`--prod`) and on the dev
-deployment, and as a project default environment variable for preview deployments. A linked worktree
-backend and the CI backend generate their own ring in `scripts/convex-seed-dev-auth.ts` and
-`scripts/ci-bootstrap-convex.ts`; a worktree keeps the ring that it has.
+deployment. A preview deployment, a linked worktree backend and the CI backend generate their own
+ring when they have none, in `apps/samebase/scripts/deploy-preview.ts`,
+`scripts/convex-seed-dev-auth.ts` and `scripts/ci-bootstrap-convex.ts`. A deployment keeps the ring
+that it has, because its credential rows are sealed under it.
 
 ### Seal only in actions
 
@@ -63,7 +64,7 @@ deterministic generator, and a repeated IV under one key breaks AES-GCM.
 
 The action that obtains a credential seals it and passes the sealed object to the internal mutation
 that stores it. Queries return sealed objects. The action that calls the provider opens the
-credential right before the call, once per action.
+credential right before the call.
 
 No query or mutation argument carries a plain provider credential. Public actions receive a pasted
 token from the browser and seal it before any mutation. No Workflow step argument or result carries
@@ -124,8 +125,8 @@ refresh and reconnect flows have rewritten every row that it sealed.
 
 The change narrows the stored fields from strings to sealed objects with no migration:
 
-1. Set `CREDENTIAL_KEYS` on production, on the dev deployment, and as the preview project default.
-   The push fails without it.
+1. Set `CREDENTIAL_KEYS` on production and on the dev deployment. The push fails without it. A
+   preview gets its ring on its next push, from `deploy-preview.ts`.
 2. Remove the current credential rows: disconnect Convex and Cloudflare on the Providers page of
    each organization, remove the CI tokens, and revoke the GitHub user authorization. Convex refuses
    a deploy whose rows do not match the schema.
