@@ -14,7 +14,12 @@ vi.mock("../githubAppAccess", async (importOriginal) => {
 
 import { api } from "../_generated/api";
 import { isRecord } from "../jsonUtils";
-import { insertTestOrganizationBillingAccount, makeConvexTest } from "../test.setup";
+import {
+  insertTestOrganizationBillingAccount,
+  makeConvexTest,
+  sealTestCredentials,
+  testCredential,
+} from "../test.setup";
 import {
   observedAlchemyStackReply,
   observedBaseAlchemyProject,
@@ -65,7 +70,7 @@ async function seedBaseAlchemy(t: ReturnType<typeof makeConvexTest>) {
       organizationId,
       convex: {
         connectedByUserId: userId,
-        auth: { method: "api_key", credential: "convex-api-key" },
+        auth: { method: "api_key", credential: testCredential("convex-api-key") },
         updatedAt: 2,
       },
     });
@@ -105,6 +110,7 @@ async function seedBaseAlchemy(t: ReturnType<typeof makeConvexTest>) {
 
     return { organizationId, repositoryId, userId };
   });
+  await sealTestCredentials(t);
 
   return {
     ids,

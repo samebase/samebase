@@ -30,6 +30,9 @@ import {
   type CloudflareConnectedWorkersBuilds,
 } from "../cloudflareResources";
 import { fetchGitHubDefaultBranchHead, fetchGitHubRepoIdentity } from "../githubRepoApi";
+import type { ResolvedCloudflareConnection } from "../cloudflareOAuth";
+import { organizationProviderCredentialAad } from "../organization/providerCredentialModel";
+import { openSecret } from "../sealedSecret";
 import {
   resolveGitHubAppAccess,
   resolveGitHubAppAccessForProvisioningRun,
@@ -96,21 +99,8 @@ type CloudflareCreateWorkerResult = Infer<typeof cloudflareCreateWorkerContract.
 type ConvexDeployKeyInstallation = Infer<typeof vConvexDeployKeyInstallation>;
 type CloudflareActionConnection = {
   organizationId: Id<"organizations">;
-  auth:
-    | { method: "api_key"; credential: string }
-    | {
-        method: "oauth";
-        credential: string;
-        refreshCredential: string;
-        credentialExpiresAt: number;
-      }
-    | {
-        method: "mcp_oauth";
-        credential: string;
-        refreshCredential: string;
-        credentialExpiresAt: number;
-        clientId: string;
-      };
+  auth: ResolvedCloudflareConnection["auth"];
+  /** The opened `auth.credential`. */
   token: string;
   transport: CloudflareApiTransport;
   account: { accountId: string; accountName: string };
@@ -167,7 +157,14 @@ async function resolveCloudflareConnection(
       organizationId: args.organizationId,
     },
   );
-  const token = connection?.auth.credential.trim();
+  const token =
+    connection &&
+    (
+      await openSecret({
+        sealed: connection.auth.credential,
+        aad: organizationProviderCredentialAad(args.organizationId, "cloudflare.auth.credential"),
+      })
+    ).trim();
   if (!connection || !token) {
     throw new ConvexError("Cloudflare connection is required.");
   }
@@ -199,7 +196,14 @@ async function resolveCloudflareConnectionForManualProviderWrite(
       actionId: args.actionId,
     },
   );
-  const token = connection?.auth.credential.trim();
+  const token =
+    connection &&
+    (
+      await openSecret({
+        sealed: connection.auth.credential,
+        aad: organizationProviderCredentialAad(args.organizationId, "cloudflare.auth.credential"),
+      })
+    ).trim();
   if (!connection || !token) {
     throw new ConvexError("Cloudflare connection is required.");
   }
@@ -233,7 +237,14 @@ async function resolveCloudflareConnectionForProvisioningRun(
       },
     },
   );
-  const token = connection?.auth.credential.trim();
+  const token =
+    connection &&
+    (
+      await openSecret({
+        sealed: connection.auth.credential,
+        aad: organizationProviderCredentialAad(args.organizationId, "cloudflare.auth.credential"),
+      })
+    ).trim();
   if (!connection || !token) {
     throw new ConvexError("Cloudflare connection is required.");
   }
@@ -1226,7 +1237,7 @@ async function rotatePreparedConvexDeployKeys(
   await args.beforeProviderWrite?.();
   const production = await createConvexDeployKey({
     convexToken: convexConnection.convexToken,
-    convexAuthMethod: convexConnection.convexAuthMethod,
+    convexAuthMethod: convexConnection.convexAuth.method,
     deploymentName: deployment.name,
     name: deployKeyNames.production,
   });

@@ -27,6 +27,8 @@ import { readActiveUser } from "./identity/lifecycle";
 import { requireActiveRepositoryProvisioningContinuation } from "./repositoryWorkflowAuthority";
 import { readOwnedActiveRun } from "./accountDeletion/stepContext";
 import { GITHUB_USER_TOKEN_REFRESH_STALE_LOCK_MS } from "../shared/githubUserTokenRefresh";
+import { githubUserAuthorizationAad } from "./githubUserAuthorizationModel";
+import { openSecret, sealSecret, vSealedSecret, type SealedSecret } from "./sealedSecret";
 
 const { boolean, id, literal, number, object, string, union } = v;
 
@@ -55,9 +57,9 @@ const vGitHubUserAuthorizationForUse = object({
   userId: id("users"),
   githubUserId: string(),
   githubUserLogin: string(),
-  accessToken: string(),
+  accessToken: vSealedSecret,
   accessTokenExpiresAt: number(),
-  refreshToken: string(),
+  refreshToken: vSealedSecret,
   refreshTokenExpiresAt: number(),
 });
 
@@ -87,7 +89,7 @@ const vGitHubUserAuthorizationForAppConnectionUse = union(
 const vGitHubUserAuthorizationForRevocationValue = object({
   authorizationId: id("githubUserAuthorizations"),
   githubUserId: string(),
-  accessToken: string(),
+  accessToken: vSealedSecret,
 });
 const vGitHubUserAuthorizationForRevocation = union(
   vGitHubUserAuthorizationForRevocationValue,
@@ -256,18 +258,22 @@ export const getViewerPersonalRepositoryAuthorization = query({
   },
 });
 
+/**
+Stores the user's GitHub authorization. Returns the sealed access token that the new one replaces,
+so the caller can revoke it when it differs from the new token, or null for a new authorization.
+*/
 export async function upsertGitHubUserAuthorization(
   db: DatabaseWriter,
   args: {
     userId: Id<"users">;
     githubUserId: string;
     githubUserLogin: string;
-    accessToken: string;
+    accessToken: SealedSecret;
     accessTokenExpiresAt: number;
-    refreshToken: string;
+    refreshToken: SealedSecret;
     refreshTokenExpiresAt: number;
   },
-): Promise<string | null> {
+): Promise<SealedSecret | null> {
   const user = await db.get(args.userId);
   if (user === null || readActiveUser(user) === null) {
     throw new Error("An active Samebase user is required.");
@@ -320,7 +326,7 @@ export async function upsertGitHubUserAuthorization(
   };
   if (existing !== null) {
     await db.patch(existing._id, authorization);
-    return existing.accessToken === args.accessToken ? null : existing.accessToken;
+    return existing.accessToken;
   }
 
   await db.insert("githubUserAuthorizations", {
@@ -469,9 +475,9 @@ async function finishRefreshAfterAuthority(
   args: {
     authorizationId: Id<"githubUserAuthorizations">;
     refreshStartedAt: number;
-    accessToken: string;
+    accessToken: SealedSecret;
     accessTokenExpiresAt: number;
-    refreshToken: string;
+    refreshToken: SealedSecret;
     refreshTokenExpiresAt: number;
   },
 ): Promise<void> {
@@ -496,9 +502,9 @@ async function finishRefreshAfterAuthority(
 const finishRefreshArgs = {
   authorizationId: id("githubUserAuthorizations"),
   refreshStartedAt: number(),
-  accessToken: string(),
+  accessToken: vSealedSecret,
   accessTokenExpiresAt: number(),
-  refreshToken: string(),
+  refreshToken: vSealedSecret,
   refreshTokenExpiresAt: number(),
 } as const;
 
@@ -635,6 +641,7 @@ export const deleteRevokedForAccountDeletion = internalMutation({
 });
 
 async function revokeGitHubUserAuthorizationAtProvider(
+  userId: Id<"users">,
   authorization: GitHubUserAuthorizationForRevocation,
 ): Promise<void> {
   const configuration = getGitHubAppConfiguration();
@@ -642,7 +649,10 @@ async function revokeGitHubUserAuthorizationAtProvider(
     clientType: "github-app",
     clientId: configuration.clientId,
     clientSecret: configuration.clientSecret,
-    token: authorization.accessToken,
+    token: await openSecret({
+      sealed: authorization.accessToken,
+      aad: githubUserAuthorizationAad(userId, "accessToken"),
+    }),
   });
   try {
     await auth({ type: "deleteAuthorization" });
@@ -669,7 +679,7 @@ export const revokeForAccountDeletion = internalAction({
     if (authorization === null) {
       return null;
     }
-    await revokeGitHubUserAuthorizationAtProvider(authorization);
+    await revokeGitHubUserAuthorizationAtProvider(identity.userId, authorization);
     await ctx.runMutation(internal.githubUserAuthorizations.deleteRevokedForAccountDeletion, {
       runId: args.runId,
       workflowId: args.workflowId,
@@ -693,7 +703,7 @@ export const revokeViewerGitHubUserAuthorization = action({
       return null;
     }
 
-    await revokeGitHubUserAuthorizationAtProvider(authorization);
+    await revokeGitHubUserAuthorizationAtProvider(ctx.viewer.userId, authorization);
     await ctx.runMutation(internal.githubUserAuthorizations.deleteRevoked, {
       authorizationId: authorization.authorizationId,
       githubUserId: authorization.githubUserId,
@@ -741,9 +751,9 @@ async function finishGitHubUserAuthorizationRefresh(
   args: {
     authorizationId: Id<"githubUserAuthorizations">;
     refreshStartedAt: number;
-    accessToken: string;
+    accessToken: SealedSecret;
     accessTokenExpiresAt: number;
-    refreshToken: string;
+    refreshToken: SealedSecret;
     refreshTokenExpiresAt: number;
   },
 ): Promise<void> {
@@ -808,7 +818,7 @@ async function releaseGitHubUserAuthorizationRefresh(
 }
 
 async function resolveGitHubUserOctokitForAuthority(
-  ctx: Pick<ActionCtx, "runMutation" | "runQuery">,
+  ctx: Pick<ActionCtx, "runAction" | "runMutation" | "runQuery">,
   authority: GitHubUserOctokitAuthority,
   githubUserId: string,
 ): Promise<Octokit> {
@@ -824,12 +834,16 @@ async function resolveGitHubUserOctokitForAuthority(
 }
 
 async function resolveGitHubUserOctokitFromUse(
-  ctx: Pick<ActionCtx, "runMutation" | "runQuery">,
+  ctx: Pick<ActionCtx, "runAction" | "runMutation" | "runQuery">,
   authority: GitHubUserOctokitAuthority,
   use: Infer<typeof vGitHubUserAuthorizationUse>,
 ): Promise<Octokit> {
   if (use.kind === "ready") {
-    return attachGitHubBackoff(ctx, createGitHubUserOctokit(use.authorization.accessToken), {
+    const accessToken = await openSecret({
+      sealed: use.authorization.accessToken,
+      aad: githubUserAuthorizationAad(use.authorization.userId, "accessToken"),
+    });
+    return attachGitHubBackoff(ctx, createGitHubUserOctokit(accessToken), {
       kind: "user",
       id: use.authorization.githubUserId,
     });
@@ -838,22 +852,38 @@ async function resolveGitHubUserOctokitFromUse(
     throw new Error("GitHub user authorization refresh is in progress.");
   }
 
+  const { userId } = use.authorization;
   const configuration = getGitHubAppConfiguration();
   try {
     const auth = createOAuthUserAuth({
       clientType: "github-app",
       clientId: configuration.clientId,
       clientSecret: configuration.clientSecret,
-      token: use.authorization.accessToken,
+      token: await openSecret({
+        sealed: use.authorization.accessToken,
+        aad: githubUserAuthorizationAad(userId, "accessToken"),
+      }),
       expiresAt: new Date(use.authorization.accessTokenExpiresAt).toISOString(),
-      refreshToken: use.authorization.refreshToken,
+      refreshToken: await openSecret({
+        sealed: use.authorization.refreshToken,
+        aad: githubUserAuthorizationAad(userId, "refreshToken"),
+      }),
       refreshTokenExpiresAt: new Date(use.authorization.refreshTokenExpiresAt).toISOString(),
     });
     const refreshed = requireExpiringGitHubUserAuthentication(await auth({ type: "refresh" }));
     await finishGitHubUserAuthorizationRefresh(ctx, authority, {
       authorizationId: use.authorization.authorizationId,
       refreshStartedAt: use.refreshStartedAt,
-      ...refreshed,
+      accessToken: await sealSecret(ctx, {
+        plaintext: refreshed.accessToken,
+        aad: githubUserAuthorizationAad(userId, "accessToken"),
+      }),
+      accessTokenExpiresAt: refreshed.accessTokenExpiresAt,
+      refreshToken: await sealSecret(ctx, {
+        plaintext: refreshed.refreshToken,
+        aad: githubUserAuthorizationAad(userId, "refreshToken"),
+      }),
+      refreshTokenExpiresAt: refreshed.refreshTokenExpiresAt,
     });
     return attachGitHubBackoff(ctx, createGitHubUserOctokit(refreshed.accessToken), {
       kind: "user",
@@ -874,7 +904,7 @@ export type GitHubUserAuthorizationForAppConnectionResult =
   | { status: "ready"; githubUserId: string; octokit: Octokit };
 
 export async function resolveGitHubUserAuthorizationForAppConnection(
-  ctx: Pick<ActionCtx, "runMutation" | "runQuery">,
+  ctx: Pick<ActionCtx, "runAction" | "runMutation" | "runQuery">,
   userId: Id<"users">,
 ): Promise<GitHubUserAuthorizationForAppConnectionResult> {
   const authority: GitHubUserOctokitAuthority = { kind: "user", userId };
@@ -903,7 +933,7 @@ export async function resolveGitHubUserAuthorizationForAppConnection(
 }
 
 export async function resolveGitHubUserOctokit(
-  ctx: Pick<ActionCtx, "runMutation" | "runQuery">,
+  ctx: Pick<ActionCtx, "runAction" | "runMutation" | "runQuery">,
   args: {
     userId: Id<"users">;
     githubUserId: string;
@@ -917,7 +947,7 @@ export async function resolveGitHubUserOctokit(
 }
 
 export async function resolveGitHubUserOctokitForProvisioningRun(
-  ctx: Pick<ActionCtx, "runMutation" | "runQuery">,
+  ctx: Pick<ActionCtx, "runAction" | "runMutation" | "runQuery">,
   args: {
     runId: Id<"workflow_repositoryProvisioning_runs">;
     userId: Id<"users">;

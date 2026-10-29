@@ -3,7 +3,14 @@ import { ConvexError } from "convex/values";
 
 import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
-import { insertTestOrganizationBillingAccount, makeConvexTest } from "./test.setup";
+import {
+  insertTestOrganizationBillingAccount,
+  makeConvexTest,
+  sealTestCredentials,
+  testCredential,
+} from "./test.setup";
+import { organizationProviderCredentialAad } from "./organization/providerCredentialModel";
+import { openSecret } from "./sealedSecret";
 
 const primaryCloudflareAccountId = "a".repeat(32);
 const secondaryCloudflareAccountId = "b".repeat(32);
@@ -186,8 +193,8 @@ async function seedProviderOrganization(options?: {
         convex: {
           auth:
             options?.convexAuthMethod === "oauth"
-              ? { method: "oauth", credential: "convex-credential" }
-              : { method: "api_key", credential: "convex-credential" },
+              ? { method: "oauth", credential: testCredential("convex-credential") }
+              : { method: "api_key", credential: testCredential("convex-credential") },
           connectedByUserId: userId,
           updatedAt: 1,
         },
@@ -199,19 +206,22 @@ async function seedProviderOrganization(options?: {
                   options?.cloudflareAuthMethod === "oauth"
                     ? {
                         method: "oauth" as const,
-                        credential: "expired-access-token",
-                        refreshCredential: "refresh-token",
+                        credential: testCredential("expired-access-token"),
+                        refreshCredential: testCredential("refresh-token"),
                         credentialExpiresAt: 0,
                       }
                     : options?.cloudflareAuthMethod === "mcp_oauth"
                       ? {
                           method: "mcp_oauth" as const,
-                          credential: "expired-access-token",
-                          refreshCredential: "refresh-token",
+                          credential: testCredential("expired-access-token"),
+                          refreshCredential: testCredential("refresh-token"),
                           credentialExpiresAt: 0,
                           clientId: "dynamic-client-id",
                         }
-                      : { method: "api_key" as const, credential: "cloudflare-credential" },
+                      : {
+                          method: "api_key" as const,
+                          credential: testCredential("cloudflare-credential"),
+                        },
                 connectedByUserId: userId,
                 updatedAt: 1,
               },
@@ -220,6 +230,7 @@ async function seedProviderOrganization(options?: {
       return { memberId, organizationId, outsiderId, providerCredentialsId, userId };
     },
   );
+  await sealTestCredentials(t);
   return { memberId, organizationId, outsiderId, providerCredentialsId, t, userId };
 }
 
@@ -562,18 +573,34 @@ describe("organization provider status", () => {
         accountName: "Primary account",
       },
     });
-    await expect(
-      t.run(async (ctx) => (await ctx.db.get(providerCredentialsId))?.cloudflare),
-    ).resolves.toMatchObject({
-      auth: { method: "api_key", credential: "direct-token" },
+    const stored = await t.run(
+      async (ctx) => (await ctx.db.get(providerCredentialsId))?.cloudflare,
+    );
+    expect(stored).toMatchObject({
+      auth: { method: "api_key", credential: { keyId: "test" } },
       connectedByUserId: userId,
     });
+    expect(JSON.stringify(stored)).not.toContain("direct-token");
     expect(fetch).toHaveBeenCalledTimes(2);
     expect(
       fetch.mock.calls.map(
         ([input]) => new URL(input instanceof Request ? input.url : input.toString()).pathname,
       ),
     ).toEqual(["/client/v4/user/tokens/verify", "/client/v4/accounts"]);
+
+    // A later action opens the sealed token right before its provider call.
+    const listFetch = vi.fn(
+      async (input: string | URL | Request, init?: RequestInit): Promise<Response> => {
+        const headers = input instanceof Request ? input.headers : new Headers(init?.headers);
+        expect(headers.get("Authorization")).toBe("Bearer direct-token");
+        return cloudflareSuccessResponse([]);
+      },
+    );
+    vi.stubGlobal("fetch", listFetch);
+    await expect(
+      asOwner.action(api.cloudflareBuildTokens.list, { organizationId }),
+    ).resolves.toMatchObject({ accountId: primaryCloudflareAccountId, tokens: [] });
+    expect(listFetch).toHaveBeenCalledOnce();
   });
 
   it.each([
@@ -683,9 +710,19 @@ describe("organization provider status", () => {
       accountName: "Primary account",
       authMethod: "api_key",
     });
+    const auth = await t.run(
+      async (ctx) => (await ctx.db.get(providerCredentialsId))?.cloudflare?.auth,
+    );
+    expect(auth?.method).toBe("api_key");
+    if (auth === undefined) {
+      throw new Error("Expected the Cloudflare credential.");
+    }
     await expect(
-      t.run(async (ctx) => (await ctx.db.get(providerCredentialsId))?.cloudflare?.auth),
-    ).resolves.toEqual({ method: "api_key", credential: "account-a-token" });
+      openSecret({
+        sealed: auth.credential,
+        aad: organizationProviderCredentialAad(organizationId, "cloudflare.auth.credential"),
+      }),
+    ).resolves.toBe("account-a-token");
   });
 
   it("rejects a token that Cloudflare does not verify as a user API token", async () => {
@@ -984,13 +1021,24 @@ describe("organization provider status", () => {
       { key: "workers_builds", status: "ok" },
     ]);
     expect(fetch).toHaveBeenCalledTimes(4);
+    const auth = await t.run(
+      async (ctx) => (await ctx.db.get(providerCredentialsId))?.cloudflare?.auth,
+    );
+    if (auth?.method !== "oauth") {
+      throw new Error("Expected the Cloudflare OAuth credential.");
+    }
     await expect(
-      t.run(async (ctx) => (await ctx.db.get(providerCredentialsId))?.cloudflare?.auth),
-    ).resolves.toMatchObject({
-      method: "oauth",
-      credential: "refreshed-access-token",
-      refreshCredential: "refreshed-refresh-token",
-    });
+      openSecret({
+        sealed: auth.credential,
+        aad: organizationProviderCredentialAad(organizationId, "cloudflare.auth.credential"),
+      }),
+    ).resolves.toBe("refreshed-access-token");
+    await expect(
+      openSecret({
+        sealed: auth.refreshCredential,
+        aad: organizationProviderCredentialAad(organizationId, "cloudflare.auth.refreshCredential"),
+      }),
+    ).resolves.toBe("refreshed-refresh-token");
   });
 
   it("clears a shared MCP refresh lease when account deletion wins the return race", async () => {
@@ -1032,15 +1080,24 @@ describe("organization provider status", () => {
 
     const credentials = await t.run(async (ctx) => await ctx.db.get(providerCredentialsId));
     expect(credentials).toMatchObject({
-      cloudflare: {
-        connectedByUserId: memberId,
-        auth: {
-          method: "mcp_oauth",
-          credential: "new-access-token",
-          refreshCredential: "new-refresh-token",
-        },
-      },
+      cloudflare: { connectedByUserId: memberId, auth: { method: "mcp_oauth" } },
     });
+    const auth = credentials?.cloudflare?.auth;
+    if (auth?.method !== "mcp_oauth") {
+      throw new Error("Expected the Cloudflare MCP credential.");
+    }
+    await expect(
+      openSecret({
+        sealed: auth.credential,
+        aad: organizationProviderCredentialAad(organizationId, "cloudflare.auth.credential"),
+      }),
+    ).resolves.toBe("new-access-token");
+    await expect(
+      openSecret({
+        sealed: auth.refreshCredential,
+        aad: organizationProviderCredentialAad(organizationId, "cloudflare.auth.refreshCredential"),
+      }),
+    ).resolves.toBe("new-refresh-token");
     expect(credentials?.cloudflare?.tokenRefreshLease).toBeUndefined();
     expect(fetch).toHaveBeenCalledOnce();
   });

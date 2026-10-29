@@ -28,6 +28,7 @@ import {
 } from "./providerAuth";
 import { vMcpTokenHealth, type McpTokenHealth } from "./mcpTokenHealth";
 import { hashOrganizationProviderSnapshot } from "./providerAuthFingerprint";
+import { vSealedSecret } from "./sealedSecret";
 import {
   CLOUDFLARE_TOKEN_REFRESH_DEBOUNCE_MS,
   CLOUDFLARE_TOKEN_REFRESH_STALE_LOCK_MS,
@@ -1145,7 +1146,7 @@ export const setCloudflareCiCredential = internalMutation({
   args: {
     organizationId: id("organizations"),
     userId: id("users"),
-    apiToken: string(),
+    apiToken: vSealedSecret,
     accountId: string(),
   },
   returns: v.null(),
@@ -1185,7 +1186,7 @@ export const setConvexCiCredential = internalMutation({
   args: {
     organizationId: id("organizations"),
     userId: id("users"),
-    accessToken: string(),
+    accessToken: vSealedSecret,
     teamId: string(),
   },
   returns: v.null(),

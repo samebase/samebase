@@ -3,22 +3,20 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { api } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { isRecord } from "../jsonUtils";
-import { insertTestOrganizationBillingAccount, makeConvexTest } from "../test.setup";
+import {
+  insertTestOrganizationBillingAccount,
+  makeConvexTest,
+  sealTestCredentials,
+  testCredential,
+} from "../test.setup";
 import {
   observedAlchemyStackReply,
   observedBaseAlchemyProductionDeployment,
 } from "./fixtures/observedAlchemyState";
 import { observedSamebaseStacksReply } from "./fixtures/observedSamebaseAlchemyState";
+import { type ConvexProviderCredential } from "../organization/providerCredentialModel";
 
-type ConvexAuth =
-  | {
-      method: "api_key";
-      credential: string;
-    }
-  | {
-      method: "oauth";
-      credential: string;
-    };
+type ConvexAuth = ConvexProviderCredential["auth"];
 
 function asUser(t: ReturnType<typeof makeConvexTest>, userId: Id<"users">) {
   return t.withIdentity({
@@ -111,6 +109,7 @@ async function seedDatabaseEditorRepository(
 
     return { convexProjectId, userId };
   });
+  await sealTestCredentials(t);
 
   return { convexProjectId, user: asUser(t, userId) };
 }
@@ -150,7 +149,7 @@ describe("createEmbeddedDashboardCredentials", () => {
     const t = makeConvexTest();
     const { convexProjectId, user } = await seedDatabaseEditorRepository(t, {
       method: "oauth",
-      credential: "convex-oauth-token",
+      credential: testCredential("convex-oauth-token"),
     });
     const requests: Request[] = [];
     vi.stubGlobal(
@@ -191,7 +190,7 @@ describe("createEmbeddedDashboardCredentials", () => {
     const t = makeConvexTest();
     const { convexProjectId, user } = await seedDatabaseEditorRepository(t, {
       method: "api_key",
-      credential: "convex-api-key",
+      credential: testCredential("convex-api-key"),
     });
     vi.spyOn(Date, "now").mockReturnValue(1_710_000_000_000);
     const requests: Request[] = [];
@@ -262,7 +261,7 @@ describe("revokeEmbeddedDashboardCredentials", () => {
     const t = makeConvexTest();
     const { convexProjectId, user } = await seedDatabaseEditorRepository(t, {
       method: "api_key",
-      credential: "convex-api-key",
+      credential: testCredential("convex-api-key"),
     });
     const fetch = vi.fn(async (input: Request) => {
       if (input.url.endsWith("/projects/1001/deployment?defaultProd=true")) {
@@ -309,7 +308,7 @@ async function seedStackRepository(t: ReturnType<typeof makeConvexTest>) {
       organizationId,
       convex: {
         connectedByUserId: userId,
-        auth: { method: "api_key", credential: "convex-api-key" },
+        auth: { method: "api_key", credential: testCredential("convex-api-key") },
         updatedAt: 2,
       },
     });
@@ -348,6 +347,7 @@ async function seedStackRepository(t: ReturnType<typeof makeConvexTest>) {
     });
     return userId;
   });
+  await sealTestCredentials(t);
 
   return asUser(t, userId);
 }

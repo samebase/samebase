@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { api } from "./_generated/api";
-import { makeConvexTest } from "./test.setup";
+import { makeConvexTest, sealTestCredentials, testCredential } from "./test.setup";
 
 async function seedCloudflareOrganization() {
   const t = makeConvexTest();
@@ -59,8 +59,8 @@ async function seedCloudflareOrganization() {
       cloudflare: {
         auth: {
           method: "oauth",
-          credential: "cloudflare-oauth-access",
-          refreshCredential: "cloudflare-oauth-refresh",
+          credential: testCredential("cloudflare-oauth-access"),
+          refreshCredential: testCredential("cloudflare-oauth-refresh"),
           credentialExpiresAt: Date.now() + 3_600_000,
         },
         connectedByUserId: ownerId,
@@ -69,6 +69,7 @@ async function seedCloudflareOrganization() {
     });
     return { memberId, organizationId, outsiderId, ownerId };
   });
+  await sealTestCredentials(t);
   return { memberId, organizationId, outsiderId, ownerId, t };
 }
 

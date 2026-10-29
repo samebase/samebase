@@ -3,7 +3,11 @@ import { describe, expect, it } from "vite-plus/test";
 import { api, internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
-import { insertTestOrganizationBillingAccount, makeConvexTest } from "../test.setup";
+import {
+  insertTestOrganizationBillingAccount,
+  makeConvexTest,
+  testCredential,
+} from "../test.setup";
 import { resolveUserReferencePresentation } from "./lifecycle";
 
 type TestBackend = ReturnType<typeof makeConvexTest>;
@@ -128,12 +132,12 @@ async function insertProviderConfiguration(
     await ctx.db.insert("organizationProviderCredentials", {
       organizationId: args.organizationId,
       convex: {
-        auth: { method: "api_key", credential: "convex-test-credential" },
+        auth: { method: "api_key", credential: testCredential("convex-test-credential") },
         connectedByUserId: args.userId,
         updatedAt: 1,
       },
       cloudflare: {
-        auth: { method: "api_key", credential: "cloudflare-test-credential" },
+        auth: { method: "api_key", credential: testCredential("cloudflare-test-credential") },
         connectedByUserId: args.userId,
         updatedAt: 1,
       },
@@ -699,9 +703,9 @@ describe("user lifecycle authorization", () => {
         userId,
         githubUserId: "github-user-id",
         githubUserLogin: "provisioning-github-user",
-        accessToken: "github-access-token",
+        accessToken: testCredential("github-access-token"),
         accessTokenExpiresAt: Date.now() + 120_000,
-        refreshToken: "github-refresh-token",
+        refreshToken: testCredential("github-refresh-token"),
         refreshTokenExpiresAt: Date.now() + 240_000,
         createdAt: 1,
         updatedAt: 1,

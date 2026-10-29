@@ -40,7 +40,12 @@ vi.mock("../githubApp", async (importOriginal) => {
 import { api, internal } from "../_generated/api";
 import { CloudflareApiError } from "../cloudflareApi/client";
 import { observedNativeWorkerBuildSettings } from "../cloudflareApi/fixtures/observedWorkerBuildSettings";
-import { insertTestOrganizationBillingAccount, makeConvexTest } from "../test.setup";
+import {
+  insertTestOrganizationBillingAccount,
+  makeConvexTest,
+  sealTestCredentials,
+  testCredential,
+} from "../test.setup";
 
 function workerResponse(args: { workerName: string; workerTag?: string }) {
   return {
@@ -145,7 +150,7 @@ async function createFixture() {
     await ctx.db.insert("organizationProviderCredentials", {
       organizationId,
       cloudflare: {
-        auth: { method: "api_key", credential: "cloudflare-token" },
+        auth: { method: "api_key", credential: testCredential("cloudflare-token") },
         connectedByUserId: ownerId,
         updatedAt: now,
       },
@@ -215,6 +220,7 @@ async function createFixture() {
     });
     return { memberId, organizationId, ownerId, planId, repositoryId, workerId };
   });
+  await sealTestCredentials(t);
   return {
     ids,
     member: t.withIdentity({

@@ -47,10 +47,15 @@ vi.mock("../githubRepoApi", async (importOriginal) => {
 
 import { api, internal } from "../_generated/api";
 import { ConvexManagementApiError } from "../convexManagementApi/errors";
-import { insertTestOrganizationBillingAccount, makeConvexTest } from "../test.setup";
+import {
+  insertTestOrganizationBillingAccount,
+  makeConvexTest,
+  sealTestCredentials,
+  testCredential,
+} from "../test.setup";
 
 async function createRegionOrganization(t: ReturnType<typeof makeConvexTest>) {
-  return await t.run(async (ctx) => {
+  const ids = await t.run(async (ctx) => {
     const userId = await ctx.db.insert("users", {
       state: "active",
       email: "region-owner@example.test",
@@ -80,13 +85,15 @@ async function createRegionOrganization(t: ReturnType<typeof makeConvexTest>) {
     await ctx.db.insert("organizationProviderCredentials", {
       organizationId,
       convex: {
-        auth: { method: "api_key", credential: "convex-token" },
+        auth: { method: "api_key", credential: testCredential("convex-token") },
         connectedByUserId: userId,
         updatedAt: 1,
       },
     });
     return { organizationId, userId };
   });
+  await sealTestCredentials(t);
+  return ids;
 }
 
 async function createManagedRegionFixture() {

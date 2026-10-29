@@ -23,9 +23,16 @@ vi.mock("../.convex-hosting/version.js", () => ({ versionId: "test" }));
 import { buildAuthorizationErrorUrl } from "../shared/authorizationError";
 import { buildGitHubOrganizationProvidersReturnUrl } from "../shared/githubApp";
 import { api, internal } from "./_generated/api";
-import type { Id } from "./_generated/dataModel";
+import type { Doc, Id } from "./_generated/dataModel";
 import type { MutationCtx } from "./_generated/server";
-import { insertTestOrganizationBillingAccount, makeConvexTest } from "./test.setup";
+import {
+  insertTestOrganizationBillingAccount,
+  makeConvexTest,
+  sealTestCredentials,
+  testCredential,
+} from "./test.setup";
+import { openSecret } from "./sealedSecret";
+import { githubUserAuthorizationAad } from "./githubUserAuthorizationModel";
 
 async function expectGitHubCompletion(response: Response, returnUrl: string) {
   const html = await response.text();
@@ -77,12 +84,22 @@ async function insertGitHubUserAuthorization(
     userId: args.userId,
     githubUserId: args.githubUserId,
     githubUserLogin: args.githubUserLogin,
-    accessToken: args.accessToken ?? `${args.githubUserLogin}-access-token`,
+    accessToken: testCredential(args.accessToken ?? `${args.githubUserLogin}-access-token`),
     accessTokenExpiresAt: now + 8 * 60 * 60 * 1000,
-    refreshToken: `${args.githubUserLogin}-refresh-token`,
+    refreshToken: testCredential(`${args.githubUserLogin}-refresh-token`),
     refreshTokenExpiresAt: now + 180 * 24 * 60 * 60 * 1000,
     createdAt: now,
     updatedAt: now,
+  });
+}
+
+async function openAccessToken(authorization: Doc<"githubUserAuthorizations"> | null) {
+  if (authorization === null) {
+    throw new Error("Expected the GitHub user authorization.");
+  }
+  return await openSecret({
+    sealed: authorization.accessToken,
+    aad: githubUserAuthorizationAad(authorization.userId, "accessToken"),
   });
 }
 
@@ -235,6 +252,7 @@ describe("GitHub App setup", () => {
       canManage: true,
     });
 
+    await sealTestCredentials(t);
     const response = await t.fetch(
       "/oauth/github/callback?installation_id=5001&state=organization-installation-state",
     );
@@ -248,10 +266,10 @@ describe("GitHub App setup", () => {
       organization: await ctx.db.query("organizations").first(),
       setupState: await ctx.db.get(setupStateId),
     }));
-    expect(snapshot.authorization).toMatchObject({
-      githubUserId: "organization-admin-id",
-      accessToken: "organization-admin-access-token",
-    });
+    expect(snapshot.authorization).toMatchObject({ githubUserId: "organization-admin-id" });
+    await expect(openAccessToken(snapshot.authorization)).resolves.toBe(
+      "organization-admin-access-token",
+    );
     expect(snapshot.organization).toMatchObject({
       githubOwnerId: "organization-owner-id",
       githubInstallationId: "5001",
@@ -349,6 +367,7 @@ describe("GitHub App setup", () => {
       canManage: true,
     });
 
+    await sealTestCredentials(t);
     const response = await t.fetch(
       "/oauth/github/callback?installation_id=5004&state=reconnect-state",
     );
@@ -409,6 +428,7 @@ describe("GitHub App setup", () => {
       canManage: true,
     });
 
+    await sealTestCredentials(t);
     const response = await t.fetch(
       "/oauth/github/callback?installation_id=5002&state=existing-installation-state",
     );
@@ -468,6 +488,7 @@ describe("GitHub App setup", () => {
       refreshTokenExpiresAt: now + 180 * 24 * 60 * 60 * 1000,
     });
 
+    await sealTestCredentials(t);
     const response = await t.fetch(
       "/oauth/github/callback?code=authorization-code&state=authorization-callback-state",
     );
@@ -482,10 +503,8 @@ describe("GitHub App setup", () => {
         .unique(),
       setupState: await ctx.db.get(setupStateId),
     }));
-    expect(snapshot.authorization).toMatchObject({
-      githubUserId: "callback-user-id",
-      accessToken: "callback-access-token",
-    });
+    expect(snapshot.authorization).toMatchObject({ githubUserId: "callback-user-id" });
+    await expect(openAccessToken(snapshot.authorization)).resolves.toBe("callback-access-token");
     expect(snapshot.setupState).toBeNull();
     expect(githubAppMocks.verifyGitHubUserAuthorization).toHaveBeenCalledWith({
       code: "authorization-code",
@@ -512,7 +531,9 @@ describe("GitHub App setup", () => {
       if (authorization === null) {
         throw new Error("GitHub authorization fixture is missing.");
       }
-      await ctx.db.patch(authorization._id, { accessToken: "displaced-access-token" });
+      await ctx.db.patch(authorization._id, {
+        accessToken: testCredential("displaced-access-token"),
+      });
       const setupStateId = await ctx.db.insert("githubAppSetupStates", {
         userId,
         state: "authorization-rotation-state",
@@ -534,22 +555,20 @@ describe("GitHub App setup", () => {
       refreshTokenExpiresAt: now + 180 * 24 * 60 * 60 * 1000,
     });
 
+    await sealTestCredentials(t);
     const response = await t.fetch(
       "/oauth/github/callback?code=rotation-code&state=authorization-rotation-state",
     );
     await expectGitHubCompletion(response, "https://samebase.com/org");
-    await expect(
-      t.run(async (ctx) => ({
-        authorization: await ctx.db
-          .query("githubUserAuthorizations")
-          .withIndex("by_user", (query) => query.eq("userId", userId))
-          .unique(),
-        setupState: await ctx.db.get(setupStateId),
-      })),
-    ).resolves.toMatchObject({
-      authorization: { accessToken: "replacement-access-token" },
-      setupState: null,
-    });
+    const snapshot = await t.run(async (ctx) => ({
+      authorization: await ctx.db
+        .query("githubUserAuthorizations")
+        .withIndex("by_user", (query) => query.eq("userId", userId))
+        .unique(),
+      setupState: await ctx.db.get(setupStateId),
+    }));
+    expect(snapshot.setupState).toBeNull();
+    await expect(openAccessToken(snapshot.authorization)).resolves.toBe("replacement-access-token");
     expect(githubAppMocks.revokeGitHubAppUserToken).toHaveBeenCalledOnce();
     expect(githubAppMocks.revokeGitHubAppUserToken).toHaveBeenCalledWith("displaced-access-token");
   });
@@ -584,6 +603,7 @@ describe("GitHub App setup", () => {
       refreshTokenExpiresAt: now + 180 * 24 * 60 * 60 * 1000,
     });
 
+    await sealTestCredentials(t);
     const response = await t.fetch(
       "/oauth/github/callback?code=mismatch-code&state=authorization-mismatch-state",
     );
@@ -631,6 +651,7 @@ describe("GitHub App setup", () => {
       new Error("GitHub installation verification failed."),
     );
 
+    await sealTestCredentials(t);
     const response = await t.fetch(
       "/oauth/github/callback?installation_id=5003&state=installation-failure-state",
     );
@@ -673,6 +694,7 @@ describe("GitHub App setup", () => {
       });
     });
 
+    await sealTestCredentials(t);
     const response = await t.fetch(
       "/oauth/github/callback?error=access_denied&state=authorization-canceled-state",
     );

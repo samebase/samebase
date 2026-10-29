@@ -2,7 +2,12 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { api } from "../_generated/api";
 import { isRecord } from "../jsonUtils";
-import { insertTestOrganizationBillingAccount, makeConvexTest } from "../test.setup";
+import {
+  insertTestOrganizationBillingAccount,
+  makeConvexTest,
+  sealTestCredentials,
+  testCredential,
+} from "../test.setup";
 import { readAlchemyStacks } from "./alchemyState";
 import {
   observedAlchemyStackReply,
@@ -84,7 +89,7 @@ async function seedAlchemyRepository(t: ReturnType<typeof makeConvexTest>) {
       organizationId,
       convex: {
         connectedByUserId: userId,
-        auth: { method: "api_key", credential: "convex-api-key" },
+        auth: { method: "api_key", credential: testCredential("convex-api-key") },
         updatedAt: 2,
       },
     });
@@ -134,6 +139,7 @@ async function seedAlchemyRepository(t: ReturnType<typeof makeConvexTest>) {
 
     return { repositoryId, userId };
   });
+  await sealTestCredentials(t);
 
   return {
     ids,

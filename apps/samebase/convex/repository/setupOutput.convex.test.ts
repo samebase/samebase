@@ -52,7 +52,12 @@ import { RequestError } from "@octokit/request-error";
 import { api, internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { observedNativeWorkerBuildSettings } from "../cloudflareApi/fixtures/observedWorkerBuildSettings";
-import { insertTestOrganizationBillingAccount, makeConvexTest } from "../test.setup";
+import {
+  insertTestOrganizationBillingAccount,
+  makeConvexTest,
+  sealTestCredentials,
+  testCredential,
+} from "../test.setup";
 import {
   derivedFailedSetupOutputArchive,
   derivedFailedSetupRun,
@@ -122,12 +127,12 @@ async function createFixture(options?: {
     await ctx.db.insert("organizationProviderCredentials", {
       organizationId,
       convex: {
-        auth: { method: "api_key", credential: "convex-token" },
+        auth: { method: "api_key", credential: testCredential("convex-token") },
         connectedByUserId: ownerId,
         updatedAt: now,
       },
       cloudflare: {
-        auth: { method: "api_key", credential: "cloudflare-token" },
+        auth: { method: "api_key", credential: testCredential("cloudflare-token") },
         connectedByUserId: ownerId,
         updatedAt: now,
       },
@@ -204,6 +209,7 @@ async function createFixture(options?: {
     });
     return { organizationId, outsiderId, ownerId, planId, repositoryId, runId };
   });
+  await sealTestCredentials(t);
   return { ids, t };
 }
 

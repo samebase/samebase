@@ -7,12 +7,15 @@ import {
   unknown as sureUnknown,
 } from "@samebase/sure";
 import { v } from "convex/values";
-import type { Doc } from "../_generated/dataModel";
-import { internalQuery } from "../_generated/server";
+import { internal } from "../_generated/api";
+import type { Doc, Id } from "../_generated/dataModel";
+import { internalQuery, type ActionCtx } from "../_generated/server";
 import type { ConvexCloudDeployment } from "../convexManagementApi/client";
 import { isRecord, toErrorMessage } from "../jsonUtils";
 import { requireRepositoryForUser } from "../organizationAccess";
 import { getOrganizationProviderConfiguration } from "../organizationProviderCredentials";
+import { organizationProviderCredentialAad } from "../organization/providerCredentialModel";
+import { openSecret, vSealedSecret } from "../sealedSecret";
 import {
   createConvexDeploymentDeployKey,
   deleteConvexDeploymentDeployKey,
@@ -32,6 +35,7 @@ export type ConvexInspectionTarget = {
   projects: Doc<"repositoryConvexProjects">[];
   /** The Convex team that the organization connected. */
   teamId: string;
+  /** The organization's Convex token, opened in the action. */
   token: string;
 };
 type ConvexSystemQueryResponse = {
@@ -53,8 +57,9 @@ const CONVEX_INSPECTION_DEPLOY_KEY_ALLOWED_ACTIONS = {
 } satisfies Record<string, ConvexDeployKeyAllowedAction[]>;
 
 const vConvexProviderAuthMethod = union(literal("api_key"), literal("oauth"));
-const vConvexInspectionTarget = object({
-  token: string(),
+const vSealedConvexInspectionTarget = object({
+  organizationId: id("organizations"),
+  credential: vSealedSecret,
   authMethod: vConvexProviderAuthMethod,
   githubRepositoryFullName: string(),
   projects: array(vRepositoryConvexProjectDocument),
@@ -66,8 +71,8 @@ export const readTarget = internalQuery({
     repositoryId: id("repositories"),
     userId: id("users"),
   },
-  returns: vConvexInspectionTarget,
-  handler: async (ctx, args): Promise<ConvexInspectionTarget> => {
+  returns: vSealedConvexInspectionTarget,
+  handler: async (ctx, args) => {
     const repository = await requireRepositoryForUser(ctx.db, {
       userId: args.userId,
       repositoryId: args.repositoryId,
@@ -90,12 +95,9 @@ export const readTarget = internalQuery({
     if (!convexTeam || convexTeam.teamId !== repository.convexTeamId || !credential) {
       throw new Error("Convex connection is required.");
     }
-    const token = credential.auth.credential.trim();
-    if (!token) {
-      throw new Error("Convex connection is required.");
-    }
     return {
-      token,
+      organizationId: repository.organizationId,
+      credential: credential.auth.credential,
       authMethod: credential.auth.method,
       githubRepositoryFullName: `${organization.githubOwnerLogin}/${repository.githubRepositoryName}`,
       projects: projects.filter((project) => project.organizationId === repository.organizationId),
@@ -103,6 +105,33 @@ export const readTarget = internalQuery({
     };
   },
 });
+
+/** The inspection target of a repository, with the organization's Convex token opened. */
+export async function readConvexInspectionTarget(
+  ctx: Pick<ActionCtx, "runQuery">,
+  args: { repositoryId: Id<"repositories">; userId: Id<"users"> },
+): Promise<ConvexInspectionTarget> {
+  const target = await ctx.runQuery(internal.repository.convexDeploymentInspection.readTarget, {
+    repositoryId: args.repositoryId,
+    userId: args.userId,
+  });
+  const token = (
+    await openSecret({
+      sealed: target.credential,
+      aad: organizationProviderCredentialAad(target.organizationId, "convex.auth.credential"),
+    })
+  ).trim();
+  if (!token) {
+    throw new Error("Convex connection is required.");
+  }
+  return {
+    authMethod: target.authMethod,
+    githubRepositoryFullName: target.githubRepositoryFullName,
+    projects: target.projects,
+    teamId: target.teamId,
+    token,
+  };
+}
 
 /**
 Mints a short-lived deploy key for `deployment` with the allowed actions of `purpose`,

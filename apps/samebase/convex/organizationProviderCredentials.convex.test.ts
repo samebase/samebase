@@ -7,7 +7,7 @@ import type {
   ConvexProviderCredential,
 } from "./organization/providerCredentialModel";
 import { hashOrganizationProviderSnapshot } from "./providerAuthFingerprint";
-import { insertTestOrganizationBillingAccount, makeConvexTest } from "./test.setup";
+import { insertTestOrganizationBillingAccount, makeConvexTest, testCredential } from "./test.setup";
 
 const teamId = "team-1";
 const accountId = "a".repeat(32);
@@ -17,14 +17,14 @@ type CloudflareOAuthAuth = Extract<CloudflareProviderCredential["auth"], { metho
 type RefreshLease = NonNullable<CloudflareProviderCredential["tokenRefreshLease"]>;
 
 function apiKey(credential: string) {
-  return { method: "api_key" as const, credential };
+  return { method: "api_key" as const, credential: testCredential(credential) };
 }
 
 function cloudflareOAuth(version: string): CloudflareOAuthAuth {
   return {
     method: "oauth",
-    credential: `access-${version}`,
-    refreshCredential: `refresh-${version}`,
+    credential: testCredential(`access-${version}`),
+    refreshCredential: testCredential(`refresh-${version}`),
     credentialExpiresAt: Date.now() + 60_000,
   };
 }
@@ -197,7 +197,7 @@ async function storeConvexOAuth(
     organizationId: seed.organizationId,
     connectedByUserId: seed.connectorId,
     expectedProviderSnapshotHash: state.expectedProviderSnapshotHash,
-    accessToken,
+    accessToken: testCredential(accessToken),
     teamId,
     oauthStateId: state._id,
     oauthState: callbackState,
@@ -446,7 +446,7 @@ describe("organization provider credential lifecycle", () => {
     );
     expect(
       (await loadProviderState(seed.t, seed.organizationId)).credentials?.convex?.auth,
-    ).toEqual({ method: "oauth", credential: "token" });
+    ).toEqual({ method: "oauth", credential: testCredential("token") });
   });
 
   it("consumes OAuth state without writing when owner access is lost at storage", async () => {
@@ -748,13 +748,13 @@ describe("organization provider credential lifecycle", () => {
       await ctx.db.insert("organizationCiCredentials", {
         organizationId: seed.organizationId,
         cloudflare: {
-          apiToken: "cloudflare-ci-test-token",
+          apiToken: testCredential("cloudflare-ci-test-token"),
           accountId: "cloudflare-account",
           connectedByUserId: seed.otherOwnerId,
           updatedAt: 1,
         },
         convex: {
-          accessToken: "convex-ci-test-token",
+          accessToken: testCredential("convex-ci-test-token"),
           teamId: "convex-team",
           connectedByUserId: seed.connectorId,
           updatedAt: 2,

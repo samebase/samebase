@@ -14,7 +14,9 @@ vi.mock("./convexManagementApi/client", async (importOriginal) => {
 
 import { api } from "./_generated/api";
 import { ConvexManagementApiError } from "./convexManagementApi/errors";
-import { insertTestOrganizationBillingAccount, makeConvexTest } from "./test.setup";
+import { organizationCiCredentialAad } from "./organization/providerCredentialModel";
+import { openSecret } from "./sealedSecret";
+import { insertTestOrganizationBillingAccount, makeConvexTest, testCredential } from "./test.setup";
 
 const cloudflareAccountId = "a".repeat(32);
 
@@ -90,12 +92,12 @@ async function createOrganization(role: "owner" | "member" = "owner") {
     await ctx.db.insert("organizationProviderCredentials", {
       organizationId,
       convex: {
-        auth: { method: "api_key", credential: "samebase-convex-test-token" },
+        auth: { method: "api_key", credential: testCredential("samebase-convex-test-token") },
         connectedByUserId: userId,
         updatedAt: 1,
       },
       cloudflare: {
-        auth: { method: "api_key", credential: "samebase-cloudflare-test-token" },
+        auth: { method: "api_key", credential: testCredential("samebase-cloudflare-test-token") },
         connectedByUserId: userId,
         updatedAt: 1,
       },
@@ -142,11 +144,17 @@ describe("organization CI credentials", () => {
       },
       convex: null,
     });
+    const ci = await t.run(async (ctx) => await ctx.db.query("organizationCiCredentials").unique());
+    expect(ci?.cloudflare?.accountId).toBe(cloudflareAccountId);
+    if (!ci?.cloudflare) {
+      throw new Error("Expected the Cloudflare CI token.");
+    }
     await expect(
-      t.run(async (ctx) => await ctx.db.query("organizationCiCredentials").unique()),
-    ).resolves.toMatchObject({
-      cloudflare: { apiToken: "cloudflare-ci-test-token", accountId: cloudflareAccountId },
-    });
+      openSecret({
+        sealed: ci.cloudflare.apiToken,
+        aad: organizationCiCredentialAad(organizationId, "cloudflare.apiToken"),
+      }),
+    ).resolves.toBe("cloudflare-ci-test-token");
 
     await viewer.mutation(api.users.removeCiToken, { organizationId, provider: "cloudflare" });
 
@@ -227,11 +235,17 @@ describe("organization CI credentials", () => {
         connectedBy: { kind: "email", label: "ci-credentials@example.test" },
       },
     });
+    const ci = await t.run(async (ctx) => await ctx.db.query("organizationCiCredentials").unique());
+    expect(ci?.convex?.teamId).toBe("41");
+    if (!ci?.convex) {
+      throw new Error("Expected the Convex CI token.");
+    }
     await expect(
-      t.run(async (ctx) => await ctx.db.query("organizationCiCredentials").unique()),
-    ).resolves.toMatchObject({
-      convex: { accessToken: "convex-ci-test-token", teamId: "41" },
-    });
+      openSecret({
+        sealed: ci.convex.accessToken,
+        aad: organizationCiCredentialAad(organizationId, "convex.accessToken"),
+      }),
+    ).resolves.toBe("convex-ci-test-token");
 
     await viewer.mutation(api.users.removeCiToken, { organizationId, provider: "convex" });
 

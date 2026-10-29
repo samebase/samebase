@@ -24,6 +24,8 @@ import {
 } from "./repository/provisioningModel";
 import { requireCompleteCiCredentials } from "./organization/ciCredentials";
 import { writeGitHubActionsSecrets } from "./githubActionsSecrets";
+import { organizationCiCredentialAad } from "./organization/providerCredentialModel";
+import { openSecret } from "./sealedSecret";
 import {
   createStarterSeedBranchReader,
   createStarterSeedGitClient,
@@ -943,9 +945,21 @@ export const writeActionsSecrets = internalAction({
       owner: repository.owner.login,
       repo: repository.name,
       secrets: [
-        { name: "CLOUDFLARE_API_TOKEN", value: target.cloudflareApiToken },
+        {
+          name: "CLOUDFLARE_API_TOKEN",
+          value: await openSecret({
+            sealed: target.cloudflareApiToken,
+            aad: organizationCiCredentialAad(target.organizationId, "cloudflare.apiToken"),
+          }),
+        },
         { name: "CLOUDFLARE_ACCOUNT_ID", value: target.cloudflareAccountId },
-        { name: "CONVEX_ACCESS_TOKEN", value: target.convexAccessToken },
+        {
+          name: "CONVEX_ACCESS_TOKEN",
+          value: await openSecret({
+            sealed: target.convexAccessToken,
+            aad: organizationCiCredentialAad(target.organizationId, "convex.accessToken"),
+          }),
+        },
       ],
       variables: [{ name: "CONVEX_TEAM_ID", value: target.convexTeamId }],
       recordApiCall,

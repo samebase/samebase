@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { api, components, internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { GITHUB_USER_TOKEN_REFRESH_STALE_LOCK_MS } from "../../shared/githubUserTokenRefresh";
-import { makeConvexTest } from "../test.setup";
+import { makeConvexTest, testCredential } from "../test.setup";
 import { cleanupAccountDataBatchForUser } from "./cleanup";
 
 const workflowId = "account-deletion-organization-boundary";
@@ -112,15 +112,15 @@ async function seedRunningDeletion() {
         organizationId,
         convex: {
           connectedByUserId: deletingUserId,
-          auth: { method: "oauth", credential: "convex-token" },
+          auth: { method: "oauth", credential: testCredential("convex-token") },
           updatedAt: 1,
         },
         cloudflare: {
           connectedByUserId: deletingUserId,
           auth: {
             method: "oauth",
-            credential: "cloudflare-access-token",
-            refreshCredential: "cloudflare-refresh-token",
+            credential: testCredential("cloudflare-access-token"),
+            refreshCredential: testCredential("cloudflare-refresh-token"),
             credentialExpiresAt: 2_000_000_000_000,
           },
           updatedAt: 1,
@@ -134,7 +134,7 @@ async function seedRunningDeletion() {
       organizationId: teammateOrganizationId,
       convex: {
         connectedByUserId: teammateUserId,
-        auth: { method: "api_key", credential: "teammate-token" },
+        auth: { method: "api_key", credential: testCredential("teammate-token") },
         updatedAt: 1,
       },
     });
@@ -537,9 +537,9 @@ describe("account deletion organization boundary", () => {
         userId: ids.deletingUserId,
         githubUserId: "deleting-user-github-id",
         githubUserLogin: "deleting-user",
-        accessToken: "old-access-token",
+        accessToken: testCredential("old-access-token"),
         accessTokenExpiresAt: now - 1,
-        refreshToken: "old-refresh-token",
+        refreshToken: testCredential("old-refresh-token"),
         refreshTokenExpiresAt: now + 120_000,
         refreshStartedAt: now,
         createdAt: now,
@@ -1213,8 +1213,8 @@ describe("account deletion organization boundary", () => {
               ...credentials.cloudflare,
               auth: {
                 method: "mcp_oauth",
-                credential: "cloudflare-mcp-access-token",
-                refreshCredential: "cloudflare-mcp-refresh-token",
+                credential: testCredential("cloudflare-mcp-access-token"),
+                refreshCredential: testCredential("cloudflare-mcp-refresh-token"),
                 credentialExpiresAt: 2_000_000_000_000,
                 clientId: "cloudflare-mcp-client",
               },

@@ -12,6 +12,7 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { toErrorMessage } from "./jsonUtils";
 import { requireCompleteCiCredentials } from "./organization/ciCredentials";
 import { readCiCredentialRevision } from "./organization/providerCredentialModel";
+import { vSealedSecret } from "./sealedSecret";
 import { getOrganizationCiCredentials } from "./organizationProviderCredentials";
 import {
   REPOSITORY_ACTIONS_DEFAULT_BRANCH,
@@ -104,9 +105,10 @@ export function readRetryProvisioning(
   return context.provisioning ?? { mode: "samebase" };
 }
 const actionsSecretsTarget = object({
-  cloudflareApiToken: string(),
+  organizationId: id("organizations"),
+  cloudflareApiToken: vSealedSecret,
   cloudflareAccountId: string(),
-  convexAccessToken: string(),
+  convexAccessToken: vSealedSecret,
   convexTeamId: string(),
   credentialRevision: number(),
 });
@@ -376,7 +378,8 @@ export const readProvisioningModeForRun = internalQuery({
 
 /**
 The values that write_actions_secrets writes into the repository: the organization CI credentials,
-which must match the repository's Convex team and Cloudflare account, and their revision.
+which must match the repository's Convex team and Cloudflare account, and their revision. The tokens
+stay sealed; the action opens them right before the write.
 */
 export const readActionsSecretsTarget = internalQuery({
   args: {
@@ -418,6 +421,7 @@ export const readActionsSecretsTarget = internalQuery({
     });
 
     return {
+      organizationId: repository.organizationId,
       cloudflareApiToken: ci.cloudflare.apiToken,
       cloudflareAccountId: ci.cloudflare.accountId,
       convexAccessToken: ci.convex.accessToken,

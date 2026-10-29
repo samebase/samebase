@@ -7,6 +7,8 @@ import {
   createConvexManagementClient,
 } from "./convexManagementApi/client";
 import { ConvexManagement } from "./convexManagementApi/generated/sdk.gen";
+import { organizationProviderCredentialAad } from "./organization/providerCredentialModel";
+import { openSecret } from "./sealedSecret";
 
 const { array, boolean, id, literal, object, optional, string, union } = v;
 
@@ -76,7 +78,12 @@ export const checkConvexConnectionAccess = action({
       };
     }
 
-    const token = configuration.convexCredential.auth.credential.trim();
+    const token = (
+      await openSecret({
+        sealed: configuration.convexCredential.auth.credential,
+        aad: organizationProviderCredentialAad(organizationId, "convex.auth.credential"),
+      })
+    ).trim();
     const teamId = configuration.convexTeam.teamId.trim();
     const checks: ConvexAccessCheck[] = [];
 

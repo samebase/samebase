@@ -5,7 +5,7 @@ import { api, components, internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
 import { readGitHubSignInMatch } from "../githubUserAuthorizations";
-import { makeConvexTest } from "../test.setup";
+import { makeConvexTest, testCredential } from "../test.setup";
 import { readHubProfile } from "./signIn";
 
 type ConvexTest = ReturnType<typeof makeConvexTest>;
@@ -388,9 +388,9 @@ describe("Samebase OAuth sign-in callbacks", () => {
         userId,
         githubUserId: "github-access-owner",
         githubUserLogin: "access-owner",
-        accessToken: "access-token",
+        accessToken: testCredential("access-token"),
         accessTokenExpiresAt: now + 60_000,
-        refreshToken: "refresh-token",
+        refreshToken: testCredential("refresh-token"),
         refreshTokenExpiresAt: now + 120_000,
         createdAt: now,
         updatedAt: now,

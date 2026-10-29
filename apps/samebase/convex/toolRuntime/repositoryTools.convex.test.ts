@@ -63,7 +63,12 @@ import { api, internal } from "../_generated/api";
 import type { ConvexManagement } from "../convexManagementApi/generated/sdk.gen";
 import { observedNativeWorkerBuildSettings } from "../cloudflareApi/fixtures/observedWorkerBuildSettings";
 import { observedNativePreviewsProductionBuild } from "../cloudflareApi/fixtures/observedWorkerBuilds";
-import { insertTestOrganizationBillingAccount, makeConvexTest } from "../test.setup";
+import {
+  insertTestOrganizationBillingAccount,
+  makeConvexTest,
+  sealTestCredentials,
+  testCredential,
+} from "../test.setup";
 
 const convexTeamProject = (id: string, name: string, slug = name) => ({
   createTime: 1,
@@ -110,7 +115,7 @@ async function createScoutFixture() {
     await ctx.db.insert("organizationProviderCredentials", {
       organizationId,
       convex: {
-        auth: { method: "api_key", credential: "convex-token" },
+        auth: { method: "api_key", credential: testCredential("convex-token") },
         connectedByUserId: userId,
         updatedAt: 1,
       },
@@ -169,6 +174,7 @@ async function createScoutFixture() {
     });
     return { convexProjectId, organizationId, repositoryId, userId, workerId };
   });
+  await sealTestCredentials(t);
   return {
     ...ids,
     t,
@@ -582,12 +588,13 @@ describe("repository_getStatus", () => {
       }
       await ctx.db.patch(credentials._id, {
         cloudflare: {
-          auth: { method: "api_key", credential: "cloudflare-token" },
+          auth: { method: "api_key", credential: testCredential("cloudflare-token") },
           connectedByUserId: fixture.userId,
           updatedAt: 1,
         },
       });
     });
+    await sealTestCredentials(fixture.t);
     const getRepository = vi.fn(async () => ({
       data: {
         id: Number(githubRepositoryId),

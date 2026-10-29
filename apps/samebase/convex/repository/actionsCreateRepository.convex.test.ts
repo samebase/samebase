@@ -47,7 +47,12 @@ vi.mock("../cloudflareResources", async (importOriginal) => {
 
 import { api } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
-import { insertTestOrganizationBillingAccount, makeConvexTest } from "../test.setup";
+import {
+  insertTestOrganizationBillingAccount,
+  makeConvexTest,
+  sealTestCredentials,
+  testCredential,
+} from "../test.setup";
 
 type ConvexTestHandle = ReturnType<typeof makeConvexTest>;
 
@@ -109,18 +114,19 @@ async function createRepositoryFixture(
     await ctx.db.insert("organizationProviderCredentials", {
       organizationId,
       convex: {
-        auth: { method: "api_key", credential: "convex-token" },
+        auth: { method: "api_key", credential: testCredential("convex-token") },
         connectedByUserId: userId,
         updatedAt: 1,
       },
       cloudflare: {
-        auth: { method: "api_key", credential: "cloudflare-token" },
+        auth: { method: "api_key", credential: testCredential("cloudflare-token") },
         connectedByUserId: userId,
         updatedAt: 1,
       },
     });
     return { organizationId, userId };
   });
+  await sealTestCredentials(t);
 
   return {
     ...ids,
@@ -197,19 +203,20 @@ async function saveCiCredentials(
     await ctx.db.insert("organizationCiCredentials", {
       organizationId: args.organizationId,
       cloudflare: {
-        apiToken: "cloudflare-ci-test-token",
+        apiToken: testCredential("cloudflare-ci-test-token"),
         accountId: "cloudflare-account",
         connectedByUserId: args.userId,
         updatedAt: 2,
       },
       convex: {
-        accessToken: "convex-ci-test-token",
+        accessToken: testCredential("convex-ci-test-token"),
         teamId: "convex-team",
         connectedByUserId: args.userId,
         updatedAt: 3,
       },
     });
   });
+  await sealTestCredentials(t);
 }
 
 const repositoryActionsCreateArgs = {

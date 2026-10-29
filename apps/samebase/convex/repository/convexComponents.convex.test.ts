@@ -2,7 +2,12 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { api } from "../_generated/api";
 import { isRecord } from "../jsonUtils";
-import { insertTestOrganizationBillingAccount, makeConvexTest } from "../test.setup";
+import {
+  insertTestOrganizationBillingAccount,
+  makeConvexTest,
+  sealTestCredentials,
+  testCredential,
+} from "../test.setup";
 import {
   observedConvexComponentsList,
   observedConvexFileCounts,
@@ -75,7 +80,7 @@ async function seedComponentsRepository(t: ReturnType<typeof makeConvexTest>) {
       organizationId,
       convex: {
         connectedByUserId: userId,
-        auth: { method: "api_key", credential: "convex-api-key" },
+        auth: { method: "api_key", credential: testCredential("convex-api-key") },
         updatedAt: 2,
       },
     });
@@ -125,6 +130,7 @@ async function seedComponentsRepository(t: ReturnType<typeof makeConvexTest>) {
 
     return { userId, repositoryId };
   });
+  await sealTestCredentials(t);
 
   return {
     ids,

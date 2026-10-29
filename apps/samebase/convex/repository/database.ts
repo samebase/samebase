@@ -14,6 +14,8 @@ import { readAlchemyStacks, readProductionConvexDeployments } from "./alchemySta
 import { readConvexProductionDeployment } from "./convexProjectResources";
 import { requireRepositoryForUser, requireRepositoryOrganization } from "../organizationAccess";
 import { isLiveConnectedRepository } from "./state";
+import { organizationProviderCredentialAad } from "../organization/providerCredentialModel";
+import { openSecret } from "../sealedSecret";
 
 const { id, literal, object, string, union } = v;
 
@@ -60,9 +62,9 @@ type RepositoryDatabaseActionCtx = Pick<ActionCtx, "runQuery"> & {
 type ReadyRepositoryDatabaseDeploymentContext = {
   kind: "ready";
   deployment: ConvexCloudDeployment;
-  convexCredential: {
-    auth: { method: "api_key" | "oauth"; credential: string };
-  };
+  convexAuthMethod: "api_key" | "oauth";
+  /** The organization's Convex token, opened in the action. */
+  convexToken: string;
 };
 type RepositoryDatabaseDeploymentContext =
   | ReadyRepositoryDatabaseDeploymentContext
@@ -153,16 +155,17 @@ that project in the connected team, else null.
 */
 async function readStackProjectId(args: {
   convexTeam: { teamId: string };
-  credential: { auth: { method: "api_key" | "oauth"; credential: string } };
+  convexAuthMethod: "api_key" | "oauth";
+  convexToken: string;
   projectId: string;
   repository: string;
 }): Promise<string | null> {
   const read = await readAlchemyStacks({
     repository: args.repository,
     target: {
-      authMethod: args.credential.auth.method,
+      authMethod: args.convexAuthMethod,
       teamId: args.convexTeam.teamId,
-      token: args.credential.auth.credential,
+      token: args.convexToken,
     },
   });
   const deployed =
@@ -232,17 +235,22 @@ async function readRepositoryDatabaseDeploymentContext(
   if (!connection || !credential || connection.teamId !== project.teamId) {
     return { kind: "missing_connection" };
   }
+  const convexToken = await openSecret({
+    sealed: credential.auth.credential,
+    aad: organizationProviderCredentialAad(repository.organizationId, "convex.auth.credential"),
+  });
   const projectId =
     project.source === "attachment"
       ? project.projectId
       : await readStackProjectId({
           convexTeam: connection,
-          credential,
+          convexAuthMethod: credential.auth.method,
+          convexToken,
           projectId: args.convexProjectId,
           repository: project.repository,
         });
   const deployment = projectId
-    ? await readConvexProductionDeployment({ token: credential.auth.credential, projectId })
+    ? await readConvexProductionDeployment({ token: convexToken, projectId })
     : null;
   if (!deployment) {
     return { kind: "missing_deployment" };
@@ -251,7 +259,8 @@ async function readRepositoryDatabaseDeploymentContext(
   return {
     kind: "ready",
     deployment,
-    convexCredential: credential,
+    convexAuthMethod: credential.auth.method,
+    convexToken,
   };
 }
 
@@ -272,7 +281,7 @@ export const createEmbeddedDashboardCredentials = action({
     }
     // Convex ignores allowedActions and expiresAt for OAuth connections and returns the team-wide
     // OAuth token as the deploy key. This action sends the key to the browser, so OAuth stops here.
-    if (context.convexCredential.auth.method === "oauth") {
+    if (context.convexAuthMethod === "oauth") {
       return { kind: "oauth_connection" };
     }
 
@@ -283,11 +292,11 @@ export const createEmbeddedDashboardCredentials = action({
     });
     const deployKey = await createConvexDeploymentDeployKey({
       allowedActions: EMBEDDED_DASHBOARD_ALLOWED_ACTIONS,
-      authMethod: context.convexCredential.auth.method,
+      authMethod: context.convexAuthMethod,
       deploymentName: context.deployment.name,
       expiresAt,
       name: deployKeyName,
-      token: context.convexCredential.auth.credential,
+      token: context.convexToken,
     });
 
     return {
@@ -316,7 +325,7 @@ export const revokeEmbeddedDashboardCredentials = action({
     // OAuth connections never mint embedded keys, so there is nothing to revoke.
     if (
       context.kind !== "ready" ||
-      context.convexCredential.auth.method !== "api_key" ||
+      context.convexAuthMethod !== "api_key" ||
       !isEmbeddedDashboardDeployKeyName({
         deploymentName: context.deployment.name,
         deployKeyName: args.deployKeyName,
@@ -328,7 +337,7 @@ export const revokeEmbeddedDashboardCredentials = action({
     await deleteConvexDeploymentDeployKey({
       deploymentName: context.deployment.name,
       name: args.deployKeyName,
-      token: context.convexCredential.auth.credential,
+      token: context.convexToken,
     });
     return null;
   },

@@ -10,7 +10,7 @@ import {
   observedMigratedWorkerBuildSettings,
   observedMissingWorkerBuildSettingsResponse,
 } from "../cloudflareApi/fixtures/observedWorkerBuildSettings";
-import { makeConvexTest } from "../test.setup";
+import { makeConvexTest, sealTestCredentials, testCredential } from "../test.setup";
 import { actionContracts } from "../toolRuntime/actionCatalog";
 import { ACCESS_KEYS } from "../../shared/accessModel";
 import { isRecord } from "../jsonUtils";
@@ -1529,8 +1529,8 @@ describe("MCP tools/call access enforcement", () => {
           connectedByUserId: userId,
           auth: {
             method: "oauth",
-            credential: "cloudflare-token",
-            refreshCredential: "cloudflare-refresh-token",
+            credential: testCredential("cloudflare-token"),
+            refreshCredential: testCredential("cloudflare-refresh-token"),
             credentialExpiresAt: 4_000_000_000_000,
           },
           updatedAt: 1,
@@ -1580,6 +1580,7 @@ describe("MCP tools/call access enforcement", () => {
       });
       return repositoryId;
     });
+    await sealTestCredentials(t);
     return {
       buildTokenUuid,
       callTool,
@@ -1828,12 +1829,13 @@ describe("MCP tools/call access enforcement", () => {
       }
       await ctx.db.patch(credentials._id, {
         convex: {
-          auth: { method: "api_key", credential: "convex-token" },
+          auth: { method: "api_key", credential: testCredential("convex-token") },
           connectedByUserId: userId,
           updatedAt: 1,
         },
       });
     });
+    await sealTestCredentials(t);
     const providerFetch = vi.mocked(fetch);
     const fixtureFetch = providerFetch.getMockImplementation();
     // The deploy-key step fails after Builds setup with a raw provider error.
