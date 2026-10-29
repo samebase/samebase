@@ -24,8 +24,9 @@ import {
 import { buildPrimaryDevCommand, buildPrimaryDevEnvironment } from "./run-primary-dev.ts";
 
 const DEFAULT_WORKTREE_DEV_VITE_PORT = 5174;
-// Refresh existing worktrees once so they run the first site deploy that the local backend needs.
-const ONCE_BOOTSTRAP_MARKER = "worktree-anonymous-seed-auth-bootstrap-v5";
+// Refresh existing worktrees once so their local backend gets the no-hub values of the identity
+// hub variables that convex/convex.config.ts requires.
+const ONCE_BOOTSTRAP_MARKER = "worktree-anonymous-seed-auth-bootstrap-v6";
 
 const HELP_TEXT = `Usage: scripts/run-worktree-dev.ts [options]
 
