@@ -135,7 +135,7 @@ Dashboard: https://dashboard.convex.dev/d/${site.name}`,
     // The Convex project that runs samebase.com. Found by name when it has no state, then by id;
     // adopt(true) takes over the project that existed before this stack. Retained on destroy: it is
     // the production app.
-    const project = yield* Convex.Project("Project", { team, name: "samebase" }).pipe(
+    const project = yield* Convex.Project("Project", { team, name: "samebase-com" }).pipe(
       adopt(true),
       Alchemy.RemovalPolicy.retain(),
     );
