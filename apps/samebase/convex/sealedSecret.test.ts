@@ -62,6 +62,18 @@ describe("sealed secrets", () => {
     await expect(openSecret({ sealed: { ...sealed, ciphertext: changed }, aad })).rejects.toThrow();
   });
 
+  it("refuses a plain string written before sealing, without quoting it", async () => {
+    stubKeyRing({ current: "first", keys: { first: firstKey } });
+
+    const failure = await openSecret({ sealed: "plain-test-token", aad }).then(
+      () => null,
+      (reason: unknown) => reason,
+    );
+
+    expect(String(failure)).toContain("Stored credential is not sealed yet.");
+    expect(String(failure)).not.toContain("plain-test-token");
+  });
+
   it("does not open a value whose key id is not in the ring", async () => {
     stubKeyRing({ current: "first", keys: { first: firstKey } });
     const sealed = await sealSecret(actionCtx, { plaintext: "test-token", aad });

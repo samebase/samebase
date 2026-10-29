@@ -28,7 +28,14 @@ import { requireActiveRepositoryProvisioningContinuation } from "./repositoryWor
 import { readOwnedActiveRun } from "./accountDeletion/stepContext";
 import { GITHUB_USER_TOKEN_REFRESH_STALE_LOCK_MS } from "../shared/githubUserTokenRefresh";
 import { githubUserAuthorizationAad } from "./githubUserAuthorizationModel";
-import { openSecret, sealSecret, vSealedSecret, type SealedSecret } from "./sealedSecret";
+import {
+  openSecret,
+  sealSecret,
+  vSealedSecret,
+  vStoredSecret,
+  type SealedSecret,
+  type StoredSecret,
+} from "./sealedSecret";
 
 const { boolean, id, literal, number, object, string, union } = v;
 
@@ -57,9 +64,9 @@ const vGitHubUserAuthorizationForUse = object({
   userId: id("users"),
   githubUserId: string(),
   githubUserLogin: string(),
-  accessToken: vSealedSecret,
+  accessToken: vStoredSecret,
   accessTokenExpiresAt: number(),
-  refreshToken: vSealedSecret,
+  refreshToken: vStoredSecret,
   refreshTokenExpiresAt: number(),
 });
 
@@ -89,7 +96,7 @@ const vGitHubUserAuthorizationForAppConnectionUse = union(
 const vGitHubUserAuthorizationForRevocationValue = object({
   authorizationId: id("githubUserAuthorizations"),
   githubUserId: string(),
-  accessToken: vSealedSecret,
+  accessToken: vStoredSecret,
 });
 const vGitHubUserAuthorizationForRevocation = union(
   vGitHubUserAuthorizationForRevocationValue,
@@ -273,7 +280,7 @@ export async function upsertGitHubUserAuthorization(
     refreshToken: SealedSecret;
     refreshTokenExpiresAt: number;
   },
-): Promise<SealedSecret | null> {
+): Promise<StoredSecret | null> {
   const user = await db.get(args.userId);
   if (user === null || readActiveUser(user) === null) {
     throw new Error("An active Samebase user is required.");

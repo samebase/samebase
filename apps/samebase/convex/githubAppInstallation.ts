@@ -43,7 +43,7 @@ import {
   classifyAuthorizationCallbackError,
 } from "./authorizationCompletion";
 import { readActiveUser } from "./identity/lifecycle";
-import { openSecret, sealSecret, vSealedSecret } from "./sealedSecret";
+import { openSecret, sealSecret, vSealedSecret, vStoredSecret } from "./sealedSecret";
 
 const { boolean, id, literal, number, object, optional, string, union } = v;
 
@@ -77,7 +77,7 @@ const vGitHubAppSetupCompletion = union(
   object({ status: literal("organization_owner_required"), githubOwnerLogin: string() }),
 );
 const vGitHubUserAuthorizationCompletion = union(
-  object({ status: literal("stored"), displacedAccessToken: optional(vSealedSecret) }),
+  object({ status: literal("stored"), displacedAccessToken: optional(vStoredSecret) }),
   object({ status: literal("access_lost") }),
   object({ status: literal("github_sign_in_required") }),
   object({ status: literal("github_sign_in_mismatch") }),

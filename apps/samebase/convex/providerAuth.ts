@@ -1,43 +1,38 @@
 import { Infer, v } from "convex/values";
 
-import { vSealedSecret, type SealedSecret } from "./sealedSecret";
+import { sameSealedSecret, vStoredSecret } from "./sealedSecret";
 
 const { literal, number, object, string, union } = v;
 
 export const vOAuthAuth = object({
   method: literal("oauth"),
-  credential: vSealedSecret,
+  credential: vStoredSecret,
 });
 
 export const vCloudflareOAuthAuth = object({
   method: literal("oauth"),
-  credential: vSealedSecret,
-  refreshCredential: vSealedSecret,
+  credential: vStoredSecret,
+  refreshCredential: vStoredSecret,
   credentialExpiresAt: number(),
 });
 
 export const vMcpOAuthAuth = object({
   method: literal("mcp_oauth"),
-  credential: vSealedSecret,
-  refreshCredential: vSealedSecret,
+  credential: vStoredSecret,
+  refreshCredential: vStoredSecret,
   credentialExpiresAt: number(),
   clientId: string(),
 });
 
 export const vApiKeyAuth = object({
   method: literal("api_key"),
-  credential: vSealedSecret,
+  credential: vStoredSecret,
 });
 
 export const vStandardProviderAuth = union(vOAuthAuth, vApiKeyAuth);
 export const vCloudflareProviderAuth = union(vCloudflareOAuthAuth, vMcpOAuthAuth, vApiKeyAuth);
 export const vProviderAuth = union(vOAuthAuth, vCloudflareOAuthAuth, vMcpOAuthAuth, vApiKeyAuth);
 export type ProviderAuth = Infer<typeof vProviderAuth>;
-
-/** Equal sealed objects mean an unchanged row: every seal draws a new IV. */
-function sameSealedSecret(left: SealedSecret, right: SealedSecret): boolean {
-  return left.keyId === right.keyId && left.iv === right.iv && left.ciphertext === right.ciphertext;
-}
 
 export function providerAuthMatches(left: ProviderAuth, right: ProviderAuth): boolean {
   if (left.method !== right.method) {

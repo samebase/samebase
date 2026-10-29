@@ -5,7 +5,7 @@ import {
   organizationProviderCredentialAad,
   type CloudflareProviderCredential,
 } from "./organization/providerCredentialModel";
-import { openSecret, type SealedSecret } from "./sealedSecret";
+import { openSecret, type StoredSecret } from "./sealedSecret";
 import {
   insertTestOrganizationBillingAccount,
   makeConvexTest,
@@ -98,7 +98,7 @@ async function seedManualWrite(auth: CloudflareProviderCredential["auth"]) {
 
 function openCloudflareCredential(
   seed: Awaited<ReturnType<typeof seedManualWrite>>,
-  sealed: SealedSecret,
+  sealed: StoredSecret,
   field: "cloudflare.auth.credential" | "cloudflare.auth.refreshCredential",
 ) {
   return openSecret({ sealed, aad: organizationProviderCredentialAad(seed.organizationId, field) });
