@@ -1,3 +1,4 @@
+import type { FunctionReference } from "convex/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import {
   buildPathWithTanStackSearch,
@@ -32,11 +33,26 @@ vi.mock("react", async () => {
   };
 });
 
-vi.mock("@convex-dev/auth/methods/oauth/react", () => ({
-  useOauthSignIn: ({ providerName }: { providerName: string }) => ({
-    signIn: providerName === "hub-github" ? githubSignInMock : googleSignInMock,
-  }),
-}));
+// Each button gets the sign-in of its hub method only when both of its function references are
+// that method's; any other pair has no sign-in, and the test that clicks it fails.
+vi.mock("@convex-dev/auth/methods/oauth/react", async () => {
+  const { getFunctionName } = await import("convex/server");
+  const hubMethodSignIns: Record<string, typeof githubSignInMock> = {
+    "auth:startSignInWithHubGithub auth:completeSignInWithHubGithub": githubSignInMock,
+    "auth:startSignInWithHubGoogle auth:completeSignInWithHubGoogle": googleSignInMock,
+  };
+  return {
+    useOauthSignIn: (refs: {
+      startSignIn: FunctionReference<"mutation">;
+      completeSignIn: FunctionReference<"mutation">;
+    }) => ({
+      signIn:
+        hubMethodSignIns[
+          `${getFunctionName(refs.startSignIn)} ${getFunctionName(refs.completeSignIn)}`
+        ],
+    }),
+  };
+});
 
 vi.mock("@tanstack/react-router", () => ({
   useRouter: () => ({
