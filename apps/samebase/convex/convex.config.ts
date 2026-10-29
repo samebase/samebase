@@ -14,6 +14,9 @@ const app = defineApp({
     AUTO_APPROVE_NEW_USERS: v.optional(v.union(v.literal("true"), v.literal("false"))),
     AUTH_JWKS: v.string(),
     AUTH_PRIVATE_KEY: v.string(),
+    // Optional: a local deployment may have none, and email.ts then skips the send. The production
+    // deploy (alchemy.run.ts) writes both; a development deployment holds hand-set values
+    // (specs/112_CLOUDFLARE_EMAIL_SENDING_SPEC.md).
     CLOUDFLARE_EMAIL_ACCOUNT_ID: v.optional(v.string()),
     CLOUDFLARE_EMAIL_API_TOKEN: v.optional(v.string()),
     CREDENTIAL_KEYS: v.string(),

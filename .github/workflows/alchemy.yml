@@ -20,8 +20,7 @@ on:
   pull_request:
     types: [opened, synchronize, reopened, closed]
   # Run once on main with adopt to take over resources that exist but are not in the state of the
-  # stage `prod` of either stack, such as the production deployment with its code or the Worker of
-  # the sidebars example.
+  # stage `prod` of either stack, such as the Worker of the sidebars example.
   workflow_dispatch:
     inputs:
       adopt:
