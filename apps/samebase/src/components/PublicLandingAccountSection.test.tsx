@@ -379,6 +379,19 @@ describe("PublicLandingAccountSection", () => {
     rootElement.remove();
   });
 
+  it("keeps checking login while a public OAuth return redeems its sign-in code", async () => {
+    authState.isLoading = true;
+
+    const markup = renderLandingAccountSection("/?signup=github");
+    const hydratedMarkup = await renderLandingAccountSectionAfterEffects("/?signup=github");
+
+    for (const rendered of [markup, hydratedMarkup]) {
+      expect(rendered).toContain("checking login");
+      expect(rendered).not.toContain("Sign-in was not completed.");
+      expect(rendered).not.toContain("Continue with GitHub");
+    }
+  });
+
   it("shows the incomplete sign-in notice after a public Google OAuth return", () => {
     const markup = renderLandingAccountSection("/?signup=google");
     const renderedDocument = new DOMParser().parseFromString(markup, "text/html");

@@ -18,6 +18,7 @@ import { PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID } from "@/lib/publicLanding";
 import { clearAuthorizationErrorSearch } from "@/routeSearch/authorizationError";
 import { readRootRouteSearch } from "@/routeSearch/root";
 import { useLocation, useMatches, useRouter } from "@tanstack/react-router";
+import { useConvexAuth } from "convex/react";
 import { useCallback, useState } from "react";
 import { api } from "../../convex/_generated/api";
 import { AUTHORIZATION_PROVIDERS } from "../../shared/authorizationError";
@@ -61,6 +62,14 @@ function PublicLandingLoggedOutAccountSection() {
     rootRouteSearch,
     signInRejection !== null,
   );
+  // The provider's return lands on this page with a one-time code that the browser redeems after
+  // the page loads, and the auth provider reports loading until the session is minted. The notice
+  // is for a return that settled without a session.
+  const { isLoading } = useConvexAuth();
+
+  if (showOAuthReturnNotice && isLoading) {
+    return <PublicLandingAccountLoadingSection />;
+  }
 
   return (
     <div
