@@ -17,7 +17,7 @@ import {
   organizationProviderCredentialAad,
 } from "./organization/providerCredentialModel";
 import schema from "./schema";
-import { sealSecret, type SealedSecret, type StoredSecret } from "./sealedSecret";
+import { sealSecret, type SealedSecret } from "./sealedSecret";
 
 const modules = import.meta.glob([
   "./**/*.ts",
@@ -67,8 +67,8 @@ field, in an action as the connect flows do, so the code under test opens them l
 connect flow wrote.
 */
 export async function sealTestCredentials(t: ReturnType<typeof makeConvexTest>): Promise<void> {
-  const seal = async (value: StoredSecret, aad: string) =>
-    typeof value !== "string" && value.iv === TEST_CREDENTIAL_IV
+  const seal = async (value: SealedSecret, aad: string) =>
+    value.iv === TEST_CREDENTIAL_IV
       ? await t.action(async (ctx) => await sealSecret(ctx, { plaintext: value.ciphertext, aad }))
       : value;
   const rows = await t.run(async (ctx) => ({

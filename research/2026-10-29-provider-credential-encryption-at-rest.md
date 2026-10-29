@@ -276,7 +276,8 @@ The rollout changed to in-place sealing: production holds the provider connectio
 authorizations of other users, and removing their rows would break them. The stored fields accept a
 plain string for one transitional deploy, `resealCredentials:run` seals the existing rows, and a
 follow-up change narrows the fields again.
-`specs/130_PROVIDER_CREDENTIAL_ENCRYPTION_AT_REST_SPEC.md` has the steps.
+`specs/130_PROVIDER_CREDENTIAL_ENCRYPTION_AT_REST_SPEC.md` has the steps. Production was sealed on
+2026-10-29, and the narrowing followed as a separate change.
 
 ### 5.8 Tests
 

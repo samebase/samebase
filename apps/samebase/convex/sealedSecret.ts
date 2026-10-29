@@ -11,7 +11,7 @@ import { Infer, v } from "convex/values";
 import { base64ToBytes, bytesToBase64Url } from "../shared/base64";
 import { env, type ActionCtx } from "./_generated/server";
 
-const { object, string, union } = v;
+const { object, string } = v;
 
 /** A credential sealed with AES-256-GCM under the key `keyId` of the CREDENTIAL_KEYS ring. */
 export const vSealedSecret = object({
@@ -23,22 +23,8 @@ export const vSealedSecret = object({
 });
 export type SealedSecret = Infer<typeof vSealedSecret>;
 
-/**
-Transitional, for the in-place sealing of the rows that existed before PR #1798: a plain string is a
-credential written before sealing. The narrowing PR after the reseal run replaces every use of this
-validator with vSealedSecret and deletes it.
-*/
-export const vStoredSecret = union(string(), vSealedSecret);
-export type StoredSecret = Infer<typeof vStoredSecret>;
-
-/**
-Equal stored values mean an unchanged row: every seal draws a new IV, two plain strings compare by
-equality, and a plain string never equals a sealed object.
-*/
-export function sameSealedSecret(left: StoredSecret, right: StoredSecret): boolean {
-  if (typeof left === "string" || typeof right === "string") {
-    return left === right;
-  }
+/** Equal sealed objects mean an unchanged row: every seal draws a new IV. */
+export function sameSealedSecret(left: SealedSecret, right: SealedSecret): boolean {
   return left.keyId === right.keyId && left.iv === right.iv && left.ciphertext === right.ciphertext;
 }
 
@@ -128,17 +114,9 @@ export async function sealSecret(
   };
 }
 
-/**
-Opens a sealed credential with the key it names. A different `aad` or a changed value fails. A plain
-string, written before sealing, fails without its value in the error.
-*/
-export async function openSecret(args: { sealed: StoredSecret; aad: string }): Promise<string> {
+/** Opens a sealed credential with the key it names. A different `aad` or a changed value fails. */
+export async function openSecret(args: { sealed: SealedSecret; aad: string }): Promise<string> {
   const { sealed } = args;
-  if (typeof sealed === "string") {
-    throw new Error(
-      "Stored credential is not sealed yet. Run internal.resealCredentials.run on this deployment.",
-    );
-  }
   const key = await importCredentialKey(readCredentialKeys(), sealed.keyId);
   const plaintext = await crypto.subtle.decrypt(
     {

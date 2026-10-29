@@ -2,7 +2,7 @@ import { defineTable } from "convex/server";
 import { v } from "convex/values";
 
 import type { Id } from "./_generated/dataModel";
-import { vStoredSecret } from "./sealedSecret";
+import { vSealedSecret } from "./sealedSecret";
 
 const { id, number, object, optional, string } = v;
 
@@ -10,9 +10,9 @@ export const vGitHubUserAuthorization = object({
   userId: id("users"),
   githubUserId: string(),
   githubUserLogin: string(),
-  accessToken: vStoredSecret,
+  accessToken: vSealedSecret,
   accessTokenExpiresAt: number(),
-  refreshToken: vStoredSecret,
+  refreshToken: vSealedSecret,
   refreshTokenExpiresAt: number(),
   refreshStartedAt: optional(number()),
   createdAt: number(),

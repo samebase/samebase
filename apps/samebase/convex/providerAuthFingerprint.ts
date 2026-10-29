@@ -3,15 +3,12 @@ import type {
   ConvexProviderCredential,
 } from "./organization/providerCredentialModel";
 import type { ProviderAuth } from "./providerAuth";
-import type { StoredSecret } from "./sealedSecret";
+import type { SealedSecret } from "./sealedSecret";
 import { sha256Hex } from "./mcp/tokens";
 
-/**
-A fixed field order, so the hash does not depend on the key order of the stored object; a plain
-string written before sealing serializes as itself.
-*/
-function serializeSealedSecret(stored: StoredSecret): string | [string, string, string] {
-  return typeof stored === "string" ? stored : [stored.keyId, stored.iv, stored.ciphertext];
+/** A fixed field order, so the hash does not depend on the key order of the stored object. */
+function serializeSealedSecret(sealed: SealedSecret): [string, string, string] {
+  return [sealed.keyId, sealed.iv, sealed.ciphertext];
 }
 
 function serializeProviderAuth(auth: ProviderAuth): string {

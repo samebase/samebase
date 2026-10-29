@@ -5,7 +5,7 @@ import type { Id } from "../_generated/dataModel";
 
 import { vMcpTokenHealth } from "../mcpTokenHealth";
 import { vCloudflareProviderAuth, vStandardProviderAuth } from "../providerAuth";
-import { vStoredSecret } from "../sealedSecret";
+import { vSealedSecret } from "../sealedSecret";
 
 const { id, literal, number, object, optional, string, union } = v;
 
@@ -35,12 +35,12 @@ export const vCloudflareProviderCredential = object({
 export type CloudflareProviderCredential = Infer<typeof vCloudflareProviderCredential>;
 
 const vCloudflareCiCredential = object({
-  apiToken: vStoredSecret,
+  apiToken: vSealedSecret,
   accountId: string(),
   ...providerCredentialIdentity,
 });
 const vConvexCiCredential = object({
-  accessToken: vStoredSecret,
+  accessToken: vSealedSecret,
   teamId: string(),
   ...providerCredentialIdentity,
 });
