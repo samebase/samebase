@@ -172,7 +172,7 @@ with the stack in `apps/sidebars-example/alchemy.run.ts`:
   deployment with that name, through `apps/samebase/scripts/deploy-preview.ts`, which also sets its
   `SITE_URL` and seeds its password account. The run comments the preview's URLs on the pull
   request. Closing the pull request destroys the stage and deletes the preview.
-- The state of every stage is in the `alchemy-state` project of the Convex team `nicu`, under the
+- The state of every stage is in the `samebase` project of the Convex team `nicu`, under the
   stack name `samebase/samebase`, and `samebase/samebase/<folder>` for a stack in a folder. Every
   run needs the `CONVEX_ACCESS_TOKEN` repository secret, a team access token; each push mints its
   own short-lived deploy key. The stage `prod` also needs the `CLOUDFLARE_API_TOKEN` secret, with
@@ -252,39 +252,21 @@ Every deployment needs these Convex environment variables:
 
 - `HUB_ISSUER`, `HUB_CLIENT_ID`, and `HUB_CLIENT_SECRET`: the identity hub,
   `https://auth.samebase.com`, and this deployment's client at it. A deployment gets its client by
-  posting its callback URL `<site>/auth/hub/callback` to `<HUB_ISSUER>/register` with the app's
-  registration token as a Bearer token. A linked worktree and CI have no hub: their setup writes
+  registering its callback URL `<site>/auth/hub/callback` at the hub. A linked worktree and CI have no hub: their setup writes
   `HUB_ISSUER=http://127.0.0.1:1` and `no-hub` as the client id and secret, and their pages offer
   only the password form (`?prod-ui` shows the hub buttons of the production page).
 - `SITE_URL`: the app origin. OAuth sign-ins may return only to `SITE_URL` and to the deployment's
   own `CONVEX_SITE_URL`.
 
-The identity hub needs two steps outside this repository, once:
-
-1. The hub admin runs `createApp` on the hub for the first-party app `Samebase`, with the callback
-   hosts `samebase.com` and `*.convex.site`, then `mintRegistrationToken` for that app. The hub
-   sends `connector_account_id`, which keeps existing users on their accounts, only to first-party
-   apps.
-2. The repository variable `HUB_ISSUER` holds `https://auth.samebase.com`, and the repository secret
-   `HUB_REGISTRATION_TOKEN` holds that token.
-
-The root `alchemy.run.ts` registers production and each preview with `IdentityHub.Client`, on
+The root `alchemy.run.ts` registers production and each preview with `Convex.HubClient`, on
 `https://samebase.com/auth/hub/callback` and `<preview site>/auth/hub/callback`, and writes the
-three variables to the deployment before its push. A run without the variable or the secret stops
-before it touches anything.
+three variables to the deployment before its push. The hub is in the `samebase` project of the Convex
+team, and the Convex credential of the run reaches it, so sign-in needs no secret of its own.
 
-The development deployment of the primary checkout gets its client from
-`apps/samebase/scripts/register-hub-client.ts`, which `pnpm run dev` runs before its first push. Put
-the hub values in `apps/samebase/.env.local` once:
-
-```bash
-HUB_ISSUER=https://auth.samebase.com
-HUB_REGISTRATION_TOKEN=<the registration token>
-```
-
-The script registers once and writes `HUB_ISSUER`, `HUB_CLIENT_ID`, and `HUB_CLIENT_SECRET` to the
-development deployment; it registers again only when the stored secret is missing or the stored
-issuer is another one. It leaves the no-hub values of a linked worktree.
+The development deployment of the primary checkout gets its client from the package script
+`hub:client`, which `pnpm run dev` runs before its first push with your Convex login. It registers
+once and writes the three variables to the development deployment. A deployment with all three
+variables keeps them, so it leaves the no-hub values of a linked worktree.
 
 Password sign-in is for accounts that only server functions create. Local worktrees use their seeded
 password account. Preview deployments use `DEV_SEED_AUTH_EMAIL` and `DEV_SEED_AUTH_PASSWORD` (at

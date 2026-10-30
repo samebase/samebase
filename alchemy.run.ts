@@ -19,23 +19,19 @@
 // the variables that alchemy.yml sets on each deploy step, such as VITE_SAMEBASE_ROUTE_ENVIRONMENT.
 //
 // Each deployment is a client of the team's identity hub, which signs in with GitHub and Google.
-// Every run, a destroy too, reads HUB_ISSUER and HUB_REGISTRATION_TOKEN (in .env on a laptop), and
-// stops before any resource when one is missing. IdentityHub.Client registers the deployment's
-// callback URL once, and the deployment's `env` writes HUB_ISSUER, HUB_CLIENT_ID, and
-// HUB_CLIENT_SECRET before the push, which fails without them.
+// Convex.HubClient registers the deployment's callback URL once, with the Convex credential of the
+// run, and the deployment's `env` writes HUB_ISSUER, HUB_CLIENT_ID, and HUB_CLIENT_SECRET before the
+// push, which fails without them.
 //   npx alchemy plan --stage prod --no-input
 import { execFileSync } from "node:child_process";
 import * as Cloudflare from "@alchemy.run/cloudflare";
 import * as GitHub from "@alchemy.run/github";
 import * as Convex from "@samebase/alchemy-convex";
-import * as IdentityHub from "@samebase/alchemy-identity-hub";
 import * as Alchemy from "alchemy";
 import { adopt } from "alchemy/AdoptPolicy";
 import * as Output from "alchemy/Output";
-import * as Config from "effect/Config";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import * as Redacted from "effect/Redacted";
 
 /** The Convex team of the project and of the state. */
 const team = "nicu";
@@ -61,17 +57,14 @@ export default Alchemy.Stack(
       Cloudflare.providers(),
       GitHub.providers(),
       Convex.providers(),
-      IdentityHub.providers(),
     ),
     state: Convex.state({ team }),
   },
   Effect.gen(function* () {
     const { stage } = yield* Alchemy.Stack;
-    // Read before any resource. alchemy.yml passes the repository variable HUB_ISSUER and the
-    // repository secret HUB_REGISTRATION_TOKEN; an empty value fails like a missing one.
     const hub = {
-      issuer: yield* Config.NonEmptyString("HUB_ISSUER"),
-      registrationToken: Redacted.make(yield* Config.NonEmptyString("HUB_REGISTRATION_TOKEN")),
+      team,
+      app: "samebase-ahbfh",
       clientName: stage,
       softwareVersion: commit,
     };
@@ -94,7 +87,7 @@ export default Alchemy.Stack(
         type: "preview",
         name: stage,
       }).pipe(adopt(true), Alchemy.RemovalPolicy.destroy());
-      const client = yield* IdentityHub.Client("HubClient", {
+      const client = yield* Convex.HubClient("HubClient", {
         ...hub,
         redirectUri: Output.map(preview.siteUrl, (siteUrl) => `${siteUrl}${HUB_CALLBACK_PATH}`),
         deploymentType: "preview",
@@ -141,7 +134,7 @@ Dashboard: https://dashboard.convex.dev/d/${site.name}`,
     );
 
     // The production client of the identity hub, on the callback of samebase.com.
-    const client = yield* IdentityHub.Client("HubClient", {
+    const client = yield* Convex.HubClient("HubClient", {
       ...hub,
       redirectUri: `${PRODUCTION_SITE_URL}${HUB_CALLBACK_PATH}`,
       deploymentType: "production",
