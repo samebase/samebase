@@ -2,6 +2,7 @@
   "name": "@samebase/onboarding-video-tools",
   "version": "0.0.0",
   "private": true,
+  "license": "Apache-2.0",
   "bin": {
     "samebase-onboarding-video": "./cli.ts"
   },

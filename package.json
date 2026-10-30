@@ -10,7 +10,7 @@
     "vite",
     "vite-plus"
   ],
-  "license": "UNLICENSED",
+  "license": "AGPL-3.0-only",
   "author": "",
   "type": "module",
   "scripts": {
