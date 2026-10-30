@@ -139,6 +139,7 @@ async function createRepositoryFixture(
 }
 
 afterEach(() => {
+  vi.useRealTimers();
   vi.unstubAllEnvs();
   vi.unstubAllGlobals();
 });
@@ -175,6 +176,10 @@ function stubCloudflareCiToken({ denied = [] }: { denied?: string[] } = {}) {
 }
 
 beforeEach(() => {
+  // `repository.create` starts the provisioning workflow. These tests check only what it saves, so
+  // the workflow stays queued. If it ran, it could log after Vitest closes the worker, and Vitest
+  // would then fail the run with an unhandled error.
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
   vi.clearAllMocks();
   providerMocks.createGitHubInstallationOctokit.mockReturnValue({
     hook: { wrap: vi.fn() },
