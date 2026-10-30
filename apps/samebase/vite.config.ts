@@ -27,7 +27,7 @@ import type { AppBuildConfig } from "./src/lib/appBuildConfig";
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
 const gitRoot = path.resolve(currentDir, "..", "..");
 const appTsconfigPath = path.resolve(currentDir, "tsconfig.json");
-const slogansPath = path.resolve(gitRoot, "slogans.md");
+const slogansPath = path.resolve(currentDir, "dev", "slogans.md");
 const BROWSER_CONVEX_PROXY_PATH = "/__samebase_convex_proxy";
 const devPortRaw = process.env["SAMEBASE_DEV_PORT"]?.trim();
 const devPort = devPortRaw ? Number(devPortRaw) : undefined;
