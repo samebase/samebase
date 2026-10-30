@@ -8,7 +8,7 @@
 //   stage, which `alchemy destroy` deletes when the pull request closes. It reads the project by its
 //   slug, so it does not depend on the state of `prod`, and it creates no Workers.
 //
-// The state of every stage is in the `alchemy-state` project of the Convex team, under the stack
+// The state of every stage is in the `samebase` project of the Convex team, under the stack
 // name samebase/samebase, where the repository pages of Samebase read it. A stack in a folder of
 // this repository is named samebase/samebase/<folder>, such as apps/sidebars-example/alchemy.run.ts,
 // and runs from its folder. Every run needs the team token CONVEX_ACCESS_TOKEN, or the Convex CLI
@@ -79,7 +79,7 @@ export default Alchemy.Stack(
     if (stage !== "prod") {
       // The project of samebase.com, read by its slug: this stage never creates, changes, or
       // deletes it. adopt(true) takes it into the state of this stage only.
-      const project = yield* Convex.Project("Project", { team, slug: "samebase" }).pipe(
+      const project = yield* Convex.Project("Project", { team, slug: "samebase-com" }).pipe(
         adopt(true),
       );
 
