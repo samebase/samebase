@@ -19,7 +19,6 @@ import {
 import { readEnvFileValue, resolveBrowserConvexProxyTarget } from "./browserConvexProxy";
 import { resolveAppCommitNumber } from "./dev/appBuildMetadata";
 import { inlineScriptPlugin } from "./dev/inlineScriptPlugin";
-import { readBuildLandingSlogan } from "./dev/landingSlogan";
 import { prerenderPages } from "./prerender.config";
 import { writePublicPrerenderWithoutModulePreloads } from "./scripts/strip-public-prerender-modulepreloads";
 import type { AppBuildConfig } from "./src/lib/appBuildConfig";
@@ -27,7 +26,6 @@ import type { AppBuildConfig } from "./src/lib/appBuildConfig";
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
 const gitRoot = path.resolve(currentDir, "..", "..");
 const appTsconfigPath = path.resolve(currentDir, "tsconfig.json");
-const slogansPath = path.resolve(currentDir, "dev", "slogans.md");
 const BROWSER_CONVEX_PROXY_PATH = "/__samebase_convex_proxy";
 const devPortRaw = process.env["SAMEBASE_DEV_PORT"]?.trim();
 const devPort = devPortRaw ? Number(devPortRaw) : undefined;
@@ -107,15 +105,10 @@ const browserConvexProxyTarget = resolveBrowserConvexProxyTarget({
   localEnvConvexUrl: readEnvFileValue(localEnvPath, "VITE_CONVEX_URL"),
 });
 const browserConvexProxyPath = browserConvexProxyTarget ? BROWSER_CONVEX_PROXY_PATH : null;
-const landingPageSlogan = readBuildLandingSlogan({
-  buildSeed: process.env["PLAYWRIGHT"] === "1" ? "" : `${appCommitNumber ?? appCommit}`,
-  slogansPath,
-});
 const appBuildConfig: AppBuildConfig = {
   appCommit,
   appCommitNumber,
   browserConvexProxyPath,
-  landingPageSlogan,
 };
 const staticLogoSvgAssetPath = path.resolve(currentDir, "public/logo-static.svg");
 const staticCompactIdentitySvgAssetPaths = [
