@@ -392,6 +392,7 @@ function installStackFetchStub() {
               slug: "alchemy-state-store",
               teamId: 38516,
               teamSlug: "nicu",
+              tags: [],
             },
           ],
           pagination: { hasMore: false },

@@ -252,6 +252,11 @@ export type DefaultEnvironmentVariableChangeArgs = {
    * type if it exists (and do nothing if it doesn’t exist).
    */
   value?: string | null;
+  /**
+   * Apply this change to every existing cloud deployment of the selected
+   * type, overwriting/deleting any existing values. Defaults to false.
+   */
+  applyToExistingDeployments?: boolean;
 };
 
 export type DefaultEnvironmentVariableResponse = {
@@ -526,6 +531,7 @@ export type PlatformCreateProjectArgs = {
    */
   deploymentClass?: string | null;
   deploymentRegion?: null | RegionName;
+  tags?: Array<string> | null;
 };
 
 export type PlatformCreateProjectResponse = {
@@ -901,6 +907,11 @@ export type PlatformUpdateDeploymentArgs = {
 export type PlatformUpdateProjectArgs = {
   name?: null | ProjectName;
   slug?: null | ProjectSlug;
+  /**
+   * Replaces the project's full set of tags; `[]` clears them. If omitted,
+   * the tags are left unchanged.
+   */
+  tags?: Array<string> | null;
 };
 
 export type PreviewDeploymentIdentifier = string;
@@ -939,6 +950,18 @@ export type ProjectResponse = {
    * cloud dev deployment).
    */
   devDeploymentName?: string | null;
+  /**
+   * The reference of the default production deployment for this project,
+   * if one exists (e.g. "production").
+   */
+  prodDeploymentReference?: string | null;
+  /**
+   * The reference of the requesting member's default development deployment
+   * for this project, if one exists and is a cloud deployment (e.g.
+   * "dev/jane-doe").
+   */
+  devDeploymentReference?: string | null;
+  tags: Array<string>;
 };
 
 export type ProjectSlug = string;
@@ -1247,6 +1270,10 @@ export type GetTeamsByTeamIdProjectsData = {
      * Search query to filter projects by name or slug (case-insensitive)
      */
     q?: string;
+    /**
+     * Only return projects with this tag. This parameter can be provided more than once to match projects with any of several tags
+     */
+    tag?: Array<string>;
   };
   url: "/teams/{team_id}/projects";
 };

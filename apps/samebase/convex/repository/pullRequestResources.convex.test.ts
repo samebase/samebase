@@ -33,6 +33,7 @@ const storeProject = {
   slug: "alchemy-state-store",
   teamId: 38516,
   teamSlug: "nicu",
+  tags: [],
 };
 
 function jsonResponse(body: unknown): Response {

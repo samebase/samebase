@@ -215,7 +215,8 @@ describe("Convex Management API request helpers", () => {
                 "name": "Samebase",
                 "slug": "samebase",
                 "teamId": ${LARGE_CONVEX_PARENT_ID},
-                "teamSlug": "samebase-team"
+                "teamSlug": "samebase-team",
+                "tags": []
               }
             ],
             "pagination": { "hasMore": false }
@@ -242,6 +243,7 @@ describe("Convex Management API request helpers", () => {
           slug: "samebase",
           teamId: LARGE_CONVEX_PARENT_ID,
           teamSlug: "samebase-team",
+          tags: [],
         },
       ],
       pagination: { hasMore: false },
@@ -264,6 +266,7 @@ describe("Convex Management API request helpers", () => {
                 slug: "beta",
                 teamId: 10,
                 teamSlug: "samebase-team",
+                tags: [],
               },
             ],
             pagination: { hasMore: false },
@@ -278,6 +281,7 @@ describe("Convex Management API request helpers", () => {
               slug: "alpha",
               teamId: 10,
               teamSlug: "samebase-team",
+              tags: [],
             },
           ],
           pagination: { hasMore: true, nextCursor: "second-page" },
@@ -721,7 +725,8 @@ describe("Convex Management API request helpers", () => {
                 "name": "Samebase",
                 "slug": "samebase",
                 "teamId": ${LARGE_CONVEX_PARENT_ID},
-                "teamSlug": "samebase-team"
+                "teamSlug": "samebase-team",
+                "tags": []
               }
             ],
             "pagination": { "hasMore": false }
@@ -844,7 +849,7 @@ describe("Convex Management API request helpers", () => {
           );
         }
         return new Response(
-          `{"items":[{"createTime":1710000000000,"id":${LARGE_CONVEX_PARENT_ID},"name":"Samebase","slug":"samebase","teamId":${LARGE_CONVEX_ID},"teamSlug":"samebase-team"}],"pagination":{"hasMore":false}}`,
+          `{"items":[{"createTime":1710000000000,"id":${LARGE_CONVEX_PARENT_ID},"name":"Samebase","slug":"samebase","teamId":${LARGE_CONVEX_ID},"teamSlug":"samebase-team","tags":[]}],"pagination":{"hasMore":false}}`,
         );
       }),
     );
