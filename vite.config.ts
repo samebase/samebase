@@ -46,6 +46,7 @@ export default defineConfig({
       "**/.agents/**",
       "**/convex/_generated/**",
       "packages/git-editor/src/component/_generated/**",
+      "packages/identity-broker/src/component/_generated/**",
       "apps/samebase/AGENTS.md",
       "apps/samebase/CLAUDE.md",
       "apps/samebase/src/routeTree.gen.ts",
@@ -69,6 +70,7 @@ export default defineConfig({
       "**/dist",
       "**/convex/_generated",
       "packages/git-editor/src/component/_generated/**",
+      "packages/identity-broker/src/component/_generated/**",
       // Hey API owns these SDK and validator files.
       "apps/samebase/convex/cloudflareApi/generated/**",
       "apps/samebase/convex/convexManagementApi/generated/**",
@@ -204,6 +206,19 @@ export default defineConfig({
         },
       },
       {
+        files: ["packages/identity-broker/src/component/**/*.ts"],
+        rules: {
+          "@convex-dev/no-old-registered-function-syntax": "error",
+          "@convex-dev/require-args-validator": "error",
+          "@convex-dev/explicit-table-ids": "error",
+          "@convex-dev/no-filter-in-query": "warn",
+          "@convex-dev/no-top-of-hour-crons": "warn",
+          "@convex-dev/no-schema-import-cycle": "error",
+          "@convex-dev/no-duplicate-indexes": "error",
+          "@convex-dev/no-process-env": "error",
+        },
+      },
+      {
         files: ["apps/samebase/convex/**/*.ts"],
         rules: {
           "@convex-dev/import-wrong-runtime": "off",
@@ -263,7 +278,17 @@ export default defineConfig({
             "dist",
             "dev-dist",
             "apps/samebase/convex/**/*.convex.test.ts",
+            "packages/identity-broker/**",
           ],
+        },
+      },
+      {
+        extends: true,
+        test: {
+          name: "identity-broker",
+          environment: "edge-runtime",
+          include: ["packages/identity-broker/src/**/*.test.ts"],
+          exclude: ["**/node_modules/**", "dist", "dev-dist"],
         },
       },
       {

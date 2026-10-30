@@ -1,0 +1,78 @@
+# Deploys the sign-in hub with the stack in apps/identity-hub/alchemy.run.ts, run from its folder. A
+# push to main deploys the stage `prod`, the production deployment that signs in every app of the
+# team. The hub has no previews, so a pull request runs only ci.yml.
+#
+# It runs on every push, with no path filter: the stack skips the push when the fingerprint of the
+# hub is unchanged. With a filter, a run that a newer commit overtakes stops at the head check below,
+# and the newer commit starts no run, so the change never deploys. A filter would also miss a
+# dependency update in the root lockfile.
+#
+# The stack mints its deploy key with the team token CONVEX_ACCESS_TOKEN, and hands the Google and
+# GitHub clients to the deployment. The clients are in the environment `identity-hub`, which only
+# main can use, and only the Alchemy step gets them.
+name: identity-hub
+
+on:
+  push:
+    branches: [main]
+  # For a deploy that no change started, such as after a failed push.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# One deploy at a time. A newer push waits, so the last deploy is the newest commit.
+concurrency:
+  group: identity-hub
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy the hub
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: identity-hub
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: 24.x
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --filter "identity-hub..."
+
+      - name: Build the broker
+        run: pnpm --filter @samebase/identity-broker run build
+
+      # A re-run of an old run must not put older code over newer code.
+      - name: Check that the checkout is the head of main
+        env:
+          TOKEN: ${{ github.token }}
+        run: |
+          auth=$(printf 'x-access-token:%s' "$TOKEN" | base64 | tr -d '\n')
+          head=$(git -c "http.extraheader=AUTHORIZATION: basic $auth" ls-remote origin refs/heads/main | cut -f1)
+          if [ "$(git rev-parse HEAD)" != "$head" ]; then
+            echo "::error::The checkout is not the head of main ($head). Nothing was deployed."
+            exit 1
+          fi
+
+      - name: Deploy production
+        working-directory: apps/identity-hub
+        run: pnpm exec alchemy deploy --stage prod --yes --no-input
+        env:
+          CONVEX_ACCESS_TOKEN: ${{ secrets.CONVEX_ACCESS_TOKEN }}
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          AUTH_GITHUB_CLIENT_ID: ${{ secrets.AUTH_GITHUB_CLIENT_ID }}
+          AUTH_GITHUB_CLIENT_SECRET: ${{ secrets.AUTH_GITHUB_CLIENT_SECRET }}
