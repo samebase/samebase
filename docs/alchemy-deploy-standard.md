@@ -11,7 +11,7 @@ Every repository of the team deploys the same way. The reference implementation 
    Nothing else deploys: no deploy-key workflow, no Workers Builds, no hand-run `convex deploy`.
 2. **State in the team's Convex store**: `state: Convex.state({ team })` from
    `@samebase/alchemy-convex`. The state of every stack and stage of the team lives in the
-   `samebase` project of that team, which the first run creates. Never `Cloudflare.state()`,
+   `alchemy-state-store` project of that team, which the first run creates. Never `Cloudflare.state()`,
    never a local `.alchemy/` directory in CI, never a state artifact.
 3. **Stack name = repository full name**, `owner/name`, from `GITHUB_REPOSITORY` in Actions or the
    origin remote on a laptop. That name is how the Samebase repository pages find the stack. A

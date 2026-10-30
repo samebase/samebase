@@ -5,7 +5,7 @@
 //
 // The stack name is the repository and the folder of this file: a stack of the repository root is
 // named samebase/samebase, and a stack in a folder samebase/samebase/<folder>. Its state is in the
-// `samebase` project of the Convex team, where the repository pages of Samebase read it. A run
+// `alchemy-state-store` project of the Convex team, where the repository pages of Samebase read it. A run
 // needs the team token CONVEX_ACCESS_TOKEN, or the Convex CLI login (`npx convex login`) on a
 // laptop, and a Cloudflare login (`npx alchemy login`, or CLOUDFLARE_API_TOKEN and
 // CLOUDFLARE_ACCOUNT_ID in .env) with Workers Scripts Edit.

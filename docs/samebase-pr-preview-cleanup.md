@@ -5,7 +5,7 @@ before deleting the remote branch. This is a Codex/operator workflow, not a repo
 
 A pull request deploys the Alchemy stage `pr-<number>` of `alchemy.run.ts` at the repository root: a
 Convex preview deployment whose preview name is `pr-<number>`, and the state of that stage in the
-`samebase` project of the Convex team `nicu`. When the PR closes, the `Destroy the preview` job
+`alchemy-state-store` project of the Convex team `nicu`. When the PR closes, the `Destroy the preview` job
 of `.github/workflows/alchemy.yml` runs `alchemy destroy --stage pr-<number>`, which deletes the
 preview deployment and the state of the stage. This runbook confirms that destroy, and runs it by
 hand when the job did not run or failed: a PR closed while it had a merge conflict, or a head commit
@@ -88,11 +88,11 @@ when a preview of the PR remains.
 
 ## 3. Inspect Convex Preview Deployments
 
-Resolve the `samebase` project:
+Resolve the `alchemy-state-store` project:
 
 ```bash
 curl --fail-with-body --request GET \
-  --url "https://api.convex.dev/v1/teams/$DEV_SEED_SAMEBASE_CONVEX_TEAM_ID/projects/samebase" \
+  --url "https://api.convex.dev/v1/teams/$DEV_SEED_SAMEBASE_CONVEX_TEAM_ID/projects/alchemy-state-store" \
   --header "Authorization: Bearer $DEV_SEED_SAMEBASE_CONVEX_MANAGEMENT_API_KEY"
 ```
 
@@ -109,7 +109,7 @@ A deployment of the PR is one where all of these are true:
 
 1. `deploymentType` is `preview`
 2. `previewIdentifier` is `$stage`, or the exact branch name for a PR deployed before `alchemy.yml`
-3. the deployment belongs to the `samebase` project resolved above
+3. the deployment belongs to the `alchemy-state-store` project resolved above
 
 ## 4. Destroy By Hand
 

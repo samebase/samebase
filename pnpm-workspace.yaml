@@ -38,7 +38,7 @@ minimumReleaseAgeExclude:
   - "@samebase/alchemy-convex@0.11.0"
   # First-party release (alchemy.run.ts registers each deployment with the identity hub with it),
   # published 2026-10-30. Remove after 2026-11-06.
-  - "@samebase/alchemy-convex@0.15.0"
+  - "@samebase/alchemy-convex@0.16.0"
   # Alchemy 2.0.0-beta.84 with its provider packages @alchemy.run/cloudflare and @alchemy.run/github
   # (alchemy.run.ts deploys samebase.com with them), and the @alchemy.run and @distilled.cloud
   # versions that they install. Published 2026-10-23 23:03 UTC to 2026-10-24 04:03 UTC. Remove
