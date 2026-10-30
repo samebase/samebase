@@ -1,0 +1,3 @@
+pnpm run check:git-blob-sizes
+vp staged
+pnpm --filter samebase exec tsgo --noEmit
