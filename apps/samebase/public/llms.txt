@@ -31,11 +31,13 @@ Apps created through Samebase live in the user's own GitHub, Convex, and Cloudfl
 Deleting the Samebase account does not stop a running app. The knowledge is free: anyone can build
 the identical stack with no Samebase account.
 
-Samebase runs on the same base it gives users. The public template,
+The public template,
 [samebase/base](https://github.com/samebase/base), is published automatically from the Samebase
 monorepo as the base improves, and each template commit names the Samebase build it came from. The
-template, the agent skills, and the [plugin](https://github.com/samebase/plugin) are open source
-under Apache 2.0. The samebase.com control plane that creates, connects, and tracks apps is not.
+template and the [plugin](https://github.com/samebase/plugin), including its bundled skill, are open source
+under Apache 2.0. The Samebase app is licensed under AGPL-3.0-only. Other folders have their own
+licenses, including MIT and all rights reserved for the video workbench and recordings. See the
+[license map](https://github.com/samebase/samebase/blob/main/LICENSING.md).
 
 The `.md` links under Docs return raw markdown, and the same paths without `.md` serve the
 HTML pages. Action and operate docs are raw markdown only.

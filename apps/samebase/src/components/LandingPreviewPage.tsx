@@ -160,7 +160,7 @@ const LANDING_FAQS = [
   },
   {
     answer:
-      "You can. The template and skills are public. Samebase itself runs on the same base, and the public template is published automatically as we improve it while building Samebase. New Samebase apps get the current versions. Existing apps do not change unless you update them.",
+      "You can. The template and skills are public. The public template is published automatically from the Samebase repository. New Samebase apps get the current versions. Existing apps do not change unless you update them.",
     question: "Ok, but can't I just get your template and not use Samebase?",
   },
   {
@@ -170,7 +170,7 @@ const LANDING_FAQS = [
   },
   {
     answer:
-      "The parts your app is made of are: the base template, the agent skills, and the plugin, all under Apache 2.0. The samebase.com control plane, which creates, connects, and tracks your apps, is not.",
+      "The Samebase app is licensed under AGPL-3.0. The base template and agent plugin use Apache 2.0. Other folders have their own licenses, including MIT and all rights reserved for the video workbench and recordings.",
     question: "Is Samebase open source?",
   },
   {

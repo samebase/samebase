@@ -179,7 +179,7 @@ Grant these repository permissions:
 
 The Workflows permission is required when an exported directory contains `.github/workflows`.
 
-Configure the private monorepo with:
+Configure the source monorepo with:
 
 - Actions variable `REPOSITORY_EXPORTS_APP_CLIENT_ID`
 - Actions secret `REPOSITORY_EXPORTS_APP_PRIVATE_KEY`

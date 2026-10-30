@@ -386,12 +386,12 @@ describe("LandingPage", () => {
     expect(markup).not.toContain(".mp4");
   });
 
-  it("renders the broader Cloudflare topology in the stack guide", () => {
+  it("distinguishes the service deployment from the starter in the stack guide", () => {
     const markup = renderToStaticMarkup(<DocsTheStackPage />);
 
     expect(markup).toContain("One base, more than one shape");
-    expect(markup).toContain("first-party analytics proxy");
-    expect(markup).toContain("three separate Cloudflare Workers");
+    expect(markup).toContain("convex-hosting");
+    expect(markup).toContain("different deployment setups");
     expect(markup).toContain("Cloudflare Email Sending");
   });
 

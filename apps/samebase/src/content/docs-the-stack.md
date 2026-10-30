@@ -48,10 +48,11 @@ it with shadcn/ui. Neither is load-bearing; both are replaceable.
 
 ## One base, more than one shape
 
-The production repository is deliberately less uniform than the starter: one monorepo ships the
-product, a first-party analytics proxy, and domain routing as three separate Cloudflare Workers. Its
-Convex backend also sends transactional email through Cloudflare Email Sending. The starter stays
-small; the platform does not force every root into the same shape.
+The starter serves the app from a Cloudflare Worker with a Convex backend. The Samebase service uses
+Convex for both its backend and frontend hosting through
+[convex-hosting](https://github.com/samebase/convex-hosting). A separate Cloudflare Worker proxies
+analytics, and the Convex backend sends transactional email through Cloudflare Email Sending. The
+starter and the service share tools, but they have different deployment setups.
 
 ## The proof
 
