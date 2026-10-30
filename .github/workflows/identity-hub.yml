@@ -1,6 +1,11 @@
 # Deploys the sign-in hub with the stack in apps/identity-hub/alchemy.run.ts, run from its folder. A
-# push to main that changes the hub or the broker deploys the stage `prod`, the production deployment
-# that signs in every app of the team. The hub has no previews, so a pull request runs only ci.yml.
+# push to main deploys the stage `prod`, the production deployment that signs in every app of the
+# team. The hub has no previews, so a pull request runs only ci.yml.
+#
+# It runs on every push, with no path filter: the stack skips the push when the fingerprint of the
+# hub is unchanged. With a filter, a run that a newer commit overtakes stops at the head check below,
+# and the newer commit starts no run, so the change never deploys. A filter would also miss a
+# dependency update in the root lockfile.
 #
 # The stack mints its deploy key with the team token CONVEX_ACCESS_TOKEN, and hands the Google and
 # GitHub clients to the deployment. The clients are in the environment `identity-hub`, which only
@@ -10,10 +15,6 @@ name: identity-hub
 on:
   push:
     branches: [main]
-    paths:
-      - ".github/workflows/identity-hub.yml"
-      - "apps/identity-hub/**"
-      - "packages/identity-broker/**"
   # For a deploy that no change started, such as after a failed push.
   workflow_dispatch:
 

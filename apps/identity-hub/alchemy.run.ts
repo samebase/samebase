@@ -46,6 +46,7 @@ export default Alchemy.Stack(
         "tsconfig*.json",
         "../../packages/identity-broker/src/**",
         "../../packages/identity-broker/package.json",
+        "../../packages/identity-broker/tsconfig*.json",
       ],
     } satisfies Convex.Source;
     // The variables of the deployment. The secret is a prop, so the state store holds it next to
