@@ -172,7 +172,7 @@ with the stack in `apps/sidebars-example/alchemy.run.ts`:
   deployment with that name, through `apps/samebase/scripts/deploy-preview.ts`, which also sets its
   `SITE_URL` and seeds its password account. The run comments the preview's URLs on the pull
   request. Closing the pull request destroys the stage and deletes the preview.
-- The state of every stage is in the `samebase` project of the Convex team `nicu`, under the
+- The state of every stage is in the `alchemy-state-store` project of the Convex team `nicu`, under the
   stack name `samebase/samebase`, and `samebase/samebase/<folder>` for a stack in a folder. Every
   run needs the `CONVEX_ACCESS_TOKEN` repository secret, a team access token; each push mints its
   own short-lived deploy key. The stage `prod` also needs the `CLOUDFLARE_API_TOKEN` secret, with

@@ -39,7 +39,7 @@ import { buildConvexDeploymentDashboardUrl } from "./providerDashboardUrls";
 const { array, id, literal, object, string, union } = v;
 
 /** The Convex project of a team whose production deployment holds the Alchemy state of the team. */
-const ALCHEMY_STATE_PROJECT_NAME = "samebase";
+const ALCHEMY_STATE_PROJECT_NAME = "alchemy-state-store";
 
 /**
 The key of the run record of the last full deploy in a stage output.
@@ -139,7 +139,7 @@ async function findAlchemyDeployment(target: Pick<ConvexInspectionTarget, "teamI
 
 /**
 Reads the stacks of a repository from the Alchemy state store of a Convex team, the production
-deployment of the team's `samebase` project: `state:stacks`, then one `state:readStack` for each
+deployment of the team's `alchemy-state-store` project: `state:stacks`, then one `state:readStack` for each
 stack named `owner/name` or `owner/name/<folder>`. A stack keeps the stages whose run record names
 the repository. Other stacks of the team are not read.
 */

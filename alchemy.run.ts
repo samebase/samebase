@@ -1,6 +1,6 @@
 // The Alchemy stack of samebase.com. .github/workflows/alchemy.yml runs it from the repository root:
 //
-// - Stage `prod`, on each push to main: the Convex project `samebase`, its production deployment,
+// - Stage `prod`, on each push to main: the Convex project `samebase-com`, its production deployment,
 //   which serves samebase.com through convex-hosting, the account API token that production sends
 //   email with, and the PostHog proxy Worker of the app, so its route and settings are code instead
 //   of settings in the Cloudflare dashboard.
@@ -8,7 +8,7 @@
 //   stage, which `alchemy destroy` deletes when the pull request closes. It reads the project by its
 //   slug, so it does not depend on the state of `prod`, and it creates no Workers.
 //
-// The state of every stage is in the `samebase` project of the Convex team, under the stack
+// The state of every stage is in the `alchemy-state-store` project of the Convex team, under the stack
 // name samebase/samebase, where the repository pages of Samebase read it. A stack in a folder of
 // this repository is named samebase/samebase/<folder>, such as apps/sidebars-example/alchemy.run.ts,
 // and runs from its folder. Every run needs the team token CONVEX_ACCESS_TOKEN, or the Convex CLI

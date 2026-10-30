@@ -388,8 +388,8 @@ function installStackFetchStub() {
             {
               createTime: 1710000000000,
               id: 3259168,
-              name: "samebase",
-              slug: "samebase",
+              name: "alchemy-state-store",
+              slug: "alchemy-state-store",
               teamId: 38516,
               teamSlug: "nicu",
             },

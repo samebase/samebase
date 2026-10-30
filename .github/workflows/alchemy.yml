@@ -6,8 +6,8 @@
 # request from this repository deploys the stage `pr-<number>` of the root stack, a Convex preview
 # deployment with that name, and comments its URLs on the pull request; closing the pull request
 # destroys the stage and deletes the preview. The sidebars stack has only the stage `prod`, so pull
-# request runs skip it. The state of every stage is in the `samebase` project of the Convex team,
-# under the stack names samebase/samebase and samebase/samebase/apps/sidebars-example. Each run
+# request runs skip it. The state of every stage is in the `alchemy-state-store` project of the Convex
+# team, under the stack names samebase/samebase and samebase/samebase/apps/sidebars-example. Each run
 # mints its Convex deploy keys with the team token CONVEX_ACCESS_TOKEN; only the stage `prod` gets
 # the Cloudflare token.
 name: Alchemy

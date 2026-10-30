@@ -20,8 +20,8 @@ import { observedCustomDomainsReply } from "./fixtures/observedConvexCustomDomai
 const storeProject = {
   createTime: 1710000000000,
   id: 3300001,
-  name: "samebase",
-  slug: "samebase",
+  name: "alchemy-state-store",
+  slug: "alchemy-state-store",
   teamId: 38516,
   teamSlug: "nicu",
 };
