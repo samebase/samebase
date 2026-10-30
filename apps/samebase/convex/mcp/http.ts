@@ -77,6 +77,8 @@ import { parseScopeTokens } from "./scopes";
 import { publicMcpErrorMessage } from "./publicErrors";
 
 const MCP_PROVISIONAL_CLIENT_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+/** Above the largest metadata that validation accepts, so this refuses only oversized bodies. */
+export const MCP_REGISTRATION_MAX_BODY_LENGTH = 64 * 1024;
 const MCP_AUTH_REQUEST_TTL_MS = 10 * 60 * 1000;
 const MCP_SERVER_INFO = {
   name: "Samebase",
@@ -468,9 +470,18 @@ export const registerMcpOauthClient = httpAction(async (ctx, request) => {
     });
   }
 
+  const body = await request.text();
+  if (body.length > MCP_REGISTRATION_MAX_BODY_LENGTH) {
+    return oauthErrorResponse({
+      status: 413,
+      error: "invalid_request",
+      errorDescription: "Request body is too large.",
+    });
+  }
+
   let payload: unknown;
   try {
-    payload = await request.json();
+    payload = JSON.parse(body);
   } catch {
     return oauthErrorResponse({
       status: 400,
@@ -495,7 +506,7 @@ export const registerMcpOauthClient = httpAction(async (ctx, request) => {
   const clientId = `mcpc_${randomToken(24)}`;
   const provisionalExpiresAt = now + MCP_PROVISIONAL_CLIENT_TTL_MS;
 
-  await ctx.runMutation(internal.mcp.oauth.registerDynamicClient, {
+  const registered = await ctx.runMutation(internal.mcp.oauth.registerDynamicClient, {
     clientId,
     clientName: validation.value.clientName ?? undefined,
     redirectUris: validation.value.redirectUris,
@@ -505,8 +516,15 @@ export const registerMcpOauthClient = httpAction(async (ctx, request) => {
     provisionalExpiresAt,
     createdAt: now,
     updatedAt: now,
-    metadataJson: JSON.stringify(payload),
+    metadataJson: JSON.stringify(validation.value),
   });
+  if (!registered) {
+    return oauthErrorResponse({
+      status: 429,
+      error: "temporarily_unavailable",
+      errorDescription: "Too many clients registered recently. Try again later.",
+    });
+  }
 
   return jsonResponse(
     {
