@@ -84,6 +84,7 @@ function convexProjectResponse() {
     slug: "samebase",
     teamId: 38_516,
     teamSlug: "nicu",
+    tags: [],
   };
 }
 

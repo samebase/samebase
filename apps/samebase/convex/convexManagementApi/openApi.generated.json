@@ -115,7 +115,7 @@
       "patch": {
         "tags": ["Projects"],
         "summary": "Update project",
-        "description": "Update a project's name and/or slug. Returns the updated project.",
+        "description": "Update a project's name, slug, and/or tags. Returns the updated project.",
         "operationId": "update project",
         "parameters": [
           {
@@ -205,6 +205,18 @@
             "required": false,
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "name": "tag",
+            "in": "query",
+            "description": "Only return projects with this tag. This parameter can be provided more than once to match projects with any of several tags",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
             }
           }
         ],
@@ -2270,7 +2282,7 @@
       "post": {
         "tags": ["Environment Variables"],
         "summary": "Update default environment variables",
-        "description": "Creates, updates, or deletes default environment variables for the specified\nproject. When `value` is a string, the variable is upserted. When `value` is\nnull, the variable is deleted.",
+        "description": "Creates, updates, or deletes default environment variables for the specified\nproject. When `value` is a string, the variable is upserted. When `value` is\nnull, the variable is deleted. Each item in `changes` can set\n`applyToExistingDeployments` to true to asynchronously upsert or delete the\nvariable on every existing cloud deployment of that item's `deploymentType`.",
         "operationId": "update default environment variables",
         "parameters": [
           {
@@ -2936,6 +2948,10 @@
           "value": {
             "type": ["string", "null"],
             "description": "Set to a value to upsert the default environment variable\nwith the given name and type. If null, will delete the\nenvironment variable with the given name and deployment\ntype if it exists (and do nothing if it doesn’t exist)."
+          },
+          "applyToExistingDeployments": {
+            "type": "boolean",
+            "description": "Apply this change to every existing cloud deployment of the selected\ntype, overwriting/deleting any existing values. Defaults to false."
           }
         },
         "additionalProperties": false
@@ -3434,6 +3450,12 @@
                 "description": "When creating a deployment, the hosting region to use for the\ndeployment. If not provided, the default deployment region for your\nteam will be used."
               }
             ]
+          },
+          "tags": {
+            "type": ["array", "null"],
+            "items": {
+              "type": "string"
+            }
           }
         },
         "additionalProperties": false
@@ -3995,6 +4017,13 @@
                 "description": "New slug for the project. If omitted, the slug is left unchanged."
               }
             ]
+          },
+          "tags": {
+            "type": ["array", "null"],
+            "items": {
+              "type": "string"
+            },
+            "description": "Replaces the project's full set of tags; `[]` clears them. If omitted,\nthe tags are left unchanged."
           }
         },
         "additionalProperties": false
@@ -4012,7 +4041,7 @@
       },
       "ProjectResponse": {
         "type": "object",
-        "required": ["id", "name", "slug", "teamId", "teamSlug", "createTime"],
+        "required": ["id", "name", "slug", "teamId", "teamSlug", "createTime", "tags"],
         "properties": {
           "id": {
             "$ref": "#/components/schemas/ProjectId"
@@ -4044,6 +4073,20 @@
           "devDeploymentName": {
             "type": ["string", "null"],
             "description": "The name of the requesting member's default development deployment for\nthis project, if one exists (an active local deployment or default\ncloud dev deployment)."
+          },
+          "prodDeploymentReference": {
+            "type": ["string", "null"],
+            "description": "The reference of the default production deployment for this project,\nif one exists (e.g. \"production\")."
+          },
+          "devDeploymentReference": {
+            "type": ["string", "null"],
+            "description": "The reference of the requesting member's default development deployment\nfor this project, if one exists and is a cloud deployment (e.g.\n\"dev/jane-doe\")."
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         }
       },

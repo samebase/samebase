@@ -85,10 +85,12 @@ export const vIamAccount = v.pipe(
         v.object({
           parent_org_id: v.optional(v.pipe(v.pipe(v.string(), v.maxLength(32)), v.readonly())),
           parent_org_name: v.optional(v.pipe(v.string(), v.readonly())),
+          root_org_id: v.optional(v.pipe(v.pipe(v.string(), v.maxLength(32)), v.readonly())),
+          should_display_parent_orgs: v.optional(v.pipe(v.boolean(), v.readonly())),
         }),
       ),
     ),
-    name: v.pipe(v.string(), v.maxLength(100)),
+    name: v.pipe(v.string(), v.maxLength(120)),
     settings: v.optional(
       v.pipe(
         v.unknown(),
@@ -661,7 +663,7 @@ export const vBuildsCreateWorkerBuildSettingsInput = v.pipe(
   v.unknown(),
   v.check((input) => !Array.isArray(input)),
   v.object({
-    build_caching_enabled: v.optional(vBuildsBuildCachingEnabled),
+    build_caching_enabled: v.optional(v.boolean()),
     build_command: vBuildsBuildCommand,
     build_token_uuid: vBuildsBuildTokenUuid,
     deploy_command: vBuildsDeployCommand,
@@ -2090,7 +2092,7 @@ export const vIamAccountWritable = v.pipe(
   v.check((input) => !Array.isArray(input)),
   v.object({
     id: vIamCommonComponentsSchemasIdentifier,
-    name: v.pipe(v.string(), v.maxLength(100)),
+    name: v.pipe(v.string(), v.maxLength(120)),
     settings: v.optional(
       v.pipe(
         v.unknown(),

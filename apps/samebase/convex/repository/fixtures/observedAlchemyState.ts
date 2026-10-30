@@ -126,12 +126,14 @@ export const observedBaseAlchemyRepositoryReply = {
 
 // The reply of the Convex Management API `GET /projects/3245938` for the project that the stage
 // `prod` above deploys, captured on 2026-10-22 with the Convex CLI login.
+// The empty tags field follows the required 2026-10-30 Management API contract.
 export const observedBaseAlchemyProject = {
   id: 3245938,
   name: "base-alchemy",
   slug: "base-alchemy",
   teamId: 38516,
   teamSlug: "nicu",
+  tags: [],
   createTime: 1792474666951,
   prodDeploymentName: "ideal-dolphin-15",
   devDeploymentName: "steady-gopher-786",

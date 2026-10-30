@@ -123,6 +123,7 @@ export const vDefaultEnvironmentVariableChangeArgs = v.pipe(
     name: v.string(),
     deploymentType: vDeploymentType,
     value: v.nullish(v.string()),
+    applyToExistingDeployments: v.optional(v.boolean()),
   }),
 );
 
@@ -420,6 +421,7 @@ export const vPlatformUpdateProjectArgs = v.pipe(
   v.strictObject({
     name: v.nullish(vProjectName),
     slug: v.nullish(vProjectSlug),
+    tags: v.nullish(v.array(v.string())),
   }),
 );
 
@@ -473,6 +475,7 @@ export const vPlatformCreateProjectArgs = v.pipe(
     deploymentType: v.nullish(vCreateDeploymentType),
     deploymentClass: v.nullish(v.string()),
     deploymentRegion: v.nullish(vRegionName),
+    tags: v.nullish(v.array(v.string())),
   }),
 );
 
@@ -896,6 +899,9 @@ export const vProjectResponse = v.pipe(
     createTime: v.pipe(v.number(), v.safeInteger()),
     prodDeploymentName: v.nullish(v.string()),
     devDeploymentName: v.nullish(v.string()),
+    prodDeploymentReference: v.nullish(v.string()),
+    devDeploymentReference: v.nullish(v.string()),
+    tags: v.array(v.string()),
   }),
 );
 
@@ -1097,6 +1103,7 @@ export const vGetTeamsByTeamIdProjectsQuery = v.pipe(
     cursor: v.optional(v.string()),
     limit: v.optional(v.pipe(v.number(), v.safeInteger())),
     q: v.optional(v.string()),
+    tag: v.optional(v.array(v.string())),
   }),
 );
 
