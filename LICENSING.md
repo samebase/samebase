@@ -6,6 +6,7 @@ A folder's own license replaces the root license for that folder.
 | ------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------- |
 | `apps/samebase`, and every folder that this table does not list                                                          | [AGPL-3.0-only](LICENSE)                                                           |
 | `packages/dependent`, `packages/git-editor`, `packages/logo-model`, `packages/onboarding-video-tools`, `packages/plugin` | Apache-2.0, in the folder's `LICENSE`                                              |
+| `packages/identity-broker`, `apps/identity-hub`                                                                          | Apache-2.0, in the folder's `LICENSE`                                              |
 | `templates/base`, `templates/base-actions`                                                                               | Apache-2.0, in the folder's `LICENSE`                                              |
 | `packages/sidebars`, `packages/sure`, `apps/sidebars-example`                                                            | MIT, in the folder's `LICENSE.md`                                                  |
 | `apps/remotion-studio`                                                                                                   | All rights reserved, in the folder's [LICENSE.md](apps/remotion-studio/LICENSE.md) |

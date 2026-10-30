@@ -1,0 +1,61 @@
+{
+  "name": "@samebase/identity-broker",
+  "version": "0.9.0",
+  "description": "An OpenID Provider for Convex that holds a team's upstream sign-in connections once and keeps no user accounts.",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/samebase/samebase.git",
+    "directory": "packages/identity-broker"
+  },
+  "bin": {
+    "identity-broker": "./dist/cli/index.js"
+  },
+  "files": [
+    "dist",
+    "LICENSE",
+    "NOTICE",
+    "README.md"
+  ],
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/client/index.d.ts",
+      "default": "./dist/client/index.js"
+    },
+    "./convex.config": {
+      "types": "./dist/component/convex.config.d.ts",
+      "default": "./dist/component/convex.config.js"
+    },
+    "./_generated/component.js": {
+      "types": "./dist/component/_generated/component.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc --build ./tsconfig.build.json --force",
+    "codegen": "convex codegen --component-dir ./src/component",
+    "prepack": "pnpm run build",
+    "typecheck": "tsc --noEmit",
+    "lint": "pnpm --dir ../.. exec vp lint --tsconfig packages/identity-broker/tsconfig.json --report-unused-disable-directives packages/identity-broker/src",
+    "test": "pnpm --dir ../.. exec vp test run --project identity-broker",
+    "check": "pnpm run typecheck && pnpm run lint && pnpm run test"
+  },
+  "dependencies": {
+    "jose": "6.2.13",
+    "oauth4webapi": "3.8.8"
+  },
+  "devDependencies": {
+    "@types/node": "24.19.2",
+    "convex": "1.48.0",
+    "convex-test": "0.0.61",
+    "openid-client": "6.8.8",
+    "typescript": "7.0.2",
+    "vite-plus": "catalog:"
+  },
+  "peerDependencies": {
+    "convex": "^1.47.0"
+  },
+  "engines": {
+    "node": ">=24.11.0"
+  }
+}
