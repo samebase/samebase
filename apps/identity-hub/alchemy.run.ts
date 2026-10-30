@@ -1,5 +1,5 @@
 // The stack of the team's identity hub, with one stage: `prod` is the production deployment of the
-// Convex project `samebase`, and nothing else is deployed. The hub has no previews: no app points at
+// Convex project `identity-hub`, and nothing else is deployed. The hub has no previews: no app points at
 // one, and Google cannot sign in on one, since only the production callback is registered at Google.
 // The push is the `deploy` package script, which checks the key set and pushes the functions. The
 // state of this stack is in the project `alchemy-state-store`, with the state of every other stack.
@@ -58,7 +58,7 @@ export default Alchemy.Stack(
       AUTH_GITHUB_CLIENT_ID: yield* Config.String("AUTH_GITHUB_CLIENT_ID"),
       AUTH_GITHUB_CLIENT_SECRET: yield* Config.Redacted("AUTH_GITHUB_CLIENT_SECRET"),
     };
-    const project = yield* Convex.Project("Project", { team, slug: "samebase" }).pipe(
+    const project = yield* Convex.Project("Project", { team, name: "identity-hub" }).pipe(
       adopt(true),
       RemovalPolicy.retain(),
     );
