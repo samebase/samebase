@@ -19,9 +19,14 @@ import { MCP_PROTOCOL_VERSION, MCP_V1_SUPPORTED_SCOPES } from "./protocol";
 import {
   buildMcpToolInvocationArgs,
   listMcpToolsForAccess,
+  MCP_REGISTRATION_MAX_BODY_LENGTH,
   readMcpMethodForUsage,
   readMcpToolNameForUsage,
 } from "./http";
+import {
+  MCP_DYNAMIC_CLIENT_REGISTRATION_WINDOW_MS,
+  MCP_DYNAMIC_CLIENT_REGISTRATIONS_PER_WINDOW,
+} from "./oauth";
 
 // t.fetch loads convex/http.ts, which imports these modules that only a build and a deploy write.
 // Vitest keys the mock of a missing file by its import string, so also mock the http.ts spelling.
@@ -366,6 +371,112 @@ describe("MCP tool listing access", () => {
         },
       });
     }
+  });
+});
+
+describe("MCP dynamic client registration", () => {
+  const metadata = { client_name: "Client", redirect_uris: ["https://client.example/callback"] };
+
+  function postRegistration(t: ReturnType<typeof makeConvexTest>, body: string) {
+    return t.fetch("/oauth/mcp/register", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body,
+    });
+  }
+
+  function registerClient(
+    t: ReturnType<typeof makeConvexTest>,
+    clientId: string,
+    provisionalExpiresAt: number,
+  ) {
+    return t.mutation(internal.mcp.oauth.registerDynamicClient, {
+      clientId,
+      redirectUris: metadata.redirect_uris,
+      grantTypes: ["authorization_code"],
+      responseTypes: ["code"],
+      tokenEndpointAuthMethod: "none",
+      provisionalExpiresAt,
+      createdAt: 1,
+      updatedAt: 1,
+      metadataJson: "{}",
+    });
+  }
+
+  it("stores only validated metadata and schedules the expiry", async () => {
+    const t = makeConvexTest();
+
+    const response = await postRegistration(
+      t,
+      JSON.stringify({ ...metadata, unvalidated_field: "not stored" }),
+    );
+
+    expect(response.status).toBe(201);
+    const stored = await t.run(async (ctx) => ({
+      clients: await ctx.db.query("mcpOauthClients").collect(),
+      scheduled: await ctx.db.system.query("_scheduled_functions").collect(),
+    }));
+    expect(stored.clients).toHaveLength(1);
+    expect(stored.clients[0]?.metadataJson).not.toContain("not stored");
+    expect(stored.scheduled.map((job) => job.name)).toEqual([
+      expect.stringContaining("deleteExpiredDynamicClient"),
+    ]);
+  });
+
+  it("refuses a body over the limit before it stores anything", async () => {
+    const t = makeConvexTest();
+
+    const response = await postRegistration(
+      t,
+      JSON.stringify({ ...metadata, padding: "x".repeat(MCP_REGISTRATION_MAX_BODY_LENGTH) }),
+    );
+
+    expect(response.status).toBe(413);
+    expect(await t.run((ctx) => ctx.db.query("mcpOauthClients").collect())).toEqual([]);
+  });
+
+  it("refuses new clients when the window is full, until it moves on", async () => {
+    const t = makeConvexTest();
+    for (let index = 0; index < MCP_DYNAMIC_CLIENT_REGISTRATIONS_PER_WINDOW; index += 1) {
+      expect((await postRegistration(t, JSON.stringify(metadata))).status).toBe(201);
+    }
+
+    const refused = await postRegistration(t, JSON.stringify(metadata));
+
+    expect(refused.status).toBe(429);
+    expect(await refused.json()).toMatchObject({ error: "temporarily_unavailable" });
+    const clients = await t.run((ctx) => ctx.db.query("mcpOauthClients").collect());
+    expect(clients).toHaveLength(MCP_DYNAMIC_CLIENT_REGISTRATIONS_PER_WINDOW);
+    const newestExpiry = Math.max(...clients.map((client) => client.provisionalExpiresAt ?? 0));
+    expect(
+      await registerClient(
+        t,
+        "after-the-window",
+        newestExpiry + MCP_DYNAMIC_CLIENT_REGISTRATION_WINDOW_MS,
+      ),
+    ).toBe(true);
+  });
+
+  it("deletes a provisional client at expiry and keeps an activated one", async () => {
+    const t = makeConvexTest();
+    await registerClient(t, "provisional", 1);
+    await registerClient(t, "activated", 1);
+    await t.run(async (ctx) => {
+      const clients = await ctx.db.query("mcpOauthClients").collect();
+      for (const client of clients.filter((row) => row.clientId === "activated")) {
+        await ctx.db.patch("mcpOauthClients", client._id, {
+          registrationStatus: "active",
+          provisionalExpiresAt: undefined,
+        });
+      }
+    });
+
+    for (const clientId of ["provisional", "activated"]) {
+      await t.mutation(internal.mcp.oauth.deleteExpiredDynamicClient, { clientId });
+    }
+
+    const remaining = await t.run((ctx) => ctx.db.query("mcpOauthClients").collect());
+    expect(remaining.map((client) => client.clientId)).toEqual(["activated"]);
   });
 });
 

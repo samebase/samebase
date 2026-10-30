@@ -23,6 +23,13 @@ import {
 
 const { array, boolean, id, literal, number, object, optional, string, union } = v;
 
+/**
+ * Anyone can register a client without an account, so this bounds the rows an anonymous caller can
+ * create. A full window refuses new clients only: registered clients keep working.
+ */
+export const MCP_DYNAMIC_CLIENT_REGISTRATIONS_PER_WINDOW = 60;
+export const MCP_DYNAMIC_CLIENT_REGISTRATION_WINDOW_MS = 60 * 60 * 1000;
+
 const registerDynamicClientArgsValidator = object({
   clientId: string(),
   clientName: optional(string()),
@@ -286,9 +293,23 @@ async function readPendingAuthorizationRequestForUser(
 
 export const registerDynamicClient = internalMutation({
   args: registerDynamicClientArgsValidator,
-  returns: id("mcpOauthClients"),
+  returns: boolean(),
   handler: async (ctx, args: RegisterDynamicClientArgs) => {
-    return await ctx.db.insert("mcpOauthClients", {
+    // Every provisional client has the same lifetime, so the newest expiry times are the newest
+    // registrations. An activated client has no expiry and does not count.
+    const recentClients = await ctx.db
+      .query("mcpOauthClients")
+      .withIndex("by_provisional_expires_at", (q) =>
+        q.gt(
+          "provisionalExpiresAt",
+          args.provisionalExpiresAt - MCP_DYNAMIC_CLIENT_REGISTRATION_WINDOW_MS,
+        ),
+      )
+      .take(MCP_DYNAMIC_CLIENT_REGISTRATIONS_PER_WINDOW);
+    if (recentClients.length === MCP_DYNAMIC_CLIENT_REGISTRATIONS_PER_WINDOW) {
+      return false;
+    }
+    await ctx.db.insert("mcpOauthClients", {
       clientId: args.clientId,
       clientName: args.clientName,
       redirectUris: args.redirectUris,
@@ -302,6 +323,28 @@ export const registerDynamicClient = internalMutation({
       provisionalExpiresAt: args.provisionalExpiresAt,
       metadataJson: args.metadataJson,
     });
+    await ctx.scheduler.runAt(
+      args.provisionalExpiresAt,
+      internal.mcp.oauth.deleteExpiredDynamicClient,
+      { clientId: args.clientId },
+    );
+    return true;
+  },
+});
+
+/** Runs when a client's provisional lifetime ends. A token exchange activates the client first. */
+export const deleteExpiredDynamicClient = internalMutation({
+  args: { clientId: string() },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const client = await ctx.db
+      .query("mcpOauthClients")
+      .withIndex("by_client_id", (q) => q.eq("clientId", args.clientId))
+      .first();
+    if (client?.registrationStatus === "provisional") {
+      await ctx.db.delete("mcpOauthClients", client._id);
+    }
+    return null;
   },
 });
 
