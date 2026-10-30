@@ -67,11 +67,54 @@ transcripts. It did not listen to the camera audio or the four tracked MP3 files
 no new evidence that requires repeating that work. LFS download exclusions and an
 all-rights-reserved license do not make files private after publication.
 
-GitHub retains 90 days of Actions logs. The artifact inventory contained 26 unexpired artifacts,
-mostly Playwright failure reports and three SARIF reports. A redacted pattern scan of two recent
-production deployment logs and the PR 1812 deployment log covered about 252 KB and found no
-recognizable tokens or private keys. This does not cover all retained logs or prove that logs
-contain no sensitive data.
+### Retained Actions logs
+
+The follow-up review replaced the earlier three-log sample with an inventory of 3,466 workflow runs
+and all 3,503 attempts created from August 1 through October 30 at 20:54:32 Europe/Chisinau. The
+repository's log retention setting is 90 days. Date-split pagination avoided GitHub's filtered-query
+result cap, and each rerun attempt was requested separately. A further 1,208 July runs were checked
+for reruns crossing into the retention window; none did.
+
+- Readable logs covered 3,163 attempts, including all 522 current and retired deployment attempts.
+  Seven attempts were recovered through individual job downloads after whole-archive requests
+  failed.
+- The scan read 38,414 log entries, about 1.89 GB of unpacked text and 17.68 million lines. These
+  totals include repeated output in job and step logs.
+- Seven archives were verified as empty ZIP files. Another 333 attempts returned unavailable logs:
+  300 returned HTTP 404 and 33 returned HTTP 410. Samples from both groups also failed through the
+  default run-log endpoint. They are recorded as unavailable, not scanned.
+- Every inventoried attempt has a recorded outcome. There were no unresolved download or parsing
+  errors after recovery.
+
+The scan used [Gitleaks 8.30.1](https://github.com/gitleaks/gitleaks/releases/tag/v8.30.1),
+downloaded from the official release and checked against its published checksum. It used the default
+rules, full report redaction, and decoding up to three levels. Separate checks covered Convex
+deployment keys, credential environment assignments and JSON fields, authorization headers,
+credential URLs, keyrings, private-key markers, JWTs, cookies, and email addresses. Positive
+controls verified plain and encoded credential detection; masked-value controls and report redaction
+also passed. Historical workflow definitions were reviewed to identify deployment, drift, preview
+seeding, and repository-export steps that handle credentials.
+
+Gitleaks reported 86 matches: 71 occurrences of the public `VITE_PUBLIC_POSTHOG_PROJECT_TOKEN` and
+15 Git commit hashes matched by its legacy Sourcegraph-token rule. The hashes were checked against
+the log's checkout, action-download, runner-version, and source-commit output.
+
+The only token value identified was the public PostHog project token. The value has the browser
+project-token format and is passed to the browser SDK in `apps/samebase/src/lib/posthogClient.ts`.
+[PostHog documents](https://posthog.com/docs/api) this token for public ingestion and flag requests;
+private API access uses separate authentication. No private provider token, deploy key, private key,
+or session credential was confirmed in the inspected logs.
+
+Email matches were seeded test accounts, the maintainer's seeded address already present in source
+and commit metadata, example addresses, and public contact addresses. Runner SSH destinations and
+package paths produced additional email-pattern matches. Cookie-pattern matches came from the
+`cookie` dependency in printed lockfile text. No new private customer address was identified.
+
+This check found no additional reason to delay publication or rotate a credential. It covers the
+available text at the inventory cutoff, not future workflow output or every possible secret format.
+Raw local downloads were removed after verification; the report contains no credential values.
+
+### Retained Actions artifacts
 
 The artifact review covered all 26 retained archives: 23 Playwright reports and three SARIF reports.
 It read 1,231 text entries, including nested trace archives and embedded reports, and 8,138 network
@@ -83,8 +126,8 @@ The artifact review completed on October 30 at 20:45 Europe/Chisinau. Raw downlo
 Screenshot pixels were not inspected, and pattern matching cannot rule out every secret format.
 
 [GitHub's visibility documentation](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/managing-repository-settings/setting-repository-visibility)
-states that Actions history and logs become public. Review retained output before changing
-visibility. No workflow runs, artifacts, or Git history were deleted by this review.
+states that Actions history and logs become public. The available text review is complete within the
+limits above. No workflow runs, artifacts, or Git history were deleted by this review.
 
 ## After publication
 
@@ -117,6 +160,7 @@ agents and a dashboard." The saved description was read back, and visibility rem
 
 ## Scope limits
 
-This review did not repeat the earlier full notes/media screening, scan every Git-history blob, scan
-every retained Actions log, audit application authorization, or validate independent hosting. The
-remaining tasks are tracked in the [publication checklist](../docs/public-launch-checklist.md).
+This review did not repeat the earlier full notes/media screening, scan every Git-history blob,
+inspect artifact screenshot pixels, audit application authorization, or validate independent
+hosting. Unavailable log attempts and runs after the inventory cutoff were outside the text scan.
+The remaining tasks are tracked in the [publication checklist](../docs/public-launch-checklist.md).

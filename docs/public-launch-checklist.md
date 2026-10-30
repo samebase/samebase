@@ -7,9 +7,11 @@ Reviewed on 2026-10-30. The owner will change the repository visibility. The
 limits.
 
 - [ ] Merge the README, contributor guide, root security policy, and public license-copy updates.
-- [ ] Review retained Actions logs and artifacts before changing visibility. Recent-log sampling is
-      not a review of all retained output. All 26 retained artifacts passed a text and network scan;
-      screenshot pixels and older logs remain unchecked. GitHub makes Actions history and logs
+- [x] Review available Actions logs and artifact text before changing visibility. The log audit
+      accounted for 3,503 attempts through October 30 at 20:54:32 Europe/Chisinau: 3,163 inspected,
+      seven empty, and 333 unavailable. It found no confirmed private credential exposure. All 26
+      retained artifacts passed the earlier text and network scan. Artifact screenshot pixels and
+      subsequent workflow runs are outside this review. GitHub makes Actions history and logs
       public.
 - [x] Triage secret-scanning alert 1. It was resolved as `used_in_tests` after checking the webhook
       test signer, environment stub, and explicit test value.
