@@ -18,8 +18,9 @@ which checks the key set and pushes the functions. The stack is named after the 
 folder, `samebase/samebase/apps/identity-hub`. Its state is in the Convex project
 `alchemy-state-store`, with the state of the other stacks of the team. The hub has no previews: no
 app points at one, and Google cannot sign in on one, since only the production callback is
-registered at Google. `.github/workflows/identity-hub.yml` deploys each push to `main` that changes
-this folder or the broker. Pull requests run the checks only.
+registered at Google. `.github/workflows/identity-hub.yml` runs on each push to `main`, and the
+stack skips the push when nothing of the hub or the broker changed. Pull requests run the checks
+only.
 
 1. Set `CONVEX_ACCESS_TOKEN`, the team's Convex access token, as a repository secret. The run mints
    the deploy key with it. In the GitHub environment `identity-hub`, which only `main` can use, set

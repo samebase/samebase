@@ -57,13 +57,14 @@ jobs:
             echo "publish=true" >> "$GITHUB_OUTPUT"
           fi
 
+      # The whole workspace: the lint and the tests load the root Vite+ config.
       - name: Install dependencies
         if: steps.version.outputs.publish == 'true'
-        run: pnpm install --frozen-lockfile --filter "@samebase/identity-broker..."
+        run: pnpm install --frozen-lockfile
 
       - name: Check the package
         if: steps.version.outputs.publish == 'true'
-        run: pnpm --filter @samebase/identity-broker run typecheck
+        run: pnpm --filter @samebase/identity-broker run check
 
       # pnpm pack replaces catalog: versions with real ones, and prepack builds.
       - name: Publish the release
