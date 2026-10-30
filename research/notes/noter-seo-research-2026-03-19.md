@@ -36,7 +36,7 @@ Local product references reviewed:
 - `apps/samebase/src/App.tsx`
 - `apps/samebase/src/components/vault-dashboard/VaultDashboard.tsx`
 - `apps/samebase/src/components/ChatFab.tsx`
-- `apps/samebase/dev/slogans.md`
+- `slogans.md`
 
 Live production checks reviewed:
 
@@ -131,7 +131,7 @@ Implication:
 
 ### 7. Homepage positioning is unstable because the slogan rotates
 
-The landing copy uses slogan rotation sourced from `apps/samebase/dev/slogans.md`.
+The landing copy uses slogan rotation sourced from `slogans.md`.
 
 Examples currently include:
 
@@ -142,7 +142,7 @@ Examples currently include:
 
 Relevant local references:
 
-- `apps/samebase/dev/slogans.md`
+- `slogans.md`
 - `apps/samebase/src/bootstrap.ts`
 
 Implication:
