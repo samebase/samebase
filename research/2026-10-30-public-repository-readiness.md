@@ -1,11 +1,14 @@
 # Public repository readiness, 2026-10-30
 
 Scope: the `samebase/samebase` repository at `3607ccf12`, including the root-cleanup changes in
-[PR 1812](https://github.com/samebase/samebase/pull/1812). Two read-only reviews covered contributor
-setup and publication exposure. The main review checked product claims against the source.
+[PR 1812](https://github.com/samebase/samebase/pull/1812). Three read-only agents reviewed
+contributor setup, publication exposure, and retained CI artifacts. The main review checked product
+claims against the source. The documentation changes continue in
+[PR 1813](https://github.com/samebase/samebase/pull/1813), based on `6d341a71e` after PR 1812
+merged.
 
-This is a publication review, not a full application-security audit. No production data was read,
-and repository visibility was not changed.
+This is a publication review, not a full application-security audit. No production database was
+queried, and repository visibility was not changed.
 
 ## Product and documentation
 
@@ -70,6 +73,15 @@ production deployment logs and the PR 1812 deployment log covered about 252 KB a
 recognizable tokens or private keys. This does not cover all retained logs or prove that logs
 contain no sensitive data.
 
+The artifact review covered all 26 retained archives: 23 Playwright reports and three SARIF reports.
+It read 1,231 text entries, including nested trace archives and embedded reports, and 8,138 network
+events. It found no recognized provider keys or private keys. All 632 requests carrying credentials
+went to localhost. The captured JWTs had local CI issuers and expired on October 29. Email matches
+were test or example addresses, or the published Samebase contact.
+
+The artifact review completed on October 30 at 20:45 Europe/Chisinau. Raw downloads were removed.
+Screenshot pixels were not inspected, and pattern matching cannot rule out every secret format.
+
 [GitHub's visibility documentation](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/managing-repository-settings/setting-repository-visibility)
 states that Actions history and logs become public. Review retained output before changing
 visibility. No workflow runs, artifacts, or Git history were deleted by this review.
@@ -91,6 +103,17 @@ visibility. No workflow runs, artifacts, or Git history were deleted by this rev
 The repository About description was changed from "GitHub-backed workspace for notes, code, and AI"
 to "Set up and manage web apps in your GitHub, Convex, and Cloudflare accounts, through coding
 agents and a dashboard." The saved description was read back, and visibility remains private.
+
+## Validation of the documentation patch
+
+- The existing landing and documentation component tests passed: 12 tests.
+- The app TypeScript check passed.
+- The contributor guide's `pnpm --filter @samebase/dependent check` passed types, lint, and 20
+  tests.
+- Regenerated the action docs and passed `verify:action-docs`.
+- Checked 41 relative links in seven entry-point and review documents; no missing targets.
+- Vite+ formatting and `git diff --check` passed. Local checks used Node 26.13.0 and pnpm 12.14.0;
+  PR CI uses Node 24. This was not a fresh-machine installation test.
 
 ## Scope limits
 

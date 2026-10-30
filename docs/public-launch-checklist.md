@@ -8,7 +8,9 @@ limits.
 
 - [ ] Merge the README, contributor guide, root security policy, and public license-copy updates.
 - [ ] Review retained Actions logs and artifacts before changing visibility. Recent-log sampling is
-      not a review of all retained output. GitHub makes Actions history and logs public.
+      not a review of all retained output. All 26 retained artifacts passed a text and network scan;
+      screenshot pixels and older logs remain unchecked. GitHub makes Actions history and logs
+      public.
 - [x] Triage secret-scanning alert 1. It was resolved as `used_in_tests` after checking the webhook
       test signer, environment stub, and explicit test value.
 - [x] Update the GitHub About description to match the app-management product.
