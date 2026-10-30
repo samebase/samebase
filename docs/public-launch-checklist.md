@@ -1,17 +1,45 @@
-# Public Launch Checklist
+# Public launch checklist
 
-Everything gated on making Samebase public, so day-to-day work can keep linking to not-yet-public
-repos and pages (operator policy: link now, flip later; this file records the flips). Sources:
-`rfcs/093_AGENT_NATIVE_ONE_BASE_PLAN.md` Phase 3,
+## Repository publication
+
+Reviewed on 2026-10-30. The owner will change the repository visibility. The
+[readiness review](../research/2026-10-30-public-repository-readiness.md) records evidence and
+limits.
+
+- [ ] Merge the README, contributor guide, root security policy, and public license-copy updates.
+- [x] Review available Actions logs and artifact text before changing visibility. The log audit
+      accounted for 3,503 attempts through October 30 at 20:54:32 Europe/Chisinau: 3,163 inspected,
+      seven empty, and 333 unavailable. It found no confirmed private credential exposure. All 26
+      retained artifacts passed the earlier text and network scan. Artifact screenshot pixels and
+      subsequent workflow runs are outside this review. GitHub makes Actions history and logs
+      public.
+- [x] Triage secret-scanning alert 1. It was resolved as `used_in_tests` after checking the webhook
+      test signer, environment stub, and explicit test value.
+- [x] Update the GitHub About description to match the app-management product.
+- [ ] After publication, enable and verify private vulnerability reporting. The root security policy
+      already supplies an email reporting channel.
+- [ ] After publication, verify external-contributor workflow approval and branch protection, then
+      run a real fork pull request through CI. Fork code must not receive deployment credentials.
+- [ ] Verify the deployed FAQ and agent docs show the app's AGPL license, then check the repository
+      and license links without authentication.
+
+The full-service startup still needs maintainer configuration. The contributor guide states that
+limit. A supported startup path for an outside contributor is a separate engineering task, not a
+prerequisite for publishing the source with that limit disclosed.
+
+## Earlier product-launch work
+
+The items below came from the July landing and pricing work. They are retained for context and are
+not gates for repository visibility. Sources: `rfcs/093_AGENT_NATIVE_ONE_BASE_PLAN.md` Phase 3,
 `research/2026-07-07-agent-landing-eval-round-1-findings.md`,
 `research/2026-07-08-samebase-app-template-maintenance-plan.md`.
 
-## Eval gate (before the landing swap)
+### Landing evaluation
 
 - [ ] Eval round 2 against the deployed corpus
 - [ ] Second clean round (RFC 093 bar), then decide whether transcripts go public
 
-## Pricing track
+### Pricing track
 
 - [ ] Cost-model research: PostHog compute attribution; FileView mirroring and collaboration cost
       per repository
@@ -20,13 +48,13 @@ repos and pages (operator policy: link now, flip later; this file records the fl
       receipt on `/pricing`
 - [ ] Exact-compute billing design (requires metering work; later)
 
-## Launch assets
+### Launch assets
 
 - [ ] Demo cut (b): agent reads corpus, connects MCP, creates an app, operator deletes the Samebase
       account on camera, app keeps serving
 - [ ] Claims CI: re-fetch receipt source URLs on a schedule (automate once the corpus stabilizes)
 
-## Anytime (not launch-gated)
+### Other product work
 
 - [ ] README "Do it faster with Samebase" section in samebase/base, mirroring the old notermd §8
       funnel

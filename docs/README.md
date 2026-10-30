@@ -13,6 +13,10 @@ Use `docs/` for:
 
 Current key docs:
 
+- [Contributing](../CONTRIBUTING.md) for the public contributor entry point and setup limits
+- [Samebase development](samebase-development.md) for maintainer startup, deployment, and sign-in
+- [Public launch checklist](public-launch-checklist.md) for repository publication and launch work
+
 - `docs/agent-workflows.md` for deeper git/PR/worktree workflow rules
 - `docs/repo-documentation-standard.md` for deciding whether material belongs in `specs/`, `rfcs/`,
   `research/`, `docs/`, `skills/`, `archive/`, or a PR body
