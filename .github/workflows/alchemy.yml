@@ -6,12 +6,10 @@
 # request from this repository deploys the stage `pr-<number>` of the root stack, a Convex preview
 # deployment with that name, and comments its URLs on the pull request; closing the pull request
 # destroys the stage and deletes the preview. The sidebars stack has only the stage `prod`, so pull
-# request runs skip it. The state of every stage is in the `alchemy-state` project of the Convex
-# team, under the stack names samebase/samebase and samebase/samebase/apps/sidebars-example. Each
-# run mints its Convex deploy keys with the team token CONVEX_ACCESS_TOKEN; only the stage `prod`
-# gets the Cloudflare token. Every run of the root stack, a destroy too, also reads the repository
-# variable HUB_ISSUER and the repository secret HUB_REGISTRATION_TOKEN, the identity hub's
-# registration token for the app Samebase, and stops before the stack when one is empty.
+# request runs skip it. The state of every stage is in the `samebase` project of the Convex team,
+# under the stack names samebase/samebase and samebase/samebase/apps/sidebars-example. Each run
+# mints its Convex deploy keys with the team token CONVEX_ACCESS_TOKEN; only the stage `prod` gets
+# the Cloudflare token.
 name: Alchemy
 
 on:
@@ -108,24 +106,6 @@ jobs:
             exit 1
           fi
 
-      # The root stack registers every deployment with the identity hub. Without both values it
-      # touches nothing.
-      - name: Check the identity hub settings
-        env:
-          HUB_ISSUER: ${{ vars.HUB_ISSUER }}
-          HUB_REGISTRATION_TOKEN: ${{ secrets.HUB_REGISTRATION_TOKEN }}
-        run: |
-          missing=0
-          if [ -z "$HUB_ISSUER" ]; then
-            echo "::error::Set the repository variable HUB_ISSUER to the identity hub, https://auth.samebase.com. Nothing was deployed."
-            missing=1
-          fi
-          if [ -z "$HUB_REGISTRATION_TOKEN" ]; then
-            echo "::error::Set the repository secret HUB_REGISTRATION_TOKEN to the hub's registration token for the app Samebase. Nothing was deployed."
-            missing=1
-          fi
-          exit "$missing"
-
       # The build reads the production route environment, the prerender origin, and the first-party
       # PostHog proxy with the project token from the repository variable. --detect-drift compares
       # the Workers with the live account, so a route or setting changed in the dashboard is
@@ -138,8 +118,6 @@ jobs:
           CONVEX_ACCESS_TOKEN: ${{ secrets.CONVEX_ACCESS_TOKEN }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
-          HUB_ISSUER: ${{ vars.HUB_ISSUER }}
-          HUB_REGISTRATION_TOKEN: ${{ secrets.HUB_REGISTRATION_TOKEN }}
           VITE_SAMEBASE_ROUTE_ENVIRONMENT: production
           SAMEBASE_PRERENDER_ORIGIN: https://samebase.com
           VITE_PUBLIC_POSTHOG_HOST: https://e.samebase.com
@@ -170,8 +148,6 @@ jobs:
         env:
           CONVEX_ACCESS_TOKEN: ${{ secrets.CONVEX_ACCESS_TOKEN }}
           GITHUB_TOKEN: ${{ github.token }}
-          HUB_ISSUER: ${{ vars.HUB_ISSUER }}
-          HUB_REGISTRATION_TOKEN: ${{ secrets.HUB_REGISTRATION_TOKEN }}
           VITE_SAMEBASE_ROUTE_ENVIRONMENT: preview
 
   destroy:
@@ -209,32 +185,12 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile --ignore-scripts
 
-      # The stack reads the hub settings on a destroy too, and the destroy deletes the preview's hub
-      # client with the token in its state.
-      - name: Check the identity hub settings
-        env:
-          HUB_ISSUER: ${{ vars.HUB_ISSUER }}
-          HUB_REGISTRATION_TOKEN: ${{ secrets.HUB_REGISTRATION_TOKEN }}
-        run: |
-          missing=0
-          if [ -z "$HUB_ISSUER" ]; then
-            echo "::error::Set the repository variable HUB_ISSUER to the identity hub, https://auth.samebase.com. Nothing was destroyed."
-            missing=1
-          fi
-          if [ -z "$HUB_REGISTRATION_TOKEN" ]; then
-            echo "::error::Set the repository secret HUB_REGISTRATION_TOKEN to the hub's registration token for the app Samebase. Nothing was destroyed."
-            missing=1
-          fi
-          exit "$missing"
-
       # Only the root stack has the stage of a pull request.
       - name: Destroy the preview
         run: pnpm exec alchemy destroy --stage "$STAGE" --yes --no-input
         env:
           CONVEX_ACCESS_TOKEN: ${{ secrets.CONVEX_ACCESS_TOKEN }}
           GITHUB_TOKEN: ${{ github.token }}
-          HUB_ISSUER: ${{ vars.HUB_ISSUER }}
-          HUB_REGISTRATION_TOKEN: ${{ secrets.HUB_REGISTRATION_TOKEN }}
 
   fork:
     name: Skip the preview of a fork

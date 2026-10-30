@@ -5,7 +5,7 @@ before deleting the remote branch. This is a Codex/operator workflow, not a repo
 
 A pull request deploys the Alchemy stage `pr-<number>` of `alchemy.run.ts` at the repository root: a
 Convex preview deployment whose preview name is `pr-<number>`, and the state of that stage in the
-`alchemy-state` project of the Convex team `nicu`. When the PR closes, the `Destroy the preview` job
+`samebase` project of the Convex team `nicu`. When the PR closes, the `Destroy the preview` job
 of `.github/workflows/alchemy.yml` runs `alchemy destroy --stage pr-<number>`, which deletes the
 preview deployment and the state of the stage. This runbook confirms that destroy, and runs it by
 hand when the job did not run or failed: a PR closed while it had a merge conflict, or a head commit

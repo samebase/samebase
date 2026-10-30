@@ -20,6 +20,7 @@
     "verify:install-icon-assets": "pnpm run verify:logo-assets",
     "verify:action-docs": "pnpm run generate:action-docs && git diff --exit-code -- public/docs/actions public/llms.txt ../../chatgpt-app-submission.json ../../packages/plugin/plugins/samebase/.codex-plugin/plugin.json",
     "predev": "node ./scripts/predev.ts",
+    "hub:client": "alchemy-convex hub-client --team nicu --app samebase-ahbfh --callback-path /auth/hub/callback",
     "check": "convex codegen && tsgo --noEmit && pnpm run lint:vp && pnpm run verify:action-docs",
     "check:ci": "tsgo --noEmit && pnpm run lint:vp && pnpm run verify:action-docs",
     "typecheck": "convex codegen && tsgo --noEmit",

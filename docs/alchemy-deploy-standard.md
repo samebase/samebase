@@ -11,14 +11,14 @@ Every repository of the team deploys the same way. The reference implementation 
    Nothing else deploys: no deploy-key workflow, no Workers Builds, no hand-run `convex deploy`.
 2. **State in the team's Convex store**: `state: Convex.state({ team })` from
    `@samebase/alchemy-convex`. The state of every stack and stage of the team lives in the
-   `alchemy-state` project of that team, which the first run creates. Never `Cloudflare.state()`,
+   `samebase` project of that team, which the first run creates. Never `Cloudflare.state()`,
    never a local `.alchemy/` directory in CI, never a state artifact.
 3. **Stack name = repository full name**, `owner/name`, from `GITHUB_REPOSITORY` in Actions or the
    origin remote on a laptop. That name is how the Samebase repository pages find the stack. A
    second stack in a folder of a repository is `owner/name/<folder>`.
 4. **One secret**: `CONVEX_ACCESS_TOKEN`, a team access token. The run mints every deploy key itself
-   and the keys never leave the run. An app adds only its own secrets, such as a registration token
-   for the identity hub. A stack with Cloudflare resources adds the Cloudflare login
+   and the keys never leave the run. The identity hub needs no secret: `Convex.HubClient` reaches it
+   with this token. A stack with Cloudflare resources adds the Cloudflare login
    (`CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`) for those resources, not for state.
 5. **Stages**: `prod` on each push to `main`; `pr-<number>` on each pull request from the
    repository, a preview deployment named after the stage with a comment that names its URL,
