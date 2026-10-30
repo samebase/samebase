@@ -172,12 +172,12 @@ with the stack in `apps/sidebars-example/alchemy.run.ts`:
   deployment with that name, through `apps/samebase/scripts/deploy-preview.ts`, which also sets its
   `SITE_URL` and seeds its password account. The run comments the preview's URLs on the pull
   request. Closing the pull request destroys the stage and deletes the preview.
-- The state of every stage is in the `alchemy-state-store` project of the Convex team `nicu`, under the
-  stack name `samebase/samebase`, and `samebase/samebase/<folder>` for a stack in a folder. Every
-  run needs the `CONVEX_ACCESS_TOKEN` repository secret, a team access token; each push mints its
-  own short-lived deploy key. The stage `prod` also needs the `CLOUDFLARE_API_TOKEN` secret, with
-  the permissions that the top of `alchemy.run.ts` names, the `CLOUDFLARE_ACCOUNT_ID` variable, and
-  the `PROD_POSTHOG_PROJECT_TOKEN` variable, the PostHog project token of the production build.
+- The state of every stage is in the `alchemy-state-store` project of the Convex team `nicu`, under
+  the stack name `samebase/samebase`, and `samebase/samebase/<folder>` for a stack in a folder.
+  Every run needs the `CONVEX_ACCESS_TOKEN` repository secret, a team access token; each push mints
+  its own short-lived deploy key. The stage `prod` also needs the `CLOUDFLARE_API_TOKEN` secret,
+  with the permissions that the top of `alchemy.run.ts` names, the `CLOUDFLARE_ACCOUNT_ID` variable,
+  and the `PROD_POSTHOG_PROJECT_TOKEN` variable, the PostHog project token of the production build.
 
 A local build never deploys production. `convex/http.ts` imports `.convex-hosting/version.js`, which
 only a deploy writes, and `dist/server/server.js`, which only a build writes, so the first push of a
@@ -252,16 +252,17 @@ Every deployment needs these Convex environment variables:
 
 - `HUB_ISSUER`, `HUB_CLIENT_ID`, and `HUB_CLIENT_SECRET`: the identity hub,
   `https://auth.samebase.com`, and this deployment's client at it. A deployment gets its client by
-  registering its callback URL `<site>/auth/hub/callback` at the hub. A linked worktree and CI have no hub: their setup writes
-  `HUB_ISSUER=http://127.0.0.1:1` and `no-hub` as the client id and secret, and their pages offer
-  only the password form (`?prod-ui` shows the hub buttons of the production page).
+  registering its callback URL `<site>/auth/hub/callback` at the hub. A linked worktree and CI have
+  no hub: their setup writes `HUB_ISSUER=http://127.0.0.1:1` and `no-hub` as the client id and
+  secret, and their pages offer only the password form (`?prod-ui` shows the hub buttons of the
+  production page).
 - `SITE_URL`: the app origin. OAuth sign-ins may return only to `SITE_URL` and to the deployment's
   own `CONVEX_SITE_URL`.
 
 The root `alchemy.run.ts` registers production and each preview with `Convex.HubClient`, on
 `https://samebase.com/auth/hub/callback` and `<preview site>/auth/hub/callback`, and writes the
-three variables to the deployment before its push. The hub is in the `samebase` project of the Convex
-team, and the Convex credential of the run reaches it, so sign-in needs no secret of its own.
+three variables to the deployment before its push. The hub is in the `samebase` project of the
+Convex team, and the Convex credential of the run reaches it, so sign-in needs no secret of its own.
 
 The development deployment of the primary checkout gets its client from the package script
 `hub:client`, which `pnpm run dev` runs before its first push with your Convex login. It registers
@@ -292,9 +293,5 @@ files from git.
 
 ## License
 
-Proprietary. All rights reserved.
-
-This repository is not open source. Access to the source code does not grant permission to use,
-modify, or redistribute it unless the copyright holder gives separate written permission.
-Third-party dependencies remain subject to their own license terms. See [LICENSE.md](LICENSE.md) and
-[LICENSING.md](LICENSING.md) for the authoritative terms and dependency licensing notes.
+The app is [AGPL-3.0](LICENSE). Packages and templates are Apache-2.0 or MIT.
+[LICENSING.md](LICENSING.md) lists the license of each folder.

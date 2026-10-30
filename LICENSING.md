@@ -1,33 +1,32 @@
-# Licensing Notes
+# Licensing
 
-This repository's own code is proprietary and marked `UNLICENSED` in package metadata. That does not
-change the license of any third-party dependency.
+A folder's own license replaces the root license for that folder.
 
-Current dependency review:
+| Folder                                                                                                                   | License                                                                            |
+| ------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------- |
+| `apps/samebase`, and every folder that this table does not list                                                          | [AGPL-3.0-only](LICENSE)                                                           |
+| `packages/dependent`, `packages/git-editor`, `packages/logo-model`, `packages/onboarding-video-tools`, `packages/plugin` | Apache-2.0, in the folder's `LICENSE`                                              |
+| `templates/base`, `templates/base-actions`                                                                               | Apache-2.0, in the folder's `LICENSE`                                              |
+| `packages/sidebars`, `packages/sure`, `apps/sidebars-example`                                                            | MIT, in the folder's `LICENSE.md`                                                  |
+| `apps/remotion-studio`                                                                                                   | All rights reserved, in the folder's [LICENSE.md](apps/remotion-studio/LICENSE.md) |
 
-- Reviewed on 2026-07-26 using `pnpm licenses list --prod`.
-- Raw report stored at `docs/compliance/licenses-prod-2026-07-26.txt`.
-- Lockfile snapshot: `pnpm-lock.yaml` SHA-256
-  `9e0999dc364996cd180ef716b26ba57b06a4ccab991abe26a1f8c7e4006f8360`.
+Copyright (c) 2026 Nicușor Chiciuc, unless a file says otherwise. No license in this repository
+grants rights to the Samebase name or logo.
 
-- `pnpm licenses list --prod` did not surface GPL, AGPL, or LGPL dependencies.
-- The production dependency graph is dominated by permissive licenses, especially MIT and
-  Apache-2.0.
-- `@prosemark/core` is MIT licensed.
-- `convex` is Apache-2.0 licensed.
-- `dompurify` is offered under `MPL-2.0 OR Apache-2.0`; use the Apache-2.0 option.
-- `mediabunny`, its encoder packages, and `lightningcss` are MPL-2.0 licensed. Preserve their
-  applicable license notices and review the MPL terms before redistributing modified covered files.
-- Several Remotion packages report either the Remotion License or no license metadata in the raw
-  report. Verify their current Remotion licensing terms before redistribution or version upgrades.
-- `@polar-sh/sdk` omits a `license` field in the published package metadata, but its published
-  README currently advertises MIT. Re-verify that package on version upgrades.
+`apps/remotion-studio` is not open source because it holds personal recordings and depends on
+Remotion, which has its own license.
 
-Practical implication:
+## Third-party dependencies
 
-- You can keep Noter proprietary while using these dependencies.
-- If you distribute built artifacts or otherwise redistribute third-party code, you still need to
-  preserve the applicable third-party copyright and license notices for those components.
-- If you later want selected people to access the source code, do that through private repository
-  access plus separate written permission, or replace this license with a deliberate
-  source-available/commercial license.
+Each dependency stays under its own license.
+
+- Reviewed on 2026-10-30 with `pnpm licenses list --prod` in `apps/samebase`: 589 packages under 15
+  licenses.
+- The review found no GPL, AGPL, LGPL, or source-available dependency.
+- `dompurify` is offered under `MPL-2.0 OR Apache-2.0`. Use the Apache-2.0 option.
+- `lightningcss` is MPL-2.0, which is compatible with AGPL-3.0. Keep its license notices.
+- `apps/remotion-studio` uses the Remotion packages and `mediabunny`. Check their current terms
+  before you redistribute that folder or upgrade those versions.
+
+If you distribute built artifacts, keep the copyright and license notices of the third-party code in
+them.
