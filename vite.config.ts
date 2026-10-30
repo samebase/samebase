@@ -15,7 +15,6 @@ const testAppBuildConfig = {
   appCommit: "test",
   appCommitNumber: null,
   browserConvexProxyPath: null,
-  landingPageSlogan: "test landing slogan",
 } satisfies AppBuildConfig;
 
 /**
