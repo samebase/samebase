@@ -12,7 +12,7 @@
     "check": "pnpm run typecheck && pnpm run lint"
   },
   "dependencies": {
-    "@samebase/alchemy-convex": "0.16.0",
+    "@samebase/alchemy-convex": "0.17.0",
     "@samebase/identity-broker": "workspace:*",
     "convex": "1.48.0"
   },

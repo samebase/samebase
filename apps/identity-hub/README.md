@@ -1,7 +1,7 @@
 # identity-hub
 
 The sign-in hub of the Samebase team on [Convex](https://convex.dev): the code of the production
-deployment of the project `samebase`. It mounts `identityBroker` from
+deployment of the project `identity-hub`. It mounts `identityBroker` from
 [`@samebase/identity-broker`](../../packages/identity-broker), holds the team's Google and GitHub
 connections once, and signs users in to all its apps. It keeps no user accounts; each app creates
 its own user from the `id_token` it gets.
@@ -13,9 +13,9 @@ one, ask your agent to copy this folder.
 ## Deploy
 
 `alchemy.run.ts` is the stack, in the shape of every app of the team with one stage: `prod` is the
-production deployment of the Convex project `samebase`, and the push is the `deploy` package script,
-which checks the key set and pushes the functions. The stack is named after the repository and this
-folder, `samebase/samebase/apps/identity-hub`. Its state is in the Convex project
+production deployment of the Convex project `identity-hub`, and the push is the `deploy` package
+script, which checks the key set and pushes the functions. The stack is named after the repository
+and this folder, `samebase/samebase/apps/identity-hub`. Its state is in the Convex project
 `alchemy-state-store`, with the state of the other stacks of the team. The hub has no previews: no
 app points at one, and Google cannot sign in on one, since only the production callback is
 registered at Google. `.github/workflows/identity-hub.yml` runs on each push to `main`, and the
@@ -93,9 +93,9 @@ See the component's [consumer guide](../../packages/identity-broker/docs/consume
 ## Operate
 
 The admin functions are internal: `npx convex run --prod identityBroker:<name>`, from a checkout
-that selects the project `samebase`. The deploy key of the hub is an administrator credential: it
-can read and replace the keys and run every internal function. Every stack of the team mints keys of
-the hub with the team's Convex token, for its hub client. These keys can run internal functions
+that selects the project `identity-hub`. The deploy key of the hub is an administrator credential:
+it can read and replace the keys and run every internal function. Every stack of the team mints keys
+of the hub with the team's Convex token, for its hub client. These keys can run internal functions
 only, and they end with the run. The team token itself reaches the hub, so treat it as an
 administrator credential too. The Convex CLI ignores `--prod` when `CONVEX_DEPLOY_KEY` names another
 deployment, so unset it before an admin command. A cron runs the broker's cleanup daily: expired
