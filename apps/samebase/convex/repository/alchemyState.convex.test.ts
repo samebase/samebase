@@ -20,8 +20,8 @@ import { observedCustomDomainsReply } from "./fixtures/observedConvexCustomDomai
 const storeProject = {
   createTime: 1710000000000,
   id: 3300001,
-  name: "alchemy-state",
-  slug: "alchemy-state",
+  name: "samebase",
+  slug: "samebase",
   teamId: 38516,
   teamSlug: "nicu",
 };
@@ -579,7 +579,7 @@ describe("readAlchemyStacks", () => {
     });
   });
 
-  it("reports a missing store when the team has no alchemy-state project", async () => {
+  it("reports a missing store when the team has no samebase project", async () => {
     const requests: RecordedRequest[] = [];
     installAlchemyStateFetchStub({
       requests,
