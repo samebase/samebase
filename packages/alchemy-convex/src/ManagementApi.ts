@@ -88,6 +88,13 @@ export interface ManagementApiService {
    */
   readonly isCredentialToken: (secret: string) => Effect.Effect<boolean>;
   /**
+   * True when the Management API credential is an OAuth token, `team:<slug>|...`
+   * or `project:...|...`. A team access token and the Convex CLI login have no
+   * such prefix. Convex answers HTTP 400 to create_deploy_key with
+   * `allowedActions` or `expiresAt` from an OAuth token.
+   */
+  readonly isOAuthCredential: Effect.Effect<boolean>;
+  /**
    * The same calls with another bearer token, such as a preview deploy key,
    * which the Management API takes for the preview deployments of its project.
    */
@@ -328,6 +335,10 @@ const makeService = (credentials: Effect.Effect<ResolvedCredentials>): Managemen
       ),
     );
 
+  const isOAuthCredential: ManagementApiService["isOAuthCredential"] = credentials.pipe(
+    Effect.map((resolved) => /^(team|project):/.test(Redacted.value(resolved.accessToken))),
+  );
+
   const withToken: ManagementApiService["withToken"] = (token) =>
     makeService(Effect.succeed({ accessToken: token, source: "explicit" }));
 
@@ -337,6 +348,7 @@ const makeService = (credentials: Effect.Effect<ResolvedCredentials>): Managemen
     deploymentRequest,
     resolveTeamId,
     isCredentialToken,
+    isOAuthCredential,
     withToken,
   };
 };

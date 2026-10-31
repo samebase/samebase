@@ -457,8 +457,15 @@ export class FakeConvex {
           return json(403, recorded("deployment_create_deploy_key_preview_key_refused.json"));
         }
         if (this.oauth) {
+          if (body?.["allowedActions"] !== undefined) {
+            return json(400, recorded("deployment_create_deploy_key_oauth_allowed_actions.json"));
+          }
+          if (body?.["expiresAt"] !== undefined) {
+            return json(400, recorded("deployment_create_deploy_key_oauth_expires_at.json"));
+          }
           const prefix = recordedSecret.slice(0, recordedSecret.indexOf("|"));
-          const secret = `${prefix.replace("beaming-okapi-932", deployment)}|${bearer}`;
+          const token = bearer.slice(bearer.indexOf("|") + 1);
+          const secret = `${prefix.replace("beaming-okapi-932", deployment)}|${token}`;
           return json(200, { ...recorded("deployment_create_deploy_key.json"), deployKey: secret });
         }
         const actions = body?.["allowedActions"];

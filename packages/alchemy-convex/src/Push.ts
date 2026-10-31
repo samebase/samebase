@@ -376,7 +376,8 @@ const cliEnvironment = (home: string): Record<string, string | undefined> => ({
 /**
  * A deploy key of `deployment` that expires after PUSH_KEY_LIFETIME_MS, with
  * only `allowedActions`, or every action when that is undefined. Delete it
- * with {@link deleteDeployKey} when the work is done.
+ * with {@link deleteDeployKey} when the work is done. An OAuth credential sends
+ * only the name: Convex refuses both limits and returns the OAuth token.
  */
 export const createDeployKey = (
   api: ManagementApiService,
@@ -386,14 +387,17 @@ export const createDeployKey = (
 ) =>
   Effect.gen(function* () {
     const now = yield* Clock.currentTimeMillis;
+    const oauth = yield* api.isOAuthCredential;
     const created = yield* api.request("create deploy key", (client) =>
       client.POST("/deployments/{deployment_name}/create_deploy_key", {
         params: { path: { deployment_name: deployment } },
-        body: {
-          name,
-          ...(allowedActions === undefined ? {} : { allowedActions: [...allowedActions] }),
-          expiresAt: now + PUSH_KEY_LIFETIME_MS,
-        },
+        body: oauth
+          ? { name }
+          : {
+              name,
+              ...(allowedActions === undefined ? {} : { allowedActions: [...allowedActions] }),
+              expiresAt: now + PUSH_KEY_LIFETIME_MS,
+            },
       }),
     );
     return Redacted.make(Schema.decodeUnknownSync(CreatedDeployKey)(created).deployKey);
