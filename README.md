@@ -43,6 +43,7 @@ This is the source of the Samebase service, its workspace packages, and its app 
 | [templates/base-actions](templates/base-actions)                                                                  | Starter with GitHub Actions deployment                                          |
 | [apps/sidebars-example](apps/sidebars-example)                                                                    | Sidebar example app                                                             |
 | [apps/remotion-studio](apps/remotion-studio)                                                                      | Video workbench and source recordings, separately licensed                      |
+| [apps/identity-broker-explainer](apps/identity-broker-explainer)                                                  | Source of the animation in the identity-broker README                           |
 | [packages/logo-model](packages/logo-model) and [packages/onboarding-video-tools](packages/onboarding-video-tools) | Logo geometry and video tooling                                                 |
 | [apps/workspace-layout-v2-solid](apps/workspace-layout-v2-solid)                                                  | Sidebar layout prototype                                                        |
 | [specs](specs), [docs](docs), [research](research), and [archive](archive)                                        | Current contracts, runbooks, investigations, and historical material            |
