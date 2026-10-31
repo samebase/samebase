@@ -32,6 +32,8 @@ files. Negative-case fixtures are derived by mutating these, never written from 
 | deployment_info_not_permitted.json | the same with a key that has only `deployment:deploy` (403) |
 | deployment_get_canonical_urls.json | GET https://{deployment}.convex.cloud/api/v1/get_canonical_urls |
 | deployment_create_deploy_key_preview_key_refused.json | POST /deployments/{deployment_name}/create_deploy_key with a preview deploy key (403) |
+| deployment_create_deploy_key_oauth_allowed_actions.json | POST /deployments/{deployment_name}/create_deploy_key with an OAuth token and `allowedActions` (400) |
+| deployment_create_deploy_key_oauth_expires_at.json | POST /deployments/{deployment_name}/create_deploy_key with an OAuth token and `expiresAt` (400) |
 
 The files from `team_create_project.json` down were captured on 2026-10-06 by
 `test/live/safety.live.test.ts` against a temporary project `tmp-alchemy-convex-<8 hex>` in team

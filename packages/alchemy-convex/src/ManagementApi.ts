@@ -88,6 +88,13 @@ export interface ManagementApiService {
    */
   readonly isCredentialToken: (secret: string) => Effect.Effect<boolean>;
   /**
+   * True when the Management API credential is an OAuth token, `team:<slug>|...`
+   * or `project:...|...`. A team access token and the Convex CLI login have no
+   * such prefix. Convex answers HTTP 400 to create_deploy_key with
+   * `allowedActions` or `expiresAt` from an OAuth token.
+   */
+  readonly isOAuthCredential: Effect.Effect<boolean>;
+  /**
    * The same calls with another bearer token, such as a preview deploy key,
    * which the Management API takes for the preview deployments of its project.
    */
@@ -199,7 +206,16 @@ const TokenDetails = Schema.Union([
 ]);
 
 /** The service for one way to get the bearer token. */
-const makeService = (credentials: Effect.Effect<ResolvedCredentials>): ManagementApiService => {
+const makeService = (source: Effect.Effect<ResolvedCredentials>): ManagementApiService => {
+  // An HTTP header drops the white space around a token, so every use here takes the value that
+  // Convex sees. isCredentialToken must compare that value: a miss deletes an OAuth credential.
+  const credentials = source.pipe(
+    Effect.map((resolved) => ({
+      ...resolved,
+      accessToken: Redacted.make(Redacted.value(resolved.accessToken).trim()),
+    })),
+  );
+
   const client = Effect.cached(
     credentials.pipe(
       Effect.map((resolved) => createManagementClient(Redacted.value(resolved.accessToken))),
@@ -328,6 +344,10 @@ const makeService = (credentials: Effect.Effect<ResolvedCredentials>): Managemen
       ),
     );
 
+  const isOAuthCredential: ManagementApiService["isOAuthCredential"] = credentials.pipe(
+    Effect.map((resolved) => /^(team|project):/.test(Redacted.value(resolved.accessToken))),
+  );
+
   const withToken: ManagementApiService["withToken"] = (token) =>
     makeService(Effect.succeed({ accessToken: token, source: "explicit" }));
 
@@ -337,6 +357,7 @@ const makeService = (credentials: Effect.Effect<ResolvedCredentials>): Managemen
     deploymentRequest,
     resolveTeamId,
     isCredentialToken,
+    isOAuthCredential,
     withToken,
   };
 };

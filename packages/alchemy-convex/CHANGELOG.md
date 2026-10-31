@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.19.1
+
+- A deploy key request from an OAuth token sends only the name. Convex answers HTTP 400 to
+  `allowedActions` and `expiresAt` from an OAuth token, so a run with an OAuth token as
+  `CONVEX_ACCESS_TOKEN` stopped at its first key.
+- White space around the access token no longer reaches a comparison. A run with such an OAuth token
+  would otherwise delete its key, which revokes the OAuth token.
+
 ## 0.19.0 (unreleased)
 
 The store seals each `Redacted` value, so a row holds no secret in clear text.

@@ -96,6 +96,35 @@ describe("isCredentialToken", () => {
   it("does not match a key with a token of its own", async () => {
     expect(await withCredential("team:samebase-live-tests|other", deployKey)).toBe(false);
   });
+
+  it("matches a key when the credential has white space around it", async () => {
+    expect(await withCredential(" team:samebase-live-tests|REDACTED \n", deployKey)).toBe(true);
+  });
+});
+
+describe("isOAuthCredential", () => {
+  const isOAuth = (accessToken: string) =>
+    Effect.runPromise(
+      Effect.gen(function* () {
+        const api = yield* ManagementApi;
+        return yield* api.isOAuthCredential;
+      }).pipe(
+        Effect.provide(
+          ManagementApiLive().pipe(
+            Layer.provide(fromValues({ accessToken: Redacted.make(accessToken) })),
+          ),
+        ),
+      ),
+    );
+
+  it.each([
+    ["a team OAuth token", "team:samebase-live-tests|token", true],
+    ["a project OAuth token", "project:samebase-live-tests:app|token", true],
+    ["an OAuth token with white space around it", " team:samebase-live-tests|token\n", true],
+    ["a team access token", "eyJ2MiI6ImEifQ==", false],
+  ])("reads %s", async (_name, accessToken, expected) => {
+    expect(await isOAuth(accessToken)).toBe(expected);
+  });
 });
 
 describe("ManagementApi.resolveTeamId", () => {

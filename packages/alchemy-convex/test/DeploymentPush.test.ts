@@ -35,11 +35,15 @@ const TEAM = 38516;
 const NAME = "tmp-alchemy-convex-fixture";
 const API = "api.convex.dev/v1";
 const TOKEN = "test-token";
+const OAUTH_TOKEN = "team:samebase-live-tests|test-oauth-token";
 const FAKE_CLI = fileURLToPath(new URL("./fixtures/fake-convex-cli.ts", import.meta.url));
 const HELLO = fileURLToPath(new URL("./fixtures/convex-app/convex/hello.ts", import.meta.url));
 
 const withToken = Test.make({
   providers: Convex.providers(Convex.fromValues({ accessToken: Redacted.make(TOKEN) })),
+});
+const withOAuthToken = Test.make({
+  providers: Convex.providers(Convex.fromValues({ accessToken: Redacted.make(OAUTH_TOKEN) })),
 });
 const sha256 = (value: string) => createHash("sha256").update(value).digest("hex");
 
@@ -254,17 +258,19 @@ describe("Convex.Deployment push with the access token", () => {
       }),
   );
 
-  withToken.test.provider("never deletes a push key that is the OAuth credential itself", (stack) =>
-    Effect.gen(function* () {
-      const fake = new FakeConvex().install();
-      fake.oauth = true;
-      const projectId = fake.addProject({ name: NAME, teamId: TEAM });
-      yield* stack.deploy(backend({ project: { projectId }, type: "prod" }, "./convex"));
-      expect(runs()).toHaveLength(1);
-      expect(keyCalls(fake).map((request) => request.path.split("/").pop())).toEqual([
-        "create_deploy_key",
-      ]);
-    }),
+  withOAuthToken.test.provider(
+    "asks for no key limits with an OAuth credential, and never deletes that key",
+    (stack) =>
+      Effect.gen(function* () {
+        const fake = new FakeConvex().install();
+        fake.oauth = true;
+        const projectId = fake.addProject({ name: NAME, teamId: TEAM });
+        yield* stack.deploy(backend({ project: { projectId }, type: "prod" }, "./convex"));
+        expect(runs()).toHaveLength(1);
+        expect(keyCalls(fake).map((request) => request.path.split("/").pop())).toEqual([
+          "create_deploy_key",
+        ]);
+      }),
   );
 
   withToken.test.provider(
