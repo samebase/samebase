@@ -26,10 +26,3 @@ export function randomToken(bytes = 32): string {
   crypto.getRandomValues(buffer);
   return base64url.encode(buffer);
 }
-
-/** A six-digit code for the email connector, uniform over 000000 to 999999. */
-export function randomDigits(count = 6): string {
-  const buffer = new Uint32Array(count);
-  crypto.getRandomValues(buffer);
-  return Array.from(buffer, (value) => String(value % 10)).join("");
-}
