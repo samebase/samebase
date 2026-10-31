@@ -41,17 +41,6 @@ Back up `IDENTITY_BROKER_KEYS` somewhere safe. It holds the signing keys and the
 hub that loses it issues new subjects to every user of every app. An established hub that lost the
 variable gets the backup restored by hand; its deploys stop until then.
 
-## Upgrade the broker
-
-The hub installs an exact version of the broker from npm, like any other app, so production runs
-what was published. A broker release reaches production only when this folder asks for it, and a
-broker change without a release does not reach it at all.
-
-Renovate proposes each new version after the seven-day release age. To upgrade sooner, set the
-version in `package.json`, add it to `minimumReleaseAgeExclude` in the root `pnpm-workspace.yaml`,
-and run `pnpm install`. A broker change and the hub change that needs it are two pull requests,
-because the version must be on npm before a pull request can install it.
-
 ## Issuer
 
 The hub answers at the deployment's `.convex.site` URL and at the custom domain `auth.samebase.com`.
