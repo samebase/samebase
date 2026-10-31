@@ -18,6 +18,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import { Badge } from "@/components/ui/badge";
 import {
   useSidebarLayoutPresentation,
   useSidebarActions,
@@ -172,6 +173,28 @@ const LANDING_FAQS = [
     answer:
       "The Samebase app is licensed under AGPL-3.0. The base template and agent plugin use Apache 2.0. Other folders have their own licenses, including MIT and all rights reserved for the video workbench and recordings.",
     question: "Is Samebase open source?",
+  },
+  {
+    answer: (
+      <>
+        It's in beta. We're moving provisioning to{" "}
+        <LandingReceiptLink href="https://alchemy.run">Alchemy</LandingReceiptLink>, so apps you
+        create today may need an update later. They'll keep running either way.
+      </>
+    ),
+    question: "Is Samebase stable?",
+  },
+  {
+    answer: (
+      <>
+        Yes, we deploy samebase.com with it. There's no UI for it yet, so start from{" "}
+        <LandingReceiptLink href="https://github.com/samebase/base-alchemy">
+          samebase/base-alchemy
+        </LandingReceiptLink>{" "}
+        and add a team-wide Convex token yourself.
+      </>
+    ),
+    question: "Can I use Alchemy now?",
   },
   {
     answer: "Kinda.",
@@ -363,15 +386,20 @@ function LandingPreviewOverview() {
         <section>
           <div className="@3xl:grid @3xl:grid-cols-2 @3xl:gap-4">
             <div className="pb-4 @3xl:pt-4">
-              <p className="flex items-center gap-1.5">
-                <img
-                  alt=""
-                  className="h-9 w-9 dark:invert"
-                  height="36"
-                  src={LANDING_INLINE_80_PERCENT_MARK_SVG_URL}
-                  width="36"
-                />
-                <span className="text-2xl font-semibold tracking-[-0.01em]">Samebase</span>
+              <p className="flex items-center gap-4">
+                <span className="flex items-center gap-1.5">
+                  <img
+                    alt=""
+                    className="h-9 w-9 dark:invert"
+                    height="36"
+                    src={LANDING_INLINE_80_PERCENT_MARK_SVG_URL}
+                    width="36"
+                  />
+                  <span className="text-2xl font-semibold tracking-[-0.01em]">Samebase</span>
+                </span>
+                <Badge className="h-7 -rotate-3 rounded-none border-0 bg-blue-600 px-3 py-0 text-sm font-semibold text-white">
+                  BETA
+                </Badge>
               </p>
               <h1 className="mt-10 max-w-[24ch] text-[clamp(34px,4.6cqw,56px)] font-bold leading-[1.06] tracking-[-0.035em]">
                 Give your coding agent a working app.
