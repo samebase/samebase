@@ -12,6 +12,11 @@
       "minimumReleaseAge": "7 days"
     },
     {
+      "description": "Our own releases skip the wait, like minimumReleaseAgeExclude in pnpm-workspace.yaml.",
+      "matchPackageNames": ["@samebase/**"],
+      "minimumReleaseAge": "0 days"
+    },
+    {
       "description": "One pull request for every update type. separateMajorMinor false keeps majors in the same branch. Vulnerability alerts keep their own pull requests.",
       "groupName": "Routine updates",
       "matchUpdateTypes": ["major", "minor", "patch", "pin", "pinDigest", "digest"]
