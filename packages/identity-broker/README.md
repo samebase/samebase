@@ -11,6 +11,16 @@ Why: every new app otherwise needs its own OAuth app registrations and its own e
 preview deployment with a fresh callback URL cannot have them at all. With the broker, an app
 registers each deployment as a client at deploy time and never touches GitHub or Google.
 
+## Start from our hub
+
+A hub is a small Convex app that mounts this component.
+[`apps/identity-hub`](https://github.com/samebase/samebase/tree/main/apps/identity-hub) is the hub
+we run in production, and it is also the example: there is no separate template. To run your own,
+copy that folder and change the values in `alchemy.run.ts` and `convex/connectors.ts`, or ask your
+agent to do it. Its
+[README](https://github.com/samebase/samebase/blob/main/apps/identity-hub/README.md) has the deploy
+steps.
+
 ## What it is
 
 - `@samebase/identity-broker`: a Convex component plus the host-side endpoints. Authorization code
@@ -20,9 +30,6 @@ registers each deployment as a client at deploy time and never touches GitHub or
 - Connectors are configuration: any OAuth 2.0 provider that publishes RFC 8414 metadata, any OpenID
   Connect provider, and an email code sent by your own action. `github()`, `google()` and `email()`
   are included.
-- A hub is a small Convex app that mounts the component.
-  [`apps/identity-hub`](https://github.com/samebase/samebase/tree/main/apps/identity-hub) is ours.
-  To start your own, ask your agent to copy that folder.
 - `Convex.HubClient` of [`@samebase/alchemy-convex`](https://github.com/samebase/alchemy-convex), an
   Alchemy v2 resource, registers a deployment as a client at deploy time.
 
