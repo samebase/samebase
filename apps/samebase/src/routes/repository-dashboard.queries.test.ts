@@ -97,6 +97,7 @@ function loadPage(args: {
   connect: () => Promise<unknown>;
   client: "server" | "browser";
   attachments?: true;
+  beingCreated?: true;
 }) {
   const queryClient = new QueryClient({
     defaultOptions: {
@@ -114,6 +115,8 @@ function loadPage(args: {
                   organizationId: "organization-a",
                   repositoryId: "repository-a",
                   convexTeamId: args.convexTeamId,
+                  sourceSetup: { status: args.beingCreated ? "running" : "not_applicable" },
+                  hasConnectedGitHubRepository: !args.beingCreated,
                 },
               ];
             default:
@@ -188,7 +191,7 @@ describe("loadRepositoryAlchemyPage", () => {
     });
   });
 
-  it("reads no store for a repository without a Convex team or with ?attachments", async () => {
+  it("reads no store without a Convex team, with ?attachments, or during creation", async () => {
     const withoutTeam = loadPage({
       client: "server",
       convexTeamId: undefined,
@@ -202,8 +205,15 @@ describe("loadRepositoryAlchemyPage", () => {
       attachments: true,
     });
     await expect(attachments.load).resolves.toBeNull();
+    const beingCreated = loadPage({
+      client: "server",
+      convexTeamId: "38516",
+      connect: async () => liveConnection,
+      beingCreated: true,
+    });
+    await expect(beingCreated.load).resolves.toBeNull();
 
-    for (const { action } of [withoutTeam, attachments]) {
+    for (const { action } of [withoutTeam, attachments, beingCreated]) {
       expect(action).not.toHaveBeenCalled();
     }
   });

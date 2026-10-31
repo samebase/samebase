@@ -2,6 +2,7 @@ import { api } from "../../../convex/_generated/api";
 import type { UserRepositoryResult } from "../../../convex/repository/contracts/getUserRepositories";
 import { useQuery } from "@tanstack/react-query";
 import { useAction } from "convex/react";
+import { isRepositoryBeingCreated } from "@/repository/dashboard/repositoryAlchemyStore";
 import { repositoryExternalDataQueryKey } from "@/repository/dashboard/repositoryExternalDataQueryKey";
 import type { AlchemyStateObservation } from "../../../shared/alchemyStateModel";
 import {
@@ -39,8 +40,9 @@ export type RepositoryCloudflareProviderObservationState = {
 
 type RepositoryProviderObservationTarget = Pick<
   UserRepositoryResult,
-  "repositoryId" | "providerWrite" | "convexTeamId"
+  "repositoryId" | "providerWrite" | "convexTeamId" | "hasConnectedGitHubRepository"
 > & {
+  sourceSetup: Pick<UserRepositoryResult["sourceSetup"], "status">;
   cloudflareWorkers: readonly Pick<UserRepositoryResult["cloudflareWorkers"][number], "workerId">[];
   convexProjects: readonly Pick<
     UserRepositoryResult["convexProjects"][number],
@@ -224,10 +226,13 @@ export function useRepositoryProviderObservations(
 
   // The store lives in the Convex team of the repository, so a repository without one has no stack.
   const alchemyRequested = Boolean(convexTeamId) && source !== "attachments";
-  const alchemyState = useRepositoryAlchemyState(
-    alchemyRequested ? (repositoryId ?? null) : null,
+  const alchemyWaiting =
+    alchemyRequested && repository !== null && isRepositoryBeingCreated(repository);
+  const alchemyRead = useRepositoryAlchemyState(
+    alchemyRequested && !alchemyWaiting ? (repositoryId ?? null) : null,
     convexTeamId,
   );
+  const alchemyState: RepositoryAlchemyState = alchemyWaiting ? { state: "loading" } : alchemyRead;
 
   const reloadCloudflareWorkers = () => {
     void cloudflareWorkersQuery.refetch();

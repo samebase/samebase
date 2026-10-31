@@ -95,6 +95,8 @@ describe("useRepositoryProviderObservations", () => {
         repositoryId: fakeRepositoryId("repository-empty"),
         cloudflareWorkers: [],
         convexProjects: [],
+        sourceSetup: { status: "not_applicable" },
+        hasConnectedGitHubRepository: true,
         providerWrite: { status: "idle", lastWriteAt: {} },
       });
       return null;
@@ -163,6 +165,8 @@ describe("useRepositoryProviderObservations", () => {
             teamId: "team-failed",
           },
         ],
+        sourceSetup: { status: "not_applicable" },
+        hasConnectedGitHubRepository: true,
         providerWrite: { status: "idle", lastWriteAt: {} },
       });
       return null;
@@ -205,6 +209,8 @@ describe("useRepositoryProviderObservations", () => {
         repositoryId: fakeRepositoryId("repository-stale"),
         cloudflareWorkers: [{ workerId: fakeCloudflareWorkerId("worker-stale") }],
         convexProjects: [],
+        sourceSetup: { status: "not_applicable" },
+        hasConnectedGitHubRepository: true,
         providerWrite: { status: "idle", lastWriteAt: {} },
       });
       return null;
@@ -275,6 +281,8 @@ describe("useRepositoryProviderObservations", () => {
 
     function Probe() {
       latest = useRepositoryProviderObservations({
+        sourceSetup: { status: "not_applicable" },
+        hasConnectedGitHubRepository: true,
         repositoryId: fakeRepositoryId("repository-missed-active"),
         cloudflareWorkers: [{ workerId: fakeCloudflareWorkerId("worker-missed-active") }],
         convexProjects: [
@@ -333,6 +341,8 @@ describe("useRepositoryProviderObservations", () => {
 
     function Probe() {
       latest = useRepositoryProviderObservations({
+        sourceSetup: { status: "not_applicable" },
+        hasConnectedGitHubRepository: true,
         repositoryId: fakeRepositoryId("repository-active-manual-write"),
         cloudflareWorkers: [{ workerId: fakeCloudflareWorkerId("worker-active-manual-write") }],
         convexProjects: [],
@@ -398,6 +408,8 @@ describe("useRepositoryProviderObservations", () => {
 
     function Probe({ cloudflareLastWriteAt }: { cloudflareLastWriteAt?: number }) {
       latest = useRepositoryProviderObservations({
+        sourceSetup: { status: "not_applicable" },
+        hasConnectedGitHubRepository: true,
         repositoryId,
         cloudflareWorkers: [{ workerId }],
         convexProjects: [
@@ -512,6 +524,8 @@ describe("useRepositoryProviderObservations", () => {
               teamId: "38516",
             },
           ],
+          sourceSetup: { status: "not_applicable" },
+          hasConnectedGitHubRepository: true,
           providerWrite: { status: "idle", lastWriteAt: {} },
         },
         source,
@@ -556,6 +570,67 @@ describe("useRepositoryProviderObservations", () => {
     }
   });
 
+  it("holds the team store read as loading while Samebase creates the repository", async () => {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const rootElement = document.createElement("div");
+    document.body.append(rootElement);
+    const root = createRoot(rootElement);
+    const repositoryId = fakeRepositoryId("repository-being-created");
+    let latest: ReturnType<typeof useRepositoryProviderObservations> | undefined;
+
+    function Probe({
+      hasConnectedGitHubRepository,
+      sourceSetup,
+    }: {
+      hasConnectedGitHubRepository: boolean;
+      sourceSetup: { status: "running" | "failed" | "ready" };
+    }) {
+      latest = useRepositoryProviderObservations({
+        repositoryId,
+        convexTeamId: "38516",
+        cloudflareWorkers: [],
+        convexProjects: [],
+        sourceSetup,
+        hasConnectedGitHubRepository,
+        providerWrite: { status: "idle", lastWriteAt: {} },
+      });
+      return null;
+    }
+
+    async function render(props: Parameters<typeof Probe>[0]) {
+      await act(async () => {
+        root.render(
+          <QueryClientProvider client={queryClient}>
+            <Probe {...props} />
+          </QueryClientProvider>,
+        );
+      });
+    }
+
+    try {
+      await render({ hasConnectedGitHubRepository: false, sourceSetup: { status: "running" } });
+      expect(alchemy.requested).toHaveBeenLastCalledWith(null);
+      // Waiting is not a read that found no store.
+      expect(latest?.alchemyState).toEqual({ state: "loading" });
+
+      await render({ hasConnectedGitHubRepository: true, sourceSetup: { status: "ready" } });
+      expect(alchemy.requested).toHaveBeenLastCalledWith(repositoryId);
+      expect(latest?.alchemyState).toMatchObject({ state: "loaded" });
+
+      // A failed creation will not connect by itself, so the read reports its own result.
+      await render({ hasConnectedGitHubRepository: false, sourceSetup: { status: "failed" } });
+      expect(alchemy.requested).toHaveBeenLastCalledWith(repositoryId);
+    } finally {
+      await act(async () => {
+        root.unmount();
+      });
+      queryClient.clear();
+      rootElement.remove();
+    }
+  });
+
   it("polls Cloudflare build status while the selected repository remains mounted", async () => {
     vi.useFakeTimers();
     const queryClient = new QueryClient({
@@ -571,6 +646,8 @@ describe("useRepositoryProviderObservations", () => {
         repositoryId: fakeRepositoryId("repository-build-polling"),
         cloudflareWorkers: [{ workerId: fakeCloudflareWorkerId("worker-build-polling") }],
         convexProjects: [],
+        sourceSetup: { status: "not_applicable" },
+        hasConnectedGitHubRepository: true,
         providerWrite: { status: "idle", lastWriteAt: {} },
       });
       return null;
