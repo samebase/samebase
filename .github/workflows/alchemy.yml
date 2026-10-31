@@ -3,13 +3,13 @@
 # apps/sidebars-example/alchemy.run.ts, each run from its folder. A push to main deploys the stage
 # `prod` of both: the Convex project, its production deployment, which serves samebase.com through
 # convex-hosting, the Workers next to the app, and the Worker of the sidebars example. A pull
-# request from this repository deploys the stage `pr-<number>` of the Samebase stack, a Convex preview
-# deployment with that name, and comments its URLs on the pull request; closing the pull request
-# destroys the stage and deletes the preview. The sidebars stack has only the stage `prod`, so pull
-# request runs skip it. The state of every stage is in the `alchemy-state-store` project of the Convex
-# team, under the stack names samebase/samebase/apps/samebase and samebase/samebase/apps/sidebars-example. Each run
-# mints its Convex deploy keys with the team token CONVEX_ACCESS_TOKEN; only the stage `prod` gets
-# the Cloudflare token.
+# request from this repository deploys the stage `pr-<number>` of both, a Convex preview deployment
+# and a Worker with the stage in their names, and keeps one comment with the stacks of the
+# repository; closing the pull request destroys both stages. The state of every stage is in the
+# `alchemy-state-store` project of the Convex team, under the stack names
+# samebase/samebase/apps/samebase and samebase/samebase/apps/sidebars-example. Each run mints its
+# Convex deploy keys with the team token CONVEX_ACCESS_TOKEN. A step that deploys a Worker also gets
+# the Cloudflare token; the preview of the app deploys none and does not get it.
 name: Alchemy
 
 on:
@@ -44,8 +44,6 @@ env:
   STAGE:
     ${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.number) || (github.ref
     == 'refs/heads/main' && 'prod' || github.ref_name) }}
-  # GitHub.GitHubEnv in apps/samebase/alchemy.run.ts reads it for the preview comment. Empty on main.
-  PULL_REQUEST: ${{ github.event.pull_request.number }}
 
 jobs:
   deploy:
@@ -58,7 +56,7 @@ jobs:
     timeout-minutes: 20
     permissions:
       contents: read
-      pull-requests: write # The stack keeps one comment with the preview's URLs.
+      pull-requests: write # The job keeps one comment with the stacks of the repository.
     environment:
       name: ${{ github.event_name == 'pull_request' && 'preview' || 'production' }}
       url:
@@ -124,21 +122,6 @@ jobs:
           VITE_PUBLIC_POSTHOG_HOST: https://e.samebase.com
           VITE_PUBLIC_POSTHOG_PROJECT_TOKEN: ${{ vars.PROD_POSTHOG_PROJECT_TOKEN }}
 
-      - name: Build the sidebars example
-        if: github.event_name != 'pull_request'
-        working-directory: apps/sidebars-example
-        run: pnpm run build
-
-      - name: Deploy the sidebars example
-        if: github.event_name != 'pull_request'
-        working-directory: apps/sidebars-example
-        run: pnpm exec alchemy deploy --stage "$STAGE" --yes --no-input --detect-drift $ADOPT
-        env:
-          ADOPT: ${{ inputs.adopt && '--adopt' || '' }}
-          CONVEX_ACCESS_TOKEN: ${{ secrets.CONVEX_ACCESS_TOKEN }}
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
-
       # convex-hosting writes the site URL of its push to $GITHUB_OUTPUT, the environment URL above.
       - name: Deploy the preview
         id: preview
@@ -149,6 +132,28 @@ jobs:
           CONVEX_ACCESS_TOKEN: ${{ secrets.CONVEX_ACCESS_TOKEN }}
           GITHUB_TOKEN: ${{ github.token }}
           VITE_SAMEBASE_ROUTE_ENVIRONMENT: preview
+
+      - name: Build the sidebars example
+        working-directory: apps/sidebars-example
+        run: pnpm run build
+
+      - name: Deploy the sidebars example
+        working-directory: apps/sidebars-example
+        run: pnpm exec alchemy deploy --stage "$STAGE" --yes --no-input --detect-drift $ADOPT
+        env:
+          ADOPT: ${{ inputs.adopt && '--adopt' || '' }}
+          CONVEX_ACCESS_TOKEN: ${{ secrets.CONVEX_ACCESS_TOKEN }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+
+      # One comment with the stacks of the repository, from the state that the deploys just wrote.
+      - name: Update the stack comment
+        if: github.event_name == 'pull_request'
+        working-directory: apps/samebase
+        run: pnpm exec alchemy-convex stack-comment
+        env:
+          CONVEX_ACCESS_TOKEN: ${{ secrets.CONVEX_ACCESS_TOKEN }}
+          GITHUB_TOKEN: ${{ github.token }}
 
   destroy:
     name: Destroy the preview
@@ -181,17 +186,26 @@ jobs:
           check-latest: true
           cache: pnpm
 
-      # No build: the destroy deletes the preview deployment and forgets the stage.
+      # No build: the destroy deletes the preview deployment and the Worker, and forgets the stages.
       - name: Install dependencies
         run: pnpm install --frozen-lockfile --ignore-scripts
 
-      # Only the Samebase stack has the stage of a pull request.
-      - name: Destroy the preview
+      - name: Destroy the preview of the app
         working-directory: apps/samebase
         run: pnpm exec alchemy destroy --stage "$STAGE" --yes --no-input
         env:
           CONVEX_ACCESS_TOKEN: ${{ secrets.CONVEX_ACCESS_TOKEN }}
           GITHUB_TOKEN: ${{ github.token }}
+
+      # Also when the step above fails: one stuck stage must not keep the other.
+      - name: Destroy the preview of the sidebars example
+        if: ${{ !cancelled() }}
+        working-directory: apps/sidebars-example
+        run: pnpm exec alchemy destroy --stage "$STAGE" --yes --no-input
+        env:
+          CONVEX_ACCESS_TOKEN: ${{ secrets.CONVEX_ACCESS_TOKEN }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
 
   fork:
     name: Skip the preview of a fork

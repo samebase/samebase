@@ -122,7 +122,8 @@ The deployed resources of one stage of a stack, by type. `stackFile` is the stac
 stage's run record. The code location of a Convex deployment is its `source` below `props.rootDir`
 below the directory of the stack file, and null without `source`. A row that no validator accepts,
 such as one without `attr` from an interrupted deploy, and a deployment whose `rootDir` leaves the
-repository are left out.
+repository are left out. One deployment can have two rows, because a stack creates it in one
+resource to learn its URL and pushes to it in another: it has one entry here, the row with the code.
 */
 export function stageResources(stage: {
   stackFile: string;
@@ -134,24 +135,34 @@ export function stageResources(stage: {
     return { fqn: resource.fqn, state };
   });
 
+  const convexDeployments = states.flatMap(({ fqn, state }) => {
+    if (!validate(vAlchemyConvexDeploymentState, state, { allowUnknownFields: true })) {
+      return [];
+    }
+    const { rootDir, source } = state.props;
+    const sourcePath = typeof source === "string" ? source : source?.path;
+    return stackPath(stackFile, rootDir) === null
+      ? []
+      : [
+          {
+            fqn,
+            state,
+            codeLocation:
+              sourcePath === undefined ? null : stackPath(stackFile, rootDir, sourcePath),
+          },
+        ];
+  });
+  const deploymentByName = new Map<string, (typeof convexDeployments)[number]>();
+  for (const deployment of convexDeployments) {
+    const { name } = deployment.state.attr;
+    const seen = deploymentByName.get(name);
+    if (seen === undefined || seen.codeLocation === null) {
+      deploymentByName.set(name, deployment);
+    }
+  }
+
   return {
-    convexDeployments: states.flatMap(({ fqn, state }) => {
-      if (!validate(vAlchemyConvexDeploymentState, state, { allowUnknownFields: true })) {
-        return [];
-      }
-      const { rootDir, source } = state.props;
-      const sourcePath = typeof source === "string" ? source : source?.path;
-      return stackPath(stackFile, rootDir) === null
-        ? []
-        : [
-            {
-              fqn,
-              state,
-              codeLocation:
-                sourcePath === undefined ? null : stackPath(stackFile, rootDir, sourcePath),
-            },
-          ];
-    }),
+    convexDeployments: [...deploymentByName.values()],
     workers: states.flatMap(({ fqn, state }) =>
       validate(vAlchemyCloudflareWorkerState, state, { allowUnknownFields: true })
         ? [{ fqn, state }]

@@ -5,7 +5,7 @@ import {
   observedSamebaseRepositoryReply,
   observedSamebaseStackReply,
 } from "../convex/repository/fixtures/observedSamebaseAlchemyState";
-import { groupResourcesByComponent, stackCards } from "./alchemyState";
+import { groupResourcesByComponent, stackCards, stageResources } from "./alchemyState";
 import { vAlchemyStacksRead, type AlchemyStack } from "./alchemyStateModel";
 
 const [, , prod] = observedAlchemyStackReply.value.stages;
@@ -138,6 +138,22 @@ const siteAndCloudDomains: LiveDeployment["customDomains"] = [
   { domain: "cloud.samebase.com", requestDestination: "convexCloud" },
   { domain: "samebase.com", requestDestination: "convexSite" },
 ];
+
+describe("stageResources", () => {
+  it("gives a deployment with two rows one entry, the row with its code", () => {
+    // The stage of a preview: `Preview` creates the deployment, and `Site` pushes to it.
+    const created = { fqn: "Preview", value: site.value.replace('"source":', '"unread":') };
+
+    const { convexDeployments } = stageResources({
+      stackFile: "apps/samebase/alchemy.run.ts",
+      resources: [created, site],
+    });
+
+    expect(convexDeployments.map(({ fqn, codeLocation }) => [fqn, codeLocation])).toEqual([
+      ["Site", "apps/samebase/convex"],
+    ]);
+  });
+});
 
 describe("stackCards", () => {
   it("makes one card for each stack with a stage prod, in stack file order", () => {

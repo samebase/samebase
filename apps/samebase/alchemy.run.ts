@@ -52,6 +52,7 @@ const commit = execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).
 export default Alchemy.Stack(
   "samebase/samebase/apps/samebase",
   {
+    // The GitHub provider has no resource here: it forgets the PreviewComment rows of older previews.
     providers: Layer.mergeAll(Cloudflare.providers(), GitHub.providers(), Convex.providers()),
     state: Convex.state({ team }),
   },
@@ -101,19 +102,6 @@ export default Alchemy.Stack(
         },
         source: { path: "./convex", command: ["node", "./scripts/deploy-preview.ts"] },
       }).pipe(adopt(true), Alchemy.RemovalPolicy.destroy());
-
-      const github = yield* GitHub.GitHubEnv;
-      if (github?.pr) {
-        // Retained: a closed pull request keeps the comment as a record of what was deployed.
-        yield* GitHub.Comment("PreviewComment", {
-          owner: github.owner,
-          repository: github.repository,
-          issueNumber: github.pr,
-          body: Output.interpolate`Preview \`${stage}\`: ${site.siteUrl}
-Deployment: ${site.url}
-Dashboard: https://dashboard.convex.dev/d/${site.name}`,
-        }).pipe(Alchemy.RemovalPolicy.retain());
-      }
 
       return { url: site.siteUrl };
     }
