@@ -1463,6 +1463,7 @@ export const trackedFilePaths = [
   "apps/samebase/src/repository/dashboard/RepositorySetupStackStatus.tsx",
   "apps/samebase/src/repository/dashboard/RepositoryWorkspaceDataInspector.tsx",
   "apps/samebase/src/repository/dashboard/pullRequestLabels.ts",
+  "apps/samebase/src/repository/dashboard/repositoryAlchemyStore.ts",
   "apps/samebase/src/repository/dashboard/repositoryChecks.test.ts",
   "apps/samebase/src/repository/dashboard/repositoryChecks.ts",
   "apps/samebase/src/repository/dashboard/repositoryEnvironmentRoots.ts",

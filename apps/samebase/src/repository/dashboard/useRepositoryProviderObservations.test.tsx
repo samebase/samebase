@@ -95,6 +95,8 @@ describe("useRepositoryProviderObservations", () => {
         repositoryId: fakeRepositoryId("repository-empty"),
         cloudflareWorkers: [],
         convexProjects: [],
+        deletion: { state: "not_deleting" },
+        hasConnectedGitHubRepository: true,
         providerWrite: { status: "idle", lastWriteAt: {} },
       });
       return null;
@@ -163,6 +165,8 @@ describe("useRepositoryProviderObservations", () => {
             teamId: "team-failed",
           },
         ],
+        deletion: { state: "not_deleting" },
+        hasConnectedGitHubRepository: true,
         providerWrite: { status: "idle", lastWriteAt: {} },
       });
       return null;
@@ -205,6 +209,8 @@ describe("useRepositoryProviderObservations", () => {
         repositoryId: fakeRepositoryId("repository-stale"),
         cloudflareWorkers: [{ workerId: fakeCloudflareWorkerId("worker-stale") }],
         convexProjects: [],
+        deletion: { state: "not_deleting" },
+        hasConnectedGitHubRepository: true,
         providerWrite: { status: "idle", lastWriteAt: {} },
       });
       return null;
@@ -275,6 +281,8 @@ describe("useRepositoryProviderObservations", () => {
 
     function Probe() {
       latest = useRepositoryProviderObservations({
+        deletion: { state: "not_deleting" },
+        hasConnectedGitHubRepository: true,
         repositoryId: fakeRepositoryId("repository-missed-active"),
         cloudflareWorkers: [{ workerId: fakeCloudflareWorkerId("worker-missed-active") }],
         convexProjects: [
@@ -333,6 +341,8 @@ describe("useRepositoryProviderObservations", () => {
 
     function Probe() {
       latest = useRepositoryProviderObservations({
+        deletion: { state: "not_deleting" },
+        hasConnectedGitHubRepository: true,
         repositoryId: fakeRepositoryId("repository-active-manual-write"),
         cloudflareWorkers: [{ workerId: fakeCloudflareWorkerId("worker-active-manual-write") }],
         convexProjects: [],
@@ -398,6 +408,8 @@ describe("useRepositoryProviderObservations", () => {
 
     function Probe({ cloudflareLastWriteAt }: { cloudflareLastWriteAt?: number }) {
       latest = useRepositoryProviderObservations({
+        deletion: { state: "not_deleting" },
+        hasConnectedGitHubRepository: true,
         repositoryId,
         cloudflareWorkers: [{ workerId }],
         convexProjects: [
@@ -512,6 +524,8 @@ describe("useRepositoryProviderObservations", () => {
               teamId: "38516",
             },
           ],
+          deletion: { state: "not_deleting" },
+          hasConnectedGitHubRepository: true,
           providerWrite: { status: "idle", lastWriteAt: {} },
         },
         source,
@@ -556,6 +570,53 @@ describe("useRepositoryProviderObservations", () => {
     }
   });
 
+  it("starts the team store read when the repository connects, and not before", async () => {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const rootElement = document.createElement("div");
+    document.body.append(rootElement);
+    const root = createRoot(rootElement);
+    const repositoryId = fakeRepositoryId("repository-being-created");
+
+    function Probe({ connected }: { connected: boolean }) {
+      useRepositoryProviderObservations({
+        repositoryId,
+        convexTeamId: "38516",
+        cloudflareWorkers: [],
+        convexProjects: [],
+        deletion: { state: "not_deleting" },
+        hasConnectedGitHubRepository: connected,
+        providerWrite: { status: "idle", lastWriteAt: {} },
+      });
+      return null;
+    }
+
+    async function render(connected: boolean) {
+      await act(async () => {
+        root.render(
+          <QueryClientProvider client={queryClient}>
+            <Probe connected={connected} />
+          </QueryClientProvider>,
+        );
+      });
+    }
+
+    try {
+      await render(false);
+      expect(alchemy.requested).toHaveBeenLastCalledWith(null);
+
+      await render(true);
+      expect(alchemy.requested).toHaveBeenLastCalledWith(repositoryId);
+    } finally {
+      await act(async () => {
+        root.unmount();
+      });
+      queryClient.clear();
+      rootElement.remove();
+    }
+  });
+
   it("polls Cloudflare build status while the selected repository remains mounted", async () => {
     vi.useFakeTimers();
     const queryClient = new QueryClient({
@@ -571,6 +632,8 @@ describe("useRepositoryProviderObservations", () => {
         repositoryId: fakeRepositoryId("repository-build-polling"),
         cloudflareWorkers: [{ workerId: fakeCloudflareWorkerId("worker-build-polling") }],
         convexProjects: [],
+        deletion: { state: "not_deleting" },
+        hasConnectedGitHubRepository: true,
         providerWrite: { status: "idle", lastWriteAt: {} },
       });
       return null;
