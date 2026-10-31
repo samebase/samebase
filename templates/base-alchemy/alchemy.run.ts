@@ -20,7 +20,9 @@ import * as Layer from "effect/Layer";
 /** The Convex team that holds the project and the state: the variable CONVEX_TEAM_ID, an id or a slug. */
 const team = process.env["CONVEX_TEAM_ID"];
 if (team === undefined || team === "") {
-  throw new Error("Set the repository variable CONVEX_TEAM_ID to your Convex team (README, Start).");
+  throw new Error(
+    "Set the repository variable CONVEX_TEAM_ID to your Convex team (README, Start).",
+  );
 }
 
 /** The GitHub repository, `owner/name`: GITHUB_REPOSITORY in Actions, else the origin remote. */
