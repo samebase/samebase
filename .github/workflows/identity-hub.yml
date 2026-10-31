@@ -52,9 +52,6 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile --filter "identity-hub..."
 
-      - name: Build the broker
-        run: pnpm --filter @samebase/identity-broker run build
-
       # A re-run of an old run must not put older code over newer code.
       - name: Check that the checkout is the head of main
         env:

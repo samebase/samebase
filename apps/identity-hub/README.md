@@ -19,8 +19,7 @@ and this folder, `samebase/samebase/apps/identity-hub`. Its state is in the Conv
 `alchemy-state-store`, with the state of the other stacks of the team. The hub has no previews: no
 app points at one, and Google cannot sign in on one, since only the production callback is
 registered at Google. `.github/workflows/identity-hub.yml` runs on each push to `main`, and the
-stack skips the push when nothing of the hub or the broker changed. Pull requests run the checks
-only.
+stack skips the push when nothing of the hub changed. Pull requests run the checks only.
 
 1. Set `CONVEX_ACCESS_TOKEN`, the team's Convex access token, as a repository secret. The run mints
    the deploy key with it. In the GitHub environment `identity-hub`, which only `main` can use, set
@@ -41,6 +40,17 @@ only.
 Back up `IDENTITY_BROKER_KEYS` somewhere safe. It holds the signing keys and the pairwise salt: a
 hub that loses it issues new subjects to every user of every app. An established hub that lost the
 variable gets the backup restored by hand; its deploys stop until then.
+
+## Upgrade the broker
+
+The hub installs an exact version of the broker from npm, like any other app, so production runs
+what was published. A broker release reaches production only when this folder asks for it, and a
+broker change without a release does not reach it at all.
+
+Renovate proposes each new version after the seven-day release age. To upgrade sooner, set the
+version in `package.json`, add it to `minimumReleaseAgeExclude` in the root `pnpm-workspace.yaml`,
+and run `pnpm install`. A broker change and the hub change that needs it are two pull requests,
+because the version must be on npm before a pull request can install it.
 
 ## Issuer
 

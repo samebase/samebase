@@ -38,7 +38,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "pnpm --dir ../.. exec vp lint --tsconfig packages/identity-broker/tsconfig.json --report-unused-disable-directives packages/identity-broker/src",
     "test": "pnpm --dir ../.. exec vp test run --project identity-broker",
-    "check": "pnpm run typecheck && pnpm run lint && pnpm run test"
+    "check": "pnpm run typecheck && pnpm run lint && pnpm run test && pnpm run build"
   },
   "dependencies": {
     "jose": "6.2.13",

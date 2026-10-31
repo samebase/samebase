@@ -15,9 +15,9 @@ client at deploy time and never touches GitHub or Google.
 
 A hub is a small Convex app that mounts this component.
 [`apps/identity-hub`](https://github.com/samebase/samebase/tree/main/apps/identity-hub) is the hub
-we run in production, and it is also the example: there is no separate template. To run your own,
-copy that folder and change the values in `alchemy.run.ts` and `convex/connectors.ts`, or ask your
-agent to do it. Its
+we run in production, installed from npm like any other app, and it is also the example: there is no
+separate template. To run your own, copy that folder and change the values in `alchemy.run.ts` and
+`convex/connectors.ts`, or ask your agent to do it. Its
 [README](https://github.com/samebase/samebase/blob/main/apps/identity-hub/README.md) has the deploy
 steps.
 

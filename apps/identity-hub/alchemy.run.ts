@@ -15,8 +15,7 @@
 // on a laptop; it mints the deploy key itself. Every run also reads the Google and GitHub client
 // ids and secrets and hands them to the deployment, for the two connectors: no connector variable
 // is ever set by hand. IDENTITY_BROKER_KEYS is not in `env`: it stays on the deployment, and the
-// `deploy` script stops when it is missing. Build the broker first, because the push bundles it:
-//   pnpm --filter @samebase/identity-broker run build && pnpm exec alchemy deploy --stage prod
+// `deploy` script stops when it is missing.
 import * as Convex from "@samebase/alchemy-convex";
 import * as Alchemy from "alchemy";
 import { adopt } from "alchemy/AdoptPolicy";
@@ -39,15 +38,8 @@ export default Alchemy.Stack(
     const source = {
       path: "./convex",
       command: ["node", "--run", "deploy"],
-      // The push inputs besides the functions, package.json, and the lockfile. The broker is a
-      // workspace package outside this folder, and a change there must also start a push.
-      include: [
-        "scripts/**",
-        "tsconfig*.json",
-        "../../packages/identity-broker/src/**",
-        "../../packages/identity-broker/package.json",
-        "../../packages/identity-broker/tsconfig*.json",
-      ],
+      // The push inputs besides the functions, package.json, and the lockfile.
+      include: ["scripts/**", "tsconfig*.json"],
     } satisfies Convex.Source;
     // The variables of the deployment. The secret is a prop, so the state store holds it next to
     // the deployment it serves.

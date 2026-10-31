@@ -13,5 +13,6 @@ Each component's own rules live in its repository.
 - Never use `npx convex import --replace-all` on this deployment, also not with `--component`: it
   deletes the rows of the other components.
 - Never use the U+2014 em dash character. No `any`, no type assertions except `as const`.
+- The broker is an exact npm version, not the workspace package. README.md says how to upgrade it.
 - `pnpm install`, then `pnpm run check`. `convex/_generated` is committed; `npx convex dev --once`
   refreshes it.
