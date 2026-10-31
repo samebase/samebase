@@ -331,7 +331,7 @@ show.
   record and leave a row that changed. Both read the current key in their own transaction, so a
   sweep that a rotation overtook stops, and it cannot put the older key over the work of a newer
   sweep. A row that fails is named in `failed`, and the others go on. Measured on a local backend
-  with 40 rows of 600 KiB: `state:list` fails with `Too many bytes read`, the sweep passes that
+  with 35 rows of 600 KiB: `state:list` fails with `Too many bytes read`, the sweep passes that
   limit, and the limit of 4 MiB written per second failed 3 rows, which the next run sealed. When
   nothing failed, it records `sealedUnder`.
 - Each run reads `state:sealing`, so the work does not depend on the run that pushed. A run makes a
