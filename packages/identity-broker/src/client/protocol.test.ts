@@ -1,6 +1,5 @@
 import { describe, expect, test } from "vite-plus/test";
 import {
-  canonicalEmail,
   parseRedirectUri,
   readClientAuthentication,
   validateAuthorizeRest,
@@ -159,11 +158,4 @@ describe("token", () => {
     );
     expect(short.ok).toBe(false);
   });
-});
-
-test("canonical email", () => {
-  expect(canonicalEmail("  Nicu@Example.COM ")).toBe("nicu@example.com");
-  expect(canonicalEmail("nope")).toBeNull();
-  expect(canonicalEmail("a@")).toBeNull();
-  expect(canonicalEmail("@b")).toBeNull();
 });

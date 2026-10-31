@@ -700,7 +700,7 @@ fn end_card(t: f32) -> Svgr<'static> {
                 "set up sign-in "<tspan fill={TEAL}>"once"</tspan>
             </text>
             <text x="120" y={610. + rise(END_AT + 0.6)} opacity={fade(END_AT + 0.6)} font-family={SANS} font-size="56" font-weight="500" fill={MUTED}>"for every app and every preview."</text>
-            <text x="120" y={688. + rise(END_AT + 0.7)} opacity={fade(END_AT + 0.7)} font-family={SANS} font-size="56" font-weight="500" fill={MUTED}>"Google, GitHub, email, or any OIDC provider."</text>
+            <text x="120" y={688. + rise(END_AT + 0.7)} opacity={fade(END_AT + 0.7)} font-family={SANS} font-size="56" font-weight="500" fill={MUTED}>"Google, GitHub, or any OIDC provider."</text>
             <text x="120" y={766. + rise(END_AT + 0.8)} opacity={fade(END_AT + 0.8)} font-family={SANS} font-size="56" font-weight="500" fill={MUTED}>"A Convex component."</text>
             <text x="120" y={884. + rise(END_AT + 0.95)} opacity={fade(END_AT + 0.95)} font-family={MONO} font-size="44" font-weight="500" fill={INK}>"npm i @samebase/identity-broker"</text>
         </g>
