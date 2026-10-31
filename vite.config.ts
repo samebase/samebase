@@ -47,6 +47,8 @@ export default defineConfig({
       "**/convex/_generated/**",
       "packages/git-editor/src/component/_generated/**",
       "packages/identity-broker/src/component/_generated/**",
+      "packages/alchemy-convex/src/store/*/_generated/**",
+      "packages/alchemy-convex/test/fixtures/**",
       "apps/samebase/AGENTS.md",
       "apps/samebase/CLAUDE.md",
       "apps/samebase/src/routeTree.gen.ts",
@@ -71,6 +73,8 @@ export default defineConfig({
       "**/convex/_generated",
       "packages/git-editor/src/component/_generated/**",
       "packages/identity-broker/src/component/_generated/**",
+      "packages/alchemy-convex/src/store/*/_generated/**",
+      "packages/alchemy-convex/test/fixtures/**",
       // Hey API owns these SDK and validator files.
       "apps/samebase/convex/cloudflareApi/generated/**",
       "apps/samebase/convex/convexManagementApi/generated/**",
@@ -279,7 +283,23 @@ export default defineConfig({
             "dev-dist",
             "apps/samebase/convex/**/*.convex.test.ts",
             "packages/identity-broker/**",
+            "packages/alchemy-convex/**",
           ],
+        },
+      },
+      {
+        extends: true,
+        test: {
+          name: "alchemy-convex",
+          environment: "node",
+          include: ["packages/alchemy-convex/test/**/*.test.ts"],
+          exclude: ["**/node_modules/**"],
+          // The State tests call process.chdir, which a worker thread cannot.
+          pool: "forks",
+          // alchemy/Test/Vitest and @effect/vitest resolve a vitest of their own peers, so they run
+          // through Vite here, with every import of vitest on the runner.
+          alias: { vitest: "vite-plus/test" },
+          server: { deps: { inline: true } },
         },
       },
       {

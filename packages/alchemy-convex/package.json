@@ -1,0 +1,85 @@
+{
+  "name": "@samebase/alchemy-convex",
+  "version": "0.18.0",
+  "description": "The Convex plane for Alchemy v2: projects, deployments, environment variables, and the push of the functions",
+  "keywords": [
+    "alchemy",
+    "cloudflare",
+    "convex",
+    "effect",
+    "infrastructure-as-code"
+  ],
+  "homepage": "https://github.com/samebase/samebase/tree/main/packages/alchemy-convex#readme",
+  "bugs": {
+    "url": "https://github.com/samebase/samebase/issues"
+  },
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/samebase/samebase.git",
+    "directory": "packages/alchemy-convex"
+  },
+  "bin": {
+    "alchemy-convex": "./src/cli.ts"
+  },
+  "files": [
+    "lib",
+    "src",
+    "README.md",
+    "LICENSE",
+    "NOTICE"
+  ],
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "publishConfig": {
+    "bin": {
+      "alchemy-convex": "./lib/cli.js"
+    },
+    "exports": {
+      ".": {
+        "types": "./lib/index.d.ts",
+        "import": "./lib/index.js"
+      }
+    },
+    "access": "public"
+  },
+  "scripts": {
+    "check": "pnpm run typecheck && pnpm run lint && pnpm run test && pnpm run build",
+    "typecheck": "tsc --noEmit",
+    "test": "pnpm --dir ../.. exec vp test run --project alchemy-convex",
+    "test:live": "node ./scripts/test-live.ts",
+    "lint": "pnpm --dir ../.. exec vp lint --tsconfig packages/alchemy-convex/tsconfig.json --report-unused-disable-directives packages/alchemy-convex",
+    "build": "vp pack",
+    "prepack": "pnpm run build"
+  },
+  "dependencies": {
+    "@convex-dev/platform": "0.1.11"
+  },
+  "devDependencies": {
+    "@alchemy.run/cloudflare": "2.0.0-beta.84",
+    "@arethetypeswrong/core": "0.18.5",
+    "@effect/platform-node": "4.0.5",
+    "@effect/vitest": "4.0.5",
+    "@types/node": "24.19.2",
+    "alchemy": "2.0.0-beta.84",
+    "convex": "1.48.0",
+    "convex-test": "0.0.60",
+    "effect": "4.0.5",
+    "publint": "0.3.25",
+    "typescript": "6.0.3",
+    "vite-plus": "catalog:",
+    "vitest": "catalog:"
+  },
+  "peerDependencies": {
+    "@effect/platform-node": "^4.0.5",
+    "alchemy": "2.0.0-beta.84",
+    "convex": "^1.48.0",
+    "effect": "^4.0.5"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
