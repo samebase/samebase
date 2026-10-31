@@ -122,8 +122,10 @@ audit:
     - GHSA-gcqx-w48m-w2h4
     # TODO(2026-11-14): Remove once nothing resolves minimatch below 11.0.1, the first fixed release.
     # Minimatch 11 removes makeRe() and changes Minimatch.set, which breaks glob 7, so an override is
-    # not safe. The flaw runs only with optimizationLevel 2 or higher. The default is 1, and neither
-    # apps/samebase/src/repository/editor/simpleView.ts nor the packages that resolve it set it.
+    # not safe. The flaw needs a crafted pattern and optimizationLevel 2 or higher. Our call in
+    # apps/samebase/src/repository/editor/simpleView.ts and the packages that resolve minimatch use
+    # the default, 1. The glob copy bundled in vite-plus uses 2, but only on patterns from this
+    # repository's own config, and anyone who can edit those can already run code here.
     - GHSA-g3hv-75wg-m249
 overrides:
   # Shared adapter 4.0.6 requires Effect ^4.0.6.
