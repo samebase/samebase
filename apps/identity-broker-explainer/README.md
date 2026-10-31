@@ -41,8 +41,8 @@ MP4 files: they render from `src/lib.rs` in seconds.
 Make the thumbnail of the Convex components directory from a frame of the end card:
 
 ```console
-cargo run --release -- frame 26.5s -o out
-ffmpeg -y -i out/26.5s.png -vf scale=1536:864:flags=lanczos ../../packages/identity-broker/docs/directory/thumbnail.png
+cargo run --release -- frame 30s -o out
+ffmpeg -y -i out/30s.png -vf scale=1536:864:flags=lanczos ../../packages/identity-broker/docs/directory/thumbnail.png
 ```
 
 ## Where each output goes
@@ -52,8 +52,8 @@ ffmpeg -y -i out/26.5s.png -vf scale=1536:864:flags=lanczos ../../packages/ident
 - `docs/directory/thumbnail.png` goes in the "Component Thumbnail" field of the
   [directory form](https://www.convex.dev/components/submit). That field takes `.webp`, `.png`, or
   `.jpg` up to 3 MB at 1536 x 864, so it cannot show a GIF.
-- `out/identity-broker.mp4` goes to YouTube, because the "Video URL" field of the form takes a
-  YouTube link, and the directory embeds it at the top of the listing.
+- `out/identity-broker.mp4`, with its music added, goes to YouTube, because the "Video URL" field of
+  the form takes a YouTube link, and the directory embeds it at the top of the listing.
 
 ## What the diagram claims
 

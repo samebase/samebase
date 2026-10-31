@@ -1,6 +1,7 @@
 //! The Identity Broker explainer: one diagram that changes from the first frame to the loop.
 //!
-//! Teal lines work and red lines fail. Every time below is a second of the video.
+//! Teal lines work and red lines fail. The timeline is written in beats of the music, so each
+//! caption changes on a downbeat. Every other time below is a second of the video.
 use fframes::{AudioMap, Color, Duration, FFramesContext, Frame, Svgr, Transform, Video};
 use fframes::{include_media_dir, svgr};
 
@@ -54,24 +55,33 @@ const CLIENT_MERGED_HEIGHT: f32 = 96.;
 const CLIENT_TOP: f32 = 88.;
 const CLIENT_SPACING: f32 = 100.;
 
-const CLIENT_ONE_AT: f32 = 0.35;
-const CLIENT_TWO_AT: f32 = 2.8;
-const REFUSED_AT: f32 = 5.75;
-const BROKER_AT: f32 = 10.6;
-const REROUTE_AT: f32 = 11.15;
-const MERGE_AT: f32 = 11.95;
-const UPSTREAM_AT: f32 = 12.45;
-const SIGN_IN_LABEL_AT: f32 = 1.0;
-const APPS_AT: f32 = 18.6;
-const ANY_PROVIDER_AT: f32 = 22.2;
-const END_AT: f32 = 24.6;
-const LOOP_AT: f32 = 27.8;
-const LOOP_FADE: f32 = 0.5;
+/// One beat of the music, at 100 BPM. Four beats make a bar.
+const BEAT: f32 = 0.6;
 
-const LINE_SECONDS: f32 = 0.5;
-const LEG_SECONDS: f32 = 0.35;
-/// The second line of a deployment starts this late, one provider after the other.
-const PROVIDER_STAGGER: f32 = 0.12;
+const fn beat(count: f32) -> f32 {
+    count * BEAT
+}
+
+const CLIENT_ONE_AT: f32 = beat(1.);
+const CLIENT_TWO_AT: f32 = beat(5.);
+const REFUSED_AT: f32 = beat(9.);
+/// The broker lands on beat 20, where the music comes back in full.
+const BROKER_AT: f32 = beat(19.5);
+const REROUTE_AT: f32 = beat(21.);
+const MERGE_AT: f32 = beat(22.5);
+const UPSTREAM_AT: f32 = beat(24.);
+const SIGN_IN_LABEL_AT: f32 = beat(2.5);
+const SIGN_IN_LABEL_END: f32 = beat(4.5);
+const APPS_AT: f32 = beat(32.);
+const ANY_PROVIDER_AT: f32 = beat(40.);
+const END_AT: f32 = beat(44.);
+const LOOP_AT: f32 = beat(51.);
+const LOOP_FADE: f32 = BEAT;
+
+const LINE_SECONDS: f32 = BEAT;
+const LEG_SECONDS: f32 = BEAT / 2.;
+/// A caption fades out this long before the next downbeat.
+const CAPTION_FADE: f32 = 0.15;
 
 #[derive(Clone, Copy)]
 enum Route {
@@ -109,41 +119,95 @@ const fn deployment(
 
 // Previews are real Convex hosts: no wildcard on an app's own domain can match them.
 const DEPLOYMENTS: [Deployment; 14] = [
-    deployment("myapp.com", 0, -1., 0.7, Route::Direct(0)),
-    deployment("localhost:5173", 0, 2.5, 3.1, Route::Direct(1)),
-    deployment("calm-fox-41.convex.site", 0, 5.0, 5.25, Route::Refused),
-    deployment("bold-owl-42.convex.site", 0, 5.5, 5.75, Route::Refused),
-    deployment("keen-elk-43.convex.site", 0, 6.0, 6.25, Route::Refused),
-    deployment("warm-yak-44.convex.site", 0, 16.0, 16.3, Route::Broker),
-    deployment("deft-ram-45.convex.site", 0, 16.9, 17.2, Route::Broker),
-    deployment("shop.com", 1, 19.6, 19.6, Route::Broker),
-    deployment("localhost:3000", 1, 19.7, 19.7, Route::Broker),
-    deployment("blue-ant-7.convex.site", 1, 19.8, 19.8, Route::Broker),
-    deployment("wise-cod-8.convex.site", 1, 19.9, 19.9, Route::Broker),
-    deployment("notes.app", 2, 20.05, 20.05, Route::Broker),
-    deployment("mild-bee-3.convex.site", 2, 20.15, 20.15, Route::Broker),
-    deployment("glad-emu-4.convex.site", 2, 20.25, 20.25, Route::Broker),
+    deployment("myapp.com", 0, -1., beat(2.), Route::Direct(0)),
+    deployment("localhost:5173", 0, beat(4.), beat(6.), Route::Direct(1)),
+    deployment(
+        "calm-fox-41.convex.site",
+        0,
+        beat(8.),
+        beat(8.),
+        Route::Refused,
+    ),
+    deployment(
+        "bold-owl-42.convex.site",
+        0,
+        beat(9.),
+        beat(9.),
+        Route::Refused,
+    ),
+    deployment(
+        "keen-elk-43.convex.site",
+        0,
+        beat(10.),
+        beat(10.),
+        Route::Refused,
+    ),
+    deployment(
+        "warm-yak-44.convex.site",
+        0,
+        beat(28.),
+        beat(28.),
+        Route::Broker,
+    ),
+    deployment(
+        "deft-ram-45.convex.site",
+        0,
+        beat(29.),
+        beat(29.),
+        Route::Broker,
+    ),
+    deployment("shop.com", 1, beat(34.), beat(34.), Route::Broker),
+    deployment("localhost:3000", 1, beat(34.25), beat(34.25), Route::Broker),
+    deployment(
+        "blue-ant-7.convex.site",
+        1,
+        beat(34.5),
+        beat(34.5),
+        Route::Broker,
+    ),
+    deployment(
+        "wise-cod-8.convex.site",
+        1,
+        beat(34.75),
+        beat(34.75),
+        Route::Broker,
+    ),
+    deployment("notes.app", 2, beat(35.), beat(35.), Route::Broker),
+    deployment(
+        "mild-bee-3.convex.site",
+        2,
+        beat(35.25),
+        beat(35.25),
+        Route::Broker,
+    ),
+    deployment(
+        "glad-emu-4.convex.site",
+        2,
+        beat(35.5),
+        beat(35.5),
+        Route::Broker,
+    ),
 ];
 
 /// Every sign-in: which deployment, through which provider, and when. A check mark means the first
-/// sign-in of that deployment came back.
+/// sign-in of that deployment came back, and it lands on a beat.
 const SIGN_INS: [(usize, usize, f32); 16] = [
-    (0, 0, 1.2),
-    (1, 1, 3.6),
-    (2, 0, 13.3),
-    (3, 1, 13.65),
-    (4, 0, 14.0),
-    (5, 1, 16.7),
-    (6, 0, 17.6),
-    (7, 0, 20.3),
-    (11, 1, 20.38),
-    (8, 1, 20.46),
-    (12, 0, 20.54),
-    (9, 0, 20.62),
-    (13, 1, 20.7),
-    (10, 1, 20.78),
-    (3, 2, 22.9),
-    (9, 2, 23.2),
+    (0, 0, beat(3.)),
+    (1, 1, beat(7.)),
+    (2, 0, beat(25.)),
+    (3, 1, beat(25.5)),
+    (4, 0, beat(26.)),
+    (5, 1, beat(29.)),
+    (6, 0, beat(30.)),
+    (7, 0, beat(36.)),
+    (11, 1, beat(36.5)),
+    (8, 1, beat(37.)),
+    (12, 0, beat(37.5)),
+    (9, 0, beat(38.)),
+    (13, 1, beat(38.5)),
+    (10, 1, beat(39.)),
+    (3, 2, beat(41.)),
+    (9, 2, beat(42.)),
 ];
 
 const APP_NAMES: [&str; 3] = ["myapp", "shop", "notes"];
@@ -157,54 +221,54 @@ struct Caption {
 const CAPTIONS: [Caption; 10] = [
     Caption {
         start: -1.,
-        end: 2.35,
+        end: beat(4.) - CAPTION_FADE,
         parts: &[("Your app signs in with Google and GitHub.", INK)],
     },
     Caption {
-        start: 2.5,
-        end: 4.65,
+        start: beat(4.),
+        end: beat(8.) - CAPTION_FADE,
         parts: &[("Development gets its own clients.", INK)],
     },
     Caption {
-        start: 4.8,
-        end: 6.85,
+        start: beat(8.),
+        end: beat(12.) - CAPTION_FADE,
         parts: &[("Every pull request gets a new URL.", INK)],
     },
     Caption {
-        start: 7.0,
-        end: 9.15,
+        start: beat(12.),
+        end: beat(16.) - CAPTION_FADE,
         parts: &[("Google and GitHub refuse URLs they don't know.", INK)],
     },
     Caption {
-        start: 9.3,
-        end: 10.45,
+        start: beat(16.),
+        end: beat(20.) - CAPTION_FADE,
         parts: &[("So sign-in fails on every preview.", RED)],
     },
     Caption {
-        start: 10.6,
-        end: 12.75,
+        start: beat(20.),
+        end: beat(24.) - CAPTION_FADE,
         parts: &[
             ("Identity Broker", TEAL),
             (" sits in front of your providers.", INK),
         ],
     },
     Caption {
-        start: 12.9,
-        end: 15.65,
+        start: beat(24.),
+        end: beat(28.) - CAPTION_FADE,
         parts: &[("Each provider sees one client and one URL.", INK)],
     },
     Caption {
-        start: 15.8,
-        end: 18.4,
+        start: beat(28.),
+        end: beat(32.) - CAPTION_FADE,
         parts: &[("Previews register their exact URL at deploy.", INK)],
     },
     Caption {
-        start: 18.55,
-        end: 21.95,
+        start: beat(32.),
+        end: beat(40.) - CAPTION_FADE,
         parts: &[("All your apps can share it.", INK)],
     },
     Caption {
-        start: 22.1,
+        start: beat(40.),
         end: END_AT,
         parts: &[("Any other provider connects the same way.", INK)],
     },
@@ -362,11 +426,7 @@ fn line_end(index: usize, provider: usize, t: f32) -> Point {
 
 fn line(index: usize, provider: usize, t: f32) -> Svgr<'static> {
     let item = &DEPLOYMENTS[index];
-    let drawn = morph(
-        t,
-        item.line + provider as f32 * PROVIDER_STAGGER,
-        LINE_SECONDS,
-    );
+    let drawn = morph(t, item.line, LINE_SECONDS);
     if drawn <= 0. {
         return Svgr::empty();
     }
@@ -384,8 +444,7 @@ fn refused_mark(index: usize, provider: usize, t: f32) -> Svgr<'static> {
     if !matches!(item.route, Route::Refused) {
         return Svgr::empty();
     }
-    let reached = item.line + provider as f32 * PROVIDER_STAGGER + LINE_SECONDS;
-    let shown = enter(t, reached, 0.22) * (1. - progress(t, REROUTE_AT, 0.25));
+    let shown = enter(t, item.line + LINE_SECONDS, 0.22) * (1. - progress(t, REROUTE_AT, 0.25));
     if shown <= 0. {
         return Svgr::empty();
     }
@@ -493,7 +552,7 @@ fn pulse(index: usize, provider: usize, start: f32, t: f32) -> Svgr<'static> {
 }
 
 fn broker(t: f32) -> Svgr<'static> {
-    let shown = enter(t, BROKER_AT, 0.55);
+    let shown = enter(t, BROKER_AT, BEAT / 2.);
     if shown <= 0. {
         return Svgr::empty();
     }
@@ -509,9 +568,9 @@ fn broker(t: f32) -> Svgr<'static> {
 
 fn upstream_line(provider: usize, t: f32) -> Svgr<'static> {
     let start = if provider == 2 {
-        ANY_PROVIDER_AT + 0.3
+        ANY_PROVIDER_AT + BEAT / 2.
     } else {
-        UPSTREAM_AT + provider as f32 * PROVIDER_STAGGER
+        UPSTREAM_AT
     };
     let drawn = morph(t, start, 0.4);
     if drawn <= 0. {
@@ -545,7 +604,7 @@ fn any_provider_mark() -> Svgr<'static> {
 }
 
 fn client(provider: usize, index: usize, t: f32) -> Svgr<'static> {
-    let delay = provider as f32 * 0.15;
+    let delay = provider as f32 * BEAT / 2.;
     let shown = match (provider, index) {
         (2, _) => 1.,
         (_, 0) => enter(t, CLIENT_ONE_AT + delay, 0.35),
@@ -617,7 +676,7 @@ fn tile(provider: usize, t: f32) -> Svgr<'static> {
 }
 
 fn sign_in_label(t: f32) -> Svgr<'static> {
-    let shown = enter(t, SIGN_IN_LABEL_AT, 0.25) * (1. - progress(t, 2.2, 0.2));
+    let shown = enter(t, SIGN_IN_LABEL_AT, 0.25) * (1. - progress(t, SIGN_IN_LABEL_END, 0.2));
     if shown <= 0. {
         return Svgr::empty();
     }
@@ -637,7 +696,7 @@ fn refusal_label(t: f32) -> Svgr<'static> {
 }
 
 fn caption(item: &Caption, t: f32) -> Svgr<'static> {
-    let opacity = enter(t, item.start, 0.3) * (1. - progress(t, item.end, 0.15));
+    let opacity = enter(t, item.start, 0.2) * (1. - progress(t, item.end, CAPTION_FADE));
     if opacity <= 0. {
         return Svgr::empty();
     }
@@ -646,7 +705,7 @@ fn caption(item: &Caption, t: f32) -> Svgr<'static> {
         .iter()
         .map(|(text, color)| svgr!(<tspan fill={*color}>{*text}</tspan>))
         .collect();
-    let y = CAPTION_Y + (1. - enter(t, item.start, 0.3)) * 14.;
+    let y = CAPTION_Y + (1. - enter(t, item.start, 0.2)) * 14.;
     svgr!(
         <text x={CAPTION_X} y={y} opacity={opacity} font-family={SANS} font-size="70" font-weight="600" letter-spacing="-1.5">{parts}</text>
     )
@@ -691,18 +750,18 @@ fn diagram(t: f32) -> Svgr<'static> {
 }
 
 fn end_card(t: f32) -> Svgr<'static> {
-    let rise = |start: f32| (1. - enter(t, start, 0.5)) * 24.;
-    let fade = |start: f32| enter(t, start, 0.5);
+    let rise = |start: f32| (1. - enter(t, start, 0.25)) * 24.;
+    let fade = |start: f32| enter(t, start, 0.25);
     svgr!(
         <g>
-            <text x="120" y={316. + rise(END_AT + 0.2)} opacity={fade(END_AT + 0.2)} font-family={MONO} font-size="118" font-weight="500" letter-spacing="-3" fill={INK}>"identity-broker"</text>
-            <text x="116" y={498. + rise(END_AT + 0.35)} opacity={fade(END_AT + 0.35)} font-family={SANS} font-size="156" font-weight="700" letter-spacing="-4" fill={INK}>
+            <text x="120" y={316. + rise(beat(44.5))} opacity={fade(beat(44.5))} font-family={MONO} font-size="118" font-weight="500" letter-spacing="-3" fill={INK}>"identity-broker"</text>
+            <text x="116" y={498. + rise(beat(45.))} opacity={fade(beat(45.))} font-family={SANS} font-size="156" font-weight="700" letter-spacing="-4" fill={INK}>
                 "set up sign-in "<tspan fill={TEAL}>"once"</tspan>
             </text>
-            <text x="120" y={610. + rise(END_AT + 0.6)} opacity={fade(END_AT + 0.6)} font-family={SANS} font-size="56" font-weight="500" fill={MUTED}>"for every app and every preview."</text>
-            <text x="120" y={688. + rise(END_AT + 0.7)} opacity={fade(END_AT + 0.7)} font-family={SANS} font-size="56" font-weight="500" fill={MUTED}>"Google, GitHub, or any OIDC provider."</text>
-            <text x="120" y={766. + rise(END_AT + 0.8)} opacity={fade(END_AT + 0.8)} font-family={SANS} font-size="56" font-weight="500" fill={MUTED}>"A Convex component."</text>
-            <text x="120" y={884. + rise(END_AT + 0.95)} opacity={fade(END_AT + 0.95)} font-family={MONO} font-size="44" font-weight="500" fill={INK}>"npm i @samebase/identity-broker"</text>
+            <text x="120" y={610. + rise(beat(46.))} opacity={fade(beat(46.))} font-family={SANS} font-size="56" font-weight="500" fill={MUTED}>"for every app and every preview."</text>
+            <text x="120" y={688. + rise(beat(46.5))} opacity={fade(beat(46.5))} font-family={SANS} font-size="56" font-weight="500" fill={MUTED}>"Google, GitHub, or any OIDC provider."</text>
+            <text x="120" y={766. + rise(beat(47.))} opacity={fade(beat(47.))} font-family={SANS} font-size="56" font-weight="500" fill={MUTED}>"A Convex component."</text>
+            <text x="120" y={884. + rise(beat(48.))} opacity={fade(beat(48.))} font-family={MONO} font-size="44" font-weight="500" fill={INK}>"npm i @samebase/identity-broker"</text>
         </g>
     )
 }
