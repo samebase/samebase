@@ -89,9 +89,10 @@ const STORE_QUERIES = [
   "getOutput",
   "readStack",
 ];
-const STORE_MUTATIONS = ["set", "remove", "removeStack", "setOutput"];
+const STORE_MUTATIONS = ["remove", "removeStack"];
+const STORE_ACTIONS = ["set", "setOutput", "reseal"];
 /** The store version that added a function; every other function is in version 1 (0.6.0). */
-const STORE_FUNCTION_SINCE: Record<string, number> = { readStack: 2 };
+const STORE_FUNCTION_SINCE: Record<string, number> = { readStack: 2, reseal: 5 };
 const HubCall = Schema.Struct({ args: Schema.Record(Schema.String, Schema.Unknown) });
 const FunctionCall = Schema.Struct({
   path: Schema.String,
@@ -515,7 +516,7 @@ export class FakeConvex {
       json(200, { ...stateFixture("function_version_missing.json"), errorMessage: message });
     if (
       store === undefined ||
-      !(STORE_QUERIES.includes(name) || STORE_MUTATIONS.includes(name)) ||
+      ![...STORE_QUERIES, ...STORE_MUTATIONS, ...STORE_ACTIONS].includes(name) ||
       store.version < (STORE_FUNCTION_SINCE[name] ?? 1)
     ) {
       return error(
@@ -524,7 +525,9 @@ export class FakeConvex {
     }
     const action = STORE_QUERIES.includes(name)
       ? "deployment:functions:runInternalQueries"
-      : "deployment:functions:runInternalMutations";
+      : STORE_ACTIONS.includes(name)
+        ? "deployment:functions:runInternalActions"
+        : "deployment:functions:runInternalMutations";
     if (key.actions !== undefined && !key.actions.includes(action)) {
       return error(
         `[Request ID: fake] Server Error\nYou do not have permission to perform this operation (${action}).\n`,
@@ -589,6 +592,8 @@ export class FakeConvex {
       case "setOutput":
         store.outputs.set(output, value);
         return reply(null);
+      case "reseal":
+        return reply({ resealed: 0, skippedChanged: 0 });
       case "readStack": {
         const stages = [
           ...new Set([

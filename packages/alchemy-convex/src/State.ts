@@ -19,6 +19,11 @@
 // repository-scoped subscriptions with secret values removed. A key that stops working during a
 // long run (it expires after two hours) is replaced once per call.
 //
+// The store seals each `Redacted` value in its own functions, with the key ring in the variable
+// STATE_KEYS of its deployment, so this client sends and gets clear text and never holds the ring.
+// The first push makes the ring, and a later push keeps it. After each push the store seals the
+// rows that an older store left in clear text.
+//
 // Two first runs of a team can both create a project named `alchemy-state-store`.
 // The run whose project is not the oldest deletes its own, before it writes
 // anything, and uses the oldest: both runs end on one store.
@@ -72,11 +77,14 @@ import {
   createDeployKey,
   deleteDeployKey,
   installedCli,
+  listVariables,
   push,
   PUSH_KEY_ACTIONS,
   withPushKey,
+  writeVariables,
 } from "./Push.ts";
 import { type RunRecord, runRecord, withRunRecord } from "./RunRecord.ts";
+import { newKeyRing, STATE_KEYS } from "./store/convex/sealing.ts";
 import { STORE_VERSION } from "./store/convex/version.ts";
 
 /** The name of the state project in each team. */
@@ -91,6 +99,9 @@ export const RUN_KEY_ACTIONS = [
   "deployment:functions:runInternalQueries",
   "deployment:functions:runInternalMutations",
 ] as const;
+
+/** The actions of the key of one run on the store: its writes are actions that seal. */
+const STORE_KEY_ACTIONS = [...RUN_KEY_ACTIONS, "deployment:functions:runInternalActions"] as const;
 
 /** The body of POST /api/function, with HTTP 200 for a function error too. */
 const Reply = Schema.Union([
@@ -279,18 +290,27 @@ const pushStore = (
       `Convex state: pushing the store version ${STORE_VERSION} to ${deployment.name}`,
     );
     yield* withPushKey(options.api, deployment.name, PUSH_KEY_ACTIONS, (key) =>
-      push(options.spawner, key, {
-        deployment: deployment.name,
-        url: deployment.deploymentUrl,
-        rootDir: join(options.store, ".."),
-        source: {
-          path: options.store,
-          command: [...cli, "deploy", "--typecheck", "disable", "--codegen", "disable"],
-        },
-        env: {},
-        previousEnvNames: [],
-        adopt: false,
-        previewName: undefined,
+      Effect.gen(function* () {
+        const variables = yield* listVariables(deployment.deploymentUrl, key);
+        // A ring that exists stays: the rows are sealed under it.
+        if (variables[STATE_KEYS] === undefined) {
+          yield* writeVariables(deployment.deploymentUrl, key, [
+            { name: STATE_KEYS, value: newKeyRing() },
+          ]);
+        }
+        yield* push(options.spawner, key, {
+          deployment: deployment.name,
+          url: deployment.deploymentUrl,
+          rootDir: join(options.store, ".."),
+          source: {
+            path: options.store,
+            command: [...cli, "deploy", "--typecheck", "disable", "--codegen", "disable"],
+          },
+          env: {},
+          previousEnvNames: [],
+          adopt: false,
+          previewName: undefined,
+        });
       }),
     );
   });
@@ -357,7 +377,7 @@ export const makeConvexState = (options: StoreOptions) =>
         }),
       ),
     );
-    const mint = createDeployKey(api, deployment.name, STORE_PROJECT_NAME, RUN_KEY_ACTIONS).pipe(
+    const mint = createDeployKey(api, deployment.name, STORE_PROJECT_NAME, STORE_KEY_ACTIONS).pipe(
       Effect.map((key) => {
         keys.push(key);
         return makeFunctionApi(deployment.deploymentUrl, key);
@@ -393,6 +413,9 @@ export const makeConvexState = (options: StoreOptions) =>
       if (version === undefined || version < STORE_VERSION) {
         yield* pushStore(options, deployment);
         version = yield* storeVersion(functions);
+        if (version === STORE_VERSION) {
+          yield* functions.call("state:reseal", {}).pipe(Effect.flatMap(valueOf));
+        }
       }
     }
     if (version !== STORE_VERSION) {

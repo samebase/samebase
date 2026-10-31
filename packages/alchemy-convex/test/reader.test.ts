@@ -42,7 +42,7 @@ describe("repository reader", () => {
       "samebase/app/a",
     ]) {
       for (const stage of ["pr-2", "main"]) {
-        await t.mutation(internal.state.setOutput, {
+        await t.action(internal.state.setOutput, {
           stack,
           stage,
           run,
@@ -52,7 +52,7 @@ describe("repository reader", () => {
           }),
         });
         for (const fqn of ["Z", "A"]) {
-          await t.mutation(internal.state.set, {
+          await t.action(internal.state.set, {
             stack,
             stage,
             fqn,
@@ -97,7 +97,7 @@ describe("repository reader", () => {
   it("shows the first write before output, and separates the current run from the deployed commit", async () => {
     const t = storeTest();
     const reader = t.withIdentity(identity);
-    await t.mutation(internal.state.set, {
+    await t.action(internal.state.set, {
       stack: run.repository,
       stage: "main",
       fqn: "Worker",
@@ -118,13 +118,13 @@ describe("repository reader", () => {
       output: "null",
     });
     const previous = { ...run, headCommit: "previous-commit" };
-    await t.mutation(internal.state.setOutput, {
+    await t.action(internal.state.setOutput, {
       stack: run.repository,
       stage: "main",
       value: JSON.stringify({ "samebase.run": previous, url: "https://example.test" }),
       run: previous,
     });
-    await t.mutation(internal.state.set, {
+    await t.action(internal.state.set, {
       stack: run.repository,
       stage: "main",
       fqn: "Worker",
@@ -135,7 +135,7 @@ describe("repository reader", () => {
       record: run,
       deployedHeadCommit: "previous-commit",
     });
-    await t.mutation(internal.state.setOutput, {
+    await t.action(internal.state.setOutput, {
       stack: run.repository,
       stage: "main",
       value: JSON.stringify({ "samebase.run": run }),
@@ -156,7 +156,7 @@ describe("repository reader", () => {
     await t.mutation(internal.state.removeStack, { stack: run.repository, stage: "main" });
     expect(await reader.query(api.reader.repository, {})).toEqual({ store: "found", stacks: [] });
     expect(await t.query(internal.state.stacks, {})).toEqual([]);
-    await t.mutation(internal.state.set, {
+    await t.action(internal.state.set, {
       stack: run.repository,
       stage: "main",
       fqn: "Worker",
@@ -169,7 +169,7 @@ describe("repository reader", () => {
   it("hides a stage after a write without a run record", async () => {
     const t = storeTest();
     const reader = t.withIdentity(identity);
-    await t.mutation(internal.state.set, {
+    await t.action(internal.state.set, {
       stack: run.repository,
       stage: "main",
       fqn: "Worker",
@@ -177,7 +177,7 @@ describe("repository reader", () => {
       run,
     });
     expect((await reader.query(api.reader.repository, {})).stacks).toHaveLength(1);
-    await t.mutation(internal.state.set, {
+    await t.action(internal.state.set, {
       stack: run.repository,
       stage: "main",
       fqn: "Worker",
@@ -192,7 +192,7 @@ describe("repository reader", () => {
   it("preserves arbitrary JSON output while removing nested secrets", async () => {
     const t = storeTest();
     for (const value of [null, "text", 1, false, [1, { __redacted__: "private" }]]) {
-      await t.mutation(internal.state.setOutput, {
+      await t.action(internal.state.setOutput, {
         stack: run.repository,
         stage: "main",
         value: JSON.stringify(value),
@@ -206,7 +206,7 @@ describe("repository reader", () => {
       expect(stage?.deployedHeadCommit).toBeNull();
     }
     // A stack can put its own value under the key: it is not a run record.
-    await t.mutation(internal.state.setOutput, {
+    await t.action(internal.state.setOutput, {
       stack: run.repository,
       stage: "main",
       value: JSON.stringify({ "samebase.run": { ...run, headCommit: 1 } }),

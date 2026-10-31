@@ -148,11 +148,11 @@ export const get = query({
 /** Resources whose state has `status: "replaced"`. */
 export const replaced = query({
   args: stage,
-  returns: v.array(v.string()),
+  returns: v.array(v.object({ fqn: v.string(), value: v.string() })),
   handler: async (ctx, args) =>
     (await rowsOf(ctx, args))
-      .map((row) => row.value)
-      .filter((value) => {
+      .map((row) => ({ fqn: row.fqn, value: row.value }))
+      .filter(({ value }) => {
         const parsed: unknown = JSON.parse(value);
         return (
           typeof parsed === "object" &&
@@ -232,6 +232,33 @@ export const setOutput = mutation({
     else await ctx.db.patch("outputs", row._id, { value: args.value });
     await writeCurrentRun(ctx, args);
     return null;
+  },
+});
+
+/**
+ * Replaces the value of a row that still holds `expected`, for a reseal: the row keeps its run
+ * record. It answers false for a row that changed.
+ */
+export const replaceResource = mutation({
+  args: { ...resource, expected: v.string(), value: v.string() },
+  returns: v.boolean(),
+  handler: async (ctx, args) => {
+    const row = await rowOf(ctx, args);
+    if (row === null || row.value !== args.expected) return false;
+    await ctx.db.patch("resources", row._id, { value: args.value });
+    return true;
+  },
+});
+
+/** Like {@link replaceResource}, for an output. */
+export const replaceOutput = mutation({
+  args: { ...stage, expected: v.string(), value: v.string() },
+  returns: v.boolean(),
+  handler: async (ctx, args) => {
+    const row = await outputOf(ctx, args);
+    if (row === null || row.value !== args.expected) return false;
+    await ctx.db.patch("outputs", row._id, { value: args.value });
+    return true;
   },
 });
 

@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.19.0 (unreleased)
+
+The store seals each `Redacted` value, so a row holds no secret in clear text.
+
+- `state:set` and `state:setOutput` are actions that seal with AES-256-GCM before they write. `get`,
+  `replaced`, and `getOutput` open the values for a run. `readStack` and `reader:repository` give
+  the rows as they are stored, without their secrets.
+- The key ring is the variable `STATE_KEYS` of the store deployment. The first push makes it, and a
+  later push keeps it. It does not leave the deployment.
+- After a push, `state:reseal` seals the rows of the older store. It is also the last step of a key
+  rotation.
+- This is store version 5. Upgrade every repository of a team on the same day: the first run of this
+  version pushes the store, and an older client stops with an error.
+- The key of a run on the store can also run internal actions.
+- `@samebase/alchemy-convex/sealed-secret` exports the sealing functions.
+
 ## 0.18.0 (unreleased)
 
 The command `alchemy-convex stack-comment` keeps one comment on a pull request with a card for each

@@ -30,6 +30,7 @@ import {
   STORE_PROJECT_NAME,
 } from "../src/State.ts";
 import { STORE_VERSION } from "../src/store/convex/version.ts";
+import { parseKeyRing } from "../src/store/sealedSecret.ts";
 import { FakeConvex, recorded, stateFixture } from "./fakeConvex.ts";
 
 const TEAM = 38516;
@@ -159,7 +160,7 @@ describe("Convex.state", () => {
     const [runKey, pushKey, pushKeyDelete] = keyCalls(fake);
     expect(Schema.decodeUnknownSync(KeyBody)(runKey?.body)).toEqual({
       name: STORE_PROJECT_NAME,
-      allowedActions: [...RUN_KEY_ACTIONS],
+      allowedActions: [...RUN_KEY_ACTIONS, "deployment:functions:runInternalActions"],
     });
     expect(Schema.decodeUnknownSync(KeyBody)(pushKey?.body).allowedActions).toEqual([
       "deployment:deploy",
@@ -197,6 +198,7 @@ describe("Convex.state", () => {
       [RUN_RECORD_KEY]: { ...record, recordedAt: expect.stringMatching(/^2\d{3}-\d\d-\d\dT/) },
     });
     expect(fake.functionCalls.filter((line) => !line.endsWith("state:version"))).toEqual([
+      `${deployment} state:reseal`,
       `${deployment} state:set`,
       `${deployment} state:setOutput`,
       `${deployment} state:list`,
@@ -222,6 +224,64 @@ describe("Convex.state", () => {
     expect(keyCalls(fake)).toHaveLength(1);
     expect(await run(runs())).toEqual([]);
     expect(await run(service.listStacks())).toEqual([]);
+    // No push: the key ring stays untouched, and no reseal runs.
+    expect(fake.variables.get(deployment)).toBeUndefined();
+    expect(fake.functionCalls).not.toContain(`${deployment} state:reseal`);
+  });
+
+  it("makes the key ring with the first push, and a later push keeps it", async () => {
+    const fake = new FakeConvex().install();
+    const deployment =
+      fake.project(fake.addProject({ name: STORE_PROJECT_NAME, teamId: TEAM }))
+        ?.prodDeploymentName ?? "";
+    fake.addStore(deployment, STORE_VERSION);
+    // The deployment answers version 0 twice, so each run pushes.
+    const older = () =>
+      fake.scripted.set(`POST ${deployment}.convex.cloud/api/function`, [
+        { status: 200, body: { ...stateFixture("function_version.json"), value: 0 } },
+        { status: 200, body: { ...stateFixture("function_version.json"), value: 0 } },
+      ]);
+
+    older();
+    await run(open());
+    const first = fake.variables.get(deployment)?.["STATE_KEYS"];
+    expect(parseKeyRing("STATE_KEYS", first).keys.size).toBe(1);
+
+    older();
+    await run(open());
+    expect(await run(runs())).toHaveLength(2);
+    expect(fake.variables.get(deployment)?.["STATE_KEYS"]).toBe(first);
+    expect(fake.functionCalls.filter((line) => line.endsWith("state:reseal"))).toHaveLength(2);
+  });
+
+  it("does not send the key ring through a state function", async () => {
+    const fake = new FakeConvex().install();
+    const { service } = await run(open());
+    await run(service.set({ ...stack, fqn: "Project", value: created("Project") }));
+    const project = fake.projects.find((row) => row["name"] === STORE_PROJECT_NAME);
+    const ring = fake.variables.get(String(project?.["prodDeploymentName"]))?.["STATE_KEYS"] ?? "";
+    expect(ring).not.toBe("");
+    const calls = fake.sent.filter((request) => request.path.endsWith("/api/function"));
+    expect(calls.length).toBeGreaterThan(0);
+    expect(JSON.stringify(calls)).not.toContain(ring);
+  });
+
+  it("stops the run when the reseal after a push fails", async () => {
+    const fake = new FakeConvex().install();
+    const deployment =
+      fake.project(fake.addProject({ name: STORE_PROJECT_NAME, teamId: TEAM }))
+        ?.prodDeploymentName ?? "";
+    fake.addStore(deployment, STORE_VERSION);
+    fake.scripted.set(`POST ${deployment}.convex.cloud/api/function`, [
+      { status: 200, body: { ...stateFixture("function_version.json"), value: 0 } },
+      { status: 200, body: { ...stateFixture("function_version.json"), value: 0 } },
+      { status: 200, body: { ...stateFixture("function_version.json"), value: STORE_VERSION } },
+      {
+        status: 200,
+        body: { ...stateFixture("function_version_missing.json"), errorMessage: "reseal failed" },
+      },
+    ]);
+    expect(await failureOf(open())).toContain("reseal failed");
   });
 
   it("keeps the stacks of two repositories apart in one store", async () => {

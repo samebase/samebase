@@ -448,7 +448,7 @@ export const withPushKey = <A, E, R>(
   );
 
 /** Every variable of the deployment with its value. */
-const listVariables = (url: string, key: Redacted.Redacted<string>) =>
+export const listVariables = (url: string, key: Redacted.Redacted<string>) =>
   settle("list environment variables", () =>
     createDeploymentClient(url, Redacted.value(key)).GET("/list_environment_variables"),
   ).pipe(
@@ -458,7 +458,7 @@ const listVariables = (url: string, key: Redacted.Redacted<string>) =>
   );
 
 /** One call that sets variables, or removes those whose value is null. */
-const writeVariables = (
+export const writeVariables = (
   url: string,
   key: Redacted.Redacted<string>,
   changes: ReadonlyArray<{ readonly name: string; readonly value: string | null }>,

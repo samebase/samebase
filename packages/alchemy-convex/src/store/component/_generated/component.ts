@@ -133,7 +133,27 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         "query",
         "internal",
         { stack: string; stage: string },
-        Array<string>,
+        Array<{ fqn: string; value: string }>,
+        Name
+      >;
+      replaceOutput: FunctionReference<
+        "mutation",
+        "internal",
+        { expected: string; stack: string; stage: string; value: string },
+        boolean,
+        Name
+      >;
+      replaceResource: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          expected: string;
+          fqn: string;
+          stack: string;
+          stage: string;
+          value: string;
+        },
+        boolean,
         Name
       >;
       set: FunctionReference<

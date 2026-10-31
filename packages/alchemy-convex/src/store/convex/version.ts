@@ -10,4 +10,5 @@
 // 2: `readStack` (0.7.0).
 // 3: authenticated subscriptions and current stage run records (0.9.0).
 // 4: the store is a component (same functions).
-export const STORE_VERSION = 4;
+// 5: rows hold their secrets sealed: `set` and `setOutput` are actions, and `reseal` (0.19.0).
+export const STORE_VERSION = 5;

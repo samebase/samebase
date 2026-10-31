@@ -295,6 +295,34 @@ the team upgrades a consumer: the move comes before the first upgrade, and no de
 This version does not export the component from the package. A later version exports it, so that
 other apps can mount it.
 
+## Sealed secrets (store version 5)
+
+`encodeState` writes `{ "__redacted__": <value> }`, and a row must keep the value: the next run can
+get a hub client secret or a Cloudflare token only from the state. So every reader had to remove the
+values, and a reader that forgot showed them. The store now seals them, so that a row is safe to
+show.
+
+- A row holds `{ "__redacted__": { "__sealed__": { keyId, iv, ciphertext } } }`. `__redacted__`
+  stays, so `reader:repository` and the readers of Samebase remove the object as before, and the
+  rest of the row stays readable with no key, as the pages of Samebase need.
+- The sealing is in the store, in `src/store/convex/sealing.ts`, and not in the client. The client
+  would need the key ring in CI, or a second secret in each repository. So the ring is the variable
+  `STATE_KEYS` of the store deployment, and it never leaves the deployment.
+- Sealing needs real randomness for the IV, and only a Convex action has it. So `state:set` and
+  `state:setOutput` are actions, which seal and then call the mutations `writeResource` and
+  `writeOutput`. Opening draws no randomness, so `get`, `replaced`, and `getOutput` stay queries.
+  Measured on a local backend: `crypto.subtle.decrypt` runs in an internal query.
+- The additional data of a value names its row, so a sealed value opens only in the row that sealed
+  it. A move of a stack goes through `get` and `set`, which open and seal again.
+- `src/store/sealedSecret.ts` has the same format as the credentials of Samebase, and it depends on
+  nothing, so Samebase can import it from `@samebase/alchemy-convex/sealed-secret`.
+- `state:reseal` seals every value under the current key. The client runs it after each push, which
+  covers the rows of store version 4, and an operator runs it to rotate a key. It writes with
+  `replaceResource` and `replaceOutput`, which keep the run record and leave a row that changed. A
+  read gives a value with no `__sealed__` as it is, for the time before the reseal reaches it.
+- This protects a table view, a snapshot, and a reader bug. It does not protect against the team
+  token, and no store can: a run has to read the values.
+
 ## Measured
 
 Proof: the public starter `samebase/base-alchemy` on a local branch, with the stack named
@@ -349,8 +377,12 @@ store was not touched. The probe rows were deleted at the end.
 
 ## Limits
 
-- No lock: keep the CI concurrency group for each stage. No encryption beyond Convex at rest; a
-  holder of a key with `runInternalQueries` reads every `Redacted` prop of every stack of the team.
+- No lock: keep the CI concurrency group for each stage.
+- The sealing protects the rows, not the functions. A holder of a key with `runInternalQueries`
+  reads every `Redacted` value of every stack of the team, because a run needs those values. A team
+  token can make such a key.
+- Two first runs of a team at the same time can both write `STATE_KEYS`, and a row that a run sealed
+  under the ring that was replaced cannot open. Run the first deploy of a team alone.
 - Two first runs of two repositories at the same time in a team with no store can both create a
   project named `alchemy-state`. Each run lists the projects again after its create; the run whose
   project is not the oldest deletes its own, which holds nothing yet, and uses the oldest. A
