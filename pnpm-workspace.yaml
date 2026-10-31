@@ -1,4 +1,3 @@
-# templates/base is a separate workspace with its own lockfile.
 packages:
   - "apps/*"
   - "packages/*"
@@ -95,6 +94,8 @@ minimumReleaseAgeExclude:
   # header decoding), published 2026-10-17 15:06 UTC with npm provenance. Remove after 2026-10-24
   # 15:07 UTC.
   - "postal-mime@4.0.8"
+  # Renovate security update: minimatch@11.0.1
+  - minimatch@11.0.1
 minimumReleaseAgeStrict: true
 minimumReleaseAgeIgnoreMissingTime: false
 # Blocks transitive git/tarball dependencies, including the remote GitHub
@@ -146,7 +147,7 @@ overrides:
   js-yaml: 5.4.3
   lodash: 4.18.1
   mailparser: 3.9.38
-  "minimatch@3": 10.2.6
+  "minimatch@3": 11.0.1
   nanoid: 6.0.2
   "picomatch@2": 4.0.7
   "picomatch@4.0.3": 4.0.7
