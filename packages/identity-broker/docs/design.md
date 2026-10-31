@@ -6,8 +6,7 @@ The broker is a federated OpenID Provider in the shape of Dex: upstream connecto
 
 Apps, clients (one per deployment: exact redirect URI, hashed secret), authorization requests for
 ten minutes, authorization codes for sixty seconds and one use, an audit row per issued `id_token`
-(app, client, connector, pairwise subject, time), and a row per email code sent (SHA-256 of the
-canonical address, time) for one hour. Apart from those audit and send rows, nothing about a user
+(app, client, connector, pairwise subject, time). Apart from those audit rows, nothing about a user
 outlives the request that carried it. The audit rows keep the pairwise subject for 90 days.
 
 The host schedules the component's `cleanup` daily from a cron, as the
@@ -52,17 +51,10 @@ verified in browsers.
 
 ## Browser binding
 
-`/authorize` sets one transaction cookie per request, and every later step needs it: `/continue`,
-the connector callback, and the email steps (RFC 9700 section 2.1.1). A first-party request skips
-the chooser, not this binding. A link or a callback that reaches another browser gets an error page,
-and the request keeps waiting for the browser that started it.
-
-## Email send limits
-
-A request sends at most 3 codes, at least 60 seconds apart; an address receives at most 5 codes per
-rolling hour across all requests; and the broker sends at most 200 codes per rolling hour in all.
-Wrong codes count across resends, so a locked request sends no more codes. A refused send answers
-429 on the page the user is on, with one neutral line.
+`/authorize` sets one transaction cookie per request, and every later step needs it: `/continue` and
+the connector callback (RFC 9700 section 2.1.1). A first-party request skips the chooser, not this
+binding. A link or a callback that reaches another browser gets an error page, and the request keeps
+waiting for the browser that started it.
 
 ## Subjects
 
@@ -76,10 +68,9 @@ the key set: a lost salt cannot be recreated.
 
 Every id_token and every UserInfo response also carry `connector`, the connector's name. Those of a
 first-party app carry `connector_account_id` too: the connector's own id for the account, the GitHub
-user id, the upstream OIDC `sub`, or the canonical address for the email connector. An app whose
-users are keyed by provider and account id maps them by this pair. The pair is as stable as the
-provider's id: a new address is a new email account, and an upstream OIDC provider with pairwise
-subjects gives the hub other ids than it gave an app's own client.
+user id or the upstream OIDC `sub`. An app whose users are keyed by provider and account id maps
+them by this pair. The pair is as stable as the provider's id: an upstream OIDC provider with
+pairwise subjects gives the hub other ids than it gave an app's own client.
 
 ## Named departures from the specifications
 
@@ -87,26 +78,25 @@ subjects gives the hub other ids than it gave an app's own client.
 - No sessions at the broker: `prompt=none` returns `login_required`; there is no logout protocol.
 - `response_type=code` only, so the "dynamic OP" profile of OIDC Core 15.2 is not met.
 - `max_age` is honored only as a fresh login: `prompt=login` or any `max_age` sends `prompt=login`
-  and `max_age=0` to an OIDC connector whose provider documents `prompt=login`, and the email code
-  always satisfies it. `max_age` obliges the provider to return `auth_time` (OIDC Core 3.1.2.1), and
-  a provider can still reuse its session, so the OIDC sign-in completes only when that `auth_time`
-  falls between the second the request was created and now, each widened by 60 seconds of clock
-  skew; a missing, older, or later `auth_time` answers `login_required`. A connector that cannot
-  reauthenticate answers `login_required` before anything goes upstream: a plain OAuth connector
-  such as GitHub, which has no `auth_time` to check, and Google, which documents no `login` value
-  for `prompt`. A freshness request against these is refused rather than pretended. Other `prompt`
-  values, such as `consent` and `select_account`, answer `invalid_request`.
+  and `max_age=0` to an OIDC connector whose provider documents `prompt=login`. `max_age` obliges
+  the provider to return `auth_time` (OIDC Core 3.1.2.1), and a provider can still reuse its
+  session, so the OIDC sign-in completes only when that `auth_time` falls between the second the
+  request was created and now, each widened by 60 seconds of clock skew; a missing, older, or later
+  `auth_time` answers `login_required`. A connector that cannot reauthenticate answers
+  `login_required` before anything goes upstream: a plain OAuth connector such as GitHub, which has
+  no `auth_time` to check, and Google, which documents no `login` value for `prompt`. A freshness
+  request against these is refused rather than pretended. Other `prompt` values, such as `consent`
+  and `select_account`, answer `invalid_request`.
 - Pairwise subjects use the app, not a `sector_identifier_uri`, as the sector, so previews on random
   hosts keep the same subjects.
 - `connector_account_id` goes to first-party apps only, the same in each and with every scope. Those
   apps can correlate a user with each other and with the provider account, which pairwise subjects
-  (OIDC Core 8.1) exist to prevent, and for the email connector it is the address, even without the
-  `email` scope. A third-party app gets only the pairwise `sub`, the stable id its consent names.
+  (OIDC Core 8.1) exist to prevent. A third-party app gets only the pairwise `sub`, the stable id
+  its consent names.
 - Clients inherit the trust of their app: a first-party app's deployments skip the chooser and
   consent, because every deployment of a first-party app registers at deploy time.
 - No loopback exception on redirect URIs: a local deployment registers its exact
   `http://127.0.0.1:<port>/...` URI.
-- Email codes have no standard; the result is `email_verified: true`, no `amr`.
 - `auth_time` is the hub's completion time: when the broker completed the sign-in, after the
   connector answered. After a fresh login through an OIDC connector it is the provider's `auth_time`
   instead, which the broker checked against the request's lifetime. The broker never compares an

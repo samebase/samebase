@@ -1,15 +1,15 @@
 # identity-broker
 
 An OpenID Provider that runs on [Convex](https://convex.dev). One deployment holds a team's sign-in
-connections once, such as GitHub, Google and email codes, and signs users in to many small apps. The
-broker keeps no user accounts and no sessions: every sign-in goes upstream again, and each app
-creates its own user from the `id_token` it receives.
+connections once, such as Google and GitHub, and signs users in to many small apps. The broker keeps
+no user accounts and no sessions: every sign-in goes upstream again, and each app creates its own
+user from the `id_token` it receives.
 
 ![Google and GitHub refuse preview deployments because each has a new URL. Identity Broker sits in front of them, so each provider sees one client and one URL, and every app and preview registers its exact URL at deploy.](https://raw.githubusercontent.com/samebase/samebase/main/packages/identity-broker/docs/how-it-works.gif)
 
-Why: every new app otherwise needs its own OAuth app registrations and its own email sender, and a
-preview deployment with a fresh callback URL cannot have them at all. With the broker, an app
-registers each deployment as a client at deploy time and never touches GitHub or Google.
+Why: every new app otherwise needs its own OAuth app registrations, and a preview deployment with a
+fresh callback URL cannot have them at all. With the broker, an app registers each deployment as a
+client at deploy time and never touches GitHub or Google.
 
 ## Start from our hub
 
@@ -27,9 +27,8 @@ steps.
   flow with PKCE, discovery, JWKS, userinfo, and an internal function that registers a client. RS256
   `id_token`s with pairwise subjects per app; a first-party app also gets the connector's own id for
   the account in `connector_account_id`.
-- Connectors are configuration: any OAuth 2.0 provider that publishes RFC 8414 metadata, any OpenID
-  Connect provider, and an email code sent by your own action. `github()`, `google()` and `email()`
-  are included.
+- Connectors are configuration: any OAuth 2.0 provider that publishes RFC 8414 metadata, and any
+  OpenID Connect provider. `github()` and `google()` are included.
 - `Convex.HubClient` of [`@samebase/alchemy-convex`](https://github.com/samebase/alchemy-convex), an
   Alchemy v2 resource, registers a deployment as a client at deploy time.
 
@@ -52,8 +51,8 @@ export default app;
 ```ts
 // convex/http.ts
 import { httpRouter } from "convex/server";
-import { defineIdentityBroker, email, github, google } from "@samebase/identity-broker";
-import { components, internal } from "./_generated/api";
+import { defineIdentityBroker, github, google } from "@samebase/identity-broker";
+import { components } from "./_generated/api";
 
 export const broker = defineIdentityBroker({
   component: components.identityBroker,
@@ -68,7 +67,6 @@ export const broker = defineIdentityBroker({
       clientId: () => process.env.GOOGLE_CLIENT_ID!,
       clientSecret: () => process.env.GOOGLE_CLIENT_SECRET!,
     }),
-    email({ send: internal.email.sendCode }),
   ],
 });
 

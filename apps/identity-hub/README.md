@@ -59,8 +59,7 @@ deployment, and that client's redirect URIs must include `<issuer>/connectors/go
 GitHub uses the team's login OAuth App the same way, `AUTH_GITHUB_CLIENT_ID` and
 `AUTH_GITHUB_CLIENT_SECRET`; that app lists `<issuer>/connectors/github/callback` among its redirect
 URIs, exact, next to Samebase's own. Another provider is one more wrapper line, its variables
-declared in `convex/convex.config.ts` and handed down the same way; the broker's `email()` wrapper
-adds email codes, with a sender behind it and the abuse controls a public mail endpoint needs.
+declared in `convex/convex.config.ts` and handed down the same way.
 
 ## Register an app
 
