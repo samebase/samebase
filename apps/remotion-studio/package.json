@@ -22,26 +22,26 @@
     "render:tic-tac-toe": "remotion render TicTacToeRecording out/tic-tac-toe-master.mp4"
   },
   "dependencies": {
-    "@react-three/fiber": "9.8.1",
-    "@remotion/bundler": "4.0.535",
-    "@remotion/captions": "4.0.535",
-    "@remotion/cli": "4.0.535",
-    "@remotion/google-fonts": "4.0.535",
-    "@remotion/renderer": "4.0.535",
-    "@remotion/three": "4.0.535",
+    "@react-three/fiber": "9.8.2",
+    "@remotion/bundler": "4.0.538",
+    "@remotion/captions": "4.0.538",
+    "@remotion/cli": "4.0.538",
+    "@remotion/google-fonts": "4.0.538",
+    "@remotion/renderer": "4.0.538",
+    "@remotion/three": "4.0.538",
     "@samebase/logo-model": "workspace:*",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
-    "remotion": "4.0.535",
+    "remotion": "4.0.538",
     "three": "^0.186.1",
-    "typegpu": "0.12.7"
+    "typegpu": "0.12.9"
   },
   "devDependencies": {
-    "@types/node": "^24.19.2",
-    "@types/react": "^19.3.0",
-    "@types/react-dom": "^19.3.0",
-    "@types/three": "^0.186.0",
-    "@types/web": "0.0.358",
-    "unplugin-typegpu": "0.12.5"
+    "@types/node": "24.19.2",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@types/three": "0.186.0",
+    "@types/web": "0.0.359",
+    "unplugin-typegpu": "0.12.7"
   }
 }
