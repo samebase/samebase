@@ -17,8 +17,6 @@ import {
   vCloudflareProviderCredential,
   vCloudflareTokenRefreshLease,
   vConvexProviderCredential,
-  vOrganizationCiCredentials,
-  type OrganizationCiCredentials,
   type ProviderOAuthStoreResult,
 } from "./organization/providerCredentialModel";
 import {
@@ -1106,36 +1104,6 @@ export async function getOrganizationCiCredentials(
     .query("organizationCiCredentials")
     .withIndex("by_organization", (query) => query.eq("organizationId", organizationId))
     .unique();
-}
-
-/** The CI credentials of one organization, for an organization member. Null when none is saved. */
-export const loadCiCredentialsForOrganization = internalQuery({
-  args: {
-    organizationId: id("organizations"),
-    userId: id("users"),
-  },
-  returns: union(vOrganizationCiCredentials, v.null()),
-  handler: async (ctx, args) => {
-    await requireActiveOrganizationProviderMember(ctx.db, args);
-    const ci = await getOrganizationCiCredentials(ctx.db, args.organizationId);
-    return ci && omitSystemFields(ci);
-  },
-});
-
-/** The CI credentials that a provisioning run writes into its repository. */
-export const loadCiCredentialsForRepositoryProviderWorkflow = internalQuery({
-  args: { authority: vRepositoryProviderWorkflowAuthority },
-  returns: union(vOrganizationCiCredentials, v.null()),
-  handler: async (ctx, args) => {
-    const authority = await requireRepositoryProviderWorkflowAuthority(ctx.db, args.authority);
-    const ci = await getOrganizationCiCredentials(ctx.db, authority.organizationId);
-    return ci && omitSystemFields(ci);
-  },
-});
-
-function omitSystemFields(ci: Doc<"organizationCiCredentials">): OrganizationCiCredentials {
-  const { _id, _creationTime, ...credentials } = ci;
-  return credentials;
 }
 
 /**

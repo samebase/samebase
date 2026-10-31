@@ -1,6 +1,7 @@
 import { v, type Infer } from "convex/values";
 
 import type { AppFunctionMcpMetadata } from "../../../shared/convexFunctionPolicyTypes";
+import { vAlchemySetupStatus } from "../../../shared/alchemyStateModel";
 import { vConvexDeploymentRegion } from "../../convexDeploymentRegionModel";
 import {
   vCloudflareBuildState,
@@ -10,8 +11,6 @@ import {
   vConvexProjectObservation,
 } from "../providerObservationModel";
 import { vPullRequestResources, vRepositoryPullRequestPage } from "../pullRequestModel";
-import { vRepositorySetupStack } from "../setupOutputModel";
-import { applySetupOutputContract } from "./applySetupOutput";
 import { cloudflareCreateWorkerContract } from "./cloudflareAttachments";
 import { cloudflareConfigureWorkersBuildsForGitHubContract } from "./cloudflareConfigureWorkersBuildsForGitHub";
 import { cloudflareRotateConvexDeployKeysForWorkersBuildsContract } from "./cloudflareRotateConvexDeployKeysForWorkersBuilds";
@@ -50,18 +49,21 @@ const vRepositoryAttentionItem = union(
     problem: string(),
   }),
   object({
-    tool: literal(applySetupOutputContract.mcp.name),
-    artifactId: number(),
-    problem: string(),
-  }),
-  object({
     tool: v.null(),
     problem: string(),
   }),
 );
 
-/** The setup status of a repository that its GitHub Actions set up; null for any other. */
-const vRepositoryStatusSetupStack = union(...vRepositorySetupStack.members, v.null());
+/**
+The setup status of a repository that its GitHub Actions set up; null for any other.
+
+unavailable = the team's Alchemy state store could not be read, like the other live facts here
+*/
+const vRepositoryStatusSetupStack = union(
+  ...vAlchemySetupStatus.members,
+  object({ state: literal("unavailable") }),
+  v.null(),
+);
 
 /** The dashboard result: the same live reads that the repository overview makes today. */
 const vRepositoryStatus = object({
@@ -196,7 +198,7 @@ export const getRepositoryStatusContract = {
     title: "Get repository status",
     name: "repository_getStatus",
     description:
-      "Read the live status of a repository: each app (Worker and root directory) with its production build, whether that build is of the default branch head, and its URLs, each Convex project's production deployment, the default branch head commit and its checks, the open pull requests (first 6) with their checks and preview builds, for a repository that its GitHub Actions set up its newest setup output and the run that published it, and attention items that name the tool that fixes each problem.",
+      "Read the live status of a repository: each app (Worker and root directory) with its production build, whether that build is of the default branch head, and its URLs, each Convex project's production deployment, the default branch head commit and its checks, the open pull requests (first 6) with their checks and preview builds, for a repository that its GitHub Actions set up whether its first deployment finished, and attention items that name the tool that fixes each problem.",
     safety: "read_only",
     annotations: {
       readOnlyHint: true,
@@ -221,14 +223,11 @@ the repository overview shows. It changes nothing.
 - Repository: the default branch head commit with its checks, the open pull request count, and the
   first 6 open pull requests, most recently updated first. Each lists its checks and, per app, the
   preview build and preview URL.
-- Setup stack, for a repository that its GitHub Actions set up (null for any other): the run that
-  published the newest setup output on the default branch (\`latestRun\`, null while Samebase
-  waits for the first one), the setup output that Samebase applied, the newest output that it did
-  not apply yet, with the Workers and Convex projects it lists and, before the first apply, why
-  Samebase does not apply it by itself, and the last automatic apply that failed
-  (\`applyFailure\`). A failed output (\`pending.state\` failed) means that the setup failed in
-  that run. A destroy receipt is the report of the run that destroyed the app: the app facts show
-  what is left.
+- Setup stack, for a repository that its GitHub Actions set up (null for any other): \`state\` from
+  the team's Alchemy state store. It is done when the \`prod\` stage of the stack named after the
+  repository has an output, and in_progress before that. The store does not say whether a run
+  failed, so in_progress can also mean that the first run stopped: the repository's GitHub Actions
+  page shows the run. It is unavailable when the store cannot be read.
 - Attention items: each names a problem and the tool that fixes it. The provider setup state comes
   first. While Samebase-managed setup runs, the only item says so and names no tool. When it failed,
   the only item names \`repository_retryProviderSetup\`. When Cloudflare setup is pending, an item
@@ -238,9 +237,9 @@ the repository overview shows. It changes nothing.
   \`repository_cloudflare_rotateConvexDeployKeys\` fixes a Worker whose Convex deploy key is
   missing or targets another project. "Deploy the Convex project to production first" means that a
   project has no production deployment yet, so no deploy key can be installed. For a repository
-  that its GitHub Actions set up, the setup stack owns those settings, so those items name no tool;
-  an item names \`repository_setupOutput_apply\` with the \`artifactId\` of the setup output that waits
-  for a member. Show the user its Workers and Convex projects before the apply.
+  that its GitHub Actions set up, the setup stack owns those settings, so those items name no tool,
+  and while the setup stack is in_progress an item says so and links the repository's GitHub
+  Actions.
 
 Checks give the total, failed, pending, and unknown counts of every check, and the names of the
 failed checks among the first 100 that GitHub lists; \`failedNamesComplete\` is false when a

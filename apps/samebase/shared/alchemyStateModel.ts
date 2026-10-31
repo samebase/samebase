@@ -46,6 +46,21 @@ export const vAlchemyStacksRead = union(
 export type AlchemyStacksRead = Infer<typeof vAlchemyStacksRead>;
 
 /**
+The setup status of a repository_actions repository, from the `prod` stage of the stack that carries
+the repository's name in the team's Alchemy state store.
+
+in_progress = the stage has no output yet. Its first run has not finished, or it failed: the store
+does not say which, so this status never reports a failure.
+
+done = the stage has an output.
+*/
+export const vAlchemySetupStatus = union(
+  object({ state: literal("in_progress") }),
+  object({ state: literal("done") }),
+);
+export type AlchemySetupStatus = Infer<typeof vAlchemySetupStatus>;
+
+/**
 `customDomains` are the verified custom domains of the deployment, oldest first: a `convexSite`
 domain serves its HTTP actions and a `convexCloud` domain its client API. A deployment whose domains
 Convex does not give, such as to a credential without `deployment:customDomain:view`, has none.

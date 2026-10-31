@@ -55,11 +55,11 @@ an error, not a confirmation request. Progress is readable through \`repository_
 executes.
 
 For a repository that its GitHub Actions set up (\`repository_create\` with provisioning
-repository_actions), the retry writes the GitHub Actions secrets again and, when the starter was not
-seeded yet, seeds it and syncs the default branch tree. A starter that an earlier run pushed is
-found on main and not pushed again, and when main has commits that Samebase did not make, the seed
-fails instead of replacing them. It never creates or changes the Convex project, the Worker, or its
-Workers Builds link: the repository's GitHub Actions own them.
+repository_actions), the retry writes the GitHub Actions secret and variable again and, when the
+starter was not seeded yet, seeds it and syncs the default branch tree. A starter that an earlier
+run pushed is found on main and not pushed again, and when main has commits that Samebase did not
+make, the seed fails instead of replacing them. It never creates or changes the Convex project: the
+repository's GitHub Actions own it.
 
 ${ACTION_CONFIRMATION_DOC}`,
 } as const;

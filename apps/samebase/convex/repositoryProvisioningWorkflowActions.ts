@@ -22,9 +22,8 @@ import {
   type RepositoryProvisioningRunState,
   type RepositoryProvisioningStep,
 } from "./repository/provisioningModel";
-import { requireCompleteCiCredentials } from "./organization/ciCredentials";
 import { writeGitHubActionsSecrets } from "./githubActionsSecrets";
-import { organizationCiCredentialAad } from "./organization/providerCredentialModel";
+import { organizationProviderCredentialAad } from "./organization/providerCredentialModel";
 import { openSecret } from "./sealedSecret";
 import {
   createStarterSeedBranchReader,
@@ -365,28 +364,12 @@ export const validateCreateAppConnections = internalAction({
       throw new Error("Convex connection is required to create a project.");
     }
     if (
-      providerConfiguration.cloudflareAccount?.accountId !== repository.cloudflareAccountId ||
-      providerConfiguration.cloudflareCredential === undefined
+      provisioning === "samebase" &&
+      (repository.cloudflareAccountId === null ||
+        providerConfiguration.cloudflareAccount?.accountId !== repository.cloudflareAccountId ||
+        providerConfiguration.cloudflareCredential === undefined)
     ) {
       throw new Error("Cloudflare connection is required to create a Worker-backed app.");
-    }
-    if (provisioning === "repository_actions") {
-      requireCompleteCiCredentials({
-        ci: await ctx.runQuery(
-          internal.organizationProviderCredentials.loadCiCredentialsForRepositoryProviderWorkflow,
-          {
-            authority: {
-              kind: "provisioning",
-              runId: args.runId,
-              userId: args.userId,
-              repositoryId: args.repositoryId,
-            },
-          },
-        ),
-        convexTeamId: repository.convexTeamId,
-        cloudflareAccountId: repository.cloudflareAccountId,
-        githubOwnerLogin: access.githubOwnerLogin,
-      });
     }
 
     return provisioning;
@@ -870,9 +853,11 @@ export const createRepositoryForRepository = internalAction({
 });
 
 /**
-write_actions_secrets of the repository_actions mode: the CI credentials become the secrets and the
-variable that the template's alchemy workflow reads to run the setup stack. GitHub is written with the same Octokit that
-created the repository for this owner type. Every write is an upsert, so a retry resumes safely.
+write_actions_secrets of the repository_actions mode: the credential of the organization's Convex
+connection, an OAuth token or an API key, becomes the secret CONVEX_ACCESS_TOKEN, and its team the
+variable CONVEX_TEAM_ID, which the template's alchemy workflow reads to deploy. These two are all
+that Samebase writes into the repository. GitHub is written with the same Octokit that created the
+repository for this owner type. Every write is an upsert, so a retry resumes safely.
 */
 export const writeActionsSecrets = internalAction({
   args: {
@@ -946,18 +931,10 @@ export const writeActionsSecrets = internalAction({
       repo: repository.name,
       secrets: [
         {
-          name: "CLOUDFLARE_API_TOKEN",
-          value: await openSecret({
-            sealed: target.cloudflareApiToken,
-            aad: organizationCiCredentialAad(target.organizationId, "cloudflare.apiToken"),
-          }),
-        },
-        { name: "CLOUDFLARE_ACCOUNT_ID", value: target.cloudflareAccountId },
-        {
           name: "CONVEX_ACCESS_TOKEN",
           value: await openSecret({
-            sealed: target.convexAccessToken,
-            aad: organizationCiCredentialAad(target.organizationId, "convex.accessToken"),
+            sealed: target.convexCredential,
+            aad: organizationProviderCredentialAad(target.organizationId, "convex.auth.credential"),
           }),
         },
       ],

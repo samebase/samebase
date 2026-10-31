@@ -509,6 +509,129 @@ describe("repository Alchemy state", () => {
   });
 });
 
+/*
+State axes of the setup status of a repository_actions repository: the team store missing or found;
+the stack that carries the repository's name absent or present; its `prod` stage absent, deployed
+for the first time with no output yet, or with an output; the store read working or failing.
+*/
+describe("the setup status of a repository_actions repository", () => {
+  const output: unknown = JSON.parse(prod.output);
+  if (!isRecord(output)) throw new Error("Expected the captured stage output.");
+  /** A first deploy has its run record before it writes its output. */
+  const firstDeployRunning = {
+    status: "success",
+    value: { stages: [{ ...prod, output: null, record: output["samebase.run"] }] },
+  };
+
+  it.each([
+    {
+      name: "the team's first run has not created the store",
+      store: { storeReply: observedAlchemyStackReply, teamProjects: [appProject] },
+    },
+    {
+      name: "the store holds no stack of the repository",
+      store: {
+        storeReply: observedAlchemyStackReply,
+        stackReplies: { "samebase/samebase": observedAlchemyStackReply },
+        teamProjects: [storeProject],
+      },
+    },
+    {
+      name: "the first deploy has a run record and no output",
+      store: {
+        storeReply: firstDeployRunning,
+        stackReplies: { "samebase/base-alchemy": firstDeployRunning },
+        teamProjects: [storeProject],
+      },
+    },
+    {
+      name: "only a preview stage has an output",
+      store: {
+        storeReply: observedAlchemyStackReply,
+        stackReplies: {
+          "samebase/base-alchemy": withProdStage((stage) => {
+            stage.stage = "pr-26";
+          }),
+        },
+        teamProjects: [storeProject],
+      },
+    },
+    {
+      name: "only a stack in a folder has a prod output",
+      store: {
+        storeReply: observedAlchemyStackReply,
+        stackReplies: { "samebase/base-alchemy/apps/web": observedAlchemyStackReply },
+        teamProjects: [storeProject],
+      },
+    },
+  ])("is in progress when $name", async ({ store }) => {
+    const t = makeConvexTest();
+    const { ids, user } = await seedAlchemyRepository(t);
+    installAlchemyStateFetchStub({ requests: [], ...store });
+
+    await expect(
+      user.action(api.repository.alchemyState.readSetupStatus, { repositoryId: ids.repositoryId }),
+    ).resolves.toEqual({ state: "in_progress" });
+  });
+
+  it("is done when the prod stage of the repository's stack has an output", async () => {
+    const t = makeConvexTest();
+    const { ids, user } = await seedAlchemyRepository(t);
+    installAlchemyStateFetchStub({
+      requests: [],
+      storeReply: observedAlchemyStackReply,
+      teamProjects: [storeProject],
+    });
+
+    await expect(
+      user.action(api.repository.alchemyState.readSetupStatus, { repositoryId: ids.repositoryId }),
+    ).resolves.toEqual({ state: "done" });
+  });
+
+  it("gives repository_getStatus the status, and unavailable when the store cannot be read", async () => {
+    const t = makeConvexTest();
+    const { ids, user } = await seedAlchemyRepository(t);
+    await t.run(async (ctx) => {
+      await ctx.db.insert("workflow_repositoryProvisioning_plans", {
+        provisioning: "repository_actions",
+        repositoryId: ids.repositoryId,
+        convexConfigPath: "convex.json",
+        ciSecrets: { state: "written", writtenAt: 2, credentialRevision: 2 },
+        seed: { state: "seeded", seededAt: 2, manifestVersion: "samebase-base-actions-test" },
+        createdAt: 1,
+        updatedAt: 2,
+      });
+    });
+
+    installAlchemyStateFetchStub({
+      requests: [],
+      storeReply: firstDeployRunning,
+      teamProjects: [storeProject],
+    });
+    await expect(
+      user.action(api.repository.getStatus, { repositoryId: ids.repositoryId }),
+    ).resolves.toMatchObject({
+      setupStack: { state: "in_progress" },
+      attention: [
+        {
+          tool: null,
+          problem:
+            "The first deployment of samebase/base-alchemy is in progress in its GitHub Actions: https://github.com/samebase/base-alchemy/actions. Call repository_getStatus again when the run finishes.",
+        },
+      ],
+    });
+
+    installAlchemyStateFetchStub({
+      requests: [],
+      storeReply: { status: "error" },
+      teamProjects: [storeProject],
+    });
+    await expect(
+      user.action(api.repository.getStatus, { repositoryId: ids.repositoryId }),
+    ).resolves.toMatchObject({ setupStack: { state: "unavailable" }, attention: [] });
+  });
+});
+
 describe("readAlchemyStacks", () => {
   it("lists the stacks and reads only the stack of the repository with a revoked inspection key", async () => {
     vi.spyOn(Date, "now").mockReturnValue(1_710_000_000_000);

@@ -44,6 +44,7 @@ export const createRepositoryContract = {
     cloudflare: union(
       object({ state: literal("planned"), workerName: string() }),
       object({ state: literal("pending"), setupGuideUrl: string() }),
+      object({ state: literal("none") }),
     ),
   }),
   mcp: {
@@ -70,7 +71,7 @@ export const createRepositoryContract = {
       description: "Optional GitHub repository description.",
       private: "Whether to create a private GitHub repository. Defaults to true.",
       provisioning:
-        "Optional, experimental. samebase (the default): Samebase creates the Convex project and the Worker. repository_actions: the repository's GitHub Actions create and deploy both. Use it only when the user asks for it.",
+        "Optional, experimental. samebase (the default): Samebase creates the Convex project and the Worker. repository_actions: the repository's GitHub Actions run Alchemy, create the Convex project, and deploy the app to Convex, with no Cloudflare. Use it only when the user asks for it.",
     },
   } as const satisfies AppFunctionMcpMetadata,
   doc: `Creates a GitHub repository under the selected organization's verified GitHub owner, seeds the
@@ -111,23 +112,24 @@ pending state is not a failure and must not be repaired with the retry action. C
 resources run on the providers' free tiers; an idle app costs $0/month.
 
 provisioning (optional, experimental) chooses who sets up the app. samebase is the default and
-everything above describes it. With repository_actions, the repository's own GitHub Actions
-workflow creates and deploys the Convex project and the Worker; Samebase creates no provider
-resource. Samebase creates the GitHub repository and writes the organization's two CI tokens from
-the Providers page into it: the Actions secrets CLOUDFLARE_API_TOKEN (the Cloudflare CI token),
-CLOUDFLARE_ACCOUNT_ID, and CONVEX_ACCESS_TOKEN (the Convex CI token, a team access token of the
-connected Convex team), and the Actions variable CONVEX_TEAM_ID. Then it seeds the GitHub Actions
-variant of the starter on main, and that first push deploys. When GitHub created the repository with
-another default branch, Samebase makes main the default before it pushes the starter, so that first
-deployment runs as production. The Convex project and the Worker take the repository's name, so omit
-convexProjectName, cloudflareWorkerName, buildTokenUuid, and convexDeploymentRegion. Before it
-creates anything, the call fails when the organization has no saved Cloudflare and Convex CI tokens
-(the Providers page), when either token does not verify, when the Samebase GitHub App installation
-has not granted the Secrets and Variables permissions, or when a Convex project or Worker with the
-repository's name exists. A ready providerSetup then means that the secrets are written and the
-starter is seeded, not that the app is deployed: the deployment runs in the repository's GitHub
-Actions. Samebase's Worker and Convex project tools refuse such a repository, because its GitHub
-Actions own those resources.`,
+everything above describes it. With repository_actions, the repository's own GitHub Actions run
+Alchemy, create the Convex project, and deploy the app to Convex. Samebase creates no provider
+resource, and Cloudflare takes no part: the call needs only the GitHub and Convex connections, and
+the result reports cloudflare.state none. Samebase creates the GitHub repository and writes two
+values into it: the Actions secret CONVEX_ACCESS_TOKEN, which holds the credential of the
+organization's Convex connection (its OAuth token or its API key), and the Actions variable
+CONVEX_TEAM_ID. Then it seeds the GitHub Actions variant of the starter on main, and that first push
+deploys. When GitHub created the repository with another default branch, Samebase makes main the
+default before it pushes the starter, so that first deployment runs as production. The Convex
+project takes the repository's name, so omit convexProjectName, cloudflareWorkerName, buildTokenUuid,
+and convexDeploymentRegion. Before it creates anything, the call fails when the organization has no
+Convex connection, when the Samebase GitHub App installation has not granted the Secrets and
+Variables permissions, or when a Convex project with the repository's name exists. A ready
+providerSetup then means that the secret and the variable are written and the starter is seeded, not
+that the app is deployed: the deployment runs in the repository's GitHub Actions, and
+\`repository_getStatus\` reports setupStack.state done after it finished. Samebase's Worker and
+Convex project tools refuse such a repository, because its GitHub Actions own its provider
+resources.`,
 } as const;
 
 const createRepositoryArgsValidator = object(createRepositoryContract.args);

@@ -12,7 +12,7 @@ export type RepositoryExport = {
 };
 
 export const baseTemplateSourceRoot = "templates/base";
-export const actionsTemplateSourceRoot = "templates/base-actions";
+export const alchemyTemplateSourceRoot = "templates/base-alchemy";
 
 export const repositoryExports = [
   {
@@ -26,9 +26,9 @@ export const repositoryExports = [
     targetRepository: "base",
   },
   {
-    sourceRoot: actionsTemplateSourceRoot,
+    sourceRoot: alchemyTemplateSourceRoot,
     targetBranch: "main",
-    targetRepository: "base-actions",
+    targetRepository: "base-alchemy",
   },
 ] satisfies readonly RepositoryExport[];
 

@@ -706,12 +706,13 @@ function readCallsBeforeStarterPush(github: ReturnType<typeof createFakeGitHub>)
 }
 
 /**
-A finished repository_actions setup starts observeFirstSetupOutput. Its reads of the setup output
-wait about 20 minutes in all, and the workpool reports every minute while a step waits.
+The organization has what a repository_actions creation needs and nothing more: GitHub and a Convex
+connection. It has no Cloudflare connection and no CI credentials.
 */
-const SETUP_DRAIN_ITERATIONS = 1000;
-
-async function createRepositoryActionsRepository(github: ReturnType<typeof createFakeGitHub>) {
+async function createRepositoryActionsRepository(
+  github: ReturnType<typeof createFakeGitHub>,
+  authMethod: "api_key" | "oauth" = "oauth",
+) {
   const t = makeConvexTest();
   const ids = await t.run(async (ctx) => {
     const userId = await ctx.db.insert("users", {
@@ -729,34 +730,13 @@ async function createRepositoryActionsRepository(github: ReturnType<typeof creat
       githubOwnerLoginNormalized: "samebase",
       githubOwnerType: "organization",
       convexTeam: { teamId: "41" },
-      cloudflareAccount: { accountId: "cloudflare-account", accountName: "Samebase" },
     });
     await insertTestOrganizationBillingAccount(ctx.db, organizationId);
     await ctx.db.insert("organizationMemberships", { organizationId, userId, role: "owner" });
     await ctx.db.insert("organizationProviderCredentials", {
       organizationId,
       convex: {
-        auth: { method: "api_key", credential: testCredential("samebase-convex-test-token") },
-        connectedByUserId: userId,
-        updatedAt: 1,
-      },
-      cloudflare: {
-        auth: { method: "api_key", credential: testCredential("samebase-cloudflare-test-token") },
-        connectedByUserId: userId,
-        updatedAt: 1,
-      },
-    });
-    await ctx.db.insert("organizationCiCredentials", {
-      organizationId,
-      cloudflare: {
-        apiToken: testCredential("cloudflare-ci-test-token"),
-        accountId: "cloudflare-account",
-        connectedByUserId: userId,
-        updatedAt: 20,
-      },
-      convex: {
-        accessToken: testCredential("convex-ci-test-token"),
-        teamId: "41",
+        auth: { method: authMethod, credential: testCredential("convex-connection-test-token") },
         connectedByUserId: userId,
         updatedAt: 30,
       },
@@ -784,11 +764,10 @@ async function createRepositoryActionsRepository(github: ReturnType<typeof creat
       visibility: "private",
       description: null,
       convexTeamId: "41",
-      cloudflareAccountId: "cloudflare-account",
       plan: { provisioning: "repository_actions" },
     },
   );
-  await t.finishAllScheduledFunctions(vi.runAllTimers, SETUP_DRAIN_ITERATIONS);
+  await t.finishAllScheduledFunctions(vi.runAllTimers);
   return { ...ids, ...created, t };
 }
 
@@ -828,7 +807,55 @@ describe("repository_actions provisioning workflow", () => {
     vi.useRealTimers();
   });
 
-  it("writes the Actions secrets before the seed and skips every Samebase provider step", async () => {
+  it.each(["oauth", "api_key"] as const)(
+    "writes only CONVEX_ACCESS_TOKEN and CONVEX_TEAM_ID from a %s Convex connection, before the seed",
+    async (authMethod) => {
+      const github = createFakeGitHub({
+        defaultBranch: "main",
+        denySecrets: false,
+        failTreeSync: false,
+      });
+      const { repositoryId, runId, t } = await createRepositoryActionsRepository(
+        github,
+        authMethod,
+      );
+
+      const state = await readRepositoryActionsState(t, { repositoryId, runId });
+      expect(state.run).toMatchObject({ state: "succeeded", currentStep: "finish" });
+      expect(state.repository).not.toHaveProperty("cloudflareAccountId");
+      // The credential of the Convex connection is the secret value, whatever its auth method.
+      await expect(
+        openActionsSecret(
+          github.requests.find((request) =>
+            request.path.endsWith("/actions/secrets/CONVEX_ACCESS_TOKEN"),
+          ),
+        ),
+      ).resolves.toBe("convex-connection-test-token");
+      expect(
+        github.requests
+          .map(({ method, path }) => `${method} ${path}`)
+          .filter((request) => request.includes("/actions/")),
+      ).toEqual([
+        "GET /repos/samebase/actions-app/actions/secrets/public-key",
+        "PUT /repos/samebase/actions-app/actions/secrets/CONVEX_ACCESS_TOKEN",
+        "GET /repos/samebase/actions-app/actions/variables/CONVEX_TEAM_ID",
+        "POST /repos/samebase/actions-app/actions/variables",
+      ]);
+      expect(
+        github.requests.find(
+          (request) =>
+            request.method === "POST" &&
+            request.path === "/repos/samebase/actions-app/actions/variables",
+        )?.body,
+      ).toEqual({ name: "CONVEX_TEAM_ID", value: "41" });
+      expect(state.plan).toMatchObject({
+        provisioning: "repository_actions",
+        ciSecrets: { state: "written", credentialRevision: 30 },
+      });
+    },
+  );
+
+  it("seeds after the Actions writes and skips every Samebase provider step", async () => {
     const github = createFakeGitHub({
       defaultBranch: "main",
       denySecrets: false,
@@ -866,19 +893,6 @@ describe("repository_actions provisioning workflow", () => {
       "GET /installation/repositories",
       "GET /repos/samebase/actions-app",
     ]);
-    // The pasted CI tokens are the secret values.
-    const secretRequest = (name: string) =>
-      github.requests.find((request) => request.path.endsWith(`/actions/secrets/${name}`));
-    await expect(openActionsSecret(secretRequest("CONVEX_ACCESS_TOKEN"))).resolves.toBe(
-      "convex-ci-test-token",
-    );
-    await expect(openActionsSecret(secretRequest("CLOUDFLARE_API_TOKEN"))).resolves.toBe(
-      "cloudflare-ci-test-token",
-    );
-    expect(state.plan).toMatchObject({
-      provisioning: "repository_actions",
-      ciSecrets: { state: "written", credentialRevision: 30 },
-    });
     expect(state.writeLock).toMatchObject({ owner: { runId }, state: "succeeded" });
     expect(githubMocks.seedRepository).toHaveBeenCalledWith(
       expect.objectContaining({ defaultBranch: "main", manifest: actionsStarterTemplateManifest }),
@@ -886,32 +900,32 @@ describe("repository_actions provisioning workflow", () => {
     // GitHub created the repository with main, so the default branch stays as it is.
     expect(github.requests.filter((request) => request.method === "PATCH")).toEqual([]);
     expect(state.repository).toMatchObject({ defaultBranch: "main" });
-    const actionsRequests = github.requests.map(({ method, path }) => `${method} ${path}`);
-    expect(
-      actionsRequests.filter(
-        (request) => request.includes("/actions/") && !request.includes("/actions/artifacts"),
-      ),
-    ).toEqual([
-      "GET /repos/samebase/actions-app/actions/secrets/public-key",
-      "PUT /repos/samebase/actions-app/actions/secrets/CLOUDFLARE_API_TOKEN",
-      "PUT /repos/samebase/actions-app/actions/secrets/CLOUDFLARE_ACCOUNT_ID",
-      "PUT /repos/samebase/actions-app/actions/secrets/CONVEX_ACCESS_TOKEN",
-      "GET /repos/samebase/actions-app/actions/variables/CONVEX_TEAM_ID",
-      "POST /repos/samebase/actions-app/actions/variables",
-    ]);
-    // After finish, observeFirstSetupOutput reads the setup output artifacts a bounded number of
-    // times. This fake GitHub has no artifacts endpoint, so every read fails and the observer stops
-    // after the last.
-    expect(actionsRequests.filter((request) => request.includes("/actions/artifacts"))).toEqual(
-      Array(10).fill("GET /repos/samebase/actions-app/actions/artifacts"),
+  });
+
+  it("stops the write when the Convex connection no longer connects the repository's team", async () => {
+    const github = createFakeGitHub({
+      defaultBranch: "main",
+      denySecrets: true,
+      failTreeSync: false,
+    });
+    const { organizationId, repositoryId, t, userId } =
+      await createRepositoryActionsRepository(github);
+    await t.run(async (ctx) => {
+      await ctx.db.patch(organizationId, { convexTeam: { teamId: "42" } });
+    });
+
+    github.options.denySecrets = false;
+    const retryRunId = await retryProviderSetup(t, { userId, repositoryId });
+
+    const stopped = await readRepositoryActionsState(t, { repositoryId, runId: retryRunId });
+    expect(stopped.run).toMatchObject({ state: "failed", currentStep: "write_actions_secrets" });
+    expect(stopped.run?.lastError).toBe(
+      "Convex connection is required to provision infrastructure. Connect Convex and retry.",
     );
+    expect(stopped.plan).toMatchObject({ ciSecrets: { state: "planned" } });
     expect(
-      github.requests.find(
-        (request) =>
-          request.method === "POST" &&
-          request.path === "/repos/samebase/actions-app/actions/variables",
-      )?.body,
-    ).toEqual({ name: "CONVEX_TEAM_ID", value: "41" });
+      github.requests.filter((request) => request.path.includes("/actions/secrets/CONVEX")),
+    ).toEqual([]);
   });
 
   it("resumes a write that GitHub refused through the existing retry, then seeds once", async () => {
@@ -1097,14 +1111,12 @@ describe("repository_actions provisioning workflow", () => {
         githubOwnerLoginNormalized: "samebase",
         githubOwnerType: "organization",
         convexTeam: { teamId: "41" },
-        cloudflareAccount: { accountId: "cloudflare-account", accountName: "Samebase" },
       });
       await insertTestOrganizationBillingAccount(ctx.db, organizationId);
       await ctx.db.insert("organizationMemberships", { organizationId, userId, role: "owner" });
       const repositoryId = await ctx.db.insert("repositories", {
         organizationId,
         convexTeamId: "41",
-        cloudflareAccountId: "cloudflare-account",
         deletion: { state: "not_deleting" },
         createdAt: 1,
         state: "not_connected",
@@ -1124,7 +1136,6 @@ describe("repository_actions provisioning workflow", () => {
       await ctx.db.replace(repositoryId, {
         organizationId,
         convexTeamId: "41",
-        cloudflareAccountId: "cloudflare-account",
         deletion: { state: "not_deleting" },
         createdAt: 1,
         state: "connected",
@@ -1234,7 +1245,7 @@ async function retryProviderSetup(
     surface: { kind: "dashboard" },
     confirmation: { token: challenge.token, acknowledgement: challenge.acknowledgement },
   });
-  await t.finishAllScheduledFunctions(vi.runAllTimers, SETUP_DRAIN_ITERATIONS);
+  await t.finishAllScheduledFunctions(vi.runAllTimers);
   const retryRun = await t.run(
     async (ctx) =>
       await ctx.db

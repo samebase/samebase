@@ -109,7 +109,11 @@ const repositoryBaseFields = {
 } as const;
 
 export const repositoryTables = {
-  /** Durable Samebase repositories with explicit GitHub connection states. */
+  /**
+  Durable Samebase repositories with explicit GitHub connection states. A create_repository row has
+  no `cloudflareAccountId` when its provisioning is repository_actions: its GitHub Actions deploy to
+  Convex only.
+  */
   repositories: defineTable(
     union(
       object({
@@ -123,7 +127,7 @@ export const repositoryTables = {
         githubMode: literal("create_repository"),
         ...repositoryBaseFields,
         convexTeamId: string(),
-        cloudflareAccountId: string(),
+        cloudflareAccountId: optional(string()),
         runId: id("workflow_repositoryProvisioning_runs"),
         startedAt: number(),
         githubRepositoryName: string(),
@@ -145,7 +149,7 @@ export const repositoryTables = {
         githubMode: literal("create_repository"),
         ...repositoryBaseFields,
         convexTeamId: string(),
-        cloudflareAccountId: string(),
+        cloudflareAccountId: optional(string()),
         runId: id("workflow_repositoryProvisioning_runs"),
         githubRepositoryDatabaseId: string(),
         defaultBranch: string(),
@@ -171,7 +175,7 @@ export const repositoryTables = {
         githubMode: literal("create_repository"),
         ...repositoryBaseFields,
         convexTeamId: string(),
-        cloudflareAccountId: string(),
+        cloudflareAccountId: optional(string()),
         runId: id("workflow_repositoryProvisioning_runs"),
         failedAt: number(),
         githubRepositoryName: string(),

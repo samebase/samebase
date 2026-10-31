@@ -137,7 +137,7 @@ can push a workflow to the repository can read them, so one compromised reposito
 sibling apps of the account and team. This is the release gate before real users get the option
 (later question 16 in the memory, finding 1 of the design review). OAuth cannot replace the
 Cloudflare token today: access tokens expire within hours, and token minting is open only to
-Cloudflare's own CLI. Samebase never puts its own OAuth tokens into user repositories.
+Cloudflare's own CLI. This changed on 2026-11-01: see the Status log.
 
 ### The template does not get edited at seed time
 
@@ -1132,3 +1132,11 @@ The questions that were open for PR C, in Nicu's words "how all this fits in", a
   the plan fields as built (`seeding`, `setupOutput`, `setupOutputApplyFailure`), the `setup_stack`
   origin on the attachment tables, the newest setup output artifact as the setup source, every pull
   request merged, and the open items answered. Status set to Implemented.
+- 2026-11-01: The mode now seeds `templates/base-alchemy`, which replaced `templates/base-actions`,
+  and needs only GitHub and Convex. Samebase writes the organization's Convex credential, usually
+  the OAuth token, as `CONVEX_ACCESS_TOKEN`, and reads the setup status from the state store. Only
+  an organization owner can create such a repository. A live test on 2026-10-31 showed that Convex
+  refuses `create_access_token` from an OAuth token (403 `NotAllowed`), so the spec answer of the
+  2026-10-06 entry was wrong and minting through OAuth is not available. With an OAuth token Convex
+  also returns the token itself as each deploy key, and refuses `allowedActions` and `expiresAt`.
+  The sections above describe the earlier design.

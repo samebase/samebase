@@ -107,9 +107,9 @@ const testState = vi.hoisted(() => ({
   fallbackAction: vi.fn(async () => undefined),
 }));
 
-/** The organization's CI credentials status; undefined while the query loads. */
-const ciCredentialsTestState = vi.hoisted(() => {
-  const state: { status: unknown } = { status: undefined };
+/** The organization's Cloudflare connection; the Convex connection is always connected. */
+const cloudflareConnectionTestState = vi.hoisted(() => {
+  const state: { connection: unknown } = { connection: undefined };
   return state;
 });
 
@@ -130,18 +130,10 @@ vi.mock("convex/react", async (importOriginal) => {
         };
       }
       if (name === getFunctionName(api.users.getCloudflareConnectionStatus)) {
-        return {
-          accountId: "account-acme-production",
-          accountName: "acme-production",
-          authMethod: "oauth",
-          state: "connected",
-        };
+        return cloudflareConnectionTestState.connection;
       }
       if (name === getFunctionName(api.convexDeploymentRegions.getDefault)) {
         return convexRegionTestState.defaultRegion;
-      }
-      if (name === getFunctionName(api.users.getCiCredentialsStatus)) {
-        return ciCredentialsTestState.status;
       }
       return undefined;
     },
@@ -181,7 +173,12 @@ describe("NewAppPage", () => {
     cloudflareBuildTokenTestState.refetch.mockResolvedValue(undefined);
     cloudflareBuildTokenTestState.state = "loaded";
     convexRegionTestState.defaultRegion = CONVEX_US_EAST_REGION;
-    ciCredentialsTestState.status = undefined;
+    cloudflareConnectionTestState.connection = {
+      accountId: "account-acme-production",
+      accountName: "acme-production",
+      authMethod: "oauth",
+      state: "connected",
+    };
     testState.actions.clear();
     testState.fallbackAction.mockReset();
     testState.fallbackAction.mockResolvedValue(undefined);
@@ -499,115 +496,104 @@ describe("NewAppPage", () => {
     return [...document.querySelectorAll<HTMLElement>('[role="option"]')];
   }
 
-  const SAVE_CLOUDFLARE_CI_TOKEN = "Save the Cloudflare CI token in Providers.";
-  const SAVE_CONVEX_CI_TOKEN = "Save the Convex CI token in Providers.";
-  const savedCloudflare = { accountId: "account-acme-production", updatedAt: 1 };
-  const savedConvex = { teamId: "team-acme-platform", updatedAt: 2 };
-
-  it.each([
-    {
-      missing: "the Cloudflare CI token",
-      status: { cloudflare: null, convex: savedConvex },
-      line: SAVE_CLOUDFLARE_CI_TOKEN,
-    },
-    {
-      missing: "the Convex CI token",
-      status: { cloudflare: savedCloudflare, convex: null },
-      line: SAVE_CONVEX_CI_TOKEN,
-    },
-    {
-      missing: "both",
-      status: { cloudflare: null, convex: null },
-      line: `${SAVE_CLOUDFLARE_CI_TOKEN} ${SAVE_CONVEX_CI_TOKEN}`,
-    },
-  ])(
-    "keeps the GitHub Actions setup disabled and names what is missing: $missing",
-    async ({ status, line }) => {
-      ciCredentialsTestState.status = status;
-      const container = await mountPage();
-
-      const providersLinks = [...container.querySelectorAll("a")].filter(
-        (link) => link.textContent === "Providers",
-      );
-      expect(providersLinks[0]?.parentElement?.textContent).toBe(line);
-      for (const link of providersLinks) {
-        expect(link.getAttribute("href")).toBe("/org/samebase/providers");
-      }
-      const options = await openSetupOptions(container);
-      expect(options.map((option) => option.textContent)).toEqual([
-        "Set up by Samebase",
-        "Set up by GitHub Actions in the repository (experimental)",
-      ]);
-      expect(options[1]?.getAttribute("aria-disabled")).toBe("true");
-    },
-  );
-
-  it("creates an app that GitHub Actions set up, with the repository's names", async () => {
-    vi.useFakeTimers();
-    ciCredentialsTestState.status = { cloudflare: savedCloudflare, convex: savedConvex };
-    const checkNames = vi.fn(async () => availableNames("not_required"));
-    const createRepository = vi.fn(async () => undefined);
-    testState.actions.set(
-      getFunctionName(api.repository.actions.checkCreateRepositoryResourceNames),
-      checkNames,
-    );
-    testState.actions.set(getFunctionName(api.repository.create), createRepository);
-    const container = await mountPage();
-
-    expect(container.textContent).not.toContain("in Providers.");
-    expect(container.textContent).not.toContain("Cloudflare Workers and Pages GitHub App");
+  async function chooseGitHubActionsSetup(container: HTMLElement): Promise<void> {
     const actionsOption = (await openSetupOptions(container)).at(1);
     if (!actionsOption) {
       throw new Error("GitHub Actions setup option was not rendered.");
     }
+    expect(actionsOption.textContent).toBe(
+      "Set up by GitHub Actions in the repository (experimental)",
+    );
     await act(async () => {
       actionsOption.dispatchEvent(new MouseEvent("mousemove", { bubbles: true }));
     });
     await act(async () => actionsOption.click());
-    expect(container.textContent).toContain(
-      "The setup needs the Cloudflare Workers and Pages GitHub App on",
-    );
-    expect(container.querySelector("[aria-label='Convex project name']")).toBeNull();
-    expect(container.querySelector("[aria-label='Cloudflare Worker name']")).toBeNull();
-    expect(document.getElementById("new-app-convex-production-region")).toBeNull();
+  }
 
-    const input = container.querySelector<HTMLInputElement>(
-      "[aria-label='GitHub repository name']",
-    );
-    if (!input) {
-      throw new Error("GitHub repository name input was not rendered.");
-    }
-    setInputValue(input, "actions-app");
-    await act(async () => input.dispatchEvent(new Event("input", { bubbles: true })));
-    await act(async () => vi.advanceTimersByTimeAsync(350));
-    await flushQueryUpdates();
-    await vi.waitFor(() =>
-      expect(container.textContent).toContain("GitHub repository name is available."),
-    );
-    expect(checkNames).toHaveBeenLastCalledWith({
-      organizationId: organization.organizationId,
-      githubRepositoryName: "actions-app",
-      convexProjectName: "actions-app",
-      cloudflareWorkerName: "actions-app",
-      cloudflareBuildTokenUuid: null,
-    });
+  it.each([
+    {
+      name: "a connected Cloudflare account",
+      cloudflare: {
+        accountId: "account-acme-production",
+        accountName: "acme-production",
+        authMethod: "oauth",
+        state: "connected",
+      },
+    },
+    { name: "no Cloudflare connection", cloudflare: { state: "not_configured" } },
+  ])(
+    "creates an app that GitHub Actions set up, with $name and no CI tokens",
+    async ({ cloudflare }) => {
+      vi.useFakeTimers();
+      cloudflareConnectionTestState.connection = cloudflare;
+      const checkNames = vi.fn(async () => availableNames("not_required"));
+      const createRepository = vi.fn(async () => undefined);
+      testState.actions.set(
+        getFunctionName(api.repository.actions.checkCreateRepositoryResourceNames),
+        checkNames,
+      );
+      testState.actions.set(getFunctionName(api.repository.create), createRepository);
+      const container = await mountPage();
 
-    const createButton = [...container.querySelectorAll("button")].find(
-      (button) => button.textContent === "New App",
-    );
-    expect(createButton?.disabled).toBe(false);
-    await act(async () => createButton?.click());
-    await vi.waitFor(() =>
-      expect(createRepository).toHaveBeenCalledWith({
+      await chooseGitHubActionsSetup(container);
+      expect(container.textContent).toContain(
+        "Samebase saves the organization's Convex token as the repository secret CONVEX_ACCESS_TOKEN.",
+      );
+      expect(container.textContent).not.toContain("Cloudflare");
+      expect(container.querySelector("[aria-label='Convex project name']")).toBeNull();
+      expect(container.querySelector("[aria-label='Cloudflare Worker name']")).toBeNull();
+      expect(document.getElementById("new-app-convex-production-region")).toBeNull();
+
+      const input = container.querySelector<HTMLInputElement>(
+        "[aria-label='GitHub repository name']",
+      );
+      if (!input) {
+        throw new Error("GitHub repository name input was not rendered.");
+      }
+      setInputValue(input, "actions-app");
+      await act(async () => input.dispatchEvent(new Event("input", { bubbles: true })));
+      await act(async () => vi.advanceTimersByTimeAsync(350));
+      await flushQueryUpdates();
+      await vi.waitFor(() =>
+        expect(container.textContent).toContain("GitHub repository name is available."),
+      );
+      expect(checkNames).toHaveBeenLastCalledWith({
         organizationId: organization.organizationId,
         githubRepositoryName: "actions-app",
         convexProjectName: "actions-app",
         cloudflareWorkerName: "actions-app",
         cloudflareBuildTokenUuid: null,
-        private: true,
-        provisioning: "repository_actions",
-      }),
+      });
+
+      const createButton = [...container.querySelectorAll("button")].find(
+        (button) => button.textContent === "New App",
+      );
+      expect(createButton?.disabled).toBe(false);
+      await act(async () => createButton?.click());
+      await vi.waitFor(() =>
+        expect(createRepository).toHaveBeenCalledWith({
+          organizationId: organization.organizationId,
+          githubRepositoryName: "actions-app",
+          convexProjectName: "actions-app",
+          cloudflareWorkerName: "actions-app",
+          cloudflareBuildTokenUuid: null,
+          private: true,
+          provisioning: "repository_actions",
+        }),
+      );
+    },
+  );
+
+  it("keeps the Cloudflare requirement of the Samebase setup", async () => {
+    cloudflareConnectionTestState.connection = { state: "not_configured" };
+    const container = await mountPage();
+
+    expect(container.textContent).toContain(
+      "Configure Cloudflare in Providers before creating an app.",
     );
+    expect(
+      container.querySelector<HTMLInputElement>("[aria-label='GitHub repository name']")?.disabled,
+    ).toBe(true);
   });
 
   it("hides the Worker field and creates an app after an empty token list is confirmed", async () => {

@@ -681,9 +681,9 @@ describe("organization-owned repositories", () => {
         visibility: "private",
         description: null,
         convexTeamId: expectedDestinations.convexTeamId,
-        cloudflareAccountId: expectedDestinations.cloudflareAccountId,
         plan: {
           provisioning: "samebase",
+          cloudflareAccountId: expectedDestinations.cloudflareAccountId,
           convexProjectName: "managed-app",
           convexDeploymentRegion: "aws-us-east-1",
           cloudflareWorkerName: "managed-app",
@@ -766,9 +766,9 @@ describe("organization-owned repositories", () => {
         visibility: "private",
         description: null,
         convexTeamId: expectedDestinations.convexTeamId,
-        cloudflareAccountId: expectedDestinations.cloudflareAccountId,
         plan: {
           provisioning: "samebase",
+          cloudflareAccountId: expectedDestinations.cloudflareAccountId,
           convexProjectName: "managed-failure",
           convexDeploymentRegion: "aws-us-east-1",
           cloudflareWorkerName: "managed-failure",

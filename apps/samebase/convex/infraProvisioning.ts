@@ -630,7 +630,6 @@ const USER_FACING_PROVISIONING_ERROR_MARKERS = [
   "GitHub owner id is required before Cloudflare Workers Builds can connect the repository.",
   "GitHub repository response did not match the Samebase repository.",
   "The Samebase GitHub App is missing the",
-  "Save the Cloudflare and Convex CI tokens",
   "has commits that Samebase did not make, so Samebase cannot seed the starter",
   ORGANIZATION_BILLING_LIMITED_ERROR_PREFIX,
 ];

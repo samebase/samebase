@@ -6,16 +6,8 @@ import { createCloudflareClient } from "../cloudflareApi/client";
 import { Cloudflare } from "../cloudflareApi/generated/sdk.gen";
 import { verifyConvexTeamAccessToken } from "../convexManagementApi/client";
 import { ConvexManagementApiError } from "../convexManagementApi/errors";
-import type {
-  CompleteOrganizationCiCredentials,
-  OrganizationCiCredentials,
-} from "./providerCredentialModel";
 
-/*
-The checks of the CI tokens that a repository_actions repository receives as GitHub Actions secrets.
-Saving a token runs them, and so does every repository_actions creation, because a token can be
-revoked after it was saved.
-*/
+/* The checks of the organization's CI tokens. Saving a token runs them. */
 
 /**
 One read per permission group that the template's setup stack needs, the groups that
@@ -97,25 +89,4 @@ export async function requireConvexCiTeamAccess(args: {
     }
     throw new ConvexError("Convex could not verify the Convex CI token.");
   }
-}
-
-/** Both CI tokens, saved for the organization's current Convex team and Cloudflare account. */
-export function requireCompleteCiCredentials(args: {
-  ci: OrganizationCiCredentials | null;
-  convexTeamId: string;
-  cloudflareAccountId: string;
-  githubOwnerLogin: string;
-}): CompleteOrganizationCiCredentials {
-  const { ci } = args;
-  if (
-    !ci?.cloudflare ||
-    !ci.convex ||
-    ci.cloudflare.accountId !== args.cloudflareAccountId ||
-    ci.convex.teamId !== args.convexTeamId
-  ) {
-    throw new ConvexError(
-      `Save the Cloudflare and Convex CI tokens on the Providers page (/org/${args.githubOwnerLogin}/providers) before you create a repository that its GitHub Actions set up.`,
-    );
-  }
-  return { cloudflare: ci.cloudflare, convex: ci.convex };
 }

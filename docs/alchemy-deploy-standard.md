@@ -16,10 +16,12 @@ Every repository of the team deploys the same way. The reference implementation 
 3. **Stack name = repository full name**, `owner/name`, from `GITHUB_REPOSITORY` in Actions or the
    origin remote on a laptop. That name is how the Samebase repository pages find the stack. A stack
    in a folder of a repository is `owner/name/<folder>`.
-4. **One secret**: `CONVEX_ACCESS_TOKEN`, a team access token. The run mints every deploy key itself
-   and the keys never leave the run. The identity hub needs no secret: `Convex.HubClient` reaches it
-   with this token. A stack with Cloudflare resources adds the Cloudflare login
-   (`CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`) for those resources, not for state.
+4. **One secret**: `CONVEX_ACCESS_TOKEN`, a team access token, or the organization's OAuth token in
+   a repository that Samebase created. The run mints every deploy key itself, and the keys never
+   leave the run. An OAuth token comes back as its own key, with no limits. The identity hub needs
+   no secret: `Convex.HubClient` reaches it with this token. A stack with Cloudflare resources adds
+   the Cloudflare login (`CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`) for those resources, not
+   for state.
 5. **Stages**: `prod` on each push to `main`; `pr-<number>` on each pull request from the
    repository, a preview deployment named after the stage with a comment that names its URL,
    destroyed when the pull request closes. The workflow runs one deploy of a stage at a time.
@@ -55,5 +57,4 @@ repository is a copy of the starter, and a reader of one stack has read them all
 - If the project exists already, run the workflow once with `adopt`.
 - Delete every older path: deploy-key secrets, Workers Builds links, a Cloudflare state store.
 
-Known exceptions, to be removed: `templates/base-actions` (Workers Builds and a Cloudflare state
-store; the experimental provisioning flow still points at it) and any app not yet migrated.
+Known exception, to be removed: any app not yet migrated.

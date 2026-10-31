@@ -23,7 +23,7 @@ function writeTemplateFiles(root: string, files: Record<string, string>): void {
 
 describe("starter manifests", () => {
   it("renders each template directory as its own manifest", async () => {
-    const temporaryRoot = mkdtempSync(path.join(tmpdir(), "samebase-actions-manifest-test-"));
+    const temporaryRoot = mkdtempSync(path.join(tmpdir(), "samebase-alchemy-manifest-test-"));
 
     try {
       git(temporaryRoot, ["init"]);
@@ -32,7 +32,7 @@ describe("starter manifests", () => {
         "src/app.ts": "export {};\n",
         "wrangler.jsonc": "{}\n",
       });
-      writeTemplateFiles(path.join(temporaryRoot, "templates", "base-actions"), {
+      writeTemplateFiles(path.join(temporaryRoot, "templates", "base-alchemy"), {
         "README.md": "actions readme\n",
         "alchemy.run.ts": "export {};\n",
         "src/app.ts": "export {};\n",
@@ -58,8 +58,8 @@ describe("starter manifests", () => {
       );
       expect(actions.manifest).toEqual(
         expect.objectContaining({
-          sourcePath: "templates/base-actions",
-          publishedRepo: "https://github.com/samebase/base-actions.git",
+          sourcePath: "templates/base-alchemy",
+          publishedRepo: "https://github.com/samebase/base-alchemy.git",
           files: {
             "README.md": "actions readme\n",
             "alchemy.run.ts": "export {};\n",
@@ -68,7 +68,7 @@ describe("starter manifests", () => {
         }),
       );
       expect(actions.manifest.version).toBe(
-        `samebase-base-actions-${actions.manifest.contentHash.slice(0, 12)}`,
+        `samebase-base-alchemy-${actions.manifest.contentHash.slice(0, 12)}`,
       );
       expect(actions.source).toContain(
         "export const actionsStarterTemplateManifest: StarterTemplateManifest = {",

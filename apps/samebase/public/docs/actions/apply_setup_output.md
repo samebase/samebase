@@ -4,22 +4,18 @@
 
 MCP tool `repository_setupOutput_apply` · scope `access_provider_connections` · write
 
-For a repository that its GitHub Actions set up (`repository_create` with provisioning
-repository_actions), the repository's setup stack publishes a setup output after each deploy: the
-ids of the Workers and the Convex projects that it owns. `repository_getStatus` shows the newest one
-that waits (`setupStack.pending`). This action applies it: it reads the newest one again from the
-runs on the default branch, stops when its artifact is not `artifactId` (a newer run replaced the
-one that the user reviewed), checks every claim with the organization's Cloudflare and Convex
-connections (the account and the team are the repository's, each Worker builds this repository
-through Workers Builds, each project exists in the team, each Convex code location is on the default
-branch), and attaches the Workers and projects in one step. An output older than the applied one is
-never applied.
+A repository's setup stack can publish a setup output after each deploy: the ids of the Workers and
+the Convex projects that it owns. This action applies the newest one: it reads it from the runs on
+the default branch, stops when its artifact is not `artifactId` (a newer run replaced the one that
+the user reviewed), checks every claim with the organization's Cloudflare and Convex connections
+(the account and the team are the repository's, each Worker builds this repository through Workers
+Builds, each project exists in the team, each Convex code location is on the default branch), and
+attaches the Workers and projects in one step. An output older than the applied one is never
+applied.
 
-Samebase applies the first output after the app's creation by itself when it names exactly the
-Worker and the Convex project that Samebase reserved at creation, no other project of the team has
-that name, and both were created after the app. Anything else, such as a second Worker, an adopted
-resource, a later output, or a Worker that a drift repair recreated, waits for this action.
-`repository_getStatus` shows the waiting output and why Samebase did not apply it by itself.
+A repository created with provisioning repository_actions does not need this action: Samebase reads
+what it deployed from the team's Alchemy state store, and `repository_getStatus` shows no setup
+output.
 
 The attached resources are managed by the setup stack in `alchemy.run.ts`: Samebase never deletes
 them or changes their provider settings. A destroy receipt, which the repository's confirmed destroy
@@ -30,8 +26,8 @@ removed. A failed output reports a failed setup run and has nothing to apply (`s
 
 - `repository` (string, required): The repository as GitHub owner/name, or its repositoryId from
   repository_list.
-- `artifactId` (number, required): setupStack.pending.source.artifactId from repository_getStatus:
-  the setup output that the user reviewed. A newer output stops the apply.
+- `artifactId` (number, required): The GitHub artifact id of the samebase-setup-output artifact that
+  the user reviewed. A newer output stops the apply.
 
 ## Returns
 

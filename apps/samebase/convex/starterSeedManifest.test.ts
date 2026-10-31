@@ -227,28 +227,24 @@ describe("starterSeedManifest", () => {
 });
 
 describe("actionsStarterTemplateManifest", () => {
-  it("is the base starter plus the Alchemy setup stack", () => {
+  it("is the Alchemy starter, with the fixed provider", () => {
     const filePaths = Object.keys(actionsStarterTemplateManifest.files);
 
     expect(actionsStarterTemplateManifest.version).toBe(
-      `samebase-base-actions-${actionsStarterTemplateManifest.contentHash.slice(0, 12)}`,
+      `samebase-base-alchemy-${actionsStarterTemplateManifest.contentHash.slice(0, 12)}`,
     );
-    expect(actionsStarterTemplateManifest.sourcePath).toBe("templates/base-actions");
+    expect(actionsStarterTemplateManifest.sourcePath).toBe("templates/base-alchemy");
     expect(filePaths).toEqual(
       expect.arrayContaining([
         ".github/workflows/alchemy.yml",
         ".github/workflows/destroy.yml",
         "alchemy.run.ts",
-        "scripts/build-cloudflare.ts",
         "scripts/ensure-convex-auth.ts",
-        "wrangler.jsonc",
       ]),
     );
-    expect(actionsStarterTemplateManifest.files["wrangler.jsonc"]).toBe(
-      starterTemplateManifest.files["wrangler.jsonc"],
-    );
+    expect(filePaths).not.toContain("wrangler.jsonc");
     expect(actionsStarterTemplateManifest.files["package.json"]).toContain(
-      '"alchemy": "2.0.0-beta.80"',
+      '"@samebase/alchemy-convex": "0.19.1"',
     );
   });
 });

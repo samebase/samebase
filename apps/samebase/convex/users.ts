@@ -1070,10 +1070,9 @@ export const getCiCredentialsStatus = query({
 });
 
 /**
-Saves the Cloudflare API token that a repository_actions repository receives as its
-CLOUDFLARE_API_TOKEN secret, after requireCloudflareCiTokenPermissions confirmed that it is active
-and reaches the organization's connected account, whose id becomes the CLOUDFLARE_ACCOUNT_ID
-secret, with every permission group that the setup stack needs.
+Saves the organization's Cloudflare CI token, after requireCloudflareCiTokenPermissions confirmed
+that it is active and reaches the organization's connected account with every permission group that
+a setup stack needs.
 */
 export const setCloudflareCiToken = action({
   access: "access_provider_connections",
@@ -1115,9 +1114,8 @@ export const setCloudflareCiToken = action({
 });
 
 /**
-Saves the Convex team access token that a repository_actions repository receives as its
-CONVEX_ACCESS_TOKEN secret. It must read the organization's connected team, whose id becomes the
-CONVEX_TEAM_ID variable.
+Saves the organization's Convex CI token, a team access token that must read the organization's
+connected team.
 */
 export const setConvexCiToken = action({
   access: "access_provider_connections",

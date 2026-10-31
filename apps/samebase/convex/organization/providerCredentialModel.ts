@@ -46,9 +46,9 @@ const vConvexCiCredential = object({
 });
 
 /**
-CI credentials that Samebase writes into a repository_actions repository as GitHub Actions secrets.
-The user pastes both; the row stores the token values. A row holds at least one entry, and each entry
-belongs to the member who saved it.
+CI credentials that an owner pasted on the Providers page. The row stores the token values, and no
+repository creation reads them. A row holds at least one entry, and each entry belongs to the member
+who saved it.
 */
 export const vOrganizationCiCredentials = union(
   object({
@@ -62,19 +62,6 @@ export const vOrganizationCiCredentials = union(
     convex: vConvexCiCredential,
   }),
 );
-export type OrganizationCiCredentials = Infer<typeof vOrganizationCiCredentials>;
-export type CompleteOrganizationCiCredentials = {
-  cloudflare: Infer<typeof vCloudflareCiCredential>;
-  convex: Infer<typeof vConvexCiCredential>;
-};
-
-/**
-The revision of the CI credentials that a repository holds: the later `updatedAt` of the two tokens.
-Saving either token again gives a higher revision, so the repositories with a lower one are stale.
-*/
-export function readCiCredentialRevision(ci: CompleteOrganizationCiCredentials): number {
-  return Math.max(ci.cloudflare.updatedAt, ci.convex.updatedAt);
-}
 
 /**
 The additional authenticated data of a sealed provider credential: a sealed value opens only in the
@@ -167,9 +154,8 @@ export const organizationProviderCredentialTables = {
 
   /**
   The CI tokens of one organization, separate from Samebase's own provider credentials so that a
-  provider disconnect never removes them. Owners save them on the Providers page; repository_actions
-  provisioning copies them into each new repository; account deletion removes the entries that the
-  deleted member saved.
+  provider disconnect never removes them. Owners save them on the Providers page; account deletion
+  removes the entries that the deleted member saved.
   */
   organizationCiCredentials: defineTable(vOrganizationCiCredentials)
     .index("by_organization", ["organizationId"])

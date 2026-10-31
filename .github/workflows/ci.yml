@@ -134,7 +134,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        template: [base, base-actions]
+        template: [base, base-alchemy]
 
     defaults:
       run:
@@ -148,12 +148,11 @@ jobs:
         uses: pnpm/action-setup@v6
         with:
           package_json_file: templates/${{ matrix.template }}/package.json
-          version: 12.14.0
 
       - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
-          node-version: 24.x
+          node-version-file: templates/${{ matrix.template }}/.node-version
           check-latest: true
           cache: "pnpm"
           cache-dependency-path: templates/${{ matrix.template }}/pnpm-lock.yaml
@@ -179,7 +178,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        template: [base, base-actions]
+        template: [base, base-alchemy]
 
     defaults:
       run:
@@ -193,12 +192,11 @@ jobs:
         uses: pnpm/action-setup@v6
         with:
           package_json_file: templates/${{ matrix.template }}/package.json
-          version: 12.14.0
 
       - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
-          node-version: 24.x
+          node-version-file: templates/${{ matrix.template }}/.node-version
           check-latest: true
           cache: "pnpm"
           cache-dependency-path: templates/${{ matrix.template }}/pnpm-lock.yaml

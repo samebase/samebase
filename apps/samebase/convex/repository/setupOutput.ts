@@ -364,9 +364,9 @@ async function prepareLatestSetupOutput(
 }
 
 /**
-The setup status: the run of the newest setup output, the applied output, the newest output that is
-not applied yet with its checks, and the last automatic apply that failed. It writes nothing, so a
-status read never attaches a resource.
+The status of the setup output: the run of the newest setup output, the applied output, the newest
+output that is not applied yet with its checks, and the last automatic apply that failed. It writes
+nothing, so a status read never attaches a resource.
 */
 export async function readSetupStatus(
   ctx: ActionCtx,
@@ -535,7 +535,7 @@ export const applyFirstForCreator = internalAction({
   },
 });
 
-/** The setup status of a repository_actions repository, for the dashboard and repository_getStatus. */
+/** The status of the setup output of a repository whose setup stack publishes one. */
 export const readStatus = action({
   access: "access_dashboard",
   args: { repositoryId: id("repositories") },

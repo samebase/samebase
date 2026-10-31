@@ -178,8 +178,8 @@ type CiCredentialsSectionTargets = {
 };
 
 /**
-The two tokens that Samebase writes as GitHub Actions secrets into each repository that its GitHub
-Actions set up. Samebase's own provider connections above never go into a repository.
+The two CI tokens that an owner saves for the organization. No repository creation reads them: a
+repository that its GitHub Actions set up receives the credential of the Convex connection above.
 */
 export function CiCredentialsSection({
   organizationId,

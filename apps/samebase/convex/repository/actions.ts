@@ -15,16 +15,8 @@ import {
   type GitHubAppAccessTarget,
 } from "../githubAppAccess";
 import { createGitHubRepositoryInstallationOctokit, readGitHubAppInstallation } from "../githubApp";
-import {
-  requireCloudflareCiTokenPermissions,
-  requireCompleteCiCredentials,
-  requireConvexCiTeamAccess,
-} from "../organization/ciCredentials";
 import { resolveGitHubRepositoryById } from "../githubRepoApi";
-import {
-  organizationCiCredentialAad,
-  organizationProviderCredentialAad,
-} from "../organization/providerCredentialModel";
+import { organizationProviderCredentialAad } from "../organization/providerCredentialModel";
 import { openSecret } from "../sealedSecret";
 import { resolveGitHubUserOctokit } from "../githubUserAuthorizations";
 import {
@@ -882,9 +874,9 @@ export async function createAppForUser(
       visibility,
       description: args.description ?? null,
       convexTeamId: convexConnection.convexTeamId,
-      cloudflareAccountId: cloudflareConnection.cloudflareAccountId,
       plan: {
         provisioning: "samebase",
+        cloudflareAccountId: cloudflareConnection.cloudflareAccountId,
         convexProjectName: convexNameValidation.value,
         convexDeploymentRegion,
         cloudflareWorkerName: cloudflareNameValidation?.valid
@@ -905,12 +897,14 @@ const REPOSITORY_ACTIONS_GITHUB_PERMISSIONS = [
 ] as const;
 
 /**
-The repository_actions creation: every check runs before anything is created. The repository's GitHub
-Actions later create the Convex project and the Worker under the repository's name, so the names are
-fixed, their availability is checked now, and Samebase writes no provider resource itself.
+The repository_actions creation: every check runs before anything is created. It needs the GitHub and
+Convex connections and nothing else. The repository's GitHub Actions later create the Convex project
+under the repository's name, so the name is fixed, its availability is checked now, and Samebase
+writes no provider resource itself. The name check also proves that the Convex connection reads its
+team, and that credential is what the repository's GitHub Actions later deploy with.
 */
 async function createRepositoryActionsAppForUser(
-  ctx: Pick<ActionCtx, "runAction" | "runQuery" | "runMutation">,
+  ctx: Pick<ActionCtx, "runQuery" | "runMutation">,
   args: {
     userId: Id<"users">;
     githubAccess: GitHubAppAccess;
@@ -928,41 +922,32 @@ async function createRepositoryActionsAppForUser(
     repositoryName: args.githubRepositoryName,
     provider: "convex",
   });
-  const workerName = buildDefaultAppResourceName({
-    repositoryName: args.githubRepositoryName,
-    provider: "cloudflare",
-  });
-  if (args.convexProjectName !== convexProjectName || args.cloudflareWorkerName !== workerName) {
+  if (args.convexProjectName !== convexProjectName) {
     throw new ConvexError(
-      `The GitHub Actions of the repository name the Convex project and the Worker after the repository: ${convexProjectName} and ${workerName}. Remove the custom names.`,
+      `The GitHub Actions of the repository name the Convex project after the repository: ${convexProjectName}. Remove the custom name.`,
     );
   }
-  if (args.cloudflareBuildTokenUuid !== null || args.convexDeploymentRegion !== undefined) {
+  if (
+    args.cloudflareWorkerName !==
+      buildDefaultAppResourceName({
+        repositoryName: args.githubRepositoryName,
+        provider: "cloudflare",
+      }) ||
+    args.cloudflareBuildTokenUuid !== null ||
+    args.convexDeploymentRegion !== undefined
+  ) {
     throw new ConvexError(
-      "A Workers Builds token and a Convex region apply only when Samebase sets up the app. Remove them.",
+      "A Cloudflare Worker name, a Workers Builds token, and a Convex region apply only when Samebase sets up the app. Remove them.",
     );
   }
 
-  const [configuration, ci, installation, convexConnection, cloudflareConnection] =
-    await Promise.all([
-      ctx.runQuery(internal.organizationProviderCredentials.loadForOrganization, {
-        userId: args.userId,
-        organizationId: githubAccess.organizationId,
-      }),
-      ctx.runQuery(internal.organizationProviderCredentials.loadCiCredentialsForOrganization, {
-        userId: args.userId,
-        organizationId: githubAccess.organizationId,
-      }),
-      readGitHubAppInstallation(githubAccess.githubInstallationId),
-      resolveOrganizationConvexProvisioningConnection(ctx, {
-        userId: args.userId,
-        organizationId: githubAccess.organizationId,
-      }),
-      resolveOrganizationCloudflareProvisioningConnection(ctx, {
-        userId: args.userId,
-        organizationId: githubAccess.organizationId,
-      }),
-    ]);
+  const [installation, convexConnection] = await Promise.all([
+    readGitHubAppInstallation(githubAccess.githubInstallationId),
+    resolveOrganizationConvexProvisioningConnection(ctx, {
+      userId: args.userId,
+      organizationId: githubAccess.organizationId,
+    }),
+  ]);
   const missingPermissions = REPOSITORY_ACTIONS_GITHUB_PERMISSIONS.filter(
     (required) =>
       !installation.permissions.some(
@@ -978,37 +963,8 @@ async function createRepositoryActionsAppForUser(
       `The Samebase GitHub App installation for ${githubAccess.githubOwnerLogin} has not granted the ${missingPermissions.map((permission) => permission.label).join(" and ")} repository ${missingPermissions.length > 1 ? "permissions" : "permission"} (read and write). Accept the new permissions on the installation (${installationsUrl}), then create the repository again.`,
     );
   }
-  const cloudflareAccount = configuration.cloudflareAccount;
-  const convexTeam = configuration.convexTeam;
-  if (
-    cloudflareAccount?.accountId !== cloudflareConnection.cloudflareAccountId ||
-    convexTeam?.teamId !== convexConnection.convexTeamId
-  ) {
-    throw new ConvexError("Organization provider destinations changed. Reload and try again.");
-  }
-  const ciCredentials = requireCompleteCiCredentials({
-    ci,
-    convexTeamId: convexTeam.teamId,
-    cloudflareAccountId: cloudflareAccount.accountId,
-    githubOwnerLogin: githubAccess.githubOwnerLogin,
-  });
-  await requireCloudflareCiTokenPermissions({
-    token: await openSecret({
-      sealed: ciCredentials.cloudflare.apiToken,
-      aad: organizationCiCredentialAad(githubAccess.organizationId, "cloudflare.apiToken"),
-    }),
-    account: cloudflareAccount,
-  });
-  await requireConvexCiTeamAccess({
-    token: await openSecret({
-      sealed: ciCredentials.convex.accessToken,
-      aad: organizationCiCredentialAad(githubAccess.organizationId, "convex.accessToken"),
-    }),
-    teamId: convexTeam.teamId,
-    teamLabel: convexTeam.teamSlug ?? convexTeam.teamId,
-  });
 
-  const [githubNameAvailability, convexNameAvailability, workerAvailable] = await Promise.all([
+  const [githubNameAvailability, convexNameAvailability] = await Promise.all([
     checkGitHubRepositoryNameAvailability(ctx, {
       userId: args.userId,
       organizationId: githubAccess.organizationId,
@@ -1018,17 +974,11 @@ async function createRepositoryActionsAppForUser(
       connection: convexConnection,
       projectName: convexProjectName,
     }),
-    isCloudflareWorkerNameAvailable({
-      token: cloudflareConnection.cloudflareToken,
-      transport: resolveCloudflareApiTransport(cloudflareConnection.cloudflareAuthMethod),
-      accountId: cloudflareConnection.cloudflareAccountId,
-      workerName,
-    }),
   ]);
   assertResourceNameAvailable("GitHub repository name", githubNameAvailability);
-  if (convexNameAvailability.status === "taken" || !workerAvailable) {
+  if (convexNameAvailability.status === "taken") {
     throw new ConvexError(
-      `${convexNameAvailability.status === "taken" ? `A Convex project named ${convexProjectName}` : `A Cloudflare Worker named ${workerName}`} already exists, and the GitHub Actions of the repository would use that name. Choose another repository name.`,
+      `A Convex project named ${convexProjectName} already exists, and the GitHub Actions of the repository would use that name. Choose another repository name.`,
     );
   }
   assertResourceNameAvailable("Convex project name", convexNameAvailability);
@@ -1042,8 +992,7 @@ async function createRepositoryActionsAppForUser(
       githubRepositoryName: args.githubRepositoryName,
       visibility: args.visibility,
       description: args.description,
-      convexTeamId: convexTeam.teamId,
-      cloudflareAccountId: cloudflareAccount.accountId,
+      convexTeamId: convexConnection.convexTeamId,
       plan: { provisioning: "repository_actions" },
     },
   );
