@@ -12,6 +12,9 @@ minimumReleaseAge: 10080
 minimumReleaseAgeExclude:
   # Published 2026-10-30. Remove on 2026-11-06, when it is older than the seven-day release age.
   - "@samebase/alchemy-convex@0.13.0"
+  # First-party release (apps/identity-hub runs it in production), published 2026-10-31T13:31:24.752Z.
+  # Remove after 2026-11-07 13:30 UTC.
+  - "@samebase/identity-broker@0.10.0"
   # Reviewed security fix: https://github.com/7rulnik/source-map-js/pull/79
   # Remove after 2026-10-07, when the 7-day cooling period is complete.
   - "source-map-js@1.2.2"

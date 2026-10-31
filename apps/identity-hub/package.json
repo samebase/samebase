@@ -7,13 +7,13 @@
     "dev": "convex dev",
     "deploy": "node ./scripts/check-keys.ts && convex deploy --yes",
     "keys:init": "node ./scripts/init-keys.ts",
-    "typecheck": "pnpm --filter @samebase/identity-broker run build && tsc --project convex/tsconfig.json && tsc --project tsconfig.node.json",
+    "typecheck": "tsc --project convex/tsconfig.json && tsc --project tsconfig.node.json",
     "lint": "pnpm --dir ../.. exec vp lint --tsconfig apps/identity-hub/convex/tsconfig.json --report-unused-disable-directives apps/identity-hub/convex apps/identity-hub/scripts apps/identity-hub/alchemy.run.ts",
     "check": "pnpm run typecheck && pnpm run lint"
   },
   "dependencies": {
     "@samebase/alchemy-convex": "0.17.0",
-    "@samebase/identity-broker": "workspace:*",
+    "@samebase/identity-broker": "0.10.0",
     "convex": "1.48.0"
   },
   "devDependencies": {
