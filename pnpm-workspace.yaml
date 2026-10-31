@@ -95,6 +95,8 @@ minimumReleaseAgeExclude:
   # header decoding), published 2026-10-17 15:06 UTC with npm provenance. Remove after 2026-10-24
   # 15:07 UTC.
   - "postal-mime@4.0.8"
+  # Renovate security update: minimatch@11.0.1
+  - minimatch@11.0.1
 minimumReleaseAgeStrict: true
 minimumReleaseAgeIgnoreMissingTime: false
 # Blocks transitive git/tarball dependencies, including the remote GitHub
