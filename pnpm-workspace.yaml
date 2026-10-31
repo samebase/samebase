@@ -120,6 +120,11 @@ audit:
     # exists yet (latest is 4.3.1). deepmerge only reaches the shadcn CLI, a
     # devDependency of apps/samebase, not shipped Worker code.
     - GHSA-gcqx-w48m-w2h4
+    # TODO(2026-11-14): Remove once nothing resolves minimatch below 11.0.1, the first fixed release.
+    # Minimatch 11 removes makeRe() and changes Minimatch.set, which breaks glob 7, so an override is
+    # not safe. The flaw runs only with optimizationLevel 2 or higher. The default is 1, and neither
+    # apps/samebase/src/repository/editor/simpleView.ts nor the packages that resolve it set it.
+    - GHSA-g3hv-75wg-m249
 overrides:
   # Shared adapter 4.0.6 requires Effect ^4.0.6.
   "@effect/platform-node-shared": 4.0.5
