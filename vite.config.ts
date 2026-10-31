@@ -38,6 +38,43 @@ export default new WebAssembly.Module(bytes);`;
 }
 
 export default defineConfig({
+  run: {
+    tasks: {
+      "ci:workspace": {
+        command: "vp run check:packages",
+        cache: false,
+        dependsOn: [
+          "samebase#check:ci",
+          "workspace-layout-v2-solid#typecheck:cached",
+          "check:remotion-studio",
+          "check:examples",
+        ],
+      },
+      "remotion:check": {
+        command: "vp run typecheck:remotion-studio && vp run --cache lint:remotion-studio",
+        cache: false,
+      },
+      "remotion:typecheck": {
+        command: "tsgo -p apps/remotion-studio/tsconfig.json --pretty false",
+        cache: {
+          // The native typechecker does not report every filesystem input to Vite Task.
+          input: [
+            { auto: true },
+            "apps/remotion-studio/**/*.{ts,tsx,json}",
+            "packages/**/*.{ts,tsx,json}",
+            "scripts/**/*.ts",
+            "tsconfig*.json",
+            "package.json",
+            "pnpm-lock.yaml",
+            "pnpm-workspace.yaml",
+            "!**/node_modules/**",
+            "!**/dist/**",
+          ],
+          output: [],
+        },
+      },
+    },
+  },
   define: {
     __APP_BUILD_CONFIG__: JSON.stringify(testAppBuildConfig),
   },
