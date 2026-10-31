@@ -46,13 +46,6 @@ A job that runs dependency code waits for the audit when the audit is selected. 
 selected job to succeed and a job that was not selected to skip. Playwright keeps its push-only
 condition.
 
-## Test retirement
-
-Use `.agents/skills/samebase-test-policy/SKILL.md`. For each proposed removal, name the current
-contract, retained owner, observed runtime, and failure-history limits. Introduce a deliberate
-defect to prove the retained owner before removing duplicate coverage. Measure the focused result. A
-passing history alone is insufficient evidence to remove a test.
-
 ## References
 
 - [Vite Task execution and dependencies](https://viteplus.dev/guide/run)

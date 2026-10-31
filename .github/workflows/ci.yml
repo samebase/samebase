@@ -37,6 +37,7 @@ jobs:
         ${{ steps.filter.outcome != 'success' || steps.filter.outputs.windows_launcher == 'true' }}
       windows_smoke:
         ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' ||
+        (github.event_name == 'pull_request' && steps.filter.outcome != 'success') ||
         steps.filter.outputs.windows_smoke == 'true' }}
 
     steps:
@@ -74,17 +75,21 @@ jobs:
               - templates/base/pnpm-lock.yaml
               - templates/base/scripts/**
             windows_smoke:
+              - .github/workflows/ci.yml
               - apps/samebase/scripts/convex-dev.ts
               - apps/samebase/scripts/convex-local-utils.ts
               - apps/samebase/scripts/localConvexAdminClient.ts
               - apps/samebase/scripts/normalizeEnvValue.ts
               - apps/samebase/scripts/predev.ts
               - apps/samebase/scripts/seed-local-password-account.ts
+              - packages/dependent/**
               - runtime/anonymousLocalPorts.ts
               - scripts/ci-bootstrap-convex.ts
               - scripts/ci-windows-start.ts
               - scripts/lib/convexAuthKeys.ts
-              - templates/base/scripts/**
+              - scripts/lib/scriptRuntime.ts
+              - scripts/lib/trackedFilePath.ts
+              - templates/base/**
 
   # A pull request audits only when it changes dependencies: a new advisory for an unchanged
   # dependency is already on main, and the nightly run reports it.
@@ -415,10 +420,10 @@ jobs:
     timeout-minutes: 15
     needs: [changes, supply_chain, starter_template_supply_chain]
     if:
-      ${{ !cancelled() && needs.changes.outputs.windows_launcher == 'true' &&
-      (needs.supply_chain.result == 'success' || needs.supply_chain.result == 'skipped') &&
-      (needs.starter_template_supply_chain.result == 'success' ||
-      needs.starter_template_supply_chain.result == 'skipped') }}
+      ${{ !cancelled() && needs.changes.result == 'success' &&
+      needs.changes.outputs.windows_launcher == 'true' && (needs.supply_chain.result == 'success' ||
+      needs.supply_chain.result == 'skipped') && (needs.starter_template_supply_chain.result ==
+      'success' || needs.starter_template_supply_chain.result == 'skipped') }}
 
     steps:
       - name: Checkout code
@@ -471,9 +476,9 @@ jobs:
     timeout-minutes: 20
     needs: [changes, supply_chain, starter_template_supply_chain]
     if:
-      ${{ !cancelled() && needs.changes.outputs.windows_smoke == 'true' &&
-      (needs.supply_chain.result == 'success' || needs.supply_chain.result == 'skipped') &&
-      (needs.starter_template_supply_chain.result == 'success' ||
+      ${{ !cancelled() && needs.changes.result == 'success' && needs.changes.outputs.windows_smoke
+      == 'true' && (needs.supply_chain.result == 'success' || needs.supply_chain.result ==
+      'skipped') && (needs.starter_template_supply_chain.result == 'success' ||
       needs.starter_template_supply_chain.result == 'skipped') }}
 
     strategy:
