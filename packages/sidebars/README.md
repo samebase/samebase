@@ -5,10 +5,10 @@ uses for its workspace layout. It supports optional left and right panes and own
 mobile scroll snapping, resizing, merge state, accessibility, SSR markup, and prehydration. The
 consumer owns visible styling, text, and durable state storage.
 
-> This repository is an automated export of `packages/sidebars` from the Samebase monorepo. The
-> monorepo is the source of truth. Do not edit exported files directly. Use
-> [GitHub Issues](https://github.com/samebase/sidebars/issues) to report a problem or request a
-> change.
+> The source is in
+> [`packages/sidebars`](https://github.com/samebase/samebase/tree/main/packages/sidebars) of the
+> Samebase monorepo. Use [GitHub Issues](https://github.com/samebase/samebase/issues) to report a
+> problem or request a change.
 
 The public API follows Base UI conventions. Components render canonical DOM with stable part and
 state attributes. The package does not depend on Base UI.

@@ -5,25 +5,24 @@ main pane, and a right sidebar. The app imports the package through its public p
 entrypoints, owns its visible styles, saves layout state in localStorage, and applies that state
 before React hydrates.
 
-[Open the live example](https://samebase-sidebars-example.pfp.workers.dev/?prod-ui).
+[Open the live example](https://sidebars.samebase.com).
 
 The `/human-checkpoint` route provides one human continuation step for browser automation.
 
 ## Run the app
 
-Install the dependencies, then start the development server:
+Install the dependencies at the repository root, then start the development server:
 
 ```sh
 pnpm install
-pnpm run dev
+pnpm run dev:sidebars-example
 ```
 
 The development server prints its local URL. The app needs no backend or environment variables.
 
-Use these commands for validation and deployment:
+Use these commands in this folder for validation:
 
 ```sh
-pnpm run dev
 pnpm run build
 pnpm run check
 pnpm run deploy:dry-run
@@ -36,23 +35,10 @@ pnpm run typecheck
 
 ## Cloudflare deployment
 
-Use the repository root as the Cloudflare Workers Builds root directory. Run `pnpm run build`, then
-`pnpm run deploy` for `main` or `pnpm run deploy:preview` for other branches. Wrangler uses the
-connected Worker name that Cloudflare supplies. Enable native Worker Previews for the existing
-connection as described in the
-[migration guide](https://samebase.com/docs/cloudflare-previews-migration). This app does not use
+`alchemy.run.ts` deploys this folder: the `alchemy.yml` workflow of the monorepo builds it and runs
+the stack on each push to `main`, and the stack uploads `dist/client` to the Worker
+`samebase-monorepo-sidebars-example` with the settings of `wrangler.jsonc`. This app does not use
 Convex or deploy keys.
-
-In the [samebase/samebase](https://github.com/samebase/samebase) monorepo, `alchemy.run.ts` deploys
-this folder instead of Workers Builds: its `alchemy.yml` workflow runs `pnpm install`,
-`pnpm run build`, and the stack in this folder on each push to `main`, and the stack uploads
-`dist/client` to the Worker `samebase-monorepo-sidebars-example` with the settings of
-`wrangler.jsonc`.
-
-Build before a manual deploy. Use `pnpm run deploy --name samebase-sidebars-example` for production
-or `pnpm run deploy:preview --worker-name samebase-sidebars-example` for a preview. For a local
-check without an upload, run `pnpm run deploy:dry-run --name samebase-sidebars-example`. It builds
-the app before the production dry run. Worker Previews has no dry-run mode.
 
 `wrangler.jsonc` publishes `dist/client` with the standard Samebase observability and SPA settings.
 `public/_redirects` maps `/` to its prerendered HTML file while `index.html` remains the SPA
@@ -61,8 +47,8 @@ fallback.
 ## Architecture
 
 The root route always provides all three panes to `SidebarLayout`. The left sidebar links to the
-package and example repositories. The main pane explains the controls. The right sidebar lists the
-layout behavior.
+package and example source. The main pane explains the controls. The right sidebar lists the layout
+behavior.
 
 The TanStack root route owns the state controller. The controller validates the localStorage value,
 uses defaults for invalid or missing data, and defers repeated width writes. It flushes the last
