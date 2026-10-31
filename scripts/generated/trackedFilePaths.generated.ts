@@ -2424,6 +2424,7 @@ export const trackedFilePaths = [
   "scripts/check-template-sync.test.ts",
   "scripts/check-template-sync.ts",
   "scripts/ci-bootstrap-convex.ts",
+  "scripts/ci-windows-start.ts",
   "scripts/convex-seed-dev-auth.ts",
   "scripts/convex-sync-dev-env.ts",
   "scripts/export-pitch-deck.ts",

@@ -35,9 +35,16 @@ feature as experimental. Add it when measured task savings exceed cache-transfer
 
 ## Workflow behavior
 
-A newer PR run cancels an older CI run for the same PR. Push runs have unique concurrency groups.
-The required `ci (24.x)` check keeps its existing job dependencies and result validation. Dependency
-audits retain their current scope. Playwright keeps its current push-only condition.
+`ci (24.x)` is the only required check. A newer PR run cancels an older CI run for the same PR.
+
+A pull request always runs `checks`, `unit tests`, and `app build` in parallel. The
+[`dorny/paths-filter`](https://github.com/dorny/paths-filter) step in `ci.yml` selects the other
+jobs from the changed files. Every push runs them all, except `windows-smoke`. The nightly run adds
+`windows-smoke`, which also starts the starter app and loads a page.
+
+A job that runs dependency code waits for the audit when the audit is selected. The gate requires a
+selected job to succeed and a job that was not selected to skip. Playwright keeps its push-only
+condition.
 
 ## Test retirement
 
