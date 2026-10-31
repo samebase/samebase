@@ -113,7 +113,7 @@ const record: RunRecord = {
 };
 
 /** The store service over the fake, with its own scope, which `close` ends. */
-const open = (team: string | number = TEAM) =>
+const open = (team: string | number = TEAM, accessToken = TOKEN) =>
   Effect.gen(function* () {
     const api = yield* ManagementApi;
     const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
@@ -129,7 +129,9 @@ const open = (team: string | number = TEAM) =>
     return { service, read, close: Scope.close(scope, Exit.void) };
   }).pipe(
     Effect.provide(
-      ManagementApiLive().pipe(Layer.provide(fromValues({ accessToken: Redacted.make(TOKEN) }))),
+      ManagementApiLive().pipe(
+        Layer.provide(fromValues({ accessToken: Redacted.make(accessToken) })),
+      ),
     ),
     Effect.provide(NodeServices.layer),
   );
@@ -146,6 +148,17 @@ const keyCalls = (fake: FakeConvex) =>
   fake.sent.filter((request) => request.path.endsWith("_deploy_key"));
 
 describe("Convex.state", () => {
+  it("runs with an OAuth credential that has white space, and never deletes it", async () => {
+    const fake = new FakeConvex().install();
+    fake.oauth = true;
+    const { service, close } = await run(open(TEAM, "team:samebase-live-tests|oauth-token\n"));
+    await run(service.set({ ...stack, fqn: "Project", value: created("Project") }));
+    await run(close);
+    const routes = keyCalls(fake).map((request) => request.path.split("/").pop());
+    expect(routes).toContain("create_deploy_key");
+    expect(routes).not.toContain("delete_deploy_key");
+  });
+
   it("creates the state project of the team, pushes the store, and serves the rows", async () => {
     const fake = new FakeConvex().install();
     // The project is new, so its deployment has no functions until the push.

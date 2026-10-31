@@ -466,6 +466,15 @@ export class FakeConvex {
           const prefix = recordedSecret.slice(0, recordedSecret.indexOf("|"));
           const token = bearer.slice(bearer.indexOf("|") + 1);
           const secret = `${prefix.replace("beaming-okapi-932", deployment)}|${token}`;
+          if (!keys.some((key) => key.secret === secret)) {
+            keys.push({
+              id: this.nextId++,
+              name: String(body?.["name"]),
+              secret,
+              actions: undefined,
+            });
+            this.keysOf(this.createdSecrets, deployment).push(secret);
+          }
           return json(200, { ...recorded("deployment_create_deploy_key.json"), deployKey: secret });
         }
         const actions = body?.["allowedActions"];

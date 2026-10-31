@@ -206,7 +206,16 @@ const TokenDetails = Schema.Union([
 ]);
 
 /** The service for one way to get the bearer token. */
-const makeService = (credentials: Effect.Effect<ResolvedCredentials>): ManagementApiService => {
+const makeService = (source: Effect.Effect<ResolvedCredentials>): ManagementApiService => {
+  // An HTTP header drops the white space around a token, so every use here takes the value that
+  // Convex sees. isCredentialToken must compare that value: a miss deletes an OAuth credential.
+  const credentials = source.pipe(
+    Effect.map((resolved) => ({
+      ...resolved,
+      accessToken: Redacted.make(Redacted.value(resolved.accessToken).trim()),
+    })),
+  );
+
   const client = Effect.cached(
     credentials.pipe(
       Effect.map((resolved) => createManagementClient(Redacted.value(resolved.accessToken))),
