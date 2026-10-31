@@ -2,7 +2,7 @@ import { api } from "../../../convex/_generated/api";
 import type { UserRepositoryResult } from "../../../convex/repository/contracts/getUserRepositories";
 import { useQuery } from "@tanstack/react-query";
 import { useAction } from "convex/react";
-import { canReadRepositoryAlchemyStore } from "@/repository/dashboard/repositoryAlchemyStore";
+import { isRepositoryBeingCreated } from "@/repository/dashboard/repositoryAlchemyStore";
 import { repositoryExternalDataQueryKey } from "@/repository/dashboard/repositoryExternalDataQueryKey";
 import type { AlchemyStateObservation } from "../../../shared/alchemyStateModel";
 import {
@@ -42,7 +42,7 @@ type RepositoryProviderObservationTarget = Pick<
   UserRepositoryResult,
   "repositoryId" | "providerWrite" | "convexTeamId" | "hasConnectedGitHubRepository"
 > & {
-  deletion: Pick<UserRepositoryResult["deletion"], "state">;
+  sourceSetup: Pick<UserRepositoryResult["sourceSetup"], "status">;
   cloudflareWorkers: readonly Pick<UserRepositoryResult["cloudflareWorkers"][number], "workerId">[];
   convexProjects: readonly Pick<
     UserRepositoryResult["convexProjects"][number],
@@ -224,12 +224,15 @@ export function useRepositoryProviderObservations(
     gcTime: PROVIDER_OBSERVATION_GC_TIME_MS,
   });
 
-  const alchemyRequested =
-    repository !== null && source !== "attachments" && canReadRepositoryAlchemyStore(repository);
-  const alchemyState = useRepositoryAlchemyState(
-    alchemyRequested ? (repositoryId ?? null) : null,
+  // The store lives in the Convex team of the repository, so a repository without one has no stack.
+  const alchemyRequested = Boolean(convexTeamId) && source !== "attachments";
+  const alchemyWaiting =
+    alchemyRequested && repository !== null && isRepositoryBeingCreated(repository);
+  const alchemyRead = useRepositoryAlchemyState(
+    alchemyRequested && !alchemyWaiting ? (repositoryId ?? null) : null,
     convexTeamId,
   );
+  const alchemyState: RepositoryAlchemyState = alchemyWaiting ? { state: "loading" } : alchemyRead;
 
   const reloadCloudflareWorkers = () => {
     void cloudflareWorkersQuery.refetch();

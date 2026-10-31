@@ -4,7 +4,7 @@ import type { FunctionReference, FunctionReturnType, OptionalRestArgs } from "co
 import { ConvexError } from "convex/values";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
-import { canReadRepositoryAlchemyStore } from "@/repository/dashboard/repositoryAlchemyStore";
+import { isRepositoryBeingCreated } from "@/repository/dashboard/repositoryAlchemyStore";
 import { rootQueries, unlessAccountGone } from "@/routes/root.queries";
 
 /**
@@ -99,7 +99,8 @@ The loader of the pages that render the repository overview: the overview, and t
 its left pane. With the dashboard data, it waits only for the store connection with its first read,
 when `readsStore`, so no GitHub read delays the first byte. It returns that connection, or `null`
 when the page reads no store, as `useRepositoryProviderObservations` decides: no dashboard access, a
-repository outside the viewer's organizations, or a repository that cannot read the store.
+repository outside the viewer's organizations, a repository without a Convex team, or a repository
+that Samebase is still creating.
 */
 async function loadOverviewPage({
   context: { convexQueryClient, queryClient },
@@ -127,7 +128,7 @@ async function loadOverviewPage({
   }
 
   const { convexTeamId, repositoryId } = repository;
-  return readsStore && convexTeamId && canReadRepositoryAlchemyStore(repository)
+  return readsStore && convexTeamId && !isRepositoryBeingCreated(repository)
     ? await connectAlchemyState(convexQueryClient, { repositoryId, convexTeamId })
     : null;
 }

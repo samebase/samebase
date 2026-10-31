@@ -95,7 +95,7 @@ describe("useRepositoryProviderObservations", () => {
         repositoryId: fakeRepositoryId("repository-empty"),
         cloudflareWorkers: [],
         convexProjects: [],
-        deletion: { state: "not_deleting" },
+        sourceSetup: { status: "not_applicable" },
         hasConnectedGitHubRepository: true,
         providerWrite: { status: "idle", lastWriteAt: {} },
       });
@@ -165,7 +165,7 @@ describe("useRepositoryProviderObservations", () => {
             teamId: "team-failed",
           },
         ],
-        deletion: { state: "not_deleting" },
+        sourceSetup: { status: "not_applicable" },
         hasConnectedGitHubRepository: true,
         providerWrite: { status: "idle", lastWriteAt: {} },
       });
@@ -209,7 +209,7 @@ describe("useRepositoryProviderObservations", () => {
         repositoryId: fakeRepositoryId("repository-stale"),
         cloudflareWorkers: [{ workerId: fakeCloudflareWorkerId("worker-stale") }],
         convexProjects: [],
-        deletion: { state: "not_deleting" },
+        sourceSetup: { status: "not_applicable" },
         hasConnectedGitHubRepository: true,
         providerWrite: { status: "idle", lastWriteAt: {} },
       });
@@ -281,7 +281,7 @@ describe("useRepositoryProviderObservations", () => {
 
     function Probe() {
       latest = useRepositoryProviderObservations({
-        deletion: { state: "not_deleting" },
+        sourceSetup: { status: "not_applicable" },
         hasConnectedGitHubRepository: true,
         repositoryId: fakeRepositoryId("repository-missed-active"),
         cloudflareWorkers: [{ workerId: fakeCloudflareWorkerId("worker-missed-active") }],
@@ -341,7 +341,7 @@ describe("useRepositoryProviderObservations", () => {
 
     function Probe() {
       latest = useRepositoryProviderObservations({
-        deletion: { state: "not_deleting" },
+        sourceSetup: { status: "not_applicable" },
         hasConnectedGitHubRepository: true,
         repositoryId: fakeRepositoryId("repository-active-manual-write"),
         cloudflareWorkers: [{ workerId: fakeCloudflareWorkerId("worker-active-manual-write") }],
@@ -408,7 +408,7 @@ describe("useRepositoryProviderObservations", () => {
 
     function Probe({ cloudflareLastWriteAt }: { cloudflareLastWriteAt?: number }) {
       latest = useRepositoryProviderObservations({
-        deletion: { state: "not_deleting" },
+        sourceSetup: { status: "not_applicable" },
         hasConnectedGitHubRepository: true,
         repositoryId,
         cloudflareWorkers: [{ workerId }],
@@ -524,7 +524,7 @@ describe("useRepositoryProviderObservations", () => {
               teamId: "38516",
             },
           ],
-          deletion: { state: "not_deleting" },
+          sourceSetup: { status: "not_applicable" },
           hasConnectedGitHubRepository: true,
           providerWrite: { status: "idle", lastWriteAt: {} },
         },
@@ -570,7 +570,7 @@ describe("useRepositoryProviderObservations", () => {
     }
   });
 
-  it("starts the team store read when the repository connects, and not before", async () => {
+  it("holds the team store read as loading while Samebase creates the repository", async () => {
     const queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false } },
     });
@@ -578,35 +578,49 @@ describe("useRepositoryProviderObservations", () => {
     document.body.append(rootElement);
     const root = createRoot(rootElement);
     const repositoryId = fakeRepositoryId("repository-being-created");
+    let latest: ReturnType<typeof useRepositoryProviderObservations> | undefined;
 
-    function Probe({ connected }: { connected: boolean }) {
-      useRepositoryProviderObservations({
+    function Probe({
+      hasConnectedGitHubRepository,
+      sourceSetup,
+    }: {
+      hasConnectedGitHubRepository: boolean;
+      sourceSetup: { status: "running" | "failed" | "ready" };
+    }) {
+      latest = useRepositoryProviderObservations({
         repositoryId,
         convexTeamId: "38516",
         cloudflareWorkers: [],
         convexProjects: [],
-        deletion: { state: "not_deleting" },
-        hasConnectedGitHubRepository: connected,
+        sourceSetup,
+        hasConnectedGitHubRepository,
         providerWrite: { status: "idle", lastWriteAt: {} },
       });
       return null;
     }
 
-    async function render(connected: boolean) {
+    async function render(props: Parameters<typeof Probe>[0]) {
       await act(async () => {
         root.render(
           <QueryClientProvider client={queryClient}>
-            <Probe connected={connected} />
+            <Probe {...props} />
           </QueryClientProvider>,
         );
       });
     }
 
     try {
-      await render(false);
+      await render({ hasConnectedGitHubRepository: false, sourceSetup: { status: "running" } });
       expect(alchemy.requested).toHaveBeenLastCalledWith(null);
+      // Waiting is not a read that found no store.
+      expect(latest?.alchemyState).toEqual({ state: "loading" });
 
-      await render(true);
+      await render({ hasConnectedGitHubRepository: true, sourceSetup: { status: "ready" } });
+      expect(alchemy.requested).toHaveBeenLastCalledWith(repositoryId);
+      expect(latest?.alchemyState).toMatchObject({ state: "loaded" });
+
+      // A failed creation will not connect by itself, so the read reports its own result.
+      await render({ hasConnectedGitHubRepository: false, sourceSetup: { status: "failed" } });
       expect(alchemy.requested).toHaveBeenLastCalledWith(repositoryId);
     } finally {
       await act(async () => {
@@ -632,7 +646,7 @@ describe("useRepositoryProviderObservations", () => {
         repositoryId: fakeRepositoryId("repository-build-polling"),
         cloudflareWorkers: [{ workerId: fakeCloudflareWorkerId("worker-build-polling") }],
         convexProjects: [],
-        deletion: { state: "not_deleting" },
+        sourceSetup: { status: "not_applicable" },
         hasConnectedGitHubRepository: true,
         providerWrite: { status: "idle", lastWriteAt: {} },
       });

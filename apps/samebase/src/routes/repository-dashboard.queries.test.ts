@@ -97,7 +97,7 @@ function loadPage(args: {
   connect: () => Promise<unknown>;
   client: "server" | "browser";
   attachments?: true;
-  hasConnectedGitHubRepository?: false;
+  beingCreated?: true;
 }) {
   const queryClient = new QueryClient({
     defaultOptions: {
@@ -115,8 +115,8 @@ function loadPage(args: {
                   organizationId: "organization-a",
                   repositoryId: "repository-a",
                   convexTeamId: args.convexTeamId,
-                  deletion: { state: "not_deleting" },
-                  hasConnectedGitHubRepository: args.hasConnectedGitHubRepository ?? true,
+                  sourceSetup: { status: args.beingCreated ? "running" : "not_applicable" },
+                  hasConnectedGitHubRepository: !args.beingCreated,
                 },
               ];
             default:
@@ -191,7 +191,7 @@ describe("loadRepositoryAlchemyPage", () => {
     });
   });
 
-  it("reads no store without a Convex team, with ?attachments, or before the repository connects", async () => {
+  it("reads no store without a Convex team, with ?attachments, or during creation", async () => {
     const withoutTeam = loadPage({
       client: "server",
       convexTeamId: undefined,
@@ -205,15 +205,15 @@ describe("loadRepositoryAlchemyPage", () => {
       attachments: true,
     });
     await expect(attachments.load).resolves.toBeNull();
-    const notConnected = loadPage({
+    const beingCreated = loadPage({
       client: "server",
       convexTeamId: "38516",
       connect: async () => liveConnection,
-      hasConnectedGitHubRepository: false,
+      beingCreated: true,
     });
-    await expect(notConnected.load).resolves.toBeNull();
+    await expect(beingCreated.load).resolves.toBeNull();
 
-    for (const { action } of [withoutTeam, attachments, notConnected]) {
+    for (const { action } of [withoutTeam, attachments, beingCreated]) {
       expect(action).not.toHaveBeenCalled();
     }
   });

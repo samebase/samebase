@@ -1,19 +1,14 @@
 import type { UserRepositoryResult } from "../../../convex/repository/contracts/getUserRepositories";
 
 /**
-Whether the page can read the Alchemy store of this repository. The store lives in the repository's
-Convex team, and `connect` refuses a repository that is not connected yet or that is being deleted.
-The repository row is live, so a page that opens during creation starts the read when the repository
-connects.
+True while Samebase creates the repository. `connect` refuses a repository that is not connected, so
+the page holds its read of the Alchemy store as loading until then. The repository row is live, so
+the read starts when the repository connects.
 */
-export function canReadRepositoryAlchemyStore(
-  repository: Pick<UserRepositoryResult, "convexTeamId" | "hasConnectedGitHubRepository"> & {
-    deletion: Pick<UserRepositoryResult["deletion"], "state">;
+export function isRepositoryBeingCreated(
+  repository: Pick<UserRepositoryResult, "hasConnectedGitHubRepository"> & {
+    sourceSetup: Pick<UserRepositoryResult["sourceSetup"], "status">;
   },
 ): boolean {
-  return (
-    Boolean(repository.convexTeamId) &&
-    repository.hasConnectedGitHubRepository &&
-    repository.deletion.state === "not_deleting"
-  );
+  return !repository.hasConnectedGitHubRepository && repository.sourceSetup.status === "running";
 }
