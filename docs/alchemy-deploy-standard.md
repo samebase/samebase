@@ -35,7 +35,9 @@ Every repository of the team deploys the same way. The reference implementation 
    resources are retained on destroy; previews are destroyed.
 9. **Same versions, same day**: all repositories of a team share one store, so an Alchemy or
    `@samebase/alchemy-convex` upgrade lands in every repository in one round, with dated release-age
-   exceptions in `pnpm-workspace.yaml` while the versions are younger than the policy.
+   exceptions in `pnpm-workspace.yaml` while the versions are younger than the policy. The stacks of
+   this repository use `packages/alchemy-convex` directly, so a store change reaches the store with
+   the next deploy of `main`: release it and upgrade the other repositories the same day.
 
 ## Why
 
