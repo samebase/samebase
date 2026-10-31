@@ -24,6 +24,7 @@ const storeProject = {
   slug: "alchemy-state-store",
   teamId: 38516,
   teamSlug: "nicu",
+  tags: [],
 };
 const appProject = {
   createTime: 1710000000000,
@@ -32,6 +33,7 @@ const appProject = {
   slug: "base-alchemy",
   teamId: 38516,
   teamSlug: "nicu",
+  tags: [],
 };
 const [, , prod] = observedAlchemyStackReply.value.stages;
 /** The inspection target that `readTarget` gives for the API key of the seeded organization. */
