@@ -7,19 +7,26 @@ import { mutation, query } from "./_generated/server.js";
 
 const rowOf = (ctx: QueryCtx) => ctx.db.query("keys").first();
 
-/** The current key, read in the transaction of the caller. */
-export const currentKeyOf = async (ctx: QueryCtx) => (await rowOf(ctx))?.current ?? null;
+/** The generation of the current key, read in the transaction of the caller. */
+export const generationOf = async (ctx: QueryCtx) => (await rowOf(ctx))?.generation ?? null;
 
-/** The current key, and true when a reseal under that key finished. */
+/**
+ * The current key, its generation, and true when a reseal of that generation finished. Each
+ * rotation is a new generation, also when a key comes back, so a sweep that a rotation overtook can
+ * never pass for the current one.
+ */
 export const sealing = query({
   args: {},
-  returns: v.object({ current: v.union(v.string(), v.null()), sealed: v.boolean() }),
+  returns: v.object({
+    current: v.union(v.string(), v.null()),
+    generation: v.number(),
+    sealed: v.boolean(),
+  }),
   handler: async (ctx) => {
     const row = await rowOf(ctx);
-    return {
-      current: row?.current ?? null,
-      sealed: row !== null && row.sealedUnder === row.current,
-    };
+    if (row === null) return { current: null, generation: 0, sealed: false };
+    const { current, generation, sealedGeneration } = row;
+    return { current, generation, sealed: sealedGeneration === generation };
   },
 });
 
@@ -30,31 +37,37 @@ export const choose = mutation({
   handler: async (ctx, args) => {
     const row = await rowOf(ctx);
     if (row !== null) return row.current;
-    await ctx.db.insert("keys", { current: args.keyId });
+    await ctx.db.insert("keys", { current: args.keyId, generation: 1 });
     return args.keyId;
   },
 });
 
-/** Makes `keyId` the current key. The next reseal moves the secrets to it. */
+/** Makes `keyId` the current key, in a new generation. The next reseal moves the secrets to it. */
 export const rotate = mutation({
   args: { keyId: v.string() },
   returns: v.null(),
   handler: async (ctx, args) => {
     const row = await rowOf(ctx);
-    if (row === null) await ctx.db.insert("keys", { current: args.keyId });
-    else await ctx.db.patch("keys", row._id, { current: args.keyId });
+    if (row === null) await ctx.db.insert("keys", { current: args.keyId, generation: 1 });
+    else {
+      await ctx.db.patch("keys", row._id, {
+        current: args.keyId,
+        generation: row.generation + 1,
+      });
+    }
     return null;
   },
 });
 
-/** Records a finished reseal under `keyId`. It does nothing when the current key changed since. */
+/** Records a finished reseal. It does nothing when a rotation came after the sweep started. */
 export const markSealed = mutation({
-  args: { keyId: v.string() },
+  args: { generation: v.number() },
   returns: v.null(),
   handler: async (ctx, args) => {
     const row = await rowOf(ctx);
-    if (row?.current === args.keyId)
-      await ctx.db.patch("keys", row._id, { sealedUnder: args.keyId });
+    if (row?.generation === args.generation) {
+      await ctx.db.patch("keys", row._id, { sealedGeneration: args.generation });
+    }
     return null;
   },
 });

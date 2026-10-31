@@ -317,10 +317,10 @@ show.
   which the first run sealed. A variable with a random name cannot replace another. A function
   cannot list variables (measured: `Object.keys(process.env)` is empty, and a read by name works),
   so the table `keys` of the component names the current key.
-- The table `keys` is one row, `{ current, sealedUnder }`. `state:chooseKey` writes `current` only
-  when the store has no key, in a transaction, so the first run wins, and the variable of the other
-  run stays unused. `state:rotateKey` changes it. Both refuse a key that the deployment does not
-  hold.
+- The table `keys` is one row, `{ current, generation, sealedGeneration }`. `state:chooseKey` writes
+  `current` only when the store has no key, in a transaction, so the first run wins, and the
+  variable of the other run stays unused. `state:rotateKey` changes it and raises `generation`. Both
+  refuse a key that the deployment does not hold.
 - A write reads the current key, seals, and commits in a mutation that reads the row `keys` again. A
   write that sealed under a key that stopped being current does not commit, and it seals again. So a
   write cannot land after the reseal of a rotation with the old key.
@@ -328,12 +328,13 @@ show.
   for each row. It reads `resourcePage` and `outputPage`, bounded pages in table order, because
   `list` and `readStack` read whole rows and can pass the read limit of one function. A sweep that
   stops keeps its progress. It writes with `replaceResource` and `replaceOutput`, which keep the run
-  record and leave a row that changed. Both read the current key in their own transaction, so a
-  sweep that a rotation overtook stops, and it cannot put the older key over the work of a newer
-  sweep. A row that fails is named in `failed`, and the others go on. Measured on a local backend
-  with 35 rows of 600 KiB: `state:list` fails with `Too many bytes read`, the sweep passes that
-  limit, and the limit of 4 MiB written per second failed 3 rows, which the next run sealed. When
-  nothing failed, it records `sealedUnder`.
+  record and leave a row that changed. Both read `generation` in their own transaction, so a sweep
+  that a rotation overtook stops, and it cannot put an older key over the work of a newer sweep. It
+  is a generation and not a key id because a rotation can bring a key back, and then a sweep from
+  before would pass for the current one. A row that fails is named in `failed`, and the others go
+  on. Measured on a local backend with 35 rows of 600 KiB: `state:list` fails with
+  `Too many bytes read`, the sweep passes that limit, and the limit of 4 MiB written per second
+  failed 3 rows, which the next run sealed. When nothing failed, it records `sealedGeneration`.
 - Each run reads `state:sealing`, so the work does not depend on the run that pushed. A run makes a
   key when the store has none, and runs a reseal unless one finished under the current key. So a run
   that stopped after a push, or a reseal that failed, leaves work for the next run. Until then a

@@ -9,7 +9,7 @@ import { v, type Infer, type Validator } from "convex/values";
 import type { MutationCtx, QueryCtx } from "./_generated/server.js";
 // oxlint-disable-next-line samebase/no-raw-public-convex-function-builders -- Store entrypoints have no app wrapper; the reader and the deploy key enforce access.
 import { mutation, query } from "./_generated/server.js";
-import { currentKeyOf } from "./keys.ts";
+import { generationOf } from "./keys.ts";
 import { runRecord } from "./runRecord.ts";
 
 const stage = { stack: v.string(), stage: v.string() };
@@ -282,20 +282,20 @@ export const outputPage = query({
 });
 
 /**
- * What a reseal write did. `stale` means that `keyId` stopped being the current key: a reseal that
- * started before a rotation must not put an older key back over the work of a newer reseal.
+ * What a reseal write did. `stale` means that a rotation came after the sweep started: that sweep
+ * must not put an older key back over the work of a newer one.
  */
 const replaceResult = v.union(v.literal("replaced"), v.literal("changed"), v.literal("stale"));
 
 /**
- * Replaces the value of a row that still holds `expected`, for a reseal under `keyId`: the row
+ * Replaces the value of a row that still holds `expected`, for a reseal of `generation`: the row
  * keeps its run record.
  */
 export const replaceResource = mutation({
-  args: { ...resource, expected: v.string(), value: v.string(), keyId: v.string() },
+  args: { ...resource, expected: v.string(), value: v.string(), generation: v.number() },
   returns: replaceResult,
   handler: async (ctx, args) => {
-    if ((await currentKeyOf(ctx)) !== args.keyId) return "stale";
+    if ((await generationOf(ctx)) !== args.generation) return "stale";
     const row = await rowOf(ctx, args);
     if (row === null || row.value !== args.expected) return "changed";
     await ctx.db.patch("resources", row._id, { value: args.value });
@@ -305,10 +305,10 @@ export const replaceResource = mutation({
 
 /** Like {@link replaceResource}, for an output. */
 export const replaceOutput = mutation({
-  args: { ...stage, expected: v.string(), value: v.string(), keyId: v.string() },
+  args: { ...stage, expected: v.string(), value: v.string(), generation: v.number() },
   returns: replaceResult,
   handler: async (ctx, args) => {
-    if ((await currentKeyOf(ctx)) !== args.keyId) return "stale";
+    if ((await generationOf(ctx)) !== args.generation) return "stale";
     const row = await outputOf(ctx, args);
     if (row === null || row.value !== args.expected) return "changed";
     await ctx.db.patch("outputs", row._id, { value: args.value });

@@ -620,7 +620,7 @@ export class FakeConvex {
         store.outputs.set(output, value);
         return reply(null);
       case "sealing":
-        return reply({ current: store.keyId, sealed: store.sealed });
+        return reply({ current: store.keyId, generation: 1, sealed: store.sealed });
       case "chooseKey":
         store.keyId ??= args.keyId ?? null;
         return reply(store.keyId);

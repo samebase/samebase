@@ -38,9 +38,11 @@ import { STORE_VERSION } from "./version.ts";
 const state = components.alchemyState.state;
 const keys = components.alchemyState.keys;
 
+const NO_KEY = "The store has no key yet.";
+
 const currentKey = async (ctx: ActionCtx) => {
   const { current } = await ctx.runQuery(keys.sealing, {});
-  if (current === null) throw new Error("The store has no key yet.");
+  if (current === null) throw new Error(NO_KEY);
   return current;
 };
 
@@ -223,7 +225,11 @@ export const readStack = internalQuery({
 /** The current key, and true when every secret is sealed under it. A run reads this each time. */
 export const sealing = internalQuery({
   args: {},
-  returns: v.object({ current: v.union(v.string(), v.null()), sealed: v.boolean() }),
+  returns: v.object({
+    current: v.union(v.string(), v.null()),
+    generation: v.number(),
+    sealed: v.boolean(),
+  }),
   handler: (ctx) => ctx.runQuery(keys.sealing, {}),
 });
 
@@ -267,7 +273,8 @@ export const reseal = internalAction({
     failed: v.array(v.string()),
   }),
   handler: async (ctx) => {
-    const keyId = await currentKey(ctx);
+    const { current: keyId, generation } = await ctx.runQuery(keys.sealing, {});
+    if (keyId === null) throw new Error(NO_KEY);
     let resealed = 0;
     let skippedChanged = 0;
     const failed: string[] = [];
@@ -303,7 +310,14 @@ export const reseal = internalAction({
           resourceAad({ stack, stage, fqn }),
           expected,
           (value) =>
-            ctx.runMutation(state.replaceResource, { stack, stage, fqn, expected, value, keyId }),
+            ctx.runMutation(state.replaceResource, {
+              stack,
+              stage,
+              fqn,
+              expected,
+              value,
+              generation,
+            }),
         );
         if (stale) return done();
       }
@@ -320,7 +334,8 @@ export const reseal = internalAction({
           `${stack}/${stage} output`,
           outputAad({ stack, stage }),
           expected,
-          (value) => ctx.runMutation(state.replaceOutput, { stack, stage, expected, value, keyId }),
+          (value) =>
+            ctx.runMutation(state.replaceOutput, { stack, stage, expected, value, generation }),
         );
         if (stale) return done();
       }
@@ -328,7 +343,7 @@ export const reseal = internalAction({
       cursor = continueCursor;
     }
 
-    if (failed.length === 0) await ctx.runMutation(keys.markSealed, { keyId });
+    if (failed.length === 0) await ctx.runMutation(keys.markSealed, { generation });
     return done();
   },
 });

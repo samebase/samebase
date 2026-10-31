@@ -224,7 +224,10 @@ describe("the state store", () => {
     it("refuses a first key that the deployment does not hold", async () => {
       const t = storeTest();
       await expect(t.mutation(internal.state.chooseKey, { keyId: "absent" })).rejects.toThrow();
-      expect(await t.query(internal.state.sealing, {})).toEqual({ current: null, sealed: false });
+      expect(await t.query(internal.state.sealing, {})).toMatchObject({
+        current: null,
+        sealed: false,
+      });
     });
 
     it("reads a clear value that no reseal reached, and a reseal seals it", async () => {
@@ -274,14 +277,23 @@ describe("the state store", () => {
       await t.action(internal.state.set, { ...row, value });
       await t.action(internal.state.setOutput, { ...main, value: output });
       await t.action(internal.state.reseal, {});
-      expect(await t.query(internal.state.sealing, {})).toEqual({ current: old, sealed: true });
+      expect(await t.query(internal.state.sealing, {})).toMatchObject({
+        current: old,
+        sealed: true,
+      });
 
       const next = await rotate(t);
-      expect(await t.query(internal.state.sealing, {})).toEqual({ current: next, sealed: false });
+      expect(await t.query(internal.state.sealing, {})).toMatchObject({
+        current: next,
+        sealed: false,
+      });
       expect(await t.query(internal.state.get, row)).toBe(value);
 
       expect(await t.action(internal.state.reseal, {})).toMatchObject({ resealed: 2 });
-      expect(await t.query(internal.state.sealing, {})).toEqual({ current: next, sealed: true });
+      expect(await t.query(internal.state.sealing, {})).toMatchObject({
+        current: next,
+        sealed: true,
+      });
 
       vi.stubEnv(stateKeyName(old), "");
       expect(await t.query(internal.state.get, row)).toBe(value);
@@ -348,14 +360,15 @@ describe("the state store", () => {
 
     it("leaves a row that changed during the reseal", async () => {
       const t = storeTest();
-      const keyId = await withKey(t);
+      await withKey(t);
       await t.mutation(internal.state.writeResource, clearRow);
+      const { generation } = await t.query(internal.state.sealing, {});
       const replaced = await t.run((ctx) =>
         ctx.runMutation(components.alchemyState.state.replaceResource, {
           ...row,
           expected: "another text",
           value: "{}",
-          keyId,
+          generation,
         }),
       );
       expect(replaced).toBe("changed");
@@ -364,21 +377,60 @@ describe("the state store", () => {
 
     it("does not let a reseal under an older key replace the work of a newer one", async () => {
       const t = storeTest();
-      const old = await withKey(t);
+      await withKey(t);
       await t.action(internal.state.set, { ...row, value });
       await t.action(internal.state.setOutput, { ...main, value: output });
+      const { generation } = await t.query(internal.state.sealing, {});
       await rotate(t);
       await t.action(internal.state.reseal, {});
       const before = await stored(t);
 
       const { state } = components.alchemyState;
-      const resource = { ...row, expected: "unused", value: "{}", keyId: old };
-      const stage = { ...main, expected: "unused", value: "{}", keyId: old };
+      const resource = { ...row, expected: "unused", value: "{}", generation };
+      const stage = { ...main, expected: "unused", value: "{}", generation };
       expect(await t.run((ctx) => ctx.runMutation(state.replaceResource, resource))).toBe("stale");
       expect(await t.run((ctx) => ctx.runMutation(state.replaceOutput, stage))).toBe("stale");
 
       expect(await stored(t)).toBe(before);
       expect(await t.query(internal.state.sealing, {})).toMatchObject({ sealed: true });
+    });
+
+    it("does not take a key that came back for the sweep that used it before", async () => {
+      const t = storeTest();
+      const first = await withKey(t);
+      await t.action(internal.state.set, { ...row, value });
+      const paused = await t.query(internal.state.sealing, {});
+
+      // A sweep of `first` pauses here. The store moves to a second key, and a row needs it.
+      const second = await rotate(t);
+      await t.action(internal.state.set, { ...row, fqn: "Needs", value });
+      await t.action(internal.state.reseal, {});
+      await t.mutation(internal.state.rotateKey, { keyId: first });
+
+      // The key is back, so its generation is the only thing that tells the old sweep apart.
+      expect(await t.query(internal.state.sealing, {})).toMatchObject({
+        current: first,
+        sealed: false,
+      });
+      const { keys, state } = components.alchemyState;
+      await t.run((ctx) => ctx.runMutation(keys.markSealed, { generation: paused.generation }));
+      expect(await t.query(internal.state.sealing, {})).toMatchObject({ sealed: false });
+      expect(
+        await t.run((ctx) =>
+          ctx.runMutation(state.replaceResource, {
+            ...row,
+            expected: "unused",
+            value: "{}",
+            generation: paused.generation,
+          }),
+        ),
+      ).toBe("stale");
+
+      // A real sweep of the new generation moves the row, and only then the other key can go.
+      await t.action(internal.state.reseal, {});
+      expect(await t.query(internal.state.sealing, {})).toMatchObject({ sealed: true });
+      vi.stubEnv(stateKeyName(second), "");
+      expect(await t.query(internal.state.get, { ...row, fqn: "Needs" })).toBe(value);
     });
 
     it("reseals more rows than one page holds, and reads each page with a bound", async () => {

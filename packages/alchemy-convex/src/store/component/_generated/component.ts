@@ -34,7 +34,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
       markSealed: FunctionReference<
         "mutation",
         "internal",
-        { keyId: string },
+        { generation: number },
         null,
         Name
       >;
@@ -49,7 +49,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         "query",
         "internal",
         {},
-        { current: string | null; sealed: boolean },
+        { current: string | null; generation: number; sealed: boolean },
         Name
       >;
     };
@@ -182,7 +182,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         "internal",
         {
           expected: string;
-          keyId: string;
+          generation: number;
           stack: string;
           stage: string;
           value: string;
@@ -196,7 +196,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         {
           expected: string;
           fqn: string;
-          keyId: string;
+          generation: number;
           stack: string;
           stage: string;
           value: string;
