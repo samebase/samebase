@@ -5,11 +5,12 @@ before deleting the remote branch. This is a Codex/operator workflow, not a repo
 
 A pull request deploys the Alchemy stage `pr-<number>` of `apps/samebase/alchemy.run.ts`: a Convex
 preview deployment whose preview name is `pr-<number>`, and the state of that stage in the
-`alchemy-state-store` project of the Convex team `nicu`. When the PR closes, the
-`Destroy the preview` job of `.github/workflows/alchemy.yml` runs
-`alchemy destroy --stage pr-<number>`, which deletes the preview deployment and the state of the
-stage. This runbook confirms that destroy, and runs it by hand when the job did not run or failed: a
-PR closed while it had a merge conflict, or a head commit whose message skips CI.
+`alchemy-state-store` project of the Convex team `nicu`. It also deploys that stage of
+`apps/sidebars-example/alchemy.run.ts`, a Worker. When the PR closes, the `Destroy the preview` job
+of `.github/workflows/alchemy.yml` runs `alchemy destroy --stage pr-<number>` for both, which
+deletes the preview deployment, the Worker, and the state of both stages. This runbook confirms that
+destroy, and runs it by hand when the job did not run or failed: a PR closed while it had a merge
+conflict, or a head commit whose message skips CI.
 
 Any GitHub PR for the branch, including a draft PR, is enough evidence that a Convex preview
 deployment existed. Missing local environment files or inherited credentials do not change that
@@ -113,12 +114,13 @@ A deployment of the PR is one where all of these are true:
 
 ## 4. Destroy By Hand
 
-For a preview named `$stage`, run the destroy of its stage from `apps/samebase` in a checkout of
-`main`. It deletes the preview deployment and the state of the stage, so the repository pages of
-Samebase no longer list the stage:
+For a preview named `$stage`, run the destroy of its stage from both stack folders of a checkout of
+`main`. It deletes the preview deployment, the Worker, and the state of both stages, so the
+repository pages of Samebase no longer list the stage:
 
 ```bash
-pnpm exec alchemy destroy --stage "$stage" --yes --no-input
+(cd apps/samebase && pnpm exec alchemy destroy --stage "$stage" --yes --no-input)
+(cd apps/sidebars-example && pnpm exec alchemy destroy --stage "$stage" --yes --no-input)
 ```
 
 For a preview that the stage state does not hold, such as one named after the branch, delete only
