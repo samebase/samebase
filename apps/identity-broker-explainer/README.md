@@ -19,20 +19,24 @@ build takes about two minutes and later builds take seconds.
 cargo run --release -- inspect --pops
 cargo run --release -- strip -n 12
 cargo run --release -- preview
-cargo run --release -- render -o out/identity-broker.mp4
+cargo run --release -- render --scale 2 -o out/identity-broker.mp4
 ```
 
 `inspect --pops` reports only the sign-in dots, which cross a line in a few frames.
 
-Make the GIF from the master:
+The master is 4K at 60 fps. Make the GIF from it, because a large source gives a smaller GIF:
 
 ```console
 ffmpeg -y -i out/identity-broker.mp4 -filter_complex "[0:v]fps=20,scale=800:-2:flags=lanczos,split[a][b];[a]palettegen=max_colors=96:stats_mode=full[p];[b][p]paletteuse=dither=none:diff_mode=rectangle" -loop 0 ../../packages/identity-broker/docs/how-it-works.gif
 ```
 
-A GIF frame lasts a whole number of hundredths of a second, so 20 fps keeps exact timing. Do not
-commit the GIF through Git LFS: GitHub and npm load it from `raw.githubusercontent.com`, which would
-return the LFS pointer.
+A GIF frame lasts a whole number of hundredths of a second, so 20 fps keeps exact timing, and the 60
+fps master divides evenly into it. The GIF stays 800 px wide because GitHub and npm show it at about
+that width, and 1200 px would double its size.
+
+Commit the GIF as a normal Git file, not through Git LFS: GitHub and npm load it from
+`raw.githubusercontent.com`, which returns only the LFS pointer for an LFS file. Do not commit the
+MP4 files: they render from `src/lib.rs` in seconds.
 
 Make the thumbnail of the Convex components directory from a frame of the end card:
 
@@ -48,7 +52,8 @@ ffmpeg -y -i out/26.5s.png -vf scale=1536:864:flags=lanczos ../../packages/ident
 - `docs/directory/thumbnail.png` goes in the "Component Thumbnail" field of the
   [directory form](https://www.convex.dev/components/submit). That field takes `.webp`, `.png`, or
   `.jpg` up to 3 MB at 1536 x 864, so it cannot show a GIF.
-- `out/identity-broker.mp4` is for a video host. The form has a "Video URL" field.
+- `out/identity-broker.mp4` goes to YouTube, because the "Video URL" field of the form takes a
+  YouTube link, and the directory embeds it at the top of the listing.
 
 ## What the diagram claims
 

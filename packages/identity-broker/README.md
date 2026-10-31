@@ -28,6 +28,10 @@ registers each deployment as a client at deploy time and never touches GitHub or
 
 ## Mount it
 
+```sh
+npm install @samebase/identity-broker
+```
+
 ```ts
 // convex/convex.config.ts
 import { defineApp } from "convex/server";

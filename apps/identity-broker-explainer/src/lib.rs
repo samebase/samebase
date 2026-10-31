@@ -711,7 +711,8 @@ fn end_card(t: f32) -> Svgr<'static> {
 pub struct ExplainerVideo;
 
 impl Video for ExplainerVideo {
-    const FPS: usize = 30;
+    // 60 divides evenly into the 20 fps of the GIF, so the GIF drops no uneven frames.
+    const FPS: usize = 60;
     const WIDTH: usize = WIDTH;
     const HEIGHT: usize = HEIGHT;
     const BACKGROUND_COLOR: Color = Color::WHITE;
