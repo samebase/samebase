@@ -15,8 +15,7 @@ An export can use the root workspace or remain a standalone package manager boun
 uses root tooling and includes a small dependency-free public check. Each starter template must work
 as an independent repository, so `templates/base` and `templates/base-actions` own their
 `package.json`, `pnpm-workspace.yaml`, `pnpm-lock.yaml`, and public workflows. They are
-intentionally outside the root workspace globs. The Sidebars example also owns these files because
-its directory is both a root workspace member and a standalone export boundary.
+intentionally outside the root workspace globs.
 
 The monorepo must run the checks that protect each export before publication. Run standalone export
 checks in a fresh job so root dependencies cannot hide an undeclared dependency.
@@ -24,9 +23,9 @@ checks in a fresh job so root dependencies cannot hide an undeclared dependency.
 ## Automatic workflow
 
 The publisher runs only for a push to `main`, after the standard checks and unit tests succeed.
-Supply-chain validation runs before those checks. The two starter templates, the Sidebars package,
-and the Sidebars example also require their isolated checks. Playwright and Windows smoke tests
-continue in parallel, but they do not block repository exports.
+Supply-chain validation runs before those checks. The two starter templates also require their
+isolated checks. Playwright and Windows smoke tests continue in parallel, but they do not block
+repository exports.
 
 Before it publishes, the job reads every configured target repository with a metadata-only token. If
 a target repository does not exist, or the publisher GitHub App cannot access it, the job fails with
@@ -119,38 +118,6 @@ available through Samebase. Inspect each connected repository against the change
 older entries selected by the changelog's starter-build rules. Report each app as `update needed`,
 `already current`, `not relevant`, or `unavailable`. Put app changes in separate repository pull
 requests. The changelog work is not complete until the sweep is recorded.
-
-## Sidebars package export
-
-`packages/sidebars` publishes to the public `samebase/sidebars` repository on `main`. The package
-owns a nested workspace and lockfile. The `sidebars package check` job starts from a fresh checkout,
-does not install root workspace dependencies, and runs the package build, checks, and packed-package
-consumer test before publication.
-
-Package changes and version increases start in the monorepo. npm publication runs only from the
-exported `samebase/sidebars` repository, so the verified external repository commit and npm tarball
-have the same source tree.
-
-The first public npm release was version `0.1.0-canary.0` under the `canary` tag. A maintainer
-published its verified tarball manually because npm could not configure a trusted publisher before
-the package existed.
-
-The exported `publish.yml` workflow runs after the external repository CI accepts a `main` push. It
-publishes through npm trusted publishing with no long-lived write token. It accepts only a stable
-committed version, skips a version that already exists, and refuses to move `latest` to an older
-version. It publishes a new version under `latest`. Release pull requests increase the committed
-version in the monorepo before the exporter sends the verified tree to `samebase/sidebars`.
-
-## Sidebars example export
-
-`apps/sidebars-example` publishes to the public `samebase/sidebars-example` repository on `main`.
-The exported repository is a normal standalone application. It owns its package manager version,
-workspace policy, lockfile, license, and public CI workflow.
-
-The public application installs `@samebase/sidebars` from npm. The root workspace overrides that
-dependency with the local workspace package, so package changes still run against the example before
-publication. A fresh isolated CI job installs only the exported tree and proves that the public
-repository does not depend on monorepo files.
 
 ## Agent plugin versions
 

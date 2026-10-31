@@ -26,16 +26,6 @@ export const repositoryExports = [
     targetRepository: "base",
   },
   {
-    sourceRoot: "packages/sidebars",
-    targetBranch: "main",
-    targetRepository: "sidebars",
-  },
-  {
-    sourceRoot: "apps/sidebars-example",
-    targetBranch: "main",
-    targetRepository: "sidebars-example",
-  },
-  {
     sourceRoot: actionsTemplateSourceRoot,
     targetBranch: "main",
     targetRepository: "base-actions",

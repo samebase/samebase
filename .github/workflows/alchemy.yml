@@ -123,12 +123,10 @@ jobs:
           VITE_PUBLIC_POSTHOG_HOST: https://e.samebase.com
           VITE_PUBLIC_POSTHOG_PROJECT_TOKEN: ${{ vars.PROD_POSTHOG_PROJECT_TOKEN }}
 
-      # The sidebars example has its own lockfile, and Workers Builds built it in its folder with
-      # that install: the install and the build here are the same, then its stack deploys the build.
       - name: Build the sidebars example
         if: github.event_name != 'pull_request'
         working-directory: apps/sidebars-example
-        run: pnpm install --frozen-lockfile && pnpm run build
+        run: pnpm run build
 
       - name: Deploy the sidebars example
         if: github.event_name != 'pull_request'

@@ -130,7 +130,6 @@ audit:
 overrides:
   # Shared adapter 4.0.6 requires Effect ^4.0.6.
   "@effect/platform-node-shared": 4.0.5
-  "@samebase/sidebars": "workspace:*"
   "@babel/core": 7.29.7
   "@hono/node-server": 2.1.5
   "@modelcontextprotocol/sdk": 1.32.1

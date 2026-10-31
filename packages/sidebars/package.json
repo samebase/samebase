@@ -1,6 +1,6 @@
 {
   "name": "@samebase/sidebars",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Unstyled responsive sidebar layout for React",
   "keywords": [
     "layout",
@@ -10,14 +10,15 @@
     "sidebar",
     "sidebars"
   ],
-  "homepage": "https://github.com/samebase/sidebars#readme",
+  "homepage": "https://github.com/samebase/samebase/tree/main/packages/sidebars#readme",
   "bugs": {
-    "url": "https://github.com/samebase/sidebars/issues"
+    "url": "https://github.com/samebase/samebase/issues"
   },
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/samebase/sidebars.git"
+    "url": "git+https://github.com/samebase/samebase.git",
+    "directory": "packages/sidebars"
   },
   "files": [
     "dist",
@@ -105,6 +106,5 @@
   "peerDependencies": {
     "react": ">=19.2.0 <20",
     "react-dom": ">=19.2.0 <20"
-  },
-  "packageManager": "pnpm@12.14.0"
+  }
 }

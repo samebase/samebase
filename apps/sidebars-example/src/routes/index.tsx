@@ -4,11 +4,11 @@ import { ExampleSidebarLayout } from "@/sidebars/ExampleSidebarLayout";
 
 const EXAMPLE_LINKS = [
   {
-    href: "https://github.com/samebase/sidebars",
+    href: "https://github.com/samebase/samebase/tree/main/packages/sidebars",
     label: "Package source",
   },
   {
-    href: "https://github.com/samebase/sidebars-example",
+    href: "https://github.com/samebase/samebase/tree/main/apps/sidebars-example",
     label: "Example source",
   },
 ];

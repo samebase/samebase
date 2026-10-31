@@ -98,22 +98,6 @@ describe("repository exports", () => {
     });
   });
 
-  it("publishes the Sidebars package to samebase/sidebars", () => {
-    expect(repositoryExports).toContainEqual({
-      sourceRoot: "packages/sidebars",
-      targetBranch: "main",
-      targetRepository: "sidebars",
-    });
-  });
-
-  it("publishes the Sidebars example to samebase/sidebars-example", () => {
-    expect(repositoryExports).toContainEqual({
-      sourceRoot: "apps/sidebars-example",
-      targetBranch: "main",
-      targetRepository: "sidebars-example",
-    });
-  });
-
   it("publishes the GitHub Actions template to samebase/base-actions", () => {
     expect(repositoryExports).toContainEqual({
       sourceRoot: "templates/base-actions",
@@ -270,9 +254,7 @@ describe("repository exports", () => {
           stdio: ["ignore", "pipe", "pipe"],
         },
       );
-      expect(readFileSync(outputPath, "utf8")).toBe(
-        "repositories=plugin,base,sidebars,sidebars-example,base-actions\n",
-      );
+      expect(readFileSync(outputPath, "utf8")).toBe("repositories=plugin,base,base-actions\n");
     } finally {
       rmSync(temporaryRoot, { recursive: true, force: true });
     }
