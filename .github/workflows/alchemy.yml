@@ -1,13 +1,13 @@
 # Deploys samebase.com and the previews of its pull requests with the Alchemy stack in
-# alchemy.run.ts, run from the repository root, then the sidebars example with the stack in
-# apps/sidebars-example/alchemy.run.ts, run from its folder. A push to main deploys the stage `prod`
-# of both: the Convex project, its production deployment, which serves samebase.com through
+# apps/samebase/alchemy.run.ts, then the sidebars example with the stack in
+# apps/sidebars-example/alchemy.run.ts, each run from its folder. A push to main deploys the stage
+# `prod` of both: the Convex project, its production deployment, which serves samebase.com through
 # convex-hosting, the Workers next to the app, and the Worker of the sidebars example. A pull
-# request from this repository deploys the stage `pr-<number>` of the root stack, a Convex preview
+# request from this repository deploys the stage `pr-<number>` of the Samebase stack, a Convex preview
 # deployment with that name, and comments its URLs on the pull request; closing the pull request
 # destroys the stage and deletes the preview. The sidebars stack has only the stage `prod`, so pull
 # request runs skip it. The state of every stage is in the `alchemy-state-store` project of the Convex
-# team, under the stack names samebase/samebase and samebase/samebase/apps/sidebars-example. Each run
+# team, under the stack names samebase/samebase/apps/samebase and samebase/samebase/apps/sidebars-example. Each run
 # mints its Convex deploy keys with the team token CONVEX_ACCESS_TOKEN; only the stage `prod` gets
 # the Cloudflare token.
 name: Alchemy
@@ -44,7 +44,7 @@ env:
   STAGE:
     ${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.number) || (github.ref
     == 'refs/heads/main' && 'prod' || github.ref_name) }}
-  # GitHub.GitHubEnv in the root alchemy.run.ts reads it for the preview comment. Empty on main.
+  # GitHub.GitHubEnv in apps/samebase/alchemy.run.ts reads it for the preview comment. Empty on main.
   PULL_REQUEST: ${{ github.event.pull_request.number }}
 
 jobs:
@@ -112,6 +112,7 @@ jobs:
       # repaired. ADOPT is the workflow_dispatch input, empty on a push.
       - name: Deploy production
         if: github.event_name != 'pull_request'
+        working-directory: apps/samebase
         run: pnpm exec alchemy deploy --stage "$STAGE" --yes --no-input --detect-drift $ADOPT
         env:
           ADOPT: ${{ inputs.adopt && '--adopt' || '' }}
@@ -142,6 +143,7 @@ jobs:
       - name: Deploy the preview
         id: preview
         if: github.event_name == 'pull_request'
+        working-directory: apps/samebase
         run: pnpm exec alchemy deploy --stage "$STAGE" --yes --no-input
         env:
           CONVEX_ACCESS_TOKEN: ${{ secrets.CONVEX_ACCESS_TOKEN }}
@@ -183,8 +185,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile --ignore-scripts
 
-      # Only the root stack has the stage of a pull request.
+      # Only the Samebase stack has the stage of a pull request.
       - name: Destroy the preview
+        working-directory: apps/samebase
         run: pnpm exec alchemy destroy --stage "$STAGE" --yes --no-input
         env:
           CONVEX_ACCESS_TOKEN: ${{ secrets.CONVEX_ACCESS_TOKEN }}

@@ -1,4 +1,4 @@
-// The Alchemy stack of samebase.com. .github/workflows/alchemy.yml runs it from the repository root:
+// The Alchemy stack of samebase.com. .github/workflows/alchemy.yml runs it from this folder:
 //
 // - Stage `prod`, on each push to main: the Convex project `samebase-com`, its production deployment,
 //   which serves samebase.com through convex-hosting, the account API token that production sends
@@ -9,9 +9,8 @@
 //   slug, so it does not depend on the state of `prod`, and it creates no Workers.
 //
 // The state of every stage is in the `alchemy-state-store` project of the Convex team, under the stack
-// name samebase/samebase, where the repository pages of Samebase read it. A stack in a folder of
-// this repository is named samebase/samebase/<folder>, such as apps/sidebars-example/alchemy.run.ts,
-// and runs from its folder. Every run needs the team token CONVEX_ACCESS_TOKEN, or the Convex CLI
+// name samebase/samebase/apps/samebase, the repository and the folder of this file, where the
+// repository pages of Samebase read it. Every run needs the team token CONVEX_ACCESS_TOKEN, or the Convex CLI
 // login (`npx convex login`) on a laptop; it mints the deploy key of each push itself. The stage
 // `prod` also needs a Cloudflare login (`npx alchemy login`, or CLOUDFLARE_API_TOKEN and
 // CLOUDFLARE_ACCOUNT_ID in .env). That token needs Workers Scripts Edit, Account Settings Read, and
@@ -51,13 +50,9 @@ deploys, also one that changes only files outside apps/samebase, such as a works
 const commit = execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim();
 
 export default Alchemy.Stack(
-  "samebase/samebase",
+  "samebase/samebase/apps/samebase",
   {
-    providers: Layer.mergeAll(
-      Cloudflare.providers(),
-      GitHub.providers(),
-      Convex.providers(),
-    ),
+    providers: Layer.mergeAll(Cloudflare.providers(), GitHub.providers(), Convex.providers()),
     state: Convex.state({ team }),
   },
   Effect.gen(function* () {
@@ -93,13 +88,11 @@ export default Alchemy.Stack(
         deploymentType: "preview",
       });
 
-      // Built like production with the route environment `preview`. The push command, relative to
-      // rootDir, also sets SITE_URL to the preview's site URL and seeds the password account.
+      // Built like production with the route environment `preview`. The push command also sets SITE_URL to the preview's site URL and seeds the password account.
       const site = yield* Convex.Deployment("Site", {
         project,
         type: "preview",
         name: stage,
-        rootDir: "apps/samebase",
         env: {
           SAMEBASE_COMMIT: commit,
           HUB_ISSUER: client.issuer,
@@ -157,8 +150,8 @@ Dashboard: https://dashboard.convex.dev/d/${site.name}`,
       ],
     }).pipe(Alchemy.RemovalPolicy.retain());
 
-    // The production deployment that serves samebase.com. The push runs in rootDir, the app with
-    // its package.json: the `deploy` script, which is the build, the upload of the site, and
+    // The production deployment that serves samebase.com. The push runs in this folder, the app
+    // with its package.json: the `deploy` script, which is the build, the upload of the site, and
     // `convex deploy`. adopt(true): the stack owns the variables in `env`, so a deploy overwrites a
     // value that was set by hand, such as the email token before the stack minted it, and a run
     // takes over a production deployment with code that is not in state, such as after a move of
@@ -166,7 +159,6 @@ Dashboard: https://dashboard.convex.dev/d/${site.name}`,
     const site = yield* Convex.Deployment("Site", {
       project,
       type: "prod",
-      rootDir: "apps/samebase",
       env: {
         SAMEBASE_COMMIT: commit,
         HUB_ISSUER: client.issuer,
@@ -181,15 +173,15 @@ Dashboard: https://dashboard.convex.dev/d/${site.name}`,
     // The PostHog reverse proxy on e.samebase.com, part of the Samebase app, with its code in the
     // folder of the app. The name is the Worker that Workers Builds deployed before this stack, so
     // Alchemy finds it by name. adopt(true) lets the first deploy take over that Worker and its
-    // route, which carry no Alchemy ownership tags. main is relative to the repository root, where
-    // this stack runs: Alchemy's Cloudflare.Worker has no rootDir.
+    // route, which carry no Alchemy ownership tags. main is relative to this folder, where this
+    // stack runs.
     // Alchemy saves main in the state as written and reuses it when it repairs drift, so a file
     // URL would pin the path of the machine that deployed last. Compatibility date and
     // observability are Alchemy's defaults. workers.dev is off: the proxy has one address.
     // Retained on destroy: samebase.com analytics run through it.
     const posthogProxy = yield* Cloudflare.Worker("PosthogProxy", {
       name: "samebase-posthog-proxy",
-      main: "apps/samebase/workers/posthog-proxy/index.ts",
+      main: "workers/posthog-proxy/index.ts",
       workersDev: false,
       routes: [{ pattern: "e.samebase.com/*", zoneName: "samebase.com" }],
     }).pipe(adopt(true), Alchemy.RemovalPolicy.retain());
