@@ -1,6 +1,7 @@
 // AES-256-GCM sealing under a key ring, the same format as the credentials of Samebase.
 import { describe, expect, it } from "vitest";
 import {
+  newKeyId,
   newKeyRing,
   openSecret,
   parseKeyRing,
@@ -90,5 +91,10 @@ describe("sealed secrets", () => {
     expect(keys.get(current)).toHaveLength(32);
     expect(keys.size).toBe(1);
     expect(ring().current).not.toBe(current);
+  });
+
+  it("makes a key id that is safe in the name of a Convex variable", () => {
+    expect(newKeyId()).toMatch(/^[0-9a-f]{12}$/);
+    expect(newKeyId()).not.toBe(newKeyId());
   });
 });

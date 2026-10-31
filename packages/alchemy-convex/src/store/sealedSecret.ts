@@ -69,11 +69,19 @@ export const parseKeyRing = (name: string, text: string | undefined): KeyRing =>
   return { current, keys };
 };
 
-/** The text of a new key ring with one random key. It needs real randomness, like `sealSecret`. */
+/** A random key id of 12 hexadecimal characters, which is also safe in a variable name. */
+export const newKeyId = (): string =>
+  Array.from(crypto.getRandomValues(new Uint8Array(6)), (byte) =>
+    byte.toString(16).padStart(2, "0"),
+  ).join("");
+
+/** A random key of 32 bytes in base64. It needs real randomness, like `sealSecret`. */
+export const newKey = (): string => toBase64(crypto.getRandomValues(new Uint8Array(32)));
+
+/** The text of a new key ring with one random key. */
 export const newKeyRing = (): string => {
-  const keyId = toBase64Url(crypto.getRandomValues(new Uint8Array(6)));
-  const key = toBase64(crypto.getRandomValues(new Uint8Array(32)));
-  return JSON.stringify({ current: keyId, keys: { [keyId]: key } });
+  const keyId = newKeyId();
+  return JSON.stringify({ current: keyId, keys: { [keyId]: newKey() } });
 };
 
 const importKey = (ring: KeyRing, keyId: string) => {

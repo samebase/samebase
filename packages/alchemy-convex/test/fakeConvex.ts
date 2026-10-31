@@ -60,6 +60,14 @@ export interface Store {
   version: number;
   rows: StoreRow[];
   readonly outputs: Map<string, string>;
+  /** The current key, or null for a store with no key. */
+  keyId: string | null;
+  /** True when a reseal finished under the current key. */
+  sealed: boolean;
+  /** The rows that a reseal names as failed. */
+  resealFailed: string[];
+  /** The error of a reseal, or undefined for one that finishes. */
+  resealError: string | undefined;
 }
 
 /** The admin functions of an identity hub, as the broker answers them. */
@@ -80,6 +88,7 @@ export class Hub {
 
 /** The internal functions of the store that a query key runs, and those that need a mutation key. */
 const STORE_QUERIES = [
+  "sealing",
   "version",
   "stacks",
   "stages",
@@ -89,10 +98,15 @@ const STORE_QUERIES = [
   "getOutput",
   "readStack",
 ];
-const STORE_MUTATIONS = ["remove", "removeStack"];
+const STORE_MUTATIONS = ["remove", "removeStack", "chooseKey"];
 const STORE_ACTIONS = ["set", "setOutput", "reseal"];
 /** The store version that added a function; every other function is in version 1 (0.6.0). */
-const STORE_FUNCTION_SINCE: Record<string, number> = { readStack: 2, reseal: 5 };
+const STORE_FUNCTION_SINCE: Record<string, number> = {
+  readStack: 2,
+  sealing: 5,
+  chooseKey: 5,
+  reseal: 5,
+};
 const HubCall = Schema.Struct({ args: Schema.Record(Schema.String, Schema.Unknown) });
 const FunctionCall = Schema.Struct({
   path: Schema.String,
@@ -102,6 +116,7 @@ const FunctionCall = Schema.Struct({
     fqn: Schema.optionalKey(Schema.String),
     value: Schema.optionalKey(Schema.String),
     run: Schema.optionalKey(Schema.Unknown),
+    keyId: Schema.optionalKey(Schema.String),
   }),
 });
 /** One line of the fake CLI log: the hash of the key that the push got. */
@@ -222,7 +237,15 @@ export class FakeConvex {
 
   /** Gives a deployment the store at `version`, with no rows, and returns it. */
   addStore(deployment: string, version: number) {
-    const store: Store = { version, rows: [], outputs: new Map() };
+    const store: Store = {
+      version,
+      rows: [],
+      outputs: new Map(),
+      keyId: "fake-key",
+      sealed: true,
+      resealFailed: [],
+      resealError: undefined,
+    };
     this.stores.set(deployment, store);
     return store;
   }
@@ -506,8 +529,12 @@ export class FakeConvex {
     // store, or raises an older one to the current version with its rows.
     if (this.pushedByCli(deployment)) {
       const pushed = this.stores.get(deployment);
-      if (pushed === undefined) this.addStore(deployment, STORE_VERSION);
-      else if (pushed.version < STORE_VERSION) pushed.version = STORE_VERSION;
+      if (pushed === undefined || pushed.version < STORE_VERSION) {
+        const store = pushed ?? this.addStore(deployment, STORE_VERSION);
+        store.version = STORE_VERSION;
+        store.keyId = null;
+        store.sealed = false;
+      }
     }
     const store = this.stores.get(deployment);
     const reply = (value: unknown) =>
@@ -592,8 +619,15 @@ export class FakeConvex {
       case "setOutput":
         store.outputs.set(output, value);
         return reply(null);
+      case "sealing":
+        return reply({ current: store.keyId, sealed: store.sealed });
+      case "chooseKey":
+        store.keyId ??= args.keyId ?? null;
+        return reply(store.keyId);
       case "reseal":
-        return reply({ resealed: 0, skippedChanged: 0 });
+        if (store.resealError !== undefined) return error(store.resealError);
+        store.sealed = store.resealFailed.length === 0;
+        return reply({ resealed: 0, skippedChanged: 0, failed: store.resealFailed });
       case "readStack": {
         const stages = [
           ...new Set([

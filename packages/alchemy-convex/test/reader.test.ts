@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { RunRecord } from "../src/RunRecord.ts";
 import { api, internal } from "../src/store/convex/_generated/api.js";
-import { storeTest } from "./storeTest.ts";
+import { storeTest, withKey } from "./storeTest.ts";
 
 const run: RunRecord = {
   version: 1,
@@ -34,6 +34,7 @@ describe("repository reader", () => {
 
   it("includes exact and child stacks only, with deterministic order and no redacted content", async () => {
     const t = storeTest();
+    await withKey(t);
     for (const stack of [
       "samebase/app/z",
       "samebase/app-other",
@@ -191,6 +192,7 @@ describe("repository reader", () => {
 
   it("preserves arbitrary JSON output while removing nested secrets", async () => {
     const t = storeTest();
+    await withKey(t);
     for (const value of [null, "text", 1, false, [1, { __redacted__: "private" }]]) {
       await t.action(internal.state.setOutput, {
         stack: run.repository,

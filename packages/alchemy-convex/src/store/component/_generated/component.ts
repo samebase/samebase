@@ -23,6 +23,36 @@ import type { FunctionReference } from "convex/server";
  */
 export type ComponentApi<Name extends string | undefined = string | undefined> =
   {
+    keys: {
+      choose: FunctionReference<
+        "mutation",
+        "internal",
+        { keyId: string },
+        string,
+        Name
+      >;
+      markSealed: FunctionReference<
+        "mutation",
+        "internal",
+        { keyId: string },
+        null,
+        Name
+      >;
+      rotate: FunctionReference<
+        "mutation",
+        "internal",
+        { keyId: string },
+        null,
+        Name
+      >;
+      sealing: FunctionReference<
+        "query",
+        "internal",
+        {},
+        { current: string | null; sealed: boolean },
+        Name
+      >;
+    };
     reader: {
       repository: FunctionReference<
         "query",

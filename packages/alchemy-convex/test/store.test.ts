@@ -1,9 +1,9 @@
 // The store functions of src/store/convex and its alchemyState component in convex-test.
 import { describe, expect, it, vi } from "vitest";
 import { components, internal } from "../src/store/convex/_generated/api.js";
+import { stateKeyName } from "../src/store/convex/sealing.ts";
 import { STORE_VERSION } from "../src/store/convex/version.ts";
-import { parseKeyRing } from "../src/store/sealedSecret.ts";
-import { storeTest } from "./storeTest.ts";
+import { addKey, storeTest, withKey } from "./storeTest.ts";
 
 const main = { stack: "samebase/app", stage: "main" };
 const preview = { stack: "samebase/app", stage: "pr-1" };
@@ -150,19 +150,17 @@ describe("the state store", () => {
     });
     const stored = async (t: ReturnType<typeof storeTest>) =>
       JSON.stringify(await t.query(internal.state.readStack, { stack: main.stack }));
-    /** A key ring with one more key, which is the current key. */
-    const rotated = (next: string) => {
-      const ring: { current: string; keys: Record<string, string> } = JSON.parse(
-        process.env["STATE_KEYS"] ?? "",
-      );
-      return JSON.stringify({
-        current: "next",
-        keys: { ...ring.keys, next: next.padEnd(43, "A") + "=" },
-      });
+    const clearRow = { ...row, value, keyId: null };
+    /** A second key, which becomes the current key. */
+    const rotate = async (t: ReturnType<typeof storeTest>) => {
+      const keyId = addKey();
+      await t.mutation(internal.state.rotateKey, { keyId });
+      return keyId;
     };
 
     it("keeps no secret in the rows, and gives the run the text that it wrote", async () => {
       const t = storeTest();
+      await withKey(t);
       await t.action(internal.state.set, { ...row, value });
       await t.action(internal.state.setOutput, { ...main, value: output });
 
@@ -177,71 +175,160 @@ describe("the state store", () => {
       expect(await t.query(internal.state.replaced, main)).toEqual([value]);
     });
 
-    it("keeps a row without a secret as its text, and needs no key ring for it", async () => {
+    it("keeps a row without a secret as its text, and needs no key for it", async () => {
       const t = storeTest();
-      vi.stubEnv("STATE_KEYS", "");
       await t.action(internal.state.set, { ...row, value: '{"status":"created"}' });
       expect(await t.query(internal.state.get, row)).toBe('{"status":"created"}');
     });
 
-    it("fails a write with a secret when the key ring is missing, and stores nothing", async () => {
+    it("fails a write with a secret when the store has no key, and stores nothing", async () => {
       const t = storeTest();
-      vi.stubEnv("STATE_KEYS", "");
       await expect(t.action(internal.state.set, { ...row, value })).rejects.toThrow(
-        "STATE_KEYS is missing",
+        "The store has no key yet.",
       );
       expect(await t.query(internal.state.list, main)).toEqual([]);
     });
 
     it("opens a sealed value only in the row that sealed it", async () => {
       const t = storeTest();
+      await withKey(t);
       await t.action(internal.state.set, { ...row, value });
       const { stages } = await t.query(internal.state.readStack, { stack: main.stack });
       await t.mutation(internal.state.writeResource, {
         ...row,
         fqn: "Other",
         value: stages[0]?.resources[0]?.value ?? "",
+        keyId: null,
       });
       await expect(t.query(internal.state.get, { ...row, fqn: "Other" })).rejects.toThrow();
     });
 
+    it("keeps the first key when two runs choose one, and no sealed value is lost", async () => {
+      const t = storeTest();
+      const first = addKey();
+      const second = addKey();
+      expect(await t.mutation(internal.state.chooseKey, { keyId: first })).toBe(first);
+      await t.action(internal.state.set, { ...row, value });
+      expect(await t.mutation(internal.state.chooseKey, { keyId: second })).toBe(first);
+      expect(await t.query(internal.state.sealing, {})).toMatchObject({ current: first });
+      expect(await t.query(internal.state.get, row)).toBe(value);
+    });
+
+    it("refuses a key that the deployment does not hold, and keeps the old one", async () => {
+      const t = storeTest();
+      const keyId = await withKey(t);
+      await expect(t.mutation(internal.state.rotateKey, { keyId: "absent" })).rejects.toThrow();
+      expect(await t.query(internal.state.sealing, {})).toMatchObject({ current: keyId });
+    });
+
+    it("refuses a first key that the deployment does not hold", async () => {
+      const t = storeTest();
+      await expect(t.mutation(internal.state.chooseKey, { keyId: "absent" })).rejects.toThrow();
+      expect(await t.query(internal.state.sealing, {})).toEqual({ current: null, sealed: false });
+    });
+
     it("reads a clear value that no reseal reached, and a reseal seals it", async () => {
       const t = storeTest();
-      await t.mutation(internal.state.writeResource, { ...row, value });
-      await t.mutation(internal.state.writeOutput, { ...main, value: output });
+      await t.mutation(internal.state.writeResource, clearRow);
+      await t.mutation(internal.state.writeOutput, { ...main, value: output, keyId: null });
+      await withKey(t);
       expect(await stored(t)).toContain("secret-of-the-attribute");
       expect(await t.query(internal.state.get, row)).toBe(value);
+      expect(await t.query(internal.state.sealing, {})).toMatchObject({ sealed: false });
 
-      expect(await t.action(internal.state.reseal, {})).toEqual({ resealed: 2, skippedChanged: 0 });
+      expect(await t.action(internal.state.reseal, {})).toEqual({
+        resealed: 2,
+        skippedChanged: 0,
+        failed: [],
+      });
 
       expect(await stored(t)).not.toContain("secret-of");
       expect(await t.query(internal.state.get, row)).toBe(value);
       expect(await t.query(internal.state.getOutput, main)).toBe(output);
-      expect(await t.action(internal.state.reseal, {})).toEqual({ resealed: 0, skippedChanged: 0 });
+      expect(await t.query(internal.state.sealing, {})).toMatchObject({ sealed: true });
+      expect(await t.action(internal.state.reseal, {})).toEqual({
+        resealed: 0,
+        skippedChanged: 0,
+        failed: [],
+      });
     });
 
-    it("moves the secrets to a new key, and the old key can leave the ring", async () => {
+    it("reseals every stage of every stack, one row at a time", async () => {
       const t = storeTest();
+      await withKey(t);
+      for (const stack of ["samebase/app", "samebase/other"]) {
+        for (const stage of ["main", "pr-1"]) {
+          await t.mutation(internal.state.writeResource, { ...clearRow, stack, stage });
+        }
+      }
+      expect(await t.action(internal.state.reseal, {})).toMatchObject({ resealed: 4 });
+      for (const stack of ["samebase/app", "samebase/other"]) {
+        expect(await stored(t)).not.toContain("secret-of");
+        expect(await t.query(internal.state.get, { ...row, stack, stage: "pr-1" })).toBe(value);
+      }
+    });
+
+    it("moves the secrets to a new key, and the old key can leave the deployment", async () => {
+      const t = storeTest();
+      const old = await withKey(t);
       await t.action(internal.state.set, { ...row, value });
       await t.action(internal.state.setOutput, { ...main, value: output });
-      const ring = rotated("B");
-      vi.stubEnv("STATE_KEYS", ring);
+      await t.action(internal.state.reseal, {});
+      expect(await t.query(internal.state.sealing, {})).toEqual({ current: old, sealed: true });
+
+      const next = await rotate(t);
+      expect(await t.query(internal.state.sealing, {})).toEqual({ current: next, sealed: false });
       expect(await t.query(internal.state.get, row)).toBe(value);
 
-      expect(await t.action(internal.state.reseal, {})).toEqual({ resealed: 2, skippedChanged: 0 });
+      expect(await t.action(internal.state.reseal, {})).toMatchObject({ resealed: 2 });
+      expect(await t.query(internal.state.sealing, {})).toEqual({ current: next, sealed: true });
 
-      const { keys } = parseKeyRing("STATE_KEYS", ring);
-      expect(keys.size).toBe(2);
-      vi.stubEnv(
-        "STATE_KEYS",
-        JSON.stringify({ current: "next", keys: { next: "B".padEnd(43, "A") + "=" } }),
-      );
+      vi.stubEnv(stateKeyName(old), "");
       expect(await t.query(internal.state.get, row)).toBe(value);
       expect(await t.query(internal.state.getOutput, main)).toBe(output);
     });
 
+    it("does not commit a write sealed under a key that stopped being current", async () => {
+      const t = storeTest();
+      const old = await withKey(t);
+      await t.action(internal.state.set, { ...row, value: '{"status":"created"}' });
+      await rotate(t);
+      const late = { ...row, value: "a text sealed under the old key", keyId: old };
+      expect(await t.mutation(internal.state.writeResource, late)).toBe(false);
+      expect(
+        await t.mutation(internal.state.writeOutput, {
+          ...main,
+          value: late.value,
+          keyId: old,
+        }),
+      ).toBe(false);
+      expect(await t.query(internal.state.get, row)).toBe('{"status":"created"}');
+      expect(await t.query(internal.state.getOutput, main)).toBeNull();
+
+      await t.action(internal.state.set, { ...row, value });
+      expect(await t.query(internal.state.get, row)).toBe(value);
+    });
+
+    it("goes on after a row that cannot open, names it, and does not finish", async () => {
+      const t = storeTest();
+      const old = await withKey(t);
+      await t.action(internal.state.set, { ...row, fqn: "Lost", value });
+      await t.mutation(internal.state.writeResource, { ...clearRow, fqn: "Zebra" });
+      await rotate(t);
+      vi.stubEnv(stateKeyName(old), "");
+
+      expect(await t.action(internal.state.reseal, {})).toEqual({
+        resealed: 1,
+        skippedChanged: 0,
+        failed: ["samebase/app/main/Lost"],
+      });
+      expect(await t.query(internal.state.sealing, {})).toMatchObject({ sealed: false });
+      expect(await stored(t)).not.toContain("secret-of");
+    });
+
     it("keeps the run record of a resealed stage", async () => {
       const t = storeTest();
+      await withKey(t);
       const run = {
         version: 1 as const,
         repository: "samebase/app",
@@ -253,7 +340,7 @@ describe("the state store", () => {
         source: "laptop" as const,
         recordedAt: "2026-10-31T10:00:00.000Z",
       };
-      await t.mutation(internal.state.writeResource, { ...row, value, run });
+      await t.mutation(internal.state.writeResource, { ...clearRow, run });
       await t.action(internal.state.reseal, {});
       const { stages } = await t.query(internal.state.readStack, { stack: main.stack });
       expect(stages[0]?.record).toEqual(run);
@@ -261,7 +348,7 @@ describe("the state store", () => {
 
     it("leaves a row that changed during the reseal", async () => {
       const t = storeTest();
-      await t.mutation(internal.state.writeResource, { ...row, value });
+      await t.mutation(internal.state.writeResource, clearRow);
       const replaced = await t.run((ctx) =>
         ctx.runMutation(components.alchemyState.state.replaceResource, {
           ...row,

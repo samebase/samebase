@@ -305,21 +305,38 @@ show.
 - A row holds `{ "__redacted__": { "__sealed__": { keyId, iv, ciphertext } } }`. `__redacted__`
   stays, so `reader:repository` and the readers of Samebase remove the object as before, and the
   rest of the row stays readable with no key, as the pages of Samebase need.
-- The sealing is in the store, in `src/store/convex/sealing.ts`, and not in the client. The client
-  would need the key ring in CI, or a second secret in each repository. So the ring is the variable
-  `STATE_KEYS` of the store deployment, and it never leaves the deployment.
+- The sealing is in the store, in `src/store/convex/sealing.ts`, and not in the client. A client
+  that sealed would need a key in each run, or a second secret in each repository.
 - Sealing needs real randomness for the IV, and only a Convex action has it. So `state:set` and
   `state:setOutput` are actions, which seal and then call the mutations `writeResource` and
   `writeOutput`. Opening draws no randomness, so `get`, `replaced`, and `getOutput` stay queries.
   Measured on a local backend: `crypto.subtle.decrypt` runs in an internal query.
+- Each key is one variable `STATE_KEY_<keyId>`, and a sealed value names its key, so a read needs no
+  list of keys. Convex has no conditional write of a variable, so one variable that holds every key
+  can lose a key: two first runs both read nothing, and the second write replaces the key under
+  which the first run sealed. A variable with a random name cannot replace another. A function
+  cannot list variables (measured: `Object.keys(process.env)` is empty, and a read by name works),
+  so the table `keys` of the component names the current key.
+- The table `keys` is one row, `{ current, sealedUnder }`. `state:chooseKey` writes `current` only
+  when the store has no key, in a transaction, so the first run wins, and the variable of the other
+  run stays unused. `state:rotateKey` changes it. Both refuse a key that the deployment does not
+  hold.
+- A write reads the current key, seals, and commits in a mutation that reads the row `keys` again. A
+  write that sealed under a key that stopped being current does not commit, and it seals again. So a
+  write cannot land after the reseal of a rotation with the old key.
+- `state:reseal` seals every value under the current key, one row at a time, with one transaction
+  for each row. So a stack over the limit of one read is no problem, and a sweep that stops keeps
+  its progress. It writes with `replaceResource` and `replaceOutput`, which keep the run record and
+  leave a row that changed. A row that cannot open is named in `failed`, and the others go on. When
+  nothing failed, it records `sealedUnder`.
+- Each run reads `state:sealing`, so the work does not depend on the run that pushed. A run makes a
+  key when the store has none, and runs a reseal unless one finished under the current key. So a run
+  that stopped after a push, or a reseal that failed, leaves work for the next run. Until then a
+  read gives a value with no `__sealed__` as it is.
 - The additional data of a value names its row, so a sealed value opens only in the row that sealed
   it. A move of a stack goes through `get` and `set`, which open and seal again.
 - `src/store/sealedSecret.ts` has the same format as the credentials of Samebase, and it depends on
   nothing, so Samebase can import it from `@samebase/alchemy-convex/sealed-secret`.
-- `state:reseal` seals every value under the current key. The client runs it after each push, which
-  covers the rows of store version 4, and an operator runs it to rotate a key. It writes with
-  `replaceResource` and `replaceOutput`, which keep the run record and leave a row that changed. A
-  read gives a value with no `__sealed__` as it is, for the time before the reseal reaches it.
 - This protects a table view, a snapshot, and a reader bug. It does not protect against the team
   token, and no store can: a run has to read the values.
 
@@ -381,8 +398,6 @@ store was not touched. The probe rows were deleted at the end.
 - The sealing protects the rows, not the functions. A holder of a key with `runInternalQueries`
   reads every `Redacted` value of every stack of the team, because a run needs those values. A team
   token can make such a key.
-- Two first runs of a team at the same time can both write `STATE_KEYS`, and a row that a run sealed
-  under the ring that was replaced cannot open. Run the first deploy of a team alone.
 - Two first runs of two repositories at the same time in a team with no store can both create a
   project named `alchemy-state`. Each run lists the projects again after its create; the run whose
   project is not the oldest deletes its own, which holds nothing yet, and uses the oldest. A

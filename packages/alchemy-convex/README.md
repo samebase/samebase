@@ -210,16 +210,24 @@ of a client secret, so the next run can get the value only from the state. The s
 these values with AES-256-GCM before it writes the row. A table view, a snapshot, and a reader that
 forgets to remove secrets show no value.
 
-The key ring is the variable `STATE_KEYS` of the store deployment. The first push makes it. It does
-not leave the deployment, and the client never holds it. The functions that a run reads with open
-the values, so a holder of the team token or of a key that can run internal queries still reads
-every secret of the team. A value that is not `Redacted`, such as a plain string in `env`, stays
-clear text.
+Each key is one variable `STATE_KEY_<keyId>` of the store deployment, and a sealed value names its
+key. A run that finds no key makes one, writes it to the deployment, and never reads it back. A
+transaction in the store chooses the current key, so two first runs cannot replace a key that a row
+needs. Each run asks if every row is sealed under the current key, and finishes the work of a run
+that stopped.
 
-To rotate the key: add a new key to `STATE_KEYS` and make it `current`. Then run `state:reseal`,
-such as with `npx convex run state:reseal --prod` from a directory that selects the project
-`alchemy-state-store`. Then remove the old key. A key that left the ring before the reseal cannot
-open its values.
+The functions that a run reads with open the values, so a holder of the team token or of a key that
+can run internal queries still reads every secret of the team. A value that is not `Redacted`, such
+as a plain string in `env`, stays clear text.
+
+To rotate the key, from a directory that selects the project `alchemy-state-store`:
+
+1. Add a key with a new id of letters and digits:
+   `npx convex env set --prod STATE_KEY_<keyId> "$(openssl rand -base64 32)"`.
+2. Make it the current key: `npx convex run --prod state:rotateKey '{"keyId":"<keyId>"}'`.
+3. The next run seals every value under it. To do this now: `npx convex run --prod state:reseal`.
+4. When `npx convex run --prod state:sealing` answers `"sealed": true`, remove the old variable. A
+   key that left the deployment before that cannot open its values.
 
 ### What the output records about a run
 

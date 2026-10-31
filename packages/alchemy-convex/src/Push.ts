@@ -448,7 +448,7 @@ export const withPushKey = <A, E, R>(
   );
 
 /** Every variable of the deployment with its value. */
-export const listVariables = (url: string, key: Redacted.Redacted<string>) =>
+const listVariables = (url: string, key: Redacted.Redacted<string>) =>
   settle("list environment variables", () =>
     createDeploymentClient(url, Redacted.value(key)).GET("/list_environment_variables"),
   ).pipe(
