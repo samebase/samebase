@@ -114,6 +114,8 @@ export type {
   ProjectName,
   ProjectResponse,
   ProjectSlug,
+  ProjectTagResponse,
+  ProjectTagsResponse,
   ProposedTeamName,
   ReferralCode,
   RegionName,
