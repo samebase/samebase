@@ -325,9 +325,14 @@ show.
   write that sealed under a key that stopped being current does not commit, and it seals again. So a
   write cannot land after the reseal of a rotation with the old key.
 - `state:reseal` seals every value under the current key, one row at a time, with one transaction
-  for each row. So a stack over the limit of one read is no problem, and a sweep that stops keeps
-  its progress. It writes with `replaceResource` and `replaceOutput`, which keep the run record and
-  leave a row that changed. A row that cannot open is named in `failed`, and the others go on. When
+  for each row. It reads `resourcePage` and `outputPage`, bounded pages in table order, because
+  `list` and `readStack` read whole rows and can pass the read limit of one function. A sweep that
+  stops keeps its progress. It writes with `replaceResource` and `replaceOutput`, which keep the run
+  record and leave a row that changed. Both read the current key in their own transaction, so a
+  sweep that a rotation overtook stops, and it cannot put the older key over the work of a newer
+  sweep. A row that fails is named in `failed`, and the others go on. Measured on a local backend
+  with 40 rows of 600 KiB: `state:list` fails with `Too many bytes read`, the sweep passes that
+  limit, and the limit of 4 MiB written per second failed 3 rows, which the next run sealed. When
   nothing failed, it records `sealedUnder`.
 - Each run reads `state:sealing`, so the work does not depend on the run that pushed. A run makes a
   key when the store has none, and runs a reseal unless one finished under the current key. So a run

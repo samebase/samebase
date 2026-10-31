@@ -348,16 +348,80 @@ describe("the state store", () => {
 
     it("leaves a row that changed during the reseal", async () => {
       const t = storeTest();
+      const keyId = await withKey(t);
       await t.mutation(internal.state.writeResource, clearRow);
       const replaced = await t.run((ctx) =>
         ctx.runMutation(components.alchemyState.state.replaceResource, {
           ...row,
           expected: "another text",
           value: "{}",
+          keyId,
         }),
       );
-      expect(replaced).toBe(false);
+      expect(replaced).toBe("changed");
       expect(await t.query(internal.state.get, row)).toBe(value);
+    });
+
+    it("does not let a reseal under an older key replace the work of a newer one", async () => {
+      const t = storeTest();
+      const old = await withKey(t);
+      await t.action(internal.state.set, { ...row, value });
+      await t.action(internal.state.setOutput, { ...main, value: output });
+      await rotate(t);
+      await t.action(internal.state.reseal, {});
+      const before = await stored(t);
+
+      const { state } = components.alchemyState;
+      const resource = { ...row, expected: "unused", value: "{}", keyId: old };
+      const stage = { ...main, expected: "unused", value: "{}", keyId: old };
+      expect(await t.run((ctx) => ctx.runMutation(state.replaceResource, resource))).toBe("stale");
+      expect(await t.run((ctx) => ctx.runMutation(state.replaceOutput, stage))).toBe("stale");
+
+      expect(await stored(t)).toBe(before);
+      expect(await t.query(internal.state.sealing, {})).toMatchObject({ sealed: true });
+    });
+
+    it("reseals more rows than one page holds, and reads each page with a bound", async () => {
+      const t = storeTest();
+      await withKey(t);
+      for (let index = 0; index < 25; index += 1) {
+        await t.mutation(internal.state.writeResource, { ...clearRow, fqn: `Row${index}` });
+        await t.mutation(internal.state.writeOutput, {
+          stack: main.stack,
+          stage: `stage-${index}`,
+          value: output,
+          keyId: null,
+        });
+      }
+      const { state } = components.alchemyState;
+      const first = await t.run((ctx) => ctx.runQuery(state.resourcePage, { cursor: null }));
+      expect(first.page).toHaveLength(10);
+      expect(first.isDone).toBe(false);
+
+      expect(await t.action(internal.state.reseal, {})).toMatchObject({
+        resealed: 50,
+        failed: [],
+      });
+      expect(await stored(t)).not.toContain("secret-of");
+      expect(await t.query(internal.state.sealing, {})).toMatchObject({ sealed: true });
+    });
+
+    it("skips an output row that has only a run record", async () => {
+      const t = storeTest();
+      await withKey(t);
+      const run = {
+        version: 1 as const,
+        repository: "samebase/app",
+        stackFile: "alchemy.run.ts",
+        branch: "main",
+        pullRequest: null,
+        headCommit: "commit",
+        runUrl: null,
+        source: "laptop" as const,
+        recordedAt: "2026-10-31T10:00:00.000Z",
+      };
+      await t.mutation(internal.state.writeResource, { ...clearRow, run });
+      expect(await t.action(internal.state.reseal, {})).toMatchObject({ resealed: 1, failed: [] });
     });
   });
 });

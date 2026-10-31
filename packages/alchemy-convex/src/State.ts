@@ -341,7 +341,7 @@ const ensureSealed = (
       .pipe(Effect.flatMap(valueOf), Effect.flatMap(decode(Resealed, "state:reseal")));
     if (failed.length > 0) {
       yield* Effect.logWarning(
-        `Convex state: the store cannot open the secrets of ${failed.join(", ")}.`,
+        `Convex state: the store could not seal ${failed.join(", ")}. The next run tries again.`,
       );
     }
   });

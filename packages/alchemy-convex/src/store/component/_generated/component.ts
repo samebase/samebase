@@ -106,6 +106,17 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         Array<string>,
         Name
       >;
+      outputPage: FunctionReference<
+        "query",
+        "internal",
+        { cursor: string | null },
+        {
+          continueCursor: string;
+          isDone: boolean;
+          page: Array<{ stack: string; stage: string; value: string }>;
+        },
+        Name
+      >;
       readStack: FunctionReference<
         "query",
         "internal",
@@ -169,8 +180,14 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
       replaceOutput: FunctionReference<
         "mutation",
         "internal",
-        { expected: string; stack: string; stage: string; value: string },
-        boolean,
+        {
+          expected: string;
+          keyId: string;
+          stack: string;
+          stage: string;
+          value: string;
+        },
+        "replaced" | "changed" | "stale",
         Name
       >;
       replaceResource: FunctionReference<
@@ -179,11 +196,28 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         {
           expected: string;
           fqn: string;
+          keyId: string;
           stack: string;
           stage: string;
           value: string;
         },
-        boolean,
+        "replaced" | "changed" | "stale",
+        Name
+      >;
+      resourcePage: FunctionReference<
+        "query",
+        "internal",
+        { cursor: string | null },
+        {
+          continueCursor: string;
+          isDone: boolean;
+          page: Array<{
+            fqn: string;
+            stack: string;
+            stage: string;
+            value: string;
+          }>;
+        },
         Name
       >;
       set: FunctionReference<

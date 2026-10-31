@@ -12,6 +12,7 @@
 // The rows hold their secrets sealed (see sealing.ts): `set` and `setOutput`
 // are actions that seal and then write, and `get`, `replaced`, and `getOutput`
 // open them for the run. `readStack` gives the rows as they are stored.
+import type { FunctionReturnType } from "convex/server";
 import { v } from "convex/values";
 import { runRecord } from "../component/runRecord.ts";
 import { stackReply } from "../component/state.ts";
@@ -250,10 +251,13 @@ export const rotateKey = internalMutation({
 });
 
 /**
- * Seals every secret of the store under the current key, one row at a time. A run calls it until
- * one finishes, so a run that stops only leaves work for the next one, and the rows that it sealed
- * stay sealed. A row that cannot be opened is named in `failed`, and the others go on. A row that
- * changed during the sweep is left: the write that changed it sealed it.
+ * Seals every secret of the store under the current key, one row at a time, through bounded pages.
+ * A run calls it until one finishes, so a run that stops only leaves work for the next one, and the
+ * rows that it sealed stay sealed. A row that fails, because a key is gone or a write limit was hit,
+ * is named in `failed`, and the others go on. A row that changed during the sweep is left: the write
+ * that changed it sealed it. A sweep
+ * stops when the current key changes: the sweep of the new key does the work, and this one must not
+ * put the older key back.
  */
 export const reseal = internalAction({
   args: {},
@@ -267,45 +271,64 @@ export const reseal = internalAction({
     let resealed = 0;
     let skippedChanged = 0;
     const failed: string[] = [];
+    /** Reseals one row, and answers true when the sweep must stop. */
     const sweep = async (
       name: string,
       aad: string,
-      expected: string | null,
-      replace: (expected: string, value: string) => Promise<boolean>,
+      expected: string,
+      replace: (value: string) => Promise<"replaced" | "changed" | "stale">,
     ) => {
-      if (expected === null) return;
       try {
         const value = await resealText(expected, aad, keyId);
-        if (value === expected) return;
-        if (await replace(expected, value)) resealed += 1;
-        else skippedChanged += 1;
+        if (value === expected) return false;
+        const result = await replace(value);
+        if (result === "replaced") resealed += 1;
+        if (result === "changed") skippedChanged += 1;
+        return result === "stale";
       } catch {
-        // The error can name a key id, and it names no secret, but the row name is enough.
+        // The row name is enough: an error can name a key id, and it adds nothing to find the row.
         failed.push(name);
+        return false;
       }
     };
-    for (const stack of await ctx.runQuery(state.stacks, {})) {
-      for (const stage of await ctx.runQuery(state.stages, { stack })) {
-        const output = { stack, stage };
-        for (const fqn of await ctx.runQuery(state.list, output)) {
-          const row = { stack, stage, fqn };
-          await sweep(
-            `${stack}/${stage}/${fqn}`,
-            resourceAad(row),
-            await ctx.runQuery(state.get, row),
-            (expected, value) =>
-              ctx.runMutation(state.replaceResource, { ...row, expected, value }),
-          );
-        }
-        await sweep(
-          `${stack}/${stage} output`,
-          outputAad(output),
-          await ctx.runQuery(state.getOutput, output),
-          (expected, value) => ctx.runMutation(state.replaceOutput, { ...output, expected, value }),
+    const done = () => ({ resealed, skippedChanged, failed });
+
+    let cursor: string | null = null;
+    for (;;) {
+      const { page, continueCursor, isDone }: FunctionReturnType<typeof state.resourcePage> =
+        await ctx.runQuery(state.resourcePage, { cursor });
+      for (const { stack, stage, fqn, value: expected } of page) {
+        const stale = await sweep(
+          `${stack}/${stage}/${fqn}`,
+          resourceAad({ stack, stage, fqn }),
+          expected,
+          (value) =>
+            ctx.runMutation(state.replaceResource, { stack, stage, fqn, expected, value, keyId }),
         );
+        if (stale) return done();
       }
+      if (isDone) break;
+      cursor = continueCursor;
     }
+
+    cursor = null;
+    for (;;) {
+      const { page, continueCursor, isDone }: FunctionReturnType<typeof state.outputPage> =
+        await ctx.runQuery(state.outputPage, { cursor });
+      for (const { stack, stage, value: expected } of page) {
+        const stale = await sweep(
+          `${stack}/${stage} output`,
+          outputAad({ stack, stage }),
+          expected,
+          (value) => ctx.runMutation(state.replaceOutput, { stack, stage, expected, value, keyId }),
+        );
+        if (stale) return done();
+      }
+      if (isDone) break;
+      cursor = continueCursor;
+    }
+
     if (failed.length === 0) await ctx.runMutation(keys.markSealed, { keyId });
-    return { resealed, skippedChanged, failed };
+    return done();
   },
 });

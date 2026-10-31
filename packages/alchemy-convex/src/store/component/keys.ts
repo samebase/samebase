@@ -7,6 +7,9 @@ import { mutation, query } from "./_generated/server.js";
 
 const rowOf = (ctx: QueryCtx) => ctx.db.query("keys").first();
 
+/** The current key, read in the transaction of the caller. */
+export const currentKeyOf = async (ctx: QueryCtx) => (await rowOf(ctx))?.current ?? null;
+
 /** The current key, and true when a reseal under that key finished. */
 export const sealing = query({
   args: {},
