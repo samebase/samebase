@@ -27,7 +27,7 @@ const CAPTION_Y: f32 = 158.;
 const DIAGRAM_CENTER_Y: f32 = 620.;
 
 const CARD_X: f32 = 96.;
-const CARD_WIDTH: f32 = 480.;
+const CARD_WIDTH: f32 = 560.;
 const CARD_HEIGHT: f32 = 88.;
 const CARD_PITCH: f32 = 104.;
 const ROW_X: f32 = 270.;
@@ -35,47 +35,49 @@ const ROW_SCALE: f32 = 0.56;
 const ROW_PITCH: f32 = 53.;
 const GROUP_GAP: f32 = 26.;
 
-const BROKER_X: f32 = 830.;
-const BROKER_WIDTH: f32 = 340.;
+const BROKER_X: f32 = 880.;
+const BROKER_WIDTH: f32 = 320.;
 const BROKER_HEIGHT: f32 = 240.;
 const BROKER_IN: Point = (BROKER_X, DIAGRAM_CENTER_Y);
 const BROKER_OUT: Point = (BROKER_X + BROKER_WIDTH, DIAGRAM_CENTER_Y);
 
-const GOOGLE_X: f32 = 1424.;
-const GOOGLE_Y: f32 = 390.;
-const GOOGLE_WIDTH: f32 = 400.;
-const GOOGLE_HEIGHT: f32 = 460.;
-const CLIENT_X: f32 = GOOGLE_X + 28.;
-const CLIENT_WIDTH: f32 = GOOGLE_WIDTH - 56.;
-const CLIENT_HEIGHT: f32 = 100.;
-const CLIENT_FIRST_Y: f32 = 488.;
-const CLIENT_SECOND_Y: f32 = 604.;
-const WILDCARD_CENTER_Y: f32 = 778.;
-const CLIENT_MERGED_HEIGHT: f32 = 148.;
-const CLIENT_MERGED_Y: f32 = DIAGRAM_CENTER_Y - CLIENT_MERGED_HEIGHT / 2.;
+const TILE_X: f32 = 1424.;
+const TILE_WIDTH: f32 = 400.;
+const TILE_HEIGHT: f32 = 292.;
+const TILE_GAP: f32 = 28.;
+const TILE_COMPACT_HEIGHT: f32 = 196.;
+const TILE_COMPACT_GAP: f32 = 16.;
+const CLIENT_X: f32 = TILE_X + 28.;
+const CLIENT_WIDTH: f32 = TILE_WIDTH - 56.;
+const CLIENT_HEIGHT: f32 = 88.;
+const CLIENT_MERGED_HEIGHT: f32 = 96.;
+const CLIENT_TOP: f32 = 88.;
+const CLIENT_SPACING: f32 = 100.;
 
 const CLIENT_ONE_AT: f32 = 0.35;
 const CLIENT_TWO_AT: f32 = 2.8;
 const REFUSED_AT: f32 = 5.75;
-const WILDCARD_AT: f32 = 7.1;
 const BROKER_AT: f32 = 10.6;
 const REROUTE_AT: f32 = 11.15;
 const MERGE_AT: f32 = 11.95;
 const UPSTREAM_AT: f32 = 12.45;
 const SIGN_IN_LABEL_AT: f32 = 1.0;
 const APPS_AT: f32 = 18.6;
-const END_AT: f32 = 22.6;
-const LOOP_AT: f32 = 26.2;
+const ANY_PROVIDER_AT: f32 = 22.2;
+const END_AT: f32 = 24.6;
+const LOOP_AT: f32 = 27.8;
 const LOOP_FADE: f32 = 0.5;
 
 const LINE_SECONDS: f32 = 0.5;
 const LEG_SECONDS: f32 = 0.35;
+/// The second line of a deployment starts this late, one provider after the other.
+const PROVIDER_STAGGER: f32 = 0.12;
 
 #[derive(Clone, Copy)]
 enum Route {
-    /// Registered at this Google client, directly.
+    /// Registered at this client of each provider, directly.
     Direct(usize),
-    /// Refused by Google, which has this URL on no client.
+    /// Refused by each provider, which does not know this URL.
     Refused,
     /// Registered at the broker when it deploys.
     Broker,
@@ -105,39 +107,43 @@ const fn deployment(
     }
 }
 
+// Previews are real Convex hosts: no wildcard on an app's own domain can match them.
 const DEPLOYMENTS: [Deployment; 14] = [
     deployment("myapp.com", 0, -1., 0.7, Route::Direct(0)),
     deployment("localhost:5173", 0, 2.5, 3.1, Route::Direct(1)),
-    deployment("pr-41.myapp.com", 0, 5.0, 5.25, Route::Refused),
-    deployment("pr-42.myapp.com", 0, 5.5, 5.75, Route::Refused),
-    deployment("pr-43.myapp.com", 0, 6.0, 6.25, Route::Refused),
-    deployment("pr-44.myapp.com", 0, 16.0, 16.3, Route::Broker),
-    deployment("pr-45.myapp.com", 0, 16.9, 17.2, Route::Broker),
+    deployment("calm-fox-41.convex.site", 0, 5.0, 5.25, Route::Refused),
+    deployment("bold-owl-42.convex.site", 0, 5.5, 5.75, Route::Refused),
+    deployment("keen-elk-43.convex.site", 0, 6.0, 6.25, Route::Refused),
+    deployment("warm-yak-44.convex.site", 0, 16.0, 16.3, Route::Broker),
+    deployment("deft-ram-45.convex.site", 0, 16.9, 17.2, Route::Broker),
     deployment("shop.com", 1, 19.6, 19.6, Route::Broker),
     deployment("localhost:3000", 1, 19.7, 19.7, Route::Broker),
-    deployment("pr-7.shop.com", 1, 19.8, 19.8, Route::Broker),
-    deployment("pr-8.shop.com", 1, 19.9, 19.9, Route::Broker),
+    deployment("blue-ant-7.convex.site", 1, 19.8, 19.8, Route::Broker),
+    deployment("wise-cod-8.convex.site", 1, 19.9, 19.9, Route::Broker),
     deployment("notes.app", 2, 20.05, 20.05, Route::Broker),
-    deployment("pr-3.notes.app", 2, 20.15, 20.15, Route::Broker),
-    deployment("pr-4.notes.app", 2, 20.25, 20.25, Route::Broker),
+    deployment("mild-bee-3.convex.site", 2, 20.15, 20.15, Route::Broker),
+    deployment("glad-emu-4.convex.site", 2, 20.25, 20.25, Route::Broker),
 ];
 
-/// Every sign-in: which deployment, and when. A check mark means the sign-in came back.
-const SIGN_INS: [(usize, f32); 14] = [
-    (0, 1.2),
-    (1, 3.6),
-    (2, 13.3),
-    (3, 13.65),
-    (4, 14.0),
-    (5, 16.7),
-    (6, 17.6),
-    (7, 20.4),
-    (11, 20.52),
-    (8, 20.64),
-    (12, 20.76),
-    (9, 20.88),
-    (13, 21.0),
-    (10, 21.12),
+/// Every sign-in: which deployment, through which provider, and when. A check mark means the first
+/// sign-in of that deployment came back.
+const SIGN_INS: [(usize, usize, f32); 16] = [
+    (0, 0, 1.2),
+    (1, 1, 3.6),
+    (2, 0, 13.3),
+    (3, 1, 13.65),
+    (4, 0, 14.0),
+    (5, 1, 16.7),
+    (6, 0, 17.6),
+    (7, 0, 20.3),
+    (11, 1, 20.38),
+    (8, 1, 20.46),
+    (12, 0, 20.54),
+    (9, 0, 20.62),
+    (13, 1, 20.7),
+    (10, 1, 20.78),
+    (3, 2, 22.9),
+    (9, 2, 23.2),
 ];
 
 const APP_NAMES: [&str; 3] = ["myapp", "shop", "notes"];
@@ -148,16 +154,16 @@ struct Caption {
     parts: &'static [(&'static str, &'static str)],
 }
 
-const CAPTIONS: [Caption; 9] = [
+const CAPTIONS: [Caption; 10] = [
     Caption {
         start: -1.,
         end: 2.35,
-        parts: &[("Your app needs Google sign-in.", INK)],
+        parts: &[("Your app signs in with Google and GitHub.", INK)],
     },
     Caption {
         start: 2.5,
         end: 4.65,
-        parts: &[("Development gets its own client.", INK)],
+        parts: &[("Development gets its own clients.", INK)],
     },
     Caption {
         start: 4.8,
@@ -167,7 +173,7 @@ const CAPTIONS: [Caption; 9] = [
     Caption {
         start: 7.0,
         end: 9.15,
-        parts: &[("Google only accepts exact URLs. No wildcards.", INK)],
+        parts: &[("Google and GitHub refuse URLs they don't know.", INK)],
     },
     Caption {
         start: 9.3,
@@ -179,13 +185,13 @@ const CAPTIONS: [Caption; 9] = [
         end: 12.75,
         parts: &[
             ("Identity Broker", TEAL),
-            (" sits in front of Google.", INK),
+            (" sits in front of your providers.", INK),
         ],
     },
     Caption {
         start: 12.9,
         end: 15.65,
-        parts: &[("Google sees one client and one URL.", INK)],
+        parts: &[("Each provider sees one client and one URL.", INK)],
     },
     Caption {
         start: 15.8,
@@ -194,8 +200,13 @@ const CAPTIONS: [Caption; 9] = [
     },
     Caption {
         start: 18.55,
-        end: END_AT,
+        end: 21.95,
         parts: &[("All your apps can share it.", INK)],
+    },
+    Caption {
+        start: 22.1,
+        end: END_AT,
+        parts: &[("Any other provider connects the same way.", INK)],
     },
 ];
 
@@ -264,22 +275,40 @@ fn merged(t: f32) -> f32 {
     morph(t, MERGE_AT, 0.6)
 }
 
-fn client_y(client: usize, t: f32) -> f32 {
-    let start = if client == 0 {
-        CLIENT_FIRST_Y
-    } else {
-        CLIENT_SECOND_Y
-    };
-    mix(start, CLIENT_MERGED_Y, merged(t))
+/// The top of a provider card and its height.
+fn tile_box(provider: usize, t: f32) -> (f32, f32) {
+    let stacked =
+        DIAGRAM_CENTER_Y - TILE_HEIGHT - TILE_GAP / 2. + provider as f32 * (TILE_HEIGHT + TILE_GAP);
+    let shown = 2. + enter(t, ANY_PROVIDER_AT, 0.5);
+    let compact = DIAGRAM_CENTER_Y
+        + (provider as f32 - (shown - 1.) / 2.) * (TILE_COMPACT_HEIGHT + TILE_COMPACT_GAP)
+        - TILE_COMPACT_HEIGHT / 2.;
+    let amount = merged(t);
+    (
+        mix(stacked, compact, amount),
+        mix(TILE_HEIGHT, TILE_COMPACT_HEIGHT, amount),
+    )
 }
 
-fn client_port(client: usize, t: f32) -> Point {
-    let height = mix(CLIENT_HEIGHT, CLIENT_MERGED_HEIGHT, merged(t));
-    (CLIENT_X, client_y(client, t) + height / 2.)
+fn client_y(provider: usize, client: usize, t: f32) -> f32 {
+    let row = CLIENT_TOP + client as f32 * CLIENT_SPACING;
+    tile_box(provider, t).0 + mix(row, CLIENT_TOP, merged(t))
 }
 
-fn refused_port() -> Point {
-    (GOOGLE_X, WILDCARD_CENTER_Y)
+fn client_height(t: f32) -> f32 {
+    mix(CLIENT_HEIGHT, CLIENT_MERGED_HEIGHT, merged(t))
+}
+
+fn client_port(provider: usize, client: usize, t: f32) -> Point {
+    (
+        CLIENT_X,
+        client_y(provider, client, t) + client_height(t) / 2.,
+    )
+}
+
+/// Beside the provider's name, clear of the teal lines that reach its clients.
+fn refused_port(provider: usize, t: f32) -> Point {
+    (TILE_X, tile_box(provider, t).0 + 46.)
 }
 
 fn to_apps(t: f32) -> f32 {
@@ -319,17 +348,25 @@ fn card_port(index: usize, t: f32) -> Point {
     (x + scale * CARD_WIDTH, y + scale * CARD_HEIGHT / 2.)
 }
 
-fn line_end(index: usize, t: f32) -> Point {
+fn line_end(index: usize, provider: usize, t: f32) -> Point {
     match DEPLOYMENTS[index].route {
-        Route::Direct(client) => mix_point(client_port(client, t), BROKER_IN, rerouted(t, index)),
-        Route::Refused => mix_point(refused_port(), BROKER_IN, rerouted(t, index)),
+        Route::Direct(client) => mix_point(
+            client_port(provider, client, t),
+            BROKER_IN,
+            rerouted(t, index),
+        ),
+        Route::Refused => mix_point(refused_port(provider, t), BROKER_IN, rerouted(t, index)),
         Route::Broker => BROKER_IN,
     }
 }
 
-fn line(index: usize, t: f32) -> Svgr<'static> {
+fn line(index: usize, provider: usize, t: f32) -> Svgr<'static> {
     let item = &DEPLOYMENTS[index];
-    let drawn = morph(t, item.line, LINE_SECONDS);
+    let drawn = morph(
+        t,
+        item.line + provider as f32 * PROVIDER_STAGGER,
+        LINE_SECONDS,
+    );
     if drawn <= 0. {
         return Svgr::empty();
     }
@@ -337,21 +374,22 @@ fn line(index: usize, t: f32) -> Svgr<'static> {
         Route::Refused => mix_color(RED_RGB, TEAL_RGB, rerouted(t, index)),
         Route::Direct(_) | Route::Broker => TEAL.to_owned(),
     };
-    let (path, _) = curve(card_port(index, t), line_end(index, t), drawn);
+    let (path, _) = curve(card_port(index, t), line_end(index, provider, t), drawn);
     let width = mix(4., 3., to_apps(t));
     svgr!(<path d={path} fill="none" stroke={color} stroke-width={width} stroke-linecap="round" />)
 }
 
-fn refused_mark(index: usize, t: f32) -> Svgr<'static> {
+fn refused_mark(index: usize, provider: usize, t: f32) -> Svgr<'static> {
     let item = &DEPLOYMENTS[index];
     if !matches!(item.route, Route::Refused) {
         return Svgr::empty();
     }
-    let shown = enter(t, item.line + LINE_SECONDS, 0.22) * (1. - progress(t, REROUTE_AT, 0.25));
+    let reached = item.line + provider as f32 * PROVIDER_STAGGER + LINE_SECONDS;
+    let shown = enter(t, reached, 0.22) * (1. - progress(t, REROUTE_AT, 0.25));
     if shown <= 0. {
         return Svgr::empty();
     }
-    let (x, y) = refused_port();
+    let (x, y) = refused_port(provider, t);
     svgr!(
         <g transform={place(x, y, mix(1.7, 1., shown))} opacity={shown}>
             <circle r="24" fill={PAPER} />
@@ -361,7 +399,9 @@ fn refused_mark(index: usize, t: f32) -> Svgr<'static> {
 }
 
 fn check_at(index: usize) -> Option<f32> {
-    let (_, start) = SIGN_INS.iter().find(|(signed_in, _)| *signed_in == index)?;
+    let (_, _, start) = SIGN_INS
+        .iter()
+        .find(|(signed_in, _, _)| *signed_in == index)?;
     let legs = if matches!(DEPLOYMENTS[index].route, Route::Direct(_)) {
         2.
     } else {
@@ -381,7 +421,7 @@ fn card(index: usize, t: f32) -> Svgr<'static> {
     let check = if checked > 0. {
         let size = mix(1.4, 1., checked);
         svgr!(
-            <g transform={place(CARD_WIDTH - 46., CARD_HEIGHT / 2., size)} opacity={checked}>
+            <g transform={place(CARD_WIDTH - 36., CARD_HEIGHT / 2., size)} opacity={checked}>
                 <path d="M-15 1L-4 12L16 -12" fill="none" stroke={TEAL} stroke-width="7" stroke-linecap="round" stroke-linejoin="round" />
             </g>
         )
@@ -391,7 +431,7 @@ fn card(index: usize, t: f32) -> Svgr<'static> {
     svgr!(
         <g transform={place(x - (1. - shown) * 28., y, scale)} opacity={shown}>
             <rect width={CARD_WIDTH} height={CARD_HEIGHT} fill={WHITE} stroke={INK} stroke-width="3" />
-            <text x="28" y="58" font-family={MONO} font-size="38" font-weight="500" fill={INK}>{item.url}</text>
+            <text x="24" y="56" font-family={MONO} font-size="34" font-weight="500" fill={INK}>{item.url}</text>
             {check}
         </g>
     )
@@ -438,12 +478,14 @@ fn pulse_on(legs: &[(Point, Point)], start: f32, t: f32) -> Svgr<'static> {
     svgr!(<circle cx={point.0} cy={point.1} r="13" fill={PAPER} stroke={TEAL} stroke-width="6" />)
 }
 
-fn pulse(index: usize, start: f32, t: f32) -> Svgr<'static> {
+fn pulse(index: usize, provider: usize, start: f32, t: f32) -> Svgr<'static> {
     let port = card_port(index, t);
     match DEPLOYMENTS[index].route {
-        Route::Direct(client) => pulse_on(&[(port, client_port(client, t))], start, t),
-        Route::Refused | Route::Broker => pulse_on(
-            &[(port, BROKER_IN), (BROKER_OUT, client_port(0, t))],
+        Route::Direct(client) if start < BROKER_AT => {
+            pulse_on(&[(port, client_port(provider, client, t))], start, t)
+        }
+        Route::Direct(_) | Route::Refused | Route::Broker => pulse_on(
+            &[(port, BROKER_IN), (BROKER_OUT, client_port(provider, 0, t))],
             start,
             t,
         ),
@@ -459,19 +501,24 @@ fn broker(t: f32) -> Svgr<'static> {
     svgr!(
         <g transform={Transform::translate(BROKER_X, y)} opacity={shown}>
             <rect width={BROKER_WIDTH} height={BROKER_HEIGHT} fill={TEAL} />
-            <text x={BROKER_WIDTH / 2.} y="96" text-anchor="middle" font-family={SANS} font-size="60" font-weight="700" fill={WHITE}>"Identity"</text>
-            <text x={BROKER_WIDTH / 2.} y="164" text-anchor="middle" font-family={SANS} font-size="60" font-weight="700" fill={WHITE}>"Broker"</text>
+            <text x={BROKER_WIDTH / 2.} y="108" text-anchor="middle" font-family={SANS} font-size="60" font-weight="700" fill={WHITE}>"Identity"</text>
+            <text x={BROKER_WIDTH / 2.} y="176" text-anchor="middle" font-family={SANS} font-size="60" font-weight="700" fill={WHITE}>"Broker"</text>
         </g>
     )
 }
 
-fn upstream_line(t: f32) -> Svgr<'static> {
-    let drawn = morph(t, UPSTREAM_AT, 0.4);
+fn upstream_line(provider: usize, t: f32) -> Svgr<'static> {
+    let start = if provider == 2 {
+        ANY_PROVIDER_AT + 0.3
+    } else {
+        UPSTREAM_AT + provider as f32 * PROVIDER_STAGGER
+    };
+    let drawn = morph(t, start, 0.4);
     if drawn <= 0. {
         return Svgr::empty();
     }
-    let (path, _) = curve(BROKER_OUT, client_port(0, t), drawn);
-    svgr!(<path d={path} fill="none" stroke={TEAL} stroke-width="6" stroke-linecap="round" />)
+    let (path, _) = curve(BROKER_OUT, client_port(provider, 0, t), drawn);
+    svgr!(<path d={path} fill="none" stroke={TEAL} stroke-width="5" stroke-linecap="round" />)
 }
 
 fn google_logo() -> Svgr<'static> {
@@ -485,16 +532,25 @@ fn google_logo() -> Svgr<'static> {
     )
 }
 
-fn client(index: usize, t: f32) -> Svgr<'static> {
-    let shown = enter(
-        t,
-        if index == 0 {
-            CLIENT_ONE_AT
-        } else {
-            CLIENT_TWO_AT
-        },
-        0.35,
-    );
+fn github_logo() -> Svgr<'static> {
+    svgr!(
+        <g transform={place(0., 0., 3.)}>
+            <path fill={INK} fill-rule="evenodd" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z" />
+        </g>
+    )
+}
+
+fn any_provider_mark() -> Svgr<'static> {
+    svgr!(<path d="M24 6V42M6 24H42" fill="none" stroke={INK} stroke-width="7" stroke-linecap="round" />)
+}
+
+fn client(provider: usize, index: usize, t: f32) -> Svgr<'static> {
+    let delay = provider as f32 * 0.15;
+    let shown = match (provider, index) {
+        (2, _) => 1.,
+        (_, 0) => enter(t, CLIENT_ONE_AT + delay, 0.35),
+        _ => enter(t, CLIENT_TWO_AT + delay, 0.35),
+    };
     let merge = merged(t);
     let opacity = if index == 0 {
         shown
@@ -505,54 +561,57 @@ fn client(index: usize, t: f32) -> Svgr<'static> {
         return Svgr::empty();
     }
     let one = index == 0 && merge >= 0.5;
-    let label = match (index, one) {
-        (_, true) => "one client",
-        (0, false) => "production client",
-        _ => "development client",
-    };
     let color = if one { TEAL } else { INK };
-    let height = mix(CLIENT_HEIGHT, CLIENT_MERGED_HEIGHT, merge);
     let text = if one {
         let url = enter(t, MERGE_AT + 0.4, 0.3);
         svgr!(
             <g>
-                <text x={CLIENT_WIDTH / 2.} y="62" text-anchor="middle" font-family={SANS} font-size="38" font-weight="600" fill={color}>{label}</text>
-                <text x={CLIENT_WIDTH / 2.} y="112" opacity={url} text-anchor="middle" font-family={MONO} font-size="29" font-weight="500" fill={color}>"auth.yourteam.com"</text>
+                <text x={CLIENT_WIDTH / 2.} y="42" text-anchor="middle" font-family={SANS} font-size="32" font-weight="600" fill={color}>"one client"</text>
+                <text x={CLIENT_WIDTH / 2.} y="78" opacity={url} text-anchor="middle" font-family={MONO} font-size="27" font-weight="500" fill={color}>"auth.yourteam.com"</text>
             </g>
         )
     } else {
+        let label = if index == 0 {
+            "production client"
+        } else {
+            "development client"
+        };
         svgr!(
-            <text x={CLIENT_WIDTH / 2.} y="61" text-anchor="middle" font-family={SANS} font-size="32" font-weight="600" fill={color}>{label}</text>
+            <text x={CLIENT_WIDTH / 2.} y="55" text-anchor="middle" font-family={SANS} font-size="31" font-weight="600" fill={color}>{label}</text>
         )
     };
     svgr!(
-        <g transform={Transform::translate(CLIENT_X, client_y(index, t))} opacity={opacity}>
-            <rect width={CLIENT_WIDTH} height={height} fill={PAPER} stroke={color} stroke-width="3" />
+        <g transform={Transform::translate(CLIENT_X, client_y(provider, index, t))} opacity={opacity}>
+            <rect width={CLIENT_WIDTH} height={client_height(t)} fill={PAPER} stroke={color} stroke-width="3" />
             {text}
         </g>
     )
 }
 
-/// The URL that previews would need: Google does not take a wildcard, on any client.
-fn wildcard(t: f32) -> Svgr<'static> {
-    let shown = enter(t, WILDCARD_AT, 0.3) * (1. - progress(t, BROKER_AT, 0.25));
-    if shown <= 0. {
+fn tile(provider: usize, t: f32) -> Svgr<'static> {
+    let opacity = if provider == 2 {
+        enter(t, ANY_PROVIDER_AT, 0.5)
+    } else {
+        1.
+    };
+    if opacity <= 0. {
         return Svgr::empty();
     }
+    let (y, height) = tile_box(provider, t);
+    let (logo, name) = match provider {
+        0 => (google_logo(), "Google"),
+        1 => (github_logo(), "GitHub"),
+        _ => (any_provider_mark(), "Any provider"),
+    };
+    let dash = if provider == 2 { "12 9" } else { "none" };
+    let name_size = if provider == 2 { "40" } else { "46" };
     svgr!(
-        <text x={GOOGLE_X + 216.} y={WILDCARD_CENTER_Y + 12.} opacity={shown} text-anchor="middle" font-family={MONO} font-size="35" font-weight="500" fill={RED}>"pr-*.myapp.com"</text>
-    )
-}
-
-fn google(t: f32) -> Svgr<'static> {
-    svgr!(
-        <g>
-            <rect x={GOOGLE_X} y={GOOGLE_Y} width={GOOGLE_WIDTH} height={GOOGLE_HEIGHT} fill={WHITE} stroke={INK} stroke-width="3" />
-            <g transform={place(GOOGLE_X + 28., GOOGLE_Y + 28., 1.2)}>{google_logo()}</g>
-            <text x={GOOGLE_X + 104.} y={GOOGLE_Y + 76.} font-family={SANS} font-size="52" font-weight="600" fill={INK}>"Google"</text>
-            {wildcard(t)}
-            {client(1, t)}
-            {client(0, t)}
+        <g opacity={opacity}>
+            <rect x={TILE_X} y={y} width={TILE_WIDTH} height={height} fill={WHITE} stroke={INK} stroke-width="3" stroke-dasharray={dash} />
+            <g transform={place(TILE_X + 28., y + 22., 1.)}>{logo}</g>
+            <text x={TILE_X + 92.} y={y + 63.} font-family={SANS} font-size={name_size} font-weight="600" fill={INK}>{name}</text>
+            {client(provider, 1, t)}
+            {client(provider, 0, t)}
         </g>
     )
 }
@@ -563,7 +622,7 @@ fn sign_in_label(t: f32) -> Svgr<'static> {
         return Svgr::empty();
     }
     svgr!(
-        <text x="1010" y="540" opacity={shown} text-anchor="middle" font-family={SANS} font-size="36" font-weight="600" fill={TEAL}>"sign-in"</text>
+        <text x="930" y="522" opacity={shown} text-anchor="middle" font-family={SANS} font-size="36" font-weight="600" fill={TEAL}>"sign-in"</text>
     )
 }
 
@@ -573,7 +632,7 @@ fn refusal_label(t: f32) -> Svgr<'static> {
         return Svgr::empty();
     }
     svgr!(
-        <text x={GOOGLE_X + GOOGLE_WIDTH} y="916" opacity={shown} text-anchor="end" font-family={MONO} font-size="42" font-weight="500" fill={RED}>"redirect_uri_mismatch"</text>
+        <text x={TILE_X + TILE_WIDTH} y="992" opacity={shown} text-anchor="end" font-family={MONO} font-size="42" font-weight="500" fill={RED}>"redirect_uri_mismatch"</text>
     )
 }
 
@@ -595,24 +654,31 @@ fn caption(item: &Caption, t: f32) -> Svgr<'static> {
 
 fn diagram(t: f32) -> Svgr<'static> {
     let captions: Vec<Svgr<'static>> = CAPTIONS.iter().map(|item| caption(item, t)).collect();
-    let indexes = 0..DEPLOYMENTS.len();
-    let lines: Vec<Svgr<'static>> = indexes.clone().map(|index| line(index, t)).collect();
-    let marks: Vec<Svgr<'static>> = indexes
-        .clone()
-        .map(|index| refused_mark(index, t))
-        .collect();
-    let cards: Vec<Svgr<'static>> = indexes.map(|index| card(index, t)).collect();
+    let mut lines: Vec<Svgr<'static>> = Vec::new();
+    let mut marks: Vec<Svgr<'static>> = Vec::new();
+    for index in 0..DEPLOYMENTS.len() {
+        lines.push(line(index, 0, t));
+        // The lines of a deployment become one line when they reach the broker.
+        if !matches!(DEPLOYMENTS[index].route, Route::Broker) {
+            lines.push(line(index, 1, t));
+        }
+        marks.push(refused_mark(index, 0, t));
+        marks.push(refused_mark(index, 1, t));
+    }
+    let cards: Vec<Svgr<'static>> = (0..DEPLOYMENTS.len()).map(|index| card(index, t)).collect();
     let labels: Vec<Svgr<'static>> = (0..APP_NAMES.len()).map(|app| app_label(app, t)).collect();
+    let upstream: Vec<Svgr<'static>> = (0..3).map(|provider| upstream_line(provider, t)).collect();
+    let tiles: Vec<Svgr<'static>> = (0..3).map(|provider| tile(provider, t)).collect();
     let pulses: Vec<Svgr<'static>> = SIGN_INS
         .iter()
-        .map(|(index, start)| pulse(*index, *start, t))
+        .map(|(index, provider, start)| pulse(*index, *provider, *start, t))
         .collect();
     svgr!(
         <g>
             {captions}
+            {tiles}
             {lines}
-            {upstream_line(t)}
-            {google(t)}
+            {upstream}
             {marks}
             {refusal_label(t)}
             {sign_in_label(t)}
@@ -629,13 +695,14 @@ fn end_card(t: f32) -> Svgr<'static> {
     let fade = |start: f32| enter(t, start, 0.5);
     svgr!(
         <g>
-            <text x="120" y={350. + rise(END_AT + 0.2)} opacity={fade(END_AT + 0.2)} font-family={MONO} font-size="118" font-weight="500" letter-spacing="-3" fill={INK}>"identity-broker"</text>
-            <text x="116" y={536. + rise(END_AT + 0.35)} opacity={fade(END_AT + 0.35)} font-family={SANS} font-size="132" font-weight="700" letter-spacing="-3.5" fill={INK}>
-                <tspan fill={TEAL}>"one"</tspan>" Google OAuth client"
+            <text x="120" y={316. + rise(END_AT + 0.2)} opacity={fade(END_AT + 0.2)} font-family={MONO} font-size="118" font-weight="500" letter-spacing="-3" fill={INK}>"identity-broker"</text>
+            <text x="116" y={498. + rise(END_AT + 0.35)} opacity={fade(END_AT + 0.35)} font-family={SANS} font-size="156" font-weight="700" letter-spacing="-4" fill={INK}>
+                "set up sign-in "<tspan fill={TEAL}>"once"</tspan>
             </text>
-            <text x="120" y={646. + rise(END_AT + 0.6)} opacity={fade(END_AT + 0.6)} font-family={SANS} font-size="56" font-weight="500" fill={MUTED}>"for every app and every preview."</text>
-            <text x="120" y={724. + rise(END_AT + 0.75)} opacity={fade(END_AT + 0.75)} font-family={SANS} font-size="56" font-weight="500" fill={MUTED}>"A Convex component. GitHub and email work too."</text>
-            <text x="120" y={860. + rise(END_AT + 0.9)} opacity={fade(END_AT + 0.9)} font-family={MONO} font-size="44" font-weight="500" fill={INK}>"npm i @samebase/identity-broker"</text>
+            <text x="120" y={610. + rise(END_AT + 0.6)} opacity={fade(END_AT + 0.6)} font-family={SANS} font-size="56" font-weight="500" fill={MUTED}>"for every app and every preview."</text>
+            <text x="120" y={688. + rise(END_AT + 0.7)} opacity={fade(END_AT + 0.7)} font-family={SANS} font-size="56" font-weight="500" fill={MUTED}>"Google, GitHub, email, or any OIDC provider."</text>
+            <text x="120" y={766. + rise(END_AT + 0.8)} opacity={fade(END_AT + 0.8)} font-family={SANS} font-size="56" font-weight="500" fill={MUTED}>"A Convex component."</text>
+            <text x="120" y={884. + rise(END_AT + 0.95)} opacity={fade(END_AT + 0.95)} font-family={MONO} font-size="44" font-weight="500" fill={INK}>"npm i @samebase/identity-broker"</text>
         </g>
     )
 }

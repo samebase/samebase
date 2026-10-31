@@ -5,7 +5,7 @@ connections once, such as GitHub, Google and email codes, and signs users in to 
 broker keeps no user accounts and no sessions: every sign-in goes upstream again, and each app
 creates its own user from the `id_token` it receives.
 
-![Google refuses preview deployments because each has a new URL and wildcards are not allowed. Identity Broker sits in front of Google, so Google sees one client and one URL, and each app and preview registers its exact URL at deploy.](https://raw.githubusercontent.com/samebase/samebase/main/packages/identity-broker/docs/how-it-works.gif)
+![Google and GitHub refuse preview deployments because each has a new URL. Identity Broker sits in front of them, so each provider sees one client and one URL, and every app and preview registers its exact URL at deploy.](https://raw.githubusercontent.com/samebase/samebase/main/packages/identity-broker/docs/how-it-works.gif)
 
 Why: every new app otherwise needs its own OAuth app registrations and its own email sender, and a
 preview deployment with a fresh callback URL cannot have them at all. With the broker, an app

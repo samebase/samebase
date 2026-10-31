@@ -7,8 +7,8 @@ no cut.
 
 It is written with [fframes](https://github.com/dmtrKovalenko/fframes), not with
 [`apps/remotion-studio`](../remotion-studio): `src/lib.rs` returns one SVG for each frame, and the
-GPU draws it. The same 801 frames took 2.9 s here and 54.9 s through Remotion at the repository's
-settings, on an Apple M4 Max.
+GPU draws it. The same 801 frames of an earlier cut took 2.9 s here and 54.9 s through Remotion at
+the repository's settings, on an Apple M4 Max.
 
 ## Render
 
@@ -37,8 +37,8 @@ return the LFS pointer.
 Make the thumbnail of the Convex components directory from a frame of the end card:
 
 ```console
-cargo run --release -- frame 24.5s -o out
-ffmpeg -y -i out/24.5s.png -vf scale=1536:864:flags=lanczos ../../packages/identity-broker/docs/directory/thumbnail.png
+cargo run --release -- frame 26.5s -o out
+ffmpeg -y -i out/26.5s.png -vf scale=1536:864:flags=lanczos ../../packages/identity-broker/docs/directory/thumbnail.png
 ```
 
 ## Where each output goes
@@ -52,16 +52,24 @@ ffmpeg -y -i out/24.5s.png -vf scale=1536:864:flags=lanczos ../../packages/ident
 
 ## What the diagram claims
 
-- Google refuses a redirect URI that is not registered exactly, with `redirect_uri_mismatch`, and a
-  registered URI cannot hold a wildcard. A client can hold many URIs, so the refused `pr-*` URL is
-  not drawn as a client.
-- Google sees one client and one URL: the hub's callback. `auth.yourteam.com` stands for that hub.
-- Each deployment is an ordinary client of the hub with its own exact redirect URI. It registers at
-  deploy time with the hub's deploy key, so this is not a wildcard in another place.
+Google and GitHub make the story concrete, and the end card names no provider, because the broker is
+not about one provider.
 
-The first is [Google's rule](https://support.google.com/cloud/answer/15549257). The others are how
-the [broker](../../packages/identity-broker/docs/consumers.md) works. When any of them changes,
-change the captions in `src/lib.rs`.
+- Google and GitHub refuse a redirect URI they do not know, with `redirect_uri_mismatch`.
+  [Google](https://support.google.com/cloud/answer/15549257) allows no wildcards, but
+  [GitHub](https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/authorizing-oauth-apps)
+  has optional wildcard matching, on for OAuth apps from before August 2026. So the diagram does not
+  say "no wildcards", and its previews are `.convex.site` hosts, which no wildcard on an app's own
+  domain can match. Convex Auth receives its callback on that host.
+- Each provider sees one client and one URL: the hub's callback. `auth.yourteam.com` stands for the
+  hub.
+- Each deployment is an ordinary client of the hub with its own exact redirect URI. It registers at
+  deploy time with the hub's deploy key, so this is not a wildcard in another place. See the
+  [consumer docs](../../packages/identity-broker/docs/consumers.md).
+- "Any provider" means any OpenID Connect provider, through an `OidcConnector` object, and any OAuth
+  2.0 provider with RFC 8414 metadata, through an `OauthConnector` object.
+
+When any of these changes, change the captions in `src/lib.rs`.
 
 ## Licenses
 
