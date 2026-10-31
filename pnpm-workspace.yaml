@@ -23,7 +23,7 @@ minimumReleaseAgeExclude:
   # 2026-10-15 21:13 UTC. Remove after 2026-10-22 21:14 UTC.
   - "@convex-dev/auth@2.0.0-beta.0"
   # Alchemy 2.0.0-beta.84 with its provider packages @alchemy.run/cloudflare and @alchemy.run/github
-  # (alchemy.run.ts deploys samebase.com with them), and the @alchemy.run and @distilled.cloud
+  # (apps/samebase/alchemy.run.ts deploys samebase.com with them), and the @alchemy.run and @distilled.cloud
   # versions that they install. Published 2026-10-23 23:03 UTC to 2026-10-24 04:03 UTC. Remove
   # after 2026-10-31 04:03 UTC.
   - "alchemy@2.0.0-beta.84"

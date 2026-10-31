@@ -55,8 +55,8 @@ without data (`/`, `/pricing`, `/docs` and its pages, `/privacy`, `/terms`), whi
 prerenders to `<path>/index.html`. Every other request goes to the server build
 `dist/server/server.js` (from `src/server.ts`), which `convex/http.ts` imports and which renders the
 page with the visitor's session in a Convex HTTP action. `.github/workflows/alchemy.yml` runs the
-deploy with the Alchemy stack in `alchemy.run.ts` at the repository root, then the sidebars example
-with the stack in `apps/sidebars-example/alchemy.run.ts`:
+deploy with the Alchemy stack in `apps/samebase/alchemy.run.ts`, then the sidebars example with the
+stack in `apps/sidebars-example/alchemy.run.ts`:
 
 - Every push to `main` deploys the stage `prod`: the production deployment, through the `deploy`
   script of `apps/samebase`, the account API token that production sends email with, the Workers
@@ -69,11 +69,12 @@ with the stack in `apps/sidebars-example/alchemy.run.ts`:
   `SITE_URL` and seeds its password account. The run comments the preview's URLs on the pull
   request. Closing the pull request destroys the stage and deletes the preview.
 - The state of every stage is in the `alchemy-state-store` project of the Convex team `nicu`, under
-  the stack name `samebase/samebase`, and `samebase/samebase/<folder>` for a stack in a folder.
-  Every run needs the `CONVEX_ACCESS_TOKEN` repository secret, a team access token; each push mints
-  its own short-lived deploy key. The stage `prod` also needs the `CLOUDFLARE_API_TOKEN` secret,
-  with the permissions that the top of `alchemy.run.ts` names, the `CLOUDFLARE_ACCOUNT_ID` variable,
-  and the `PROD_POSTHOG_PROJECT_TOKEN` variable, the PostHog project token of the production build.
+  the stack name `samebase/samebase/<folder>`, such as `samebase/samebase/apps/samebase`. Every run
+  needs the `CONVEX_ACCESS_TOKEN` repository secret, a team access token; each push mints its own
+  short-lived deploy key. The stage `prod` also needs the `CLOUDFLARE_API_TOKEN` secret, with the
+  permissions that the top of `apps/samebase/alchemy.run.ts` names, the `CLOUDFLARE_ACCOUNT_ID`
+  variable, and the `PROD_POSTHOG_PROJECT_TOKEN` variable, the PostHog project token of the
+  production build.
 
 A local build never deploys production. `convex/http.ts` imports `.convex-hosting/version.js`, which
 only a deploy writes, and `dist/server/server.js`, which only a build writes, so the first push of a
@@ -153,7 +154,7 @@ its old keys. For rotation, follow the
 - `SITE_URL`: the app origin. OAuth sign-ins may return only to `SITE_URL` and to the deployment's
   own `CONVEX_SITE_URL`.
 
-The root `alchemy.run.ts` registers production and each preview with `Convex.HubClient`, on
+`apps/samebase/alchemy.run.ts` registers production and each preview with `Convex.HubClient`, on
 `https://samebase.com/auth/hub/callback` and `<preview site>/auth/hub/callback`, and writes the
 three variables to the deployment before its push. The hub is in the `samebase` project of the
 Convex team, and the Convex credential of the run reaches it, so sign-in needs no secret of its own.

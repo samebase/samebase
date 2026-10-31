@@ -3,7 +3,7 @@
 Every repository of the team deploys the same way. The reference implementation is
 [samebase/base-alchemy](https://github.com/samebase/base-alchemy): copy its `alchemy.run.ts` and
 `.github/workflows/alchemy.yml` and change only what the app needs. The Samebase stack,
-`alchemy.run.ts` at the root of this repository, is the same shape with Cloudflare resources added.
+`apps/samebase/alchemy.run.ts`, is the same shape with Cloudflare resources added.
 
 ## The rules
 
@@ -11,11 +11,11 @@ Every repository of the team deploys the same way. The reference implementation 
    Nothing else deploys: no deploy-key workflow, no Workers Builds, no hand-run `convex deploy`.
 2. **State in the team's Convex store**: `state: Convex.state({ team })` from
    `@samebase/alchemy-convex`. The state of every stack and stage of the team lives in the
-   `alchemy-state-store` project of that team, which the first run creates. Never `Cloudflare.state()`,
-   never a local `.alchemy/` directory in CI, never a state artifact.
+   `alchemy-state-store` project of that team, which the first run creates. Never
+   `Cloudflare.state()`, never a local `.alchemy/` directory in CI, never a state artifact.
 3. **Stack name = repository full name**, `owner/name`, from `GITHUB_REPOSITORY` in Actions or the
-   origin remote on a laptop. That name is how the Samebase repository pages find the stack. A
-   second stack in a folder of a repository is `owner/name/<folder>`.
+   origin remote on a laptop. That name is how the Samebase repository pages find the stack. A stack
+   in a folder of a repository is `owner/name/<folder>`.
 4. **One secret**: `CONVEX_ACCESS_TOKEN`, a team access token. The run mints every deploy key itself
    and the keys never leave the run. The identity hub needs no secret: `Convex.HubClient` reaches it
    with this token. A stack with Cloudflare resources adds the Cloudflare login
