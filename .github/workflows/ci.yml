@@ -5,15 +5,100 @@ on:
     branches: [main, quantum-den]
   pull_request:
     branches: [main, quantum-den]
+  # The nightly run covers what a pull request can skip: new advisories for dependencies that did
+  # not change, a new Node release, and the Windows smoke.
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
 
 permissions:
   contents: read
 
+concurrency:
+  group: ci-${{ github.event_name }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
+  # Selects the jobs that depend on changed files. The checks, unit tests, and app build run on every
+  # event. A job that runs dependency code waits for the audit only when the audit is selected, so the
+  # audit runs first when a dependency changes and costs a pull request nothing when none does.
+  changes:
+    name: changes
+    runs-on: blacksmith-2vcpu-ubuntu-2404
+    timeout-minutes: 5
+    permissions:
+      pull-requests: read
+    outputs:
+      dependencies:
+        ${{ steps.filter.outcome != 'success' || steps.filter.outputs.dependencies == 'true' }}
+      templates:
+        ${{ steps.filter.outcome != 'success' || steps.filter.outputs.templates == 'true' }}
+      windows_launcher:
+        ${{ steps.filter.outcome != 'success' || steps.filter.outputs.windows_launcher == 'true' }}
+      windows_smoke:
+        ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' ||
+        (github.event_name == 'pull_request' && steps.filter.outcome != 'success') ||
+        steps.filter.outputs.windows_smoke == 'true' }}
+
+    steps:
+      # GitHub lists at most 3000 changed files. A larger pull request selects every job.
+      - name: Select jobs
+        id: filter
+        if: github.event_name == 'pull_request' && github.event.pull_request.changed_files < 3000
+        uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        with:
+          filters: |
+            dependencies:
+              - .github/workflows/ci.yml
+              - .nvmrc
+              - package.json
+              - apps/**/package.json
+              - packages/**/package.json
+              - patches/**
+              - pnpm-lock.yaml
+              - pnpm-workspace.yaml
+            templates:
+              - .github/workflows/ci.yml
+              - templates/**
+            windows_launcher:
+              - .github/workflows/ci.yml
+              - .nvmrc
+              - package.json
+              - apps/samebase/package.json
+              - apps/samebase/scripts/convex-local-utils.ts
+              - apps/samebase/scripts/normalizeEnvValue.ts
+              - apps/samebase/scripts/run-vite-dev.ts
+              - packages/dependent/**
+              - pnpm-lock.yaml
+              - pnpm-workspace.yaml
+              - templates/base/package.json
+              - templates/base/pnpm-lock.yaml
+              - templates/base/scripts/**
+            windows_smoke:
+              - .github/workflows/ci.yml
+              - apps/samebase/scripts/convex-dev.ts
+              - apps/samebase/scripts/convex-local-utils.ts
+              - apps/samebase/scripts/localConvexAdminClient.ts
+              - apps/samebase/scripts/normalizeEnvValue.ts
+              - apps/samebase/scripts/predev.ts
+              - apps/samebase/scripts/seed-local-password-account.ts
+              - packages/dependent/**
+              - runtime/anonymousLocalPorts.ts
+              - scripts/ci-bootstrap-convex.ts
+              - scripts/ci-windows-start.ts
+              - scripts/lib/convexAuthKeys.ts
+              - scripts/lib/scriptRuntime.ts
+              - scripts/lib/trackedFilePath.ts
+              - templates/base/**
+
+  # A pull request audits only when it changes dependencies: a new advisory for an unchanged
+  # dependency is already on main, and the nightly run reports it.
   supply_chain:
     name: supply-chain
     runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 10
+    needs: changes
+    if: ${{ needs.changes.outputs.dependencies == 'true' }}
 
     steps:
       - name: Checkout code
@@ -44,6 +129,8 @@ jobs:
     name: starter template supply-chain
     runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 10
+    needs: changes
+    if: ${{ needs.changes.outputs.templates == 'true' }}
     strategy:
       fail-fast: false
       matrix:
@@ -87,7 +174,8 @@ jobs:
     name: starter template check
     runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 15
-    needs: starter_template_supply_chain
+    needs: [changes, starter_template_supply_chain]
+    if: ${{ needs.changes.outputs.templates == 'true' }}
     strategy:
       fail-fast: false
       matrix:
@@ -125,9 +213,12 @@ jobs:
 
   checks:
     name: checks
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: blacksmith-8vcpu-ubuntu-2404
     timeout-minutes: 20
-    needs: supply_chain
+    needs: [changes, supply_chain]
+    if:
+      ${{ !cancelled() && needs.changes.result == 'success' && (needs.supply_chain.result ==
+      'success' || needs.supply_chain.result == 'skipped') }}
 
     strategy:
       matrix:
@@ -138,6 +229,7 @@ jobs:
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
+          filter: blob:none
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v6
@@ -166,21 +258,83 @@ jobs:
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: node ./scripts/check-agent-plugin-version.ts --latest-plugin-change
 
-      # Bootstrap an anonymous local Convex deployment so CONVEX_DEPLOYMENT
-      # exists and generated files are materialized for CI-only lint/build.
-      # Note: `check:ci`/`build:ci` skip Convex codegen and rely on this step.
+      - name: Run checks
+        run: pnpm check:ci
+
+  unit_tests:
+    name: unit tests
+    runs-on: blacksmith-8vcpu-ubuntu-2404
+    timeout-minutes: 20
+    needs: [changes, supply_chain]
+    if:
+      ${{ !cancelled() && needs.changes.result == 'success' && (needs.supply_chain.result ==
+      'success' || needs.supply_chain.result == 'skipped') }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 12.14.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24.x
+          check-latest: true
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # The app imports the built package.
+      - name: Build the sidebars package
+        run: pnpm --filter @samebase/sidebars run build
+
+      - name: Run unit tests
+        run: pnpm test
+
+  app_build:
+    name: app build
+    runs-on: blacksmith-8vcpu-ubuntu-2404
+    timeout-minutes: 20
+    needs: [changes, supply_chain]
+    if:
+      ${{ !cancelled() && needs.changes.result == 'success' && (needs.supply_chain.result ==
+      'success' || needs.supply_chain.result == 'skipped') }}
+
+    steps:
+      # Full commit history: the build reads the commit count for the version label.
+      - name: Checkout code
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          filter: blob:none
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 12.14.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24.x
+          check-latest: true
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Proves that the app builds and that its Convex functions push to a backend.
       # The first push needs .convex-hosting/version.js, which only a deploy
       # writes, and the server build dist/server/server.js, so the bootstrap
       # runs one `deploy --dev` (a site build and upload to the local backend)
       # before it waits for the functions.
       - name: Bootstrap Convex for CI
         run: node ./scripts/ci-bootstrap-convex.ts
-
-      - name: Run checks
-        run: pnpm check:ci
-
-      - name: Run unit tests
-        run: pnpm test
 
   playwright:
     name: playwright (${{ matrix.shard }})
@@ -258,10 +412,74 @@ jobs:
             apps/samebase/e2e/playwright-report
             apps/samebase/e2e/test-results
 
-  windows-smoke:
+  # The launcher checks are the Windows-only contract of a pull request. They run when the launchers
+  # or the dependencies that choose their executables change.
+  windows_launcher:
+    name: windows launcher
     runs-on: blacksmith-4vcpu-windows-2025
     timeout-minutes: 15
-    needs: supply_chain
+    needs: [changes, supply_chain, starter_template_supply_chain]
+    if:
+      ${{ !cancelled() && needs.changes.result == 'success' &&
+      needs.changes.outputs.windows_launcher == 'true' && (needs.supply_chain.result == 'success' ||
+      needs.supply_chain.result == 'skipped') && (needs.starter_template_supply_chain.result ==
+      'success' || needs.starter_template_supply_chain.result == 'skipped') }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 12.14.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24.x
+          check-latest: true
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install starter template dependencies
+        working-directory: templates/base
+        run: pnpm install --frozen-lockfile
+
+      # This is a finite process-launch smoke, not a server readiness check.
+      # `--help` exercises the Windows Vite+ resolution and spawn path, then exits.
+      - name: Verify Vite+ launcher on Windows
+        working-directory: apps/samebase
+        run: node ./scripts/run-vite-dev.ts --help
+
+      # `--help` keeps the process finite while Convex still parses the full
+      # `--start` value that launches auth setup and the frontend together.
+      - name: Verify starter template launcher on Windows
+        working-directory: templates/base
+        run: pnpm run dev --help
+
+      - name: Verify starter template worktree detection on Windows
+        working-directory: templates/base
+        run: pnpm exec vp test scripts/run-context-dev.test.ts
+
+      # Worktree mode sets anonymous Convex mode before it enters the same launcher.
+      - name: Verify starter template worktree launcher on Windows
+        working-directory: templates/base
+        run: pnpm run dev:worktree --help
+
+  # Runs nightly, and on a pull request that changes startup code. Linux fails with the same app build
+  # errors, so an ordinary app change does not need it.
+  windows-smoke:
+    runs-on: blacksmith-4vcpu-windows-2025
+    timeout-minutes: 20
+    needs: [changes, supply_chain, starter_template_supply_chain]
+    if:
+      ${{ !cancelled() && needs.changes.result == 'success' && needs.changes.outputs.windows_smoke
+      == 'true' && (needs.supply_chain.result == 'success' || needs.supply_chain.result ==
+      'skipped') && (needs.starter_template_supply_chain.result == 'success' ||
+      needs.starter_template_supply_chain.result == 'skipped') }}
 
     strategy:
       matrix:
@@ -299,84 +517,103 @@ jobs:
           CONVEX_AGENT_MODE: anonymous
         run: node ./scripts/predev.ts
 
-      # This is a finite process-launch smoke, not a server readiness check.
-      # `--help` exercises the Windows Vite+ resolution and spawn path, then exits.
-      - name: Verify Vite+ launcher on Windows
-        working-directory: apps/samebase
-        run: node ./scripts/run-vite-dev.ts --help
-
-      # `--help` keeps the process finite while Convex still parses the full
-      # `--start` value that launches auth setup and the frontend together.
-      - name: Verify starter template launcher on Windows
+      - name: Start the starter template and load a page on Windows
         working-directory: templates/base
-        run: pnpm run dev --help
-
-      - name: Verify starter template worktree detection on Windows
-        working-directory: templates/base
-        run: pnpm exec vp test scripts/run-context-dev.test.ts
-
-      # Worktree mode sets anonymous Convex mode before it enters the same launcher.
-      - name: Verify starter template worktree launcher on Windows
-        working-directory: templates/base
-        run: pnpm run dev:worktree --help
+        run: node ../../scripts/ci-windows-start.ts
 
   ci:
     name: ci (24.x)
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: blacksmith-2vcpu-ubuntu-2404
     needs:
       [
+        changes,
         supply_chain,
         starter_template_supply_chain,
         starter_template_check,
         checks,
+        unit_tests,
+        app_build,
         playwright,
+        windows_launcher,
         windows-smoke,
       ]
     if: ${{ always() }}
 
     steps:
       # Keep the historical required check name stable while the real work runs
-      # in parallel jobs underneath it.
+      # in parallel jobs underneath it. A selected job must succeed, and a job
+      # that was not selected must skip.
       - name: Aggregate parallel CI results
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          CHANGES: ${{ needs.changes.result }}
+          SELECT_DEPENDENCIES: ${{ needs.changes.outputs.dependencies }}
+          SELECT_TEMPLATES: ${{ needs.changes.outputs.templates }}
+          SELECT_WINDOWS_LAUNCHER: ${{ needs.changes.outputs.windows_launcher }}
+          SELECT_WINDOWS_SMOKE: ${{ needs.changes.outputs.windows_smoke }}
+          SUPPLY_CHAIN: ${{ needs.supply_chain.result }}
+          STARTER_TEMPLATE_SUPPLY_CHAIN: ${{ needs.starter_template_supply_chain.result }}
+          STARTER_TEMPLATE_CHECK: ${{ needs.starter_template_check.result }}
+          CHECKS: ${{ needs.checks.result }}
+          UNIT_TESTS: ${{ needs.unit_tests.result }}
+          APP_BUILD: ${{ needs.app_build.result }}
+          PLAYWRIGHT: ${{ needs.playwright.result }}
+          WINDOWS_LAUNCHER: ${{ needs.windows_launcher.result }}
+          WINDOWS_SMOKE: ${{ needs.windows-smoke.result }}
         run: |
-          if [ "${{ needs.supply_chain.result }}" != "success" ]; then
-            echo "supply-chain: ${{ needs.supply_chain.result }}"
-            exit 1
-          fi
-
-          if [ "${{ needs.starter_template_supply_chain.result }}" != "success" ]; then
-            echo "starter template supply-chain: ${{ needs.starter_template_supply_chain.result }}"
-            exit 1
-          fi
-
-          if [ "${{ needs.starter_template_check.result }}" != "success" ]; then
-            echo "starter template check: ${{ needs.starter_template_check.result }}"
-            exit 1
-          fi
-
-          if [ "${{ needs.checks.result }}" != "success" ]; then
-            echo "checks: ${{ needs.checks.result }}"
-            exit 1
-          fi
-
-          if [ "${{ needs.windows-smoke.result }}" != "success" ]; then
-            echo "windows-smoke: ${{ needs.windows-smoke.result }}"
-            exit 1
-          fi
-
-          if [ "${{ github.event_name }}" = "push" ]; then
-            if [ "${{ needs.playwright.result }}" != "success" ]; then
-              echo "playwright: ${{ needs.playwright.result }}"
+          require_success() {
+            if [ "$2" != "success" ]; then
+              echo "$1: $2"
               exit 1
             fi
+          }
+
+          require_selected() {
+            case "$3" in
+              true)
+                require_success "$1" "$2"
+                ;;
+              false)
+                if [ "$2" != "skipped" ]; then
+                  echo "$1: $2, but the job was not selected"
+                  exit 1
+                fi
+                ;;
+              *)
+                echo "$1: the selection is '$3'"
+                exit 1
+                ;;
+            esac
+          }
+
+          require_success "changes" "$CHANGES"
+          require_selected "supply-chain" "$SUPPLY_CHAIN" "$SELECT_DEPENDENCIES"
+          require_success "checks" "$CHECKS"
+          require_success "unit tests" "$UNIT_TESTS"
+          require_success "app build" "$APP_BUILD"
+          require_selected "starter template supply-chain" "$STARTER_TEMPLATE_SUPPLY_CHAIN" "$SELECT_TEMPLATES"
+          require_selected "starter template check" "$STARTER_TEMPLATE_CHECK" "$SELECT_TEMPLATES"
+          require_selected "windows launcher" "$WINDOWS_LAUNCHER" "$SELECT_WINDOWS_LAUNCHER"
+          require_selected "windows-smoke" "$WINDOWS_SMOKE" "$SELECT_WINDOWS_SMOKE"
+
+          if [ "$EVENT_NAME" = "push" ]; then
+            require_success "playwright" "$PLAYWRIGHT"
           else
-            echo "playwright: ${{ needs.playwright.result }}"
+            echo "playwright: $PLAYWRIGHT"
             echo "Playwright is intentionally skipped on pull requests."
           fi
 
   publish_repository_exports:
     name: publish repository exports
-    needs: [checks, starter_template_check]
+    needs:
+      [
+        supply_chain,
+        starter_template_supply_chain,
+        starter_template_check,
+        checks,
+        unit_tests,
+        app_build,
+      ]
     if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10

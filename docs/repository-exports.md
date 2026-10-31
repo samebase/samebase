@@ -22,10 +22,10 @@ checks in a fresh job so root dependencies cannot hide an undeclared dependency.
 
 ## Automatic workflow
 
-The publisher runs only for a push to `main`, after the standard checks and unit tests succeed.
-Supply-chain validation runs before those checks. The two starter templates also require their
-isolated checks. Playwright and Windows smoke tests continue in parallel, but they do not block
-repository exports.
+The publisher runs only for a push to `main`, after supply-chain validation, the standard checks,
+the unit tests, and the app build succeed. The two starter templates also require their audits and
+isolated checks. Playwright and the Windows launcher check continue in parallel, but they do not
+block repository exports.
 
 Before it publishes, the job reads every configured target repository with a metadata-only token. If
 a target repository does not exist, or the publisher GitHub App cannot access it, the job fails with
