@@ -87,16 +87,16 @@
   },
   "devDependencies": {
     "@convex-dev/eslint-plugin": "5.0.0",
-    "@edge-runtime/vm": "^5.0.0",
-    "@oxlint/plugins": "1.88.0",
-    "@playwright/test": "1.58.2",
-    "@remotion/eslint-plugin": "4.0.535",
+    "@edge-runtime/vm": "5.0.0",
+    "@oxlint/plugins": "1.89.0",
+    "@playwright/test": "1.64.1",
+    "@remotion/eslint-plugin": "4.0.538",
     "@samebase/dependent": "workspace:*",
     "@typescript/native-preview": "7.0.0-dev.20260707.2",
-    "convex-test": "^0.0.61",
-    "eslint-plugin-react-refresh": "^0.4.7",
-    "execa": "10.1.1",
-    "typescript": "6.0.3",
+    "convex-test": "0.0.61",
+    "eslint-plugin-react-refresh": "0.4.26",
+    "execa": "10.2.1",
+    "typescript": "7.0.2",
     "vite": "catalog:",
     "vite-plus": "catalog:",
     "vitest": "catalog:"
@@ -105,5 +105,5 @@
     "node": ">=24.20.0",
     "pnpm": ">=12"
   },
-  "packageManager": "pnpm@12.14.0"
+  "packageManager": "pnpm@12.15.0"
 }
