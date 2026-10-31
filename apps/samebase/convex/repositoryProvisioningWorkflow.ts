@@ -10,10 +10,8 @@ import {
 } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import { toErrorMessage } from "./jsonUtils";
-import { requireCompleteCiCredentials } from "./organization/ciCredentials";
-import { readCiCredentialRevision } from "./organization/providerCredentialModel";
 import { vSealedSecret } from "./sealedSecret";
-import { getOrganizationCiCredentials } from "./organizationProviderCredentials";
+import { getOrganizationProviderConfiguration } from "./organizationProviderCredentials";
 import {
   REPOSITORY_ACTIONS_DEFAULT_BRANCH,
   vRepositoryActionsSeed,
@@ -106,9 +104,7 @@ export function readRetryProvisioning(
 }
 const actionsSecretsTarget = object({
   organizationId: id("organizations"),
-  cloudflareApiToken: vSealedSecret,
-  cloudflareAccountId: string(),
-  convexAccessToken: vSealedSecret,
+  convexCredential: vSealedSecret,
   convexTeamId: string(),
   credentialRevision: number(),
 });
@@ -377,9 +373,10 @@ export const readProvisioningModeForRun = internalQuery({
 });
 
 /**
-The values that write_actions_secrets writes into the repository: the organization CI credentials,
-which must match the repository's Convex team and Cloudflare account, and their revision. The tokens
-stay sealed; the action opens them right before the write.
+The values that write_actions_secrets writes into the repository: the credential of the
+organization's Convex connection, an OAuth token or an API key, which must connect the repository's
+Convex team, and the time that the connection last changed. The credential stays sealed; the action
+opens it right before the write.
 */
 export const readActionsSecretsTarget = internalQuery({
   args: {
@@ -397,36 +394,28 @@ export const readActionsSecretsTarget = internalQuery({
     if (!isLiveConnectedRepository(repository)) {
       throw new Error("Repository not found.");
     }
-    const [plan, organization, savedCi] = await Promise.all([
+    const [plan, { convexCredential, convexTeam }] = await Promise.all([
       readProvisioningPlan(ctx, args.repositoryId),
-      ctx.db.get(repository.organizationId),
-      getOrganizationCiCredentials(ctx.db, repository.organizationId),
+      getOrganizationProviderConfiguration(ctx.db, repository.organizationId),
       requireManagedRunWriteLock(ctx, args),
     ]);
     if (readRepositoryProvisioningMode(plan) !== "repository_actions") {
       throw new Error("Only a repository_actions repository receives GitHub Actions secrets.");
     }
-    if (
-      !organization ||
-      repository.convexTeamId === undefined ||
-      repository.cloudflareAccountId === undefined
-    ) {
+    if (repository.convexTeamId === undefined) {
       throw new Error("Managed repository provider destinations are not configured.");
     }
-    const ci = requireCompleteCiCredentials({
-      ci: savedCi,
-      convexTeamId: repository.convexTeamId,
-      cloudflareAccountId: repository.cloudflareAccountId,
-      githubOwnerLogin: organization.githubOwnerLogin,
-    });
+    if (!convexCredential || convexTeam?.teamId !== repository.convexTeamId) {
+      throw new Error(
+        "Convex connection is required to provision infrastructure. Connect Convex and retry.",
+      );
+    }
 
     return {
       organizationId: repository.organizationId,
-      cloudflareApiToken: ci.cloudflare.apiToken,
-      cloudflareAccountId: ci.cloudflare.accountId,
-      convexAccessToken: ci.convex.accessToken,
-      convexTeamId: ci.convex.teamId,
-      credentialRevision: readCiCredentialRevision(ci),
+      convexCredential: convexCredential.auth.credential,
+      convexTeamId: repository.convexTeamId,
+      credentialRevision: convexCredential.updatedAt,
     };
   },
 });
@@ -525,7 +514,7 @@ export const markStarterSeeded = internalMutation({
   },
 });
 
-/** Records which CI credential revision the repository's Actions secrets now hold. */
+/** Records which revision of the Convex connection the repository's Actions secret now holds. */
 export const markActionsSecretsWritten = internalMutation({
   args: {
     repositoryId: id("repositories"),
@@ -958,12 +947,12 @@ async function runComposedInfrastructure(
 }
 
 /**
-Samebase's part of a repository_actions setup, after connect_github_repository: the Actions secrets,
-then the starter seed whose push starts the repository's first deploy, then the tree sync. The
-secrets come first so the first workflow run has them. A retry resumes here: the writes are upserts,
-the seed step skips a seed that the plan records and still finishes the switch of the default
-branch to main, and the tree sync always runs again. The last step starts observeFirstSetupOutput,
-which reads the first setup output of the repository's alchemy run outside this run and its lock.
+Samebase's part of a repository_actions setup, after connect_github_repository: the Actions secret
+and variable, then the starter seed whose push starts the repository's first deploy, then the tree
+sync. The writes come first so the first workflow run has them. A retry resumes here: the writes are
+upserts, the seed step skips a seed that the plan records and still finishes the switch of the
+default branch to main, and the tree sync always runs again. Nothing waits for the deploy here:
+readRepositorySetupStatus reads it from the team's Alchemy state store.
 */
 async function runRepositoryActionsSetup(
   step: WorkflowCtx,
@@ -1024,11 +1013,6 @@ async function runRepositoryActionsSetup(
       state: "succeeded",
     },
     { name: "finish_repository_actions" },
-  );
-  await step.runMutation(
-    internal.repository.setupOutputWorkflow.startFirstSetupOutputObserver,
-    { userId: args.userId, repositoryId: args.repositoryId },
-    { name: "observe_first_setup_output" },
   );
 }
 

@@ -328,8 +328,7 @@ export const approveSeedPasswordAccount = internalMutation({
 Connects each provider that has seed values to the seeded organization. The same seed value also
 becomes that provider's CI token: the Convex team access token with its team id, and the Cloudflare
 API token with its account id. The seed action seals each value for its field. The seed does not
-verify the tokens; every repository_actions creation verifies both CI tokens before it writes them
-into the repository.
+verify the tokens.
 */
 export const seedOrganizationProviderCredentials = internalMutation({
   args: {

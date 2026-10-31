@@ -10,7 +10,9 @@ import {
   ALCHEMY_CONNECTION_UNAVAILABLE,
   vAlchemyRunRecord,
   vAlchemyLiveDeployments,
+  vAlchemySetupStatus,
   vAlchemyStacksRead,
+  type AlchemySetupStatus,
   type AlchemyStage,
   type AlchemyStack,
   type AlchemyStacksRead,
@@ -191,6 +193,31 @@ export async function readAlchemyStacks(args: {
 }
 
 /**
+The setup status of a repository_actions repository. A first deploy has its run record before it
+writes its output, so a `prod` stage exists while that deploy runs. `readStage` reads a missing
+output as an empty one, so the stage's `deployedHeadCommit`, which comes from the run record in the
+output, is what says that the stage has an output.
+*/
+export async function readRepositorySetupStatus(
+  ctx: Pick<ActionCtx, "runQuery">,
+  args: { repositoryId: Id<"repositories">; userId: Id<"users"> },
+): Promise<AlchemySetupStatus> {
+  const target = await readConvexInspectionTarget(ctx, {
+    repositoryId: args.repositoryId,
+    userId: args.userId,
+  });
+  const repository = target.githubRepositoryFullName;
+  const read = await readAlchemyStacks({ repository, target });
+  const stack =
+    read.store === "found" ? read.stacks.find((candidate) => candidate.name === repository) : null;
+  return {
+    state: stack?.stages.some((stage) => stage.name === "prod" && stage.deployedHeadCommit)
+      ? "done"
+      : "in_progress",
+  };
+}
+
+/**
 The `Convex.Deployment` resources of the production stages, `prod`, of the stacks, each with its
 Convex project and the team of that project when the state names it.
 */
@@ -329,6 +356,18 @@ export const connectWithSnapshot = action({
       throw new ConvexError(ALCHEMY_CONNECTION_UNAVAILABLE);
     }
   },
+});
+
+/** The setup status of a repository_actions repository, for its overview page. */
+export const readSetupStatus = action({
+  access: "access_dashboard",
+  args: { repositoryId: id("repositories") },
+  returns: vAlchemySetupStatus,
+  handler: async (ctx, args): Promise<AlchemySetupStatus> =>
+    await readRepositorySetupStatus(ctx, {
+      repositoryId: args.repositoryId,
+      userId: ctx.viewer.userId,
+    }),
 });
 
 /** Provider metadata changes separately from Alchemy state and does not need a store subscription. */

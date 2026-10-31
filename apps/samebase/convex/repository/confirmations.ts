@@ -282,8 +282,8 @@ async function readConfirmationSubject(
           return {
             organizationId,
             resource: { kind: "repository", githubRepositoryFullName: repositoryName },
-            effect: `Samebase starts a new setup run for ${repositoryName}. It writes the organization's Cloudflare and Convex CI tokens into the repository's GitHub Actions secrets CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID, and CONVEX_ACCESS_TOKEN and its variable CONVEX_TEAM_ID, replacing their values. If the starter is not seeded yet, it seeds the starter, which starts a deployment in the repository's GitHub Actions. Then it syncs the default branch tree.`,
-            approval: `a new setup run for ${repositoryName}, which replaces its GitHub Actions secrets and variable with the organization's CI tokens`,
+            effect: `Samebase starts a new setup run for ${repositoryName}. It writes the credential of the organization's Convex connection into the repository's GitHub Actions secret CONVEX_ACCESS_TOKEN and the Convex team id into its variable CONVEX_TEAM_ID, replacing their values. If the starter is not seeded yet, it seeds the starter, which starts a deployment in the repository's GitHub Actions. Then it syncs the default branch tree.`,
+            approval: `a new setup run for ${repositoryName}, which replaces its GitHub Actions secret and variable with the organization's Convex connection credential and team id`,
           };
         default:
           request.provisioning satisfies never;

@@ -266,9 +266,9 @@ describe("pooled organization connection quotas", () => {
         visibility: "private",
         description: null,
         convexTeamId: "convex-team",
-        cloudflareAccountId: "cloudflare-account",
         plan: {
           provisioning: "samebase",
+          cloudflareAccountId: "cloudflare-account",
           convexProjectName: "managed-blocked",
           convexDeploymentRegion: "aws-us-east-1",
           cloudflareWorkerName: "managed-blocked",
@@ -314,9 +314,9 @@ describe("pooled organization connection quotas", () => {
         visibility: "private",
         description: null,
         convexTeamId: "convex-team",
-        cloudflareAccountId: "cloudflare-account",
         plan: {
           provisioning: "samebase",
+          cloudflareAccountId: "cloudflare-account",
           convexProjectName: "managed-race",
           convexDeploymentRegion: "aws-us-east-1",
           cloudflareWorkerName: "managed-race",

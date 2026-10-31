@@ -41,10 +41,9 @@ function isFirstSetupOutputSettled(result: SetupOutputApplyResult): boolean {
 }
 
 /**
-Reads the setup output of a repository_actions repository a bounded number of times after its setup
-finishes, and applies the first one when decideFirstSetupOutputApply allows it. It takes no
-provider write lock: the apply mutation checks that no other provider operation runs, and a refused
-apply is read again on the next pass.
+Reads the setup output of a repository a bounded number of times, and applies the first one when
+decideFirstSetupOutputApply allows it. It takes no provider write lock: the apply mutation checks
+that no other provider operation runs, and a refused apply is read again on the next pass.
 */
 export const observeFirstSetupOutput = workflow.define({
   args: { userId: id("users"), repositoryId: id("repositories") },
@@ -64,7 +63,7 @@ export const observeFirstSetupOutput = workflow.define({
   },
 });
 
-/** Starts observeFirstSetupOutput, as the last step of a repository_actions setup. */
+/** Starts observeFirstSetupOutput. No provisioning run calls it. */
 export const startFirstSetupOutputObserver = internalMutation({
   args: { userId: id("users"), repositoryId: id("repositories") },
   returns: v.null(),

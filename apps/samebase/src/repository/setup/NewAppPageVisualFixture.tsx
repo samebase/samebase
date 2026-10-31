@@ -83,6 +83,7 @@ export function NewAppPageVisualFixture({ mode }: { mode: NewAppPageVisualMode }
             accountId: "account_acme_production",
             accountName: "acme-production",
           }}
+          provisioning="samebase"
         />
         <Button disabled>New App</Button>
       </div>

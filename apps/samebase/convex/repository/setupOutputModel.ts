@@ -10,7 +10,7 @@ import {
 
 /*
 The setup output of a repository_actions repository: what its Alchemy setup stack tells Samebase
-about the resources it owns. templates/base-actions/scripts/setup-output.ts defines it; the
+about the resources it owns. scripts/setup-output.ts of samebase/base-actions defines it; the
 template's deploy job uploads it as an artifact after each deploy, or the failed output after a
 failed deploy, and its confirmed destroy uploads a destroy receipt under the same name. The reader
 takes the artifact from any workflow run on the default branch: workflow file names are not part
@@ -460,10 +460,10 @@ const vSetupOutputPending = union(
 );
 
 /**
-The setup status of a repository_actions repository: the run of the newest setup output, the setup
-output that Samebase applied, the newest one that it did not apply yet, and the last automatic
-apply that failed. Without a run and an applied output, Samebase waits for the first setup output.
-A destroy receipt reports the run; the provider observations show what is left.
+The status of the setup output of a repository whose setup stack publishes one: the run of the
+newest setup output, the setup output that Samebase applied, the newest one that it did not apply
+yet, and the last automatic apply that failed. A destroy receipt reports the run; the provider
+observations show what is left.
 */
 export const vSetupStatus = object({
   latestRun: vLatestSetupRun,
@@ -472,17 +472,6 @@ export const vSetupStatus = object({
   applyFailure: union(vRepositoryActionsSetupOutputApplyFailure, v.null()),
 });
 export type SetupStatus = Infer<typeof vSetupStatus>;
-
-/**
-The setup status in repository_getStatus, like the other live facts there.
-
-unavailable = GitHub, Cloudflare, or Convex could not be read
-*/
-export const vRepositorySetupStack = union(
-  object({ state: literal("available"), ...vSetupStatus.fields }),
-  object({ state: literal("unavailable") }),
-);
-export type RepositorySetupStack = Infer<typeof vRepositorySetupStack>;
 
 /**
 What one read and apply of the newest setup output did, so the first failure names its step and its

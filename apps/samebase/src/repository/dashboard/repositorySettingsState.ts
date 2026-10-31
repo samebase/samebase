@@ -1274,7 +1274,7 @@ export function buildRepositorySettingsState({
     providerActionBlockReason,
     providerSettingsOwner: samebaseWritesProviders
       ? null
-      : "The setup stack in alchemy.run.ts owns the Workers Builds settings and the Convex deploy keys of this app. Change them there, or run the alchemy workflow to repair them.",
+      : "The setup stack in alchemy.run.ts owns the Convex project and the deploy keys of this app. Change them there, or run the alchemy workflow to repair them.",
     roots: [...resourcesByRoot.entries()]
       .sort(([leftRoot], [rightRoot]) => compareRootDirectories(leftRoot, rightRoot))
       .map(([rootDirectory, resources]) => ({

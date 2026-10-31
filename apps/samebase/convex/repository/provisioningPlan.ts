@@ -54,7 +54,7 @@ export function readProviderInfrastructureWriter(
 
 /**
 The samebase plan, which carries the Convex project and Worker checkpoints. The repository_actions
-plan has none: those resources belong to the repository's GitHub Actions.
+plan has none: its provider resources belong to the repository's GitHub Actions.
 */
 export const isSamebaseProvisioningPlan = guard<
   RepositoryProvisioningPlan | null,
@@ -64,10 +64,10 @@ export const isSamebaseProvisioningPlan = guard<
 /**
 The refusal of every Samebase provider write to a repository_actions repository. Samebase's write
 lock does not coordinate with the repository's GitHub Actions, so only one of them may change the
-Convex project and the Worker. It holds no provider text, so MCP shows it.
+provider resources. It holds no provider text, so MCP shows it.
 */
 export const REPOSITORY_ACTIONS_OWN_PROVIDERS_MESSAGE =
-  "The GitHub Actions of this repository own its Convex project and Worker, so Samebase does not change them. Nothing changed.";
+  "The GitHub Actions of this repository own its provider resources, so Samebase does not change them. Nothing changed.";
 
 type SamebaseManagedProviderPlan = Exclude<
   NonNullable<ManagedProviderPlan>,

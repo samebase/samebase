@@ -5,7 +5,6 @@ import { observedNativePreviewsProductionBuild } from "../cloudflareApi/fixtures
 import { matchLatestCloudflareWorkerBuildForBranch } from "./cloudflareBuildMatching";
 import type { RepositoryStatus } from "./contracts/getRepositoryStatus";
 import type { RepositoryPullRequest, RepositoryStatusCheckRollup } from "./pullRequestModel";
-import type { RepositorySetupStack } from "./setupOutputModel";
 import {
   buildRepositoryAttention,
   projectRepositoryStatusForMcp,
@@ -427,33 +426,7 @@ describe("buildRepositoryAttention", () => {
     });
 
     const writtenSecrets = { state: "written", writtenAt: 2, credentialRevision: 1 } as const;
-    const successfulRun = {
-      runId: 37545425944,
-      runAttempt: 2,
-      conclusion: "success" as const,
-      startedAt: "2026-10-06T23:10:00Z",
-      url: "https://github.com/samebase/chess-merge/actions/runs/37545425944",
-    };
-    const source = {
-      runId: 37545425944,
-      runAttempt: 2,
-      artifactId: 11450791196,
-      artifactCreatedAt: "2026-10-06T23:17:16Z",
-    };
-    const appliedOutput = {
-      state: "applied" as const,
-      ...source,
-      outputVersion: 1 as const,
-      appliedAt: 1,
-    };
-    const settledSetupStack = {
-      state: "available" as const,
-      latestRun: successfulRun,
-      applied: appliedOutput,
-      pending: { state: "none" as const },
-      applyFailure: null,
-    };
-    const setupStackAttention = (setupStack: RepositorySetupStack | null) =>
+    const setupStackAttention = (setupStack: RepositoryObservations["setupStack"]) =>
       buildRepositoryAttention({
         repository: repositoryActionsRepository(writtenSecrets),
         observations: { ...healthyObservations, setupStack },
@@ -463,7 +436,7 @@ describe("buildRepositoryAttention", () => {
       expect(
         buildRepositoryAttention({
           repository: repositoryActionsRepository(writtenSecrets),
-          observations: { ...unconfiguredObservations, setupStack: settledSetupStack },
+          observations: { ...unconfiguredObservations, setupStack: { state: "done" } },
         }),
       ).toEqual([
         {
@@ -474,172 +447,18 @@ describe("buildRepositoryAttention", () => {
       ]);
     });
 
-    /*
-    State axes of the setup status items: the status read or unavailable; the run of the newest
-    setup output absent or present; the pending output none, failed, invalid, refused, deployed
-    (before or after the first apply), or a destroy receipt; the applied checkpoint none, applied,
-    or a reported destroy; the last automatic apply failure none or recorded.
-    */
-    it("gives nothing for a settled or unreadable setup status", () => {
-      expect(setupStackAttention(settledSetupStack)).toEqual([]);
-      expect(setupStackAttention({ ...settledSetupStack, latestRun: null })).toEqual([]);
+    it("gives nothing for a done or unreadable setup status", () => {
+      expect(setupStackAttention({ state: "done" })).toEqual([]);
       expect(setupStackAttention({ state: "unavailable" })).toEqual([]);
       expect(setupStackAttention(null)).toEqual([]);
     });
 
-    it("waits for the first setup output with the Actions page of the repository", () => {
-      expect(setupStackAttention({ ...settledSetupStack, latestRun: null, applied: null })).toEqual(
-        [
-          {
-            tool: null,
-            problem:
-              "Waiting for the setup output of samebase/chess-merge: its GitHub Actions publish it after the setup stack deploys. The runs are at https://github.com/samebase/chess-merge/actions. Call repository_getStatus again when one finishes.",
-          },
-        ],
-      );
-    });
-
-    it("names a failed setup run with its link", () => {
-      expect(
-        setupStackAttention({
-          ...settledSetupStack,
-          latestRun: { ...successfulRun, conclusion: "failure" },
-          pending: { state: "failed", source },
-        }),
-      ).toEqual([
+    it("reports a deployment in progress with the Actions page, and no failure", () => {
+      expect(setupStackAttention({ state: "in_progress" })).toEqual([
         {
           tool: null,
           problem:
-            "Setup failed in run 37545425944: https://github.com/samebase/chess-merge/actions/runs/37545425944. Read its log, fix the cause in the repository, then run it again.",
-        },
-      ]);
-    });
-
-    it("names an automatic apply that failed next to the output that waits", () => {
-      expect(
-        setupStackAttention({
-          ...settledSetupStack,
-          applied: null,
-          pending: {
-            state: "deployed",
-            source,
-            workers: [{ workerName: "chess-merge", rootDirectory: "/" }],
-            projects: [
-              {
-                projectName: "chess-merge",
-                projectSlug: "chess-merge",
-                codeLocationPath: "convex.json",
-              },
-            ],
-            firstApply: { automatic: true },
-          },
-          applyFailure: { reason: "Organization connection limit reached (6).", failedAt: 3 },
-        }),
-      ).toEqual([
-        {
-          tool: null,
-          problem: "Automatic apply failed: Organization connection limit reached (6).",
-        },
-        {
-          tool: "repository_setupOutput_apply",
-          artifactId: 11450791196,
-          problem:
-            "The setup output of run 37545425944 is not applied yet. Workers: chess-merge at /. Convex projects: chess-merge at convex.json.",
-        },
-      ]);
-    });
-
-    it("names the apply tool for a waiting output, with why the first one waits for a member", () => {
-      const deployed = {
-        state: "deployed" as const,
-        source,
-        workers: [{ workerName: "chess-merge", rootDirectory: "/" }],
-        projects: [
-          {
-            projectName: "chess-merge",
-            projectSlug: "chess-merge-2",
-            codeLocationPath: "convex.json",
-          },
-        ],
-        firstApply: {
-          automatic: false as const,
-          reason: "Another Convex project of the team is also named chess-merge.",
-        },
-      };
-      expect(
-        setupStackAttention({ ...settledSetupStack, applied: null, pending: deployed }),
-      ).toEqual([
-        {
-          tool: "repository_setupOutput_apply",
-          artifactId: 11450791196,
-          problem:
-            "The setup output of run 37545425944 is not applied yet. Workers: chess-merge at /. Convex projects: chess-merge-2 at convex.json. Samebase does not apply the first output by itself: Another Convex project of the team is also named chess-merge.",
-        },
-      ]);
-      expect(setupStackAttention({ ...settledSetupStack, pending: deployed })).toEqual([
-        {
-          tool: "repository_setupOutput_apply",
-          artifactId: 11450791196,
-          problem:
-            "The setup output of run 37545425944 is not applied yet. Workers: chess-merge at /. Convex projects: chess-merge-2 at convex.json.",
-        },
-      ]);
-    });
-
-    it("names the claim that a provider refused and an output that Samebase cannot read", () => {
-      expect(
-        setupStackAttention({
-          ...settledSetupStack,
-          pending: {
-            state: "refused",
-            source,
-            step: "verify_cloudflare",
-            claim: "cloudflare.workers[0].name",
-            reason: "Cloudflare names the Worker renamed, not chess-merge.",
-          },
-        }),
-      ).toEqual([
-        {
-          tool: null,
-          problem:
-            "Samebase cannot apply the setup output of run 37545425944 (cloudflare.workers[0].name): Cloudflare names the Worker renamed, not chess-merge.",
-        },
-      ]);
-      expect(
-        setupStackAttention({
-          ...settledSetupStack,
-          pending: { state: "invalid_output", source, reason: "The setup output has version 2." },
-        }),
-      ).toEqual([
-        {
-          tool: null,
-          problem:
-            "Samebase cannot read the setup output of run 37545425944: The setup output has version 2.",
-        },
-      ]);
-    });
-
-    it("shows a destroy receipt as its run's report, before and after it is recorded", () => {
-      expect(
-        setupStackAttention({ ...settledSetupStack, pending: { state: "destroyed", source } }),
-      ).toEqual([
-        {
-          tool: "repository_setupOutput_apply",
-          artifactId: 11450791196,
-          problem:
-            "Run 37545425944 reports that it destroyed the setup stack. Applying records this report only: the Workers and Convex projects stay attached until a member removes them.",
-        },
-      ]);
-      expect(
-        setupStackAttention({
-          ...settledSetupStack,
-          applied: { state: "destroy_reported", ...source, reportedAt: 2 },
-        }),
-      ).toEqual([
-        {
-          tool: null,
-          problem:
-            "Run 37545425944 reported that it destroyed the setup stack. Samebase did not check this report; the app facts show what is left. The Workers and Convex projects stay attached until a member removes them.",
+            "The first deployment of samebase/chess-merge is in progress in its GitHub Actions: https://github.com/samebase/chess-merge/actions. Call repository_getStatus again when the run finishes.",
         },
       ]);
     });

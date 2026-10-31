@@ -437,10 +437,6 @@ export const repositoryCreateTool = defineMcpTool({
     });
     if (args.provisioning === "repository_actions") {
       const githubRepositoryName = toSafeGitHubRepositoryName(args.name);
-      const workerName = buildDefaultAppResourceName({
-        repositoryName: githubRepositoryName,
-        provider: "cloudflare",
-      });
       const result = await createAppForUser(ctx, {
         userId: args.userId,
         target: { kind: "organization", organizationId: githubAccess.organizationId },
@@ -449,7 +445,12 @@ export const repositoryCreateTool = defineMcpTool({
           args.convexProjectName ??
           buildDefaultAppResourceName({ repositoryName: githubRepositoryName, provider: "convex" }),
         convexDeploymentRegion: args.convexDeploymentRegion,
-        cloudflareWorkerName: args.cloudflareWorkerName ?? workerName,
+        cloudflareWorkerName:
+          args.cloudflareWorkerName ??
+          buildDefaultAppResourceName({
+            repositoryName: githubRepositoryName,
+            provider: "cloudflare",
+          }),
         cloudflareBuildTokenUuid: args.buildTokenUuid ?? null,
         provisioning: "repository_actions",
         ...(args.description !== undefined ? { description: args.description } : {}),
@@ -458,10 +459,10 @@ export const repositoryCreateTool = defineMcpTool({
       const structuredContent: Infer<typeof createRepositoryContract.structuredContent> = {
         repositoryId: result.repositoryId,
         githubRepositoryFullName: `${githubAccess.githubOwnerLogin}/${githubRepositoryName}`,
-        cloudflare: { state: "planned", workerName },
+        cloudflare: { state: "none" },
       };
       return {
-        text: `Started setup of ${structuredContent.githubRepositoryFullName} by its GitHub Actions. Samebase writes the Actions secrets and seeds the starter; then the repository's GitHub Actions set up the Convex project, the Worker ${workerName}, and its Workers Builds link, and Workers Builds deploys the app. Poll repository_list until provider setup is ready or failed. Ready does not mean deployed: the deployment runs in Workers Builds.`,
+        text: `Started setup of ${structuredContent.githubRepositoryFullName} by its GitHub Actions. Samebase writes the Actions secret and variable and seeds the starter; then the repository's GitHub Actions run Alchemy, create the Convex project, and deploy the app to Convex. Poll repository_list until provider setup is ready or failed. Ready does not mean deployed: the deployment runs in GitHub Actions, and repository_getStatus reports when it finished.`,
         structuredContent,
       };
     }

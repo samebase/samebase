@@ -22,10 +22,8 @@ import {
   type UserRepositoryResult,
 } from "./contracts/getUserRepositories";
 import { retryInfrastructureProvisioningContract } from "./contracts/retryInfrastructureProvisioning";
-import { applySetupOutputContract } from "./contracts/applySetupOutput";
 import type { CloudflareWorkerConvexBuildAccessObservation } from "./providerObservationModel";
 import type { RepositoryActionsCiSecrets } from "./provisioningModel";
-import type { RepositorySetupStack } from "./setupOutputModel";
 import {
   isSamebaseManagedProviderPlan,
   readProviderInfrastructureWriter,
@@ -39,7 +37,6 @@ status.ts gathers the provider facts; this module decides what needs attention a
 it, so the rules have unit tests without provider requests.
 */
 
-const APPLY_SETUP_OUTPUT_TOOL = applySetupOutputContract.mcp.name;
 const CONFIGURE_BUILDS_TOOL = cloudflareConfigureWorkersBuildsForGitHubContract.mcp.name;
 const CREATE_WORKER_TOOL = cloudflareCreateWorkerContract.mcp.name;
 const LIST_TOOL = getUserRepositoriesContract.mcp.name;
@@ -124,111 +121,37 @@ function describeConvexBuildAccessProblem(workerName: string, access: ConvexBuil
 
 /**
 The attention of a repository that its GitHub Actions set up, after Samebase's own setup finished:
-the Actions secrets, then the setup status. Its attached Workers and Convex projects get the same
-items as any other repository, with the repair advice of adviseSetupStack.
+the Actions secrets, then the deployment that the setup status waits for. A setup status that is
+done or unreadable gives no item, like any other unreadable fact. Its attached Workers and Convex
+projects get the same items as any other repository, with the repair advice of adviseSetupStack.
 */
 function buildRepositoryActionsAttention(args: {
   repository: RepositoryStatusRepository;
   ciSecrets: RepositoryActionsCiSecrets;
-  setupStack: RepositorySetupStack | null;
+  setupStack: RepositoryStatus["setupStack"];
 }): RepositoryAttentionItem[] {
+  const repositoryFullName = args.repository.githubRepositoryFullName;
   switch (args.ciSecrets.state) {
     case "planned":
       return [
         {
           tool: null,
-          problem: `The GitHub Actions secrets of ${args.repository.githubRepositoryFullName} are not written yet, so its deploy workflow cannot run.`,
+          problem: `The GitHub Actions secrets of ${repositoryFullName} are not written yet, so its deploy workflow cannot run.`,
         },
       ];
     case "written":
-      return buildSetupStackAttention(args);
+      return args.setupStack?.state === "in_progress"
+        ? [
+            {
+              tool: null,
+              problem: `The first deployment of ${repositoryFullName} is in progress in its GitHub Actions: https://github.com/${repositoryFullName}/actions. Call ${STATUS_TOOL} again when the run finishes.`,
+            },
+          ]
+        : [];
     default:
       args.ciSecrets satisfies never;
       return [];
   }
-}
-
-/**
-The items of the setup status: the wait for the first setup output, the last automatic apply that
-failed, a failed setup run, the setup output that waits, and a destroy that a run reported. An
-unreadable setup status gives no item, like any other unreadable fact.
-*/
-function buildSetupStackAttention(args: {
-  repository: RepositoryStatusRepository;
-  setupStack: RepositorySetupStack | null;
-}): RepositoryAttentionItem[] {
-  const { setupStack } = args;
-  if (setupStack === null || setupStack.state === "unavailable") {
-    return [];
-  }
-  const { latestRun, applied, pending, applyFailure } = setupStack;
-  const repositoryFullName = args.repository.githubRepositoryFullName;
-  const items: RepositoryAttentionItem[] = [];
-  if (latestRun === null && applied === null) {
-    items.push({
-      tool: null,
-      problem: `Waiting for the setup output of ${repositoryFullName}: its GitHub Actions publish it after the setup stack deploys. The runs are at https://github.com/${repositoryFullName}/actions. Call ${STATUS_TOOL} again when one finishes.`,
-    });
-  }
-  if (applyFailure) {
-    items.push({ tool: null, problem: `Automatic apply failed: ${applyFailure.reason}` });
-  }
-  switch (pending.state) {
-    case "none":
-      break;
-    case "failed":
-      items.push({
-        tool: null,
-        problem: `Setup failed in run ${pending.source.runId}: https://github.com/${repositoryFullName}/actions/runs/${pending.source.runId}. Read its log, fix the cause in the repository, then run it again.`,
-      });
-      break;
-    case "invalid_output":
-      items.push({
-        tool: null,
-        problem: `Samebase cannot read the setup output of run ${pending.source.runId}: ${pending.reason}`,
-      });
-      break;
-    case "refused":
-      items.push({
-        tool: null,
-        problem: `Samebase cannot apply the setup output of run ${pending.source.runId}${pending.claim === null ? "" : ` (${pending.claim})`}: ${pending.reason}`,
-      });
-      break;
-    case "deployed": {
-      const workers = pending.workers.map(
-        (worker) => `${worker.workerName} at ${worker.rootDirectory}`,
-      );
-      const projects = pending.projects.map(
-        (project) => `${project.projectSlug} at ${project.codeLocationPath}`,
-      );
-      const waitsForMember =
-        !applied && !pending.firstApply.automatic
-          ? ` Samebase does not apply the first output by itself: ${pending.firstApply.reason}`
-          : "";
-      items.push({
-        tool: APPLY_SETUP_OUTPUT_TOOL,
-        artifactId: pending.source.artifactId,
-        problem: `The setup output of run ${pending.source.runId} is not applied yet. Workers: ${workers.join(", ") || "none"}. Convex projects: ${projects.join(", ") || "none"}.${waitsForMember}`,
-      });
-      break;
-    }
-    case "destroyed":
-      items.push({
-        tool: APPLY_SETUP_OUTPUT_TOOL,
-        artifactId: pending.source.artifactId,
-        problem: `Run ${pending.source.runId} reports that it destroyed the setup stack. Applying records this report only: the Workers and Convex projects stay attached until a member removes them.`,
-      });
-      break;
-    default:
-      pending satisfies never;
-  }
-  if (applied?.state === "destroy_reported" && pending.state === "none") {
-    items.push({
-      tool: null,
-      problem: `Run ${applied.runId} reported that it destroyed the setup stack. Samebase did not check this report; the app facts show what is left. The Workers and Convex projects stay attached until a member removes them.`,
-    });
-  }
-  return items;
 }
 
 /**
@@ -295,7 +218,6 @@ function adviseSetupStack(item: RepositoryAttentionItem): RepositoryAttentionIte
         problem: `${item.problem} The setup stack in alchemy.run.ts owns this setting: change the stack, or run the alchemy workflow on the default branch to repair it.`,
       };
     case RETRY_PROVIDER_SETUP_TOOL:
-    case APPLY_SETUP_OUTPUT_TOOL:
     case null:
       return item;
     default:

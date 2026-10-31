@@ -68,8 +68,8 @@ function SetupStackRemovalNote({ target }: { target: RepositoryDeleteTarget }) {
   ];
   return (
     <div className="text-sm text-muted-foreground">
-      Samebase keeps {retained.join(", ") || "the Workers and Convex projects of this app"}. To
-      delete what the setup stack in alchemy.run.ts created, first open the{" "}
+      Samebase keeps {retained.join(", ") || "the Convex project of this app"}. To delete what the
+      setup stack in alchemy.run.ts created, first open the{" "}
       <a
         className="font-medium text-foreground underline underline-offset-4"
         href={`https://github.com/${target.githubRepositoryFullName}/actions/workflows/destroy.yml`}

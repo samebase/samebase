@@ -13,7 +13,7 @@ that belong in the external repository in the source directory.
 
 An export can use the root workspace or remain a standalone package manager boundary. The plugin
 uses root tooling and includes a small dependency-free public check. Each starter template must work
-as an independent repository, so `templates/base` and `templates/base-actions` own their
+as an independent repository, so `templates/base` and `templates/base-alchemy` own their
 `package.json`, `pnpm-workspace.yaml`, `pnpm-lock.yaml`, and public workflows. They are
 intentionally outside the root workspace globs.
 
@@ -81,33 +81,17 @@ fresh job.
 The convex-hosting starter is maintained in
 [samebase/base-hosting](https://github.com/samebase/base-hosting).
 
-### GitHub Actions variant
+### Alchemy starter
 
-`templates/base-actions` is a second complete starter: `templates/base` plus an Alchemy setup stack
-that GitHub Actions runs. The stack creates the Worker shell, the Workers Builds link, and the
-Convex project and keys; Workers Builds deploys each commit as it deploys the base. It follows the
-same contract as the base: it owns its `package.json`, `pnpm-workspace.yaml`, and `pnpm-lock.yaml`,
-`pnpm run template:export` writes it to `starterSeedManifest.actions.generated.ts`, root CI audits
-and builds it, and the publisher sends it to `samebase/base-actions`.
+`templates/base-alchemy` is a Convex-hosted app that its own GitHub Actions deploy with Alchemy. It
+is not a copy of `templates/base`. It follows the same contract as the base: it owns its
+`package.json`, `pnpm-workspace.yaml`, and `pnpm-lock.yaml`, `pnpm run template:export` writes it to
+`starterSeedManifest.actions.generated.ts`, root CI audits and builds it, and the publisher sends it
+to `samebase/base-alchemy`.
 
-The variant's `alchemy` workflow uploads the artifact `samebase-setup-output` after each deploy, or
-the failed output after a deploy job with a failed step, and its `Destroy app` workflow uploads a
-destroy receipt under the same name after a confirmed destroy.
-`templates/base-actions/scripts/setup-output.ts` defines the file, and Samebase reads it with one
-validator per version in `apps/samebase/convex/repository/setupOutputModel.ts` before it attaches
-the listed Workers and Convex projects. Workflow file names are not part of this contract: Samebase
-reads the newest artifact with this name from any workflow run on the default branch that does not
-come from a fork, and accepts a deploy output or a destroy receipt only from a successful run and
-the failed output only from a failed one. Both sides reject a version or a field that they do not
-define. A change to the file is a new `version` in both places in the same pull request, and
-Samebase keeps reading every older version, because apps keep the template copy that they were
-created from.
-
-`pnpm run check:template-sync` keeps the two templates in sync. Every path must exist in both
-templates with the same bytes and mode, except the deploy files that `templateDeployPaths` in
-`scripts/check-template-sync.ts` lists with the reason each one differs. Apply a change to a shared
-file in both templates in the same pull request. A dependency change usually changes both
-`package.json` files and both lockfiles.
+A deploy needs the secret `CONVEX_ACCESS_TOKEN` and the variable `CONVEX_TEAM_ID`, which Samebase
+writes when it creates the repository. Samebase reads what the repository deployed from the Alchemy
+state store of the team. The `Destroy app` workflow destroys the app after a typed confirmation.
 
 ### Existing-app sweep
 

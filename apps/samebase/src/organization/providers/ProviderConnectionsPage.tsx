@@ -1,6 +1,5 @@
 import { isInIframe } from "@/authClient";
 import { useApiKeyConnectDialog } from "@/organization/providers/ApiKeyConnectDialog";
-import { CiCredentialsSection } from "@/organization/providers/CiCredentialsSection";
 import { AuthorizationErrorNotice } from "@/components/AuthorizationErrorNotice";
 import type { ViewerOrganization } from "@/organization/context";
 import { Button } from "@/components/ui/button";
@@ -1669,22 +1668,7 @@ export function ProviderConnectionsPage({
   return (
     <ProviderConnectionsPageView
       authorizationErrorMessage={authorizationErrorMessage}
-      ciCredentials={
-        <CiCredentialsSection
-          canManageOrganization={organization.role === "owner"}
-          cloudflareAccountId={
-            cloudflareConnection?.state === "connected" ? cloudflareConnection.accountId : null
-          }
-          convexAccessTokensUrl={
-            convexConnection?.state === "connected"
-              ? getConvexManageAccessUrl(convexConnection.teamSlug, "api_key")
-              : undefined
-          }
-          convexConnected={convexConnection?.state === "connected"}
-          githubOwnerLogin={organization.githubOwnerLogin}
-          organizationId={organizationId}
-        />
-      }
+      ciCredentials={null}
       cloudflareAccess={
         cloudflareAccessQuery.error === null ? (cloudflareAccessQuery.data ?? null) : null
       }

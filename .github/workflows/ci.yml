@@ -134,7 +134,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        template: [base, base-actions]
+        template: [base, base-alchemy]
 
     defaults:
       run:
@@ -179,7 +179,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        template: [base, base-actions]
+        template: [base, base-alchemy]
 
     defaults:
       run:

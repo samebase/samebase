@@ -6,7 +6,7 @@ import { TextDecoder } from "node:util";
 
 import { isMainModule, resolveRepoRoot, runMain } from "./lib/scriptRuntime.ts";
 import { trackedFilePath } from "./lib/trackedFilePath.ts";
-import { actionsTemplateSourceRoot, baseTemplateSourceRoot } from "./publish-repository-exports.ts";
+import { alchemyTemplateSourceRoot, baseTemplateSourceRoot } from "./publish-repository-exports.ts";
 
 const PNPM_COMMAND = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
 
@@ -251,7 +251,7 @@ function printUsage(): void {
   console.log(`Usage: pnpm run template:export
 
 Exports templates/base into starterSeedManifest.generated.ts and
-templates/base-actions into starterSeedManifest.actions.generated.ts.`);
+templates/base-alchemy into starterSeedManifest.actions.generated.ts.`);
 }
 
 function buildManifest(
@@ -293,7 +293,7 @@ function buildManifest(
 
 export async function renderStarterSeedManifests(repoRoot: string) {
   const baseFiles = await collectTemplateFiles(repoRoot, baseTemplateSourceRoot);
-  const actionsFiles = await collectTemplateFiles(repoRoot, actionsTemplateSourceRoot);
+  const actionsFiles = await collectTemplateFiles(repoRoot, alchemyTemplateSourceRoot);
   const baseManifest = buildManifest(baseFiles, {
     versionPrefix: "samebase-base",
     sourcePath: baseTemplateSourceRoot,
@@ -301,10 +301,10 @@ export async function renderStarterSeedManifests(repoRoot: string) {
     commitMessage: "Initialize app from Samebase starter build v2064",
   });
   const actionsManifest = buildManifest(actionsFiles, {
-    versionPrefix: "samebase-base-actions",
-    sourcePath: actionsTemplateSourceRoot,
-    publishedRepo: "https://github.com/samebase/base-actions.git",
-    commitMessage: "Initialize app from Samebase starter build v2095",
+    versionPrefix: "samebase-base-alchemy",
+    sourcePath: alchemyTemplateSourceRoot,
+    publishedRepo: "https://github.com/samebase/base-alchemy.git",
+    commitMessage: "Initialize app from Samebase starter build v2210",
   });
 
   return [

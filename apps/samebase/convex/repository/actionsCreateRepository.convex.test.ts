@@ -11,7 +11,6 @@ const providerMocks = vi.hoisted(() => ({
   listConvexManagementProjects: vi.fn(),
   readGitHubAppInstallation: vi.fn(),
   requireCloudflareBuildTokenUuid: vi.fn(),
-  verifyConvexTeamAccessToken: vi.fn(),
 }));
 
 vi.mock("../githubApp", async (importOriginal) => {
@@ -31,7 +30,6 @@ vi.mock("../convexManagementApi/client", async (importOriginal) => {
   return {
     ...actual,
     listConvexManagementProjects: providerMocks.listConvexManagementProjects,
-    verifyConvexTeamAccessToken: providerMocks.verifyConvexTeamAccessToken,
   };
 });
 
@@ -45,16 +43,13 @@ vi.mock("../cloudflareResources", async (importOriginal) => {
   };
 });
 
-import { api } from "../_generated/api";
-import type { Id } from "../_generated/dataModel";
+import { api, internal } from "../_generated/api";
 import {
   insertTestOrganizationBillingAccount,
   makeConvexTest,
   sealTestCredentials,
   testCredential,
 } from "../test.setup";
-
-type ConvexTestHandle = ReturnType<typeof makeConvexTest>;
 
 function githubRequestError(status: number): RequestError {
   return new RequestError(`GitHub request failed with status ${status}.`, status, {
@@ -73,6 +68,8 @@ async function createRepositoryFixture(
     githubOwnerLogin?: string;
     githubOwnerType?: "organization" | "user";
     passwordAccount?: true;
+    /** Connect only GitHub and this Convex auth method, with no Cloudflare connection. */
+    convexOnly?: "api_key" | "oauth";
   } = {},
 ) {
   const t = makeConvexTest();
@@ -100,10 +97,14 @@ async function createRepositoryFixture(
       githubOwnerLoginNormalized: githubOwnerLogin.toLowerCase(),
       githubOwnerType: args.githubOwnerType ?? "organization",
       convexTeam: { teamId: "convex-team" },
-      cloudflareAccount: {
-        accountId: "cloudflare-account",
-        accountName: "Cloudflare account",
-      },
+      ...(args.convexOnly
+        ? {}
+        : {
+            cloudflareAccount: {
+              accountId: "cloudflare-account",
+              accountName: "Cloudflare account",
+            },
+          }),
     });
     await ctx.db.insert("organizationMemberships", {
       organizationId,
@@ -114,15 +115,19 @@ async function createRepositoryFixture(
     await ctx.db.insert("organizationProviderCredentials", {
       organizationId,
       convex: {
-        auth: { method: "api_key", credential: testCredential("convex-token") },
+        auth: { method: args.convexOnly ?? "api_key", credential: testCredential("convex-token") },
         connectedByUserId: userId,
         updatedAt: 1,
       },
-      cloudflare: {
-        auth: { method: "api_key", credential: testCredential("cloudflare-token") },
-        connectedByUserId: userId,
-        updatedAt: 1,
-      },
+      ...(args.convexOnly
+        ? {}
+        : {
+            cloudflare: {
+              auth: { method: "api_key" as const, credential: testCredential("cloudflare-token") },
+              connectedByUserId: userId,
+              updatedAt: 1,
+            },
+          }),
     });
     return { organizationId, userId };
   });
@@ -143,37 +148,6 @@ afterEach(() => {
   vi.unstubAllEnvs();
   vi.unstubAllGlobals();
 });
-
-/**
-Cloudflare's answers to the CI token check: the token is active, and a path in `denied` answers
-like a token without that permission (403, code 10000 Authentication error).
-*/
-function stubCloudflareCiToken({ denied = [] }: { denied?: string[] } = {}) {
-  const fetch = vi.fn(async (input: string | URL | Request) => {
-    const url = new URL(input instanceof Request ? input.url : input.toString());
-    if (url.pathname === "/client/v4/user/tokens/verify") {
-      return Response.json({
-        success: true,
-        errors: [],
-        messages: [],
-        result: { id: "c".repeat(32), status: "active" },
-      });
-    }
-    return denied.includes(url.pathname)
-      ? Response.json(
-          {
-            success: false,
-            errors: [{ code: 10000, message: "Authentication error" }],
-            messages: [],
-            result: null,
-          },
-          { status: 403 },
-        )
-      : Response.json({ success: true, errors: [], messages: [], result: [] });
-  });
-  vi.stubGlobal("fetch", fetch);
-  return fetch;
-}
 
 beforeEach(() => {
   // `repository.create` starts the provisioning workflow. These tests check only what it saves, so
@@ -197,32 +171,7 @@ beforeEach(() => {
       { access: "write", key: "secrets" },
     ],
   });
-  providerMocks.verifyConvexTeamAccessToken.mockResolvedValue(undefined);
 });
-
-async function saveCiCredentials(
-  t: ConvexTestHandle,
-  args: { organizationId: Id<"organizations">; userId: Id<"users"> },
-) {
-  await t.run(async (ctx) => {
-    await ctx.db.insert("organizationCiCredentials", {
-      organizationId: args.organizationId,
-      cloudflare: {
-        apiToken: testCredential("cloudflare-ci-test-token"),
-        accountId: "cloudflare-account",
-        connectedByUserId: args.userId,
-        updatedAt: 2,
-      },
-      convex: {
-        accessToken: testCredential("convex-ci-test-token"),
-        teamId: "convex-team",
-        connectedByUserId: args.userId,
-        updatedAt: 3,
-      },
-    });
-  });
-  await sealTestCredentials(t);
-}
 
 const repositoryActionsCreateArgs = {
   githubRepositoryName: "actions-app",
@@ -233,13 +182,106 @@ const repositoryActionsCreateArgs = {
 } as const;
 
 describe("create repository with provisioning repository_actions", () => {
-  it("refuses before it creates anything when the CI tokens are not saved", async () => {
+  it.each(["oauth", "api_key"] as const)(
+    "creates with a %s Convex connection, no Cloudflare connection, and no CI credentials",
+    async (convexOnly) => {
+      const { organizationId, t, viewer } = await createRepositoryFixture({ convexOnly });
+      const fetch = vi.fn();
+      vi.stubGlobal("fetch", fetch);
+
+      const result = await viewer.action(api.repository.create, {
+        organizationId,
+        ...repositoryActionsCreateArgs,
+      });
+
+      // The name check is the Convex call: it uses the connection that the repository receives.
+      expect(providerMocks.listConvexManagementProjects).toHaveBeenCalledWith({
+        token: "convex-token",
+        teamId: "convex-team",
+      });
+      // Nothing reads Cloudflare.
+      expect(fetch).not.toHaveBeenCalled();
+      expect(providerMocks.isCloudflareWorkerNameAvailable).not.toHaveBeenCalled();
+      expect(providerMocks.requireCloudflareBuildTokenUuid).not.toHaveBeenCalled();
+      const rows = await t.run(async (ctx) => ({
+        plan: await ctx.db
+          .query("workflow_repositoryProvisioning_plans")
+          .withIndex("by_repository", (q) => q.eq("repositoryId", result.repositoryId))
+          .unique(),
+        repository: await ctx.db.get(result.repositoryId),
+      }));
+      expect(rows).toMatchObject({
+        plan: { provisioning: "repository_actions", ciSecrets: { state: "planned" } },
+        repository: {
+          convexTeamId: "convex-team",
+          githubMode: "create_repository",
+          githubRepositoryName: "actions-app",
+        },
+      });
+      expect(rows.repository).not.toHaveProperty("cloudflareAccountId");
+    },
+  );
+
+  it("refuses a member who is not an owner, because the repository receives the Convex credential", async () => {
     const { organizationId, t, viewer } = await createRepositoryFixture();
+    await t.run(async (ctx) => {
+      for (const membership of await ctx.db.query("organizationMemberships").collect()) {
+        await ctx.db.patch(membership._id, { role: "member" });
+      }
+    });
+
+    await expect(
+      viewer.action(api.repository.create, { organizationId, ...repositoryActionsCreateArgs }),
+    ).rejects.toThrow("Only an organization owner can create a repository");
+  });
+
+  it("records no Cloudflare account when the organization has one", async () => {
+    const { organizationId, t, viewer } = await createRepositoryFixture();
+
+    const result = await viewer.action(api.repository.create, {
+      organizationId,
+      ...repositoryActionsCreateArgs,
+    });
+
+    expect(providerMocks.isCloudflareWorkerNameAvailable).not.toHaveBeenCalled();
+    expect(await t.run(async (ctx) => await ctx.db.get(result.repositoryId))).not.toHaveProperty(
+      "cloudflareAccountId",
+    );
+  });
+
+  it("reports no Worker to an MCP caller", async () => {
+    const { t, userId } = await createRepositoryFixture({ convexOnly: "oauth" });
+
+    await expect(
+      t.action(internal.toolRuntime.runtime.repositoryCreateTool, {
+        userId,
+        grantedScopes: ["access_app_create"],
+        githubOwnerLogin: "samebase",
+        name: "actions-app",
+        provisioning: "repository_actions",
+      }),
+    ).resolves.toMatchObject({
+      status: "ok",
+      structuredContent: {
+        githubRepositoryFullName: "samebase/actions-app",
+        cloudflare: { state: "none" },
+      },
+    });
+  });
+
+  it("refuses before it creates anything without a Convex connection", async () => {
+    const { organizationId, t, viewer } = await createRepositoryFixture({ convexOnly: "oauth" });
+    await t.run(async (ctx) => {
+      const credentials = await ctx.db.query("organizationProviderCredentials").unique();
+      if (credentials) {
+        await ctx.db.delete(credentials._id);
+      }
+    });
 
     await expect(
       viewer.action(api.repository.create, { organizationId, ...repositoryActionsCreateArgs }),
     ).rejects.toMatchObject({
-      data: "Save the Cloudflare and Convex CI tokens on the Providers page (/org/samebase/providers) before you create a repository that its GitHub Actions set up.",
+      data: "Convex connection is required to provision infrastructure. Connect Convex and retry.",
     });
     await expect(
       t.run(async (ctx) => await ctx.db.query("repositories").collect()),
@@ -247,8 +289,7 @@ describe("create repository with provisioning repository_actions", () => {
   });
 
   it("refuses an installation that has not accepted the Secrets and Variables permissions", async () => {
-    const { organizationId, t, userId, viewer } = await createRepositoryFixture();
-    await saveCiCredentials(t, { organizationId, userId });
+    const { organizationId, t, viewer } = await createRepositoryFixture({ convexOnly: "oauth" });
     providerMocks.readGitHubAppInstallation.mockResolvedValue({
       permissions: [{ access: "write", key: "contents" }],
     });
@@ -263,28 +304,32 @@ describe("create repository with provisioning repository_actions", () => {
     ).resolves.toEqual([]);
   });
 
-  it("refuses a saved Cloudflare CI token that lost a permission group", async () => {
-    const { organizationId, t, userId, viewer } = await createRepositoryFixture();
-    await saveCiCredentials(t, { organizationId, userId });
-    stubCloudflareCiToken({
-      denied: ["/client/v4/accounts/cloudflare-account/secrets_store/stores"],
-    });
+  it("refuses a Convex project that already has the repository's name", async () => {
+    const { organizationId, t, viewer } = await createRepositoryFixture({ convexOnly: "oauth" });
+    providerMocks.listConvexManagementProjects.mockResolvedValue([
+      {
+        createTime: 1,
+        id: "existing-project",
+        name: "actions-app",
+        slug: "actions-app",
+        teamId: "convex-team",
+        teamSlug: "convex-team",
+      },
+    ]);
 
     await expect(
       viewer.action(api.repository.create, { organizationId, ...repositoryActionsCreateArgs }),
     ).rejects.toMatchObject({
-      data: "Cloudflare could not confirm that the Cloudflare CI token has Secrets Store Edit in the Cloudflare account Cloudflare account. Save a new token from the Cloudflare API tokens link under CI credentials on the Providers page, which preselects every permission that the setup stack needs, or try again.",
+      data: "A Convex project named actions-app already exists, and the GitHub Actions of the repository would use that name. Choose another repository name.",
     });
     await expect(
       t.run(async (ctx) => await ctx.db.query("repositories").collect()),
     ).resolves.toEqual([]);
   });
 
-  it("refuses before it creates anything when the organization has fewer than three connections left", async () => {
-    const { organizationId, t, userId, viewer } = await createRepositoryFixture();
-    await saveCiCredentials(t, { organizationId, userId });
-    stubCloudflareCiToken();
-    // Four of the organization's six free connections: Workers of another repository.
+  it("refuses before it creates anything when the organization has no connection left", async () => {
+    const { organizationId, t, viewer } = await createRepositoryFixture({ convexOnly: "oauth" });
+    // All six of the organization's free connections: Workers of another repository.
     const otherRepositoryId = await t.run(async (ctx) => {
       const repositoryId = await ctx.db.insert("repositories", {
         createdAt: 1,
@@ -294,7 +339,7 @@ describe("create repository with provisioning repository_actions", () => {
         cloudflareAccountId: "cloudflare-account",
         deletion: { state: "not_deleting" },
       });
-      for (const index of [1, 2, 3, 4]) {
+      for (const index of [1, 2, 3, 4, 5, 6]) {
         await ctx.db.insert("repositoryCloudflareWorkers", {
           repositoryId,
           organizationId,
@@ -310,60 +355,28 @@ describe("create repository with provisioning repository_actions", () => {
 
     await expect(
       viewer.action(api.repository.create, { organizationId, ...repositoryActionsCreateArgs }),
-    ).rejects.toMatchObject({
-      data: "Organization connection limit reached (6). This takes 3 connections, and the organization has 2 left.",
-    });
+    ).rejects.toThrow("Organization connection limit reached");
     await expect(
       t.run(async (ctx) => (await ctx.db.query("repositories").collect()).map((row) => row._id)),
     ).resolves.toEqual([otherRepositoryId]);
   });
 
-  it("writes the repository_actions plan after every check passes", async () => {
-    const { organizationId, t, userId, viewer } = await createRepositoryFixture();
-    await saveCiCredentials(t, { organizationId, userId });
-    const fetch = stubCloudflareCiToken();
+  it("refuses a custom Convex project name, because the GitHub Actions use the repository name", async () => {
+    const { organizationId, viewer } = await createRepositoryFixture({ convexOnly: "oauth" });
 
-    const result = await viewer.action(api.repository.create, {
-      organizationId,
-      ...repositoryActionsCreateArgs,
-    });
-
-    expect(
-      fetch.mock.calls
-        .map(([input]) => (input instanceof Request ? input.url : input.toString()))
-        .sort(),
-    ).toEqual([
-      "https://api.cloudflare.com/client/v4/accounts/cloudflare-account",
-      "https://api.cloudflare.com/client/v4/accounts/cloudflare-account/builds/tokens?page=1&per_page=1",
-      "https://api.cloudflare.com/client/v4/accounts/cloudflare-account/secrets_store/stores?page=1&per_page=1",
-      "https://api.cloudflare.com/client/v4/accounts/cloudflare-account/workers/scripts",
-      "https://api.cloudflare.com/client/v4/user/tokens/verify",
-    ]);
-    expect(providerMocks.verifyConvexTeamAccessToken).toHaveBeenCalledWith({
-      token: "convex-ci-test-token",
-      teamId: "convex-team",
-    });
-    expect(providerMocks.isCloudflareWorkerNameAvailable).toHaveBeenCalledWith(
-      expect.objectContaining({ workerName: "actions-app" }),
-    );
-    expect(providerMocks.requireCloudflareBuildTokenUuid).not.toHaveBeenCalled();
     await expect(
-      t.run(async (ctx) => ({
-        plan: await ctx.db
-          .query("workflow_repositoryProvisioning_plans")
-          .withIndex("by_repository", (q) => q.eq("repositoryId", result.repositoryId))
-          .unique(),
-        repository: await ctx.db.get(result.repositoryId),
-      })),
-    ).resolves.toMatchObject({
-      plan: { provisioning: "repository_actions", ciSecrets: { state: "planned" } },
-      repository: { githubMode: "create_repository", githubRepositoryName: "actions-app" },
+      viewer.action(api.repository.create, {
+        organizationId,
+        ...repositoryActionsCreateArgs,
+        convexProjectName: "custom-project",
+      }),
+    ).rejects.toMatchObject({
+      data: "The GitHub Actions of the repository name the Convex project after the repository: actions-app. Remove the custom name.",
     });
   });
 
-  it("refuses custom provider names, because the GitHub Actions use the repository name", async () => {
-    const { organizationId, t, userId, viewer } = await createRepositoryFixture();
-    await saveCiCredentials(t, { organizationId, userId });
+  it("refuses a custom Worker name, because Cloudflare takes no part", async () => {
+    const { organizationId, viewer } = await createRepositoryFixture({ convexOnly: "oauth" });
 
     await expect(
       viewer.action(api.repository.create, {
@@ -372,7 +385,7 @@ describe("create repository with provisioning repository_actions", () => {
         cloudflareWorkerName: "custom-worker",
       }),
     ).rejects.toMatchObject({
-      data: "The GitHub Actions of the repository name the Convex project and the Worker after the repository: actions-app and actions-app. Remove the custom names.",
+      data: "A Cloudflare Worker name, a Workers Builds token, and a Convex region apply only when Samebase sets up the app. Remove them.",
     });
   });
 });

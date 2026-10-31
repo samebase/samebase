@@ -50,38 +50,20 @@ const NEW_APP_SETUP_LABELS = {
   repository_actions: "Set up by GitHub Actions in the repository (experimental)",
 } as const satisfies Record<RepositoryProvisioningMode, string>;
 
-const CLOUDFLARE_GITHUB_APP_URL = "https://github.com/apps/cloudflare-workers-and-pages";
-
 /**
-Who sets up the new app. GitHub Actions needs the organization's Cloudflare and Convex CI tokens, so
-that choice stays disabled until both are saved on the Providers page. Its setup stack links the
-Worker to the repository through Workers Builds, which fails in the repository's run, out of
-Samebase's sight, when the Cloudflare GitHub App cannot see the new repository.
+Who sets up the new app. GitHub Actions needs only the GitHub and Convex connections, so this field
+works without Cloudflare: the repository receives the organization's Convex token and deploys the
+app to Convex with it.
 */
 function NewAppSetupField({
-  cloudflareCiTokenSaved,
-  convexCiTokenSaved,
   disabled,
-  githubOwnerLogin,
   onValueChange,
   value,
 }: {
-  cloudflareCiTokenSaved: boolean;
-  convexCiTokenSaved: boolean;
   disabled: boolean;
-  githubOwnerLogin: string;
   onValueChange: (value: RepositoryProvisioningMode) => void;
   value: RepositoryProvisioningMode;
 }) {
-  const providersLink = (
-    <Link
-      className={linkStyle}
-      params={{ owner: githubOwnerLogin }}
-      to={ORGANIZATION_PROVIDERS_ROUTE}
-    >
-      Providers
-    </Link>
-  );
   return (
     <div className="grid gap-1.5">
       <Label htmlFor="new-app-setup">Setup</Label>
@@ -95,33 +77,15 @@ function NewAppSetupField({
         </SelectTrigger>
         <AppSelectContent>
           <AppSelectItem value="samebase">{NEW_APP_SETUP_LABELS.samebase}</AppSelectItem>
-          <AppSelectItem
-            disabled={!cloudflareCiTokenSaved || !convexCiTokenSaved}
-            value="repository_actions"
-          >
+          <AppSelectItem value="repository_actions">
             {NEW_APP_SETUP_LABELS.repository_actions}
           </AppSelectItem>
         </AppSelectContent>
       </Select>
-      {cloudflareCiTokenSaved && convexCiTokenSaved ? null : (
-        <div className="text-xs leading-5 text-muted-foreground">
-          {cloudflareCiTokenSaved ? null : <>Save the Cloudflare CI token in {providersLink}.</>}
-          {cloudflareCiTokenSaved || convexCiTokenSaved ? null : " "}
-          {convexCiTokenSaved ? null : <>Save the Convex CI token in {providersLink}.</>}
-        </div>
-      )}
       {value === "repository_actions" ? (
         <div className="text-xs leading-5 text-muted-foreground">
-          The setup needs the{" "}
-          <a
-            className={linkStyle}
-            href={CLOUDFLARE_GITHUB_APP_URL}
-            rel="noreferrer noopener"
-            target="_blank"
-          >
-            Cloudflare Workers and Pages GitHub App
-          </a>{" "}
-          on {githubOwnerLogin}, with access to all repositories.
+          Samebase saves the organization&apos;s Convex token as the repository secret
+          CONVEX_ACCESS_TOKEN. GitHub Actions run Alchemy and deploy the app to Convex.
         </div>
       ) : null}
     </div>
@@ -495,9 +459,10 @@ function readNewAppProviderBlocker(args: {
   canManageOrganization: boolean;
   cloudflareConnection: AppCloudflareConnection | undefined;
   convexConnection: AppConvexConnection | undefined;
+  provisioning: RepositoryProvisioningMode;
 }): string | null {
-  const { canManageOrganization, cloudflareConnection, convexConnection } = args;
-  if (!convexConnection || !cloudflareConnection) {
+  const { canManageOrganization, cloudflareConnection, convexConnection, provisioning } = args;
+  if (!convexConnection || (provisioning === "samebase" && !cloudflareConnection)) {
     return null;
   }
   if (convexConnection.state === "not_configured") {
@@ -509,6 +474,9 @@ function readNewAppProviderBlocker(args: {
     return canManageOrganization
       ? "Reconnect Convex in Providers before creating an app."
       : "An organization owner must reconnect Convex before an app can be created.";
+  }
+  if (provisioning !== "samebase" || !cloudflareConnection) {
+    return null;
   }
   if (cloudflareConnection.state === "not_configured") {
     return canManageOrganization
@@ -527,18 +495,21 @@ export function NewAppProviderReadiness({
   canManageOrganization,
   cloudflareConnection,
   convexConnection,
+  provisioning,
 }: {
   canManageOrganization: boolean;
   cloudflareConnection: AppCloudflareConnection | undefined;
   convexConnection: AppConvexConnection | undefined;
+  provisioning: RepositoryProvisioningMode;
 }) {
-  if (!convexConnection || !cloudflareConnection) {
+  if (!convexConnection || (provisioning === "samebase" && !cloudflareConnection)) {
     return null;
   }
   const blocker = readNewAppProviderBlocker({
     canManageOrganization,
     cloudflareConnection,
     convexConnection,
+    provisioning,
   });
 
   return (
@@ -549,12 +520,14 @@ export function NewAppProviderReadiness({
         </span>
         <span>{formatNewAppConvexStatus(convexConnection)}</span>
       </div>
-      <div className="flex items-center gap-2 text-muted-foreground">
-        <span className="flex h-5 w-5 items-center justify-center">
-          <CloudflareProviderLogo />
-        </span>
-        <span>{formatNewAppCloudflareStatus(cloudflareConnection)}</span>
-      </div>
+      {provisioning === "samebase" && cloudflareConnection ? (
+        <div className="flex items-center gap-2 text-muted-foreground">
+          <span className="flex h-5 w-5 items-center justify-center">
+            <CloudflareProviderLogo />
+          </span>
+          <span>{formatNewAppCloudflareStatus(cloudflareConnection)}</span>
+        </div>
+      ) : null}
       {blocker ? <div className="text-muted-foreground">{blocker}</div> : null}
     </div>
   );
@@ -575,14 +548,7 @@ export function NewAppPage({ organization }: { organization: ViewerOrganization 
   const cloudflareConnection = useConvexQuery(api.users.getCloudflareConnectionStatus, {
     organizationId,
   });
-  const ciCredentials = useConvexQuery(api.users.getCiCredentialsStatus, { organizationId });
-  const cloudflareCiTokenSaved = Boolean(ciCredentials?.cloudflare);
-  const convexCiTokenSaved = Boolean(ciCredentials?.convex);
-  const repositoryActionsReady = cloudflareCiTokenSaved && convexCiTokenSaved;
-  const [requestedProvisioning, setRequestedProvisioning] =
-    useState<RepositoryProvisioningMode>("samebase");
-  // Removing a CI token elsewhere returns the form to the Samebase setup.
-  const provisioning = repositoryActionsReady ? requestedProvisioning : "samebase";
+  const [provisioning, setProvisioning] = useState<RepositoryProvisioningMode>("samebase");
   const repositoryActions = provisioning === "repository_actions";
   const convexDeploymentRegionSelection = useConvexDeploymentRegion({
     enabled: convexConnection?.state === "connected",
@@ -626,11 +592,14 @@ export function NewAppPage({ organization }: { organization: ViewerOrganization 
     !cloudflareBuildTokensQuery.error &&
     cloudflareBuildTokens.length === 0,
   );
-  const hasRequiredCreateConnections = Boolean(convexConnected && cloudflareConnected);
+  const hasRequiredCreateConnections = Boolean(
+    convexConnected && (cloudflareConnected || repositoryActions),
+  );
   const providerBlocker = readNewAppProviderBlocker({
     canManageOrganization,
     cloudflareConnection,
     convexConnection,
+    provisioning,
   });
   const canCreateRepositoryForOrganization = organization.canCreateRepository;
   const canCreateRepo = hasRequiredCreateConnections && canCreateRepositoryForOrganization;
@@ -740,6 +709,7 @@ export function NewAppPage({ organization }: { organization: ViewerOrganization 
       (!cloudflareBuildTokensConfirmedEmpty && isCloudflareWorkerNameAvailabilityBlocking)),
   );
   const showCloudflareCreateWarning =
+    !repositoryActions &&
     connectedCloudflareConnection !== null &&
     (connectedCloudflareConnection.mcpTokenStatus === "invalid" ||
       connectedCloudflareConnection.mcpTokenStatus === "expired");
@@ -1275,15 +1245,13 @@ export function NewAppPage({ organization }: { organization: ViewerOrganization 
           canManageOrganization={canManageOrganization}
           cloudflareConnection={cloudflareConnection}
           convexConnection={convexConnection}
+          provisioning={provisioning}
         />
         <NewAppSetupField
-          cloudflareCiTokenSaved={cloudflareCiTokenSaved}
-          convexCiTokenSaved={convexCiTokenSaved}
-          disabled={!hasRequiredCreateConnections || isCreating}
-          githubOwnerLogin={organization.githubOwnerLogin}
+          disabled={!convexConnected || isCreating}
           onValueChange={(value) => {
             setCreateError(null);
-            setRequestedProvisioning(value);
+            setProvisioning(value);
           }}
           value={provisioning}
         />
