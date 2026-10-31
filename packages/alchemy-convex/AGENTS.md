@@ -27,10 +27,11 @@
 
 - Vite+ (`vp`) owns format, lint, test, and build, with the configuration of the repository root.
 - `pnpm run check`: typecheck, lint, unit tests, and build. Run it before each commit.
-- The stacks of this repository run `src/` directly: `exports` and `bin` name it, and
-  `publishConfig` names `lib/` for npm. A merge that changes `src/store/` reaches the shared store
-  with the next deploy, so raise `STORE_VERSION` only in a release that every repository of the team
-  takes the same day: a client works only with a store of its own version.
+- The stacks of this repository pin a published version, not `workspace:*`, so a pull request that
+  changes `src/store/` does not reach the shared store. The first preview deploy of the pull request
+  that changes the pin pushes the store, and a client works only with a store of its own version.
+  So raise `STORE_VERSION` only in a release that every repository of the team takes the same day,
+  and merge the pull request of the pin when its checks pass.
 
 ## Tests
 
