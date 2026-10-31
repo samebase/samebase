@@ -9,6 +9,7 @@
  */
 
 import type * as reader from "../reader.js";
+import type * as sealing from "../sealing.js";
 import type * as state from "../state.js";
 import type * as version from "../version.js";
 
@@ -20,6 +21,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   reader: typeof reader;
+  sealing: typeof sealing;
   state: typeof state;
   version: typeof version;
 }>;

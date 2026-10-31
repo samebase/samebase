@@ -1,6 +1,6 @@
 {
   "name": "@samebase/alchemy-convex",
-  "version": "0.18.0",
+  "version": "0.19.0",
   "description": "The Convex plane for Alchemy v2: projects, deployments, environment variables, and the push of the functions",
   "keywords": [
     "alchemy",
@@ -32,7 +32,8 @@
   "type": "module",
   "sideEffects": false,
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./sealed-secret": "./src/store/sealedSecret.ts"
   },
   "publishConfig": {
     "bin": {
@@ -42,6 +43,10 @@
       ".": {
         "types": "./lib/index.d.ts",
         "import": "./lib/index.js"
+      },
+      "./sealed-secret": {
+        "types": "./lib/sealedSecret.d.ts",
+        "import": "./lib/sealedSecret.js"
       }
     },
     "access": "public"

@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as keys from "../keys.js";
 import type * as reader from "../reader.js";
 import type * as runRecord from "../runRecord.js";
 import type * as state from "../state.js";
@@ -20,6 +21,7 @@ import type {
 import { anyApi, componentsGeneric } from "convex/server";
 
 const fullApi: ApiFromModules<{
+  keys: typeof keys;
   reader: typeof reader;
   runRecord: typeof runRecord;
   state: typeof state;

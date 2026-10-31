@@ -19,6 +19,10 @@
 // repository-scoped subscriptions with secret values removed. A key that stops working during a
 // long run (it expires after two hours) is replaced once per call.
 //
+// The store seals each `Redacted` value in its own functions, with a key in a variable of its
+// deployment, so this client sends and gets clear text. Each run asks whether the sealing is
+// finished, and finishes it: see `ensureSealed`.
+//
 // Two first runs of a team can both create a project named `alchemy-state-store`.
 // The run whose project is not the oldest deletes its own, before it writes
 // anything, and uses the oldest: both runs end on one store.
@@ -75,9 +79,12 @@ import {
   push,
   PUSH_KEY_ACTIONS,
   withPushKey,
+  writeVariables,
 } from "./Push.ts";
 import { type RunRecord, runRecord, withRunRecord } from "./RunRecord.ts";
+import { stateKeyName } from "./store/convex/sealing.ts";
 import { STORE_VERSION } from "./store/convex/version.ts";
+import { newKey, newKeyId } from "./store/sealedSecret.ts";
 
 /** The name of the state project in each team. */
 export const STORE_PROJECT_NAME = "alchemy-state-store";
@@ -91,6 +98,9 @@ export const RUN_KEY_ACTIONS = [
   "deployment:functions:runInternalQueries",
   "deployment:functions:runInternalMutations",
 ] as const;
+
+/** The actions of the key of one run on the store: its writes are actions that seal. */
+const STORE_KEY_ACTIONS = [...RUN_KEY_ACTIONS, "deployment:functions:runInternalActions"] as const;
 
 /** The body of POST /api/function, with HTTP 200 for a function error too. */
 const Reply = Schema.Union([
@@ -151,6 +161,12 @@ const decode =
   <S extends Schema.Codec<unknown, unknown>>(schema: S, what: string) =>
   (value: unknown) =>
     Schema.decodeUnknownEffect(schema)(value).pipe(Effect.mapError(() => failure(`bad ${what}`)));
+
+/** The reply of `state:sealing`. */
+const Sealing = Schema.Struct({ current: Schema.NullOr(Schema.String), sealed: Schema.Boolean });
+
+/** The reply of `state:reseal`. */
+const Resealed = Schema.Struct({ failed: Schema.Array(Schema.String) });
 
 /** The function API of the store deployment, with a deploy key. */
 export interface FunctionApi {
@@ -296,6 +312,41 @@ const pushStore = (
   });
 
 /**
+ * Finishes the sealing of the store, whatever an earlier run left: a new key when the store has
+ * none, then a reseal unless one finished under the current key. A run reads this each time, so a
+ * run that stopped after a push cannot leave rows in clear text. This client makes a key once, and
+ * it never reads a key back.
+ */
+const ensureSealed = (
+  options: StoreOptions,
+  deployment: { readonly name: string; readonly deploymentUrl: string },
+  functions: FunctionApi,
+) =>
+  Effect.gen(function* () {
+    const { current, sealed } = yield* functions
+      .call("state:sealing", {})
+      .pipe(Effect.flatMap(valueOf), Effect.flatMap(decode(Sealing, "state:sealing")));
+    if (current === null) {
+      const keyId = newKeyId();
+      yield* withPushKey(options.api, deployment.name, PUSH_KEY_ACTIONS, (key) =>
+        writeVariables(deployment.deploymentUrl, key, [
+          { name: stateKeyName(keyId), value: newKey() },
+        ]),
+      );
+      yield* functions.call("state:chooseKey", { keyId }).pipe(Effect.flatMap(valueOf));
+    }
+    if (sealed) return;
+    const { failed } = yield* functions
+      .call("state:reseal", {})
+      .pipe(Effect.flatMap(valueOf), Effect.flatMap(decode(Resealed, "state:reseal")));
+    if (failed.length > 0) {
+      yield* Effect.logWarning(
+        `Convex state: the store could not seal ${failed.join(", ")}. The next run tries again.`,
+      );
+    }
+  });
+
+/**
  * Creates the state project of the team. Two first runs can both create one:
  * the run whose project is not the oldest deletes its own, which holds
  * nothing yet, and uses the oldest, so that every run ends on one store.
@@ -357,7 +408,7 @@ export const makeConvexState = (options: StoreOptions) =>
         }),
       ),
     );
-    const mint = createDeployKey(api, deployment.name, STORE_PROJECT_NAME, RUN_KEY_ACTIONS).pipe(
+    const mint = createDeployKey(api, deployment.name, STORE_PROJECT_NAME, STORE_KEY_ACTIONS).pipe(
       Effect.map((key) => {
         keys.push(key);
         return makeFunctionApi(deployment.deploymentUrl, key);
@@ -400,6 +451,8 @@ export const makeConvexState = (options: StoreOptions) =>
         `${deployment.name} answers store version ${version ?? "none"}, and this package needs store version ${STORE_VERSION}.`,
       );
     }
+
+    yield* ensureSealed(options, deployment, functions);
 
     const remote = remoteOf(functions, options.run);
     /** The stack's output plus the record, when the run has one and the output has a place for it. */

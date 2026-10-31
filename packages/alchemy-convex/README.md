@@ -203,6 +203,32 @@ lifetime and permits redacted reads only. The server checks access again on rene
 its own native signing key and JWKS, so no extra signing secret is required. See
 [the reader contract](docs/design/convex-state.md#repository-subscriptions-090).
 
+### Secrets in the rows
+
+Alchemy writes a `Redacted` value in clear text, and a row must keep it: the hub keeps only the hash
+of a client secret, so the next run can get the value only from the state. The store seals each of
+these values with AES-256-GCM before it writes the row. A table view, a snapshot, and a reader that
+forgets to remove secrets show no value.
+
+Each key is one variable `STATE_KEY_<keyId>` of the store deployment, and a sealed value names its
+key. A run that finds no key makes one, writes it to the deployment, and never reads it back. A
+transaction in the store chooses the current key, so two first runs cannot replace a key that a row
+needs. Each run asks if every row is sealed under the current key, and finishes the work of a run
+that stopped.
+
+The functions that a run reads with open the values, so a holder of the team token or of a key that
+can run internal queries still reads every secret of the team. A value that is not `Redacted`, such
+as a plain string in `env`, stays clear text.
+
+To rotate the key, from a directory that selects the project `alchemy-state-store`:
+
+1. Add a key with a new id of letters and digits:
+   `npx convex env set --prod STATE_KEY_<keyId> "$(openssl rand -base64 32)"`.
+2. Make it the current key: `npx convex run --prod state:rotateKey '{"keyId":"<keyId>"}'`.
+3. The next run seals every value under it. To do this now: `npx convex run --prod state:reseal`.
+4. When `npx convex run --prod state:sealing` answers `"sealed": true`, remove the old variable. A
+   key that left the deployment before that cannot open its values.
+
 ### What the output records about a run
 
 Alchemy state holds no time, commit, branch, or run. `Convex.state()` adds them to the stage output:
@@ -346,8 +372,9 @@ repository `owner/name`. A stack without the stage of the pull request has no ca
 
 ## Limits
 
-- `env` values are props, so Alchemy state holds them. Keep `.alchemy/` git-ignored, and use an
-  encrypted state store, such as `Cloudflare.state()`, in CI.
+- `env` values are props, so Alchemy state holds them. `Convex.state()` seals the `Redacted` values
+  (see [Secrets in the rows](#secrets-in-the-rows)). Use `Config.Redacted` for a secret, and keep
+  `.alchemy/` git-ignored.
 - The hash does not see a change in a workspace package outside `rootDir`, or a push from outside
   Alchemy. Change a file of the app to push again.
 - With a deploy key, the provider reaches the deployment at `https://<name>.convex.cloud`, so the

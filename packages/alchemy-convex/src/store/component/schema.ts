@@ -18,4 +18,11 @@ export default defineSchema({
     value: v.optional(v.string()),
     currentRun: v.optional(runRecord),
   }).index("by_stage", ["stack", "stage"]),
+  // One row: the key that seals new secrets, the count of its rotations, and the last count for
+  // which a reseal finished.
+  keys: defineTable({
+    current: v.string(),
+    generation: v.number(),
+    sealedGeneration: v.optional(v.number()),
+  }),
 });

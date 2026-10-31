@@ -159,7 +159,7 @@ describe("Convex.state", () => {
     const [runKey, pushKey, pushKeyDelete] = keyCalls(fake);
     expect(Schema.decodeUnknownSync(KeyBody)(runKey?.body)).toEqual({
       name: STORE_PROJECT_NAME,
-      allowedActions: [...RUN_KEY_ACTIONS],
+      allowedActions: [...RUN_KEY_ACTIONS, "deployment:functions:runInternalActions"],
     });
     expect(Schema.decodeUnknownSync(KeyBody)(pushKey?.body).allowedActions).toEqual([
       "deployment:deploy",
@@ -197,6 +197,9 @@ describe("Convex.state", () => {
       [RUN_RECORD_KEY]: { ...record, recordedAt: expect.stringMatching(/^2\d{3}-\d\d-\d\dT/) },
     });
     expect(fake.functionCalls.filter((line) => !line.endsWith("state:version"))).toEqual([
+      `${deployment} state:sealing`,
+      `${deployment} state:chooseKey`,
+      `${deployment} state:reseal`,
       `${deployment} state:set`,
       `${deployment} state:setOutput`,
       `${deployment} state:list`,
@@ -222,6 +225,107 @@ describe("Convex.state", () => {
     expect(keyCalls(fake)).toHaveLength(1);
     expect(await run(runs())).toEqual([]);
     expect(await run(service.listStacks())).toEqual([]);
+    // A sealed store: no key, no reseal, and no key of a push.
+    expect(fake.variables.get(deployment)).toBeUndefined();
+    expect(fake.functionCalls).toContain(`${deployment} state:sealing`);
+    expect(fake.functionCalls).not.toContain(`${deployment} state:reseal`);
+    expect(fake.functionCalls).not.toContain(`${deployment} state:chooseKey`);
+  });
+
+  /** The name of the one key variable of a deployment, and its value. */
+  const keyVariable = (fake: FakeConvex, deployment: string) => {
+    const entries = Object.entries(fake.variables.get(deployment) ?? {});
+    expect(entries).toHaveLength(1);
+    const [name = "", value = ""] = entries[0] ?? [];
+    expect(name).toMatch(/^STATE_KEY_[0-9a-f]{12}$/);
+    return { name, value };
+  };
+
+  it("gives a new store one key, and a later run keeps it", async () => {
+    const fake = new FakeConvex().install();
+    await run(open());
+    const project = fake.projects.find((row) => row["name"] === STORE_PROJECT_NAME);
+    const deployment = String(project?.["prodDeploymentName"]);
+    const key = keyVariable(fake, deployment);
+    expect(fake.stores.get(deployment)?.keyId).toBe(key.name.replace("STATE_KEY_", ""));
+    expect(Buffer.from(key.value, "base64")).toHaveLength(32);
+
+    await run(open());
+    expect(keyVariable(fake, deployment)).toEqual(key);
+    expect(fake.functionCalls.filter((line) => line.endsWith("state:reseal"))).toHaveLength(1);
+  });
+
+  it("finishes a run that stopped after the push, with no push of its own", async () => {
+    const fake = new FakeConvex().install();
+    const deployment =
+      fake.project(fake.addProject({ name: STORE_PROJECT_NAME, teamId: TEAM }))
+        ?.prodDeploymentName ?? "";
+    // The store has the current version, no key, and rows in clear text.
+    const store = fake.addStore(deployment, STORE_VERSION);
+    store.keyId = null;
+    store.sealed = false;
+    await run(open());
+    expect(await run(runs())).toEqual([]);
+    const { name } = keyVariable(fake, deployment);
+    expect(fake.stores.get(deployment)?.keyId).toBe(name.replace("STATE_KEY_", ""));
+    expect(fake.stores.get(deployment)?.sealed).toBe(true);
+  });
+
+  it("finishes a reseal that stopped halfway, and keeps the key", async () => {
+    const fake = new FakeConvex().install();
+    const deployment =
+      fake.project(fake.addProject({ name: STORE_PROJECT_NAME, teamId: TEAM }))
+        ?.prodDeploymentName ?? "";
+    const store = fake.addStore(deployment, STORE_VERSION);
+    store.sealed = false;
+    await run(open());
+    expect(fake.functionCalls).toContain(`${deployment} state:reseal`);
+    expect(store.keyId).toBe("fake-key");
+    expect(fake.variables.get(deployment)).toBeUndefined();
+    expect(store.sealed).toBe(true);
+
+    await run(open());
+    expect(fake.functionCalls.filter((line) => line.endsWith("state:reseal"))).toHaveLength(1);
+  });
+
+  it("never reads a key back, and sends no key through a state function", async () => {
+    const fake = new FakeConvex().install();
+    const { service } = await run(open());
+    await run(service.set({ ...stack, fqn: "Project", value: created("Project") }));
+    const project = fake.projects.find((row) => row["name"] === STORE_PROJECT_NAME);
+    const { value } = keyVariable(fake, String(project?.["prodDeploymentName"]));
+    const calls = fake.sent.filter((request) => request.path.endsWith("/api/function"));
+    expect(calls.length).toBeGreaterThan(0);
+    expect(JSON.stringify(calls)).not.toContain(value);
+    expect(fake.lines().filter((line) => line.includes("list_environment_variables"))).toEqual([]);
+  });
+
+  it("stops the run when the reseal fails, and the next run tries again", async () => {
+    const fake = new FakeConvex().install();
+    const deployment =
+      fake.project(fake.addProject({ name: STORE_PROJECT_NAME, teamId: TEAM }))
+        ?.prodDeploymentName ?? "";
+    const store = fake.addStore(deployment, STORE_VERSION);
+    store.sealed = false;
+    store.resealError = "reseal failed";
+    expect(await failureOf(open())).toContain("reseal failed");
+
+    store.resealError = undefined;
+    await run(open());
+    expect(store.sealed).toBe(true);
+  });
+
+  it("goes on when the reseal names a row that cannot open", async () => {
+    const fake = new FakeConvex().install();
+    const deployment =
+      fake.project(fake.addProject({ name: STORE_PROJECT_NAME, teamId: TEAM }))
+        ?.prodDeploymentName ?? "";
+    const store = fake.addStore(deployment, STORE_VERSION);
+    store.sealed = false;
+    store.resealFailed = ["samebase/app/main/Lost"];
+    const { service } = await run(open());
+    expect(await run(service.listStacks())).toEqual([]);
+    expect(store.sealed).toBe(false);
   });
 
   it("keeps the stacks of two repositories apart in one store", async () => {

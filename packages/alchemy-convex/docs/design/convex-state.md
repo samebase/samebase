@@ -295,6 +295,57 @@ the team upgrades a consumer: the move comes before the first upgrade, and no de
 This version does not export the component from the package. A later version exports it, so that
 other apps can mount it.
 
+## Sealed secrets (store version 5)
+
+`encodeState` writes `{ "__redacted__": <value> }`, and a row must keep the value: the next run can
+get a hub client secret or a Cloudflare token only from the state. So every reader had to remove the
+values, and a reader that forgot showed them. The store now seals them, so that a row is safe to
+show.
+
+- A row holds `{ "__redacted__": { "__sealed__": { keyId, iv, ciphertext } } }`. `__redacted__`
+  stays, so `reader:repository` and the readers of Samebase remove the object as before, and the
+  rest of the row stays readable with no key, as the pages of Samebase need.
+- The sealing is in the store, in `src/store/convex/sealing.ts`, and not in the client. A client
+  that sealed would need a key in each run, or a second secret in each repository.
+- Sealing needs real randomness for the IV, and only a Convex action has it. So `state:set` and
+  `state:setOutput` are actions, which seal and then call the mutations `writeResource` and
+  `writeOutput`. Opening draws no randomness, so `get`, `replaced`, and `getOutput` stay queries.
+  Measured on a local backend: `crypto.subtle.decrypt` runs in an internal query.
+- Each key is one variable `STATE_KEY_<keyId>`, and a sealed value names its key, so a read needs no
+  list of keys. Convex has no conditional write of a variable, so one variable that holds every key
+  can lose a key: two first runs both read nothing, and the second write replaces the key under
+  which the first run sealed. A variable with a random name cannot replace another. A function
+  cannot list variables (measured: `Object.keys(process.env)` is empty, and a read by name works),
+  so the table `keys` of the component names the current key.
+- The table `keys` is one row, `{ current, generation, sealedGeneration }`. `state:chooseKey` writes
+  `current` only when the store has no key, in a transaction, so the first run wins, and the
+  variable of the other run stays unused. `state:rotateKey` changes it and raises `generation`. Both
+  refuse a key that the deployment does not hold.
+- A write reads the current key, seals, and commits in a mutation that reads the row `keys` again. A
+  write that sealed under a key that stopped being current does not commit, and it seals again. So a
+  write cannot land after the reseal of a rotation with the old key.
+- `state:reseal` seals every value under the current key, one row at a time, with one transaction
+  for each row. It reads `resourcePage` and `outputPage`, bounded pages in table order, because
+  `list` and `readStack` read whole rows and can pass the read limit of one function. A sweep that
+  stops keeps its progress. It writes with `replaceResource` and `replaceOutput`, which keep the run
+  record and leave a row that changed. Both read `generation` in their own transaction, so a sweep
+  that a rotation overtook stops, and it cannot put an older key over the work of a newer sweep. It
+  is a generation and not a key id because a rotation can bring a key back, and then a sweep from
+  before would pass for the current one. A row that fails is named in `failed`, and the others go
+  on. Measured on a local backend with 35 rows of 600 KiB: `state:list` fails with
+  `Too many bytes read`, the sweep passes that limit, and the limit of 4 MiB written per second
+  failed 3 rows, which the next run sealed. When nothing failed, it records `sealedGeneration`.
+- Each run reads `state:sealing`, so the work does not depend on the run that pushed. A run makes a
+  key when the store has none, and runs a reseal unless one finished under the current key. So a run
+  that stopped after a push, or a reseal that failed, leaves work for the next run. Until then a
+  read gives a value with no `__sealed__` as it is.
+- The additional data of a value names its row, so a sealed value opens only in the row that sealed
+  it. A move of a stack goes through `get` and `set`, which open and seal again.
+- `src/store/sealedSecret.ts` has the same format as the credentials of Samebase, and it depends on
+  nothing, so Samebase can import it from `@samebase/alchemy-convex/sealed-secret`.
+- This protects a table view, a snapshot, and a reader bug. It does not protect against the team
+  token, and no store can: a run has to read the values.
+
 ## Measured
 
 Proof: the public starter `samebase/base-alchemy` on a local branch, with the stack named
@@ -349,8 +400,10 @@ store was not touched. The probe rows were deleted at the end.
 
 ## Limits
 
-- No lock: keep the CI concurrency group for each stage. No encryption beyond Convex at rest; a
-  holder of a key with `runInternalQueries` reads every `Redacted` prop of every stack of the team.
+- No lock: keep the CI concurrency group for each stage.
+- The sealing protects the rows, not the functions. A holder of a key with `runInternalQueries`
+  reads every `Redacted` value of every stack of the team, because a run needs those values. A team
+  token can make such a key.
 - Two first runs of two repositories at the same time in a team with no store can both create a
   project named `alchemy-state`. Each run lists the projects again after its create; the run whose
   project is not the oldest deletes its own, which holds nothing yet, and uses the oldest. A

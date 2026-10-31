@@ -5,10 +5,11 @@
 //
 // A stage holds one row for each resource of its stack, so the reads of one
 // stage collect all rows.
-import { v, type Infer } from "convex/values";
+import { v, type Infer, type Validator } from "convex/values";
 import type { MutationCtx, QueryCtx } from "./_generated/server.js";
 // oxlint-disable-next-line samebase/no-raw-public-convex-function-builders -- Store entrypoints have no app wrapper; the reader and the deploy key enforce access.
 import { mutation, query } from "./_generated/server.js";
+import { generationOf } from "./keys.ts";
 import { runRecord } from "./runRecord.ts";
 
 const stage = { stack: v.string(), stage: v.string() };
@@ -148,11 +149,11 @@ export const get = query({
 /** Resources whose state has `status: "replaced"`. */
 export const replaced = query({
   args: stage,
-  returns: v.array(v.string()),
+  returns: v.array(v.object({ fqn: v.string(), value: v.string() })),
   handler: async (ctx, args) =>
     (await rowsOf(ctx, args))
-      .map((row) => row.value)
-      .filter((value) => {
+      .map((row) => ({ fqn: row.fqn, value: row.value }))
+      .filter(({ value }) => {
         const parsed: unknown = JSON.parse(value);
         return (
           typeof parsed === "object" &&
@@ -232,6 +233,86 @@ export const setOutput = mutation({
     else await ctx.db.patch("outputs", row._id, { value: args.value });
     await writeCurrentRun(ctx, args);
     return null;
+  },
+});
+
+/** A document holds at most 1 MiB, so one page reads less than the 16 MiB of one function. */
+const RESEAL_PAGE = 10;
+
+const pageOf = <Row extends Validator<unknown, "required", string>>(row: Row) =>
+  v.object({ page: v.array(row), continueCursor: v.string(), isDone: v.boolean() });
+
+const resealRow = v.object({ ...resource, value: v.string() });
+
+/**
+ * One bounded page of the resources, in table order, for a reseal. `list` and `readStack` read a
+ * whole stage or stack, which can pass the read limit of one function.
+ */
+export const resourcePage = query({
+  args: { cursor: v.union(v.string(), v.null()) },
+  returns: pageOf(resealRow),
+  handler: async (ctx, args) => {
+    const { page, continueCursor, isDone } = await ctx.db
+      .query("resources")
+      .paginate({ cursor: args.cursor, numItems: RESEAL_PAGE });
+    return {
+      page: page.map(({ stack, stage, fqn, value }) => ({ stack, stage, fqn, value })),
+      continueCursor,
+      isDone,
+    };
+  },
+});
+
+/** One bounded page of the outputs. A row with only a run record has no value and is left out. */
+export const outputPage = query({
+  args: { cursor: v.union(v.string(), v.null()) },
+  returns: pageOf(v.object({ ...stage, value: v.string() })),
+  handler: async (ctx, args) => {
+    const { page, continueCursor, isDone } = await ctx.db
+      .query("outputs")
+      .paginate({ cursor: args.cursor, numItems: RESEAL_PAGE });
+    return {
+      page: page.flatMap(({ stack, stage, value }) =>
+        value === undefined ? [] : [{ stack, stage, value }],
+      ),
+      continueCursor,
+      isDone,
+    };
+  },
+});
+
+/**
+ * What a reseal write did. `stale` means that a rotation came after the sweep started: that sweep
+ * must not put an older key back over the work of a newer one.
+ */
+const replaceResult = v.union(v.literal("replaced"), v.literal("changed"), v.literal("stale"));
+
+/**
+ * Replaces the value of a row that still holds `expected`, for a reseal of `generation`: the row
+ * keeps its run record.
+ */
+export const replaceResource = mutation({
+  args: { ...resource, expected: v.string(), value: v.string(), generation: v.number() },
+  returns: replaceResult,
+  handler: async (ctx, args) => {
+    if ((await generationOf(ctx)) !== args.generation) return "stale";
+    const row = await rowOf(ctx, args);
+    if (row === null || row.value !== args.expected) return "changed";
+    await ctx.db.patch("resources", row._id, { value: args.value });
+    return "replaced";
+  },
+});
+
+/** Like {@link replaceResource}, for an output. */
+export const replaceOutput = mutation({
+  args: { ...stage, expected: v.string(), value: v.string(), generation: v.number() },
+  returns: replaceResult,
+  handler: async (ctx, args) => {
+    if ((await generationOf(ctx)) !== args.generation) return "stale";
+    const row = await outputOf(ctx, args);
+    if (row === null || row.value !== args.expected) return "changed";
+    await ctx.db.patch("outputs", row._id, { value: args.value });
+    return "replaced";
   },
 });
 

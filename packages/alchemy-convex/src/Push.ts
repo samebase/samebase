@@ -458,7 +458,7 @@ const listVariables = (url: string, key: Redacted.Redacted<string>) =>
   );
 
 /** One call that sets variables, or removes those whose value is null. */
-const writeVariables = (
+export const writeVariables = (
   url: string,
   key: Redacted.Redacted<string>,
   changes: ReadonlyArray<{ readonly name: string; readonly value: string | null }>,

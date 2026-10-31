@@ -86,7 +86,7 @@ test.provider("changes component bindings without replacing resources or pushing
     // Feed the real Alchemy state row through the store used by live subscribers.
     yield* Effect.promise(async () => {
       const t = storeTest();
-      await t.mutation(internal.state.set, {
+      await t.action(internal.state.set, {
         stack: "samebase/mail",
         stage: "prod",
         fqn: "Deployment",
