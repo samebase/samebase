@@ -130,6 +130,7 @@ describe("LandingPage", () => {
 
     expect(markup).toContain(`src="${LANDING_INLINE_80_PERCENT_MARK_SVG_URL}"`);
     // Hero: the agent heading, one plain product sentence, the template link, and the agent prompt.
+    expect(markup).toContain(">BETA</span>");
     expect(markup).toContain("Give your coding agent a working app.");
     expect(markup).toContain(
       "One place to manage GitHub, Convex, and Cloudflare across all your apps.",
@@ -233,9 +234,13 @@ describe("LandingPage", () => {
     expect(markup).toContain("Even for one app, Samebase does the do-it-yourself setup for you");
     expect(markup).toContain("Wait, so all Samebase is, is a template and a list?");
     expect(markup).toContain("Is Samebase open source?");
+    expect(markup).toContain("Is Samebase stable?");
+    expect(markup).toContain('href="https://alchemy.run"');
+    expect(markup).toContain("Can I use Alchemy now?");
+    expect(markup).toContain('href="https://github.com/samebase/base-alchemy"');
     expect(markup).toContain("Kinda.");
-    expect(markup.split('data-slot="accordion-trigger"').length - 1).toBe(5);
-    expect(markup.split('data-slot="accordion-content"').length - 1).toBe(5);
+    expect(markup.split('data-slot="accordion-trigger"').length - 1).toBe(7);
+    expect(markup.split('data-slot="accordion-content"').length - 1).toBe(7);
 
     const costIndex = markup.indexOf("cost follows real usage");
     const faqIndex = markup.indexOf('aria-label="Frequently asked questions"');
