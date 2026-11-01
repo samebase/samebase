@@ -98,7 +98,7 @@ export default defineSchema({
   })
     .index("by_client_id", ["clientId"])
     .index("by_app_id", ["appId"])
-    .index("by_deployment_type", ["deploymentType"]),
+    .index("by_deployment_type_and_activity", ["deploymentType", "lastSignInAt", "createdAt"]),
 
   authRequests: defineTable(vAuthRequest)
     .index("by_request_id", ["requestId"])
