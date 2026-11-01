@@ -733,7 +733,6 @@ export const trackedFilePaths = [
   "apps/samebase/e2e/logo-view-snap.live.spec.ts",
   "apps/samebase/e2e/logoMobilePane.ts",
   "apps/samebase/e2e/new-app-page-visual.spec.ts",
-  "apps/samebase/e2e/new-app-page-visual.spec.ts-snapshots/new-app-build-token.png",
   "apps/samebase/e2e/new-app-page-visual.spec.ts-snapshots/new-app-provider-blocked.png",
   "apps/samebase/e2e/not-found-visual.spec.ts",
   "apps/samebase/e2e/not-found-visual.spec.ts-snapshots/not-found-protected-google-oauth-return.png",

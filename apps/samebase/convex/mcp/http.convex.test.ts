@@ -202,20 +202,17 @@ describe("MCP tool listing access", () => {
         properties: {
           githubOwnerLogin: { type: "string" },
           name: { type: "string" },
-          convexDeploymentRegion: {
-            anyOf: [
-              { const: "aws-us-east-1" },
-              { const: "aws-eu-west-1" },
-              { const: "aws-ca-central-1" },
-              { const: "aws-ap-southeast-2" },
-            ],
-            description: expect.stringContaining("EU usage costs 1.3 times US usage"),
-          },
-          buildTokenUuid: { type: "string" },
+          description: { type: "string" },
+          private: { type: "boolean" },
         },
         required: ["githubOwnerLogin", "name"],
       },
     });
+    expect(
+      Object.keys(
+        tools.find((tool) => tool.name === "repository_create")?.inputSchema.properties ?? {},
+      ).sort(),
+    ).toEqual(["description", "githubOwnerLogin", "name", "private"]);
     expect(tools.find((tool) => tool.name === "repository_connect")).toMatchObject({
       inputSchema: {
         properties: { githubRepositoryFullName: { type: "string" } },
@@ -276,7 +273,7 @@ describe("MCP tool listing access", () => {
       title: "Create Samebase repository",
       outputSchema: {
         type: "object",
-        required: ["repositoryId", "githubRepositoryFullName", "cloudflare"],
+        required: ["repositoryId", "githubRepositoryFullName"],
         additionalProperties: false,
       },
     });
@@ -781,7 +778,7 @@ describe("MCP tools/call access enforcement", () => {
         capabilities: { tools: {} },
         serverInfo: { name: "Samebase", version: "0.3.0" },
         instructions: expect.stringMatching(
-          /^Samebase manages repositories: a GitHub repository with its attached Cloudflare Workers and Convex projects\.[\s\S]*Name a repository by owner\/name\.\n\nTo create a repository, call repository_create once \(Samebase picks the build token\), then poll only repository_list until source and provider setup are ready or failed\. For build, deployment, check, or pull request questions, call repository_getStatus and follow its attention items\. Ready setup, a build request, or a push does not prove that the app is live\.[\s\S]*A needs_confirmation result changed nothing: state its effect, and repeat the call with its token and exact acknowledgement only after the user approves\.\n\nFor a request to open the Samebase dashboard, call account_createSignInLink directly\. Only the dashboard can remove a repository from Samebase[\s\S]*create it only after the user accepts\.$/,
+          /^Samebase manages repositories: a GitHub repository with its attached Cloudflare Workers and Convex projects\.[\s\S]*Name a repository by owner\/name\.\n\nTo create a repository, call repository_create once, then poll only repository_list until source and provider setup are ready or failed\. For build, deployment, check, or pull request questions, call repository_getStatus and follow its attention items\. Ready setup, a build request, or a push does not prove that the app is live\.[\s\S]*A needs_confirmation result changed nothing: state its effect, and repeat the call with its token and exact acknowledgement only after the user approves\.\n\nFor a request to open the Samebase dashboard, call account_createSignInLink directly\. Only the dashboard can remove a repository from Samebase[\s\S]*create it only after the user accepts\.$/,
         ),
       },
     });

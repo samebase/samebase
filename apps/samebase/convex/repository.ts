@@ -100,13 +100,8 @@ export const create = action({
       userId: ctx.viewer.userId,
       organizationId: args.organizationId,
       githubRepositoryName: args.githubRepositoryName,
-      convexProjectName: args.convexProjectName,
-      convexDeploymentRegion: args.convexDeploymentRegion,
-      cloudflareWorkerName: args.cloudflareWorkerName,
-      cloudflareBuildTokenUuid: args.cloudflareBuildTokenUuid,
       description: args.description,
       private: args.private,
-      provisioning: args.provisioning,
     }),
 });
 

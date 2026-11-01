@@ -74,7 +74,6 @@ import { toSafeGitHubRepositoryName } from "../../shared/githubRepositoryName";
 import { normalizeRepositoryRootDirectory } from "../../shared/repositoryRootDirectory";
 import { defineMcpTool, mcpGrantArgs } from "./mcpTool";
 import {
-  CLOUDFLARE_SETUP_GUIDE_URL,
   findAttachedWorkerByName,
   findRepositoryByReference,
   projectConvexDiscoveryForMcp,
@@ -433,76 +432,19 @@ export const repositoryCreateTool = defineMcpTool({
       userId: args.userId,
       target: { kind: "owner", githubOwnerLogin: args.githubOwnerLogin },
     });
-    if (args.provisioning === "repository_actions") {
-      const githubRepositoryName = toSafeGitHubRepositoryName(args.name);
-      const result = await createAppForUser(ctx, {
-        userId: args.userId,
-        target: { kind: "organization", organizationId: githubAccess.organizationId },
-        githubRepositoryName: args.name,
-        convexProjectName:
-          args.convexProjectName ??
-          buildDefaultAppResourceName({ repositoryName: githubRepositoryName, provider: "convex" }),
-        convexDeploymentRegion: args.convexDeploymentRegion,
-        cloudflareWorkerName:
-          args.cloudflareWorkerName ??
-          buildDefaultAppResourceName({
-            repositoryName: githubRepositoryName,
-            provider: "cloudflare",
-          }),
-        cloudflareBuildTokenUuid: args.buildTokenUuid ?? null,
-        provisioning: "repository_actions",
-        ...(args.description !== undefined ? { description: args.description } : {}),
-        ...(args.private !== undefined ? { private: args.private } : {}),
-      });
-      const structuredContent: Infer<typeof createRepositoryContract.structuredContent> = {
-        repositoryId: result.repositoryId,
-        githubRepositoryFullName: `${githubAccess.githubOwnerLogin}/${githubRepositoryName}`,
-        cloudflare: { state: "none" },
-      };
-      return {
-        text: `Started setup of ${structuredContent.githubRepositoryFullName} by its GitHub Actions. Samebase writes the Actions secret and variable and seeds the starter; then the repository's GitHub Actions run Alchemy, create the Convex project, and deploy the app to Convex. Poll repository_list until provider setup is ready or failed. Ready does not mean deployed: the deployment runs in GitHub Actions, and repository_getStatus reports when it finished.`,
-        structuredContent,
-      };
-    }
-    const buildToken = await selectWorkersBuildsTokenForRepository(ctx, {
-      userId: args.userId,
-      organizationId: githubAccess.organizationId,
-      buildTokenUuid: args.buildTokenUuid,
-    });
-    const cloudflareWorkerName =
-      args.cloudflareWorkerName ??
-      buildDefaultAppResourceName({ repositoryName: args.name, provider: "cloudflare" });
-
     const result = await createAppForUser(ctx, {
       userId: args.userId,
       target: { kind: "organization", organizationId: githubAccess.organizationId },
       githubRepositoryName: args.name,
-      convexProjectName:
-        args.convexProjectName ??
-        buildDefaultAppResourceName({ repositoryName: args.name, provider: "convex" }),
-      convexDeploymentRegion: args.convexDeploymentRegion,
-      cloudflareWorkerName,
-      cloudflareBuildTokenUuid: buildToken.state === "selected" ? buildToken.uuid : null,
       ...(args.description !== undefined ? { description: args.description } : {}),
       ...(args.private !== undefined ? { private: args.private } : {}),
     });
-    const plannedWorkerName = validateAppResourceName(cloudflareWorkerName, "cloudflare");
     const structuredContent: Infer<typeof createRepositoryContract.structuredContent> = {
       repositoryId: result.repositoryId,
       githubRepositoryFullName: `${githubAccess.githubOwnerLogin}/${toSafeGitHubRepositoryName(args.name)}`,
-      cloudflare:
-        buildToken.state === "selected"
-          ? {
-              state: "planned",
-              workerName: plannedWorkerName.valid ? plannedWorkerName.value : cloudflareWorkerName,
-            }
-          : { state: "pending", setupGuideUrl: CLOUDFLARE_SETUP_GUIDE_URL },
     };
     return {
-      text:
-        structuredContent.cloudflare.state === "planned"
-          ? `Started setup of ${structuredContent.githubRepositoryFullName} with a Convex project and the Cloudflare Worker ${structuredContent.cloudflare.workerName}. Poll repository_list until source and provider setup are ready or failed.`
-          : `Started setup of ${structuredContent.githubRepositoryFullName} with a Convex project. Cloudflare setup is pending because the Cloudflare account has no Workers Builds token: give the user ${CLOUDFLARE_SETUP_GUIDE_URL}. Poll repository_list until source and provider setup are ready or failed.`,
+      text: `Started setup of ${structuredContent.githubRepositoryFullName} by its GitHub Actions. Samebase writes the Actions secret and variable and seeds the starter; then the repository's GitHub Actions run Alchemy, create the Convex project, and deploy the app to Convex. Poll repository_list until provider setup is ready or failed. Ready does not mean deployed: the deployment runs in GitHub Actions, and repository_getStatus reports when it finished.`,
       structuredContent,
     };
   },

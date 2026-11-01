@@ -16,9 +16,7 @@ import { toSafeGitHubRepositoryName } from "../shared/githubRepositoryName";
 import type { ConnectedRepository } from "./repository/state";
 import {
   REPOSITORY_ACTIONS_DEFAULT_BRANCH,
-  vRepositoryProvisioningMode,
   type RepositoryProvisioningEventLevel,
-  type RepositoryProvisioningMode,
   type RepositoryProvisioningRunState,
   type RepositoryProvisioningStep,
 } from "./repository/provisioningModel";
@@ -32,7 +30,6 @@ import {
   readSeedBranchState,
   seedRepositoryWithStarter,
 } from "./starterSeed";
-import { starterTemplateManifest } from "./starterSeedManifest.generated";
 import { actionsStarterTemplateManifest } from "./starterSeedManifest.actions.generated";
 import {
   formatProviderApiCallLogMessage,
@@ -306,8 +303,8 @@ export const validateCreateAppConnections = internalAction({
     githubRepositoryName: string(),
     githubOwnerLogin: string(),
   },
-  returns: vRepositoryProvisioningMode,
-  handler: async (ctx, args): Promise<RepositoryProvisioningMode> => {
+  returns: v.null(),
+  handler: async (ctx, args): Promise<null> => {
     await assertCreateRun(ctx, args);
     await requireProvisioningContinuation(ctx, args);
 
@@ -322,6 +319,10 @@ export const validateCreateAppConnections = internalAction({
       internal.repositoryProvisioningWorkflow.readProvisioningModeForRun,
       { repositoryId: args.repositoryId, runId: args.runId, userId: args.userId },
     );
+    // This step runs before the GitHub repository exists, so a run on any other plan stops here.
+    if (provisioning !== "repository_actions") {
+      throw new Error("Provisioning run does not match repository_actions setup.");
+    }
 
     const githubRepositoryName = toSafeGitHubRepositoryName(args.githubRepositoryName);
     if (!githubRepositoryName) {
@@ -363,16 +364,8 @@ export const validateCreateAppConnections = internalAction({
     ) {
       throw new Error("Convex connection is required to create a project.");
     }
-    if (
-      provisioning === "samebase" &&
-      (repository.cloudflareAccountId === null ||
-        providerConfiguration.cloudflareAccount?.accountId !== repository.cloudflareAccountId ||
-        providerConfiguration.cloudflareCredential === undefined)
-    ) {
-      throw new Error("Cloudflare connection is required to create a Worker-backed app.");
-    }
 
-    return provisioning;
+    return null;
   },
 });
 
@@ -594,25 +587,17 @@ export const seedStarterRepository = internalAction({
       githubRepositoryDatabaseId: args.githubRepositoryDatabaseId,
     });
     await requireProvisioningContinuation(ctx, args);
-    const provisioning = await ctx.runQuery(
-      internal.repositoryProvisioningWorkflow.readProvisioningModeForRun,
-      { repositoryId: args.repositoryId, runId: args.runId, userId: args.userId },
+    // A recorded seed is never repeated: a second seed would find commits pushed since. A retry or a
+    // step retry after the record finds it here.
+    const seed = await ctx.runQuery(
+      internal.repositoryProvisioningWorkflow.readRepositoryActionsSeedForRun,
+      {
+        repositoryId: args.repositoryId,
+        runId: args.runId,
+        userId: args.userId,
+      },
     );
-    const repositoryActions = provisioning === "repository_actions";
-    // A recorded seed is never repeated: the samebase seed force-updates its branch, and a
-    // repository_actions seed would find commits pushed since. A retry or a step retry after the
-    // record finds it here.
-    const seed = repositoryActions
-      ? await ctx.runQuery(
-          internal.repositoryProvisioningWorkflow.readRepositoryActionsSeedForRun,
-          {
-            repositoryId: args.repositoryId,
-            runId: args.runId,
-            userId: args.userId,
-          },
-        )
-      : null;
-    let alreadySeeded = seed?.state === "seeded";
+    let alreadySeeded = seed.state === "seeded";
 
     await appendRunEvent(ctx, {
       runId: args.runId,
@@ -647,7 +632,6 @@ export const seedStarterRepository = internalAction({
     });
     const ownerName = repository.owner.login;
     const repoName = repository.name;
-    const githubDefaultBranch = readDefaultBranch(repository);
 
     // The template deploys production from pushes to the default branch, and GitHub creates a
     // repository with the owner's default branch, which can be another name than main. So main
@@ -694,7 +678,7 @@ export const seedStarterRepository = internalAction({
     // recorded its tree before an earlier push may have landed already; finding that tree on main
     // finishes the seed without a second push.
     const branchReader = createStarterSeedBranchReader(octokit, { recordApiCall });
-    if (seed !== null && seed.state !== "seeded") {
+    if (seed.state !== "seeded") {
       const branchState = await readSeedBranchState({
         reader: branchReader,
         owner: ownerName,
@@ -730,34 +714,27 @@ export const seedStarterRepository = internalAction({
     }
 
     if (!alreadySeeded) {
-      const manifest = repositoryActions ? actionsStarterTemplateManifest : starterTemplateManifest;
+      const manifest = actionsStarterTemplateManifest;
       try {
         await seedRepositoryWithStarter({
           client: createStarterSeedGitClient(octokit, { recordApiCall }),
           owner: ownerName,
           repo: repoName,
-          defaultBranch: repositoryActions
-            ? REPOSITORY_ACTIONS_DEFAULT_BRANCH
-            : githubDefaultBranch,
+          defaultBranch: REPOSITORY_ACTIONS_DEFAULT_BRANCH,
           manifest,
-          branchFirst: repositoryActions
-            ? {
-                reader: branchReader,
-                beforeStarterPush: async ({ treeSha }) => {
-                  await makeMainTheDefaultBranch();
-                  await ctx.runMutation(
-                    internal.repositoryProvisioningWorkflow.markStarterSeeding,
-                    {
-                      repositoryId: args.repositoryId,
-                      runId: args.runId,
-                      userId: args.userId,
-                      manifestVersion: manifest.version,
-                      treeSha,
-                    },
-                  );
-                },
-              }
-            : undefined,
+          branchFirst: {
+            reader: branchReader,
+            beforeStarterPush: async ({ treeSha }) => {
+              await makeMainTheDefaultBranch();
+              await ctx.runMutation(internal.repositoryProvisioningWorkflow.markStarterSeeding, {
+                repositoryId: args.repositoryId,
+                runId: args.runId,
+                userId: args.userId,
+                manifestVersion: manifest.version,
+                treeSha,
+              });
+            },
+          },
         });
       } catch (error) {
         const seedErrorMessage = toErrorMessage(error);
@@ -769,14 +746,12 @@ export const seedStarterRepository = internalAction({
 
         throw new Error(`Failed to seed starter repository: ${seedErrorMessage}`);
       }
-      if (repositoryActions) {
-        await ctx.runMutation(internal.repositoryProvisioningWorkflow.markStarterSeeded, {
-          repositoryId: args.repositoryId,
-          runId: args.runId,
-          userId: args.userId,
-          manifestVersion: manifest.version,
-        });
-      }
+      await ctx.runMutation(internal.repositoryProvisioningWorkflow.markStarterSeeded, {
+        repositoryId: args.repositoryId,
+        runId: args.runId,
+        userId: args.userId,
+        manifestVersion: manifest.version,
+      });
 
       await appendRunEvent(ctx, {
         runId: args.runId,
@@ -789,10 +764,7 @@ export const seedStarterRepository = internalAction({
 
     // Once the record says main, the switch is done: a branch that the user chose later is never
     // changed. A seed recorded before the record finishes the switch here.
-    if (
-      repositoryActions &&
-      connectedRepository.defaultBranch !== REPOSITORY_ACTIONS_DEFAULT_BRANCH
-    ) {
+    if (connectedRepository.defaultBranch !== REPOSITORY_ACTIONS_DEFAULT_BRANCH) {
       if (alreadySeeded) {
         await makeMainTheDefaultBranch();
       }

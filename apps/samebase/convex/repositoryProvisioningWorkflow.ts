@@ -17,12 +17,10 @@ import {
   vRepositoryActionsSeed,
   vRepositoryProvisioningMode,
   type RepositoryProvisioningMode,
-  type RepositoryProvisioningStep,
 } from "./repository/provisioningModel";
 import {
   isSamebaseProvisioningPlan,
   readRepositoryProvisioningMode,
-  requireSamebaseProvisioningPlan,
   type RepositoryProvisioningPlan,
 } from "./repository/provisioningPlan";
 import { isLiveConnectedRepository } from "./repository/state";
@@ -33,7 +31,7 @@ import {
 } from "./repositoryWorkflowAuthority";
 
 const workflow = new WorkflowManager(components.workflow);
-const { boolean, id, literal, number, object, optional, string, union } = v;
+const { boolean, id, literal, number, object, string } = v;
 const idempotentProviderStepRetry = {
   maxAttempts: 3,
   initialBackoffMs: 1_000,
@@ -44,64 +42,14 @@ const workflowCompletionContext = object({
   runId: id("workflow_repositoryProvisioning_runs"),
 });
 const createAppDescription = v.union(string(), v.null());
-const composedInfrastructureState = object({
-  convexConfigPath: string(),
-  convex: union(
-    object({
-      state: literal("missing"),
-      projectName: string(),
-    }),
-    object({
-      state: literal("attached"),
-      projectName: string(),
-      convexProjectId: id("repositoryConvexProjects"),
-    }),
-  ),
-  cloudflare: union(
-    object({
-      state: literal("missing"),
-      accountId: string(),
-      workerName: string(),
-      buildTokenUuid: union(string(), v.null()),
-    }),
-    object({
-      state: literal("attached"),
-      accountId: string(),
-      workerName: string(),
-      workerId: id("repositoryCloudflareWorkers"),
-      buildTokenUuid: union(string(), v.null()),
-    }),
-  ),
-});
-type ComposedInfrastructureState = Infer<typeof composedInfrastructureState>;
-const composedCloudflareBuilds = object({
-  rootDirectory: string(),
-});
-type ComposedCloudflareBuilds = Infer<typeof composedCloudflareBuilds>;
-const vRetryProvisioning = union(
-  object({ mode: literal("samebase") }),
-  object({
+const composedInfrastructureRetryContext = object({
+  userId: id("users"),
+  provisioning: object({
     mode: literal("repository_actions"),
     githubRepositoryDatabaseId: string(),
   }),
-);
-type RetryProvisioning = Infer<typeof vRetryProvisioning>;
-const composedInfrastructureRetryContext = object({
-  userId: id("users"),
-  /**
-  The query always returns it. A retry workflow that was running when this field was added replays
-  its saved `read_retry_context` result, which has only `userId`; that retry is a samebase retry.
-  */
-  provisioning: optional(vRetryProvisioning),
 });
 type ComposedInfrastructureRetryContext = Infer<typeof composedInfrastructureRetryContext>;
-
-/** The provisioning of a retry context; a context saved before the field means samebase. */
-export function readRetryProvisioning(
-  context: ComposedInfrastructureRetryContext,
-): RetryProvisioning {
-  return context.provisioning ?? { mode: "samebase" };
-}
 const actionsSecretsTarget = object({
   organizationId: id("organizations"),
   convexCredential: vSealedSecret,
@@ -183,104 +131,6 @@ export function resolveWorkflowCompletionError(result: RunResult): string | null
   }
 }
 
-export const readComposedInfrastructureState = internalQuery({
-  args: {
-    repositoryId: id("repositories"),
-    runId: id("workflow_repositoryProvisioning_runs"),
-    userId: id("users"),
-  },
-  returns: composedInfrastructureState,
-  handler: async (ctx, args): Promise<ComposedInfrastructureState> => {
-    const authority = await requireActiveRepositoryProvisioningAuthority(ctx.db, args);
-    const repository = authority.repository;
-
-    const storedPlan = await ctx.db
-      .query("workflow_repositoryProvisioning_plans")
-      .withIndex("by_repository", (q) => q.eq("repositoryId", args.repositoryId))
-      .first();
-    if (!storedPlan) {
-      throw new Error("Infrastructure provisioning plan not found for repository.");
-    }
-    const plan = requireSamebaseProvisioningPlan(storedPlan);
-    if (repository.convexTeamId === undefined || repository.cloudflareAccountId === undefined) {
-      throw new Error("Managed repository provider destinations are not configured.");
-    }
-    const cloudflareAccountId = repository.cloudflareAccountId;
-
-    const convexConfigPath = plan.convexConfigPath;
-    const convexCheckpoint = plan.convex.state === "created" ? plan.convex : null;
-    const cloudflareCheckpoint = plan.cloudflare.state === "created" ? plan.cloudflare : null;
-    const [convexProject, worker] = await Promise.all([
-      convexCheckpoint
-        ? ctx.db
-            .query("repositoryConvexProjects")
-            .withIndex("by_project", (q) => q.eq("projectId", convexCheckpoint.projectId))
-            .unique()
-        : null,
-      cloudflareCheckpoint
-        ? ctx.db
-            .query("repositoryCloudflareWorkers")
-            .withIndex("by_account_and_worker_tag", (q) =>
-              q
-                .eq("accountId", cloudflareAccountId)
-                .eq("workerTag", cloudflareCheckpoint.workerTag),
-            )
-            .unique()
-        : null,
-    ]);
-    if (
-      convexProject &&
-      (convexProject.repositoryId !== args.repositoryId ||
-        convexProject.organizationId !== repository.organizationId ||
-        !convexCheckpoint ||
-        convexProject.teamId !== repository.convexTeamId ||
-        !("convexConfigPath" in convexProject) ||
-        convexProject.convexConfigPath !== convexConfigPath)
-    ) {
-      throw new Error("Managed Convex project attachment does not match its checkpoint.");
-    }
-    if (
-      worker &&
-      (worker.repositoryId !== args.repositoryId ||
-        worker.organizationId !== repository.organizationId ||
-        !cloudflareCheckpoint ||
-        worker.accountId !== repository.cloudflareAccountId ||
-        worker.workerName !== cloudflareCheckpoint.workerName ||
-        worker.workerTag !== cloudflareCheckpoint.workerTag)
-    ) {
-      throw new Error("Managed Cloudflare Worker attachment does not match its checkpoint.");
-    }
-
-    return {
-      convexConfigPath,
-      convex: convexProject
-        ? {
-            state: "attached",
-            projectName: plan.convex.projectName,
-            convexProjectId: convexProject._id,
-          }
-        : {
-            state: "missing",
-            projectName: plan.convex.projectName,
-          },
-      cloudflare: worker
-        ? {
-            state: "attached",
-            accountId: cloudflareAccountId,
-            workerName: plan.cloudflare.workerName,
-            workerId: worker._id,
-            buildTokenUuid: plan.cloudflare.buildTokenUuid,
-          }
-        : {
-            state: "missing",
-            accountId: cloudflareAccountId,
-            workerName: plan.cloudflare.workerName,
-            buildTokenUuid: plan.cloudflare.buildTokenUuid,
-          },
-    };
-  },
-});
-
 export const readComposedInfrastructureRetryContext = internalQuery({
   args: {
     repositoryId: id("repositories"),
@@ -303,7 +153,7 @@ export const readComposedInfrastructureRetryContext = internalQuery({
     }
     const plan = await readProvisioningPlan(ctx, args.repositoryId);
     if (isSamebaseProvisioningPlan(plan)) {
-      return { userId: authority.run.userId, provisioning: { mode: "samebase" } };
+      throw new Error("Only a repository_actions repository can retry its setup.");
     }
 
     return {
@@ -353,8 +203,8 @@ async function requireManagedRunWriteLock(
 }
 
 /**
-The mode of the repository of an active run, for the steps that both modes share. A retry run also
-must hold the write lock: only a repository_actions retry runs the shared seed and sync steps.
+The mode of the repository of an active run, for the steps that refuse any other plan. A retry run
+also must hold the write lock: only a repository_actions retry runs the seed and sync steps.
 */
 export const readProvisioningModeForRun = internalQuery({
   args: {
@@ -539,62 +389,6 @@ export const markActionsSecretsWritten = internalMutation({
   },
 });
 
-export const claimComposedInfrastructureProvisioning = internalMutation({
-  args: {
-    repositoryId: id("repositories"),
-    runId: id("workflow_repositoryProvisioning_runs"),
-    userId: id("users"),
-  },
-  returns: object({ claimed: boolean() }),
-  handler: async (ctx, args): Promise<{ claimed: boolean }> => {
-    const authority = await requireActiveRepositoryProvisioningContinuation(ctx, args);
-    if (authority.run.trigger !== "create" && authority.run.trigger !== "retry") {
-      throw new Error("Composed infrastructure run does not match repository.");
-    }
-    const repository = authority.repository;
-    if (!isLiveConnectedRepository(repository)) {
-      throw new Error("Repository not found.");
-    }
-    const plan = await ctx.db
-      .query("workflow_repositoryProvisioning_plans")
-      .withIndex("by_repository", (q) => q.eq("repositoryId", args.repositoryId))
-      .first();
-    if (!plan) {
-      throw new Error("Infrastructure provisioning plan not found for repository.");
-    }
-
-    const writeLock = await ctx.db
-      .query("workflow_repositoryProvisioning_writeLocks")
-      .withIndex("by_repository", (q) => q.eq("repositoryId", args.repositoryId))
-      .unique();
-    if (
-      !writeLock ||
-      writeLock.owner.kind !== "managed_run" ||
-      writeLock.owner.runId !== args.runId ||
-      writeLock.state !== "active"
-    ) {
-      await ctx.runMutation(internal.repositoryProvisioningRuns.appendRunEvent, {
-        runId: args.runId,
-        step: "claim_infra",
-        level: "warn",
-        message: "Infrastructure provisioning is already running.",
-        state: "canceled",
-      });
-      return { claimed: false };
-    }
-
-    await ctx.runMutation(internal.repositoryProvisioningRuns.appendRunEvent, {
-      runId: args.runId,
-      step: "claim_infra",
-      level: "info",
-      message: `Started infrastructure provisioning for ${plan.convexConfigPath}.`,
-      state: "running",
-    });
-
-    return { claimed: true };
-  },
-});
-
 export const finishComposedInfrastructureProvisioning = internalMutation({
   args: {
     repositoryId: id("repositories"),
@@ -629,322 +423,6 @@ export const finishComposedInfrastructureProvisioning = internalMutation({
     return null;
   },
 });
-
-async function readCurrentComposedInfrastructureState(
-  step: WorkflowCtx,
-  args: {
-    repositoryId: Id<"repositories">;
-    runId: Id<"workflow_repositoryProvisioning_runs">;
-    userId: Id<"users">;
-    name: string;
-  },
-): Promise<ComposedInfrastructureState> {
-  return await step.runQuery(
-    internal.repositoryProvisioningWorkflow.readComposedInfrastructureState,
-    {
-      repositoryId: args.repositoryId,
-      runId: args.runId,
-      userId: args.userId,
-    },
-    { name: args.name },
-  );
-}
-
-async function markComposedInfrastructureRunFailed(
-  step: WorkflowCtx,
-  args: {
-    runId: Id<"workflow_repositoryProvisioning_runs">;
-    name: string;
-    error: unknown;
-  },
-): Promise<void> {
-  await step
-    .runMutation(
-      internal.infraProvisioning.markWorkflowProvisioningFailed,
-      {
-        runId: args.runId,
-        workflowId: step.workflowId,
-        message: toErrorMessage(args.error),
-      },
-      { name: args.name, unstableArgs: true },
-    )
-    .catch((failureError: unknown) => {
-      console.warn("app:provision:composed_block_failure_record_failed", {
-        runId: args.runId,
-        error: toErrorMessage(failureError),
-      });
-    });
-}
-
-async function appendComposedInfrastructureParentEvent(
-  step: WorkflowCtx,
-  args: {
-    runId: Id<"workflow_repositoryProvisioning_runs">;
-    step: RepositoryProvisioningStep;
-    message: string;
-  },
-): Promise<void> {
-  await step.runMutation(
-    internal.repositoryProvisioningRuns.appendRunEvent,
-    {
-      runId: args.runId,
-      step: args.step,
-      level: "info",
-      message: args.message,
-      state: "running",
-    },
-    { name: `parent_${args.step}` },
-  );
-}
-
-async function runComposedConvexAttachment(
-  step: WorkflowCtx,
-  args: {
-    repositoryId: Id<"repositories">;
-    parentRunId: Id<"workflow_repositoryProvisioning_runs">;
-    userId: Id<"users">;
-    state: ComposedInfrastructureState;
-  },
-): Promise<Id<"repositoryConvexProjects">> {
-  if (args.state.convex.state === "attached") {
-    return args.state.convex.convexProjectId;
-  }
-
-  try {
-    return await step.runAction(
-      internal.repository.convex.ensureConvexProjectConnection,
-      {
-        repositoryId: args.repositoryId,
-        runId: args.parentRunId,
-        userId: args.userId,
-        convexConfigPath: args.state.convexConfigPath,
-        projectName: args.state.convex.projectName,
-      },
-      { name: "attach_convex", retry: false },
-    );
-  } catch (error) {
-    await markComposedInfrastructureRunFailed(step, {
-      runId: args.parentRunId,
-      name: "mark_attach_convex_failed",
-      error,
-    });
-    throw error;
-  }
-}
-
-async function runComposedCloudflareAttachment(
-  step: WorkflowCtx,
-  args: {
-    repositoryId: Id<"repositories">;
-    parentRunId: Id<"workflow_repositoryProvisioning_runs">;
-    userId: Id<"users">;
-    state: ComposedInfrastructureState;
-  },
-): Promise<Id<"repositoryCloudflareWorkers">> {
-  if (args.state.cloudflare.state === "attached") {
-    return args.state.cloudflare.workerId;
-  }
-
-  try {
-    return await step.runAction(
-      internal.repository.cloudflare.ensureCloudflareWorkerConnection,
-      {
-        repositoryId: args.repositoryId,
-        runId: args.parentRunId,
-        userId: args.userId,
-        accountId: args.state.cloudflare.accountId,
-        workerName: args.state.cloudflare.workerName,
-      },
-      { name: "attach_worker", retry: false },
-    );
-  } catch (error) {
-    await markComposedInfrastructureRunFailed(step, {
-      runId: args.parentRunId,
-      name: "mark_attach_worker_failed",
-      error,
-    });
-    throw error;
-  }
-}
-
-async function runComposedWorkersBuildsGitHubConfiguration(
-  step: WorkflowCtx,
-  args: {
-    repositoryId: Id<"repositories">;
-    parentRunId: Id<"workflow_repositoryProvisioning_runs">;
-    userId: Id<"users">;
-    workerId: Id<"repositoryCloudflareWorkers">;
-  },
-): Promise<ComposedCloudflareBuilds> {
-  try {
-    return await step.runAction(
-      internal.repository.cloudflare.configureWorkersBuildsForGitHubForWorkflow,
-      {
-        repositoryId: args.repositoryId,
-        runId: args.parentRunId,
-        userId: args.userId,
-        workerId: args.workerId,
-      },
-      { name: "configure_workers_builds_for_github", retry: false },
-    );
-  } catch (error) {
-    await markComposedInfrastructureRunFailed(step, {
-      runId: args.parentRunId,
-      name: "mark_configure_workers_builds_for_github_failed",
-      error,
-    });
-    throw error;
-  }
-}
-
-async function runComposedConvexDeployKeyRotation(
-  step: WorkflowCtx,
-  args: {
-    repositoryId: Id<"repositories">;
-    parentRunId: Id<"workflow_repositoryProvisioning_runs">;
-    userId: Id<"users">;
-    workerId: Id<"repositoryCloudflareWorkers">;
-    convexProjectId: Id<"repositoryConvexProjects">;
-    build: ComposedCloudflareBuilds;
-  },
-): Promise<void> {
-  try {
-    await step.runAction(
-      internal.repository.cloudflare.rotateConvexDeployKeysForWorkersBuildsForWorkflow,
-      {
-        repositoryId: args.repositoryId,
-        runId: args.parentRunId,
-        userId: args.userId,
-        workerId: args.workerId,
-        convexProjectId: args.convexProjectId,
-        build: args.build,
-      },
-      { name: "rotate_convex_deploy_keys_for_workers_builds", retry: false },
-    );
-  } catch (error) {
-    await markComposedInfrastructureRunFailed(step, {
-      runId: args.parentRunId,
-      name: "mark_rotate_convex_deploy_keys_for_workers_builds_failed",
-      error,
-    });
-    throw error;
-  }
-}
-
-async function runComposedInfrastructure(
-  step: WorkflowCtx,
-  args: {
-    repositoryId: Id<"repositories">;
-    parentRunId: Id<"workflow_repositoryProvisioning_runs">;
-    userId: Id<"users">;
-  },
-): Promise<void> {
-  const initialState = await readCurrentComposedInfrastructureState(step, {
-    repositoryId: args.repositoryId,
-    runId: args.parentRunId,
-    userId: args.userId,
-    name: "read_infra_target",
-  });
-  const { claimed } = await step.runMutation(
-    internal.repositoryProvisioningWorkflow.claimComposedInfrastructureProvisioning,
-    {
-      repositoryId: args.repositoryId,
-      runId: args.parentRunId,
-      userId: args.userId,
-    },
-    { name: "claim_composed_infrastructure" },
-  );
-  if (!claimed) {
-    return;
-  }
-
-  if (initialState.convex.state === "missing") {
-    await appendComposedInfrastructureParentEvent(step, {
-      runId: args.parentRunId,
-      step: "attach_convex",
-      message: "Attaching Convex project.",
-    });
-  }
-  const convexProjectId = await runComposedConvexAttachment(step, {
-    repositoryId: args.repositoryId,
-    parentRunId: args.parentRunId,
-    userId: args.userId,
-    state: initialState,
-  });
-
-  const buildTokenUuid = initialState.cloudflare.buildTokenUuid;
-  if (buildTokenUuid !== null) {
-    const afterConvex = await readCurrentComposedInfrastructureState(step, {
-      repositoryId: args.repositoryId,
-      runId: args.parentRunId,
-      userId: args.userId,
-      name: "read_infra_after_convex",
-    });
-    if (afterConvex.cloudflare.state === "missing") {
-      await appendComposedInfrastructureParentEvent(step, {
-        runId: args.parentRunId,
-        step: "attach_worker",
-        message: "Attaching Cloudflare Worker.",
-      });
-    }
-    const workerId = await runComposedCloudflareAttachment(step, {
-      repositoryId: args.repositoryId,
-      parentRunId: args.parentRunId,
-      userId: args.userId,
-      state: afterConvex,
-    });
-
-    await appendComposedInfrastructureParentEvent(step, {
-      runId: args.parentRunId,
-      step: "configure_workers_builds_for_github",
-      message: "Configuring Workers Builds for GitHub.",
-    });
-    const build = await runComposedWorkersBuildsGitHubConfiguration(step, {
-      repositoryId: args.repositoryId,
-      parentRunId: args.parentRunId,
-      userId: args.userId,
-      workerId,
-    });
-
-    await appendComposedInfrastructureParentEvent(step, {
-      runId: args.parentRunId,
-      step: "rotate_convex_deploy_keys_for_workers_builds",
-      message: "Rotating Convex deploy keys for Workers Builds.",
-    });
-    await runComposedConvexDeployKeyRotation(step, {
-      repositoryId: args.repositoryId,
-      parentRunId: args.parentRunId,
-      userId: args.userId,
-      workerId,
-      convexProjectId,
-      build,
-    });
-  }
-
-  await step.runMutation(
-    internal.repositoryProvisioningWorkflow.finishComposedInfrastructureProvisioning,
-    {
-      repositoryId: args.repositoryId,
-      runId: args.parentRunId,
-      userId: args.userId,
-    },
-    { name: "finish_composed_infrastructure_ownership" },
-  );
-  await step.runMutation(
-    internal.repositoryProvisioningRuns.appendRunEvent,
-    {
-      runId: args.parentRunId,
-      step: "finish",
-      level: "info",
-      message:
-        buildTokenUuid === null
-          ? "GitHub and Convex are ready. Cloudflare setup is required."
-          : "App provider resources are attached and configured.",
-      state: "succeeded",
-    },
-    { name: "finish_composed_infra" },
-  );
-}
 
 /**
 Samebase's part of a repository_actions setup, after connect_github_repository: the Actions secret
@@ -1031,27 +509,12 @@ export const provisionRepositoryInfrastructure = workflow.define({
       },
       { name: "read_retry_context" },
     );
-    const provisioning = readRetryProvisioning(retryContext);
-    switch (provisioning.mode) {
-      case "samebase":
-        await runComposedInfrastructure(step, {
-          repositoryId: args.repositoryId,
-          parentRunId: args.runId,
-          userId: retryContext.userId,
-        });
-        break;
-      case "repository_actions":
-        await runRepositoryActionsSetup(step, {
-          repositoryId: args.repositoryId,
-          runId: args.runId,
-          userId: retryContext.userId,
-          githubRepositoryDatabaseId: provisioning.githubRepositoryDatabaseId,
-        });
-        break;
-      default:
-        provisioning satisfies never;
-        throw new Error("Unknown provisioning mode.");
-    }
+    await runRepositoryActionsSetup(step, {
+      repositoryId: args.repositoryId,
+      runId: args.runId,
+      userId: retryContext.userId,
+      githubRepositoryDatabaseId: retryContext.provisioning.githubRepositoryDatabaseId,
+    });
 
     return null;
   },
@@ -1069,7 +532,7 @@ export const provisionApp = workflow.define({
   },
   returns: v.null(),
   handler: async (step, args): Promise<null> => {
-    const provisioning: RepositoryProvisioningMode = await step.runAction(
+    await step.runAction(
       internal.repositoryProvisioningWorkflowActions.validateCreateAppConnections,
       {
         repositoryId: args.repositoryId,
@@ -1107,40 +570,11 @@ export const provisionApp = workflow.define({
       },
       { name: "connect_github_repository", retry: false },
     );
-    if (provisioning === "repository_actions") {
-      await runRepositoryActionsSetup(step, {
-        repositoryId: args.repositoryId,
-        runId: args.runId,
-        userId: args.userId,
-        githubRepositoryDatabaseId: repository.githubRepositoryDatabaseId,
-      });
-      return null;
-    }
-
-    await step.runAction(
-      internal.repositoryProvisioningWorkflowActions.seedStarterRepository,
-      {
-        repositoryId: args.repositoryId,
-        runId: args.runId,
-        userId: args.userId,
-        githubRepositoryDatabaseId: repository.githubRepositoryDatabaseId,
-      },
-      { name: "seed_starter", retry: idempotentProviderStepRetry },
-    );
-    await step.runAction(
-      internal.repositoryProvisioningWorkflowActions.syncRepositoryTreeForRepository,
-      {
-        repositoryId: args.repositoryId,
-        runId: args.runId,
-        userId: args.userId,
-        githubRepositoryDatabaseId: repository.githubRepositoryDatabaseId,
-      },
-      { name: "sync_tree", retry: idempotentProviderStepRetry },
-    );
-    await runComposedInfrastructure(step, {
+    await runRepositoryActionsSetup(step, {
       repositoryId: args.repositoryId,
-      parentRunId: args.runId,
+      runId: args.runId,
       userId: args.userId,
+      githubRepositoryDatabaseId: repository.githubRepositoryDatabaseId,
     });
 
     return null;

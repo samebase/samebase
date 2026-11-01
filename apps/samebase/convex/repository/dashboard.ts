@@ -312,8 +312,10 @@ async function readManagedProviderPlan(
       ciSecrets: plan.ciSecrets,
     };
   }
+  // An old plan without its destinations reads like a finished old plan, so that one such row does
+  // not break the whole list of its organization.
   if (repository.convexTeamId === undefined || repository.cloudflareAccountId === undefined) {
-    throw new Error("Managed repository provider destinations are not configured.");
+    return null;
   }
 
   return {

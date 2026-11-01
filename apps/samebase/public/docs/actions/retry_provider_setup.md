@@ -4,24 +4,17 @@
 
 MCP tool `repository_retryProviderSetup` · scope `access_app_create` · destructive
 
-Starts a fresh Samebase-managed provider setup run. It re-reads the repository's current state,
-reuses attached Convex projects and Cloudflare Workers, and creates missing resources. When the
-managed plan requests Cloudflare, it configures Workers Builds and rotates Convex deploy keys even
-when those resources are already attached. Those steps can overwrite Builds settings, revoke
-recorded deploy keys, and start production builds.
+Starts a fresh setup run for a repository whose GitHub Actions setup failed. The retry writes the
+GitHub Actions secret and variable again and, when the starter was not seeded yet, seeds it and
+syncs the default branch tree. A starter that an earlier run pushed is found on main and not pushed
+again, and when main has commits that Samebase did not make, the seed fails instead of replacing
+them. It never creates or changes the Convex project: the repository's GitHub Actions own it.
 
-Only valid for live Samebase-managed repositories, which are repositories created by
-`repository_create`, after their managed provider setup failed and while no other provider operation
-runs. Connected repositories repair through the explicit attach, connect, Builds, and deploy-key
-actions instead. The first call checks these rules, so a retry that cannot start returns an error,
-not a confirmation request. Progress is readable through `repository_list` while the run executes.
-
-For a repository that its GitHub Actions set up (`repository_create` with provisioning
-repository_actions), the retry writes the GitHub Actions secret and variable again and, when the
-starter was not seeded yet, seeds it and syncs the default branch tree. A starter that an earlier
-run pushed is found on main and not pushed again, and when main has commits that Samebase did not
-make, the seed fails instead of replacing them. It never creates or changes the Convex project: the
-repository's GitHub Actions own it.
+Only valid for a live repository that `repository_create` created, after its setup failed and while
+no other provider operation runs. A connected repository, or a repository that Samebase set up
+before GitHub Actions did, has no setup to retry. The first call checks these rules, so a retry that
+cannot start returns an error, not a confirmation request. Progress is readable through
+`repository_list` while the run executes.
 
 Samebase confirms this action on the server, for the dashboard and MCP alike. A call without
 `confirmation` changes nothing and returns `needs_confirmation` with the effect in plain words, the

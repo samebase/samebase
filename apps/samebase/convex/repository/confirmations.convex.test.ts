@@ -185,26 +185,14 @@ describe("action confirmation check", () => {
     expect(tokens[0]?.expiresAt).toBe((tokens[0]?.createdAt ?? 0) + 10 * 60 * 1000);
   });
 
-  it("describes the retry that the repository's provisioning mode runs", async () => {
+  it("describes the retry of the GitHub Actions setup", async () => {
     const { ids, issue } = await createFixture();
 
-    const samebase = await issue({
-      action: "retry_provider_setup",
-      repositoryId: ids.repositoryId,
-      provisioning: "samebase",
-    });
     const repositoryActions = await issue({
       action: "retry_provider_setup",
       repositoryId: ids.repositoryId,
-      provisioning: "repository_actions",
     });
 
-    expect(samebase).toMatchObject({
-      effect:
-        "Samebase starts a new provider setup run for scout-owner/scout. It creates missing Convex and Cloudflare resources. When the setup includes Cloudflare, it rewrites the Workers Builds settings of the Worker, revokes and replaces the Convex deploy keys that it recorded, and starts a production build.",
-      acknowledgement:
-        "I approve a new provider setup run for scout-owner/scout, which can rewrite its Workers Builds settings and revoke and replace its Convex deploy keys",
-    });
     expect(repositoryActions).toMatchObject({
       effect:
         "Samebase starts a new setup run for scout-owner/scout. It writes the credential of the organization's Convex connection into the repository's GitHub Actions secret CONVEX_ACCESS_TOKEN and the Convex team id into its variable CONVEX_TEAM_ID, replacing their values. If the starter is not seeded yet, it seeds the starter, which starts a deployment in the repository's GitHub Actions. Then it syncs the default branch tree.",
@@ -357,7 +345,6 @@ describe("action confirmation check", () => {
     const retryChallenge = await issue({
       action: "retry_provider_setup",
       repositoryId: ids.repositoryId,
-      provisioning: "samebase",
     });
     const workerChallenge = await issue(detachWorker);
 

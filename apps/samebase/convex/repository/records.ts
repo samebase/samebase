@@ -24,7 +24,6 @@ import {
   vGitHubRepositoryVisibility,
   vRepositoryConnectedGitHubTarget,
 } from "./model";
-import { REPOSITORY_ROOT_DIRECTORY } from "../../shared/repositoryRootDirectory";
 import {
   isConnectedRepository,
   isLiveConnectedRepository,
@@ -40,12 +39,10 @@ import {
   requireBillingResourceCapacity,
   requireBillingResourceCapacityForAuthority,
 } from "../billingResourceQuotas";
-import { vConvexDeploymentRegion } from "../convexDeploymentRegionModel";
 import { startTenantConnectionSync } from "../hubClients/tenantConnection";
-import type { RepositoryProvisioningMode } from "./provisioningModel";
 
 const nullValidator = v.null();
-const { array, id, literal, object, optional, string, union } = v;
+const { array, id, object, optional, string, union } = v;
 
 // Get a specific repository by repository full name for a user
 export const getRepositoryByRepository = query({
@@ -77,8 +74,6 @@ export const getByIdForUser = internalQuery({
 
 const vRepositoryProviderTargets = object({
   convexTeamId: string(),
-  /** Null for a repository_actions repository, which has no Cloudflare account. */
-  cloudflareAccountId: union(string(), nullValidator),
 });
 
 const vGitHubIdentityConnectedRepository = object({
@@ -258,7 +253,6 @@ export const getProviderTargetsForProvisioningRun = internalQuery({
     }
     return {
       convexTeamId: repository.convexTeamId,
-      cloudflareAccountId: repository.cloudflareAccountId ?? null,
     };
   },
 });
@@ -370,33 +364,17 @@ async function requireRepositoryGitHubOwner(
 }
 
 /**
-The provider destinations that a new repository records. A repository_actions repository records
-only the Convex team: its GitHub Actions deploy to Convex, also when the organization has a
-Cloudflare account.
+The provider destination that a new repository records: only the Convex team. Its GitHub Actions
+deploy to Convex, also when the organization has a Cloudflare account.
 */
-function requireOrganizationProviderDestinations(
-  organization: Doc<"organizations">,
-  provisioning: RepositoryProvisioningMode,
-): { convexTeamId: string; cloudflareAccountId?: string } {
+function requireOrganizationProviderDestinations(organization: Doc<"organizations">): {
+  convexTeamId: string;
+} {
   const convexTeamId = organization.convexTeam?.teamId.trim();
-  const cloudflareAccountId = organization.cloudflareAccount?.accountId.trim();
-  switch (provisioning) {
-    case "samebase":
-      if (!convexTeamId || !cloudflareAccountId) {
-        throw new Error(
-          "Convex and Cloudflare destinations are required before creating a repository.",
-        );
-      }
-      return { convexTeamId, cloudflareAccountId };
-    case "repository_actions":
-      if (!convexTeamId) {
-        throw new Error("A Convex destination is required before creating a repository.");
-      }
-      return { convexTeamId };
-    default:
-      provisioning satisfies never;
-      throw new Error("Unknown provisioning mode.");
+  if (!convexTeamId) {
+    throw new Error("A Convex destination is required before creating a repository.");
   }
+  return { convexTeamId };
 }
 
 async function insertDefaultRepositoryResourceLinksState(
@@ -626,17 +604,6 @@ export const createInitializingSamebaseManagedRepositoryForUser = internalMutati
     visibility: vGitHubRepositoryVisibility,
     description: union(string(), nullValidator),
     convexTeamId: string(),
-    plan: union(
-      object({
-        provisioning: literal("samebase"),
-        cloudflareAccountId: string(),
-        convexProjectName: string(),
-        convexDeploymentRegion: vConvexDeploymentRegion,
-        cloudflareWorkerName: string(),
-        cloudflareBuildTokenUuid: union(string(), nullValidator),
-      }),
-      object({ provisioning: literal("repository_actions") }),
-    ),
   },
   returns: object({
     repositoryId: id("repositories"),
@@ -667,27 +634,20 @@ export const createInitializingSamebaseManagedRepositoryForUser = internalMutati
       userId: args.userId,
       githubOwnerLogin: requestedGitHubOwnerLogin,
     });
-    if (args.plan.provisioning === "repository_actions") {
-      // The repository receives the organization's team-wide Convex credential, and anyone who can
-      // push a workflow to it can read that credential.
-      const { role } = await requireOrganizationMembership(ctx.db, {
-        userId: args.userId,
-        organizationId: args.organizationId,
-      });
-      if (role !== "owner") {
-        throw new ConvexError(
-          "Only an organization owner can create a repository that its GitHub Actions deploy, because it receives the organization's Convex credential.",
-        );
-      }
+    // The repository receives the organization's team-wide Convex credential, and anyone who can
+    // push a workflow to it can read that credential.
+    const { role } = await requireOrganizationMembership(ctx.db, {
+      userId: args.userId,
+      organizationId: args.organizationId,
+    });
+    if (role !== "owner") {
+      throw new ConvexError(
+        "Only an organization owner can create a repository that its GitHub Actions deploy, because it receives the organization's Convex credential.",
+      );
     }
     const githubOwnerLogin = organization.githubOwnerLogin;
-    const { plan } = args;
-    const destinations = requireOrganizationProviderDestinations(organization, plan.provisioning);
-    if (
-      destinations.convexTeamId !== args.convexTeamId ||
-      (plan.provisioning === "samebase" &&
-        destinations.cloudflareAccountId !== plan.cloudflareAccountId)
-    ) {
+    const destinations = requireOrganizationProviderDestinations(organization);
+    if (destinations.convexTeamId !== args.convexTeamId) {
       throw new Error("Organization provider destinations changed before repository creation.");
     }
     await assertOrganizationHasNoRepositoryNamed(ctx, {
@@ -755,41 +715,15 @@ export const createInitializingSamebaseManagedRepositoryForUser = internalMutati
       createdAt: now,
       sourceOrder: { creationTime: now, documentId: crypto.randomUUID() },
     });
-    switch (plan.provisioning) {
-      case "samebase":
-        await ctx.db.insert("workflow_repositoryProvisioning_plans", {
-          repositoryId,
-          convexConfigPath: "convex.json",
-          convex: {
-            state: "planned",
-            projectName: plan.convexProjectName,
-            deploymentRegion: plan.convexDeploymentRegion,
-          },
-          cloudflare: {
-            state: "planned",
-            workerName: plan.cloudflareWorkerName,
-            rootDirectory: REPOSITORY_ROOT_DIRECTORY,
-            buildTokenUuid: plan.cloudflareBuildTokenUuid,
-          },
-          createdAt: now,
-          updatedAt: now,
-        });
-        break;
-      case "repository_actions":
-        await ctx.db.insert("workflow_repositoryProvisioning_plans", {
-          provisioning: "repository_actions",
-          repositoryId,
-          convexConfigPath: "convex.json",
-          ciSecrets: { state: "planned" },
-          seed: { state: "planned" },
-          createdAt: now,
-          updatedAt: now,
-        });
-        break;
-      default:
-        plan satisfies never;
-        throw new Error("Unknown provisioning mode.");
-    }
+    await ctx.db.insert("workflow_repositoryProvisioning_plans", {
+      provisioning: "repository_actions",
+      repositoryId,
+      convexConfigPath: "convex.json",
+      ciSecrets: { state: "planned" },
+      seed: { state: "planned" },
+      createdAt: now,
+      updatedAt: now,
+    });
     const workflowId = await startCreateRepositoryProvisioningWorkflow(ctx, {
       repositoryId,
       runId,

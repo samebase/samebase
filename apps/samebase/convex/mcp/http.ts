@@ -88,7 +88,7 @@ const MCP_SERVER_INFO = {
 // routing, the creation sequence, the confirmation rule, and the dashboard hand-off (rfcs/125).
 const MCP_SERVER_INSTRUCTIONS = `Samebase manages repositories: a GitHub repository with its attached Cloudflare Workers and Convex projects. For other repositories, standalone provider resources, code, logs, environment variables, and domains, use GitHub, Cloudflare, or Convex tools. Name a repository by owner/name.
 
-To create a repository, call ${createRepositoryContract.mcp.name} once (Samebase picks the build token), then poll only ${getUserRepositoriesContract.mcp.name} until source and provider setup are ready or failed. For build, deployment, check, or pull request questions, call ${getRepositoryStatusContract.mcp.name} and follow its attention items. Ready setup, a build request, or a push does not prove that the app is live.
+To create a repository, call ${createRepositoryContract.mcp.name} once, then poll only ${getUserRepositoriesContract.mcp.name} until source and provider setup are ready or failed. For build, deployment, check, or pull request questions, call ${getRepositoryStatusContract.mcp.name} and follow its attention items. Ready setup, a build request, or a push does not prove that the app is live.
 
 When a result asks for a choice, ask the user and pass the choice. A needs_confirmation result changed nothing: state its effect, and repeat the call with its token and exact acknowledgement only after the user approves.
 

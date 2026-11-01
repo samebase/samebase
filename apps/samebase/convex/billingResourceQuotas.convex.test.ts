@@ -266,14 +266,6 @@ describe("pooled organization connection quotas", () => {
         visibility: "private",
         description: null,
         convexTeamId: "convex-team",
-        plan: {
-          provisioning: "samebase",
-          cloudflareAccountId: "cloudflare-account",
-          convexProjectName: "managed-blocked",
-          convexDeploymentRegion: "aws-us-east-1",
-          cloudflareWorkerName: "managed-blocked",
-          cloudflareBuildTokenUuid: "build-token",
-        },
       }),
     ).rejects.toThrow("Organization connection limit reached (12).");
 
@@ -314,14 +306,6 @@ describe("pooled organization connection quotas", () => {
         visibility: "private",
         description: null,
         convexTeamId: "convex-team",
-        plan: {
-          provisioning: "samebase",
-          cloudflareAccountId: "cloudflare-account",
-          convexProjectName: "managed-race",
-          convexDeploymentRegion: "aws-us-east-1",
-          cloudflareWorkerName: "managed-race",
-          cloudflareBuildTokenUuid: "build-token",
-        },
       },
     );
     await t.mutation(internal.repository.cloudflareMutations.attachWorkers, {

@@ -71,7 +71,7 @@ export const getById = internalQuery({
   },
 });
 
-/** The admission rules of a retry: a live Samebase-managed repository whose managed provider setup failed, with no other provider operation running. */
+/** The admission rules of a retry: a live Samebase-managed repository whose GitHub Actions setup failed, with no other provider operation running. An old plan has no setup steps left to run. */
 async function requireRetryAdmission(
   ctx: MutationCtx,
   args: { userId: Id<"users">; repositoryId: Id<"repositories"> },
@@ -110,15 +110,15 @@ async function requireRetryAdmission(
   if (!failedRun || failedRun.state !== "failed" || failedRun.repositoryId !== args.repositoryId) {
     throw new Error("Failed managed setup does not match this repository.");
   }
-  // A repository_actions retry resumes everything after connect_github_repository: the secrets,
-  // the seed (skipped once the plan records it), and the tree sync. So a create or retry run that
-  // failed in the seed or the sync can be retried as well.
+  // A retry resumes everything after connect_github_repository: the secrets, the seed (skipped once
+  // the plan records it), and the tree sync. So a create or retry run that failed in the seed or
+  // the sync can be retried as well.
   const isResumableRepositoryActionsRetry =
-    plan !== null &&
-    readRepositoryProvisioningMode(plan) === "repository_actions" &&
     (failedRun.trigger === "create" || failedRun.trigger === "retry") &&
     (failedRun.currentStep === "seed_starter" || failedRun.currentStep === "sync_tree");
   if (
+    plan === null ||
+    readRepositoryProvisioningMode(plan) !== "repository_actions" ||
     failedRun.trigger === "connect_existing_repository" ||
     (!isRepositoryProvisioningProviderStep(failedRun.currentStep) &&
       !(failedRun.trigger === "retry" && failedRun.currentStep === "run_created") &&
@@ -128,12 +128,7 @@ async function requireRetryAdmission(
       "A provider setup retry cannot repair this failed setup, so nothing changed. Check this repository in the Samebase dashboard for recovery steps.",
     );
   }
-  return {
-    connectedRepository,
-    organization,
-    failedWrite,
-    provisioning: plan === null ? "samebase" : readRepositoryProvisioningMode(plan),
-  };
+  return { connectedRepository, organization, failedWrite };
 }
 
 /**
@@ -151,15 +146,14 @@ export const createRetryForRepository = internalMutation({
   },
   returns: retryInfrastructureProvisioningContract.returns,
   handler: async (ctx, args): Promise<ActionConfirmationRequest | null> => {
-    const { connectedRepository, organization, failedWrite, provisioning } =
-      await requireRetryAdmission(ctx, {
-        userId: args.userId,
-        repositoryId: args.repositoryId,
-      });
+    const { connectedRepository, organization, failedWrite } = await requireRetryAdmission(ctx, {
+      userId: args.userId,
+      repositoryId: args.repositoryId,
+    });
     const confirmation = await checkActionConfirmation(ctx, {
       userId: args.userId,
       surface: args.surface,
-      request: { action: "retry_provider_setup", repositoryId: args.repositoryId, provisioning },
+      request: { action: "retry_provider_setup", repositoryId: args.repositoryId },
       confirmation: args.confirmation,
     });
     if (confirmation.state === "needs_confirmation") {
@@ -194,11 +188,9 @@ export const createRetryForRepository = internalMutation({
       runId,
     });
     const queuedAt = Date.now();
-    const queuedStep =
-      provisioning === "repository_actions" ? "write_actions_secrets" : "claim_infra";
     await ctx.db.patch(runId, {
       workflowId,
-      currentStep: queuedStep,
+      currentStep: "write_actions_secrets",
       updatedAt: queuedAt,
     });
     await ctx.db.insert("workflow_repositoryProvisioning_events", {
@@ -206,12 +198,9 @@ export const createRetryForRepository = internalMutation({
       repositoryId: args.repositoryId,
       githubRepositoryFullName,
       runId,
-      step: queuedStep,
+      step: "write_actions_secrets",
       level: "info",
-      message:
-        provisioning === "repository_actions"
-          ? "Queued the GitHub Actions secrets."
-          : "Queued infrastructure provisioning.",
+      message: "Queued the GitHub Actions secrets.",
       createdAt: queuedAt,
       sourceOrder: {
         creationTime: queuedAt,

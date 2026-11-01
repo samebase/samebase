@@ -497,15 +497,6 @@ export async function readCloudflareWorkerIdentityByTag(
   return worker ? readCloudflareWorkerDetails(worker, args.workerTag) : null;
 }
 
-export async function isCloudflareWorkerNameAvailable(args: {
-  token: string;
-  accountId: string;
-  workerName: string;
-  transport: CloudflareApiTransport;
-}): Promise<boolean> {
-  return (await readCloudflareWorkerIdentity(args)) === null;
-}
-
 export function readCloudflareWorkerTag(
   worker: CloudflareWorkerTagSource,
   workerName: string,

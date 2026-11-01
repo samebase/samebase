@@ -36,8 +36,6 @@ vi.mock("./starterSeed", async (importOriginal) => {
 import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { actionsStarterTemplateManifest } from "./starterSeedManifest.actions.generated";
-import { isSamebaseProvisioningPlan } from "./repository/provisioningPlan";
-import { startRepositoryInfrastructureProvisioningWorkflow } from "./repositoryProvisioningWorkflow";
 import {
   insertTestOrganizationBillingAccount,
   makeConvexTest,
@@ -45,7 +43,7 @@ import {
   testCredential,
 } from "./test.setup";
 
-async function createComposedRepository(buildTokenUuid: string | null = "build-token") {
+async function createComposedRepository() {
   const t = makeConvexTest();
   const ids = await t.run(async (ctx) => {
     const userId = await ctx.db.insert("users", {
@@ -123,7 +121,7 @@ async function createComposedRepository(buildTokenUuid: string | null = "build-t
         state: "planned",
         workerName: "composed-app",
         rootDirectory: "/",
-        buildTokenUuid,
+        buildTokenUuid: "build-token",
       },
       createdAt: 30,
       updatedAt: 30,
@@ -139,172 +137,11 @@ async function createComposedRepository(buildTokenUuid: string | null = "build-t
   return { ids, t };
 }
 
-async function attachComposedResources({
-  ids,
-  t,
-}: Awaited<ReturnType<typeof createComposedRepository>>) {
-  return await t.run(async (ctx) => {
-    const plan = await ctx.db.get(ids.planId);
-    if (!isSamebaseProvisioningPlan(plan)) {
-      throw new Error("Expected a samebase provisioning plan.");
-    }
-    await ctx.db.patch(plan._id, {
-      convex: {
-        state: "created",
-        projectName: "composed-app",
-        deploymentRegion: "aws-eu-west-1",
-        projectId: "convex-project",
-      },
-      cloudflare: {
-        state: "created",
-        workerName: "composed-app",
-        workerTag: "composed-worker-tag",
-        rootDirectory: plan.cloudflare.rootDirectory,
-        buildTokenUuid: "build-token",
-      },
-    });
-    const convexProjectId = await ctx.db.insert("repositoryConvexProjects", {
-      repositoryId: ids.repositoryId,
-      organizationId: ids.organizationId,
-      teamId: "convex-team",
-      projectId: "convex-project",
-      convexConfigPath: "convex.json",
-      origin: "provisioned",
-    });
-    const workerId = await ctx.db.insert("repositoryCloudflareWorkers", {
-      repositoryId: ids.repositoryId,
-      organizationId: ids.organizationId,
-      accountId: "cloudflare-account",
-      workerName: "composed-app",
-      workerTag: "composed-worker-tag",
-      rootDirectory: plan.cloudflare.rootDirectory,
-      origin: "provisioned",
-    });
-    return { convexProjectId, workerId };
-  });
-}
-
-describe("app provisioning workflow composition", () => {
-  it("maps the provisioning root to the Convex config path and reads exact attachments", async () => {
-    const { ids, t } = await createComposedRepository();
-
-    await expect(
-      t.query(internal.repositoryProvisioningWorkflow.readComposedInfrastructureState, {
-        runId: ids.runId,
-        userId: ids.userId,
-        repositoryId: ids.repositoryId,
-      }),
-    ).resolves.toEqual({
-      convexConfigPath: "convex.json",
-      convex: {
-        state: "missing",
-        projectName: "composed-app",
-      },
-      cloudflare: {
-        state: "missing",
-        accountId: "cloudflare-account",
-        workerName: "composed-app",
-        buildTokenUuid: "build-token",
-      },
-    });
-
-    const attachments = await attachComposedResources({ ids, t });
-
-    await expect(
-      t.query(internal.repositoryProvisioningWorkflow.readComposedInfrastructureState, {
-        runId: ids.runId,
-        userId: ids.userId,
-        repositoryId: ids.repositoryId,
-      }),
-    ).resolves.toMatchObject({
-      convex: { state: "attached", convexProjectId: attachments.convexProjectId },
-      cloudflare: { state: "attached", workerId: attachments.workerId },
-    });
-  });
-
-  it("skips Cloudflare setup when the confirmed token list was empty", async () => {
-    const { ids, t } = await createComposedRepository(null);
-    await t.run(async (ctx) => {
-      await ctx.db.patch(ids.planId, {
-        convex: {
-          state: "created",
-          projectName: "composed-app",
-          deploymentRegion: "aws-eu-west-1",
-          projectId: "convex-project",
-        },
-      });
-      await ctx.db.insert("repositoryConvexProjects", {
-        repositoryId: ids.repositoryId,
-        organizationId: ids.organizationId,
-        teamId: "convex-team",
-        projectId: "convex-project",
-        convexConfigPath: "convex.json",
-        origin: "provisioned",
-      });
-    });
-
-    vi.useFakeTimers();
-    try {
-      const workflowId = await t.run(async (ctx) => {
-        return await startRepositoryInfrastructureProvisioningWorkflow(ctx, {
-          repositoryId: ids.repositoryId,
-          runId: ids.runId,
-        });
-      });
-      await t.run(async (ctx) => await ctx.db.patch(ids.runId, { workflowId }));
-      await t.finishAllScheduledFunctions(vi.runAllTimers);
-
-      const result = await t.run(async (ctx) => {
-        const events = await ctx.db
-          .query("workflow_repositoryProvisioning_events")
-          .withIndex("by_run_and_created_at_and_source_order", (q) => q.eq("runId", ids.runId))
-          .collect();
-        return {
-          run: await ctx.db.get(ids.runId),
-          steps: events.map((event) => event.step),
-          write: await ctx.db
-            .query("workflow_repositoryProvisioning_writeLocks")
-            .withIndex("by_repository", (q) => q.eq("repositoryId", ids.repositoryId))
-            .unique(),
-          plan: await ctx.db.get(ids.planId),
-          workers: await ctx.db.query("repositoryCloudflareWorkers").take(1),
-        };
-      });
-
-      expect(result.run).toMatchObject({ state: "succeeded", currentStep: "finish" });
-      expect(result.write).toMatchObject({
-        owner: { kind: "managed_run", runId: ids.runId },
-        state: "succeeded",
-      });
-      expect(result.steps).toContain("claim_infra");
-      expect(result.steps).toContain("finish");
-      expect(result.steps).not.toContain("attach_worker");
-      expect(result.steps).not.toContain("configure_workers_builds_for_github");
-      expect(result.steps).not.toContain("rotate_convex_deploy_keys_for_workers_builds");
-      expect(result.plan).toMatchObject({
-        convex: { state: "created", projectId: "convex-project" },
-        cloudflare: { state: "planned", buildTokenUuid: null },
-      });
-      expect(result.workers).toEqual([]);
-    } finally {
-      vi.useRealTimers();
-    }
-  });
-
+describe("provisioning write lock ownership", () => {
   it("keeps managed provider freshness when infrastructure ownership completes", async () => {
     const { ids, t } = await createComposedRepository();
-    await attachComposedResources({ ids, t });
     vi.useFakeTimers();
     try {
-      vi.setSystemTime(1_000);
-      await t.mutation(
-        internal.repositoryProvisioningWorkflow.claimComposedInfrastructureProvisioning,
-        {
-          userId: ids.userId,
-          repositoryId: ids.repositoryId,
-          runId: ids.runId,
-        },
-      );
       vi.setSystemTime(2_000);
       await t.mutation(internal.repository.infrastructureOperation.recordManagedProviderWrites, {
         repositoryId: ids.repositoryId,
@@ -413,15 +250,6 @@ describe("app provisioning workflow composition", () => {
 
   it("records a managed provider failure without a finish event", async () => {
     const { ids, t } = await createComposedRepository();
-    await attachComposedResources({ ids, t });
-    await t.mutation(
-      internal.repositoryProvisioningWorkflow.claimComposedInfrastructureProvisioning,
-      {
-        userId: ids.userId,
-        repositoryId: ids.repositoryId,
-        runId: ids.runId,
-      },
-    );
     await t.mutation(internal.repositoryProvisioningRuns.appendRunEvent, {
       runId: ids.runId,
       step: "rotate_convex_deploy_keys_for_workers_builds",
@@ -470,19 +298,19 @@ describe("app provisioning workflow composition", () => {
         githubRepositoryFullName: "ada/composed-app",
         trigger: "retry",
         state: "running",
-        currentStep: "claim_infra",
+        currentStep: "write_actions_secrets",
         createdAt: 100,
         updatedAt: 100,
       });
     });
 
     await expect(
-      t.mutation(internal.repositoryProvisioningWorkflow.claimComposedInfrastructureProvisioning, {
+      t.query(internal.repositoryProvisioningWorkflow.readProvisioningModeForRun, {
         userId: ids.userId,
         repositoryId: ids.repositoryId,
         runId: retryRunId,
       }),
-    ).resolves.toEqual({ claimed: false });
+    ).rejects.toThrow("Provisioning run no longer holds the provisioning write lock.");
 
     await expect(
       t.run(
@@ -496,6 +324,73 @@ describe("app provisioning workflow composition", () => {
       owner: { kind: "managed_run", runId: ids.runId },
       state: "active",
     });
+  });
+});
+
+/** The old plan's Cloudflare and Convex fields stay valid, and no setup step reads them any more. */
+describe("old provisioning plan rows", () => {
+  async function listRepository({ ids, t }: Awaited<ReturnType<typeof createComposedRepository>>) {
+    const viewer = t.withIdentity({ subject: ids.userId, tokenIdentifier: `test:${ids.userId}` });
+    await t.run(async (ctx) => {
+      await ctx.db.patch(ids.runId, { state: "succeeded", currentStep: "finish" });
+      const writeLock = await ctx.db
+        .query("workflow_repositoryProvisioning_writeLocks")
+        .withIndex("by_repository", (q) => q.eq("repositoryId", ids.repositoryId))
+        .unique();
+      if (writeLock) {
+        await ctx.db.patch(writeLock._id, { state: "succeeded" });
+      }
+    });
+    return (await viewer.query(api.repository.list, {})).at(0);
+  }
+
+  it("lists a repository whose old plan has no Cloudflare account, like a finished old plan", async () => {
+    const finished = await createComposedRepository();
+    const finishedRepository = await listRepository(finished);
+    expect(finishedRepository?.providerPlan).toMatchObject({ convex: { state: "planned" } });
+
+    const noAccount = await createComposedRepository();
+    await noAccount.t.run(async (ctx) => {
+      const repository = await ctx.db.get(noAccount.ids.repositoryId);
+      if (repository?.state !== "connected") {
+        throw new Error("Expected a connected repository.");
+      }
+      const { cloudflareAccountId: _removed, _id, _creationTime, ...withoutAccount } = repository;
+      await ctx.db.replace(_id, withoutAccount);
+    });
+
+    const listed = await listRepository(noAccount);
+
+    expect(listed).toMatchObject({
+      providerPlan: null,
+      sourceSetup: finishedRepository?.sourceSetup,
+      providerSetup: finishedRepository?.providerSetup,
+    });
+  });
+
+  it("stops a create run on an old plan before it creates the GitHub repository", async () => {
+    const { ids, t } = await createComposedRepository();
+
+    await expect(
+      t.action(internal.repositoryProvisioningWorkflowActions.validateCreateAppConnections, {
+        repositoryId: ids.repositoryId,
+        runId: ids.runId,
+        userId: ids.userId,
+        githubRepositoryName: "composed-app",
+        githubOwnerLogin: "ada",
+      }),
+    ).rejects.toThrow("Provisioning run does not match repository_actions setup.");
+  });
+
+  it("stops a retry workflow on an old plan at its first read", async () => {
+    const { ids, t } = await createComposedRepository();
+
+    await expect(
+      t.query(internal.repositoryProvisioningWorkflow.readComposedInfrastructureRetryContext, {
+        repositoryId: ids.repositoryId,
+        runId: ids.runId,
+      }),
+    ).rejects.toThrow("Only a repository_actions repository can retry its setup.");
   });
 });
 
@@ -567,7 +462,7 @@ function createFakeGitHub(options: {
     if (mainHistory.length === 0) {
       mainHistory.push(BOOTSTRAP_COMMIT);
     }
-    await args.branchFirst?.beforeStarterPush({ treeSha: SEED_COMMIT.treeSha });
+    await args.branchFirst.beforeStarterPush({ treeSha: SEED_COMMIT.treeSha });
     const stop = seedStops.shift();
     if (stop === "foreign_commit_before_push") {
       mainHistory.unshift(FOREIGN_COMMIT);
@@ -764,7 +659,6 @@ async function createRepositoryActionsRepository(
       visibility: "private",
       description: null,
       convexTeamId: "41",
-      plan: { provisioning: "repository_actions" },
     },
   );
   await t.finishAllScheduledFunctions(vi.runAllTimers);

@@ -3,7 +3,6 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { api, internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { makeConvexTest } from "../test.setup";
-import { isSamebaseProvisioningPlan } from "./provisioningPlan";
 
 type ConvexTest = ReturnType<typeof makeConvexTest>;
 
@@ -191,10 +190,6 @@ describe("organization-owned repositories", () => {
       asMember.action(api.repository.create, {
         organizationId: organization.organizationId,
         githubRepositoryName: "member-app",
-        convexProjectName: "member-app",
-        convexDeploymentRegion: "aws-us-east-1",
-        cloudflareWorkerName: "member-app",
-        cloudflareBuildTokenUuid: "build-token",
         private: true,
       }),
     ).rejects.toThrow("GitHub user authorization is not available for this owner.");
@@ -681,14 +676,6 @@ describe("organization-owned repositories", () => {
         visibility: "private",
         description: null,
         convexTeamId: expectedDestinations.convexTeamId,
-        plan: {
-          provisioning: "samebase",
-          cloudflareAccountId: expectedDestinations.cloudflareAccountId,
-          convexProjectName: "managed-app",
-          convexDeploymentRegion: "aws-us-east-1",
-          cloudflareWorkerName: "managed-app",
-          cloudflareBuildTokenUuid: "build-token",
-        },
       },
     );
     const initialManagedState = await t.run(async (ctx) => {
@@ -703,14 +690,11 @@ describe("organization-owned repositories", () => {
     });
     expect(initialManagedState.existingRun).toMatchObject({ organizationId });
     expect(initialManagedState.managedRun).toMatchObject({ organizationId });
-    expect(initialManagedState.repository).toMatchObject(expectedDestinations);
-    const initialPlan = initialManagedState.plan;
-    if (!isSamebaseProvisioningPlan(initialPlan)) {
-      throw new Error("Expected a samebase provisioning plan.");
-    }
-    expect(initialPlan.convex).not.toHaveProperty("teamId");
-    expect(initialPlan.cloudflare).toMatchObject({ buildTokenUuid: "build-token" });
-    expect(initialPlan.cloudflare).not.toHaveProperty("accountId");
+    expect(initialManagedState.repository).toMatchObject({
+      convexTeamId: expectedDestinations.convexTeamId,
+    });
+    expect(initialManagedState.repository).not.toHaveProperty("cloudflareAccountId");
+    expect(initialManagedState.plan).toMatchObject({ provisioning: "repository_actions" });
 
     await t.mutation(internal.repository.records.connectSamebaseManagedRepositoryGitHub, {
       ...managed,
@@ -730,8 +714,9 @@ describe("organization-owned repositories", () => {
     });
     expect(connectedRepositories).toEqual([
       expect.objectContaining(expectedDestinations),
-      expect.objectContaining(expectedDestinations),
+      expect.objectContaining({ convexTeamId: expectedDestinations.convexTeamId }),
     ]);
+    expect(connectedRepositories[1]).not.toHaveProperty("cloudflareAccountId");
   });
 
   it("preserves organization destinations when either provisioning path fails", async () => {
@@ -766,14 +751,6 @@ describe("organization-owned repositories", () => {
         visibility: "private",
         description: null,
         convexTeamId: expectedDestinations.convexTeamId,
-        plan: {
-          provisioning: "samebase",
-          cloudflareAccountId: expectedDestinations.cloudflareAccountId,
-          convexProjectName: "managed-failure",
-          convexDeploymentRegion: "aws-us-east-1",
-          cloudflareWorkerName: "managed-failure",
-          cloudflareBuildTokenUuid: "build-token",
-        },
       },
     );
 
@@ -792,7 +769,7 @@ describe("organization-owned repositories", () => {
     });
     expect(failedRepositories).toEqual([
       expect.objectContaining({ ...expectedDestinations, state: "failed" }),
-      expect.objectContaining({ ...expectedDestinations, state: "failed" }),
+      expect.objectContaining({ convexTeamId: expectedDestinations.convexTeamId, state: "failed" }),
     ]);
   });
 
