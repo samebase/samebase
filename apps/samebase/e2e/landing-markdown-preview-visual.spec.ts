@@ -348,13 +348,21 @@ test("landing document navigation resets pages, restores history, and aligns dir
   await expect.poll(() => readMainPaneScrollTop(page)).toBeGreaterThan(0);
   const overviewScrollTop = await readMainPaneScrollTop(page);
 
+  const docsSidebar = page.getByTestId(DOCS_SIDEBAR_TEST_ID);
+  const stackLink = docsSidebar.getByRole("link", { exact: true, name: "The stack" });
+  await docsSidebar.getByText("Docs", { exact: true }).click();
+  await expect(stackLink).toBeHidden();
+  await expect(page).toHaveURL(new RegExp(`${LANDING_PAGE_ROUTE}$`));
   await doItYourselfLink.click();
 
   await expect(page).toHaveURL(new RegExp(`${DOCS_DO_IT_YOURSELF_ROUTE}$`));
+  // Playwright clicks the center of the row, which is empty space.
+  await docsSidebar.getByRole("button", { name: "Expand Docs" }).click();
+  await expect(stackLink).toBeVisible();
   const currentDocsLink = page.getByTestId(DOCS_SIDEBAR_TEST_ID).locator('a[aria-current="page"]');
   await expect(currentDocsLink).toHaveText("Do it yourself");
-  await expect(currentDocsLink).toHaveCSS("font-weight", "400");
-  await expect(currentDocsLink).toHaveCSS("padding", "2px 6px");
+  await expect(currentDocsLink.locator("span")).toHaveCSS("font-weight", "400");
+  await expect(currentDocsLink.locator("span")).toHaveCSS("padding", "2px 6px");
   await expect.poll(() => readMainPaneScrollTop(page)).toBe(0);
   await expect(
     article.getByRole("heading", {
@@ -670,7 +678,7 @@ test("docs index renders the docs navigation in the main pane", async ({ page })
   });
 });
 
-test("landing do-it-yourself mobile pane query opens the flat sidebar", async ({ page }) => {
+test("landing do-it-yourself mobile pane query opens the sidebar", async ({ page }) => {
   await page.setViewportSize({ width: 744, height: 1200 });
   await page.goto(`${DOCS_DO_IT_YOURSELF_ROUTE}?left&dark`, {
     waitUntil: "domcontentloaded",
@@ -683,7 +691,7 @@ test("landing do-it-yourself mobile pane query opens the flat sidebar", async ({
   const sidebar = page.getByTestId(DOCS_SIDEBAR_TEST_ID);
   await expect(sidebar).toBeVisible();
   await expect(sidebar.locator('a[aria-current="page"]')).toHaveText("Do it yourself");
-  await expect(sidebar.locator('a[aria-current="page"]')).toHaveCSS(
+  await expect(sidebar.locator('a[aria-current="page"] span')).toHaveCSS(
     "background-color",
     "rgb(255, 255, 255)",
   );
@@ -706,4 +714,8 @@ test("landing do-it-yourself mobile pane query opens the flat sidebar", async ({
     maxDiffPixelRatio: 0.02,
     scale: "css",
   });
+
+  // The route's query params must not hide the current page from its closed folder.
+  await sidebar.getByText("Docs", { exact: true }).click();
+  await expect(sidebar.getByRole("region", { name: "Docs, contains current page" })).toBeVisible();
 });

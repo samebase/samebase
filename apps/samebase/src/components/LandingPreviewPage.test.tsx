@@ -81,7 +81,7 @@ vi.mock("@tanstack/react-router", () => ({
     search,
     to,
   }: {
-    children: ReactNode;
+    children: ReactNode | ((state: { isActive: boolean }) => ReactNode);
     className?: string;
     search?:
       | Record<string, true | null | undefined>
@@ -97,12 +97,13 @@ vi.mock("@tanstack/react-router", () => ({
 
     return (
       <a className={className} href={`${to}${searchSuffix}`}>
-        {children}
+        {typeof children === "function" ? children({ isActive: false }) : children}
       </a>
     );
   },
   useLocation: ({ select }: { select: (location: { searchStr: string }) => string }) =>
     select({ searchStr: "" }),
+  useMatchRoute: () => () => false,
   useNavigate: () => () => {},
   useRouter: () => ({
     buildLocation: () => ({ href: "/?auth-return=dashboard&signup=github" }),
@@ -309,7 +310,7 @@ describe("LandingPage", () => {
     expect(sidebarMarkup).toContain('href="/docs/do-it-yourself"');
   });
 
-  it("keeps the docs sidebar as flat links instead of linking every heading", () => {
+  it("nests the docs pages under a docs folder instead of linking every heading", () => {
     const markup = renderToStaticMarkup(<DocsDoItYourselfPage />);
     const sidebarMarkup = markup.slice(0, markup.indexOf("<main>"));
 
@@ -321,6 +322,8 @@ describe("LandingPage", () => {
     expect(sidebarMarkup).toContain("Pricing");
     expect(sidebarMarkup).toContain("Changelog");
     expect(sidebarMarkup).toContain('href="/"');
+    expect(sidebarMarkup).not.toContain('href="/docs"');
+    expect(sidebarMarkup).toContain('aria-label="Collapse Docs"');
     expect(sidebarMarkup).toContain('href="/docs/the-big-migration"');
     expect(sidebarMarkup).toContain('href="/docs/the-stack"');
     expect(sidebarMarkup).toContain('href="/docs/cloudflare-setup"');

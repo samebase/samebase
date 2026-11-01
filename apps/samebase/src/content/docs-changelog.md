@@ -5,6 +5,8 @@ change. If a change needs action from you, the entry says so.
 
 ## 2026-11-01
 
+- **v2224: Docs folder in the left nav.** The nav follows the URLs now: pages under `/docs` sit in a
+  Docs folder, which you can collapse.
 - **v2223: The big migration.** [The big migration](/docs/the-big-migration) explains how Samebase
   works with Alchemy and how to move a Worker or Convex app. Your app keeps running if you don't
   move it.
