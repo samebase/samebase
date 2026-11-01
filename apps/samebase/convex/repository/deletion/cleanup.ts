@@ -17,6 +17,7 @@ const deleteOnlyByRepositoryCleanupTables = union(
   literal("repositoryCloudflareWorkers"),
   literal("workflow_repositoryProvisioning_plans"),
   literal("workflow_repositoryProvisioning_writeLocks"),
+  literal("hubClientRateLimits"),
 );
 type DeleteOnlyByRepositoryCleanupTable = Infer<typeof deleteOnlyByRepositoryCleanupTables>;
 
@@ -239,6 +240,10 @@ const repositoryLocalCleanupRegistry = [
     cleanup: deleteByRepositoryBatch("workflow_repositoryProvisioning_writeLocks"),
   },
   {
+    table: "hubClientRateLimits",
+    cleanup: deleteByRepositoryBatch("hubClientRateLimits"),
+  },
+  {
     table: "workflow_repositoryProvisioning_events",
     cleanup: deleteRepositoryProvisioningEventsBatch,
   },
@@ -268,6 +273,7 @@ const repositoryLocalCleanupRegistryByStep = {
     "repositoryCloudflareWorkers",
     "workflow_repositoryProvisioning_plans",
     "workflow_repositoryProvisioning_writeLocks",
+    "hubClientRateLimits",
   ],
   cleanup_provisioning_history: [
     "workflow_repositoryProvisioning_events",

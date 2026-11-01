@@ -18,6 +18,7 @@ import {
   requireActiveRepositoryDeletionRun,
 } from "../../repositoryWorkflowAuthority";
 import { readActiveUser } from "../../identity/lifecycle";
+import { startTenantSuspensionSync } from "../../hubClients/tenantSuspension";
 
 const { boolean, id, literal, object, string, union } = v;
 
@@ -350,6 +351,10 @@ export const createInitialRun = internalMutation({
         requestedAt: now,
       },
     });
+    // The repository stops being live here, and a removal never returns it to live.
+    if (isConnectedRepository(repository)) {
+      await startTenantSuspensionSync(ctx, repository.githubRepositoryDatabaseId);
+    }
 
     return { deletionRunId };
   },

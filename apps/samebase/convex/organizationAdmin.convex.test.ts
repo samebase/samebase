@@ -274,6 +274,11 @@ describe("organization deletion", () => {
         sourceOrder: { creationTime: 2, documentId: "deletion-event" },
       });
       await ctx.db.delete(repositoryId);
+      await ctx.db.insert("hubClientRateLimits", {
+        scope: "organization",
+        organizationId: seed.organizationId,
+        count: 1,
+      });
     });
 
     await expect(
@@ -300,8 +305,10 @@ describe("organization deletion", () => {
       providerCredentials: await ctx.db.query("organizationProviderCredentials").collect(),
       ciCredentials: await ctx.db.query("organizationCiCredentials").collect(),
       providerOAuthStates: await ctx.db.query("providerOAuthCallbackStates").collect(),
+      hubClientRateLimits: await ctx.db.query("hubClientRateLimits").collect(),
     }));
     expect(remaining).toEqual({
+      hubClientRateLimits: [],
       ciCredentials: [],
       billing: [],
       deletionEvents: [],

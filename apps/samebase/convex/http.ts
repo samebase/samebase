@@ -4,6 +4,7 @@ import { finishCloudflareOAuth } from "./cloudflareOAuth";
 import { finishCloudflareMcpOAuth } from "./cloudflareMcpOAuth";
 import { finishConvexOAuth } from "./convexOAuth";
 import { finishGitHubAppInstallation } from "./githubAppInstallation";
+import { registerHubClient } from "./hubClients/registration";
 import {
   authorizeMcpOauthRequest,
   exchangeMcpOauthToken,
@@ -139,6 +140,12 @@ http.route({
   path: "/webhooks/polar",
   method: "POST",
   handler: handlePolarWebhook,
+});
+
+http.route({
+  path: "/api/hub-clients",
+  method: "POST",
+  handler: registerHubClient,
 });
 
 // The built site, every method at every path, as a Cloudflare Worker with static assets: a file

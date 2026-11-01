@@ -470,6 +470,7 @@ export const deleteOrganization = mutation({
       providerCredentials,
       ciCredentials,
       providerOAuthStates,
+      hubClientRateLimits,
     ] = await Promise.all([
       ctx.db
         .query("workflow_repositoryDeletion_events")
@@ -511,6 +512,10 @@ export const deleteOrganization = mutation({
         .query("providerOAuthCallbackStates")
         .withIndex("by_organization", (query) => query.eq("organizationId", organization._id))
         .take(ORGANIZATION_DELETION_ROW_LIMIT + 1),
+      ctx.db
+        .query("hubClientRateLimits")
+        .withIndex("by_organization", (query) => query.eq("organizationId", organization._id))
+        .take(ORGANIZATION_DELETION_ROW_LIMIT + 1),
     ]);
     const cleanupRows = [
       deletionEvents,
@@ -522,6 +527,7 @@ export const deleteOrganization = mutation({
       providerCredentials,
       ciCredentials,
       providerOAuthStates,
+      hubClientRateLimits,
     ];
     if (cleanupRows.some((rows) => rows.length > ORGANIZATION_DELETION_ROW_LIMIT)) {
       throw new ConvexError("This organization cannot be deleted automatically.");
@@ -536,6 +542,7 @@ export const deleteOrganization = mutation({
     await deleteRows(ctx, providerCredentials);
     await deleteRows(ctx, ciCredentials);
     await deleteRows(ctx, providerOAuthStates);
+    await deleteRows(ctx, hubClientRateLimits);
     await ctx.db.delete(billing._id);
     await ctx.db.delete(soleMembership._id);
     await ctx.db.delete(organization._id);
