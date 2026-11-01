@@ -483,3 +483,17 @@ Existing apps get this only when they take the template change, because their wo
 1. A live app does not keep Google sign-in after its owner leaves Samebase. The app keeps running.
 2. Free users get this. The limits are set after the billing test.
 3. Abuse reports go to one abuse address that reaches Nicu. Suspension starts as a manual action.
+
+## After merge
+
+- **GitHub App webhook.** Samebase gets no signal when the GitHub App is uninstalled, so that
+  repository keeps Google sign-in until someone removes it on the dashboard. Add
+  `POST /webhooks/github` for the `installation` event, actions `deleted` and `suspend`, like
+  `/webhooks/polar`. Do this before opening this to strangers.
+- **Google project owner.** Move the project off a personal Gmail account to an organization
+  account.
+- **Consent page.** The option described in the standards check.
+- **The key between Samebase and the hub.** It is one long-lived shared secret. Convex's docs
+  describe no way for one project to authenticate to another, so this is the plain option today.
+  Rotating it means setting both sides. Replace it if Convex adds something, or if a short-lived
+  signed token proves worth the work.
