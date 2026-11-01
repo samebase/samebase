@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
     inputs:
       confirm:
-        description: "This deletes the app's production data for good. To confirm, type delete and this repository's full name, like delete acme/my-app"
+        description: 'This deletes the app''s production data for good. To confirm, type "delete" and this repository''s full name, like "delete acme/my-app"'
         required: true
         type: string
 
