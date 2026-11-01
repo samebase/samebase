@@ -12,7 +12,6 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthedRouteImport } from './routes/_authed'
 import { Route as AboutRouteImport } from './routes/about'
-import { Route as SigninRouteImport } from './routes/signin'
 import { Route as AuthedAccountRouteImport } from './routes/_authed/account'
 
 const IndexRoute = IndexRouteImport.update({
@@ -29,11 +28,6 @@ const AboutRoute = AboutRouteImport.update({
   path: '/about',
   getParentRoute: () => rootRouteImport,
 } as any)
-const SigninRoute = SigninRouteImport.update({
-  id: '/signin',
-  path: '/signin',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const AuthedAccountRoute = AuthedAccountRouteImport.update({
   id: '/account',
   path: '/account',
@@ -43,13 +37,11 @@ const AuthedAccountRoute = AuthedAccountRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
-  '/signin': typeof SigninRoute
   '/account': typeof AuthedAccountRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
-  '/signin': typeof SigninRoute
   '/account': typeof AuthedAccountRoute
 }
 export interface FileRoutesById {
@@ -57,22 +49,20 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_authed': typeof AuthedRouteWithChildren
   '/about': typeof AboutRoute
-  '/signin': typeof SigninRoute
   '/_authed/account': typeof AuthedAccountRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/about' | '/signin' | '/account'
+  fullPaths: '/' | '/about' | '/account'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/about' | '/signin' | '/account'
-  id: '__root__' | '/' | '/_authed' | '/about' | '/signin' | '/_authed/account'
+  to: '/' | '/about' | '/account'
+  id: '__root__' | '/' | '/_authed' | '/about' | '/_authed/account'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthedRoute: typeof AuthedRouteWithChildren
   AboutRoute: typeof AboutRoute
-  SigninRoute: typeof SigninRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -96,13 +86,6 @@ declare module '@tanstack/react-router' {
       path: '/about'
       fullPath: '/about'
       preLoaderRoute: typeof AboutRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/signin': {
-      id: '/signin'
-      path: '/signin'
-      fullPath: '/signin'
-      preLoaderRoute: typeof SigninRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authed/account': {
@@ -130,7 +113,6 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthedRoute: AuthedRouteWithChildren,
   AboutRoute: AboutRoute,
-  SigninRoute: SigninRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

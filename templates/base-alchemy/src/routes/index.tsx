@@ -7,6 +7,7 @@ import { QRCodeSVG } from "qrcode.react";
 import { type FormEvent, useEffect, useState } from "react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
+import { GoogleSignIn } from "#components/GoogleSignIn";
 import { GuestSignIn } from "#components/GuestSignIn";
 import { Button } from "#components/ui/button";
 import { Checkbox } from "#components/ui/checkbox";
@@ -25,8 +26,12 @@ type VisibleTodo = {
 
 export const Route = createFileRoute("/")({
   loader: async ({ context }) => {
-    // @ts-expect-error convexQuery always sets queryFn, but its type allows undefined there, which `query` rejects under exactOptionalPropertyTypes.
-    await context.queryClient.query(convexQuery(api.todos.list, {}));
+    await Promise.all([
+      // @ts-expect-error convexQuery always sets queryFn, but its type allows undefined there, which `query` rejects under exactOptionalPropertyTypes.
+      context.queryClient.query(convexQuery(api.todos.list, {})),
+      // @ts-expect-error The same as above.
+      context.queryClient.query(convexQuery(api.hub.googleSignInEnabled, {})),
+    ]);
   },
   component: TodoPage,
 });
@@ -38,11 +43,15 @@ function TodoPage() {
   const {
     data: { todos, viewerTodoCount },
   } = useSuspenseQuery(convexQuery(api.todos.list, {}));
+  const { data: googleSignInEnabled } = useSuspenseQuery(
+    convexQuery(api.hub.googleSignInEnabled, {}),
+  );
   const todoLimitReached = viewerTodoCount !== null && viewerTodoCount >= TODO_LIMIT;
 
   useEffect(() => {
-    // The server has no browser URL, and the first browser render must match the server HTML.
-    setShareUrl(window.location.href);
+    // The server has no browser URL, and the first browser render must match the server HTML. The
+    // origin, because the URL still holds the sign-in code when Google sends the browser back.
+    setShareUrl(window.location.origin);
   }, []);
 
   return (
@@ -63,6 +72,7 @@ function TodoPage() {
       <section className="flex flex-col gap-3">
         <h1 className="text-lg">Todo list</h1>
         <SignedOut>
+          {googleSignInEnabled ? <GoogleSignIn /> : null}
           <GuestSignIn />
         </SignedOut>
         <SignedIn>

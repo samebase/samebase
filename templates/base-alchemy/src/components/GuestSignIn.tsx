@@ -3,8 +3,8 @@ import { useState } from "react";
 import { api } from "../../convex/_generated/api";
 import { Button } from "#components/ui/button";
 
-/** Starts a guest session. With `next`, a document load then opens that page as the guest. */
-export function GuestSignIn({ next }: { next?: string }) {
+/** Starts a guest session. The page follows the session, so it needs no load. */
+export function GuestSignIn() {
   const { signIn } = useSignInAnonymously(api.auth);
   const [isPending, setIsPending] = useState(false);
   const [error, setError] = useState("");
@@ -13,13 +13,6 @@ export function GuestSignIn({ next }: { next?: string }) {
     setError("");
     setIsPending(true);
     void signIn()
-      .then(() => {
-        // The provider confirms the session after sign-in resolves, so a navigation inside the
-        // app could reach a gate first. The server renders the next page from the new cookie.
-        if (next) {
-          location.assign(next);
-        }
-      })
       .catch((signInError: unknown) => {
         setError(signInError instanceof Error ? signInError.message : "Could not start session");
       })
@@ -28,7 +21,13 @@ export function GuestSignIn({ next }: { next?: string }) {
 
   return (
     <>
-      <Button type="button" disabled={isPending} onClick={continueAsGuest}>
+      <Button
+        type="button"
+        variant="outline"
+        disabled={isPending}
+        onClick={continueAsGuest}
+        className="h-10"
+      >
         {isPending ? "Starting" : "Continue as guest"}
       </Button>
       {error ? (

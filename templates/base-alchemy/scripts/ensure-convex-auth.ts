@@ -9,7 +9,7 @@ const CONVEX_CLI_PATH = fileURLToPath(
 );
 
 // The variables of a deployment without a hub client. The OAuth component needs all three, setupOauth
-// accepts this loopback issuer, and the sign-in page hides its Google button for this client id.
+// accepts this loopback issuer, and the home page hides its Google button for this client id.
 // Convex.SharedHubClient of @samebase/alchemy-convex gives the same values when it has no client.
 const HUB_OFF_VALUES = {
   HUB_ISSUER: "http://127.0.0.1:1",
