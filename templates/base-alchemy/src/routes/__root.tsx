@@ -1,10 +1,5 @@
 import type { ConvexQueryClient } from "@convex-dev/react-query";
-import {
-  SessionProvider,
-  SignedIn,
-  SignedOut,
-  sessionBeforeLoad,
-} from "@samebase/convex-auth-tanstack-start";
+import { SessionProvider, SignedIn, sessionBeforeLoad } from "@samebase/convex-auth-tanstack-start";
 import type { QueryClient } from "@tanstack/react-query";
 import {
   HeadContent,
@@ -72,11 +67,6 @@ function RootComponent() {
               <Link to="/account">Account</Link>
             </Button>
           </SignedIn>
-          <SignedOut>
-            <Button asChild variant="link">
-              <Link to="/signin">Sign in</Link>
-            </Button>
-          </SignedOut>
         </nav>
         <Outlet />
       </RootDocument>

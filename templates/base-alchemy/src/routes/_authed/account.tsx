@@ -18,7 +18,7 @@ export const Route = createFileRoute("/_authed/account")({
 
 function AccountPage() {
   const { data: viewer } = useSuspenseQuery(convexQuery(api.guests.viewer, {}));
-  const signOut = useSignOutSession("/auth/signout", "/signin");
+  const signOut = useSignOutSession("/auth/signout", "/");
   const deleteAccount = useMutation(api.account.deleteAccount);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [signOutFailed, setSignOutFailed] = useState(false);
@@ -48,7 +48,7 @@ function AccountPage() {
     }
     // The session is gone. Signing out clears its cookie and reloads the page.
     if (!(await signOut())) {
-      window.location.assign("/signin");
+      window.location.assign("/");
     }
   };
 

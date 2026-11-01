@@ -169,8 +169,8 @@ moves it once:
 
 ## Google sign-in
 
-Guest sign-in always works. `/signin` also shows **Sign in with Google** when the deployment has a
-client of Samebase's identity hub, and it needs no Google project or key of yours.
+Guest sign-in always works. The home page also shows **Sign in with Google** when the deployment
+has a client of Samebase's identity hub, and it needs no Google project or key of yours.
 
 Each deploy from a repository connected to Samebase gets its client: `alchemy.run.ts` asks
 samebase.com with GitHub's token of the run (`id-token: write`) and writes it to the variables
@@ -199,8 +199,8 @@ function for this yet, so `patches/` adds one.
   and renders each page with the session of the request's cookies.
 - `convex/convex.config.ts` mounts the Convex Auth, OAuth, and convex-hosting components, and
   `convex/http.ts` routes every path to the site.
-- `src/routes/_authed/` holds the pages that need a session; without one they redirect to
-  `/signin`.
+- `src/routes/_authed/` holds the pages that need a session; without one they redirect to the home
+  page.
 - `alchemy.run.ts` and `.github/workflows/alchemy.yml` deploy production and previews.
 - `convex/` contains the backend, schema, authentication, and generated Convex bindings.
 - `src/` contains the React application and routes.
