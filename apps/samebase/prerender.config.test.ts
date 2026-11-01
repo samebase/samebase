@@ -11,6 +11,7 @@ describe("prerenderPages", () => {
       "/docs/cloudflare-setup",
       "/docs/do-it-yourself",
       "/docs/receipts",
+      "/docs/the-big-migration",
       "/docs/the-stack",
       "/pricing",
       "/privacy",

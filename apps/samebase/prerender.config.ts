@@ -44,6 +44,11 @@ const expectedPublicPrerenderMetadataByPath = {
     description: "Every factual Samebase claim with its primary source and check date.",
     robots: "index,follow",
   },
+  "/docs/the-big-migration": {
+    title: "The big migration | Samebase",
+    description: "How Samebase works with Alchemy, and how to move a Worker or Convex app.",
+    robots: "index,follow",
+  },
   "/docs/the-stack": {
     title: "The stack | Samebase",
     description: "What the Samebase template ships and why each piece was chosen.",

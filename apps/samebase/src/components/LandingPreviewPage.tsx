@@ -32,6 +32,7 @@ import {
   DOCS_PRICING_ROUTE,
   DOCS_RECEIPTS_ROUTE,
   DOCS_SIDEBAR_TEST_ID,
+  DOCS_THE_BIG_MIGRATION_ROUTE,
   DOCS_THE_STACK_ROUTE,
   LANDING_PAGE_ROUTE,
   LANDING_PREVIEW_ARTICLE_TEST_ID,
@@ -47,6 +48,7 @@ import docsDoItYourselfMarkdown from "@/content/docs-do-it-yourself.md?raw";
 import docsChangelogMarkdown from "@/content/docs-changelog.md?raw";
 import docsPricingMarkdown from "@/content/docs-pricing.md?raw";
 import docsReceiptsMarkdown from "@/content/docs-receipts.md?raw";
+import docsTheBigMigrationMarkdown from "@/content/docs-the-big-migration.md?raw";
 import docsTheStackMarkdown from "@/content/docs-the-stack.md?raw";
 import { MENGER_SPONGE_VOXEL_STATE } from "@samebase/logo-model/voxel";
 import { Link, useLocation } from "@tanstack/react-router";
@@ -57,6 +59,7 @@ type LandingPreviewDocumentKey =
   | "cloudflareSetup"
   | "cloudflarePreviewsMigration"
   | "doItYourself"
+  | "theBigMigration"
   | "theStack"
   | "receipts"
   | "pricing"
@@ -64,6 +67,7 @@ type LandingPreviewDocumentKey =
 
 const DOCS_SIDEBAR_LINKS = [
   { label: "Overview", to: LANDING_PAGE_ROUTE },
+  { label: "The big migration", to: DOCS_THE_BIG_MIGRATION_ROUTE },
   { label: "The stack", to: DOCS_THE_STACK_ROUTE },
   { label: "Cloudflare setup", to: DOCS_CLOUDFLARE_SETUP_ROUTE },
   { label: "Worker Previews migration", to: DOCS_CLOUDFLARE_PREVIEWS_MIGRATION_ROUTE },
@@ -849,6 +853,16 @@ function CloudflareSetupOnboardingVideo() {
   );
 }
 
+function DocsTheBigMigrationDocument() {
+  return (
+    <MarkdownLandingDocument
+      className={DOCS_DOCUMENT_CLASS_NAME}
+      dataTestId={LANDING_PREVIEW_ARTICLE_TEST_ID}
+      markdown={docsTheBigMigrationMarkdown}
+    />
+  );
+}
+
 function DocsTheStackDocument() {
   return (
     <MarkdownLandingDocument
@@ -925,6 +939,10 @@ function LandingPreviewDocument({ documentKey }: { documentKey: LandingPreviewDo
     return <LandingPreviewOverview />;
   }
 
+  if (documentKey === "theBigMigration") {
+    return <DocsTheBigMigrationDocument />;
+  }
+
   if (documentKey === "theStack") {
     return <DocsTheStackDocument />;
   }
@@ -987,6 +1005,10 @@ export function DocsCloudflareSetupPage() {
 
 export function DocsCloudflarePreviewsMigrationPage() {
   return <LandingPreviewChromePage documentKey="cloudflarePreviewsMigration" />;
+}
+
+export function DocsTheBigMigrationPage() {
+  return <LandingPreviewChromePage documentKey="theBigMigration" />;
 }
 
 export function DocsTheStackPage() {

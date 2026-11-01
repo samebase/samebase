@@ -53,6 +53,7 @@ export const ROUTE_ACCESS_METADATA_BY_PATH = {
   "/docs/cloudflare-previews-migration": { access: "access_public", prerender: true },
   "/docs/do-it-yourself": { access: "access_public", prerender: true },
   "/docs/receipts": { access: "access_public", prerender: true },
+  "/docs/the-big-migration": { access: "access_public", prerender: true },
   "/docs/the-stack": { access: "access_public", prerender: true },
   "/landing-preview": {
     access: "access_public",

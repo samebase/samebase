@@ -260,6 +260,8 @@ HTML pages. Action and operate docs are raw markdown only.
 
 - [Overview](https://samebase.com/): the best-stack opinion, the connected-app
   inventory, and the four claims: yours, safer, lanes, cheaper
+- [The big migration](https://samebase.com/docs/the-big-migration.md): how Samebase works with
+  Alchemy, and how to move a Worker or Convex app
 - [The stack](https://samebase.com/docs/the-stack.md): what the app template ships and why each
   piece was chosen
 - [Cloudflare setup](https://samebase.com/docs/cloudflare-setup.md): create the first Workers Builds
