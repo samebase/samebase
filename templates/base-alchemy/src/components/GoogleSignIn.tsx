@@ -37,7 +37,7 @@ export function GoogleSignIn() {
         type="button"
         disabled={isPending}
         onClick={continueWithGoogle}
-        className="h-10 gap-2.5 border-[#747775] bg-white px-3 text-[#1f1f1f] hover:bg-[#f2f2f2]"
+        className="h-10 gap-2.5 border-[#747775] bg-white px-3 font-['Google_Sans',sans-serif] text-[#1f1f1f] hover:bg-[#f2f2f2]"
       >
         <GoogleLogo />
         Sign in with Google
