@@ -350,14 +350,14 @@ test("landing document navigation resets pages, restores history, and aligns dir
 
   const docsSidebar = page.getByTestId(DOCS_SIDEBAR_TEST_ID);
   const stackLink = docsSidebar.getByRole("link", { exact: true, name: "The stack" });
-  await docsSidebar.getByText("docs", { exact: true }).click();
+  await docsSidebar.getByText("Docs", { exact: true }).click();
   await expect(stackLink).toBeHidden();
   await expect(page).toHaveURL(new RegExp(`${LANDING_PAGE_ROUTE}$`));
   await doItYourselfLink.click();
 
   await expect(page).toHaveURL(new RegExp(`${DOCS_DO_IT_YOURSELF_ROUTE}$`));
   // Playwright clicks the center of the row, which is empty space.
-  await docsSidebar.getByRole("button", { name: "Expand docs" }).click();
+  await docsSidebar.getByRole("button", { name: "Expand Docs" }).click();
   await expect(stackLink).toBeVisible();
   const currentDocsLink = page.getByTestId(DOCS_SIDEBAR_TEST_ID).locator('a[aria-current="page"]');
   await expect(currentDocsLink).toHaveText("Do it yourself");
@@ -716,6 +716,6 @@ test("landing do-it-yourself mobile pane query opens the sidebar", async ({ page
   });
 
   // The route's query params must not hide the current page from its closed folder.
-  await sidebar.getByText("docs", { exact: true }).click();
-  await expect(sidebar.getByRole("region", { name: "docs, contains current page" })).toBeVisible();
+  await sidebar.getByText("Docs", { exact: true }).click();
+  await expect(sidebar.getByRole("region", { name: "Docs, contains current page" })).toBeVisible();
 });

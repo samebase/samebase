@@ -323,7 +323,7 @@ describe("LandingPage", () => {
     expect(sidebarMarkup).toContain("Changelog");
     expect(sidebarMarkup).toContain('href="/"');
     expect(sidebarMarkup).not.toContain('href="/docs"');
-    expect(sidebarMarkup).toContain('aria-label="Collapse docs"');
+    expect(sidebarMarkup).toContain('aria-label="Collapse Docs"');
     expect(sidebarMarkup).toContain('href="/docs/the-big-migration"');
     expect(sidebarMarkup).toContain('href="/docs/the-stack"');
     expect(sidebarMarkup).toContain('href="/docs/cloudflare-setup"');

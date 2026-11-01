@@ -78,7 +78,7 @@ const DOCS_SIDEBAR_TREE: readonly (
 )[] = [
   { label: "Overview", to: LANDING_PAGE_ROUTE },
   {
-    label: "docs",
+    label: "Docs",
     pages: [
       { label: "The big migration", to: DOCS_THE_BIG_MIGRATION_ROUTE },
       { label: "The stack", to: DOCS_THE_STACK_ROUTE },
