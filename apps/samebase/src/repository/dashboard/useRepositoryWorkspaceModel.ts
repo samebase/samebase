@@ -11,6 +11,7 @@ import {
   buildAlchemyStackCards,
   buildProductionEnvironmentRoots,
 } from "./repositoryEnvironmentRoots";
+import { isWaitingForFirstCommit } from "./repositorySourceSetup";
 import type {
   RepositoryWorkspaceModel,
   RepositoryWorkspaceProduction,
@@ -72,7 +73,8 @@ export function useRepositoryWorkspaceModel(
   const pullRequests = useRepositoryPullRequests({
     repository:
       accessibleSelectedRepository?.hasConnectedGitHubRepository &&
-      accessibleSelectedRepository.deletion.state === "not_deleting"
+      accessibleSelectedRepository.deletion.state === "not_deleting" &&
+      !isWaitingForFirstCommit(accessibleSelectedRepository)
         ? accessibleSelectedRepository
         : null,
     source,
