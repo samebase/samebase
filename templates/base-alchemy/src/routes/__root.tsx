@@ -4,7 +4,7 @@ import {
   SignedIn,
   SignedOut,
   sessionBeforeLoad,
-} from "@samebase/convex-hosting-tanstack-start/convex-auth";
+} from "@samebase/convex-auth-tanstack-start";
 import type { QueryClient } from "@tanstack/react-query";
 import {
   HeadContent,

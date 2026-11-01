@@ -13,9 +13,10 @@
 //
 // Every run needs the team token CONVEX_ACCESS_TOKEN, or a Convex CLI login (`npx convex login`)
 // on a laptop; it mints the deploy key itself. Every run also reads the Google and GitHub client
-// ids and secrets and hands them to the deployment, for the two connectors: no connector variable
+// ids and secrets and hands them to the deployment, for the three connectors: no connector variable
 // is ever set by hand. IDENTITY_BROKER_KEYS is not in `env`: it stays on the deployment, and the
-// `deploy` script stops when it is missing.
+// `deploy` script stops when it is missing. REGISTRATION_ACCESS_TOKEN is not in `env` either: it
+// stays on the deployment too and is set by hand, and `/register` refuses every request without it.
 import * as Convex from "@samebase/alchemy-convex";
 import * as Alchemy from "alchemy";
 import { adopt } from "alchemy/AdoptPolicy";
@@ -47,6 +48,8 @@ export default Alchemy.Stack(
       ISSUER: "https://auth.samebase.com",
       GOOGLE_CLIENT_ID: yield* Config.String("GOOGLE_CLIENT_ID"),
       GOOGLE_CLIENT_SECRET: yield* Config.Redacted("GOOGLE_CLIENT_SECRET"),
+      GOOGLE_APPS_CLIENT_ID: yield* Config.String("GOOGLE_APPS_CLIENT_ID"),
+      GOOGLE_APPS_CLIENT_SECRET: yield* Config.Redacted("GOOGLE_APPS_CLIENT_SECRET"),
       AUTH_GITHUB_CLIENT_ID: yield* Config.String("AUTH_GITHUB_CLIENT_ID"),
       AUTH_GITHUB_CLIENT_SECRET: yield* Config.Redacted("AUTH_GITHUB_CLIENT_SECRET"),
     };

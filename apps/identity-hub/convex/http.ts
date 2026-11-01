@@ -11,6 +11,11 @@ export const broker = defineIdentityBroker({
   issuer: env.ISSUER ?? env.CONVEX_SITE_URL,
   keys: () => env.IDENTITY_BROKER_KEYS,
   connectors,
+  registration: {
+    initialAccessToken: () => env.REGISTRATION_ACCESS_TOKEN,
+    connector: "google-apps",
+    paused: () => env.THIRD_PARTY_PAUSED === "true",
+  },
 });
 
 const http = httpRouter();

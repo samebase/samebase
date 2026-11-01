@@ -18,4 +18,13 @@ export const connectors: Connector[] = [
     clientId: () => env.AUTH_GITHUB_CLIENT_ID,
     clientSecret: () => env.AUTH_GITHUB_CLIENT_SECRET,
   }),
+  // The Google client of third-party apps, the one connector of each app from `/register`. Reserved,
+  // so the team's own apps never see it, and it always asks Google to show the account screen.
+  google({
+    name: "google-apps",
+    clientId: () => env.GOOGLE_APPS_CLIENT_ID,
+    clientSecret: () => env.GOOGLE_APPS_CLIENT_SECRET,
+    reserved: true,
+    selectAccount: true,
+  }),
 ];

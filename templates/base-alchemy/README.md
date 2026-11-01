@@ -16,7 +16,8 @@ preview. This repository deploys itself the same way: https://ideal-dolphin-15.c
 
 - React 19 and TanStack Start, with pages rendered on the server
 - Convex for the real-time backend and database, and Convex Auth 2.0.0-beta.0 for guest sign-in
-  with the session in an httpOnly cookie, so the server renders signed-in pages
+  and [Google sign-in](#google-sign-in), with the session in an httpOnly cookie, so the server
+  renders signed-in pages
 - convex-hosting for delivery from the Convex deployment, with Cloudflare's rules for the files
 - shadcn/ui primitives for the user interface
 - Vite+ for development, formatting, linting, tests, and builds
@@ -24,7 +25,7 @@ preview. This repository deploys itself the same way: https://ideal-dolphin-15.c
 
 Convex Auth is pinned to 2.0.0-beta.0 exactly because the adapter reaches its cookie-session
 provider through a file that beta.0 does not export; see the
-[adapter changelog](https://github.com/samebase/convex-hosting/blob/main/packages/convex-hosting-tanstack-start/CHANGELOG.md).
+[adapter README](https://github.com/samebase/convex-hosting/tree/main/packages/convex-auth-tanstack-start#readme).
 
 The example app is a public todo list. Guests can sign in without an external identity provider,
 create todos, see real-time updates, and scan a QR code to open the same list on another device.
@@ -77,16 +78,16 @@ pnpm run dev:worktree
 ### First run
 
 On a fresh clone, the first push of `pnpm run dev` fails: `convex/convex.config.ts` requires the
-Convex Auth keys `AUTH_PRIVATE_KEY` and `AUTH_JWKS`, and `convex/http.ts` imports
-`.convex-hosting/version.js` and the server build `dist/server/server.js`. Only a deploy creates
-them. Keep `pnpm run dev` running and run this in a second terminal:
+Convex Auth keys `AUTH_PRIVATE_KEY` and `AUTH_JWKS` and the three `HUB_` variables, and
+`convex/http.ts` imports `.convex-hosting/version.js` and the server build `dist/server/server.js`.
+Only a deploy creates them. Keep `pnpm run dev` running and run this in a second terminal:
 
 ```sh
 pnpm run deploy:dev
 ```
 
-It builds the app, creates the Convex Auth keys, uploads the files to the development deployment,
-writes the version file, and pushes. Then stop `pnpm run dev` and start it again; it works as usual
+It builds the app, creates the Convex Auth keys, sets the `HUB_` variables to their off values,
+uploads the files to the development deployment, writes the version file, and pushes. Then stop `pnpm run dev` and start it again; it works as usual
 from then on.
 
 The core workflow runs on macOS, Linux, and Windows. See
@@ -129,8 +130,8 @@ pnpm exec alchemy destroy --stage my-preview
 
 `pnpm run deploy` runs `npx convex deploy` with the checks, the build, and the upload as its
 `--cmd`, so a failed check stops the release before the push switches the site. Inside that build,
-`scripts/ensure-convex-auth.ts` creates the Convex Auth keys on a new deployment or preview and
-keeps existing keys; it stops the deploy when the deployment it selects is not the one that the
+`scripts/ensure-convex-auth.ts` creates the Convex Auth keys on a new deployment or preview, sets
+each missing `HUB_` variable to its off value, and keeps every value that exists; it stops the deploy when the deployment it selects is not the one that the
 deploy targets. Deploy with `pnpm run deploy`, never with a plain `npx convex deploy`: a plain
 push serves the files of the last deploy from this checkout, often another deployment's.
 
@@ -166,13 +167,33 @@ moves it once:
    npx convex run --deployment <team>:alchemy-state-store:prod state:stages "{stack: 'owner/name'}"
    ```
 
+## Google sign-in
+
+Guest sign-in always works. `/signin` also shows **Sign in with Google** when the deployment has a
+client of Samebase's identity hub, and it needs no Google project or key of yours.
+
+Each deploy from a repository connected to Samebase gets its client: `alchemy.run.ts` asks
+samebase.com with GitHub's token of the run (`id-token: write`) and writes it to the variables
+`HUB_ISSUER`, `HUB_CLIENT_ID`, and `HUB_CLIENT_SECRET`. Anywhere else, such as on a laptop or in
+`pnpm run dev`, the variables hold their off values, `HUB_CLIENT_ID=no-hub`, and the page has only
+the guest button.
+
+The stack sets `HUB_APP` once. The hub derives each user's ID from it, so a new name means new
+users. An account is that ID. Name and email are profile data, and accounts never link by email, so
+a guest who signs in with Google gets a new account.
+
+**After leaving Samebase**, the app keeps running with guest sign-in, and people who are signed in
+stay signed in. New Google sign-ins fail. To keep them, host
+[`@samebase/identity-broker`](https://github.com/samebase/samebase/tree/main/packages/identity-broker)
+yourself, or connect your own auth.
+
 ## Important files
 
 - `package.json` defines the supported development, check, build, and deploy commands.
 - `vite.config.ts` builds the server for Convex with `convexSsr()` and prerenders `/about`.
 - `src/server.ts` is the server entry: it answers the `/auth` sign-in, refresh, and sign-out routes
   and renders each page with the session of the request's cookies.
-- `convex/convex.config.ts` mounts the Convex Auth and convex-hosting components, and
+- `convex/convex.config.ts` mounts the Convex Auth, OAuth, and convex-hosting components, and
   `convex/http.ts` routes every path to the site.
 - `src/routes/_authed/` holds the pages that need a session; without one they redirect to
   `/signin`.

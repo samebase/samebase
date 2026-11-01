@@ -1,5 +1,5 @@
 import { convexQuery } from "@convex-dev/react-query";
-import { SignedIn, SignedOut } from "@samebase/convex-hosting-tanstack-start/convex-auth";
+import { SignedIn, SignedOut } from "@samebase/convex-auth-tanstack-start";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation } from "convex/react";

@@ -1,5 +1,5 @@
 import { convexQuery } from "@convex-dev/react-query";
-import { useSignOutSession } from "@samebase/convex-hosting-tanstack-start/convex-auth";
+import { useSignOutSession } from "@samebase/convex-auth-tanstack-start";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
@@ -19,7 +19,7 @@ function AccountPage() {
   const {
     data: { name },
   } = useSuspenseQuery(convexQuery(api.guests.viewer, {}));
-  const signOut = useSignOutSession("/auth/signout");
+  const signOut = useSignOutSession("/auth/signout", "/signin");
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [signOutFailed, setSignOutFailed] = useState(false);
 
