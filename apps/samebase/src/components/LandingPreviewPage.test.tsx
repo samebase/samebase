@@ -309,7 +309,7 @@ describe("LandingPage", () => {
     expect(sidebarMarkup).toContain('href="/docs/do-it-yourself"');
   });
 
-  it("keeps the docs sidebar as flat links instead of linking every heading", () => {
+  it("nests the docs pages under a docs folder instead of linking every heading", () => {
     const markup = renderToStaticMarkup(<DocsDoItYourselfPage />);
     const sidebarMarkup = markup.slice(0, markup.indexOf("<main>"));
 
@@ -321,6 +321,8 @@ describe("LandingPage", () => {
     expect(sidebarMarkup).toContain("Pricing");
     expect(sidebarMarkup).toContain("Changelog");
     expect(sidebarMarkup).toContain('href="/"');
+    expect(sidebarMarkup).toContain('href="/docs"');
+    expect(sidebarMarkup).toContain('aria-label="Collapse docs"');
     expect(sidebarMarkup).toContain('href="/docs/the-big-migration"');
     expect(sidebarMarkup).toContain('href="/docs/the-stack"');
     expect(sidebarMarkup).toContain('href="/docs/cloudflare-setup"');

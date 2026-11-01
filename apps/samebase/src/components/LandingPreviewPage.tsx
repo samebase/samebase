@@ -5,7 +5,7 @@ import { SIGN_IN_WITH_OAUTH_BUTTON_CLASS_NAME, SignInWithOAuth } from "@/SignInW
 import { LandingHeroMenger } from "@/components/logo/LandingHeroMenger";
 import { PublicLandingLogo } from "@/components/logo/PublicLandingLogo";
 import { LANDING_INLINE_80_PERCENT_MARK_SVG_URL } from "@/components/compactIdentitySvgAsset";
-import { buttonVariants } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { DASHBOARD_ROUTE } from "@/lib/dashboardRoute";
 import { useHubSignInVisible } from "@/lib/hubSignInVisibility";
 import { useConvexAuth } from "convex/react";
@@ -28,6 +28,7 @@ import {
   DOCS_CLOUDFLARE_PREVIEWS_MIGRATION_ROUTE,
   DOCS_CLOUDFLARE_SETUP_ROUTE,
   DOCS_DO_IT_YOURSELF_ROUTE,
+  DOCS_INDEX_ROUTE,
   DOCS_CHANGELOG_ROUTE,
   DOCS_PRICING_ROUTE,
   DOCS_RECEIPTS_ROUTE,
@@ -51,7 +52,8 @@ import docsReceiptsMarkdown from "@/content/docs-receipts.md?raw";
 import docsTheBigMigrationMarkdown from "@/content/docs-the-big-migration.md?raw";
 import docsTheStackMarkdown from "@/content/docs-the-stack.md?raw";
 import { MENGER_SPONGE_VOXEL_STATE } from "@samebase/logo-model/voxel";
-import { Link, useLocation } from "@tanstack/react-router";
+import { Link, useLocation, type LinkProps } from "@tanstack/react-router";
+import { ChevronDown, ChevronRight } from "lucide-react";
 import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 
 type LandingPreviewDocumentKey =
@@ -65,17 +67,26 @@ type LandingPreviewDocumentKey =
   | "pricing"
   | "changelog";
 
-const DOCS_SIDEBAR_LINKS = [
+type DocsSidebarPage = { label: string; to: LinkProps["to"] };
+
+/** The tree follows the URLs: a folder is a path, and its pages are the routes under that path. */
+const DOCS_SIDEBAR_TREE: readonly (DocsSidebarPage & { pages?: readonly DocsSidebarPage[] })[] = [
   { label: "Overview", to: LANDING_PAGE_ROUTE },
-  { label: "The big migration", to: DOCS_THE_BIG_MIGRATION_ROUTE },
-  { label: "The stack", to: DOCS_THE_STACK_ROUTE },
-  { label: "Cloudflare setup", to: DOCS_CLOUDFLARE_SETUP_ROUTE },
-  { label: "Worker Previews migration", to: DOCS_CLOUDFLARE_PREVIEWS_MIGRATION_ROUTE },
-  { label: "Do it yourself", to: DOCS_DO_IT_YOURSELF_ROUTE },
-  { label: "Receipts", to: DOCS_RECEIPTS_ROUTE },
+  {
+    label: "docs",
+    pages: [
+      { label: "The big migration", to: DOCS_THE_BIG_MIGRATION_ROUTE },
+      { label: "The stack", to: DOCS_THE_STACK_ROUTE },
+      { label: "Cloudflare setup", to: DOCS_CLOUDFLARE_SETUP_ROUTE },
+      { label: "Worker Previews migration", to: DOCS_CLOUDFLARE_PREVIEWS_MIGRATION_ROUTE },
+      { label: "Do it yourself", to: DOCS_DO_IT_YOURSELF_ROUTE },
+      { label: "Receipts", to: DOCS_RECEIPTS_ROUTE },
+    ],
+    to: DOCS_INDEX_ROUTE,
+  },
   { label: "Pricing", to: DOCS_PRICING_ROUTE },
   { label: "Changelog", to: DOCS_CHANGELOG_ROUTE },
-] as const;
+];
 
 function getLandingPreviewUrlMobilePane(search: string): MobilePane | null {
   const searchParams = parseTanStackSearch(search);
@@ -112,6 +123,56 @@ function LandingPreviewPaneUrlSync() {
   return null;
 }
 
+function DocsSidebarLink({ label, to }: DocsSidebarPage) {
+  return (
+    <Link
+      {...APP_SIDEBAR_NAVIGATION_LINK_PROPS}
+      className="max-w-full text-primary no-underline"
+      to={to}
+    >
+      {label}
+    </Link>
+  );
+}
+
+/**
+A folder starts open and saves nothing, so the prerendered page already shows the visitor's nav and
+a sign-in changes nothing. The chevron holds until the next page, which renders its own sidebar.
+*/
+function DocsSidebarFolder({
+  label,
+  pages,
+  to,
+}: DocsSidebarPage & { pages: readonly DocsSidebarPage[] }) {
+  const [open, setOpen] = useState(true);
+
+  return (
+    <section aria-label={label} className="flex max-w-full flex-col items-start gap-3">
+      <div className="flex max-w-full items-center gap-1">
+        <Button
+          aria-expanded={open}
+          aria-label={`${open ? "Collapse" : "Expand"} ${label}`}
+          className="size-5 p-0"
+          size="icon"
+          type="button"
+          variant="ghost"
+          onClick={() => setOpen(!open)}
+        >
+          {open ? <ChevronDown /> : <ChevronRight />}
+        </Button>
+        <DocsSidebarLink label={label} to={to} />
+      </div>
+      {open ? (
+        <div className="flex max-w-full flex-col items-start gap-3 pl-6">
+          {pages.map((page) => (
+            <DocsSidebarLink key={page.label} label={page.label} to={page.to} />
+          ))}
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
 function DocsSidebar() {
   return (
     <nav
@@ -119,16 +180,13 @@ function DocsSidebar() {
       data-testid={DOCS_SIDEBAR_TEST_ID}
       className="flex min-h-full flex-col items-start gap-3 px-4 py-4 text-sm"
     >
-      {DOCS_SIDEBAR_LINKS.map((link) => (
-        <Link
-          {...APP_SIDEBAR_NAVIGATION_LINK_PROPS}
-          className="max-w-full text-primary no-underline"
-          key={link.to}
-          to={link.to}
-        >
-          {link.label}
-        </Link>
-      ))}
+      {DOCS_SIDEBAR_TREE.map(({ label, pages, to }) =>
+        pages === undefined ? (
+          <DocsSidebarLink key={label} label={label} to={to} />
+        ) : (
+          <DocsSidebarFolder key={label} label={label} pages={pages} to={to} />
+        ),
+      )}
     </nav>
   );
 }

@@ -26,6 +26,7 @@ const LANDING_PAGE_PROD_UI_ROUTE = `${LANDING_PAGE_ROUTE}?prod-ui`;
 
 const expectedLandingPreviewSidebarFiles = [
   "Overview",
+  "docs",
   "The big migration",
   "The stack",
   "Do it yourself",
@@ -348,6 +349,12 @@ test("landing document navigation resets pages, restores history, and aligns dir
   await expect.poll(() => readMainPaneScrollTop(page)).toBeGreaterThan(0);
   const overviewScrollTop = await readMainPaneScrollTop(page);
 
+  const docsSidebar = page.getByTestId(DOCS_SIDEBAR_TEST_ID);
+  const stackLink = docsSidebar.getByRole("link", { exact: true, name: "The stack" });
+  await docsSidebar.getByRole("button", { name: "Collapse docs" }).click();
+  await expect(stackLink).toBeHidden();
+  await docsSidebar.getByRole("button", { name: "Expand docs" }).click();
+  await expect(stackLink).toBeVisible();
   await doItYourselfLink.click();
 
   await expect(page).toHaveURL(new RegExp(`${DOCS_DO_IT_YOURSELF_ROUTE}$`));
@@ -660,7 +667,7 @@ test("docs index renders the docs navigation in the main pane", async ({ page })
     page.locator('[data-sidebar-layout-part="pane"][data-pane-side="left"]'),
   ).toHaveCount(0);
   await expect(docsNavigation).toBeVisible();
-  await expect(docsNavigation.locator('a[aria-current="page"]')).toHaveCount(0);
+  await expect(docsNavigation.locator('a[aria-current="page"]')).toHaveText("docs");
   await expectSidebarFiles(docsNavigation);
   await expect(mainPane).toHaveScreenshot("docs-index-desktop.png", {
     animations: "disabled",
@@ -670,7 +677,7 @@ test("docs index renders the docs navigation in the main pane", async ({ page })
   });
 });
 
-test("landing do-it-yourself mobile pane query opens the flat sidebar", async ({ page }) => {
+test("landing do-it-yourself mobile pane query opens the sidebar", async ({ page }) => {
   await page.setViewportSize({ width: 744, height: 1200 });
   await page.goto(`${DOCS_DO_IT_YOURSELF_ROUTE}?left&dark`, {
     waitUntil: "domcontentloaded",
