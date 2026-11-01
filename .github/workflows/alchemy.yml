@@ -1,6 +1,6 @@
 # Deploys samebase.com and the previews of its pull requests with the Alchemy stack in
 # apps/samebase/alchemy.run.ts, then the sidebars example with the stack in
-# apps/sidebars-example/alchemy.run.ts, each run from its folder. A push to main deploys the stage
+# apps/sidebars-example/alchemy.run.ts, which runs through the shared alchemy-deploy.yml. A push to main deploys the stage
 # `prod` of both: the Convex project, its production deployment, which serves samebase.com through
 # convex-hosting, the Workers next to the app, and the Worker of the sidebars example. A pull
 # request from this repository deploys the stage `pr-<number>` of both, a Convex preview deployment
@@ -29,15 +29,6 @@ on:
 permissions:
   contents: read
 
-# One run per stage at a time: the state store has no lock. Pending runs wait in order instead of
-# replacing each other, so the destroy of a closed pull request waits for its running deploy.
-concurrency:
-  group:
-    alchemy-${{ github.event.pull_request.number && format('pr-{0}',
-    github.event.pull_request.number) || github.ref_name }}
-  queue: max
-  cancel-in-progress: false
-
 env:
   # The stage, as https://alchemy.run/environments/ci names it: `pr-<number>` for a pull request,
   # `prod` on main, and the branch name otherwise, where no job below runs.
@@ -54,6 +45,16 @@ jobs:
       'pull_request' && github.ref == 'refs/heads/main')
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    # One run per stage at a time: the state store has no lock. Pending runs wait in order instead of
+    # replacing each other, so the destroy of a closed pull request waits for its running deploy. The
+    # group is on each job, because the sidebars example takes the same group in the shared workflow,
+    # and a group on this whole workflow would wait for itself.
+    concurrency: &stage
+      group:
+        alchemy-${{ github.event.pull_request.number && format('pr-{0}',
+        github.event.pull_request.number) || github.ref_name }}
+      queue: max
+      cancel-in-progress: false
     permissions:
       contents: read
       pull-requests: write # The job keeps one comment with the stacks of the repository.
@@ -133,19 +134,6 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
           VITE_SAMEBASE_ROUTE_ENVIRONMENT: preview
 
-      - name: Build the sidebars example
-        working-directory: apps/sidebars-example
-        run: pnpm run build
-
-      - name: Deploy the sidebars example
-        working-directory: apps/sidebars-example
-        run: pnpm exec alchemy deploy --stage "$STAGE" --yes --no-input --detect-drift $ADOPT
-        env:
-          ADOPT: ${{ inputs.adopt && '--adopt' || '' }}
-          CONVEX_ACCESS_TOKEN: ${{ secrets.CONVEX_ACCESS_TOKEN }}
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
-
       # One comment with the stacks of the repository, from the state that the deploys just wrote.
       - name: Update the stack comment
         if: github.event_name == 'pull_request'
@@ -163,6 +151,7 @@ jobs:
       github.repository
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    concurrency: *stage
 
     steps:
       # The base branch, not the pull request head: a head whose install fails, such as one with a
@@ -197,15 +186,23 @@ jobs:
           CONVEX_ACCESS_TOKEN: ${{ secrets.CONVEX_ACCESS_TOKEN }}
           GITHUB_TOKEN: ${{ github.token }}
 
-      # Also when the step above fails: one stuck stage must not keep the other.
-      - name: Destroy the preview of the sidebars example
-        if: ${{ !cancelled() }}
-        working-directory: apps/sidebars-example
-        run: pnpm exec alchemy destroy --stage "$STAGE" --yes --no-input
-        env:
-          CONVEX_ACCESS_TOKEN: ${{ secrets.CONVEX_ACCESS_TOKEN }}
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+  # The sidebars example runs the shared workflow at the commit of this run, so a pull request that
+  # changes alchemy-deploy.yml runs it for real before it merges.
+  sidebars-example:
+    name: Sidebars example
+    uses: ./.github/workflows/alchemy-deploy.yml
+    permissions:
+      contents: read
+      pull-requests: write
+    with:
+      adopt: ${{ inputs.adopt == true }}
+      build: pnpm run build
+      detect-drift: true
+      directory: apps/sidebars-example
+    secrets:
+      CONVEX_ACCESS_TOKEN: ${{ secrets.CONVEX_ACCESS_TOKEN }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
 
   fork:
     name: Skip the preview of a fork
