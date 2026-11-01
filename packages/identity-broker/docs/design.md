@@ -108,6 +108,9 @@ pairwise subjects gives the hub other ids than it gave an app's own client.
   `registration_access_token`, which the section includes. The hub keeps only their hashes, and the
   client already holds both. No request changes a secret: a client that lost it registers a new
   client, and the old one stays valid, because the hub cannot know which one a deployment holds.
+- A production client cannot delete itself, which RFC 7592 section 2.3 allows a server to refuse. A
+  stack destroy can leave a production deployment running, so only the hub's administrator deletes
+  one.
 - An app from `/register` derives its salt from the hub's salt and the app id, so an owner who
   leaves can take that one salt to a broker of their own and keep their users' subjects.
 - No loopback exception on redirect URIs: a local deployment registers its exact

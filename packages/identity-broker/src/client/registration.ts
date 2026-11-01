@@ -258,7 +258,12 @@ export function registrationEndpoints(args: {
       return invalidToken();
     }
     const result = await ctx.runMutation(component.registration.remove, target);
-    return result.ok ? new Response(null, { status: 204 }) : invalidToken();
+    if (!result.ok) {
+      return result.error === "production"
+        ? registrationError(403, "access_denied", "A production client cannot delete itself.")
+        : invalidToken();
+    }
+    return new Response(null, { status: 204 });
   });
 
   const suspension = httpActionGeneric(async (ctx, request) => {

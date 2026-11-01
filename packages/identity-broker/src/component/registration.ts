@@ -182,14 +182,23 @@ export const renew = mutation({
   },
 });
 
-/** A client deletes itself (RFC 7592 section 2.3). */
+/**
+ * A preview client deletes itself (RFC 7592 section 2.3). A production client cannot: a stack destroy
+ * can leave a production deployment running, and the hub cannot know that it stopped.
+ */
 export const remove = mutation({
   args: { clientId: string(), registrationTokenHash: string() },
-  returns: union(object({ ok: literal(true) }), object({ ok: literal(false) })),
+  returns: union(
+    object({ ok: literal(true) }),
+    object({ ok: literal(false), error: union(literal("invalid_token"), literal("production")) }),
+  ),
   handler: async (ctx, args) => {
     const client = await clientAt(ctx, args.clientId, args.registrationTokenHash);
     if (client === null) {
-      return { ok: false as const };
+      return { ok: false as const, error: "invalid_token" as const };
+    }
+    if (client.deploymentType === "production") {
+      return { ok: false as const, error: "production" as const };
     }
     await ctx.db.delete("clients", client._id);
     return { ok: true as const };

@@ -493,10 +493,20 @@ describe("RFC 7592 client management", () => {
     expect((await readClient(h, client.client_id))?.removeAt).toBe(Date.now() + LEASE_MS);
   });
 
-  test("a delete removes only the client that asks, and a gone client answers 401", async () => {
+  test("a production client cannot delete itself", async () => {
     const h = await hub();
     const client = await register(h);
-    const other = await register(h);
+    const own = configuration(client, client.registration_access_token, "DELETE");
+    const response = await h.fetchBroker(own.url, own.init);
+    expect(response.status).toBe(403);
+    expect(await readClient(h, client.client_id)).not.toBeNull();
+  });
+
+  test("a delete removes only the client that asks, and a gone client answers 401", async () => {
+    const h = await hub();
+    const preview = { software_id: "gh-1-p", deployment_type: "preview" };
+    const client = await register(h, preview);
+    const other = await register(h, preview);
     const forged = configuration(client, other.registration_access_token, "DELETE");
     expect((await h.fetchBroker(forged.url, forged.init)).status).toBe(401);
     const own = configuration(client, client.registration_access_token, "DELETE");

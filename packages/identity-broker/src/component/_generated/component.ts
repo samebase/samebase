@@ -446,7 +446,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         "mutation",
         "internal",
         { clientId: string; registrationTokenHash: string },
-        { ok: true } | { ok: false },
+        { ok: true } | { error: "invalid_token" | "production"; ok: false },
         Name
       >;
       renew: FunctionReference<
