@@ -27,7 +27,10 @@ const PULL_REQUEST_GC_MS = 5 * 60_000;
 const PULL_REQUEST_PAGE_SIZE = 6;
 const INITIAL_PULL_REQUEST_CURSOR: string | null = null;
 
-type RepositoryPullRequestTarget = Pick<UserRepositoryResult, "repositoryId" | "sourceSetup"> & {
+type RepositoryPullRequestTarget = Pick<
+  UserRepositoryResult,
+  "providerSetup" | "repositoryId" | "sourceSetup"
+> & {
   cloudflareWorkers: readonly {
     workerId: Id<"repositoryCloudflareWorkers">;
     accountId: string;
@@ -183,6 +186,7 @@ export function useRepositoryPullRequests(args: {
 
   const repositoryId = args.repository?.repositoryId;
   const sourceSetupStatus = args.repository?.sourceSetup.status;
+  const providerSetupStatus = args.repository?.providerSetup.status;
   const alchemyStacks = useMemo(
     () =>
       args.source !== "attachments" &&
@@ -214,7 +218,9 @@ export function useRepositoryPullRequests(args: {
     .sort((left, right) => left.convexProjectId.localeCompare(right.convexProjectId));
 
   const pullRequestQuery = useInfiniteQuery({
-    queryKey: ["repository-pull-requests", repositoryId, sourceSetupStatus],
+    // A setup step that pushes the first commit moves one of these statuses, so a read after it
+    // does not reuse the answer of the empty repository.
+    queryKey: ["repository-pull-requests", repositoryId, sourceSetupStatus, providerSetupStatus],
     queryFn: async ({ pageParam }) => {
       if (!repositoryId) {
         throw new Error("Repository is required to load pull requests.");

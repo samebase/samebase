@@ -8,6 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
+import type { UserRepositoryResult } from "../../../convex/repository/contracts/getUserRepositories";
 import type { RepositoryPullRequestPage } from "../../../convex/repository/pullRequestModel";
 import { repositoryExternalDataQueryKey } from "@/repository/dashboard/repositoryExternalDataQueryKey";
 import {
@@ -148,6 +149,7 @@ let currentConvexProjects: Array<{
   codeLocation: { kind: "config"; convexConfigPath: string };
 }> = [];
 let currentSourceSetupRunning = false;
+let currentProviderSetup: UserRepositoryResult["providerSetup"] = { status: "ready" };
 let currentAlchemyState: RepositoryAlchemyState;
 
 function Harness() {
@@ -157,6 +159,7 @@ function Harness() {
       repositoryId: fakeRepositoryId(),
       cloudflareWorkers: currentCloudflareWorkers,
       convexProjects: currentConvexProjects,
+      providerSetup: currentProviderSetup,
       sourceSetup: currentSourceSetupRunning
         ? {
             status: "running",
@@ -240,6 +243,7 @@ beforeEach(() => {
   currentCloudflareWorkers = [];
   currentConvexProjects = [];
   currentSourceSetupRunning = false;
+  currentProviderSetup = { status: "ready" };
   currentAlchemyState = {
     state: "loaded",
     observation: { store: "missing" },
@@ -769,6 +773,50 @@ describe("useRepositoryPullRequests", () => {
     );
 
     currentSourceSetupRunning = false;
+    await renderHarness();
+    await waitFor(
+      (state) =>
+        (state.state === "current" || state.state === "stale") &&
+        state.allPullRequests[0]?.number === 1261,
+    );
+
+    expect(listHandler).toHaveBeenCalledTimes(2);
+  });
+
+  it("refreshes immediately when a retry moves past a failed seed", async () => {
+    let requestCount = 0;
+    const listHandler = vi.fn(async () => {
+      requestCount += 1;
+      return page({ number: requestCount === 1 ? 1260 : 1261, endCursor: null });
+    });
+    actionState.handlersByFunctionName.set(
+      getFunctionName(api.repositoryPullRequests.listOpenPullRequests),
+      listHandler,
+    );
+    installResourceHandler();
+
+    currentProviderSetup = {
+      status: "failed",
+      provider: "github",
+      runId: fakeRepositoryProvisioningRunId(),
+      step: "seed_starter",
+      message: "Could not push the starter.",
+      updatedAt: 1,
+    };
+    await renderHarness();
+    await waitFor(
+      (state) =>
+        (state.state === "current" || state.state === "stale") &&
+        state.allPullRequests[0]?.number === 1260,
+    );
+
+    currentProviderSetup = {
+      status: "running",
+      provider: "github",
+      runId: fakeRepositoryProvisioningRunId(),
+      step: "sync_tree",
+      updatedAt: 2,
+    };
     await renderHarness();
     await waitFor(
       (state) =>
