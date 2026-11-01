@@ -39,7 +39,8 @@ import {
   readParameters,
   redirect,
 } from "./responses.js";
-import { pairwiseSubject, randomToken, sha256Hex } from "./subject.js";
+import { registrationEndpoints, type RegistrationConfig } from "./registration.js";
+import { appSalt, pairwiseSubject, randomToken, sha256Hex } from "./subject.js";
 
 export type {
   Connector,
@@ -51,6 +52,7 @@ export { github } from "./connectors/github.js";
 export { google } from "./connectors/google.js";
 export { createKeySet, parseKeySet, rotateKeySet, type KeySet } from "./keys.js";
 export { assertKeySetUsable } from "./jwt.js";
+export type { RegistrationConfig } from "./registration.js";
 
 export type IdentityBrokerConfig = {
   /** `components.identityBroker` of the host app. */
@@ -69,6 +71,8 @@ export type IdentityBrokerConfig = {
    * no client, because a deployment whose client was deleted does not register again by itself.
    */
   previewClientIdleDays?: number;
+  /** Lets apps that are not the host's own register (RFC 7591). Absent: no `/register` endpoint. */
+  registration?: RegistrationConfig;
 };
 
 /** A request lives this long from /authorize to the code redirect. */
@@ -110,7 +114,13 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
   if (connectors.size === 0) {
     throw new Error("At least one connector is required");
   }
-  const { previewClientIdleDays } = config;
+  const { previewClientIdleDays, registration } = config;
+  if (registration !== undefined && !connectors.has(registration.connector)) {
+    throw new Error(`No connector "${registration.connector}" for registration`);
+  }
+  const openConnectors = [...connectors.values()].filter(
+    (connector) => connector.reserved !== true,
+  );
   // Zero or less would delete every preview client at the next cleanup.
   if (previewClientIdleDays !== undefined && !(previewClientIdleDays > 0)) {
     throw new Error("previewClientIdleDays must be a positive number of days");
@@ -152,6 +162,55 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
       400,
     );
 
+  /** An app from `/register` has one connector. Any other app has every connector but a reserved one. */
+  const connectorAllowed = (app: { connector?: string }, connector: Connector) =>
+    app.connector === undefined ? connector.reserved !== true : connector.name === app.connector;
+
+  /**
+   * The connector `/authorize` goes to with no page. A first-party app may skip the chooser: the one
+   * it named, or the only one. An app from `/register` goes to its one connector, and the URL has no
+   * say. Any other third-party app always gets the page, which doubles as consent (RFC 9700 4.11).
+   */
+  function directConnector(
+    app: { connector?: string; firstParty: boolean },
+    named: string | undefined,
+  ): Connector | undefined {
+    if (app.connector !== undefined) {
+      return connectors.get(app.connector);
+    }
+    if (!app.firstParty) {
+      return undefined;
+    }
+    const connector = named === undefined ? undefined : connectors.get(named);
+    return connector !== undefined && connectorAllowed(app, connector)
+      ? connector
+      : openConnectors.length === 1
+        ? openConnectors[0]
+        : undefined;
+  }
+
+  /** A sign-in of an app from `/register` that stopped: suspended, or stopped for all such apps. */
+  const stoppedPage = (app: { suspended: boolean; connector?: string }) =>
+    app.suspended
+      ? errorPage("Sign-in is off", "Sign-in for this app is turned off.", 403)
+      : app.connector !== undefined && registration?.paused?.() === true
+        ? errorPage("Sign-in is off", "Sign-in is paused. Try again later.", 503)
+        : null;
+
+  /**
+   * A refusal before the user has authenticated. An app from `/register` holds a redirect URI that
+   * nobody reviewed, so a redirect would let a link on this host end on any page of that app. It gets
+   * an error page here (RFC 9700 section 4.11.2).
+   */
+  function refuse(
+    app: { connector?: string } | null,
+    back: Parameters<typeof authorizationError>[0],
+  ): Response {
+    return app?.connector === undefined
+      ? authorizationError(back)
+      : errorPage("Sign-in refused", back.description, 400);
+  }
+
   const keySet = (): KeySet => parseKeySet(config.keys());
   const callbackUrl = (connector: Connector) => `${issuer}/connectors/${connector.name}/callback`;
 
@@ -161,6 +220,7 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
     token_endpoint: `${issuer}/token`,
     userinfo_endpoint: `${issuer}/userinfo`,
     jwks_uri: `${issuer}/.well-known/jwks.json`,
+    ...(registration === undefined ? {} : { registration_endpoint: `${issuer}/register` }),
     scopes_supported: SCOPES,
     response_types_supported: ["code"],
     response_modes_supported: ["query"],
@@ -203,6 +263,7 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
     ctx: Ctx,
     args: {
       connector: Connector;
+      app: { connector?: string };
       request: {
         requestId: string;
         appId: string;
@@ -223,7 +284,7 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
     // Freshness is honored only as prompt=login upstream; a connector without it is refused, never
     // pretended.
     if (request.freshLogin && (connector.kind === "oauth" || !connector.promptLogin)) {
-      return authorizationError({
+      return refuse(args.app, {
         ...back,
         error: "login_required",
         description: `${connector.label} cannot reauthenticate the user, which prompt=login or max_age asked for.`,
@@ -250,7 +311,7 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
             "This sign-in is unknown. Return to the app and try again.",
             404,
           )
-        : authorizationError({
+        : refuse(args.app, {
             ...back,
             error: "access_denied",
             description: `The sign-in ${result.error === "expired" ? "expired" : "already moved on"}.`,
@@ -276,14 +337,17 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
     if (!target.ok) {
       return errorPage("Invalid sign-in request", target.description, target.status);
     }
-    const client = await ctx.runQuery(component.clients.get, { clientId: target.value.clientId });
-    if (client === null) {
+    const found = await ctx.runQuery(component.clients.withApp, {
+      clientId: target.value.clientId,
+    });
+    if (found === null) {
       return errorPage(
         "Unknown client",
         "The client_id is not registered with this provider.",
         400,
       );
     }
+    const { client, app } = found;
     // Exact string comparison, and no redirect to a URI that is not registered (RFC 9700 4.1.3).
     if (client.redirectUri !== target.value.redirectUri) {
       return errorPage(
@@ -300,9 +364,8 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
     };
     const rest = validateAuthorizeRest(params, target.value);
     if (!rest.ok) {
-      return authorizationError({ ...back, error: rest.error, description: rest.description });
+      return refuse(app, { ...back, error: rest.error, description: rest.description });
     }
-    const app = await readApp(ctx, client.appId);
     if (app === null) {
       return authorizationError({
         ...back,
@@ -310,9 +373,13 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
         description: "The client's app is gone.",
       });
     }
+    const stopped = stoppedPage(app);
+    if (stopped !== null) {
+      return stopped;
+    }
     if (rest.value.prompt.includes("none")) {
       // The broker keeps no session, so it can never answer without interaction.
-      return authorizationError({
+      return refuse(app, {
         ...back,
         error: "login_required",
         description: "This provider has no session to reuse.",
@@ -320,18 +387,14 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
     }
     const freshLogin = rest.value.prompt.includes("login") || rest.value.maxAge !== undefined;
     const scopes = SCOPES.filter((scope) => rest.value.scopes.includes(scope));
-    // A first-party app may skip the chooser: the one it named, or the only one. A third-party app
-    // always gets the page, which doubles as consent (RFC 9700 4.11).
-    const named =
-      rest.value.connector === undefined ? undefined : connectors.get(rest.value.connector);
-    const only = connectors.size === 1 ? [...connectors.values()][0] : undefined;
-    const chosen = app.firstParty ? (named ?? only) : undefined;
+    const chosen = directConnector(app, rest.value.connector);
     // Every later step needs this cookie: a client that fetches the chooser itself cannot send a
     // user's browser on from it, and a provider callback finishes only where the sign-in started.
     const txnCookie = randomToken(32);
     const now = Date.now();
     const requestId = randomToken(24);
-    await ctx.runMutation(component.authRequests.create, {
+    const created = await ctx.runMutation(component.authRequests.create, {
+      ...(app.tenantId === undefined ? {} : { tenantId: app.tenantId }),
       requestId,
       appId: app.appId,
       clientId: client.clientId,
@@ -345,10 +408,14 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
       createdAt: now,
       expiresAt: now + AUTH_REQUEST_TTL_MS,
     });
+    if (!created.ok) {
+      return errorPage("Too many sign-ins", "Too many sign-ins for this app. Try again soon.", 429);
+    }
     const setCookie = `${txnCookiePrefix}${requestId}=${txnCookie}; ${txnCookieAttributes}; Max-Age=${AUTH_REQUEST_TTL_MS / 1000}`;
     if (chosen !== undefined) {
       const response = await startConnector(ctx, {
         connector: chosen,
+        app,
         request: {
           requestId,
           appId: app.appId,
@@ -365,7 +432,7 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
       appName: app.name,
       firstParty: app.firstParty,
       scopes,
-      connectors: [...connectors.values()].map((connector) => ({
+      connectors: openConnectors.map((connector) => ({
         name: connector.name,
         label: connector.label,
         href: `${path("/continue")}?request=${encodeURIComponent(requestId)}&connector=${encodeURIComponent(connector.name)}`,
@@ -424,8 +491,18 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
         description: "The client's app is gone.",
       });
     }
+    const stopped = stoppedPage(app);
+    if (stopped !== null) {
+      return stopped;
+    }
+    // The chooser link carries the connector, so a user can edit it, and this route can restart a
+    // request that already went upstream. The rule holds here as it does in /authorize.
+    if (!connectorAllowed(app, connector)) {
+      return errorPage("Unknown connector", "That sign-in method is not configured.", 404);
+    }
     return await startConnector(ctx, {
       connector,
+      app,
       request: {
         requestId,
         appId: stored.appId,
@@ -595,6 +672,7 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
         ? {}
         : { redirectUri: validation.value.redirectUri }),
       codeVerifier: validation.value.codeVerifier,
+      ...(registration?.paused?.() === true ? { registrationPaused: true } : {}),
       now,
     });
     if (!exchange.ok) {
@@ -607,7 +685,10 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
       appId: exchange.appId,
       connector: exchange.identity.connector,
       upstreamId: exchange.identity.upstreamId,
-      salt: keys.pairwiseSalt,
+      salt:
+        exchange.tenantId === undefined
+          ? keys.pairwiseSalt
+          : await appSalt(keys.pairwiseSalt, exchange.appId),
     });
     // Claims follow the granted scopes (OIDC Core 5.4); userinfo reads them from the access token.
     const scopes = exchange.scope.split(" ");
@@ -701,6 +782,9 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
           handler: upstreamCallback(connector),
         });
       }
+      if (registration !== undefined) {
+        registrationEndpoints({ component, issuer, path, registration }).addRoutes(http);
+      }
     },
 
     /**
@@ -784,6 +868,18 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
           returns: v.null(),
           handler: async (ctx, args) => {
             await ctx.runMutation(component.clients.remove, { clientId: args.clientId });
+            return null;
+          },
+        }),
+        /** Turns a tenant's switch on or off. It covers every app of the tenant. */
+        setTenantSuspended: internalMutationGeneric({
+          args: { tenantId: string(), suspended: boolean() },
+          returns: v.null(),
+          handler: async (ctx, args) => {
+            await ctx.runMutation(component.registration.setSuspended, {
+              ...args,
+              now: Date.now(),
+            });
             return null;
           },
         }),

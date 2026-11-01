@@ -246,6 +246,13 @@ function RepositoryEnvironmentResourceRow({
           </a>
         </div>
       );
+    case "hub_client":
+      // Only a stack card shows the sign-in status, so its row has no type label.
+      return (
+        <div className="flex min-h-10 items-center py-1.5 text-sm text-muted-foreground">
+          Google sign-in: {resource.status}
+        </div>
+      );
     default:
       resource satisfies never;
       return null;

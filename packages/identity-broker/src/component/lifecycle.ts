@@ -19,6 +19,7 @@ const vCleanupCounts = object({
   authRequests: number(),
   authorizationCodes: number(),
   previewClients: number(),
+  expiredClients: number(),
   signIns: number(),
 });
 
@@ -44,6 +45,14 @@ async function idlePreviewClients(ctx: MutationCtx, cutoff: number) {
     )
     .take(BATCH - neverUsed.length);
   return [...neverUsed, ...used];
+}
+
+/** At most one batch of the clients past their removal date. A row without one is not in the range. */
+async function expiredClients(ctx: MutationCtx, now: number) {
+  return await ctx.db
+    .query("clients")
+    .withIndex("by_remove_at", (q) => q.gt("removeAt", undefined).lt("removeAt", now))
+    .take(BATCH);
 }
 
 /**
@@ -77,7 +86,10 @@ async function cleanupBatch(
     previewClientMaxAgeMs === undefined
       ? []
       : await idlePreviewClients(ctx, args.now - previewClientMaxAgeMs);
-  for (const client of previewClients) {
+  const expired = await expiredClients(ctx, args.now);
+  // A row can be in both lists.
+  const clients = new Map([...previewClients, ...expired].map((client) => [client._id, client]));
+  for (const client of clients.values()) {
     await ctx.db.delete("clients", client._id);
   }
 
@@ -93,6 +105,7 @@ async function cleanupBatch(
     authRequests: requests.length,
     authorizationCodes: codes.length,
     previewClients: previewClients.length,
+    expiredClients: expired.length,
     signIns: signIns.length,
   };
   if (Object.values(counts).some((count) => count === BATCH)) {
@@ -107,8 +120,9 @@ async function cleanupBatch(
 
 /**
  * Deletes what has run out: expired requests and codes, preview clients nobody used for
- * `previewClientMaxAgeMs` when the host passes it, and audit rows older than `signInRetentionMs`.
- * The host schedules this daily from a cron; production and development clients are never touched.
+ * `previewClientMaxAgeMs` when the host passes it, clients past their removal date, and audit rows
+ * older than `signInRetentionMs`. The host schedules this daily from a cron; a production or
+ * development client has no removal date and is never touched.
  * The counts are this call's batch: a full batch schedules the next one, so one call drains
  * everything older than `now`.
  */

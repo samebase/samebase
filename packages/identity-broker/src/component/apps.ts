@@ -1,17 +1,47 @@
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
 // oxlint-disable-next-line samebase/no-raw-public-convex-function-builders -- Component entrypoints are internal to the host; host functions enforce access.
-import { internalMutation, mutation, query, type MutationCtx } from "./_generated/server";
+import { internalMutation, mutation, query } from "./_generated/server";
+import type { MutationCtx, QueryCtx } from "./_generated/server";
+import type { Doc } from "./_generated/dataModel";
 import { BATCH } from "./lifecycle";
 
-const { array, boolean, number, object, string } = v;
+const { array, boolean, number, object, optional, string } = v;
 
-const vApp = object({
+export const vApp = object({
   appId: string(),
   name: string(),
   firstParty: boolean(),
+  connector: optional(string()),
+  tenantId: optional(string()),
+  /** The tenant of the app is suspended. */
+  suspended: boolean(),
   createdAt: number(),
 });
+
+export async function isSuspended(ctx: QueryCtx, tenantId: string | undefined): Promise<boolean> {
+  if (tenantId === undefined) {
+    return false;
+  }
+  const tenant = await ctx.db
+    .query("tenants")
+    .withIndex("by_tenant_id", (q) => q.eq("tenantId", tenantId))
+    .unique();
+  return tenant?.suspendedAt !== undefined || tenant?.disconnected === true;
+}
+
+/** An app row with what `/authorize` and `/continue` need to know about its tenant. */
+export async function appView(ctx: QueryCtx, app: Doc<"apps">) {
+  return {
+    appId: app.appId,
+    name: app.name,
+    firstParty: app.firstParty,
+    ...(app.connector === undefined ? {} : { connector: app.connector }),
+    ...(app.tenantId === undefined ? {} : { tenantId: app.tenantId }),
+    suspended: await isSuspended(ctx, app.tenantId),
+    createdAt: app.createdAt,
+  };
+}
 
 /** Registers an app. Its clients come later, one per deployment. */
 export const create = mutation({
@@ -48,15 +78,7 @@ export const get = query({
       .query("apps")
       .withIndex("by_app_id", (q) => q.eq("appId", args.appId))
       .unique();
-    if (app === null) {
-      return null;
-    }
-    return {
-      appId: app.appId,
-      name: app.name,
-      firstParty: app.firstParty,
-      createdAt: app.createdAt,
-    };
+    return app === null ? null : await appView(ctx, app);
   },
 });
 
@@ -65,14 +87,8 @@ export const list = query({
   returns: array(vApp),
   handler: async (ctx) => {
     const apps = await ctx.db.query("apps").collect();
-    return apps
-      .map((app) => ({
-        appId: app.appId,
-        name: app.name,
-        firstParty: app.firstParty,
-        createdAt: app.createdAt,
-      }))
-      .sort((a, b) => a.createdAt - b.createdAt || a.appId.localeCompare(b.appId));
+    const views = await Promise.all(apps.map((app) => appView(ctx, app)));
+    return views.sort((a, b) => a.createdAt - b.createdAt || a.appId.localeCompare(b.appId));
   },
 });
 

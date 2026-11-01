@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 // oxlint-disable-next-line samebase/no-raw-public-convex-function-builders -- Component entrypoints are internal to the host; host functions enforce access.
 import { mutation, query } from "./_generated/server";
+import { appView, vApp } from "./apps";
 import { vDeploymentType, vTokenEndpointAuthMethod } from "./schema";
 
 const { array, number, object, optional, string } = v;
@@ -16,6 +17,9 @@ const vClient = object({
   softwareVersion: string(),
   createdAt: number(),
   lastSignInAt: optional(number()),
+  registrationTokenHash: optional(string()),
+  removeAt: optional(number()),
+  renewedAt: optional(number()),
 });
 
 /** Registers one deployment of an app as a client with its single exact redirect URI. */
@@ -68,6 +72,27 @@ export const get = query({
     }
     const { _id, _creationTime, ...fields } = client;
     return fields;
+  },
+});
+
+/** A client with its app, in one call, for the start of `/authorize`. */
+export const withApp = query({
+  args: { clientId: string() },
+  returns: v.union(object({ client: vClient, app: v.union(vApp, v.null()) }), v.null()),
+  handler: async (ctx, args) => {
+    const row = await ctx.db
+      .query("clients")
+      .withIndex("by_client_id", (q) => q.eq("clientId", args.clientId))
+      .unique();
+    if (row === null) {
+      return null;
+    }
+    const { _id, _creationTime, ...client } = row;
+    const app = await ctx.db
+      .query("apps")
+      .withIndex("by_app_id", (q) => q.eq("appId", client.appId))
+      .unique();
+    return { client, app: app === null ? null : await appView(ctx, app) };
   },
 });
 

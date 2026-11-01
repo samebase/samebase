@@ -293,6 +293,37 @@ describe("Convex.Deployment push with the access token", () => {
   );
 
   withToken.test.provider(
+    "fails with the CLI output tail without the Redacted variables of env",
+    (stack) =>
+      Effect.gen(function* () {
+        const fake = new FakeConvex().install();
+        vi.stubEnv("ALCHEMY_CONVEX_FAKE_CLI_MODE", "fail");
+        vi.stubEnv("ALCHEMY_CONVEX_FAKE_CLI_PRINT", "hub-client-secret not-secret no-hub");
+        const projectId = fake.addProject({ name: NAME, teamId: TEAM });
+        const error = yield* Effect.flip(
+          stack.deploy(
+            backend(
+              {
+                project: { projectId },
+                type: "prod",
+                env: {
+                  HUB_CLIENT_ID: "not-secret",
+                  HUB_CLIENT_SECRET: Redacted.make("hub-client-secret"),
+                  SHORT_SECRET: Redacted.make("no-hub"),
+                },
+              },
+              "./convex",
+            ),
+          ),
+        );
+        expect(error).toBeInstanceOf(Convex.CodePushFailed);
+        expect(String(error.message)).not.toContain("hub-client-secret");
+        // A plain value stays, and a value below 8 characters is too short to look for.
+        expect(String(error.message)).toContain("[REDACTED] not-secret no-hub");
+      }),
+  );
+
+  withToken.test.provider(
     "runs a push command with the key in its environment, and hashes its include globs",
     (stack) =>
       Effect.gen(function* () {

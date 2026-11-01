@@ -6,6 +6,8 @@ import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape
 import type {
   GetDeploymentsByDeploymentNameCustomDomainsData,
   GetDeploymentsByDeploymentNameCustomDomainsResponses,
+  GetDeploymentsByDeploymentNameData,
+  GetDeploymentsByDeploymentNameResponses,
   GetProjectsByProjectIdData,
   GetProjectsByProjectIdDeploymentData,
   GetProjectsByProjectIdDeploymentResponses,
@@ -36,6 +38,8 @@ import type {
 import {
   vGetDeploymentsByDeploymentNameCustomDomainsPath,
   vGetDeploymentsByDeploymentNameCustomDomainsResponse,
+  vGetDeploymentsByDeploymentNamePath,
+  vGetDeploymentsByDeploymentNameResponse,
   vGetProjectsByProjectIdDeploymentPath,
   vGetProjectsByProjectIdDeploymentQuery,
   vGetProjectsByProjectIdDeploymentResponse,
@@ -723,6 +727,64 @@ export class GET {
         },
       ],
       url: "/projects/{project_id}/deployment",
+      ...options,
+    });
+  }
+
+  /**
+   * Get deployment
+   *
+   * Get details about a cloud deployment.
+   */
+  public static "/deployments/{deployment_name}"<ThrowOnError extends boolean = true>(
+    options: Options<GetDeploymentsByDeploymentNameData, ThrowOnError>,
+  ): RequestResult<GetDeploymentsByDeploymentNameResponses, unknown, ThrowOnError, "data"> {
+    return options.client.get<
+      GetDeploymentsByDeploymentNameResponses,
+      unknown,
+      ThrowOnError,
+      "data"
+    >({
+      requestValidator: async (data) =>
+        await v.parseAsync(
+          v.object({
+            body: v.optional(v.never()),
+            path: vGetDeploymentsByDeploymentNamePath,
+            query: v.optional(v.never()),
+          }),
+          data,
+        ),
+      responseValidator: async (data) =>
+        await v.parseAsync(vGetDeploymentsByDeploymentNameResponse, data),
+      responseStyle: "data",
+      security: [
+        {
+          key: "PAT",
+          scheme: "bearer",
+          type: "http",
+        },
+        {
+          key: "OAuth Team Token",
+          scheme: "bearer",
+          type: "http",
+        },
+        {
+          key: "Team Token",
+          scheme: "bearer",
+          type: "http",
+        },
+        {
+          key: "OAuth Project Token",
+          scheme: "bearer",
+          type: "http",
+        },
+        {
+          key: "Preview Deploy Key",
+          scheme: "bearer",
+          type: "http",
+        },
+      ],
+      url: "/deployments/{deployment_name}",
       ...options,
     });
   }

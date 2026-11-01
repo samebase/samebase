@@ -16,13 +16,6 @@ export const record = mutation({
       sub: args.sub,
       at: args.at,
     });
-    const client = await ctx.db
-      .query("clients")
-      .withIndex("by_client_id", (q) => q.eq("clientId", args.clientId))
-      .unique();
-    if (client !== null) {
-      await ctx.db.patch("clients", client._id, { lastSignInAt: args.at });
-    }
     return null;
   },
 });

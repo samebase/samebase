@@ -1,4 +1,5 @@
 /// <reference types="vite-plus/client" />
+import rateLimiterTest from "@convex-dev/rate-limiter/test";
 import { convexTest } from "convex-test";
 import { anyApi, httpRouter, ROUTABLE_HTTP_METHODS } from "convex/server";
 import { exportJWK, generateKeyPair, SignJWT } from "jose";
@@ -9,6 +10,7 @@ import schema from "../component/schema.js";
 import type { Connector, OidcConnector } from "./connectors/types.js";
 import { defineIdentityBroker } from "./index.js";
 import { createKeySet, type KeySet } from "./keys.js";
+import type { RegistrationConfig } from "./registration.js";
 
 export const modules = import.meta.glob(["../component/**/*.ts", "!../component/**/*.test.ts"]);
 
@@ -33,8 +35,10 @@ export async function createHarness(options: {
   issuer?: string;
   keySet?: KeySet;
   previewClientIdleDays?: number;
+  registration?: RegistrationConfig;
 }) {
   const t = convexTest(schema, modules);
+  rateLimiterTest.register(t);
   const keySet = options.keySet ?? (await createKeySet());
   const issuer = options.issuer ?? ISSUER;
   const broker = defineIdentityBroker({
@@ -45,6 +49,7 @@ export async function createHarness(options: {
     ...(options.previewClientIdleDays === undefined
       ? {}
       : { previewClientIdleDays: options.previewClientIdleDays }),
+    ...(options.registration === undefined ? {} : { registration: options.registration }),
   });
   const http = httpRouter();
   broker.addHttpRoutes(http);

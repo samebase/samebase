@@ -478,6 +478,7 @@ await createClient({
           "GET /projects/{project_id}",
           "GET /projects/{project_id}/deployment",
           "GET /projects/{project_id}/list_deployments",
+          "GET /deployments/{deployment_name}",
           "GET /deployments/{deployment_name}/custom_domains",
           "POST /teams/{team_id}/create_project",
           "POST /projects/{project_id}/create_deployment",

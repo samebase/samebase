@@ -95,6 +95,24 @@ pairwise subjects gives the hub other ids than it gave an app's own client.
   its consent names.
 - Clients inherit the trust of their app: a first-party app's deployments skip the chooser and
   consent, because every deployment of a first-party app registers at deploy time.
+- An app from `/register` shows no page of the hub: it goes straight to its one connector, and the
+  connector's own screen names the hub, not the app. This falls short of RFC 6749 section 10.12,
+  which asks that a client get no authorization without the user's awareness of it, and it is the
+  confused deputy shape of the MCP security guide. A host that wants this accepts it knowingly and
+  sets `selectAccount`, so the provider shows its account screen on each sign-in and a user is never
+  passed through with no click. The user still does not learn which app is asking. Suspending the
+  app's tenant is the answer to a bad app.
+- A refusal before sign-in goes to an error page for an app from `/register`, not to its redirect
+  URI, because nobody reviewed that URI (RFC 9700 section 4.11.2).
+- A read of a client (RFC 7592 section 2.1) renews it, and answers without `client_secret` and
+  `registration_access_token`, which the section includes. The hub keeps only their hashes, and the
+  client already holds both. No request changes a secret: a client that lost it registers a new
+  client, and the old one stays valid, because the hub cannot know which one a deployment holds.
+- A production client cannot delete itself, which RFC 7592 section 2.3 allows a server to refuse. A
+  stack destroy can leave a production deployment running, so only the hub's administrator deletes
+  one.
+- An app from `/register` derives its salt from the hub's salt and the app id, so an owner who
+  leaves can take that one salt to a broker of their own and keep their users' subjects.
 - No loopback exception on redirect URIs: a local deployment registers its exact
   `http://127.0.0.1:<port>/...` URI.
 - `auth_time` is the hub's completion time: when the broker completed the sign-in, after the

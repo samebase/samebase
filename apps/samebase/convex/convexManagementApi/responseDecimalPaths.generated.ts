@@ -9,6 +9,7 @@ export const convexManagementResponseDecimalPaths = {
       ["items", "*", "id"],
       ["items", "*", "teamId"],
     ],
+    "/teams/{team_id}/list_project_tags": [],
     "/projects/{project_id}/list_deployments": [
       ["*", "creator"],
       ["*", "id"],

@@ -81,8 +81,28 @@ export default defineSchema({
     firstParty: boolean(),
     /** No longer read. The rows of a hub from before 0.8.0 still hold it. */
     allowedCallbackHosts: optional(array(string())),
+    /**
+     * The one connector of an app from `/register`. The app goes straight to it, and no other
+     * connector can sign in to the app. Absent on every other app.
+     */
+    connector: optional(string()),
+    /** The tenant of an app from `/register`. Absent on every other app. */
+    tenantId: optional(string()),
     createdAt: number(),
-  }).index("by_app_id", ["appId"]),
+  })
+    .index("by_app_id", ["appId"])
+    .index("by_tenant_id", ["tenantId"]),
+
+  /** One row for each tenant that `/register` has seen. It stays when the tenant's apps go. */
+  tenants: defineTable({
+    tenantId: string(),
+    /** Set by the hub's administrator. While set, no client of the tenant can sign in or register. */
+    suspendedAt: optional(number()),
+    /** The tenant left the service that registers it. It blocks the same things. */
+    disconnected: optional(boolean()),
+    /** The newest change of `disconnected`. An older one that arrives late changes nothing. */
+    connectionRevision: optional(number()),
+  }).index("by_tenant_id", ["tenantId"]),
 
   clients: defineTable({
     clientId: string(),
@@ -95,10 +115,17 @@ export default defineSchema({
     softwareVersion: string(),
     createdAt: number(),
     lastSignInAt: optional(number()),
+    /** SHA-256 hex of the registration access token (RFC 7592). A client from `/register` has one. */
+    registrationTokenHash: optional(string()),
+    /** When `cleanup` deletes the client. Absent: never by date. */
+    removeAt: optional(number()),
+    /** The last registration or renewal of a client from `/register`. */
+    renewedAt: optional(number()),
   })
     .index("by_client_id", ["clientId"])
     .index("by_app_id", ["appId"])
-    .index("by_deployment_type_and_activity", ["deploymentType", "lastSignInAt", "createdAt"]),
+    .index("by_deployment_type_and_activity", ["deploymentType", "lastSignInAt", "createdAt"])
+    .index("by_remove_at", ["removeAt"]),
 
   authRequests: defineTable(vAuthRequest)
     .index("by_request_id", ["requestId"])

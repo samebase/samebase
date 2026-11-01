@@ -46,6 +46,11 @@ export {
   runRecord,
   withRunRecord,
 } from "./RunRecord.ts";
+export {
+  SharedHubClient,
+  type SharedHubClientAttributes,
+  type SharedHubClientProps,
+} from "./SharedHubClient.ts";
 export { state, STORE_PROJECT_NAME } from "./State.ts";
 export {
   CodePushFailed,

@@ -15,6 +15,22 @@ export async function pairwiseSubject(args: {
   return base64url.encode(new Uint8Array(digest));
 }
 
+/**
+ * The salt of one app from `/register`, derived from the hub's salt. An owner who leaves can take it
+ * to their own broker and keep their users' subjects, and it says nothing about any other app.
+ */
+export async function appSalt(salt: string, appId: string): Promise<string> {
+  const key = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(salt),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const digest = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(appId));
+  return base64url.encode(new Uint8Array(digest));
+}
+
 export async function sha256Hex(input: string): Promise<string> {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(input));
   return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");

@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.20.0
+
+`Convex.SharedHubClient` gets a client of the central identity hub through samebase.com, for an app
+that deploys in its own GitHub Actions run. The workflow needs `permissions: id-token: write` and no
+Samebase key.
+
+- Each deploy reads the saved client on the hub with its own token. No failure stops a deploy or a
+  destroy: a failed renewal keeps the saved values, and a failed request for a new client gives the
+  `no-hub` values.
+- A stack card shows the Google sign-in status: on, not set up, or suspended.
+- A failed push removes the `Redacted` values of `env` from the output that it quotes, next to the
+  deploy key.
+
 ## 0.19.1
 
 - A deploy key request from an OAuth token sends only the name. Convex answers HTTP 400 to

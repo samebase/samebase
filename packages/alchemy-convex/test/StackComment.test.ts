@@ -162,6 +162,34 @@ describe("renderStackComment", () => {
     expect(body).not.toContain("<script>");
     expect(body).toContain("&lt;script&gt;");
   });
+
+  it.each([
+    ["on", "Google sign-in: on"],
+    ["off", "Google sign-in: not set up"],
+    ["suspended", "Google sign-in: suspended"],
+  ])("shows a shared hub client that is %s, and no secret of its row", async (status, line) => {
+    const row = {
+      fqn: "Client",
+      resourceType: "IdentityHub.SharedClient",
+      attr: {
+        status,
+        clientId: "client-id",
+        clientSecret: "client-secret",
+        registrationAccessToken: "registration-token",
+      },
+    };
+    const stage = { stack: repository, stage: "pr-1", rows: [row], output: null };
+
+    const body = renderStackComment(
+      await Effect.runPromise(
+        readStackCards({ repository, stage: "pr-1" }).pipe(Effect.provide(stateOf([stage]))),
+      ),
+      repository,
+    );
+
+    expect(body).toContain(`<tbody><tr><td>${line}</td></tr></tbody>`);
+    expect(body).not.toMatch(/client-id|client-secret|registration-token/);
+  });
 });
 
 describe("saveStackComment", () => {

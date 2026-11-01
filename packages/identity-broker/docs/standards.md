@@ -17,6 +17,8 @@ document. A deliberate difference is a named departure in [design.md](design.md)
 | [RFC 9207](https://www.rfc-editor.org/rfc/rfc9207.html)                                                  | 2, 3                           | `iss` on authorization responses, and checking it upstream                | Implemented                                          |
 | [RFC 9700](https://www.rfc-editor.org/rfc/rfc9700.html), OAuth security BCP                              | 2.1.1, 4.1.3, 4.4, 4.7, 4.16   | PKCE, exact redirects, mix-up and CSRF defenses, browser binding, framing | Implemented for these sections                       |
 | [RFC 6750](https://www.rfc-editor.org/rfc/rfc6750.html), Bearer tokens                                   | 2.1, 3                         | The UserInfo endpoint and its challenges                                  | Implemented, the header method only                  |
+| [RFC 7591](https://www.rfc-editor.org/rfc/rfc7591.html), dynamic client registration                     | 2, 3, 5                        | `/register` for apps that are not the host's own                          | Implemented, with an initial access token required   |
+| [RFC 7592](https://www.rfc-editor.org/rfc/rfc7592.html), client management (Experimental)                | 2.1, 2.3                       | Read and delete with a token of one client                                | Partly: no update, see the departures                |
 
 ## Tokens and keys
 
@@ -40,15 +42,19 @@ providers through [`oauth4webapi`](https://github.com/panva/oauth4webapi).
 
 ## Client registration
 
-A client gets its id and secret from the administrator of the hub, through the internal function
-`registerClient`. No standard covers this step, and none needs to: RFC 6749 section 2 leaves the
-means of registration open, as in a provider's own console. After that, the client is an ordinary
-confidential OAuth client.
+The host's own apps get their id and secret from the administrator of the hub, through the internal
+function `registerClient`. No standard covers this step, and none needs to: RFC 6749 section 2
+leaves the means of registration open, as in a provider's own console.
+
+A host can also set `registration`, which opens `/register` (RFC 7591) to whoever holds its initial
+access token. An app from there is third-party, and each of its clients holds a registration access
+token for its own record (RFC 7592). After that, a client of either kind is an ordinary confidential
+OAuth client.
 
 ## Not implemented
 
-- RFC 7591 and RFC 7592, and OpenID Connect Dynamic Client Registration: there is no public
-  registration endpoint.
+- Open registration: `/register` always needs the initial access token, and OpenID Connect Dynamic
+  Client Registration is not implemented. RFC 7592 update (`PUT`) is not implemented.
 - Refresh tokens: apps keep their own sessions.
 - Request Objects: `request` and `request_uri` answer `request_not_supported` and
   `request_uri_not_supported`.

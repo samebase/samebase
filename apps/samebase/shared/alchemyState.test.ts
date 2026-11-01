@@ -153,6 +153,25 @@ describe("stageResources", () => {
       ["Site", "apps/samebase/convex"],
     ]);
   });
+
+  it("gives a shared hub client with a known status, and leaves out one without it", () => {
+    const hubClient = (fqn: string, attr: object) => ({
+      fqn,
+      value: JSON.stringify({ resourceType: "IdentityHub.SharedClient", attr }),
+    });
+
+    const { hubClients } = stageResources({
+      stackFile: "alchemy.run.ts",
+      resources: [
+        hubClient("Client", { status: "suspended", clientId: "cl_1" }),
+        hubClient("Interrupted", {}),
+      ],
+    });
+
+    expect(hubClients.map(({ fqn, state }) => [fqn, state.attr.status])).toEqual([
+      ["Client", "suspended"],
+    ]);
+  });
 });
 
 describe("stackCards", () => {
