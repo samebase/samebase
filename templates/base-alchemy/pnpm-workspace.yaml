@@ -1,6 +1,9 @@
 allowBuilds:
   esbuild: true
   workerd: false
+patchedDependencies:
+  # Adds deleteUser, which convex/account.ts needs. Remove it when Convex Auth ships one.
+  "@convex-dev/auth@2.0.0-beta.0": patches/@convex-dev__auth@2.0.0-beta.0.patch
 overrides:
   # Version floors from samebase/base's supply-chain checks.
   "@hono/node-server": 2.1.5

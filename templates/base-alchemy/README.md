@@ -187,6 +187,10 @@ stay signed in. New Google sign-ins fail. To keep them, host
 [`@samebase/identity-broker`](https://github.com/samebase/samebase/tree/main/packages/identity-broker)
 yourself, or connect your own auth.
 
+The account page has **Delete account**, for guests too. `convex/account.ts` removes the user's to-dos,
+profile, and logins, so an app with more tables of user data adds them there. Convex Auth has no
+function for this yet, so `patches/` adds one.
+
 ## Important files
 
 - `package.json` defines the supported development, check, build, and deploy commands.
