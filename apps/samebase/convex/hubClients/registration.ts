@@ -28,7 +28,7 @@ import { getOrganizationProviderConfiguration } from "../organizationProviderCre
 import { readConvexPreviewDeployments } from "../repository/convexProjectResources";
 import { isLiveConnectedRepository } from "../repository/state";
 import { openSecret, vSealedSecret } from "../sealedSecret";
-import { readHub, readRepositoryByGitHubId } from "./tenantSuspension";
+import { readHub, readRepositoryByGitHubId } from "./tenantConnection";
 
 const { id, literal, object, string, union } = v;
 

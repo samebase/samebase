@@ -96,8 +96,12 @@ export default defineSchema({
   /** One row for each tenant that `/register` has seen. It stays when the tenant's apps go. */
   tenants: defineTable({
     tenantId: string(),
-    /** While set, no client of the tenant can sign in, register, or renew. */
+    /** Set by the hub's administrator. While set, no client of the tenant can sign in or register. */
     suspendedAt: optional(number()),
+    /** The tenant left the service that registers it. It blocks the same things. */
+    disconnected: optional(boolean()),
+    /** The newest change of `disconnected`. An older one that arrives late changes nothing. */
+    connectionRevision: optional(number()),
   }).index("by_tenant_id", ["tenantId"]),
 
   clients: defineTable({

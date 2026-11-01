@@ -27,7 +27,7 @@ export async function isSuspended(ctx: QueryCtx, tenantId: string | undefined): 
     .query("tenants")
     .withIndex("by_tenant_id", (q) => q.eq("tenantId", tenantId))
     .unique();
-  return tenant?.suspendedAt !== undefined;
+  return tenant?.suspendedAt !== undefined || tenant?.disconnected === true;
 }
 
 /** An app row with what `/authorize` and `/continue` need to know about its tenant. */

@@ -166,6 +166,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           codeVerifier: string;
           now: number;
           redirectUri?: string;
+          registrationPaused?: boolean;
           tokenEndpointAuthMethod: "client_secret_post" | "client_secret_basic";
         },
         | {
@@ -464,6 +465,13 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
               "client_secret_post" | "client_secret_basic";
           }
         | { error: "invalid_token" | "suspended"; ok: false },
+        Name
+      >;
+      setConnection: FunctionReference<
+        "mutation",
+        "internal",
+        { connected: boolean; revision: number; tenantId: string },
+        null,
         Name
       >;
       setSuspended: FunctionReference<

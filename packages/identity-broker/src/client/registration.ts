@@ -140,7 +140,7 @@ function clientInformation(args: {
 
 /**
  * Dynamic client registration (RFC 7591) and client management (RFC 7592). The initial access token
- * opens `/register` and the tenant switch. Each client holds its own registration access token for
+ * opens `/register` and `/tenant-connection`. Each client holds its own registration access token for
  * its own record, so a client can read or delete only itself.
  */
 export function registrationEndpoints(args: {
@@ -266,21 +266,18 @@ export function registrationEndpoints(args: {
     return new Response(null, { status: 204 });
   });
 
-  const suspension = httpActionGeneric(async (ctx, request) => {
+  const connection = httpActionGeneric(async (ctx, request) => {
     if (!(await holdsInitialToken(request))) {
       return invalidToken();
     }
     const body = asRecord(await request.json().catch(() => null));
     const tenantId = body === null ? undefined : nonEmptyString(body, "tenant_id");
-    const suspended = body?.["suspended"];
-    if (tenantId === undefined || typeof suspended !== "boolean") {
-      return registrationError(400, "invalid_request", "Send tenant_id and suspended.");
+    const connected = body?.["connected"];
+    const revision = body?.["revision"];
+    if (tenantId === undefined || typeof connected !== "boolean" || typeof revision !== "number") {
+      return registrationError(400, "invalid_request", "Send tenant_id, connected, and revision.");
     }
-    await ctx.runMutation(component.registration.setSuspended, {
-      tenantId,
-      suspended,
-      now: Date.now(),
-    });
+    await ctx.runMutation(component.registration.setConnection, { tenantId, connected, revision });
     return new Response(null, { status: 204 });
   });
 
@@ -289,7 +286,7 @@ export function registrationEndpoints(args: {
       http.route({ path: path("/register"), method: "POST", handler: register });
       http.route({ pathPrefix: path("/register/"), method: "GET", handler: read });
       http.route({ pathPrefix: path("/register/"), method: "DELETE", handler: remove });
-      http.route({ path: path("/tenant-suspension"), method: "POST", handler: suspension });
+      http.route({ path: path("/tenant-connection"), method: "POST", handler: connection });
     },
   };
 }

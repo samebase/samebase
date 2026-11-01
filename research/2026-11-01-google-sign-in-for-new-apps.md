@@ -24,7 +24,8 @@ PKCE, exact redirects, `iss`, pairwise subjects. See
   problem, and its fix is a consent page per app before going upstream. `prompt=select_account`
   stops the case with no click, if Google always shows its screen, which needs a test. It does not
   tell the person which app is asking. Google says consent is held per project, so people who
-  approved `samebase.com` may count too. This is an open decision.
+  approved `samebase.com` may count too. Decided: no page, and the hub forces the account screen. A
+  test must still show that Google never passes a person through with no click.
 
   Lovable has the same gap, tested on one project. Its app code holds no client ID or secret.
   Sign-in starts at `/~oauth/initiate` on the app's own domain, its hosting adds `project_id`, and
@@ -241,14 +242,10 @@ team controls. Two repositories in one team could claim each other's deployments
 hold that team's credential, so this gains nothing. If the organization's connection is gone, new
 clients stop.
 
-**Renewal.** Needs a client row of that repository whose callback matches the named deployment. If
-the row is missing or the callback differs, the answer is Gone. No Convex call, so it is cheap and
-keeps working if the Convex connection drops.
-
-**Delete.** Preview clients only, and it needs a client row of that repository. It does not look at
-the live deployment, which may already be gone. A merged PR's close event has the target branch as
-its `ref`, so it names no PR. That run can delete any preview client of the repository, and it runs
-only merged code.
+**Renewal and delete.** These do not go through Samebase. Each client holds its own registration
+access token (RFC 7592), and the run talks straight to the hub with it, so one run can touch only
+its own client. A renewal is a read of the client. If the client is gone, the answer is 401, and the
+run asks for a new one. The hub refuses to delete a production client.
 
 **Limits.** Verify the GitHub token in the HTTP action first, because a bad token then costs no
 table read. Then limit requests per repository and per organization.
@@ -361,12 +358,15 @@ size limits, so it is not part of the first version.
 tell the user which app it is, and it does not stop phishing. It only means a click on Google's
 page. Suspension has to carry the rest.
 
-**Suspending an app.** One switch per repository, so that it covers production, previews, and every
-app name. The broker gets a small row keyed by GitHub repository ID, and every stranger app points
-to it. That row stays when preview apps go away. The hub reads it at `/authorize`, at `/continue`,
-at registration, at renewal, and inside the `exchangeCode` transaction. If suspension commits first,
-the code is refused. A redemption that commits first can still finish. Suspension does not sign out
-users who are already in, because their sessions belong to the app.
+**Suspending an app.** One row per repository, so that it covers production, previews, and every app
+name. It holds two separate conditions, and either one blocks sign-in: the administrator's
+suspension, and that the repository left Samebase. Reconnecting clears only the second, so it cannot
+undo an abuse suspension. Each change of the second has a revision, and the hub ignores an older
+one, so a request that stalled cannot overwrite a newer state. The row stays when preview apps go
+away. The hub reads it at `/authorize`, at `/continue`, at registration, at renewal, and inside the
+`exchangeCode` transaction. If suspension commits first, the code is refused. A redemption that
+commits first can still finish. Suspension does not sign out users who are already in, because their
+sessions belong to the app.
 
 **One Google project.** If a stranger's app gets the project in trouble, `samebase.com` Google
 sign-in goes with it, and Google's new-user limit may be shared. GitHub sign-in on the hub would

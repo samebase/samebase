@@ -41,7 +41,7 @@ import {
   requireBillingResourceCapacityForAuthority,
 } from "../billingResourceQuotas";
 import { vConvexDeploymentRegion } from "../convexDeploymentRegionModel";
-import { startTenantSuspensionSync } from "../hubClients/tenantSuspension";
+import { startTenantConnectionSync } from "../hubClients/tenantConnection";
 import type { RepositoryProvisioningMode } from "./provisioningModel";
 
 const nullValidator = v.null();
@@ -611,7 +611,7 @@ export const connectExistingRepositoryGitHub = internalMutation({
     });
     // Only this path can connect a GitHub repository again: a created repository has a new id,
     // which the hub has never suspended.
-    await startTenantSuspensionSync(ctx, args.githubRepositoryDatabaseId);
+    await startTenantConnectionSync(ctx, args.githubRepositoryDatabaseId, true);
 
     return null;
   },

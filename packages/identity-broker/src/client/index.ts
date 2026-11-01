@@ -672,6 +672,7 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
         ? {}
         : { redirectUri: validation.value.redirectUri }),
       codeVerifier: validation.value.codeVerifier,
+      ...(registration?.paused?.() === true ? { registrationPaused: true } : {}),
       now,
     });
     if (!exchange.ok) {

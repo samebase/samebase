@@ -765,10 +765,10 @@ describe("POST /api/hub-clients", () => {
 });
 
 describe("the hub's tenant switch", () => {
-  const tenantSwitchCall = (suspended: boolean) => ({
-    url: `${HUB_ISSUER}/tenant-suspension`,
+  const tenantSwitchCall = (connected: boolean, revision: unknown = expect.any(Number)) => ({
+    url: `${HUB_ISSUER}/tenant-connection`,
     authorization: `Bearer ${HUB_KEY}`,
-    body: { tenant_id: "gh-74", suspended },
+    body: { tenant_id: "gh-74", connected, revision },
   });
 
   it("suspends the tenant when the repository leaves Samebase", async () => {
@@ -784,10 +784,10 @@ describe("the hub's tenant switch", () => {
     });
     await t.finishAllScheduledFunctions(vi.runAllTimers, 1_000);
 
-    expect(hubRequests).toEqual([tenantSwitchCall(true)]);
+    expect(hubRequests).toEqual([tenantSwitchCall(false)]);
   });
 
-  it("calls the hub again after an outage", async () => {
+  it("calls the hub again after an outage, with the same revision", async () => {
     vi.useFakeTimers();
     const { t, repositoryId, runId, userId } = await seedConnectedRepository();
     await finishProvisioningRun(t, runId);
@@ -803,10 +803,11 @@ describe("the hub's tenant switch", () => {
     });
     await t.finishAllScheduledFunctions(vi.runAllTimers, 1_000);
 
-    expect(hubRequests).toEqual([tenantSwitchCall(true), tenantSwitchCall(true)]);
+    expect(hubRequests).toEqual([tenantSwitchCall(false), tenantSwitchCall(false)]);
+    expect(hubRequests[1]).toEqual(hubRequests[0]);
   });
 
-  it("turns the switch off when the same GitHub repository connects again", async () => {
+  it("sends a newer revision when the same GitHub repository connects again", async () => {
     vi.useFakeTimers();
     const { t, organizationId, repositoryId, runId, userId } = await seedConnectedRepository();
     await finishProvisioningRun(t, runId);
@@ -824,18 +825,26 @@ describe("the hub's tenant switch", () => {
     await connectRepository(t, { organizationId, userId });
     await t.finishAllScheduledFunctions(vi.runAllTimers, 1_000);
 
-    expect(hubRequests).toEqual([tenantSwitchCall(true), tenantSwitchCall(false)]);
+    expect(hubRequests).toEqual([tenantSwitchCall(false), tenantSwitchCall(true)]);
+    const revisions = hubRequests.map(({ body }) =>
+      typeof body === "object" && body !== null && "revision" in body ? Number(body.revision) : NaN,
+    );
+    expect(revisions).toHaveLength(2);
+    expect(revisions).toEqual([...revisions].sort((a, b) => a - b));
+    expect(new Set(revisions).size).toBe(2);
   });
 
-  it("sends the current state, so a late retry cannot undo a new connection", async () => {
+  it("sends the change it was started with, whatever the repository is now", async () => {
     const { t } = await seedConnectedRepository();
     const hubRequests = stubProviders({ hub: () => new Response(null, { status: 204 }) });
 
-    await t.action(internal.hubClients.tenantSuspension.sendTenantSuspension, {
+    await t.action(internal.hubClients.tenantConnection.sendTenantConnection, {
       githubRepositoryDatabaseId: REPOSITORY_ID,
+      connected: false,
+      revision: 7,
     });
 
-    expect(hubRequests).toEqual([tenantSwitchCall(false)]);
+    expect(hubRequests).toEqual([tenantSwitchCall(false, 7)]);
   });
 
   it("calls the hub for neither change while the feature is off", async () => {

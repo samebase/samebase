@@ -78,7 +78,7 @@ import type * as githubUserAuthorizations from "../githubUserAuthorizations.js";
 import type * as http from "../http.js";
 import type * as hubClients_model from "../hubClients/model.js";
 import type * as hubClients_registration from "../hubClients/registration.js";
-import type * as hubClients_tenantSuspension from "../hubClients/tenantSuspension.js";
+import type * as hubClients_tenantConnection from "../hubClients/tenantConnection.js";
 import type * as identity_access from "../identity/access.js";
 import type * as identity_accessValidators from "../identity/accessValidators.js";
 import type * as identity_accountModel from "../identity/accountModel.js";
@@ -302,7 +302,7 @@ declare const fullApi: ApiFromModules<{
   http: typeof http;
   "hubClients/model": typeof hubClients_model;
   "hubClients/registration": typeof hubClients_registration;
-  "hubClients/tenantSuspension": typeof hubClients_tenantSuspension;
+  "hubClients/tenantConnection": typeof hubClients_tenantConnection;
   "identity/access": typeof identity_access;
   "identity/accessValidators": typeof identity_accessValidators;
   "identity/accountModel": typeof identity_accountModel;

@@ -206,8 +206,31 @@ export const remove = mutation({
 });
 
 /**
- * Turns a tenant's switch on or off. It covers every app of the tenant, and it holds for apps that
- * do not exist yet, so it needs no list of them.
+ * Records that a tenant left or came back. The service that registers tenants calls this, and it can
+ * retry, so a request can arrive after a newer one: only a newer revision changes anything. This is
+ * separate from `setSuspended`, so coming back cannot clear an administrator's suspension.
+ */
+export const setConnection = mutation({
+  args: { tenantId: string(), connected: v.boolean(), revision: number() },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const tenant = await ctx.db
+      .query("tenants")
+      .withIndex("by_tenant_id", (q) => q.eq("tenantId", args.tenantId))
+      .unique();
+    const change = { disconnected: !args.connected, connectionRevision: args.revision };
+    if (tenant === null) {
+      await ctx.db.insert("tenants", { tenantId: args.tenantId, ...change });
+    } else if (args.revision > (tenant.connectionRevision ?? Number.NEGATIVE_INFINITY)) {
+      await ctx.db.patch("tenants", tenant._id, change);
+    }
+    return null;
+  },
+});
+
+/**
+ * The administrator's switch on a tenant. It covers every app of the tenant, and it holds for apps
+ * that do not exist yet, so it needs no list of them.
  */
 export const setSuspended = mutation({
   args: { tenantId: string(), suspended: v.boolean(), now: number() },

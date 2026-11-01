@@ -72,11 +72,17 @@ async function register(h: Harness, overrides: Record<string, unknown> = {}) {
   return client;
 }
 
+/** The administrator's switch. */
 async function suspend(h: Harness, tenantId: string, suspended: boolean) {
-  const response = await h.fetchBroker(`${h.issuer}/tenant-suspension`, {
+  await h.t.mutation(api.registration.setSuspended, { tenantId, suspended, now: Date.now() });
+}
+
+/** What the service that registers tenants sends when a tenant leaves or comes back. */
+async function setConnection(h: Harness, tenantId: string, connected: boolean, revision: number) {
+  const response = await h.fetchBroker(`${h.issuer}/tenant-connection`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${TOKEN}` },
-    body: JSON.stringify({ tenant_id: tenantId, suspended }),
+    body: JSON.stringify({ tenant_id: tenantId, connected, revision }),
   });
   expect(response.status).toBe(204);
 }
@@ -518,6 +524,61 @@ describe("RFC 7592 client management", () => {
   });
 });
 
+describe("what a redemption does at once", () => {
+  test("it marks the client as used, so a cap cannot take a client that just signed someone in", async () => {
+    const h = await hub();
+    const client = await register(h);
+    expect((await readClient(h, client.client_id))?.lastSignInAt).toBeUndefined();
+    // The audit row plays no part: the redemption alone sets the mark.
+    const { verifier, challenge } = await pkce();
+    const start = await h.fetchBroker(authorizeUrl(h, client.client_id, challenge));
+    const code = await finishUpstream(h, start);
+    await h.t.mutation(api.authRequests.exchangeCode, {
+      clientId: client.client_id,
+      clientSecretHash: await sha256Hex(client.client_secret),
+      tokenEndpointAuthMethod: "client_secret_post",
+      codeHash: await sha256Hex(code),
+      codeVerifier: verifier,
+      now: Date.now(),
+    });
+    expect((await readClient(h, client.client_id))?.lastSignInAt).toBeDefined();
+  });
+
+  test("a pause stops a sign-in that already started, and not the host's own apps", async () => {
+    let paused = false;
+    const h = await hub({ paused: () => paused });
+    const client = await register(h);
+    const { verifier, challenge } = await pkce();
+    const start = await h.fetchBroker(authorizeUrl(h, client.client_id, challenge));
+    const code = await finishUpstream(h, start);
+    paused = true;
+    const response = await redeem(h, {
+      code,
+      clientId: client.client_id,
+      clientSecret: client.client_secret,
+      verifier,
+    });
+    expect(response.status).toBe(401);
+    const own = await h.registerClient({
+      appName: "Own",
+      firstParty: true,
+      redirectUri: REDIRECT_URI,
+    });
+    const ownPkce = await pkce();
+    const ownStart = await h.fetchBroker(
+      authorizeUrl(h, own.clientId, ownPkce.challenge, { connector: "fake" }),
+    );
+    const ownCode = await finishUpstream(h, ownStart);
+    const ownResponse = await redeem(h, {
+      code: ownCode,
+      clientId: own.clientId,
+      clientSecret: own.clientSecret,
+      verifier: ownPkce.verifier,
+    });
+    expect(ownResponse.status).toBe(200);
+  });
+});
+
 describe("caps and cleanup", () => {
   test("a preview app over its cap loses the client renewed longest ago", async () => {
     vi.useFakeTimers({ now: 1_000_000_000_000 });
@@ -630,14 +691,48 @@ describe("suspension", () => {
     expect(response.status).toBe(401);
   });
 
-  test("the switch needs the initial access token", async () => {
+  test("the connection endpoint needs the initial access token", async () => {
     const h = await hub();
-    const response = await h.fetchBroker(`${h.issuer}/tenant-suspension`, {
+    const response = await h.fetchBroker(`${h.issuer}/tenant-connection`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ tenant_id: "gh-1", suspended: true }),
+      body: JSON.stringify({ tenant_id: "gh-1", connected: false, revision: 1 }),
     });
     expect(response.status).toBe(401);
+  });
+
+  test("a tenant that leaves stops, and one that comes back works again", async () => {
+    const h = await hub();
+    const client = await register(h);
+    await setConnection(h, "gh-1", false, 1);
+    const { challenge } = await pkce();
+    expect((await h.fetchBroker(authorizeUrl(h, client.client_id, challenge))).status).toBe(403);
+    await setConnection(h, "gh-1", true, 2);
+    expect((await signIn(h, client)).status).toBe(200);
+  });
+
+  test("coming back does not clear the administrator's suspension", async () => {
+    const h = await hub();
+    const client = await register(h);
+    await suspend(h, "gh-1", true);
+    await setConnection(h, "gh-1", false, 1);
+    await setConnection(h, "gh-1", true, 2);
+    const { challenge } = await pkce();
+    expect((await h.fetchBroker(authorizeUrl(h, client.client_id, challenge))).status).toBe(403);
+    await suspend(h, "gh-1", false);
+    expect((await signIn(h, client)).status).toBe(200);
+  });
+
+  test("an older request that arrives late changes nothing, in either direction", async () => {
+    const h = await hub();
+    const client = await register(h);
+    await setConnection(h, "gh-1", false, 20);
+    await setConnection(h, "gh-1", true, 10);
+    const { challenge } = await pkce();
+    expect((await h.fetchBroker(authorizeUrl(h, client.client_id, challenge))).status).toBe(403);
+    await setConnection(h, "gh-1", true, 30);
+    await setConnection(h, "gh-1", false, 25);
+    expect((await signIn(h, client)).status).toBe(200);
   });
 });
 

@@ -292,8 +292,8 @@ type ExchangeResult = Infer<typeof vExchangeResult>;
  * app are read in this transaction, so a client that fails authentication leaves the code as it
  * was, and deleting the client or its app commits wholly before the redemption or after it. The
  * same holds for a suspension: one that commits first refuses the code. On success the code is
- * marked used and the request is gone, and a client with a removal date gets a new one, in this
- * transaction, so `cleanup` cannot delete a client that has just signed someone in.
+ * marked used and the request is gone. The client's `lastSignInAt` and removal date move in this
+ * transaction, so neither `cleanup` nor a cap can delete a client that has just signed someone in.
  */
 export const exchangeCode = mutation({
   args: {
@@ -305,6 +305,8 @@ export const exchangeCode = mutation({
     codeHash: string(),
     redirectUri: optional(string()),
     codeVerifier: string(),
+    /** The host stopped all apps from `/register`. A sign-in that already started stops here too. */
+    registrationPaused: optional(boolean()),
     now: number(),
   },
   returns: vExchangeResult,
@@ -327,7 +329,8 @@ export const exchangeCode = mutation({
       app === null ||
       client.tokenEndpointAuthMethod !== args.tokenEndpointAuthMethod ||
       client.secretHash !== args.clientSecretHash ||
-      (await isSuspended(ctx, app.tenantId))
+      (await isSuspended(ctx, app.tenantId)) ||
+      (args.registrationPaused === true && app.tenantId !== undefined)
     ) {
       return { ok: false, error: "invalid_client", description: "Client authentication failed." };
     }
@@ -396,9 +399,10 @@ export const exchangeCode = mutation({
     }
     await ctx.db.patch("authorizationCodes", code._id, { usedAt: args.now });
     await ctx.db.delete("authRequests", request._id);
-    if (client.removeAt !== undefined) {
-      await ctx.db.patch("clients", client._id, { removeAt: args.now + LEASE_MS });
-    }
+    await ctx.db.patch("clients", client._id, {
+      lastSignInAt: args.now,
+      ...(client.removeAt === undefined ? {} : { removeAt: args.now + LEASE_MS }),
+    });
     return {
       ok: true,
       appId: request.appId,
