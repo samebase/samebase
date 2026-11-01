@@ -356,9 +356,6 @@ test("landing document navigation resets pages, restores history, and aligns dir
   await doItYourselfLink.click();
 
   await expect(page).toHaveURL(new RegExp(`${DOCS_DO_IT_YOURSELF_ROUTE}$`));
-  await expect(
-    docsSidebar.getByRole("region", { name: "docs, contains current page" }),
-  ).toBeVisible();
   // Playwright clicks the center of the row, which is empty space.
   await docsSidebar.getByRole("button", { name: "Expand docs" }).click();
   await expect(stackLink).toBeVisible();
@@ -717,4 +714,10 @@ test("landing do-it-yourself mobile pane query opens the sidebar", async ({ page
     maxDiffPixelRatio: 0.02,
     scale: "css",
   });
+
+  // The route's query params must not hide the current page from its closed folder.
+  await sidebar.getByText("docs", { exact: true }).click();
+  await expect(
+    sidebar.getByRole("region", { name: "docs, contains current page" }),
+  ).toBeVisible();
 });
