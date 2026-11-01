@@ -30,8 +30,9 @@
   "dependencies": {
     "@convex-dev/auth": "2.0.0-beta.0",
     "@convex-dev/react-query": "^0.1.0",
+    "@samebase/convex-auth-tanstack-start": "^0.1.1",
     "@samebase/convex-hosting": "^0.14.0",
-    "@samebase/convex-hosting-tanstack-start": "^0.10.1",
+    "@samebase/convex-hosting-tanstack-start": "^0.11.0",
     "@tailwindcss/vite": "^4.3.3",
     "@tanstack/react-query": "^5.105.0",
     "@tanstack/react-router": "^1.170.46",
@@ -52,7 +53,7 @@
   "devDependencies": {
     "@alchemy.run/github": "2.0.0-beta.84",
     "@effect/platform-node": "4.0.5",
-    "@samebase/alchemy-convex": "0.19.1",
+    "@samebase/alchemy-convex": "0.20.0",
     "@tanstack/router-plugin": "^1.168.48",
     "@types/node": "^26.6.6",
     "@types/react": "^19.3.0",

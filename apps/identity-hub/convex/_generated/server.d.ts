@@ -32,10 +32,14 @@ type Env = {
   readonly CONVEX_SITE_URL: string;
   readonly AUTH_GITHUB_CLIENT_ID: string;
   readonly AUTH_GITHUB_CLIENT_SECRET: string;
+  readonly GOOGLE_APPS_CLIENT_ID: string;
+  readonly GOOGLE_APPS_CLIENT_SECRET: string;
   readonly GOOGLE_CLIENT_ID: string;
   readonly GOOGLE_CLIENT_SECRET: string;
   readonly IDENTITY_BROKER_KEYS: string;
   readonly ISSUER: string | undefined;
+  readonly REGISTRATION_ACCESS_TOKEN: string | undefined;
+  readonly THIRD_PARTY_PAUSED: string | undefined;
 };
 
 /**

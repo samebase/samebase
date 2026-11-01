@@ -4,6 +4,7 @@ import { broker } from "./http";
 //   createApp '{"name":"Bristol","firstParty":false}', for an app that is not the team's own
 //   registerClient, which Convex.HubClient of @samebase/alchemy-convex runs at deploy time
 //   listApps, listClients '{"appId":"..."}', deleteClient '{"clientId":"..."}', deleteApp '{"appId":"..."}'
+//   setTenantSuspended '{"tenantId":"...","suspended":true}', the switch of one third-party tenant
 export const {
   createApp,
   registerClient,
@@ -11,5 +12,6 @@ export const {
   listApps,
   listClients,
   deleteClient,
+  setTenantSuspended,
   cleanup,
 } = broker.admin();

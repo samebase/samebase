@@ -8,6 +8,15 @@ const CONVEX_CLI_PATH = fileURLToPath(
   new URL("../node_modules/convex/bin/main.js", import.meta.url),
 );
 
+// The variables of a deployment without a hub client. The OAuth component needs all three, setupOauth
+// accepts this loopback issuer, and the sign-in page hides its Google button for this client id.
+// Convex.SharedHubClient of @samebase/alchemy-convex gives the same values when it has no client.
+const HUB_OFF_VALUES = {
+  HUB_ISSUER: "http://127.0.0.1:1",
+  HUB_CLIENT_ID: "no-hub",
+  HUB_CLIENT_SECRET: "no-hub",
+};
+
 type RunResult = {
   code: number;
   stdout: string;
@@ -129,6 +138,31 @@ async function setConvexEnv(
   });
 }
 
+/**
+ * Sets the off value of each hub variable that the deployment does not have, and nothing else: a
+ * value that exists, such as the client that alchemy.run.ts wrote before this push, stays. A list
+ * of names is one command for all three and reads no secret.
+ */
+export async function ensureHubVariables(
+  env: NodeJS.ProcessEnv,
+  selectionArgs: string[] = [],
+  runConvex: RunConvex = runConvexCli,
+) {
+  const result = await runConvex(["env", "list", "--names-only", ...selectionArgs], {
+    env,
+    stdio: "pipe",
+  });
+  if (result.code !== 0) {
+    throw new Error("Could not list the Convex environment variables.");
+  }
+  const names = new Set(result.stdout.split(/\r?\n/));
+  for (const [name, value] of Object.entries(HUB_OFF_VALUES)) {
+    if (!names.has(name)) {
+      await setConvexEnv(name, value, env, selectionArgs, runConvex);
+    }
+  }
+}
+
 export async function ensureConvexAuth(
   env: NodeJS.ProcessEnv,
   runConvex: RunConvex = runConvexCli,
@@ -166,16 +200,16 @@ export async function ensureConvexAuth(
 
   if (existingPrivateKey && existingJwks) {
     console.log("Convex Auth keys already configured.");
-    return;
-  }
-  if (existingPrivateKey || existingJwks) {
+  } else if (existingPrivateKey || existingJwks) {
     throw new Error("AUTH_PRIVATE_KEY and AUTH_JWKS must be configured together.");
+  } else {
+    const keys = generateAuthKeys();
+    await setConvexEnv("AUTH_PRIVATE_KEY", keys.AUTH_PRIVATE_KEY, env, selectionArgs, runConvex);
+    await setConvexEnv("AUTH_JWKS", keys.AUTH_JWKS, env, selectionArgs, runConvex);
+    console.log("Convex Auth keys configured.");
   }
 
-  const keys = generateAuthKeys();
-  await setConvexEnv("AUTH_PRIVATE_KEY", keys.AUTH_PRIVATE_KEY, env, selectionArgs, runConvex);
-  await setConvexEnv("AUTH_JWKS", keys.AUTH_JWKS, env, selectionArgs, runConvex);
-  console.log("Convex Auth keys configured.");
+  await ensureHubVariables(env, selectionArgs, runConvex);
 }
 
 const entrypoint = process.argv[1];

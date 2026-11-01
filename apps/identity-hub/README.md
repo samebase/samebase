@@ -23,9 +23,11 @@ stack skips the push when nothing of the hub changed. Pull requests run the chec
 
 1. Set `CONVEX_ACCESS_TOKEN`, the team's Convex access token, as a repository secret. The run mints
    the deploy key with it. In the GitHub environment `identity-hub`, which only `main` can use, set
-   `GOOGLE_CLIENT_ID` with `GOOGLE_CLIENT_SECRET`, the team's Google OAuth client, and
-   `AUTH_GITHUB_CLIENT_ID` with `AUTH_GITHUB_CLIENT_SECRET`, the team's GitHub login OAuth App.
-2. The stack hands both clients from `alchemy.run.ts` to the deployment it pushes: no connector
+   `GOOGLE_CLIENT_ID` with `GOOGLE_CLIENT_SECRET`, the team's Google OAuth client,
+   `GOOGLE_APPS_CLIENT_ID` with `GOOGLE_APPS_CLIENT_SECRET`, the Google OAuth client of third-party
+   apps, and `AUTH_GITHUB_CLIENT_ID` with `AUTH_GITHUB_CLIENT_SECRET`, the team's GitHub login OAuth
+   App.
+2. The stack hands the three clients from `alchemy.run.ts` to the deployment it pushes: no connector
    variable is set by hand.
 3. Create the keys of production once, by hand, with the Convex CLI login:
    `pnpm run keys:init --prod` writes `IDENTITY_BROKER_KEYS`, the signing key and the pairwise salt,
@@ -52,19 +54,22 @@ issuer from the reply of its registration, so it needs no setting of its own.
 
 ## Connectors
 
-`convex/connectors.ts` lists them: Google and GitHub. Google uses the team's OAuth client,
-`GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` as repository secrets that the stack hands to the
-deployment, and that client's redirect URIs must include `<issuer>/connectors/google/callback`.
+`convex/connectors.ts` lists them: Google, GitHub, and `google-apps`. Google uses the team's OAuth
+client, `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` as repository secrets that the stack hands to
+the deployment, and that client's redirect URIs must include `<issuer>/connectors/google/callback`.
 GitHub uses the team's login OAuth App the same way, `AUTH_GITHUB_CLIENT_ID` and
 `AUTH_GITHUB_CLIENT_SECRET`; that app lists `<issuer>/connectors/github/callback` among its redirect
-URIs, exact, next to Samebase's own. Another provider is one more wrapper line, its variables
-declared in `convex/convex.config.ts` and handed down the same way.
+URIs, exact, next to Samebase's own. `google-apps` is the reserved connector of third-party apps,
+with `GOOGLE_APPS_CLIENT_ID` and `GOOGLE_APPS_CLIENT_SECRET` and the redirect URI
+`<issuer>/connectors/google-apps/callback`. The team's own apps never see it. Another provider is
+one more wrapper line, its variables declared in `convex/convex.config.ts` and handed down the same
+way.
 
 ## Register an app
 
-An app needs no step on the hub. Each deployment registers itself through the `Convex.HubClient`
-resource of `@samebase/alchemy-convex` in its Alchemy stack, which also writes the client into the
-deployment's variables:
+An app of the team needs no step on the hub. Each deployment registers itself through the
+`Convex.HubClient` resource of `@samebase/alchemy-convex` in its Alchemy stack, which also writes
+the client into the deployment's variables:
 
 ```ts
 const client =
@@ -86,6 +91,11 @@ straight to the connector without the chooser. For an app that is not the team's
 `alchemy-convex hub-client` does the same with the Convex CLI login. Deleting an app removes its
 clients. Recreating it with the same id keeps the subjects of its users.
 
+A third-party app registers at `/register` (RFC 7591), which refuses every request until
+`REGISTRATION_ACCESS_TOKEN` is set by hand on the deployment, as `IDENTITY_BROKER_KEYS` is. Samebase
+holds that token and registers on the app's behalf. `THIRD_PARTY_PAUSED=true` stops every such app,
+and `identityBroker:setTenantSuspended` stops one tenant.
+
 See the component's [consumer guide](../../packages/identity-broker/docs/consumers.md).
 
 ## Operate
@@ -97,9 +107,10 @@ of the hub with the team's Convex token, for its hub client. These keys can run 
 only, and they end with the run. The team token itself reaches the hub, so treat it as an
 administrator credential too. The Convex CLI ignores `--prod` when `CONVEX_DEPLOY_KEY` names another
 deployment, so unset it before an admin command. A cron runs the broker's cleanup daily: expired
-requests and codes, and sign-in records older than 90 days. Idle preview clients are kept: the
-broker prunes them only when the host sets `previewClientIdleDays`, and this hub does not, because a
-consumer's `Convex.HubClient` does not register a pruned client again.
+requests and codes, sign-in records older than 90 days, and preview clients from `/register` past
+their removal date. Other idle preview clients are kept: the broker prunes them only when the host
+sets `previewClientIdleDays`, and this hub does not, because a consumer's `Convex.HubClient` does
+not register a pruned client again.
 
 Never run `npx convex import --replace-all` on this deployment, also not with `--component`: it also
 deletes the rows of the other components. To restore the tables of one component, import a ZIP of

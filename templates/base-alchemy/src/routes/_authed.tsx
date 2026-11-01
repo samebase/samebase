@@ -1,7 +1,7 @@
 import {
   RedirectWithoutSession,
   redirectWithoutSession,
-} from "@samebase/convex-hosting-tanstack-start/convex-auth";
+} from "@samebase/convex-auth-tanstack-start";
 import { createFileRoute, Outlet } from "@tanstack/react-router";
 
 /** The pages under `_authed/` need a session: without one, they redirect to /signin. */

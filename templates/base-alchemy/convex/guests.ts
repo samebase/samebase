@@ -33,7 +33,7 @@ function shuffledGuestNames() {
   return candidates;
 }
 
-async function unusedGuestName(ctx: MutationCtx) {
+export async function unusedGuestName(ctx: MutationCtx) {
   for (const name of shuffledGuestNames()) {
     const existingUser = await ctx.db
       .query("users")
@@ -77,6 +77,6 @@ export const viewer = query({
       throw new Error("User not found");
     }
 
-    return { name: user.name };
+    return { name: user.fullName ?? user.name };
   },
 });

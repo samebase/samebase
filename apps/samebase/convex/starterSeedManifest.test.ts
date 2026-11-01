@@ -244,7 +244,7 @@ describe("actionsStarterTemplateManifest", () => {
     );
     expect(filePaths).not.toContain("wrangler.jsonc");
     expect(actionsStarterTemplateManifest.files["package.json"]).toContain(
-      '"@samebase/alchemy-convex": "0.19.1"',
+      '"@samebase/alchemy-convex": "0.20.0"',
     );
   });
 });

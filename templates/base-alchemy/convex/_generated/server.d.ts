@@ -32,6 +32,9 @@ type Env = {
   readonly CONVEX_SITE_URL: string;
   readonly AUTH_JWKS: string;
   readonly AUTH_PRIVATE_KEY: string;
+  readonly HUB_CLIENT_ID: string;
+  readonly HUB_CLIENT_SECRET: string;
+  readonly HUB_ISSUER: string;
 };
 
 /**

@@ -1,3 +1,4 @@
+import { convexAuth } from "@samebase/convex-auth-tanstack-start/vite";
 import { convexSsr } from "@samebase/convex-hosting-tanstack-start/vite";
 import { tanstackStart } from "@tanstack/react-start/plugin/vite";
 import tailwindcss from "@tailwindcss/vite";
@@ -15,6 +16,7 @@ export default defineConfig({
   plugins: [
     tailwindcss(),
     convexSsr(),
+    convexAuth(),
     // Prerenders /about only, into a file of the build. `prerender: { enabled: true }` would also
     // prerender every static route, and crawling would follow /about's links. The header marks the
     // prerender's requests for src/server.ts; a prerender renders without a visitor.
