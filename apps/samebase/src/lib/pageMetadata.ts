@@ -5,6 +5,7 @@ import {
   DOCS_CLOUDFLARE_SETUP_ROUTE,
   DOCS_DO_IT_YOURSELF_ROUTE,
   DOCS_INDEX_ROUTE,
+  DOCS_CHANGELOG_ROUTE,
   DOCS_PRICING_ROUTE,
   DOCS_RECEIPTS_ROUTE,
   DOCS_THE_STACK_ROUTE,
@@ -164,6 +165,14 @@ export const DOCS_PRICING_PAGE_METADATA: PageMetadata = {
   title: "Pricing | Samebase",
   description: "The Free and Pro connection limits, member limits, and monthly prices.",
   canonicalPath: DOCS_PRICING_ROUTE,
+  robots: "index,follow",
+  openGraphType: "website",
+};
+
+export const DOCS_CHANGELOG_PAGE_METADATA: PageMetadata = {
+  title: "Changelog | Samebase",
+  description: "What changed in Samebase, newest first.",
+  canonicalPath: DOCS_CHANGELOG_ROUTE,
   robots: "index,follow",
   openGraphType: "website",
 };

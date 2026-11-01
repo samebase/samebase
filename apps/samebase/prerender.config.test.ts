@@ -5,6 +5,7 @@ describe("prerenderPages", () => {
   it("prerenders the public pages without data, which route staticData marks", () => {
     expect(prerenderPages.map((page) => page.path)).toEqual([
       "/",
+      "/changelog",
       "/docs",
       "/docs/cloudflare-previews-migration",
       "/docs/cloudflare-setup",

@@ -245,6 +245,7 @@ vi.mock("@/components/LandingPreviewPage", () => ({
   DocsCloudflareSetupPage: () => (
     <div data-testid="docs-cloudflare-setup-page">Docs Cloudflare setup page</div>
   ),
+  DocsChangelogPage: () => <div data-testid="docs-changelog-page">Docs changelog page</div>,
   DocsDoItYourselfPage: () => (
     <div data-testid="docs-do-it-yourself-page">Docs do it yourself page</div>
   ),
@@ -924,6 +925,15 @@ describe("appRouter", () => {
 
     expect(rootElement?.querySelector('[data-testid="docs-pricing-page"]')?.textContent).toBe(
       "Docs pricing page",
+    );
+    expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
+  });
+
+  it("renders the changelog through an explicit TanStack route instead of the App fallback", async () => {
+    await renderRoute("/changelog");
+
+    expect(rootElement?.querySelector('[data-testid="docs-changelog-page"]')?.textContent).toBe(
+      "Docs changelog page",
     );
     expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
   });

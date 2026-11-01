@@ -63,6 +63,7 @@ export const routes = rootRoute("root.tsx", [
   route(DOCS_THE_STACK_ROUTE, "docs-the-stack.tsx"),
   route(LANDING_PREVIEW_ROUTE, "landing-preview.tsx"),
   route("/pricing", "pricing.tsx"),
+  route("/changelog", "changelog.tsx"),
   route(ORGANIZATION_INVITATION_ROUTE, "invite.tsx"),
   // Pages for a visitor with a session: the layout redirects a server render without one.
   layout("authed", "authed.tsx", [

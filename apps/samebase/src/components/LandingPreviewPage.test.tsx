@@ -6,6 +6,7 @@ import {
   DocsCloudflareSetupPage,
   DocsDoItYourselfPage,
   DocsIndexPage,
+  DocsChangelogPage,
   DocsPricingPage,
   DocsTheStackPage,
   LandingPage,
@@ -317,6 +318,7 @@ describe("LandingPage", () => {
     expect(sidebarMarkup).toContain("Worker Previews migration");
     expect(sidebarMarkup).toContain("Do it yourself");
     expect(sidebarMarkup).toContain("Pricing");
+    expect(sidebarMarkup).toContain("Changelog");
     expect(sidebarMarkup).toContain('href="/"');
     expect(sidebarMarkup).toContain('href="/docs/the-stack"');
     expect(sidebarMarkup).toContain('href="/docs/cloudflare-setup"');
@@ -398,6 +400,14 @@ describe("LandingPage", () => {
     expect(markup).toContain("convex-hosting");
     expect(markup).toContain("different deployment setups");
     expect(markup).toContain("Cloudflare Email Sending");
+  });
+
+  it("renders the changelog with its newest entry", () => {
+    const markup = renderToStaticMarkup(<DocsChangelogPage />);
+
+    expect(markup).toContain("Changelog");
+    expect(markup).toContain("2026-11-01");
+    expect(markup).toContain("Google sign-in for new apps.");
   });
 
   it("renders the pricing page separately", () => {

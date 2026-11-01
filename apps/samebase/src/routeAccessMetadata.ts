@@ -141,6 +141,7 @@ export const ROUTE_ACCESS_METADATA_BY_PATH = {
     appWorkspaceRouteChrome: { leftPane: "none" },
   },
   "/pricing": { access: "access_public", prerender: true },
+  "/changelog": { access: "access_public", prerender: true },
   "/privacy": {
     access: "access_public",
     appWorkspaceRouteChrome: { leftPane: "none" },

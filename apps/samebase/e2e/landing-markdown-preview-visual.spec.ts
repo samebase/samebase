@@ -6,6 +6,7 @@ import {
   DOCS_CLOUDFLARE_SETUP_ROUTE,
   DOCS_DO_IT_YOURSELF_ROUTE,
   DOCS_INDEX_ROUTE,
+  DOCS_CHANGELOG_ROUTE,
   DOCS_PRICING_ROUTE,
   DOCS_RECEIPTS_ROUTE,
   DOCS_SIDEBAR_TEST_ID,
@@ -28,6 +29,7 @@ const expectedLandingPreviewSidebarFiles = [
   "Do it yourself",
   "Receipts",
   "Pricing",
+  "Changelog",
   "Cloudflare setup",
   "Worker Previews migration",
 ] as const;
@@ -55,6 +57,10 @@ async function expectSidebarFiles(sidebar: Locator) {
   await expect(sidebar.getByRole("link", { name: "Pricing" })).toHaveAttribute(
     "href",
     new RegExp(`^${DOCS_PRICING_ROUTE}(\\?|$)`),
+  );
+  await expect(sidebar.getByRole("link", { name: "Changelog" })).toHaveAttribute(
+    "href",
+    new RegExp(`^${DOCS_CHANGELOG_ROUTE}(\\?|$)`),
   );
   await expect(sidebar.getByRole("link", { name: "Worker Previews migration" })).toHaveAttribute(
     "href",
