@@ -2804,9 +2804,7 @@ describe("RepositoryDeleteDialogContent", () => {
     expect(markup).toContain(
       'href="https://github.com/ada/chess-merge/actions/workflows/destroy.yml"',
     );
-    expect(markup).toContain(
-      'workflow, click Run workflow, and type <span class="font-mono">delete ada/chess-merge</span> in its field.',
-    );
+    expect(markup).toContain("workflow, click Run workflow, and type what its field asks for.");
   });
 
   it("shows the server block reason and disables removal", () => {
