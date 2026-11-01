@@ -81,7 +81,7 @@ vi.mock("@tanstack/react-router", () => ({
     search,
     to,
   }: {
-    children: ReactNode;
+    children: ReactNode | ((state: { isActive: boolean }) => ReactNode);
     className?: string;
     search?:
       | Record<string, true | null | undefined>
@@ -97,7 +97,7 @@ vi.mock("@tanstack/react-router", () => ({
 
     return (
       <a className={className} href={`${to}${searchSuffix}`}>
-        {children}
+        {typeof children === "function" ? children({ isActive: false }) : children}
       </a>
     );
   },
@@ -321,7 +321,7 @@ describe("LandingPage", () => {
     expect(sidebarMarkup).toContain("Pricing");
     expect(sidebarMarkup).toContain("Changelog");
     expect(sidebarMarkup).toContain('href="/"');
-    expect(sidebarMarkup).toContain('href="/docs"');
+    expect(sidebarMarkup).not.toContain('href="/docs"');
     expect(sidebarMarkup).toContain('aria-label="Collapse docs"');
     expect(sidebarMarkup).toContain('href="/docs/the-big-migration"');
     expect(sidebarMarkup).toContain('href="/docs/the-stack"');

@@ -1,5 +1,8 @@
 import { AppWorkspaceRouteChrome } from "@/components/AppWorkspaceShell";
-import { APP_SIDEBAR_NAVIGATION_LINK_PROPS } from "@/components/appSidebarNavigation";
+import {
+  APP_SIDEBAR_CURRENT_LABEL_CLASS_NAME,
+  APP_SIDEBAR_NAVIGATION_LINK_PROPS,
+} from "@/components/appSidebarNavigation";
 import { MarkdownLandingDocument } from "@/components/MarkdownLandingDocument";
 import { SIGN_IN_WITH_OAUTH_BUTTON_CLASS_NAME, SignInWithOAuth } from "@/SignInWithOAuth";
 import { LandingHeroMenger } from "@/components/logo/LandingHeroMenger";
@@ -28,7 +31,6 @@ import {
   DOCS_CLOUDFLARE_PREVIEWS_MIGRATION_ROUTE,
   DOCS_CLOUDFLARE_SETUP_ROUTE,
   DOCS_DO_IT_YOURSELF_ROUTE,
-  DOCS_INDEX_ROUTE,
   DOCS_CHANGELOG_ROUTE,
   DOCS_PRICING_ROUTE,
   DOCS_RECEIPTS_ROUTE,
@@ -70,7 +72,10 @@ type LandingPreviewDocumentKey =
 type DocsSidebarPage = { label: string; to: LinkProps["to"] };
 
 /** The tree follows the URLs: a folder is a path, and its pages are the routes under that path. */
-const DOCS_SIDEBAR_TREE: readonly (DocsSidebarPage & { pages?: readonly DocsSidebarPage[] })[] = [
+const DOCS_SIDEBAR_TREE: readonly (
+  | DocsSidebarPage
+  | { label: string; pages: readonly DocsSidebarPage[] }
+)[] = [
   { label: "Overview", to: LANDING_PAGE_ROUTE },
   {
     label: "docs",
@@ -82,7 +87,6 @@ const DOCS_SIDEBAR_TREE: readonly (DocsSidebarPage & { pages?: readonly DocsSide
       { label: "Do it yourself", to: DOCS_DO_IT_YOURSELF_ROUTE },
       { label: "Receipts", to: DOCS_RECEIPTS_ROUTE },
     ],
-    to: DOCS_INDEX_ROUTE,
   },
   { label: "Pricing", to: DOCS_PRICING_ROUTE },
   { label: "Changelog", to: DOCS_CHANGELOG_ROUTE },
@@ -126,44 +130,49 @@ function LandingPreviewPaneUrlSync() {
 function DocsSidebarLink({ label, to }: DocsSidebarPage) {
   return (
     <Link
-      {...APP_SIDEBAR_NAVIGATION_LINK_PROPS}
-      className="max-w-full text-primary no-underline"
+      activeOptions={APP_SIDEBAR_NAVIGATION_LINK_PROPS.activeOptions}
+      className="block py-2 pr-3 pl-2 text-primary no-underline hover:bg-muted/60 hover:no-underline"
       to={to}
     >
-      {label}
+      {({ isActive }) => (
+        <span
+          className={cn(
+            "block w-fit max-w-full [overflow-wrap:anywhere]",
+            isActive && APP_SIDEBAR_CURRENT_LABEL_CLASS_NAME,
+          )}
+        >
+          {label}
+        </span>
+      )}
     </Link>
   );
 }
 
 /**
-A folder starts open and saves nothing, so the prerendered page already shows the visitor's nav and
-a sign-in changes nothing. The chevron holds until the next page, which renders its own sidebar.
+The row and its guide line are the repository tree's folder (`RepositoryOverviewSidebar`). A folder
+starts open and saves nothing, so the prerendered page already shows the visitor's nav and a sign-in
+changes nothing.
 */
-function DocsSidebarFolder({
-  label,
-  pages,
-  to,
-}: DocsSidebarPage & { pages: readonly DocsSidebarPage[] }) {
+function DocsSidebarFolder({ label, pages }: { label: string; pages: readonly DocsSidebarPage[] }) {
   const [open, setOpen] = useState(true);
 
   return (
-    <section aria-label={label} className="flex max-w-full flex-col items-start gap-3">
-      <div className="flex max-w-full items-center gap-1">
-        <Button
-          aria-expanded={open}
-          aria-label={`${open ? "Collapse" : "Expand"} ${label}`}
-          className="size-5 p-0"
-          size="icon"
-          type="button"
-          variant="ghost"
-          onClick={() => setOpen(!open)}
-        >
+    <section aria-label={label}>
+      <Button
+        aria-expanded={open}
+        aria-label={`${open ? "Collapse" : "Expand"} ${label}`}
+        className="w-full justify-start gap-0 p-0 aria-expanded:not-hover:bg-transparent"
+        type="button"
+        variant="ghost"
+        onClick={() => setOpen(!open)}
+      >
+        <span className="flex w-5 shrink-0 items-center justify-center">
           {open ? <ChevronDown /> : <ChevronRight />}
-        </Button>
-        <DocsSidebarLink label={label} to={to} />
-      </div>
+        </span>
+        <span className="min-w-0 truncate">{label}</span>
+      </Button>
       {open ? (
-        <div className="flex max-w-full flex-col items-start gap-3 pl-6">
+        <div className="ml-2.5 border-l border-border pl-1">
           {pages.map((page) => (
             <DocsSidebarLink key={page.label} label={page.label} to={page.to} />
           ))}
@@ -178,13 +187,13 @@ function DocsSidebar() {
     <nav
       aria-label="Docs sections"
       data-testid={DOCS_SIDEBAR_TEST_ID}
-      className="flex min-h-full flex-col items-start gap-3 px-4 py-4 text-sm"
+      className="min-h-full px-1 py-2 text-sm"
     >
-      {DOCS_SIDEBAR_TREE.map(({ label, pages, to }) =>
-        pages === undefined ? (
-          <DocsSidebarLink key={label} label={label} to={to} />
+      {DOCS_SIDEBAR_TREE.map((entry) =>
+        "pages" in entry ? (
+          <DocsSidebarFolder key={entry.label} label={entry.label} pages={entry.pages} />
         ) : (
-          <DocsSidebarFolder key={label} label={label} pages={pages} to={to} />
+          <DocsSidebarLink key={entry.label} label={entry.label} to={entry.to} />
         ),
       )}
     </nav>

@@ -26,7 +26,6 @@ const LANDING_PAGE_PROD_UI_ROUTE = `${LANDING_PAGE_ROUTE}?prod-ui`;
 
 const expectedLandingPreviewSidebarFiles = [
   "Overview",
-  "docs",
   "The big migration",
   "The stack",
   "Do it yourself",
@@ -351,17 +350,19 @@ test("landing document navigation resets pages, restores history, and aligns dir
 
   const docsSidebar = page.getByTestId(DOCS_SIDEBAR_TEST_ID);
   const stackLink = docsSidebar.getByRole("link", { exact: true, name: "The stack" });
-  await docsSidebar.getByRole("button", { name: "Collapse docs" }).click();
+  await docsSidebar.getByText("docs", { exact: true }).click();
   await expect(stackLink).toBeHidden();
+  // Playwright clicks the center of the row, which is empty space.
   await docsSidebar.getByRole("button", { name: "Expand docs" }).click();
   await expect(stackLink).toBeVisible();
+  await expect(page).toHaveURL(new RegExp(`${LANDING_PAGE_ROUTE}$`));
   await doItYourselfLink.click();
 
   await expect(page).toHaveURL(new RegExp(`${DOCS_DO_IT_YOURSELF_ROUTE}$`));
   const currentDocsLink = page.getByTestId(DOCS_SIDEBAR_TEST_ID).locator('a[aria-current="page"]');
   await expect(currentDocsLink).toHaveText("Do it yourself");
-  await expect(currentDocsLink).toHaveCSS("font-weight", "400");
-  await expect(currentDocsLink).toHaveCSS("padding", "2px 6px");
+  await expect(currentDocsLink.locator("span")).toHaveCSS("font-weight", "400");
+  await expect(currentDocsLink.locator("span")).toHaveCSS("padding", "2px 6px");
   await expect.poll(() => readMainPaneScrollTop(page)).toBe(0);
   await expect(
     article.getByRole("heading", {
@@ -667,7 +668,7 @@ test("docs index renders the docs navigation in the main pane", async ({ page })
     page.locator('[data-sidebar-layout-part="pane"][data-pane-side="left"]'),
   ).toHaveCount(0);
   await expect(docsNavigation).toBeVisible();
-  await expect(docsNavigation.locator('a[aria-current="page"]')).toHaveText("docs");
+  await expect(docsNavigation.locator('a[aria-current="page"]')).toHaveCount(0);
   await expectSidebarFiles(docsNavigation);
   await expect(mainPane).toHaveScreenshot("docs-index-desktop.png", {
     animations: "disabled",
@@ -690,7 +691,7 @@ test("landing do-it-yourself mobile pane query opens the sidebar", async ({ page
   const sidebar = page.getByTestId(DOCS_SIDEBAR_TEST_ID);
   await expect(sidebar).toBeVisible();
   await expect(sidebar.locator('a[aria-current="page"]')).toHaveText("Do it yourself");
-  await expect(sidebar.locator('a[aria-current="page"]')).toHaveCSS(
+  await expect(sidebar.locator('a[aria-current="page"] span')).toHaveCSS(
     "background-color",
     "rgb(255, 255, 255)",
   );
