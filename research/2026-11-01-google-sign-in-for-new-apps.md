@@ -27,6 +27,11 @@ PKCE, exact redirects, `iss`, pairwise subjects. See
   approved `samebase.com` may count too. Decided: no page, and the hub forces the account screen. A
   test must still show that Google never passes a person through with no click.
 
+  Nicu wants to keep an option for a page later, one that names the app and meets section 10.12. It
+  lives on the hub, so turning it on needs no change in any deployed app. It needs a hub setting, a
+  name to show, because the app row holds only `gh-<id>-<hash>`, and a page that lists the app's one
+  connector and remembers the first click. If the Google test fails, this page is required.
+
   Lovable has the same gap, tested on one project. Its app code holds no client ID or secret.
   Sign-in starts at `/~oauth/initiate` on the app's own domain, its hosting adds `project_id`, and
   its broker refuses a `redirect_uri` outside that project with a 400 page. It sends no `prompt` to
