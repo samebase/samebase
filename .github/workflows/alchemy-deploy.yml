@@ -92,13 +92,14 @@ jobs:
       - name: Install dependencies
         working-directory: .
         run: if [ -f pnpm-lock.yaml ]; then pnpm install --frozen-lockfile; else npm ci; fi
-      # The steps below run the installed tools directly: npx and pnpm exec can refuse a repository's
-      # devEngines, and nothing here may download a tool.
-      - &installed-tools
-        name: Use the installed tools
+      # The command that runs an installed tool. npx refuses a repository whose devEngines names
+      # pnpm. Neither command downloads a tool.
+      - &tool-runner
+        name: Choose how to run the installed tools
+        working-directory: .
         run: |
-          echo "$GITHUB_WORKSPACE/node_modules/.bin" >> "$GITHUB_PATH"
-          echo "$PWD/node_modules/.bin" >> "$GITHUB_PATH"
+          if [ -f pnpm-lock.yaml ]; then echo "RUN=pnpm exec" >> "$GITHUB_ENV"
+          else echo "RUN=npx --no-install" >> "$GITHUB_ENV"; fi
       - name: Check that this run is still current
         id: current
         working-directory: .
@@ -127,7 +128,7 @@ jobs:
         run: bash -eo pipefail -c "$BUILD"
       - name: Deploy
         if: steps.current.outputs.deploy == 'true'
-        run: alchemy deploy --stage "$STAGE" --yes --no-input $ADOPT $DRIFT
+        run: $RUN alchemy deploy --stage "$STAGE" --yes --no-input $ADOPT $DRIFT
         env: &deploy-env
           ADOPT: ${{ inputs.adopt && github.event_name != 'pull_request' && '--adopt' || '' }}
           DRIFT: ${{ inputs.detect-drift && '--detect-drift' || '' }}
@@ -137,7 +138,7 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
       - name: Update the stack comment
         if: github.event_name == 'pull_request' && steps.current.outputs.deploy == 'true'
-        run: alchemy-convex stack-comment
+        run: $RUN alchemy-convex stack-comment
         env:
           CONVEX_ACCESS_TOKEN: ${{ secrets.CONVEX_ACCESS_TOKEN }}
           GITHUB_TOKEN: ${{ github.token }}
@@ -173,7 +174,7 @@ jobs:
         run: |
           if [ -f pnpm-lock.yaml ]; then pnpm install --frozen-lockfile --ignore-scripts
           else npm ci --ignore-scripts; fi
-      - *installed-tools
+      - *tool-runner
       - name: Check that the pull request is still closed
         id: current
         working-directory: .
@@ -194,7 +195,7 @@ jobs:
         if: steps.current.outputs.destroy == 'true'
         run: |
           [[ "$STAGE" =~ ^pr-[0-9]+$ ]] || exit 1
-          alchemy destroy --stage "$STAGE" --yes --no-input
+          $RUN alchemy destroy --stage "$STAGE" --yes --no-input
         env:
           CONVEX_ACCESS_TOKEN: ${{ secrets.CONVEX_ACCESS_TOKEN }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
