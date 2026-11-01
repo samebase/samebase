@@ -11,7 +11,8 @@
 # - Only the steps that run Alchemy get the secrets, so install and the build step do not see them.
 #   A build inside the deploy, such as `source.command`, runs under Alchemy and does.
 #
-# Production destroy stays out of this file: a person runs `destroy.yml` by hand.
+# This file never destroys production. Its only destroy job removes the preview of a closed pull
+# request. Production destroy stays out of it: a person runs `destroy.yml` by hand.
 name: Alchemy deploy
 
 on:
@@ -129,7 +130,7 @@ jobs:
           CONVEX_ACCESS_TOKEN: ${{ secrets.CONVEX_ACCESS_TOKEN }}
           GITHUB_TOKEN: ${{ github.token }}
 
-  destroy:
+  destroy-preview:
     name: Destroy the preview
     # A pull request from a fork got no preview.
     if: >-
@@ -183,7 +184,7 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           GITHUB_TOKEN: ${{ github.token }}
 
-  fork:
+  skip-fork-preview:
     name: Skip the preview of a fork
     if: >-
       github.event_name == 'pull_request' && github.event.action != 'closed' &&
