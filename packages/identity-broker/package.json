@@ -46,9 +46,9 @@
     "oauth4webapi": "3.8.8"
   },
   "devDependencies": {
-    "@types/node": "24.19.2",
+    "@types/node": "26.6.5",
     "convex": "1.48.0",
-    "convex-test": "0.0.61",
+    "convex-test": "0.0.65",
     "openid-client": "6.8.8",
     "typescript": "7.0.2",
     "vite-plus": "catalog:"
