@@ -1022,6 +1022,42 @@ describe("Alchemy stack cards", () => {
     ]);
   });
 
+  it.each([
+    ["on", "Google sign-in: on"],
+    ["off", "Google sign-in: not set up"],
+    ["suspended", "Google sign-in: suspended"],
+  ])("shows a shared hub client that is %s as the last row of its card", (status, line) => {
+    const stacks = observedBaseAlchemyStack();
+    const { cards } = renderStackCards(
+      {
+        ...stacks,
+        stacks: stacks.stacks.map((stack) => ({
+          name: "samebase/scout",
+          stages: stack.stages.map((stage) => ({
+            ...stage,
+            record: { ...stage.record, stackFile: "alchemy.run.ts" },
+            resources: [
+              {
+                fqn: "Client",
+                value: JSON.stringify({
+                  resourceType: "IdentityHub.SharedClient",
+                  attr: { status, clientId: "client-id" },
+                }),
+              },
+              ...observedScoutR2Resources,
+            ],
+          })),
+        })),
+      },
+      makeRepositorySettingsBuilderRepository({}),
+      null,
+    );
+
+    expect(cards.map((card) => card.textContent)).toEqual([
+      `scout-public-mediascout-workspacesscout-workspaces-prod${line}`,
+    ]);
+  });
+
   it("links the Workers of samebase/samebase without URLs to their routes", () => {
     // The captured Domains and PosthogProxy rows: no custom domain and no workers.dev URL.
     const cards = stackCardsOf(

@@ -110,6 +110,11 @@ export type RepositoryEnvironmentResource =
       id: string;
       bucketName: string;
       href: string;
+    }
+  | {
+      kind: "hub_client";
+      id: string;
+      status: "on" | "not set up" | "suspended";
     };
 
 type RepositoryEnvironmentComponentResource = Extract<
@@ -473,7 +478,7 @@ export function buildAlchemyStackCards({
     stage: stage.name,
     headCommit: stage.headCommit,
   }).map((card) => {
-    const { convexDeployments, workers, r2Buckets } = card.resources;
+    const { convexDeployments, hubClients, workers, r2Buckets } = card.resources;
     const workerInput = (
       worker: (typeof workers)[number],
     ): RepositoryEnvironmentSortedResource<RepositoryEnvironmentComponentResource> => {
@@ -605,6 +610,17 @@ export function buildAlchemyStackCards({
         };
       }),
       ...r2Buckets.filter((bucket) => !owned.has(bucket)).map(r2BucketInput),
+      ...hubClients.map(({ fqn, state }): RepositoryEnvironmentSortedResource => {
+        const { status } = state.attr;
+        return {
+          sortKey: `3:${fqn}`,
+          resource: {
+            kind: "hub_client",
+            id: `alchemy:${card.stack}:${fqn}`,
+            status: status === "off" ? "not set up" : status,
+          },
+        };
+      }),
     ];
 
     return {

@@ -16,7 +16,7 @@
 //   directory of the CLI, so the CLI cannot read the Convex login of this
 //   machine. Variables named `CONVEX_*` are not passed on to the CLI.
 // - The CLI output stays out of the logs. A failure shows its last lines with
-//   the key removed.
+//   the key and the `Redacted` values of `env` removed.
 //
 // The CLI runner follows Confect `packages/alchemy/src/internal/CommandRunner.ts`
 // (https://github.com/rjdellecese/confect, ISC license, see NOTICE).
@@ -131,7 +131,7 @@ export class ConvexAppNotFound extends Schema.TaggedError<ConvexAppNotFound>()(
 export class CodePushFailed extends Schema.TaggedError<CodePushFailed>()("CodePushFailed", {
   /** Exit code of the CLI. Undefined when it did not start or a signal stopped it. */
   exitCode: Schema.UndefinedOr(Schema.Number),
-  /** The last lines of the CLI output, with the deploy key removed. */
+  /** The last lines of the CLI output, with the deploy key and the `Redacted` values of `env` removed. */
   outputTail: Schema.String,
 }) {
   override get message() {
@@ -619,9 +619,13 @@ const runPush = (
   Effect.gen(function* () {
     const { cwd, program } = options;
     const secret = Redacted.value(key);
-    const secrets = [secret, secret.slice(secret.indexOf("|") + 1)].filter(
-      (value) => value.length >= 8,
-    );
+    const secrets = [
+      secret,
+      secret.slice(secret.indexOf("|") + 1),
+      ...Object.values(options.env).flatMap((value) =>
+        Redacted.isRedacted(value) ? [Redacted.value(value)] : [],
+      ),
+    ].filter((value) => value.length >= 8);
     const result = yield* withKeyFile(secret, ({ envFile, home }) =>
       Effect.gen(function* () {
         const [command, ...programArgs] = program;

@@ -308,6 +308,22 @@ call.
   the `Convex.Deployment` writes to the deployment. Another `redirectUri` is a new client, and a
   destroy deletes the client.
 
+- `Convex.SharedHubClient`: `{ app, deployment, deploymentType, softwareVersion? }` gets a client of
+  the central identity hub through samebase.com, for an app that deploys in its own GitHub Actions
+  run. The workflow needs `permissions: id-token: write` and no Samebase key. Outputs `status`,
+  `issuer`, `clientId`, `clientSecret`, `registrationAccessToken`, `registrationClientUri`,
+  `deployment`, `deploymentType`, and `redirectUri`.
+  - Each deploy reads the saved client on the hub with its own token. A client that is gone gets a
+    new one, and a client on another deployment too.
+  - No failure stops a deploy or a destroy. A failed renewal keeps the saved values. Without saved
+    values, `status` is `off`, and `issuer`, `clientId`, and `clientSecret` are the `no-hub` values
+    of a checkout without a hub. A run without a GitHub OIDC token, such as on a laptop, does the
+    same, and logs no warning.
+  - `status` is `suspended` when the hub suspended the client. The client keeps its values.
+  - A destroy deletes a preview client. It does nothing to a production client, because the
+    production deployment can stay.
+  - `SAMEBASE_URL` replaces `https://samebase.com`.
+
 A development deployment has no stack, so the package has a command for it. Run it in the directory
 of the app, before the first push: it registers the deployment of that directory with
 `CONVEX_ACCESS_TOKEN` or the Convex CLI login, and writes `HUB_ISSUER`, `HUB_CLIENT_ID`, and
@@ -320,9 +336,10 @@ npx alchemy-convex hub-client --team my-team --app scout --callback-path /auth/h
 ## Pull request comment
 
 `alchemy-convex stack-comment` keeps one comment on a pull request. The comment has a card for each
-stack of the repository at the stage `pr-<number>`: the folder, the address, the last run, and the
-Convex deployments, Workers, and R2 buckets. A stack sees only itself, so a comment that a stack
-declares cannot show this.
+stack of the repository at the stage `pr-<number>`: the folder, the address, the last run, the
+Convex deployments, Workers, and R2 buckets, and the Google sign-in status of a
+`Convex.SharedHubClient`. A stack sees only itself, so a comment that a stack declares cannot show
+this.
 
 Run it after every deploy of the workflow. The run record gives the repository and the pull request,
 so the command needs no argument with a team access token:

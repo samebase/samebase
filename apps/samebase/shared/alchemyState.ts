@@ -93,6 +93,18 @@ export const vAlchemyCloudflareR2BucketState = object({
 });
 
 /**
+The state of a `Convex.SharedHubClient` resource. `attr.status` is `off` for a deployment without a
+client, and `suspended` for a client that the hub suspended. The other attributes hold secrets, and
+a card reads none of them.
+
+@see https://github.com/samebase/samebase/blob/main/packages/alchemy-convex/src/SharedHubClient.ts
+*/
+export const vAlchemySharedHubClientState = object({
+  resourceType: literal("IdentityHub.SharedClient"),
+  attr: object({ status: union(literal("on"), literal("off"), literal("suspended")) }),
+});
+
+/**
 The path from the repository root of `paths` joined below the directory of the stack file, such as
 `apps/x/convex` for `apps/x/alchemy.run.ts` with `.` and `./convex`, or `.` for the root. Null for an
 absolute path or a path outside the repository.
@@ -170,6 +182,11 @@ export function stageResources(stage: {
     ),
     r2Buckets: states.flatMap(({ fqn, state }) =>
       validate(vAlchemyCloudflareR2BucketState, state, { allowUnknownFields: true })
+        ? [{ fqn, state }]
+        : [],
+    ),
+    hubClients: states.flatMap(({ fqn, state }) =>
+      validate(vAlchemySharedHubClientState, state, { allowUnknownFields: true })
         ? [{ fqn, state }]
         : [],
     ),

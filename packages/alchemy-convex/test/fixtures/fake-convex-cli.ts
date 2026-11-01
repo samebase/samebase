@@ -8,7 +8,8 @@
 //   is the one in the key prefix, or ALCHEMY_CONVEX_FAKE_CLI_PREVIEW for
 //   `--preview-name`.
 // - "other": prints the line of a push to another deployment.
-// - "fail": prints the deploy key, like a CLI that echoes its input, and exits 1.
+// - "fail": prints the deploy key and ALCHEMY_CONVEX_FAKE_CLI_PRINT, like a CLI that
+//   echoes its input, and exits 1.
 // - "hang": waits until it is stopped.
 // The log records a SHA-256 hash of the key in the env file, never the key.
 import { createHash } from "node:crypto";
@@ -56,7 +57,9 @@ switch (mode) {
     process.stderr.write(`✔ Deployed Convex functions to https://other-deployment-123.convex.cloud\n`);
     break;
   case "fail":
-    process.stderr.write(`${announce}✖ Error: the key ${key} was rejected\n`);
+    process.stderr.write(
+      `${announce}✖ Error: the key ${key} was rejected\n${process.env["ALCHEMY_CONVEX_FAKE_CLI_PRINT"] ?? ""}\n`,
+    );
     process.exitCode = 1;
     break;
   case "hang":

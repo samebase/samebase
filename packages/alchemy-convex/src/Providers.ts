@@ -7,6 +7,7 @@ import { DeploymentProvider, DeploymentResource } from "./Deployment.ts";
 import { HubClient, HubClientProvider } from "./HubClient.ts";
 import { ManagementApiLive } from "./ManagementApi.ts";
 import { Project, ProjectProvider } from "./Project.ts";
+import { SharedHubClient, SharedHubClientProvider } from "./SharedHubClient.ts";
 
 export class Providers extends Provider.ProviderCollection<Providers>()("Convex") {}
 
@@ -16,8 +17,18 @@ export class Providers extends Provider.ProviderCollection<Providers>()("Convex"
  * `CONVEX_DEPLOY_KEY`).
  */
 export const providers = (credentials: Layer.Layer<Credentials> = fromConfig()) =>
-  Layer.effect(Providers, Provider.collection([Project, DeploymentResource, HubClient])).pipe(
-    Layer.provide(Layer.mergeAll(ProjectProvider(), DeploymentProvider(), HubClientProvider())),
+  Layer.effect(
+    Providers,
+    Provider.collection([Project, DeploymentResource, HubClient, SharedHubClient]),
+  ).pipe(
+    Layer.provide(
+      Layer.mergeAll(
+        ProjectProvider(),
+        DeploymentProvider(),
+        HubClientProvider(),
+        SharedHubClientProvider(),
+      ),
+    ),
     Layer.provide(ManagementApiLive()),
     Layer.provide(credentials),
     Layer.orDie,
