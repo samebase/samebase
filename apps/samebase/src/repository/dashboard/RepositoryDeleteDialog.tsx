@@ -79,8 +79,8 @@ function SetupStackRemovalNote({ target }: { target: RepositoryDeleteTarget }) {
         Destroy app
       </a>{" "}
       workflow, click Run workflow, and type{" "}
-      <span className="font-mono">{`delete ${target.githubRepositoryFullName}`}</span> in its field.
-      Deleting the GitHub repository also deletes that workflow.
+      <span className="font-mono">{`delete stack and production data of ${target.githubRepositoryFullName}`}</span>{" "}
+      in its field. Deleting the GitHub repository also deletes that workflow.
     </div>
   );
 }
