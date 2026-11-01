@@ -826,12 +826,8 @@ describe("the hub's tenant switch", () => {
     await t.finishAllScheduledFunctions(vi.runAllTimers, 1_000);
 
     expect(hubRequests).toEqual([tenantSwitchCall(false), tenantSwitchCall(true)]);
-    const revisions = hubRequests.map(({ body }) =>
-      typeof body === "object" && body !== null && "revision" in body ? Number(body.revision) : NaN,
-    );
-    expect(revisions).toHaveLength(2);
-    expect(revisions).toEqual([...revisions].sort((a, b) => a - b));
-    expect(new Set(revisions).size).toBe(2);
+    // The repository row is gone between the two, and the count goes on.
+    expect(hubRequests).toEqual([tenantSwitchCall(false, 1), tenantSwitchCall(true, 2)]);
   });
 
   it("sends the change it was started with, whatever the repository is now", async () => {

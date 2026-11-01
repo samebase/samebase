@@ -41,7 +41,7 @@ export async function readRepositoryByGitHubId(
 const vTenantConnection = {
   githubRepositoryDatabaseId: string(),
   connected: boolean(),
-  /** When the change happened. Every retry sends the same one, and the hub ignores an older one. */
+  /** The count of this change. Every retry sends the same one, and the hub ignores an older one. */
   revision: number(),
 };
 
@@ -99,8 +99,8 @@ export const syncTenantConnection = workflow.define({
 Runs in the transaction that connects a repository or removes it from Samebase. This covers every
 app and client of the repository, so a repository that leaves stops new sign-ins, and one that
 connects again gets the same user IDs back. An administrator's suspension is separate at the hub,
-so connecting again does not clear it. The revision is the time of this transaction: the repository
-row is gone by the time a late retry runs, so no counter on it could outlive a removal.
+so connecting again does not clear it. The count goes up in this transaction, so the revisions follow
+the order in which the changes commit.
 */
 export async function startTenantConnectionSync(
   ctx: MutationCtx,
@@ -110,10 +110,22 @@ export async function startTenantConnectionSync(
   if (readHub() === null) {
     return;
   }
+  const row = await ctx.db
+    .query("hubClientConnectionRevisions")
+    .withIndex("by_github_repository_database_id", (query) =>
+      query.eq("githubRepositoryDatabaseId", githubRepositoryDatabaseId),
+    )
+    .unique();
+  const revision = (row?.revision ?? 0) + 1;
+  if (row === null) {
+    await ctx.db.insert("hubClientConnectionRevisions", { githubRepositoryDatabaseId, revision });
+  } else {
+    await ctx.db.patch(row._id, { revision });
+  }
   await workflow.start(
     ctx,
     internal.hubClients.tenantConnection.syncTenantConnection,
-    { githubRepositoryDatabaseId, connected, revision: Date.now() },
+    { githubRepositoryDatabaseId, connected, revision },
     { startAsync: true },
   );
 }
