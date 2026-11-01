@@ -123,6 +123,17 @@ function fakeConvexProjectId(): Id<"repositoryConvexProjects"> {
   return "convex-project-attached";
 }
 
+function fakeRunId(): Id<"workflow_repositoryProvisioning_runs"> {
+  // @ts-expect-error Convex ids are strings at runtime; this hook test only needs a stable id.
+  return "provisioning-run";
+}
+
+function runningGitHubSetup(
+  step: "seed_starter" | "sync_tree" | "write_actions_secrets",
+): UserRepositoryResult["providerSetup"] {
+  return { status: "running", provider: "github", runId: fakeRunId(), step, updatedAt: 1 };
+}
+
 function lostAccessRepository(): UserRepositoryResult {
   return {
     repositoryId: fakeRepositoryId(),
@@ -238,6 +249,68 @@ describe("useRepositoryWorkspaceModel", () => {
       expect(testState.queryCalls).toContainEqual({
         args: { organizationId: organization.organizationId },
         name: getFunctionName(api.users.getCloudflareConnectionStatus),
+      });
+    } finally {
+      await mounted.unmount();
+    }
+  });
+
+  it.each([
+    {
+      name: "the source setup runs",
+      setup: {
+        sourceSetup: {
+          status: "running",
+          runId: fakeRunId(),
+          step: "seed_starter",
+          updatedAt: 1,
+        },
+      },
+      reads: false,
+    },
+    {
+      name: "a repository_actions setup writes its secrets",
+      setup: { providerSetup: runningGitHubSetup("write_actions_secrets") },
+      reads: false,
+    },
+    {
+      name: "a repository_actions setup pushes the starter",
+      setup: { providerSetup: runningGitHubSetup("seed_starter") },
+      reads: false,
+    },
+    {
+      name: "a repository_actions setup syncs the pushed tree",
+      setup: { providerSetup: runningGitHubSetup("sync_tree") },
+      reads: true,
+    },
+  ] satisfies {
+    name: string;
+    setup: Partial<UserRepositoryResult>;
+    reads: boolean;
+  }[])("reads the default branch while $name: $reads", async ({ setup, reads }) => {
+    const repository = { ...lostAccessRepository(), ...setup };
+    const organization = {
+      canCreateRepository: true,
+      githubOwnerId: "github-owner-lost",
+      githubOwnerLogin: "lost",
+      githubOwnerType: "organization",
+      organizationId: repository.organizationId,
+      role: "owner",
+    } as const;
+
+    function Probe() {
+      useRepositoryWorkspaceModel(repository.githubRepositoryFullName);
+      return null;
+    }
+
+    const mounted = await renderWithDashboardQueries(<Probe />, {
+      organizations: [organization],
+      repositories: [repository],
+    });
+
+    try {
+      expect(testState.pullRequestArgs.at(-1)).toMatchObject({
+        repository: reads ? repository : null,
       });
     } finally {
       await mounted.unmount();
