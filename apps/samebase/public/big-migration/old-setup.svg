@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 420" role="img" aria-labelledby="title desc">
+  <title id="title">The old setup</title>
+  <desc id="desc">Samebase stores your Cloudflare and Convex credentials, creates and repairs your resources in both. A push to your repository starts Workers Builds, which deploys to Convex with a stored key.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#394447" />
+    </marker>
+  </defs>
+  <style>
+    text { font-family: system-ui, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; fill: #0c0a09; }
+    .title { font-size: 21px; font-weight: 600; }
+    .note { font-size: 16px; fill: #57534e; }
+    .label { font-size: 16px; fill: #0c0a09; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 16px; }
+    .invert, .invert text { fill: #fafaf9; }
+    .box { fill: #ffffff; stroke: #a8a29e; stroke-width: 1.5; }
+    .inner { fill: #f5f5f4; stroke: #d6d3d1; stroke-width: 1; }
+    .solid { fill: #394447; stroke: #394447; stroke-width: 1.5; }
+    .edge { fill: none; stroke: #394447; stroke-width: 2; marker-end: url(#arrow); }
+  </style>
+  <rect width="960" height="420" fill="#ffffff" />
+
+  <rect class="solid" x="30" y="40" width="290" height="130" />
+  <g class="invert">
+    <text class="title" x="50" y="82">Samebase</text>
+    <text x="50" y="114" font-size="16">stores your Cloudflare and</text>
+    <text x="50" y="138" font-size="16">Convex credentials</text>
+  </g>
+
+  <rect class="box" x="30" y="270" width="290" height="110" />
+  <text class="title" x="50" y="312">Your repository</text>
+  <text class="note" x="50" y="344">code, and nothing that deploys it</text>
+
+  <rect class="box" x="620" y="30" width="310" height="150" />
+  <text class="title" x="640" y="68">Convex</text>
+  <rect class="inner" x="640" y="84" width="130" height="76" />
+  <text class="label" x="655" y="116">project</text>
+  <text class="note" x="655" y="140">and data</text>
+  <rect class="inner" x="782" y="84" width="130" height="76" />
+  <text class="label" x="797" y="116">deploy</text>
+  <text class="label" x="797" y="140">keys</text>
+
+  <rect class="box" x="620" y="240" width="310" height="150" />
+  <text class="title" x="640" y="278">Cloudflare</text>
+  <rect class="inner" x="640" y="294" width="130" height="76" />
+  <text class="label" x="655" y="338">Worker</text>
+  <rect class="inner" x="782" y="294" width="130" height="76" />
+  <text class="label" x="797" y="326">Workers</text>
+  <text class="label" x="797" y="350">Builds</text>
+
+  <path class="edge" d="M 320 92 L 614 92" />
+  <text class="label" x="335" y="80">creates the project, mints keys</text>
+
+  <path class="edge" d="M 320 150 L 614 268" />
+  <text class="label" x="350" y="238">creates the Worker,</text>
+  <text class="label" x="350" y="262">configures Builds, repairs</text>
+
+  <path class="edge" d="M 320 332 L 614 332" />
+  <text class="label" x="335" y="320">a push starts a build</text>
+
+  <path class="edge" d="M 847 240 L 847 186" />
+  <text class="label" x="660" y="218">Builds deploys with a key</text>
+</svg>

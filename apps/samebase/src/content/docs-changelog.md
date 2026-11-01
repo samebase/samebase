@@ -5,6 +5,9 @@ change. If a change needs action from you, the entry says so.
 
 ## 2026-11-01
 
+- **v2223: The big migration.** [The big migration](/docs/the-big-migration) explains how Samebase
+  works with Alchemy and how to move a Worker or Convex app. Your app keeps running if you don't
+  move it.
 - **v2218: Clearer Destroy app form.** The form now says what it deletes and that your GitHub
   repository stays. To confirm, you type `delete stack and production data of <owner>/<repository>`.
   Apps created before this keep the old form.

@@ -286,6 +286,7 @@ const contentDocsMarkdownAssets = [
     sourcePath: "src/content/docs-operate-production-logs.md",
   },
   { assetPath: "docs/receipts.md", sourcePath: "src/content/docs-receipts.md" },
+  { assetPath: "docs/the-big-migration.md", sourcePath: "src/content/docs-the-big-migration.md" },
   { assetPath: "docs/the-stack.md", sourcePath: "src/content/docs-the-stack.md" },
   { assetPath: "pricing.md", sourcePath: "src/content/docs-pricing.md" },
   { assetPath: "changelog.md", sourcePath: "src/content/docs-changelog.md" },

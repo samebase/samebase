@@ -7,6 +7,7 @@ import {
   DOCS_DO_IT_YOURSELF_ROUTE,
   DOCS_INDEX_ROUTE,
   DOCS_RECEIPTS_ROUTE,
+  DOCS_THE_BIG_MIGRATION_ROUTE,
   DOCS_THE_STACK_ROUTE,
   LANDING_PREVIEW_ROUTE,
 } from "./routeSearch/landingPreview";
@@ -60,6 +61,7 @@ export const routes = rootRoute("root.tsx", [
   route(DOCS_CLOUDFLARE_PREVIEWS_MIGRATION_ROUTE, "docs-cloudflare-previews-migration.tsx"),
   route(DOCS_DO_IT_YOURSELF_ROUTE, "docs-do-it-yourself.tsx"),
   route(DOCS_RECEIPTS_ROUTE, "docs-receipts.tsx"),
+  route(DOCS_THE_BIG_MIGRATION_ROUTE, "docs-the-big-migration.tsx"),
   route(DOCS_THE_STACK_ROUTE, "docs-the-stack.tsx"),
   route(LANDING_PREVIEW_ROUTE, "landing-preview.tsx"),
   route("/pricing", "pricing.tsx"),

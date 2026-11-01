@@ -8,6 +8,7 @@ import {
   DOCS_CHANGELOG_ROUTE,
   DOCS_PRICING_ROUTE,
   DOCS_RECEIPTS_ROUTE,
+  DOCS_THE_BIG_MIGRATION_ROUTE,
   DOCS_THE_STACK_ROUTE,
 } from "@/routeSearch/landingPreview";
 import { LOCAL_STORAGE_ROUTE } from "./localStorageRoute";
@@ -137,6 +138,14 @@ export const DOCS_CLOUDFLARE_SETUP_PAGE_METADATA: PageMetadata = {
   openGraphType: "website",
 };
 
+export const DOCS_THE_BIG_MIGRATION_PAGE_METADATA: PageMetadata = {
+  title: "The big migration | Samebase",
+  description: "How Samebase works with Alchemy, and how to move a Worker or Convex app.",
+  canonicalPath: DOCS_THE_BIG_MIGRATION_ROUTE,
+  robots: "index,follow",
+  openGraphType: "website",
+};
+
 export const DOCS_THE_STACK_PAGE_METADATA: PageMetadata = {
   title: "The stack | Samebase",
   description: "What the Samebase template ships and why each piece was chosen.",
@@ -250,6 +259,10 @@ export function resolveAppPageTitle(pathname: string): string {
     return DOCS_CLOUDFLARE_PREVIEWS_MIGRATION_PAGE_METADATA.title;
   }
 
+  if (pathname === DOCS_THE_BIG_MIGRATION_ROUTE) {
+    return DOCS_THE_BIG_MIGRATION_PAGE_METADATA.title;
+  }
+
   if (pathname === DOCS_THE_STACK_ROUTE) {
     return DOCS_THE_STACK_PAGE_METADATA.title;
   }
@@ -311,6 +324,10 @@ export function resolvePageMetadata(args: {
 
   if (args.pathname === DOCS_CLOUDFLARE_PREVIEWS_MIGRATION_ROUTE) {
     return DOCS_CLOUDFLARE_PREVIEWS_MIGRATION_PAGE_METADATA;
+  }
+
+  if (args.pathname === DOCS_THE_BIG_MIGRATION_ROUTE) {
+    return DOCS_THE_BIG_MIGRATION_PAGE_METADATA;
   }
 
   if (args.pathname === DOCS_THE_STACK_ROUTE) {

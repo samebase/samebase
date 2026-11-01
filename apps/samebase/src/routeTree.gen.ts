@@ -35,6 +35,7 @@ import { Route as docsCloudflarePreviewsMigrationRouteImport } from "./routes/do
 import { Route as docsCloudflareSetupRouteImport } from "./routes/docs-cloudflare-setup";
 import { Route as docsDoItYourselfRouteImport } from "./routes/docs-do-it-yourself";
 import { Route as docsReceiptsRouteImport } from "./routes/docs-receipts";
+import { Route as docsTheBigMigrationRouteImport } from "./routes/docs-the-big-migration";
 import { Route as docsTheStackRouteImport } from "./routes/docs-the-stack";
 import { Route as inviteRouteImport } from "./routes/invite";
 import { Route as logoIsoRouteImport } from "./routes/logo-iso";
@@ -198,6 +199,11 @@ const docsDoItYourselfRoute = docsDoItYourselfRouteImport.update({
 const docsReceiptsRoute = docsReceiptsRouteImport.update({
   id: "/docs/receipts",
   path: "/docs/receipts",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const docsTheBigMigrationRoute = docsTheBigMigrationRouteImport.update({
+  id: "/docs/the-big-migration",
+  path: "/docs/the-big-migration",
   getParentRoute: () => rootRouteImport,
 } as any);
 const docsTheStackRoute = docsTheStackRouteImport.update({
@@ -401,6 +407,7 @@ export interface FileRoutesByFullPath {
   "/docs/cloudflare-setup": typeof docsCloudflareSetupRoute;
   "/docs/do-it-yourself": typeof docsDoItYourselfRoute;
   "/docs/receipts": typeof docsReceiptsRoute;
+  "/docs/the-big-migration": typeof docsTheBigMigrationRoute;
   "/docs/the-stack": typeof docsTheStackRoute;
   "/invite/$code": typeof inviteRoute;
   "/logo/iso": typeof logoIsoRoute;
@@ -462,6 +469,7 @@ export interface FileRoutesByTo {
   "/docs/cloudflare-setup": typeof docsCloudflareSetupRoute;
   "/docs/do-it-yourself": typeof docsDoItYourselfRoute;
   "/docs/receipts": typeof docsReceiptsRoute;
+  "/docs/the-big-migration": typeof docsTheBigMigrationRoute;
   "/docs/the-stack": typeof docsTheStackRoute;
   "/invite/$code": typeof inviteRoute;
   "/logo/iso": typeof logoIsoRoute;
@@ -525,6 +533,7 @@ export interface FileRoutesById {
   "/docs/cloudflare-setup": typeof docsCloudflareSetupRoute;
   "/docs/do-it-yourself": typeof docsDoItYourselfRoute;
   "/docs/receipts": typeof docsReceiptsRoute;
+  "/docs/the-big-migration": typeof docsTheBigMigrationRoute;
   "/docs/the-stack": typeof docsTheStackRoute;
   "/invite/$code": typeof inviteRoute;
   "/logo/iso": typeof logoIsoRoute;
@@ -588,6 +597,7 @@ export interface FileRouteTypes {
     | "/docs/cloudflare-setup"
     | "/docs/do-it-yourself"
     | "/docs/receipts"
+    | "/docs/the-big-migration"
     | "/docs/the-stack"
     | "/invite/$code"
     | "/logo/iso"
@@ -649,6 +659,7 @@ export interface FileRouteTypes {
     | "/docs/cloudflare-setup"
     | "/docs/do-it-yourself"
     | "/docs/receipts"
+    | "/docs/the-big-migration"
     | "/docs/the-stack"
     | "/invite/$code"
     | "/logo/iso"
@@ -711,6 +722,7 @@ export interface FileRouteTypes {
     | "/docs/cloudflare-setup"
     | "/docs/do-it-yourself"
     | "/docs/receipts"
+    | "/docs/the-big-migration"
     | "/docs/the-stack"
     | "/invite/$code"
     | "/logo/iso"
@@ -767,6 +779,7 @@ export interface RootRouteChildren {
   docsCloudflareSetupRoute: typeof docsCloudflareSetupRoute;
   docsDoItYourselfRoute: typeof docsDoItYourselfRoute;
   docsReceiptsRoute: typeof docsReceiptsRoute;
+  docsTheBigMigrationRoute: typeof docsTheBigMigrationRoute;
   docsTheStackRoute: typeof docsTheStackRoute;
   inviteRoute: typeof inviteRoute;
   logoIsoRoute: typeof logoIsoRoute;
@@ -964,6 +977,13 @@ declare module "@tanstack/react-router" {
       path: "/docs/receipts";
       fullPath: "/docs/receipts";
       preLoaderRoute: typeof docsReceiptsRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/docs/the-big-migration": {
+      id: "/docs/the-big-migration";
+      path: "/docs/the-big-migration";
+      fullPath: "/docs/the-big-migration";
+      preLoaderRoute: typeof docsTheBigMigrationRouteImport;
       parentRoute: typeof rootRouteImport;
     };
     "/docs/the-stack": {
@@ -1292,6 +1312,7 @@ const rootRouteChildren: RootRouteChildren = {
   docsCloudflareSetupRoute: docsCloudflareSetupRoute,
   docsDoItYourselfRoute: docsDoItYourselfRoute,
   docsReceiptsRoute: docsReceiptsRoute,
+  docsTheBigMigrationRoute: docsTheBigMigrationRoute,
   docsTheStackRoute: docsTheStackRoute,
   inviteRoute: inviteRoute,
   logoIsoRoute: logoIsoRoute,

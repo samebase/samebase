@@ -252,6 +252,9 @@ vi.mock("@/components/LandingPreviewPage", () => ({
   DocsIndexPage: () => <div data-testid="docs-index-page">Docs index page</div>,
   DocsPricingPage: () => <div data-testid="docs-pricing-page">Docs pricing page</div>,
   DocsReceiptsPage: () => <div data-testid="docs-receipts-page">Docs receipts page</div>,
+  DocsTheBigMigrationPage: () => (
+    <div data-testid="docs-the-big-migration-page">Docs the big migration page</div>
+  ),
   DocsTheStackPage: () => <div data-testid="docs-the-stack-page">Docs the stack page</div>,
 }));
 
@@ -926,6 +929,15 @@ describe("appRouter", () => {
     expect(rootElement?.querySelector('[data-testid="docs-pricing-page"]')?.textContent).toBe(
       "Docs pricing page",
     );
+    expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
+  });
+
+  it("renders the big migration through an explicit TanStack route instead of the App fallback", async () => {
+    await renderRoute("/docs/the-big-migration");
+
+    expect(
+      rootElement?.querySelector('[data-testid="docs-the-big-migration-page"]')?.textContent,
+    ).toBe("Docs the big migration page");
     expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
   });
 

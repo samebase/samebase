@@ -10,6 +10,7 @@ import {
   DOCS_PRICING_ROUTE,
   DOCS_RECEIPTS_ROUTE,
   DOCS_SIDEBAR_TEST_ID,
+  DOCS_THE_BIG_MIGRATION_ROUTE,
   DOCS_THE_STACK_ROUTE,
   LANDING_PAGE_ROUTE,
   LANDING_PREVIEW_ARTICLE_TEST_ID,
@@ -25,6 +26,7 @@ const LANDING_PAGE_PROD_UI_ROUTE = `${LANDING_PAGE_ROUTE}?prod-ui`;
 
 const expectedLandingPreviewSidebarFiles = [
   "Overview",
+  "The big migration",
   "The stack",
   "Do it yourself",
   "Receipts",
@@ -45,6 +47,10 @@ async function expectSidebarFiles(sidebar: Locator) {
   await expect(sidebar.getByRole("link", { name: "Overview" })).toHaveAttribute(
     "href",
     new RegExp(`^${LANDING_PAGE_ROUTE}(\\?|$)`),
+  );
+  await expect(sidebar.getByRole("link", { name: "The big migration" })).toHaveAttribute(
+    "href",
+    new RegExp(`^${DOCS_THE_BIG_MIGRATION_ROUTE}(\\?|$)`),
   );
   await expect(sidebar.getByRole("link", { name: "Do it yourself" })).toHaveAttribute(
     "href",

@@ -8,6 +8,7 @@ import {
   DocsIndexPage,
   DocsChangelogPage,
   DocsPricingPage,
+  DocsTheBigMigrationPage,
   DocsTheStackPage,
   LandingPage,
 } from "@/components/LandingPreviewPage";
@@ -320,6 +321,7 @@ describe("LandingPage", () => {
     expect(sidebarMarkup).toContain("Pricing");
     expect(sidebarMarkup).toContain("Changelog");
     expect(sidebarMarkup).toContain('href="/"');
+    expect(sidebarMarkup).toContain('href="/docs/the-big-migration"');
     expect(sidebarMarkup).toContain('href="/docs/the-stack"');
     expect(sidebarMarkup).toContain('href="/docs/cloudflare-setup"');
     expect(sidebarMarkup).toContain('href="/docs/cloudflare-previews-migration"');
@@ -400,6 +402,15 @@ describe("LandingPage", () => {
     expect(markup).toContain("convex-hosting");
     expect(markup).toContain("different deployment setups");
     expect(markup).toContain("Cloudflare Email Sending");
+  });
+
+  it("renders the big migration article with its diagrams", () => {
+    const markup = renderToStaticMarkup(<DocsTheBigMigrationPage />);
+
+    expect(markup).toContain("The big migration");
+    expect(markup).toContain("Move a Worker site");
+    expect(markup).toContain("/big-migration/old-setup.svg");
+    expect(markup).toContain("/big-migration/how-it-works.svg");
   });
 
   it("renders the changelog with its newest entry", () => {
