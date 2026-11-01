@@ -2805,7 +2805,7 @@ describe("RepositoryDeleteDialogContent", () => {
       'href="https://github.com/ada/chess-merge/actions/workflows/destroy.yml"',
     );
     expect(markup).toContain(
-      'workflow, click Run workflow, and type <span class="font-mono">delete ada/chess-merge</span> in its field.',
+      'workflow, click Run workflow, and type <span class="font-mono">delete stack and production data of ada/chess-merge</span> in its field.',
     );
   });
 

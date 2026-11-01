@@ -1,15 +1,16 @@
 # Destroys the app: the Convex project with every deployment and its data, and the state of the
 # stage `prod`. The repository stays.
 #
-# Run it from the Actions tab on the default branch with `delete <owner>/<repository>` in the
-# confirm field. Another text or another branch fails the run before anything is installed.
+# Run it from the Actions tab on the default branch with
+# `delete stack and production data of <owner>/<repository>` in the confirm field. Another text or
+# another branch fails the run before anything is installed.
 name: Destroy app
 
 on:
   workflow_dispatch:
     inputs:
       confirm:
-        description: 'This deletes the app''s production data for good. To confirm, type "delete" and this repository''s full name, like "delete acme/my-app"'
+        description: 'Deletes this app''s Convex project, production data, and previews for good. Your GitHub repository stays. To confirm, type "delete stack and production data of acme/my-app" with your repository''s full name in place of acme/my-app'
         required: true
         type: string
 
@@ -28,7 +29,7 @@ jobs:
       - name: Check the confirmation
         env:
           CONFIRM: ${{ inputs.confirm }}
-          EXPECTED: delete ${{ github.repository }}
+          EXPECTED: delete stack and production data of ${{ github.repository }}
           DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
         run: |
           if [ "$GITHUB_REF" != "refs/heads/$DEFAULT_BRANCH" ]; then
