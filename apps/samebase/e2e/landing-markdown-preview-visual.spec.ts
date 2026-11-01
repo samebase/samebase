@@ -717,7 +717,5 @@ test("landing do-it-yourself mobile pane query opens the sidebar", async ({ page
 
   // The route's query params must not hide the current page from its closed folder.
   await sidebar.getByText("docs", { exact: true }).click();
-  await expect(
-    sidebar.getByRole("region", { name: "docs, contains current page" }),
-  ).toBeVisible();
+  await expect(sidebar.getByRole("region", { name: "docs, contains current page" })).toBeVisible();
 });

@@ -157,7 +157,8 @@ reload.
 function DocsSidebarFolder({ label, pages }: { label: string; pages: readonly DocsSidebarPage[] }) {
   const [open, setOpen] = useState(true);
   const matchRoute = useMatchRoute();
-  const hidesCurrentPage = !open && pages.some(({ to }) => matchRoute({ includeSearch: false, to }));
+  const hidesCurrentPage =
+    !open && pages.some(({ to }) => matchRoute({ includeSearch: false, to }));
 
   return (
     <section aria-label={hidesCurrentPage ? `${label}, contains current page` : label}>
