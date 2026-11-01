@@ -11,10 +11,10 @@
 # - Only the steps that run Alchemy get the secrets, so install and the build step do not see them.
 #   A build inside the deploy, such as `source.command`, runs under Alchemy and does.
 #
-# The lockfile at the repository root picks the install: bun.lock or bun.lockb, pnpm-lock.yaml,
-# yarn.lock, or package-lock.json. With pnpm or Yarn, package.json names the version in
-# `packageManager`. No package manager runs the deploy: each one writes node_modules/.bin, so the
-# steps call the installed tools there. Yarn needs `nodeLinker: node-modules`.
+# The lockfile at the repository root picks the install: pnpm-lock.yaml or package-lock.json. With
+# pnpm, package.json names the version in `packageManager`. Another package manager needs a copy of
+# this file with its own install step. Everything after the install is the same for any of them: no
+# package manager runs the deploy, because the steps call the tools in node_modules/.bin.
 #
 # This file never destroys production. Its only destroy job removes the preview of a closed pull
 # request. Production destroy stays out of it: a person runs `destroy.yml` by hand.
@@ -86,9 +86,6 @@ jobs:
       - &setup-pnpm
         uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
         if: hashFiles('pnpm-lock.yaml') != ''
-      - &setup-bun
-        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
-        if: hashFiles('bun.lock', 'bun.lockb') != ''
       - &setup-node
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
@@ -100,10 +97,12 @@ jobs:
         name: Install dependencies
         working-directory: .
         run: |
-          if [ -f bun.lock ] || [ -f bun.lockb ]; then bun install --frozen-lockfile $INSTALL_FLAGS
-          elif [ -f pnpm-lock.yaml ]; then pnpm install --frozen-lockfile $INSTALL_FLAGS
-          elif [ -f yarn.lock ]; then corepack enable && yarn install --immutable
-          else npm ci $INSTALL_FLAGS; fi
+          if [ -f pnpm-lock.yaml ]; then pnpm install --frozen-lockfile $INSTALL_FLAGS
+          elif [ -f package-lock.json ]; then npm ci $INSTALL_FLAGS
+          else
+            echo "::error::No pnpm-lock.yaml or package-lock.json at the repository root. Another package manager needs a copy of this workflow."
+            exit 1
+          fi
       # The folder of the installed tools: the one of the stack, or the root of a workspace.
       - &find-tools
         name: Find the installed tools
@@ -181,7 +180,6 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha }}
           persist-credentials: false
       - *setup-pnpm
-      - *setup-bun
       - *setup-node
       - *install
       - *find-tools
