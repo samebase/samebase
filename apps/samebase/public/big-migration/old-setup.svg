@@ -1,5 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 420" role="img" aria-labelledby="title desc">
-  <title id="title">The old setup</title>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 484" role="img" aria-labelledby="title desc">
+  <title id="title">The old way of working</title>
   <desc id="desc">Samebase stores your Cloudflare and Convex credentials, creates and repairs your resources in both. A push to your repository starts Workers Builds, which deploys to Convex with a stored key.</desc>
   <defs>
     <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
@@ -8,6 +8,7 @@
   </defs>
   <style>
     text { font-family: system-ui, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; fill: #0c0a09; }
+    .heading { font-size: 30px; font-weight: 700; }
     .title { font-size: 21px; font-weight: 600; }
     .note { font-size: 16px; fill: #57534e; }
     .label { font-size: 16px; fill: #0c0a09; }
@@ -18,8 +19,11 @@
     .solid { fill: #394447; stroke: #394447; stroke-width: 1.5; }
     .edge { fill: none; stroke: #394447; stroke-width: 2; marker-end: url(#arrow); }
   </style>
-  <rect width="960" height="420" fill="#ffffff" />
+  <rect width="960" height="484" fill="#ffffff" />
 
+  <text class="heading" x="30" y="50">The old way of working</text>
+
+  <g transform="translate(0 64)">
   <rect class="solid" x="30" y="40" width="290" height="130" />
   <g class="invert">
     <text class="title" x="50" y="82">Samebase</text>
@@ -60,4 +64,5 @@
 
   <path class="edge" d="M 847 240 L 847 186" />
   <text class="label" x="660" y="218">Builds deploys with a key</text>
+  </g>
 </svg>

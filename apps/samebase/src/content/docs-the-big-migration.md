@@ -6,7 +6,7 @@ repair them from a dashboard. All of that took more than 20,000 lines of code.
 I'm replacing it with [Alchemy](https://alchemy.run). By November 1, 2026, I had moved 15 of my own
 apps. This page explains how Samebase works now and how to move yours.
 
-![The old setup: Samebase holds your credentials and writes to Cloudflare and Convex, and Workers Builds deploys.](/big-migration/old-setup.svg)
+![The old way of working: Samebase holds your credentials and writes to Cloudflare and Convex, and Workers Builds deploys.](/big-migration/old-setup.svg)
 
 ## What Samebase is
 
