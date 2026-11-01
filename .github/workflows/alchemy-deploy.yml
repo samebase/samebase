@@ -1,0 +1,204 @@
+# The standard deploy of a repository with one Alchemy stack. A repository calls it from its own
+# workflow, or copies it. A push to the default branch deploys the stage `prod`. A pull request from
+# this repository deploys the stage `pr-<number>`, and closing it destroys that stage.
+#
+# Order matters, because GitHub can start runs late and a person can re-run an old one:
+# - One run per stage at a time: the state store has no lock. Pending runs wait in order instead of
+#   replacing each other, so a destroy waits for the deploy of its pull request.
+# - Each job checks GitHub after it gets its turn, so it sees what the runs ahead of it did. An old
+#   commit fails instead of putting older code over newer code. A closed pull request gets no
+#   preview, and a reopened one keeps its preview.
+# - Only the steps that run Alchemy get the secrets, so install and the build step do not see them.
+#   A build inside the deploy, such as `source.command`, runs under Alchemy and does.
+#
+# A repository needs a lockfile at its root, pnpm-lock.yaml or package-lock.json. With pnpm,
+# package.json names the version in `packageManager`.
+#
+# This file never destroys production. Its only destroy job removes the preview of a closed pull
+# request. Production destroy stays out of it: a person runs `destroy.yml` by hand.
+name: Alchemy deploy
+
+on:
+  workflow_call:
+    inputs:
+      adopt:
+        description: Take over resources that exist but are not in the state of the stage
+        type: boolean
+        default: false
+      build:
+        description: The command that builds the site before a deploy, without secrets
+        type: string
+        default: ""
+      detect-drift:
+        description: Repair settings that someone changed in a provider's dashboard
+        type: boolean
+        default: false
+      directory:
+        description: The folder of alchemy.run.ts. The lockfile stays at the repository root
+        type: string
+        default: "."
+      fetch-depth:
+        description: The commits to check out. 0 is the full history, for a build that counts them
+        type: number
+        default: 1
+      node-version:
+        type: string
+        default: "24"
+    secrets:
+      CONVEX_ACCESS_TOKEN:
+        required: true
+      CLOUDFLARE_API_TOKEN:
+        required: false
+      CLOUDFLARE_ACCOUNT_ID:
+        required: false
+
+env:
+  STAGE:
+    ${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.number) || 'prod' }}
+  CONVEX_TEAM_ID: ${{ vars.CONVEX_TEAM_ID }}
+
+jobs:
+  deploy:
+    name: Deploy ${{ github.event_name == 'pull_request' && 'the preview' || 'production' }}
+    if: >-
+      github.event.action != 'closed' && (github.event_name == 'pull_request' &&
+      github.event.pull_request.head.repo.full_name == github.repository || github.event_name !=
+      'pull_request' && github.ref_name == github.event.repository.default_branch)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    concurrency: &stage
+      group:
+        alchemy-${{ github.event.pull_request.number && format('pr-{0}',
+        github.event.pull_request.number) || github.ref_name }}
+      queue: max
+      cancel-in-progress: false
+    defaults:
+      run:
+        working-directory: ${{ inputs.directory }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: ${{ inputs.fetch-depth }}
+          persist-credentials: false
+      - &setup-pnpm
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+        if: hashFiles('pnpm-lock.yaml') != ''
+      - &setup-node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: ${{ hashFiles('pnpm-lock.yaml') != '' && 'pnpm' || 'npm' }}
+      - name: Install dependencies
+        working-directory: .
+        run: if [ -f pnpm-lock.yaml ]; then pnpm install --frozen-lockfile; else npm ci; fi
+      - name: Check that this run is still current
+        id: current
+        working-directory: .
+        env:
+          BRANCH: ${{ github.head_ref || github.ref_name }}
+          PULL_REQUEST: ${{ github.event.pull_request.number }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ -n "$PULL_REQUEST" ]; then
+            state=$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PULL_REQUEST" --jq .state)
+            if [ "$state" != open ]; then
+              echo "::notice::Pull request $PULL_REQUEST is $state, so it gets no preview."
+              exit 0
+            fi
+          fi
+          head=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/$BRANCH" --jq .object.sha)
+          if [ "$(git rev-parse HEAD)" != "$head" ]; then
+            echo "::error::The checkout is not the head of $BRANCH ($head). Nothing was deployed."
+            exit 1
+          fi
+          echo "deploy=true" >> "$GITHUB_OUTPUT"
+      - name: Build
+        if: inputs.build != '' && steps.current.outputs.deploy == 'true'
+        env:
+          BUILD: ${{ inputs.build }}
+        run: bash -eo pipefail -c "$BUILD"
+      - name: Deploy
+        if: steps.current.outputs.deploy == 'true'
+        run: npx --no-install alchemy deploy --stage "$STAGE" --yes --no-input $ADOPT $DRIFT
+        env: &deploy-env
+          ADOPT: ${{ inputs.adopt && github.event_name != 'pull_request' && '--adopt' || '' }}
+          DRIFT: ${{ inputs.detect-drift && '--detect-drift' || '' }}
+          CONVEX_ACCESS_TOKEN: ${{ secrets.CONVEX_ACCESS_TOKEN }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          GITHUB_TOKEN: ${{ github.token }}
+      - name: Update the stack comment
+        if: github.event_name == 'pull_request' && steps.current.outputs.deploy == 'true'
+        run: npx --no-install alchemy-convex stack-comment
+        env:
+          CONVEX_ACCESS_TOKEN: ${{ secrets.CONVEX_ACCESS_TOKEN }}
+          GITHUB_TOKEN: ${{ github.token }}
+
+  destroy-preview:
+    name: Destroy the preview
+    # A pull request from a fork got no preview.
+    if: >-
+      github.event.action == 'closed' && github.event.pull_request.head.repo.full_name ==
+      github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    concurrency: *stage
+    defaults:
+      run:
+        working-directory: ${{ inputs.directory }}
+    steps:
+      # The base branch, so a head whose install fails cannot keep the preview.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.base.ref }}
+          persist-credentials: false
+      # The first pull request of a stack: the base branch does not have it yet.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: hashFiles(format('{0}/alchemy.run.ts', inputs.directory)) == ''
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - *setup-pnpm
+      - *setup-node
+      - name: Install dependencies
+        working-directory: .
+        run: |
+          if [ -f pnpm-lock.yaml ]; then pnpm install --frozen-lockfile --ignore-scripts
+          else npm ci --ignore-scripts; fi
+      - name: Check that the pull request is still closed
+        id: current
+        working-directory: .
+        env:
+          PULL_REQUEST: ${{ github.event.pull_request.number }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          state=$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PULL_REQUEST" --jq .state)
+          case "$state" in
+            closed) echo "destroy=true" >> "$GITHUB_OUTPUT" ;;
+            open) echo "::notice::Pull request $PULL_REQUEST is open again, so its preview stays." ;;
+            *)
+              echo "::error::Pull request $PULL_REQUEST has the state '$state'. Nothing was destroyed."
+              exit 1
+              ;;
+          esac
+      - name: Destroy the stage of the pull request
+        if: steps.current.outputs.destroy == 'true'
+        run: |
+          [[ "$STAGE" =~ ^pr-[0-9]+$ ]] || exit 1
+          npx --no-install alchemy destroy --stage "$STAGE" --yes --no-input
+        env:
+          CONVEX_ACCESS_TOKEN: ${{ secrets.CONVEX_ACCESS_TOKEN }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          GITHUB_TOKEN: ${{ github.token }}
+
+  skip-fork-preview:
+    name: Skip the preview of a fork
+    if: >-
+      github.event_name == 'pull_request' && github.event.action != 'closed' &&
+      github.event.pull_request.head.repo.full_name != github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 1
+    steps:
+      - run: echo "::notice::No preview. A pull request from a fork gets no secrets."

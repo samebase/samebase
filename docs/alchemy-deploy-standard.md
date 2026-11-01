@@ -41,6 +41,11 @@ Every repository of the team deploys the same way. The reference implementation 
    this repository use `packages/alchemy-convex` directly, so a store change reaches the store with
    the next deploy of `main`: release it and upgrade the other repositories the same day.
 
+10. **One deploy flow**: a repository with one stack calls `.github/workflows/alchemy-deploy.yml` of
+    `samebase/samebase`, pinned to a commit, or copies it. That file holds the order of a run: one
+    run per stage, a destroy that waits for its deploy, and a check of GitHub after each run gets
+    its turn. A repository with several stacks keeps its own workflow and the same rules.
+
 ## Why
 
 The state store is the one place that knows what exists, so Samebase can read it, destroy is safe,
