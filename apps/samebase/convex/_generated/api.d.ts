@@ -137,7 +137,6 @@ import type * as repository_cloudflareWorkerDiscovery from "../repository/cloudf
 import type * as repository_confirmationModel from "../repository/confirmationModel.js";
 import type * as repository_confirmations from "../repository/confirmations.js";
 import type * as repository_contracts_actionConfirmation from "../repository/contracts/actionConfirmation.js";
-import type * as repository_contracts_applySetupOutput from "../repository/contracts/applySetupOutput.js";
 import type * as repository_contracts_cloudflareAttachments from "../repository/contracts/cloudflareAttachments.js";
 import type * as repository_contracts_cloudflareBuildTokens from "../repository/contracts/cloudflareBuildTokens.js";
 import type * as repository_contracts_cloudflareConfigureWorkersBuildsForGitHub from "../repository/contracts/cloudflareConfigureWorkersBuildsForGitHub.js";
@@ -176,7 +175,6 @@ import type * as repository_fixtures_observedConvexComponents from "../repositor
 import type * as repository_fixtures_observedConvexCustomDomains from "../repository/fixtures/observedConvexCustomDomains.js";
 import type * as repository_fixtures_observedSamebaseAlchemyState from "../repository/fixtures/observedSamebaseAlchemyState.js";
 import type * as repository_fixtures_observedScoutR2Resources from "../repository/fixtures/observedScoutR2Resources.js";
-import type * as repository_fixtures_observedSetupOutput from "../repository/fixtures/observedSetupOutput.js";
 import type * as repository_folderModel from "../repository/folderModel.js";
 import type * as repository_folders from "../repository/folders.js";
 import type * as repository_infrastructureOperation from "../repository/infrastructureOperation.js";
@@ -197,10 +195,6 @@ import type * as repository_pullRequestModel from "../repository/pullRequestMode
 import type * as repository_pullRequestResources from "../repository/pullRequestResources.js";
 import type * as repository_records from "../repository/records.js";
 import type * as repository_repositoryStatus from "../repository/repositoryStatus.js";
-import type * as repository_setupOutput from "../repository/setupOutput.js";
-import type * as repository_setupOutputModel from "../repository/setupOutputModel.js";
-import type * as repository_setupOutputMutations from "../repository/setupOutputMutations.js";
-import type * as repository_setupOutputWorkflow from "../repository/setupOutputWorkflow.js";
 import type * as repository_state from "../repository/state.js";
 import type * as repository_status from "../repository/status.js";
 import type * as repository_workersBuildsConvexDeployKeyNames from "../repository/workersBuildsConvexDeployKeyNames.js";
@@ -361,7 +355,6 @@ declare const fullApi: ApiFromModules<{
   "repository/confirmationModel": typeof repository_confirmationModel;
   "repository/confirmations": typeof repository_confirmations;
   "repository/contracts/actionConfirmation": typeof repository_contracts_actionConfirmation;
-  "repository/contracts/applySetupOutput": typeof repository_contracts_applySetupOutput;
   "repository/contracts/cloudflareAttachments": typeof repository_contracts_cloudflareAttachments;
   "repository/contracts/cloudflareBuildTokens": typeof repository_contracts_cloudflareBuildTokens;
   "repository/contracts/cloudflareConfigureWorkersBuildsForGitHub": typeof repository_contracts_cloudflareConfigureWorkersBuildsForGitHub;
@@ -400,7 +393,6 @@ declare const fullApi: ApiFromModules<{
   "repository/fixtures/observedConvexCustomDomains": typeof repository_fixtures_observedConvexCustomDomains;
   "repository/fixtures/observedSamebaseAlchemyState": typeof repository_fixtures_observedSamebaseAlchemyState;
   "repository/fixtures/observedScoutR2Resources": typeof repository_fixtures_observedScoutR2Resources;
-  "repository/fixtures/observedSetupOutput": typeof repository_fixtures_observedSetupOutput;
   "repository/folderModel": typeof repository_folderModel;
   "repository/folders": typeof repository_folders;
   "repository/infrastructureOperation": typeof repository_infrastructureOperation;
@@ -421,10 +413,6 @@ declare const fullApi: ApiFromModules<{
   "repository/pullRequestResources": typeof repository_pullRequestResources;
   "repository/records": typeof repository_records;
   "repository/repositoryStatus": typeof repository_repositoryStatus;
-  "repository/setupOutput": typeof repository_setupOutput;
-  "repository/setupOutputModel": typeof repository_setupOutputModel;
-  "repository/setupOutputMutations": typeof repository_setupOutputMutations;
-  "repository/setupOutputWorkflow": typeof repository_setupOutputWorkflow;
   "repository/state": typeof repository_state;
   "repository/status": typeof repository_status;
   "repository/workersBuildsConvexDeployKeyNames": typeof repository_workersBuildsConvexDeployKeyNames;

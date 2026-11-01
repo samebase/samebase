@@ -20,10 +20,7 @@ import {
   type ConvexCloudDeployment,
 } from "../convexManagementApi/client";
 import { ConvexManagement } from "../convexManagementApi/generated/sdk.gen";
-import {
-  ConvexManagementApiError,
-  isConvexManagementNotFoundError,
-} from "../convexManagementApi/errors";
+import { ConvexManagementApiError } from "../convexManagementApi/errors";
 import type { ProjectResponse } from "../convexManagementApi/generated/types.gen";
 import { action } from "../functions";
 import { resolveGitHubAppAccess } from "../githubAppAccess";
@@ -65,7 +62,6 @@ import type {
   ConvexProjectRecordedAttachment,
   RecordedProviderAttachment,
 } from "./providerObservationQueries";
-import type { DeployedSetupOutput, SetupOutputRefusal } from "./setupOutputModel";
 
 const { id } = v;
 
@@ -621,113 +617,6 @@ export async function discoverProjectsForUser(
     )
     .sort(compareConvexAttachmentProject);
   return { source: sourceDiscovery.source, projects };
-}
-
-/**
-A Convex project of a setup output as Convex confirmed it, with what the first-apply rule reads: its
-name, its creation time, and whether no other project of the team has that name.
-*/
-type SetupStackProject = {
-  projectId: string;
-  codeLocation: ConvexCodeLocation;
-  projectName: string;
-  /** Unique in the team, unlike the name. */
-  projectSlug: string;
-  createdAt: number;
-  nameIsUniqueInTeam: boolean;
-};
-
-/**
-Checks the Convex projects of a deployed setup output with the organization's Convex connection,
-the reads the attach dialog makes: the team is the repository's, each project exists in it, and
-each code location is one that the default branch's tree shows.
-*/
-export async function verifySetupStackProjects(
-  ctx: ActionCtx,
-  args: {
-    userId: Id<"users">;
-    repositoryId: Id<"repositories">;
-    convex: DeployedSetupOutput["convex"];
-  },
-): Promise<{ ok: true; projects: SetupStackProject[] } | SetupOutputRefusal> {
-  const sourceDiscovery = await discoverConvexCodeLocations(ctx, args);
-  const teamId = requireConvexTeamId(sourceDiscovery.context);
-  if (args.convex.teamId !== teamId) {
-    return {
-      ok: false,
-      claim: "convex.teamId",
-      reason: `The setup output names Convex team ${args.convex.teamId}, but this repository deploys to team ${teamId}.`,
-    };
-  }
-  const connection = await resolveConvexConnectionForTeam(ctx, {
-    userId: args.userId,
-    organizationId: sourceDiscovery.context.organizationId,
-    teamId,
-  });
-
-  const teamProjects = await listProjectsForConnection(connection);
-  const projects: SetupStackProject[] = [];
-  for (const [index, claimed] of args.convex.projects.entries()) {
-    const claim = `convex.projects[${index}]`;
-    const codeLocation: ConvexCodeLocation =
-      "convexConfigPath" in claimed
-        ? { kind: "config", convexConfigPath: normalizeConvexConfigPath(claimed.convexConfigPath) }
-        : {
-            kind: "directory",
-            convexDirectoryPath: normalizeConvexDirectoryPath(claimed.convexDirectoryPath),
-          };
-    const project = await ConvexManagement.GET["/projects/{project_id}"]({
-      client: createConvexManagementClient({ token: connection.token }),
-      path: { project_id: claimed.projectId },
-    }).catch((error: unknown) => {
-      if (isConvexManagementNotFoundError(error)) {
-        return null;
-      }
-      throw error;
-    });
-    if (!project || project.id !== claimed.projectId || project.teamId !== teamId) {
-      return {
-        ok: false,
-        claim: `${claim}.projectId`,
-        reason: `Convex has no project ${claimed.projectId} in team ${teamId}.`,
-      };
-    }
-    const discovered = sourceDiscovery.source.locations.some((location) => {
-      switch (codeLocation.kind) {
-        case "config":
-          return (
-            location.kind === "config" &&
-            location.convexConfigPath === codeLocation.convexConfigPath
-          );
-        case "directory":
-          return (
-            location.kind === "directory" &&
-            location.convexDirectoryPath === codeLocation.convexDirectoryPath
-          );
-        default:
-          codeLocation satisfies never;
-          return false;
-      }
-    });
-    if (!discovered) {
-      return {
-        ok: false,
-        claim,
-        reason: `The default branch has no Convex code at ${getConvexCodeLocationPath(codeLocation)}${sourceDiscovery.source.completeness === "partial" ? ", or the repository could not be fully scanned" : ""}.`,
-      };
-    }
-    await recordConvexTeamSlug(ctx, { userId: args.userId, connection, project });
-    projects.push({
-      projectId: project.id,
-      codeLocation,
-      projectName: project.name,
-      projectSlug: project.slug,
-      createdAt: project.createTime,
-      nameIsUniqueInTeam:
-        teamProjects.filter((teamProject) => teamProject.name === project.name).length === 1,
-    });
-  }
-  return { ok: true, projects };
 }
 
 export async function attachExistingProjectsForUser(

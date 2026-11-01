@@ -232,11 +232,6 @@ type CloudflareWorkerDetails = {
     | { state: "failed"; reason: "response_validation_failed" };
   workerName: string;
   workerTag: string;
-  /**
-  When Cloudflare created the Worker, in milliseconds. The response validation accepts only an ISO
-  date-time `created_on`, so a Worker read without one fails.
-  */
-  createdAt: number;
 };
 
 export type CloudflareWorkerInventoryItem = {
@@ -465,7 +460,6 @@ function readCloudflareWorkerDetails(
     workersDev,
     workerName,
     workerTag: readCloudflareWorkerTag(worker, workerName),
-    createdAt: Date.parse(worker.created_on),
   };
 }
 
