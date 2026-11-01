@@ -40,7 +40,7 @@ async function idlePreviewClients(ctx: MutationCtx, cutoff: number) {
   const used = await ctx.db
     .query("clients")
     .withIndex("by_deployment_type_and_activity", (q) =>
-      q.eq("deploymentType", "preview").gte("lastSignInAt", 0).lt("lastSignInAt", cutoff),
+      q.eq("deploymentType", "preview").gt("lastSignInAt", undefined).lt("lastSignInAt", cutoff),
     )
     .take(BATCH - neverUsed.length);
   return [...neverUsed, ...used];

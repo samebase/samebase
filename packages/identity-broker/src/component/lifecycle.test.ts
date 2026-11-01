@@ -68,10 +68,12 @@ describe("preview client cleanup", () => {
         createdAt: old,
         lastSignInAt: recent,
       },
+      { clientId: "used-at-zero", deploymentType: "preview", createdAt: old, lastSignInAt: 0 },
+      { clientId: "used-before-1970", deploymentType: "preview", createdAt: old, lastSignInAt: -1 },
       { clientId: "production", deploymentType: "production", createdAt: old },
     ]);
 
-    expect(await cleanup(t)).toMatchObject({ previewClients: 2 });
+    expect(await cleanup(t)).toMatchObject({ previewClients: 4 });
 
     expect(await remaining(t)).toEqual(["never-used-recent", "production", "used-recently"]);
   });
@@ -94,7 +96,7 @@ describe("preview client cleanup", () => {
     expect(await remaining(t)).not.toContain("idle");
   });
 
-  test("a full batch takes the rest from the next one", async () => {
+  test("a batch that spans both reads leaves the rest to the next batch", async () => {
     const t = convexTest(schema, modules);
     const old = NOW - MAX_AGE - DAY;
     await seed(t, [
@@ -112,7 +114,10 @@ describe("preview client cleanup", () => {
     ]);
 
     expect(await cleanup(t)).toMatchObject({ previewClients: BATCH });
-
     expect(await remaining(t)).toHaveLength(1);
+
+    await t.finishAllScheduledFunctions(vi.runAllTimers);
+
+    expect(await remaining(t)).toEqual([]);
   });
 });
