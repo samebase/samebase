@@ -2,7 +2,7 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import { internalMutation, query, type MutationCtx } from "./_generated/server";
 import { v } from "convex/values";
 
-const { id, literal, object, string } = v;
+const { id, literal, object, string, union } = v;
 
 const GUEST_NAME_POOL = [
   "Ash",
@@ -18,9 +18,8 @@ const GUEST_NAME_POOL = [
 ] as const;
 const FALLBACK_GUEST_NAME_SPACE = 36 ** 6;
 
-const viewerResultValidator = object({
-  name: string(),
-});
+// Null after the account is deleted: the session's access token stays valid until it expires.
+const viewerResultValidator = union(object({ name: string() }), v.null());
 
 function shuffledGuestNames() {
   const candidates = [...GUEST_NAME_POOL];
@@ -73,10 +72,6 @@ export const viewer = query({
       throw new Error("Not authenticated");
     }
     const user = await ctx.db.get(userId);
-    if (!user) {
-      throw new Error("User not found");
-    }
-
-    return { name: user.fullName ?? user.name };
+    return user ? { name: user.fullName ?? user.name } : null;
   },
 });
