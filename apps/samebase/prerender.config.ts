@@ -54,6 +54,11 @@ const expectedPublicPrerenderMetadataByPath = {
     description: "The Free and Pro connection limits, member limits, and monthly prices.",
     robots: "index,follow",
   },
+  "/changelog": {
+    title: "Changelog | Samebase",
+    description: "What changed in Samebase, newest first.",
+    robots: "index,follow",
+  },
   "/privacy": {
     title: "Privacy Policy | Samebase",
     description:

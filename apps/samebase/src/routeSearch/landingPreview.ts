@@ -17,6 +17,7 @@ export const DOCS_DO_IT_YOURSELF_ROUTE = "/docs/do-it-yourself";
 export const DOCS_RECEIPTS_ROUTE = "/docs/receipts";
 export const DOCS_THE_STACK_ROUTE = "/docs/the-stack";
 export const DOCS_PRICING_ROUTE = "/pricing";
+export const DOCS_CHANGELOG_ROUTE = "/changelog";
 
 export const LANDING_PREVIEW_TEST_ID = "landing-preview";
 export const LANDING_PREVIEW_ARTICLE_TEST_ID = "landing-preview-article";

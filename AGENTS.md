@@ -60,6 +60,9 @@ The full protocol for PR bodies, review, labels, and cleanup lives in `docs/agen
   include the phase label after the build label, such as
   `v1146: Phase 2: Move app provisioning to Workflow`.
 - `update PR` changes the title first, then the description. It does not change commit subjects.
+- When a PR changes something Samebase users see, add a dated entry to
+  `apps/samebase/src/content/docs-changelog.md`. Say what changed and what the reader must do, if
+  anything. Skip internal changes.
 - Treat actionable Greptile, CodeRabbit, and Codex review comments as required fixes while shipping.
 - Merge only with green CI and a branch rebased on the latest `origin/main`. Prefer squash merge.
 - Use the exact temporary repository prefix `tmp-<worktree-id>-<intent>` for Playwright or manual

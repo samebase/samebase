@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from "./routes/root";
 import { Route as indexRouteImport } from "./routes/index";
 import { Route as authedRouteImport } from "./routes/authed";
+import { Route as changelogRouteImport } from "./routes/changelog";
 import { Route as discordRouteImport } from "./routes/discord";
 import { Route as docsRouteImport } from "./routes/docs";
 import { Route as landingRouteImport } from "./routes/landing";
@@ -76,6 +77,11 @@ const indexRoute = indexRouteImport.update({
 } as any);
 const authedRoute = authedRouteImport.update({
   id: "/_authed",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const changelogRoute = changelogRouteImport.update({
+  id: "/changelog",
+  path: "/changelog",
   getParentRoute: () => rootRouteImport,
 } as any);
 const discordRoute = discordRouteImport.update({
@@ -371,6 +377,7 @@ const repositorySchemaProjectRoute = repositorySchemaProjectRouteImport.update({
 
 export interface FileRoutesByFullPath {
   "/": typeof indexRoute;
+  "/changelog": typeof changelogRoute;
   "/discord": typeof discordRoute;
   "/docs": typeof docsRoute;
   "/landing": typeof landingRoute;
@@ -431,6 +438,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   "/": typeof indexRoute;
+  "/changelog": typeof changelogRoute;
   "/discord": typeof discordRoute;
   "/docs": typeof docsRoute;
   "/landing": typeof landingRoute;
@@ -493,6 +501,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport;
   "/": typeof indexRoute;
   "/_authed": typeof authedRouteWithChildren;
+  "/changelog": typeof changelogRoute;
   "/discord": typeof discordRoute;
   "/docs": typeof docsRoute;
   "/landing": typeof landingRoute;
@@ -555,6 +564,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath;
   fullPaths:
     | "/"
+    | "/changelog"
     | "/discord"
     | "/docs"
     | "/landing"
@@ -615,6 +625,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo;
   to:
     | "/"
+    | "/changelog"
     | "/discord"
     | "/docs"
     | "/landing"
@@ -676,6 +687,7 @@ export interface FileRouteTypes {
     | "__root__"
     | "/"
     | "/_authed"
+    | "/changelog"
     | "/discord"
     | "/docs"
     | "/landing"
@@ -738,6 +750,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   indexRoute: typeof indexRoute;
   authedRoute: typeof authedRouteWithChildren;
+  changelogRoute: typeof changelogRoute;
   discordRoute: typeof discordRoute;
   docsRoute: typeof docsRoute;
   landingRoute: typeof landingRoute;
@@ -783,6 +796,13 @@ declare module "@tanstack/react-router" {
       path: "";
       fullPath: "/";
       preLoaderRoute: typeof authedRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/changelog": {
+      id: "/changelog";
+      path: "/changelog";
+      fullPath: "/changelog";
+      preLoaderRoute: typeof changelogRouteImport;
       parentRoute: typeof rootRouteImport;
     };
     "/discord": {
@@ -1255,6 +1275,7 @@ const authedRouteWithChildren =
 const rootRouteChildren: RootRouteChildren = {
   indexRoute: indexRoute,
   authedRoute: authedRouteWithChildren,
+  changelogRoute: changelogRoute,
   discordRoute: discordRoute,
   docsRoute: docsRoute,
   landingRoute: landingRoute,

@@ -56,6 +56,7 @@ HTML pages. Action and operate docs are raw markdown only.
   and the date it was last checked
 - [Pricing](https://samebase.com/pricing.md): the Free and Pro connection limits, member limits, and
   monthly prices
+- [Changelog](https://samebase.com/changelog.md): what changed in Samebase, newest first
 
 ## Actions
 

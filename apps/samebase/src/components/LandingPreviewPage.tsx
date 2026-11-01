@@ -28,6 +28,7 @@ import {
   DOCS_CLOUDFLARE_PREVIEWS_MIGRATION_ROUTE,
   DOCS_CLOUDFLARE_SETUP_ROUTE,
   DOCS_DO_IT_YOURSELF_ROUTE,
+  DOCS_CHANGELOG_ROUTE,
   DOCS_PRICING_ROUTE,
   DOCS_RECEIPTS_ROUTE,
   DOCS_SIDEBAR_TEST_ID,
@@ -43,6 +44,7 @@ import { parseTanStackSearch } from "@/lib/tanstackSearchParams";
 import docsCloudflareSetupMarkdown from "@/content/docs-cloudflare-setup.md?raw";
 import docsCloudflarePreviewsMigrationMarkdown from "@/content/docs-cloudflare-previews-migration.md?raw";
 import docsDoItYourselfMarkdown from "@/content/docs-do-it-yourself.md?raw";
+import docsChangelogMarkdown from "@/content/docs-changelog.md?raw";
 import docsPricingMarkdown from "@/content/docs-pricing.md?raw";
 import docsReceiptsMarkdown from "@/content/docs-receipts.md?raw";
 import docsTheStackMarkdown from "@/content/docs-the-stack.md?raw";
@@ -57,7 +59,8 @@ type LandingPreviewDocumentKey =
   | "doItYourself"
   | "theStack"
   | "receipts"
-  | "pricing";
+  | "pricing"
+  | "changelog";
 
 const DOCS_SIDEBAR_LINKS = [
   { label: "Overview", to: LANDING_PAGE_ROUTE },
@@ -67,6 +70,7 @@ const DOCS_SIDEBAR_LINKS = [
   { label: "Do it yourself", to: DOCS_DO_IT_YOURSELF_ROUTE },
   { label: "Receipts", to: DOCS_RECEIPTS_ROUTE },
   { label: "Pricing", to: DOCS_PRICING_ROUTE },
+  { label: "Changelog", to: DOCS_CHANGELOG_ROUTE },
 ] as const;
 
 function getLandingPreviewUrlMobilePane(search: string): MobilePane | null {
@@ -906,6 +910,16 @@ function DocsPricingDocument() {
   );
 }
 
+function DocsChangelogDocument() {
+  return (
+    <MarkdownLandingDocument
+      className={DOCS_DOCUMENT_CLASS_NAME}
+      dataTestId={LANDING_PREVIEW_ARTICLE_TEST_ID}
+      markdown={docsChangelogMarkdown}
+    />
+  );
+}
+
 function LandingPreviewDocument({ documentKey }: { documentKey: LandingPreviewDocumentKey }) {
   if (documentKey === "overview") {
     return <LandingPreviewOverview />;
@@ -929,6 +943,10 @@ function LandingPreviewDocument({ documentKey }: { documentKey: LandingPreviewDo
 
   if (documentKey === "pricing") {
     return <DocsPricingDocument />;
+  }
+
+  if (documentKey === "changelog") {
+    return <DocsChangelogDocument />;
   }
 
   return <DocsDoItYourselfDocument />;
@@ -981,4 +999,8 @@ export function DocsReceiptsPage() {
 
 export function DocsPricingPage() {
   return <LandingPreviewChromePage documentKey="pricing" />;
+}
+
+export function DocsChangelogPage() {
+  return <LandingPreviewChromePage documentKey="changelog" />;
 }
