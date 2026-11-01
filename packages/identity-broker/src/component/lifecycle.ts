@@ -23,6 +23,30 @@ const vCleanupCounts = object({
 });
 
 /**
+ * At most one batch of the preview clients idle since before `cutoff`: a client that never signed
+ * in counts from its creation, and any other from its last sign-in. Both reads stop at the batch, so
+ * the cost of a batch does not grow with the number of preview clients.
+ */
+async function idlePreviewClients(ctx: MutationCtx, cutoff: number) {
+  const neverUsed = await ctx.db
+    .query("clients")
+    .withIndex("by_deployment_type_and_activity", (q) =>
+      q.eq("deploymentType", "preview").eq("lastSignInAt", undefined).lt("createdAt", cutoff),
+    )
+    .take(BATCH);
+  if (neverUsed.length === BATCH) {
+    return neverUsed;
+  }
+  const used = await ctx.db
+    .query("clients")
+    .withIndex("by_deployment_type_and_activity", (q) =>
+      q.eq("deploymentType", "preview").gt("lastSignInAt", undefined).lt("lastSignInAt", cutoff),
+    )
+    .take(BATCH - neverUsed.length);
+  return [...neverUsed, ...used];
+}
+
+/**
  * Deletes one batch of what has run out. A table that filled its batch may hold more, so the batch
  * schedules the next one with the same `now`, until no table fills a batch. The cutoff never moves,
  * so the run ends: a row written after the run began, a registration token minted with a positive
@@ -52,17 +76,7 @@ async function cleanupBatch(
   const previewClients =
     previewClientMaxAgeMs === undefined
       ? []
-      : (
-          await ctx.db
-            .query("clients")
-            .withIndex("by_deployment_type", (q) => q.eq("deploymentType", "preview"))
-            .collect()
-        )
-          .filter(
-            (client) =>
-              (client.lastSignInAt ?? client.createdAt) < args.now - previewClientMaxAgeMs,
-          )
-          .slice(0, BATCH);
+      : await idlePreviewClients(ctx, args.now - previewClientMaxAgeMs);
   for (const client of previewClients) {
     await ctx.db.delete("clients", client._id);
   }
