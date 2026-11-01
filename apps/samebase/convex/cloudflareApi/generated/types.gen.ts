@@ -70,6 +70,14 @@ export type IamAccount = {
      * Name of the parent Organization, if one exists
      */
     readonly parent_org_name?: string;
+    /**
+     * ID of the root Organization, if one exists
+     */
+    readonly root_org_id?: string;
+    /**
+     * Indicates whether the parent Organization hierarchy should be displayed
+     */
+    readonly should_display_parent_orgs?: boolean;
   };
   /**
    * Account name
@@ -536,7 +544,10 @@ export type BuildsCreateWorkerGitRepositoryGrantInput = {
  * Build and deploy settings when creating a Worker build configuration
  */
 export type BuildsCreateWorkerBuildSettingsInput = {
-  build_caching_enabled?: BuildsBuildCachingEnabled;
+  /**
+   * Whether builds reuse cached dependencies and build artifacts.
+   */
+  build_caching_enabled?: boolean;
   build_command: BuildsBuildCommand;
   build_token_uuid: BuildsBuildTokenUuid;
   deploy_command: BuildsDeployCommand;
