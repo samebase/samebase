@@ -11,6 +11,9 @@
 # - Only the steps that run Alchemy get the secrets, so install and the build step do not see them.
 #   A build inside the deploy, such as `source.command`, runs under Alchemy and does.
 #
+# A repository needs a lockfile at its root, pnpm-lock.yaml or package-lock.json. With pnpm,
+# package.json names the version in `packageManager`.
+#
 # This file never destroys production. Its only destroy job removes the preview of a closed pull
 # request. Production destroy stays out of it: a person runs `destroy.yml` by hand.
 name: Alchemy deploy
@@ -31,7 +34,7 @@ on:
         type: boolean
         default: false
       directory:
-        description: The folder of alchemy.run.ts, from the repository root
+        description: The folder of alchemy.run.ts. The lockfile stays at the repository root
         type: string
         default: "."
       fetch-depth:
@@ -97,10 +100,12 @@ jobs:
           PULL_REQUEST: ${{ github.event.pull_request.number }}
           GH_TOKEN: ${{ github.token }}
         run: |
-          if [ -n "$PULL_REQUEST" ] &&
-            [ "$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PULL_REQUEST" --jq .state)" != open ]; then
-            echo "::notice::Pull request $PULL_REQUEST is closed, so it gets no preview."
-            exit 0
+          if [ -n "$PULL_REQUEST" ]; then
+            state=$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PULL_REQUEST" --jq .state)
+            if [ "$state" != open ]; then
+              echo "::notice::Pull request $PULL_REQUEST is $state, so it gets no preview."
+              exit 0
+            fi
           fi
           head=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/$BRANCH" --jq .object.sha)
           if [ "$(git rev-parse HEAD)" != "$head" ]; then
@@ -112,7 +117,7 @@ jobs:
         if: inputs.build != '' && steps.current.outputs.deploy == 'true'
         env:
           BUILD: ${{ inputs.build }}
-        run: bash -c "$BUILD"
+        run: bash -eo pipefail -c "$BUILD"
       - name: Deploy
         if: steps.current.outputs.deploy == 'true'
         run: npx --no-install alchemy deploy --stage "$STAGE" --yes --no-input $ADOPT $DRIFT
@@ -168,11 +173,15 @@ jobs:
           PULL_REQUEST: ${{ github.event.pull_request.number }}
           GH_TOKEN: ${{ github.token }}
         run: |
-          if [ "$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PULL_REQUEST" --jq .state)" = open ]; then
-            echo "::notice::Pull request $PULL_REQUEST is open again, so its preview stays."
-            exit 0
-          fi
-          echo "destroy=true" >> "$GITHUB_OUTPUT"
+          state=$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PULL_REQUEST" --jq .state)
+          case "$state" in
+            closed) echo "destroy=true" >> "$GITHUB_OUTPUT" ;;
+            open) echo "::notice::Pull request $PULL_REQUEST is open again, so its preview stays." ;;
+            *)
+              echo "::error::Pull request $PULL_REQUEST has the state '$state'. Nothing was destroyed."
+              exit 1
+              ;;
+          esac
       - name: Destroy the stage of the pull request
         if: steps.current.outputs.destroy == 'true'
         run: |
