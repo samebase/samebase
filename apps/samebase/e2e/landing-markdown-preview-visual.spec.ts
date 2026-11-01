@@ -352,13 +352,16 @@ test("landing document navigation resets pages, restores history, and aligns dir
   const stackLink = docsSidebar.getByRole("link", { exact: true, name: "The stack" });
   await docsSidebar.getByText("docs", { exact: true }).click();
   await expect(stackLink).toBeHidden();
-  // Playwright clicks the center of the row, which is empty space.
-  await docsSidebar.getByRole("button", { name: "Expand docs" }).click();
-  await expect(stackLink).toBeVisible();
   await expect(page).toHaveURL(new RegExp(`${LANDING_PAGE_ROUTE}$`));
   await doItYourselfLink.click();
 
   await expect(page).toHaveURL(new RegExp(`${DOCS_DO_IT_YOURSELF_ROUTE}$`));
+  await expect(
+    docsSidebar.getByRole("region", { name: "docs, contains current page" }),
+  ).toBeVisible();
+  // Playwright clicks the center of the row, which is empty space.
+  await docsSidebar.getByRole("button", { name: "Expand docs" }).click();
+  await expect(stackLink).toBeVisible();
   const currentDocsLink = page.getByTestId(DOCS_SIDEBAR_TEST_ID).locator('a[aria-current="page"]');
   await expect(currentDocsLink).toHaveText("Do it yourself");
   await expect(currentDocsLink.locator("span")).toHaveCSS("font-weight", "400");

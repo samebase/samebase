@@ -54,7 +54,7 @@ import docsReceiptsMarkdown from "@/content/docs-receipts.md?raw";
 import docsTheBigMigrationMarkdown from "@/content/docs-the-big-migration.md?raw";
 import docsTheStackMarkdown from "@/content/docs-the-stack.md?raw";
 import { MENGER_SPONGE_VOXEL_STATE } from "@samebase/logo-model/voxel";
-import { Link, useLocation, type LinkProps } from "@tanstack/react-router";
+import { Link, useLocation, useMatchRoute, type LinkProps } from "@tanstack/react-router";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 
@@ -151,17 +151,23 @@ function DocsSidebarLink({ label, to }: DocsSidebarPage) {
 /**
 The row and its guide line are the repository tree's folder (`RepositoryOverviewSidebar`). A folder
 starts open and saves nothing, so the prerendered page already shows the visitor's nav and a sign-in
-changes nothing.
+changes nothing. The sidebar stays mounted across pages, so a closed folder stays closed until a
+reload.
 */
 function DocsSidebarFolder({ label, pages }: { label: string; pages: readonly DocsSidebarPage[] }) {
   const [open, setOpen] = useState(true);
+  const matchRoute = useMatchRoute();
+  const hidesCurrentPage = !open && pages.some(({ to }) => matchRoute({ to }));
 
   return (
-    <section aria-label={label}>
+    <section aria-label={hidesCurrentPage ? `${label}, contains current page` : label}>
       <Button
         aria-expanded={open}
         aria-label={`${open ? "Collapse" : "Expand"} ${label}`}
-        className="w-full justify-start gap-0 p-0 aria-expanded:not-hover:bg-transparent"
+        className={cn(
+          "w-full justify-start gap-0 p-0 aria-expanded:not-hover:bg-transparent",
+          hidesCurrentPage && "bg-muted",
+        )}
         type="button"
         variant="ghost"
         onClick={() => setOpen(!open)}

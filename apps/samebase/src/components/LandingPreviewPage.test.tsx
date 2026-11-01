@@ -103,6 +103,7 @@ vi.mock("@tanstack/react-router", () => ({
   },
   useLocation: ({ select }: { select: (location: { searchStr: string }) => string }) =>
     select({ searchStr: "" }),
+  useMatchRoute: () => () => false,
   useNavigate: () => () => {},
   useRouter: () => ({
     buildLocation: () => ({ href: "/?auth-return=dashboard&signup=github" }),
