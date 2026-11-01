@@ -9,6 +9,8 @@ export function google(credentials: {
   clientId: () => string;
   clientSecret: () => string;
   name?: string;
+  reserved?: boolean;
+  selectAccount?: boolean;
 }): OidcConnector {
   return {
     kind: "oidc",
@@ -19,5 +21,9 @@ export function google(credentials: {
     promptLogin: false,
     clientId: credentials.clientId,
     clientSecret: credentials.clientSecret,
+    ...(credentials.reserved === undefined ? {} : { reserved: credentials.reserved }),
+    ...(credentials.selectAccount === undefined
+      ? {}
+      : { selectAccount: credentials.selectAccount }),
   };
 }

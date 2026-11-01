@@ -11,6 +11,11 @@ type Credentials = {
   /** Read lazily, in the request, so a missing env var fails that request and not the deploy. */
   clientId: () => string;
   clientSecret: () => string;
+  /**
+   * Only an app from `/register` can start this connector, and the chooser never lists it. It keeps
+   * a client that strangers' apps share away from the host's own apps.
+   */
+  reserved?: boolean;
 };
 
 /**
@@ -39,6 +44,11 @@ export type OidcConnector = Credentials & {
    * upstream as that. Without it, a fresh login answers `login_required`.
    */
   promptLogin: boolean;
+  /**
+   * Sends `prompt=select_account`, so the provider shows its account screen on each sign-in and
+   * cannot pass a user through with no click because an earlier app of this hub was approved.
+   */
+  selectAccount?: boolean;
 };
 
 export type Connector = OauthConnector | OidcConnector;

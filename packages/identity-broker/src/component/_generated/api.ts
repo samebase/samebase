@@ -12,6 +12,7 @@ import type * as apps from "../apps.js";
 import type * as authRequests from "../authRequests.js";
 import type * as clients from "../clients.js";
 import type * as lifecycle from "../lifecycle.js";
+import type * as registration from "../registration.js";
 import type * as signIns from "../signIns.js";
 
 import type {
@@ -26,6 +27,7 @@ const fullApi: ApiFromModules<{
   authRequests: typeof authRequests;
   clients: typeof clients;
   lifecycle: typeof lifecycle;
+  registration: typeof registration;
   signIns: typeof signIns;
 }> = anyApi as any;
 
@@ -55,4 +57,6 @@ export const internal: FilterApi<
   FunctionReference<any, "internal">
 > = anyApi as any;
 
-export const components = componentsGeneric() as unknown as {};
+export const components = componentsGeneric() as unknown as {
+  rateLimiter: import("@convex-dev/rate-limiter/_generated/component.js").ComponentApi<"rateLimiter">;
+};

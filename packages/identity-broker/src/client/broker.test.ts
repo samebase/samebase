@@ -147,7 +147,13 @@ describe("registration", () => {
     const second = await h.runRegisterClient(client);
     expect(second.clientId).not.toBe(first.clientId);
     expect(await h.t.query(api.apps.list, {})).toEqual([
-      { appId: "scout", name: "scout", firstParty: true, createdAt: expect.any(Number) },
+      {
+        appId: "scout",
+        name: "scout",
+        firstParty: true,
+        suspended: false,
+        createdAt: expect.any(Number),
+      },
     ]);
     const stored = await h.t.query(api.clients.get, { clientId: first.clientId });
     expect(stored?.secretHash).toBe(await sha256Hex(first.clientSecret));
@@ -1110,6 +1116,7 @@ describe("cleanup", () => {
       authRequests: 1,
       authorizationCodes: 0,
       previewClients: 0,
+      expiredClients: 0,
       signIns: 1,
     });
     expect(await clientIds()).toEqual(["preview-new", "preview-old", "prod-old"]);
@@ -1124,6 +1131,7 @@ describe("cleanup", () => {
       authRequests: 0,
       authorizationCodes: 0,
       previewClients: 1,
+      expiredClients: 0,
       signIns: 0,
     });
     expect(await clientIds()).toEqual(["preview-new", "prod-old"]);

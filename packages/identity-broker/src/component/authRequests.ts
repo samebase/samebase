@@ -1,8 +1,12 @@
 import { v, type Infer } from "convex/values";
 import { calculatePKCECodeChallenge } from "oauth4webapi";
+import { MINUTE, RateLimiter } from "@convex-dev/rate-limiter";
+import { components } from "./_generated/api";
 // oxlint-disable-next-line samebase/no-raw-public-convex-function-builders -- Component entrypoints are internal to the host; host functions enforce access.
 import { mutation, query, type MutationCtx } from "./_generated/server";
 import type { Doc } from "./_generated/dataModel";
+import { isSuspended } from "./apps";
+import { LEASE_MS } from "./registration";
 import { vAuthRequest, vTokenEndpointAuthMethod, vUpstreamIdentity } from "./schema";
 
 const { array, boolean, literal, number, object, optional, string, union } = v;
@@ -28,9 +32,23 @@ async function findByRequestId(ctx: MutationCtx, requestId: string) {
     .unique();
 }
 
-/** Stores a validated /authorize request. The caller has already checked the client and redirect URI. */
+/**
+ * The sign-ins of one tenant. Anyone can start a sign-in for a public client id, so this budget stops
+ * a flood at one tenant from reaching the others. It does not protect that tenant: a limit by source
+ * in front of the hub does.
+ */
+const limits = new RateLimiter(components.rateLimiter, {
+  tenantSignIn: { kind: "token bucket", rate: 120, period: MINUTE, capacity: 240, shards: 4 },
+});
+
+/**
+ * Stores a validated /authorize request. The caller has already checked the client and redirect URI.
+ * The budget of a tenant is in this mutation, so a refused request writes no row.
+ */
 export const create = mutation({
   args: {
+    /** The tenant of the app, whose budget this request spends. */
+    tenantId: optional(string()),
     requestId: string(),
     appId: string(),
     clientId: string(),
@@ -44,8 +62,14 @@ export const create = mutation({
     createdAt: number(),
     expiresAt: number(),
   },
-  returns: v.null(),
+  returns: object({ ok: boolean() }),
   handler: async (ctx, args) => {
+    if (args.tenantId !== undefined) {
+      const { ok } = await limits.limit(ctx, "tenantSignIn", { key: args.tenantId });
+      if (!ok) {
+        return { ok: false };
+      }
+    }
     await ctx.db.insert("authRequests", {
       status: "pending",
       requestId: args.requestId,
@@ -61,7 +85,7 @@ export const create = mutation({
       createdAt: args.createdAt,
       expiresAt: args.expiresAt,
     });
-    return null;
+    return { ok: true };
   },
 });
 
@@ -246,6 +270,8 @@ const vExchangeResult = union(
     appId: string(),
     /** The app's `firstParty`, read in the redemption. */
     firstParty: boolean(),
+    /** The app's tenant, read in the redemption. */
+    tenantId: optional(string()),
     clientId: string(),
     scope: string(),
     nonce: optional(string()),
@@ -264,8 +290,10 @@ type ExchangeResult = Infer<typeof vExchangeResult>;
  * Authenticates the client and redeems an authorization code: single use, bound to the client, the
  * redirect URI and the PKCE challenge of its request (OAuth 2.1 section 4.1.3). The client and its
  * app are read in this transaction, so a client that fails authentication leaves the code as it
- * was, and deleting the client or its app commits wholly before the redemption or after it. On
- * success the code is marked used and the request is gone.
+ * was, and deleting the client or its app commits wholly before the redemption or after it. The
+ * same holds for a suspension: one that commits first refuses the code. On success the code is
+ * marked used and the request is gone, and a client with a removal date gets a new one, in this
+ * transaction, so `cleanup` cannot delete a client that has just signed someone in.
  */
 export const exchangeCode = mutation({
   args: {
@@ -298,7 +326,8 @@ export const exchangeCode = mutation({
       client === null ||
       app === null ||
       client.tokenEndpointAuthMethod !== args.tokenEndpointAuthMethod ||
-      client.secretHash !== args.clientSecretHash
+      client.secretHash !== args.clientSecretHash ||
+      (await isSuspended(ctx, app.tenantId))
     ) {
       return { ok: false, error: "invalid_client", description: "Client authentication failed." };
     }
@@ -358,12 +387,23 @@ export const exchangeCode = mutation({
         description: "code_verifier does not match code_challenge.",
       };
     }
+    if (app.connector !== undefined && request.identity.connector !== app.connector) {
+      return {
+        ok: false,
+        error: "invalid_grant",
+        description: "This app cannot sign in through that connector.",
+      };
+    }
     await ctx.db.patch("authorizationCodes", code._id, { usedAt: args.now });
     await ctx.db.delete("authRequests", request._id);
+    if (client.removeAt !== undefined) {
+      await ctx.db.patch("clients", client._id, { removeAt: args.now + LEASE_MS });
+    }
     return {
       ok: true,
       appId: request.appId,
       firstParty: app.firstParty,
+      ...optionalField("tenantId", app.tenantId),
       clientId: request.clientId,
       scope: request.scope,
       ...optionalField("nonce", request.nonce),

@@ -37,9 +37,12 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         { appId: string },
         {
           appId: string;
+          connector?: string;
           createdAt: number;
           firstParty: boolean;
           name: string;
+          suspended: boolean;
+          tenantId?: string;
         } | null,
         Name
       >;
@@ -49,9 +52,12 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         {},
         Array<{
           appId: string;
+          connector?: string;
           createdAt: number;
           firstParty: boolean;
           name: string;
+          suspended: boolean;
+          tenantId?: string;
         }>,
         Name
       >;
@@ -144,9 +150,10 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           requestId: string;
           scope: string;
           state?: string;
+          tenantId?: string;
           txnCookieHash: string;
         },
-        null,
+        { ok: boolean },
         Name
       >;
       exchangeCode: FunctionReference<
@@ -177,6 +184,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             nonce?: string;
             ok: true;
             scope: string;
+            tenantId?: string;
           }
         | {
             description: string;
@@ -318,6 +326,9 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           deploymentType: "production" | "development" | "preview";
           lastSignInAt?: number;
           redirectUri: string;
+          registrationTokenHash?: string;
+          removeAt?: number;
+          renewedAt?: number;
           secretHash: string;
           softwareVersion: string;
           tokenEndpointAuthMethod: "client_secret_post" | "client_secret_basic";
@@ -336,6 +347,9 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           deploymentType: "production" | "development" | "preview";
           lastSignInAt?: number;
           redirectUri: string;
+          registrationTokenHash?: string;
+          removeAt?: number;
+          renewedAt?: number;
           secretHash: string;
           softwareVersion: string;
           tokenEndpointAuthMethod: "client_secret_post" | "client_secret_basic";
@@ -347,6 +361,39 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         "internal",
         { clientId: string },
         null,
+        Name
+      >;
+      withApp: FunctionReference<
+        "query",
+        "internal",
+        { clientId: string },
+        {
+          app: {
+            appId: string;
+            connector?: string;
+            createdAt: number;
+            firstParty: boolean;
+            name: string;
+            suspended: boolean;
+            tenantId?: string;
+          } | null;
+          client: {
+            appId: string;
+            clientId: string;
+            clientName: string;
+            createdAt: number;
+            deploymentType: "production" | "development" | "preview";
+            lastSignInAt?: number;
+            redirectUri: string;
+            registrationTokenHash?: string;
+            removeAt?: number;
+            renewedAt?: number;
+            secretHash: string;
+            softwareVersion: string;
+            tokenEndpointAuthMethod:
+              "client_secret_post" | "client_secret_basic";
+          };
+        } | null,
         Name
       >;
     };
@@ -362,9 +409,68 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         {
           authRequests: number;
           authorizationCodes: number;
+          expiredClients: number;
           previewClients: number;
           signIns: number;
         },
+        Name
+      >;
+    };
+    registration: {
+      register: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          appId: string;
+          clientId: string;
+          clientName: string;
+          connector: string;
+          deploymentType: "production" | "preview";
+          now: number;
+          redirectUri: string;
+          registrationTokenHash: string;
+          secretHash: string;
+          softwareVersion: string;
+          tenantId: string;
+          tokenEndpointAuthMethod: "client_secret_post" | "client_secret_basic";
+        },
+        | { ok: true }
+        | {
+            error:
+              "suspended" | "too_many_apps" | "too_many_clients" | "app_taken";
+            ok: false;
+          },
+        Name
+      >;
+      remove: FunctionReference<
+        "mutation",
+        "internal",
+        { clientId: string; registrationTokenHash: string },
+        { ok: true } | { ok: false },
+        Name
+      >;
+      renew: FunctionReference<
+        "mutation",
+        "internal",
+        { clientId: string; now: number; registrationTokenHash: string },
+        | {
+            appId: string;
+            clientName: string;
+            createdAt: number;
+            ok: true;
+            redirectUri: string;
+            softwareVersion: string;
+            tokenEndpointAuthMethod:
+              "client_secret_post" | "client_secret_basic";
+          }
+        | { error: "invalid_token" | "suspended"; ok: false },
+        Name
+      >;
+      setSuspended: FunctionReference<
+        "mutation",
+        "internal",
+        { now: number; suspended: boolean; tenantId: string },
+        null,
         Name
       >;
     };
