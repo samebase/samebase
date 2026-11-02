@@ -132,7 +132,7 @@ describe("AppSidebarMetaSection", () => {
     });
   }
 
-  it("renders only the allowed public links before and after hydration", async () => {
+  it("renders public and build source links before and after hydration", async () => {
     const markup = renderToStaticMarkup(
       <TestRouterProvider initialEntries={["/"]}>
         <AppSidebarMetaSection linkAlignment="left" />
@@ -148,6 +148,8 @@ describe("AppSidebarMetaSection", () => {
       "/privacy",
       "/pricing",
       "/landing",
+      "v?",
+      "test",
     ]);
 
     const browserElement = await renderSidebarMetaSection();
@@ -159,6 +161,8 @@ describe("AppSidebarMetaSection", () => {
       "/privacy",
       "/pricing",
       "/landing",
+      "v?",
+      "test",
     ]);
     const links = [...browserElement.querySelectorAll<HTMLAnchorElement>("a")];
     const xLink = links.find((link) => link.textContent === "/x.com");
@@ -177,6 +181,18 @@ describe("AppSidebarMetaSection", () => {
     expect(youtubeLink?.parentElement?.getAttribute("class")).toBe(
       "flex max-w-full flex-wrap items-center justify-start gap-3",
     );
+    for (const element of [prerenderedElement, browserElement]) {
+      expect(element.querySelector('a[data-testid="app-build-version"]')).toMatchObject({
+        href: "https://github.com/samebase/samebase",
+        rel: "noreferrer",
+        target: "_blank",
+      });
+      expect(element.querySelector('a[data-testid="app-build-commit"]')).toMatchObject({
+        href: "https://github.com/samebase/samebase/commit/test",
+        rel: "noreferrer",
+        target: "_blank",
+      });
+    }
     unmountSidebarMetaSection();
 
     for (const clientEntry of ["/?dev", "/?prod-ui"]) {
@@ -198,6 +214,8 @@ describe("AppSidebarMetaSection", () => {
         "/privacy",
         "/pricing",
         "/landing",
+        "v?",
+        "test",
       ]);
       unmountSidebarMetaSection();
     }
@@ -220,6 +238,8 @@ describe("AppSidebarMetaSection", () => {
       "/privacy",
       "/pricing",
       "/landing",
+      "v?",
+      "test",
     ]);
   });
 
