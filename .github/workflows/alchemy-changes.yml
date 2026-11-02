@@ -52,7 +52,7 @@ jobs:
         run: |
           base=$(git merge-base "$BASE" HEAD)
           packages=$(pnpm --filter "...[$base]" list --depth -1 --parseable)
-          if git diff --quiet "$base" HEAD -- package.json pnpm-lock.yaml pnpm-workspace.yaml patches .nvmrc .github/workflows $SHARED_PATHS &&
+          if git diff --quiet "$base" HEAD -- package.json pnpm-lock.yaml pnpm-workspace.yaml patches .nvmrc '.github/workflows/alchemy*' $SHARED_PATHS &&
             ! grep -Fxq "$PWD/$DIRECTORY" <<< "$packages"; then
             echo "affected=false" >> "$GITHUB_OUTPUT"
           fi

@@ -45,6 +45,7 @@ export const trackedFilePaths = [
   ".devcontainer/devcontainer.json",
   ".devcontainer/postcreate.ts",
   ".gitattributes",
+  ".github/workflows/alchemy-changes.yml",
   ".github/workflows/alchemy-convex-release.yml",
   ".github/workflows/alchemy-deploy.yml",
   ".github/workflows/alchemy.yml",
