@@ -99,6 +99,17 @@ deletion is available, the option uses `Also delete the GitHub repository`. The 
 local record removal as `Delete repository`. Internal code and workflow text can continue to use
 `repository deletion`.
 
+### Stack Check Before GitHub Repository Deletion
+
+`Remove from Samebase` stays available while a stack exists, because the repository and its Destroy
+app workflow stay on GitHub. `Also delete the GitHub repository` requires that the team's Alchemy
+state store holds no stack named for the repository. The user destroys the stack first. Deleting the
+repository would delete that workflow and leave the stack running.
+
+`deleteRepository` enforces this before it creates a run. It refuses when the store lists a stack or
+when Samebase has no Convex connection to read the store. A team with no store passes. The dialog
+disables the option for the same cases and says why.
+
 ### Quiescent Repository Requirement
 
 Deletion is available only for quiescent repositories. This intentionally makes half-provisioned

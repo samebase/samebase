@@ -25,6 +25,7 @@ import {
 import { PullRequestsSection } from "./RepositoryPullRequestsSection";
 import { RepositorySettings } from "./RepositorySettings";
 import { RepositoryDeleteDialogContent } from "./RepositoryDeleteDialog";
+import { readRepositoryStackCheck } from "./repositoryStackCheck";
 import { DefaultBranchSection, PullRequestResources } from "./RepositoryEnvironmentTree";
 import { observedAlchemyStackReply } from "../../../convex/repository/fixtures/observedAlchemyState";
 import { observedSamebaseStackReply } from "../../../convex/repository/fixtures/observedSamebaseAlchemyState";
@@ -34,6 +35,7 @@ import type { RepositoryWorkspaceSelected } from "./repositoryWorkspaceModel";
 import type { RepositoryAlchemyState } from "./useRepositoryAlchemyState";
 import type { RepositoryAlchemyStacks } from "./useRepositoryProviderObservations";
 import type { UserRepositoryResult } from "../../../convex/repository/contracts/getUserRepositories";
+import type { AlchemyStateObservation } from "../../../shared/alchemyStateModel";
 import { formatRepositorySourceSetupStep } from "./repositorySourceSetup";
 
 const useOrganizationGitHubIdentitiesMock = vi.hoisted(() => vi.fn(() => new Map()));
@@ -1711,6 +1713,44 @@ describe("formatRepositorySourceSetupStep", () => {
   });
 });
 
+describe("readRepositoryStackCheck", () => {
+  const withTeam = makeRepositorySettingsBuilderRepository({ convexTeamId: "38516" });
+  const loaded = (observation: AlchemyStateObservation) =>
+    ({ state: "loaded", observation, refreshFailed: false, reload: () => {} }) as const;
+
+  it.each([
+    [{ state: "loading" } as const, "unknown"],
+    [{ state: "failed", error: new Error("no"), reload: () => {} } as const, "unknown"],
+    [loaded({ store: "no_connection" }), "unknown"],
+    [loaded({ store: "missing" }), "no_stack"],
+    [loaded({ store: "found", stacks: [], liveDeployments: [] }), "no_stack"],
+    [
+      loaded({
+        store: "found",
+        stacks: [{ name: "ada/app", stages: [] }],
+        liveDeployments: [],
+      }),
+      "has_stack",
+    ],
+  ])("reads %j as %s", (alchemyState, state) => {
+    expect(readRepositoryStackCheck(withTeam, alchemyState).state).toBe(state);
+  });
+
+  it("asks for Convex when the repository has no team, whose read stays loading", () => {
+    expect(
+      readRepositoryStackCheck(
+        makeRepositorySettingsBuilderRepository({ convexTeamId: undefined }),
+        {
+          state: "loading",
+        },
+      ),
+    ).toEqual({
+      state: "unknown",
+      reason: "Connect Convex so Samebase can check for an Alchemy stack.",
+    });
+  });
+});
+
 describe("RepositoryDeleteDialogContent", () => {
   const baseProps = {
     commitError: null,
@@ -1725,17 +1765,16 @@ describe("RepositoryDeleteDialogContent", () => {
     stagedChangesCount: 0,
   } satisfies Omit<Parameters<typeof RepositoryDeleteDialogContent>[0], "target">;
 
-  it.each([true, false])(
-    "explains retained resources, managed repository %s",
-    (isSamebaseManaged) => {
+  it.each([null, "Destroy your Alchemy stack first."])(
+    "explains retained resources, blocked reason %s",
+    (removeGithubRepoBlockedReason) => {
       const markup = renderToStaticMarkup(
         <RepositoryDeleteDialogContent
           {...baseProps}
           target={{
             repositoryId: fakeRepositoryId(),
             githubRepositoryFullName: "ada/created-repo",
-            isSamebaseManaged,
-            canRemoveGithubRepo: isSamebaseManaged,
+            removeGithubRepoBlockedReason,
             hasSetupStack: false,
           }}
         />,
@@ -1750,6 +1789,26 @@ describe("RepositoryDeleteDialogContent", () => {
     },
   );
 
+  it("disables the GitHub repository deletion and says why, and keeps removal enabled", () => {
+    const markup = renderToStaticMarkup(
+      <RepositoryDeleteDialogContent
+        {...baseProps}
+        target={{
+          repositoryId: fakeRepositoryId(),
+          githubRepositoryFullName: "ada/chess-merge",
+          removeGithubRepoBlockedReason: "Destroy your Alchemy stack first.",
+          hasSetupStack: true,
+        }}
+      />,
+    );
+    const checkbox = markup.match(/<[^>]*id="remove-github-repo"[^>]*>/)?.[0];
+    const removeButton = markup.match(/<button[^>]*>Remove from Samebase<\/button>/)?.[0];
+
+    expect(markup).toContain("Destroy your Alchemy stack first.");
+    expect(checkbox).toMatch(/\sdisabled(?:=""|(?=[\s>]))/);
+    expect(removeButton).not.toMatch(/\sdisabled(?:=""|(?=[\s>]))/);
+  });
+
   it("links the destroy for a repository that its GitHub Actions set up", () => {
     const markup = renderToStaticMarkup(
       <RepositoryDeleteDialogContent
@@ -1757,8 +1816,7 @@ describe("RepositoryDeleteDialogContent", () => {
         target={{
           repositoryId: fakeRepositoryId(),
           githubRepositoryFullName: "ada/chess-merge",
-          isSamebaseManaged: true,
-          canRemoveGithubRepo: true,
+          removeGithubRepoBlockedReason: null,
           hasSetupStack: true,
         }}
       />,
@@ -1783,8 +1841,7 @@ describe("RepositoryDeleteDialogContent", () => {
         target={{
           repositoryId: fakeRepositoryId(),
           githubRepositoryFullName: "ada/demo",
-          isSamebaseManaged: true,
-          canRemoveGithubRepo: true,
+          removeGithubRepoBlockedReason: null,
           hasSetupStack: false,
         }}
       />,

@@ -9,6 +9,8 @@ import {
 } from "../../shared/alchemyState";
 import {
   ALCHEMY_CONNECTION_UNAVAILABLE,
+  CONNECT_CONVEX_TO_CHECK_STACK,
+  DESTROY_ALCHEMY_STACK_FIRST,
   vAlchemyNoConnection,
   vAlchemyRunRecord,
   vAlchemyLiveDeployments,
@@ -143,6 +145,23 @@ async function findAlchemyDeployment(target: Pick<ConvexInspectionTarget, "teamI
     : null;
 }
 
+/** The stacks of the store named `owner/name` or `owner/name/<folder>`, in name order. */
+async function readRepositoryStackNames(args: {
+  deployKey: string;
+  deploymentUrl: string;
+  repository: string;
+}) {
+  return parse(
+    vStoreStacksReply,
+    await fetchConvexDeploymentJson({
+      authorization: `Convex ${args.deployKey}`,
+      deploymentUrl: args.deploymentUrl,
+      path: "/api/function",
+      body: { path: "state:stacks", args: {}, format: "json" },
+    }),
+  ).value.filter((name) => name === args.repository || name.startsWith(`${args.repository}/`));
+}
+
 /**
 Reads the stacks of a repository from the Alchemy state store of a Convex team, the production
 deployment of the team's `alchemy-state-store` project: `state:stacks`, then one `state:readStack` for each
@@ -162,15 +181,11 @@ export async function readAlchemyStacks(args: {
   const replies = await withConvexInspectionDeployKey(
     { deployment, purpose: "alchemyState", target: args.target },
     async (deployKey) => {
-      const names = parse(
-        vStoreStacksReply,
-        await fetchConvexDeploymentJson({
-          authorization: `Convex ${deployKey}`,
-          deploymentUrl: deployment.deploymentUrl,
-          path: "/api/function",
-          body: { path: "state:stacks", args: {}, format: "json" },
-        }),
-      ).value.filter((name) => name === args.repository || name.startsWith(`${args.repository}/`));
+      const names = await readRepositoryStackNames({
+        deployKey,
+        deploymentUrl: deployment.deploymentUrl,
+        repository: args.repository,
+      });
       return await Promise.all(
         names.map(async (name) => ({
           name,
@@ -225,6 +240,37 @@ async function readStoreTarget(
       return null;
     }
     throw error;
+  }
+}
+
+/**
+Throws unless the team's store holds no stack named for the repository: deleting the GitHub
+repository deletes the Destroy app workflow and leaves the stack running. This reads names, so it
+also counts a stack that `readAlchemyStacks` drops, such as one whose last run wrote no run record.
+*/
+export async function assertRepositoryHasNoStack(
+  ctx: Pick<ActionCtx, "runQuery">,
+  args: { repositoryId: Id<"repositories">; userId: Id<"users"> },
+) {
+  const target = await readStoreTarget(ctx, args);
+  if (!target) {
+    throw new ConvexError(CONNECT_CONVEX_TO_CHECK_STACK);
+  }
+  const deployment = await findAlchemyDeployment(target);
+  if (!deployment) {
+    return;
+  }
+  const names = await withConvexInspectionDeployKey(
+    { deployment, purpose: "alchemyState", target },
+    async (deployKey) =>
+      await readRepositoryStackNames({
+        deployKey,
+        deploymentUrl: deployment.deploymentUrl,
+        repository: target.githubRepositoryFullName,
+      }),
+  );
+  if (names.length > 0) {
+    throw new ConvexError(DESTROY_ALCHEMY_STACK_FIRST);
   }
 }
 

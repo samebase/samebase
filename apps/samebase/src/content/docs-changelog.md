@@ -5,6 +5,9 @@ change. If a change needs action from you, the entry says so.
 
 ## 2026-11-02
 
+- **v2237: Destroy your stack before you delete the repository.** Samebase no longer deletes a
+  GitHub repository while your Alchemy state store holds its stack. Run Destroy app first. Remove
+  from Samebase still works with a stack.
 - **v2236: Shorter repository settings.** Settings now shows only Remove from Samebase. The dialog
   no longer names Workers or Convex projects: your deployed app stays in your cloud accounts.
 - **v2234: Provider connections in previews.** Convex and Cloudflare authorization now returns

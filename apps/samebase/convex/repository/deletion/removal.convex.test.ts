@@ -21,6 +21,7 @@ import {
 } from "../../test.setup";
 
 const HUB_ISSUER = "https://hub.example.test";
+const TEAM_PROJECTS_URL = "https://api.convex.dev/v1/teams/38516/projects";
 
 afterEach(() => {
   vi.useRealTimers();
@@ -53,7 +54,7 @@ async function seedRepository() {
       githubOwnerLogin: "octo-org",
       githubOwnerLoginNormalized: "octo-org",
       githubInstallationId: "installation-65",
-      convexTeam: { teamId: "convex-team" },
+      convexTeam: { teamId: "38516" },
       cloudflareAccount: { accountId: "cloudflare-account", accountName: "Cloudflare account" },
     });
     await insertTestOrganizationBillingAccount(ctx.db, organizationId);
@@ -78,7 +79,7 @@ async function seedRepository() {
     });
     const repositoryId = await ctx.db.insert("repositories", {
       organizationId,
-      convexTeamId: "convex-team",
+      convexTeamId: "38516",
       cloudflareAccountId: "cloudflare-account",
       deletion: { state: "not_deleting" },
       createdAt: 1,
@@ -98,7 +99,7 @@ async function seedRepository() {
     });
     await ctx.db.replace(repositoryId, {
       organizationId,
-      convexTeamId: "convex-team",
+      convexTeamId: "38516",
       cloudflareAccountId: "cloudflare-account",
       deletion: { state: "not_deleting" },
       createdAt: 1,
@@ -128,9 +129,9 @@ async function seedRepository() {
       });
     }
     const projects = [
-      { teamId: "convex-team", projectId: "app", origin: "provisioned" },
+      { teamId: "38516", projectId: "app", origin: "provisioned" },
       { teamId: "other-team", projectId: "app-moved", origin: "provisioned" },
-      { teamId: "convex-team", projectId: "app-attached", origin: "selected_existing" },
+      { teamId: "38516", projectId: "app-attached", origin: "selected_existing" },
     ] as const;
     for (const project of projects) {
       await ctx.db.insert("repositoryConvexProjects", {
@@ -152,14 +153,20 @@ async function seedRepository() {
   };
 }
 
-/** Records every outgoing request, so a provider call cannot pass unseen. */
+/**
+Records every outgoing request, so a provider call cannot pass unseen. The Convex team lists no
+projects, so it has no Alchemy state store.
+*/
 function recordRequests() {
   const requests: string[] = [];
   vi.stubGlobal(
     "fetch",
     vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
-      requests.push(new Request(input, init).url);
-      return new Response(null, { status: 204 });
+      const { url } = new Request(input, init);
+      requests.push(url);
+      return url.startsWith(TEAM_PROJECTS_URL)
+        ? Response.json({ items: [], pagination: { hasMore: false } })
+        : new Response(null, { status: 204 });
     }),
   );
   return requests;
@@ -211,7 +218,10 @@ describe("repository removal", () => {
     await fixture.t.finishAllScheduledFunctions(vi.runAllTimers, 1_000);
 
     expect((await readRemoval(fixture)).runStates).toEqual(["succeeded"]);
-    expect(requests).toEqual([`${HUB_ISSUER}/tenant-connection`]);
+    expect(requests).toEqual([
+      expect.stringContaining(TEAM_PROJECTS_URL),
+      `${HUB_ISSUER}/tenant-connection`,
+    ]);
     expect(githubRepos.delete).toHaveBeenCalledExactlyOnceWith({ owner: "octo-org", repo: "app" });
   });
 
@@ -246,7 +256,7 @@ describe("repository removal", () => {
             },
             convex: {
               action: "delete_projects",
-              projects: [{ teamId: "convex-team", projectId: "app" }],
+              projects: [{ teamId: "38516", projectId: "app" }],
             },
             cloudflare: {
               action: "delete_workers",

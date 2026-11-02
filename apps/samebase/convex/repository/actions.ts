@@ -31,6 +31,7 @@ import {
   validateAppResourceName,
   type AppResourceNameProvider,
 } from "../../shared/appResourceNames";
+import { assertRepositoryHasNoStack } from "./alchemyState";
 import { createRepositoryContract, type CreateRepositoryArgs } from "./contracts/createRepository";
 import { connectRepositoryContract } from "./contracts/connectRepository";
 
@@ -719,6 +720,9 @@ export const deleteRepository = action({
     args,
   ): Promise<{ deletionRunId: Id<"workflow_repositoryDeletion_runs"> }> => {
     const userId = ctx.viewer.userId;
+    if (args.removeGithubRepo) {
+      await assertRepositoryHasNoStack(ctx, { repositoryId: args.repositoryId, userId });
+    }
     const result: { deletionRunId: Id<"workflow_repositoryDeletion_runs"> } = await ctx.runMutation(
       internal.repository.deletion.runs.createInitialRun,
       {

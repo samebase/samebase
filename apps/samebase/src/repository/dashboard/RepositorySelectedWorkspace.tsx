@@ -173,6 +173,7 @@ export function RepositorySelectedWorkspace({
       />
       {deleteModeActive ? (
         <RepositoryDeleteDialog
+          alchemyState={workspace.alchemyState}
           key={repository.repositoryId}
           repository={repository}
           onClose={() => {
