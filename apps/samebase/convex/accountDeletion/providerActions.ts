@@ -84,6 +84,15 @@ export const deleteRevokedConnection = internalMutation({
 
     const otherCredential =
       args.expected.provider === "convex" ? credentials.cloudflare : credentials.convex;
+    if (
+      args.expected.provider === "cloudflare" &&
+      credentials.cloudflare?.auth.method === "oauth"
+    ) {
+      await ctx.scheduler.runAfter(0, internal.hubResourceOAuth.revokeCloudflareGrant, {
+        organizationId: args.expected.organizationId,
+        refreshCredential: credentials.cloudflare.auth.refreshCredential,
+      });
+    }
     if (otherCredential === undefined) {
       await ctx.db.delete(credentials._id);
     } else {

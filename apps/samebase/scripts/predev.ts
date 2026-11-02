@@ -124,6 +124,7 @@ await maybeStopLocalBackendIfRunning();
 // convex/convex.config.ts requires a hub client, so the development deployment gets one before
 // the push.
 run("pnpm", ["run", "hub:client"]);
+run("pnpm", ["run", "hub:resource-client"]);
 run("node", ["scripts/convex-dev.ts", "--until-success", "--codegen=enable"]);
 restoreConvexReadmeIfOverwritten(readmeSnapshot);
 run("node", ["scripts/setup.ts", "--once"]);

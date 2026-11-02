@@ -1,8 +1,7 @@
 import { httpRouter } from "convex/server";
 import { routeAll } from "@samebase/convex-hosting";
-import { finishCloudflareOAuth } from "./cloudflareOAuth";
 import { finishCloudflareMcpOAuth } from "./cloudflareMcpOAuth";
-import { finishConvexOAuth } from "./convexOAuth";
+import { finishResourceOAuth } from "./hubResourceOAuth";
 import { finishGitHubAppInstallation } from "./githubAppInstallation";
 import { registerHubClient } from "./hubClients/registration";
 import {
@@ -47,15 +46,9 @@ const openAiAppsChallenge = httpAction(async () => {
 });
 
 http.route({
-  path: "/oauth/convex/callback",
+  path: "/oauth/hub/callback",
   method: "GET",
-  handler: finishConvexOAuth,
-});
-
-http.route({
-  path: "/oauth/cloudflare/callback",
-  method: "GET",
-  handler: finishCloudflareOAuth,
+  handler: finishResourceOAuth,
 });
 
 http.route({

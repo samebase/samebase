@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vite-plus/test";
+import { describe, expect, it, vi } from "vite-plus/test";
 
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
@@ -7,7 +7,12 @@ import type {
   ConvexProviderCredential,
 } from "./organization/providerCredentialModel";
 import { hashOrganizationProviderSnapshot } from "./providerAuthFingerprint";
-import { insertTestOrganizationBillingAccount, makeConvexTest, testCredential } from "./test.setup";
+import {
+  insertTestOrganizationBillingAccount,
+  makeConvexTest,
+  sealTestCredentials,
+  testCredential,
+} from "./test.setup";
 
 const teamId = "team-1";
 const accountId = "a".repeat(32);
@@ -255,6 +260,73 @@ async function startDeletion(seed: Seed) {
 }
 
 describe("organization provider credential lifecycle", () => {
+  it.each([
+    { operation: "disconnect", hubAvailable: true },
+    { operation: "replace", hubAvailable: true },
+    { operation: "disconnect", hubAvailable: false },
+  ] as const)(
+    "commits $operation before revoking a hub grant (hub available: $hubAvailable)",
+    async ({ operation, hubAvailable }) => {
+      vi.useFakeTimers();
+      vi.stubEnv("RESOURCE_HUB_ISSUER", "https://hub.example.test");
+      vi.stubEnv("RESOURCE_HUB_CLIENT_ID", "resource-client");
+      vi.stubEnv("RESOURCE_HUB_CLIENT_SECRET", "resource-secret");
+      try {
+        const seed = await seedOrganization();
+        await seed.t.run(async (ctx) => {
+          await ctx.db.patch(seed.organizationId, {
+            cloudflareAccount: { accountId, accountName: "Primary account" },
+          });
+          await ctx.db.insert("organizationProviderCredentials", {
+            organizationId: seed.organizationId,
+            cloudflare: {
+              auth: cloudflareOAuth("hub"),
+              connectedByUserId: seed.connectorId,
+              updatedAt: Date.now(),
+            },
+          });
+        });
+        await sealTestCredentials(seed.t);
+        const before = await loadProviderState(seed.t, seed.organizationId);
+        if (before.credentials?.cloudflare === undefined)
+          throw new Error("Expected the hub credential.");
+        const fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+          const request = new Request(input, init);
+          expect(request.url).toBe("https://hub.example.test/revoke");
+          const body = await request.formData();
+          expect(body.get("token")).toBe("refresh-hub");
+          expect(body.get("token_type_hint")).toBe("refresh_token");
+          expect(body.get("client_id")).toBe("resource-client");
+          if (!hubAvailable) throw new Error("Hub unavailable");
+          return new Response(null, { status: 200 });
+        });
+        vi.stubGlobal("fetch", fetch);
+
+        if (operation === "disconnect") {
+          await seed.t.mutation(internal.organizationProviderCredentials.disconnectCloudflare, {
+            organizationId: seed.organizationId,
+            disconnectedByUserId: seed.connectorId,
+            expectedAuth: before.credentials.cloudflare.auth,
+          });
+        } else {
+          await connectCloudflare(seed, seed.connectorId, apiKey("replacement"));
+        }
+
+        const after = await loadProviderState(seed.t, seed.organizationId);
+        expect(after.credentials?.cloudflare?.auth.method).toBe(
+          operation === "disconnect" ? undefined : "api_key",
+        );
+        expect(fetch).not.toHaveBeenCalled();
+        await seed.t.finishAllScheduledFunctions(vi.runAllTimers);
+        expect(fetch).toHaveBeenCalledOnce();
+      } finally {
+        vi.useRealTimers();
+        vi.unstubAllEnvs();
+        vi.unstubAllGlobals();
+      }
+    },
+  );
+
   it("binds provider destinations after an existing repository connects without them", async () => {
     const seed = await seedOrganization();
     const source = await seed.t.mutation(

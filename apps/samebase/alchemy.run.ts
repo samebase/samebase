@@ -41,6 +41,7 @@ builds the hub callback on it.
 const PRODUCTION_SITE_URL = "https://samebase.com";
 /** The identity hub's callback into Convex Auth, after CONVEX_SITE_URL (convex/convex.config.ts). */
 const HUB_CALLBACK_PATH = "/auth/hub/callback";
+const RESOURCE_HUB_CALLBACK_PATH = "/oauth/hub/callback";
 
 /**
 The commit of this checkout. The build puts it and its number into the app (vite.config.ts), so it is
@@ -88,6 +89,14 @@ export default Alchemy.Stack(
         redirectUri: Output.map(preview.siteUrl, (siteUrl) => `${siteUrl}${HUB_CALLBACK_PATH}`),
         deploymentType: "preview",
       });
+      const resourceClient = yield* Convex.HubClient("ResourceHubClient", {
+        ...hub,
+        redirectUri: Output.map(
+          preview.siteUrl,
+          (siteUrl) => `${siteUrl}${RESOURCE_HUB_CALLBACK_PATH}`,
+        ),
+        deploymentType: "preview",
+      });
 
       // Built like production with the route environment `preview`. The push command also sets SITE_URL to the preview's site URL and seeds the password account.
       const site = yield* Convex.Deployment("Site", {
@@ -99,6 +108,9 @@ export default Alchemy.Stack(
           HUB_ISSUER: client.issuer,
           HUB_CLIENT_ID: client.clientId,
           HUB_CLIENT_SECRET: client.clientSecret,
+          RESOURCE_HUB_ISSUER: resourceClient.issuer,
+          RESOURCE_HUB_CLIENT_ID: resourceClient.clientId,
+          RESOURCE_HUB_CLIENT_SECRET: resourceClient.clientSecret,
         },
         source: { path: "./convex", command: ["node", "./scripts/deploy-preview.ts"] },
       }).pipe(adopt(true), Alchemy.RemovalPolicy.destroy());
@@ -118,6 +130,11 @@ export default Alchemy.Stack(
     const client = yield* Convex.HubClient("HubClient", {
       ...hub,
       redirectUri: `${PRODUCTION_SITE_URL}${HUB_CALLBACK_PATH}`,
+      deploymentType: "production",
+    });
+    const resourceClient = yield* Convex.HubClient("ResourceHubClient", {
+      ...hub,
+      redirectUri: `${PRODUCTION_SITE_URL}${RESOURCE_HUB_CALLBACK_PATH}`,
       deploymentType: "production",
     });
 
@@ -152,6 +169,9 @@ export default Alchemy.Stack(
         HUB_ISSUER: client.issuer,
         HUB_CLIENT_ID: client.clientId,
         HUB_CLIENT_SECRET: client.clientSecret,
+        RESOURCE_HUB_ISSUER: resourceClient.issuer,
+        RESOURCE_HUB_CLIENT_ID: resourceClient.clientId,
+        RESOURCE_HUB_CLIENT_SECRET: resourceClient.clientSecret,
         CLOUDFLARE_EMAIL_ACCOUNT_ID: accountId,
         CLOUDFLARE_EMAIL_API_TOKEN: emailToken.value,
       },

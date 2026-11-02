@@ -313,14 +313,15 @@ Cloudflare `oauth` and `api_key` credentials call `api.cloudflare.com` directly.
 For Cloudflare, `api_key` stores a user API token, not a global API key or an account-owned token.
 Workers Builds currently accepts only user API tokens as build credentials.
 
-Required env vars (OAuth + redirects):
+Required app env vars for Convex and Cloudflare authorization through the identity hub:
 
-- `PROVIDER_CONVEX_OAUTH_CLIENT_ID`
-- `PROVIDER_CONVEX_OAUTH_CLIENT_SECRET`
-- `PROVIDER_CONVEX_OAUTH_REDIRECT_URL`
-- `PROVIDER_CLOUDFLARE_OAUTH_CLIENT_ID`
-- `PROVIDER_CLOUDFLARE_OAUTH_CLIENT_SECRET`
-- `PROVIDER_CLOUDFLARE_OAUTH_REDIRECT_URL`
+- `RESOURCE_HUB_ISSUER`
+- `RESOURCE_HUB_CLIENT_ID`
+- `RESOURCE_HUB_CLIENT_SECRET`
+
+Each deployment registers its `/oauth/hub/callback` at the hub. Provider client secrets and fixed
+provider callback URLs are configured on the hub, as described in
+[identity-hub](../apps/identity-hub/README.md#deploy).
 
 Legacy Cloudflare MCP OAuth route, kept for existing rows only:
 

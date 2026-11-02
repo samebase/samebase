@@ -43,4 +43,7 @@ export const NO_HUB_ENVIRONMENT = {
   HUB_ISSUER: "http://127.0.0.1:1",
   HUB_CLIENT_ID: "no-hub",
   HUB_CLIENT_SECRET: "no-hub",
+  RESOURCE_HUB_ISSUER: "http://127.0.0.1:1",
+  RESOURCE_HUB_CLIENT_ID: "no-hub",
+  RESOURCE_HUB_CLIENT_SECRET: "no-hub",
 };
