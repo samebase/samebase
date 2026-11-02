@@ -110,7 +110,7 @@ test("landing overview preserves its video frame and wide desktop layout", async
     height: element.clientHeight,
     width: element.clientWidth,
   }));
-  expect(videoLayout.width / videoLayout.height).toBeCloseTo(48 / 31, 2);
+  expect(videoLayout.width / videoLayout.height).toBeCloseTo(16 / 9, 2);
 
   await page.waitForLoadState("networkidle");
 
