@@ -5,6 +5,8 @@ Each component's own rules live in its repository.
 
 - `convex/connectors.ts` lists the providers the hub offers. A provider that needs credentials also
   gets its variables declared in `convex/convex.config.ts`.
+- `convex/resources.ts` lists the API providers. They use OAuth code and refresh grants, not login
+  identities.
 - `convex/http.ts` mounts the broker; `convex/identityBroker.ts` exports the admin functions for
   `npx convex run`; `convex/crons.ts` runs the cleanup.
 - `alchemy.run.ts` is the stack `samebase/samebase/apps/identity-hub` (adopted project, adopted

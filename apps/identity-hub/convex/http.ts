@@ -3,6 +3,7 @@ import { httpRouter } from "convex/server";
 import { components } from "./_generated/api";
 import { env } from "./_generated/server";
 import { connectors } from "./connectors";
+import { resources } from "./resources";
 
 export const broker = defineIdentityBroker({
   component: components.identityBroker,
@@ -11,6 +12,7 @@ export const broker = defineIdentityBroker({
   issuer: env.ISSUER ?? env.CONVEX_SITE_URL,
   keys: () => env.IDENTITY_BROKER_KEYS,
   connectors,
+  resources,
   registration: {
     initialAccessToken: () => env.REGISTRATION_ACCESS_TOKEN,
     connector: "google-apps",
