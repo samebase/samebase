@@ -27,7 +27,8 @@ function invalid<T>(status: number, error: string, description: string): Validat
 
 /** RFC 6749 sections 3.1 and 3.2: a request parameter must not be included more than once. */
 function hasRepeatedParameter(params: URLSearchParams): boolean {
-  const names = [...params.keys()];
+  // RFC 8707 permits repeated resource parameters. The resource flow rejects unsupported sets.
+  const names = [...params.keys()].filter((name) => name !== "resource");
   return new Set(names).size !== names.length;
 }
 
@@ -92,6 +93,7 @@ export function validateAuthorizeTarget(
 export function validateAuthorizeRest(
   params: URLSearchParams,
   target: { clientId: string; redirectUri: string },
+  flow: "identity" | "resource" = "identity",
 ): Validation<AuthorizeInput> {
   // Discovery says neither is supported, and OIDC Core sections 6.1 and 6.2 name these errors.
   if (params.has("request")) {
@@ -104,7 +106,7 @@ export function validateAuthorizeRest(
     return invalid(400, "unsupported_response_type", 'response_type must be "code".');
   }
   const scopes = (params.get("scope") ?? "").split(/\s+/).filter((scope) => scope.length > 0);
-  if (!scopes.includes("openid")) {
+  if (flow === "identity" && !scopes.includes("openid")) {
     return invalid(400, "invalid_scope", 'scope must include "openid".');
   }
   const state = params.get("state") ?? undefined;

@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.21.0
+
+`alchemy-convex hub-client --env-prefix RESOURCE_HUB` registers a second development client without
+replacing the sign-in client. It writes `RESOURCE_HUB_ISSUER`, `RESOURCE_HUB_CLIENT_ID`, and
+`RESOURCE_HUB_CLIENT_SECRET`. The default prefix remains `HUB`.
+
+The state store protocol does not change.
+
 ## 0.20.0
 
 `Convex.SharedHubClient` gets a client of the central identity hub through samebase.com, for an app

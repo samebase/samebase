@@ -27,14 +27,15 @@ const { positionals, values } = parseArgs({
     team: { type: "string" },
     app: { type: "string" },
     "callback-path": { type: "string" },
+    "env-prefix": { type: "string" },
   },
 });
-const { team, app, "callback-path": callbackPath } = values;
+const { team, app, "callback-path": callbackPath, "env-prefix": envPrefix } = values;
 const USAGE = `Usage:
-  alchemy-convex hub-client --team <team> --app <app> --callback-path <path>
+  alchemy-convex hub-client --team <team> --app <app> --callback-path <path> [--env-prefix HUB]
   alchemy-convex stack-comment [--team <team>]`;
 
-const hubClient = (hub: { team: string; app: string; callbackPath: string }) =>
+const hubClient = (hub: { team: string; app: string; callbackPath: string; envPrefix?: string }) =>
   Effect.gen(function* () {
     const [command, ...prefix] = yield* installedCli(process.cwd());
     const callbackUrl = yield* registerDevelopmentClient({
@@ -67,7 +68,7 @@ const program: Effect.Effect<unknown, unknown> | undefined =
         team !== undefined &&
         app !== undefined &&
         callbackPath !== undefined
-      ? hubClient({ team, app, callbackPath })
+      ? hubClient({ team, app, callbackPath, ...(envPrefix === undefined ? {} : { envPrefix }) })
       : undefined;
 if (program === undefined) {
   console.error(USAGE);

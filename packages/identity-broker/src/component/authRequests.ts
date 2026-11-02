@@ -8,6 +8,7 @@ import type { Doc } from "./_generated/dataModel";
 import { isSuspended } from "./apps";
 import { LEASE_MS } from "./registration";
 import { vAuthRequest, vTokenEndpointAuthMethod, vUpstreamIdentity } from "./schema";
+import { exchangeResourceCode, vResourceExchange } from "./resourceRequests";
 
 const { array, boolean, literal, number, object, optional, string, union } = v;
 
@@ -265,6 +266,7 @@ export const abandon = mutation({
 });
 
 const vExchangeResult = union(
+  vResourceExchange,
   object({
     ok: literal(true),
     appId: string(),
@@ -280,7 +282,7 @@ const vExchangeResult = union(
   }),
   object({
     ok: literal(false),
-    error: union(literal("invalid_client"), literal("invalid_grant")),
+    error: union(literal("invalid_client"), literal("invalid_grant"), literal("invalid_target")),
     description: string(),
   }),
 );
@@ -305,6 +307,8 @@ export const exchangeCode = mutation({
     codeHash: string(),
     redirectUri: optional(string()),
     codeVerifier: string(),
+    resource: optional(string()),
+    refreshTokenHash: string(),
     /** The host stopped all apps from `/register`. A sign-in that already started stops here too. */
     registrationPaused: optional(boolean()),
     now: number(),
@@ -345,12 +349,28 @@ export const exchangeCode = mutation({
         description: "The authorization code is unknown.",
       };
     }
+    if (code.clientId !== args.clientId) {
+      return {
+        ok: false,
+        error: "invalid_grant",
+        description: "The authorization code belongs to another client.",
+      };
+    }
     if (code.usedAt !== undefined) {
       // Replay: the code and its request are revoked (RFC 6749 section 4.1.2).
       await ctx.db.delete("authorizationCodes", code._id);
-      const request = await ctx.db.get("authRequests", code.authRequestId);
-      if (request !== null) {
-        await ctx.db.delete("authRequests", request._id);
+      if ("resourceRequestId" in code) {
+        const request = await ctx.db.get("resourceRequests", code.resourceRequestId);
+        if (request !== null) await ctx.db.delete("resourceRequests", request._id);
+        if (
+          code.refreshGrantId !== undefined &&
+          (await ctx.db.get("refreshGrants", code.refreshGrantId)) !== null
+        ) {
+          await ctx.db.delete("refreshGrants", code.refreshGrantId);
+        }
+      } else {
+        const request = await ctx.db.get("authRequests", code.authRequestId);
+        if (request !== null) await ctx.db.delete("authRequests", request._id);
       }
       return {
         ok: false,
@@ -361,11 +381,21 @@ export const exchangeCode = mutation({
     if (code.expiresAt <= args.now) {
       return { ok: false, error: "invalid_grant", description: "The authorization code expired." };
     }
-    if (code.clientId !== args.clientId) {
+    if ("resourceRequestId" in code) {
+      return await exchangeResourceCode(ctx, code, {
+        client: client._id,
+        codeVerifier: args.codeVerifier,
+        ...(args.redirectUri === undefined ? {} : { redirectUri: args.redirectUri }),
+        ...(args.resource === undefined ? {} : { resource: args.resource }),
+        refreshTokenHash: args.refreshTokenHash,
+        now: args.now,
+      });
+    }
+    if (args.resource !== undefined) {
       return {
         ok: false,
-        error: "invalid_grant",
-        description: "The authorization code belongs to another client.",
+        error: "invalid_target",
+        description: "This authorization did not grant an API resource.",
       };
     }
     const request = await ctx.db.get("authRequests", code.authRequestId);

@@ -11,6 +11,7 @@ import type { Connector, OidcConnector } from "./connectors/types.js";
 import { defineIdentityBroker } from "./index.js";
 import { createKeySet, type KeySet } from "./keys.js";
 import type { RegistrationConfig } from "./registration.js";
+import type { ResourceProvider } from "./resourceProviders.js";
 
 export const modules = import.meta.glob(["../component/**/*.ts", "!../component/**/*.test.ts"]);
 
@@ -36,6 +37,7 @@ export async function createHarness(options: {
   keySet?: KeySet;
   previewClientIdleDays?: number;
   registration?: RegistrationConfig;
+  resources?: ResourceProvider[];
 }) {
   const t = convexTest(schema, modules);
   rateLimiterTest.register(t);
@@ -46,6 +48,7 @@ export async function createHarness(options: {
     issuer,
     keys: () => JSON.stringify(keySet),
     connectors: options.connectors,
+    ...(options.resources === undefined ? {} : { resources: options.resources }),
     ...(options.previewClientIdleDays === undefined
       ? {}
       : { previewClientIdleDays: options.previewClientIdleDays }),

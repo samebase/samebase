@@ -3,6 +3,7 @@ import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { appView, vApp } from "./apps";
 import { vDeploymentType, vTokenEndpointAuthMethod } from "./schema";
+import { removeClientGrants } from "./resourceRequests";
 
 const { array, number, object, optional, string } = v;
 
@@ -121,6 +122,7 @@ export const remove = mutation({
     if (client !== null) {
       await ctx.db.delete("clients", client._id);
     }
+    await removeClientGrants(ctx, args.clientId);
     return null;
   },
 });

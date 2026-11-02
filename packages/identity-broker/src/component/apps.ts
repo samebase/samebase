@@ -99,6 +99,9 @@ async function removeRows(ctx: MutationCtx, appId: string): Promise<void> {
     .take(BATCH);
   for (const client of clients) {
     await ctx.db.delete("clients", client._id);
+    await ctx.scheduler.runAfter(0, internal.resourceRequests.continueRemoveClientGrants, {
+      clientId: client.clientId,
+    });
   }
   if (clients.length === BATCH) {
     await ctx.scheduler.runAfter(0, internal.apps.continueRemove, { appId });

@@ -216,12 +216,11 @@ export interface DevelopmentClientOptions {
   readonly app: string;
   /** The path of the hub's callback after the site URL of the deployment. */
   readonly callbackPath: string;
+  /** Prefix of the three deployment variables. A second callback needs its own client. */
+  readonly envPrefix?: string;
   /** Runs the Convex CLI on the deployment of this directory, and answers its output. */
   readonly convex: (args: readonly string[], input?: string) => string;
 }
-
-/** The variables that a deployment reads to sign in through the hub. */
-const HUB_VARIABLES = ["HUB_ISSUER", "HUB_CLIENT_ID", "HUB_CLIENT_SECRET"];
 
 /**
  * `alchemy-convex hub-client`: a stack deploys production and previews, and this covers the
@@ -232,8 +231,14 @@ const HUB_VARIABLES = ["HUB_ISSUER", "HUB_CLIENT_ID", "HUB_CLIENT_SECRET"];
 export const registerDevelopmentClient = (options: DevelopmentClientOptions) =>
   Effect.gen(function* () {
     const { convex } = options;
+    const envPrefix = options.envPrefix ?? "HUB";
+    const variables = [
+      `${envPrefix}_ISSUER`,
+      `${envPrefix}_CLIENT_ID`,
+      `${envPrefix}_CLIENT_SECRET`,
+    ];
     const names = convex(["env", "list", "--names-only"]).split("\n");
-    if (HUB_VARIABLES.every((name) => names.includes(name))) return undefined;
+    if (variables.every((name) => names.includes(name))) return undefined;
     const siteUrl = yield* Schema.decodeUnknownEffect(Schema.fromJsonString(Schema.String))(
       convex(["run", "--inline-query", "process.env.CONVEX_SITE_URL"]),
     ).pipe(
@@ -254,7 +259,7 @@ export const registerDevelopmentClient = (options: DevelopmentClientOptions) =>
     // values of an earlier one.
     convex(
       ["env", "set", "--force"],
-      `HUB_ISSUER='${client.issuer}'\nHUB_CLIENT_ID='${client.clientId}'\nHUB_CLIENT_SECRET='${Redacted.value(client.clientSecret)}'\n`,
+      `${envPrefix}_ISSUER='${client.issuer}'\n${envPrefix}_CLIENT_ID='${client.clientId}'\n${envPrefix}_CLIENT_SECRET='${Redacted.value(client.clientSecret)}'\n`,
     );
     return callbackUrl;
   });

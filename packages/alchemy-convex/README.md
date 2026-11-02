@@ -241,12 +241,12 @@ needs a branch and an `origin` remote. It holds no secret.
   "convexUrl": "https://modest-guanaco-252.convex.cloud",
   "samebase.run": {
     "version": 1,
-    "repository": "samebase/base",
+    "repository": "samebase/base-alchemy",
     "stackFile": "alchemy.run.ts",
     "branch": "feature",
     "pullRequest": 42,
     "headCommit": "8af3c5b7932c528939cbc7aa0597b1fc36c8dc83",
-    "runUrl": "https://github.com/samebase/base/actions/runs/12345678901/attempts/1",
+    "runUrl": "https://github.com/samebase/base-alchemy/actions/runs/12345678901/attempts/1",
     "source": "github-actions",
     "recordedAt": "2026-10-21T10:00:00.000Z"
   }
@@ -332,6 +332,11 @@ of the app, before the first push: it registers the deployment of that directory
 ```sh
 npx alchemy-convex hub-client --team my-team --app scout --callback-path /auth/hub/callback
 ```
+
+For a separate API-connection callback, register another client with
+`--callback-path /oauth/hub/callback --env-prefix RESOURCE_HUB`. This writes `RESOURCE_HUB_ISSUER`,
+`RESOURCE_HUB_CLIENT_ID`, and `RESOURCE_HUB_CLIENT_SECRET`, preserving the sign-in client's
+variables. Each callback remains one exact registered URI.
 
 ## Pull request comment
 

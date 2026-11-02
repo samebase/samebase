@@ -107,6 +107,7 @@ describe("upstream path", () => {
     expect(completed.ok).toBe(true);
 
     const wrongVerifier = await t.mutation(api.authRequests.exchangeCode, {
+      refreshTokenHash: "unused-for-identity",
       codeHash: "ch",
       ...cl,
       codeVerifier: "x".repeat(43),
@@ -117,6 +118,7 @@ describe("upstream path", () => {
       description: expect.stringMatching(/code_verifier/),
     });
     const exchanged = await t.mutation(api.authRequests.exchangeCode, {
+      refreshTokenHash: "unused-for-identity",
       codeHash: "ch",
       ...cl,
       redirectUri: "https://app.test/cb",
@@ -131,6 +133,7 @@ describe("upstream path", () => {
     });
     expect(await t.query(api.authRequests.get, { requestId: "r1" })).toBeNull();
     const replay = await t.mutation(api.authRequests.exchangeCode, {
+      refreshTokenHash: "unused-for-identity",
       codeHash: "ch",
       ...cl,
       codeVerifier: verifier,
@@ -169,6 +172,7 @@ describe("upstream path", () => {
       tokenEndpointAuthMethod: "client_secret_post" | "client_secret_basic";
     }) =>
       t.mutation(api.authRequests.exchangeCode, {
+        refreshTokenHash: "unused-for-identity",
         ...credentials,
         codeHash: "ch",
         codeVerifier: verifier,
@@ -329,6 +333,7 @@ describe("upstream path", () => {
     expect(await cleanup(late + 59_000)).toMatchObject({ authRequests: 0 });
     expect(
       await t.mutation(api.authRequests.exchangeCode, {
+        refreshTokenHash: "unused-for-identity",
         codeHash: "ch",
         ...cl,
         codeVerifier: verifier,
@@ -362,6 +367,7 @@ describe("upstream path", () => {
     });
     expect(
       await t.mutation(api.authRequests.exchangeCode, {
+        refreshTokenHash: "unused-for-identity",
         codeHash: "ch",
         ...cl,
         codeVerifier: verifier,
