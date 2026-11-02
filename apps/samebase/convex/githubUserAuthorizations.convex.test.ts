@@ -109,10 +109,6 @@ async function startAccountDeletion(
   email: string,
 ) {
   return await t.run(async (ctx) => {
-    const initiatingSessionId = await ctx.db.insert("authSessions", {
-      userId,
-      expirationTime: Date.now() + 60_000,
-    });
     const now = Date.now();
     const runId = await ctx.db.insert("workflow_accountDeletion_runs", {
       state: "running",
@@ -121,7 +117,6 @@ async function startAccountDeletion(
       currentStep: "revoke_access",
       requestedAt: now,
       updatedAt: now,
-      initiatingSessionId,
       retryCount: 0,
       outcomes: {
         providerRevocation: { state: "not_started" },

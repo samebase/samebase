@@ -231,10 +231,6 @@ async function replaceCloudflare(
 
 async function startDeletion(seed: Seed) {
   return await seed.t.run(async (ctx) => {
-    const initiatingSessionId = await ctx.db.insert("authSessions", {
-      userId: seed.connectorId,
-      expirationTime: Date.now() + 60_000,
-    });
     const runId = await ctx.db.insert("workflow_accountDeletion_runs", {
       state: "running",
       identity: { state: "active", userId: seed.connectorId, email: "a@x.test" },
@@ -242,7 +238,6 @@ async function startDeletion(seed: Seed) {
       currentStep: "revoke_access",
       requestedAt: Date.now(),
       updatedAt: Date.now(),
-      initiatingSessionId,
       retryCount: 0,
       outcomes: {
         providerRevocation: { state: "in_progress", convexManualRevocationRequired: false },

@@ -207,9 +207,6 @@ async function startQueuedAccountDeletion(
     requestedAt: run.requestedAt,
     ...(run.deletionStartsAt === undefined ? {} : { deletionStartsAt: run.deletionStartsAt }),
     updatedAt: Date.now(),
-    ...(run.initiatingSessionId === undefined
-      ? {}
-      : { initiatingSessionId: run.initiatingSessionId }),
     retryCount: run.retryCount,
     outcomes: run.outcomes,
   });
@@ -416,9 +413,6 @@ export const retry = mutation({
       requestedAt: run.requestedAt,
       ...(run.deletionStartsAt === undefined ? {} : { deletionStartsAt: run.deletionStartsAt }),
       updatedAt: now,
-      ...(run.initiatingSessionId === undefined
-        ? {}
-        : { initiatingSessionId: run.initiatingSessionId }),
       retryCount: run.retryCount + 1,
       outcomes: run.outcomes,
     });

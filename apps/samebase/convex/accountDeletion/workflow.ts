@@ -244,23 +244,6 @@ export const deleteAccountWorkflow = workflow.define({
       { name: "claim_workflow" },
     );
 
-    for (let batch = 0; batch < MAX_BATCH_STEPS; batch += 1) {
-      const done = await step.runMutation(
-        internal.accountDeletion.authCleanup.deleteOtherSessionBatch,
-        {
-          runId: args.runId,
-          workflowId: step.workflowId,
-        },
-        { name: `delete_other_sessions_${batch}` },
-      );
-      if (done) {
-        break;
-      }
-      if (batch === MAX_BATCH_STEPS - 1) {
-        throw new Error(SAFE_WORKFLOW_ERROR);
-      }
-    }
-
     await step.runMutation(
       internal.accountDeletion.workflow.appendRunEvent,
       {
@@ -436,31 +419,6 @@ export const deleteAccountWorkflow = workflow.define({
         throw new Error(SAFE_WORKFLOW_ERROR);
       }
     }
-    await step.runMutation(
-      internal.accountDeletion.authCleanup.deleteIdentityRateLimit,
-      {
-        runId: args.runId,
-        workflowId: step.workflowId,
-      },
-      { name: "delete_identity_rate_limit" },
-    );
-
-    for (let batch = 0; batch < MAX_BATCH_STEPS; batch += 1) {
-      const done = await step.runMutation(
-        internal.accountDeletion.authCleanup.deleteInitiatingSessionBatch,
-        {
-          runId: args.runId,
-          workflowId: step.workflowId,
-        },
-        { name: `delete_initiating_session_children_${batch}` },
-      );
-      if (done) {
-        break;
-      }
-      if (batch === MAX_BATCH_STEPS - 1) {
-        throw new Error(SAFE_WORKFLOW_ERROR);
-      }
-    }
 
     for (let batch = 0; batch < MAX_BATCH_STEPS; batch += 1) {
       const done = await step.runMutation(
@@ -526,9 +484,6 @@ export const handleWorkflowComplete = internalMutation({
       currentStep: run.currentStep,
       requestedAt: run.requestedAt,
       ...(run.deletionStartsAt === undefined ? {} : { deletionStartsAt: run.deletionStartsAt }),
-      ...(run.initiatingSessionId === undefined
-        ? {}
-        : { initiatingSessionId: run.initiatingSessionId }),
       retryCount: run.retryCount,
       outcomes: run.outcomes,
       latestSafeError: SAFE_WORKFLOW_ERROR,

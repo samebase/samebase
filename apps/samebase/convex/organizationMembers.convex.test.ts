@@ -467,10 +467,6 @@ describe("organization member lifecycle", () => {
       asOwner.mutation(api.organizationMembers.acceptInvitation, { code: created.code }),
     ).rejects.toThrow("This invitation is for a different GitHub account.");
     const deletingInviteeMembershipId = await t.run(async (ctx) => {
-      const sessionId = await ctx.db.insert("authSessions", {
-        userId: ids.inviteeUserId,
-        expirationTime: roundedNow + 60_000,
-      });
       const runId = await ctx.db.insert("workflow_accountDeletion_runs", {
         state: "running",
         identity: {
@@ -482,7 +478,6 @@ describe("organization member lifecycle", () => {
         currentStep: "request_accepted",
         requestedAt: roundedNow,
         updatedAt: roundedNow,
-        initiatingSessionId: sessionId,
         retryCount: 0,
         outcomes: {
           providerRevocation: { state: "not_started" },
@@ -824,10 +819,6 @@ describe("organization member lifecycle", () => {
     });
 
     await t.run(async (ctx) => {
-      const sessionId = await ctx.db.insert("authSessions", {
-        userId: ids.memberUserId,
-        expirationTime: roundedNow + 60_000,
-      });
       const runId = await ctx.db.insert("workflow_accountDeletion_runs", {
         state: "running",
         identity: {
@@ -839,7 +830,6 @@ describe("organization member lifecycle", () => {
         currentStep: "request_accepted",
         requestedAt: roundedNow,
         updatedAt: roundedNow,
-        initiatingSessionId: sessionId,
         retryCount: 0,
         outcomes: {
           providerRevocation: { state: "not_started" },
@@ -1410,10 +1400,6 @@ describe("organization member lifecycle", () => {
         userId: unapprovedOwnerId,
         role: "member",
       });
-      const sessionId = await ctx.db.insert("authSessions", {
-        userId: unapprovedOwnerId,
-        expirationTime: roundedNow + 60_000,
-      });
       const runId = await ctx.db.insert("workflow_accountDeletion_runs", {
         state: "running",
         identity: {
@@ -1425,7 +1411,6 @@ describe("organization member lifecycle", () => {
         currentStep: "request_accepted",
         requestedAt: roundedNow,
         updatedAt: roundedNow,
-        initiatingSessionId: sessionId,
         retryCount: 0,
         outcomes: {
           providerRevocation: { state: "not_started" },
