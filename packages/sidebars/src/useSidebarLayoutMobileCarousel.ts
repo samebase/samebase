@@ -15,7 +15,7 @@ import {
   type MobilePane,
   type SidebarLayoutMobileMergedSide,
 } from "./SidebarLayoutGeometryInternal.ts";
-import { useSidebarLayoutActions } from "./SidebarRuntimeInternal.tsx";
+import { readIsMobileSidebarLayout, useSidebarLayoutActions } from "./SidebarRuntimeInternal.tsx";
 
 export function useSidebarLayoutMobileCarouselController({
   activeGripResizeSideRef,
@@ -45,6 +45,7 @@ export function useSidebarLayoutMobileCarouselController({
   viewportWidthPx: number;
 }) {
   const hasAlignedInitialMobilePaneRef = useRef(false);
+  const isScrollPositionFromServerHtmlRef = useRef(false);
   const scrollDerivedMobilePaneRef = useRef<MobilePane | null>(null);
   const { setIsMobilePaneSettled, setMobilePaneScrollProgress } = useSidebarLayoutActions();
   const setIsMobilePaneSettledEffect = useEffectEvent((isSettled: boolean) => {
@@ -110,33 +111,14 @@ export function useSidebarLayoutMobileCarouselController({
     });
   });
 
-  // A swipe before hydration moves the server markup, and the pane that it reached replaces the saved
-  // pane. Only this first commit still has that layout: measuring the viewport changes the left pane.
-  const claimPaneOfHydration = useEffectEvent((carouselNode: HTMLDivElement) => {
-    const carouselLeftPx = carouselNode.getBoundingClientRect().left;
-    const paneOnScreen = Array.from(
-      carouselNode.querySelectorAll<HTMLElement>(':scope > [data-sidebar-layout-part="pane"]'),
-    ).reduce((closest, pane) =>
-      Math.abs(pane.getBoundingClientRect().left - carouselLeftPx) <
-      Math.abs(closest.getBoundingClientRect().left - carouselLeftPx)
-        ? pane
-        : closest,
-    );
-    const pane = paneOnScreen.dataset["paneSide"];
-    if (pane === "left" || pane === "main" || pane === "right") {
-      setMobilePane(pane);
-    }
+  // A hydration renders the desktop layout first. On a phone, its carousel is already on a pane: the
+  // server HTML put it there, and the user may have swiped since. A client-only mount starts at 0.
+  const readScrollPositionOrigin = useEffectEvent(() => {
+    isScrollPositionFromServerHtmlRef.current = !isMobile && readIsMobileSidebarLayout();
   });
   useLayoutEffect(() => {
-    const carouselNode = carouselRef.current;
-    if (
-      carouselNode !== null &&
-      getComputedStyle(carouselNode).scrollSnapType !== "none" &&
-      !carouselNode.closest("[data-sidebar-layout-mobile-merged-side]")
-    ) {
-      claimPaneOfHydration(carouselNode);
-    }
-  }, [carouselRef]);
+    readScrollPositionOrigin();
+  }, []);
 
   useEffect(() => {
     if (isMobile) {
@@ -174,9 +156,15 @@ export function useSidebarLayoutMobileCarouselController({
     });
 
     if (!hasAlignedInitialMobilePaneRef.current) {
+      hasAlignedInitialMobilePaneRef.current = true;
+      if (isScrollPositionFromServerHtmlRef.current) {
+        isScrollPositionFromServerHtmlRef.current = false;
+        syncPaneFromScroll(carouselNode);
+        return;
+      }
+
       carouselNode.scrollLeft = nextScrollLeftPx;
       setIsMobilePaneSettledEffect(true);
-      hasAlignedInitialMobilePaneRef.current = true;
       return;
     }
 

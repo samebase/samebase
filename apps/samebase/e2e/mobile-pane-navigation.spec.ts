@@ -78,6 +78,21 @@ test("hydration keeps the mobile pane that the user swiped to", async ({ page },
   const carousel = page.locator('[data-sidebar-layout-part="carousel"]');
   await expect(page.locator('[data-pane-side="right"]')).toBeAttached();
 
+  // The server HTML has the real layout, so a scroll position means the same before and after
+  // hydration. The main pane is on screen with the left pane to its left.
+  const mainPane = page.locator('[data-sidebar-layout-part="pane"][data-pane-side="main"]');
+  await expect
+    .poll(() =>
+      mainPane.evaluate(
+        (element) =>
+          element.getBoundingClientRect().left +
+          element.parentElement!.scrollLeft -
+          element.offsetLeft,
+      ),
+    )
+    .toBe(0);
+  expect(await mainPane.evaluate((element) => element.offsetLeft)).toBeGreaterThan(0);
+
   await carousel.evaluate((element) => {
     element.scrollLeft = element.scrollWidth;
   });

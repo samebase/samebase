@@ -1,6 +1,19 @@
 import { type CSSProperties, type ReactElement, type RefObject } from "react";
 import { type SidebarLayoutActiveResizeSide } from "./SidebarLayoutGeometryInternal.ts";
 
+/**
+The server HTML has the real pane layout, and the browser may paint it while it parses a long page.
+This script runs at the start of each pane, so the carousel is on the saved pane before that paint.
+After it, the scroll position is the only record of the pane on screen: hydration reads it.
+*/
+const INITIAL_PANE_SCRIPT = `(()=>{const pane=document.currentScript.parentElement;if(pane.closest('[data-sidebar-layout-part="viewport"]').dataset.mobilePane===pane.dataset.paneSide)pane.parentElement.scrollLeft=pane.offsetLeft})()`;
+
+function InitialPaneScript() {
+  return (
+    <script dangerouslySetInnerHTML={{ __html: INITIAL_PANE_SCRIPT }} suppressHydrationWarning />
+  );
+}
+
 type SidebarLayoutResolvedPaneContent = {
   leftContent: ReactElement | undefined;
   mainContent: ReactElement;
@@ -106,11 +119,13 @@ export function SidebarLayoutViewport({
           inert={inertClosedDesktopPanes && desktopLeftWidthPx === 0 ? true : undefined}
           style={leftPaneStyle}
         >
+          <InitialPaneScript />
           {leftContent}
         </div>
       ) : null}
 
       <div data-pane-side="main" data-sidebar-layout-part="pane" style={{ width: mainPaneWidth }}>
+        <InitialPaneScript />
         <div data-sidebar-layout-part="pane-surface">{mainContent}</div>
       </div>
 
@@ -125,6 +140,7 @@ export function SidebarLayoutViewport({
           inert={inertClosedDesktopPanes && desktopRightWidthPx === 0 ? true : undefined}
           style={rightPaneStyle}
         >
+          <InitialPaneScript />
           {rightContent}
         </div>
       ) : null}
