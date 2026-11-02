@@ -5,6 +5,7 @@ import {
   useMutation as useConvexMutation,
   useQuery as useConvexQuery,
 } from "convex/react";
+import { ConvexError } from "convex/values";
 import { Loader2 } from "lucide-react";
 import { useState, type ReactNode } from "react";
 
@@ -319,6 +320,7 @@ export function OrganizationsPage({ authorizationNotice }: { authorizationNotice
   const viewer = useConvexQuery(api.users.viewer);
   const [error, setError] = useState<string | null>(null);
   const [pendingSetup, setPendingSetup] = useState<"github-app" | "github-user" | null>(null);
+  const [installNeedsAuthorization, setInstallNeedsAuthorization] = useState(false);
   const optionsQuery = useQuery({
     queryFn: () => listOptions({}),
     queryKey: ["github-app-connection-options", viewer?._id],
@@ -361,6 +363,7 @@ export function OrganizationsPage({ authorizationNotice }: { authorizationNotice
 
   const optionsResult = optionsQuery.data;
   const discovery: OrganizationDiscoveryState =
+    installNeedsAuthorization ||
     connectMutation.data?.status === "authorization_required" ||
     optionsResult?.status === "authorization_required"
       ? { status: "authorization_required" }
@@ -394,13 +397,18 @@ export function OrganizationsPage({ authorizationNotice }: { authorizationNotice
         ? getGitHubUserAuthorizationUrl({ returnToPath: getCurrentRootRelativeUrl() })
         : getInstallationUrl({ returnToPath: getCurrentRootRelativeUrl() }),
     )
-      .catch(() =>
+      .catch((failure: unknown) => {
+        // The preview seed account lists installations with no authorization, so only install asks.
+        if (failure instanceof ConvexError && failure.data === "github-authorization-required") {
+          setInstallNeedsAuthorization(true);
+          return;
+        }
         setError(
           provider === "github-user"
             ? "Could not open GitHub authorization."
             : "Could not open GitHub App installation.",
-        ),
-      )
+        );
+      })
       .finally(() => setPendingSetup(null));
   };
 
