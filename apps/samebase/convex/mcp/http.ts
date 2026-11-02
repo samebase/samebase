@@ -67,7 +67,7 @@ export const MCP_REGISTRATION_MAX_BODY_LENGTH = 64 * 1024;
 const MCP_AUTH_REQUEST_TTL_MS = 10 * 60 * 1000;
 const MCP_SERVER_INFO = {
   name: "Samebase",
-  version: "0.3.0",
+  version: "0.4.0",
 } as const;
 // Each attention item says what to do, and each tool states its own rules in its description, so the
 // instructions keep only routing, the creation sequence, the confirmation rule, and the dashboard

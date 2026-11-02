@@ -727,7 +727,7 @@ describe("MCP tools/call access enforcement", () => {
       result: {
         protocolVersion: "2025-06-18",
         capabilities: { tools: {} },
-        serverInfo: { name: "Samebase", version: "0.3.0" },
+        serverInfo: { name: "Samebase", version: "0.4.0" },
         instructions: expect.stringMatching(
           /^Samebase starts apps and monitors them: a GitHub repository whose GitHub Actions deploy it with Alchemy\. Repair lives in Alchemy and the coding agent: fix a deployment in the repository, not through Samebase\.[\s\S]*Name a repository by owner\/name\.\n\nTo create a repository, call repository_create once, then poll only repository_list until source and provider setup are ready or failed\. For build, deployment, check, or pull request questions, call repository_getStatus and follow its attention items\. Ready setup, a build request, or a push does not prove that the app is live\.[\s\S]*A needs_confirmation result changed nothing: state its effect, and repeat the call with its token and exact acknowledgement only after the user approves\.\n\nFor a request to open the Samebase dashboard, call account_createSignInLink directly\. Only the dashboard can remove a repository from Samebase[\s\S]*create it only after the user accepts\.$/,
         ),
