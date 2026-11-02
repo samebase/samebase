@@ -53,29 +53,6 @@ function AppRightSidebarAccountLoadingSection() {
   );
 }
 
-function AppRightSidebarOnboardingVideo() {
-  return (
-    <section className="repository-dashboard-sidebar-inset pb-3 pt-6">
-      <h2 className="text-2xl font-medium">First time using Samebase?</h2>
-      <a
-        className="mt-2 block"
-        href="https://youtu.be/8-ZEGPpqi9Y"
-        rel="noreferrer"
-        target="_blank"
-      >
-        <span className="text-lg underline">
-          Watch the complete onboarding on <span className="text-red-600">YouTube</span>
-        </span>
-        <img
-          alt=""
-          className="mt-2 aspect-[48/31] w-full object-cover"
-          src="/onboarding/complete-onboarding-poster.webp"
-        />
-      </a>
-    </section>
-  );
-}
-
 function AppRightSidebarSessionRecordingConsent() {
   const setSessionRecordingConsent = useMutation(api.users.setSessionRecordingConsent);
   const [pendingDecision, setPendingDecision] = useState<"granted" | "denied" | null>(null);
@@ -198,10 +175,8 @@ function AppRightSidebarProductUpdateEmailConsent() {
 
 function AppRightSidebarFooter({
   consentPrompt,
-  showOnboardingVideo,
 }: {
   consentPrompt: "product_update_email" | "session_recording" | null;
-  showOnboardingVideo: boolean;
 }) {
   return (
     <div className="mt-auto">
@@ -209,7 +184,6 @@ function AppRightSidebarFooter({
         <AppRightSidebarProductUpdateEmailConsent />
       ) : null}
       {consentPrompt === "session_recording" ? <AppRightSidebarSessionRecordingConsent /> : null}
-      {showOnboardingVideo ? <AppRightSidebarOnboardingVideo /> : null}
       <AppSidebarMetaSection linkAlignment="left" />
     </div>
   );
@@ -219,7 +193,7 @@ function PublicAppRightSidebarContent() {
   return (
     <RepositoryDashboardSidebarContent>
       <PublicLandingAccountSection />
-      <AppRightSidebarFooter consentPrompt={null} showOnboardingVideo={false} />
+      <AppRightSidebarFooter consentPrompt={null} />
     </RepositoryDashboardSidebarContent>
   );
 }
@@ -246,7 +220,7 @@ function LoadingAuthenticatedAppRightSidebarContent() {
     <RepositoryDashboardSidebarContent>
       <AppRightSidebarSignedInAccountSection user={undefined} />
       <GlobalAppRightSidebarLinks />
-      <AppRightSidebarFooter consentPrompt={null} showOnboardingVideo={false} />
+      <AppRightSidebarFooter consentPrompt={null} />
     </RepositoryDashboardSidebarContent>
   );
 }
@@ -289,7 +263,7 @@ function AccountOnlyAuthenticatedAppRightSidebarContent({
           </p>
         </section>
       ) : null}
-      <AppRightSidebarFooter consentPrompt={null} showOnboardingVideo />
+      <AppRightSidebarFooter consentPrompt={null} />
     </RepositoryDashboardSidebarContent>
   );
 }
@@ -419,10 +393,9 @@ function AuthenticatedAppRightSidebarContent({
 }: {
   showAdminNavigation: boolean;
 }) {
-  // The root loader fetched these for a server render with this access, so the links, the consent
-  // prompt, and the onboarding video are in the first HTML; the subscriptions keep them live.
+  // The root loader fetched these for a server render with this access, so the links and the
+  // consent prompt are in the first HTML; the subscriptions keep them live.
   const { data: user } = useQuery(rootQueries.viewer);
-  const { data: repositories } = useQuery(rootQueries.repositories);
   const { data: productUpdateEmailConsent } = useQuery(rootQueries.productUpdateEmailConsent);
   const { data: sessionRecordingConsent } = useQuery(rootQueries.sessionRecordingConsent);
   const { organizations, surface } = useOrganizationContext();
@@ -433,7 +406,6 @@ function AuthenticatedAppRightSidebarContent({
           organizations?.length === 1
         ? organizations[0]
         : null;
-  const showOnboardingVideo = repositories?.length === 0;
   const consentPrompt =
     productUpdateEmailConsent?.state === "not_decided"
       ? "product_update_email"
@@ -450,10 +422,7 @@ function AuthenticatedAppRightSidebarContent({
       {navigationOrganization === null ? null : (
         <OrganizationAppRightSidebarLinks organization={navigationOrganization} />
       )}
-      <AppRightSidebarFooter
-        consentPrompt={consentPrompt}
-        showOnboardingVideo={showOnboardingVideo}
-      />
+      <AppRightSidebarFooter consentPrompt={consentPrompt} />
     </RepositoryDashboardSidebarContent>
   );
 }

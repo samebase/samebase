@@ -81,7 +81,6 @@ export async function loadRoot({
       accessKeys.includes("access_dashboard") ? queryClient.query(rootQueries.organizations) : null,
       accessKeys.includes("access_provider_connections")
         ? Promise.all([
-            queryClient.query(rootQueries.repositories),
             queryClient.query(rootQueries.productUpdateEmailConsent),
             queryClient.query(rootQueries.sessionRecordingConsent),
           ])
