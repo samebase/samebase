@@ -31,10 +31,6 @@ async function seedRunningDeletion() {
       termsVersion: "2026-08-12",
       termsAcceptedAt: 1,
     });
-    const initiatingSessionId = await ctx.db.insert("authSessions", {
-      userId: deletingUserId,
-      expirationTime: 2_000_000_000_000,
-    });
     const organizationId = await ctx.db.insert("organizations", {
       githubOwnerId: "501",
       githubOwnerType: "organization",
@@ -76,7 +72,6 @@ async function seedRunningDeletion() {
       requestedAt: 1,
       deletionStartsAt: 1,
       updatedAt: 1,
-      initiatingSessionId,
       retryCount: 0,
       outcomes: {
         providerRevocation: { state: "not_started" },
@@ -201,7 +196,6 @@ async function seedRunningDeletion() {
     return {
       deletingUserCreationTime: deletingUser._creationTime,
       deletingUserId,
-      initiatingSessionId,
       teammateUserId,
       organizationId,
       organizationBillingId,
@@ -683,7 +677,6 @@ describe("account deletion organization boundary", () => {
 
     const snapshot = await t.run(async (ctx) => ({
       deletingUser: await ctx.db.get(ids.deletingUserId),
-      initiatingSession: await ctx.db.get(ids.initiatingSessionId),
       organization: await ctx.db.get(ids.organizationId),
       organizationBilling: await ctx.db.get(ids.organizationBillingId),
       repository: await ctx.db.get(ids.repositoryId),
@@ -741,7 +734,6 @@ describe("account deletion organization boundary", () => {
       "deletedAt",
       "state",
     ]);
-    expect(snapshot.initiatingSession).toBeNull();
     expect(snapshot.organizationBilling).not.toBeNull();
     expect(snapshot.repository).not.toBeNull();
     expect(snapshot.stagedFile).not.toBeNull();
@@ -785,28 +777,12 @@ describe("account deletion organization boundary", () => {
         vi.useFakeTimers();
       }
       const { ids, t } = await seedRunningDeletion();
-      const authIds = await t.run(async (ctx) => {
-        await ctx.db.patch(ids.runId, { initiatingSessionId: undefined });
-        const verifierId = await ctx.db.insert("authVerifiers", {
-          sessionId: ids.initiatingSessionId,
-        });
-        const refreshTokenId = await ctx.db.insert("authRefreshTokens", {
-          sessionId: ids.initiatingSessionId,
-          expirationTime: 2_000_000_000_000,
-        });
-        const accountId = await ctx.db.insert("authAccounts", {
+      const accountId = await t.run(async (ctx) => {
+        return await ctx.db.insert("authAccounts", {
           userId: ids.deletingUserId,
           provider: "google",
           providerAccountId: "staff-requested-deletion",
         });
-        const verificationCodeId = await ctx.db.insert("authVerificationCodes", {
-          accountId,
-          provider: "google",
-          code: "unused",
-          expirationTime: 2_000_000_000_000,
-          verifier: "unused",
-        });
-        return { accountId, refreshTokenId, verificationCodeId, verifierId };
       });
 
       await prepareIdentityDeletionData(t, ids.runId);
@@ -871,18 +847,6 @@ describe("account deletion organization boundary", () => {
         outcome: email,
       });
 
-      let sessionsRemoved = false;
-      for (let batch = 0; batch < 8; batch += 1) {
-        sessionsRemoved = await t.mutation(
-          internal.accountDeletion.authCleanup.deleteOtherSessionBatch,
-          { runId: ids.runId, workflowId },
-        );
-        if (sessionsRemoved) {
-          break;
-        }
-      }
-      expect(sessionsRemoved).toBe(true);
-
       let accountsRemoved = false;
       for (let batch = 0; batch < 8; batch += 1) {
         accountsRemoved = await t.mutation(
@@ -894,16 +858,6 @@ describe("account deletion organization boundary", () => {
         }
       }
       expect(accountsRemoved).toBe(true);
-      await t.mutation(internal.accountDeletion.authCleanup.deleteIdentityRateLimit, {
-        runId: ids.runId,
-        workflowId,
-      });
-      await expect(
-        t.mutation(internal.accountDeletion.authCleanup.deleteInitiatingSessionBatch, {
-          runId: ids.runId,
-          workflowId,
-        }),
-      ).resolves.toBe(true);
       await expect(
         t.mutation(internal.accountDeletion.authCleanup.deleteEventBatch, {
           runId: ids.runId,
@@ -921,26 +875,18 @@ describe("account deletion organization boundary", () => {
 
       await expect(
         t.run(async (ctx) => ({
-          account: await ctx.db.get(authIds.accountId),
-          refreshToken: await ctx.db.get(authIds.refreshTokenId),
+          account: await ctx.db.get(accountId),
           run: await ctx.db.get(ids.runId),
-          session: await ctx.db.get(ids.initiatingSessionId),
           user: await ctx.db.get(ids.deletingUserId),
-          verificationCode: await ctx.db.get(authIds.verificationCodeId),
-          verifier: await ctx.db.get(authIds.verifierId),
         })),
       ).resolves.toMatchObject({
         account: null,
-        refreshToken: null,
         run: {
           state: "succeeded",
           identity: { state: "scrubbed" },
           outcomes: { completionEmail: email },
         },
-        session: null,
         user: { state: "deleted" },
-        verificationCode: null,
-        verifier: null,
       });
       const threads = await t.query(components.mail.mail.listThreads, {
         inboxId: null,
@@ -1107,57 +1053,15 @@ describe("account deletion organization boundary", () => {
     ).rejects.toThrow("Account deletion is not ready to finalize.");
 
     const snapshot = await t.run(async (ctx) => ({
-      initiatingSession: await ctx.db.get(ids.initiatingSessionId),
       run: await ctx.db.get(ids.runId),
       user: await ctx.db.get(ids.deletingUserId),
     }));
     expect(snapshot.user).toMatchObject({ state: "active" });
-    expect(snapshot.initiatingSession).not.toBeNull();
     expect(snapshot.run).toMatchObject({
       state: "running",
       currentStep: "delete_identity",
       identity: { state: "active", userId: ids.deletingUserId },
     });
-  });
-
-  it("rejects final identity deletion atomically when a refresh token remains", async () => {
-    const { ids, t } = await seedRunningDeletion();
-    await prepareIdentityDeletionData(t, ids.runId);
-    const refreshTokenId = await t.run(async (ctx) => {
-      return await ctx.db.insert("authRefreshTokens", {
-        sessionId: ids.initiatingSessionId,
-        expirationTime: 2_000_000_000_000,
-      });
-    });
-    await t.mutation(internal.accountDeletion.workflow.recordIdentityDeletionStart, {
-      runId: ids.runId,
-      workflowId,
-    });
-
-    await expect(
-      t.mutation(internal.accountDeletion.authCleanup.finishIdentityDeletion, {
-        runId: ids.runId,
-        workflowId,
-      }),
-    ).rejects.toThrow("Initiating auth session children remain during finalization.");
-
-    const snapshot = await t.run(async (ctx) => ({
-      initiatingSession: await ctx.db.get(ids.initiatingSessionId),
-      refreshToken: await ctx.db.get(refreshTokenId),
-      run: await ctx.db.get(ids.runId),
-      user: await ctx.db.get(ids.deletingUserId),
-    }));
-    expect(snapshot.user).toMatchObject({
-      state: "deleting",
-      runId: ids.runId,
-    });
-    expect(snapshot.run).toMatchObject({
-      state: "running",
-      currentStep: "delete_identity",
-      identity: { state: "active", userId: ids.deletingUserId },
-    });
-    expect(snapshot.initiatingSession).not.toBeNull();
-    expect(snapshot.refreshToken).not.toBeNull();
   });
 
   it("keeps the user deleting after failure and retries the same run", async () => {

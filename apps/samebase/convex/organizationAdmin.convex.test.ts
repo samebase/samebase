@@ -112,10 +112,6 @@ describe("organization membership administration", () => {
         termsVersion: "2026-08-12",
         termsAcceptedAt: 1,
       });
-      const initiatingSessionId = await ctx.db.insert("authSessions", {
-        userId: deletingUserId,
-        expirationTime: 2_000_000_000_000,
-      });
       const runId = await ctx.db.insert("workflow_accountDeletion_runs", {
         state: "running",
         identity: {
@@ -127,7 +123,6 @@ describe("organization membership administration", () => {
         currentStep: "request_accepted",
         requestedAt: 1,
         updatedAt: 1,
-        initiatingSessionId,
         retryCount: 0,
         outcomes: {
           providerRevocation: { state: "not_started" },

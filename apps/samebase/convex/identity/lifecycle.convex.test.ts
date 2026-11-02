@@ -17,10 +17,6 @@ async function insertDeletionRun(
   ctx: MutationCtx,
   args: { email: string; userId: Id<"users"> },
 ): Promise<Id<"workflow_accountDeletion_runs">> {
-  const initiatingSessionId = await ctx.db.insert("authSessions", {
-    userId: args.userId,
-    expirationTime: Date.now() + 60_000,
-  });
   return await ctx.db.insert("workflow_accountDeletion_runs", {
     state: "running",
     identity: { state: "active", userId: args.userId, email: args.email },
@@ -28,7 +24,6 @@ async function insertDeletionRun(
     currentStep: "request_accepted",
     requestedAt: 1,
     updatedAt: 1,
-    initiatingSessionId,
     retryCount: 0,
     outcomes: {
       providerRevocation: { state: "not_started" },

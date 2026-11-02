@@ -1,9 +1,8 @@
 import { defineTable } from "convex/server";
 import { v } from "convex/values";
-import { vAuthAccountLinkIntent } from "./accountModel";
 import { vUserLifecycle } from "./lifecycle";
 
-const { id, number, optional, string } = v;
+const { id, optional, string } = v;
 
 export const identityTables = {
   /**
@@ -22,44 +21,6 @@ export const identityTables = {
   })
     .index("userIdAndProvider", ["userId", "provider"])
     .index("providerAndAccountId", ["provider", "providerAccountId"]),
-
-  // The Convex Auth 0.0.x session tables. Nothing writes them; they hold the documents from before
-  // the Convex Auth 2 cutover until those are deleted, and account deletion removes a user's rows.
-  authSessions: defineTable({
-    userId: id("users"),
-    expirationTime: number(),
-    accountLinkIntent: optional(vAuthAccountLinkIntent),
-  }).index("userId", ["userId"]),
-  authRefreshTokens: defineTable({
-    sessionId: id("authSessions"),
-    expirationTime: number(),
-    firstUsedTime: optional(number()),
-    parentRefreshTokenId: optional(id("authRefreshTokens")),
-  })
-    .index("sessionId", ["sessionId"])
-    .index("sessionIdAndParentRefreshTokenId", ["sessionId", "parentRefreshTokenId"]),
-  authVerificationCodes: defineTable({
-    accountId: id("authAccounts"),
-    provider: string(),
-    code: string(),
-    expirationTime: number(),
-    verifier: optional(string()),
-    emailVerified: optional(string()),
-    phoneVerified: optional(string()),
-  })
-    .index("accountId", ["accountId"])
-    .index("code", ["code"]),
-  authVerifiers: defineTable({
-    sessionId: optional(id("authSessions")),
-    signature: optional(string()),
-  })
-    .index("signature", ["signature"])
-    .index("sessionId", ["sessionId"]),
-  authRateLimits: defineTable({
-    identifier: string(),
-    lastAttemptTime: number(),
-    attemptsLeft: number(),
-  }).index("identifier", ["identifier"]),
 
   /** Samebase accounts with an explicit terminal lifecycle. */
   users: defineTable(vUserLifecycle)

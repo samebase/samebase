@@ -689,10 +689,6 @@ describe("MCP OAuth account deletion access", () => {
         termsVersion: "2026-08-12",
         termsAcceptedAt: 1,
       });
-      const initiatingSessionId = await ctx.db.insert("authSessions", {
-        userId: deletingUserId,
-        expirationTime: now + 60_000,
-      });
       const runId = await ctx.db.insert("workflow_accountDeletion_runs", {
         identity: {
           state: "active",
@@ -705,7 +701,6 @@ describe("MCP OAuth account deletion access", () => {
         currentStep: "revoke_access",
         requestedAt: now,
         updatedAt: now,
-        initiatingSessionId,
         retryCount: 0,
         outcomes: {
           providerRevocation: { state: "not_started" },
@@ -772,10 +767,6 @@ describe("MCP OAuth account deletion access", () => {
         termsVersion: "2026-08-12",
         termsAcceptedAt: 1,
       });
-      const initiatingSessionId = await ctx.db.insert("authSessions", {
-        userId: deletingUserId,
-        expirationTime: now + 60_000,
-      });
       const runId = await ctx.db.insert("workflow_accountDeletion_runs", {
         identity: {
           state: "active",
@@ -788,7 +779,6 @@ describe("MCP OAuth account deletion access", () => {
         currentStep: "revoke_access",
         requestedAt: now,
         updatedAt: now,
-        initiatingSessionId,
         retryCount: 0,
         outcomes: {
           providerRevocation: { state: "not_started" },
@@ -876,10 +866,6 @@ describe("MCP OAuth account deletion access", () => {
         termsVersion: "2026-08-12",
         termsAcceptedAt: 1,
       });
-      const initiatingSessionId = await ctx.db.insert("authSessions", {
-        userId,
-        expirationTime: now + 60_000,
-      });
       const runId = await ctx.db.insert("workflow_accountDeletion_runs", {
         identity: { state: "active", userId, email: "deleting-mcp@example.test" },
         completionCapability: "mcp-deletion-test",
@@ -888,7 +874,6 @@ describe("MCP OAuth account deletion access", () => {
         currentStep: "revoke_access",
         requestedAt: now,
         updatedAt: now,
-        initiatingSessionId,
         retryCount: 0,
         outcomes: {
           providerRevocation: { state: "not_started" },

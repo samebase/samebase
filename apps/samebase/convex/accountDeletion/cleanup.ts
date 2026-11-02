@@ -19,12 +19,7 @@ type AccountDeletionTablePolicy =
  * stays intact when one member deletes their Samebase identity.
  */
 export const ACCOUNT_DELETION_TABLE_REGISTRY = {
-  authSessions: "auth_finalization",
   authAccounts: "auth_finalization",
-  authRefreshTokens: "auth_finalization",
-  authVerificationCodes: "auth_finalization",
-  authVerifiers: "auth_finalization",
-  authRateLimits: "auth_finalization",
   users: "user_finalization",
   organizations: "organization_preserved",
   organizationMemberships: "precondition_absent",

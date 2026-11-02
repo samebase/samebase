@@ -543,10 +543,6 @@ describe("GitHub-backed organizations", () => {
       userEmail: "first-owner@example.com",
     });
     const runId = await t.run(async (ctx) => {
-      const initiatingSessionId = await ctx.db.insert("authSessions", {
-        userId: secondUserId,
-        expirationTime: Date.now() + 60_000,
-      });
       return await ctx.db.insert("workflow_accountDeletion_runs", {
         state: "running",
         identity: {
@@ -558,7 +554,6 @@ describe("GitHub-backed organizations", () => {
         currentStep: "request_accepted",
         requestedAt: 1,
         updatedAt: 1,
-        initiatingSessionId,
         retryCount: 0,
         outcomes: {
           providerRevocation: { state: "not_started" },

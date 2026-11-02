@@ -11,22 +11,16 @@ afterEach(() => {
 });
 
 async function seedActiveViewer(t: ReturnType<typeof makeConvexTest>, email: string) {
-  const { sessionId, userId } = await t.run(async (ctx) => {
-    const userId = await ctx.db.insert("users", {
+  const userId = await t.run(async (ctx) => {
+    return await ctx.db.insert("users", {
       state: "active",
       email,
       isApproved: true,
       termsVersion: "2026-08-12",
       termsAcceptedAt: 1,
     });
-    const sessionId = await ctx.db.insert("authSessions", {
-      userId,
-      expirationTime: 2_000_000_000_000,
-    });
-    return { sessionId, userId };
   });
   return {
-    sessionId,
     userId,
     viewer: t.withIdentity({
       subject: userId,
@@ -57,11 +51,10 @@ async function seedStaffViewer(t: ReturnType<typeof makeConvexTest>) {
 describe("account deletion request and status", () => {
   it("returns no active status and makes no writes for a confirmation mismatch", async () => {
     const t = makeConvexTest();
-    const { sessionId, userId, viewer } = await seedActiveViewer(t, "active@example.invalid");
+    const { userId, viewer } = await seedActiveViewer(t, "active@example.invalid");
     const before = await t.run(async (ctx) => ({
       events: await ctx.db.query("workflow_accountDeletion_events").collect(),
       runs: await ctx.db.query("workflow_accountDeletion_runs").collect(),
-      session: await ctx.db.get(sessionId),
       user: await ctx.db.get(userId),
     }));
 
@@ -77,16 +70,14 @@ describe("account deletion request and status", () => {
     const after = await t.run(async (ctx) => ({
       events: await ctx.db.query("workflow_accountDeletion_events").collect(),
       runs: await ctx.db.query("workflow_accountDeletion_runs").collect(),
-      session: await ctx.db.get(sessionId),
       user: await ctx.db.get(userId),
     }));
     expect(after).toEqual(before);
   });
 
-  it("queues one run for seven days without a session id and starts from the callback", async () => {
+  it("queues one run for seven days and starts from the callback", async () => {
     const t = makeConvexTest();
-    const { sessionId, userId, viewer } = await seedActiveViewer(t, "requester@example.invalid");
-    const initiatingSession = await t.run(async (ctx) => await ctx.db.get(sessionId));
+    const { userId, viewer } = await seedActiveViewer(t, "requester@example.invalid");
     const args = {
       completionCapability: "b".repeat(64),
       deletionStartMode: "seven_days" as const,
@@ -115,7 +106,6 @@ describe("account deletion request and status", () => {
         run: await ctx.db.get(first.status.runId),
         runs: await ctx.db.query("workflow_accountDeletion_runs").collect(),
         scheduledFunctions: await ctx.db.system.query("_scheduled_functions").take(2),
-        session: await ctx.db.get(sessionId),
         user: await ctx.db.get(userId),
       }));
       expect(snapshot.runs).toHaveLength(1);
@@ -126,14 +116,12 @@ describe("account deletion request and status", () => {
           state: { kind: "pending" },
         }),
       ]);
-      expect(snapshot.session).toEqual(initiatingSession);
       expect(snapshot.run).toMatchObject({
         _id: first.status.runId,
         deletionStartsAt: 604_801_000,
         state: "queued",
         workflow: { state: "not_started" },
       });
-      expect(snapshot.run).not.toHaveProperty("initiatingSessionId");
       expect(snapshot.user).toMatchObject({
         _id: userId,
         runId: first.status.runId,
@@ -191,7 +179,7 @@ describe("account deletion request and status", () => {
     vi.stubEnv("ACCOUNT_DELETION_GRACE_PERIOD_MS", "0");
 
     const t = makeConvexTest();
-    const { sessionId, userId, viewer } = await seedActiveViewer(t, "legacy@example.invalid");
+    const { userId, viewer } = await seedActiveViewer(t, "legacy@example.invalid");
     const runId = await t.run(async (ctx) => {
       const runId = await ctx.db.insert("workflow_accountDeletion_runs", {
         state: "queued",
@@ -204,7 +192,6 @@ describe("account deletion request and status", () => {
         currentStep: "request_accepted",
         requestedAt: 1,
         updatedAt: 1,
-        initiatingSessionId: sessionId,
         retryCount: 0,
         outcomes: {
           providerRevocation: { state: "not_started" },
@@ -361,23 +348,14 @@ describe("account deletion request and status", () => {
     });
   });
 
-  it("lets staff queue any active user and removes every session when deletion starts", async () => {
+  it("lets staff queue any active user and starts the deletion", async () => {
     const t = makeConvexTest();
     const { userId: staffUserId, viewer: staff } = await seedStaffViewer(t);
-    const { sessionIds, userId } = await t.run(async (ctx) => {
-      const userId = await ctx.db.insert("users", {
+    const userId = await t.run(async (ctx) => {
+      return await ctx.db.insert("users", {
         state: "active",
         email: "staff-target@example.invalid",
       });
-      const firstSessionId = await ctx.db.insert("authSessions", {
-        userId,
-        expirationTime: 2_000_000_000_000,
-      });
-      const secondSessionId = await ctx.db.insert("authSessions", {
-        userId,
-        expirationTime: 2_000_000_000_000,
-      });
-      return { sessionIds: [firstSessionId, secondSessionId], userId };
     });
 
     vi.useFakeTimers();
@@ -403,23 +381,18 @@ describe("account deletion request and status", () => {
       const queued = await t.run(async (ctx) => ({
         run: await ctx.db.get(status.runId),
         scheduledFunctions: await ctx.db.system.query("_scheduled_functions").take(2),
-        sessions: await Promise.all(
-          sessionIds.map(async (sessionId) => await ctx.db.get(sessionId)),
-        ),
         user: await ctx.db.get(userId),
       }));
       expect(queued.run).toMatchObject({
         state: "queued",
         workflow: { state: "not_started" },
       });
-      expect(queued.run).not.toHaveProperty("initiatingSessionId");
       expect(queued.scheduledFunctions).toEqual([
         expect.objectContaining({
           scheduledTime: 604_805_000,
           state: { kind: "pending" },
         }),
       ]);
-      expect(queued.sessions.every((session) => session !== null)).toBe(true);
       expect(queued.user).toMatchObject({ state: "deleting", runId: status.runId });
 
       const operations = await staff.query(api.accountDeletion.index.listForAdmin, {
@@ -435,29 +408,6 @@ describe("account deletion request and status", () => {
         throw new Error("Account deletion did not start.");
       }
       expect(started.deletionStartsAt).toBe(604_805_000);
-      await expect(
-        t.mutation(internal.accountDeletion.authCleanup.deleteOtherSessionBatch, {
-          runId: status.runId,
-          workflowId: started.workflow.workflowId,
-        }),
-      ).resolves.toBe(false);
-      await expect(
-        t.mutation(internal.accountDeletion.authCleanup.deleteOtherSessionBatch, {
-          runId: status.runId,
-          workflowId: started.workflow.workflowId,
-        }),
-      ).resolves.toBe(false);
-      await expect(
-        t.mutation(internal.accountDeletion.authCleanup.deleteOtherSessionBatch, {
-          runId: status.runId,
-          workflowId: started.workflow.workflowId,
-        }),
-      ).resolves.toBe(true);
-      await expect(
-        t.run(async (ctx) =>
-          Promise.all(sessionIds.map(async (sessionId) => await ctx.db.get(sessionId))),
-        ),
-      ).resolves.toEqual([null, null]);
     } finally {
       vi.useRealTimers();
     }
@@ -465,7 +415,7 @@ describe("account deletion request and status", () => {
 
   it("lets staff restore only a queued deletion and makes the late callback a no-op", async () => {
     const t = makeConvexTest();
-    const { sessionId, userId, viewer } = await seedActiveViewer(t, "restore@example.invalid");
+    const { userId, viewer } = await seedActiveViewer(t, "restore@example.invalid");
     await t.run(async (ctx) =>
       ctx.db.patch(userId, {
         name: "Restored User",
@@ -496,12 +446,10 @@ describe("account deletion request and status", () => {
         .withIndex("by_run_and_created_at", (query) => query.eq("runId", requested.status.runId))
         .collect(),
       run: await ctx.db.get(requested.status.runId),
-      session: await ctx.db.get(sessionId),
       user: await ctx.db.get(userId),
     }));
     expect(restored.events).toEqual([]);
     expect(restored.run).toBeNull();
-    expect(restored.session).not.toBeNull();
     expect(restored.user).toMatchObject({
       _id: userId,
       email: "restore@example.invalid",
@@ -558,7 +506,7 @@ describe("account deletion request and status", () => {
 
   it("rejects deleting markers whose run is missing or owned by another user", async () => {
     const t = makeConvexTest();
-    const { sessionId, userId, viewer } = await seedActiveViewer(t, "inconsistent@example.invalid");
+    const { userId, viewer } = await seedActiveViewer(t, "inconsistent@example.invalid");
     await t.run(async (ctx) => {
       const missingRunId = await ctx.db.insert("workflow_accountDeletion_runs", {
         state: "queued",
@@ -571,7 +519,6 @@ describe("account deletion request and status", () => {
         currentStep: "request_accepted",
         requestedAt: 1,
         updatedAt: 1,
-        initiatingSessionId: sessionId,
         retryCount: 0,
         outcomes: {
           providerRevocation: { state: "not_started" },
@@ -600,10 +547,7 @@ describe("account deletion request and status", () => {
       }),
     ).rejects.toThrow("Account deletion state is inconsistent.");
 
-    const { sessionId: runOwnerSessionId, userId: runOwnerUserId } = await seedActiveViewer(
-      t,
-      "run-owner@example.invalid",
-    );
+    const { userId: runOwnerUserId } = await seedActiveViewer(t, "run-owner@example.invalid");
     await t.run(async (ctx) => {
       const wrongOwnerRunId = await ctx.db.insert("workflow_accountDeletion_runs", {
         state: "queued",
@@ -616,7 +560,6 @@ describe("account deletion request and status", () => {
         currentStep: "request_accepted",
         requestedAt: 1,
         updatedAt: 1,
-        initiatingSessionId: runOwnerSessionId,
         retryCount: 0,
         outcomes: {
           providerRevocation: { state: "not_started" },

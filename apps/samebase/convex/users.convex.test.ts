@@ -381,10 +381,6 @@ describe("organization provider status", () => {
 
     await t.run(async (ctx) => {
       const now = Date.now();
-      const initiatingSessionId = await ctx.db.insert("authSessions", {
-        userId,
-        expirationTime: now + 60_000,
-      });
       const runId = await ctx.db.insert("workflow_accountDeletion_runs", {
         state: "running",
         identity: { state: "active", userId, email: "owner@example.com" },
@@ -392,7 +388,6 @@ describe("organization provider status", () => {
         currentStep: "revoke_access",
         requestedAt: now,
         updatedAt: now,
-        initiatingSessionId,
         retryCount: 0,
         outcomes: {
           providerRevocation: { state: "in_progress", convexManualRevocationRequired: false },
