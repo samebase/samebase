@@ -36,9 +36,12 @@ async function openRepositoryOverviewV2(
   });
   await page.waitForLoadState("networkidle");
 
-  const fixture = mode.includes("-dialog")
-    ? page.getByRole("dialog")
-    : page.locator('[data-sidebar-layout-part="root"]');
+  const fixture =
+    mode === "repository-overview-v2-convex-schema"
+      ? page.getByTestId(mode)
+      : mode.includes("-dialog")
+        ? page.getByRole("dialog")
+        : page.locator('[data-sidebar-layout-part="root"]');
   await expect(fixture).toBeVisible();
   return fixture;
 }
@@ -169,6 +172,18 @@ test("keeps the Data and Components routes of a stack's production deployment", 
   await page.getByRole("menuitem", { name: "Data" }).click();
 
   await expect(page).toHaveURL("/repo/samebase/samebase/db/main/project/convex-project-samebase");
+});
+
+test("keeps the Schema route of a stack's production deployment", async ({ page }) => {
+  const fixture = await openRepositoryOverviewV2(page, "repository-overview-v2-r2");
+
+  await fixture.getByRole("button", { name: "Open clear-butterfly-858 actions" }).click();
+  await expect(page.getByRole("menuitem", { name: "Data" })).toBeVisible();
+  await page.getByRole("menuitem", { name: "Schema" }).click();
+
+  await expect(page).toHaveURL(
+    "/repo/samebase/samebase/schema/main/project/convex-project-samebase",
+  );
 });
 
 test("shows one card per Alchemy stack on desktop and mobile", async ({ page }) => {
@@ -333,6 +348,61 @@ test("covers default-branch and pull-request check details", async ({ page }) =>
       scale: "css",
     },
   );
+});
+
+test("renders and drags the production Convex schema graph", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  const desktopFixture = await openRepositoryOverviewV2(
+    page,
+    "repository-overview-v2-convex-schema",
+  );
+  const schemaNodes = desktopFixture.locator(".react-flow__node-schemaTable");
+  await expect(schemaNodes).toHaveCount(5);
+  await expect(desktopFixture).toHaveScreenshot(
+    "repository-overview-v2-convex-schema-desktop.png",
+    {
+      animations: "disabled",
+      caret: "hide",
+      maxDiffPixelRatio: 0.02,
+      scale: "css",
+    },
+  );
+
+  const firstNode = schemaNodes.first();
+  const beforeDrag = await firstNode.boundingBox();
+  expect(beforeDrag).not.toBeNull();
+  if (beforeDrag) {
+    await page.mouse.move(
+      beforeDrag.x + beforeDrag.width / 2,
+      beforeDrag.y + beforeDrag.height / 2,
+    );
+    await page.mouse.down();
+    await page.mouse.move(
+      beforeDrag.x + beforeDrag.width / 2 + 60,
+      beforeDrag.y + beforeDrag.height / 2 + 40,
+      { steps: 5 },
+    );
+    await page.mouse.up();
+    const afterDrag = await firstNode.boundingBox();
+    expect(afterDrag).not.toBeNull();
+    if (afterDrag) {
+      expect(afterDrag.x).toBeGreaterThan(beforeDrag.x + 30);
+      expect(afterDrag.y).toBeGreaterThan(beforeDrag.y + 20);
+    }
+  }
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  const mobileFixture = await openRepositoryOverviewV2(
+    page,
+    "repository-overview-v2-convex-schema",
+  );
+  await expect(mobileFixture.locator(".react-flow__node-schemaTable")).toHaveCount(5);
+  await expect(mobileFixture).toHaveScreenshot("repository-overview-v2-convex-schema-mobile.png", {
+    animations: "disabled",
+    caret: "hide",
+    maxDiffPixelRatio: 0.02,
+    scale: "css",
+  });
 });
 
 test("uses stable shells while independent data sources load", async ({ page }) => {

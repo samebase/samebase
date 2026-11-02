@@ -100,6 +100,10 @@ export const routes = rootRoute("root.tsx", [
       "repository-database-project.tsx",
     ),
     route(
+      `${DASHBOARD_ROUTE}/$owner/$repository/schema/$branch/project/$convexProjectId`,
+      "repository-schema-project.tsx",
+    ),
+    route(
       `${DASHBOARD_ROUTE}/$owner/$repository/components/$deploymentName`,
       "repository-components-deployment.tsx",
     ),

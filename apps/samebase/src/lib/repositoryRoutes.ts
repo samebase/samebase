@@ -56,6 +56,15 @@ export function buildRepositoryDatabaseRoute(args: {
   return `/repo/${args.owner}/${args.repoName}/db/${encodeRepositoryBranchSegment(args.branch)}/project/${encodeURIComponent(args.convexProjectId)}`;
 }
 
+export function buildRepositorySchemaRoute(args: {
+  owner: string;
+  repoName: string;
+  branch: string;
+  convexProjectId: string;
+}): string {
+  return `/repo/${args.owner}/${args.repoName}/schema/${encodeRepositoryBranchSegment(args.branch)}/project/${encodeURIComponent(args.convexProjectId)}`;
+}
+
 export function buildRepositoryComponentsRoute(args: {
   owner: string;
   repoName: string;
