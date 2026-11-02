@@ -205,6 +205,25 @@ afterEach(() => {
 });
 
 describe("repository Convex components", () => {
+  it("reads attachment navigation without an Alchemy stack or deployment status", async () => {
+    const t = makeConvexTest();
+    const { ids, user } = await seedComponentsRepository(t);
+    const requests: RecordedRequest[] = [];
+    installComponentsFetchStub(requests);
+
+    const links = await user.action(api.repository.convexComponents.attachedDeployments, {
+      repositoryId: ids.repositoryId,
+    });
+    const attachment = await t.run(
+      async (ctx) => await ctx.db.query("repositoryConvexProjects").first(),
+    );
+
+    expect(links).toEqual([{ convexProjectId: attachment?._id, deploymentName: "demo-prod" }]);
+    expect(requests.map((request) => request.url)).toEqual([
+      "https://api.convex.dev/v1/projects/1001/deployment?defaultProd=true",
+    ]);
+  });
+
   it("reads the production components and their metadata with a revoked inspection key", async () => {
     const t = makeConvexTest();
     const { ids, user } = await seedComponentsRepository(t);

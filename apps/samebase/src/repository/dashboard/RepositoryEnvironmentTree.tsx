@@ -517,6 +517,19 @@ export function DefaultBranchSection({
           ) : null}
         </div>
       ) : null}
+      {workspace.attachmentLinks.length > 0 ? (
+        <nav aria-label="Convex pages" className="flex flex-wrap gap-x-4 text-sm">
+          {workspace.attachmentLinks.map((link) => (
+            <Link
+              key={link.href}
+              className="inline-flex min-h-10 items-center text-muted-foreground underline decoration-border underline-offset-4 hover:text-foreground @4xl:min-h-8"
+              to={link.href}
+            >
+              {link.label}
+            </Link>
+          ))}
+        </nav>
+      ) : null}
     </section>
   );
 }

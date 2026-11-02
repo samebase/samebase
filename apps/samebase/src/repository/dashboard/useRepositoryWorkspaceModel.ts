@@ -1,12 +1,15 @@
 import type { UserRepositoryResult } from "../../../convex/repository/contracts/getUserRepositories";
+import { api } from "../../../convex/_generated/api";
+import { useAction } from "convex/react";
 import { useRepositoryPullRequests } from "@/repository/dashboard/useRepositoryPullRequests";
 import { useRepositorySidebarSummaries } from "@/repository/dashboard/useRepositorySidebarSummaries";
 import { repositoryDashboardQueries } from "@/routes/repository-dashboard.queries";
 import { rootQueries } from "@/routes/root.queries";
 import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
-import { buildAlchemyStackCards } from "./repositoryEnvironmentRoots";
+import { buildAlchemyStackCards, buildConvexProductionActions } from "./repositoryEnvironmentRoots";
 import { isWaitingForFirstCommit } from "./repositorySourceSetup";
+import { repositoryExternalDataQueryKey } from "./repositoryExternalDataQueryKey";
 import type { RepositoryWorkspaceModel } from "./repositoryWorkspaceModel";
 import { useRepositoryProviderObservations } from "./useRepositoryProviderObservations";
 
@@ -63,6 +66,22 @@ export function useRepositoryWorkspaceModel(
     alchemyState,
   });
   const { data: viewerAccess } = useQuery(rootQueries.viewerAccess);
+  const readAttachedDeployments = useAction(api.repository.convexComponents.attachedDeployments);
+  const repositoryId = accessibleSelectedRepository?.repositoryId;
+  const noStack =
+    alchemyState.state === "loaded" &&
+    (alchemyState.observation.store === "missing" ||
+      (alchemyState.observation.store === "found" && alchemyState.observation.stacks.length === 0));
+  const { data: attachedDeployments } = useQuery({
+    queryKey: [...repositoryExternalDataQueryKey(repositoryId), "attached-deployments"],
+    queryFn: () => {
+      if (!repositoryId) throw new Error("Repository is required.");
+      return readAttachedDeployments({ repositoryId });
+    },
+    enabled: noStack && (accessibleSelectedRepository?.convexProjects.length ?? 0) > 0,
+    staleTime: 60_000,
+    retry: false,
+  });
 
   const model = useMemo<RepositoryWorkspaceModel>(() => {
     const requestedOrganization = organizationOwner
@@ -148,6 +167,22 @@ export function useRepositoryWorkspaceModel(
             : { state: "loading" },
           githubRepositoryUrl: `https://github.com/${accessibleSelectedRepository.githubOwnerLogin}/${accessibleSelectedRepository.githubRepositoryName}`,
           productionCards,
+          attachmentLinks:
+            noStack && defaultBranch
+              ? accessibleSelectedRepository.convexProjects.flatMap((project) =>
+                  buildConvexProductionActions({
+                    branch: defaultBranch,
+                    convexProjectId: project.convexProjectId,
+                    deploymentName:
+                      attachedDeployments?.find(
+                        (deployment) => deployment.convexProjectId === project.convexProjectId,
+                      )?.deploymentName ?? null,
+                    owner: accessibleSelectedRepository.githubOwnerLogin,
+                    repoName: accessibleSelectedRepository.githubRepositoryName,
+                    schemaGraphEnabled,
+                  }),
+                )
+              : [],
           pullRequests,
           repository: accessibleSelectedRepository,
         },
@@ -158,6 +193,8 @@ export function useRepositoryWorkspaceModel(
     };
   }, [
     alchemyState,
+    attachedDeployments,
+    noStack,
     pullRequests,
     selectedRepositoryFullName,
     selectedOrganization,

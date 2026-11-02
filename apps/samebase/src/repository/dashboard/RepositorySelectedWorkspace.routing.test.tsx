@@ -106,6 +106,7 @@ function makeWorkspace(repository: UserRepositoryResult): RepositoryWorkspaceSel
     },
     access: { state: "ready", accessKeys: [] },
     githubRepositoryUrl: `https://github.com/${repository.githubRepositoryFullName}`,
+    attachmentLinks: [],
     productionCards: [],
     pullRequests: { state: "not_requested" },
     repository,

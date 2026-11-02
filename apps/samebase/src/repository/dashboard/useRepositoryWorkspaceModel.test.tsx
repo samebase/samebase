@@ -8,6 +8,7 @@ import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import type { Id } from "../../../convex/_generated/dataModel";
 import type { UserRepositoryResult } from "../../../convex/repository/contracts/getUserRepositories";
 import type { ViewerOrganization } from "@/organization/context";
+import { rootQueries } from "@/routes/root.queries";
 import { repositoryDashboardQueries } from "@/routes/repository-dashboard.queries";
 import { observedAlchemyStackReply } from "../../../convex/repository/fixtures/observedAlchemyState";
 import type { RepositoryAlchemyState } from "./useRepositoryAlchemyState";
@@ -24,6 +25,12 @@ const testState = vi.hoisted(
     pullRequestArgs: [],
   }),
 );
+
+vi.mock("convex/react", () => ({
+  useAction: () => async () => [
+    { convexProjectId: "attached-project", deploymentName: "demo-prod" },
+  ],
+}));
 
 const EMPTY_FOLDER_STATE = { assignments: [], folders: [] };
 
@@ -46,14 +53,20 @@ vi.mock("./useRepositoryProviderObservations", () => ({
 }));
 
 /**
-Renders the probe against the cache after the route loader fetched the dashboard queries. The
-viewer's access stays unloaded, and without retries its query settles at once without data.
+Renders the probe against the dashboard cache with schema access and attachment navigation.
 */
 async function renderWithDashboardQueries(
   probe: ReactNode,
   loaded: { organizations: ViewerOrganization[]; repositories: UserRepositoryResult[] },
 ) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  queryClient.setQueryData(rootQueries.viewerAccess.queryKey, {
+    accessKeys: ["access_schema_graph"],
+  });
+  queryClient.setQueryData(
+    ["repository-external-data", loaded.repositories[0]?.repositoryId, "attached-deployments"],
+    [{ convexProjectId: "attached-project", deploymentName: "demo-prod" }],
+  );
   queryClient.setQueryData(repositoryDashboardQueries.folderState.queryKey, EMPTY_FOLDER_STATE);
   queryClient.setQueryData(repositoryDashboardQueries.organizationTreeSettings.queryKey, []);
   queryClient.setQueryData(repositoryDashboardQueries.organizations.queryKey, loaded.organizations);
@@ -131,6 +144,69 @@ describe("useRepositoryWorkspaceModel", () => {
     testState.providerRepositories.length = 0;
     testState.pullRequestArgs.length = 0;
   });
+
+  it.each([true, false])(
+    "keeps only attachment navigation with no stack, attachment %s",
+    async (attached) => {
+      // @ts-expect-error Convex ids are strings at runtime in this hook test.
+      const convexProjectId: Id<"repositoryConvexProjects"> = "attached-project";
+      const repository = {
+        ...lostAccessRepository(),
+        convexProjects: attached
+          ? [
+              {
+                convexProjectId,
+                projectId: "1001",
+                teamId: "1000",
+                codeLocation: { kind: "config", convexConfigPath: "convex.json" } as const,
+              },
+            ]
+          : [],
+      };
+      testState.alchemy = {
+        state: "loaded",
+        observation: { store: "found", stacks: [], liveDeployments: [] },
+        refreshFailed: false,
+        reload: () => {},
+      };
+      let latest: ReturnType<typeof useRepositoryWorkspaceModel> | undefined;
+      function Probe() {
+        latest = useRepositoryWorkspaceModel(repository.githubRepositoryFullName);
+        return null;
+      }
+      const mounted = await renderWithDashboardQueries(<Probe />, {
+        repositories: [repository],
+        organizations: [
+          {
+            canCreateRepository: true,
+            githubOwnerId: "owner",
+            githubOwnerLogin: "lost",
+            githubOwnerType: "organization",
+            organizationId: repository.organizationId,
+            role: "owner",
+          },
+        ],
+      });
+      try {
+        if (latest?.state !== "ready" || latest.selection.state !== "selected")
+          throw new Error("Expected selected workspace.");
+        expect(latest.selection.workspace.productionCards).toEqual([]);
+        expect(
+          latest.selection.workspace.attachmentLinks.map(({ label, href }) => [label, href]),
+        ).toEqual(
+          attached
+            ? [
+                ["Data", "/repo/lost/private/db/main/project/attached-project"],
+                ["Schema", "/repo/lost/private/schema/main/project/attached-project"],
+                ["Components", "/repo/lost/private/components/demo-prod"],
+              ]
+            : [],
+        );
+      } finally {
+        await mounted.unmount();
+      }
+    },
+  );
 
   it("treats a cached repository as unavailable after organization access is lost", async () => {
     const repository = lostAccessRepository();
@@ -346,6 +422,7 @@ describe("useRepositoryWorkspaceModel", () => {
       if (latest?.state !== "ready" || latest.selection.state !== "selected") {
         throw new Error("Expected the selected repository workspace.");
       }
+      expect(latest.selection.workspace.attachmentLinks).toEqual([]);
       expect(
         latest.selection.workspace.productionCards.map((card) => ({
           stack: card.stack,
