@@ -29,6 +29,9 @@ steps.
   the account in `connector_account_id`.
 - Connectors are configuration: any OAuth 2.0 provider that publishes RFC 8414 metadata, and any
   OpenID Connect provider. `github()` and `google()` are included.
+- API resource providers authorize access without creating an identity. `convexConnection()` and
+  `cloudflareConnection()` use the same authorization and token endpoints with the standard
+  `resource` parameter. Only administrator-registered first-party apps can use them.
 - `Convex.HubClient` of [`@samebase/alchemy-convex`](https://github.com/samebase/alchemy-convex), an
   Alchemy v2 resource, registers a deployment as a client at deploy time.
 
@@ -112,12 +115,44 @@ method at `<issuer>/authorize` and `<issuer>/token`; see the
 When a deployment goes away, `identityBroker:deleteClient` deletes its client. A client that is gone
 is no error.
 
+## Connect provider APIs
+
+Add `resources` alongside `connectors` in `defineIdentityBroker`:
+
+```ts
+import { convexConnection, cloudflareConnection } from "@samebase/identity-broker";
+
+const resources = [
+  convexConnection({ clientId: convexClientId, clientSecret: convexClientSecret }),
+  cloudflareConnection({ clientId: cloudflareClientId, clientSecret: cloudflareClientSecret }),
+];
+```
+
+Each credential value above is a function that reads the host's secret. Register these provider
+callbacks once: `<issuer>/connections/convex/callback` and
+`<issuer>/connections/cloudflare/callback`. Preview apps register their exact callback with the hub
+using the existing client registration. Use a separate client if API connections and sign-in have
+different callback URLs. Configure the Cloudflare OAuth client with `client_secret_basic`; Convex
+uses `client_secret_post`. The constructors use these methods for code exchange and refresh.
+
+Send an authorization-code request with S256 PKCE and one `resource`: `https://api.convex.dev` for
+Convex team access, or `https://api.cloudflare.com/client/v4/` for Cloudflare. Omit `openid`. The
+broker requests the provider's configured scope. Redeem the code at `/token` with client
+authentication, `redirect_uri`, and `code_verifier`. The response is an OAuth bearer token response
+for that provider API, without an ID Token. The app still owns its users and connection records.
+
+Cloudflare supplies refresh credentials, which the broker retains in the same private component and
+exposes through an opaque, client-bound refresh token. Use the standard `refresh_token` grant and
+`/revoke` on disconnect. Convex's team token has no refresh grant or advertised expiry. Revoking the
+broker grant stops future refresh; it does not revoke a provider access token already issued. See
+[design.md](docs/design.md#api-authorization) for retention and refresh failure behavior.
+
 ## Standards
 
 OAuth 2.0 and the OAuth 2.1 draft (code flow, PKCE S256, exact redirect URIs, `iss` on responses),
-OpenID Connect Core and Discovery, RFC 8414, RFC 9207, RFC 9700, and the JWT, JWS, JWK and cookie
-standards under them. A client gets its credentials out of band, which RFC 6749 section 2 leaves
-open.
+OpenID Connect Core and Discovery, RFC 8414, RFC 8707, RFC 7009, RFC 9207, RFC 9700, and the JWT,
+JWS, JWK and cookie standards under them. A client gets its credentials out of band, which RFC 6749
+section 2 leaves open.
 [docs/standards.md](https://github.com/samebase/samebase/blob/main/packages/identity-broker/docs/standards.md)
 lists each with its sections and status, and departures are named in
 [docs/design.md](https://github.com/samebase/samebase/blob/main/packages/identity-broker/docs/design.md).

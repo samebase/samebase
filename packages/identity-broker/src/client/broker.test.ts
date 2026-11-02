@@ -1118,6 +1118,8 @@ describe("cleanup", () => {
       previewClients: 0,
       expiredClients: 0,
       signIns: 1,
+      resourceRequests: 0,
+      refreshGrants: 0,
     });
     expect(await clientIds()).toEqual(["preview-new", "preview-old", "prod-old"]);
     // With it, the preview client idle longer goes; the production client stays.
@@ -1133,6 +1135,8 @@ describe("cleanup", () => {
       previewClients: 1,
       expiredClients: 0,
       signIns: 0,
+      resourceRequests: 0,
+      refreshGrants: 0,
     });
     expect(await clientIds()).toEqual(["preview-new", "prod-old"]);
   });

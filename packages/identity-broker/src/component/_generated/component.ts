@@ -166,9 +166,19 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           codeVerifier: string;
           now: number;
           redirectUri?: string;
+          refreshTokenHash: string;
           registrationPaused?: boolean;
+          resource?: string;
           tokenEndpointAuthMethod: "client_secret_post" | "client_secret_basic";
         },
+        | {
+            accessToken: string;
+            expiresAt?: number;
+            kind: "resource";
+            ok: true;
+            refresh: boolean;
+            scope: string;
+          }
         | {
             appId: string;
             authTime: number;
@@ -189,7 +199,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           }
         | {
             description: string;
-            error: "invalid_client" | "invalid_grant";
+            error: "invalid_client" | "invalid_grant" | "invalid_target";
             ok: false;
           },
         Name
@@ -412,6 +422,8 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           authorizationCodes: number;
           expiredClients: number;
           previewClients: number;
+          refreshGrants: number;
+          resourceRequests: number;
           signIns: number;
         },
         Name
@@ -479,6 +491,136 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         "internal",
         { now: number; suspended: boolean; tenantId: string },
         null,
+        Name
+      >;
+    };
+    resourceRequests: {
+      abandon: FunctionReference<
+        "mutation",
+        "internal",
+        { requestId: string },
+        null,
+        Name
+      >;
+      claim: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          cookieHashes: Array<string>;
+          now: number;
+          resource: string;
+          stateHash: string;
+        },
+        | {
+            clientId: string;
+            codeChallenge: string;
+            expiresAt: number;
+            redirectUri: string;
+            requestId: string;
+            resource: string;
+            state?: string;
+            status: "claimed";
+            txnCookieHash: string;
+            upstreamCodeVerifier: string;
+          }
+        | { status: "missing" }
+        | { status: "unbound" },
+        Name
+      >;
+      claimRefresh: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          clientId: string;
+          clientSecretHash: string;
+          now: number;
+          resource?: string;
+          tokenEndpointAuthMethod: "client_secret_post" | "client_secret_basic";
+          tokenHash: string;
+        },
+        | {
+            description: string;
+            error: "invalid_client" | "invalid_grant" | "invalid_target";
+            ok: false;
+          }
+        | { description: string; error: "temporarily_unavailable"; ok: false }
+        | {
+            grantId: string;
+            ok: true;
+            resource: string;
+            upstreamRefreshToken: string;
+          },
+        Name
+      >;
+      complete: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          codeExpiresAt: number;
+          codeHash: string;
+          now: number;
+          requestId: string;
+          tokens: {
+            accessToken: string;
+            expiresAt?: number;
+            refreshToken?: string;
+            scope: string;
+          };
+        },
+        boolean,
+        Name
+      >;
+      create: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          clientId: string;
+          codeChallenge: string;
+          expiresAt: number;
+          redirectUri: string;
+          requestId: string;
+          resource: string;
+          state?: string;
+          txnCookieHash: string;
+          upstreamCodeVerifier: string;
+          upstreamStateHash: string;
+        },
+        null,
+        Name
+      >;
+      failRefresh: FunctionReference<
+        "mutation",
+        "internal",
+        { grantId: string; rejected: boolean },
+        null,
+        Name
+      >;
+      finishRefresh: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          grantId: string;
+          now: number;
+          tokens: {
+            accessToken: string;
+            expiresAt?: number;
+            refreshToken?: string;
+            scope: string;
+          };
+        },
+        boolean,
+        Name
+      >;
+      revoke: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          clientId: string;
+          clientSecretHash: string;
+          tokenEndpointAuthMethod: "client_secret_post" | "client_secret_basic";
+          tokenHash: string;
+        },
+        boolean,
         Name
       >;
     };

@@ -1,13 +1,23 @@
 # Design
 
-The broker is a federated OpenID Provider in the shape of Dex: upstream connectors, no accounts.
+The broker is a federated OpenID Provider in the shape of Dex: upstream connectors, no accounts. It
+can also authorize API resources through ordinary OAuth without creating an identity.
 
 ## What is stored
 
 Apps, clients (one per deployment: exact redirect URI, hashed secret), authorization requests for
 ten minutes, authorization codes for sixty seconds and one use, an audit row per issued `id_token`
 (app, client, connector, pairwise subject, time). Apart from those audit rows, nothing about a user
-outlives the request that carried it. The audit rows keep the pairwise subject for 90 days.
+outlives the sign-in request that carried it. The audit rows keep the pairwise subject for 90 days.
+
+API authorizations use separate request and refresh-grant tables in the same component. A request
+holds its upstream token only until code redemption or expiry. A refresh grant holds the upstream
+refresh token, resource, client id, and a hash of the broker refresh token. It holds no user
+profile. The upstream secret stays in the private component, protected by Convex's encryption at
+rest and component isolation; there is no additional application encryption key. Signing-key
+rotation does not affect these grants. Idle grants expire after 90 days, and successful refresh
+renews that deadline. Client deletion invalidates redemption and refresh immediately and schedules
+bounded deletion of remaining grants. `/revoke` deletes the client's grant immediately.
 
 The host schedules the component's `cleanup` daily from a cron, as the
 [identity-hub](../../../apps/identity-hub) app does; nothing else deletes these rows. One run
@@ -39,6 +49,46 @@ A client authenticates with the one method it registered, `client_secret_basic` 
 authorization code also reads the client and its app and checks the secret and the method, so a
 deletion of either commits wholly before a redemption or after it, a failed authentication leaves
 the code redeemable, and a code redeems once.
+
+## API authorization
+
+Without `resource`, `/authorize` keeps the OIDC sign-in contract and requires `openid`. A request
+with one exact configured `resource` instead uses RFC 6749 authorization code flow with RFC 7636
+S256 and RFC 8707 resource indicators. Each provider has one configured scope, so the broker ignores
+a requested `scope` (RFC 6749 section 3.3) and returns the scope the provider granted. Convex's team
+authorization has no scope parameter, so a requested scope answers `invalid_scope`. Unknown or
+multiple resources answer `invalid_target`. The code binds the resource, so `/token` can omit it; if
+supplied, it must match exactly. Neither this response nor refresh issues an ID Token.
+
+Only administrator-registered first-party apps without a tenant or fixed sign-in connector can
+request API access. As with first-party sign-in, the broker adds no consent screen: the trusted app
+starts the flow and the provider supplies its authorization screen. This trust is intentional;
+publicly registered clients cannot receive API credentials. The two OAuth legs have independent
+state and PKCE values. The browser cookie binds the upstream callback to the initiating browser. The
+downstream response includes `iss`, and its code lasts 60 seconds and is usable once.
+
+The broker returns the provider's bearer access token unchanged. The resource server remains the
+provider API; a broker issuer on the authorization response does not claim that the broker signed
+the access token. OAuth leaves token formats and the authorization-server/resource-server
+relationship open. This upstream integration is a deployment choice, not a new OAuth wire protocol
+or RFC 8693 token exchange. The broker validates token responses with `oauth4webapi` and omits scope
+for the scope-less Convex flow. `expires_in`, when supplied upstream, is reduced by the time already
+spent returning the code to the app; the broker invents no expiry.
+
+When the provider supplies a refresh token, the broker issues an opaque refresh token for the
+authenticated confidential client. The broker token stays stable; upstream rotation is committed to
+its grant before returning a response. Every refresh authenticates the client and checks its app and
+resource. One attempt holds the grant at a time, and a concurrent attempt gets
+`503 temporarily_unavailable`. An attempt that stopped without an outcome frees the grant after 60
+seconds. Only an upstream `invalid_grant` deletes the grant. Any other failure keeps it and answers
+`503 temporarily_unavailable`: if rotation had already happened, the retry gets `invalid_grant` from
+the provider's replay check (RFC 9700 section 4.14.2), which is the same end state.
+
+RFC 7009 `/revoke` authenticates the client with its registered method and removes only its broker
+refresh grant. Unknown tokens, including another client's token, return an empty 200 response. Token
+hints do not change the lookup. Revocation does not call the upstream provider or invalidate already
+issued provider access tokens: upstream revocation can affect other authorizations held by the hub.
+Users can revoke the hub's upstream access at the provider when that is desired.
 
 ## Issuer
 
@@ -74,7 +124,11 @@ pairwise subjects gives the hub other ids than it gave an app's own client.
 
 ## Named departures from the specifications
 
-- No refresh tokens, no `offline_access`: apps keep their own sessions.
+- No refresh tokens for OIDC sign-in: apps keep their own sessions. API authorization supports
+  refresh tokens and `offline_access` when its provider does.
+- The token endpoint answers `temporarily_unavailable` when a provider cannot refresh, which RFC
+  6749 section 5.2 lists only for the authorization endpoint. Provider-issued access tokens are not
+  revocable through the broker's RFC 7009 endpoint.
 - No sessions at the broker: `prompt=none` returns `login_required`; there is no logout protocol.
 - `response_type=code` only, so the "dynamic OP" profile of OIDC Core 15.2 is not met.
 - `max_age` is honored only as a fresh login: `prompt=login` or any `max_age` sends `prompt=login`
@@ -119,8 +173,9 @@ pairwise subjects gives the hub other ids than it gave an app's own client.
   connector answered. After a fresh login through an OIDC connector it is the provider's `auth_time`
   instead, which the broker checked against the request's lifetime. The broker never compares an
   upstream `auth_time` with the value of `max_age`.
-- A replayed authorization code revokes the code and its request, but nothing already issued: an
-  access token for `/userinfo` keeps its five minutes.
+- A replayed authorization code revokes the code, its request, and its broker refresh grant if
+  present. Already issued access tokens remain valid: a `/userinfo` token keeps its five minutes,
+  and a provider access token follows the provider's expiry and revocation rules.
 
 ## Keys
 

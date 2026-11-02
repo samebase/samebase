@@ -534,6 +534,7 @@ describe("what a redemption does at once", () => {
     const start = await h.fetchBroker(authorizeUrl(h, client.client_id, challenge));
     const code = await finishUpstream(h, start);
     await h.t.mutation(api.authRequests.exchangeCode, {
+      refreshTokenHash: "unused-for-identity",
       clientId: client.client_id,
       clientSecretHash: await sha256Hex(client.client_secret),
       tokenEndpointAuthMethod: "client_secret_post",

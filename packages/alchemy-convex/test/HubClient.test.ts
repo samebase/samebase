@@ -146,11 +146,12 @@ describe("Convex.HubClient", () => {
 });
 
 describe("registerDevelopmentClient", () => {
-  const run = (convex: (args: readonly string[], input?: string) => string) =>
+  const run = (convex: (args: readonly string[], input?: string) => string, envPrefix?: string) =>
     registerDevelopmentClient({
       team: TEAM,
       app: "scout",
       callbackPath: "/auth/hub/callback",
+      ...(envPrefix === undefined ? {} : { envPrefix }),
       convex,
     }).pipe(
       Effect.provide(
@@ -190,5 +191,27 @@ describe("registerDevelopmentClient", () => {
     expect(inputs.at(-1)).toBe(
       `HUB_ISSUER='${ISSUER}'\nHUB_CLIENT_ID='cl_1'\nHUB_CLIENT_SECRET='secret-of-cl_1'\n`,
     );
+  });
+
+  it("a second client preserves the sign-in variables and is reused on the next run", async () => {
+    const { hub } = withHub();
+    const names = new Set(["HUB_ISSUER", "HUB_CLIENT_ID", "HUB_CLIENT_SECRET"]);
+    const writes: string[] = [];
+    const convex = (args: readonly string[], input?: string) => {
+      if (args[0] === "run") return '"https://happy-otter-123.convex.site/"';
+      if (args[1] === "list") return [...names].join("\n");
+      if (input !== undefined) {
+        writes.push(input);
+        for (const line of input.trim().split("\n")) names.add(line.split("=")[0] ?? "");
+      }
+      return "";
+    };
+    expect(await run(convex, "RESOURCE_HUB")).toBe(CALLBACK);
+    expect(writes).toEqual([
+      `RESOURCE_HUB_ISSUER='${ISSUER}'\nRESOURCE_HUB_CLIENT_ID='cl_1'\nRESOURCE_HUB_CLIENT_SECRET='secret-of-cl_1'\n`,
+    ]);
+    expect(await run(convex, "RESOURCE_HUB")).toBeUndefined();
+    expect(hub.clients.size).toBe(1);
+    expect(writes).toHaveLength(1);
   });
 });

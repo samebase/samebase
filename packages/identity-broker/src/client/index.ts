@@ -41,6 +41,8 @@ import {
 } from "./responses.js";
 import { registrationEndpoints, type RegistrationConfig } from "./registration.js";
 import { appSalt, pairwiseSubject, randomToken, sha256Hex } from "./subject.js";
+import { resourceEndpoints, resourceTokenResponse } from "./resources.js";
+import type { ResourceProvider } from "./resourceProviders.js";
 
 export type {
   Connector,
@@ -50,6 +52,11 @@ export type {
 } from "./connectors/types.js";
 export { github } from "./connectors/github.js";
 export { google } from "./connectors/google.js";
+export {
+  convexConnection,
+  cloudflareConnection,
+  type ResourceProvider,
+} from "./resourceProviders.js";
 export { createKeySet, parseKeySet, rotateKeySet, type KeySet } from "./keys.js";
 export { assertKeySetUsable } from "./jwt.js";
 export type { RegistrationConfig } from "./registration.js";
@@ -66,6 +73,8 @@ export type IdentityBrokerConfig = {
   /** The content of `IDENTITY_BROKER_KEYS`, read in the request. */
   keys: () => string | undefined;
   connectors: Connector[];
+  /** OAuth API resources available to administrator-registered first-party apps. */
+  resources?: ResourceProvider[];
   /**
    * Days without a sign-in after which `cleanup` deletes a preview client. Absent: `cleanup` deletes
    * no client, because a deployment whose client was deleted does not register again by itself.
@@ -213,6 +222,18 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
 
   const keySet = (): KeySet => parseKeySet(config.keys());
   const callbackUrl = (connector: Connector) => `${issuer}/connectors/${connector.name}/callback`;
+  const resources = resourceEndpoints({
+    component,
+    issuer,
+    path,
+    providers: config.resources ?? [],
+    cookies: {
+      prefix: txnCookiePrefix,
+      attributes: txnCookieAttributes,
+      read: readTxnCookies,
+      clear: clearTxnCookie,
+    },
+  });
 
   const metadata = () => ({
     issuer,
@@ -221,13 +242,21 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
     userinfo_endpoint: `${issuer}/userinfo`,
     jwks_uri: `${issuer}/.well-known/jwks.json`,
     ...(registration === undefined ? {} : { registration_endpoint: `${issuer}/register` }),
-    scopes_supported: SCOPES,
+    scopes_supported: [...SCOPES, ...resources.scopes],
     response_types_supported: ["code"],
     response_modes_supported: ["query"],
-    grant_types_supported: ["authorization_code"],
+    grant_types_supported: resources.enabled
+      ? ["authorization_code", "refresh_token"]
+      : ["authorization_code"],
     subject_types_supported: ["pairwise"],
     id_token_signing_alg_values_supported: [SIGNING_ALGORITHM],
     token_endpoint_auth_methods_supported: ["client_secret_post", "client_secret_basic"],
+    ...(resources.enabled
+      ? {
+          revocation_endpoint: `${issuer}/revoke`,
+          revocation_endpoint_auth_methods_supported: ["client_secret_post", "client_secret_basic"],
+        }
+      : {}),
     code_challenge_methods_supported: ["S256"],
     claims_supported: [
       "sub",
@@ -362,6 +391,7 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
       state: params.get("state") ?? undefined,
       clearCookie: undefined,
     };
+    if (params.has("resource")) return await resources.authorize(ctx, params, found);
     const rest = validateAuthorizeRest(params, target.value);
     if (!rest.ok) {
       return refuse(app, { ...back, error: rest.error, description: rest.description });
@@ -657,11 +687,18 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
         clientAuth.status === 401 ? challenge : {},
       );
     }
+    if (params.get("grant_type") === "refresh_token" && resources.enabled) {
+      return await resources.refresh(ctx, params, clientAuth.value);
+    }
+    if (params.getAll("resource").length > 1)
+      return oauthError(400, "invalid_target", "Request one API resource.");
     const validation = validateTokenRequest(params, clientAuth.value);
     if (!validation.ok) {
       return oauthError(validation.status, validation.error, validation.description);
     }
     const now = Date.now();
+    const refreshToken = randomToken(32);
+    const resource = params.get("resource") ?? undefined;
     // The client is authenticated in the transaction that redeems the code.
     const exchange = await ctx.runMutation(component.authRequests.exchangeCode, {
       clientId: clientAuth.value.clientId,
@@ -672,13 +709,18 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
         ? {}
         : { redirectUri: validation.value.redirectUri }),
       codeVerifier: validation.value.codeVerifier,
+      ...(resource === undefined ? {} : { resource }),
+      refreshTokenHash: await sha256Hex(refreshToken),
       ...(registration?.paused?.() === true ? { registrationPaused: true } : {}),
       now,
     });
     if (!exchange.ok) {
       return exchange.error === "invalid_client"
         ? oauthError(401, "invalid_client", exchange.description, challenge)
-        : oauthError(400, "invalid_grant", exchange.description);
+        : oauthError(400, exchange.error, exchange.description);
+    }
+    if ("kind" in exchange) {
+      return resourceTokenResponse(exchange, exchange.refresh ? refreshToken : undefined);
     }
     const keys = keySet();
     const sub = await pairwiseSubject({
@@ -775,6 +817,7 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
       http.route({ path: path("/token"), method: "POST", handler: token });
       http.route({ path: path("/userinfo"), method: "GET", handler: userinfo });
       http.route({ path: path("/userinfo"), method: "POST", handler: userinfo });
+      resources.addRoutes(http);
       for (const connector of connectors.values()) {
         http.route({
           path: path(`/connectors/${connector.name}/callback`),

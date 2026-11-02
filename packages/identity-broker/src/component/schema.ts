@@ -1,5 +1,6 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
+import { vRefreshGrant, vResourceRequest } from "./resourceSchema";
 
 const { array, boolean, literal, number, object, optional, string, union } = v;
 
@@ -132,14 +133,36 @@ export default defineSchema({
     .index("by_upstream_state_hash", ["upstreamStateHash"])
     .index("by_expires_at", ["expiresAt"]),
 
-  authorizationCodes: defineTable({
-    codeHash: string(),
-    authRequestId: v.id("authRequests"),
-    clientId: string(),
-    expiresAt: number(),
-    usedAt: optional(number()),
-  })
+  authorizationCodes: defineTable(
+    union(
+      object({
+        codeHash: string(),
+        authRequestId: v.id("authRequests"),
+        clientId: string(),
+        expiresAt: number(),
+        usedAt: optional(number()),
+      }),
+      object({
+        codeHash: string(),
+        resourceRequestId: v.id("resourceRequests"),
+        clientId: string(),
+        expiresAt: number(),
+        usedAt: optional(number()),
+        refreshGrantId: optional(v.id("refreshGrants")),
+      }),
+    ),
+  )
     .index("by_code_hash", ["codeHash"])
+    .index("by_expires_at", ["expiresAt"]),
+
+  resourceRequests: defineTable(vResourceRequest)
+    .index("by_request_id", ["requestId"])
+    .index("by_upstream_state_hash", ["upstreamStateHash"])
+    .index("by_expires_at", ["expiresAt"]),
+
+  refreshGrants: defineTable(vRefreshGrant)
+    .index("by_token_hash", ["tokenHash"])
+    .index("by_client_id", ["clientId"])
     .index("by_expires_at", ["expiresAt"]),
 
   signIns: defineTable({

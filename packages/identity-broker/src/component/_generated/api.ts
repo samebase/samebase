@@ -13,6 +13,8 @@ import type * as authRequests from "../authRequests.js";
 import type * as clients from "../clients.js";
 import type * as lifecycle from "../lifecycle.js";
 import type * as registration from "../registration.js";
+import type * as resourceRequests from "../resourceRequests.js";
+import type * as resourceSchema from "../resourceSchema.js";
 import type * as signIns from "../signIns.js";
 
 import type {
@@ -28,6 +30,8 @@ const fullApi: ApiFromModules<{
   clients: typeof clients;
   lifecycle: typeof lifecycle;
   registration: typeof registration;
+  resourceRequests: typeof resourceRequests;
+  resourceSchema: typeof resourceSchema;
   signIns: typeof signIns;
 }> = anyApi as any;
 

@@ -21,6 +21,8 @@ const vCleanupCounts = object({
   previewClients: number(),
   expiredClients: number(),
   signIns: number(),
+  resourceRequests: number(),
+  refreshGrants: number(),
 });
 
 /**
@@ -81,6 +83,17 @@ async function cleanupBatch(
     await ctx.db.delete("authorizationCodes", code._id);
   }
 
+  const resourceRequests = await ctx.db
+    .query("resourceRequests")
+    .withIndex("by_expires_at", (q) => q.lt("expiresAt", args.now))
+    .take(BATCH);
+  for (const request of resourceRequests) await ctx.db.delete("resourceRequests", request._id);
+  const refreshGrants = await ctx.db
+    .query("refreshGrants")
+    .withIndex("by_expires_at", (q) => q.lt("expiresAt", args.now))
+    .take(BATCH);
+  for (const grant of refreshGrants) await ctx.db.delete("refreshGrants", grant._id);
+
   const { previewClientMaxAgeMs } = args;
   const previewClients =
     previewClientMaxAgeMs === undefined
@@ -91,6 +104,9 @@ async function cleanupBatch(
   const clients = new Map([...previewClients, ...expired].map((client) => [client._id, client]));
   for (const client of clients.values()) {
     await ctx.db.delete("clients", client._id);
+    await ctx.scheduler.runAfter(0, internal.resourceRequests.continueRemoveClientGrants, {
+      clientId: client.clientId,
+    });
   }
 
   const signIns = await ctx.db
@@ -107,6 +123,8 @@ async function cleanupBatch(
     previewClients: previewClients.length,
     expiredClients: expired.length,
     signIns: signIns.length,
+    resourceRequests: resourceRequests.length,
+    refreshGrants: refreshGrants.length,
   };
   if (Object.values(counts).some((count) => count === BATCH)) {
     await ctx.scheduler.runAfter(0, internal.lifecycle.continueCleanup, {
