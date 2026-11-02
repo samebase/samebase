@@ -4,10 +4,10 @@
   "license": "Apache-2.0",
   "type": "module",
   "scripts": {
-    "dev": "vp run -t build && convex dev",
-    "deploy": "vp run -t build && node ./scripts/check-keys.ts && convex deploy --yes",
+    "dev": "convex dev",
+    "deploy": "vp run --filter \"identity-hub^...\" build && node ./scripts/check-keys.ts && convex deploy --yes",
     "keys:init": "node ./scripts/init-keys.ts",
-    "typecheck": "vp run -t build && tsc --project convex/tsconfig.json && tsc --project tsconfig.node.json",
+    "typecheck": "tsc --project convex/tsconfig.json && tsc --project tsconfig.node.json",
     "lint": "pnpm --dir ../.. exec vp lint --tsconfig apps/identity-hub/convex/tsconfig.json --report-unused-disable-directives apps/identity-hub/convex apps/identity-hub/scripts apps/identity-hub/alchemy.run.ts",
     "check": "pnpm run typecheck && pnpm run lint"
   },

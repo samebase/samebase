@@ -28,7 +28,7 @@ import * as Effect from "effect/Effect";
 
 /** The Convex team that holds the project and the state. */
 const team = "nicu";
-/** The workspace packages of package.json. The push bundles them, from outside this folder. */
+/** The workspace dependencies of package.json. A change in one must also start a push. */
 const workspacePackages = execFileSync(
   "pnpm",
   ["--filter", "identity-hub^...", "list", "--depth", "-1", "--parseable"],
@@ -50,16 +50,11 @@ export default Alchemy.Stack(
     const source = {
       path: "./convex",
       command: ["node", "--run", "deploy"],
-      // The push inputs besides the functions, package.json, and the lockfile. A change in a
-      // workspace package must also start a push.
+      // The push inputs besides the functions, package.json, and the lockfile.
       include: [
         "scripts/**",
         "tsconfig*.json",
-        ...workspacePackages.flatMap((directory) => [
-          `${directory}/src/**`,
-          `${directory}/package.json`,
-          `${directory}/tsconfig*.json`,
-        ]),
+        ...workspacePackages.map((directory) => `${directory}/src/**`),
       ],
     } satisfies Convex.Source;
     // The variables of the deployment. The secret is a prop, so the state store holds it next to
