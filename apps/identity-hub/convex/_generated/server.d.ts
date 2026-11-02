@@ -42,6 +42,8 @@ type Env = {
   readonly PROVIDER_CLOUDFLARE_OAUTH_CLIENT_SECRET: string;
   readonly PROVIDER_CONVEX_OAUTH_CLIENT_ID: string;
   readonly PROVIDER_CONVEX_OAUTH_CLIENT_SECRET: string;
+  readonly PROVIDER_GITHUB_APP_CLIENT_ID: string;
+  readonly PROVIDER_GITHUB_APP_CLIENT_SECRET: string;
   readonly REGISTRATION_ACCESS_TOKEN: string | undefined;
   readonly THIRD_PARTY_PAUSED: string | undefined;
 };

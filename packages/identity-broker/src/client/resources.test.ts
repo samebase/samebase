@@ -3,12 +3,35 @@ import { afterEach, expect, test, vi } from "vite-plus/test";
 import { api } from "../component/_generated/api.js";
 import { google } from "./connectors/google.js";
 import { createHarness, ISSUER, pkce, txnCookie, type Harness } from "./harness.test.helper.js";
-import { cloudflareConnection, convexConnection } from "./resourceProviders.js";
+import { cloudflareConnection, convexConnection, githubConnection } from "./resourceProviders.js";
 
 const REDIRECT = "https://preview.example.com/oauth/hub/callback";
 const credentials = { clientId: () => "provider-client", clientSecret: () => "provider-secret" };
 const convex = convexConnection(credentials);
 const cloudflare = cloudflareConnection(credentials);
+const github = githubConnection(credentials);
+// GitHub's documented response: https://docs.github.com/en/apps/creating-github-apps/authenticating-with-a-github-app/refreshing-user-access-tokens
+const githubToken = {
+  access_token: "ghu_16C7e42F292c6912E7710c838347Ae178B4a",
+  expires_in: 28800,
+  refresh_token: "ghr_1B4a2e77838347a7E420ce178F2E7c6912E169246c34E1ccbF66C46812d16D5B1A9Dc86A1498",
+  refresh_token_expires_in: 15897600,
+  scope: "",
+  token_type: "bearer",
+};
+// GitHub's answers to a wrong refresh token and a wrong code, recorded on 2026-11-02. Both are HTTP 200.
+const errorUri =
+  "https://docs.github.com/apps/managing-oauth-apps/troubleshooting-oauth-app-access-token-request-errors/#bad-verification-code";
+const githubBadRefreshToken = {
+  error: "bad_refresh_token",
+  error_description: "The refresh token passed is incorrect or expired.",
+  error_uri: errorUri,
+};
+const githubBadCode = {
+  error: "bad_verification_code",
+  error_description: "The code passed is incorrect or expired.",
+  error_uri: errorUri,
+};
 // Convex's documented response: https://docs.convex.dev/platform-apis/oauth-applications#step-3-exchange-the-authorization-code-for-a-project-token
 const convexToken = { access_token: "team:my-team|AAAAAA==", token_type: "bearer" };
 // RFC 6749 section 5.1's token response. This tests the OAuth contract, not a claim of live Cloudflare authorization.
@@ -28,7 +51,7 @@ afterEach(() => {
 async function setup(firstParty = true) {
   const h = await createHarness({
     connectors: [google(credentials)],
-    resources: [convex, cloudflare],
+    resources: [convex, cloudflare, github],
   });
   const registered = await h.registerClient({
     appName: "Resource app",
@@ -45,6 +68,7 @@ async function setup(firstParty = true) {
       tokenCalls.push(body);
       tokenHeaders.push(request.headers);
       if (request.url === convex.server.token_endpoint) return Response.json(convexToken);
+      if (request.url === github.server.token_endpoint) return Response.json(githubToken);
       if (request.url === cloudflare.server.token_endpoint) {
         return Response.json({
           ...oauthToken,
@@ -80,11 +104,12 @@ async function authorize(
   return { start, proof };
 }
 
-async function complete(h: Harness, start: Response) {
+async function complete(h: Harness, start: Response, extra: Record<string, string> = {}) {
   const upstream = new URL(start.headers.get("location") ?? "");
   const callback = new URL(upstream.searchParams.get("redirect_uri") ?? "");
   callback.searchParams.set("code", "upstream-code");
   callback.searchParams.set("state", upstream.searchParams.get("state") ?? "");
+  for (const [name, value] of Object.entries(extra)) callback.searchParams.set(name, value);
   const back = await h.fetchBroker(callback, { headers: txnCookie(start) });
   return { back, callback, url: new URL(back.headers.get("location") ?? "") };
 }
@@ -160,6 +185,95 @@ test("openid-client obtains a Convex API token through standard discovery and au
   expect(
     await args.h.t.run(async (ctx) => await ctx.db.query("resourceRequests").collect()),
   ).toHaveLength(0);
+});
+
+async function connectGitHub(args: Awaited<ReturnType<typeof setup>>) {
+  const { start, proof } = await authorize(args, github.resource);
+  const finished = await complete(args.h, start, { iss: github.server.issuer });
+  return await redeem(args, finished.url.searchParams.get("code") ?? "", proof.verifier);
+}
+
+function refreshToken(args: Awaited<ReturnType<typeof setup>>, refresh_token: string) {
+  return args.h.fetchBroker(`${ISSUER}/token`, {
+    method: "POST",
+    body: new URLSearchParams({
+      grant_type: "refresh_token",
+      client_id: args.registered.clientId,
+      client_secret: args.registered.clientSecret,
+      refresh_token,
+    }),
+  });
+}
+
+test("a GitHub App user token goes through the hub with no scope", async () => {
+  const args = await setup();
+  const { start } = await authorize(args, github.resource);
+  const upstream = new URL(start.headers.get("location") ?? "");
+  expect(upstream.origin + upstream.pathname).toBe(github.server.authorization_endpoint);
+  expect(upstream.searchParams.get("redirect_uri")).toBe(`${ISSUER}/connections/github/callback`);
+  expect(upstream.searchParams.has("scope")).toBe(false);
+
+  const response = await connectGitHub(args);
+  const tokens: Record<string, unknown> = await response.json();
+  expect(tokens).toMatchObject({ access_token: githubToken.access_token, token_type: "Bearer" });
+  expect(tokens).not.toHaveProperty("scope");
+  expect(tokens["refresh_token"]).not.toBe(githubToken.refresh_token);
+  expect(args.tokenCalls.at(-1)?.get("client_secret")).toBe("provider-secret");
+});
+
+test("GitHub's refusal of a refresh token ends the grant", async () => {
+  const args = await setup();
+  const initial: { refresh_token: string } = await (await connectGitHub(args)).json();
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async () => Response.json(githubBadRefreshToken)),
+  );
+
+  const refused = await refreshToken(args, initial.refresh_token);
+
+  expect(refused.status).toBe(400);
+  expect(await refused.json()).toMatchObject({ error: "invalid_grant" });
+  expect(
+    await args.h.t.run(async (ctx) => await ctx.db.query("refreshGrants").collect()),
+  ).toHaveLength(0);
+});
+
+test("a GitHub outage on refresh keeps the grant", async () => {
+  const args = await setup();
+  const initial: { refresh_token: string } = await (await connectGitHub(args)).json();
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async () => new Response(null, { status: 503 })),
+  );
+
+  expect((await refreshToken(args, initial.refresh_token)).status).toBe(503);
+  expect(
+    await args.h.t.run(async (ctx) => await ctx.db.query("refreshGrants").collect()),
+  ).toHaveLength(1);
+});
+
+test("a GitHub code error reaches the client as a failed authorization", async () => {
+  const args = await setup();
+  const { start } = await authorize(args, github.resource);
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async () => Response.json(githubBadCode)),
+  );
+
+  const finished = await complete(args.h, start, { iss: github.server.issuer });
+
+  expect(finished.url.searchParams.get("error")).toBe("server_error");
+  expect(finished.url.searchParams.has("code")).toBe(false);
+});
+
+test("a GitHub callback with no issuer is refused", async () => {
+  const args = await setup();
+  const { start } = await authorize(args, github.resource);
+
+  const finished = await complete(args.h, start);
+
+  expect(finished.url.searchParams.get("error")).toBe("server_error");
+  expect(args.tokenCalls).toHaveLength(0);
 });
 
 test("a provider's narrower scope reaches the client", async () => {

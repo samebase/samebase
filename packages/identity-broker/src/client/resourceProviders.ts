@@ -1,4 +1,5 @@
 import * as oauth from "oauth4webapi";
+import { asRecord } from "./protocol.js";
 
 type Credentials = { clientId: () => string; clientSecret: () => string };
 
@@ -9,6 +10,8 @@ export type ResourceProvider = Credentials & {
   server: oauth.AuthorizationServer & { authorization_endpoint: string };
   tokenEndpointAuthMethod: "client_secret_post" | "client_secret_basic";
   scopes: readonly string[];
+  /** Corrects a token endpoint that departs from RFC 6749 section 5.2. */
+  normalizeTokenResponse?: (response: Response) => Promise<Response>;
 };
 
 /** Below the lease in `resourceRequests`, so an attempt ends before another can claim its grant. */
@@ -50,6 +53,42 @@ export function cloudflareConnection(credentials: Credentials): ResourceProvider
       "offline_access",
     ],
     tokenEndpointAuthMethod: "client_secret_basic",
+  };
+}
+
+/**
+ * GitHub answers a token error with HTTP 200, where RFC 6749 section 5.2 requires 400, and it names
+ * `invalid_grant` `bad_refresh_token` on refresh.
+ */
+async function githubTokenResponse(response: Response) {
+  const error = asRecord(
+    await response
+      .clone()
+      .json()
+      .catch(() => null),
+  )["error"];
+  if (typeof error !== "string") return response;
+  return Response.json(
+    { error: error === "bad_refresh_token" ? "invalid_grant" : error },
+    { status: 400 },
+  );
+}
+
+/** The user access tokens of a GitHub App. The App's permissions set their access, not a scope. */
+export function githubConnection(credentials: Credentials): ResourceProvider {
+  return {
+    ...credentials,
+    name: "github",
+    resource: "https://api.github.com",
+    server: {
+      issuer: "https://github.com/login/oauth",
+      authorization_endpoint: "https://github.com/login/oauth/authorize",
+      token_endpoint: "https://github.com/login/oauth/access_token",
+      authorization_response_iss_parameter_supported: true,
+    },
+    scopes: [],
+    tokenEndpointAuthMethod: "client_secret_post",
+    normalizeTokenResponse: githubTokenResponse,
   };
 }
 
@@ -107,7 +146,11 @@ export async function finishResourceAuthorization(args: {
     args.codeVerifier,
   );
   return resourceTokens(
-    await oauth.processAuthorizationCodeResponse(provider.server, client, response),
+    await oauth.processAuthorizationCodeResponse(
+      provider.server,
+      client,
+      await (provider.normalizeTokenResponse?.(response) ?? response),
+    ),
     provider.scopes.join(" "),
   );
 }
@@ -127,7 +170,11 @@ export async function refreshResourceToken(args: {
   );
   // RFC 6749 section 6: an omitted scope on refresh means the original grant, so it stays omitted.
   return resourceTokens(
-    await oauth.processRefreshTokenResponse(provider.server, client, response),
+    await oauth.processRefreshTokenResponse(
+      provider.server,
+      client,
+      await (provider.normalizeTokenResponse?.(response) ?? response),
+    ),
     "",
   );
 }

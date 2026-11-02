@@ -25,11 +25,13 @@ stack skips the push when nothing of the hub changed. Pull requests run the chec
    the deploy key with it. In the GitHub environment `identity-hub`, which only `main` can use, set
    `GOOGLE_CLIENT_ID` with `GOOGLE_CLIENT_SECRET`, the team's Google OAuth client,
    `GOOGLE_APPS_CLIENT_ID` with `GOOGLE_APPS_CLIENT_SECRET`, the Google OAuth client of third-party
-   apps, `AUTH_GITHUB_CLIENT_ID` with `AUTH_GITHUB_CLIENT_SECRET`, the team's GitHub login OAuth App,
-   and `PROVIDER_CONVEX_OAUTH_CLIENT_ID` with `PROVIDER_CONVEX_OAUTH_CLIENT_SECRET` and
-   `PROVIDER_CLOUDFLARE_OAUTH_CLIENT_ID` with `PROVIDER_CLOUDFLARE_OAUTH_CLIENT_SECRET`, the team's
-   API OAuth applications. Register `https://auth.samebase.com/connections/convex/callback` and
-   `https://auth.samebase.com/connections/cloudflare/callback` on those applications.
+   apps, `AUTH_GITHUB_CLIENT_ID` with `AUTH_GITHUB_CLIENT_SECRET`, the team's GitHub login OAuth
+   App, and `PROVIDER_CONVEX_OAUTH_CLIENT_ID` with `PROVIDER_CONVEX_OAUTH_CLIENT_SECRET` and
+   `PROVIDER_CLOUDFLARE_OAUTH_CLIENT_ID` with `PROVIDER_CLOUDFLARE_OAUTH_CLIENT_SECRET`, and
+   `PROVIDER_GITHUB_APP_CLIENT_ID` with `PROVIDER_GITHUB_APP_CLIENT_SECRET`, the team's API OAuth
+   applications. Register `https://auth.samebase.com/connections/convex/callback`,
+   `https://auth.samebase.com/connections/cloudflare/callback`, and
+   `https://auth.samebase.com/connections/github/callback` on those applications.
 2. The stack hands the clients from `alchemy.run.ts` to the deployment it pushes: no connector
    variable is set by hand.
 3. Create the keys of production once, by hand, with the Convex CLI login:

@@ -55,6 +55,7 @@ export { google } from "./connectors/google.js";
 export {
   convexConnection,
   cloudflareConnection,
+  githubConnection,
   type ResourceProvider,
 } from "./resourceProviders.js";
 export { createKeySet, parseKeySet, rotateKeySet, type KeySet } from "./keys.js";

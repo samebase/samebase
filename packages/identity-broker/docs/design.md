@@ -126,6 +126,8 @@ pairwise subjects gives the hub other ids than it gave an app's own client.
 
 - No refresh tokens for OIDC sign-in: apps keep their own sessions. API authorization supports
   refresh tokens and `offline_access` when its provider does.
+- GitHub answers token errors with HTTP 200 and calls `invalid_grant` `bad_refresh_token`. Its
+  provider corrects that response before the standard client reads it.
 - The token endpoint answers `temporarily_unavailable` when a provider cannot refresh, which RFC
   6749 section 5.2 lists only for the authorization endpoint. Provider-issued access tokens are not
   revocable through the broker's RFC 7009 endpoint.
