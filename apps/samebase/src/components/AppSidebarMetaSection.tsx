@@ -120,17 +120,26 @@ export function AppSidebarMetaSection({
       </Link>
 
       <div className={APP_SIDEBAR_META_VERSION_CLASS_NAMES[linkAlignment]}>
-        <span className="shrink-0" data-testid={APP_BUILD_VERSION_TEST_ID}>
+        <a
+          className="shrink-0"
+          data-testid={APP_BUILD_VERSION_TEST_ID}
+          href="https://github.com/samebase/samebase"
+          rel="noreferrer"
+          target="_blank"
+        >
           {buildVersionLabel}
-        </span>
+        </a>
 
-        <span
+        <a
           data-testid={APP_BUILD_COMMIT_TEST_ID}
           className="min-w-0 max-w-full truncate select-text"
+          href={`https://github.com/samebase/samebase/commit/${appCommit}`}
+          rel="noreferrer"
+          target="_blank"
           title={appCommit}
         >
           {commitLabel}
-        </span>
+        </a>
       </div>
     </div>
   );
