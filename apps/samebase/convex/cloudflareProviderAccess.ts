@@ -116,10 +116,24 @@ export const checkCloudflareConnectionAccess = action({
         ...(credential.tokenHealth ? { tokenHealth: credential.tokenHealth } : {}),
       };
     } else {
-      connection = await ctx.runAction(internal.cloudflareOAuth.resolveConnectionForOrganization, {
-        organizationId,
-        userId: ctx.viewer.userId,
-      });
+      try {
+        connection = await ctx.runAction(
+          internal.cloudflareOAuth.resolveConnectionForOrganization,
+          { organizationId, userId: ctx.viewer.userId },
+        );
+      } catch (error) {
+        // The resolver records a grant the hub refused. Only a reconnect repairs it, not a reload.
+        const current = await ctx.runQuery(
+          internal.organizationProviderCredentials.loadForProviderStatus,
+          { organizationId, userId: ctx.viewer.userId },
+        );
+        if (current.cloudflareCredential?.tokenHealth?.status !== "invalid") throw error;
+        return {
+          connected: true,
+          requestedScopes: getCloudflareRequestedScopes(current.cloudflareCredential.auth.method),
+          checks: [{ key: "token", status: "error" }],
+        };
+      }
     }
     if (connection === null) {
       return {

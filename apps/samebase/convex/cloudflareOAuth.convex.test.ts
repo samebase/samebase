@@ -192,14 +192,11 @@ describe("Cloudflare connection refresh", () => {
     expect(fetch).not.toHaveBeenCalled();
   });
 
-  it.each([
-    { name: "hub invalid grant", error: "invalid_grant", status: 400 },
-    { name: "hub invalid client", error: "invalid_client", status: 401 },
-  ])("records $name and releases its token lease", async ({ error, status }) => {
+  it("records a hub invalid grant and releases its token lease", async () => {
     const seed = await seedConnection(oauth);
     vi.stubGlobal(
       "fetch",
-      vi.fn(async () => Response.json({ error }, { status })),
+      vi.fn(async () => Response.json({ error: "invalid_grant" }, { status: 400 })),
     );
 
     await expect(resolveConnection(seed)).rejects.toThrow();
@@ -213,11 +210,24 @@ describe("Cloudflare connection refresh", () => {
     expect(credentials?.cloudflare?.lastTokenRefreshAt).toBeUndefined();
   });
 
-  it("keeps the connection when the hub answers temporarily_unavailable", async () => {
+  it.each([
+    {
+      name: "is unavailable",
+      response: () => Response.json({ error: "temporarily_unavailable" }, { status: 503 }),
+    },
+    {
+      name: "rejects the client",
+      response: () =>
+        Response.json(
+          { error: "invalid_client" },
+          { status: 401, headers: { "WWW-Authenticate": 'Basic realm="token"' } },
+        ),
+    },
+  ])("keeps the connection when the hub $name", async ({ response }) => {
     const seed = await seedConnection(oauth);
     vi.stubGlobal(
       "fetch",
-      vi.fn(async () => Response.json({ error: "temporarily_unavailable" }, { status: 503 })),
+      vi.fn(async () => response()),
     );
 
     await expect(resolveConnection(seed)).rejects.toThrow();

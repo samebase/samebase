@@ -266,7 +266,7 @@ export type ResolvedCloudflareConnection = Infer<typeof resolvedCloudflareConnec
 
 function isLikelyInvalidCloudflareTokenError(error: unknown): boolean {
   if (error instanceof ResponseBodyError) {
-    return error.error === "invalid_grant" || error.error === "invalid_client";
+    return error.error === "invalid_grant";
   }
   const message = (error instanceof Error ? error.message : String(error)).toLowerCase().trim();
   if (message.length === 0) {
