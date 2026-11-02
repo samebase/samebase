@@ -38,13 +38,13 @@ env:
     == 'refs/heads/main' && 'prod' || github.ref_name) }}
 
 jobs:
-  # The app reads these root folders in its build. The sidebars example reads none of them.
+  # The build of the app reads these root files, which are in no workspace package.
   changes:
     name: Changes
     uses: ./.github/workflows/alchemy-changes.yml
     with:
       directory: apps/samebase
-      shared-paths: runtime scripts vite.config.ts tsconfig.json
+      shared-paths: runtime tsconfig.strict.json
 
   deploy:
     name: Deploy ${{ github.event_name == 'pull_request' && 'the preview' || 'production' }}
