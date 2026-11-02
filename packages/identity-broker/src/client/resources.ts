@@ -104,6 +104,13 @@ export function resourceEndpoints(options: {
     );
     if (!parsed.ok)
       return authorizationError({ ...back, error: parsed.error, description: parsed.description });
+    // RFC 6749 section 3.3: a response without `scope` would claim the requested scope was granted.
+    if (provider.scopes.length === 0 && parsed.value.scopes.length > 0)
+      return authorizationError({
+        ...back,
+        error: "invalid_scope",
+        description: "This API resource has no scopes.",
+      });
     const start = await startResourceAuthorization({
       provider,
       callbackUrl: callbackUrl(provider),

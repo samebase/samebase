@@ -56,9 +56,9 @@ Without `resource`, `/authorize` keeps the OIDC sign-in contract and requires `o
 with one exact configured `resource` instead uses RFC 6749 authorization code flow with RFC 7636
 S256 and RFC 8707 resource indicators. Each provider has one configured scope, so the broker ignores
 a requested `scope` (RFC 6749 section 3.3) and returns the scope the provider granted. Convex's team
-authorization has no scope parameter. Unknown or multiple resources answer `invalid_target`. The
-code binds the resource, so `/token` can omit it; if supplied, it must match exactly. Neither this
-response nor refresh issues an ID Token.
+authorization has no scope parameter, so a requested scope answers `invalid_scope`. Unknown or
+multiple resources answer `invalid_target`. The code binds the resource, so `/token` can omit it; if
+supplied, it must match exactly. Neither this response nor refresh issues an ID Token.
 
 Only administrator-registered first-party apps without a tenant or fixed sign-in connector can
 request API access. As with first-party sign-in, the broker adds no consent screen: the trusted app

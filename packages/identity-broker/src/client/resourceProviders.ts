@@ -77,10 +77,10 @@ function clientAuthentication(provider: ResourceProvider) {
     : oauth.ClientSecretPost(provider.clientSecret());
 }
 
-function resourceTokens(tokens: oauth.TokenEndpointResponse, provider: ResourceProvider) {
+function resourceTokens(tokens: oauth.TokenEndpointResponse, omittedScope: string) {
   return {
     accessToken: tokens.access_token,
-    scope: tokens.scope ?? provider.scopes.join(" "),
+    scope: tokens.scope ?? omittedScope,
     ...(tokens.expires_in === undefined
       ? {}
       : { expiresAt: Date.now() + tokens.expires_in * 1000 }),
@@ -108,7 +108,7 @@ export async function finishResourceAuthorization(args: {
   );
   return resourceTokens(
     await oauth.processAuthorizationCodeResponse(provider.server, client, response),
-    provider,
+    provider.scopes.join(" "),
   );
 }
 
@@ -125,8 +125,9 @@ export async function refreshResourceToken(args: {
     args.refreshToken,
     { signal: AbortSignal.timeout(REFRESH_TIMEOUT_MS) },
   );
+  // RFC 6749 section 6: an omitted scope on refresh means the original grant, so it stays omitted.
   return resourceTokens(
     await oauth.processRefreshTokenResponse(provider.server, client, response),
-    provider,
+    "",
   );
 }

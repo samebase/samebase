@@ -360,8 +360,6 @@ export const exchangeCode = mutation({
       // Replay: the code and its request are revoked (RFC 6749 section 4.1.2).
       await ctx.db.delete("authorizationCodes", code._id);
       if ("resourceRequestId" in code) {
-        const request = await ctx.db.get("resourceRequests", code.resourceRequestId);
-        if (request !== null) await ctx.db.delete("resourceRequests", request._id);
         if (
           code.refreshGrantId !== undefined &&
           (await ctx.db.get("refreshGrants", code.refreshGrantId)) !== null

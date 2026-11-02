@@ -263,6 +263,33 @@ test("authorization refuses an unknown resource before contacting a provider", a
   expect(args.tokenCalls).toHaveLength(0);
 });
 
+test("a resource with no scopes refuses a requested scope", async () => {
+  const args = await setup();
+  const { start } = await authorize(args, convex.resource, { scope: "read" });
+  expect(new URL(start.headers.get("location") ?? "").searchParams.get("error")).toBe(
+    "invalid_scope",
+  );
+});
+
+test("a refresh leaves out a scope the provider left out", async () => {
+  const args = await setup();
+  const { start, proof } = await authorize(args, cloudflare.resource);
+  const finished = await complete(args.h, start);
+  const response = await redeem(args, finished.url.searchParams.get("code") ?? "", proof.verifier);
+  const initial: { refresh_token: string; scope: string } = await response.json();
+  expect(initial.scope).toBe(cloudflare.scopes.join(" "));
+  const refreshed = await args.h.fetchBroker(`${ISSUER}/token`, {
+    method: "POST",
+    body: new URLSearchParams({
+      grant_type: "refresh_token",
+      client_id: args.registered.clientId,
+      client_secret: args.registered.clientSecret,
+      refresh_token: initial.refresh_token,
+    }),
+  });
+  expect(await refreshed.json()).not.toHaveProperty("scope");
+});
+
 test("the provider gets its configured scope, whatever the client requests", async () => {
   const args = await setup();
   const { start } = await authorize(args, cloudflare.resource, { scope: "openid" });
