@@ -30,6 +30,11 @@ const app = defineApp({
      */
     AUTH_GITHUB_CLIENT_ID: v.string(),
     AUTH_GITHUB_CLIENT_SECRET: v.string(),
+    /** OAuth applications whose fixed callbacks are at this hub's /connections/<name>/callback. */
+    PROVIDER_CONVEX_OAUTH_CLIENT_ID: v.string(),
+    PROVIDER_CONVEX_OAUTH_CLIENT_SECRET: v.string(),
+    PROVIDER_CLOUDFLARE_OAUTH_CLIENT_ID: v.string(),
+    PROVIDER_CLOUDFLARE_OAUTH_CLIENT_SECRET: v.string(),
     /**
      * The initial access token of client registration (RFC 7591), set by hand on the deployment.
      * Without it, `/register` refuses every request.

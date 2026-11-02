@@ -3,8 +3,8 @@
 The sign-in hub of the Samebase team on [Convex](https://convex.dev): the code of the production
 deployment of the project `identity-hub`. It mounts `identityBroker` from
 [`@samebase/identity-broker`](../../packages/identity-broker), holds the team's Google and GitHub
-connections once, and signs users in to all its apps. It keeps no user accounts; each app creates
-its own user from the `id_token` it gets.
+connections once, and signs users in to all its apps. It also brokers Convex and Cloudflare API
+authorization. It keeps no user accounts; each app creates its own user from the `id_token` it gets.
 
 This folder holds no secrets. The values of the team are the constants in `alchemy.run.ts` and the
 lines in `convex/connectors.ts`, so a copy of it with other values runs another team's hub. To start
@@ -25,9 +25,12 @@ stack skips the push when nothing of the hub changed. Pull requests run the chec
    the deploy key with it. In the GitHub environment `identity-hub`, which only `main` can use, set
    `GOOGLE_CLIENT_ID` with `GOOGLE_CLIENT_SECRET`, the team's Google OAuth client,
    `GOOGLE_APPS_CLIENT_ID` with `GOOGLE_APPS_CLIENT_SECRET`, the Google OAuth client of third-party
-   apps, and `AUTH_GITHUB_CLIENT_ID` with `AUTH_GITHUB_CLIENT_SECRET`, the team's GitHub login OAuth
-   App.
-2. The stack hands the three clients from `alchemy.run.ts` to the deployment it pushes: no connector
+   apps, `AUTH_GITHUB_CLIENT_ID` with `AUTH_GITHUB_CLIENT_SECRET`, the team's GitHub login OAuth App,
+   and `PROVIDER_CONVEX_OAUTH_CLIENT_ID` with `PROVIDER_CONVEX_OAUTH_CLIENT_SECRET` and
+   `PROVIDER_CLOUDFLARE_OAUTH_CLIENT_ID` with `PROVIDER_CLOUDFLARE_OAUTH_CLIENT_SECRET`, the team's
+   API OAuth applications. Register `https://auth.samebase.com/connections/convex/callback` and
+   `https://auth.samebase.com/connections/cloudflare/callback` on those applications.
+2. The stack hands the clients from `alchemy.run.ts` to the deployment it pushes: no connector
    variable is set by hand.
 3. Create the keys of production once, by hand, with the Convex CLI login:
    `pnpm run keys:init --prod` writes `IDENTITY_BROKER_KEYS`, the signing key and the pairwise salt,
