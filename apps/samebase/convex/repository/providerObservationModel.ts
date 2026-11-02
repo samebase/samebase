@@ -1,8 +1,7 @@
 import { v, type Infer } from "convex/values";
 
 import { vConvexDeploymentRegion } from "../convexDeploymentRegionModel";
-import { vCloudflareWorkerRepositoryDiscovery } from "./contracts/cloudflareAttachments";
-import { vConvexCodeLocation } from "./contracts/convexAttachments";
+import { vConvexCodeLocation } from "./contracts/convexCodeLocation";
 
 /*
 Result validators of the live provider reads in providerObservations.ts. They live in this
@@ -10,6 +9,36 @@ default-runtime module so that repository:getStatus can declare the same shapes.
 */
 
 const { array, id, literal, object, string, union } = v;
+
+const vCloudflareWorkerBuildSettingsStatus = union(
+  object({
+    state: literal("available"),
+  }),
+  object({ state: literal("legacy_previews") }),
+  object({ state: literal("not_available") }),
+  object({ state: literal("ambiguous") }),
+);
+
+const vCloudflareWorkerRepositoryDiscovery = union(
+  object({
+    state: literal("ready"),
+    rootDirectory: string(),
+    builds: vCloudflareWorkerBuildSettingsStatus,
+  }),
+  object({ state: literal("not_connected") }),
+  object({ state: literal("connected_elsewhere") }),
+  object({
+    state: literal("ambiguous"),
+    reason: union(
+      literal("deleted_repository_connection"),
+      literal("missing_provider_type"),
+      literal("missing_repo_id"),
+      literal("missing_root_directory"),
+      literal("multiple_root_directories"),
+    ),
+  }),
+  object({ state: literal("failed"), message: string() }),
+);
 
 export const vCloudflareBuildState = union(
   literal("queued"),

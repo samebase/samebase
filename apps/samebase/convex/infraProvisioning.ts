@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { internalMutation, type ActionCtx, type MutationCtx } from "./_generated/server";
+import { internalMutation, type MutationCtx } from "./_generated/server";
 import type { FunctionReference, FunctionReturnType, OptionalRestArgs } from "convex/server";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
@@ -8,318 +8,10 @@ import {
   ORGANIZATION_CONNECTION_LIMIT_ERROR_PREFIX,
 } from "./billingErrors";
 import {
-  isConvexCloudDeployment,
-  createConvexManagementClient,
-  type ConvexCloudDeployment,
-} from "./convexManagementApi/client";
-import { ConvexManagement } from "./convexManagementApi/generated/sdk.gen";
-import { isConvexManagementNotFoundError } from "./convexManagementApi/errors";
-import type {
-  PlatformCreateDeployKeyArgs,
-  PlatformDeploymentResponse,
-} from "./convexManagementApi/generated/types.gen";
-import {
-  formatCloudflareGitHubAppRepositoryAuthorizationMessage,
-  isCloudflareGitHubAppRepositoryAuthorizationError,
-} from "./cloudflareResources";
-import {
   isRepositoryProvisioningProviderStep,
   type RepositoryProvisioningStep,
 } from "./repository/provisioningModel";
-import type { ProviderApiCallRecorder } from "./providerApiLog";
 import { requireActiveRepositoryProvisioningRun } from "./repositoryWorkflowAuthority";
-import {
-  organizationProviderCredentialAad,
-  type ConvexProviderCredential,
-} from "./organization/providerCredentialModel";
-import { openSecret } from "./sealedSecret";
-
-type ConvexDeployKeyAllowedAction = NonNullable<
-  PlatformCreateDeployKeyArgs["allowedActions"]
->[number];
-export type ConvexProvisioningAuthMethod = "api_key" | "oauth";
-
-const CONVEX_DEPLOY_KEY_ALLOWED_ACTIONS = [
-  "deployment:deploy",
-  "deployment:env:view",
-  "deployment:env:write",
-  "deployment:data:view",
-] satisfies ConvexDeployKeyAllowedAction[];
-
-type ConvexDeployKeyResult = {
-  deployKey: string;
-};
-
-function requireConvexCloudDeployment(args: {
-  deployment: PlatformDeploymentResponse;
-  deploymentType: "prod" | "dev";
-  projectId: string;
-  description: string;
-}): ConvexCloudDeployment {
-  if (!isConvexCloudDeployment(args.deployment)) {
-    throw new Error(`${args.description} was not cloud.`);
-  }
-  if (args.deployment.deploymentType !== args.deploymentType) {
-    throw new Error(`${args.description} had the wrong deployment type.`);
-  }
-  if (args.deployment.projectId !== args.projectId) {
-    throw new Error(`${args.description} belonged to a different project.`);
-  }
-  return args.deployment;
-}
-
-async function readDefaultConvexCloudDeployment(args: {
-  convexToken: string;
-  projectId: string;
-  deploymentType: "prod" | "dev";
-  recordApiCall?: ProviderApiCallRecorder;
-}): Promise<ConvexCloudDeployment | null> {
-  try {
-    const deployment = await ConvexManagement.GET["/projects/{project_id}/deployment"]({
-      client: createConvexManagementClient({
-        token: args.convexToken,
-        recordApiCall: args.recordApiCall,
-      }),
-      path: { project_id: args.projectId },
-      query: args.deploymentType === "prod" ? { defaultProd: true } : { defaultDev: true },
-    });
-    return requireConvexCloudDeployment({
-      deployment,
-      deploymentType: args.deploymentType,
-      projectId: args.projectId,
-      description:
-        args.deploymentType === "prod"
-          ? "Default Convex production deployment"
-          : "Default Convex dev deployment",
-    });
-  } catch (error) {
-    if (isConvexManagementNotFoundError(error)) {
-      return null;
-    }
-    throw error;
-  }
-}
-
-async function createConvexCloudDeployment(args: {
-  convexToken: string;
-  projectId: string;
-  deploymentType: "prod" | "dev";
-  recordApiCall?: ProviderApiCallRecorder;
-}): Promise<ConvexCloudDeployment> {
-  const deployment = await ConvexManagement.POST["/projects/{project_id}/create_deployment"]({
-    client: createConvexManagementClient({
-      token: args.convexToken,
-      recordApiCall: args.recordApiCall,
-    }),
-    path: { project_id: args.projectId },
-    body: {
-      type: args.deploymentType,
-    },
-  });
-  return requireConvexCloudDeployment({
-    deployment,
-    deploymentType: args.deploymentType,
-    projectId: args.projectId,
-    description: "Created Convex deployment",
-  });
-}
-
-async function readConvexProjectDetails(args: {
-  convexToken: string;
-  projectId: string;
-  teamId: string;
-  recordApiCall?: ProviderApiCallRecorder;
-}) {
-  const project = await ConvexManagement.GET["/projects/{project_id}"]({
-    client: createConvexManagementClient({
-      token: args.convexToken,
-      recordApiCall: args.recordApiCall,
-    }),
-    path: { project_id: args.projectId },
-  });
-  if (project.teamId !== args.teamId) {
-    throw new Error("Convex project belonged to a different team.");
-  }
-  return project;
-}
-
-export type ConvexPreviewProvisionResult = {
-  previewDeploymentName: string;
-  previewCloudUrl: string;
-};
-
-export async function ensureConvexPreviewResources(args: {
-  convexToken: string;
-  teamId: string;
-  projectId: string;
-  recordApiCall?: ProviderApiCallRecorder;
-}): Promise<ConvexPreviewProvisionResult> {
-  // Preview deployment creation starts from recorded infrastructure, so prove
-  // that project still belongs to the currently connected Convex team first.
-  await readConvexProjectDetails({
-    convexToken: args.convexToken,
-    projectId: args.projectId,
-    teamId: args.teamId,
-    recordApiCall: args.recordApiCall,
-  });
-
-  const defaultDevDeployment = await readDefaultConvexCloudDeployment({
-    convexToken: args.convexToken,
-    projectId: args.projectId,
-    deploymentType: "dev",
-    recordApiCall: args.recordApiCall,
-  });
-
-  const deployment =
-    defaultDevDeployment ??
-    (await createConvexCloudDeployment({
-      convexToken: args.convexToken,
-      projectId: args.projectId,
-      deploymentType: "dev",
-      recordApiCall: args.recordApiCall,
-    }));
-
-  return {
-    previewDeploymentName: deployment.name,
-    previewCloudUrl: deployment.deploymentUrl,
-  };
-}
-
-/**
- * Creates the production deploy key used by Cloudflare builds.
- *
- * Convex deploy keys created through OAuth reuse the OAuth-granted token, so
- * Convex rejects request-scoped allowedActions for that auth method.
- *
- * @see https://docs.convex.dev/management-api/create-deploy-key
- */
-export async function createConvexDeployKey(args: {
-  convexToken: string;
-  convexAuthMethod: ConvexProvisioningAuthMethod;
-  deploymentName: string;
-  name: string;
-  recordApiCall?: ProviderApiCallRecorder;
-}): Promise<ConvexDeployKeyResult> {
-  // Create deploy-key secrets inside provider steps so Workflow journals only
-  // safe app metadata, never key material.
-  const body =
-    args.convexAuthMethod === "api_key"
-      ? {
-          allowedActions: CONVEX_DEPLOY_KEY_ALLOWED_ACTIONS,
-          name: args.name,
-        }
-      : {
-          name: args.name,
-        };
-  const { deployKey } = await ConvexManagement.POST[
-    "/deployments/{deployment_name}/create_deploy_key"
-  ]({
-    client: createConvexManagementClient({
-      token: args.convexToken,
-      recordApiCall: args.recordApiCall,
-    }),
-    path: { deployment_name: args.deploymentName },
-    body,
-  });
-
-  return { deployKey };
-}
-
-export async function deleteConvexDeployKey(args: {
-  convexToken: string;
-  deploymentName: string;
-  deployKeySecretOrName: string;
-  recordApiCall?: ProviderApiCallRecorder;
-}): Promise<void> {
-  await ConvexManagement.POST["/deployments/{deployment_name}/delete_deploy_key"]({
-    client: createConvexManagementClient({
-      token: args.convexToken,
-      recordApiCall: args.recordApiCall,
-    }),
-    path: { deployment_name: args.deploymentName },
-    body: { id: args.deployKeySecretOrName },
-  });
-}
-
-export async function deleteConvexDeployKeyByName(args: {
-  convexToken: string;
-  deploymentName: string;
-  name: string;
-  recordApiCall?: ProviderApiCallRecorder;
-}): Promise<void> {
-  try {
-    await deleteConvexDeployKey({
-      convexToken: args.convexToken,
-      deploymentName: args.deploymentName,
-      deployKeySecretOrName: args.name,
-      recordApiCall: args.recordApiCall,
-    });
-  } catch (error) {
-    if (!isConvexManagementNotFoundError(error)) {
-      throw error;
-    }
-  }
-}
-
-export async function createConvexPreviewDeployKey(args: {
-  convexToken: string;
-  projectId: string;
-  name: string;
-  recordApiCall?: ProviderApiCallRecorder;
-}): Promise<ConvexDeployKeyResult> {
-  // Cloudflare branch builds deploy Convex previews, which require a
-  // project-level preview deploy key instead of a dev deployment key.
-  const { previewDeployKey } = await ConvexManagement.POST[
-    "/projects/{project_id}/create_preview_deploy_key"
-  ]({
-    client: createConvexManagementClient({
-      token: args.convexToken,
-      recordApiCall: args.recordApiCall,
-    }),
-    path: { project_id: args.projectId },
-    body: {
-      name: args.name,
-    },
-  });
-
-  return { deployKey: previewDeployKey };
-}
-
-export async function deleteConvexPreviewDeployKey(args: {
-  convexToken: string;
-  projectId: string;
-  deployKeySecretOrName: string;
-  recordApiCall?: ProviderApiCallRecorder;
-}): Promise<void> {
-  await ConvexManagement.POST["/projects/{project_id}/delete_preview_deploy_key"]({
-    client: createConvexManagementClient({
-      token: args.convexToken,
-      recordApiCall: args.recordApiCall,
-    }),
-    path: { project_id: args.projectId },
-    body: { id: args.deployKeySecretOrName },
-  });
-}
-
-export async function deleteConvexPreviewDeployKeyByName(args: {
-  convexToken: string;
-  projectId: string;
-  name: string;
-  recordApiCall?: ProviderApiCallRecorder;
-}): Promise<void> {
-  try {
-    await deleteConvexPreviewDeployKey({
-      convexToken: args.convexToken,
-      projectId: args.projectId,
-      deployKeySecretOrName: args.name,
-      recordApiCall: args.recordApiCall,
-    });
-  } catch (error) {
-    if (!isConvexManagementNotFoundError(error)) {
-      throw error;
-    }
-  }
-}
 
 type ProvisioningEventCtx = {
   runMutation: <Mutation extends FunctionReference<"mutation", "public" | "internal">>(
@@ -410,112 +102,6 @@ async function cancelSupersededProvisioningRun(
     message: "A newer run replaced this infrastructure provisioning run.",
     state: "canceled",
   });
-}
-
-export async function resolveConvexProvisioningConnection(
-  ctx: Pick<ActionCtx, "runQuery">,
-  args: {
-    userId: Id<"users">;
-    organizationId: Id<"organizations">;
-    teamId: string;
-  },
-): Promise<{
-  organizationId: Id<"organizations">;
-  /** The opened `convexAuth.credential`. */
-  convexToken: string;
-  convexAuth: ConvexProviderCredential["auth"];
-  convexTeamId: string;
-}> {
-  const convexConnection = await ctx.runQuery(
-    internal.organizationProviderCredentials.loadConvexForOrganizationTeam,
-    {
-      userId: args.userId,
-      organizationId: args.organizationId,
-      teamId: args.teamId,
-    },
-  );
-  const credential = convexConnection?.credential;
-  if (!convexConnection || !credential) {
-    throw new Error(
-      "Convex connection is required to provision infrastructure. Connect Convex and retry.",
-    );
-  }
-
-  const convexToken = (
-    await openSecret({
-      sealed: credential.auth.credential,
-      aad: organizationProviderCredentialAad(args.organizationId, "convex.auth.credential"),
-    })
-  ).trim();
-  const convexTeamId = convexConnection.teamId.trim();
-
-  if (!convexToken || !convexTeamId) {
-    throw new Error(
-      "Convex connection is required to provision infrastructure. Connect Convex and retry.",
-    );
-  }
-
-  return {
-    organizationId: args.organizationId,
-    convexToken,
-    convexAuth: credential.auth,
-    convexTeamId,
-  };
-}
-
-export async function resolveConvexProvisioningConnectionForRepositoryWorkflow(
-  ctx: Pick<ActionCtx, "runQuery">,
-  args: {
-    runId: Id<"workflow_repositoryProvisioning_runs">;
-    userId: Id<"users">;
-    repositoryId: Id<"repositories">;
-    teamId: string;
-  },
-): Promise<{
-  organizationId: Id<"organizations">;
-  /** The opened `convexAuth.credential`. */
-  convexToken: string;
-  convexAuth: ConvexProviderCredential["auth"];
-  convexTeamId: string;
-}> {
-  const loaded = await ctx.runQuery(
-    internal.organizationProviderCredentials.loadForRepositoryProviderWorkflow,
-    {
-      authority: {
-        kind: "provisioning",
-        runId: args.runId,
-        userId: args.userId,
-        repositoryId: args.repositoryId,
-      },
-    },
-  );
-  const team = loaded.configuration.convexTeam;
-  const credential = loaded.configuration.convexCredential;
-  if (team?.teamId !== args.teamId || credential === undefined) {
-    throw new Error(
-      "Convex connection is required to provision infrastructure. Connect Convex and retry.",
-    );
-  }
-
-  const convexToken = (
-    await openSecret({
-      sealed: credential.auth.credential,
-      aad: organizationProviderCredentialAad(loaded.organizationId, "convex.auth.credential"),
-    })
-  ).trim();
-  const convexTeamId = team.teamId.trim();
-  if (!convexToken || !convexTeamId) {
-    throw new Error(
-      "Convex connection is required to provision infrastructure. Connect Convex and retry.",
-    );
-  }
-
-  return {
-    organizationId: loaded.organizationId,
-    convexToken,
-    convexAuth: credential.auth,
-    convexTeamId,
-  };
 }
 
 export const markWorkflowStartupFailed = internalMutation({
@@ -610,35 +196,16 @@ async function recordWorkflowRunFailure(
 }
 
 const USER_FACING_PROVISIONING_ERROR_MARKERS = [
-  "Cloudflare connection is required to provision infrastructure.",
-  "The current Cloudflare credential cannot access Cloudflare account",
-  "Cloudflare connection is missing Workers Builds write access.",
-  "Cloudflare Workers and Pages GitHub App is not authorized",
-  "Cloudflare Worker name",
   ORGANIZATION_CONNECTION_LIMIT_ERROR_PREFIX,
-  "exists after an interrupted create. Delete it in the Cloudflare dashboard, then retry.",
-  "Cannot connect Cloudflare Worker",
-  "Cloudflare Worker connection did not attach a Worker.",
   "Convex connection is required to provision infrastructure.",
-  "Connected Convex team does not match the provisioning plan.",
-  "Convex project name",
-  "exists after an interrupted create. Delete it in the Convex dashboard, then retry.",
-  "Convex deployment connection did not attach a deployment.",
-  "Cloudflare Worker is required before rotating Convex deploy keys for Workers Builds.",
-  "Cloudflare Workers Builds are required before rotating Convex deploy keys.",
-  "Convex deployment is required before rotating Convex deploy keys for Workers Builds.",
-  "GitHub owner id is required before Cloudflare Workers Builds can connect the repository.",
   "GitHub repository response did not match the Samebase repository.",
   "The Samebase GitHub App is missing the",
   "has commits that Samebase did not make, so Samebase cannot seed the starter",
   ORGANIZATION_BILLING_LIMITED_ERROR_PREFIX,
 ];
 
-function extractUserFacingProvisioningError(args: {
-  message: string;
-  githubRepositoryFullName: string;
-}): string | null {
-  const firstLine = args.message.trim().split("\n")[0]?.trim();
+function extractUserFacingProvisioningError(message: string): string | null {
+  const firstLine = message.trim().split("\n")[0]?.trim();
   if (!firstLine) {
     return null;
   }
@@ -660,18 +227,6 @@ function extractUserFacingProvisioningError(args: {
     break;
   }
 
-  if (isCloudflareGitHubAppRepositoryAuthorizationError(new Error(cleaned))) {
-    return formatCloudflareGitHubAppRepositoryAuthorizationMessage(args.githubRepositoryFullName);
-  }
-
-  if (
-    cleaned.includes(
-      "The selected Cloudflare Workers Builds token is not in Cloudflare's current list",
-    )
-  ) {
-    return "The selected Cloudflare Workers Builds token is no longer in Cloudflare's current list. Remove this failed app, then create it again with another token.";
-  }
-
   for (const marker of USER_FACING_PROVISIONING_ERROR_MARKERS) {
     if (cleaned.includes(marker)) {
       return cleaned;
@@ -681,20 +236,14 @@ function extractUserFacingProvisioningError(args: {
   return null;
 }
 
-function resolveSafeWorkflowRunError(args: {
-  currentStep: string;
-  message: string;
-  githubRepositoryFullName: string;
-}): string {
+function resolveSafeWorkflowRunError(args: { currentStep: string; message: string }): string {
   if (args.currentStep === "run_created") {
     return "Provisioning failed before the first step.";
   }
 
   return (
-    extractUserFacingProvisioningError({
-      message: args.message,
-      githubRepositoryFullName: args.githubRepositoryFullName,
-    }) ?? `Provisioning failed during ${args.currentStep}.`
+    extractUserFacingProvisioningError(args.message) ??
+    `Provisioning failed during ${args.currentStep}.`
   );
 }
 
@@ -728,7 +277,6 @@ export const markWorkflowProvisioningFailed = internalMutation({
     const safeRunError = resolveSafeWorkflowRunError({
       currentStep: run.currentStep,
       message: args.message,
-      githubRepositoryFullName: run.githubRepositoryFullName,
     });
     if (repository?.state === "provisioning" && repository.runId === args.runId) {
       await ctx.runMutation(internal.repository.records.markGithubProvisioningFailed, {

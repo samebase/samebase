@@ -1,19 +1,19 @@
 import { defineTable } from "convex/server";
 import { v, type Infer } from "convex/values";
 
-import { cloudflareConnectWorkerContract } from "./contracts/cloudflareAttachments";
-import { cloudflareRotateConvexDeployKeysForWorkersBuildsContract } from "./contracts/cloudflareRotateConvexDeployKeysForWorkersBuilds";
-import { detachResourceContract } from "./contracts/detachResource";
 import { retryInfrastructureProvisioningContract } from "./contracts/retryInfrastructureProvisioning";
 
 const { id, literal, number, object, optional, string, union } = v;
 
-/** The catalog ids of the four actions that need a confirmation (rfcs/125). */
+/**
+The catalog ids of the actions that needed a confirmation (rfcs/125). Only the retry still does. Token
+and audit rows hold the other three, so these tables keep accepting them.
+*/
 export const vConfirmedAction = union(
-  literal(cloudflareConnectWorkerContract.id),
-  literal(cloudflareRotateConvexDeployKeysForWorkersBuildsContract.id),
+  literal("connect_cloudflare_worker"),
+  literal("rotate_convex_deploy_keys"),
   literal(retryInfrastructureProvisioningContract.id),
-  literal(detachResourceContract.id),
+  literal("detach_resource"),
 );
 export type ConfirmedAction = Infer<typeof vConfirmedAction>;
 

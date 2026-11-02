@@ -4,8 +4,6 @@ import type { Id } from "../_generated/dataModel";
 import {
   isSamebaseManagedProviderPlan,
   readRepositoryProvisioningMode,
-  REPOSITORY_ACTIONS_OWN_PROVIDERS_MESSAGE,
-  requireSamebaseProvisioningPlan,
   type RepositoryProvisioningPlan,
 } from "./provisioningPlan";
 
@@ -60,12 +58,5 @@ describe("repository provisioning mode", () => {
     expect(readRepositoryProvisioningMode(projection)).toBe("repository_actions");
     expect(isSamebaseManagedProviderPlan(projection)).toBe(false);
     expect(isSamebaseManagedProviderPlan(null)).toBe(false);
-  });
-
-  it("refuses the samebase-only steps for a repository_actions plan", () => {
-    expect(requireSamebaseProvisioningPlan(samebasePlan)).toBe(samebasePlan);
-    expect(() => requireSamebaseProvisioningPlan(repositoryActionsPlan)).toThrow(
-      REPOSITORY_ACTIONS_OWN_PROVIDERS_MESSAGE,
-    );
   });
 });

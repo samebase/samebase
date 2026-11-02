@@ -85,7 +85,6 @@ const accountDeletionQuiescenceResult = v.union(
   v.object({ state: v.literal("done") }),
   v.object({ state: v.literal("waiting"), blocker: v.literal("active_repository_deletion") }),
   v.object({ state: v.literal("waiting"), blocker: v.literal("active_app_provisioning") }),
-  v.object({ state: v.literal("waiting"), blocker: v.literal("active_manual_provider_write") }),
   v.object({
     state: v.literal("waiting"),
     blocker: v.literal("active_github_user_authorization_refresh"),
@@ -131,19 +130,6 @@ async function findActiveRepositoryProvisioning(
   }
 
   return null;
-}
-
-async function findActiveManualProviderWrite(
-  ctx: AccountDataCleanupCtx,
-  userId: Id<"users">,
-): Promise<Id<"workflow_repositoryProvisioning_writeLocks"> | null> {
-  const write = await ctx.db
-    .query("workflow_repositoryProvisioning_writeLocks")
-    .withIndex("by_manual_user_and_state", (query) =>
-      query.eq("owner.userId", userId).eq("state", "active"),
-    )
-    .first();
-  return write?._id ?? null;
 }
 
 async function deleteRowsById<TableName extends TableNames>(
@@ -379,9 +365,6 @@ export const inspectQuiescence = internalMutation({
     }
     if (await findActiveRepositoryProvisioning(ctx, run.identity.userId)) {
       return { state: "waiting", blocker: "active_app_provisioning" };
-    }
-    if (await findActiveManualProviderWrite(ctx, run.identity.userId)) {
-      return { state: "waiting", blocker: "active_manual_provider_write" };
     }
     const githubUserAuthorization = await ctx.db
       .query("githubUserAuthorizations")

@@ -242,11 +242,6 @@ describe("app provisioning retry admission", () => {
       "active_managed_lock",
       "Another Samebase setup or provider change is running for this repository, so nothing changed. Try again after it finishes.",
     ],
-    [
-      "an active manual write",
-      "manual_write",
-      "Another Samebase setup or provider change is running for this repository, so nothing changed. Try again after it finishes.",
-    ],
     ["repository removal", "deletion", "Removal from Samebase is in progress."],
   ] as const)(
     "rejects retry while %s is active, before any confirmation request",
@@ -460,26 +455,28 @@ describe("app provisioning retry admission", () => {
     },
   );
 
-  it("rejects retry after a manual action supersedes failed managed setup", async () => {
-    // Only a repository outside the GitHub Actions flow takes a manual provider write.
-    const fixture = await createRetryFixture("none", makeConvexTest(), "old");
-    const { ids, t } = fixture;
-    await t.mutation(internal.repository.infrastructureOperation.claimManualProviderWrite, {
-      repositoryId: ids.repositoryId,
-      userId: ids.userId,
-      actionId: "manual-repair",
-      action: "create_convex_project",
-    });
-    await t.mutation(internal.repository.infrastructureOperation.finishManualProviderWriteResult, {
-      repositoryId: ids.repositoryId,
-      actionId: "manual-repair",
-      result: "succeeded",
-    });
+  it.each(["active", "succeeded", "failed"] as const)(
+    "rejects retry after an old %s manual write replaced the failed managed setup",
+    async (state) => {
+      const fixture = await createRetryFixture("manual_write");
+      const { ids, t } = fixture;
+      await t.run(async (ctx) => {
+        const write = await ctx.db
+          .query("workflow_repositoryProvisioning_writeLocks")
+          .withIndex("by_repository", (q) => q.eq("repositoryId", ids.repositoryId))
+          .unique();
+        if (!write) {
+          throw new Error("Expected the manual write.");
+        }
+        await ctx.db.patch(write._id, { state });
+      });
 
-    await expect(retry(fixture)).rejects.toThrow(
-      "Samebase setup of this repository has not failed, so there is nothing to retry and nothing changed. Check the repository status for its current state.",
-    );
-  });
+      await expect(retry(fixture)).rejects.toThrow(
+        "Samebase setup of this repository has not failed, so there is nothing to retry and nothing changed. Check the repository status for its current state.",
+      );
+      await expect(readConfirmationRows(fixture)).resolves.toEqual({ tokens: [], audit: [] });
+    },
+  );
 
   it("rejects provider retry after source setup fails", async () => {
     const fixture = await createRetryFixture("none");

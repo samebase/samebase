@@ -1,12 +1,11 @@
 import { guard } from "@samebase/dependent/main";
-import { ConvexError } from "convex/values";
 
 import type { Doc } from "../_generated/dataModel";
 import type { ManagedProviderPlan } from "./contracts/getUserRepositories";
 import type { RepositoryProvisioningMode } from "./provisioningModel";
 
 export type RepositoryProvisioningPlan = Doc<"workflow_repositoryProvisioning_plans">;
-export type SamebaseProvisioningPlan = Exclude<
+type SamebaseProvisioningPlan = Exclude<
   RepositoryProvisioningPlan,
   { provisioning: "repository_actions" }
 >;
@@ -25,14 +24,9 @@ export function readRepositoryProvisioningMode(
 Who changes the provider settings of a repository's Workers and Convex projects: creating them,
 connecting Workers Builds, choosing its token, and installing deploy keys.
 
-samebase = Samebase, through its setup run or a member's manual provider action
+samebase = Samebase wrote them through an old setup run or a member's manual provider action
 
-setup_stack = the repository's Alchemy setup stack, in alchemy.run.ts and its `alchemy` workflow;
-Samebase's write lock does not coordinate with that workflow, so Samebase refuses these writes
-
-Attaching, detaching, and updating a stored Worker name or root stay with Samebase's members for
-every repository. The backend admission, the Settings actions, and the MCP repair advice all read
-this one rule.
+setup_stack = the repository's Alchemy setup stack, in alchemy.run.ts and its `alchemy` workflow
 */
 export function readProviderInfrastructureWriter(
   plan: RepositoryProvisioningPlan | ManagedProviderPlan,
@@ -61,14 +55,6 @@ export const isSamebaseProvisioningPlan = guard<
   SamebaseProvisioningPlan
 >((plan) => (plan && !("provisioning" in plan) ? plan : null));
 
-/**
-The refusal of every Samebase provider write to a repository_actions repository. Samebase's write
-lock does not coordinate with the repository's GitHub Actions, so only one of them may change the
-provider resources. It holds no provider text, so MCP shows it.
-*/
-export const REPOSITORY_ACTIONS_OWN_PROVIDERS_MESSAGE =
-  "The GitHub Actions of this repository own its provider resources, so Samebase does not change them. Nothing changed.";
-
 type SamebaseManagedProviderPlan = Exclude<
   NonNullable<ManagedProviderPlan>,
   { provisioning: "repository_actions" }
@@ -79,13 +65,3 @@ export const isSamebaseManagedProviderPlan = guard<
   ManagedProviderPlan,
   SamebaseManagedProviderPlan
 >((plan) => (plan && !("provisioning" in plan) ? plan : null));
-
-/** The plan of the steps that only the samebase mode runs: claim_infra through finish. */
-export function requireSamebaseProvisioningPlan(
-  plan: RepositoryProvisioningPlan,
-): SamebaseProvisioningPlan {
-  if (!isSamebaseProvisioningPlan(plan)) {
-    throw new ConvexError(REPOSITORY_ACTIONS_OWN_PROVIDERS_MESSAGE);
-  }
-  return plan;
-}

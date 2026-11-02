@@ -589,18 +589,19 @@ describe("organization provider status", () => {
     ).toEqual(["/client/v4/user/tokens/verify", "/client/v4/accounts"]);
 
     // A later action opens the sealed token right before its provider call.
-    const listFetch = vi.fn(
-      async (input: string | URL | Request, init?: RequestInit): Promise<Response> => {
-        const headers = input instanceof Request ? input.headers : new Headers(init?.headers);
-        expect(headers.get("Authorization")).toBe("Bearer direct-token");
-        return cloudflareSuccessResponse([]);
-      },
-    );
-    vi.stubGlobal("fetch", listFetch);
+    const connection = await t.action(internal.cloudflareOAuth.resolveConnectionForOrganization, {
+      organizationId,
+      userId,
+    });
+    if (!connection) {
+      throw new Error("Expected the Cloudflare connection.");
+    }
     await expect(
-      asOwner.action(api.cloudflareBuildTokens.list, { organizationId }),
-    ).resolves.toMatchObject({ accountId: primaryCloudflareAccountId, tokens: [] });
-    expect(listFetch).toHaveBeenCalledOnce();
+      openSecret({
+        sealed: connection.auth.credential,
+        aad: organizationProviderCredentialAad(organizationId, "cloudflare.auth.credential"),
+      }),
+    ).resolves.toBe("direct-token");
   });
 
   it.each([

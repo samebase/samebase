@@ -29,7 +29,7 @@ export type GitHubConvexCodeLocationCandidate =
       packageJsonBlobSha: string;
     };
 
-export type GitHubConvexCodeLocationDiscovery = {
+type GitHubConvexCodeLocationDiscovery = {
   completeness: "complete" | "partial";
   defaultBranch: string;
   commitSha: string;
@@ -128,48 +128,6 @@ export async function fetchGitHubRepoIdentity(args: {
     throw new Error("GitHub repository response did not include a default branch.");
   }
   return { ownerId, defaultBranch };
-}
-
-function requireGitHubCommitSha(value: string): string {
-  const commitSha = value.trim();
-  if (!/^(?:[0-9a-f]{40}|[0-9a-f]{64})$/i.test(commitSha)) {
-    throw new Error("GitHub default branch ref did not include a valid commit SHA.");
-  }
-  return commitSha;
-}
-
-export async function fetchGitHubDefaultBranchHead(args: {
-  octokit: Octokit;
-  owner: string;
-  repo: string;
-  expectedRepoId: string;
-  signal?: AbortSignal;
-  recordApiCall?: ProviderApiCallRecorder;
-}): Promise<{ defaultBranch: string; commitSha: string }> {
-  const repository = await fetchGitHubRepoIdentity(args);
-  const signal = args.signal ?? createGitHubRequestDeadlineSignal();
-
-  await args.recordApiCall?.({
-    provider: "GitHub",
-    method: "GET",
-    endpoint: "/repos/{owner}/{repo}/git/ref/{ref}",
-    values: {
-      params: {
-        path: { owner: args.owner, repo: args.repo, ref: `heads/${repository.defaultBranch}` },
-      },
-    },
-  });
-
-  const ref = await args.octokit.rest.git.getRef({
-    owner: args.owner,
-    repo: args.repo,
-    ref: `heads/${repository.defaultBranch}`,
-    request: { signal },
-  });
-  return {
-    defaultBranch: repository.defaultBranch,
-    commitSha: requireGitHubCommitSha(ref.data.object.sha),
-  };
 }
 
 function isConvexConfigPath(path: string): boolean {

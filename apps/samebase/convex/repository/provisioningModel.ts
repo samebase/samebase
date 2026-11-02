@@ -121,9 +121,6 @@ export const vRepositoryManualProviderWriteAction = union(
   literal("configure_workers_builds_for_github"),
   literal("rotate_convex_deploy_keys_for_workers_builds"),
 );
-export type RepositoryManualProviderWriteAction = Infer<
-  typeof vRepositoryManualProviderWriteAction
->;
 
 const repositoryProviderWriteBase = {
   repositoryId: id("repositories"),

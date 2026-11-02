@@ -37,7 +37,7 @@ import {
 } from "../repositoryWorkflowAuthority";
 import {
   requireBillingResourceCapacity,
-  requireBillingResourceCapacityForAuthority,
+  requireBillingResourceCapacityForRepositoryProvisioning,
 } from "../billingResourceQuotas";
 import { startTenantConnectionSync } from "../hubClients/tenantConnection";
 
@@ -563,13 +563,10 @@ export const connectExistingRepositoryGitHub = internalMutation({
     if (repository.githubRepositoryDatabaseId !== args.githubRepositoryDatabaseId) {
       throw new Error("Provisioning GitHub repository identity cannot be changed.");
     }
-    await requireBillingResourceCapacityForAuthority(ctx, {
-      authority: {
-        kind: "repository_provisioning",
-        runId: args.runId,
-        userId: args.userId,
-        repositoryId: args.repositoryId,
-      },
+    await requireBillingResourceCapacityForRepositoryProvisioning(ctx, {
+      runId: args.runId,
+      userId: args.userId,
+      repositoryId: args.repositoryId,
     });
 
     await ctx.db.replace(args.repositoryId, {
@@ -808,13 +805,10 @@ export const connectSamebaseManagedRepositoryGitHub = internalMutation({
     ) {
       throw new Error("Repository is not waiting for GitHub provisioning.");
     }
-    await requireBillingResourceCapacityForAuthority(ctx, {
-      authority: {
-        kind: "repository_provisioning",
-        runId: args.runId,
-        userId: args.userId,
-        repositoryId: args.repositoryId,
-      },
+    await requireBillingResourceCapacityForRepositoryProvisioning(ctx, {
+      runId: args.runId,
+      userId: args.userId,
+      repositoryId: args.repositoryId,
     });
 
     await ctx.db.replace(args.repositoryId, {

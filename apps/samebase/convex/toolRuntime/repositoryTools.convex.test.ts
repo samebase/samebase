@@ -185,23 +185,6 @@ async function createScoutFixture() {
   };
 }
 
-async function readAttachments(fixture: Awaited<ReturnType<typeof createScoutFixture>>) {
-  return await fixture.t.run(async (ctx) => ({
-    workers: await ctx.db
-      .query("repositoryCloudflareWorkers")
-      .withIndex("by_repository", (q) => q.eq("repositoryId", fixture.repositoryId))
-      .collect(),
-    projects: await ctx.db
-      .query("repositoryConvexProjects")
-      .withIndex("by_repository", (q) => q.eq("repositoryId", fixture.repositoryId))
-      .collect(),
-    writeLock: await ctx.db
-      .query("workflow_repositoryProvisioning_writeLocks")
-      .withIndex("by_repository", (q) => q.eq("repositoryId", fixture.repositoryId))
-      .unique(),
-  }));
-}
-
 beforeEach(() => {
   vi.clearAllMocks();
   for (const endpoint of Object.values(cloudflareMocks)) endpoint.mockReset();
@@ -227,53 +210,6 @@ beforeEach(() => {
       return convexTeamProject(projectId, projectId === "free-project" ? "free-app" : projectId);
     },
   );
-});
-
-describe("attachment detach from the dashboard", () => {
-  it("detaches one attachment by ID from the dashboard without a provider call", async () => {
-    const fixture = await createScoutFixture();
-    const args = {
-      repositoryId: fixture.repositoryId,
-      resource: { kind: "convex_project" as const, convexProjectId: fixture.convexProjectId },
-    };
-    const challenge = await fixture.viewer.mutation(api.repository.detachResource, args);
-    if (challenge === null) {
-      throw new Error("Expected a confirmation request.");
-    }
-    expect(challenge.acknowledgement).toBe(
-      "I approve removing the Convex project at convex.json from scout-owner/scout in Samebase",
-    );
-    await expect(readAttachments(fixture)).resolves.toMatchObject({
-      projects: [{ projectId: "scout-project" }],
-    });
-
-    await expect(
-      fixture.viewer.mutation(api.repository.detachResource, {
-        ...args,
-        confirmation: { token: challenge.token, acknowledgement: challenge.acknowledgement },
-      }),
-    ).resolves.toBeNull();
-    await expect(
-      fixture.t.run(async (ctx) => await ctx.db.query("audit_confirmedActions_events").collect()),
-    ).resolves.toMatchObject([
-      {
-        action: "detach_resource",
-        resource: {
-          kind: "convex_project",
-          teamId: "convex-team",
-          projectId: "scout-project",
-          codeLocation: "convex.json",
-        },
-        surface: { kind: "dashboard" },
-      },
-    ]);
-
-    await expect(readAttachments(fixture)).resolves.toMatchObject({
-      workers: [{ workerName: "scout" }],
-      projects: [],
-    });
-    expect(providerMocks.listConvexManagementProjects).not.toHaveBeenCalled();
-  });
 });
 
 describe("repository_list", () => {
@@ -589,107 +525,5 @@ describe("repository_getStatus", () => {
         attention: [],
       },
     });
-  });
-});
-
-describe("Convex project selection for deploy keys", () => {
-  async function addAdminProject(fixture: Awaited<ReturnType<typeof createScoutFixture>>) {
-    providerMocks.listConvexManagementProjects.mockResolvedValue([
-      convexTeamProject("scout-project", "scout"),
-      convexTeamProject("admin-project", "admin"),
-    ]);
-    return await fixture.t.run(
-      async (ctx) =>
-        await ctx.db.insert("repositoryConvexProjects", {
-          repositoryId: fixture.repositoryId,
-          organizationId: fixture.organizationId,
-          teamId: "convex-team",
-          projectId: "admin-project",
-          convexConfigPath: "apps/admin/convex.json",
-          origin: "selected_existing",
-        }),
-    );
-  }
-
-  it("returns the deploy-key rotation challenge without a provider request or a write lock", async () => {
-    const fixture = await createScoutFixture();
-    const fetch = vi.fn();
-    vi.stubGlobal("fetch", fetch);
-
-    const result = await fixture.viewer.action(api.repository.cloudflare.rotateConvexDeployKeys, {
-      repositoryId: fixture.repositoryId,
-      workerId: fixture.workerId,
-      convexProjectId: fixture.convexProjectId,
-    });
-    vi.unstubAllGlobals();
-
-    expect(result).toMatchObject({
-      state: "needs_confirmation",
-      effect: expect.stringMatching(/^Samebase revokes the Convex deploy keys/),
-      acknowledgement:
-        "I approve revoking and replacing the Convex deploy keys of Worker scout with new keys of the Convex project scout at convex.json",
-    });
-    await expect(readAttachments(fixture)).resolves.toMatchObject({ writeLock: null });
-    expect(fetch).not.toHaveBeenCalled();
-    expect(providerMocks.createProject).not.toHaveBeenCalled();
-    expect(providerMocks.getProject).not.toHaveBeenCalled();
-  });
-
-  it("names the Convex project by slug in the challenge when two projects share convex.json", async () => {
-    const fixture = await createScoutFixture();
-    providerMocks.listConvexManagementProjects.mockResolvedValue([
-      convexTeamProject("scout-project", "scout"),
-      convexTeamProject("admin-project", "admin"),
-    ]);
-    const adminProjectId = await fixture.t.run(
-      async (ctx) =>
-        await ctx.db.insert("repositoryConvexProjects", {
-          repositoryId: fixture.repositoryId,
-          organizationId: fixture.organizationId,
-          teamId: "convex-team",
-          projectId: "admin-project",
-          convexConfigPath: "convex.json",
-          origin: "selected_existing",
-        }),
-    );
-    const challenge = async (convexProjectId: typeof adminProjectId) =>
-      await fixture.viewer.action(api.repository.cloudflare.rotateConvexDeployKeys, {
-        repositoryId: fixture.repositoryId,
-        workerId: fixture.workerId,
-        convexProjectId,
-      });
-
-    await expect(challenge(adminProjectId)).resolves.toMatchObject({
-      acknowledgement:
-        "I approve revoking and replacing the Convex deploy keys of Worker scout with new keys of the Convex project admin at convex.json",
-    });
-    await expect(challenge(fixture.convexProjectId)).resolves.toMatchObject({
-      acknowledgement:
-        "I approve revoking and replacing the Convex deploy keys of Worker scout with new keys of the Convex project scout at convex.json",
-    });
-    expect(providerMocks.createProject).not.toHaveBeenCalled();
-    expect(providerMocks.getProject).not.toHaveBeenCalled();
-  });
-
-  it("fails a dashboard Worker create closed when several Convex projects are attached and none is chosen", async () => {
-    const fixture = await createScoutFixture();
-    await addAdminProject(fixture);
-    const fetch = vi.fn();
-    vi.stubGlobal("fetch", fetch);
-
-    await expect(
-      fixture.viewer.action(api.repository.cloudflare.createWorker, {
-        repositoryId: fixture.repositoryId,
-        workerName: "scout-site",
-        rootDirectory: "/",
-        buildTokenUuid: "build-token",
-      }),
-    ).rejects.toMatchObject({
-      name: "ConvexError",
-      data: "scout-owner/scout has several attached Convex projects: admin (apps/admin/convex.json), scout (convex.json). Choose the project whose deploy key the Worker gets.",
-    });
-    await expect(readAttachments(fixture)).resolves.toMatchObject({ writeLock: null });
-    expect(fetch).not.toHaveBeenCalled();
-    vi.unstubAllGlobals();
   });
 });

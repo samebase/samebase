@@ -501,7 +501,7 @@ describe("account deletion organization boundary", () => {
       }),
     ).resolves.toEqual({ state: "waiting", blocker: "active_repository_deletion" });
 
-    const { githubAuthorizationId, manualWriteId } = await t.run(async (ctx) => {
+    const githubAuthorizationId = await t.run(async (ctx) => {
       await ctx.db.patch(deletionRunId, {
         state: "failed",
         updatedAt: 5,
@@ -519,7 +519,8 @@ describe("account deletion organization boundary", () => {
         createdAt: 6,
         updatedAt: 6,
       });
-      const manualWriteId = await ctx.db.insert("workflow_repositoryProvisioning_writeLocks", {
+      // Nothing can end this old row, so the deletion must not wait for it.
+      await ctx.db.insert("workflow_repositoryProvisioning_writeLocks", {
         repositoryId: ids.repositoryId,
         owner: {
           kind: "manual_provider_write",
@@ -533,7 +534,7 @@ describe("account deletion organization boundary", () => {
         updatedAt: 6,
       });
       const now = Date.now();
-      const githubAuthorizationId = await ctx.db.insert("githubUserAuthorizations", {
+      return await ctx.db.insert("githubUserAuthorizations", {
         userId: ids.deletingUserId,
         githubUserId: "deleting-user-github-id",
         githubUserLogin: "deleting-user",
@@ -545,19 +546,8 @@ describe("account deletion organization boundary", () => {
         createdAt: now,
         updatedAt: now,
       });
-      return { githubAuthorizationId, manualWriteId };
     });
 
-    await expect(
-      t.mutation(internal.accountDeletion.cleanup.inspectQuiescence, {
-        runId: ids.runId,
-        workflowId,
-      }),
-    ).resolves.toEqual({ state: "waiting", blocker: "active_manual_provider_write" });
-
-    await t.run(async (ctx) => {
-      await ctx.db.patch(manualWriteId, { state: "succeeded", updatedAt: 7 });
-    });
     await expect(
       t.mutation(internal.accountDeletion.cleanup.inspectQuiescence, {
         runId: ids.runId,

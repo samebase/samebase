@@ -640,8 +640,6 @@ export const connectExistingRepository = workflow.define({
   },
 });
 
-// Provider attachment and configuration actions run directly without standalone workflows.
-
 export const startConnectExistingRepositoryProvisioning = internalMutation({
   args: {
     repositoryId: id("repositories"),
@@ -685,8 +683,6 @@ export const startConnectExistingRepositoryProvisioning = internalMutation({
     return workflowId;
   },
 });
-
-// Standalone provider actions do not allocate provisioning runs.
 
 export const handleProvisioningWorkflowComplete = internalMutation({
   args: {

@@ -626,28 +626,6 @@ describe("user lifecycle authorization", () => {
       },
     });
 
-    await expect(
-      t.mutation(internal.repository.convexMutations.recordManagedProjectCreated, {
-        runId,
-        userId,
-        repositoryId,
-        convexConfigPath: "convex.json",
-        projectName: "repository",
-        teamId: "convex-team",
-        projectId: "convex-project",
-      }),
-    ).resolves.toBeDefined();
-    await expect(
-      t.mutation(internal.repository.cloudflareMutations.recordManagedWorkerCreated, {
-        runId,
-        userId,
-        repositoryId,
-        accountId: "cloudflare-account",
-        workerName: "repository",
-        workerTag: "cloudflare-worker",
-      }),
-    ).resolves.toBeDefined();
-
     await t.run(async (ctx) => await ctx.db.patch(runId, { state: "succeeded" }));
     await expect(
       t.query(internal.githubAppAccess.loadInstallationAccessForProvisioningRun, {
@@ -659,27 +637,6 @@ describe("user lifecycle authorization", () => {
     await expect(
       t.query(internal.organizationProviderCredentials.loadForRepositoryProviderWorkflow, {
         authority: { kind: "provisioning", runId, userId, repositoryId },
-      }),
-    ).rejects.toThrow("Provisioning run does not authorize repository access.");
-    await expect(
-      t.mutation(internal.repository.convexMutations.recordManagedProjectCreated, {
-        runId,
-        userId,
-        repositoryId,
-        convexConfigPath: "convex.json",
-        projectName: "repository",
-        teamId: "convex-team",
-        projectId: "convex-project",
-      }),
-    ).rejects.toThrow("Provisioning run does not authorize repository access.");
-    await expect(
-      t.mutation(internal.repository.cloudflareMutations.recordManagedWorkerCreated, {
-        runId,
-        userId,
-        repositoryId,
-        accountId: "cloudflare-account",
-        workerName: "repository",
-        workerTag: "cloudflare-worker",
       }),
     ).rejects.toThrow("Provisioning run does not authorize repository access.");
   });

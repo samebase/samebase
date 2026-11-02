@@ -330,55 +330,6 @@ describe("useRepositoryProviderObservations", () => {
     }
   });
 
-  it("suppresses stale Cloudflare results while a manual Cloudflare write is active", async () => {
-    const queryClient = new QueryClient({
-      defaultOptions: { queries: { retry: false } },
-    });
-    const rootElement = document.createElement("div");
-    document.body.append(rootElement);
-    const root = createRoot(rootElement);
-    let latest: ReturnType<typeof useRepositoryProviderObservations> | undefined;
-
-    function Probe() {
-      latest = useRepositoryProviderObservations({
-        sourceSetup: { status: "not_applicable" },
-        hasConnectedGitHubRepository: true,
-        repositoryId: fakeRepositoryId("repository-active-manual-write"),
-        cloudflareWorkers: [{ workerId: fakeCloudflareWorkerId("worker-active-manual-write") }],
-        convexProjects: [],
-        providerWrite: {
-          status: "active",
-          owner: { kind: "manual_provider_write" },
-          affectedProviders: ["cloudflare"],
-          lastWriteAt: {},
-        },
-      });
-      return null;
-    }
-
-    try {
-      await act(async () => {
-        root.render(
-          <QueryClientProvider client={queryClient}>
-            <Probe />
-          </QueryClientProvider>,
-        );
-        await Promise.resolve();
-      });
-
-      expect(latest?.cloudflare.workers.state).toBe("checking");
-      expect(latest?.cloudflare.builds.state).toBe("checking");
-      expect(latest?.cloudflare.convexBuildAccess.state).toBe("checking");
-      expect(latest?.convex.state).toBe("loaded");
-    } finally {
-      await act(async () => {
-        root.unmount();
-      });
-      queryClient.clear();
-      rootElement.remove();
-    }
-  });
-
   it("starts one new Cloudflare read after an observation resolves during the write", async () => {
     let resolveFirstWorkers: ((value: never[]) => void) | undefined;
     let resolveSecondWorkers: ((value: never[]) => void) | undefined;

@@ -1,11 +1,10 @@
 import { defineTable } from "convex/server";
 import { Infer, v } from "convex/values";
 
-import { normalizeRepositoryRootDirectory } from "../../shared/repositoryRootDirectory";
 import { vRepositoryDeletionState } from "./deletion/model";
 export { parseGitHubRepositoryFullName } from "../../shared/githubRepositoryName";
 
-const { array, id, literal, number, object, optional, string, union } = v;
+const { id, literal, number, object, optional, string, union } = v;
 
 export const vGitHubRepositoryVisibility = union(literal("private"), literal("public"));
 
@@ -32,44 +31,6 @@ export const vRepositoryProviderResourceOrigin = union(
   literal("selected_existing"),
   literal("setup_stack"),
 );
-export type RepositoryProviderResourceOrigin = Infer<typeof vRepositoryProviderResourceOrigin>;
-
-const repositoryCloudflareBuildConfigFields = {
-  rootDirectory: string(),
-  buildCommand: string(),
-  deployCommand: string(),
-  previewDeployCommand: string(),
-  pathIncludes: array(string()),
-  pathExcludes: array(string()),
-} as const;
-export const vRepositoryCloudflareBuildConfig = object(repositoryCloudflareBuildConfigFields);
-export type RepositoryCloudflareBuildConfig = Infer<typeof vRepositoryCloudflareBuildConfig>;
-
-export function buildRepositoryCloudflareBuildConfigForRootDirectory(args: {
-  rootDirectory: string;
-}): RepositoryCloudflareBuildConfig {
-  const rootDirectory = normalizeRepositoryRootDirectory(args.rootDirectory);
-  const pathIncludes =
-    rootDirectory === "/"
-      ? ["*"]
-      : [
-          `${rootDirectory}/*`,
-          "packages/dependent/*",
-          "pnpm-lock.yaml",
-          "pnpm-workspace.yaml",
-          "package.json",
-          ".nvmrc",
-        ];
-
-  return {
-    rootDirectory,
-    buildCommand: "pnpm run build",
-    deployCommand: "pnpm run deploy",
-    previewDeployCommand: "pnpm run deploy:preview",
-    pathIncludes,
-    pathExcludes: [],
-  };
-}
 
 const vRepositoryConvexProjectConfig = object({
   repositoryId: id("repositories"),

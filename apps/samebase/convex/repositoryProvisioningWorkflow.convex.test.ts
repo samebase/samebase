@@ -140,21 +140,18 @@ async function createComposedRepository() {
 describe("provisioning write lock ownership", () => {
   it("keeps managed provider freshness when infrastructure ownership completes", async () => {
     const { ids, t } = await createComposedRepository();
+    await t.run(async (ctx) => {
+      const writeLock = await ctx.db
+        .query("workflow_repositoryProvisioning_writeLocks")
+        .withIndex("by_repository", (q) => q.eq("repositoryId", ids.repositoryId))
+        .unique();
+      if (!writeLock) {
+        throw new Error("Expected the managed write lock.");
+      }
+      await ctx.db.patch(writeLock._id, { lastWriteAt: { convex: 3_000, cloudflare: 3_000 } });
+    });
     vi.useFakeTimers();
     try {
-      vi.setSystemTime(2_000);
-      await t.mutation(internal.repository.infrastructureOperation.recordManagedProviderWrites, {
-        repositoryId: ids.repositoryId,
-        runId: ids.runId,
-        providers: ["cloudflare"],
-        lastUsedBuildTokenUuid: "  build-token  ",
-      });
-      vi.setSystemTime(3_000);
-      await t.mutation(internal.repository.infrastructureOperation.recordManagedProviderWrites, {
-        repositoryId: ids.repositoryId,
-        runId: ids.runId,
-        providers: ["convex", "cloudflare"],
-      });
       vi.setSystemTime(4_000);
       await t.mutation(
         internal.repositoryProvisioningWorkflow.finishComposedInfrastructureProvisioning,
@@ -184,13 +181,6 @@ describe("provisioning write lock ownership", () => {
         cloudflare: 3_000,
       },
       updatedAt: 4_000,
-    });
-    await expect(
-      t.run(async (ctx) => (await ctx.db.get(ids.organizationId))?.cloudflareAccount),
-    ).resolves.toEqual({
-      accountId: "cloudflare-account",
-      accountName: "Cloudflare account",
-      lastUsedBuildTokenUuid: "build-token",
     });
   });
 

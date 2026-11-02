@@ -2,7 +2,7 @@ import { v, type Infer } from "convex/values";
 
 import { vRepositoryDeletionStep } from "../deletion/model";
 import type { AppFunctionMcpMetadata } from "../../../shared/convexFunctionPolicyTypes";
-import { vConvexCodeLocation } from "./convexAttachments";
+import { vConvexCodeLocation } from "./convexCodeLocation";
 import { vRepositoryActionsCiSecrets, vRepositoryProviderWriteTimes } from "../provisioningModel";
 import { vConvexDeploymentRegion } from "../../convexDeploymentRegionModel";
 
@@ -144,10 +144,6 @@ export const vManagedProviderPlan = union(
 const vManagedProviderWriteOwner = object({
   kind: literal("managed_run"),
 });
-const vManualProviderWriteOwner = object({
-  kind: literal("manual_provider_write"),
-});
-const vProviderWriteProviders = array(union(literal("convex"), literal("cloudflare")));
 
 export const vProviderWriteSummary = union(
   object({
@@ -157,12 +153,6 @@ export const vProviderWriteSummary = union(
   object({
     status: literal("active"),
     owner: vManagedProviderWriteOwner,
-    lastWriteAt: vRepositoryProviderWriteTimes,
-  }),
-  object({
-    status: literal("active"),
-    owner: vManualProviderWriteOwner,
-    affectedProviders: vProviderWriteProviders,
     lastWriteAt: vRepositoryProviderWriteTimes,
   }),
 );

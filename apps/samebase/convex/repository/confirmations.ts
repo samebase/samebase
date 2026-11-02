@@ -1,39 +1,23 @@
-import { ConvexError, v, type Infer } from "convex/values";
+import { ConvexError, v } from "convex/values";
 
 import { internal } from "../_generated/api";
-import type { Doc, Id } from "../_generated/dataModel";
+import type { Id } from "../_generated/dataModel";
 import { internalMutation, type DatabaseReader, type MutationCtx } from "../_generated/server";
 import { isRecord } from "../jsonUtils";
 import { createActionConfirmationTokenValue, sha256Hex } from "../mcp/tokens";
 import { requireRepositoryForUser } from "../organizationAccess";
-import {
-  INFRASTRUCTURE_OPERATION_ACTIVE_MESSAGE,
-  readRepositoryInfrastructureState,
-} from "./infrastructureOperation";
-import { getConvexCodeLocationPath, readConvexCodeLocation } from "../../shared/convexCodeLocation";
-import {
-  vConfirmationSurface,
-  type ConfirmationSurface,
-  type ConfirmedResource,
-} from "./confirmationModel";
-import {
-  vActionConfirmation,
-  vActionConfirmationRequest,
-  type ActionConfirmation,
-} from "./contracts/actionConfirmation";
-import { cloudflareConnectWorkerContract } from "./contracts/cloudflareAttachments";
-import { cloudflareRotateConvexDeployKeysForWorkersBuildsContract } from "./contracts/cloudflareRotateConvexDeployKeysForWorkersBuilds";
-import { detachResourceContract, vDetachableResource } from "./contracts/detachResource";
-import { retryInfrastructureProvisioningContract } from "./contracts/retryInfrastructureProvisioning";
+import type { ConfirmationSurface, ConfirmedResource } from "./confirmationModel";
+import type { ActionConfirmation, ActionConfirmationRequest } from "./contracts/actionConfirmation";
+import type { retryInfrastructureProvisioningContract } from "./contracts/retryInfrastructureProvisioning";
 
 /*
-The one confirmation check of the four gated actions (rfcs/125), shared by the dashboard and MCP.
-The first call of a gated action gets a challenge and performs nothing. The second call sends the
-token and the exact acknowledgement sentence; the check accepts them only for the same user,
-action, and normalized request, consumes the token, and writes the audit row.
+The confirmation check of the retry (rfcs/125), shared by the dashboard and MCP. The first call gets
+a challenge and performs nothing. The second call sends the token and the exact acknowledgement
+sentence; the check accepts them only for the same user, action, and normalized request, consumes
+the token, and writes the audit row.
 */
 
-const { id, literal, object, optional, string, union } = v;
+const { id } = v;
 
 const ACTION_CONFIRMATION_TTL_MS = 10 * 60 * 1000;
 /** What a rejected caller does next, in the words of its surface. */
@@ -42,50 +26,13 @@ const START_AGAIN = {
   mcp: "Nothing changed. Call the action again without confirmation to get a new confirmation request.",
 } as const satisfies Record<ConfirmationSurface["kind"], string>;
 
-/**
-A gated request after the server resolved names and defaults: the repository, the Worker tag, the
-root directory, the Workers Builds token, and the Convex project (null when none is attached) with
-its live slug (null when Convex cannot be read). A token approves exactly this request; the slug
-only words the sentence and is not part of the digest.
-*/
-export const vConfirmedActionRequest = union(
-  object({
-    action: literal(cloudflareConnectWorkerContract.id),
-    repositoryId: id("repositories"),
-    workerName: string(),
-    workerTag: string(),
-    rootDirectory: string(),
-    buildTokenUuid: string(),
-    convexProjectId: union(id("repositoryConvexProjects"), v.null()),
-    convexProjectSlug: union(string(), v.null()),
-  }),
-  object({
-    action: literal(cloudflareRotateConvexDeployKeysForWorkersBuildsContract.id),
-    repositoryId: id("repositories"),
-    workerId: id("repositoryCloudflareWorkers"),
-    convexProjectId: id("repositoryConvexProjects"),
-    convexProjectSlug: union(string(), v.null()),
-  }),
-  object({
-    action: literal(retryInfrastructureProvisioningContract.id),
-    repositoryId: id("repositories"),
-  }),
-  object({
-    action: literal(detachResourceContract.id),
-    repositoryId: id("repositories"),
-    resource: vDetachableResource,
-  }),
-);
-export type ConfirmedActionRequest = Infer<typeof vConfirmedActionRequest>;
+/** A token approves exactly this request. */
+export type ConfirmedActionRequest = {
+  action: typeof retryInfrastructureProvisioningContract.id;
+  repositoryId: Id<"repositories">;
+};
 
-/** `confirmed` means that the token was consumed and the caller performs the request now. */
-export const vActionConfirmationCheck = union(
-  vActionConfirmationRequest,
-  object({ state: literal("confirmed") }),
-);
-type ActionConfirmationCheck = Infer<typeof vActionConfirmationCheck>;
-
-type ConnectedRepository = Extract<Doc<"repositories">, { state: "connected" }>;
+type ActionConfirmationCheck = ActionConfirmationRequest | { state: "confirmed" };
 
 type ConfirmationSubject = {
   organizationId: Id<"organizations">;
@@ -95,25 +42,17 @@ type ConfirmationSubject = {
   approval: string;
 };
 
-/**
-JSON with sorted object keys, so equal requests have equal digests in any key order. The live Convex
-slug only names the project in the sentence, which the token row stores; the project ID binds the
-target. Leaving the slug out keeps a failed Convex read on the second call from rejecting an
-unchanged request.
-*/
+/** JSON with sorted object keys, so equal requests have equal digests in any key order. */
 function toCanonicalJson(request: ConfirmedActionRequest): string {
-  return JSON.stringify(request, (key, value: unknown) => {
-    if (key === "convexProjectSlug") {
-      return undefined;
-    }
-    return isRecord(value)
+  return JSON.stringify(request, (_key, value: unknown) =>
+    isRecord(value)
       ? Object.fromEntries(
           Object.keys(value)
             .sort()
             .map((name) => [name, value[name]]),
         )
-      : value;
-  });
+      : value,
+  );
 }
 
 function isSameSurface(issued: ConfirmationSurface, current: ConfirmationSurface): boolean {
@@ -132,78 +71,7 @@ function isSameSurface(issued: ConfirmationSurface, current: ConfirmationSurface
   }
 }
 
-async function requireAttachedWorker(
-  db: DatabaseReader,
-  repository: ConnectedRepository,
-  workerId: Id<"repositoryCloudflareWorkers">,
-) {
-  const worker = await db.get(workerId);
-  if (
-    !worker ||
-    worker.repositoryId !== repository._id ||
-    worker.organizationId !== repository.organizationId
-  ) {
-    throw new ConvexError("The Cloudflare Worker is not attached to this repository.");
-  }
-  return worker;
-}
-
-async function requireAttachedConvexProject(
-  db: DatabaseReader,
-  repository: ConnectedRepository,
-  convexProjectId: Id<"repositoryConvexProjects">,
-) {
-  const project = await db.get(convexProjectId);
-  if (
-    !project ||
-    project.repositoryId !== repository._id ||
-    project.organizationId !== repository.organizationId
-  ) {
-    throw new ConvexError("The Convex project is not attached to this repository.");
-  }
-  return {
-    project,
-    codeLocation: getConvexCodeLocationPath(readConvexCodeLocation(project)),
-  };
-}
-
-/**
-Several attached projects can share a code location, so a sentence names the project by its slug
-and its code location. Without a readable slug it names the code location only.
-*/
-function describeConvexProject(codeLocation: string, convexProjectSlug: string | null): string {
-  return convexProjectSlug
-    ? `the Convex project ${convexProjectSlug} at ${codeLocation}`
-    : `the Convex project at ${codeLocation}`;
-}
-
-/**
-Connect and rotation claim the provider-write lock only after the token is consumed, and detach
-checks the lock again after the check, so a repository with a running provider operation fails here
-first: it gets no challenge, and a token stays unused.
-*/
-async function requireNoProviderOperation(db: DatabaseReader, repository: ConnectedRepository) {
-  const infrastructure = await readRepositoryInfrastructureState({ db }, repository);
-  if (infrastructure.operation.kind !== "none") {
-    throw new ConvexError(INFRASTRUCTURE_OPERATION_ACTIVE_MESSAGE);
-  }
-}
-
-function toWorkerResource(worker: Doc<"repositoryCloudflareWorkers">): ConfirmedResource {
-  return {
-    kind: "cloudflare_worker",
-    accountId: worker.accountId,
-    workerTag: worker.workerTag,
-    workerName: worker.workerName,
-  };
-}
-
-/**
-Re-reads the repository and the resource that the request names, from local rows only, so the
-dashboard mutation can run the check. A Convex project is named by its code location and by the
-slug that the calling action read from Convex; the detach mutation cannot read Convex, so a detached
-project is named by its code location only.
-*/
+/** Re-reads the repository that the request names, from local rows only. */
 async function readConfirmationSubject(
   db: DatabaseReader,
   args: { userId: Id<"users">; request: ConfirmedActionRequest },
@@ -221,90 +89,13 @@ async function readConfirmationSubject(
     throw new Error("Repository organization not found.");
   }
   const repositoryName = `${organization.githubOwnerLogin}/${repository.githubRepositoryName}`;
-  const { organizationId } = repository;
 
-  switch (request.action) {
-    case "connect_cloudflare_worker": {
-      const accountId = repository.cloudflareAccountId;
-      if (!accountId) {
-        throw new ConvexError("Connect Cloudflare in Providers before adding a Worker.");
-      }
-      await requireNoProviderOperation(db, repository);
-      const convexProject =
-        request.convexProjectId === null
-          ? null
-          : await requireAttachedConvexProject(db, repository, request.convexProjectId);
-      const { rootDirectory, workerName } = request;
-      const projectText =
-        convexProject &&
-        describeConvexProject(convexProject.codeLocation, request.convexProjectSlug);
-      return {
-        organizationId,
-        resource: {
-          kind: "cloudflare_worker",
-          accountId,
-          workerTag: request.workerTag,
-          workerName,
-        },
-        effect: `Samebase attaches the Worker ${workerName} to ${repositoryName}, sets its Workers Builds settings to build ${repositoryName} from root directory ${rootDirectory}${projectText ? `, installs the deploy key of ${projectText}` : ""}, and starts a production build. That build replaces what the Worker serves now.`,
-        approval: `replacing the live deployment of Worker ${workerName} with a build of ${repositoryName} from root directory ${rootDirectory}${projectText ? ` that deploys ${projectText}` : ""}`,
-      };
-    }
-    case "rotate_convex_deploy_keys": {
-      await requireNoProviderOperation(db, repository);
-      const worker = await requireAttachedWorker(db, repository, request.workerId);
-      const { codeLocation } = await requireAttachedConvexProject(
-        db,
-        repository,
-        request.convexProjectId,
-      );
-      const projectText = describeConvexProject(codeLocation, request.convexProjectSlug);
-      return {
-        organizationId,
-        resource: toWorkerResource(worker),
-        effect: `Samebase revokes the Convex deploy keys that it recorded for the Worker ${worker.workerName}, creates new keys on ${projectText}, writes them to the Worker's Workers Builds settings, and starts a production build. If a step fails, builds of the Worker cannot deploy Convex until the keys are replaced again.`,
-        approval: `revoking and replacing the Convex deploy keys of Worker ${worker.workerName} with new keys of ${projectText}`,
-      };
-    }
-    case "retry_provider_setup":
-      return {
-        organizationId,
-        resource: { kind: "repository", githubRepositoryFullName: repositoryName },
-        effect: `Samebase starts a new setup run for ${repositoryName}. It writes the credential of the organization's Convex connection into the repository's GitHub Actions secret CONVEX_ACCESS_TOKEN and the Convex team id into its variable CONVEX_TEAM_ID, replacing their values. If the starter is not seeded yet, it seeds the starter, which starts a deployment in the repository's GitHub Actions. Then it syncs the default branch tree.`,
-        approval: `a new setup run for ${repositoryName}, which replaces its GitHub Actions secret and variable with the organization's Convex connection credential and team id`,
-      };
-    case "detach_resource": {
-      await requireNoProviderOperation(db, repository);
-      if (request.resource.kind === "cloudflare_worker") {
-        const worker = await requireAttachedWorker(db, repository, request.resource.workerId);
-        return {
-          organizationId,
-          resource: toWorkerResource(worker),
-          effect: `Samebase removes the Worker ${worker.workerName} from ${repositoryName}. The Worker keeps running in Cloudflare, and Samebase changes no Cloudflare setting or key.`,
-          approval: `removing Worker ${worker.workerName} from ${repositoryName} in Samebase`,
-        };
-      }
-      const { codeLocation, project } = await requireAttachedConvexProject(
-        db,
-        repository,
-        request.resource.convexProjectId,
-      );
-      return {
-        organizationId,
-        resource: {
-          kind: "convex_project",
-          teamId: project.teamId,
-          projectId: project.projectId,
-          codeLocation,
-        },
-        effect: `Samebase removes the Convex project at ${codeLocation} from ${repositoryName}. The project keeps running in Convex, and Samebase changes no Convex setting or key.`,
-        approval: `removing the Convex project at ${codeLocation} from ${repositoryName} in Samebase`,
-      };
-    }
-    default:
-      request satisfies never;
-      throw new Error("Unsupported confirmed action.");
-  }
+  return {
+    organizationId: repository.organizationId,
+    resource: { kind: "repository", githubRepositoryFullName: repositoryName },
+    effect: `Samebase starts a new setup run for ${repositoryName}. It writes the credential of the organization's Convex connection into the repository's GitHub Actions secret CONVEX_ACCESS_TOKEN and the Convex team id into its variable CONVEX_TEAM_ID, replacing their values. If the starter is not seeded yet, it seeds the starter, which starts a deployment in the repository's GitHub Actions. Then it syncs the default branch tree.`,
+    approval: `a new setup run for ${repositoryName}, which replaces its GitHub Actions secret and variable with the organization's Convex connection credential and team id`,
+  };
 }
 
 /**
@@ -412,24 +203,6 @@ export async function checkActionConfirmation(
   });
   return { state: "confirmed" };
 }
-
-/** The check for gated actions, which cannot write the database themselves. */
-export const check = internalMutation({
-  args: {
-    userId: id("users"),
-    surface: vConfirmationSurface,
-    request: vConfirmedActionRequest,
-    confirmation: optional(vActionConfirmation),
-  },
-  returns: vActionConfirmationCheck,
-  handler: async (ctx, args): Promise<ActionConfirmationCheck> =>
-    await checkActionConfirmation(ctx, {
-      userId: args.userId,
-      surface: args.surface,
-      request: args.request,
-      confirmation: args.confirmation,
-    }),
-});
 
 /** Scheduled at a token's expiry. A used or unused token is no longer valid then. */
 export const deleteToken = internalMutation({

@@ -26,7 +26,6 @@ import {
   type RepositoryDeletionSummary,
 } from "./contracts/getUserRepositories";
 import {
-  readManualProviderWriteProviders,
   readRepositoryInfrastructureState,
   type RepositoryInfrastructureState,
 } from "./infrastructureOperation";
@@ -333,15 +332,6 @@ function resolveProviderWriteSummary(
       lastWriteAt: infrastructure.providerWrite?.lastWriteAt ?? {},
     };
   }
-  if (infrastructure.operation.kind === "manual_provider_write") {
-    const write = infrastructure.operation.write;
-    return {
-      status: "active",
-      owner: { kind: "manual_provider_write" },
-      affectedProviders: readManualProviderWriteProviders(write.owner.action),
-      lastWriteAt: write.lastWriteAt,
-    };
-  }
 
   return {
     status: "idle",
@@ -365,9 +355,6 @@ async function readManagedProviderOperation(
       status: "running",
       fallbackUpdatedAt: infrastructure.operation.updatedAt,
     };
-  }
-  if (infrastructure.operation.kind !== "none") {
-    return null;
   }
 
   const write = infrastructure.providerWrite;
