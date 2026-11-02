@@ -35,8 +35,8 @@ type StoreResult =
   | { state: "loaded"; read: AlchemyStacksRead | { store: "no_connection" } };
 
 /**
-The store read that the loader of the current page made for its first paint, when it is for this
-repository and team: the repository overview and the Alchemy page load one. Both routes keep no
+The store read that the server render of the current page made for its first paint, when it is for
+this repository and team: the repository overview and the Alchemy page load one. Both routes keep no
 loader data after the page is left, so this is never a read of an earlier visit.
 */
 function useLoaderRead(repositoryId: Id<"repositories"> | null, convexTeamId: string | undefined) {

@@ -88,6 +88,10 @@ export function SidebarLayoutViewport({
       data-has-right-pane={showRightPane ? "" : undefined}
       data-viewport-measured={hasMeasuredViewport ? "" : undefined}
       data-sidebar-layout-part="carousel"
+      // The router restores the scroll position of every scroller on a route change and on Back. A
+      // pane position is the user's, so a restore would pull them back to an old pane. See the
+      // router-core patch in pnpm-workspace.yaml and e2e/mobile-pane-navigation.spec.ts.
+      data-scroll-restoration-ignore=""
       style={carouselStyle}
       suppressHydrationWarning
     >
