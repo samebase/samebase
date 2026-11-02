@@ -9,9 +9,9 @@ const startTimeoutMs = 300_000;
 const pageTimeoutMs = 30_000;
 const convexCliPath = "./node_modules/convex/bin/main.js";
 const localEnvironment = { ...process.env, CONVEX_AGENT_MODE: "anonymous" };
-// The default Vite port. Convex runs the frontend detached, so its output, with the URL, does not
-// reach this process on Windows.
-const frontendUrl = "http://localhost:5173/";
+// The local backend's site, which serves the build that `deploy:dev` uploads. Convex runs Vite
+// detached, so its output does not reach this process on Windows, and the site needs no Vite.
+const siteUrl = "http://127.0.0.1:3211/";
 
 async function servesPage(url: string): Promise<boolean> {
   try {
@@ -70,7 +70,7 @@ async function prepareLocalSite(child: ReturnType<typeof spawn>): Promise<void> 
 
 /**
  * Starts the starter app through the launcher of `pnpm run dev:worktree`, the anonymous mode that
- * needs no Convex account, and waits for its frontend to serve a page. Run it from templates/base.
+ * needs no Convex account, and waits for its local site to serve a page. Run it from templates/base.
  */
 await runMain(async () => {
   const child = spawn(process.execPath, ["./scripts/run-worktree-dev.ts"], {
@@ -87,7 +87,7 @@ await runMain(async () => {
       if (child.exitCode !== null) {
         fail(`The starter exited with code ${child.exitCode} before it served a page.`);
       }
-      if (await servesPage(frontendUrl)) {
+      if (await servesPage(siteUrl)) {
         console.log("The starter serves a page.");
         return;
       }
