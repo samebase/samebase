@@ -84,6 +84,99 @@ describe("MCP tool runtime boundaries", () => {
     });
   });
 
+  it.each(["old", "repository_actions"] as const)(
+    "reports a failed %s plan consistently in the dashboard and repository_list",
+    async (plan) => {
+      const { organizationId, t, userId, repositoryId } = await seedToolRuntimeOwner();
+      await t.run(async (ctx) => {
+        const runId = await ctx.db.insert("workflow_repositoryProvisioning_runs", {
+          organizationId,
+          userId,
+          repositoryId,
+          githubRepositoryFullName: "tool-runtime-owner/failed-setup",
+          trigger: "create",
+          state: "failed",
+          currentStep: plan === "old" ? "attach_worker" : "write_actions_secrets",
+          lastError: "Provider setup failed.",
+          createdAt: 1,
+          updatedAt: 1,
+          completedAt: 1,
+        });
+        await ctx.db.replace(repositoryId, {
+          organizationId,
+          convexTeamId: "convex-team",
+          cloudflareAccountId: "account_1",
+          deletion: { state: "not_deleting" },
+          state: "connected",
+          githubMode: "create_repository",
+          runId,
+          githubRepositoryDatabaseId: "failed-setup",
+          githubRepositoryName: "failed-setup",
+          visibility: "private",
+          defaultBranch: "main",
+          connectedAt: 1,
+          createdAt: 1,
+        });
+        await ctx.db.insert("workflow_repositoryProvisioning_writeLocks", {
+          repositoryId,
+          owner: { kind: "managed_run", runId },
+          state: "failed",
+          lastWriteAt: {},
+          updatedAt: 1,
+        });
+        await ctx.db.insert("workflow_repositoryProvisioning_plans", {
+          repositoryId,
+          convexConfigPath: "convex.json",
+          ...(plan === "old"
+            ? {
+                convex: {
+                  state: "planned" as const,
+                  projectName: "failed-setup",
+                  deploymentRegion: "aws-us-east-1" as const,
+                },
+                cloudflare: {
+                  state: "planned" as const,
+                  workerName: "failed-setup",
+                  rootDirectory: "/",
+                  buildTokenUuid: null,
+                },
+              }
+            : {
+                provisioning: "repository_actions" as const,
+                ciSecrets: { state: "planned" as const },
+                seed: { state: "planned" as const },
+              }),
+          createdAt: 1,
+          updatedAt: 1,
+        });
+      });
+
+      const repositories = await t.query(internal.repository.listForUser, { userId });
+      expect(repositories[0]?.providerSetup).toMatchObject(
+        plan === "old"
+          ? { status: "not_applicable" }
+          : { status: "failed", provider: "github", step: "write_actions_secrets" },
+      );
+      const result = await t.action(internal.toolRuntime.runtime.repositoryListTool, {
+        userId,
+        grantedScopes: ["access_dashboard"],
+      });
+      expect(result.status).toBe("ok");
+      if (result.status !== "ok") {
+        throw new Error(result.text);
+      }
+      expect(result.structuredContent.repositories[0]?.providerSetup).toEqual(
+        plan === "old"
+          ? { status: "not_applicable" }
+          : {
+              status: "failed",
+              provider: "github",
+              message: "Provider setup failed. Call repository_retryProviderSetup to retry it.",
+            },
+      );
+    },
+  );
+
   it("lists repositories across every current organization membership", async () => {
     const { organizationId, t, userId } = await seedToolRuntimeOwner();
     const {
@@ -299,11 +392,7 @@ describe("MCP tool runtime boundaries", () => {
         }),
         expect.objectContaining({
           repositoryId: otherRunRepositoryId,
-          providerSetup: {
-            status: "failed",
-            provider: "convex",
-            message: "Provider setup failed. Call repository_retryProviderSetup to retry it.",
-          },
+          providerSetup: { status: "not_applicable" },
         }),
         expect.objectContaining({
           repositoryId: pendingRepositoryId,

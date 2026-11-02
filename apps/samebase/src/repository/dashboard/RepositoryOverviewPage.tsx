@@ -17,6 +17,7 @@ import { Link } from "@tanstack/react-router";
 import { AlertTriangle, LayoutList, Loader2, Settings } from "lucide-react";
 import type { ReactNode } from "react";
 import type { UserRepositoryResult } from "../../../convex/repository/contracts/getUserRepositories";
+import { isSamebaseManagedProviderPlan } from "../../../convex/repository/provisioningPlan";
 import type { RepositoryWorkspaceSelected } from "./repositoryWorkspaceModel";
 
 export type RepositoryOverviewPageKind = "overview" | "settings";
@@ -183,7 +184,11 @@ function RepositoryStateNotice({
       <FailureNotice description={repository.sourceSetup.message} title="Repository setup failed" />
     );
   }
-  if (repository.providerSetup.status === "failed") {
+  if (
+    repository.providerSetup.status === "failed" &&
+    repository.providerPlan &&
+    !isSamebaseManagedProviderPlan(repository.providerPlan)
+  ) {
     return (
       <FailureNotice
         description={repository.providerSetup.message}

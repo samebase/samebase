@@ -423,23 +423,17 @@ test("says what is true without a store or a Convex connection", async ({ page }
   await expect(noConvexFixture.getByRole("button", { name: "Retry" })).toHaveCount(0);
 });
 
-test("keeps the Retry notice for a failed provider setup", async ({ page }) => {
+test("shows store guidance for an old provider setup failure", async ({ page }) => {
   await page.setViewportSize({ width: 700, height: 700 });
   const fixture = await openRepositoryOverviewV2(
     page,
     "repository-overview-v2-cloudflare-github-authorization-failed",
   );
 
-  await expect(fixture.getByRole("heading", { name: "Provider setup failed" })).toBeVisible();
-  await expect(
-    fixture.getByText(
-      "Cloudflare Workers and Pages GitHub App is not authorized for noter-guest/tmp-testing-waters.",
-      { exact: false },
-    ),
-  ).toBeVisible();
-  await expect(fixture.getByRole("button", { name: "Retry" })).toBeVisible();
-  await expect(fixture.getByRole("link", { name: "Cloudflare recovery guide" })).toHaveCount(0);
-  await expect(fixture.locator("ol > li")).toHaveCount(0);
+  await expect(fixture.getByRole("heading", { name: "Provider setup failed" })).toHaveCount(0);
+  await expect(fixture.getByText(NO_STACK_LINE, { exact: true })).toBeVisible();
+  await expect(fixture.getByRole("button", { name: "Retry" })).toHaveCount(0);
+  await expect(fixture.locator('[data-repository-status="Needs attention"]')).toHaveCount(0);
   await expect(fixture).toHaveScreenshot(
     "repository-overview-v2-cloudflare-github-authorization-failed.png",
     {

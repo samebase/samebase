@@ -213,8 +213,8 @@ function buildStacksAttention(args: {
 
 /**
 The attention items of one repository. The provider setup state comes first: a running setup can
-still change what the other items report, and a failed one is repaired only by its retry. While the
-first deployment of a repository runs, that item explains why the store has no stack yet.
+still change what the other items report. Only repository_actions failures offer a retry. While
+the first deployment of a repository runs, that item explains why the store has no stack yet.
 */
 export function buildRepositoryAttention(args: {
   repository: RepositoryStatusRepository;
@@ -231,12 +231,15 @@ export function buildRepositoryAttention(args: {
         },
       ];
     case "failed":
-      return [
-        {
-          tool: RETRY_PROVIDER_SETUP_TOOL,
-          problem: `Samebase setup of the ${describeSetupProvider(providerSetup.provider)} failed.`,
-        },
-      ];
+      if (repository.providerPlan && !isSamebaseManagedProviderPlan(repository.providerPlan)) {
+        return [
+          {
+            tool: RETRY_PROVIDER_SETUP_TOOL,
+            problem: `Samebase setup of the ${describeSetupProvider(providerSetup.provider)} failed.`,
+          },
+        ];
+      }
+      break;
     case "ready":
     case "not_applicable":
       break;

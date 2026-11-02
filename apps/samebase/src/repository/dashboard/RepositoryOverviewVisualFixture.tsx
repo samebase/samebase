@@ -725,21 +725,13 @@ function RepositoryOverviewProvisioningFixture({
   switch (mode) {
     case "repository-overview-v2-cloudflare-github-authorization-failed": {
       const githubRepositoryFullName = "noter-guest/tmp-testing-waters";
-      const recoveryUrl =
-        "https://developers.cloudflare.com/pages/configuration/git-integration/github-integration/#reinstall-the-cloudflare-github-app";
       repository = {
         ...PROVISIONING_REPOSITORY,
         githubOwnerLogin: "noter-guest",
         githubRepositoryName: "tmp-testing-waters",
         githubRepositoryFullName,
-        providerSetup: {
-          status: "failed",
-          provider: "cloudflare",
-          runId: PROVISIONING_RUN_ID,
-          step: "attach_worker",
-          message: `Cloudflare Workers and Pages GitHub App is not authorized for ${githubRepositoryFullName}. Follow Cloudflare's recovery steps at ${recoveryUrl}: uninstall the GitHub App first, then reinstall/connect GitHub from Workers & Pages. GitHub gives this access to the Cloudflare Workers and Pages GitHub App, not to Samebase. Select All repositories so Cloudflare can connect repositories that Samebase creates later to Workers Builds, then retry.`,
-          updatedAt: FIXTURE_NOW,
-        },
+        providerPlan: PROVISIONING_PLANNED_PROVIDER_PLAN,
+        providerSetup: { status: "not_applicable" },
       };
       pullRequests = fixturePullRequests([], PROVISIONING_DEFAULT_BRANCH);
       break;

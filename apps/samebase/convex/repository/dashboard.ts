@@ -372,45 +372,16 @@ async function readManagedProviderOperation(
 async function resolveProviderSetupSummary(
   ctx: Pick<QueryCtx, "db">,
   providerPlan: ManagedProviderPlan,
-  convexProjects: ConvexProject[],
-  cloudflareWorkers: CloudflareWorker[],
   infrastructure: RepositoryInfrastructureState,
 ): Promise<ProviderSetupSummary> {
+  if (!providerPlan || readRepositoryProvisioningMode(providerPlan) !== "repository_actions") {
+    return { status: "not_applicable" };
+  }
+
   const managedOperation = await readManagedProviderOperation(ctx, infrastructure);
-
-  // Samebase's part of a repository_actions setup is the GitHub Actions secret and variable; the
-  // repository's alchemy workflow owns the Convex project.
-  if (providerPlan && readRepositoryProvisioningMode(providerPlan) === "repository_actions") {
-    return managedOperation
-      ? readProviderRunSummary({ provider: "github", ...managedOperation })
-      : { status: "ready" };
-  }
-  if (convexProjects.length === 0) {
-    if (managedOperation) {
-      return readProviderRunSummary({
-        provider: "convex",
-        ...managedOperation,
-      });
-    }
-    return { status: "not_applicable" };
-  }
-  if (cloudflareWorkers.length === 0) {
-    if (managedOperation) {
-      return readProviderRunSummary({
-        provider: "cloudflare",
-        ...managedOperation,
-      });
-    }
-    return { status: "not_applicable" };
-  }
-  if (managedOperation) {
-    return readProviderRunSummary({
-      provider: "cloudflare",
-      ...managedOperation,
-    });
-  }
-
-  return { status: "ready" };
+  return managedOperation
+    ? readProviderRunSummary({ provider: "github", ...managedOperation })
+    : { status: "ready" };
 }
 
 function compareCloudflareWorkerSortOrder(left: CloudflareWorker, right: CloudflareWorker): number {
@@ -780,13 +751,7 @@ export async function readOrganizationRepositories(
       const sourceSetup = await resolveSourceSetupSummary(ctx, repository, providerPlan);
       const providerSetup =
         sourceSetup.status === "ready"
-          ? await resolveProviderSetupSummary(
-              ctx,
-              providerPlan,
-              convexProjects,
-              cloudflareWorkers,
-              infrastructure,
-            )
+          ? await resolveProviderSetupSummary(ctx, providerPlan, infrastructure)
           : { status: "not_applicable" as const };
       return {
         repositoryId: repository._id,

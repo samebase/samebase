@@ -58,11 +58,13 @@ function LocationProbe() {
 
 function makeRepository({
   owner = "ada",
+  providerPlan = null,
   providerSetup = { status: "ready" },
   providerWrite,
   repoName = "demo",
 }: {
   owner?: string;
+  providerPlan?: UserRepositoryResult["providerPlan"];
   providerSetup?: UserRepositoryResult["providerSetup"];
   providerWrite: UserRepositoryResult["providerWrite"];
   repoName?: string;
@@ -79,7 +81,7 @@ function makeRepository({
     fileCount: 0,
     sourceSetup: { status: "ready" },
     providerSetup,
-    providerPlan: null,
+    providerPlan,
     providerWrite,
     deletion: {
       state: "not_deleting",
@@ -155,12 +157,17 @@ describe("RepositorySelectedWorkspace route", () => {
 
   function failedSetupRepository(providerWrite: UserRepositoryResult["providerWrite"]) {
     return makeRepository({
+      providerPlan: {
+        provisioning: "repository_actions",
+        convexConfigPath: "convex.json",
+        ciSecrets: { state: "planned" },
+      },
       providerSetup: {
         status: "failed",
-        provider: "cloudflare",
+        provider: "github",
         runId: fakeRunId(),
-        step: "attach_worker",
-        message: "Cloudflare could not attach the Worker.",
+        step: "write_actions_secrets",
+        message: "GitHub Actions secrets could not be written.",
         updatedAt: 20,
       },
       providerWrite,
@@ -180,41 +187,44 @@ describe("RepositorySelectedWorkspace route", () => {
     });
   }
 
-  it("shows a stored Cloudflare GitHub App failure in the Retry notice", async () => {
-    const owner = "noter-guest";
-    const repoName = "tmp-testing-waters";
-    const githubRepositoryFullName = `${owner}/${repoName}`;
-    const storedRecoveryUrl =
-      "https://developers.cloudflare.com/pages/configuration/git-integration/github-integration/#reinstall-the-cloudflare-github-app";
-    const message = `Cloudflare Workers and Pages GitHub App is not authorized for ${githubRepositoryFullName}. Follow Cloudflare's recovery steps at ${storedRecoveryUrl}: uninstall the GitHub App first, then reinstall/connect GitHub from Workers & Pages. GitHub gives this access to the Cloudflare Workers and Pages GitHub App, not to Samebase. Select All repositories so Cloudflare can connect repositories that Samebase creates later to Workers Builds, then retry.`;
+  it("shows the missing-store guidance without Retry for an old failed setup", async () => {
     const repository = makeRepository({
-      owner,
+      providerPlan: {
+        convexConfigPath: "convex.json",
+        convex: {
+          state: "planned",
+          teamId: "team-1",
+          projectName: "demo",
+          deploymentRegion: "aws-us-east-1",
+        },
+        cloudflare: {
+          state: "planned",
+          accountId: "account-1",
+          workerName: "demo",
+          rootDirectory: "/",
+          buildTokenUuid: null,
+        },
+      },
       providerSetup: {
         status: "failed",
         provider: "cloudflare",
         runId: fakeRunId(),
         step: "attach_worker",
-        message,
+        message: "Cloudflare could not attach the Worker.",
         updatedAt: 20,
       },
       providerWrite: { status: "idle", lastWriteAt: {} },
-      repoName,
     });
 
-    await renderWorkspace(
-      makeWorkspace(repository),
-      "/repo/noter-guest/tmp-testing-waters",
-      "overview",
-    );
+    await renderWorkspace(makeWorkspace(repository), "/repo/ada/demo", "overview");
     const element = rootElement;
     if (!element) {
       throw new Error("Expected the selected workspace to render.");
     }
 
-    expect(element.querySelector("h2")?.textContent).toBe("Provider setup failed");
-    expect(element.textContent).toContain(message);
-    expect(element.querySelector("ol")).toBeNull();
-    expect(element.textContent).not.toContain("Cloudflare recovery guide");
+    expect(element.textContent).not.toContain("Provider setup failed");
+    expect(element.textContent).not.toContain("Retry");
+    expect(element.textContent).toContain("Alchemy state store");
   });
 
   it("retries a failed provider setup", async () => {

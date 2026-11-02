@@ -189,7 +189,7 @@ describe("repository_list", () => {
             githubOwnerLogin: "scout-owner",
             isSamebaseManaged: false,
             sourceSetup: { status: "ready" },
-            providerSetup: { status: "ready" },
+            providerSetup: { status: "not_applicable" },
             deletion: { state: "not_deleting" },
           },
         ],
