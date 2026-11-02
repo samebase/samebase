@@ -554,7 +554,6 @@ export const trackedFilePaths = [
   "apps/samebase/e2e/app-right-sidebar-visual.spec.ts",
   "apps/samebase/e2e/app-right-sidebar-visual.spec.ts-snapshots/app-right-sidebar-github-button-mobile-min.png",
   "apps/samebase/e2e/app-right-sidebar-visual.spec.ts-snapshots/app-right-sidebar-mobile-right-pane-min.png",
-  "apps/samebase/e2e/app-right-sidebar-visual.spec.ts-snapshots/app-right-sidebar-onboarding-video-narrow.png",
   "apps/samebase/e2e/app-right-sidebar-visual.spec.ts-snapshots/app-right-sidebar-product-update-email-consent.png",
   "apps/samebase/e2e/app-right-sidebar-visual.spec.ts-snapshots/app-right-sidebar-session-recording-consent.png",
   "apps/samebase/e2e/app-right-sidebar-visual.spec.ts-snapshots/app-right-sidebar-signed-in-account-narrow.png",

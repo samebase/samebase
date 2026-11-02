@@ -282,7 +282,6 @@ describe("AppRightSidebarContent", () => {
     expect(markup).not.toContain("checking login");
     expect(markup).not.toContain("/providers");
     expect(markup).not.toContain(">/vault<");
-    expect(markup).not.toContain("Watch the complete onboarding");
   });
 
   it("shows the sign-in while a prerendered page waits for the session", async () => {
@@ -435,7 +434,6 @@ describe("AppRightSidebarContent", () => {
         [getFunctionName(api.users.getCloudflareConnectionStatus), { connected: false }],
         [getFunctionName(api.users.getProductUpdateEmailConsent), { state: "not_decided" }],
         [getFunctionName(api.users.getSessionRecordingConsent), { state: "not_decided" }],
-        [getFunctionName(api.repository.list), []],
         [
           getFunctionName(api.users.viewer),
           {
@@ -465,31 +463,12 @@ describe("AppRightSidebarContent", () => {
     expect(hydratedMarkup).not.toContain('data-testid="organization-context-control"');
     expect(hydratedMarkup).not.toContain("/admin/users");
     expect(hydratedMarkup).not.toContain("/admin/account-deletions");
-    expect(hydratedMarkup).not.toContain("youtube-nocookie.com");
     expect(hydratedMarkup).toContain("Product updates");
     expect(hydratedMarkup).toContain("Hear about new Samebase features by email.");
     expect(hydratedMarkup).toContain("Email me");
     expect(hydratedMarkup).toContain("No thanks");
     expect(hydratedMarkup).not.toContain("Help improve Samebase");
     expect(hydratedMarkup).not.toContain("What gets recorded");
-    expect(hydratedMarkup).toContain("First time using Samebase?");
-    expect(hydratedMarkup).toContain("Watch the complete onboarding on ");
-    expect(hydratedMarkup).toContain('class="text-red-600">YouTube</span>');
-    expect(hydratedMarkup).toContain(
-      'class="mt-2 block" href="https://youtu.be/8-ZEGPpqi9Y" rel="noreferrer" target="_blank"',
-    );
-    expect(hydratedMarkup.indexOf("First time using Samebase?")).toBeLessThan(
-      hydratedMarkup.indexOf("Watch the complete onboarding on "),
-    );
-    expect(hydratedMarkup.indexOf("Watch the complete onboarding on ")).toBeLessThan(
-      hydratedMarkup.indexOf('src="/onboarding/complete-onboarding-poster.webp"'),
-    );
-    expect(hydratedMarkup.indexOf("Watch the complete onboarding on ")).toBeLessThan(
-      hydratedMarkup.indexOf('href="/terms"'),
-    );
-    expect(hydratedMarkup.indexOf("Product updates")).toBeLessThan(
-      hydratedMarkup.indexOf("First time using Samebase?"),
-    );
     expectProviderStatusQueriesNotSeen();
   });
 
@@ -510,7 +489,6 @@ describe("AppRightSidebarContent", () => {
         ],
         [getFunctionName(api.users.getProductUpdateEmailConsent), { state: "granted" }],
         [getFunctionName(api.users.getSessionRecordingConsent), { state: "not_decided" }],
-        [getFunctionName(api.repository.list), []],
         [
           getFunctionName(api.users.viewer),
           {
@@ -569,7 +547,6 @@ describe("AppRightSidebarContent", () => {
         ],
         [getFunctionName(api.users.getProductUpdateEmailConsent), { state: "not_decided" }],
         [getFunctionName(api.users.getSessionRecordingConsent), { state: "not_decided" }],
-        [getFunctionName(api.repository.list), []],
         [
           getFunctionName(api.users.viewer),
           {
@@ -605,7 +582,7 @@ describe("AppRightSidebarContent", () => {
     }
   });
 
-  it("hides onboarding once the user has a repository", async () => {
+  it("hides the recording choice after the user answers", async () => {
     const hydratedMarkup = await renderRightSidebarAfterEffectsWithNamedQueries(
       new Map([
         [
@@ -614,10 +591,6 @@ describe("AppRightSidebarContent", () => {
             role: "role_member",
             accessKeys: ["access_public", "access_provider_connections"],
           },
-        ],
-        [
-          getFunctionName(api.repository.list),
-          [{ hasConvexProvision: false, hasCloudflareProvision: false }],
         ],
         [getFunctionName(api.users.getSessionRecordingConsent), { state: "granted" }],
         [
@@ -633,8 +606,6 @@ describe("AppRightSidebarContent", () => {
       ]),
     );
 
-    expect(hydratedMarkup).not.toContain("First time using Samebase?");
-    expect(hydratedMarkup).not.toContain("/onboarding/complete-onboarding-poster.webp");
     expect(hydratedMarkup).not.toContain("Help improve Samebase");
   });
 

@@ -273,10 +273,6 @@ test("shows one organization context across global pages, settings, providers, a
   ).toHaveCount(0);
   await expect(organizationSettings.getByTestId("organization-billing-section")).toBeVisible();
   await expect(rightPane.getByRole("heading", { name: "Product updates" })).toBeVisible();
-  // The account has a repository, so the onboarding video is gone.
-  await expect(rightPane.getByRole("heading", { name: "First time using Samebase?" })).toHaveCount(
-    0,
-  );
   await expect(page).toHaveScreenshot("organization-context-one-organization-settings.png", {
     ...screenshotOptions,
     fullPage: true,
