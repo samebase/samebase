@@ -44,13 +44,6 @@ const vBillingResourceUsage = object({
 });
 export type BillingResourceUsage = Infer<typeof vBillingResourceUsage>;
 
-type OrganizationConnectionCounts = {
-  repositories: number;
-  cloudflareWorkers: number;
-  convexProjects: number;
-  total: number;
-};
-
 function readOrganizationConnectionLimit(
   account: Doc<"organizationBillingAccounts">,
   organization: Doc<"organizations">,
@@ -69,40 +62,25 @@ function readOrganizationConnectionLimit(
   }
 }
 
-async function readOrganizationConnectionCounts(
+async function readOrganizationConnectionCount(
   ctx: BillingResourceReadCtx,
   args: {
     organizationId: Id<"organizations">;
     maximumRows: number;
   },
-): Promise<OrganizationConnectionCounts> {
-  const [repositories, cloudflareWorkers, convexProjects] = await Promise.all([
-    ctx.db
-      .query("repositories")
-      .withIndex("by_organization_and_state_and_deletion_state", (query) =>
-        query.eq("organizationId", args.organizationId).eq("state", "connected"),
-      )
-      .take(args.maximumRows),
-    ctx.db
-      .query("repositoryCloudflareWorkers")
-      .withIndex("by_organization", (query) => query.eq("organizationId", args.organizationId))
-      .take(args.maximumRows),
-    ctx.db
-      .query("repositoryConvexProjects")
-      .withIndex("by_organization", (query) => query.eq("organizationId", args.organizationId))
-      .take(args.maximumRows),
-  ]);
-  return {
-    repositories: repositories.length,
-    cloudflareWorkers: cloudflareWorkers.length,
-    convexProjects: convexProjects.length,
-    total: repositories.length + cloudflareWorkers.length + convexProjects.length,
-  };
+): Promise<number> {
+  const repositories = await ctx.db
+    .query("repositories")
+    .withIndex("by_organization_and_state_and_deletion_state", (query) =>
+      query.eq("organizationId", args.organizationId).eq("state", "connected"),
+    )
+    .take(args.maximumRows);
+  return repositories.length;
 }
 
 /**
 Fails unless the organization's member seats are paid and it has `connections` connections left:
-the repositories, Workers, and Convex projects that the caller is about to add.
+the repositories that the caller is about to add.
 */
 export async function requireBillingResourceCapacity(
   ctx: BillingResourceReadCtx,
@@ -145,14 +123,14 @@ async function requireOrganizationConnectionCapacity(
   },
 ): Promise<void> {
   const limit = readOrganizationConnectionLimit(args.account, args.organization);
-  const used = await readOrganizationConnectionCounts(ctx, {
+  const used = await readOrganizationConnectionCount(ctx, {
     organizationId: args.account.organizationId,
     maximumRows: limit + 1,
   });
-  if (used.total + args.connections <= limit) {
+  if (used + args.connections <= limit) {
     return;
   }
-  const left = Math.max(0, limit - used.total);
+  const left = Math.max(0, limit - used);
   throw new ConvexError(
     args.connections === 1
       ? `${ORGANIZATION_CONNECTION_LIMIT_ERROR_PREFIX} (${limit}).`
@@ -209,21 +187,14 @@ export const getViewerBillingResourceUsage = query({
       throw new Error("Organization billing account refers to a missing organization.");
     }
     const limit = readOrganizationConnectionLimit(billing.account, organization);
-    const usage = await readOrganizationConnectionCounts(ctx, {
+    const count = await readOrganizationConnectionCount(ctx, {
       organizationId: billing.account.organizationId,
       maximumRows: CONNECTION_USAGE_READ_LIMIT,
     });
 
-    const isBounded =
-      usage.repositories === CONNECTION_USAGE_READ_LIMIT ||
-      usage.cloudflareWorkers === CONNECTION_USAGE_READ_LIMIT ||
-      usage.convexProjects === CONNECTION_USAGE_READ_LIMIT;
-
     return {
       connections: {
-        used: isBounded
-          ? { state: "at_least", count: usage.total }
-          : { state: "exact", count: usage.total },
+        used: { state: count === CONNECTION_USAGE_READ_LIMIT ? "at_least" : "exact", count },
         limit,
       },
     };

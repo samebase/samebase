@@ -84,11 +84,6 @@ function fakeOrganizationId(value = "organization-lost-access"): Id<"organizatio
   return value;
 }
 
-function fakeWorkerId(): Id<"repositoryCloudflareWorkers"> {
-  // @ts-expect-error Convex ids are strings at runtime; this hook test only needs a stable id.
-  return "worker-attached";
-}
-
 function fakeRunId(): Id<"workflow_repositoryProvisioning_runs"> {
   // @ts-expect-error Convex ids are strings at runtime; this hook test only needs a stable id.
   return "provisioning-run";
@@ -104,17 +99,13 @@ function lostAccessRepository(): UserRepositoryResult {
   return {
     repositoryId: fakeRepositoryId(),
     cloudflareAccountId: "cloudflare-account",
-    cloudflareWorkers: [],
     convexTeamId: "convex-team",
-    convexProjects: [],
     defaultBranch: "main",
     deletion: { deleteAction: { state: "available" }, state: "not_deleting" },
     fileCount: 1,
     githubRepositoryName: "private",
     githubOwnerLogin: "lost",
-    hasCloudflareProvision: false,
     hasConnectedGitHubRepository: true,
-    hasConvexProvision: false,
     isSamebaseManaged: true,
     organizationId: fakeOrganizationId(),
     providerPlan: null,
@@ -384,20 +375,9 @@ describe("useRepositoryWorkspaceModel", () => {
       alchemy: { state: "failed", error: new Error("x"), reload: () => {} },
     },
   ] satisfies { name: string; alchemy: RepositoryAlchemyState }[])(
-    "builds no card from attachment rows when $name",
+    "builds no card when $name",
     async ({ alchemy }) => {
-      const repository = {
-        ...lostAccessRepository(),
-        cloudflareWorkers: [
-          {
-            workerId: fakeWorkerId(),
-            accountId: "cloudflare-account",
-            workerName: "old-worker",
-            workerTag: "old-worker-tag",
-            rootDirectory: "/",
-          },
-        ],
-      } satisfies UserRepositoryResult;
+      const repository = lostAccessRepository();
       const organization = {
         canCreateRepository: true,
         githubOwnerId: "github-owner-lost",

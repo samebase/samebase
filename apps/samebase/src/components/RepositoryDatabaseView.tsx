@@ -4,7 +4,6 @@ import { Loader2 } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { api } from "../../convex/_generated/api";
 import { AppWorkspaceRouteChrome } from "@/components/AppWorkspaceShell";
-import { findRepositoryConvexProjectAttachment } from "@/lib/repositoryConvexProjectAttachment";
 
 const EMBEDDED_DASHBOARD_ORIGIN = "https://dashboard-embedded.convex.dev";
 const EMBEDDED_DASHBOARD_URL = `${EMBEDDED_DASHBOARD_ORIGIN}/data`;
@@ -72,20 +71,12 @@ export function RepositoryDatabaseView({
   const [loadError, setLoadError] = useState<string | null>(null);
   const readyCredentials = credentialsResult?.kind === "ready" ? credentialsResult : null;
   credentialsRef.current = readyCredentials;
-  const attachment = repositories
-    ? findRepositoryConvexProjectAttachment(
-        repositories,
-        `${owner}/${repoName}`,
-        routeConvexProjectId,
-      )
-    : null;
-  const repository = attachment?.repository;
-  const convexProject = attachment?.project;
-  // A route value that names no attachment row is the Convex project id of a deployment of the
-  // repository stack in the Alchemy state store; the server accepts it only for such a deployment.
-  const convexProjectId = repository
-    ? (convexProject?.convexProjectId ?? routeConvexProjectId)
-    : undefined;
+  const repository = repositories?.find(
+    (candidate) => candidate.githubRepositoryFullName === `${owner}/${repoName}`,
+  );
+  // The route value is the Convex project id of a deployment of the repository stack in the Alchemy
+  // state store; the server accepts it only for such a deployment.
+  const convexProjectId = repository ? routeConvexProjectId : undefined;
   const projectNotice =
     repositories === undefined ? null : !repository ? "Repository not found." : null;
 
@@ -183,11 +174,7 @@ export function RepositoryDatabaseView({
     revokeEmbeddedDashboardCredentials,
   ]);
 
-  const titleParts = [
-    `${owner}/${repoName}`,
-    branch,
-    convexProject?.projectId ?? routeConvexProjectId,
-  ];
+  const titleParts = [`${owner}/${repoName}`, branch, routeConvexProjectId];
 
   return (
     <AppWorkspaceRouteChrome rightToggleVisibility="all">

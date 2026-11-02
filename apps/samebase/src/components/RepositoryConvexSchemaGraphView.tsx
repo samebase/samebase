@@ -5,10 +5,8 @@ import {
   type RepositoryConvexSchemaGraphRouteContext,
 } from "@/components/repository-dashboard/RepositoryConvexSchemaGraph";
 import { useCacheQuery as useRepositoryQuery } from "@/lib/convexQueryCache";
-import { findRepositoryConvexProjectAttachment } from "@/lib/repositoryConvexProjectAttachment";
 import { Database, Loader2 } from "lucide-react";
 import type { ReactNode } from "react";
-import { getConvexCodeLocationPath } from "../../shared/convexCodeLocation";
 
 type RepositoryConvexSchemaGraphViewProps = {
   branch: string;
@@ -43,14 +41,6 @@ function RepositoryConvexSchemaGraphRouteStatusSidebar({
           <span>Project</span>
           <span className="min-w-0 truncate text-foreground">{context.projectId}</span>
         </div>
-        {context.convexCodePath ? (
-          <div className="flex min-w-0 justify-between gap-2">
-            <span>Code</span>
-            <span className="min-w-0 truncate font-mono text-foreground">
-              {context.convexCodePath}
-            </span>
-          </div>
-        ) : null}
       </div>
       <div className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">{status}</div>
     </div>
@@ -94,25 +84,18 @@ function RepositoryConvexSchemaGraphRouteStatusShell({
 
 export function RepositoryConvexSchemaGraphView({
   branch,
-  convexProjectId: routeConvexProjectId,
+  convexProjectId,
   owner,
   repoName,
 }: RepositoryConvexSchemaGraphViewProps) {
   const githubRepositoryFullName = `${owner}/${repoName}`;
   const dashboardRepositories = useRepositoryQuery(api.repository.list);
-  const attachment = dashboardRepositories
-    ? findRepositoryConvexProjectAttachment(
-        dashboardRepositories,
-        githubRepositoryFullName,
-        routeConvexProjectId,
-      )
-    : null;
-  const dashboardRepository = attachment?.repository;
-  const project = attachment?.project;
+  const dashboardRepository = dashboardRepositories?.find(
+    (candidate) => candidate.githubRepositoryFullName === githubRepositoryFullName,
+  );
   const context = {
     branch,
-    convexCodePath: project ? getConvexCodeLocationPath(project.codeLocation) : "",
-    projectId: project?.projectId ?? routeConvexProjectId,
+    projectId: convexProjectId,
     githubRepositoryFullName,
   } satisfies RepositoryConvexSchemaGraphRouteContext;
 
@@ -130,11 +113,11 @@ export function RepositoryConvexSchemaGraphView({
     );
   }
 
-  if (!dashboardRepository || !project) {
+  if (!dashboardRepository) {
     return (
       <RepositoryConvexSchemaGraphRouteStatusShell
         context={context}
-        status="Convex project is not attached to this repository."
+        status="Repository not found."
       />
     );
   }
@@ -143,7 +126,7 @@ export function RepositoryConvexSchemaGraphView({
     <RepositoryConvexSchemaGraphRouteWorkspace
       context={context}
       repositoryId={dashboardRepository.repositoryId}
-      convexProjectId={project.convexProjectId}
+      convexProjectId={convexProjectId}
     />
   );
 }

@@ -100,7 +100,6 @@ import type * as mcpTokenHealth from "../mcpTokenHealth.js";
 import type * as oauthState from "../oauthState.js";
 import type * as oauthUtils from "../oauthUtils.js";
 import type * as organization_billingLimits from "../organization/billingLimits.js";
-import type * as organization_ciCredentials from "../organization/ciCredentials.js";
 import type * as organization_invitationModel from "../organization/invitationModel.js";
 import type * as organization_memberGitHub from "../organization/memberGitHub.js";
 import type * as organization_model from "../organization/model.js";
@@ -129,7 +128,6 @@ import type * as repository_confirmationModel from "../repository/confirmationMo
 import type * as repository_confirmations from "../repository/confirmations.js";
 import type * as repository_contracts_actionConfirmation from "../repository/contracts/actionConfirmation.js";
 import type * as repository_contracts_connectRepository from "../repository/contracts/connectRepository.js";
-import type * as repository_contracts_convexCodeLocation from "../repository/contracts/convexCodeLocation.js";
 import type * as repository_contracts_createRepository from "../repository/contracts/createRepository.js";
 import type * as repository_contracts_getRepositoryStatus from "../repository/contracts/getRepositoryStatus.js";
 import type * as repository_contracts_getUserRepositories from "../repository/contracts/getUserRepositories.js";
@@ -292,7 +290,6 @@ declare const fullApi: ApiFromModules<{
   oauthState: typeof oauthState;
   oauthUtils: typeof oauthUtils;
   "organization/billingLimits": typeof organization_billingLimits;
-  "organization/ciCredentials": typeof organization_ciCredentials;
   "organization/invitationModel": typeof organization_invitationModel;
   "organization/memberGitHub": typeof organization_memberGitHub;
   "organization/model": typeof organization_model;
@@ -321,7 +318,6 @@ declare const fullApi: ApiFromModules<{
   "repository/confirmations": typeof repository_confirmations;
   "repository/contracts/actionConfirmation": typeof repository_contracts_actionConfirmation;
   "repository/contracts/connectRepository": typeof repository_contracts_connectRepository;
-  "repository/contracts/convexCodeLocation": typeof repository_contracts_convexCodeLocation;
   "repository/contracts/createRepository": typeof repository_contracts_createRepository;
   "repository/contracts/getRepositoryStatus": typeof repository_contracts_getRepositoryStatus;
   "repository/contracts/getUserRepositories": typeof repository_contracts_getUserRepositories;

@@ -69,10 +69,10 @@ export const vRepositoryConvexSchemaGraph = object({
 export type RepositoryConvexSchemaGraph = Infer<typeof vRepositoryConvexSchemaGraph>;
 
 export const repositoryConvexSchemaGraphTables = {
-  /** One fetched deployment schema linked to its stable Convex project. */
+  /** One fetched deployment schema of a Convex project that a repository stack deploys. */
   observations_repositoryConvexSchema_snapshots: defineTable({
     repositoryId: id("repositories"),
-    convexProjectId: id("repositoryConvexProjects"),
+    convexProjectId: string(),
     deploymentName: string(),
     schemaHash: string(),
     graph: vRepositoryConvexSchemaGraph,
@@ -81,13 +81,17 @@ export const repositoryConvexSchemaGraphTables = {
     fetchedAt: number(),
   })
     .index("by_repository", ["repositoryId"])
-    .index("by_project_and_fetched_at", ["convexProjectId", "fetchedAt"]),
+    .index("by_repository_and_project_and_fetched_at", [
+      "repositoryId",
+      "convexProjectId",
+      "fetchedAt",
+    ]),
 
   /** Per-user node positions kept separate from refreshed schema snapshots. */
   ui_repositoryConvexSchemaGraph_nodeLayouts: defineTable({
     userId: id("users"),
     repositoryId: id("repositories"),
-    convexProjectId: id("repositoryConvexProjects"),
+    convexProjectId: string(),
     nodeId: string(),
     x: number(),
     y: number(),

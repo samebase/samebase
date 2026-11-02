@@ -1,11 +1,7 @@
 import { Infer, v } from "convex/values";
-import {
-  getConvexCodeRootDirectory,
-  readConvexCodeLocation,
-} from "../../shared/convexCodeLocation";
 import { internal } from "../_generated/api";
-import type { Doc, Id } from "../_generated/dataModel";
-import { internalMutation, type MutationCtx } from "../_generated/server";
+import type { Id } from "../_generated/dataModel";
+import { internalMutation, type MutationCtx, type QueryCtx } from "../_generated/server";
 import { action, mutation, query } from "../functions";
 import { isRecord, readBoolean, readString } from "../jsonUtils";
 import { findRepositoryForUser, requireRepositoryForUser } from "../organizationAccess";
@@ -27,6 +23,7 @@ import {
   type RepositoryConvexSchemaGraphTable as ConvexSchemaGraphTable,
   type RepositoryConvexSchemaGraphTableSource as ConvexSchemaGraphTableSource,
 } from "./convexSchemaGraphModel";
+import { readTeamProductionDeployments } from "./alchemyState";
 import { readConvexProductionDeployment } from "./convexProjectResources";
 
 const { array, id, number, object, optional, string, union } = v;
@@ -71,8 +68,6 @@ const vConvexSchemaGraphLayoutPoint = object({
 });
 
 const vConvexSchemaGraphProjectOption = object({
-  convexProjectId: id("repositoryConvexProjects"),
-  rootDirectory: string(),
   projectId: string(),
 });
 
@@ -123,14 +118,6 @@ function readSchemaGraphLayoutTableName(nodeId: string): string {
 
   const tableName = nodeId.slice(separatorIndex + 1);
   return tableName.length > 0 ? tableName : nodeId;
-}
-
-function readProjectOption(project: Doc<"repositoryConvexProjects">) {
-  return {
-    convexProjectId: project._id,
-    rootDirectory: getConvexCodeRootDirectory(readConvexCodeLocation(project)),
-    projectId: project.projectId,
-  };
 }
 
 function readActiveSchemaJson(schemaResponse: unknown): string | undefined {
@@ -828,11 +815,26 @@ function buildRawSchemaJsonStorage(args: {
   return storage;
 }
 
+type SchemaSnapshotOwner = {
+  repositoryId: Id<"repositories">;
+  convexProjectId: string;
+};
+
+async function readLatestSchemaSnapshot(ctx: Pick<QueryCtx, "db">, args: SchemaSnapshotOwner) {
+  return await ctx.db
+    .query("observations_repositoryConvexSchema_snapshots")
+    .withIndex("by_repository_and_project_and_fetched_at", (q) =>
+      q.eq("repositoryId", args.repositoryId).eq("convexProjectId", args.convexProjectId),
+    )
+    .order("desc")
+    .first();
+}
+
 export const get = query({
   access: "access_schema_graph",
   args: {
     repositoryId: id("repositories"),
-    convexProjectId: id("repositoryConvexProjects"),
+    convexProjectId: string(),
   },
   returns: union(vConvexSchemaGraphStateResult, v.null()),
   handler: async (ctx, args): Promise<ConvexSchemaGraphStateResult | null> => {
@@ -844,35 +846,21 @@ export const get = query({
       return null;
     }
 
-    const project = await ctx.db.get(args.convexProjectId);
-    if (
-      !project ||
-      project.repositoryId !== args.repositoryId ||
-      project.organizationId !== repository.organizationId ||
-      project.teamId !== repository.convexTeamId
-    ) {
-      return null;
-    }
-
     const [snapshot, layoutRows] = await Promise.all([
-      ctx.db
-        .query("observations_repositoryConvexSchema_snapshots")
-        .withIndex("by_project_and_fetched_at", (q) => q.eq("convexProjectId", project._id))
-        .order("desc")
-        .first(),
+      readLatestSchemaSnapshot(ctx, args),
       ctx.db
         .query("ui_repositoryConvexSchemaGraph_nodeLayouts")
         .withIndex("by_user_repository_project", (q) =>
           q
             .eq("userId", ctx.viewer.userId)
             .eq("repositoryId", args.repositoryId)
-            .eq("convexProjectId", project._id),
+            .eq("convexProjectId", args.convexProjectId),
         )
         .collect(),
     ]);
 
     return {
-      project: readProjectOption(project),
+      project: { projectId: args.convexProjectId },
       snapshot: snapshot
         ? {
             _id: snapshot._id,
@@ -896,7 +884,7 @@ export const saveLayout = mutation({
   access: "access_schema_graph",
   args: {
     repositoryId: id("repositories"),
-    convexProjectId: id("repositoryConvexProjects"),
+    convexProjectId: string(),
     nodeId: string(),
     x: number(),
     y: number(),
@@ -907,21 +895,11 @@ export const saveLayout = mutation({
       userId: ctx.viewer.userId,
       repositoryId: args.repositoryId,
     });
-    const project = await ctx.db.get(args.convexProjectId);
-    if (
-      !isLiveConnectedRepository(repository) ||
-      !project ||
-      project.repositoryId !== args.repositoryId ||
-      project.organizationId !== repository.organizationId
-    ) {
+    if (!isLiveConnectedRepository(repository)) {
       throw new Error("Convex project not found.");
     }
 
-    const snapshot = await ctx.db
-      .query("observations_repositoryConvexSchema_snapshots")
-      .withIndex("by_project_and_fetched_at", (q) => q.eq("convexProjectId", args.convexProjectId))
-      .order("desc")
-      .first();
+    const snapshot = await readLatestSchemaSnapshot(ctx, args);
     const tableName = readSchemaGraphLayoutTableName(args.nodeId);
     if (!snapshot?.graph.tables.some((table) => table.name === tableName)) {
       throw new Error("Convex schema table not found.");
@@ -964,7 +942,7 @@ export const refresh = action({
   access: "access_schema_graph",
   args: {
     repositoryId: id("repositories"),
-    convexProjectId: id("repositoryConvexProjects"),
+    convexProjectId: string(),
   },
   returns: object({ snapshotId: id("observations_repositoryConvexSchema_snapshots") }),
   handler: async (
@@ -975,13 +953,13 @@ export const refresh = action({
       repositoryId: args.repositoryId,
       userId: ctx.viewer.userId,
     });
-    const project = target.projects.find((candidate) => candidate._id === args.convexProjectId);
-    if (!project) {
+    const stackDeployments = await readTeamProductionDeployments(target);
+    if (!stackDeployments.some(({ projectId }) => projectId === args.convexProjectId)) {
       throw new Error("Convex project not found.");
     }
     const deployment: ConvexCloudDeployment | null = await readConvexProductionDeployment({
       token: target.token,
-      projectId: project.projectId,
+      projectId: args.convexProjectId,
     });
     if (!deployment) {
       throw new Error("Convex project has no production deployment.");
@@ -999,7 +977,7 @@ export const refresh = action({
     const snapshotId = await ctx.runMutation(internal.repository.convexSchemaGraph.recordSnapshot, {
       userId: ctx.viewer.userId,
       repositoryId: args.repositoryId,
-      convexProjectId: project._id,
+      convexProjectId: args.convexProjectId,
       deploymentName: deployment.name,
       schemaHash: buildSchemaHash(graph),
       graph,
@@ -1011,13 +989,12 @@ export const refresh = action({
   },
 });
 
-async function pruneSchemaSnapshots(
-  ctx: MutationCtx,
-  convexProjectId: Id<"repositoryConvexProjects">,
-): Promise<void> {
+async function pruneSchemaSnapshots(ctx: MutationCtx, args: SchemaSnapshotOwner): Promise<void> {
   const snapshots = await ctx.db
     .query("observations_repositoryConvexSchema_snapshots")
-    .withIndex("by_project_and_fetched_at", (q) => q.eq("convexProjectId", convexProjectId))
+    .withIndex("by_repository_and_project_and_fetched_at", (q) =>
+      q.eq("repositoryId", args.repositoryId).eq("convexProjectId", args.convexProjectId),
+    )
     .order("desc")
     .take(CONVEX_SCHEMA_SNAPSHOT_RETENTION_COUNT + 1);
   for (const snapshot of snapshots.slice(CONVEX_SCHEMA_SNAPSHOT_RETENTION_COUNT)) {
@@ -1029,7 +1006,7 @@ export const recordSnapshot = internalMutation({
   args: {
     userId: id("users"),
     repositoryId: id("repositories"),
-    convexProjectId: id("repositoryConvexProjects"),
+    convexProjectId: string(),
     deploymentName: string(),
     schemaHash: string(),
     graph: vConvexSchemaGraph,
@@ -1039,28 +1016,16 @@ export const recordSnapshot = internalMutation({
   },
   returns: id("observations_repositoryConvexSchema_snapshots"),
   handler: async (ctx, args): Promise<Id<"observations_repositoryConvexSchema_snapshots">> => {
-    const repository = await requireRepositoryForUser(ctx.db, {
+    await requireRepositoryForUser(ctx.db, {
       userId: args.userId,
       repositoryId: args.repositoryId,
     });
-    const project = await ctx.db.get(args.convexProjectId);
-    if (
-      !project ||
-      project.repositoryId !== args.repositoryId ||
-      project.organizationId !== repository.organizationId
-    ) {
-      throw new Error("Convex project not found.");
-    }
-    const latestSnapshot = await ctx.db
-      .query("observations_repositoryConvexSchema_snapshots")
-      .withIndex("by_project_and_fetched_at", (q) => q.eq("convexProjectId", args.convexProjectId))
-      .order("desc")
-      .first();
+    const latestSnapshot = await readLatestSchemaSnapshot(ctx, args);
     if (latestSnapshot?.schemaHash === args.schemaHash) {
       await ctx.db.patch(latestSnapshot._id, {
         fetchedAt: args.fetchedAt,
       });
-      await pruneSchemaSnapshots(ctx, args.convexProjectId);
+      await pruneSchemaSnapshots(ctx, args);
       return latestSnapshot._id;
     }
 
@@ -1074,7 +1039,7 @@ export const recordSnapshot = internalMutation({
       inferredSchemaJson: args.inferredSchemaJson,
       fetchedAt: args.fetchedAt,
     });
-    await pruneSchemaSnapshots(ctx, args.convexProjectId);
+    await pruneSchemaSnapshots(ctx, args);
     return snapshotId;
   },
 });

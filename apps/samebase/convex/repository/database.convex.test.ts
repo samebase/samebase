@@ -16,6 +16,19 @@ import {
 import { observedSamebaseStacksReply } from "./fixtures/observedSamebaseAlchemyState";
 import { type ConvexProviderCredential } from "../organization/providerCredentialModel";
 
+vi.mock("./alchemyState", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./alchemyState")>();
+  return {
+    ...actual,
+    readTeamProductionDeployments: async (
+      target: Parameters<typeof actual.readTeamProductionDeployments>[0],
+    ) =>
+      target.githubRepositoryFullName === "ada/demo"
+        ? [{ projectId: "1001", deploymentName: "demo-prod", teamId: "1000" }]
+        : await actual.readTeamProductionDeployments(target),
+  };
+});
+
 type ConvexAuth = ConvexProviderCredential["auth"];
 
 function asUser(t: ReturnType<typeof makeConvexTest>, userId: Id<"users">) {
@@ -98,23 +111,15 @@ async function seedDatabaseEditorRepository(
       defaultBranch: "main",
       connectedAt: 20,
     });
-    const convexProjectId = await ctx.db.insert("repositoryConvexProjects", {
-      repositoryId,
-      organizationId,
-      teamId: "1000",
-      projectId: "1001",
-      convexConfigPath: "convex.json",
-      origin: "selected_existing",
-    });
 
-    return { convexProjectId, userId };
+    return { convexProjectId: "1001", userId };
   });
   await sealTestCredentials(t);
 
   return { convexProjectId, user: asUser(t, userId) };
 }
 
-function databaseRouteArgs(convexProjectId: Id<"repositoryConvexProjects">) {
+function databaseRouteArgs(convexProjectId: string) {
   return {
     owner: "ada",
     repoName: "demo",

@@ -8,7 +8,6 @@ import {
 import { components } from "../_generated/api";
 import type { RepositoryProvisioningRunStep } from "./provisioningModel";
 import { isSamebaseProvisioningPlan, readRepositoryProvisioningMode } from "./provisioningPlan";
-import { getConvexCodeLocationKey, readConvexCodeLocation } from "../../shared/convexCodeLocation";
 import {
   type ManagedProviderPlan,
   type ProviderSetupSummary,
@@ -29,8 +28,6 @@ type SourceSetupRepository = Extract<
   Doc<"repositories">,
   { githubMode: "create_repository" | "connect_existing_repository" }
 >;
-type ConvexProject = Doc<"repositoryConvexProjects">;
-type CloudflareWorker = Doc<"repositoryCloudflareWorkers">;
 type ProvisioningRun = Doc<"workflow_repositoryProvisioning_runs">;
 const SOURCE_SETUP_ERROR_EVENT_SCAN_LIMIT = 20;
 
@@ -378,41 +375,6 @@ async function resolveProviderSetupSummary(
     : { status: "ready" };
 }
 
-function compareCloudflareWorkerSortOrder(left: CloudflareWorker, right: CloudflareWorker): number {
-  return (
-    left.workerName.localeCompare(right.workerName) ||
-    left.accountId.localeCompare(right.accountId) ||
-    left.workerTag.localeCompare(right.workerTag) ||
-    left._id.localeCompare(right._id)
-  );
-}
-
-function compareConvexProjectSortOrder(left: ConvexProject, right: ConvexProject): number {
-  return (
-    getConvexCodeLocationKey(readConvexCodeLocation(left)).localeCompare(
-      getConvexCodeLocationKey(readConvexCodeLocation(right)),
-    ) ||
-    left.projectId.localeCompare(right.projectId) ||
-    left.teamId.localeCompare(right.teamId) ||
-    left._id.localeCompare(right._id)
-  );
-}
-
-function groupRepositoryRows<Row extends { repositoryId: Id<"repositories"> }>(
-  rows: Row[],
-): Map<Id<"repositories">, Row[]> {
-  const rowsByRepository = new Map<Id<"repositories">, Row[]>();
-  for (const row of rows) {
-    const repositoryRows = rowsByRepository.get(row.repositoryId);
-    if (repositoryRows) {
-      repositoryRows.push(row);
-    } else {
-      rowsByRepository.set(row.repositoryId, [row]);
-    }
-  }
-  return rowsByRepository;
-}
-
 /** The repository list that `repository:list` and `repository:listForUser` return. */
 export async function readOrganizationRepositories(
   ctx: Pick<QueryCtx, "db" | "runQuery">,
@@ -420,42 +382,28 @@ export async function readOrganizationRepositories(
 ): Promise<UserRepositoriesResult> {
   const organizationRows = await Promise.all(
     organizationIds.map(async (organizationId) => {
-      const [
-        organization,
-        connectedRepositories,
-        provisioningRepositories,
-        failedRepositories,
-        convexProjects,
-        cloudflareWorkers,
-      ] = await Promise.all([
-        ctx.db.get(organizationId),
-        ctx.db
-          .query("repositories")
-          .withIndex("by_organization_and_state_and_deletion_state", (q) =>
-            q.eq("organizationId", organizationId).eq("state", "connected"),
-          )
-          .collect(),
-        ctx.db
-          .query("repositories")
-          .withIndex("by_organization_and_state_and_deletion_state", (q) =>
-            q.eq("organizationId", organizationId).eq("state", "provisioning"),
-          )
-          .collect(),
-        ctx.db
-          .query("repositories")
-          .withIndex("by_organization_and_state_and_deletion_state", (q) =>
-            q.eq("organizationId", organizationId).eq("state", "failed"),
-          )
-          .collect(),
-        ctx.db
-          .query("repositoryConvexProjects")
-          .withIndex("by_organization", (q) => q.eq("organizationId", organizationId))
-          .collect(),
-        ctx.db
-          .query("repositoryCloudflareWorkers")
-          .withIndex("by_organization", (q) => q.eq("organizationId", organizationId))
-          .collect(),
-      ]);
+      const [organization, connectedRepositories, provisioningRepositories, failedRepositories] =
+        await Promise.all([
+          ctx.db.get(organizationId),
+          ctx.db
+            .query("repositories")
+            .withIndex("by_organization_and_state_and_deletion_state", (q) =>
+              q.eq("organizationId", organizationId).eq("state", "connected"),
+            )
+            .collect(),
+          ctx.db
+            .query("repositories")
+            .withIndex("by_organization_and_state_and_deletion_state", (q) =>
+              q.eq("organizationId", organizationId).eq("state", "provisioning"),
+            )
+            .collect(),
+          ctx.db
+            .query("repositories")
+            .withIndex("by_organization_and_state_and_deletion_state", (q) =>
+              q.eq("organizationId", organizationId).eq("state", "failed"),
+            )
+            .collect(),
+        ]);
       if (organization === null) {
         throw new Error("Organization not found.");
       }
@@ -467,8 +415,6 @@ export async function readOrganizationRepositories(
           ...provisioningRepositories,
           ...failedRepositories,
         ],
-        convexProjects,
-        cloudflareWorkers,
       };
     }),
   );
@@ -483,12 +429,6 @@ export async function readOrganizationRepositories(
     }
     return githubOwnerLogin;
   };
-  const convexProjectsByRepository = groupRepositoryRows(
-    organizationRows.flatMap((rows) => rows.convexProjects),
-  );
-  const cloudflareWorkersByRepository = groupRepositoryRows(
-    organizationRows.flatMap((rows) => rows.cloudflareWorkers),
-  );
   const connectedRepositories = repositories.filter(isConnectedRepository);
   const initializingRepositoryResults: Array<UserRepositoryResult & { sortTime: number }> = [];
   for (const repository of repositories) {
@@ -524,10 +464,6 @@ export async function readOrganizationRepositories(
       deletion,
       isSamebaseManaged: repository.githubMode === "create_repository",
       hasConnectedGitHubRepository: false,
-      hasConvexProvision: false,
-      hasCloudflareProvision: false,
-      cloudflareWorkers: [],
-      convexProjects: [],
     });
   }
 
@@ -540,27 +476,6 @@ export async function readOrganizationRepositories(
       ]);
       const deletion = await resolveRepositoryDeletionSummary(ctx, repository, infrastructure);
       const providerWrite = resolveProviderWriteSummary(infrastructure);
-      const convexProjects = (convexProjectsByRepository.get(repository._id) ?? []).sort(
-        compareConvexProjectSortOrder,
-      );
-      const cloudflareWorkers = (cloudflareWorkersByRepository.get(repository._id) ?? []).sort(
-        compareCloudflareWorkerSortOrder,
-      );
-      const hasConvexProvision = convexProjects.length > 0;
-      const hasCloudflareProvision = cloudflareWorkers.length > 0;
-      const cloudflareWorkerSummaries = cloudflareWorkers.map((worker) => ({
-        workerId: worker._id,
-        accountId: worker.accountId,
-        workerName: worker.workerName,
-        workerTag: worker.workerTag,
-        rootDirectory: worker.rootDirectory,
-      }));
-      const convexProjectSummaries = convexProjects.map((project) => ({
-        convexProjectId: project._id,
-        teamId: project.teamId,
-        projectId: project.projectId,
-        codeLocation: readConvexCodeLocation(project),
-      }));
       if (deletion.state !== "not_deleting") {
         return {
           repositoryId: repository._id,
@@ -582,10 +497,6 @@ export async function readOrganizationRepositories(
           deletion,
           isSamebaseManaged: isSamebaseManagedRepository(repository),
           hasConnectedGitHubRepository: true,
-          hasConvexProvision,
-          hasCloudflareProvision,
-          cloudflareWorkers: cloudflareWorkerSummaries,
-          convexProjects: convexProjectSummaries,
         };
       }
 
@@ -620,10 +531,6 @@ export async function readOrganizationRepositories(
         deletion,
         isSamebaseManaged: isSamebaseManagedRepository(repository),
         hasConnectedGitHubRepository: true,
-        hasConvexProvision,
-        hasCloudflareProvision,
-        cloudflareWorkers: cloudflareWorkerSummaries,
-        convexProjects: convexProjectSummaries,
       };
     }),
   );

@@ -128,14 +128,6 @@ async function seedAlchemyRepository(t: ReturnType<typeof makeConvexTest>) {
       defaultBranch: "main",
       connectedAt: 20,
     });
-    await ctx.db.insert("repositoryConvexProjects", {
-      repositoryId,
-      organizationId,
-      teamId: "38516",
-      projectId: "3245938",
-      convexConfigPath: "convex.json",
-      origin: "selected_existing",
-    });
 
     return { repositoryId, userId };
   });
@@ -700,11 +692,6 @@ describe("the setup status of a repository_actions repository", () => {
   it("gives repository_getStatus the stacks of a repository with no attachment and no plan", async () => {
     const t = makeConvexTest();
     const { ids, user } = await seedAlchemyRepository(t);
-    await t.run(async (ctx) => {
-      for (const project of await ctx.db.query("repositoryConvexProjects").collect()) {
-        await ctx.db.delete(project._id);
-      }
-    });
     const requests: RecordedRequest[] = [];
     installAlchemyStateFetchStub({
       requests,

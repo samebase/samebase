@@ -107,9 +107,8 @@ function buildProductionUrlLabel(url: string): string {
 }
 
 /**
-The Samebase routes of a production Convex deployment. `convexProjectId` is the attachment id, or
-the Convex project id of a deployment of the repository stack, which the Data route resolves
-through the Alchemy state store.
+The Samebase routes of a production Convex deployment. `convexProjectId` is the Convex project id of
+a deployment of the repository stack, which the server resolves through the Alchemy state store.
 */
 function buildConvexProductionActions({
   branch,
@@ -183,8 +182,7 @@ Worker's destination and the others are in its menu. The Worker whose URL is the
 
 A production Convex deployment takes its dashboard link and region from the live reads of its
 project and production deployment. A deployment without a live read, such as a preview
-deployment, links to its dashboard by name. The Schema route reads schema
-snapshots stored for an attachment row, so a deployment offers it only when its project is attached.
+deployment, links to its dashboard by name.
 
 A Worker or an R2 bucket in a namespace that a deployment binds to an installed component
 (`groupResourcesByComponent`) shows under that component, below that deployment. A component that
@@ -286,12 +284,6 @@ export function buildAlchemyStackCards({
         const href =
           live?.dashboardUrl ?? `https://dashboard.convex.dev/d/${encodeURIComponent(attr.name)}`;
         const region = live?.region;
-        const attachedProject =
-          stage.name === "prod"
-            ? stage.repository.convexProjects.find(
-                (candidate) => candidate.projectId === String(attr.projectId),
-              )
-            : undefined;
         const deploymentComponents = components.flatMap((component) => {
           if (component.deployment !== deployment) {
             return [];
@@ -315,11 +307,11 @@ export function buildAlchemyStackCards({
               stage.name === "prod"
                 ? buildConvexProductionActions({
                     branch: stage.branch,
-                    convexProjectId: attachedProject?.convexProjectId ?? String(attr.projectId),
+                    convexProjectId: String(attr.projectId),
                     deploymentName: attr.name,
                     owner: stage.owner,
                     repoName: stage.repoName,
-                    schemaGraphEnabled: stage.schemaGraphEnabled && attachedProject !== undefined,
+                    schemaGraphEnabled: stage.schemaGraphEnabled,
                   })
                 : [],
             href,

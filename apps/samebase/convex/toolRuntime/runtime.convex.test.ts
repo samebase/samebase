@@ -179,179 +179,159 @@ describe("MCP tool runtime boundaries", () => {
 
   it("lists repositories across every current organization membership", async () => {
     const { organizationId, t, userId } = await seedToolRuntimeOwner();
-    const {
-      authorizedRepositoryId,
-      otherRunRepositoryId,
-      pendingRepositoryId,
-      pendingConvexProjectId,
-    } = await t.run(async (ctx) => {
-      const authorizedRepositoryId = await ctx.db.insert("repositories", {
-        organizationId,
-        convexTeamId: "convex-team",
-        cloudflareAccountId: "account_1",
-        deletion: { state: "not_deleting" },
-        state: "not_connected",
-        createdAt: 1,
-      });
-      const authorizedRunId = await ctx.db.insert("workflow_repositoryProvisioning_runs", {
-        organizationId,
-        userId,
-        repositoryId: authorizedRepositoryId,
-        githubRepositoryFullName: "tool-runtime-owner/authorized",
-        trigger: "connect_existing_repository",
-        state: "failed",
-        currentStep: "seed_starter",
-        lastError: "private-diagnostic@example.com source failure",
-        createdAt: 1,
-        updatedAt: 1,
-        completedAt: 1,
-      });
-      await ctx.db.replace(authorizedRepositoryId, {
-        organizationId,
-        convexTeamId: "convex-team",
-        cloudflareAccountId: "account_1",
-        deletion: { state: "not_deleting" },
-        state: "connected",
-        githubMode: "connect_existing_repository",
-        runId: authorizedRunId,
-        githubRepositoryDatabaseId: "authorized-repository",
-        githubRepositoryName: "authorized",
-        visibility: "private",
-        defaultBranch: "main",
-        connectedAt: 1,
-        createdAt: 1,
-      });
-      const otherOrganizationId = await ctx.db.insert("organizations", {
-        githubInstallationId: "other_installation",
-        githubOwnerId: "other_owner",
-        githubOwnerLogin: "other-owner",
-        githubOwnerLoginNormalized: "other-owner",
-        githubOwnerType: "organization",
-      });
-      await ctx.db.insert("organizationMemberships", {
-        organizationId: otherOrganizationId,
-        userId,
-        role: "member",
-      });
-      const otherRunRepositoryId = await ctx.db.insert("repositories", {
-        organizationId: otherOrganizationId,
-        convexTeamId: "other-convex-team",
-        cloudflareAccountId: "other-cloudflare-account",
-        deletion: { state: "not_deleting" },
-        state: "not_connected",
-        createdAt: 1,
-      });
-      const otherRunId = await ctx.db.insert("workflow_repositoryProvisioning_runs", {
-        organizationId: otherOrganizationId,
-        userId,
-        repositoryId: otherRunRepositoryId,
-        githubRepositoryFullName: "other-owner/hidden",
-        trigger: "connect_existing_repository",
-        state: "failed",
-        currentStep: "attach_convex",
-        lastError: "private-diagnostic@example.com provider failure",
-        createdAt: 1,
-        updatedAt: 1,
-        completedAt: 1,
-      });
-      await ctx.db.replace(otherRunRepositoryId, {
-        organizationId: otherOrganizationId,
-        convexTeamId: "other-convex-team",
-        cloudflareAccountId: "other-cloudflare-account",
-        deletion: { state: "not_deleting" },
-        state: "connected",
-        githubMode: "connect_existing_repository",
-        runId: otherRunId,
-        githubRepositoryDatabaseId: "hidden-repository",
-        githubRepositoryName: "hidden",
-        visibility: "private",
-        defaultBranch: "main",
-        connectedAt: 1,
-        createdAt: 1,
-      });
-      await ctx.db.insert("workflow_repositoryProvisioning_writeLocks", {
-        repositoryId: otherRunRepositoryId,
-        owner: { kind: "managed_run", runId: otherRunId },
-        state: "failed",
-        lastWriteAt: { convex: 1 },
-        updatedAt: 1,
-      });
-      const pendingRepositoryId = await ctx.db.insert("repositories", {
-        organizationId,
-        convexTeamId: "convex-team",
-        cloudflareAccountId: "account_1",
-        deletion: { state: "not_deleting" },
-        state: "not_connected",
-        createdAt: 1,
-      });
-      const pendingRunId = await ctx.db.insert("workflow_repositoryProvisioning_runs", {
-        organizationId,
-        userId,
-        repositoryId: pendingRepositoryId,
-        githubRepositoryFullName: "tool-runtime-owner/pending-app",
-        trigger: "create",
-        state: "succeeded",
-        currentStep: "finish",
-        createdAt: 1,
-        updatedAt: 1,
-        completedAt: 1,
-      });
-      await ctx.db.replace(pendingRepositoryId, {
-        organizationId,
-        convexTeamId: "convex-team",
-        cloudflareAccountId: "account_1",
-        deletion: { state: "not_deleting" },
-        state: "connected",
-        githubMode: "create_repository",
-        runId: pendingRunId,
-        githubRepositoryDatabaseId: "pending-repository",
-        githubRepositoryName: "pending-app",
-        visibility: "private",
-        defaultBranch: "main",
-        connectedAt: 1,
-        createdAt: 1,
-      });
-      await ctx.db.insert("workflow_repositoryProvisioning_plans", {
-        repositoryId: pendingRepositoryId,
-        convexConfigPath: "apps/web/convex.json",
-        convex: {
-          state: "created",
-          projectName: "pending-app",
-          deploymentRegion: "aws-us-east-1",
-          projectId: "pending-provider-project",
-        },
-        cloudflare: {
-          state: "planned",
-          workerName: "pending-worker",
-          rootDirectory: "apps/web",
-          buildTokenUuid: null,
-        },
-        createdAt: 1,
-        updatedAt: 1,
-      });
-      await ctx.db.insert("repositoryConvexProjects", {
-        repositoryId: pendingRepositoryId,
-        organizationId,
-        teamId: "convex-team",
-        projectId: "unrelated-provider-project",
-        convexConfigPath: "convex.json",
-        origin: "selected_existing",
-      });
-      const pendingConvexProjectId = await ctx.db.insert("repositoryConvexProjects", {
-        repositoryId: pendingRepositoryId,
-        organizationId,
-        teamId: "convex-team",
-        projectId: "pending-provider-project",
-        convexConfigPath: "apps/web/convex.json",
-        origin: "provisioned",
-      });
-      return {
-        authorizedRepositoryId,
-        otherRunRepositoryId,
-        pendingRepositoryId,
-        pendingConvexProjectId,
-      };
-    });
+    const { authorizedRepositoryId, otherRunRepositoryId, pendingRepositoryId } = await t.run(
+      async (ctx) => {
+        const authorizedRepositoryId = await ctx.db.insert("repositories", {
+          organizationId,
+          convexTeamId: "convex-team",
+          cloudflareAccountId: "account_1",
+          deletion: { state: "not_deleting" },
+          state: "not_connected",
+          createdAt: 1,
+        });
+        const authorizedRunId = await ctx.db.insert("workflow_repositoryProvisioning_runs", {
+          organizationId,
+          userId,
+          repositoryId: authorizedRepositoryId,
+          githubRepositoryFullName: "tool-runtime-owner/authorized",
+          trigger: "connect_existing_repository",
+          state: "failed",
+          currentStep: "seed_starter",
+          lastError: "private-diagnostic@example.com source failure",
+          createdAt: 1,
+          updatedAt: 1,
+          completedAt: 1,
+        });
+        await ctx.db.replace(authorizedRepositoryId, {
+          organizationId,
+          convexTeamId: "convex-team",
+          cloudflareAccountId: "account_1",
+          deletion: { state: "not_deleting" },
+          state: "connected",
+          githubMode: "connect_existing_repository",
+          runId: authorizedRunId,
+          githubRepositoryDatabaseId: "authorized-repository",
+          githubRepositoryName: "authorized",
+          visibility: "private",
+          defaultBranch: "main",
+          connectedAt: 1,
+          createdAt: 1,
+        });
+        const otherOrganizationId = await ctx.db.insert("organizations", {
+          githubInstallationId: "other_installation",
+          githubOwnerId: "other_owner",
+          githubOwnerLogin: "other-owner",
+          githubOwnerLoginNormalized: "other-owner",
+          githubOwnerType: "organization",
+        });
+        await ctx.db.insert("organizationMemberships", {
+          organizationId: otherOrganizationId,
+          userId,
+          role: "member",
+        });
+        const otherRunRepositoryId = await ctx.db.insert("repositories", {
+          organizationId: otherOrganizationId,
+          convexTeamId: "other-convex-team",
+          cloudflareAccountId: "other-cloudflare-account",
+          deletion: { state: "not_deleting" },
+          state: "not_connected",
+          createdAt: 1,
+        });
+        const otherRunId = await ctx.db.insert("workflow_repositoryProvisioning_runs", {
+          organizationId: otherOrganizationId,
+          userId,
+          repositoryId: otherRunRepositoryId,
+          githubRepositoryFullName: "other-owner/hidden",
+          trigger: "connect_existing_repository",
+          state: "failed",
+          currentStep: "attach_convex",
+          lastError: "private-diagnostic@example.com provider failure",
+          createdAt: 1,
+          updatedAt: 1,
+          completedAt: 1,
+        });
+        await ctx.db.replace(otherRunRepositoryId, {
+          organizationId: otherOrganizationId,
+          convexTeamId: "other-convex-team",
+          cloudflareAccountId: "other-cloudflare-account",
+          deletion: { state: "not_deleting" },
+          state: "connected",
+          githubMode: "connect_existing_repository",
+          runId: otherRunId,
+          githubRepositoryDatabaseId: "hidden-repository",
+          githubRepositoryName: "hidden",
+          visibility: "private",
+          defaultBranch: "main",
+          connectedAt: 1,
+          createdAt: 1,
+        });
+        await ctx.db.insert("workflow_repositoryProvisioning_writeLocks", {
+          repositoryId: otherRunRepositoryId,
+          owner: { kind: "managed_run", runId: otherRunId },
+          state: "failed",
+          lastWriteAt: { convex: 1 },
+          updatedAt: 1,
+        });
+        const pendingRepositoryId = await ctx.db.insert("repositories", {
+          organizationId,
+          convexTeamId: "convex-team",
+          cloudflareAccountId: "account_1",
+          deletion: { state: "not_deleting" },
+          state: "not_connected",
+          createdAt: 1,
+        });
+        const pendingRunId = await ctx.db.insert("workflow_repositoryProvisioning_runs", {
+          organizationId,
+          userId,
+          repositoryId: pendingRepositoryId,
+          githubRepositoryFullName: "tool-runtime-owner/pending-app",
+          trigger: "create",
+          state: "succeeded",
+          currentStep: "finish",
+          createdAt: 1,
+          updatedAt: 1,
+          completedAt: 1,
+        });
+        await ctx.db.replace(pendingRepositoryId, {
+          organizationId,
+          convexTeamId: "convex-team",
+          cloudflareAccountId: "account_1",
+          deletion: { state: "not_deleting" },
+          state: "connected",
+          githubMode: "create_repository",
+          runId: pendingRunId,
+          githubRepositoryDatabaseId: "pending-repository",
+          githubRepositoryName: "pending-app",
+          visibility: "private",
+          defaultBranch: "main",
+          connectedAt: 1,
+          createdAt: 1,
+        });
+        await ctx.db.insert("workflow_repositoryProvisioning_plans", {
+          repositoryId: pendingRepositoryId,
+          convexConfigPath: "apps/web/convex.json",
+          convex: {
+            state: "created",
+            projectName: "pending-app",
+            deploymentRegion: "aws-us-east-1",
+            projectId: "pending-provider-project",
+          },
+          cloudflare: {
+            state: "planned",
+            workerName: "pending-worker",
+            rootDirectory: "apps/web",
+            buildTokenUuid: null,
+          },
+          createdAt: 1,
+          updatedAt: 1,
+        });
+        return {
+          authorizedRepositoryId,
+          otherRunRepositoryId,
+          pendingRepositoryId,
+        };
+      },
+    );
 
     const result = await t.action(internal.toolRuntime.runtime.repositoryListTool, {
       userId,
@@ -401,7 +381,6 @@ describe("MCP tool runtime boundaries", () => {
       ]),
     );
     const output = JSON.stringify(result);
-    expect(output).not.toContain(pendingConvexProjectId);
     expect(output).not.toContain("pending-worker");
     expect(output).not.toContain("apps/web/convex.json");
     expect(output).not.toContain("private-diagnostic@example.com");

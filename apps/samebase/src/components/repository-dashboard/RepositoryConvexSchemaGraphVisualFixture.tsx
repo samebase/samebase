@@ -10,12 +10,6 @@ import {
 
 export type RepositoryConvexSchemaGraphVisualMode = "repository-overview-v2-convex-schema";
 
-function fakeConvexProjectId(): Id<"repositoryConvexProjects"> {
-  // @ts-expect-error Convex ids are strings at runtime; this visual fixture
-  // only needs a stable value for component props.
-  return "convex-project-samebase";
-}
-
 function fakeConvexSchemaSnapshotId(): Id<"observations_repositoryConvexSchema_snapshots"> {
   // @ts-expect-error Convex ids are strings at runtime; this visual fixture
   // only needs a stable value for component props.
@@ -25,8 +19,6 @@ function fakeConvexSchemaSnapshotId(): Id<"observations_repositoryConvexSchema_s
 function buildSchemaGraphState(): RepositoryConvexSchemaGraphState {
   return {
     project: {
-      convexProjectId: fakeConvexProjectId(),
-      rootDirectory: "apps/samebase",
       projectId: "samebase",
     },
     snapshot: {
@@ -255,7 +247,6 @@ export function RepositoryConvexSchemaGraphVisualFixture({
   }, []);
   const context = {
     branch: "main",
-    convexCodePath: "apps/samebase/convex.json",
     projectId: "samebase",
     githubRepositoryFullName: "samebase/samebase",
   } satisfies RepositoryConvexSchemaGraphRouteContext;

@@ -112,37 +112,6 @@ async function seedRepository() {
       defaultBranch: "main",
       connectedAt: 1,
     });
-    const workers = [
-      { accountId: "cloudflare-account", workerName: "app", origin: "provisioned" },
-      { accountId: "other-account", workerName: "app-moved", origin: "provisioned" },
-      { accountId: "cloudflare-account", workerName: "app-attached", origin: "selected_existing" },
-    ] as const;
-    for (const worker of workers) {
-      await ctx.db.insert("repositoryCloudflareWorkers", {
-        repositoryId,
-        organizationId,
-        accountId: worker.accountId,
-        workerName: worker.workerName,
-        workerTag: `${worker.workerName}-tag`,
-        rootDirectory: "/",
-        origin: worker.origin,
-      });
-    }
-    const projects = [
-      { teamId: "38516", projectId: "app", origin: "provisioned" },
-      { teamId: "other-team", projectId: "app-moved", origin: "provisioned" },
-      { teamId: "38516", projectId: "app-attached", origin: "selected_existing" },
-    ] as const;
-    for (const project of projects) {
-      await ctx.db.insert("repositoryConvexProjects", {
-        repositoryId,
-        organizationId,
-        teamId: project.teamId,
-        projectId: project.projectId,
-        convexConfigPath: `${project.projectId}/convex.json`,
-        origin: project.origin,
-      });
-    }
     return { organizationId, repositoryId, userId };
   });
   await sealTestCredentials(t);
@@ -175,8 +144,6 @@ function recordRequests() {
 async function readRemoval({ repositoryId, t }: Awaited<ReturnType<typeof seedRepository>>) {
   return await t.run(async (ctx) => ({
     repository: await ctx.db.get(repositoryId),
-    workers: await ctx.db.query("repositoryCloudflareWorkers").collect(),
-    projects: await ctx.db.query("repositoryConvexProjects").collect(),
     runStates: (await ctx.db.query("workflow_repositoryDeletion_runs").collect()).map(
       (run) => run.state,
     ),
@@ -196,8 +163,6 @@ describe("repository removal", () => {
 
     expect(await readRemoval(fixture)).toEqual({
       repository: null,
-      workers: [],
-      projects: [],
       runStates: ["succeeded"],
     });
     expect(requests).toEqual([`${HUB_ISSUER}/tenant-connection`]);
@@ -279,8 +244,6 @@ describe("repository removal", () => {
 
     expect(await readRemoval(fixture)).toEqual({
       repository: null,
-      workers: [],
-      projects: [],
       runStates: ["failed", "succeeded"],
     });
     expect(requests).toEqual([]);

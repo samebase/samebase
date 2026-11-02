@@ -301,28 +301,51 @@ describe("create repository through GitHub Actions", () => {
 
   it("refuses before it creates anything when the organization has no connection left", async () => {
     const { organizationId, t, viewer } = await createRepositoryFixture({ convexOnly: "oauth" });
-    // All six of the organization's free connections: Workers of another repository.
-    const otherRepositoryId = await t.run(async (ctx) => {
-      const repositoryId = await ctx.db.insert("repositories", {
+    // All six of the organization's free connections.
+    const otherRepositoryIds = await t.run(async (ctx) => {
+      const user = await ctx.db.query("users").first();
+      if (!user) {
+        throw new Error("Expected the seeded user.");
+      }
+      const firstRepositoryId = await ctx.db.insert("repositories", {
         createdAt: 1,
         state: "not_connected",
         organizationId,
         convexTeamId: "convex-team",
-        cloudflareAccountId: "cloudflare-account",
         deletion: { state: "not_deleting" },
       });
+      const runId = await ctx.db.insert("workflow_repositoryProvisioning_runs", {
+        organizationId,
+        userId: user._id,
+        repositoryId: firstRepositoryId,
+        githubRepositoryFullName: "owner/other",
+        trigger: "connect_existing_repository",
+        state: "succeeded",
+        currentStep: "finish",
+        createdAt: 1,
+        updatedAt: 1,
+        completedAt: 1,
+      });
+      const repositoryIds = [firstRepositoryId];
       for (const index of [1, 2, 3, 4, 5, 6]) {
-        await ctx.db.insert("repositoryCloudflareWorkers", {
-          repositoryId,
-          organizationId,
-          accountId: "cloudflare-account",
-          workerName: `other-worker-${index}`,
-          workerTag: `other-worker-tag-${index}`,
-          rootDirectory: "/",
-          origin: "selected_existing",
-        });
+        repositoryIds.push(
+          await ctx.db.insert("repositories", {
+            createdAt: 1,
+            state: "connected",
+            githubMode: "connect_existing_repository",
+            organizationId,
+            convexTeamId: "convex-team",
+            deletion: { state: "not_deleting" },
+            runId,
+            githubRepositoryDatabaseId: `other-${index}`,
+            githubRepositoryName: `other-${index}`,
+            visibility: "private",
+            defaultBranch: "main",
+            connectedAt: 1,
+          }),
+        );
       }
-      return repositoryId;
+      return repositoryIds;
     });
 
     await expect(
@@ -330,7 +353,7 @@ describe("create repository through GitHub Actions", () => {
     ).rejects.toThrow("Organization connection limit reached");
     await expect(
       t.run(async (ctx) => (await ctx.db.query("repositories").collect()).map((row) => row._id)),
-    ).resolves.toEqual([otherRepositoryId]);
+    ).resolves.toEqual(otherRepositoryIds);
   });
 });
 

@@ -913,28 +913,9 @@ describe("account deletion organization boundary", () => {
     },
   );
 
-  it("leaves Workers and Convex projects alone and does not tell the user to revoke Convex", async () => {
+  it("leaves the repository alone and does not tell the user to revoke Convex", async () => {
     const { ids, t } = await seedRunningDeletion();
-    const { organizationId, repositoryId } = ids;
-    const seeded = await t.run(async (ctx) => ({
-      workerId: await ctx.db.insert("repositoryCloudflareWorkers", {
-        repositoryId,
-        organizationId,
-        accountId: "cloudflare-account",
-        workerName: "shared-app",
-        workerTag: "shared-app-tag",
-        rootDirectory: "/",
-        origin: "provisioned",
-      }),
-      projectId: await ctx.db.insert("repositoryConvexProjects", {
-        repositoryId,
-        organizationId,
-        teamId: "convex-team",
-        projectId: "shared-app",
-        convexConfigPath: "convex.json",
-        origin: "provisioned",
-      }),
-    }));
+    const { repositoryId } = ids;
     vi.stubEnv("CONVEX_DEPLOYMENT", "prod:samebase");
     vi.stubEnv("CLOUDFLARE_EMAIL_ACCOUNT_ID", "account-id");
     vi.stubEnv("CLOUDFLARE_EMAIL_API_TOKEN", "email-token");
@@ -970,13 +951,9 @@ describe("account deletion organization boundary", () => {
 
     await expect(
       t.run(async (ctx) => ({
-        worker: await ctx.db.get(seeded.workerId),
-        project: await ctx.db.get(seeded.projectId),
         repository: await ctx.db.get(repositoryId),
       })),
     ).resolves.toMatchObject({
-      worker: { origin: "provisioned" },
-      project: { origin: "provisioned" },
       repository: { deletion: { state: "not_deleting" } },
     });
     expect(requests).toEqual([
