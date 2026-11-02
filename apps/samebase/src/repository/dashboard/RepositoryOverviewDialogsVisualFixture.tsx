@@ -50,7 +50,7 @@ export function RepositoryOverviewDialogsVisualFixture({
           githubRepositoryFullName: "samebase/shared-convex-monorepo-fixture",
           isSamebaseManaged: true,
           canRemoveGithubRepo: true,
-          setupStack: null,
+          hasSetupStack: false,
         }}
       />
     </DialogFixture>

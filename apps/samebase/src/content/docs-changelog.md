@@ -5,6 +5,8 @@ change. If a change needs action from you, the entry says so.
 
 ## 2026-11-02
 
+- **v2236: Shorter repository settings.** Settings now shows only Remove from Samebase. The dialog
+  no longer names Workers or Convex projects: your deployed app stays in your cloud accounts.
 - **v2234: Provider connections in previews.** Convex and Cloudflare authorization now returns
   through the identity hub, so a new preview does not need its URL registered with either provider.
   A Cloudflare OAuth connection made before this version must reconnect once from your

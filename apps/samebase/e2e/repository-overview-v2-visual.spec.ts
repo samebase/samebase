@@ -271,11 +271,10 @@ test("keeps the overview hierarchy and pull request actions clear on mobile", as
   });
 });
 
-test("keeps repository identity and removal in mobile settings", async ({ page }) => {
+test("keeps removal in mobile settings", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   const fixture = await openRepositoryOverviewV2(page, "repository-overview-v2-settings");
 
-  await expect(fixture.getByRole("heading", { name: "Repository", exact: true })).toBeVisible();
   await expect(fixture.getByRole("button", { name: "Remove from Samebase" })).toBeEnabled();
   await expect(fixture.getByRole("heading", { name: "Connections" })).toHaveCount(0);
   await expect(fixture.getByRole("button", { name: "Add Cloudflare Worker" })).toHaveCount(0);
@@ -309,7 +308,7 @@ test("covers the mobile repository removal dialog", async ({ page }) => {
   await expect(dialog.getByRole("heading", { name: /Remove .* from Samebase/ })).toBeVisible();
   await expect(
     dialog.getByText(
-      "The Worker and Convex project stay in your accounts. Remove them there if you want to delete them.",
+      "Your deployed app stays in your cloud accounts. Delete it there if you no longer need it.",
     ),
   ).toBeVisible();
   await expect(dialog.getByRole("checkbox")).toHaveCount(1);
