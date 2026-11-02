@@ -38,6 +38,10 @@ type Env = {
   readonly GOOGLE_CLIENT_SECRET: string;
   readonly IDENTITY_BROKER_KEYS: string;
   readonly ISSUER: string | undefined;
+  readonly PROVIDER_CLOUDFLARE_OAUTH_CLIENT_ID: string;
+  readonly PROVIDER_CLOUDFLARE_OAUTH_CLIENT_SECRET: string;
+  readonly PROVIDER_CONVEX_OAUTH_CLIENT_ID: string;
+  readonly PROVIDER_CONVEX_OAUTH_CLIENT_SECRET: string;
   readonly REGISTRATION_ACCESS_TOKEN: string | undefined;
   readonly THIRD_PARTY_PAUSED: string | undefined;
 };

@@ -96,6 +96,7 @@ export const trackedFilePaths = [
   "apps/identity-hub/convex/crons.ts",
   "apps/identity-hub/convex/http.ts",
   "apps/identity-hub/convex/identityBroker.ts",
+  "apps/identity-hub/convex/resources.ts",
   "apps/identity-hub/convex/tsconfig.json",
   "apps/identity-hub/package.json",
   "apps/identity-hub/scripts/check-keys.ts",
