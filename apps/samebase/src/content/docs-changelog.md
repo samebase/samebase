@@ -7,7 +7,8 @@ change. If a change needs action from you, the entry says so.
 
 - **v2225: Alchemy replaces the old setup.** New App uses GitHub Actions. Connections and the old
   status and repair tools are gone. Existing apps keep running and Workers Builds keeps deploying.
-  [Move to Alchemy](/docs/the-big-migration) to monitor those apps in Samebase.
+  [Move to Alchemy](/docs/the-big-migration) to monitor those apps in Samebase. Removing an app
+  keeps its Worker and Convex project in your accounts. Delete them there if needed.
 
 ## 2026-11-01
 

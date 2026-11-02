@@ -210,7 +210,7 @@ export function RepositorySettings({
           <p className="max-w-xl text-xs leading-5 text-muted-foreground">
             {deleteAction.state === "disabled"
               ? deleteAction.reason
-              : "Review repository and provider cleanup before anything is removed."}
+              : "Review what stays in your accounts before you remove this app."}
           </p>
           <Button
             className="justify-self-start @3xl:justify-self-end"

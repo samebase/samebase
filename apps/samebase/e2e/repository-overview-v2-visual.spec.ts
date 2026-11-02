@@ -324,6 +324,11 @@ test("covers the mobile repository removal dialog", async ({ page }) => {
 
   const dialog = page.getByRole("dialog");
   await expect(dialog.getByRole("heading", { name: /Remove .* from Samebase/ })).toBeVisible();
+  await expect(
+    dialog.getByText(
+      "The Worker and Convex project stay in your accounts. Remove them there if you want to delete them.",
+    ),
+  ).toBeVisible();
   await expect(dialog.getByRole("checkbox")).toHaveCount(1);
   await expect(dialog).toHaveScreenshot("repository-overview-v2-delete-dialog-mobile.png", {
     animations: "disabled",

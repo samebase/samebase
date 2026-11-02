@@ -1729,24 +1729,30 @@ describe("RepositoryDeleteDialogContent", () => {
     stagedChangesCount: 0,
   } satisfies Omit<Parameters<typeof RepositoryDeleteDialogContent>[0], "target">;
 
-  it("offers to delete only the GitHub repository", () => {
-    const markup = renderToStaticMarkup(
-      <RepositoryDeleteDialogContent
-        {...baseProps}
-        target={{
-          repositoryId: fakeRepositoryId(),
-          githubRepositoryFullName: "ada/created-repo",
-          isSamebaseManaged: true,
-          canRemoveGithubRepo: true,
-          setupStack: null,
-        }}
-      />,
-    );
+  it.each([true, false])(
+    "explains retained resources, managed repository %s",
+    (isSamebaseManaged) => {
+      const markup = renderToStaticMarkup(
+        <RepositoryDeleteDialogContent
+          {...baseProps}
+          target={{
+            repositoryId: fakeRepositoryId(),
+            githubRepositoryFullName: "ada/created-repo",
+            isSamebaseManaged,
+            canRemoveGithubRepo: isSamebaseManaged,
+            setupStack: null,
+          }}
+        />,
+      );
 
-    expect(markup).toContain("Also delete the GitHub repository");
-    expect(markup).not.toContain("Also delete the Convex project");
-    expect(markup).not.toContain("Also delete the Cloudflare Worker");
-  });
+      expect(markup).toContain("Also delete the GitHub repository");
+      expect(markup).toContain(
+        "The Worker and Convex project stay in your accounts. Remove them there if you want to delete them.",
+      );
+      expect(markup).not.toContain("Also delete the Convex project");
+      expect(markup).not.toContain("Also delete the Cloudflare Worker");
+    },
+  );
 
   it("names what removal keeps and links the destroy for a repository that its GitHub Actions set up", () => {
     const markup = renderToStaticMarkup(
