@@ -516,11 +516,11 @@ function LandingPreviewOverview() {
           <iframe
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
             allowFullScreen
-            className="mt-8 block aspect-[48/31] w-full border-0"
+            className="mt-8 block aspect-video w-full border-0"
             data-testid="landing-preview-hero-video"
             referrerPolicy="strict-origin-when-cross-origin"
-            src="https://www.youtube-nocookie.com/embed/UfxE8rvprqc"
-            title="Founder demo: Building an app with Samebase and Codex"
+            src="https://www.youtube-nocookie.com/embed/ovMWyoajRMk"
+            title="Samebase logo film"
           />
         </section>
 

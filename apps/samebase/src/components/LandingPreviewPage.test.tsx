@@ -148,12 +148,12 @@ describe("LandingPage", () => {
     expect(markup.split(">Continue with GitHub</span></button>").length - 1).toBe(2);
     expect(markup).not.toContain("Idle apps cost $0/month.");
 
-    // The founder demo plays in a YouTube embed below the hero copy.
+    // The logo film plays in a YouTube embed below the hero copy.
     expect(markup).toContain(
-      'src="https://www.youtube-nocookie.com/embed/UfxE8rvprqc" title="Founder demo: Building an app with Samebase and Codex"',
+      'src="https://www.youtube-nocookie.com/embed/ovMWyoajRMk" title="Samebase logo film"',
     );
     expect(markup.indexOf("Research https://samebase.com and check")).toBeLessThan(
-      markup.indexOf("youtube-nocookie.com/embed/UfxE8rvprqc"),
+      markup.indexOf("youtube-nocookie.com/embed/ovMWyoajRMk"),
     );
 
     // The opinion and provider roles stay concise.
