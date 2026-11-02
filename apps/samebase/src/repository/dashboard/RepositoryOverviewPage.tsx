@@ -36,11 +36,17 @@ function RepositoryHeader({
   /** Null until the repository is connected on GitHub, so the name is not a link. */
   repositoryUrl: string | null;
 }) {
-  const repositoryName = (
-    <div className="min-w-0 text-base [overflow-wrap:anywhere]">
-      <span className="text-muted-foreground">{owner}/</span>
-      <h1 className="inline font-semibold">{repoName}</h1>
-    </div>
+  const repositoryIdentity = (
+    <>
+      {/* The line height of the name keeps the icon on the first line of a wrapped name. */}
+      <span className="flex h-6 shrink-0 items-center">
+        <GitHubProviderLogo />
+      </span>
+      <div className="min-w-0 text-base [overflow-wrap:anywhere]">
+        <span className="text-muted-foreground">{owner}/</span>
+        <h1 className="inline font-semibold">{repoName}</h1>
+      </div>
+    </>
   );
 
   return (
@@ -49,16 +55,15 @@ function RepositoryHeader({
         {repositoryUrl ? (
           <a
             aria-label={`Open ${owner}/${repoName} on GitHub`}
-            className="flex min-w-0 items-center gap-2 underline-offset-4"
+            className="flex min-w-0 items-start gap-2 underline-offset-4"
             href={repositoryUrl}
             rel="noreferrer noopener"
             target="_blank"
           >
-            {repositoryName}
-            <GitHubProviderLogo />
+            {repositoryIdentity}
           </a>
         ) : (
-          repositoryName
+          <div className="flex min-w-0 items-start gap-2">{repositoryIdentity}</div>
         )}
         {children}
       </div>
