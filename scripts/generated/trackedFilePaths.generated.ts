@@ -747,8 +747,6 @@ export const trackedFilePaths = [
   "apps/samebase/e2e/repository-multi-branch.live.spec.ts",
   "apps/samebase/e2e/repository-overview-v2-visual.spec.ts",
   "apps/samebase/e2e/repository-overview-v2-visual.spec.ts-snapshots/repository-overview-v2-cloudflare-github-authorization-failed.png",
-  "apps/samebase/e2e/repository-overview-v2-visual.spec.ts-snapshots/repository-overview-v2-convex-schema-desktop.png",
-  "apps/samebase/e2e/repository-overview-v2-visual.spec.ts-snapshots/repository-overview-v2-convex-schema-mobile.png",
   "apps/samebase/e2e/repository-overview-v2-visual.spec.ts-snapshots/repository-overview-v2-default-branch-checks.png",
   "apps/samebase/e2e/repository-overview-v2-visual.spec.ts-snapshots/repository-overview-v2-delete-dialog-mobile.png",
   "apps/samebase/e2e/repository-overview-v2-visual.spec.ts-snapshots/repository-overview-v2-desktop.png",
