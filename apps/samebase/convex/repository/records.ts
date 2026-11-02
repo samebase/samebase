@@ -377,22 +377,6 @@ function requireOrganizationProviderDestinations(organization: Doc<"organization
   return { convexTeamId };
 }
 
-async function insertDefaultRepositoryResourceLinksState(
-  ctx: Pick<MutationCtx, "db">,
-  args: {
-    now: number;
-    userId: Id<"users">;
-    repositoryId: Id<"repositories">;
-  },
-): Promise<void> {
-  await ctx.db.insert("ui_repositoryResourceLinks_settings", {
-    userId: args.userId,
-    repositoryId: args.repositoryId,
-    resourceLinksOpen: true,
-    updatedAt: args.now,
-  });
-}
-
 export const createInitializingExistingRepositoryForUser = internalMutation({
   args: {
     userId: id("users"),
@@ -459,11 +443,6 @@ export const createInitializingExistingRepositoryForUser = internalMutation({
       deletion: { state: "not_deleting" },
       state: "not_connected",
       createdAt: now,
-    });
-    await insertDefaultRepositoryResourceLinksState(ctx, {
-      now,
-      userId: args.userId,
-      repositoryId,
     });
     const githubRepositoryFullName = `${githubOwnerLogin}/${githubRepositoryName}`;
     const runId = await ctx.db.insert("workflow_repositoryProvisioning_runs", {
@@ -663,11 +642,6 @@ export const createInitializingSamebaseManagedRepositoryForUser = internalMutati
       deletion: { state: "not_deleting" },
       state: "not_connected",
       createdAt: now,
-    });
-    await insertDefaultRepositoryResourceLinksState(ctx, {
-      now,
-      userId: args.userId,
-      repositoryId,
     });
     const githubRepositoryFullName = `${githubOwnerLogin}/${githubRepositoryName}`;
     const runId = await ctx.db.insert("workflow_repositoryProvisioning_runs", {

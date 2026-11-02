@@ -142,7 +142,6 @@ import type * as repository_convexProjectResources from "../repository/convexPro
 import type * as repository_convexSchemaGraph from "../repository/convexSchemaGraph.js";
 import type * as repository_convexSchemaGraphModel from "../repository/convexSchemaGraphModel.js";
 import type * as repository_dashboard from "../repository/dashboard.js";
-import type * as repository_dashboardModel from "../repository/dashboardModel.js";
 import type * as repository_database from "../repository/database.js";
 import type * as repository_deletion_cleanup from "../repository/deletion/cleanup.js";
 import type * as repository_deletion_eligibility from "../repository/deletion/eligibility.js";
@@ -335,7 +334,6 @@ declare const fullApi: ApiFromModules<{
   "repository/convexSchemaGraph": typeof repository_convexSchemaGraph;
   "repository/convexSchemaGraphModel": typeof repository_convexSchemaGraphModel;
   "repository/dashboard": typeof repository_dashboard;
-  "repository/dashboardModel": typeof repository_dashboardModel;
   "repository/database": typeof repository_database;
   "repository/deletion/cleanup": typeof repository_deletion_cleanup;
   "repository/deletion/eligibility": typeof repository_deletion_eligibility;

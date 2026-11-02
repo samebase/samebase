@@ -8,8 +8,6 @@ import { components } from "../../_generated/api";
 const { id, literal, number, object, union } = v;
 
 const deleteOnlyByRepositoryCleanupTables = union(
-  literal("ui_repositoryPullRequests_filters"),
-  literal("ui_repositoryResourceLinks_settings"),
   literal("ui_repositoryFileTree_folderExpansions"),
   literal("repositoryConvexProjects"),
   literal("observations_repositoryConvexSchema_snapshots"),
@@ -180,14 +178,6 @@ async function deleteRepositoryProvisioningRunsBatch(
 
 const repositoryLocalCleanupRegistry = [
   {
-    table: "ui_repositoryPullRequests_filters",
-    cleanup: deleteByRepositoryBatch("ui_repositoryPullRequests_filters"),
-  },
-  {
-    table: "ui_repositoryResourceLinks_settings",
-    cleanup: deleteByRepositoryBatch("ui_repositoryResourceLinks_settings"),
-  },
-  {
     table: "ui_repositoryTree_folderAssignments",
     cleanup: deleteFolderAssignmentsByRepositoryBatch,
   },
@@ -259,8 +249,6 @@ const repositoryLocalCleanupRegistry = [
 const repositoryLocalCleanupRegistryByStep = {
   cleanup_editor_state: ["gitEditor.stagedFiles", "gitEditor.fileUpdates", "gitEditor.fileBlobs"],
   cleanup_source_caches: [
-    "ui_repositoryPullRequests_filters",
-    "ui_repositoryResourceLinks_settings",
     "ui_repositoryTree_folderAssignments",
     "ui_repositoryFileTree_folderExpansions",
     "gitEditor.branchTrees",

@@ -1,16 +1,11 @@
-import { v } from "convex/values";
 import type { QueryCtx } from "../_generated/server";
 import type { Doc, Id } from "../_generated/dataModel";
-import { mutation, query } from "../functions";
-import { findRepositoryForUser, requireRepositoryForUser } from "../organizationAccess";
 import { isConnectedRepository, isSamebaseManagedRepository } from "./state";
 import {
   hasActiveRepositoryProvisioningRun,
   resolveRepositoryDeletionEligibility,
 } from "./deletion/eligibility";
-import { isRepositoryDeletingOrDeleteFailed } from "./deletion/state";
 import { components } from "../_generated/api";
-import { vRepositoryResourceLinksState } from "./dashboardModel";
 import type { RepositoryProvisioningRunStep } from "./provisioningModel";
 import { isSamebaseProvisioningPlan, readRepositoryProvisioningMode } from "./provisioningPlan";
 import { getConvexCodeLocationKey, readConvexCodeLocation } from "../../shared/convexCodeLocation";
@@ -30,7 +25,6 @@ import {
   type RepositoryInfrastructureState,
 } from "./infrastructureOperation";
 
-const { array, boolean, id, object, string } = v;
 type SourceSetupRepository = Extract<
   Doc<"repositories">,
   { githubMode: "create_repository" | "connect_existing_repository" }
@@ -403,153 +397,6 @@ function compareConvexProjectSortOrder(left: ConvexProject, right: ConvexProject
     left._id.localeCompare(right._id)
   );
 }
-
-const vRepositoryPullRequestFilters = object({
-  repositoryId: id("repositories"),
-  hiddenLabels: array(string()),
-  includeDrafts: boolean(),
-  includeNoLabel: boolean(),
-});
-
-// MARK: Public
-
-export const getUserRepositoryPullRequestFilters = query({
-  access: "access_dashboard",
-  args: {},
-  returns: array(vRepositoryPullRequestFilters),
-  handler: async (ctx) => {
-    const filters = [];
-    for await (const repositoryPullRequestFilter of ctx.db
-      .query("ui_repositoryPullRequests_filters")
-      .withIndex("by_user", (q) => q.eq("userId", ctx.viewer.userId))) {
-      const repository = await findRepositoryForUser(ctx.db, {
-        userId: ctx.viewer.userId,
-        repositoryId: repositoryPullRequestFilter.repositoryId,
-      });
-      if (repository === null) {
-        continue;
-      }
-      filters.push({
-        repositoryId: repositoryPullRequestFilter.repositoryId,
-        hiddenLabels: repositoryPullRequestFilter.hiddenLabels,
-        includeDrafts: repositoryPullRequestFilter.includeDrafts,
-        includeNoLabel: repositoryPullRequestFilter.includeNoLabel,
-      });
-    }
-
-    return filters.sort((left, right) => left.repositoryId.localeCompare(right.repositoryId));
-  },
-});
-
-export const getUserRepositoryResourceLinksState = query({
-  access: "access_dashboard",
-  args: {},
-  returns: array(vRepositoryResourceLinksState),
-  handler: async (ctx) => {
-    const states = [];
-    for await (const state of ctx.db
-      .query("ui_repositoryResourceLinks_settings")
-      .withIndex("by_user", (q) => q.eq("userId", ctx.viewer.userId))) {
-      const repository = await findRepositoryForUser(ctx.db, {
-        userId: ctx.viewer.userId,
-        repositoryId: state.repositoryId,
-      });
-      if (repository === null) {
-        continue;
-      }
-      states.push({
-        resourceLinksOpen: state.resourceLinksOpen,
-        repositoryId: state.repositoryId,
-      });
-    }
-
-    return states.sort((left, right) => left.repositoryId.localeCompare(right.repositoryId));
-  },
-});
-
-export const setRepositoryResourceLinksOpen = mutation({
-  access: "access_dashboard",
-  args: vRepositoryResourceLinksState,
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    const userId = ctx.viewer.userId;
-    const repository = await requireRepositoryForUser(ctx.db, {
-      userId,
-      repositoryId: args.repositoryId,
-    });
-    if (isRepositoryDeletingOrDeleteFailed(repository)) {
-      throw new Error("Removal from Samebase is in progress.");
-    }
-    const existing = await ctx.db
-      .query("ui_repositoryResourceLinks_settings")
-      .withIndex("by_user_and_repository", (q) =>
-        q.eq("userId", userId).eq("repositoryId", args.repositoryId),
-      )
-      .first();
-    const nextState = {
-      resourceLinksOpen: args.resourceLinksOpen,
-      updatedAt: Date.now(),
-    };
-
-    if (existing) {
-      await ctx.db.patch(existing._id, nextState);
-      return;
-    }
-
-    await ctx.db.insert("ui_repositoryResourceLinks_settings", {
-      userId,
-      repositoryId: args.repositoryId,
-      ...nextState,
-    });
-  },
-});
-
-export const setRepositoryPullRequestFilters = mutation({
-  access: "access_dashboard",
-  args: vRepositoryPullRequestFilters,
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    const userId = ctx.viewer.userId;
-    const repository = await requireRepositoryForUser(ctx.db, {
-      userId,
-      repositoryId: args.repositoryId,
-    });
-    if (isRepositoryDeletingOrDeleteFailed(repository)) {
-      throw new Error("Removal from Samebase is in progress.");
-    }
-    const existing = await ctx.db
-      .query("ui_repositoryPullRequests_filters")
-      .withIndex("by_user_and_repository", (q) =>
-        q.eq("userId", userId).eq("repositoryId", args.repositoryId),
-      )
-      .first();
-    const shouldPersist =
-      args.hiddenLabels.length > 0 || args.includeDrafts === true || args.includeNoLabel === false;
-
-    if (!shouldPersist) {
-      if (existing) {
-        await ctx.db.delete(existing._id);
-      }
-      return;
-    }
-
-    if (existing) {
-      await ctx.db.patch(existing._id, {
-        hiddenLabels: args.hiddenLabels,
-        includeDrafts: args.includeDrafts,
-        includeNoLabel: args.includeNoLabel,
-      });
-    } else {
-      await ctx.db.insert("ui_repositoryPullRequests_filters", {
-        userId,
-        repositoryId: args.repositoryId,
-        hiddenLabels: args.hiddenLabels,
-        includeDrafts: args.includeDrafts,
-        includeNoLabel: args.includeNoLabel,
-      });
-    }
-  },
-});
 
 function groupRepositoryRows<Row extends { repositoryId: Id<"repositories"> }>(
   rows: Row[],

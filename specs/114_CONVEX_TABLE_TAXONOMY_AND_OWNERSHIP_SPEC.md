@@ -61,8 +61,6 @@ branch catalog or a pull request source.
 Repository UI state uses:
 
 ```text
-ui_repositoryPullRequests_filters
-ui_repositoryResourceLinks_settings
 ui_repositoryTree_folders
 ui_repositoryTree_folderAssignments
 ui_repositoryTree_organizationSettings
