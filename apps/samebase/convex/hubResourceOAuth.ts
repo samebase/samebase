@@ -1,9 +1,9 @@
 import * as oauth from "oauth4webapi";
 
 import { internal } from "./_generated/api";
-import { httpAction, internalAction, type ActionCtx, type MutationCtx } from "./_generated/server";
+import { internalAction, type ActionCtx, type MutationCtx } from "./_generated/server";
 import { v } from "convex/values";
-import type { Doc, Id } from "./_generated/dataModel";
+import type { Id } from "./_generated/dataModel";
 import { OAUTH_STATE_TTL_MS, readRequiredEnv } from "./oauthUtils";
 import {
   buildAuthorizationCompletionResponse,
@@ -22,10 +22,13 @@ import { organizationProviderCredentialAad } from "./organization/providerCreden
 const resources = {
   convex: "https://api.convex.dev",
   cloudflare: "https://api.cloudflare.com/client/v4/",
+  github: "https://api.github.com",
 } as const;
 
+/** How long the hub keeps an unused refresh grant (`REFRESH_IDLE_MS` in the broker). */
+export const HUB_GRANT_IDLE_MS = 90 * 24 * 60 * 60 * 1000;
+
 type ResourceProvider = keyof typeof resources;
-type ResourceState = Exclude<Doc<"providerOAuthCallbackStates">, { provider: "cloudflare_mcp" }>;
 
 function configuration() {
   const issuer = readRequiredEnv("RESOURCE_HUB_ISSUER");
@@ -50,16 +53,39 @@ function callbackUrl() {
   return `${readRequiredEnv("CONVEX_SITE_URL").replace(/\/$/, "")}/oauth/hub/callback`;
 }
 
+/** The origin of the page that reports a finished authorization to its popup opener. */
+export function hubCallbackOrigin() {
+  return new URL(callbackUrl()).origin;
+}
+
+export async function buildHubAuthorizationUrl(args: {
+  provider: ResourceProvider;
+  state: string;
+  codeVerifier: string;
+}): Promise<string> {
+  const { authorizationServer, client } = configuration();
+  const url = new URL(`${authorizationServer.issuer}/authorize`);
+  url.search = createUrlSearchParams({
+    client_id: client.client_id,
+    redirect_uri: callbackUrl(),
+    response_type: "code",
+    state: args.state,
+    resource: resources[args.provider],
+    code_challenge: await oauth.calculatePKCECodeChallenge(args.codeVerifier),
+    code_challenge_method: "S256",
+  }).toString();
+  return url.toString();
+}
+
 export async function buildResourceOAuthUrl(
   ctx: Pick<ActionCtx | MutationCtx, "runMutation">,
   args: {
-    provider: ResourceProvider;
+    provider: "convex" | "cloudflare";
     userId: Id<"users">;
     organizationId: Id<"organizations">;
     returnToPath?: string;
   },
 ): Promise<string> {
-  const { authorizationServer, client } = configuration();
   const state = oauth.generateRandomState();
   const codeVerifier = oauth.generateRandomCodeVerifier();
   const now = Date.now();
@@ -73,23 +99,16 @@ export async function buildResourceOAuthUrl(
     createdAt: now,
     expiresAt: now + OAUTH_STATE_TTL_MS,
   });
-  const url = new URL(`${authorizationServer.issuer}/authorize`);
-  url.search = createUrlSearchParams({
-    client_id: client.client_id,
-    redirect_uri: callbackUrl(),
-    response_type: "code",
-    state,
-    resource: resources[args.provider],
-    code_challenge: await oauth.calculatePKCECodeChallenge(codeVerifier),
-    code_challenge_method: "S256",
-  }).toString();
-  return url.toString();
+  return await buildHubAuthorizationUrl({ provider: args.provider, state, codeVerifier });
 }
 
-/** `finishResourceOAuth` validated the authorization response when the browser came back. */
-export async function exchangeResourceOAuthCode(args: { code: string; oauthState: ResourceState }) {
-  const { oauthState } = args;
-  if (oauthState.codeVerifier === undefined)
+/** The hub callback validated the authorization response when the browser came back. */
+export async function exchangeResourceOAuthCode(args: {
+  provider: ResourceProvider;
+  code: string;
+  codeVerifier: string | undefined;
+}) {
+  if (args.codeVerifier === undefined)
     throw new Error("The OAuth request expired. Reconnect the provider.");
   const { authorizationServer, client } = configuration();
   const response = await oauth.genericTokenEndpointRequest(
@@ -100,15 +119,15 @@ export async function exchangeResourceOAuthCode(args: { code: string; oauthState
     {
       code: args.code,
       redirect_uri: callbackUrl(),
-      code_verifier: oauthState.codeVerifier,
-      resource: resources[oauthState.provider],
+      code_verifier: args.codeVerifier,
+      resource: resources[args.provider],
     },
     { signal: AbortSignal.timeout(10_000) },
   );
   return await oauth.processGenericTokenEndpointResponse(authorizationServer, client, response);
 }
 
-export async function refreshResourceOAuthToken(refreshToken: string) {
+export async function refreshResourceOAuthToken(provider: ResourceProvider, refreshToken: string) {
   const { authorizationServer, client } = configuration();
   const response = await oauth.refreshTokenGrantRequest(
     authorizationServer,
@@ -116,36 +135,33 @@ export async function refreshResourceOAuthToken(refreshToken: string) {
     authenticate(),
     refreshToken,
     {
-      additionalParameters: { resource: resources.cloudflare },
+      additionalParameters: { resource: resources[provider] },
       signal: AbortSignal.timeout(10_000),
     },
   );
   return await oauth.processRefreshTokenResponse(authorizationServer, client, response);
 }
 
-export function cloudflareResourceTokens(
+export function expiringResourceTokens(
   tokens: oauth.TokenEndpointResponse,
   previousRefreshToken?: string,
 ) {
   const refreshToken = tokens.refresh_token ?? previousRefreshToken;
   if (refreshToken === undefined || tokens.expires_in === undefined) {
-    throw new Error("Cloudflare authorization requires a refresh token and an expiry.");
+    throw new Error("This provider's authorization requires a refresh token and an expiry.");
   }
   return { accessToken: tokens.access_token, refreshToken, expiresIn: tokens.expires_in };
 }
 
 /** Revocation cannot prevent local removal or obscure a failed connection attempt. */
-export async function revokeCloudflareRefreshToken(args: {
-  refreshToken: string;
-  organizationId: Id<"organizations">;
-}) {
+export async function revokeHubRefreshToken(refreshToken: string) {
   try {
     const { authorizationServer, client } = configuration();
     const response = await oauth.revocationRequest(
       authorizationServer,
       client,
       authenticate(),
-      args.refreshToken,
+      refreshToken,
       {
         additionalParameters: { token_type_hint: "refresh_token" },
         signal: AbortSignal.timeout(10_000),
@@ -153,7 +169,7 @@ export async function revokeCloudflareRefreshToken(args: {
     );
     await oauth.processRevocationResponse(response);
   } catch {
-    console.warn("cloudflare:hub_grant_revocation_failed", { organizationId: args.organizationId });
+    console.warn("hub:grant_revocation_failed");
   }
 }
 
@@ -161,18 +177,29 @@ export const revokeCloudflareGrant = internalAction({
   args: { organizationId: v.id("organizations"), refreshCredential: vSealedSecret },
   returns: v.null(),
   handler: async (_ctx, { organizationId, refreshCredential }) => {
-    await revokeCloudflareRefreshToken({
-      refreshToken: await openSecret({
+    await revokeHubRefreshToken(
+      await openSecret({
         sealed: refreshCredential,
         aad: organizationProviderCredentialAad(organizationId, "cloudflare.auth.refreshCredential"),
       }),
-      organizationId,
-    });
+    );
     return null;
   },
 });
 
-export const finishResourceOAuth = httpAction(async (ctx, request) => {
+/** The `error` of a hub authorization response. Throws when the hub did not send the response. */
+export function readHubAuthorizationError(url: URL, state: string): string | undefined {
+  const { authorizationServer, client } = configuration();
+  try {
+    oauth.validateAuthResponse(authorizationServer, client, url, state);
+    return undefined;
+  } catch (error) {
+    if (error instanceof oauth.AuthorizationResponseError) return error.error;
+    throw error;
+  }
+}
+
+export async function finishResourceOAuth(ctx: ActionCtx, request: Request): Promise<Response> {
   const url = new URL(request.url);
   const state = url.searchParams.get("state");
   if (state === null) return new Response("Missing OAuth state", { status: 400 });
@@ -181,14 +208,9 @@ export const finishResourceOAuth = httpAction(async (ctx, request) => {
 
   let providerError: string | undefined;
   try {
-    const { authorizationServer, client } = configuration();
-    oauth.validateAuthResponse(authorizationServer, client, url, grant.state);
-  } catch (error) {
-    if (error instanceof oauth.AuthorizationResponseError) {
-      providerError = error.error;
-    } else {
-      return new Response("Invalid OAuth authorization response", { status: 400 });
-    }
+    providerError = readHubAuthorizationError(url, grant.state);
+  } catch {
+    return new Response("Invalid OAuth authorization response", { status: 400 });
   }
 
   const appOrigin = readProviderOAuthAppOrigin({
@@ -234,4 +256,4 @@ export const finishResourceOAuth = httpAction(async (ctx, request) => {
     returnUrl,
     title: "Provider authorization",
   });
-});
+}

@@ -36,7 +36,6 @@ beforeEach(() => {
   vi.stubEnv("GITHUB_APP_CLIENT_ID", "client-id");
   vi.stubEnv("GITHUB_APP_CLIENT_SECRET", "client-secret");
   vi.stubEnv("GITHUB_APP_PRIVATE_KEY", "private-key");
-  vi.stubEnv("GITHUB_APP_OAUTH_CALLBACK_URL", "https://samebase.test/oauth/github/callback");
 });
 
 afterEach(() => {

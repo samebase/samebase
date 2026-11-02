@@ -45,7 +45,6 @@ type Env = {
   readonly GITHUB_APP_CLIENT_ID: string;
   readonly GITHUB_APP_CLIENT_SECRET: string;
   readonly GITHUB_APP_ID: string;
-  readonly GITHUB_APP_OAUTH_CALLBACK_URL: string;
   readonly GITHUB_APP_PRIVATE_KEY: string;
   readonly GITHUB_APP_SLUG: string;
   readonly HUB_CLIENT_ID: string;

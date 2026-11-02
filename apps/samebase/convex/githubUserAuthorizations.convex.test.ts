@@ -13,11 +13,14 @@ vi.mock("@octokit/auth-app", async (importOriginal) => {
   };
 });
 
+import { RequestError } from "@octokit/request-error";
+
 import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import type { MutationCtx } from "./_generated/server";
 import { githubUserAuthorizationAad } from "./githubUserAuthorizationModel";
 import {
+  resolveGitHubUserAuthorizationForAppConnection,
   resolveGitHubUserOctokit,
   upsertGitHubUserAuthorization,
 } from "./githubUserAuthorizations";
@@ -39,7 +42,26 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.unstubAllEnvs();
+  vi.unstubAllGlobals();
 });
+
+const HUB_ISSUER = "https://hub.example.test";
+
+function stubResourceHub(respond: (url: string) => Response) {
+  vi.stubEnv("RESOURCE_HUB_ISSUER", HUB_ISSUER);
+  vi.stubEnv("RESOURCE_HUB_CLIENT_ID", "resource-client");
+  vi.stubEnv("RESOURCE_HUB_CLIENT_SECRET", "resource-secret");
+  const requests: Array<{ url: string; body: URLSearchParams }> = [];
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const request = new Request(input, init);
+      requests.push({ url: request.url, body: new URLSearchParams(await request.text()) });
+      return respond(request.url);
+    }),
+  );
+  return requests;
+}
 
 async function insertGitHubSignInAccount(
   ctx: MutationCtx,
@@ -300,7 +322,7 @@ describe("viewer GitHub user authorization", () => {
     vi.stubEnv("GITHUB_APP_CLIENT_ID", "client-id");
     vi.stubEnv("GITHUB_APP_CLIENT_SECRET", "client-secret");
     vi.stubEnv("GITHUB_APP_PRIVATE_KEY", "private-key");
-    vi.stubEnv("GITHUB_APP_OAUTH_CALLBACK_URL", "https://samebase.test/oauth/github/callback");
+    const hubRequests = stubResourceHub(() => new Response(null, { status: 200 }));
     const result = await t
       .withIdentity({
         subject: userId,
@@ -315,7 +337,54 @@ describe("viewer GitHub user authorization", () => {
       clientSecret: "client-secret",
       token: "revoke-access-token",
     });
-    expect(githubAuthMocks.auth).toHaveBeenCalledWith({ type: "deleteAuthorization" });
+    expect(githubAuthMocks.auth).toHaveBeenCalledWith({ type: "delete" });
+    expect(hubRequests.map(({ url }) => url)).toEqual([`${HUB_ISSUER}/revoke`]);
+    expect(hubRequests[0]?.body.get("token")).toBe("revoke-refresh-token");
+    await expect(t.run(async (ctx) => await ctx.db.get(authorizationId))).resolves.toBeNull();
+  });
+
+  it("removes an authorization whose access token GitHub no longer knows", async () => {
+    const t = makeConvexTest();
+    const { userId, authorizationId } = await t.run(async (ctx) => {
+      const userId = await ctx.db.insert("users", {
+        state: "active",
+        email: "github-revoke-expired@example.com",
+        isApproved: true,
+        termsVersion: "2026-08-12",
+        termsAcceptedAt: 1,
+      });
+      const now = Date.now();
+      const authorizationId = await ctx.db.insert("githubUserAuthorizations", {
+        userId,
+        githubUserId: "203",
+        githubUserLogin: "hubot",
+        accessToken: testCredential("expired-access-token"),
+        accessTokenExpiresAt: now - 60_000,
+        refreshToken: testCredential("hub-refresh-token"),
+        refreshTokenExpiresAt: now + 120_000,
+        createdAt: now,
+        updatedAt: now,
+      });
+      return { userId, authorizationId };
+    });
+    await sealTestCredentials(t);
+    vi.stubEnv("GITHUB_APP_ID", "42");
+    vi.stubEnv("GITHUB_APP_SLUG", "samebase-test");
+    vi.stubEnv("GITHUB_APP_CLIENT_ID", "client-id");
+    vi.stubEnv("GITHUB_APP_CLIENT_SECRET", "client-secret");
+    vi.stubEnv("GITHUB_APP_PRIVATE_KEY", "private-key");
+    githubAuthMocks.auth.mockRejectedValue(
+      new RequestError("Not Found", 404, {
+        request: { method: "DELETE", url: "https://api.github.com", headers: {} },
+      }),
+    );
+    const hubRequests = stubResourceHub(() => new Response(null, { status: 200 }));
+
+    await t
+      .withIdentity({ subject: userId, tokenIdentifier: `test:${userId}` })
+      .action(api.githubUserAuthorizations.revokeViewerGitHubUserAuthorization, {});
+
+    expect(hubRequests[0]?.body.get("token")).toBe("hub-refresh-token");
     await expect(t.run(async (ctx) => await ctx.db.get(authorizationId))).resolves.toBeNull();
   });
 });
@@ -629,7 +698,6 @@ describe("GitHub user authorization identity boundaries", () => {
     vi.stubEnv("GITHUB_APP_CLIENT_ID", "client-id");
     vi.stubEnv("GITHUB_APP_CLIENT_SECRET", "client-secret");
     vi.stubEnv("GITHUB_APP_PRIVATE_KEY", "private-key");
-    vi.stubEnv("GITHUB_APP_OAUTH_CALLBACK_URL", "https://samebase.test/oauth/github/callback");
     await t.action(internal.githubUserAuthorizations.revokeForAccountDeletion, {
       runId,
       workflowId: accountDeletionWorkflowId,
@@ -655,22 +723,25 @@ describe("GitHub user authorization identity boundaries", () => {
     vi.stubEnv("GITHUB_APP_CLIENT_ID", "client-id");
     vi.stubEnv("GITHUB_APP_CLIENT_SECRET", "client-secret");
     vi.stubEnv("GITHUB_APP_PRIVATE_KEY", "private-key");
-    vi.stubEnv("GITHUB_APP_OAUTH_CALLBACK_URL", "https://samebase.test/oauth/github/callback");
-    githubAuthMocks.auth.mockResolvedValue({
-      token: "refreshed-access-token",
-      expiresAt: new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString(),
-      refreshToken: "refreshed-refresh-token",
-      refreshTokenExpiresAt: new Date(Date.now() + 180 * 24 * 60 * 60 * 1000).toISOString(),
-    });
+    const hubRequests = stubResourceHub(() =>
+      Response.json({
+        access_token: "refreshed-access-token",
+        token_type: "bearer",
+        expires_in: 28_800,
+        refresh_token: "refreshed-refresh-token",
+      }),
+    );
 
     await t.action(async (ctx) => {
       await resolveGitHubUserOctokit(ctx, { userId, githubUserId: "904" });
     });
 
-    expect(githubAuthMocks.createOAuthUserAuth).toHaveBeenCalledWith(
-      expect.objectContaining({ token: "old-access-token", refreshToken: "old-refresh-token" }),
-    );
-    expect(githubAuthMocks.auth).toHaveBeenCalledWith({ type: "refresh" });
+    expect(hubRequests.map(({ url }) => url)).toEqual([`${HUB_ISSUER}/token`]);
+    expect(Object.fromEntries(hubRequests[0]?.body ?? [])).toMatchObject({
+      grant_type: "refresh_token",
+      refresh_token: "old-refresh-token",
+      resource: "https://api.github.com",
+    });
     const authorization = await t.run(async (ctx) => await ctx.db.get(authorizationId));
     if (authorization === null) {
       throw new Error("Expected the GitHub user authorization.");
@@ -688,6 +759,25 @@ describe("GitHub user authorization identity boundaries", () => {
         aad: githubUserAuthorizationAad(userId, "refreshToken"),
       }),
     ).resolves.toBe("refreshed-refresh-token");
+  });
+
+  it("asks for a new authorization when the hub refuses the grant", async () => {
+    const { authorizationId, t, userId } = await seedGitHubRefreshCandidate(
+      "github-refresh-refused@example.test",
+      "905",
+    );
+    await sealTestCredentials(t);
+    stubResourceHub(() => Response.json({ error: "invalid_grant" }, { status: 400 }));
+
+    await expect(
+      t.action(async (ctx) => {
+        const result = await resolveGitHubUserAuthorizationForAppConnection(ctx, userId);
+        return result.status;
+      }),
+    ).resolves.toBe("authorization_required");
+
+    const authorization = await t.run(async (ctx) => await ctx.db.get(authorizationId));
+    expect(authorization?.refreshStartedAt).toBeUndefined();
   });
 
   it("releases a claimed refresh after the Samebase user starts deletion", async () => {

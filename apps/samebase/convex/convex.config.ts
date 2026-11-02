@@ -24,7 +24,6 @@ const app = defineApp({
     GITHUB_APP_CLIENT_ID: v.string(),
     GITHUB_APP_CLIENT_SECRET: v.string(),
     GITHUB_APP_ID: v.string(),
-    GITHUB_APP_OAUTH_CALLBACK_URL: v.string(),
     GITHUB_APP_PRIVATE_KEY: v.string(),
     GITHUB_APP_SLUG: v.string(),
     HUB_CLIENT_ID: v.string(),

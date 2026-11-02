@@ -1,5 +1,5 @@
-import { createOAuthUserAuth } from "@octokit/auth-app";
 import { RequestError } from "@octokit/request-error";
+import { ResponseBodyError } from "oauth4webapi";
 import { attachGitHubBackoff } from "./githubBackoffClient";
 import type { Octokit } from "@octokit/rest";
 import { ConvexError, Infer, v } from "convex/values";
@@ -16,11 +16,13 @@ import {
   type MutationCtx,
 } from "./_generated/server";
 import { action, query } from "./functions";
+import { createGitHubUserOctokit, revokeGitHubAppUserToken } from "./githubApp";
 import {
-  createGitHubUserOctokit,
-  getGitHubAppConfiguration,
-  requireExpiringGitHubUserAuthentication,
-} from "./githubApp";
+  expiringResourceTokens,
+  HUB_GRANT_IDLE_MS,
+  refreshResourceOAuthToken,
+  revokeHubRefreshToken,
+} from "./hubResourceOAuth";
 import { requireOrganizationMembershipRecord } from "./organizationAccess";
 import { resolvePreviewSeedGitHubUserOctokit } from "./previewSeedAccount";
 import { readActiveUser } from "./identity/lifecycle";
@@ -90,6 +92,7 @@ const vGitHubUserAuthorizationForRevocationValue = object({
   authorizationId: id("githubUserAuthorizations"),
   githubUserId: string(),
   accessToken: vSealedSecret,
+  refreshToken: vSealedSecret,
 });
 const vGitHubUserAuthorizationForRevocation = union(
   vGitHubUserAuthorizationForRevocationValue,
@@ -259,8 +262,8 @@ export const getViewerPersonalRepositoryAuthorization = query({
 });
 
 /**
-Stores the user's GitHub authorization. Returns the sealed access token that the new one replaces,
-so the caller can revoke it when it differs from the new token, or null for a new authorization.
+Stores the user's GitHub authorization. Returns the sealed tokens that the new ones replace, so the
+caller can revoke them when they differ from the new tokens, or null for a new authorization.
 */
 export async function upsertGitHubUserAuthorization(
   db: DatabaseWriter,
@@ -273,7 +276,7 @@ export async function upsertGitHubUserAuthorization(
     refreshToken: SealedSecret;
     refreshTokenExpiresAt: number;
   },
-): Promise<SealedSecret | null> {
+): Promise<{ accessToken: SealedSecret; refreshToken: SealedSecret } | null> {
   const user = await db.get(args.userId);
   if (user === null || readActiveUser(user) === null) {
     throw new Error("An active Samebase user is required.");
@@ -326,7 +329,7 @@ export async function upsertGitHubUserAuthorization(
   };
   if (existing !== null) {
     await db.patch(existing._id, authorization);
-    return existing.accessToken;
+    return { accessToken: existing.accessToken, refreshToken: existing.refreshToken };
   }
 
   await db.insert("githubUserAuthorizations", {
@@ -600,6 +603,7 @@ export const getForRevocation = internalQuery({
       authorizationId: authorization._id,
       githubUserId: authorization.githubUserId,
       accessToken: authorization.accessToken,
+      refreshToken: authorization.refreshToken,
     };
   },
 });
@@ -644,21 +648,22 @@ async function revokeGitHubUserAuthorizationAtProvider(
   userId: Id<"users">,
   authorization: GitHubUserAuthorizationForRevocation,
 ): Promise<void> {
-  const configuration = getGitHubAppConfiguration();
-  const auth = createOAuthUserAuth({
-    clientType: "github-app",
-    clientId: configuration.clientId,
-    clientSecret: configuration.clientSecret,
-    token: await openSecret({
-      sealed: authorization.accessToken,
-      aad: githubUserAuthorizationAad(userId, "accessToken"),
-    }),
-  });
   try {
-    await auth({ type: "deleteAuthorization" });
+    await revokeGitHubAppUserToken(
+      await openSecret({
+        sealed: authorization.accessToken,
+        aad: githubUserAuthorizationAad(userId, "accessToken"),
+      }),
+    );
   } catch {
     throw new Error("Failed to revoke GitHub user authorization.");
   }
+  await revokeHubRefreshToken(
+    await openSecret({
+      sealed: authorization.refreshToken,
+      aad: githubUserAuthorizationAad(userId, "refreshToken"),
+    }),
+  );
 }
 
 export const revokeForAccountDeletion = internalAction({
@@ -853,24 +858,16 @@ async function resolveGitHubUserOctokitFromUse(
   }
 
   const { userId } = use.authorization;
-  const configuration = getGitHubAppConfiguration();
   try {
-    const auth = createOAuthUserAuth({
-      clientType: "github-app",
-      clientId: configuration.clientId,
-      clientSecret: configuration.clientSecret,
-      token: await openSecret({
-        sealed: use.authorization.accessToken,
-        aad: githubUserAuthorizationAad(userId, "accessToken"),
-      }),
-      expiresAt: new Date(use.authorization.accessTokenExpiresAt).toISOString(),
-      refreshToken: await openSecret({
-        sealed: use.authorization.refreshToken,
-        aad: githubUserAuthorizationAad(userId, "refreshToken"),
-      }),
-      refreshTokenExpiresAt: new Date(use.authorization.refreshTokenExpiresAt).toISOString(),
+    const refreshToken = await openSecret({
+      sealed: use.authorization.refreshToken,
+      aad: githubUserAuthorizationAad(userId, "refreshToken"),
     });
-    const refreshed = requireExpiringGitHubUserAuthentication(await auth({ type: "refresh" }));
+    const refreshed = expiringResourceTokens(
+      await refreshResourceOAuthToken("github", refreshToken),
+      refreshToken,
+    );
+    const now = Date.now();
     await finishGitHubUserAuthorizationRefresh(ctx, authority, {
       authorizationId: use.authorization.authorizationId,
       refreshStartedAt: use.refreshStartedAt,
@@ -878,12 +875,12 @@ async function resolveGitHubUserOctokitFromUse(
         plaintext: refreshed.accessToken,
         aad: githubUserAuthorizationAad(userId, "accessToken"),
       }),
-      accessTokenExpiresAt: refreshed.accessTokenExpiresAt,
+      accessTokenExpiresAt: now + refreshed.expiresIn * 1000,
       refreshToken: await sealSecret(ctx, {
         plaintext: refreshed.refreshToken,
         aad: githubUserAuthorizationAad(userId, "refreshToken"),
       }),
-      refreshTokenExpiresAt: refreshed.refreshTokenExpiresAt,
+      refreshTokenExpiresAt: now + HUB_GRANT_IDLE_MS,
     });
     return attachGitHubBackoff(ctx, createGitHubUserOctokit(refreshed.accessToken), {
       kind: "user",
@@ -925,7 +922,10 @@ export async function resolveGitHubUserAuthorizationForAppConnection(
       octokit,
     };
   } catch (error) {
-    if (error instanceof RequestError && (error.status === 400 || error.status === 401)) {
+    if (
+      (error instanceof RequestError && (error.status === 400 || error.status === 401)) ||
+      (error instanceof ResponseBodyError && error.error === "invalid_grant")
+    ) {
       return { status: "authorization_required" };
     }
     throw error;

@@ -22,10 +22,11 @@ export async function openGitHubAppSetupPopup(
   provider: GitHubAuthorizationProvider,
   getSetup: () => Promise<GitHubAuthorizationSetup>,
 ) {
-  const canceledReturnUrl = buildAuthorizationErrorUrl(getCurrentRootRelativeUrl(), {
-    provider,
-    code: "canceled",
-  });
+  // An install from a preview ends at production's setup URL, so its window only closes.
+  const canceledReturnUrl =
+    provider === "github-app"
+      ? getCurrentRootRelativeUrl()
+      : buildAuthorizationErrorUrl(getCurrentRootRelativeUrl(), { provider, code: "canceled" });
   const popup = window.open("", GITHUB_APP_SETUP_POPUP_NAME, "width=600,height=700,popup=true");
 
   try {

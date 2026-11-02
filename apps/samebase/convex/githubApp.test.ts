@@ -42,7 +42,7 @@ import {
   listGitHubAppConnectionInstallations,
   readGitHubAppInstallation,
   verifyGitHubAppConnectionInstallation,
-  verifyGitHubUserAuthorization,
+  readAuthenticatedGitHubUser,
 } from "./githubApp";
 
 // Source: https://docs.github.com/en/rest/orgs/members#list-organization-memberships-for-the-authenticated-user
@@ -155,7 +155,6 @@ describe("GitHub App installation verification", () => {
     process.env["GITHUB_APP_CLIENT_ID"] = "client-id";
     process.env["GITHUB_APP_CLIENT_SECRET"] = "client-secret";
     process.env["GITHUB_APP_PRIVATE_KEY"] = "private-key";
-    process.env["GITHUB_APP_OAUTH_CALLBACK_URL"] = "https://example.com/github/callback";
 
     githubMocks.owner.id = 101;
     githubMocks.owner.login = "samebase";
@@ -534,19 +533,10 @@ describe("GitHub App installation verification", () => {
     );
   });
 
-  it("authorizes a GitHub user without reading or creating an App installation", async () => {
-    await expect(
-      verifyGitHubUserAuthorization({
-        code: "code",
-        state: "state",
-      }),
-    ).resolves.toEqual({
+  it("reads the authorized GitHub user without reading or creating an App installation", async () => {
+    await expect(readAuthenticatedGitHubUser("access-token")).resolves.toEqual({
       githubUserId: "202",
       githubUserLogin: "alice",
-      accessToken: "access-token",
-      accessTokenExpiresAt: Date.parse("2099-01-01T00:00:00.000Z"),
-      refreshToken: "refresh-token",
-      refreshTokenExpiresAt: Date.parse("2099-02-01T00:00:00.000Z"),
     });
     expect(githubMocks.request).toHaveBeenCalledOnce();
     expect(githubMocks.request).toHaveBeenCalledWith("GET /user");
