@@ -198,14 +198,11 @@ async function createRetryFixture(
 type RetryFixture = Awaited<ReturnType<typeof createRetryFixture>>;
 
 /** One dashboard retry call; without `confirmation` it asks for the confirmation. */
-async function retry(
-  { ids, t }: RetryFixture,
-  confirmation?: { token: string; acknowledgement: string },
-) {
+async function retry({ ids, t }: RetryFixture, confirmation?: { acknowledgement: string }) {
   return await t.mutation(internal.repositoryProvisioningRuns.createRetryForRepository, {
     userId: ids.userId,
     repositoryId: ids.repositoryId,
-    surface: { kind: "dashboard" },
+    surface: "dashboard",
     confirmation,
   });
 }
@@ -216,14 +213,7 @@ async function approveRetry(fixture: RetryFixture) {
   if (!challenge) {
     throw new Error("Expected a confirmation request.");
   }
-  return { token: challenge.token, acknowledgement: challenge.acknowledgement };
-}
-
-async function readConfirmationRows({ t }: RetryFixture) {
-  return await t.run(async (ctx) => ({
-    tokens: await ctx.db.query("actionConfirmationTokens").collect(),
-    audit: await ctx.db.query("audit_confirmedActions_events").collect(),
-  }));
+  return { acknowledgement: challenge.acknowledgement };
 }
 
 describe("app provisioning retry admission", () => {
@@ -249,11 +239,10 @@ describe("app provisioning retry admission", () => {
       const fixture = await createRetryFixture(blocker);
 
       await expect(retry(fixture)).rejects.toThrow(message);
-      await expect(readConfirmationRows(fixture)).resolves.toEqual({ tokens: [], audit: [] });
     },
   );
 
-  it("leaves the token unused when the approved retry can no longer start", async () => {
+  it("refuses an approved retry that can no longer start", async () => {
     const fixture = await createRetryFixture("none");
     const { ids, t } = fixture;
     const confirmation = await approveRetry(fixture);
@@ -271,10 +260,6 @@ describe("app provisioning retry admission", () => {
     await expect(retry(fixture, confirmation)).rejects.toThrow(
       "Another Samebase setup or provider change is running for this repository, so nothing changed. Try again after it finishes.",
     );
-    const rows = await readConfirmationRows(fixture);
-    expect(rows.audit).toEqual([]);
-    expect(rows.tokens).toEqual([expect.objectContaining({ action: "retry_provider_setup" })]);
-    expect(rows.tokens[0]?.consumedAt).toBeUndefined();
   });
 
   it("admits only one of two simultaneous retries", async () => {
@@ -335,12 +320,9 @@ describe("app provisioning retry admission", () => {
         state: "failed",
       },
     });
-    const rows = await readConfirmationRows(fixture);
-    expect(rows.audit).toEqual([]);
-    expect(rows.tokens[0]?.consumedAt).toBeUndefined();
   });
 
-  it("starts a retry over MCP only after the confirmation, and audits the confirming grant", async () => {
+  it("starts a retry over MCP only after the confirmation", async () => {
     const { ids, t } = await createRetryFixture("none");
     const toolArgs = {
       userId: ids.userId,
@@ -357,7 +339,6 @@ describe("app provisioning retry admission", () => {
             q.eq("repositoryId", ids.repositoryId).eq("state", "queued"),
           )
           .collect(),
-        audit: await ctx.db.query("audit_confirmedActions_events").collect(),
       }));
 
     const first = await t.action(
@@ -373,16 +354,14 @@ describe("app provisioning retry admission", () => {
         "Samebase starts a new setup run for ada/retry-guard. It writes the credential of the organization's Convex connection into the repository's GitHub Actions secret CONVEX_ACCESS_TOKEN and the Convex team id into its variable CONVEX_TEAM_ID, replacing their values. If the starter is not seeded yet, it seeds the starter, which starts a deployment in the repository's GitHub Actions. Then it syncs the default branch tree.",
       acknowledgement:
         "I confirm that the user approved a new setup run for ada/retry-guard, which replaces its GitHub Actions secret and variable with the organization's Convex connection credential and team id",
-      token: expect.any(String),
-      expiresAt: expect.any(Number),
     });
-    await expect(readRetryState()).resolves.toEqual({ queuedRuns: [], audit: [] });
+    await expect(readRetryState()).resolves.toEqual({ queuedRuns: [] });
 
-    const { acknowledgement, token } = first.structuredContent;
+    const { acknowledgement } = first.structuredContent;
     await expect(
       t.action(internal.toolRuntime.runtime.repositoryRetryProviderSetupTool, {
         ...toolArgs,
-        confirmation: { token, acknowledgement },
+        confirmation: { acknowledgement },
       }),
     ).resolves.toEqual({
       status: "ok",
@@ -391,15 +370,6 @@ describe("app provisioning retry admission", () => {
     });
     await expect(readRetryState()).resolves.toMatchObject({
       queuedRuns: [expect.objectContaining({ trigger: "retry" })],
-      audit: [
-        {
-          action: "retry_provider_setup",
-          repositoryId: ids.repositoryId,
-          resource: { kind: "repository", githubRepositoryFullName: "ada/retry-guard" },
-          acknowledgement,
-          surface: { kind: "mcp", grantId: "grant-1", clientId: "client-1" },
-        },
-      ],
     });
   });
 
@@ -440,7 +410,6 @@ describe("app provisioning retry admission", () => {
       status: "error",
       text: "Samebase setup of this repository has not failed, so there is nothing to retry and nothing changed. Check the repository status for its current state.",
     });
-    await expect(readConfirmationRows(fixture)).resolves.toEqual({ tokens: [], audit: [] });
   });
 
   it.each(["old", "none"] as const)(
@@ -451,7 +420,6 @@ describe("app provisioning retry admission", () => {
       await expect(retry(fixture)).rejects.toThrow(
         "A provider setup retry cannot repair this failed setup, so nothing changed. Check this repository in the Samebase dashboard for recovery steps.",
       );
-      await expect(readConfirmationRows(fixture)).resolves.toEqual({ tokens: [], audit: [] });
     },
   );
 
@@ -474,7 +442,6 @@ describe("app provisioning retry admission", () => {
       await expect(retry(fixture)).rejects.toThrow(
         "Samebase setup of this repository has not failed, so there is nothing to retry and nothing changed. Check the repository status for its current state.",
       );
-      await expect(readConfirmationRows(fixture)).resolves.toEqual({ tokens: [], audit: [] });
     },
   );
 

@@ -194,7 +194,7 @@ export function RepositorySelectedWorkspace({
       ) : null}
       {pendingConfirmation ? (
         <RepositoryActionConfirmationDialog
-          key={pendingConfirmation.request.token}
+          key={pendingConfirmation.request.acknowledgement}
           confirmLabel={pendingConfirmation.confirmLabel}
           onCancel={() => {
             setPendingConfirmation(null);

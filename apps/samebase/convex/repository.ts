@@ -17,10 +17,10 @@ import {
   type UserRepositoriesResult,
 } from "./repository/contracts/getUserRepositories";
 import { retryInfrastructureProvisioningContract } from "./repository/contracts/retryInfrastructureProvisioning";
-import type { ConfirmationSurface } from "./repository/confirmationModel";
 import type {
   ActionConfirmation,
   ActionConfirmationRequest,
+  ActionConfirmationSurface,
 } from "./repository/contracts/actionConfirmation";
 import { canAccess } from "../shared/accessModel";
 
@@ -113,7 +113,7 @@ export async function retryProviderSetupForUser(
   args: {
     userId: Id<"users">;
     repositoryId: Id<"repositories">;
-    surface: ConfirmationSurface;
+    surface: ActionConfirmationSurface;
     confirmation: ActionConfirmation | undefined;
   },
 ): Promise<ActionConfirmationRequest | null> {
@@ -134,7 +134,7 @@ export const retryProviderSetup = action({
     await retryProviderSetupForUser(ctx, {
       userId: ctx.viewer.userId,
       repositoryId: args.repositoryId,
-      surface: { kind: "dashboard" },
+      surface: "dashboard",
       confirmation: args.confirmation,
     }),
 });

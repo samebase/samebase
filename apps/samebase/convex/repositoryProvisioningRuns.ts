@@ -14,10 +14,10 @@ import {
 } from "./repository/infrastructureOperation";
 import { assertConnectedRepository, isSamebaseManagedRepository } from "./repository/state";
 import { readRepositoryProvisioningMode } from "./repository/provisioningPlan";
-import { vConfirmationSurface } from "./repository/confirmationModel";
 import { checkActionConfirmation } from "./repository/confirmations";
 import {
   vActionConfirmation,
+  vActionConfirmationSurface,
   type ActionConfirmationRequest,
 } from "./repository/contracts/actionConfirmation";
 import { retryInfrastructureProvisioningContract } from "./repository/contracts/retryInfrastructureProvisioning";
@@ -133,15 +133,14 @@ async function requireRetryAdmission(
 
 /**
 The gated retry of a failed managed setup (rfcs/125). The admission rules run before the challenge,
-so a retry that cannot start gets none. With the token, the admission rules, the confirmation check,
-and the run insert share one transaction, so a refused retry leaves the token unused and writes no
-audit row.
+so a retry that cannot start gets none. The admission rules, the confirmation check, and the run
+insert share one transaction.
 */
 export const createRetryForRepository = internalMutation({
   args: {
     userId: id("users"),
     repositoryId: id("repositories"),
-    surface: vConfirmationSurface,
+    surface: vActionConfirmationSurface,
     confirmation: optional(vActionConfirmation),
   },
   returns: retryInfrastructureProvisioningContract.returns,
@@ -152,8 +151,8 @@ export const createRetryForRepository = internalMutation({
     });
     const confirmation = await checkActionConfirmation(ctx, {
       userId: args.userId,
+      repositoryId: args.repositoryId,
       surface: args.surface,
-      request: { action: "retry_provider_setup", repositoryId: args.repositoryId },
       confirmation: args.confirmation,
     });
     if (confirmation.state === "needs_confirmation") {

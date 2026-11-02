@@ -21,8 +21,6 @@ const request = {
   effect:
     "Samebase removes the Worker scout from scout-owner/scout. The Worker keeps running in Cloudflare, and Samebase changes no Cloudflare setting or key.",
   acknowledgement: "I approve removing Worker scout from scout-owner/scout in Samebase",
-  token: "sbcf_token",
-  expiresAt: 1_800_000_000_000,
 };
 
 async function renderDialog(onConfirm: () => Promise<void>) {
@@ -65,7 +63,7 @@ async function renderDialog(onConfirm: () => Promise<void>) {
 }
 
 describe("RepositoryActionConfirmationDialog", () => {
-  it("sends the token and the exact sentence only after the user ticks the sentence", async () => {
+  it("sends the exact sentence only after the user ticks the sentence", async () => {
     const onConfirm = vi.fn(async () => {});
     const dialog = await renderDialog(onConfirm);
 
@@ -83,7 +81,6 @@ describe("RepositoryActionConfirmationDialog", () => {
       });
 
       expect(onConfirm).toHaveBeenCalledWith({
-        token: request.token,
         acknowledgement: request.acknowledgement,
       });
     } finally {
@@ -91,7 +88,7 @@ describe("RepositoryActionConfirmationDialog", () => {
     }
   });
 
-  it("shows a failure and offers only Close, because the token can be used already", async () => {
+  it("shows a failure and offers only Close", async () => {
     const onConfirm = vi.fn(async () => {
       throw new ConvexError("Cloudflare did not report the configured repository root.");
     });

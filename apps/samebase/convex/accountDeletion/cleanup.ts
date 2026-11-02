@@ -41,8 +41,8 @@ export const ACCOUNT_DELETION_TABLE_REGISTRY = {
   repositories: "organization_preserved",
   repositoryCloudflareWorkers: "organization_preserved",
   repositoryConvexProjects: "organization_preserved",
-  actionConfirmationTokens: "account_data",
-  audit_confirmedActions_events: "account_data",
+  actionConfirmationTokens: "removal_pending",
+  audit_confirmedActions_events: "removal_pending",
   observations_repositoryConvexSchema_snapshots: "organization_preserved",
   ui_repositoryConvexSchemaGraph_nodeLayouts: "account_data",
   workflow_repositoryProvisioning_plans: "organization_preserved",
@@ -178,20 +178,6 @@ const ACCOUNT_DATA_CLEANUP_HANDLERS = {
     const rows = await ctx.db
       .query("providerOAuthCallbackStates")
       .withIndex("by_user", (query) => query.eq("userId", userId))
-      .take(ACCOUNT_DATA_BATCH_SIZE);
-    return await deleteRowsById(ctx, rows);
-  },
-  actionConfirmationTokens: async (ctx, userId) => {
-    const rows = await ctx.db
-      .query("actionConfirmationTokens")
-      .withIndex("by_user_id", (query) => query.eq("userId", userId))
-      .take(ACCOUNT_DATA_BATCH_SIZE);
-    return await deleteRowsById(ctx, rows);
-  },
-  audit_confirmedActions_events: async (ctx, userId) => {
-    const rows = await ctx.db
-      .query("audit_confirmedActions_events")
-      .withIndex("by_user_id", (query) => query.eq("userId", userId))
       .take(ACCOUNT_DATA_BATCH_SIZE);
     return await deleteRowsById(ctx, rows);
   },

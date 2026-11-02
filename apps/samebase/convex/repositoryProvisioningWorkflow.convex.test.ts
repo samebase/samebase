@@ -1118,7 +1118,7 @@ async function retryProviderSetup(
   const challenge = await t.mutation(internal.repositoryProvisioningRuns.createRetryForRepository, {
     userId: args.userId,
     repositoryId: args.repositoryId,
-    surface: { kind: "dashboard" },
+    surface: "dashboard",
   });
   if (!challenge) {
     throw new Error("Expected a confirmation request.");
@@ -1126,8 +1126,8 @@ async function retryProviderSetup(
   await t.mutation(internal.repositoryProvisioningRuns.createRetryForRepository, {
     userId: args.userId,
     repositoryId: args.repositoryId,
-    surface: { kind: "dashboard" },
-    confirmation: { token: challenge.token, acknowledgement: challenge.acknowledgement },
+    surface: "dashboard",
+    confirmation: { acknowledgement: challenge.acknowledgement },
   });
   await t.finishAllScheduledFunctions(vi.runAllTimers);
   const retryRun = await t.run(

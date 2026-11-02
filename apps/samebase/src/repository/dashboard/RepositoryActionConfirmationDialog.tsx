@@ -19,11 +19,9 @@ import {
 
 /**
 The dashboard step of the server confirmation check (rfcs/125): the server's effect text, and its
-acknowledgement sentence as a checkbox label. Confirm resends the request with the token and the
-sentence; the parent closes the dialog when that call resolves. A challenge allows one attempt:
-connect, rotation, and retry can use the token before their provider work fails, so after a failure
-the dialog shows it and offers only Close, and the next attempt starts the action again with a new
-challenge.
+acknowledgement sentence as a checkbox label. Confirm resends the request with the sentence; the
+parent closes the dialog when that call resolves. After a failure the dialog shows it and offers
+only Close, and the next attempt starts the action again.
 */
 export function RepositoryActionConfirmationDialog({
   confirmLabel,
@@ -45,7 +43,7 @@ export function RepositoryActionConfirmationDialog({
   const confirm = async () => {
     setIsConfirming(true);
     try {
-      await onConfirm({ token: request.token, acknowledgement: request.acknowledgement });
+      await onConfirm({ acknowledgement: request.acknowledgement });
     } catch (confirmError) {
       setFailure(
         confirmError instanceof ConvexError && typeof confirmError.data === "string"
