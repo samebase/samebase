@@ -5,7 +5,7 @@ change. If a change needs action from you, the entry says so.
 
 ## 2026-11-02
 
-- **v2239: GitHub authorization through the identity hub.** GitHub user authorization now uses the
+- **v2240: GitHub authorization through the identity hub.** GitHub user authorization now uses the
   same flow as Convex and Cloudflare. Samebase asks you to authorize GitHub once more. Your
   organizations and repositories do not change.
 - **v2240: No onboarding video in the sidebar.** The right sidebar no longer shows the onboarding
