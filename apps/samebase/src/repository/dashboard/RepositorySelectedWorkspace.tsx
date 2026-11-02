@@ -18,7 +18,7 @@ import {
 import { applySearchPatch } from "@/routing/searchFlags";
 import { DASHBOARD_ROUTE } from "@/lib/dashboardRoute";
 import { RepositoryDeleteDialog } from "./RepositoryDeleteDialog";
-import { RepositoryOverviewPage, type RepositoryOverviewPageKind } from "./RepositoryOverviewPage";
+import { RepositoryOverviewPage } from "./RepositoryOverviewPage";
 import type { RepositoryWorkspaceSelected as RepositoryWorkspace } from "./repositoryWorkspaceModel";
 import { RepositoryActionConfirmationDialog } from "./RepositoryActionConfirmationDialog";
 
@@ -51,11 +51,9 @@ function readRepositoryProviderActionBlockReason(
 
 export function RepositorySelectedWorkspace({
   developerToolsVisible,
-  page,
   workspace,
 }: {
   developerToolsVisible: boolean;
-  page: RepositoryOverviewPageKind;
   workspace: RepositoryWorkspace;
 }) {
   const navigate = useNavigate();
@@ -148,7 +146,6 @@ export function RepositorySelectedWorkspace({
       <RepositoryOverviewPage
         developerToolsVisible={developerToolsVisible}
         isRetryingRepositoryAction={isRetryingRepositoryAction}
-        page={page}
         workspace={workspace}
         onOpenDeleteDialog={() => {
           void navigate({

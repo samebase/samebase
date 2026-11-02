@@ -101,6 +101,11 @@ export type AppWorkspaceRouteChromeStaticData = {
   the route's params and loader data, so the server HTML has it.
   */
   leftPane?: "none" | PaneFrameProps;
+  /**
+  "desktop" = a phone shows no sidebar toggle, and no row for it, on this route. A swipe opens the
+  sidebar there.
+  */
+  rightToggleVisibility?: "desktop";
   // Routes always keep the standard right sidebar for navigation. Add an option
   // here only when a concrete product requirement needs to remove it.
 };

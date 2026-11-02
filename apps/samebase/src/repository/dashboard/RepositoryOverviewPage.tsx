@@ -5,22 +5,15 @@ import {
   RepositoryOverviewLoadingLines,
 } from "@/repository/dashboard/RepositoryEnvironmentTree";
 import { PullRequestsSection } from "@/repository/dashboard/RepositoryPullRequestsSection";
-import { RepositorySettings } from "@/repository/dashboard/RepositorySettings";
+import { RepositoryGitHubIdentityNotice } from "@/repository/dashboard/RepositoryGitHubIdentityNotice";
 import { RepositorySetupStackStatus } from "@/repository/dashboard/RepositorySetupStackStatus";
 import { RepositoryWorkspaceDataInspector } from "@/repository/dashboard/RepositoryWorkspaceDataInspector";
-import {
-  buildRepositoryDashboardRoute,
-  buildRepositorySettingsRoute,
-} from "@/lib/repositoryRoutes";
 import { formatRepositorySourceSetupStep } from "./repositorySourceSetup";
-import { Link } from "@tanstack/react-router";
-import { AlertTriangle, LayoutList, Loader2, Settings } from "lucide-react";
+import { AlertTriangle, Loader2 } from "lucide-react";
 import type { ReactNode } from "react";
 import type { UserRepositoryResult } from "../../../convex/repository/contracts/getUserRepositories";
 import { isSamebaseManagedProviderPlan } from "../../../convex/repository/provisioningPlan";
 import type { RepositoryWorkspaceSelected } from "./repositoryWorkspaceModel";
-
-export type RepositoryOverviewPageKind = "overview" | "settings";
 
 type RepositoryOverviewPageProps = {
   developerToolsVisible: boolean;
@@ -28,88 +21,84 @@ type RepositoryOverviewPageProps = {
   onOpenDeleteDialog: () => void;
   onRetryInfrastructureProvisioning: () => void;
   onRetryRepositoryDeletion: () => void;
-  page: RepositoryOverviewPageKind;
   workspace: RepositoryWorkspaceSelected;
 };
 
 function RepositoryHeader({
+  children,
   owner,
-  page,
   repoName,
-  repositoryConnected,
   repositoryUrl,
 }: {
+  children?: ReactNode;
   owner: string;
-  page: RepositoryOverviewPageKind;
   repoName: string;
-  repositoryConnected: boolean;
-  repositoryUrl: string;
+  /** Null until the repository is connected on GitHub, so the name is not a link. */
+  repositoryUrl: string | null;
 }) {
-  const overviewRoute = buildRepositoryDashboardRoute({ owner, repoName });
-  const settingsRoute = buildRepositorySettingsRoute({ owner, repoName });
-  const repositoryIdentity = (
-    <>
-      <div className="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-1 text-base">
-        <span className="min-w-0 text-muted-foreground [overflow-wrap:anywhere]">{owner}/</span>
-        <h1 className="min-w-0 font-semibold text-foreground [overflow-wrap:anywhere]">
-          {repoName}
-        </h1>
-      </div>
-      <span
-        aria-hidden="true"
-        className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center text-foreground"
-      >
-        <GitHubProviderLogo />
-      </span>
-    </>
+  const repositoryName = (
+    <div className="min-w-0 text-base [overflow-wrap:anywhere]">
+      <span className="text-muted-foreground">{owner}/</span>
+      <h1 className="inline font-semibold">{repoName}</h1>
+    </div>
   );
 
   return (
     <header className="sticky top-0 z-10 border-b border-border bg-background">
-      <div className="mx-auto flex w-full max-w-[1100px] flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3 @3xl:px-6 @5xl:px-8">
-        {repositoryConnected ? (
+      <div className="mx-auto flex min-h-14 w-full max-w-[1100px] flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3 @3xl:px-6 @5xl:px-8">
+        {repositoryUrl ? (
           <a
             aria-label={`Open ${owner}/${repoName} on GitHub`}
-            className="flex w-full min-w-0 items-start gap-2 text-left no-underline hover:no-underline @3xl:w-auto @3xl:flex-1"
+            className="flex min-w-0 items-center gap-2 underline-offset-4"
             href={repositoryUrl}
             rel="noreferrer noopener"
             target="_blank"
           >
-            {repositoryIdentity}
+            {repositoryName}
+            <GitHubProviderLogo />
           </a>
         ) : (
-          <div className="flex w-full min-w-0 items-start gap-2 text-left @3xl:w-auto @3xl:flex-1">
-            {repositoryIdentity}
-          </div>
+          repositoryName
         )}
-        <nav aria-label="Repository" className="flex w-full items-center gap-1 @3xl:w-auto">
-          <Link
-            aria-current={page === "overview" ? "page" : undefined}
-            className={
-              page === "overview"
-                ? "inline-flex min-h-8 items-center gap-1.5 bg-muted px-2 text-sm font-medium text-foreground no-underline hover:no-underline"
-                : "inline-flex min-h-8 items-center gap-1.5 px-2 text-sm text-muted-foreground no-underline hover:bg-muted hover:text-foreground hover:no-underline"
-            }
-            to={overviewRoute}
-          >
-            <LayoutList className="h-4 w-4" />
-            Overview
-          </Link>
-          <Link
-            aria-current={page === "settings" ? "page" : undefined}
-            className={
-              page === "settings"
-                ? "inline-flex min-h-8 items-center gap-1.5 bg-muted px-2 text-sm font-medium text-foreground no-underline hover:no-underline"
-                : "inline-flex min-h-8 items-center gap-1.5 px-2 text-sm text-muted-foreground no-underline hover:bg-muted hover:text-foreground hover:no-underline"
-            }
-            to={settingsRoute}
-          >
-            <Settings className="h-4 w-4" />
-            Settings
-          </Link>
-        </nav>
+        {children}
       </div>
     </header>
+  );
+}
+
+/**
+A removal in progress or failed has its own notice on the page, so only a repository that is not
+ready for removal shows a reason here.
+*/
+function RepositoryDisconnect({
+  onOpenDeleteDialog,
+  repository,
+}: {
+  onOpenDeleteDialog: () => void;
+  repository: UserRepositoryResult;
+}) {
+  const blockedReason =
+    repository.deletion.state === "not_deleting" &&
+    repository.deletion.deleteAction.state === "disabled"
+      ? repository.deletion.deleteAction.reason
+      : null;
+
+  return (
+    <>
+      <Button
+        className="ml-auto"
+        disabled={repository.deletion.state !== "not_deleting" || blockedReason !== null}
+        size="sm"
+        type="button"
+        variant="outline"
+        onClick={onOpenDeleteDialog}
+      >
+        Disconnect
+      </Button>
+      {blockedReason ? (
+        <p className="w-full text-xs leading-5 text-muted-foreground">{blockedReason}</p>
+      ) : null}
+    </>
   );
 }
 
@@ -207,7 +196,6 @@ export function RepositoryOverviewPage({
   onOpenDeleteDialog,
   onRetryInfrastructureProvisioning,
   onRetryRepositoryDeletion,
-  page,
   workspace,
 }: RepositoryOverviewPageProps) {
   const filesReadEnabled =
@@ -226,57 +214,51 @@ export function RepositoryOverviewPage({
     <div className="min-h-full bg-background text-foreground">
       <RepositoryHeader
         owner={workspace.repository.githubOwnerLogin}
-        page={page}
         repoName={workspace.repository.githubRepositoryName}
-        repositoryConnected={workspace.repository.hasConnectedGitHubRepository}
-        repositoryUrl={workspace.githubRepositoryUrl}
-      />
-      {page === "settings" ? (
-        <RepositorySettings
-          developerToolsVisible={developerToolsVisible}
+        repositoryUrl={showRepositoryContent ? workspace.githubRepositoryUrl : null}
+      >
+        <RepositoryDisconnect
           onOpenDeleteDialog={onOpenDeleteDialog}
-          workspace={workspace}
+          repository={workspace.repository}
         />
-      ) : (
-        <main className="mx-auto grid w-full max-w-[1100px] gap-8 px-4 py-6 @3xl:px-6 @5xl:px-8 @5xl:py-8">
-          {provisioningLabel ? (
-            <section
-              aria-live="polite"
-              className="flex min-w-0 items-center gap-3 py-2"
-              role="status"
-            >
-              <Loader2
-                aria-hidden="true"
-                className="h-4 w-4 shrink-0 animate-spin text-muted-foreground"
-              />
-              <span className="min-w-0 text-sm font-medium text-foreground">
-                {provisioningLabel}
-              </span>
-            </section>
-          ) : (
-            <RepositoryStateNotice
-              isRetryingRepositoryAction={isRetryingRepositoryAction}
-              onRetryInfrastructureProvisioning={onRetryInfrastructureProvisioning}
-              onRetryRepositoryDeletion={onRetryRepositoryDeletion}
-              repository={workspace.repository}
+      </RepositoryHeader>
+      <main className="mx-auto grid w-full max-w-[1100px] gap-8 px-4 py-6 @3xl:px-6 @5xl:px-8 @5xl:py-8">
+        <RepositoryGitHubIdentityNotice workspace={workspace} />
+        {provisioningLabel ? (
+          <section
+            aria-live="polite"
+            className="flex min-w-0 items-center gap-3 py-2"
+            role="status"
+          >
+            <Loader2
+              aria-hidden="true"
+              className="h-4 w-4 shrink-0 animate-spin text-muted-foreground"
             />
-          )}
-          {showRepositoryContent ? (
-            <>
-              <RepositorySetupStackStatus repository={workspace.repository} />
-              <DefaultBranchSection filesReadEnabled={filesReadEnabled} workspace={workspace} />
-              {developerToolsVisible ? (
-                <RepositoryWorkspaceDataInspector workspace={workspace} />
-              ) : null}
-              <PullRequestsSection
-                filesReadEnabled={filesReadEnabled}
-                pullRequests={workspace.pullRequests}
-                repository={workspace.repository}
-              />
-            </>
-          ) : null}
-        </main>
-      )}
+            <span className="min-w-0 text-sm font-medium text-foreground">{provisioningLabel}</span>
+          </section>
+        ) : (
+          <RepositoryStateNotice
+            isRetryingRepositoryAction={isRetryingRepositoryAction}
+            onRetryInfrastructureProvisioning={onRetryInfrastructureProvisioning}
+            onRetryRepositoryDeletion={onRetryRepositoryDeletion}
+            repository={workspace.repository}
+          />
+        )}
+        {showRepositoryContent ? (
+          <>
+            <RepositorySetupStackStatus repository={workspace.repository} />
+            <DefaultBranchSection filesReadEnabled={filesReadEnabled} workspace={workspace} />
+          </>
+        ) : null}
+        {developerToolsVisible ? <RepositoryWorkspaceDataInspector workspace={workspace} /> : null}
+        {showRepositoryContent ? (
+          <PullRequestsSection
+            filesReadEnabled={filesReadEnabled}
+            pullRequests={workspace.pullRequests}
+            repository={workspace.repository}
+          />
+        ) : null}
+      </main>
       <div aria-hidden="true" className="h-[20svh] min-h-20" />
     </div>
   );
@@ -284,53 +266,28 @@ export function RepositoryOverviewPage({
 
 export function RepositoryOverviewLoadingPage({
   owner,
-  page,
   repoName,
 }: {
   owner: string;
-  page: RepositoryOverviewPageKind;
   repoName: string;
 }) {
   return (
     <div className="min-h-full bg-background text-foreground">
-      <RepositoryHeader
-        owner={owner}
-        page={page}
-        repoName={repoName}
-        repositoryConnected={false}
-        repositoryUrl={`https://github.com/${owner}/${repoName}`}
-      />
+      <RepositoryHeader owner={owner} repoName={repoName} repositoryUrl={null} />
       <main
         aria-busy="true"
-        aria-label={
-          page === "settings" ? "Loading repository settings" : "Loading repository overview"
-        }
+        aria-label="Loading repository overview"
         className="mx-auto grid w-full max-w-[1100px] gap-8 px-4 py-6 @3xl:px-6 @5xl:px-8 @5xl:py-8"
       >
-        {page === "settings" ? (
-          <>
-            <section>
-              <div className="mb-4 h-3 w-24 bg-muted motion-safe:animate-pulse" />
-              <RepositoryOverviewLoadingLines rows={1} />
-            </section>
-            <section>
-              <div className="mb-4 h-3 w-28 bg-muted motion-safe:animate-pulse" />
-              <RepositoryOverviewLoadingLines rows={1} />
-            </section>
-          </>
-        ) : (
-          <>
-            <section className="pb-5">
-              <RepositoryOverviewLoadingLines rows={2} />
-            </section>
-            <section>
-              <div className="mb-3 h-3 w-32 bg-muted motion-safe:animate-pulse" />
-              <div className="border-t border-border py-4">
-                <RepositoryOverviewLoadingLines />
-              </div>
-            </section>
-          </>
-        )}
+        <section className="pb-5">
+          <RepositoryOverviewLoadingLines rows={2} />
+        </section>
+        <section>
+          <div className="mb-3 h-3 w-32 bg-muted motion-safe:animate-pulse" />
+          <div className="border-t border-border py-4">
+            <RepositoryOverviewLoadingLines />
+          </div>
+        </section>
       </main>
     </div>
   );

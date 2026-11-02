@@ -7,10 +7,7 @@ import {
 } from "@/routeSearch/root";
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
-import {
-  RepositoryOverviewLoadingPage,
-  type RepositoryOverviewPageKind,
-} from "./RepositoryOverviewPage";
+import { RepositoryOverviewLoadingPage } from "./RepositoryOverviewPage";
 import { RepositoryOverviewPickerPane } from "./RepositoryOverviewPickerPane";
 import { RepositorySelectedWorkspace } from "./RepositorySelectedWorkspace";
 import { useRepositoryTreeActions } from "./useRepositoryTreeActions";
@@ -21,13 +18,11 @@ const DASHBOARD_DEVELOPER_TOOLS_QUERY_PARAM = "dev";
 
 export type RepositoryDashboardProps = {
   organizationOwner?: string;
-  page?: RepositoryOverviewPageKind;
   selectedRepositoryFullName?: string;
 };
 
 export function RepositoryDashboard({
   organizationOwner,
-  page = "overview",
   selectedRepositoryFullName,
 }: RepositoryDashboardProps) {
   const navigate = useNavigate();
@@ -82,7 +77,6 @@ export function RepositoryDashboard({
     return (
       <RepositoryOverviewLoadingPage
         owner={loadingRepository.owner}
-        page={page}
         repoName={loadingRepository.name}
       />
     );
@@ -115,7 +109,6 @@ export function RepositoryDashboard({
         <RepositorySelectedWorkspace
           key={workspaceModel.selection.workspace.repository.repositoryId}
           developerToolsVisible={developerToolsVisible}
-          page={page}
           workspace={workspaceModel.selection.workspace}
         />
       );

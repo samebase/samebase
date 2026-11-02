@@ -1,4 +1,3 @@
-import type { RepositoryOverviewPageKind } from "@/repository/dashboard/RepositoryOverviewPage";
 import { APP_SIDEBAR_CURRENT_LABEL_CLASS_NAME } from "@/components/appSidebarNavigation";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -29,10 +28,7 @@ import { ORGANIZATION_SETTINGS_ROUTE } from "@/organization/organizationRoutes";
 import { formatRepositoryCheckSummary } from "@/repository/dashboard/repositoryChecks";
 import type { RepositoryCheckSummary } from "../../../shared/repositoryChecks";
 import { personalOrganizationsFirst } from "@/organization/organizationOrder";
-import {
-  buildRepositoryDashboardRoute,
-  buildRepositorySettingsRoute,
-} from "@/lib/repositoryRoutes";
+import { buildRepositoryDashboardRoute } from "@/lib/repositoryRoutes";
 import { Link } from "@tanstack/react-router";
 import type { ReactMutation } from "convex/react";
 import type { FunctionReference } from "convex/server";
@@ -88,16 +84,6 @@ export type RepositoryOrganizationTreeCallbacks = {
 type FolderDialogState =
   | { folder: RepositoryFolder; kind: "rename" }
   | { folder: RepositoryFolder; kind: "delete"; repositoryCount: number };
-
-function repositoryRoute(
-  repository: UserRepositoryResult,
-  page: RepositoryOverviewPageKind,
-): string {
-  const args = { owner: repository.githubOwnerLogin, repoName: repository.githubRepositoryName };
-  return page === "settings"
-    ? buildRepositorySettingsRoute(args)
-    : buildRepositoryDashboardRoute(args);
-}
 
 function checkStateDotClassName(state: RepositoryCheckSummary["state"]): string {
   switch (state) {
@@ -190,7 +176,6 @@ function RepositoryRow({
   githubIdentity,
   pending,
   onDirectAction,
-  page,
   selected,
   sidebarSummaries,
   summary,
@@ -203,7 +188,6 @@ function RepositoryRow({
   pending: boolean;
   onDirectAction: (action: () => Promise<unknown>) => void;
   onMoveRepositoryToFolder: RepositoryFolderCallbacks["onMoveRepositoryToFolder"];
-  page: RepositoryOverviewPageKind;
   selected: boolean;
   sidebarSummaries: RepositorySidebarSummariesState;
   summary: RepositorySidebarSummary | undefined;
@@ -218,7 +202,11 @@ function RepositoryRow({
     workspace,
   });
   const pullRequestCount = summary?.openPullRequestCount;
-  const settingsWarning =
+  const route = buildRepositoryDashboardRoute({
+    owner: repository.githubOwnerLogin,
+    repoName: repository.githubRepositoryName,
+  });
+  const identityWarning =
     githubIdentity?.status === "renamed"
       ? { label: "Repository name changed", tone: "warning" as const }
       : githubIdentity?.status === "unavailable"
@@ -233,7 +221,7 @@ function RepositoryRow({
         className="block min-w-0 flex-1 py-2.5 pr-3 pl-2 text-left no-underline hover:no-underline @max-[200px]:pr-2 @max-[200px]:pl-1.5 @max-[120px]:pr-1 @max-[120px]:pl-1"
         data-repository-status={status.label}
         title={repository.githubRepositoryFullName}
-        to={repositoryRoute(repository, page)}
+        to={route}
       >
         <span className="block min-w-0 max-w-full text-sm leading-5">
           <span
@@ -266,20 +254,17 @@ function RepositoryRow({
           </span>
         </span>
       </Link>
-      {settingsWarning ? (
+      {identityWarning ? (
         <Button asChild className="mt-2 h-10 w-8 shrink-0" size="icon" variant="ghost">
           <Link
-            aria-label={`${settingsWarning.label} for ${repository.githubRepositoryFullName}. Open settings`}
-            title={settingsWarning.label}
-            to={buildRepositorySettingsRoute({
-              owner: repository.githubOwnerLogin,
-              repoName: repository.githubRepositoryName,
-            })}
+            aria-label={`${identityWarning.label} for ${repository.githubRepositoryFullName}`}
+            title={identityWarning.label}
+            to={route}
           >
             <AlertTriangle
               aria-hidden="true"
               className={
-                settingsWarning.tone === "warning"
+                identityWarning.tone === "warning"
                   ? "h-4 w-4 text-amber-600"
                   : "h-4 w-4 text-red-700"
               }
@@ -352,7 +337,6 @@ export function RepositoryOverviewSidebar({
   onMoveRepositoryToFolder,
   onRenameRepositoryFolder,
   onSetRepositoryFolderCollapsed,
-  page,
   selectedRepositoryId,
   sidebarSummaries,
   repositories,
@@ -361,7 +345,6 @@ export function RepositoryOverviewSidebar({
   folderState: RepositoryFolderState;
   githubIdentity?: OrganizationGitHubIdentityObservation;
   organizationId: Id<"organizations">;
-  page: RepositoryOverviewPageKind;
   selectedRepositoryId: UserRepositoryResult["repositoryId"] | null;
   sidebarSummaries: RepositorySidebarSummariesState;
   repositories: readonly UserRepositoryResult[];
@@ -436,7 +419,6 @@ export function RepositoryOverviewSidebar({
         githubIdentity={githubIdentityByRepositoryId.get(repository.repositoryId)}
         key={repository.repositoryId}
         pending={pendingAction !== null}
-        page={page}
         selected={repository.repositoryId === selectedRepositoryId}
         sidebarSummaries={sidebarSummaries}
         summary={summaryByRepositoryId.get(repository.repositoryId)}
@@ -635,7 +617,6 @@ export function RepositoryOverviewOrganizationSidebar({
   onSetRepositoryFolderCollapsed,
   onSetRepositoryOrganizationCollapsed,
   organizationTreeSettings,
-  page,
   selectedRepositoryId,
   sidebarSummaries,
   repositories,
@@ -646,7 +627,6 @@ export function RepositoryOverviewOrganizationSidebar({
   organizationsCollapsible: boolean;
   organizationTreeSettings: RepositoryOrganizationTreeSettings;
   onCreateRepositoryFolder: RepositoryFolderCreate;
-  page: RepositoryOverviewPageKind;
   selectedRepositoryId: UserRepositoryResult["repositoryId"] | null;
   sidebarSummaries: RepositorySidebarSummariesState;
   repositories: readonly UserRepositoryResult[];
@@ -774,7 +754,6 @@ export function RepositoryOverviewOrganizationSidebar({
                   folderState={folderState}
                   githubIdentity={githubIdentity}
                   organizationId={organization.organizationId}
-                  page={page}
                   selectedRepositoryId={selectedRepositoryId}
                   sidebarSummaries={sidebarSummaries}
                   repositories={organizationRepositories}

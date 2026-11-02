@@ -23,7 +23,7 @@ import {
   RepositoryOverviewSidebar,
 } from "./RepositoryOverviewSidebar";
 import { PullRequestsSection } from "./RepositoryPullRequestsSection";
-import { RepositorySettings } from "./RepositorySettings";
+import { RepositoryGitHubIdentityNotice } from "./RepositoryGitHubIdentityNotice";
 import { RepositoryDeleteDialogContent } from "./RepositoryDeleteDialog";
 import { readRepositoryStackCheck } from "./repositoryStackCheck";
 import { DefaultBranchSection, PullRequestResources } from "./RepositoryEnvironmentTree";
@@ -1522,7 +1522,6 @@ describe("RepositoryOverviewPickerPane", () => {
           {...FOLDER_CALLBACKS}
           folderState={{ assignments: [], folders: [] }}
           organizationId={repository.organizationId}
-          page="overview"
           selectedRepositoryId={null}
           sidebarSummaries={{ state: "loading" }}
           repositories={[repository]}
@@ -1597,7 +1596,6 @@ describe("RepositoryOverviewPage", () => {
           onOpenDeleteDialog={() => {}}
           onRetryInfrastructureProvisioning={() => {}}
           onRetryRepositoryDeletion={() => {}}
-          page="overview"
           workspace={{
             alchemyState: {
               state: "loaded" as const,
@@ -1674,12 +1672,8 @@ describe("RepositoryOverviewPage", () => {
               surface: { kind: "allRepositories" },
             }}
           >
-            <TestRouterProvider initialEntries={["/repo/ada/agent-plugins/settings"]}>
-              <RepositorySettings
-                developerToolsVisible={false}
-                onOpenDeleteDialog={() => {}}
-                workspace={workspace}
-              />
+            <TestRouterProvider initialEntries={["/repo/ada/agent-plugins"]}>
+              <RepositoryGitHubIdentityNotice workspace={workspace} />
             </TestRouterProvider>
           </OrganizationContext.Provider>
         </QueryClientProvider>,
@@ -1695,8 +1689,6 @@ describe("RepositoryOverviewPage", () => {
     expect(ownerMarkup).toContain("Update name");
     expect(memberMarkup).toContain("An organization owner must update this name.");
     expect(memberMarkup).not.toContain("Update name");
-    expect(ownerMarkup).toContain("Remove from Samebase");
-    expect(ownerMarkup).not.toContain("Connections");
   });
 });
 

@@ -28,14 +28,12 @@ vi.mock("@/components/RootIndexRoutePage", () => ({
 vi.mock("@/repository/dashboard/DashboardRoutePage", () => ({
   DashboardRoutePage: ({
     organizationOwner,
-    page = "overview",
     selectedRepositoryFullName,
   }: {
     organizationOwner?: string;
-    page?: "overview" | "settings";
     selectedRepositoryFullName?: string;
   }) => (
-    <div data-testid="dashboard-route" data-owner={organizationOwner} data-page={page}>
+    <div data-testid="dashboard-route" data-owner={organizationOwner}>
       {selectedRepositoryFullName ?? "Dashboard route"}
     </div>
   ),
@@ -633,7 +631,6 @@ describe("appRouter", () => {
 
     const dashboardRoute = rootElement?.querySelector('[data-testid="dashboard-route"]');
     expect(dashboardRoute?.textContent).toBe("Dashboard route");
-    expect(dashboardRoute?.getAttribute("data-page")).toBe("overview");
     expect(rootElement?.querySelector('[data-testid="root-index-route"]')).toBeNull();
     expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
   });
@@ -876,13 +873,13 @@ describe("appRouter", () => {
     await act(async () => {
       await router.navigate({
         search: {},
-        to: "/repo/$owner/$repository/settings",
+        to: "/repo/$owner/$repository",
         params: { owner: "samebase", repository: "samebase" },
       });
       await settleRouterRender();
     });
 
-    expect(router.state.location.pathname).toBe("/repo/samebase/samebase/settings");
+    expect(router.state.location.pathname).toBe("/repo/samebase/samebase");
     expect(new window.URLSearchParams(router.state.location.searchStr).has("prod-ui")).toBe(true);
   });
 
@@ -1207,21 +1204,7 @@ describe("appRouter", () => {
 
     const dashboardRoute = rootElement?.querySelector('[data-testid="dashboard-route"]');
     expect(dashboardRoute?.textContent).toBe("samebase/samebase");
-    expect(dashboardRoute?.getAttribute("data-page")).toBe("overview");
     expect(rootElement?.querySelector('[data-testid="file-view-page"]')).toBeNull();
-    expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
-  });
-
-  it("renders canonical repository settings through the dashboard route", async () => {
-    await renderRoute("/repo/samebase/samebase/settings");
-
-    await act(async () => {
-      await settleRouterRender();
-    });
-
-    const dashboardRoute = rootElement?.querySelector('[data-testid="dashboard-route"]');
-    expect(dashboardRoute?.textContent).toBe("samebase/samebase");
-    expect(dashboardRoute?.getAttribute("data-page")).toBe("settings");
     expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
   });
 

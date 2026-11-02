@@ -5,7 +5,6 @@ import {
   buildRepositoryDatabaseRoute,
   buildRepositoryFileRoute,
   buildRepositorySchemaRoute,
-  buildRepositorySettingsRoute,
   parseRepositoryPathContext,
 } from "./repositoryRoutes";
 
@@ -17,17 +16,6 @@ describe("buildRepositoryDashboardRoute", () => {
         repoName: "web",
       }),
     ).toBe("/repo/octo/web");
-  });
-});
-
-describe("buildRepositorySettingsRoute", () => {
-  it("builds the repository settings route", () => {
-    const repository = {
-      owner: "octo",
-      repoName: "web",
-    };
-
-    expect(buildRepositorySettingsRoute(repository)).toBe("/repo/octo/web/settings");
   });
 });
 

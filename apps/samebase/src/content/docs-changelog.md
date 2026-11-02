@@ -5,6 +5,9 @@ change. If a change needs action from you, the entry says so.
 
 ## 2026-11-02
 
+- **v2242: Simpler repository header.** A repository now has one page. Disconnect sits in its header
+  and opens the same Remove from Samebase dialog, so the Overview and Settings tabs are gone. The
+  repository name is an underlined GitHub link. On a phone, swipe to open the sidebar.
 - **v2241: GitHub authorization through the identity hub.** GitHub user authorization now uses the
   same flow as Convex and Cloudflare. Samebase asks you to authorize GitHub once more. Your
   organizations and repositories do not change.

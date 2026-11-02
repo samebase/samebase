@@ -3,7 +3,6 @@ import { RepositoryDashboard } from "@/repository/dashboard/RepositoryDashboard"
 
 export type DashboardRoutePageProps = {
   organizationOwner?: string;
-  page?: "overview" | "settings";
   selectedRepositoryFullName?: string;
 };
 
@@ -17,14 +16,12 @@ export type DashboardRoutePageProps = {
  */
 export function DashboardRoutePage({
   organizationOwner,
-  page,
   selectedRepositoryFullName,
 }: DashboardRoutePageProps) {
   return (
     <AuthenticatedAppRoutePage>
       <RepositoryDashboard
         organizationOwner={organizationOwner}
-        page={page}
         selectedRepositoryFullName={selectedRepositoryFullName}
       />
     </AuthenticatedAppRoutePage>

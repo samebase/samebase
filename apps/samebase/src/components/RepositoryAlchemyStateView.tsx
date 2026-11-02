@@ -45,20 +45,13 @@ export function RepositoryAlchemyStateView({
                 <RepositorySelectedWorkspace
                   key={workspace.repository.repositoryId}
                   developerToolsVisible={false}
-                  page="overview"
                   workspace={workspace}
                 />
               ),
             }
           : workspaceModel.state === "loading"
             ? {
-                content: (
-                  <RepositoryOverviewLoadingPage
-                    owner={owner}
-                    page="overview"
-                    repoName={repoName}
-                  />
-                ),
+                content: <RepositoryOverviewLoadingPage owner={owner} repoName={repoName} />,
               }
             : null
       }

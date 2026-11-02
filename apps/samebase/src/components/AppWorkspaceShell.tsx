@@ -301,6 +301,7 @@ function AppWorkspaceShellFrame({
     staticLeftPane === "none" ? "hidden" : (chrome?.leftToggleVisibility ?? "desktop");
   const rightToggleVisibility =
     chrome?.rightToggleVisibility ??
+    staticRouteChrome?.rightToggleVisibility ??
     (surface.kind === "allRepositories" || surface.kind === "organization" ? "all" : "desktop");
 
   return (

@@ -21,10 +21,6 @@ export function buildRepositoryDashboardRoute(args: { owner: string; repoName: s
   return `/repo/${args.owner}/${args.repoName}`;
 }
 
-export function buildRepositorySettingsRoute(args: { owner: string; repoName: string }): string {
-  return `${buildRepositoryDashboardRoute(args)}/settings`;
-}
-
 /**
  * Build the shipped `/repo/.../fs/...` file route shape.
  *

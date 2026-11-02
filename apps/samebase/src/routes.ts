@@ -94,7 +94,6 @@ export const routes = rootRoute("root.tsx", [
       route("$", "repository-file.tsx"),
     ]),
     route(`${DASHBOARD_ROUTE}/$owner/$repository`, "repository-dashboard.tsx"),
-    route(`${DASHBOARD_ROUTE}/$owner/$repository/settings`, "repository-settings.tsx"),
     route(
       `${DASHBOARD_ROUTE}/$owner/$repository/db/$branch/project/$convexProjectId`,
       "repository-database-project.tsx",

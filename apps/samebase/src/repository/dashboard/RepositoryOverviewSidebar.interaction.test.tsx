@@ -155,7 +155,6 @@ async function renderSidebar(callbacks: RepositoryFolderCallbacks) {
             ],
           }}
           organizationId={active.organizationId}
-          page="overview"
           selectedRepositoryId={null}
           sidebarSummaries={{ state: "loading" }}
           repositories={[active, unfiled]}

@@ -66,9 +66,7 @@ export type RepositoryOverviewVisualMode =
   | "repository-overview-v2-provisioning-ready"
   | "repository-overview-v2-root"
   | "repository-overview-v2-r2"
-  | "repository-overview-v2-settings"
-  | "repository-overview-v2-settings-active"
-  | "repository-overview-v2-settings-loading"
+  | "repository-overview-v2-disconnect-blocked"
   | "repository-overview-v2-store-missing"
   | "repository-overview-v2-store-unreadable";
 
@@ -858,7 +856,6 @@ function RepositoryOverviewProvisioningFixture({
                 },
               ]}
               organizationsCollapsible
-              page="overview"
               selectedRepositoryId={repository.repositoryId}
               sidebarSummaries={sidebarSummaries}
               repositories={[repository]}
@@ -872,7 +869,6 @@ function RepositoryOverviewProvisioningFixture({
               <RepositoryOverviewPage
                 developerToolsVisible={false}
                 isRetryingRepositoryAction={false}
-                page="overview"
                 workspace={workspace}
                 onOpenDeleteDialog={() => {}}
                 onRetryInfrastructureProvisioning={() => {}}
@@ -887,7 +883,7 @@ function RepositoryOverviewProvisioningFixture({
   );
 }
 
-function RepositoryOverviewActiveSettingsFixture() {
+function RepositoryOverviewDisconnectBlockedFixture() {
   const repository: UserRepositoryResult = {
     ...PROVISIONING_REPOSITORY,
     providerPlan: PROVISIONING_PLANNED_PROVIDER_PLAN,
@@ -919,9 +915,7 @@ function RepositoryOverviewActiveSettingsFixture() {
   });
 
   return (
-    <TestRouterProvider
-      initialEntries={["/repo/nicu-chiciuc/tmp-f149-repository-loading-states/settings"]}
-    >
+    <TestRouterProvider initialEntries={["/repo/nicu-chiciuc/tmp-f149-repository-loading-states"]}>
       <SidebarLayoutFixtureFrame
         left={{
           header: <RepositoryOverviewListHeader />,
@@ -930,7 +924,6 @@ function RepositoryOverviewActiveSettingsFixture() {
               {...FIXTURE_REPOSITORY_FOLDER_PROPS}
               organizations={[PROVISIONING_ORGANIZATION]}
               organizationsCollapsible
-              page="settings"
               selectedRepositoryId={repository.repositoryId}
               sidebarSummaries={{
                 state: "loaded",
@@ -952,7 +945,6 @@ function RepositoryOverviewActiveSettingsFixture() {
             <RepositoryOverviewPage
               developerToolsVisible={false}
               isRetryingRepositoryAction={false}
-              page="settings"
               workspace={workspace}
               onOpenDeleteDialog={() => {}}
               onRetryInfrastructureProvisioning={() => {}}
@@ -970,11 +962,6 @@ export function RepositoryOverviewVisualFixture({ mode }: { mode: RepositoryOver
   const [nextPullRequestPageLoaded, setNextPullRequestPageLoaded] = useState(false);
   const [organizationTreeSettings, setOrganizationTreeSettings] =
     useState<RepositoryOrganizationTreeSettings>([]);
-  const page =
-    mode === "repository-overview-v2-settings" || mode === "repository-overview-v2-settings-loading"
-      ? "settings"
-      : "overview";
-
   switch (mode) {
     case "repository-overview-v2-delete-dialog":
       return <RepositoryOverviewDialogsVisualFixture mode={mode} />;
@@ -989,8 +976,8 @@ export function RepositoryOverviewVisualFixture({ mode }: { mode: RepositoryOver
     case "repository-overview-v2-provisioning-commit":
     case "repository-overview-v2-provisioning-ready":
       return <RepositoryOverviewProvisioningFixture mode={mode} />;
-    case "repository-overview-v2-settings-active":
-      return <RepositoryOverviewActiveSettingsFixture />;
+    case "repository-overview-v2-disconnect-blocked":
+      return <RepositoryOverviewDisconnectBlockedFixture />;
   }
 
   if (mode === "repository-overview-v2-root") {
@@ -1025,10 +1012,7 @@ export function RepositoryOverviewVisualFixture({ mode }: { mode: RepositoryOver
     );
   }
 
-  if (
-    mode === "repository-overview-v2-loading" ||
-    mode === "repository-overview-v2-settings-loading"
-  ) {
+  if (mode === "repository-overview-v2-loading") {
     return (
       <TestRouterProvider initialEntries={["/repo/samebase/samebase"]}>
         <SidebarLayoutFixtureFrame
@@ -1037,9 +1021,7 @@ export function RepositoryOverviewVisualFixture({ mode }: { mode: RepositoryOver
             content: <RepositoryOverviewSidebarLoading />,
           }}
           main={{
-            content: (
-              <RepositoryOverviewLoadingPage owner="samebase" page={page} repoName="samebase" />
-            ),
+            content: <RepositoryOverviewLoadingPage owner="samebase" repoName="samebase" />,
           }}
           shortcutPaneSide="left"
         />
@@ -1107,7 +1089,6 @@ export function RepositoryOverviewVisualFixture({ mode }: { mode: RepositoryOver
             {...FIXTURE_REPOSITORY_FOLDER_PROPS}
             organizations={VISUAL_ORGANIZATIONS}
             organizationsCollapsible
-            page={page}
             selectedRepositoryId={LIST_SPACING_REPOSITORY_ID}
             sidebarSummaries={FIXTURE_SIDEBAR_SUMMARIES}
             repositories={SIDEBAR_LIST_REPOSITORIES}
@@ -1120,7 +1101,6 @@ export function RepositoryOverviewVisualFixture({ mode }: { mode: RepositoryOver
           <RepositoryOverviewPage
             developerToolsVisible={mode === "repository-overview-v2-dev"}
             isRetryingRepositoryAction={false}
-            page={page}
             workspace={workspace}
             onOpenDeleteDialog={() => {}}
             onRetryInfrastructureProvisioning={() => {}}
