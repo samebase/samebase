@@ -1,6 +1,6 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
-import { vRefreshGrant, vResourceRequest } from "./resourceSchema";
+import { vRefreshGrant, vResourceRequest } from "./resourceSchema.js";
 
 const { array, boolean, literal, number, object, optional, string, union } = v;
 

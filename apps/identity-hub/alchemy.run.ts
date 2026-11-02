@@ -17,6 +17,8 @@
 // is ever set by hand. IDENTITY_BROKER_KEYS is not in `env`: it stays on the deployment, and the
 // `deploy` script stops when it is missing. REGISTRATION_ACCESS_TOKEN is not in `env` either: it
 // stays on the deployment too and is set by hand, and `/register` refuses every request without it.
+import { execFileSync } from "node:child_process";
+import { relative } from "node:path";
 import * as Convex from "@samebase/alchemy-convex";
 import * as Alchemy from "alchemy";
 import { adopt } from "alchemy/AdoptPolicy";
@@ -26,6 +28,15 @@ import * as Effect from "effect/Effect";
 
 /** The Convex team that holds the project and the state. */
 const team = "nicu";
+/** The workspace dependencies of package.json. A change in one must also start a push. */
+const workspacePackages = execFileSync(
+  "pnpm",
+  ["--filter", "identity-hub^...", "list", "--depth", "-1", "--parseable"],
+  { encoding: "utf8" },
+)
+  .split("\n")
+  .filter(Boolean)
+  .map((directory) => relative(import.meta.dirname, directory));
 
 export default Alchemy.Stack(
   "samebase/samebase/apps/identity-hub",
@@ -40,7 +51,11 @@ export default Alchemy.Stack(
       path: "./convex",
       command: ["node", "--run", "deploy"],
       // The push inputs besides the functions, package.json, and the lockfile.
-      include: ["scripts/**", "tsconfig*.json"],
+      include: [
+        "scripts/**",
+        "tsconfig*.json",
+        ...workspacePackages.map((directory) => `${directory}/src/**`),
+      ],
     } satisfies Convex.Source;
     // The variables of the deployment. The secret is a prop, so the state store holds it next to
     // the deployment it serves.
