@@ -28,10 +28,6 @@ GitHub owns pull request fields and checks. Cloudflare owns Workers and builds. 
 production and preview deployments. Samebase reads those facts when a screen needs them and does not
 mirror them into Convex tables.
 
-The dormant `ui_repositoryPullRequests_filters` row and its APIs remain available for a possible
-future filter design. The current repository overview does not read or apply those saved
-preferences.
-
 ## GitHub Page Boundary
 
 `repositoryPullRequests.listOpenPullRequests` performs one GitHub GraphQL request for one provider

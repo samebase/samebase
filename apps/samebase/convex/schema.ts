@@ -12,7 +12,6 @@ import { organizationInvitationTables } from "./organization/invitationModel";
 import { organizationProviderCredentialTables } from "./organization/providerCredentialModel";
 import { repositoryConfirmationTables } from "./repository/confirmationModel";
 import { repositoryConvexSchemaGraphTables } from "./repository/convexSchemaGraphModel";
-import { repositoryDashboardTables } from "./repository/dashboardModel";
 import { repositoryDeletionTables } from "./repository/deletion/model";
 import { repositoryEditorTables } from "./repository/editorModel";
 import { repositoryFolderTables } from "./repository/folderModel";
@@ -31,7 +30,6 @@ export default defineSchema({
   ...accountDeletionTables,
   ...organizationProviderCredentialTables,
   ...userPreferenceTables,
-  ...repositoryDashboardTables,
   ...repositoryFolderTables,
   ...repositoryOrganizationTreeTables,
   ...repositoryTables,

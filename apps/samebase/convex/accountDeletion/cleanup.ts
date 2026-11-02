@@ -35,8 +35,6 @@ export const ACCOUNT_DELETION_TABLE_REGISTRY = {
   providerOAuthCallbackStates: "account_data",
   ui_user_settings: "account_data",
   ui_workspaceSidebar_layouts: "account_data",
-  ui_repositoryPullRequests_filters: "account_data",
-  ui_repositoryResourceLinks_settings: "account_data",
   ui_repositoryTree_folders: "account_data",
   ui_repositoryTree_folderAssignments: "account_data",
   ui_repositoryTree_organizationSettings: "account_data",
@@ -208,20 +206,6 @@ const ACCOUNT_DATA_CLEANUP_HANDLERS = {
     const rows = await ctx.db
       .query("ui_workspaceSidebar_layouts")
       .withIndex("by_user_and_workspace_key", (query) => query.eq("userId", userId))
-      .take(ACCOUNT_DATA_BATCH_SIZE);
-    return await deleteRowsById(ctx, rows);
-  },
-  ui_repositoryPullRequests_filters: async (ctx, userId) => {
-    const rows = await ctx.db
-      .query("ui_repositoryPullRequests_filters")
-      .withIndex("by_user", (query) => query.eq("userId", userId))
-      .take(ACCOUNT_DATA_BATCH_SIZE);
-    return await deleteRowsById(ctx, rows);
-  },
-  ui_repositoryResourceLinks_settings: async (ctx, userId) => {
-    const rows = await ctx.db
-      .query("ui_repositoryResourceLinks_settings")
-      .withIndex("by_user", (query) => query.eq("userId", userId))
       .take(ACCOUNT_DATA_BATCH_SIZE);
     return await deleteRowsById(ctx, rows);
   },

@@ -95,8 +95,6 @@ export const SAMEBASE_SCHEMA_GRAPH_TABLE_ZONES: Readonly<
 
   ui_user_settings: "workspace",
   ui_workspaceSidebar_layouts: "workspace",
-  ui_repositoryPullRequests_filters: "workspace",
-  ui_repositoryResourceLinks_settings: "workspace",
   ui_repositoryFileTree_folderExpansions: "workspace",
 
   repositories: "repositoryCore",

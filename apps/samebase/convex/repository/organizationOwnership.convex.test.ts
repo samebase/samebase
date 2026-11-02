@@ -242,24 +242,14 @@ describe("organization-owned repositories", () => {
         githubRepositoryName: "app",
       },
     );
-    const snapshot = await t.run(async (ctx) => {
-      const repository = await ctx.db.get(repositoryId);
-      const preference = await ctx.db
-        .query("ui_repositoryResourceLinks_settings")
-        .withIndex("by_user_and_repository", (query) =>
-          query.eq("userId", ownerUserId).eq("repositoryId", repositoryId),
-        )
-        .unique();
-      return { preference, repository };
-    });
+    const repository = await t.run(async (ctx) => await ctx.db.get(repositoryId));
 
-    expect(snapshot.repository).toMatchObject({
+    expect(repository).toMatchObject({
       organizationId,
       githubRepositoryName: "app",
     });
-    expect(snapshot.repository).not.toHaveProperty("owner");
-    expect(snapshot.repository).not.toHaveProperty("userId");
-    expect(snapshot.preference).toMatchObject({ userId: ownerUserId, repositoryId });
+    expect(repository).not.toHaveProperty("owner");
+    expect(repository).not.toHaveProperty("userId");
     await expect(
       t.mutation(internal.repository.records.createInitializingExistingRepositoryForUser, {
         organizationId,
