@@ -411,15 +411,23 @@ test("mcp consent sign-in keeps legal links in the sidebar rail", async ({ page 
   );
 });
 
-test("build identity does not link to the private source repository", async ({ page }) => {
+test("build identity links to the public source repository and exact commit", async ({ page }) => {
   await page.goto("/", { waitUntil: "networkidle" });
 
   const statusBar = page.getByTestId(APP_BUILD_STATUS_BAR_TEST_ID);
   const version = page.getByTestId(APP_BUILD_VERSION_TEST_ID);
   const commit = page.getByTestId(APP_BUILD_COMMIT_TEST_ID);
   await expectAppBuildVersionDisplay(statusBar, version, commit);
-  expect(await commit.getAttribute("href")).toBeNull();
-  expect(await commit.evaluate((element) => element.tagName)).toBe("SPAN");
+  await expect(version).toHaveAttribute("href", "https://github.com/samebase/samebase");
+  await expect(commit).toHaveAttribute("title", /^[0-9a-f]{40}$/);
+  await expect(commit).toHaveAttribute(
+    "href",
+    `https://github.com/samebase/samebase/commit/${await commit.getAttribute("title")}`,
+  );
+  for (const link of [version, commit]) {
+    await expect(link).toHaveAttribute("target", "_blank");
+    await expect(link).toHaveAttribute("rel", "noreferrer");
+  }
 });
 
 test.describe("iPhone SE landing sidebar", () => {
