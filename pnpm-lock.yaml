@@ -295,8 +295,8 @@ importers:
         specifier: 0.19.0
         version: 0.19.0(@effect/platform-node@4.0.5(effect@4.0.5)(redis@6.3.0(@opentelemetry/api@1.9.1)))(alchemy@2.0.0-beta.84(@arethetypeswrong/core@0.18.5)(@effect/platform-node@4.0.5(effect@4.0.5)(redis@6.3.0(@opentelemetry/api@1.9.1)))(@effect/vitest@4.0.5(effect@4.0.5)(vitest@5.0.5))(@types/node@24.19.2)(@types/react@19.3.0)(@typescript/native-preview@7.0.0-dev.20260707.2)(effect@4.0.5)(esbuild@0.28.2)(jiti@2.7.0)(publint@0.3.25)(terser@5.49.0)(typescript@7.0.2)(ws@8.22.0))(convex@1.48.0(react@19.3.0))(effect@4.0.5)
       '@samebase/identity-broker':
-        specifier: 0.12.0
-        version: 0.12.0(@standard-schema/spec@1.1.0)(convex@1.48.0(react@19.3.0))(hono@4.13.13)(react@19.3.0)(typescript@7.0.2)(zod@4.6.7)
+        specifier: workspace:*
+        version: link:../../packages/identity-broker
       convex:
         specifier: 1.48.0
         version: 1.48.0(react@19.3.0)
@@ -3380,13 +3380,6 @@ packages:
     hasBin: true
     peerDependencies:
       convex: ^1.46.0
-
-  '@samebase/identity-broker@0.12.0':
-    resolution: {integrity: sha512-oC8JSKCG+iqGBFv4bKaxiSz6vQdwgD/pYrDbD8NDiR/cb2/rNoomkUBj6SyAKCebgi1rwdlHUF7v5wF/47WRsw==}
-    engines: {node: '>=24.11.0'}
-    hasBin: true
-    peerDependencies:
-      convex: ^1.47.0
 
   '@scure/bip39@2.4.0':
     resolution: {integrity: sha512-82dxFbZUYboyOf0AXiydsQrFQ5Q4h9mX+O2UkE91ROYmsc0BKMGZLwDmy96Jpa2+vrtoxomjUhy1RPIgH/r2nA==}
@@ -10582,19 +10575,6 @@ snapshots:
       ignore: 7.0.12
       mime: 4.1.0
       zod: 4.6.7
-
-  '@samebase/identity-broker@0.12.0(@standard-schema/spec@1.1.0)(convex@1.48.0(react@19.3.0))(hono@4.13.13)(react@19.3.0)(typescript@7.0.2)(zod@4.6.7)':
-    dependencies:
-      '@convex-dev/rate-limiter': 0.4.2(@standard-schema/spec@1.1.0)(convex@1.48.0(react@19.3.0))(hono@4.13.13)(react@19.3.0)(typescript@7.0.2)(zod@4.6.7)
-      convex: 1.48.0(react@19.3.0)
-      jose: 6.2.13
-      oauth4webapi: 3.8.8
-    transitivePeerDependencies:
-      - '@standard-schema/spec'
-      - hono
-      - react
-      - typescript
-      - zod
 
   '@scure/bip39@2.4.0':
     dependencies:

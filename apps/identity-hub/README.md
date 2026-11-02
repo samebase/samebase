@@ -19,14 +19,15 @@ and this folder, `samebase/samebase/apps/identity-hub`. Its state is in the Conv
 `alchemy-state-store`, with the state of the other stacks of the team. The hub has no previews: no
 app points at one, and Google cannot sign in on one, since only the production callback is
 registered at Google. `.github/workflows/identity-hub.yml` runs on each push to `main`, and the
-stack skips the push when nothing of the hub changed. Pull requests run the checks only.
+stack skips the push when nothing of the hub or the broker changed. Pull requests run the checks
+only.
 
 1. Set `CONVEX_ACCESS_TOKEN`, the team's Convex access token, as a repository secret. The run mints
    the deploy key with it. In the GitHub environment `identity-hub`, which only `main` can use, set
    `GOOGLE_CLIENT_ID` with `GOOGLE_CLIENT_SECRET`, the team's Google OAuth client,
    `GOOGLE_APPS_CLIENT_ID` with `GOOGLE_APPS_CLIENT_SECRET`, the Google OAuth client of third-party
-   apps, `AUTH_GITHUB_CLIENT_ID` with `AUTH_GITHUB_CLIENT_SECRET`, the team's GitHub login OAuth App,
-   and `PROVIDER_CONVEX_OAUTH_CLIENT_ID` with `PROVIDER_CONVEX_OAUTH_CLIENT_SECRET` and
+   apps, `AUTH_GITHUB_CLIENT_ID` with `AUTH_GITHUB_CLIENT_SECRET`, the team's GitHub login OAuth
+   App, and `PROVIDER_CONVEX_OAUTH_CLIENT_ID` with `PROVIDER_CONVEX_OAUTH_CLIENT_SECRET` and
    `PROVIDER_CLOUDFLARE_OAUTH_CLIENT_ID` with `PROVIDER_CLOUDFLARE_OAUTH_CLIENT_SECRET`, the team's
    API OAuth applications. Register `https://auth.samebase.com/connections/convex/callback` and
    `https://auth.samebase.com/connections/cloudflare/callback` on those applications.
