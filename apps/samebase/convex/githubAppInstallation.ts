@@ -1,10 +1,10 @@
 import { v, type Infer } from "convex/values";
+import { generateRandomCodeVerifier } from "oauth4webapi";
 
 import {
   buildGitHubAppInstallationUrl,
   buildGitHubOrganizationProvidersReturnUrl,
   buildGitHubAppSetupReturnUrl,
-  buildGitHubUserAuthorizationUrl,
   isSafeGitHubAppReturnToPath,
 } from "../shared/githubApp";
 import {
@@ -14,13 +14,29 @@ import {
 import { canAccess } from "../shared/accessModel";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
-import { httpAction, internalMutation, internalQuery, type MutationCtx } from "./_generated/server";
+import {
+  httpAction,
+  internalMutation,
+  internalQuery,
+  type ActionCtx,
+  type MutationCtx,
+} from "./_generated/server";
 import {
   getGitHubAppConfiguration,
+  readAuthenticatedGitHubUser,
   revokeGitHubAppUserToken,
   verifyGitHubAppConnectionInstallation,
-  verifyGitHubUserAuthorization,
 } from "./githubApp";
+import {
+  buildHubAuthorizationUrl,
+  exchangeResourceOAuthCode,
+  expiringResourceTokens,
+  finishResourceOAuth,
+  HUB_GRANT_IDLE_MS,
+  hubCallbackOrigin,
+  readHubAuthorizationError,
+  revokeHubRefreshToken,
+} from "./hubResourceOAuth";
 import { vGitHubAppSetupPurpose } from "./githubAppSetupModel";
 import { githubUserAuthorizationAad } from "./githubUserAuthorizationModel";
 import {
@@ -56,6 +72,7 @@ const vGitHubAppSetupStateResult = union(
     organizationId: optional(id("organizations")),
     githubSignInProviderAccountId: optional(string()),
     returnToPath: optional(string()),
+    codeVerifier: optional(string()),
     expiresAt: number(),
   }),
   v.null(),
@@ -77,7 +94,10 @@ const vGitHubAppSetupCompletion = union(
   object({ status: literal("organization_owner_required"), githubOwnerLogin: string() }),
 );
 const vGitHubUserAuthorizationCompletion = union(
-  object({ status: literal("stored"), displacedAccessToken: optional(vSealedSecret) }),
+  object({
+    status: literal("stored"),
+    displaced: optional(object({ accessToken: vSealedSecret, refreshToken: vSealedSecret })),
+  }),
   object({ status: literal("access_lost") }),
   object({ status: literal("github_sign_in_required") }),
   object({ status: literal("github_sign_in_mismatch") }),
@@ -98,14 +118,41 @@ function parseInstallationId(value: string | null): number | null {
   return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : null;
 }
 
-async function revokeUncommittedGitHubUserToken(accessToken: string): Promise<void> {
+async function revokeUncommittedGitHubUserTokens(tokens: {
+  accessToken: string;
+  refreshToken: string;
+}): Promise<void> {
   try {
-    await revokeGitHubAppUserToken(accessToken);
+    await revokeGitHubAppUserToken(tokens.accessToken);
   } catch (error) {
     console.error("github:authorization:unused_token_revoke_failed", {
       errorName: error instanceof Error ? error.name : "UnknownError",
     });
   }
+  await revokeHubRefreshToken(tokens.refreshToken);
+}
+
+/**
+ * The App has one setup URL, which is production's. An install started in a preview lands here with
+ * a state this deployment never issued, and the preview reloads when this window closes.
+ */
+function installationFinishedResponse() {
+  return new Response(
+    `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>GitHub App setup</title>
+  </head>
+  <body>
+    <p>You can close this window and return to Samebase.</p>
+    <script>
+      window.close();
+    </script>
+  </body>
+</html>`,
+    { status: 200, headers: { "Content-Type": "text/html; charset=utf-8" } },
+  );
 }
 
 async function createGitHubAppSetupState(
@@ -114,6 +161,7 @@ async function createGitHubAppSetupState(
   purpose: GitHubAppSetupPurpose,
   returnToPath?: string,
   organizationId?: Id<"organizations">,
+  codeVerifier?: string,
 ): Promise<string> {
   const state = randomToken();
   const normalizedReturnToPath =
@@ -132,6 +180,7 @@ async function createGitHubAppSetupState(
     organizationId,
     githubSignInProviderAccountId,
     returnToPath: normalizedReturnToPath,
+    codeVerifier,
     createdAt: now,
     expiresAt: now + OAUTH_STATE_TTL_MS,
   });
@@ -179,18 +228,16 @@ async function buildGitHubUserAuthorizationSetupUrl(
     userId: Id<"users">;
   },
 ): Promise<string> {
-  const configuration = getGitHubAppConfiguration();
+  const codeVerifier = generateRandomCodeVerifier();
   const state = await createGitHubAppSetupState(
     ctx,
     args.userId,
     "user_authorization",
     args.returnToPath,
+    undefined,
+    codeVerifier,
   );
-  return buildGitHubUserAuthorizationUrl({
-    clientId: configuration.clientId,
-    redirectUri: configuration.oauthCallbackUrl,
-    state,
-  });
+  return await buildHubAuthorizationUrl({ provider: "github", state, codeVerifier });
 }
 
 export const createSetupState = internalMutation({
@@ -201,6 +248,7 @@ export const createSetupState = internalMutation({
     organizationId: optional(id("organizations")),
     githubSignInProviderAccountId: optional(string()),
     returnToPath: optional(string()),
+    codeVerifier: optional(string()),
     createdAt: number(),
     expiresAt: number(),
   },
@@ -250,6 +298,7 @@ export const getSetupStateByState = internalQuery({
       organizationId: setupState.organizationId,
       githubSignInProviderAccountId: setupState.githubSignInProviderAccountId,
       returnToPath: setupState.returnToPath,
+      codeVerifier: setupState.codeVerifier,
       expiresAt: setupState.expiresAt,
     };
   },
@@ -449,7 +498,7 @@ export const completeUserAuthorization = internalMutation({
       };
     }
 
-    const displacedAccessToken = await upsertGitHubUserAuthorization(ctx.db, {
+    const displaced = await upsertGitHubUserAuthorization(ctx.db, {
       userId: setupState.userId,
       githubUserId: args.githubUserId,
       githubUserLogin: args.githubUserLogin,
@@ -461,7 +510,7 @@ export const completeUserAuthorization = internalMutation({
     await ctx.db.delete(setupState._id);
     return {
       status: "stored",
-      displacedAccessToken: displacedAccessToken ?? undefined,
+      displaced: displaced ?? undefined,
     };
   },
 });
@@ -474,9 +523,8 @@ export const getGitHubAppInstallationUrl = mutation({
   returns: vGitHubAuthorizationStart,
   handler: async (ctx, args) => {
     await requireMatchingGitHubUserAuthorization(ctx.db, ctx.viewer.userId);
-    const configuration = getGitHubAppConfiguration();
     return {
-      callbackOrigin: new URL(configuration.oauthCallbackUrl).origin,
+      callbackOrigin: hubCallbackOrigin(),
       setupUrl: await buildGitHubAppSetupUrl(ctx, ctx.viewer.userId, args.returnToPath),
     };
   },
@@ -499,9 +547,8 @@ export const getGitHubAppReconnectUrl = mutation({
       throw new Error("Organization not found.");
     }
     await requireMatchingGitHubUserAuthorization(ctx.db, ctx.viewer.userId);
-    const configuration = getGitHubAppConfiguration();
     return {
-      callbackOrigin: new URL(configuration.oauthCallbackUrl).origin,
+      callbackOrigin: hubCallbackOrigin(),
       setupUrl: await buildGitHubAppReconnectSetupUrl(ctx, {
         organizationId,
         returnToPath: args.returnToPath,
@@ -518,9 +565,8 @@ export const getGitHubUserAuthorizationUrl = mutation({
   },
   returns: vGitHubAuthorizationStart,
   handler: async (ctx, args) => {
-    const configuration = getGitHubAppConfiguration();
     return {
-      callbackOrigin: new URL(configuration.oauthCallbackUrl).origin,
+      callbackOrigin: hubCallbackOrigin(),
       setupUrl: await buildGitHubUserAuthorizationSetupUrl(ctx, {
         returnToPath: args.returnToPath,
         userId: ctx.viewer.userId,
@@ -544,27 +590,49 @@ function readGitHubAuthorizationProvider(
   }
 }
 
+async function readSetupState(ctx: ActionCtx, url: URL): Promise<GitHubAppSetupStateResult> {
+  const state = url.searchParams.get("state");
+  return state === null
+    ? null
+    : await ctx.runQuery(internal.githubAppInstallation.getSetupStateByState, { state });
+}
+
+/** GitHub's setup URL, reached after an App installation or update. */
 export const finishGitHubAppInstallation = httpAction(async (ctx, request) => {
   const url = new URL(request.url);
+  const setupState = await readSetupState(ctx, url);
+  return setupState === null || setupState.purpose === "user_authorization"
+    ? installationFinishedResponse()
+    : await finishGitHubSetup(ctx, url, setupState);
+});
+
+/** The one callback a deployment registers at the hub, for GitHub and for the API providers. */
+export const finishHubOAuth = httpAction(async (ctx, request) => {
+  const url = new URL(request.url);
+  const setupState = await readSetupState(ctx, url);
+  if (setupState === null) return await finishResourceOAuth(ctx, request);
+  if (setupState.purpose !== "user_authorization") {
+    return new Response("Invalid OAuth state", { status: 400 });
+  }
+  try {
+    readHubAuthorizationError(url, setupState.state);
+  } catch {
+    return new Response("Invalid OAuth authorization response", { status: 400 });
+  }
+  return await finishGitHubSetup(ctx, url, setupState);
+});
+
+async function finishGitHubSetup(
+  ctx: ActionCtx,
+  url: URL,
+  setupState: NonNullable<GitHubAppSetupStateResult>,
+): Promise<Response> {
+  const { state } = setupState;
   const error = url.searchParams.get("error");
   const code = url.searchParams.get("code");
-  const state = url.searchParams.get("state");
-  if (state === null) {
-    return new Response("Missing GitHub App setup parameters", { status: 400 });
-  }
-
-  const setupState: GitHubAppSetupStateResult = await ctx.runQuery(
-    internal.githubAppInstallation.getSetupStateByState,
-    {
-      state,
-    },
-  );
-  if (setupState === null) {
-    return new Response("Invalid GitHub App setup state", { status: 400 });
-  }
   const returnUrl = buildGitHubAppSetupReturnUrl({
     configuredAppUrl: process.env["SITE_URL"] ?? process.env["CONVEX_SITE_URL"],
-    requestUrl: request.url,
+    requestUrl: url.toString(),
     returnToPath: setupState.returnToPath,
   });
   const provider = readGitHubAuthorizationProvider(setupState.purpose);
@@ -709,30 +777,38 @@ export const finishGitHubAppInstallation = httpAction(async (ctx, request) => {
           if (code === null) {
             throw new Error("GitHub OAuth code is missing.");
           }
-          const authorization = await verifyGitHubUserAuthorization({ code, state });
+          const tokens = expiringResourceTokens(
+            await exchangeResourceOAuthCode({
+              provider: "github",
+              code,
+              codeVerifier: setupState.codeVerifier,
+            }),
+          );
+          const now = Date.now();
           let completion: Infer<typeof vGitHubUserAuthorizationCompletion>;
           try {
+            const githubUser = await readAuthenticatedGitHubUser(tokens.accessToken);
             completion = await ctx.runMutation(
               internal.githubAppInstallation.completeUserAuthorization,
               {
                 setupStateId: setupState.setupStateId,
                 state,
                 accessToken: await sealSecret(ctx, {
-                  plaintext: authorization.accessToken,
+                  plaintext: tokens.accessToken,
                   aad: githubUserAuthorizationAad(setupState.userId, "accessToken"),
                 }),
-                accessTokenExpiresAt: authorization.accessTokenExpiresAt,
+                accessTokenExpiresAt: now + tokens.expiresIn * 1000,
                 refreshToken: await sealSecret(ctx, {
-                  plaintext: authorization.refreshToken,
+                  plaintext: tokens.refreshToken,
                   aad: githubUserAuthorizationAad(setupState.userId, "refreshToken"),
                 }),
-                refreshTokenExpiresAt: authorization.refreshTokenExpiresAt,
-                githubUserId: authorization.githubUserId,
-                githubUserLogin: authorization.githubUserLogin,
+                refreshTokenExpiresAt: now + HUB_GRANT_IDLE_MS,
+                githubUserId: githubUser.githubUserId,
+                githubUserLogin: githubUser.githubUserLogin,
               },
             );
           } catch (error) {
-            await revokeUncommittedGitHubUserToken(authorization.accessToken);
+            await revokeUncommittedGitHubUserTokens(tokens);
             throw error;
           }
           switch (completion.status) {
@@ -760,15 +836,18 @@ export const finishGitHubAppInstallation = httpAction(async (ctx, request) => {
               completion satisfies never;
           }
           if (completion.status !== "stored") {
-            await revokeUncommittedGitHubUserToken(authorization.accessToken);
-          } else if (completion.displacedAccessToken !== undefined) {
-            const displacedAccessToken = await openSecret({
-              sealed: completion.displacedAccessToken,
-              aad: githubUserAuthorizationAad(setupState.userId, "accessToken"),
+            await revokeUncommittedGitHubUserTokens(tokens);
+          } else if (completion.displaced !== undefined) {
+            await revokeUncommittedGitHubUserTokens({
+              accessToken: await openSecret({
+                sealed: completion.displaced.accessToken,
+                aad: githubUserAuthorizationAad(setupState.userId, "accessToken"),
+              }),
+              refreshToken: await openSecret({
+                sealed: completion.displaced.refreshToken,
+                aad: githubUserAuthorizationAad(setupState.userId, "refreshToken"),
+              }),
             });
-            if (displacedAccessToken !== authorization.accessToken) {
-              await revokeUncommittedGitHubUserToken(displacedAccessToken);
-            }
           }
           console.log("github:authorization:callback_completed", {
             outcome: completion.status,
@@ -800,4 +879,4 @@ export const finishGitHubAppInstallation = httpAction(async (ctx, request) => {
       title: "GitHub App setup",
     });
   }
-});
+}

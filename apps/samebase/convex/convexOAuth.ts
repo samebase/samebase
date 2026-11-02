@@ -102,7 +102,11 @@ export async function completeConvexOAuth(
 
   let completionReturnUrl = returnUrl;
   try {
-    const token = await exchangeResourceOAuthCode({ code, oauthState });
+    const token = await exchangeResourceOAuthCode({
+      provider: "convex",
+      code,
+      codeVerifier: oauthState.codeVerifier,
+    });
 
     const details = await fetchConvexTeamTokenDetails(token.access_token);
 

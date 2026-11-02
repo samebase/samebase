@@ -87,7 +87,6 @@ async function main(): Promise<void> {
       ["GITHUB_APP_CLIENT_ID", "ci-placeholder"],
       ["GITHUB_APP_CLIENT_SECRET", "ci-placeholder"],
       ["GITHUB_APP_ID", "1"],
-      ["GITHUB_APP_OAUTH_CALLBACK_URL", "https://example.com/github/callback"],
       ["GITHUB_APP_PRIVATE_KEY", "ci-placeholder"],
       ["GITHUB_APP_SLUG", "samebase-ci"],
     ] as const) {

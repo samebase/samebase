@@ -2,8 +2,8 @@ import {
   buildResourceOAuthUrl,
   exchangeResourceOAuthCode,
   refreshResourceOAuthToken,
-  cloudflareResourceTokens,
-  revokeCloudflareRefreshToken,
+  expiringResourceTokens,
+  revokeHubRefreshToken,
 } from "./hubResourceOAuth";
 import { ResponseBodyError } from "oauth4webapi";
 import { Infer, v } from "convex/values";
@@ -398,8 +398,8 @@ async function resolveConnectionForAuthority(
     try {
       switch (client.method) {
         case "oauth": {
-          const refreshed = cloudflareResourceTokens(
-            await refreshResourceOAuthToken(refreshToken),
+          const refreshed = expiringResourceTokens(
+            await refreshResourceOAuthToken("cloudflare", refreshToken),
             refreshToken,
           );
           refreshedAuth = {
@@ -604,9 +604,13 @@ export async function completeCloudflareOAuth(
   let completionReturnUrl = returnUrl;
   let unsavedRefreshToken: string | undefined;
   try {
-    const response = await exchangeResourceOAuthCode({ code, oauthState });
+    const response = await exchangeResourceOAuthCode({
+      provider: "cloudflare",
+      code,
+      codeVerifier: oauthState.codeVerifier,
+    });
     unsavedRefreshToken = response.refresh_token;
-    const token = cloudflareResourceTokens(response);
+    const token = expiringResourceTokens(response);
     const expiresAt = Date.now() + token.expiresIn * 1000;
     const currentAccount = await ctx.runQuery(
       internal.organizationProviderCredentials.loadCloudflareAccountForOAuthCallback,
@@ -683,10 +687,7 @@ export async function completeCloudflareOAuth(
     });
   } finally {
     if (unsavedRefreshToken !== undefined) {
-      await revokeCloudflareRefreshToken({
-        refreshToken: unsavedRefreshToken,
-        organizationId: oauthState.organizationId,
-      });
+      await revokeHubRefreshToken(unsavedRefreshToken);
     }
   }
 

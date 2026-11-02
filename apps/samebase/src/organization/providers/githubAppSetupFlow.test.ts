@@ -82,7 +82,14 @@ describe("GitHub App popup completion", () => {
     expect(removeEventListener).toHaveBeenCalledWith("message", messageHandler);
   });
 
-  it("returns to the current page when the GitHub popup closes without a callback", async () => {
+  it.each([
+    { provider: "github-app", returnUrl: "/org/acme/providers?prod-ui#github" },
+    {
+      provider: "github-user",
+      returnUrl:
+        "/org/acme/providers?prod-ui=&authorization-provider=github-user&authorization-error=canceled#github",
+    },
+  ] as const)("returns from a closed $provider popup without a callback", async (testCase) => {
     const returnReplace = vi.fn();
     let popupClose: (() => void) | undefined;
     let popupPoll: (() => void) | undefined;
@@ -119,7 +126,7 @@ describe("GitHub App popup completion", () => {
     };
     vi.stubGlobal("window", fakeWindow);
 
-    await openGitHubAppSetupPopup("github-app", async () => ({
+    await openGitHubAppSetupPopup(testCase.provider, async () => ({
       callbackOrigin: "https://samebase.com",
       setupUrl: "https://github.com/apps/samebase/installations/new?state=safe-state",
     }));
@@ -128,9 +135,7 @@ describe("GitHub App popup completion", () => {
     expect(returnReplace).not.toHaveBeenCalled();
     popupClose?.();
 
-    expect(returnReplace).toHaveBeenCalledWith(
-      "/org/acme/providers?prod-ui=&authorization-provider=github-app&authorization-error=canceled#github",
-    );
+    expect(returnReplace).toHaveBeenCalledWith(testCase.returnUrl);
   });
 
   it("uses direct navigation when the browser blocks the popup", async () => {

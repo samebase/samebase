@@ -131,7 +131,6 @@ describe("organization-owned repositories", () => {
     vi.stubEnv("GITHUB_APP_CLIENT_ID", "test-client");
     vi.stubEnv("GITHUB_APP_CLIENT_SECRET", "test-secret");
     vi.stubEnv("GITHUB_APP_PRIVATE_KEY", "test-private-key");
-    vi.stubEnv("GITHUB_APP_OAUTH_CALLBACK_URL", "https://samebase.test/github/callback");
 
     const t = makeConvexTest();
     const ownerUserId = await createUser(t, "personal-owner@example.com");

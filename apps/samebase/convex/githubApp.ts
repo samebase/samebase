@@ -1,9 +1,4 @@
-import {
-  createAppAuth,
-  createOAuthUserAuth,
-  type GitHubAppUserAuthentication,
-  type GitHubAppUserAuthenticationWithExpiration,
-} from "@octokit/auth-app";
+import { createAppAuth, createOAuthUserAuth } from "@octokit/auth-app";
 import { RequestError } from "@octokit/request-error";
 import { Octokit } from "@octokit/rest";
 
@@ -19,19 +14,6 @@ export type GitHubAppConfiguration = {
   clientId: string;
   clientSecret: string;
   privateKey: string;
-  oauthCallbackUrl: string;
-};
-
-export type ExpiringGitHubUserAuthentication = {
-  accessToken: string;
-  accessTokenExpiresAt: number;
-  refreshToken: string;
-  refreshTokenExpiresAt: number;
-};
-
-export type VerifiedGitHubUserAuthorization = ExpiringGitHubUserAuthentication & {
-  githubUserId: string;
-  githubUserLogin: string;
 };
 
 export type PreviewSeedGitHubAppInstallation = {
@@ -77,32 +59,13 @@ function requireProviderPositiveSafeInteger(value: unknown, label: string): numb
   return value;
 }
 
-function requireProviderTimestamp(value: string, label: string): number {
-  const timestamp = Date.parse(value);
-  if (!Number.isFinite(timestamp)) {
-    throw new Error(`GitHub returned an invalid ${label}.`);
-  }
-  return timestamp;
-}
-
 export function getGitHubAppConfiguration(): GitHubAppConfiguration {
-  const oauthCallbackUrl = requireTrimmed(
-    env.GITHUB_APP_OAUTH_CALLBACK_URL,
-    "GitHub App OAuth callback URL",
-  );
-  try {
-    new URL(oauthCallbackUrl);
-  } catch {
-    throw new Error("GitHub App OAuth callback URL must be an absolute URL.");
-  }
-
   return {
     appId: requirePositiveSafeInteger(env.GITHUB_APP_ID, "GitHub App ID"),
     appSlug: requireTrimmed(env.GITHUB_APP_SLUG, "GitHub App slug"),
     clientId: requireTrimmed(env.GITHUB_APP_CLIENT_ID, "GitHub App client ID"),
     clientSecret: requireTrimmed(env.GITHUB_APP_CLIENT_SECRET, "GitHub App client secret"),
     privateKey: requireTrimmed(env.GITHUB_APP_PRIVATE_KEY, "GitHub App private key"),
-    oauthCallbackUrl,
   };
 }
 
@@ -157,7 +120,10 @@ export function createGitHubUserOctokit(accessToken: string): Octokit {
   });
 }
 
-/** Revoke one uncommitted GitHub App user token without deleting the user's full App grant. */
+/**
+ * Revokes one GitHub App user token. Production and every preview share the App, so this never
+ * deletes the user's full App grant, which would end their other deployments' tokens.
+ */
 export async function revokeGitHubAppUserToken(accessToken: string): Promise<void> {
   const configuration = getGitHubAppConfiguration();
   const auth = createOAuthUserAuth({
@@ -166,78 +132,17 @@ export async function revokeGitHubAppUserToken(accessToken: string): Promise<voi
     clientSecret: configuration.clientSecret,
     token: requireTrimmed(accessToken, "GitHub user access token"),
   });
-  await auth({ type: "delete" });
-}
-
-export function requireExpiringGitHubUserAuthentication(
-  authentication: GitHubAppUserAuthentication | GitHubAppUserAuthenticationWithExpiration,
-): ExpiringGitHubUserAuthentication {
-  if (!("refreshToken" in authentication)) {
-    throw new Error("GitHub App user token expiration must be enabled.");
+  try {
+    await auth({ type: "delete" });
+  } catch (error) {
+    // GitHub answers 404 for a token that already expired, which has nothing left to revoke.
+    if (!(error instanceof RequestError && error.status === 404)) throw error;
   }
-
-  const accessToken = requireTrimmed(authentication.token, "GitHub user access token");
-  const refreshToken = requireTrimmed(authentication.refreshToken, "GitHub user refresh token");
-  const accessTokenExpiresAt = requireProviderTimestamp(
-    authentication.expiresAt,
-    "user access token expiry",
-  );
-  const refreshTokenExpiresAt = requireProviderTimestamp(
-    authentication.refreshTokenExpiresAt,
-    "user refresh token expiry",
-  );
-  if (accessTokenExpiresAt <= Date.now() || refreshTokenExpiresAt <= accessTokenExpiresAt) {
-    throw new Error("GitHub returned unusable user token expiry values.");
-  }
-
-  return {
-    accessToken,
-    accessTokenExpiresAt,
-    refreshToken,
-    refreshTokenExpiresAt,
-  };
 }
 
-async function exchangeGitHubAppUserCode(args: {
-  code: string;
-  state: string;
-  configuration: GitHubAppConfiguration;
-}): Promise<ExpiringGitHubUserAuthentication> {
-  const auth = createAppAuth({
-    appId: args.configuration.appId,
-    privateKey: args.configuration.privateKey,
-    clientId: args.configuration.clientId,
-    clientSecret: args.configuration.clientSecret,
-  });
-  const authentication = await auth({
-    type: "oauth-user",
-    code: requireTrimmed(args.code, "GitHub OAuth code"),
-    state: requireTrimmed(args.state, "GitHub OAuth state"),
-    redirectUrl: args.configuration.oauthCallbackUrl,
-  });
-  return requireExpiringGitHubUserAuthentication(authentication);
-}
-
-async function verifyGitHubUserAuthorizationWithConfiguration(args: {
-  code: string;
-  state: string;
-  configuration: GitHubAppConfiguration;
-}): Promise<VerifiedGitHubUserAuthorization> {
-  const authentication = await exchangeGitHubAppUserCode(args);
-  const userOctokit = createGitHubUserOctokit(authentication.accessToken);
-  const userResponse = await userOctokit.request("GET /user");
-  const user = parseAuthenticatedGitHubUser(userResponse.data);
-  return { ...authentication, ...user };
-}
-
-export async function verifyGitHubUserAuthorization(args: {
-  code: string;
-  state: string;
-}): Promise<VerifiedGitHubUserAuthorization> {
-  return await verifyGitHubUserAuthorizationWithConfiguration({
-    ...args,
-    configuration: getGitHubAppConfiguration(),
-  });
+export async function readAuthenticatedGitHubUser(accessToken: string) {
+  const response = await createGitHubUserOctokit(accessToken).request("GET /user");
+  return parseAuthenticatedGitHubUser(response.data);
 }
 
 function parseAuthenticatedGitHubUser(value: unknown): {
