@@ -25,35 +25,6 @@ import {
 
 const { array, boolean, id, literal, number, object, string, union } = v;
 
-/** Production deployment names for attachment navigation, without deployment monitoring. */
-export const attachedDeployments = action({
-  access: "access_dashboard",
-  args: { repositoryId: id("repositories") },
-  returns: array(
-    object({ convexProjectId: id("repositoryConvexProjects"), deploymentName: string() }),
-  ),
-  handler: async (ctx, args) => {
-    const target = await readConvexInspectionTarget(ctx, {
-      repositoryId: args.repositoryId,
-      userId: ctx.viewer.userId,
-    });
-    const deployments = await Promise.all(
-      target.projects.map(async (project) => {
-        const deployment = await readConvexProductionDeployment({
-          token: target.token,
-          projectId: project.projectId,
-        });
-        return deployment
-          ? [{ convexProjectId: project._id, deploymentName: deployment.name }]
-          : [];
-      }),
-    );
-    return deployments
-      .flat()
-      .sort((left, right) => left.convexProjectId.localeCompare(right.convexProjectId));
-  },
-});
-
 const vConvexComponentsObservation = object({
   deploymentName: string(),
   components: array(

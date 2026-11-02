@@ -26,7 +26,6 @@ export type RepositoryWorkspaceSelected = {
   githubRepositoryUrl: string;
   /** One card for each stack of the repository in the team store with a `prod` stage. */
   productionCards: readonly RepositoryStackCard[];
-  attachmentLinks: readonly { href: string; label: string }[];
   pullRequests: RepositoryPullRequestsState;
   repository: UserRepositoryResult;
 };

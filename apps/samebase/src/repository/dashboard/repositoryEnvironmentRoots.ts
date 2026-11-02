@@ -111,7 +111,7 @@ The Samebase routes of a production Convex deployment. `convexProjectId` is the 
 the Convex project id of a deployment of the repository stack, which the Data route resolves
 through the Alchemy state store.
 */
-export function buildConvexProductionActions({
+function buildConvexProductionActions({
   branch,
   convexProjectId,
   deploymentName,
@@ -121,7 +121,7 @@ export function buildConvexProductionActions({
 }: {
   branch: string;
   convexProjectId: string;
-  deploymentName: string | null;
+  deploymentName: string;
   owner: string;
   repoName: string;
   schemaGraphEnabled: boolean;
@@ -141,15 +141,11 @@ export function buildConvexProductionActions({
           },
         ]
       : []),
-    ...(deploymentName
-      ? [
-          {
-            destination: "samebase" as const,
-            href: buildRepositoryComponentsRoute({ owner, repoName, deploymentName }),
-            label: "Components",
-          },
-        ]
-      : []),
+    {
+      destination: "samebase",
+      href: buildRepositoryComponentsRoute({ owner, repoName, deploymentName }),
+      label: "Components",
+    },
   ];
 }
 

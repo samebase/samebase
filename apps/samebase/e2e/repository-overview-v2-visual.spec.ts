@@ -161,28 +161,11 @@ test("shows an old app with no stack on desktop", async ({ page }) => {
   });
 });
 
-for (const [label, href] of [
-  ["Data", "/repo/samebase/samebase/db/main/project/convex-project-samebase"],
-  ["Schema", "/repo/samebase/samebase/schema/main/project/convex-project-samebase"],
-  ["Components", "/repo/samebase/samebase/components/clear-butterfly-858"],
-]) {
-  test("opens " + label + " from an old app with an attachment and no stack", async ({ page }) => {
-    const fixture = await openRepositoryOverviewV2(page, "repository-overview-v2");
-    const link = fixture
-      .getByRole("navigation", { name: "Convex pages" })
-      .getByRole("link", { name: label, exact: true });
-    await expect(link).toHaveAttribute("href", href);
-    await link.click();
-    await expect(page).toHaveURL(href);
-  });
-}
-
 test("keeps the Data and Components routes of a stack's production deployment", async ({
   page,
 }) => {
   const fixture = await openRepositoryOverviewV2(page, "repository-overview-v2-r2");
 
-  await expect(fixture.getByRole("navigation", { name: "Convex pages" })).toHaveCount(0);
   await fixture.getByRole("button", { name: "Open clear-butterfly-858 actions" }).click();
   await expect(page.getByRole("menuitem", { name: "Data" })).toBeVisible();
   await expect(page.getByRole("menuitem", { name: "Components" })).toBeVisible();

@@ -12,10 +12,7 @@ import {
   RepositoryOverviewOrganizationSidebar,
   RepositoryOverviewSidebarLoading,
 } from "@/repository/dashboard/RepositoryOverviewSidebar";
-import {
-  buildAlchemyStackCards,
-  buildConvexProductionActions,
-} from "@/repository/dashboard/repositoryEnvironmentRoots";
+import { buildAlchemyStackCards } from "@/repository/dashboard/repositoryEnvironmentRoots";
 import type {
   RepositoryFolderState,
   RepositoryOrganizationTreeSettings,
@@ -699,20 +696,6 @@ function buildFixtureWorkspace({
     alchemyState,
     access: { state: "ready", accessKeys: ROLE_ACCESS_GRANTS.role_member },
     githubRepositoryUrl,
-    attachmentLinks:
-      alchemyState.state === "loaded" &&
-      alchemyState.observation.store === "found" &&
-      alchemyState.observation.stacks.length === 0 &&
-      repository.convexProjects.length > 0
-        ? buildConvexProductionActions({
-            branch: repository.defaultBranch ?? "main",
-            convexProjectId: LIST_SPACING_CONVEX_PROJECT_ID,
-            deploymentName: "clear-butterfly-858",
-            owner: repository.githubOwnerLogin,
-            repoName: repository.githubRepositoryName,
-            schemaGraphEnabled: ROLE_ACCESS_GRANTS.role_member.includes("access_schema_graph"),
-          })
-        : [],
     productionCards:
       repository.defaultBranch &&
       alchemyState.state === "loaded" &&
