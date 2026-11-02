@@ -147,6 +147,9 @@ So the current preference is:
 
 ## Workers Migration Notes
 
+These notes apply to the older Workers edition in the public repository history. The maintained
+`templates/base` now uses Alchemy and Convex hosting.
+
 For a Workers version of the artifact:
 
 - Use TanStack Start in SPA mode.
@@ -159,7 +162,8 @@ For a Workers version of the artifact:
   URL preference, and local Wrangler deploy/dry-run behavior. Do not hard-code `name` in the
   reusable artifact template.
 - Set `deploy` to `wrangler deploy` and `deploy:preview` to `wrangler preview`. Use the Wrangler
-  version pinned in `templates/base/package.json`; it reads the Worker name from Workers Builds.
+  version already pinned in the Workers app's `package.json`; it reads the Worker name from Workers
+  Builds.
 - Keep repository automation in erasable TypeScript runnable by plain `node` in Cloudflare's Workers
   Builds image, and pin Node 24 with `.node-version` or `NODE_VERSION`.
 - Keep the core workflow native on macOS, Linux, and Windows. Do not add Bash scripts, POSIX-only

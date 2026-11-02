@@ -147,12 +147,6 @@ describe("compactIdentitySvgAsset", () => {
     expect(generatedSvg).toContain(
       `<rect width="60" height="60" fill="${COMPACT_IDENTITY_BACKGROUND_COLOR}" />`,
     );
-    expect(
-      readFileSync(
-        new URL("../../../../templates/base/public/favicon.svg", import.meta.url),
-        "utf8",
-      ).trim(),
-    ).toBe(generatedSvg);
   });
 
   it("keeps the dark ChatGPT icon on the inverse compact identity", () => {

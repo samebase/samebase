@@ -41,7 +41,7 @@ Two costs come with this:
 
 1. You connect GitHub and Convex to Samebase.
 2. You create an app. Samebase creates the repository from the
-   [starter](https://github.com/samebase/base-alchemy) and writes two values into it: the secret
+   [starter](https://github.com/samebase/base) and writes two values into it: the secret
    `CONVEX_ACCESS_TOKEN` and the variable `CONVEX_TEAM_ID`.
 3. That first push starts GitHub Actions. Alchemy creates the Convex project and the production
    deployment, then uploads the site. My test app went live about 90 seconds after I clicked create.

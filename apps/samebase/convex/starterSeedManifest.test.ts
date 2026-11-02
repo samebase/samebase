@@ -1,239 +1,18 @@
 import { describe, expect, it } from "vite-plus/test";
-import { actionsStarterTemplateManifest } from "./starterSeedManifest.actions.generated";
 import { starterTemplateManifest } from "./starterSeedManifest.generated";
 
-describe("starterSeedManifest", () => {
-  it("identifies the v2064 template snapshot", () => {
-    expect({
-      contentHash: starterTemplateManifest.contentHash,
-      commitMessage: starterTemplateManifest.commitMessage,
-    }).toEqual({
-      contentHash: "b6c756111bab7ee6a3355ba472024f7993955dd6c934d7fdbb54607252b95ce6",
-      commitMessage: "Initialize app from Samebase starter build v2064",
-    });
+describe("starterTemplateManifest", () => {
+  it("is the Alchemy starter, with the fixed provider", () => {
+    const filePaths = Object.keys(starterTemplateManifest.files);
+
     expect(starterTemplateManifest.version).toBe(
       `samebase-base-${starterTemplateManifest.contentHash.slice(0, 12)}`,
     );
     expect(starterTemplateManifest.sourcePath).toBe("templates/base");
     expect(starterTemplateManifest.publishedRepo).toBe("https://github.com/samebase/base.git");
-  });
-
-  it("includes required runnable starter files", () => {
-    const filePaths = Object.keys(starterTemplateManifest.files);
-    const binaryFilePaths = Object.keys(starterTemplateManifest.binaryFiles);
-    const allFilePaths = [...filePaths, ...binaryFilePaths];
-
-    expect(filePaths).toContain("package.json");
-    expect(filePaths).toContain("pnpm-lock.yaml");
-    expect(filePaths).toContain("pnpm-workspace.yaml");
-    expect(filePaths).toContain(".github/workflows/ci.yml");
-    expect(filePaths).toContain(".node-version");
-    expect(filePaths).toContain("wrangler.jsonc");
-    expect(filePaths).toContain("scripts/build-cloudflare.ts");
-    expect(filePaths).toContain("prerender.config.ts");
-    expect(filePaths).not.toContain("scripts/deploy-cloudflare.ts");
-    expect(filePaths).toContain("scripts/ensure-convex-auth.ts");
-    expect(filePaths).toContain("scripts/generate-cloudflare-redirects.ts");
-    expect(filePaths).toContain("tsconfig.node.json");
-    expect(filePaths).toContain("convex/auth.ts");
-    expect(filePaths).toContain("convex/auth.config.ts");
-    expect(filePaths).toContain("convex/guests.ts");
-    expect(filePaths).toContain("convex/http.ts");
-    expect(filePaths).toContain("src/router.tsx");
-    expect(filePaths).toContain("src/routes/index.tsx");
-    expect(filePaths).toContain("src/routeTree.gen.ts");
-    expect(filePaths).toContain("convex/schema.ts");
-    expect(filePaths).toContain("convex/_generated/api.d.ts");
-    expect(filePaths).toContain("AGENTS.md");
-    expect(filePaths).toContain("docs/local-setup.md");
-    expect(filePaths).toContain("public/_redirects");
-    expect(starterTemplateManifest.fileModes[".vite-hooks/pre-commit"]).toBe("100755");
-    expect(new Set(allFilePaths).size).toBe(allFilePaths.length);
-    expect(allFilePaths.length).toBeGreaterThan(10);
-  });
-
-  it("keeps one Vite+ toolchain and explicit TypeScript projects in normal checks and builds", () => {
-    const packageJson: unknown = JSON.parse(starterTemplateManifest.files["package.json"]);
-    const nodeTypeScriptConfig: unknown = JSON.parse(
-      starterTemplateManifest.files["tsconfig.node.json"],
+    expect(starterTemplateManifest.commitMessage).toBe(
+      "Initialize app from Samebase starter build v2210",
     );
-    const buildCloudflareScript = starterTemplateManifest.files["scripts/build-cloudflare.ts"];
-    const pnpmWorkspace = starterTemplateManifest.files["pnpm-workspace.yaml"];
-
-    expect(starterTemplateManifest.files[".node-version"]).toBe("24\n");
-    expect(packageJson).toEqual(
-      expect.objectContaining({
-        name: "samebase-base",
-        type: "module",
-        scripts: expect.objectContaining({
-          check:
-            "vp check && vp run typecheck && vp test && vp run verify:cloudflare-redirects && vp run verify:dev-launcher-version",
-          build: "node ./scripts/build-cloudflare.ts",
-          "build:app": "vp run check && vp build",
-          deploy: "wrangler deploy",
-          "deploy:preview": "wrangler preview",
-          format: "vp fmt",
-          "format:check": "vp fmt --check",
-          lint: "vp lint --report-unused-disable-directives",
-          prepare: "vp config --no-agent",
-          test: "vp test",
-          typecheck: "tsc && vp run typecheck:node && tsc --project convex/tsconfig.json",
-          "typecheck:node": "tsc --project tsconfig.node.json",
-          "verify:cloudflare-redirects":
-            "vp run generate:cloudflare-redirects && git diff --exit-code -- public/_redirects",
-        }),
-        devDependencies: expect.objectContaining({
-          vite: "catalog:",
-          "vite-plus": "catalog:",
-          vitest: "catalog:",
-        }),
-        packageManager: "pnpm@12.14.0",
-      }),
-    );
-    expect(pnpmWorkspace).toContain("vite: npm:@voidzero-dev/vite-plus-core@1.3.0");
-    expect(pnpmWorkspace).toContain("vitest: 5.0.5");
-    expect(pnpmWorkspace).toContain("vite-plus: 1.3.0");
-    expect(starterTemplateManifest.files["package.json"]).not.toContain('"eslint"');
-    expect(starterTemplateManifest.files["package.json"]).not.toContain('"prettier"');
-    expect(buildCloudflareScript).toContain(
-      'const WORKERS_BUILD_COMMAND = "vp run build:app && node ./scripts/verify-current-branch-head.ts";',
-    );
-    expect(buildCloudflareScript).toContain('await runCommand(["run", "build:app"]');
-    expect(nodeTypeScriptConfig).toEqual({
-      compilerOptions: {
-        target: "ESNext",
-        module: "NodeNext",
-        moduleResolution: "NodeNext",
-        types: ["node"],
-        skipLibCheck: true,
-        allowImportingTsExtensions: true,
-        verbatimModuleSyntax: true,
-        moduleDetection: "force",
-        noEmit: true,
-        strict: true,
-        exactOptionalPropertyTypes: true,
-        noUncheckedSideEffectImports: true,
-        noImplicitReturns: true,
-        noImplicitOverride: true,
-        noPropertyAccessFromIndexSignature: true,
-        noUncheckedIndexedAccess: false,
-        allowUnreachableCode: false,
-        allowUnusedLabels: false,
-        forceConsistentCasingInFileNames: true,
-        noUnusedLocals: true,
-        noUnusedParameters: true,
-        erasableSyntaxOnly: true,
-        noFallthroughCasesInSwitch: true,
-      },
-      include: ["scripts/**/*.ts", "vite.config.ts"],
-    });
-  });
-
-  it("keeps Cloudflare SPA mode and exact prerender aliases aligned", () => {
-    expect(starterTemplateManifest.files["public/_redirects"]).toContain(
-      "Cloudflare SPA mode owns app-route fallback through /index.html.",
-    );
-    expect(starterTemplateManifest.files["public/_redirects"]).toContain(
-      "# @samebase/base-prerender-redirects:start",
-    );
-    expect(starterTemplateManifest.files["public/_redirects"]).toContain("/ /_landing.html 200");
-    expect(starterTemplateManifest.files["prerender.config.ts"]).toContain(
-      'outputPath: "/_landing.html"',
-    );
-    expect(starterTemplateManifest.files["vite.config.ts"]).toContain('maskPath: "/#__spa-shell"');
-    expect(starterTemplateManifest.files["package.json"]).toContain(
-      '"generate:cloudflare-redirects"',
-    );
-  });
-
-  it("uses system fonts without a default webfont dependency", () => {
-    expect(starterTemplateManifest.files["package.json"]).not.toContain("@fontsource");
-    expect(starterTemplateManifest.files["src/style.css"]).not.toContain("@fontsource");
-    expect(starterTemplateManifest.files["src/style.css"]).toContain("ui-sans-serif");
-  });
-
-  it("documents Convex deploy-key permissions for Workers builds", () => {
-    expect(starterTemplateManifest.files["README.md"]).toContain("`CONVEX_DEPLOY_KEY`");
-    expect(starterTemplateManifest.files["README.md"]).not.toContain("`PROD_CONVEX_DEPLOY_KEY`");
-    expect(starterTemplateManifest.files["scripts/build-cloudflare.ts"]).toContain(
-      "deployment:deploy, deployment:env:view, deployment:env:write, and deployment:data:view",
-    );
-    expect(starterTemplateManifest.files["scripts/build-cloudflare.ts"]).toContain(
-      "const CONVEX_DEPLOY_KEY =",
-    );
-    expect(starterTemplateManifest.files["scripts/build-cloudflare.ts"]).not.toContain(
-      "PROD_CONVEX_DEPLOY_KEY",
-    );
-    expect(starterTemplateManifest.files["scripts/build-cloudflare.ts"]).not.toContain(
-      "PREVIEW_CONVEX_DEPLOY_KEY",
-    );
-    expect(starterTemplateManifest.files["scripts/build-cloudflare.ts"]).toContain(
-      '"--preview-name"',
-    );
-    expect(starterTemplateManifest.files["scripts/build-cloudflare.ts"]).not.toContain(
-      '"--preview-create"',
-    );
-    expect(starterTemplateManifest.files["docs/cloudflare-workers-builds.md"]).toBeUndefined();
-    expect(starterTemplateManifest.files["README.md"]).not.toContain(
-      "https://samebase.com/docs/cloudflare-previews-migration",
-    );
-    expect(starterTemplateManifest.files["README.md"]).toContain(
-      "https://samebase.com/docs/do-it-yourself",
-    );
-  });
-
-  it("includes durable guest-name reservation in the starter auth flow", () => {
-    // The schema index, reservation mutation, and client call must stay aligned for exact guest-name lookup.
-    expect(starterTemplateManifest.files["convex/guests.ts"]).toContain('.withIndex("by_name"');
-    expect(starterTemplateManifest.files["convex/guests.ts"]).toContain("fallbackGuestName");
-    expect(starterTemplateManifest.files["convex/guests.ts"]).toContain(
-      "FALLBACK_GUEST_NAME_SPACE",
-    );
-    expect(starterTemplateManifest.files["convex/schema.ts"]).toContain("guestNames");
-    expect(starterTemplateManifest.files["src/routes/index.tsx"]).toContain(
-      "api.guests.ensureName",
-    );
-  });
-
-  it("lists starter todos publicly with creator names", () => {
-    expect(starterTemplateManifest.files["README.md"]).toContain(
-      "The example app is a public todo list.",
-    );
-    expect(starterTemplateManifest.files["convex/schema.ts"]).toContain(
-      '.index("by_created_at", ["createdAt"])',
-    );
-    expect(starterTemplateManifest.files["convex/todos.ts"]).toContain(
-      '.withIndex("by_created_at")',
-    );
-    expect(starterTemplateManifest.files["convex/todos.ts"]).toContain("creatorName");
-    expect(starterTemplateManifest.files["convex/todos.ts"]).toContain("viewerCanToggle");
-    expect(starterTemplateManifest.files["convex/todos.ts"]).toContain("viewerTodoCount");
-    expect(starterTemplateManifest.files["src/routes/index.tsx"]).toContain(
-      "<TodoList todos={todos} />",
-    );
-    expect(starterTemplateManifest.files["src/routes/index.tsx"]).toContain(
-      "Created by {todo.creatorName}",
-    );
-  });
-
-  it("caps starter todo abuse paths", () => {
-    expect(starterTemplateManifest.files["convex/todos.ts"]).toContain("MAX_TODOS_PER_USER = 50");
-    expect(starterTemplateManifest.files["convex/todos.ts"]).toContain(".take(MAX_TODOS_PER_USER)");
-    expect(starterTemplateManifest.files["convex/todos.ts"]).toContain("MAX_TODO_TEXT_LENGTH");
-    expect(starterTemplateManifest.files["src/routes/index.tsx"]).toContain(
-      "maxLength={TODO_TEXT_LIMIT}",
-    );
-  });
-});
-
-describe("actionsStarterTemplateManifest", () => {
-  it("is the Alchemy starter, with the fixed provider", () => {
-    const filePaths = Object.keys(actionsStarterTemplateManifest.files);
-
-    expect(actionsStarterTemplateManifest.version).toBe(
-      `samebase-base-alchemy-${actionsStarterTemplateManifest.contentHash.slice(0, 12)}`,
-    );
-    expect(actionsStarterTemplateManifest.sourcePath).toBe("templates/base-alchemy");
     expect(filePaths).toEqual(
       expect.arrayContaining([
         ".github/workflows/alchemy.yml",
@@ -243,7 +22,7 @@ describe("actionsStarterTemplateManifest", () => {
       ]),
     );
     expect(filePaths).not.toContain("wrangler.jsonc");
-    expect(actionsStarterTemplateManifest.files["package.json"]).toContain(
+    expect(starterTemplateManifest.files["package.json"]).toContain(
       '"@samebase/alchemy-convex": "0.20.0"',
     );
   });

@@ -30,7 +30,7 @@ import {
   readSeedBranchState,
   seedRepositoryWithStarter,
 } from "./starterSeed";
-import { actionsStarterTemplateManifest } from "./starterSeedManifest.actions.generated";
+import { starterTemplateManifest } from "./starterSeedManifest.generated";
 import {
   formatProviderApiCallLogMessage,
   type ProviderApiCall,
@@ -714,7 +714,7 @@ export const seedStarterRepository = internalAction({
     }
 
     if (!alreadySeeded) {
-      const manifest = actionsStarterTemplateManifest;
+      const manifest = starterTemplateManifest;
       try {
         await seedRepositoryWithStarter({
           client: createStarterSeedGitClient(octokit, { recordApiCall }),

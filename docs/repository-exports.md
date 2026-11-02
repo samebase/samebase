@@ -12,10 +12,9 @@ The exported repository root is the exact Git tree at that source directory. Put
 that belong in the external repository in the source directory.
 
 An export can use the root workspace or remain a standalone package manager boundary. The plugin
-uses root tooling and includes a small dependency-free public check. Each starter template must work
-as an independent repository, so `templates/base` and `templates/base-alchemy` own their
-`package.json`, `pnpm-workspace.yaml`, `pnpm-lock.yaml`, and public workflows. They are
-intentionally outside the root workspace globs.
+uses root tooling and includes a small dependency-free public check. The starter must work as an
+independent repository, so `templates/base` owns its `package.json`, `pnpm-workspace.yaml`,
+`pnpm-lock.yaml`, and public workflows. It is intentionally outside the root workspace globs.
 
 The monorepo must run the checks that protect each export before publication. Run standalone export
 checks in a fresh job so root dependencies cannot hide an undeclared dependency.
@@ -23,9 +22,9 @@ checks in a fresh job so root dependencies cannot hide an undeclared dependency.
 ## Automatic workflow
 
 The publisher runs only for a push to `main`, after supply-chain validation, the standard checks,
-the unit tests, and the app build succeed. The two starter templates also require their audits and
-isolated checks. Playwright and the Windows launcher check continue in parallel, but they do not
-block repository exports.
+the unit tests, and the app build succeed. The starter also requires its audits and isolated checks.
+Playwright and the Windows launcher check continue in parallel, but they do not block repository
+exports.
 
 Before it publishes, the job reads every configured target repository with a metadata-only token. If
 a target repository does not exist, or the publisher GitHub App cannot access it, the job fails with
@@ -75,23 +74,24 @@ Runtime app creation imports the committed manifest. It does not fetch the publi
 the template directory. A public export failure therefore cannot stop Samebase from creating a new
 app from the last accepted snapshot.
 
-Root CI installs and audits each template through its nested lockfile, then builds it in a separate
+Root CI installs and audits the starter through its nested lockfile, then builds it in a separate
 fresh job.
 
 The convex-hosting starter is maintained in
 [samebase/base-hosting](https://github.com/samebase/base-hosting).
 
-### Alchemy starter
+### Alchemy deployment
 
-`templates/base-alchemy` is a Convex-hosted app that its own GitHub Actions deploy with Alchemy. It
-is not a copy of `templates/base`. It follows the same contract as the base: it owns its
-`package.json`, `pnpm-workspace.yaml`, and `pnpm-lock.yaml`, `pnpm run template:export` writes it to
-`starterSeedManifest.actions.generated.ts`, root CI audits and builds it, and the publisher sends it
-to `samebase/base-alchemy`.
+`templates/base` is a Convex-hosted app that its own GitHub Actions deploy with Alchemy. New App
+seeds this same tree from `starterSeedManifest.generated.ts`.
 
 A deploy needs the secret `CONVEX_ACCESS_TOKEN` and the variable `CONVEX_TEAM_ID`, which Samebase
 writes when it creates the repository. Samebase reads what the repository deployed from the Alchemy
 state store of the team. The `Destroy app` workflow destroys the app after a typed confirmation.
+
+The publisher appends the starter tree to the current `samebase/base` head. It keeps that
+repository's history, so links to old starter commits remain valid. The former Alchemy repository no
+longer receives exports. Archive it after the move; do not delete it.
 
 ### Existing-app sweep
 

@@ -1,7 +1,7 @@
 # Alchemy deploy standard
 
 Every repository of the team deploys the same way. The reference implementation is
-[samebase/base-alchemy](https://github.com/samebase/base-alchemy): copy its `alchemy.run.ts` and
+[samebase/base](https://github.com/samebase/base): copy its `alchemy.run.ts` and
 `.github/workflows/alchemy.yml` and change only what the app needs. The Samebase stack,
 `apps/samebase/alchemy.run.ts`, is the same shape with Cloudflare resources added.
 

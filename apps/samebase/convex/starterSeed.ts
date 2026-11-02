@@ -1,10 +1,18 @@
 "use node";
 
 import { Octokit } from "@octokit/rest";
-import type { StarterTemplateManifest } from "./starterSeedManifest.generated";
 import type { ProviderApiCall, ProviderApiCallRecorder } from "./providerApiLog";
 
-export type { StarterTemplateManifest } from "./starterSeedManifest.generated";
+export type StarterTemplateManifest = {
+  version: string;
+  sourcePath: string;
+  publishedRepo: string;
+  contentHash: string;
+  commitMessage: string;
+  files: Record<string, string>;
+  binaryFiles: Record<string, string>;
+  fileModes: Record<string, "100644" | "100755">;
+};
 
 type StarterTemplateTreeEntry = {
   path: string;

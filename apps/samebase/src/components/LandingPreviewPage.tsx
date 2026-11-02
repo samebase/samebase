@@ -270,8 +270,8 @@ const LANDING_FAQS = [
     answer: (
       <>
         Yes, we deploy samebase.com with it. There's no UI for it yet, so start from{" "}
-        <LandingReceiptLink href="https://github.com/samebase/base-alchemy">
-          samebase/base-alchemy
+        <LandingReceiptLink href="https://github.com/samebase/base">
+          samebase/base
         </LandingReceiptLink>{" "}
         and add a team-wide Convex token yourself.
       </>

@@ -121,7 +121,8 @@ The full protocol for PR bodies, review, labels, and cleanup lives in `docs/agen
 - Treat authored `.js`, `.mjs`, and `.cjs` files as a review smell. Keep one only when a named tool
   or runtime cannot use normal TypeScript, and document that exact boundary. Generated output and
   required shipped browser artifacts can be valid exceptions.
-- For the meaning of a `Samebase source build` line, see `templates/base/AGENTS.md`.
+- A `Samebase source build: v<N>` line records the starter build used for that file. Preserve it and
+  follow the starter changelog when updating an existing app.
 - Use template literals instead of arrays joined with `'\n'` for multi-line JavaScript and
   TypeScript snippets.
 - Vite+ owns the shared app dev, build, test, lint, and format commands. Oxlint and Oxfmt are the
