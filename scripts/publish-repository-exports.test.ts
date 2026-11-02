@@ -98,23 +98,15 @@ describe("repository exports", () => {
     });
   });
 
-  it("publishes the GitHub Actions template to samebase/base-alchemy", () => {
-    expect(repositoryExports).toContainEqual({
-      sourceRoot: "templates/base-alchemy",
-      targetBranch: "main",
-      targetRepository: "base-alchemy",
-    });
-  });
-
   it("names each target repository that GitHub cannot find", async () => {
     const fetch = vi.fn((url: string) =>
-      Promise.resolve(new Response(null, { status: url.endsWith("/base-alchemy") ? 404 : 200 })),
+      Promise.resolve(new Response(null, { status: url.endsWith("/base") ? 404 : 200 })),
     );
     vi.stubGlobal("fetch", fetch);
 
     await expect(
       findMissingTargetRepositories({ owner: "samebase", lookupToken: "lookup-token" }),
-    ).resolves.toEqual(["samebase/base-alchemy"]);
+    ).resolves.toEqual(["samebase/base"]);
     expect(fetch).toHaveBeenCalledWith(
       "https://api.github.com/repos/samebase/base",
       expect.objectContaining({
@@ -254,7 +246,7 @@ describe("repository exports", () => {
           stdio: ["ignore", "pipe", "pipe"],
         },
       );
-      expect(readFileSync(outputPath, "utf8")).toBe("repositories=plugin,base,base-alchemy\n");
+      expect(readFileSync(outputPath, "utf8")).toBe("repositories=plugin,base\n");
     } finally {
       rmSync(temporaryRoot, { recursive: true, force: true });
     }

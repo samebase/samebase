@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vite-plus/test";
 
-import { collectTemplateFiles, renderStarterSeedManifests } from "./export-starter-manifest.ts";
+import { collectTemplateFiles, renderStarterSeedManifest } from "./export-starter-manifest.ts";
 
 function git(cwd: string, args: readonly string[]): void {
   execFileSync("git", args, {
@@ -21,57 +21,35 @@ function writeTemplateFiles(root: string, files: Record<string, string>): void {
   }
 }
 
-describe("starter manifests", () => {
-  it("renders each template directory as its own manifest", async () => {
-    const temporaryRoot = mkdtempSync(path.join(tmpdir(), "samebase-alchemy-manifest-test-"));
+describe("starter manifest", () => {
+  it("renders the only starter from templates/base", async () => {
+    const temporaryRoot = mkdtempSync(path.join(tmpdir(), "samebase-base-manifest-test-"));
 
     try {
       git(temporaryRoot, ["init"]);
-      writeTemplateFiles(path.join(temporaryRoot, "templates", "base"), {
-        "README.md": "base readme\n",
-        "src/app.ts": "export {};\n",
-        "wrangler.jsonc": "{}\n",
-      });
-      writeTemplateFiles(path.join(temporaryRoot, "templates", "base-alchemy"), {
-        "README.md": "actions readme\n",
+      const files = {
+        "README.md": "starter readme\n",
         "alchemy.run.ts": "export {};\n",
         "src/app.ts": "export {};\n",
-      });
+      };
+      writeTemplateFiles(path.join(temporaryRoot, "templates", "base"), files);
       git(temporaryRoot, ["add", "templates"]);
 
-      const [base, actions] = await renderStarterSeedManifests(temporaryRoot);
+      const rendered = await renderStarterSeedManifest(temporaryRoot);
 
-      expect(base.outputPath).toBe("apps/samebase/convex/starterSeedManifest.generated.ts");
-      expect(base.manifest).toEqual(
+      expect(rendered.outputPath).toBe("apps/samebase/convex/starterSeedManifest.generated.ts");
+      expect(rendered.manifest).toEqual(
         expect.objectContaining({
           sourcePath: "templates/base",
           publishedRepo: "https://github.com/samebase/base.git",
-          files: {
-            "README.md": "base readme\n",
-            "src/app.ts": "export {};\n",
-            "wrangler.jsonc": "{}\n",
-          },
+          files,
         }),
       );
-      expect(actions.outputPath).toBe(
-        "apps/samebase/convex/starterSeedManifest.actions.generated.ts",
+      expect(rendered.manifest.version).toBe(
+        `samebase-base-${rendered.manifest.contentHash.slice(0, 12)}`,
       );
-      expect(actions.manifest).toEqual(
-        expect.objectContaining({
-          sourcePath: "templates/base-alchemy",
-          publishedRepo: "https://github.com/samebase/base-alchemy.git",
-          files: {
-            "README.md": "actions readme\n",
-            "alchemy.run.ts": "export {};\n",
-            "src/app.ts": "export {};\n",
-          },
-        }),
-      );
-      expect(actions.manifest.version).toBe(
-        `samebase-base-alchemy-${actions.manifest.contentHash.slice(0, 12)}`,
-      );
-      expect(actions.source).toContain(
-        "export const actionsStarterTemplateManifest: StarterTemplateManifest = {",
+      expect(rendered.source).toContain(
+        "export const starterTemplateManifest: StarterTemplateManifest = {",
       );
     } finally {
       rmSync(temporaryRoot, { force: true, recursive: true });

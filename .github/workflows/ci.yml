@@ -59,7 +59,7 @@ jobs:
               - pnpm-workspace.yaml
             templates:
               - .github/workflows/ci.yml
-              - templates/**
+              - templates/base/**
             windows_launcher:
               - .github/workflows/ci.yml
               - .nvmrc
@@ -71,8 +71,10 @@ jobs:
               - packages/dependent/**
               - pnpm-lock.yaml
               - pnpm-workspace.yaml
+              - templates/base/.node-version
               - templates/base/package.json
               - templates/base/pnpm-lock.yaml
+              - templates/base/pnpm-workspace.yaml
               - templates/base/scripts/**
             windows_smoke:
               - .github/workflows/ci.yml
@@ -131,14 +133,9 @@ jobs:
     timeout-minutes: 10
     needs: changes
     if: ${{ needs.changes.outputs.templates == 'true' }}
-    strategy:
-      fail-fast: false
-      matrix:
-        template: [base, base-alchemy]
-
     defaults:
       run:
-        working-directory: templates/${{ matrix.template }}
+        working-directory: templates/base
 
     steps:
       - name: Checkout code
@@ -147,15 +144,15 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v6
         with:
-          package_json_file: templates/${{ matrix.template }}/package.json
+          package_json_file: templates/base/package.json
 
       - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
-          node-version-file: templates/${{ matrix.template }}/.node-version
+          node-version-file: templates/base/.node-version
           check-latest: true
           cache: "pnpm"
-          cache-dependency-path: templates/${{ matrix.template }}/pnpm-lock.yaml
+          cache-dependency-path: templates/base/pnpm-lock.yaml
 
       - name: Install dependencies without lifecycle scripts
         run: pnpm install --frozen-lockfile --ignore-scripts
@@ -175,14 +172,9 @@ jobs:
     timeout-minutes: 15
     needs: [changes, starter_template_supply_chain]
     if: ${{ needs.changes.outputs.templates == 'true' }}
-    strategy:
-      fail-fast: false
-      matrix:
-        template: [base, base-alchemy]
-
     defaults:
       run:
-        working-directory: templates/${{ matrix.template }}
+        working-directory: templates/base
 
     steps:
       - name: Checkout code
@@ -191,15 +183,15 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v6
         with:
-          package_json_file: templates/${{ matrix.template }}/package.json
+          package_json_file: templates/base/package.json
 
       - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
-          node-version-file: templates/${{ matrix.template }}/.node-version
+          node-version-file: templates/base/.node-version
           check-latest: true
           cache: "pnpm"
-          cache-dependency-path: templates/${{ matrix.template }}/pnpm-lock.yaml
+          cache-dependency-path: templates/base/pnpm-lock.yaml
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile

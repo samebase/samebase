@@ -44,7 +44,7 @@ vi.mock("./starterSeed", async (importOriginal) => {
 import { RequestError } from "@octokit/request-error";
 
 import { internal } from "./_generated/api";
-import { actionsStarterTemplateManifest } from "./starterSeedManifest.actions.generated";
+import { starterTemplateManifest } from "./starterSeedManifest.generated";
 import { makeConvexTest } from "./test.setup";
 
 // Subset of GitHub's official GET /installation/repositories response example.
@@ -390,7 +390,7 @@ describe("managed repository provisioning identity", () => {
       owner: "octocat",
       repo: "Hello-World",
       defaultBranch: "main",
-      manifest: actionsStarterTemplateManifest,
+      manifest: starterTemplateManifest,
       branchFirst: expect.objectContaining({ beforeStarterPush: expect.any(Function) }),
     });
   });

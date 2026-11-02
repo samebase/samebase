@@ -241,12 +241,12 @@ needs a branch and an `origin` remote. It holds no secret.
   "convexUrl": "https://modest-guanaco-252.convex.cloud",
   "samebase.run": {
     "version": 1,
-    "repository": "samebase/base-alchemy",
+    "repository": "samebase/base",
     "stackFile": "alchemy.run.ts",
     "branch": "feature",
     "pullRequest": 42,
     "headCommit": "8af3c5b7932c528939cbc7aa0597b1fc36c8dc83",
-    "runUrl": "https://github.com/samebase/base-alchemy/actions/runs/12345678901/attempts/1",
+    "runUrl": "https://github.com/samebase/base/actions/runs/12345678901/attempts/1",
     "source": "github-actions",
     "recordedAt": "2026-10-21T10:00:00.000Z"
   }

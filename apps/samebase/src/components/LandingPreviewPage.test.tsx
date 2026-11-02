@@ -240,7 +240,7 @@ describe("LandingPage", () => {
     expect(markup).toContain("Is Samebase stable?");
     expect(markup).toContain('href="https://alchemy.run"');
     expect(markup).toContain("Can I use Alchemy now?");
-    expect(markup).toContain('href="https://github.com/samebase/base-alchemy"');
+    expect(markup).toContain('href="https://github.com/samebase/base"');
     expect(markup).toContain("Kinda.");
     expect(markup.split('data-slot="accordion-trigger"').length - 1).toBe(7);
     expect(markup.split('data-slot="accordion-content"').length - 1).toBe(7);

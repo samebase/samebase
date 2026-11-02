@@ -35,7 +35,7 @@ vi.mock("./starterSeed", async (importOriginal) => {
 
 import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
-import { actionsStarterTemplateManifest } from "./starterSeedManifest.actions.generated";
+import { starterTemplateManifest } from "./starterSeedManifest.generated";
 import {
   insertTestOrganizationBillingAccount,
   makeConvexTest,
@@ -770,7 +770,7 @@ describe("repository_actions provisioning workflow", () => {
       github.calls.indexOf("branch without starter"),
     );
     expect(state.plan).toMatchObject({
-      seed: { state: "seeded", manifestVersion: actionsStarterTemplateManifest.version },
+      seed: { state: "seeded", manifestVersion: starterTemplateManifest.version },
     });
     // main is already the default, so the step reads it once more and changes nothing.
     expect(readCallsBeforeStarterPush(github)).toEqual([
@@ -779,7 +779,7 @@ describe("repository_actions provisioning workflow", () => {
     ]);
     expect(state.writeLock).toMatchObject({ owner: { runId }, state: "succeeded" });
     expect(githubMocks.seedRepository).toHaveBeenCalledWith(
-      expect.objectContaining({ defaultBranch: "main", manifest: actionsStarterTemplateManifest }),
+      expect.objectContaining({ defaultBranch: "main", manifest: starterTemplateManifest }),
     );
     // GitHub created the repository with main, so the default branch stays as it is.
     expect(github.requests.filter((request) => request.method === "PATCH")).toEqual([]);
@@ -842,7 +842,7 @@ describe("repository_actions provisioning workflow", () => {
     );
     expect(resumed.plan).toMatchObject({
       ciSecrets: { state: "written" },
-      seed: { state: "seeded", manifestVersion: actionsStarterTemplateManifest.version },
+      seed: { state: "seeded", manifestVersion: starterTemplateManifest.version },
     });
     expect(resumed.writeLock).toMatchObject({ owner: { runId: retryRunId }, state: "succeeded" });
     expect(githubMocks.seedRepository).toHaveBeenCalledTimes(1);
@@ -930,7 +930,7 @@ describe("repository_actions provisioning workflow", () => {
     expect(githubMocks.seedRepository).toHaveBeenCalledTimes(1);
     expect(github.mainHistory).toEqual([SEED_COMMIT, BOOTSTRAP_COMMIT]);
     expect(state.plan).toMatchObject({
-      seed: { state: "seeded", manifestVersion: actionsStarterTemplateManifest.version },
+      seed: { state: "seeded", manifestVersion: starterTemplateManifest.version },
     });
     expect(state.messages).toContain(
       "Found the starter app on main; it was pushed before the seed was recorded.",
