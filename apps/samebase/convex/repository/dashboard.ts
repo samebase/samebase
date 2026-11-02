@@ -3,11 +3,7 @@ import type { QueryCtx } from "../_generated/server";
 import type { Doc, Id } from "../_generated/dataModel";
 import { mutation, query } from "../functions";
 import { findRepositoryForUser, requireRepositoryForUser } from "../organizationAccess";
-import {
-  isConnectedRepository,
-  isLiveConnectedRepository,
-  isSamebaseManagedRepository,
-} from "./state";
+import { isConnectedRepository, isSamebaseManagedRepository } from "./state";
 import {
   hasActiveRepositoryProvisioningRun,
   resolveRepositoryDeletionEligibility,
@@ -456,39 +452,8 @@ const vRepositoryPullRequestFilters = object({
   includeDrafts: boolean(),
   includeNoLabel: boolean(),
 });
-const vRepositoryFolderSuggestions = array(string());
 
 // MARK: Public
-
-export const listRepositoryFolderSuggestions = query({
-  access: "access_repo_connect",
-  args: {
-    repositoryId: id("repositories"),
-  },
-  returns: vRepositoryFolderSuggestions,
-  handler: async (ctx, args) => {
-    const repository = await findRepositoryForUser(ctx.db, {
-      userId: ctx.viewer.userId,
-      repositoryId: args.repositoryId,
-    });
-    if (!isLiveConnectedRepository(repository)) {
-      return [];
-    }
-
-    const defaultBranchTree = await ctx.runQuery(components.gitEditor.branches.get, {
-      repositoryId: args.repositoryId,
-      branch: repository.defaultBranch,
-    });
-    if (!defaultBranchTree) {
-      return [];
-    }
-
-    return defaultBranchTree.treeData.tree
-      .filter((item) => item.type === "tree")
-      .map((item) => item.path)
-      .sort((left, right) => left.localeCompare(right));
-  },
-});
 
 export const getUserRepositoryPullRequestFilters = query({
   access: "access_dashboard",

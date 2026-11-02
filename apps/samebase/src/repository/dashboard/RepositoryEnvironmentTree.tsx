@@ -30,7 +30,6 @@ import type {
 import { formatRelativeTimeAgo } from "@/lib/formatRelativeTime";
 import { buildGitHubBranchTreeUrl } from "@/lib/githubUrls";
 import { buildRepositoryFileRoute } from "@/lib/repositoryRoutes";
-import { applyRepositoryDashboardProviderAddSearch } from "@/routeSearch/root";
 import { Link } from "@tanstack/react-router";
 import { convexDeploymentRegionDetails } from "../../../shared/convexDeploymentRegions";
 import {
@@ -771,21 +770,6 @@ function OtherPreviewRow({ preview }: { preview: RepositoryOtherPreview }) {
           <span className="sr-only">{providerLabel}: </span>
           {preview.name}
         </span>
-        {preview.setup.state === "connect" ? (
-          <Link
-            aria-label={`Connect ${providerLabel} ${preview.name} in repository settings`}
-            className="inline-flex min-h-10 shrink-0 items-center text-sm underline decoration-border underline-offset-4 @4xl:min-h-8"
-            search={(currentSearch) =>
-              applyRepositoryDashboardProviderAddSearch({
-                currentSearch,
-                provider: "cloudflare",
-              })
-            }
-            to={preview.setup.href}
-          >
-            Connect
-          </Link>
-        ) : null}
       </div>
       <div className="ml-2.5 flex min-w-0 items-center border-l border-border pl-3 text-sm">
         <a
@@ -824,10 +808,8 @@ function OtherPreviews({ previews }: { previews: readonly RepositoryOtherPreview
 
 export function PullRequestResources({
   resource,
-  settingsHref,
 }: {
   resource: PullRequestResourceState | undefined;
-  settingsHref: string;
 }) {
   if (resource?.state === "loading") {
     return (
@@ -846,7 +828,6 @@ export function PullRequestResources({
   const roots = buildPullRequestEnvironmentRoots({ resources: resource.resources });
   const otherPreviews = buildPullRequestOtherPreviews({
     resources: resource.resources,
-    settingsHref,
   });
   const cloudflareBuildStatusUnavailable =
     resource.resources.cloudflareBuilds.state === "unavailable";

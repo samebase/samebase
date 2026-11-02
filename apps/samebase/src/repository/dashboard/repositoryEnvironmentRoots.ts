@@ -138,7 +138,6 @@ export type RepositoryOtherPreview = {
   href: string;
   name: string;
   provider: "cloudflare_pages" | "cloudflare_worker" | "netlify";
-  setup: { state: "connect"; href: string } | { state: "none" };
 };
 
 const repositoryOtherPreviewProviderOrder = {
@@ -708,10 +707,8 @@ export function buildPullRequestEnvironmentRoots({
 
 export function buildPullRequestOtherPreviews({
   resources,
-  settingsHref,
 }: {
   resources: PullRequestResources;
-  settingsHref: string;
 }): RepositoryOtherPreview[] {
   const cloudflare = resources.hostingPreviews.cloudflare;
   const netlify = resources.hostingPreviews.netlify;
@@ -723,10 +720,6 @@ export function buildPullRequestOtherPreviews({
           href: preview.url,
           name: preview.name,
           provider: preview.kind === "worker" ? "cloudflare_worker" : "cloudflare_pages",
-          setup:
-            preview.kind === "worker"
-              ? { state: "connect", href: settingsHref }
-              : { state: "none" },
         }))
       : []),
     ...(netlify.state === "available"
@@ -736,7 +729,6 @@ export function buildPullRequestOtherPreviews({
           href: preview.url,
           name: preview.name,
           provider: "netlify",
-          setup: { state: "none" },
         }))
       : []),
   ].sort(

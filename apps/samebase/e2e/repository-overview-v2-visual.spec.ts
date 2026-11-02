@@ -37,7 +37,7 @@ async function openRepositoryOverviewV2(
   const fixture =
     mode === "repository-overview-v2-convex-schema"
       ? page.getByTestId(mode)
-      : mode.includes("-dialog") || mode === "repository-overview-v2-cloudflare-builds-repair"
+      : mode.includes("-dialog")
         ? page.getByRole("dialog")
         : page.locator('[data-sidebar-layout-part="root"]');
   await expect(fixture).toBeVisible();
@@ -225,14 +225,7 @@ test("shows comment-discovered hosting previews on desktop", async ({ page }) =>
   await expect(pullRequestRow.getByText("Cloudflare Workers", { exact: true })).toHaveCount(0);
   const otherPreviews = pullRequestRow.getByRole("group", { name: "Other previews" });
   await expect(otherPreviews).toBeVisible();
-  await expect(
-    otherPreviews.getByRole("link", {
-      name: "Connect Cloudflare Worker unconnected-preview-worker in repository settings",
-    }),
-  ).toHaveAttribute(
-    "href",
-    "/repo/samebase/samebase/settings?mode=repository-overview-v2&add-cloudflare",
-  );
+  await expect(otherPreviews.getByRole("link", { name: /^Connect / })).toHaveCount(0);
   await expect(
     otherPreviews.getByRole("link", {
       name: "Cloudflare Worker unconnected-preview-worker: Branch preview",
@@ -341,11 +334,6 @@ test("keeps the overview hierarchy and pull request actions clear on mobile", as
   const otherPreviews = firstPullRequestRow.getByRole("group", { name: "Other previews" });
   await expect(otherPreviews).toBeVisible();
   await expect(
-    otherPreviews.getByRole("link", {
-      name: "Connect Cloudflare Worker unconnected-preview-worker in repository settings",
-    }),
-  ).toBeVisible();
-  await expect(
     otherPreviews.getByRole("link", { name: "Netlify samebase: Deploy preview" }),
   ).toBeVisible();
   await firstPullRequestRow
@@ -363,45 +351,15 @@ test("keeps the overview hierarchy and pull request actions clear on mobile", as
   });
 });
 
-test("keeps provider ownership and actions together in mobile settings", async ({ page }) => {
+test("keeps repository identity and removal in mobile settings", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   const fixture = await openRepositoryOverviewV2(page, "repository-overview-v2-settings");
 
-  await expect(fixture.getByRole("button", { name: "Add Cloudflare Worker" })).toBeVisible();
-  await expect(fixture.getByRole("button", { name: "Add Convex project" })).toBeVisible();
-  await expect(fixture.getByText("Samebase/", { exact: true })).toHaveCount(2);
-  await expect(
-    fixture.getByRole("button", {
-      name: "Configure Workers Builds for GitHub for Cloudflare Worker Samebase/domain-router",
-      exact: true,
-    }),
-  ).toBeVisible();
-  await fixture
-    .getByRole("button", {
-      name: "Actions for Cloudflare Worker Samebase/domain-router",
-      exact: true,
-    })
-    .click();
-  await expect(
-    page.getByRole("menuitem", {
-      name: "Remove from repository for Cloudflare Worker Samebase/domain-router",
-      exact: true,
-    }),
-  ).toBeVisible();
-  await page.keyboard.press("Escape");
-  await fixture
-    .getByRole("button", {
-      name: "Actions for Convex project samebase/samebase",
-      exact: true,
-    })
-    .click();
-  await expect(
-    page.getByRole("menuitem", {
-      name: "Remove from repository for Convex project samebase/samebase",
-      exact: true,
-    }),
-  ).toBeVisible();
-  await page.keyboard.press("Escape");
+  await expect(fixture.getByRole("heading", { name: "Repository", exact: true })).toBeVisible();
+  await expect(fixture.getByRole("button", { name: "Remove from Samebase" })).toBeEnabled();
+  await expect(fixture.getByRole("heading", { name: "Connections" })).toHaveCount(0);
+  await expect(fixture.getByRole("button", { name: "Add Cloudflare Worker" })).toHaveCount(0);
+  await expect(fixture.getByRole("button", { name: "Add Convex project" })).toHaveCount(0);
   await expect(fixture).toHaveScreenshot("repository-overview-v2-settings-mobile.png", {
     animations: "disabled",
     caret: "hide",
@@ -410,41 +368,8 @@ test("keeps provider ownership and actions together in mobile settings", async (
   });
 });
 
-test("shows migration steps without broken repair buttons for legacy previews", async ({
-  page,
-}) => {
+test("serves the Worker Previews migration guide", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  const fixture = await openRepositoryOverviewV2(
-    page,
-    "repository-overview-v2-settings-legacy-previews",
-  );
-
-  await expect(fixture.getByText("This Worker does not use native Worker Previews.")).toBeVisible();
-  await expect(fixture.getByRole("link", { name: "Migration steps" })).toHaveAttribute(
-    "href",
-    "/docs/cloudflare-previews-migration",
-  );
-  await expect(fixture.locator('a[href*="dash.cloudflare.com"]')).toHaveAttribute(
-    "href",
-    /dash\.cloudflare\.com/,
-  );
-  await expect(fixture.getByRole("button", { name: /Configure Workers Builds/ })).toHaveCount(0);
-  await expect(fixture.getByRole("button", { name: /Change API token/ })).toHaveCount(0);
-  await expect(fixture.getByRole("button", { name: /Rotate Convex deploy keys/ })).toHaveCount(0);
-  await fixture.getByRole("button", { name: /Actions for Cloudflare Worker/ }).click();
-  await expect(
-    page.getByRole("menuitem", { name: /Remove from repository.*Cloudflare Worker/ }),
-  ).toBeVisible();
-  await page.keyboard.press("Escape");
-  await expect(fixture).toHaveScreenshot(
-    "repository-overview-v2-settings-legacy-previews-mobile.png",
-    {
-      animations: "disabled",
-      caret: "hide",
-      maxDiffPixelRatio: 0.02,
-      scale: "css",
-    },
-  );
   await page.goto("/docs/cloudflare-previews-migration");
   await expect(page).toHaveURL(/\/docs\/cloudflare-previews-migration$/);
   await expect(
@@ -469,94 +394,6 @@ test("covers the mobile repository removal dialog", async ({ page }) => {
     maxDiffPixelRatio: 0.02,
     scale: "css",
   });
-});
-
-test("covers Convex connection dialog states", async ({ page }) => {
-  await page.setViewportSize({ width: 720, height: 900 });
-  const cases = [
-    ["repository-overview-v2-convex-dialog", "repository-overview-v2-convex-dialog.png"],
-    [
-      "repository-overview-v2-convex-dialog-loading",
-      "repository-overview-v2-convex-dialog-loading.png",
-    ],
-    [
-      "repository-overview-v2-convex-dialog-error",
-      "repository-overview-v2-convex-dialog-error.png",
-    ],
-  ] as const satisfies readonly [RepositoryOverviewV2VisualMode, string][];
-
-  for (const [mode, screenshotName] of cases) {
-    await openRepositoryOverviewV2(page, mode);
-    if (mode === "repository-overview-v2-convex-dialog-loading") {
-      await page.addStyleTag({ content: ".animate-spin { animation: none !important; }" });
-    }
-    const dialog = page.getByRole("dialog");
-    await expect(dialog).toBeVisible();
-    await expect(dialog).toHaveScreenshot(screenshotName, {
-      animations: "disabled",
-      caret: "hide",
-      maxDiffPixelRatio: 0.02,
-      scale: "css",
-    });
-  }
-});
-
-test("covers Cloudflare connection and Builds repair states", async ({ page }) => {
-  await page.setViewportSize({ width: 390, height: 844 });
-  const cases = [
-    [
-      "repository-overview-v2-cloudflare-dialog",
-      "repository-overview-v2-cloudflare-dialog-mobile.png",
-    ],
-    [
-      "repository-overview-v2-cloudflare-dialog-normalized-name",
-      "repository-overview-v2-cloudflare-dialog-normalized-name-mobile.png",
-    ],
-    [
-      "repository-overview-v2-cloudflare-dialog-loading",
-      "repository-overview-v2-cloudflare-dialog-loading-mobile.png",
-    ],
-    [
-      "repository-overview-v2-cloudflare-builds-repair",
-      "repository-overview-v2-cloudflare-builds-repair-mobile.png",
-    ],
-  ] as const satisfies readonly [RepositoryOverviewV2VisualMode, string][];
-
-  for (const [mode, screenshotName] of cases) {
-    await openRepositoryOverviewV2(page, mode);
-    const dialog = page.getByRole("dialog");
-    await expect(dialog).toBeVisible();
-    if (mode === "repository-overview-v2-cloudflare-dialog-normalized-name") {
-      await expect(dialog.getByRole("status")).toContainText("Samebase will use samebase-app.");
-      await expect(dialog.getByRole("button", { name: "Use samebase-app" })).toBeVisible();
-      await expect(dialog.getByRole("button", { name: "Create Worker" })).toBeEnabled();
-    }
-    if (
-      mode === "repository-overview-v2-cloudflare-dialog-normalized-name" ||
-      mode === "repository-overview-v2-cloudflare-builds-repair"
-    ) {
-      const apiToken = dialog.getByRole("combobox", { name: "API token" });
-      await expect(apiToken).toBeVisible();
-      await expect(apiToken).toContainText("Last used");
-    }
-    if (mode === "repository-overview-v2-cloudflare-builds-repair") {
-      const repositoryRoot = dialog.getByRole("combobox", { name: "Repository root" });
-      await expect(dialog.getByText("Samebase will use the saved repository root.")).toBeVisible();
-      await expect(dialog).toBeFocused();
-      await expect(repositoryRoot).not.toBeFocused();
-      await expect(repositoryRoot).toBeDisabled();
-      await expect(repositoryRoot).toHaveAttribute("aria-expanded", "false");
-      await expect(
-        dialog.getByRole("listbox", { name: "Repository folder suggestions" }),
-      ).toHaveCount(0);
-    }
-    await expect(dialog).toHaveScreenshot(screenshotName, {
-      animations: "disabled",
-      caret: "hide",
-      maxDiffPixelRatio: 0.02,
-      scale: "css",
-    });
-  }
 });
 
 test("covers default-branch and pull-request check details", async ({ page }) => {
@@ -712,40 +549,23 @@ test("keeps available resources visible when one provider fails", async ({ page 
   });
 });
 
-test("shows Cloudflare GitHub App authorization recovery", async ({ page }) => {
+test("keeps the Retry notice for a failed provider setup", async ({ page }) => {
   await page.setViewportSize({ width: 700, height: 700 });
   const fixture = await openRepositoryOverviewV2(
     page,
     "repository-overview-v2-cloudflare-github-authorization-failed",
   );
-  const repositoryFullName = "noter-guest/tmp-testing-waters";
-  const recoveryUrl =
-    "https://developers.cloudflare.com/workers/ci-cd/builds/git-integration/github-integration/#reinstall-the-cloudflare-github-app";
 
-  await expect(
-    fixture.getByRole("heading", {
-      name: `Cloudflare Workers and Pages GitHub App is not authorized for ${repositoryFullName}.`,
-    }),
-  ).toBeVisible();
-  await expect(fixture.getByRole("link", { name: "Cloudflare recovery guide" })).toHaveAttribute(
-    "href",
-    recoveryUrl,
-  );
-  await expect(
-    fixture.getByRole("link", { name: "Open the Cloudflare Workers and Pages GitHub App" }),
-  ).toHaveAttribute("href", "https://github.com/apps/cloudflare-workers-and-pages");
-  await expect(fixture.getByRole("link", { name: "Open Workers & Pages" })).toHaveAttribute(
-    "href",
-    "https://dash.cloudflare.com/",
-  );
-  await expect(fixture.locator("ol > li")).toHaveCount(3);
+  await expect(fixture.getByRole("heading", { name: "Provider setup failed" })).toBeVisible();
   await expect(
     fixture.getByText(
-      "GitHub gives this access to the Cloudflare Workers and Pages GitHub App, not to Samebase.",
+      "Cloudflare Workers and Pages GitHub App is not authorized for noter-guest/tmp-testing-waters.",
       { exact: false },
     ),
   ).toBeVisible();
-  await expect(fixture.getByText("Return to Samebase and select Retry.")).toBeVisible();
+  await expect(fixture.getByRole("button", { name: "Retry" })).toBeVisible();
+  await expect(fixture.getByRole("link", { name: "Cloudflare recovery guide" })).toHaveCount(0);
+  await expect(fixture.locator("ol > li")).toHaveCount(0);
   await expect(fixture).toHaveScreenshot(
     "repository-overview-v2-cloudflare-github-authorization-failed.png",
     {
@@ -825,82 +645,13 @@ test("reproduces the observed new repository provisioning states", async ({ page
   await expect(readyFixture.getByText(/^No open pull requests\.?$/)).toHaveCount(1);
 });
 
-test("shows stable provider setup states in Settings", async ({ page }) => {
+test("disables Remove from Samebase while provider setup runs", async ({ page }) => {
   await page.setViewportSize({ width: 700, height: 995 });
+  const fixture = await openRepositoryOverviewV2(page, "repository-overview-v2-settings-active");
 
-  const activeFixture = await openRepositoryOverviewV2(
-    page,
-    "repository-overview-v2-settings-active",
-  );
-  const activeConnections = activeFixture
-    .getByRole("heading", { name: "Connections" })
-    .locator("..")
-    .locator("..");
-  await expect(activeConnections.getByText("Setting up", { exact: true })).toHaveCount(1);
-  await expect(
-    activeConnections.getByText("Setting up in 🇪🇺 EU West (Ireland)", { exact: true }),
-  ).toBeVisible();
-  await expect(activeFixture.getByText("38516/", { exact: true })).toBeVisible();
-  await expect(activeFixture.getByText("Attention required")).toHaveCount(0);
-  await expect(activeFixture.getByText("A provider operation is in progress.")).toBeVisible();
-  await expect(activeFixture.getByRole("button", { name: "Add Cloudflare Worker" })).toBeDisabled();
-  await expect(activeFixture.getByRole("button", { name: "Add Convex project" })).toBeDisabled();
-  await expect(activeFixture.getByRole("button", { name: "Remove from Samebase" })).toBeDisabled();
-  await expect(activeFixture).toHaveScreenshot("repository-overview-v2-settings-active.png", {
-    animations: "disabled",
-    caret: "hide",
-    maxDiffPixelRatio: 0.02,
-    scale: "css",
-  });
-
-  const checkingFixture = await openRepositoryOverviewV2(
-    page,
-    "repository-overview-v2-settings-checking",
-  );
-  await expect(checkingFixture.getByText("Checking", { exact: true })).toHaveCount(2);
-  await expect(checkingFixture.getByText("Attention required")).toHaveCount(0);
-  await expect(checkingFixture.getByRole("button", { name: "Reload" })).toHaveCount(0);
-  await expect(checkingFixture).toHaveScreenshot("repository-overview-v2-settings-checking.png", {
-    animations: "disabled",
-    caret: "hide",
-    maxDiffPixelRatio: 0.02,
-    scale: "css",
-  });
-
-  const completedFixture = await openRepositoryOverviewV2(
-    page,
-    "repository-overview-v2-settings-completed",
-  );
-  await expect(completedFixture.getByText("Setting up", { exact: true })).toHaveCount(0);
-  await expect(completedFixture.getByText("Checking", { exact: true })).toHaveCount(0);
-  const completedConnections = completedFixture
-    .getByRole("heading", { name: "Connections" })
-    .locator("..")
-    .locator("..");
-  await expect(
-    completedConnections.getByText("tmp-f149-repository-loading-states", { exact: true }),
-  ).toHaveCount(2);
-  await expect(completedFixture.getByText("Attention required")).toHaveCount(0);
-  await expect(completedFixture).toHaveScreenshot("repository-overview-v2-settings-completed.png", {
-    animations: "disabled",
-    caret: "hide",
-    maxDiffPixelRatio: 0.02,
-    scale: "css",
-  });
-
-  const driftFixture = await openRepositoryOverviewV2(
-    page,
-    "repository-overview-v2-settings-drift",
-  );
-  await expect(
-    driftFixture.getByText(
-      /Cloudflare now uses the name tmp-f149-repository-loading-states-renamed\./,
-    ),
-  ).toBeVisible();
-  await expect(driftFixture.getByText(/Cloudflare now builds from apps\/web\./)).toBeVisible();
-  await expect(driftFixture.getByRole("button", { name: /^Update name for/ })).toBeEnabled();
-  await expect(driftFixture.getByRole("button", { name: /^Update root for/ })).toBeEnabled();
-  await expect(driftFixture).toHaveScreenshot("repository-overview-v2-settings-drift.png", {
+  await expect(fixture.getByText("Repository setup is still running.")).toBeVisible();
+  await expect(fixture.getByRole("button", { name: "Remove from Samebase" })).toBeDisabled();
+  await expect(fixture).toHaveScreenshot("repository-overview-v2-settings-active.png", {
     animations: "disabled",
     caret: "hide",
     maxDiffPixelRatio: 0.02,

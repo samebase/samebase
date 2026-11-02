@@ -184,10 +184,10 @@ describe("RepositoryDashboard dialog route cleanup", () => {
       githubRepositoryFullName: "samebase/missing",
     });
 
-    await renderDashboard("/repo/samebase/missing?add-convex&dev", "samebase/missing");
+    await renderDashboard("/repo/samebase/missing?delete&dev", "samebase/missing");
 
     expect(readLocationHref()).toContain("/repo/samebase/missing?");
-    expect(readLocationHref()).not.toContain("add-convex");
+    expect(readLocationHref()).not.toContain("delete");
     expect(readLocationHref()).toContain("dev");
     expect(rootElement?.textContent).toContain("Repository unavailable");
     expect(rootElement?.textContent).toContain("All repositories");

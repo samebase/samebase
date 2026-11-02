@@ -270,8 +270,7 @@ test("shows one organization context across global pages, settings, providers, a
   await expect(organizationSettings.getByText("Owner", { exact: true })).toBeVisible();
   await expect(
     organizationSettings.getByRole("combobox", { name: "Default production region" }),
-  ).toBeVisible();
-  await expect(organizationSettings.getByText("Connect Convex", { exact: true })).toHaveCount(0);
+  ).toHaveCount(0);
   await expect(organizationSettings.getByTestId("organization-billing-section")).toBeVisible();
   await expect(rightPane.getByRole("heading", { name: "Product updates" })).toBeVisible();
   const onboardingPoster = rightPane

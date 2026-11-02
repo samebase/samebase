@@ -35,17 +35,9 @@ import {
   AUTHORIZATION_PROVIDER_QUERY_PARAM,
 } from "../../shared/authorizationError";
 
-export type RepositoryDashboardQueryDialog = "add-cloudflare" | "add-convex" | "delete";
+export type RepositoryDashboardQueryDialog = "delete";
 
 const RouteSearchSchema_root = defineRouteSearchParams({
-  "add-cloudflare": routeSearchPresenceParam({
-    access: "access_provider_connections",
-    suggestion: "hidden",
-  }),
-  "add-convex": routeSearchPresenceParam({
-    access: "access_provider_connections",
-    suggestion: "hidden",
-  }),
   "auth-return": routeSearchValueParam(routeSearchStringValue(["dashboard"]), {
     access: "access_public",
     sampleValue: "dashboard",
@@ -137,12 +129,6 @@ type RootRouteSearchBase = InferRouteSearch<typeof RouteSearchSchema_root>;
 export type RootRouteSearch = RootRouteSearchBase & LogoRouteSearch;
 
 const REPOSITORY_DASHBOARD_DIALOG_CLEAR_PATCHES = {
-  "add-cloudflare": {
-    "add-cloudflare": null,
-  },
-  "add-convex": {
-    "add-convex": null,
-  },
   delete: {
     delete: null,
   },
@@ -153,20 +139,6 @@ export function clearRepositoryDashboardQueryDialogSearch(
   dialog: RepositoryDashboardQueryDialog,
 ): RootRouteSearch {
   return applySearchPatch(currentSearch, REPOSITORY_DASHBOARD_DIALOG_CLEAR_PATCHES[dialog]);
-}
-
-export function applyRepositoryDashboardProviderAddSearch({
-  currentSearch,
-  provider,
-}: {
-  currentSearch: RootRouteSearch;
-  provider: "cloudflare" | "convex";
-}): RootRouteSearch {
-  return applySearchPatch(currentSearch, {
-    "add-cloudflare": provider === "cloudflare" ? true : null,
-    "add-convex": provider === "convex" ? true : null,
-    delete: null,
-  });
 }
 
 const rootRouteSearchOwnParamMetadata = readRouteSearchParamMetadata(RouteSearchSchema_root);
@@ -184,8 +156,6 @@ const rootLogoRouteSearchParamMetadata = mapEntries(
 
 const rootRouteSearchParamMetadata = {
   ...rootLogoRouteSearchParamMetadata,
-  "add-cloudflare": rootRouteSearchOwnParamMetadata["add-cloudflare"],
-  "add-convex": rootRouteSearchOwnParamMetadata["add-convex"],
   "auth-return": rootRouteSearchOwnParamMetadata["auth-return"],
   auth: rootRouteSearchOwnParamMetadata.auth,
   [AUTHORIZATION_ERROR_QUERY_PARAM]:
@@ -206,8 +176,6 @@ const rootRouteSearchParamMetadata = {
 
 const ROOT_ROUTE_PRESENCE_SEARCH_KEYS = readRouteSearchPresenceKeys(rootRouteSearchParamMetadata);
 const DASHBOARD_MODAL_SEARCH_KEYS = [
-  "add-cloudflare",
-  "add-convex",
   "delete",
 ] as const satisfies readonly (keyof RootRouteSearchBase)[];
 
@@ -242,19 +210,6 @@ export function isRootRouteOwnedSearchKey(key: string): boolean {
   return key in rootRouteSearchParamMetadata;
 }
 
-function normalizeDashboardModalSearch(parsedSearch: RootRouteSearchBase): RootRouteSearchBase {
-  const validModalKeys = DASHBOARD_MODAL_SEARCH_KEYS.filter((key) => parsedSearch[key]);
-  if (validModalKeys.length === 1) {
-    return parsedSearch;
-  }
-
-  const normalizedSearch = { ...parsedSearch };
-  for (const key of DASHBOARD_MODAL_SEARCH_KEYS) {
-    normalizedSearch[key] = undefined;
-  }
-  return normalizedSearch;
-}
-
 /**
 Root-level preview/debug/theme controls stay on public-route navigation unless
 a caller clears the key with `undefined` or `null` in a route search patch.
@@ -271,9 +226,7 @@ function parseRootRouteSearch(search: Record<string, unknown>): RootRouteSearch 
     search,
     ROOT_ROUTE_PRESENCE_SEARCH_KEYS,
   );
-  const parsedSearch = normalizeDashboardModalSearch(
-    RouteSearchSchema_root.parse(presenceNormalizedSearch),
-  );
+  const parsedSearch = RouteSearchSchema_root.parse(presenceNormalizedSearch);
   if (!parsedSearch[SEARCH_RESET_QUERY_PARAM]) {
     const logoSearch = validateLogoRouteSearch(presenceNormalizedSearch);
     const conflictingThemeModeSearch =

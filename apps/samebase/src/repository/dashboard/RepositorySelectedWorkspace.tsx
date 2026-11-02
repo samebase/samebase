@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { useAction, useMutation } from "convex/react";
+import { useAction } from "convex/react";
 import { useLocation, useNavigate, useRouter } from "@tanstack/react-router";
 
 import { api } from "../../../convex/_generated/api";
@@ -9,9 +9,7 @@ import type {
   ActionConfirmationRequest,
 } from "../../../convex/repository/contracts/actionConfirmation";
 import { toast } from "@/components/ui/use-toast";
-import { useCloudflareBuildTokens } from "@/repository/setup/useCloudflareBuildTokens";
 import {
-  applyRepositoryDashboardProviderAddSearch,
   clearRepositoryDashboardQueryDialogSearch,
   useRootRouteSearch,
   type RepositoryDashboardQueryDialog,
@@ -19,15 +17,8 @@ import {
 } from "@/routeSearch/root";
 import { applySearchPatch } from "@/routing/searchFlags";
 import { DASHBOARD_ROUTE } from "@/lib/dashboardRoute";
-import { RepositoryCloudflareDialog } from "./RepositoryCloudflareDialog";
-import { RepositoryConvexDialog } from "./RepositoryConvexDialog";
 import { RepositoryDeleteDialog } from "./RepositoryDeleteDialog";
 import { RepositoryOverviewPage, type RepositoryOverviewPageKind } from "./RepositoryOverviewPage";
-import {
-  buildRepositorySettingsState,
-  readRepositoryProviderActionBlockReason,
-  type RepositorySettingsPendingAction,
-} from "./repositorySettingsState";
 import type { RepositoryWorkspaceSelected as RepositoryWorkspace } from "./repositoryWorkspaceModel";
 import { RepositoryActionConfirmationDialog } from "./RepositoryActionConfirmationDialog";
 
@@ -38,6 +29,25 @@ type PendingConfirmation = {
   /** The gated call. Without a confirmation it returns the request; with one it performs it. */
   run: (confirmation: ActionConfirmation | undefined) => Promise<ActionConfirmationRequest | null>;
 };
+
+function readRepositoryProviderActionBlockReason(
+  repository: RepositoryWorkspace["repository"],
+): string | null {
+  switch (repository.providerWrite.status) {
+    case "active":
+      return "A provider operation is in progress.";
+    case "idle":
+      break;
+  }
+
+  if (repository.deletion.state === "deleting") {
+    return "Removal from Samebase is in progress.";
+  }
+  if (repository.deletion.state === "delete_failed") {
+    return "Retry removal from Samebase before you change providers.";
+  }
+  return repository.hasConnectedGitHubRepository ? null : "Finish GitHub repository setup first.";
+}
 
 export function RepositorySelectedWorkspace({
   developerToolsVisible,
@@ -56,55 +66,10 @@ export function RepositorySelectedWorkspace({
   const rootRouteSearch = useRootRouteSearch();
   const retryDeleteRepository = useAction(api.repository.actions.retryDeleteRepository);
   const retryProviderSetup = useAction(api.repository.retryProviderSetup);
-  const detachResource = useMutation(api.repository.detachResource);
-  const updateCloudflareWorkerName = useAction(api.repository.cloudflare.updateWorkerName);
-  const updateCloudflareWorkerRootDirectory = useAction(
-    api.repository.cloudflare.updateWorkerRootDirectory,
-  );
-  const rotateConvexDeployKeys = useAction(api.repository.cloudflare.rotateConvexDeployKeys);
-  const [providerActionInFlight, setProviderActionInFlight] =
-    useState<RepositorySettingsPendingAction | null>(null);
   const [isRetryingRepositoryAction, setIsRetryingRepositoryAction] = useState(false);
   const [pendingConfirmation, setPendingConfirmation] = useState<PendingConfirmation | null>(null);
   const repository = workspace.repository;
   const deleteModeActive = rootRouteSearch.delete === true;
-  const addConvexModeActive = rootRouteSearch["add-convex"] === true;
-  const addCloudflareWorkerModeActive = rootRouteSearch["add-cloudflare"] === true;
-  const cloudflareConnection =
-    workspace.cloudflareConnection.state === "ready" &&
-    workspace.cloudflareConnection.connection.state === "connected"
-      ? workspace.cloudflareConnection.connection
-      : null;
-  const shouldLoadCloudflareBuildTokens = Boolean(
-    cloudflareConnection &&
-    (addCloudflareWorkerModeActive ||
-      (page === "settings" && repository.cloudflareWorkers.length > 0)),
-  );
-  const cloudflareBuildTokensQuery = useCloudflareBuildTokens({
-    enabled: shouldLoadCloudflareBuildTokens,
-    organizationId: repository.organizationId,
-  });
-  const convexRepairProjectId =
-    repositoryDashboardDialogHistoryEntry?.dialog === "add-convex"
-      ? (repositoryDashboardDialogHistoryEntry.repairProjectId ?? null)
-      : null;
-  const cloudflareRepairWorkerId =
-    repositoryDashboardDialogHistoryEntry?.dialog === "add-cloudflare"
-      ? (repositoryDashboardDialogHistoryEntry.repairWorkerId ?? null)
-      : null;
-  const cloudflareRepairBuildsObservation =
-    cloudflareRepairWorkerId && workspace.cloudflareObservations.builds.state === "loaded"
-      ? (workspace.cloudflareObservations.builds.observations.find(
-          (observation) => observation.workerId === cloudflareRepairWorkerId,
-        ) ?? null)
-      : null;
-  const cloudflareRepairBuildTokenUuid =
-    cloudflareRepairBuildsObservation?.state === "available" &&
-    cloudflareRepairBuildsObservation.builds.state === "connected" &&
-    cloudflareRepairBuildsObservation.builds.productionBuildTokenUuid ===
-      cloudflareRepairBuildsObservation.builds.previewBuildTokenUuid
-      ? cloudflareRepairBuildsObservation.builds.productionBuildTokenUuid
-      : null;
   const providerActionBlockReason = readRepositoryProviderActionBlockReason(repository);
 
   const replaceRepositoryDashboardDialogRoute = useCallback(
@@ -130,41 +95,6 @@ export function RepositorySelectedWorkspace({
       return;
     }
     replaceRepositoryDashboardDialogRoute(dialog);
-  };
-
-  const openProviderDialog = (
-    dialog:
-      | {
-          provider: "cloudflare";
-          repairWorkerId?: Id<"repositoryCloudflareWorkers">;
-        }
-      | {
-          provider: "convex";
-          repairProjectId?: Id<"repositoryConvexProjects">;
-        },
-  ) => {
-    void navigate({
-      resetScroll: false,
-      to: ".",
-      search: (currentSearch: RootRouteSearch) =>
-        applyRepositoryDashboardProviderAddSearch({
-          currentSearch,
-          provider: dialog.provider,
-        }),
-      state: (currentState) => ({
-        ...currentState,
-        repositoryDashboardDialog:
-          dialog.provider === "convex"
-            ? {
-                dialog: "add-convex",
-                repairProjectId: dialog.repairProjectId,
-              }
-            : {
-                dialog: "add-cloudflare",
-                repairWorkerId: dialog.repairWorkerId,
-              },
-      }),
-    });
   };
 
   const handleRetryRepositoryDeletion = async (runId: Id<"workflow_repositoryDeletion_runs">) => {
@@ -213,197 +143,12 @@ export function RepositorySelectedWorkspace({
     }
   };
 
-  const runProviderAction = async ({
-    action,
-    errorTitle,
-    run,
-  }: {
-    action: RepositorySettingsPendingAction;
-    errorTitle: string;
-    run: () => Promise<unknown>;
-  }) => {
-    if (providerActionBlockReason || providerActionInFlight) {
-      return;
-    }
-    setProviderActionInFlight(action);
-    try {
-      await run();
-    } catch (error) {
-      toast({
-        title: errorTitle,
-        description: error instanceof Error ? error.message : "Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setProviderActionInFlight(null);
-    }
-  };
-
-  /** A gated action: its first call returns the server's confirmation request, which opens the dialog. */
-  const runConfirmedProviderAction = ({
-    action,
-    errorTitle,
-    title,
-    confirmLabel,
-    run,
-  }: {
-    action: RepositorySettingsPendingAction;
-    errorTitle: string;
-    title: string;
-    confirmLabel: string;
-    run: PendingConfirmation["run"];
-  }) => {
-    void runProviderAction({
-      action,
-      errorTitle,
-      run: async () => {
-        const request = await run(undefined);
-        if (request) {
-          setPendingConfirmation({ title, confirmLabel, request, run });
-        }
-      },
-    });
-  };
-
-  const handleDetachCloudflareWorker = (workerId: Id<"repositoryCloudflareWorkers">) => {
-    runConfirmedProviderAction({
-      action: { kind: "detach_cloudflare_worker", workerId },
-      errorTitle: "Could not remove Cloudflare attachment",
-      title: "Remove the Worker from this repository?",
-      confirmLabel: "Remove from repository",
-      run: (confirmation) =>
-        detachResource({
-          repositoryId: repository.repositoryId,
-          resource: { kind: "cloudflare_worker", workerId },
-          confirmation,
-        }),
-    });
-  };
-
-  const handleDetachConvexProject = (convexProjectId: Id<"repositoryConvexProjects">) => {
-    runConfirmedProviderAction({
-      action: { kind: "detach_convex_project", convexProjectId },
-      errorTitle: "Could not remove Convex attachment",
-      title: "Remove the Convex project from this repository?",
-      confirmLabel: "Remove from repository",
-      run: (confirmation) =>
-        detachResource({
-          repositoryId: repository.repositoryId,
-          resource: { kind: "convex_project", convexProjectId },
-          confirmation,
-        }),
-    });
-  };
-
-  const handleConfigureWorkersBuildsForGitHub = (workerId: Id<"repositoryCloudflareWorkers">) => {
-    openProviderDialog({ provider: "cloudflare", repairWorkerId: workerId });
-  };
-
-  const handleUpdateCloudflareWorkerName = (
-    workerId: Id<"repositoryCloudflareWorkers">,
-    expectedWorkerName: string,
-  ) => {
-    void runProviderAction({
-      action: { kind: "update_cloudflare_worker_name", workerId },
-      errorTitle: "Could not update Cloudflare Worker name",
-      run: () =>
-        updateCloudflareWorkerName({
-          expectedWorkerName,
-          repositoryId: repository.repositoryId,
-          workerId,
-        }),
-    });
-  };
-
-  const handleUpdateCloudflareWorkerRootDirectory = (
-    workerId: Id<"repositoryCloudflareWorkers">,
-    expectedRootDirectory: string,
-  ) => {
-    void runProviderAction({
-      action: { kind: "update_cloudflare_worker_root_directory", workerId },
-      errorTitle: "Could not update Cloudflare Worker root",
-      run: () =>
-        updateCloudflareWorkerRootDirectory({
-          expectedRootDirectory,
-          repositoryId: repository.repositoryId,
-          workerId,
-        }),
-    });
-  };
-
-  const handleRotateConvexDeployKeysForWorkersBuilds = (
-    workerId: Id<"repositoryCloudflareWorkers">,
-    convexProjectId: Id<"repositoryConvexProjects">,
-  ) => {
-    runConfirmedProviderAction({
-      action: {
-        kind: "rotate_convex_deploy_keys_for_workers_builds",
-        workerId,
-        convexProjectId,
-      },
-      errorTitle: "Could not rotate Convex deploy keys for Workers Builds",
-      title: "Replace the Convex deploy keys?",
-      confirmLabel: "Replace deploy keys",
-      run: (confirmation) =>
-        rotateConvexDeployKeys({
-          convexProjectId,
-          workerId,
-          repositoryId: repository.repositoryId,
-          confirmation,
-        }),
-    });
-  };
-
-  const settingsState = buildRepositorySettingsState({
-    addCloudflareWorkerOnClick: () => openProviderDialog({ provider: "cloudflare" }),
-    addConvexOnClick: () => openProviderDialog({ provider: "convex" }),
-    cloudflareAccount:
-      workspace.cloudflareConnection.state === "ready" &&
-      (workspace.cloudflareConnection.connection.state === "connected" ||
-        workspace.cloudflareConnection.connection.state === "disconnected")
-        ? {
-            accountId: workspace.cloudflareConnection.connection.accountId,
-            accountName: workspace.cloudflareConnection.connection.accountName,
-          }
-        : undefined,
-    cloudflareBuildTokens: !shouldLoadCloudflareBuildTokens
-      ? { state: "not_available" }
-      : cloudflareBuildTokensQuery.isFetching
-        ? { state: "loading" }
-        : cloudflareBuildTokensQuery.error
-          ? {
-              state: "failed",
-              reload: () => {
-                void cloudflareBuildTokensQuery.refetch();
-              },
-            }
-          : cloudflareBuildTokensQuery.data
-            ? { state: "loaded", tokens: cloudflareBuildTokensQuery.data.tokens }
-            : { state: "loading" },
-    configureWorkersBuildsForGitHubOnClick: handleConfigureWorkersBuildsForGitHub,
-    changeConvexProjectConfigPathOnClick: (convexProjectId) =>
-      openProviderDialog({
-        provider: "convex",
-        repairProjectId: convexProjectId,
-      }),
-    cloudflareObservations: workspace.cloudflareObservations,
-    convexObservations: workspace.convexObservations,
-    pendingAction: providerActionInFlight,
-    repository,
-    detachCloudflareWorkerOnClick: handleDetachCloudflareWorker,
-    detachConvexProjectOnClick: handleDetachConvexProject,
-    rotateConvexDeployKeysForWorkersBuildsOnClick: handleRotateConvexDeployKeysForWorkersBuilds,
-    updateCloudflareWorkerNameOnClick: handleUpdateCloudflareWorkerName,
-    updateCloudflareWorkerRootDirectoryOnClick: handleUpdateCloudflareWorkerRootDirectory,
-  });
-
   return (
     <>
       <RepositoryOverviewPage
         developerToolsVisible={developerToolsVisible}
         isRetryingRepositoryAction={isRetryingRepositoryAction}
         page={page}
-        settingsState={settingsState}
         workspace={workspace}
         onOpenDeleteDialog={() => {
           void navigate({
@@ -438,8 +183,6 @@ export function RepositorySelectedWorkspace({
               replace: true,
               search: (currentSearch: RootRouteSearch) =>
                 applySearchPatch(currentSearch, {
-                  "add-cloudflare": null,
-                  "add-convex": null,
                   delete: null,
                 }),
               state: (currentState) => ({
@@ -449,33 +192,6 @@ export function RepositorySelectedWorkspace({
               to: DASHBOARD_ROUTE,
             });
           }}
-        />
-      ) : null}
-      {addConvexModeActive ? (
-        <RepositoryConvexDialog
-          blockedReason={providerActionBlockReason}
-          key={`${repository.repositoryId}:${convexRepairProjectId ?? "add"}`}
-          onClose={() => {
-            closeRepositoryDashboardDialog("add-convex");
-          }}
-          onSaved={() => {
-            closeRepositoryDashboardDialog("add-convex");
-          }}
-          repairProjectId={convexRepairProjectId}
-          repository={repository}
-        />
-      ) : null}
-      {addCloudflareWorkerModeActive ? (
-        <RepositoryCloudflareDialog
-          blockedReason={providerActionBlockReason}
-          convexObservations={workspace.convexObservations}
-          key={`${repository.repositoryId}:${cloudflareRepairWorkerId ?? "add"}`}
-          onClose={() => {
-            closeRepositoryDashboardDialog("add-cloudflare");
-          }}
-          repairBuildTokenUuid={cloudflareRepairBuildTokenUuid}
-          repairWorkerId={cloudflareRepairWorkerId}
-          repository={repository}
         />
       ) : null}
       {pendingConfirmation ? (

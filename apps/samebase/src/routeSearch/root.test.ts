@@ -7,7 +7,6 @@ import {
   MAX_LOGO_GRID_SIZE,
 } from "@samebase/logo-model/voxel";
 import {
-  applyRepositoryDashboardProviderAddSearch,
   clearRepositoryDashboardQueryDialogSearch,
   readCanonicalRouteAddressForRootSearch,
   readRootRouteSearch,
@@ -17,50 +16,21 @@ import {
 } from "./root";
 
 describe("rootRouteSearch", () => {
-  it("opens one provider dialog while keeping independent root search", () => {
-    const currentSearch = {
-      "add-convex": true,
-      delete: true,
-      "prod-ui": true,
-    } satisfies RootRouteSearch;
-
-    expect(
-      applyRepositoryDashboardProviderAddSearch({ currentSearch, provider: "cloudflare" }),
-    ).toEqual({
-      "add-cloudflare": true,
-      "add-convex": undefined,
-      delete: undefined,
-      "prod-ui": true,
-    });
-  });
-
   it("clears only the selected repository dashboard dialog search", () => {
     const currentSearch = {
-      "add-cloudflare": true,
-      "add-convex": true,
       delete: true,
       devtools: true,
     } satisfies RootRouteSearch;
 
-    expect(clearRepositoryDashboardQueryDialogSearch(currentSearch, "add-cloudflare")).toEqual({
-      ...currentSearch,
-      "add-cloudflare": undefined,
-    });
-    expect(clearRepositoryDashboardQueryDialogSearch(currentSearch, "add-convex")).toEqual({
-      ...currentSearch,
-      "add-convex": undefined,
-    });
     expect(clearRepositoryDashboardQueryDialogSearch(currentSearch, "delete")).toEqual({
       ...currentSearch,
       delete: undefined,
     });
   });
 
-  it("drops conflicting dashboard modal flags while keeping independent root search", () => {
+  it("keeps the delete dialog flag with independent root search", () => {
     expect(
       validateRootRouteSearch({
-        "add-cloudflare": "",
-        "add-convex": "",
         auth: "google",
         "auth-return": "dashboard",
         background: "#ffffff",
@@ -83,6 +53,7 @@ describe("rootRouteSearch", () => {
       "auth-return": "dashboard",
       background: "#ffffff",
       border: "stone-300",
+      delete: true,
       depth: 2,
       dist: 1.25,
       dark: true,
@@ -162,26 +133,22 @@ describe("rootRouteSearch", () => {
     });
   });
 
-  it("keeps a bare provider dashboard intent", () => {
-    expect(
-      validateRootRouteSearch({
-        "add-convex": "",
-      }),
-    ).toEqual({
-      "add-convex": true,
-    });
-    expect(validateRootRouteSearch({ "add-cloudflare": "" })).toEqual({
-      "add-cloudflare": true,
-    });
-  });
-
-  it("drops conflicting provider dashboard intents", () => {
+  it("removes the old provider dialog params from a saved link", () => {
     expect(
       validateRootRouteSearch({
         "add-cloudflare": "",
         "add-convex": "",
       }),
     ).toEqual({});
+    expect(
+      readCanonicalRouteAddressForRootSearch({
+        acceptedSearchKeys: [],
+        hash: "",
+        pathname: "/repo/ada/demo/settings",
+        searchStr: "?add-cloudflare&add-convex",
+        stripProdUi: false,
+      }),
+    ).toBe("/repo/ada/demo/settings");
   });
 
   it("parses the root search contract from a search string", () => {

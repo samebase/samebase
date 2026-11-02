@@ -13,7 +13,6 @@ import {
   buildAlchemyStackCards,
   buildProductionEnvironmentRoots,
 } from "@/repository/dashboard/repositoryEnvironmentRoots";
-import { buildRepositorySettingsState } from "@/repository/dashboard/repositorySettingsState";
 import type {
   RepositoryFolderState,
   RepositoryOrganizationTreeSettings,
@@ -75,10 +74,6 @@ export type RepositoryOverviewVisualMode =
   | "repository-overview-v2-r2"
   | "repository-overview-v2-settings"
   | "repository-overview-v2-settings-active"
-  | "repository-overview-v2-settings-checking"
-  | "repository-overview-v2-settings-completed"
-  | "repository-overview-v2-settings-drift"
-  | "repository-overview-v2-settings-legacy-previews"
   | "repository-overview-v2-settings-loading";
 
 const FIXTURE_NOW = Date.parse("2026-04-03T00:00:12Z");
@@ -853,16 +848,6 @@ const PROVISIONING_EMPTY_CONVEX_OBSERVATIONS = {
   reload: () => {},
 } satisfies RepositoryProviderObservationState<RepositoryConvexProjectObservation>;
 
-const PROVISIONING_CHECKING_CLOUDFLARE_OBSERVATIONS = {
-  workers: { state: "checking" },
-  builds: { state: "checking" },
-  convexBuildAccess: { state: "checking" },
-} satisfies RepositoryCloudflareProviderObservationState;
-
-const PROVISIONING_CHECKING_CONVEX_OBSERVATIONS = {
-  state: "checking",
-} satisfies RepositoryProviderObservationState<RepositoryConvexProjectObservation>;
-
 const PROVISIONING_PLANNED_PROVIDER_PLAN = {
   convexConfigPath: "convex.json",
   convex: {
@@ -876,25 +861,6 @@ const PROVISIONING_PLANNED_PROVIDER_PLAN = {
     accountId: "fixture-cloudflare-account",
     buildTokenUuid: "fixture-build-token",
     workerName: "tmp-f149-repository-loading-states",
-    rootDirectory: "/",
-  },
-} satisfies NonNullable<UserRepositoryResult["providerPlan"]>;
-
-const PROVISIONING_CREATED_PROVIDER_PLAN = {
-  convexConfigPath: "convex.json",
-  convex: {
-    state: "created",
-    projectName: "tmp-f149-repository-loading-states",
-    deploymentRegion: "aws-eu-west-1",
-    teamId: "38516",
-    projectId: "2653471",
-  },
-  cloudflare: {
-    state: "created",
-    accountId: "fixture-cloudflare-account",
-    buildTokenUuid: "fixture-build-token",
-    workerName: "tmp-f149-repository-loading-states",
-    workerTag: "tmp-f149-repository-loading-states-tag",
     rootDirectory: "/",
   },
 } satisfies NonNullable<UserRepositoryResult["providerPlan"]>;
@@ -1100,32 +1066,7 @@ function buildFixtureWorkspace({
     repository,
   } satisfies RepositoryWorkspaceSelected;
 
-  return {
-    settingsState: buildRepositorySettingsState({
-      addCloudflareWorkerOnClick: () => {},
-      addConvexOnClick: () => {},
-      changeConvexProjectConfigPathOnClick: () => {},
-      cloudflareObservations,
-      cloudflareAccount: {
-        accountId: cloudflareAccountId,
-        accountName: cloudflareAccountName,
-      },
-      cloudflareBuildTokens: {
-        state: "loaded",
-        tokens: [{ name: "Workers Builds - 2026-08-14 01:54", uuid: "fixture-build-token" }],
-      },
-      convexObservations,
-      configureWorkersBuildsForGitHubOnClick: () => {},
-      detachCloudflareWorkerOnClick: () => {},
-      detachConvexProjectOnClick: () => {},
-      pendingAction: null,
-      rotateConvexDeployKeysForWorkersBuildsOnClick: () => {},
-      updateCloudflareWorkerNameOnClick: () => {},
-      updateCloudflareWorkerRootDirectoryOnClick: () => {},
-      repository,
-    }),
-    workspace,
-  };
+  return workspace;
 }
 
 function RepositoryOverviewProvisioningFixture({
@@ -1251,7 +1192,7 @@ function RepositoryOverviewProvisioningFixture({
       break;
   }
 
-  const { settingsState, workspace } = buildFixtureWorkspace({
+  const workspace = buildFixtureWorkspace({
     cloudflareAccountId: "fixture-cloudflare-account",
     cloudflareAccountName: "Fixture Account",
     cloudflareObservations,
@@ -1300,7 +1241,6 @@ function RepositoryOverviewProvisioningFixture({
               developerToolsVisible={false}
               isRetryingRepositoryAction={false}
               page="overview"
-              settingsState={settingsState}
               workspace={workspace}
               onOpenDeleteDialog={() => {}}
               onRetryInfrastructureProvisioning={() => {}}
@@ -1314,142 +1254,37 @@ function RepositoryOverviewProvisioningFixture({
   );
 }
 
-type RepositoryOverviewProviderSettingsVisualMode = Extract<
-  RepositoryOverviewVisualMode,
-  | "repository-overview-v2-settings-active"
-  | "repository-overview-v2-settings-checking"
-  | "repository-overview-v2-settings-completed"
-  | "repository-overview-v2-settings-drift"
-  | "repository-overview-v2-settings-legacy-previews"
->;
-
-function RepositoryOverviewProviderSettingsFixture({
-  mode,
-}: {
-  mode: RepositoryOverviewProviderSettingsVisualMode;
-}) {
-  let repository: UserRepositoryResult;
-  let cloudflareObservations: RepositoryCloudflareProviderObservationState;
-  let convexObservations: RepositoryProviderObservationState<RepositoryConvexProjectObservation>;
-
-  switch (mode) {
-    case "repository-overview-v2-settings-active":
-      repository = {
-        ...PROVISIONING_REPOSITORY,
-        cloudflareWorkers: [],
-        convexProjects: [],
-        providerPlan: PROVISIONING_PLANNED_PROVIDER_PLAN,
-        providerSetup: {
-          status: "running",
-          provider: "cloudflare",
-          runId: PROVISIONING_RUN_ID,
-          step: "attach_worker",
-          updatedAt: FIXTURE_NOW,
-        },
-        providerWrite: {
-          status: "active",
-          owner: { kind: "managed_run" },
-          lastWriteAt: {},
-        },
-        deletion: {
-          state: "not_deleting",
-          deleteAction: {
-            state: "disabled",
-            reason: "Repository setup is still running.",
-          },
-        },
-      };
-      cloudflareObservations = PROVISIONING_EMPTY_CLOUDFLARE_OBSERVATIONS;
-      convexObservations = PROVISIONING_EMPTY_CONVEX_OBSERVATIONS;
-      break;
-    case "repository-overview-v2-settings-checking":
-      repository = {
-        ...PROVISIONING_REPOSITORY,
-        providerPlan: PROVISIONING_CREATED_PROVIDER_PLAN,
-        providerWrite: {
-          status: "idle",
-          lastWriteAt: {
-            cloudflare: FIXTURE_NOW,
-            convex: FIXTURE_NOW,
-          },
-        },
-      };
-      cloudflareObservations = PROVISIONING_CHECKING_CLOUDFLARE_OBSERVATIONS;
-      convexObservations = PROVISIONING_CHECKING_CONVEX_OBSERVATIONS;
-      break;
-    case "repository-overview-v2-settings-completed":
-      repository = {
-        ...PROVISIONING_REPOSITORY,
-        providerPlan: PROVISIONING_CREATED_PROVIDER_PLAN,
-        providerWrite: {
-          status: "idle",
-          lastWriteAt: {
-            cloudflare: FIXTURE_NOW,
-            convex: FIXTURE_NOW,
-          },
-        },
-      };
-      cloudflareObservations = PROVISIONING_CLOUDFLARE_OBSERVATIONS;
-      convexObservations = PROVISIONING_CONVEX_OBSERVATIONS;
-      break;
-    case "repository-overview-v2-settings-drift":
-      repository = {
-        ...PROVISIONING_REPOSITORY,
-        providerPlan: PROVISIONING_CREATED_PROVIDER_PLAN,
-      };
-      cloudflareObservations = {
-        ...PROVISIONING_CLOUDFLARE_OBSERVATIONS,
-        workers: {
-          ...PROVISIONING_CLOUDFLARE_OBSERVATIONS.workers,
-          observations: PROVISIONING_CLOUDFLARE_OBSERVATIONS.workers.observations.map(
-            (observation) => ({
-              ...observation,
-              workerName: "tmp-f149-repository-loading-states-renamed",
-            }),
-          ),
-        },
-        builds: {
-          ...PROVISIONING_CLOUDFLARE_OBSERVATIONS.builds,
-          observations: PROVISIONING_CLOUDFLARE_OBSERVATIONS.builds.observations.map(
-            (observation) => ({
-              ...observation,
-              repository: {
-                ...observation.repository,
-                rootDirectory: "apps/web",
-              },
-            }),
-          ),
-        },
-      };
-      convexObservations = PROVISIONING_CONVEX_OBSERVATIONS;
-      break;
-    case "repository-overview-v2-settings-legacy-previews":
-      repository = PROVISIONING_REPOSITORY;
-      cloudflareObservations = {
-        ...PROVISIONING_CLOUDFLARE_OBSERVATIONS,
-        builds: {
-          ...PROVISIONING_CLOUDFLARE_OBSERVATIONS.builds,
-          observations: PROVISIONING_CLOUDFLARE_OBSERVATIONS.builds.observations.map(
-            (observation) => ({
-              ...observation,
-              repository: {
-                ...observation.repository,
-                builds: { state: "legacy_previews" },
-              },
-              builds: { state: "not_connected" },
-            }),
-          ),
-        },
-      };
-      convexObservations = PROVISIONING_CONVEX_OBSERVATIONS;
-      break;
-  }
-
-  const { settingsState, workspace } = buildFixtureWorkspace({
+function RepositoryOverviewActiveSettingsFixture() {
+  const repository: UserRepositoryResult = {
+    ...PROVISIONING_REPOSITORY,
+    cloudflareWorkers: [],
+    convexProjects: [],
+    providerPlan: PROVISIONING_PLANNED_PROVIDER_PLAN,
+    providerSetup: {
+      status: "running",
+      provider: "cloudflare",
+      runId: PROVISIONING_RUN_ID,
+      step: "attach_worker",
+      updatedAt: FIXTURE_NOW,
+    },
+    providerWrite: {
+      status: "active",
+      owner: { kind: "managed_run" },
+      lastWriteAt: {},
+    },
+    deletion: {
+      state: "not_deleting",
+      deleteAction: {
+        state: "disabled",
+        reason: "Repository setup is still running.",
+      },
+    },
+  };
+  const workspace = buildFixtureWorkspace({
     cloudflareAccountId: "fixture-cloudflare-account",
     cloudflareAccountName: "Fixture Account",
-    cloudflareObservations,
-    convexObservations,
+    cloudflareObservations: PROVISIONING_EMPTY_CLOUDFLARE_OBSERVATIONS,
+    convexObservations: PROVISIONING_EMPTY_CONVEX_OBSERVATIONS,
     githubRepositoryUrl: "https://github.com/nicu-chiciuc/tmp-f149-repository-loading-states",
     pullRequests: fixturePullRequests([], PROVISIONING_DEFAULT_BRANCH),
     repository,
@@ -1490,7 +1325,6 @@ function RepositoryOverviewProviderSettingsFixture({
               developerToolsVisible={false}
               isRetryingRepositoryAction={false}
               page="settings"
-              settingsState={settingsState}
               workspace={workspace}
               onOpenDeleteDialog={() => {}}
               onRetryInfrastructureProvisioning={() => {}}
@@ -1514,13 +1348,6 @@ export function RepositoryOverviewVisualFixture({ mode }: { mode: RepositoryOver
       : "overview";
 
   switch (mode) {
-    case "repository-overview-v2-cloudflare-builds-repair":
-    case "repository-overview-v2-cloudflare-dialog":
-    case "repository-overview-v2-cloudflare-dialog-normalized-name":
-    case "repository-overview-v2-cloudflare-dialog-loading":
-    case "repository-overview-v2-convex-dialog":
-    case "repository-overview-v2-convex-dialog-error":
-    case "repository-overview-v2-convex-dialog-loading":
     case "repository-overview-v2-delete-dialog":
       return <RepositoryOverviewDialogsVisualFixture mode={mode} />;
     case "repository-overview-v2-convex-schema":
@@ -1536,11 +1363,7 @@ export function RepositoryOverviewVisualFixture({ mode }: { mode: RepositoryOver
     case "repository-overview-v2-provisioning-ready":
       return <RepositoryOverviewProvisioningFixture mode={mode} />;
     case "repository-overview-v2-settings-active":
-    case "repository-overview-v2-settings-checking":
-    case "repository-overview-v2-settings-completed":
-    case "repository-overview-v2-settings-drift":
-    case "repository-overview-v2-settings-legacy-previews":
-      return <RepositoryOverviewProviderSettingsFixture mode={mode} />;
+      return <RepositoryOverviewActiveSettingsFixture />;
   }
 
   if (mode === "repository-overview-v2-root") {
@@ -1628,7 +1451,7 @@ export function RepositoryOverviewVisualFixture({ mode }: { mode: RepositoryOver
               },
         }
       : currentPullRequests;
-  const { settingsState, workspace: attachmentsWorkspace } = buildFixtureWorkspace({
+  const attachmentsWorkspace = buildFixtureWorkspace({
     cloudflareAccountId: "fe57d01d7ab41f60d00ba1aade20eb33",
     cloudflareAccountName: "Samebase",
     cloudflareObservations,
@@ -1724,7 +1547,6 @@ export function RepositoryOverviewVisualFixture({ mode }: { mode: RepositoryOver
             developerToolsVisible={mode === "repository-overview-v2-dev"}
             isRetryingRepositoryAction={false}
             page={page}
-            settingsState={settingsState}
             workspace={workspace}
             onOpenDeleteDialog={() => {}}
             onRetryInfrastructureProvisioning={() => {}}

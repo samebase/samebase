@@ -1,7 +1,7 @@
-import { useState, type ReactNode } from "react";
+import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
-import { useAction, useMutation, useQuery as useConvexQuery } from "convex/react";
+import { useAction } from "convex/react";
 
 import type { ViewerOrganization } from "@/organization/context";
 import { OrganizationBillingSection } from "@/organization/OrganizationBillingSection";
@@ -16,12 +16,6 @@ import {
 import { buildOrganizationRoutePath } from "@/organization/organizationRoutes";
 import type { OrganizationBillingSearch } from "@/routeSearch/organizationBilling";
 import { api } from "../../convex/_generated/api";
-import { ConvexDeploymentRegionField } from "@/repository/setup/ConvexDeploymentRegionField";
-import {
-  formatConvexDeploymentRegionLabel,
-  resolveDefaultConvexDeploymentRegion,
-  type ConvexDeploymentRegion,
-} from "../../shared/convexDeploymentRegions";
 
 type OrganizationIdentity = OrganizationGitHubIdentityObservation["owner"];
 
@@ -62,105 +56,6 @@ function OrganizationIdentityNotice({
     <div className="mt-4 text-sm text-red-700" role="status">
       The GitHub App cannot access this organization.
     </div>
-  );
-}
-
-function OrganizationConvexDeploymentRegionSetting({
-  organization,
-}: {
-  organization: ViewerOrganization;
-}) {
-  const setDefaultConvexDeploymentRegion = useMutation(api.convexDeploymentRegions.setDefault);
-  const defaultConvexDeploymentRegion = useConvexQuery(api.convexDeploymentRegions.getDefault, {
-    organizationId: organization.organizationId,
-  });
-  const [draftRegion, setDraftRegion] = useState<ConvexDeploymentRegion | null>(null);
-  const [isSaving, setIsSaving] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
-  const selectedRegion =
-    draftRegion ?? resolveDefaultConvexDeploymentRegion(defaultConvexDeploymentRegion);
-  const changed = draftRegion !== null && draftRegion !== defaultConvexDeploymentRegion;
-
-  const writeDefault = async (deploymentRegion: ConvexDeploymentRegion) => {
-    if (isSaving) {
-      return;
-    }
-    setIsSaving(true);
-    setSaveError(null);
-    try {
-      await setDefaultConvexDeploymentRegion({
-        organizationId: organization.organizationId,
-        deploymentRegion,
-      });
-      setDraftRegion(null);
-    } catch (error) {
-      setSaveError(
-        error instanceof Error ? error.message : "Could not save the default production region.",
-      );
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  let content: ReactNode;
-  if (organization.role !== "owner") {
-    content = (
-      <dl className="space-y-1">
-        <dt className="text-sm font-medium">Default production region</dt>
-        <dd className="text-sm text-muted-foreground">
-          {defaultConvexDeploymentRegion === undefined
-            ? "Loading..."
-            : formatConvexDeploymentRegionLabel(defaultConvexDeploymentRegion)}
-        </dd>
-      </dl>
-    );
-  } else if (defaultConvexDeploymentRegion === undefined) {
-    content = (
-      <div className="text-sm text-muted-foreground" role="status">
-        Loading...
-      </div>
-    );
-  } else {
-    content = (
-      <div className="grid gap-3">
-        <ConvexDeploymentRegionField
-          disabled={isSaving}
-          id="organization-default-convex-production-region"
-          label="Default production region"
-          onValueChange={(region) => {
-            setSaveError(null);
-            setDraftRegion(region);
-          }}
-          showEuPricing={false}
-          value={selectedRegion}
-        />
-        {saveError ? (
-          <div className="text-sm text-red-600" role="alert">
-            {saveError}
-          </div>
-        ) : null}
-        <Button
-          className="justify-self-start"
-          disabled={!changed || isSaving}
-          onClick={() => {
-            void writeDefault(selectedRegion);
-          }}
-          size="sm"
-          type="button"
-        >
-          {isSaving ? "Saving..." : "Save"}
-        </Button>
-      </div>
-    );
-  }
-
-  return (
-    <section className="mt-8 border-t pt-6" aria-labelledby="organization-deployment-heading">
-      <h2 id="organization-deployment-heading" className="text-base font-semibold">
-        Convex
-      </h2>
-      <div className="mt-4">{content}</div>
-    </section>
   );
 }
 
@@ -249,10 +144,6 @@ export function OrganizationSettingsPage({
           }}
         />
       </section>
-      <OrganizationConvexDeploymentRegionSetting
-        key={organization.organizationId}
-        organization={organization}
-      />
       <OrganizationBillingSection organization={organization} search={search} />
       {organization.role === "owner" ? (
         <section className="mt-8 border-t pt-6" aria-label="Delete organization">

@@ -42,7 +42,6 @@ import type * as cloudflareResources from "../cloudflareResources.js";
 import type * as collaborative from "../collaborative.js";
 import type * as common from "../common.js";
 import type * as convexDeploymentRegionModel from "../convexDeploymentRegionModel.js";
-import type * as convexDeploymentRegions from "../convexDeploymentRegions.js";
 import type * as convexManagementApi_client from "../convexManagementApi/client.js";
 import type * as convexManagementApi_errors from "../convexManagementApi/errors.js";
 import type * as convexManagementApi_generated_client_index from "../convexManagementApi/generated/client/index.js";
@@ -260,7 +259,6 @@ declare const fullApi: ApiFromModules<{
   collaborative: typeof collaborative;
   common: typeof common;
   convexDeploymentRegionModel: typeof convexDeploymentRegionModel;
-  convexDeploymentRegions: typeof convexDeploymentRegions;
   "convexManagementApi/client": typeof convexManagementApi_client;
   "convexManagementApi/errors": typeof convexManagementApi_errors;
   "convexManagementApi/generated/client/index": typeof convexManagementApi_generated_client_index;
