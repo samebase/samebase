@@ -2513,6 +2513,7 @@ export const trackedFilePaths = [
   "templates/base/.agents/skills/convex-setup-auth/references/convex-auth.md",
   "templates/base/.agents/skills/convex-setup-auth/references/workos-authkit.md",
   "templates/base/.agents/skills/convex/SKILL.md",
+  "templates/base/.gitattributes",
   "templates/base/.github/workflows/alchemy.yml",
   "templates/base/.github/workflows/ci.yml",
   "templates/base/.github/workflows/destroy.yml",
