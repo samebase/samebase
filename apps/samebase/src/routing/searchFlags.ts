@@ -4,8 +4,6 @@ import { keys } from "@samebase/dependent/object";
 const NativeURLSearchParams = URLSearchParams;
 
 export const ROUTE_SEARCH_PRESENCE_FLAG_KEYS = [
-  "add-cloudflare",
-  "add-convex",
   "compare",
   "dark",
   "delete",

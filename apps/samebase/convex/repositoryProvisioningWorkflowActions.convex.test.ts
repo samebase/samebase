@@ -41,8 +41,10 @@ vi.mock("./starterSeed", async (importOriginal) => {
   };
 });
 
+import { RequestError } from "@octokit/request-error";
+
 import { internal } from "./_generated/api";
-import { starterTemplateManifest } from "./starterSeedManifest.generated";
+import { actionsStarterTemplateManifest } from "./starterSeedManifest.actions.generated";
 import { makeConvexTest } from "./test.setup";
 
 // Subset of GitHub's official GET /installation/repositories response example.
@@ -192,16 +194,19 @@ async function createManagedRepositoryRun(
       defaultBranch: "master",
       connectedAt: 1,
     });
+    await ctx.db.insert("workflow_repositoryProvisioning_writeLocks", {
+      repositoryId,
+      owner: { kind: "managed_run", runId },
+      state: "active",
+      lastWriteAt: {},
+      updatedAt: 1,
+    });
     await ctx.db.insert("workflow_repositoryProvisioning_plans", {
+      provisioning: "repository_actions",
       repositoryId,
       convexConfigPath: "convex.json",
-      convex: { state: "planned", projectName: "old-world", deploymentRegion: "aws-us-east-1" },
-      cloudflare: {
-        state: "planned",
-        workerName: "old-world",
-        rootDirectory: "/",
-        buildTokenUuid: null,
-      },
+      ciSecrets: { state: "written", writtenAt: 1, credentialRevision: 1 },
+      seed: { state: "planned" },
       createdAt: 1,
       updatedAt: 1,
     });
@@ -359,6 +364,12 @@ describe("managed repository provisioning identity", () => {
 
   it("seeds the created repository by stable ID at its current coordinates", async () => {
     const { runId, t, userId, repositoryId } = await createManagedRepositoryRun();
+    // main does not exist yet, so the starter may be pushed.
+    githubMocks.getBranch.mockRejectedValue(
+      new RequestError("Branch not found", 404, {
+        request: { method: "GET", url: "https://api.github.com/", headers: {} },
+      }),
+    );
 
     await expect(
       t.action(internal.repositoryProvisioningWorkflowActions.seedStarterRepository, {
@@ -378,8 +389,9 @@ describe("managed repository provisioning identity", () => {
       client: {},
       owner: "octocat",
       repo: "Hello-World",
-      defaultBranch: "master",
-      manifest: starterTemplateManifest,
+      defaultBranch: "main",
+      manifest: actionsStarterTemplateManifest,
+      branchFirst: expect.objectContaining({ beforeStarterPush: expect.any(Function) }),
     });
   });
 });

@@ -85,13 +85,6 @@ type CloudflareConnectionAuthority =
       userId: Id<"users">;
     }
   | {
-      kind: "manual_provider_write";
-      organizationId: Id<"organizations">;
-      repositoryId: Id<"repositories">;
-      userId: Id<"users">;
-      actionId: string;
-    }
-  | {
       kind: "repository_workflow";
       authority: RepositoryProviderWorkflowAuthority;
     };
@@ -352,19 +345,6 @@ async function loadCloudflareProviderConfiguration(
                 },
               ),
       };
-    case "manual_provider_write":
-      return {
-        organizationId: authority.organizationId,
-        configuration: await ctx.runQuery(
-          internal.organizationProviderCredentials.loadForManualCloudflareProviderWrite,
-          {
-            organizationId: authority.organizationId,
-            repositoryId: authority.repositoryId,
-            userId: authority.userId,
-            actionId: authority.actionId,
-          },
-        ),
-      };
     case "repository_workflow":
       return await ctx.runQuery(
         internal.organizationProviderCredentials.loadForRepositoryProviderWorkflow,
@@ -394,20 +374,6 @@ async function replaceCloudflareCredentialForAuthority(
         {
           organizationId,
           userId: authority.userId,
-          expectedAuth: args.expectedAuth,
-          auth: args.auth,
-          tokenHealth: args.tokenHealth,
-          expectedTokenRefreshLease: args.expectedTokenRefreshLease,
-        },
-      );
-    case "manual_provider_write":
-      return await ctx.runMutation(
-        internal.organizationProviderCredentials.replaceCloudflareCredentialForManualProviderWrite,
-        {
-          organizationId,
-          repositoryId: authority.repositoryId,
-          userId: authority.userId,
-          actionId: authority.actionId,
           expectedAuth: args.expectedAuth,
           auth: args.auth,
           tokenHealth: args.tokenHealth,
@@ -451,18 +417,6 @@ async function claimCloudflareTokenRefreshForAuthority(
           force: args.force,
         },
       );
-    case "manual_provider_write":
-      return await ctx.runMutation(
-        internal.organizationProviderCredentials.claimCloudflareTokenRefreshForManualProviderWrite,
-        {
-          organizationId,
-          repositoryId: authority.repositoryId,
-          userId: authority.userId,
-          actionId: authority.actionId,
-          expectedAuth: args.expectedAuth,
-          force: args.force,
-        },
-      );
     case "repository_workflow":
       return await ctx.runMutation(
         internal.organizationProviderCredentials.claimCloudflareTokenRefreshForRepositoryWorkflow,
@@ -493,19 +447,6 @@ async function releaseCloudflareTokenRefreshForAuthority(
         internal.organizationProviderCredentials.releaseCloudflareTokenRefresh,
         {
           organizationId,
-          expectedTokenRefreshLease: args.expectedTokenRefreshLease,
-          recordLastTokenRefreshAt: args.recordLastTokenRefreshAt,
-        },
-      );
-    case "manual_provider_write":
-      return await ctx.runMutation(
-        internal.organizationProviderCredentials
-          .releaseCloudflareTokenRefreshForManualProviderWrite,
-        {
-          organizationId,
-          repositoryId: authority.repositoryId,
-          userId: authority.userId,
-          actionId: authority.actionId,
           expectedTokenRefreshLease: args.expectedTokenRefreshLease,
           recordLastTokenRefreshAt: args.recordLastTokenRefreshAt,
         },
@@ -808,29 +749,6 @@ export const resolveConnectionForOrganization = internalAction({
       ctx,
       { kind: "user", organizationId: args.organizationId, userId: args.userId },
       { forceRefresh: args.forceRefresh, refreshLease: args.refreshLease },
-    ),
-});
-
-export const resolveConnectionForManualProviderWrite = internalAction({
-  args: {
-    organizationId: id("organizations"),
-    repositoryId: id("repositories"),
-    userId: id("users"),
-    actionId: string(),
-    forceRefresh: optional(boolean()),
-  },
-  returns: resolveConnectionForOrganizationResultValidator,
-  handler: async (ctx, args): Promise<ResolvedCloudflareConnection | null> =>
-    await resolveConnectionForAuthority(
-      ctx,
-      {
-        kind: "manual_provider_write",
-        organizationId: args.organizationId,
-        repositoryId: args.repositoryId,
-        userId: args.userId,
-        actionId: args.actionId,
-      },
-      { forceRefresh: args.forceRefresh },
     ),
 });
 

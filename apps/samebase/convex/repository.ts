@@ -2,13 +2,8 @@ import { v, type Infer } from "convex/values";
 
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
-import {
-  internalMutation,
-  internalQuery,
-  type ActionCtx,
-  type MutationCtx,
-} from "./_generated/server";
-import { action, mutation, query } from "./functions";
+import { internalQuery, type ActionCtx } from "./_generated/server";
+import { action, query } from "./functions";
 import { listOrganizationIdsForUser } from "./organizationAccess";
 import { readOrganizationRepositories } from "./repository/dashboard";
 import { connectRepositoryContract } from "./repository/contracts/connectRepository";
@@ -22,23 +17,14 @@ import {
   type UserRepositoriesResult,
 } from "./repository/contracts/getUserRepositories";
 import { retryInfrastructureProvisioningContract } from "./repository/contracts/retryInfrastructureProvisioning";
-import {
-  detachResourceContract,
-  vDetachableResource,
-  type DetachableResource,
-} from "./repository/contracts/detachResource";
-import { detachWorkerForUser } from "./repository/cloudflareMutations";
-import { detachProjectForUser } from "./repository/convexMutations";
-import { vConfirmationSurface, type ConfirmationSurface } from "./repository/confirmationModel";
-import { checkActionConfirmation } from "./repository/confirmations";
-import {
-  vActionConfirmation,
-  type ActionConfirmation,
-  type ActionConfirmationRequest,
+import type { ConfirmationSurface } from "./repository/confirmationModel";
+import type {
+  ActionConfirmation,
+  ActionConfirmationRequest,
 } from "./repository/contracts/actionConfirmation";
 import { canAccess } from "../shared/accessModel";
 
-const { id, optional } = v;
+const { id } = v;
 type CreateRepositoryResult = Infer<typeof createRepositoryContract.returns>;
 type ConnectRepositoryResult = Infer<typeof connectRepositoryContract.returns>;
 
@@ -100,13 +86,8 @@ export const create = action({
       userId: ctx.viewer.userId,
       organizationId: args.organizationId,
       githubRepositoryName: args.githubRepositoryName,
-      convexProjectName: args.convexProjectName,
-      convexDeploymentRegion: args.convexDeploymentRegion,
-      cloudflareWorkerName: args.cloudflareWorkerName,
-      cloudflareBuildTokenUuid: args.cloudflareBuildTokenUuid,
       description: args.description,
       private: args.private,
-      provisioning: args.provisioning,
     }),
 });
 
@@ -154,91 +135,6 @@ export const retryProviderSetup = action({
       userId: ctx.viewer.userId,
       repositoryId: args.repositoryId,
       surface: { kind: "dashboard" },
-      confirmation: args.confirmation,
-    }),
-});
-
-/**
-The gated detach. The check and the detach share one transaction, so a detach that fails leaves the
-token unused and writes no audit row.
-*/
-async function detachRepositoryResource(
-  ctx: MutationCtx,
-  args: {
-    userId: Id<"users">;
-    repositoryId: Id<"repositories">;
-    resource: DetachableResource;
-    surface: ConfirmationSurface;
-    confirmation: ActionConfirmation | undefined;
-  },
-): Promise<ActionConfirmationRequest | null> {
-  const confirmation = await checkActionConfirmation(ctx, {
-    userId: args.userId,
-    surface: args.surface,
-    request: {
-      action: "detach_resource",
-      repositoryId: args.repositoryId,
-      resource: args.resource,
-    },
-    confirmation: args.confirmation,
-  });
-  if (confirmation.state === "needs_confirmation") {
-    return confirmation;
-  }
-
-  switch (args.resource.kind) {
-    case "cloudflare_worker":
-      await detachWorkerForUser(ctx, {
-        userId: args.userId,
-        repositoryId: args.repositoryId,
-        workerId: args.resource.workerId,
-      });
-      return null;
-    case "convex_project":
-      await detachProjectForUser(ctx, {
-        userId: args.userId,
-        repositoryId: args.repositoryId,
-        convexProjectId: args.resource.convexProjectId,
-      });
-      return null;
-    default:
-      args.resource satisfies never;
-      throw new Error("Unsupported repository resource.");
-  }
-}
-
-/** Removes one attachment record. No provider call: the resource keeps running. */
-export const detachResource = mutation({
-  access: detachResourceContract.access,
-  args: detachResourceContract.args,
-  returns: detachResourceContract.returns,
-  mcp: detachResourceContract.mcp,
-  handler: async (ctx, args): Promise<ActionConfirmationRequest | null> =>
-    await detachRepositoryResource(ctx, {
-      userId: ctx.viewer.userId,
-      repositoryId: args.repositoryId,
-      resource: args.resource,
-      surface: { kind: "dashboard" },
-      confirmation: args.confirmation,
-    }),
-});
-
-/** The `detachResource` write for an MCP caller, after the MCP side resolved the resource name. */
-export const detachResourceForUser = internalMutation({
-  args: {
-    userId: id("users"),
-    repositoryId: id("repositories"),
-    resource: vDetachableResource,
-    surface: vConfirmationSurface,
-    confirmation: optional(vActionConfirmation),
-  },
-  returns: detachResourceContract.returns,
-  handler: async (ctx, args): Promise<ActionConfirmationRequest | null> =>
-    await detachRepositoryResource(ctx, {
-      userId: args.userId,
-      repositoryId: args.repositoryId,
-      resource: args.resource,
-      surface: args.surface,
       confirmation: args.confirmation,
     }),
 });

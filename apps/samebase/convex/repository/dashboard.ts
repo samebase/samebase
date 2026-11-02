@@ -3,11 +3,7 @@ import type { QueryCtx } from "../_generated/server";
 import type { Doc, Id } from "../_generated/dataModel";
 import { mutation, query } from "../functions";
 import { findRepositoryForUser, requireRepositoryForUser } from "../organizationAccess";
-import {
-  isConnectedRepository,
-  isLiveConnectedRepository,
-  isSamebaseManagedRepository,
-} from "./state";
+import { isConnectedRepository, isSamebaseManagedRepository } from "./state";
 import {
   hasActiveRepositoryProvisioningRun,
   resolveRepositoryDeletionEligibility,
@@ -30,7 +26,6 @@ import {
   type RepositoryDeletionSummary,
 } from "./contracts/getUserRepositories";
 import {
-  readManualProviderWriteProviders,
   readRepositoryInfrastructureState,
   type RepositoryInfrastructureState,
 } from "./infrastructureOperation";
@@ -312,8 +307,10 @@ async function readManagedProviderPlan(
       ciSecrets: plan.ciSecrets,
     };
   }
+  // An old plan without its destinations reads like a finished old plan, so that one such row does
+  // not break the whole list of its organization.
   if (repository.convexTeamId === undefined || repository.cloudflareAccountId === undefined) {
-    throw new Error("Managed repository provider destinations are not configured.");
+    return null;
   }
 
   return {
@@ -333,15 +330,6 @@ function resolveProviderWriteSummary(
         kind: "managed_run",
       },
       lastWriteAt: infrastructure.providerWrite?.lastWriteAt ?? {},
-    };
-  }
-  if (infrastructure.operation.kind === "manual_provider_write") {
-    const write = infrastructure.operation.write;
-    return {
-      status: "active",
-      owner: { kind: "manual_provider_write" },
-      affectedProviders: readManualProviderWriteProviders(write.owner.action),
-      lastWriteAt: write.lastWriteAt,
     };
   }
 
@@ -368,9 +356,6 @@ async function readManagedProviderOperation(
       fallbackUpdatedAt: infrastructure.operation.updatedAt,
     };
   }
-  if (infrastructure.operation.kind !== "none") {
-    return null;
-  }
 
   const write = infrastructure.providerWrite;
   if (!write || write.owner.kind !== "managed_run" || write.state !== "failed") {
@@ -387,45 +372,16 @@ async function readManagedProviderOperation(
 async function resolveProviderSetupSummary(
   ctx: Pick<QueryCtx, "db">,
   providerPlan: ManagedProviderPlan,
-  convexProjects: ConvexProject[],
-  cloudflareWorkers: CloudflareWorker[],
   infrastructure: RepositoryInfrastructureState,
 ): Promise<ProviderSetupSummary> {
+  if (!providerPlan || readRepositoryProvisioningMode(providerPlan) !== "repository_actions") {
+    return { status: "not_applicable" };
+  }
+
   const managedOperation = await readManagedProviderOperation(ctx, infrastructure);
-
-  // Samebase's part of a repository_actions setup is the GitHub Actions secret and variable; the
-  // repository's alchemy workflow owns the Convex project.
-  if (providerPlan && readRepositoryProvisioningMode(providerPlan) === "repository_actions") {
-    return managedOperation
-      ? readProviderRunSummary({ provider: "github", ...managedOperation })
-      : { status: "ready" };
-  }
-  if (convexProjects.length === 0) {
-    if (managedOperation) {
-      return readProviderRunSummary({
-        provider: "convex",
-        ...managedOperation,
-      });
-    }
-    return { status: "not_applicable" };
-  }
-  if (cloudflareWorkers.length === 0) {
-    if (managedOperation) {
-      return readProviderRunSummary({
-        provider: "cloudflare",
-        ...managedOperation,
-      });
-    }
-    return { status: "not_applicable" };
-  }
-  if (managedOperation) {
-    return readProviderRunSummary({
-      provider: "cloudflare",
-      ...managedOperation,
-    });
-  }
-
-  return { status: "ready" };
+  return managedOperation
+    ? readProviderRunSummary({ provider: "github", ...managedOperation })
+    : { status: "ready" };
 }
 
 function compareCloudflareWorkerSortOrder(left: CloudflareWorker, right: CloudflareWorker): number {
@@ -454,39 +410,8 @@ const vRepositoryPullRequestFilters = object({
   includeDrafts: boolean(),
   includeNoLabel: boolean(),
 });
-const vRepositoryFolderSuggestions = array(string());
 
 // MARK: Public
-
-export const listRepositoryFolderSuggestions = query({
-  access: "access_repo_connect",
-  args: {
-    repositoryId: id("repositories"),
-  },
-  returns: vRepositoryFolderSuggestions,
-  handler: async (ctx, args) => {
-    const repository = await findRepositoryForUser(ctx.db, {
-      userId: ctx.viewer.userId,
-      repositoryId: args.repositoryId,
-    });
-    if (!isLiveConnectedRepository(repository)) {
-      return [];
-    }
-
-    const defaultBranchTree = await ctx.runQuery(components.gitEditor.branches.get, {
-      repositoryId: args.repositoryId,
-      branch: repository.defaultBranch,
-    });
-    if (!defaultBranchTree) {
-      return [];
-    }
-
-    return defaultBranchTree.treeData.tree
-      .filter((item) => item.type === "tree")
-      .map((item) => item.path)
-      .sort((left, right) => left.localeCompare(right));
-  },
-});
 
 export const getUserRepositoryPullRequestFilters = query({
   access: "access_dashboard",
@@ -754,8 +679,6 @@ export async function readOrganizationRepositories(
       hasConnectedGitHubRepository: false,
       hasConvexProvision: false,
       hasCloudflareProvision: false,
-      canRemoveConvexProvision: false,
-      canRemoveCloudflareProvision: false,
       cloudflareWorkers: [],
       convexProjects: [],
     });
@@ -778,12 +701,6 @@ export async function readOrganizationRepositories(
       );
       const hasConvexProvision = convexProjects.length > 0;
       const hasCloudflareProvision = cloudflareWorkers.length > 0;
-      const canRemoveConvexProvision = convexProjects.some(
-        (project) => project.origin === "provisioned",
-      );
-      const canRemoveCloudflareProvision = cloudflareWorkers.some(
-        (worker) => worker.origin === "provisioned",
-      );
       const cloudflareWorkerSummaries = cloudflareWorkers.map((worker) => ({
         workerId: worker._id,
         accountId: worker.accountId,
@@ -820,8 +737,6 @@ export async function readOrganizationRepositories(
           hasConnectedGitHubRepository: true,
           hasConvexProvision,
           hasCloudflareProvision,
-          canRemoveConvexProvision,
-          canRemoveCloudflareProvision,
           cloudflareWorkers: cloudflareWorkerSummaries,
           convexProjects: convexProjectSummaries,
         };
@@ -836,13 +751,7 @@ export async function readOrganizationRepositories(
       const sourceSetup = await resolveSourceSetupSummary(ctx, repository, providerPlan);
       const providerSetup =
         sourceSetup.status === "ready"
-          ? await resolveProviderSetupSummary(
-              ctx,
-              providerPlan,
-              convexProjects,
-              cloudflareWorkers,
-              infrastructure,
-            )
+          ? await resolveProviderSetupSummary(ctx, providerPlan, infrastructure)
           : { status: "not_applicable" as const };
       return {
         repositoryId: repository._id,
@@ -866,8 +775,6 @@ export async function readOrganizationRepositories(
         hasConnectedGitHubRepository: true,
         hasConvexProvision,
         hasCloudflareProvision,
-        canRemoveConvexProvision,
-        canRemoveCloudflareProvision,
         cloudflareWorkers: cloudflareWorkerSummaries,
         convexProjects: convexProjectSummaries,
       };

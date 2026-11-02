@@ -58,14 +58,14 @@ To leave Samebase, replace `CONVEX_ACCESS_TOKEN` with a Convex team access token
 repository from Samebase and keep its resources. Your app keeps deploying. Google sign-in through
 `auth.samebase.com` stops, so connect your own first.
 
-New App still defaults to the old setup. To try this flow, choose **Set up by GitHub Actions in the
-repository**.
+Do not revoke Samebase's OAuth authorization at Convex before replacing `CONVEX_ACCESS_TOKEN`.
+Revoking it stops your deploys.
 
 ## Do you have to move?
 
 Your app keeps running if you do nothing. Its Worker and Convex project sit in your accounts, and
-Workers Builds keeps deploying. You lose Samebase's status and repair tools for that app when I
-remove the old setup. I'll post the date in the [changelog](/changelog).
+Workers Builds keeps deploying. I've removed the old setup, so Samebase no longer shows status or
+repairs apps that use it. To monitor your app in Samebase, move it to Alchemy.
 
 ## Move a Worker site
 
@@ -182,8 +182,8 @@ with npm.
 9. Change a file your site serves and merge it. You want `Plan: 1 to update` and your change live.
    Then remove `wrangler.jsonc`, `wrangler`, and the old deploy scripts.
 
-10. If the repository is in Samebase, open its Settings and remove the old Worker from Connections.
-    Samebase deletes its own record, and the Worker keeps running.
+10. If the repository is in Samebase, check its overview. Samebase reads its stack from your team's
+    Convex state store.
 
 ## Move a Convex app
 
@@ -215,12 +215,11 @@ changes to `<name>.convex.site`. Follow the Worker steps with these changes.
 - **Expect a different plan:** `1 to create, 1 to adopted`. The create is `[Deployment]`, which
   reuses your production deployment and runs your `deploy` script. Stop on anything else.
 
-- **Delete Workers Builds' deploy keys along with Builds.** Builds runs your `deploy` script with a
-  production key, so after the move a live Builds link pushes to production from Cloudflare.
-
-  ```sh
-  npx convex deployment token delete "<name>" --deployment <production>
-  ```
+- **Turn off Workers Builds before the adopt.** A live Builds link can deploy to production from
+  Cloudflare. Under OAuth,
+  [Convex reuses Samebase's team-wide OAuth token as the deploy key](https://docs.convex.dev/management-api/create-deploy-key).
+  I leave that key alone. Do not delete it by name or value. For a separate deployment-scoped key
+  you created for Builds, delete it in Convex after turning off Builds.
 
 - **Export again after the adopt** and compare row counts before you sign in. Your own testing adds
   rows.

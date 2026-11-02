@@ -1,7 +1,7 @@
 import { v, type Infer } from "convex/values";
 import { internalMutation, internalQuery, type MutationCtx } from "../../_generated/server";
 import { internal } from "../../_generated/api";
-import type { Doc, Id } from "../../_generated/dataModel";
+import type { Doc } from "../../_generated/dataModel";
 import {
   vRepositoryDeletionEventLevel,
   vRepositoryDeletionStep,
@@ -24,22 +24,10 @@ const { boolean, id, literal, object, string, union } = v;
 
 const deletionRequestOptions = object({
   removeGithubRepo: boolean(),
-  removeConvexProvision: boolean(),
-  removeCloudflareProvision: boolean(),
 });
 type DeletionRequestOptions = Infer<typeof deletionRequestOptions>;
 
 const deletionRunEventState = union(literal("unchanged"), literal("running"));
-
-async function listRepositoryConvexProjects(
-  ctx: MutationCtx,
-  repositoryId: Id<"repositories">,
-): Promise<Doc<"repositoryConvexProjects">[]> {
-  return await ctx.db
-    .query("repositoryConvexProjects")
-    .withIndex("by_repository", (q) => q.eq("repositoryId", repositoryId))
-    .collect();
-}
 
 async function assertRepositoryIsQuiescentForDeletion(
   ctx: MutationCtx,
@@ -51,131 +39,15 @@ async function assertRepositoryIsQuiescentForDeletion(
   }
 }
 
-function buildConvexProjectDeletionPlan(
-  projects: Array<{
-    teamId: string;
-    projectId: string;
-  }>,
-): Exclude<RepositoryDeletionPlan["convex"], { action: "skip" }> | null {
-  const projectsByIdentity = new Map(
-    projects.map((project) => [`${project.teamId}:${project.projectId}`, project] as const),
-  );
-  const uniqueProjects = [...projectsByIdentity.values()].sort(
-    (left, right) =>
-      left.teamId.localeCompare(right.teamId) || left.projectId.localeCompare(right.projectId),
-  );
-  if (uniqueProjects.length === 0) {
-    return null;
-  }
-  return { action: "delete_projects", projects: uniqueProjects };
-}
-
-function buildConvexPlan(args: {
-  repository: Doc<"repositories">;
-  convexProjects: Doc<"repositoryConvexProjects">[];
+function buildDeletionPlan(args: {
+  repository: Extract<Doc<"repositories">, { state: "connected" | "failed" }>;
+  githubOwnerLogin: string;
   options: DeletionRequestOptions;
-}): RepositoryDeletionPlan["convex"] {
-  const { repository, convexProjects, options } = args;
-  if (!options.removeConvexProvision) {
-    return { action: "skip", reason: "not_requested" };
-  }
-
-  if (!isConnectedRepository(repository)) {
-    return { action: "skip", reason: "not_recorded" };
-  }
-  const createdProjects: Array<{
-    teamId: string;
-    projectId: string;
-  }> = [];
-
-  for (const project of convexProjects) {
-    if (
-      project.organizationId !== repository.organizationId ||
-      project.teamId !== repository.convexTeamId
-    ) {
-      throw new Error("Repository Convex project destination does not match its repository.");
-    }
-    if (project.origin === "provisioned") {
-      createdProjects.push({
-        teamId: project.teamId,
-        projectId: project.projectId,
-      });
-    }
-  }
-
-  const projectPlan = buildConvexProjectDeletionPlan(createdProjects);
-  if (projectPlan) {
-    return projectPlan;
-  }
-
-  if (convexProjects.length > 0) {
-    return { action: "skip", reason: "not_managed" };
-  }
-
-  return { action: "skip", reason: "not_recorded" };
-}
-
-async function buildCloudflarePlan(
-  ctx: MutationCtx,
-  args: {
-    repository: Doc<"repositories">;
-    options: DeletionRequestOptions;
-  },
-): Promise<RepositoryDeletionPlan["cloudflare"]> {
-  const { repository, options } = args;
-  if (!options.removeCloudflareProvision) {
-    return { action: "skip", reason: "not_requested" };
-  }
-  if (!isConnectedRepository(repository)) {
-    return { action: "skip", reason: "not_recorded" };
-  }
-
-  const workers = await ctx.db
-    .query("repositoryCloudflareWorkers")
-    .withIndex("by_repository", (q) => q.eq("repositoryId", repository._id))
-    .collect();
-  const provisionedWorkers = workers
-    .filter((worker) => worker.origin === "provisioned")
-    .sort(
-      (left, right) =>
-        left.workerName.localeCompare(right.workerName) ||
-        left.accountId.localeCompare(right.accountId) ||
-        left.workerTag.localeCompare(right.workerTag),
-    );
-  if (
-    workers.some(
-      (worker) =>
-        worker.organizationId !== repository.organizationId ||
-        worker.accountId !== repository.cloudflareAccountId,
-    )
-  ) {
-    throw new Error("Repository Cloudflare Worker destination does not match its repository.");
-  }
-  if (provisionedWorkers.length === 0) {
-    return { action: "skip", reason: "not_recorded" };
-  }
-
-  return {
-    action: "delete_workers",
-    workers: provisionedWorkers.map((worker) => ({
-      accountId: worker.accountId,
-      workerName: worker.workerName,
-      workerTag: worker.workerTag,
-    })),
-  };
-}
-
-async function buildDeletionPlan(
-  ctx: MutationCtx,
-  args: {
-    repository: Extract<Doc<"repositories">, { state: "connected" | "failed" }>;
-    githubOwnerLogin: string;
-    convexProjects: Doc<"repositoryConvexProjects">[];
-    options: DeletionRequestOptions;
-  },
-): Promise<RepositoryDeletionPlan> {
-  const convex = buildConvexPlan(args);
-  const cloudflare = await buildCloudflarePlan(ctx, args);
+}): RepositoryDeletionPlan {
+  // Removal leaves Workers and Convex projects in the user's accounts. The plan keeps both fields
+  // because older runs hold `delete_workers` and `delete_projects`, which the schema still accepts.
+  const convex = { action: "skip", reason: "not_requested" } as const;
+  const cloudflare = { action: "skip", reason: "not_requested" } as const;
   const githubRepositoryFullName = `${args.githubOwnerLogin}/${args.repository.githubRepositoryName}`;
 
   switch (args.repository.state) {
@@ -305,14 +177,10 @@ export const createInitialRun = internalMutation({
       throw new Error("Repository is not ready to be removed from Samebase yet.");
     }
 
-    const [convexProjects, organization] = await Promise.all([
-      listRepositoryConvexProjects(ctx, args.repositoryId),
-      requireRepositoryOrganization(ctx.db, repository),
-    ]);
-    const plan = await buildDeletionPlan(ctx, {
+    const organization = await requireRepositoryOrganization(ctx.db, repository);
+    const plan = buildDeletionPlan({
       repository,
       githubOwnerLogin: organization.githubOwnerLogin,
-      convexProjects,
       options: args.options,
     });
     const now = Date.now();

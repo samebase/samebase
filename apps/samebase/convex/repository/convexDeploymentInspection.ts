@@ -6,7 +6,7 @@ import {
   union as sureUnion,
   unknown as sureUnknown,
 } from "@samebase/sure";
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import { internal } from "../_generated/api";
 import type { Doc, Id } from "../_generated/dataModel";
 import { internalQuery, type ActionCtx } from "../_generated/server";
@@ -26,6 +26,9 @@ import { vRepositoryConvexProjectDocument } from "./model";
 import { isLiveConnectedRepository } from "./state";
 
 const { array, id, literal, object, string, union } = v;
+
+/** `ConvexError` data when the organization holds no Convex connection to the repository's team. */
+export const CONVEX_CONNECTION_REQUIRED = "Convex connection is required.";
 
 export type ConvexInspectionTarget = {
   authMethod: ConvexDeployKeyAuthMethod;
@@ -93,7 +96,7 @@ export const readTarget = internalQuery({
     );
     const { convexCredential: credential, convexTeam } = configuration;
     if (!convexTeam || convexTeam.teamId !== repository.convexTeamId || !credential) {
-      throw new Error("Convex connection is required.");
+      throw new ConvexError(CONVEX_CONNECTION_REQUIRED);
     }
     return {
       organizationId: repository.organizationId,
@@ -122,7 +125,7 @@ export async function readConvexInspectionTarget(
     })
   ).trim();
   if (!token) {
-    throw new Error("Convex connection is required.");
+    throw new ConvexError(CONVEX_CONNECTION_REQUIRED);
   }
   return {
     authMethod: target.authMethod,
@@ -134,9 +137,10 @@ export async function readConvexInspectionTarget(
 }
 
 /**
-Mints a short-lived deploy key for `deployment` with the allowed actions of `purpose`,
-passes it to `inspect`, and revokes it afterwards. Under an OAuth connection the key is the team-wide OAuth token, so `inspect`
-must keep it on the server.
+Mints a short-lived deploy key for `deployment` with the allowed actions of `purpose`, passes it to
+`inspect`, and revokes it afterwards. Under an OAuth connection the key is the team-wide OAuth token,
+so `inspect` must keep it on the server, and nothing is revoked: deleting that key would revoke the
+connection itself, and every repository that deploys with it.
 
 `purpose` names the key in the Convex dashboard, such as `samebase-schema-<deployment>-<time>`.
 */
@@ -164,17 +168,19 @@ export async function withConvexInspectionDeployKey<Result>(
   try {
     return await inspect(deployKey);
   } finally {
-    try {
-      await deleteConvexDeploymentDeployKey({
-        deploymentName: args.deployment.name,
-        name,
-        token: args.target.token,
-      });
-    } catch (error) {
-      console.warn("convex_deployment_inspection:deploy_key_cleanup_failed", {
-        deploymentName: args.deployment.name,
-        message: toErrorMessage(error),
-      });
+    if (args.target.authMethod === "api_key") {
+      try {
+        await deleteConvexDeploymentDeployKey({
+          deploymentName: args.deployment.name,
+          name,
+          token: args.target.token,
+        });
+      } catch (error) {
+        console.warn("convex_deployment_inspection:deploy_key_cleanup_failed", {
+          deploymentName: args.deployment.name,
+          message: toErrorMessage(error),
+        });
+      }
     }
   }
 }

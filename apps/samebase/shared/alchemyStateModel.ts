@@ -49,13 +49,13 @@ export type AlchemyStacksRead = Infer<typeof vAlchemyStacksRead>;
 The setup status of a repository_actions repository, from the `prod` stage of the stack that carries
 the repository's name in the team's Alchemy state store.
 
-in_progress = the stage has no output yet. Its first run has not finished, or it failed: the store
-does not say which, so this status never reports a failure.
+no_successful_deployment = no completed production deploy is recorded. The store does not say
+whether the run is still running or failed. `runUrl` opens the recorded run when one exists.
 
 done = the stage has an output.
 */
 export const vAlchemySetupStatus = union(
-  object({ state: literal("in_progress") }),
+  object({ state: literal("no_successful_deployment"), runUrl: union(string(), v.null()) }),
   object({ state: literal("done") }),
 );
 export type AlchemySetupStatus = Infer<typeof vAlchemySetupStatus>;
@@ -79,9 +79,13 @@ export const vAlchemyLiveDeployments = array(
   }),
 );
 
+/** Samebase holds no Convex connection to the repository's team, so it cannot read the store. */
+export const vAlchemyNoConnection = object({ store: literal("no_connection") });
+
 /** The read of the store, with Management API metadata for each Convex production deployment. */
 export type AlchemyStateObservation =
   | { store: "missing" }
+  | Infer<typeof vAlchemyNoConnection>
   | (Extract<AlchemyStacksRead, { store: "found" }> & {
       liveDeployments: Infer<typeof vAlchemyLiveDeployments>;
     });

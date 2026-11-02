@@ -5,7 +5,7 @@ import { submitFeedbackContract } from "./contracts/submitFeedback";
 import { createRepositoryContract } from "../repository/contracts/createRepository";
 import { getUserRepositoriesContract } from "../repository/contracts/getUserRepositories";
 import type { AccessKey } from "../../shared/accessModel";
-import { parseScopeTokens } from "./scopes";
+import { parseScopeTokens, withoutRetiredMcpScope } from "./scopes";
 
 const DEFAULT_GRANT_TYPES = ["authorization_code", "refresh_token"] as const;
 const DEFAULT_RESPONSE_TYPES = ["code"] as const;
@@ -504,8 +504,8 @@ export function validateAuthorizeRequestFromUrl(
 
   // Codex/native MCP OAuth clients may omit `scope` on authorize requests.
   // OAuth allows server-defined defaults, so use the scopes that back this
-  // MCP server's public tool surface.
-  const scopeRaw = url.searchParams.get("scope")?.trim() || DEFAULT_MCP_SCOPE;
+  // MCP server's public tool surface. A request for only the retired scope gets the same default.
+  const scopeRaw = withoutRetiredMcpScope(url.searchParams.get("scope") ?? "") || DEFAULT_MCP_SCOPE;
   const scopes = parseScopeTokens(scopeRaw).map((scope) => scope.toLowerCase());
 
   const supportedScopes: McpSupportedScope[] = [];

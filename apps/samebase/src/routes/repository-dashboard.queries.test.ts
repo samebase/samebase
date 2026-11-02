@@ -7,11 +7,7 @@ import { api } from "../../convex/_generated/api";
 import { observedBaseAlchemyRepositoryReply } from "../../convex/repository/fixtures/observedAlchemyState";
 import { ALCHEMY_CONNECTION_UNAVAILABLE } from "../../shared/alchemyStateModel";
 import { AUTHENTICATED_ACCOUNT_DELETED } from "../../shared/authenticatedAccountAvailability";
-import {
-  loadRepositoryAlchemyPage,
-  loadRepositoryDashboard,
-  loadRepositoryOverview,
-} from "./repository-dashboard.queries";
+import { loadRepositoryDashboard, loadRepositoryOverview } from "./repository-dashboard.queries";
 
 function loadAs(
   viewerAccess:
@@ -96,7 +92,6 @@ function loadPage(args: {
   convexTeamId: string | undefined;
   connect: () => Promise<unknown>;
   client: "server" | "browser";
-  attachments?: true;
   beingCreated?: true;
 }) {
   const queryClient = new QueryClient({
@@ -142,13 +137,11 @@ function loadPage(args: {
   const params = { owner: "samebase", repository: "base-alchemy" };
   return {
     action,
-    load: args.attachments
-      ? loadRepositoryOverview({ context, params, deps: { attachments: true } })
-      : loadRepositoryAlchemyPage({ context, params }),
+    load: loadRepositoryOverview({ context, params }),
   };
 }
 
-describe("loadRepositoryAlchemyPage", () => {
+describe("loadRepositoryOverview", () => {
   it.each(["server", "browser"] as const)(
     "returns the store connection with its first read through the %s client",
     async (client) => {
@@ -191,20 +184,13 @@ describe("loadRepositoryAlchemyPage", () => {
     });
   });
 
-  it("reads no store without a Convex team, with ?attachments, or during creation", async () => {
+  it("reads no store without a Convex team or during creation", async () => {
     const withoutTeam = loadPage({
       client: "server",
       convexTeamId: undefined,
       connect: async () => liveConnection,
     });
     await expect(withoutTeam.load).resolves.toBeNull();
-    const attachments = loadPage({
-      client: "server",
-      convexTeamId: "38516",
-      connect: async () => liveConnection,
-      attachments: true,
-    });
-    await expect(attachments.load).resolves.toBeNull();
     const beingCreated = loadPage({
       client: "server",
       convexTeamId: "38516",
@@ -213,7 +199,7 @@ describe("loadRepositoryAlchemyPage", () => {
     });
     await expect(beingCreated.load).resolves.toBeNull();
 
-    for (const { action } of [withoutTeam, attachments, beingCreated]) {
+    for (const { action } of [withoutTeam, beingCreated]) {
       expect(action).not.toHaveBeenCalled();
     }
   });

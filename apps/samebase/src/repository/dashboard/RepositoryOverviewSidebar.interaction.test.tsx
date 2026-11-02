@@ -81,8 +81,6 @@ function makeRepository(name = "active"): UserRepositoryResult {
     organizationId: fakeOrganizationId(),
     convexTeamId: "team-acme-platform",
     cloudflareAccountId: "account-acme-production",
-    canRemoveCloudflareProvision: false,
-    canRemoveConvexProvision: false,
     cloudflareWorkers: [],
     convexProjects: [],
     defaultBranch: "main",

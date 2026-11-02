@@ -107,18 +107,19 @@ describe("markWorkflowProvisioningFailed", () => {
   it("marks an active composed create-app write lock as failed", async () => {
     const t = makeConvexTest();
     const ids = await seedRun(t, {
-      repoName: "composed-worker-failure",
+      repoName: "composed-secrets-failure",
       trigger: "create",
-      currentStep: "attach_worker",
-      workflowId: "workflow-composed-worker",
+      currentStep: "write_actions_secrets",
+      workflowId: "workflow-composed-secrets",
       repositoryState: "connected",
       activeOwnership: true,
     });
-    const expectedMessage = "Cloudflare Worker connection did not attach a Worker.";
+    const expectedMessage =
+      "Convex connection is required to provision infrastructure. Connect Convex and retry.";
 
     await t.mutation(internal.infraProvisioning.markWorkflowProvisioningFailed, {
       runId: ids.runId,
-      workflowId: "workflow-composed-worker",
+      workflowId: "workflow-composed-secrets",
       message: `Error: ${expectedMessage}`,
     });
 
@@ -149,83 +150,14 @@ describe("markWorkflowProvisioningFailed", () => {
     });
     expect(result.writeLock?.lastWriteAt.convex).toBe(result.writeLock?.lastWriteAt.cloudflare);
     expect(result.event).toMatchObject({
-      step: "attach_worker",
+      step: "write_actions_secrets",
       level: "error",
       message: expectedMessage,
     });
   });
 
-  it("keeps the Convex team mismatch visible", async () => {
-    const t = makeConvexTest();
-    const ids = await seedRun(t, {
-      repoName: "convex-team-mismatch",
-      trigger: "retry",
-      currentStep: "attach_convex",
-      workflowId: "workflow-convex-team",
-      repositoryState: "connected",
-      activeOwnership: true,
-    });
-    const expectedMessage = "Connected Convex team does not match the provisioning plan.";
-
-    await t.mutation(internal.infraProvisioning.markWorkflowProvisioningFailed, {
-      runId: ids.runId,
-      workflowId: "workflow-convex-team",
-      message: `Error: ${expectedMessage}`,
-    });
-
-    await expect(t.run(async (ctx) => await ctx.db.get(ids.runId))).resolves.toMatchObject({
-      state: "failed",
-      lastError: expectedMessage,
-    });
-  });
-
-  it("shows the required recovery when a planned Workers Builds token leaves the list", async () => {
-    const t = makeConvexTest();
-    const ids = await seedRun(t, {
-      repoName: "cloudflare-build-token-missing",
-      trigger: "retry",
-      currentStep: "configure_workers_builds_for_github",
-      workflowId: "workflow-cloudflare-build-token",
-      repositoryState: "connected",
-      activeOwnership: true,
-    });
-    const providerMessage =
-      "The selected Cloudflare Workers Builds token is not in Cloudflare's current list for account account-1. Select another token and retry.";
-    const expectedMessage =
-      "The selected Cloudflare Workers Builds token is no longer in Cloudflare's current list. Remove this failed app, then create it again with another token.";
-
-    await t.mutation(internal.infraProvisioning.markWorkflowProvisioningFailed, {
-      runId: ids.runId,
-      workflowId: "workflow-cloudflare-build-token",
-      message: `Error: Uncaught ConvexError: ${providerMessage}`,
-    });
-
-    const result = await t.run(async (ctx) => ({
-      run: await ctx.db.get(ids.runId),
-      event: await ctx.db
-        .query("workflow_repositoryProvisioning_events")
-        .withIndex("by_run_and_created_at_and_source_order", (q) => q.eq("runId", ids.runId))
-        .first(),
-    }));
-    expect(result).toMatchObject({
-      run: { state: "failed", lastError: expectedMessage },
-      event: { level: "error", message: expectedMessage },
-    });
-  });
-
   it.each([
-    ["cloudflare-quota", "attach_worker", "Organization connection limit reached (6)."],
-    [
-      "cloudflare-interrupted-create",
-      "attach_worker",
-      "Cloudflare Worker managed-worker exists after an interrupted create. Delete it in the Cloudflare dashboard, then retry.",
-    ],
-    ["convex-quota", "attach_convex", "Organization connection limit reached (6)."],
-    [
-      "convex-interrupted-create",
-      "attach_convex",
-      "Convex project managed-project exists after an interrupted create. Delete it in the Convex dashboard, then retry.",
-    ],
+    ["connection-quota", "connect_github_repository", "Organization connection limit reached (6)."],
     [
       "paid-member-seat-limit",
       "validate_connections",

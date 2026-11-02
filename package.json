@@ -49,7 +49,6 @@
     "export:pitch-deck:pdf": "pnpm --filter samebase build:ci && node scripts/export-pitch-deck.ts",
     "clean": "rm -rf .turbo .vite coverage test-results apps/samebase/dist apps/samebase/dev-dist apps/samebase/e2e/test-results apps/samebase/e2e/live-test-results apps/sidebars-example/dist",
     "test": "vp test",
-    "test:app-creation-live": "node ./scripts/test-app-creation-live.ts",
     "test:ci": "pnpm test && PLAYWRIGHT_VITE_PORT=43121 pnpm --filter samebase test:visual",
     "test:convex": "vp test --project convex",
     "test:logo-research": "node ./scripts/playwright-linux-docker.ts -c playwright.logo-research.config.ts",

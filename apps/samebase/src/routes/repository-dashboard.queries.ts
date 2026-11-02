@@ -97,16 +97,15 @@ async function connectAlchemyState(
 /**
 The loader of the pages that render the repository overview: the overview, and the Alchemy page in
 its left pane. With the dashboard data, it waits only for the store connection with its first read,
-when `readsStore`, so no GitHub read delays the first byte. It returns that connection, or `null`
-when the page reads no store, as `useRepositoryProviderObservations` decides: no dashboard access, a
-repository outside the viewer's organizations, a repository without a Convex team, or a repository
-that Samebase is still creating.
+so no GitHub read delays the first byte. It returns that connection, or `null` when the page reads
+no store, as `useRepositoryProviderObservations` decides: no dashboard access, a repository outside
+the viewer's organizations, a repository without a Convex team, or a repository that Samebase is
+still creating.
 */
-async function loadOverviewPage({
+export async function loadRepositoryOverview({
   context: { convexQueryClient, queryClient },
   params,
-  readsStore,
-}: RepositoryPageLoaderArgs & { readsStore: boolean }) {
+}: RepositoryPageLoaderArgs) {
   await loadRepositoryDashboard({ context: { queryClient } });
   const viewerAccess = await unlessAccountGone(queryClient.query(rootQueries.viewerAccess));
   if (viewerAccess === null || !viewerAccess.accessKeys.includes("access_dashboard")) {
@@ -128,23 +127,7 @@ async function loadOverviewPage({
   }
 
   const { convexTeamId, repositoryId } = repository;
-  return readsStore && convexTeamId && !isRepositoryBeingCreated(repository)
+  return convexTeamId && !isRepositoryBeingCreated(repository)
     ? await connectAlchemyState(convexQueryClient, { repositoryId, convexTeamId })
     : null;
-}
-
-/** The loader of the repository overview. `?attachments` reads no team store. */
-export async function loadRepositoryOverview(
-  args: RepositoryPageLoaderArgs & { deps: { attachments: true | undefined } },
-) {
-  return await loadOverviewPage({
-    context: args.context,
-    params: args.params,
-    readsStore: !args.deps.attachments,
-  });
-}
-
-/** The loader of the Alchemy page, which renders the repository overview in its left pane. */
-export async function loadRepositoryAlchemyPage(args: RepositoryPageLoaderArgs) {
-  return await loadOverviewPage({ context: args.context, params: args.params, readsStore: true });
 }

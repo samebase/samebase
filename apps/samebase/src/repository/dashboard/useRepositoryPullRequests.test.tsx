@@ -10,7 +10,6 @@ import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 import type { UserRepositoryResult } from "../../../convex/repository/contracts/getUserRepositories";
 import type { RepositoryPullRequestPage } from "../../../convex/repository/pullRequestModel";
-import { repositoryExternalDataQueryKey } from "@/repository/dashboard/repositoryExternalDataQueryKey";
 import {
   useRepositoryPullRequests,
   type RepositoryPullRequestsState,
@@ -39,16 +38,6 @@ vi.mock("convex/react", async (importOriginal) => {
 function fakeRepositoryId(): Id<"repositories"> {
   // @ts-expect-error Convex ids are strings at runtime; this test only needs stable identity.
   return "repository:test";
-}
-
-function fakeCloudflareWorkerId(): Id<"repositoryCloudflareWorkers"> {
-  // @ts-expect-error Convex ids are strings at runtime; this test only needs stable identity.
-  return "worker:test";
-}
-
-function fakeConvexProjectId(): Id<"repositoryConvexProjects"> {
-  // @ts-expect-error Convex ids are strings at runtime; this test only needs stable identity.
-  return "project:test";
 }
 
 function fakeRepositoryProvisioningRunId(): Id<"workflow_repositoryProvisioning_runs"> {
@@ -135,19 +124,6 @@ let rootElement: HTMLDivElement | null = null;
 let root: Root | null = null;
 let queryClient: QueryClient;
 let latestState: RepositoryPullRequestsState | null = null;
-let currentCloudflareWorkers: Array<{
-  workerId: Id<"repositoryCloudflareWorkers">;
-  accountId: string;
-  workerName: string;
-  workerTag: string;
-  rootDirectory: string;
-}> = [];
-let currentConvexProjects: Array<{
-  convexProjectId: Id<"repositoryConvexProjects">;
-  teamId: string;
-  projectId: string;
-  codeLocation: { kind: "config"; convexConfigPath: string };
-}> = [];
 let currentSourceSetupRunning = false;
 let currentProviderSetup: UserRepositoryResult["providerSetup"] = { status: "ready" };
 let currentAlchemyState: RepositoryAlchemyState;
@@ -157,8 +133,6 @@ function Harness() {
     alchemyState: currentAlchemyState,
     repository: {
       repositoryId: fakeRepositoryId(),
-      cloudflareWorkers: currentCloudflareWorkers,
-      convexProjects: currentConvexProjects,
       providerSetup: currentProviderSetup,
       sourceSetup: currentSourceSetupRunning
         ? {
@@ -200,48 +174,9 @@ async function waitFor(predicate: (state: RepositoryPullRequestsState) => boolea
   throw new Error("Timed out waiting for pull requests.");
 }
 
-function installResourceHandler(args: { unavailablePullRequestId?: string } = {}) {
-  const handler = vi.fn(async (value: unknown) => {
-    if (
-      !value ||
-      typeof value !== "object" ||
-      !("pullRequestIds" in value) ||
-      !Array.isArray(value.pullRequestIds)
-    ) {
-      throw new Error("Pull request ids are required.");
-    }
-    return value.pullRequestIds.map((pullRequestId) => {
-      if (typeof pullRequestId !== "string") {
-        throw new Error("Pull request id is required.");
-      }
-      if (pullRequestId === args.unavailablePullRequestId) {
-        return { state: "unavailable", pullRequestId };
-      }
-      return {
-        state: "available",
-        pullRequestId,
-        cloudflareBuilds: { state: "available" },
-        workers: [],
-        convexProjects: [],
-        hostingPreviews: {
-          cloudflare: { state: "available", previews: [] },
-          netlify: { state: "available", previews: [] },
-        },
-      };
-    });
-  });
-  actionState.handlersByFunctionName.set(
-    getFunctionName(api.repository.pullRequestResources.getPullRequestResources),
-    handler,
-  );
-  return handler;
-}
-
 beforeEach(() => {
   actionState.handlersByFunctionName.clear();
   latestState = null;
-  currentCloudflareWorkers = [];
-  currentConvexProjects = [];
   currentSourceSetupRunning = false;
   currentProviderSetup = { status: "ready" };
   currentAlchemyState = {
@@ -276,13 +211,12 @@ async function renderHarness(): Promise<void> {
 }
 
 describe("useRepositoryPullRequests", () => {
-  it("updates the stack cards of a pull request without repeating provider enrichment", async () => {
+  it("builds the stack cards of a pull request from the store alone", async () => {
     const headRefOid = "a".repeat(40);
     actionState.handlersByFunctionName.set(
       getFunctionName(api.repositoryPullRequests.listOpenPullRequests),
       async () => page({ number: 24, endCursor: null, headRefOid }),
     );
-    const resourceHandler = installResourceHandler();
     const [, stage] = observedSamebaseStackReply.value.stages;
     const observation = {
       store: "found" as const,
@@ -327,7 +261,7 @@ describe("useRepositoryPullRequests", () => {
     await vi.waitFor(() => {
       expect([...settledState().resourcesByPullRequestId.values()]).toMatchObject([
         {
-          state: "current",
+          state: "loaded",
           stackCards: [
             {
               stack: "samebase/base-alchemy",
@@ -339,21 +273,45 @@ describe("useRepositoryPullRequests", () => {
         },
       ]);
     });
-    expect(resourceHandler).toHaveBeenCalledWith(expect.objectContaining({ source: "alchemy" }));
-    const calls = resourceHandler.mock.calls.length;
     observation.stacks[0].stages[0].deployedHeadCommit = "b".repeat(40);
     currentAlchemyState = { ...currentAlchemyState, observation: { ...observation } };
     await renderHarness();
     expect([...settledState().resourcesByPullRequestId.values()]).toMatchObject([
       {
-        state: "current",
-        resources: {
-          hostingPreviews: { cloudflare: { state: "available" }, netlify: { state: "available" } },
-        },
+        state: "loaded",
         stackCards: [{ run: { deployedHeadCommit: "b".repeat(40) } }],
       },
     ]);
-    expect(resourceHandler).toHaveBeenCalledTimes(calls);
+  });
+
+  it("gives a pull request row the state of the store read", async () => {
+    actionState.handlersByFunctionName.set(
+      getFunctionName(api.repositoryPullRequests.listOpenPullRequests),
+      async () => page({ number: 1260, endCursor: null }),
+    );
+
+    await renderHarness();
+    await waitFor(
+      (state) =>
+        (state.state === "current" || state.state === "stale") &&
+        state.allPullRequests.length === 1,
+    );
+    expect(settledState().resourcesByPullRequestId.get("pull-request:1260")).toEqual({
+      state: "loaded",
+      stackCards: [],
+    });
+
+    currentAlchemyState = { state: "loading" };
+    await renderHarness();
+    expect(settledState().resourcesByPullRequestId.get("pull-request:1260")).toEqual({
+      state: "loading",
+    });
+
+    currentAlchemyState = { state: "failed", error: new Error("read failed"), reload: () => {} };
+    await renderHarness();
+    expect(settledState().resourcesByPullRequestId.get("pull-request:1260")).toEqual({
+      state: "failed",
+    });
   });
 
   it("loads one provider page at a time", async () => {
@@ -374,7 +332,6 @@ describe("useRepositoryPullRequests", () => {
       getFunctionName(api.repositoryPullRequests.listOpenPullRequests),
       listHandler,
     );
-    installResourceHandler();
 
     await renderHarness();
     await waitFor(
@@ -427,7 +384,6 @@ describe("useRepositoryPullRequests", () => {
       getFunctionName(api.repositoryPullRequests.listOpenPullRequests),
       listHandler,
     );
-    installResourceHandler();
 
     await renderHarness();
     await waitFor(
@@ -442,197 +398,6 @@ describe("useRepositoryPullRequests", () => {
         (state.state === "current" || state.state === "stale") && state.loadMore.state === "failed",
     );
     expect(listHandler).toHaveBeenCalledTimes(2);
-  });
-
-  it("caches resource enrichment by provider page and exact attachment coordinates", async () => {
-    const listHandler = vi.fn(async (value: unknown) => {
-      if (!value || typeof value !== "object" || !("after" in value)) {
-        throw new Error("Provider cursor is required.");
-      }
-      return value.after === null
-        ? page({ number: 1260, endCursor: "cursor:2" })
-        : page({ number: 1259, endCursor: null });
-    });
-    actionState.handlersByFunctionName.set(
-      getFunctionName(api.repositoryPullRequests.listOpenPullRequests),
-      listHandler,
-    );
-    const resourceHandler = installResourceHandler();
-
-    await renderHarness();
-    await waitFor((state) => state.state === "current" || state.state === "stale");
-    act(() => loadMore());
-    await waitFor(
-      (state) =>
-        (state.state === "current" || state.state === "stale") &&
-        state.allPullRequests.length === 2,
-    );
-
-    expect(resourceHandler.mock.calls.map((call) => call[0])).toEqual([
-      {
-        repositoryId: fakeRepositoryId(),
-        pullRequestIds: ["pull-request:1260"],
-        source: "attachments",
-      },
-      {
-        repositoryId: fakeRepositoryId(),
-        pullRequestIds: ["pull-request:1259"],
-        source: "attachments",
-      },
-    ]);
-
-    currentCloudflareWorkers = [
-      {
-        workerId: fakeCloudflareWorkerId(),
-        accountId: "account:test",
-        workerName: "samebase-worker",
-        workerTag: "worker-tag:test",
-        rootDirectory: "apps/samebase",
-      },
-    ];
-    currentConvexProjects = [
-      {
-        convexProjectId: fakeConvexProjectId(),
-        teamId: "team:test",
-        projectId: "project:test",
-        codeLocation: { kind: "config", convexConfigPath: "apps/samebase/convex.json" },
-      },
-    ];
-    await renderHarness();
-    await waitFor(
-      (state) =>
-        (state.state === "current" || state.state === "stale") &&
-        resourceHandler.mock.calls.length === 4,
-    );
-
-    expect(resourceHandler.mock.calls.slice(2).map((call) => call[0])).toEqual([
-      {
-        repositoryId: fakeRepositoryId(),
-        pullRequestIds: ["pull-request:1260"],
-        source: "attachments",
-      },
-      {
-        repositoryId: fakeRepositoryId(),
-        pullRequestIds: ["pull-request:1259"],
-        source: "attachments",
-      },
-    ]);
-    expect(listHandler).toHaveBeenCalledTimes(2);
-
-    currentCloudflareWorkers = currentCloudflareWorkers.map((worker) => ({
-      ...worker,
-      rootDirectory: "apps/web",
-    }));
-    await renderHarness();
-    await waitFor(
-      (state) =>
-        (state.state === "current" || state.state === "stale") &&
-        resourceHandler.mock.calls.length === 6,
-    );
-
-    expect(resourceHandler.mock.calls.slice(4).map((call) => call[0])).toEqual([
-      {
-        repositoryId: fakeRepositoryId(),
-        pullRequestIds: ["pull-request:1260"],
-        source: "attachments",
-      },
-      {
-        repositoryId: fakeRepositoryId(),
-        pullRequestIds: ["pull-request:1259"],
-        source: "attachments",
-      },
-    ]);
-    expect(listHandler).toHaveBeenCalledTimes(2);
-  });
-
-  it("loads fresh resources when a later-page pull request head changes", async () => {
-    const initialHeadRefOid = "1".repeat(40);
-    const refreshedHeadRefOid = "2".repeat(40);
-    let generation = 0;
-    const listHandler = vi.fn(async (value: unknown) => {
-      if (!value || typeof value !== "object" || !("after" in value)) {
-        throw new Error("Provider cursor is required.");
-      }
-      if (value.after === null) {
-        generation += 1;
-        return page({ number: 1260, endCursor: "cursor:2" });
-      }
-      return page({
-        number: 1259,
-        endCursor: null,
-        headRefOid: generation === 1 ? initialHeadRefOid : refreshedHeadRefOid,
-      });
-    });
-    actionState.handlersByFunctionName.set(
-      getFunctionName(api.repositoryPullRequests.listOpenPullRequests),
-      listHandler,
-    );
-    const resourceHandler = installResourceHandler();
-
-    await renderHarness();
-    await waitFor(
-      (state) =>
-        (state.state === "current" || state.state === "stale") &&
-        state.allPullRequests.length === 1,
-    );
-    act(() => loadMore());
-    await waitFor(
-      (state) =>
-        (state.state === "current" || state.state === "stale") &&
-        state.allPullRequests.length === 2 &&
-        resourceHandler.mock.calls.length === 2,
-    );
-
-    await act(async () => {
-      await queryClient.refetchQueries({
-        queryKey: ["repository-pull-requests", fakeRepositoryId()],
-      });
-    });
-    await waitFor(
-      (state) =>
-        (state.state === "current" || state.state === "stale") &&
-        !state.refreshing &&
-        resourceHandler.mock.calls.length === 3,
-    );
-
-    expect(resourceHandler.mock.calls[2]?.[0]).toEqual({
-      repositoryId: fakeRepositoryId(),
-      pullRequestIds: ["pull-request:1259"],
-      source: "attachments",
-    });
-    expect(
-      queryClient.getQueryCache().find({
-        exact: true,
-        queryKey: [
-          ...repositoryExternalDataQueryKey(fakeRepositoryId()),
-          "pull-request-resources",
-          "attachments",
-          [],
-          [],
-          [["pull-request:1259", refreshedHeadRefOid]],
-        ],
-      }),
-    ).toBeDefined();
-  });
-
-  it("marks a disappearing pull request unavailable without Cloudflare resources", async () => {
-    const listHandler = vi.fn(async () => page({ number: 1260, endCursor: null }));
-    actionState.handlersByFunctionName.set(
-      getFunctionName(api.repositoryPullRequests.listOpenPullRequests),
-      listHandler,
-    );
-    installResourceHandler({ unavailablePullRequestId: "pull-request:1260" });
-
-    await renderHarness();
-    await waitFor(
-      (state) =>
-        (state.state === "current" || state.state === "stale") &&
-        state.resourcesByPullRequestId.get("pull-request:1260")?.state === "failed",
-    );
-
-    expect(settledState().resourcesByPullRequestId.get("pull-request:1260")).toEqual({
-      state: "failed",
-    });
   });
 
   it("retains every loaded provider page as stale when a reload fails", async () => {
@@ -657,7 +422,6 @@ describe("useRepositoryPullRequests", () => {
       getFunctionName(api.repositoryPullRequests.listOpenPullRequests),
       listHandler,
     );
-    installResourceHandler();
 
     await renderHarness();
     await waitFor(
@@ -717,7 +481,6 @@ describe("useRepositoryPullRequests", () => {
       getFunctionName(api.repositoryPullRequests.listOpenPullRequests),
       listHandler,
     );
-    installResourceHandler();
 
     await renderHarness();
     await waitFor(
@@ -762,7 +525,6 @@ describe("useRepositoryPullRequests", () => {
       getFunctionName(api.repositoryPullRequests.listOpenPullRequests),
       listHandler,
     );
-    installResourceHandler();
 
     currentSourceSetupRunning = true;
     await renderHarness();
@@ -793,7 +555,6 @@ describe("useRepositoryPullRequests", () => {
       getFunctionName(api.repositoryPullRequests.listOpenPullRequests),
       listHandler,
     );
-    installResourceHandler();
 
     currentProviderSetup = {
       status: "failed",

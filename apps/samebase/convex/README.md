@@ -8,7 +8,7 @@ billing, and infrastructure provisioning.
 1. `schema.ts` - full data model and indexes
 2. `repository/dashboard.ts` - repository dashboard queries and infrastructure summary
 3. `repository/actions.ts` - repository connect, create, removal, and infrastructure retry actions
-4. `infraProvisioning.ts` - async Convex/Cloudflare provisioning flow
+4. `infraProvisioning.ts` - marks a failed provisioning run and its write lock as failed
 5. `mcp/` - remote MCP protocol, OAuth, grants, and tokens
 6. `toolRuntime/` - shared action catalog, validation, authorization, and execution
 

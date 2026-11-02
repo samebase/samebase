@@ -72,20 +72,6 @@ export const deleteRepositoryWorkflow = workflow.define({
       },
     );
     await step.runAction(
-      internal.repository.deletion.providerActions.deleteCloudflare,
-      {
-        runId: args.runId,
-      },
-      { name: "delete_cloudflare", retry: idempotentProviderStepRetry },
-    );
-    await step.runAction(
-      internal.repository.deletion.providerActions.deleteConvex,
-      {
-        runId: args.runId,
-      },
-      { name: "delete_convex", retry: idempotentProviderStepRetry },
-    );
-    await step.runAction(
       internal.repository.deletion.providerActions.deleteGitHubRepository,
       {
         runId: args.runId,

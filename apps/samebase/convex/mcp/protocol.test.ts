@@ -23,7 +23,6 @@ describe("buildMcpProtectedResourceMetadata", () => {
     expect(metadata.bearer_methods_supported).toEqual(["header"]);
     expect(metadata.scopes_supported).toEqual([
       "access_dashboard",
-      "access_provider_connections",
       "access_app_create",
       "access_repo_connect",
       "access_feedback_submit",
@@ -260,6 +259,45 @@ describe("validateAuthorizeRequestFromUrl", () => {
       ]);
     }
   });
+  describe("the retired access_provider_connections scope", () => {
+    function authorizeWithScope(scope: string) {
+      const url = new URL("https://samebase.com/oauth/mcp/authorize");
+      url.searchParams.set("response_type", "code");
+      url.searchParams.set("client_id", "client_123");
+      url.searchParams.set("redirect_uri", "https://example.com/callback");
+      url.searchParams.set("resource", "https://samebase.com/mcp");
+      url.searchParams.set("scope", scope);
+      url.searchParams.set("code_challenge", "0123456789012345678901234567890123456789012");
+      url.searchParams.set("code_challenge_method", "S256");
+      return validateAuthorizeRequestFromUrl(url);
+    }
+
+    it("is accepted and ignored in a cached scope list", () => {
+      expect(
+        authorizeWithScope("access_dashboard access_provider_connections access_app_create"),
+      ).toMatchObject({ ok: true, value: { scopes: ["access_dashboard", "access_app_create"] } });
+      expect(authorizeWithScope("ACCESS_PROVIDER_CONNECTIONS access_dashboard")).toMatchObject({
+        ok: true,
+        value: { scopes: ["access_dashboard"] },
+      });
+    });
+
+    it("gets the default scopes when a request names nothing else", () => {
+      expect(authorizeWithScope("access_provider_connections")).toMatchObject({
+        ok: true,
+        value: { scopes: ["access_app_create", "access_dashboard", "access_feedback_submit"] },
+      });
+    });
+
+    it("still refuses any other unsupported scope next to it", () => {
+      expect(authorizeWithScope("access_provider_connections admin")).toMatchObject({
+        ok: false,
+        status: 400,
+        error: "Unsupported scope requested: admin",
+      });
+    });
+  });
+
   it("rejects unsupported scopes", () => {
     const url = new URL("https://samebase.com/oauth/mcp/authorize");
     url.searchParams.set("response_type", "code");

@@ -4,22 +4,7 @@ import { createRepositoryContract } from "../repository/contracts/createReposito
 import { getUserRepositoriesContract } from "../repository/contracts/getUserRepositories";
 import { getRepositoryStatusContract } from "../repository/contracts/getRepositoryStatus";
 import { connectRepositoryContract } from "../repository/contracts/connectRepository";
-import {
-  cloudflareAttachWorkersContract,
-  cloudflareConnectWorkerContract,
-  cloudflareCreateWorkerContract,
-  cloudflareDiscoverWorkersContract,
-} from "../repository/contracts/cloudflareAttachments";
-import {
-  convexAttachProjectsContract,
-  convexCreateProjectContract,
-  convexDiscoverProjectsContract,
-} from "../repository/contracts/convexAttachments";
-import { cloudflareConfigureWorkersBuildsForGitHubContract } from "../repository/contracts/cloudflareConfigureWorkersBuildsForGitHub";
-import { cloudflareRotateConvexDeployKeysForWorkersBuildsContract } from "../repository/contracts/cloudflareRotateConvexDeployKeysForWorkersBuilds";
 import { retryInfrastructureProvisioningContract } from "../repository/contracts/retryInfrastructureProvisioning";
-import { detachResourceContract } from "../repository/contracts/detachResource";
-import { applySetupOutputContract } from "../repository/contracts/applySetupOutput";
 import { createBrowserHandoffContract } from "../agentBrowserHandoff/contracts/createBrowserHandoff";
 
 /**
@@ -30,29 +15,18 @@ entries, and the ChatGPT submission file. `id` is the catalog vocabulary in snak
 `mcp.name` is the wire-level MCP tool name: the path of the registered Convex function that runs
 the tool, with `/` and `:` replaced by `_` (rfcs/125; actionCatalog.test.ts checks it).
 
-Order is the presentation order in generated docs: reads first (inventory, status, then discovery), then
-create and connect, attach, connect, and create provider resources, repairs, and detach. Sign-in links stay near the end, and authentication status
-is last because it is a diagnostic action, not a preflight. mcp/protocol.ts derives the supported
+Order is the presentation order in generated docs: reads first (inventory, then status), then create,
+connect, and retry. Sign-in links stay near the end, and authentication status is last because it is
+a diagnostic action, not a preflight. mcp/protocol.ts derives the supported
 OAuth scope order from this list, and grant reuse compares scope strings exactly, so a reorder that
 moves the first use of an access key changes the scope string that clients request.
 */
 export const actionContracts = [
   getUserRepositoriesContract,
   getRepositoryStatusContract,
-  convexDiscoverProjectsContract,
-  cloudflareDiscoverWorkersContract,
   createRepositoryContract,
   connectRepositoryContract,
-  convexAttachProjectsContract,
-  convexCreateProjectContract,
-  cloudflareAttachWorkersContract,
-  cloudflareConnectWorkerContract,
-  cloudflareCreateWorkerContract,
-  cloudflareConfigureWorkersBuildsForGitHubContract,
-  cloudflareRotateConvexDeployKeysForWorkersBuildsContract,
   retryInfrastructureProvisioningContract,
-  detachResourceContract,
-  applySetupOutputContract,
   submitFeedbackContract,
   createBrowserHandoffContract,
   getAuthenticationStatusContract,

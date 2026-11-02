@@ -21,7 +21,7 @@ test.describe("route URL editor compact mobile suggestions", () => {
     const input = page.getByTestId("route-url-editor-input");
     const popover = page.getByTestId("route-url-editor-suggestions-popover");
     const values = popover.getByTestId("route-url-editor-suggestion-value");
-    await input.fill(`${origin}${path}?attachments&`);
+    await input.fill(`${origin}${path}?devtools&`);
     await input.evaluate((element, position) => {
       if (!(element instanceof HTMLInputElement)) throw new Error("Expected URL input.");
       element.setSelectionRange(position, position);
@@ -106,7 +106,7 @@ test.describe("route URL editor compact mobile suggestions", () => {
       "/convex-clo",
     ]);
     await input.press("Enter");
-    await expect(input).toHaveValue(`${origin}${path}?attachments&`);
+    await expect(input).toHaveValue(`${origin}${path}?devtools&`);
   });
 });
 

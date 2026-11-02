@@ -13,7 +13,6 @@ import {
   testCredential,
 } from "./test.setup";
 
-const actionId = "rotate-keys";
 const now = 1_800_000_000_000;
 const account = { accountId: "cloudflare-account", accountName: "Cloudflare account" };
 const oauth = {
@@ -23,7 +22,7 @@ const oauth = {
   credentialExpiresAt: now - 1,
 } as const;
 
-async function seedManualWrite(auth: CloudflareProviderCredential["auth"]) {
+async function seedConnection(auth: CloudflareProviderCredential["auth"]) {
   const t = makeConvexTest();
   const ids = await t.run(async (ctx) => {
     const userId = await ctx.db.insert("users", {
@@ -47,48 +46,9 @@ async function seedManualWrite(auth: CloudflareProviderCredential["auth"]) {
       organizationId,
       cloudflare: { auth, connectedByUserId: userId, updatedAt: now },
     });
-    const repositoryId = await ctx.db.insert("repositories", {
-      organizationId,
-      cloudflareAccountId: account.accountId,
-      deletion: { state: "not_deleting" },
-      createdAt: now,
-      state: "not_connected",
-    });
-    const runId = await ctx.db.insert("workflow_repositoryProvisioning_runs", {
-      organizationId,
-      userId,
-      repositoryId,
-      githubRepositoryFullName: "owner/app",
-      trigger: "connect_existing_repository",
-      state: "succeeded",
-      currentStep: "finish",
-      createdAt: now,
-      updatedAt: now,
-      completedAt: now,
-    });
-    await ctx.db.replace(repositoryId, {
-      organizationId,
-      cloudflareAccountId: account.accountId,
-      deletion: { state: "not_deleting" },
-      createdAt: now,
-      state: "connected",
-      githubMode: "connect_existing_repository",
-      runId,
-      githubRepositoryDatabaseId: "repository",
-      githubRepositoryName: "app",
-      visibility: "private",
-      defaultBranch: "main",
-      connectedAt: now,
-    });
-    return { userId, organizationId, repositoryId, credentialId };
+    return { userId, organizationId, credentialId };
   });
   await sealTestCredentials(t);
-  await t.mutation(internal.repository.infrastructureOperation.claimManualProviderWrite, {
-    repositoryId: ids.repositoryId,
-    userId: ids.userId,
-    actionId,
-    action: "rotate_convex_deploy_keys_for_workers_builds",
-  });
   const stored = await t.run(async (ctx) => await ctx.db.get(ids.credentialId));
   if (stored?.cloudflare === undefined) {
     throw new Error("Expected the Cloudflare credential.");
@@ -97,19 +57,17 @@ async function seedManualWrite(auth: CloudflareProviderCredential["auth"]) {
 }
 
 function openCloudflareCredential(
-  seed: Awaited<ReturnType<typeof seedManualWrite>>,
+  seed: Awaited<ReturnType<typeof seedConnection>>,
   sealed: SealedSecret,
   field: "cloudflare.auth.credential" | "cloudflare.auth.refreshCredential",
 ) {
   return openSecret({ sealed, aad: organizationProviderCredentialAad(seed.organizationId, field) });
 }
 
-function resolveManualWrite(seed: Awaited<ReturnType<typeof seedManualWrite>>) {
-  return seed.t.action(internal.cloudflareOAuth.resolveConnectionForManualProviderWrite, {
+function resolveConnection(seed: Awaited<ReturnType<typeof seedConnection>>) {
+  return seed.t.action(internal.cloudflareOAuth.resolveConnectionForOrganization, {
     organizationId: seed.organizationId,
-    repositoryId: seed.repositoryId,
     userId: seed.userId,
-    actionId,
   });
 }
 
@@ -126,7 +84,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe("Cloudflare connection for manual provider writes", () => {
+describe("Cloudflare connection refresh", () => {
   it.each([
     { name: "expired OAuth", auth: oauth, endpoint: "https://dash.cloudflare.com/oauth2/token" },
     {
@@ -139,8 +97,8 @@ describe("Cloudflare connection for manual provider writes", () => {
       auth: { ...oauth, method: "mcp_oauth" as const, clientId: "mcp-client" },
       endpoint: "https://mcp.cloudflare.com/token",
     },
-  ])("refreshes $name under the manual write and token leases", async ({ auth, endpoint }) => {
-    const seed = await seedManualWrite(auth);
+  ])("refreshes $name under the token lease", async ({ auth, endpoint }) => {
+    const seed = await seedConnection(auth);
     const fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       expect(input).toBe(endpoint);
       expect(init?.method).toBe("POST");
@@ -156,7 +114,7 @@ describe("Cloudflare connection for manual provider writes", () => {
     });
     vi.stubGlobal("fetch", fetch);
 
-    const connection = await resolveManualWrite(seed);
+    const connection = await resolveConnection(seed);
 
     expect(connection).toMatchObject({
       auth: { method: auth.method, credentialExpiresAt: now + 3_600_000 },
@@ -193,35 +151,19 @@ describe("Cloudflare connection for manual provider writes", () => {
     },
     { name: "valid OAuth", auth: { ...oauth, credentialExpiresAt: now + 3_600_000 } },
   ])("uses $name without a refresh", async ({ auth }) => {
-    const seed = await seedManualWrite(auth);
+    const seed = await seedConnection(auth);
     const fetch = vi.fn();
     vi.stubGlobal("fetch", fetch);
 
-    await expect(resolveManualWrite(seed)).resolves.toMatchObject({
+    await expect(resolveConnection(seed)).resolves.toMatchObject({
       auth: seed.sealedAuth,
       account,
     });
     expect(fetch).not.toHaveBeenCalled();
   });
 
-  it("rejects a different action even when the user owns the organization", async () => {
-    const seed = await seedManualWrite(oauth);
-    const fetch = vi.fn();
-    vi.stubGlobal("fetch", fetch);
-
-    await expect(
-      seed.t.action(internal.cloudflareOAuth.resolveConnectionForManualProviderWrite, {
-        organizationId: seed.organizationId,
-        repositoryId: seed.repositoryId,
-        userId: seed.userId,
-        actionId: "another-action",
-      }),
-    ).rejects.toThrow("Manual provider action no longer owns the repository write.");
-    expect(fetch).not.toHaveBeenCalled();
-  });
-
   it("does not use an expired token or release another caller's refresh lease", async () => {
-    const seed = await seedManualWrite(oauth);
+    const seed = await seedConnection(oauth);
     const claim = await seed.t.mutation(
       internal.organizationProviderCredentials.claimCloudflareTokenRefresh,
       {
@@ -234,7 +176,7 @@ describe("Cloudflare connection for manual provider writes", () => {
     const fetch = vi.fn();
     vi.stubGlobal("fetch", fetch);
 
-    await expect(resolveManualWrite(seed)).rejects.toThrow(
+    await expect(resolveConnection(seed)).rejects.toThrow(
       "Cloudflare token refresh is in progress.",
     );
     const credentials = await seed.t.run(async (ctx) => await ctx.db.get(seed.credentialId));
@@ -243,13 +185,13 @@ describe("Cloudflare connection for manual provider writes", () => {
   });
 
   it("records a refresh failure and releases its token lease", async () => {
-    const seed = await seedManualWrite(oauth);
+    const seed = await seedConnection(oauth);
     vi.stubGlobal(
       "fetch",
       vi.fn(async () => Response.json({ error: "invalid_grant" }, { status: 400 })),
     );
 
-    await expect(resolveManualWrite(seed)).rejects.toThrow("invalid_grant");
+    await expect(resolveConnection(seed)).rejects.toThrow("invalid_grant");
 
     const credentials = await seed.t.run(async (ctx) => await ctx.db.get(seed.credentialId));
     expect(credentials?.cloudflare).toMatchObject({

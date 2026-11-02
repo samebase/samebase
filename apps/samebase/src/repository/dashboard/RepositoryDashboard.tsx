@@ -23,36 +23,24 @@ export type RepositoryDashboardProps = {
   organizationOwner?: string;
   page?: RepositoryOverviewPageKind;
   selectedRepositoryFullName?: string;
-  source?: "attachments";
 };
 
 export function RepositoryDashboard({
   organizationOwner,
   page = "overview",
   selectedRepositoryFullName,
-  source,
 }: RepositoryDashboardProps) {
   const navigate = useNavigate();
   const pathname = useLocation({ select: (location) => location.pathname });
   const rootRouteSearch = useRootRouteSearch();
   const developerToolsVisible = rootRouteSearch[DASHBOARD_DEVELOPER_TOOLS_QUERY_PARAM] === true;
-  const workspaceModel = useRepositoryWorkspaceModel(
-    selectedRepositoryFullName,
-    organizationOwner,
-    source,
-  );
+  const workspaceModel = useRepositoryWorkspaceModel(selectedRepositoryFullName, organizationOwner);
   const treeActions = useRepositoryTreeActions();
   const selectedRepositoryAvailable =
     workspaceModel.state === "loading" ? null : workspaceModel.selection.state === "selected";
   let unavailableDialog: RepositoryDashboardQueryDialog | null = null;
-  if (selectedRepositoryAvailable === false) {
-    if (rootRouteSearch.delete === true) {
-      unavailableDialog = "delete";
-    } else if (rootRouteSearch["add-convex"] === true) {
-      unavailableDialog = "add-convex";
-    } else if (rootRouteSearch["add-cloudflare"] === true) {
-      unavailableDialog = "add-cloudflare";
-    }
+  if (selectedRepositoryAvailable === false && rootRouteSearch.delete === true) {
+    unavailableDialog = "delete";
   }
 
   useEffect(() => {

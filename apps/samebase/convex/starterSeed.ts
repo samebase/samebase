@@ -672,7 +672,7 @@ export async function seedRepositoryWithStarter(args: {
   default) does it in beforeStarterPush, and a caller that must recognize the pushed starter later
   records the tree there.
   */
-  branchFirst?: {
+  branchFirst: {
     reader: StarterSeedBranchReader;
     beforeStarterPush: (starter: { treeSha: string }) => Promise<void>;
   };
@@ -716,7 +716,6 @@ export async function seedRepositoryWithStarter(args: {
   const bootstrapContentBase64 = Buffer.from("bootstrap\n", "utf8").toString("base64");
 
   let tree: { sha: string };
-  let seededFromEmptyRepository = false;
   let bootstrapCommitSha: string | null = null;
 
   try {
@@ -725,8 +724,6 @@ export async function seedRepositoryWithStarter(args: {
     if (!isEmptyRepositoryError(error)) {
       throw error;
     }
-
-    seededFromEmptyRepository = true;
 
     console.warn("seed:bootstrap_needed", {
       repo: `${args.owner}/${args.repo}`,
@@ -757,110 +754,51 @@ export async function seedRepositoryWithStarter(args: {
     });
   }
 
-  let headCommitSha: string;
-  if (args.branchFirst) {
-    const location = { owner: args.owner, repo: args.repo };
-    // The seeded branch first points at a commit without starter files, so creating it runs no
-    // workflow. The bootstrap commit serves when it exists; it can sit on GitHub's default branch.
-    // A branch that exists already is left to the starter push, which reads it first.
-    if (
-      bootstrapCommitSha !== null ||
-      (await args.branchFirst.reader.readBranchHead({
-        ...location,
-        branch: args.defaultBranch,
-      })) === null
-    ) {
-      const baseSha =
-        bootstrapCommitSha ??
-        (await createPlaceholderCommit({
-          client: args.client,
-          ...location,
-          path: bootstrapPath,
-          message: bootstrapMessage,
-        }));
-      try {
-        await retryOperation({
-          operation: "seed:createBranchBeforeStarter",
-          shouldRetry: (error) => isRetryableError(error) && !isRefAlreadyExistsError(error),
-          run: async () =>
-            await args.client.createRef({
-              ...location,
-              ref: `refs/heads/${args.defaultBranch}`,
-              sha: baseSha,
-            }),
-        });
-      } catch (error) {
-        if (!(getErrorStatus(error) === 422 && isRefAlreadyExistsError(error))) {
-          throw error;
-        }
-      }
-    }
-    await args.branchFirst.beforeStarterPush({ treeSha: tree.sha });
-    headCommitSha = await pushStarterOntoBootstrap({
-      client: args.client,
-      reader: args.branchFirst.reader,
+  const location = { owner: args.owner, repo: args.repo };
+  // The seeded branch first points at a commit without starter files, so creating it runs no
+  // workflow. The bootstrap commit serves when it exists; it can sit on GitHub's default branch.
+  // A branch that exists already is left to the starter push, which reads it first.
+  if (
+    bootstrapCommitSha !== null ||
+    (await args.branchFirst.reader.readBranchHead({
       ...location,
       branch: args.defaultBranch,
-      treeSha: tree.sha,
-      commitMessage: manifest.commitMessage,
-    });
-  } else {
-    const commit = await retryOperation({
-      operation: "seed:createCommit",
-      run: async () =>
-        await args.client.createCommit({
-          owner: args.owner,
-          repo: args.repo,
-          message: manifest.commitMessage,
-          tree: tree.sha,
-          parents: [],
-        }),
-    });
-    headCommitSha = commit.sha;
-    if (seededFromEmptyRepository) {
+    })) === null
+  ) {
+    const baseSha =
+      bootstrapCommitSha ??
+      (await createPlaceholderCommit({
+        client: args.client,
+        ...location,
+        path: bootstrapPath,
+        message: bootstrapMessage,
+      }));
+    try {
       await retryOperation({
-        operation: "seed:updateRefAfterBootstrap",
+        operation: "seed:createBranchBeforeStarter",
+        shouldRetry: (error) => isRetryableError(error) && !isRefAlreadyExistsError(error),
         run: async () =>
-          await args.client.updateRef({
-            owner: args.owner,
-            repo: args.repo,
-            ref: `heads/${args.defaultBranch}`,
-            sha: commit.sha,
-            force: true,
+          await args.client.createRef({
+            ...location,
+            ref: `refs/heads/${args.defaultBranch}`,
+            sha: baseSha,
           }),
       });
-    } else {
-      try {
-        await retryOperation({
-          operation: "seed:createRef",
-          shouldRetry: (error) => isRetryableError(error) && !isRefAlreadyExistsError(error),
-          run: async () =>
-            await args.client.createRef({
-              owner: args.owner,
-              repo: args.repo,
-              ref: `refs/heads/${args.defaultBranch}`,
-              sha: commit.sha,
-            }),
-        });
-      } catch (error) {
-        if (!(getErrorStatus(error) === 422 && isRefAlreadyExistsError(error))) {
-          throw error;
-        }
-
-        await retryOperation({
-          operation: "seed:updateRef",
-          run: async () =>
-            await args.client.updateRef({
-              owner: args.owner,
-              repo: args.repo,
-              ref: `heads/${args.defaultBranch}`,
-              sha: commit.sha,
-              force: true,
-            }),
-        });
+    } catch (error) {
+      if (!(getErrorStatus(error) === 422 && isRefAlreadyExistsError(error))) {
+        throw error;
       }
     }
   }
+  await args.branchFirst.beforeStarterPush({ treeSha: tree.sha });
+  const headCommitSha = await pushStarterOntoBootstrap({
+    client: args.client,
+    reader: args.branchFirst.reader,
+    ...location,
+    branch: args.defaultBranch,
+    treeSha: tree.sha,
+    commitMessage: manifest.commitMessage,
+  });
 
   console.log("seed:success", {
     repo: `${args.owner}/${args.repo}`,

@@ -1,7 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { safeParse } from "valibot";
 
-import { buildCloudflareWorkerCreateBody } from "../cloudflareResources";
 import {
   createCloudflareClient,
   CloudflareApiResponseError,
@@ -26,6 +25,32 @@ import {
   vGetAccountsByAccountIdBuildsWorkersByExternalScriptIdBuildsResponse,
   vGetAccountsByAccountIdWorkersWorkersByWorkerIdPreviewsByPreviewIdResponse,
 } from "./generated/valibot.gen";
+import type { WorkersWorkerWritable } from "./generated/types.gen";
+
+function buildCloudflareWorkerCreateBody(workerName: string): WorkersWorkerWritable {
+  return {
+    name: workerName,
+    logpush: false,
+    subdomain: {
+      enabled: true,
+      previews_enabled: true,
+    },
+    observability: {
+      enabled: false,
+      head_sampling_rate: 1,
+      redact_query_string: false,
+      logs: {
+        destinations: [],
+        enabled: true,
+        head_sampling_rate: 1,
+        persist: true,
+        invocation_logs: true,
+      },
+    },
+    tags: [],
+    tail_consumers: [],
+  };
+}
 
 describe("Cloudflare API transport", () => {
   afterEach(() => {

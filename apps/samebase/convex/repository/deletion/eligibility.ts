@@ -55,11 +55,6 @@ export function resolveRepositoryDeletionEligibility(
             ? "Repository setup is still queued."
             : "Repository setup is still running.",
       };
-    case "manual_provider_write":
-      return {
-        state: "blocked",
-        reason: "A provider change is still running.",
-      };
     default:
       infrastructure.operation satisfies never;
       throw new Error("Unknown repository infrastructure operation.");

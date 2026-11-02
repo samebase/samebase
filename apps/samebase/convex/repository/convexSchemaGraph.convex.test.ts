@@ -275,7 +275,7 @@ describe("repository Convex schema graph", () => {
     ).resolves.toBeNull();
   });
 
-  it("mints OAuth-backed inspection keys without scoped options and revokes by name", async () => {
+  it("mints OAuth-backed inspection keys without scoped options and never deletes them", async () => {
     const t = makeConvexTest();
     const { ids, user } = await seedSchemaGraphRepository(t, {
       method: "oauth",
@@ -291,12 +291,17 @@ describe("repository Convex schema graph", () => {
     });
 
     const createRequest = requests.find((request) => request.url.endsWith("/create_deploy_key"));
-    const deleteRequest = requests.find((request) => request.url.endsWith("/delete_deploy_key"));
     const deployKeyName = readRequestBodyName(createRequest?.body);
     expect(createRequest?.authorization).toBe("Bearer convex-oauth-token");
     expect(createRequest?.body).toEqual({ name: deployKeyName });
-    expect(deleteRequest?.authorization).toBe("Bearer convex-oauth-token");
-    expect(deleteRequest?.body).toEqual({ id: deployKeyName });
+    // The key is the OAuth credential itself: deleting it would revoke the connection.
+    expect(requests.some((request) => request.url.endsWith("/delete_deploy_key"))).toBe(false);
+
+    const repositories = await user.query(api.repository.list, {});
+    const repository = repositories.find((row) => row.repositoryId === ids.repositoryId);
+    expect(repository?.convexProjects).toContainEqual(
+      expect.objectContaining({ convexProjectId: ids.convexProjectId, projectId: "1001" }),
+    );
 
     const state = await user.query(api.repository.convexSchemaGraph.get, {
       repositoryId: ids.repositoryId,
@@ -329,6 +334,19 @@ describe("repository Convex schema graph", () => {
         targetTables: ["orgs", "users"],
       }),
     );
+
+    await user.mutation(api.repository.convexSchemaGraph.saveLayout, {
+      repositoryId: ids.repositoryId,
+      convexProjectId: ids.convexProjectId,
+      nodeId: "declared:documents",
+      x: 120,
+      y: 240,
+    });
+    const savedState = await user.query(api.repository.convexSchemaGraph.get, {
+      repositoryId: ids.repositoryId,
+      convexProjectId: ids.convexProjectId,
+    });
+    expect(savedState?.layout).toEqual([{ nodeId: "declared:documents", x: 120, y: 240 }]);
   });
 
   it("scopes API-key backed inspection keys and still revokes by name", async () => {

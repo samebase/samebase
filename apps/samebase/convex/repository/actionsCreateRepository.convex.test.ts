@@ -6,11 +6,8 @@ const providerMocks = vi.hoisted(() => ({
   createGitHubUserOctokit: vi.fn(),
   discoverPreviewSeedGitHubAppInstallations: vi.fn(),
   getRepository: vi.fn(),
-  isCloudflareWorkerNameAvailable: vi.fn(),
-  listCloudflareBuildTokens: vi.fn(),
   listConvexManagementProjects: vi.fn(),
   readGitHubAppInstallation: vi.fn(),
-  requireCloudflareBuildTokenUuid: vi.fn(),
 }));
 
 vi.mock("../githubApp", async (importOriginal) => {
@@ -30,16 +27,6 @@ vi.mock("../convexManagementApi/client", async (importOriginal) => {
   return {
     ...actual,
     listConvexManagementProjects: providerMocks.listConvexManagementProjects,
-  };
-});
-
-vi.mock("../cloudflareResources", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../cloudflareResources")>();
-  return {
-    ...actual,
-    isCloudflareWorkerNameAvailable: providerMocks.isCloudflareWorkerNameAvailable,
-    listCloudflareBuildTokens: providerMocks.listCloudflareBuildTokens,
-    requireCloudflareBuildTokenUuid: providerMocks.requireCloudflareBuildTokenUuid,
   };
 });
 
@@ -161,9 +148,7 @@ beforeEach(() => {
   });
   providerMocks.getRepository.mockRejectedValue(githubRequestError(404));
   providerMocks.createGitHubUserOctokit.mockReturnValue({ hook: { wrap: vi.fn() } });
-  providerMocks.isCloudflareWorkerNameAvailable.mockResolvedValue(true);
   providerMocks.listConvexManagementProjects.mockResolvedValue([]);
-  providerMocks.requireCloudflareBuildTokenUuid.mockResolvedValue("selected-token");
   providerMocks.readGitHubAppInstallation.mockResolvedValue({
     permissions: [
       { access: "write", key: "actions_variables" },
@@ -173,15 +158,9 @@ beforeEach(() => {
   });
 });
 
-const repositoryActionsCreateArgs = {
-  githubRepositoryName: "actions-app",
-  convexProjectName: "actions-app",
-  cloudflareWorkerName: "actions-app",
-  cloudflareBuildTokenUuid: null,
-  provisioning: "repository_actions",
-} as const;
+const repositoryActionsCreateArgs = { githubRepositoryName: "actions-app" } as const;
 
-describe("create repository with provisioning repository_actions", () => {
+describe("create repository through GitHub Actions", () => {
   it.each(["oauth", "api_key"] as const)(
     "creates with a %s Convex connection, no Cloudflare connection, and no CI credentials",
     async (convexOnly) => {
@@ -201,8 +180,6 @@ describe("create repository with provisioning repository_actions", () => {
       });
       // Nothing reads Cloudflare.
       expect(fetch).not.toHaveBeenCalled();
-      expect(providerMocks.isCloudflareWorkerNameAvailable).not.toHaveBeenCalled();
-      expect(providerMocks.requireCloudflareBuildTokenUuid).not.toHaveBeenCalled();
       const rows = await t.run(async (ctx) => ({
         plan: await ctx.db
           .query("workflow_repositoryProvisioning_plans")
@@ -243,13 +220,12 @@ describe("create repository with provisioning repository_actions", () => {
       ...repositoryActionsCreateArgs,
     });
 
-    expect(providerMocks.isCloudflareWorkerNameAvailable).not.toHaveBeenCalled();
     expect(await t.run(async (ctx) => await ctx.db.get(result.repositoryId))).not.toHaveProperty(
       "cloudflareAccountId",
     );
   });
 
-  it("reports no Worker to an MCP caller", async () => {
+  it("needs no provisioning argument from an MCP caller", async () => {
     const { t, userId } = await createRepositoryFixture({ convexOnly: "oauth" });
 
     await expect(
@@ -258,14 +234,10 @@ describe("create repository with provisioning repository_actions", () => {
         grantedScopes: ["access_app_create"],
         githubOwnerLogin: "samebase",
         name: "actions-app",
-        provisioning: "repository_actions",
       }),
     ).resolves.toMatchObject({
       status: "ok",
-      structuredContent: {
-        githubRepositoryFullName: "samebase/actions-app",
-        cloudflare: { state: "none" },
-      },
+      structuredContent: { githubRepositoryFullName: "samebase/actions-app" },
     });
   });
 
@@ -360,34 +332,6 @@ describe("create repository with provisioning repository_actions", () => {
       t.run(async (ctx) => (await ctx.db.query("repositories").collect()).map((row) => row._id)),
     ).resolves.toEqual([otherRepositoryId]);
   });
-
-  it("refuses a custom Convex project name, because the GitHub Actions use the repository name", async () => {
-    const { organizationId, viewer } = await createRepositoryFixture({ convexOnly: "oauth" });
-
-    await expect(
-      viewer.action(api.repository.create, {
-        organizationId,
-        ...repositoryActionsCreateArgs,
-        convexProjectName: "custom-project",
-      }),
-    ).rejects.toMatchObject({
-      data: "The GitHub Actions of the repository name the Convex project after the repository: actions-app. Remove the custom name.",
-    });
-  });
-
-  it("refuses a custom Worker name, because Cloudflare takes no part", async () => {
-    const { organizationId, viewer } = await createRepositoryFixture({ convexOnly: "oauth" });
-
-    await expect(
-      viewer.action(api.repository.create, {
-        organizationId,
-        ...repositoryActionsCreateArgs,
-        cloudflareWorkerName: "custom-worker",
-      }),
-    ).rejects.toMatchObject({
-      data: "A Cloudflare Worker name, a Workers Builds token, and a Convex region apply only when Samebase sets up the app. Remove them.",
-    });
-  });
 });
 
 describe("preview personal repository authorization", () => {
@@ -418,9 +362,6 @@ describe("preview personal repository authorization", () => {
     const result = await viewer.action(api.repository.create, {
       organizationId,
       githubRepositoryName: "preview-personal-app",
-      convexProjectName: "preview-personal-app",
-      cloudflareWorkerName: "preview-personal-app",
-      cloudflareBuildTokenUuid: null,
     });
 
     expect(providerMocks.discoverPreviewSeedGitHubAppInstallations).toHaveBeenCalledWith(
@@ -439,9 +380,7 @@ describe("preview personal repository authorization", () => {
       })),
     ).resolves.toMatchObject({
       authorizationCount: 0,
-      plan: {
-        convex: { deploymentRegion: "aws-us-east-1" },
-      },
+      plan: { provisioning: "repository_actions" },
       run: { organizationId, trigger: "create" },
       repository: { organizationId, githubMode: "create_repository" },
     });
@@ -472,9 +411,6 @@ describe("preview personal repository authorization", () => {
       viewer.action(api.repository.create, {
         organizationId,
         githubRepositoryName: "preview-personal-app",
-        convexProjectName: "preview-personal-app",
-        cloudflareWorkerName: "preview-personal-app",
-        cloudflareBuildTokenUuid: null,
       }),
     ).rejects.toThrow("Preview GitHub access does not match the personal repository owner.");
     await expect(
@@ -483,91 +419,22 @@ describe("preview personal repository authorization", () => {
   });
 });
 
-describe("create repository Workers Builds token admission", () => {
-  it("returns a public provider name conflict before it creates the repository", async () => {
-    const { organizationId, t, viewer } = await createRepositoryFixture();
-    providerMocks.listConvexManagementProjects.mockResolvedValue([
-      {
-        createTime: 1,
-        id: "existing-project",
-        name: "new-app",
-        slug: "new-app",
-        teamId: "convex-team",
-        teamSlug: "convex-team",
-      },
-    ]);
-
-    await expect(
-      viewer.action(api.repository.create, {
-        organizationId,
-        githubRepositoryName: "new-app",
-        convexProjectName: "new-app",
-        cloudflareWorkerName: "new-app",
-        cloudflareBuildTokenUuid: null,
-      }),
-    ).rejects.toMatchObject({
-      name: "ConvexError",
-      data: "A Convex project named new-app already exists.",
-    });
-    await expect(
-      t.run(async (ctx) => await ctx.db.query("repositories").collect()),
-    ).resolves.toEqual([]);
-  });
-
-  it("uses the saved EU default and accepts null without another provider-list request", async () => {
-    const { organizationId, t, viewer } = await createRepositoryFixture();
-    await t.run(async (ctx) => {
-      await ctx.db.patch(organizationId, { defaultConvexDeploymentRegion: "aws-eu-west-1" });
-    });
-
-    const result = await viewer.action(api.repository.create, {
-      organizationId,
-      githubRepositoryName: "new-app",
-      convexProjectName: "new-app",
-      cloudflareWorkerName: "not a valid Worker name",
-      cloudflareBuildTokenUuid: null,
-    });
-
-    await expect(
-      t.run(async (ctx) => {
-        return await ctx.db
-          .query("workflow_repositoryProvisioning_plans")
-          .withIndex("by_repository", (q) => q.eq("repositoryId", result.repositoryId))
-          .unique();
-      }),
-    ).resolves.toMatchObject({
-      convex: {
-        state: "planned",
-        projectName: "new-app",
-        deploymentRegion: "aws-eu-west-1",
-      },
-      cloudflare: {
-        state: "planned",
-        workerName: "new-app",
-        buildTokenUuid: null,
-      },
-    });
-    expect(providerMocks.listCloudflareBuildTokens).not.toHaveBeenCalled();
-    expect(providerMocks.isCloudflareWorkerNameAvailable).not.toHaveBeenCalled();
-    expect(providerMocks.requireCloudflareBuildTokenUuid).not.toHaveBeenCalled();
-  });
-
-  it("does not validate or read Worker-name availability for a null token selection", async () => {
+describe("create repository name check", () => {
+  it("checks the GitHub and Convex names and reads nothing in Cloudflare", async () => {
     const { organizationId, viewer } = await createRepositoryFixture();
+    const fetch = vi.fn();
+    vi.stubGlobal("fetch", fetch);
 
     await expect(
       viewer.action(api.repository.actions.checkCreateRepositoryResourceNames, {
         organizationId,
         githubRepositoryName: "new-app",
         convexProjectName: "new-app",
-        cloudflareWorkerName: "not a valid Worker name",
-        cloudflareBuildTokenUuid: null,
       }),
-    ).resolves.toMatchObject({
-      github: { status: "available" },
-      convex: { status: "available" },
-      cloudflare: { status: "not_required", message: null, suggestion: null },
+    ).resolves.toEqual({
+      github: { status: "available", message: null, suggestion: null },
+      convex: { status: "available", message: null, suggestion: null },
     });
-    expect(providerMocks.isCloudflareWorkerNameAvailable).not.toHaveBeenCalled();
+    expect(fetch).not.toHaveBeenCalled();
   });
 });

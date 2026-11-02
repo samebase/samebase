@@ -15,7 +15,7 @@ import type {
   RepositoryPullRequestsState,
 } from "@/repository/dashboard/useRepositoryPullRequests";
 import { formatRelativeTimeAgo } from "@/lib/formatRelativeTime";
-import { buildRepositoryFileRoute, buildRepositorySettingsRoute } from "@/lib/repositoryRoutes";
+import { buildRepositoryFileRoute } from "@/lib/repositoryRoutes";
 import { Link } from "@tanstack/react-router";
 import { ChevronDown } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -167,13 +167,7 @@ function PullRequestRow({
               {samebaseUrl ? <SamebaseChangesLink href={samebaseUrl} /> : null}
             </div>
           ) : null}
-          <PullRequestResources
-            resource={resource}
-            settingsHref={buildRepositorySettingsRoute({
-              owner: repository.githubOwnerLogin,
-              repoName: repository.githubRepositoryName,
-            })}
-          />
+          <PullRequestResources resource={resource} />
         </div>
       ) : null}
     </article>
