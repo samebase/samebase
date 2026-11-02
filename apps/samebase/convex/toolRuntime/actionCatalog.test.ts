@@ -11,19 +11,9 @@ dashboard calls; MCP-only tools name an internal function. A missing or extra ke
 const toolFunctions = {
   repository_list: api.repository.list,
   repository_getStatus: api.repository.getStatus,
-  repository_convex_findProjects: api.repository.convex.findProjects,
-  repository_cloudflare_findWorkers: api.repository.cloudflare.findWorkers,
   repository_create: api.repository.create,
   repository_connect: api.repository.connect,
-  repository_convex_attachProject: api.repository.convex.attachProject,
-  repository_convex_createProject: api.repository.convex.createProject,
-  repository_cloudflare_attachWorkers: api.repository.cloudflare.attachWorkers,
-  repository_cloudflare_connectWorker: api.repository.cloudflare.connectWorker,
-  repository_cloudflare_createWorker: api.repository.cloudflare.createWorker,
-  repository_cloudflare_configureBuilds: api.repository.cloudflare.configureBuilds,
-  repository_cloudflare_rotateConvexDeployKeys: api.repository.cloudflare.rotateConvexDeployKeys,
   repository_retryProviderSetup: api.repository.retryProviderSetup,
-  repository_detachResource: api.repository.detachResource,
   feedback_submit: internal.feedback.submit,
   account_createSignInLink: internal.account.createSignInLink,
   account_getAuthenticationStatus: internal.account.getAuthenticationStatus,
@@ -37,22 +27,25 @@ describe("action catalog", () => {
     expect(actionContracts.map((contract) => contract.id)).toEqual([
       "list_repositories",
       "get_repository_status",
-      "find_convex_projects",
-      "find_cloudflare_workers",
       "create_repository",
       "connect_repository",
-      "attach_convex_project",
-      "create_convex_project",
-      "attach_cloudflare_workers",
-      "connect_cloudflare_worker",
-      "create_cloudflare_worker",
-      "configure_workers_builds",
-      "rotate_convex_deploy_keys",
       "retry_provider_setup",
-      "detach_resource",
       "submit_feedback",
       "create_sign_in_link",
       "get_authentication_status",
+    ]);
+  });
+
+  it("exposes exactly the start, monitor, and account tools", () => {
+    expect(actionContracts.map((contract) => contract.mcp.name)).toEqual([
+      "repository_list",
+      "repository_getStatus",
+      "repository_create",
+      "repository_connect",
+      "repository_retryProviderSetup",
+      "feedback_submit",
+      "account_createSignInLink",
+      "account_getAuthenticationStatus",
     ]);
   });
 

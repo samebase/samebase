@@ -22,17 +22,14 @@ repository overview shows. It changes nothing.
   repository has an output, and in_progress before that. The store does not say whether a run
   failed, so in_progress can also mean that the first run stopped: the repository's GitHub Actions
   page shows the run. It is unavailable when the store cannot be read.
-- Attention items: each names a problem and the tool that fixes it. The provider setup state comes
-  first. While Samebase-managed setup runs, the only item says so and names no tool. When it failed,
-  the only item names `repository_retryProviderSetup`. When Cloudflare setup is pending, an item
-  gives the setup guide and names `repository_cloudflare_createWorker` with the planned Worker name
-  and root directory. Otherwise `repository_cloudflare_configureBuilds` fixes a Worker whose Workers
-  Builds settings are missing or use different tokens, and
-  `repository_cloudflare_rotateConvexDeployKeys` fixes a Worker whose Convex deploy key is missing
-  or targets another project. "Deploy the Convex project to production first" means that a project
-  has no production deployment yet, so no deploy key can be installed. For a repository that its
-  GitHub Actions set up, the setup stack owns those settings, so those items name no tool, and while
-  the setup stack is in_progress an item says so and links the repository's GitHub Actions.
+- Attention items: each names a problem and what to do about it. The provider setup state comes
+  first. While Samebase setup runs, the only item says so. When it failed, the only item names
+  `repository_retryProviderSetup`, the one tool that fixes a problem. Samebase repairs nothing else:
+  repair lives in Alchemy and the agent. For a repository that its GitHub Actions set up, an item
+  about a Worker or a Convex project says that the setup stack owns the setting, and while the setup
+  stack is in_progress an item says so and links the repository's GitHub Actions. For any other
+  repository, such an item links the guide to move the app to Alchemy. "Deploy the Convex project to
+  production first" means that a project has no production deployment yet.
 
 Checks give the total, failed, pending, and unknown counts of every check, and the names of the
 failed checks among the first 100 that GitHub lists; `failedNamesComplete` is false when a failed
@@ -500,67 +497,6 @@ JSON Schema for the tool's `structuredContent`:
       "type": "array",
       "items": {
         "anyOf": [
-          {
-            "type": "object",
-            "properties": {
-              "tool": {
-                "const": "repository_cloudflare_createWorker"
-              },
-              "workerName": {
-                "type": "string"
-              },
-              "rootDirectory": {
-                "type": "string"
-              },
-              "problem": {
-                "type": "string"
-              }
-            },
-            "required": ["tool", "workerName", "rootDirectory", "problem"],
-            "additionalProperties": false
-          },
-          {
-            "type": "object",
-            "properties": {
-              "tool": {
-                "const": "repository_cloudflare_configureBuilds"
-              },
-              "workerName": {
-                "type": "string"
-              },
-              "problem": {
-                "type": "string"
-              }
-            },
-            "required": ["tool", "workerName", "problem"],
-            "additionalProperties": false
-          },
-          {
-            "type": "object",
-            "properties": {
-              "tool": {
-                "const": "repository_cloudflare_rotateConvexDeployKeys"
-              },
-              "workerName": {
-                "type": "string"
-              },
-              "convexProjectSlug": {
-                "anyOf": [
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ]
-              },
-              "problem": {
-                "type": "string"
-              }
-            },
-            "required": ["tool", "workerName", "convexProjectSlug", "problem"],
-            "additionalProperties": false
-          },
           {
             "type": "object",
             "properties": {

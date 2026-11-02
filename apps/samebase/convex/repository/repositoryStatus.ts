@@ -4,13 +4,6 @@ import type { Id } from "../_generated/dataModel";
 import { getConvexCodeLocationPath } from "../../shared/convexCodeLocation";
 import { WORKER_PREVIEWS_MIGRATION_URL } from "../../shared/cloudflareWorkerPreviews";
 import {
-  CLOUDFLARE_SETUP_GUIDE_URL,
-  readPendingCloudflareSetup,
-} from "../toolRuntime/mcpResolution";
-import { cloudflareCreateWorkerContract } from "./contracts/cloudflareAttachments";
-import { cloudflareConfigureWorkersBuildsForGitHubContract } from "./contracts/cloudflareConfigureWorkersBuildsForGitHub";
-import { cloudflareRotateConvexDeployKeysForWorkersBuildsContract } from "./contracts/cloudflareRotateConvexDeployKeysForWorkersBuilds";
-import {
   getRepositoryStatusContract,
   type McpRepositoryStatus,
   type RepositoryAttentionItem,
@@ -33,17 +26,14 @@ import { summarizeRepositoryChecks } from "../../shared/repositoryChecks";
 
 /*
 The pure parts of repository:getStatus: the attention rules and the MCP projection. The Node read in
-status.ts gathers the provider facts; this module decides what needs attention and which tool fixes
+status.ts gathers the provider facts; this module decides what needs attention and what to do about
 it, so the rules have unit tests without provider requests.
 */
 
-const CONFIGURE_BUILDS_TOOL = cloudflareConfigureWorkersBuildsForGitHubContract.mcp.name;
-const CREATE_WORKER_TOOL = cloudflareCreateWorkerContract.mcp.name;
 const LIST_TOOL = getUserRepositoriesContract.mcp.name;
-const ROTATE_CONVEX_DEPLOY_KEYS_TOOL =
-  cloudflareRotateConvexDeployKeysForWorkersBuildsContract.mcp.name;
 const RETRY_PROVIDER_SETUP_TOOL = retryInfrastructureProvisioningContract.mcp.name;
 const STATUS_TOOL = getRepositoryStatusContract.mcp.name;
+const ALCHEMY_MOVE_GUIDE_URL = "https://samebase.com/docs/the-big-migration";
 
 export type RepositoryStatusRepository = Pick<
   UserRepositoryResult,
@@ -99,6 +89,40 @@ function describeSetupProvider(
   }
 }
 
+/**
+The managed plan that created GitHub and Convex without a Workers Builds token. It names the Worker
+and root directory of the first Cloudflare setup. Null when the plan selected a token, its Convex
+project is not attached, or a Worker is already attached.
+*/
+function readPendingCloudflareSetup(
+  repository: Pick<UserRepositoryResult, "providerPlan" | "cloudflareWorkers" | "convexProjects">,
+) {
+  const plan = repository.providerPlan;
+  if (
+    !isSamebaseManagedProviderPlan(plan) ||
+    plan.cloudflare.state !== "planned" ||
+    plan.cloudflare.buildTokenUuid !== null ||
+    plan.convex.state !== "created" ||
+    repository.cloudflareWorkers.length > 0
+  ) {
+    return null;
+  }
+
+  const plannedProjectId = plan.convex.projectId;
+  const plannedTeamId = plan.convex.teamId;
+  const isPlannedProjectAttached = repository.convexProjects.some(
+    (attachment) =>
+      attachment.projectId === plannedProjectId &&
+      attachment.teamId === plannedTeamId &&
+      attachment.codeLocation.kind === "config" &&
+      attachment.codeLocation.convexConfigPath === plan.convexConfigPath,
+  );
+  if (!isPlannedProjectAttached) {
+    return null;
+  }
+  return { workerName: plan.cloudflare.workerName, rootDirectory: plan.cloudflare.rootDirectory };
+}
+
 function describeConvexBuildAccessProblem(workerName: string, access: ConvexBuildAccess): string {
   switch (access.state) {
     case "configured":
@@ -119,11 +143,25 @@ function describeConvexBuildAccessProblem(workerName: string, access: ConvexBuil
   }
 }
 
+/** Samebase repairs no provider resource, so an item about one says where its repair lives. */
+function describeRepair(plan: RepositoryStatusRepository["providerPlan"]): string {
+  const writer = readProviderInfrastructureWriter(plan);
+  switch (writer) {
+    case "samebase":
+      return `Samebase does not repair this: move the app to Alchemy and fix it in the stack (${ALCHEMY_MOVE_GUIDE_URL}).`;
+    case "setup_stack":
+      return "The setup stack in alchemy.run.ts owns this setting: change the stack, or run the alchemy workflow on the default branch to repair it.";
+    default:
+      writer satisfies never;
+      throw new Error("Unsupported provider infrastructure writer.");
+  }
+}
+
 /**
 The attention of a repository that its GitHub Actions set up, after Samebase's own setup finished:
 the Actions secrets, then the deployment that the setup status waits for. A setup status that is
 done or unreadable gives no item, like any other unreadable fact. Its attached Workers and Convex
-projects get the same items as any other repository, with the repair advice of adviseSetupStack.
+projects get the same items as any other repository, with the repair of its setup stack.
 */
 function buildRepositoryActionsAttention(args: {
   repository: RepositoryStatusRepository;
@@ -155,10 +193,10 @@ function buildRepositoryActionsAttention(args: {
 }
 
 /**
-The attention items of one repository, each with the tool that fixes it. The provider setup state
-comes first: a running managed setup holds the provider-write lock, so every repair tool would fail,
-and a failed one is repaired only by its retry. An unreadable provider fact gives no item: the facts
-report it as unavailable, and a guessed repair could be wrong.
+The attention items of one repository. The provider setup state comes first: a running setup can
+still change what the other items report, and a failed one is repaired only by its retry. An
+unreadable provider fact gives no item: the facts report it as unavailable, and a guessed repair
+could be wrong.
 */
 export function buildRepositoryAttention(args: {
   repository: RepositoryStatusRepository;
@@ -204,60 +242,20 @@ export function buildRepositoryAttention(args: {
   return resourceItems;
 }
 
-/**
-A repair that only the repository's setup stack may make. readProviderInfrastructureWriter refuses
-the Samebase tool, so the item names the stack instead.
-*/
-function adviseSetupStack(item: RepositoryAttentionItem): RepositoryAttentionItem {
-  switch (item.tool) {
-    case CREATE_WORKER_TOOL:
-    case CONFIGURE_BUILDS_TOOL:
-    case ROTATE_CONVEX_DEPLOY_KEYS_TOOL:
-      return {
-        tool: null,
-        problem: `${item.problem} The setup stack in alchemy.run.ts owns this setting: change the stack, or run the alchemy workflow on the default branch to repair it.`,
-      };
-    case RETRY_PROVIDER_SETUP_TOOL:
-    case null:
-      return item;
-    default:
-      item satisfies never;
-      return item;
-  }
-}
-
-/** The items of the attached Workers and Convex projects, with the repairs their writer may make. */
+/** The items of the attached Workers and Convex projects, with the repair that their writer allows. */
 function buildResourceAttention(args: {
   repository: RepositoryStatusRepository;
   observations: RepositoryObservations;
 }): RepositoryAttentionItem[] {
-  const items = listResourceAttention(args);
-  const writer = readProviderInfrastructureWriter(args.repository.providerPlan);
-  switch (writer) {
-    case "samebase":
-      return items;
-    case "setup_stack":
-      return items.map(adviseSetupStack);
-    default:
-      writer satisfies never;
-      return items;
-  }
-}
-
-function listResourceAttention(args: {
-  repository: RepositoryStatusRepository;
-  observations: RepositoryObservations;
-}): RepositoryAttentionItem[] {
   const { repository, observations } = args;
+  const repair = describeRepair(repository.providerPlan);
   const items: RepositoryAttentionItem[] = [];
   const pendingCloudflareSetup = readPendingCloudflareSetup(repository);
   if (pendingCloudflareSetup) {
     const { rootDirectory, workerName } = pendingCloudflareSetup;
     items.push({
-      tool: CREATE_WORKER_TOOL,
-      workerName,
-      rootDirectory,
-      problem: `Cloudflare setup is pending because the Cloudflare account had no Workers Builds token. Give the user ${CLOUDFLARE_SETUP_GUIDE_URL}. After the user finishes it, call ${CREATE_WORKER_TOOL} for this repository: it creates the Worker ${workerName} at root directory ${rootDirectory} and installs the Convex deploy key.`,
+      tool: null,
+      problem: `Cloudflare setup is pending because the Cloudflare account had no Workers Builds token. The planned Worker is ${workerName} at root directory ${rootDirectory}. ${repair}`,
     });
   }
 
@@ -290,9 +288,8 @@ function listResourceAttention(args: {
     switch (builds.repository.state) {
       case "not_connected":
         items.push({
-          tool: CONFIGURE_BUILDS_TOOL,
-          workerName,
-          problem: `Workers Builds of ${workerName} is not connected to this GitHub repository.`,
+          tool: null,
+          problem: `Workers Builds of ${workerName} is not connected to this GitHub repository. ${repair}`,
         });
         continue;
       case "connected_elsewhere":
@@ -324,23 +321,20 @@ function listResourceAttention(args: {
     }
     if (builds.builds.state !== "connected") {
       items.push({
-        tool: CONFIGURE_BUILDS_TOOL,
-        workerName,
-        problem: `The Workers Builds setup of ${workerName} is incomplete.`,
+        tool: null,
+        problem: `The Workers Builds setup of ${workerName} is incomplete. ${repair}`,
       });
       continue;
     }
     if (builds.builds.productionBuildTokenUuid !== builds.builds.previewBuildTokenUuid) {
       items.push({
-        tool: CONFIGURE_BUILDS_TOOL,
-        workerName,
-        problem: `The production and preview builds of ${workerName} use different Workers Builds tokens.`,
+        tool: null,
+        problem: `The production and preview builds of ${workerName} use different Workers Builds tokens. ${repair}`,
       });
     } else if (builds.builds.productionBuildTokenUuid === null) {
       items.push({
-        tool: CONFIGURE_BUILDS_TOOL,
-        workerName,
-        problem: `${workerName} has no Workers Builds token.`,
+        tool: null,
+        problem: `${workerName} has no Workers Builds token. ${repair}`,
       });
     }
 
@@ -366,30 +360,26 @@ function listResourceAttention(args: {
           ? repository.convexProjects[0].convexProjectId
           : null;
     if (targetProjectId === null) {
-      // A rotation needs the Convex team; without a readable team the facts are unavailable.
+      // Without a readable Convex team the facts are unavailable.
       if (
         repository.convexProjects.every((project) => currentConvexProject(project.convexProjectId))
       ) {
         items.push({
-          tool: ROTATE_CONVEX_DEPLOY_KEYS_TOOL,
-          workerName,
-          convexProjectSlug: null,
-          problem: `${describeConvexBuildAccessProblem(workerName, access)} Ask the user which attached Convex project the Worker deploys with.`,
+          tool: null,
+          problem: `${describeConvexBuildAccessProblem(workerName, access)} Ask the user which attached Convex project the Worker deploys with. ${repair}`,
         });
       }
       continue;
     }
     const targetProject = currentConvexProject(targetProjectId);
     // An unreadable project gives no item. A project without a production deployment gets the
-    // deploy-first item below instead, because a rotation would fail before it.
+    // deploy-first item below instead, because it has no deployment to make keys for.
     if (targetProject === null || targetProject.productionDeployment.state === "missing") {
       continue;
     }
     items.push({
-      tool: ROTATE_CONVEX_DEPLOY_KEYS_TOOL,
-      workerName,
-      convexProjectSlug: targetProject.projectSlug,
-      problem: describeConvexBuildAccessProblem(workerName, access),
+      tool: null,
+      problem: `${describeConvexBuildAccessProblem(workerName, access)} It needs the deploy keys of the Convex project ${targetProject.projectSlug}. ${repair}`,
     });
   }
 
@@ -399,7 +389,7 @@ function listResourceAttention(args: {
     if (observation?.source.state === "missing") {
       items.push({
         tool: null,
-        problem: `The Convex code location ${codeLocation} no longer exists on the default branch. Change it in the Samebase dashboard.`,
+        problem: `The Convex code location ${codeLocation} no longer exists on the default branch. ${repair}`,
       });
     }
     const provider = observation?.provider;
@@ -411,7 +401,7 @@ function listResourceAttention(args: {
     } else if (provider?.state === "current" && provider.productionDeployment.state === "missing") {
       items.push({
         tool: null,
-        problem: `Deploy the Convex project ${provider.projectSlug} to production first. Samebase installs its deploy key after the production deployment exists.${repository.cloudflareWorkers.length > 0 ? ` Then call ${ROTATE_CONVEX_DEPLOY_KEYS_TOOL} for the Worker that deploys with it.` : ""}`,
+        problem: `Deploy the Convex project ${provider.projectSlug} to production first.${repository.cloudflareWorkers.length > 0 ? ` The Worker that deploys with it then needs its deploy keys. ${repair}` : ""}`,
       });
     }
   }

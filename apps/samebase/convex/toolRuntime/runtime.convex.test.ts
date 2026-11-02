@@ -4,10 +4,10 @@ import { afterEach, describe, expect, expectTypeOf, it, vi } from "vite-plus/tes
 
 import { components, internal } from "../_generated/api";
 import { makeConvexTest } from "../test.setup";
-import { cloudflareCreateWorkerContract } from "../repository/contracts/cloudflareAttachments";
+import { createRepositoryContract } from "../repository/contracts/createRepository";
 
-type CloudflareCreateWorkerToolResult = FunctionReturnType<
-  typeof internal.toolRuntime.runtime.cloudflareCreateWorkerTool
+type RepositoryCreateToolResult = FunctionReturnType<
+  typeof internal.toolRuntime.runtime.repositoryCreateTool
 >;
 
 afterEach(() => {
@@ -54,12 +54,12 @@ async function seedToolRuntimeOwner() {
 
 describe("MCP tool runtime boundaries", () => {
   it("keeps the exact result type through the generic runtime factory", () => {
-    expectTypeOf<CloudflareCreateWorkerToolResult>().not.toBeAny();
-    expectTypeOf<CloudflareCreateWorkerToolResult>().toEqualTypeOf<
+    expectTypeOf<RepositoryCreateToolResult>().not.toBeAny();
+    expectTypeOf<RepositoryCreateToolResult>().toEqualTypeOf<
       | {
           status: "ok";
           text: string;
-          structuredContent: Infer<typeof cloudflareCreateWorkerContract.structuredContent>;
+          structuredContent: Infer<typeof createRepositoryContract.structuredContent>;
         }
       | {
           status: "error" | "blocked";
@@ -69,20 +69,18 @@ describe("MCP tool runtime boundaries", () => {
   });
 
   it("blocks a generic runtime tool before its product helper runs", async () => {
-    const { t, userId, repositoryId } = await seedToolRuntimeOwner();
+    const { t, userId } = await seedToolRuntimeOwner();
 
-    const result = await t.action(internal.toolRuntime.runtime.cloudflareCreateWorkerTool, {
+    const result = await t.action(internal.toolRuntime.runtime.repositoryCreateTool, {
       userId,
       grantedScopes: [],
-      repository: repositoryId,
-      workerName: "worker-new",
-      rootDirectory: "/",
-      buildTokenUuid: "build-token",
+      githubOwnerLogin: "tool-runtime-owner",
+      name: "app-new",
     });
 
     expect(result).toEqual({
       status: "blocked",
-      text: "Insufficient scope for repository_cloudflare_createWorker.",
+      text: "Insufficient scope for repository_create.",
     });
   });
 
@@ -92,7 +90,6 @@ describe("MCP tool runtime boundaries", () => {
       authorizedRepositoryId,
       otherRunRepositoryId,
       pendingRepositoryId,
-      pendingPlanId,
       pendingConvexProjectId,
     } = await t.run(async (ctx) => {
       const authorizedRepositoryId = await ctx.db.insert("repositories", {
@@ -221,7 +218,7 @@ describe("MCP tool runtime boundaries", () => {
         connectedAt: 1,
         createdAt: 1,
       });
-      const pendingPlanId = await ctx.db.insert("workflow_repositoryProvisioning_plans", {
+      await ctx.db.insert("workflow_repositoryProvisioning_plans", {
         repositoryId: pendingRepositoryId,
         convexConfigPath: "apps/web/convex.json",
         convex: {
@@ -259,7 +256,6 @@ describe("MCP tool runtime boundaries", () => {
         authorizedRepositoryId,
         otherRunRepositoryId,
         pendingRepositoryId,
-        pendingPlanId,
         pendingConvexProjectId,
       };
     });
@@ -290,12 +286,14 @@ describe("MCP tool runtime boundaries", () => {
       expect(repository).not.toHaveProperty("convexTeamId");
       expect(repository).not.toHaveProperty("defaultBranch");
       expect(repository).not.toHaveProperty("hasConnectedGitHubRepository");
+      expect(repository).not.toHaveProperty("pendingCloudflareSetup");
+      expect(repository).not.toHaveProperty("cloudflareWorkers");
+      expect(repository).not.toHaveProperty("convexProjects");
     }
     expect(result.structuredContent.repositories).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           repositoryId: authorizedRepositoryId,
-          pendingCloudflareSetup: null,
           sourceSetup: {
             status: "failed",
             message: "Source setup failed. Check this repository in Samebase for recovery steps.",
@@ -303,7 +301,6 @@ describe("MCP tool runtime boundaries", () => {
         }),
         expect.objectContaining({
           repositoryId: otherRunRepositoryId,
-          pendingCloudflareSetup: null,
           providerSetup: {
             status: "failed",
             provider: "convex",
@@ -313,20 +310,13 @@ describe("MCP tool runtime boundaries", () => {
         expect.objectContaining({
           repositoryId: pendingRepositoryId,
           githubRepositoryFullName: "tool-runtime-owner/pending-app",
-          pendingCloudflareSetup: {
-            workerName: "pending-worker",
-            rootDirectory: "apps/web",
-          },
-          // No Convex credential is stored, so the live project names are unreadable.
-          convexProjects: [
-            { projectSlug: null, projectName: null, codeLocation: "apps/web/convex.json" },
-            { projectSlug: null, projectName: null, codeLocation: "convex.json" },
-          ],
         }),
       ]),
     );
     const output = JSON.stringify(result);
     expect(output).not.toContain(pendingConvexProjectId);
+    expect(output).not.toContain("pending-worker");
+    expect(output).not.toContain("apps/web/convex.json");
     expect(output).not.toContain("private-diagnostic@example.com");
     expect(output).not.toContain('"runId"');
     expect(output).not.toContain('"step"');
@@ -360,95 +350,6 @@ describe("MCP tool runtime boundaries", () => {
         cloudflare: { accountId: "account_1", buildTokenUuid: null },
       },
     });
-
-    for (const scenario of [
-      {
-        convexState: "created",
-        projectId: "pending-provider-project",
-        buildTokenUuid: "historical-build-token-uuid",
-      },
-      {
-        convexState: "planned",
-        projectId: null,
-        buildTokenUuid: null,
-      },
-      {
-        convexState: "created",
-        projectId: "missing-provider-project",
-        buildTokenUuid: null,
-      },
-    ] as const) {
-      await t.run(async (ctx) => {
-        await ctx.db.patch(pendingPlanId, {
-          convex:
-            scenario.convexState === "created"
-              ? {
-                  state: scenario.convexState,
-                  projectName: "pending-app",
-                  deploymentRegion: "aws-us-east-1",
-                  projectId: scenario.projectId,
-                }
-              : {
-                  state: scenario.convexState,
-                  projectName: "pending-app",
-                  deploymentRegion: "aws-us-east-1",
-                },
-          cloudflare: {
-            state: "planned",
-            workerName: "pending-worker",
-            rootDirectory: "apps/web",
-            buildTokenUuid: scenario.buildTokenUuid,
-          },
-        });
-      });
-      const unavailable = await t.action(internal.toolRuntime.runtime.repositoryListTool, {
-        userId,
-        grantedScopes: ["access_dashboard"],
-      });
-      expect(unavailable.status).toBe("ok");
-      if (unavailable.status !== "ok") {
-        throw new Error(unavailable.text);
-      }
-      expect(
-        unavailable.structuredContent.repositories.find(
-          (repository) => repository.repositoryId === pendingRepositoryId,
-        ),
-      ).toMatchObject({ pendingCloudflareSetup: null });
-      expect(JSON.stringify(unavailable)).not.toContain("historical-build-token-uuid");
-    }
-
-    await t.run(async (ctx) => {
-      await ctx.db.patch(pendingPlanId, {
-        convex: {
-          state: "created",
-          projectName: "pending-app",
-          deploymentRegion: "aws-us-east-1",
-          projectId: "pending-provider-project",
-        },
-      });
-      await ctx.db.insert("repositoryCloudflareWorkers", {
-        repositoryId: pendingRepositoryId,
-        organizationId,
-        accountId: "account_1",
-        workerName: "existing-worker",
-        workerTag: "existing-worker-tag",
-        rootDirectory: "apps/web",
-        origin: "selected_existing",
-      });
-    });
-    const withWorker = await t.action(internal.toolRuntime.runtime.repositoryListTool, {
-      userId,
-      grantedScopes: ["access_dashboard"],
-    });
-    expect(withWorker.status).toBe("ok");
-    if (withWorker.status !== "ok") {
-      throw new Error(withWorker.text);
-    }
-    expect(
-      withWorker.structuredContent.repositories.find(
-        (repository) => repository.repositoryId === pendingRepositoryId,
-      ),
-    ).toMatchObject({ pendingCloudflareSetup: null });
 
     await t.run(async (ctx) => {
       const deletionRun = {
@@ -759,11 +660,10 @@ describe("MCP tool runtime boundaries", () => {
     const fetch = vi.fn();
     vi.stubGlobal("fetch", fetch);
 
-    const result = await t.action(internal.toolRuntime.runtime.cloudflareCreateWorkerTool, {
+    const result = await t.action(internal.toolRuntime.runtime.repositoryGetStatusTool, {
       userId,
-      grantedScopes: ["access_provider_connections"],
+      grantedScopes: ["access_dashboard"],
       repository: "tool-runtime-owner/missing",
-      workerName: "worker-new",
     });
 
     expect(result).toEqual({

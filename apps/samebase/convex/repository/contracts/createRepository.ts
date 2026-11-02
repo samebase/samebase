@@ -77,8 +77,8 @@ ready, or failed; on failure it names the provider and carries a message. Repair
 \`repository_retryProviderSetup\`. A ready providerSetup means that the secret and the variable are
 written and the starter is seeded, not that the app is deployed: the deployment runs in the
 repository's GitHub Actions, and \`repository_getStatus\` reports setupStack.state done after it
-finished. Samebase's Worker and Convex project tools refuse such a repository, because its GitHub
-Actions own its provider resources. Cost: the created resources run on the providers' free tiers; an
+finished. The repository's GitHub Actions own its provider resources, so repair a deployment there,
+with Alchemy. Cost: the created resources run on the providers' free tiers; an
 idle app costs $0/month.`,
 } as const;
 

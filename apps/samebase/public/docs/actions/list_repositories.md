@@ -10,24 +10,9 @@ the organization. Other MCP tools take a repository as its owner/name or its rep
 setup, provider setup, and deletion are independent states. While deletion.state is deleting or
 delete_failed, source and provider setup are not_applicable. Do not change that repository or its
 providers. The user can retry a failed deletion in the Samebase dashboard. Provider setup status
-reports the managed work that was requested. It does not prove that every provider is attached.
+reports the setup work that was requested. It does not prove that the app is deployed.
 
-Each attached Worker shows its name and root directory. Each attached Convex project shows its slug
-and name, read live from Convex, and its code location (a convex.json path, or a convex/ directory).
-Other MCP tools take the slug, which is unique inside a Convex team; the name is for display. Both
-are null when Samebase could not read the Convex team.
-
-pendingCloudflareSetup is null unless a managed creation had no Workers Builds token, its Convex
-project is attached, and no Worker is attached. Then a ready providerSetup means that the GitHub and
-Convex work finished. Report Cloudflare setup as pending and give the user
-https://samebase.com/docs/cloudflare-setup. After the user creates the first token through
-Cloudflare's standard repository setup and deletes the temporary Worker, call
-repository_cloudflare_createWorker for this repository. It uses the planned Worker name and root
-directory and installs the Convex deploy key. Do not attach the temporary Worker or retry the
-completed managed run.
-
-Attachments are stable identities only. Current Cloudflare and Convex state is read from those
-providers when a relevant view opens; this query does not mirror it.
+This query reads no provider. `repository_getStatus` reads the live state of one repository.
 
 ## Arguments
 
@@ -145,26 +130,6 @@ JSON Schema for the tool's `structuredContent`:
               }
             ]
           },
-          "pendingCloudflareSetup": {
-            "anyOf": [
-              {
-                "type": "null"
-              },
-              {
-                "type": "object",
-                "properties": {
-                  "workerName": {
-                    "type": "string"
-                  },
-                  "rootDirectory": {
-                    "type": "string"
-                  }
-                },
-                "required": ["workerName", "rootDirectory"],
-                "additionalProperties": false
-              }
-            ]
-          },
           "deletion": {
             "type": "object",
             "properties": {
@@ -184,55 +149,6 @@ JSON Schema for the tool's `structuredContent`:
             },
             "required": ["state"],
             "additionalProperties": false
-          },
-          "cloudflareWorkers": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "properties": {
-                "workerName": {
-                  "type": "string"
-                },
-                "rootDirectory": {
-                  "type": "string"
-                }
-              },
-              "required": ["workerName", "rootDirectory"],
-              "additionalProperties": false
-            }
-          },
-          "convexProjects": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "properties": {
-                "projectSlug": {
-                  "anyOf": [
-                    {
-                      "type": "string"
-                    },
-                    {
-                      "type": "null"
-                    }
-                  ]
-                },
-                "projectName": {
-                  "anyOf": [
-                    {
-                      "type": "string"
-                    },
-                    {
-                      "type": "null"
-                    }
-                  ]
-                },
-                "codeLocation": {
-                  "type": "string"
-                }
-              },
-              "required": ["projectSlug", "projectName", "codeLocation"],
-              "additionalProperties": false
-            }
           }
         },
         "required": [
@@ -242,10 +158,7 @@ JSON Schema for the tool's `structuredContent`:
           "isSamebaseManaged",
           "sourceSetup",
           "providerSetup",
-          "pendingCloudflareSetup",
-          "deletion",
-          "cloudflareWorkers",
-          "convexProjects"
+          "deletion"
         ],
         "additionalProperties": false
       }

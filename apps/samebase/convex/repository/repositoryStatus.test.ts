@@ -51,6 +51,33 @@ const repository: RepositoryStatusRepository = {
     },
   ],
 };
+const moveToAlchemy =
+  "Samebase does not repair this: move the app to Alchemy and fix it in the stack (https://samebase.com/docs/the-big-migration).";
+const setupStackRepair =
+  "The setup stack in alchemy.run.ts owns this setting: change the stack, or run the alchemy workflow on the default branch to repair it.";
+// A creation without a Workers Builds token: Convex is attached, no Worker yet.
+const pendingPlan = {
+  convexConfigPath: "convex.json",
+  convex: {
+    state: "created",
+    projectName: "chess-merge",
+    deploymentRegion: "aws-us-east-1",
+    teamId: "41275",
+    projectId: "387501",
+  },
+  cloudflare: {
+    state: "planned",
+    accountId,
+    workerName: "chess-merge",
+    rootDirectory: "/",
+    buildTokenUuid: null,
+  },
+} satisfies RepositoryStatusRepository["providerPlan"];
+const pendingCloudflareRepository: RepositoryStatusRepository = {
+  ...repository,
+  cloudflareWorkers: [],
+  providerPlan: pendingPlan,
+};
 const adminProject = {
   convexProjectId: adminConvexProjectId,
   teamId: "41275",
@@ -337,28 +364,6 @@ describe("buildRepositoryAttention", () => {
       ...readyBuilds,
       repository: { state: "not_connected" },
     });
-    // A creation without a Workers Builds token: Convex is attached, no Worker yet.
-    const pendingCloudflareRepository: RepositoryStatusRepository = {
-      ...repository,
-      cloudflareWorkers: [],
-      providerPlan: {
-        convexConfigPath: "convex.json",
-        convex: {
-          state: "created",
-          projectName: "chess-merge",
-          deploymentRegion: "aws-us-east-1",
-          teamId: "41275",
-          projectId: "387501",
-        },
-        cloudflare: {
-          state: "planned",
-          accountId,
-          workerName: "chess-merge",
-          rootDirectory: "/",
-          buildTokenUuid: null,
-        },
-      },
-    };
     const runningItem = {
       tool: null,
       problem:
@@ -368,24 +373,20 @@ describe("buildRepositoryAttention", () => {
       tool: "repository_retryProviderSetup",
       problem: "Samebase setup of the Cloudflare Worker failed.",
     };
-    const configureItem = {
-      tool: "repository_cloudflare_configureBuilds",
-      workerName: "chess-merge",
-      problem: "Workers Builds of chess-merge is not connected to this GitHub repository.",
+    const repairItem = {
+      tool: null,
+      problem: `Workers Builds of chess-merge is not connected to this GitHub repository. ${moveToAlchemy}`,
     };
     const pendingItem = {
-      tool: "repository_cloudflare_createWorker",
-      workerName: "chess-merge",
-      rootDirectory: "/",
-      problem:
-        "Cloudflare setup is pending because the Cloudflare account had no Workers Builds token. Give the user https://samebase.com/docs/cloudflare-setup. After the user finishes it, call repository_cloudflare_createWorker for this repository: it creates the Worker chess-merge at root directory / and installs the Convex deploy key.",
+      tool: null,
+      problem: `Cloudflare setup is pending because the Cloudflare account had no Workers Builds token. The planned Worker is chess-merge at root directory /. ${moveToAlchemy}`,
     };
 
     it.each([
-      ["not_applicable", "attached Worker", [configureItem]],
+      ["not_applicable", "attached Worker", [repairItem]],
       ["running", "attached Worker", [runningItem]],
       ["failed", "attached Worker", [retryItem]],
-      ["ready", "attached Worker", [configureItem]],
+      ["ready", "attached Worker", [repairItem]],
       ["not_applicable", "pending Cloudflare setup", [pendingItem]],
       ["running", "pending Cloudflare setup", [runningItem]],
       ["failed", "pending Cloudflare setup", [retryItem]],
@@ -419,7 +420,7 @@ describe("buildRepositoryAttention", () => {
         ciSecrets,
       },
     });
-    // Builds that Samebase would repair for a samebase repository.
+    // Builds that need a repair.
     const unconfiguredObservations = withWorkerBuilds({
       ...readyBuilds,
       repository: { state: "not_connected" },
@@ -432,7 +433,7 @@ describe("buildRepositoryAttention", () => {
         observations: { ...healthyObservations, setupStack },
       });
 
-    it("names the setup stack instead of a Samebase repair tool for an attached Worker", () => {
+    it("names the setup stack as the repair for an attached Worker", () => {
       expect(
         buildRepositoryAttention({
           repository: repositoryActionsRepository(writtenSecrets),
@@ -441,8 +442,7 @@ describe("buildRepositoryAttention", () => {
       ).toEqual([
         {
           tool: null,
-          problem:
-            "Workers Builds of chess-merge is not connected to this GitHub repository. The setup stack in alchemy.run.ts owns this setting: change the stack, or run the alchemy workflow on the default branch to repair it.",
+          problem: `Workers Builds of chess-merge is not connected to this GitHub repository. ${setupStackRepair}`,
         },
       ]);
     });
@@ -477,8 +477,7 @@ describe("buildRepositoryAttention", () => {
         },
         {
           tool: null,
-          problem:
-            "Workers Builds of chess-merge is not connected to this GitHub repository. The setup stack in alchemy.run.ts owns this setting: change the stack, or run the alchemy workflow on the default branch to repair it.",
+          problem: `Workers Builds of chess-merge is not connected to this GitHub repository. ${setupStackRepair}`,
         },
       ]);
     });
@@ -510,6 +509,47 @@ describe("buildRepositoryAttention", () => {
     });
   });
 
+  it.each<{ name: string; pending: Partial<RepositoryStatusRepository> }>([
+    {
+      name: "a selected Workers Builds token",
+      pending: {
+        providerPlan: {
+          ...pendingPlan,
+          cloudflare: { ...pendingPlan.cloudflare, buildTokenUuid },
+        },
+      },
+    },
+    {
+      name: "a Convex project that is not created yet",
+      pending: {
+        providerPlan: {
+          ...pendingPlan,
+          convex: {
+            state: "planned",
+            projectName: "chess-merge",
+            deploymentRegion: "aws-us-east-1",
+            teamId: "41275",
+          },
+        },
+      },
+    },
+    {
+      name: "a planned Convex project that is not attached",
+      pending: { convexProjects: [adminProject] },
+    },
+    {
+      name: "an attached Worker",
+      pending: { cloudflareWorkers: repository.cloudflareWorkers },
+    },
+  ])("reports no pending Cloudflare setup with $name", ({ pending }) => {
+    expect(
+      buildRepositoryAttention({
+        repository: { ...pendingCloudflareRepository, ...pending },
+        observations: healthyObservations,
+      }),
+    ).toEqual([]);
+  });
+
   it("reports a Worker that no longer exists, and nothing for unreadable Worker facts", () => {
     expect(
       buildRepositoryAttention({
@@ -538,18 +578,16 @@ describe("buildRepositoryAttention", () => {
       name: "not connected to the GitHub repository",
       builds: { ...readyBuilds, repository: { state: "not_connected" as const } },
       item: {
-        tool: "repository_cloudflare_configureBuilds",
-        workerName: "chess-merge",
-        problem: "Workers Builds of chess-merge is not connected to this GitHub repository.",
+        tool: null,
+        problem: `Workers Builds of chess-merge is not connected to this GitHub repository. ${moveToAlchemy}`,
       },
     },
     {
       name: "incomplete Builds settings",
       builds: { ...readyBuilds, builds: { state: "not_connected" as const } },
       item: {
-        tool: "repository_cloudflare_configureBuilds",
-        workerName: "chess-merge",
-        problem: "The Workers Builds setup of chess-merge is incomplete.",
+        tool: null,
+        problem: `The Workers Builds setup of chess-merge is incomplete. ${moveToAlchemy}`,
       },
     },
     {
@@ -563,10 +601,8 @@ describe("buildRepositoryAttention", () => {
         },
       },
       item: {
-        tool: "repository_cloudflare_configureBuilds",
-        workerName: "chess-merge",
-        problem:
-          "The production and preview builds of chess-merge use different Workers Builds tokens.",
+        tool: null,
+        problem: `The production and preview builds of chess-merge use different Workers Builds tokens. ${moveToAlchemy}`,
       },
     },
     {
@@ -580,9 +616,8 @@ describe("buildRepositoryAttention", () => {
         },
       },
       item: {
-        tool: "repository_cloudflare_configureBuilds",
-        workerName: "chess-merge",
-        problem: "chess-merge has no Workers Builds token.",
+        tool: null,
+        problem: `chess-merge has no Workers Builds token. ${moveToAlchemy}`,
       },
     },
     {
@@ -683,15 +718,13 @@ describe("buildRepositoryAttention", () => {
       access: { state: "invalid" as const },
       problem: "The Convex project marker of chess-merge is invalid.",
     },
-  ])("names the deploy-key rotation for $name", ({ access, problem }) => {
+  ])("names the Convex project and the repair for $name", ({ access, problem }) => {
     expect(
       buildRepositoryAttention({ repository, observations: withConvexBuildAccess(access) }),
     ).toEqual([
       {
-        tool: "repository_cloudflare_rotateConvexDeployKeys",
-        workerName: "chess-merge",
-        convexProjectSlug: "chess-merge",
-        problem,
+        tool: null,
+        problem: `${problem} It needs the deploy keys of the Convex project chess-merge. ${moveToAlchemy}`,
       },
     ]);
   });
@@ -717,16 +750,13 @@ describe("buildRepositoryAttention", () => {
       }),
     ).toEqual([
       {
-        tool: "repository_cloudflare_rotateConvexDeployKeys",
-        workerName: "chess-merge",
-        convexProjectSlug: null,
-        problem:
-          "chess-merge has no Convex deploy keys. Ask the user which attached Convex project the Worker deploys with.",
+        tool: null,
+        problem: `chess-merge has no Convex deploy keys. Ask the user which attached Convex project the Worker deploys with. ${moveToAlchemy}`,
       },
     ]);
   });
 
-  it("names no deploy-key repair when no Convex project is attached", () => {
+  it("names no deploy-key problem when no Convex project is attached", () => {
     expect(
       buildRepositoryAttention({
         repository: { ...repository, convexProjects: [] },
@@ -738,7 +768,7 @@ describe("buildRepositoryAttention", () => {
     ).toEqual([]);
   });
 
-  it("names no deploy-key repair when Convex cannot be read", () => {
+  it("names no deploy-key problem when Convex cannot be read", () => {
     const observations = withConvexBuildAccess({ state: "not_configured" });
     const unreadableProject = {
       ...observations.convexProjects[0],
@@ -759,7 +789,7 @@ describe("buildRepositoryAttention", () => {
     ).toEqual([]);
   });
 
-  it("says to deploy the Convex project to production first instead of a rotation that would fail", () => {
+  it("says to deploy the Convex project to production first", () => {
     const observations = withConvexBuildAccess({ state: "not_configured" });
     expect(
       buildRepositoryAttention({
@@ -785,8 +815,7 @@ describe("buildRepositoryAttention", () => {
     ).toEqual([
       {
         tool: null,
-        problem:
-          "Deploy the Convex project chess-merge to production first. Samebase installs its deploy key after the production deployment exists. Then call repository_cloudflare_rotateConvexDeployKeys for the Worker that deploys with it.",
+        problem: `Deploy the Convex project chess-merge to production first. The Worker that deploys with it then needs its deploy keys. ${moveToAlchemy}`,
       },
     ]);
   });
@@ -810,8 +839,7 @@ describe("buildRepositoryAttention", () => {
     ).toEqual([
       {
         tool: null,
-        problem:
-          "The Convex code location convex.json no longer exists on the default branch. Change it in the Samebase dashboard.",
+        problem: `The Convex code location convex.json no longer exists on the default branch. ${moveToAlchemy}`,
       },
       {
         tool: null,

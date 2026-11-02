@@ -25,7 +25,7 @@ export const vActionConfirmationRequest = object({
 });
 export type ActionConfirmationRequest = Infer<typeof vActionConfirmationRequest>;
 
-/** The paragraph that the docs of the four gated actions share. */
+/** The paragraph that the docs of the gated actions share. */
 export const ACTION_CONFIRMATION_DOC = `Samebase confirms this action on the server, for the dashboard and MCP alike. A call without
 \`confirmation\` changes nothing and returns \`needs_confirmation\` with the effect in plain words,
 the exact acknowledgement sentence, and a one-use token that expires after 10 minutes. The token is

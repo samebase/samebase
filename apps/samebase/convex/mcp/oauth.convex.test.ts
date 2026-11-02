@@ -151,7 +151,7 @@ async function seedRefreshTokenFamily() {
     }));
   };
 
-  return { exchange, readContainmentState, readDatabaseState, ...ids };
+  return { exchange, readContainmentState, readDatabaseState, t, ...ids };
 }
 
 describe("MCP OAuth refresh token replay", () => {
@@ -321,6 +321,112 @@ describe("MCP OAuth token resource binding", () => {
     await expect(
       t.run(async (ctx) => await ctx.db.query("mcpAuthorizationCodes").collect()),
     ).resolves.toEqual(before);
+  });
+});
+
+describe("MCP OAuth retired access_provider_connections scope", () => {
+  const storedScope = "access_dashboard access_provider_connections access_app_create";
+  const requestedScope = "access_dashboard access_app_create";
+  const redirectUri = "http://127.0.0.1/callback";
+
+  async function seedGrantWithRetiredScope() {
+    const family = await seedRefreshTokenFamily();
+    await family.t.run(async (ctx) => {
+      const grant = await ctx.db
+        .query("mcpGrants")
+        .withIndex("by_grant_id", (q) => q.eq("grantId", grantId))
+        .unique();
+      if (!grant) {
+        throw new Error("Expected the seeded grant.");
+      }
+      await ctx.db.patch(grant._id, { scope: storedScope });
+    });
+
+    const authorize = async (requestId: string, scope: string) => {
+      await family.t.mutation(internal.mcp.oauth.createAuthRequest, {
+        requestId,
+        clientId,
+        redirectUri,
+        resource,
+        scope,
+        codeChallenge: await createCodeChallenge("retired-scope-verifier"),
+        codeChallengeMethod: "S256",
+        userId: family.userId,
+        createdAt: now,
+        expiresAt: now + 60_000,
+      });
+      return await family.t.mutation(internal.mcp.oauth.issueAuthorizationCodeForAuthRequest, {
+        requestId,
+        userId: family.userId,
+        codeHash: `code_${requestId}`,
+        codeExpiresAt: now + 60_000,
+        grantMode: "reuse_only",
+        allowLoopbackHttpRedirectUris: true,
+        now,
+      });
+    };
+    return { ...family, authorize };
+  }
+
+  it("reuses a stored grant without consent when the request no longer carries the scope", async () => {
+    const { authorize, t } = await seedGrantWithRetiredScope();
+
+    await expect(authorize("request_after_ignore", requestedScope)).resolves.toMatchObject({
+      ok: true,
+    });
+
+    await expect(
+      t.run(async (ctx) => ({
+        grants: await ctx.db.query("mcpGrants").collect(),
+        code: await ctx.db
+          .query("mcpAuthorizationCodes")
+          .withIndex("by_code_hash", (q) => q.eq("codeHash", "code_request_after_ignore"))
+          .unique(),
+      })),
+    ).resolves.toMatchObject({
+      grants: [{ grantId, scope: storedScope }],
+      code: { grantId, scope: requestedScope },
+    });
+  });
+
+  it("reuses a stored grant for a pending request that still carries the scope", async () => {
+    const { authorize } = await seedGrantWithRetiredScope();
+
+    await expect(authorize("request_before_ignore", storedScope)).resolves.toMatchObject({
+      ok: true,
+    });
+  });
+
+  it("still asks for consent when another scope differs", async () => {
+    const { authorize } = await seedGrantWithRetiredScope();
+
+    await expect(
+      authorize("request_wider", `${requestedScope} access_repo_connect`),
+    ).resolves.toEqual({
+      ok: false,
+      status: 403,
+      error: "consent_required",
+      errorDescription: "Authorization consent is required.",
+    });
+  });
+
+  it("refreshes and validates tokens of a grant that stores the scope", async () => {
+    const { exchange, t } = await seedGrantWithRetiredScope();
+
+    await expect(
+      exchange({
+        refreshTokenHash: initialRefreshTokenHash,
+        newRefreshTokenHash: "refresh_hash_after_retirement",
+        accessTokenHash: "access_hash_after_retirement",
+        now: now + 1,
+      }),
+    ).resolves.toMatchObject({ ok: true, grantId, scope: storedScope });
+    await expect(
+      t.mutation(internal.mcp.oauth.validateAccessToken, {
+        tokenHash: "access_hash_after_retirement",
+        now: now + 2,
+      }),
+    ).resolves.toMatchObject({ ok: true, grantId, scope: storedScope });
   });
 });
 

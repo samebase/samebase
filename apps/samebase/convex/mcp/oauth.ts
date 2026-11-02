@@ -12,7 +12,7 @@ import { isMcpOauthClientInactive } from "./client";
 import { vMcpAuthRequestStatus, vMcpOauthClientRegistrationStatus } from "./model";
 import { getDefaultMcpProtocolValidationOptions, redirectUriMatchesRegistered } from "./protocol";
 import { revokeActiveMcpGrant } from "./grants";
-import { parseScopeTokens } from "./scopes";
+import { parseScopeTokens, withoutRetiredMcpScope } from "./scopes";
 import { readActiveUser } from "../identity/lifecycle";
 import {
   createAuthorizationCodeValue,
@@ -512,7 +512,7 @@ export const issueAuthorizationCodeForAuthRequest = internalMutation({
       if (
         grant.clientId === authRequest.clientId &&
         grant.resource === authRequest.resource &&
-        grant.scope === authRequest.scope
+        withoutRetiredMcpScope(grant.scope) === withoutRetiredMcpScope(authRequest.scope)
       ) {
         existingGrant = grant;
         break;
