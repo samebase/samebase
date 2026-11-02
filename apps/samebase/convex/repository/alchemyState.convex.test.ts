@@ -514,6 +514,65 @@ State axes of the setup status of a repository_actions repository: the team stor
 the stack that carries the repository's name absent or present; its `prod` stage absent, deployed
 for the first time with no output yet, or with an output; the store read working or failing.
 */
+describe("the stack check before a GitHub repository deletion", () => {
+  async function requestDeletion(stackReplies: Record<string, unknown>, teamProjects: unknown[]) {
+    const t = makeConvexTest();
+    const { ids, user } = await seedAlchemyRepository(t);
+    const requests: RecordedRequest[] = [];
+    installAlchemyStateFetchStub({
+      requests,
+      stackReplies,
+      storeReply: observedAlchemyStackReply,
+      teamProjects,
+    });
+    return await user.action(api.repository.actions.deleteRepository, {
+      repositoryId: ids.repositoryId,
+      removeGithubRepo: true,
+    });
+  }
+
+  it.each(["samebase/base-alchemy", "samebase/base-alchemy/apps/web"])(
+    "refuses while the store holds %s, without reading its run record",
+    async (stack) => {
+      await expect(requestDeletion({ [stack]: undefined }, [storeProject])).rejects.toMatchObject({
+        data: "Destroy your Alchemy stack first.",
+      });
+    },
+  );
+
+  // The seeded repository is connected, not created in Samebase, so a request that passes the check
+  // stops at the rule of the deletion plan.
+  const passedTheCheck = "Existing repository removal cannot remove the GitHub repository.";
+
+  it("passes when the store holds only the stack of another repository", async () => {
+    await expect(
+      requestDeletion({ "samebase/samebase": undefined }, [storeProject]),
+    ).rejects.toThrow(passedTheCheck);
+  });
+
+  it("passes when the team has no store", async () => {
+    await expect(requestDeletion({}, [appProject])).rejects.toThrow(passedTheCheck);
+  });
+
+  it("refuses without a Convex connection", async () => {
+    const t = makeConvexTest();
+    const { ids, user } = await seedAlchemyRepository(t);
+    await t.run(async (ctx) => {
+      const credentials = await ctx.db.query("organizationProviderCredentials").first();
+      if (credentials) {
+        await ctx.db.delete(credentials._id);
+      }
+    });
+
+    await expect(
+      user.action(api.repository.actions.deleteRepository, {
+        repositoryId: ids.repositoryId,
+        removeGithubRepo: true,
+      }),
+    ).rejects.toMatchObject({ data: "Connect Convex so Samebase can check for an Alchemy stack." });
+  });
+});
+
 describe("the setup status of a repository_actions repository", () => {
   const output: unknown = JSON.parse(prod.output);
   if (!isRecord(output)) throw new Error("Expected the captured stage output.");

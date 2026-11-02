@@ -48,8 +48,7 @@ export function RepositoryOverviewDialogsVisualFixture({
         target={{
           repositoryId: fakeRepositoryId(),
           githubRepositoryFullName: "samebase/shared-convex-monorepo-fixture",
-          isSamebaseManaged: true,
-          canRemoveGithubRepo: true,
+          removeGithubRepoBlockedReason: null,
           hasSetupStack: false,
         }}
       />

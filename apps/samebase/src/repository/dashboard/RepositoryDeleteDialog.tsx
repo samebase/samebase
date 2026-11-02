@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useAction } from "convex/react";
+import { ConvexError } from "convex/values";
 import { Loader2 } from "lucide-react";
 
 import { api } from "../../../convex/_generated/api";
@@ -15,13 +16,18 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { readRepositoryStackCheck } from "./repositoryStackCheck";
+import type { RepositoryAlchemyState } from "./useRepositoryAlchemyState";
 
 type RepositoryDeleteTarget = {
   repositoryId: UserRepositoryResult["repositoryId"];
   githubRepositoryFullName: string;
-  isSamebaseManaged: boolean;
-  canRemoveGithubRepo: boolean;
-  /** Its GitHub Actions set it up, so only its Destroy app workflow destroys what its stack created. */
+  /** Why the dialog cannot delete the GitHub repository, null when it can. */
+  removeGithubRepoBlockedReason: string | null;
+  /**
+  Its GitHub Actions set it up and its stack may still exist, so its Destroy app workflow is the way
+  to destroy what the stack created.
+  */
   hasSetupStack: boolean;
 };
 
@@ -85,6 +91,7 @@ export function RepositoryDeleteDialogContent({
   target: RepositoryDeleteTarget;
 }) {
   const hasStagedChanges = stagedChangesCount > 0;
+  const removeGithubRepoBlocked = target.removeGithubRepoBlockedReason !== null;
   const isCommitting = progress === "committing";
   const isDeleting = progress === "deleting";
 
@@ -105,14 +112,14 @@ export function RepositoryDeleteDialogContent({
               id="remove-github-repo"
               checked={removeGithubRepo}
               onCheckedChange={(checked) => onRemoveGithubRepoChange(checked === true)}
-              disabled={!target.canRemoveGithubRepo || isDeleting || isCommitting}
+              disabled={removeGithubRepoBlocked || isDeleting || isCommitting}
               className="mt-0.5"
             />
             <label htmlFor="remove-github-repo" className="text-sm text-muted-foreground">
               Also delete the GitHub repository
-              {!target.canRemoveGithubRepo ? (
+              {removeGithubRepoBlocked ? (
                 <div className="text-xs text-muted-foreground">
-                  Available only for repositories that Samebase created.
+                  {target.removeGithubRepoBlockedReason}
                 </div>
               ) : null}
             </label>
@@ -183,10 +190,12 @@ export function RepositoryDeleteDialogContent({
 }
 
 export function RepositoryDeleteDialog({
+  alchemyState,
   onClose,
   onDeleted,
   repository,
 }: {
+  alchemyState: RepositoryAlchemyState;
   onClose: () => void;
   onDeleted: () => void;
   repository: UserRepositoryResult;
@@ -208,13 +217,21 @@ export function RepositoryDeleteDialog({
         ? repository.deletion.deleteAction.reason
         : null;
 
+  const stackCheck = readRepositoryStackCheck(repository, alchemyState);
   const target = {
     repositoryId: repository.repositoryId,
     githubRepositoryFullName: repository.githubRepositoryFullName,
-    isSamebaseManaged: repository.isSamebaseManaged,
-    canRemoveGithubRepo: repository.isSamebaseManaged && repository.hasConnectedGitHubRepository,
+    removeGithubRepoBlockedReason: !(
+      repository.isSamebaseManaged && repository.hasConnectedGitHubRepository
+    )
+      ? "Available only for repositories that Samebase created."
+      : stackCheck.state === "no_stack"
+        ? null
+        : stackCheck.reason,
     hasSetupStack: Boolean(
-      repository.providerPlan && !isSamebaseManagedProviderPlan(repository.providerPlan),
+      repository.providerPlan &&
+      !isSamebaseManagedProviderPlan(repository.providerPlan) &&
+      stackCheck.state !== "no_stack",
     ),
   };
 
@@ -257,9 +274,7 @@ export function RepositoryDeleteDialog({
     try {
       await deleteRepository({
         repositoryId: target.repositoryId,
-        removeGithubRepo: target.isSamebaseManaged
-          ? target.canRemoveGithubRepo && removeGithubRepo
-          : false,
+        removeGithubRepo: target.removeGithubRepoBlockedReason === null && removeGithubRepo,
       });
       onDeleted();
     } catch (error) {
@@ -268,7 +283,11 @@ export function RepositoryDeleteDialog({
         state: "idle",
         commitError: null,
         deleteError:
-          error instanceof Error ? error.message : "Failed to remove repository from Samebase.",
+          error instanceof ConvexError && typeof error.data === "string"
+            ? error.data
+            : error instanceof Error
+              ? error.message
+              : "Failed to remove repository from Samebase.",
         didAttemptCommit: operation.didAttemptCommit,
       });
     }
@@ -293,7 +312,7 @@ export function RepositoryDeleteDialog({
         void handleRemoveRepository();
       }}
       progress={operation.state}
-      removeGithubRepo={removeGithubRepo}
+      removeGithubRepo={removeGithubRepo && target.removeGithubRepoBlockedReason === null}
       stagedChangesCount={repository.fileCount}
       target={target}
     />

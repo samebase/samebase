@@ -6,6 +6,13 @@ const { array, literal, number, object, string, union } = v;
 /** Renewal may retry provider failures. Samebase access failures remain separate. */
 export const ALCHEMY_CONNECTION_UNAVAILABLE = "Alchemy state is temporarily unavailable.";
 
+/** Why Samebase will not delete a GitHub repository whose stack the store still holds. */
+export const DESTROY_ALCHEMY_STACK_FIRST = "Destroy your Alchemy stack first.";
+
+/** Why Samebase will not delete a GitHub repository when it cannot read the store. */
+export const CONNECT_CONVEX_TO_CHECK_STACK =
+  "Connect Convex so Samebase can check for an Alchemy stack.";
+
 /** The run that last wrote the state of a stage. */
 export const vAlchemyRunRecord = object({
   version: literal(1),
