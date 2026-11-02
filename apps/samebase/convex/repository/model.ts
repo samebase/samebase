@@ -19,7 +19,7 @@ export const vRepositoryConnectedGitHubTarget = object({
 export type RepositoryConnectedGitHubTarget = Infer<typeof vRepositoryConnectedGitHubTarget>;
 
 /**
-provisioned = Samebase created the resource; removal from Samebase may delete it
+provisioned = Samebase created the resource; removal from Samebase keeps it
 
 selected_existing = a member attached a resource that already existed; Samebase never deletes it
 

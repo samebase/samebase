@@ -279,8 +279,6 @@ describe("MCP tool runtime boundaries", () => {
       expect(repository).not.toHaveProperty("organizationId");
       expect(repository).not.toHaveProperty("fileCount");
       expect(repository).not.toHaveProperty("lastEditTime");
-      expect(repository).not.toHaveProperty("canRemoveConvexProvision");
-      expect(repository).not.toHaveProperty("canRemoveCloudflareProvision");
       expect(repository).not.toHaveProperty("providerPlan");
       expect(repository).not.toHaveProperty("providerWrite");
       expect(repository).not.toHaveProperty("convexTeamId");

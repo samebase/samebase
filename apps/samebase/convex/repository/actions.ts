@@ -710,8 +710,6 @@ export const deleteRepository = action({
   args: {
     repositoryId: v.id("repositories"),
     removeGithubRepo: v.optional(v.boolean()),
-    removeConvexProvision: v.optional(v.boolean()),
-    removeCloudflareProvision: v.optional(v.boolean()),
   },
   returns: v.object({
     deletionRunId: v.id("workflow_repositoryDeletion_runs"),
@@ -728,8 +726,6 @@ export const deleteRepository = action({
         repositoryId: args.repositoryId,
         options: {
           removeGithubRepo: args.removeGithubRepo ?? false,
-          removeConvexProvision: args.removeConvexProvision ?? false,
-          removeCloudflareProvision: args.removeCloudflareProvision ?? false,
         },
       },
     );

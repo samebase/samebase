@@ -218,8 +218,6 @@ const userRepositoryFields = {
   hasConnectedGitHubRepository: boolean(),
   hasConvexProvision: boolean(),
   hasCloudflareProvision: boolean(),
-  canRemoveConvexProvision: boolean(),
-  canRemoveCloudflareProvision: boolean(),
   cloudflareWorkers: array(
     object({
       workerId: id("repositoryCloudflareWorkers"),

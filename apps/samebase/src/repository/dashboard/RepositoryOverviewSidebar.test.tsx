@@ -80,8 +80,6 @@ function repository(
     hasConnectedGitHubRepository: true,
     hasConvexProvision: false,
     hasCloudflareProvision: false,
-    canRemoveConvexProvision: false,
-    canRemoveCloudflareProvision: false,
     cloudflareWorkers: [],
     convexProjects: [],
   };

@@ -149,8 +149,6 @@ const LIST_SPACING_REPOSITORY = {
   hasConnectedGitHubRepository: true,
   hasConvexProvision: true,
   hasCloudflareProvision: true,
-  canRemoveConvexProvision: true,
-  canRemoveCloudflareProvision: true,
   cloudflareWorkers: [
     {
       workerId: LIST_SPACING_DOMAIN_WORKER_ID,

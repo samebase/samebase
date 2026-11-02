@@ -515,8 +515,6 @@ describe("app provisioning retry admission", () => {
         repositoryId: ids.repositoryId,
         options: {
           removeGithubRepo: false,
-          removeConvexProvision: false,
-          removeCloudflareProvision: false,
         },
       }),
     ]);

@@ -721,8 +721,6 @@ export async function readOrganizationRepositories(
       hasConnectedGitHubRepository: false,
       hasConvexProvision: false,
       hasCloudflareProvision: false,
-      canRemoveConvexProvision: false,
-      canRemoveCloudflareProvision: false,
       cloudflareWorkers: [],
       convexProjects: [],
     });
@@ -745,12 +743,6 @@ export async function readOrganizationRepositories(
       );
       const hasConvexProvision = convexProjects.length > 0;
       const hasCloudflareProvision = cloudflareWorkers.length > 0;
-      const canRemoveConvexProvision = convexProjects.some(
-        (project) => project.origin === "provisioned",
-      );
-      const canRemoveCloudflareProvision = cloudflareWorkers.some(
-        (worker) => worker.origin === "provisioned",
-      );
       const cloudflareWorkerSummaries = cloudflareWorkers.map((worker) => ({
         workerId: worker._id,
         accountId: worker.accountId,
@@ -787,8 +779,6 @@ export async function readOrganizationRepositories(
           hasConnectedGitHubRepository: true,
           hasConvexProvision,
           hasCloudflareProvision,
-          canRemoveConvexProvision,
-          canRemoveCloudflareProvision,
           cloudflareWorkers: cloudflareWorkerSummaries,
           convexProjects: convexProjectSummaries,
         };
@@ -833,8 +823,6 @@ export async function readOrganizationRepositories(
         hasConnectedGitHubRepository: true,
         hasConvexProvision,
         hasCloudflareProvision,
-        canRemoveConvexProvision,
-        canRemoveCloudflareProvision,
         cloudflareWorkers: cloudflareWorkerSummaries,
         convexProjects: convexProjectSummaries,
       };

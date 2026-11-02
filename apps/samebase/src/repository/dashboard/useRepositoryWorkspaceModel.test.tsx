@@ -137,8 +137,6 @@ function runningGitHubSetup(
 function lostAccessRepository(): UserRepositoryResult {
   return {
     repositoryId: fakeRepositoryId(),
-    canRemoveCloudflareProvision: false,
-    canRemoveConvexProvision: false,
     cloudflareAccountId: "cloudflare-account",
     cloudflareWorkers: [],
     convexTeamId: "convex-team",

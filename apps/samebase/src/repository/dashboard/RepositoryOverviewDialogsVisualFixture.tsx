@@ -39,23 +39,17 @@ export function RepositoryOverviewDialogsVisualFixture({
         deleteError={null}
         didAttemptCommit={false}
         onCommitBeforeRemove={() => {}}
-        onDeleteOptionChange={() => {}}
         onOpenChange={() => {}}
+        onRemoveGithubRepoChange={() => {}}
         onRemoveRepository={() => {}}
         progress="idle"
-        removeConvexProvision={false}
         removeGithubRepo={false}
-        removeCloudflareProvision={false}
         stagedChangesCount={3}
         target={{
           repositoryId: fakeRepositoryId(),
           githubRepositoryFullName: "samebase/shared-convex-monorepo-fixture",
           isSamebaseManaged: true,
           canRemoveGithubRepo: true,
-          hasConvexProvision: true,
-          hasCloudflareProvision: true,
-          canRemoveConvexProvision: true,
-          canRemoveCloudflareProvision: true,
           setupStack: null,
         }}
       />

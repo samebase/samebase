@@ -32,7 +32,7 @@ export const sendForAccountDeletion = internalAction({
 
 External repositories, deployments, projects, and Workers were not deleted.
 
-If you connected Convex with OAuth, revoke Samebase in Convex Authorized Applications to invalidate previously issued production and preview deploy keys.
+If you connected Convex with OAuth, the production and preview deploy keys already issued to your apps stay valid, so those apps keep deploying.
 
 If you connected Cloudflare with OAuth, revoke Samebase in Cloudflare Connected Applications to remove upstream access.
 

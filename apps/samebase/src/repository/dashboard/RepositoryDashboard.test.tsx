@@ -256,8 +256,6 @@ function makeRepositorySettingsBuilderRepository(
     hasConnectedGitHubRepository: true,
     hasConvexProvision: false,
     hasCloudflareProvision: false,
-    canRemoveConvexProvision: false,
-    canRemoveCloudflareProvision: false,
     cloudflareWorkers: [],
     convexProjects: [],
   };
@@ -2499,58 +2497,31 @@ describe("RepositoryDeleteDialogContent", () => {
     deleteError: null,
     didAttemptCommit: false,
     onCommitBeforeRemove: () => {},
-    onDeleteOptionChange: () => {},
     onOpenChange: () => {},
+    onRemoveGithubRepoChange: () => {},
     onRemoveRepository: () => {},
     progress: "idle",
-    removeConvexProvision: false,
     removeGithubRepo: false,
-    removeCloudflareProvision: false,
     stagedChangesCount: 0,
   } satisfies Omit<Parameters<typeof RepositoryDeleteDialogContent>[0], "target">;
 
-  it("allows Cloudflare cleanup for provisioned Workers on connected repositories", () => {
+  it("offers to delete only the GitHub repository", () => {
     const markup = renderToStaticMarkup(
       <RepositoryDeleteDialogContent
         {...baseProps}
         target={{
           repositoryId: fakeRepositoryId(),
-          githubRepositoryFullName: "ada/existing-repo",
-          isSamebaseManaged: false,
-          canRemoveGithubRepo: false,
-          hasConvexProvision: false,
-          hasCloudflareProvision: true,
-          canRemoveConvexProvision: false,
-          canRemoveCloudflareProvision: true,
+          githubRepositoryFullName: "ada/created-repo",
+          isSamebaseManaged: true,
+          canRemoveGithubRepo: true,
           setupStack: null,
         }}
       />,
     );
 
-    expect(markup).toContain("Also delete the Cloudflare Worker");
-    expect(markup).not.toContain("Only available for Workers created from this app.");
-  });
-
-  it("shows Convex cleanup when a failed create left a removable project", () => {
-    const markup = renderToStaticMarkup(
-      <RepositoryDeleteDialogContent
-        {...baseProps}
-        target={{
-          repositoryId: fakeRepositoryId(),
-          githubRepositoryFullName: "ada/existing-repo",
-          isSamebaseManaged: false,
-          canRemoveGithubRepo: false,
-          hasConvexProvision: false,
-          hasCloudflareProvision: false,
-          canRemoveConvexProvision: true,
-          canRemoveCloudflareProvision: false,
-          setupStack: null,
-        }}
-      />,
-    );
-
-    expect(markup).toContain("Also delete the Convex project and deployment");
-    expect(markup).not.toContain("Only available for infrastructure provisioned by Samebase.");
+    expect(markup).toContain("Also delete the GitHub repository");
+    expect(markup).not.toContain("Also delete the Convex project");
+    expect(markup).not.toContain("Also delete the Cloudflare Worker");
   });
 
   it("names what removal keeps and links the destroy for a repository that its GitHub Actions set up", () => {
@@ -2562,10 +2533,6 @@ describe("RepositoryDeleteDialogContent", () => {
           githubRepositoryFullName: "ada/chess-merge",
           isSamebaseManaged: true,
           canRemoveGithubRepo: true,
-          hasConvexProvision: true,
-          hasCloudflareProvision: true,
-          canRemoveConvexProvision: false,
-          canRemoveCloudflareProvision: false,
           setupStack: { workerNames: ["chess-merge"], convexCodeLocations: ["convex.json"] },
         }}
       />,
@@ -2592,10 +2559,6 @@ describe("RepositoryDeleteDialogContent", () => {
           githubRepositoryFullName: "ada/demo",
           isSamebaseManaged: true,
           canRemoveGithubRepo: true,
-          hasConvexProvision: false,
-          hasCloudflareProvision: false,
-          canRemoveConvexProvision: false,
-          canRemoveCloudflareProvision: false,
           setupStack: null,
         }}
       />,
