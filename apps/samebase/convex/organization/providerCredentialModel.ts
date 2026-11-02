@@ -131,6 +131,8 @@ export const vConvexProviderOAuthCallbackState = object({
 export const vCloudflareProviderOAuthCallbackState = object({
   provider: literal("cloudflare"),
   ...providerOAuthCallbackStateFields,
+  // Requests created before resource authorization expire without this verifier.
+  codeVerifier: optional(string()),
 });
 export const vCloudflareMcpProviderOAuthCallbackState = object({
   provider: literal("cloudflare_mcp"),

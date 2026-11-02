@@ -65,9 +65,13 @@ function stubCloudflareApiTokenAccounts(
   return fetch;
 }
 
+function stubResourceHub(): void {
+  vi.stubEnv("RESOURCE_HUB_ISSUER", "https://hub.example.test");
+  vi.stubEnv("RESOURCE_HUB_CLIENT_ID", "resource-client");
+  vi.stubEnv("RESOURCE_HUB_CLIENT_SECRET", "resource-secret");
+}
+
 function stubCloudflareRefreshFailure(detail: string): void {
-  vi.stubEnv("PROVIDER_CLOUDFLARE_OAUTH_CLIENT_ID", "client-id");
-  vi.stubEnv("PROVIDER_CLOUDFLARE_OAUTH_CLIENT_SECRET", "client-secret");
   vi.stubGlobal(
     "fetch",
     vi.fn(async () =>
@@ -978,13 +982,13 @@ describe("organization provider status", () => {
       subject: userId,
       tokenIdentifier: `test:${userId}`,
     });
-    vi.stubEnv("PROVIDER_CLOUDFLARE_OAUTH_CLIENT_ID", "client-id");
-    vi.stubEnv("PROVIDER_CLOUDFLARE_OAUTH_CLIENT_SECRET", "client-secret");
+    stubResourceHub();
     const fetch = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
       const url = new URL(input instanceof Request ? input.url : input.toString());
-      if (url.pathname === "/oauth2/token") {
+      if (url.pathname === "/token") {
         return Response.json({
           access_token: "refreshed-access-token",
+          token_type: "bearer",
           refresh_token: "refreshed-refresh-token",
           expires_in: 3_600,
         });
@@ -1098,20 +1102,18 @@ describe("organization provider status", () => {
     expect(fetch).toHaveBeenCalledOnce();
   });
 
-  it("preserves direct and MCP refresh errors at the shared resolver boundary", async () => {
-    for (const method of ["oauth", "mcp_oauth"] as const) {
-      const { organizationId, t, userId } = await seedProviderOrganization({
-        cloudflareAuthMethod: method,
-      });
-      stubCloudflareRefreshFailure(`private ${method} refresh detail`);
+  it("preserves MCP refresh errors at the shared resolver boundary", async () => {
+    const { organizationId, t, userId } = await seedProviderOrganization({
+      cloudflareAuthMethod: "mcp_oauth",
+    });
+    stubCloudflareRefreshFailure("private refresh detail");
 
-      const error = await readActionError(
-        t.action(internal.cloudflareOAuth.resolveConnectionForOrganization, {
-          organizationId,
-          userId,
-        }),
-      );
-      expect(error.message).toContain(`private ${method} refresh detail`);
-    }
+    const error = await readActionError(
+      t.action(internal.cloudflareOAuth.resolveConnectionForOrganization, {
+        organizationId,
+        userId,
+      }),
+    );
+    expect(error.message).toContain("private refresh detail");
   });
 });

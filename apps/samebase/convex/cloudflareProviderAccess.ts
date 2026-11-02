@@ -4,7 +4,7 @@ import { Infer, v } from "convex/values";
 
 import { internal } from "./_generated/api";
 import { action } from "./functions";
-import { CLOUDFLARE_OAUTH_SCOPES, type ResolvedCloudflareConnection } from "./cloudflareOAuth";
+import type { ResolvedCloudflareConnection } from "./cloudflareOAuth";
 import {
   listCloudflareAccountsForToken,
   type CloudflareAccount,
@@ -17,6 +17,15 @@ import { organizationProviderCredentialAad } from "./organization/providerCreden
 import { openSecret } from "./sealedSecret";
 
 const { array, boolean, id, literal, object, string, union } = v;
+
+const CLOUDFLARE_OAUTH_SCOPES = [
+  "workers-ci.read",
+  "workers-ci.write",
+  "workers-scripts.read",
+  "workers-scripts.write",
+  "account-settings.read",
+  "offline_access",
+] as const;
 
 const vCloudflareProviderAuthMethod = union(
   literal("api_key"),

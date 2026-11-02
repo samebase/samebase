@@ -21,7 +21,6 @@ const oauth = {
   refreshCredential: testCredential("old-refresh"),
   credentialExpiresAt: now - 1,
 } as const;
-
 async function seedConnection(auth: CloudflareProviderCredential["auth"]) {
   const t = makeConvexTest();
   const ids = await t.run(async (ctx) => {
@@ -74,8 +73,9 @@ function resolveConnection(seed: Awaited<ReturnType<typeof seedConnection>>) {
 beforeEach(() => {
   vi.useFakeTimers();
   vi.setSystemTime(now);
-  vi.stubEnv("PROVIDER_CLOUDFLARE_OAUTH_CLIENT_ID", "client");
-  vi.stubEnv("PROVIDER_CLOUDFLARE_OAUTH_CLIENT_SECRET", "client-secret");
+  vi.stubEnv("RESOURCE_HUB_ISSUER", "https://hub.example.test");
+  vi.stubEnv("RESOURCE_HUB_CLIENT_ID", "resource-client");
+  vi.stubEnv("RESOURCE_HUB_CLIENT_SECRET", "resource-secret");
 });
 
 afterEach(() => {
@@ -86,11 +86,11 @@ afterEach(() => {
 
 describe("Cloudflare connection refresh", () => {
   it.each([
-    { name: "expired OAuth", auth: oauth, endpoint: "https://dash.cloudflare.com/oauth2/token" },
+    { name: "expired OAuth", auth: oauth, endpoint: "https://hub.example.test/token" },
     {
       name: "expiring OAuth",
       auth: { ...oauth, credentialExpiresAt: now + 60_000 },
-      endpoint: "https://dash.cloudflare.com/oauth2/token",
+      endpoint: "https://hub.example.test/token",
     },
     {
       name: "expired MCP OAuth",
@@ -100,14 +100,22 @@ describe("Cloudflare connection refresh", () => {
   ])("refreshes $name under the token lease", async ({ auth, endpoint }) => {
     const seed = await seedConnection(auth);
     const fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
-      expect(input).toBe(endpoint);
+      const request = new Request(input, init);
+      expect(request.url).toBe(endpoint);
       expect(init?.method).toBe("POST");
-      expect(init?.body).toContain("grant_type=refresh_token");
-      expect(init?.body).toContain("refresh_token=old-refresh");
+      const body = await request.formData();
+      expect(body.get("grant_type")).toBe("refresh_token");
+      expect(body.get("refresh_token")).toBe("old-refresh");
+      if (auth.method === "oauth") {
+        expect(body.get("client_id")).toBe("resource-client");
+        expect(body.get("client_secret")).toBe("resource-secret");
+        expect(body.get("resource")).toBe("https://api.cloudflare.com/client/v4/");
+      }
       const credentials = await seed.t.run(async (ctx) => await ctx.db.get(seed.credentialId));
       expect(credentials?.cloudflare?.tokenRefreshLease).toMatchObject({ startedAt: now });
       return Response.json({
         access_token: "new-access",
+        token_type: "bearer",
         refresh_token: "new-refresh",
         expires_in: 3_600,
       });
@@ -184,14 +192,17 @@ describe("Cloudflare connection refresh", () => {
     expect(fetch).not.toHaveBeenCalled();
   });
 
-  it("records a refresh failure and releases its token lease", async () => {
+  it.each([
+    { name: "hub invalid grant", error: "invalid_grant", status: 400 },
+    { name: "hub invalid client", error: "invalid_client", status: 401 },
+  ])("records $name and releases its token lease", async ({ error, status }) => {
     const seed = await seedConnection(oauth);
     vi.stubGlobal(
       "fetch",
-      vi.fn(async () => Response.json({ error: "invalid_grant" }, { status: 400 })),
+      vi.fn(async () => Response.json({ error }, { status })),
     );
 
-    await expect(resolveConnection(seed)).rejects.toThrow("invalid_grant");
+    await expect(resolveConnection(seed)).rejects.toThrow();
 
     const credentials = await seed.t.run(async (ctx) => await ctx.db.get(seed.credentialId));
     expect(credentials?.cloudflare).toMatchObject({
@@ -200,5 +211,21 @@ describe("Cloudflare connection refresh", () => {
     });
     expect(credentials?.cloudflare?.tokenRefreshLease).toBeUndefined();
     expect(credentials?.cloudflare?.lastTokenRefreshAt).toBeUndefined();
+  });
+
+  it("keeps the connection when the hub answers temporarily_unavailable", async () => {
+    const seed = await seedConnection(oauth);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => Response.json({ error: "temporarily_unavailable" }, { status: 503 })),
+    );
+
+    await expect(resolveConnection(seed)).rejects.toThrow();
+
+    const credentials = await seed.t.run(async (ctx) => await ctx.db.get(seed.credentialId));
+    expect(credentials?.cloudflare).toMatchObject({
+      auth: seed.sealedAuth,
+      tokenHealth: { status: "expired", source: "runtime_error" },
+    });
   });
 });

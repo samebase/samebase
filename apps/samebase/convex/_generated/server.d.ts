@@ -56,6 +56,9 @@ type Env = {
   readonly PASSWORD_AUTH_ENABLED: string | undefined;
   readonly POLAR_ACCESS_TOKEN: string | undefined;
   readonly POLAR_WEBHOOK_SECRET: string | undefined;
+  readonly RESOURCE_HUB_CLIENT_ID: string;
+  readonly RESOURCE_HUB_CLIENT_SECRET: string;
+  readonly RESOURCE_HUB_ISSUER: string;
 };
 
 /**

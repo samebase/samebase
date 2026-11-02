@@ -29,17 +29,21 @@ const vProviderOAuthCallbackStateResult = v.union(
   vCloudflareMcpProviderOAuthCallbackState.extend(providerOAuthCallbackStateSystemFields),
 );
 
+const stateCreationFields = {
+  userId: v.id("users"),
+  organizationId: v.id("organizations"),
+  returnToPath: v.optional(v.string()),
+  state: v.string(),
+  codeVerifier: v.string(),
+  createdAt: v.number(),
+  expiresAt: v.number(),
+};
+
 export const createOauthState = internalMutation({
   args: {
     provider: vOAuthProvider,
-    userId: v.id("users"),
-    organizationId: v.id("organizations"),
-    returnToPath: v.optional(v.string()),
-    state: v.string(),
-    codeVerifier: v.optional(v.string()),
+    ...stateCreationFields,
     clientId: v.optional(v.string()),
-    createdAt: v.number(),
-    expiresAt: v.number(),
   },
   returns: v.id("providerOAuthCallbackStates"),
   handler: async (ctx, args) => {
@@ -75,39 +79,47 @@ export const createOauthState = internalMutation({
       state: args.state,
       createdAt: args.createdAt,
       expiresAt: args.expiresAt,
+      codeVerifier: args.codeVerifier,
     };
     switch (args.provider) {
       case "convex":
-        if (args.codeVerifier === undefined || args.clientId !== undefined) {
-          throw new Error("Convex OAuth state has invalid PKCE fields.");
-        }
-        return await ctx.db.insert("providerOAuthCallbackStates", {
-          provider: "convex",
-          ...commonState,
-          codeVerifier: args.codeVerifier,
-        });
       case "cloudflare":
-        if (args.codeVerifier !== undefined || args.clientId !== undefined) {
-          throw new Error("Cloudflare OAuth state cannot contain PKCE fields.");
-        }
+        if (args.clientId !== undefined)
+          throw new Error("Resource authorization uses the configured hub client.");
         return await ctx.db.insert("providerOAuthCallbackStates", {
-          provider: "cloudflare",
+          provider: args.provider,
           ...commonState,
         });
       case "cloudflare_mcp":
-        if (args.codeVerifier === undefined || args.clientId === undefined) {
-          throw new Error("Cloudflare MCP OAuth state requires PKCE fields.");
-        }
+        if (args.clientId === undefined)
+          throw new Error("Cloudflare MCP authorization requires its client ID.");
         return await ctx.db.insert("providerOAuthCallbackStates", {
           provider: "cloudflare_mcp",
           ...commonState,
-          codeVerifier: args.codeVerifier,
           clientId: args.clientId,
         });
       default:
         args.provider satisfies never;
         throw new Error("Unsupported OAuth provider.");
     }
+  },
+});
+
+export const getResourceOauthState = internalQuery({
+  args: { state: v.string() },
+  returns: v.union(
+    vConvexProviderOAuthCallbackState.extend(providerOAuthCallbackStateSystemFields),
+    vCloudflareProviderOAuthCallbackState.extend(providerOAuthCallbackStateSystemFields),
+    v.null(),
+  ),
+  handler: async (ctx, args) => {
+    const record = await ctx.db
+      .query("providerOAuthCallbackStates")
+      .withIndex("by_state", (q) => q.eq("state", args.state))
+      .unique();
+    if (record === null || record.provider === "cloudflare_mcp") return null;
+    const user = await ctx.db.get(record.userId);
+    return user === null || readActiveUser(user) === null ? null : record;
   },
 });
 

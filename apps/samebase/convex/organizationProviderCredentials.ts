@@ -1,4 +1,5 @@
 import { ConvexError, Infer, v } from "convex/values";
+import { internal } from "./_generated/api";
 
 import type { Doc, Id } from "./_generated/dataModel";
 import {
@@ -541,7 +542,7 @@ type ConnectCloudflareCredentialArgs = {
 
 /** Store Cloudflare authorization after one atomic owner, state, and snapshot check. */
 export async function connectCloudflareCredential(
-  ctx: Pick<MutationCtx, "db">,
+  ctx: Pick<MutationCtx, "db" | "scheduler">,
   args: ConnectCloudflareCredentialArgs,
 ): Promise<ProviderOAuthStoreResult> {
   const oauthState = await requireOAuthStateForCredentialWrite(ctx, {
@@ -604,6 +605,12 @@ export async function connectCloudflareCredential(
     });
   } else {
     await ctx.db.patch(credentials._id, { cloudflare: credential });
+  }
+  if (credentials?.cloudflare?.auth.method === "oauth") {
+    await ctx.scheduler.runAfter(0, internal.hubResourceOAuth.revokeCloudflareGrant, {
+      organizationId: organization._id,
+      refreshCredential: credentials.cloudflare.auth.refreshCredential,
+    });
   }
   if (organization.cloudflareAccount === undefined) {
     await ctx.db.patch(organization._id, {
@@ -865,6 +872,12 @@ export const disconnectCloudflare = internalMutation({
     }
     if (!providerAuthMatches(credentials.cloudflare.auth, args.expectedAuth)) {
       throw new Error("Cloudflare credential changed before disconnect completed.");
+    }
+    if (credentials.cloudflare.auth.method === "oauth") {
+      await ctx.scheduler.runAfter(0, internal.hubResourceOAuth.revokeCloudflareGrant, {
+        organizationId: organization._id,
+        refreshCredential: credentials.cloudflare.auth.refreshCredential,
+      });
     }
     if (credentials.convex === undefined) {
       await ctx.db.delete(credentials._id);

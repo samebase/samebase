@@ -42,7 +42,6 @@ import type * as convexManagementApi_client from "../convexManagementApi/client.
 import type * as convexManagementApi_errors from "../convexManagementApi/errors.js";
 import type * as convexManagementApi_generated_client_index from "../convexManagementApi/generated/client/index.js";
 import type * as convexManagementApi_generated_index from "../convexManagementApi/generated/index.js";
-import type * as convexManagementApi_oauthToken from "../convexManagementApi/oauthToken.js";
 import type * as convexOAuth from "../convexOAuth.js";
 import type * as convexProviderAccess from "../convexProviderAccess.js";
 import type * as dashboardSettings from "../dashboardSettings.js";
@@ -74,6 +73,7 @@ import type * as http from "../http.js";
 import type * as hubClients_model from "../hubClients/model.js";
 import type * as hubClients_registration from "../hubClients/registration.js";
 import type * as hubClients_tenantConnection from "../hubClients/tenantConnection.js";
+import type * as hubResourceOAuth from "../hubResourceOAuth.js";
 import type * as identity_access from "../identity/access.js";
 import type * as identity_accessValidators from "../identity/accessValidators.js";
 import type * as identity_accountModel from "../identity/accountModel.js";
@@ -235,7 +235,6 @@ declare const fullApi: ApiFromModules<{
   "convexManagementApi/errors": typeof convexManagementApi_errors;
   "convexManagementApi/generated/client/index": typeof convexManagementApi_generated_client_index;
   "convexManagementApi/generated/index": typeof convexManagementApi_generated_index;
-  "convexManagementApi/oauthToken": typeof convexManagementApi_oauthToken;
   convexOAuth: typeof convexOAuth;
   convexProviderAccess: typeof convexProviderAccess;
   dashboardSettings: typeof dashboardSettings;
@@ -267,6 +266,7 @@ declare const fullApi: ApiFromModules<{
   "hubClients/model": typeof hubClients_model;
   "hubClients/registration": typeof hubClients_registration;
   "hubClients/tenantConnection": typeof hubClients_tenantConnection;
+  hubResourceOAuth: typeof hubResourceOAuth;
   "identity/access": typeof identity_access;
   "identity/accessValidators": typeof identity_accessValidators;
   "identity/accountModel": typeof identity_accountModel;

@@ -30,6 +30,9 @@ const app = defineApp({
     HUB_CLIENT_ID: v.string(),
     HUB_CLIENT_SECRET: v.string(),
     HUB_ISSUER: v.string(),
+    RESOURCE_HUB_ISSUER: v.string(),
+    RESOURCE_HUB_CLIENT_ID: v.string(),
+    RESOURCE_HUB_CLIENT_SECRET: v.string(),
     // The hub's initial access token (RFC 7591), which creates third-party clients and sets their
     // tenant switch. Unset: hubClients/registration.ts answers 404 and no switch call is made.
     HUB_REGISTRATION_KEY: v.optional(v.string()),
