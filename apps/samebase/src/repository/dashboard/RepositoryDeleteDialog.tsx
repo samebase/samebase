@@ -5,7 +5,6 @@ import { Loader2 } from "lucide-react";
 import { api } from "../../../convex/_generated/api";
 import type { UserRepositoryResult } from "../../../convex/repository/contracts/getUserRepositories";
 import { isSamebaseManagedProviderPlan } from "../../../convex/repository/provisioningPlan";
-import { getConvexCodeLocationPath } from "../../../shared/convexCodeLocation";
 import { AppDialogContent } from "@/components/AppDialogContent";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -22,11 +21,8 @@ type RepositoryDeleteTarget = {
   githubRepositoryFullName: string;
   isSamebaseManaged: boolean;
   canRemoveGithubRepo: boolean;
-  /**
-  For a repository that its GitHub Actions set up: the attached resources, which removal keeps. Only
-  the repository's Destroy app workflow destroys what its setup stack created.
-  */
-  setupStack: { workerNames: string[]; convexCodeLocations: string[] } | null;
+  /** Its GitHub Actions set it up, so only its Destroy app workflow destroys what its stack created. */
+  hasSetupStack: boolean;
 };
 
 type RepositoryDeleteProgress = "idle" | "committing" | "deleting";
@@ -42,19 +38,10 @@ type RepositoryDeleteOperation =
 
 /** What removal keeps for a repository that its GitHub Actions set up, and the destroy to run first. */
 function SetupStackRemovalNote({ target }: { target: RepositoryDeleteTarget }) {
-  if (!target.setupStack) {
-    return null;
-  }
-  const retained = [
-    ...target.setupStack.workerNames.map((workerName) => `the Worker ${workerName}`),
-    ...target.setupStack.convexCodeLocations.map(
-      (codeLocation) => `the Convex project at ${codeLocation}`,
-    ),
-  ];
   return (
     <div className="text-sm text-muted-foreground">
-      Samebase keeps {retained.join(", ") || "the Convex project of this app"}. To delete what the
-      setup stack in alchemy.run.ts created, first open the{" "}
+      Your deployed app stays in your cloud accounts. To delete what your Alchemy stack created,
+      first open the{" "}
       <a
         className="font-medium text-foreground underline underline-offset-4"
         href={`https://github.com/${target.githubRepositoryFullName}/actions/workflows/destroy.yml`}
@@ -64,8 +51,8 @@ function SetupStackRemovalNote({ target }: { target: RepositoryDeleteTarget }) {
         Destroy app
       </a>{" "}
       workflow, click Run workflow, and type{" "}
-      <span className="font-mono">{`delete stack and production data of ${target.githubRepositoryFullName}`}</span>{" "}
-      in its field. Deleting the GitHub repository also deletes that workflow.
+      <span className="font-mono">{`delete stack and production data of ${target.githubRepositoryFullName}`}</span>
+      . Deleting the GitHub repository also deletes that workflow.
     </div>
   );
 }
@@ -108,8 +95,8 @@ export function RepositoryDeleteDialogContent({
           <DialogTitle>Remove {target.githubRepositoryFullName} from Samebase?</DialogTitle>
           <DialogDescription>
             {hasStagedChanges
-              ? `This repository has ${stagedChangesCount} uncommitted local change${stagedChangesCount === 1 ? "" : "s"}. You can commit ${stagedChangesCount === 1 ? "it" : "them"} now.`
-              : "All local changes are already backed up on GitHub."}
+              ? `You have ${stagedChangesCount} uncommitted change${stagedChangesCount === 1 ? "" : "s"}. Removal deletes ${stagedChangesCount === 1 ? "it, so commit it" : "them, so commit them"} first.`
+              : "All your changes are on GitHub."}
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-2">
@@ -125,17 +112,17 @@ export function RepositoryDeleteDialogContent({
               Also delete the GitHub repository
               {!target.canRemoveGithubRepo ? (
                 <div className="text-xs text-muted-foreground">
-                  Only available for confirmed repositories created in Samebase.
+                  Available only for repositories that Samebase created.
                 </div>
               ) : null}
             </label>
           </div>
-          {target.setupStack ? (
+          {target.hasSetupStack ? (
             <SetupStackRemovalNote target={target} />
           ) : (
             <div className="text-sm text-muted-foreground">
-              The Worker and Convex project stay in your accounts. Remove them there if you want to
-              delete them.
+              Your deployed app stays in your cloud accounts. Delete it there if you no longer need
+              it.
             </div>
           )}
           {deleteError ? <div className="text-sm text-red-600">{deleteError}</div> : null}
@@ -145,7 +132,7 @@ export function RepositoryDeleteDialogContent({
           ) : null}
           {didAttemptCommit && hasStagedChanges ? (
             <div className="text-sm text-muted-foreground">
-              Some local changes are still uncommitted. You can retry commit or remove anyway.
+              Some changes are still uncommitted. Retry the commit or remove anyway.
             </div>
           ) : null}
         </div>
@@ -215,30 +202,20 @@ export function RepositoryDeleteDialog({
   const [removeGithubRepo, setRemoveGithubRepo] = useState(false);
 
   const confirmBlockedReason =
-    repository.deletion.state === "deleting"
-      ? "Removal from Samebase is in progress."
-      : repository.deletion.state === "delete_failed"
-        ? "Retry removal before you remove this repository from Samebase."
-        : repository.deletion.deleteAction.state === "disabled"
-          ? repository.deletion.deleteAction.reason
-          : null;
+    repository.deletion.state !== "not_deleting"
+      ? repository.deletion.message
+      : repository.deletion.deleteAction.state === "disabled"
+        ? repository.deletion.deleteAction.reason
+        : null;
 
   const target = {
     repositoryId: repository.repositoryId,
     githubRepositoryFullName: repository.githubRepositoryFullName,
     isSamebaseManaged: repository.isSamebaseManaged,
     canRemoveGithubRepo: repository.isSamebaseManaged && repository.hasConnectedGitHubRepository,
-    setupStack:
-      repository.providerPlan && !isSamebaseManagedProviderPlan(repository.providerPlan)
-        ? {
-            workerNames: repository.cloudflareWorkers
-              .map((worker) => worker.workerName)
-              .sort((left, right) => left.localeCompare(right)),
-            convexCodeLocations: repository.convexProjects
-              .map((project) => getConvexCodeLocationPath(project.codeLocation))
-              .sort((left, right) => left.localeCompare(right)),
-          }
-        : null,
+    hasSetupStack: Boolean(
+      repository.providerPlan && !isSamebaseManagedProviderPlan(repository.providerPlan),
+    ),
   };
 
   const handleCommitBeforeRemove = async () => {

@@ -1736,21 +1736,21 @@ describe("RepositoryDeleteDialogContent", () => {
             githubRepositoryFullName: "ada/created-repo",
             isSamebaseManaged,
             canRemoveGithubRepo: isSamebaseManaged,
-            setupStack: null,
+            hasSetupStack: false,
           }}
         />,
       );
 
       expect(markup).toContain("Also delete the GitHub repository");
       expect(markup).toContain(
-        "The Worker and Convex project stay in your accounts. Remove them there if you want to delete them.",
+        "Your deployed app stays in your cloud accounts. Delete it there if you no longer need it.",
       );
       expect(markup).not.toContain("Also delete the Convex project");
       expect(markup).not.toContain("Also delete the Cloudflare Worker");
     },
   );
 
-  it("names what removal keeps and links the destroy for a repository that its GitHub Actions set up", () => {
+  it("links the destroy for a repository that its GitHub Actions set up", () => {
     const markup = renderToStaticMarkup(
       <RepositoryDeleteDialogContent
         {...baseProps}
@@ -1759,19 +1759,19 @@ describe("RepositoryDeleteDialogContent", () => {
           githubRepositoryFullName: "ada/chess-merge",
           isSamebaseManaged: true,
           canRemoveGithubRepo: true,
-          setupStack: { workerNames: ["chess-merge"], convexCodeLocations: ["convex.json"] },
+          hasSetupStack: true,
         }}
       />,
     );
 
     expect(markup).toContain(
-      "Samebase keeps the Worker chess-merge, the Convex project at convex.json. To delete what the setup stack in alchemy.run.ts created, first open the",
+      "Your deployed app stays in your cloud accounts. To delete what your Alchemy stack created, first open the",
     );
     expect(markup).toContain(
       'href="https://github.com/ada/chess-merge/actions/workflows/destroy.yml"',
     );
     expect(markup).toContain(
-      'workflow, click Run workflow, and type <span class="font-mono">delete stack and production data of ada/chess-merge</span> in its field.',
+      'workflow, click Run workflow, and type <span class="font-mono">delete stack and production data of ada/chess-merge</span>.',
     );
   });
 
@@ -1785,7 +1785,7 @@ describe("RepositoryDeleteDialogContent", () => {
           githubRepositoryFullName: "ada/demo",
           isSamebaseManaged: true,
           canRemoveGithubRepo: true,
-          setupStack: null,
+          hasSetupStack: false,
         }}
       />,
     );
