@@ -15,9 +15,10 @@
 // on a laptop; it mints the deploy key itself. Every run also reads the Google and GitHub client
 // ids and secrets and hands them to the deployment, for the three connectors: no connector variable
 // is ever set by hand. IDENTITY_BROKER_KEYS is not in `env`: it stays on the deployment, and the
-// `deploy` script stops when it is missing. Build the broker first, because the push bundles it:
-//   pnpm --filter @samebase/identity-broker run build && pnpm exec alchemy deploy --stage prod REGISTRATION_ACCESS_TOKEN is not in `env` either: it
+// `deploy` script stops when it is missing. REGISTRATION_ACCESS_TOKEN is not in `env` either: it
 // stays on the deployment too and is set by hand, and `/register` refuses every request without it.
+import { execFileSync } from "node:child_process";
+import { relative } from "node:path";
 import * as Convex from "@samebase/alchemy-convex";
 import * as Alchemy from "alchemy";
 import { adopt } from "alchemy/AdoptPolicy";
@@ -27,6 +28,15 @@ import * as Effect from "effect/Effect";
 
 /** The Convex team that holds the project and the state. */
 const team = "nicu";
+/** The workspace packages of package.json. The push bundles them, from outside this folder. */
+const workspacePackages = execFileSync(
+  "pnpm",
+  ["--filter", "identity-hub^...", "list", "--depth", "-1", "--parseable"],
+  { encoding: "utf8" },
+)
+  .split("\n")
+  .filter(Boolean)
+  .map((directory) => relative(import.meta.dirname, directory));
 
 export default Alchemy.Stack(
   "samebase/samebase/apps/identity-hub",
@@ -40,14 +50,16 @@ export default Alchemy.Stack(
     const source = {
       path: "./convex",
       command: ["node", "--run", "deploy"],
-      // The push inputs besides the functions, package.json, and the lockfile. The broker is a
-      // workspace package outside this folder, and a change there must also start a push.
+      // The push inputs besides the functions, package.json, and the lockfile. A change in a
+      // workspace package must also start a push.
       include: [
         "scripts/**",
         "tsconfig*.json",
-        "../../packages/identity-broker/src/**",
-        "../../packages/identity-broker/package.json",
-        "../../packages/identity-broker/tsconfig*.json",
+        ...workspacePackages.flatMap((directory) => [
+          `${directory}/src/**`,
+          `${directory}/package.json`,
+          `${directory}/tsconfig*.json`,
+        ]),
       ],
     } satisfies Convex.Source;
     // The variables of the deployment. The secret is a prop, so the state store holds it next to
