@@ -130,11 +130,14 @@ export function RepositoryDeleteDialogContent({
               ) : null}
             </label>
           </div>
-          <div className="text-sm text-muted-foreground">
-            The Worker and Convex project stay in your accounts. Remove them there if you want to
-            delete them.
-          </div>
-          <SetupStackRemovalNote target={target} />
+          {target.setupStack ? (
+            <SetupStackRemovalNote target={target} />
+          ) : (
+            <div className="text-sm text-muted-foreground">
+              The Worker and Convex project stay in your accounts. Remove them there if you want to
+              delete them.
+            </div>
+          )}
           {deleteError ? <div className="text-sm text-red-600">{deleteError}</div> : null}
           {commitError ? <div className="text-sm text-red-600">{commitError}</div> : null}
           {blockedReason ? (
