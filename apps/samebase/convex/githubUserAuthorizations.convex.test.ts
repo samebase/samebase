@@ -778,6 +778,26 @@ describe("GitHub user authorization identity boundaries", () => {
 
     const authorization = await t.run(async (ctx) => await ctx.db.get(authorizationId));
     expect(authorization?.refreshStartedAt).toBeUndefined();
+    expect(authorization?.refreshTokenExpiresAt).toBeLessThanOrEqual(Date.now());
+  });
+
+  it("keeps the grant when the hub is unavailable", async () => {
+    const { authorizationId, t, userId } = await seedGitHubRefreshCandidate(
+      "github-refresh-outage@example.test",
+      "906",
+    );
+    await sealTestCredentials(t);
+    stubResourceHub(() => new Response("unavailable", { status: 503 }));
+
+    await expect(
+      t.action(async (ctx) => {
+        await resolveGitHubUserOctokit(ctx, { userId, githubUserId: "906" });
+      }),
+    ).rejects.toThrow();
+
+    const authorization = await t.run(async (ctx) => await ctx.db.get(authorizationId));
+    expect(authorization?.refreshStartedAt).toBeUndefined();
+    expect(authorization?.refreshTokenExpiresAt).toBeGreaterThan(Date.now());
   });
 
   it("releases a claimed refresh after the Samebase user starts deletion", async () => {
@@ -788,6 +808,7 @@ describe("GitHub user authorization identity boundaries", () => {
     await t.mutation(internal.githubUserAuthorizations.releaseRefresh, {
       authorizationId,
       refreshStartedAt: claim.refreshStartedAt,
+      grantRefused: false,
     });
     const authorization = await t.run(async (ctx) => await ctx.db.get(authorizationId));
     expect(authorization).toMatchObject({
@@ -821,6 +842,7 @@ describe("GitHub user authorization identity boundaries", () => {
       t.mutation(internal.githubUserAuthorizations.releaseRefresh, {
         authorizationId,
         refreshStartedAt: claim.refreshStartedAt,
+        grantRefused: false,
       }),
     ).resolves.toBeNull();
   });

@@ -601,7 +601,7 @@ async function readSetupState(ctx: ActionCtx, url: URL): Promise<GitHubAppSetupS
 export const finishGitHubAppInstallation = httpAction(async (ctx, request) => {
   const url = new URL(request.url);
   const setupState = await readSetupState(ctx, url);
-  return setupState === null
+  return setupState === null || setupState.purpose === "user_authorization"
     ? installationFinishedResponse()
     : await finishGitHubSetup(ctx, url, setupState);
 });
@@ -611,6 +611,9 @@ export const finishHubOAuth = httpAction(async (ctx, request) => {
   const url = new URL(request.url);
   const setupState = await readSetupState(ctx, url);
   if (setupState === null) return await finishResourceOAuth(ctx, request);
+  if (setupState.purpose !== "user_authorization") {
+    return new Response("Invalid OAuth state", { status: 400 });
+  }
   try {
     readHubAuthorizationError(url, setupState.state);
   } catch {

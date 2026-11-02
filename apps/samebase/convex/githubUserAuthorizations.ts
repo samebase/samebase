@@ -545,6 +545,7 @@ async function releaseRefreshAfterAuthority(
   args: {
     authorizationId: Id<"githubUserAuthorizations">;
     refreshStartedAt: number;
+    grantRefused: boolean;
   },
 ): Promise<void> {
   const authorization = await ctx.db.get(args.authorizationId);
@@ -552,13 +553,18 @@ async function releaseRefreshAfterAuthority(
     if (authorization.userId !== expectedUserId) {
       throw new Error("GitHub user authorization refresh lock changed.");
     }
-    await ctx.db.patch(authorization._id, { refreshStartedAt: undefined });
+    await ctx.db.patch(authorization._id, {
+      refreshStartedAt: undefined,
+      // A refused grant cannot refresh again, so the user must authorize GitHub again.
+      refreshTokenExpiresAt: args.grantRefused ? Date.now() : authorization.refreshTokenExpiresAt,
+    });
   }
 }
 
 const releaseRefreshArgs = {
   authorizationId: id("githubUserAuthorizations"),
   refreshStartedAt: number(),
+  grantRefused: boolean(),
 } as const;
 
 export const releaseRefresh = internalMutation({
@@ -798,6 +804,7 @@ async function releaseGitHubUserAuthorizationRefresh(
   args: {
     authorizationId: Id<"githubUserAuthorizations">;
     refreshStartedAt: number;
+    grantRefused: boolean;
   },
 ): Promise<void> {
   switch (authority.kind) {
@@ -805,6 +812,7 @@ async function releaseGitHubUserAuthorizationRefresh(
       await ctx.runMutation(internal.githubUserAuthorizations.releaseRefresh, {
         authorizationId: args.authorizationId,
         refreshStartedAt: args.refreshStartedAt,
+        grantRefused: args.grantRefused,
       });
       return;
     case "provisioning":
@@ -814,6 +822,7 @@ async function releaseGitHubUserAuthorizationRefresh(
         repositoryId: authority.repositoryId,
         authorizationId: args.authorizationId,
         refreshStartedAt: args.refreshStartedAt,
+        grantRefused: args.grantRefused,
       });
       return;
     default:
@@ -836,6 +845,10 @@ async function resolveGitHubUserOctokitForAuthority(
   }
   const use = await claimGitHubUserAuthorization(ctx, authority, githubUserId);
   return await resolveGitHubUserOctokitFromUse(ctx, authority, use);
+}
+
+function isRefusedGrant(error: unknown): boolean {
+  return error instanceof ResponseBodyError && error.error === "invalid_grant";
 }
 
 async function resolveGitHubUserOctokitFromUse(
@@ -890,6 +903,7 @@ async function resolveGitHubUserOctokitFromUse(
     await releaseGitHubUserAuthorizationRefresh(ctx, authority, {
       authorizationId: use.authorization.authorizationId,
       refreshStartedAt: use.refreshStartedAt,
+      grantRefused: isRefusedGrant(error),
     });
     throw error;
   }
@@ -924,7 +938,7 @@ export async function resolveGitHubUserAuthorizationForAppConnection(
   } catch (error) {
     if (
       (error instanceof RequestError && (error.status === 400 || error.status === 401)) ||
-      (error instanceof ResponseBodyError && error.error === "invalid_grant")
+      isRefusedGrant(error)
     ) {
       return { status: "authorization_required" };
     }

@@ -702,6 +702,43 @@ describe("GitHub App setup", () => {
     expect(hubRequests).toHaveLength(0);
   });
 
+  it("finishes each kind of setup state only at its own route", async () => {
+    const t = makeConvexTest();
+    await t.run(async (ctx) => {
+      const userId = await insertUser(ctx, "authorization-route@example.test");
+      await insertGitHubSignInAccount(ctx, {
+        userId,
+        githubUserId: "route-user-id",
+        githubUserLogin: "route-user",
+      });
+      for (const purpose of ["user_authorization", "installation"] as const) {
+        await ctx.db.insert("githubAppSetupStates", {
+          userId,
+          state: `${purpose}-state`,
+          purpose,
+          githubSignInProviderAccountId: "route-user-id",
+          codeVerifier: "code-verifier",
+          returnToPath: "/org",
+          createdAt: Date.now(),
+          expiresAt: Date.now() + 60_000,
+        });
+      }
+    });
+    const hubRequests = stubHubTokens({ access_token: "unused", refresh_token: "unused" });
+    const issuer = encodeURIComponent(HUB_ISSUER);
+
+    const atSetupUrl = await t.fetch(
+      `/oauth/github/callback?code=route-code&state=user_authorization-state&iss=${issuer}`,
+    );
+    const atHubCallback = await t.fetch(
+      `/oauth/hub/callback?installation_id=5005&state=installation-state&iss=${issuer}`,
+    );
+
+    await expect(atSetupUrl.text()).resolves.toContain("window.close()");
+    expect(atHubCallback.status).toBe(400);
+    expect(hubRequests).toHaveLength(0);
+  });
+
   it("closes the install window when the state belongs to another deployment", async () => {
     const t = makeConvexTest();
 
