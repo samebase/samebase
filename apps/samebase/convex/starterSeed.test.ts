@@ -158,36 +158,24 @@ describe("seedRepositoryWithStarter", () => {
     fileModes: {},
   };
 
-  it("creates one root commit and one branch ref", async () => {
-    const mock = makeGitClient();
+  const bootstrapHead = { sha: "bootstrap-head", treeSha: "bootstrap-tree", parentCount: 0 };
 
-    const result = await seedRepositoryWithStarter({
-      client: mock.client,
-      owner: "owner",
-      repo: "repo",
-      defaultBranch: "main",
-      manifest,
-    });
-
-    expect(mock.createTreeCalls).toHaveLength(1);
-    expect(mock.createBlobCalls).toHaveLength(0);
-    expect(mock.createCommitCalls).toHaveLength(1);
-    expect(mock.createCommitCalls[0].message).toBe(manifest.commitMessage);
-    expect(mock.createCommitCalls[0].parents).toEqual([]);
-    expect(mock.createRefCalls).toHaveLength(1);
-    expect(mock.createRefCalls[0]).toEqual({
-      owner: "owner",
-      repo: "repo",
-      ref: "refs/heads/main",
-      sha: "commit-1",
-    });
-    expect(mock.updateRefCalls).toHaveLength(0);
-
-    expect(result).toEqual({
-      defaultBranch: "main",
-      headCommitSha: "commit-1",
-    });
-  });
+  /** A seed target whose branch holds only the bootstrap commit, or nothing for `missingReads`. */
+  function branchFirstOverBootstrap(missingReads = 0) {
+    let remainingMissingReads = missingReads;
+    const reader: StarterSeedBranchReader = {
+      readBranchHead: async () => {
+        if (remainingMissingReads > 0) {
+          remainingMissingReads -= 1;
+          return null;
+        }
+        return bootstrapHead;
+      },
+      listBranchTreeShas: async () => [],
+      readTreePaths: async () => [".samebase-seed-bootstrap"],
+    };
+    return { reader, beforeStarterPush: async () => {} };
+  }
 
   it("creates Git blobs for binary manifest files before creating the tree", async () => {
     const mock = makeGitClient();
@@ -206,6 +194,7 @@ describe("seedRepositoryWithStarter", () => {
           "docs/logo.jpg": "100755",
         },
       },
+      branchFirst: branchFirstOverBootstrap(),
     });
 
     expect(mock.createBlobCalls).toEqual([
@@ -232,12 +221,13 @@ describe("seedRepositoryWithStarter", () => {
       repo: "repo",
       defaultBranch: "main",
       manifest,
+      branchFirst: branchFirstOverBootstrap(),
     });
 
     expect(mock.createTreeCalls).toHaveLength(2);
   });
 
-  it("falls back to updateRef when createRef already exists", async () => {
+  it("fast-forwards the branch when createRef finds that it already exists", async () => {
     const mock = makeGitClient({ createRefAlreadyExistsOnce: true });
 
     await seedRepositoryWithStarter({
@@ -246,6 +236,7 @@ describe("seedRepositoryWithStarter", () => {
       repo: "repo",
       defaultBranch: "main",
       manifest,
+      branchFirst: branchFirstOverBootstrap(1),
     });
 
     expect(mock.createRefCalls).toHaveLength(1);
@@ -254,12 +245,12 @@ describe("seedRepositoryWithStarter", () => {
       owner: "owner",
       repo: "repo",
       ref: "heads/main",
-      sha: "commit-1",
-      force: true,
+      sha: "commit-2",
+      force: false,
     });
   });
 
-  it("bootstraps empty repositories then force-updates the branch to the root starter commit", async () => {
+  it("bootstraps empty repositories then fast-forwards the branch to the starter commit", async () => {
     const mock = makeGitClient({
       createTreeFailsWithEmptyRepoUntilBootstrap: true,
     });
@@ -270,6 +261,7 @@ describe("seedRepositoryWithStarter", () => {
       repo: "repo",
       defaultBranch: "main",
       manifest,
+      branchFirst: branchFirstOverBootstrap(),
     });
 
     expect(mock.createBootstrapCommitCalls).toHaveLength(1);
@@ -284,15 +276,15 @@ describe("seedRepositoryWithStarter", () => {
 
     expect(mock.createTreeCalls).toHaveLength(2);
     expect(mock.createCommitCalls).toHaveLength(1);
-    expect(mock.createCommitCalls[0].parents).toEqual([]);
-    expect(mock.createRefCalls).toHaveLength(0);
+    expect(mock.createCommitCalls[0].parents).toEqual([bootstrapHead.sha]);
+    expect(mock.createRefCalls).toHaveLength(1);
     expect(mock.updateRefCalls).toHaveLength(1);
     expect(mock.updateRefCalls[0]).toEqual({
       owner: "owner",
       repo: "repo",
       ref: "heads/main",
       sha: "commit-1",
-      force: true,
+      force: false,
     });
 
     expect(result).toEqual({
@@ -570,6 +562,7 @@ describe("seedRepositoryWithStarter", () => {
           "docs/logo.jpg": "100644",
         },
       },
+      branchFirst: branchFirstOverBootstrap(),
     });
 
     expect(mock.createBootstrapCommitCalls).toHaveLength(1);
@@ -582,7 +575,7 @@ describe("seedRepositoryWithStarter", () => {
       repo: "repo",
       ref: "heads/main",
       sha: "commit-1",
-      force: true,
+      force: false,
     });
   });
 });

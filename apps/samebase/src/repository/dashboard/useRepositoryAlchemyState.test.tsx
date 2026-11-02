@@ -15,14 +15,14 @@ import {
   ALCHEMY_CONNECTION_UNAVAILABLE,
   vAlchemyStacksRead,
 } from "../../../shared/alchemyStateModel";
-import type { loadRepositoryAlchemyPage } from "@/routes/repository-dashboard.queries";
+import type { loadRepositoryOverview } from "@/routes/repository-dashboard.queries";
 import {
   useRepositoryAlchemyState,
   type RepositoryAlchemyState,
 } from "./useRepositoryAlchemyState";
 
 type Connection = (typeof api.repository.alchemyState.connect)["_returnType"];
-type LoaderRead = NonNullable<Awaited<ReturnType<typeof loadRepositoryAlchemyPage>>>;
+type LoaderRead = NonNullable<Awaited<ReturnType<typeof loadRepositoryOverview>>>;
 type DeploymentMetadata =
   (typeof api.repository.alchemyState.readDeploymentMetadata)["_returnType"];
 const transportError =
@@ -416,6 +416,13 @@ describe("useRepositoryAlchemyState", () => {
     expect(latest.state).toBe("failed");
     await act(async () => client().value?.(liveRead));
     expect(latest).toMatchObject({ state: "loaded", observation: { stacks: liveRead.stacks } });
+  });
+
+  it("opens no client without a Convex connection", async () => {
+    mocks.connect.mockResolvedValue({ store: "no_connection" });
+    await render();
+    expect(mocks.clients).toHaveLength(0);
+    expect(latest).toMatchObject({ state: "loaded", observation: { store: "no_connection" } });
   });
 
   it("opens no client for a missing store and rejects invalid live replies", async () => {

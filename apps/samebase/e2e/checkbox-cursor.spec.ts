@@ -55,19 +55,11 @@ test("checkbox controls use interactive cursor affordances", async ({ page }) =>
     waitUntil: "networkidle",
   });
   const removalDialog = page.getByRole("dialog");
-  const removalCheckboxes = removalDialog.getByRole("checkbox");
-  await expect(removalCheckboxes).toHaveCount(3);
-  for (const checkbox of await removalCheckboxes.all()) {
-    await expect(checkbox).toHaveCSS("cursor", "pointer");
-  }
-  for (const checkboxId of [
-    "remove-github-repo",
-    "remove-convex-provision",
-    "remove-cloudflare-provision",
-  ]) {
-    await expect(removalDialog.locator(`label[for="${checkboxId}"]`)).toHaveCSS(
-      "cursor",
-      "pointer",
-    );
-  }
+  const removalCheckbox = removalDialog.getByRole("checkbox");
+  await expect(removalCheckbox).toHaveCount(1);
+  await expect(removalCheckbox).toHaveCSS("cursor", "pointer");
+  await expect(removalDialog.locator('label[for="remove-github-repo"]')).toHaveCSS(
+    "cursor",
+    "pointer",
+  );
 });

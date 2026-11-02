@@ -18,7 +18,11 @@ const modules = import.meta.glob([
 
 type RetryBlocker = "none" | "active_managed_lock" | "manual_write" | "deletion";
 
-async function createRetryFixture(blocker: RetryBlocker, t = makeConvexTest()) {
+async function createRetryFixture(
+  blocker: RetryBlocker,
+  t = makeConvexTest(),
+  plan: "repository_actions" | "old" | "none" = "repository_actions",
+) {
   const ids = await t.run(async (ctx) => {
     const userId = await ctx.db.insert("users", {
       state: "active",
@@ -52,8 +56,8 @@ async function createRetryFixture(blocker: RetryBlocker, t = makeConvexTest()) {
       githubRepositoryFullName: "ada/retry-guard",
       trigger: "create",
       state: "failed",
-      currentStep: "attach_convex",
-      lastError: "Convex setup failed.",
+      currentStep: "write_actions_secrets",
+      lastError: "GitHub Actions setup failed.",
       createdAt: 1,
       updatedAt: 2,
       completedAt: 2,
@@ -73,6 +77,42 @@ async function createRetryFixture(blocker: RetryBlocker, t = makeConvexTest()) {
       defaultBranch: "main",
       connectedAt: 3,
     });
+    switch (plan) {
+      case "repository_actions":
+        await ctx.db.insert("workflow_repositoryProvisioning_plans", {
+          provisioning: "repository_actions",
+          repositoryId,
+          convexConfigPath: "convex.json",
+          ciSecrets: { state: "planned" },
+          seed: { state: "planned" },
+          createdAt: 1,
+          updatedAt: 1,
+        });
+        break;
+      case "old":
+        await ctx.db.insert("workflow_repositoryProvisioning_plans", {
+          repositoryId,
+          convexConfigPath: "convex.json",
+          convex: {
+            state: "planned",
+            projectName: "retry-guard",
+            deploymentRegion: "aws-us-east-1",
+          },
+          cloudflare: {
+            state: "planned",
+            workerName: "retry-guard",
+            rootDirectory: "/",
+            buildTokenUuid: "build-token",
+          },
+          createdAt: 1,
+          updatedAt: 1,
+        });
+        break;
+      case "none":
+        break;
+      default:
+        plan satisfies never;
+    }
 
     switch (blocker) {
       case "none":
@@ -202,11 +242,6 @@ describe("app provisioning retry admission", () => {
       "active_managed_lock",
       "Another Samebase setup or provider change is running for this repository, so nothing changed. Try again after it finishes.",
     ],
-    [
-      "an active manual write",
-      "manual_write",
-      "Another Samebase setup or provider change is running for this repository, so nothing changed. Try again after it finishes.",
-    ],
     ["repository removal", "deletion", "Removal from Samebase is in progress."],
   ] as const)(
     "rejects retry while %s is active, before any confirmation request",
@@ -222,11 +257,15 @@ describe("app provisioning retry admission", () => {
     const fixture = await createRetryFixture("none");
     const { ids, t } = fixture;
     const confirmation = await approveRetry(fixture);
-    await t.mutation(internal.repository.infrastructureOperation.claimManualProviderWrite, {
-      repositoryId: ids.repositoryId,
-      userId: ids.userId,
-      actionId: "manual-repair",
-      action: "create_convex_project",
+    await t.run(async (ctx) => {
+      const write = await ctx.db
+        .query("workflow_repositoryProvisioning_writeLocks")
+        .withIndex("by_repository", (q) => q.eq("repositoryId", ids.repositoryId))
+        .unique();
+      if (!write) {
+        throw new Error("Expected managed provider write.");
+      }
+      await ctx.db.patch(write._id, { state: "active" });
     });
 
     await expect(retry(fixture, confirmation)).rejects.toThrow(
@@ -331,9 +370,9 @@ describe("app provisioning retry admission", () => {
     expect(first.structuredContent).toEqual({
       state: "needs_confirmation",
       effect:
-        "Samebase starts a new provider setup run for ada/retry-guard. It creates missing Convex and Cloudflare resources. When the setup includes Cloudflare, it rewrites the Workers Builds settings of the Worker, revokes and replaces the Convex deploy keys that it recorded, and starts a production build.",
+        "Samebase starts a new setup run for ada/retry-guard. It writes the credential of the organization's Convex connection into the repository's GitHub Actions secret CONVEX_ACCESS_TOKEN and the Convex team id into its variable CONVEX_TEAM_ID, replacing their values. If the starter is not seeded yet, it seeds the starter, which starts a deployment in the repository's GitHub Actions. Then it syncs the default branch tree.",
       acknowledgement:
-        "I confirm that the user approved a new provider setup run for ada/retry-guard, which can rewrite its Workers Builds settings and revoke and replace its Convex deploy keys",
+        "I confirm that the user approved a new setup run for ada/retry-guard, which replaces its GitHub Actions secret and variable with the organization's Convex connection credential and team id",
       token: expect.any(String),
       expiresAt: expect.any(Number),
     });
@@ -404,25 +443,40 @@ describe("app provisioning retry admission", () => {
     await expect(readConfirmationRows(fixture)).resolves.toEqual({ tokens: [], audit: [] });
   });
 
-  it("rejects retry after a manual action supersedes failed managed setup", async () => {
-    const fixture = await createRetryFixture("none");
-    const { ids, t } = fixture;
-    await t.mutation(internal.repository.infrastructureOperation.claimManualProviderWrite, {
-      repositoryId: ids.repositoryId,
-      userId: ids.userId,
-      actionId: "manual-repair",
-      action: "create_convex_project",
-    });
-    await t.mutation(internal.repository.infrastructureOperation.finishManualProviderWriteResult, {
-      repositoryId: ids.repositoryId,
-      actionId: "manual-repair",
-      result: "succeeded",
-    });
+  it.each(["old", "none"] as const)(
+    "refuses a failed setup whose plan is %s, before any confirmation request",
+    async (plan) => {
+      const fixture = await createRetryFixture("none", makeConvexTest(), plan);
 
-    await expect(retry(fixture)).rejects.toThrow(
-      "Samebase setup of this repository has not failed, so there is nothing to retry and nothing changed. Check the repository status for its current state.",
-    );
-  });
+      await expect(retry(fixture)).rejects.toThrow(
+        "A provider setup retry cannot repair this failed setup, so nothing changed. Check this repository in the Samebase dashboard for recovery steps.",
+      );
+      await expect(readConfirmationRows(fixture)).resolves.toEqual({ tokens: [], audit: [] });
+    },
+  );
+
+  it.each(["active", "succeeded", "failed"] as const)(
+    "rejects retry after an old %s manual write replaced the failed managed setup",
+    async (state) => {
+      const fixture = await createRetryFixture("manual_write");
+      const { ids, t } = fixture;
+      await t.run(async (ctx) => {
+        const write = await ctx.db
+          .query("workflow_repositoryProvisioning_writeLocks")
+          .withIndex("by_repository", (q) => q.eq("repositoryId", ids.repositoryId))
+          .unique();
+        if (!write) {
+          throw new Error("Expected the manual write.");
+        }
+        await ctx.db.patch(write._id, { state });
+      });
+
+      await expect(retry(fixture)).rejects.toThrow(
+        "Samebase setup of this repository has not failed, so there is nothing to retry and nothing changed. Check the repository status for its current state.",
+      );
+      await expect(readConfirmationRows(fixture)).resolves.toEqual({ tokens: [], audit: [] });
+    },
+  );
 
   it("rejects provider retry after source setup fails", async () => {
     const fixture = await createRetryFixture("none");
@@ -436,7 +490,7 @@ describe("app provisioning retry admission", () => {
         throw new Error("Expected managed provider write.");
       }
       await ctx.db.patch(write.owner.runId, {
-        currentStep: "sync_tree",
+        currentStep: "connect_github_repository",
         lastError: "Source setup failed.",
       });
     });
@@ -458,8 +512,6 @@ describe("app provisioning retry admission", () => {
         repositoryId: ids.repositoryId,
         options: {
           removeGithubRepo: false,
-          removeConvexProvision: false,
-          removeCloudflareProvision: false,
         },
       }),
     ]);

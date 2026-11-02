@@ -1,16 +1,8 @@
-import { generateKeyPairSync } from "node:crypto";
-
 import { ListToolsResultSchema } from "@modelcontextprotocol/sdk/types.js";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { internal } from "../_generated/api";
-import { observedCompletedWorkerBuild } from "../cloudflareApi/fixtures/observedWorkerBuilds";
-import {
-  observedCreatedWorkerBuildSettings,
-  observedMigratedWorkerBuildSettings,
-  observedMissingWorkerBuildSettingsResponse,
-} from "../cloudflareApi/fixtures/observedWorkerBuildSettings";
-import { makeConvexTest, sealTestCredentials, testCredential } from "../test.setup";
+import { makeConvexTest } from "../test.setup";
 import { actionContracts } from "../toolRuntime/actionCatalog";
 import { ACCESS_KEYS } from "../../shared/accessModel";
 import { isRecord } from "../jsonUtils";
@@ -202,45 +194,23 @@ describe("MCP tool listing access", () => {
         properties: {
           githubOwnerLogin: { type: "string" },
           name: { type: "string" },
-          convexDeploymentRegion: {
-            anyOf: [
-              { const: "aws-us-east-1" },
-              { const: "aws-eu-west-1" },
-              { const: "aws-ca-central-1" },
-              { const: "aws-ap-southeast-2" },
-            ],
-            description: expect.stringContaining("EU usage costs 1.3 times US usage"),
-          },
-          buildTokenUuid: { type: "string" },
+          description: { type: "string" },
+          private: { type: "boolean" },
         },
         required: ["githubOwnerLogin", "name"],
       },
     });
+    expect(
+      Object.keys(
+        tools.find((tool) => tool.name === "repository_create")?.inputSchema.properties ?? {},
+      ).sort(),
+    ).toEqual(["description", "githubOwnerLogin", "name", "private"]);
     expect(tools.find((tool) => tool.name === "repository_connect")).toMatchObject({
       inputSchema: {
         properties: { githubRepositoryFullName: { type: "string" } },
         required: ["githubRepositoryFullName"],
       },
     });
-    expect(tools.find((tool) => tool.name === "repository_detachResource")).toMatchObject({
-      inputSchema: {
-        properties: {
-          repository: { type: "string" },
-          kind: { anyOf: [{ const: "cloudflare_worker" }, { const: "convex_project" }] },
-          resourceName: { type: "string" },
-        },
-        required: ["repository", "kind", "resourceName"],
-      },
-    });
-    for (const name of [
-      "repository_cloudflare_connectWorker",
-      "repository_cloudflare_createWorker",
-      "repository_cloudflare_rotateConvexDeployKeys",
-    ]) {
-      expect(tools.find((tool) => tool.name === name)?.inputSchema.properties).toHaveProperty(
-        "convexProjectSlug",
-      );
-    }
   });
 
   it("publishes human titles and structured output schemas", () => {
@@ -260,8 +230,8 @@ describe("MCP tool listing access", () => {
                 "repositoryId",
                 "githubOwnerLogin",
                 "githubRepositoryFullName",
-                "cloudflareWorkers",
-                "convexProjects",
+                "sourceSetup",
+                "providerSetup",
               ]),
             },
           },
@@ -271,19 +241,15 @@ describe("MCP tool listing access", () => {
     });
     expect(
       JSON.stringify(tools.find((tool) => tool.name === "repository_list")?.outputSchema),
-    ).not.toMatch(/"(organizationId|accountId|workerId|workerTag|convexProjectId)"/);
+    ).not.toMatch(
+      /"(organizationId|accountId|workerId|workerTag|convexProjectId|cloudflareWorkers|convexProjects|pendingCloudflareSetup)"/,
+    );
     expect(tools.find((tool) => tool.name === "repository_create")).toMatchObject({
       title: "Create Samebase repository",
       outputSchema: {
         type: "object",
-        required: ["repositoryId", "githubRepositoryFullName", "cloudflare"],
+        required: ["repositoryId", "githubRepositoryFullName"],
         additionalProperties: false,
-      },
-    });
-    expect(tools.find((tool) => tool.name === "repository_cloudflare_findWorkers")).toMatchObject({
-      outputSchema: {
-        type: "object",
-        required: ["inventoryState", "workers", "counts"],
       },
     });
     expect(tools.find((tool) => tool.name === "repository_getStatus")).toMatchObject({
@@ -291,22 +257,8 @@ describe("MCP tool listing access", () => {
       inputSchema: { required: ["repository"] },
       outputSchema: {
         type: "object",
-        required: expect.arrayContaining(["apps", "convexProjects", "pullRequests", "attention"]),
+        required: expect.arrayContaining(["stacks", "pullRequests", "attention"]),
       },
-    });
-    expect(tools.map((tool) => tool.name)).not.toContain("repository_cloudflare_listAccounts");
-    expect(tools.map((tool) => tool.name)).not.toContain("cloudflare_listWorkersBuildTokens");
-    const configureBuildsTool = tools.find(
-      (tool) => tool.name === "repository_cloudflare_configureBuilds",
-    );
-    expect(configureBuildsTool).not.toHaveProperty("outputSchema");
-    expect(configureBuildsTool).toMatchObject({
-      description: expect.stringContaining("start a production build"),
-    });
-    expect(
-      tools.find((tool) => tool.name === "repository_cloudflare_rotateConvexDeployKeys"),
-    ).toMatchObject({
-      description: expect.stringContaining("start a production build"),
     });
   });
 
@@ -321,14 +273,6 @@ describe("MCP tool listing access", () => {
       ["repository_create", true, false],
       ["repository_connect", true, false],
       ["repository_retryProviderSetup", true, true],
-      ["repository_detachResource", false, true],
-      ["repository_cloudflare_attachWorkers", true, false],
-      ["repository_cloudflare_connectWorker", true, true],
-      ["repository_cloudflare_createWorker", true, false],
-      ["repository_cloudflare_configureBuilds", true, true],
-      ["repository_cloudflare_rotateConvexDeployKeys", true, true],
-      ["repository_convex_attachProject", true, false],
-      ["repository_convex_createProject", true, false],
     ] as const;
 
     for (const [name, openWorldHint, destructiveHint] of expectedHints) {
@@ -356,21 +300,15 @@ describe("MCP tool listing access", () => {
         },
       });
     }
-    // These read GitHub, Cloudflare, or Convex live; OpenAI's scan counts a provider API as an
+    // This reads GitHub and Convex live; OpenAI's scan counts a provider API as an
     // independently controlled external system even when the read stays inside the user's account.
-    for (const name of [
-      "repository_getStatus",
-      "repository_convex_findProjects",
-      "repository_cloudflare_findWorkers",
-    ]) {
-      expect(tools.find((tool) => tool.name === name)).toMatchObject({
-        annotations: {
-          readOnlyHint: true,
-          openWorldHint: true,
-          destructiveHint: false,
-        },
-      });
-    }
+    expect(tools.find((tool) => tool.name === "repository_getStatus")).toMatchObject({
+      annotations: {
+        readOnlyHint: true,
+        openWorldHint: true,
+        destructiveHint: false,
+      },
+    });
   });
 });
 
@@ -514,6 +452,16 @@ describe("MCP tools/call access enforcement", () => {
     "vault_cloudflare_configureWorkersBuildsForGitHub",
     "vault_cloudflare_rotateConvexDeployKeysForWorkersBuilds",
     "vault_actions_retryInfrastructureProvisioning",
+    "repository_cloudflare_findWorkers",
+    "repository_cloudflare_attachWorkers",
+    "repository_cloudflare_connectWorker",
+    "repository_cloudflare_createWorker",
+    "repository_cloudflare_configureBuilds",
+    "repository_cloudflare_rotateConvexDeployKeys",
+    "repository_convex_findProjects",
+    "repository_convex_attachProject",
+    "repository_convex_createProject",
+    "repository_detachResource",
   ] as const;
 
   afterEach(() => {
@@ -528,7 +476,7 @@ describe("MCP tools/call access enforcement", () => {
     expect(header).toContain('resource_metadata="');
     expect(header).toContain('/.well-known/oauth-protected-resource/mcp"');
     expect(header).toContain(
-      'scope="access_dashboard access_provider_connections access_app_create access_repo_connect access_feedback_submit access_browser_login_handoff"',
+      'scope="access_dashboard access_app_create access_repo_connect access_feedback_submit access_browser_login_handoff"',
     );
     expect(header).toContain('error="invalid_token"');
     expect(header).toContain(`error_description="${errorDescription}"`);
@@ -781,12 +729,11 @@ describe("MCP tools/call access enforcement", () => {
         capabilities: { tools: {} },
         serverInfo: { name: "Samebase", version: "0.3.0" },
         instructions: expect.stringMatching(
-          /^Samebase manages repositories: a GitHub repository with its attached Cloudflare Workers and Convex projects\.[\s\S]*Name a repository by owner\/name\.\n\nTo create a repository, call repository_create once \(Samebase picks the build token\), then poll only repository_list until source and provider setup are ready or failed\. For build, deployment, check, or pull request questions, call repository_getStatus and follow its attention items\. Ready setup, a build request, or a push does not prove that the app is live\.[\s\S]*A needs_confirmation result changed nothing: state its effect, and repeat the call with its token and exact acknowledgement only after the user approves\.\n\nFor a request to open the Samebase dashboard, call account_createSignInLink directly\. Only the dashboard can remove a repository from Samebase[\s\S]*create it only after the user accepts\.$/,
+          /^Samebase starts apps and monitors them: a GitHub repository whose GitHub Actions deploy it with Alchemy\. Repair lives in Alchemy and the coding agent: fix a deployment in the repository, not through Samebase\.[\s\S]*Name a repository by owner\/name\.\n\nTo create a repository, call repository_create once, then poll only repository_list until source and provider setup are ready or failed\. For build, deployment, check, or pull request questions, call repository_getStatus and follow its attention items\. Ready setup, a build request, or a push does not prove that the app is live\.[\s\S]*A needs_confirmation result changed nothing: state its effect, and repeat the call with its token and exact acknowledgement only after the user approves\.\n\nFor a request to open the Samebase dashboard, call account_createSignInLink directly\. Only the dashboard can remove a repository from Samebase[\s\S]*create it only after the user accepts\.$/,
         ),
       },
     });
-    // The server picks tokens, installs deploy keys, and names the repair tool in each attention
-    // item, so the instructions stay near 1k characters.
+    // Each attention item says what to do, so the instructions stay near 1k characters.
     expect(payload.result.instructions.length).toBeLessThan(1_200);
     expect(JSON.stringify(payload)).not.toContain("marketplace");
     expect(JSON.stringify(payload)).not.toContain("resultType");
@@ -1239,7 +1186,42 @@ describe("MCP tools/call access enforcement", () => {
     }
   });
 
-  it("rejects every removed vault tool name without an alias", async () => {
+  it("sends a client with a cached scope list to consent without the retired scope", async () => {
+    vi.stubEnv("SITE_URL", "https://samebase.com");
+    const { t } = await seedMcpBearer({ isApproved: true });
+    const metadataResponse = await t.fetch("/.well-known/oauth-protected-resource");
+    const metadata = await metadataResponse.json();
+    const query = new URLSearchParams({
+      response_type: "code",
+      client_id: "client_test",
+      redirect_uri: "https://example.com/callback",
+      resource: metadata.resource,
+      scope: "access_dashboard access_provider_connections access_app_create",
+      code_challenge: "0123456789012345678901234567890123456789012",
+      code_challenge_method: "S256",
+    });
+
+    const response = await t.fetch(`/oauth/mcp/authorize?${query}`, { redirect: "manual" });
+
+    expect(response.status).toBe(302);
+    expect(response.headers.get("location")).toContain("https://samebase.com/");
+    await expect(
+      t.run(async (ctx) => await ctx.db.query("mcpAuthorizationRequests").collect()),
+    ).resolves.toMatchObject([{ scope: "access_dashboard access_app_create" }]);
+  });
+
+  it("keeps a stored grant working with the retired provider connections scope", async () => {
+    const { callTool } = await seedMcpBearer({
+      isApproved: true,
+      scopes: ["access_dashboard", "access_provider_connections"],
+    });
+
+    await expect(callTool("repository_list")).resolves.toMatchObject({
+      result: { content: [{ type: "text", text: "Found 0 repositories." }] },
+    });
+  });
+
+  it("rejects every removed tool name without an alias", async () => {
     const { accessToken, t } = await seedMcpBearer({ isApproved: true });
 
     for (const name of removedRepositoryToolNames) {
@@ -1406,646 +1388,6 @@ describe("MCP tools/call access enforcement", () => {
       ],
       isError: true,
     });
-  });
-
-  /**
-  A connected repository samebase/demo whose organization has a Cloudflare OAuth connection and a
-  last-used Workers Builds token, and a provider fetch mock for one Worker named mcp-worker.
-  */
-  async function seedWorkerCreateFixture() {
-    const { privateKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
-    vi.stubEnv("GITHUB_APP_ID", "123");
-    vi.stubEnv("GITHUB_APP_SLUG", "samebase-test");
-    vi.stubEnv("GITHUB_APP_CLIENT_ID", "test-client");
-    vi.stubEnv("GITHUB_APP_CLIENT_SECRET", "test-secret");
-    vi.stubEnv(
-      "GITHUB_APP_PRIVATE_KEY",
-      privateKey.export({ format: "pem", type: "pkcs8" }).toString(),
-    );
-    vi.stubEnv("GITHUB_APP_OAUTH_CALLBACK_URL", "https://samebase.test/github/callback");
-
-    const cloudflareAccountId = "00000000000000000000000000000001";
-    const buildTokenUuid = observedCreatedWorkerBuildSettings.production_settings.build_token_uuid;
-    const triggerUuid = observedCompletedWorkerBuild.trigger.trigger_uuid;
-    const defaultBranchCommitSha = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
-    const providerRequests: Array<{ body: unknown; method: string; path: string }> = [];
-    const createdBuildSettings = {
-      ...observedCreatedWorkerBuildSettings,
-      script_tag: "mcp-worker-tag",
-      git_repository: {
-        ...observedCreatedWorkerBuildSettings.git_repository,
-        repo_id: "123",
-        repo_name: "demo",
-        provider_account_id: "456",
-        provider_account_name: "samebase",
-      },
-      production_settings: {
-        ...observedCreatedWorkerBuildSettings.production_settings,
-        root_directory: "apps/web",
-      },
-      previews_base_config: {
-        ...observedCreatedWorkerBuildSettings.previews_base_config,
-        root_directory: "apps/web",
-      },
-    };
-    const nativeBuildSettings = {
-      ...observedMigratedWorkerBuildSettings,
-      script_tag: createdBuildSettings.script_tag,
-      git_repository: createdBuildSettings.git_repository,
-      production_settings: createdBuildSettings.production_settings,
-      previews_base_config: {
-        ...observedMigratedWorkerBuildSettings.previews_base_config,
-        root_directory: "apps/web",
-      },
-    };
-    let buildSettings: typeof createdBuildSettings | typeof nativeBuildSettings | null = null;
-    // Workers without Builds settings that Samebase records by tag, or by name under an old tag.
-    const recordedWorkersWithoutBuilds = [
-      { id: "other-app-worker-tag", name: "other-app-worker" },
-      { id: "replaced-worker-new-tag", name: "replaced-worker" },
-      { id: "other-app-replaced-worker-new-tag", name: "other-app-replaced-worker" },
-    ];
-    const providerState = { failWorkerDiscovery: false, listRecordedWorkersWithoutBuilds: false };
-
-    function jsonResponse(result: unknown, status = 200): Response {
-      return new Response(JSON.stringify(result), {
-        status,
-        headers: { "content-type": "application/json" },
-      });
-    }
-
-    function cloudflareResponse(result: unknown): Response {
-      return jsonResponse({ success: true, errors: [], messages: [], result });
-    }
-
-    function workerDetails() {
-      return {
-        created_on: "2026-08-03T00:00:00Z",
-        id: "mcp-worker-tag",
-        logpush: false,
-        name: "mcp-worker",
-        observability: { enabled: false, head_sampling_rate: 1 },
-        references: {
-          dispatch_namespace_outbounds: [],
-          domains: [],
-          durable_objects: [],
-          queues: [],
-          workers: [],
-        },
-        subdomain: { enabled: false },
-        tags: [],
-        tail_consumers: [],
-        updated_on: "2026-08-03T00:00:00Z",
-      };
-    }
-
-    const fetchMock = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
-      const url = new URL(input instanceof Request ? input.url : String(input));
-      const method = input instanceof Request ? input.method : (init?.method ?? "GET");
-      const rawBody =
-        input instanceof Request
-          ? await input.clone().text()
-          : typeof init?.body === "string"
-            ? init.body
-            : "";
-      providerRequests.push({
-        body: rawBody ? JSON.parse(rawBody) : undefined,
-        method,
-        path: url.pathname,
-      });
-
-      if (
-        method === "POST" &&
-        url.hostname === "api.github.com" &&
-        url.pathname === "/app/installations/12345/access_tokens"
-      ) {
-        return jsonResponse({
-          token: "installation-token",
-          expires_at: "2026-08-03T01:00:00Z",
-          permissions: {},
-          repositories: [],
-          repository_selection: "selected",
-        });
-      }
-
-      if (url.hostname === "api.github.com" && url.pathname === "/repos/samebase/demo") {
-        return jsonResponse({ id: 123, default_branch: "main", owner: { id: 456 } });
-      }
-      if (
-        url.hostname === "api.github.com" &&
-        decodeURIComponent(url.pathname) === "/repos/samebase/demo/git/ref/heads/main"
-      ) {
-        return jsonResponse({ object: { sha: defaultBranchCommitSha } });
-      }
-      if (url.pathname === "/client/v4/accounts") {
-        return cloudflareResponse([
-          { id: cloudflareAccountId, name: "Ada Cloudflare", type: "standard" },
-        ]);
-      }
-      if (method === "GET" && url.pathname.endsWith("/workers/workers/mcp-worker")) {
-        return jsonResponse(
-          {
-            success: false,
-            errors: [{ code: 10007, message: "Worker not found" }],
-            messages: [],
-            result: null,
-          },
-          404,
-        );
-      }
-      if (method === "POST" && url.pathname.endsWith("/workers/workers")) {
-        return cloudflareResponse(workerDetails());
-      }
-      if (method === "GET" && url.pathname.endsWith("/workers/workers")) {
-        return cloudflareResponse([
-          workerDetails(),
-          ...(providerState.listRecordedWorkersWithoutBuilds
-            ? recordedWorkersWithoutBuilds.map((worker) => ({ ...workerDetails(), ...worker }))
-            : []),
-        ]);
-      }
-      if (
-        method === "GET" &&
-        recordedWorkersWithoutBuilds.some((worker) =>
-          url.pathname.endsWith(`/builds/workers/${worker.id}`),
-        )
-      ) {
-        return jsonResponse(observedMissingWorkerBuildSettingsResponse, 404);
-      }
-      if (url.pathname.endsWith("/builds/workers/mcp-worker-tag/triggers")) {
-        return cloudflareResponse([
-          {
-            trigger_uuid: triggerUuid,
-            external_script_id: "mcp-worker-tag",
-            branch_includes: ["main"],
-            branch_excludes: [],
-            repo_connection: { repo_id: "123", provider_type: "github" },
-            root_directory: "apps/web",
-          },
-        ]);
-      }
-      if (method === "GET" && url.pathname.endsWith("/builds/workers/mcp-worker-tag")) {
-        if (providerState.failWorkerDiscovery) {
-          return jsonResponse(
-            {
-              success: false,
-              errors: [
-                { code: 1000, message: "private-diagnostic@example.com provider debug detail" },
-              ],
-              messages: [],
-              result: null,
-            },
-            500,
-          );
-        }
-        return buildSettings
-          ? cloudflareResponse(buildSettings)
-          : jsonResponse(observedMissingWorkerBuildSettingsResponse, 404);
-      }
-      if (method === "POST" && url.pathname.endsWith("/builds/workers")) {
-        buildSettings = createdBuildSettings;
-        return cloudflareResponse(buildSettings);
-      }
-      if (
-        method === "POST" &&
-        url.pathname.endsWith("/builds/workers/mcp-worker-tag/migrate_to_previews")
-      ) {
-        buildSettings = nativeBuildSettings;
-        return cloudflareResponse(buildSettings);
-      }
-      if (url.pathname.endsWith("/builds/tokens")) {
-        return cloudflareResponse([
-          {
-            build_token_uuid: buildTokenUuid,
-            build_token_name: "samebase build token",
-            cloudflare_token_id: "opaque-oauth-token-id",
-          },
-        ]);
-      }
-      if (method === "POST" && url.pathname.endsWith(`/builds/triggers/${triggerUuid}/builds`)) {
-        return cloudflareResponse({});
-      }
-      throw new Error(`Unexpected provider request: ${method} ${url}`);
-    });
-    vi.stubGlobal("fetch", fetchMock);
-
-    const { callTool, organizationId, t, userId } = await seedMcpBearer({
-      isApproved: true,
-      scopes: ["access_dashboard", "access_provider_connections"],
-    });
-    const repositoryId = await t.run(async (ctx) => {
-      await ctx.db.insert("organizationProviderCredentials", {
-        organizationId,
-        cloudflare: {
-          connectedByUserId: userId,
-          auth: {
-            method: "oauth",
-            credential: testCredential("cloudflare-token"),
-            refreshCredential: testCredential("cloudflare-refresh-token"),
-            credentialExpiresAt: 4_000_000_000_000,
-          },
-          updatedAt: 1,
-        },
-      });
-      await ctx.db.patch(organizationId, {
-        cloudflareAccount: {
-          accountId: cloudflareAccountId,
-          accountName: "Test account",
-          lastUsedBuildTokenUuid: buildTokenUuid,
-        },
-      });
-      const repositoryId = await ctx.db.insert("repositories", {
-        organizationId,
-        convexTeamId: "convex-team",
-        cloudflareAccountId,
-        deletion: { state: "not_deleting" },
-        state: "not_connected",
-        createdAt: 2,
-      });
-      const runId = await ctx.db.insert("workflow_repositoryProvisioning_runs", {
-        organizationId,
-        userId,
-        repositoryId,
-        githubRepositoryFullName: "samebase/demo",
-        trigger: "connect_existing_repository",
-        state: "succeeded",
-        currentStep: "finish",
-        createdAt: 2,
-        updatedAt: 2,
-        completedAt: 2,
-      });
-      await ctx.db.replace(repositoryId, {
-        organizationId,
-        convexTeamId: "convex-team",
-        cloudflareAccountId,
-        deletion: { state: "not_deleting" },
-        state: "connected",
-        githubMode: "connect_existing_repository",
-        runId,
-        githubRepositoryDatabaseId: "123",
-        githubRepositoryName: "demo",
-        visibility: "private",
-        defaultBranch: "stale-main",
-        connectedAt: 2,
-        createdAt: 2,
-      });
-      return repositoryId;
-    });
-    await sealTestCredentials(t);
-    return {
-      buildTokenUuid,
-      callTool,
-      cloudflareAccountId,
-      defaultBranchCommitSha,
-      organizationId,
-      providerRequests,
-      providerState,
-      repositoryId,
-      t,
-      userId,
-    };
-  }
-
-  function findInitialBuildRequest(
-    providerRequests: Array<{ body: unknown; method: string; path: string }>,
-  ) {
-    return providerRequests.find(
-      (request) =>
-        request.method === "POST" &&
-        request.path.endsWith(
-          `/builds/triggers/${observedCompletedWorkerBuild.trigger.trigger_uuid}/builds`,
-        ),
-    );
-  }
-
-  it("creates a Worker with the repository account from inventory, then returns it in inventory", async () => {
-    const {
-      buildTokenUuid,
-      callTool,
-      cloudflareAccountId,
-      defaultBranchCommitSha,
-      organizationId,
-      providerRequests,
-      providerState,
-      repositoryId,
-      t,
-    } = await seedWorkerCreateFixture();
-
-    const inventoryBeforeCreate = await callTool("repository_list");
-    expect(inventoryBeforeCreate).toMatchObject({
-      result: {
-        structuredContent: {
-          repositories: [
-            expect.objectContaining({ repositoryId, githubRepositoryFullName: "samebase/demo" }),
-          ],
-        },
-      },
-    });
-
-    // No token UUID: Samebase uses the account's last-used Workers Builds token.
-    const createPayload = await callTool("repository_cloudflare_createWorker", {
-      repository: "samebase/demo",
-      workerName: "mcp-worker",
-      rootDirectory: "apps/web",
-    });
-    if (isRecord(createPayload.result) && createPayload.result["isError"] === true) {
-      throw new Error(JSON.stringify(createPayload.result));
-    }
-    const attachment = await t.run(
-      async (ctx) =>
-        await ctx.db
-          .query("repositoryCloudflareWorkers")
-          .withIndex("by_repository", (q) => q.eq("repositoryId", repositoryId))
-          .unique(),
-    );
-    if (!attachment) {
-      throw new Error("Expected the MCP tool to record the Worker attachment.");
-    }
-
-    const noDeployKeyMessage =
-      "No Convex project is attached to this repository, so no deploy key was installed. After you attach or create one, call repository_cloudflare_rotateConvexDeployKeys for this Worker.";
-    expect(createPayload).toMatchObject({
-      result: {
-        content: [
-          {
-            type: "text",
-            text: `Created mcp-worker for samebase/demo at apps/web. ${noDeployKeyMessage}`,
-          },
-        ],
-        structuredContent: {
-          workerName: "mcp-worker",
-          rootDirectory: "apps/web",
-          convexDeployKey: { state: "not_installed", message: noDeployKeyMessage },
-        },
-      },
-    });
-    expect(attachment).toMatchObject({
-      accountId: cloudflareAccountId,
-      workerName: "mcp-worker",
-      workerTag: "mcp-worker-tag",
-      origin: "provisioned",
-    });
-    await expect(
-      t.run(
-        async (ctx) =>
-          await ctx.db
-            .query("workflow_repositoryProvisioning_writeLocks")
-            .withIndex("by_repository", (q) => q.eq("repositoryId", repositoryId))
-            .unique(),
-      ),
-    ).resolves.toMatchObject({
-      state: "succeeded",
-      lastWriteAt: { cloudflare: expect.any(Number) },
-    });
-
-    const inventoryPayload = await callTool("repository_list");
-    expect(inventoryPayload).toMatchObject({
-      result: {
-        structuredContent: {
-          repositories: [
-            expect.objectContaining({
-              repositoryId,
-              cloudflareWorkers: [{ workerName: "mcp-worker", rootDirectory: "apps/web" }],
-            }),
-          ],
-        },
-      },
-    });
-
-    const workerCreateRequests = providerRequests.filter(
-      (request) => request.method === "POST" && request.path.endsWith("/workers/workers"),
-    );
-    const buildsCreateRequests = providerRequests.filter(
-      (request) => request.method === "POST" && request.path.endsWith("/builds/workers"),
-    );
-    const previewMigrationRequests = providerRequests.filter(
-      (request) =>
-        request.method === "POST" &&
-        request.path.endsWith("/builds/workers/mcp-worker-tag/migrate_to_previews"),
-    );
-    const initialBuildRequest = findInitialBuildRequest(providerRequests);
-    expect(workerCreateRequests).toHaveLength(1);
-    expect(buildsCreateRequests).toHaveLength(1);
-    expect(buildsCreateRequests.map((request) => request.body)).toEqual([
-      expect.objectContaining({
-        script_tag: "mcp-worker-tag",
-        git_repository: {
-          branch: "main",
-          provider_type: "github",
-          provider_account_id: "456",
-          provider_account_name: "samebase",
-          repo_id: "123",
-          repo_name: "demo",
-        },
-        production_settings: expect.objectContaining({
-          build_token_uuid: buildTokenUuid,
-          root_directory: "apps/web",
-          build_command: "pnpm run build",
-          deploy_command: "pnpm run deploy",
-        }),
-        previews_base_config: expect.objectContaining({
-          build_token_uuid: buildTokenUuid,
-          root_directory: "apps/web",
-          build_command: "pnpm run build",
-          deploy_command: "pnpm run deploy:preview",
-        }),
-        previews_enabled: true,
-      }),
-    ]);
-    expect(previewMigrationRequests).toHaveLength(1);
-    expect(previewMigrationRequests[0]?.body).toEqual({
-      deploy_command: "pnpm run deploy:preview",
-    });
-    expect(
-      providerRequests.some((request) => request.method === "PATCH" || request.method === "DELETE"),
-    ).toBe(false);
-    expect(initialBuildRequest?.body).toEqual({
-      branch: "main",
-      commit_hash: defaultBranchCommitSha,
-    });
-
-    const otherRepositoryId = await t.run(async (ctx) => {
-      const otherRepositoryId = await ctx.db.insert("repositories", {
-        organizationId,
-        convexTeamId: "convex-team",
-        cloudflareAccountId,
-        deletion: { state: "not_deleting" },
-        state: "not_connected",
-        createdAt: 3,
-      });
-      await ctx.db.insert("repositoryCloudflareWorkers", {
-        repositoryId: otherRepositoryId,
-        organizationId,
-        accountId: cloudflareAccountId,
-        workerName: "other-app-worker",
-        workerTag: "other-app-worker-tag",
-        rootDirectory: "/",
-        origin: "provisioned",
-      });
-      await ctx.db.insert("repositoryCloudflareWorkers", {
-        repositoryId: otherRepositoryId,
-        organizationId,
-        accountId: cloudflareAccountId,
-        workerName: "other-app-replaced-worker",
-        workerTag: "other-app-replaced-worker-old-tag",
-        rootDirectory: "/",
-        origin: "provisioned",
-      });
-      await ctx.db.insert("repositoryCloudflareWorkers", {
-        repositoryId,
-        organizationId,
-        accountId: cloudflareAccountId,
-        workerName: "replaced-worker",
-        workerTag: "replaced-worker-old-tag",
-        rootDirectory: "/",
-        origin: "selected_existing",
-      });
-      return otherRepositoryId;
-    });
-    providerState.listRecordedWorkersWithoutBuilds = true;
-    providerState.failWorkerDiscovery = true;
-    const discovery = await callTool("repository_cloudflare_findWorkers", {
-      repository: repositoryId,
-    });
-    // MCP discovery lists only Workers that a tool can add, and counts the others.
-    expect(discovery.result.structuredContent).toEqual({
-      inventoryState: "complete",
-      workers: [],
-      counts: { attached: 2, attachedElsewhere: 2, connectedElsewhere: 0, unavailable: 0 },
-    });
-    expect(JSON.stringify(discovery)).not.toContain("private-diagnostic@example.com");
-    expect(JSON.stringify(discovery)).not.toContain(otherRepositoryId);
-    expect(JSON.stringify(discovery)).not.toContain("old-tag");
-  });
-
-  it("defers the first build to the deploy key of the only Convex project, and reports a key it could not install without the provider error", async () => {
-    const { callTool, organizationId, providerRequests, repositoryId, t, userId } =
-      await seedWorkerCreateFixture();
-    await t.run(async (ctx) => {
-      await ctx.db.insert("repositoryConvexProjects", {
-        repositoryId,
-        organizationId,
-        teamId: "convex-team",
-        projectId: "convex-project",
-        convexConfigPath: "apps/web/convex.json",
-        origin: "selected_existing",
-      });
-      await ctx.db.patch(organizationId, { convexTeam: { teamId: "convex-team" } });
-      const credentials = await ctx.db
-        .query("organizationProviderCredentials")
-        .withIndex("by_organization", (query) => query.eq("organizationId", organizationId))
-        .unique();
-      if (!credentials) {
-        throw new Error("Expected the fixture to store provider credentials.");
-      }
-      await ctx.db.patch(credentials._id, {
-        convex: {
-          auth: { method: "api_key", credential: testCredential("convex-token") },
-          connectedByUserId: userId,
-          updatedAt: 1,
-        },
-      });
-    });
-    await sealTestCredentials(t);
-    const providerFetch = vi.mocked(fetch);
-    const fixtureFetch = providerFetch.getMockImplementation();
-    // The deploy-key step fails after Builds setup with a raw provider error.
-    providerFetch.mockImplementation(async (input, init) => {
-      const url = new URL(input instanceof Request ? input.url : String(input));
-      if (url.hostname === "api.convex.dev") {
-        return new Response(
-          JSON.stringify({
-            code: "InternalServerError",
-            message: "private-diagnostic@example.com provider debug detail",
-          }),
-          { status: 500, headers: { "content-type": "application/json" } },
-        );
-      }
-      if (!fixtureFetch) {
-        throw new Error("Expected the fixture fetch mock.");
-      }
-      return await fixtureFetch(input, init);
-    });
-
-    const createPayload = await callTool("repository_cloudflare_createWorker", {
-      repository: "samebase/demo",
-      workerName: "mcp-worker",
-      rootDirectory: "apps/web",
-    });
-
-    const message =
-      "Samebase did not install the Convex deploy key, so no production build started. Samebase could not complete this request. Check the app in Samebase before retrying. When the cause is fixed, call repository_cloudflare_rotateConvexDeployKeys for this Worker to install the key and start the build.";
-    expect(createPayload).toMatchObject({
-      result: {
-        content: [
-          { type: "text", text: `Created mcp-worker for samebase/demo at apps/web. ${message}` },
-        ],
-        structuredContent: {
-          workerName: "mcp-worker",
-          convexDeployKey: { state: "not_installed", message },
-        },
-      },
-    });
-    expect(createPayload.result).not.toHaveProperty("isError");
-    expect(JSON.stringify(createPayload)).not.toContain("private-diagnostic@example.com");
-    expect(JSON.stringify(createPayload)).not.toContain("api.convex.dev");
-    expect(
-      providerRequests.filter(
-        (request) => request.method === "POST" && request.path.endsWith("/builds/workers"),
-      ),
-    ).toHaveLength(1);
-    expect(findInitialBuildRequest(providerRequests)).toBeUndefined();
-  });
-
-  it("fails closed before any provider change when several Convex projects could take the deploy key", async () => {
-    const { callTool, organizationId, providerRequests, repositoryId, t } =
-      await seedWorkerCreateFixture();
-    await t.run(async (ctx) => {
-      for (const convexConfigPath of ["convex.json", "apps/admin/convex.json"]) {
-        await ctx.db.insert("repositoryConvexProjects", {
-          repositoryId,
-          organizationId,
-          teamId: "convex-team",
-          projectId: `project-${convexConfigPath}`,
-          convexConfigPath,
-          origin: "selected_existing",
-        });
-      }
-    });
-
-    for (const toolName of [
-      "repository_cloudflare_createWorker",
-      "repository_cloudflare_connectWorker",
-    ]) {
-      const payload = await callTool(toolName, {
-        repository: "samebase/demo",
-        workerName: "mcp-worker",
-      });
-      expect(payload).toMatchObject({
-        result: {
-          isError: true,
-          content: [
-            {
-              type: "text",
-              // No Convex connection: the names are unreadable, so the code locations identify them.
-              text: "samebase/demo has several attached Convex projects: slug unavailable (apps/admin/convex.json), slug unavailable (convex.json). Choose the project whose deploy key the Worker gets.",
-            },
-          ],
-        },
-      });
-    }
-    expect(providerRequests.filter((request) => request.path.startsWith("/client/v4/"))).toEqual(
-      [],
-    );
-    await expect(
-      t.run(
-        async (ctx) =>
-          await ctx.db
-            .query("workflow_repositoryProvisioning_writeLocks")
-            .withIndex("by_repository", (q) => q.eq("repositoryId", repositoryId))
-            .unique(),
-      ),
-    ).resolves.toBeNull();
   });
 
   it("reports authentication status for a valid MCP bearer token", async () => {

@@ -69,7 +69,6 @@ import { Route as repositoryAlchemyRouteImport } from "./routes/repository-alche
 import { Route as repositorySettingsRouteImport } from "./routes/repository-settings";
 import { Route as repositoryComponentsDeploymentRouteImport } from "./routes/repository-components-deployment";
 import { Route as repositoryDatabaseProjectRouteImport } from "./routes/repository-database-project";
-import { Route as repositorySchemaProjectRouteImport } from "./routes/repository-schema-project";
 
 const indexRoute = indexRouteImport.update({
   id: "/",
@@ -375,11 +374,6 @@ const repositoryDatabaseProjectRoute =
     path: "/repo/$owner/$repository/db/$branch/project/$convexProjectId",
     getParentRoute: () => authedRoute,
   } as any);
-const repositorySchemaProjectRoute = repositorySchemaProjectRouteImport.update({
-  id: "/repo/$owner/$repository/schema/$branch/project/$convexProjectId",
-  path: "/repo/$owner/$repository/schema/$branch/project/$convexProjectId",
-  getParentRoute: () => authedRoute,
-} as any);
 
 export interface FileRoutesByFullPath {
   "/": typeof indexRoute;
@@ -441,7 +435,6 @@ export interface FileRoutesByFullPath {
   "/repo/$owner/$repository/settings": typeof repositorySettingsRoute;
   "/repo/$owner/$repository/components/$deploymentName": typeof repositoryComponentsDeploymentRoute;
   "/repo/$owner/$repository/db/$branch/project/$convexProjectId": typeof repositoryDatabaseProjectRoute;
-  "/repo/$owner/$repository/schema/$branch/project/$convexProjectId": typeof repositorySchemaProjectRoute;
 }
 export interface FileRoutesByTo {
   "/": typeof indexRoute;
@@ -503,7 +496,6 @@ export interface FileRoutesByTo {
   "/repo/$owner/$repository/settings": typeof repositorySettingsRoute;
   "/repo/$owner/$repository/components/$deploymentName": typeof repositoryComponentsDeploymentRoute;
   "/repo/$owner/$repository/db/$branch/project/$convexProjectId": typeof repositoryDatabaseProjectRoute;
-  "/repo/$owner/$repository/schema/$branch/project/$convexProjectId": typeof repositorySchemaProjectRoute;
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport;
@@ -567,7 +559,6 @@ export interface FileRoutesById {
   "/_authed/repo/$owner/$repository/settings": typeof repositorySettingsRoute;
   "/_authed/repo/$owner/$repository/components/$deploymentName": typeof repositoryComponentsDeploymentRoute;
   "/_authed/repo/$owner/$repository/db/$branch/project/$convexProjectId": typeof repositoryDatabaseProjectRoute;
-  "/_authed/repo/$owner/$repository/schema/$branch/project/$convexProjectId": typeof repositorySchemaProjectRoute;
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath;
@@ -630,8 +621,7 @@ export interface FileRouteTypes {
     | "/repo/$owner/$repository/alchemy"
     | "/repo/$owner/$repository/settings"
     | "/repo/$owner/$repository/components/$deploymentName"
-    | "/repo/$owner/$repository/db/$branch/project/$convexProjectId"
-    | "/repo/$owner/$repository/schema/$branch/project/$convexProjectId";
+    | "/repo/$owner/$repository/db/$branch/project/$convexProjectId";
   fileRoutesByTo: FileRoutesByTo;
   to:
     | "/"
@@ -692,8 +682,7 @@ export interface FileRouteTypes {
     | "/repo/$owner/$repository/alchemy"
     | "/repo/$owner/$repository/settings"
     | "/repo/$owner/$repository/components/$deploymentName"
-    | "/repo/$owner/$repository/db/$branch/project/$convexProjectId"
-    | "/repo/$owner/$repository/schema/$branch/project/$convexProjectId";
+    | "/repo/$owner/$repository/db/$branch/project/$convexProjectId";
   id:
     | "__root__"
     | "/"
@@ -755,8 +744,7 @@ export interface FileRouteTypes {
     | "/_authed/repo/$owner/$repository/alchemy"
     | "/_authed/repo/$owner/$repository/settings"
     | "/_authed/repo/$owner/$repository/components/$deploymentName"
-    | "/_authed/repo/$owner/$repository/db/$branch/project/$convexProjectId"
-    | "/_authed/repo/$owner/$repository/schema/$branch/project/$convexProjectId";
+    | "/_authed/repo/$owner/$repository/db/$branch/project/$convexProjectId";
   fileRoutesById: FileRoutesById;
 }
 export interface RootRouteChildren {
@@ -1217,13 +1205,6 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof repositoryDatabaseProjectRouteImport;
       parentRoute: typeof authedRoute;
     };
-    "/_authed/repo/$owner/$repository/schema/$branch/project/$convexProjectId": {
-      id: "/_authed/repo/$owner/$repository/schema/$branch/project/$convexProjectId";
-      path: "/repo/$owner/$repository/schema/$branch/project/$convexProjectId";
-      fullPath: "/repo/$owner/$repository/schema/$branch/project/$convexProjectId";
-      preLoaderRoute: typeof repositorySchemaProjectRouteImport;
-      parentRoute: typeof authedRoute;
-    };
   }
 }
 
@@ -1255,7 +1236,6 @@ interface authedRouteChildren {
   repositorySettingsRoute: typeof repositorySettingsRoute;
   repositoryComponentsDeploymentRoute: typeof repositoryComponentsDeploymentRoute;
   repositoryDatabaseProjectRoute: typeof repositoryDatabaseProjectRoute;
-  repositorySchemaProjectRoute: typeof repositorySchemaProjectRoute;
 }
 
 const authedRouteChildren: authedRouteChildren = {
@@ -1286,7 +1266,6 @@ const authedRouteChildren: authedRouteChildren = {
   repositorySettingsRoute: repositorySettingsRoute,
   repositoryComponentsDeploymentRoute: repositoryComponentsDeploymentRoute,
   repositoryDatabaseProjectRoute: repositoryDatabaseProjectRoute,
-  repositorySchemaProjectRoute: repositorySchemaProjectRoute,
 };
 
 const authedRouteWithChildren =

@@ -25,11 +25,6 @@ export function resolveDefaultConvexDeploymentRegion(
   return savedDefault ?? CONVEX_US_EAST_REGION;
 }
 
-export function formatConvexDeploymentRegionLabel(region: ConvexDeploymentRegion): string {
-  const details = convexDeploymentRegionDetails[region];
-  return `${details.icon} ${details.displayName}`;
-}
-
 export function parseConvexDeploymentRegion(value: string): ConvexDeploymentRegion | null {
   switch (value) {
     case CONVEX_US_EAST_REGION:

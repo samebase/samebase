@@ -20,22 +20,7 @@ import { createRepositoryContract } from "../repository/contracts/createReposito
 import { getUserRepositoriesContract } from "../repository/contracts/getUserRepositories";
 import { getRepositoryStatusContract } from "../repository/contracts/getRepositoryStatus";
 import { connectRepositoryContract } from "../repository/contracts/connectRepository";
-import {
-  cloudflareAttachWorkersContract,
-  cloudflareConnectWorkerContract,
-  cloudflareCreateWorkerContract,
-  cloudflareDiscoverWorkersContract,
-} from "../repository/contracts/cloudflareAttachments";
-import {
-  convexAttachProjectsContract,
-  convexCreateProjectContract,
-  convexDiscoverProjectsContract,
-} from "../repository/contracts/convexAttachments";
-import { cloudflareConfigureWorkersBuildsForGitHubContract } from "../repository/contracts/cloudflareConfigureWorkersBuildsForGitHub";
-import { cloudflareRotateConvexDeployKeysForWorkersBuildsContract } from "../repository/contracts/cloudflareRotateConvexDeployKeysForWorkersBuilds";
 import { retryInfrastructureProvisioningContract } from "../repository/contracts/retryInfrastructureProvisioning";
-import { detachResourceContract } from "../repository/contracts/detachResource";
-import { applySetupOutputContract } from "../repository/contracts/applySetupOutput";
 import { createBrowserHandoffContract } from "../agentBrowserHandoff/contracts/createBrowserHandoff";
 import { submitFeedbackContract } from "./contracts/submitFeedback";
 import {
@@ -84,16 +69,16 @@ const MCP_SERVER_INFO = {
   name: "Samebase",
   version: "0.3.0",
 } as const;
-// The server picks Workers Builds tokens, installs deploy keys, names the repair tool in each
-// attention item, and states each tool's own rules in its description, so the instructions keep only
-// routing, the creation sequence, the confirmation rule, and the dashboard hand-off (rfcs/125).
-const MCP_SERVER_INSTRUCTIONS = `Samebase manages repositories: a GitHub repository with its attached Cloudflare Workers and Convex projects. For other repositories, standalone provider resources, code, logs, environment variables, and domains, use GitHub, Cloudflare, or Convex tools. Name a repository by owner/name.
+// Each attention item says what to do, and each tool states its own rules in its description, so the
+// instructions keep only routing, the creation sequence, the confirmation rule, and the dashboard
+// hand-off (rfcs/125).
+const MCP_SERVER_INSTRUCTIONS = `Samebase starts apps and monitors them: a GitHub repository whose GitHub Actions deploy it with Alchemy. Repair lives in Alchemy and the coding agent: fix a deployment in the repository, not through Samebase. For other repositories, standalone provider resources, code, logs, environment variables, and domains, use GitHub, Cloudflare, or Convex tools. Name a repository by owner/name.
 
-To create a repository, call ${createRepositoryContract.mcp.name} once (Samebase picks the build token), then poll only ${getUserRepositoriesContract.mcp.name} until source and provider setup are ready or failed. For build, deployment, check, or pull request questions, call ${getRepositoryStatusContract.mcp.name} and follow its attention items. Ready setup, a build request, or a push does not prove that the app is live.
+To create a repository, call ${createRepositoryContract.mcp.name} once, then poll only ${getUserRepositoriesContract.mcp.name} until source and provider setup are ready or failed. For build, deployment, check, or pull request questions, call ${getRepositoryStatusContract.mcp.name} and follow its attention items. Ready setup, a build request, or a push does not prove that the app is live.
 
-When a result asks for a choice, ask the user and pass the choice. A needs_confirmation result changed nothing: state its effect, and repeat the call with its token and exact acknowledgement only after the user approves.
+A needs_confirmation result changed nothing: state its effect, and repeat the call with its token and exact acknowledgement only after the user approves.
 
-For a request to open the Samebase dashboard, call ${createBrowserHandoffContract.mcp.name} directly. Only the dashboard can remove a repository from Samebase, change a code location, accept a rename, or manage members, billing, and provider connections: say so, offer the sign-in link, and create it only after the user accepts.`;
+For a request to open the Samebase dashboard, call ${createBrowserHandoffContract.mcp.name} directly. Only the dashboard can remove a repository from Samebase, accept a GitHub rename, or manage members, billing, and provider connections: say so, offer the sign-in link, and create it only after the user accepts.`;
 async function readMcpViewer(ctx: ActionCtx, userId: Id<"users">) {
   return await ctx.runQuery(internal.functions.resolveViewerForUserId, { userId });
 }
@@ -175,47 +160,14 @@ const mcpToolCalls: Record<ActionContractMcpName, McpToolCall> = {
   [getRepositoryStatusContract.mcp.name]: createMcpRuntimeToolCall(
     internal.toolRuntime.runtime.repositoryGetStatusTool,
   ),
-  [convexDiscoverProjectsContract.mcp.name]: createMcpRuntimeToolCall(
-    internal.toolRuntime.runtime.convexFindProjectsTool,
-  ),
-  [cloudflareDiscoverWorkersContract.mcp.name]: createMcpRuntimeToolCall(
-    internal.toolRuntime.runtime.cloudflareFindWorkersTool,
-  ),
   [createRepositoryContract.mcp.name]: createMcpRuntimeToolCall(
     internal.toolRuntime.runtime.repositoryCreateTool,
   ),
   [connectRepositoryContract.mcp.name]: createMcpRuntimeToolCall(
     internal.toolRuntime.runtime.repositoryConnectTool,
   ),
-  [convexAttachProjectsContract.mcp.name]: createMcpRuntimeToolCall(
-    internal.toolRuntime.runtime.convexAttachProjectTool,
-  ),
-  [convexCreateProjectContract.mcp.name]: createMcpRuntimeToolCall(
-    internal.toolRuntime.runtime.convexCreateProjectTool,
-  ),
-  [cloudflareAttachWorkersContract.mcp.name]: createMcpRuntimeToolCall(
-    internal.toolRuntime.runtime.cloudflareAttachWorkersTool,
-  ),
-  [cloudflareConnectWorkerContract.mcp.name]: createMcpGrantToolCall(
-    internal.toolRuntime.runtime.cloudflareConnectWorkerTool,
-  ),
-  [cloudflareCreateWorkerContract.mcp.name]: createMcpRuntimeToolCall(
-    internal.toolRuntime.runtime.cloudflareCreateWorkerTool,
-  ),
-  [cloudflareConfigureWorkersBuildsForGitHubContract.mcp.name]: createMcpRuntimeToolCall(
-    internal.toolRuntime.runtime.cloudflareConfigureBuildsTool,
-  ),
-  [cloudflareRotateConvexDeployKeysForWorkersBuildsContract.mcp.name]: createMcpGrantToolCall(
-    internal.toolRuntime.runtime.cloudflareRotateConvexDeployKeysTool,
-  ),
   [retryInfrastructureProvisioningContract.mcp.name]: createMcpGrantToolCall(
     internal.toolRuntime.runtime.repositoryRetryProviderSetupTool,
-  ),
-  [detachResourceContract.mcp.name]: createMcpGrantToolCall(
-    internal.toolRuntime.runtime.repositoryDetachResourceTool,
-  ),
-  [applySetupOutputContract.mcp.name]: createMcpRuntimeToolCall(
-    internal.toolRuntime.runtime.repositoryApplySetupOutputTool,
   ),
   [submitFeedbackContract.mcp.name]: createMcpRuntimeToolCall(internal.feedback.submit),
   [createBrowserHandoffContract.mcp.name]: createMcpGrantToolCall(

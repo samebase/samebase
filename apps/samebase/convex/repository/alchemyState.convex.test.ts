@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
-import { api } from "../_generated/api";
+import { api, internal } from "../_generated/api";
 import { isRecord } from "../jsonUtils";
 import {
   insertTestOrganizationBillingAccount,
@@ -628,7 +628,172 @@ describe("the setup status of a repository_actions repository", () => {
     });
     await expect(
       user.action(api.repository.getStatus, { repositoryId: ids.repositoryId }),
-    ).resolves.toMatchObject({ setupStack: { state: "unavailable" }, attention: [] });
+    ).resolves.toMatchObject({
+      stacks: { state: "unreadable" },
+      setupStack: { state: "unavailable" },
+      attention: [{ tool: null, problem: expect.stringContaining("could not be read") }],
+    });
+  });
+
+  it("gives repository_getStatus the stacks of a repository with no attachment and no plan", async () => {
+    const t = makeConvexTest();
+    const { ids, user } = await seedAlchemyRepository(t);
+    await t.run(async (ctx) => {
+      for (const project of await ctx.db.query("repositoryConvexProjects").collect()) {
+        await ctx.db.delete(project._id);
+      }
+    });
+    const requests: RecordedRequest[] = [];
+    installAlchemyStateFetchStub({
+      requests,
+      // The row of a current store, which a store from 0.7.0 writes without `rootDir`.
+      storeReply: withProdStage((stage) => {
+        for (const resource of stage.resources) {
+          resource.value = resource.value.replace('"type":"prod"', '"type":"prod","rootDir":"."');
+        }
+      }),
+      customDomainsReply: jsonResponse(observedCustomDomainsReply),
+      teamProjects: [storeProject],
+    });
+
+    const status = await user.action(api.repository.getStatus, { repositoryId: ids.repositoryId });
+
+    expect(status).toEqual({
+      pullRequests: { state: "unavailable" },
+      stacks: {
+        state: "available",
+        stacks: [
+          {
+            name: "samebase/base-alchemy",
+            productionUrl: "https://samebase.com",
+            deployedCommit: "a4d98f2ad150dee07e19fa9c348e70240aca1dac",
+            deployedCommitState: "unknown",
+            previews: [],
+          },
+        ],
+      },
+      setupStack: null,
+      attention: [],
+    });
+    // One key for the read, revoked after it, and none of it reaches the result.
+    expect(requests.filter(({ url }) => url.endsWith("/create_deploy_key"))).toHaveLength(1);
+    expect(requests.filter(({ url }) => url.endsWith("/delete_deploy_key"))).toHaveLength(1);
+    expect(JSON.stringify(status)).not.toContain("alchemy-state-secret");
+    expect(JSON.stringify(status)).not.toContain("convex-api-key");
+
+    const tool = await t.action(internal.toolRuntime.runtime.repositoryGetStatusTool, {
+      userId: ids.userId,
+      grantedScopes: ["access_dashboard"],
+      repository: "samebase/base-alchemy",
+    });
+    expect(tool).toMatchObject({
+      status: "ok",
+      text: expect.stringContaining("samebase/base-alchemy: 1 stack, pull requests unavailable."),
+      structuredContent: {
+        stacks: { state: "available", stacks: [{ name: "samebase/base-alchemy" }] },
+        attention: [],
+      },
+    });
+    expect(JSON.stringify(tool)).not.toContain("alchemy-state-secret");
+  });
+
+  it("revokes the key of a read that fails", async () => {
+    const t = makeConvexTest();
+    const { ids, user } = await seedAlchemyRepository(t);
+    const requests: RecordedRequest[] = [];
+    installAlchemyStateFetchStub({
+      requests,
+      storeReply: { status: "error" },
+      teamProjects: [storeProject],
+    });
+
+    await expect(
+      user.action(api.repository.getStatus, { repositoryId: ids.repositoryId }),
+    ).resolves.toMatchObject({ stacks: { state: "unreadable" } });
+
+    expect(requests.at(-1)?.url).toContain("/delete_deploy_key");
+  });
+
+  it("reports a store that holds no stack apart from one that cannot be read", async () => {
+    const t = makeConvexTest();
+    const { ids, user } = await seedAlchemyRepository(t);
+    installAlchemyStateFetchStub({
+      requests: [],
+      storeReply: observedAlchemyStackReply,
+      stackReplies: { "samebase/samebase": observedAlchemyStackReply },
+      teamProjects: [storeProject],
+    });
+
+    await expect(
+      t.action(internal.toolRuntime.runtime.repositoryGetStatusTool, {
+        userId: ids.userId,
+        grantedScopes: ["access_dashboard"],
+        repository: "samebase/base-alchemy",
+      }),
+    ).resolves.toMatchObject({
+      status: "ok",
+      text: expect.stringContaining("samebase/base-alchemy: 0 stacks, pull requests unavailable."),
+    });
+
+    await expect(
+      user.action(api.repository.getStatus, { repositoryId: ids.repositoryId }),
+    ).resolves.toEqual({
+      pullRequests: { state: "unavailable" },
+      stacks: { state: "available", stacks: [] },
+      setupStack: null,
+      attention: [
+        {
+          tool: null,
+          problem:
+            "The team's Alchemy state store holds no stack for samebase/base-alchemy, so Samebase cannot see what is deployed. An app deployed another way keeps running. Move it to Alchemy to see it here: https://samebase.com/docs/the-big-migration",
+        },
+      ],
+    });
+  });
+
+  it("reports a team without a store", async () => {
+    const t = makeConvexTest();
+    const { ids, user } = await seedAlchemyRepository(t);
+    const requests: RecordedRequest[] = [];
+    installAlchemyStateFetchStub({
+      requests,
+      storeReply: observedAlchemyStackReply,
+      teamProjects: [appProject],
+    });
+
+    await expect(
+      user.action(api.repository.getStatus, { repositoryId: ids.repositoryId }),
+    ).resolves.toMatchObject({ stacks: { state: "no_store" } });
+    expect(requests.some(({ url }) => url.endsWith("/create_deploy_key"))).toBe(false);
+  });
+
+  it("reports a repository without a Convex connection and reads no provider", async () => {
+    const t = makeConvexTest();
+    const { ids, user } = await seedAlchemyRepository(t);
+    await t.run(async (ctx) => {
+      for (const credentials of await ctx.db.query("organizationProviderCredentials").collect()) {
+        await ctx.db.delete(credentials._id);
+      }
+    });
+    const requests: RecordedRequest[] = [];
+    installAlchemyStateFetchStub({
+      requests,
+      storeReply: observedAlchemyStackReply,
+      teamProjects: [storeProject],
+    });
+
+    await expect(
+      user.action(api.repository.getStatus, { repositoryId: ids.repositoryId }),
+    ).resolves.toMatchObject({ stacks: { state: "no_convex_connection" } });
+    await expect(
+      user.action(api.repository.alchemyState.connect, { repositoryId: ids.repositoryId }),
+    ).resolves.toEqual({ store: "no_connection" });
+    await expect(
+      user.action(api.repository.alchemyState.connectWithSnapshot, {
+        repositoryId: ids.repositoryId,
+      }),
+    ).resolves.toEqual({ store: "no_connection" });
+    expect(requests).toEqual([]);
   });
 });
 
@@ -700,6 +865,45 @@ describe("readAlchemyStacks", () => {
     expect(requests.find((request) => request.url.endsWith("/delete_deploy_key"))?.body).toEqual({
       id: "samebase-alchemyState-brave-heron-201-ltk9ukg0",
     });
+  });
+
+  it("never deletes the key of an OAuth connection, which is the connection itself", async () => {
+    const requests: RecordedRequest[] = [];
+    installAlchemyStateFetchStub({
+      requests,
+      storeReply: observedAlchemyStackReply,
+      teamProjects: [storeProject],
+    });
+
+    await expect(
+      readAlchemyStacks({
+        repository: "samebase/base-alchemy",
+        target: { ...target, authMethod: "oauth" },
+      }),
+    ).resolves.toMatchObject({ store: "found" });
+
+    expect(requests.find(({ url }) => url.endsWith("/create_deploy_key"))?.body).toEqual({
+      name: expect.stringMatching(/^samebase-alchemyState-brave-heron-201-/),
+    });
+    expect(requests.some(({ url }) => url.endsWith("/delete_deploy_key"))).toBe(false);
+  });
+
+  it("never deletes the OAuth key of a read that fails", async () => {
+    const requests: RecordedRequest[] = [];
+    installAlchemyStateFetchStub({
+      requests,
+      storeReply: { status: "error" },
+      teamProjects: [storeProject],
+    });
+
+    await expect(
+      readAlchemyStacks({
+        repository: "samebase/base-alchemy",
+        target: { ...target, authMethod: "oauth" },
+      }),
+    ).rejects.toThrow();
+
+    expect(requests.some(({ url }) => url.endsWith("/delete_deploy_key"))).toBe(false);
   });
 
   it("reports a missing store when the team has no samebase project", async () => {

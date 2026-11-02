@@ -5,21 +5,18 @@
 > stack, repeat it. Each new app adds a product, not another system to maintain.
 
 Samebase can create a new app in about a minute or connect an existing GitHub repository without
-touching its providers. A connected app can remain GitHub-only or attach Convex and Cloudflare
-later. In a monorepo, Samebase derives resource locations from each selected convex.json file and
-each Worker's live Workers Builds root.
+touching its providers. A new app's GitHub Actions deploy it with Alchemy, and Samebase monitors
+what the stack deployed. Repair lives in Alchemy and the coding agent, not in Samebase.
 
 The Samebase starter's core local workflow runs natively on macOS, Linux, and Windows. Its
 repository automation is TypeScript run directly by Node 24, so it does not require Bash or WSL.
 
 The dashboard gives humans one inventory of every repository they connect, its provider resources,
-derived locations, current state, direct provider coordinates, and provider or connection repair
-actions.
+current state, and direct provider coordinates.
 Every Samebase action checks its own authentication. Authentication status is a diagnostic action,
 not a preflight.
-The repository list reports Samebase-owned workflow state and the names of attached resources. It
-is not proof of live provider state. The repository status reads the live builds, URLs, Convex
-deployments, checks, and pull requests of one repository. Use provider-native tools for logs,
+The repository list reports Samebase-owned workflow state. It is not proof of live provider state. The repository status reads the Alchemy stacks, URLs, deployed
+commits, checks, and pull requests of one repository. Use provider-native tools for logs,
 environment values, migrations, and domains.
 Codex and Claude Code can add the public
 [samebase/plugin](https://github.com/samebase/plugin) marketplace and install
@@ -27,7 +24,7 @@ Codex and Claude Code can add the public
 It is not an npm package name. The plugin packages the create or connect, local repository build,
 and Git-backed hosting workflows. Cursor and other MCP clients can call the same actions directly.
 
-Apps created through Samebase live in the user's own GitHub, Convex, and Cloudflare accounts.
+Apps created through Samebase live in the user's own GitHub and Convex accounts.
 Deleting the Samebase account does not stop a running app. The knowledge is free: anyone can build
 the identical stack with no Samebase account.
 
@@ -50,8 +47,6 @@ HTML pages. Action and operate docs are raw markdown only.
   Alchemy, and how to move a Worker or Convex app
 - [The stack](https://samebase.com/docs/the-stack.md): what the app template ships and why each
   piece was chosen
-- [Cloudflare setup](https://samebase.com/docs/cloudflare-setup.md): create the first Workers Builds
-  API token, then let Samebase create the real Worker
 - [Do it yourself](https://samebase.com/docs/do-it-yourself.md): deploy the same stack by hand, for
   $0/month, with no Samebase account
 - [Receipts](https://samebase.com/docs/receipts.md): every factual claim with its primary source
@@ -63,26 +58,14 @@ HTML pages. Action and operate docs are raw markdown only.
 ## Actions
 
 Every operational action has one contract, and these are the same actions the dashboard buttons run.
-MCP tools take a repository as its GitHub owner/name, a Worker by its name, and a Convex project by
-its slug. Choose the action that matches the request, then verify the result with the repository
-status.
+MCP tools take a repository as its GitHub owner/name. Choose the action that matches the request,
+then verify the result with the repository status.
 
-- [List Samebase repositories](https://samebase.com/docs/actions/list_repositories.md): List the Samebase repositories in every organization of the account: owner/name, repositoryId, setup state, pending Cloudflare setup, the names of attached Workers, and the slugs and names of attached Convex projects. Other tools take a Convex project by its slug.
-- [Get repository status](https://samebase.com/docs/actions/get_repository_status.md): Read the live status of a repository: each app (Worker and root directory) with its production build, whether that build is of the default branch head, and its URLs, each Convex project's production deployment, the default branch head commit and its checks, the open pull requests (first 6) with their checks and preview builds, for a repository that its GitHub Actions set up whether its first deployment finished, and attention items that name the tool that fixes each problem.
-- [Find Convex projects](https://samebase.com/docs/actions/find_convex_projects.md): Find the Convex code locations in the repository and the projects in the connected Convex team that can be attached. Lists attachable projects with their slug, name, and production deployment, and counts the others. Attach one by its slug with repository_convex_attachProject, or create one with repository_convex_createProject.
-- [Find Cloudflare Workers](https://samebase.com/docs/actions/find_cloudflare_workers.md): Find the Workers in the repository's Cloudflare account that can be added to the repository. attachable: already built from this repository; add it with repository_cloudflare_attachWorkers. connectable: not connected to any repository; repository_cloudflare_connectWorker connects it and replaces what it serves. Other Workers are only counted by reason.
-- [Create Samebase repository](https://samebase.com/docs/actions/create_repository.md): Create a GitHub repository with the Samebase starter, its Samebase repository, and its first app: one Convex project and, when the Cloudflare account has a Workers Builds token, one Cloudflare Worker. Setup keeps running after the call returns; read repository_list for progress. Ready setup does not prove that the app is live.
-- [Connect GitHub repository](https://samebase.com/docs/actions/connect_repository.md): Connect an existing GitHub repository to Samebase as a Samebase repository, then sync its repository tree. Convex and Cloudflare stay unchanged until resources are attached, connected, or created.
-- [Attach Convex project](https://samebase.com/docs/actions/attach_convex_project.md): Attach an existing Convex project that repository_convex_findProjects reports as attachable, at one of the repository's Convex code locations. Convex and GitHub do not change.
-- [Create Convex project](https://samebase.com/docs/actions/create_convex_project.md): Create a Convex project with one production deployment in the repository's Convex team and attach it at one of the repository's Convex code locations.
-- [Attach Cloudflare Workers](https://samebase.com/docs/actions/attach_cloudflare_workers.md): Attach existing Workers that are already built from this repository: the Workers that repository_cloudflare_findWorkers reports as attachable. Cloudflare settings do not change.
-- [Connect Cloudflare Worker](https://samebase.com/docs/actions/connect_cloudflare_worker.md): Connect a Worker that repository_cloudflare_findWorkers reports as connectable: attach it, configure its Workers Builds for this repository and root directory, and install the Convex deploy key. The production build that follows replaces what the Worker serves. The first call changes nothing and returns needs_confirmation with the effect, an acknowledgement sentence, and a token. After the user approves the effect, call again with the same arguments and confirmation: the token and the exact sentence.
-- [Create Cloudflare Worker](https://samebase.com/docs/actions/create_cloudflare_worker.md): Create a Worker in the repository's Cloudflare account, which adds an app: attach it, configure its Workers Builds for this repository and root directory, install the Convex deploy key, and start the first production build. Also finishes a pending Cloudflare setup from repository_list.
-- [Configure Workers Builds](https://samebase.com/docs/actions/configure_workers_builds.md): Rewrite an attached Worker's production and Previews Base Workers Builds settings for this repository and the Worker's root directory, then start a production build. Use it when the Worker's Builds settings point elsewhere or are missing.
-- [Rotate Convex deploy keys](https://samebase.com/docs/actions/rotate_convex_deploy_keys.md): Replace the Convex deploy keys in an attached Worker's Workers Builds settings, then start a production build. It revokes the keys that Samebase recorded before it creates new ones. Use it to install a missing key or replace a broken one. The first call changes nothing and returns needs_confirmation with the effect, an acknowledgement sentence, and a token. After the user approves the effect, call again with the same arguments and confirmation: the token and the exact sentence.
-- [Retry provider setup](https://samebase.com/docs/actions/retry_provider_setup.md): Start a fresh managed provider setup run for a repository that Samebase created. It reuses attached resources and creates missing ones. When Cloudflare is requested, it reconfigures Workers Builds and rotates Convex deploy keys, then starts a production build. The first call changes nothing and returns needs_confirmation with the effect, an acknowledgement sentence, and a token. After the user approves the effect, call again with the same arguments and confirmation: the token and the exact sentence.
-- [Detach resource](https://samebase.com/docs/actions/detach_resource.md): Remove an attached Cloudflare Worker or Convex project from the repository in Samebase. The resource keeps running in its provider account and is not deleted. The first call changes nothing and returns needs_confirmation with the effect, an acknowledgement sentence, and a token. After the user approves the effect, call again with the same arguments and confirmation: the token and the exact sentence.
-- [Apply setup output](https://samebase.com/docs/actions/apply_setup_output.md): For a repository whose setup stack publishes a samebase-setup-output artifact: apply the newest output, after the user reviewed its Workers and Convex projects. Samebase checks each one against Cloudflare and Convex again and attaches them to the repository. The result names the step and the claim that stopped it.
+- [List Samebase repositories](https://samebase.com/docs/actions/list_repositories.md): List the Samebase repositories in every organization of the account: owner/name, repositoryId, and setup state.
+- [Get repository status](https://samebase.com/docs/actions/get_repository_status.md): Read the live status of a repository: each stack in the team's Alchemy state store with its production URL, deployed commit, whether that commit is the default branch head, and its pull request preview URLs, the default branch head commit and its checks, the open pull requests (first 6) with their checks, for a repository that its GitHub Actions set up whether its first deployment finished, and attention items that say what to do about each problem. A store that cannot be read reports as unreadable, not as nothing deployed.
+- [Create Samebase repository](https://samebase.com/docs/actions/create_repository.md): Create a GitHub repository with the Samebase starter and its Samebase repository. The repository's GitHub Actions then run Alchemy, create the Convex project, and deploy the app to Convex. Setup keeps running after the call returns; read repository_list for progress. Ready setup does not prove that the app is live.
+- [Connect GitHub repository](https://samebase.com/docs/actions/connect_repository.md): Connect an existing GitHub repository to Samebase as a Samebase repository, then sync its repository tree. Convex and Cloudflare stay unchanged.
+- [Retry provider setup](https://samebase.com/docs/actions/retry_provider_setup.md): Start a fresh setup run for a repository whose GitHub Actions setup failed. It writes the repository's GitHub Actions secret and variable again, replacing their values, seeds the starter when it was not seeded yet, and syncs the default branch tree. It never creates or changes a Convex project. The first call changes nothing and returns needs_confirmation with the effect, an acknowledgement sentence, and a token. After the user approves the effect, call again with the same arguments and confirmation: the token and the exact sentence.
 - [Submit Samebase feedback](https://samebase.com/docs/actions/submit_feedback.md): Email one feedback report to Samebase staff. After a clear Samebase product or plugin problem, draft a short report that states what the user tried, what happened, and what should improve. Show the exact report and say that you can send it automatically with no form. Call only after the user approves that exact text. A direct request to send specified feedback is approval. Call once and do not retry unless the user asks. Do not include credentials, file contents, full logs, or unrelated conversation.
 - [Create Samebase sign-in link](https://samebase.com/docs/actions/create_sign_in_link.md): Create a one-time Samebase browser sign-in URL for the MCP grant's current user. Show the returned URL to the user as a clickable link. It expires after 5 minutes. Keep the link private. Only claim that the dashboard opened when a browser action confirms it.
 - [Get authentication status](https://samebase.com/docs/actions/get_authentication_status.md): Read the caller's current Samebase MCP authentication state: account identity, role, the GitHub owners of its organizations, and granted OAuth scopes.

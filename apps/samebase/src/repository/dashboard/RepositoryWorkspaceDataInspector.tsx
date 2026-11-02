@@ -44,9 +44,10 @@ export function RepositoryWorkspaceDataInspector({
           label="GitHub observations"
           value={serializePullRequests(workspace.pullRequests)}
         />
-        <DataObject label="Cloudflare observations" value={workspace.cloudflareObservations} />
-        <DataObject label="Convex observations" value={workspace.convexObservations} />
-        <DataObject label="Derived presentation" value={{ production: workspace.production }} />
+        <DataObject
+          label="Derived presentation"
+          value={{ productionCards: workspace.productionCards }}
+        />
       </div>
     </section>
   );

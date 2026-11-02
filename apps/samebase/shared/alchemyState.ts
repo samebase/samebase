@@ -1,7 +1,11 @@
 import { isRecord } from "@samebase/dependent/main";
 import { validate } from "convex-helpers/validators";
 import { v } from "convex/values";
-import type { AlchemyStateObservation } from "./alchemyStateModel";
+import type {
+  AlchemySetupStatus,
+  AlchemyStack,
+  AlchemyStateObservation,
+} from "./alchemyStateModel";
 import { REPOSITORY_ROOT_DIRECTORY } from "./repositoryRootDirectory";
 
 const { array, literal, number, object, optional, string, union } = v;
@@ -190,6 +194,23 @@ export function stageResources(stage: {
         ? [{ fqn, state }]
         : [],
     ),
+  };
+}
+
+/**
+The setup status of a repository_actions repository. A first deploy has its run record before it
+writes its output, so a `prod` stage exists while that deploy runs. A stage without an output has no
+`deployedHeadCommit`, which comes from the run record in the output.
+*/
+export function readAlchemySetupStatus(
+  stacks: readonly AlchemyStack[],
+  repository: string,
+): AlchemySetupStatus {
+  const stack = stacks.find((candidate) => candidate.name === repository);
+  return {
+    state: stack?.stages.some((stage) => stage.name === "prod" && stage.deployedHeadCommit)
+      ? "done"
+      : "in_progress",
   };
 }
 

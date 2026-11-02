@@ -501,7 +501,7 @@ describe("account deletion organization boundary", () => {
       }),
     ).resolves.toEqual({ state: "waiting", blocker: "active_repository_deletion" });
 
-    const { githubAuthorizationId, manualWriteId } = await t.run(async (ctx) => {
+    const githubAuthorizationId = await t.run(async (ctx) => {
       await ctx.db.patch(deletionRunId, {
         state: "failed",
         updatedAt: 5,
@@ -519,7 +519,8 @@ describe("account deletion organization boundary", () => {
         createdAt: 6,
         updatedAt: 6,
       });
-      const manualWriteId = await ctx.db.insert("workflow_repositoryProvisioning_writeLocks", {
+      // Nothing can end this old row, so the deletion must not wait for it.
+      await ctx.db.insert("workflow_repositoryProvisioning_writeLocks", {
         repositoryId: ids.repositoryId,
         owner: {
           kind: "manual_provider_write",
@@ -533,7 +534,7 @@ describe("account deletion organization boundary", () => {
         updatedAt: 6,
       });
       const now = Date.now();
-      const githubAuthorizationId = await ctx.db.insert("githubUserAuthorizations", {
+      return await ctx.db.insert("githubUserAuthorizations", {
         userId: ids.deletingUserId,
         githubUserId: "deleting-user-github-id",
         githubUserLogin: "deleting-user",
@@ -545,19 +546,8 @@ describe("account deletion organization boundary", () => {
         createdAt: now,
         updatedAt: now,
       });
-      return { githubAuthorizationId, manualWriteId };
     });
 
-    await expect(
-      t.mutation(internal.accountDeletion.cleanup.inspectQuiescence, {
-        runId: ids.runId,
-        workflowId,
-      }),
-    ).resolves.toEqual({ state: "waiting", blocker: "active_manual_provider_write" });
-
-    await t.run(async (ctx) => {
-      await ctx.db.patch(manualWriteId, { state: "succeeded", updatedAt: 7 });
-    });
     await expect(
       t.mutation(internal.accountDeletion.cleanup.inspectQuiescence, {
         runId: ids.runId,
@@ -975,6 +965,90 @@ describe("account deletion organization boundary", () => {
       }
     },
   );
+
+  it("leaves Workers and Convex projects alone and does not tell the user to revoke Convex", async () => {
+    const { ids, t } = await seedRunningDeletion();
+    const { organizationId, repositoryId } = ids;
+    const seeded = await t.run(async (ctx) => ({
+      workerId: await ctx.db.insert("repositoryCloudflareWorkers", {
+        repositoryId,
+        organizationId,
+        accountId: "cloudflare-account",
+        workerName: "shared-app",
+        workerTag: "shared-app-tag",
+        rootDirectory: "/",
+        origin: "provisioned",
+      }),
+      projectId: await ctx.db.insert("repositoryConvexProjects", {
+        repositoryId,
+        organizationId,
+        teamId: "convex-team",
+        projectId: "shared-app",
+        convexConfigPath: "convex.json",
+        origin: "provisioned",
+      }),
+    }));
+    vi.stubEnv("CONVEX_DEPLOYMENT", "prod:samebase");
+    vi.stubEnv("CLOUDFLARE_EMAIL_ACCOUNT_ID", "account-id");
+    vi.stubEnv("CLOUDFLARE_EMAIL_API_TOKEN", "email-token");
+    const requests: string[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        requests.push(new Request(input, init).url);
+        // Cloudflare REST response fields, checked 2026-10-01:
+        // https://developers.cloudflare.com/api/resources/email_sending/methods/send/
+        return new Response(
+          JSON.stringify({
+            success: true,
+            errors: [],
+            messages: [],
+            result: {
+              delivered: ["deleting@example.invalid"],
+              message_id: "<deletion@samebase.com>",
+              permanent_bounces: [],
+              queued: [],
+              suppressed_recipients: [],
+            },
+          }),
+        );
+      }),
+    );
+
+    await prepareIdentityDeletionData(t, ids.runId);
+    await t.action(internal.accountDeletion.completionEmail.sendForAccountDeletion, {
+      runId: ids.runId,
+      workflowId,
+    });
+
+    await expect(
+      t.run(async (ctx) => ({
+        worker: await ctx.db.get(seeded.workerId),
+        project: await ctx.db.get(seeded.projectId),
+        repository: await ctx.db.get(repositoryId),
+      })),
+    ).resolves.toMatchObject({
+      worker: { origin: "provisioned" },
+      project: { origin: "provisioned" },
+      repository: { deletion: { state: "not_deleting" } },
+    });
+    expect(requests).toEqual([
+      "https://api.cloudflare.com/client/v4/accounts/account-id/email/sending/send",
+    ]);
+    const threads = await t.query(components.mail.mail.listThreads, {
+      inboxId: null,
+      paginationOpts: { numItems: 10, cursor: null },
+    });
+    const messages = await t.query(components.mail.mail.listMessages, {
+      threadId: threads.page[0]._id,
+      paginationOpts: { numItems: 10, cursor: null },
+    });
+    expect(messages.page[0].bodyText).toContain(
+      "External repositories, deployments, projects, and Workers were not deleted.",
+    );
+    expect(messages.page[0].bodyText).toContain("so those apps keep deploying.");
+    expect(messages.page[0].bodyText).not.toContain("revoke Samebase in Convex");
+  });
 
   it("rejects final identity deletion when an older run still has an organization membership", async () => {
     const { ids, t } = await seedRunningDeletion();

@@ -229,37 +229,6 @@ export async function listConvexManagementProjects(args: {
   }
 }
 
-export async function listConvexManagementDefaultProductionDeployments(args: {
-  token: string;
-  teamId: string;
-}): Promise<PlatformDeploymentResponse[]> {
-  const deployments: PlatformDeploymentResponse[] = [];
-  const client = createConvexManagementClient({ token: args.token });
-  let cursor: string | undefined;
-
-  for (;;) {
-    const page = await ConvexManagement.GET["/teams/{team_id}/list_deployments"]({
-      client,
-      path: { team_id: args.teamId },
-      query: {
-        cursor,
-        limit: 100,
-        deploymentType: "prod",
-        isDefault: true,
-      },
-    });
-    deployments.push(...page.items);
-
-    if (!page.pagination.hasMore) {
-      return deployments;
-    }
-    if (!page.pagination.nextCursor) {
-      throw new Error("Convex deployment pagination indicated more results without a cursor.");
-    }
-    cursor = page.pagination.nextCursor;
-  }
-}
-
 function normalizeConvexManagementResponseValue(args: {
   decimalPaths: readonly ConvexManagementResponseDecimalPath[];
   path: readonly string[];

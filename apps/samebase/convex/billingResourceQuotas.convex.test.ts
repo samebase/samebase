@@ -16,16 +16,6 @@ function projectInput(index: number, prefix = "project") {
   } as const;
 }
 
-function workerInput(index: number, prefix = "worker") {
-  return {
-    accountId: "cloudflare-account",
-    workerName: `${prefix}-${index}`,
-    workerTag: `${prefix}-tag-${index}`,
-    rootDirectory: `apps/${prefix}-${index}`,
-    origin: "selected_existing",
-  } as const;
-}
-
 async function createQuotaFixture(args: {
   githubOwnerType: GitHubOwnerType;
   plan: "free" | "pro";
@@ -136,6 +126,23 @@ async function seedProjects(
   });
 }
 
+async function seedWorker(
+  t: ConvexTest,
+  args: { organizationId: Id<"organizations">; repositoryId: Id<"repositories"> },
+): Promise<void> {
+  await t.run(async (ctx) => {
+    await ctx.db.insert("repositoryCloudflareWorkers", {
+      repositoryId: args.repositoryId,
+      organizationId: args.organizationId,
+      accountId: "cloudflare-account",
+      workerName: "worker",
+      workerTag: "worker-tag",
+      rootDirectory: "apps/worker",
+      origin: "selected_existing",
+    });
+  });
+}
+
 async function readConnectionCounts(
   t: ConvexTest,
   organizationId: Id<"organizations">,
@@ -181,37 +188,18 @@ describe("pooled organization connection quotas", () => {
     "enforces the %s pooled boundary and keeps existing connections idempotent",
     async (_label, githubOwnerType, plan, limit) => {
       const { ids, t } = await createQuotaFixture({ githubOwnerType, plan });
-      const projectIds = await seedProjects(t, { ...ids, count: limit - 2 });
-      const worker = workerInput(0);
+      await seedProjects(t, { ...ids, count: limit - 2 });
+      await seedWorker(t, ids);
 
-      const [workerId] = await t.mutation(internal.repository.cloudflareMutations.attachWorkers, {
-        repositoryId: ids.repositoryId,
-        userId: ids.userId,
-        workers: [worker],
-      });
-      expect(workerId).toBeDefined();
       await expect(
-        t.mutation(internal.repository.convexMutations.attachProjects, {
-          repositoryId: ids.repositoryId,
+        t.mutation(internal.repository.records.createInitializingExistingRepositoryForUser, {
+          organizationId: ids.organizationId,
           userId: ids.userId,
-          projects: [projectInput(limit, "blocked")],
+          githubRepositoryDatabaseId: "blocked-id",
+          githubOwnerLogin: "quota-owner",
+          githubRepositoryName: "blocked",
         }),
       ).rejects.toThrow(`Organization connection limit reached (${limit}).`);
-
-      await expect(
-        t.mutation(internal.repository.cloudflareMutations.attachWorkers, {
-          repositoryId: ids.repositoryId,
-          userId: ids.userId,
-          workers: [worker],
-        }),
-      ).resolves.toEqual([workerId]);
-      await expect(
-        t.mutation(internal.repository.convexMutations.attachProjects, {
-          repositoryId: ids.repositoryId,
-          userId: ids.userId,
-          projects: [projectInput(0)],
-        }),
-      ).resolves.toEqual([projectIds[0]]);
       await expect(
         t.mutation(internal.repository.records.connectExistingRepositoryGitHub, {
           repositoryId: ids.repositoryId,
@@ -266,14 +254,6 @@ describe("pooled organization connection quotas", () => {
         visibility: "private",
         description: null,
         convexTeamId: "convex-team",
-        plan: {
-          provisioning: "samebase",
-          cloudflareAccountId: "cloudflare-account",
-          convexProjectName: "managed-blocked",
-          convexDeploymentRegion: "aws-us-east-1",
-          cloudflareWorkerName: "managed-blocked",
-          cloudflareBuildTokenUuid: "build-token",
-        },
       }),
     ).rejects.toThrow("Organization connection limit reached (12).");
 
@@ -314,21 +294,9 @@ describe("pooled organization connection quotas", () => {
         visibility: "private",
         description: null,
         convexTeamId: "convex-team",
-        plan: {
-          provisioning: "samebase",
-          cloudflareAccountId: "cloudflare-account",
-          convexProjectName: "managed-race",
-          convexDeploymentRegion: "aws-us-east-1",
-          cloudflareWorkerName: "managed-race",
-          cloudflareBuildTokenUuid: "build-token",
-        },
       },
     );
-    await t.mutation(internal.repository.cloudflareMutations.attachWorkers, {
-      repositoryId: ids.repositoryId,
-      userId: ids.userId,
-      workers: [workerInput(0, "race")],
-    });
+    await seedWorker(t, ids);
 
     await expect(
       t.mutation(internal.repository.records.connectExistingRepositoryGitHub, {
@@ -360,174 +328,5 @@ describe("pooled organization connection quotas", () => {
       expect.objectContaining({ state: "provisioning" }),
       expect.objectContaining({ state: "provisioning" }),
     ]);
-  });
-
-  it("serializes a cross-provider last-slot race and rolls back an oversized batch", async () => {
-    {
-      const { ids, t } = await createQuotaFixture({
-        githubOwnerType: "organization",
-        plan: "free",
-      });
-      await seedProjects(t, { ...ids, count: 4 });
-
-      const writes = await Promise.allSettled([
-        t.mutation(internal.repository.cloudflareMutations.attachWorkers, {
-          repositoryId: ids.repositoryId,
-          userId: ids.userId,
-          workers: [workerInput(0, "concurrent")],
-        }),
-        t.mutation(internal.repository.convexMutations.attachProjects, {
-          repositoryId: ids.repositoryId,
-          userId: ids.userId,
-          projects: [projectInput(0, "concurrent")],
-        }),
-      ]);
-
-      expect(writes.filter((write) => write.status === "fulfilled")).toHaveLength(1);
-      expect(writes.filter((write) => write.status === "rejected")).toHaveLength(1);
-      await expect(readConnectionCounts(t, ids.organizationId)).resolves.toMatchObject({
-        total: 6,
-      });
-    }
-
-    {
-      const { ids, t } = await createQuotaFixture({
-        githubOwnerType: "organization",
-        plan: "free",
-      });
-      await seedProjects(t, { ...ids, count: 4 });
-
-      await expect(
-        t.mutation(internal.repository.cloudflareMutations.attachWorkers, {
-          repositoryId: ids.repositoryId,
-          userId: ids.userId,
-          workers: [workerInput(0, "batch"), workerInput(1, "batch")],
-        }),
-      ).rejects.toThrow("Organization connection limit reached (6).");
-      await expect(readConnectionCounts(t, ids.organizationId)).resolves.toEqual({
-        repositories: 1,
-        cloudflareWorkers: 0,
-        convexProjects: 4,
-        total: 5,
-      });
-    }
-  });
-
-  it("stops in-flight managed and manual provider writes when member billing is short", async () => {
-    {
-      const { ids, t } = await createQuotaFixture({ githubOwnerType: "user", plan: "free" });
-      const workerId = await t.run(async (ctx) => {
-        await ctx.db.patch(ids.runId, {
-          trigger: "retry",
-          state: "running",
-          currentStep: "configure_workers_builds_for_github",
-        });
-        await ctx.db.insert("workflow_repositoryProvisioning_plans", {
-          repositoryId: ids.repositoryId,
-          convexConfigPath: "convex.json",
-          convex: {
-            state: "created",
-            projectName: "quota-project",
-            deploymentRegion: "aws-us-east-1",
-            projectId: "quota-project",
-          },
-          cloudflare: {
-            state: "created",
-            workerName: "quota-worker",
-            workerTag: "quota-worker-tag",
-            rootDirectory: "",
-            buildTokenUuid: "build-token",
-          },
-          createdAt: 2,
-          updatedAt: 2,
-        });
-        await ctx.db.insert("workflow_repositoryProvisioning_writeLocks", {
-          repositoryId: ids.repositoryId,
-          owner: { kind: "managed_run", runId: ids.runId },
-          state: "active",
-          lastWriteAt: {},
-          updatedAt: 2,
-        });
-        return await ctx.db.insert("repositoryCloudflareWorkers", {
-          repositoryId: ids.repositoryId,
-          organizationId: ids.organizationId,
-          accountId: "cloudflare-account",
-          workerName: "quota-worker",
-          workerTag: "quota-worker-tag",
-          rootDirectory: "/",
-          origin: "provisioned",
-        });
-      });
-      await t.run(async (ctx) => {
-        const extraUserId = await ctx.db.insert("users", {
-          state: "active",
-          email: "managed-extra@example.invalid",
-          isApproved: true,
-          termsVersion: "2026-08-12",
-          termsAcceptedAt: 1,
-        });
-        await ctx.db.insert("organizationMemberships", {
-          organizationId: ids.organizationId,
-          userId: extraUserId,
-          role: "member",
-        });
-      });
-
-      await expect(
-        t.query(internal.repository.cloudflareMutations.readManagedWorkerConfigurationContext, {
-          runId: ids.runId,
-          userId: ids.userId,
-          repositoryId: ids.repositoryId,
-          workerId,
-        }),
-      ).rejects.toThrow("This organization needs more paid member seats.");
-    }
-
-    {
-      const { ids, t } = await createQuotaFixture({ githubOwnerType: "user", plan: "free" });
-      await t.run(async (ctx) => {
-        await ctx.db.patch(ids.runId, {
-          state: "succeeded",
-          currentStep: "finish",
-          updatedAt: 3,
-          completedAt: 3,
-        });
-      });
-      await t.mutation(internal.repository.infrastructureOperation.claimManualProviderWrite, {
-        repositoryId: ids.repositoryId,
-        userId: ids.userId,
-        actionId: "billing-limited-manual-write",
-        action: "create_cloudflare_worker",
-      });
-      await t.run(async (ctx) => {
-        const extraUserId = await ctx.db.insert("users", {
-          state: "active",
-          email: "manual-extra@example.invalid",
-          isApproved: true,
-          termsVersion: "2026-08-12",
-          termsAcceptedAt: 1,
-        });
-        await ctx.db.insert("organizationMemberships", {
-          organizationId: ids.organizationId,
-          userId: extraUserId,
-          role: "member",
-        });
-      });
-
-      await expect(
-        t.mutation(internal.repository.cloudflareMutations.recordManualWorkerCreated, {
-          repositoryId: ids.repositoryId,
-          userId: ids.userId,
-          actionId: "billing-limited-manual-write",
-          accountId: "cloudflare-account",
-          workerName: "blocked-worker",
-          workerTag: "blocked-worker-tag",
-          rootDirectory: "apps/blocked-worker",
-        }),
-      ).rejects.toThrow("This organization needs more paid member seats.");
-      await expect(readConnectionCounts(t, ids.organizationId)).resolves.toMatchObject({
-        cloudflareWorkers: 0,
-      });
-    }
   });
 });

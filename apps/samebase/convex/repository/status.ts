@@ -5,6 +5,8 @@ import { ConvexError, v } from "convex/values";
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { internalAction, type ActionCtx } from "../_generated/server";
+import { resolveGitHubAppAccess } from "../githubAppAccess";
+import { fetchGitHubRepoIdentity } from "../githubRepoApi";
 import { listOpenPullRequestsForUser } from "../repositoryPullRequests";
 import { findRepositoryByReference } from "../toolRuntime/mcpResolution";
 import {
@@ -13,26 +15,49 @@ import {
   type RepositoryStatus,
 } from "./contracts/getRepositoryStatus";
 import type { UserRepositoryResult } from "./contracts/getUserRepositories";
-import {
-  observeCloudflareWorkerBuildsForUser,
-  observeCloudflareWorkerConvexBuildAccessForUser,
-  observeCloudflareWorkersForUser,
-  observeConvexProjectsForUser,
-  readGitHubDefaultBranchForUser,
-} from "./providerObservations";
-import { readRepositorySetupStatus } from "./alchemyState";
+import { readRepositoryStacks } from "./alchemyState";
 import { isSamebaseManagedProviderPlan } from "./provisioningPlan";
-import { getPullRequestResourcesForUser } from "./pullRequestResources";
-import { buildRepositoryAttention, type RepositoryObservations } from "./repositoryStatus";
+import {
+  buildRepositoryAttention,
+  buildRepositorySetupStackStatus,
+  buildRepositoryStacksStatus,
+  type RepositoryObservations,
+} from "./repositoryStatus";
+import { isLiveConnectedRepository } from "./state";
 
 const { id } = v;
 
+/** GitHub's live default branch, which can differ from the default branch recorded at connect. */
+async function readGitHubDefaultBranch(
+  ctx: ActionCtx,
+  args: { userId: Id<"users">; repositoryId: Id<"repositories"> },
+): Promise<string> {
+  const repository = await ctx.runQuery(internal.repository.records.getByIdForUser, {
+    userId: args.userId,
+    repositoryId: args.repositoryId,
+  });
+  if (!isLiveConnectedRepository(repository)) {
+    throw new Error("Repository not found.");
+  }
+  const { octokit, githubOwnerLogin } = await resolveGitHubAppAccess(ctx, {
+    userId: args.userId,
+    target: { kind: "repository", repositoryId: args.repositoryId },
+  });
+  const identity = await fetchGitHubRepoIdentity({
+    octokit,
+    owner: githubOwnerLogin,
+    repo: repository.githubRepositoryName,
+    expectedRepoId: repository.githubRepositoryDatabaseId,
+  });
+  return identity.defaultBranch;
+}
+
 /**
-Reads what the repository overview shows with the overview's own reads: the four provider
-observations, the two pull request reads, and for a repository_actions plan the setup status from
-the team's Alchemy state store. Unlike the overview, the pull request page reads the head of
-GitHub's live default branch instead of the recorded one. A read that fails becomes unavailable
-facts, so one provider outage does not hide the others.
+Reads what the repository overview shows: the stacks of the repository in the team's Alchemy state
+store, and the GitHub read of the pull request page. Unlike the overview, that read takes the head
+of GitHub's live default branch instead of the recorded one. A read that fails becomes unavailable
+or unreadable facts, so one outage does not hide the other. Nothing here depends on an attachment
+or a creation plan: only `setupStack` needs a plan, the one of a repository_actions repository.
 */
 export async function readRepositoryStatusForUser(
   ctx: ActionCtx,
@@ -51,103 +76,40 @@ export async function readRepositoryStatusForUser(
   }
   const userId = args.userId;
   const repositoryId = repository.repositoryId;
-  const failedWorkerObservations = (workerIds: ReadonlyArray<Id<"repositoryCloudflareWorkers">>) =>
-    workerIds.map((workerId) => ({
-      state: "failed" as const,
-      workerId,
-      reason: "request_failed" as const,
-    }));
-  const attachedWorkerIds = repository.cloudflareWorkers.map((worker) => worker.workerId);
-  // One read of GitHub's live default branch serves the production builds and the default branch
-  // head, so that the production build commit is compared with the head of the branch it builds.
-  const defaultBranchRead = readGitHubDefaultBranchForUser(ctx, { userId, repositoryId }).catch(
-    () => null,
-  );
 
-  const plan = repository.providerPlan;
-  const setupStackRead: Promise<RepositoryStatus["setupStack"]> =
-    plan && !isSamebaseManagedProviderPlan(plan)
-      ? readRepositorySetupStatus(ctx, { userId, repositoryId }).catch(() => ({
-          state: "unavailable" as const,
-        }))
-      : Promise.resolve(null);
-
-  const [workers, workerBuilds, convexProjects, pullRequests, setupStack] = await Promise.all([
-    observeCloudflareWorkersForUser(ctx, { userId, repositoryId }).catch(() =>
-      failedWorkerObservations(attachedWorkerIds),
-    ),
-    defaultBranchRead
-      .then(
-        async (defaultBranch) =>
-          await observeCloudflareWorkerBuildsForUser(ctx, { userId, repositoryId, defaultBranch }),
-      )
-      .catch(() => failedWorkerObservations(attachedWorkerIds)),
-    observeConvexProjectsForUser(ctx, { userId, repositoryId }).catch(() =>
-      repository.convexProjects.map((project) => ({
-        convexProjectId: project.convexProjectId,
-        projectId: project.projectId,
-        codeLocation: project.codeLocation,
-        source: { state: "unavailable" as const, reason: "request_failed" as const },
-        provider: { state: "unavailable" as const, reason: "request_failed" as const },
-      })),
-    ),
-    defaultBranchRead.then(async (defaultBranch) =>
-      defaultBranch === null
-        ? { state: "unavailable" as const }
-        : await listOpenPullRequestsForUser(ctx, {
-            userId,
-            repositoryId,
-            defaultBranch: { source: "github", name: defaultBranch },
-            first: REPOSITORY_STATUS_PULL_REQUEST_LIMIT,
-            after: null,
-          }).then(
-            (page) => ({ state: "available" as const, page }),
-            () => ({ state: "unavailable" as const }),
-          ),
-    ),
-    setupStackRead,
-  ]);
-
-  // The overview reads deploy keys only for Workers whose Builds settings are connected.
-  const buildAccessTargets = workerBuilds.flatMap((observation) =>
-    observation.state === "available" && observation.builds.state === "connected"
-      ? [{ workerId: observation.workerId }]
-      : [],
-  );
-  const pullRequestIds =
-    pullRequests.state === "available"
-      ? (pullRequests.page.repository?.pullRequests.nodes ?? []).map(
-          (pullRequest) => pullRequest.id,
-        )
-      : [];
-  const [workerConvexBuildAccess, pullRequestResources] = await Promise.all([
-    buildAccessTargets.length === 0
-      ? []
-      : observeCloudflareWorkerConvexBuildAccessForUser(ctx, {
+  const [pullRequests, store] = await Promise.all([
+    readGitHubDefaultBranch(ctx, { userId, repositoryId })
+      .then(async (defaultBranch) => ({
+        state: "available" as const,
+        page: await listOpenPullRequestsForUser(ctx, {
           userId,
           repositoryId,
-          targets: buildAccessTargets,
-        }).catch(() =>
-          failedWorkerObservations(buildAccessTargets.map((target) => target.workerId)),
-        ),
-    pullRequestIds.length === 0
-      ? []
-      : getPullRequestResourcesForUser(ctx, { userId, repositoryId, pullRequestIds }).catch(() =>
-          pullRequestIds.map((pullRequestId) => ({
-            state: "unavailable" as const,
-            pullRequestId,
-          })),
-        ),
+          defaultBranch: { source: "github", name: defaultBranch },
+          first: REPOSITORY_STATUS_PULL_REQUEST_LIMIT,
+          after: null,
+        }),
+      }))
+      .catch(() => ({ state: "unavailable" as const })),
+    readRepositoryStacks(ctx, { userId, repositoryId }).catch(() => null),
   ]);
 
+  const plan = repository.providerPlan;
   const observations: RepositoryObservations = {
-    workers,
-    workerBuilds,
-    workerConvexBuildAccess,
-    convexProjects,
     pullRequests,
-    pullRequestResources,
-    setupStack,
+    stacks: buildRepositoryStacksStatus({
+      read: store,
+      headCommit:
+        pullRequests.state === "available"
+          ? (pullRequests.page.repository?.defaultBranch?.headCommitOid ?? null)
+          : null,
+    }),
+    setupStack:
+      plan && !isSamebaseManagedProviderPlan(plan)
+        ? buildRepositorySetupStackStatus({
+            read: store,
+            repository: repository.githubRepositoryFullName,
+          })
+        : null,
   };
   return {
     ...observations,

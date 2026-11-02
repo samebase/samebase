@@ -170,9 +170,6 @@ export const ROUTE_ACCESS_METADATA_BY_PATH = {
     access: "access_dashboard",
     appWorkspaceRouteChrome: { leftPane: "none" },
   },
-  "/repo/$owner/$repository/schema/$branch/project/$convexProjectId": {
-    access: "access_schema_graph",
-  },
   "/repo/$owner/$repository/components/$deploymentName": { access: "access_dashboard" },
   "/repo/$owner/$repository/alchemy": { access: "access_dashboard" },
   "/visual-fixture": {

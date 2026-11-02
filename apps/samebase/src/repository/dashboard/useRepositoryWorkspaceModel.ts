@@ -1,21 +1,13 @@
-import { api } from "../../../convex/_generated/api";
 import type { UserRepositoryResult } from "../../../convex/repository/contracts/getUserRepositories";
 import { useRepositoryPullRequests } from "@/repository/dashboard/useRepositoryPullRequests";
 import { useRepositorySidebarSummaries } from "@/repository/dashboard/useRepositorySidebarSummaries";
 import { repositoryDashboardQueries } from "@/routes/repository-dashboard.queries";
 import { rootQueries } from "@/routes/root.queries";
 import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
-import { useQuery as useConvexQuery } from "convex/react";
 import { useMemo } from "react";
-import {
-  buildAlchemyStackCards,
-  buildProductionEnvironmentRoots,
-} from "./repositoryEnvironmentRoots";
+import { buildAlchemyStackCards } from "./repositoryEnvironmentRoots";
 import { isWaitingForFirstCommit } from "./repositorySourceSetup";
-import type {
-  RepositoryWorkspaceModel,
-  RepositoryWorkspaceProduction,
-} from "./repositoryWorkspaceModel";
+import type { RepositoryWorkspaceModel } from "./repositoryWorkspaceModel";
 import { useRepositoryProviderObservations } from "./useRepositoryProviderObservations";
 
 function selectRepository(
@@ -33,15 +25,9 @@ function selectRepository(
   );
 }
 
-/**
-`source: "attachments"` is `?attachments` on the repository overview: the default-branch block and
-the pull request rows come from the attachment rows and their live reads, and no read consults the
-Alchemy state store of the team.
-*/
 export function useRepositoryWorkspaceModel(
   selectedRepositoryFullName: string | undefined,
   organizationOwner?: string,
-  source?: "attachments",
 ): RepositoryWorkspaceModel {
   // The loaders of the routes that render this model fetch these before the page renders, on the
   // server and on a navigation in the browser.
@@ -66,10 +52,7 @@ export function useRepositoryWorkspaceModel(
     [organizations, selectedRepository],
   );
   const accessibleSelectedRepository = selectedOrganization ? selectedRepository : null;
-  const providerObservations = useRepositoryProviderObservations(
-    accessibleSelectedRepository,
-    source,
-  );
+  const alchemyState = useRepositoryProviderObservations(accessibleSelectedRepository);
   const pullRequests = useRepositoryPullRequests({
     repository:
       accessibleSelectedRepository?.hasConnectedGitHubRepository &&
@@ -77,16 +60,9 @@ export function useRepositoryWorkspaceModel(
       !isWaitingForFirstCommit(accessibleSelectedRepository)
         ? accessibleSelectedRepository
         : null,
-    source,
-    alchemyState: providerObservations.alchemyState,
+    alchemyState,
   });
   const { data: viewerAccess } = useQuery(rootQueries.viewerAccess);
-  const cloudflareConnection = useConvexQuery(
-    api.users.getCloudflareConnectionStatus,
-    accessibleSelectedRepository
-      ? { organizationId: accessibleSelectedRepository.organizationId }
-      : "skip",
-  );
 
   const model = useMemo<RepositoryWorkspaceModel>(() => {
     const requestedOrganization = organizationOwner
@@ -133,49 +109,25 @@ export function useRepositoryWorkspaceModel(
         repositories: [],
       };
     }
-    const alchemyObservations = providerObservations.alchemy;
-    const alchemyStacks =
-      alchemyObservations.state === "loaded" ? alchemyObservations.observations.at(0) : undefined;
-    const schemaGraphEnabled = viewerAccess?.accessKeys.includes("access_schema_graph") === true;
     const defaultBranch = accessibleSelectedRepository.defaultBranch;
-    // By presence: the stacks in the team store build the default-branch block, and the attachment
-    // rows with their live reads build it otherwise. Neither builds it while the store read runs.
-    const production: RepositoryWorkspaceProduction =
-      defaultBranch && alchemyStacks
-        ? {
-            source: "stacks",
-            cards: buildAlchemyStackCards({
-              stacks: alchemyStacks,
-              stage: {
-                name: "prod",
-                // The head commit that the default-branch block shows above the cards.
-                headCommit:
-                  pullRequests.state === "current" || pullRequests.state === "stale"
-                    ? (pullRequests.defaultBranch?.headCommitOid ?? null)
-                    : null,
-                branch: defaultBranch,
-                owner: accessibleSelectedRepository.githubOwnerLogin,
-                repoName: accessibleSelectedRepository.githubRepositoryName,
-                schemaGraphEnabled,
-                repository: accessibleSelectedRepository,
-              },
-            }),
-          }
-        : {
-            source: "attachments",
-            roots:
-              !defaultBranch || alchemyObservations.state === "loading"
-                ? []
-                : buildProductionEnvironmentRoots({
-                    branch: defaultBranch,
-                    cloudflareObservations: providerObservations.cloudflare,
-                    convexObservations: providerObservations.convex,
-                    owner: accessibleSelectedRepository.githubOwnerLogin,
-                    repoName: accessibleSelectedRepository.githubRepositoryName,
-                    schemaGraphEnabled,
-                    repository: accessibleSelectedRepository,
-                  }),
-          };
+    const productionCards =
+      defaultBranch && alchemyState.state === "loaded" && alchemyState.observation.store === "found"
+        ? buildAlchemyStackCards({
+            stacks: alchemyState.observation,
+            stage: {
+              name: "prod",
+              // The head commit that the default-branch block shows above the cards.
+              headCommit:
+                pullRequests.state === "current" || pullRequests.state === "stale"
+                  ? (pullRequests.defaultBranch?.headCommitOid ?? null)
+                  : null,
+              branch: defaultBranch,
+              owner: accessibleSelectedRepository.githubOwnerLogin,
+              repoName: accessibleSelectedRepository.githubRepositoryName,
+              repository: accessibleSelectedRepository,
+            },
+          })
+        : [];
     return {
       folderState,
       organizationTreeSettings,
@@ -185,21 +137,15 @@ export function useRepositoryWorkspaceModel(
       selection: {
         state: "selected",
         workspace: {
-          alchemyObservations,
-          alchemyState: providerObservations.alchemyState,
+          alchemyState,
           access: viewerAccess
             ? {
                 state: "ready",
                 accessKeys: viewerAccess.accessKeys,
               }
             : { state: "loading" },
-          cloudflareObservations: providerObservations.cloudflare,
-          cloudflareConnection: cloudflareConnection
-            ? { state: "ready", connection: cloudflareConnection }
-            : { state: "loading" },
-          convexObservations: providerObservations.convex,
           githubRepositoryUrl: `https://github.com/${accessibleSelectedRepository.githubOwnerLogin}/${accessibleSelectedRepository.githubRepositoryName}`,
-          production,
+          productionCards,
           pullRequests,
           repository: accessibleSelectedRepository,
         },
@@ -209,11 +155,7 @@ export function useRepositoryWorkspaceModel(
       ),
     };
   }, [
-    providerObservations.alchemy,
-    providerObservations.alchemyState,
-    providerObservations.cloudflare,
-    providerObservations.convex,
-    cloudflareConnection,
+    alchemyState,
     pullRequests,
     selectedRepositoryFullName,
     selectedOrganization,

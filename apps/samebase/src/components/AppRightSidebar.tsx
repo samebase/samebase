@@ -433,11 +433,7 @@ function AuthenticatedAppRightSidebarContent({
           organizations?.length === 1
         ? organizations[0]
         : null;
-  const showOnboardingVideo =
-    repositories !== undefined &&
-    !repositories.some(
-      (repository) => repository.hasConvexProvision && repository.hasCloudflareProvision,
-    );
+  const showOnboardingVideo = repositories?.length === 0;
   const consentPrompt =
     productUpdateEmailConsent?.state === "not_decided"
       ? "product_update_email"

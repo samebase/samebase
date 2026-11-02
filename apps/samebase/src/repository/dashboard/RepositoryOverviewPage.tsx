@@ -8,8 +8,6 @@ import { PullRequestsSection } from "@/repository/dashboard/RepositoryPullReques
 import { RepositorySettings } from "@/repository/dashboard/RepositorySettings";
 import { RepositorySetupStackStatus } from "@/repository/dashboard/RepositorySetupStackStatus";
 import { RepositoryWorkspaceDataInspector } from "@/repository/dashboard/RepositoryWorkspaceDataInspector";
-import type { RepositorySettingsState } from "@/repository/dashboard/repositorySettingsState";
-import { DOCS_CLOUDFLARE_SETUP_ROUTE } from "@/routeSearch/landingPreview";
 import {
   buildRepositoryDashboardRoute,
   buildRepositorySettingsRoute,
@@ -22,11 +20,6 @@ import type { UserRepositoryResult } from "../../../convex/repository/contracts/
 import { isSamebaseManagedProviderPlan } from "../../../convex/repository/provisioningPlan";
 import type { RepositoryWorkspaceSelected } from "./repositoryWorkspaceModel";
 
-const CLOUDFLARE_GITHUB_APP_RECOVERY_URL =
-  "https://developers.cloudflare.com/workers/ci-cd/builds/git-integration/github-integration/#reinstall-the-cloudflare-github-app";
-const CLOUDFLARE_GITHUB_APP_URL = "https://github.com/apps/cloudflare-workers-and-pages";
-const CLOUDFLARE_WORKERS_AND_PAGES_URL = "https://dash.cloudflare.com/";
-
 export type RepositoryOverviewPageKind = "overview" | "settings";
 
 type RepositoryOverviewPageProps = {
@@ -36,7 +29,6 @@ type RepositoryOverviewPageProps = {
   onRetryInfrastructureProvisioning: () => void;
   onRetryRepositoryDeletion: () => void;
   page: RepositoryOverviewPageKind;
-  settingsState: RepositorySettingsState;
   workspace: RepositoryWorkspaceSelected;
 };
 
@@ -159,28 +151,6 @@ function FailureNotice({
   );
 }
 
-function IncompleteCloudflareBuildsNotice() {
-  return (
-    <div
-      className="flex flex-wrap items-start justify-between gap-3 border border-amber-200 bg-amber-50 px-4 py-3 text-amber-950"
-      role="status"
-    >
-      <div className="flex min-w-0 items-start gap-3">
-        <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" />
-        <div className="min-w-0">
-          <h2 className="text-sm font-medium">Finish Cloudflare setup</h2>
-          <div className="mt-1 text-xs leading-5 text-muted-foreground">
-            Create the first API token, then create this app&apos;s Worker in Settings.
-          </div>
-        </div>
-      </div>
-      <Button asChild size="sm" type="button" variant="outline">
-        <Link to={DOCS_CLOUDFLARE_SETUP_ROUTE}>View setup guide</Link>
-      </Button>
-    </div>
-  );
-}
-
 function RepositoryStateNotice({
   isRetryingRepositoryAction,
   onRetryInfrastructureProvisioning,
@@ -192,8 +162,6 @@ function RepositoryStateNotice({
   onRetryRepositoryDeletion: () => void;
   repository: UserRepositoryResult;
 }) {
-  const cloudflareGitHubAuthorizationTitle = `Cloudflare Workers and Pages GitHub App is not authorized for ${repository.githubRepositoryFullName}.`;
-
   if (repository.deletion.state === "delete_failed") {
     return (
       <FailureNotice
@@ -216,69 +184,11 @@ function RepositoryStateNotice({
       <FailureNotice description={repository.sourceSetup.message} title="Repository setup failed" />
     );
   }
-  if (repository.providerSetup.status === "failed") {
-    if (repository.providerSetup.message.startsWith(cloudflareGitHubAuthorizationTitle)) {
-      return (
-        <FailureNotice
-          description={
-            <>
-              <a
-                className="font-medium text-foreground underline underline-offset-4"
-                href={CLOUDFLARE_GITHUB_APP_RECOVERY_URL}
-                rel="noreferrer noopener"
-                target="_blank"
-              >
-                Cloudflare recovery guide
-              </a>
-              <ol className="mt-1 list-decimal space-y-1 pl-4">
-                <li className="pl-1">
-                  <a
-                    className="font-medium text-foreground underline underline-offset-4"
-                    href={CLOUDFLARE_GITHUB_APP_URL}
-                    rel="noreferrer noopener"
-                    target="_blank"
-                  >
-                    Open the Cloudflare Workers and Pages GitHub App
-                  </a>{" "}
-                  and uninstall it for{" "}
-                  <span className="font-mono font-medium text-foreground">
-                    {repository.githubOwnerLogin}
-                  </span>
-                  .
-                </li>
-                <li className="pl-1">
-                  <a
-                    className="font-medium text-foreground underline underline-offset-4"
-                    href={CLOUDFLARE_WORKERS_AND_PAGES_URL}
-                    rel="noreferrer noopener"
-                    target="_blank"
-                  >
-                    Open Workers &amp; Pages
-                  </a>
-                  . Select Create application, Pages, and Connect to Git. Add{" "}
-                  <span className="font-mono font-medium text-foreground">
-                    {repository.githubOwnerLogin}
-                  </span>
-                  . GitHub gives this access to the Cloudflare Workers and Pages GitHub App, not to
-                  Samebase. Select All repositories so Cloudflare can connect repositories that
-                  Samebase creates later to Workers Builds.
-                </li>
-                <li className="pl-1">Return to Samebase and select Retry.</li>
-              </ol>
-            </>
-          }
-          isRetrying={isRetryingRepositoryAction}
-          onRetry={onRetryInfrastructureProvisioning}
-          title={
-            <>
-              Cloudflare Workers and Pages GitHub App is not authorized for{" "}
-              <span className="font-mono font-semibold">{repository.githubRepositoryFullName}</span>
-              .
-            </>
-          }
-        />
-      );
-    }
+  if (
+    repository.providerSetup.status === "failed" &&
+    repository.providerPlan &&
+    !isSamebaseManagedProviderPlan(repository.providerPlan)
+  ) {
     return (
       <FailureNotice
         description={repository.providerSetup.message}
@@ -298,7 +208,6 @@ export function RepositoryOverviewPage({
   onRetryInfrastructureProvisioning,
   onRetryRepositoryDeletion,
   page,
-  settingsState,
   workspace,
 }: RepositoryOverviewPageProps) {
   const filesReadEnabled =
@@ -312,17 +221,6 @@ export function RepositoryOverviewPage({
         ? "Setting up"
         : null;
   const showRepositoryContent = workspace.repository.hasConnectedGitHubRepository;
-  const managedProviderPlan = workspace.repository.providerPlan;
-  const showIncompleteCloudflareBuilds =
-    workspace.repository.sourceSetup.status === "ready" &&
-    workspace.repository.deletion.state === "not_deleting" &&
-    workspace.repository.hasConnectedGitHubRepository &&
-    workspace.repository.hasConvexProvision &&
-    workspace.repository.cloudflareWorkers.length === 0 &&
-    isSamebaseManagedProviderPlan(managedProviderPlan) &&
-    managedProviderPlan.convex.state === "created" &&
-    managedProviderPlan.cloudflare.state === "planned" &&
-    managedProviderPlan.cloudflare.buildTokenUuid === null;
 
   return (
     <div className="min-h-full bg-background text-foreground">
@@ -337,7 +235,6 @@ export function RepositoryOverviewPage({
         <RepositorySettings
           developerToolsVisible={developerToolsVisible}
           onOpenDeleteDialog={onOpenDeleteDialog}
-          settingsState={settingsState}
           workspace={workspace}
         />
       ) : (
@@ -356,8 +253,6 @@ export function RepositoryOverviewPage({
                 {provisioningLabel}
               </span>
             </section>
-          ) : showIncompleteCloudflareBuilds ? (
-            <IncompleteCloudflareBuildsNotice />
           ) : (
             <RepositoryStateNotice
               isRetryingRepositoryAction={isRetryingRepositoryAction}
@@ -420,7 +315,7 @@ export function RepositoryOverviewLoadingPage({
             </section>
             <section>
               <div className="mb-4 h-3 w-28 bg-muted motion-safe:animate-pulse" />
-              <RepositoryOverviewLoadingLines rows={3} />
+              <RepositoryOverviewLoadingLines rows={1} />
             </section>
           </>
         ) : (

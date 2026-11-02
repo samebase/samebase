@@ -276,8 +276,6 @@ async function postHubClient(
 
 const deletionOptions = {
   removeGithubRepo: false,
-  removeConvexProvision: false,
-  removeCloudflareProvision: false,
 };
 
 /** A repository can leave Samebase only after its setup run ends. */

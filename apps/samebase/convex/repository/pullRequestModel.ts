@@ -6,14 +6,12 @@ import {
   UNKNOWN_GITHUB_STATE,
   type RepositoryCheckState,
 } from "../../shared/repositoryChecks";
-import { vCloudflareBuildState } from "./providerObservationModel";
 
 /*
-Result validators of the GitHub pull request reads in repositoryPullRequests.ts and
-pullRequestResources.ts, and the classification of one check. They live in this default-runtime
-module so that repository:getStatus can declare the same shapes and classify checks like the
-dashboard. The count validators take their state literals from shared/repositoryChecks.ts, which
-summarizes the counts.
+Result validators of the GitHub pull request reads in repositoryPullRequests.ts, and the
+classification of one check. They live in this default-runtime module so that repository:getStatus
+can declare the same shapes and classify checks like the dashboard. The count validators take their
+state literals from shared/repositoryChecks.ts, which summarizes the counts.
 */
 
 const { array, boolean, id, literal, number, object, string, union } = v;
@@ -218,113 +216,3 @@ export function classifyRepositoryCheck(check: RepositoryCheck): RepositoryCheck
       return "unknown";
   }
 }
-
-const vPullRequestConvexResource = union(
-  object({
-    state: literal("branch"),
-    convexProjectId: id("repositoryConvexProjects"),
-    rootDirectory: string(),
-    deploymentName: string(),
-    dashboardUrl: string(),
-  }),
-  object({
-    state: literal("absent"),
-    convexProjectId: id("repositoryConvexProjects"),
-    rootDirectory: string(),
-  }),
-  object({
-    state: literal("unavailable"),
-    convexProjectId: id("repositoryConvexProjects"),
-    rootDirectory: string(),
-  }),
-);
-const vCloudflareBranchPreview = union(
-  object({
-    state: literal("available"),
-    url: string(),
-    provenance: union(literal("selected_result"), literal("earlier_check")),
-  }),
-  object({ state: literal("absent") }),
-);
-const vCloudflareBuild = union(
-  object({
-    state: literal("available"),
-    uuid: string(),
-    buildState: vCloudflareBuildState,
-    logsUrl: string(),
-  }),
-  object({ state: literal("unavailable") }),
-);
-const vPullRequestWorkerResource = object({
-  workerId: id("repositoryCloudflareWorkers"),
-  workerName: string(),
-  rootDirectory: string(),
-  cloudflareBuild: vCloudflareBuild,
-  cloudflareBranchPreview: vCloudflareBranchPreview,
-});
-const vPullRequestCloudflareBuilds = union(
-  object({ state: literal("available") }),
-  object({ state: literal("unavailable") }),
-);
-const vCloudflareHostingPreview = union(
-  object({
-    kind: literal("worker"),
-    name: string(),
-    url: string(),
-  }),
-  object({
-    kind: literal("pages"),
-    name: string(),
-    url: string(),
-  }),
-);
-const vCloudflareHostingPreviewResult = union(
-  object({
-    state: literal("available"),
-    previews: array(vCloudflareHostingPreview),
-  }),
-  object({
-    state: literal("unavailable"),
-  }),
-);
-const vNetlifyHostingPreviewResult = union(
-  object({
-    state: literal("available"),
-    previews: array(object({ name: string(), url: string() })),
-  }),
-  object({
-    state: literal("unavailable"),
-  }),
-);
-const vPullRequestHostingPreviews = object({
-  cloudflare: vCloudflareHostingPreviewResult,
-  netlify: vNetlifyHostingPreviewResult,
-});
-export const vPullRequestResources = union(
-  object({
-    state: literal("available"),
-    pullRequestId: string(),
-    cloudflareBuilds: vPullRequestCloudflareBuilds,
-    /**
-    `workers` and `convexProjects` hold the attached resources. They are empty when the team store
-    holds a stack of the repository: the stages `pr-<number>` of its stacks hold the previews, which
-    the browser reads from the store.
-    */
-    workers: array(vPullRequestWorkerResource),
-    convexProjects: array(vPullRequestConvexResource),
-    hostingPreviews: vPullRequestHostingPreviews,
-  }),
-  object({
-    state: literal("unavailable"),
-    pullRequestId: string(),
-  }),
-);
-
-export type PullRequestWorkerResource = Infer<typeof vPullRequestWorkerResource>;
-export type PullRequestConvexResource = Infer<typeof vPullRequestConvexResource>;
-export type PullRequestHostingPreviews = Infer<typeof vPullRequestHostingPreviews>;
-export type PullRequestResourceRead = Infer<typeof vPullRequestResources>;
-export type PullRequestResources = Omit<
-  Extract<PullRequestResourceRead, { state: "available" }>,
-  "state"
->;

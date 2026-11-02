@@ -617,7 +617,7 @@ export async function listOpenPullRequestsForUser(
     /**
     The branch whose head commit and checks the page reports. The dashboard reads the recorded
     default branch, which its branch label shows. repository:getStatus reads GitHub's live default
-    branch, which its production build read also uses.
+    branch.
     */
     defaultBranch: { source: "recorded" } | { source: "github"; name: string };
     first: number;

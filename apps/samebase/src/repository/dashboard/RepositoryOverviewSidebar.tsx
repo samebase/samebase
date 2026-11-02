@@ -1,10 +1,6 @@
 import type { RepositoryOverviewPageKind } from "@/repository/dashboard/RepositoryOverviewPage";
 import { APP_SIDEBAR_CURRENT_LABEL_CLASS_NAME } from "@/components/appSidebarNavigation";
 import { cn } from "@/lib/utils";
-import {
-  CloudflareProviderLogo,
-  ConvexProviderLogo,
-} from "@/components/repository-dashboard/RepositoryDashboardLogos";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { toast } from "@/components/ui/use-toast";
@@ -221,11 +217,7 @@ function RepositoryRow({
     repository,
     workspace,
   });
-  const workerCount = repository.cloudflareWorkers.length;
-  const convexProjectCount = repository.convexProjects.length;
   const pullRequestCount = summary?.openPullRequestCount;
-  const workerLabel = `${workerCount} Cloudflare ${workerCount === 1 ? "Worker" : "Workers"}`;
-  const convexProjectLabel = `${convexProjectCount} Convex ${convexProjectCount === 1 ? "project" : "projects"}`;
   const settingsWarning =
     githubIdentity?.status === "renamed"
       ? { label: "Repository name changed", tone: "warning" as const }
@@ -237,7 +229,7 @@ function RepositoryRow({
     <div className="flex min-w-0 hover:bg-muted/60">
       <Link
         aria-current={selected ? "page" : undefined}
-        aria-label={`${repository.githubRepositoryFullName}, ${status.label}${workerCount > 0 ? `, ${workerLabel}` : ""}${convexProjectCount > 0 ? `, ${convexProjectLabel}` : ""}${pullRequestCount ? `, ${pullRequestCount} open ${pullRequestCount === 1 ? "pull request" : "pull requests"}` : ""}`}
+        aria-label={`${repository.githubRepositoryFullName}, ${status.label}${pullRequestCount ? `, ${pullRequestCount} open ${pullRequestCount === 1 ? "pull request" : "pull requests"}` : ""}`}
         className="block min-w-0 flex-1 py-2.5 pr-3 pl-2 text-left no-underline hover:no-underline @max-[200px]:pr-2 @max-[200px]:pl-1.5 @max-[120px]:pr-1 @max-[120px]:pl-1"
         data-repository-status={status.label}
         title={repository.githubRepositoryFullName}
@@ -263,42 +255,12 @@ function RepositoryRow({
           </span>
           <span className="min-w-0 line-clamp-2 [overflow-wrap:anywhere]">
             <span>{status.label}</span>
-            {workerCount > 0 || convexProjectCount > 0 || pullRequestCount ? (
-              <span className="@max-[200px]:hidden">
-                {workerCount > 0 ? (
-                  <span aria-label={workerLabel} className="inline-flex" title={workerLabel}>
-                    <span aria-hidden="true" className="mx-1">
-                      ·
-                    </span>
-                    {workerCount}
-                    <span className="ml-1 inline-flex h-3 w-4 items-center justify-center">
-                      <CloudflareProviderLogo />
-                    </span>
-                  </span>
-                ) : null}
-                {convexProjectCount > 0 ? (
-                  <span
-                    aria-label={convexProjectLabel}
-                    className="inline-flex"
-                    title={convexProjectLabel}
-                  >
-                    <span aria-hidden="true" className="mx-1">
-                      ·
-                    </span>
-                    {convexProjectCount}
-                    <span className="ml-1 inline-flex h-3 w-4 items-center justify-center">
-                      <ConvexProviderLogo />
-                    </span>
-                  </span>
-                ) : null}
-                {pullRequestCount ? (
-                  <span className="inline-flex">
-                    <span aria-hidden="true" className="mx-1">
-                      ·
-                    </span>
-                    {pullRequestCount} {pullRequestCount === 1 ? "PR" : "PRs"}
-                  </span>
-                ) : null}
+            {pullRequestCount ? (
+              <span className="inline-flex @max-[200px]:hidden">
+                <span aria-hidden="true" className="mx-1">
+                  ·
+                </span>
+                {pullRequestCount} {pullRequestCount === 1 ? "PR" : "PRs"}
               </span>
             ) : null}
           </span>

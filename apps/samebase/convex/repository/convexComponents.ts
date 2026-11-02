@@ -15,7 +15,7 @@ import { action } from "../functions";
 import { isRecord } from "../jsonUtils";
 import { readAlchemyStacks, readProductionConvexDeployments } from "./alchemyState";
 import { readConvexProductionDeployment } from "./convexProjectResources";
-import { fieldsFromDeclaredDocumentType, readDeclaredTables } from "./convexSchemaGraph";
+import { fieldsFromDeclaredDocumentType, readDeclaredTables } from "./convexDeclaredSchema";
 import {
   fetchConvexSystemQueryBatch,
   readConvexInspectionTarget,

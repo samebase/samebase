@@ -22,21 +22,12 @@ type RepositoryDeleteTarget = {
   githubRepositoryFullName: string;
   isSamebaseManaged: boolean;
   canRemoveGithubRepo: boolean;
-  hasConvexProvision: boolean;
-  hasCloudflareProvision: boolean;
-  canRemoveConvexProvision: boolean;
-  canRemoveCloudflareProvision: boolean;
   /**
   For a repository that its GitHub Actions set up: the attached resources, which removal keeps. Only
   the repository's Destroy app workflow destroys what its setup stack created.
   */
   setupStack: { workerNames: string[]; convexCodeLocations: string[] } | null;
 };
-
-type RepositoryDeleteOptionKey =
-  | "removeConvexProvision"
-  | "removeGithubRepo"
-  | "removeCloudflareProvision";
 
 type RepositoryDeleteProgress = "idle" | "committing" | "deleting";
 type RepositoryDeleteOperation =
@@ -48,12 +39,6 @@ type RepositoryDeleteOperation =
     }
   | { state: "committing"; didAttemptCommit: boolean }
   | { state: "deleting"; didAttemptCommit: boolean };
-
-type RepositoryDeleteOptions = {
-  removeConvexProvision: boolean;
-  removeGithubRepo: boolean;
-  removeCloudflareProvision: boolean;
-};
 
 /** What removal keeps for a repository that its GitHub Actions set up, and the destroy to run first. */
 function SetupStackRemovalNote({ target }: { target: RepositoryDeleteTarget }) {
@@ -91,13 +76,11 @@ export function RepositoryDeleteDialogContent({
   deleteError,
   didAttemptCommit,
   onCommitBeforeRemove,
-  onDeleteOptionChange,
   onOpenChange,
+  onRemoveGithubRepoChange,
   onRemoveRepository,
   progress,
-  removeConvexProvision,
   removeGithubRepo,
-  removeCloudflareProvision,
   stagedChangesCount,
   target,
 }: {
@@ -106,20 +89,17 @@ export function RepositoryDeleteDialogContent({
   deleteError: string | null;
   didAttemptCommit: boolean;
   onCommitBeforeRemove: () => void;
-  onDeleteOptionChange: (option: RepositoryDeleteOptionKey, value: boolean) => void;
   onOpenChange: (isOpen: boolean) => void;
+  onRemoveGithubRepoChange: (value: boolean) => void;
   onRemoveRepository: () => void;
   progress: RepositoryDeleteProgress;
-  removeConvexProvision: boolean;
   removeGithubRepo: boolean;
-  removeCloudflareProvision: boolean;
   stagedChangesCount: number;
   target: RepositoryDeleteTarget;
 }) {
   const hasStagedChanges = stagedChangesCount > 0;
   const isCommitting = progress === "committing";
   const isDeleting = progress === "deleting";
-  const removeCloudflareCheckboxId = "remove-cloudflare-provision";
 
   return (
     <Dialog open onOpenChange={onOpenChange}>
@@ -137,9 +117,7 @@ export function RepositoryDeleteDialogContent({
             <Checkbox
               id="remove-github-repo"
               checked={removeGithubRepo}
-              onCheckedChange={(checked) =>
-                onDeleteOptionChange("removeGithubRepo", checked === true)
-              }
+              onCheckedChange={(checked) => onRemoveGithubRepoChange(checked === true)}
               disabled={!target.canRemoveGithubRepo || isDeleting || isCommitting}
               className="mt-0.5"
             />
@@ -152,48 +130,6 @@ export function RepositoryDeleteDialogContent({
               ) : null}
             </label>
           </div>
-          {target.hasConvexProvision || target.canRemoveConvexProvision ? (
-            <div className="flex items-start gap-2">
-              <Checkbox
-                id="remove-convex-provision"
-                checked={removeConvexProvision}
-                onCheckedChange={(checked) =>
-                  onDeleteOptionChange("removeConvexProvision", checked === true)
-                }
-                disabled={!target.canRemoveConvexProvision || isDeleting || isCommitting}
-                className="mt-0.5"
-              />
-              <label htmlFor="remove-convex-provision" className="text-sm text-muted-foreground">
-                Also delete the Convex project and deployment
-                {!target.canRemoveConvexProvision ? (
-                  <div className="text-xs text-muted-foreground">
-                    Only available for infrastructure provisioned by Samebase.
-                  </div>
-                ) : null}
-              </label>
-            </div>
-          ) : null}
-          {target.hasCloudflareProvision ? (
-            <div className="flex items-start gap-2">
-              <Checkbox
-                id={removeCloudflareCheckboxId}
-                checked={removeCloudflareProvision}
-                onCheckedChange={(checked) =>
-                  onDeleteOptionChange("removeCloudflareProvision", checked === true)
-                }
-                disabled={!target.canRemoveCloudflareProvision || isDeleting || isCommitting}
-                className="mt-0.5"
-              />
-              <label htmlFor={removeCloudflareCheckboxId} className="text-sm text-muted-foreground">
-                Also delete the Cloudflare Worker
-                {!target.canRemoveCloudflareProvision ? (
-                  <div className="text-xs text-muted-foreground">
-                    Only available for Workers created from this app.
-                  </div>
-                ) : null}
-              </label>
-            </div>
-          ) : null}
           <SetupStackRemovalNote target={target} />
           {deleteError ? <div className="text-sm text-red-600">{deleteError}</div> : null}
           {commitError ? <div className="text-sm text-red-600">{commitError}</div> : null}
@@ -269,11 +205,7 @@ export function RepositoryDeleteDialog({
     deleteError: null,
     didAttemptCommit: false,
   });
-  const [options, setOptions] = useState<RepositoryDeleteOptions>({
-    removeConvexProvision: false,
-    removeGithubRepo: false,
-    removeCloudflareProvision: false,
-  });
+  const [removeGithubRepo, setRemoveGithubRepo] = useState(false);
 
   const confirmBlockedReason =
     repository.deletion.state === "deleting"
@@ -289,10 +221,6 @@ export function RepositoryDeleteDialog({
     githubRepositoryFullName: repository.githubRepositoryFullName,
     isSamebaseManaged: repository.isSamebaseManaged,
     canRemoveGithubRepo: repository.isSamebaseManaged && repository.hasConnectedGitHubRepository,
-    hasConvexProvision: repository.hasConvexProvision,
-    hasCloudflareProvision: repository.hasCloudflareProvision,
-    canRemoveConvexProvision: repository.canRemoveConvexProvision,
-    canRemoveCloudflareProvision: repository.canRemoveCloudflareProvision,
     setupStack:
       repository.providerPlan && !isSamebaseManagedProviderPlan(repository.providerPlan)
         ? {
@@ -346,13 +274,7 @@ export function RepositoryDeleteDialog({
       await deleteRepository({
         repositoryId: target.repositoryId,
         removeGithubRepo: target.isSamebaseManaged
-          ? target.canRemoveGithubRepo && options.removeGithubRepo
-          : false,
-        removeConvexProvision: target.canRemoveConvexProvision
-          ? options.removeConvexProvision
-          : false,
-        removeCloudflareProvision: target.canRemoveCloudflareProvision
-          ? options.removeCloudflareProvision
+          ? target.canRemoveGithubRepo && removeGithubRepo
           : false,
       });
       onDeleted();
@@ -377,21 +299,17 @@ export function RepositoryDeleteDialog({
       onCommitBeforeRemove={() => {
         void handleCommitBeforeRemove();
       }}
-      onDeleteOptionChange={(option, value) => {
-        setOptions((current) => ({ ...current, [option]: value }));
-      }}
       onOpenChange={(isOpen) => {
         if (!isOpen && operation.state === "idle") {
           onClose();
         }
       }}
+      onRemoveGithubRepoChange={setRemoveGithubRepo}
       onRemoveRepository={() => {
         void handleRemoveRepository();
       }}
       progress={operation.state}
-      removeConvexProvision={options.removeConvexProvision}
-      removeGithubRepo={options.removeGithubRepo}
-      removeCloudflareProvision={options.removeCloudflareProvision}
+      removeGithubRepo={removeGithubRepo}
       stagedChangesCount={repository.fileCount}
       target={target}
     />

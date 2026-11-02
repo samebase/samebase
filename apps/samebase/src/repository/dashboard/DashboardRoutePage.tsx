@@ -5,7 +5,6 @@ export type DashboardRoutePageProps = {
   organizationOwner?: string;
   page?: "overview" | "settings";
   selectedRepositoryFullName?: string;
-  source?: "attachments";
 };
 
 /**
@@ -20,7 +19,6 @@ export function DashboardRoutePage({
   organizationOwner,
   page,
   selectedRepositoryFullName,
-  source,
 }: DashboardRoutePageProps) {
   return (
     <AuthenticatedAppRoutePage>
@@ -28,7 +26,6 @@ export function DashboardRoutePage({
         organizationOwner={organizationOwner}
         page={page}
         selectedRepositoryFullName={selectedRepositoryFullName}
-        source={source}
       />
     </AuthenticatedAppRoutePage>
   );

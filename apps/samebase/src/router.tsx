@@ -5,7 +5,6 @@ import { createAppQueryClients } from "@/lib/appQueryClient";
 import { APP_WORKSPACE_MAIN_SCROLL_RESTORATION_ID } from "@/lib/appWorkspaceSidebarPreferences";
 import { AppRouteErrorPage } from "@/components/AppRouteErrorPage";
 import { parseTanStackSearch, stringifyTanStackSearch } from "@/lib/tanstackSearchParams";
-import type { Id } from "../convex/_generated/dataModel";
 
 const workspaceMainScrollSelector = `[data-scroll-restoration-id="${APP_WORKSPACE_MAIN_SCROLL_RESTORATION_ID}"]`;
 
@@ -49,15 +48,6 @@ declare module "@tanstack/react-router" {
   interface HistoryState {
     // Marks query-dialog entries so Cancel can safely return to the entry beneath them.
     settingsDeleteAccountDialog?: true;
-    repositoryDashboardDialog?:
-      | {
-          dialog: "add-cloudflare";
-          repairWorkerId?: Id<"repositoryCloudflareWorkers">;
-        }
-      | {
-          dialog: "add-convex";
-          repairProjectId?: Id<"repositoryConvexProjects">;
-        }
-      | { dialog: "delete" };
+    repositoryDashboardDialog?: { dialog: "delete" };
   }
 }

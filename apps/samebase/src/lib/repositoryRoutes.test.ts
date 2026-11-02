@@ -4,7 +4,6 @@ import {
   buildRepositoryDashboardRoute,
   buildRepositoryDatabaseRoute,
   buildRepositoryFileRoute,
-  buildRepositorySchemaRoute,
   buildRepositorySettingsRoute,
   parseRepositoryPathContext,
 } from "./repositoryRoutes";
@@ -65,19 +64,6 @@ describe("buildRepositoryDatabaseRoute", () => {
         convexProjectId: "convex-project:123",
       }),
     ).toBe("/repo/octo/repo/db/feature%2Flogin-flow/project/convex-project%3A123");
-  });
-});
-
-describe("buildRepositorySchemaRoute", () => {
-  it("builds project schema routes", () => {
-    expect(
-      buildRepositorySchemaRoute({
-        owner: "octo",
-        repoName: "repo",
-        branch: "feature/login-flow",
-        convexProjectId: "convex-project:123",
-      }),
-    ).toBe("/repo/octo/repo/schema/feature%2Flogin-flow/project/convex-project%3A123");
   });
 });
 

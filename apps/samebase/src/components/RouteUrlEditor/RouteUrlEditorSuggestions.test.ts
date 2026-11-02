@@ -24,7 +24,7 @@ describe("readSuggestionLabel", () => {
     ["/repo/samebase/inbox/", ["…/alchemy", "…/settings"]],
     ["/repo/samebase/inbox/se", ["…/settings"]],
   ])("keeps the active segment visible at %s", (pathPrefix, expected) => {
-    const routeAddress = "/repo/samebase/inbox/settings?attachments#top";
+    const routeAddress = "/repo/samebase/inbox/settings?devtools#top";
     const suggestions = readRows({ routeAddress, routeTextBeforeCursor: pathPrefix });
 
     expect(
@@ -371,7 +371,7 @@ describe("readSuggestions", () => {
     );
   });
 
-  it("lists ?attachments on the repository overview and hides ?reset", () => {
+  it("lists ?delete on the repository overview and hides ?reset", () => {
     const overviewValues = readValues({
       routeAddress: "/repo/acme/demo?",
       routeTextBeforeCursor: "/repo/acme/demo?",
@@ -381,9 +381,10 @@ describe("readSuggestions", () => {
       routeTextBeforeCursor: "/terms?",
     });
 
-    expect(overviewValues.slice(0, 2)).toEqual(["?attachments", "?delete"]);
+    expect(overviewValues.slice(0, 1)).toEqual(["?delete"]);
+    expect(overviewValues).not.toContain("?attachments");
     expect(overviewValues).not.toContain("?reset");
-    expect(termsValues).not.toContain("?attachments");
+    expect(termsValues).not.toContain("?delete");
     expect(termsValues).not.toContain("?reset");
   });
 
@@ -427,7 +428,7 @@ describe("readSuggestions", () => {
   ])("filters concrete repository paths by prefix %s", (pathPrefix, expected) => {
     expect(
       readValues({
-        routeAddress: "/repo/samebase/convex-cloudflare-email-inbox/alchemy?attachments&#top",
+        routeAddress: "/repo/samebase/convex-cloudflare-email-inbox/alchemy?devtools&#top",
         routeTextBeforeCursor: pathPrefix,
       }),
     ).toEqual(expected);

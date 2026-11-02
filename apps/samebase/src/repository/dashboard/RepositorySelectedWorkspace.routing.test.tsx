@@ -28,32 +28,12 @@ vi.mock("convex/react", async (importOriginal) => {
 vi.mock("@/components/ui/use-toast", () => ({
   toast: toastMock,
 }));
-vi.mock("./RepositoryConvexDialog", () => ({
-  RepositoryConvexDialog: () => null,
-}));
 vi.mock("./RepositoryDeleteDialog", () => ({
   RepositoryDeleteDialog: () => null,
 }));
 vi.mock("./RepositorySettings", () => ({
   RepositorySettings: () => null,
 }));
-vi.mock("./RepositoryCloudflareDialog", () => ({
-  RepositoryCloudflareDialog: ({
-    blockedReason,
-    onClose,
-  }: {
-    blockedReason: string | null;
-    onClose: () => void;
-  }) => (
-    <div role="dialog">
-      {blockedReason ? <p>{blockedReason}</p> : null}
-      <button aria-label="Close provider dialog" onClick={onClose} type="button">
-        Close
-      </button>
-    </div>
-  ),
-}));
-
 const { act } = React;
 
 function fakeRepositoryId(): Id<"repositories"> {
@@ -78,11 +58,13 @@ function LocationProbe() {
 
 function makeRepository({
   owner = "ada",
+  providerPlan = null,
   providerSetup = { status: "ready" },
   providerWrite,
   repoName = "demo",
 }: {
   owner?: string;
+  providerPlan?: UserRepositoryResult["providerPlan"];
   providerSetup?: UserRepositoryResult["providerSetup"];
   providerWrite: UserRepositoryResult["providerWrite"];
   repoName?: string;
@@ -99,7 +81,7 @@ function makeRepository({
     fileCount: 0,
     sourceSetup: { status: "ready" },
     providerSetup,
-    providerPlan: null,
+    providerPlan,
     providerWrite,
     deletion: {
       state: "not_deleting",
@@ -109,8 +91,6 @@ function makeRepository({
     hasConnectedGitHubRepository: true,
     hasConvexProvision: false,
     hasCloudflareProvision: false,
-    canRemoveConvexProvision: false,
-    canRemoveCloudflareProvision: false,
     cloudflareWorkers: [],
     convexProjects: [],
   };
@@ -124,42 +104,9 @@ function makeWorkspace(repository: UserRepositoryResult): RepositoryWorkspaceSel
       refreshFailed: false,
       reload: () => {},
     },
-    alchemyObservations: {
-      state: "loaded",
-      observations: [],
-      refreshFailed: false,
-      reload: () => {},
-    },
     access: { state: "ready", accessKeys: [] },
-    cloudflareConnection: { state: "loading" },
-    cloudflareObservations: {
-      workers: {
-        state: "loaded",
-        observations: [],
-        refreshFailed: false,
-        reload: () => {},
-      },
-      builds: {
-        state: "loaded",
-        observations: [],
-        refreshFailed: false,
-        reload: () => {},
-      },
-      convexBuildAccess: {
-        state: "loaded",
-        observations: [],
-        refreshFailed: false,
-        reload: () => {},
-      },
-    },
-    convexObservations: {
-      state: "loaded",
-      observations: [],
-      refreshFailed: false,
-      reload: () => {},
-    },
     githubRepositoryUrl: `https://github.com/${repository.githubRepositoryFullName}`,
-    production: { source: "attachments", roots: [] },
+    productionCards: [],
     pullRequests: { state: "not_requested" },
     repository,
   };
@@ -208,86 +155,100 @@ describe("RepositorySelectedWorkspace route", () => {
     });
   }
 
-  it("keeps a blocked provider dialog open with its route state", async () => {
-    const repository = makeRepository({
+  function failedSetupRepository(providerWrite: UserRepositoryResult["providerWrite"]) {
+    return makeRepository({
+      providerPlan: {
+        provisioning: "repository_actions",
+        convexConfigPath: "convex.json",
+        ciSecrets: { state: "planned" },
+      },
       providerSetup: {
-        status: "running",
-        provider: "cloudflare",
+        status: "failed",
+        provider: "github",
         runId: fakeRunId(),
-        step: "attach_worker",
+        step: "write_actions_secrets",
+        message: "GitHub Actions secrets could not be written.",
         updatedAt: 20,
       },
-      providerWrite: {
-        status: "active",
-        owner: { kind: "managed_run" },
-        lastWriteAt: {},
-      },
+      providerWrite,
     });
-    const workspace = makeWorkspace(repository);
+  }
 
-    await renderWorkspace(workspace, "/repo/ada/demo/settings?add-cloudflare&dev");
-    const element = rootElement;
-    if (!element) {
-      throw new Error("Expected the selected workspace to render.");
+  async function clickRetry() {
+    const retryButton = [...(rootElement?.querySelectorAll("button") ?? [])].find(
+      (button) => button.textContent === "Retry",
+    );
+    if (!retryButton) {
+      throw new Error("Expected the Retry button.");
     }
+    actionState.fallback.mockClear();
+    await act(async () => {
+      retryButton.click();
+    });
+  }
 
-    expect(element.querySelector('[role="dialog"]')).not.toBeNull();
-    expect(element.textContent).toContain("A provider operation is in progress.");
-    const href =
-      element.querySelector('[data-testid="router-location"]')?.getAttribute("data-href") ?? "";
-    expect(href).toContain("add-cloudflare");
-    expect(href).toContain("dev");
-  });
-
-  it("shows Cloudflare GitHub authorization recovery as a titled linked notice", async () => {
-    const owner = "noter-guest";
-    const repoName = "tmp-testing-waters";
-    const githubRepositoryFullName = `${owner}/${repoName}`;
-    const storedRecoveryUrl =
-      "https://developers.cloudflare.com/pages/configuration/git-integration/github-integration/#reinstall-the-cloudflare-github-app";
-    const recoveryUrl =
-      "https://developers.cloudflare.com/workers/ci-cd/builds/git-integration/github-integration/#reinstall-the-cloudflare-github-app";
+  it("shows the missing-store guidance without Retry for an old failed setup", async () => {
     const repository = makeRepository({
-      owner,
+      providerPlan: {
+        convexConfigPath: "convex.json",
+        convex: {
+          state: "planned",
+          teamId: "team-1",
+          projectName: "demo",
+          deploymentRegion: "aws-us-east-1",
+        },
+        cloudflare: {
+          state: "planned",
+          accountId: "account-1",
+          workerName: "demo",
+          rootDirectory: "/",
+          buildTokenUuid: null,
+        },
+      },
       providerSetup: {
         status: "failed",
         provider: "cloudflare",
         runId: fakeRunId(),
         step: "attach_worker",
-        message: `Cloudflare Workers and Pages GitHub App is not authorized for ${githubRepositoryFullName}. Follow Cloudflare's recovery steps at ${storedRecoveryUrl}: uninstall the GitHub App first, then reinstall/connect GitHub from Workers & Pages. GitHub gives this access to the Cloudflare Workers and Pages GitHub App, not to Samebase. Select All repositories so Cloudflare can connect repositories that Samebase creates later to Workers Builds, then retry.`,
+        message: "Cloudflare could not attach the Worker.",
         updatedAt: 20,
       },
       providerWrite: { status: "idle", lastWriteAt: {} },
-      repoName,
     });
 
-    await renderWorkspace(
-      makeWorkspace(repository),
-      "/repo/noter-guest/tmp-testing-waters",
-      "overview",
-    );
+    await renderWorkspace(makeWorkspace(repository), "/repo/ada/demo", "overview");
     const element = rootElement;
     if (!element) {
       throw new Error("Expected the selected workspace to render.");
     }
 
-    expect(element.querySelector("h2")?.textContent).toBe(
-      `Cloudflare Workers and Pages GitHub App is not authorized for ${githubRepositoryFullName}.`,
-    );
-    expect(element.querySelector(`a[href="${recoveryUrl}"]`)?.textContent).toBe(
-      "Cloudflare recovery guide",
-    );
-    expect(
-      element.querySelector('a[href="https://github.com/apps/cloudflare-workers-and-pages"]')
-        ?.textContent,
-    ).toBe("Open the Cloudflare Workers and Pages GitHub App");
-    expect(element.querySelector('a[href="https://dash.cloudflare.com/"]')?.textContent).toBe(
-      "Open Workers & Pages",
-    );
-    expect(Array.from(element.querySelectorAll("ol li"), (step) => step.textContent)).toEqual([
-      `Open the Cloudflare Workers and Pages GitHub App and uninstall it for ${owner}.`,
-      `Open Workers & Pages. Select Create application, Pages, and Connect to Git. Add ${owner}. GitHub gives this access to the Cloudflare Workers and Pages GitHub App, not to Samebase. Select All repositories so Cloudflare can connect repositories that Samebase creates later to Workers Builds.`,
-      "Return to Samebase and select Retry.",
-    ]);
+    expect(element.textContent).not.toContain("Provider setup failed");
+    expect(element.textContent).not.toContain("Retry");
+    expect(element.textContent).toContain("Alchemy state store");
+  });
+
+  it("retries a failed provider setup", async () => {
+    const repository = failedSetupRepository({ status: "idle", lastWriteAt: {} });
+
+    await renderWorkspace(makeWorkspace(repository), "/repo/ada/demo", "overview");
+    await clickRetry();
+
+    expect(actionState.fallback).toHaveBeenCalledWith({
+      repositoryId: repository.repositoryId,
+      confirmation: undefined,
+    });
+  });
+
+  it("does not retry a failed provider setup while a provider write is active", async () => {
+    const repository = failedSetupRepository({
+      status: "active",
+      owner: { kind: "managed_run" },
+      lastWriteAt: {},
+    });
+
+    await renderWorkspace(makeWorkspace(repository), "/repo/ada/demo", "overview");
+    await clickRetry();
+
+    expect(actionState.fallback).not.toHaveBeenCalled();
   });
 });

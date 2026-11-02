@@ -29,7 +29,7 @@ export const connectRepositoryContract = {
     title: "Connect GitHub repository",
     name: "repository_connect",
     description:
-      "Connect an existing GitHub repository to Samebase as a Samebase repository, then sync its repository tree. Convex and Cloudflare stay unchanged until resources are attached, connected, or created.",
+      "Connect an existing GitHub repository to Samebase as a Samebase repository, then sync its repository tree. Convex and Cloudflare stay unchanged.",
     safety: "write",
     annotations: {
       readOnlyHint: false,
@@ -44,9 +44,9 @@ export const connectRepositoryContract = {
   doc: `Brings a repository that the organization's GitHub App installation can read into Samebase:
 creates the Samebase repository, syncs the tree, and leaves the providers deliberately unconfigured.
 The GitHub owner in githubRepositoryFullName selects the organization. Connecting never touches
-Convex or Cloudflare. This is the adoption entry point for existing projects; find and attach
-provider resources afterwards with the repository-level Convex and Cloudflare actions, or leave the
-repository GitHub-only (watching and editing a repository is a supported use on its own).
+Convex or Cloudflare. This is the adoption entry point for existing projects: a repository whose
+Alchemy stack deploys it shows that stack in Samebase, and any other repository stays GitHub-only
+(watching and editing a repository is a supported use on its own).
 
 Preconditions: organization membership and installation read access to the repository. Nothing is
 created on any provider; the only writes are Samebase's own record and the tree sync. Progress and

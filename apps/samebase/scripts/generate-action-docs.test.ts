@@ -31,10 +31,10 @@ describe("generated action documentation", () => {
     expect(llmsTxt).toContain("Every Samebase action checks its own authentication.");
     expect(llmsTxt).toContain("Authentication status is a diagnostic action,\nnot a preflight.");
     expect(llmsTxt).toContain(
-      "The repository list reports Samebase-owned workflow state and the names of attached resources.",
+      "The repository list reports Samebase-owned workflow state. It is not proof of live provider state.",
     );
     expect(llmsTxt).toContain(
-      "The repository status reads the live builds, URLs, Convex\ndeployments, checks, and pull requests of one repository. Use provider-native tools for logs,\nenvironment values, migrations, and domains.",
+      "The repository status reads the Alchemy stacks, URLs, deployed\ncommits, checks, and pull requests of one repository. Use provider-native tools for logs,\nenvironment values, migrations, and domains.",
     );
   });
 

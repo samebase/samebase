@@ -2,7 +2,7 @@ import { v, type Infer } from "convex/values";
 
 import { vRepositoryDeletionStep } from "../deletion/model";
 import type { AppFunctionMcpMetadata } from "../../../shared/convexFunctionPolicyTypes";
-import { vConvexCodeLocation } from "./convexAttachments";
+import { vConvexCodeLocation } from "./convexCodeLocation";
 import { vRepositoryActionsCiSecrets, vRepositoryProviderWriteTimes } from "../provisioningModel";
 import { vConvexDeploymentRegion } from "../../convexDeploymentRegionModel";
 
@@ -144,10 +144,6 @@ export const vManagedProviderPlan = union(
 const vManagedProviderWriteOwner = object({
   kind: literal("managed_run"),
 });
-const vManualProviderWriteOwner = object({
-  kind: literal("manual_provider_write"),
-});
-const vProviderWriteProviders = array(union(literal("convex"), literal("cloudflare")));
 
 export const vProviderWriteSummary = union(
   object({
@@ -157,12 +153,6 @@ export const vProviderWriteSummary = union(
   object({
     status: literal("active"),
     owner: vManagedProviderWriteOwner,
-    lastWriteAt: vRepositoryProviderWriteTimes,
-  }),
-  object({
-    status: literal("active"),
-    owner: vManualProviderWriteOwner,
-    affectedProviders: vProviderWriteProviders,
     lastWriteAt: vRepositoryProviderWriteTimes,
   }),
 );
@@ -218,8 +208,6 @@ const userRepositoryFields = {
   hasConnectedGitHubRepository: boolean(),
   hasConvexProvision: boolean(),
   hasCloudflareProvision: boolean(),
-  canRemoveConvexProvision: boolean(),
-  canRemoveCloudflareProvision: boolean(),
   cloudflareWorkers: array(
     object({
       workerId: id("repositoryCloudflareWorkers"),
@@ -246,11 +234,7 @@ const vUserRepositoriesResult = array(
   }),
 );
 
-/**
-The MCP list carries names, not attachment IDs: every MCP tool takes the repository as owner/name or
-repositoryId, a Worker by its name, and a Convex project by its slug. Convex project slugs and names
-are read live from Convex; null means that Samebase could not read the Convex team.
-*/
+/** The MCP list carries the repository and its setup state: every MCP tool takes owner/name or repositoryId. */
 const vMcpUserRepositoriesResult = array(
   object({
     repositoryId: userRepositoryFields.repositoryId,
@@ -265,29 +249,9 @@ const vMcpUserRepositoriesResult = array(
       object({ status: union(literal("not_applicable"), literal("ready"), literal("running")) }),
       object({ status: literal("failed"), provider: providerSetupProvider, message: string() }),
     ),
-    pendingCloudflareSetup: union(
-      v.null(),
-      object({
-        workerName: string(),
-        rootDirectory: string(),
-      }),
-    ),
     deletion: object({
       state: union(literal("not_deleting"), literal("deleting"), literal("delete_failed")),
     }),
-    cloudflareWorkers: array(
-      object({
-        workerName: string(),
-        rootDirectory: string(),
-      }),
-    ),
-    convexProjects: array(
-      object({
-        projectSlug: union(string(), v.null()),
-        projectName: union(string(), v.null()),
-        codeLocation: string(),
-      }),
-    ),
   }),
 );
 
@@ -301,7 +265,7 @@ export const getUserRepositoriesContract = {
     title: "List Samebase repositories",
     name: "repository_list",
     description:
-      "List the Samebase repositories in every organization of the account: owner/name, repositoryId, setup state, pending Cloudflare setup, the names of attached Workers, and the slugs and names of attached Convex projects. Other tools take a Convex project by its slug.",
+      "List the Samebase repositories in every organization of the account: owner/name, repositoryId, and setup state.",
     safety: "read_only",
     annotations: {
       readOnlyHint: true,
@@ -316,24 +280,9 @@ shows the organization. Other MCP tools take a repository as its owner/name or i
 Source setup, provider setup, and deletion are independent states. While deletion.state is deleting
 or delete_failed, source and provider setup are not_applicable. Do not change that repository or its
 providers. The user can retry a failed deletion in the Samebase dashboard. Provider setup status
-reports the managed work that was requested. It does not prove that every provider is attached.
+reports the setup work that was requested. It does not prove that the app is deployed.
 
-Each attached Worker shows its name and root directory. Each attached Convex project shows its slug
-and name, read live from Convex, and its code location (a convex.json path, or a convex/ directory).
-Other MCP tools take the slug, which is unique inside a Convex team; the name is for display. Both
-are null when Samebase could not read the Convex team.
-
-pendingCloudflareSetup is null unless a managed creation had no Workers Builds token, its Convex
-project is attached, and no Worker is attached. Then a ready providerSetup means that the GitHub and
-Convex work finished. Report Cloudflare setup as pending and give the user
-https://samebase.com/docs/cloudflare-setup. After the user creates the first token through
-Cloudflare's standard repository setup and deletes the temporary Worker, call
-repository_cloudflare_createWorker for this repository. It uses the planned Worker name and root
-directory and installs the Convex deploy key. Do not attach the temporary Worker or retry the
-completed managed run.
-
-Attachments are stable identities only. Current Cloudflare and Convex state is read from those
-providers when a relevant view opens; this query does not mirror it.`,
+This query reads no provider. \`repository_getStatus\` reads the live state of one repository.`,
 } as const;
 
 export type SourceSetupSummary = Infer<typeof vSourceSetupSummary>;

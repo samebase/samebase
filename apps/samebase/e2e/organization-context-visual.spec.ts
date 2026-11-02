@@ -270,18 +270,13 @@ test("shows one organization context across global pages, settings, providers, a
   await expect(organizationSettings.getByText("Owner", { exact: true })).toBeVisible();
   await expect(
     organizationSettings.getByRole("combobox", { name: "Default production region" }),
-  ).toBeVisible();
-  await expect(organizationSettings.getByText("Connect Convex", { exact: true })).toHaveCount(0);
+  ).toHaveCount(0);
   await expect(organizationSettings.getByTestId("organization-billing-section")).toBeVisible();
   await expect(rightPane.getByRole("heading", { name: "Product updates" })).toBeVisible();
-  const onboardingPoster = rightPane
-    .getByRole("heading", { name: "First time using Samebase?" })
-    .locator("..")
-    .locator("img");
-  await expect(onboardingPoster).toBeVisible();
-  await expect
-    .poll(() => onboardingPoster.evaluate((image) => image.complete && image.naturalWidth > 0))
-    .toBe(true);
+  // The account has a repository, so the onboarding video is gone.
+  await expect(rightPane.getByRole("heading", { name: "First time using Samebase?" })).toHaveCount(
+    0,
+  );
   await expect(page).toHaveScreenshot("organization-context-one-organization-settings.png", {
     ...screenshotOptions,
     fullPage: true,

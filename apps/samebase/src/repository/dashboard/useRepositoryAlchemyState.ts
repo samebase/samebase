@@ -30,7 +30,9 @@ export type RepositoryAlchemyState =
       reload: () => void;
     };
 
-type StoreResult = { state: "failed"; error: Error } | { state: "loaded"; read: AlchemyStacksRead };
+type StoreResult =
+  | { state: "failed"; error: Error }
+  | { state: "loaded"; read: AlchemyStacksRead | { store: "no_connection" } };
 
 /**
 The store read that the loader of the current page made for its first paint, when it is for this
@@ -89,7 +91,7 @@ export function useRepositoryAlchemyState(
     const { connection } = firstRead;
     return {
       state: "loaded",
-      read: connection.store === "missing" ? connection : connection.snapshot,
+      read: connection.store === "live" ? connection.snapshot : connection,
     };
   }, [firstRead]);
 
@@ -152,7 +154,7 @@ export function useRepositoryAlchemyState(
       const connection =
         target.firstRead?.state === "loaded" ? target.firstRead.connection : await readConnection();
       if (!connection || stopped) return;
-      if (connection.store === "missing") {
+      if (connection.store !== "live") {
         setResult({ target, value: { state: "loaded", read: connection } });
         return;
       }
@@ -247,17 +249,23 @@ export function useRepositoryAlchemyState(
     staleTime: 60_000,
   });
 
+  // The store lives in the Convex team of the repository, and no team means no connection to it.
   if (!repositoryId) {
-    return { state: "loaded", observation: { store: "missing" }, refreshFailed: false, reload };
+    return {
+      state: "loaded",
+      observation: { store: "no_connection" },
+      refreshFailed: false,
+      reload,
+    };
   }
   if (!current) return { state: "loading" };
   if (current.state === "failed") return { ...current, reload };
   return {
     state: "loaded",
     observation:
-      current.read.store === "missing"
-        ? current.read
-        : { ...current.read, liveDeployments: metadata.data ?? [] },
+      current.read.store === "found"
+        ? { ...current.read, liveDeployments: metadata.data ?? [] }
+        : current.read,
     refreshFailed: metadata.isError,
     reload,
   };

@@ -219,21 +219,18 @@ function renderLlmsTxt(contracts: ActionContractDoc[]): string {
 > stack, repeat it. Each new app adds a product, not another system to maintain.
 
 Samebase can create a new app in about a minute or connect an existing GitHub repository without
-touching its providers. A connected app can remain GitHub-only or attach Convex and Cloudflare
-later. In a monorepo, Samebase derives resource locations from each selected convex.json file and
-each Worker's live Workers Builds root.
+touching its providers. A new app's GitHub Actions deploy it with Alchemy, and Samebase monitors
+what the stack deployed. Repair lives in Alchemy and the coding agent, not in Samebase.
 
 The Samebase starter's core local workflow runs natively on macOS, Linux, and Windows. Its
 repository automation is TypeScript run directly by Node 24, so it does not require Bash or WSL.
 
 The dashboard gives humans one inventory of every repository they connect, its provider resources,
-derived locations, current state, direct provider coordinates, and provider or connection repair
-actions.
+current state, and direct provider coordinates.
 Every Samebase action checks its own authentication. Authentication status is a diagnostic action,
 not a preflight.
-The repository list reports Samebase-owned workflow state and the names of attached resources. It
-is not proof of live provider state. The repository status reads the live builds, URLs, Convex
-deployments, checks, and pull requests of one repository. Use provider-native tools for logs,
+The repository list reports Samebase-owned workflow state. It is not proof of live provider state. The repository status reads the Alchemy stacks, URLs, deployed
+commits, checks, and pull requests of one repository. Use provider-native tools for logs,
 environment values, migrations, and domains.
 Codex and Claude Code can add the public
 [samebase/plugin](https://github.com/samebase/plugin) marketplace and install
@@ -241,7 +238,7 @@ Codex and Claude Code can add the public
 It is not an npm package name. The plugin packages the create or connect, local repository build,
 and Git-backed hosting workflows. Cursor and other MCP clients can call the same actions directly.
 
-Apps created through Samebase live in the user's own GitHub, Convex, and Cloudflare accounts.
+Apps created through Samebase live in the user's own GitHub and Convex accounts.
 Deleting the Samebase account does not stop a running app. The knowledge is free: anyone can build
 the identical stack with no Samebase account.
 
@@ -264,8 +261,6 @@ HTML pages. Action and operate docs are raw markdown only.
   Alchemy, and how to move a Worker or Convex app
 - [The stack](https://samebase.com/docs/the-stack.md): what the app template ships and why each
   piece was chosen
-- [Cloudflare setup](https://samebase.com/docs/cloudflare-setup.md): create the first Workers Builds
-  API token, then let Samebase create the real Worker
 - [Do it yourself](https://samebase.com/docs/do-it-yourself.md): deploy the same stack by hand, for
   $0/month, with no Samebase account
 - [Receipts](https://samebase.com/docs/receipts.md): every factual claim with its primary source
@@ -277,9 +272,8 @@ HTML pages. Action and operate docs are raw markdown only.
 ## Actions
 
 Every operational action has one contract, and these are the same actions the dashboard buttons run.
-MCP tools take a repository as its GitHub owner/name, a Worker by its name, and a Convex project by
-its slug. Choose the action that matches the request, then verify the result with the repository
-status.
+MCP tools take a repository as its GitHub owner/name. Choose the action that matches the request,
+then verify the result with the repository status.
 
 ${actionLines}
 
@@ -398,7 +392,7 @@ function renderPluginManifest(): string {
           demo_recording_url: demoRecordingUrl,
           commerce: false,
           commerce_description:
-            "Samebase sells nothing through the plugin and processes no payments. Resources are created in the user's own GitHub, Convex, and Cloudflare accounts.",
+            "Samebase sells nothing through the plugin and processes no payments. Resources are created in the user's own GitHub and Convex accounts.",
         },
         publication: {
           release_notes: releaseNotes,

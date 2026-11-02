@@ -171,37 +171,25 @@ const REPOSITORY_DASHBOARD_VISUAL_MODES = [
   "repository-overview-v2",
   "repository-overview-v2-r2",
   "repository-overview-v2-auto-pagination",
-  "repository-overview-v2-cloudflare-build-status-unavailable",
-  "repository-overview-v2-cloudflare-builds-repair",
-  "repository-overview-v2-cloudflare-dialog",
-  "repository-overview-v2-cloudflare-dialog-normalized-name",
-  "repository-overview-v2-cloudflare-dialog-loading",
   "repository-overview-v2-cloudflare-github-authorization-failed",
-  "repository-overview-v2-convex-dialog",
-  "repository-overview-v2-convex-dialog-error",
-  "repository-overview-v2-convex-dialog-loading",
-  "repository-overview-v2-convex-schema",
   "repository-overview-v2-dev",
   "repository-overview-v2-delete-dialog",
   "repository-overview-v2-loading",
+  "repository-overview-v2-no-convex",
   "repository-overview-v2-partial-loading",
-  "repository-overview-v2-provider-failed",
   "repository-overview-v2-provisioning-source",
   "repository-overview-v2-provisioning-github",
   "repository-overview-v2-provisioning-early-empty",
   "repository-overview-v2-provisioning-complete-empty",
   "repository-overview-v2-provisioning-stale-empty",
   "repository-overview-v2-provisioning-commit",
-  "repository-overview-v2-provisioning-worker",
   "repository-overview-v2-provisioning-ready",
   "repository-overview-v2-root",
   "repository-overview-v2-settings",
   "repository-overview-v2-settings-active",
-  "repository-overview-v2-settings-checking",
-  "repository-overview-v2-settings-completed",
-  "repository-overview-v2-settings-drift",
-  "repository-overview-v2-settings-legacy-previews",
   "repository-overview-v2-settings-loading",
+  "repository-overview-v2-store-missing",
+  "repository-overview-v2-store-unreadable",
 ] as const satisfies readonly RepositoryOverviewVisualMode[];
 
 const REPOSITORY_SYNC_STATUS_VISUAL_MODES = [
@@ -251,7 +239,6 @@ const CONNECT_REPOSITORY_VISUAL_MODES = [
   "connect-repository-github-unavailable",
 ] as const satisfies readonly ConnectRepositoryVisualMode[];
 const NEW_APP_VISUAL_MODES = [
-  "new-app-build-token",
   "new-app-provider-blocked",
 ] as const satisfies readonly NewAppPageVisualMode[];
 const ORGANIZATION_MEMBERS_VISUAL_MODES = [
@@ -470,8 +457,8 @@ function renderVisualFixture(mode: VisualFixtureMode) {
     return <ConnectRepositoryVisualFixture />;
   }
 
-  if (mode === "new-app-build-token" || mode === "new-app-provider-blocked") {
-    return <NewAppPageVisualFixture mode={mode} />;
+  if (mode === "new-app-provider-blocked") {
+    return <NewAppPageVisualFixture />;
   }
 
   if (mode === "organization-members-page-owner") {
