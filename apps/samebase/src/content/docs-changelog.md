@@ -3,6 +3,12 @@
 What changed in Samebase, newest first. Each `v` number is the Samebase version that shipped the
 change. If a change needs action from you, the entry says so.
 
+## 2026-11-02
+
+- **v2225: Alchemy replaces the old setup.** New App uses GitHub Actions. Connections, Schema, and
+  the old status and repair tools are gone. Existing apps keep running and Workers Builds keeps
+  deploying. [Move to Alchemy](/docs/the-big-migration) to monitor those apps in Samebase.
+
 ## 2026-11-01
 
 - **v2224: Docs folder in the left nav.** The nav follows the URLs now: pages under `/docs` sit in a
