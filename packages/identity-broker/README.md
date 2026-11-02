@@ -29,9 +29,10 @@ steps.
   the account in `connector_account_id`.
 - Connectors are configuration: any OAuth 2.0 provider that publishes RFC 8414 metadata, and any
   OpenID Connect provider. `github()` and `google()` are included.
-- API resource providers authorize access without creating an identity. `convexConnection()` and
-  `cloudflareConnection()` use the same authorization and token endpoints with the standard
-  `resource` parameter. Only administrator-registered first-party apps can use them.
+- API resource providers authorize access without creating an identity. `convexConnection()`,
+  `cloudflareConnection()`, and `githubConnection()` use the same authorization and token endpoints
+  with the standard `resource` parameter. Only administrator-registered first-party apps can use
+  them.
 - `Convex.HubClient` of [`@samebase/alchemy-convex`](https://github.com/samebase/alchemy-convex), an
   Alchemy v2 resource, registers a deployment as a client at deploy time.
 

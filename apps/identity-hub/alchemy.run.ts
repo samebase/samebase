@@ -77,6 +77,10 @@ export default Alchemy.Stack(
       PROVIDER_CLOUDFLARE_OAUTH_CLIENT_SECRET: yield* Config.Redacted(
         "PROVIDER_CLOUDFLARE_OAUTH_CLIENT_SECRET",
       ),
+      PROVIDER_GITHUB_APP_CLIENT_ID: yield* Config.String("PROVIDER_GITHUB_APP_CLIENT_ID"),
+      PROVIDER_GITHUB_APP_CLIENT_SECRET: yield* Config.Redacted(
+        "PROVIDER_GITHUB_APP_CLIENT_SECRET",
+      ),
     };
     const project = yield* Convex.Project("Project", { team, name: "identity-hub" }).pipe(
       adopt(true),
