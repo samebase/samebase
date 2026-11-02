@@ -172,7 +172,6 @@ const REPOSITORY_DASHBOARD_VISUAL_MODES = [
   "repository-overview-v2-r2",
   "repository-overview-v2-auto-pagination",
   "repository-overview-v2-cloudflare-github-authorization-failed",
-  "repository-overview-v2-convex-schema",
   "repository-overview-v2-dev",
   "repository-overview-v2-delete-dialog",
   "repository-overview-v2-loading",

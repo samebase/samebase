@@ -348,7 +348,6 @@ function stackCardsOf(
       branch: "main",
       owner: repository.githubOwnerLogin,
       repoName: repository.githubRepositoryName,
-      schemaGraphEnabled: true,
       repository,
     },
   });
@@ -711,7 +710,6 @@ describe("Alchemy stack cards", () => {
       ),
     ).toEqual([
       "/repo/samebase/base-alchemy/db/main/project/convex-project-base-alchemy",
-      "/repo/samebase/base-alchemy/schema/main/project/convex-project-base-alchemy",
       "/repo/samebase/base-alchemy/components/ideal-dolphin-15",
     ]);
   });

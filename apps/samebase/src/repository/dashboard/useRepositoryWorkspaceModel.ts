@@ -109,7 +109,6 @@ export function useRepositoryWorkspaceModel(
         repositories: [],
       };
     }
-    const schemaGraphEnabled = viewerAccess?.accessKeys.includes("access_schema_graph") === true;
     const defaultBranch = accessibleSelectedRepository.defaultBranch;
     const productionCards =
       defaultBranch && alchemyState.state === "loaded" && alchemyState.observation.store === "found"
@@ -125,7 +124,6 @@ export function useRepositoryWorkspaceModel(
               branch: defaultBranch,
               owner: accessibleSelectedRepository.githubOwnerLogin,
               repoName: accessibleSelectedRepository.githubRepositoryName,
-              schemaGraphEnabled,
               repository: accessibleSelectedRepository,
             },
           })

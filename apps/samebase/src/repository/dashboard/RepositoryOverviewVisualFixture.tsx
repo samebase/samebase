@@ -39,14 +39,9 @@ import {
   RepositoryOverviewDialogsVisualFixture,
   type RepositoryOverviewDialogsVisualMode,
 } from "./RepositoryOverviewDialogsVisualFixture";
-import {
-  RepositoryConvexSchemaGraphVisualFixture,
-  type RepositoryConvexSchemaGraphVisualMode,
-} from "../../components/repository-dashboard/RepositoryConvexSchemaGraphVisualFixture";
 
 export type RepositoryOverviewVisualMode =
   | RepositoryOverviewDialogsVisualMode
-  | RepositoryConvexSchemaGraphVisualMode
   | "repository-overview-v2"
   | "repository-overview-v2-auto-pagination"
   | "repository-overview-v2-cloudflare-github-authorization-failed"
@@ -153,7 +148,6 @@ const LIST_SPACING_REPOSITORY = {
       rootDirectory: "apps/samebase",
     },
   ],
-  // The attached Convex project of the fixture stacks, whose deployment keeps its Schema route.
   convexProjects: [
     {
       convexProjectId: LIST_SPACING_CONVEX_PROJECT_ID,
@@ -708,7 +702,6 @@ function buildFixtureWorkspace({
               branch: repository.defaultBranch,
               owner: repository.githubOwnerLogin,
               repoName: repository.githubRepositoryName,
-              schemaGraphEnabled: ROLE_ACCESS_GRANTS.role_member.includes("access_schema_graph"),
               repository,
             },
           })
@@ -968,8 +961,6 @@ export function RepositoryOverviewVisualFixture({ mode }: { mode: RepositoryOver
   switch (mode) {
     case "repository-overview-v2-delete-dialog":
       return <RepositoryOverviewDialogsVisualFixture mode={mode} />;
-    case "repository-overview-v2-convex-schema":
-      return <RepositoryConvexSchemaGraphVisualFixture mode={mode} />;
     case "repository-overview-v2-cloudflare-github-authorization-failed":
     case "repository-overview-v2-provisioning-source":
     case "repository-overview-v2-provisioning-github":

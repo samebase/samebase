@@ -284,11 +284,7 @@ describe("AppWorkspaceShell", () => {
   });
 
   it("does not inherit no-left metadata into ordinary child routes", () => {
-    for (const route of [
-      "/logo",
-      "/repo/ada/demo",
-      "/repo/ada/demo/schema/main/project/convex-attachment",
-    ]) {
+    for (const route of ["/logo", "/repo/ada/demo"]) {
       const markup = renderToStaticMarkup(
         <TestRouterProvider initialEntries={[route]}>
           <AppWorkspaceShell>

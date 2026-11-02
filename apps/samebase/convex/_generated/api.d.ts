@@ -136,10 +136,10 @@ import type * as repository_contracts_getUserRepositories from "../repository/co
 import type * as repository_contracts_repositoryReference from "../repository/contracts/repositoryReference.js";
 import type * as repository_contracts_retryInfrastructureProvisioning from "../repository/contracts/retryInfrastructureProvisioning.js";
 import type * as repository_convexComponents from "../repository/convexComponents.js";
+import type * as repository_convexDeclaredSchema from "../repository/convexDeclaredSchema.js";
 import type * as repository_convexDeployKeys from "../repository/convexDeployKeys.js";
 import type * as repository_convexDeploymentInspection from "../repository/convexDeploymentInspection.js";
 import type * as repository_convexProjectResources from "../repository/convexProjectResources.js";
-import type * as repository_convexSchemaGraph from "../repository/convexSchemaGraph.js";
 import type * as repository_convexSchemaGraphModel from "../repository/convexSchemaGraphModel.js";
 import type * as repository_dashboard from "../repository/dashboard.js";
 import type * as repository_dashboardModel from "../repository/dashboardModel.js";
@@ -329,10 +329,10 @@ declare const fullApi: ApiFromModules<{
   "repository/contracts/repositoryReference": typeof repository_contracts_repositoryReference;
   "repository/contracts/retryInfrastructureProvisioning": typeof repository_contracts_retryInfrastructureProvisioning;
   "repository/convexComponents": typeof repository_convexComponents;
+  "repository/convexDeclaredSchema": typeof repository_convexDeclaredSchema;
   "repository/convexDeployKeys": typeof repository_convexDeployKeys;
   "repository/convexDeploymentInspection": typeof repository_convexDeploymentInspection;
   "repository/convexProjectResources": typeof repository_convexProjectResources;
-  "repository/convexSchemaGraph": typeof repository_convexSchemaGraph;
   "repository/convexSchemaGraphModel": typeof repository_convexSchemaGraphModel;
   "repository/dashboard": typeof repository_dashboard;
   "repository/dashboardModel": typeof repository_dashboardModel;

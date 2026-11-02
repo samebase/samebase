@@ -4,7 +4,6 @@ import type { ConvexDeploymentRegion } from "../../../shared/convexDeploymentReg
 import {
   buildRepositoryComponentsRoute,
   buildRepositoryDatabaseRoute,
-  buildRepositorySchemaRoute,
 } from "@/lib/repositoryRoutes";
 import type { RepositoryAlchemyStacks } from "./useRepositoryProviderObservations";
 
@@ -117,14 +116,12 @@ function buildConvexProductionActions({
   deploymentName,
   owner,
   repoName,
-  schemaGraphEnabled,
 }: {
   branch: string;
   convexProjectId: string;
   deploymentName: string;
   owner: string;
   repoName: string;
-  schemaGraphEnabled: boolean;
 }): RepositoryEnvironmentLink[] {
   return [
     {
@@ -132,15 +129,6 @@ function buildConvexProductionActions({
       href: buildRepositoryDatabaseRoute({ owner, repoName, branch, convexProjectId }),
       label: "Data",
     },
-    ...(schemaGraphEnabled
-      ? [
-          {
-            destination: "samebase" as const,
-            href: buildRepositorySchemaRoute({ owner, repoName, branch, convexProjectId }),
-            label: "Schema",
-          },
-        ]
-      : []),
     {
       destination: "samebase",
       href: buildRepositoryComponentsRoute({ owner, repoName, deploymentName }),
@@ -163,7 +151,6 @@ type RepositoryStackCardStage =
       branch: string;
       owner: string;
       repoName: string;
-      schemaGraphEnabled: boolean;
       repository: RepositoryDashboardRepository;
     }
   | { name: `pr-${number}`; headCommit: string };
@@ -183,8 +170,7 @@ Worker's destination and the others are in its menu. The Worker whose URL is the
 
 A production Convex deployment takes its dashboard link and region from the live reads of its
 project and production deployment. A deployment without a live read, such as a preview
-deployment, links to its dashboard by name. The Schema route reads schema
-snapshots stored for an attachment row, so a deployment offers it only when its project is attached.
+deployment, links to its dashboard by name.
 
 A Worker or an R2 bucket in a namespace that a deployment binds to an installed component
 (`groupResourcesByComponent`) shows under that component, below that deployment. A component that
@@ -319,7 +305,6 @@ export function buildAlchemyStackCards({
                     deploymentName: attr.name,
                     owner: stage.owner,
                     repoName: stage.repoName,
-                    schemaGraphEnabled: stage.schemaGraphEnabled && attachedProject !== undefined,
                   })
                 : [],
             href,
