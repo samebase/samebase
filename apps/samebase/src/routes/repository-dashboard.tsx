@@ -17,12 +17,7 @@ function RepositoryDashboardRouteComponent() {
 function RepositoryDashboardRouteLeftPane() {
   const { owner, repository } = Route.useParams();
 
-  return (
-    <RepositoryDashboardLeftPane
-      page="overview"
-      selectedRepositoryFullName={`${owner}/${repository}`}
-    />
-  );
+  return <RepositoryDashboardLeftPane selectedRepositoryFullName={`${owner}/${repository}`} />;
 }
 
 export const Route = createFileRoute("/_authed/repo/$owner/$repository")({
@@ -33,6 +28,7 @@ export const Route = createFileRoute("/_authed/repo/$owner/$repository")({
         header: <RepositoryOverviewListHeader />,
         content: <RepositoryDashboardRouteLeftPane />,
       },
+      rightToggleVisibility: "desktop",
     },
     searchParamSuggestions: DASHBOARD_ROUTE_SEARCH_PARAM_SUGGESTIONS,
   },

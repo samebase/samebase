@@ -66,7 +66,6 @@ import { Route as pitchPrintMobileRouteImport } from "./routes/pitch-print-mobil
 import { Route as repositoryDashboardRouteImport } from "./routes/repository-dashboard";
 import { Route as orgMembersRouteImport } from "./routes/org-members";
 import { Route as repositoryAlchemyRouteImport } from "./routes/repository-alchemy";
-import { Route as repositorySettingsRouteImport } from "./routes/repository-settings";
 import { Route as repositoryComponentsDeploymentRouteImport } from "./routes/repository-components-deployment";
 import { Route as repositoryDatabaseProjectRouteImport } from "./routes/repository-database-project";
 import { Route as repositorySchemaProjectRouteImport } from "./routes/repository-schema-project";
@@ -358,11 +357,6 @@ const repositoryAlchemyRoute = repositoryAlchemyRouteImport.update({
   path: "/repo/$owner/$repository/alchemy",
   getParentRoute: () => authedRoute,
 } as any);
-const repositorySettingsRoute = repositorySettingsRouteImport.update({
-  id: "/repo/$owner/$repository/settings",
-  path: "/repo/$owner/$repository/settings",
-  getParentRoute: () => authedRoute,
-} as any);
 const repositoryComponentsDeploymentRoute =
   repositoryComponentsDeploymentRouteImport.update({
     id: "/repo/$owner/$repository/components/$deploymentName",
@@ -438,7 +432,6 @@ export interface FileRoutesByFullPath {
   "/repo/$owner/$repository": typeof repositoryDashboardRoute;
   "/org/$owner/settings/members": typeof orgMembersRoute;
   "/repo/$owner/$repository/alchemy": typeof repositoryAlchemyRoute;
-  "/repo/$owner/$repository/settings": typeof repositorySettingsRoute;
   "/repo/$owner/$repository/components/$deploymentName": typeof repositoryComponentsDeploymentRoute;
   "/repo/$owner/$repository/db/$branch/project/$convexProjectId": typeof repositoryDatabaseProjectRoute;
   "/repo/$owner/$repository/schema/$branch/project/$convexProjectId": typeof repositorySchemaProjectRoute;
@@ -500,7 +493,6 @@ export interface FileRoutesByTo {
   "/repo/$owner/$repository": typeof repositoryDashboardRoute;
   "/org/$owner/settings/members": typeof orgMembersRoute;
   "/repo/$owner/$repository/alchemy": typeof repositoryAlchemyRoute;
-  "/repo/$owner/$repository/settings": typeof repositorySettingsRoute;
   "/repo/$owner/$repository/components/$deploymentName": typeof repositoryComponentsDeploymentRoute;
   "/repo/$owner/$repository/db/$branch/project/$convexProjectId": typeof repositoryDatabaseProjectRoute;
   "/repo/$owner/$repository/schema/$branch/project/$convexProjectId": typeof repositorySchemaProjectRoute;
@@ -564,7 +556,6 @@ export interface FileRoutesById {
   "/_authed/repo/$owner/$repository": typeof repositoryDashboardRoute;
   "/_authed/org/$owner/settings/members": typeof orgMembersRoute;
   "/_authed/repo/$owner/$repository/alchemy": typeof repositoryAlchemyRoute;
-  "/_authed/repo/$owner/$repository/settings": typeof repositorySettingsRoute;
   "/_authed/repo/$owner/$repository/components/$deploymentName": typeof repositoryComponentsDeploymentRoute;
   "/_authed/repo/$owner/$repository/db/$branch/project/$convexProjectId": typeof repositoryDatabaseProjectRoute;
   "/_authed/repo/$owner/$repository/schema/$branch/project/$convexProjectId": typeof repositorySchemaProjectRoute;
@@ -628,7 +619,6 @@ export interface FileRouteTypes {
     | "/repo/$owner/$repository"
     | "/org/$owner/settings/members"
     | "/repo/$owner/$repository/alchemy"
-    | "/repo/$owner/$repository/settings"
     | "/repo/$owner/$repository/components/$deploymentName"
     | "/repo/$owner/$repository/db/$branch/project/$convexProjectId"
     | "/repo/$owner/$repository/schema/$branch/project/$convexProjectId";
@@ -690,7 +680,6 @@ export interface FileRouteTypes {
     | "/repo/$owner/$repository"
     | "/org/$owner/settings/members"
     | "/repo/$owner/$repository/alchemy"
-    | "/repo/$owner/$repository/settings"
     | "/repo/$owner/$repository/components/$deploymentName"
     | "/repo/$owner/$repository/db/$branch/project/$convexProjectId"
     | "/repo/$owner/$repository/schema/$branch/project/$convexProjectId";
@@ -753,7 +742,6 @@ export interface FileRouteTypes {
     | "/_authed/repo/$owner/$repository"
     | "/_authed/org/$owner/settings/members"
     | "/_authed/repo/$owner/$repository/alchemy"
-    | "/_authed/repo/$owner/$repository/settings"
     | "/_authed/repo/$owner/$repository/components/$deploymentName"
     | "/_authed/repo/$owner/$repository/db/$branch/project/$convexProjectId"
     | "/_authed/repo/$owner/$repository/schema/$branch/project/$convexProjectId";
@@ -1196,13 +1184,6 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof repositoryAlchemyRouteImport;
       parentRoute: typeof authedRoute;
     };
-    "/_authed/repo/$owner/$repository/settings": {
-      id: "/_authed/repo/$owner/$repository/settings";
-      path: "/repo/$owner/$repository/settings";
-      fullPath: "/repo/$owner/$repository/settings";
-      preLoaderRoute: typeof repositorySettingsRouteImport;
-      parentRoute: typeof authedRoute;
-    };
     "/_authed/repo/$owner/$repository/components/$deploymentName": {
       id: "/_authed/repo/$owner/$repository/components/$deploymentName";
       path: "/repo/$owner/$repository/components/$deploymentName";
@@ -1252,7 +1233,6 @@ interface authedRouteChildren {
   repositoryDashboardRoute: typeof repositoryDashboardRoute;
   orgMembersRoute: typeof orgMembersRoute;
   repositoryAlchemyRoute: typeof repositoryAlchemyRoute;
-  repositorySettingsRoute: typeof repositorySettingsRoute;
   repositoryComponentsDeploymentRoute: typeof repositoryComponentsDeploymentRoute;
   repositoryDatabaseProjectRoute: typeof repositoryDatabaseProjectRoute;
   repositorySchemaProjectRoute: typeof repositorySchemaProjectRoute;
@@ -1283,7 +1263,6 @@ const authedRouteChildren: authedRouteChildren = {
   repositoryDashboardRoute: repositoryDashboardRoute,
   orgMembersRoute: orgMembersRoute,
   repositoryAlchemyRoute: repositoryAlchemyRoute,
-  repositorySettingsRoute: repositorySettingsRoute,
   repositoryComponentsDeploymentRoute: repositoryComponentsDeploymentRoute,
   repositoryDatabaseProjectRoute: repositoryDatabaseProjectRoute,
   repositorySchemaProjectRoute: repositorySchemaProjectRoute,

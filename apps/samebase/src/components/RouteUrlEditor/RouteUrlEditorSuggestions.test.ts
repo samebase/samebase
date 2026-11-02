@@ -19,12 +19,12 @@ const memberViewer = {
 
 describe("readSuggestionLabel", () => {
   it.each([
-    ["/repo/samebase/in", ["…/inbox", "…/inbox/alchemy", "…/inbox/settings"]],
-    ["/repo/samebase/inbox", ["…/inbox", "…/alchemy", "…/settings"]],
-    ["/repo/samebase/inbox/", ["…/alchemy", "…/settings"]],
-    ["/repo/samebase/inbox/se", ["…/settings"]],
+    ["/repo/samebase/in", ["…/inbox", "…/inbox/alchemy"]],
+    ["/repo/samebase/inbox", ["…/inbox", "…/alchemy"]],
+    ["/repo/samebase/inbox/", ["…/alchemy"]],
+    ["/repo/samebase/inbox/al", ["…/alchemy"]],
   ])("keeps the active segment visible at %s", (pathPrefix, expected) => {
-    const routeAddress = "/repo/samebase/inbox/settings?devtools#top";
+    const routeAddress = "/repo/samebase/inbox/alchemy?devtools#top";
     const suggestions = readRows({ routeAddress, routeTextBeforeCursor: pathPrefix });
 
     expect(
@@ -43,7 +43,7 @@ describe("readSuggestionLabel", () => {
   });
 
   it("keeps parent context when a repository and child have the same name", () => {
-    const routeAddress = "/repo/samebase/settings";
+    const routeAddress = "/repo/samebase/alchemy";
     const suggestions = readRows({ routeAddress, routeTextBeforeCursor: routeAddress });
 
     expect(
@@ -57,7 +57,7 @@ describe("readSuggestionLabel", () => {
         });
         return `${label.start > 0 ? "…" : ""}${suggestion.value.slice(label.start)}`;
       }),
-    ).toEqual(["…/samebase/settings", "…/alchemy", "…/settings/settings"]);
+    ).toEqual(["…/samebase/alchemy", "…/alchemy/alchemy"]);
   });
 
   it.each([
@@ -309,7 +309,6 @@ describe("readSuggestions", () => {
     expect(values.filter((value) => value.startsWith("/repo/samebase/samebase"))).toEqual([
       "/repo/samebase/samebase",
       "/repo/samebase/samebase/alchemy",
-      "/repo/samebase/samebase/settings",
     ]);
     expect(values.some((value) => value.includes("$"))).toBe(false);
   });
@@ -411,15 +410,11 @@ describe("readSuggestions", () => {
       [
         "/repo/samebase/convex-cloudflare-email-inbox",
         "/repo/samebase/convex-cloudflare-email-inbox/alchemy",
-        "/repo/samebase/convex-cloudflare-email-inbox/settings",
       ],
     ],
     [
       "/repo/samebase/convex-cloudflare-email-inbox/",
-      [
-        "/repo/samebase/convex-cloudflare-email-inbox/alchemy",
-        "/repo/samebase/convex-cloudflare-email-inbox/settings",
-      ],
+      ["/repo/samebase/convex-cloudflare-email-inbox/alchemy"],
     ],
     [
       "/repo/samebase/convex-cloudflare-email-inbox/a",

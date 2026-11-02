@@ -135,14 +135,11 @@ test("shows an old app with no stack on desktop", async ({ page }) => {
     "href",
     "https://github.com/samebase/samebase/tree/main",
   );
-  await expect(fixture.getByRole("link", { name: "Overview", exact: true })).toHaveAttribute(
-    "href",
-    "/repo/samebase/samebase",
-  );
-  await expect(fixture.getByRole("link", { name: "Settings", exact: true })).toHaveAttribute(
-    "href",
-    "/repo/samebase/samebase/settings",
-  );
+  await expect(
+    fixture.getByRole("link", { name: "Open samebase/samebase on GitHub" }),
+  ).toHaveAttribute("href", "https://github.com/samebase/samebase");
+  await expect(fixture.getByRole("button", { name: "Disconnect" })).toBeEnabled();
+  await expect(fixture.getByRole("navigation", { name: "Repository" })).toHaveCount(0);
   await expect(
     fixture.getByRole("link", { name: "Open pull request #1260 on GitHub" }),
   ).toHaveAttribute("href", "https://github.com/samebase/samebase/pull/1260");
@@ -264,22 +261,6 @@ test("keeps the overview hierarchy and pull request actions clear on mobile", as
   await expect(fixture.getByText(NO_STACK_LINE, { exact: true })).toBeVisible();
   await page.evaluate(() => window.scrollTo(0, 0));
   await expect(fixture).toHaveScreenshot("repository-overview-v2-mobile.png", {
-    animations: "disabled",
-    caret: "hide",
-    maxDiffPixelRatio: 0.02,
-    scale: "css",
-  });
-});
-
-test("keeps removal in mobile settings", async ({ page }) => {
-  await page.setViewportSize({ width: 390, height: 844 });
-  const fixture = await openRepositoryOverviewV2(page, "repository-overview-v2-settings");
-
-  await expect(fixture.getByRole("button", { name: "Remove from Samebase" })).toBeEnabled();
-  await expect(fixture.getByRole("heading", { name: "Connections" })).toHaveCount(0);
-  await expect(fixture.getByRole("button", { name: "Add Cloudflare Worker" })).toHaveCount(0);
-  await expect(fixture.getByRole("button", { name: "Add Convex project" })).toHaveCount(0);
-  await expect(fixture).toHaveScreenshot("repository-overview-v2-settings-mobile.png", {
     animations: "disabled",
     caret: "hide",
     maxDiffPixelRatio: 0.02,
@@ -441,21 +422,6 @@ test("uses stable shells while independent data sources load", async ({ page }) 
       scale: "css",
     },
   );
-
-  const settingsFixture = await openRepositoryOverviewV2(
-    page,
-    "repository-overview-v2-settings-loading",
-  );
-  await expect(settingsFixture.getByLabel("Loading repository settings")).toBeVisible();
-  await expect(settingsFixture).toHaveScreenshot(
-    "repository-overview-v2-settings-loading-mobile.png",
-    {
-      animations: "disabled",
-      caret: "hide",
-      maxDiffPixelRatio: 0.02,
-      scale: "css",
-    },
-  );
 });
 
 test("keeps the commit and pull requests when the store cannot be read", async ({ page }) => {
@@ -593,13 +559,13 @@ test("reproduces the observed new repository provisioning states", async ({ page
   await expect(readyFixture.getByText(/^No open pull requests\.?$/)).toHaveCount(1);
 });
 
-test("disables Remove from Samebase while provider setup runs", async ({ page }) => {
+test("disables Disconnect while provider setup runs", async ({ page }) => {
   await page.setViewportSize({ width: 700, height: 995 });
-  const fixture = await openRepositoryOverviewV2(page, "repository-overview-v2-settings-active");
+  const fixture = await openRepositoryOverviewV2(page, "repository-overview-v2-disconnect-blocked");
 
   await expect(fixture.getByText("Repository setup is still running.")).toBeVisible();
-  await expect(fixture.getByRole("button", { name: "Remove from Samebase" })).toBeDisabled();
-  await expect(fixture).toHaveScreenshot("repository-overview-v2-settings-active.png", {
+  await expect(fixture.getByRole("button", { name: "Disconnect" })).toBeDisabled();
+  await expect(fixture).toHaveScreenshot("repository-overview-v2-disconnect-blocked.png", {
     animations: "disabled",
     caret: "hide",
     maxDiffPixelRatio: 0.02,

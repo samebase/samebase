@@ -101,7 +101,7 @@ function organization(
 }
 
 describe("RepositoryOverviewSidebar", () => {
-  it("links a repository rename warning to Repository Settings", () => {
+  it("links a repository rename warning to the repository", () => {
     const organizationId = fakeOrganizationId();
     const renamedRepository = repository(
       "agent-plugins",
@@ -125,7 +125,6 @@ describe("RepositoryOverviewSidebar", () => {
             ],
           }}
           organizationId={organizationId}
-          page="overview"
           selectedRepositoryId={renamedRepository.repositoryId}
           sidebarSummaries={{ state: "loading" }}
           repositories={[renamedRepository]}
@@ -138,10 +137,8 @@ describe("RepositoryOverviewSidebar", () => {
     expect(markup).toContain('aria-label="samebase/agent-plugins, Loading checks"');
     expect(markup).toContain('data-repository-status="Loading checks"');
     expect(markup).not.toContain('data-repository-status="Repository name changed"');
-    expect(markup).toContain(
-      'aria-label="Repository name changed for samebase/agent-plugins. Open settings"',
-    );
-    expect(markup).toContain('href="/repo/samebase/agent-plugins/settings"');
+    expect(markup).toContain('aria-label="Repository name changed for samebase/agent-plugins"');
+    expect(markup).toContain('href="/repo/samebase/agent-plugins"');
   });
 
   it("keeps the supplied repository order when the organization has no folders", () => {
@@ -151,7 +148,6 @@ describe("RepositoryOverviewSidebar", () => {
           {...FOLDER_CALLBACKS}
           folderState={EMPTY_FOLDER_STATE}
           organizationId={fakeOrganizationId()}
-          page="overview"
           selectedRepositoryId={null}
           sidebarSummaries={{ state: "loading" }}
           repositories={[
@@ -196,7 +192,6 @@ describe("RepositoryOverviewSidebar", () => {
             ],
           }}
           organizationId={samebaseOrganizationId}
-          page="overview"
           selectedRepositoryId={null}
           sidebarSummaries={{ state: "loading" }}
           repositories={[]}
@@ -232,7 +227,6 @@ describe("RepositoryOverviewSidebar", () => {
             ],
           }}
           organizationId={organizationId}
-          page="overview"
           selectedRepositoryId={null}
           sidebarSummaries={{ state: "loading" }}
           repositories={[unfiledRepository, filedRepository]}
@@ -253,7 +247,6 @@ describe("RepositoryOverviewSidebar", () => {
           {...FOLDER_CALLBACKS}
           folderState={EMPTY_FOLDER_STATE}
           organizationId={selectedRepository.organizationId}
-          page="overview"
           selectedRepositoryId={selectedRepository.repositoryId}
           sidebarSummaries={{ state: "loading" }}
           repositories={[selectedRepository]}
@@ -315,7 +308,6 @@ describe("RepositoryOverviewSidebar", () => {
                   .concat(setting),
               );
             }}
-            page="overview"
             selectedRepositoryId={selectedRepositoryId}
             sidebarSummaries={{ state: "loading" }}
             repositories={[guestbookRepository, selectedRepository]}

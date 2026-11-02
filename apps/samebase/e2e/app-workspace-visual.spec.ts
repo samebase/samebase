@@ -27,27 +27,24 @@ test.describe("route URL editor compact mobile suggestions", () => {
       element.setSelectionRange(position, position);
       element.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     }, `${origin}/rep`.length);
-    await expect(values).toHaveText(["/repo", path, `${path}/alchemy`, `${path}/settings`]);
+    await expect(values).toHaveText(["/repo", path, `${path}/alchemy`]);
     const sharedPaths = popover
       .getByTestId("route-url-editor-suggestion-path-prefix")
       .filter({ hasText: path });
-    await expect(sharedPaths).toHaveText([path, path, path]);
+    await expect(sharedPaths).toHaveText([path, path]);
     const prefixWidths = await sharedPaths.evaluateAll((elements) =>
       elements.map((element) => element.getBoundingClientRect().width),
     );
     expect(prefixWidths[0]).toBeGreaterThan(prefixWidths[1]);
-    expect(prefixWidths[1]).toBe(prefixWidths[2]);
-    for (const ending of ["/alchemy", "/settings"]) {
-      const metrics = await popover.getByText(ending, { exact: true }).evaluate((element) => {
-        const text = document.createRange();
-        text.selectNodeContents(element);
-        return {
-          available: element.getBoundingClientRect().width,
-          required: text.getBoundingClientRect().width,
-        };
-      });
-      expect(metrics.available).toBeGreaterThanOrEqual(metrics.required);
-    }
+    const metrics = await popover.getByText("/alchemy", { exact: true }).evaluate((element) => {
+      const text = document.createRange();
+      text.selectNodeContents(element);
+      return {
+        available: element.getBoundingClientRect().width,
+        required: text.getBoundingClientRect().width,
+      };
+    });
+    expect(metrics.available).toBeGreaterThanOrEqual(metrics.required);
     await expect(popover).toHaveScreenshot("route-url-editor-early-path-mobile.png", {
       animations: "disabled",
       caret: "hide",
@@ -60,7 +57,7 @@ test.describe("route URL editor compact mobile suggestions", () => {
       element.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     }, `${origin}${path}`.length);
 
-    await expect(values).toHaveText(["…/convex-cloudflare-email-inbox", "…/alchemy", "…/settings"]);
+    await expect(values).toHaveText(["…/convex-cloudflare-email-inbox", "…/alchemy"]);
     await expect(
       popover.getByRole("option", { name: `${path}/alchemy`, exact: true }),
     ).toBeVisible();
@@ -75,20 +72,9 @@ test.describe("route URL editor compact mobile suggestions", () => {
       element.setSelectionRange(position, position);
       element.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     }, `${origin}/repo/samebase/convex-clo`.length);
-    const labels = [
-      "…/convex-cloudflare-email-inbox",
-      "…/convex-cloudflare-email-inbox/alchemy",
-      "…/convex-cloudflare-email-inbox/settings",
-    ];
+    const labels = ["…/convex-cloudflare-email-inbox", "…/convex-cloudflare-email-inbox/alchemy"];
     await expect(values).toHaveText(labels);
-    await expect(values.locator("mark")).toHaveText([
-      "…",
-      "/convex-clo",
-      "…",
-      "/convex-clo",
-      "…",
-      "/convex-clo",
-    ]);
+    await expect(values.locator("mark")).toHaveText(["…", "/convex-clo", "…", "/convex-clo"]);
     await expect(popover).toHaveScreenshot("route-url-editor-middle-path-mobile.png", {
       animations: "disabled",
       caret: "hide",
@@ -97,14 +83,7 @@ test.describe("route URL editor compact mobile suggestions", () => {
 
     await input.press("ArrowDown");
     await expect(values).toHaveText(labels);
-    await expect(values.locator("mark")).toHaveText([
-      "…",
-      "/convex-clo",
-      "…",
-      "/convex-clo",
-      "…",
-      "/convex-clo",
-    ]);
+    await expect(values.locator("mark")).toHaveText(["…", "/convex-clo", "…", "/convex-clo"]);
     await input.press("Enter");
     await expect(input).toHaveValue(`${origin}${path}?devtools&`);
   });

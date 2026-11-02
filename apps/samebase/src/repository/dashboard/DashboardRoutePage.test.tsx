@@ -31,7 +31,6 @@ describe("DashboardRoutePage", () => {
       expect(repositoryDashboardMock).toHaveBeenCalledWith(
         {
           organizationOwner: "samebase",
-          page: undefined,
           selectedRepositoryFullName: undefined,
         },
         undefined,

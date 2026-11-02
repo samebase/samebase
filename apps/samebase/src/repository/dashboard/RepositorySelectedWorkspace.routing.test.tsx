@@ -31,8 +31,8 @@ vi.mock("@/components/ui/use-toast", () => ({
 vi.mock("./RepositoryDeleteDialog", () => ({
   RepositoryDeleteDialog: () => null,
 }));
-vi.mock("./RepositorySettings", () => ({
-  RepositorySettings: () => null,
+vi.mock("./RepositoryGitHubIdentityNotice", () => ({
+  RepositoryGitHubIdentityNotice: () => null,
 }));
 const { act } = React;
 
@@ -133,11 +133,7 @@ describe("RepositorySelectedWorkspace route", () => {
     rootElement = null;
   });
 
-  async function renderWorkspace(
-    workspace: RepositoryWorkspaceSelected,
-    initialEntry: string,
-    page: "overview" | "settings" = "settings",
-  ) {
+  async function renderWorkspace(workspace: RepositoryWorkspaceSelected, initialEntry: string) {
     rootElement = document.createElement("div");
     document.body.append(rootElement);
     const mountedRoot = createRoot(rootElement);
@@ -146,7 +142,7 @@ describe("RepositorySelectedWorkspace route", () => {
     await act(async () => {
       mountedRoot.render(
         <TestRouterProvider initialEntries={[initialEntry]}>
-          <RepositorySelectedWorkspace developerToolsVisible page={page} workspace={workspace} />
+          <RepositorySelectedWorkspace developerToolsVisible workspace={workspace} />
           <LocationProbe />
         </TestRouterProvider>,
       );
@@ -216,7 +212,7 @@ describe("RepositorySelectedWorkspace route", () => {
       providerWrite: { status: "idle", lastWriteAt: {} },
     });
 
-    await renderWorkspace(makeWorkspace(repository), "/repo/ada/demo", "overview");
+    await renderWorkspace(makeWorkspace(repository), "/repo/ada/demo");
     const element = rootElement;
     if (!element) {
       throw new Error("Expected the selected workspace to render.");
@@ -230,7 +226,7 @@ describe("RepositorySelectedWorkspace route", () => {
   it("retries a failed provider setup", async () => {
     const repository = failedSetupRepository({ status: "idle", lastWriteAt: {} });
 
-    await renderWorkspace(makeWorkspace(repository), "/repo/ada/demo", "overview");
+    await renderWorkspace(makeWorkspace(repository), "/repo/ada/demo");
     expect(rootElement?.textContent).toContain("Repository setup failed");
     await clickRetry();
 
@@ -247,7 +243,7 @@ describe("RepositorySelectedWorkspace route", () => {
       lastWriteAt: {},
     });
 
-    await renderWorkspace(makeWorkspace(repository), "/repo/ada/demo", "overview");
+    await renderWorkspace(makeWorkspace(repository), "/repo/ada/demo");
     await clickRetry();
 
     expect(actionState.fallback).not.toHaveBeenCalled();

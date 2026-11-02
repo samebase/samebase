@@ -86,7 +86,6 @@ export function RepositoryOverviewPickerPane({
           organizations={organizations}
           organizationsCollapsible={globalInventory}
           organizationTreeSettings={organizationTreeSettings}
-          page="overview"
           selectedRepositoryId={null}
           sidebarSummaries={sidebarSummaries}
           repositories={repositories}

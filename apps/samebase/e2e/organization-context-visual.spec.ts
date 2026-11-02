@@ -611,14 +611,10 @@ test.describe("small screen organization context", () => {
           name: "mobile-app",
         }),
       ).toBeVisible();
-      const rightToggle = header.getByRole("button", { name: "Toggle Right Sidebar" });
-      await expect(rightToggle).toBeVisible();
-      // The server renders the toggle; the layout measures its viewport once the page hydrated.
-      await expect(page.locator('[data-sidebar-layout-part="carousel"]')).toHaveAttribute(
-        "data-viewport-measured",
-        "",
-      );
-      await rightToggle.click();
+      await expect(page.getByRole("button", { name: "Toggle Right Sidebar" })).toHaveCount(0);
+      const carousel = page.locator('[data-sidebar-layout-part="carousel"]');
+      await expect(carousel).toHaveAttribute("data-viewport-measured", "");
+      await carousel.evaluate((element) => element.scrollTo({ left: element.scrollWidth }));
       await expect(page.locator('[data-sidebar-layout-part="viewport"]')).toHaveAttribute(
         "data-mobile-pane",
         "right",

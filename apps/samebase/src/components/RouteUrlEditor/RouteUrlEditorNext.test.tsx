@@ -198,7 +198,7 @@ describe("RouteUrlEditorNext", () => {
   it("renders compact path labels with a highlighted prefix and full accessible names", () => {
     useQueryMock.mockReturnValue({ accessKeys: ROLE_ACCESS_GRANTS.role_member });
     const path = "/repo/samebase/inbox";
-    const display = renderEditor([`${path}/settings`]);
+    const display = renderEditor([`${path}/alchemy`]);
 
     act(() => {
       display.focus();
@@ -211,15 +211,11 @@ describe("RouteUrlEditorNext", () => {
     });
 
     const rows = [...(rootElement?.querySelectorAll<HTMLElement>('[role="option"]') ?? [])];
-    expect(rows.map((row) => row.textContent)).toEqual(["…/inbox", "…/alchemy", "…/settings"]);
-    expect(rows.map((row) => row.getAttribute("aria-label"))).toEqual([
-      path,
-      `${path}/alchemy`,
-      `${path}/settings`,
-    ]);
+    expect(rows.map((row) => row.textContent)).toEqual(["…/inbox", "…/alchemy"]);
+    expect(rows.map((row) => row.getAttribute("aria-label"))).toEqual([path, `${path}/alchemy`]);
     expect(
       rows.map((row) => [...row.querySelectorAll("mark")].map((mark) => mark.textContent).join("")),
-    ).toEqual(["…/inbox", "…", "…"]);
+    ).toEqual(["…/inbox", "…"]);
   });
 
   it("uses a blue pill and subtle blue row tint for developer logo routes in dev mode", () => {

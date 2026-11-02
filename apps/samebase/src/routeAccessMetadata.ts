@@ -165,7 +165,6 @@ export const ROUTE_ACCESS_METADATA_BY_PATH = {
   "/repo/": { access: "access_dashboard", appWorkspaceRouteChrome: { leftPane: "none" } },
   "/repo/$": { access: "access_files_read" },
   "/repo/$owner/$repository": { access: "access_dashboard" },
-  "/repo/$owner/$repository/settings": { access: "access_dashboard" },
   "/repo/$owner/$repository/db/$branch/project/$convexProjectId": {
     access: "access_dashboard",
     appWorkspaceRouteChrome: { leftPane: "none" },

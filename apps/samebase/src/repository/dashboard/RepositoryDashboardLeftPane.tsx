@@ -1,7 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Suspense } from "react";
 import { rootQueries } from "@/routes/root.queries";
-import type { RepositoryOverviewPageKind } from "./RepositoryOverviewPage";
 import {
   RepositoryOverviewOrganizationSidebar,
   RepositoryOverviewSidebarLoading,
@@ -10,12 +9,10 @@ import { useRepositoryTreeActions } from "./useRepositoryTreeActions";
 import { useRepositoryWorkspaceModel } from "./useRepositoryWorkspaceModel";
 
 type RepositoryDashboardLeftPaneProps = {
-  page: RepositoryOverviewPageKind;
   selectedRepositoryFullName: string;
 };
 
 function RepositoryDashboardLeftPaneTree({
-  page,
   selectedRepositoryFullName,
 }: RepositoryDashboardLeftPaneProps) {
   const workspaceModel = useRepositoryWorkspaceModel(selectedRepositoryFullName);
@@ -34,7 +31,6 @@ function RepositoryDashboardLeftPaneTree({
       organizations={workspaceModel.organizations}
       organizationsCollapsible
       organizationTreeSettings={workspaceModel.organizationTreeSettings}
-      page={page}
       selectedRepositoryId={selectedWorkspace?.repository.repositoryId ?? null}
       sidebarSummaries={workspaceModel.sidebarSummaries}
       repositories={workspaceModel.repositories}
