@@ -3,9 +3,10 @@
 # apps/sidebars-example/alchemy.run.ts, which runs through the shared alchemy-deploy.yml. A push to main deploys the stage
 # `prod` of both: the Convex project, its production deployment, which serves samebase.com through
 # convex-hosting, the Workers next to the app, and the Worker of the sidebars example. A pull
-# request from this repository deploys the stage `pr-<number>` of both, a Convex preview deployment
-# and a Worker with the stage in their names, and keeps one comment with the stacks of the
-# repository; closing the pull request destroys both stages. The state of every stage is in the
+# request from this repository deploys the stage `pr-<number>` of each app that it changes
+# (alchemy-changes.yml), a Convex preview deployment and a Worker with the stage in their names, and
+# keeps one comment with the stacks of the repository; closing the pull request destroys both
+# stages. The state of every stage is in the
 # `alchemy-state-store` project of the Convex team, under the stack names
 # samebase/samebase/apps/samebase and samebase/samebase/apps/sidebars-example. Each run mints its
 # Convex deploy keys with the team token CONVEX_ACCESS_TOKEN. A step that deploys a Worker also gets
@@ -37,12 +38,21 @@ env:
     == 'refs/heads/main' && 'prod' || github.ref_name) }}
 
 jobs:
+  # The build of the app reads these root files, which are in no workspace package.
+  changes:
+    name: Changes
+    uses: ./.github/workflows/alchemy-changes.yml
+    with:
+      directory: apps/samebase
+      shared-paths: runtime tsconfig.strict.json
+
   deploy:
     name: Deploy ${{ github.event_name == 'pull_request' && 'the preview' || 'production' }}
+    needs: changes
     if: >-
-      github.event.action != 'closed' && (github.event_name == 'pull_request' &&
-      github.event.pull_request.head.repo.full_name == github.repository || github.event_name !=
-      'pull_request' && github.ref == 'refs/heads/main')
+      !cancelled() && needs.changes.outputs.affected != 'false' && github.event.action != 'closed'
+      && (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name ==
+      github.repository || github.event_name != 'pull_request' && github.ref == 'refs/heads/main')
     runs-on: ubuntu-latest
     timeout-minutes: 20
     # One run per stage at a time: the state store has no lock. Pending runs wait in order instead of

@@ -1,6 +1,7 @@
 # The standard deploy of a repository with one Alchemy stack. A repository calls it from its own
 # workflow, or copies it. A push to the default branch deploys the stage `prod`. A pull request from
-# this repository deploys the stage `pr-<number>`, and closing it destroys that stage.
+# this repository deploys the stage `pr-<number>` if it changes the app (alchemy-changes.yml), and
+# closing it destroys that stage.
 #
 # Order matters, because GitHub can start runs late and a person can re-run an old one:
 # - One run per stage at a time: the state store has no lock. Pending runs wait in order instead of
@@ -46,6 +47,10 @@ on:
       node-version:
         type: string
         default: "24"
+      shared-paths:
+        description: Files and folders outside the workspace packages that change this app
+        type: string
+        default: ""
     secrets:
       CONVEX_ACCESS_TOKEN:
         required: true
@@ -60,12 +65,21 @@ env:
   CONVEX_TEAM_ID: ${{ vars.CONVEX_TEAM_ID }}
 
 jobs:
+  changes:
+    name: Changes
+    uses: ./.github/workflows/alchemy-changes.yml
+    with:
+      directory: ${{ inputs.directory }}
+      shared-paths: ${{ inputs.shared-paths }}
+
   deploy:
     name: Deploy ${{ github.event_name == 'pull_request' && 'the preview' || 'production' }}
+    needs: changes
     if: >-
-      github.event.action != 'closed' && (github.event_name == 'pull_request' &&
-      github.event.pull_request.head.repo.full_name == github.repository || github.event_name !=
-      'pull_request' && github.ref_name == github.event.repository.default_branch)
+      !cancelled() && needs.changes.outputs.affected != 'false' && github.event.action != 'closed'
+      && (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name ==
+      github.repository || github.event_name != 'pull_request' && github.ref_name ==
+      github.event.repository.default_branch)
     runs-on: ubuntu-latest
     timeout-minutes: 20
     concurrency: &stage
