@@ -46,6 +46,34 @@ Every repository of the team deploys the same way. The reference implementation 
     run per stage, a destroy that waits for its deploy, and a check of GitHub after each run gets
     its turn. A repository with several stacks keeps its own workflow and the same rules.
 
+11. **Select previews from workspace dependencies**: use the shared
+    `.github/actions/deployment-inputs` action for every app. It compares the whole pull request,
+    through its merge base, and uses pnpm's workspace graph to include transitive consumers. Do not
+    maintain app-specific path filters in workflows. Package dependencies must be declared in their
+    manifests, including build-time workspace dependencies.
+
+    Declare extra shared build inputs once in the root `package.json`, under `alchemy.inputs`:
+
+    ```json
+    { "alchemy": { "inputs": ["tools/**", "vite.config.ts"] } }
+    ```
+
+    These globs add to the standard manifests, lockfiles, patches, TypeScript configuration, and
+    workflows. A shared input affects every app. Changes to unrelated repository documentation do
+    not select an app. The action selects every app if a package manifest disappears or it cannot
+    establish a safe selection. It logs the reason. npm-only repositories remain conservative.
+
+    Run selection at the PR head with complete Git history. An unchanged app gets no preview; remove
+    a preview from an earlier revision if its changes were reverted. Perform that removal only after
+    the queued run confirms that the PR is open and its head is still current. Closing a PR always
+    runs cleanup. Production and manual runs continue to reconcile every stack with its stored
+    state, including missed or failed earlier deployments and provider drift.
+
+    Selection does not replace deployment fingerprints or cache deployments. It selects which
+    preview stacks should exist; Alchemy still manages their resources. The shared action can be
+    used by another monorepo through a pinned `samebase/samebase/.github/actions/deployment-inputs`
+    reference. The shared deploy workflow pins that action centrally.
+
 ## Why
 
 The state store is the one place that knows what exists, so Samebase can read it, destroy is safe,

@@ -208,6 +208,7 @@ export default defineConfig({
       },
       {
         files: [
+          ".github/actions/**/*.ts",
           "scripts/**/*.ts",
           "runtime/**/*.ts",
           "**/*.config.ts",

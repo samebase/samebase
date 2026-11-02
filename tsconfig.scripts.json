@@ -12,6 +12,7 @@
     "skipLibCheck": true
   },
   "include": [
+    ".github/actions/**/*.ts",
     "apps/samebase/alchemy.run.ts",
     "scripts/**/*.ts",
     "runtime/**/*.ts",

@@ -1,0 +1,26 @@
+name: Deployment inputs
+description: Select an app from the whole pull request and its workspace dependencies
+inputs:
+  directory:
+    description: The app directory relative to the repository root
+    required: true
+  base:
+    description: The pull request base commit
+    required: true
+  head:
+    description: The checked-out pull request head commit
+    required: true
+outputs:
+  changed:
+    description: Whether this app needs a preview
+    value: ${{ steps.select.outputs.changed }}
+runs:
+  using: composite
+  steps:
+    - id: select
+      shell: bash
+      env:
+        DEPLOYMENT_DIRECTORY: ${{ inputs.directory }}
+        DEPLOYMENT_BASE: ${{ inputs.base }}
+        DEPLOYMENT_HEAD: ${{ inputs.head }}
+      run: node "$GITHUB_ACTION_PATH/select.ts"
