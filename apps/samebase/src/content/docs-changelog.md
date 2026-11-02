@@ -6,8 +6,8 @@ change. If a change needs action from you, the entry says so.
 ## 2026-11-02
 
 - **v2243: Faster repository switching and steady panes.** A repository opens at once and its stacks
-  load in place. On a phone, the pane you swiped to stays in place when a page loads and when you go
-  back.
+  load in place. On a phone, the pane you swiped to stays in place while the page starts, when a
+  page loads, and when you go back.
 - **v2242: Simpler repository header.** A repository now has one page. Disconnect sits in its header
   and opens the same Remove from Samebase dialog, so the Overview and Settings tabs are gone. The
   repository name is an underlined GitHub link. On a phone, swipe to open the sidebar.

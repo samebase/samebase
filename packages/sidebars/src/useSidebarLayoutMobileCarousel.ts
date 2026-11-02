@@ -110,6 +110,34 @@ export function useSidebarLayoutMobileCarouselController({
     });
   });
 
+  // A swipe before hydration moves the server markup, and the pane that it reached replaces the saved
+  // pane. Only this first commit still has that layout: measuring the viewport changes the left pane.
+  const claimPaneOfHydration = useEffectEvent((carouselNode: HTMLDivElement) => {
+    const carouselLeftPx = carouselNode.getBoundingClientRect().left;
+    const paneOnScreen = Array.from(
+      carouselNode.querySelectorAll<HTMLElement>(':scope > [data-sidebar-layout-part="pane"]'),
+    ).reduce((closest, pane) =>
+      Math.abs(pane.getBoundingClientRect().left - carouselLeftPx) <
+      Math.abs(closest.getBoundingClientRect().left - carouselLeftPx)
+        ? pane
+        : closest,
+    );
+    const pane = paneOnScreen.dataset["paneSide"];
+    if (pane === "left" || pane === "main" || pane === "right") {
+      setMobilePane(pane);
+    }
+  });
+  useLayoutEffect(() => {
+    const carouselNode = carouselRef.current;
+    if (
+      carouselNode !== null &&
+      getComputedStyle(carouselNode).scrollSnapType !== "none" &&
+      !carouselNode.closest("[data-sidebar-layout-mobile-merged-side]")
+    ) {
+      claimPaneOfHydration(carouselNode);
+    }
+  }, [carouselRef]);
+
   useEffect(() => {
     if (isMobile) {
       return;

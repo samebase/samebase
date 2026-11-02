@@ -153,8 +153,11 @@ export function usePersistedWorkspaceSidebarState(
     }
 
     const nextServerState = persistedState ?? defaults;
-    latestServerStateRef.current = nextServerState;
     const nextServerSignature = serializeWorkspaceSidebarState(nextServerState);
+    // Hydration renders from this state, so an unchanged state must not replace a swipe made since.
+    const isNewServerState =
+      nextServerSignature !== serializeWorkspaceSidebarState(latestServerStateRef.current);
+    latestServerStateRef.current = nextServerState;
     const currentLocalSignature = serializeWorkspaceSidebarState(latestSidebarStateRef.current);
 
     if (
@@ -175,7 +178,10 @@ export function usePersistedWorkspaceSidebarState(
       pendingPersistSignatureRef.current = null;
     }
 
-    if (areWorkspaceSidebarStatesEqual(latestSidebarStateRef.current, nextServerState)) {
+    if (
+      !isNewServerState ||
+      areWorkspaceSidebarStatesEqual(latestSidebarStateRef.current, nextServerState)
+    ) {
       return;
     }
 

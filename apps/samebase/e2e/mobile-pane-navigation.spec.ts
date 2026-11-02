@@ -47,3 +47,49 @@ test("a navigation keeps the mobile pane that the user swiped to", async ({ page
   await expect(mainPane).toContainText(`${ownerLogin}/first-app`);
   await expect(workspace(page)).toHaveAttribute("data-mobile-pane", "right");
 });
+
+/**
+A phone paints the server HTML well before React hydrates. A swipe in that time wins over the saved
+pane, so hydration must not move the user. Holding the scripts makes that time as long as the test
+needs.
+*/
+test("hydration keeps the mobile pane that the user swiped to", async ({ page }, testInfo) => {
+  const suffix = `${testInfo.workerIndex}-${Date.now()}`;
+  const email = `mobile-pane-hydration-${suffix}@example.com`;
+  const ownerLogin = `org-context-mobile-pane-hydration-${suffix}`;
+
+  await createOrganizationContextAcceptanceAccount(page, email);
+  await applyOrganizationContextAcceptanceFixture({
+    email,
+    organizations: [{ access: "retain", ownerLogin, repositories: ["first-app"] }],
+  });
+
+  let releaseScripts = () => {};
+  const scriptsReleased = new Promise<void>((resolve) => {
+    releaseScripts = resolve;
+  });
+  await page.route("**/*", async (route) => {
+    if (route.request().resourceType() === "script") {
+      await scriptsReleased;
+    }
+    await route.fallback();
+  });
+  await page.goto(`/repo/${ownerLogin}/first-app`, { waitUntil: "commit" });
+  const carousel = page.locator('[data-sidebar-layout-part="carousel"]');
+  await expect(page.locator('[data-pane-side="right"]')).toBeAttached();
+
+  await carousel.evaluate((element) => {
+    element.scrollLeft = element.scrollWidth;
+  });
+  releaseScripts();
+
+  await expect(carousel).toHaveAttribute("data-viewport-measured", "");
+  await expect(workspace(page)).toHaveAttribute("data-mobile-pane", "right");
+  await expect
+    .poll(() =>
+      carousel.evaluate(
+        (element) => element.scrollWidth - element.clientWidth - element.scrollLeft,
+      ),
+    )
+    .toBe(0);
+});
