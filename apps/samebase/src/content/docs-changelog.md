@@ -5,7 +5,7 @@ change. If a change needs action from you, the entry says so.
 
 ## 2026-11-02
 
-- **v2227: One app starter.** The Alchemy starter is now
+- **v2228: One app starter.** The Alchemy starter is now
   [samebase/base](https://github.com/samebase/base). New App uses the same starter. Existing apps
   need no change.
 - **v2226: New landing video.** The home page now plays the logo film. The old demo showed the setup
