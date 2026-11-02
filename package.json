@@ -103,13 +103,5 @@
     "node": ">=24.20.0",
     "pnpm": ">=12"
   },
-  "packageManager": "pnpm@12.14.0",
-  "alchemy": {
-    "inputs": [
-      "vite.config.ts",
-      "scripts/**",
-      "runtime/**",
-      ".github/actions/**"
-    ]
-  }
+  "packageManager": "pnpm@12.14.0"
 }

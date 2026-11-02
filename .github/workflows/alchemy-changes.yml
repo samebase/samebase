@@ -1,0 +1,58 @@
+# Says if a pull request does not change an app, so that the app gets no preview. pnpm finds the
+# workspace packages that changed and every package that depends on them. It cannot see files outside
+# a package, so `git diff` checks the root files of every app, and the `shared-paths` of this app.
+# Both compare the whole pull request from its merge base.
+#
+# The output `affected` is `false` only after this proof. A caller deploys on any other value, so a
+# push, a failed job, or a repository with one app always deploys.
+name: Alchemy changes
+
+on:
+  workflow_call:
+    inputs:
+      directory:
+        description: The folder of the app
+        type: string
+        default: "."
+      shared-paths:
+        description: Other files and folders that change this app, separated by spaces
+        type: string
+        default: ""
+    outputs:
+      affected:
+        description: "`false` when the pull request does not change the app"
+        value: ${{ jobs.changes.outputs.affected }}
+
+jobs:
+  changes:
+    name: Find the changes of the app
+    if: >-
+      github.event_name == 'pull_request' && github.event.action != 'closed' &&
+      github.event.pull_request.head.repo.full_name == github.repository && inputs.directory != '.'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      affected: ${{ steps.compare.outputs.affected }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: 24
+      - name: Compare the pull request with its base
+        id: compare
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          DIRECTORY: ${{ inputs.directory }}
+          SHARED_PATHS: ${{ inputs.shared-paths }}
+        run: |
+          base=$(git merge-base "$BASE" HEAD)
+          packages=$(pnpm --filter "...[$base]" list --depth -1 --parseable)
+          if git diff --quiet "$base" HEAD -- package.json pnpm-lock.yaml pnpm-workspace.yaml patches .nvmrc .github/workflows $SHARED_PATHS &&
+            ! grep -Fxq "$PWD/$DIRECTORY" <<< "$packages"; then
+            echo "affected=false" >> "$GITHUB_OUTPUT"
+          fi

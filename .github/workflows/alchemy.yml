@@ -3,9 +3,10 @@
 # apps/sidebars-example/alchemy.run.ts, which runs through the shared alchemy-deploy.yml. A push to main deploys the stage
 # `prod` of both: the Convex project, its production deployment, which serves samebase.com through
 # convex-hosting, the Workers next to the app, and the Worker of the sidebars example. A pull
-# request from this repository deploys the stage `pr-<number>` of each affected app and keeps one
-# comment with the stacks of the repository; closing the pull request destroys both stages.
-# The state of every stage is in the
+# request from this repository deploys the stage `pr-<number>` of each app that it changes
+# (alchemy-changes.yml), a Convex preview deployment and a Worker with the stage in their names, and
+# keeps one comment with the stacks of the repository; closing the pull request destroys both
+# stages. The state of every stage is in the
 # `alchemy-state-store` project of the Convex team, under the stack names
 # samebase/samebase/apps/samebase and samebase/samebase/apps/sidebars-example. Each run mints its
 # Convex deploy keys with the team token CONVEX_ACCESS_TOKEN. A step that deploys a Worker also gets
@@ -37,12 +38,21 @@ env:
     == 'refs/heads/main' && 'prod' || github.ref_name) }}
 
 jobs:
+  # The app reads these root folders in its build. The sidebars example reads none of them.
+  changes:
+    name: Changes
+    uses: ./.github/workflows/alchemy-changes.yml
+    with:
+      directory: apps/samebase
+      shared-paths: runtime scripts vite.config.ts tsconfig.json
+
   deploy:
     name: Deploy ${{ github.event_name == 'pull_request' && 'the preview' || 'production' }}
+    needs: changes
     if: >-
-      github.event.action != 'closed' && (github.event_name == 'pull_request' &&
-      github.event.pull_request.head.repo.full_name == github.repository || github.event_name !=
-      'pull_request' && github.ref == 'refs/heads/main')
+      !cancelled() && needs.changes.outputs.affected != 'false' && github.event.action != 'closed'
+      && (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name ==
+      github.repository || github.event_name != 'pull_request' && github.ref == 'refs/heads/main')
     runs-on: ubuntu-latest
     timeout-minutes: 20
     # One run per stage at a time: the state store has no lock. Pending runs wait in order instead of
@@ -88,42 +98,22 @@ jobs:
           check-latest: true
           cache: pnpm
 
-      - name: Select preview inputs
-        id: inputs
-        if: github.event_name == 'pull_request'
-        uses: samebase/samebase/.github/actions/deployment-inputs@e770fcf9393683732295a1586779dc7a94da7aea
-        with:
-          directory: apps/samebase
-          base: ${{ github.event.pull_request.base.sha }}
-          head: ${{ github.event.pull_request.head.sha }}
-
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
       # A re-run of an old run, or a checkout of another commit, must not put older code over newer
       # code. The job token lets git read the repository; the deploy does not get it.
       - name: Check that the checkout is the head of the branch
-        id: current
         env:
           BRANCH: ${{ github.head_ref || github.ref_name }}
           TOKEN: ${{ github.token }}
-          GH_TOKEN: ${{ github.token }}
-          PULL_REQUEST: ${{ github.event.pull_request.number }}
         run: |
-          if [ -n "$PULL_REQUEST" ]; then
-            state=$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PULL_REQUEST" --jq .state)
-            if [ "$state" != open ]; then
-              echo "::notice::Pull request $PULL_REQUEST is $state, so it gets no preview."
-              exit 0
-            fi
-          fi
           auth=$(printf 'x-access-token:%s' "$TOKEN" | base64 | tr -d '\n')
           head=$(git -c "http.extraheader=AUTHORIZATION: basic $auth" ls-remote origin "refs/heads/$BRANCH" | cut -f1)
           if [ "$(git rev-parse HEAD)" != "$head" ]; then
             echo "::error::The checkout is not the head of $BRANCH ($head). Nothing was deployed."
             exit 1
           fi
-          echo "deploy=true" >> "$GITHUB_OUTPUT"
 
       # The build reads the production route environment, the prerender origin, and the first-party
       # PostHog proxy with the project token from the repository variable. --detect-drift compares
@@ -146,9 +136,7 @@ jobs:
       # convex-hosting writes the site URL of its push to $GITHUB_OUTPUT, the environment URL above.
       - name: Deploy the preview
         id: preview
-        if: >-
-          github.event_name == 'pull_request' && steps.current.outputs.deploy == 'true' &&
-          steps.inputs.outputs.changed != 'false'
+        if: github.event_name == 'pull_request'
         working-directory: apps/samebase
         run: pnpm exec alchemy deploy --stage "$STAGE" --yes --no-input
         env:
@@ -156,21 +144,9 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
           VITE_SAMEBASE_ROUTE_ENVIRONMENT: preview
 
-      - name: Remove an unneeded preview
-        if: >-
-          github.event_name == 'pull_request' && steps.current.outputs.deploy == 'true' &&
-          steps.inputs.outputs.changed == 'false'
-        working-directory: apps/samebase
-        run: |
-          [[ "$STAGE" =~ ^pr-[0-9]+$ ]] || exit 1
-          pnpm exec alchemy destroy --stage "$STAGE" --yes --no-input
-        env:
-          CONVEX_ACCESS_TOKEN: ${{ secrets.CONVEX_ACCESS_TOKEN }}
-          GITHUB_TOKEN: ${{ github.token }}
-
       # One comment with the stacks of the repository, from the state that the deploys just wrote.
       - name: Update the stack comment
-        if: github.event_name == 'pull_request' && steps.current.outputs.deploy == 'true'
+        if: github.event_name == 'pull_request'
         working-directory: apps/samebase
         run: pnpm exec alchemy-convex stack-comment
         env:
@@ -220,8 +196,8 @@ jobs:
           CONVEX_ACCESS_TOKEN: ${{ secrets.CONVEX_ACCESS_TOKEN }}
           GITHUB_TOKEN: ${{ github.token }}
 
-  # Every app uses the same input selector. A workflow change selects all apps,
-  # so this also exercises the shared workflow before it merges.
+  # The sidebars example runs the shared workflow at the commit of this run, so a pull request that
+  # changes alchemy-deploy.yml runs it for real before it merges.
   sidebars-example:
     name: Sidebars example
     uses: ./.github/workflows/alchemy-deploy.yml
