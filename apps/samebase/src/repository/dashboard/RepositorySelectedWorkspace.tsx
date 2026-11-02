@@ -126,7 +126,7 @@ export function RepositorySelectedWorkspace({
       const request = await run(undefined);
       if (request) {
         setPendingConfirmation({
-          title: "Retry provider setup?",
+          title: "Retry repository setup?",
           confirmLabel: "Retry setup",
           request,
           run,
@@ -134,7 +134,7 @@ export function RepositorySelectedWorkspace({
       }
     } catch (error) {
       toast({
-        title: "Could not retry infrastructure setup",
+        title: "Could not retry repository setup",
         description: error instanceof Error ? error.message : "Please try again.",
         variant: "destructive",
       });

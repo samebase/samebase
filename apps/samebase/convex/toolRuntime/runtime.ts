@@ -87,7 +87,7 @@ export const repositoryListTool = defineMcpTool({
             ? {
                 status: repository.providerSetup.status,
                 provider: repository.providerSetup.provider,
-                message: `Provider setup failed. Call ${RETRY_PROVIDER_SETUP_TOOL} to retry it.`,
+                message: `Repository setup failed. Call ${RETRY_PROVIDER_SETUP_TOOL} to retry it.`,
               }
             : { status: repository.providerSetup.status },
         deletion: { state: repository.deletion.state },
@@ -219,7 +219,7 @@ export const repositoryRetryProviderSetupTool = defineMcpTool({
       return requestMcpConfirmation(RETRY_PROVIDER_SETUP_TOOL, confirmationRequest);
     }
     return {
-      text: `Started a provider setup run for ${repository.githubRepositoryFullName}. Poll repository_list for progress.`,
+      text: `Started repository setup for ${repository.githubRepositoryFullName}. Poll repository_list for progress.`,
       structuredContent: { state: "setup_started" as const },
     };
   },

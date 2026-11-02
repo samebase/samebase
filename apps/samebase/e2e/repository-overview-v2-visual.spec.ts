@@ -522,7 +522,7 @@ test("shows store guidance for an old provider setup failure", async ({ page }) 
     "repository-overview-v2-cloudflare-github-authorization-failed",
   );
 
-  await expect(fixture.getByRole("heading", { name: "Provider setup failed" })).toHaveCount(0);
+  await expect(fixture.getByRole("heading", { name: "Repository setup failed" })).toHaveCount(0);
   await expect(fixture.getByText(NO_STACK_LINE, { exact: true })).toBeVisible();
   await expect(fixture.getByRole("button", { name: "Retry" })).toHaveCount(0);
   await expect(fixture.locator('[data-repository-status="Needs attention"]')).toHaveCount(0);
@@ -571,6 +571,16 @@ test("reproduces the observed new repository provisioning states", async ({ page
     "repository-overview-v2-provisioning-complete-empty",
   );
   await expect(completeEmptyFixture.getByRole("status")).toHaveCount(0);
+  const setupStatus = completeEmptyFixture.getByLabel("Setup stack");
+  await expect(setupStatus).toHaveText(
+    "No successful deployment recorded yet. Check GitHub Actions.",
+  );
+  await expect(setupStatus).toHaveScreenshot("repository-overview-v2-first-deployment.png", {
+    animations: "disabled",
+    caret: "hide",
+    maxDiffPixelRatio: 0.02,
+    scale: "css",
+  });
   await expect(
     completeEmptyFixture.getByText("No default branch commit is available."),
   ).toBeVisible();

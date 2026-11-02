@@ -753,6 +753,7 @@ export const trackedFilePaths = [
   "apps/samebase/e2e/repository-overview-v2-visual.spec.ts-snapshots/repository-overview-v2-default-branch-checks.png",
   "apps/samebase/e2e/repository-overview-v2-visual.spec.ts-snapshots/repository-overview-v2-delete-dialog-mobile.png",
   "apps/samebase/e2e/repository-overview-v2-visual.spec.ts-snapshots/repository-overview-v2-desktop.png",
+  "apps/samebase/e2e/repository-overview-v2-visual.spec.ts-snapshots/repository-overview-v2-first-deployment.png",
   "apps/samebase/e2e/repository-overview-v2-visual.spec.ts-snapshots/repository-overview-v2-loading-mobile.png",
   "apps/samebase/e2e/repository-overview-v2-visual.spec.ts-snapshots/repository-overview-v2-minimum-sidebar.png",
   "apps/samebase/e2e/repository-overview-v2-visual.spec.ts-snapshots/repository-overview-v2-mobile.png",

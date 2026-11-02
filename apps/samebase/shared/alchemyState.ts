@@ -207,11 +207,10 @@ export function readAlchemySetupStatus(
   repository: string,
 ): AlchemySetupStatus {
   const stack = stacks.find((candidate) => candidate.name === repository);
-  return {
-    state: stack?.stages.some((stage) => stage.name === "prod" && stage.deployedHeadCommit)
-      ? "done"
-      : "in_progress",
-  };
+  const production = stack?.stages.find((stage) => stage.name === "prod");
+  return production?.deployedHeadCommit
+    ? { state: "done" }
+    : { state: "no_successful_deployment", runUrl: production?.record.runUrl ?? null };
 }
 
 /**

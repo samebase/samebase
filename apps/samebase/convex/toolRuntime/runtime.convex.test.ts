@@ -97,7 +97,7 @@ describe("MCP tool runtime boundaries", () => {
           trigger: "create",
           state: "failed",
           currentStep: plan === "old" ? "attach_worker" : "write_actions_secrets",
-          lastError: "Provider setup failed.",
+          lastError: "Repository setup failed.",
           createdAt: 1,
           updatedAt: 1,
           completedAt: 1,
@@ -171,7 +171,7 @@ describe("MCP tool runtime boundaries", () => {
           : {
               status: "failed",
               provider: "github",
-              message: "Provider setup failed. Call repository_retryProviderSetup to retry it.",
+              message: "Repository setup failed. Call repository_retryProviderSetup to retry it.",
             },
       );
     },

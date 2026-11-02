@@ -8,7 +8,6 @@ import {
 } from "./contracts/getRepositoryStatus";
 import {
   getUserRepositoriesContract,
-  type ProviderSetupSummary,
   type UserRepositoryResult,
 } from "./contracts/getUserRepositories";
 import { retryInfrastructureProvisioningContract } from "./contracts/retryInfrastructureProvisioning";
@@ -117,22 +116,6 @@ export function buildRepositorySetupStackStatus(args: {
   return readAlchemySetupStatus(read.store === "found" ? read.stacks : [], repository);
 }
 
-function describeSetupProvider(
-  provider: Extract<ProviderSetupSummary, { status: "running" | "failed" }>["provider"],
-): string {
-  switch (provider) {
-    case "convex":
-      return "Convex project";
-    case "cloudflare":
-      return "Cloudflare Worker";
-    case "github":
-      return "GitHub Actions secrets";
-    default:
-      provider satisfies never;
-      return "provider";
-  }
-}
-
 /**
 The attention of a repository that its GitHub Actions set up, after Samebase's own setup finished:
 the Actions secrets, then the deployment that the setup status waits for. A setup status that is
@@ -153,11 +136,11 @@ function buildRepositoryActionsAttention(args: {
         },
       ];
     case "written":
-      return args.setupStack?.state === "in_progress"
+      return args.setupStack?.state === "no_successful_deployment"
         ? [
             {
               tool: null,
-              problem: `The first deployment of ${repositoryFullName} is in progress in its GitHub Actions: https://github.com/${repositoryFullName}/actions. Call ${STATUS_TOOL} again when the run finishes.`,
+              problem: `No successful deployment recorded yet. Check GitHub Actions. ${args.setupStack.runUrl ?? `https://github.com/${repositoryFullName}/actions`}`,
             },
           ]
         : [];
@@ -213,8 +196,8 @@ function buildStacksAttention(args: {
 
 /**
 The attention items of one repository. The provider setup state comes first: a running setup can
-still change what the other items report. Only repository_actions failures offer a retry. While
-the first deployment of a repository runs, that item explains why the store has no stack yet.
+still change what the other items report. Only repository_actions failures offer a retry. When no
+successful deployment is recorded, that item links to Actions without claiming the run is active.
 */
 export function buildRepositoryAttention(args: {
   repository: RepositoryStatusRepository;
@@ -227,7 +210,7 @@ export function buildRepositoryAttention(args: {
       return [
         {
           tool: null,
-          problem: `Samebase setup of the ${describeSetupProvider(providerSetup.provider)} is running. Call ${STATUS_TOOL} again when ${LIST_TOOL} shows provider setup ready or failed.`,
+          problem: `Repository setup is running. Call ${STATUS_TOOL} again when ${LIST_TOOL} shows repository setup ready or failed.`,
         },
       ];
     case "failed":
@@ -235,7 +218,7 @@ export function buildRepositoryAttention(args: {
         return [
           {
             tool: RETRY_PROVIDER_SETUP_TOOL,
-            problem: `Samebase setup of the ${describeSetupProvider(providerSetup.provider)} failed.`,
+            problem: "Repository setup failed.",
           },
         ];
       }
@@ -259,7 +242,7 @@ export function buildRepositoryAttention(args: {
       : [];
   return [
     ...setupItems,
-    ...(observations.setupStack?.state === "in_progress"
+    ...(observations.setupStack?.state === "no_successful_deployment"
       ? []
       : buildStacksAttention({ repository, stacks: observations.stacks })),
   ];

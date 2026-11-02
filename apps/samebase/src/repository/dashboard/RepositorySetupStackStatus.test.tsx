@@ -71,18 +71,23 @@ describe("RepositorySetupStackStatus", () => {
     await advance(0);
   }
 
-  it("shows the first deployment in progress with the Actions page, and no failure", async () => {
-    readStatus.mockResolvedValue({ state: "in_progress" });
-    await renderStatus();
+  it.each([null, "https://github.com/samebase/actions-app/actions/runs/42"])(
+    "reports no successful deployment with run URL %s",
+    async (runUrl) => {
+      readStatus.mockResolvedValue({ state: "no_successful_deployment", runUrl });
+      await renderStatus();
 
-    expect(element.textContent).toBe("The first deployment is in progress in GitHub Actions.");
-    expect(element.querySelector("a")?.getAttribute("href")).toBe(
-      "https://github.com/samebase/actions-app/actions",
-    );
-  });
+      expect(element.textContent).toBe(
+        "No successful deployment recorded yet. Check GitHub Actions.",
+      );
+      expect(element.querySelector("a")?.getAttribute("href")).toBe(
+        runUrl ?? "https://github.com/samebase/actions-app/actions",
+      );
+    },
+  );
 
   it("shows nothing once the deployment is done, and stops reading", async () => {
-    readStatus.mockResolvedValueOnce({ state: "in_progress" });
+    readStatus.mockResolvedValueOnce({ state: "no_successful_deployment", runUrl: null });
     readStatus.mockResolvedValue({ state: "done" });
     await renderStatus();
 
@@ -94,15 +99,17 @@ describe("RepositorySetupStackStatus", () => {
     expect(readStatus).toHaveBeenCalledTimes(2);
   });
 
-  it("keeps the in-progress line when a later read fails", async () => {
-    readStatus.mockResolvedValueOnce({ state: "in_progress" });
+  it("keeps the no-successful-deployment line when a later read fails", async () => {
+    readStatus.mockResolvedValueOnce({ state: "no_successful_deployment", runUrl: null });
     readStatus.mockRejectedValueOnce(new Error("The store is being created."));
     readStatus.mockResolvedValue({ state: "done" });
     await renderStatus();
 
     await advance(31 * 1000);
     expect(readStatus).toHaveBeenCalledTimes(2);
-    expect(element.textContent).toBe("The first deployment is in progress in GitHub Actions.");
+    expect(element.textContent).toBe(
+      "No successful deployment recorded yet. Check GitHub Actions.",
+    );
 
     await advance(31 * 1000);
     expect(element.textContent).toBe("");
@@ -110,12 +117,14 @@ describe("RepositorySetupStackStatus", () => {
 
   it("offers a retry when the first read fails, and keeps reading", async () => {
     readStatus.mockRejectedValueOnce(new Error("Convex is unavailable."));
-    readStatus.mockResolvedValue({ state: "in_progress" });
+    readStatus.mockResolvedValue({ state: "no_successful_deployment", runUrl: null });
     await renderStatus();
 
     expect(element.textContent).toBe("Could not read the setup status.Retry");
 
     await advance(31 * 1000);
-    expect(element.textContent).toBe("The first deployment is in progress in GitHub Actions.");
+    expect(element.textContent).toBe(
+      "No successful deployment recorded yet. Check GitHub Actions.",
+    );
   });
 });

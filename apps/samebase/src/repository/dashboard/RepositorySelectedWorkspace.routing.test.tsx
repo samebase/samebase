@@ -223,7 +223,7 @@ describe("RepositorySelectedWorkspace route", () => {
       throw new Error("Expected the selected workspace to render.");
     }
 
-    expect(element.textContent).not.toContain("Provider setup failed");
+    expect(element.textContent).not.toContain("Repository setup failed");
     expect(element.textContent).not.toContain("Retry");
     expect(element.textContent).toContain("Alchemy state store");
   });
@@ -232,6 +232,7 @@ describe("RepositorySelectedWorkspace route", () => {
     const repository = failedSetupRepository({ status: "idle", lastWriteAt: {} });
 
     await renderWorkspace(makeWorkspace(repository), "/repo/ada/demo", "overview");
+    expect(rootElement?.textContent).toContain("Repository setup failed");
     await clickRetry();
 
     expect(actionState.fallback).toHaveBeenCalledWith({

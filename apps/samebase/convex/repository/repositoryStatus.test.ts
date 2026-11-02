@@ -288,11 +288,11 @@ describe("buildRepositorySetupStackStatus", () => {
     ).toEqual({ state: "done" });
     expect(
       buildRepositorySetupStackStatus({ read: foundStore([]), repository: repositoryName }),
-    ).toEqual({ state: "in_progress" });
+    ).toEqual({ state: "no_successful_deployment", runUrl: null });
     // A team's first run creates the store.
     expect(
       buildRepositorySetupStackStatus({ read: { store: "missing" }, repository: repositoryName }),
-    ).toEqual({ state: "in_progress" });
+    ).toEqual({ state: "no_successful_deployment", runUrl: null });
   });
 
   it("is unavailable when the store cannot be read", () => {
@@ -393,11 +393,11 @@ describe("buildRepositoryAttention", () => {
     const runningItem = {
       tool: null,
       problem:
-        "Samebase setup of the GitHub Actions secrets is running. Call repository_getStatus again when repository_list shows provider setup ready or failed.",
+        "Repository setup is running. Call repository_getStatus again when repository_list shows repository setup ready or failed.",
     };
     const retryItem = {
       tool: "repository_retryProviderSetup",
-      problem: "Samebase setup of the GitHub Actions secrets failed.",
+      problem: "Repository setup failed.",
     };
 
     it.each([
@@ -516,7 +516,7 @@ describe("buildRepositoryAttention", () => {
       ]);
     });
 
-    it("reports a deployment in progress with the Actions page, and no empty store", () => {
+    it("reports no recorded successful deployment with the Actions page", () => {
       const emptyReads: RepositoryObservations["stacks"][] = [
         { state: "no_store" },
         { state: "available", stacks: [] },
@@ -525,13 +525,17 @@ describe("buildRepositoryAttention", () => {
         expect(
           buildRepositoryAttention({
             repository: repositoryActionsRepository(writtenSecrets),
-            observations: { ...healthyObservations, stacks, setupStack: { state: "in_progress" } },
+            observations: {
+              ...healthyObservations,
+              stacks,
+              setupStack: { state: "no_successful_deployment", runUrl: null },
+            },
           }),
         ).toEqual([
           {
             tool: null,
             problem:
-              "The first deployment of samebase/chess-merge is in progress in its GitHub Actions: https://github.com/samebase/chess-merge/actions. Call repository_getStatus again when the run finishes.",
+              "No successful deployment recorded yet. Check GitHub Actions. https://github.com/samebase/chess-merge/actions",
           },
         ]);
       }
@@ -544,7 +548,7 @@ describe("buildRepositoryAttention", () => {
           observations: {
             ...healthyObservations,
             stacks: { state: "no_store" },
-            setupStack: { state: "in_progress" },
+            setupStack: { state: "no_successful_deployment", runUrl: null },
           },
         }),
       ).toEqual([
@@ -556,7 +560,7 @@ describe("buildRepositoryAttention", () => {
       ]);
     });
 
-    it("names the GitHub Actions secrets while Samebase's setup runs or after it failed", () => {
+    it("names repository setup after it failed", () => {
       // @ts-expect-error Run IDs are strings at runtime; the rules ignore them.
       const runId: Id<"workflow_repositoryProvisioning_runs"> = "run-2";
       expect(
@@ -577,7 +581,7 @@ describe("buildRepositoryAttention", () => {
       ).toEqual([
         {
           tool: "repository_retryProviderSetup",
-          problem: "Samebase setup of the GitHub Actions secrets failed.",
+          problem: "Repository setup failed.",
         },
       ]);
     });

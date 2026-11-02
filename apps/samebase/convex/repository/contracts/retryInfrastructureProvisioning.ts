@@ -27,7 +27,7 @@ export const retryInfrastructureProvisioningContract = {
   returns: union(vActionConfirmationRequest, v.null()),
   structuredContent: union(vActionConfirmationRequest, object({ state: literal("setup_started") })),
   mcp: {
-    title: "Retry provider setup",
+    title: "Retry repository setup",
     name: "repository_retryProviderSetup",
     description: `Start a fresh setup run for a repository whose GitHub Actions setup failed. It writes the repository's GitHub Actions secret and variable again, replacing their values, seeds the starter when it was not seeded yet, and syncs the default branch tree. It never creates or changes a Convex project. ${MCP_ACTION_CONFIRMATION_DESCRIPTION}`,
     safety: "destructive",

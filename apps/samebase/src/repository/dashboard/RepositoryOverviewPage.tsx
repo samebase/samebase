@@ -194,7 +194,7 @@ function RepositoryStateNotice({
         description={repository.providerSetup.message}
         isRetrying={isRetryingRepositoryAction}
         onRetry={onRetryInfrastructureProvisioning}
-        title="Provider setup failed"
+        title="Repository setup failed"
       />
     );
   }

@@ -1,4 +1,7 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { readAlchemySetupStatus } from "../../../shared/alchemyState";
+import { repositoryExternalDataQueryKey } from "./repositoryExternalDataQueryKey";
 import { TestRouterProvider } from "@/test/TestRouterProvider";
 import {
   RepositoryOverviewLoadingPage,
@@ -827,6 +830,19 @@ function RepositoryOverviewProvisioningFixture({
       break;
   }
 
+  const queryClient = useMemo(() => {
+    const client = new QueryClient();
+    client.setQueryData(
+      [...repositoryExternalDataQueryKey(repository.repositoryId), "setup-stack"],
+      readAlchemySetupStatus(
+        alchemyState.state === "loaded" && alchemyState.observation.store === "found"
+          ? alchemyState.observation.stacks
+          : [],
+        repository.githubRepositoryFullName,
+      ),
+    );
+    return client;
+  }, [alchemyState, repository]);
   const workspace = buildFixtureWorkspace({
     alchemyState,
     githubRepositoryUrl: `https://github.com/${repository.githubRepositoryFullName}`,
@@ -869,15 +885,17 @@ function RepositoryOverviewProvisioningFixture({
         }}
         main={{
           content: (
-            <RepositoryOverviewPage
-              developerToolsVisible={false}
-              isRetryingRepositoryAction={false}
-              page="overview"
-              workspace={workspace}
-              onOpenDeleteDialog={() => {}}
-              onRetryInfrastructureProvisioning={() => {}}
-              onRetryRepositoryDeletion={() => {}}
-            />
+            <QueryClientProvider client={queryClient}>
+              <RepositoryOverviewPage
+                developerToolsVisible={false}
+                isRetryingRepositoryAction={false}
+                page="overview"
+                workspace={workspace}
+                onOpenDeleteDialog={() => {}}
+                onRetryInfrastructureProvisioning={() => {}}
+                onRetryRepositoryDeletion={() => {}}
+              />
+            </QueryClientProvider>
           ),
         }}
         shortcutPaneSide="left"

@@ -386,7 +386,7 @@ describe("app provisioning retry admission", () => {
       }),
     ).resolves.toEqual({
       status: "ok",
-      text: "Started a provider setup run for ada/retry-guard. Poll repository_list for progress.",
+      text: "Started repository setup for ada/retry-guard. Poll repository_list for progress.",
       structuredContent: { state: "setup_started" },
     });
     await expect(readRetryState()).resolves.toMatchObject({

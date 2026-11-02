@@ -564,14 +564,17 @@ describe("the setup status of a repository_actions repository", () => {
         teamProjects: [storeProject],
       },
     },
-  ])("is in progress when $name", async ({ store }) => {
+  ])("has no successful deployment when $name", async ({ store }) => {
     const t = makeConvexTest();
     const { ids, user } = await seedAlchemyRepository(t);
     installAlchemyStateFetchStub({ requests: [], ...store });
 
     await expect(
       user.action(api.repository.alchemyState.readSetupStatus, { repositoryId: ids.repositoryId }),
-    ).resolves.toEqual({ state: "in_progress" });
+    ).resolves.toEqual({
+      state: "no_successful_deployment",
+      runUrl: store.storeReply === firstDeployRunning ? (prod.record?.runUrl ?? null) : null,
+    });
   });
 
   it("is done when the prod stage of the repository's stack has an output", async () => {
@@ -611,12 +614,12 @@ describe("the setup status of a repository_actions repository", () => {
     await expect(
       user.action(api.repository.getStatus, { repositoryId: ids.repositoryId }),
     ).resolves.toMatchObject({
-      setupStack: { state: "in_progress" },
+      setupStack: { state: "no_successful_deployment", runUrl: prod.record?.runUrl ?? null },
       attention: [
         {
           tool: null,
           problem:
-            "The first deployment of samebase/base-alchemy is in progress in its GitHub Actions: https://github.com/samebase/base-alchemy/actions. Call repository_getStatus again when the run finishes.",
+            "No successful deployment recorded yet. Check GitHub Actions. https://github.com/samebase/base-alchemy/actions/runs/39666079880/attempts/1",
         },
       ],
     });
