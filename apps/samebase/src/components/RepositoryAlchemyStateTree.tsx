@@ -233,6 +233,14 @@ export function AlchemyStateTree({ observation }: { observation: AlchemyStateObs
     );
   }
 
+  if (observation.store === "no_connection") {
+    return (
+      <RepositoryAlchemyStateStatus>
+        This repository has no Convex connection.
+      </RepositoryAlchemyStateStatus>
+    );
+  }
+
   if (observation.stacks.length === 0) {
     return <RepositoryAlchemyStateStatus>No Alchemy state.</RepositoryAlchemyStateStatus>;
   }

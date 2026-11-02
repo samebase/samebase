@@ -34,7 +34,7 @@ describe("generated action documentation", () => {
       "The repository list reports Samebase-owned workflow state. It is not proof of live provider state.",
     );
     expect(llmsTxt).toContain(
-      "The repository status reads the live builds, URLs, Convex\ndeployments, checks, and pull requests of one repository. Use provider-native tools for logs,\nenvironment values, migrations, and domains.",
+      "The repository status reads the Alchemy stacks, URLs, deployed\ncommits, checks, and pull requests of one repository. Use provider-native tools for logs,\nenvironment values, migrations, and domains.",
     );
   });
 

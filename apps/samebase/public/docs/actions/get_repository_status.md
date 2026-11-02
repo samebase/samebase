@@ -4,38 +4,37 @@
 
 MCP tool `repository_getStatus` · scope `access_dashboard` · read_only
 
-Reads the repository's current state live from GitHub, Cloudflare, and Convex: the facts that the
-repository overview shows. It changes nothing.
+Reads the repository's current state live from GitHub and from the team's Alchemy state store: the
+facts that the repository overview shows. It changes nothing.
 
-- Apps: one entry per attached Cloudflare Worker with its root directory, its latest production
-  build on the default branch (state, logs URL, and `commit`), and its URLs (custom domains and
-  workers.dev). `commit` compares the built commit with the default branch head: `matches_head`,
-  `behind_head` (the latest push has no production build yet), or `unknown` when either commit
-  cannot be read. A successful build that is `behind_head` does not deploy the latest push.
-- Convex projects: each attached project's code location and production deployment (name, dashboard
-  URL, and region), or missing.
+- Stacks: `stacks.state` says what the store gave. `available` lists each stack of the repository
+  with its production URL, the commit of its last completed production deploy, and its previews, one
+  for each `pr-<number>` stage with its URL and deployed commit. `deployedCommitState` compares the
+  deployed commit with the default branch head: `matches_head`, `behind_head` (the latest push is
+  not deployed yet), or `unknown` when either commit cannot be read. An empty list means that the
+  store holds no stack of the repository: Samebase cannot see such an app, and it may still be
+  running. `no_store` means that the Convex team has no store yet, `no_convex_connection` that the
+  organization has no Convex connection to read it with, and `unreadable` that the read failed,
+  which says nothing about what is deployed.
 - Repository: the default branch head commit with its checks, the open pull request count, and the
-  first 6 open pull requests, most recently updated first. Each lists its checks and, per app, the
-  preview build and preview URL.
+  first 6 open pull requests, most recently updated first, with their checks.
 - Setup stack, for a repository that its GitHub Actions set up (null for any other): `state` from
-  the team's Alchemy state store. It is done when the `prod` stage of the stack named after the
-  repository has an output, and in_progress before that. The store does not say whether a run
-  failed, so in_progress can also mean that the first run stopped: the repository's GitHub Actions
-  page shows the run. It is unavailable when the store cannot be read.
+  the same store read. It is done when the `prod` stage of the stack named after the repository has
+  an output, and in_progress before that. The store does not say whether a run failed, so
+  in_progress can also mean that the first run stopped: the repository's GitHub Actions page shows
+  the run. It is unavailable when the store cannot be read.
 - Attention items: each names a problem and what to do about it. The provider setup state comes
   first. While Samebase setup runs, the only item says so. When it failed, the only item names
   `repository_retryProviderSetup`, the one tool that fixes a problem. Samebase repairs nothing else:
-  repair lives in Alchemy and the agent. For a repository that its GitHub Actions set up, an item
-  about a Worker or a Convex project says that the setup stack owns the setting, and while the setup
-  stack is in_progress an item says so and links the repository's GitHub Actions. For any other
-  repository, such an item links the guide to move the app to Alchemy. "Deploy the Convex project to
-  production first" means that a project has no production deployment yet.
+  repair lives in Alchemy and the agent. While the first deployment runs, an item says so and links
+  the repository's GitHub Actions. After that, an item says when the store is unreadable, has no
+  stack of the repository, does not exist yet, or has no Convex connection.
 
 Checks give the total, failed, pending, and unknown counts of every check, and the names of the
 failed checks among the first 100 that GitHub lists; `failedNamesComplete` is false when a failed
-check is not named. A provider that cannot be read is reported as unavailable rather than failing
-the whole read, and an unavailable fact gives no attention item. A successful build does not prove
-that the app serves the expected content.
+check is not named. GitHub facts that cannot be read are reported as null or empty rather than
+failing the whole read, and they give no attention item. A completed deploy does not prove that the
+app serves the expected content.
 
 ## Arguments
 
@@ -128,51 +127,43 @@ JSON Schema for the tool's `structuredContent`:
         }
       ]
     },
-    "apps": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "properties": {
-          "workerName": {
-            "type": "string"
-          },
-          "rootDirectory": {
-            "type": "string"
-          },
-          "productionBuild": {
-            "anyOf": [
-              {
+    "stacks": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "state": {
+              "const": "available"
+            },
+            "stacks": {
+              "type": "array",
+              "items": {
                 "type": "object",
                 "properties": {
-                  "state": {
-                    "const": "available"
+                  "name": {
+                    "type": "string"
                   },
-                  "buildState": {
+                  "productionUrl": {
                     "anyOf": [
                       {
-                        "const": "queued"
+                        "type": "string"
                       },
                       {
-                        "const": "running"
-                      },
-                      {
-                        "const": "success"
-                      },
-                      {
-                        "const": "failure"
-                      },
-                      {
-                        "const": "cancelled"
-                      },
-                      {
-                        "const": "skipped"
-                      },
-                      {
-                        "const": "unknown"
+                        "type": "null"
                       }
                     ]
                   },
-                  "commit": {
+                  "deployedCommit": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "deployedCommitState": {
                     "anyOf": [
                       {
                         "const": "matches_head"
@@ -185,124 +176,85 @@ JSON Schema for the tool's `structuredContent`:
                       }
                     ]
                   },
-                  "logsUrl": {
-                    "type": "string"
+                  "previews": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "pullRequestNumber": {
+                          "type": "number"
+                        },
+                        "url": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "deployedCommit": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "required": ["pullRequestNumber", "url", "deployedCommit"],
+                      "additionalProperties": false
+                    }
                   }
                 },
-                "required": ["state", "buildState", "commit", "logsUrl"],
-                "additionalProperties": false
-              },
-              {
-                "type": "object",
-                "properties": {
-                  "state": {
-                    "const": "absent"
-                  }
-                },
-                "required": ["state"],
-                "additionalProperties": false
-              },
-              {
-                "type": "object",
-                "properties": {
-                  "state": {
-                    "const": "unavailable"
-                  }
-                },
-                "required": ["state"],
+                "required": [
+                  "name",
+                  "productionUrl",
+                  "deployedCommit",
+                  "deployedCommitState",
+                  "previews"
+                ],
                 "additionalProperties": false
               }
-            ]
-          },
-          "urls": {
-            "type": "array",
-            "items": {
-              "type": "string"
             }
-          }
-        },
-        "required": ["workerName", "rootDirectory", "productionBuild", "urls"],
-        "additionalProperties": false
-      }
-    },
-    "convexProjects": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "properties": {
-          "codeLocation": {
-            "type": "string"
           },
-          "projectSlug": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "productionDeployment": {
-            "anyOf": [
-              {
-                "type": "object",
-                "properties": {
-                  "state": {
-                    "const": "available"
-                  },
-                  "deploymentName": {
-                    "type": "string"
-                  },
-                  "dashboardUrl": {
-                    "type": "string"
-                  },
-                  "region": {
-                    "anyOf": [
-                      {
-                        "const": "aws-us-east-1"
-                      },
-                      {
-                        "const": "aws-eu-west-1"
-                      },
-                      {
-                        "const": "aws-ca-central-1"
-                      },
-                      {
-                        "const": "aws-ap-southeast-2"
-                      }
-                    ]
-                  }
-                },
-                "required": ["state", "deploymentName", "dashboardUrl", "region"],
-                "additionalProperties": false
-              },
-              {
-                "type": "object",
-                "properties": {
-                  "state": {
-                    "const": "missing"
-                  }
-                },
-                "required": ["state"],
-                "additionalProperties": false
-              },
-              {
-                "type": "object",
-                "properties": {
-                  "state": {
-                    "const": "unavailable"
-                  }
-                },
-                "required": ["state"],
-                "additionalProperties": false
-              }
-            ]
-          }
+          "required": ["state", "stacks"],
+          "additionalProperties": false
         },
-        "required": ["codeLocation", "projectSlug", "productionDeployment"],
-        "additionalProperties": false
-      }
+        {
+          "type": "object",
+          "properties": {
+            "state": {
+              "const": "no_store"
+            }
+          },
+          "required": ["state"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "state": {
+              "const": "no_convex_connection"
+            }
+          },
+          "required": ["state"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "state": {
+              "const": "unreadable"
+            }
+          },
+          "required": ["state"],
+          "additionalProperties": false
+        }
+      ]
     },
     "pullRequests": {
       "type": "array",
@@ -365,94 +317,9 @@ JSON Schema for the tool's `structuredContent`:
                 "additionalProperties": false
               }
             ]
-          },
-          "apps": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "properties": {
-                "workerName": {
-                  "type": "string"
-                },
-                "previewBuild": {
-                  "anyOf": [
-                    {
-                      "type": "object",
-                      "properties": {
-                        "state": {
-                          "const": "available"
-                        },
-                        "buildState": {
-                          "anyOf": [
-                            {
-                              "const": "queued"
-                            },
-                            {
-                              "const": "running"
-                            },
-                            {
-                              "const": "success"
-                            },
-                            {
-                              "const": "failure"
-                            },
-                            {
-                              "const": "cancelled"
-                            },
-                            {
-                              "const": "skipped"
-                            },
-                            {
-                              "const": "unknown"
-                            }
-                          ]
-                        },
-                        "logsUrl": {
-                          "type": "string"
-                        }
-                      },
-                      "required": ["state", "buildState", "logsUrl"],
-                      "additionalProperties": false
-                    },
-                    {
-                      "type": "object",
-                      "properties": {
-                        "state": {
-                          "const": "absent"
-                        }
-                      },
-                      "required": ["state"],
-                      "additionalProperties": false
-                    },
-                    {
-                      "type": "object",
-                      "properties": {
-                        "state": {
-                          "const": "unavailable"
-                        }
-                      },
-                      "required": ["state"],
-                      "additionalProperties": false
-                    }
-                  ]
-                },
-                "previewUrl": {
-                  "anyOf": [
-                    {
-                      "type": "string"
-                    },
-                    {
-                      "type": "null"
-                    }
-                  ]
-                }
-              },
-              "required": ["workerName", "previewBuild", "previewUrl"],
-              "additionalProperties": false
-            }
           }
         },
-        "required": ["number", "title", "url", "isDraft", "headRefName", "checks", "apps"],
+        "required": ["number", "title", "url", "isDraft", "headRefName", "checks"],
         "additionalProperties": false
       }
     },
@@ -531,8 +398,7 @@ JSON Schema for the tool's `structuredContent`:
     "repository",
     "defaultBranch",
     "openPullRequestCount",
-    "apps",
-    "convexProjects",
+    "stacks",
     "pullRequests",
     "setupStack",
     "attention"

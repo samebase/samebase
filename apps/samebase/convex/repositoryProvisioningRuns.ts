@@ -84,7 +84,7 @@ async function requireRetryAdmission(
   const connectedRepository = assertConnectedRepository(repository);
   if (!isSamebaseManagedRepository(connectedRepository)) {
     throw new ConvexError(
-      "Samebase retries provider setup only for repositories that it created, so nothing changed. Attach or create the missing Worker or Convex project instead.",
+      "Samebase retries provider setup only for repositories that it created, so nothing changed. Set up the missing resources in the repository's Alchemy stack instead.",
     );
   }
   const [infrastructure, organization] = await Promise.all([

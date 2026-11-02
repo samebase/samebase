@@ -25,26 +25,14 @@ import {
 import { PullRequestsSection } from "./RepositoryPullRequestsSection";
 import { RepositorySettings } from "./RepositorySettings";
 import { RepositoryDeleteDialogContent } from "./RepositoryDeleteDialog";
-import {
-  DefaultBranchSection,
-  PullRequestResources,
-  RepositoryEnvironmentTree,
-} from "./RepositoryEnvironmentTree";
+import { DefaultBranchSection, PullRequestResources } from "./RepositoryEnvironmentTree";
 import { observedAlchemyStackReply } from "../../../convex/repository/fixtures/observedAlchemyState";
 import { observedSamebaseStackReply } from "../../../convex/repository/fixtures/observedSamebaseAlchemyState";
 import { observedScoutR2Resources } from "../../../convex/repository/fixtures/observedScoutR2Resources";
-import {
-  buildAlchemyStackCards,
-  buildProductionEnvironmentRoots,
-  buildPullRequestEnvironmentRoots,
-} from "./repositoryEnvironmentRoots";
-import type {
-  RepositoryAlchemyStacks,
-  RepositoryCloudflareProviderObservationState,
-  RepositoryCloudflareWorkerBuildsObservation,
-  RepositoryCloudflareWorkerConvexBuildAccessObservation,
-  RepositoryCloudflareWorkerObservation,
-} from "./useRepositoryProviderObservations";
+import { buildAlchemyStackCards } from "./repositoryEnvironmentRoots";
+import type { RepositoryWorkspaceSelected } from "./repositoryWorkspaceModel";
+import type { RepositoryAlchemyState } from "./useRepositoryAlchemyState";
+import type { RepositoryAlchemyStacks } from "./useRepositoryProviderObservations";
 import type { UserRepositoryResult } from "../../../convex/repository/contracts/getUserRepositories";
 import { formatRepositorySourceSetupStep } from "./repositorySourceSetup";
 
@@ -135,14 +123,6 @@ type RepositorySettingsCloudflareWorker =
   RepositorySettingsBuilderRepository["cloudflareWorkers"][number];
 type RepositorySettingsConvexProject =
   RepositorySettingsBuilderRepository["convexProjects"][number];
-type AvailableRepositorySettingsCloudflareObservation = Extract<
-  RepositoryCloudflareWorkerObservation,
-  { state: "available" }
->;
-type AvailableRepositorySettingsCloudflareBuildsObservation = Extract<
-  RepositoryCloudflareWorkerBuildsObservation,
-  { state: "available" }
->;
 function makeRepositorySettingsCloudflareWorker(
   overrides: Partial<RepositorySettingsCloudflareWorker>,
 ): RepositorySettingsCloudflareWorker {
@@ -153,69 +133,6 @@ function makeRepositorySettingsCloudflareWorker(
     workerTag: "demo-worker-tag",
     rootDirectory: "/",
     ...overrides,
-  };
-}
-
-function makeAvailableRepositorySettingsCloudflareObservation(
-  overrides: Partial<AvailableRepositorySettingsCloudflareObservation> & {
-    workerId: Id<"repositoryCloudflareWorkers">;
-  },
-): AvailableRepositorySettingsCloudflareObservation {
-  return {
-    state: "available",
-    workerName: "demo-worker",
-    customDomains: [],
-    workersDev: { state: "enabled", url: "https://demo-worker.ada.workers.dev" },
-    ...overrides,
-  };
-}
-
-function makeAvailableRepositorySettingsCloudflareBuildsObservation(
-  overrides: Partial<AvailableRepositorySettingsCloudflareBuildsObservation> & {
-    workerId: Id<"repositoryCloudflareWorkers">;
-  },
-): AvailableRepositorySettingsCloudflareBuildsObservation {
-  return {
-    state: "available",
-    repository: {
-      state: "ready",
-      rootDirectory: "/",
-      builds: { state: "not_available" },
-    },
-    builds: { state: "not_connected" },
-    productionBuild: { state: "absent" },
-    ...overrides,
-  };
-}
-
-function makeLoadedCloudflareObservations({
-  workers,
-  builds,
-  convexBuildAccess,
-}: {
-  workers: readonly RepositoryCloudflareWorkerObservation[];
-  builds: readonly RepositoryCloudflareWorkerBuildsObservation[];
-  convexBuildAccess: readonly RepositoryCloudflareWorkerConvexBuildAccessObservation[];
-}): RepositoryCloudflareProviderObservationState {
-  return {
-    workers: {
-      state: "loaded",
-      refreshFailed: false,
-      reload: () => {},
-      observations: workers,
-    },
-    builds: {
-      state: "loaded",
-      refreshFailed: false,
-      reload: () => {},
-      observations: builds,
-    },
-    convexBuildAccess: {
-      state: "loaded",
-      refreshFailed: false,
-      reload: () => {},
-      observations: convexBuildAccess,
-    },
   };
 }
 
@@ -261,375 +178,6 @@ function makeRepositorySettingsBuilderRepository(
   };
   return { ...repository, ...overrides };
 }
-
-describe("buildProductionEnvironmentRoots", () => {
-  it("shows production builds without the legacy preview setup", () => {
-    const workerId = fakeCloudflareWorkerId();
-    const convexProjectId = fakeConvexProjectId();
-    const repository = makeRepositorySettingsBuilderRepository({
-      cloudflareWorkers: [
-        makeRepositorySettingsCloudflareWorker({ workerId, rootDirectory: "apps/web" }),
-      ],
-      convexProjects: [
-        makeRepositorySettingsConvexProject({
-          convexProjectId,
-          codeLocation: { kind: "config", convexConfigPath: "apps/web/convex.json" },
-        }),
-      ],
-    });
-
-    const roots = buildProductionEnvironmentRoots({
-      branch: "main",
-      repository,
-      cloudflareObservations: makeLoadedCloudflareObservations({
-        workers: [
-          makeAvailableRepositorySettingsCloudflareObservation({
-            workerId,
-            customDomains: ["www.example.com", "app.example.com"],
-          }),
-        ],
-        builds: [
-          makeAvailableRepositorySettingsCloudflareBuildsObservation({
-            workerId,
-            repository: {
-              state: "ready",
-              rootDirectory: "apps/web",
-              builds: { state: "not_available" },
-            },
-            builds: { state: "not_connected" },
-            productionBuild: {
-              state: "available",
-              buildState: "success",
-              commitHash: null,
-              logsUrl:
-                "https://dash.cloudflare.com/account-1/workers/services/view/demo-worker/production/builds/build-1",
-            },
-          }),
-        ],
-        convexBuildAccess: [],
-      }),
-      convexObservations: {
-        state: "loaded",
-        refreshFailed: false,
-        reload: () => {},
-        observations: [
-          {
-            convexProjectId,
-            projectId: "demo-project-id",
-            codeLocation: { kind: "config", convexConfigPath: "apps/web/convex.json" },
-            source: { kind: "config", state: "valid" },
-            provider: {
-              state: "current",
-              projectSlug: "demo",
-              teamSlug: "ada",
-              productionDeployment: {
-                state: "available",
-                deploymentName: "calm-swan-123",
-                dashboardUrl: "https://dashboard.convex.dev/t/ada/demo/calm-swan-123",
-                region: "aws-eu-west-1",
-              },
-            },
-          },
-        ],
-      },
-      owner: "ada",
-      repoName: "demo",
-      schemaGraphEnabled: true,
-    });
-
-    expect(roots).toEqual([
-      {
-        rootDirectory: "apps/web",
-        resources: [
-          {
-            kind: "cloudflare_worker",
-            id: workerId,
-            worker: {
-              workerName: "demo-worker",
-              build: {
-                state: "available",
-                buildState: "success",
-                logsUrl:
-                  "https://dash.cloudflare.com/account-1/workers/services/view/demo-worker/production/builds/build-1",
-              },
-              destination: {
-                state: "available",
-                href: "https://app.example.com",
-                label: "app.example.com",
-                provenance: "production",
-                title: "Open production app for apps/web",
-              },
-              actions: [
-                {
-                  destination: "external",
-                  href: "https://www.example.com",
-                  label: "www.example.com",
-                },
-                {
-                  destination: "external",
-                  href: "https://demo-worker.ada.workers.dev",
-                  label: "demo-worker.ada.workers.dev",
-                },
-              ],
-            },
-          },
-          {
-            kind: "destination",
-            id: "convex:https://dashboard.convex.dev/t/ada/demo/calm-swan-123",
-            actions: [
-              {
-                destination: "samebase",
-                href: `/repo/ada/demo/db/main/project/${convexProjectId}`,
-                label: "Data",
-              },
-              {
-                destination: "samebase",
-                href: `/repo/ada/demo/schema/main/project/${convexProjectId}`,
-                label: "Schema",
-              },
-              {
-                destination: "samebase",
-                href: `/repo/ada/demo/components/calm-swan-123`,
-                label: "Components",
-              },
-            ],
-            href: "https://dashboard.convex.dev/t/ada/demo/calm-swan-123",
-            label: "calm-swan-123",
-            provider: "convex",
-            provenance: "production",
-            region: "aws-eu-west-1",
-            title: "Open production Convex deployment calm-swan-123",
-          },
-        ],
-      },
-    ]);
-  });
-
-  it("keeps custom domains visible when workers.dev is disabled and builds are unavailable", () => {
-    const workerId = fakeCloudflareWorkerId();
-    const repository = makeRepositorySettingsBuilderRepository({
-      cloudflareWorkers: [makeRepositorySettingsCloudflareWorker({ workerId })],
-    });
-
-    const roots = buildProductionEnvironmentRoots({
-      branch: "main",
-      repository,
-      cloudflareObservations: makeLoadedCloudflareObservations({
-        workers: [
-          makeAvailableRepositorySettingsCloudflareObservation({
-            workerId,
-            customDomains: ["app.example.com"],
-            workersDev: { state: "disabled" },
-          }),
-        ],
-        builds: [
-          makeAvailableRepositorySettingsCloudflareBuildsObservation({
-            workerId,
-            productionBuild: { state: "unavailable", reasons: ["request_failed"] },
-          }),
-        ],
-        convexBuildAccess: [],
-      }),
-      convexObservations: {
-        state: "loaded",
-        refreshFailed: false,
-        reload: () => {},
-        observations: [],
-      },
-      owner: "ada",
-      repoName: "demo",
-      schemaGraphEnabled: true,
-    });
-
-    expect(roots).toEqual([
-      {
-        rootDirectory: "/",
-        resources: [
-          {
-            kind: "cloudflare_worker",
-            id: workerId,
-            worker: {
-              workerName: "demo-worker",
-              build: { state: "unavailable" },
-              destination: {
-                state: "available",
-                href: "https://app.example.com",
-                label: "app.example.com",
-                provenance: "production",
-                title: "Open production app",
-              },
-              actions: [],
-            },
-          },
-        ],
-      },
-    ]);
-  });
-
-  it("keeps attached Workers visible before they have a production destination", () => {
-    const workerId = fakeCloudflareWorkerId();
-    const repository = makeRepositorySettingsBuilderRepository({
-      cloudflareWorkers: [makeRepositorySettingsCloudflareWorker({ workerId })],
-    });
-
-    const roots = buildProductionEnvironmentRoots({
-      branch: "main",
-      repository,
-      cloudflareObservations: makeLoadedCloudflareObservations({
-        workers: [
-          makeAvailableRepositorySettingsCloudflareObservation({
-            workerId,
-            customDomains: [],
-            workersDev: { state: "disabled" },
-          }),
-        ],
-        builds: [makeAvailableRepositorySettingsCloudflareBuildsObservation({ workerId })],
-        convexBuildAccess: [],
-      }),
-      convexObservations: {
-        state: "loaded",
-        refreshFailed: false,
-        reload: () => {},
-        observations: [],
-      },
-      owner: "ada",
-      repoName: "demo",
-      schemaGraphEnabled: true,
-    });
-
-    expect(roots).toEqual([
-      {
-        rootDirectory: "/",
-        resources: [
-          {
-            kind: "cloudflare_worker",
-            id: workerId,
-            worker: {
-              workerName: "demo-worker",
-              build: { state: "absent" },
-              destination: { state: "absent" },
-              actions: [],
-            },
-          },
-        ],
-      },
-    ]);
-  });
-
-  it("keeps every attached Worker visible when live checks return partial failures", () => {
-    const readyWorkerId = fakeCloudflareWorkerId("worker-ready");
-    const failedWorkerId = fakeCloudflareWorkerId("worker-failed");
-    const convexProjectId = fakeConvexProjectId();
-    const repository = makeRepositorySettingsBuilderRepository({
-      cloudflareWorkers: [
-        makeRepositorySettingsCloudflareWorker({ workerId: readyWorkerId }),
-        makeRepositorySettingsCloudflareWorker({
-          workerId: failedWorkerId,
-          workerName: "samebase-worker",
-          workerTag: "samebase-worker-tag",
-          rootDirectory: "apps/samebase",
-        }),
-      ],
-      convexProjects: [makeRepositorySettingsConvexProject({ convexProjectId })],
-    });
-
-    const roots = buildProductionEnvironmentRoots({
-      branch: "main",
-      repository,
-      cloudflareObservations: makeLoadedCloudflareObservations({
-        workers: [
-          makeAvailableRepositorySettingsCloudflareObservation({ workerId: readyWorkerId }),
-          { state: "failed", workerId: failedWorkerId, reason: "request_failed" },
-        ],
-        builds: [
-          makeAvailableRepositorySettingsCloudflareBuildsObservation({
-            workerId: readyWorkerId,
-          }),
-          makeAvailableRepositorySettingsCloudflareBuildsObservation({
-            workerId: failedWorkerId,
-            repository: {
-              state: "ready",
-              rootDirectory: "apps/moved",
-              builds: { state: "not_available" },
-            },
-            builds: {
-              state: "connected",
-              productionBuildTokenUuid: "samebase-build-token",
-              previewBuildTokenUuid: "samebase-build-token",
-            },
-            productionBuild: {
-              state: "available",
-              buildState: "success",
-              commitHash: null,
-              logsUrl: "https://dash.cloudflare.com/samebase-build",
-            },
-          }),
-        ],
-        convexBuildAccess: [],
-      }),
-      convexObservations: {
-        state: "loaded",
-        refreshFailed: false,
-        reload: () => {},
-        observations: [
-          {
-            convexProjectId,
-            projectId: "demo-project-id",
-            codeLocation: { kind: "config", convexConfigPath: "convex.json" },
-            source: { kind: "config", state: "valid" },
-            provider: { state: "missing_ambiguous" },
-          },
-        ],
-      },
-      owner: "ada",
-      repoName: "demo",
-      schemaGraphEnabled: true,
-    });
-
-    expect(roots).toEqual([
-      {
-        rootDirectory: "/",
-        resources: [
-          {
-            kind: "cloudflare_worker",
-            id: readyWorkerId,
-            worker: {
-              workerName: "demo-worker",
-              build: { state: "absent" },
-              destination: {
-                state: "available",
-                href: "https://demo-worker.ada.workers.dev",
-                label: "demo-worker.ada.workers.dev",
-                provenance: "production",
-                title: "Open production app",
-              },
-              actions: [],
-            },
-          },
-        ],
-      },
-      {
-        rootDirectory: "apps/samebase",
-        resources: [
-          {
-            kind: "cloudflare_worker",
-            id: failedWorkerId,
-            worker: {
-              workerName: "samebase-worker",
-              build: {
-                state: "available",
-                buildState: "success",
-                logsUrl: "https://dash.cloudflare.com/samebase-build",
-              },
-              destination: { state: "absent" },
-              actions: [],
-            },
-          },
-        ],
-      },
-    ]);
-  });
-});
 
 /**
 The stacks as `reader:repository` returns the captured stage `prod` of samebase/base-alchemy,
@@ -823,27 +371,14 @@ function renderStackCards(
         filesReadEnabled={false}
         workspace={{
           access: { state: "ready", accessKeys: [] },
-          alchemyObservations: {
-            state: "loaded",
-            observations: [stacks],
-            refreshFailed: false,
-            reload: () => {},
-          },
           alchemyState: {
             state: "loaded",
             observation: stacks,
             refreshFailed: false,
             reload: () => {},
           },
-          cloudflareConnection: { state: "loading" },
-          cloudflareObservations: {
-            workers: { state: "loading" },
-            builds: { state: "loading" },
-            convexBuildAccess: { state: "loading" },
-          },
-          convexObservations: { state: "loading" },
           githubRepositoryUrl: `https://github.com/${repository.githubRepositoryFullName}`,
-          production: { source: "stacks", cards: stackCardsOf(stacks, repository, headCommit) },
+          productionCards: stackCardsOf(stacks, repository, headCommit),
           pullRequests: { state: "loading" },
           repository,
         }}
@@ -903,7 +438,6 @@ describe("Alchemy stack cards", () => {
             href: "https://dashboard.convex.dev/t/nicu/base-alchemy/ideal-dolphin-15",
             label: "ideal-dolphin-15",
             provider: "convex",
-            provenance: "stack",
             region: "aws-us-east-1",
             title: "Open Convex deployment ideal-dolphin-15",
           },
@@ -1061,7 +595,6 @@ describe("Alchemy stack cards", () => {
           state: "available",
           href: "https://e.samebase.com/",
           label: "e.samebase.com",
-          provenance: "stack",
           title: "Open samebase-posthog-proxy",
         },
         actions: [],
@@ -1251,7 +784,6 @@ describe("Alchemy stack cards", () => {
             state: "available",
             href: "https://tmp-k7m2-rows.pfp.workers.dev",
             label: "tmp-k7m2-rows.pfp.workers.dev",
-            provenance: "stack",
             title: "Open tmp-k7m2-rows",
           },
         ],
@@ -1388,17 +920,7 @@ describe("Alchemy stack cards", () => {
     container.innerHTML = renderToStaticMarkup(
       <PullRequestResources
         resource={{
-          state: "current",
-          resources: {
-            pullRequestId: "pull-request-1768",
-            cloudflareBuilds: { state: "available" },
-            workers: [],
-            convexProjects: [],
-            hostingPreviews: {
-              cloudflare: { state: "available", previews: [] },
-              netlify: { state: "available", previews: [] },
-            },
-          },
+          state: "loaded",
           // The pull request has a newer head than the deployed commit, so the card has a run line.
           stackCards: buildAlchemyStackCards({
             stacks: withPreview,
@@ -1425,437 +947,204 @@ describe("Alchemy stack cards", () => {
   });
 });
 
-describe("repository environment roots", () => {
-  it("keeps a Convex row under its known root while deployment details load", () => {
-    const convexProjectId = fakeConvexProjectId();
-    const repository = makeRepositorySettingsBuilderRepository({
-      convexProjects: [
-        makeRepositorySettingsConvexProject({
-          convexProjectId,
-          codeLocation: { kind: "config", convexConfigPath: "packages/backend/convex.json" },
-        }),
-      ],
+function makeWorkspace(
+  repository: RepositorySettingsBuilderRepository,
+  alchemyState: RepositoryAlchemyState,
+): RepositoryWorkspaceSelected {
+  return {
+    access: { state: "ready", accessKeys: [] },
+    alchemyState,
+    githubRepositoryUrl: `https://github.com/${repository.githubRepositoryFullName}`,
+    productionCards: [],
+    pullRequests: { state: "loading" },
+    repository,
+  };
+}
+
+function loadedStore(
+  observation: Extract<RepositoryAlchemyState, { state: "loaded" }>["observation"],
+): RepositoryAlchemyState {
+  return { state: "loaded", observation, refreshFailed: false, reload: () => {} };
+}
+
+const NO_STACK_STORE = loadedStore({ store: "found", stacks: [], liveDeployments: [] });
+const NO_STACK_LINE = "The team's Alchemy state store holds no stack for this repository.";
+const STORE_READ_FAILED = "Could not read the team's Alchemy state store.";
+
+describe("the default-branch block without a stack", () => {
+  /** An old app: it keeps its attachment rows, and the store holds no stack of it. */
+  const oldApp = makeRepositorySettingsBuilderRepository({
+    hasCloudflareProvision: true,
+    hasConvexProvision: true,
+    cloudflareWorkers: [makeRepositorySettingsCloudflareWorker({})],
+    convexProjects: [makeRepositorySettingsConvexProject({})],
+  });
+  const newApp = makeRepositorySettingsBuilderRepository({
+    providerPlan: {
+      provisioning: "repository_actions",
+      convexConfigPath: "convex.json",
+      ciSecrets: { state: "written", writtenAt: 2, credentialRevision: 1 },
+    },
+  });
+
+  function renderBlock(workspace: RepositoryWorkspaceSelected) {
+    const container = document.createElement("div");
+    container.innerHTML = renderToStaticMarkup(
+      <TestRouterProvider
+        initialEntries={[`/repo/${workspace.repository.githubRepositoryFullName}`]}
+      >
+        <DefaultBranchSection filesReadEnabled={false} workspace={workspace} />
+      </TestRouterProvider>,
+    );
+    return container;
+  }
+
+  it("says that the store holds no stack, with the branch and no attachment row", () => {
+    const block = renderBlock(makeWorkspace(oldApp, NO_STACK_STORE));
+
+    expect(block.textContent).toContain(NO_STACK_LINE);
+    expect(block.querySelector('a[href="https://github.com/ada/demo/tree/main"]')).not.toBeNull();
+    expect(block.querySelector('[aria-label^="Cloudflare Worker "]')).toBeNull();
+    expect(block.querySelector('[aria-label^="Convex deployment "]')).toBeNull();
+    expect(block.textContent).not.toContain("Could not read");
+    expect(block.textContent).not.toContain("Deploy status");
+    expect(block.querySelector("button")).toBeNull();
+  });
+
+  it("says that the store could not be read, with Retry, and never that it is empty", async () => {
+    const reload = vi.fn();
+    const rootElement = document.createElement("div");
+    document.body.append(rootElement);
+    const root = createRoot(rootElement);
+    const workspace = makeWorkspace(oldApp, {
+      state: "failed",
+      error: new Error("Alchemy state is temporarily unavailable."),
+      reload,
     });
 
+    try {
+      await act(async () => {
+        root.render(
+          <TestRouterProvider initialEntries={["/repo/ada/demo"]}>
+            <DefaultBranchSection filesReadEnabled={false} workspace={workspace} />
+          </TestRouterProvider>,
+        );
+      });
+
+      expect(rootElement.textContent).toContain(STORE_READ_FAILED);
+      expect(rootElement.textContent).not.toContain(NO_STACK_LINE);
+      expect(rootElement.querySelector('[aria-label^="Cloudflare Worker "]')).toBeNull();
+      const retry = [...rootElement.querySelectorAll("button")].find(
+        (button) => button.textContent === "Retry",
+      );
+      if (!retry) {
+        throw new Error("Expected the Retry button.");
+      }
+      await act(async () => {
+        retry.click();
+      });
+      expect(reload).toHaveBeenCalledOnce();
+    } finally {
+      await act(async () => {
+        root.unmount();
+      });
+      rootElement.remove();
+    }
+  });
+
+  it.each([
+    ["a team without a store", { store: "missing" }, "This team has no Alchemy state store yet."],
+    [
+      "no Convex connection",
+      { store: "no_connection" },
+      "This repository has no Convex connection, so Samebase cannot read its stacks.",
+    ],
+  ] as const)("says what is true for %s", (_name, observation, message) => {
+    const block = renderBlock(makeWorkspace(oldApp, loadedStore(observation)));
+
+    expect(block.textContent).toContain(message);
+    expect(block.textContent).not.toContain(NO_STACK_LINE);
+    expect(block.querySelector("button")).toBeNull();
+  });
+
+  it("says no store problem while the first deployment of a new app is pending", () => {
+    for (const store of [NO_STACK_STORE, loadedStore({ store: "missing" })]) {
+      const block = renderBlock(makeWorkspace(newApp, store));
+
+      expect(block.textContent).not.toContain("Alchemy state store");
+      expect(block.querySelector("button")).toBeNull();
+    }
+  });
+
+  it("still names a lost connection on a new app", () => {
     expect(
-      buildProductionEnvironmentRoots({
-        branch: "main",
-        cloudflareObservations: makeLoadedCloudflareObservations({
-          workers: [],
-          builds: [],
-          convexBuildAccess: [],
+      renderBlock(makeWorkspace(newApp, loadedStore({ store: "no_connection" }))).textContent,
+    ).toContain("This repository has no Convex connection");
+  });
+
+  it("shows a loading block and no line while the store read runs", () => {
+    const block = renderBlock(makeWorkspace(oldApp, { state: "loading" }));
+
+    expect(block.querySelector('[aria-label="Loading production destinations"]')).not.toBeNull();
+    expect(block.textContent).not.toContain("Alchemy state store");
+  });
+
+  it("offers no Retry for a repository that is being removed", () => {
+    const block = renderBlock(
+      makeWorkspace(
+        makeRepositorySettingsBuilderRepository({
+          deletion: {
+            state: "deleting",
+            runId: fakeDeletionRunId(),
+            requestedAt: 1,
+            currentStep: "delete_github_repository",
+            message: "Removing this repository from Samebase.",
+            updatedAt: 1,
+          },
         }),
-        convexObservations: { state: "loading" },
-        owner: "ada",
-        repoName: "demo",
-        schemaGraphEnabled: true,
-        repository,
-      }),
-    ).toEqual([
-      {
-        rootDirectory: "packages/backend",
-        resources: [
-          {
-            kind: "convex_loading",
-            id: convexProjectId,
-          },
-        ],
-      },
-    ]);
-  });
-
-  it("keeps production Data available independently from Schema access", () => {
-    const convexProjectId = fakeConvexProjectId();
-    const dashboardUrl = "https://dashboard.convex.dev/t/ada/demo/calm-swan-123";
-    const repository = makeRepositorySettingsBuilderRepository({
-      convexProjects: [
-        makeRepositorySettingsConvexProject({
-          convexProjectId,
-          codeLocation: { kind: "config", convexConfigPath: "packages/backend/convex.json" },
-        }),
-      ],
-    });
-
-    expect(
-      buildProductionEnvironmentRoots({
-        branch: "main",
-        cloudflareObservations: makeLoadedCloudflareObservations({
-          workers: [],
-          builds: [],
-          convexBuildAccess: [],
-        }),
-        convexObservations: {
-          state: "loaded",
-          refreshFailed: false,
-          reload: () => {},
-          observations: [
-            {
-              convexProjectId,
-              projectId: "demo-project-id",
-              codeLocation: { kind: "config", convexConfigPath: "packages/backend/convex.json" },
-              source: { kind: "config", state: "valid" },
-              provider: {
-                state: "current",
-                projectSlug: "demo",
-                teamSlug: "ada",
-                productionDeployment: {
-                  state: "available",
-                  deploymentName: "calm-swan-123",
-                  dashboardUrl,
-                  region: "aws-eu-west-1",
-                },
-              },
-            },
-          ],
-        },
-        owner: "ada",
-        repoName: "demo",
-        schemaGraphEnabled: false,
-        repository,
-      }),
-    ).toEqual([
-      {
-        rootDirectory: "packages/backend",
-        resources: [
-          {
-            kind: "destination",
-            id: `convex:${dashboardUrl}`,
-            actions: [
-              {
-                destination: "samebase",
-                href: `/repo/ada/demo/db/main/project/${convexProjectId}`,
-                label: "Data",
-              },
-              {
-                destination: "samebase",
-                href: `/repo/ada/demo/components/calm-swan-123`,
-                label: "Components",
-              },
-            ],
-            href: dashboardUrl,
-            label: "calm-swan-123",
-            provider: "convex",
-            provenance: "production",
-            region: "aws-eu-west-1",
-            title: "Open production Convex deployment calm-swan-123",
-          },
-        ],
-      },
-    ]);
-  });
-
-  it("groups pull request Workers by their saved roots", () => {
-    const domainWorkerId = fakeCloudflareWorkerId("worker-domain");
-    const samebaseWorkerId = fakeCloudflareWorkerId("worker-samebase");
-    const roots = buildPullRequestEnvironmentRoots({
-      resources: {
-        pullRequestId: "pull-request-1",
-        cloudflareBuilds: { state: "available" },
-        workers: [
-          {
-            workerId: domainWorkerId,
-            workerName: "domain-router",
-            rootDirectory: "apps/domain-router",
-            cloudflareBuild: {
-              state: "available",
-              uuid: "domain-build",
-              buildState: "success",
-              logsUrl: "https://dash.cloudflare.com/domain-build",
-            },
-            cloudflareBranchPreview: { state: "absent" },
-          },
-          {
-            workerId: samebaseWorkerId,
-            workerName: "samebase",
-            rootDirectory: "apps/samebase",
-            cloudflareBuild: {
-              state: "available",
-              uuid: "samebase-build",
-              buildState: "failure",
-              logsUrl: "https://dash.cloudflare.com/samebase-build",
-            },
-            cloudflareBranchPreview: { state: "absent" },
-          },
-        ],
-        convexProjects: [],
-        hostingPreviews: {
-          cloudflare: { state: "available", previews: [] },
-          netlify: { state: "available", previews: [] },
-        },
-      },
-    });
-
-    expect(
-      roots.map((root) => ({
-        rootDirectory: root.rootDirectory,
-        workers: root.resources.flatMap((resource) =>
-          resource.kind === "cloudflare_worker"
-            ? [{ name: resource.worker.workerName, build: resource.worker.build }]
-            : [],
-        ),
-      })),
-    ).toEqual([
-      {
-        rootDirectory: "apps/domain-router",
-        workers: [
-          {
-            name: "domain-router",
-            build: {
-              state: "available",
-              buildState: "success",
-              logsUrl: "https://dash.cloudflare.com/domain-build",
-            },
-          },
-        ],
-      },
-      {
-        rootDirectory: "apps/samebase",
-        workers: [
-          {
-            name: "samebase",
-            build: {
-              state: "available",
-              buildState: "failure",
-              logsUrl: "https://dash.cloudflare.com/samebase-build",
-            },
-          },
-        ],
-      },
-    ]);
-  });
-
-  it("shows a Convex preview independently from a failed Cloudflare build", () => {
-    const workerId = fakeCloudflareWorkerId();
-    const convexProjectId = fakeConvexProjectId();
-    const worker = {
-      workerId,
-      workerName: "demo-web",
-      rootDirectory: "apps/web",
-      cloudflareBuild: {
-        state: "available" as const,
-        uuid: "build-1",
-        buildState: "failure" as const,
-        logsUrl: "https://dash.cloudflare.com/build-1",
-      },
-      cloudflareBranchPreview: { state: "absent" as const },
-    };
-
-    expect(
-      buildPullRequestEnvironmentRoots({
-        resources: {
-          pullRequestId: "pull-request-1",
-          cloudflareBuilds: { state: "available" },
-          workers: [worker],
-          convexProjects: [
-            {
-              state: "branch",
-              convexProjectId,
-              rootDirectory: "apps/web",
-              deploymentName: "calm-swan-123",
-              dashboardUrl: "https://dashboard.convex.dev/t/ada/demo/calm-swan-123",
-            },
-          ],
-          hostingPreviews: {
-            cloudflare: { state: "available", previews: [] },
-            netlify: { state: "available", previews: [] },
-          },
-        },
-      }),
-    ).toEqual([
-      {
-        rootDirectory: "apps/web",
-        resources: [
-          {
-            kind: "cloudflare_worker",
-            id: workerId,
-            worker: {
-              workerName: "demo-web",
-              build: {
-                state: "available",
-                buildState: "failure",
-                logsUrl: "https://dash.cloudflare.com/build-1",
-              },
-              destination: { state: "absent" },
-              actions: [],
-            },
-          },
-          {
-            kind: "destination",
-            id: `convex:${convexProjectId}`,
-            actions: [
-              {
-                destination: "external",
-                href: "https://dashboard.convex.dev/t/ada/demo/calm-swan-123/data",
-                label: "Data",
-              },
-            ],
-            href: "https://dashboard.convex.dev/t/ada/demo/calm-swan-123",
-            label: "calm-swan-123",
-            provider: "convex",
-            provenance: "pull_request_branch",
-            title: "Open branch Convex deployment calm-swan-123",
-          },
-        ],
-      },
-    ]);
-  });
-
-  it("shows a building current build and an earlier-commit branch preview independently", () => {
-    const workerId = fakeCloudflareWorkerId();
-    const previewUrl = "https://older-demo-web.example.workers.dev";
-    const resources = {
-      pullRequestId: "pull-request-1",
-      cloudflareBuilds: { state: "available" as const },
-      workers: [
-        {
-          workerId,
-          workerName: "demo-web",
-          rootDirectory: "apps/web",
-          cloudflareBuild: {
-            state: "available" as const,
-            uuid: "building-1",
-            buildState: "running" as const,
-            logsUrl: "https://dash.cloudflare.com/building-1",
-          },
-          cloudflareBranchPreview: {
-            state: "available" as const,
-            url: previewUrl,
-            provenance: "earlier_check" as const,
-          },
-        },
-      ],
-      convexProjects: [],
-      hostingPreviews: {
-        cloudflare: { state: "available" as const, previews: [] },
-        netlify: { state: "available" as const, previews: [] },
-      },
-    };
-    const roots = buildPullRequestEnvironmentRoots({ resources });
-
-    expect(roots).toEqual([
-      {
-        rootDirectory: "apps/web",
-        resources: [
-          {
-            kind: "cloudflare_worker",
-            id: workerId,
-            worker: {
-              workerName: "demo-web",
-              build: {
-                state: "available",
-                buildState: "running",
-                logsUrl: "https://dash.cloudflare.com/building-1",
-              },
-              destination: {
-                state: "available",
-                href: previewUrl,
-                label: "Branch preview",
-                provenance: "earlier_check",
-                title: "older-demo-web.example.workers.dev",
-              },
-              actions: [],
-            },
-          },
-        ],
-      },
-    ]);
-
-    const markup = renderToStaticMarkup(<RepositoryEnvironmentTree roots={roots} />);
-    expect(markup).toContain("Building");
-    expect(markup).toContain("May be from an earlier commit");
-  });
-
-  it("shows one pull request message when Cloudflare comments are unavailable", () => {
-    const markup = renderToStaticMarkup(
-      <PullRequestResources
-        resource={{
-          state: "current",
-          resources: {
-            pullRequestId: "pull-request-1",
-            cloudflareBuilds: { state: "unavailable" },
-            workers: [],
-            convexProjects: [],
-            hostingPreviews: {
-              cloudflare: { state: "unavailable" },
-              netlify: { state: "available", previews: [] },
-            },
-          },
-          stackCards: [],
-        }}
-      />,
+        { state: "failed", error: new Error("Repository not found."), reload: () => {} },
+      ),
     );
 
-    expect(markup).toContain("Could not load Cloudflare build status");
-    expect(markup).not.toContain("Unavailable");
+    expect(block.textContent).not.toContain(STORE_READ_FAILED);
+    expect(block.querySelector("button")).toBeNull();
   });
 
-  it("keeps an unavailable pull request head out of Cloudflare comment errors", () => {
-    const markup = renderToStaticMarkup(<PullRequestResources resource={{ state: "failed" }} />);
+  it("keeps the note that deployment metadata of a stack may be out of date", () => {
+    const stacks = observedBaseAlchemyStack();
+    const block = renderBlock(
+      makeWorkspace(oldApp, {
+        state: "loaded",
+        observation: stacks,
+        refreshFailed: true,
+        reload: () => {},
+      }),
+    );
 
-    expect(markup).toContain("Deploy status unavailable");
-    expect(markup).not.toContain("Could not load Cloudflare build status");
-    expect(markup).not.toContain("Cloudflare Workers");
-    expect(markup).not.toContain(">Unavailable<");
+    expect(block.textContent).toContain("Deploy status may be out of date.");
+    expect(block.textContent).not.toContain(NO_STACK_LINE);
   });
+});
 
-  it("links a comment build with its direct status", () => {
-    const workerId = fakeCloudflareWorkerId();
-    const logsUrl = "https://dash.cloudflare.com/account-1/workers/builds/building-1";
-    const roots = buildPullRequestEnvironmentRoots({
-      resources: {
-        pullRequestId: "pull-request-1",
-        cloudflareBuilds: { state: "available" },
-        workers: [
-          {
-            workerId,
-            workerName: "demo-web",
-            rootDirectory: "apps/web",
-            cloudflareBuild: {
-              state: "available",
-              uuid: "building-1",
-              buildState: "running",
-              logsUrl,
-            },
-            cloudflareBranchPreview: { state: "absent" },
-          },
-        ],
-        convexProjects: [],
-        hostingPreviews: {
-          cloudflare: { state: "available", previews: [] },
-          netlify: { state: "available", previews: [] },
-        },
-      },
-    });
+describe("PullRequestResources", () => {
+  it("says that the store could not be read, and shows nothing for a pull request with no stage", () => {
+    const failed = renderToStaticMarkup(<PullRequestResources resource={{ state: "failed" }} />);
+    const empty = renderToStaticMarkup(
+      <PullRequestResources resource={{ state: "loaded", stackCards: [] }} />,
+    );
 
-    expect(roots).toMatchObject([
-      {
-        rootDirectory: "apps/web",
-        resources: [
-          {
-            kind: "cloudflare_worker",
-            worker: {
-              build: { state: "available", buildState: "running", logsUrl },
-            },
-          },
-        ],
-      },
-    ]);
-
-    const rootElement = document.createElement("div");
-    rootElement.innerHTML = renderToStaticMarkup(<RepositoryEnvironmentTree roots={roots} />);
-    const buildLink = rootElement.querySelector(`a[href="${logsUrl}"]`);
-    expect(buildLink?.textContent).toContain("Building");
-    expect(buildLink?.getAttribute("target")).toBe("_blank");
-    expect(buildLink?.getAttribute("rel")).toBe("noreferrer noopener");
+    expect(failed).toContain("Could not read the team&#x27;s Alchemy state store.");
+    expect(failed).not.toContain("Deploy status unavailable");
+    expect(empty).toBe("");
   });
 });
 
 describe("PullRequestsSection", () => {
-  it("shows rootless hosting previews without a setup link", async () => {
+  it("shows the stack cards in an expanded row", async () => {
     const pullRequest = {
       id: "pull-request:41",
       number: 41,
-      title: "Show previews found in comments",
+      title: "Show previews from the store",
       url: "https://github.com/ada/demo/pull/41",
       isDraft: false,
       isCrossRepository: false,
@@ -1883,9 +1172,6 @@ describe("PullRequestsSection", () => {
         unknownCount: 0,
       },
     } satisfies RepositoryPullRequest;
-    const cloudflareWorkerUrl = "https://preview-comments.demo.workers.dev";
-    const cloudflarePagesUrl = "https://preview-comments.demo.pages.dev";
-    const netlifyUrl = "https://deploy-preview-41--demo.netlify.app";
     const pullRequests = {
       state: "current",
       defaultBranch: null,
@@ -1896,27 +1182,12 @@ describe("PullRequestsSection", () => {
         [
           pullRequest.id,
           {
-            state: "current",
-            resources: {
-              pullRequestId: pullRequest.id,
-              cloudflareBuilds: { state: "available" },
-              workers: [],
-              convexProjects: [],
-              hostingPreviews: {
-                cloudflare: {
-                  state: "available",
-                  previews: [
-                    { kind: "worker", name: "comment-worker", url: cloudflareWorkerUrl },
-                    { kind: "pages", name: "comment-pages", url: cloudflarePagesUrl },
-                  ],
-                },
-                netlify: {
-                  state: "available",
-                  previews: [{ name: "demo-netlify", url: netlifyUrl }],
-                },
-              },
-            },
-            stackCards: [],
+            state: "loaded",
+            stackCards: stackCardsOf(
+              observedBaseAlchemyStack(),
+              makeRepositorySettingsBuilderRepository({}),
+              null,
+            ),
           },
         ],
       ]),
@@ -1953,23 +1224,10 @@ describe("PullRequestsSection", () => {
         expandButton.click();
       });
 
-      const otherPreviews = rootElement.querySelector(
-        '[role="group"][aria-label="Other previews"]',
-      );
-      expect(otherPreviews).not.toBeNull();
-      expect(otherPreviews?.textContent).toContain("Other previews");
-      expect(otherPreviews?.textContent).not.toContain("Connect");
-
-      const workerPreview = otherPreviews?.querySelector(`a[href="${cloudflareWorkerUrl}"]`);
-      const pagesPreview = otherPreviews?.querySelector(`a[href="${cloudflarePagesUrl}"]`);
-      const netlifyPreview = otherPreviews?.querySelector(`a[href="${netlifyUrl}"]`);
-      expect(workerPreview?.textContent).toContain("Branch preview");
-      expect(pagesPreview?.textContent).toContain("Branch preview");
-      expect(netlifyPreview?.textContent).toContain("Deploy preview");
-      for (const previewLink of [workerPreview, pagesPreview, netlifyPreview]) {
-        expect(previewLink?.getAttribute("target")).toBe("_blank");
-        expect(previewLink?.getAttribute("rel")).toBe("noreferrer noopener");
-      }
+      expect(
+        rootElement.querySelector('[aria-label="Alchemy stack samebase/base-alchemy"]'),
+      ).not.toBeNull();
+      expect(rootElement.querySelector('[aria-label="Other previews"]')).toBeNull();
     } finally {
       await act(async () => {
         root.unmount();
@@ -1993,7 +1251,7 @@ describe("RepositoryOverviewPickerPane", () => {
     };
   }
 
-  it("shows positive resource counts and omits zero resource counts", () => {
+  it("shows checks and pull requests, and no attachment count", () => {
     const repository = makeRepositorySettingsBuilderRepository({
       cloudflareWorkers: [makeRepositorySettingsCloudflareWorker({})],
       convexProjects: [makeRepositorySettingsConvexProject({})],
@@ -2036,8 +1294,8 @@ describe("RepositoryOverviewPickerPane", () => {
     expect(markup).toContain("demo");
     expect(markup).toContain("1/1 passed");
     expect(markup).toContain("3 PRs");
-    expect(markup).toContain("1 Cloudflare Worker");
-    expect(markup).toContain("1 Convex project");
+    expect(markup).not.toContain("Cloudflare Worker");
+    expect(markup).not.toContain("Convex project");
     expect(markup).not.toContain("Install GitHub App");
     expect(markup).toContain('href="/repo/ada/demo"');
     expect(markup).toMatch(/<a[^>]+href="\/repo\/ada\/demo"[^>]*>[\s\S]*1\/1 passed[\s\S]*<\/a>/);
@@ -2329,17 +1587,6 @@ describe("RepositoryOverviewPage", () => {
     const repository = makeRepositorySettingsBuilderRepository({
       hasConnectedGitHubRepository: false,
     });
-    const cloudflareObservations = makeLoadedCloudflareObservations({
-      workers: [],
-      builds: [],
-      convexBuildAccess: [],
-    });
-    const convexObservations = {
-      state: "loaded" as const,
-      refreshFailed: false,
-      reload: () => {},
-      observations: [],
-    };
     const markup = renderToStaticMarkup(
       <TestRouterProvider initialEntries={["/repo/ada/demo"]}>
         <RepositoryOverviewPage
@@ -2356,17 +1603,8 @@ describe("RepositoryOverviewPage", () => {
               refreshFailed: false,
               reload: () => {},
             },
-            alchemyObservations: {
-              state: "loaded",
-              observations: [],
-              refreshFailed: false,
-              reload: () => {},
-            },
             access: { state: "ready", accessKeys: [] },
-            cloudflareConnection: { state: "loading" },
-            cloudflareObservations,
-            convexObservations,
-            production: { source: "attachments", roots: [] },
+            productionCards: [],
             githubRepositoryUrl: "https://github.com/ada/demo",
             pullRequests: { state: "not_requested" },
             repository,
@@ -2390,26 +1628,8 @@ describe("RepositoryOverviewPage", () => {
         refreshFailed: false,
         reload: () => {},
       },
-      alchemyObservations: {
-        state: "loaded" as const,
-        observations: [],
-        refreshFailed: false,
-        reload: () => {},
-      },
       access: { state: "ready" as const, accessKeys: [] },
-      cloudflareConnection: { state: "loading" as const },
-      cloudflareObservations: makeLoadedCloudflareObservations({
-        workers: [],
-        builds: [],
-        convexBuildAccess: [],
-      }),
-      convexObservations: {
-        state: "loaded" as const,
-        refreshFailed: false,
-        reload: () => {},
-        observations: [],
-      },
-      production: { source: "attachments" as const, roots: [] },
+      productionCards: [],
       githubRepositoryUrl: "https://github.com/ada/plugin",
       pullRequests: { state: "not_requested" as const },
       repository,

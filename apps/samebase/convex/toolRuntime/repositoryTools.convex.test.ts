@@ -7,25 +7,7 @@ const providerMocks = vi.hoisted(() => ({
 }));
 
 const githubMocks = vi.hoisted(() => ({
-  fetchGitHubConvexCodeLocationDiscovery: vi.fn(),
   resolveGitHubAppAccess: vi.fn(),
-}));
-
-const cloudflareMocks = vi.hoisted(() => ({
-  getWorker: vi.fn(),
-  getBuildSettings: vi.fn(),
-  getBuilds: vi.fn(),
-}));
-
-vi.mock("../cloudflareApi/generated/sdk.gen", () => ({
-  Cloudflare: {
-    GET: {
-      "/accounts/{account_id}/workers/workers/{worker_id}": cloudflareMocks.getWorker,
-      "/accounts/{account_id}/builds/workers/{script_tag}": cloudflareMocks.getBuildSettings,
-      "/accounts/{account_id}/builds/workers/{external_script_id}/builds":
-        cloudflareMocks.getBuilds,
-    },
-  },
 }));
 
 vi.mock("../convexManagementApi/client", async (importOriginal) => {
@@ -51,18 +33,8 @@ vi.mock("../githubAppAccess", async (importOriginal) => {
   };
 });
 
-vi.mock("../githubRepoApi", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../githubRepoApi")>();
-  return {
-    ...actual,
-    fetchGitHubConvexCodeLocationDiscovery: githubMocks.fetchGitHubConvexCodeLocationDiscovery,
-  };
-});
-
 import { api, internal } from "../_generated/api";
 import type { ConvexManagement } from "../convexManagementApi/generated/sdk.gen";
-import { observedNativeWorkerBuildSettings } from "../cloudflareApi/fixtures/observedWorkerBuildSettings";
-import { observedNativePreviewsProductionBuild } from "../cloudflareApi/fixtures/observedWorkerBuilds";
 import {
   insertTestOrganizationBillingAccount,
   makeConvexTest,
@@ -77,13 +49,6 @@ const convexTeamProject = (id: string, name: string, slug = name) => ({
   slug,
   teamId: "convex-team",
   teamSlug: "scout-team",
-});
-
-const configLocation = (convexConfigPath: string) => ({
-  kind: "config" as const,
-  convexConfigPath,
-  rootDirectory: "/",
-  blobSha: `${convexConfigPath}-sha`,
 });
 
 /**
@@ -187,15 +152,7 @@ async function createScoutFixture() {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  for (const endpoint of Object.values(cloudflareMocks)) endpoint.mockReset();
   githubMocks.resolveGitHubAppAccess.mockResolvedValue({ octokit: {} });
-  githubMocks.fetchGitHubConvexCodeLocationDiscovery.mockResolvedValue({
-    completeness: "complete",
-    defaultBranch: "main",
-    commitSha: "commit-sha",
-    treeSha: "tree-sha",
-    locations: [configLocation("convex.json")],
-  });
   providerMocks.listConvexManagementProjects.mockResolvedValue([
     convexTeamProject("scout-project", "scout"),
     convexTeamProject("free-project", "free-app"),
@@ -252,13 +209,10 @@ describe("repository_list", () => {
 });
 
 describe("repository_getStatus", () => {
-  it("reads the status by repository name and reports unreadable providers as unavailable", async () => {
+  it("reads the status by repository name and reports an unreadable store as unreadable", async () => {
     const fixture = await createScoutFixture();
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () => {
-        throw new Error("Provider request failed in the test.");
-      }),
+    providerMocks.listConvexManagementProjects.mockRejectedValue(
+      new Error("Provider request failed in the test."),
     );
 
     const result = await fixture.t.action(internal.toolRuntime.runtime.repositoryGetStatusTool, {
@@ -269,88 +223,50 @@ describe("repository_getStatus", () => {
     const dashboardStatus = await fixture.viewer.action(api.repository.getStatus, {
       repositoryId: fixture.repositoryId,
     });
-    vi.unstubAllGlobals();
 
+    const attention = [
+      {
+        tool: null,
+        problem:
+          "The team's Alchemy state store could not be read, so this status does not say what scout-owner/scout has deployed. Call repository_getStatus again.",
+      },
+    ];
     expect(result).toEqual({
       status: "ok",
-      text: "scout-owner/scout: 1 app, 1 Convex project, pull requests unavailable. Could not read the default branch head, the production build of scout, the Convex production deployment at convex.json.",
+      text: `scout-owner/scout: stacks unreadable, pull requests unavailable. Needs attention: ${attention[0].problem} Could not read the default branch head.`,
       structuredContent: {
         repository: "scout-owner/scout",
         defaultBranch: null,
         openPullRequestCount: null,
-        apps: [
-          {
-            workerName: "scout",
-            rootDirectory: "/",
-            productionBuild: { state: "unavailable" },
-            urls: [],
-          },
-        ],
-        convexProjects: [
-          {
-            codeLocation: "convex.json",
-            projectSlug: null,
-            productionDeployment: { state: "unavailable" },
-          },
-        ],
+        stacks: { state: "unreadable" },
         pullRequests: [],
         setupStack: null,
-        attention: [],
+        attention,
       },
     });
-    expect(dashboardStatus).toMatchObject({
-      workers: [{ state: "failed", workerId: fixture.workerId }],
-      convexProjects: [{ convexProjectId: fixture.convexProjectId }],
+    expect(dashboardStatus).toEqual({
       pullRequests: { state: "unavailable" },
-      pullRequestResources: [],
-      attention: [],
+      stacks: { state: "unreadable" },
+      setupStack: null,
+      attention,
     });
   });
 
-  const builtCommit = observedNativePreviewsProductionBuild.build_trigger_metadata.commit_hash;
-  const workerTag = observedNativePreviewsProductionBuild.trigger.external_script_id;
-  const githubRepositoryId = observedNativePreviewsProductionBuild.trigger.repo_connection.repo_id;
+  const headCommit = "9d1c2f4a7b6e8c0d3f5a1b2c4e6d8f0a2b4c6e8d";
 
   /**
-  The live reads of scout with only its Worker attached. GitHub names `defaultBranch` as the default
-  branch, `heads` gives the head commit of each branch, and each head has the completed check runs
-  `checks`. Workers Builds builds `defaultBranch`, and its latest production build is of
-  `builtCommit` with `buildOutcome`.
+  The GitHub reads of scout: GitHub names `defaultBranch` as the default branch, `heads` gives the
+  head commit of each branch, and each head has the completed check runs `checks`.
   */
-  async function stubLiveStatusReads(
-    fixture: Awaited<ReturnType<typeof createScoutFixture>>,
-    args: {
-      defaultBranch: string;
-      heads: Record<string, string>;
-      checks: Array<{ name: string; conclusion: "SUCCESS" | "FAILURE" }>;
-      buildOutcome: "success" | "fail";
-    },
-  ) {
+  function stubGitHubReads(args: {
+    defaultBranch: string;
+    heads: Record<string, string>;
+    checks: Array<{ name: string; conclusion: "SUCCESS" | "FAILURE" }>;
+  }) {
     const countChecks = (conclusion: "SUCCESS" | "FAILURE") =>
       args.checks.filter((check) => check.conclusion === conclusion).length;
-    await fixture.t.run(async (ctx) => {
-      await ctx.db.delete(fixture.convexProjectId);
-      await ctx.db.patch(fixture.repositoryId, { githubRepositoryDatabaseId: githubRepositoryId });
-      await ctx.db.patch(fixture.workerId, { workerTag });
-      const credentials = await ctx.db.query("organizationProviderCredentials").unique();
-      if (credentials === null) {
-        throw new Error("The scout fixture has provider credentials.");
-      }
-      await ctx.db.patch(credentials._id, {
-        cloudflare: {
-          auth: { method: "api_key", credential: testCredential("cloudflare-token") },
-          connectedByUserId: fixture.userId,
-          updatedAt: 1,
-        },
-      });
-    });
-    await sealTestCredentials(fixture.t);
     const getRepository = vi.fn(async () => ({
-      data: {
-        id: Number(githubRepositoryId),
-        owner: { id: 1 },
-        default_branch: args.defaultBranch,
-      },
+      data: { id: 4242, owner: { id: 1 }, default_branch: args.defaultBranch },
     }));
     const graphql = vi.fn(async (_query: string, variables: { defaultBranchRef: string }) => {
       const branch = variables.defaultBranchRef.replace(/^refs\/heads\//, "");
@@ -358,7 +274,7 @@ describe("repository_getStatus", () => {
       return {
         repository: {
           id: "R_scout",
-          databaseId: Number(githubRepositoryId),
+          databaseId: 4242,
           nameWithOwner: "scout-owner/scout",
           defaultBranch: head
             ? {
@@ -407,48 +323,23 @@ describe("repository_getStatus", () => {
       octokit: { rest: { repos: { get: getRepository } }, graphql },
       githubOwnerLogin: "scout-owner",
     });
-    cloudflareMocks.getWorker.mockResolvedValue({
-      result: {
-        id: workerTag,
-        name: "scout",
-        references: { domains: [] },
-        subdomain: { enabled: false, previews_enabled: false },
-      },
-    });
-    cloudflareMocks.getBuildSettings.mockResolvedValue({
-      result: {
-        ...observedNativeWorkerBuildSettings,
-        script_tag: workerTag,
-        git_repository: {
-          ...observedNativeWorkerBuildSettings.git_repository,
-          repo_id: githubRepositoryId,
-          branch: args.defaultBranch,
-        },
-      },
-    });
-    cloudflareMocks.getBuilds.mockResolvedValue({
-      result: [
-        {
-          ...observedNativePreviewsProductionBuild,
-          build_outcome: args.buildOutcome,
-          build_trigger_metadata: {
-            ...observedNativePreviewsProductionBuild.build_trigger_metadata,
-            branch: args.defaultBranch,
-          },
-        },
-      ],
-    });
     return { getRepository, graphql };
   }
 
-  it("compares the production build with the head of GitHub's current default branch", async () => {
+  async function matchGitHubRepositoryId(fixture: Awaited<ReturnType<typeof createScoutFixture>>) {
+    await fixture.t.run(async (ctx) => {
+      await ctx.db.patch(fixture.repositoryId, { githubRepositoryDatabaseId: "4242" });
+    });
+  }
+
+  it("reads the head of GitHub's current default branch", async () => {
     const fixture = await createScoutFixture();
+    await matchGitHubRepositoryId(fixture);
     // The recorded default branch is still main, which keeps its own head.
-    const { getRepository, graphql } = await stubLiveStatusReads(fixture, {
+    const { getRepository, graphql } = stubGitHubReads({
       defaultBranch: "release",
-      heads: { main: "0".repeat(40), release: builtCommit },
+      heads: { main: "0".repeat(40), release: headCommit },
       checks: [{ name: "test", conclusion: "SUCCESS" }],
-      buildOutcome: "success",
     });
 
     const result = await fixture.t.action(internal.toolRuntime.runtime.repositoryGetStatusTool, {
@@ -459,12 +350,8 @@ describe("repository_getStatus", () => {
 
     expect(result).toMatchObject({
       status: "ok",
-      text: "scout-owner/scout: 1 app, 0 Convex projects, 0 open pull requests. Nothing needs attention.",
-      structuredContent: {
-        defaultBranch: { name: "release" },
-        apps: [{ workerName: "scout", productionBuild: { commit: "matches_head" } }],
-        attention: [],
-      },
+      text: expect.stringContaining("scout-owner/scout: 0 stacks, 0 open pull requests."),
+      structuredContent: { defaultBranch: { name: "release" }, stacks: { state: "no_store" } },
     });
     expect(getRepository).toHaveBeenCalledOnce();
     expect(graphql).toHaveBeenCalledWith(
@@ -473,42 +360,17 @@ describe("repository_getStatus", () => {
     );
   });
 
-  it("names a failed production build that no setup repair fixes", async () => {
-    const fixture = await createScoutFixture();
-    await stubLiveStatusReads(fixture, {
-      defaultBranch: "main",
-      heads: { main: builtCommit },
-      checks: [],
-      buildOutcome: "fail",
-    });
-
-    await expect(
-      fixture.t.action(internal.toolRuntime.runtime.repositoryGetStatusTool, {
-        userId: fixture.userId,
-        grantedScopes: ["access_dashboard"],
-        repository: "scout-owner/scout",
-      }),
-    ).resolves.toMatchObject({
-      status: "ok",
-      text: "scout-owner/scout: 1 app, 0 Convex projects, 0 open pull requests. The latest production build of scout failed.",
-      structuredContent: {
-        apps: [{ workerName: "scout", productionBuild: { buildState: "failure" } }],
-        attention: [],
-      },
-    });
-  });
-
   it("names the failed checks of the default branch head", async () => {
     const fixture = await createScoutFixture();
-    await stubLiveStatusReads(fixture, {
+    await matchGitHubRepositoryId(fixture);
+    stubGitHubReads({
       defaultBranch: "main",
-      heads: { main: builtCommit },
+      heads: { main: headCommit },
       checks: [
         { name: "lint", conclusion: "FAILURE" },
         { name: "test", conclusion: "SUCCESS" },
         { name: "typecheck", conclusion: "FAILURE" },
       ],
-      buildOutcome: "success",
     });
 
     await expect(
@@ -519,10 +381,9 @@ describe("repository_getStatus", () => {
       }),
     ).resolves.toMatchObject({
       status: "ok",
-      text: "scout-owner/scout: 1 app, 0 Convex projects, 0 open pull requests. 2 checks failed on main: lint, typecheck.",
+      text: expect.stringContaining("2 checks failed on main: lint, typecheck."),
       structuredContent: {
         defaultBranch: { checks: { failed: 2, failedNames: ["lint", "typecheck"] } },
-        attention: [],
       },
     });
   });

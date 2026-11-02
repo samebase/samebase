@@ -102,42 +102,9 @@ function makeWorkspace(repository: UserRepositoryResult): RepositoryWorkspaceSel
       refreshFailed: false,
       reload: () => {},
     },
-    alchemyObservations: {
-      state: "loaded",
-      observations: [],
-      refreshFailed: false,
-      reload: () => {},
-    },
     access: { state: "ready", accessKeys: [] },
-    cloudflareConnection: { state: "loading" },
-    cloudflareObservations: {
-      workers: {
-        state: "loaded",
-        observations: [],
-        refreshFailed: false,
-        reload: () => {},
-      },
-      builds: {
-        state: "loaded",
-        observations: [],
-        refreshFailed: false,
-        reload: () => {},
-      },
-      convexBuildAccess: {
-        state: "loaded",
-        observations: [],
-        refreshFailed: false,
-        reload: () => {},
-      },
-    },
-    convexObservations: {
-      state: "loaded",
-      observations: [],
-      refreshFailed: false,
-      reload: () => {},
-    },
     githubRepositoryUrl: `https://github.com/${repository.githubRepositoryFullName}`,
-    production: { source: "attachments", roots: [] },
+    productionCards: [],
     pullRequests: { state: "not_requested" },
     repository,
   };

@@ -1,88 +1,25 @@
 import { describe, expect, it } from "vite-plus/test";
 
+import type { AlchemyStack, AlchemyStateObservation } from "../../shared/alchemyStateModel";
 import type { Id } from "../_generated/dataModel";
-import { observedNativePreviewsProductionBuild } from "../cloudflareApi/fixtures/observedWorkerBuilds";
-import { matchLatestCloudflareWorkerBuildForBranch } from "./cloudflareBuildMatching";
 import type { RepositoryStatus } from "./contracts/getRepositoryStatus";
+import { observedBaseAlchemyRepositoryReply } from "./fixtures/observedAlchemyState";
 import type { RepositoryPullRequest, RepositoryStatusCheckRollup } from "./pullRequestModel";
 import {
   buildRepositoryAttention,
+  buildRepositorySetupStackStatus,
+  buildRepositoryStacksStatus,
   projectRepositoryStatusForMcp,
   type RepositoryObservations,
   type RepositoryStatusRepository,
 } from "./repositoryStatus";
 
-function fakeWorkerId(value: string): Id<"repositoryCloudflareWorkers"> {
-  // @ts-expect-error Convex ids are strings at runtime; these pure rules only compare them.
-  return value;
-}
-
-function fakeConvexProjectId(value: string): Id<"repositoryConvexProjects"> {
-  // @ts-expect-error Convex ids are strings at runtime; these pure rules only compare them.
-  return value;
-}
-
-const accountId = "9a7806061c88ada191ed06f989cc3dac";
-const buildTokenUuid = "0f3c9a2e-5b1d-4c7e-9f20-8a6b4d1e7c35";
-const workerId = fakeWorkerId("k57a3m9x2p8q4r6t1v0w5y7z3b8c2d4e");
-const convexProjectId = fakeConvexProjectId("j97b4n2c8x5v1m3k6p9q0r7s2t4u8w1y");
-const adminConvexProjectId = fakeConvexProjectId("j97b4n2c8x5v1m3k6p9q0r7s2t4u8w2z");
 const headCommitOid = "3f9c2b7e1a4d8c6f0b5e9a2d7c1f4b8e6a3d9c2f";
 
 const repository: RepositoryStatusRepository = {
   githubRepositoryFullName: "samebase/chess-merge",
   providerSetup: { status: "ready" },
   providerPlan: null,
-  cloudflareWorkers: [
-    {
-      workerId,
-      accountId,
-      workerName: "chess-merge",
-      workerTag: "8d3c5e1f7a9b2c4d6e8f0a1b3c5d7e9f",
-      rootDirectory: "/",
-    },
-  ],
-  convexProjects: [
-    {
-      convexProjectId,
-      teamId: "41275",
-      projectId: "387501",
-      codeLocation: { kind: "config", convexConfigPath: "convex.json" },
-    },
-  ],
-};
-const moveToAlchemy =
-  "Samebase does not repair this: move the app to Alchemy and fix it in the stack (https://samebase.com/docs/the-big-migration).";
-const setupStackRepair =
-  "The setup stack in alchemy.run.ts owns this setting: change the stack, or run the alchemy workflow on the default branch to repair it.";
-// A creation without a Workers Builds token: Convex is attached, no Worker yet.
-const pendingPlan = {
-  convexConfigPath: "convex.json",
-  convex: {
-    state: "created",
-    projectName: "chess-merge",
-    deploymentRegion: "aws-us-east-1",
-    teamId: "41275",
-    projectId: "387501",
-  },
-  cloudflare: {
-    state: "planned",
-    accountId,
-    workerName: "chess-merge",
-    rootDirectory: "/",
-    buildTokenUuid: null,
-  },
-} satisfies RepositoryStatusRepository["providerPlan"];
-const pendingCloudflareRepository: RepositoryStatusRepository = {
-  ...repository,
-  cloudflareWorkers: [],
-  providerPlan: pendingPlan,
-};
-const adminProject = {
-  convexProjectId: adminConvexProjectId,
-  teamId: "41275",
-  projectId: "387502",
-  codeLocation: { kind: "config" as const, convexConfigPath: "apps/admin/convex.json" },
 };
 
 /** A rollup as GitHub returns it: aggregate counts of every check, and the first 100 nodes. */
@@ -193,148 +130,238 @@ const githubRepository = {
   },
 };
 
+/** The captured stack of samebase/base-alchemy in the shape that a store read gives. */
+const [capturedStack] = observedBaseAlchemyRepositoryReply.stacks;
+const [capturedStage] = capturedStack.stages;
+const capturedRecord = {
+  ...capturedStage.record,
+  version: 1,
+  source: "github-actions",
+} satisfies AlchemyStack["stages"][number]["record"];
+/** The captured Deployment row with `rootDir`, which the row of a store from 0.7.0 lacks. */
+const capturedResources = capturedStage.resources.map((resource) => ({
+  ...resource,
+  value: resource.value.replace('"type":"prod"', '"type":"prod","rootDir":"."'),
+}));
+const stack: AlchemyStack = {
+  name: capturedStack.name,
+  stages: [{ ...capturedStage, record: capturedRecord, resources: capturedResources }],
+};
+const deployedCommit = capturedStage.deployedHeadCommit;
+const productionUrl = "https://ideal-dolphin-15.convex.site";
+const availableStack = {
+  name: "samebase/base-alchemy",
+  productionUrl,
+  deployedCommit,
+  deployedCommitState: "matches_head" as const,
+  previews: [],
+};
+
+function foundStore(
+  stacks: AlchemyStack[],
+  liveDeployments: Extract<AlchemyStateObservation, { store: "found" }>["liveDeployments"] = [],
+): AlchemyStateObservation {
+  return { store: "found", stacks, liveDeployments };
+}
+
 const healthyObservations: RepositoryObservations = {
-  workers: [
-    {
-      state: "available",
-      workerId,
-      workerName: "chess-merge",
-      customDomains: ["chessmerge.com"],
-      workersDev: { state: "enabled", url: "https://chess-merge.samebase.workers.dev" },
-    },
-  ],
-  workerBuilds: [
-    {
-      state: "available",
-      workerId,
-      repository: { state: "ready", rootDirectory: "/", builds: { state: "available" } },
-      builds: {
-        state: "connected",
-        productionBuildTokenUuid: buildTokenUuid,
-        previewBuildTokenUuid: buildTokenUuid,
-      },
-      productionBuild: {
-        state: "available",
-        buildState: "success",
-        commitHash: headCommitOid,
-        logsUrl: `https://dash.cloudflare.com/${accountId}/workers/services/view/chess-merge/production/builds/5e2b8c41-7d3a-4f19-b6e0-9c8a2d1f4e73`,
-      },
-    },
-  ],
-  workerConvexBuildAccess: [
-    {
-      state: "available",
-      workerId,
-      convexBuildAccess: {
-        state: "configured",
-        convexProject: {
-          state: "attached",
-          convexProjectId,
-          teamId: "41275",
-          attachedTeamId: "41275",
-          teamState: "matches",
-          projectId: "387501",
-        },
-      },
-    },
-  ],
-  convexProjects: [
-    {
-      convexProjectId,
-      projectId: "387501",
-      codeLocation: { kind: "config", convexConfigPath: "convex.json" },
-      source: { state: "valid", kind: "config" },
-      provider: {
-        state: "current",
-        projectSlug: "chess-merge",
-        teamSlug: "samebase",
-        productionDeployment: {
-          state: "available",
-          deploymentName: "tremendous-otter-123",
-          dashboardUrl: "https://dashboard.convex.dev/d/tremendous-otter-123",
-          region: "aws-us-east-1",
-        },
-      },
-    },
-  ],
   pullRequests: { state: "available", page: { repository: githubRepository } },
-  pullRequestResources: pullRequests.map((read) => ({
-    state: "available" as const,
-    pullRequestId: read.id,
-    cloudflareBuilds: { state: "available" as const },
-    workers: [
-      {
-        workerId,
-        workerName: "chess-merge",
-        rootDirectory: "/",
-        cloudflareBuild: {
-          state: "available" as const,
-          uuid: "7c1d9e4a-2b6f-4a83-9d5e-1f0b8c3a6e27",
-          buildState: "success" as const,
-          logsUrl: `https://dash.cloudflare.com/${accountId}/workers/services/view/chess-merge/production/builds/7c1d9e4a-2b6f-4a83-9d5e-1f0b8c3a6e27`,
-        },
-        cloudflareBranchPreview: {
-          state: "available" as const,
-          url: `https://${read.headRefName}-chess-merge.samebase.workers.dev`,
-          provenance: "selected_result" as const,
-        },
-      },
-    ],
-    convexProjects: [
-      {
-        state: "absent" as const,
-        convexProjectId,
-        rootDirectory: "/",
-      },
-    ],
-    hostingPreviews: {
-      cloudflare: { state: "available" as const, previews: [] },
-      netlify: { state: "available" as const, previews: [] },
-    },
-  })),
+  stacks: { state: "available", stacks: [availableStack] },
   setupStack: null,
 };
 
-function withWorkerBuilds(
-  workerBuilds: RepositoryObservations["workerBuilds"][number],
-): RepositoryObservations {
-  return { ...healthyObservations, workerBuilds: [workerBuilds] };
-}
+describe("buildRepositoryStacksStatus", () => {
+  it("gives each stack its production URL, deployed commit, and preview URLs", () => {
+    const preview = {
+      ...stack.stages[0],
+      name: "pr-42",
+      deployedHeadCommit: headCommitOid,
+      record: { ...capturedRecord, branch: "undo", pullRequest: 42, headCommit: headCommitOid },
+    };
+    const reader = {
+      ...preview,
+      name: "pr-7",
+      deployedHeadCommit: null,
+    };
+    expect(
+      buildRepositoryStacksStatus({
+        read: foundStore([{ ...stack, stages: [preview, stack.stages[0], reader] }]),
+        headCommit: deployedCommit,
+      }),
+    ).toEqual({
+      state: "available",
+      stacks: [
+        {
+          ...availableStack,
+          previews: [
+            { pullRequestNumber: 7, url: productionUrl, deployedCommit: null },
+            { pullRequestNumber: 42, url: productionUrl, deployedCommit: headCommitOid },
+          ],
+        },
+      ],
+    });
+  });
 
-function withConvexBuildAccess(
-  convexBuildAccess: Extract<
-    RepositoryObservations["workerConvexBuildAccess"][number],
-    { state: "available" }
-  >["convexBuildAccess"],
-): RepositoryObservations {
-  return {
-    ...healthyObservations,
-    workerConvexBuildAccess: [{ state: "available", workerId, convexBuildAccess }],
-  };
-}
+  it("gives the address that the overview shows, such as a custom domain", () => {
+    expect(
+      buildRepositoryStacksStatus({
+        read: foundStore(
+          [stack],
+          [
+            {
+              deploymentName: "ideal-dolphin-15",
+              dashboardUrl: null,
+              region: null,
+              customDomains: [{ domain: "chessmerge.com", requestDestination: "convexSite" }],
+            },
+          ],
+        ),
+        headCommit: null,
+      }),
+    ).toMatchObject({
+      state: "available",
+      stacks: [{ productionUrl: "https://chessmerge.com", deployedCommitState: "unknown" }],
+    });
+  });
 
-const readyBuilds = {
-  state: "available" as const,
-  workerId,
-  repository: {
-    state: "ready" as const,
-    rootDirectory: "/",
-    builds: { state: "available" as const },
-  },
-  builds: {
-    state: "connected" as const,
-    productionBuildTokenUuid: buildTokenUuid,
-    previewBuildTokenUuid: buildTokenUuid,
-  },
-  productionBuild: { state: "absent" as const },
-};
+  it("compares the deployed commit with the default branch head", () => {
+    expect(
+      buildRepositoryStacksStatus({ read: foundStore([stack]), headCommit: headCommitOid }),
+    ).toMatchObject({ stacks: [{ deployedCommit, deployedCommitState: "behind_head" }] });
+  });
+
+  it("reports a stack without a production deploy", () => {
+    const previewOnly = { ...stack.stages[0], name: "pr-3" };
+    expect(
+      buildRepositoryStacksStatus({
+        read: foundStore([{ ...stack, stages: [previewOnly] }]),
+        headCommit: headCommitOid,
+      }),
+    ).toMatchObject({
+      stacks: [{ productionUrl: null, deployedCommit: null, deployedCommitState: "unknown" }],
+    });
+  });
+
+  it.each([
+    ["the store is unreadable", null, { state: "unreadable" }],
+    ["the team has no store", { store: "missing" }, { state: "no_store" }],
+    [
+      "there is no Convex connection",
+      { store: "no_connection" },
+      { state: "no_convex_connection" },
+    ],
+    ["the store holds no stack", foundStore([]), { state: "available", stacks: [] }],
+  ] as const)("says so when %s", (_name, read, expected) => {
+    expect(buildRepositoryStacksStatus({ read, headCommit: headCommitOid })).toEqual(expected);
+  });
+
+  it("returns no resource row, output, or secret of the stage", () => {
+    const secret = "convex-deploy-key-value";
+    const withSecret: AlchemyStack = {
+      ...stack,
+      stages: [
+        {
+          ...stack.stages[0],
+          output: JSON.stringify({ url: productionUrl, secret }),
+          resources: [
+            ...stack.stages[0].resources,
+            { fqn: "Key", value: JSON.stringify({ attr: { deployKey: secret } }) },
+          ],
+        },
+      ],
+    };
+    const serialized = JSON.stringify(
+      buildRepositoryStacksStatus({ read: foundStore([withSecret]), headCommit: null }),
+    );
+
+    expect(serialized).not.toContain(secret);
+    expect(serialized).not.toContain("resourceType");
+  });
+});
+
+describe("buildRepositorySetupStackStatus", () => {
+  const repositoryName = "samebase/base-alchemy";
+
+  it("reports the first deployment from the same read", () => {
+    expect(
+      buildRepositorySetupStackStatus({ read: foundStore([stack]), repository: repositoryName }),
+    ).toEqual({ state: "done" });
+    expect(
+      buildRepositorySetupStackStatus({ read: foundStore([]), repository: repositoryName }),
+    ).toEqual({ state: "in_progress" });
+    // A team's first run creates the store.
+    expect(
+      buildRepositorySetupStackStatus({ read: { store: "missing" }, repository: repositoryName }),
+    ).toEqual({ state: "in_progress" });
+  });
+
+  it("is unavailable when the store cannot be read", () => {
+    expect(buildRepositorySetupStackStatus({ read: null, repository: repositoryName })).toEqual({
+      state: "unavailable",
+    });
+    expect(
+      buildRepositorySetupStackStatus({
+        read: { store: "no_connection" },
+        repository: repositoryName,
+      }),
+    ).toEqual({ state: "unavailable" });
+  });
+});
 
 describe("buildRepositoryAttention", () => {
-  it("reports nothing for a healthy repository", () => {
+  it("reports nothing for a repository with a stack", () => {
     expect(buildRepositoryAttention({ repository, observations: healthyObservations })).toEqual([]);
   });
 
-  describe("reads the provider setup state before any repair", () => {
+  describe("what the store leaves open", () => {
+    const attention = (stacks: RepositoryObservations["stacks"]) =>
+      buildRepositoryAttention({
+        repository,
+        observations: { ...healthyObservations, stacks },
+      });
+
+    it("says that an empty store is no sign of a deleted app", () => {
+      expect(attention({ state: "available", stacks: [] })).toEqual([
+        {
+          tool: null,
+          problem:
+            "The team's Alchemy state store holds no stack for samebase/chess-merge, so Samebase cannot see what is deployed. An app deployed another way keeps running. Move it to Alchemy to see it here: https://samebase.com/docs/the-big-migration",
+        },
+      ]);
+    });
+
+    it("says that the team has no store yet", () => {
+      expect(attention({ state: "no_store" })).toEqual([
+        {
+          tool: null,
+          problem:
+            "The Convex team of samebase/chess-merge has no Alchemy state store yet, so Samebase cannot see what is deployed. The first Alchemy deploy creates it: https://samebase.com/docs/the-big-migration",
+        },
+      ]);
+    });
+
+    it("says that there is no Convex connection", () => {
+      expect(attention({ state: "no_convex_connection" })).toEqual([
+        {
+          tool: null,
+          problem:
+            "Samebase has no Convex connection for samebase/chess-merge, so it cannot read the team's Alchemy state store. Connect Convex in the organization's providers page in the dashboard.",
+        },
+      ]);
+    });
+
+    it("never reads an unreadable store as nothing deployed", () => {
+      expect(attention({ state: "unreadable" })).toEqual([
+        {
+          tool: null,
+          problem:
+            "The team's Alchemy state store could not be read, so this status does not say what samebase/chess-merge has deployed. Call repository_getStatus again.",
+        },
+      ]);
+    });
+  });
+
+  describe("reads the provider setup state before anything else", () => {
     // @ts-expect-error Run IDs are strings at runtime; the rules ignore them.
     const runId: Id<"workflow_repositoryProvisioning_runs"> = "run-1";
     const providerSetups: Record<
@@ -359,11 +386,10 @@ describe("buildRepositoryAttention", () => {
       },
       ready: { status: "ready" },
     };
-    // Builds that the managed run has not configured yet, so a repair item would follow.
-    const unconfiguredObservations = withWorkerBuilds({
-      ...readyBuilds,
-      repository: { state: "not_connected" },
-    });
+    const noStackObservations: RepositoryObservations = {
+      ...healthyObservations,
+      stacks: { state: "available", stacks: [] },
+    };
     const runningItem = {
       tool: null,
       problem:
@@ -373,36 +399,26 @@ describe("buildRepositoryAttention", () => {
       tool: "repository_retryProviderSetup",
       problem: "Samebase setup of the Cloudflare Worker failed.",
     };
-    const repairItem = {
-      tool: null,
-      problem: `Workers Builds of chess-merge is not connected to this GitHub repository. ${moveToAlchemy}`,
-    };
-    const pendingItem = {
-      tool: null,
-      problem: `Cloudflare setup is pending because the Cloudflare account had no Workers Builds token. The planned Worker is chess-merge at root directory /. ${moveToAlchemy}`,
-    };
 
     it.each([
-      ["not_applicable", "attached Worker", [repairItem]],
-      ["running", "attached Worker", [runningItem]],
-      ["failed", "attached Worker", [retryItem]],
-      ["ready", "attached Worker", [repairItem]],
-      ["not_applicable", "pending Cloudflare setup", [pendingItem]],
-      ["running", "pending Cloudflare setup", [runningItem]],
-      ["failed", "pending Cloudflare setup", [retryItem]],
-      ["ready", "pending Cloudflare setup", [pendingItem]],
-    ] as const)("provider setup %s with an %s", (status, cloudflare, expected) => {
+      ["running", [runningItem]],
+      ["failed", [retryItem]],
+    ] as const)("provider setup %s", (status, expected) => {
       expect(
         buildRepositoryAttention({
-          repository: {
-            ...(cloudflare === "pending Cloudflare setup"
-              ? pendingCloudflareRepository
-              : repository),
-            providerSetup: providerSetups[status],
-          },
-          observations: unconfiguredObservations,
+          repository: { ...repository, providerSetup: providerSetups[status] },
+          observations: noStackObservations,
         }),
       ).toEqual(expected);
+    });
+
+    it.each(["not_applicable", "ready"] as const)("provider setup %s", (status) => {
+      expect(
+        buildRepositoryAttention({
+          repository: { ...repository, providerSetup: providerSetups[status] },
+          observations: noStackObservations,
+        }),
+      ).toHaveLength(1);
     });
   });
 
@@ -420,11 +436,6 @@ describe("buildRepositoryAttention", () => {
         ciSecrets,
       },
     });
-    // Builds that need a repair.
-    const unconfiguredObservations = withWorkerBuilds({
-      ...readyBuilds,
-      repository: { state: "not_connected" },
-    });
 
     const writtenSecrets = { state: "written", writtenAt: 2, credentialRevision: 1 } as const;
     const setupStackAttention = (setupStack: RepositoryObservations["setupStack"]) =>
@@ -433,51 +444,66 @@ describe("buildRepositoryAttention", () => {
         observations: { ...healthyObservations, setupStack },
       });
 
-    it("names the setup stack as the repair for an attached Worker", () => {
+    it("gives nothing for a done setup status", () => {
+      expect(setupStackAttention({ state: "done" })).toEqual([]);
+      expect(setupStackAttention(null)).toEqual([]);
+    });
+
+    it("gives only the store item for an unreadable setup status", () => {
       expect(
         buildRepositoryAttention({
           repository: repositoryActionsRepository(writtenSecrets),
-          observations: { ...unconfiguredObservations, setupStack: { state: "done" } },
+          observations: {
+            ...healthyObservations,
+            stacks: { state: "unreadable" },
+            setupStack: { state: "unavailable" },
+          },
         }),
       ).toEqual([
         {
           tool: null,
-          problem: `Workers Builds of chess-merge is not connected to this GitHub repository. ${setupStackRepair}`,
-        },
-      ]);
-    });
-
-    it("gives nothing for a done or unreadable setup status", () => {
-      expect(setupStackAttention({ state: "done" })).toEqual([]);
-      expect(setupStackAttention({ state: "unavailable" })).toEqual([]);
-      expect(setupStackAttention(null)).toEqual([]);
-    });
-
-    it("reports a deployment in progress with the Actions page, and no failure", () => {
-      expect(setupStackAttention({ state: "in_progress" })).toEqual([
-        {
-          tool: null,
           problem:
-            "The first deployment of samebase/chess-merge is in progress in its GitHub Actions: https://github.com/samebase/chess-merge/actions. Call repository_getStatus again when the run finishes.",
+            "The team's Alchemy state store could not be read, so this status does not say what samebase/chess-merge has deployed. Call repository_getStatus again.",
         },
       ]);
+    });
+
+    it("reports a deployment in progress with the Actions page, and no empty store", () => {
+      const emptyReads: RepositoryObservations["stacks"][] = [
+        { state: "no_store" },
+        { state: "available", stacks: [] },
+      ];
+      for (const stacks of emptyReads) {
+        expect(
+          buildRepositoryAttention({
+            repository: repositoryActionsRepository(writtenSecrets),
+            observations: { ...healthyObservations, stacks, setupStack: { state: "in_progress" } },
+          }),
+        ).toEqual([
+          {
+            tool: null,
+            problem:
+              "The first deployment of samebase/chess-merge is in progress in its GitHub Actions: https://github.com/samebase/chess-merge/actions. Call repository_getStatus again when the run finishes.",
+          },
+        ]);
+      }
     });
 
     it("says that the Actions secrets are not written yet", () => {
       expect(
         buildRepositoryAttention({
           repository: repositoryActionsRepository({ state: "planned" }),
-          observations: unconfiguredObservations,
+          observations: {
+            ...healthyObservations,
+            stacks: { state: "no_store" },
+            setupStack: { state: "in_progress" },
+          },
         }),
       ).toEqual([
         {
           tool: null,
           problem:
             "The GitHub Actions secrets of samebase/chess-merge are not written yet, so its deploy workflow cannot run.",
-        },
-        {
-          tool: null,
-          problem: `Workers Builds of chess-merge is not connected to this GitHub repository. ${setupStackRepair}`,
         },
       ]);
     });
@@ -498,7 +524,7 @@ describe("buildRepositoryAttention", () => {
               updatedAt: 1,
             },
           },
-          observations: unconfiguredObservations,
+          observations: healthyObservations,
         }),
       ).toEqual([
         {
@@ -508,371 +534,15 @@ describe("buildRepositoryAttention", () => {
       ]);
     });
   });
-
-  it.each<{ name: string; pending: Partial<RepositoryStatusRepository> }>([
-    {
-      name: "a selected Workers Builds token",
-      pending: {
-        providerPlan: {
-          ...pendingPlan,
-          cloudflare: { ...pendingPlan.cloudflare, buildTokenUuid },
-        },
-      },
-    },
-    {
-      name: "a Convex project that is not created yet",
-      pending: {
-        providerPlan: {
-          ...pendingPlan,
-          convex: {
-            state: "planned",
-            projectName: "chess-merge",
-            deploymentRegion: "aws-us-east-1",
-            teamId: "41275",
-          },
-        },
-      },
-    },
-    {
-      name: "a planned Convex project that is not attached",
-      pending: { convexProjects: [adminProject] },
-    },
-    {
-      name: "an attached Worker",
-      pending: { cloudflareWorkers: repository.cloudflareWorkers },
-    },
-  ])("reports no pending Cloudflare setup with $name", ({ pending }) => {
-    expect(
-      buildRepositoryAttention({
-        repository: { ...pendingCloudflareRepository, ...pending },
-        observations: healthyObservations,
-      }),
-    ).toEqual([]);
-  });
-
-  it("reports a Worker that no longer exists, and nothing for unreadable Worker facts", () => {
-    expect(
-      buildRepositoryAttention({
-        repository,
-        observations: {
-          ...healthyObservations,
-          workers: [{ state: "missing", workerId }],
-        },
-      }),
-    ).toEqual([
-      {
-        tool: null,
-        problem: "The Cloudflare Worker chess-merge no longer exists in the Cloudflare account.",
-      },
-    ]);
-    expect(
-      buildRepositoryAttention({
-        repository,
-        observations: withWorkerBuilds({ state: "failed", workerId, reason: "request_failed" }),
-      }),
-    ).toEqual([]);
-  });
-
-  it.each([
-    {
-      name: "not connected to the GitHub repository",
-      builds: { ...readyBuilds, repository: { state: "not_connected" as const } },
-      item: {
-        tool: null,
-        problem: `Workers Builds of chess-merge is not connected to this GitHub repository. ${moveToAlchemy}`,
-      },
-    },
-    {
-      name: "incomplete Builds settings",
-      builds: { ...readyBuilds, builds: { state: "not_connected" as const } },
-      item: {
-        tool: null,
-        problem: `The Workers Builds setup of chess-merge is incomplete. ${moveToAlchemy}`,
-      },
-    },
-    {
-      name: "different production and preview tokens",
-      builds: {
-        ...readyBuilds,
-        builds: {
-          state: "connected" as const,
-          productionBuildTokenUuid: buildTokenUuid,
-          previewBuildTokenUuid: "b81e2f4c-9a3d-4e65-8c17-0d2f6a9b3e54",
-        },
-      },
-      item: {
-        tool: null,
-        problem: `The production and preview builds of chess-merge use different Workers Builds tokens. ${moveToAlchemy}`,
-      },
-    },
-    {
-      name: "no Builds token",
-      builds: {
-        ...readyBuilds,
-        builds: {
-          state: "connected" as const,
-          productionBuildTokenUuid: null,
-          previewBuildTokenUuid: null,
-        },
-      },
-      item: {
-        tool: null,
-        problem: `chess-merge has no Workers Builds token. ${moveToAlchemy}`,
-      },
-    },
-    {
-      name: "Builds of another GitHub repository",
-      builds: { ...readyBuilds, repository: { state: "connected_elsewhere" as const } },
-      item: {
-        tool: null,
-        problem:
-          "Workers Builds of chess-merge builds another GitHub repository. Change it in Cloudflare.",
-      },
-    },
-    {
-      name: "no single repository root",
-      builds: {
-        ...readyBuilds,
-        repository: { state: "ambiguous" as const, reason: "multiple_root_directories" as const },
-      },
-      item: {
-        tool: null,
-        problem:
-          "Workers Builds of chess-merge has no single repository root. Fix its Builds settings in Cloudflare.",
-      },
-    },
-    {
-      name: "legacy previews",
-      builds: {
-        ...readyBuilds,
-        repository: {
-          state: "ready" as const,
-          rootDirectory: "/",
-          builds: { state: "legacy_previews" as const },
-        },
-      },
-      item: {
-        tool: null,
-        problem:
-          "chess-merge does not use native Worker Previews. Migrate it first: https://samebase.com/docs/cloudflare-previews-migration",
-      },
-    },
-  ])("reports Workers Builds with $name", ({ builds, item }) => {
-    expect(
-      buildRepositoryAttention({ repository, observations: withWorkerBuilds(builds) }),
-    ).toEqual([item]);
-  });
-
-  it.each([
-    {
-      name: "missing keys use the only attached project",
-      access: { state: "not_configured" as const },
-      problem: "chess-merge has no Convex deploy keys.",
-    },
-    {
-      name: "incomplete keys repair their own project",
-      access: {
-        state: "incomplete" as const,
-        convexProject: {
-          state: "attached" as const,
-          convexProjectId,
-          teamId: "41275",
-          attachedTeamId: "41275",
-          teamState: "matches" as const,
-          projectId: "387501",
-        },
-      },
-      problem: "The Convex deploy keys of chess-merge are incomplete.",
-    },
-    {
-      name: "keys of another team",
-      access: {
-        state: "configured" as const,
-        convexProject: {
-          state: "attached" as const,
-          convexProjectId,
-          teamId: "50311",
-          attachedTeamId: "41275",
-          teamState: "differs" as const,
-          projectId: "387501",
-        },
-      },
-      problem: "The Convex deploy keys of chess-merge belong to another Convex team.",
-    },
-    {
-      name: "keys of an unattached project",
-      access: {
-        state: "configured" as const,
-        convexProject: { state: "external" as const, teamId: "41275", projectId: "990001" },
-      },
-      problem:
-        "The Convex deploy keys of chess-merge target a Convex project that is not attached to this repository.",
-    },
-    {
-      name: "keys of an unknown project",
-      access: { state: "target_unknown" as const },
-      problem: "chess-merge has Convex deploy keys for an unknown Convex project.",
-    },
-    {
-      name: "an invalid marker",
-      access: { state: "invalid" as const },
-      problem: "The Convex project marker of chess-merge is invalid.",
-    },
-  ])("names the Convex project and the repair for $name", ({ access, problem }) => {
-    expect(
-      buildRepositoryAttention({ repository, observations: withConvexBuildAccess(access) }),
-    ).toEqual([
-      {
-        tool: null,
-        problem: `${problem} It needs the deploy keys of the Convex project chess-merge. ${moveToAlchemy}`,
-      },
-    ]);
-  });
-
-  it("asks for the Convex project when several are attached and the keys name none", () => {
-    const observations = withConvexBuildAccess({ state: "not_configured" });
-    const [project] = observations.convexProjects;
-    expect(
-      buildRepositoryAttention({
-        repository: { ...repository, convexProjects: [...repository.convexProjects, adminProject] },
-        observations: {
-          ...observations,
-          convexProjects: [
-            project,
-            {
-              ...project,
-              convexProjectId: adminConvexProjectId,
-              projectId: "387502",
-              codeLocation: adminProject.codeLocation,
-            },
-          ],
-        },
-      }),
-    ).toEqual([
-      {
-        tool: null,
-        problem: `chess-merge has no Convex deploy keys. Ask the user which attached Convex project the Worker deploys with. ${moveToAlchemy}`,
-      },
-    ]);
-  });
-
-  it("names no deploy-key problem when no Convex project is attached", () => {
-    expect(
-      buildRepositoryAttention({
-        repository: { ...repository, convexProjects: [] },
-        observations: {
-          ...withConvexBuildAccess({ state: "not_configured" }),
-          convexProjects: [],
-        },
-      }),
-    ).toEqual([]);
-  });
-
-  it("names no deploy-key problem when Convex cannot be read", () => {
-    const observations = withConvexBuildAccess({ state: "not_configured" });
-    const unreadableProject = {
-      ...observations.convexProjects[0],
-      provider: { state: "unavailable" as const, reason: "request_failed" as const },
-    };
-
-    expect(
-      buildRepositoryAttention({
-        repository,
-        observations: { ...observations, convexProjects: [unreadableProject] },
-      }),
-    ).toEqual([]);
-    expect(
-      buildRepositoryAttention({
-        repository: { ...repository, convexProjects: [...repository.convexProjects, adminProject] },
-        observations: { ...observations, convexProjects: [unreadableProject] },
-      }),
-    ).toEqual([]);
-  });
-
-  it("says to deploy the Convex project to production first", () => {
-    const observations = withConvexBuildAccess({ state: "not_configured" });
-    expect(
-      buildRepositoryAttention({
-        repository,
-        observations: {
-          ...observations,
-          convexProjects: [
-            {
-              convexProjectId,
-              projectId: "387501",
-              codeLocation: { kind: "config", convexConfigPath: "convex.json" },
-              source: { state: "valid", kind: "config" },
-              provider: {
-                state: "current",
-                projectSlug: "chess-merge",
-                teamSlug: "samebase",
-                productionDeployment: { state: "missing" },
-              },
-            },
-          ],
-        },
-      }),
-    ).toEqual([
-      {
-        tool: null,
-        problem: `Deploy the Convex project chess-merge to production first. The Worker that deploys with it then needs its deploy keys. ${moveToAlchemy}`,
-      },
-    ]);
-  });
-
-  it("reports a missing Convex project and a missing code location, and nothing for unreadable Convex facts", () => {
-    const [project] = healthyObservations.convexProjects;
-    expect(
-      buildRepositoryAttention({
-        repository,
-        observations: {
-          ...healthyObservations,
-          convexProjects: [
-            {
-              ...project,
-              source: { state: "missing" },
-              provider: { state: "missing_ambiguous" },
-            },
-          ],
-        },
-      }),
-    ).toEqual([
-      {
-        tool: null,
-        problem: `The Convex code location convex.json no longer exists on the default branch. ${moveToAlchemy}`,
-      },
-      {
-        tool: null,
-        problem:
-          "The Convex project at convex.json is missing from the connected Convex team. It may have moved to another team.",
-      },
-    ]);
-    expect(
-      buildRepositoryAttention({
-        repository,
-        observations: {
-          ...healthyObservations,
-          convexProjects: [
-            {
-              ...project,
-              source: { state: "unavailable", reason: "request_failed" },
-              provider: { state: "unavailable", reason: "request_failed" },
-            },
-          ],
-        },
-      }),
-    ).toEqual([]);
-  });
 });
 
 describe("projectRepositoryStatusForMcp", () => {
   const status: RepositoryStatus = { ...healthyObservations, attention: [] };
 
-  it("keeps the typical result (1 Worker, 1 Convex project, 2 open PRs) under 4 KB", () => {
+  it("keeps the typical result (1 stack, 2 open PRs) under 4 KB", () => {
     const mcpResult = projectRepositoryStatusForMcp({ repository, status });
     const mcpBytes = Buffer.byteLength(JSON.stringify(mcpResult));
 
-    expect(mcpBytes).toBe(2274);
     expect(mcpBytes).toBeLessThan(4096);
     expect(mcpBytes).toBeLessThanOrEqual(Buffer.byteLength(JSON.stringify(status)));
   });
@@ -894,106 +564,17 @@ describe("projectRepositoryStatusForMcp", () => {
         },
       },
       openPullRequestCount: 2,
-      apps: [
-        {
-          workerName: "chess-merge",
-          rootDirectory: "/",
-          productionBuild: { state: "available", buildState: "success" },
-          urls: ["https://chessmerge.com", "https://chess-merge.samebase.workers.dev"],
-        },
-      ],
-      convexProjects: [
-        {
-          codeLocation: "convex.json",
-          projectSlug: "chess-merge",
-          productionDeployment: { state: "available", deploymentName: "tremendous-otter-123" },
-        },
-      ],
+      stacks: { state: "available", stacks: [availableStack] },
       pullRequests: [
-        {
-          number: 42,
-          checks: { total: 3, failed: 1, pending: 0, failedNames: ["test"] },
-          apps: [
-            {
-              workerName: "chess-merge",
-              previewBuild: { state: "available", buildState: "success" },
-              previewUrl: "https://undo-move-history-chess-merge.samebase.workers.dev",
-            },
-          ],
-        },
+        { number: 42, checks: { total: 3, failed: 1, pending: 0, failedNames: ["test"] } },
         { number: 41, checks: { total: 3, failed: 0, pending: 1, failedNames: [] } },
       ],
       attention: [],
     });
     const serialized = JSON.stringify(mcpResult);
-    for (const internalValue of [
-      workerId,
-      convexProjectId,
-      "PR_kwDOOx7Rc86hY2",
-      "enhancement",
-      "headRefOid",
-    ]) {
+    for (const internalValue of ["PR_kwDOOx7Rc86hY2", "enhancement", "headRefOid"]) {
       expect(serialized).not.toContain(internalValue);
     }
-  });
-
-  it("says whether the latest production build is of the default branch head", () => {
-    // The recorded ChessMerge production build on main.
-    const build = matchLatestCloudflareWorkerBuildForBranch({
-      builds: [observedNativePreviewsProductionBuild],
-      branch: "main",
-      worker: { workerTag: "d8f877365405479ba51bd8f96fcdc156", rootDirectory: "/" },
-      githubRepositoryDatabaseId: "993742136",
-    });
-    if (build.state !== "available") {
-      throw new Error("Expected the recorded build to match the default branch.");
-    }
-    const productionBuildAtHead = (head: string | null) =>
-      projectRepositoryStatusForMcp({
-        repository,
-        status: {
-          ...status,
-          workerBuilds: [
-            {
-              ...readyBuilds,
-              productionBuild: {
-                state: "available",
-                buildState: build.buildState,
-                commitHash: build.commitHash,
-                logsUrl: `https://dash.cloudflare.com/${accountId}/workers/services/view/chess-merge/production/builds/${build.buildUuid}`,
-              },
-            },
-          ],
-          pullRequests:
-            head === null
-              ? { state: "unavailable" }
-              : {
-                  state: "available",
-                  page: {
-                    repository: {
-                      ...githubRepository,
-                      defaultBranch: { ...defaultBranch, headCommitOid: head },
-                    },
-                  },
-                },
-        },
-      }).apps[0]?.productionBuild;
-
-    expect(
-      productionBuildAtHead(
-        observedNativePreviewsProductionBuild.build_trigger_metadata.commit_hash,
-      ),
-    ).toMatchObject({
-      state: "available",
-      buildState: "success",
-      commit: "matches_head",
-    });
-    // A push advances only the head: the same successful build no longer deploys it.
-    expect(productionBuildAtHead(headCommitOid)).toMatchObject({
-      buildState: "success",
-      commit: "behind_head",
-    });
-    expect(productionBuildAtHead(null)).toMatchObject({ buildState: "success", commit: "unknown" });
   });
 
   it("counts every check from GitHub's aggregate counts, beyond the 100 listed checks", () => {
@@ -1034,42 +615,21 @@ describe("projectRepositoryStatusForMcp", () => {
     });
   });
 
-  it("reports unreadable reads as unavailable", () => {
+  it("reports an unreadable GitHub and an unreadable store as such", () => {
     const mcpResult = projectRepositoryStatusForMcp({
       repository,
       status: {
         ...status,
-        workers: [{ state: "failed", workerId, reason: "request_failed" }],
-        workerBuilds: [{ state: "failed", workerId, reason: "request_failed" }],
         pullRequests: { state: "unavailable" },
-        pullRequestResources: [],
+        stacks: { state: "unreadable" },
       },
     });
 
     expect(mcpResult).toMatchObject({
       defaultBranch: null,
       openPullRequestCount: null,
-      apps: [{ workerName: "chess-merge", productionBuild: { state: "unavailable" }, urls: [] }],
+      stacks: { state: "unreadable" },
       pullRequests: [],
     });
-  });
-
-  it("reports each app of a pull request as unavailable when its Cloudflare builds are unread", () => {
-    const mcpResult = projectRepositoryStatusForMcp({
-      repository,
-      status: {
-        ...status,
-        pullRequestResources: status.pullRequestResources.map((resources) =>
-          resources.state === "available"
-            ? { ...resources, cloudflareBuilds: { state: "unavailable" as const }, workers: [] }
-            : resources,
-        ),
-      },
-    });
-
-    expect(mcpResult.pullRequests.map((pullRequest) => pullRequest.apps)).toEqual([
-      [{ workerName: "chess-merge", previewBuild: { state: "unavailable" }, previewUrl: null }],
-      [{ workerName: "chess-merge", previewBuild: { state: "unavailable" }, previewUrl: null }],
-    ]);
   });
 });

@@ -1,24 +1,17 @@
 import { api } from "../../../convex/_generated/api";
-import type { Id } from "../../../convex/_generated/dataModel";
 import type {
   RepositoryPullRequest as RepositoryPullRequestPayload,
   RepositoryPullRequestPage,
   RepositoryStatusCheckRollup,
 } from "../../../convex/repository/pullRequestModel";
 import type { UserRepositoryResult } from "../../../convex/repository/contracts/getUserRepositories";
-import type {
-  PullRequestResourceRead,
-  PullRequestResources,
-} from "../../../convex/repository/pullRequestModel";
 import {
   summarizeRepositoryChecks,
   type RepositoryCheckSummary,
 } from "../../../shared/repositoryChecks";
-import { repositoryExternalDataQueryKey } from "@/repository/dashboard/repositoryExternalDataQueryKey";
-import { useInfiniteQuery, useQueries } from "@tanstack/react-query";
+import { useInfiniteQuery } from "@tanstack/react-query";
 import { useAction } from "convex/react";
 import { useCallback, useMemo } from "react";
-import type { ConvexCodeLocation } from "../../../shared/convexCodeLocation";
 import { buildAlchemyStackCards, type RepositoryStackCard } from "./repositoryEnvironmentRoots";
 import type { RepositoryAlchemyState } from "./useRepositoryAlchemyState";
 
@@ -30,23 +23,7 @@ const INITIAL_PULL_REQUEST_CURSOR: string | null = null;
 type RepositoryPullRequestTarget = Pick<
   UserRepositoryResult,
   "providerSetup" | "repositoryId" | "sourceSetup"
-> & {
-  cloudflareWorkers: readonly {
-    workerId: Id<"repositoryCloudflareWorkers">;
-    accountId: string;
-    workerName: string;
-    workerTag: string;
-    rootDirectory: string;
-  }[];
-  convexProjects: readonly {
-    convexProjectId: Id<"repositoryConvexProjects">;
-    teamId: string;
-    projectId: string;
-    codeLocation: ConvexCodeLocation;
-  }[];
-};
-
-type PullRequestResourceIdentity = readonly [pullRequestId: string, headRefOid: string];
+>;
 
 export type RepositoryPullRequest = Omit<RepositoryPullRequestPayload, "labels"> & {
   labels: RepositoryPullRequestPayload["labels"]["nodes"];
@@ -63,18 +40,13 @@ export type RepositoryDefaultBranchObservation = {
 };
 
 /**
-`stackCards` are the cards of the stacks in the team store with the stage of the pull request,
-`pr-<number>`, which the browser builds from its store subscription.
+The read of the team store for a pull request row. `stackCards` are the cards of the stacks with the
+stage of the pull request, `pr-<number>`, which the browser builds from its store subscription.
 */
 export type PullRequestResourceState =
   | { state: "loading" }
   | { state: "failed" }
-  | {
-      state: "current";
-      resources: PullRequestResources;
-      stackCards: readonly RepositoryStackCard[];
-    }
-  | { state: "stale"; resources: PullRequestResources; stackCards: readonly RepositoryStackCard[] };
+  | { state: "loaded"; stackCards: readonly RepositoryStackCard[] };
 
 export type RepositoryPullRequestLoadMoreState =
   | { state: "available"; load: () => void }
@@ -109,21 +81,6 @@ function nextCursor(page: RepositoryPullRequestPage | undefined): string | null 
   return pageInfo?.hasNextPage ? pageInfo.endCursor : null;
 }
 
-function resourcesNeedPolling(resources: PullRequestResourceRead[] | undefined): boolean {
-  return (
-    resources?.some(
-      (pullRequest) =>
-        pullRequest.state === "available" &&
-        pullRequest.workers.some(
-          (worker) =>
-            worker.cloudflareBuild.state === "available" &&
-            (worker.cloudflareBuild.buildState === "queued" ||
-              worker.cloudflareBuild.buildState === "running"),
-        ),
-    ) === true
-  );
-}
-
 function presentPullRequest(pullRequest: RepositoryPullRequestPayload): RepositoryPullRequest {
   return {
     ...pullRequest,
@@ -149,73 +106,31 @@ function defaultBranchFromPage(
   };
 }
 
-function uniquePullRequestsByPage(pages: readonly RepositoryPullRequestPage[]): {
-  pullRequests: RepositoryPullRequestPayload[];
-  pullRequestResourceIdentityPages: PullRequestResourceIdentity[][];
-} {
+function uniquePullRequests(
+  pages: readonly RepositoryPullRequestPage[],
+): RepositoryPullRequestPayload[] {
   const seen = new Set<string>();
-  const pullRequests: RepositoryPullRequestPayload[] = [];
-  const pullRequestResourceIdentityPages: PullRequestResourceIdentity[][] = [];
-  for (const page of pages) {
-    const pagePullRequestResourceIdentities: PullRequestResourceIdentity[] = [];
-    for (const pullRequest of pullRequestsFromPage(page)) {
+  return pages.flatMap((page) =>
+    pullRequestsFromPage(page).filter((pullRequest) => {
       if (seen.has(pullRequest.id)) {
-        continue;
+        return false;
       }
       seen.add(pullRequest.id);
-      pullRequests.push(pullRequest);
-      pagePullRequestResourceIdentities.push([pullRequest.id, pullRequest.headRefOid]);
-    }
-    if (pagePullRequestResourceIdentities.length > 0) {
-      pullRequestResourceIdentityPages.push(pagePullRequestResourceIdentities);
-    }
-  }
-  return { pullRequests, pullRequestResourceIdentityPages };
+      return true;
+    }),
+  );
 }
 
 export function useRepositoryPullRequests(args: {
   repository: RepositoryPullRequestTarget | null;
-  /** `attachments` reads the pull request rows as if the team store held no stack. */
-  source?: "attachments";
   alchemyState: RepositoryAlchemyState;
 }): RepositoryPullRequestsState {
   const listOpenPullRequests = useAction(api.repositoryPullRequests.listOpenPullRequests);
-  const getPullRequestResources = useAction(
-    api.repository.pullRequestResources.getPullRequestResources,
-  );
 
   const repositoryId = args.repository?.repositoryId;
   const sourceSetupStatus = args.repository?.sourceSetup.status;
   const providerSetupStatus = args.repository?.providerSetup.status;
-  const alchemyStacks = useMemo(
-    () =>
-      args.source !== "attachments" &&
-      args.alchemyState.state === "loaded" &&
-      args.alchemyState.observation.store === "found" &&
-      args.alchemyState.observation.stacks.length > 0
-        ? args.alchemyState.observation
-        : null,
-    [args.source, args.alchemyState],
-  );
-  const resourceSource = alchemyStacks ? "alchemy" : "attachments";
-
-  const workerAttachments = [...(args.repository?.cloudflareWorkers ?? [])]
-    .map((worker) => ({
-      workerId: worker.workerId,
-      accountId: worker.accountId,
-      workerName: worker.workerName,
-      workerTag: worker.workerTag,
-      rootDirectory: worker.rootDirectory,
-    }))
-    .sort((left, right) => left.workerId.localeCompare(right.workerId));
-  const projectAttachments = [...(args.repository?.convexProjects ?? [])]
-    .map((project) => ({
-      convexProjectId: project.convexProjectId,
-      teamId: project.teamId,
-      projectId: project.projectId,
-      codeLocation: project.codeLocation,
-    }))
-    .sort((left, right) => left.convexProjectId.localeCompare(right.convexProjectId));
+  const { alchemyState } = args;
 
   const pullRequestQuery = useInfiniteQuery({
     // A setup step that pushes the first commit moves one of these statuses, so a read after it
@@ -250,91 +165,34 @@ export function useRepositoryPullRequests(args: {
   });
 
   const pages = useMemo(() => pullRequestQuery.data?.pages ?? [], [pullRequestQuery.data?.pages]);
-  const uniquePages = useMemo(() => uniquePullRequestsByPage(pages), [pages]);
-  const allPullRequests = useMemo(
-    () => uniquePages.pullRequests.map(presentPullRequest),
-    [uniquePages.pullRequests],
-  );
+  const allPullRequests = useMemo(() => uniquePullRequests(pages).map(presentPullRequest), [pages]);
   const defaultBranch = defaultBranchFromPage(pages.at(0));
   const openPullRequestCount = pages.at(0)?.repository?.pullRequests.totalCount;
-  const pullRequestResourceIdentityPages = uniquePages.pullRequestResourceIdentityPages;
 
-  const resourceQueries = useQueries({
-    queries: pullRequestResourceIdentityPages.map(
-      (pagePullRequestResourceIdentities, pageIndex) => ({
-        queryKey: [
-          ...repositoryExternalDataQueryKey(repositoryId),
-          "pull-request-resources",
-          resourceSource,
-          workerAttachments,
-          projectAttachments,
-          pagePullRequestResourceIdentities,
-        ],
-        queryFn: async () => {
-          if (!repositoryId) {
-            throw new Error("Repository is required to load pull request resources.");
-          }
-          return await getPullRequestResources({
-            repositoryId,
-            pullRequestIds: pagePullRequestResourceIdentities.map(
-              ([pullRequestId]) => pullRequestId,
-            ),
-            source: resourceSource,
-          });
-        },
-        enabled: Boolean(repositoryId) && args.alchemyState.state !== "loading",
-        staleTime: PULL_REQUEST_STALE_MS,
-        gcTime: PULL_REQUEST_GC_MS,
-        retry: false,
-        refetchInterval: (query: { state: { data: PullRequestResourceRead[] | undefined } }) =>
-          pageIndex === 0 || resourcesNeedPolling(query.state.data) ? PULL_REQUEST_STALE_MS : false,
-        refetchIntervalInBackground: false,
-      }),
-    ),
-  });
-
-  const resourcesByPullRequestId = useMemo(() => {
-    const resources = new Map<string, PullRequestResourceState>();
-    const pullRequestsById = new Map(
-      allPullRequests.map((pullRequest) => [pullRequest.id, pullRequest]),
-    );
-    pullRequestResourceIdentityPages.forEach((pagePullRequestResourceIdentities, pageIndex) => {
-      const resourceQuery = resourceQueries[pageIndex];
-      const byPullRequestId = new Map(
-        (resourceQuery.data ?? []).map((pullRequest) => [pullRequest.pullRequestId, pullRequest]),
-      );
-      for (const [pullRequestId] of pagePullRequestResourceIdentities) {
-        const pullRequestResources = byPullRequestId.get(pullRequestId);
-        if (!pullRequestResources) {
-          resources.set(pullRequestId, { state: resourceQuery.isError ? "failed" : "loading" });
-          continue;
-        }
-        if (pullRequestResources.state === "unavailable") {
-          resources.set(pullRequestId, { state: "failed" });
-          continue;
-        }
-        const pullRequest = pullRequestsById.get(pullRequestId);
-        if (!pullRequest) continue;
-        resources.set(pullRequestId, {
-          state: resourceQuery.isRefetchError ? "stale" : "current",
-          resources: {
-            pullRequestId: pullRequestResources.pullRequestId,
-            cloudflareBuilds: pullRequestResources.cloudflareBuilds,
-            workers: pullRequestResources.workers,
-            convexProjects: pullRequestResources.convexProjects,
-            hostingPreviews: pullRequestResources.hostingPreviews,
-          },
-          stackCards: alchemyStacks
-            ? buildAlchemyStackCards({
-                stacks: alchemyStacks,
-                stage: { name: `pr-${pullRequest.number}`, headCommit: pullRequest.headRefOid },
-              })
-            : [],
-        });
-      }
-    });
-    return resources;
-  }, [pullRequestResourceIdentityPages, resourceQueries, allPullRequests, alchemyStacks]);
+  const resourcesByPullRequestId = useMemo(
+    () =>
+      new Map(
+        allPullRequests.map((pullRequest): [string, PullRequestResourceState] => [
+          pullRequest.id,
+          alchemyState.state === "loaded"
+            ? {
+                state: "loaded",
+                stackCards:
+                  alchemyState.observation.store === "found"
+                    ? buildAlchemyStackCards({
+                        stacks: alchemyState.observation,
+                        stage: {
+                          name: `pr-${pullRequest.number}`,
+                          headCommit: pullRequest.headRefOid,
+                        },
+                      })
+                    : [],
+              }
+            : { state: alchemyState.state },
+        ]),
+      ),
+    [allPullRequests, alchemyState],
+  );
 
   const { fetchNextPage, refetch } = pullRequestQuery;
   const loadMore = useCallback(() => {
@@ -370,7 +228,7 @@ export function useRepositoryPullRequests(args: {
     defaultBranch,
     openPullRequestCount,
     allPullRequests,
-    refreshing: pullRequestQuery.isFetching || resourceQueries.some((query) => query.isFetching),
+    refreshing: pullRequestQuery.isFetching,
     resourcesByPullRequestId,
     loadMore: loadMoreState,
   };

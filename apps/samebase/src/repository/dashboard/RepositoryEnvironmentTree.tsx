@@ -5,23 +5,14 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  CloudflareProviderLogo,
-  ConvexProviderLogo,
-  NetlifyProviderLogo,
-  SamebaseLogoMark,
-} from "@/components/repository-dashboard/RepositoryDashboardLogos";
+import { SamebaseLogoMark } from "@/components/repository-dashboard/RepositoryDashboardLogos";
 import { RepositoryChecksPopover } from "@/repository/dashboard/RepositoryChecksPopover";
 import { resourceTypePresentation } from "@/components/resourceTypePresentation";
-import {
-  buildPullRequestEnvironmentRoots,
-  buildPullRequestOtherPreviews,
-  type RepositoryEnvironmentAction,
-  type RepositoryEnvironmentResource,
-  type RepositoryEnvironmentRoot,
-  type RepositoryEnvironmentWorker,
-  type RepositoryOtherPreview,
-  type RepositoryStackCard,
+import type {
+  RepositoryEnvironmentAction,
+  RepositoryEnvironmentResource,
+  RepositoryEnvironmentWorker,
+  RepositoryStackCard,
 } from "@/repository/dashboard/repositoryEnvironmentRoots";
 import type {
   PullRequestResourceState,
@@ -32,21 +23,11 @@ import { buildGitHubBranchTreeUrl } from "@/lib/githubUrls";
 import { buildRepositoryFileRoute } from "@/lib/repositoryRoutes";
 import { Link } from "@tanstack/react-router";
 import { convexDeploymentRegionDetails } from "../../../shared/convexDeploymentRegions";
-import {
-  CircleCheck,
-  CircleDashed,
-  CircleDot,
-  CircleX,
-  ExternalLink,
-  MoreHorizontal,
-  Pencil,
-} from "lucide-react";
+import { ExternalLink, MoreHorizontal, Pencil } from "lucide-react";
+import { isSamebaseManagedProviderPlan } from "../../../convex/repository/provisioningPlan";
 import type { RepositoryWorkspaceSelected } from "./repositoryWorkspaceModel";
 
-type EnvironmentBuildState = Extract<
-  RepositoryEnvironmentWorker["build"],
-  { state: "available" }
->["buildState"];
+const STORE_READ_FAILED = "Could not read the team's Alchemy state store.";
 
 export function RootDirectoryLabel({ rootDirectory }: { rootDirectory: string }) {
   return (
@@ -113,10 +94,8 @@ function EnvironmentActionsMenu({
 
 function DestinationResource({
   resource,
-  showTypeLabel,
 }: {
   resource: Extract<RepositoryEnvironmentResource, { kind: "destination" }>;
-  showTypeLabel: boolean;
 }) {
   const presentation = resourceTypePresentation("Convex.Deployment");
   const region = resource.region ? convexDeploymentRegionDetails[resource.region] : undefined;
@@ -143,9 +122,6 @@ function DestinationResource({
           </span>
           <ExternalLink className="h-3 w-3 shrink-0 text-muted-foreground" />
         </a>
-        {showTypeLabel ? (
-          <span className="shrink-0 text-xs text-muted-foreground">{presentation.label}</span>
-        ) : null}
         {region ? (
           <span className="text-xs" title={region.displayName}>
             <span aria-hidden="true">{region.icon}</span>
@@ -156,14 +132,9 @@ function DestinationResource({
           <EnvironmentActionsMenu actions={resource.actions} label={resource.label} />
         ) : null}
       </div>
-      {resource.provenance !== "pull_request_branch" && !resource.components ? null : (
+      {resource.components ? (
         <div className="ml-2.5 grid min-w-0 border-l border-border pl-3">
-          {resource.provenance === "pull_request_branch" ? (
-            <span className="text-xs leading-5 text-muted-foreground">
-              May be from an earlier commit
-            </span>
-          ) : null}
-          {resource.components?.map((component) => (
+          {resource.components.map((component) => (
             <div
               key={component.path}
               aria-label={`Convex component ${component.path}`}
@@ -181,51 +152,28 @@ function DestinationResource({
                   <RepositoryEnvironmentResourceRow
                     key={`${child.kind}:${child.id}`}
                     resource={child}
-                    showTypeLabel={showTypeLabel}
                   />
                 ))}
               </div>
             </div>
           ))}
         </div>
-      )}
+      ) : null}
     </div>
   );
 }
 
-/**
-`showTypeLabel` shows the resource type beside the name, such as "Worker", in the rows of a
-directory. A stack card shows the rows without it.
-*/
 function RepositoryEnvironmentResourceRow({
   resource,
-  showTypeLabel,
 }: {
   resource: RepositoryEnvironmentResource;
-  showTypeLabel: boolean;
 }) {
   switch (resource.kind) {
     case "destination":
-      return <DestinationResource resource={resource} showTypeLabel={showTypeLabel} />;
-    case "convex_loading":
-      return (
-        <div
-          aria-label="Loading Convex deployment"
-          className="flex min-h-10 min-w-0 items-center gap-2.5 py-1.5"
-        >
-          <span className="flex h-4 w-5 shrink-0 items-center justify-center">
-            <ConvexProviderLogo />
-          </span>
-          <span
-            aria-hidden="true"
-            className="h-3 w-32 max-w-[60%] bg-muted motion-safe:animate-pulse"
-          />
-        </div>
-      );
+      return <DestinationResource resource={resource} />;
     case "cloudflare_worker":
-      return <CloudflareWorkerResource worker={resource.worker} showTypeLabel={showTypeLabel} />;
+      return <CloudflareWorkerResource worker={resource.worker} />;
     case "cloudflare_r2_bucket":
-      // Only a stack card shows an R2 bucket, so its row has no type label.
       return (
         <div className="flex">
           <a
@@ -246,7 +194,6 @@ function RepositoryEnvironmentResourceRow({
         </div>
       );
     case "hub_client":
-      // Only a stack card shows the sign-in status, so its row has no type label.
       return (
         <div className="flex min-h-10 items-center py-1.5 text-sm text-muted-foreground">
           Google sign-in: {resource.status}
@@ -256,42 +203,6 @@ function RepositoryEnvironmentResourceRow({
       resource satisfies never;
       return null;
   }
-}
-
-export function RepositoryEnvironmentTree({
-  roots,
-}: {
-  roots: readonly RepositoryEnvironmentRoot[];
-}) {
-  if (roots.length === 0) {
-    return null;
-  }
-  const hideRootDirectory = roots.length === 1 && roots[0]?.rootDirectory === "/";
-
-  return (
-    <>
-      {roots.map((root) => (
-        <div key={root.rootDirectory}>
-          {hideRootDirectory ? null : (
-            <div className="pt-3">
-              <RootDirectoryLabel rootDirectory={root.rootDirectory} />
-            </div>
-          )}
-          <div
-            className={hideRootDirectory ? undefined : "ml-2.5 border-l border-border pb-0.5 pl-3"}
-          >
-            {root.resources.map((resource) => (
-              <RepositoryEnvironmentResourceRow
-                key={`${resource.kind}:${resource.id}`}
-                resource={resource}
-                showTypeLabel
-              />
-            ))}
-          </div>
-        </div>
-      ))}
-    </>
-  );
 }
 
 /** The deployed commit of a stack and the time of its run, which links to the run when it has a URL. */
@@ -360,7 +271,6 @@ function RepositoryStackCards({ cards }: { cards: readonly RepositoryStackCard[]
                 <RepositoryEnvironmentResourceRow
                   key={`${resource.kind}:${resource.id}`}
                   resource={resource}
-                  showTypeLabel={false}
                 />
               ))}
             </div>
@@ -385,21 +295,49 @@ export function RepositoryOverviewLoadingLines({ rows = 3 }: { rows?: number }) 
 }
 
 /**
-The reads behind the default-branch block. The stacks in the team store build the block while they
-are read and when they exist; the live reads of the attachment rows build it when the store holds
-no stack of the repository or its first read failed, and that failure stays visible with its Retry.
+What the store read says below the stack cards, null when the cards say it all. A repository_actions
+repository has no stack until its first deployment finishes, and `RepositorySetupStackStatus` says
+so. A repository that is being removed reads nothing, so its failed read is no problem to retry.
 */
-function readProductionObservationStates(workspace: RepositoryWorkspaceSelected) {
-  const alchemyObservations = workspace.alchemyObservations;
-  return alchemyObservations.state === "loading" ||
-    (alchemyObservations.state === "loaded" && alchemyObservations.observations.length > 0)
-    ? [alchemyObservations]
-    : [
-        workspace.cloudflareObservations.workers,
-        workspace.cloudflareObservations.builds,
-        workspace.convexObservations,
-        alchemyObservations,
-      ];
+function readStoreNotice({
+  alchemyState,
+  repository,
+}: Pick<RepositoryWorkspaceSelected, "alchemyState" | "repository">): {
+  message: string;
+  reload?: () => void;
+} | null {
+  if (alchemyState.state === "loading" || repository.deletion.state !== "not_deleting") {
+    return null;
+  }
+  if (alchemyState.state === "failed") {
+    return { message: STORE_READ_FAILED, reload: alchemyState.reload };
+  }
+  const { providerPlan } = repository;
+  const firstDeploymentPending =
+    providerPlan !== null && !isSamebaseManagedProviderPlan(providerPlan);
+  const { observation } = alchemyState;
+  switch (observation.store) {
+    case "no_connection":
+      return {
+        message: "This repository has no Convex connection, so Samebase cannot read its stacks.",
+      };
+    case "missing":
+      return firstDeploymentPending
+        ? null
+        : { message: "This team has no Alchemy state store yet." };
+    case "found":
+      if (observation.stacks.length === 0) {
+        return firstDeploymentPending
+          ? null
+          : { message: "The team's Alchemy state store holds no stack for this repository." };
+      }
+      return alchemyState.refreshFailed
+        ? { message: "Deploy status may be out of date.", reload: alchemyState.reload }
+        : null;
+    default:
+      observation satisfies never;
+      return null;
+  }
 }
 
 /**
@@ -544,17 +482,7 @@ export function DefaultBranchSection({
     repoName: workspace.repository.githubRepositoryName,
     branch: branch.name,
   });
-  const productionObservationStates = readProductionObservationStates(workspace);
-  const productionLoading = productionObservationStates.some(
-    (state) => state.state === "loading" || state.state === "checking",
-  );
-  const productionStatusUnavailable = productionObservationStates.some(
-    (state) => state.state === "failed",
-  );
-  const productionStatusStale = productionObservationStates.some(
-    (state) => state.state === "loaded" && state.refreshFailed,
-  );
-  const production = workspace.production;
+  const storeNotice = readStoreNotice(workspace);
 
   return (
     <section
@@ -571,92 +499,29 @@ export function DefaultBranchSection({
         filesHref={filesReadEnabled ? filesHref : null}
         pullRequests={pullRequests}
       />
-      {production.source === "stacks" ? (
-        <RepositoryStackCards cards={production.cards} />
-      ) : productionLoading && production.roots.length === 0 ? (
+      {workspace.alchemyState.state === "loading" ? (
         <div className="grid gap-2 py-2" aria-label="Loading production destinations">
           <div className="h-3 w-44 max-w-full bg-muted motion-safe:animate-pulse" />
           <div className="h-3 w-32 max-w-full bg-muted motion-safe:animate-pulse" />
         </div>
       ) : (
-        <RepositoryEnvironmentTree roots={production.roots} />
+        <RepositoryStackCards cards={workspace.productionCards} />
       )}
-      {productionStatusUnavailable || productionStatusStale ? (
+      {storeNotice ? (
         <div className="mt-2 flex flex-wrap items-center justify-between gap-3 text-sm text-muted-foreground">
-          <span>
-            {productionStatusUnavailable
-              ? "Deploy status unavailable."
-              : "Deploy status may be out of date."}
-          </span>
-          <Button
-            size="sm"
-            type="button"
-            variant="outline"
-            onClick={() => {
-              for (const state of productionObservationStates) {
-                if (state.state === "failed" || (state.state === "loaded" && state.refreshFailed)) {
-                  state.reload();
-                }
-              }
-            }}
-          >
-            Retry
-          </Button>
+          <span>{storeNotice.message}</span>
+          {storeNotice.reload ? (
+            <Button size="sm" type="button" variant="outline" onClick={storeNotice.reload}>
+              Retry
+            </Button>
+          ) : null}
         </div>
       ) : null}
     </section>
   );
 }
 
-function BuildState({ state }: { state: EnvironmentBuildState }) {
-  switch (state) {
-    case "queued":
-      return (
-        <span className="inline-flex items-center gap-1 text-muted-foreground">
-          <CircleDashed className="h-3.5 w-3.5" />
-          Queued
-        </span>
-      );
-    case "running":
-      return (
-        <span className="inline-flex items-center gap-1 text-sky-700 dark:text-sky-300">
-          <CircleDot className="h-3.5 w-3.5" />
-          Building
-        </span>
-      );
-    case "success":
-      return (
-        <span className="inline-flex items-center gap-1 text-emerald-600">
-          <CircleCheck className="h-3.5 w-3.5" />
-          Built
-        </span>
-      );
-    case "failure":
-      return (
-        <span className="inline-flex items-center gap-1 text-destructive">
-          <CircleX className="h-3.5 w-3.5" />
-          Failed
-        </span>
-      );
-    case "cancelled":
-      return <span className="text-muted-foreground">Cancelled</span>;
-    case "skipped":
-      return <span className="text-muted-foreground">Skipped</span>;
-    case "unknown":
-      return <span className="text-muted-foreground">Unknown</span>;
-    default:
-      state satisfies never;
-      return null;
-  }
-}
-
-function CloudflareWorkerResource({
-  worker,
-  showTypeLabel,
-}: {
-  worker: RepositoryEnvironmentWorker;
-  showTypeLabel: boolean;
-}) {
+function CloudflareWorkerResource({ worker }: { worker: RepositoryEnvironmentWorker }) {
   const presentation = resourceTypePresentation("Cloudflare.Worker");
 
   return (
@@ -672,29 +537,6 @@ function CloudflareWorkerResource({
         <span className="min-w-0 text-sm font-medium leading-5 text-foreground [overflow-wrap:anywhere]">
           {worker.workerName}
         </span>
-        {showTypeLabel ? (
-          <span className="shrink-0 text-xs text-muted-foreground">{presentation.label}</span>
-        ) : null}
-        {worker.build.state === "available" ? (
-          <a
-            className="inline-flex min-h-10 shrink-0 items-center gap-1 text-sm underline decoration-border underline-offset-4 @4xl:min-h-8"
-            href={worker.build.logsUrl}
-            rel="noreferrer noopener"
-            target="_blank"
-            title={`Open build logs for ${worker.workerName}`}
-          >
-            <BuildState state={worker.build.buildState} />
-            <ExternalLink className="h-3 w-3 shrink-0 text-muted-foreground" />
-          </a>
-        ) : worker.build.state === "unrecorded" ? null : (
-          <span className="shrink-0 text-sm text-muted-foreground">
-            {worker.build.state === "absent"
-              ? "No build"
-              : worker.build.state === "loading"
-                ? "Checking"
-                : "Unavailable"}
-          </span>
-        )}
       </div>
       {worker.destination.state !== "absent" || worker.actions.length > 0 ? (
         <div className="ml-2.5 grid min-w-0 gap-1.5 border-l border-border pl-3">
@@ -719,89 +561,8 @@ function CloudflareWorkerResource({
               <EnvironmentActionsMenu actions={worker.actions} label={worker.workerName} />
             ) : null}
           </div>
-          {worker.destination.state === "available" &&
-          worker.destination.provenance === "earlier_check" ? (
-            <span className="text-xs leading-5 text-muted-foreground">
-              May be from an earlier commit
-            </span>
-          ) : null}
         </div>
       ) : null}
-    </div>
-  );
-}
-
-function OtherPreviewProviderLogo({ provider }: { provider: RepositoryOtherPreview["provider"] }) {
-  switch (provider) {
-    case "cloudflare_pages":
-    case "cloudflare_worker":
-      return <CloudflareProviderLogo />;
-    case "netlify":
-      return <NetlifyProviderLogo />;
-    default:
-      provider satisfies never;
-      return null;
-  }
-}
-
-function otherPreviewProviderLabel(provider: RepositoryOtherPreview["provider"]): string {
-  switch (provider) {
-    case "cloudflare_pages":
-      return "Cloudflare Pages";
-    case "cloudflare_worker":
-      return "Cloudflare Worker";
-    case "netlify":
-      return "Netlify";
-    default:
-      provider satisfies never;
-      return provider;
-  }
-}
-
-function OtherPreviewRow({ preview }: { preview: RepositoryOtherPreview }) {
-  const providerLabel = otherPreviewProviderLabel(preview.provider);
-  return (
-    <div className="grid min-w-0 gap-1.5 py-2.5">
-      <div className="flex min-w-0 items-center gap-2.5">
-        <span className="flex h-4 w-5 shrink-0 items-center justify-center">
-          <OtherPreviewProviderLogo provider={preview.provider} />
-        </span>
-        <span className="min-w-0 text-sm font-medium leading-5 text-foreground [overflow-wrap:anywhere]">
-          <span className="sr-only">{providerLabel}: </span>
-          {preview.name}
-        </span>
-      </div>
-      <div className="ml-2.5 flex min-w-0 items-center border-l border-border pl-3 text-sm">
-        <a
-          aria-label={`${providerLabel} ${preview.name}: ${preview.destinationLabel}`}
-          className="inline-flex min-h-10 min-w-0 items-center gap-1 text-muted-foreground underline decoration-border underline-offset-4 hover:text-foreground @4xl:min-h-8"
-          href={preview.href}
-          rel="noreferrer noopener"
-          target="_blank"
-          title={`Open ${providerLabel} ${preview.destinationLabel.toLowerCase()} for ${preview.name}`}
-        >
-          <span className="min-w-0 truncate leading-5">{preview.destinationLabel}</span>
-          <ExternalLink className="h-3 w-3 shrink-0" />
-        </a>
-      </div>
-    </div>
-  );
-}
-
-function OtherPreviews({ previews }: { previews: readonly RepositoryOtherPreview[] }) {
-  if (previews.length === 0) {
-    return null;
-  }
-  return (
-    <div aria-label="Other previews" role="group">
-      <div className="pt-3">
-        <RootDirectoryLabel rootDirectory="Other previews" />
-      </div>
-      <div className="ml-2.5 border-l border-border pb-0.5 pl-3">
-        {previews.map((preview) => (
-          <OtherPreviewRow key={preview.id} preview={preview} />
-        ))}
-      </div>
     </div>
   );
 }
@@ -818,38 +579,12 @@ export function PullRequestResources({
       </div>
     );
   }
-  if (!resource || resource.state === "failed") {
-    return resource?.state === "failed" ? (
+  if (resource?.state === "failed") {
+    return (
       <div className="ml-2.5 border-l border-border py-2 pl-5 text-xs text-muted-foreground">
-        Deploy status unavailable
+        {STORE_READ_FAILED}
       </div>
-    ) : null;
+    );
   }
-  const roots = buildPullRequestEnvironmentRoots({ resources: resource.resources });
-  const otherPreviews = buildPullRequestOtherPreviews({
-    resources: resource.resources,
-  });
-  const cloudflareBuildStatusUnavailable =
-    resource.resources.cloudflareBuilds.state === "unavailable";
-  if (
-    !cloudflareBuildStatusUnavailable &&
-    resource.stackCards.length === 0 &&
-    roots.length === 0 &&
-    otherPreviews.length === 0
-  ) {
-    return null;
-  }
-
-  return (
-    <>
-      {cloudflareBuildStatusUnavailable ? (
-        <div className="ml-2.5 border-l border-border py-2 pl-5 text-xs text-muted-foreground">
-          Could not load Cloudflare build status
-        </div>
-      ) : null}
-      <RepositoryStackCards cards={resource.stackCards} />
-      <RepositoryEnvironmentTree roots={roots} />
-      <OtherPreviews previews={otherPreviews} />
-    </>
-  );
+  return resource ? <RepositoryStackCards cards={resource.stackCards} /> : null;
 }

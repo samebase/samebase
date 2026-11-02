@@ -6,8 +6,8 @@ Samebase. Repair lives in Alchemy and the agent, not in Samebase.
 
 ## What the agent can do
 
-- Read: list the account's repositories, read the live status of one repository (production URL,
-  latest build, Convex deployment, checks, open pull requests), and check authentication.
+- Read: list the account's repositories, read the live status of one repository (stacks, production
+  and preview URLs, deployed commit, checks, open pull requests), and check authentication.
 - Create and connect: create a repository from the Samebase starter template, and connect an
   existing repository.
 - Retry: start a failed setup again. This changes nothing on the first call. The server returns the

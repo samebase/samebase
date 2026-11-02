@@ -257,7 +257,7 @@ describe("MCP tool listing access", () => {
       inputSchema: { required: ["repository"] },
       outputSchema: {
         type: "object",
-        required: expect.arrayContaining(["apps", "convexProjects", "pullRequests", "attention"]),
+        required: expect.arrayContaining(["stacks", "pullRequests", "attention"]),
       },
     });
   });
@@ -300,7 +300,7 @@ describe("MCP tool listing access", () => {
         },
       });
     }
-    // This reads GitHub, Cloudflare, and Convex live; OpenAI's scan counts a provider API as an
+    // This reads GitHub and Convex live; OpenAI's scan counts a provider API as an
     // independently controlled external system even when the read stays inside the user's account.
     expect(tools.find((tool) => tool.name === "repository_getStatus")).toMatchObject({
       annotations: {

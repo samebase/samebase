@@ -20,7 +20,7 @@ export const demoRecordingUrl = "https://youtu.be/eoK5Md5bCgM";
 
 /** Summarizes the plugin version being submitted; the portal imports it as release notes. */
 export const releaseNotes =
-  "0.3.7: Samebase starts and monitors apps, and repair lives in Alchemy and the coding agent. The catalog drops the 10 tools that attached, created, repaired, or detached Workers and Convex projects, and keeps 8 tools. repository_list no longer names attached resources or pending Cloudflare setup. 0.3.6: the MCP server URL is https://samebase.com/mcp. No tool change. 0.3.5: plugin README and license metadata for directory listings, and the MCP Registry server.json. No tool change. 0.3.4: one catalog of 18 tools named by Convex function path. repository_getStatus reads live builds, URLs, Convex deployments, checks, and pull requests of one repository. Connecting a Worker, rotating deploy keys, retrying setup, and detaching a resource now need a server-issued confirmation on a second call. Shorter server instructions and rewritten test cases.";
+  "0.3.7: Samebase starts and monitors apps, and repair lives in Alchemy and the coding agent. The catalog drops the 10 tools that attached, created, repaired, or detached Workers and Convex projects, and keeps 8 tools. repository_list no longer names attached resources or pending Cloudflare setup. repository_getStatus reads each stack from the team's Alchemy state store: its production URL, deployed commit, and preview URLs. 0.3.6: the MCP server URL is https://samebase.com/mcp. No tool change. 0.3.5: plugin README and license metadata for directory listings, and the MCP Registry server.json. No tool change. 0.3.4: one catalog of 18 tools named by Convex function path. repository_getStatus reads live builds, URLs, Convex deployments, checks, and pull requests of one repository. Connecting a Worker, rotating deploy keys, retrying setup, and detaching a resource now need a server-issued confirmation on a second call. Shorter server instructions and rewritten test cases.";
 
 type ToolJustifications = {
   read_only_justification: string;
@@ -43,9 +43,9 @@ export const toolJustifications = {
   },
   repository_getStatus: {
     read_only_justification:
-      "Only reads the repository's Workers, builds, URLs, Convex deployments, default branch checks, and open pull requests, and derives attention items from them.",
+      "Only reads the repository's Alchemy stacks, URLs, deployed commits, default branch checks, and open pull requests, and derives attention items from them.",
     open_world_justification:
-      "Calls the GitHub, Cloudflare, and Convex APIs to read the selected repository's live builds, URLs, deployments, checks, and pull requests. It reads only resources in the organization's connected accounts and writes nothing.",
+      "Calls the GitHub and Convex APIs to read the selected repository's stacks, URLs, deployed commits, checks, and pull requests. It reads only resources in the organization's connected accounts and removes the short-lived read key that it creates in the team's state store deployment.",
     destructive_justification: noDestructiveActions,
   },
   repository_create: {
@@ -157,12 +157,12 @@ export const testCases = [
   },
   {
     description:
-      "Read the live production status of samebase-live-tests/tmp-my-cool-app2 from GitHub, Cloudflare, and Convex without changing anything.",
+      "Read the live production status of samebase-live-tests/tmp-my-cool-app2 from GitHub and the team's Alchemy state store without changing anything.",
     prompt:
-      "Is samebase-live-tests/tmp-my-cool-app2 deployed? Give me its production URL, latest build state, Convex deployment, checks, and open pull requests.",
+      "Is samebase-live-tests/tmp-my-cool-app2 deployed? Give me its production URL, deployed commit, preview URLs, checks, and open pull requests.",
     tools_triggered: ["repository_getStatus"],
     expected_behavior:
-      "The answer names the Worker tmp-my-cool-app and its workers.dev production URL, the latest production build state and whether its commit matches the default branch head, the check counts on the default branch, the Convex project tmp-my-cool-app with its production deployment name and region, and each open pull request with its checks and preview build state. It can list attention items. It does not say that the app serves the expected content, and it changes nothing.",
+      "The answer names the stack with its production URL, its deployed commit and whether that commit matches the default branch head, its preview URLs, the check counts on the default branch, and each open pull request with its checks. It can list attention items. It does not say that the app serves the expected content, and it changes nothing.",
   },
 ] as const satisfies SubmissionTestCases;
 

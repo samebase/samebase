@@ -79,9 +79,13 @@ export const vAlchemyLiveDeployments = array(
   }),
 );
 
+/** Samebase holds no Convex connection to the repository's team, so it cannot read the store. */
+export const vAlchemyNoConnection = object({ store: literal("no_connection") });
+
 /** The read of the store, with Management API metadata for each Convex production deployment. */
 export type AlchemyStateObservation =
   | { store: "missing" }
+  | Infer<typeof vAlchemyNoConnection>
   | (Extract<AlchemyStacksRead, { store: "found" }> & {
       liveDeployments: Infer<typeof vAlchemyLiveDeployments>;
     });

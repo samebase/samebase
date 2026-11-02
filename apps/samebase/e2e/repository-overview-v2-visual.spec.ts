@@ -4,6 +4,8 @@ import type { WorkspaceSidebarState } from "../convex/userPreferenceModel";
 import { seedVisualFixtureWorkspaceSidebarState } from "./visualFixtureTest";
 
 const MOBILE_MINIMUM_SIDEBAR_WIDTH_PX = 130;
+const NO_STACK_LINE = "The team's Alchemy state store holds no stack for this repository.";
+const STORE_READ_FAILED = "Could not read the team's Alchemy state store.";
 const REPOSITORY_OVERVIEW_V2_SIDEBAR_STATE = {
   leftDesktopOpen: true,
   leftDesktopWidthPx: 240,
@@ -54,19 +56,19 @@ test("uses the overview repository rows on the canonical root route", async ({ p
   const repositoryNavigation = fixture.getByRole("navigation", { name: "Repositories" });
 
   const samebaseLink = repositoryNavigation.getByRole("link", {
-    name: "samebase/samebase, 4/4 passed, 2 Cloudflare Workers, 1 Convex project, 3 open pull requests",
+    name: "samebase/samebase, 4/4 passed, 3 open pull requests",
     exact: true,
   });
   await expect(samebaseLink).toHaveAttribute("href", "/repo/samebase/samebase");
   await expect(
     repositoryNavigation.getByRole("link", {
-      name: "samebase/marketing-site, 4/4 passed, 2 Cloudflare Workers, 3 open pull requests",
+      name: "samebase/marketing-site, 4/4 passed, 3 open pull requests",
       exact: true,
     }),
   ).toHaveAttribute("href", "/repo/samebase/marketing-site");
   await expect(
     repositoryNavigation.getByRole("link", {
-      name: "noter/guestbook, 4/4 passed, 1 Convex project",
+      name: "noter/guestbook, 4/4 passed",
       exact: true,
     }),
   ).toHaveAttribute("href", "/repo/noter/guestbook");
@@ -103,7 +105,7 @@ test("centers the root repository list in a wide main pane", async ({ page }) =>
   });
 });
 
-test("shows the shared overview model on desktop", async ({ page }) => {
+test("shows an old app with no stack on desktop", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
   const fixture = await openRepositoryOverviewV2(page, "repository-overview-v2");
   const repositoryNavigation = fixture.getByRole("navigation", { name: "Repositories" });
@@ -125,7 +127,7 @@ test("shows the shared overview model on desktop", async ({ page }) => {
   ).toHaveAttribute("aria-expanded", "true");
   await expect(
     repositoryNavigation.getByRole("link", {
-      name: "noter/guestbook, 4/4 passed, 2 Cloudflare Workers, 1 Convex project, 3 open pull requests",
+      name: "noter/guestbook, 4/4 passed, 3 open pull requests",
     }),
   ).toHaveCount(0);
 
@@ -146,15 +148,11 @@ test("shows the shared overview model on desktop", async ({ page }) => {
   ).toHaveAttribute("href", "https://github.com/samebase/samebase/pull/1260");
   await expect(fixture.getByRole("button", { name: "Filters" })).toHaveCount(0);
   await expect(fixture.locator('[data-pull-request-number="1258"]')).toBeVisible();
-  const deploymentActions = fixture.getByRole("button", {
-    name: "Open calm-swan-123 actions",
-  });
-  await deploymentActions.click();
-  await expect(page.getByRole("menuitem", { name: "Data" })).toBeVisible();
-  await expect(page.getByRole("menuitem", { name: "Schema" })).toBeVisible();
-  await page.keyboard.press("Escape");
-  await expect(fixture.getByText("apps/domain-router", { exact: true })).toBeVisible();
-  await expect(fixture.getByText("apps/samebase", { exact: true }).first()).toBeVisible();
+  await expect(fixture.getByText("Keep repository provider observations explicit")).toBeVisible();
+  await expect(fixture.getByText(NO_STACK_LINE, { exact: true })).toBeVisible();
+  await expect(fixture.getByRole("button", { name: "Retry" })).toHaveCount(0);
+  await expect(fixture.getByRole("group", { name: /^Cloudflare Worker / })).toHaveCount(0);
+  await expect(fixture.getByRole("group", { name: /^Convex deployment / })).toHaveCount(0);
   await expect(fixture).toHaveScreenshot("repository-overview-v2-desktop.png", {
     animations: "disabled",
     caret: "hide",
@@ -163,10 +161,11 @@ test("shows the shared overview model on desktop", async ({ page }) => {
   });
 });
 
-test("opens the production Convex Schema route", async ({ page }) => {
-  const fixture = await openRepositoryOverviewV2(page, "repository-overview-v2");
+test("keeps the Data and Schema routes of a stack's production deployment", async ({ page }) => {
+  const fixture = await openRepositoryOverviewV2(page, "repository-overview-v2-r2");
 
-  await fixture.getByRole("button", { name: "Open calm-swan-123 actions" }).click();
+  await fixture.getByRole("button", { name: "Open clear-butterfly-858 actions" }).click();
+  await expect(page.getByRole("menuitem", { name: "Data" })).toBeVisible();
   await page.getByRole("menuitem", { name: "Schema" }).click();
 
   await expect(page).toHaveURL(
@@ -214,64 +213,6 @@ test("shows the stack card of a pull request preview on mobile", async ({ page }
   );
 });
 
-test("shows comment-discovered hosting previews on desktop", async ({ page }) => {
-  await page.setViewportSize({ width: 1280, height: 900 });
-  const fixture = await openRepositoryOverviewV2(page, "repository-overview-v2");
-  const pullRequestRow = fixture.locator('[data-pull-request-number="1260"]');
-
-  await pullRequestRow.getByRole("button", { name: "Show pull request #1260 details" }).click();
-  await expect(pullRequestRow.getByText("apps/domain-router", { exact: true })).toBeVisible();
-  await expect(pullRequestRow.getByText("apps/samebase", { exact: true })).toBeVisible();
-  await expect(pullRequestRow.getByText("Cloudflare Workers", { exact: true })).toHaveCount(0);
-  const otherPreviews = pullRequestRow.getByRole("group", { name: "Other previews" });
-  await expect(otherPreviews).toBeVisible();
-  await expect(otherPreviews.getByRole("link", { name: /^Connect / })).toHaveCount(0);
-  await expect(
-    otherPreviews.getByRole("link", {
-      name: "Cloudflare Worker unconnected-preview-worker: Branch preview",
-    }),
-  ).toHaveAttribute(
-    "href",
-    "https://codex-live-provider-truth-01-unconnected-preview-worker.samebase.workers.dev",
-  );
-  await expect(
-    otherPreviews.getByRole("link", { name: "Netlify samebase: Deploy preview" }),
-  ).toHaveAttribute("href", "https://deploy-preview-1260--samebase.netlify.app");
-  await expect(pullRequestRow).toHaveScreenshot(
-    "repository-overview-v2-other-previews-desktop.png",
-    {
-      animations: "disabled",
-      caret: "hide",
-      maxDiffPixelRatio: 0.02,
-      scale: "css",
-    },
-  );
-});
-
-test("shows one Cloudflare build status error for an unreadable comment", async ({ page }) => {
-  await page.setViewportSize({ width: 390, height: 844 });
-  const fixture = await openRepositoryOverviewV2(
-    page,
-    "repository-overview-v2-cloudflare-build-status-unavailable",
-  );
-  const pullRequestRow = fixture.locator('[data-pull-request-number="1260"]');
-
-  await pullRequestRow.getByRole("button", { name: "Show pull request #1260 details" }).click();
-  await expect(
-    pullRequestRow.getByText("Could not load Cloudflare build status", { exact: true }),
-  ).toBeVisible();
-  await expect(pullRequestRow.getByText("Unavailable", { exact: true })).toHaveCount(0);
-  await expect(pullRequestRow).toHaveScreenshot(
-    "repository-overview-v2-cloudflare-build-status-unavailable-mobile.png",
-    {
-      animations: "disabled",
-      caret: "hide",
-      maxDiffPixelRatio: 0.02,
-      scale: "css",
-    },
-  );
-});
-
 test("loads the next pull request page at the scroll end", async ({ page }) => {
   await page.setViewportSize({ width: 900, height: 520 });
   const fixture = await openRepositoryOverviewV2(page, "repository-overview-v2-auto-pagination");
@@ -304,44 +245,10 @@ test("keeps the overview hierarchy and pull request actions clear on mobile", as
   await expect(firstPullRequestRow).toContainText("3 files");
 
   await firstPullRequest.click();
-  await expect(firstPullRequestRow.getByText("apps/domain-router", { exact: true })).toBeVisible();
-  await expect(firstPullRequestRow.getByText("apps/samebase", { exact: true })).toBeVisible();
-  await expect(firstPullRequestRow.getByText("Cloudflare Workers", { exact: true })).toHaveCount(0);
-  await expect(firstPullRequestRow.getByRole("link", { name: "Building" })).toHaveAttribute(
-    "href",
-    "https://dash.cloudflare.com/fe57d01d7ab41f60d00ba1aade20eb33/workers/services/view/samebase-worker/production/builds/comment-build-1260",
-  );
-  await expect(
-    firstPullRequestRow.getByRole("link", { name: "Branch preview", exact: true }),
-  ).toHaveAttribute(
-    "href",
-    "https://codex-restore-convex-dashboard-links-samebase-worker.samebase.workers.dev",
-  );
-  await expect(
-    firstPullRequestRow
-      .getByRole("group", { name: "Cloudflare Worker samebase-worker", exact: true })
-      .getByText("May be from an earlier commit", { exact: true }),
-  ).toBeVisible();
-  await expect(firstPullRequestRow.getByRole("link", { name: "Built", exact: true })).toBeVisible();
-  await expect(
-    firstPullRequestRow.getByRole("link", { name: "precise-otter-1260", exact: true }),
-  ).toBeVisible();
-  await expect(
-    firstPullRequestRow
-      .getByRole("group", { name: "Convex deployment precise-otter-1260", exact: true })
-      .getByText("May be from an earlier commit", { exact: true }),
-  ).toBeVisible();
-  const otherPreviews = firstPullRequestRow.getByRole("group", { name: "Other previews" });
-  await expect(otherPreviews).toBeVisible();
-  await expect(
-    otherPreviews.getByRole("link", { name: "Netlify samebase: Deploy preview" }),
-  ).toBeVisible();
-  await firstPullRequestRow
-    .getByRole("button", { name: "Open precise-otter-1260 actions" })
-    .click();
-  await expect(page.getByRole("menuitem", { name: "Data" })).toBeVisible();
-  await expect(page.getByRole("menuitem", { name: "Schema" })).toHaveCount(0);
-  await page.keyboard.press("Escape");
+  await expect(firstPullRequestRow.getByText("needs review", { exact: true })).toBeVisible();
+  await expect(firstPullRequestRow.getByRole("group", { name: /^Alchemy stack / })).toHaveCount(0);
+  await expect(firstPullRequestRow.getByRole("group", { name: "Other previews" })).toHaveCount(0);
+  await expect(fixture.getByText(NO_STACK_LINE, { exact: true })).toBeVisible();
   await page.evaluate(() => window.scrollTo(0, 0));
   await expect(fixture).toHaveScreenshot("repository-overview-v2-mobile.png", {
     animations: "disabled",
@@ -502,7 +409,7 @@ test("uses stable shells while independent data sources load", async ({ page }) 
     "repository-overview-v2-partial-loading",
   );
   await expect(partialFixture.getByRole("link", { name: "main", exact: true })).toBeVisible();
-  await expect(partialFixture.getByLabel("Loading Convex deployment")).toBeVisible();
+  await expect(partialFixture.getByLabel("Loading production destinations")).toBeVisible();
   await expect(
     partialFixture.getByRole("button", {
       name: /Show the exact preview for each pull request/,
@@ -534,19 +441,43 @@ test("uses stable shells while independent data sources load", async ({ page }) 
   );
 });
 
-test("keeps available resources visible when one provider fails", async ({ page }) => {
+test("keeps the commit and pull requests when the store cannot be read", async ({ page }) => {
   await page.setViewportSize({ width: 700, height: 900 });
-  const fixture = await openRepositoryOverviewV2(page, "repository-overview-v2-provider-failed");
+  const fixture = await openRepositoryOverviewV2(page, "repository-overview-v2-store-unreadable");
 
-  await expect(fixture.getByText("Deploy status unavailable.")).toBeVisible();
+  await expect(fixture.getByText(STORE_READ_FAILED, { exact: true })).toBeVisible();
   await expect(fixture.getByRole("button", { name: "Retry" })).toBeVisible();
-  await expect(fixture.getByText("calm-swan-123")).toBeVisible();
-  await expect(fixture).toHaveScreenshot("repository-overview-v2-provider-failed.png", {
+  await expect(fixture.getByText(NO_STACK_LINE, { exact: true })).toHaveCount(0);
+  await expect(fixture.getByText("Keep repository provider observations explicit")).toBeVisible();
+  await expect(fixture.locator('[data-pull-request-number="1260"]')).toBeVisible();
+  await expect(fixture).toHaveScreenshot("repository-overview-v2-store-unreadable.png", {
     animations: "disabled",
     caret: "hide",
     maxDiffPixelRatio: 0.02,
     scale: "css",
   });
+});
+
+test("says what is true without a store or a Convex connection", async ({ page }) => {
+  await page.setViewportSize({ width: 700, height: 900 });
+
+  const missingFixture = await openRepositoryOverviewV2(
+    page,
+    "repository-overview-v2-store-missing",
+  );
+  await expect(
+    missingFixture.getByText("This team has no Alchemy state store yet.", { exact: true }),
+  ).toBeVisible();
+  await expect(missingFixture.getByRole("button", { name: "Retry" })).toHaveCount(0);
+
+  const noConvexFixture = await openRepositoryOverviewV2(page, "repository-overview-v2-no-convex");
+  await expect(
+    noConvexFixture.getByText(
+      "This repository has no Convex connection, so Samebase cannot read its stacks.",
+      { exact: true },
+    ),
+  ).toBeVisible();
+  await expect(noConvexFixture.getByRole("button", { name: "Retry" })).toHaveCount(0);
 });
 
 test("keeps the Retry notice for a failed provider setup", async ({ page }) => {
@@ -604,6 +535,7 @@ test("reproduces the observed new repository provisioning states", async ({ page
   await expect(earlyEmptyFixture.getByRole("status")).toHaveText("Setting up");
   await expect(earlyEmptyFixture.getByText("No default branch commit is available.")).toBeVisible();
   await expect(earlyEmptyFixture.getByText(/^No open pull requests\.?$/)).toHaveCount(1);
+  await expect(earlyEmptyFixture.getByText(NO_STACK_LINE, { exact: true })).toHaveCount(0);
 
   const completeEmptyFixture = await openRepositoryOverviewV2(
     page,
@@ -614,6 +546,7 @@ test("reproduces the observed new repository provisioning states", async ({ page
     completeEmptyFixture.getByText("No default branch commit is available."),
   ).toBeVisible();
   await expect(completeEmptyFixture.getByText(/^No open pull requests\.?$/)).toHaveCount(1);
+  await expect(completeEmptyFixture.getByText(NO_STACK_LINE, { exact: true })).toHaveCount(0);
 
   const staleEmptyFixture = await openRepositoryOverviewV2(
     page,
@@ -626,22 +559,16 @@ test("reproduces the observed new repository provisioning states", async ({ page
     "repository-overview-v2-provisioning-commit",
   );
   await expect(commitFixture.getByText("Initialize Samebase app")).toBeVisible();
-  await expect(commitFixture.getByLabel("Loading Convex deployment")).toBeVisible();
-
-  const workerFixture = await openRepositoryOverviewV2(
-    page,
-    "repository-overview-v2-provisioning-worker",
-  );
-  await expect(
-    workerFixture.getByText("tmp-f149-repository-loading-states.pfp.workers.dev"),
-  ).toBeVisible();
-  await expect(workerFixture.getByLabel("Loading Convex deployment")).toBeVisible();
+  await expect(commitFixture.getByLabel("Loading production destinations")).toBeVisible();
 
   const readyFixture = await openRepositoryOverviewV2(
     page,
     "repository-overview-v2-provisioning-ready",
   );
-  await expect(readyFixture.getByText("dazzling-pheasant-894")).toBeVisible();
+  await expect(
+    readyFixture.getByRole("link", { name: "dazzling-pheasant-894", exact: true }),
+  ).toBeVisible();
+  await expect(readyFixture.getByText(NO_STACK_LINE, { exact: true })).toHaveCount(0);
   await expect(readyFixture.getByText(/^No open pull requests\.?$/)).toHaveCount(1);
 });
 
@@ -669,7 +596,7 @@ test("preserves repository identity at the minimum sidebar width", async ({ page
   const repositoryNavigation = fixture.getByRole("navigation", { name: "Repositories" });
 
   const selectedRepository = repositoryNavigation.getByRole("link", {
-    name: "samebase/samebase, 4/4 passed, 2 Cloudflare Workers, 1 Convex project, 3 open pull requests",
+    name: "samebase/samebase, 4/4 passed, 3 open pull requests",
     exact: true,
   });
   await expect(selectedRepository).toBeVisible();
@@ -709,7 +636,7 @@ test("exposes each raw source separately in developer mode", async ({ page }) =>
     '"githubRepositoryFullName": "samebase/samebase"',
   );
   await expect(fixture.getByText("GitHub observations", { exact: true })).toBeVisible();
-  await expect(fixture.getByText("Cloudflare observations", { exact: true })).toBeVisible();
-  await expect(fixture.getByText("Convex observations", { exact: true })).toBeVisible();
+  await expect(fixture.getByText("Cloudflare observations", { exact: true })).toHaveCount(0);
+  await expect(fixture.getByText("Convex observations", { exact: true })).toHaveCount(0);
   await expect(fixture.getByText("Derived presentation", { exact: true })).toBeVisible();
 });

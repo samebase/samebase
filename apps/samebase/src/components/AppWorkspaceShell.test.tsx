@@ -63,7 +63,6 @@ vi.mock("@tanstack/react-query", async (importOriginal) => ({
 vi.mock("@/routes/repository-dashboard.queries", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/routes/repository-dashboard.queries")>()),
   loadRepositoryDashboard: async () => {},
-  loadRepositoryAlchemyPage: async () => null,
   loadRepositoryOverview: async () => null,
 }));
 

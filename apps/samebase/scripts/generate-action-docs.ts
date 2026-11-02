@@ -229,8 +229,8 @@ The dashboard gives humans one inventory of every repository they connect, its p
 current state, and direct provider coordinates.
 Every Samebase action checks its own authentication. Authentication status is a diagnostic action,
 not a preflight.
-The repository list reports Samebase-owned workflow state. It is not proof of live provider state. The repository status reads the live builds, URLs, Convex
-deployments, checks, and pull requests of one repository. Use provider-native tools for logs,
+The repository list reports Samebase-owned workflow state. It is not proof of live provider state. The repository status reads the Alchemy stacks, URLs, deployed
+commits, checks, and pull requests of one repository. Use provider-native tools for logs,
 environment values, migrations, and domains.
 Codex and Claude Code can add the public
 [samebase/plugin](https://github.com/samebase/plugin) marketplace and install

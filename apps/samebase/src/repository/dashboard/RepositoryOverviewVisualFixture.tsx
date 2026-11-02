@@ -9,10 +9,7 @@ import {
   RepositoryOverviewOrganizationSidebar,
   RepositoryOverviewSidebarLoading,
 } from "@/repository/dashboard/RepositoryOverviewSidebar";
-import {
-  buildAlchemyStackCards,
-  buildProductionEnvironmentRoots,
-} from "@/repository/dashboard/repositoryEnvironmentRoots";
+import { buildAlchemyStackCards } from "@/repository/dashboard/repositoryEnvironmentRoots";
 import type {
   RepositoryFolderState,
   RepositoryOrganizationTreeSettings,
@@ -26,22 +23,18 @@ import {
 import { SidebarLayoutFixtureFrame } from "@/components/SidebarLayoutFixtureFrame";
 import type { UserRepositoryResult } from "../../../convex/repository/contracts/getUserRepositories";
 import type {
-  PullRequestResourceState,
   RepositoryDefaultBranchObservation,
   RepositoryPullRequest,
   RepositoryPullRequestsState,
 } from "@/repository/dashboard/useRepositoryPullRequests";
 import type { RepositorySidebarSummariesState } from "@/repository/dashboard/useRepositorySidebarSummaries";
-import type {
-  RepositoryAlchemyStacks,
-  RepositoryCloudflareProviderObservationState,
-  RepositoryConvexProjectObservation,
-  RepositoryProviderObservationState,
-} from "@/repository/dashboard/useRepositoryProviderObservations";
+import type { RepositoryAlchemyState } from "@/repository/dashboard/useRepositoryAlchemyState";
+import type { RepositoryAlchemyStacks } from "@/repository/dashboard/useRepositoryProviderObservations";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { observedSamebaseStackReply } from "../../../convex/repository/fixtures/observedSamebaseAlchemyState";
 import { observedScoutR2Resources } from "../../../convex/repository/fixtures/observedScoutR2Resources";
 import { ROLE_ACCESS_GRANTS } from "../../../shared/accessModel";
+import type { AlchemyStateObservation } from "../../../shared/alchemyStateModel";
 import {
   RepositoryOverviewDialogsVisualFixture,
   type RepositoryOverviewDialogsVisualMode,
@@ -56,32 +49,27 @@ export type RepositoryOverviewVisualMode =
   | RepositoryConvexSchemaGraphVisualMode
   | "repository-overview-v2"
   | "repository-overview-v2-auto-pagination"
-  | "repository-overview-v2-cloudflare-build-status-unavailable"
   | "repository-overview-v2-cloudflare-github-authorization-failed"
   | "repository-overview-v2-dev"
   | "repository-overview-v2-loading"
+  | "repository-overview-v2-no-convex"
   | "repository-overview-v2-partial-loading"
-  | "repository-overview-v2-provider-failed"
   | "repository-overview-v2-provisioning-source"
   | "repository-overview-v2-provisioning-github"
   | "repository-overview-v2-provisioning-early-empty"
   | "repository-overview-v2-provisioning-complete-empty"
   | "repository-overview-v2-provisioning-stale-empty"
   | "repository-overview-v2-provisioning-commit"
-  | "repository-overview-v2-provisioning-worker"
   | "repository-overview-v2-provisioning-ready"
   | "repository-overview-v2-root"
   | "repository-overview-v2-r2"
   | "repository-overview-v2-settings"
   | "repository-overview-v2-settings-active"
-  | "repository-overview-v2-settings-loading";
+  | "repository-overview-v2-settings-loading"
+  | "repository-overview-v2-store-missing"
+  | "repository-overview-v2-store-unreadable";
 
 const FIXTURE_NOW = Date.parse("2026-04-03T00:00:12Z");
-const LOADING_CLOUDFLARE_OBSERVATIONS = {
-  workers: { state: "loading" },
-  builds: { state: "loading" },
-  convexBuildAccess: { state: "loading" },
-} satisfies RepositoryCloudflareProviderObservationState;
 function fakeRepositoryId(value = "jt7f8f6d9v7x5w4m3n2p1q0r1s7c9b8a"): Id<"repositories"> {
   // @ts-expect-error Convex ids are strings at runtime; this fixture only
   // needs a stable value for static rendering.
@@ -165,12 +153,13 @@ const LIST_SPACING_REPOSITORY = {
       rootDirectory: "apps/samebase",
     },
   ],
+  // The attached Convex project of the fixture stacks, whose deployment keeps its Schema route.
   convexProjects: [
     {
       convexProjectId: LIST_SPACING_CONVEX_PROJECT_ID,
       codeLocation: { kind: "config", convexConfigPath: "apps/samebase/convex.json" },
       teamId: "samebase-team-id",
-      projectId: "samebase",
+      projectId: "839311",
     },
   ],
 } satisfies UserRepositoryResult;
@@ -292,101 +281,12 @@ const FIXTURE_STACKS = ((): RepositoryAlchemyStacks => {
   };
 })();
 
-const LIST_SPACING_CLOUDFLARE_OBSERVATIONS = {
-  workers: {
-    state: "loaded",
-    refreshFailed: false,
-    reload: () => {},
-    observations: [
-      {
-        state: "available",
-        workerId: LIST_SPACING_DOMAIN_WORKER_ID,
-        workerName: "domain-router",
-        customDomains: [],
-        workersDev: {
-          state: "enabled",
-          url: "https://domain-router.samebase.workers.dev",
-        },
-      },
-      {
-        state: "available",
-        workerId: LIST_SPACING_SAMEBASE_WORKER_ID,
-        workerName: "samebase-worker",
-        customDomains: ["samebase.com"],
-        workersDev: {
-          state: "enabled",
-          url: "https://samebase.samebase.workers.dev",
-        },
-      },
-    ],
-  },
-  builds: {
-    state: "loaded",
-    refreshFailed: false,
-    reload: () => {},
-    observations: [
-      {
-        state: "available",
-        workerId: LIST_SPACING_DOMAIN_WORKER_ID,
-        repository: {
-          state: "ready",
-          rootDirectory: "apps/domain-router",
-          builds: { state: "not_available" },
-        },
-        builds: { state: "not_connected" },
-        productionBuild: { state: "absent" },
-      },
-      {
-        state: "available",
-        workerId: LIST_SPACING_SAMEBASE_WORKER_ID,
-        repository: {
-          state: "ready",
-          rootDirectory: "apps/samebase",
-          builds: { state: "not_available" },
-        },
-        builds: { state: "not_connected" },
-        productionBuild: { state: "absent" },
-      },
-    ],
-  },
-  convexBuildAccess: {
-    state: "loaded",
-    refreshFailed: false,
-    reload: () => {},
-    observations: [],
-  },
-} satisfies RepositoryCloudflareProviderObservationState;
+function loadedStore(observation: AlchemyStateObservation): RepositoryAlchemyState {
+  return { state: "loaded", observation, refreshFailed: false, reload: () => {} };
+}
 
-const FAILED_CLOUDFLARE_OBSERVATIONS = {
-  workers: { state: "failed", reload: () => {} },
-  builds: LIST_SPACING_CLOUDFLARE_OBSERVATIONS.builds,
-  convexBuildAccess: LIST_SPACING_CLOUDFLARE_OBSERVATIONS.convexBuildAccess,
-} satisfies RepositoryCloudflareProviderObservationState;
-
-const LIST_SPACING_CONVEX_OBSERVATIONS = {
-  state: "loaded",
-  refreshFailed: false,
-  reload: () => {},
-  observations: [
-    {
-      convexProjectId: LIST_SPACING_CONVEX_PROJECT_ID,
-      projectId: "samebase",
-      codeLocation: { kind: "config", convexConfigPath: "apps/samebase/convex.json" },
-      source: { kind: "config", state: "valid" },
-      provider: {
-        state: "current",
-        projectSlug: "samebase",
-        teamSlug: "samebase",
-        productionDeployment: {
-          state: "available",
-          deploymentName: "calm-swan-123",
-          dashboardUrl: "https://dashboard.convex.dev/t/samebase/samebase/calm-swan-123",
-          region: "aws-us-east-1",
-        },
-      },
-    },
-  ],
-} satisfies RepositoryProviderObservationState<RepositoryConvexProjectObservation>;
+/** A store that holds no stack of the repository, such as the store of an old app's team. */
+const NO_STACK_STORE = loadedStore({ store: "found", stacks: [], liveDeployments: [] });
 
 const SIDEBAR_LIST_SELECTED_REPOSITORY_ID = fakeRepositoryId("jt7f8f6d9v7x5w4m3n2p1q0r1s7c9b8c");
 const SIDEBAR_LIST_REPOSITORIES = [
@@ -413,16 +313,6 @@ const SIDEBAR_LIST_REPOSITORIES = [
     githubRepositoryFullName: "noter/guestbook",
   },
 ] satisfies UserRepositoryResult[];
-
-const ROOT_SIDEBAR_LIST_REPOSITORIES = SIDEBAR_LIST_REPOSITORIES.map((repository) => {
-  if (repository.githubRepositoryFullName === "samebase/marketing-site") {
-    return { ...repository, convexProjects: [] };
-  }
-  if (repository.githubRepositoryFullName === "noter/guestbook") {
-    return { ...repository, cloudflareWorkers: [] };
-  }
-  return repository;
-}) satisfies UserRepositoryResult[];
 
 const FIXTURE_FOLDER_CALLBACKS = {
   onDeleteRepositoryFolder: async () => {},
@@ -575,7 +465,7 @@ const FIXTURE_SIDEBAR_SUMMARIES = {
 
 const FIXTURE_ROOT_SIDEBAR_SUMMARIES = {
   state: "loaded",
-  summaries: ROOT_SIDEBAR_LIST_REPOSITORIES.map((repository) => ({
+  summaries: SIDEBAR_LIST_REPOSITORIES.map((repository) => ({
     repositoryId: repository.repositoryId,
     openPullRequestCount: repository.githubRepositoryFullName === "noter/guestbook" ? 0 : 3,
     checks: FIXTURE_DEFAULT_BRANCH_CHECKS.checks,
@@ -666,15 +556,11 @@ type RepositoryOverviewProvisioningVisualMode = Extract<
   | "repository-overview-v2-provisioning-complete-empty"
   | "repository-overview-v2-provisioning-stale-empty"
   | "repository-overview-v2-provisioning-commit"
-  | "repository-overview-v2-provisioning-worker"
   | "repository-overview-v2-provisioning-ready"
 >;
 
 // Captured from a real Samebase-managed repository. The first five states occurred
-// during provisioning. Reloading the stuck empty state exposed commit, Worker, then
-// Convex data in that order.
-const PROVISIONING_WORKER_ID = fakeCloudflareWorkerId("worker-provisioning-fixture");
-const PROVISIONING_CONVEX_PROJECT_ID = fakeConvexProjectId("convex-project-provisioning-fixture");
+// during provisioning. Reloading the stuck empty state exposed the commit, then the stack.
 const PROVISIONING_RUN_ID = fakeRepositoryProvisioningRunId("repository-provisioning-run-fixture");
 const PROVISIONING_ORGANIZATION = {
   canCreateRepository: true,
@@ -691,122 +577,39 @@ const PROVISIONING_REPOSITORY = {
   githubOwnerLogin: "nicu-chiciuc",
   githubRepositoryName: "tmp-f149-repository-loading-states",
   githubRepositoryFullName: "nicu-chiciuc/tmp-f149-repository-loading-states",
-  cloudflareWorkers: [
-    {
-      workerId: PROVISIONING_WORKER_ID,
-      accountId: "fixture-cloudflare-account",
-      workerName: "tmp-f149-repository-loading-states",
-      workerTag: "tmp-f149-repository-loading-states-tag",
-      rootDirectory: "/",
-    },
-  ],
-  convexProjects: [
-    {
-      convexProjectId: PROVISIONING_CONVEX_PROJECT_ID,
-      codeLocation: { kind: "config", convexConfigPath: "convex.json" },
-      teamId: "38516",
-      projectId: "2653471",
-    },
-  ],
+  cloudflareWorkers: [],
+  convexProjects: [],
+  providerPlan: {
+    provisioning: "repository_actions",
+    convexConfigPath: "convex.json",
+    ciSecrets: { state: "written", writtenAt: FIXTURE_NOW, credentialRevision: 1 },
+  },
 } satisfies UserRepositoryResult;
 
-const PROVISIONING_CLOUDFLARE_OBSERVATIONS = {
-  workers: {
-    state: "loaded",
-    refreshFailed: false,
-    reload: () => {},
-    observations: [
+/** The stack of the repository after its first deployment. */
+const PROVISIONING_STACK_STORE = ((): RepositoryAlchemyState => {
+  const stage = FIXTURE_STACKS.stacks[0].stages[1];
+  return loadedStore({
+    store: "found",
+    liveDeployments: [],
+    stacks: [
       {
-        state: "available",
-        workerId: PROVISIONING_WORKER_ID,
-        workerName: "tmp-f149-repository-loading-states",
-        customDomains: [],
-        workersDev: {
-          state: "enabled",
-          url: "https://tmp-f149-repository-loading-states.pfp.workers.dev",
-        },
-      },
-    ],
-  },
-  builds: {
-    state: "loaded",
-    refreshFailed: false,
-    reload: () => {},
-    observations: [
-      {
-        state: "available",
-        workerId: PROVISIONING_WORKER_ID,
-        repository: {
-          state: "ready",
-          rootDirectory: "/",
-          builds: {
-            state: "available",
+        name: PROVISIONING_REPOSITORY.githubRepositoryFullName,
+        stages: [
+          {
+            ...stage,
+            resources: stage.resources
+              .filter((resource) => resource.fqn === "Site")
+              .map((resource) => ({
+                ...resource,
+                value: resource.value.replaceAll("clear-butterfly-858", "dazzling-pheasant-894"),
+              })),
           },
-        },
-        builds: {
-          state: "connected",
-          productionBuildTokenUuid: "fixture-build-token",
-          previewBuildTokenUuid: "fixture-build-token",
-        },
-        productionBuild: {
-          state: "available",
-          buildState: "success",
-          commitHash: null,
-          logsUrl:
-            "https://dash.cloudflare.com/fixture-account/workers/services/view/tmp-f149-repository-loading-states/production/builds/fixture-production-build",
-        },
+        ],
       },
     ],
-  },
-  convexBuildAccess: {
-    state: "loaded",
-    refreshFailed: false,
-    reload: () => {},
-    observations: [
-      {
-        state: "available",
-        workerId: PROVISIONING_WORKER_ID,
-        convexBuildAccess: {
-          state: "configured",
-          convexProject: {
-            state: "attached",
-            attachedTeamId: "38516",
-            convexProjectId: PROVISIONING_CONVEX_PROJECT_ID,
-            projectId: "2653471",
-            teamId: "38516",
-            teamState: "matches",
-          },
-        },
-      },
-    ],
-  },
-} satisfies RepositoryCloudflareProviderObservationState;
-
-const PROVISIONING_CONVEX_OBSERVATIONS = {
-  state: "loaded",
-  refreshFailed: false,
-  reload: () => {},
-  observations: [
-    {
-      convexProjectId: PROVISIONING_CONVEX_PROJECT_ID,
-      projectId: "2653471",
-      codeLocation: { kind: "config", convexConfigPath: "convex.json" },
-      source: { kind: "config", state: "valid" },
-      provider: {
-        state: "current",
-        projectSlug: "tmp-f149-repository-loading-states",
-        teamSlug: "nicu",
-        productionDeployment: {
-          state: "available",
-          deploymentName: "dazzling-pheasant-894",
-          dashboardUrl:
-            "https://dashboard.convex.dev/t/nicu/tmp-f149-repository-loading-states/dazzling-pheasant-894",
-          region: "aws-eu-west-1",
-        },
-      },
-    },
-  ],
-} satisfies RepositoryProviderObservationState<RepositoryConvexProjectObservation>;
+  });
+})();
 
 const PROVISIONING_DEFAULT_BRANCH = {
   headCommitOid: "e027945fddf37a983c3b44e88dcdb7d55ebe2109",
@@ -817,34 +620,6 @@ const PROVISIONING_DEFAULT_BRANCH = {
   statusCheckRollup: null,
   checks: FIXTURE_NO_CHECKS,
 } satisfies RepositoryDefaultBranchObservation;
-
-const PROVISIONING_EMPTY_CLOUDFLARE_OBSERVATIONS = {
-  workers: {
-    state: "loaded",
-    observations: [],
-    refreshFailed: false,
-    reload: () => {},
-  },
-  builds: {
-    state: "loaded",
-    observations: [],
-    refreshFailed: false,
-    reload: () => {},
-  },
-  convexBuildAccess: {
-    state: "loaded",
-    observations: [],
-    refreshFailed: false,
-    reload: () => {},
-  },
-} satisfies RepositoryCloudflareProviderObservationState;
-
-const PROVISIONING_EMPTY_CONVEX_OBSERVATIONS = {
-  state: "loaded",
-  observations: [],
-  refreshFailed: false,
-  reload: () => {},
-} satisfies RepositoryProviderObservationState<RepositoryConvexProjectObservation>;
 
 const PROVISIONING_PLANNED_PROVIDER_PLAN = {
   convexConfigPath: "convex.json",
@@ -866,7 +641,7 @@ const PROVISIONING_PLANNED_PROVIDER_PLAN = {
 function fixturePullRequests(
   pullRequests: readonly FixturePullRequest[],
   defaultBranch: RepositoryDefaultBranchObservation | null,
-  cloudflareBuildStatusUnavailable = false,
+  alchemyState: RepositoryAlchemyState = NO_STACK_STORE,
 ): Extract<RepositoryPullRequestsState, { state: "current" | "stale" }> {
   return {
     state: "current",
@@ -877,121 +652,21 @@ function fixturePullRequests(
     resourcesByPullRequestId: new Map(
       pullRequests.map((pullRequest) => [
         pullRequest.id,
-        {
-          state: "current" as const,
-          resources: {
-            pullRequestId: pullRequest.id,
-            cloudflareBuilds:
-              pullRequest.number === 1260 && cloudflareBuildStatusUnavailable
-                ? { state: "unavailable" as const }
-                : { state: "available" as const },
-            workers:
-              pullRequest.number === 1260 && !cloudflareBuildStatusUnavailable
-                ? [
-                    {
-                      workerId: LIST_SPACING_SAMEBASE_WORKER_ID,
-                      workerName: "samebase-worker",
-                      rootDirectory: "apps/samebase",
-                      cloudflareBuild: {
-                        state: "available" as const,
-                        uuid: "comment-build-1260",
-                        buildState: "running" as const,
-                        logsUrl:
-                          "https://dash.cloudflare.com/fe57d01d7ab41f60d00ba1aade20eb33/workers/services/view/samebase-worker/production/builds/comment-build-1260",
+        alchemyState.state === "loaded"
+          ? {
+              state: "loaded",
+              stackCards:
+                alchemyState.observation.store === "found"
+                  ? buildAlchemyStackCards({
+                      stacks: alchemyState.observation,
+                      stage: {
+                        name: `pr-${pullRequest.number}`,
+                        headCommit: pullRequest.headRefOid,
                       },
-                      cloudflareBranchPreview: {
-                        state: "available" as const,
-                        url: "https://codex-restore-convex-dashboard-links-samebase-worker.samebase.workers.dev",
-                        provenance: "earlier_check" as const,
-                      },
-                    },
-                    {
-                      workerId: LIST_SPACING_DOMAIN_WORKER_ID,
-                      workerName: "domain-router",
-                      rootDirectory: "apps/domain-router",
-                      cloudflareBuild: {
-                        state: "available" as const,
-                        uuid: "successful-build-1260",
-                        buildState: "success" as const,
-                        logsUrl:
-                          "https://dash.cloudflare.com/fe57d01d7ab41f60d00ba1aade20eb33/workers/services/view/domain-router/production/builds/successful-build-1260",
-                      },
-                      cloudflareBranchPreview: { state: "absent" as const },
-                    },
-                  ]
-                : pullRequest.number === 1259
-                  ? [
-                      {
-                        workerId: LIST_SPACING_DOMAIN_WORKER_ID,
-                        workerName: "domain-router",
-                        rootDirectory: "apps/domain-router",
-                        cloudflareBuild: {
-                          state: "available" as const,
-                          uuid: "running-build-1259",
-                          buildState: "running" as const,
-                          logsUrl:
-                            "https://dash.cloudflare.com/fe57d01d7ab41f60d00ba1aade20eb33/workers/services/view/domain-router/production/builds/running-build-1259",
-                        },
-                        cloudflareBranchPreview: { state: "absent" as const },
-                      },
-                    ]
+                    })
                   : [],
-            convexProjects:
-              pullRequest.number === 1260
-                ? [
-                    {
-                      state: "branch" as const,
-                      convexProjectId: LIST_SPACING_CONVEX_PROJECT_ID,
-                      rootDirectory: "apps/samebase",
-                      deploymentName: "precise-otter-1260",
-                      dashboardUrl:
-                        "https://dashboard.convex.dev/t/samebase/samebase/precise-otter-1260",
-                    },
-                  ]
-                : [],
-            hostingPreviews:
-              pullRequest.number === 1260 && !cloudflareBuildStatusUnavailable
-                ? {
-                    cloudflare: {
-                      state: "available" as const,
-                      previews: [
-                        {
-                          kind: "worker" as const,
-                          name: "unconnected-preview-worker",
-                          url: "https://codex-live-provider-truth-01-unconnected-preview-worker.samebase.workers.dev",
-                        },
-                      ],
-                    },
-                    netlify: {
-                      state: "available" as const,
-                      previews: [
-                        {
-                          name: "samebase",
-                          url: "https://deploy-preview-1260--samebase.netlify.app",
-                        },
-                      ],
-                    },
-                  }
-                : cloudflareBuildStatusUnavailable && pullRequest.number === 1260
-                  ? {
-                      cloudflare: { state: "unavailable" as const },
-                      netlify: {
-                        state: "available" as const,
-                        previews: [
-                          {
-                            name: "samebase",
-                            url: "https://deploy-preview-1260--samebase.netlify.app",
-                          },
-                        ],
-                      },
-                    }
-                  : {
-                      cloudflare: { state: "available" as const, previews: [] },
-                      netlify: { state: "available" as const, previews: [] },
-                    },
-          },
-          stackCards: [],
-        },
+            }
+          : { state: alchemyState.state },
       ]),
     ),
     loadMore: { state: "exhausted" },
@@ -1004,62 +679,40 @@ const AUTO_PAGINATION_PULL_REQUESTS = [
 ];
 
 function buildFixtureWorkspace({
-  cloudflareAccountId,
-  cloudflareAccountName,
-  cloudflareObservations,
-  convexObservations,
+  alchemyState,
   githubRepositoryUrl,
   pullRequests,
   repository,
 }: {
-  cloudflareAccountId: string;
-  cloudflareAccountName: string;
-  cloudflareObservations: RepositoryCloudflareProviderObservationState;
-  convexObservations: RepositoryProviderObservationState<RepositoryConvexProjectObservation>;
+  alchemyState: RepositoryAlchemyState;
   githubRepositoryUrl: string;
   pullRequests: RepositoryPullRequestsState;
   repository: UserRepositoryResult;
 }) {
   const workspace = {
-    alchemyState: {
-      state: "loaded",
-      observation: { store: "missing" },
-      refreshFailed: false,
-      reload: () => {},
-    },
-    alchemyObservations: {
-      state: "loaded",
-      observations: [],
-      refreshFailed: false,
-      reload: () => {},
-    },
+    alchemyState,
     access: { state: "ready", accessKeys: ROLE_ACCESS_GRANTS.role_member },
-    cloudflareConnection: {
-      state: "ready",
-      connection: {
-        state: "connected",
-        authMethod: "oauth",
-        accountId: cloudflareAccountId,
-        accountName: cloudflareAccountName,
-      },
-    },
-    cloudflareObservations,
-    convexObservations,
     githubRepositoryUrl,
-    production: {
-      source: "attachments",
-      roots: repository.defaultBranch
-        ? buildProductionEnvironmentRoots({
-            branch: repository.defaultBranch,
-            cloudflareObservations,
-            convexObservations,
-            owner: repository.githubOwnerLogin,
-            repoName: repository.githubRepositoryName,
-            schemaGraphEnabled: ROLE_ACCESS_GRANTS.role_member.includes("access_schema_graph"),
-            repository,
+    productionCards:
+      repository.defaultBranch &&
+      alchemyState.state === "loaded" &&
+      alchemyState.observation.store === "found"
+        ? buildAlchemyStackCards({
+            stacks: alchemyState.observation,
+            stage: {
+              name: "prod",
+              headCommit:
+                pullRequests.state === "current" || pullRequests.state === "stale"
+                  ? (pullRequests.defaultBranch?.headCommitOid ?? null)
+                  : null,
+              branch: repository.defaultBranch,
+              owner: repository.githubOwnerLogin,
+              repoName: repository.githubRepositoryName,
+              schemaGraphEnabled: ROLE_ACCESS_GRANTS.role_member.includes("access_schema_graph"),
+              repository,
+            },
           })
         : [],
-    },
     pullRequests,
     repository,
   } satisfies RepositoryWorkspaceSelected;
@@ -1074,8 +727,7 @@ function RepositoryOverviewProvisioningFixture({
 }) {
   let repository: UserRepositoryResult;
   let pullRequests: RepositoryPullRequestsState;
-  let cloudflareObservations: RepositoryCloudflareProviderObservationState;
-  let convexObservations: RepositoryProviderObservationState<RepositoryConvexProjectObservation>;
+  let alchemyState: RepositoryAlchemyState = NO_STACK_STORE;
 
   switch (mode) {
     case "repository-overview-v2-cloudflare-github-authorization-failed": {
@@ -1087,8 +739,6 @@ function RepositoryOverviewProvisioningFixture({
         githubOwnerLogin: "noter-guest",
         githubRepositoryName: "tmp-testing-waters",
         githubRepositoryFullName,
-        cloudflareWorkers: [],
-        convexProjects: [],
         providerSetup: {
           status: "failed",
           provider: "cloudflare",
@@ -1099,8 +749,6 @@ function RepositoryOverviewProvisioningFixture({
         },
       };
       pullRequests = fixturePullRequests([], PROVISIONING_DEFAULT_BRANCH);
-      cloudflareObservations = PROVISIONING_EMPTY_CLOUDFLARE_OBSERVATIONS;
-      convexObservations = PROVISIONING_EMPTY_CONVEX_OBSERVATIONS;
       break;
     }
     case "repository-overview-v2-provisioning-source":
@@ -1108,8 +756,6 @@ function RepositoryOverviewProvisioningFixture({
         ...PROVISIONING_REPOSITORY,
         defaultBranch: undefined,
         hasConnectedGitHubRepository: false,
-        cloudflareWorkers: [],
-        convexProjects: [],
         sourceSetup: {
           status: "running",
           runId: PROVISIONING_RUN_ID,
@@ -1119,14 +765,11 @@ function RepositoryOverviewProvisioningFixture({
         providerSetup: { status: "not_applicable" },
       };
       pullRequests = { state: "not_requested" };
-      cloudflareObservations = PROVISIONING_EMPTY_CLOUDFLARE_OBSERVATIONS;
-      convexObservations = PROVISIONING_EMPTY_CONVEX_OBSERVATIONS;
+      alchemyState = { state: "loading" };
       break;
     case "repository-overview-v2-provisioning-github":
       repository = {
         ...PROVISIONING_REPOSITORY,
-        cloudflareWorkers: [],
-        convexProjects: [],
         sourceSetup: {
           status: "running",
           runId: PROVISIONING_RUN_ID,
@@ -1136,8 +779,7 @@ function RepositoryOverviewProvisioningFixture({
         providerSetup: { status: "not_applicable" },
       };
       pullRequests = { state: "loading" };
-      cloudflareObservations = PROVISIONING_EMPTY_CLOUDFLARE_OBSERVATIONS;
-      convexObservations = PROVISIONING_EMPTY_CONVEX_OBSERVATIONS;
+      alchemyState = { state: "loading" };
       break;
     case "repository-overview-v2-provisioning-early-empty":
       repository = {
@@ -1152,14 +794,10 @@ function RepositoryOverviewProvisioningFixture({
         },
       };
       pullRequests = fixturePullRequests([], null);
-      cloudflareObservations = LOADING_CLOUDFLARE_OBSERVATIONS;
-      convexObservations = { state: "loading" };
       break;
     case "repository-overview-v2-provisioning-complete-empty":
       repository = PROVISIONING_REPOSITORY;
       pullRequests = fixturePullRequests([], null);
-      cloudflareObservations = PROVISIONING_CLOUDFLARE_OBSERVATIONS;
-      convexObservations = PROVISIONING_CONVEX_OBSERVATIONS;
       break;
     case "repository-overview-v2-provisioning-stale-empty":
       repository = PROVISIONING_REPOSITORY;
@@ -1167,34 +805,21 @@ function RepositoryOverviewProvisioningFixture({
         ...fixturePullRequests([], null),
         state: "stale",
       };
-      cloudflareObservations = PROVISIONING_CLOUDFLARE_OBSERVATIONS;
-      convexObservations = PROVISIONING_CONVEX_OBSERVATIONS;
       break;
     case "repository-overview-v2-provisioning-commit":
       repository = PROVISIONING_REPOSITORY;
       pullRequests = fixturePullRequests([], PROVISIONING_DEFAULT_BRANCH);
-      cloudflareObservations = LOADING_CLOUDFLARE_OBSERVATIONS;
-      convexObservations = { state: "loading" };
-      break;
-    case "repository-overview-v2-provisioning-worker":
-      repository = PROVISIONING_REPOSITORY;
-      pullRequests = fixturePullRequests([], PROVISIONING_DEFAULT_BRANCH);
-      cloudflareObservations = PROVISIONING_CLOUDFLARE_OBSERVATIONS;
-      convexObservations = { state: "loading" };
+      alchemyState = { state: "loading" };
       break;
     case "repository-overview-v2-provisioning-ready":
       repository = PROVISIONING_REPOSITORY;
       pullRequests = fixturePullRequests([], PROVISIONING_DEFAULT_BRANCH);
-      cloudflareObservations = PROVISIONING_CLOUDFLARE_OBSERVATIONS;
-      convexObservations = PROVISIONING_CONVEX_OBSERVATIONS;
+      alchemyState = PROVISIONING_STACK_STORE;
       break;
   }
 
   const workspace = buildFixtureWorkspace({
-    cloudflareAccountId: "fixture-cloudflare-account",
-    cloudflareAccountName: "Fixture Account",
-    cloudflareObservations,
-    convexObservations,
+    alchemyState,
     githubRepositoryUrl: `https://github.com/${repository.githubRepositoryFullName}`,
     pullRequests,
     repository,
@@ -1255,8 +880,6 @@ function RepositoryOverviewProvisioningFixture({
 function RepositoryOverviewActiveSettingsFixture() {
   const repository: UserRepositoryResult = {
     ...PROVISIONING_REPOSITORY,
-    cloudflareWorkers: [],
-    convexProjects: [],
     providerPlan: PROVISIONING_PLANNED_PROVIDER_PLAN,
     providerSetup: {
       status: "running",
@@ -1279,10 +902,7 @@ function RepositoryOverviewActiveSettingsFixture() {
     },
   };
   const workspace = buildFixtureWorkspace({
-    cloudflareAccountId: "fixture-cloudflare-account",
-    cloudflareAccountName: "Fixture Account",
-    cloudflareObservations: PROVISIONING_EMPTY_CLOUDFLARE_OBSERVATIONS,
-    convexObservations: PROVISIONING_EMPTY_CONVEX_OBSERVATIONS,
+    alchemyState: NO_STACK_STORE,
     githubRepositoryUrl: "https://github.com/nicu-chiciuc/tmp-f149-repository-loading-states",
     pullRequests: fixturePullRequests([], PROVISIONING_DEFAULT_BRANCH),
     repository,
@@ -1357,7 +977,6 @@ export function RepositoryOverviewVisualFixture({ mode }: { mode: RepositoryOver
     case "repository-overview-v2-provisioning-complete-empty":
     case "repository-overview-v2-provisioning-stale-empty":
     case "repository-overview-v2-provisioning-commit":
-    case "repository-overview-v2-provisioning-worker":
     case "repository-overview-v2-provisioning-ready":
       return <RepositoryOverviewProvisioningFixture mode={mode} />;
     case "repository-overview-v2-settings-active":
@@ -1386,7 +1005,7 @@ export function RepositoryOverviewVisualFixture({ mode }: { mode: RepositoryOver
                   );
                 }}
                 sidebarSummaries={FIXTURE_ROOT_SIDEBAR_SUMMARIES}
-                repositories={ROOT_SIDEBAR_LIST_REPOSITORIES}
+                repositories={SIDEBAR_LIST_REPOSITORIES}
               />
             ),
           }}
@@ -1418,15 +1037,28 @@ export function RepositoryOverviewVisualFixture({ mode }: { mode: RepositoryOver
     );
   }
 
-  const partialLoading = mode === "repository-overview-v2-partial-loading";
-  const cloudflareObservations =
-    mode === "repository-overview-v2-provider-failed"
-      ? FAILED_CLOUDFLARE_OBSERVATIONS
-      : partialLoading
-        ? LOADING_CLOUDFLARE_OBSERVATIONS
-        : LIST_SPACING_CLOUDFLARE_OBSERVATIONS;
-  const convexObservations: RepositoryProviderObservationState<RepositoryConvexProjectObservation> =
-    partialLoading ? { state: "loading" } : LIST_SPACING_CONVEX_OBSERVATIONS;
+  let alchemyState = NO_STACK_STORE;
+  switch (mode) {
+    case "repository-overview-v2-r2":
+      alchemyState = loadedStore(FIXTURE_STACKS);
+      break;
+    case "repository-overview-v2-partial-loading":
+      alchemyState = { state: "loading" };
+      break;
+    case "repository-overview-v2-store-unreadable":
+      alchemyState = {
+        state: "failed",
+        error: new Error("Alchemy state is temporarily unavailable."),
+        reload: () => {},
+      };
+      break;
+    case "repository-overview-v2-store-missing":
+      alchemyState = loadedStore({ store: "missing" });
+      break;
+    case "repository-overview-v2-no-convex":
+      alchemyState = loadedStore({ store: "no_connection" });
+      break;
+  }
   const sourcePullRequests =
     mode === "repository-overview-v2-auto-pagination"
       ? AUTO_PAGINATION_PULL_REQUESTS.slice(0, nextPullRequestPageLoaded ? 8 : 6)
@@ -1434,7 +1066,7 @@ export function RepositoryOverviewVisualFixture({ mode }: { mode: RepositoryOver
   const currentPullRequests = fixturePullRequests(
     sourcePullRequests,
     FIXTURE_DEFAULT_BRANCH_CHECKS,
-    mode === "repository-overview-v2-cloudflare-build-status-unavailable",
+    alchemyState,
   );
   const pullRequests: RepositoryPullRequestsState =
     mode === "repository-overview-v2-auto-pagination"
@@ -1449,78 +1081,12 @@ export function RepositoryOverviewVisualFixture({ mode }: { mode: RepositoryOver
               },
         }
       : currentPullRequests;
-  const attachmentsWorkspace = buildFixtureWorkspace({
-    cloudflareAccountId: "fe57d01d7ab41f60d00ba1aade20eb33",
-    cloudflareAccountName: "Samebase",
-    cloudflareObservations,
-    convexObservations,
+  const workspace = buildFixtureWorkspace({
+    alchemyState,
     githubRepositoryUrl: "https://github.com/samebase/samebase",
     pullRequests,
     repository: LIST_SPACING_REPOSITORY,
   });
-  const workspace: RepositoryWorkspaceSelected =
-    mode === "repository-overview-v2-r2"
-      ? {
-          ...attachmentsWorkspace,
-          alchemyObservations: {
-            state: "loaded",
-            observations: [FIXTURE_STACKS],
-            refreshFailed: false,
-            reload: () => {},
-          },
-          alchemyState: {
-            state: "loaded",
-            observation: FIXTURE_STACKS,
-            refreshFailed: false,
-            reload: () => {},
-          },
-          production: {
-            source: "stacks",
-            cards: buildAlchemyStackCards({
-              stacks: FIXTURE_STACKS,
-              stage: {
-                name: "prod",
-                headCommit: currentPullRequests.defaultBranch?.headCommitOid ?? null,
-                branch: "main",
-                owner: LIST_SPACING_REPOSITORY.githubOwnerLogin,
-                repoName: LIST_SPACING_REPOSITORY.githubRepositoryName,
-                schemaGraphEnabled: ROLE_ACCESS_GRANTS.role_member.includes("access_schema_graph"),
-                repository: LIST_SPACING_REPOSITORY,
-              },
-            }),
-          },
-          // A repository with stacks in the team store reads no attached resource for a pull
-          // request, and the stages `pr-<number>` of its stacks give the cards of the row.
-          pullRequests: {
-            ...currentPullRequests,
-            resourcesByPullRequestId: new Map(
-              currentPullRequests.allPullRequests.flatMap(
-                (pullRequest): [string, PullRequestResourceState][] => {
-                  const resource = currentPullRequests.resourcesByPullRequestId.get(pullRequest.id);
-                  return resource?.state === "current"
-                    ? [
-                        [
-                          pullRequest.id,
-                          {
-                            state: "current",
-                            resources: { ...resource.resources, workers: [], convexProjects: [] },
-                            stackCards: buildAlchemyStackCards({
-                              stacks: FIXTURE_STACKS,
-                              stage: {
-                                name: `pr-${pullRequest.number}`,
-                                headCommit: pullRequest.headRefOid,
-                              },
-                            }),
-                          },
-                        ],
-                      ]
-                    : [];
-                },
-              ),
-            ),
-          },
-        }
-      : attachmentsWorkspace;
 
   return (
     <SidebarLayoutFixtureFrame

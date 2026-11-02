@@ -435,10 +435,7 @@ describe("AppRightSidebarContent", () => {
         [getFunctionName(api.users.getCloudflareConnectionStatus), { connected: false }],
         [getFunctionName(api.users.getProductUpdateEmailConsent), { state: "not_decided" }],
         [getFunctionName(api.users.getSessionRecordingConsent), { state: "not_decided" }],
-        [
-          getFunctionName(api.repository.list),
-          [{ hasConvexProvision: true, hasCloudflareProvision: false }],
-        ],
+        [getFunctionName(api.repository.list), []],
         [
           getFunctionName(api.users.viewer),
           {
@@ -608,7 +605,7 @@ describe("AppRightSidebarContent", () => {
     }
   });
 
-  it("hides onboarding after one repository has both provider attachments", async () => {
+  it("hides onboarding once the user has a repository", async () => {
     const hydratedMarkup = await renderRightSidebarAfterEffectsWithNamedQueries(
       new Map([
         [
@@ -620,7 +617,7 @@ describe("AppRightSidebarContent", () => {
         ],
         [
           getFunctionName(api.repository.list),
-          [{ hasConvexProvision: true, hasCloudflareProvision: true }],
+          [{ hasConvexProvision: false, hasCloudflareProvision: false }],
         ],
         [getFunctionName(api.users.getSessionRecordingConsent), { state: "granted" }],
         [

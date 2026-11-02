@@ -1,8 +1,5 @@
-import { exactly } from "@samebase/dependent/main";
-
-import type { Id } from "../_generated/dataModel";
-import { getConvexCodeLocationPath } from "../../shared/convexCodeLocation";
-import { WORKER_PREVIEWS_MIGRATION_URL } from "../../shared/cloudflareWorkerPreviews";
+import { readAlchemySetupStatus, stackCards } from "../../shared/alchemyState";
+import type { AlchemyStateObservation } from "../../shared/alchemyStateModel";
 import {
   getRepositoryStatusContract,
   type McpRepositoryStatus,
@@ -15,19 +12,15 @@ import {
   type UserRepositoryResult,
 } from "./contracts/getUserRepositories";
 import { retryInfrastructureProvisioningContract } from "./contracts/retryInfrastructureProvisioning";
-import type { CloudflareWorkerConvexBuildAccessObservation } from "./providerObservationModel";
 import type { RepositoryActionsCiSecrets } from "./provisioningModel";
-import {
-  isSamebaseManagedProviderPlan,
-  readProviderInfrastructureWriter,
-} from "./provisioningPlan";
+import { isSamebaseManagedProviderPlan } from "./provisioningPlan";
 import { classifyRepositoryCheck, type RepositoryStatusCheckRollup } from "./pullRequestModel";
 import { summarizeRepositoryChecks } from "../../shared/repositoryChecks";
 
 /*
-The pure parts of repository:getStatus: the attention rules and the MCP projection. The Node read in
-status.ts gathers the provider facts; this module decides what needs attention and what to do about
-it, so the rules have unit tests without provider requests.
+The pure parts of repository:getStatus: the status of the stacks, the attention rules, and the MCP
+projection. The Node read in status.ts gathers the facts; this module decides what they mean and
+what to do about them, so the rules have unit tests without provider requests.
 */
 
 const LIST_TOOL = getUserRepositoriesContract.mcp.name;
@@ -37,40 +30,91 @@ const ALCHEMY_MOVE_GUIDE_URL = "https://samebase.com/docs/the-big-migration";
 
 export type RepositoryStatusRepository = Pick<
   UserRepositoryResult,
-  | "githubRepositoryFullName"
-  | "providerSetup"
-  | "providerPlan"
-  | "cloudflareWorkers"
-  | "convexProjects"
+  "githubRepositoryFullName" | "providerSetup" | "providerPlan"
 >;
 export type RepositoryObservations = Omit<RepositoryStatus, "attention">;
-type ConvexBuildAccess = Extract<
-  CloudflareWorkerConvexBuildAccessObservation,
-  { state: "available" }
->["convexBuildAccess"];
 
-function compareRootDirectories(left: string, right: string): number {
-  return left === right ? 0 : left === "/" ? -1 : right === "/" ? 1 : left.localeCompare(right);
+/** A read of the team's store. Null is a read that failed, which says nothing about the stacks. */
+type RepositoryStoreRead = AlchemyStateObservation | null;
+
+/** The URL of one stage of one stack, as the overview shows it. */
+function readStageUrl(
+  store: Extract<AlchemyStateObservation, { store: "found" }>,
+  stack: (typeof store.stacks)[number],
+  stage: string,
+): string | null {
+  const cards = stackCards({
+    stacks: [stack],
+    liveDeployments: store.liveDeployments,
+    stage,
+    headCommit: null,
+  });
+  return cards.at(0)?.address ?? null;
 }
 
-/** Workers in overview order: by root directory, then name. */
-function sortWorkers(workers: RepositoryStatusRepository["cloudflareWorkers"]) {
-  return [...workers].sort(
-    (left, right) =>
-      compareRootDirectories(left.rootDirectory, right.rootDirectory) ||
-      left.workerName.localeCompare(right.workerName) ||
-      left.workerId.localeCompare(right.workerId),
-  );
+/** Only URLs and commits leave the store read: never a resource row, an output, or a key. */
+export function buildRepositoryStacksStatus(args: {
+  read: RepositoryStoreRead;
+  /** The head of the default branch, null when GitHub cannot be read. */
+  headCommit: string | null;
+}): RepositoryStatus["stacks"] {
+  const { read, headCommit } = args;
+  switch (read?.store) {
+    case undefined:
+      return { state: "unreadable" };
+    case "missing":
+      return { state: "no_store" };
+    case "no_connection":
+      return { state: "no_convex_connection" };
+    case "found":
+      return {
+        state: "available",
+        stacks: read.stacks.map((stack) => {
+          const deployedCommit =
+            stack.stages.find((stage) => stage.name === "prod")?.deployedHeadCommit ?? null;
+          return {
+            name: stack.name,
+            productionUrl: readStageUrl(read, stack, "prod"),
+            deployedCommit,
+            deployedCommitState:
+              !deployedCommit || !headCommit
+                ? ("unknown" as const)
+                : deployedCommit === headCommit
+                  ? ("matches_head" as const)
+                  : ("behind_head" as const),
+            previews: stack.stages
+              .flatMap((stage) => {
+                const pullRequest = /^pr-(\d+)$/.exec(stage.name)?.[1];
+                return pullRequest === undefined
+                  ? []
+                  : [
+                      {
+                        pullRequestNumber: Number(pullRequest),
+                        url: readStageUrl(read, stack, stage.name),
+                        deployedCommit: stage.deployedHeadCommit,
+                      },
+                    ];
+              })
+              .sort((left, right) => left.pullRequestNumber - right.pullRequestNumber),
+          };
+        }),
+      };
+    default:
+      read satisfies never;
+      return { state: "unreadable" };
+  }
 }
 
-/** Convex projects by code location path. */
-function sortConvexProjects(projects: RepositoryStatusRepository["convexProjects"]) {
-  return [...projects].sort(
-    (left, right) =>
-      getConvexCodeLocationPath(left.codeLocation).localeCompare(
-        getConvexCodeLocationPath(right.codeLocation),
-      ) || left.convexProjectId.localeCompare(right.convexProjectId),
-  );
+/** The setup status of a repository that its GitHub Actions set up, from the same read. */
+export function buildRepositorySetupStackStatus(args: {
+  read: RepositoryStoreRead;
+  repository: string;
+}): NonNullable<RepositoryStatus["setupStack"]> {
+  const { read, repository } = args;
+  if (read === null || read.store === "no_connection") {
+    return { state: "unavailable" };
+  }
+  return readAlchemySetupStatus(read.store === "found" ? read.stacks : [], repository);
 }
 
 function describeSetupProvider(
@@ -90,78 +134,9 @@ function describeSetupProvider(
 }
 
 /**
-The managed plan that created GitHub and Convex without a Workers Builds token. It names the Worker
-and root directory of the first Cloudflare setup. Null when the plan selected a token, its Convex
-project is not attached, or a Worker is already attached.
-*/
-function readPendingCloudflareSetup(
-  repository: Pick<UserRepositoryResult, "providerPlan" | "cloudflareWorkers" | "convexProjects">,
-) {
-  const plan = repository.providerPlan;
-  if (
-    !isSamebaseManagedProviderPlan(plan) ||
-    plan.cloudflare.state !== "planned" ||
-    plan.cloudflare.buildTokenUuid !== null ||
-    plan.convex.state !== "created" ||
-    repository.cloudflareWorkers.length > 0
-  ) {
-    return null;
-  }
-
-  const plannedProjectId = plan.convex.projectId;
-  const plannedTeamId = plan.convex.teamId;
-  const isPlannedProjectAttached = repository.convexProjects.some(
-    (attachment) =>
-      attachment.projectId === plannedProjectId &&
-      attachment.teamId === plannedTeamId &&
-      attachment.codeLocation.kind === "config" &&
-      attachment.codeLocation.convexConfigPath === plan.convexConfigPath,
-  );
-  if (!isPlannedProjectAttached) {
-    return null;
-  }
-  return { workerName: plan.cloudflare.workerName, rootDirectory: plan.cloudflare.rootDirectory };
-}
-
-function describeConvexBuildAccessProblem(workerName: string, access: ConvexBuildAccess): string {
-  switch (access.state) {
-    case "configured":
-      return access.convexProject.state === "attached"
-        ? `The Convex deploy keys of ${workerName} belong to another Convex team.`
-        : `The Convex deploy keys of ${workerName} target a Convex project that is not attached to this repository.`;
-    case "incomplete":
-      return `The Convex deploy keys of ${workerName} are incomplete.`;
-    case "not_configured":
-      return `${workerName} has no Convex deploy keys.`;
-    case "target_unknown":
-      return `${workerName} has Convex deploy keys for an unknown Convex project.`;
-    case "invalid":
-      return `The Convex project marker of ${workerName} is invalid.`;
-    default:
-      access satisfies never;
-      return `The Convex deploy keys of ${workerName} need repair.`;
-  }
-}
-
-/** Samebase repairs no provider resource, so an item about one says where its repair lives. */
-function describeRepair(plan: RepositoryStatusRepository["providerPlan"]): string {
-  const writer = readProviderInfrastructureWriter(plan);
-  switch (writer) {
-    case "samebase":
-      return `Samebase does not repair this: move the app to Alchemy and fix it in the stack (${ALCHEMY_MOVE_GUIDE_URL}).`;
-    case "setup_stack":
-      return "The setup stack in alchemy.run.ts owns this setting: change the stack, or run the alchemy workflow on the default branch to repair it.";
-    default:
-      writer satisfies never;
-      throw new Error("Unsupported provider infrastructure writer.");
-  }
-}
-
-/**
 The attention of a repository that its GitHub Actions set up, after Samebase's own setup finished:
 the Actions secrets, then the deployment that the setup status waits for. A setup status that is
-done or unreadable gives no item, like any other unreadable fact. Its attached Workers and Convex
-projects get the same items as any other repository, with the repair of its setup stack.
+done or unreadable gives no item here.
 */
 function buildRepositoryActionsAttention(args: {
   repository: RepositoryStatusRepository;
@@ -192,11 +167,54 @@ function buildRepositoryActionsAttention(args: {
   }
 }
 
+/** What the store read leaves open about what is deployed, and where to go from there. */
+function buildStacksAttention(args: {
+  repository: RepositoryStatusRepository;
+  stacks: RepositoryStatus["stacks"];
+}): RepositoryAttentionItem[] {
+  const repositoryFullName = args.repository.githubRepositoryFullName;
+  const { stacks } = args;
+  switch (stacks.state) {
+    case "available":
+      return stacks.stacks.length > 0
+        ? []
+        : [
+            {
+              tool: null,
+              problem: `The team's Alchemy state store holds no stack for ${repositoryFullName}, so Samebase cannot see what is deployed. An app deployed another way keeps running. Move it to Alchemy to see it here: ${ALCHEMY_MOVE_GUIDE_URL}`,
+            },
+          ];
+    case "no_store":
+      return [
+        {
+          tool: null,
+          problem: `The Convex team of ${repositoryFullName} has no Alchemy state store yet, so Samebase cannot see what is deployed. The first Alchemy deploy creates it: ${ALCHEMY_MOVE_GUIDE_URL}`,
+        },
+      ];
+    case "no_convex_connection":
+      return [
+        {
+          tool: null,
+          problem: `Samebase has no Convex connection for ${repositoryFullName}, so it cannot read the team's Alchemy state store. Connect Convex in the organization's providers page in the dashboard.`,
+        },
+      ];
+    case "unreadable":
+      return [
+        {
+          tool: null,
+          problem: `The team's Alchemy state store could not be read, so this status does not say what ${repositoryFullName} has deployed. Call ${STATUS_TOOL} again.`,
+        },
+      ];
+    default:
+      stacks satisfies never;
+      return [];
+  }
+}
+
 /**
 The attention items of one repository. The provider setup state comes first: a running setup can
-still change what the other items report, and a failed one is repaired only by its retry. An
-unreadable provider fact gives no item: the facts report it as unavailable, and a guessed repair
-could be wrong.
+still change what the other items report, and a failed one is repaired only by its retry. While the
+first deployment of a repository runs, that item explains why the store has no stack yet.
 */
 export function buildRepositoryAttention(args: {
   repository: RepositoryStatusRepository;
@@ -228,184 +246,20 @@ export function buildRepositoryAttention(args: {
   }
 
   const plan = repository.providerPlan;
-  const resourceItems = buildResourceAttention({ repository, observations });
-  if (plan && !isSamebaseManagedProviderPlan(plan)) {
-    return [
-      ...buildRepositoryActionsAttention({
-        repository,
-        ciSecrets: plan.ciSecrets,
-        setupStack: observations.setupStack,
-      }),
-      ...resourceItems,
-    ];
-  }
-  return resourceItems;
-}
-
-/** The items of the attached Workers and Convex projects, with the repair that their writer allows. */
-function buildResourceAttention(args: {
-  repository: RepositoryStatusRepository;
-  observations: RepositoryObservations;
-}): RepositoryAttentionItem[] {
-  const { repository, observations } = args;
-  const repair = describeRepair(repository.providerPlan);
-  const items: RepositoryAttentionItem[] = [];
-  const pendingCloudflareSetup = readPendingCloudflareSetup(repository);
-  if (pendingCloudflareSetup) {
-    const { rootDirectory, workerName } = pendingCloudflareSetup;
-    items.push({
-      tool: null,
-      problem: `Cloudflare setup is pending because the Cloudflare account had no Workers Builds token. The planned Worker is ${workerName} at root directory ${rootDirectory}. ${repair}`,
-    });
-  }
-
-  const convexProjectsById = new Map(
-    observations.convexProjects.map((project) => [project.convexProjectId, project]),
-  );
-  const currentConvexProject = (convexProjectId: Id<"repositoryConvexProjects">) => {
-    const provider = convexProjectsById.get(convexProjectId)?.provider;
-    return provider?.state === "current" ? provider : null;
-  };
-
-  for (const worker of sortWorkers(repository.cloudflareWorkers)) {
-    const { workerName } = worker;
-    const workerObservation = observations.workers.find(
-      (observation) => observation.workerId === worker.workerId,
-    );
-    if (workerObservation?.state === "missing") {
-      items.push({
-        tool: null,
-        problem: `The Cloudflare Worker ${workerName} no longer exists in the Cloudflare account.`,
-      });
-      continue;
-    }
-    const builds = observations.workerBuilds.find(
-      (observation) => observation.workerId === worker.workerId,
-    );
-    if (builds?.state !== "available") {
-      continue;
-    }
-    switch (builds.repository.state) {
-      case "not_connected":
-        items.push({
-          tool: null,
-          problem: `Workers Builds of ${workerName} is not connected to this GitHub repository. ${repair}`,
-        });
-        continue;
-      case "connected_elsewhere":
-        items.push({
-          tool: null,
-          problem: `Workers Builds of ${workerName} builds another GitHub repository. Change it in Cloudflare.`,
-        });
-        continue;
-      case "ambiguous":
-        items.push({
-          tool: null,
-          problem: `Workers Builds of ${workerName} has no single repository root. Fix its Builds settings in Cloudflare.`,
-        });
-        continue;
-      case "failed":
-        continue;
-      case "ready":
-        break;
-      default:
-        builds.repository satisfies never;
-        continue;
-    }
-    if (builds.repository.builds.state === "legacy_previews") {
-      items.push({
-        tool: null,
-        problem: `${workerName} does not use native Worker Previews. Migrate it first: ${WORKER_PREVIEWS_MIGRATION_URL}`,
-      });
-      continue;
-    }
-    if (builds.builds.state !== "connected") {
-      items.push({
-        tool: null,
-        problem: `The Workers Builds setup of ${workerName} is incomplete. ${repair}`,
-      });
-      continue;
-    }
-    if (builds.builds.productionBuildTokenUuid !== builds.builds.previewBuildTokenUuid) {
-      items.push({
-        tool: null,
-        problem: `The production and preview builds of ${workerName} use different Workers Builds tokens. ${repair}`,
-      });
-    } else if (builds.builds.productionBuildTokenUuid === null) {
-      items.push({
-        tool: null,
-        problem: `${workerName} has no Workers Builds token. ${repair}`,
-      });
-    }
-
-    const buildAccess = observations.workerConvexBuildAccess.find(
-      (observation) => observation.workerId === worker.workerId,
-    );
-    if (buildAccess?.state !== "available" || repository.convexProjects.length === 0) {
-      continue;
-    }
-    const access = buildAccess.convexBuildAccess;
-    if (
-      access.state === "configured" &&
-      access.convexProject.state === "attached" &&
-      access.convexProject.teamState === "matches"
-    ) {
-      continue;
-    }
-    const targetProjectId =
-      (access.state === "configured" || access.state === "incomplete") &&
-      access.convexProject.state === "attached"
-        ? access.convexProject.convexProjectId
-        : exactly(1, repository.convexProjects)
-          ? repository.convexProjects[0].convexProjectId
-          : null;
-    if (targetProjectId === null) {
-      // Without a readable Convex team the facts are unavailable.
-      if (
-        repository.convexProjects.every((project) => currentConvexProject(project.convexProjectId))
-      ) {
-        items.push({
-          tool: null,
-          problem: `${describeConvexBuildAccessProblem(workerName, access)} Ask the user which attached Convex project the Worker deploys with. ${repair}`,
-        });
-      }
-      continue;
-    }
-    const targetProject = currentConvexProject(targetProjectId);
-    // An unreadable project gives no item. A project without a production deployment gets the
-    // deploy-first item below instead, because it has no deployment to make keys for.
-    if (targetProject === null || targetProject.productionDeployment.state === "missing") {
-      continue;
-    }
-    items.push({
-      tool: null,
-      problem: `${describeConvexBuildAccessProblem(workerName, access)} It needs the deploy keys of the Convex project ${targetProject.projectSlug}. ${repair}`,
-    });
-  }
-
-  for (const project of sortConvexProjects(repository.convexProjects)) {
-    const observation = convexProjectsById.get(project.convexProjectId);
-    const codeLocation = getConvexCodeLocationPath(project.codeLocation);
-    if (observation?.source.state === "missing") {
-      items.push({
-        tool: null,
-        problem: `The Convex code location ${codeLocation} no longer exists on the default branch. ${repair}`,
-      });
-    }
-    const provider = observation?.provider;
-    if (provider?.state === "missing_ambiguous") {
-      items.push({
-        tool: null,
-        problem: `The Convex project at ${codeLocation} is missing from the connected Convex team. It may have moved to another team.`,
-      });
-    } else if (provider?.state === "current" && provider.productionDeployment.state === "missing") {
-      items.push({
-        tool: null,
-        problem: `Deploy the Convex project ${provider.projectSlug} to production first.${repository.cloudflareWorkers.length > 0 ? ` The Worker that deploys with it then needs its deploy keys. ${repair}` : ""}`,
-      });
-    }
-  }
-  return items;
+  const setupItems =
+    plan && !isSamebaseManagedProviderPlan(plan)
+      ? buildRepositoryActionsAttention({
+          repository,
+          ciSecrets: plan.ciSecrets,
+          setupStack: observations.setupStack,
+        })
+      : [];
+  return [
+    ...setupItems,
+    ...(observations.setupStack?.state === "in_progress"
+      ? []
+      : buildStacksAttention({ repository, stacks: observations.stacks })),
+  ];
 }
 
 /**
@@ -432,16 +286,14 @@ function summarizeChecksForMcp(rollup: RepositoryStatusCheckRollup) {
 }
 
 /**
-The MCP result: what the overview shows, without labels, line counts, node IDs, head SHAs,
-attachment IDs, or provider failure reasons. Checks give counts and failed check names, not the
-full check list.
+The MCP result: what the overview shows, without labels, line counts, node IDs, or GitHub head SHAs.
+Checks give counts and failed check names, not the full check list.
 */
 export function projectRepositoryStatusForMcp(args: {
   repository: RepositoryStatusRepository;
   status: RepositoryStatus;
 }): McpRepositoryStatus {
   const { repository, status } = args;
-  const workers = sortWorkers(repository.cloudflareWorkers);
   const page = status.pullRequests.state === "available" ? status.pullRequests.page : null;
   const githubRepository = page?.repository ?? null;
   const defaultBranch = githubRepository?.defaultBranch ?? null;
@@ -455,103 +307,15 @@ export function projectRepositoryStatusForMcp(args: {
       checks: summarizeChecksForMcp(defaultBranch.statusCheckRollup),
     },
     openPullRequestCount: githubRepository?.pullRequests.totalCount ?? null,
-    apps: workers.map((worker) => {
-      const workerObservation = status.workers.find(
-        (observation) => observation.workerId === worker.workerId,
-      );
-      const builds = status.workerBuilds.find(
-        (observation) => observation.workerId === worker.workerId,
-      );
-      const productionBuild = builds?.state === "available" ? builds.productionBuild : null;
-      return {
-        workerName: worker.workerName,
-        rootDirectory: worker.rootDirectory,
-        productionBuild:
-          productionBuild?.state === "available"
-            ? {
-                state: "available" as const,
-                buildState: productionBuild.buildState,
-                commit:
-                  !productionBuild.commitHash || !defaultBranch
-                    ? ("unknown" as const)
-                    : productionBuild.commitHash.toLowerCase() ===
-                        defaultBranch.headCommitOid.toLowerCase()
-                      ? ("matches_head" as const)
-                      : ("behind_head" as const),
-                logsUrl: productionBuild.logsUrl,
-              }
-            : productionBuild?.state === "absent"
-              ? { state: "absent" as const }
-              : { state: "unavailable" as const },
-        urls:
-          workerObservation?.state === "available"
-            ? [
-                ...[...workerObservation.customDomains]
-                  .sort((left, right) => left.localeCompare(right))
-                  .map((hostname) => `https://${hostname}`),
-                ...(workerObservation.workersDev.state === "enabled"
-                  ? [workerObservation.workersDev.url]
-                  : []),
-              ]
-            : [],
-      };
-    }),
-    convexProjects: sortConvexProjects(repository.convexProjects).map((project) => {
-      const provider = status.convexProjects.find(
-        (observation) => observation.convexProjectId === project.convexProjectId,
-      )?.provider;
-      return {
-        codeLocation: getConvexCodeLocationPath(project.codeLocation),
-        projectSlug: provider?.state === "current" ? provider.projectSlug : null,
-        productionDeployment:
-          provider?.state !== "current"
-            ? { state: "unavailable" as const }
-            : provider.productionDeployment.state === "available"
-              ? {
-                  state: "available" as const,
-                  deploymentName: provider.productionDeployment.deploymentName,
-                  dashboardUrl: provider.productionDeployment.dashboardUrl,
-                  region: provider.productionDeployment.region,
-                }
-              : { state: "missing" as const },
-      };
-    }),
-    pullRequests: (githubRepository?.pullRequests.nodes ?? []).map((pullRequest) => {
-      const resources = status.pullRequestResources.find(
-        (read) => read.pullRequestId === pullRequest.id,
-      );
-      return {
-        number: pullRequest.number,
-        title: pullRequest.title,
-        url: pullRequest.url,
-        isDraft: pullRequest.isDraft,
-        headRefName: pullRequest.headRefName,
-        checks: summarizeChecksForMcp(pullRequest.statusCheckRollup),
-        // Unread Cloudflare builds list no Workers; each app is then unavailable, not absent.
-        apps:
-          resources?.state === "available" && resources.cloudflareBuilds.state === "available"
-            ? resources.workers.map((resource) => ({
-                workerName: resource.workerName,
-                previewBuild:
-                  resource.cloudflareBuild.state === "available"
-                    ? {
-                        state: "available" as const,
-                        buildState: resource.cloudflareBuild.buildState,
-                        logsUrl: resource.cloudflareBuild.logsUrl,
-                      }
-                    : { state: "unavailable" as const },
-                previewUrl:
-                  resource.cloudflareBranchPreview.state === "available"
-                    ? resource.cloudflareBranchPreview.url
-                    : null,
-              }))
-            : workers.map((worker) => ({
-                workerName: worker.workerName,
-                previewBuild: { state: "unavailable" as const },
-                previewUrl: null,
-              })),
-      };
-    }),
+    stacks: status.stacks,
+    pullRequests: (githubRepository?.pullRequests.nodes ?? []).map((pullRequest) => ({
+      number: pullRequest.number,
+      title: pullRequest.title,
+      url: pullRequest.url,
+      isDraft: pullRequest.isDraft,
+      headRefName: pullRequest.headRefName,
+      checks: summarizeChecksForMcp(pullRequest.statusCheckRollup),
+    })),
     setupStack: status.setupStack,
     attention: status.attention,
   };

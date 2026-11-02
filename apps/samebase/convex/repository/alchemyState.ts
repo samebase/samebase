@@ -3,11 +3,13 @@ import { parse, validate } from "convex-helpers/validators";
 import { ConvexError, Infer, v } from "convex/values";
 import {
   ALCHEMY_REDACTED_MARKER,
+  readAlchemySetupStatus,
   vAlchemyConvexDeploymentState,
   vAlchemyConvexProjectState,
 } from "../../shared/alchemyState";
 import {
   ALCHEMY_CONNECTION_UNAVAILABLE,
+  vAlchemyNoConnection,
   vAlchemyRunRecord,
   vAlchemyLiveDeployments,
   vAlchemySetupStatus,
@@ -16,6 +18,7 @@ import {
   type AlchemyStage,
   type AlchemyStack,
   type AlchemyStacksRead,
+  type AlchemyStateObservation,
 } from "../../shared/alchemyStateModel";
 import type { Id } from "../_generated/dataModel";
 import { env, type ActionCtx } from "../_generated/server";
@@ -27,6 +30,7 @@ import { ConvexManagement } from "../convexManagementApi/generated/sdk.gen";
 import { action } from "../functions";
 import { isRecord } from "../jsonUtils";
 import {
+  CONVEX_CONNECTION_REQUIRED,
   fetchConvexDeploymentJson,
   readConvexInspectionTarget,
   withConvexInspectionDeployKey,
@@ -192,13 +196,8 @@ export async function readAlchemyStacks(args: {
   };
 }
 
-/**
-The setup status of a repository_actions repository. A first deploy has its run record before it
-writes its output, so a `prod` stage exists while that deploy runs. `readStage` reads a missing
-output as an empty one, so the stage's `deployedHeadCommit`, which comes from the run record in the
-output, is what says that the stage has an output.
-*/
-export async function readRepositorySetupStatus(
+/** The setup status of a repository_actions repository, from one read of the store. */
+async function readRepositorySetupStatus(
   ctx: Pick<ActionCtx, "runQuery">,
   args: { repositoryId: Id<"repositories">; userId: Id<"users"> },
 ): Promise<AlchemySetupStatus> {
@@ -208,13 +207,44 @@ export async function readRepositorySetupStatus(
   });
   const repository = target.githubRepositoryFullName;
   const read = await readAlchemyStacks({ repository, target });
-  const stack =
-    read.store === "found" ? read.stacks.find((candidate) => candidate.name === repository) : null;
-  return {
-    state: stack?.stages.some((stage) => stage.name === "prod" && stage.deployedHeadCommit)
-      ? "done"
-      : "in_progress",
-  };
+  return readAlchemySetupStatus(read.store === "found" ? read.stacks : [], repository);
+}
+
+/** The inspection target of a store read, null without a Convex connection to the team. */
+async function readStoreTarget(
+  ctx: Pick<ActionCtx, "runQuery">,
+  args: { repositoryId: Id<"repositories">; userId: Id<"users"> },
+) {
+  try {
+    return await readConvexInspectionTarget(ctx, {
+      repositoryId: args.repositoryId,
+      userId: args.userId,
+    });
+  } catch (error) {
+    if (error instanceof ConvexError && error.data === CONVEX_CONNECTION_REQUIRED) {
+      return null;
+    }
+    throw error;
+  }
+}
+
+/**
+The stacks of a repository with the live metadata of their production deployments, so that a stack's
+address is the one that the overview shows. The result holds no secret value (`readStage`), and it
+throws when the store cannot be read.
+*/
+export async function readRepositoryStacks(
+  ctx: Pick<ActionCtx, "runQuery">,
+  args: { repositoryId: Id<"repositories">; userId: Id<"users"> },
+): Promise<AlchemyStateObservation> {
+  const target = await readStoreTarget(ctx, args);
+  if (!target) {
+    return { store: "no_connection" };
+  }
+  const read = await readAlchemyStacks({ repository: target.githubRepositoryFullName, target });
+  return read.store === "missing"
+    ? read
+    : { ...read, liveDeployments: await readLiveDeployments(read.stacks, target) };
 }
 
 /**
@@ -252,10 +282,12 @@ export function readProductionConvexDeployments(stacks: readonly AlchemyStack[])
 
 const vAlchemyConnection = union(
   object({ store: literal("missing") }),
+  vAlchemyNoConnection,
   object({ store: literal("live"), deploymentUrl: string(), token: string() }),
 );
 const vAlchemyConnectionWithSnapshot = union(
   object({ store: literal("missing") }),
+  vAlchemyNoConnection,
   object({
     store: literal("live"),
     deploymentUrl: string(),
@@ -278,10 +310,10 @@ async function connectReader(
   ctx: Pick<ActionCtx, "runQuery">,
   args: { repositoryId: Id<"repositories">; userId: Id<"users"> },
 ): Promise<Infer<typeof vAlchemyConnection>> {
-  const target = await readConvexInspectionTarget(ctx, {
-    repositoryId: args.repositoryId,
-    userId: args.userId,
-  });
+  const target = await readStoreTarget(ctx, args);
+  if (!target) {
+    return { store: "no_connection" };
+  }
   try {
     const deployment = await findAlchemyDeployment(target);
     if (!deployment) {
@@ -337,7 +369,7 @@ export const connectWithSnapshot = action({
       repositoryId: args.repositoryId,
       userId: ctx.viewer.userId,
     });
-    if (connection.store === "missing") {
+    if (connection.store !== "live") {
       return connection;
     }
 

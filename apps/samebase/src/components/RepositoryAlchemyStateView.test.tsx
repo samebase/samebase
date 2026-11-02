@@ -362,6 +362,12 @@ describe("AlchemyStateTree", () => {
     );
   });
 
+  it("shows a repository without a Convex connection", () => {
+    expect(renderTree({ store: "no_connection" }).textContent).toBe(
+      "This repository has no Convex connection.",
+    );
+  });
+
   it("shows a team without a store", () => {
     expect(renderTree({ store: "missing" }).textContent).toBe(
       "No Alchemy state store in this team yet.",

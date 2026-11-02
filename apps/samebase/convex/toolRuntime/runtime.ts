@@ -112,16 +112,12 @@ export const repositoryGetStatusTool = defineMcpTool({
       repository,
       status: await readRepositoryStatusForUser(ctx, { userId: args.userId, repository }),
     });
-    const { apps, attention, convexProjects, defaultBranch, openPullRequestCount, setupStack } =
+    const { attention, defaultBranch, openPullRequestCount, setupStack, stacks } =
       structuredContent;
 
-    // An empty attention list means only that no setup repair applies: a failed build or check
-    // and an unreadable fact also keep the repository from being healthy.
-    const failures = apps.flatMap(({ workerName, productionBuild }) =>
-      productionBuild.state === "available" && productionBuild.buildState === "failure"
-        ? [`The latest production build of ${workerName} failed.`]
-        : [],
-    );
+    // An empty attention list means only that no setup repair applies: a failed check and an
+    // unreadable fact also keep the repository from being healthy.
+    const failures: string[] = [];
     if (
       defaultBranch !== null &&
       defaultBranch.checks !== null &&
@@ -135,15 +131,12 @@ export const repositoryGetStatusTool = defineMcpTool({
     const unreadable = [
       ...(defaultBranch === null ? ["the default branch head"] : []),
       ...(setupStack?.state === "unavailable" ? ["the setup stack status"] : []),
-      ...apps.flatMap(({ workerName, productionBuild }) =>
-        productionBuild.state === "unavailable" ? [`the production build of ${workerName}`] : [],
-      ),
-      ...convexProjects.flatMap(({ codeLocation, productionDeployment }) =>
-        productionDeployment.state === "unavailable"
-          ? [`the Convex production deployment at ${codeLocation}`]
-          : [],
-      ),
     ];
+    const stackCount = stacks.state === "available" ? stacks.stacks.length : 0;
+    const stackSummary =
+      stacks.state === "available" || stacks.state === "no_store"
+        ? `${stackCount} ${stackCount === 1 ? "stack" : "stacks"}`
+        : "stacks unreadable";
     const findings = [
       ...(attention.length === 0
         ? []
@@ -154,7 +147,7 @@ export const repositoryGetStatusTool = defineMcpTool({
       ...(unreadable.length === 0 ? [] : [`Could not read ${unreadable.join(", ")}.`]),
     ];
     return {
-      text: `${structuredContent.repository}: ${apps.length} ${apps.length === 1 ? "app" : "apps"}, ${convexProjects.length} Convex ${convexProjects.length === 1 ? "project" : "projects"}, ${openPullRequestCount === null ? "pull requests unavailable" : `${openPullRequestCount} open ${openPullRequestCount === 1 ? "pull request" : "pull requests"}`}. ${findings.length === 0 ? "Nothing needs attention." : findings.join(" ")}`,
+      text: `${structuredContent.repository}: ${stackSummary}, ${openPullRequestCount === null ? "pull requests unavailable" : `${openPullRequestCount} open ${openPullRequestCount === 1 ? "pull request" : "pull requests"}`}. ${findings.length === 0 ? "Nothing needs attention." : findings.join(" ")}`,
       structuredContent,
     };
   },

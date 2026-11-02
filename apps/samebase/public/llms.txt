@@ -15,8 +15,8 @@ The dashboard gives humans one inventory of every repository they connect, its p
 current state, and direct provider coordinates.
 Every Samebase action checks its own authentication. Authentication status is a diagnostic action,
 not a preflight.
-The repository list reports Samebase-owned workflow state. It is not proof of live provider state. The repository status reads the live builds, URLs, Convex
-deployments, checks, and pull requests of one repository. Use provider-native tools for logs,
+The repository list reports Samebase-owned workflow state. It is not proof of live provider state. The repository status reads the Alchemy stacks, URLs, deployed
+commits, checks, and pull requests of one repository. Use provider-native tools for logs,
 environment values, migrations, and domains.
 Codex and Claude Code can add the public
 [samebase/plugin](https://github.com/samebase/plugin) marketplace and install
@@ -62,7 +62,7 @@ MCP tools take a repository as its GitHub owner/name. Choose the action that mat
 then verify the result with the repository status.
 
 - [List Samebase repositories](https://samebase.com/docs/actions/list_repositories.md): List the Samebase repositories in every organization of the account: owner/name, repositoryId, and setup state.
-- [Get repository status](https://samebase.com/docs/actions/get_repository_status.md): Read the live status of a repository: each app (Worker and root directory) with its production build, whether that build is of the default branch head, and its URLs, each Convex project's production deployment, the default branch head commit and its checks, the open pull requests (first 6) with their checks and preview builds, for a repository that its GitHub Actions set up whether its first deployment finished, and attention items that say what to do about each problem.
+- [Get repository status](https://samebase.com/docs/actions/get_repository_status.md): Read the live status of a repository: each stack in the team's Alchemy state store with its production URL, deployed commit, whether that commit is the default branch head, and its pull request preview URLs, the default branch head commit and its checks, the open pull requests (first 6) with their checks, for a repository that its GitHub Actions set up whether its first deployment finished, and attention items that say what to do about each problem. A store that cannot be read reports as unreadable, not as nothing deployed.
 - [Create Samebase repository](https://samebase.com/docs/actions/create_repository.md): Create a GitHub repository with the Samebase starter and its Samebase repository. The repository's GitHub Actions then run Alchemy, create the Convex project, and deploy the app to Convex. Setup keeps running after the call returns; read repository_list for progress. Ready setup does not prove that the app is live.
 - [Connect GitHub repository](https://samebase.com/docs/actions/connect_repository.md): Connect an existing GitHub repository to Samebase as a Samebase repository, then sync its repository tree. Convex and Cloudflare stay unchanged.
 - [Retry provider setup](https://samebase.com/docs/actions/retry_provider_setup.md): Start a fresh setup run for a repository whose GitHub Actions setup failed. It writes the repository's GitHub Actions secret and variable again, replacing their values, seeds the starter when it was not seeded yet, and syncs the default branch tree. It never creates or changes a Convex project. The first call changes nothing and returns needs_confirmation with the effect, an acknowledgement sentence, and a token. After the user approves the effect, call again with the same arguments and confirmation: the token and the exact sentence.

@@ -66,8 +66,9 @@ Pass `repository` as the GitHub full name, `owner/name`, or as the `repositoryId
 
 ## Verify the result
 
-- Call `repository_getStatus` for the builds, URLs, Convex deployments, checks, and pull requests of
-  a repository. Follow its attention items: each says what to do about the problem.
+- Call `repository_getStatus` for the stacks, production and preview URLs, deployed commits, checks,
+  and pull requests of a repository. Follow its attention items: each says what to do about the
+  problem. A store that reports `unreadable` says nothing about what is deployed.
 - Ready setup, a requested build, a commit, or a push does not prove that the app is live. Report
   only verified state.
 - Never put credentials in Git, logs, screenshots, or responses.
