@@ -93,11 +93,9 @@ function PullRequestRow({
       className="border-b border-border py-2 last:border-b-0"
       data-pull-request-number={pullRequest.number}
     >
-      {/* The number is inline text in the title's size, so it lines up with the title. */}
+      {/* The number is inline text in the title's size, so it lines up with the title, and one
+      link underlines both from the row's left edge. */}
       <p className="pt-2.5 text-sm font-medium leading-5 [overflow-wrap:anywhere] @4xl:pt-1.5">
-        <span className="font-normal text-muted-foreground tabular-nums">
-          #{pullRequest.number}
-        </span>{" "}
         <a
           className="text-foreground underline decoration-border underline-offset-4 hover:decoration-foreground"
           href={pullRequest.url}
@@ -105,6 +103,9 @@ function PullRequestRow({
           target="_blank"
           title="Open on GitHub"
         >
+          <span className="font-normal text-muted-foreground tabular-nums">
+            #{pullRequest.number}
+          </span>{" "}
           {pullRequest.title}
         </a>
       </p>

@@ -141,7 +141,7 @@ test("shows an old app with no stack on desktop", async ({ page }) => {
   await expect(fixture.getByRole("button", { name: "Disconnect" })).toBeEnabled();
   await expect(fixture.getByRole("navigation", { name: "Repository" })).toHaveCount(0);
   await expect(
-    fixture.getByRole("link", { name: "Show the exact preview for each pull request" }),
+    fixture.getByRole("link", { name: "#1260 Show the exact preview for each pull request" }),
   ).toHaveAttribute("href", "https://github.com/samebase/samebase/pull/1260");
   await expect(fixture.getByRole("button", { name: "Filters" })).toHaveCount(0);
   await expect(fixture.locator('[data-pull-request-number="1258"]')).toBeVisible();
@@ -244,7 +244,7 @@ test("keeps the overview hierarchy and pull request actions clear on mobile", as
   const fixture = await openRepositoryOverviewV2(page, "repository-overview-v2");
 
   const firstPullRequest = fixture.getByRole("link", {
-    name: "Show the exact preview for each pull request",
+    name: "#1260 Show the exact preview for each pull request",
   });
   await expect(firstPullRequest).toBeVisible();
   const firstPullRequestRow = firstPullRequest.locator("xpath=ancestor::article");
@@ -410,7 +410,7 @@ test("uses stable shells while independent data sources load", async ({ page }) 
   await expect(partialFixture.getByLabel("Loading production destinations")).toBeVisible();
   await expect(
     partialFixture.getByRole("link", {
-      name: "Show the exact preview for each pull request",
+      name: "#1260 Show the exact preview for each pull request",
     }),
   ).toBeVisible();
   await expect(partialFixture).toHaveScreenshot(
