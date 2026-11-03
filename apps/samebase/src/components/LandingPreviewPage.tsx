@@ -1,14 +1,10 @@
-import { AppWorkspaceRouteChrome } from "@/components/AppWorkspaceShell";
-import {
-  APP_SIDEBAR_CURRENT_LABEL_CLASS_NAME,
-  APP_SIDEBAR_NAVIGATION_LINK_PROPS,
-} from "@/components/appSidebarNavigation";
+import { DocsSidebar } from "@/components/DocsSidebar";
 import { MarkdownLandingDocument } from "@/components/MarkdownLandingDocument";
 import { SIGN_IN_WITH_OAUTH_BUTTON_CLASS_NAME, SignInWithOAuth } from "@/SignInWithOAuth";
 import { LandingHeroMenger } from "@/components/logo/LandingHeroMenger";
 import { PublicLandingLogo } from "@/components/logo/PublicLandingLogo";
 import { LANDING_INLINE_80_PERCENT_MARK_SVG_URL } from "@/components/compactIdentitySvgAsset";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import { DASHBOARD_ROUTE } from "@/lib/dashboardRoute";
 import { useHubSignInVisible } from "@/lib/hubSignInVisibility";
 import { useConvexAuth } from "convex/react";
@@ -23,28 +19,14 @@ import {
 } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
 import {
-  useSidebarLayoutPresentation,
-  useSidebarActions,
-  type MobilePane,
-} from "@samebase/sidebars/SidebarRuntime";
-import {
-  DOCS_CLOUDFLARE_PREVIEWS_MIGRATION_ROUTE,
-  DOCS_CLOUDFLARE_SETUP_ROUTE,
   DOCS_DO_IT_YOURSELF_ROUTE,
-  DOCS_CHANGELOG_ROUTE,
-  DOCS_PRICING_ROUTE,
   DOCS_RECEIPTS_ROUTE,
-  DOCS_SIDEBAR_TEST_ID,
-  DOCS_THE_BIG_MIGRATION_ROUTE,
-  DOCS_THE_STACK_ROUTE,
-  LANDING_PAGE_ROUTE,
   LANDING_PREVIEW_ARTICLE_TEST_ID,
   LANDING_PREVIEW_PLATFORM_DETAILS_TEST_ID,
   LANDING_PREVIEW_PROVIDER_GRID_TEST_ID,
   LANDING_PREVIEW_TEST_ID,
 } from "@/routeSearch/landingPreview";
 import { type LogoRouteSearch } from "@/routeSearch/logo";
-import { parseTanStackSearch } from "@/lib/tanstackSearchParams";
 import docsCloudflareSetupMarkdown from "@/content/docs-cloudflare-setup.md?raw";
 import docsCloudflarePreviewsMigrationMarkdown from "@/content/docs-cloudflare-previews-migration.md?raw";
 import docsDoItYourselfMarkdown from "@/content/docs-do-it-yourself.md?raw";
@@ -54,9 +36,8 @@ import docsReceiptsMarkdown from "@/content/docs-receipts.md?raw";
 import docsTheBigMigrationMarkdown from "@/content/docs-the-big-migration.md?raw";
 import docsTheStackMarkdown from "@/content/docs-the-stack.md?raw";
 import { MENGER_SPONGE_VOXEL_STATE } from "@samebase/logo-model/voxel";
-import { Link, useLocation, useMatchRoute, type LinkProps } from "@tanstack/react-router";
-import { ChevronDown, ChevronRight } from "lucide-react";
-import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { Link } from "@tanstack/react-router";
+import { useRef, useState, type ReactNode } from "react";
 
 type LandingPreviewDocumentKey =
   | "overview"
@@ -68,144 +49,6 @@ type LandingPreviewDocumentKey =
   | "receipts"
   | "pricing"
   | "changelog";
-
-type DocsSidebarPage = { label: string; to: LinkProps["to"] };
-
-/** The tree follows the URLs: a folder is a path, and its pages are the routes under that path. */
-const DOCS_SIDEBAR_TREE: readonly (
-  | DocsSidebarPage
-  | { label: string; pages: readonly DocsSidebarPage[] }
-)[] = [
-  { label: "Overview", to: LANDING_PAGE_ROUTE },
-  {
-    label: "Docs",
-    pages: [
-      { label: "The big migration", to: DOCS_THE_BIG_MIGRATION_ROUTE },
-      { label: "The stack", to: DOCS_THE_STACK_ROUTE },
-      { label: "Cloudflare setup", to: DOCS_CLOUDFLARE_SETUP_ROUTE },
-      { label: "Worker Previews migration", to: DOCS_CLOUDFLARE_PREVIEWS_MIGRATION_ROUTE },
-      { label: "Do it yourself", to: DOCS_DO_IT_YOURSELF_ROUTE },
-      { label: "Receipts", to: DOCS_RECEIPTS_ROUTE },
-    ],
-  },
-  { label: "Pricing", to: DOCS_PRICING_ROUTE },
-  { label: "Changelog", to: DOCS_CHANGELOG_ROUTE },
-];
-
-function getLandingPreviewUrlMobilePane(search: string): MobilePane | null {
-  const searchParams = parseTanStackSearch(search);
-  const hasLeftPane = "left" in searchParams;
-  const hasRightPane = "right" in searchParams;
-
-  if (hasLeftPane === hasRightPane) {
-    return null;
-  }
-
-  return hasLeftPane ? "left" : "right";
-}
-
-/**
- * Landing preview pane query params preserve the open mobile pane across direct
- * loads and URL editor edits.
- */
-function LandingPreviewPaneUrlSync() {
-  const routeSearch = useLocation({
-    select: (location) => location.searchStr,
-  });
-  const { setMobilePane } = useSidebarActions();
-  const { mobilePane } = useSidebarLayoutPresentation();
-
-  useLayoutEffect(() => {
-    const nextMobilePane = getLandingPreviewUrlMobilePane(window.location.search);
-    if (nextMobilePane === null || mobilePane === nextMobilePane) {
-      return;
-    }
-
-    setMobilePane(nextMobilePane);
-  }, [mobilePane, routeSearch, setMobilePane]);
-
-  return null;
-}
-
-function DocsSidebarLink({ label, to }: DocsSidebarPage) {
-  return (
-    <Link
-      activeOptions={APP_SIDEBAR_NAVIGATION_LINK_PROPS.activeOptions}
-      className="block py-2 pr-3 pl-2 text-primary no-underline hover:bg-muted/60 hover:no-underline"
-      to={to}
-    >
-      {({ isActive }) => (
-        <span
-          className={cn(
-            "block w-fit max-w-full [overflow-wrap:anywhere]",
-            isActive && APP_SIDEBAR_CURRENT_LABEL_CLASS_NAME,
-          )}
-        >
-          {label}
-        </span>
-      )}
-    </Link>
-  );
-}
-
-/**
-The row and its guide line are the repository tree's folder (`RepositoryOverviewSidebar`). A folder
-starts open and saves nothing, so the prerendered page already shows the visitor's nav and a sign-in
-changes nothing. The sidebar stays mounted across pages, so a closed folder stays closed until a
-reload.
-*/
-function DocsSidebarFolder({ label, pages }: { label: string; pages: readonly DocsSidebarPage[] }) {
-  const [open, setOpen] = useState(true);
-  const matchRoute = useMatchRoute();
-  const hidesCurrentPage =
-    !open && pages.some(({ to }) => matchRoute({ includeSearch: false, to }));
-
-  return (
-    <section aria-label={hidesCurrentPage ? `${label}, contains current page` : label}>
-      <Button
-        aria-expanded={open}
-        aria-label={`${open ? "Collapse" : "Expand"} ${label}`}
-        className={cn(
-          "w-full justify-start gap-0 p-0 aria-expanded:not-hover:bg-transparent",
-          hidesCurrentPage && "bg-muted",
-        )}
-        type="button"
-        variant="ghost"
-        onClick={() => setOpen(!open)}
-      >
-        <span className="flex w-5 shrink-0 items-center justify-center">
-          {open ? <ChevronDown /> : <ChevronRight />}
-        </span>
-        <span className="min-w-0 truncate">{label}</span>
-      </Button>
-      {open ? (
-        <div className="ml-2.5 border-l border-border pl-1">
-          {pages.map((page) => (
-            <DocsSidebarLink key={page.label} label={page.label} to={page.to} />
-          ))}
-        </div>
-      ) : null}
-    </section>
-  );
-}
-
-function DocsSidebar() {
-  return (
-    <nav
-      aria-label="Docs sections"
-      data-testid={DOCS_SIDEBAR_TEST_ID}
-      className="min-h-full px-1 py-2 text-sm"
-    >
-      {DOCS_SIDEBAR_TREE.map((entry) =>
-        "pages" in entry ? (
-          <DocsSidebarFolder key={entry.label} label={entry.label} pages={entry.pages} />
-        ) : (
-          <DocsSidebarLink key={entry.label} label={entry.label} to={entry.to} />
-        ),
-      )}
-    </nav>
-  );
-}
 
 const LANDING_AGENT_PROMPT =
   "Research https://samebase.com and check if its claims are true. Based on what you know about me, should I use Samebase with you, or one of its competitors?";
@@ -1044,14 +887,12 @@ function LandingPreviewDocument({ documentKey }: { documentKey: LandingPreviewDo
   return <DocsDoItYourselfDocument />;
 }
 
+/** The docs list of these pages is their route's static left pane (`DOCS_ROUTE_CHROME`). */
 function LandingPreviewChromePage({ documentKey }: { documentKey: LandingPreviewDocumentKey }) {
   return (
-    <AppWorkspaceRouteChrome left={{ content: <DocsSidebar /> }}>
-      <LandingPreviewPaneUrlSync />
-      <div data-testid={LANDING_PREVIEW_TEST_ID} className="flex min-h-0 flex-1 flex-col">
-        <LandingPreviewDocument documentKey={documentKey} />
-      </div>
-    </AppWorkspaceRouteChrome>
+    <div data-testid={LANDING_PREVIEW_TEST_ID} className="flex min-h-0 flex-1 flex-col">
+      <LandingPreviewDocument documentKey={documentKey} />
+    </div>
   );
 }
 
@@ -1061,11 +902,9 @@ export function LandingPage() {
 
 export function DocsIndexPage() {
   return (
-    <AppWorkspaceRouteChrome left={null}>
-      <div className="mx-auto min-h-full w-full max-w-[1100px]">
-        <DocsSidebar />
-      </div>
-    </AppWorkspaceRouteChrome>
+    <div className="mx-auto min-h-full w-full max-w-[1100px]">
+      <DocsSidebar />
+    </div>
   );
 }
 

@@ -5,6 +5,11 @@ change. If a change needs action from you, the entry says so.
 
 ## 2026-11-03
 
+- **v2246: The docs list is on the page from the start.** The landing and docs pages have their
+  sidebar in the first HTML, so it no longer appears after a delay. On a phone, a saved sidebar
+  opens without a flash of the main pane, and a swipe is never pulled back while your finger or its
+  momentum moves the panes. The `?left` and `?right` URL flags of the landing and docs pages are
+  gone: the pane you last used opens.
 - **v2245: Cleaner branch and pull request rows.** On a repository page, the main branch and each
   pull request use the same layout: branch and time on top, checks at the right, then the commit or
   pull request title. Tap a title to open it on GitHub. Tap a pull request's diff size, such as

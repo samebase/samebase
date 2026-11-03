@@ -678,9 +678,13 @@ test("docs index renders the docs navigation in the main pane", async ({ page })
   });
 });
 
-test("landing do-it-yourself mobile pane query opens the sidebar", async ({ page }) => {
+test("landing do-it-yourself opens on the saved left pane", async ({ page }) => {
   await page.setViewportSize({ width: 744, height: 1200 });
-  await page.goto(`${DOCS_DO_IT_YOURSELF_ROUTE}?left&dark`, {
+  await seedLocalWorkspaceSidebarState(page, {
+    ...VISUAL_FIXTURE_WORKSPACE_SIDEBAR_STATE,
+    mobilePane: "left",
+  });
+  await page.goto(`${DOCS_DO_IT_YOURSELF_ROUTE}?dark`, {
     waitUntil: "domcontentloaded",
   });
 
