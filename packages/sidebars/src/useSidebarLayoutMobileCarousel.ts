@@ -244,7 +244,12 @@ export function useSidebarLayoutMobileCarouselController({
       isTouchDown = true;
     };
     const handleTouchEnd = (event: TouchEvent) => {
-      if (event.touches.length > 0) {
+      // `touches` lists every finger in the document, and a finger outside the carousel ends
+      // without an event here, so only the fingers that started in the carousel count.
+      const isCarouselTouchDown = Array.from(event.touches).some(
+        (touch) => touch.target instanceof Node && carouselNode.contains(touch.target),
+      );
+      if (isCarouselTouchDown) {
         return;
       }
       isTouchDown = false;

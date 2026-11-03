@@ -632,9 +632,10 @@ describe("SidebarLayout mobile boot alignment", () => {
       });
       expect(carouselNode.scrollLeft).toBe(TEST_SIDEBAR_WIDTH_PX + 40);
 
-      // The settle after the touch reads the pane from the position.
+      // The settle after the touch reads the pane from the position. A second finger that rests
+      // outside the carousel does not keep the position owned.
       const touchEnd = new Event("touchend");
-      Object.defineProperty(touchEnd, "touches", { value: [] });
+      Object.defineProperty(touchEnd, "touches", { value: [{ target: document.body }] });
       act(() => {
         carouselNode.dispatchEvent(touchEnd);
         vi.advanceTimersByTime(81);
