@@ -49,9 +49,8 @@ billing, and infrastructure provisioning.
 
 - Retry admission, confirmation, and run insert (one transaction):
   `internal.repositoryProvisioningRuns.createRetryForRepository`
-- State tracking: `workflow_repositoryProvisioning_plans`,
-  `workflow_repositoryProvisioning_writeLocks`, `repositoryConvexProjects`, and
-  `repositoryCloudflareWorkers`
+- State tracking: `workflow_repositoryProvisioning_plans` and
+  `workflow_repositoryProvisioning_writeLocks`
 - Retry path: `api.repository.retryProviderSetup`
 
 ## Useful Local Commands

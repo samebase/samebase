@@ -99,8 +99,6 @@ export const SAMEBASE_SCHEMA_GRAPH_TABLE_ZONES: Readonly<
 
   repositories: "repositoryCore",
 
-  repositoryCloudflareWorkers: "infrastructure",
-  repositoryConvexProjects: "infrastructure",
   observations_repositoryConvexSchema_snapshots: "infrastructure",
   ui_repositoryConvexSchemaGraph_nodeLayouts: "infrastructure",
   workflow_repositoryProvisioning_plans: "infrastructure",

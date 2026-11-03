@@ -673,14 +673,12 @@ Delete rows:
 5. `ui_repositoryFileTree_folderExpansions` via `by_repository`
 6. `observations_repository_branchTrees` via `by_repository_and_branch` with the `repositoryId`
    prefix
-7. `repositoryConvexProjects` via `by_repository`
-8. `observations_repositoryConvexSchema_snapshots` via `by_repository`
-9. `ui_repositoryConvexSchemaGraph_nodeLayouts` via `by_repository`
-10. `repositoryCloudflareWorkers` via `by_repository`
-11. `workflow_repositoryProvisioning_plans` via `by_repository`
-12. `workflow_repositoryProvisioning_writeLocks` via `by_repository`
-13. `workflow_repositoryProvisioning_events` via `by_repository_and_created_at_and_source_order`
-14. `workflow_repositoryProvisioning_runs` via `by_repository_and_updated_at`
+7. `observations_repositoryConvexSchema_snapshots` via `by_repository`
+8. `ui_repositoryConvexSchemaGraph_nodeLayouts` via `by_repository`
+9. `workflow_repositoryProvisioning_plans` via `by_repository`
+10. `workflow_repositoryProvisioning_writeLocks` via `by_repository`
+11. `workflow_repositoryProvisioning_events` via `by_repository_and_created_at_and_source_order`
+12. `workflow_repositoryProvisioning_runs` via `by_repository_and_updated_at`
 
 For storage-backed staged files and blobs, a batch deletes the repository rows first. It then uses
 the global `by_storageId` indexes for both tables. It deletes a storage object only when no

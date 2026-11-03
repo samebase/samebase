@@ -30,8 +30,6 @@ Durable Samebase topology uses normal product tables:
 
 ```text
 repositories
-repositoryCloudflareWorkers
-repositoryConvexProjects
 repositoryStagedFiles
 repositoryStagedFileUpdates
 ```

@@ -10,7 +10,6 @@ import { mcpTables } from "./mcp/model";
 import { organizationTables } from "./organization/model";
 import { organizationInvitationTables } from "./organization/invitationModel";
 import { organizationProviderCredentialTables } from "./organization/providerCredentialModel";
-import { repositoryConfirmationTables } from "./repository/confirmationModel";
 import { repositoryConvexSchemaGraphTables } from "./repository/convexSchemaGraphModel";
 import { repositoryDeletionTables } from "./repository/deletion/model";
 import { repositoryEditorTables } from "./repository/editorModel";
@@ -33,7 +32,6 @@ export default defineSchema({
   ...repositoryFolderTables,
   ...repositoryOrganizationTreeTables,
   ...repositoryTables,
-  ...repositoryConfirmationTables,
   ...repositoryConvexSchemaGraphTables,
   ...repositoryProvisioningTables,
   ...repositoryDeletionTables,
