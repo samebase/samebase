@@ -243,8 +243,8 @@ test("keeps the overview hierarchy and pull request actions clear on mobile", as
   await page.setViewportSize({ width: 390, height: 844 });
   const fixture = await openRepositoryOverviewV2(page, "repository-overview-v2");
 
-  const firstPullRequest = fixture.getByRole("button", {
-    name: /Show the exact preview for each pull request/,
+  const firstPullRequest = fixture.getByRole("link", {
+    name: "Show the exact preview for each pull request",
   });
   await expect(firstPullRequest).toBeVisible();
   const firstPullRequestRow = firstPullRequest.locator("xpath=ancestor::article");
@@ -252,7 +252,9 @@ test("keeps the overview hierarchy and pull request actions clear on mobile", as
   await expect(firstPullRequestRow).toContainText("−10");
   await expect(firstPullRequestRow).toContainText("3 files");
 
-  await firstPullRequest.click();
+  await firstPullRequestRow
+    .getByRole("button", { name: "Show pull request #1260 details" })
+    .click();
   await expect(firstPullRequestRow.getByText("needs review", { exact: true })).toBeVisible();
   await expect(firstPullRequestRow.getByRole("group", { name: /^Alchemy stack / })).toHaveCount(0);
   await expect(firstPullRequestRow.getByRole("group", { name: "Other previews" })).toHaveCount(0);
@@ -407,8 +409,8 @@ test("uses stable shells while independent data sources load", async ({ page }) 
   await expect(partialFixture.getByRole("link", { name: "main", exact: true })).toBeVisible();
   await expect(partialFixture.getByLabel("Loading production destinations")).toBeVisible();
   await expect(
-    partialFixture.getByRole("button", {
-      name: /Show the exact preview for each pull request/,
+    partialFixture.getByRole("link", {
+      name: "Show the exact preview for each pull request",
     }),
   ).toBeVisible();
   await expect(partialFixture).toHaveScreenshot(
