@@ -343,9 +343,16 @@ export function OrganizationBillingSection({
         ) : null}
       </dl>
 
+      {billingStatus.plan === "free" ? (
+        <p className="mt-4 text-sm text-muted-foreground">
+          Samebase is free during the beta. New Pro subscriptions are paused.
+        </p>
+      ) : null}
       {billingStatus.billingLimited ? (
         <p className="mt-4 text-sm text-destructive" role="alert">
-          Add paid member capacity or remove members to restore organization access.
+          {billingStatus.hasSubscription
+            ? "Add paid member capacity or remove members to restore organization access."
+            : "Remove members to restore organization access."}
         </p>
       ) : billingStatus.status === "past_due" ? (
         <p className="mt-4 text-sm text-destructive" role="alert">
@@ -387,18 +394,6 @@ export function OrganizationBillingSection({
 
       {isOrganizationOwner && canManageBilling ? (
         <div className="mt-6 flex flex-wrap gap-2">
-          {billingStatus.plan === "free" ? (
-            <Button
-              disabled={!billingActionsAvailable || requestPending}
-              onClick={() => void handleBillingChange({ kind: "upgrade_to_pro" })}
-              type="button"
-            >
-              {billingRequestState === "upgrade" ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : null}
-              {billingRequestState === "upgrade" ? "Updating..." : "Upgrade to Pro, $4/month"}
-            </Button>
-          ) : null}
           {billingStatus.plan === "pro" && !billingStatus.cancelAtPeriodEnd ? (
             <Button
               disabled={!billingActionsAvailable || requestPending}

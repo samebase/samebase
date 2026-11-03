@@ -5,6 +5,9 @@ change. If a change needs action from you, the entry says so.
 
 ## 2026-11-03
 
+- **v2251: Free during the beta.** Samebase no longer offers Pro to new organizations. A personal
+  account connects up to 12 repositories and an organization up to 6, as on Free before. Existing
+  Pro subscriptions keep their limits; manage or cancel them from your organization's settings.
 - **v2246: The docs list is on the page from the start.** The landing and docs pages have their
   sidebar in the first HTML, so it no longer appears after a delay. On a phone, a saved sidebar
   opens without a flash of the main pane, and a swipe is never pulled back while your finger or its

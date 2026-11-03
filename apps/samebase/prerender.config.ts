@@ -45,7 +45,7 @@ const expectedPublicPrerenderMetadataByPath = {
   },
   "/pricing": {
     title: "Pricing | Samebase",
-    description: "The Free and Pro connection limits, member limits, and monthly prices.",
+    description: "Samebase is free during the beta, with repository and member limits.",
     robots: "index,follow",
   },
   "/changelog": {

@@ -634,7 +634,7 @@ describe("organization member lifecycle", () => {
         expectedGithubAccountId: "200",
       }),
     ).rejects.toThrow(
-      "This organization needs another paid member seat before another member can join.",
+      "This organization has reached its member limit. Remove a member before another one can join.",
     );
     await expect(
       t.run(async (ctx) => await ctx.db.query("organizationInvitations").collect()),
@@ -673,7 +673,7 @@ describe("organization member lifecycle", () => {
         expectedGithubAccountId: "200",
       }),
     ).rejects.toThrow(
-      "This organization needs another paid member seat before another member can join.",
+      "This organization has reached its member limit. Remove a member before another one can join.",
     );
     await expect(t.run(async (ctx) => await ctx.db.get(invitationId))).resolves.toMatchObject({
       code,
@@ -683,7 +683,7 @@ describe("organization member lifecycle", () => {
     await expect(
       asInvitee.mutation(api.organizationMembers.acceptInvitation, { code }),
     ).rejects.toThrow(
-      "This organization needs another paid member seat before another member can join.",
+      "This organization has reached its member limit. Remove a member before another one can join.",
     );
     await expect(t.run(async (ctx) => await ctx.db.get(invitationId))).resolves.toMatchObject({
       state: "pending",
@@ -691,6 +691,23 @@ describe("organization member lifecycle", () => {
     await expect(t.run(async (ctx) => await ctx.db.get(ids.inviteeUserId))).resolves.toMatchObject({
       isApproved: false,
     });
+
+    // Pro with every paid seat in use asks for one more seat.
+    await t.run(async (ctx) => {
+      await ctx.db.patch(billingAccountId, {
+        provider: "polar",
+        plan: "pro",
+        status: "active",
+        polarExternalCustomerId: `members-customer-${ids.organizationId}`,
+        polarBillingUserId: ids.ownerUserId,
+        polarSeatQuantity: 2,
+      });
+    });
+    await expect(
+      asInvitee.mutation(api.organizationMembers.acceptInvitation, { code }),
+    ).rejects.toThrow(
+      "This organization needs another paid member seat before another member can join.",
+    );
 
     await t.run(async (ctx) => {
       await ctx.db.patch(billingAccountId, {

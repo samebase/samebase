@@ -568,11 +568,12 @@ test("pricing route renders the public pricing page", async ({ page }) => {
   await expectSidebarFiles(sidebar);
   await expect(article.getByRole("heading", { exact: true, name: "Pricing" })).toBeVisible();
   await expect(sidebar.locator('a[aria-current="page"]')).toHaveText("Pricing");
-  await expect(article).toContainText("Start free. Upgrade when you need more connections.");
-  await expect(article.getByRole("row", { name: "Personal account Free $0 12 1" })).toBeVisible();
-  await expect(article.getByRole("row", { name: "GitHub organization Free $0 6 2" })).toBeVisible();
-  await expect(article.getByRole("row", { name: "Any owner Pro $4 120 2" })).toBeVisible();
-  await expect(article).toContainText("Each repository connected to Samebase is one connection.");
+  await expect(article).toContainText(
+    "Samebase is free during the beta. New Pro subscriptions are paused.",
+  );
+  await expect(article.getByRole("row", { name: "Personal account 12 1" })).toBeVisible();
+  await expect(article.getByRole("row", { name: "GitHub organization 6 2" })).toBeVisible();
+  await expect(article).not.toContainText("$4");
   await expect(article).not.toContainText("FileView");
 
   await expect(page).toHaveScreenshot("docs-pricing-desktop.png", {

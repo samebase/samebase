@@ -89,10 +89,16 @@ export async function requireAdditionalOrganizationMemberCapacity(
   db: DatabaseReader,
   organizationId: Id<"organizations">,
 ): Promise<void> {
-  const { capacity } = await readOrganizationMemberCapacityForId(db, organizationId);
+  const { capacity, hasVerifiedSubscription } = await readOrganizationMemberCapacityForId(
+    db,
+    organizationId,
+  );
   if ((await readOrganizationMembershipCount(db, organizationId)) >= capacity) {
+    // Free has no seats to buy while new Pro subscriptions are paused.
     throw new ConvexError(
-      "This organization needs another paid member seat before another member can join.",
+      hasVerifiedSubscription
+        ? "This organization needs another paid member seat before another member can join."
+        : "This organization has reached its member limit. Remove a member before another one can join.",
     );
   }
 }

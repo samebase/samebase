@@ -14,19 +14,23 @@ export type PolarProductCatalogEntry = {
 export type PolarProductCatalog = readonly PolarProductCatalogEntry[];
 
 const POLAR_API_TIMEOUT_MS = 10_000;
+/**
+New Pro subscriptions are paused while Samebase is in beta: no product is available for checkout.
+The products stay in the catalog so existing subscriptions keep reconciling.
+*/
 export const POLAR_PRODUCT_CATALOG = {
   sandbox: [
     {
       productId: "0e721c02-c98b-425b-bc8d-fb323fa54925",
       version: 1,
-      availableForCheckout: true,
+      availableForCheckout: false,
     },
   ],
   production: [
     {
       productId: "e2d0db25-2971-4a77-b2b1-00b041efe9e0",
       version: 1,
-      availableForCheckout: true,
+      availableForCheckout: false,
     },
   ],
 } satisfies Record<PolarServer, PolarProductCatalog>;

@@ -727,7 +727,9 @@ export const requestPolarBillingChange = action({
       try {
         checkoutProductId = readPolarCheckoutProductId(catalog);
       } catch {
-        throw new ConvexError("Polar checkout is not configured yet.");
+        throw new ConvexError(
+          "Samebase is free during the beta. New Pro subscriptions are paused.",
+        );
       }
     }
     const currentBilling = await ctx.runQuery(internal.billing.getBillingAccountForOrganization, {

@@ -153,7 +153,7 @@ export const DOCS_RECEIPTS_PAGE_METADATA: PageMetadata = {
 
 export const DOCS_PRICING_PAGE_METADATA: PageMetadata = {
   title: "Pricing | Samebase",
-  description: "The Free and Pro connection limits, member limits, and monthly prices.",
+  description: "Samebase is free during the beta, with repository and member limits.",
   canonicalPath: DOCS_PRICING_ROUTE,
   robots: "index,follow",
   openGraphType: "website",
