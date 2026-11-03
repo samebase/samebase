@@ -1188,7 +1188,7 @@ describe("PullRequestsSection", () => {
     }
   });
 
-  it("opens the pull request's changed files", async () => {
+  it("links the diff size to the pull request's changed files", async () => {
     const pullRequests = {
       state: "current",
       defaultBranch: null,
@@ -1218,19 +1218,10 @@ describe("PullRequestsSection", () => {
         );
       });
 
-      const expandButton = rootElement.querySelector(
-        'button[aria-label="Show pull request #41 details"]',
+      const changesLink = rootElement.querySelector(
+        'a[title="View this pull request\'s changes in Samebase"]',
       );
-      if (!(expandButton instanceof HTMLButtonElement)) {
-        throw new Error("Expected the pull request details button.");
-      }
-      await act(async () => {
-        expandButton.click();
-      });
-
-      const changesLink = [...rootElement.querySelectorAll("a")].find(
-        (link) => link.textContent === "View changes",
-      );
+      expect(changesLink?.textContent).toBe("+3 −1 2 files");
       expect(changesLink?.getAttribute("href")).toBe("/repo/ada/demo/fs/preview-comments?compare");
     } finally {
       await act(async () => {

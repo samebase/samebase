@@ -94,7 +94,7 @@ export function RepositoryChecksPopover({
         <button
           type="button"
           className={clsx(
-            "inline-flex min-h-10 cursor-pointer items-center gap-1.5 rounded-sm px-1.5 text-xs font-medium tabular-nums underline decoration-muted-foreground/40 underline-offset-4 transition-colors @4xl:min-h-8",
+            "inline-flex min-h-10 cursor-pointer items-center gap-1.5 text-xs font-medium tabular-nums underline decoration-muted-foreground/40 underline-offset-4 transition-colors @4xl:min-h-8",
             checkStateClassName(checks.state),
             linkStyle,
           )}
