@@ -24,8 +24,9 @@ export async function saveWorkspaceSidebarState(page: Page, state: WorkspaceSide
   if (!isRecord(localConfig) || !isRecord(localConfig.ports)) {
     throw new Error(`Invalid local Convex config: ${LOCAL_CONFIG_PATH}`);
   }
-  const accessToken = (await page.context().cookies()).find(
-    (cookie) => cookie.name === "__convexAuthJWT",
+  // On a loopback origin the server names the cookie after the port (src/loopbackSessionCookies.ts).
+  const accessToken = (await page.context().cookies()).find((cookie) =>
+    cookie.name.startsWith("__convexAuthJWT"),
   )?.value;
   if (!accessToken) {
     throw new Error("Sign in before saving the workspace sidebar state.");
