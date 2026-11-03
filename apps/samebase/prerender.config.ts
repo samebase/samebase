@@ -15,7 +15,7 @@ const expectedPublicPrerenderMetadataByPath = {
   "/": {
     title: "Samebase | Give your coding agent a working app",
     description:
-      "One place to manage GitHub, Convex, and Cloudflare across all your apps. Just use the samebase/base template without creating an account.",
+      "One place to start your apps and see every app you deploy with Alchemy. Just use the samebase/base template without creating an account.",
     robots: "index,follow",
   },
   "/docs": {

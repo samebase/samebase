@@ -20,6 +20,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   DOCS_DO_IT_YOURSELF_ROUTE,
   DOCS_RECEIPTS_ROUTE,
+  DOCS_THE_BIG_MIGRATION_ROUTE,
   LANDING_PREVIEW_ARTICLE_TEST_ID,
   LANDING_PREVIEW_PLATFORM_DETAILS_TEST_ID,
   LANDING_PREVIEW_PROVIDER_GRID_TEST_ID,
@@ -90,7 +91,7 @@ const LANDING_FAQS = [
   },
   {
     answer:
-      "Even for one app, Samebase does the do-it-yourself setup for you: the GitHub repository, the Convex project and deploy keys, and the Cloudflare Worker and builds. With more apps, it gives you one place to see them, check their setup, and fix problems.",
+      "Even for one app, Samebase starts it for you: the repository, the first deploy, and Google sign-in without a Google Cloud project. With more apps, it gives you one place to see what each one deployed.",
     question: "I can just ask Codex to update my own apps. Why do I need Samebase?",
   },
   {
@@ -101,9 +102,10 @@ const LANDING_FAQS = [
   {
     answer: (
       <>
-        It's in beta. We're moving provisioning to{" "}
-        <LandingReceiptLink href="https://alchemy.run">Alchemy</LandingReceiptLink>, so apps you
-        create today may need an update later. They'll keep running either way.
+        It's in beta, and so is{" "}
+        <LandingReceiptLink href="https://alchemy.run">Alchemy 2</LandingReceiptLink>. Your apps
+        keep running either way. The repositories of a team share one state store, so upgrade them
+        on the same day.
       </>
     ),
     question: "Is Samebase stable?",
@@ -111,14 +113,19 @@ const LANDING_FAQS = [
   {
     answer: (
       <>
-        Yes, we deploy samebase.com with it. There's no UI for it yet, so start from{" "}
-        <LandingReceiptLink href="https://github.com/samebase/base">
-          samebase/base
-        </LandingReceiptLink>{" "}
-        and add a team-wide Convex token yourself.
+        So you can connect with one click. A Convex OAuth token has no expiry date, so the same
+        token reads your state and deploys your repository. Alchemy's own store runs on Cloudflare,
+        where a token lasts an hour.{" "}
+        <LandingInlineLink to={DOCS_THE_BIG_MIGRATION_ROUTE}>The big migration</LandingInlineLink>{" "}
+        has the details.
       </>
     ),
-    question: "Can I use Alchemy now?",
+    question: "Why is the Alchemy state in Convex?",
+  },
+  {
+    answer:
+      "Yes. Declare a Worker in alchemy.run.ts and add CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID to your repository. Samebase shows the Worker from your stack.",
+    question: "Can I use Cloudflare?",
   },
   {
     answer: "Kinda.",
@@ -329,7 +336,7 @@ function LandingPreviewOverview() {
                 Give your coding agent a working app.
               </h1>
               <p className="mt-7 max-w-[46ch] text-lg leading-relaxed text-primary">
-                One place to manage GitHub, Convex, and Cloudflare across all your apps.
+                One place to start your apps and see every app you deploy with Alchemy.
               </p>
               <p className="mt-4 max-w-[46ch] text-lg leading-relaxed text-primary">
                 Just use the{" "}
@@ -385,7 +392,7 @@ function LandingPreviewOverview() {
                   width="131"
                 />
               }
-              role="your code"
+              role="your code + deploys"
             />
             <LandingProviderRow
               logo={
@@ -397,7 +404,7 @@ function LandingPreviewOverview() {
                   width="104"
                 />
               }
-              role="database + backend"
+              role="database + backend + hosting"
             />
             <LandingProviderRow
               logo={
@@ -414,7 +421,7 @@ function LandingPreviewOverview() {
                   </span>
                 </>
               }
-              role="deploys + domains + edge"
+              role="Workers + domains, when you need them"
             />
           </div>
         </section>
@@ -449,12 +456,14 @@ function LandingPreviewOverview() {
 
         <LandingSection ariaLabel="Four claims">
           <div className="grid gap-x-14 gap-y-10 @3xl:grid-cols-2">
-            <LandingClaim heading="Delete your Samebase account. Your app doesn't notice.">
-              It was always on your GitHub, your Convex, your Cloudflare. We even publish the full{" "}
+            <LandingClaim heading="Delete your Samebase account. Your app keeps running.">
+              It was always on your GitHub, your Convex, your Cloudflare. Replace the one secret
+              Samebase wrote, CONVEX_ACCESS_TOKEN, and it keeps deploying too. Google sign-in
+              through Samebase stops, so bring your own first. We even publish the full{" "}
               <LandingInlineLink to={DOCS_DO_IT_YOURSELF_ROUTE}>
                 do-it-yourself recipe
               </LandingInlineLink>
-              : the identical stack, no Samebase account required.
+              : the same stack, no Samebase account required.
             </LandingClaim>
             <LandingClaim
               heading={
@@ -497,7 +506,7 @@ function LandingPreviewOverview() {
         <LandingSection ariaLabel="Monorepo">
           <LandingSectionIntro
             heading="Full monorepo support, by design."
-            sub="Samebase shows each connected Worker and Convex project under its repository path."
+            sub="Samebase shows each Alchemy stack of a repository under its path, with the Workers and Convex projects it deployed."
           />
           <LandingRepositoryTree />
         </LandingSection>
@@ -556,25 +565,6 @@ function LandingPreviewOverview() {
           </Accordion>
         </LandingSection>
 
-        <LandingSection ariaLabel="Onboarding walkthrough">
-          <div className="@5xl:grid @5xl:grid-cols-[minmax(0,1fr)_440px] @5xl:gap-x-14">
-            <div className="@5xl:col-start-1 @5xl:row-start-1">
-              <LandingSectionIntro heading="Watch the complete Samebase onboarding, including first-time Cloudflare setup." />
-            </div>
-            <div className="mt-8 @5xl:col-start-2 @5xl:row-start-1 @5xl:mt-1.5">
-              <iframe
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                allowFullScreen
-                className="aspect-[48/31] w-full border-0"
-                loading="lazy"
-                referrerPolicy="strict-origin-when-cross-origin"
-                src="https://www.youtube-nocookie.com/embed/8-ZEGPpqi9Y"
-                title="Samebase onboarding: Complete setup from scratch"
-              />
-            </div>
-          </div>
-        </LandingSection>
-
         <section className="mt-16 @3xl:mt-24">
           <blockquote className="max-w-[24ch] text-[clamp(28px,4cqw,40px)] font-semibold leading-[1.2] tracking-[-0.025em]">
             If your app builder is so good, why is it not building itself?
@@ -585,7 +575,11 @@ function LandingPreviewOverview() {
           <div className="grid gap-8 @3xl:grid-cols-2 @3xl:gap-x-14">
             <LandingFootnote fragment="landing-note-zero" heading="$0/month, receipted." marker="‡">
               <p className="mt-2 max-w-[58ch] text-[15px] leading-relaxed text-primary">
-                GitHub Free: unlimited private repositories.{" "}
+                GitHub Free: unlimited private repositories and{" "}
+                <LandingReceiptLink href="https://docs.github.com/en/billing/managing-billing-for-your-products/managing-billing-for-github-actions/about-billing-for-github-actions">
+                  2,000 Actions minutes
+                </LandingReceiptLink>{" "}
+                a month.{" "}
                 <LandingReceiptLink href="https://www.convex.dev/pricing">
                   Convex Free
                 </LandingReceiptLink>
@@ -632,15 +626,11 @@ function LandingPreviewOverview() {
                   Netlify Pro
                 </LandingReceiptLink>{" "}
                 is $20/month for 3,000 credits at 15 per successful production deploy: about 200 a
-                month before bandwidth and compute draw from the same pool. Cloudflare's{" "}
-                <LandingReceiptLink href="https://developers.cloudflare.com/workers/platform/pricing/">
-                  $5 Workers plan
-                </LandingReceiptLink>{" "}
-                includes{" "}
-                <LandingReceiptLink href="https://developers.cloudflare.com/workers/ci-cd/builds/limits-and-pricing/">
-                  six concurrent builds
+                month before bandwidth and compute draw from the same pool. Your deploys run in{" "}
+                <LandingReceiptLink href="https://docs.github.com/en/billing/managing-billing-for-your-products/managing-billing-for-github-actions/about-billing-for-github-actions">
+                  GitHub Actions
                 </LandingReceiptLink>
-                , and Cloudflare itself says to start new projects on Workers.
+                : 2,000 free minutes a month for private repositories, and free for public ones.
               </p>
             </LandingFootnote>
             <LandingFootnote

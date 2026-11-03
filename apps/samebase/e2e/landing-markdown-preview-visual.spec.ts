@@ -489,7 +489,7 @@ test.describe("mobile landing preview", () => {
     await thirdQuestion.click();
     await expect(thirdQuestion).toHaveAttribute("aria-expanded", "true");
     await expect(
-      faq.getByText("Even for one app, Samebase does the do-it-yourself setup for you", {
+      faq.getByText("Even for one app, Samebase starts it for you", {
         exact: false,
       }),
     ).toBeVisible();
