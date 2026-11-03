@@ -46,9 +46,14 @@ const DOCS_SIDEBAR_LEGAL_PAGES = [
   { label: "Terms", to: "/terms" },
 ] as const satisfies readonly DocsSidebarPage[];
 
+/** The brand colors of the old footer links: X in the text color, YouTube in its red. */
 const DOCS_SIDEBAR_SOCIAL_LINKS = [
-  { label: "X", href: SAMEBASE_PUBLIC_LINKS.x.destination },
-  { label: "YouTube", href: SAMEBASE_PUBLIC_LINKS.youtube.destination },
+  { label: "/x.com", href: SAMEBASE_PUBLIC_LINKS.x.destination, className: "text-foreground" },
+  {
+    label: "/YouTube",
+    href: SAMEBASE_PUBLIC_LINKS.youtube.destination,
+    className: "text-[#FF0000]",
+  },
 ] as const;
 
 const DOCS_SIDEBAR_LINK_CLASS_NAME =
@@ -136,10 +141,10 @@ export function DocsSidebar() {
         ))}
       </div>
       {/* Outbound links share one row, so they do not read as pages of the site. */}
-      <div className="mt-2 flex gap-4 px-2 py-2 text-xs text-muted-foreground">
+      <div className="mt-2 flex gap-3 px-2 py-2">
         {DOCS_SIDEBAR_SOCIAL_LINKS.map((link) => (
           <a
-            className="hover:text-foreground"
+            className={link.className}
             href={link.href}
             key={link.label}
             rel="noreferrer"

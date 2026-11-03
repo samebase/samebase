@@ -323,7 +323,7 @@ test("public landing renders the routed landing UI directly", async ({ page }) =
 
   const leftPane = page.locator('[data-sidebar-layout-part="pane"][data-pane-side="left"]');
   await expect(leftPane).toHaveCount(1);
-  for (const name of ["Pricing", "Privacy", "Terms", "X", "YouTube"]) {
+  for (const name of ["Pricing", "Privacy", "Terms", "/x.com", "/YouTube"]) {
     await expect(leftPane.getByRole("link", { name, exact: true })).toBeVisible();
   }
   const rightPane = page.locator('[data-sidebar-layout-part="pane"][data-pane-side="right"]');

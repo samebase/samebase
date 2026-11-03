@@ -31,8 +31,8 @@ const expectedLandingPreviewSidebarFiles = [
   "Changelog",
   "Privacy",
   "Terms",
-  "X",
-  "YouTube",
+  "/x.com",
+  "/YouTube",
 ] as const;
 
 async function expectSidebarFiles(sidebar: Locator) {
