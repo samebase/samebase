@@ -621,7 +621,7 @@ describe("SidebarLayout mobile boot alignment", () => {
         vi.advanceTimersByTime(81);
       });
       expect(carouselNode.scrollLeft).toBe(TEST_SIDEBAR_WIDTH_PX);
-      const settledUpdate = setState.mock.calls.at(-1)?.[0];
+      const settledUpdate = setState.mock.lastCall?.[0];
       expect(settledUpdate?.(createMobileSidebarState({ mobilePane: "right" })).mobilePane).toBe(
         "main",
       );
