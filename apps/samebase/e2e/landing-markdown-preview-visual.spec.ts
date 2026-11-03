@@ -700,18 +700,8 @@ test("landing do-it-yourself opens on the saved left pane", async ({ page }) => 
     "rgb(255, 255, 255)",
   );
   await expectSidebarFiles(sidebar);
-  await expect
-    .poll(() => {
-      const url = new URL(page.url());
-      return {
-        dark: url.searchParams.has("dark"),
-        left: url.searchParams.has("left"),
-      };
-    })
-    .toEqual({
-      dark: true,
-      left: true,
-    });
+  // The pane is saved state, not a URL flag: the URL keeps its own params and gains none.
+  await expect.poll(() => new URL(page.url()).search).toBe("?dark");
   await expect(page).toHaveScreenshot("landing-markdown-preview-mobile.png", {
     animations: "disabled",
     caret: "hide",
