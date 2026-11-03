@@ -25,7 +25,16 @@ export async function separateSessionCookiesByPort(
   if (cookieHeader !== null) {
     requestHeaders.set("cookie", readPortSessionCookies(cookieHeader, suffix));
   }
-  const response = await serve(new Request(request, { headers: requestHeaders }));
+  // The dev server's request is not the global Request class, whose constructor then cannot copy
+  // it, so the copy takes its parts.
+  const response = await serve(
+    new Request(request.url, {
+      method: request.method,
+      headers: requestHeaders,
+      body:
+        request.method === "GET" || request.method === "HEAD" ? null : await request.arrayBuffer(),
+    }),
+  );
 
   const setCookies = response.headers.getSetCookie();
   if (setCookies.length === 0) {
