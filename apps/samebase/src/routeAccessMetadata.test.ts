@@ -35,11 +35,15 @@ describe("route access metadata", () => {
     ] as const;
 
     for (const path of publicDocsPaths) {
-      expect(ROUTE_ACCESS_METADATA_BY_PATH[path]).toEqual({
+      expect(ROUTE_ACCESS_METADATA_BY_PATH[path]).toMatchObject({
         access: "access_public",
         prerender: true,
       });
     }
+    // The docs index shows the docs list in its main pane, so it has no left pane.
+    expect(ROUTE_ACCESS_METADATA_BY_PATH["/docs"].appWorkspaceRouteChrome).toEqual({
+      leftPane: "none",
+    });
   });
 
   it("keeps the retired landing preview as a redirect", () => {

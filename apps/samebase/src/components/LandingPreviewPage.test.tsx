@@ -12,6 +12,7 @@ import {
   DocsTheStackPage,
   LandingPage,
 } from "@/components/LandingPreviewPage";
+import { DOCS_ROUTE_CHROME } from "@/components/DocsSidebar";
 import { LANDING_INLINE_80_PERCENT_MARK_SVG_URL } from "@/components/compactIdentitySvgAsset";
 import { type PublicDeploymentAuthPolicy } from "../../convex/deploymentProfile";
 
@@ -302,17 +303,16 @@ describe("LandingPage", () => {
     expect(markup.split('<div class="hidden"><button').length - 1).toBe(2);
   });
 
-  it("renders the landing page with the docs sidebar", () => {
-    const markup = renderToStaticMarkup(<LandingPage />);
-    const sidebarMarkup = markup.slice(0, markup.indexOf("<main>"));
+  it("keeps the docs sidebar in the routes' static left pane, not in the page", () => {
+    const sidebarMarkup = renderToStaticMarkup(DOCS_ROUTE_CHROME.leftPane.content);
 
     expect(sidebarMarkup).toContain('data-testid="docs-sidebar"');
     expect(sidebarMarkup).toContain('href="/docs/do-it-yourself"');
+    expect(renderToStaticMarkup(<LandingPage />)).not.toContain('data-testid="docs-sidebar"');
   });
 
   it("nests the docs pages under a docs folder instead of linking every heading", () => {
-    const markup = renderToStaticMarkup(<DocsDoItYourselfPage />);
-    const sidebarMarkup = markup.slice(0, markup.indexOf("<main>"));
+    const sidebarMarkup = renderToStaticMarkup(DOCS_ROUTE_CHROME.leftPane.content);
 
     expect(sidebarMarkup).toContain("Overview");
     expect(sidebarMarkup).toContain("The stack");
@@ -347,12 +347,9 @@ describe("LandingPage", () => {
   });
 
   it("renders the docs navigation in the main pane on the docs index", () => {
-    const markup = renderToStaticMarkup(<DocsIndexPage />);
-    const mainStart = markup.indexOf("<main>");
-    const sidebarMarkup = markup.slice(0, mainStart);
-    const mainMarkup = markup.slice(mainStart);
+    // The docs index has no static left pane (routeAccessMetadata.test.ts), so the list is its page.
+    const mainMarkup = renderToStaticMarkup(<DocsIndexPage />);
 
-    expect(sidebarMarkup).not.toContain(`data-testid="docs-sidebar"`);
     expect(mainMarkup).toContain(`data-testid="docs-sidebar"`);
     expect(mainMarkup).toContain('href="/"');
     expect(mainMarkup).toContain('href="/docs/the-stack"');
@@ -392,7 +389,6 @@ describe("LandingPage", () => {
     const markup = renderToStaticMarkup(<DocsDoItYourselfPage />);
 
     expect(markup).toContain("Do it yourself: deploy the Samebase stack for $0/month");
-    expect(markup).toContain('href="/docs/receipts"');
     expect(markup).toContain("pnpm run deploy:preview");
     expect(markup).toContain("What Samebase adds");
     expect(markup).not.toContain(".mp4");

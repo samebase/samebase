@@ -2,6 +2,7 @@ import { tanstackStart } from "@tanstack/react-start/plugin/vite";
 import react from "@vitejs/plugin-react";
 import { defaultClientConditions, defaultServerConditions } from "vite";
 import { defineConfig } from "vite-plus";
+import { inlineScriptPlugin } from "./dev/inlineScriptPlugin";
 
 const prerenderPages = [
   {
@@ -29,6 +30,7 @@ export default defineConfig({
     options: { typeAware: true },
   },
   plugins: [
+    inlineScriptPlugin(),
     tanstackStart({
       pages: prerenderPages,
       prerender: {

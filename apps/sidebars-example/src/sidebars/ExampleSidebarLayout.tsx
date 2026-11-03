@@ -6,10 +6,9 @@ import {
 import { PaneFrame, type PaneFrameProps } from "@samebase/sidebars/PaneFrame";
 import { useSidebarActions, useSidebarLayoutPresentation } from "@samebase/sidebars/SidebarRuntime";
 import { PanelLeft, PanelRight } from "lucide-react";
-import {
-  exampleSidebarDesktopPrehydrationScript,
-  exampleSidebarMobilePrehydrationScript,
-} from "./exampleSidebarState";
+import writeExampleSidebarInitialStateSource from "./exampleSidebarInitialStateScript?inline-script";
+
+const EXAMPLE_SIDEBAR_INITIAL_STATE_SCRIPT = `(${writeExampleSidebarInitialStateSource})();`;
 
 const RESIZE_HANDLE_LABELS = {
   left: "Resize links sidebar",
@@ -64,24 +63,15 @@ export function ExampleSidebarLayout({
   right: PaneFrameProps;
 }) {
   return (
-    <>
-      <SidebarLayout
-        addressChrome={<ExampleAddressChrome />}
-        formatResizeHandleValueText={formatResizeHandleValueText}
-        left={<PaneFrame {...left} />}
-        main={<PaneFrame {...main} />}
-        mobileMinResizeBehavior="min_resize_to_merge"
-        resizeHandleLabels={RESIZE_HANDLE_LABELS}
-        right={<PaneFrame {...right} />}
-      />
-      <script
-        suppressHydrationWarning
-        dangerouslySetInnerHTML={{ __html: exampleSidebarDesktopPrehydrationScript }}
-      />
-      <script
-        suppressHydrationWarning
-        dangerouslySetInnerHTML={{ __html: exampleSidebarMobilePrehydrationScript }}
-      />
-    </>
+    <SidebarLayout
+      addressChrome={<ExampleAddressChrome />}
+      formatResizeHandleValueText={formatResizeHandleValueText}
+      initialStateScript={EXAMPLE_SIDEBAR_INITIAL_STATE_SCRIPT}
+      left={<PaneFrame {...left} />}
+      main={<PaneFrame {...main} />}
+      mobileMinResizeBehavior="min_resize_to_merge"
+      resizeHandleLabels={RESIZE_HANDLE_LABELS}
+      right={<PaneFrame {...right} />}
+    />
   );
 }

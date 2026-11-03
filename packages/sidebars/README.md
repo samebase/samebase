@@ -194,9 +194,10 @@ Stable parts are `root`, `address-chrome`, `viewport`, `carousel`, `pane`, `pane
 `pane-scrollport`, `pane-content`, and `pane-footer`.
 
 Stable state attributes are `data-mobile-pane`, `data-mobile-min-resize-behavior`,
-`data-sidebar-layout-mobile-merged-side`, `data-pane-side`, `data-desktop-open`,
-`data-active-resize`, `data-transition-enabled`, `data-resize-side`, `data-resize-mode`,
-`data-resizing`, `data-viewport-measured`, and `data-carousel-scroll-locked`.
+`data-sidebar-layout-mobile-merged-side`, `data-has-left-pane`, `data-has-right-pane`,
+`data-left-desktop-open`, `data-right-desktop-open`, `data-pane-side`, `data-active-resize`,
+`data-transition-enabled`, `data-resize-side`, `data-resize-mode`, `data-resizing`,
+`data-viewport-measured`, and `data-carousel-scroll-locked`.
 
 The package uses `2px solid Highlight` as the default resize-handle focus outline. Consumers can
 theme it with `--sidebar-layout-focus-outline` on the layout root.
