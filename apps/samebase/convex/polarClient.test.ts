@@ -89,12 +89,17 @@ describe("Polar failure logs", () => {
 });
 
 describe("Polar product catalog", () => {
-  it("configures one current Pro product in each Polar environment", () => {
+  it("pauses Pro checkout in each Polar environment and keeps the products", () => {
     const sandbox = requireCatalog(POLAR_PRODUCT_CATALOG.sandbox);
     const production = requireCatalog(POLAR_PRODUCT_CATALOG.production);
 
-    expect(readPolarCheckoutProductId(sandbox)).toBe("0e721c02-c98b-425b-bc8d-fb323fa54925");
-    expect(readPolarCheckoutProductId(production)).toBe("e2d0db25-2971-4a77-b2b1-00b041efe9e0");
+    for (const catalog of [sandbox, production]) {
+      expect(() => readPolarCheckoutProductId(catalog)).toThrow(
+        "Polar billing requires exactly one checkout product per server.",
+      );
+    }
+    expect(resolvePolarProduct(sandbox, "0e721c02-c98b-425b-bc8d-fb323fa54925")).not.toBeNull();
+    expect(resolvePolarProduct(production, "e2d0db25-2971-4a77-b2b1-00b041efe9e0")).not.toBeNull();
   });
 
   it("selects the current Pro product and recognizes historical Pro products", () => {

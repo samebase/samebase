@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
 const polarMocks = vi.hoisted(() => ({
   createPolarClient: vi.fn(),
+  readPolarProductCatalog: vi.fn(),
   reconcilePolarCustomerBilling: vi.fn(),
 }));
 
@@ -10,6 +11,7 @@ vi.mock("./polarClient", async (importOriginal) => {
   return {
     ...actual,
     createPolarClient: polarMocks.createPolarClient,
+    readPolarProductCatalog: polarMocks.readPolarProductCatalog,
   };
 });
 
@@ -145,6 +147,27 @@ describe("Polar billing changes", () => {
     vi.clearAllMocks();
     vi.stubEnv("CONVEX_AGENT_MODE", "");
     vi.stubEnv("CONVEX_DEPLOYMENT", "local:test");
+    // New Pro is paused in the real catalog. These tests keep the checkout covered for when it
+    // reopens; "refuses new Pro while checkout is paused" reads the real catalog.
+    polarMocks.readPolarProductCatalog.mockReturnValue([
+      { productId: "0e721c02-c98b-425b-bc8d-fb323fa54925", version: 1, availableForCheckout: true },
+    ]);
+  });
+
+  it("refuses new Pro while checkout is paused", async () => {
+    const seed = await seedBillingOrganization({ githubOwnerType: "user" });
+    const actual = await vi.importActual<typeof import("./polarClient")>("./polarClient");
+    polarMocks.readPolarProductCatalog.mockImplementation(actual.readPolarProductCatalog);
+
+    await expect(
+      seed.asOwner.action(api.billing.requestPolarBillingChange, {
+        organizationId: seed.organizationId,
+        change: { kind: "upgrade_to_pro" },
+        successUrl,
+        returnUrl,
+      }),
+    ).rejects.toThrow("Samebase is free during the beta. New Pro subscriptions are paused.");
+    expect(polarMocks.createPolarClient).not.toHaveBeenCalled();
   });
 
   afterEach(() => vi.unstubAllEnvs());

@@ -344,12 +344,10 @@ describe("LandingPage", () => {
   it("renders the pricing page separately", () => {
     const markup = renderToStaticMarkup(<DocsPricingPage />);
 
-    expect(markup).toContain("Start free. Upgrade when you need more connections.");
-    expect(markup).toContain("Personal account    | Free");
-    expect(markup).toContain("Any owner           | Pro");
-    expect(markup).toContain("Each repository connected to Samebase is one connection.");
-    expect(markup).not.toContain("Cloudflare Worker");
-    expect(markup).toContain("If Pro ends, nothing is disconnected or deleted.");
+    expect(markup).toContain("Samebase is free during the beta. New Pro subscriptions are paused.");
+    expect(markup).toContain("Personal account    |                     12 |       1");
+    expect(markup).toContain("GitHub organization |                      6 |       2");
+    expect(markup).not.toContain("$4");
     expect(markup).not.toContain("FileView");
   });
 });

@@ -147,7 +147,7 @@ describe("OrganizationBillingSection", () => {
     rootElement = null;
   });
 
-  it("starts billing for the routed organization and restores actions after browser return", async () => {
+  it("shows Free as the beta plan with no way to start Pro", async () => {
     const createCheckout = vi.fn(() => new Promise<never>(() => undefined));
     testState.actions.set(getFunctionName(api.billing.requestPolarBillingChange), createCheckout);
     const container = await mountBillingSection();
@@ -160,30 +160,12 @@ describe("OrganizationBillingSection", () => {
       args: { organizationId: organization.organizationId },
       name: getFunctionName(api.billingResourceQuotas.getViewerBillingResourceUsage),
     });
-    const upgradeButton = [...container.querySelectorAll("button")].find(
-      (button) => button.textContent === "Upgrade to Pro, $4/month",
+    expect(container.textContent).toContain(
+      "Samebase is free during the beta. New Pro subscriptions are paused.",
     );
+    expect(container.textContent).not.toContain("Upgrade to Pro");
     expect(container.textContent).not.toContain("Add member seat");
-    await act(async () => {
-      upgradeButton?.click();
-      await Promise.resolve();
-    });
-
-    expect(createCheckout).toHaveBeenCalledWith({
-      change: { kind: "upgrade_to_pro" },
-      organizationId: organization.organizationId,
-      returnUrl: `${window.location.origin}/org/samebase/settings?checkout=cancel#billing`,
-      successUrl: `${window.location.origin}/org/samebase/settings?checkout=success#billing`,
-    });
-    expect(upgradeButton?.disabled).toBe(true);
-    expect(upgradeButton?.textContent).toBe("Updating...");
-
-    const restoredPageShow = new Event("pageshow");
-    Object.defineProperty(restoredPageShow, "persisted", { value: true });
-    await act(async () => window.dispatchEvent(restoredPageShow));
-
-    expect(upgradeButton?.disabled).toBe(false);
-    expect(upgradeButton?.textContent).toBe("Upgrade to Pro, $4/month");
+    expect(createCheckout).not.toHaveBeenCalled();
   });
 
   it("shows the payer and schedules Pro to change to Free", async () => {
@@ -218,6 +200,17 @@ describe("OrganizationBillingSection", () => {
       returnUrl: `${window.location.origin}/org/samebase/settings?checkout=cancel#billing`,
       successUrl: `${window.location.origin}/org/samebase/settings?checkout=success#billing`,
     });
+    expect(downgradeButton?.disabled).toBe(true);
+    expect(downgradeButton?.textContent).toBe("Updating...");
+    expect(container.textContent).not.toContain("Samebase is free during the beta.");
+
+    // A page restored from the back-forward cache gets its actions back.
+    const restoredPageShow = new Event("pageshow");
+    Object.defineProperty(restoredPageShow, "persisted", { value: true });
+    await act(async () => window.dispatchEvent(restoredPageShow));
+
+    expect(downgradeButton?.disabled).toBe(false);
+    expect(downgradeButton?.textContent).toBe("Switch to Free next billing period");
   });
 
   it("lets personal Pro buy a seat before the included capacity is used", async () => {
