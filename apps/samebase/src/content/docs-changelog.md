@@ -5,7 +5,7 @@ change. If a change needs action from you, the entry says so.
 
 ## 2026-11-03
 
-- **v2244: Cleaner pull request rows.** On a repository page, tap a pull request's title to open it
+- **v2245: Cleaner pull request rows.** On a repository page, tap a pull request's title to open it
   on GitHub, or its diff size, such as `+96 −102 3 files`, to open its changed files in Samebase.
   The arrow at the right shows its previews. A row names the base branch only when it is not the
   default branch.
