@@ -12,7 +12,6 @@ import {
 } from "./contracts/getUserRepositories";
 import { retryInfrastructureProvisioningContract } from "./contracts/retryInfrastructureProvisioning";
 import type { RepositoryActionsCiSecrets } from "./provisioningModel";
-import { isSamebaseManagedProviderPlan } from "./provisioningPlan";
 import { classifyRepositoryCheck, type RepositoryStatusCheckRollup } from "./pullRequestModel";
 import { summarizeRepositoryChecks } from "../../shared/repositoryChecks";
 
@@ -214,7 +213,7 @@ export function buildRepositoryAttention(args: {
         },
       ];
     case "failed":
-      if (repository.providerPlan && !isSamebaseManagedProviderPlan(repository.providerPlan)) {
+      if (repository.providerPlan !== null) {
         return [
           {
             tool: RETRY_PROVIDER_SETUP_TOOL,
@@ -233,7 +232,7 @@ export function buildRepositoryAttention(args: {
 
   const plan = repository.providerPlan;
   const setupItems =
-    plan && !isSamebaseManagedProviderPlan(plan)
+    plan !== null
       ? buildRepositoryActionsAttention({
           repository,
           ciSecrets: plan.ciSecrets,

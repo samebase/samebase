@@ -110,19 +110,11 @@ async function createComposedRepository() {
       connectedAt: 12,
     });
     const planId = await ctx.db.insert("workflow_repositoryProvisioning_plans", {
+      provisioning: "repository_actions",
       repositoryId,
       convexConfigPath: "convex.json",
-      convex: {
-        state: "planned",
-        projectName: "composed-app",
-        deploymentRegion: "aws-eu-west-1",
-      },
-      cloudflare: {
-        state: "planned",
-        workerName: "composed-app",
-        rootDirectory: "/",
-        buildTokenUuid: "build-token",
-      },
+      ciSecrets: { state: "planned" },
+      seed: { state: "planned" },
       createdAt: 30,
       updatedAt: 30,
     });
@@ -295,7 +287,7 @@ describe("provisioning write lock ownership", () => {
     });
 
     await expect(
-      t.query(internal.repositoryProvisioningWorkflow.readProvisioningModeForRun, {
+      t.query(internal.repositoryProvisioningWorkflow.requireProvisioningPlanForRun, {
         userId: ids.userId,
         repositoryId: ids.repositoryId,
         runId: retryRunId,
@@ -317,79 +309,54 @@ describe("provisioning write lock ownership", () => {
   });
 });
 
-/** The old plan's Cloudflare and Convex fields stay valid, and no setup step reads them any more. */
-describe("old provisioning plan rows", () => {
-  async function listRepository({ ids, t }: Awaited<ReturnType<typeof createComposedRepository>>) {
-    const viewer = t.withIdentity({ subject: ids.userId, tokenIdentifier: `test:${ids.userId}` });
-    await t.run(async (ctx) => {
-      await ctx.db.patch(ids.runId, { state: "succeeded", currentStep: "finish" });
-      const writeLock = await ctx.db
-        .query("workflow_repositoryProvisioning_writeLocks")
-        .withIndex("by_repository", (q) => q.eq("repositoryId", ids.repositoryId))
-        .unique();
-      if (writeLock) {
-        await ctx.db.patch(writeLock._id, { state: "succeeded" });
-      }
-    });
-    return (await viewer.query(api.repository.list, {})).at(0);
-  }
-
-  it("lists a repository whose old plan has no Cloudflare account, like a finished old plan", async () => {
-    const finished = await createComposedRepository();
-    const finishedRepository = await listRepository(finished);
-    expect(finishedRepository?.providerPlan).toMatchObject({ convex: { state: "planned" } });
-
-    const noAccount = await createComposedRepository();
-    await noAccount.t.run(async (ctx) => {
-      const repository = await ctx.db.get(noAccount.ids.repositoryId);
-      if (repository?.state !== "connected") {
-        throw new Error("Expected a connected repository.");
-      }
-      const { cloudflareAccountId: _removed, _id, _creationTime, ...withoutAccount } = repository;
-      await ctx.db.replace(_id, withoutAccount);
-    });
-
-    const listed = await listRepository(noAccount);
-
-    expect(listed).toMatchObject({
-      providerPlan: null,
-      sourceSetup: finishedRepository?.sourceSetup,
-      providerSetup: finishedRepository?.providerSetup,
-    });
-  });
-
-  it("stops a create run on an old plan before it creates the GitHub repository", async () => {
-    const { ids, t } = await createComposedRepository();
-
-    await expect(
-      t.action(internal.repositoryProvisioningWorkflowActions.validateCreateAppConnections, {
-        repositoryId: ids.repositoryId,
-        runId: ids.runId,
-        userId: ids.userId,
-        githubRepositoryName: "composed-app",
-        githubOwnerLogin: "ada",
-      }),
-    ).rejects.toThrow("Provisioning run does not match repository_actions setup.");
-  });
-
-  it("stops a retry workflow on an old plan at its first read", async () => {
-    const { ids, t } = await createComposedRepository();
-
-    await expect(
-      t.query(internal.repositoryProvisioningWorkflow.readComposedInfrastructureRetryContext, {
-        repositoryId: ids.repositoryId,
-        runId: ids.runId,
-      }),
-    ).rejects.toThrow("Only a repository_actions repository can retry its setup.");
-  });
-});
-
 const actionsRepositorySecretKey = new Uint8Array(32).fill(7);
 const actionsRepositoryPublicKey = btoa(
   String.fromCharCode(...x25519.getPublicKey(actionsRepositorySecretKey)),
 );
 
 /** Opens a secret that write_actions_secrets sealed for the fake repository's public key. */
+/** A run whose plan row is gone stops at its first read, before any provider or GitHub write. */
+describe("missing provisioning plan", () => {
+  async function deletePlan({ ids, t }: Awaited<ReturnType<typeof createComposedRepository>>) {
+    await t.run(async (ctx) => {
+      await ctx.db.delete(ids.planId);
+    });
+  }
+
+  it("stops a create run before it creates the GitHub repository", async () => {
+    const composed = await createComposedRepository();
+    await deletePlan(composed);
+
+    await expect(
+      composed.t.action(
+        internal.repositoryProvisioningWorkflowActions.validateCreateAppConnections,
+        {
+          repositoryId: composed.ids.repositoryId,
+          runId: composed.ids.runId,
+          userId: composed.ids.userId,
+          githubRepositoryName: "composed-app",
+          githubOwnerLogin: "ada",
+        },
+      ),
+    ).rejects.toThrow("Infrastructure provisioning plan not found for repository.");
+  });
+
+  it("stops a retry workflow at its first read", async () => {
+    const composed = await createComposedRepository();
+    await deletePlan(composed);
+
+    await expect(
+      composed.t.query(
+        internal.repositoryProvisioningWorkflow.readComposedInfrastructureRetryContext,
+        {
+          repositoryId: composed.ids.repositoryId,
+          runId: composed.ids.runId,
+        },
+      ),
+    ).rejects.toThrow("Infrastructure provisioning plan not found for repository.");
+  });
+});
+
 async function openActionsSecret(request: FakeGitHubRequest | undefined): Promise<string> {
   const body = request?.body;
   if (

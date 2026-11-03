@@ -258,13 +258,11 @@ async function assertSourceSetupRun(
     throw new Error("Provisioning run does not match source setup workflow.");
   }
   if (run.trigger === "retry") {
-    const provisioning = await ctx.runQuery(
-      internal.repositoryProvisioningWorkflow.readProvisioningModeForRun,
-      { repositoryId: args.repositoryId, runId: args.runId, userId: args.userId },
-    );
-    if (provisioning !== "repository_actions") {
-      throw new Error("Provisioning run does not match source setup workflow.");
-    }
+    await ctx.runQuery(internal.repositoryProvisioningWorkflow.requireProvisioningPlanForRun, {
+      repositoryId: args.repositoryId,
+      runId: args.runId,
+      userId: args.userId,
+    });
     return run;
   }
   if (!triggers.some((trigger) => trigger === run.trigger)) {
@@ -315,14 +313,12 @@ export const validateCreateAppConnections = internalAction({
       message: "Checking provider connections.",
       state: "running",
     });
-    const provisioning = await ctx.runQuery(
-      internal.repositoryProvisioningWorkflow.readProvisioningModeForRun,
-      { repositoryId: args.repositoryId, runId: args.runId, userId: args.userId },
-    );
-    // This step runs before the GitHub repository exists, so a run on any other plan stops here.
-    if (provisioning !== "repository_actions") {
-      throw new Error("Provisioning run does not match repository_actions setup.");
-    }
+    // This step runs before the GitHub repository exists, so a run without a plan stops here.
+    await ctx.runQuery(internal.repositoryProvisioningWorkflow.requireProvisioningPlanForRun, {
+      repositoryId: args.repositoryId,
+      runId: args.runId,
+      userId: args.userId,
+    });
 
     const githubRepositoryName = toSafeGitHubRepositoryName(args.githubRepositoryName);
     if (!githubRepositoryName) {

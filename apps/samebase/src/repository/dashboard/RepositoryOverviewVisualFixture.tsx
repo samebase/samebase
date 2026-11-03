@@ -52,7 +52,6 @@ export type RepositoryOverviewVisualMode =
   | RepositoryConvexSchemaGraphVisualMode
   | "repository-overview-v2"
   | "repository-overview-v2-auto-pagination"
-  | "repository-overview-v2-cloudflare-github-authorization-failed"
   | "repository-overview-v2-dev"
   | "repository-overview-v2-loading"
   | "repository-overview-v2-no-convex"
@@ -508,7 +507,6 @@ const LIST_SPACING_PULL_REQUESTS = [
 
 type RepositoryOverviewProvisioningVisualMode = Extract<
   RepositoryOverviewVisualMode,
-  | "repository-overview-v2-cloudflare-github-authorization-failed"
   | "repository-overview-v2-provisioning-source"
   | "repository-overview-v2-provisioning-github"
   | "repository-overview-v2-provisioning-early-empty"
@@ -577,23 +575,6 @@ const PROVISIONING_DEFAULT_BRANCH = {
   statusCheckRollup: null,
   checks: FIXTURE_NO_CHECKS,
 } satisfies RepositoryDefaultBranchObservation;
-
-const PROVISIONING_PLANNED_PROVIDER_PLAN = {
-  convexConfigPath: "convex.json",
-  convex: {
-    state: "planned",
-    projectName: "tmp-f149-repository-loading-states",
-    deploymentRegion: "aws-eu-west-1",
-    teamId: "38516",
-  },
-  cloudflare: {
-    state: "planned",
-    accountId: "fixture-cloudflare-account",
-    buildTokenUuid: "fixture-build-token",
-    workerName: "tmp-f149-repository-loading-states",
-    rootDirectory: "/",
-  },
-} satisfies NonNullable<UserRepositoryResult["providerPlan"]>;
 
 function fixturePullRequests(
   pullRequests: readonly FixturePullRequest[],
@@ -687,19 +668,6 @@ function RepositoryOverviewProvisioningFixture({
   let alchemyState: RepositoryAlchemyState = NO_STACK_STORE;
 
   switch (mode) {
-    case "repository-overview-v2-cloudflare-github-authorization-failed": {
-      const githubRepositoryFullName = "noter-guest/tmp-testing-waters";
-      repository = {
-        ...PROVISIONING_REPOSITORY,
-        githubOwnerLogin: "noter-guest",
-        githubRepositoryName: "tmp-testing-waters",
-        githubRepositoryFullName,
-        providerPlan: PROVISIONING_PLANNED_PROVIDER_PLAN,
-        providerSetup: { status: "not_applicable" },
-      };
-      pullRequests = fixturePullRequests([], PROVISIONING_DEFAULT_BRANCH);
-      break;
-    }
     case "repository-overview-v2-provisioning-source":
       repository = {
         ...PROVISIONING_REPOSITORY,
@@ -842,7 +810,7 @@ function RepositoryOverviewProvisioningFixture({
 function RepositoryOverviewDisconnectBlockedFixture() {
   const repository: UserRepositoryResult = {
     ...PROVISIONING_REPOSITORY,
-    providerPlan: PROVISIONING_PLANNED_PROVIDER_PLAN,
+    providerPlan: null,
     providerSetup: {
       status: "running",
       provider: "cloudflare",
@@ -923,7 +891,6 @@ export function RepositoryOverviewVisualFixture({ mode }: { mode: RepositoryOver
       return <RepositoryOverviewDialogsVisualFixture mode={mode} />;
     case "repository-overview-v2-convex-schema":
       return <RepositoryConvexSchemaGraphVisualFixture mode={mode} />;
-    case "repository-overview-v2-cloudflare-github-authorization-failed":
     case "repository-overview-v2-provisioning-source":
     case "repository-overview-v2-provisioning-github":
     case "repository-overview-v2-provisioning-early-empty":

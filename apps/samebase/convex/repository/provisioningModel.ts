@@ -1,7 +1,6 @@
 import { defineTable } from "convex/server";
 import { Infer, v } from "convex/values";
 
-import { vConvexDeploymentRegion } from "../convexDeploymentRegionModel";
 import { vRepositoryEventSourceOrder } from "./eventOrderModel";
 
 const { id, literal, number, object, optional, string, union } = v;
@@ -80,18 +79,6 @@ export function isRepositoryProvisioningProviderStep(step: RepositoryProvisionin
   }
 }
 
-/**
-samebase = Samebase's workflow creates the Convex project and the Worker and configures Workers Builds
-
-repository_actions = the repository's alchemy workflow creates the Convex project and deploys the
-app to Convex; Samebase writes the workflow's secret and variable
-*/
-export const vRepositoryProvisioningMode = union(
-  literal("samebase"),
-  literal("repository_actions"),
-);
-export type RepositoryProvisioningMode = Infer<typeof vRepositoryProvisioningMode>;
-
 export const vRepositoryProvisioningRunTrigger = union(
   literal("create"),
   literal("connect_existing_repository"),
@@ -135,52 +122,6 @@ const manualProviderWriteOwner = {
   action: vRepositoryManualProviderWriteAction,
   expiresAt: number(),
 } as const;
-
-const vSamebaseProvisioningPlan = object({
-  repositoryId: id("repositories"),
-  convexConfigPath: string(),
-  convex: union(
-    object({
-      state: literal("planned"),
-      projectName: string(),
-      deploymentRegion: vConvexDeploymentRegion,
-    }),
-    object({
-      state: literal("creating"),
-      projectName: string(),
-      deploymentRegion: vConvexDeploymentRegion,
-    }),
-    object({
-      state: literal("created"),
-      projectName: string(),
-      deploymentRegion: vConvexDeploymentRegion,
-      projectId: string(),
-    }),
-  ),
-  cloudflare: union(
-    object({
-      state: literal("planned"),
-      workerName: string(),
-      rootDirectory: string(),
-      buildTokenUuid: union(string(), v.null()),
-    }),
-    object({
-      state: literal("creating"),
-      workerName: string(),
-      rootDirectory: string(),
-      buildTokenUuid: string(),
-    }),
-    object({
-      state: literal("created"),
-      workerName: string(),
-      workerTag: string(),
-      rootDirectory: string(),
-      buildTokenUuid: string(),
-    }),
-  ),
-  createdAt: number(),
-  updatedAt: number(),
-});
 
 /**
 The Actions secret of one repository_actions repository. `credentialRevision` is the `updatedAt` of
@@ -271,15 +212,14 @@ const vRepositoryActionsProvisioningPlan = object({
 
 export const repositoryProvisioningTables = {
   /**
-  One repository's provisioning choices. The samebase variant (no `provisioning` field) holds the
-  exact Convex project and Worker that Samebase's workflow creates. The repository_actions variant
-  holds no provider choice: the repository's alchemy workflow creates the Convex project and deploys
-  the app, and Samebase writes the workflow's secret and variable. Read the mode with
-  `readRepositoryProvisioningMode`.
+  One repository's provisioning state. It holds no provider choice: the repository's alchemy
+  workflow creates the Convex project and deploys the app, and Samebase writes the workflow's secret
+  and variable.
   */
-  workflow_repositoryProvisioning_plans: defineTable(
-    union(vSamebaseProvisioningPlan, vRepositoryActionsProvisioningPlan),
-  ).index("by_repository", ["repositoryId"]),
+  workflow_repositoryProvisioning_plans: defineTable(vRepositoryActionsProvisioningPlan).index(
+    "by_repository",
+    ["repositoryId"],
+  ),
 
   /** Current or most recent provider write for one repository. */
   workflow_repositoryProvisioning_writeLocks: defineTable(

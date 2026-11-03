@@ -179,46 +179,6 @@ describe("RepositorySelectedWorkspace route", () => {
     });
   }
 
-  it("shows the missing-store guidance without Retry for an old failed setup", async () => {
-    const repository = makeRepository({
-      providerPlan: {
-        convexConfigPath: "convex.json",
-        convex: {
-          state: "planned",
-          teamId: "team-1",
-          projectName: "demo",
-          deploymentRegion: "aws-us-east-1",
-        },
-        cloudflare: {
-          state: "planned",
-          accountId: "account-1",
-          workerName: "demo",
-          rootDirectory: "/",
-          buildTokenUuid: null,
-        },
-      },
-      providerSetup: {
-        status: "failed",
-        provider: "cloudflare",
-        runId: fakeRunId(),
-        step: "attach_worker",
-        message: "Cloudflare could not attach the Worker.",
-        updatedAt: 20,
-      },
-      providerWrite: { status: "idle", lastWriteAt: {} },
-    });
-
-    await renderWorkspace(makeWorkspace(repository), "/repo/ada/demo");
-    const element = rootElement;
-    if (!element) {
-      throw new Error("Expected the selected workspace to render.");
-    }
-
-    expect(element.textContent).not.toContain("Repository setup failed");
-    expect(element.textContent).not.toContain("Retry");
-    expect(element.textContent).toContain("Alchemy state store");
-  });
-
   it("retries a failed provider setup", async () => {
     const repository = failedSetupRepository({ status: "idle", lastWriteAt: {} });
 

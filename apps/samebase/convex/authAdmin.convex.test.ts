@@ -156,10 +156,10 @@ describe("authAdmin password accounts", () => {
       const accountId = await ctx.db.insert("authAccounts", {
         provider: "password",
         providerAccountId: "mismatch@example.com",
-        secret: "original-secret",
         userId: accountUserId,
       });
       return {
+        account: await ctx.db.get(accountId),
         accountId,
         accountUserId,
       };
@@ -180,7 +180,7 @@ describe("authAdmin password accounts", () => {
         user: await ctx.db.get(existing.accountUserId),
       };
     });
-    expect(unchanged.account?.secret).toBe("original-secret");
+    expect(unchanged.account).toEqual(existing.account);
     expect(unchanged.user).not.toMatchObject({ isApproved: true });
   });
 
@@ -195,7 +195,6 @@ describe("authAdmin password accounts", () => {
       await ctx.db.insert("authAccounts", {
         provider: "password",
         providerAccountId: "missing-user@example.com",
-        secret: "original-secret",
         userId: deletedUserId,
       });
     });
@@ -218,7 +217,6 @@ describe("authAdmin password accounts", () => {
       await ctx.db.insert("authAccounts", {
         provider: "password",
         providerAccountId: "mismatched-email@example.com",
-        secret: "original-secret",
         userId: accountUserId,
       });
     });

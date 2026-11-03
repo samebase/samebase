@@ -14,8 +14,6 @@ export const identityTables = {
     userId: id("users"),
     provider: string(),
     providerAccountId: string(),
-    /** The password hash of a Convex Auth 0.0.x password account. Nothing reads it. */
-    secret: optional(string()),
     emailVerified: optional(string()),
     githubLogin: optional(string()),
   })

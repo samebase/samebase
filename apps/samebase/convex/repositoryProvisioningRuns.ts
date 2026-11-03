@@ -13,7 +13,6 @@ import {
   readRepositoryInfrastructureState,
 } from "./repository/infrastructureOperation";
 import { assertConnectedRepository, isSamebaseManagedRepository } from "./repository/state";
-import { readRepositoryProvisioningMode } from "./repository/provisioningPlan";
 import { checkActionConfirmation } from "./repository/confirmations";
 import {
   vActionConfirmation,
@@ -71,7 +70,7 @@ export const getById = internalQuery({
   },
 });
 
-/** The admission rules of a retry: a live Samebase-managed repository whose GitHub Actions setup failed, with no other provider operation running. An old plan has no setup steps left to run. */
+/** The admission rules of a retry: a live Samebase-managed repository whose GitHub Actions setup failed, with no other provider operation running. */
 async function requireRetryAdmission(
   ctx: MutationCtx,
   args: { userId: Id<"users">; repositoryId: Id<"repositories"> },
@@ -118,7 +117,6 @@ async function requireRetryAdmission(
     (failedRun.currentStep === "seed_starter" || failedRun.currentStep === "sync_tree");
   if (
     plan === null ||
-    readRepositoryProvisioningMode(plan) !== "repository_actions" ||
     failedRun.trigger === "connect_existing_repository" ||
     (!isRepositoryProvisioningProviderStep(failedRun.currentStep) &&
       !(failedRun.trigger === "retry" && failedRun.currentStep === "run_created") &&

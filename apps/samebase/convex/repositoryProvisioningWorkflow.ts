@@ -15,14 +15,7 @@ import { getOrganizationProviderConfiguration } from "./organizationProviderCred
 import {
   REPOSITORY_ACTIONS_DEFAULT_BRANCH,
   vRepositoryActionsSeed,
-  vRepositoryProvisioningMode,
-  type RepositoryProvisioningMode,
 } from "./repository/provisioningModel";
-import {
-  isSamebaseProvisioningPlan,
-  readRepositoryProvisioningMode,
-  type RepositoryProvisioningPlan,
-} from "./repository/provisioningPlan";
 import { isLiveConnectedRepository } from "./repository/state";
 import {
   requireActiveRepositoryProvisioningAuthority,
@@ -151,10 +144,7 @@ export const readComposedInfrastructureRetryContext = internalQuery({
     if (!isLiveConnectedRepository(repository)) {
       throw new Error("Repository not found.");
     }
-    const plan = await readProvisioningPlan(ctx, args.repositoryId);
-    if (isSamebaseProvisioningPlan(plan)) {
-      throw new Error("Only a repository_actions repository can retry its setup.");
-    }
+    await readProvisioningPlan(ctx, args.repositoryId);
 
     return {
       userId: authority.run.userId,
@@ -169,7 +159,7 @@ export const readComposedInfrastructureRetryContext = internalQuery({
 async function readProvisioningPlan(
   ctx: Pick<QueryCtx, "db">,
   repositoryId: Id<"repositories">,
-): Promise<RepositoryProvisioningPlan> {
+): Promise<Doc<"workflow_repositoryProvisioning_plans">> {
   const plan = await ctx.db
     .query("workflow_repositoryProvisioning_plans")
     .withIndex("by_repository", (q) => q.eq("repositoryId", repositoryId))
@@ -203,22 +193,23 @@ async function requireManagedRunWriteLock(
 }
 
 /**
-The mode of the repository of an active run, for the steps that refuse any other plan. A retry run
-also must hold the write lock: only a repository_actions retry runs the seed and sync steps.
+Checks that the run is active and that its repository has a provisioning plan. A retry run also
+must hold the write lock: only a retry that holds it runs the seed and sync steps.
 */
-export const readProvisioningModeForRun = internalQuery({
+export const requireProvisioningPlanForRun = internalQuery({
   args: {
     repositoryId: id("repositories"),
     runId: id("workflow_repositoryProvisioning_runs"),
     userId: id("users"),
   },
-  returns: vRepositoryProvisioningMode,
-  handler: async (ctx, args): Promise<RepositoryProvisioningMode> => {
+  returns: v.null(),
+  handler: async (ctx, args): Promise<null> => {
     const authority = await requireActiveRepositoryProvisioningRun(ctx.db, args);
     if (authority.run.trigger === "retry") {
       await requireManagedRunWriteLock(ctx, args);
     }
-    return readRepositoryProvisioningMode(await readProvisioningPlan(ctx, args.repositoryId));
+    await readProvisioningPlan(ctx, args.repositoryId);
+    return null;
   },
 });
 
@@ -244,14 +235,11 @@ export const readActionsSecretsTarget = internalQuery({
     if (!isLiveConnectedRepository(repository)) {
       throw new Error("Repository not found.");
     }
-    const [plan, { convexCredential, convexTeam }] = await Promise.all([
+    const [, { convexCredential, convexTeam }] = await Promise.all([
       readProvisioningPlan(ctx, args.repositoryId),
       getOrganizationProviderConfiguration(ctx.db, repository.organizationId),
       requireManagedRunWriteLock(ctx, args),
     ]);
-    if (readRepositoryProvisioningMode(plan) !== "repository_actions") {
-      throw new Error("Only a repository_actions repository receives GitHub Actions secrets.");
-    }
     if (repository.convexTeamId === undefined) {
       throw new Error("Managed repository provider destinations are not configured.");
     }
@@ -280,11 +268,7 @@ async function readRepositoryActionsPlanForRun(
 ) {
   await requireActiveRepositoryProvisioningRun(ctx.db, args);
   await requireManagedRunWriteLock(ctx, args);
-  const plan = await readProvisioningPlan(ctx, args.repositoryId);
-  if (isSamebaseProvisioningPlan(plan)) {
-    throw new Error("Only a repository_actions repository records its starter seed.");
-  }
-  return plan;
+  return await readProvisioningPlan(ctx, args.repositoryId);
 }
 
 /** The starter seed of a repository_actions repository, read by the seed step before it seeds. */
@@ -377,9 +361,6 @@ export const markActionsSecretsWritten = internalMutation({
     await requireActiveRepositoryProvisioningContinuation(ctx, args);
     await requireManagedRunWriteLock(ctx, args);
     const plan = await readProvisioningPlan(ctx, args.repositoryId);
-    if (isSamebaseProvisioningPlan(plan)) {
-      throw new Error("Only a repository_actions repository receives GitHub Actions secrets.");
-    }
     const now = Date.now();
     await ctx.db.patch(plan._id, {
       ciSecrets: { state: "written", writtenAt: now, credentialRevision: args.credentialRevision },

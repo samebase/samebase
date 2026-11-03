@@ -164,7 +164,6 @@ import type * as repository_organizationTree from "../repository/organizationTre
 import type * as repository_organizationTreeModel from "../repository/organizationTreeModel.js";
 import type * as repository_providerDashboardUrls from "../repository/providerDashboardUrls.js";
 import type * as repository_provisioningModel from "../repository/provisioningModel.js";
-import type * as repository_provisioningPlan from "../repository/provisioningPlan.js";
 import type * as repository_pullRequestModel from "../repository/pullRequestModel.js";
 import type * as repository_records from "../repository/records.js";
 import type * as repository_repositoryStatus from "../repository/repositoryStatus.js";
@@ -354,7 +353,6 @@ declare const fullApi: ApiFromModules<{
   "repository/organizationTreeModel": typeof repository_organizationTreeModel;
   "repository/providerDashboardUrls": typeof repository_providerDashboardUrls;
   "repository/provisioningModel": typeof repository_provisioningModel;
-  "repository/provisioningPlan": typeof repository_provisioningPlan;
   "repository/pullRequestModel": typeof repository_pullRequestModel;
   "repository/records": typeof repository_records;
   "repository/repositoryStatus": typeof repository_repositoryStatus;

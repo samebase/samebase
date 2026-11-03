@@ -465,28 +465,6 @@ test("says what is true without a store or a Convex connection", async ({ page }
   await expect(noConvexFixture.getByRole("button", { name: "Retry" })).toHaveCount(0);
 });
 
-test("shows store guidance for an old provider setup failure", async ({ page }) => {
-  await page.setViewportSize({ width: 700, height: 700 });
-  const fixture = await openRepositoryOverviewV2(
-    page,
-    "repository-overview-v2-cloudflare-github-authorization-failed",
-  );
-
-  await expect(fixture.getByRole("heading", { name: "Repository setup failed" })).toHaveCount(0);
-  await expect(fixture.getByText(NO_STACK_LINE, { exact: true })).toBeVisible();
-  await expect(fixture.getByRole("button", { name: "Retry" })).toHaveCount(0);
-  await expect(fixture.locator('[data-repository-status="Needs attention"]')).toHaveCount(0);
-  await expect(fixture).toHaveScreenshot(
-    "repository-overview-v2-cloudflare-github-authorization-failed.png",
-    {
-      animations: "disabled",
-      caret: "hide",
-      maxDiffPixelRatio: 0.02,
-      scale: "css",
-    },
-  );
-});
-
 test("reproduces the observed new repository provisioning states", async ({ page }) => {
   await page.setViewportSize({ width: 700, height: 995 });
 
