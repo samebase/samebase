@@ -315,6 +315,48 @@ const actionsRepositoryPublicKey = btoa(
 );
 
 /** Opens a secret that write_actions_secrets sealed for the fake repository's public key. */
+/** A run whose plan row is gone stops at its first read, before any provider or GitHub write. */
+describe("missing provisioning plan", () => {
+  async function deletePlan({ ids, t }: Awaited<ReturnType<typeof createComposedRepository>>) {
+    await t.run(async (ctx) => {
+      await ctx.db.delete(ids.planId);
+    });
+  }
+
+  it("stops a create run before it creates the GitHub repository", async () => {
+    const composed = await createComposedRepository();
+    await deletePlan(composed);
+
+    await expect(
+      composed.t.action(
+        internal.repositoryProvisioningWorkflowActions.validateCreateAppConnections,
+        {
+          repositoryId: composed.ids.repositoryId,
+          runId: composed.ids.runId,
+          userId: composed.ids.userId,
+          githubRepositoryName: "composed-app",
+          githubOwnerLogin: "ada",
+        },
+      ),
+    ).rejects.toThrow("Infrastructure provisioning plan not found for repository.");
+  });
+
+  it("stops a retry workflow at its first read", async () => {
+    const composed = await createComposedRepository();
+    await deletePlan(composed);
+
+    await expect(
+      composed.t.query(
+        internal.repositoryProvisioningWorkflow.readComposedInfrastructureRetryContext,
+        {
+          repositoryId: composed.ids.repositoryId,
+          runId: composed.ids.runId,
+        },
+      ),
+    ).rejects.toThrow("Infrastructure provisioning plan not found for repository.");
+  });
+});
+
 async function openActionsSecret(request: FakeGitHubRequest | undefined): Promise<string> {
   const body = request?.body;
   if (
