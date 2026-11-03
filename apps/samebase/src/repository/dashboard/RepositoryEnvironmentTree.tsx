@@ -19,7 +19,6 @@ import type {
   RepositoryPullRequestsState,
 } from "@/repository/dashboard/useRepositoryPullRequests";
 import { formatRelativeTimeAgo } from "@/lib/formatRelativeTime";
-import { buildGitHubBranchTreeUrl } from "@/lib/githubUrls";
 import { buildRepositoryFileRoute } from "@/lib/repositoryRoutes";
 import { Link } from "@tanstack/react-router";
 import { convexDeploymentRegionDetails } from "../../../shared/convexDeploymentRegions";
@@ -342,7 +341,7 @@ function readStoreNotice({
 
 /**
 The head commit of the default branch, its title and its checks come from the GitHub pull-request
-query, which runs in the browser. The branch name comes from the repository row, so the branch link
+query, which runs in the browser. The branch name comes from the repository row, so the branch name
 renders in the first frame and only this part waits for that query.
 */
 function DefaultBranchCommit({
@@ -350,7 +349,7 @@ function DefaultBranchCommit({
   filesHref,
   pullRequests,
 }: {
-  branch: { name: string; url: string } | undefined;
+  branch: { name: string } | undefined;
   filesHref: string | null;
   pullRequests: RepositoryPullRequestsState;
 }) {
@@ -364,15 +363,10 @@ function DefaultBranchCommit({
       <Pencil aria-hidden="true" className="h-4 w-4" />
     </Link>
   ) : null;
-  const branchLink = branch ? (
-    <a
-      className="inline-flex min-h-10 items-center text-xs font-medium text-foreground underline decoration-border underline-offset-4 hover:decoration-foreground @4xl:min-h-8"
-      href={branch.url}
-      rel="noreferrer noopener"
-      target="_blank"
-    >
+  const branchLabel = branch ? (
+    <span className="text-xs leading-5 text-muted-foreground [overflow-wrap:anywhere]">
       {branch.name}
-    </a>
+    </span>
   ) : null;
   if (
     !branch ||
@@ -383,9 +377,9 @@ function DefaultBranchCommit({
   ) {
     return (
       <>
-        {branchLink ? (
+        {branchLabel ? (
           <div className="flex min-w-0 items-center justify-between gap-2">
-            {branchLink}
+            {branchLabel}
             {filesLink}
           </div>
         ) : null}
@@ -419,21 +413,11 @@ function DefaultBranchCommit({
 
   return (
     <div className="min-w-0">
-      <div className="flex min-w-0 items-start gap-2">
-        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1">
-          {branchLink}
-          {/* The commit and its time wrap together, so a long branch name never leaves them apart. */}
-          <span className="inline-flex items-center gap-2">
-            <a
-              className="inline-flex min-h-10 items-center font-mono text-xs text-muted-foreground underline decoration-border underline-offset-4 hover:text-foreground @4xl:min-h-8"
-              href={observation.headCommitUrl}
-              rel="noreferrer noopener"
-              target="_blank"
-            >
-              {observation.headCommitOid.slice(0, 7)}
-            </a>
-            <span className="text-xs text-muted-foreground">{relativeCommitTime}</span>
-          </span>
+      {/* Same shape as a pull request row: branch and time on top, checks at the right. */}
+      <div className="flex min-w-0 items-center gap-2">
+        <div className="flex min-w-0 flex-1 flex-wrap gap-x-2.5 text-xs leading-5 text-muted-foreground">
+          <span className="[overflow-wrap:anywhere]">{branch.name}</span>
+          <span>{relativeCommitTime}</span>
         </div>
         <RepositoryChecksPopover
           checks={observation.checks}
@@ -444,9 +428,21 @@ function DefaultBranchCommit({
         />
         {filesLink}
       </div>
-      <div className="line-clamp-3 text-base font-medium leading-6 text-foreground [overflow-wrap:anywhere]">
-        {observation.headCommitTitle}
-      </div>
+      {/* The commit and its title are one GitHub link, like a pull request's number and title. */}
+      <p className="line-clamp-3 text-sm font-medium leading-5 [overflow-wrap:anywhere]">
+        <a
+          className="text-foreground underline decoration-border underline-offset-4 hover:decoration-foreground"
+          href={observation.headCommitUrl}
+          rel="noreferrer noopener"
+          target="_blank"
+          title="Open on GitHub"
+        >
+          <span className="font-mono font-normal text-muted-foreground">
+            {observation.headCommitOid.slice(0, 7)}
+          </span>{" "}
+          {observation.headCommitTitle}
+        </a>
+      </p>
     </div>
   );
 }
@@ -460,15 +456,7 @@ export function DefaultBranchSection({
 }) {
   const pullRequests = workspace.pullRequests;
   const defaultBranch = workspace.repository.defaultBranch?.trim();
-  const branch = defaultBranch
-    ? {
-        name: defaultBranch,
-        url: buildGitHubBranchTreeUrl({
-          branchName: defaultBranch,
-          githubRepositoryFullName: workspace.repository.githubRepositoryFullName,
-        }),
-      }
-    : undefined;
+  const branch = defaultBranch ? { name: defaultBranch } : undefined;
   if (!branch) {
     return (
       <section className="pb-5">

@@ -3,6 +3,14 @@
 What changed in Samebase, newest first. Each `v` number is the Samebase version that shipped the
 change. If a change needs action from you, the entry says so.
 
+## 2026-11-03
+
+- **v2245: Cleaner branch and pull request rows.** On a repository page, the main branch and each
+  pull request use the same layout: branch and time on top, checks at the right, then the commit or
+  pull request title. Tap a title to open it on GitHub. Tap a pull request's diff size, such as
+  `+96 −102 3 files`, to open its changed files in Samebase, and the arrow to show its previews. A
+  row names the base branch only when it is not the default branch.
+
 ## 2026-11-02
 
 - **v2243: Faster repository switching and steady panes.** A repository opens at once and its stacks

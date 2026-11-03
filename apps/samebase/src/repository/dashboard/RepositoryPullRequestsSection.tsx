@@ -1,8 +1,4 @@
 import { Button } from "@/components/ui/button";
-import {
-  GitHubProviderLogo,
-  SamebaseLogoMark,
-} from "@/components/repository-dashboard/RepositoryDashboardLogos";
 import { RepositoryChecksPopover } from "@/repository/dashboard/RepositoryChecksPopover";
 import {
   PullRequestResources,
@@ -23,18 +19,41 @@ import type { UserRepositoryResult } from "../../../convex/repository/contracts/
 
 const numberFormatter = new Intl.NumberFormat("en-US");
 
-function SamebaseChangesLink({ href }: { href: string }) {
-  return (
-    <Link
-      className="inline-flex min-h-10 items-center gap-1 font-medium text-foreground underline decoration-border underline-offset-4 hover:decoration-foreground @4xl:min-h-8"
-      title="View this branch's changes in Samebase"
-      to={href}
-    >
-      <span aria-hidden="true" className="flex h-4 w-4 items-center justify-center">
-        <SamebaseLogoMark />
+/**
+The diff size is also the link to the pull request's changes in Samebase, so the row needs no
+separate edit button. Without file access, or for a fork, it stays plain text.
+*/
+function PullRequestDiffStats({
+  changesHref,
+  pullRequest,
+}: {
+  changesHref: string | null;
+  pullRequest: RepositoryPullRequest;
+}) {
+  // One inline run, so a link underline continues under the spaces between the numbers.
+  const stats = (
+    <span>
+      <span className="text-emerald-600">+{numberFormatter.format(pullRequest.additions)}</span>{" "}
+      <span className="text-destructive">−{numberFormatter.format(pullRequest.deletions)}</span>{" "}
+      <span className="text-muted-foreground">
+        {numberFormatter.format(pullRequest.changedFiles)}{" "}
+        {pullRequest.changedFiles === 1 ? "file" : "files"}
       </span>
-      View changes
+    </span>
+  );
+  return changesHref ? (
+    <Link
+      className="inline-flex min-h-10 items-center text-xs tabular-nums underline decoration-border underline-offset-4 hover:decoration-foreground @4xl:min-h-8"
+      search={{ compare: true }}
+      title="View this pull request's changes in Samebase"
+      to={changesHref}
+    >
+      {stats}
     </Link>
+  ) : (
+    <span className="inline-flex min-h-10 items-center text-xs tabular-nums @4xl:min-h-8">
+      {stats}
+    </span>
   );
 }
 
@@ -51,7 +70,7 @@ function PullRequestRow({
 }) {
   const [expanded, setExpanded] = useState(false);
   const sameRepository = !pullRequest.isCrossRepository && pullRequest.headRepository !== null;
-  const samebaseUrl =
+  const changesHref =
     filesReadEnabled && sameRepository
       ? buildRepositoryFileRoute({
           owner: repository.githubOwnerLogin,
@@ -68,95 +87,71 @@ function PullRequestRow({
     ? formatRelativeTimeAgo(updatedAt)
     : pullRequest.updatedAt;
   const detailsId = `pull-request-${pullRequest.number}-details`;
-  const hasExpandedMetadata =
-    pullRequest.isDraft || pullRequest.labels.length > 0 || samebaseUrl !== null;
 
   return (
     <article
-      className="border-b border-border last:border-b-0"
+      className="border-b border-border py-2 last:border-b-0"
       data-pull-request-number={pullRequest.number}
     >
-      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start">
-        <div className="grid min-w-0 @4xl:grid-cols-[minmax(0,1fr)_auto] @4xl:items-start">
-          <button
-            aria-controls={detailsId}
-            aria-expanded={expanded}
-            className="min-w-0 pt-4 pr-1 pb-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 @4xl:py-4"
-            type="button"
-            onClick={() => setExpanded((current) => !current)}
-          >
-            <span className="line-clamp-3 text-sm font-medium leading-5 text-foreground [overflow-wrap:anywhere]">
-              {pullRequest.title}
-            </span>
-            <span className="mt-1 block text-xs leading-5 text-muted-foreground [overflow-wrap:anywhere]">
-              {headLabel}
-            </span>
-            <span className="block text-xs leading-5 text-muted-foreground">
-              {updatedLabel} into {pullRequest.baseRefName}
-            </span>
-          </button>
-          <div className="flex min-w-0 items-center justify-between gap-3 pb-4 @4xl:py-4 @4xl:pl-3">
-            <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
-              <RepositoryChecksPopover
-                checks={pullRequest.checks}
-                detailsUrl={`${pullRequest.url}/checks`}
-                heading={`Pull request #${pullRequest.number} checks`}
-                statusCheckRollup={pullRequest.statusCheckRollup}
-                triggerTitle={`Show pull request #${pullRequest.number} checks`}
-              />
-              <span className="flex flex-wrap gap-x-2 text-xs leading-5 tabular-nums">
-                <span className="text-emerald-600">
-                  +{numberFormatter.format(pullRequest.additions)}
-                </span>
-                <span className="text-destructive">
-                  −{numberFormatter.format(pullRequest.deletions)}
-                </span>
-                <span className="text-muted-foreground">
-                  {numberFormatter.format(pullRequest.changedFiles)}{" "}
-                  {pullRequest.changedFiles === 1 ? "file" : "files"}
-                </span>
-              </span>
-            </div>
-            <Button
-              aria-controls={detailsId}
-              aria-expanded={expanded}
-              aria-label={
-                expanded
-                  ? `Hide pull request #${pullRequest.number} details`
-                  : `Show pull request #${pullRequest.number} details`
-              }
-              className="size-10 @4xl:size-8"
-              size="icon-sm"
-              type="button"
-              variant="ghost"
-              onClick={() => setExpanded((current) => !current)}
-            >
-              <ChevronDown
-                className={
-                  expanded
-                    ? "h-4 w-4 rotate-180 text-muted-foreground"
-                    : "h-4 w-4 text-muted-foreground"
-                }
-              />
-            </Button>
-          </div>
+      {/* Same shape as the main branch row: branch and time on top, checks at the right. */}
+      <div className="flex min-w-0 items-center gap-3">
+        <div className="flex min-w-0 flex-1 flex-wrap gap-x-2.5 text-xs leading-5 text-muted-foreground">
+          {/* Most pull requests target the default branch, so only another base is named. */}
+          <span className="[overflow-wrap:anywhere]">
+            {headLabel}
+            {pullRequest.baseRefName === repository.defaultBranch
+              ? null
+              : ` → ${pullRequest.baseRefName}`}
+          </span>
+          <span>{updatedLabel}</span>
         </div>
+        <RepositoryChecksPopover
+          checks={pullRequest.checks}
+          detailsUrl={`${pullRequest.url}/checks`}
+          heading={`Pull request #${pullRequest.number} checks`}
+          statusCheckRollup={pullRequest.statusCheckRollup}
+          triggerTitle={`Show pull request #${pullRequest.number} checks`}
+        />
+      </div>
+      {/* The number is inline text in the title's size, so it lines up with the title, and one
+      link underlines both from the row's left edge. */}
+      <p className="text-sm font-medium leading-5 [overflow-wrap:anywhere]">
         <a
-          aria-label={`Open pull request #${pullRequest.number} on GitHub`}
-          className="mt-2 inline-flex min-h-8 items-center gap-1.5 px-2 text-xs font-medium text-muted-foreground no-underline hover:bg-muted hover:text-foreground hover:no-underline"
+          className="text-foreground underline decoration-border underline-offset-4 hover:decoration-foreground"
           href={pullRequest.url}
           rel="noreferrer noopener"
           target="_blank"
+          title="Open on GitHub"
         >
-          <span>#{pullRequest.number}</span>
-          <span aria-hidden="true" className="flex h-4 w-4 items-center justify-center">
-            <GitHubProviderLogo />
-          </span>
+          <span className="font-normal text-muted-foreground tabular-nums">
+            #{pullRequest.number}
+          </span>{" "}
+          {pullRequest.title}
         </a>
+      </p>
+      <div className="flex min-w-0 items-center gap-2">
+        <div className="min-w-0 flex-1">
+          <PullRequestDiffStats changesHref={changesHref} pullRequest={pullRequest} />
+        </div>
+        {/* The negative margin puts the arrow on the right edge, where the main branch checks end. */}
+        <button
+          aria-controls={detailsId}
+          aria-expanded={expanded}
+          aria-label={
+            expanded
+              ? `Hide pull request #${pullRequest.number} details`
+              : `Show pull request #${pullRequest.number} details`
+          }
+          className="-mr-3 inline-flex h-10 w-10 shrink-0 items-center justify-center text-muted-foreground hover:text-foreground @4xl:-mr-2 @4xl:h-8 @4xl:w-8"
+          type="button"
+          onClick={() => setExpanded((current) => !current)}
+        >
+          <ChevronDown aria-hidden="true" className={expanded ? "h-4 w-4 rotate-180" : "h-4 w-4"} />
+        </button>
       </div>
       {expanded ? (
-        <div id={detailsId} className="pb-4">
-          {hasExpandedMetadata ? (
+        <div id={detailsId} className="pb-2">
+          {pullRequest.isDraft || pullRequest.labels.length > 0 ? (
             <div className="mb-2 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
               {pullRequest.isDraft ? <span className="bg-muted px-1.5 py-0.5">Draft</span> : null}
               {pullRequest.labels.map((label) => (
@@ -164,7 +159,6 @@ function PullRequestRow({
                   {label.name}
                 </span>
               ))}
-              {samebaseUrl ? <SamebaseChangesLink href={samebaseUrl} /> : null}
             </div>
           ) : null}
           <PullRequestResources resource={resource} />

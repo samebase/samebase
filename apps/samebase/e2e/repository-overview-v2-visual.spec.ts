@@ -131,9 +131,11 @@ test("shows an old app with no stack on desktop", async ({ page }) => {
     }),
   ).toHaveCount(0);
 
-  await expect(fixture.getByRole("link", { name: "main", exact: true })).toHaveAttribute(
+  await expect(
+    fixture.getByRole("link", { name: "81145b7 Keep repository provider observations explicit" }),
+  ).toHaveAttribute(
     "href",
-    "https://github.com/samebase/samebase/tree/main",
+    "https://github.com/samebase/samebase/commit/81145b7d2a32186823452c7515b2d5ba2d79b350",
   );
   await expect(
     fixture.getByRole("link", { name: "Open samebase/samebase on GitHub" }),
@@ -141,7 +143,7 @@ test("shows an old app with no stack on desktop", async ({ page }) => {
   await expect(fixture.getByRole("button", { name: "Disconnect" })).toBeEnabled();
   await expect(fixture.getByRole("navigation", { name: "Repository" })).toHaveCount(0);
   await expect(
-    fixture.getByRole("link", { name: "Open pull request #1260 on GitHub" }),
+    fixture.getByRole("link", { name: "#1260 Show the exact preview for each pull request" }),
   ).toHaveAttribute("href", "https://github.com/samebase/samebase/pull/1260");
   await expect(fixture.getByRole("button", { name: "Filters" })).toHaveCount(0);
   await expect(fixture.locator('[data-pull-request-number="1258"]')).toBeVisible();
@@ -243,8 +245,8 @@ test("keeps the overview hierarchy and pull request actions clear on mobile", as
   await page.setViewportSize({ width: 390, height: 844 });
   const fixture = await openRepositoryOverviewV2(page, "repository-overview-v2");
 
-  const firstPullRequest = fixture.getByRole("button", {
-    name: /Show the exact preview for each pull request/,
+  const firstPullRequest = fixture.getByRole("link", {
+    name: "#1260 Show the exact preview for each pull request",
   });
   await expect(firstPullRequest).toBeVisible();
   const firstPullRequestRow = firstPullRequest.locator("xpath=ancestor::article");
@@ -252,7 +254,9 @@ test("keeps the overview hierarchy and pull request actions clear on mobile", as
   await expect(firstPullRequestRow).toContainText("−10");
   await expect(firstPullRequestRow).toContainText("3 files");
 
-  await firstPullRequest.click();
+  await firstPullRequestRow
+    .getByRole("button", { name: "Show pull request #1260 details" })
+    .click();
   await expect(firstPullRequestRow.getByText("needs review", { exact: true })).toBeVisible();
   await expect(firstPullRequestRow.getByRole("group", { name: /^Alchemy stack / })).toHaveCount(0);
   await expect(firstPullRequestRow.getByRole("group", { name: "Other previews" })).toHaveCount(0);
@@ -404,11 +408,11 @@ test("uses stable shells while independent data sources load", async ({ page }) 
     page,
     "repository-overview-v2-partial-loading",
   );
-  await expect(partialFixture.getByRole("link", { name: "main", exact: true })).toBeVisible();
+  await expect(partialFixture.getByText("main", { exact: true })).toBeVisible();
   await expect(partialFixture.getByLabel("Loading production destinations")).toBeVisible();
   await expect(
-    partialFixture.getByRole("button", {
-      name: /Show the exact preview for each pull request/,
+    partialFixture.getByRole("link", {
+      name: "#1260 Show the exact preview for each pull request",
     }),
   ).toBeVisible();
   await expect(partialFixture).toHaveScreenshot(
@@ -499,7 +503,7 @@ test("reproduces the observed new repository provisioning states", async ({ page
     "repository-overview-v2-provisioning-github",
   );
   await expect(githubFixture.getByRole("status")).toHaveText("Setting up");
-  await expect(githubFixture.getByRole("link", { name: "main", exact: true })).toBeVisible();
+  await expect(githubFixture.getByText("main", { exact: true })).toBeVisible();
   await expect(githubFixture.getByLabel("Loading default branch commit")).toBeVisible();
   await expect(githubFixture.getByRole("heading", { name: "Open pull requests" })).toBeVisible();
 

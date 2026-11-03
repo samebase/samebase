@@ -424,7 +424,6 @@ describe("Alchemy stack cards", () => {
         link.getAttribute("href"),
       ]),
     ).toEqual([
-      ["main", "https://github.com/samebase/base-alchemy/tree/main"],
       ["ideal-dolphin-15.convex.site", "https://ideal-dolphin-15.convex.site"],
       ["ideal-dolphin-15", "https://dashboard.convex.dev/t/nicu/base-alchemy/ideal-dolphin-15"],
     ]);
@@ -954,7 +953,7 @@ describe("the default-branch block without a stack", () => {
     const block = renderBlock(makeWorkspace(oldApp, NO_STACK_STORE));
 
     expect(block.textContent).toContain(NO_STACK_LINE);
-    expect(block.querySelector('a[href="https://github.com/ada/demo/tree/main"]')).not.toBeNull();
+    expect(block.textContent).toContain("main");
     expect(block.querySelector('[aria-label^="Cloudflare Worker "]')).toBeNull();
     expect(block.querySelector('[aria-label^="Convex deployment "]')).toBeNull();
     expect(block.textContent).not.toContain("Could not read");
@@ -1091,38 +1090,39 @@ describe("PullRequestResources", () => {
 });
 
 describe("PullRequestsSection", () => {
+  const pullRequest = {
+    id: "pull-request:41",
+    number: 41,
+    title: "Show previews from the store",
+    url: "https://github.com/ada/demo/pull/41",
+    isDraft: false,
+    isCrossRepository: false,
+    additions: 3,
+    deletions: 1,
+    changedFiles: 2,
+    updatedAt: "2026-07-31T08:00:00Z",
+    baseRefName: "main",
+    headRefName: "preview-comments",
+    headRefOid: "1111111111111111111111111111111111111111",
+    headRepository: {
+      id: "repository:ada/demo",
+      nameWithOwner: "ada/demo",
+      owner: { login: "ada" },
+    },
+    labels: [],
+    statusCheckRollup: null,
+    checks: {
+      state: "none",
+      totalCount: 0,
+      successCount: 0,
+      failureCount: 0,
+      runningCount: 0,
+      neutralCount: 0,
+      unknownCount: 0,
+    },
+  } satisfies RepositoryPullRequest;
+
   it("shows the stack cards in an expanded row", async () => {
-    const pullRequest = {
-      id: "pull-request:41",
-      number: 41,
-      title: "Show previews from the store",
-      url: "https://github.com/ada/demo/pull/41",
-      isDraft: false,
-      isCrossRepository: false,
-      additions: 3,
-      deletions: 1,
-      changedFiles: 2,
-      updatedAt: "2026-07-31T08:00:00Z",
-      baseRefName: "main",
-      headRefName: "preview-comments",
-      headRefOid: "1111111111111111111111111111111111111111",
-      headRepository: {
-        id: "repository:ada/demo",
-        nameWithOwner: "ada/demo",
-        owner: { login: "ada" },
-      },
-      labels: [],
-      statusCheckRollup: null,
-      checks: {
-        state: "none",
-        totalCount: 0,
-        successCount: 0,
-        failureCount: 0,
-        runningCount: 0,
-        neutralCount: 0,
-        unknownCount: 0,
-      },
-    } satisfies RepositoryPullRequest;
     const pullRequests = {
       state: "current",
       defaultBranch: null,
@@ -1179,6 +1179,95 @@ describe("PullRequestsSection", () => {
         rootElement.querySelector('[aria-label="Alchemy stack samebase/base-alchemy"]'),
       ).not.toBeNull();
       expect(rootElement.querySelector('[aria-label="Other previews"]')).toBeNull();
+    } finally {
+      await act(async () => {
+        root.unmount();
+      });
+      rootElement.remove();
+    }
+  });
+
+  it("names the base branch only when it is not the default branch", async () => {
+    const releasePullRequest = {
+      ...pullRequest,
+      id: "pull-request:42",
+      number: 42,
+      baseRefName: "release",
+    } satisfies RepositoryPullRequest;
+    const pullRequests = {
+      state: "current",
+      defaultBranch: null,
+      openPullRequestCount: 2,
+      refreshing: false,
+      allPullRequests: [pullRequest, releasePullRequest],
+      resourcesByPullRequestId: new Map(),
+      loadMore: { state: "exhausted" },
+    } satisfies RepositoryPullRequestsState;
+    const rootElement = document.createElement("div");
+    document.body.append(rootElement);
+    const root = createRoot(rootElement);
+
+    try {
+      await act(async () => {
+        root.render(
+          <TestRouterProvider initialEntries={["/repo/ada/demo"]}>
+            <PullRequestsSection
+              filesReadEnabled={false}
+              pullRequests={pullRequests}
+              repository={makeRepositorySettingsBuilderRepository({ defaultBranch: "main" })}
+            />
+          </TestRouterProvider>,
+        );
+      });
+
+      const rowText = (number: number) =>
+        rootElement.querySelector(`[data-pull-request-number="${number}"]`)?.textContent;
+      expect(rowText(41)).toContain("preview-comments");
+      expect(rowText(41)).not.toContain("→");
+      expect(rowText(42)).toContain("preview-comments → release");
+    } finally {
+      await act(async () => {
+        root.unmount();
+      });
+      rootElement.remove();
+    }
+  });
+
+  it("links the diff size to the pull request's changed files", async () => {
+    const pullRequests = {
+      state: "current",
+      defaultBranch: null,
+      openPullRequestCount: 1,
+      refreshing: false,
+      allPullRequests: [pullRequest],
+      resourcesByPullRequestId: new Map(),
+      loadMore: { state: "exhausted" },
+    } satisfies RepositoryPullRequestsState;
+    const rootElement = document.createElement("div");
+    document.body.append(rootElement);
+    const root = createRoot(rootElement);
+
+    try {
+      await act(async () => {
+        root.render(
+          <TestRouterProvider initialEntries={["/repo/ada/demo"]}>
+            <PullRequestsSection
+              filesReadEnabled
+              pullRequests={pullRequests}
+              repository={makeRepositorySettingsBuilderRepository({
+                githubOwnerLogin: "ada",
+                githubRepositoryName: "demo",
+              })}
+            />
+          </TestRouterProvider>,
+        );
+      });
+
+      const changesLink = rootElement.querySelector(
+        'a[title="View this pull request\'s changes in Samebase"]',
+      );
+      expect(changesLink?.textContent).toBe("+3 −1 2 files");
+      expect(changesLink?.getAttribute("href")).toBe("/repo/ada/demo/fs/preview-comments?compare");
     } finally {
       await act(async () => {
         root.unmount();
