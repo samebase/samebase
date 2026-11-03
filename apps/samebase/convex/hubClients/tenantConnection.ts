@@ -15,8 +15,8 @@ const hubOutageRetry = {
 } as const;
 
 /**
-The identity hub that third-party clients register at, or null while the feature is off. A local
-backend holds the no-hub values of `scripts/lib/convexAuthKeys.ts`.
+The identity hub that third-party clients register at, or null while the feature is off. The CI
+backend holds the no-hub values of `scripts/ci-bootstrap-convex.ts`.
 */
 export function readHub() {
   const registrationKey = env.HUB_REGISTRATION_KEY?.trim();

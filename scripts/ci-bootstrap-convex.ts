@@ -4,11 +4,7 @@ import { closeSync, existsSync, openSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import {
-  generateConvexAuthKeys,
-  generateCredentialKeys,
-  NO_HUB_ENVIRONMENT,
-} from "./lib/convexAuthKeys.ts";
+import { generateConvexAuthKeys, generateCredentialKeys } from "./lib/convexAuthKeys.ts";
 import { samebaseAppFilePath } from "./lib/trackedFilePath.ts";
 
 const samebaseAppDirectory = path.join("apps", "samebase");
@@ -82,7 +78,14 @@ async function main(): Promise<void> {
     for (const [key, value] of [
       ...Object.entries(generateConvexAuthKeys()),
       ...Object.entries(generateCredentialKeys()),
-      ...Object.entries(NO_HUB_ENVIRONMENT),
+      // CI has no identity hub. convex/convex.config.ts requires these variables, and convex/auth.ts
+      // needs a loopback or https issuer to load, so they hold values that name the absence.
+      ["HUB_ISSUER", "http://127.0.0.1:1"],
+      ["HUB_CLIENT_ID", "no-hub"],
+      ["HUB_CLIENT_SECRET", "no-hub"],
+      ["RESOURCE_HUB_ISSUER", "http://127.0.0.1:1"],
+      ["RESOURCE_HUB_CLIENT_ID", "no-hub"],
+      ["RESOURCE_HUB_CLIENT_SECRET", "no-hub"],
       ["CONVEX_AGENT_MODE", "anonymous"],
       ["GITHUB_APP_CLIENT_ID", "ci-placeholder"],
       ["GITHUB_APP_CLIENT_SECRET", "ci-placeholder"],

@@ -195,11 +195,24 @@ const waitForLocalBackend = async (timeoutMs: number) => {
   return false;
 };
 
-const waitForRecentLocalDevOrigin = async (timeoutMs: number, sinceMs: number) => {
+const isProcessRunning = (processId: number) => {
+  try {
+    process.kill(processId, 0);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+/**
+ * The Vite wrapper records its origin as it starts, which is often before this process starts, and
+ * clears the record when it exits. A record whose process no longer runs is stale.
+ */
+const waitForLocalDevOrigin = async (timeoutMs: number) => {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     const originState = readLocalDevOriginState();
-    if (originState && originState.writtenAt >= sinceMs) {
+    if (originState && isProcessRunning(originState.processId)) {
       return originState.origin;
     }
     await sleep(250);
@@ -278,7 +291,7 @@ const buildConvexSpawnInvocation = () => {
 };
 
 const convexInvocation = buildConvexSpawnInvocation();
-const siteUrlRetryStartedAt = Date.now();
+
 const child = spawn(convexInvocation.command, convexInvocation.args, {
   stdio: "inherit",
   env,
@@ -345,7 +358,7 @@ if (shouldRetrySiteUrlSync) {
       // Give frontend origin publication its own timeout window so slow local
       // backends do not consume the entire retry budget before Vite records
       // the chosen port for this startup.
-      const localDevOrigin = await waitForRecentLocalDevOrigin(20_000, siteUrlRetryStartedAt);
+      const localDevOrigin = await waitForLocalDevOrigin(20_000);
       if (!localDevOrigin || hasChildExited()) {
         return;
       }

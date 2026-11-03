@@ -10,11 +10,7 @@ import {
   parsePositiveIntegerOption,
   requireOptionValue,
 } from "./lib/cliArgs.ts";
-import {
-  readBooleanEnvValue,
-  readOptionalEnvValue,
-  readPositiveIntegerEnvValue,
-} from "./lib/env.ts";
+import { readBooleanEnvValue, readPositiveIntegerEnvValue } from "./lib/env.ts";
 import { fail, isMainModule, resolveRepoRoot, runMain } from "./lib/scriptRuntime.ts";
 import { trackedFilePath } from "./lib/trackedFilePath.ts";
 import {
@@ -24,9 +20,8 @@ import {
 import { buildPrimaryDevCommand, buildPrimaryDevEnvironment } from "./run-primary-dev.ts";
 
 const DEFAULT_WORKTREE_DEV_VITE_PORT = 5174;
-// Refresh existing worktrees once so their local backend gets the provider credential key ring
-// (CREDENTIAL_KEYS) that convex/convex.config.ts requires.
-const ONCE_BOOTSTRAP_MARKER = "worktree-anonymous-seed-auth-bootstrap-v7";
+// Refresh existing worktrees once so their local backend registers with the identity hub.
+const ONCE_BOOTSTRAP_MARKER = "worktree-anonymous-seed-auth-bootstrap-v8";
 
 const HELP_TEXT = `Usage: scripts/run-worktree-dev.ts [options]
 
@@ -39,8 +34,6 @@ Options:
   --vite-port <port>         Frontend port for the long-running dev server.
                              Default: ${DEFAULT_WORKTREE_DEV_VITE_PORT}
   --force-bootstrap          Ignore the completed --once marker and rerun seed/auth setup.
-  --source-env <path>        Explicit cloud dev source env file for local seed generation.
-  --source-deploy-key <key>  Explicit cloud deploy key for source-env queries.
   -h, --help                 Show this help message.
 `;
 
@@ -49,8 +42,6 @@ type WorktreeDevOptions = {
   enableBranch: boolean;
   forceBootstrap: boolean;
   vitePort: number;
-  sourceEnv: string | null;
-  sourceDeployKey: string | null;
   showHelp: boolean;
 };
 
@@ -85,8 +76,6 @@ export function parseWorktreeDevArgs(
     enableBranch: !readBooleanEnvValue(env.WORKTREE_DEV_NO_BRANCH),
     forceBootstrap: false,
     vitePort: readDefaultVitePort(env),
-    sourceEnv: readOptionalEnvValue(env.WORKTREE_DEV_SOURCE_ENV),
-    sourceDeployKey: readOptionalEnvValue(env.WORKTREE_DEV_SOURCE_DEPLOY_KEY),
     showHelp: false,
   };
 
@@ -128,16 +117,6 @@ export function parseWorktreeDevArgs(
       );
       continue;
     }
-    if (arg === "--source-env") {
-      options.sourceEnv = requireOptionValue(args, index, arg, HELP_TEXT);
-      index += 1;
-      continue;
-    }
-    if (arg === "--source-deploy-key") {
-      options.sourceDeployKey = requireOptionValue(args, index, arg, HELP_TEXT);
-      index += 1;
-      continue;
-    }
     failUnexpectedArgument(arg, HELP_TEXT);
   }
 
@@ -152,44 +131,21 @@ export function buildWorktreeDevBootstrapArgs(options: WorktreeDevOptions): stri
   return args;
 }
 
-export function buildWorktreeDevSeedEnvArgs(
-  options: WorktreeDevOptions,
-  mode: "check-prereqs" | "sync",
-): string[] {
-  const args: string[] = [];
-  if (mode === "check-prereqs") {
-    args.push("--check-prereqs");
-  }
-  if (options.sourceEnv) {
-    args.push("--source-env", options.sourceEnv);
-  }
-  return args;
-}
-
 /**
- * Preserve the existing make-order semantics: the one-off local bootstrap must
- * finish before env sync and auth seeding can depend on the generated .env.local.
+ * The dependency bootstrap finishes before the seed, which starts the local backend that writes
+ * .env.local.
  */
 export function buildWorktreeDevCommandPlan(
   options: WorktreeDevOptions,
   repoRoot: string,
   env: NodeJS.ProcessEnv = process.env,
 ): CommandSpec[] {
-  const seedEnv = { ...env };
-  const sourceDeployKey =
-    options.sourceDeployKey ?? readOptionalEnvValue(seedEnv.CONVEX_DEPLOY_KEY);
   // Convex uses CONVEX_DEPLOY_KEY to choose the target before anonymous mode.
-  // Carry the read-only source key under a worktree-only name.
-  delete seedEnv.CONVEX_DEPLOY_KEY;
-  if (sourceDeployKey !== null) {
-    seedEnv.WORKTREE_DEV_SOURCE_DEPLOY_KEY = sourceDeployKey;
-  }
   const anonymousEnv: NodeJS.ProcessEnv = {
     ...env,
     CONVEX_AGENT_MODE: "anonymous",
   };
   delete anonymousEnv.CONVEX_DEPLOY_KEY;
-  delete anonymousEnv.WORKTREE_DEV_SOURCE_DEPLOY_KEY;
 
   const plan: CommandSpec[] = [
     {
@@ -198,17 +154,6 @@ export function buildWorktreeDevCommandPlan(
       command: process.execPath,
       args: [path.join(repoRoot, trackedFilePath("scripts/killport.ts"))],
       phase: "always",
-    },
-    {
-      label: "validate anonymous seed env prerequisites",
-      cwd: repoRoot,
-      command: process.execPath,
-      args: [
-        path.join(repoRoot, trackedFilePath("scripts/convex-sync-dev-env.ts")),
-        ...buildWorktreeDevSeedEnvArgs(options, "check-prereqs"),
-      ],
-      env: seedEnv,
-      phase: "once-bootstrap",
     },
     {
       label: "bootstrap the current worktree",
@@ -231,11 +176,7 @@ export function buildWorktreeDevCommandPlan(
       label: "bootstrap and seed the anonymous local backend",
       cwd: repoRoot,
       command: process.execPath,
-      args: [
-        path.join(repoRoot, trackedFilePath("scripts/convex-seed-dev-auth.ts")),
-        ...buildWorktreeDevSeedEnvArgs(options, "sync"),
-      ],
-      env: seedEnv,
+      args: [path.join(repoRoot, trackedFilePath("scripts/convex-seed-dev-auth.ts"))],
       phase: "once-bootstrap",
       // Convex uses TTY stdin as the condition to refresh tracked AI files during
       // first-time local deployment setup. Backend bootstrap needs no input.

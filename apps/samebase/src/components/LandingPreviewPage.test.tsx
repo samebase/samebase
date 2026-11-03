@@ -282,17 +282,6 @@ describe("LandingPage", () => {
     expect(markup.split('<div class="hidden"><a').length - 1).toBe(2);
   });
 
-  it("leaves out the GitHub action on a local worktree, which has no identity hub", () => {
-    policyState.deploymentAuthPolicy = {
-      deploymentProfile: { kind: "local_worktree" },
-      passwordAuthMode: "local_worktree_seed",
-    };
-
-    const markup = renderToStaticMarkup(<LandingPage />);
-
-    expect(markup).not.toContain("Continue with GitHub");
-  });
-
   it("links both signed-in landing CTA positions to the dashboard", () => {
     authState.isAuthenticated = true;
 

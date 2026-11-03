@@ -220,21 +220,19 @@ function buildPreviewSeedOrganizationConfigs(args: {
   ];
 }
 
+/**
+The GitHub owner of the worktree's seeded organization, or null on a CI backend, which has none. The
+worktree connects Convex and Cloudflare through the identity hub, so the seed holds no provider
+credential.
+*/
 function readSeedWorktreeOrganizationConfig(): SeedOrganizationConfig | null {
   const githubOwnerId = readSeedValue("DEV_SEED_GITHUB_OWNER_ID");
   const githubOwnerType = readSeedValue("DEV_SEED_GITHUB_OWNER_TYPE");
   const githubOwnerLogin = readSeedValue("DEV_SEED_GITHUB_OWNER_LOGIN");
   const githubInstallationId = readSeedValue("DEV_SEED_GITHUB_INSTALLATION_ID");
-  const providerCredentials = readSeedProviderCredentials();
 
   const githubValues = [githubOwnerId, githubOwnerType, githubOwnerLogin, githubInstallationId];
   if (githubValues.every((value) => value === undefined)) {
-    if (
-      providerCredentials.convexConnection !== null ||
-      providerCredentials.cloudflareConnection !== null
-    ) {
-      throw new Error("GitHub owner and installation seed values are required for provider seeds");
-    }
     return null;
   }
 
@@ -245,7 +243,8 @@ function readSeedWorktreeOrganizationConfig(): SeedOrganizationConfig | null {
     ),
     githubOwnerLogin: requireSeedValue(githubOwnerLogin, "DEV_SEED_GITHUB_OWNER_LOGIN"),
     githubInstallationId: requireSeedValue(githubInstallationId, "DEV_SEED_GITHUB_INSTALLATION_ID"),
-    ...providerCredentials,
+    convexConnection: null,
+    cloudflareConnection: null,
   };
 }
 
