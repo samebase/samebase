@@ -134,9 +134,12 @@ export function DocsSidebar() {
         {DOCS_SIDEBAR_LEGAL_PAGES.map((page) => (
           <DocsSidebarLink key={page.label} label={page.label} to={page.to} />
         ))}
+      </div>
+      {/* Outbound links share one row, so they do not read as pages of the site. */}
+      <div className="mt-2 flex gap-4 px-2 py-2 text-xs text-muted-foreground">
         {DOCS_SIDEBAR_SOCIAL_LINKS.map((link) => (
           <a
-            className={DOCS_SIDEBAR_LINK_CLASS_NAME}
+            className="hover:text-foreground"
             href={link.href}
             key={link.label}
             rel="noreferrer"
