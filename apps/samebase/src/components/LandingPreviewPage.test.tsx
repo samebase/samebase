@@ -2,8 +2,6 @@ import type { ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import {
-  DocsCloudflarePreviewsMigrationPage,
-  DocsCloudflareSetupPage,
   DocsDoItYourselfPage,
   DocsIndexPage,
   DocsChangelogPage,
@@ -53,18 +51,7 @@ vi.mock("@/components/AppWorkspaceShell", () => ({
 }));
 
 vi.mock("@/components/MarkdownLandingDocument", () => ({
-  MarkdownLandingDocument: ({
-    afterTitle,
-    markdown,
-  }: {
-    afterTitle?: ReactNode;
-    markdown: string;
-  }) => (
-    <article>
-      {afterTitle}
-      {markdown}
-    </article>
-  ),
+  MarkdownLandingDocument: ({ markdown }: { markdown: string }) => <article>{markdown}</article>,
 }));
 
 vi.mock("@/authClient", () => ({
@@ -185,8 +172,9 @@ describe("LandingPage", () => {
 
     // The four claims.
     expect(markup).toContain("Delete your Samebase account. Your app keeps running.");
-    expect(markup).toContain("Replace one secret");
-    expect(markup).toContain("Google sign-in through Samebase stops");
+    expect(markup).toContain("It keeps deploying too.");
+    expect(markup).toContain("before you revoke Samebase at Convex");
+    expect(markup).toContain("New Google sign-ins through Samebase stop.");
     expect(markup).toContain(">do-it-yourself recipe</a>");
     expect(markup).toContain("No client-facing database to leave open.");
     expect(markup).toContain("Access checks live in code you can read and test.");
@@ -277,8 +265,8 @@ describe("LandingPage", () => {
 
     expect(sidebarMarkup).toContain("Overview");
     expect(sidebarMarkup).toContain("The stack");
-    expect(sidebarMarkup).toContain("Cloudflare setup");
-    expect(sidebarMarkup).toContain("Worker Previews migration");
+    expect(sidebarMarkup).not.toContain("Cloudflare setup");
+    expect(sidebarMarkup).not.toContain("Worker Previews migration");
     expect(sidebarMarkup).toContain("Do it yourself");
     expect(sidebarMarkup).toContain("Pricing");
     expect(sidebarMarkup).toContain("Changelog");
@@ -287,8 +275,6 @@ describe("LandingPage", () => {
     expect(sidebarMarkup).toContain('aria-label="Collapse Docs"');
     expect(sidebarMarkup).toContain('href="/docs/the-big-migration"');
     expect(sidebarMarkup).toContain('href="/docs/the-stack"');
-    expect(sidebarMarkup).toContain('href="/docs/cloudflare-setup"');
-    expect(sidebarMarkup).toContain('href="/docs/cloudflare-previews-migration"');
     expect(sidebarMarkup).toContain('href="/docs/do-it-yourself"');
     expect(sidebarMarkup).toContain('href="/pricing"');
     expect(sidebarMarkup).not.toContain("Start here");
@@ -297,12 +283,6 @@ describe("LandingPage", () => {
     expect(sidebarMarkup).not.toContain("Same stack");
 
     expect(sidebarMarkup.indexOf("The stack")).toBeLessThan(
-      sidebarMarkup.indexOf("Cloudflare setup"),
-    );
-    expect(sidebarMarkup.indexOf("Cloudflare setup")).toBeLessThan(
-      sidebarMarkup.indexOf("Worker Previews migration"),
-    );
-    expect(sidebarMarkup.indexOf("Worker Previews migration")).toBeLessThan(
       sidebarMarkup.indexOf("Do it yourself"),
     );
   });
@@ -314,54 +294,29 @@ describe("LandingPage", () => {
     expect(mainMarkup).toContain(`data-testid="docs-sidebar"`);
     expect(mainMarkup).toContain('href="/"');
     expect(mainMarkup).toContain('href="/docs/the-stack"');
-    expect(mainMarkup).toContain('href="/docs/cloudflare-setup"');
-    expect(mainMarkup).toContain('href="/docs/cloudflare-previews-migration"');
     expect(mainMarkup).toContain('href="/docs/do-it-yourself"');
     expect(mainMarkup).toContain('href="/docs/receipts"');
     expect(mainMarkup).toContain('href="/pricing"');
   });
 
-  it("renders the first-app Cloudflare setup guide separately", () => {
-    const markup = renderToStaticMarkup(<DocsCloudflareSetupPage />);
-
-    expect(markup).toContain("Set up Cloudflare for your first Samebase app");
-    expect(markup).toContain("/onboarding/complete-onboarding-poster.webp");
-    expect(markup).toContain("Play the complete Samebase onboarding");
-    expect(markup).toContain("Play YouTube video");
-    expect(markup).not.toContain("youtube-nocookie.com");
-    const createWorkerIndex = markup.indexOf("Create Worker");
-    const deployKeyActionIndex = markup.indexOf("Use `&lt;project&gt;` for Workers Builds");
-    expect(createWorkerIndex).toBeGreaterThan(-1);
-    expect(deployKeyActionIndex).toBeGreaterThan(createWorkerIndex);
-    expect(markup).not.toContain("Switch Cloudflare");
-  });
-
-  it("renders the Worker Previews migration separately from first-app setup", () => {
-    const markup = renderToStaticMarkup(<DocsCloudflarePreviewsMigrationPage />);
-
-    expect(markup).toContain("Migrate to Cloudflare Worker Previews");
-    expect(markup).toContain("Switch Cloudflare");
-    expect(markup).toContain("Previews Base");
-    expect(markup).not.toContain("Create the app in Samebase");
-    expect(markup).not.toContain("Play the complete Samebase onboarding");
-  });
-
   it("renders the do-it-yourself guide separately", () => {
     const markup = renderToStaticMarkup(<DocsDoItYourselfPage />);
 
-    expect(markup).toContain("Do it yourself: deploy the Samebase stack for $0/month");
-    expect(markup).toContain("pnpm run deploy:preview");
-    expect(markup).toContain("What Samebase adds");
-    expect(markup).not.toContain(".mp4");
+    expect(markup).toContain("# Do it yourself");
+    expect(markup).toContain("## 1. Copy the starter");
+    expect(markup).toContain("## 3. Push to main");
+    expect(markup).toContain("gh secret set CONVEX_ACCESS_TOKEN");
+    expect(markup).not.toContain("## 4.");
+    expect(markup).not.toContain("Workers Builds");
   });
 
-  it("distinguishes the service deployment from the starter in the stack guide", () => {
+  it("lists the starter's pieces in the stack guide", () => {
     const markup = renderToStaticMarkup(<DocsTheStackPage />);
 
-    expect(markup).toContain("One base, more than one shape");
+    expect(markup).toContain("**Alchemy deploys.**");
     expect(markup).toContain("convex-hosting");
-    expect(markup).toContain("different deployment setups");
-    expect(markup).toContain("Cloudflare Email Sending");
+    expect(markup).toContain("Cloudflare is optional.");
+    expect(markup).not.toContain("Workers Builds");
   });
 
   it("renders the big migration article with its diagrams", () => {
@@ -387,9 +342,9 @@ describe("LandingPage", () => {
     expect(markup).toContain("Start free. Upgrade when you need more connections.");
     expect(markup).toContain("Personal account    | Free");
     expect(markup).toContain("Any owner           | Pro");
-    expect(markup).toContain("Members above the included limit require Pro and an available seat.");
-    expect(markup).toContain("one connected Cloudflare Worker");
-    expect(markup).toContain("Samebase does not disconnect or delete existing resources.");
+    expect(markup).toContain("Each repository connected to Samebase is one connection.");
+    expect(markup).not.toContain("Cloudflare Worker");
+    expect(markup).toContain("If Pro ends, nothing is disconnected or deleted.");
     expect(markup).not.toContain("FileView");
   });
 });

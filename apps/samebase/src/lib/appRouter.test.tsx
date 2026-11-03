@@ -234,14 +234,6 @@ vi.mock("@/organization/OrganizationSettingsPage", () => ({
 }));
 
 vi.mock("@/components/LandingPreviewPage", () => ({
-  DocsCloudflarePreviewsMigrationPage: () => (
-    <div data-testid="docs-cloudflare-previews-migration-page">
-      Docs Worker Previews migration page
-    </div>
-  ),
-  DocsCloudflareSetupPage: () => (
-    <div data-testid="docs-cloudflare-setup-page">Docs Cloudflare setup page</div>
-  ),
   DocsChangelogPage: () => <div data-testid="docs-changelog-page">Docs changelog page</div>,
   DocsDoItYourselfPage: () => (
     <div data-testid="docs-do-it-yourself-page">Docs do it yourself page</div>
@@ -1099,13 +1091,13 @@ describe("appRouter", () => {
     expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
   });
 
-  it("renders the first-app Cloudflare setup guide through an explicit route", async () => {
-    await renderRoute("/docs/cloudflare-setup");
+  it("redirects the retired Cloudflare guides to the big migration", async () => {
+    for (const path of ["/docs/cloudflare-setup", "/docs/cloudflare-previews-migration"]) {
+      const router = await renderRoute(path);
 
-    expect(
-      rootElement?.querySelector('[data-testid="docs-cloudflare-setup-page"]')?.textContent,
-    ).toContain("Docs Cloudflare setup page");
-    expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
+      expect(router.state.location.pathname).toBe("/docs/the-big-migration");
+      expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
+    }
   });
 
   it("renders localStorage through an explicit route with the shared app workspace shell", async () => {
@@ -1116,16 +1108,6 @@ describe("appRouter", () => {
     ).toBe("/localStorage");
     expect(rootElement?.querySelector('[data-testid="app-workspace"]')).not.toBeNull();
     expect(appWorkspaceMountMock).toHaveBeenCalledTimes(1);
-    expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
-  });
-
-  it("renders the Worker Previews migration through an explicit route", async () => {
-    await renderRoute("/docs/cloudflare-previews-migration");
-
-    expect(
-      rootElement?.querySelector('[data-testid="docs-cloudflare-previews-migration-page"]')
-        ?.textContent,
-    ).toContain("Docs Worker Previews migration page");
     expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
   });
 

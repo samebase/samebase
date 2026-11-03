@@ -1,8 +1,7 @@
 # Operate: Samebase agent plugin
 
-The Samebase agent plugin packages the complete workflow around the Samebase MCP server: create or
-connect an app, continue in its real GitHub repository, validate the source, then ship and observe
-the provider result when publishing is requested.
+The Samebase agent plugin packages the workflow around the Samebase MCP server: create or connect an
+app, work in its GitHub repository, then check what its Alchemy run deployed.
 
 The plugin supports Codex and Claude Code from one shared package. It carries workflow and routing
 guidance. The live MCP tool list and the action contracts indexed by
@@ -52,12 +51,11 @@ controls.
 
 ## Responsibility split
 
-- The `samebase` skill selects the create, connect, or existing-app path. It then guides repository
-  work, an authorized publish, and deployment verification.
-- Samebase MCP owns app inventory, stable provider joins, and explicit repair flows.
-- Git and the app repository own source changes and version identity.
-- Routine logs, environment values, migrations, and custom domains remain provider-direct.
+- The `samebase` skill picks the create, connect, or existing-app path and guides the work in the
+  repository.
+- Samebase MCP creates and connects repositories and reads their Alchemy stacks.
+- The repository deploys itself. Repair a failed deploy there: read the GitHub Actions log, then
+  change the code or `alchemy.run.ts`.
+- Logs, environment values, migrations, and custom domains stay with GitHub, Convex, and Cloudflare.
 
-The plugin does not add a second source repository, build archive, or synthetic release version. A
-Git commit is the release identity, and a successful push is only a deployment candidate until the
-relevant provider reports terminal success.
+A Git commit is the release. A push is only a deployment candidate until its Alchemy run succeeds.

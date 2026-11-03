@@ -6,8 +6,6 @@ import {
   applyPageMetadata,
   buildLogoLabPageHead,
   buildPageHead,
-  DOCS_CLOUDFLARE_PREVIEWS_MIGRATION_PAGE_METADATA,
-  DOCS_CLOUDFLARE_SETUP_PAGE_METADATA,
   DOCS_DO_IT_YOURSELF_PAGE_METADATA,
   DOCS_INDEX_PAGE_METADATA,
   DOCS_PRICING_PAGE_METADATA,
@@ -257,22 +255,6 @@ describe("page metadata", () => {
     });
   });
 
-  it("uses dedicated metadata for the first-app Cloudflare setup guide", () => {
-    expect(
-      resolvePageMetadata({
-        pathname: "/docs/cloudflare-setup",
-        isAuthenticated: false,
-      }),
-    ).toEqual({
-      canonicalPath: "/docs/cloudflare-setup",
-      description:
-        "Create the first Cloudflare Workers Builds API token, then let Samebase create the real Worker.",
-      openGraphType: "website",
-      robots: "index,follow",
-      title: "Set up Cloudflare for your first Samebase app | Samebase",
-    });
-  });
-
   it("uses dedicated metadata for the docs index", () => {
     expect(
       resolvePageMetadata({
@@ -288,24 +270,9 @@ describe("page metadata", () => {
     });
   });
 
-  it("uses dedicated metadata for the Cloudflare Worker Previews migration", () => {
-    const pathname = "/docs/cloudflare-previews-migration";
-
-    expect(resolvePageMetadata({ pathname, isAuthenticated: false })).toEqual({
-      canonicalPath: pathname,
-      description: "Update an existing Samebase app to use Cloudflare Worker Previews.",
-      openGraphType: "website",
-      robots: "index,follow",
-      title: "Migrate to Cloudflare Worker Previews | Samebase",
-    });
-    expect(resolveAppPageTitle(pathname)).toBe("Migrate to Cloudflare Worker Previews | Samebase");
-  });
-
   it("builds crawlable server metadata for each public decision page", () => {
     const pageMetadata = [
       DOCS_INDEX_PAGE_METADATA,
-      DOCS_CLOUDFLARE_SETUP_PAGE_METADATA,
-      DOCS_CLOUDFLARE_PREVIEWS_MIGRATION_PAGE_METADATA,
       DOCS_DO_IT_YOURSELF_PAGE_METADATA,
       DOCS_RECEIPTS_PAGE_METADATA,
       DOCS_THE_BIG_MIGRATION_PAGE_METADATA,

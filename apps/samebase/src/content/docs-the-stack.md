@@ -1,66 +1,21 @@
 # The stack
 
-What the template ships, and why each piece is the smallest decision that was necessary.
+What [samebase/base](https://github.com/samebase/base) ships. Each piece is the smallest choice that
+still holds when a weekend app turns into a product.
 
-The test every piece has to pass: what if you just want to build a tic-tac-toe game while drinking
-with your friends? Nothing should make that feel heavy. And nothing should fall over when the same
-template carries a real product later.
+- **Alchemy deploys.** One `alchemy.run.ts` describes the app. GitHub Actions runs it: `main` to
+  production, each pull request to its own preview. The state lives in your Convex team.
+- **Convex is the backend and the host.** Data is reachable only through functions you write, and
+  [convex-hosting](https://github.com/samebase/convex-hosting) serves the site from the same
+  deployment.
+- **TanStack Start renders the pages,** on the server too, with React.
+- **Vite+ is the one command** for dev, tests, lint, format, and build. Scripts are TypeScript run
+  by Node 24, so the repository works on macOS, Linux, and Windows without Bash.
+- **Tailwind and shadcn/ui** keep the styles next to the markup your agent edits.
+- **Everything is typed,** from the schema to route params. The compiler catches an agent's mistake
+  before it ships.
 
-## One toolchain
+Cloudflare is optional. Declare a Worker in `alchemy.run.ts` when the app needs one.
 
-The template runs on [Vite Plus](https://viteplus.dev): one `vp` command that is the dev server,
-test runner, linter, formatter, and bundler in a single tool. Node 24 is the only JavaScript
-runtime. The repository's automation is TypeScript run directly by Node, not Bash, so the core local
-workflow runs natively on macOS, Linux, and Windows without WSL.
-
-Since June 2026,
-[Cloudflare owns VoidZero](https://www.cloudflare.com/press/press-releases/2026/cloudflare-acquires-voidzero-to-build-the-future-of-the-ai-native-web/),
-the company behind Vite and Vite Plus, and the tools stay MIT-licensed. For a stack already standing
-on Cloudflare, that is one more piece of the base with the same owner, reading the same direction.
-
-## The framework is a default, not a cage
-
-[TanStack Start](https://tanstack.com/start) with React is the default because I think it is the
-best way to build web apps right now (v1 release candidate as of mid-2026). But the template imposes
-nothing it is not completely sure of. The deploy pipeline serves whatever you build: write an
-index.html with vanilla JavaScript and it ships exactly the same way. You can swap the UI framework
-if you insist. I don't recommend it. You can.
-
-Cloudflare and TanStack both document TanStack Start on Workers through the official Cloudflare Vite
-plugin. That gives the template a first-class path from the Vite development model to the runtime it
-deploys on, without making the framework or the application Cloudflare-specific.
-
-The overview applies a leaving test to infrastructure. This is the same test, applied to the
-framework.
-
-## Typed end to end
-
-Everything is typed, from the database schema to route params to the repository's own scripts. That
-was always the taste here; agents turned it into leverage. An agent working inside typed code gets
-caught by the compiler before a mistake ships. The stricter the types, the better your agent
-performs.
-
-## One styling language
-
-Tailwind is an unusually good surface for agents: the styling vocabulary lives beside the markup
-they edit, and the same tool works for dense product UI and public landing pages. The template pairs
-it with shadcn/ui. Neither is load-bearing; both are replaceable.
-
-## One base, more than one shape
-
-The starter serves the app from a Cloudflare Worker with a Convex backend. The Samebase service uses
-Convex for both its backend and frontend hosting through
-[convex-hosting](https://github.com/samebase/convex-hosting). A separate Cloudflare Worker proxies
-analytics, and the Convex backend sends transactional email through Cloudflare Email Sending. The
-starter and the service share tools, but they have different deployment setups.
-
-## The proof
-
-The template lives in the public [samebase/base repository](https://github.com/samebase/base). The
-early commits were each crafted by hand to keep it as simple as it claims: you can read the template
-like a story, one small decision at a time.
-
-## The rest
-
-- Why the base is GitHub, Convex, and Cloudflare: the [Overview](/).
-- Build everything by hand, with no Samebase account: [Do it yourself](/docs/do-it-yourself).
+Build it by hand with [Do it yourself](/docs/do-it-yourself), or check each claim in
+[Receipts](/docs/receipts).

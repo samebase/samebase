@@ -5,8 +5,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
-  DOCS_CLOUDFLARE_PREVIEWS_MIGRATION_ROUTE,
-  DOCS_CLOUDFLARE_SETUP_ROUTE,
   DOCS_DO_IT_YOURSELF_ROUTE,
   DOCS_CHANGELOG_ROUTE,
   DOCS_PRICING_ROUTE,
@@ -34,8 +32,6 @@ const DOCS_SIDEBAR_TREE: readonly (
     pages: [
       { label: "The big migration", to: DOCS_THE_BIG_MIGRATION_ROUTE },
       { label: "The stack", to: DOCS_THE_STACK_ROUTE },
-      { label: "Cloudflare setup", to: DOCS_CLOUDFLARE_SETUP_ROUTE },
-      { label: "Worker Previews migration", to: DOCS_CLOUDFLARE_PREVIEWS_MIGRATION_ROUTE },
       { label: "Do it yourself", to: DOCS_DO_IT_YOURSELF_ROUTE },
       { label: "Receipts", to: DOCS_RECEIPTS_ROUTE },
     ],

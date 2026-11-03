@@ -332,10 +332,7 @@ function getHeadingId(
   return headingIdsByLine.get(line);
 }
 
-function getMarkdownComponents(
-  headingIdsByLine: ReadonlyMap<number, string>,
-  afterTitle: ReactNode,
-) {
+function getMarkdownComponents(headingIdsByLine: ReadonlyMap<number, string>) {
   return {
     a({ children, href, title }) {
       if (isMarkdownVideoUrl(href)) {
@@ -388,12 +385,7 @@ function getMarkdownComponents(
       );
     },
     h1({ children, node }) {
-      return (
-        <>
-          {renderHeading(1, children, getHeadingId(node, headingIdsByLine))}
-          {afterTitle}
-        </>
-      );
+      return renderHeading(1, children, getHeadingId(node, headingIdsByLine));
     },
     h2({ children, node }) {
       return renderHeading(2, children, getHeadingId(node, headingIdsByLine));
@@ -518,12 +510,10 @@ function getMarkdownComponents(
 }
 
 export function MarkdownLandingDocument({
-  afterTitle,
   className,
   dataTestId,
   markdown,
 }: {
-  afterTitle?: ReactNode;
   className?: string;
   dataTestId?: string;
   markdown: string;
@@ -531,7 +521,7 @@ export function MarkdownLandingDocument({
   const headingIdsByLine = new Map(
     getLandingMarkdownHeadings(markdown).map((heading) => [heading.line, heading.id]),
   );
-  const markdownComponents = getMarkdownComponents(headingIdsByLine, afterTitle);
+  const markdownComponents = getMarkdownComponents(headingIdsByLine);
 
   return (
     <article

@@ -1,12 +1,11 @@
 # Samebase
 
-> Samebase standardizes web apps on the best stack we have found: code in the user's GitHub
-> repository, a Convex backend, and Cloudflare Workers delivery. Once you have found the best
-> stack, repeat it. Each new app adds a product, not another system to maintain.
+> Samebase is an opinionated way to use Alchemy: the user's GitHub repository deploys itself from
+> GitHub Actions to a Convex project in the user's team, and the Alchemy state lives in that team.
+> Samebase starts new apps and shows what every app deployed.
 
 Samebase can create a new app in about a minute or connect an existing GitHub repository without
-touching its providers. A new app's GitHub Actions deploy it with Alchemy, and Samebase monitors
-what the stack deployed. Repair lives in Alchemy and the coding agent, not in Samebase.
+touching its providers. Repair lives in Alchemy and the coding agent, not in Samebase.
 
 The Samebase starter's core local workflow runs natively on macOS, Linux, and Windows. Its
 repository automation is TypeScript run directly by Node 24, so it does not require Bash or WSL.
@@ -41,14 +40,12 @@ HTML pages. Action and operate docs are raw markdown only.
 
 ## Docs
 
-- [Overview](https://samebase.com/): the best-stack opinion, the connected-app
-  inventory, and the four claims: yours, safer, lanes, cheaper
+- [Overview](https://samebase.com/): what a new app gets, how it works, and the four claims
 - [The big migration](https://samebase.com/docs/the-big-migration.md): how Samebase works with
   Alchemy, and how to move a Worker or Convex app
-- [The stack](https://samebase.com/docs/the-stack.md): what the app template ships and why each
-  piece was chosen
-- [Do it yourself](https://samebase.com/docs/do-it-yourself.md): deploy the same stack by hand, for
-  $0/month, with no Samebase account
+- [The stack](https://samebase.com/docs/the-stack.md): what the app template ships
+- [Do it yourself](https://samebase.com/docs/do-it-yourself.md): deploy the same stack in three
+  steps, with no Samebase account
 - [Receipts](https://samebase.com/docs/receipts.md): every factual claim with its primary source
   and the date it was last checked
 - [Pricing](https://samebase.com/pricing.md): the Free and Pro connection limits, member limits, and
@@ -76,10 +73,10 @@ then verify the result with the repository status.
   for the building and Git-backed hosting workflows around this action catalog
 - [MCP server](https://samebase.com/mcp): connect a coding agent over MCP (OAuth happens in the
   browser); the tools are the actions listed above.
-- [Production logs](https://samebase.com/docs/operate/production-logs.md): read backend and Worker
-  logs provider-direct, in the Cloudflare and Convex accounts of the repository's organization
-- [Custom domain](https://samebase.com/docs/operate/custom-domain.md): attach a domain to the
-  app's Worker in your own Cloudflare account
+- [Production logs](https://samebase.com/docs/operate/production-logs.md): read deploy, Convex,
+  and Worker logs where they are
+- [Custom domain](https://samebase.com/docs/operate/custom-domain.md): attach a domain to the app's
+  Convex deployment or Worker in your own account
 
 ## Optional
 

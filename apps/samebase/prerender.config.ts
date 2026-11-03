@@ -23,20 +23,9 @@ const expectedPublicPrerenderMetadataByPath = {
     description: "Samebase product, setup, stack, pricing, and source documentation.",
     robots: "index,follow",
   },
-  "/docs/cloudflare-setup": {
-    title: "Set up Cloudflare for your first Samebase app | Samebase",
-    description:
-      "Create the first Cloudflare Workers Builds API token, then let Samebase create the real Worker.",
-    robots: "index,follow",
-  },
-  "/docs/cloudflare-previews-migration": {
-    title: "Migrate to Cloudflare Worker Previews | Samebase",
-    description: "Update an existing Samebase app to use Cloudflare Worker Previews.",
-    robots: "index,follow",
-  },
   "/docs/do-it-yourself": {
     title: "Do it yourself | Samebase",
-    description: "Deploy the Samebase stack by hand, with no Samebase account.",
+    description: "Deploy the Samebase stack in three steps, with no Samebase account.",
     robots: "index,follow",
   },
   "/docs/receipts": {
@@ -51,7 +40,7 @@ const expectedPublicPrerenderMetadataByPath = {
   },
   "/docs/the-stack": {
     title: "The stack | Samebase",
-    description: "What the Samebase template ships and why each piece was chosen.",
+    description: "What the Samebase template ships: Alchemy, Convex, TanStack Start, and Vite+.",
     robots: "index,follow",
   },
   "/pricing": {

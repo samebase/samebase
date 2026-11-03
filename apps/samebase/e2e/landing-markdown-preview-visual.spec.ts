@@ -2,8 +2,6 @@ import { devices, expect, test, type Locator, type Page } from "@playwright/test
 import { VISUAL_FIXTURE_WORKSPACE_SIDEBAR_STATE } from "./visualFixtureTest";
 import { seedLocalWorkspaceSidebarState } from "./workspaceSidebarState";
 import {
-  DOCS_CLOUDFLARE_PREVIEWS_MIGRATION_ROUTE,
-  DOCS_CLOUDFLARE_SETUP_ROUTE,
   DOCS_DO_IT_YOURSELF_ROUTE,
   DOCS_INDEX_ROUTE,
   DOCS_CHANGELOG_ROUTE,
@@ -31,8 +29,6 @@ const expectedLandingPreviewSidebarFiles = [
   "Receipts",
   "Pricing",
   "Changelog",
-  "Cloudflare setup",
-  "Worker Previews migration",
 ] as const;
 
 async function expectSidebarFiles(sidebar: Locator) {
@@ -67,10 +63,7 @@ async function expectSidebarFiles(sidebar: Locator) {
     "href",
     new RegExp(`^${DOCS_CHANGELOG_ROUTE}(\\?|$)`),
   );
-  await expect(sidebar.getByRole("link", { name: "Worker Previews migration" })).toHaveAttribute(
-    "href",
-    new RegExp(`^${DOCS_CLOUDFLARE_PREVIEWS_MIGRATION_ROUTE}(\\?|$)`),
-  );
+  await expect(sidebar).not.toContainText("Worker Previews migration");
   await expect(sidebar).not.toContainText("Start here");
   await expect(sidebar).not.toContainText("samebase.com");
 }
@@ -344,11 +337,12 @@ test("landing document navigation resets pages, restores history, and aligns dir
   await expect.poll(() => readMainPaneScrollTop(page)).toBe(0);
   await expect(
     article.getByRole("heading", {
-      name: "Do it yourself: deploy the Samebase stack for $0/month",
+      name: "Do it yourself",
+      exact: true,
     }),
   ).toBeInViewport();
 
-  await article.locator('[id="7-delete-the-app"]').scrollIntoViewIfNeeded();
+  await article.locator('[id="after-that"]').scrollIntoViewIfNeeded();
   await expect.poll(() => readMainPaneScrollTop(page)).toBeGreaterThan(0);
   const doItYourselfScrollTop = await readMainPaneScrollTop(page);
 
@@ -382,10 +376,10 @@ test("landing document navigation resets pages, restores history, and aligns dir
   await expect.poll(() => new URL(page.url()).pathname).toBe(LANDING_PAGE_ROUTE);
   await expect.poll(() => readMainPaneScrollTop(page)).toBe(overviewScrollTop);
 
-  await page.goto(`${DOCS_DO_IT_YOURSELF_ROUTE}#7-delete-the-app`, {
+  await page.goto(`${DOCS_DO_IT_YOURSELF_ROUTE}#after-that`, {
     waitUntil: "domcontentloaded",
   });
-  const finalHeading = article.locator('[id="7-delete-the-app"]');
+  const finalHeading = article.locator('[id="after-that"]');
   await expect(currentDocsLink).toHaveText("Do it yourself");
   await expect(finalHeading).toBeInViewport();
   await expect
@@ -509,7 +503,8 @@ test.describe("mobile landing preview", () => {
     await expect.poll(() => readMainPaneScrollTop(page)).toBe(0);
     await expect(
       article.getByRole("heading", {
-        name: "Do it yourself: deploy the Samebase stack for $0/month",
+        name: "Do it yourself",
+        exact: true,
       }),
     ).toBeInViewport();
   });
@@ -535,7 +530,7 @@ test("docs receipts route renders the claims ledger", async ({ page }) => {
   await expectSidebarFiles(sidebar);
   await expect(article.getByRole("heading", { exact: true, name: "Receipts" })).toBeVisible();
   await expect(sidebar.locator('a[aria-current="page"]')).toHaveText("Receipts");
-  await expect(article).toContainText("Requests to static assets are free and unlimited.");
+  await expect(article).toContainText("Alchemy 2 is in beta");
   await expect(article).toContainText("security researcher Matt Palmer");
   await expect(article).toContainText("Last full check: 2026-07-02");
   await expect(article).toContainText("deleted, not softened");
@@ -547,41 +542,6 @@ test("docs receipts route renders the claims ledger", async ({ page }) => {
     maxDiffPixelRatio: 0.02,
     scale: "css",
   });
-});
-
-test("Cloudflare setup loads the onboarding video only after Play", async ({ page }) => {
-  await page.setViewportSize({ width: 1100, height: 900 });
-  let youtubeRequestCount = 0;
-  await page.route("https://www.youtube-nocookie.com/**", (route) => {
-    youtubeRequestCount += 1;
-    return route.abort();
-  });
-
-  await page.goto(DOCS_CLOUDFLARE_SETUP_ROUTE, {
-    waitUntil: "networkidle",
-  });
-  await page.evaluate(async () => {
-    await document.fonts.ready;
-  });
-
-  const article = page.getByTestId(LANDING_PREVIEW_ARTICLE_TEST_ID);
-  const playOnboarding = article.locator(
-    'h1 + button[aria-label="Play the complete Samebase onboarding"]',
-  );
-  await expect(playOnboarding).toBeVisible();
-  expect(youtubeRequestCount).toBe(0);
-  await expect(playOnboarding).toHaveScreenshot("docs-cloudflare-setup-onboarding-video.png", {
-    animations: "disabled",
-    caret: "hide",
-    maxDiffPixelRatio: 0.02,
-    scale: "css",
-  });
-
-  await playOnboarding.click();
-  await expect(
-    article.locator('h1 + iframe[title="Samebase onboarding: Complete setup from scratch"]'),
-  ).toBeVisible();
-  await expect.poll(() => youtubeRequestCount).toBe(1);
 });
 
 test("pricing route renders the public pricing page", async ({ page }) => {
@@ -608,9 +568,7 @@ test("pricing route renders the public pricing page", async ({ page }) => {
   await expect(article.getByRole("row", { name: "Personal account Free $0 12 1" })).toBeVisible();
   await expect(article.getByRole("row", { name: "GitHub organization Free $0 6 2" })).toBeVisible();
   await expect(article.getByRole("row", { name: "Any owner Pro $4 120 2" })).toBeVisible();
-  await expect(article).toContainText(
-    "Members above the included limit require Pro and an available seat.",
-  );
+  await expect(article).toContainText("Each repository connected to Samebase is one connection.");
   await expect(article).not.toContainText("FileView");
 
   await expect(page).toHaveScreenshot("docs-pricing-desktop.png", {

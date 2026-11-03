@@ -25,8 +25,6 @@ import {
   LANDING_PREVIEW_TEST_ID,
 } from "@/routeSearch/landingPreview";
 import { type LogoRouteSearch } from "@/routeSearch/logo";
-import docsCloudflareSetupMarkdown from "@/content/docs-cloudflare-setup.md?raw";
-import docsCloudflarePreviewsMigrationMarkdown from "@/content/docs-cloudflare-previews-migration.md?raw";
 import docsDoItYourselfMarkdown from "@/content/docs-do-it-yourself.md?raw";
 import docsChangelogMarkdown from "@/content/docs-changelog.md?raw";
 import docsPricingMarkdown from "@/content/docs-pricing.md?raw";
@@ -39,8 +37,6 @@ import { useRef, useState, type ReactNode } from "react";
 
 type LandingPreviewDocumentKey =
   | "overview"
-  | "cloudflareSetup"
-  | "cloudflarePreviewsMigration"
   | "doItYourself"
   | "theBigMigration"
   | "theStack"
@@ -390,8 +386,8 @@ function LandingPreviewOverview() {
         <LandingSection ariaLabel="Four claims">
           <div className="grid gap-x-14 gap-y-10 @3xl:grid-cols-2">
             <LandingClaim heading="Delete your Samebase account. Your app keeps running.">
-              Replace one secret, CONVEX_ACCESS_TOKEN, and it keeps deploying. Google sign-in
-              through Samebase stops. The{" "}
+              It keeps deploying too. Swap CONVEX_ACCESS_TOKEN for your own team token before you
+              revoke Samebase at Convex. New Google sign-ins through Samebase stop. The{" "}
               <LandingInlineLink to={DOCS_DO_IT_YOURSELF_ROUTE}>
                 do-it-yourself recipe
               </LandingInlineLink>{" "}
@@ -592,47 +588,6 @@ function PublicLandingPrimaryAction() {
 const DOCS_DOCUMENT_CLASS_NAME =
   "min-h-full shrink-0 pb-[calc(100svh-4rem)] @3xl:pb-[calc(100svh-4rem)]";
 
-const CLOUDFLARE_SETUP_ONBOARDING_VIDEO_URL =
-  "https://www.youtube-nocookie.com/embed/8-ZEGPpqi9Y?autoplay=1";
-const CLOUDFLARE_SETUP_ONBOARDING_VIDEO_TITLE = "Samebase onboarding: Complete setup from scratch";
-
-function CloudflareSetupOnboardingVideo() {
-  const [isPlaying, setIsPlaying] = useState(false);
-
-  if (!isPlaying) {
-    return (
-      <button
-        aria-label="Play the complete Samebase onboarding"
-        className="relative aspect-[48/31] w-full overflow-hidden border-0 p-0"
-        onClick={() => setIsPlaying(true)}
-        type="button"
-      >
-        <img
-          alt=""
-          className="h-full w-full object-cover"
-          src="/onboarding/complete-onboarding-poster.webp"
-        />
-        <span className="absolute inset-0 grid place-items-center">
-          <span className="bg-black/80 px-4 py-3 text-lg font-semibold text-white">
-            Play YouTube video
-          </span>
-        </span>
-      </button>
-    );
-  }
-
-  return (
-    <iframe
-      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-      allowFullScreen
-      className="aspect-[48/31] w-full border-0"
-      referrerPolicy="strict-origin-when-cross-origin"
-      src={CLOUDFLARE_SETUP_ONBOARDING_VIDEO_URL}
-      title={CLOUDFLARE_SETUP_ONBOARDING_VIDEO_TITLE}
-    />
-  );
-}
-
 function DocsTheBigMigrationDocument() {
   return (
     <MarkdownLandingDocument
@@ -659,27 +614,6 @@ function DocsDoItYourselfDocument() {
       className={DOCS_DOCUMENT_CLASS_NAME}
       dataTestId={LANDING_PREVIEW_ARTICLE_TEST_ID}
       markdown={docsDoItYourselfMarkdown}
-    />
-  );
-}
-
-function DocsCloudflareSetupDocument() {
-  return (
-    <MarkdownLandingDocument
-      afterTitle={<CloudflareSetupOnboardingVideo />}
-      className={DOCS_DOCUMENT_CLASS_NAME}
-      dataTestId={LANDING_PREVIEW_ARTICLE_TEST_ID}
-      markdown={docsCloudflareSetupMarkdown}
-    />
-  );
-}
-
-function DocsCloudflarePreviewsMigrationDocument() {
-  return (
-    <MarkdownLandingDocument
-      className={DOCS_DOCUMENT_CLASS_NAME}
-      dataTestId={LANDING_PREVIEW_ARTICLE_TEST_ID}
-      markdown={docsCloudflarePreviewsMigrationMarkdown}
     />
   );
 }
@@ -727,14 +661,6 @@ function LandingPreviewDocument({ documentKey }: { documentKey: LandingPreviewDo
     return <DocsTheStackDocument />;
   }
 
-  if (documentKey === "cloudflareSetup") {
-    return <DocsCloudflareSetupDocument />;
-  }
-
-  if (documentKey === "cloudflarePreviewsMigration") {
-    return <DocsCloudflarePreviewsMigrationDocument />;
-  }
-
   if (documentKey === "receipts") {
     return <DocsReceiptsDocument />;
   }
@@ -773,14 +699,6 @@ export function DocsIndexPage() {
 
 export function DocsDoItYourselfPage() {
   return <LandingPreviewChromePage documentKey="doItYourself" />;
-}
-
-export function DocsCloudflareSetupPage() {
-  return <LandingPreviewChromePage documentKey="cloudflareSetup" />;
-}
-
-export function DocsCloudflarePreviewsMigrationPage() {
-  return <LandingPreviewChromePage documentKey="cloudflarePreviewsMigration" />;
 }
 
 export function DocsTheBigMigrationPage() {

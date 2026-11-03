@@ -270,17 +270,16 @@ test("keeps the overview hierarchy and pull request actions clear on mobile", as
   });
 });
 
-test("serves the Worker Previews migration guide", async ({ page }) => {
+test("redirects the retired Worker Previews guide to the big migration", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/docs/cloudflare-previews-migration");
-  await expect(page).toHaveURL(/\/docs\/cloudflare-previews-migration$/);
+  await expect(page).toHaveURL(/\/docs\/the-big-migration$/);
   await expect(
-    page.getByRole("heading", { name: "Migrate to Cloudflare Worker Previews", exact: true }),
+    page.getByRole("heading", { name: "The big migration", exact: true }),
   ).toBeInViewport();
-  await expect(page.getByRole("heading", { name: "Switch Cloudflare", exact: true })).toBeVisible();
-  const markdownResponse = await page.request.get("/docs/cloudflare-previews-migration.md");
+  const markdownResponse = await page.request.get("/docs/the-big-migration.md");
   expect(markdownResponse.status()).toBe(200);
-  expect(await markdownResponse.text()).toContain("# Migrate to Cloudflare Worker Previews");
+  expect(await markdownResponse.text()).toContain("# The big migration");
 });
 
 test("covers the mobile repository removal dialog", async ({ page }) => {

@@ -7,8 +7,6 @@ describe("prerenderPages", () => {
       "/",
       "/changelog",
       "/docs",
-      "/docs/cloudflare-previews-migration",
-      "/docs/cloudflare-setup",
       "/docs/do-it-yourself",
       "/docs/receipts",
       "/docs/the-big-migration",
