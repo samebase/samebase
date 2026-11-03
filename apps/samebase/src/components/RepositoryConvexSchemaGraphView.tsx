@@ -5,8 +5,10 @@ import {
   type RepositoryConvexSchemaGraphRouteContext,
 } from "@/components/repository-dashboard/RepositoryConvexSchemaGraph";
 import { useCacheQuery as useRepositoryQuery } from "@/lib/convexQueryCache";
+import { useRepositoryProviderObservations } from "@/repository/dashboard/useRepositoryProviderObservations";
 import { Database, Loader2 } from "lucide-react";
 import type { ReactNode } from "react";
+import { stageResources } from "../../shared/alchemyState";
 
 type RepositoryConvexSchemaGraphViewProps = {
   branch: string;
@@ -93,13 +95,32 @@ export function RepositoryConvexSchemaGraphView({
   const dashboardRepository = dashboardRepositories?.find(
     (candidate) => candidate.githubRepositoryFullName === githubRepositoryFullName,
   );
+  // The route value is the Convex project id of a production deployment of the repository stack in
+  // the Alchemy state store. The schema query cannot read the store, so the page checks the stacks
+  // itself, as the refresh does on the server; a project that left the stack shows no old snapshot.
+  const alchemy = useRepositoryProviderObservations(dashboardRepository ?? null);
+  const projectInStack =
+    alchemy.state === "loaded" &&
+    alchemy.observation.store === "found" &&
+    alchemy.observation.stacks.some((stack) =>
+      stack.stages.some(
+        (stage) =>
+          stage.name === "prod" &&
+          stageResources({
+            stackFile: stage.record.stackFile,
+            resources: stage.resources,
+          }).convexDeployments.some(
+            ({ state }) => String(state.attr.projectId) === convexProjectId,
+          ),
+      ),
+    );
   const context = {
     branch,
     projectId: convexProjectId,
     githubRepositoryFullName,
   } satisfies RepositoryConvexSchemaGraphRouteContext;
 
-  if (dashboardRepositories === undefined) {
+  if (dashboardRepositories === undefined || (dashboardRepository && alchemy.state === "loading")) {
     return (
       <RepositoryConvexSchemaGraphRouteStatusShell
         context={context}
@@ -118,6 +139,24 @@ export function RepositoryConvexSchemaGraphView({
       <RepositoryConvexSchemaGraphRouteStatusShell
         context={context}
         status="Repository not found."
+      />
+    );
+  }
+
+  if (alchemy.state === "failed") {
+    return (
+      <RepositoryConvexSchemaGraphRouteStatusShell
+        context={context}
+        status={alchemy.error.message}
+      />
+    );
+  }
+
+  if (!projectInStack) {
+    return (
+      <RepositoryConvexSchemaGraphRouteStatusShell
+        context={context}
+        status="Convex project not found."
       />
     );
   }
