@@ -52,7 +52,6 @@ export type RepositoryOverviewVisualMode =
   | RepositoryConvexSchemaGraphVisualMode
   | "repository-overview-v2"
   | "repository-overview-v2-auto-pagination"
-  | "repository-overview-v2-cloudflare-github-authorization-failed"
   | "repository-overview-v2-dev"
   | "repository-overview-v2-loading"
   | "repository-overview-v2-no-convex"
@@ -508,7 +507,6 @@ const LIST_SPACING_PULL_REQUESTS = [
 
 type RepositoryOverviewProvisioningVisualMode = Extract<
   RepositoryOverviewVisualMode,
-  | "repository-overview-v2-cloudflare-github-authorization-failed"
   | "repository-overview-v2-provisioning-source"
   | "repository-overview-v2-provisioning-github"
   | "repository-overview-v2-provisioning-early-empty"
@@ -670,19 +668,6 @@ function RepositoryOverviewProvisioningFixture({
   let alchemyState: RepositoryAlchemyState = NO_STACK_STORE;
 
   switch (mode) {
-    case "repository-overview-v2-cloudflare-github-authorization-failed": {
-      const githubRepositoryFullName = "noter-guest/tmp-testing-waters";
-      repository = {
-        ...PROVISIONING_REPOSITORY,
-        githubOwnerLogin: "noter-guest",
-        githubRepositoryName: "tmp-testing-waters",
-        githubRepositoryFullName,
-        providerPlan: null,
-        providerSetup: { status: "not_applicable" },
-      };
-      pullRequests = fixturePullRequests([], PROVISIONING_DEFAULT_BRANCH);
-      break;
-    }
     case "repository-overview-v2-provisioning-source":
       repository = {
         ...PROVISIONING_REPOSITORY,
@@ -906,7 +891,6 @@ export function RepositoryOverviewVisualFixture({ mode }: { mode: RepositoryOver
       return <RepositoryOverviewDialogsVisualFixture mode={mode} />;
     case "repository-overview-v2-convex-schema":
       return <RepositoryConvexSchemaGraphVisualFixture mode={mode} />;
-    case "repository-overview-v2-cloudflare-github-authorization-failed":
     case "repository-overview-v2-provisioning-source":
     case "repository-overview-v2-provisioning-github":
     case "repository-overview-v2-provisioning-early-empty":
