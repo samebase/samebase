@@ -481,8 +481,8 @@ importers:
         specifier: ^0.0.11
         version: 0.0.11(@codemirror/autocomplete@6.20.3)(@codemirror/commands@6.11.1)(@codemirror/lang-markdown@6.5.2)(@codemirror/language-data@6.5.2)(@codemirror/language@6.13.1)(@codemirror/lint@6.9.7)(@codemirror/search@6.7.2)(@codemirror/state@6.7.6)(@codemirror/view@6.43.14)
       '@samebase/convex-auth-tanstack-start':
-        specifier: 0.1.1
-        version: 0.1.1(3017c9a644d616695a51abdc20981d37)
+        specifier: 0.1.2
+        version: 0.1.2(3017c9a644d616695a51abdc20981d37)
       '@samebase/convex-cloudflare-email-inbox':
         specifier: 0.3.0
         version: 0.3.0(7041a8ed64ab1647b700ee40d7abcff3)
@@ -3340,8 +3340,8 @@ packages:
       convex: ^1.48.0
       effect: ^4.0.5
 
-  '@samebase/convex-auth-tanstack-start@0.1.1':
-    resolution: {integrity: sha512-99ANO+Gkj9tYECMI8BP3jMlhvggJ9Q483BiE2Jt6xGxa5h+T0CS/tIKN8RgKaz6j+zAyByomUSfJ5t/Rcu2dLw==}
+  '@samebase/convex-auth-tanstack-start@0.1.2':
+    resolution: {integrity: sha512-r5RQO2A6Z3VmrdOkEx7L3kGPUScaDa6RPh82Xpxs+QdzcjGJwqH2o0fFmoVEFiF9PRe61q4Ce2+hKEkHju63KA==}
     engines: {node: '>=22'}
     peerDependencies:
       '@convex-dev/auth': 2.0.0-beta.0
@@ -10543,7 +10543,7 @@ snapshots:
       convex: 1.48.0(react@19.3.0)
       effect: 4.0.5
 
-  '@samebase/convex-auth-tanstack-start@0.1.1(3017c9a644d616695a51abdc20981d37)':
+  '@samebase/convex-auth-tanstack-start@0.1.2(3017c9a644d616695a51abdc20981d37)':
     dependencies:
       '@convex-dev/auth': 2.0.0-beta.0(patch_hash=f19d7eb47b9529f9288b9906a55cce0b04c9d57e6db544000523bd3f9460365b)(@standard-schema/spec@1.1.0)(convex@1.48.0(react@19.3.0))(hono@4.13.13)(react@19.3.0)(typescript@6.0.3)(zod@4.6.7)
       '@tanstack/react-router': 1.170.44(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
