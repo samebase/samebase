@@ -93,27 +93,21 @@ function PullRequestRow({
       className="border-b border-border py-2 last:border-b-0"
       data-pull-request-number={pullRequest.number}
     >
-      {/* Baseline alignment keeps the number on the title's first line. */}
-      <div className="flex items-baseline gap-3">
-        <button
-          aria-controls={detailsId}
-          aria-expanded={expanded}
-          className="min-w-0 flex-1 pt-2.5 text-left text-sm font-medium leading-5 text-foreground [overflow-wrap:anywhere] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 @4xl:pt-1.5"
-          type="button"
-          onClick={() => setExpanded((current) => !current)}
-        >
-          {pullRequest.title}
-        </button>
+      {/* The number is inline text in the title's size, so it lines up with the title. */}
+      <p className="pt-2.5 text-sm font-medium leading-5 [overflow-wrap:anywhere] @4xl:pt-1.5">
+        <span className="font-normal text-muted-foreground tabular-nums">
+          #{pullRequest.number}
+        </span>{" "}
         <a
-          aria-label={`Open pull request #${pullRequest.number} on GitHub`}
-          className="inline-flex min-h-10 items-center text-xs text-muted-foreground underline decoration-border underline-offset-4 hover:text-foreground @4xl:min-h-8"
+          className="text-foreground underline decoration-border underline-offset-4 hover:decoration-foreground"
           href={pullRequest.url}
           rel="noreferrer noopener"
           target="_blank"
+          title="Open on GitHub"
         >
-          #{pullRequest.number}
+          {pullRequest.title}
         </a>
-      </div>
+      </p>
       <div className="text-xs leading-5 text-muted-foreground [overflow-wrap:anywhere]">
         {/* Most pull requests target the default branch, so only another base is named. */}
         {headLabel}
@@ -133,7 +127,7 @@ function PullRequestRow({
           />
           <PullRequestDiffStats changesHref={changesHref} pullRequest={pullRequest} />
         </div>
-        {/* The negative margin puts the arrow under the right edge of the number above. */}
+        {/* The negative margin puts the arrow on the right edge, where the main branch checks end. */}
         <button
           aria-controls={detailsId}
           aria-expanded={expanded}

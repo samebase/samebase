@@ -141,7 +141,7 @@ test("shows an old app with no stack on desktop", async ({ page }) => {
   await expect(fixture.getByRole("button", { name: "Disconnect" })).toBeEnabled();
   await expect(fixture.getByRole("navigation", { name: "Repository" })).toHaveCount(0);
   await expect(
-    fixture.getByRole("link", { name: "Open pull request #1260 on GitHub" }),
+    fixture.getByRole("link", { name: "Show the exact preview for each pull request" }),
   ).toHaveAttribute("href", "https://github.com/samebase/samebase/pull/1260");
   await expect(fixture.getByRole("button", { name: "Filters" })).toHaveCount(0);
   await expect(fixture.locator('[data-pull-request-number="1258"]')).toBeVisible();
