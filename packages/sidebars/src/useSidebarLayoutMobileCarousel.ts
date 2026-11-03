@@ -17,6 +17,14 @@ import {
 } from "./SidebarLayoutGeometryInternal.ts";
 import { readIsMobileSidebarLayout, useSidebarLayoutActions } from "./SidebarRuntimeInternal.tsx";
 
+/**
+The scroll position is the pane. Everything else sets it once, only when no scroll position exists
+yet: the server HTML and its inline scripts for a page load, and this controller's first alignment
+for a client-only mount. After that, this controller reads the pane from the position on each
+scroll. It writes the position only for a pane change that did not come from a scroll (a toggle, a
+saved state from another device, a pane that disappears), and never while a touch owns it. The
+table of who writes the pane in each phase is in the package README.
+*/
 export function useSidebarLayoutMobileCarouselController({
   activeGripResizeSideRef,
   carouselRef,
@@ -47,6 +55,9 @@ export function useSidebarLayoutMobileCarouselController({
   const hasAlignedInitialMobilePaneRef = useRef(false);
   const isScrollPositionFromServerHtmlRef = useRef(false);
   const scrollDerivedMobilePaneRef = useRef<MobilePane | null>(null);
+  // A touch owns the position from its start until 80 ms after the last scroll event that follows
+  // it: the finger, then the momentum and the snap.
+  const touchOwnsScrollRef = useRef(false);
   const { setIsMobilePaneSettled, setMobilePaneScrollProgress } = useSidebarLayoutActions();
   const setIsMobilePaneSettledEffect = useEffectEvent((isSettled: boolean) => {
     setIsMobilePaneSettled(isSettled);
@@ -172,6 +183,10 @@ export function useSidebarLayoutMobileCarouselController({
       scrollDerivedMobilePaneRef.current = null;
       return;
     }
+    if (touchOwnsScrollRef.current) {
+      // The settle after the touch reads the pane from the position instead.
+      return;
+    }
 
     carouselNode.scrollLeft = nextScrollLeftPx;
     setIsMobilePaneSettledEffect(true);
@@ -202,27 +217,51 @@ export function useSidebarLayoutMobileCarouselController({
     }
 
     let settleTimeoutId: number | null = null;
-    const syncCurrentPaneFromScroll = () => {
+    let isTouchDown = false;
+    const settle = () => {
+      settleTimeoutId = null;
+      if (!isTouchDown) {
+        touchOwnsScrollRef.current = false;
+      }
       syncPaneFromScroll(carouselNode);
     };
-    const handleScroll = () => {
-      syncCurrentPaneFromScroll();
+    const scheduleSettle = () => {
       if (settleTimeoutId !== null) {
         window.clearTimeout(settleTimeoutId);
       }
-      settleTimeoutId = window.setTimeout(() => {
-        syncCurrentPaneFromScroll();
-      }, 80);
+      settleTimeoutId = window.setTimeout(settle, 80);
+    };
+    const handleScroll = () => {
+      syncPaneFromScroll(carouselNode);
+      scheduleSettle();
+    };
+    const handleTouchStart = () => {
+      isTouchDown = true;
+      touchOwnsScrollRef.current = true;
+    };
+    const handleTouchEnd = (event: TouchEvent) => {
+      if (event.touches.length > 0) {
+        return;
+      }
+      isTouchDown = false;
+      scheduleSettle();
     };
 
     carouselNode.addEventListener("scroll", handleScroll, { passive: true });
-    syncCurrentPaneFromScroll();
+    carouselNode.addEventListener("touchstart", handleTouchStart, { passive: true });
+    carouselNode.addEventListener("touchend", handleTouchEnd, { passive: true });
+    carouselNode.addEventListener("touchcancel", handleTouchEnd, { passive: true });
+    syncPaneFromScroll(carouselNode);
 
     return () => {
       carouselNode.removeEventListener("scroll", handleScroll);
+      carouselNode.removeEventListener("touchstart", handleTouchStart);
+      carouselNode.removeEventListener("touchend", handleTouchEnd);
+      carouselNode.removeEventListener("touchcancel", handleTouchEnd);
       if (settleTimeoutId !== null) {
         window.clearTimeout(settleTimeoutId);
       }
+      touchOwnsScrollRef.current = false;
     };
   }, [canSyncScroll, carouselRef]);
 

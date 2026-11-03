@@ -1,11 +1,9 @@
-import { clearSidebarLayoutDesktopPrehydrationStyle } from "@samebase/sidebars/SidebarLayoutPrehydration";
 import type {
   SidebarLayoutState,
   SidebarLayoutStateController,
   SidebarLayoutStateUpdate,
 } from "@samebase/sidebars/SidebarLayoutState";
 import * as React from "react";
-import { APP_WORKSPACE_SIDEBAR_PREHYDRATION_ARGS } from "@/lib/appWorkspaceSidebarPreferences";
 import {
   readLocalWorkspaceSidebarState,
   writeLocalWorkspaceSidebarState,
@@ -13,18 +11,16 @@ import {
 
 /**
 The sidebar state of a page that renders without a session, saved in local storage on every change.
-The server and the hydration render `defaults`, and the inline prehydration script shows the stored
-state before the first paint. This hook installs the stored state in the layout effect after
-hydration, before the browser paints. The script's temporary stylesheet stays until a commit has
-rendered the stored state: a style calculation between the two commits would otherwise see the
-defaults, and a width transition would animate from them.
+The server and the hydration render `defaults`, and the initial state script of the layout
+(`lib/appWorkspaceSidebarInitialStateScript.ts`) shows the stored state before the first paint.
+This hook installs the stored state in a layout effect after hydration, before the browser paints,
+and that render writes the same root values that the script wrote.
 */
 export function useLocalWorkspaceSidebarState(
   defaults: SidebarLayoutState,
 ): SidebarLayoutStateController {
   const [state, setState] = React.useState(defaults);
   const stateRef = React.useRef(state);
-  const [storedStateRendered, setStoredStateRendered] = React.useState(false);
 
   React.useLayoutEffect(() => {
     const storedState = readLocalWorkspaceSidebarState();
@@ -32,14 +28,7 @@ export function useLocalWorkspaceSidebarState(
       stateRef.current = storedState;
       setState(storedState);
     }
-    setStoredStateRendered(true);
   }, []);
-
-  React.useLayoutEffect(() => {
-    if (storedStateRendered) {
-      clearSidebarLayoutDesktopPrehydrationStyle(APP_WORKSPACE_SIDEBAR_PREHYDRATION_ARGS);
-    }
-  }, [storedStateRendered]);
 
   const setSidebarState = React.useCallback((updateState: SidebarLayoutStateUpdate) => {
     const nextState = updateState(stateRef.current);
@@ -52,8 +41,5 @@ export function useLocalWorkspaceSidebarState(
     writeLocalWorkspaceSidebarState(nextState);
   }, []);
 
-  return React.useMemo(
-    () => ({ isHydrated: true, state, setState: setSidebarState }),
-    [setSidebarState, state],
-  );
+  return React.useMemo(() => ({ state, setState: setSidebarState }), [setSidebarState, state]);
 }

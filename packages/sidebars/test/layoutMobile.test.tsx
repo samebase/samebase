@@ -582,6 +582,60 @@ describe("SidebarLayout mobile boot alignment", () => {
     expect(rootElement.querySelector('[data-sidebar-layout-part="carousel"]')?.scrollLeft).toBe(0);
   });
 
+  it("keeps the scroll position for a pane change while a touch owns it", () => {
+    const mountedRoot = root;
+    if (mountedRoot === null || rootElement === null) {
+      throw new Error("Expected mounted root");
+    }
+    vi.useFakeTimers();
+    try {
+      const setState = vi.fn<SidebarLayoutStateController["setState"]>();
+      const renderPane = (mobilePane: SidebarLayoutState["mobilePane"]) =>
+        renderMobileLayoutWithController(
+          { setState, state: createMobileSidebarState({ mobilePane }) },
+          {},
+        );
+      act(() => {
+        mountedRoot.render(renderPane("main"));
+      });
+      const carouselNode = rootElement.querySelector('[data-sidebar-layout-part="carousel"]');
+      if (!(carouselNode instanceof HTMLElement)) {
+        throw new Error("Expected the carousel");
+      }
+      expect(carouselNode.scrollLeft).toBe(TEST_SIDEBAR_WIDTH_PX);
+
+      // A saved state from elsewhere arrives while the finger is down: the position stays.
+      act(() => {
+        carouselNode.dispatchEvent(new Event("touchstart"));
+      });
+      act(() => {
+        mountedRoot.render(renderPane("right"));
+      });
+      expect(carouselNode.scrollLeft).toBe(TEST_SIDEBAR_WIDTH_PX);
+
+      // The settle after the touch reads the pane from the position.
+      const touchEnd = new Event("touchend");
+      Object.defineProperty(touchEnd, "touches", { value: [] });
+      act(() => {
+        carouselNode.dispatchEvent(touchEnd);
+        vi.advanceTimersByTime(81);
+      });
+      expect(carouselNode.scrollLeft).toBe(TEST_SIDEBAR_WIDTH_PX);
+      const settledUpdate = setState.mock.calls.at(-1)?.[0];
+      expect(settledUpdate?.(createMobileSidebarState({ mobilePane: "right" })).mobilePane).toBe(
+        "main",
+      );
+
+      // Without a touch, the same kind of change moves the carousel.
+      act(() => {
+        mountedRoot.render(renderPane("left"));
+      });
+      expect(carouselNode.scrollLeft).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("restores a saved left merge when the missing pane returns without writing state", () => {
     const mountedRoot = root;
     if (mountedRoot === null || rootElement === null) {
@@ -598,7 +652,6 @@ describe("SidebarLayout mobile boot alignment", () => {
     });
     const setState = vi.fn<SidebarLayoutStateController["setState"]>();
     const controller = {
-      isHydrated: true,
       setState,
       state: savedState,
     } satisfies SidebarLayoutStateController;
@@ -713,7 +766,6 @@ describe("SidebarLayout mobile boot alignment", () => {
     });
     const setState = vi.fn<SidebarLayoutStateController["setState"]>();
     const controller = {
-      isHydrated: true,
       setState,
       state: savedState,
     } satisfies SidebarLayoutStateController;

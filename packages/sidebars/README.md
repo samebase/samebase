@@ -209,21 +209,38 @@ The runtime writes these read-only geometry variables:
 - `--sidebar-layout-left-desktop-width`
 - `--sidebar-layout-right-desktop-width`
 
-## Store and prehydrate pane state
+## Store the pane state
 
 The runtime accepts a `SidebarLayoutStateController`. A consumer can keep this state in memory,
 browser storage, a server store, or a combination. The package does not select storage. It marks
 width writes as `width_deferred` and all other durable state changes as `immediate`.
 
-Prehydration builders accept a self-contained `readState(): SidebarLayoutPrehydrationState | null`
-function. The package serializes this function into the generated script. The function must not
-close over module variables. It can read and validate the consumer's selected storage format. The
-package does not know the storage key, envelope, or version.
+The layout root carries the state as attributes and CSS variables, and `structure.css` lays the
+panes out from them (`SidebarLayoutRootState.ts`). When the server render cannot read the stored
+state, pass `initialStateScript`: an inline script that the layout renders as the root's first
+child. The script reads the consumer's storage and calls
+`writeSidebarLayoutRootState(document.currentScript.parentElement, state)`, so the first paint shows
+the stored state before the browser parses the panes. The package does not know the storage key,
+envelope, or version.
 
-Render the desktop script and then the mobile script immediately after the matching layout markup.
-Give each concurrently rendered layout a unique `desktopStyleElementId`. The desktop script measures
-and scopes that layout only. Call `clearSidebarLayoutDesktopPrehydrationStyle` after the client
-state takes ownership.
+## Who writes the mobile pane
+
+The scroll position of the carousel is the pane. Everything else sets it once, only when no scroll
+position exists yet.
+
+| Phase                             | Where the pane lives           | Who may write it                                   |
+| --------------------------------- | ------------------------------ | -------------------------------------------------- |
+| Server HTML                       | `data-mobile-pane` on the root | the server render, or the initial state script     |
+| Before hydration                  | scroll position                | the script at the start of each pane, once         |
+| Hydrating                         | scroll position                | nobody: the first alignment reads it               |
+| Hydrated, idle                    | scroll position                | the user, by a swipe or a toggle                   |
+| Saved state arrives               | scroll position                | nobody, unless the saved pane changed              |
+| Client-only mount, no server HTML | state value                    | the first alignment, once                          |
+| A touch is in flight              | scroll position                | nobody: the settle after it reads the pane from it |
+| Navigation and Back               | scroll position                | nobody: router restoration opts out                |
+
+The tests of these rows are `test/layoutHydration.test.tsx`, `test/layoutMobile.test.tsx`, and the
+app's `e2e/mobile-pane-navigation.spec.ts`.
 
 ## Development
 

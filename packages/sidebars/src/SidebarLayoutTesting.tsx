@@ -15,7 +15,6 @@ export function useSidebarLayoutMemoryController(
 
   return useMemo(
     () => ({
-      isHydrated: true,
       setState: setControllerState,
       state,
     }),

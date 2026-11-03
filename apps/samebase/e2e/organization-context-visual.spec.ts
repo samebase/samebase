@@ -54,11 +54,12 @@ async function openDesktopRightPane(page: Page) {
     "data-viewport-measured",
     "",
   );
+  const viewport = page.locator('[data-sidebar-layout-part="viewport"]');
   const rightPane = page.locator('[data-sidebar-layout-part="pane"][data-pane-side="right"]');
-  if ((await rightPane.getAttribute("data-desktop-open")) === null) {
+  if ((await viewport.getAttribute("data-right-desktop-open")) === null) {
     await page.getByRole("button", { name: "Toggle Right Sidebar" }).click();
   }
-  await expect(rightPane).toHaveAttribute("data-desktop-open", "");
+  await expect(viewport).toHaveAttribute("data-right-desktop-open", "");
   return rightPane;
 }
 

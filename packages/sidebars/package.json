@@ -47,10 +47,10 @@
       "types": "./dist/SidebarLayoutGeometry.d.ts",
       "default": "./dist/SidebarLayoutGeometry.js"
     },
-    "./SidebarLayoutPrehydration": {
-      "samebase-source": "./src/SidebarLayoutPrehydration.ts",
-      "types": "./dist/SidebarLayoutPrehydration.d.ts",
-      "default": "./dist/SidebarLayoutPrehydration.js"
+    "./SidebarLayoutRootState": {
+      "samebase-source": "./src/SidebarLayoutRootState.ts",
+      "types": "./dist/SidebarLayoutRootState.d.ts",
+      "default": "./dist/SidebarLayoutRootState.js"
     },
     "./SidebarLayoutState": {
       "samebase-source": "./src/SidebarLayoutState.ts",

@@ -197,7 +197,6 @@ export function usePersistedWorkspaceSidebarState(
 
   return React.useMemo(
     () => ({
-      isHydrated: true,
       state: sidebarState,
       setState: applySidebarState,
     }),

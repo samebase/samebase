@@ -35,7 +35,7 @@ export default defineConfig({
       PaneFrame: "src/PaneFrame.tsx",
       SidebarLayout: "src/SidebarLayout.tsx",
       SidebarLayoutGeometry: "src/SidebarLayoutGeometry.ts",
-      SidebarLayoutPrehydration: "src/SidebarLayoutPrehydration.ts",
+      SidebarLayoutRootState: "src/SidebarLayoutRootState.ts",
       SidebarLayoutState: "src/SidebarLayoutState.ts",
       SidebarLayoutTesting: "src/SidebarLayoutTesting.tsx",
       SidebarRuntime: "src/SidebarRuntime.ts",

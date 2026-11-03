@@ -5,11 +5,10 @@ import {
 } from "@samebase/sidebars/SidebarLayoutGeometry";
 import { PaneFrame, type PaneFrameProps } from "@samebase/sidebars/PaneFrame";
 import {
-  buildSidebarLayoutDesktopPrehydrationScript,
-  buildSidebarLayoutMobilePanePrehydrationScript,
-  clearSidebarLayoutDesktopPrehydrationStyle,
-  type SidebarLayoutPrehydrationState,
-} from "@samebase/sidebars/SidebarLayoutPrehydration";
+  getSidebarLayoutRootState,
+  writeSidebarLayoutRootState,
+  type SidebarLayoutRootState,
+} from "@samebase/sidebars/SidebarLayoutRootState";
 import {
   SidebarRuntimeProvider,
   useSidebarActions,
@@ -36,25 +35,19 @@ const initialState = {
   rightMobileWidthPx: 240,
 } satisfies SidebarLayoutState;
 
-const prehydrationState: SidebarLayoutPrehydrationState = initialState;
-const readPrehydrationState = (): SidebarLayoutPrehydrationState | null => null;
-const desktopPrehydrationScript = buildSidebarLayoutDesktopPrehydrationScript(
-  { desktopStyleElementId: "packed-consumer-sidebar-style" },
-  readPrehydrationState,
-);
-const mobilePrehydrationScript = buildSidebarLayoutMobilePanePrehydrationScript(
-  { desktopStyleElementId: "packed-consumer-sidebar-style" },
-  readPrehydrationState,
-);
+const rootState: SidebarLayoutRootState = getSidebarLayoutRootState({
+  hasLeftPane: true,
+  hasRightPane: false,
+  mobileMinResizeBehavior: "min_resize_to_merge",
+  state: initialState,
+});
 
 const publicValues = [
   SidebarLayout,
   SIDEBAR_LAYOUT_MOBILE_MAIN_MIN_WIDTH_PX,
   PaneFrame,
-  prehydrationState,
-  desktopPrehydrationScript,
-  mobilePrehydrationScript,
-  clearSidebarLayoutDesktopPrehydrationStyle,
+  rootState,
+  writeSidebarLayoutRootState,
   SidebarRuntimeProvider,
   useSidebarActions,
   useSidebarLayoutPresentation,

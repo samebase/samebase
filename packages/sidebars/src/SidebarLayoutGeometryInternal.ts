@@ -52,8 +52,7 @@ export function clampNumber(value: number, min: number, max: number) {
 }
 
 /**
-Fit saved widths without changing the saved preferences. This function is also
-serialized into the desktop prehydration script, so keep its body self-contained.
+Fit saved widths without changing the saved preferences.
 */
 export function getDesktopPaneWidths(args: {
   leftOpen: boolean;

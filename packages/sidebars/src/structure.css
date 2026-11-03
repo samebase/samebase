@@ -54,7 +54,8 @@
    pane's content. Until the right pane is parsed, the carousel keeps its space, so the main pane
    does not take the full width and then narrow when the right pane arrives. */
 :where(
-  [data-sidebar-layout-part="carousel"][data-has-right-pane]:not(
+  [data-sidebar-layout-part="viewport"][data-has-right-pane]
+    [data-sidebar-layout-part="carousel"]:not(
       :has(> [data-sidebar-layout-part="pane"][data-pane-side="right"])
     )
 )::after {
@@ -268,7 +269,8 @@
   }
 
   :where(
-    [data-sidebar-layout-part="carousel"][data-has-right-pane]:not(
+    [data-sidebar-layout-part="viewport"][data-has-right-pane]
+      [data-sidebar-layout-part="carousel"]:not(
         :has(> [data-sidebar-layout-part="pane"][data-pane-side="right"])
       )
   )::after {
@@ -281,11 +283,17 @@
     border-width: 0;
   }
 
-  :where([data-sidebar-layout-part="pane"][data-pane-side="left"][data-desktop-open]) {
+  :where(
+    [data-sidebar-layout-part="viewport"][data-left-desktop-open]
+      [data-sidebar-layout-part="pane"][data-pane-side="left"]
+  ) {
     border-inline-end-width: 1px;
   }
 
-  :where([data-sidebar-layout-part="pane"][data-pane-side="right"][data-desktop-open]) {
+  :where(
+    [data-sidebar-layout-part="viewport"][data-right-desktop-open]
+      [data-sidebar-layout-part="pane"][data-pane-side="right"]
+  ) {
     border-inline-start-width: 1px;
   }
 
