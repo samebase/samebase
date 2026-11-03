@@ -3,10 +3,14 @@ import { type SidebarLayoutActiveResizeSide } from "./SidebarLayoutGeometryInter
 
 /**
 The server HTML has the real pane layout, and the browser may paint it while it parses a long page.
-This script runs at the start of each pane, so the carousel is on the saved pane before that paint.
-After it, the scroll position is the only record of the pane on screen: hydration reads it.
+This script runs at the start of each pane, so the carousel is on the pane that the root names
+before that paint. The right pane's markup comes last, so when it is the one, the main pane's script
+already scrolls to the end: structure.css keeps the right pane's space until it is parsed. That
+space is no snap point, so the script turns snapping off until the right pane's own script restores
+it. After these scripts, the scroll position is the only record of the pane on screen: hydration
+reads it.
 */
-const INITIAL_PANE_SCRIPT = `(()=>{const pane=document.currentScript.parentElement;if(pane.closest('[data-sidebar-layout-part="viewport"]').dataset.mobilePane===pane.dataset.paneSide)pane.parentElement.scrollLeft=pane.offsetLeft})()`;
+const INITIAL_PANE_SCRIPT = `(()=>{const pane=document.currentScript.parentElement,carousel=pane.parentElement,target=carousel.parentElement.dataset.mobilePane,side=pane.dataset.paneSide;if(target===side){carousel.scrollLeft=pane.offsetLeft;carousel.style.scrollSnapType=""}else if(side==="main"&&target==="right"){carousel.style.scrollSnapType="none";carousel.scrollLeft=carousel.scrollWidth}})()`;
 
 function InitialPaneScript() {
   return (
@@ -20,21 +24,10 @@ type SidebarLayoutResolvedPaneContent = {
   rightContent: ReactElement | undefined;
 };
 
-type SidebarLayoutLeftPaneStyle = CSSProperties & {
-  "--sidebar-layout-left-desktop-width": string;
-};
-
-type SidebarLayoutRightPaneStyle = CSSProperties & {
-  "--sidebar-layout-right-desktop-width": string;
-};
-
 type SidebarLayoutViewportProps = SidebarLayoutResolvedPaneContent & {
   activeResizeSide: SidebarLayoutActiveResizeSide;
   carouselRef: RefObject<HTMLDivElement | null>;
-  /** The left pane's desktop width as CSS: pixels once measured, a CSS fit of the saved width before. */
-  desktopLeftWidth: string;
   desktopLeftWidthPx: number;
-  desktopRightWidth: string;
   desktopRightWidthPx: number;
   enableDesktopPaneTransitions: boolean;
   hasMeasuredViewport: boolean;
@@ -52,9 +45,7 @@ type SidebarLayoutViewportProps = SidebarLayoutResolvedPaneContent & {
 export function SidebarLayoutViewport({
   activeResizeSide,
   carouselRef,
-  desktopLeftWidth,
   desktopLeftWidthPx,
-  desktopRightWidth,
   desktopRightWidthPx,
   enableDesktopPaneTransitions,
   hasMeasuredViewport,
@@ -71,24 +62,17 @@ export function SidebarLayoutViewport({
   showLeftPane,
   showRightPane,
 }: SidebarLayoutViewportProps) {
-  // Each pane carries its own desktop width variable, so a pane that a render inserts has its width
-  // in its first style and the width transition does not animate it from 0.
-  const leftPaneStyle: SidebarLayoutLeftPaneStyle = {
-    "--sidebar-layout-left-desktop-width": desktopLeftWidth,
+  // The mobile widths come from the root's variables until React measures the viewport. On desktop,
+  // structure.css sizes the side panes from the root's desktop variables at all times.
+  const leftPaneStyle: CSSProperties = {
     width: hasMeasuredViewport
       ? `${leftWidthPx}px`
       : "var(--sidebar-layout-left-mobile-width, 0px)",
   };
-  const rightPaneStyle: SidebarLayoutRightPaneStyle = {
-    "--sidebar-layout-right-desktop-width": desktopRightWidth,
+  const rightPaneStyle: CSSProperties = {
     width: hasMeasuredViewport
       ? `${rightWidthPx}px`
       : "var(--sidebar-layout-right-mobile-width, 0px)",
-  };
-  // The carousel also carries the right pane's desktop width: structure.css keeps that space while
-  // the browser has not parsed the right pane's markup yet.
-  const carouselStyle: SidebarLayoutRightPaneStyle = {
-    "--sidebar-layout-right-desktop-width": desktopRightWidth,
   };
   const mainPaneWidth = hasMeasuredViewport
     ? `${paneWidthPx}px`
@@ -98,20 +82,17 @@ export function SidebarLayoutViewport({
     <div
       ref={carouselRef}
       data-carousel-scroll-locked={lockCarouselScroll ? "" : undefined}
-      data-has-right-pane={showRightPane ? "" : undefined}
       data-viewport-measured={hasMeasuredViewport ? "" : undefined}
       data-sidebar-layout-part="carousel"
       // The router restores the scroll position of every scroller on a route change and on Back. A
       // pane position is the user's, so a restore would pull them back to an old pane. See the
       // router-core patch in pnpm-workspace.yaml and e2e/mobile-pane-navigation.spec.ts.
       data-scroll-restoration-ignore=""
-      style={carouselStyle}
       suppressHydrationWarning
     >
       {showLeftPane ? (
         <div
           data-active-resize={activeResizeSide === "left" ? "" : undefined}
-          data-desktop-open={desktopLeftWidthPx > 0 ? "" : undefined}
           data-pane-side="left"
           data-transition-enabled={enableDesktopPaneTransitions ? "" : undefined}
           data-sidebar-layout-part="pane"
@@ -132,7 +113,6 @@ export function SidebarLayoutViewport({
       {showRightPane ? (
         <div
           data-active-resize={activeResizeSide === "right" ? "" : undefined}
-          data-desktop-open={desktopRightWidthPx > 0 ? "" : undefined}
           data-pane-side="right"
           data-transition-enabled={enableDesktopPaneTransitions ? "" : undefined}
           data-sidebar-layout-part="pane"

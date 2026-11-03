@@ -10,14 +10,14 @@
 - Related files:
   - `packages/sidebars/src/SidebarLayout.tsx`
   - `packages/sidebars/src/SidebarLayoutGeometryInternal.ts`
-  - `packages/sidebars/src/SidebarLayoutPrehydration.ts`
+  - `packages/sidebars/src/SidebarLayoutRootState.ts`
   - `packages/sidebars/src/SidebarLayoutViewports.tsx`
   - `packages/sidebars/src/SidebarRuntimeInternal.tsx`
   - `apps/samebase/src/components/AppWorkspaceShell.tsx`
   - `apps/samebase/src/hooks/usePersistedWorkspaceSidebarState.ts`
   - `apps/samebase/src/hooks/useVisualFixtureWorkspaceSidebarState.ts`
   - `apps/samebase/src/hooks/useLocalWorkspaceSidebarState.ts`
-  - `apps/samebase/src/lib/appWorkspaceSidebarPrehydrationScript.ts`
+  - `apps/samebase/src/lib/appWorkspaceSidebarInitialStateScript.ts`
   - `apps/samebase/src/routes/root.queries.ts`
   - `packages/sidebars/src/SidebarLayoutState.ts`
   - `specs/087_SIDEBAR_LAYOUT_SINGLE_LAYOUT_AND_PRERENDER_SPEC.md`
@@ -100,27 +100,31 @@ This does not change the saved widths. If an embedded desktop layout cannot fit 
 minima scale down to fit. Resize controls report these same local limits.
 
 Sidebar width transitions are disabled during a resize and when the measured layout width changes.
-The package prehydration script uses the same calculation as the live layout. Each pane carries its
-own desktop width variable, so a pane that a render adds has its width in its first style.
+The layout root carries the desktop and mobile width variables, so a pane that a render adds
+inherits its width in its first style.
 
 ### Static First Paint
 
 The package owns the data attributes, CSS variables, responsive boundary, and geometry rules of the
-first paint. Before React measures the viewport, `SidebarLayout` renders the controller state as
-markup: desktop open state and widths, the selected mobile pane, a saved merged side, and the mobile
-widths as CSS clamps of the carousel width. The carousel starts at scroll position 0, so a selected
-main pane gives the left pane no width until React measures and scrolls past it, and a selected
-right pane aligns the carousel content to its end. `@samebase/sidebars/structure.css` must load
-before the first layout paint. After measurement, the normal runtime owns the layout.
+first paint. `SidebarLayoutRootState.ts` is the one mapping from a controller state to the layout
+root: the desktop open attributes, the selected mobile pane, a saved merged side, and the five width
+variables as CSS expressions of the root width. Before React measures the viewport, `SidebarLayout`
+renders that mapping as markup, and the real pane layout is in the HTML. A script at the start of
+each pane scrolls the carousel to the pane that the root names, so the first paint shows it; after
+that, the scroll position is the only record of the pane on screen, and hydration reads it.
+`@samebase/sidebars/structure.css` must load before the first layout paint. After measurement, the
+normal runtime owns the layout.
 
 A page rendered as the user needs no inline sidebar script: the root loader reads the saved state,
-and the controller starts from it. A page rendered without a session renders one inline script after
-the layout markup. It calls the package's `prehydrateSidebarLayoutDesktop` and
-`prehydrateSidebarLayoutMobilePane` with the local-storage state, and the app build compiles it into
-a string (`?inline-script`), never with `Function#toString` at run time. The local controller
-installs the stored state in its layout effect at hydration and removes the temporary stylesheet
-once a commit has rendered that state. Prehydration must not write state or act as a second pane
-runtime.
+and the controller starts from it. A page rendered without a session passes `initialStateScript`,
+one inline script that the layout renders as the root's first child. It reads the local-storage
+state and calls the package's `writeSidebarLayoutRootState`, and the app build compiles it into a
+string (`?inline-script`), never with `Function#toString` at run time. The local controller installs
+the stored state in its layout effect at hydration, and that render writes the same root values. The
+script must not write state or act as a second pane runtime.
+
+A touch owns the carousel position from its start until 80 ms after the last scroll event that
+follows it. The runtime writes no scroll position in that time; the settle reads the pane from it.
 
 ### Pane Presence And Display Fallbacks
 
@@ -156,7 +160,7 @@ prop-getter or render-prop assembly API.
 
 - Runtime tests use in-memory controllers and verify one provider and one context boundary.
 - Persistence adapter tests verify complete durable-state writes and delayed width writes.
-- Hydration tests verify that prehydration stops controlling layout after runtime measurement.
+- Hydration tests verify that hydration reads the pane from the scroll position and writes nothing.
 - Mobile tests verify display-only fallbacks for missing panes and unsupported viewport geometry.
 - Dependency checks verify that the package does not import Samebase persistence or routing code.
 - Keyboard tests verify package resize controls separately from Samebase global shortcut policy.

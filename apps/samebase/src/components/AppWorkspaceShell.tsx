@@ -34,7 +34,7 @@ import {
   APP_WORKSPACE_LEFT_SIDEBAR_DEFAULT_WIDTH_PX,
   APP_WORKSPACE_RIGHT_SIDEBAR_DEFAULT_WIDTH_PX,
 } from "@/lib/appWorkspaceSidebarPreferences";
-import prehydrateAppWorkspaceSidebarSource from "@/lib/appWorkspaceSidebarPrehydrationScript?inline-script";
+import writeAppWorkspaceSidebarInitialStateSource from "@/lib/appWorkspaceSidebarInitialStateScript?inline-script";
 import type { AppWorkspaceRouteChromeStaticData } from "@/routing/permissions";
 
 type AppWorkspaceShellToggleVisibility = "all" | "desktop" | "hidden";
@@ -74,7 +74,7 @@ type AppWorkspaceRouteChromeContextValue = {
 };
 
 const VISUAL_FIXTURE_PATHNAME = "/visual-fixture";
-const APP_WORKSPACE_SIDEBAR_PREHYDRATION_SCRIPT = `(${prehydrateAppWorkspaceSidebarSource})();`;
+const APP_WORKSPACE_SIDEBAR_INITIAL_STATE_SCRIPT = `(${writeAppWorkspaceSidebarInitialStateSource})();`;
 
 /**
  * A first visit starts with the left sidebar closed. The right sidebar starts open because it holds
@@ -249,20 +249,18 @@ function PersistedAppWorkspaceShellFrame(props: AppWorkspaceShellFrameProps) {
 
 /**
 A page that renders without a session (a prerendered public page, or a server render for a visitor
-without one) keeps its sidebar state in local storage. The inline script after the layout shows the
+without one) keeps its sidebar state in local storage. The layout's initial state script shows the
 stored state before the first paint; a page rendered as the user never renders it.
 */
 function LocalAppWorkspaceShellFrame(props: AppWorkspaceShellFrameProps) {
   const sidebarState = useLocalWorkspaceSidebarState(APP_WORKSPACE_SIDEBAR_DEFAULT_STATE);
 
   return (
-    <>
-      <AppWorkspaceShellFrame {...props} sidebarState={sidebarState} />
-      <script
-        suppressHydrationWarning
-        dangerouslySetInnerHTML={{ __html: APP_WORKSPACE_SIDEBAR_PREHYDRATION_SCRIPT }}
-      />
-    </>
+    <AppWorkspaceShellFrame
+      {...props}
+      initialStateScript={APP_WORKSPACE_SIDEBAR_INITIAL_STATE_SCRIPT}
+      sidebarState={sidebarState}
+    />
   );
 }
 
@@ -275,9 +273,13 @@ function VisualFixtureAppWorkspaceShellFrame(props: AppWorkspaceShellFrameProps)
 function AppWorkspaceShellFrame({
   children,
   chrome,
+  initialStateScript,
   sidebarState,
   staticRouteChrome,
-}: AppWorkspaceShellFrameProps & { sidebarState: SidebarLayoutStateController }) {
+}: AppWorkspaceShellFrameProps & {
+  initialStateScript?: string;
+  sidebarState: SidebarLayoutStateController;
+}) {
   const appRightSidebarPane = useAppRightSidebarPane();
   const { surface } = useOrganizationContext();
   const headerAccessory = chrome?.headerAccessory;
@@ -309,6 +311,7 @@ function AppWorkspaceShellFrame({
       <AppWorkspacePaneShortcut side={chrome?.shortcutPaneSide ?? "right"} />
       <AppSidebarLayout
         addressChrome={<RouteUrlEditorNext />}
+        initialStateScript={initialStateScript}
         left={leftPane}
         leftToggleVisibility={leftToggleVisibility}
         main={mainPane}

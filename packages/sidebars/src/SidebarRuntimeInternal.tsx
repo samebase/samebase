@@ -432,10 +432,6 @@ export function SidebarRuntimeProvider({ children, controller }: SidebarRuntimeP
     [sidebarLayoutStore, sidebarRuntimeActions, sidebarRuntimeState],
   );
 
-  if (!controller.isHydrated) {
-    return null;
-  }
-
   return (
     <SidebarRuntimeContext.Provider value={runtime}>{children}</SidebarRuntimeContext.Provider>
   );

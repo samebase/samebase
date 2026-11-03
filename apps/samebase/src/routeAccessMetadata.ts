@@ -48,7 +48,11 @@ export const ROUTE_ACCESS_METADATA_BY_PATH = {
     pathSuggestion: "hidden",
   },
   "/landing": { access: "access_public", pathSuggestion: "redirect" },
-  "/docs": { access: "access_public", prerender: true },
+  "/docs": {
+    access: "access_public",
+    appWorkspaceRouteChrome: { leftPane: "none" },
+    prerender: true,
+  },
   "/docs/cloudflare-setup": { access: "access_public", prerender: true },
   "/docs/cloudflare-previews-migration": { access: "access_public", prerender: true },
   "/docs/do-it-yourself": { access: "access_public", prerender: true },

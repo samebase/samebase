@@ -58,7 +58,7 @@ export function useVisualFixtureWorkspaceSidebarState(
   );
 
   return React.useMemo(
-    () => ({ isHydrated: true, state: changedState ?? seeded ?? defaults, setState }),
+    () => ({ state: changedState ?? seeded ?? defaults, setState }),
     [changedState, defaults, seeded, setState],
   );
 }

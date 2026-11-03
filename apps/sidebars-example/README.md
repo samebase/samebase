@@ -67,7 +67,7 @@ The app uses these public package entrypoints:
 @samebase/sidebars/SidebarLayout
 @samebase/sidebars/SidebarLayoutGeometry
 @samebase/sidebars/PaneFrame
-@samebase/sidebars/SidebarLayoutPrehydration
+@samebase/sidebars/SidebarLayoutRootState
 @samebase/sidebars/SidebarRuntime
 @samebase/sidebars/SidebarLayoutState
 ```

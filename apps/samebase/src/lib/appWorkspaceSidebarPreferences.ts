@@ -5,10 +5,6 @@ export const APP_WORKSPACE_MAIN_SCROLL_RESTORATION_ID = "workspace-layout-v2-mai
 /** The sidebar state of pages that render without a session (`lib/localWorkspaceSidebarState.ts`). */
 export const APP_WORKSPACE_SIDEBAR_STORAGE_KEY = "samebase_app_workspace_sidebar_state";
 export const APP_WORKSPACE_SIDEBAR_STORAGE_VERSION = 2;
-/** The temporary stylesheet of the desktop prehydration, which the local controller removes. */
-export const APP_WORKSPACE_SIDEBAR_PREHYDRATION_ARGS = {
-  desktopStyleElementId: "samebase-app-workspace-sidebar-prehydration",
-};
 /**
 The local storage key that visual tests write before a `/visual-fixture` page loads
 (`e2e/visualFixtureTest.ts`). The fixture route reads it and never writes it.

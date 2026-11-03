@@ -25,7 +25,6 @@ export type SidebarLayoutStatePersistenceMode = "immediate" | "width_deferred";
 export type SidebarLayoutStateUpdate = (currentState: SidebarLayoutState) => SidebarLayoutState;
 
 export type SidebarLayoutStateController = {
-  isHydrated: boolean;
   state: SidebarLayoutState;
   setState: (
     updateState: SidebarLayoutStateUpdate,

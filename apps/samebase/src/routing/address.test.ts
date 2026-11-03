@@ -223,12 +223,12 @@ describe("readRouteAddressReadiness", () => {
   it("keeps route-owned params while canonicalizing global params", () => {
     expect(
       readRouteAddressReadinessForTest({
-        currentRouteAddress: "/logo",
-        draftRouteAddress: "/pricing?left&zoom=0.0",
+        currentRouteAddress: "/pricing",
+        draftRouteAddress: "/logo?leftFace=striped&zoom=0.0",
       }),
     ).toEqual({
       kind: "readyNormalized",
-      routeAddress: "/pricing?left&zoom=0",
+      routeAddress: "/logo?leftFace=striped&zoom=0",
     });
   });
 

@@ -678,9 +678,13 @@ test("docs index renders the docs navigation in the main pane", async ({ page })
   });
 });
 
-test("landing do-it-yourself mobile pane query opens the sidebar", async ({ page }) => {
+test("landing do-it-yourself opens on the saved left pane", async ({ page }) => {
   await page.setViewportSize({ width: 744, height: 1200 });
-  await page.goto(`${DOCS_DO_IT_YOURSELF_ROUTE}?left&dark`, {
+  await seedLocalWorkspaceSidebarState(page, {
+    ...VISUAL_FIXTURE_WORKSPACE_SIDEBAR_STATE,
+    mobilePane: "left",
+  });
+  await page.goto(`${DOCS_DO_IT_YOURSELF_ROUTE}?dark`, {
     waitUntil: "domcontentloaded",
   });
 
@@ -696,18 +700,8 @@ test("landing do-it-yourself mobile pane query opens the sidebar", async ({ page
     "rgb(255, 255, 255)",
   );
   await expectSidebarFiles(sidebar);
-  await expect
-    .poll(() => {
-      const url = new URL(page.url());
-      return {
-        dark: url.searchParams.has("dark"),
-        left: url.searchParams.has("left"),
-      };
-    })
-    .toEqual({
-      dark: true,
-      left: true,
-    });
+  // The pane is saved state, not a URL flag: the URL keeps its own params and gains none.
+  await expect.poll(() => new URL(page.url()).search).toBe("?dark");
   await expect(page).toHaveScreenshot("landing-markdown-preview-mobile.png", {
     animations: "disabled",
     caret: "hide",

@@ -84,6 +84,7 @@ function AppSidebarLayoutMainPaneHeader({
 
 export function AppSidebarLayout({
   addressChrome,
+  initialStateScript,
   left,
   main,
   mobileMinResizeBehavior = "min_resize_to_merge",
@@ -92,6 +93,7 @@ export function AppSidebarLayout({
   rightToggleVisibility = "desktop",
 }: {
   addressChrome: ReactNode;
+  initialStateScript?: string;
   left?: PaneFrameProps;
   main: PaneFrameProps;
   mobileMinResizeBehavior?: SidebarLayoutMobileMinResizeBehavior;
@@ -113,6 +115,7 @@ export function AppSidebarLayout({
     <SidebarLayout
       addressChrome={addressChrome}
       formatResizeHandleValueText={formatSidebarLayoutResizeHandleValueText}
+      initialStateScript={initialStateScript}
       left={left ? <PaneFrame {...left} /> : undefined}
       main={
         <PaneFrame

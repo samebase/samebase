@@ -582,6 +582,87 @@ describe("SidebarLayout mobile boot alignment", () => {
     expect(rootElement.querySelector('[data-sidebar-layout-part="carousel"]')?.scrollLeft).toBe(0);
   });
 
+  it("keeps the scroll position for a pane change while a touch owns it", () => {
+    const mountedRoot = root;
+    if (mountedRoot === null || rootElement === null) {
+      throw new Error("Expected mounted root");
+    }
+    vi.useFakeTimers();
+    try {
+      const setState = vi.fn<SidebarLayoutStateController["setState"]>();
+      const renderPane = (mobilePane: SidebarLayoutState["mobilePane"]) =>
+        renderMobileLayoutWithController(
+          { setState, state: createMobileSidebarState({ mobilePane }) },
+          {},
+        );
+      act(() => {
+        mountedRoot.render(renderPane("main"));
+      });
+      const carouselNode = rootElement.querySelector('[data-sidebar-layout-part="carousel"]');
+      if (!(carouselNode instanceof HTMLElement)) {
+        throw new Error("Expected the carousel");
+      }
+      expect(carouselNode.scrollLeft).toBe(TEST_SIDEBAR_WIDTH_PX);
+
+      const touchEvent = (type: string, identifiers: number[]) => {
+        const event = new Event(type, { bubbles: true });
+        Object.defineProperty(event, "changedTouches", {
+          value: identifiers.map((identifier) => ({ identifier })),
+        });
+        return event;
+      };
+
+      // A tap that scrolls nothing owns nothing: a toggle still moves the carousel at once.
+      act(() => {
+        carouselNode.dispatchEvent(touchEvent("touchstart", [1]));
+        carouselNode.dispatchEvent(touchEvent("touchend", [1]));
+      });
+      act(() => {
+        mountedRoot.render(renderPane("left"));
+      });
+      expect(carouselNode.scrollLeft).toBe(0);
+      act(() => {
+        vi.advanceTimersByTime(81);
+        mountedRoot.render(renderPane("main"));
+      });
+      expect(carouselNode.scrollLeft).toBe(TEST_SIDEBAR_WIDTH_PX);
+
+      // A saved state from elsewhere arrives while a finger scrolls: the position stays. The finger
+      // is on a node that a render then removes, so its end never bubbles to the carousel.
+      const touchedNode = document.createElement("span");
+      carouselNode.append(touchedNode);
+      act(() => {
+        touchedNode.dispatchEvent(touchEvent("touchstart", [1]));
+        carouselNode.scrollLeft = TEST_SIDEBAR_WIDTH_PX + 40;
+        carouselNode.dispatchEvent(new Event("scroll"));
+      });
+      act(() => {
+        mountedRoot.render(renderPane("right"));
+      });
+      expect(carouselNode.scrollLeft).toBe(TEST_SIDEBAR_WIDTH_PX + 40);
+
+      // The settle after the touch reads the pane from the position.
+      touchedNode.remove();
+      act(() => {
+        touchedNode.dispatchEvent(touchEvent("touchend", [1]));
+        vi.advanceTimersByTime(81);
+      });
+      expect(carouselNode.scrollLeft).toBe(TEST_SIDEBAR_WIDTH_PX + 40);
+      const settledUpdate = setState.mock.lastCall?.[0];
+      expect(settledUpdate?.(createMobileSidebarState({ mobilePane: "right" })).mobilePane).toBe(
+        "main",
+      );
+
+      // Without a touch, the same kind of change moves the carousel.
+      act(() => {
+        mountedRoot.render(renderPane("left"));
+      });
+      expect(carouselNode.scrollLeft).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("restores a saved left merge when the missing pane returns without writing state", () => {
     const mountedRoot = root;
     if (mountedRoot === null || rootElement === null) {
@@ -598,7 +679,6 @@ describe("SidebarLayout mobile boot alignment", () => {
     });
     const setState = vi.fn<SidebarLayoutStateController["setState"]>();
     const controller = {
-      isHydrated: true,
       setState,
       state: savedState,
     } satisfies SidebarLayoutStateController;
@@ -713,7 +793,6 @@ describe("SidebarLayout mobile boot alignment", () => {
     });
     const setState = vi.fn<SidebarLayoutStateController["setState"]>();
     const controller = {
-      isHydrated: true,
       setState,
       state: savedState,
     } satisfies SidebarLayoutStateController;

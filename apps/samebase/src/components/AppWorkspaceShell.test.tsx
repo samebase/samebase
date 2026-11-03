@@ -526,13 +526,13 @@ describe("AppWorkspaceShell", () => {
     const markupContainer = document.createElement("div");
     markupContainer.innerHTML = markup;
     const viewport = markupContainer.querySelector('[data-sidebar-layout-part="viewport"]');
-    const leftPane = markupContainer.querySelector('[data-pane-side="left"]');
-    const rightPane = markupContainer.querySelector('[data-pane-side="right"]');
 
-    expect(leftPane?.getAttribute("style")).toContain(
+    expect(viewport?.getAttribute("style")).toContain(
       "--sidebar-layout-left-desktop-width:min(300px, calc(100% - 160px))",
     );
-    expect(rightPane?.getAttribute("style")).toContain("--sidebar-layout-right-desktop-width:0px");
+    expect(viewport?.getAttribute("style")).toContain("--sidebar-layout-right-desktop-width:0px");
+    expect(viewport?.hasAttribute("data-left-desktop-open")).toBe(true);
+    expect(viewport?.hasAttribute("data-right-desktop-open")).toBe(false);
     expect(viewport?.getAttribute("data-mobile-pane")).toBe("right");
     expect(viewport?.getAttribute("data-sidebar-layout-mobile-merged-side")).toBe("right");
     expect(viewport?.getAttribute("style")).toContain(
