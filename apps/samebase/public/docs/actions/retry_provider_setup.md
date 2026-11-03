@@ -17,20 +17,17 @@ cannot start returns an error, not a confirmation request. Progress is readable 
 `repository_list` while the run executes.
 
 Samebase confirms this action on the server, for the dashboard and MCP alike. A call without
-`confirmation` changes nothing and returns `needs_confirmation` with the effect in plain words, the
-exact acknowledgement sentence, and a one-use token that expires after 10 minutes. The token is
-bound to the user, the client that received it, the action, and the request after Samebase resolves
-names and defaults. The second call sends the same arguments and `confirmation` with the token and
-the exact sentence from the same client; a changed argument, a used or expired token, another
-client, or another sentence is rejected and changes nothing. Samebase records each accepted
-confirmation in its audit log.
+`confirmation` changes nothing and returns `needs_confirmation` with the effect in plain words and
+the exact acknowledgement sentence, which names the repository. The second call sends the same
+arguments and `confirmation` with that exact sentence; any other sentence is rejected and changes
+nothing.
 
 ## Arguments
 
 - `repository` (string, required): The repository as GitHub owner/name, or its repositoryId from
   repository_list.
 - `confirmation` (object, optional): Omit it on the first call. After the user approves the effect
-  in the needs_confirmation result, pass its token and its exact acknowledgement sentence.
+  in the needs_confirmation result, pass its exact acknowledgement sentence.
 
 ## Returns
 
@@ -51,15 +48,9 @@ JSON Schema for the tool's `structuredContent`:
         },
         "acknowledgement": {
           "type": "string"
-        },
-        "token": {
-          "type": "string"
-        },
-        "expiresAt": {
-          "type": "number"
         }
       },
-      "required": ["state", "effect", "acknowledgement", "token", "expiresAt"],
+      "required": ["state", "effect", "acknowledgement"],
       "additionalProperties": false
     },
     {

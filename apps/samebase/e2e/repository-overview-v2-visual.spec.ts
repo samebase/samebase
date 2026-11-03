@@ -168,7 +168,7 @@ test("keeps the Data and Components routes of a stack's production deployment", 
   await expect(page.getByRole("menuitem", { name: "Components" })).toBeVisible();
   await page.getByRole("menuitem", { name: "Data" }).click();
 
-  await expect(page).toHaveURL("/repo/samebase/samebase/db/main/project/convex-project-samebase");
+  await expect(page).toHaveURL("/repo/samebase/samebase/db/main/project/839311");
 });
 
 test("keeps the Schema route of a stack's production deployment", async ({ page }) => {
@@ -178,9 +178,7 @@ test("keeps the Schema route of a stack's production deployment", async ({ page 
   await expect(page.getByRole("menuitem", { name: "Data" })).toBeVisible();
   await page.getByRole("menuitem", { name: "Schema" }).click();
 
-  await expect(page).toHaveURL(
-    "/repo/samebase/samebase/schema/main/project/convex-project-samebase",
-  );
+  await expect(page).toHaveURL("/repo/samebase/samebase/schema/main/project/839311");
 });
 
 test("shows one card per Alchemy stack on desktop and mobile", async ({ page }) => {

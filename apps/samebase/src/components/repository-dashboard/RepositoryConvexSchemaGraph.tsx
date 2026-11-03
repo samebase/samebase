@@ -56,7 +56,6 @@ type SchemaGraphEdge = Edge;
 
 export type RepositoryConvexSchemaGraphRouteContext = {
   branch: string;
-  convexCodePath: string;
   projectId: string;
   githubRepositoryFullName: string;
 };
@@ -857,12 +856,6 @@ function RepositoryConvexSchemaGraphRouteSidebar({
 
           <div className="grid gap-1 text-xs text-muted-foreground">
             <div className="flex min-w-0 justify-between gap-2">
-              <span>Code</span>
-              <span className="min-w-0 truncate font-mono text-foreground">
-                {context.convexCodePath}
-              </span>
-            </div>
-            <div className="flex min-w-0 justify-between gap-2">
               <span>Tables</span>
               <span className="font-mono text-foreground">
                 {snapshot ? formatCount(snapshot.graph.tables.length) : "-"}
@@ -923,7 +916,7 @@ function useRepositoryConvexSchemaGraphController({
   convexProjectId,
   repositoryId,
 }: {
-  convexProjectId: Id<"repositoryConvexProjects">;
+  convexProjectId: string;
   repositoryId: Id<"repositories">;
 }): RepositoryConvexSchemaGraphController {
   const [refreshPending, setRefreshPending] = useState(false);
@@ -1030,7 +1023,7 @@ export function RepositoryConvexSchemaGraphRouteWorkspace({
   repositoryId,
 }: {
   context: RepositoryConvexSchemaGraphRouteContext;
-  convexProjectId: Id<"repositoryConvexProjects">;
+  convexProjectId: string;
   repositoryId: Id<"repositories">;
 }) {
   const controller = useRepositoryConvexSchemaGraphController({

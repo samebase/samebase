@@ -326,6 +326,27 @@ export function readProductionConvexDeployments(stacks: readonly AlchemyStack[])
   });
 }
 
+/**
+The production deployments of the repository's stacks in the connected team. A store that cannot be
+read proves no deployment, like a team without a store.
+*/
+export async function readTeamProductionDeployments(
+  target: Pick<
+    ConvexInspectionTarget,
+    "authMethod" | "githubRepositoryFullName" | "teamId" | "token"
+  >,
+) {
+  const read = await readAlchemyStacks({
+    repository: target.githubRepositoryFullName,
+    target,
+  }).catch(() => ({ store: "missing" as const }));
+  return read.store === "missing"
+    ? []
+    : readProductionConvexDeployments(read.stacks).filter(
+        (deployment) => deployment.teamId === null || deployment.teamId === target.teamId,
+      );
+}
+
 const vAlchemyConnection = union(
   object({ store: literal("missing") }),
   vAlchemyNoConnection,

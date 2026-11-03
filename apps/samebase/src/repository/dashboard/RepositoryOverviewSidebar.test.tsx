@@ -78,10 +78,6 @@ function repository(
     deletion: { state: "not_deleting", deleteAction: { state: "available" } },
     isSamebaseManaged: true,
     hasConnectedGitHubRepository: true,
-    hasConvexProvision: false,
-    hasCloudflareProvision: false,
-    cloudflareWorkers: [],
-    convexProjects: [],
   };
 }
 

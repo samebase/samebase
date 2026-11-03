@@ -1,18 +1,10 @@
-import { afterEach, describe, expect, it, vi } from "vite-plus/test";
+import { describe, expect, it } from "vite-plus/test";
 
 import type { Id } from "../_generated/dataModel";
-import { sha256Hex } from "../mcp/tokens";
 import { insertTestOrganizationBillingAccount, makeConvexTest } from "../test.setup";
-import type { ConfirmationSurface } from "./confirmationModel";
-import { checkActionConfirmation, type ConfirmedActionRequest } from "./confirmations";
+import { checkActionConfirmation } from "./confirmations";
+import type { ActionConfirmationSurface } from "./contracts/actionConfirmation";
 
-/*
-State axes of the confirmation check: whether a confirmation is sent; whether its token exists, is
-the caller's, is unused, is unexpired, was issued for this action and this normalized request; and
-whether the acknowledgement is exact. Only the last row of that table confirms.
-*/
-
-const dashboard = { kind: "dashboard" as const };
 const retryEffect =
   "Samebase starts a new setup run for scout-owner/scout. It writes the credential of the organization's Convex connection into the repository's GitHub Actions secret CONVEX_ACCESS_TOKEN and the Convex team id into its variable CONVEX_TEAM_ID, replacing their values. If the starter is not seeded yet, it seeds the starter, which starts a deployment in the repository's GitHub Actions. Then it syncs the default branch tree.";
 const retryApproval =
@@ -100,78 +92,46 @@ async function createFixture() {
     };
   });
 
-  const retry: ConfirmedActionRequest = {
-    action: "retry_provider_setup",
-    repositoryId: ids.repositoryId,
-  };
   const check = async (args: {
-    request: ConfirmedActionRequest;
-    userId?: Id<"users">;
-    surface?: ConfirmationSurface;
-    confirmation?: { token: string; acknowledgement: string };
+    repositoryId?: Id<"repositories">;
+    surface?: ActionConfirmationSurface;
+    confirmation?: { acknowledgement: string };
   }) =>
     await t.run(
       async (ctx) =>
         await checkActionConfirmation(ctx, {
-          userId: args.userId ?? ids.ownerId,
-          surface: args.surface ?? dashboard,
-          request: args.request,
+          userId: ids.ownerId,
+          repositoryId: args.repositoryId ?? ids.repositoryId,
+          surface: args.surface ?? "dashboard",
           confirmation: args.confirmation,
         }),
     );
-  const issue = async (request: ConfirmedActionRequest) => {
-    const challenge = await check({ request });
+  const issue = async (repositoryId?: Id<"repositories">) => {
+    const challenge = await check({ repositoryId });
     if (challenge.state !== "needs_confirmation") {
       throw new Error("Expected a confirmation request.");
     }
     return challenge;
   };
-  const readRows = async () =>
-    await t.run(async (ctx) => ({
-      tokens: await ctx.db.query("actionConfirmationTokens").collect(),
-      audit: await ctx.db.query("audit_confirmedActions_events").collect(),
-    }));
 
-  return { check, ids, issue, readRows, retry, t };
+  return { check, ids, issue };
 }
 
-afterEach(() => {
-  vi.useRealTimers();
-});
-
 describe("action confirmation check", () => {
-  it("returns the effect, the acknowledgement, and a token, and stores only the token hash", async () => {
-    const { check, readRows, retry } = await createFixture();
+  it("returns the effect and the acknowledgement", async () => {
+    const { check } = await createFixture();
 
-    const challenge = await check({ request: retry });
-
-    expect(challenge).toEqual({
+    await expect(check({})).resolves.toEqual({
       state: "needs_confirmation",
       effect: retryEffect,
       acknowledgement: `I approve ${retryApproval}`,
-      token: expect.stringMatching(/^sbcf_/),
-      expiresAt: expect.any(Number),
     });
-    const { audit, tokens } = await readRows();
-    expect(audit).toEqual([]);
-    expect(tokens).toEqual([
-      expect.objectContaining({
-        action: "retry_provider_setup",
-        acknowledgement: `I approve ${retryApproval}`,
-        expiresAt: challenge.state === "needs_confirmation" ? challenge.expiresAt : 0,
-      }),
-    ]);
-    expect(JSON.stringify(tokens)).not.toContain(
-      challenge.state === "needs_confirmation" ? challenge.token : "missing",
-    );
-    expect(tokens[0]?.consumedAt).toBeUndefined();
-    expect(tokens[0]?.expiresAt).toBe((tokens[0]?.createdAt ?? 0) + 10 * 60 * 1000);
   });
 
   it("describes the retry of the GitHub Actions setup", async () => {
-    const { issue, retry } = await createFixture();
+    const { issue } = await createFixture();
 
-    const repositoryActions = await issue(retry);
+    const repositoryActions = await issue();
 
     const repositoryActionsText = `${repositoryActions.effect} ${repositoryActions.acknowledgement}`;
     for (const samebaseOnly of [
@@ -184,196 +144,47 @@ describe("action confirmation check", () => {
   });
 
   it("asks an MCP caller to state the user's approval", async () => {
-    const { check, retry } = await createFixture();
+    const { check } = await createFixture();
 
-    await expect(
-      check({
-        request: retry,
-        surface: { kind: "mcp", grantId: "grant-1", clientId: "client-1" },
-      }),
-    ).resolves.toMatchObject({
+    await expect(check({ surface: "mcp" })).resolves.toMatchObject({
       state: "needs_confirmation",
       effect: retryEffect,
       acknowledgement: `I confirm that the user approved ${retryApproval}`,
     });
   });
 
-  it("confirms once with the token and the exact sentence, and writes the audit row", async () => {
-    const { check, ids, issue, readRows, retry } = await createFixture();
-    const challenge = await issue(retry);
-    const confirmation = { token: challenge.token, acknowledgement: challenge.acknowledgement };
+  it("confirms with the exact sentence", async () => {
+    const { check, issue } = await createFixture();
+    const { acknowledgement } = await issue();
 
-    await expect(check({ request: retry, confirmation })).resolves.toEqual({
+    await expect(check({ confirmation: { acknowledgement } })).resolves.toEqual({
       state: "confirmed",
     });
-
-    const { audit, tokens } = await readRows();
-    expect(tokens[0]?.consumedAt).toEqual(expect.any(Number));
-    expect(audit).toEqual([
-      expect.objectContaining({
-        userId: ids.ownerId,
-        organizationId: ids.organizationId,
-        repositoryId: ids.repositoryId,
-        action: "retry_provider_setup",
-        resource: { kind: "repository", githubRepositoryFullName: "scout-owner/scout" },
-        requestDigest: tokens[0]?.requestDigest,
-        effect: challenge.effect,
-        acknowledgement: challenge.acknowledgement,
-        surface: { kind: "dashboard" },
-        issuedAt: tokens[0]?.createdAt,
-        confirmedAt: tokens[0]?.consumedAt,
-      }),
-    ]);
-    await expect(check({ request: retry, confirmation })).rejects.toMatchObject({
-      data: "This confirmation token was already used. Nothing changed. Start the action again to get a new confirmation.",
-    });
-    await expect(readRows()).resolves.toMatchObject({ audit: [expect.anything()] });
   });
 
-  it("rejects an unknown token, another user's token, and an expired token", async () => {
-    const { check, ids, issue, readRows, retry, t } = await createFixture();
-    const challenge = await issue(retry);
-    const notValid = {
-      data: "This confirmation token is not valid. Nothing changed. Start the action again to get a new confirmation.",
-    };
+  it("rejects a wrong sentence", async () => {
+    const { check } = await createFixture();
 
-    await expect(
-      check({
-        request: retry,
-        confirmation: { token: "sbcf_unknown", acknowledgement: challenge.acknowledgement },
-      }),
-    ).rejects.toMatchObject(notValid);
-    await expect(
-      check({
-        request: retry,
-        userId: ids.memberId,
-        confirmation: { token: challenge.token, acknowledgement: challenge.acknowledgement },
-      }),
-    ).rejects.toMatchObject(notValid);
-
-    await t.run(async (ctx) => {
-      const token = await ctx.db.query("actionConfirmationTokens").first();
-      if (!token) {
-        throw new Error("Expected the issued token.");
-      }
-      await ctx.db.patch(token._id, { expiresAt: Date.now() - 1 });
+    await expect(check({ confirmation: { acknowledgement: "I approve" } })).rejects.toMatchObject({
+      data: `The acknowledgement does not match, so nothing changed. Send exactly: I approve ${retryApproval}`,
     });
-    await expect(
-      check({
-        request: retry,
-        confirmation: { token: challenge.token, acknowledgement: challenge.acknowledgement },
-      }),
-    ).rejects.toMatchObject({
-      data: "This confirmation token expired. Nothing changed. Start the action again to get a new confirmation.",
-    });
-    await expect(readRows()).resolves.toMatchObject({ audit: [] });
   });
 
-  it("accepts a token only from the surface that received it", async () => {
-    const { check, readRows, retry } = await createFixture();
-    const checkFrom = async (
-      surface: ConfirmationSurface,
-      confirmation?: { token: string; acknowledgement: string },
-    ) => await check({ request: retry, surface, confirmation });
-    const firstClient = { kind: "mcp" as const, grantId: "grant-1", clientId: "client-1" };
-    const challenge = await checkFrom(firstClient);
-    if (challenge.state !== "needs_confirmation") {
-      throw new Error("Expected a confirmation request.");
-    }
-    const confirmation = { token: challenge.token, acknowledgement: challenge.acknowledgement };
-    const anotherClient = {
-      data: "This confirmation token was issued to another client. Nothing changed. Call the action again without confirmation to get a new confirmation request.",
-    };
+  it("rejects the sentence of another repository", async () => {
+    const { check, ids, issue } = await createFixture();
+    const { acknowledgement } = await issue(ids.otherRepositoryId);
 
-    await expect(
-      checkFrom({ kind: "mcp", grantId: "grant-2", clientId: "client-2" }, confirmation),
-    ).rejects.toMatchObject(anotherClient);
-    await expect(
-      checkFrom({ kind: "mcp", grantId: "grant-1", clientId: "client-2" }, confirmation),
-    ).rejects.toMatchObject(anotherClient);
-    await expect(checkFrom(dashboard, confirmation)).rejects.toMatchObject({
-      data: expect.stringContaining("This confirmation token was issued to another client."),
-    });
-    await expect(readRows()).resolves.toMatchObject({ audit: [] });
-
-    await expect(checkFrom(firstClient, confirmation)).resolves.toEqual({ state: "confirmed" });
-    await expect(readRows()).resolves.toMatchObject({ audit: [{ surface: firstClient }] });
+    await expect(check({ confirmation: { acknowledgement } })).rejects.toThrow(
+      "The acknowledgement does not match",
+    );
   });
 
-  it("rejects a token of a retired action and a token for another repository", async () => {
-    const { check, ids, issue, readRows, retry, t } = await createFixture();
-    await t.run(async (ctx) => {
-      await ctx.db.insert("actionConfirmationTokens", {
-        tokenHash: await sha256Hex("sbcf_old_detach"),
-        userId: ids.ownerId,
-        surface: dashboard,
-        action: "detach_resource",
-        requestDigest: "old-digest",
-        effect: "Samebase removes the Worker scout from scout-owner/scout.",
-        acknowledgement: "I approve removing Worker scout from scout-owner/scout in Samebase",
-        createdAt: Date.now(),
-        expiresAt: Date.now() + 60_000,
-      });
-    });
-    const otherChallenge = await issue({
-      action: "retry_provider_setup",
-      repositoryId: ids.otherRepositoryId,
-    });
+  it("rejects the dashboard sentence over MCP", async () => {
+    const { check, issue } = await createFixture();
+    const { acknowledgement } = await issue();
 
-    await expect(
-      check({
-        request: retry,
-        confirmation: {
-          token: "sbcf_old_detach",
-          acknowledgement: "I approve removing Worker scout from scout-owner/scout in Samebase",
-        },
-      }),
-    ).rejects.toMatchObject({
-      data: "This confirmation token belongs to another action. Nothing changed. Start the action again to get a new confirmation.",
-    });
-    await expect(
-      check({
-        request: retry,
-        confirmation: {
-          token: otherChallenge.token,
-          acknowledgement: otherChallenge.acknowledgement,
-        },
-      }),
-    ).rejects.toMatchObject({
-      data: "The request changed after it was approved. Nothing changed. Start the action again to get a new confirmation.",
-    });
-    await expect(readRows()).resolves.toMatchObject({ audit: [] });
-  });
-
-  it("rejects a wrong sentence without using the token", async () => {
-    const { check, issue, readRows, retry } = await createFixture();
-    const challenge = await issue(retry);
-
-    await expect(
-      check({
-        request: retry,
-        confirmation: { token: challenge.token, acknowledgement: "I approve a new setup run" },
-      }),
-    ).rejects.toMatchObject({
-      data: `The acknowledgement does not match, so nothing changed. Send exactly: ${challenge.acknowledgement}`,
-    });
-    await expect(readRows()).resolves.toMatchObject({ audit: [] });
-
-    await expect(
-      check({
-        request: retry,
-        confirmation: { token: challenge.token, acknowledgement: challenge.acknowledgement },
-      }),
-    ).resolves.toEqual({ state: "confirmed" });
-  });
-
-  it("deletes a token at its expiry", async () => {
-    vi.useFakeTimers();
-    const { issue, readRows, retry, t } = await createFixture();
-    await issue(retry);
-
-    await t.finishAllScheduledFunctions(vi.runAllTimers);
-
-    await expect(readRows()).resolves.toEqual({ tokens: [], audit: [] });
+    await expect(check({ surface: "mcp", confirmation: { acknowledgement } })).rejects.toThrow(
+      "The acknowledgement does not match",
+    );
   });
 });

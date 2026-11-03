@@ -8,7 +8,7 @@ import {
 } from "@samebase/sure";
 import { ConvexError, v } from "convex/values";
 import { internal } from "../_generated/api";
-import type { Doc, Id } from "../_generated/dataModel";
+import type { Id } from "../_generated/dataModel";
 import { internalQuery, type ActionCtx } from "../_generated/server";
 import type { ConvexCloudDeployment } from "../convexManagementApi/client";
 import { isRecord, toErrorMessage } from "../jsonUtils";
@@ -22,10 +22,9 @@ import {
   type ConvexDeployKeyAllowedAction,
   type ConvexDeployKeyAuthMethod,
 } from "./convexDeployKeys";
-import { vRepositoryConvexProjectDocument } from "./model";
 import { isLiveConnectedRepository } from "./state";
 
-const { array, id, literal, object, string, union } = v;
+const { id, literal, object, string, union } = v;
 
 /** `ConvexError` data when the organization holds no Convex connection to the repository's team. */
 export const CONVEX_CONNECTION_REQUIRED = "Convex connection is required.";
@@ -34,8 +33,6 @@ export type ConvexInspectionTarget = {
   authMethod: ConvexDeployKeyAuthMethod;
   /** `owner/name` on GitHub. */
   githubRepositoryFullName: string;
-  /** The Convex projects attached to the repository. */
-  projects: Doc<"repositoryConvexProjects">[];
   /** The Convex team that the organization connected. */
   teamId: string;
   /** The organization's Convex token, opened in the action. */
@@ -65,7 +62,6 @@ const vSealedConvexInspectionTarget = object({
   credential: vSealedSecret,
   authMethod: vConvexProviderAuthMethod,
   githubRepositoryFullName: string(),
-  projects: array(vRepositoryConvexProjectDocument),
   teamId: string(),
 });
 
@@ -85,11 +81,6 @@ export const readTarget = internalQuery({
       throw new Error("Repository not found.");
     }
 
-    const projects = await ctx.db
-      .query("repositoryConvexProjects")
-      .withIndex("by_repository", (q) => q.eq("repositoryId", args.repositoryId))
-      .collect();
-
     const configuration = await getOrganizationProviderConfiguration(
       ctx.db,
       repository.organizationId,
@@ -103,7 +94,6 @@ export const readTarget = internalQuery({
       credential: credential.auth.credential,
       authMethod: credential.auth.method,
       githubRepositoryFullName: `${organization.githubOwnerLogin}/${repository.githubRepositoryName}`,
-      projects: projects.filter((project) => project.organizationId === repository.organizationId),
       teamId: convexTeam.teamId,
     };
   },
@@ -130,7 +120,6 @@ export async function readConvexInspectionTarget(
   return {
     authMethod: target.authMethod,
     githubRepositoryFullName: target.githubRepositoryFullName,
-    projects: target.projects,
     teamId: target.teamId,
     token,
   };

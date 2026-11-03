@@ -384,28 +384,13 @@ export const deleteOrganization = mutation({
       );
     }
 
-    const [repositoryCloudflareWorker, repositoryConvexProject, provisioningRun] =
-      await Promise.all([
-        ctx.db
-          .query("repositoryCloudflareWorkers")
-          .withIndex("by_organization", (query) => query.eq("organizationId", organization._id))
-          .first(),
-        ctx.db
-          .query("repositoryConvexProjects")
-          .withIndex("by_organization", (query) => query.eq("organizationId", organization._id))
-          .first(),
-        ctx.db
-          .query("workflow_repositoryProvisioning_runs")
-          .withIndex("by_organization_and_user_and_state_and_updated_at", (query) =>
-            query.eq("organizationId", organization._id),
-          )
-          .first(),
-      ]);
-    if (
-      repositoryCloudflareWorker !== null ||
-      repositoryConvexProject !== null ||
-      provisioningRun !== null
-    ) {
+    const provisioningRun = await ctx.db
+      .query("workflow_repositoryProvisioning_runs")
+      .withIndex("by_organization_and_user_and_state_and_updated_at", (query) =>
+        query.eq("organizationId", organization._id),
+      )
+      .first();
+    if (provisioningRun !== null) {
       throw new ConvexError("Finish organization repository cleanup before deletion.");
     }
 

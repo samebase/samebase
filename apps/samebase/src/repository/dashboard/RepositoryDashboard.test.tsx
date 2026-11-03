@@ -98,16 +98,6 @@ function fakeOrganizationId(value = "organization-samebase"): Id<"organizations"
   return value;
 }
 
-function fakeCloudflareWorkerId(value = "worker-root"): Id<"repositoryCloudflareWorkers"> {
-  // @ts-expect-error Convex ids are strings at runtime; static rendering only needs stable ids.
-  return value;
-}
-
-function fakeConvexProjectId(value = "convex-project-root"): Id<"repositoryConvexProjects"> {
-  // @ts-expect-error Convex ids are strings at runtime; static rendering only needs stable ids.
-  return value;
-}
-
 function fakeRunId(): Id<"workflow_repositoryProvisioning_runs"> {
   // @ts-expect-error Convex ids are strings at runtime; this static render
   // test only needs a stable run id for component props.
@@ -121,35 +111,6 @@ function fakeDeletionRunId(): Id<"workflow_repositoryDeletion_runs"> {
 }
 
 type RepositorySettingsBuilderRepository = UserRepositoryResult;
-type RepositorySettingsCloudflareWorker =
-  RepositorySettingsBuilderRepository["cloudflareWorkers"][number];
-type RepositorySettingsConvexProject =
-  RepositorySettingsBuilderRepository["convexProjects"][number];
-function makeRepositorySettingsCloudflareWorker(
-  overrides: Partial<RepositorySettingsCloudflareWorker>,
-): RepositorySettingsCloudflareWorker {
-  return {
-    workerId: fakeCloudflareWorkerId(),
-    accountId: "account-1",
-    workerName: "demo-worker",
-    workerTag: "demo-worker-tag",
-    rootDirectory: "/",
-    ...overrides,
-  };
-}
-
-function makeRepositorySettingsConvexProject(
-  overrides: Partial<RepositorySettingsConvexProject>,
-): RepositorySettingsConvexProject {
-  return {
-    convexProjectId: fakeConvexProjectId(),
-    codeLocation: { kind: "config", convexConfigPath: "convex.json" },
-    teamId: "team-1",
-    projectId: "demo-project-id",
-    ...overrides,
-  };
-}
-
 function makeRepositorySettingsBuilderRepository(
   overrides: Partial<RepositorySettingsBuilderRepository>,
 ): RepositorySettingsBuilderRepository {
@@ -173,10 +134,6 @@ function makeRepositorySettingsBuilderRepository(
     },
     isSamebaseManaged: true,
     hasConnectedGitHubRepository: true,
-    hasConvexProvision: false,
-    hasCloudflareProvision: false,
-    cloudflareWorkers: [],
-    convexProjects: [],
   };
   return { ...repository, ...overrides };
 }
@@ -433,6 +390,11 @@ describe("Alchemy stack cards", () => {
               },
               {
                 destination: "samebase",
+                href: "/repo/samebase/base-alchemy/schema/main/project/3245938",
+                label: "Schema",
+              },
+              {
+                destination: "samebase",
                 href: "/repo/samebase/base-alchemy/components/ideal-dolphin-15",
                 label: "Components",
               },
@@ -685,8 +647,7 @@ describe("Alchemy stack cards", () => {
     ).toEqual([["apps/samebase", null, ["cloudflare_worker", "cloudflare_worker"]]]);
   });
 
-  it("routes a Convex deployment of the store through its attachment row when one exists", () => {
-    const convexProjectId = fakeConvexProjectId("convex-project-base-alchemy");
+  it("routes a production Convex deployment of the store by its Convex project id", () => {
     const cards = stackCardsOf(
       observedBaseAlchemyStack(),
       makeRepositorySettingsBuilderRepository({
@@ -694,13 +655,6 @@ describe("Alchemy stack cards", () => {
         githubRepositoryName: "base-alchemy",
         githubRepositoryFullName: "samebase/base-alchemy",
         convexTeamId: "38516",
-        convexProjects: [
-          makeRepositorySettingsConvexProject({
-            convexProjectId,
-            teamId: "38516",
-            projectId: "3245938",
-          }),
-        ],
       }),
       null,
     );
@@ -712,8 +666,8 @@ describe("Alchemy stack cards", () => {
         ),
       ),
     ).toEqual([
-      "/repo/samebase/base-alchemy/db/main/project/convex-project-base-alchemy",
-      "/repo/samebase/base-alchemy/schema/main/project/convex-project-base-alchemy",
+      "/repo/samebase/base-alchemy/db/main/project/3245938",
+      "/repo/samebase/base-alchemy/schema/main/project/3245938",
       "/repo/samebase/base-alchemy/components/ideal-dolphin-15",
     ]);
   });
@@ -974,13 +928,8 @@ const NO_STACK_LINE = "The team's Alchemy state store holds no stack for this re
 const STORE_READ_FAILED = "Could not read the team's Alchemy state store.";
 
 describe("the default-branch block without a stack", () => {
-  /** An old app: it keeps its attachment rows, and the store holds no stack of it. */
-  const oldApp = makeRepositorySettingsBuilderRepository({
-    hasCloudflareProvision: true,
-    hasConvexProvision: true,
-    cloudflareWorkers: [makeRepositorySettingsCloudflareWorker({})],
-    convexProjects: [makeRepositorySettingsConvexProject({})],
-  });
+  /** An old app: the store holds no stack of it. */
+  const oldApp = makeRepositorySettingsBuilderRepository({});
   const newApp = makeRepositorySettingsBuilderRepository({
     providerPlan: {
       provisioning: "repository_actions",
@@ -1255,8 +1204,6 @@ describe("RepositoryOverviewPickerPane", () => {
 
   it("shows checks and pull requests, and no attachment count", () => {
     const repository = makeRepositorySettingsBuilderRepository({
-      cloudflareWorkers: [makeRepositorySettingsCloudflareWorker({})],
-      convexProjects: [makeRepositorySettingsConvexProject({})],
       githubRepositoryName: "demo",
       githubOwnerLogin: "ada",
       githubRepositoryFullName: "ada/demo",
@@ -1306,8 +1253,6 @@ describe("RepositoryOverviewPickerPane", () => {
     );
 
     const emptyRepository = makeRepositorySettingsBuilderRepository({
-      cloudflareWorkers: [],
-      convexProjects: [],
       githubRepositoryName: "empty",
       githubOwnerLogin: "ada",
       githubRepositoryFullName: "ada/empty",

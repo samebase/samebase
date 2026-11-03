@@ -2,7 +2,6 @@ import { v, type Infer } from "convex/values";
 
 import { vRepositoryDeletionStep } from "../deletion/model";
 import type { AppFunctionMcpMetadata } from "../../../shared/convexFunctionPolicyTypes";
-import { vConvexCodeLocation } from "./convexCodeLocation";
 import { vRepositoryActionsCiSecrets, vRepositoryProviderWriteTimes } from "../provisioningModel";
 import { vConvexDeploymentRegion } from "../../convexDeploymentRegionModel";
 
@@ -206,25 +205,6 @@ const userRepositoryFields = {
   deletion: vRepositoryDeletionSummary,
   isSamebaseManaged: boolean(),
   hasConnectedGitHubRepository: boolean(),
-  hasConvexProvision: boolean(),
-  hasCloudflareProvision: boolean(),
-  cloudflareWorkers: array(
-    object({
-      workerId: id("repositoryCloudflareWorkers"),
-      accountId: string(),
-      workerName: string(),
-      workerTag: string(),
-      rootDirectory: string(),
-    }),
-  ),
-  convexProjects: array(
-    object({
-      convexProjectId: id("repositoryConvexProjects"),
-      teamId: string(),
-      projectId: string(),
-      codeLocation: vConvexCodeLocation,
-    }),
-  ),
 };
 
 const vUserRepositoriesResult = array(

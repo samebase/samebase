@@ -7,15 +7,6 @@ import { makeConvexTest } from "./test.setup";
 type ConvexTest = ReturnType<typeof makeConvexTest>;
 type GitHubOwnerType = "organization" | "user";
 
-function projectInput(index: number, prefix = "project") {
-  return {
-    teamId: "convex-team",
-    projectId: `${prefix}-${index}`,
-    codeLocation: { kind: "config", convexConfigPath: `apps/${prefix}-${index}/convex.json` },
-    origin: "selected_existing",
-  } as const;
-}
-
 async function createQuotaFixture(args: {
   githubOwnerType: GitHubOwnerType;
   plan: "free" | "pro";
@@ -98,83 +89,48 @@ async function createQuotaFixture(args: {
   return { ids, t };
 }
 
-async function seedProjects(
+async function seedConnectedRepositories(
   t: ConvexTest,
   args: {
     count: number;
     organizationId: Id<"organizations">;
-    repositoryId: Id<"repositories">;
+    runId: Id<"workflow_repositoryProvisioning_runs">;
     prefix?: string;
   },
-): Promise<Array<Id<"repositoryConvexProjects">>> {
-  return await t.run(async (ctx) => {
-    const ids: Array<Id<"repositoryConvexProjects">> = [];
-    for (let index = 0; index < args.count; index += 1) {
-      const project = projectInput(index, args.prefix);
-      ids.push(
-        await ctx.db.insert("repositoryConvexProjects", {
-          repositoryId: args.repositoryId,
-          organizationId: args.organizationId,
-          teamId: project.teamId,
-          projectId: project.projectId,
-          convexConfigPath: project.codeLocation.convexConfigPath,
-          origin: project.origin,
-        }),
-      );
-    }
-    return ids;
-  });
-}
-
-async function seedWorker(
-  t: ConvexTest,
-  args: { organizationId: Id<"organizations">; repositoryId: Id<"repositories"> },
 ): Promise<void> {
   await t.run(async (ctx) => {
-    await ctx.db.insert("repositoryCloudflareWorkers", {
-      repositoryId: args.repositoryId,
-      organizationId: args.organizationId,
-      accountId: "cloudflare-account",
-      workerName: "worker",
-      workerTag: "worker-tag",
-      rootDirectory: "apps/worker",
-      origin: "selected_existing",
-    });
+    for (let index = 0; index < args.count; index += 1) {
+      const name = `${args.prefix ?? "seeded"}-${index}`;
+      await ctx.db.insert("repositories", {
+        organizationId: args.organizationId,
+        convexTeamId: "convex-team",
+        deletion: { state: "not_deleting" },
+        createdAt: 1,
+        state: "connected",
+        githubMode: "connect_existing_repository",
+        runId: args.runId,
+        githubRepositoryDatabaseId: name,
+        githubRepositoryName: name,
+        visibility: "private",
+        defaultBranch: "main",
+        connectedAt: 1,
+      });
+    }
   });
 }
 
-async function readConnectionCounts(
+async function readConnectionCount(
   t: ConvexTest,
   organizationId: Id<"organizations">,
-): Promise<{
-  repositories: number;
-  cloudflareWorkers: number;
-  convexProjects: number;
-  total: number;
-}> {
+): Promise<number> {
   return await t.run(async (ctx) => {
-    const [repositories, cloudflareWorkers, convexProjects] = await Promise.all([
-      ctx.db
-        .query("repositories")
-        .withIndex("by_organization_and_state_and_deletion_state", (query) =>
-          query.eq("organizationId", organizationId).eq("state", "connected"),
-        )
-        .take(200),
-      ctx.db
-        .query("repositoryCloudflareWorkers")
-        .withIndex("by_organization", (query) => query.eq("organizationId", organizationId))
-        .take(200),
-      ctx.db
-        .query("repositoryConvexProjects")
-        .withIndex("by_organization", (query) => query.eq("organizationId", organizationId))
-        .take(200),
-    ]);
-    return {
-      repositories: repositories.length,
-      cloudflareWorkers: cloudflareWorkers.length,
-      convexProjects: convexProjects.length,
-      total: repositories.length + cloudflareWorkers.length + convexProjects.length,
-    };
+    const repositories = await ctx.db
+      .query("repositories")
+      .withIndex("by_organization_and_state_and_deletion_state", (query) =>
+        query.eq("organizationId", organizationId).eq("state", "connected"),
+      )
+      .take(200);
+    return repositories.length;
   });
 }
 
@@ -188,8 +144,7 @@ describe("pooled organization connection quotas", () => {
     "enforces the %s pooled boundary and keeps existing connections idempotent",
     async (_label, githubOwnerType, plan, limit) => {
       const { ids, t } = await createQuotaFixture({ githubOwnerType, plan });
-      await seedProjects(t, { ...ids, count: limit - 2 });
-      await seedWorker(t, ids);
+      await seedConnectedRepositories(t, { ...ids, count: limit - 1 });
 
       await expect(
         t.mutation(internal.repository.records.createInitializingExistingRepositoryForUser, {
@@ -212,9 +167,7 @@ describe("pooled organization connection quotas", () => {
           visibility: "private",
         }),
       ).resolves.toBeNull();
-      await expect(readConnectionCounts(t, ids.organizationId)).resolves.toMatchObject({
-        total: limit,
-      });
+      await expect(readConnectionCount(t, ids.organizationId)).resolves.toBe(limit);
       const asUser = t.withIdentity({
         subject: ids.userId,
         tokenIdentifier: `test:${ids.userId}`,
@@ -234,7 +187,7 @@ describe("pooled organization connection quotas", () => {
 
   it("blocks both repository initialization paths before they create local provisioning state", async () => {
     const { ids, t } = await createQuotaFixture({ githubOwnerType: "user", plan: "free" });
-    await seedProjects(t, { ...ids, count: 11 });
+    await seedConnectedRepositories(t, { ...ids, count: 11 });
 
     await expect(
       t.mutation(internal.repository.records.createInitializingExistingRepositoryForUser, {
@@ -257,10 +210,7 @@ describe("pooled organization connection quotas", () => {
       }),
     ).rejects.toThrow("Organization connection limit reached (12).");
 
-    await expect(readConnectionCounts(t, ids.organizationId)).resolves.toMatchObject({
-      repositories: 1,
-      total: 12,
-    });
+    await expect(readConnectionCount(t, ids.organizationId)).resolves.toBe(12);
     await expect(
       t.run(async (ctx) =>
         ctx.db
@@ -268,12 +218,12 @@ describe("pooled organization connection quotas", () => {
           .withIndex("by_organization", (query) => query.eq("organizationId", ids.organizationId))
           .take(20),
       ),
-    ).resolves.toHaveLength(1);
+    ).resolves.toHaveLength(12);
   });
 
   it("rechecks both repository transitions after an in-flight provisioning race", async () => {
     const { ids, t } = await createQuotaFixture({ githubOwnerType: "user", plan: "free" });
-    await seedProjects(t, { ...ids, count: 10 });
+    await seedConnectedRepositories(t, { ...ids, count: 10 });
     const existing = await t.mutation(
       internal.repository.records.createInitializingExistingRepositoryForUser,
       {
@@ -296,7 +246,7 @@ describe("pooled organization connection quotas", () => {
         convexTeamId: "convex-team",
       },
     );
-    await seedWorker(t, ids);
+    await seedConnectedRepositories(t, { ...ids, count: 1, prefix: "late" });
 
     await expect(
       t.mutation(internal.repository.records.connectExistingRepositoryGitHub, {

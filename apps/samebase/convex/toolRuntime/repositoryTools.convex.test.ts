@@ -120,24 +120,7 @@ async function createScoutFixture() {
       defaultBranch: "main",
       connectedAt: 1,
     });
-    const workerId = await ctx.db.insert("repositoryCloudflareWorkers", {
-      repositoryId,
-      organizationId,
-      accountId: "cloudflare-account",
-      workerName: "scout",
-      workerTag: "scout-tag",
-      rootDirectory: "/",
-      origin: "selected_existing",
-    });
-    const convexProjectId = await ctx.db.insert("repositoryConvexProjects", {
-      repositoryId,
-      organizationId,
-      teamId: "convex-team",
-      projectId: "scout-project",
-      convexConfigPath: "convex.json",
-      origin: "selected_existing",
-    });
-    return { convexProjectId, organizationId, repositoryId, userId, workerId };
+    return { organizationId, repositoryId, userId };
   });
   await sealTestCredentials(t);
   return {
@@ -170,7 +153,7 @@ beforeEach(() => {
 });
 
 describe("repository_list", () => {
-  it("reports setup state without attachments and reads no provider", async () => {
+  it("reports setup state and reads no provider", async () => {
     const fixture = await createScoutFixture();
 
     await expect(
@@ -196,15 +179,6 @@ describe("repository_list", () => {
       },
     });
     expect(providerMocks.listConvexManagementProjects).not.toHaveBeenCalled();
-
-    // The dashboard list reads the same rows and keeps the attachments.
-    await expect(fixture.viewer.query(api.repository.list, {})).resolves.toMatchObject([
-      {
-        repositoryId: fixture.repositoryId,
-        cloudflareWorkers: [{ workerName: "scout" }],
-        convexProjects: [{ projectId: "scout-project" }],
-      },
-    ]);
   });
 });
 

@@ -89,18 +89,6 @@ function fakeFolderId(value: string): Id<"ui_repositoryTree_folders"> {
   return value;
 }
 
-function fakeCloudflareWorkerId(value: string): Id<"repositoryCloudflareWorkers"> {
-  // @ts-expect-error Convex ids are strings at runtime; this fixture only
-  // needs a stable value for static rendering.
-  return value;
-}
-
-function fakeConvexProjectId(value: string): Id<"repositoryConvexProjects"> {
-  // @ts-expect-error Convex ids are strings at runtime; this fixture only
-  // needs a stable value for static rendering.
-  return value;
-}
-
 function fakeRepositoryProvisioningRunId(
   value: string,
 ): Id<"workflow_repositoryProvisioning_runs"> {
@@ -113,9 +101,6 @@ const LIST_SPACING_REPOSITORY_ID = fakeRepositoryId();
 const VISUAL_ORGANIZATION_ID = fakeOrganizationId("organization-samebase");
 const VISUAL_NOTER_ORGANIZATION_ID = fakeOrganizationId("organization-noter");
 const VISUAL_EMPTY_ORGANIZATION_ID = fakeOrganizationId("organization-empty");
-const LIST_SPACING_DOMAIN_WORKER_ID = fakeCloudflareWorkerId("worker-domain-router");
-const LIST_SPACING_SAMEBASE_WORKER_ID = fakeCloudflareWorkerId("worker-samebase");
-const LIST_SPACING_CONVEX_PROJECT_ID = fakeConvexProjectId("convex-project-samebase");
 const LIST_SPACING_REPOSITORY = {
   repositoryId: LIST_SPACING_REPOSITORY_ID,
   organizationId: VISUAL_ORGANIZATION_ID,
@@ -136,33 +121,6 @@ const LIST_SPACING_REPOSITORY = {
   },
   isSamebaseManaged: true,
   hasConnectedGitHubRepository: true,
-  hasConvexProvision: true,
-  hasCloudflareProvision: true,
-  cloudflareWorkers: [
-    {
-      workerId: LIST_SPACING_DOMAIN_WORKER_ID,
-      accountId: "fe57d01d7ab41f60d00ba1aade20eb33",
-      workerName: "domain-router",
-      workerTag: "domain-router-tag",
-      rootDirectory: "apps/domain-router",
-    },
-    {
-      workerId: LIST_SPACING_SAMEBASE_WORKER_ID,
-      accountId: "fe57d01d7ab41f60d00ba1aade20eb33",
-      workerName: "samebase-worker",
-      workerTag: "samebase-worker-tag",
-      rootDirectory: "apps/samebase",
-    },
-  ],
-  // The attached Convex project of the fixture stacks, whose deployment keeps its Schema route.
-  convexProjects: [
-    {
-      convexProjectId: LIST_SPACING_CONVEX_PROJECT_ID,
-      codeLocation: { kind: "config", convexConfigPath: "apps/samebase/convex.json" },
-      teamId: "samebase-team-id",
-      projectId: "839311",
-    },
-  ],
 } satisfies UserRepositoryResult;
 
 /**
@@ -578,8 +536,6 @@ const PROVISIONING_REPOSITORY = {
   githubOwnerLogin: "nicu-chiciuc",
   githubRepositoryName: "tmp-f149-repository-loading-states",
   githubRepositoryFullName: "nicu-chiciuc/tmp-f149-repository-loading-states",
-  cloudflareWorkers: [],
-  convexProjects: [],
   providerPlan: {
     provisioning: "repository_actions",
     convexConfigPath: "convex.json",

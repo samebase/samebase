@@ -13,14 +13,13 @@ import {
 import { Infer, v } from "convex/values";
 import { action } from "../functions";
 import { isRecord } from "../jsonUtils";
-import { readAlchemyStacks, readProductionConvexDeployments } from "./alchemyState";
+import { readTeamProductionDeployments } from "./alchemyState";
 import { readConvexProductionDeployment } from "./convexProjectResources";
 import { fieldsFromDeclaredDocumentType, readDeclaredTables } from "./convexSchemaGraph";
 import {
   fetchConvexSystemQueryBatch,
   readConvexInspectionTarget,
   withConvexInspectionDeployKey,
-  type ConvexInspectionTarget,
 } from "./convexDeploymentInspection";
 
 const { array, boolean, id, literal, number, object, string, union } = v;
@@ -117,25 +116,6 @@ a project that the production stage of the repository's Alchemy stack deploys.
 The Convex projects that the production stages of the repository stacks deploy as `deploymentName`
 in the team of the repository.
 */
-async function readStackProjectIds(
-  target: ConvexInspectionTarget,
-  deploymentName: string,
-): Promise<string[]> {
-  // A store that cannot be read proves no deployment, like a team without a store.
-  const read = await readAlchemyStacks({
-    repository: target.githubRepositoryFullName,
-    target,
-  }).catch(() => ({ store: "missing" as const }));
-  return read.store === "missing"
-    ? []
-    : readProductionConvexDeployments(read.stacks).flatMap((deployment) =>
-        deployment.deploymentName === deploymentName &&
-        (deployment.teamId === null || deployment.teamId === target.teamId)
-          ? [deployment.projectId]
-          : [],
-      );
-}
-
 export const observe = action({
   access: "access_dashboard",
   args: {
@@ -148,26 +128,19 @@ export const observe = action({
       repositoryId: args.repositoryId,
       userId: ctx.viewer.userId,
     });
+    const stackDeployments = await readTeamProductionDeployments(target);
     // A failed lookup of another project must not block a deployment that matched.
-    const readDeployments = async (projectIds: readonly string[]) =>
-      await Promise.allSettled(
-        projectIds.map(
-          async (projectId) =>
+    const lookups = await Promise.allSettled(
+      stackDeployments
+        .filter(({ deploymentName }) => deploymentName === args.deploymentName)
+        .map(
+          async ({ projectId }) =>
             await readConvexProductionDeployment({ token: target.token, projectId }),
         ),
-      );
-    const findDeployment = (lookups: Awaited<ReturnType<typeof readDeployments>>) =>
-      lookups
-        .flatMap((lookup) => (lookup.status === "fulfilled" && lookup.value ? [lookup.value] : []))
-        .find((candidate) => candidate.name === args.deploymentName);
-    const attachedLookups = await readDeployments(
-      target.projects.map((project) => project.projectId),
     );
-    const stackLookups = findDeployment(attachedLookups)
-      ? []
-      : await readDeployments(await readStackProjectIds(target, args.deploymentName));
-    const lookups = [...attachedLookups, ...stackLookups];
-    const deployment = findDeployment(lookups);
+    const deployment = lookups
+      .flatMap((lookup) => (lookup.status === "fulfilled" && lookup.value ? [lookup.value] : []))
+      .find((candidate) => candidate.name === args.deploymentName);
     if (!deployment) {
       const failedLookup = lookups.find((lookup) => lookup.status === "rejected");
       if (failedLookup) {

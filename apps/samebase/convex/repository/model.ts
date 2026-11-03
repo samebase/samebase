@@ -17,52 +17,6 @@ export const vRepositoryConnectedGitHubTarget = object({
 });
 export type RepositoryConnectedGitHubTarget = Infer<typeof vRepositoryConnectedGitHubTarget>;
 
-/**
-provisioned = Samebase created the resource; removal from Samebase keeps it
-
-selected_existing = a member attached a resource that already existed; Samebase never deletes it
-
-setup_stack = the repository's Alchemy setup stack created or adopted it, and Samebase attached it
-from the stack's setup output; only the repository's confirmed destroy deletes it, and Samebase
-neither deletes it nor changes its provider settings
-*/
-export const vRepositoryProviderResourceOrigin = union(
-  literal("provisioned"),
-  literal("selected_existing"),
-  literal("setup_stack"),
-);
-
-const vRepositoryConvexProjectConfig = object({
-  repositoryId: id("repositories"),
-  organizationId: id("organizations"),
-  teamId: string(),
-  projectId: string(),
-  convexConfigPath: string(),
-  origin: vRepositoryProviderResourceOrigin,
-});
-const vRepositoryConvexProjectDirectory = object({
-  repositoryId: id("repositories"),
-  organizationId: id("organizations"),
-  teamId: string(),
-  projectId: string(),
-  convexDirectoryPath: string(),
-  origin: vRepositoryProviderResourceOrigin,
-});
-export const vRepositoryConvexProject = union(
-  vRepositoryConvexProjectConfig,
-  vRepositoryConvexProjectDirectory,
-);
-export const vRepositoryConvexProjectDocument = union(
-  vRepositoryConvexProjectConfig.extend({
-    _id: id("repositoryConvexProjects"),
-    _creationTime: number(),
-  }),
-  vRepositoryConvexProjectDirectory.extend({
-    _id: id("repositoryConvexProjects"),
-    _creationTime: number(),
-  }),
-);
-
 const repositoryBaseFields = {
   organizationId: id("organizations"),
   deletion: vRepositoryDeletionState,
@@ -166,25 +120,4 @@ export const repositoryTables = {
       "organizationId",
       "githubRepositoryName",
     ]),
-
-  /** Stable Cloudflare Worker identities attached to a Samebase repository. */
-  repositoryCloudflareWorkers: defineTable({
-    repositoryId: id("repositories"),
-    organizationId: id("organizations"),
-    accountId: string(),
-    workerName: string(),
-    workerTag: string(),
-    rootDirectory: string(),
-    origin: vRepositoryProviderResourceOrigin,
-  })
-    .index("by_repository", ["repositoryId"])
-    .index("by_organization", ["organizationId"])
-    .index("by_account_and_worker", ["accountId", "workerName"])
-    .index("by_account_and_worker_tag", ["accountId", "workerTag"]),
-
-  /** Stable Convex project identities attached to repository code locations. */
-  repositoryConvexProjects: defineTable(vRepositoryConvexProject)
-    .index("by_repository", ["repositoryId"])
-    .index("by_organization", ["organizationId"])
-    .index("by_project", ["projectId"]),
 };

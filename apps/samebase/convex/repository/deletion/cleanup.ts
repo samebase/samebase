@@ -9,10 +9,8 @@ const { id, literal, number, object, union } = v;
 
 const deleteOnlyByRepositoryCleanupTables = union(
   literal("ui_repositoryFileTree_folderExpansions"),
-  literal("repositoryConvexProjects"),
   literal("observations_repositoryConvexSchema_snapshots"),
   literal("ui_repositoryConvexSchemaGraph_nodeLayouts"),
-  literal("repositoryCloudflareWorkers"),
   literal("workflow_repositoryProvisioning_plans"),
   literal("workflow_repositoryProvisioning_writeLocks"),
   literal("hubClientRateLimits"),
@@ -206,20 +204,12 @@ const repositoryLocalCleanupRegistry = [
     cleanup: deleteBranchStateBatch("repositorySyncState"),
   },
   {
-    table: "repositoryConvexProjects",
-    cleanup: deleteByRepositoryBatch("repositoryConvexProjects"),
-  },
-  {
     table: "observations_repositoryConvexSchema_snapshots",
     cleanup: deleteByRepositoryBatch("observations_repositoryConvexSchema_snapshots"),
   },
   {
     table: "ui_repositoryConvexSchemaGraph_nodeLayouts",
     cleanup: deleteByRepositoryBatch("ui_repositoryConvexSchemaGraph_nodeLayouts"),
-  },
-  {
-    table: "repositoryCloudflareWorkers",
-    cleanup: deleteByRepositoryBatch("repositoryCloudflareWorkers"),
   },
   {
     table: "workflow_repositoryProvisioning_plans",
@@ -255,10 +245,8 @@ const repositoryLocalCleanupRegistryByStep = {
     "gitEditor.repositorySyncState",
   ],
   cleanup_runtime_state: [
-    "repositoryConvexProjects",
     "observations_repositoryConvexSchema_snapshots",
     "ui_repositoryConvexSchemaGraph_nodeLayouts",
-    "repositoryCloudflareWorkers",
     "workflow_repositoryProvisioning_plans",
     "workflow_repositoryProvisioning_writeLocks",
     "hubClientRateLimits",

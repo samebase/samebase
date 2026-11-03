@@ -89,10 +89,6 @@ function makeRepository({
     },
     isSamebaseManaged: true,
     hasConnectedGitHubRepository: true,
-    hasConvexProvision: false,
-    hasCloudflareProvision: false,
-    cloudflareWorkers: [],
-    convexProjects: [],
   };
 }
 

@@ -10,6 +10,13 @@ import {
 } from "../test.setup";
 import { type ConvexProviderCredential } from "../organization/providerCredentialModel";
 
+vi.mock("./alchemyState", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./alchemyState")>()),
+  readTeamProductionDeployments: async () => [
+    { projectId: "1001", deploymentName: "demo-prod", teamId: "1000" },
+  ],
+}));
+
 type ConvexAuth = ConvexProviderCredential["auth"];
 
 type RecordedRequest = {
@@ -152,16 +159,8 @@ async function seedSchemaGraphRepository(
       defaultBranch: "main",
       connectedAt: 20,
     });
-    const convexProjectId = await ctx.db.insert("repositoryConvexProjects", {
-      repositoryId,
-      organizationId,
-      teamId: "1000",
-      projectId: "1001",
-      convexConfigPath: "convex.json",
-      origin: "selected_existing",
-    });
 
-    return { convexProjectId, userId, repositoryId };
+    return { convexProjectId: "1001", userId, repositoryId };
   });
   await sealTestCredentials(t);
 
@@ -257,14 +256,11 @@ afterEach(() => {
 });
 
 describe("repository Convex schema graph", () => {
-  it("returns no graph for a stale attachment id", async () => {
+  it("returns no snapshot before the first refresh", async () => {
     const t = makeConvexTest();
     const { ids, user } = await seedSchemaGraphRepository(t, {
       method: "oauth",
       credential: testCredential("convex-oauth-token"),
-    });
-    await t.run(async (ctx) => {
-      await ctx.db.delete(ids.convexProjectId);
     });
 
     await expect(
@@ -272,7 +268,22 @@ describe("repository Convex schema graph", () => {
         repositoryId: ids.repositoryId,
         convexProjectId: ids.convexProjectId,
       }),
-    ).resolves.toBeNull();
+    ).resolves.toMatchObject({ project: { projectId: "1001" }, snapshot: null, layout: [] });
+  });
+
+  it("refuses a refresh of a project that no stack of the repository deploys", async () => {
+    const t = makeConvexTest();
+    const { ids, user } = await seedSchemaGraphRepository(t, {
+      method: "oauth",
+      credential: testCredential("convex-oauth-token"),
+    });
+
+    await expect(
+      user.action(api.repository.convexSchemaGraph.refresh, {
+        repositoryId: ids.repositoryId,
+        convexProjectId: "9999",
+      }),
+    ).rejects.toThrow("Convex project not found.");
   });
 
   it("mints OAuth-backed inspection keys without scoped options and never deletes them", async () => {
@@ -296,12 +307,6 @@ describe("repository Convex schema graph", () => {
     expect(createRequest?.body).toEqual({ name: deployKeyName });
     // The key is the OAuth credential itself: deleting it would revoke the connection.
     expect(requests.some((request) => request.url.endsWith("/delete_deploy_key"))).toBe(false);
-
-    const repositories = await user.query(api.repository.list, {});
-    const repository = repositories.find((row) => row.repositoryId === ids.repositoryId);
-    expect(repository?.convexProjects).toContainEqual(
-      expect.objectContaining({ convexProjectId: ids.convexProjectId, projectId: "1001" }),
-    );
 
     const state = await user.query(api.repository.convexSchemaGraph.get, {
       repositoryId: ids.repositoryId,
@@ -426,7 +431,9 @@ describe("repository Convex schema graph", () => {
     const snapshots = await t.run(async (ctx) =>
       ctx.db
         .query("observations_repositoryConvexSchema_snapshots")
-        .withIndex("by_project_and_fetched_at", (q) => q.eq("convexProjectId", ids.convexProjectId))
+        .withIndex("by_repository_and_project_and_fetched_at", (q) =>
+          q.eq("repositoryId", ids.repositoryId).eq("convexProjectId", ids.convexProjectId),
+        )
         .order("desc")
         .take(10),
     );

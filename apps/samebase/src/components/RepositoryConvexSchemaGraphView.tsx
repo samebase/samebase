@@ -5,10 +5,10 @@ import {
   type RepositoryConvexSchemaGraphRouteContext,
 } from "@/components/repository-dashboard/RepositoryConvexSchemaGraph";
 import { useCacheQuery as useRepositoryQuery } from "@/lib/convexQueryCache";
-import { findRepositoryConvexProjectAttachment } from "@/lib/repositoryConvexProjectAttachment";
+import { useRepositoryProviderObservations } from "@/repository/dashboard/useRepositoryProviderObservations";
 import { Database, Loader2 } from "lucide-react";
 import type { ReactNode } from "react";
-import { getConvexCodeLocationPath } from "../../shared/convexCodeLocation";
+import { stageResources } from "../../shared/alchemyState";
 
 type RepositoryConvexSchemaGraphViewProps = {
   branch: string;
@@ -43,14 +43,6 @@ function RepositoryConvexSchemaGraphRouteStatusSidebar({
           <span>Project</span>
           <span className="min-w-0 truncate text-foreground">{context.projectId}</span>
         </div>
-        {context.convexCodePath ? (
-          <div className="flex min-w-0 justify-between gap-2">
-            <span>Code</span>
-            <span className="min-w-0 truncate font-mono text-foreground">
-              {context.convexCodePath}
-            </span>
-          </div>
-        ) : null}
       </div>
       <div className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">{status}</div>
     </div>
@@ -94,29 +86,41 @@ function RepositoryConvexSchemaGraphRouteStatusShell({
 
 export function RepositoryConvexSchemaGraphView({
   branch,
-  convexProjectId: routeConvexProjectId,
+  convexProjectId,
   owner,
   repoName,
 }: RepositoryConvexSchemaGraphViewProps) {
   const githubRepositoryFullName = `${owner}/${repoName}`;
   const dashboardRepositories = useRepositoryQuery(api.repository.list);
-  const attachment = dashboardRepositories
-    ? findRepositoryConvexProjectAttachment(
-        dashboardRepositories,
-        githubRepositoryFullName,
-        routeConvexProjectId,
-      )
-    : null;
-  const dashboardRepository = attachment?.repository;
-  const project = attachment?.project;
+  const dashboardRepository = dashboardRepositories?.find(
+    (candidate) => candidate.githubRepositoryFullName === githubRepositoryFullName,
+  );
+  // The route value is the Convex project id of a production deployment of the repository stack in
+  // the Alchemy state store. The schema query cannot read the store, so the page checks the stacks
+  // itself, as the refresh does on the server; a project that left the stack shows no old snapshot.
+  const alchemy = useRepositoryProviderObservations(dashboardRepository ?? null);
+  const projectInStack =
+    alchemy.state === "loaded" &&
+    alchemy.observation.store === "found" &&
+    alchemy.observation.stacks.some((stack) =>
+      stack.stages.some(
+        (stage) =>
+          stage.name === "prod" &&
+          stageResources({
+            stackFile: stage.record.stackFile,
+            resources: stage.resources,
+          }).convexDeployments.some(
+            ({ state }) => String(state.attr.projectId) === convexProjectId,
+          ),
+      ),
+    );
   const context = {
     branch,
-    convexCodePath: project ? getConvexCodeLocationPath(project.codeLocation) : "",
-    projectId: project?.projectId ?? routeConvexProjectId,
+    projectId: convexProjectId,
     githubRepositoryFullName,
   } satisfies RepositoryConvexSchemaGraphRouteContext;
 
-  if (dashboardRepositories === undefined) {
+  if (dashboardRepositories === undefined || (dashboardRepository && alchemy.state === "loading")) {
     return (
       <RepositoryConvexSchemaGraphRouteStatusShell
         context={context}
@@ -130,11 +134,29 @@ export function RepositoryConvexSchemaGraphView({
     );
   }
 
-  if (!dashboardRepository || !project) {
+  if (!dashboardRepository) {
     return (
       <RepositoryConvexSchemaGraphRouteStatusShell
         context={context}
-        status="Convex project is not attached to this repository."
+        status="Repository not found."
+      />
+    );
+  }
+
+  if (alchemy.state === "failed") {
+    return (
+      <RepositoryConvexSchemaGraphRouteStatusShell
+        context={context}
+        status={alchemy.error.message}
+      />
+    );
+  }
+
+  if (!projectInStack) {
+    return (
+      <RepositoryConvexSchemaGraphRouteStatusShell
+        context={context}
+        status="Convex project not found."
       />
     );
   }
@@ -143,7 +165,7 @@ export function RepositoryConvexSchemaGraphView({
     <RepositoryConvexSchemaGraphRouteWorkspace
       context={context}
       repositoryId={dashboardRepository.repositoryId}
-      convexProjectId={project.convexProjectId}
+      convexProjectId={convexProjectId}
     />
   );
 }

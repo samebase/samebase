@@ -31,18 +31,13 @@ paths: account.ts and feedback.ts.
 
 const RETRY_PROVIDER_SETUP_TOOL = retryInfrastructureProvisioningContract.mcp.name;
 
-/** The surface of a gated MCP call: the bearer token's grant and OAuth client. */
-function mcpConfirmationSurface(args: { grantId: string; clientId: string }) {
-  return { kind: "mcp" as const, grantId: args.grantId, clientId: args.clientId };
-}
-
 /**
-The first result of a gated tool: nothing changed. The text repeats the token and the sentence,
+The first result of a gated tool: nothing changed. The text repeats the sentence,
 because some hosts give the model only the text content.
 */
 function requestMcpConfirmation(tool: string, request: ActionConfirmationRequest) {
   return {
-    text: `Nothing changed yet. ${request.effect} Tell the user this effect. Only after the user approves it, call ${tool} again with the same arguments and confirmation ${JSON.stringify({ token: request.token, acknowledgement: request.acknowledgement })}. The token works once, until ${new Date(request.expiresAt).toISOString()}.`,
+    text: `Nothing changed yet. ${request.effect} Tell the user this effect. Only after the user approves it, call ${tool} again with the same arguments and confirmation ${JSON.stringify({ acknowledgement: request.acknowledgement })}.`,
     structuredContent: request,
   };
 }
@@ -212,7 +207,7 @@ export const repositoryRetryProviderSetupTool = defineMcpTool({
     const confirmationRequest = await retryProviderSetupForUser(ctx, {
       userId: args.userId,
       repositoryId: repository.repositoryId,
-      surface: mcpConfirmationSurface(args),
+      surface: "mcp",
       confirmation: args.confirmation,
     });
     if (confirmationRequest) {

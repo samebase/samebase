@@ -76,7 +76,7 @@ const MCP_SERVER_INSTRUCTIONS = `Samebase starts apps and monitors them: a GitHu
 
 To create a repository, call ${createRepositoryContract.mcp.name} once, then poll only ${getUserRepositoriesContract.mcp.name} until source and provider setup are ready or failed. For build, deployment, check, or pull request questions, call ${getRepositoryStatusContract.mcp.name} and follow its attention items. Ready setup, a build request, or a push does not prove that the app is live.
 
-A needs_confirmation result changed nothing: state its effect, and repeat the call with its token and exact acknowledgement only after the user approves.
+A needs_confirmation result changed nothing: state its effect, and repeat the call with its exact acknowledgement only after the user approves.
 
 For a request to open the Samebase dashboard, call ${createBrowserHandoffContract.mcp.name} directly. Only the dashboard can remove a repository from Samebase, accept a GitHub rename, or manage members, billing, and provider connections: say so, offer the sign-in link, and create it only after the user accepts.`;
 async function readMcpViewer(ctx: ActionCtx, userId: Id<"users">) {
