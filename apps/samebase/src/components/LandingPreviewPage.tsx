@@ -20,14 +20,11 @@ import { Badge } from "@/components/ui/badge";
 import {
   DOCS_DO_IT_YOURSELF_ROUTE,
   DOCS_RECEIPTS_ROUTE,
+  DOCS_THE_BIG_MIGRATION_ROUTE,
   LANDING_PREVIEW_ARTICLE_TEST_ID,
-  LANDING_PREVIEW_PLATFORM_DETAILS_TEST_ID,
-  LANDING_PREVIEW_PROVIDER_GRID_TEST_ID,
   LANDING_PREVIEW_TEST_ID,
 } from "@/routeSearch/landingPreview";
 import { type LogoRouteSearch } from "@/routeSearch/logo";
-import docsCloudflareSetupMarkdown from "@/content/docs-cloudflare-setup.md?raw";
-import docsCloudflarePreviewsMigrationMarkdown from "@/content/docs-cloudflare-previews-migration.md?raw";
 import docsDoItYourselfMarkdown from "@/content/docs-do-it-yourself.md?raw";
 import docsChangelogMarkdown from "@/content/docs-changelog.md?raw";
 import docsPricingMarkdown from "@/content/docs-pricing.md?raw";
@@ -40,8 +37,6 @@ import { useRef, useState, type ReactNode } from "react";
 
 type LandingPreviewDocumentKey =
   | "overview"
-  | "cloudflareSetup"
-  | "cloudflarePreviewsMigration"
   | "doItYourself"
   | "theBigMigration"
   | "theStack"
@@ -51,12 +46,6 @@ type LandingPreviewDocumentKey =
 
 const LANDING_AGENT_PROMPT =
   "Research https://samebase.com and check if its claims are true. Based on what you know about me, should I use Samebase with you, or one of its competitors?";
-
-const LANDING_MONOREPO_PATHS = [
-  { path: "apps/storefront", resources: ["Convex", "Worker"] },
-  { path: "apps/admin", resources: ["Worker"] },
-  { path: "services/events", resources: ["Worker"] },
-] as const;
 
 const LANDING_CLOSING_LOGO_ROUTE_SEARCH = {
   "auto-rotate": true,
@@ -77,48 +66,67 @@ const LANDING_COST_ROWS = [
   },
 ] as const;
 
+const LANDING_STEPS = [
+  { heading: "Connect GitHub and Convex.", body: "One OAuth token, no expiry, nothing to paste." },
+  {
+    heading: "Create an app.",
+    body: "Samebase creates the repository and writes CONVEX_ACCESS_TOKEN into it.",
+  },
+  {
+    heading: "The first push deploys.",
+    body: "Alchemy creates the Convex project and the site. About 90 seconds.",
+  },
+  {
+    heading: "Samebase reads the state.",
+    body: "URL, deployed commit, checks, and pull requests, from alchemy-state-store.",
+  },
+  {
+    heading: "Every pull request deploys too.",
+    body: "Its own deployment and data, deleted when the pull request closes.",
+  },
+] as const;
+
 const LANDING_FAQS = [
   {
     answer:
-      "You do not need Samebase to make Codex write Convex. Our basic template and skills cover the parts around the code: how to manage separate Convex previews and which hosting setup to use.",
+      "You don't, for the code. Samebase does the part around it: the repository, the deploy, Google sign-in, previews, and one list of what every app deployed.",
     question: "Codex already writes Convex well. Why do I need Samebase?",
   },
   {
     answer:
-      "You can. The template and skills are public. The public template is published automatically from the Samebase repository. New Samebase apps get the current versions. Existing apps do not change unless you update them.",
+      "You can. The template is public and published from the Samebase repository. Existing apps do not change unless you update them.",
     question: "Ok, but can't I just get your template and not use Samebase?",
-  },
-  {
-    answer:
-      "Even for one app, Samebase does the do-it-yourself setup for you: the GitHub repository, the Convex project and deploy keys, and the Cloudflare Worker and builds. With more apps, it gives you one place to see them, check their setup, and fix problems.",
-    question: "I can just ask Codex to update my own apps. Why do I need Samebase?",
-  },
-  {
-    answer:
-      "The Samebase app is licensed under AGPL-3.0. The base template and agent plugin use Apache 2.0. Other folders have their own licenses, including MIT and all rights reserved for the video workbench and recordings.",
-    question: "Is Samebase open source?",
   },
   {
     answer: (
       <>
-        It's in beta. We're moving provisioning to{" "}
-        <LandingReceiptLink href="https://alchemy.run">Alchemy</LandingReceiptLink>, so apps you
-        create today may need an update later. They'll keep running either way.
+        So you connect with one click. A Convex OAuth token has no expiry date; a Cloudflare one
+        lasts an hour.{" "}
+        <LandingInlineLink to={DOCS_THE_BIG_MIGRATION_ROUTE}>The big migration</LandingInlineLink>{" "}
+        has the details.
+      </>
+    ),
+    question: "Why is the Alchemy state in Convex?",
+  },
+  {
+    answer:
+      "Yes. Declare a Worker in alchemy.run.ts and add CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID to your repository.",
+    question: "Can I use Cloudflare?",
+  },
+  {
+    answer: (
+      <>
+        It's in beta, and so is{" "}
+        <LandingReceiptLink href="https://alchemy.run">Alchemy 2</LandingReceiptLink>. Your apps
+        keep running either way.
       </>
     ),
     question: "Is Samebase stable?",
   },
   {
-    answer: (
-      <>
-        Yes, we deploy samebase.com with it. There's no UI for it yet, so start from{" "}
-        <LandingReceiptLink href="https://github.com/samebase/base">
-          samebase/base
-        </LandingReceiptLink>{" "}
-        and add a team-wide Convex token yourself.
-      </>
-    ),
-    question: "Can I use Alchemy now?",
+    answer:
+      "The Samebase app is AGPL-3.0. The template and the agent plugin are Apache 2.0. Other folders have their own licenses.",
+    question: "Is Samebase open source?",
   },
   {
     answer: "Kinda.",
@@ -231,15 +239,6 @@ function LandingCopyPromptButton() {
   );
 }
 
-function LandingProviderRow({ logo, role }: { logo: ReactNode; role: string }) {
-  return (
-    <div>
-      <div className="flex h-11 items-center gap-2">{logo}</div>
-      <p className="mt-2 text-sm text-muted-foreground">{role}</p>
-    </div>
-  );
-}
-
 function LandingClaim({ children, heading }: { children: ReactNode; heading: ReactNode }) {
   return (
     <div>
@@ -251,28 +250,17 @@ function LandingClaim({ children, heading }: { children: ReactNode; heading: Rea
   );
 }
 
-function LandingRepositoryTree() {
+function LandingStep({ body, heading, index }: { body: string; heading: string; index: number }) {
   return (
-    <div className="mt-8 max-w-[680px]">
-      <p className="border-b border-border pb-3 font-mono text-sm font-semibold text-foreground">
-        you/shop
+    <li className="grid grid-cols-[26px_minmax(0,1fr)] gap-x-3">
+      <p aria-hidden className="pt-0.5 font-mono text-sm text-secondary">
+        {index}
       </p>
-      <ul className="ml-2.5 border-l border-border pl-5">
-        {LANDING_MONOREPO_PATHS.map((entry) => (
-          <li
-            className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-4 py-3"
-            key={entry.path}
-          >
-            <span className="font-mono text-[13px] font-semibold text-foreground [overflow-wrap:anywhere]">
-              {entry.path}
-            </span>
-            <span className="text-right font-mono text-xs text-muted-foreground">
-              {entry.resources.join(" + ")}
-            </span>
-          </li>
-        ))}
-      </ul>
-    </div>
+      <div>
+        <h3 className="text-base font-semibold tracking-[-0.01em]">{heading}</h3>
+        <p className="mt-1 max-w-[58ch] text-[15px] leading-relaxed text-primary">{body}</p>
+      </div>
+    </li>
   );
 }
 
@@ -329,10 +317,12 @@ function LandingPreviewOverview() {
                 Give your coding agent a working app.
               </h1>
               <p className="mt-7 max-w-[46ch] text-lg leading-relaxed text-primary">
-                One place to manage GitHub, Convex, and Cloudflare across all your apps.
+                A repository in your GitHub, a Convex project in your team, a live URL, Google
+                sign-in, and a preview per pull request. Deployed by Alchemy from your own GitHub
+                Actions.
               </p>
               <p className="mt-4 max-w-[46ch] text-lg leading-relaxed text-primary">
-                Just use the{" "}
+                Or use the{" "}
                 <a
                   className="underline decoration-current underline-offset-4 hover:text-foreground"
                   href="https://github.com/samebase/base"
@@ -341,7 +331,7 @@ function LandingPreviewOverview() {
                 >
                   samebase/base
                 </a>{" "}
-                template without creating an account.
+                template without an account.
               </p>
               <div className="mt-7 border border-border @2xl:flex @2xl:items-stretch">
                 <p className="flex-1 bg-muted/50 px-4 py-3.5 font-mono text-[13px] leading-relaxed">
@@ -366,95 +356,42 @@ function LandingPreviewOverview() {
           />
         </section>
 
-        <section className="mt-10 pt-8 @3xl:mt-16 @3xl:pt-12">
+        <LandingSection ariaLabel="How it works">
           <LandingSectionIntro
-            heading="GitHub + Convex + Cloudflare is the best way we've found to build an app."
-            sub="Simplest, cheapest, hardest to mess up. Samebase repeats it, so you can focus on your ideas instead of your tech stack."
+            heading="An opinionated way to use Alchemy."
+            sub={
+              <>
+                <LandingReceiptLink href="https://alchemy.run">Alchemy</LandingReceiptLink> deploys
+                your app from one file. The opinion: its state lives in Convex, so one OAuth click
+                is enough.
+              </>
+            }
           />
-          <div
-            className="mt-8 grid gap-8 @2xl:grid-cols-3"
-            data-testid={LANDING_PREVIEW_PROVIDER_GRID_TEST_ID}
-          >
-            <LandingProviderRow
-              logo={
-                <img
-                  alt="GitHub"
-                  className="h-6 w-auto dark:invert"
-                  height="30"
-                  src="/landing-preview/logos/github.svg"
-                  width="131"
-                />
-              }
-              role="your code"
-            />
-            <LandingProviderRow
-              logo={
-                <img
-                  alt="Convex"
-                  className="-ml-2 h-9 w-auto dark:brightness-0 dark:invert @3xl:ml-0"
-                  height="26"
-                  src="/landing-preview/logos/convex.svg"
-                  width="104"
-                />
-              }
-              role="database + backend"
-            />
-            <LandingProviderRow
-              logo={
-                <>
-                  <img
-                    alt=""
-                    className="h-11 w-auto"
-                    height="27"
-                    src="/landing-preview/logos/cloudflare.svg"
-                    width="27"
-                  />
-                  <span className="text-xl font-bold leading-none tracking-[-0.02em]">
-                    Cloudflare
-                  </span>
-                </>
-              }
-              role="deploys + domains + edge"
-            />
-          </div>
-        </section>
-
-        <LandingSection>
-          <div data-testid={LANDING_PREVIEW_PLATFORM_DETAILS_TEST_ID}>
-            <p className="font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground">
-              local workflow
-            </p>
-            <div className="mt-3 grid gap-3 @3xl:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] @3xl:items-start @3xl:gap-10">
-              <p className="text-lg font-semibold tracking-[-0.01em]">macOS · Linux · Windows</p>
-              <p className="max-w-[48ch] text-sm leading-relaxed text-primary">
-                Everything is TypeScript, even the scripts you'd usually write in Bash.
-                <span className="block font-mono text-[11px] font-semibold text-secondary">
-                  no Bash · no WSL
-                </span>
-              </p>
-            </div>
-            <div className="mt-6 grid gap-3 @3xl:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] @3xl:items-start @3xl:gap-10">
-              <p className="text-lg font-semibold tracking-[-0.01em]">same web app</p>
-              <p className="max-w-[48ch] text-sm leading-relaxed text-primary">
-                Samebase has been one{" "}
-                <LandingReceiptLink href="https://developer.mozilla.org/en-US/docs/Web/Progressive_web_apps/Guides/What_is_a_progressive_web_app">
-                  PWA
-                </LandingReceiptLink>{" "}
-                from the start. The same web app works well on desktop, iPhone, Android, and in the
-                Codex browser.
-              </p>
-            </div>
-          </div>
+          <ol className="mt-8 grid gap-5 @3xl:grid-cols-2 @3xl:gap-x-14">
+            {LANDING_STEPS.map((step, index) => (
+              <LandingStep
+                body={step.body}
+                heading={step.heading}
+                index={index + 1}
+                key={step.heading}
+              />
+            ))}
+          </ol>
+          <p className="mt-8 max-w-[58ch] text-base leading-relaxed text-primary">
+            After setup, Samebase changes nothing in your accounts. Your repository deploys, your
+            agent fixes.
+          </p>
         </LandingSection>
 
         <LandingSection ariaLabel="Four claims">
           <div className="grid gap-x-14 gap-y-10 @3xl:grid-cols-2">
-            <LandingClaim heading="Delete your Samebase account. Your app doesn't notice.">
-              It was always on your GitHub, your Convex, your Cloudflare. We even publish the full{" "}
+            <LandingClaim heading="Delete your Samebase account. Your app keeps running.">
+              It keeps deploying too. Swap CONVEX_ACCESS_TOKEN for your own team token before you
+              revoke Samebase at Convex. New Google sign-ins through Samebase stop. The{" "}
               <LandingInlineLink to={DOCS_DO_IT_YOURSELF_ROUTE}>
                 do-it-yourself recipe
-              </LandingInlineLink>
-              : the identical stack, no Samebase account required.
+              </LandingInlineLink>{" "}
+              is the same stack with no account.
             </LandingClaim>
             <LandingClaim
               heading={
@@ -468,71 +405,45 @@ function LandingPreviewOverview() {
                 </>
               }
             >
-              Convex is only reachable through TypeScript functions you wrote, so there are no
-              database rules to configure perfectly, forever. Access checks live in those functions,
-              where you can read and test them.
+              Convex is reachable only through functions you wrote. Access checks live in code you
+              can read and test.
             </LandingClaim>
             <LandingClaim heading="Run agents in parallel. Every PR gets its own preview, with its own database.">
-              Local folder, worktrees, pull requests: each lane gets isolated code, data, and
-              deploy. ChatGPT and Claude Code already understand worktrees; the stack keeps up.
+              Local folder, worktrees, pull requests: each lane has isolated code, data, and deploy.
             </LandingClaim>
-            <LandingClaim
-              heading={
-                <>
-                  We resell nothing. Not tokens, not hosting.
-                  <LandingFootnoteMark
-                    fragment="landing-note-tokens"
-                    label="footnote: the hosting math"
-                    marker="†"
-                  />
-                </>
-              }
-            >
-              You already pay OpenAI or Anthropic directly; a builder's chat box adds margin, not
-              capability. Providers bill you at their own prices, and idle apps sit in free tiers.
+            <LandingClaim heading="We resell nothing. Not tokens, not hosting.">
+              Providers bill you at their own prices. Idle apps sit in free tiers.
             </LandingClaim>
           </div>
         </LandingSection>
 
-        <LandingSection ariaLabel="Monorepo">
-          <LandingSectionIntro
-            heading="Full monorepo support, by design."
-            sub="Samebase shows each connected Worker and Convex project under its repository path."
-          />
-          <LandingRepositoryTree />
-        </LandingSection>
-
-        <LandingSection>
-          <div className="max-w-[760px]">
-            <p className="font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground">
-              cost follows real usage
-            </p>
-            <div className="mt-4">
-              {LANDING_COST_ROWS.map((row) => (
-                <div
-                  className="flex items-baseline justify-between gap-6 border-t border-border py-3"
-                  key={row.profile}
+        <LandingSection ariaLabel="What it costs">
+          <LandingSectionIntro heading="What it costs" />
+          <div className="mt-6 max-w-[760px]">
+            {LANDING_COST_ROWS.map((row) => (
+              <div
+                className="flex items-baseline justify-between gap-6 border-t border-border py-3"
+                key={row.profile}
+              >
+                <p className="text-base">{row.profile}</p>
+                <p
+                  className={
+                    row.zeroCost
+                      ? "text-right font-mono text-sm font-semibold text-secondary"
+                      : "text-right font-mono text-sm"
+                  }
                 >
-                  <p className="text-base">{row.profile}</p>
-                  <p
-                    className={
-                      row.zeroCost
-                        ? "text-right font-mono text-sm font-semibold text-secondary"
-                        : "text-right font-mono text-sm"
-                    }
-                  >
-                    {row.value}
-                    {row.zeroCost ? (
-                      <LandingFootnoteMark
-                        fragment="landing-note-zero"
-                        label="footnote: zero"
-                        marker="‡"
-                      />
-                    ) : null}
-                  </p>
-                </div>
-              ))}
-            </div>
+                  {row.value}
+                  {row.zeroCost ? (
+                    <LandingFootnoteMark
+                      fragment="landing-note-zero"
+                      label="footnote: zero"
+                      marker="‡"
+                    />
+                  ) : null}
+                </p>
+              </div>
+            ))}
           </div>
         </LandingSection>
 
@@ -556,45 +467,28 @@ function LandingPreviewOverview() {
           </Accordion>
         </LandingSection>
 
-        <LandingSection ariaLabel="Onboarding walkthrough">
-          <div className="@5xl:grid @5xl:grid-cols-[minmax(0,1fr)_440px] @5xl:gap-x-14">
-            <div className="@5xl:col-start-1 @5xl:row-start-1">
-              <LandingSectionIntro heading="Watch the complete Samebase onboarding, including first-time Cloudflare setup." />
-            </div>
-            <div className="mt-8 @5xl:col-start-2 @5xl:row-start-1 @5xl:mt-1.5">
-              <iframe
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                allowFullScreen
-                className="aspect-[48/31] w-full border-0"
-                loading="lazy"
-                referrerPolicy="strict-origin-when-cross-origin"
-                src="https://www.youtube-nocookie.com/embed/8-ZEGPpqi9Y"
-                title="Samebase onboarding: Complete setup from scratch"
-              />
-            </div>
-          </div>
-        </LandingSection>
-
         <section className="mt-16 @3xl:mt-24">
           <blockquote className="max-w-[24ch] text-[clamp(28px,4cqw,40px)] font-semibold leading-[1.2] tracking-[-0.025em]">
             If your app builder is so good, why is it not building itself?
           </blockquote>
+          <p className="mt-5 max-w-[52ch] text-base leading-relaxed text-primary">
+            samebase.com deploys itself with Alchemy from its own GitHub Actions.
+          </p>
         </section>
 
         <LandingSection ariaLabel="Footnotes">
           <div className="grid gap-8 @3xl:grid-cols-2 @3xl:gap-x-14">
             <LandingFootnote fragment="landing-note-zero" heading="$0/month, receipted." marker="‡">
               <p className="mt-2 max-w-[58ch] text-[15px] leading-relaxed text-primary">
-                GitHub Free: unlimited private repositories.{" "}
+                GitHub Free: unlimited private repositories and{" "}
+                <LandingReceiptLink href="https://docs.github.com/en/billing/managing-billing-for-your-products/managing-billing-for-github-actions/about-billing-for-github-actions">
+                  2,000 Actions minutes
+                </LandingReceiptLink>{" "}
+                a month.{" "}
                 <LandingReceiptLink href="https://www.convex.dev/pricing">
                   Convex Free
                 </LandingReceiptLink>
-                : a million function calls a month.{" "}
-                <LandingReceiptLink href="https://developers.cloudflare.com/workers/platform/pricing/">
-                  Cloudflare Workers Free
-                </LandingReceiptLink>
-                : 100,000 requests a day, static assets free and unlimited. Samebase adds no floor
-                of its own.
+                : a million function calls a month. Samebase adds no floor of its own.
               </p>
             </LandingFootnote>
             <LandingFootnote fragment="landing-note-risk" heading="Not hypothetical." marker="§">
@@ -603,44 +497,15 @@ function LandingPreviewOverview() {
                 <LandingReceiptLink href="https://env.fail/posts/firewreck-1/">
                   916 sites
                 </LandingReceiptLink>{" "}
-                exposing about{" "}
-                <LandingReceiptLink href="https://www.bleepingcomputer.com/news/security/misconfigured-firebase-instances-leaked-19-million-plaintext-passwords/">
-                  125 million user records
-                </LandingReceiptLink>{" "}
-                via misconfigured Firebase. 2025: the Tea app{" "}
-                <LandingReceiptLink href="https://www.engadget.com/cybersecurity/tea-app-suffers-breach-exposing-thousands-of-user-images-190731414.html">
-                  leaked 72,000 images
-                </LandingReceiptLink>
-                , and{" "}
+                leaked about 125 million records through misconfigured Firebase. 2025:{" "}
                 <LandingReceiptLink href="https://www.superblocks.com/blog/lovable-vulnerabilities">
                   170 of 1,645 scanned Lovable apps
                 </LandingReceiptLink>{" "}
-                had missing or broken Supabase row-level security (
+                had broken Supabase row-level security (
                 <LandingReceiptLink href="https://nvd.nist.gov/vuln/detail/CVE-2025-48757">
                   CVE-2025-48757
                 </LandingReceiptLink>
-                , disputed by the vendor). Convex,{" "}
-                <LandingReceiptLink href="https://stack.convex.dev/row-level-security">
-                  officially
-                </LandingReceiptLink>
-                : "your Convex database is only accessible via server functions."
-              </p>
-            </LandingFootnote>
-            <LandingFootnote fragment="landing-note-tokens" heading="The hosting math." marker="†">
-              <p className="mt-2 max-w-[58ch] text-[15px] leading-relaxed text-primary">
-                <LandingReceiptLink href="https://www.netlify.com/pricing/">
-                  Netlify Pro
-                </LandingReceiptLink>{" "}
-                is $20/month for 3,000 credits at 15 per successful production deploy: about 200 a
-                month before bandwidth and compute draw from the same pool. Cloudflare's{" "}
-                <LandingReceiptLink href="https://developers.cloudflare.com/workers/platform/pricing/">
-                  $5 Workers plan
-                </LandingReceiptLink>{" "}
-                includes{" "}
-                <LandingReceiptLink href="https://developers.cloudflare.com/workers/ci-cd/builds/limits-and-pricing/">
-                  six concurrent builds
-                </LandingReceiptLink>
-                , and Cloudflare itself says to start new projects on Workers.
+                ).
               </p>
             </LandingFootnote>
             <LandingFootnote
@@ -649,10 +514,9 @@ function LandingPreviewOverview() {
               marker="*"
             >
               <p className="mt-2 max-w-[58ch] text-[15px] leading-relaxed text-primary">
-                Then my close friends. No upselling, no funnels, no VCs. Every claim on this page
-                links a{" "}
+                Then my close friends. No funnels, no VCs. Every claim links a{" "}
                 <LandingInlineLink to={DOCS_RECEIPTS_ROUTE}>dated receipt</LandingInlineLink> your
-                agent can verify instead of trusting us.
+                agent can verify.
               </p>
             </LandingFootnote>
           </div>
@@ -669,8 +533,7 @@ function LandingPreviewOverview() {
                 base. Your accounts. No magic.
               </h2>
               <p className="mt-4 max-w-[52ch] text-[15px] leading-relaxed text-muted-foreground">
-                The manual-setup article walks through every step Samebase automates. It doubles as
-                the exit door.
+                Do it yourself is every step Samebase automates. It doubles as the exit door.
               </p>
               <div className="mt-8 flex flex-wrap items-center gap-x-7 gap-y-4">
                 <div>
@@ -725,47 +588,6 @@ function PublicLandingPrimaryAction() {
 const DOCS_DOCUMENT_CLASS_NAME =
   "min-h-full shrink-0 pb-[calc(100svh-4rem)] @3xl:pb-[calc(100svh-4rem)]";
 
-const CLOUDFLARE_SETUP_ONBOARDING_VIDEO_URL =
-  "https://www.youtube-nocookie.com/embed/8-ZEGPpqi9Y?autoplay=1";
-const CLOUDFLARE_SETUP_ONBOARDING_VIDEO_TITLE = "Samebase onboarding: Complete setup from scratch";
-
-function CloudflareSetupOnboardingVideo() {
-  const [isPlaying, setIsPlaying] = useState(false);
-
-  if (!isPlaying) {
-    return (
-      <button
-        aria-label="Play the complete Samebase onboarding"
-        className="relative aspect-[48/31] w-full overflow-hidden border-0 p-0"
-        onClick={() => setIsPlaying(true)}
-        type="button"
-      >
-        <img
-          alt=""
-          className="h-full w-full object-cover"
-          src="/onboarding/complete-onboarding-poster.webp"
-        />
-        <span className="absolute inset-0 grid place-items-center">
-          <span className="bg-black/80 px-4 py-3 text-lg font-semibold text-white">
-            Play YouTube video
-          </span>
-        </span>
-      </button>
-    );
-  }
-
-  return (
-    <iframe
-      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-      allowFullScreen
-      className="aspect-[48/31] w-full border-0"
-      referrerPolicy="strict-origin-when-cross-origin"
-      src={CLOUDFLARE_SETUP_ONBOARDING_VIDEO_URL}
-      title={CLOUDFLARE_SETUP_ONBOARDING_VIDEO_TITLE}
-    />
-  );
-}
-
 function DocsTheBigMigrationDocument() {
   return (
     <MarkdownLandingDocument
@@ -792,27 +614,6 @@ function DocsDoItYourselfDocument() {
       className={DOCS_DOCUMENT_CLASS_NAME}
       dataTestId={LANDING_PREVIEW_ARTICLE_TEST_ID}
       markdown={docsDoItYourselfMarkdown}
-    />
-  );
-}
-
-function DocsCloudflareSetupDocument() {
-  return (
-    <MarkdownLandingDocument
-      afterTitle={<CloudflareSetupOnboardingVideo />}
-      className={DOCS_DOCUMENT_CLASS_NAME}
-      dataTestId={LANDING_PREVIEW_ARTICLE_TEST_ID}
-      markdown={docsCloudflareSetupMarkdown}
-    />
-  );
-}
-
-function DocsCloudflarePreviewsMigrationDocument() {
-  return (
-    <MarkdownLandingDocument
-      className={DOCS_DOCUMENT_CLASS_NAME}
-      dataTestId={LANDING_PREVIEW_ARTICLE_TEST_ID}
-      markdown={docsCloudflarePreviewsMigrationMarkdown}
     />
   );
 }
@@ -860,14 +661,6 @@ function LandingPreviewDocument({ documentKey }: { documentKey: LandingPreviewDo
     return <DocsTheStackDocument />;
   }
 
-  if (documentKey === "cloudflareSetup") {
-    return <DocsCloudflareSetupDocument />;
-  }
-
-  if (documentKey === "cloudflarePreviewsMigration") {
-    return <DocsCloudflarePreviewsMigrationDocument />;
-  }
-
   if (documentKey === "receipts") {
     return <DocsReceiptsDocument />;
   }
@@ -906,14 +699,6 @@ export function DocsIndexPage() {
 
 export function DocsDoItYourselfPage() {
   return <LandingPreviewChromePage documentKey="doItYourself" />;
-}
-
-export function DocsCloudflareSetupPage() {
-  return <LandingPreviewChromePage documentKey="cloudflareSetup" />;
-}
-
-export function DocsCloudflarePreviewsMigrationPage() {
-  return <LandingPreviewChromePage documentKey="cloudflarePreviewsMigration" />;
 }
 
 export function DocsTheBigMigrationPage() {

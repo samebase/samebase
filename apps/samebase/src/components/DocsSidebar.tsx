@@ -3,10 +3,9 @@ import {
   APP_SIDEBAR_NAVIGATION_LINK_PROPS,
 } from "@/components/appSidebarNavigation";
 import { Button } from "@/components/ui/button";
+import { SAMEBASE_PUBLIC_LINKS } from "@/lib/publicLinks";
 import { cn } from "@/lib/utils";
 import {
-  DOCS_CLOUDFLARE_PREVIEWS_MIGRATION_ROUTE,
-  DOCS_CLOUDFLARE_SETUP_ROUTE,
   DOCS_DO_IT_YOURSELF_ROUTE,
   DOCS_CHANGELOG_ROUTE,
   DOCS_PRICING_ROUTE,
@@ -34,8 +33,6 @@ const DOCS_SIDEBAR_TREE: readonly (
     pages: [
       { label: "The big migration", to: DOCS_THE_BIG_MIGRATION_ROUTE },
       { label: "The stack", to: DOCS_THE_STACK_ROUTE },
-      { label: "Cloudflare setup", to: DOCS_CLOUDFLARE_SETUP_ROUTE },
-      { label: "Worker Previews migration", to: DOCS_CLOUDFLARE_PREVIEWS_MIGRATION_ROUTE },
       { label: "Do it yourself", to: DOCS_DO_IT_YOURSELF_ROUTE },
       { label: "Receipts", to: DOCS_RECEIPTS_ROUTE },
     ],
@@ -44,11 +41,29 @@ const DOCS_SIDEBAR_TREE: readonly (
   { label: "Changelog", to: DOCS_CHANGELOG_ROUTE },
 ];
 
+const DOCS_SIDEBAR_LEGAL_PAGES = [
+  { label: "Privacy", to: "/privacy" },
+  { label: "Terms", to: "/terms" },
+] as const satisfies readonly DocsSidebarPage[];
+
+/** The brand colors of the old footer links: X in the text color, YouTube in its red. */
+const DOCS_SIDEBAR_SOCIAL_LINKS = [
+  { label: "/x.com", href: SAMEBASE_PUBLIC_LINKS.x.destination, className: "text-foreground" },
+  {
+    label: "/YouTube",
+    href: SAMEBASE_PUBLIC_LINKS.youtube.destination,
+    className: "text-[#FF0000]",
+  },
+] as const;
+
+const DOCS_SIDEBAR_LINK_CLASS_NAME =
+  "block py-2 pr-3 pl-2 text-primary no-underline hover:bg-muted/60 hover:no-underline";
+
 function DocsSidebarLink({ label, to }: DocsSidebarPage) {
   return (
     <Link
       activeOptions={APP_SIDEBAR_NAVIGATION_LINK_PROPS.activeOptions}
-      className="block py-2 pr-3 pl-2 text-primary no-underline hover:bg-muted/60 hover:no-underline"
+      className={DOCS_SIDEBAR_LINK_CLASS_NAME}
       to={to}
     >
       {({ isActive }) => (
@@ -120,6 +135,25 @@ export function DocsSidebar() {
           <DocsSidebarLink key={entry.label} label={entry.label} to={entry.to} />
         ),
       )}
+      <div className="mt-6">
+        {DOCS_SIDEBAR_LEGAL_PAGES.map((page) => (
+          <DocsSidebarLink key={page.label} label={page.label} to={page.to} />
+        ))}
+      </div>
+      {/* Outbound links share one row, so they do not read as pages of the site. */}
+      <div className="mt-2 flex gap-3 px-2 py-2">
+        {DOCS_SIDEBAR_SOCIAL_LINKS.map((link) => (
+          <a
+            className={link.className}
+            href={link.href}
+            key={link.label}
+            rel="noreferrer"
+            target="_blank"
+          >
+            {link.label}
+          </a>
+        ))}
+      </div>
     </nav>
   );
 }

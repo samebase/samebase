@@ -261,7 +261,7 @@ describe("AppWorkspaceShell", () => {
 
   it("server-renders static no-left routes without the default left pane", async () => {
     // The shell reads the rendered route matches, which a server render has after its loaders.
-    const router = createAppRouter(createMemoryHistory({ initialEntries: ["/terms"] }));
+    const router = createAppRouter(createMemoryHistory({ initialEntries: ["/docs"] }));
     await router.load();
     const markup = renderToStaticMarkup(
       <RouterContextProvider router={router}>
@@ -304,7 +304,7 @@ describe("AppWorkspaceShell", () => {
   });
 
   it("keeps static no-left route metadata authoritative over route chrome", async () => {
-    const router = createAppRouter(createMemoryHistory({ initialEntries: ["/terms"] }));
+    const router = createAppRouter(createMemoryHistory({ initialEntries: ["/docs"] }));
     await router.load();
     rootElement = document.createElement("div");
     document.body.append(rootElement);

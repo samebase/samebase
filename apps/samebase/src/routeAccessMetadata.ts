@@ -53,8 +53,8 @@ export const ROUTE_ACCESS_METADATA_BY_PATH = {
     appWorkspaceRouteChrome: { leftPane: "none" },
     prerender: true,
   },
-  "/docs/cloudflare-setup": { access: "access_public", prerender: true },
-  "/docs/cloudflare-previews-migration": { access: "access_public", prerender: true },
+  "/docs/cloudflare-setup": { access: "access_public", pathSuggestion: "redirect" },
+  "/docs/cloudflare-previews-migration": { access: "access_public", pathSuggestion: "redirect" },
   "/docs/do-it-yourself": { access: "access_public", prerender: true },
   "/docs/receipts": { access: "access_public", prerender: true },
   "/docs/the-big-migration": { access: "access_public", prerender: true },
@@ -147,20 +147,12 @@ export const ROUTE_ACCESS_METADATA_BY_PATH = {
   },
   "/pricing": { access: "access_public", prerender: true },
   "/changelog": { access: "access_public", prerender: true },
-  "/privacy": {
-    access: "access_public",
-    appWorkspaceRouteChrome: { leftPane: "none" },
-    prerender: true,
-  },
+  "/privacy": { access: "access_public", prerender: true },
   "/settings": {
     access: "access_account_settings",
     appWorkspaceRouteChrome: { leftPane: "none" },
   },
-  "/terms": {
-    access: "access_public",
-    appWorkspaceRouteChrome: { leftPane: "none" },
-    prerender: true,
-  },
+  "/terms": { access: "access_public", prerender: true },
   "/test": {
     availableEnvironments: ["local"],
     access: "access_admin",

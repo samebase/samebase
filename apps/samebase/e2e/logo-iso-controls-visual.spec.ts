@@ -157,18 +157,10 @@ test("logo right sidebar keeps public links visible", async ({ page }) => {
   await expect(
     publicLinks.getByRole("link", { name: LOCAL_STORAGE_ROUTE, exact: true }),
   ).toHaveCount(0);
-  await expect(publicLinks.getByRole("link", { name: "/terms", exact: true })).toHaveAttribute(
-    "href",
-    "/terms",
-  );
-  await expect(publicLinks.getByRole("link", { name: "/privacy", exact: true })).toHaveAttribute(
-    "href",
-    "/privacy",
-  );
-  await expect(publicLinks.getByRole("link", { name: "/pricing", exact: true })).toHaveAttribute(
-    "href",
-    "/pricing",
-  );
+  // Terms, Privacy, Pricing, X, and YouTube live in the public left sidebar.
+  for (const name of ["/terms", "/privacy", "/pricing", "/x.com", "/YouTube"]) {
+    await expect(publicLinks.getByRole("link", { name, exact: true })).toHaveCount(0);
+  }
   await expect(publicLinks.getByRole("link", { name: "/landing", exact: true })).toHaveAttribute(
     "href",
     "/",
@@ -206,14 +198,14 @@ test("logo right sidebar public path links navigate on click", async ({ page }) 
 
   const linksSidebar = page.locator('[data-sidebar-layout-part="pane"][data-pane-side="right"]');
   const publicLinks = linksSidebar.getByTestId(APP_BUILD_STATUS_BAR_TEST_ID);
-  const termsLink = publicLinks.getByRole("link", { name: "/terms", exact: true });
+  const landingLink = publicLinks.getByRole("link", { name: "/landing", exact: true });
 
   await expect(publicLinks).toBeVisible();
-  await termsLink.hover();
+  await landingLink.hover();
   await expect(page).toHaveURL(/\/logo$/);
 
-  await termsLink.click();
-  await expect(page).toHaveURL(/\/terms$/);
+  await landingLink.click();
+  await expect.poll(() => new URL(page.url()).pathname).toBe("/");
 });
 
 test("logo theme query repaints the three scene colors", async ({ page }) => {

@@ -24,9 +24,6 @@ Current key docs:
 - `docs/playwright-visual-testing.md` for Linux-canonical visual test workflow
 - `docs/existing-app-cloudflare-workers-migration.md` for moving an adopted application from an old
   host to Cloudflare Workers with branch validation, cutover, monitoring, and rollback
-- [Worker Previews](https://samebase.com/docs/cloudflare-previews-migration) for switching an
-  existing Convex app to Worker Previews, separating build keys, and checking that repeated preview
-  builds preserve data and sessions
 - `apps/samebase/alchemy.run.ts` for the Samebase stack: the Convex project, its production
   deployment and pull request previews, and the `samebase-posthog-proxy` Worker with its route, and
   `apps/sidebars-example/alchemy.run.ts` for the sidebars example Worker, both deployed by

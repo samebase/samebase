@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { DOCS_ROUTE_CHROME } from "@/components/DocsSidebar";
 import { PrivacyPolicyPage } from "@/components/PrivacyPolicyPage";
 import { buildPageHead, PRIVACY_PAGE_METADATA } from "@/lib/pageMetadata";
 import { ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
@@ -15,7 +16,10 @@ function PrivacyRouteComponent() {
 }
 
 export const Route = createFileRoute("/privacy")({
-  staticData: ROUTE_ACCESS_METADATA_BY_PATH[pathname],
+  staticData: {
+    ...ROUTE_ACCESS_METADATA_BY_PATH[pathname],
+    appWorkspaceRouteChrome: DOCS_ROUTE_CHROME,
+  },
   component: PrivacyRouteComponent,
   head: () => buildPageHead(PRIVACY_PAGE_METADATA),
 });

@@ -1,6 +1,8 @@
 import { expect, test, type Page } from "@playwright/test";
 import { APP_BUILD_VERSION_TEST_ID } from "../src/lib/appBuild";
 import { PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID } from "../src/lib/publicLanding";
+import { VISUAL_FIXTURE_WORKSPACE_SIDEBAR_STATE } from "./visualFixtureTest";
+import { seedLocalWorkspaceSidebarState } from "./workspaceSidebarState";
 
 const legalShellScreenshotOptions = {
   animations: "disabled",
@@ -52,20 +54,26 @@ test("direct terms loads use the same routed app surface as client navigation", 
   page,
 }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
+  // A first visit starts with the left sidebar closed, and the legal links live there.
+  await seedLocalWorkspaceSidebarState(page, {
+    ...VISUAL_FIXTURE_WORKSPACE_SIDEBAR_STATE,
+    leftDesktopOpen: true,
+    rightDesktopOpen: true,
+  });
 
   await page.goto("/", { waitUntil: "networkidle" });
-  const currentSidebarLink = page
-    .locator('[data-sidebar-layout-part="pane"][data-pane-side="right"]')
-    .locator('a[aria-current="page"]');
-  await expect(currentSidebarLink).toHaveText("/landing");
-  await expect(currentSidebarLink).toHaveCSS("font-weight", "400");
-  await expect(currentSidebarLink).not.toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
-  await page.getByRole("link", { name: "/terms", exact: true }).first().click();
+  const leftPane = page.locator('[data-sidebar-layout-part="pane"][data-pane-side="left"]');
+  const currentSidebarLink = leftPane.locator('a[aria-current="page"]');
+  await expect(currentSidebarLink).toHaveText("Overview");
+  await leftPane.getByRole("link", { name: "Terms", exact: true }).click();
   await expect(page).toHaveURL(/\/terms$/);
-  await expect(currentSidebarLink).toHaveText("/terms");
-  await expect(currentSidebarLink).toHaveCSS("font-weight", "400");
-  await expect(currentSidebarLink).toHaveCSS("padding", "2px 6px");
-  await expect(currentSidebarLink).not.toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+  await expect(currentSidebarLink).toHaveText("Terms");
+  await expect(currentSidebarLink.locator("span")).toHaveCSS("font-weight", "400");
+  await expect(currentSidebarLink.locator("span")).toHaveCSS("padding", "2px 6px");
+  await expect(currentSidebarLink.locator("span")).not.toHaveCSS(
+    "background-color",
+    "rgba(0, 0, 0, 0)",
+  );
   const clientNavigationState = await readTermsRouteState(page);
   await expectPublicRouteRightSidebarAccount(page);
   await expect(page.locator('[data-sidebar-layout-part="carousel"]')).toHaveScreenshot(
@@ -74,7 +82,7 @@ test("direct terms loads use the same routed app surface as client navigation", 
   );
 
   await page.goto("/terms", { waitUntil: "networkidle" });
-  await expect(currentSidebarLink).toHaveText("/terms");
+  await expect(currentSidebarLink).toHaveText("Terms");
   const directLoadState = await readTermsRouteState(page);
   await expectPublicRouteRightSidebarAccount(page);
   await expect(page.locator('[data-sidebar-layout-part="carousel"]')).toHaveScreenshot(
@@ -83,7 +91,7 @@ test("direct terms loads use the same routed app surface as client navigation", 
   );
 
   expect(directLoadState).toEqual(clientNavigationState);
-  expect(directLoadState.hasWorkspaceLeft).toBe(false);
+  expect(directLoadState.hasWorkspaceLeft).toBe(true);
   expect(directLoadState.hasWorkspaceMain).toBe(true);
   expect(directLoadState.title).toBe("Terms of Service | Samebase");
 });
@@ -92,9 +100,8 @@ test("public legal routes share the public account right sidebar", async ({ page
   await page.setViewportSize({ width: 1280, height: 900 });
 
   await page.goto("/terms", { waitUntil: "networkidle" });
-  await expect(
-    page.locator('[data-sidebar-layout-part="pane"][data-pane-side="left"]'),
-  ).toHaveCount(0);
+  const leftPane = page.locator('[data-sidebar-layout-part="pane"][data-pane-side="left"]');
+  await expect(leftPane).toHaveCount(1);
   const accountSection = await expectPublicRouteRightSidebarAccount(page);
   await expect(accountSection).toHaveScreenshot("public-route-right-sidebar-account.png", {
     ...legalShellScreenshotOptions,
@@ -102,15 +109,8 @@ test("public legal routes share the public account right sidebar", async ({ page
   });
 
   await page.goto("/privacy", { waitUntil: "networkidle" });
-  await expect(
-    page
-      .locator('[data-sidebar-layout-part="pane"][data-pane-side="right"]')
-      .locator('a[aria-current="page"]'),
-  ).toHaveText("/privacy");
+  await expect(leftPane.locator('a[aria-current="page"]')).toHaveText("Privacy");
   await expect(page.getByRole("heading", { name: "Privacy Policy" })).toBeVisible();
-  await expect(
-    page.locator('[data-sidebar-layout-part="pane"][data-pane-side="left"]'),
-  ).toHaveCount(0);
   await expectPublicRouteRightSidebarAccount(page);
   await expect(page.locator('[data-sidebar-layout-part="carousel"]')).toHaveScreenshot(
     "privacy-shell.png",

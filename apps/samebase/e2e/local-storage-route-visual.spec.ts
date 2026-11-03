@@ -99,7 +99,7 @@ test("storage sidebar links navigate through the same styled link surface @opt-i
   const storageRouteLink = page.getByTestId("indexed-db-sidebar-file");
   const rightSidebarLink = rightSidebar
     .getByTestId(APP_BUILD_STATUS_BAR_TEST_ID)
-    .getByRole("link", { name: "/terms", exact: true });
+    .getByRole("link", { name: "/landing", exact: true });
 
   await expect(storageRouteLink).toBeVisible();
   const localStorageLink = page.getByTestId("local-storage-sidebar-file");

@@ -1,11 +1,12 @@
 # Samebase
 
-Samebase sets up and manages web apps in your GitHub, Convex, and Cloudflare accounts. Coding agents
-use its MCP server to create apps, connect repositories, inspect deployments, and repair provider
-setup. The dashboard gives you one place to see those apps and their resources.
+Samebase starts web apps and shows what they deployed. A new app is a GitHub repository whose GitHub
+Actions deploy it with [Alchemy](https://alchemy.run) to a Convex project in your team. Samebase
+reads the Alchemy state and shows each app's URL, deployed commit, checks, and pull request
+previews. Coding agents use its MCP server to create, connect, and read apps.
 
-Your code and infrastructure stay in your provider accounts. Deleting your Samebase account does not
-stop your apps.
+Your code and infrastructure stay in your own accounts. Deleting your Samebase account does not stop
+your apps.
 
 ## Use Samebase
 
@@ -17,12 +18,14 @@ stop your apps.
 
 ## What it does
 
-- Creates a GitHub repository from a starter and sets up Convex and Cloudflare resources.
-- Connects existing repositories. They can stay GitHub-only or attach provider resources later.
-- Shows production URLs, builds, pull requests, checks, and attached Convex deployments.
-- Groups a monorepo's Workers and Convex projects by their repository paths.
-- Provides explicit actions to fix provider setup, configure builds, rotate deploy keys, and detach
-  resources.
+- Creates a GitHub repository from the starter. Its first push deploys it, with Google sign-in
+  through the identity hub.
+- Connects existing repositories. A repository whose Alchemy stack keeps its state in the team's
+  Convex store shows that stack.
+- Shows production URLs, deployed commits, checks, and the preview of each pull request.
+- Groups a monorepo's stacks by their repository paths.
+
+Repair lives in the repository: the GitHub Actions log, Alchemy, and your agent.
 
 Agents edit source in the app's GitHub repository with their own coding tools. Samebase has no
 built-in AI chat. The repository also contains a collaborative file editor, currently restricted to
@@ -49,8 +52,8 @@ This is the source of the Samebase service, its workspace packages, and its app 
 
 The service uses TypeScript, React, TanStack Start, Convex, Tailwind CSS, Base UI, and shadcn/ui.
 Vite+ runs the build, lint, format, and test tasks in a pnpm workspace. The Samebase service is
-served through [convex-hosting](https://github.com/samebase/convex-hosting). Apps created from the
-base template use Cloudflare Workers with a Convex backend.
+served through [convex-hosting](https://github.com/samebase/convex-hosting), and so are apps created
+from the base template.
 
 ## Work on the source
 

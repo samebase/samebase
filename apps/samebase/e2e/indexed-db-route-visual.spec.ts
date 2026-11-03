@@ -87,9 +87,9 @@ test("indexedDB route shows database store keys and formatted values @opt-in", a
   await expect(
     accountSection.getByText("Sign in or create an account", { exact: true }),
   ).toHaveCount(0);
-  await expect(rightSidebar.getByRole("link", { name: "/terms", exact: true })).toHaveAttribute(
+  await expect(rightSidebar.getByRole("link", { name: "/landing", exact: true })).toHaveAttribute(
     "href",
-    "/terms",
+    "/",
   );
   await expect(page.getByTestId("local-storage-sidebar-file")).toHaveAttribute(
     "href",

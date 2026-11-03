@@ -10,33 +10,15 @@ at `/llms.txt`.
 
 Last full check: 2026-07-02.
 
-## Hosting: Cloudflare Workers
+## Deploys: Alchemy
 
-- Requests to static assets served by Workers are free and unlimited on both the Free and Paid
-  plans. Verbatim: "Requests to static assets are free and unlimited." The precise boundary:
-  requests that invoke the Worker script itself, such as server-side rendering or routes matched by
-  `run_worker_first`, bill as normal Worker requests. Sources:
-  [Workers pricing](https://developers.cloudflare.com/workers/platform/pricing/) and
-  [static assets billing](https://developers.cloudflare.com/workers/static-assets/billing-and-limitations/),
-  checked 2026-07-07.
-- The Workers Free plan includes 100,000 requests per day (10ms CPU per invocation). The Paid plan
-  is a $5/month minimum that includes 10 million requests per month. Source:
-  [Workers pricing](https://developers.cloudflare.com/workers/platform/pricing/), checked
-  2026-07-02.
-- Workers Builds (the CI/CD that deploys on git push): 3,000 build minutes per month free with one
-  concurrent build; the $5 Paid plan includes 6,000 minutes (then $0.005/minute) and six concurrent
-  builds. Source:
-  [Builds limits and pricing](https://developers.cloudflare.com/workers/ci-cd/builds/limits-and-pricing/),
-  checked 2026-07-02.
-- Cloudflare itself says to start new projects on Workers rather than Pages. Verbatim: "you should
-  start with Workers. Cloudflare Pages will continue to be supported, but, going forward, all of our
-  investment, optimizations, and feature work will be dedicated to improving Workers." Source:
-  [Cloudflare blog, April 2025](https://blog.cloudflare.com/full-stack-development-on-cloudflare-workers/),
-  checked 2026-07-02.
-- The Pages contrast: Pages Free is capped at 500 builds per month with one concurrent build, and
-  five concurrent builds require Pages Pro at $20/month billed annually. Sources:
-  [Pages limits](https://developers.cloudflare.com/pages/platform/limits/) and
-  [pages.cloudflare.com](https://pages.cloudflare.com/), checked 2026-07-02.
+- Alchemy 2 is in beta: the `latest` tag of the `alchemy` package on npm is `2.0.0-beta.85`. Source:
+  [npm](https://www.npmjs.com/package/alchemy), checked 2026-11-03.
+- A Convex OAuth token has no expiry date, and a Cloudflare OAuth token lasts one hour. Measured by
+  Samebase on 2026-11-01: the Convex OAuth token reply has no expiry field, and Wrangler's
+  `expiration_time` for a Cloudflare login is one hour after it was issued. This is why the Alchemy
+  state lives in Convex: one OAuth click can deploy a repository for as long as the authorization
+  stands.
 
 ## Code: GitHub
 
@@ -80,37 +62,6 @@ Last full check: 2026-07-02.
   [March 12, 2024 announcement](https://news.convex.dev/convex-goes-open-source/), checked
   2026-07-06.
 
-## The pricing contrast: Netlify
-
-Samebase's stack used Netlify before Cloudflare. The reason for leaving is arithmetic, and it
-matters most when an agent is doing the shipping, because agents deploy far more often than humans.
-
-- One successful production deploy consumes 15 credits. Verbatim: "Each successful production deploy
-  consumes 15 credits during that month's billing cycle." Source:
-  [How credits work](https://docs.netlify.com/manage/accounts-and-billing/billing/billing-for-credit-based-plans/how-credits-work/),
-  checked 2026-07-02.
-- Since the April 14, 2026 repricing, Netlify Pro is $20/month for 3,000 credits with unlimited
-  seats. Spent on nothing else, that is roughly 200 production deploys per month. Bandwidth,
-  compute, and web requests draw from the same pool, so the real deploy budget is lower. Sources:
-  [April 2026 pricing update](https://www.netlify.com/changelog/2026-04-14-pricing-updates-april-2026/)
-  and
-  [billing FAQ](https://docs.netlify.com/manage/accounts-and-billing/billing/billing-for-credit-based-plans/billing-faq-for-credit-based-plans/),
-  checked 2026-07-02.
-- Precision that matters: only successful production deploys cost credits. Deploy previews, branch
-  deploys, failed deploys, and rollbacks are free. Commits routed through pull-request previews do
-  not burn credits; production releases do. Source:
-  [How credits work](https://docs.netlify.com/manage/accounts-and-billing/billing/billing-for-credit-based-plans/how-credits-work/),
-  checked 2026-07-02.
-- The free tier is 300 credits per month, about 20 production deploys. When a team's credits run
-  out, all of its sites are paused and visitors see a "Site not available" page until the next
-  billing cycle. Source:
-  [How credits work](https://docs.netlify.com/manage/accounts-and-billing/billing/billing-for-credit-based-plans/how-credits-work/),
-  checked 2026-07-02.
-- The scenario that made this real: an agent-driven repository shipping ~50 production deploys a day
-  burns Pro's entire 3,000-credit month in about four days. On Cloudflare Workers the equivalent
-  deploys draw from build minutes (3,000 free, 6,000 on the $5 plan), and serving the deployed
-  static assets costs nothing at any volume.
-
 ## The exposure record: client-reachable databases
 
 Fairness first: Firebase and Supabase can be configured safely, and row-level security is a real
@@ -152,12 +103,6 @@ misconfigure (see the Convex section above).
 
 ## Toolchain
 
-- Cloudflare acquired VoidZero, the company behind Vite, Vitest, and Vite+, on June 4, 2026. The
-  tools stay MIT-licensed, and Cloudflare committed $1M to an independent Vite ecosystem fund.
-  Sources:
-  [Cloudflare press release](https://www.cloudflare.com/press/press-releases/2026/cloudflare-acquires-voidzero-to-build-the-future-of-the-ai-native-web/)
-  and [VoidZero's announcement](https://voidzero.dev/posts/voidzero-cloudflare), announced
-  2026-06-04.
 - Vite+ (`vp`) bundles the dev server, test runner, linter, formatter, and bundler behind one CLI;
   it was announced as alpha on March 13, 2026, MIT-licensed. Sources:
   [viteplus.dev guide](https://viteplus.dev/guide) and
@@ -169,29 +114,19 @@ misconfigure (see the Convex section above).
   stripping stable from v24.12.0 and documents that it does not read `tsconfig.json` or transform
   TypeScript features that require JavaScript generation. Source:
   [Node.js TypeScript documentation](https://nodejs.org/api/typescript.html), checked 2026-07-23.
-- TanStack Start is a v1 release candidate, not a stable v1. We say RC because that is what it is.
-  Source:
-  [TanStack Start overview](https://tanstack.com/start/latest/docs/framework/react/overview),
-  checked 2026-07-02.
-- Cloudflare's official Vite plugin supports TanStack Start server-side rendering, and TanStack
-  lists Cloudflare as an official hosting partner with a documented Workers deployment path.
-  Sources: [Cloudflare Vite plugin](https://developers.cloudflare.com/workers/vite-plugin/) and
-  [TanStack Start hosting](https://tanstack.com/start/latest/docs/framework/react/guide/hosting),
-  checked 2026-07-23.
 
 ## Dogfooding: Samebase runs on its own base
 
-samebase.com runs on GitHub, Convex, and Cloudflare Workers, built from the same base as the public
-template. The template is published automatically from the Samebase monorepo, so every improvement
-we make to the base while building Samebase reaches new apps. Check it: each commit in
-[samebase/base](https://github.com/samebase/base/commits/main) names the Samebase build and pull
-request it came from, checked 2026-09-26.
+samebase.com deploys the way the template does: an Alchemy stack, run by GitHub Actions on each push
+to `main`, with its state in the team's Convex store. The template is published from the Samebase
+monorepo, and each commit in [samebase/base](https://github.com/samebase/base/commits/main) names
+the Samebase build and pull request it came from, checked 2026-11-03.
 
 ## Ownership: the leaving test
 
-This one is checkable without citations. An app created through Samebase lives in your GitHub
-account, your Convex team, and your Cloudflare account, deployed by Cloudflare's own Workers Builds
-connected to your repository. Delete your Samebase account and the repository, backend, and hosting
-keep running, because none of them are ours. Open the three provider dashboards and look. The
-[Overview](/) explains why the product is built this way, and [Do it yourself](/docs/do-it-yourself)
+An app created through Samebase lives in your GitHub account and your Convex team, and your
+repository's GitHub Actions deploy it. Delete your Samebase account and the app keeps running and
+deploying: Samebase cannot revoke its Convex OAuth token, so the repository's `CONVEX_ACCESS_TOKEN`
+still works. Replace it with your own team token before you revoke Samebase at Convex. New Google
+sign-ins through Samebase stop; guest sign-in keeps working. [Do it yourself](/docs/do-it-yourself)
 is the same setup with no Samebase account at all.

@@ -2,8 +2,6 @@ import { devices, expect, test, type Locator, type Page } from "@playwright/test
 import { VISUAL_FIXTURE_WORKSPACE_SIDEBAR_STATE } from "./visualFixtureTest";
 import { seedLocalWorkspaceSidebarState } from "./workspaceSidebarState";
 import {
-  DOCS_CLOUDFLARE_PREVIEWS_MIGRATION_ROUTE,
-  DOCS_CLOUDFLARE_SETUP_ROUTE,
   DOCS_DO_IT_YOURSELF_ROUTE,
   DOCS_INDEX_ROUTE,
   DOCS_CHANGELOG_ROUTE,
@@ -14,7 +12,6 @@ import {
   DOCS_THE_STACK_ROUTE,
   LANDING_PAGE_ROUTE,
   LANDING_PREVIEW_ARTICLE_TEST_ID,
-  LANDING_PREVIEW_PLATFORM_DETAILS_TEST_ID,
 } from "../src/routeSearch/landingPreview";
 
 const { defaultBrowserType: _landingPreviewMobileBrowserType, ...landingPreviewMobileDevice } =
@@ -32,8 +29,10 @@ const expectedLandingPreviewSidebarFiles = [
   "Receipts",
   "Pricing",
   "Changelog",
-  "Cloudflare setup",
-  "Worker Previews migration",
+  "Privacy",
+  "Terms",
+  "/x.com",
+  "/YouTube",
 ] as const;
 
 async function expectSidebarFiles(sidebar: Locator) {
@@ -68,10 +67,7 @@ async function expectSidebarFiles(sidebar: Locator) {
     "href",
     new RegExp(`^${DOCS_CHANGELOG_ROUTE}(\\?|$)`),
   );
-  await expect(sidebar.getByRole("link", { name: "Worker Previews migration" })).toHaveAttribute(
-    "href",
-    new RegExp(`^${DOCS_CLOUDFLARE_PREVIEWS_MIGRATION_ROUTE}(\\?|$)`),
-  );
+  await expect(sidebar).not.toContainText("Worker Previews migration");
   await expect(sidebar).not.toContainText("Start here");
   await expect(sidebar).not.toContainText("samebase.com");
 }
@@ -119,7 +115,6 @@ test("landing overview preserves its video frame and wide desktop layout", async
   });
 
   const article = page.getByTestId(LANDING_PREVIEW_ARTICLE_TEST_ID);
-  const platformDetails = article.getByTestId(LANDING_PREVIEW_PLATFORM_DETAILS_TEST_ID);
   const templateLink = article.getByRole("link", {
     name: "samebase/base",
   });
@@ -136,13 +131,6 @@ test("landing overview preserves its video frame and wide desktop layout", async
       page.getByTestId("public-landing-logo-stage"),
     ],
     maskColor: "#f5f5f5",
-    maxDiffPixelRatio: 0.02,
-    scale: "css",
-    timeout: 30_000,
-  });
-  await expect(platformDetails).toHaveScreenshot("landing-preview-platform-desktop.png", {
-    animations: "disabled",
-    caret: "hide",
     maxDiffPixelRatio: 0.02,
     scale: "css",
     timeout: 30_000,
@@ -166,9 +154,7 @@ test("landing preview FAQ answers the direct-agent questions", async ({ page }) 
     .getByRole("region", { name: "Frequently asked questions" });
   await expect(faq).toContainText("Codex already writes Convex well. Why do I need Samebase?");
   await expect(faq).toContainText("Ok, but can't I just get your template and not use Samebase?");
-  await expect(faq).toContainText(
-    "I can just ask Codex to update my own apps. Why do I need Samebase?",
-  );
+  await expect(faq).toContainText("Why is the Alchemy state in Convex?");
   await expect(faq).toContainText("Wait, so all Samebase is, is a template and a list?");
 
   const firstQuestion = faq.getByRole("button", {
@@ -177,10 +163,10 @@ test("landing preview FAQ answers the direct-agent questions", async ({ page }) 
   const secondQuestion = faq.getByRole("button", {
     name: "Ok, but can't I just get your template and not use Samebase?",
   });
-  const firstAnswer = faq.getByText("You do not need Samebase to make Codex write Convex.", {
+  const firstAnswer = faq.getByText("You don't, for the code.", {
     exact: false,
   });
-  const secondAnswer = faq.getByText("You can. The template and skills are public.", {
+  const secondAnswer = faq.getByText("You can. The template is public", {
     exact: false,
   });
 
@@ -274,9 +260,8 @@ test("landing preview overview adapts to a narrow pane", async ({ page }) => {
       name: /Give your coding agent a working app/,
     }),
   ).toBeVisible();
-  const monorepo = article.getByRole("region", { name: "Monorepo" });
-  await expect(monorepo).toContainText("apps/storefront");
-  await expect(monorepo).toContainText("Convex + Worker");
+  const howItWorks = article.getByRole("region", { name: "How it works" });
+  await expect(howItWorks).toContainText("Connect GitHub and Convex.");
   await expect(page.getByTestId("landing-preview-hero-menger")).toBeHidden();
   await expect(page.getByTestId("logo-menger-hover-scene")).toHaveCount(0);
 
@@ -291,23 +276,13 @@ test("landing preview overview adapts to a narrow pane", async ({ page }) => {
     maxDiffPixelRatio: 0.02,
     scale: "css",
   });
-  await expect(monorepo).toHaveScreenshot("landing-preview-monorepo-narrow-pane.png", {
+  await expect(howItWorks).toHaveScreenshot("landing-preview-how-it-works-narrow-pane.png", {
     animations: "disabled",
     caret: "hide",
     maxDiffPixelRatio: 0.02,
     scale: "css",
     timeout: 30_000,
   });
-  await expect(article.getByTestId(LANDING_PREVIEW_PLATFORM_DETAILS_TEST_ID)).toHaveScreenshot(
-    "landing-preview-platform-narrow-pane.png",
-    {
-      animations: "disabled",
-      caret: "hide",
-      maxDiffPixelRatio: 0.02,
-      scale: "css",
-      timeout: 30_000,
-    },
-  );
 });
 
 test("landing document navigation resets pages, restores history, and aligns direct anchors", async ({
@@ -366,11 +341,12 @@ test("landing document navigation resets pages, restores history, and aligns dir
   await expect.poll(() => readMainPaneScrollTop(page)).toBe(0);
   await expect(
     article.getByRole("heading", {
-      name: "Do it yourself: deploy the Samebase stack for $0/month",
+      name: "Do it yourself",
+      exact: true,
     }),
   ).toBeInViewport();
 
-  await article.locator('[id="7-delete-the-app"]').scrollIntoViewIfNeeded();
+  await article.locator('[id="after-that"]').scrollIntoViewIfNeeded();
   await expect.poll(() => readMainPaneScrollTop(page)).toBeGreaterThan(0);
   const doItYourselfScrollTop = await readMainPaneScrollTop(page);
 
@@ -393,7 +369,7 @@ test("landing document navigation resets pages, restores history, and aligns dir
   await expect(page).toHaveURL(new RegExp(`${LANDING_PAGE_ROUTE}$`));
   await expect.poll(() => readMainPaneScrollTop(page)).toBe(overviewScrollTop);
 
-  await page.getByRole("link", { exact: true, name: "/terms" }).click();
+  await docsSidebar.getByRole("link", { exact: true, name: "Terms" }).click();
   await expect.poll(() => new URL(page.url()).pathname).toBe("/terms");
   await expect.poll(() => readMainPaneScrollTop(page)).toBe(0);
   await expect(
@@ -404,10 +380,10 @@ test("landing document navigation resets pages, restores history, and aligns dir
   await expect.poll(() => new URL(page.url()).pathname).toBe(LANDING_PAGE_ROUTE);
   await expect.poll(() => readMainPaneScrollTop(page)).toBe(overviewScrollTop);
 
-  await page.goto(`${DOCS_DO_IT_YOURSELF_ROUTE}#7-delete-the-app`, {
+  await page.goto(`${DOCS_DO_IT_YOURSELF_ROUTE}#after-that`, {
     waitUntil: "domcontentloaded",
   });
-  const finalHeading = article.locator('[id="7-delete-the-app"]');
+  const finalHeading = article.locator('[id="after-that"]');
   await expect(currentDocsLink).toHaveText("Do it yourself");
   await expect(finalHeading).toBeInViewport();
   await expect
@@ -449,16 +425,6 @@ test.describe("mobile landing preview", () => {
       scale: "css",
       timeout: 30_000,
     });
-    await expect(article.getByTestId(LANDING_PREVIEW_PLATFORM_DETAILS_TEST_ID)).toHaveScreenshot(
-      "landing-preview-platform-mobile.png",
-      {
-        animations: "disabled",
-        caret: "hide",
-        maxDiffPixelRatio: 0.02,
-        scale: "css",
-        timeout: 30_000,
-      },
-    );
   });
 
   test("renders the FAQ for a mobile pane", async ({ page }) => {
@@ -478,18 +444,16 @@ test.describe("mobile landing preview", () => {
       .getByRole("region", { name: "Frequently asked questions" });
     await expect(faq).toContainText("Codex already writes Convex well. Why do I need Samebase?");
     await expect(faq).toContainText("Ok, but can't I just get your template and not use Samebase?");
-    await expect(faq).toContainText(
-      "I can just ask Codex to update my own apps. Why do I need Samebase?",
-    );
+    await expect(faq).toContainText("Why is the Alchemy state in Convex?");
     await expect(faq).toContainText("Wait, so all Samebase is, is a template and a list?");
     const thirdQuestion = faq.getByRole("button", {
-      name: "I can just ask Codex to update my own apps. Why do I need Samebase?",
+      name: "Why is the Alchemy state in Convex?",
     });
     await expect(thirdQuestion).toHaveAttribute("aria-expanded", "false");
     await thirdQuestion.click();
     await expect(thirdQuestion).toHaveAttribute("aria-expanded", "true");
     await expect(
-      faq.getByText("Even for one app, Samebase does the do-it-yourself setup for you", {
+      faq.getByText("A Convex OAuth token has no expiry date", {
         exact: false,
       }),
     ).toBeVisible();
@@ -543,7 +507,8 @@ test.describe("mobile landing preview", () => {
     await expect.poll(() => readMainPaneScrollTop(page)).toBe(0);
     await expect(
       article.getByRole("heading", {
-        name: "Do it yourself: deploy the Samebase stack for $0/month",
+        name: "Do it yourself",
+        exact: true,
       }),
     ).toBeInViewport();
   });
@@ -569,7 +534,7 @@ test("docs receipts route renders the claims ledger", async ({ page }) => {
   await expectSidebarFiles(sidebar);
   await expect(article.getByRole("heading", { exact: true, name: "Receipts" })).toBeVisible();
   await expect(sidebar.locator('a[aria-current="page"]')).toHaveText("Receipts");
-  await expect(article).toContainText("Requests to static assets are free and unlimited.");
+  await expect(article).toContainText("Alchemy 2 is in beta");
   await expect(article).toContainText("security researcher Matt Palmer");
   await expect(article).toContainText("Last full check: 2026-07-02");
   await expect(article).toContainText("deleted, not softened");
@@ -581,41 +546,6 @@ test("docs receipts route renders the claims ledger", async ({ page }) => {
     maxDiffPixelRatio: 0.02,
     scale: "css",
   });
-});
-
-test("Cloudflare setup loads the onboarding video only after Play", async ({ page }) => {
-  await page.setViewportSize({ width: 1100, height: 900 });
-  let youtubeRequestCount = 0;
-  await page.route("https://www.youtube-nocookie.com/**", (route) => {
-    youtubeRequestCount += 1;
-    return route.abort();
-  });
-
-  await page.goto(DOCS_CLOUDFLARE_SETUP_ROUTE, {
-    waitUntil: "networkidle",
-  });
-  await page.evaluate(async () => {
-    await document.fonts.ready;
-  });
-
-  const article = page.getByTestId(LANDING_PREVIEW_ARTICLE_TEST_ID);
-  const playOnboarding = article.locator(
-    'h1 + button[aria-label="Play the complete Samebase onboarding"]',
-  );
-  await expect(playOnboarding).toBeVisible();
-  expect(youtubeRequestCount).toBe(0);
-  await expect(playOnboarding).toHaveScreenshot("docs-cloudflare-setup-onboarding-video.png", {
-    animations: "disabled",
-    caret: "hide",
-    maxDiffPixelRatio: 0.02,
-    scale: "css",
-  });
-
-  await playOnboarding.click();
-  await expect(
-    article.locator('h1 + iframe[title="Samebase onboarding: Complete setup from scratch"]'),
-  ).toBeVisible();
-  await expect.poll(() => youtubeRequestCount).toBe(1);
 });
 
 test("pricing route renders the public pricing page", async ({ page }) => {
@@ -642,9 +572,7 @@ test("pricing route renders the public pricing page", async ({ page }) => {
   await expect(article.getByRole("row", { name: "Personal account Free $0 12 1" })).toBeVisible();
   await expect(article.getByRole("row", { name: "GitHub organization Free $0 6 2" })).toBeVisible();
   await expect(article.getByRole("row", { name: "Any owner Pro $4 120 2" })).toBeVisible();
-  await expect(article).toContainText(
-    "Members above the included limit require Pro and an available seat.",
-  );
+  await expect(article).toContainText("Each repository connected to Samebase is one connection.");
   await expect(article).not.toContainText("FileView");
 
   await expect(page).toHaveScreenshot("docs-pricing-desktop.png", {

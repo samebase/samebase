@@ -26,8 +26,6 @@ const prodUiEnvironment = "production";
 const deployedEnvironment = "preview";
 const publicDocsPaths = [
   "/docs",
-  "/docs/cloudflare-setup",
-  "/docs/cloudflare-previews-migration",
   "/docs/do-it-yourself",
   "/docs/receipts",
   "/docs/the-stack",

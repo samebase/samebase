@@ -129,11 +129,11 @@ test("app workspace address chrome exposes the route URL editor", async ({ page 
     maxDiffPixelRatio: 0.01,
   });
 
-  await page.getByRole("link", { name: "/terms", exact: true }).dispatchEvent("click");
-  await expect(page).toHaveURL(/\/terms\?dev$/);
+  await page.getByRole("link", { name: "/landing", exact: true }).dispatchEvent("click");
+  await expect(page).toHaveURL(/\/\?dev$/);
   await expect(routeUrlInput).toHaveCount(0);
-  await expect(routeUrlDisplay).toHaveValue("/terms?dev");
-  await expect(routeUrlDisplay).toHaveAttribute("title", `${origin}/terms?dev`);
+  await expect(routeUrlDisplay).toHaveValue("/?dev");
+  await expect(routeUrlDisplay).toHaveAttribute("title", `${origin}/?dev`);
 });
 
 test("route URL editor distinguishes developer logo routes @logo-research", async ({ page }) => {

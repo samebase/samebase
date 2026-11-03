@@ -1,8 +1,6 @@
 import { DASHBOARD_ROUTE } from "./dashboardRoute";
 import { INDEXED_DB_ROUTE } from "./indexedDbRoute";
 import {
-  DOCS_CLOUDFLARE_PREVIEWS_MIGRATION_ROUTE,
-  DOCS_CLOUDFLARE_SETUP_ROUTE,
   DOCS_DO_IT_YOURSELF_ROUTE,
   DOCS_INDEX_ROUTE,
   DOCS_CHANGELOG_ROUTE,
@@ -123,17 +121,8 @@ export const DOCS_INDEX_PAGE_METADATA: PageMetadata = {
 
 export const DOCS_DO_IT_YOURSELF_PAGE_METADATA: PageMetadata = {
   title: "Do it yourself | Samebase",
-  description: "Deploy the Samebase stack by hand, with no Samebase account.",
+  description: "Deploy the Samebase stack in three steps, with no Samebase account.",
   canonicalPath: DOCS_DO_IT_YOURSELF_ROUTE,
-  robots: "index,follow",
-  openGraphType: "website",
-};
-
-export const DOCS_CLOUDFLARE_SETUP_PAGE_METADATA: PageMetadata = {
-  title: "Set up Cloudflare for your first Samebase app | Samebase",
-  description:
-    "Create the first Cloudflare Workers Builds API token, then let Samebase create the real Worker.",
-  canonicalPath: DOCS_CLOUDFLARE_SETUP_ROUTE,
   robots: "index,follow",
   openGraphType: "website",
 };
@@ -148,16 +137,8 @@ export const DOCS_THE_BIG_MIGRATION_PAGE_METADATA: PageMetadata = {
 
 export const DOCS_THE_STACK_PAGE_METADATA: PageMetadata = {
   title: "The stack | Samebase",
-  description: "What the Samebase template ships and why each piece was chosen.",
+  description: "What the Samebase template ships: Alchemy, Convex, TanStack Start, and Vite+.",
   canonicalPath: DOCS_THE_STACK_ROUTE,
-  robots: "index,follow",
-  openGraphType: "website",
-};
-
-export const DOCS_CLOUDFLARE_PREVIEWS_MIGRATION_PAGE_METADATA: PageMetadata = {
-  title: "Migrate to Cloudflare Worker Previews | Samebase",
-  description: "Update an existing Samebase app to use Cloudflare Worker Previews.",
-  canonicalPath: DOCS_CLOUDFLARE_PREVIEWS_MIGRATION_ROUTE,
   robots: "index,follow",
   openGraphType: "website",
 };
@@ -251,14 +232,6 @@ export function resolveAppPageTitle(pathname: string): string {
     return DOCS_DO_IT_YOURSELF_PAGE_METADATA.title;
   }
 
-  if (pathname === DOCS_CLOUDFLARE_SETUP_ROUTE) {
-    return DOCS_CLOUDFLARE_SETUP_PAGE_METADATA.title;
-  }
-
-  if (pathname === DOCS_CLOUDFLARE_PREVIEWS_MIGRATION_ROUTE) {
-    return DOCS_CLOUDFLARE_PREVIEWS_MIGRATION_PAGE_METADATA.title;
-  }
-
   if (pathname === DOCS_THE_BIG_MIGRATION_ROUTE) {
     return DOCS_THE_BIG_MIGRATION_PAGE_METADATA.title;
   }
@@ -316,14 +289,6 @@ export function resolvePageMetadata(args: {
 
   if (args.pathname === DOCS_DO_IT_YOURSELF_ROUTE) {
     return DOCS_DO_IT_YOURSELF_PAGE_METADATA;
-  }
-
-  if (args.pathname === DOCS_CLOUDFLARE_SETUP_ROUTE) {
-    return DOCS_CLOUDFLARE_SETUP_PAGE_METADATA;
-  }
-
-  if (args.pathname === DOCS_CLOUDFLARE_PREVIEWS_MIGRATION_ROUTE) {
-    return DOCS_CLOUDFLARE_PREVIEWS_MIGRATION_PAGE_METADATA;
   }
 
   if (args.pathname === DOCS_THE_BIG_MIGRATION_ROUTE) {

@@ -1,32 +1,17 @@
 # Operate: custom domain
 
-Samebase does not manage domains for you. The Worker is in your Cloudflare account, so Cloudflare's
-own domain tooling applies directly. The `repository_getStatus` MCP tool returns each app's Worker
-name and the URLs it serves (custom domains and `workers.dev`). The Samebase dashboard adds the
-direct Cloudflare link after its live provider read succeeds.
+Samebase does not manage domains. The site is in your own Convex or Cloudflare account, so you
+attach the domain there.
 
-## Attach a domain to the Worker
+## A site on Convex
 
-If the domain's DNS is on Cloudflare (recommended because it is the same account):
+A custom domain needs the Convex Pro plan. In the deployment's settings, open **Custom Domains** and
+add the domain with **HTTP Actions** as the destination. Then create the `CNAME` and `TXT` records
+that Convex shows. The
+[convex-hosting domain guide](https://github.com/samebase/convex-hosting/blob/main/docs/domains.md)
+covers apex domains, Cloudflare DNS, and moving a domain from another host.
 
-1. Open the Worker from the Samebase dashboard, then choose Settings → Domains & Routes → Add →
-   Custom domain.
-2. Enter the hostname (for example `app.example.com`). Cloudflare creates the DNS record and the
-   certificate; propagation is usually minutes.
+## A Cloudflare Worker
 
-Command-line equivalent, from the app repository: add the hostname under `routes` with
-`custom_domain: true` in `wrangler.jsonc`, then let the next production deploy ship it (generated
-apps deploy through their `pnpm run deploy` script, which passes the Worker name explicitly. Pushes
-to the default branch trigger it; preview deploys do not apply domain routes).
-
-## What stays unchanged
-
-The `workers.dev` URL keeps working alongside the custom domain. Attaching a Worker domain does not
-change the app's Convex deployment endpoints or require any Convex configuration. The frontend keeps
-using the deployment URLs already configured in the app regardless of which hostname serves it.
-
-## If the domain is not on Cloudflare yet
-
-Transfer the zone into the same Cloudflare account first (Cloudflare → Add a domain, then update
-nameservers at the registrar). Everything above then applies. Buying the domain through Cloudflare
-Registrar also lands it in the right account with at-cost pricing.
+Open the Worker in Cloudflare, then **Settings**, **Domains & Routes**, **Add**, **Custom domain**.
+Alchemy does not track this domain, so attach it again if the stack ever rebuilds the Worker.
