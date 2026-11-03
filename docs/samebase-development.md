@@ -25,10 +25,12 @@ pnpm run dev --once
 pnpm run dev
 ```
 
-Worktree setup needs the primary checkout's development configuration. It copies allowlisted GitHub
-App settings and seed facts into its own local Convex deployment. It also seeds Convex and
-Cloudflare connections when development seed credentials exist. The word "anonymous" in the runner
-refers to the local Convex deployment, not a setup that works without maintainer credentials.
+Worktree setup needs the maintainer's Convex CLI login (`npx convex login`), no file of another
+checkout. It starts the worktree's own local Convex deployment and copies the GitHub App settings
+and the GitHub owner of the seeded organization from the development deployment of the project
+`samebase-com`. It registers that local deployment with the identity hub, so GitHub sign-in and the
+Connect buttons work as on a preview. The word "anonymous" in the runner refers to the local Convex
+deployment, not a setup that works without maintainer credentials.
 
 On native Windows, use the same commands in PowerShell. Startup retries local `SITE_URL` sync after
 the backend starts. If it cannot stop a stale local backend on port `3210`, stop that process and
@@ -148,10 +150,8 @@ its old keys. For rotation, follow the
 
 - `HUB_ISSUER`, `HUB_CLIENT_ID`, and `HUB_CLIENT_SECRET`: the identity hub,
   `https://auth.samebase.com`, and this deployment's client at it. A deployment gets its client by
-  registering its callback URL `<site>/auth/hub/callback` at the hub. A linked worktree and CI have
-  no hub: their setup writes `HUB_ISSUER=http://127.0.0.1:1` and `no-hub` as the client id and
-  secret, and their pages offer only the password form (`?prod-ui` shows the hub buttons of the
-  production page).
+  registering its callback URL `<site>/auth/hub/callback` at the hub. CI has no hub: its bootstrap
+  writes `HUB_ISSUER=http://127.0.0.1:1` and `no-hub` as the client id and secret.
 - `SITE_URL`: the app origin. OAuth sign-ins may return only to `SITE_URL` and to the deployment's
   own `CONVEX_SITE_URL`.
 
@@ -160,10 +160,11 @@ its old keys. For rotation, follow the
 three variables to the deployment before its push. The hub is in the `samebase` project of the
 Convex team, and the Convex credential of the run reaches it, so sign-in needs no secret of its own.
 
-The development deployment of the primary checkout gets its client from the package script
-`hub:client`, which `pnpm run dev` runs before its first push with your Convex login. It registers
-once and writes the three variables to the development deployment. A deployment with all three
-variables keeps them, so it leaves the no-hub values of a linked worktree.
+The development deployment of the primary checkout and the local deployment of each linked worktree
+get their clients from the package scripts `hub:client` and `hub:resource-client`, which
+`pnpm run dev` runs before the first push with your Convex login. Each registers once, on the
+deployment's own site URL, and writes its three variables. A deployment with all three variables
+keeps them.
 
 Password sign-in is for accounts that only server functions create. Local worktrees use their seeded
 password account. Preview deployments use `DEV_SEED_AUTH_EMAIL` and `DEV_SEED_AUTH_PASSWORD` (at

@@ -3,13 +3,15 @@
 ## Purpose
 
 Verify that two linked worktrees use separate anonymous local Convex backends. Each backend must
-seed a valid GitHub-backed organization from the same development GitHub App installation.
+seed a valid GitHub-backed organization from the same development GitHub App installation, and
+register its own clients with the identity hub.
 
 ## Preconditions
 
 - Run from a Samebase checkout root.
-- The shared development Convex deployment has the required GitHub App settings, GitHub owner seed
-  facts, GitHub installation seed fact, and Convex and Cloudflare seed credentials.
+- The Convex CLI is logged in (`npx convex login`) as a member of the team `nicu`.
+- The development deployment of the project `samebase-com` has the GitHub App settings, GitHub owner
+  seed facts, and GitHub installation seed fact.
 - `pnpm` can install dependencies.
 - `/tmp/samebase-wt-a` and `/tmp/samebase-wt-b` do not exist.
 - No `pnpm dev` process runs in the two temporary test worktrees.
@@ -37,11 +39,11 @@ grep -E '^(CONVEX_DEPLOYMENT|VITE_CONVEX_URL|VITE_CONVEX_SITE_URL)=' /tmp/sameba
 grep -E '^(CONVEX_DEPLOYMENT|VITE_CONVEX_URL|VITE_CONVEX_SITE_URL)=' /tmp/samebase-wt-b/apps/samebase/.env.local
 ```
 
-4. Print only the copied environment variable names. Do not print their values:
+4. Print the identity hub client ids of each backend. Do not print the secrets:
 
 ```bash
-sed -E 's/=.*$//' /tmp/samebase-wt-a/apps/samebase/.env.anon-seed.local | sort
-sed -E 's/=.*$//' /tmp/samebase-wt-b/apps/samebase/.env.anon-seed.local | sort
+(cd /tmp/samebase-wt-a/apps/samebase && npx convex env get HUB_CLIENT_ID && npx convex env get RESOURCE_HUB_CLIENT_ID)
+(cd /tmp/samebase-wt-b/apps/samebase && npx convex env get HUB_CLIENT_ID && npx convex env get RESOURCE_HUB_CLIENT_ID)
 ```
 
 5. In the outputs from step 2, confirm that each first run prints:
@@ -117,28 +119,25 @@ console.log(rows.map((row) => ({
 8. Sign in with the local worktree password shortcut. Confirm these pages load:
 
 - Repositories shows an empty repository list.
-- Providers shows connected Convex and Cloudflare credentials.
+- Providers offers Connect for Convex and Cloudflare.
 - New App shows the repository name input.
 - Connect repository lists repositories from the seeded GitHub App installation.
+
+9. Sign out, and sign in with Continue with GitHub. Confirm that the identity hub returns to the
+   worktree signed in.
 
 ## Expected Results
 
 1. Both `pnpm dev --once` commands complete successfully.
 2. The two `VITE_CONVEX_URL` values are different.
-3. Both environment files include the GitHub App deployment settings, GitHub owner seed facts,
-   GitHub installation seed fact, and provider seed credentials.
+3. The two worktrees print four different client ids.
 4. Each first setup output reports `"created": true`.
-5. Each worktree has one organization, one `owner` membership, one Free billing account, and one
-   `organizationProviderCredentials` document with Convex and Cloudflare slots.
-6. Each organization stores its seeded `convexTeam` and `cloudflareAccount`. Its credential document
-   stores the matching `organizationId`.
-7. Both credential slots use the seeded user as `connectedByUserId` and use `api_key`
-   authentication.
-8. Local document IDs are different between worktrees. The GitHub owner and installation facts are
+5. Each worktree has one organization, one `owner` membership, and one Free billing account. No
+   `organizationProviderCredentials` document holds a Convex or Cloudflare credential.
+6. Local document IDs are different between worktrees. The GitHub owner and installation facts are
    the same.
-9. The credential document has no GitHub slot. GitHub repository access uses the organization App
-   installation.
-10. The normal development pages load without a cross-worktree data or authentication conflict.
+7. GitHub sign-in returns to the worktree that started it.
+8. The normal development pages load without a cross-worktree data or authentication conflict.
 
 ## Optional Evidence
 

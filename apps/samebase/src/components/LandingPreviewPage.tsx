@@ -6,7 +6,6 @@ import { PublicLandingLogo } from "@/components/logo/PublicLandingLogo";
 import { LANDING_INLINE_80_PERCENT_MARK_SVG_URL } from "@/components/compactIdentitySvgAsset";
 import { buttonVariants } from "@/components/ui/button";
 import { DASHBOARD_ROUTE } from "@/lib/dashboardRoute";
-import { useHubSignInVisible } from "@/lib/hubSignInVisibility";
 import { useConvexAuth } from "convex/react";
 import { PUBLIC_LANDING_PRIMARY_ACTION_TEST_ID } from "@/lib/publicLanding";
 import { cn } from "@/lib/utils";
@@ -699,14 +698,11 @@ function PublicLandingPrimaryAction() {
   // The landing is prerendered without a session, so it shows the sign-in until the browser's
   // provider confirms one.
   const { isAuthenticated } = useConvexAuth();
-  const hubSignInVisible = useHubSignInVisible();
 
   return (
     <div className="w-fit max-w-full" data-testid={PUBLIC_LANDING_PRIMARY_ACTION_TEST_ID}>
       <div className={isAuthenticated ? "hidden" : undefined}>
-        {hubSignInVisible ? (
-          <SignInWithOAuth provider="github" authReturn="dashboard" markPublicSignupReturn />
-        ) : null}
+        <SignInWithOAuth provider="github" authReturn="dashboard" markPublicSignupReturn />
       </div>
       <div className={isAuthenticated ? undefined : "hidden"}>
         <Link

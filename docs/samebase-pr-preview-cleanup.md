@@ -35,26 +35,21 @@ as part of this workflow.
 
 ## 0. Load Cleanup Credentials
 
-Run cleanup commands from the repo root. The cleanup credentials normally live in
-`apps/samebase/.env.anon-seed.local`, not in the inherited shell environment. Load that file before
-checking Convex, and do not print the values:
+Run cleanup commands from the repo root. Every step uses the Convex CLI login (`npx convex login`)
+of a member of the team `nicu`, or a team access token in `CONVEX_ACCESS_TOKEN`. Write the
+Management API header to a private file, so the token never appears in a command line, and do not
+print it:
 
 ```bash
-test -f apps/samebase/.env.anon-seed.local
-set -a
-. apps/samebase/.env.anon-seed.local
-set +a
-
-: "${DEV_SEED_SAMEBASE_CONVEX_MANAGEMENT_API_KEY:?missing DEV_SEED_SAMEBASE_CONVEX_MANAGEMENT_API_KEY}"
-: "${DEV_SEED_SAMEBASE_CONVEX_TEAM_ID:?missing DEV_SEED_SAMEBASE_CONVEX_TEAM_ID}"
+umask 077
+auth_header="$(mktemp)"
+printf 'Authorization: Bearer %s\n' "${CONVEX_ACCESS_TOKEN:-$(node -p 'JSON.parse(require("node:fs").readFileSync(require("node:os").homedir() + "/.convex/config.json", "utf8")).accessToken')}" > "$auth_header"
+test "$(wc -c < "$auth_header")" -gt 30
 ```
 
-The destroy by hand in section 4 also needs the Convex CLI login (`npx convex login`) of a member of
-the team `nicu`, or a team access token in `CONVEX_ACCESS_TOKEN`.
-
-If this preflight fails because the file or a value is missing, cleanup is blocked until the correct
-credentials are available from another trusted source. Do not skip Convex preview cleanup for a
-branch that has a PR.
+Delete `$auth_header` when cleanup ends. If this preflight fails, cleanup is blocked until the
+correct credentials are available from another trusted source. Do not skip Convex preview cleanup
+for a branch that has a PR.
 
 ## 1. Confirm The PR Is Terminal
 
@@ -93,8 +88,8 @@ Resolve the `alchemy-state-store` project:
 
 ```bash
 curl --fail-with-body --request GET \
-  --url "https://api.convex.dev/v1/teams/$DEV_SEED_SAMEBASE_CONVEX_TEAM_ID/projects/alchemy-state-store" \
-  --header "Authorization: Bearer $DEV_SEED_SAMEBASE_CONVEX_MANAGEMENT_API_KEY"
+  --url "https://api.convex.dev/v1/teams/nicu/projects/alchemy-state-store" \
+  --header @"$auth_header"
 ```
 
 Use the returned project ID to list deployments:
@@ -103,7 +98,7 @@ Use the returned project ID to list deployments:
 project_id="<samebase-project-id>"
 curl --fail-with-body --request GET \
   --url "https://api.convex.dev/v1/projects/$project_id/list_deployments" \
-  --header "Authorization: Bearer $DEV_SEED_SAMEBASE_CONVEX_MANAGEMENT_API_KEY"
+  --header @"$auth_header"
 ```
 
 A deployment of the PR is one where all of these are true:
@@ -130,7 +125,7 @@ the matching deployment:
 deployment_name="<matching-convex-preview-deployment-name>"
 curl --fail-with-body --request POST \
   --url "https://api.convex.dev/v1/deployments/$deployment_name/delete" \
-  --header "Authorization: Bearer $DEV_SEED_SAMEBASE_CONVEX_MANAGEMENT_API_KEY"
+  --header @"$auth_header"
 ```
 
 Never delete a `prod`, `dev`, or local Convex deployment during Samebase PR preview cleanup. If a

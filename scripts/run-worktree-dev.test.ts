@@ -16,48 +16,30 @@ describe("run-worktree-dev", () => {
       enableBranch: true,
       forceBootstrap: false,
       vitePort: 5174,
-      sourceEnv: null,
-      sourceDeployKey: null,
     });
   });
 
   it("reads env fallbacks for the worktree bootstrap flow", () => {
     expect(
       parseWorktreeDevArgs([], {
-        WORKTREE_DEV_SOURCE_DEPLOY_KEY: "dev:key|token",
-        WORKTREE_DEV_SOURCE_ENV: "apps/samebase/.env.source.local",
         WORKTREE_DEV_VITE_PORT: "6210",
       }),
     ).toMatchObject({
       forceBootstrap: false,
-      sourceDeployKey: "dev:key|token",
-      sourceEnv: "apps/samebase/.env.source.local",
       vitePort: 6210,
     });
   });
 
   it("lets explicit CLI flags override env defaults", () => {
     expect(
-      parseWorktreeDevArgs(
-        [
-          "--once",
-          "--no-branch",
-          "--force-bootstrap",
-          "--vite-port",
-          "6001",
-          "--source-env",
-          "custom.env.local",
-        ],
-        {
-          WORKTREE_DEV_VITE_PORT: "5174",
-        },
-      ),
+      parseWorktreeDevArgs(["--once", "--no-branch", "--force-bootstrap", "--vite-port", "6001"], {
+        WORKTREE_DEV_VITE_PORT: "5174",
+      }),
     ).toMatchObject({
       once: true,
       enableBranch: false,
       forceBootstrap: true,
       vitePort: 6001,
-      sourceEnv: "custom.env.local",
     });
   });
 
@@ -68,8 +50,6 @@ describe("run-worktree-dev", () => {
         enableBranch: true,
         forceBootstrap: false,
         vitePort: 5174,
-        sourceEnv: null,
-        sourceDeployKey: null,
         showHelp: false,
       },
       "/repo",
@@ -87,8 +67,6 @@ describe("run-worktree-dev", () => {
         enableBranch: false,
         forceBootstrap: false,
         vitePort: 6001,
-        sourceEnv: "seed.env",
-        sourceDeployKey: "dev:key|token",
         showHelp: false,
       },
       "/repo",
@@ -113,17 +91,7 @@ describe("run-worktree-dev", () => {
       args: [path.join("/repo", "scripts", "killport.ts")],
       phase: "always",
     });
-    const localBootstrap = plan.find(
-      ({ label }) => label === "bootstrap and seed the anonymous local backend",
-    );
-    expect(localBootstrap).toMatchObject({
-      env: {
-        WORKTREE_DEV_SOURCE_DEPLOY_KEY: "dev:key|token",
-      },
-    });
-    expect(localBootstrap).not.toHaveProperty("env.CONVEX_DEPLOY_KEY");
     expect(plan.at(-1)).not.toHaveProperty("env.CONVEX_DEPLOY_KEY");
-    expect(plan.at(-1)).not.toHaveProperty("env.WORKTREE_DEV_SOURCE_DEPLOY_KEY");
   });
 
   it("marks one-time seed and auth work separately from always-on startup work", () => {
@@ -133,8 +101,6 @@ describe("run-worktree-dev", () => {
         enableBranch: true,
         forceBootstrap: false,
         vitePort: 5174,
-        sourceEnv: null,
-        sourceDeployKey: null,
         showHelp: false,
       },
       "/repo",
@@ -143,7 +109,6 @@ describe("run-worktree-dev", () => {
 
     expect(plan.map(({ label, phase }) => [label, phase])).toEqual([
       ["stop existing local backend listeners", "always"],
-      ["validate anonymous seed env prerequisites", "once-bootstrap"],
       ["bootstrap the current worktree", "always"],
       ["generate tracked file path types", "always"],
       ["bootstrap and seed the anonymous local backend", "once-bootstrap"],
@@ -158,8 +123,6 @@ describe("run-worktree-dev", () => {
         enableBranch: true,
         forceBootstrap: false,
         vitePort: 5174,
-        sourceEnv: null,
-        sourceDeployKey: null,
         showHelp: false,
       },
       "/repo",

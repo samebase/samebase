@@ -2,7 +2,6 @@ import { useAppSignInActions } from "@/authClient";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { GOOGLE_AUTH_UI_ENABLED } from "@/lib/authMethodAvailability";
-import { useHubSignInVisible } from "@/lib/hubSignInVisibility";
 import { DASHBOARD_ROUTE } from "@/lib/dashboardRoute";
 import { useOAuthSignInRejection } from "@/lib/oauthSignInRejection";
 import {
@@ -114,7 +113,6 @@ export function PublicLandingAuthControls({
     signInRejection !== null,
   );
   const { passwordAuthSurface } = usePublicLandingPasswordAuthControls();
-  const hubSignInVisible = useHubSignInVisible();
 
   if (isAuthenticated || showOAuthReturnNotice) {
     return null;
@@ -128,20 +126,18 @@ export function PublicLandingAuthControls({
   // does not know the deployment's password policy, and the form appears below them once it loads.
   return (
     <div className="flex flex-col items-center gap-2 self-stretch">
-      {hubSignInVisible && GOOGLE_AUTH_UI_ENABLED ? (
+      {GOOGLE_AUTH_UI_ENABLED ? (
         <SignInWithOAuth
           provider="google"
           authReturn={publicSignup ? "dashboard" : undefined}
           markPublicSignupReturn={markPublicSignupReturn}
         />
       ) : null}
-      {hubSignInVisible ? (
-        <SignInWithOAuth
-          provider="github"
-          authReturn={publicSignup ? "dashboard" : undefined}
-          markPublicSignupReturn={markPublicSignupReturn}
-        />
-      ) : null}
+      <SignInWithOAuth
+        provider="github"
+        authReturn={publicSignup ? "dashboard" : undefined}
+        markPublicSignupReturn={markPublicSignupReturn}
+      />
       {passwordAuthSurface !== "hidden" ? (
         <PasswordAuthForm
           onSignIn={

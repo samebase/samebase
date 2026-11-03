@@ -36,8 +36,8 @@ independent workspaces with their own lockfiles and setup instructions.
 The full service does not yet have an independent contributor setup:
 
 - Primary-checkout startup registers sign-in with the maintainer's Convex team and identity hub.
-- Linked-worktree startup expects a configured primary checkout and development GitHub App
-  credentials.
+- Linked-worktree startup reads the development deployment and registers with the identity hub
+  through the maintainer's Convex login.
 - The commit hook runs the app typecheck, so it also expects the app's generated build modules from
   a configured development setup.
 

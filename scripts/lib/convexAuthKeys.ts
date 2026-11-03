@@ -32,18 +32,3 @@ export function generateCredentialKeys(): { CREDENTIAL_KEYS: string } {
     }),
   };
 }
-
-/**
-The identity hub variables of a local backend, which has no hub: a linked worktree and CI.
-convex/convex.config.ts requires the three variables, and convex/auth.ts needs a loopback or https
-issuer to load, so they hold values that name the absence. The sign-in page hides the hub methods on
-the `local_worktree` deployment profile of these backends.
-*/
-export const NO_HUB_ENVIRONMENT = {
-  HUB_ISSUER: "http://127.0.0.1:1",
-  HUB_CLIENT_ID: "no-hub",
-  HUB_CLIENT_SECRET: "no-hub",
-  RESOURCE_HUB_ISSUER: "http://127.0.0.1:1",
-  RESOURCE_HUB_CLIENT_ID: "no-hub",
-  RESOURCE_HUB_CLIENT_SECRET: "no-hub",
-};

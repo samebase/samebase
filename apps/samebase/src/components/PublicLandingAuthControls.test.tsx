@@ -238,7 +238,7 @@ describe("PasswordAuthForm", () => {
     expect(markup).not.toContain("Password sign in");
   });
 
-  it("offers only the password form on a local worktree, which has no identity hub", () => {
+  it("offers GitHub next to the password form on a local worktree", () => {
     componentState.deploymentAuthPolicy = {
       deploymentProfile: { kind: "local_worktree" },
       passwordAuthMode: "local_worktree_seed",
@@ -247,7 +247,7 @@ describe("PasswordAuthForm", () => {
     const worktreeMarkup = renderToStaticMarkup(
       <PublicLandingAuthControls oauthAuthFlow="public-signup" />,
     );
-    expect(worktreeMarkup).not.toContain("GitHub");
+    expect(worktreeMarkup).toContain("Continue with GitHub");
     expect(worktreeMarkup).toContain("Password auth (dev)");
 
     componentState.search = { "prod-ui": true };

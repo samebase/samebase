@@ -20,11 +20,12 @@ git rev-parse --abbrev-ref HEAD
    installs dependencies when the workspace manifests or lockfile changed, then dispatches to the
    primary dev runner from the main checkout or the anonymous local runner from a linked worktree. A
    Codex environment setup command may prewarm dependencies, but startup does not depend on it.
-3. In a new linked worktree, `pnpm dev` performs dependency install, local Convex startup, seed env
-   sync, and local auth setup before it starts the long-running processes. Use `pnpm dev --once` to
-   perform the same setup and exit. Both commands are safe to run again. A successful run records
-   that the anonymous seed/auth bootstrap completed, so later `pnpm dev` starts can skip that
-   one-time work. Use `pnpm dev --force-bootstrap` when normal startup should rerun it.
+3. In a new linked worktree, `pnpm dev` performs dependency install, local Convex startup, the copy
+   of the GitHub App settings from the development deployment, the identity hub registration, and
+   local auth setup before it starts the long-running processes. Use `pnpm dev --once` to perform
+   the same setup and exit. Both commands are safe to run again. A successful run records that the
+   anonymous seed/auth bootstrap completed, so later `pnpm dev` starts can skip that one-time work.
+   Use `pnpm dev --force-bootstrap` when normal startup should rerun it.
 4. Do not replace worktree startup with direct `npx convex dev`.
 5. Do not run `npx convex dev --env-file` pointing at another checkout's `.env.local`; it rewrites
    the current worktree's env and breaks local worktree bootstrapping.
