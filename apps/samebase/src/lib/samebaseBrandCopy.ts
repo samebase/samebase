@@ -8,7 +8,7 @@ export const SAMEBASE_BRAND_COPY = {
   homepage: {
     title: "Samebase | Give your coding agent a working app",
     description:
-      "A repository in your GitHub, a Convex project in your team, a live URL, Google sign-in, and a preview per pull request, deployed by Alchemy from GitHub Actions. Or just use the samebase/base template without an account.",
+      "A repository in your GitHub, a Convex project in your team, a live URL, Google sign-in, and a preview per pull request. Deployed by Alchemy from your own GitHub Actions.",
   },
   socialCard: {
     title: "samebase.com social card",

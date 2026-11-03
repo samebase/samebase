@@ -71,45 +71,41 @@ const LANDING_COST_ROWS = [
 ] as const;
 
 const LANDING_STEPS = [
-  {
-    heading: "Connect GitHub and Convex.",
-    body: "Nothing to paste. A Convex OAuth token has no expiry date, so one click gives Samebase and your repository the same token.",
-  },
+  { heading: "Connect GitHub and Convex.", body: "One OAuth token, no expiry, nothing to paste." },
   {
     heading: "Create an app.",
-    body: "Samebase creates the repository from samebase/base and writes two values into it: the secret CONVEX_ACCESS_TOKEN and the variable CONVEX_TEAM_ID.",
+    body: "Samebase creates the repository and writes CONVEX_ACCESS_TOKEN into it.",
   },
   {
     heading: "The first push deploys.",
-    body: "GitHub Actions runs Alchemy. It creates the Convex project and its production deployment, uploads the site, and gives the app Google sign-in without a Google Cloud project. About 90 seconds.",
+    body: "Alchemy creates the Convex project and the site. About 90 seconds.",
   },
   {
     heading: "Samebase reads the state.",
-    body: "Alchemy records every resource in alchemy-state-store, a Convex project on your team. Samebase reads it and shows each app's URL, deployed commit, checks, and pull requests.",
+    body: "URL, deployed commit, checks, and pull requests, from alchemy-state-store.",
   },
   {
     heading: "Every pull request deploys too.",
-    body: "Each one gets a deployment named pr-<number>, with its own data, and a comment with its URL. Closing the pull request deletes it.",
+    body: "Its own deployment and data, deleted when the pull request closes.",
   },
 ] as const;
 
 const LANDING_FAQS = [
   {
     answer:
-      "You don't, for the code. Samebase does the part around it: a repository that deploys itself with Alchemy, Google sign-in without a Google Cloud project, a preview per pull request, and one list of what every app deployed.",
+      "You don't, for the code. Samebase does the part around it: the repository, the deploy, Google sign-in, previews, and one list of what every app deployed.",
     question: "Codex already writes Convex well. Why do I need Samebase?",
   },
   {
     answer:
-      "You can. The template is public and published from the Samebase repository, so new Samebase apps get the current version. Existing apps do not change unless you update them.",
+      "You can. The template is public and published from the Samebase repository. Existing apps do not change unless you update them.",
     question: "Ok, but can't I just get your template and not use Samebase?",
   },
   {
     answer: (
       <>
-        So you can connect with one click. A Convex OAuth token has no expiry date, so the same
-        token reads your state and deploys your repository. Alchemy's own store runs on Cloudflare,
-        where a token lasts an hour.{" "}
+        So you connect with one click. A Convex OAuth token has no expiry date; a Cloudflare one
+        lasts an hour.{" "}
         <LandingInlineLink to={DOCS_THE_BIG_MIGRATION_ROUTE}>The big migration</LandingInlineLink>{" "}
         has the details.
       </>
@@ -118,7 +114,7 @@ const LANDING_FAQS = [
   },
   {
     answer:
-      "Yes. Declare a Worker in alchemy.run.ts and add CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID to your repository. Samebase shows the Worker from your stack.",
+      "Yes. Declare a Worker in alchemy.run.ts and add CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID to your repository.",
     question: "Can I use Cloudflare?",
   },
   {
@@ -126,15 +122,14 @@ const LANDING_FAQS = [
       <>
         It's in beta, and so is{" "}
         <LandingReceiptLink href="https://alchemy.run">Alchemy 2</LandingReceiptLink>. Your apps
-        keep running either way. The repositories of a team share one state store, so upgrade them
-        on the same day.
+        keep running either way.
       </>
     ),
     question: "Is Samebase stable?",
   },
   {
     answer:
-      "The Samebase app is licensed under AGPL-3.0. The base template and agent plugin use Apache 2.0. Other folders have their own licenses, including MIT and all rights reserved for the video workbench and recordings.",
+      "The Samebase app is AGPL-3.0. The template and the agent plugin are Apache 2.0. Other folders have their own licenses.",
     question: "Is Samebase open source?",
   },
   {
@@ -326,15 +321,12 @@ function LandingPreviewOverview() {
                 Give your coding agent a working app.
               </h1>
               <p className="mt-7 max-w-[46ch] text-lg leading-relaxed text-primary">
-                Create an app and get a repository in your GitHub, a Convex project in your team, a
-                live URL, Google sign-in, and a preview for every pull request.
+                A repository in your GitHub, a Convex project in your team, a live URL, Google
+                sign-in, and a preview per pull request. Deployed by Alchemy from your own GitHub
+                Actions.
               </p>
               <p className="mt-4 max-w-[46ch] text-lg leading-relaxed text-primary">
-                Alchemy deploys it from the repository's own GitHub Actions. Samebase starts the app
-                and shows what every app deployed.
-              </p>
-              <p className="mt-4 max-w-[46ch] text-lg leading-relaxed text-primary">
-                Just use the{" "}
+                Or use the{" "}
                 <a
                   className="underline decoration-current underline-offset-4 hover:text-foreground"
                   href="https://github.com/samebase/base"
@@ -343,7 +335,7 @@ function LandingPreviewOverview() {
                 >
                   samebase/base
                 </a>{" "}
-                template without creating an account.
+                template without an account.
               </p>
               <div className="mt-7 border border-border @2xl:flex @2xl:items-stretch">
                 <p className="flex-1 bg-muted/50 px-4 py-3.5 font-mono text-[13px] leading-relaxed">
@@ -373,14 +365,13 @@ function LandingPreviewOverview() {
             heading="An opinionated way to use Alchemy."
             sub={
               <>
-                <LandingReceiptLink href="https://alchemy.run">Alchemy</LandingReceiptLink>{" "}
-                describes your app in one file and deploys it. The opinion: its state lives in
-                Convex, in a project on your team. That is what makes one OAuth click enough, and it
-                makes Convex the default for everything else.
+                <LandingReceiptLink href="https://alchemy.run">Alchemy</LandingReceiptLink> deploys
+                your app from one file. The opinion: its state lives in Convex, so one OAuth click
+                is enough.
               </>
             }
           />
-          <ol className="mt-8 grid gap-6 @3xl:grid-cols-2 @3xl:gap-x-14">
+          <ol className="mt-8 grid gap-5 @3xl:grid-cols-2 @3xl:gap-x-14">
             {LANDING_STEPS.map((step, index) => (
               <LandingStep
                 body={step.body}
@@ -391,26 +382,20 @@ function LandingPreviewOverview() {
             ))}
           </ol>
           <p className="mt-8 max-w-[58ch] text-base leading-relaxed text-primary">
-            After that, Samebase changes nothing in your accounts unless you remove the app. Deploys
-            run in your repository, and a failed deploy is fixed there, by you or your agent. Codex
-            and Claude Code create, connect, and read apps through the{" "}
-            <LandingReceiptLink href="https://github.com/samebase/plugin">
-              Samebase plugin
-            </LandingReceiptLink>
-            .
+            After setup, Samebase changes nothing in your accounts. Your repository deploys, your
+            agent fixes.
           </p>
         </LandingSection>
 
         <LandingSection ariaLabel="Four claims">
           <div className="grid gap-x-14 gap-y-10 @3xl:grid-cols-2">
             <LandingClaim heading="Delete your Samebase account. Your app keeps running.">
-              It was always in your GitHub and your Convex team. Replace one secret,
-              CONVEX_ACCESS_TOKEN, and it keeps deploying too. Google sign-in through Samebase
-              stops, so bring your own first. The{" "}
+              Replace one secret, CONVEX_ACCESS_TOKEN, and it keeps deploying. Google sign-in
+              through Samebase stops. The{" "}
               <LandingInlineLink to={DOCS_DO_IT_YOURSELF_ROUTE}>
                 do-it-yourself recipe
               </LandingInlineLink>{" "}
-              is the same stack with no Samebase account.
+              is the same stack with no account.
             </LandingClaim>
             <LandingClaim
               heading={
@@ -424,52 +409,45 @@ function LandingPreviewOverview() {
                 </>
               }
             >
-              Convex is only reachable through TypeScript functions you wrote, so there are no
-              database rules to configure perfectly, forever. Access checks live in those functions,
-              where you can read and test them.
+              Convex is reachable only through functions you wrote. Access checks live in code you
+              can read and test.
             </LandingClaim>
             <LandingClaim heading="Run agents in parallel. Every PR gets its own preview, with its own database.">
-              Local folder, worktrees, pull requests: each lane gets isolated code, data, and
-              deploy. ChatGPT and Claude Code already understand worktrees; the stack keeps up.
+              Local folder, worktrees, pull requests: each lane has isolated code, data, and deploy.
             </LandingClaim>
             <LandingClaim heading="We resell nothing. Not tokens, not hosting.">
-              You already pay OpenAI or Anthropic directly; a builder's chat box adds margin, not
-              capability. Providers bill you at their own prices, and idle apps sit in free tiers.
+              Providers bill you at their own prices. Idle apps sit in free tiers.
             </LandingClaim>
           </div>
         </LandingSection>
 
-        <LandingSection>
-          <div className="max-w-[760px]">
-            <p className="font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground">
-              cost follows real usage
-            </p>
-            <div className="mt-4">
-              {LANDING_COST_ROWS.map((row) => (
-                <div
-                  className="flex items-baseline justify-between gap-6 border-t border-border py-3"
-                  key={row.profile}
+        <LandingSection ariaLabel="What it costs">
+          <LandingSectionIntro heading="What it costs" />
+          <div className="mt-6 max-w-[760px]">
+            {LANDING_COST_ROWS.map((row) => (
+              <div
+                className="flex items-baseline justify-between gap-6 border-t border-border py-3"
+                key={row.profile}
+              >
+                <p className="text-base">{row.profile}</p>
+                <p
+                  className={
+                    row.zeroCost
+                      ? "text-right font-mono text-sm font-semibold text-secondary"
+                      : "text-right font-mono text-sm"
+                  }
                 >
-                  <p className="text-base">{row.profile}</p>
-                  <p
-                    className={
-                      row.zeroCost
-                        ? "text-right font-mono text-sm font-semibold text-secondary"
-                        : "text-right font-mono text-sm"
-                    }
-                  >
-                    {row.value}
-                    {row.zeroCost ? (
-                      <LandingFootnoteMark
-                        fragment="landing-note-zero"
-                        label="footnote: zero"
-                        marker="‡"
-                      />
-                    ) : null}
-                  </p>
-                </div>
-              ))}
-            </div>
+                  {row.value}
+                  {row.zeroCost ? (
+                    <LandingFootnoteMark
+                      fragment="landing-note-zero"
+                      label="footnote: zero"
+                      marker="‡"
+                    />
+                  ) : null}
+                </p>
+              </div>
+            ))}
           </div>
         </LandingSection>
 
@@ -523,27 +501,15 @@ function LandingPreviewOverview() {
                 <LandingReceiptLink href="https://env.fail/posts/firewreck-1/">
                   916 sites
                 </LandingReceiptLink>{" "}
-                exposing about{" "}
-                <LandingReceiptLink href="https://www.bleepingcomputer.com/news/security/misconfigured-firebase-instances-leaked-19-million-plaintext-passwords/">
-                  125 million user records
-                </LandingReceiptLink>{" "}
-                via misconfigured Firebase. 2025: the Tea app{" "}
-                <LandingReceiptLink href="https://www.engadget.com/cybersecurity/tea-app-suffers-breach-exposing-thousands-of-user-images-190731414.html">
-                  leaked 72,000 images
-                </LandingReceiptLink>
-                , and{" "}
+                leaked about 125 million records through misconfigured Firebase. 2025:{" "}
                 <LandingReceiptLink href="https://www.superblocks.com/blog/lovable-vulnerabilities">
                   170 of 1,645 scanned Lovable apps
                 </LandingReceiptLink>{" "}
-                had missing or broken Supabase row-level security (
+                had broken Supabase row-level security (
                 <LandingReceiptLink href="https://nvd.nist.gov/vuln/detail/CVE-2025-48757">
                   CVE-2025-48757
                 </LandingReceiptLink>
-                , disputed by the vendor). Convex,{" "}
-                <LandingReceiptLink href="https://stack.convex.dev/row-level-security">
-                  officially
-                </LandingReceiptLink>
-                : "your Convex database is only accessible via server functions."
+                ).
               </p>
             </LandingFootnote>
             <LandingFootnote
@@ -552,10 +518,9 @@ function LandingPreviewOverview() {
               marker="*"
             >
               <p className="mt-2 max-w-[58ch] text-[15px] leading-relaxed text-primary">
-                Then my close friends. No upselling, no funnels, no VCs. Every claim on this page
-                links a{" "}
+                Then my close friends. No funnels, no VCs. Every claim links a{" "}
                 <LandingInlineLink to={DOCS_RECEIPTS_ROUTE}>dated receipt</LandingInlineLink> your
-                agent can verify instead of trusting us.
+                agent can verify.
               </p>
             </LandingFootnote>
           </div>
@@ -572,8 +537,7 @@ function LandingPreviewOverview() {
                 base. Your accounts. No magic.
               </h2>
               <p className="mt-4 max-w-[52ch] text-[15px] leading-relaxed text-muted-foreground">
-                The manual-setup article walks through every step Samebase automates. It doubles as
-                the exit door.
+                Do it yourself is every step Samebase automates. It doubles as the exit door.
               </p>
               <div className="mt-8 flex flex-wrap items-center gap-x-7 gap-y-4">
                 <div>

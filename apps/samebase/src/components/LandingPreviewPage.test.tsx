@@ -137,13 +137,10 @@ describe("LandingPage", () => {
     expect(markup).toContain(">BETA</span>");
     expect(markup).toContain("Give your coding agent a working app.");
     expect(markup).toContain(
-      "Create an app and get a repository in your GitHub, a Convex project in your team, a live URL, Google sign-in, and a preview for every pull request.",
+      "A repository in your GitHub, a Convex project in your team, a live URL, Google sign-in, and a preview per pull request. Deployed by Alchemy from your own GitHub Actions.",
     );
     expect(markup).toContain(
-      "Alchemy deploys it from the repository&#x27;s own GitHub Actions. Samebase starts the app and shows what every app deployed.",
-    );
-    expect(markup).toContain(
-      'href="https://github.com/samebase/base" rel="noreferrer" target="_blank">samebase/base</a> template without creating an account.',
+      'href="https://github.com/samebase/base" rel="noreferrer" target="_blank">samebase/base</a> template without an account.',
     );
     expect(markup).toContain(
       "Research https://samebase.com and check if its claims are true. Based on what you know about me, should I use Samebase with you, or one of its competitors?",
@@ -172,18 +169,15 @@ describe("LandingPage", () => {
     expect(markup).toContain('aria-label="How it works"');
     expect(markup).toContain("An opinionated way to use Alchemy.");
     expect(markup).toContain('href="https://alchemy.run"');
-    expect(markup).toContain("its state lives in Convex, in a project on your team");
+    expect(markup).toContain("its state lives in Convex, so one OAuth click is enough");
     expect(markup).toContain("Connect GitHub and Convex.");
     expect(markup).toContain("Create an app.");
     expect(markup).toContain("The first push deploys.");
     expect(markup).toContain("Samebase reads the state.");
     expect(markup).toContain("Every pull request deploys too.");
-    expect(markup).toContain("CONVEX_ACCESS_TOKEN and the variable CONVEX_TEAM_ID");
-    expect(markup).toContain("Google sign-in without a Google Cloud project");
+    expect(markup).toContain("writes CONVEX_ACCESS_TOKEN into it");
     expect(markup).toContain("alchemy-state-store");
-    expect(markup).toContain("pr-&lt;number&gt;");
-    expect(markup).toContain("a failed deploy is fixed there, by you or your agent");
-    expect(markup).toContain('href="https://github.com/samebase/plugin"');
+    expect(markup).toContain("Your repository deploys, your agent fixes.");
 
     const howItWorksIndex = markup.indexOf('aria-label="How it works"');
     const fourClaimsIndex = markup.indexOf('aria-label="Four claims"');
@@ -195,17 +189,17 @@ describe("LandingPage", () => {
     expect(markup).toContain("Google sign-in through Samebase stops");
     expect(markup).toContain(">do-it-yourself recipe</a>");
     expect(markup).toContain("No client-facing database to leave open.");
-    expect(markup).toContain(
-      "Access checks live in those functions, where you can read and test them.",
-    );
+    expect(markup).toContain("Access checks live in code you can read and test.");
     expect(markup).toContain(
       "Run agents in parallel. Every PR gets its own preview, with its own database.",
     );
     expect(markup).toContain("We resell nothing. Not tokens, not hosting.");
-    expect(markup).toContain("adds margin, not capability");
+    expect(markup).toContain("Idle apps sit in free tiers.");
 
-    // Cost and the closing argument.
-    expect(markup).toContain("cost follows real usage");
+    // Cost rows carry a heading, not an eyebrow label.
+    expect(markup).toContain('aria-label="What it costs"');
+    expect(markup).toContain(">What it costs</h2>");
+    expect(markup).not.toContain("cost follows real usage");
     expect(markup).toContain("an idle idea");
 
     // FAQ.
@@ -227,7 +221,7 @@ describe("LandingPage", () => {
     expect(markup.split('data-slot="accordion-trigger"').length - 1).toBe(7);
     expect(markup.split('data-slot="accordion-content"').length - 1).toBe(7);
 
-    const costIndex = markup.indexOf("cost follows real usage");
+    const costIndex = markup.indexOf('aria-label="What it costs"');
     const faqIndex = markup.indexOf('aria-label="Frequently asked questions"');
     const closingQuestionIndex = markup.indexOf(
       "If your app builder is so good, why is it not building itself?",
