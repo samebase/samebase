@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { SIDEBAR_LAYOUT_MOBILE_MAIN_MIN_WIDTH_PX } from "@samebase/sidebars/SidebarLayoutGeometry";
 import type {
   SidebarLayoutState,
   SidebarLayoutStateController,
@@ -21,22 +20,13 @@ const EXAMPLE_SIDEBAR_DEFAULT_STATE = {
 } satisfies SidebarLayoutState;
 
 function readExampleSidebarState(): SidebarLayoutState {
-  const storedState = readExampleSidebarStoredState();
-  if (
-    storedState === null ||
-    (storedState.mobileSurface.kind === "merged" &&
-      storedState.mobileSurface.mainWidthPx < SIDEBAR_LAYOUT_MOBILE_MAIN_MIN_WIDTH_PX)
-  ) {
-    return EXAMPLE_SIDEBAR_DEFAULT_STATE;
-  }
-
-  return storedState;
+  return readExampleSidebarStoredState() ?? EXAMPLE_SIDEBAR_DEFAULT_STATE;
 }
 
 /**
 The server and the hydration render the defaults, and the initial state script shows the stored
 state before the first paint. This controller installs the stored state in a layout effect after
-hydration, and that render writes the same root values that the script wrote.
+hydration; the layout's first measured commit then writes every root attribute from that state.
 */
 export function useExampleSidebarController(): SidebarLayoutStateController {
   const [sidebarState, setSidebarState] = useState<SidebarLayoutState>(

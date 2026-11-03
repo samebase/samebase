@@ -32,6 +32,7 @@ import { SidebarLayoutDisplayedMobileStateContext } from "./SidebarLayoutPresent
 import {
   getAvailableMobilePane,
   getSidebarLayoutRootState,
+  writeSidebarLayoutRootAttributes,
   type SidebarLayoutRootAttributes,
   type SidebarLayoutRootVariables,
 } from "./SidebarLayoutRootState.ts";
@@ -218,6 +219,19 @@ export function SidebarLayout({
               : undefined,
         }
       : rootState.attributes;
+  // An initial state script may have written the root before hydration, and React does not patch
+  // attributes at hydration. A value that the script wrote and that the measured render leaves out,
+  // such as a saved merge that does not fit this viewport, would stay. The first measured commit
+  // writes every root attribute, so React owns the root from there.
+  const hasWrittenMeasuredRootAttributesRef = useRef(false);
+  useLayoutEffect(() => {
+    const viewportNode = viewportRef.current;
+    if (!hasMeasuredViewport || hasWrittenMeasuredRootAttributesRef.current || !viewportNode) {
+      return;
+    }
+    hasWrittenMeasuredRootAttributesRef.current = true;
+    writeSidebarLayoutRootAttributes(viewportNode, layoutRootAttributes);
+  });
   const layoutRootStyle: SidebarLayoutRootStyle =
     rootState === null
       ? {

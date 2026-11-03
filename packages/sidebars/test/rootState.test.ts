@@ -47,6 +47,19 @@ describe("getSidebarLayoutRootState", () => {
     });
   });
 
+  it("keeps a saved merge unmerged when the layout slides at the minimum width", () => {
+    const { attributes, variables } = getSidebarLayoutRootState({
+      hasLeftPane: true,
+      hasRightPane: true,
+      mobileMinResizeBehavior: "min_resize_to_slide",
+      state: SAVED_STATE,
+    });
+
+    expect(attributes["data-mobile-pane"]).toBe("right");
+    expect(attributes["data-sidebar-layout-mobile-merged-side"]).toBeUndefined();
+    expect(variables["--sidebar-layout-main-mobile-width"]).toBe("100%");
+  });
+
   it("falls back to the main pane and no merge when the saved side pane is absent", () => {
     const { attributes, variables } = getSidebarLayoutRootState({
       hasLeftPane: true,

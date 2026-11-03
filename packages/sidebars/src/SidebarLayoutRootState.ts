@@ -191,14 +191,21 @@ export function writeSidebarLayoutRootState(root: HTMLElement, state: SidebarLay
         : "min_resize_to_merge",
     state,
   });
+  writeSidebarLayoutRootAttributes(root, attributes);
+  for (const [name, value] of Object.entries(variables)) {
+    root.style.setProperty(name, value);
+  }
+}
+
+export function writeSidebarLayoutRootAttributes(
+  root: HTMLElement,
+  attributes: SidebarLayoutRootAttributes,
+) {
   for (const [name, value] of Object.entries(attributes)) {
     if (value === undefined) {
       root.removeAttribute(name);
     } else {
       root.setAttribute(name, value);
     }
-  }
-  for (const [name, value] of Object.entries(variables)) {
-    root.style.setProperty(name, value);
   }
 }

@@ -604,12 +604,18 @@ describe("SidebarLayout mobile boot alignment", () => {
       }
       expect(carouselNode.scrollLeft).toBe(TEST_SIDEBAR_WIDTH_PX);
 
+      const touchEvent = (type: string, identifiers: number[]) => {
+        const event = new Event(type, { bubbles: true });
+        Object.defineProperty(event, "changedTouches", {
+          value: identifiers.map((identifier) => ({ identifier })),
+        });
+        return event;
+      };
+
       // A tap that scrolls nothing owns nothing: a toggle still moves the carousel at once.
-      const tapEnd = new Event("touchend");
-      Object.defineProperty(tapEnd, "touches", { value: [] });
       act(() => {
-        carouselNode.dispatchEvent(new Event("touchstart"));
-        carouselNode.dispatchEvent(tapEnd);
+        carouselNode.dispatchEvent(touchEvent("touchstart", [1]));
+        carouselNode.dispatchEvent(touchEvent("touchend", [1]));
       });
       act(() => {
         mountedRoot.render(renderPane("left"));
@@ -621,9 +627,12 @@ describe("SidebarLayout mobile boot alignment", () => {
       });
       expect(carouselNode.scrollLeft).toBe(TEST_SIDEBAR_WIDTH_PX);
 
-      // A saved state from elsewhere arrives while the finger scrolls: the position stays.
+      // A saved state from elsewhere arrives while a finger scrolls: the position stays. The finger
+      // is on a node that a render then removes, so its end never bubbles to the carousel.
+      const touchedNode = document.createElement("span");
+      carouselNode.append(touchedNode);
       act(() => {
-        carouselNode.dispatchEvent(new Event("touchstart"));
+        touchedNode.dispatchEvent(touchEvent("touchstart", [1]));
         carouselNode.scrollLeft = TEST_SIDEBAR_WIDTH_PX + 40;
         carouselNode.dispatchEvent(new Event("scroll"));
       });
@@ -632,12 +641,10 @@ describe("SidebarLayout mobile boot alignment", () => {
       });
       expect(carouselNode.scrollLeft).toBe(TEST_SIDEBAR_WIDTH_PX + 40);
 
-      // The settle after the touch reads the pane from the position. A second finger that rests
-      // outside the carousel does not keep the position owned.
-      const touchEnd = new Event("touchend");
-      Object.defineProperty(touchEnd, "touches", { value: [{ target: document.body }] });
+      // The settle after the touch reads the pane from the position.
+      touchedNode.remove();
       act(() => {
-        carouselNode.dispatchEvent(touchEnd);
+        touchedNode.dispatchEvent(touchEvent("touchend", [1]));
         vi.advanceTimersByTime(81);
       });
       expect(carouselNode.scrollLeft).toBe(TEST_SIDEBAR_WIDTH_PX + 40);

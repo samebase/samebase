@@ -13,8 +13,8 @@ import {
 The sidebar state of a page that renders without a session, saved in local storage on every change.
 The server and the hydration render `defaults`, and the initial state script of the layout
 (`lib/appWorkspaceSidebarInitialStateScript.ts`) shows the stored state before the first paint.
-This hook installs the stored state in a layout effect after hydration, before the browser paints,
-and that render writes the same root values that the script wrote.
+This hook installs the stored state in a layout effect after hydration, before the browser paints;
+the layout's first measured commit then writes every root attribute from that state.
 */
 export function useLocalWorkspaceSidebarState(
   defaults: SidebarLayoutState,

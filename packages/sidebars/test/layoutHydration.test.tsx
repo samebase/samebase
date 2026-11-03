@@ -248,6 +248,34 @@ describe("SidebarLayout hydration", () => {
     await expectHydratesWithoutReplacingPaneTree(1280);
   });
 
+  it("writes every root attribute at the first measured commit after a script wrote the root", async () => {
+    installViewport(390);
+    const container = document.createElement("div");
+    document.body.append(container);
+    container.innerHTML = renderWithServerWindow(<SidebarLayoutHydrationSubject />);
+    // An initial state script wrote a saved merge that this viewport cannot fit. React does not
+    // patch the attribute at hydration, and the measured render leaves it out.
+    const viewport = getRequiredElement(container, '[data-sidebar-layout-part="viewport"]');
+    viewport.setAttribute("data-sidebar-layout-mobile-merged-side", "right");
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue(
+      DOMRect.fromRect({ height: VIEWPORT_HEIGHT_PX, width: 390 }),
+    );
+
+    await act(async () => {
+      root = hydrateRoot(container, <SidebarLayoutHydrationSubject />, {
+        onRecoverableError() {},
+      });
+    });
+
+    expect(viewport.hasAttribute("data-viewport-measured")).toBe(false);
+    expect(
+      getRequiredElement(container, '[data-sidebar-layout-part="carousel"]').hasAttribute(
+        "data-viewport-measured",
+      ),
+    ).toBe(true);
+    expect(viewport.hasAttribute("data-sidebar-layout-mobile-merged-side")).toBe(false);
+  });
+
   it("keeps resize controls linked to unique panes across SSR and hydration", async () => {
     installViewport(1280);
     const container = document.createElement("div");

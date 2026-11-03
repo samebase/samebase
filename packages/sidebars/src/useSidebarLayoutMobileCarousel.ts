@@ -240,20 +240,35 @@ export function useSidebarLayoutMobileCarouselController({
       syncPaneFromScroll(carouselNode);
       scheduleSettle();
     };
-    const handleTouchStart = () => {
-      isTouchDown = true;
-    };
+    // The fingers that started in the carousel, by identifier. `touches` on an event lists every
+    // finger in the document, so it cannot tell them apart.
+    const carouselTouchIds = new Set<number>();
     const handleTouchEnd = (event: TouchEvent) => {
-      // `touches` lists every finger in the document, and a finger outside the carousel ends
-      // without an event here, so only the fingers that started in the carousel count.
-      const isCarouselTouchDown = Array.from(event.touches).some(
-        (touch) => touch.target instanceof Node && carouselNode.contains(touch.target),
-      );
-      if (isCarouselTouchDown) {
+      for (const touch of Array.from(event.changedTouches)) {
+        carouselTouchIds.delete(touch.identifier);
+      }
+      if (carouselTouchIds.size > 0) {
         return;
       }
       isTouchDown = false;
       scheduleSettle();
+    };
+    const handleTouchStart = (event: TouchEvent) => {
+      for (const touch of Array.from(event.changedTouches)) {
+        carouselTouchIds.add(touch.identifier);
+      }
+      isTouchDown = true;
+      // The browser sends the end of a touch to the node where it started, even after a render
+      // removed that node (a page loads under the finger), and then it does not bubble here. The
+      // node itself still gets it.
+      const touchedNode: GlobalEventHandlers | null =
+        event.target instanceof HTMLElement || event.target instanceof SVGElement
+          ? event.target
+          : null;
+      if (touchedNode !== null && touchedNode !== carouselNode) {
+        touchedNode.addEventListener("touchend", handleTouchEnd, { passive: true });
+        touchedNode.addEventListener("touchcancel", handleTouchEnd, { passive: true });
+      }
     };
 
     carouselNode.addEventListener("scroll", handleScroll, { passive: true });

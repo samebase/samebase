@@ -1,3 +1,4 @@
+import { SIDEBAR_LAYOUT_MOBILE_MAIN_MIN_WIDTH_PX } from "@samebase/sidebars/SidebarLayoutGeometry";
 import type { SidebarLayoutState } from "@samebase/sidebars/SidebarLayoutState";
 
 /*
@@ -35,7 +36,9 @@ function readMobileSurface(value: unknown): SidebarLayoutState["mobileSurface"] 
   }
 
   const mainWidthPx = readFiniteNumber(value.mainWidthPx);
-  return mainWidthPx === null ? null : { kind: "merged", mainWidthPx, side: value.side };
+  return mainWidthPx === null || mainWidthPx < SIDEBAR_LAYOUT_MOBILE_MAIN_MIN_WIDTH_PX
+    ? null
+    : { kind: "merged", mainWidthPx, side: value.side };
 }
 
 function readState(value: unknown): SidebarLayoutState | null {
@@ -85,7 +88,10 @@ function readState(value: unknown): SidebarLayoutState | null {
   };
 }
 
-/** The stored state, or null when there is none or it is not a valid state of this version. */
+/**
+The stored state, or null when there is none or it is not a valid state of this version. A merge
+below the package's main pane minimum is not valid, so the script and the controller agree.
+*/
 export function readExampleSidebarStoredState(): SidebarLayoutState | null {
   try {
     const serializedState = window.localStorage.getItem(EXAMPLE_SIDEBAR_STORAGE_KEY);
