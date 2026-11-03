@@ -157,6 +157,14 @@ try {
       setLocalConvexEnv(name, value);
     }
   }
+  // A backend set up before worktrees had hub clients holds the CI placeholders. Convex refuses to
+  // remove them, since convex/convex.config.ts requires the variables, and the registration below
+  // keeps existing values, so only a new backend gets clients.
+  if (readLocalConvexEnv("HUB_CLIENT_ID") === "no-hub") {
+    console.warn(
+      "This worktree's local backend has no identity hub client, so GitHub sign-in and the Connect buttons fail. To get them, delete apps/samebase/.convex/local, which holds the local data, and run `pnpm run dev --once`.",
+    );
+  }
   // Two clients of the identity hub on this backend's own site URL: one signs in with GitHub and
   // Google, one connects GitHub, Convex, and Cloudflare. A backend that has a client keeps it, so
   // each worktree registers once. The Convex CLI login reaches the hub.
