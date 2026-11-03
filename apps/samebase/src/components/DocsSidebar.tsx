@@ -3,6 +3,7 @@ import {
   APP_SIDEBAR_NAVIGATION_LINK_PROPS,
 } from "@/components/appSidebarNavigation";
 import { Button } from "@/components/ui/button";
+import { SAMEBASE_PUBLIC_LINKS } from "@/lib/publicLinks";
 import { cn } from "@/lib/utils";
 import {
   DOCS_DO_IT_YOURSELF_ROUTE,
@@ -40,11 +41,24 @@ const DOCS_SIDEBAR_TREE: readonly (
   { label: "Changelog", to: DOCS_CHANGELOG_ROUTE },
 ];
 
+const DOCS_SIDEBAR_LEGAL_PAGES = [
+  { label: "Privacy", to: "/privacy" },
+  { label: "Terms", to: "/terms" },
+] as const satisfies readonly DocsSidebarPage[];
+
+const DOCS_SIDEBAR_SOCIAL_LINKS = [
+  { label: "X", href: SAMEBASE_PUBLIC_LINKS.x.destination },
+  { label: "YouTube", href: SAMEBASE_PUBLIC_LINKS.youtube.destination },
+] as const;
+
+const DOCS_SIDEBAR_LINK_CLASS_NAME =
+  "block py-2 pr-3 pl-2 text-primary no-underline hover:bg-muted/60 hover:no-underline";
+
 function DocsSidebarLink({ label, to }: DocsSidebarPage) {
   return (
     <Link
       activeOptions={APP_SIDEBAR_NAVIGATION_LINK_PROPS.activeOptions}
-      className="block py-2 pr-3 pl-2 text-primary no-underline hover:bg-muted/60 hover:no-underline"
+      className={DOCS_SIDEBAR_LINK_CLASS_NAME}
       to={to}
     >
       {({ isActive }) => (
@@ -116,6 +130,22 @@ export function DocsSidebar() {
           <DocsSidebarLink key={entry.label} label={entry.label} to={entry.to} />
         ),
       )}
+      <div className="mt-6">
+        {DOCS_SIDEBAR_LEGAL_PAGES.map((page) => (
+          <DocsSidebarLink key={page.label} label={page.label} to={page.to} />
+        ))}
+        {DOCS_SIDEBAR_SOCIAL_LINKS.map((link) => (
+          <a
+            className={DOCS_SIDEBAR_LINK_CLASS_NAME}
+            href={link.href}
+            key={link.label}
+            rel="noreferrer"
+            target="_blank"
+          >
+            {link.label}
+          </a>
+        ))}
+      </div>
     </nav>
   );
 }

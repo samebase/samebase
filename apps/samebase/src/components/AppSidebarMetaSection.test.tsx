@@ -35,8 +35,8 @@ describe("AppSidebarMetaSection", () => {
     return <output data-href={location.href} data-testid="router-location" />;
   }
 
-  function BackLink() {
-    return <Link to="/">root</Link>;
+  function TermsLink() {
+    return <Link to="/terms">terms</Link>;
   }
 
   async function settleRouteUpdate() {
@@ -132,7 +132,7 @@ describe("AppSidebarMetaSection", () => {
     });
   }
 
-  it("renders public and build source links before and after hydration", async () => {
+  it("renders the landing and build source links before and after hydration", async () => {
     const markup = renderToStaticMarkup(
       <TestRouterProvider initialEntries={["/"]}>
         <AppSidebarMetaSection linkAlignment="left" />
@@ -141,46 +141,11 @@ describe("AppSidebarMetaSection", () => {
     const prerenderedElement = document.createElement("div");
     prerenderedElement.innerHTML = markup;
 
-    expect(readSidebarLinkLabels(prerenderedElement)).toEqual([
-      "/x.com",
-      "/YouTube",
-      "/terms",
-      "/privacy",
-      "/pricing",
-      "/landing",
-      "v?",
-      "test",
-    ]);
+    expect(readSidebarLinkLabels(prerenderedElement)).toEqual(["/landing", "v?", "test"]);
 
     const browserElement = await renderSidebarMetaSection();
 
-    expect(readSidebarLinkLabels(browserElement)).toEqual([
-      "/x.com",
-      "/YouTube",
-      "/terms",
-      "/privacy",
-      "/pricing",
-      "/landing",
-      "v?",
-      "test",
-    ]);
-    const links = [...browserElement.querySelectorAll<HTMLAnchorElement>("a")];
-    const xLink = links.find((link) => link.textContent === "/x.com");
-    expect(xLink?.getAttribute("href")).toBe("https://x.com/samebasecom");
-    expect(xLink?.getAttribute("class")).toBe("text-foreground");
-    expect(xLink?.getAttribute("rel")).toBe("noreferrer");
-    expect(xLink?.getAttribute("target")).toBe("_blank");
-
-    const youtubeLink = links.find((link) => link.textContent === "/YouTube");
-    expect(youtubeLink?.getAttribute("href")).toBe("https://www.youtube.com/@samebasecom");
-    expect(youtubeLink?.getAttribute("class")).toBe("text-[#FF0000]");
-    expect(youtubeLink?.getAttribute("rel")).toBe("noreferrer");
-    expect(youtubeLink?.getAttribute("target")).toBe("_blank");
-
-    expect(xLink?.parentElement).toBe(youtubeLink?.parentElement);
-    expect(youtubeLink?.parentElement?.getAttribute("class")).toBe(
-      "flex max-w-full flex-wrap items-center justify-start gap-3",
-    );
+    expect(readSidebarLinkLabels(browserElement)).toEqual(["/landing", "v?", "test"]);
     for (const element of [prerenderedElement, browserElement]) {
       expect(element.querySelector('a[data-testid="app-build-version"]')).toMatchObject({
         href: "https://github.com/samebase/samebase",
@@ -206,17 +171,7 @@ describe("AppSidebarMetaSection", () => {
         throw new Error("Expected the hydrated sidebar.");
       }
 
-      expect(readSidebarLinkLabels(rootElement)).toEqual([
-        "?reset",
-        "/x.com",
-        "/YouTube",
-        "/terms",
-        "/privacy",
-        "/pricing",
-        "/landing",
-        "v?",
-        "test",
-      ]);
+      expect(readSidebarLinkLabels(rootElement)).toEqual(["?reset", "/landing", "v?", "test"]);
       unmountSidebarMetaSection();
     }
 
@@ -230,17 +185,7 @@ describe("AppSidebarMetaSection", () => {
       throw new Error("Expected the hydrated sidebar.");
     }
 
-    expect(readSidebarLinkLabels(rootElement)).toEqual([
-      "?reset",
-      "/x.com",
-      "/YouTube",
-      "/terms",
-      "/privacy",
-      "/pricing",
-      "/landing",
-      "v?",
-      "test",
-    ]);
+    expect(readSidebarLinkLabels(rootElement)).toEqual(["?reset", "/landing", "v?", "test"]);
   });
 
   it("omits the landing preview path link and language shortcut", async () => {
@@ -258,9 +203,7 @@ describe("AppSidebarMetaSection", () => {
 
   it.each([
     ["/?dev#overview", "/landing"],
-    ["/terms?dev#operator", "/terms"],
-    ["/privacy?dev#data", "/privacy"],
-    ["/pricing?dev#plans", "/pricing"],
+    ["/terms?dev#operator", null],
     ["/repo", null],
   ])("selects the current public page at %s", async (initialEntry, label) => {
     const element = await renderSidebarMetaSection(initialEntry);
@@ -273,54 +216,38 @@ describe("AppSidebarMetaSection", () => {
     }
   });
 
-  it("navigates path links without hover preview state", async () => {
-    const element = await renderSidebarMetaSection("/", {
-      extra: <BackLink />,
+  it("navigates the landing link without hover preview state", async () => {
+    const element = await renderSidebarMetaSection("/terms", {
+      extra: <TermsLink />,
     });
-    const termsLink = [...element.querySelectorAll<HTMLAnchorElement>("a")].find(
-      (link) => link.textContent === "/terms",
-    );
     const landingLink = [...element.querySelectorAll<HTMLAnchorElement>("a")].find(
       (link) => link.textContent === "/landing",
     );
-    const backLink = [...element.querySelectorAll<HTMLAnchorElement>("a")].find(
-      (link) => link.textContent === "root",
+    const termsLink = [...element.querySelectorAll<HTMLAnchorElement>("a")].find(
+      (link) => link.textContent === "terms",
     );
-    if (!termsLink || !landingLink || !backLink) {
-      throw new Error("Expected terms, landing, and root links.");
+    if (!landingLink || !termsLink) {
+      throw new Error("Expected landing and terms links.");
     }
 
     expect(landingLink.getAttribute("href")).toBe("/");
-    expect(
-      [...element.querySelectorAll<HTMLAnchorElement>("a")].find(
-        (link) => link.textContent === "/repo",
-      ),
-    ).toBeUndefined();
+    expect(landingLink.getAttribute("aria-current")).toBeNull();
 
     await act(async () => {
-      termsLink.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
+      landingLink.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
       await settleRouteUpdate();
     });
 
-    expect(readLocationHref()).toBe("/");
-    expect(landingLink.getAttribute("aria-current")).toBe("page");
-
-    await clickLink(termsLink);
-
-    expect(readLocationHref()).toBe("/terms");
-    expect(termsLink.getAttribute("aria-current")).toBe("page");
-    expect(landingLink.getAttribute("aria-current")).toBeNull();
-
-    await clickLink(backLink);
-
-    expect(readLocationHref()).toBe("/");
-    expect(landingLink.getAttribute("aria-current")).toBe("page");
-    expect(termsLink.getAttribute("aria-current")).toBeNull();
-
-    await clickLink(termsLink);
     expect(readLocationHref()).toBe("/terms");
 
     await clickLink(landingLink);
+
     expect(readLocationHref()).toBe("/");
+    expect(landingLink.getAttribute("aria-current")).toBe("page");
+
+    await clickLink(termsLink);
+
+    expect(readLocationHref()).toBe("/terms");
+    expect(landingLink.getAttribute("aria-current")).toBeNull();
   });
 });

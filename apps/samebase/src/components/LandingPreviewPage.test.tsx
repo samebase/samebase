@@ -277,6 +277,11 @@ describe("LandingPage", () => {
     expect(sidebarMarkup).toContain('href="/docs/the-stack"');
     expect(sidebarMarkup).toContain('href="/docs/do-it-yourself"');
     expect(sidebarMarkup).toContain('href="/pricing"');
+    expect(sidebarMarkup).toContain('href="/privacy"');
+    expect(sidebarMarkup).toContain('href="/terms"');
+    expect(sidebarMarkup).toContain('href="https://x.com/samebasecom"');
+    expect(sidebarMarkup).toContain('href="https://www.youtube.com/@samebasecom"');
+    expect(sidebarMarkup.indexOf("Changelog")).toBeLessThan(sidebarMarkup.indexOf("Privacy"));
     expect(sidebarMarkup).not.toContain("Start here");
     expect(sidebarMarkup).not.toContain("samebase.com");
     expect(sidebarMarkup).not.toContain('href="#');

@@ -863,10 +863,10 @@ test("route URL editor keeps the cursor before a preserved hash after path selec
 test("route URL editor scrolls same-page hash destinations into view", async ({ page }) => {
   const { input, prefix } = await focusRouteAddressInputDirectly(page, "/");
 
-  await input.fill(`${prefix}#landing-note-tokens`);
+  await input.fill(`${prefix}#landing-note-risk`);
 
-  await expect(page).toHaveURL(/\/#landing-note-tokens$/);
-  await expect(page.locator("#landing-note-tokens")).toBeInViewport();
+  await expect(page).toHaveURL(/\/#landing-note-risk$/);
+  await expect(page.locator("#landing-note-risk")).toBeInViewport();
 });
 
 test("route URL editor filters at the cursor and keeps the draft filter during previews", async ({

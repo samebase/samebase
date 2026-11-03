@@ -8,7 +8,6 @@ import {
 import { SEARCH_RESET_QUERY_PARAM } from "@/lib/searchReset";
 import { formatRouteSearchPresenceFlagLinkLabel } from "@/routing/searchFlags";
 import { appBuildConfig } from "@/lib/appBuildConfig";
-import { SAMEBASE_PUBLIC_LINKS } from "@/lib/publicLinks";
 import { APP_SIDEBAR_NAVIGATION_LINK_PROPS } from "@/components/appSidebarNavigation";
 import { Link, useLocation } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
@@ -25,11 +24,6 @@ const APP_SIDEBAR_META_VERSION_CLASS_NAMES = {
   left: "flex max-w-full min-w-0 flex-row flex-wrap items-center gap-x-2 gap-y-1 font-mono",
   right:
     "flex max-w-full min-w-0 flex-row-reverse flex-wrap items-center justify-end gap-x-2 gap-y-1 font-mono",
-} as const satisfies Record<AppSidebarMetaLinkAlignment, string>;
-
-const APP_SIDEBAR_META_COMMUNITY_LINKS_CLASS_NAMES = {
-  left: "flex max-w-full flex-wrap items-center justify-start gap-3",
-  right: "flex max-w-full flex-wrap items-center justify-end gap-3",
 } as const satisfies Record<AppSidebarMetaLinkAlignment, string>;
 
 /**
@@ -88,33 +82,6 @@ export function AppSidebarMetaSection({
         </>
       ) : null}
 
-      <div className={APP_SIDEBAR_META_COMMUNITY_LINKS_CLASS_NAMES[linkAlignment]}>
-        <a
-          className="text-foreground"
-          href={SAMEBASE_PUBLIC_LINKS.x.destination}
-          rel="noreferrer"
-          target="_blank"
-        >
-          /x.com
-        </a>
-        <a
-          className="text-[#FF0000]"
-          href={SAMEBASE_PUBLIC_LINKS.youtube.destination}
-          rel="noreferrer"
-          target="_blank"
-        >
-          /YouTube
-        </a>
-      </div>
-      <Link {...APP_SIDEBAR_NAVIGATION_LINK_PROPS} to="/terms">
-        /terms
-      </Link>
-      <Link {...APP_SIDEBAR_NAVIGATION_LINK_PROPS} to="/privacy">
-        /privacy
-      </Link>
-      <Link {...APP_SIDEBAR_NAVIGATION_LINK_PROPS} to="/pricing">
-        /pricing
-      </Link>
       <Link {...APP_SIDEBAR_NAVIGATION_LINK_PROPS} to="/">
         /landing
       </Link>
