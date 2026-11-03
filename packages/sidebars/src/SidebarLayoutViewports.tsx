@@ -5,10 +5,12 @@ import { type SidebarLayoutActiveResizeSide } from "./SidebarLayoutGeometryInter
 The server HTML has the real pane layout, and the browser may paint it while it parses a long page.
 This script runs at the start of each pane, so the carousel is on the pane that the root names
 before that paint. The right pane's markup comes last, so when it is the one, the main pane's script
-already scrolls to the end: structure.css keeps the right pane's space until it is parsed. After
-these scripts, the scroll position is the only record of the pane on screen: hydration reads it.
+already scrolls to the end: structure.css keeps the right pane's space until it is parsed. That
+space is no snap point, so the script turns snapping off until the right pane's own script restores
+it. After these scripts, the scroll position is the only record of the pane on screen: hydration
+reads it.
 */
-const INITIAL_PANE_SCRIPT = `(()=>{const pane=document.currentScript.parentElement,carousel=pane.parentElement,target=carousel.parentElement.dataset.mobilePane,side=pane.dataset.paneSide;if(target===side)carousel.scrollLeft=pane.offsetLeft;else if(side==="main"&&target==="right")carousel.scrollLeft=carousel.scrollWidth})()`;
+const INITIAL_PANE_SCRIPT = `(()=>{const pane=document.currentScript.parentElement,carousel=pane.parentElement,target=carousel.parentElement.dataset.mobilePane,side=pane.dataset.paneSide;if(target===side){carousel.scrollLeft=pane.offsetLeft;carousel.style.scrollSnapType=""}else if(side==="main"&&target==="right"){carousel.style.scrollSnapType="none";carousel.scrollLeft=carousel.scrollWidth}})()`;
 
 function InitialPaneScript() {
   return (
