@@ -1,6 +1,6 @@
 import { convexQuery, type ConvexQueryClient } from "@convex-dev/react-query";
 import type { QueryClient } from "@tanstack/react-query";
-import type { FunctionReference, FunctionReturnType, OptionalRestArgs } from "convex/server";
+import type { ConvexHttpClient } from "convex/browser";
 import { ConvexError } from "convex/values";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
@@ -43,25 +43,13 @@ export async function loadRepositoryDashboard({
   ]);
 }
 
-type ViewerConvexClients = Pick<ConvexQueryClient, "convexClient" | "serverHttpClient">;
 type RepositoryPageLoaderArgs = {
-  context: { convexQueryClient: ViewerConvexClients; queryClient: QueryClient };
+  context: {
+    convexQueryClient: Pick<ConvexQueryClient, "serverHttpClient">;
+    queryClient: QueryClient;
+  };
   params: { owner: string; repository: string };
 };
-
-/**
-Calls `action` as the viewer: the server render's client has the token of the cookie session, and a
-navigation in the browser calls through the browser's client.
-*/
-function runViewerAction<Action extends FunctionReference<"action">>(
-  convexQueryClient: ViewerConvexClients,
-  action: Action,
-  ...args: OptionalRestArgs<Action>
-): Promise<FunctionReturnType<Action>> {
-  return convexQueryClient.serverHttpClient
-    ? convexQueryClient.serverHttpClient.action(action, ...args)
-    : convexQueryClient.convexClient.action(action, ...args);
-}
 
 /**
 The connection to the Alchemy state store of the repository's Convex team with one read of the
@@ -70,13 +58,12 @@ connection's token. A store problem is a failed read, never a failed load: the p
 read with Retry.
 */
 async function connectAlchemyState(
-  convexQueryClient: ViewerConvexClients,
+  serverHttpClient: ConvexHttpClient,
   repository: { repositoryId: Id<"repositories">; convexTeamId: string },
 ) {
   const { convexTeamId, repositoryId } = repository;
   try {
-    const connection = await runViewerAction(
-      convexQueryClient,
+    const connection = await serverHttpClient.action(
       api.repository.alchemyState.connectWithSnapshot,
       { repositoryId },
     );
@@ -96,17 +83,24 @@ async function connectAlchemyState(
 
 /**
 The loader of the pages that render the repository overview: the overview, and the Alchemy page in
-its left pane. With the dashboard data, it waits only for the store connection with its first read,
-so no GitHub read delays the first byte. It returns that connection, or `null` when the page reads
-no store, as `useRepositoryProviderObservations` decides: no dashboard access, a repository outside
-the viewer's organizations, a repository without a Convex team, or a repository that Samebase is
-still creating.
+its left pane. With the dashboard data, the server render waits only for the store connection with
+its first read, so no GitHub read delays the first byte. It returns that connection, or `null` when
+the page reads no store, as `useRepositoryProviderObservations` decides: no dashboard access, a
+repository outside the viewer's organizations, a repository without a Convex team, or a repository
+that Samebase is still creating. A navigation in the browser never waits for the store: the action
+calls several outside services, so the new page opens at once and `useRepositoryAlchemyState`
+connects from there.
 */
 export async function loadRepositoryOverview({
   context: { convexQueryClient, queryClient },
   params,
 }: RepositoryPageLoaderArgs) {
   await loadRepositoryDashboard({ context: { queryClient } });
+  const { serverHttpClient } = convexQueryClient;
+  if (!serverHttpClient) {
+    return null;
+  }
+
   const viewerAccess = await unlessAccountGone(queryClient.query(rootQueries.viewerAccess));
   if (viewerAccess === null || !viewerAccess.accessKeys.includes("access_dashboard")) {
     return null;
@@ -128,6 +122,6 @@ export async function loadRepositoryOverview({
 
   const { convexTeamId, repositoryId } = repository;
   return convexTeamId && !isRepositoryBeingCreated(repository)
-    ? await connectAlchemyState(convexQueryClient, { repositoryId, convexTeamId })
+    ? await connectAlchemyState(serverHttpClient, { repositoryId, convexTeamId })
     : null;
 }

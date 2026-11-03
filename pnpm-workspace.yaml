@@ -182,3 +182,6 @@ patchedDependencies:
   # Adds deleteUser to the Convex Auth 2 core and password components, which account deletion
   # calls. Remove when upstream ships deletion by user id.
   "@convex-dev/auth@2.0.0-beta.0": patches/@convex-dev__auth@2.0.0-beta.0.patch
+  # Lets an element opt out of scroll restoration with `data-scroll-restoration-ignore`, which the
+  # mobile pane carousel needs. Remove when upstream ships an element opt-out.
+  "@tanstack/router-core@1.171.37": patches/@tanstack__router-core@1.171.37.patch

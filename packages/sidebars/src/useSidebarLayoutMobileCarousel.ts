@@ -15,7 +15,7 @@ import {
   type MobilePane,
   type SidebarLayoutMobileMergedSide,
 } from "./SidebarLayoutGeometryInternal.ts";
-import { useSidebarLayoutActions } from "./SidebarRuntimeInternal.tsx";
+import { readIsMobileSidebarLayout, useSidebarLayoutActions } from "./SidebarRuntimeInternal.tsx";
 
 export function useSidebarLayoutMobileCarouselController({
   activeGripResizeSideRef,
@@ -45,6 +45,7 @@ export function useSidebarLayoutMobileCarouselController({
   viewportWidthPx: number;
 }) {
   const hasAlignedInitialMobilePaneRef = useRef(false);
+  const isScrollPositionFromServerHtmlRef = useRef(false);
   const scrollDerivedMobilePaneRef = useRef<MobilePane | null>(null);
   const { setIsMobilePaneSettled, setMobilePaneScrollProgress } = useSidebarLayoutActions();
   const setIsMobilePaneSettledEffect = useEffectEvent((isSettled: boolean) => {
@@ -110,6 +111,15 @@ export function useSidebarLayoutMobileCarouselController({
     });
   });
 
+  // A hydration renders the desktop layout first. On a phone, its carousel is already on a pane: the
+  // server HTML put it there, and the user may have swiped since. A client-only mount starts at 0.
+  const readScrollPositionOrigin = useEffectEvent(() => {
+    isScrollPositionFromServerHtmlRef.current = !isMobile && readIsMobileSidebarLayout();
+  });
+  useLayoutEffect(() => {
+    readScrollPositionOrigin();
+  }, []);
+
   useEffect(() => {
     if (isMobile) {
       return;
@@ -146,9 +156,15 @@ export function useSidebarLayoutMobileCarouselController({
     });
 
     if (!hasAlignedInitialMobilePaneRef.current) {
+      hasAlignedInitialMobilePaneRef.current = true;
+      if (isScrollPositionFromServerHtmlRef.current) {
+        isScrollPositionFromServerHtmlRef.current = false;
+        syncPaneFromScroll(carouselNode);
+        return;
+      }
+
       carouselNode.scrollLeft = nextScrollLeftPx;
       setIsMobilePaneSettledEffect(true);
-      hasAlignedInitialMobilePaneRef.current = true;
       return;
     }
 

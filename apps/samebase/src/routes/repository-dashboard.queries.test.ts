@@ -1,6 +1,5 @@
 import { QueryClient } from "@tanstack/react-query";
 import { ConvexHttpClient } from "convex/browser";
-import { ConvexReactClient } from "convex/react";
 import { ConvexError } from "convex/values";
 import { describe, expect, it, vi } from "vite-plus/test";
 import { api } from "../../convex/_generated/api";
@@ -86,7 +85,7 @@ const liveConnection = {
 /**
 The loader of a page of samebase/base-alchemy for a member, with the dashboard queries answered from
 the repository list: the repository is in the member's organization and has `convexTeamId`. The
-viewer's client answers the store connection with `connect`.
+server render's client answers the store connection with `connect`; a browser has no such client.
 */
 function loadPage(args: {
   convexTeamId: string | undefined;
@@ -122,14 +121,9 @@ function loadPage(args: {
     },
   });
   const serverHttpClient = new ConvexHttpClient("https://samebase-test.convex.cloud");
-  const convexClient = new ConvexReactClient("https://samebase-test.convex.cloud");
-  const action =
-    args.client === "server"
-      ? vi.spyOn(serverHttpClient, "action").mockImplementation(args.connect)
-      : vi.spyOn(convexClient, "action").mockImplementation(args.connect);
+  const action = vi.spyOn(serverHttpClient, "action").mockImplementation(args.connect);
   const context = {
     convexQueryClient: {
-      convexClient,
       serverHttpClient: args.client === "server" ? serverHttpClient : undefined,
     },
     queryClient,
@@ -142,27 +136,35 @@ function loadPage(args: {
 }
 
 describe("loadRepositoryOverview", () => {
-  it.each(["server", "browser"] as const)(
-    "returns the store connection with its first read through the %s client",
-    async (client) => {
-      const { action, load } = loadPage({
-        client,
-        convexTeamId: "38516",
-        connect: async () => liveConnection,
-      });
+  it("returns the store connection with its first read in the server render", async () => {
+    const { action, load } = loadPage({
+      client: "server",
+      convexTeamId: "38516",
+      connect: async () => liveConnection,
+    });
 
-      await expect(load).resolves.toEqual({
-        state: "loaded",
-        repositoryId: "repository-a",
-        convexTeamId: "38516",
-        connection: liveConnection,
-      });
-      expect(action).toHaveBeenCalledExactlyOnceWith(
-        api.repository.alchemyState.connectWithSnapshot,
-        { repositoryId: "repository-a" },
-      );
-    },
-  );
+    await expect(load).resolves.toEqual({
+      state: "loaded",
+      repositoryId: "repository-a",
+      convexTeamId: "38516",
+      connection: liveConnection,
+    });
+    expect(action).toHaveBeenCalledExactlyOnceWith(
+      api.repository.alchemyState.connectWithSnapshot,
+      { repositoryId: "repository-a" },
+    );
+  });
+
+  it("does not wait for the store in a browser navigation", async () => {
+    const { action, load } = loadPage({
+      client: "browser",
+      convexTeamId: "38516",
+      connect: async () => liveConnection,
+    });
+
+    await expect(load).resolves.toBeNull();
+    expect(action).not.toHaveBeenCalled();
+  });
 
   it.each([
     [new ConvexError(ALCHEMY_CONNECTION_UNAVAILABLE), ALCHEMY_CONNECTION_UNAVAILABLE],

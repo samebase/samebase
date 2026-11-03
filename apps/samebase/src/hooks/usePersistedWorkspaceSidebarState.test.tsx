@@ -156,6 +156,29 @@ describe("usePersistedWorkspaceSidebarState", () => {
     expect(rootElement.firstElementChild?.getAttribute("data-mobile-pane")).toBe("left");
   });
 
+  it("keeps a swipe when the saved state returns unchanged", () => {
+    rootElement = document.createElement("div");
+    document.body.append(rootElement);
+    root = createRoot(rootElement);
+    const mountedRoot = root;
+
+    mockedIsAuthenticated = false;
+    mockedQueryState = DEFAULT_SIDEBAR_STATE;
+    act(() => {
+      mountedRoot.render(<SidebarStateProbe />);
+    });
+
+    act(() => {
+      setLatestMobilePane("right");
+    });
+    mockedQueryState = { ...DEFAULT_SIDEBAR_STATE };
+    act(() => {
+      mountedRoot.render(<SidebarStateProbe />);
+    });
+
+    expect(rootElement.firstElementChild?.getAttribute("data-mobile-pane")).toBe("right");
+  });
+
   it("keeps the current pane when a persisted row disappears after hydration", () => {
     rootElement = document.createElement("div");
     document.body.append(rootElement);

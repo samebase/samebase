@@ -80,7 +80,7 @@ function subscribeToSidebarLayoutMode(onLayoutModeChange: () => void) {
   return () => mediaQuery.removeEventListener("change", onLayoutModeChange);
 }
 
-function readIsMobileSidebarLayout() {
+export function readIsMobileSidebarLayout() {
   return window.innerWidth < SIDEBAR_LAYOUT_DESKTOP_MIN_WIDTH_PX;
 }
 
