@@ -7,7 +7,7 @@ change. If a change needs action from you, the entry says so.
 
 - **v2244: Cleaner pull request rows.** On a repository page, tap a pull request's diff size, such
   as `+96 −102 3 files`, to open its changed files in Samebase. The pull request number next to the
-  title opens it on GitHub.
+  title opens it on GitHub. A row names the base branch only when it is not the default branch.
 
 ## 2026-11-02
 

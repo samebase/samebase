@@ -115,7 +115,12 @@ function PullRequestRow({
         </a>
       </div>
       <div className="text-xs leading-5 text-muted-foreground [overflow-wrap:anywhere]">
-        {headLabel} → {pullRequest.baseRefName} · {updatedLabel}
+        {/* Most pull requests target the default branch, so only another base is named. */}
+        {headLabel}
+        {pullRequest.baseRefName === repository.defaultBranch
+          ? null
+          : ` → ${pullRequest.baseRefName}`}{" "}
+        · {updatedLabel}
       </div>
       <div className="flex min-w-0 items-center gap-2">
         <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-4">

@@ -1188,6 +1188,52 @@ describe("PullRequestsSection", () => {
     }
   });
 
+  it("names the base branch only when it is not the default branch", async () => {
+    const releasePullRequest = {
+      ...pullRequest,
+      id: "pull-request:42",
+      number: 42,
+      baseRefName: "release",
+    } satisfies RepositoryPullRequest;
+    const pullRequests = {
+      state: "current",
+      defaultBranch: null,
+      openPullRequestCount: 2,
+      refreshing: false,
+      allPullRequests: [pullRequest, releasePullRequest],
+      resourcesByPullRequestId: new Map(),
+      loadMore: { state: "exhausted" },
+    } satisfies RepositoryPullRequestsState;
+    const rootElement = document.createElement("div");
+    document.body.append(rootElement);
+    const root = createRoot(rootElement);
+
+    try {
+      await act(async () => {
+        root.render(
+          <TestRouterProvider initialEntries={["/repo/ada/demo"]}>
+            <PullRequestsSection
+              filesReadEnabled={false}
+              pullRequests={pullRequests}
+              repository={makeRepositorySettingsBuilderRepository({ defaultBranch: "main" })}
+            />
+          </TestRouterProvider>,
+        );
+      });
+
+      const rowText = (number: number) =>
+        rootElement.querySelector(`[data-pull-request-number="${number}"]`)?.textContent;
+      expect(rowText(41)).toContain("preview-comments · ");
+      expect(rowText(41)).not.toContain("→");
+      expect(rowText(42)).toContain("preview-comments → release · ");
+    } finally {
+      await act(async () => {
+        root.unmount();
+      });
+      rootElement.remove();
+    }
+  });
+
   it("links the diff size to the pull request's changed files", async () => {
     const pullRequests = {
       state: "current",
