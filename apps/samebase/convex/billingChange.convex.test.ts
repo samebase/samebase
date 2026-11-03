@@ -142,22 +142,25 @@ function createPolarBoundary(userId: Id<"users">) {
   return { createCheckout, getCheckout, updateSubscription };
 }
 
+/** The checkout tests keep the paused Pro checkout covered for when it reopens. */
+function enableProCheckout() {
+  polarMocks.readPolarProductCatalog.mockReturnValue([
+    { productId: "0e721c02-c98b-425b-bc8d-fb323fa54925", version: 1, availableForCheckout: true },
+  ]);
+}
+
 describe("Polar billing changes", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
     vi.stubEnv("CONVEX_AGENT_MODE", "");
     vi.stubEnv("CONVEX_DEPLOYMENT", "local:test");
-    // New Pro is paused in the real catalog. These tests keep the checkout covered for when it
-    // reopens; "refuses new Pro while checkout is paused" reads the real catalog.
-    polarMocks.readPolarProductCatalog.mockReturnValue([
-      { productId: "0e721c02-c98b-425b-bc8d-fb323fa54925", version: 1, availableForCheckout: true },
-    ]);
+    // Existing Pro runs on the real catalog, where new Pro is paused.
+    const actual = await vi.importActual<typeof import("./polarClient")>("./polarClient");
+    polarMocks.readPolarProductCatalog.mockImplementation(actual.readPolarProductCatalog);
   });
 
   it("refuses new Pro while checkout is paused", async () => {
     const seed = await seedBillingOrganization({ githubOwnerType: "user" });
-    const actual = await vi.importActual<typeof import("./polarClient")>("./polarClient");
-    polarMocks.readPolarProductCatalog.mockImplementation(actual.readPolarProductCatalog);
 
     await expect(
       seed.asOwner.action(api.billing.requestPolarBillingChange, {
@@ -174,6 +177,7 @@ describe("Polar billing changes", () => {
 
   for (const githubOwnerType of ["user", "organization"] as const) {
     it(`starts ${githubOwnerType} Pro with the shared product and two seats`, async () => {
+      enableProCheckout();
       const seed = await seedBillingOrganization({ githubOwnerType });
       const { createCheckout } = createPolarBoundary(seed.userId);
       polarMocks.reconcilePolarCustomerBilling.mockImplementation(
@@ -213,6 +217,7 @@ describe("Polar billing changes", () => {
   }
 
   it("resumes an open checkout after a member is removed", async () => {
+    enableProCheckout();
     const seed = await seedBillingOrganization({
       githubOwnerType: "organization",
       memberCount: 3,
@@ -343,6 +348,7 @@ describe("Polar billing changes", () => {
   });
 
   it("rejects invalid return URLs before assigning the billing payer", async () => {
+    enableProCheckout();
     const seed = await seedBillingOrganization({ githubOwnerType: "user" });
 
     await expect(
