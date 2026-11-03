@@ -93,9 +93,27 @@ function PullRequestRow({
       className="border-b border-border py-2 last:border-b-0"
       data-pull-request-number={pullRequest.number}
     >
+      {/* Same shape as the main branch row: branch and time on top, checks at the right. */}
+      <div className="flex min-w-0 items-center gap-3">
+        <div className="min-w-0 flex-1 text-xs leading-5 text-muted-foreground [overflow-wrap:anywhere]">
+          {/* Most pull requests target the default branch, so only another base is named. */}
+          {headLabel}
+          {pullRequest.baseRefName === repository.defaultBranch
+            ? null
+            : ` → ${pullRequest.baseRefName}`}{" "}
+          · {updatedLabel}
+        </div>
+        <RepositoryChecksPopover
+          checks={pullRequest.checks}
+          detailsUrl={`${pullRequest.url}/checks`}
+          heading={`Pull request #${pullRequest.number} checks`}
+          statusCheckRollup={pullRequest.statusCheckRollup}
+          triggerTitle={`Show pull request #${pullRequest.number} checks`}
+        />
+      </div>
       {/* The number is inline text in the title's size, so it lines up with the title, and one
       link underlines both from the row's left edge. */}
-      <p className="pt-2.5 text-sm font-medium leading-5 [overflow-wrap:anywhere] @4xl:pt-1.5">
+      <p className="text-sm font-medium leading-5 [overflow-wrap:anywhere]">
         <a
           className="text-foreground underline decoration-border underline-offset-4 hover:decoration-foreground"
           href={pullRequest.url}
@@ -109,23 +127,8 @@ function PullRequestRow({
           {pullRequest.title}
         </a>
       </p>
-      <div className="text-xs leading-5 text-muted-foreground [overflow-wrap:anywhere]">
-        {/* Most pull requests target the default branch, so only another base is named. */}
-        {headLabel}
-        {pullRequest.baseRefName === repository.defaultBranch
-          ? null
-          : ` → ${pullRequest.baseRefName}`}{" "}
-        · {updatedLabel}
-      </div>
       <div className="flex min-w-0 items-center gap-2">
-        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-4">
-          <RepositoryChecksPopover
-            checks={pullRequest.checks}
-            detailsUrl={`${pullRequest.url}/checks`}
-            heading={`Pull request #${pullRequest.number} checks`}
-            statusCheckRollup={pullRequest.statusCheckRollup}
-            triggerTitle={`Show pull request #${pullRequest.number} checks`}
-          />
+        <div className="min-w-0 flex-1">
           <PullRequestDiffStats changesHref={changesHref} pullRequest={pullRequest} />
         </div>
         {/* The negative margin puts the arrow on the right edge, where the main branch checks end. */}
