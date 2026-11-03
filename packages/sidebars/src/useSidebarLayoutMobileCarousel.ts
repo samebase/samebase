@@ -55,7 +55,7 @@ export function useSidebarLayoutMobileCarouselController({
   const hasAlignedInitialMobilePaneRef = useRef(false);
   const isScrollPositionFromServerHtmlRef = useRef(false);
   const scrollDerivedMobilePaneRef = useRef<MobilePane | null>(null);
-  // A touch owns the position from its start until 80 ms after the last scroll event that follows
+  // A touch that scrolls owns the position until 80 ms after the last scroll event that follows
   // it: the finger, then the momentum and the snap.
   const touchOwnsScrollRef = useRef(false);
   const { setIsMobilePaneSettled, setMobilePaneScrollProgress } = useSidebarLayoutActions();
@@ -232,12 +232,16 @@ export function useSidebarLayoutMobileCarouselController({
       settleTimeoutId = window.setTimeout(settle, 80);
     };
     const handleScroll = () => {
+      // A tap that scrolls nothing owns nothing: a toggle tapped inside a pane must still move the
+      // carousel at once.
+      if (isTouchDown) {
+        touchOwnsScrollRef.current = true;
+      }
       syncPaneFromScroll(carouselNode);
       scheduleSettle();
     };
     const handleTouchStart = () => {
       isTouchDown = true;
-      touchOwnsScrollRef.current = true;
     };
     const handleTouchEnd = (event: TouchEvent) => {
       if (event.touches.length > 0) {

@@ -604,14 +604,33 @@ describe("SidebarLayout mobile boot alignment", () => {
       }
       expect(carouselNode.scrollLeft).toBe(TEST_SIDEBAR_WIDTH_PX);
 
-      // A saved state from elsewhere arrives while the finger is down: the position stays.
+      // A tap that scrolls nothing owns nothing: a toggle still moves the carousel at once.
+      const tapEnd = new Event("touchend");
+      Object.defineProperty(tapEnd, "touches", { value: [] });
       act(() => {
         carouselNode.dispatchEvent(new Event("touchstart"));
+        carouselNode.dispatchEvent(tapEnd);
+      });
+      act(() => {
+        mountedRoot.render(renderPane("left"));
+      });
+      expect(carouselNode.scrollLeft).toBe(0);
+      act(() => {
+        vi.advanceTimersByTime(81);
+        mountedRoot.render(renderPane("main"));
+      });
+      expect(carouselNode.scrollLeft).toBe(TEST_SIDEBAR_WIDTH_PX);
+
+      // A saved state from elsewhere arrives while the finger scrolls: the position stays.
+      act(() => {
+        carouselNode.dispatchEvent(new Event("touchstart"));
+        carouselNode.scrollLeft = TEST_SIDEBAR_WIDTH_PX + 40;
+        carouselNode.dispatchEvent(new Event("scroll"));
       });
       act(() => {
         mountedRoot.render(renderPane("right"));
       });
-      expect(carouselNode.scrollLeft).toBe(TEST_SIDEBAR_WIDTH_PX);
+      expect(carouselNode.scrollLeft).toBe(TEST_SIDEBAR_WIDTH_PX + 40);
 
       // The settle after the touch reads the pane from the position.
       const touchEnd = new Event("touchend");
@@ -620,7 +639,7 @@ describe("SidebarLayout mobile boot alignment", () => {
         carouselNode.dispatchEvent(touchEnd);
         vi.advanceTimersByTime(81);
       });
-      expect(carouselNode.scrollLeft).toBe(TEST_SIDEBAR_WIDTH_PX);
+      expect(carouselNode.scrollLeft).toBe(TEST_SIDEBAR_WIDTH_PX + 40);
       const settledUpdate = setState.mock.lastCall?.[0];
       expect(settledUpdate?.(createMobileSidebarState({ mobilePane: "right" })).mobilePane).toBe(
         "main",
