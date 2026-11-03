@@ -12,6 +12,4 @@ export const DOCS_CHANGELOG_ROUTE = "/changelog";
 
 export const LANDING_PREVIEW_TEST_ID = "landing-preview";
 export const LANDING_PREVIEW_ARTICLE_TEST_ID = "landing-preview-article";
-export const LANDING_PREVIEW_PROVIDER_GRID_TEST_ID = "landing-preview-provider-grid";
-export const LANDING_PREVIEW_PLATFORM_DETAILS_TEST_ID = "landing-preview-platform-details";
 export const DOCS_SIDEBAR_TEST_ID = "docs-sidebar";

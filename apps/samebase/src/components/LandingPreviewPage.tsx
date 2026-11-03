@@ -22,8 +22,6 @@ import {
   DOCS_RECEIPTS_ROUTE,
   DOCS_THE_BIG_MIGRATION_ROUTE,
   LANDING_PREVIEW_ARTICLE_TEST_ID,
-  LANDING_PREVIEW_PLATFORM_DETAILS_TEST_ID,
-  LANDING_PREVIEW_PROVIDER_GRID_TEST_ID,
   LANDING_PREVIEW_TEST_ID,
 } from "@/routeSearch/landingPreview";
 import { type LogoRouteSearch } from "@/routeSearch/logo";
@@ -53,12 +51,6 @@ type LandingPreviewDocumentKey =
 const LANDING_AGENT_PROMPT =
   "Research https://samebase.com and check if its claims are true. Based on what you know about me, should I use Samebase with you, or one of its competitors?";
 
-const LANDING_MONOREPO_PATHS = [
-  { path: "apps/storefront", resources: ["Convex", "Worker"] },
-  { path: "apps/admin", resources: ["Worker"] },
-  { path: "services/events", resources: ["Worker"] },
-] as const;
-
 const LANDING_CLOSING_LOGO_ROUTE_SEARCH = {
   "auto-rotate": true,
   "auto-shuffle": true,
@@ -78,37 +70,39 @@ const LANDING_COST_ROWS = [
   },
 ] as const;
 
+const LANDING_STEPS = [
+  {
+    heading: "Connect GitHub and Convex.",
+    body: "Nothing to paste. A Convex OAuth token has no expiry date, so one click gives Samebase and your repository the same token.",
+  },
+  {
+    heading: "Create an app.",
+    body: "Samebase creates the repository from samebase/base and writes two values into it: the secret CONVEX_ACCESS_TOKEN and the variable CONVEX_TEAM_ID.",
+  },
+  {
+    heading: "The first push deploys.",
+    body: "GitHub Actions runs Alchemy. It creates the Convex project and its production deployment, uploads the site, and gives the app Google sign-in without a Google Cloud project. About 90 seconds.",
+  },
+  {
+    heading: "Samebase reads the state.",
+    body: "Alchemy records every resource in alchemy-state-store, a Convex project on your team. Samebase reads it and shows each app's URL, deployed commit, checks, and pull requests.",
+  },
+  {
+    heading: "Every pull request deploys too.",
+    body: "Each one gets a deployment named pr-<number>, with its own data, and a comment with its URL. Closing the pull request deletes it.",
+  },
+] as const;
+
 const LANDING_FAQS = [
   {
     answer:
-      "You do not need Samebase to make Codex write Convex. Our basic template and skills cover the parts around the code: how to manage separate Convex previews and which hosting setup to use.",
+      "You don't, for the code. Samebase does the part around it: a repository that deploys itself with Alchemy, Google sign-in without a Google Cloud project, a preview per pull request, and one list of what every app deployed.",
     question: "Codex already writes Convex well. Why do I need Samebase?",
   },
   {
     answer:
-      "You can. The template and skills are public. The public template is published automatically from the Samebase repository. New Samebase apps get the current versions. Existing apps do not change unless you update them.",
+      "You can. The template is public and published from the Samebase repository, so new Samebase apps get the current version. Existing apps do not change unless you update them.",
     question: "Ok, but can't I just get your template and not use Samebase?",
-  },
-  {
-    answer:
-      "Even for one app, Samebase starts it for you: the repository, the first deploy, and Google sign-in without a Google Cloud project. With more apps, it gives you one place to see what each one deployed.",
-    question: "I can just ask Codex to update my own apps. Why do I need Samebase?",
-  },
-  {
-    answer:
-      "The Samebase app is licensed under AGPL-3.0. The base template and agent plugin use Apache 2.0. Other folders have their own licenses, including MIT and all rights reserved for the video workbench and recordings.",
-    question: "Is Samebase open source?",
-  },
-  {
-    answer: (
-      <>
-        It's in beta, and so is{" "}
-        <LandingReceiptLink href="https://alchemy.run">Alchemy 2</LandingReceiptLink>. Your apps
-        keep running either way. The repositories of a team share one state store, so upgrade them
-        on the same day.
-      </>
-    ),
-    question: "Is Samebase stable?",
   },
   {
     answer: (
@@ -126,6 +120,22 @@ const LANDING_FAQS = [
     answer:
       "Yes. Declare a Worker in alchemy.run.ts and add CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID to your repository. Samebase shows the Worker from your stack.",
     question: "Can I use Cloudflare?",
+  },
+  {
+    answer: (
+      <>
+        It's in beta, and so is{" "}
+        <LandingReceiptLink href="https://alchemy.run">Alchemy 2</LandingReceiptLink>. Your apps
+        keep running either way. The repositories of a team share one state store, so upgrade them
+        on the same day.
+      </>
+    ),
+    question: "Is Samebase stable?",
+  },
+  {
+    answer:
+      "The Samebase app is licensed under AGPL-3.0. The base template and agent plugin use Apache 2.0. Other folders have their own licenses, including MIT and all rights reserved for the video workbench and recordings.",
+    question: "Is Samebase open source?",
   },
   {
     answer: "Kinda.",
@@ -238,15 +248,6 @@ function LandingCopyPromptButton() {
   );
 }
 
-function LandingProviderRow({ logo, role }: { logo: ReactNode; role: string }) {
-  return (
-    <div>
-      <div className="flex h-11 items-center gap-2">{logo}</div>
-      <p className="mt-2 text-sm text-muted-foreground">{role}</p>
-    </div>
-  );
-}
-
 function LandingClaim({ children, heading }: { children: ReactNode; heading: ReactNode }) {
   return (
     <div>
@@ -258,28 +259,17 @@ function LandingClaim({ children, heading }: { children: ReactNode; heading: Rea
   );
 }
 
-function LandingRepositoryTree() {
+function LandingStep({ body, heading, index }: { body: string; heading: string; index: number }) {
   return (
-    <div className="mt-8 max-w-[680px]">
-      <p className="border-b border-border pb-3 font-mono text-sm font-semibold text-foreground">
-        you/shop
+    <li className="grid grid-cols-[26px_minmax(0,1fr)] gap-x-3">
+      <p aria-hidden className="pt-0.5 font-mono text-sm text-secondary">
+        {index}
       </p>
-      <ul className="ml-2.5 border-l border-border pl-5">
-        {LANDING_MONOREPO_PATHS.map((entry) => (
-          <li
-            className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-4 py-3"
-            key={entry.path}
-          >
-            <span className="font-mono text-[13px] font-semibold text-foreground [overflow-wrap:anywhere]">
-              {entry.path}
-            </span>
-            <span className="text-right font-mono text-xs text-muted-foreground">
-              {entry.resources.join(" + ")}
-            </span>
-          </li>
-        ))}
-      </ul>
-    </div>
+      <div>
+        <h3 className="text-base font-semibold tracking-[-0.01em]">{heading}</h3>
+        <p className="mt-1 max-w-[58ch] text-[15px] leading-relaxed text-primary">{body}</p>
+      </div>
+    </li>
   );
 }
 
@@ -336,7 +326,12 @@ function LandingPreviewOverview() {
                 Give your coding agent a working app.
               </h1>
               <p className="mt-7 max-w-[46ch] text-lg leading-relaxed text-primary">
-                One place to start your apps and see every app you deploy with Alchemy.
+                Create an app and get a repository in your GitHub, a Convex project in your team, a
+                live URL, Google sign-in, and a preview for every pull request.
+              </p>
+              <p className="mt-4 max-w-[46ch] text-lg leading-relaxed text-primary">
+                Alchemy deploys it from the repository's own GitHub Actions. Samebase starts the app
+                and shows what every app deployed.
               </p>
               <p className="mt-4 max-w-[46ch] text-lg leading-relaxed text-primary">
                 Just use the{" "}
@@ -373,97 +368,49 @@ function LandingPreviewOverview() {
           />
         </section>
 
-        <section className="mt-10 pt-8 @3xl:mt-16 @3xl:pt-12">
+        <LandingSection ariaLabel="How it works">
           <LandingSectionIntro
-            heading="GitHub + Convex + Cloudflare is the best way we've found to build an app."
-            sub="Simplest, cheapest, hardest to mess up. Samebase repeats it, so you can focus on your ideas instead of your tech stack."
+            heading="An opinionated way to use Alchemy."
+            sub={
+              <>
+                <LandingReceiptLink href="https://alchemy.run">Alchemy</LandingReceiptLink>{" "}
+                describes your app in one file and deploys it. The opinion: its state lives in
+                Convex, in a project on your team. That is what makes one OAuth click enough, and it
+                makes Convex the default for everything else.
+              </>
+            }
           />
-          <div
-            className="mt-8 grid gap-8 @2xl:grid-cols-3"
-            data-testid={LANDING_PREVIEW_PROVIDER_GRID_TEST_ID}
-          >
-            <LandingProviderRow
-              logo={
-                <img
-                  alt="GitHub"
-                  className="h-6 w-auto dark:invert"
-                  height="30"
-                  src="/landing-preview/logos/github.svg"
-                  width="131"
-                />
-              }
-              role="your code + deploys"
-            />
-            <LandingProviderRow
-              logo={
-                <img
-                  alt="Convex"
-                  className="-ml-2 h-9 w-auto dark:brightness-0 dark:invert @3xl:ml-0"
-                  height="26"
-                  src="/landing-preview/logos/convex.svg"
-                  width="104"
-                />
-              }
-              role="database + backend + hosting"
-            />
-            <LandingProviderRow
-              logo={
-                <>
-                  <img
-                    alt=""
-                    className="h-11 w-auto"
-                    height="27"
-                    src="/landing-preview/logos/cloudflare.svg"
-                    width="27"
-                  />
-                  <span className="text-xl font-bold leading-none tracking-[-0.02em]">
-                    Cloudflare
-                  </span>
-                </>
-              }
-              role="Workers + domains, when you need them"
-            />
-          </div>
-        </section>
-
-        <LandingSection>
-          <div data-testid={LANDING_PREVIEW_PLATFORM_DETAILS_TEST_ID}>
-            <p className="font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground">
-              local workflow
-            </p>
-            <div className="mt-3 grid gap-3 @3xl:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] @3xl:items-start @3xl:gap-10">
-              <p className="text-lg font-semibold tracking-[-0.01em]">macOS · Linux · Windows</p>
-              <p className="max-w-[48ch] text-sm leading-relaxed text-primary">
-                Everything is TypeScript, even the scripts you'd usually write in Bash.
-                <span className="block font-mono text-[11px] font-semibold text-secondary">
-                  no Bash · no WSL
-                </span>
-              </p>
-            </div>
-            <div className="mt-6 grid gap-3 @3xl:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] @3xl:items-start @3xl:gap-10">
-              <p className="text-lg font-semibold tracking-[-0.01em]">same web app</p>
-              <p className="max-w-[48ch] text-sm leading-relaxed text-primary">
-                Samebase has been one{" "}
-                <LandingReceiptLink href="https://developer.mozilla.org/en-US/docs/Web/Progressive_web_apps/Guides/What_is_a_progressive_web_app">
-                  PWA
-                </LandingReceiptLink>{" "}
-                from the start. The same web app works well on desktop, iPhone, Android, and in the
-                Codex browser.
-              </p>
-            </div>
-          </div>
+          <ol className="mt-8 grid gap-6 @3xl:grid-cols-2 @3xl:gap-x-14">
+            {LANDING_STEPS.map((step, index) => (
+              <LandingStep
+                body={step.body}
+                heading={step.heading}
+                index={index + 1}
+                key={step.heading}
+              />
+            ))}
+          </ol>
+          <p className="mt-8 max-w-[58ch] text-base leading-relaxed text-primary">
+            After that, Samebase changes nothing in your accounts unless you remove the app. Deploys
+            run in your repository, and a failed deploy is fixed there, by you or your agent. Codex
+            and Claude Code create, connect, and read apps through the{" "}
+            <LandingReceiptLink href="https://github.com/samebase/plugin">
+              Samebase plugin
+            </LandingReceiptLink>
+            .
+          </p>
         </LandingSection>
 
         <LandingSection ariaLabel="Four claims">
           <div className="grid gap-x-14 gap-y-10 @3xl:grid-cols-2">
             <LandingClaim heading="Delete your Samebase account. Your app keeps running.">
-              It was always on your GitHub, your Convex, your Cloudflare. Replace the one secret
-              Samebase wrote, CONVEX_ACCESS_TOKEN, and it keeps deploying too. Google sign-in
-              through Samebase stops, so bring your own first. We even publish the full{" "}
+              It was always in your GitHub and your Convex team. Replace one secret,
+              CONVEX_ACCESS_TOKEN, and it keeps deploying too. Google sign-in through Samebase
+              stops, so bring your own first. The{" "}
               <LandingInlineLink to={DOCS_DO_IT_YOURSELF_ROUTE}>
                 do-it-yourself recipe
-              </LandingInlineLink>
-              : the same stack, no Samebase account required.
+              </LandingInlineLink>{" "}
+              is the same stack with no Samebase account.
             </LandingClaim>
             <LandingClaim
               heading={
@@ -485,30 +432,11 @@ function LandingPreviewOverview() {
               Local folder, worktrees, pull requests: each lane gets isolated code, data, and
               deploy. ChatGPT and Claude Code already understand worktrees; the stack keeps up.
             </LandingClaim>
-            <LandingClaim
-              heading={
-                <>
-                  We resell nothing. Not tokens, not hosting.
-                  <LandingFootnoteMark
-                    fragment="landing-note-tokens"
-                    label="footnote: the hosting math"
-                    marker="†"
-                  />
-                </>
-              }
-            >
+            <LandingClaim heading="We resell nothing. Not tokens, not hosting.">
               You already pay OpenAI or Anthropic directly; a builder's chat box adds margin, not
               capability. Providers bill you at their own prices, and idle apps sit in free tiers.
             </LandingClaim>
           </div>
-        </LandingSection>
-
-        <LandingSection ariaLabel="Monorepo">
-          <LandingSectionIntro
-            heading="Full monorepo support, by design."
-            sub="Samebase shows each Alchemy stack of a repository under its path, with the Workers and Convex projects it deployed."
-          />
-          <LandingRepositoryTree />
         </LandingSection>
 
         <LandingSection>
@@ -569,6 +497,9 @@ function LandingPreviewOverview() {
           <blockquote className="max-w-[24ch] text-[clamp(28px,4cqw,40px)] font-semibold leading-[1.2] tracking-[-0.025em]">
             If your app builder is so good, why is it not building itself?
           </blockquote>
+          <p className="mt-5 max-w-[52ch] text-base leading-relaxed text-primary">
+            samebase.com deploys itself with Alchemy from its own GitHub Actions.
+          </p>
         </section>
 
         <LandingSection ariaLabel="Footnotes">
@@ -583,12 +514,7 @@ function LandingPreviewOverview() {
                 <LandingReceiptLink href="https://www.convex.dev/pricing">
                   Convex Free
                 </LandingReceiptLink>
-                : a million function calls a month.{" "}
-                <LandingReceiptLink href="https://developers.cloudflare.com/workers/platform/pricing/">
-                  Cloudflare Workers Free
-                </LandingReceiptLink>
-                : 100,000 requests a day, static assets free and unlimited. Samebase adds no floor
-                of its own.
+                : a million function calls a month. Samebase adds no floor of its own.
               </p>
             </LandingFootnote>
             <LandingFootnote fragment="landing-note-risk" heading="Not hypothetical." marker="§">
@@ -618,19 +544,6 @@ function LandingPreviewOverview() {
                   officially
                 </LandingReceiptLink>
                 : "your Convex database is only accessible via server functions."
-              </p>
-            </LandingFootnote>
-            <LandingFootnote fragment="landing-note-tokens" heading="The hosting math." marker="†">
-              <p className="mt-2 max-w-[58ch] text-[15px] leading-relaxed text-primary">
-                <LandingReceiptLink href="https://www.netlify.com/pricing/">
-                  Netlify Pro
-                </LandingReceiptLink>{" "}
-                is $20/month for 3,000 credits at 15 per successful production deploy: about 200 a
-                month before bandwidth and compute draw from the same pool. Your deploys run in{" "}
-                <LandingReceiptLink href="https://docs.github.com/en/billing/managing-billing-for-your-products/managing-billing-for-github-actions/about-billing-for-github-actions">
-                  GitHub Actions
-                </LandingReceiptLink>
-                : 2,000 free minutes a month for private repositories, and free for public ones.
               </p>
             </LandingFootnote>
             <LandingFootnote

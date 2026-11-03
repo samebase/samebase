@@ -14,7 +14,6 @@ import {
   DOCS_THE_STACK_ROUTE,
   LANDING_PAGE_ROUTE,
   LANDING_PREVIEW_ARTICLE_TEST_ID,
-  LANDING_PREVIEW_PLATFORM_DETAILS_TEST_ID,
 } from "../src/routeSearch/landingPreview";
 
 const { defaultBrowserType: _landingPreviewMobileBrowserType, ...landingPreviewMobileDevice } =
@@ -119,7 +118,6 @@ test("landing overview preserves its video frame and wide desktop layout", async
   });
 
   const article = page.getByTestId(LANDING_PREVIEW_ARTICLE_TEST_ID);
-  const platformDetails = article.getByTestId(LANDING_PREVIEW_PLATFORM_DETAILS_TEST_ID);
   const templateLink = article.getByRole("link", {
     name: "samebase/base",
   });
@@ -136,13 +134,6 @@ test("landing overview preserves its video frame and wide desktop layout", async
       page.getByTestId("public-landing-logo-stage"),
     ],
     maskColor: "#f5f5f5",
-    maxDiffPixelRatio: 0.02,
-    scale: "css",
-    timeout: 30_000,
-  });
-  await expect(platformDetails).toHaveScreenshot("landing-preview-platform-desktop.png", {
-    animations: "disabled",
-    caret: "hide",
     maxDiffPixelRatio: 0.02,
     scale: "css",
     timeout: 30_000,
@@ -166,9 +157,7 @@ test("landing preview FAQ answers the direct-agent questions", async ({ page }) 
     .getByRole("region", { name: "Frequently asked questions" });
   await expect(faq).toContainText("Codex already writes Convex well. Why do I need Samebase?");
   await expect(faq).toContainText("Ok, but can't I just get your template and not use Samebase?");
-  await expect(faq).toContainText(
-    "I can just ask Codex to update my own apps. Why do I need Samebase?",
-  );
+  await expect(faq).toContainText("Why is the Alchemy state in Convex?");
   await expect(faq).toContainText("Wait, so all Samebase is, is a template and a list?");
 
   const firstQuestion = faq.getByRole("button", {
@@ -177,10 +166,10 @@ test("landing preview FAQ answers the direct-agent questions", async ({ page }) 
   const secondQuestion = faq.getByRole("button", {
     name: "Ok, but can't I just get your template and not use Samebase?",
   });
-  const firstAnswer = faq.getByText("You do not need Samebase to make Codex write Convex.", {
+  const firstAnswer = faq.getByText("You don't, for the code.", {
     exact: false,
   });
-  const secondAnswer = faq.getByText("You can. The template and skills are public.", {
+  const secondAnswer = faq.getByText("You can. The template is public", {
     exact: false,
   });
 
@@ -274,9 +263,8 @@ test("landing preview overview adapts to a narrow pane", async ({ page }) => {
       name: /Give your coding agent a working app/,
     }),
   ).toBeVisible();
-  const monorepo = article.getByRole("region", { name: "Monorepo" });
-  await expect(monorepo).toContainText("apps/storefront");
-  await expect(monorepo).toContainText("Convex + Worker");
+  const howItWorks = article.getByRole("region", { name: "How it works" });
+  await expect(howItWorks).toContainText("Connect GitHub and Convex.");
   await expect(page.getByTestId("landing-preview-hero-menger")).toBeHidden();
   await expect(page.getByTestId("logo-menger-hover-scene")).toHaveCount(0);
 
@@ -291,23 +279,13 @@ test("landing preview overview adapts to a narrow pane", async ({ page }) => {
     maxDiffPixelRatio: 0.02,
     scale: "css",
   });
-  await expect(monorepo).toHaveScreenshot("landing-preview-monorepo-narrow-pane.png", {
+  await expect(howItWorks).toHaveScreenshot("landing-preview-how-it-works-narrow-pane.png", {
     animations: "disabled",
     caret: "hide",
     maxDiffPixelRatio: 0.02,
     scale: "css",
     timeout: 30_000,
   });
-  await expect(article.getByTestId(LANDING_PREVIEW_PLATFORM_DETAILS_TEST_ID)).toHaveScreenshot(
-    "landing-preview-platform-narrow-pane.png",
-    {
-      animations: "disabled",
-      caret: "hide",
-      maxDiffPixelRatio: 0.02,
-      scale: "css",
-      timeout: 30_000,
-    },
-  );
 });
 
 test("landing document navigation resets pages, restores history, and aligns direct anchors", async ({
@@ -449,16 +427,6 @@ test.describe("mobile landing preview", () => {
       scale: "css",
       timeout: 30_000,
     });
-    await expect(article.getByTestId(LANDING_PREVIEW_PLATFORM_DETAILS_TEST_ID)).toHaveScreenshot(
-      "landing-preview-platform-mobile.png",
-      {
-        animations: "disabled",
-        caret: "hide",
-        maxDiffPixelRatio: 0.02,
-        scale: "css",
-        timeout: 30_000,
-      },
-    );
   });
 
   test("renders the FAQ for a mobile pane", async ({ page }) => {
@@ -478,18 +446,16 @@ test.describe("mobile landing preview", () => {
       .getByRole("region", { name: "Frequently asked questions" });
     await expect(faq).toContainText("Codex already writes Convex well. Why do I need Samebase?");
     await expect(faq).toContainText("Ok, but can't I just get your template and not use Samebase?");
-    await expect(faq).toContainText(
-      "I can just ask Codex to update my own apps. Why do I need Samebase?",
-    );
+    await expect(faq).toContainText("Why is the Alchemy state in Convex?");
     await expect(faq).toContainText("Wait, so all Samebase is, is a template and a list?");
     const thirdQuestion = faq.getByRole("button", {
-      name: "I can just ask Codex to update my own apps. Why do I need Samebase?",
+      name: "Why is the Alchemy state in Convex?",
     });
     await expect(thirdQuestion).toHaveAttribute("aria-expanded", "false");
     await thirdQuestion.click();
     await expect(thirdQuestion).toHaveAttribute("aria-expanded", "true");
     await expect(
-      faq.getByText("Even for one app, Samebase starts it for you", {
+      faq.getByText("A Convex OAuth token has no expiry date", {
         exact: false,
       }),
     ).toBeVisible();

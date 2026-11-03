@@ -133,11 +133,14 @@ describe("LandingPage", () => {
     const markup = renderToStaticMarkup(<LandingPage />);
 
     expect(markup).toContain(`src="${LANDING_INLINE_80_PERCENT_MARK_SVG_URL}"`);
-    // Hero: the agent heading, one plain product sentence, the template link, and the agent prompt.
+    // Hero: the agent heading, what you get, who deploys it, the template link, and the agent prompt.
     expect(markup).toContain(">BETA</span>");
     expect(markup).toContain("Give your coding agent a working app.");
     expect(markup).toContain(
-      "One place to start your apps and see every app you deploy with Alchemy.",
+      "Create an app and get a repository in your GitHub, a Convex project in your team, a live URL, Google sign-in, and a preview for every pull request.",
+    );
+    expect(markup).toContain(
+      "Alchemy deploys it from the repository&#x27;s own GitHub Actions. Samebase starts the app and shows what every app deployed.",
     );
     expect(markup).toContain(
       'href="https://github.com/samebase/base" rel="noreferrer" target="_blank">samebase/base</a> template without creating an account.',
@@ -147,7 +150,6 @@ describe("LandingPage", () => {
     );
     expect(markup).toContain("Copy prompt</button>");
     expect(markup.split(">Continue with GitHub</span></button>").length - 1).toBe(2);
-    expect(markup).not.toContain("Idle apps cost $0/month.");
 
     // The logo film plays in a YouTube embed below the hero copy.
     expect(markup).toContain(
@@ -157,56 +159,41 @@ describe("LandingPage", () => {
       markup.indexOf("youtube-nocookie.com/embed/ovMWyoajRMk"),
     );
 
-    // The opinion and provider roles stay concise.
-    expect(markup).toContain(
-      "GitHub + Convex + Cloudflare is the best way we&#x27;ve found to build an app.",
-    );
-    expect(markup).toContain(
-      "Samebase repeats it, so you can focus on your ideas instead of your tech stack.",
-    );
-    expect(markup).toContain("your code + deploys");
-    expect(markup).toContain("database + backend + hosting");
-    expect(markup).toContain("Workers + domains, when you need them");
-    expect(markup).not.toContain("owner: ");
-    expect(markup).toContain('data-testid="landing-preview-platform-details"');
-    expect(markup).toContain("local workflow");
-    expect(markup).toContain("macOS");
-    expect(markup).toContain("Linux");
-    expect(markup).toContain("Windows");
-    expect(markup).toContain(
-      "Everything is TypeScript, even the scripts you&#x27;d usually write in Bash.",
-    );
-    expect(markup).toContain("no Bash");
-    expect(markup).toContain("no WSL");
-    expect(markup).toContain("same web app");
-    expect(markup).toContain("Samebase has been one");
-    expect(markup).toContain(">PWA</a>");
-    expect(markup).toContain(
-      'href="https://developer.mozilla.org/en-US/docs/Web/Progressive_web_apps/Guides/What_is_a_progressive_web_app"',
-    );
-    expect(markup).toContain(
-      "from the start. The same web app works well on desktop, iPhone, Android, and in the Codex browser.",
-    );
+    // The sections that sold the old setup are gone: the three pillars, the platform block, the
+    // monorepo tree, the onboarding video, and the Workers Builds hosting math.
+    expect(markup).not.toContain("GitHub + Convex + Cloudflare");
+    expect(markup).not.toContain("local workflow");
+    expect(markup).not.toContain('aria-label="Monorepo"');
+    expect(markup).not.toContain('aria-label="Onboarding walkthrough"');
+    expect(markup).not.toContain("youtube-nocookie.com/embed/8-ZEGPpqi9Y");
+    expect(markup).not.toContain("The hosting math.");
 
-    // The monorepo example stays focused on repository paths.
-    expect(markup).toContain('aria-label="Monorepo"');
-    expect(markup).toContain("Full monorepo support, by design.");
-    expect(markup).toContain(
-      "Samebase shows each Alchemy stack of a repository under its path, with the Workers and Convex projects it deployed.",
-    );
-    expect(markup.split("you/shop").length - 1).toBe(1);
-    expect(markup).toContain("apps/storefront");
-    expect(markup).toContain("apps/admin");
-    expect(markup).toContain("services/events");
+    // How it works: the opinion, the five steps, and what Samebase does not do.
+    expect(markup).toContain('aria-label="How it works"');
+    expect(markup).toContain("An opinionated way to use Alchemy.");
+    expect(markup).toContain('href="https://alchemy.run"');
+    expect(markup).toContain("its state lives in Convex, in a project on your team");
+    expect(markup).toContain("Connect GitHub and Convex.");
+    expect(markup).toContain("Create an app.");
+    expect(markup).toContain("The first push deploys.");
+    expect(markup).toContain("Samebase reads the state.");
+    expect(markup).toContain("Every pull request deploys too.");
+    expect(markup).toContain("CONVEX_ACCESS_TOKEN and the variable CONVEX_TEAM_ID");
+    expect(markup).toContain("Google sign-in without a Google Cloud project");
+    expect(markup).toContain("alchemy-state-store");
+    expect(markup).toContain("pr-&lt;number&gt;");
+    expect(markup).toContain("a failed deploy is fixed there, by you or your agent");
+    expect(markup).toContain('href="https://github.com/samebase/plugin"');
 
-    const platformDetailsIndex = markup.indexOf('data-testid="landing-preview-platform-details"');
+    const howItWorksIndex = markup.indexOf('aria-label="How it works"');
     const fourClaimsIndex = markup.indexOf('aria-label="Four claims"');
-    expect(fourClaimsIndex).toBeGreaterThan(platformDetailsIndex);
+    expect(fourClaimsIndex).toBeGreaterThan(howItWorksIndex);
 
     // The four claims.
     expect(markup).toContain("Delete your Samebase account. Your app keeps running.");
-    expect(markup).toContain("Replace the one secret");
-    expect(markup).toContain("CONVEX_ACCESS_TOKEN");
+    expect(markup).toContain("Replace one secret");
+    expect(markup).toContain("Google sign-in through Samebase stops");
+    expect(markup).toContain(">do-it-yourself recipe</a>");
     expect(markup).toContain("No client-facing database to leave open.");
     expect(markup).toContain(
       "Access checks live in those functions, where you can read and test them.",
@@ -217,36 +204,28 @@ describe("LandingPage", () => {
     expect(markup).toContain("We resell nothing. Not tokens, not hosting.");
     expect(markup).toContain("adds margin, not capability");
 
-    // The old Cloudflare onboarding walkthrough is gone with the setup it showed.
-    expect(markup).not.toContain('aria-label="Onboarding walkthrough"');
-    expect(markup).not.toContain("youtube-nocookie.com/embed/8-ZEGPpqi9Y");
-
     // Cost and the closing argument.
     expect(markup).toContain("cost follows real usage");
     expect(markup).toContain("an idle idea");
 
-    // FAQ answers the direct-agent objection before the closing question.
+    // FAQ.
     expect(markup).toContain('aria-label="Frequently asked questions"');
     expect(markup).toContain(">FAQ</h2>");
     expect(markup).toContain("Codex already writes Convex well. Why do I need Samebase?");
+    expect(markup).toContain("You don&#x27;t, for the code.");
     expect(markup).toContain("Ok, but can&#x27;t I just get your template and not use Samebase?");
     expect(markup).toContain("Existing apps do not change unless you update them.");
-    expect(markup).toContain("I can just ask Codex to update my own apps. Why do I need Samebase?");
-    expect(markup).toContain("Even for one app, Samebase starts it for you");
-    expect(markup).toContain("Google sign-in without a Google Cloud project");
-    expect(markup).toContain("Wait, so all Samebase is, is a template and a list?");
-    expect(markup).toContain("Is Samebase open source?");
-    expect(markup).toContain("Is Samebase stable?");
-    expect(markup).toContain('href="https://alchemy.run"');
     expect(markup).toContain("Why is the Alchemy state in Convex?");
     expect(markup).toContain("A Convex OAuth token has no expiry date");
     expect(markup).toContain('href="/docs/the-big-migration"');
     expect(markup).toContain("Can I use Cloudflare?");
     expect(markup).toContain("CLOUDFLARE_API_TOKEN");
-    expect(markup).not.toContain("Can I use Alchemy now?");
+    expect(markup).toContain("Is Samebase stable?");
+    expect(markup).toContain("Is Samebase open source?");
+    expect(markup).toContain("Wait, so all Samebase is, is a template and a list?");
     expect(markup).toContain("Kinda.");
-    expect(markup.split('data-slot="accordion-trigger"').length - 1).toBe(8);
-    expect(markup.split('data-slot="accordion-content"').length - 1).toBe(8);
+    expect(markup.split('data-slot="accordion-trigger"').length - 1).toBe(7);
+    expect(markup.split('data-slot="accordion-content"').length - 1).toBe(7);
 
     const costIndex = markup.indexOf("cost follows real usage");
     const faqIndex = markup.indexOf('aria-label="Frequently asked questions"');
@@ -255,17 +234,16 @@ describe("LandingPage", () => {
     );
     expect(faqIndex).toBeGreaterThan(costIndex);
     expect(closingQuestionIndex).toBeGreaterThan(faqIndex);
-
-    expect(markup).toContain("If your app builder is so good, why is it not building itself?");
+    expect(markup).toContain(
+      "samebase.com deploys itself with Alchemy from its own GitHub Actions.",
+    );
 
     // Footnote receipts.
     expect(markup).toContain("$0/month, receipted.");
+    expect(markup).toContain("2,000 Actions minutes");
     expect(markup).toContain("Samebase adds no floor of its own.");
     expect(markup).toContain("Not hypothetical.");
     expect(markup).toContain("https://nvd.nist.gov/vuln/detail/CVE-2025-48757");
-    expect(markup).toContain("The hosting math.");
-    expect(markup).toContain("2,000 free minutes a month for private repositories");
-    expect(markup).not.toContain("six concurrent builds");
     expect(markup).toContain("First customer: me, Nicu.");
 
     // The closing band keeps one fractal logo without logo-lab helper copy.
