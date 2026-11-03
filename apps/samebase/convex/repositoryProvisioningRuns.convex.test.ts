@@ -21,7 +21,7 @@ type RetryBlocker = "none" | "active_managed_lock" | "manual_write" | "deletion"
 async function createRetryFixture(
   blocker: RetryBlocker,
   t = makeConvexTest(),
-  plan: "repository_actions" | "old" | "none" = "repository_actions",
+  plan: "repository_actions" | "none" = "repository_actions",
 ) {
   const ids = await t.run(async (ctx) => {
     const userId = await ctx.db.insert("users", {
@@ -85,25 +85,6 @@ async function createRetryFixture(
           convexConfigPath: "convex.json",
           ciSecrets: { state: "planned" },
           seed: { state: "planned" },
-          createdAt: 1,
-          updatedAt: 1,
-        });
-        break;
-      case "old":
-        await ctx.db.insert("workflow_repositoryProvisioning_plans", {
-          repositoryId,
-          convexConfigPath: "convex.json",
-          convex: {
-            state: "planned",
-            projectName: "retry-guard",
-            deploymentRegion: "aws-us-east-1",
-          },
-          cloudflare: {
-            state: "planned",
-            workerName: "retry-guard",
-            rootDirectory: "/",
-            buildTokenUuid: "build-token",
-          },
           createdAt: 1,
           updatedAt: 1,
         });
@@ -412,16 +393,13 @@ describe("app provisioning retry admission", () => {
     });
   });
 
-  it.each(["old", "none"] as const)(
-    "refuses a failed setup whose plan is %s, before any confirmation request",
-    async (plan) => {
-      const fixture = await createRetryFixture("none", makeConvexTest(), plan);
+  it("refuses a failed setup without a plan, before any confirmation request", async () => {
+    const fixture = await createRetryFixture("none", makeConvexTest(), "none");
 
-      await expect(retry(fixture)).rejects.toThrow(
-        "A provider setup retry cannot repair this failed setup, so nothing changed. Check this repository in the Samebase dashboard for recovery steps.",
-      );
-    },
-  );
+    await expect(retry(fixture)).rejects.toThrow(
+      "A provider setup retry cannot repair this failed setup, so nothing changed. Check this repository in the Samebase dashboard for recovery steps.",
+    );
+  });
 
   it.each(["active", "succeeded", "failed"] as const)(
     "rejects retry after an old %s manual write replaced the failed managed setup",

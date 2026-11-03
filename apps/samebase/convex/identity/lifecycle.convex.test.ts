@@ -560,19 +560,11 @@ describe("user lifecycle authorization", () => {
         updatedAt: 1,
       });
       await ctx.db.insert("workflow_repositoryProvisioning_plans", {
+        provisioning: "repository_actions",
         repositoryId,
         convexConfigPath: "convex.json",
-        convex: {
-          state: "creating",
-          projectName: "repository",
-          deploymentRegion: "aws-us-east-1",
-        },
-        cloudflare: {
-          state: "creating",
-          workerName: "repository",
-          rootDirectory: "/",
-          buildTokenUuid: "build-token",
-        },
+        ciSecrets: { state: "planned" },
+        seed: { state: "planned" },
         createdAt: 1,
         updatedAt: 1,
       });

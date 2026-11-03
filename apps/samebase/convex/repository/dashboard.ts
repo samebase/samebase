@@ -7,7 +7,6 @@ import {
 } from "./deletion/eligibility";
 import { components } from "../_generated/api";
 import type { RepositoryProvisioningRunStep } from "./provisioningModel";
-import { isSamebaseProvisioningPlan, readRepositoryProvisioningMode } from "./provisioningPlan";
 import {
   type ManagedProviderPlan,
   type ProviderSetupSummary,
@@ -109,7 +108,6 @@ async function resolveSourceSetupSummary(
   // secrets write and can already show a connected repository, stays source setup.
   const repositoryActionsProviderStep =
     providerPlan !== null &&
-    readRepositoryProvisioningMode(providerPlan) === "repository_actions" &&
     (classifiedStep.step === "seed_starter" || classifiedStep.step === "sync_tree");
   if (
     repository.state === "connected" &&
@@ -291,23 +289,10 @@ async function readManagedProviderPlan(
   if (!plan) {
     return null;
   }
-  if (!isSamebaseProvisioningPlan(plan)) {
-    return {
-      provisioning: plan.provisioning,
-      convexConfigPath: plan.convexConfigPath,
-      ciSecrets: plan.ciSecrets,
-    };
-  }
-  // An old plan without its destinations reads like a finished old plan, so that one such row does
-  // not break the whole list of its organization.
-  if (repository.convexTeamId === undefined || repository.cloudflareAccountId === undefined) {
-    return null;
-  }
-
   return {
+    provisioning: plan.provisioning,
     convexConfigPath: plan.convexConfigPath,
-    convex: { ...plan.convex, teamId: repository.convexTeamId },
-    cloudflare: { ...plan.cloudflare, accountId: repository.cloudflareAccountId },
+    ciSecrets: plan.ciSecrets,
   };
 }
 
@@ -365,7 +350,7 @@ async function resolveProviderSetupSummary(
   providerPlan: ManagedProviderPlan,
   infrastructure: RepositoryInfrastructureState,
 ): Promise<ProviderSetupSummary> {
-  if (!providerPlan || readRepositoryProvisioningMode(providerPlan) !== "repository_actions") {
+  if (providerPlan === null) {
     return { status: "not_applicable" };
   }
 

@@ -1,8 +1,8 @@
-import { ConvexError, v } from "convex/values";
+import { ConvexError } from "convex/values";
 
 import { components } from "../_generated/api";
 import type { Doc, Id } from "../_generated/dataModel";
-import { internalMutation, type DatabaseReader, type MutationCtx } from "../_generated/server";
+import type { DatabaseReader, MutationCtx } from "../_generated/server";
 
 /**
 The password sign-in identity for a normalized email. Its `authAccounts` row keys the identity by
@@ -63,22 +63,3 @@ export async function writePasswordAccount(
     });
   }
 }
-
-/**
-Clears the Convex Auth 0.0.x password hashes, which nothing reads. It keeps the accounts. Run it once
-on production, then remove it with the `secret` field.
-*/
-export const clearOldPasswordHashes = internalMutation({
-  args: {},
-  returns: v.number(),
-  handler: async (ctx) => {
-    let cleared = 0;
-    for await (const account of ctx.db.query("authAccounts")) {
-      if (account.secret !== undefined) {
-        await ctx.db.patch(account._id, { secret: undefined });
-        cleared += 1;
-      }
-    }
-    return cleared;
-  },
-});

@@ -3,7 +3,6 @@ import { v, type Infer } from "convex/values";
 import { vRepositoryDeletionStep } from "../deletion/model";
 import type { AppFunctionMcpMetadata } from "../../../shared/convexFunctionPolicyTypes";
 import { vRepositoryActionsCiSecrets, vRepositoryProviderWriteTimes } from "../provisioningModel";
-import { vConvexDeploymentRegion } from "../../convexDeploymentRegionModel";
 
 const { array, boolean, id, literal, number, object, optional, string, union } = v;
 
@@ -85,54 +84,6 @@ export const vProviderSetupSummary = union(
 
 export const vManagedProviderPlan = union(
   v.null(),
-  object({
-    convexConfigPath: string(),
-    convex: union(
-      object({
-        state: literal("planned"),
-        projectName: string(),
-        deploymentRegion: vConvexDeploymentRegion,
-        teamId: string(),
-      }),
-      object({
-        state: literal("creating"),
-        projectName: string(),
-        deploymentRegion: vConvexDeploymentRegion,
-        teamId: string(),
-      }),
-      object({
-        state: literal("created"),
-        projectName: string(),
-        deploymentRegion: vConvexDeploymentRegion,
-        teamId: string(),
-        projectId: string(),
-      }),
-    ),
-    cloudflare: union(
-      object({
-        state: literal("planned"),
-        accountId: string(),
-        workerName: string(),
-        rootDirectory: string(),
-        buildTokenUuid: union(string(), v.null()),
-      }),
-      object({
-        state: literal("creating"),
-        accountId: string(),
-        workerName: string(),
-        rootDirectory: string(),
-        buildTokenUuid: string(),
-      }),
-      object({
-        state: literal("created"),
-        accountId: string(),
-        workerName: string(),
-        workerTag: string(),
-        rootDirectory: string(),
-        buildTokenUuid: string(),
-      }),
-    ),
-  }),
   object({
     provisioning: literal("repository_actions"),
     convexConfigPath: string(),

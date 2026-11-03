@@ -23,7 +23,6 @@ import { buildRepositoryFileRoute } from "@/lib/repositoryRoutes";
 import { Link } from "@tanstack/react-router";
 import { convexDeploymentRegionDetails } from "../../../shared/convexDeploymentRegions";
 import { ExternalLink, MoreHorizontal, Pencil } from "lucide-react";
-import { isSamebaseManagedProviderPlan } from "../../../convex/repository/provisioningPlan";
 import type { RepositoryWorkspaceSelected } from "./repositoryWorkspaceModel";
 
 const STORE_READ_FAILED = "Could not read the team's Alchemy state store.";
@@ -312,8 +311,7 @@ function readStoreNotice({
     return { message: STORE_READ_FAILED, reload: alchemyState.reload };
   }
   const { providerPlan } = repository;
-  const firstDeploymentPending =
-    providerPlan !== null && !isSamebaseManagedProviderPlan(providerPlan);
+  const firstDeploymentPending = providerPlan !== null;
   const { observation } = alchemyState;
   switch (observation.store) {
     case "no_connection":

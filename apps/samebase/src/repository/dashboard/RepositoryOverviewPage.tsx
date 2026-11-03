@@ -12,7 +12,6 @@ import { formatRepositorySourceSetupStep } from "./repositorySourceSetup";
 import { AlertTriangle, Loader2 } from "lucide-react";
 import type { ReactNode } from "react";
 import type { UserRepositoryResult } from "../../../convex/repository/contracts/getUserRepositories";
-import { isSamebaseManagedProviderPlan } from "../../../convex/repository/provisioningPlan";
 import type { RepositoryWorkspaceSelected } from "./repositoryWorkspaceModel";
 
 type RepositoryOverviewPageProps = {
@@ -178,11 +177,7 @@ function RepositoryStateNotice({
       <FailureNotice description={repository.sourceSetup.message} title="Repository setup failed" />
     );
   }
-  if (
-    repository.providerSetup.status === "failed" &&
-    repository.providerPlan &&
-    !isSamebaseManagedProviderPlan(repository.providerPlan)
-  ) {
+  if (repository.providerSetup.status === "failed" && repository.providerPlan !== null) {
     return (
       <FailureNotice
         description={repository.providerSetup.message}

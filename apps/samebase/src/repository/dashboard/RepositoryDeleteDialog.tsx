@@ -5,7 +5,6 @@ import { Loader2 } from "lucide-react";
 
 import { api } from "../../../convex/_generated/api";
 import type { UserRepositoryResult } from "../../../convex/repository/contracts/getUserRepositories";
-import { isSamebaseManagedProviderPlan } from "../../../convex/repository/provisioningPlan";
 import { AppDialogContent } from "@/components/AppDialogContent";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -228,11 +227,7 @@ export function RepositoryDeleteDialog({
       : stackCheck.state === "no_stack"
         ? null
         : stackCheck.reason,
-    hasSetupStack: Boolean(
-      repository.providerPlan &&
-      !isSamebaseManagedProviderPlan(repository.providerPlan) &&
-      stackCheck.state !== "no_stack",
-    ),
+    hasSetupStack: repository.providerPlan !== null && stackCheck.state !== "no_stack",
   };
 
   const handleCommitBeforeRemove = async () => {

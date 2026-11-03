@@ -420,46 +420,6 @@ describe("buildRepositoryAttention", () => {
       ).toEqual(expected);
     });
 
-    it("uses the store guidance for an old failed setup", () => {
-      const attention = buildRepositoryAttention({
-        repository: {
-          ...repository,
-          providerSetup: {
-            status: "failed",
-            provider: "cloudflare",
-            runId,
-            step: "attach_worker",
-            message: "Cloudflare could not attach the Worker.",
-            updatedAt: 1,
-          },
-          providerPlan: {
-            convexConfigPath: "convex.json",
-            convex: {
-              state: "planned",
-              teamId: "team-1",
-              projectName: "chess-merge",
-              deploymentRegion: "aws-us-east-1",
-            },
-            cloudflare: {
-              state: "planned",
-              accountId: "account-1",
-              workerName: "chess-merge",
-              rootDirectory: "/",
-              buildTokenUuid: null,
-            },
-          },
-        },
-        observations: { ...healthyObservations, stacks: { state: "no_store" } },
-      });
-      expect(attention).toEqual([
-        {
-          tool: null,
-          problem:
-            "The Convex team of samebase/chess-merge has no Alchemy state store yet, so Samebase cannot see what is deployed. The first Alchemy deploy creates it: https://samebase.com/docs/the-big-migration",
-        },
-      ]);
-    });
-
     it.each(["not_applicable", "ready"] as const)("provider setup %s", (status) => {
       expect(
         buildRepositoryAttention({
@@ -472,10 +432,7 @@ describe("buildRepositoryAttention", () => {
 
   describe("a repository that its GitHub Actions set up", () => {
     const repositoryActionsRepository = (
-      ciSecrets: Extract<
-        NonNullable<RepositoryStatusRepository["providerPlan"]>,
-        { provisioning: "repository_actions" }
-      >["ciSecrets"],
+      ciSecrets: NonNullable<RepositoryStatusRepository["providerPlan"]>["ciSecrets"],
     ): RepositoryStatusRepository => ({
       ...repository,
       providerPlan: {

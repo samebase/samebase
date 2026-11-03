@@ -4,7 +4,6 @@ import { useQuery } from "@tanstack/react-query";
 import { useAction } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import type { UserRepositoryResult } from "../../../convex/repository/contracts/getUserRepositories";
-import { isSamebaseManagedProviderPlan } from "../../../convex/repository/provisioningPlan";
 
 /**
 The first deployment of a repository that its GitHub Actions set up, once Samebase's own setup
@@ -25,8 +24,7 @@ export function RepositorySetupStackStatus({
   const enabled =
     repository.providerSetup.status === "ready" &&
     repository.deletion.state === "not_deleting" &&
-    providerPlan !== null &&
-    !isSamebaseManagedProviderPlan(providerPlan);
+    providerPlan !== null;
   const readStatus = useAction(api.repository.alchemyState.readSetupStatus);
   const statusQuery = useQuery({
     queryKey: [...repositoryExternalDataQueryKey(repositoryId), "setup-stack"],

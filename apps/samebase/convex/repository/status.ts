@@ -16,7 +16,6 @@ import {
 } from "./contracts/getRepositoryStatus";
 import type { UserRepositoryResult } from "./contracts/getUserRepositories";
 import { readRepositoryStacks } from "./alchemyState";
-import { isSamebaseManagedProviderPlan } from "./provisioningPlan";
 import {
   buildRepositoryAttention,
   buildRepositorySetupStackStatus,
@@ -104,7 +103,7 @@ export async function readRepositoryStatusForUser(
           : null,
     }),
     setupStack:
-      plan && !isSamebaseManagedProviderPlan(plan)
+      plan !== null
         ? buildRepositorySetupStackStatus({
             read: store,
             repository: repository.githubRepositoryFullName,

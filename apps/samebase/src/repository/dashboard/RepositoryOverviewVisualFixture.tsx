@@ -578,23 +578,6 @@ const PROVISIONING_DEFAULT_BRANCH = {
   checks: FIXTURE_NO_CHECKS,
 } satisfies RepositoryDefaultBranchObservation;
 
-const PROVISIONING_PLANNED_PROVIDER_PLAN = {
-  convexConfigPath: "convex.json",
-  convex: {
-    state: "planned",
-    projectName: "tmp-f149-repository-loading-states",
-    deploymentRegion: "aws-eu-west-1",
-    teamId: "38516",
-  },
-  cloudflare: {
-    state: "planned",
-    accountId: "fixture-cloudflare-account",
-    buildTokenUuid: "fixture-build-token",
-    workerName: "tmp-f149-repository-loading-states",
-    rootDirectory: "/",
-  },
-} satisfies NonNullable<UserRepositoryResult["providerPlan"]>;
-
 function fixturePullRequests(
   pullRequests: readonly FixturePullRequest[],
   defaultBranch: RepositoryDefaultBranchObservation | null,
@@ -694,7 +677,7 @@ function RepositoryOverviewProvisioningFixture({
         githubOwnerLogin: "noter-guest",
         githubRepositoryName: "tmp-testing-waters",
         githubRepositoryFullName,
-        providerPlan: PROVISIONING_PLANNED_PROVIDER_PLAN,
+        providerPlan: null,
         providerSetup: { status: "not_applicable" },
       };
       pullRequests = fixturePullRequests([], PROVISIONING_DEFAULT_BRANCH);
@@ -842,7 +825,7 @@ function RepositoryOverviewProvisioningFixture({
 function RepositoryOverviewDisconnectBlockedFixture() {
   const repository: UserRepositoryResult = {
     ...PROVISIONING_REPOSITORY,
-    providerPlan: PROVISIONING_PLANNED_PROVIDER_PLAN,
+    providerPlan: null,
     providerSetup: {
       status: "running",
       provider: "cloudflare",
