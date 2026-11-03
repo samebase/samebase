@@ -106,6 +106,8 @@ export default defineConfig({
     },
     ignorePatterns: [
       "**/dist",
+      // Installed agent skills are vendored, like the formatter already treats them.
+      "**/.agents/**",
       "**/convex/_generated",
       "packages/git-editor/src/component/_generated/**",
       "packages/identity-broker/src/component/_generated/**",
