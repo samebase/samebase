@@ -1091,38 +1091,39 @@ describe("PullRequestResources", () => {
 });
 
 describe("PullRequestsSection", () => {
+  const pullRequest = {
+    id: "pull-request:41",
+    number: 41,
+    title: "Show previews from the store",
+    url: "https://github.com/ada/demo/pull/41",
+    isDraft: false,
+    isCrossRepository: false,
+    additions: 3,
+    deletions: 1,
+    changedFiles: 2,
+    updatedAt: "2026-07-31T08:00:00Z",
+    baseRefName: "main",
+    headRefName: "preview-comments",
+    headRefOid: "1111111111111111111111111111111111111111",
+    headRepository: {
+      id: "repository:ada/demo",
+      nameWithOwner: "ada/demo",
+      owner: { login: "ada" },
+    },
+    labels: [],
+    statusCheckRollup: null,
+    checks: {
+      state: "none",
+      totalCount: 0,
+      successCount: 0,
+      failureCount: 0,
+      runningCount: 0,
+      neutralCount: 0,
+      unknownCount: 0,
+    },
+  } satisfies RepositoryPullRequest;
+
   it("shows the stack cards in an expanded row", async () => {
-    const pullRequest = {
-      id: "pull-request:41",
-      number: 41,
-      title: "Show previews from the store",
-      url: "https://github.com/ada/demo/pull/41",
-      isDraft: false,
-      isCrossRepository: false,
-      additions: 3,
-      deletions: 1,
-      changedFiles: 2,
-      updatedAt: "2026-07-31T08:00:00Z",
-      baseRefName: "main",
-      headRefName: "preview-comments",
-      headRefOid: "1111111111111111111111111111111111111111",
-      headRepository: {
-        id: "repository:ada/demo",
-        nameWithOwner: "ada/demo",
-        owner: { login: "ada" },
-      },
-      labels: [],
-      statusCheckRollup: null,
-      checks: {
-        state: "none",
-        totalCount: 0,
-        successCount: 0,
-        failureCount: 0,
-        runningCount: 0,
-        neutralCount: 0,
-        unknownCount: 0,
-      },
-    } satisfies RepositoryPullRequest;
     const pullRequests = {
       state: "current",
       defaultBranch: null,
@@ -1179,6 +1180,58 @@ describe("PullRequestsSection", () => {
         rootElement.querySelector('[aria-label="Alchemy stack samebase/base-alchemy"]'),
       ).not.toBeNull();
       expect(rootElement.querySelector('[aria-label="Other previews"]')).toBeNull();
+    } finally {
+      await act(async () => {
+        root.unmount();
+      });
+      rootElement.remove();
+    }
+  });
+
+  it("opens the pull request's changed files", async () => {
+    const pullRequests = {
+      state: "current",
+      defaultBranch: null,
+      openPullRequestCount: 1,
+      refreshing: false,
+      allPullRequests: [pullRequest],
+      resourcesByPullRequestId: new Map(),
+      loadMore: { state: "exhausted" },
+    } satisfies RepositoryPullRequestsState;
+    const rootElement = document.createElement("div");
+    document.body.append(rootElement);
+    const root = createRoot(rootElement);
+
+    try {
+      await act(async () => {
+        root.render(
+          <TestRouterProvider initialEntries={["/repo/ada/demo"]}>
+            <PullRequestsSection
+              filesReadEnabled
+              pullRequests={pullRequests}
+              repository={makeRepositorySettingsBuilderRepository({
+                githubOwnerLogin: "ada",
+                githubRepositoryName: "demo",
+              })}
+            />
+          </TestRouterProvider>,
+        );
+      });
+
+      const expandButton = rootElement.querySelector(
+        'button[aria-label="Show pull request #41 details"]',
+      );
+      if (!(expandButton instanceof HTMLButtonElement)) {
+        throw new Error("Expected the pull request details button.");
+      }
+      await act(async () => {
+        expandButton.click();
+      });
+
+      const changesLink = [...rootElement.querySelectorAll("a")].find(
+        (link) => link.textContent === "View changes",
+      );
+      expect(changesLink?.getAttribute("href")).toBe("/repo/ada/demo/fs/preview-comments?compare");
     } finally {
       await act(async () => {
         root.unmount();

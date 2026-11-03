@@ -27,7 +27,8 @@ function SamebaseChangesLink({ href }: { href: string }) {
   return (
     <Link
       className="inline-flex min-h-10 items-center gap-1 font-medium text-foreground underline decoration-border underline-offset-4 hover:decoration-foreground @4xl:min-h-8"
-      title="View this branch's changes in Samebase"
+      search={{ compare: true }}
+      title="View this pull request's changes in Samebase"
       to={href}
     >
       <span aria-hidden="true" className="flex h-4 w-4 items-center justify-center">
