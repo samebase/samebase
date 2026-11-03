@@ -1315,6 +1315,8 @@ export const trackedFilePaths = [
   "apps/samebase/src/lib/utils.ts",
   "apps/samebase/src/lib/webManifest.test.ts",
   "apps/samebase/src/lib/workspaceSidebarStateCompatibility.test-d.ts",
+  "apps/samebase/src/loopbackSessionCookies.test.ts",
+  "apps/samebase/src/loopbackSessionCookies.ts",
   "apps/samebase/src/organization/OrganizationBillingSection.test.tsx",
   "apps/samebase/src/organization/OrganizationBillingSection.tsx",
   "apps/samebase/src/organization/OrganizationContext.tsx",
