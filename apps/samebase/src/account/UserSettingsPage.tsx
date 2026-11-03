@@ -107,7 +107,7 @@ export function UserSettingsPage() {
       return;
     }
     setIsSigningOut(true);
-    // A sign-out reloads the page, which then renders without the session.
+    // A sign-out loads the landing page; `false` means the session stays.
     void signOut()
       .then((signedOut) => {
         if (!signedOut) {
