@@ -424,7 +424,6 @@ describe("Alchemy stack cards", () => {
         link.getAttribute("href"),
       ]),
     ).toEqual([
-      ["main", "https://github.com/samebase/base-alchemy/tree/main"],
       ["ideal-dolphin-15.convex.site", "https://ideal-dolphin-15.convex.site"],
       ["ideal-dolphin-15", "https://dashboard.convex.dev/t/nicu/base-alchemy/ideal-dolphin-15"],
     ]);
@@ -954,7 +953,7 @@ describe("the default-branch block without a stack", () => {
     const block = renderBlock(makeWorkspace(oldApp, NO_STACK_STORE));
 
     expect(block.textContent).toContain(NO_STACK_LINE);
-    expect(block.querySelector('a[href="https://github.com/ada/demo/tree/main"]')).not.toBeNull();
+    expect(block.textContent).toContain("main");
     expect(block.querySelector('[aria-label^="Cloudflare Worker "]')).toBeNull();
     expect(block.querySelector('[aria-label^="Convex deployment "]')).toBeNull();
     expect(block.textContent).not.toContain("Could not read");
@@ -1223,9 +1222,9 @@ describe("PullRequestsSection", () => {
 
       const rowText = (number: number) =>
         rootElement.querySelector(`[data-pull-request-number="${number}"]`)?.textContent;
-      expect(rowText(41)).toContain("preview-comments · ");
+      expect(rowText(41)).toContain("preview-comments");
       expect(rowText(41)).not.toContain("→");
-      expect(rowText(42)).toContain("preview-comments → release · ");
+      expect(rowText(42)).toContain("preview-comments → release");
     } finally {
       await act(async () => {
         root.unmount();

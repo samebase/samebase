@@ -9,13 +9,6 @@ export function encodeGitHubPath(path: string): string {
     .join("/");
 }
 
-export function buildGitHubBranchTreeUrl(args: {
-  githubRepositoryFullName: string;
-  branchName: string;
-}): string {
-  return `https://github.com/${encodeGitHubPath(args.githubRepositoryFullName)}/tree/${encodeGitHubPath(args.branchName)}`;
-}
-
 export function buildGitHubRepositoryAppInstallationsUrl(args: {
   githubRepositoryFullName: string;
 }): string {

@@ -95,13 +95,15 @@ function PullRequestRow({
     >
       {/* Same shape as the main branch row: branch and time on top, checks at the right. */}
       <div className="flex min-w-0 items-center gap-3">
-        <div className="min-w-0 flex-1 text-xs leading-5 text-muted-foreground [overflow-wrap:anywhere]">
+        <div className="flex min-w-0 flex-1 flex-wrap gap-x-2.5 text-xs leading-5 text-muted-foreground">
           {/* Most pull requests target the default branch, so only another base is named. */}
-          {headLabel}
-          {pullRequest.baseRefName === repository.defaultBranch
-            ? null
-            : ` → ${pullRequest.baseRefName}`}{" "}
-          · {updatedLabel}
+          <span className="[overflow-wrap:anywhere]">
+            {headLabel}
+            {pullRequest.baseRefName === repository.defaultBranch
+              ? null
+              : ` → ${pullRequest.baseRefName}`}
+          </span>
+          <span>{updatedLabel}</span>
         </div>
         <RepositoryChecksPopover
           checks={pullRequest.checks}

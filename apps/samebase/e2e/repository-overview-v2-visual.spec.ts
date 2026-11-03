@@ -131,9 +131,11 @@ test("shows an old app with no stack on desktop", async ({ page }) => {
     }),
   ).toHaveCount(0);
 
-  await expect(fixture.getByRole("link", { name: "main", exact: true })).toHaveAttribute(
+  await expect(
+    fixture.getByRole("link", { name: "81145b7 Keep repository provider observations explicit" }),
+  ).toHaveAttribute(
     "href",
-    "https://github.com/samebase/samebase/tree/main",
+    "https://github.com/samebase/samebase/commit/81145b7d2a32186823452c7515b2d5ba2d79b350",
   );
   await expect(
     fixture.getByRole("link", { name: "Open samebase/samebase on GitHub" }),
@@ -406,7 +408,7 @@ test("uses stable shells while independent data sources load", async ({ page }) 
     page,
     "repository-overview-v2-partial-loading",
   );
-  await expect(partialFixture.getByRole("link", { name: "main", exact: true })).toBeVisible();
+  await expect(partialFixture.getByText("main", { exact: true })).toBeVisible();
   await expect(partialFixture.getByLabel("Loading production destinations")).toBeVisible();
   await expect(
     partialFixture.getByRole("link", {
@@ -501,7 +503,7 @@ test("reproduces the observed new repository provisioning states", async ({ page
     "repository-overview-v2-provisioning-github",
   );
   await expect(githubFixture.getByRole("status")).toHaveText("Setting up");
-  await expect(githubFixture.getByRole("link", { name: "main", exact: true })).toBeVisible();
+  await expect(githubFixture.getByText("main", { exact: true })).toBeVisible();
   await expect(githubFixture.getByLabel("Loading default branch commit")).toBeVisible();
   await expect(githubFixture.getByRole("heading", { name: "Open pull requests" })).toBeVisible();
 
