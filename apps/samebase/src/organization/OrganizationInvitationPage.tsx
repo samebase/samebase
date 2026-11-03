@@ -2,7 +2,7 @@ import { useAppAuthActions } from "@/authClient";
 import { OrganizationInvitationPageView } from "@/organization/OrganizationInvitationPageView";
 import { ORGANIZATION_REPOSITORIES_ROUTE } from "@/organization/organizationRoutes";
 import { useQuery } from "@tanstack/react-query";
-import { useNavigate } from "@tanstack/react-router";
+import { useLocation, useNavigate } from "@tanstack/react-router";
 import { useAction, useConvexAuth, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 
@@ -18,7 +18,8 @@ export function OrganizationInvitationPage({ code }: { code: string }) {
     retry: 1,
   });
   const acceptInvitation = useMutation(api.organizationMembers.acceptInvitation);
-  const { signOut } = useAppAuthActions();
+  // The invitation page is public: after sign-out it loads again, to sign in with another account.
+  const { signOut } = useAppAuthActions(useLocation({ select: (location) => location.href }));
   const navigate = useNavigate();
 
   if (invitationQuery.isError && invitationQuery.data === undefined) {

@@ -124,9 +124,12 @@ export function useAppSignInActions() {
   };
 }
 
-export function useAppAuthActions() {
-  // Posts to the sign-out route, which clears the session cookies, then reloads the page.
-  const signOut = useSignOutSession("/auth/signout");
+/**
+ * Posts to the sign-out route, which clears the session cookies, then loads `landingUrl`. Not a
+ * reload: a private page loaded without a session redirects to the landing page with `next`.
+ */
+export function useAppAuthActions(landingUrl = "/") {
+  const signOut = useSignOutSession("/auth/signout", landingUrl);
 
   return {
     signOut: () =>

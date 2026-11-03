@@ -33,6 +33,7 @@ vi.mock("@tanstack/react-router", async (importOriginal) => {
 
   return {
     ...actual,
+    useLocation: () => "/invite/code",
     useNavigate: () => vi.fn(),
   };
 });

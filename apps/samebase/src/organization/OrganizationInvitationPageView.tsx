@@ -99,7 +99,7 @@ export function OrganizationInvitationPageView({
     }
     setPendingAction("sign-out");
     setError(null);
-    // A sign-out reloads the page; `false` means the session stays.
+    // A sign-out loads this page again; `false` means the session stays.
     void onSignOut().then((signedOut) => {
       if (!signedOut) {
         setError("Could not sign out. Try again.");
