@@ -55,6 +55,21 @@ const overview = {
       },
     ],
   },
+  clientList: {
+    clients: [
+      {
+        clientId: "cl_test",
+        appId: "gh-74-4c9a75cca717efb68c856f26ba825073",
+        clientName: "pr-12",
+        deploymentType: "preview",
+        redirectHost: "calm-cow-456.eu-west-1.convex.site",
+        createdAt: 1,
+        renewedAt: 2,
+        lastSignInAt: null,
+      },
+    ],
+    limitReached: false,
+  },
 };
 
 const registrations = {
@@ -136,7 +151,7 @@ describe("AdminHubClientsPage", () => {
     }
   });
 
-  it("lists the counts, the registrations, the blocks, and their events", async () => {
+  it("lists the counts, the registrations, the clients, the blocks, and their events", async () => {
     const page = await renderPage();
     try {
       const text = page.rootElement.textContent;
@@ -145,7 +160,24 @@ describe("AdminHubClientsPage", () => {
       expect(text).toContain("https://ideal-dolphin-15.convex.site/auth/hub/callback");
       expect(text).toContain("owner 65: Phishing page");
       expect(text).toContain("block owner 65: Phishing page");
+      expect(text).toContain("gh-74-4c9a75cca717efb68c856f26ba825073");
+      expect(text).toContain("calm-cow-456.eu-west-1.convex.site");
+      expect(text).toContain("Never");
+      expect(text).not.toContain("The newest");
       expect(actionState.listRegistrations).toHaveBeenCalledWith({ cursor: null });
+    } finally {
+      await page.unmount();
+    }
+  });
+
+  it("says when the client list reached its limit", async () => {
+    actionState.readOverview.mockResolvedValue({
+      ...overview,
+      clientList: { ...overview.clientList, limitReached: true },
+    });
+    const page = await renderPage();
+    try {
+      expect(page.rootElement.textContent).toContain("The newest 1 clients.");
     } finally {
       await page.unmount();
     }

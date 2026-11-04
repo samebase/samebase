@@ -57,6 +57,22 @@ const blockList = {
   ],
 };
 
+const clientList = {
+  clients: [
+    {
+      clientId: "cl_test",
+      appId: "gh-74-4c9a75cca717efb68c856f26ba825073",
+      clientName: "prod",
+      deploymentType: "production",
+      redirectHost: "ideal-dolphin-15.convex.site",
+      createdAt: 1_800_000_000_000,
+      renewedAt: 1_800_000_001_000,
+      lastSignInAt: null,
+    },
+  ],
+  limitReached: false,
+};
+
 /** The hub's moderation endpoints, as apps/identity-hub/convex/moderation.ts answers them. */
 function stubHub(answer?: () => Response) {
   const requests: { url: string; method: string; authorization: string | null; body: unknown }[] =
@@ -83,6 +99,8 @@ function stubHub(answer?: () => Response) {
           return jsonResponse(counts);
         case "/moderation/blocks":
           return jsonResponse(request.method === "GET" ? blockList : { changed: true });
+        case "/moderation/clients":
+          return jsonResponse(clientList);
         default:
           return new Response("Not Found", { status: 404 });
       }
@@ -161,7 +179,7 @@ describe("hub client moderation", () => {
     expect(requests).toEqual([]);
   });
 
-  it("reads the counts and the blocks at the hub with the key", async () => {
+  it("reads the counts, the blocks, and the clients at the hub with the key", async () => {
     const t = makeConvexTest();
     turnModerationOn();
     const requests = stubHub();
@@ -169,7 +187,7 @@ describe("hub client moderation", () => {
 
     const overview = await admin.action(api.hubClients.moderation.readOverview, {});
 
-    expect(overview).toEqual({ status: "on", counts, blockList });
+    expect(overview).toEqual({ status: "on", counts, blockList, clientList });
     expect(requests).toEqual([
       {
         url: `${HUB_ISSUER}/moderation/counts`,
@@ -179,6 +197,12 @@ describe("hub client moderation", () => {
       },
       {
         url: `${HUB_ISSUER}/moderation/blocks`,
+        method: "GET",
+        authorization: `Bearer ${MODERATION_KEY}`,
+        body: undefined,
+      },
+      {
+        url: `${HUB_ISSUER}/moderation/clients`,
         method: "GET",
         authorization: `Bearer ${MODERATION_KEY}`,
         body: undefined,
