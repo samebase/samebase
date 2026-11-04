@@ -1,6 +1,7 @@
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { createServer as createHttpServer } from "node:http";
 import { createServer } from "node:net";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 
@@ -9,6 +10,7 @@ import {
   readEnvFile,
   resolveSiteUrlSyncOrigin,
   usesLocalConvexDeployment,
+  waitForLocalBackend,
 } from "./scripts/convex-local-utils.ts";
 
 const temporaryDirectories: string[] = [];
@@ -126,5 +128,24 @@ EMPTY_VALUE=""
       }),
     ).toBe("43121");
     expect(readConfiguredLocalDevPort({ VITE_PORT: "0" })).toBeNull();
+  });
+
+  it("waits for the local backend that .env.local names, and for no other", async () => {
+    const backend = createHttpServer((_request, response) => response.end("anonymous-agent"));
+    await new Promise<void>((resolve) => backend.listen(0, "127.0.0.1", resolve));
+    const address = backend.address();
+    try {
+      if (address === null || typeof address === "string") {
+        throw new Error("Expected a TCP address.");
+      }
+      const cwd = createTempWorkspace();
+      writeEnvFile(cwd, `CONVEX_URL="http://127.0.0.1:${address.port}"\n`);
+      expect(await waitForLocalBackend(1_000, cwd)).toBe(true);
+
+      writeEnvFile(cwd, `CONVEX_URL="http://127.0.0.1:${await reserveFreePort()}"\n`);
+      expect(await waitForLocalBackend(300, cwd)).toBe(false);
+    } finally {
+      await new Promise((resolve) => backend.close(resolve));
+    }
   });
 });

@@ -13,6 +13,7 @@ import {
 import { readBooleanEnvValue, readPositiveIntegerEnvValue } from "./lib/env.ts";
 import { fail, isMainModule, resolveRepoRoot, runMain } from "./lib/scriptRuntime.ts";
 import { trackedFilePath } from "./lib/trackedFilePath.ts";
+import { waitForLocalBackend } from "../apps/samebase/scripts/convex-local-utils.ts";
 import {
   LOCAL_WORKTREE_PASSWORD_AUTH_EMAIL,
   LOCAL_WORKTREE_PASSWORD_AUTH_PASSWORD,
@@ -20,6 +21,8 @@ import {
 import { buildPrimaryDevCommand, buildPrimaryDevEnvironment } from "./run-primary-dev.ts";
 
 const DEFAULT_WORKTREE_DEV_VITE_PORT = 5174;
+/** How long a start waits for the dev server's local backend before it skips the hub clients. */
+const BACKEND_READY_TIMEOUT_MS = 60_000;
 // Refresh existing worktrees once so their local backend registers with the identity hub.
 const ONCE_BOOTSTRAP_MARKER = "worktree-anonymous-seed-auth-bootstrap-v8";
 
@@ -50,7 +53,17 @@ type CommandSpec = {
   cwd: string;
   command: string;
   args: string[];
-  phase: "always" | "once-bootstrap" | "long-running";
+  /**
+  always = runs at every start, before the dev server
+
+  once-bootstrap = the seed, at a start without the marker
+
+  backend-ready = runs beside the dev server once its local backend answers, at a start that skips
+  the seed
+
+  long-running = the dev server
+  */
+  phase: "always" | "once-bootstrap" | "backend-ready" | "long-running";
   env?: NodeJS.ProcessEnv;
   stdio?: ["ignore", "inherit", "inherit"];
 };
@@ -189,9 +202,20 @@ export function buildWorktreeDevCommandPlan(
   }
 
   const primaryDevCommand = buildPrimaryDevCommand([], "dev:raw");
+  // The seed registers both identity hub clients, or renews them. A start that skips the seed still
+  // renews them, so a development client expires only 14 days after the last start.
+  const hubClientSteps = ["hub:client", "hub:resource-client"].map((script): CommandSpec => ({
+    label: `register or renew the identity hub client (${script})`,
+    cwd: path.join(repoRoot, "apps", "samebase"),
+    command: process.execPath,
+    args: ["--run", script],
+    env: anonymousEnv,
+    phase: "backend-ready",
+  }));
 
   return [
     ...plan,
+    ...hubClientSteps,
     {
       label: "launch the long-running worktree dev server",
       cwd: repoRoot,
@@ -205,6 +229,28 @@ export function buildWorktreeDevCommandPlan(
       phase: "long-running",
     },
   ];
+}
+
+/**
+ * What one start runs: the blocking steps in order, then the long-running dev server, and beside
+ * it the backend-ready steps once its local backend answers. A start that runs the seed has no
+ * backend-ready steps, because the seed runs the same commands.
+ */
+export function selectWorktreeDevSteps(
+  plan: CommandSpec[],
+  onceBootstrapAlreadyCompleted: boolean,
+) {
+  return {
+    blocking: plan.filter(
+      (spec) =>
+        spec.phase === "always" ||
+        (spec.phase === "once-bootstrap" && !onceBootstrapAlreadyCompleted),
+    ),
+    backendReady: onceBootstrapAlreadyCompleted
+      ? plan.filter((spec) => spec.phase === "backend-ready")
+      : [],
+    longRunning: plan.find((spec) => spec.phase === "long-running"),
+  };
 }
 
 function onceBootstrapMarkerPath(repoRoot: string): string {
@@ -243,6 +289,37 @@ function runBlockingCommand(spec: CommandSpec): void {
   }
 }
 
+/**
+ * Runs the backend-ready steps once the local backend of apps/samebase answers. A failure is a
+ * warning: the dev server keeps running, and the next start tries again.
+ */
+async function runWhenBackendIsReady(specs: CommandSpec[], repoRoot: string): Promise<void> {
+  if (specs.length === 0) {
+    return;
+  }
+  if (
+    !(await waitForLocalBackend(BACKEND_READY_TIMEOUT_MS, path.join(repoRoot, "apps", "samebase")))
+  ) {
+    console.warn("The local backend did not answer, so the identity hub clients were not renewed.");
+    return;
+  }
+
+  for (const spec of specs) {
+    const result = await execa(spec.command, spec.args, {
+      cwd: spec.cwd,
+      env: spec.env,
+      extendEnv: spec.env === undefined,
+      reject: false,
+      stdio: "inherit",
+    });
+    if (result.exitCode !== 0) {
+      console.warn(
+        `Could not ${spec.label} (exit code ${result.exitCode ?? 1}). The next start tries again.`,
+      );
+    }
+  }
+}
+
 async function runStreamingCommand(spec: CommandSpec): Promise<void> {
   const result = await execa(spec.command, spec.args, {
     cwd: spec.cwd,
@@ -273,32 +350,28 @@ async function main(): Promise<void> {
   const plan = buildWorktreeDevCommandPlan(options, repoRoot);
   const onceBootstrapAlreadyCompleted = hasCompletedOnceBootstrap(options, repoRoot);
   if (onceBootstrapAlreadyCompleted) {
-    console.log("Worktree --once bootstrap already completed; skipping seed/auth setup.");
+    console.log(
+      "Worktree --once bootstrap already completed; skipping seed/auth setup. The identity hub clients are renewed once the local backend is up.",
+    );
   } else if (options.forceBootstrap) {
     console.log("Forcing anonymous seed/auth setup.");
   }
 
-  let ranOnceBootstrap = false;
-  for (const spec of plan) {
-    if (onceBootstrapAlreadyCompleted && spec.phase === "once-bootstrap") {
-      continue;
-    }
-    if (spec.phase === "long-running") {
-      if (!onceBootstrapAlreadyCompleted && ranOnceBootstrap) {
-        writeOnceBootstrapMarker(repoRoot);
-      }
-      await runStreamingCommand(spec);
-      return;
-    }
+  const steps = selectWorktreeDevSteps(plan, onceBootstrapAlreadyCompleted);
+  for (const spec of steps.blocking) {
     runBlockingCommand(spec);
-    if (spec.phase === "once-bootstrap") {
-      ranOnceBootstrap = true;
-    }
   }
-
-  if (!onceBootstrapAlreadyCompleted && ranOnceBootstrap) {
+  if (!onceBootstrapAlreadyCompleted) {
     writeOnceBootstrapMarker(repoRoot);
   }
+  if (steps.longRunning === undefined) {
+    return;
+  }
+
+  await Promise.all([
+    runStreamingCommand(steps.longRunning),
+    runWhenBackendIsReady(steps.backendReady, repoRoot),
+  ]);
 }
 
 if (isMainModule(import.meta.url)) {

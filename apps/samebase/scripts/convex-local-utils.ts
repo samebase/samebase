@@ -206,3 +206,41 @@ export const listListeningPids = (port: number): string[] => {
 };
 
 export const isPortInUse = (port: number): boolean => listListeningPids(port).length > 0;
+
+const isLocalBackendReady = async (port: number) => {
+  try {
+    const response = await fetch(`http://127.0.0.1:${port}/instance_name`, {
+      signal: AbortSignal.timeout(500),
+    });
+    if (!response.ok) {
+      return false;
+    }
+    const instance = (await response.text()).trim();
+    return (
+      instance.startsWith("anonymous-") ||
+      instance.startsWith("local-") ||
+      instance === "anonymous-agent"
+    );
+  } catch {
+    return false;
+  }
+};
+
+/**
+ * Waits until the local backend that the .env.local of `cwd` names answers: true when it does within
+ * `timeoutMs`. Each try reads the file again, because `convex dev` writes the port that it takes. No
+ * default port is tried: another local backend there would answer first.
+ */
+export const waitForLocalBackend = async (timeoutMs: number, cwd: string = process.cwd()) => {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const env = readEnvFile(cwd);
+    const url = env.CONVEX_URL || env.VITE_CONVEX_URL;
+    const port = url ? parsePort(url) : null;
+    if (port !== null && (await isLocalBackendReady(port))) {
+      return true;
+    }
+    await sleep(250);
+  }
+  return false;
+};
