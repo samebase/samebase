@@ -1,13 +1,4 @@
-import { isRecord } from "@samebase/dependent";
-import {
-  array as sureArray,
-  bad,
-  good,
-  literal as sureLiteral,
-  object as sureObject,
-  pure,
-  string as sureString,
-} from "@samebase/sure";
+import { validate } from "convex-helpers/validators";
 import type { WithoutSystemFields } from "convex/server";
 import { v } from "convex/values";
 import { createLocalJWKSet, errors as joseErrors, jwtVerify } from "jose";
@@ -20,7 +11,7 @@ import { sha256Hex } from "../mcp/tokens";
 import { isLiveConnectedRepository } from "../repository/state";
 import { readHub, readRepositoryByGitHubId } from "./tenantConnection";
 
-const { literal, null: vNull, object, string, union } = v;
+const { array, literal, number, object, string, union } = v;
 
 const GITHUB_OIDC_ISSUER = "https://token.actions.githubusercontent.com";
 const GITHUB_OIDC_JWKS_URL = `${GITHUB_OIDC_ISSUER}/.well-known/jwks`;
@@ -43,46 +34,35 @@ const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1_000;
 const REPOSITORY_REQUEST_LIMIT = 30;
 const ORGANIZATION_REQUEST_LIMIT = 100;
 
-const sureGitHubKeySet = sureObject({
-  keys: sureArray(pure((key) => (isRecord(key) ? good(key) : bad("not object" as const)))),
-});
+// Each check below allows unknown fields: GitHub, the hub, and a host send more than these name.
+
+/** GitHub's key set. jose checks each key, so this checks only the shape that it takes. */
+const vGitHubKeySet = object({ keys: array(object({ kty: string() })) });
 
 /** `aud` is one exact string: jose alone also accepts a list that holds the audience. */
-const sureGitHubClaims = sureObject({
-  aud: sureLiteral(GITHUB_OIDC_AUDIENCE),
-  event_name: sureString,
-  ref: sureString,
-  repository_id: sureString,
-  repository_owner_id: sureString,
-  repository: sureString,
-  actor_id: sureString,
-  actor: sureString,
-  sha: sureString,
+const vGitHubClaims = object({
+  aud: literal(GITHUB_OIDC_AUDIENCE),
+  event_name: string(),
+  ref: string(),
+  repository_id: string(),
+  repository_owner_id: string(),
+  repository: string(),
+  actor_id: string(),
+  actor: string(),
+  sha: string(),
 });
 
-const sureRequestBody = sureObject({
-  app: sureString,
-  redirectUri: sureString,
-  softwareVersion: sureString,
-});
+const vRequestBody = object({ app: string(), redirectUri: string(), softwareVersion: string() });
 
-/** The file's one member: the numeric GitHub repository id, as a JSON number or a string of digits. */
-const sureVerificationFile = sureObject({
-  repository: pure((value) =>
-    typeof value === "number" && Number.isSafeInteger(value) && value > 0
-      ? good(String(value))
-      : typeof value === "string" && /^[1-9][0-9]*$/.test(value)
-        ? good(value)
-        : bad("not a repository id" as const),
-  ),
-});
+/** The file's one field: the numeric GitHub repository id, as a string of digits or a JSON number. */
+const vVerificationFile = object({ repository: union(string(), number()) });
 
 /** The 201 reply of the hub's `POST /register` (RFC 7591 section 3.2.1). */
-const sureHubClient = sureObject({
-  client_id: sureString,
-  client_secret: sureString,
-  registration_access_token: sureString,
-  registration_client_uri: sureString,
+const vHubClient = object({
+  client_id: string(),
+  client_secret: string(),
+  registration_access_token: string(),
+  registration_client_uri: string(),
 });
 
 const vHubClientAdmission = union(
@@ -111,8 +91,8 @@ async function readGitHubKeySet() {
   const response = await fetch(GITHUB_OIDC_JWKS_URL, {
     signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
   });
-  const [valid, keySet] = sureGitHubKeySet(response.ok ? await response.json() : null);
-  if (!valid) {
+  const keySet: unknown = response.ok ? await response.json() : null;
+  if (!validate(vGitHubKeySet, keySet, { allowUnknownFields: true })) {
     throw new Error(`GitHub answered ${response.status} without a key set.`);
   }
   return keySet;
@@ -131,8 +111,7 @@ async function verifyGitHubToken(token: string) {
         requiredClaims: ["exp"],
       },
     );
-    const [valid, claims] = sureGitHubClaims(payload);
-    return valid ? claims : null;
+    return validate(vGitHubClaims, payload, { allowUnknownFields: true }) ? payload : null;
   } catch (error) {
     if (error instanceof joseErrors.JOSEError) {
       return null;
@@ -246,7 +225,7 @@ export const recordRegistration = internalMutation({
     app: string(),
     redirectUri: string(),
   },
-  returns: vNull(),
+  returns: v.null(),
   handler: async (ctx, args) => {
     await ctx.db.insert("hubClientRegistrations", {
       clientId: args.clientId,
@@ -313,9 +292,9 @@ function readRedirectUri(value: string) {
 
 /** The body, if it is valid. */
 async function readBody(request: Request) {
-  const [valid, body] = sureRequestBody(await request.json().catch(() => null));
+  const body: unknown = await request.json().catch(() => null);
   if (
-    !valid ||
+    !validate(vRequestBody, body, { allowUnknownFields: true }) ||
     body.app.length === 0 ||
     body.softwareVersion.length === 0 ||
     body.softwareVersion.length > MAX_SOFTWARE_VERSION_LENGTH
@@ -376,11 +355,15 @@ async function verifyHost(redirectUrl: URL, repositoryId: string) {
   } catch {
     // Not JSON.
   }
-  const [valid, file] = sureVerificationFile(json);
-  if (!valid) {
+  if (!validate(vVerificationFile, json, { allowUnknownFields: true })) {
     return "verification_file_invalid";
   }
-  return file.repository === repositoryId ? null : "repository_mismatch";
+  // A fraction, a negative number, or a number too large for JSON to keep fails here.
+  const id = String(json.repository);
+  if (!/^[1-9][0-9]*$/.test(id)) {
+    return "verification_file_invalid";
+  }
+  return id === repositoryId ? null : "repository_mismatch";
 }
 
 /**
@@ -425,10 +408,8 @@ async function registerAtHub(args: {
     return notAllowed("hub_refused");
   }
 
-  const [valid, client] = sureHubClient(
-    response.status === 201 ? await response.json().catch(() => null) : null,
-  );
-  if (!valid) {
+  const client: unknown = response.status === 201 ? await response.json().catch(() => null) : null;
+  if (!validate(vHubClient, client, { allowUnknownFields: true })) {
     console.warn("hub_clients:hub_unavailable", { status: response.status });
     return reply(502, { error: "hub_unavailable" });
   }
