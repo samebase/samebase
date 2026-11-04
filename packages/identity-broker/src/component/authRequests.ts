@@ -6,7 +6,7 @@ import { components } from "./_generated/api";
 import { mutation, query, type MutationCtx } from "./_generated/server";
 import type { Doc } from "./_generated/dataModel";
 import { isSuspended } from "./apps";
-import { LEASE_MS } from "./registration";
+import { used } from "./registration";
 import { vAuthRequest, vTokenEndpointAuthMethod, vUpstreamIdentity } from "./schema";
 import { exchangeResourceCode, vResourceExchange } from "./resourceRequests";
 
@@ -381,7 +381,7 @@ export const exchangeCode = mutation({
     }
     if ("resourceRequestId" in code) {
       return await exchangeResourceCode(ctx, code, {
-        client: client._id,
+        client,
         codeVerifier: args.codeVerifier,
         ...(args.redirectUri === undefined ? {} : { redirectUri: args.redirectUri }),
         ...(args.resource === undefined ? {} : { resource: args.resource }),
@@ -427,10 +427,7 @@ export const exchangeCode = mutation({
     }
     await ctx.db.patch("authorizationCodes", code._id, { usedAt: args.now });
     await ctx.db.delete("authRequests", request._id);
-    await ctx.db.patch("clients", client._id, {
-      lastSignInAt: args.now,
-      ...(client.removeAt === undefined ? {} : { removeAt: args.now + LEASE_MS }),
-    });
+    await ctx.db.patch("clients", client._id, used(client, args.now));
     return {
       ok: true,
       appId: request.appId,

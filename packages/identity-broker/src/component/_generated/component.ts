@@ -317,6 +317,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           clientName: string;
           createdAt: number;
           deploymentType: "production" | "development" | "preview";
+          expires: boolean;
           redirectUri: string;
           secretHash: string;
           softwareVersion: string;
@@ -390,6 +391,13 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         "internal",
         { clientId: string },
         null,
+        Name
+      >;
+      renew: FunctionReference<
+        "mutation",
+        "internal",
+        { clientId: string; expires: boolean; now: number },
+        boolean,
         Name
       >;
       withApp: FunctionReference<

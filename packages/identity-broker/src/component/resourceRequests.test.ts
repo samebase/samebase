@@ -3,10 +3,12 @@ import { convexTest } from "convex-test";
 import { calculatePKCECodeChallenge } from "oauth4webapi";
 import { expect, test } from "vite-plus/test";
 import { api } from "./_generated/api.js";
+import { LEASE_MS } from "./registration.js";
 import schema from "./schema.js";
 
 const modules = import.meta.glob(["./**/*.ts", "!./**/*.test.ts"]);
 const NOW = 1_700_000_000_000;
+const DAY = 24 * 60 * 60 * 1000;
 const RESOURCE = "https://api.cloudflare.com/client/v4/";
 const VERIFIER = "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk";
 const auth = {
@@ -20,7 +22,7 @@ const refresh = {
   now: NOW,
 };
 
-async function grant() {
+async function grant(expires = false) {
   const t = convexTest(schema, modules);
   await t.mutation(api.apps.create, {
     appId: "app",
@@ -28,6 +30,7 @@ async function grant() {
     firstParty: true,
     createdAt: NOW,
   });
+  // A day before the authorization, so a removal date that the authorization moves differs.
   await t.mutation(api.clients.create, {
     clientId: auth.clientId,
     appId: "app",
@@ -37,7 +40,8 @@ async function grant() {
     deploymentType: "preview",
     clientName: "preview",
     softwareVersion: "test",
-    createdAt: NOW,
+    createdAt: NOW - DAY,
+    expires,
   });
   await t.mutation(api.resourceRequests.create, {
     requestId: "request",
@@ -84,6 +88,21 @@ async function grant() {
   return { t, exchange };
 }
 
+test("a resource authorization and a provider refresh move the removal date of a client that expires", async () => {
+  for (const expires of [true, false]) {
+    const { t } = await grant(expires);
+    const client = async () => await t.query(api.clients.get, { clientId: auth.clientId });
+    expect(await client()).toMatchObject({ lastSignInAt: NOW });
+    expect((await client())?.removeAt).toBe(expires ? NOW + LEASE_MS : undefined);
+
+    expect(
+      await t.mutation(api.resourceRequests.claimRefresh, { ...refresh, now: NOW + DAY }),
+    ).toMatchObject({ ok: true });
+    expect(await client()).toMatchObject({ lastSignInAt: NOW + DAY });
+    expect((await client())?.removeAt).toBe(expires ? NOW + DAY + LEASE_MS : undefined);
+  }
+});
+
 test("only one upstream refresh starts, and a stale attempt can be claimed again", async () => {
   const { t } = await grant();
   const claims = await Promise.all([
@@ -109,6 +128,7 @@ test("refresh binding rejects other clients and resources without changing the g
     clientName: "other",
     softwareVersion: "test",
     createdAt: NOW,
+    expires: false,
   });
   expect(
     await t.mutation(api.resourceRequests.claimRefresh, { ...refresh, clientId: "other-client" }),

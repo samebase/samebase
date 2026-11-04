@@ -27,7 +27,13 @@ ends: rows written during it run out after the cutoff. A completed request lives
 after its authorization code expires, so cleanup never removes a request whose code can still be
 redeemed.
 
-Clients stay until `deleteClient` removes them, or their app is deleted. A host that sets
+A preview or development client that `registerClient` or `renewClient` got with `expires` has a
+removal date: cleanup deletes it 14 days after its last renewal, sign-in, resource authorization, or
+provider refresh. A deployment renews its client at each deploy and dev start, and gets a new one
+when the client is gone. A production client never gets a removal date: a destroy can leave a
+production deployment running, and the hub cannot know that it stopped.
+
+Other clients stay until `deleteClient` removes them, or their app is deleted. A host that sets
 `previewClientIdleDays` also has cleanup delete a preview client with no sign-in for that many days.
 It is off by default, because a deployment whose client was deleted does not register again by
 itself.

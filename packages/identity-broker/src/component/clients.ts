@@ -2,10 +2,11 @@ import { v } from "convex/values";
 // oxlint-disable-next-line samebase/no-raw-public-convex-function-builders -- Component entrypoints are internal to the host; host functions enforce access.
 import { mutation, query } from "./_generated/server";
 import { appView, vApp } from "./apps";
+import { LEASE_MS } from "./registration";
 import { vDeploymentType, vTokenEndpointAuthMethod } from "./schema";
 import { removeClientGrants } from "./resourceRequests";
 
-const { array, number, object, optional, string } = v;
+const { array, boolean, number, object, optional, string } = v;
 
 const vClient = object({
   clientId: string(),
@@ -37,7 +38,11 @@ const vClientSummary = object({
   renewedAt: optional(number()),
 });
 
-/** Registers one deployment of an app as a client with its single exact redirect URI. */
+/**
+ * Registers one deployment of an app as a client with its single exact redirect URI. With
+ * `expires`, a preview or development client gets a removal date `LEASE_MS` after `createdAt`. A
+ * production client never gets one.
+ */
 export const create = mutation({
   args: {
     clientId: string(),
@@ -49,6 +54,7 @@ export const create = mutation({
     clientName: string(),
     softwareVersion: string(),
     createdAt: number(),
+    expires: boolean(),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -69,8 +75,38 @@ export const create = mutation({
       clientName: args.clientName,
       softwareVersion: args.softwareVersion,
       createdAt: args.createdAt,
+      ...(args.expires && args.deploymentType !== "production"
+        ? { removeAt: args.createdAt + LEASE_MS }
+        : {}),
     });
     return null;
+  },
+});
+
+/**
+ * A deploy or a dev start of the client's deployment: false when the client is gone. It sets
+ * `renewedAt`, and a client with a removal date lives `LEASE_MS` from `now`. With `expires`, a
+ * preview or development client without a removal date gets one. A production client never does.
+ */
+export const renew = mutation({
+  args: { clientId: string(), expires: boolean(), now: number() },
+  returns: boolean(),
+  handler: async (ctx, args) => {
+    const client = await ctx.db
+      .query("clients")
+      .withIndex("by_client_id", (q) => q.eq("clientId", args.clientId))
+      .unique();
+    if (client === null) {
+      return false;
+    }
+
+    const expires =
+      client.removeAt !== undefined || (args.expires && client.deploymentType !== "production");
+    await ctx.db.patch("clients", client._id, {
+      renewedAt: args.now,
+      ...(expires ? { removeAt: args.now + LEASE_MS } : {}),
+    });
+    return true;
   },
 });
 

@@ -55,9 +55,9 @@ Store the returned `issuer`, `clientId`, and `clientSecret` on that deployment a
 deployment goes away, `identityBroker:deleteClient '{"clientId":"..."}'` deletes its client.
 
 In an Alchemy v2 stack, the `Convex.HubClient` resource of `@samebase/alchemy-convex` makes these
-calls with a short-lived key of the base: it registers at deploy time and deletes on destroy. The
-`env` of `Convex.Deployment` stores the client on the deployment. The `alchemy-convex hub-client`
-command does the same for a development deployment.
+calls with a short-lived key of the base: it renews or registers at deploy time, with `expires`, and
+deletes a preview client on destroy. The `env` of `Convex.Deployment` stores the client on the
+deployment. The `alchemy-convex hub-client` command does the same for a development deployment.
 
 The `connector` query parameter on `/authorize` (`connector=github`) skips the chooser for a
 first-party app. Each app sees its own pairwise `sub`.
