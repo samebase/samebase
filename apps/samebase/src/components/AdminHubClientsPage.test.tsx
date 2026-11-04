@@ -10,7 +10,6 @@ import { AdminHubClientsPage } from "./AdminHubClientsPage";
 
 const actionState = vi.hoisted(() => ({
   readOverview: vi.fn(),
-  listRegistrations: vi.fn(),
   changeBlock: vi.fn(),
 }));
 
@@ -22,9 +21,6 @@ vi.mock("convex/react", async (importOriginal) => {
       const name = getFunctionName(reference);
       if (name === getFunctionName(api.hubClients.moderation.readOverview)) {
         return actionState.readOverview;
-      }
-      if (name === getFunctionName(api.hubClients.moderation.listRegistrations)) {
-        return actionState.listRegistrations;
       }
       return actionState.changeBlock;
     },
@@ -69,6 +65,14 @@ const overview = {
         renewedAt: 2,
         lastSignInAt: 3,
         removeAt: EXPIRY,
+        registeredBy: {
+          kind: "github",
+          githubRepository: "octo-org/octo-repo",
+          githubRepositoryDatabaseId: "74",
+          githubOwnerId: "65",
+          githubActorLogin: "octocat",
+          app: "my-app",
+        },
       },
       {
         clientId: "cl_production",
@@ -80,32 +84,10 @@ const overview = {
         renewedAt: null,
         lastSignInAt: 3,
         removeAt: null,
+        registeredBy: { kind: "team" },
       },
     ],
     limitReached: false,
-  },
-};
-
-const registrations = {
-  status: "on",
-  registrations: {
-    page: [
-      {
-        clientId: "cl_test",
-        githubRepositoryDatabaseId: "74",
-        githubOwnerId: "65",
-        githubRepository: "octo-org/octo-repo",
-        githubActorId: "12",
-        githubActorLogin: "octocat",
-        commitSha: "example-sha",
-        stage: "prod",
-        app: "my-app",
-        redirectUri: "https://ideal-dolphin-15.convex.site/auth/hub/callback",
-        registeredAt: 1,
-      },
-    ],
-    isDone: true,
-    continueCursor: "next",
   },
 };
 
@@ -120,10 +102,8 @@ async function renderPage() {
       </QueryClientProvider>,
     );
   });
-  // The overview resolves after the first render, and the registrations start after it.
-  for (const _ of [1, 2]) {
-    await act(async () => await new Promise((resolve) => setTimeout(resolve, 0)));
-  }
+  // The overview resolves after the first render.
+  await act(async () => await new Promise((resolve) => setTimeout(resolve, 0)));
   return {
     rootElement,
     unmount: async () => {
@@ -136,7 +116,7 @@ async function renderPage() {
 /** The cell texts of the client row with `clientId`. */
 function cellsOf(container: HTMLElement, clientId: string) {
   const row = Array.from(container.querySelectorAll("tr")).find((candidate) =>
-    Array.from(candidate.cells).some((cell) => cell.textContent === clientId),
+    candidate.textContent.includes(clientId),
   );
   return Array.from(row?.cells ?? [], (cell) => cell.textContent);
 }
@@ -156,8 +136,6 @@ describe("AdminHubClientsPage", () => {
   beforeEach(() => {
     actionState.readOverview.mockReset();
     actionState.readOverview.mockResolvedValue(overview);
-    actionState.listRegistrations.mockReset();
-    actionState.listRegistrations.mockResolvedValue(registrations);
     actionState.changeBlock.mockReset();
     actionState.changeBlock.mockResolvedValue({ status: "on", changed: true });
   });
@@ -167,27 +145,26 @@ describe("AdminHubClientsPage", () => {
     const page = await renderPage();
     try {
       expect(page.rootElement.textContent).toContain("Moderation is off");
-      expect(actionState.listRegistrations).not.toHaveBeenCalled();
     } finally {
       await page.unmount();
     }
   });
 
-  it("lists the counts, the registrations, the clients, the blocks, and their events", async () => {
+  it("lists the counts, the clients with who made them, the blocks, and their events", async () => {
     const page = await renderPage();
     try {
       const text = page.rootElement.textContent;
       expect(text).toContain("3 registrations in the last day, 1000+ in the last week.");
-      expect(text).toContain("octo-org/octo-repo");
-      expect(text).toContain("https://ideal-dolphin-15.convex.site/auth/hub/callback");
       expect(text).toContain("owner 65: Phishing page");
       expect(text).toContain("block owner 65: Phishing page");
       const time = (value: number) => new Date(value).toLocaleString();
       expect(cellsOf(page.rootElement, "cl_test")).toEqual([
         time(1),
-        "gh-74-4c9a75cca717efb68c856f26ba825073",
-        "pr-12",
-        "cl_test",
+        "octo-org/octo-repo 74",
+        "65",
+        "octocat",
+        "my-app gh-74-4c9a75cca717efb68c856f26ba825073",
+        "pr-12 cl_test",
         "preview",
         "https://calm-cow-456.eu-west-1.convex.site/auth/hub/callback",
         time(EXPIRY),
@@ -196,9 +173,9 @@ describe("AdminHubClientsPage", () => {
       ]);
       expect(cellsOf(page.rootElement, "cl_production")).toEqual([
         time(1),
+        "Team login",
         "samebase",
-        "prod",
-        "cl_production",
+        "prod cl_production",
         "production",
         "https://samebase.com/auth/hub/callback",
         "Never",
@@ -206,7 +183,6 @@ describe("AdminHubClientsPage", () => {
         time(3),
       ]);
       expect(text).not.toContain("The newest");
-      expect(actionState.listRegistrations).toHaveBeenCalledWith({ cursor: null });
     } finally {
       await page.unmount();
     }
