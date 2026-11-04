@@ -50,12 +50,17 @@ const vClient = object({
   appId: string(),
   clientName: string(),
   deploymentType: union(literal("production"), literal("development"), literal("preview")),
-  /** The host of the one address where the broker sends people back with a code. */
-  redirectHost: string(),
+  /** The one address where the broker sends people back with a code. */
+  redirectUri: string(),
   createdAt: number(),
-  /** The last registration or renewal. Null for a client that the hub's administrator created. */
+  /**
+   * The last registration at `/hub-clients` or renewal. Null for a client from `registerClient` that
+   * was never renewed.
+   */
   renewedAt: union(number(), v.null()),
   lastSignInAt: union(number(), v.null()),
+  /** When the broker's cleanup deletes the client. Null: never. */
+  removeAt: union(number(), v.null()),
 });
 
 const vBlock = object({
@@ -205,10 +210,11 @@ export const clientList = internalQuery({
         appId: client.appId,
         clientName: client.clientName,
         deploymentType: client.deploymentType,
-        redirectHost: new URL(client.redirectUri).host,
+        redirectUri: client.redirectUri,
         createdAt: client.createdAt,
         renewedAt: client.renewedAt ?? null,
         lastSignInAt: client.lastSignInAt ?? null,
+        removeAt: client.removeAt ?? null,
       })),
       limitReached: clients.length === CLIENT_LIST_LIMIT,
     };

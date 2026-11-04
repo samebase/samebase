@@ -60,14 +60,26 @@ const blockList = {
 const clientList = {
   clients: [
     {
+      clientId: "cl_preview",
+      appId: "samebase",
+      clientName: "pr-12",
+      deploymentType: "preview",
+      redirectUri: "https://happy-otter-123.convex.site/auth/hub/callback",
+      createdAt: 1_800_000_002_000,
+      renewedAt: null,
+      lastSignInAt: null,
+      removeAt: 1_801_209_602_000,
+    },
+    {
       clientId: "cl_test",
       appId: "gh-74-4c9a75cca717efb68c856f26ba825073",
       clientName: "prod",
       deploymentType: "production",
-      redirectHost: "ideal-dolphin-15.convex.site",
+      redirectUri: "https://ideal-dolphin-15.convex.site/auth/hub/callback",
       createdAt: 1_800_000_000_000,
       renewedAt: 1_800_000_001_000,
       lastSignInAt: null,
+      removeAt: null,
     },
   ],
   limitReached: false,

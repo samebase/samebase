@@ -31,6 +31,8 @@ vi.mock("convex/react", async (importOriginal) => {
   };
 });
 
+const EXPIRY = 1_801_209_600_000;
+
 const overview = {
   status: "on",
   counts: { day: { count: 3, atLeast: false }, week: { count: 1_000, atLeast: true } },
@@ -62,10 +64,22 @@ const overview = {
         appId: "gh-74-4c9a75cca717efb68c856f26ba825073",
         clientName: "pr-12",
         deploymentType: "preview",
-        redirectHost: "calm-cow-456.eu-west-1.convex.site",
+        redirectUri: "https://calm-cow-456.eu-west-1.convex.site/auth/hub/callback",
         createdAt: 1,
         renewedAt: 2,
-        lastSignInAt: null,
+        lastSignInAt: 3,
+        removeAt: EXPIRY,
+      },
+      {
+        clientId: "cl_production",
+        appId: "samebase",
+        clientName: "prod",
+        deploymentType: "production",
+        redirectUri: "https://samebase.com/auth/hub/callback",
+        createdAt: 1,
+        renewedAt: null,
+        lastSignInAt: 3,
+        removeAt: null,
       },
     ],
     limitReached: false,
@@ -119,6 +133,14 @@ async function renderPage() {
   };
 }
 
+/** The cell texts of the client row with `clientId`. */
+function cellsOf(container: HTMLElement, clientId: string) {
+  const row = Array.from(container.querySelectorAll("tr")).find((candidate) =>
+    Array.from(candidate.cells).some((cell) => cell.textContent === clientId),
+  );
+  return Array.from(row?.cells ?? [], (cell) => cell.textContent);
+}
+
 /** Types into a React-controlled input. */
 function type(container: HTMLElement, selector: string, value: string) {
   const input = container.querySelector<HTMLInputElement>(selector);
@@ -160,9 +182,29 @@ describe("AdminHubClientsPage", () => {
       expect(text).toContain("https://ideal-dolphin-15.convex.site/auth/hub/callback");
       expect(text).toContain("owner 65: Phishing page");
       expect(text).toContain("block owner 65: Phishing page");
-      expect(text).toContain("gh-74-4c9a75cca717efb68c856f26ba825073");
-      expect(text).toContain("calm-cow-456.eu-west-1.convex.site");
-      expect(text).toContain("Never");
+      const time = (value: number) => new Date(value).toLocaleString();
+      expect(cellsOf(page.rootElement, "cl_test")).toEqual([
+        time(1),
+        "gh-74-4c9a75cca717efb68c856f26ba825073",
+        "pr-12",
+        "cl_test",
+        "preview",
+        "https://calm-cow-456.eu-west-1.convex.site/auth/hub/callback",
+        time(EXPIRY),
+        time(2),
+        time(3),
+      ]);
+      expect(cellsOf(page.rootElement, "cl_production")).toEqual([
+        time(1),
+        "samebase",
+        "prod",
+        "cl_production",
+        "production",
+        "https://samebase.com/auth/hub/callback",
+        "Never",
+        "Never",
+        time(3),
+      ]);
       expect(text).not.toContain("The newest");
       expect(actionState.listRegistrations).toHaveBeenCalledWith({ cursor: null });
     } finally {
@@ -177,7 +219,7 @@ describe("AdminHubClientsPage", () => {
     });
     const page = await renderPage();
     try {
-      expect(page.rootElement.textContent).toContain("The newest 1 clients.");
+      expect(page.rootElement.textContent).toContain("The newest 2 clients.");
     } finally {
       await page.unmount();
     }
