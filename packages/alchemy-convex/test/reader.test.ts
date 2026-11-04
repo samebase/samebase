@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { RunRecord } from "../src/RunRecord.ts";
+import { runChanged } from "../src/store/component/runRecord.ts";
 import { api, internal } from "../src/store/convex/_generated/api.js";
 import { storeTest, withKey } from "./storeTest.ts";
 
@@ -165,6 +166,57 @@ describe("repository reader", () => {
       run: { ...run, repository: "other/app" },
     });
     expect(await reader.query(api.reader.repository, {})).toEqual({ store: "found", stacks: [] });
+  });
+
+  it("writes the record of a stage only for another run", () => {
+    const later = { ...run, recordedAt: "2026-10-24T10:05:00.000Z" };
+    // The saves of one run only read the output row, so they do not conflict.
+    expect(runChanged(run, later)).toBe(false);
+    expect(runChanged(undefined, null)).toBe(false);
+    for (const field of ["headCommit", "branch", "stackFile", "repository"] as const)
+      expect(runChanged(run, { ...later, [field]: "other" })).toBe(true);
+    expect(runChanged(run, { ...later, pullRequest: 2 })).toBe(true);
+    expect(runChanged(run, { ...later, runUrl: "https://github.test/runs/2" })).toBe(true);
+    expect(runChanged(run, { ...later, source: "github-actions" })).toBe(true);
+    expect(runChanged(undefined, run)).toBe(true);
+    expect(runChanged(run, null)).toBe(true);
+  });
+
+  it("writes the run record of a stage when the run changes and with the output", async () => {
+    const t = storeTest();
+    const stage = { stack: run.repository, stage: "main" };
+    const recordOf = async () =>
+      (await t.query(internal.state.readStack, { stack: run.repository })).stages[0]?.record;
+    const later = (minute: number) => `2026-10-24T10:0${minute}:00.000Z`;
+
+    await t.action(internal.state.set, { ...stage, fqn: "A", value: "{}", run });
+    await t.action(internal.state.set, {
+      ...stage,
+      fqn: "B",
+      value: "{}",
+      run: { ...run, recordedAt: later(1) },
+    });
+    await t.mutation(internal.state.remove, {
+      ...stage,
+      fqn: "B",
+      run: { ...run, recordedAt: later(2) },
+    });
+    // The writes of one run leave the record of its first write.
+    expect(await recordOf()).toEqual(run);
+
+    const next = { ...run, headCommit: "next-commit", recordedAt: later(3) };
+    await t.action(internal.state.set, { ...stage, fqn: "A", value: "{}", run: next });
+    await t.action(internal.state.set, {
+      ...stage,
+      fqn: "A",
+      value: "{}",
+      run: { ...next, recordedAt: later(4) },
+    });
+    expect(await recordOf()).toEqual(next);
+
+    const done = { ...next, recordedAt: later(5) };
+    await t.action(internal.state.setOutput, { ...stage, value: "{}", run: done });
+    expect(await recordOf()).toEqual(done);
   });
 
   it("hides a stage after a write without a run record", async () => {

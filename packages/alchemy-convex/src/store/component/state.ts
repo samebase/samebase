@@ -10,7 +10,7 @@ import type { MutationCtx, QueryCtx } from "./_generated/server.js";
 // oxlint-disable-next-line samebase/no-raw-public-convex-function-builders -- Store entrypoints have no app wrapper; the reader and the deploy key enforce access.
 import { mutation, query } from "./_generated/server.js";
 import { generationOf } from "./keys.ts";
-import { runRecord } from "./runRecord.ts";
+import { runChanged, runRecord } from "./runRecord.ts";
 
 const stage = { stack: v.string(), stage: v.string() };
 const resource = { ...stage, fqn: v.string() };
@@ -43,17 +43,31 @@ const outputOf = (ctx: QueryCtx, args: { stack: string; stage: string }) =>
  */
 const run = v.union(runRecord, v.null());
 
-/** A resource write and its current run become visible in one transaction. */
+/**
+ * A resource write and its current run become visible in one transaction. The output row of the
+ * stage changes only when the run changes (see `runChanged`). Alchemy writes the resources of a
+ * deploy at the same time, and a write to the one output row of the stage made all of them conflict
+ * until Convex stopped the retries. A write of the same run only reads the row, and reads do not
+ * conflict. So `recordedAt` stays the time of the first write of the run, until `setOutput` writes
+ * it again.
+ */
 const writeCurrentRun = async (
   ctx: MutationCtx,
   args: { stack: string; stage: string; run: Infer<typeof run> },
 ) => {
   const output = await outputOf(ctx, args);
+  if (output === null) {
+    if (args.run !== null)
+      await ctx.db.insert("outputs", {
+        stack: args.stack,
+        stage: args.stage,
+        currentRun: args.run,
+      });
+    return;
+  }
   // A write without a run record clears the record of the previous run.
-  if (output !== null)
+  if (runChanged(output.currentRun, args.run))
     await ctx.db.patch("outputs", output._id, { currentRun: args.run ?? undefined });
-  else if (args.run !== null)
-    await ctx.db.insert("outputs", { stack: args.stack, stage: args.stage, currentRun: args.run });
 };
 
 /** The sorted union of two lists of names. */
@@ -228,10 +242,19 @@ export const setOutput = mutation({
   returns: v.null(),
   handler: async (ctx, args) => {
     const row = await outputOf(ctx, args);
-    if (row === null)
-      await ctx.db.insert("outputs", { stack: args.stack, stage: args.stage, value: args.value });
-    else await ctx.db.patch("outputs", row._id, { value: args.value });
-    await writeCurrentRun(ctx, args);
+    // The output and the record of its run, with the time of this last write of the run.
+    if (row !== null)
+      await ctx.db.patch("outputs", row._id, {
+        value: args.value,
+        currentRun: args.run ?? undefined,
+      });
+    else
+      await ctx.db.insert("outputs", {
+        stack: args.stack,
+        stage: args.stage,
+        value: args.value,
+        ...(args.run === null ? {} : { currentRun: args.run }),
+      });
     return null;
   },
 });
