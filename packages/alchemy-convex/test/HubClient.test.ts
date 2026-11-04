@@ -98,6 +98,17 @@ describe("Convex.HubClient", () => {
     }),
   );
 
+  test.provider("a hub that cannot renew keeps the saved client and the deploy goes on", (stack) =>
+    Effect.gen(function* () {
+      const { hub } = withHub();
+      const first = yield* stack.deploy(client(props()));
+      hub.renewAnswer = "not an answer";
+      const again = yield* stack.deploy(client(props()));
+      expect(again).toEqual(first);
+      expect(hub.clients.size).toBe(1);
+    }),
+  );
+
   test.provider("another app or team stores the new props and keeps the client", (stack) =>
     Effect.gen(function* () {
       const { hub } = withHub();

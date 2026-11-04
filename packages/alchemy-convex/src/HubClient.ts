@@ -203,7 +203,18 @@ export const HubClientProvider = () =>
 
         reconcile: Effect.fn(function* ({ news, output }) {
           const saved = output !== undefined && registeredFor(output, news) ? output : undefined;
-          if (saved !== undefined && (yield* renewHubClient(api, news.team, saved.clientId))) {
+          // A hub that cannot answer must not stop a deploy: the saved client keeps working, and the
+          // next deploy renews it. Only a hub that answers that the client is gone replaces it.
+          const kept =
+            saved !== undefined &&
+            (yield* renewHubClient(api, news.team, saved.clientId).pipe(
+              Effect.catchTag("HubClientFailed", (error) =>
+                Effect.logWarning(
+                  `Convex.HubClient: ${saved.clientId} keeps its saved values, because the hub could not renew it: ${error.message}`,
+                ).pipe(Effect.as(true)),
+              ),
+            ));
+          if (saved !== undefined && kept) {
             return saved;
           }
           // A new client: the hub no longer has the saved one, or the redirect URI or the

@@ -88,8 +88,9 @@ one by hand from the admin page.
   gone registers a new one and writes its values; a destroy keeps a production client; a development
   deployment with stale variables gets a new client.
 - Worktree start test: with the setup marker present, both client commands still run.
-- Live: after the backfill, a worktree started within 14 days keeps its client; the admin page shows
-  expiry dates; Remove deletes one client.
+- Live: after samebase.com upgrades, a preview client shows an expiry date that moves with each
+  deploy; a worktree start gives its development clients one; the resource client of samebase.com's
+  development deployment keeps its grants.
 
 ## Non-Goals
 

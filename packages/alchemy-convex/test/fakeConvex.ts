@@ -75,6 +75,8 @@ export class Hub {
   readonly clients = new Map<string, Record<string, unknown>>();
   /** The arguments of each `renewClient` call, in order. */
   readonly renewals: Record<string, unknown>[] = [];
+  /** Set: what `renewClient` answers in place of whether the client exists. */
+  renewAnswer: unknown;
   private nextClient = 1;
   constructor(readonly issuer: string) {}
   run(path: string, args: Record<string, unknown>) {
@@ -84,7 +86,7 @@ export class Hub {
     }
     if (path === "identityBroker:renewClient") {
       this.renewals.push(args);
-      return this.clients.has(String(args["clientId"]));
+      return this.renewAnswer ?? this.clients.has(String(args["clientId"]));
     }
     const clientId = `cl_${this.nextClient++}`;
     this.clients.set(clientId, args);
