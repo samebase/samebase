@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.22.0
+
+`Convex.SharedHubClient` takes `redirectUri` in place of `deployment`, so a client can serve any
+host and any path, such as a Worker or Convex Auth 0's `/api/auth/callback/hub`. samebase.com reads
+`/samebase-verification.json` at the origin of `redirectUri`, which must name the numeric GitHub id
+of the repository, and no longer asks Convex. Serve the file before the client: put the resource
+after the push of the site, and write its three variables with a `Convex.Deployment` that has no
+`source`.
+
+- The output `deployment` is gone. A saved client whose `redirectUri` is the new one renews, so a
+  stack that passes the same address keeps its client.
+- A refusal of samebase.com logs its reason, such as a host that does not serve the file.
+
 ## 0.21.0
 
 `alchemy-convex hub-client --env-prefix RESOURCE_HUB` registers a second development client without

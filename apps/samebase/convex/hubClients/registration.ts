@@ -1,13 +1,4 @@
-import { isRecord } from "@samebase/dependent";
-import {
-  array as sureArray,
-  bad,
-  good,
-  literal as sureLiteral,
-  object as sureObject,
-  pure,
-  string as sureString,
-} from "@samebase/sure";
+import { validate } from "convex-helpers/validators";
 import type { WithoutSystemFields } from "convex/server";
 import { v } from "convex/values";
 import { createLocalJWKSet, errors as joseErrors, jwtVerify } from "jose";
@@ -15,28 +6,27 @@ import { createLocalJWKSet, errors as joseErrors, jwtVerify } from "jose";
 import { internal } from "../_generated/api";
 import type { Doc } from "../_generated/dataModel";
 import { httpAction, internalMutation, type MutationCtx } from "../_generated/server";
-import {
-  createConvexManagementClient,
-  isConvexCloudDeployment,
-} from "../convexManagementApi/client";
-import { ConvexManagementApiError } from "../convexManagementApi/errors";
-import { ConvexManagement } from "../convexManagementApi/generated/sdk.gen";
 import { toErrorMessage } from "../jsonUtils";
 import { sha256Hex } from "../mcp/tokens";
-import { organizationProviderCredentialAad } from "../organization/providerCredentialModel";
-import { getOrganizationProviderConfiguration } from "../organizationProviderCredentials";
-import { readConvexPreviewDeployments } from "../repository/convexProjectResources";
 import { isLiveConnectedRepository } from "../repository/state";
-import { openSecret, vSealedSecret } from "../sealedSecret";
 import { readHub, readRepositoryByGitHubId } from "./tenantConnection";
 
-const { id, literal, object, string, union } = v;
+const { array, literal, number, object, string, union } = v;
 
 const GITHUB_OIDC_ISSUER = "https://token.actions.githubusercontent.com";
 const GITHUB_OIDC_JWKS_URL = `${GITHUB_OIDC_ISSUER}/.well-known/jwks`;
 const GITHUB_OIDC_AUDIENCE = "samebase";
-const HUB_CALLBACK_PATH = "/auth/hub/callback";
 const REQUEST_TIMEOUT_MS = 10_000;
+/**
+The file at the root of the return address's origin that names the repository which controls the
+host. Not under `/.well-known/`: RFC 8615 requires a registered name there.
+*/
+const VERIFICATION_PATH = "/samebase-verification.json";
+/** The time limit of the whole verification request, the body included. */
+const VERIFICATION_TIMEOUT_MS = 5_000;
+/** The file holds one id. A larger body is not this file, and the read stops at this size. */
+const MAX_VERIFICATION_BYTES = 4_096;
+const MAX_REDIRECT_URI_LENGTH = 2_048;
 /** The hub stores the version on every client row. A commit hash or a version fits many times. */
 const MAX_SOFTWARE_VERSION_LENGTH = 256;
 const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1_000;
@@ -44,49 +34,44 @@ const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1_000;
 const REPOSITORY_REQUEST_LIMIT = 30;
 const ORGANIZATION_REQUEST_LIMIT = 100;
 
-const sureGitHubKeySet = sureObject({
-  keys: sureArray(pure((key) => (isRecord(key) ? good(key) : bad("not object" as const)))),
-});
+// Each check below allows unknown fields: GitHub, the hub, and a host send more than these name.
+
+/** GitHub's key set. jose checks each key, so this checks only the shape that it takes. */
+const vGitHubKeySet = object({ keys: array(object({ kty: string() })) });
 
 /** `aud` is one exact string: jose alone also accepts a list that holds the audience. */
-const sureGitHubClaims = sureObject({
-  aud: sureLiteral(GITHUB_OIDC_AUDIENCE),
-  event_name: sureString,
-  ref: sureString,
-  repository_id: sureString,
-  repository_owner_id: sureString,
+const vGitHubClaims = object({
+  aud: literal(GITHUB_OIDC_AUDIENCE),
+  event_name: string(),
+  ref: string(),
+  repository_id: string(),
+  repository_owner_id: string(),
+  repository: string(),
+  actor_id: string(),
+  actor: string(),
+  sha: string(),
 });
 
-const sureRequestBody = sureObject({
-  app: sureString,
-  deployment: sureString,
-  softwareVersion: sureString,
-});
+const vRequestBody = object({ app: string(), redirectUri: string(), softwareVersion: string() });
+
+/** The file's one field: the numeric GitHub repository id, as a string of digits or a JSON number. */
+const vVerificationFile = object({ repository: union(string(), number()) });
 
 /** The 201 reply of the hub's `POST /register` (RFC 7591 section 3.2.1). */
-const sureHubClient = sureObject({
-  client_id: sureString,
-  client_secret: sureString,
-  registration_access_token: sureString,
-  registration_client_uri: sureString,
+const vHubClient = object({
+  client_id: string(),
+  client_secret: string(),
+  registration_access_token: string(),
+  registration_client_uri: string(),
 });
 
 const vHubClientAdmission = union(
   object({
     status: literal("refused"),
-    reason: union(
-      literal("repository_not_connected"),
-      literal("owner_mismatch"),
-      literal("convex_not_connected"),
-    ),
+    reason: union(literal("repository_not_connected"), literal("owner_mismatch")),
   }),
   object({ status: literal("rate_limited") }),
-  object({
-    status: literal("admitted"),
-    organizationId: id("organizations"),
-    teamId: string(),
-    credential: vSealedSecret,
-  }),
+  object({ status: literal("admitted") }),
 );
 
 function reply(status: number, body: Record<string, string>): Response {
@@ -106,8 +91,8 @@ async function readGitHubKeySet() {
   const response = await fetch(GITHUB_OIDC_JWKS_URL, {
     signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
   });
-  const [valid, keySet] = sureGitHubKeySet(response.ok ? await response.json() : null);
-  if (!valid) {
+  const keySet: unknown = response.ok ? await response.json() : null;
+  if (!validate(vGitHubKeySet, keySet, { allowUnknownFields: true })) {
     throw new Error(`GitHub answered ${response.status} without a key set.`);
   }
   return keySet;
@@ -126,8 +111,7 @@ async function verifyGitHubToken(token: string) {
         requiredClaims: ["exp"],
       },
     );
-    const [valid, claims] = sureGitHubClaims(payload);
-    return valid ? claims : null;
+    return validate(vGitHubClaims, payload, { allowUnknownFields: true }) ? payload : null;
   } catch (error) {
     if (error instanceof joseErrors.JOSEError) {
       return null;
@@ -180,10 +164,9 @@ async function reserveRequest(
 }
 
 /**
-Finds the connected repository of a verified token, and returns the organization's Convex credential
-still sealed. `githubRepositoryDatabaseId` and `githubOwnerId` are numeric GitHub ids that the token
-carries, so a rename changes nothing, and a transfer stops at the owner check until the new owner
-connects.
+Admits a verified token of a connected repository and counts the request. `githubRepositoryDatabaseId`
+and `githubOwnerId` are numeric GitHub ids that the token carries, so a rename changes nothing, and a
+transfer stops at the owner check until the new owner connects.
 */
 export const admitRequest = internalMutation({
   args: {
@@ -221,76 +204,44 @@ export const admitRequest = internalMutation({
         limit: ORGANIZATION_REQUEST_LIMIT,
         first: { scope: "organization", organizationId, count: 1 },
       }));
-    if (!admitted) {
-      return { status: "rate_limited" } as const;
-    }
-
-    const { convexCredential, convexTeam } = await getOrganizationProviderConfiguration(
-      ctx.db,
-      organizationId,
-    );
-    if (!convexTeam || convexTeam.teamId !== repository.convexTeamId || !convexCredential) {
-      return { status: "refused", reason: "convex_not_connected" } as const;
-    }
-    return {
-      status: "admitted",
-      organizationId,
-      teamId: convexTeam.teamId,
-      credential: convexCredential.auth.credential,
-    } as const;
+    return admitted ? ({ status: "admitted" } as const) : ({ status: "rate_limited" } as const);
   },
 });
 
 /**
-The named deployment, if the organization's Convex connection sees it in `teamId`. The token may be
-an OAuth team token. These statuses mean that the credential cannot read the object, as `isRefused`
-in packages/alchemy-convex/src/Deployment.ts.
+What GitHub's token said about the run that asked for a client, kept with the hub's client ID. It
+holds no secret.
 */
-async function readDeploymentInTeam(args: { token: string; teamId: string; deployment: string }) {
-  const client = createConvexManagementClient({ token: args.token });
-  try {
-    const deployment = await ConvexManagement.GET["/deployments/{deployment_name}"]({
-      client,
-      path: { deployment_name: args.deployment },
+export const recordRegistration = internalMutation({
+  args: {
+    clientId: string(),
+    githubRepositoryDatabaseId: string(),
+    githubOwnerId: string(),
+    githubRepository: string(),
+    githubActorId: string(),
+    githubActorLogin: string(),
+    commitSha: string(),
+    stage: string(),
+    app: string(),
+    redirectUri: string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await ctx.db.insert("hubClientRegistrations", {
+      clientId: args.clientId,
+      githubRepositoryDatabaseId: args.githubRepositoryDatabaseId,
+      githubOwnerId: args.githubOwnerId,
+      githubRepository: args.githubRepository,
+      githubActorId: args.githubActorId,
+      githubActorLogin: args.githubActorLogin,
+      commitSha: args.commitSha,
+      stage: args.stage,
+      app: args.app,
+      redirectUri: args.redirectUri,
     });
-    if (!isConvexCloudDeployment(deployment)) {
-      return null;
-    }
-    const project = await ConvexManagement.GET["/projects/{project_id}"]({
-      client,
-      path: { project_id: deployment.projectId },
-    });
-    return project.teamId === args.teamId ? deployment : null;
-  } catch (error) {
-    if (error instanceof ConvexManagementApiError && [400, 401, 403, 404].includes(error.status)) {
-      return null;
-    }
-    throw error;
-  }
-}
-
-/** `GET /deployments/{name}` answers no preview identifier, so a preview comes from the project's list. */
-async function isDeploymentOfStage(args: {
-  token: string;
-  deployment: { name: string; projectId: string; deploymentType: string; isDefault: boolean };
-  stage: string;
-}): Promise<boolean> {
-  if (args.stage === "prod") {
-    return args.deployment.deploymentType === "prod" && args.deployment.isDefault;
-  }
-  if (args.deployment.deploymentType !== "preview") {
-    return false;
-  }
-
-  const previews = await readConvexPreviewDeployments({
-    token: args.token,
-    projectId: args.deployment.projectId,
-  });
-  return (
-    previews.find((preview) => preview.name === args.deployment.name)?.previewIdentifier ===
-    args.stage
-  );
-}
+    return null;
+  },
+});
 
 /** The verified run of a request, or the reply that refuses it. */
 async function readRun(request: Request) {
@@ -314,45 +265,108 @@ async function readRun(request: Request) {
   return stage === null ? notAllowed("run_not_allowed") : { claims, stage };
 }
 
-/** The body, if it is valid. The deployment name goes into a Convex API path. */
-async function readBody(request: Request) {
-  const [valid, body] = sureRequestBody(await request.json().catch(() => null));
-  return valid &&
-    body.app.length > 0 &&
-    /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(body.deployment) &&
-    body.softwareVersion.length > 0 &&
-    body.softwareVersion.length <= MAX_SOFTWARE_VERSION_LENGTH
-    ? body
+/**
+The return address, if it is an absolute https URL on a DNS name, with no fragment and no user
+info. An IP address or `localhost` is never a host that a file can prove. Any port and any path.
+*/
+function readRedirectUri(value: string) {
+  if (value.length > MAX_REDIRECT_URI_LENGTH || value.includes("#")) {
+    return null;
+  }
+  let url;
+  try {
+    url = new URL(value);
+  } catch {
+    return null;
+  }
+  // The URL parser lowercases the host and writes an IPv4 address in dotted decimal, so a DNS name
+  // is the one form whose last label starts with a letter.
+  return url.protocol === "https:" &&
+    url.username === "" &&
+    url.password === "" &&
+    /^(?:[a-z0-9-]+\.)+[a-z][a-z0-9-]*$/.test(url.hostname) &&
+    !url.hostname.endsWith(".localhost")
+    ? url
     : null;
 }
 
-/** The hub callback on the named deployment, or the reply that refuses the deployment. */
-async function readRedirectUri(args: {
-  token: string;
-  teamId: string;
-  deployment: string;
-  stage: string;
-}): Promise<string | Response> {
-  try {
-    const deployment = await readDeploymentInTeam(args);
-    if (deployment === null) {
-      return notAllowed("deployment_not_in_team");
+/** The body, if it is valid. */
+async function readBody(request: Request) {
+  const body: unknown = await request.json().catch(() => null);
+  if (
+    !validate(vRequestBody, body, { allowUnknownFields: true }) ||
+    body.app.length === 0 ||
+    body.softwareVersion.length === 0 ||
+    body.softwareVersion.length > MAX_SOFTWARE_VERSION_LENGTH
+  ) {
+    return null;
+  }
+  const redirectUrl = readRedirectUri(body.redirectUri);
+  return redirectUrl === null ? null : { ...body, redirectUrl };
+}
+
+/** The body as text, or null when it is larger than `MAX_VERIFICATION_BYTES`. It reads no further. */
+async function readSmallBody(response: Response) {
+  if (response.body === null) {
+    return "";
+  }
+  const reader = response.body.getReader();
+  const bytes = new Uint8Array(MAX_VERIFICATION_BYTES);
+  let size = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) {
+      return new TextDecoder().decode(bytes.subarray(0, size));
     }
-    if (!(await isDeploymentOfStage({ token: args.token, deployment, stage: args.stage }))) {
-      return notAllowed("deployment_not_allowed_for_run");
+    if (size + value.byteLength > MAX_VERIFICATION_BYTES) {
+      await reader.cancel();
+      return null;
     }
-    // Outside US East the URL holds a region: https://<name>.<region>.convex.cloud.
-    const siteUrl = deployment.deploymentUrl.replace(/\.convex\.cloud$/, ".convex.site");
-    return `${siteUrl}${HUB_CALLBACK_PATH}`;
-  } catch (error) {
-    console.warn("hub_clients:convex_unavailable", { message: toErrorMessage(error) });
-    return reply(502, { error: "convex_unavailable" });
+    bytes.set(value, size);
+    size += value.byteLength;
   }
 }
 
 /**
-Asks the hub for the client and passes its answer on. A logged line holds a status at most: the
-hub's reply holds the secret.
+Null when the origin of the return address serves `VERIFICATION_PATH` with `repositoryId`, else the
+reason of the refusal. A redirect is never followed: the file must be on the host itself. The reason
+never holds the body or the id that the file names.
+*/
+async function verifyHost(redirectUrl: URL, repositoryId: string) {
+  let text;
+  try {
+    const response = await fetch(new URL(VERIFICATION_PATH, redirectUrl.origin), {
+      headers: { Accept: "application/json" },
+      redirect: "manual",
+      signal: AbortSignal.timeout(VERIFICATION_TIMEOUT_MS),
+    });
+    if (response.status !== 200) {
+      await response.body?.cancel();
+      return "verification_file_missing";
+    }
+    text = await readSmallBody(response);
+  } catch {
+    return "host_unreachable";
+  }
+  let json: unknown = null;
+  try {
+    json = text === null ? null : JSON.parse(text);
+  } catch {
+    // Not JSON.
+  }
+  if (!validate(vVerificationFile, json, { allowUnknownFields: true })) {
+    return "verification_file_invalid";
+  }
+  // A fraction, a negative number, or a number too large for JSON to keep fails here.
+  const id = String(json.repository);
+  if (!/^[1-9][0-9]*$/.test(id)) {
+    return "verification_file_invalid";
+  }
+  return id === repositoryId ? null : "repository_mismatch";
+}
+
+/**
+Asks the hub for the client. A logged line holds a status at most: the hub's reply holds the secret.
 */
 async function registerAtHub(args: {
   hub: { issuer: string; registrationKey: string };
@@ -361,7 +375,7 @@ async function registerAtHub(args: {
   softwareVersion: string;
   redirectUri: string;
   stage: string;
-}): Promise<Response> {
+}) {
   const { hub, redirectUri, stage } = args;
   const tenantId = `gh-${args.repositoryId}`;
   const appHash = (await sha256Hex(args.app)).slice(0, 32);
@@ -393,28 +407,20 @@ async function registerAtHub(args: {
     return notAllowed("hub_refused");
   }
 
-  const [valid, client] = sureHubClient(
-    response.status === 201 ? await response.json().catch(() => null) : null,
-  );
-  if (!valid) {
+  const client: unknown = response.status === 201 ? await response.json().catch(() => null) : null;
+  if (!validate(vHubClient, client, { allowUnknownFields: true })) {
     console.warn("hub_clients:hub_unavailable", { status: response.status });
     return reply(502, { error: "hub_unavailable" });
   }
-  return reply(201, {
-    issuer: hub.issuer,
-    client_id: client.client_id,
-    client_secret: client.client_secret,
-    registration_access_token: client.registration_access_token,
-    registration_client_uri: client.registration_client_uri,
-    redirect_uri: redirectUri,
-  });
+  return client;
 }
 
 /**
 A new hub client for one deployment of a stranger's app, asked for by its GitHub Actions run with
 GitHub's OIDC token. The run holds no Samebase key. Samebase builds the whole hub request, so the body
-chooses only a name inside the repository's own namespace and a deployment that the checks allow.
-The client's secret stays in this action's memory: it goes to the run and to nothing else.
+chooses only a name inside the repository's own namespace and a return address on a host that serves
+the repository's id at `VERIFICATION_PATH`. The client's secret stays in this action's memory: it
+goes to the run and to nothing else.
 */
 export const registerHubClient = httpAction(async (ctx, request) => {
   const hub = readHub();
@@ -442,32 +448,40 @@ export const registerHubClient = httpAction(async (ctx, request) => {
     return notAllowed(admission.reason);
   }
 
-  const token = (
-    await openSecret({
-      sealed: admission.credential,
-      aad: organizationProviderCredentialAad(admission.organizationId, "convex.auth.credential"),
-    })
-  ).trim();
-  if (!token) {
-    return notAllowed("convex_not_connected");
+  const refusal = await verifyHost(body.redirectUrl, run.claims.repository_id);
+  if (refusal !== null) {
+    return notAllowed(refusal);
   }
 
-  const redirectUri = await readRedirectUri({
-    token,
-    teamId: admission.teamId,
-    deployment: body.deployment,
-    stage: run.stage,
-  });
-  if (redirectUri instanceof Response) {
-    return redirectUri;
-  }
-
-  return await registerAtHub({
+  const client = await registerAtHub({
     hub,
     repositoryId: run.claims.repository_id,
     app: body.app,
     softwareVersion: body.softwareVersion,
-    redirectUri,
+    redirectUri: body.redirectUri,
     stage: run.stage,
+  });
+  if (client instanceof Response) {
+    return client;
+  }
+  await ctx.runMutation(internal.hubClients.registration.recordRegistration, {
+    clientId: client.client_id,
+    githubRepositoryDatabaseId: run.claims.repository_id,
+    githubOwnerId: run.claims.repository_owner_id,
+    githubRepository: run.claims.repository,
+    githubActorId: run.claims.actor_id,
+    githubActorLogin: run.claims.actor,
+    commitSha: run.claims.sha,
+    stage: run.stage,
+    app: body.app,
+    redirectUri: body.redirectUri,
+  });
+  return reply(201, {
+    issuer: hub.issuer,
+    client_id: client.client_id,
+    client_secret: client.client_secret,
+    registration_access_token: client.registration_access_token,
+    registration_client_uri: client.registration_client_uri,
+    redirect_uri: body.redirectUri,
   });
 });

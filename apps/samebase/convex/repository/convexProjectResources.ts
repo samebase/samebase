@@ -67,37 +67,3 @@ export async function readConvexProductionDeployment(args: {
     throw error;
   }
 }
-
-export async function readConvexPreviewDeployments(args: {
-  token: string;
-  projectId: string;
-}): Promise<ConvexCloudDeployment[]> {
-  const deployments = await ConvexManagement.GET["/projects/{project_id}/list_deployments"]({
-    client: createConvexManagementClient({ token: args.token }),
-    path: { project_id: args.projectId },
-    query: {
-      includeLocal: false,
-      isDefault: false,
-      deploymentType: "preview",
-    },
-  });
-  const previews: ConvexCloudDeployment[] = [];
-
-  for (const deployment of deployments) {
-    if (
-      !isConvexCloudDeployment(deployment) ||
-      deployment.deploymentType !== "preview" ||
-      deployment.projectId !== args.projectId ||
-      deployment.isDefault
-    ) {
-      throw new Error("Convex returned an inconsistent preview deployment.");
-    }
-    previews.push(deployment);
-  }
-
-  return previews.sort(
-    (left, right) =>
-      (right.lastDeployTime ?? right.createTime) - (left.lastDeployTime ?? left.createTime) ||
-      left.name.localeCompare(right.name),
-  );
-}

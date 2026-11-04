@@ -14,6 +14,9 @@ import { FakeConvex } from "./fakeConvex.ts";
 const TEAM = 38516;
 const ISSUER = "https://hub.test";
 const DEPLOYMENT = "happy-otter-123";
+const REDIRECT_URI = `https://${DEPLOYMENT}.convex.site/auth/hub/callback`;
+/** Another host and another path, as a Worker on Convex Auth 0 has. */
+const OTHER_REDIRECT_URI = "https://scout.example.workers.dev/api/auth/callback/hub";
 const OIDC_REQUEST_URL = "https://oidc.test/token?api-version=2.0";
 const OIDC_REQUEST_TOKEN = "oidc-request-token";
 const OIDC_TOKEN = "oidc-token";
@@ -26,7 +29,7 @@ const props = (
   overrides: Partial<Convex.SharedHubClientProps> = {},
 ): Convex.SharedHubClientProps => ({
   app: "scout",
-  deployment: DEPLOYMENT,
+  redirectUri: REDIRECT_URI,
   deploymentType: "preview",
   softwareVersion: "abc",
   ...overrides,
@@ -42,23 +45,21 @@ const client = (input: Convex.SharedHubClientProps) =>
       clientSecret: Output.map(resource.clientSecret, Redacted.value),
       registrationAccessToken: Output.map(resource.registrationAccessToken, Redacted.value),
       registrationClientUri: resource.registrationClientUri,
-      deployment: resource.deployment,
       deploymentType: resource.deploymentType,
       redirectUri: resource.redirectUri,
     };
   });
 
-/** The outputs of the client `clientId` on `deployment`. */
-const issued = (clientId = "cl_1", deployment = DEPLOYMENT) => ({
+/** The outputs of the client `clientId` on `redirectUri`. */
+const issued = (clientId = "cl_1", redirectUri = REDIRECT_URI) => ({
   status: "on",
   issuer: ISSUER,
   clientId,
   clientSecret: `secret-of-${clientId}`,
   registrationAccessToken: `token-of-${clientId}`,
   registrationClientUri: `${ISSUER}/register/${clientId}`,
-  deployment,
   deploymentType: "preview",
-  redirectUri: `https://${deployment}.convex.site/auth/hub/callback`,
+  redirectUri,
 });
 
 const OFF = {
@@ -68,13 +69,12 @@ const OFF = {
   clientSecret: "no-hub",
   registrationAccessToken: "",
   registrationClientUri: "",
-  deployment: DEPLOYMENT,
   deploymentType: "preview",
   redirectUri: "",
 };
 
 /** The body of POST /api/hub-clients. */
-const ClientRequest = Schema.Struct({ deployment: Schema.String });
+const ClientRequest = Schema.Struct({ redirectUri: Schema.String });
 
 /** One request that reached the fake. */
 interface Sent {
@@ -94,6 +94,7 @@ const networkDown: Answer = ({ authorization }) => {
 
 /** The answers of POST /api/hub-clients that give no client. */
 const REFUSALS: readonly (readonly [string, Answer])[] = [
+  ["invalid_request", () => Response.json({ error: "invalid_request" }, { status: 400 })],
   ["a refused token", () => Response.json({ error: "invalid_token" }, { status: 401 })],
   ["not_allowed", () => Response.json({ error: "not_allowed" }, { status: 403 })],
   ["off", () => Response.json({ error: "off" }, { status: 404 })],
@@ -160,7 +161,7 @@ class FakeServices {
     const clientId = `cl_${this.nextClient++}`;
     const token = `token-of-${clientId}`;
     this.clients.set(clientId, token);
-    const { deployment } = Schema.decodeUnknownSync(ClientRequest)(body);
+    const { redirectUri } = Schema.decodeUnknownSync(ClientRequest)(body);
     return Response.json(
       {
         issuer: ISSUER,
@@ -168,7 +169,7 @@ class FakeServices {
         client_secret: `secret-of-${clientId}`,
         registration_access_token: token,
         registration_client_uri: `${ISSUER}/register/${clientId}`,
-        redirect_uri: `https://${deployment}.convex.site/auth/hub/callback`,
+        redirect_uri: redirectUri,
       },
       { status: 201 },
     );
@@ -219,7 +220,7 @@ describe("Convex.SharedHubClient", () => {
           method: "POST",
           url: "https://samebase.com/api/hub-clients",
           authorization: `Bearer ${OIDC_TOKEN}`,
-          body: { app: "scout", deployment: DEPLOYMENT, softwareVersion: "abc" },
+          body: { app: "scout", redirectUri: REDIRECT_URI, softwareVersion: "abc" },
         },
       ]);
     }),
@@ -313,7 +314,7 @@ describe("Convex.SharedHubClient", () => {
         expect(again).toEqual(first);
         expect(fake.calls("https://samebase.com")).toEqual([]);
         expect(warningsIn(lines)).toEqual([
-          expect.stringContaining(`${DEPLOYMENT} keeps the saved client`),
+          expect.stringContaining(`${REDIRECT_URI} keeps the saved client`),
         ]);
       }),
     );
@@ -331,14 +332,44 @@ describe("Convex.SharedHubClient", () => {
     }),
   );
 
-  test.provider("another deployment asks for a new client without a renewal", (stack) =>
+  test.provider("another return address asks for a new client without a renewal", (stack) =>
     Effect.gen(function* () {
       const fake = new FakeServices().install();
       yield* stack.deploy(client(props()));
       fake.sent.length = 0;
-      const moved = yield* stack.deploy(client(props({ deployment: "calm-fox-456" })));
-      expect(moved).toEqual(issued("cl_2", "calm-fox-456"));
+      const moved = yield* stack.deploy(client(props({ redirectUri: OTHER_REDIRECT_URI })));
+      expect(moved).toEqual(issued("cl_2", OTHER_REDIRECT_URI));
       expect(fake.calls(ISSUER)).toEqual([]);
+    }),
+  );
+
+  for (const [reason, text] of [
+    ["verification_file_missing", "does not serve /samebase-verification.json"],
+    ["repository_mismatch", "names another repository"],
+    ["repository_not_connected", "not connected to Samebase"],
+  ] as const) {
+    test.provider(`a 403 for ${reason} says why in the log`, (stack) =>
+      Effect.gen(function* () {
+        const fake = new FakeServices().install();
+        fake.samebase = () => Response.json({ error: "not_allowed", reason }, { status: 403 });
+        const { layer, lines } = capturedLogs();
+        yield* stack.deploy(client(props())).pipe(Effect.provide(layer));
+        expect(warningsIn(lines)).toEqual([expect.stringContaining(`${text} (HTTP 403)`)]);
+      }),
+    );
+  }
+
+  test.provider("a 403 with an unknown reason logs no text of the answer", (stack) =>
+    Effect.gen(function* () {
+      const fake = new FakeServices().install();
+      fake.samebase = () =>
+        Response.json({ error: "not_allowed", reason: "toString" }, { status: 403 });
+      const { layer, lines } = capturedLogs();
+      yield* stack.deploy(client(props())).pipe(Effect.provide(layer));
+      expect(warningsIn(lines)).toEqual([
+        expect.stringContaining("does not allow this repository or return address (HTTP 403)"),
+      ]);
+      expect(lines.filter((line) => line.includes("toString"))).toEqual([]);
     }),
   );
 
@@ -385,17 +416,17 @@ describe("Convex.SharedHubClient", () => {
   }
 
   test.provider(
-    "a failed request for another deployment gives the off values, and asks again",
+    "a failed request for another return address gives the off values, and asks again",
     (stack) =>
       Effect.gen(function* () {
         const fake = new FakeServices().install();
         yield* stack.deploy(client(props()));
         fake.samebase = () => Response.json({ error: "hub_unavailable" }, { status: 502 });
-        const moved = yield* stack.deploy(client(props({ deployment: "calm-fox-456" })));
-        expect(moved).toEqual({ ...OFF, deployment: "calm-fox-456" });
+        const moved = yield* stack.deploy(client(props({ redirectUri: OTHER_REDIRECT_URI })));
+        expect(moved).toEqual(OFF);
         fake.samebase = undefined;
-        const next = yield* stack.deploy(client(props({ deployment: "calm-fox-456" })));
-        expect(next).toEqual(issued("cl_2", "calm-fox-456"));
+        const next = yield* stack.deploy(client(props({ redirectUri: OTHER_REDIRECT_URI })));
+        expect(next).toEqual(issued("cl_2", OTHER_REDIRECT_URI));
       }),
   );
 
@@ -461,21 +492,23 @@ describe("Convex.SharedHubClient", () => {
     "the push reads the values that the run ended with, and only when they change",
     (stack) =>
       Effect.gen(function* () {
-        // The split of a stack whose callback needs the deployment: the name is unresolved in the
-        // plan of the first deploy, and each later plan has an update that reads the new client.
+        // The order of the template: the site is live before Samebase reads its file, so the
+        // client takes the URL of the row that pushes, which is unresolved in the plan of the first
+        // deploy, and a second row with no source writes the variables. Each later plan has an
+        // update that reads the new client.
         const convex = new FakeConvex();
         const fake = new FakeServices(convex.fetch).install();
         const projectId = convex.addProject({ name: "scout", teamId: TEAM });
         const app = Effect.gen(function* () {
           const project = { projectId };
-          const created = yield* Convex.Deployment("Preview", {
+          const deployment = yield* Convex.Deployment("Deployment", {
             project,
             type: "preview",
             name: "pr-1",
           });
           const hub = yield* Convex.SharedHubClient("Client", {
             app: "scout",
-            deployment: created.name,
+            redirectUri: Output.interpolate`${deployment.siteUrl}/auth/hub/callback`,
             deploymentType: "preview",
           });
           const site = yield* Convex.Deployment("Site", {
@@ -617,11 +650,11 @@ describe("Convex.SharedHubClient", () => {
       fake.samebase = networkDown;
       yield* deploy();
       fake.samebase = echo;
-      yield* deploy({ ...props(), deployment: "calm-fox-456" });
+      yield* deploy({ ...props(), redirectUri: OTHER_REDIRECT_URI });
       fake.samebase = () => new Response('{"client_secret":"secret-of-cl_1"}', { status: 201 });
-      yield* deploy({ ...props(), deployment: "calm-fox-456" });
+      yield* deploy({ ...props(), redirectUri: OTHER_REDIRECT_URI });
       fake.github = networkDown;
-      yield* deploy({ ...props(), deployment: "calm-fox-456" });
+      yield* deploy({ ...props(), redirectUri: OTHER_REDIRECT_URI });
       fake.hub = echo;
       yield* stack.destroy().pipe(Effect.provide(layer));
 
