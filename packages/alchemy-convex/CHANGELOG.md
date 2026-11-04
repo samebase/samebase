@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.23.0
+
+Requires `alchemy@2.0.0-beta.85` and Effect 4.1: `effect` and `@effect/platform-node` ^4.1.0.
+Upgrade Alchemy, its provider packages, and Effect together with this release.
+
+`@effect/platform-node` 4.1 pins its `@effect/platform-node-shared`, so the override that Effect 4.0
+needed can go.
+
+The state store protocol does not change.
+
 ## 0.22.0
 
 `Convex.SharedHubClient` takes `redirectUri` in place of `deployment`, so a client can serve any

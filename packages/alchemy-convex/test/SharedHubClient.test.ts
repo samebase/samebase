@@ -2,7 +2,7 @@
 // The hub answers as `registrationEndpoints` of @samebase/identity-broker does.
 import { adopt } from "alchemy/AdoptPolicy";
 import * as Output from "alchemy/Output";
-import * as Test from "alchemy/Test/Vitest";
+import * as Test from "@alchemy.run/test/Vitest";
 import * as Effect from "effect/Effect";
 import * as Logger from "effect/Logger";
 import * as Redacted from "effect/Redacted";

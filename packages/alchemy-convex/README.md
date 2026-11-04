@@ -14,21 +14,21 @@ the "Convex Plain" mode of
 [rjdellecese/confect#408](https://github.com/rjdellecese/confect/issues/408).
 [docs/design/convex-plane.md](docs/design/convex-plane.md) records the decisions.
 
-Status: pinned to `alchemy@2.0.0-beta.84` and Effect 4. Alchemy ships breaking changes between
+Status: pinned to `alchemy@2.0.0-beta.85` and Effect 4.1. Alchemy ships breaking changes between
 betas; upgrade this package and Alchemy together. A live test runs the full sequence with the real
 Convex CLI: create, push, no-op, change, preview, deploy keys alone, and destroy.
 
 ## Install
 
 ```sh
-pnpm add -D @samebase/alchemy-convex alchemy@2.0.0-beta.84 effect@^4.0.5 @effect/platform-node@^4.0.5 convex
+pnpm add -D @samebase/alchemy-convex alchemy@2.0.0-beta.85 effect@^4.1.0 @effect/platform-node@^4.1.0 convex
 ```
 
 Use one version for `effect` and for each `@effect/*` package. A mix fails at load time, such as
 `@effect/platform-node-shared` 4.0.5 next to `effect` 4.0.3.
 
 Alchemy providers are separate packages. The example below also needs
-`@alchemy.run/cloudflare@2.0.0-beta.84`, the same version as `alchemy`.
+`@alchemy.run/cloudflare@2.0.0-beta.85`, the same version as `alchemy`.
 
 ## Example
 
