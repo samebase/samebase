@@ -209,8 +209,16 @@ export const clientList = internalQuery({
     const clients = await ctx.runQuery(components.identityBroker.clients.list, {
       limit: CLIENT_LIST_LIMIT,
     });
-    const apps = await ctx.runQuery(components.identityBroker.apps.list, {});
-    const appsById = new Map(apps.map((app) => [app.appId, app]));
+    // Only the apps of these clients, so the reads stay bounded by `CLIENT_LIST_LIMIT`.
+    const appIds = [...new Set(clients.map((client) => client.appId))];
+    const madeByTeam = new Map(
+      await Promise.all(
+        appIds.map(async (appId) => {
+          const app = await ctx.runQuery(components.identityBroker.apps.get, { appId });
+          return [appId, app !== null && app.tenantId === undefined] as const;
+        }),
+      ),
+    );
     const registeredBy = async (client: (typeof clients)[number]) => {
       const registration = await ctx.db
         .query("registrations")
@@ -226,8 +234,7 @@ export const clientList = internalQuery({
           app: registration.app,
         };
       }
-      const app = appsById.get(client.appId);
-      return app !== undefined && app.tenantId === undefined
+      return madeByTeam.get(client.appId)
         ? { kind: "team" as const }
         : { kind: "unknown" as const };
     };
