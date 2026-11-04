@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.14.0
+
+- Add `clients.list`, which lists the clients of every app, first-party apps included, newest first
+  and at most `limit`.
+
 ## 0.13.0
 
 - Add an owner switch. `registration.register` takes an optional `ownerId` and records it on the

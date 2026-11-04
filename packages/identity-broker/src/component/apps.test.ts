@@ -66,3 +66,18 @@ describe("remove", () => {
     expect(await t.query(api.clients.listByApp, { appId: "other" })).toHaveLength(1);
   });
 });
+
+describe("clients.list", () => {
+  test("lists the clients of every app newest first, at most the limit", async () => {
+    const t = convexTest(schema, modules);
+    await appWith(t, { appId: "bristol", clients: 2 });
+    await appWith(t, { appId: "other", clients: 1 });
+
+    const clients = await t.query(api.clients.list, { limit: 2 });
+
+    expect(clients.map((client) => client.clientId)).toEqual([
+      "other-client-0",
+      "bristol-client-1",
+    ]);
+  });
+});

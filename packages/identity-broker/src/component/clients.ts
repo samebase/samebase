@@ -97,6 +97,16 @@ export const withApp = query({
   },
 });
 
+/** The newest clients of every app, first-party apps included, newest first, at most `limit`. */
+export const list = query({
+  args: { limit: number() },
+  returns: array(vClient),
+  handler: async (ctx, args) => {
+    const clients = await ctx.db.query("clients").order("desc").take(args.limit);
+    return clients.map(({ _id, _creationTime, ...fields }) => fields);
+  },
+});
+
 export const listByApp = query({
   args: { appId: string() },
   returns: array(vClient),
