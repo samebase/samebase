@@ -12,9 +12,7 @@ The exported repository root is the exact Git tree at that source directory. Put
 that belong in the external repository in the source directory.
 
 An export can use the root workspace or remain a standalone package manager boundary. The plugin
-uses root tooling and includes a small dependency-free public check. The starter must work as an
-independent repository, so `templates/base` owns its `package.json`, `pnpm-workspace.yaml`,
-`pnpm-lock.yaml`, and public workflows. It is intentionally outside the root workspace globs.
+uses root tooling and includes a small dependency-free public check.
 
 The monorepo must run the checks that protect each export before publication. Run standalone export
 checks in a fresh job so root dependencies cannot hide an undeclared dependency.
@@ -22,9 +20,8 @@ checks in a fresh job so root dependencies cannot hide an undeclared dependency.
 ## Automatic workflow
 
 The publisher runs only for a push to `main`, after supply-chain validation, the standard checks,
-the unit tests, and the app build succeed. The starter also requires its audits and isolated checks.
-Playwright and the Windows launcher check continue in parallel, but they do not block repository
-exports.
+the unit tests, and the app build succeed. Playwright and the Windows launcher check continue in
+parallel, but they do not block repository exports.
 
 Before it publishes, the job reads every configured target repository with a metadata-only token. If
 a target repository does not exist, or the publisher GitHub App cannot access it, the job fails with
@@ -55,43 +52,36 @@ The subject identifies the current `main` snapshot that publishes the files. If 
 commit replaces an older successful run, the older run stops. The newer snapshot then publishes with
 its own subject, even when that commit did not change the source directory.
 
-## Starter base export
+## Starter template
 
-`templates/base` is the maintained starter source. A template change has three outputs in one pull
-request:
+The starter lives in [samebase/base](https://github.com/samebase/base). Change it there with a pull
+request; that repository's workflows audit and build each pull request and deploy its preview.
 
-1. the standalone base tree and its lockfile under `templates/base`
-2. the committed `starterSeedManifest.generated.ts` used by runtime app creation
-3. the public `samebase/base` tree published after merge
+samebase.com creates new apps from `apps/samebase/convex/starterSeedManifest.generated.ts`, a
+snapshot of one `samebase/base` commit, named in its `sourceCommit`. Runtime app creation reads only
+this committed manifest, so a change on `samebase/base` reaches new apps only through a pull request
+here.
 
-Stage template changes before running `pnpm run template:export`, then stage the generated manifest.
-The generator reads the staged Git blobs so the seed bytes match the future public export exactly.
-It rejects unstaged source changes and new non-ignored files. Untracked ignored files, including
-local environment files, dependencies, and build output, cannot enter the seed. The generated
-version uses the content hash. Required root checks regenerate the manifest and reject a diff.
+To seed the current `main` of `samebase/base`, run `pnpm run template:export -- --update` and commit
+the manifest, in the pull request that changes samebase.com for that starter when there is one. Add
+a starter changelog entry there, with the plugin version raise that it needs, when existing apps
+should take the change. Without `--update`, the command regenerates the pinned commit; required
+checks run it and reject a diff. The generator fetches that commit and reads its Git blobs, so the
+seed holds its exact bytes.
 
-Runtime app creation imports the committed manifest. It does not fetch the public repository or read
-the template directory. A public export failure therefore cannot stop Samebase from creating a new
-app from the last accepted snapshot.
-
-Root CI installs and audits the starter through its nested lockfile, then builds it in a separate
-fresh job.
+Root CI checks out the pinned commit for the starter audit, the starter build, and the Windows
+launcher and start checks. They run when the pin changes and nightly.
 
 The convex-hosting starter is maintained in
 [samebase/base-hosting](https://github.com/samebase/base-hosting).
 
 ### Alchemy deployment
 
-`templates/base` is a Convex-hosted app that its own GitHub Actions deploy with Alchemy. New App
-seeds this same tree from `starterSeedManifest.generated.ts`.
+The starter is a Convex-hosted app that its own GitHub Actions deploy with Alchemy.
 
 A deploy needs the secret `CONVEX_ACCESS_TOKEN` and the variable `CONVEX_TEAM_ID`, which Samebase
 writes when it creates the repository. Samebase reads what the repository deployed from the Alchemy
 state store of the team. The `Destroy app` workflow destroys the app after a typed confirmation.
-
-The publisher appends the starter tree to the current `samebase/base` head. It keeps that
-repository's history, so links to old starter commits remain valid. The former Alchemy repository no
-longer receives exports. Archive it after the move; do not delete it.
 
 ### Existing-app sweep
 

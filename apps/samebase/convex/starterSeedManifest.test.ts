@@ -8,8 +8,8 @@ describe("starterTemplateManifest", () => {
     expect(starterTemplateManifest.version).toBe(
       `samebase-base-${starterTemplateManifest.contentHash.slice(0, 12)}`,
     );
-    expect(starterTemplateManifest.sourcePath).toBe("templates/base");
-    expect(starterTemplateManifest.publishedRepo).toBe("https://github.com/samebase/base.git");
+    expect(starterTemplateManifest.sourceRepository).toBe("https://github.com/samebase/base.git");
+    expect(starterTemplateManifest.sourceCommit).toMatch(/^[0-9a-f]{40}$/);
     expect(starterTemplateManifest.commitMessage).toBe(
       "Initialize app from Samebase starter build v2210",
     );

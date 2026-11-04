@@ -11,18 +11,11 @@ export type RepositoryExport = {
   targetRepository: string;
 };
 
-export const baseTemplateSourceRoot = "templates/base";
-
 export const repositoryExports = [
   {
     sourceRoot: "packages/plugin",
     targetBranch: "main",
     targetRepository: "plugin",
-  },
-  {
-    sourceRoot: baseTemplateSourceRoot,
-    targetBranch: "main",
-    targetRepository: "base",
   },
 ] satisfies readonly RepositoryExport[];
 

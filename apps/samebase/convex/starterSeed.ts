@@ -5,8 +5,8 @@ import type { ProviderApiCall, ProviderApiCallRecorder } from "./providerApiLog"
 
 export type StarterTemplateManifest = {
   version: string;
-  sourcePath: string;
-  publishedRepo: string;
+  sourceRepository: string;
+  sourceCommit: string;
   contentHash: string;
   commitMessage: string;
   files: Record<string, string>;
