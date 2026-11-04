@@ -1,7 +1,7 @@
 // The push command of a preview stage of apps/samebase/alchemy.run.ts. Convex.Deployment runs it in
 // that folder with CONVEX_DEPLOY_KEY set to a short-lived key of the preview deployment,
 // so each Convex CLI call below reaches that deployment and no other.
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 import { generateCredentialKeys } from "../../../scripts/lib/convexAuthKeys.ts";
@@ -23,7 +23,25 @@ if (existingRing.length === 0) {
 }
 
 // The build, the upload of the site, and `convex deploy`, as in production.
-execFileSync(process.execPath, ["--run", "deploy"], { stdio: "inherit" });
+// TEMPORARY diagnosis for PR 1789: the Site error keeps only the last 20 output lines.
+const deploy = spawnSync(process.execPath, ["--run", "deploy"], {
+  encoding: "utf8",
+  maxBuffer: 1 << 28,
+});
+process.stdout.write(deploy.stdout);
+process.stderr.write(deploy.stderr);
+if (deploy.status !== 0) {
+  const last = (text: string, count: number) =>
+    text
+      .split("\n")
+      .filter((line) => line.trim().length > 0)
+      .slice(-count)
+      .join("\n");
+  process.stderr.write(
+    `\n--- deploy stdout ---\n${last(deploy.stdout, 9)}\n--- deploy stderr ---\n${last(deploy.stderr, 8)}\n`,
+  );
+  process.exit(deploy.status ?? 1);
+}
 
 // OAuth sign-ins may return only to SITE_URL and CONVEX_SITE_URL, so the preview signs in on its own
 // origin.
