@@ -1,5 +1,6 @@
-// Convex.SharedHubClient against a fake GitHub, Samebase, and identity hub behind a stubbed fetch.
-// The hub answers as `registrationEndpoints` of @samebase/identity-broker does.
+// Convex.SharedHubClient against a fake GitHub and identity hub behind a stubbed fetch. The hub
+// answers `/hub-clients` as apps/identity-hub/convex/hubClients.ts does, and a client's own record as
+// `registrationEndpoints` of @samebase/identity-broker does.
 import { adopt } from "alchemy/AdoptPolicy";
 import * as Output from "alchemy/Output";
 import * as Test from "@alchemy.run/test/Vitest";
@@ -20,6 +21,9 @@ const OTHER_REDIRECT_URI = "https://scout.example.workers.dev/api/auth/callback/
 const OIDC_REQUEST_URL = "https://oidc.test/token?api-version=2.0";
 const OIDC_REQUEST_TOKEN = "oidc-request-token";
 const OIDC_TOKEN = "oidc-token";
+/** Where a run asks for a new client without HUB_URL. */
+const HUB_CLIENTS = "https://auth.samebase.com/hub-clients";
+const TERMS = "https://samebase.com/terms";
 
 const { test } = Test.make({
   providers: Convex.providers(Convex.fromValues({ accessToken: Redacted.make("test-token") })),
@@ -73,7 +77,7 @@ const OFF = {
   redirectUri: "",
 };
 
-/** The body of POST /api/hub-clients. */
+/** The body of POST /hub-clients. */
 const ClientRequest = Schema.Struct({ redirectUri: Schema.String });
 
 /** One request that reached the fake. */
@@ -92,26 +96,31 @@ const networkDown: Answer = ({ authorization }) => {
   throw new TypeError(`fetch failed: ${authorization}`);
 };
 
-/** The answers of POST /api/hub-clients that give no client. */
+/** The answers of POST /hub-clients that give no client. */
 const REFUSALS: readonly (readonly [string, Answer])[] = [
   ["invalid_request", () => Response.json({ error: "invalid_request" }, { status: 400 })],
   ["a refused token", () => Response.json({ error: "invalid_token" }, { status: 401 })],
   ["not_allowed", () => Response.json({ error: "not_allowed" }, { status: 403 })],
-  ["off", () => Response.json({ error: "off" }, { status: 404 })],
-  ["rate_limited", () => Response.json({ error: "rate_limited" }, { status: 429 })],
-  ["hub_unavailable", () => Response.json({ error: "hub_unavailable" }, { status: 502 })],
+  ["a missing endpoint", () => new Response("Not Found", { status: 404 })],
+  [
+    "rate_limited",
+    () => Response.json({ error: "rate_limited", window: "repository" }, { status: 429 }),
+  ],
+  ["github_unavailable", () => Response.json({ error: "github_unavailable" }, { status: 502 })],
   ["a network error", networkDown],
   ["an unreadable 201", () => new Response("<html>", { status: 201 })],
 ];
 
 class FakeServices {
-  /** Every request to GitHub, Samebase, or the hub, in order. */
+  /** Every request to GitHub or the hub, in order. */
   readonly sent: Sent[] = [];
   /** The clients on the hub, with the token of each. */
   readonly clients = new Map<string, string>();
   /** Set: the answers of the service in place of the normal ones. */
   github: Answer | undefined;
-  samebase: Answer | undefined;
+  /** `POST /hub-clients`. */
+  registrar: Answer | undefined;
+  /** A client's own record at the hub. */
   hub: Answer | undefined;
   private nextClient = 1;
 
@@ -133,7 +142,7 @@ class FakeServices {
 
   private answerOf(url: string) {
     if (url.startsWith("https://oidc.test")) return this.github ?? this.answerGitHub;
-    if (url.startsWith("https://samebase.com")) return this.samebase ?? this.answerSamebase;
+    if (new URL(url).pathname === "/hub-clients") return this.registrar ?? this.answerRegistrar;
     return url.startsWith(ISSUER) ? (this.hub ?? this.answerHub) : undefined;
   }
 
@@ -157,7 +166,7 @@ class FakeServices {
 
   private readonly answerGitHub: Answer = () => Response.json({ count: 1, value: OIDC_TOKEN });
 
-  private readonly answerSamebase: Answer = ({ body }) => {
+  private readonly answerRegistrar: Answer = ({ body }) => {
     const clientId = `cl_${this.nextClient++}`;
     const token = `token-of-${clientId}`;
     this.clients.set(clientId, token);
@@ -170,6 +179,7 @@ class FakeServices {
         registration_access_token: token,
         registration_client_uri: `${ISSUER}/register/${clientId}`,
         redirect_uri: redirectUri,
+        terms: TERMS,
       },
       { status: 201 },
     );
@@ -218,7 +228,7 @@ describe("Convex.SharedHubClient", () => {
         },
         {
           method: "POST",
-          url: "https://samebase.com/api/hub-clients",
+          url: HUB_CLIENTS,
           authorization: `Bearer ${OIDC_TOKEN}`,
           body: { app: "scout", redirectUri: REDIRECT_URI, softwareVersion: "abc" },
         },
@@ -226,13 +236,24 @@ describe("Convex.SharedHubClient", () => {
     }),
   );
 
-  test.provider("SAMEBASE_URL replaces the address of Samebase", (stack) =>
+  test.provider("HUB_URL replaces the address of the hub", (stack) =>
     Effect.gen(function* () {
       const fake = new FakeServices().install();
-      vi.stubEnv("SAMEBASE_URL", "https://samebase.com/preview");
+      vi.stubEnv("HUB_URL", ISSUER);
       yield* stack.deploy(client(props()));
-      expect(fake.calls("https://samebase.com")).toEqual([
-        "POST https://samebase.com/preview/api/hub-clients",
+      expect(fake.calls(ISSUER)).toEqual([`POST ${ISSUER}/hub-clients`]);
+      expect(fake.calls(HUB_CLIENTS)).toEqual([]);
+    }),
+  );
+
+  test.provider("a new client logs the terms once, and a renewal does not", (stack) =>
+    Effect.gen(function* () {
+      new FakeServices().install();
+      const { layer, lines } = capturedLogs();
+      yield* stack.deploy(client(props())).pipe(Effect.provide(layer));
+      yield* stack.deploy(client(props())).pipe(Effect.provide(layer));
+      expect(lines.filter((line) => line.includes(TERMS))).toEqual([
+        `Info: Convex.SharedHubClient: scout on ${REDIRECT_URI} has a new client of the identity hub. Its use is under ${TERMS}.`,
       ]);
     }),
   );
@@ -287,13 +308,13 @@ describe("Convex.SharedHubClient", () => {
         const { layer, lines } = capturedLogs();
         const suspended = yield* stack.deploy(client(props())).pipe(Effect.provide(layer));
         expect(suspended).toEqual({ ...issued(), status: "suspended" });
-        expect(fake.calls("https://samebase.com")).toEqual([]);
+        expect(fake.calls(HUB_CLIENTS)).toEqual([]);
         expect(warningsIn(lines)).toHaveLength(1);
 
         // The hub lifts the suspension, and the same client serves again.
         fake.hub = undefined;
         expect(yield* stack.deploy(client(props()))).toEqual(issued());
-        expect(fake.calls("https://samebase.com")).toEqual([]);
+        expect(fake.calls(HUB_CLIENTS)).toEqual([]);
       }),
   );
 
@@ -312,7 +333,7 @@ describe("Convex.SharedHubClient", () => {
         const { layer, lines } = capturedLogs();
         const again = yield* stack.deploy(client(props())).pipe(Effect.provide(layer));
         expect(again).toEqual(first);
-        expect(fake.calls("https://samebase.com")).toEqual([]);
+        expect(fake.calls(HUB_CLIENTS)).toEqual([]);
         expect(warningsIn(lines)).toEqual([
           expect.stringContaining(`${REDIRECT_URI} keeps the saved client`),
         ]);
@@ -346,12 +367,13 @@ describe("Convex.SharedHubClient", () => {
   for (const [reason, text] of [
     ["verification_file_missing", "does not serve /samebase-verification.json"],
     ["repository_mismatch", "names another repository"],
-    ["repository_not_connected", "not connected to Samebase"],
+    ["blocked", "Samebase blocked this repository or its owner"],
+    ["paused", "pauses new clients of third-party apps"],
   ] as const) {
     test.provider(`a 403 for ${reason} says why in the log`, (stack) =>
       Effect.gen(function* () {
         const fake = new FakeServices().install();
-        fake.samebase = () => Response.json({ error: "not_allowed", reason }, { status: 403 });
+        fake.registrar = () => Response.json({ error: "not_allowed", reason }, { status: 403 });
         const { layer, lines } = capturedLogs();
         yield* stack.deploy(client(props())).pipe(Effect.provide(layer));
         expect(warningsIn(lines)).toEqual([expect.stringContaining(`${text} (HTTP 403)`)]);
@@ -359,10 +381,26 @@ describe("Convex.SharedHubClient", () => {
     );
   }
 
+  for (const [window, text] of [
+    ["repository", "one repository at most 30 new clients an hour"],
+    ["owner", "one owner at most 100 new clients an hour"],
+    ["new_owners", "at most 50 new owners an hour"],
+  ] as const) {
+    test.provider(`a 429 for the window ${window} says which in the log`, (stack) =>
+      Effect.gen(function* () {
+        const fake = new FakeServices().install();
+        fake.registrar = () => Response.json({ error: "rate_limited", window }, { status: 429 });
+        const { layer, lines } = capturedLogs();
+        yield* stack.deploy(client(props())).pipe(Effect.provide(layer));
+        expect(warningsIn(lines)).toEqual([expect.stringContaining(`${text} (HTTP 429)`)]);
+      }),
+    );
+  }
+
   test.provider("a 403 with an unknown reason logs no text of the answer", (stack) =>
     Effect.gen(function* () {
       const fake = new FakeServices().install();
-      fake.samebase = () =>
+      fake.registrar = () =>
         Response.json({ error: "not_allowed", reason: "toString" }, { status: 403 });
       const { layer, lines } = capturedLogs();
       yield* stack.deploy(client(props())).pipe(Effect.provide(layer));
@@ -376,9 +414,9 @@ describe("Convex.SharedHubClient", () => {
   test.provider("a deploy with the off values asks again", (stack) =>
     Effect.gen(function* () {
       const fake = new FakeServices().install();
-      fake.samebase = () => Response.json({ error: "off" }, { status: 404 });
+      fake.registrar = () => new Response("Not Found", { status: 404 });
       expect(yield* stack.deploy(client(props()))).toEqual(OFF);
-      fake.samebase = undefined;
+      fake.registrar = undefined;
       fake.sent.length = 0;
       expect(yield* stack.deploy(client(props()))).toEqual(issued());
       expect(fake.calls(ISSUER)).toEqual([]);
@@ -391,14 +429,14 @@ describe("Convex.SharedHubClient", () => {
         const fake = new FakeServices().install();
         yield* stack.deploy(client(props()));
         fake.clients.delete("cl_1");
-        fake.samebase = answer;
+        fake.registrar = answer;
         const { layer, lines } = capturedLogs();
         const again = yield* stack.deploy(client(props())).pipe(Effect.provide(layer));
         expect(again).toEqual(OFF);
         expect(warningsIn(lines)).toEqual([expect.stringContaining("deploys without the hub")]);
 
         // The next deploy asks again.
-        fake.samebase = undefined;
+        fake.registrar = undefined;
         expect(yield* stack.deploy(client(props()))).toEqual(issued("cl_2"));
       }),
     );
@@ -406,7 +444,7 @@ describe("Convex.SharedHubClient", () => {
     test.provider(`${name} on the first request gives the off values`, (stack) =>
       Effect.gen(function* () {
         const fake = new FakeServices().install();
-        fake.samebase = answer;
+        fake.registrar = answer;
         const { layer, lines } = capturedLogs();
         const off = yield* stack.deploy(client(props())).pipe(Effect.provide(layer));
         expect(off).toEqual(OFF);
@@ -421,10 +459,10 @@ describe("Convex.SharedHubClient", () => {
       Effect.gen(function* () {
         const fake = new FakeServices().install();
         yield* stack.deploy(client(props()));
-        fake.samebase = () => Response.json({ error: "hub_unavailable" }, { status: 502 });
+        fake.registrar = () => Response.json({ error: "github_unavailable" }, { status: 502 });
         const moved = yield* stack.deploy(client(props({ redirectUri: OTHER_REDIRECT_URI })));
         expect(moved).toEqual(OFF);
-        fake.samebase = undefined;
+        fake.registrar = undefined;
         const next = yield* stack.deploy(client(props({ redirectUri: OTHER_REDIRECT_URI })));
         expect(next).toEqual(issued("cl_2", OTHER_REDIRECT_URI));
       }),
@@ -435,13 +473,13 @@ describe("Convex.SharedHubClient", () => {
     ["an answer without a token", () => Response.json({ count: 0 })],
     ["a network error", networkDown],
   ] satisfies readonly (readonly [string, Answer])[]) {
-    test.provider(`${name} from GitHub gives the off values and asks Samebase nothing`, (stack) =>
+    test.provider(`${name} from GitHub gives the off values and asks the hub nothing`, (stack) =>
       Effect.gen(function* () {
         const fake = new FakeServices().install();
         fake.github = answer;
         const { layer, lines } = capturedLogs();
         expect(yield* stack.deploy(client(props())).pipe(Effect.provide(layer))).toEqual(OFF);
-        expect(fake.calls("https://samebase.com")).toEqual([]);
+        expect(fake.calls(HUB_CLIENTS)).toEqual([]);
         expect(warningsIn(lines)).toHaveLength(1);
       }),
     );
@@ -492,7 +530,7 @@ describe("Convex.SharedHubClient", () => {
     "the push reads the values that the run ended with, and only when they change",
     (stack) =>
       Effect.gen(function* () {
-        // The order of the template: the site is live before Samebase reads its file, so the
+        // The order of the template: the site is live before the hub reads its file, so the
         // client takes the URL of the row that pushes, which is unresolved in the plan of the first
         // deploy, and a second row with no source writes the variables. Each later plan has an
         // update that reads the new client.
@@ -579,7 +617,7 @@ describe("Convex.SharedHubClient", () => {
   test.provider("a destroy of the off values makes no request and no warning", (stack) =>
     Effect.gen(function* () {
       const fake = new FakeServices().install();
-      fake.samebase = () => Response.json({ error: "off" }, { status: 404 });
+      fake.registrar = () => new Response("Not Found", { status: 404 });
       yield* stack.deploy(client(props()));
       fake.sent.length = 0;
       const { layer, lines } = capturedLogs();
@@ -647,11 +685,11 @@ describe("Convex.SharedHubClient", () => {
       yield* deploy();
       fake.hub = undefined;
       fake.clients.delete("cl_1");
-      fake.samebase = networkDown;
+      fake.registrar = networkDown;
       yield* deploy();
-      fake.samebase = echo;
+      fake.registrar = echo;
       yield* deploy({ ...props(), redirectUri: OTHER_REDIRECT_URI });
-      fake.samebase = () => new Response('{"client_secret":"secret-of-cl_1"}', { status: 201 });
+      fake.registrar = () => new Response('{"client_secret":"secret-of-cl_1"}', { status: 201 });
       yield* deploy({ ...props(), redirectUri: OTHER_REDIRECT_URI });
       fake.github = networkDown;
       yield* deploy({ ...props(), redirectUri: OTHER_REDIRECT_URI });

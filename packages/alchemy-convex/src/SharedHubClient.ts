@@ -1,9 +1,9 @@
 // Convex.SharedHubClient: one deployment of an app as a client of the central identity hub, for an
 // app that deploys in its own GitHub Actions run, on any host.
 //
-// The run asks samebase.com for a new client with a GitHub OIDC token, so the stack needs no
-// Samebase key. The token names the repository. Samebase reads `/samebase-verification.json` at the
-// origin of the return address, which must name the same repository, and registers the client on
+// The run asks the hub for a new client with a GitHub OIDC token, so the stack needs no key and no
+// Samebase account. The token names the repository. The hub reads `/samebase-verification.json` at
+// the origin of the return address, which must name the same repository, and registers the client on
 // that address. The answer holds the client's own registration access token (RFC 7591), and each
 // later deploy reads the client on the hub with that token (RFC 7592). The hub keeps only hashes, so
 // the state is the only record of the secret and the token.
@@ -75,7 +75,7 @@ class SharedHubClientFailed extends Schema.TaggedError<SharedHubClientFailed>()(
 
 const OidcToken = Schema.Struct({ value: Schema.NonEmptyString });
 
-/** The 201 answer of `POST /api/hub-clients`. */
+/** The 201 answer of `POST /hub-clients`. */
 const NewClient = Schema.Struct({
   issuer: Schema.NonEmptyString,
   client_id: Schema.NonEmptyString,
@@ -83,46 +83,61 @@ const NewClient = Schema.Struct({
   registration_access_token: Schema.NonEmptyString,
   registration_client_uri: Schema.NonEmptyString,
   redirect_uri: Schema.NonEmptyString,
+  /** The terms of the shared sign-in service, which the log shows once, for the new client. */
+  terms: Schema.NonEmptyString,
 });
 
-/** The other answers of `POST /api/hub-clients`, by status. */
+/** The other answers of `POST /hub-clients`, by status. */
 const REFUSALS: Readonly<Record<number, string>> = {
-  400: "Samebase refused the request: the return address must be https on a DNS name",
-  401: "Samebase refused the GitHub OIDC token",
-  403: "Samebase does not allow this repository or return address",
-  404: "hub clients are off on Samebase",
-  429: "Samebase limits the requests of this repository",
-  502: "the identity hub is not available",
+  400: "the identity hub refused the request: the return address must be https on a DNS name, and the app name at most 64 characters",
+  401: "the identity hub refused the GitHub OIDC token",
+  403: "the identity hub does not allow this repository or return address",
+  404: "the identity hub has no /hub-clients",
+  429: "the identity hub limits new clients",
+  502: "GitHub's keys are not available to the identity hub",
 };
 
 /** The reasons of a 403 that a log line shows. Any other text of the answer is never logged. */
 const NOT_ALLOWED = new Map([
-  ["run_not_allowed", "Samebase gives clients only to runs of main and of pull requests"],
-  ["repository_not_connected", "the repository is not connected to Samebase"],
-  ["owner_mismatch", "the repository's owner is not the owner connected to Samebase"],
-  ["host_unreachable", "Samebase could not reach the host of the return address"],
+  ["paused", "the identity hub pauses new clients of third-party apps"],
+  ["run_not_allowed", "the identity hub gives clients only to runs of main and of pull requests"],
+  ["blocked", "Samebase blocked this repository or its owner"],
+  ["suspended", "the identity hub suspended this repository"],
+  ["too_many_apps", "the repository has as many apps on the identity hub as it may"],
+  ["too_many_clients", "the app has as many clients on the identity hub as it may"],
+  ["app_taken", "the app's name belongs to another app on the identity hub"],
+  ["host_unreachable", "the identity hub could not reach the host of the return address"],
   [
     "verification_file_missing",
     "the host of the return address does not serve /samebase-verification.json",
   ],
   ["verification_file_invalid", "/samebase-verification.json on the host holds no repository id"],
   ["repository_mismatch", "/samebase-verification.json on the host names another repository"],
-  ["hub_refused", "the identity hub refused this repository"],
+]);
+
+/** The windows of a 429, by the name that the answer gives. */
+const RATE_LIMITED = new Map([
+  ["repository", "the identity hub gives one repository at most 30 new clients an hour"],
+  ["owner", "the identity hub gives one owner at most 100 new clients an hour"],
+  ["new_owners", "the identity hub takes at most 50 new owners an hour"],
 ]);
 
 const Refusal = Schema.Struct({ reason: Schema.String });
+const RateLimited = Schema.Struct({ window: Schema.String });
 
-/** The text of a refusal: a known reason of a 403, else the text of its status. */
+/** The text of a refusal: a known reason of a 403 or window of a 429, else the text of its status. */
 const refusalOf = (status: number, body: unknown) => {
-  const reason =
+  const known =
     status === 403
-      ? Option.getOrUndefined(Schema.decodeUnknownOption(Refusal)(body))?.reason
-      : undefined;
-  return (
-    (reason === undefined ? undefined : NOT_ALLOWED.get(reason)) ??
-    REFUSALS[status] ??
-    "Samebase refused the request"
-  );
+      ? NOT_ALLOWED.get(
+          Option.getOrUndefined(Schema.decodeUnknownOption(Refusal)(body))?.reason ?? "",
+        )
+      : status === 429
+        ? RATE_LIMITED.get(
+            Option.getOrUndefined(Schema.decodeUnknownOption(RateLimited)(body))?.window ?? "",
+          )
+        : undefined;
+  return known ?? REFUSALS[status] ?? "the identity hub refused the request";
 };
 
 const send = (who: string, url: string, token: string, init: { method: string; body?: string }) =>
@@ -167,8 +182,8 @@ const requestNewClient = (props: SharedHubClientProps, requestUrl: string, reque
   Effect.gen(function* () {
     const token = yield* readOidcToken(requestUrl, requestToken);
     const { body, status } = yield* send(
-      "Samebase",
-      `${process.env["SAMEBASE_URL"] ?? "https://samebase.com"}/api/hub-clients`,
+      "The identity hub",
+      `${process.env["HUB_URL"] ?? "https://auth.samebase.com"}/hub-clients`,
       token,
       {
         method: "POST",
@@ -184,7 +199,10 @@ const requestNewClient = (props: SharedHubClientProps, requestUrl: string, reque
         reason: `${refusalOf(status, body)} (HTTP ${status})`,
       });
     }
-    const client = yield* decode(NewClient, "Samebase")(body);
+    const client = yield* decode(NewClient, "The identity hub")(body);
+    yield* Effect.logInfo(
+      `Convex.SharedHubClient: ${props.app} on ${client.redirect_uri} has a new client of the identity hub. Its use is under ${client.terms}.`,
+    );
     return {
       status: "on" as const,
       issuer: client.issuer,
@@ -212,8 +230,8 @@ const newClient = (props: SharedHubClientProps) => {
   };
   const requestUrl = process.env["ACTIONS_ID_TOKEN_REQUEST_URL"];
   const requestToken = process.env["ACTIONS_ID_TOKEN_REQUEST_TOKEN"];
-  // A laptop, or a repository outside Samebase. In a workflow, `id-token: write` gives both, so a
-  // workflow without them is a mistake to show, not a normal run.
+  // A laptop, or another CI. In a workflow, `id-token: write` gives both, so a workflow without them
+  // is a mistake to show, not a normal run.
   if (!requestUrl || !requestToken) {
     return (
       process.env["GITHUB_ACTIONS"] === "true"

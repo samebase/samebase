@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.24.0
+
+`Convex.SharedHubClient` asks the identity hub for a new client at
+`${HUB_URL ?? "https://auth.samebase.com"}/hub-clients`, not samebase.com. The repository needs no
+Samebase account. `SAMEBASE_URL` is gone.
+
+- A new client logs the link to the terms of the shared sign-in service once.
+- A refusal logs the reasons of the hub: `blocked`, `paused`, `suspended`, the caps of an app, and
+  the hourly window of a 429 (a repository, an owner, or new owners).
+
+The state store protocol does not change.
+
 ## 0.23.0
 
 Requires `alchemy@2.0.0-beta.85` and Effect 4.1: `effect` and `@effect/platform-node` ^4.1.0.
