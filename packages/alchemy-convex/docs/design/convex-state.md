@@ -173,12 +173,17 @@ limits or return a partial repository. A repository above the backend's read or 
 the query.
 
 The writer sends the record of its run with `state:set`, `state:remove`, and `state:setOutput`. The
-mutation stores it in `outputs.currentRun` in the same transaction as the resource change.
-`outputs.value` is optional so the first resource can appear before the output. `getOutput` and
-`readStack.output` stay `null` until the stack writes an output. `readStack.record` is the current
-record or `null`. A write without a record (see the run record section) clears `currentRun`, so the
-reader does not show the stage. `removeStack` removes both the resources and the output row,
-including the current record.
+mutation stores it in `outputs.currentRun` in the same transaction as the resource change, but only
+when the run changes: a record that differs only in `recordedAt` is the same run, and the write only
+reads the row. Alchemy writes the resources of a deploy at the same time, so a write to the one
+output row on each of them made them conflict until Convex stopped its retries. `setOutput` always
+writes the record. So `recordedAt` is the time of the first write of a run until its output, and
+then the time of the output. Two laptop deploys of one commit have no `runUrl`, so they count as one
+run: the second keeps the time of the first until its output. `outputs.value` is optional so the
+first resource can appear before the output. `getOutput` and `readStack.output` stay `null` until
+the stack writes an output. `readStack.record` is the current record or `null`. A write without a
+record (see the run record section) clears `currentRun`, so the reader does not show the stage.
+`removeStack` removes both the resources and the output row, including the current record.
 
 `record` is `currentRun`. `deployedHeadCommit` is the `headCommit` of the output's `samebase.run`
 when that value passes the `runRecord` validator and names the same repository, else `null`. A new

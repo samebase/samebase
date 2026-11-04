@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.25.1
+
+- A resource write of the store writes the run record of the stage only when the run changes. The
+  resources of a deploy write at the same time, and each of them wrote the one output row of the
+  stage, so a deploy with several resources could fail with
+  `Documents read from or written to the "outputs" table changed while this mutation was being run and on every subsequent retry`.
+- `recordedAt` of the current record is the time of the first write of the run until its output, and
+  then the time of the output. Two laptop deploys of one commit have no `runUrl`, so they count as
+  one run: the second keeps the time of the first until its output.
+
+The store version stays 5, because no function changes its arguments or results. A client pushes the
+store only to a store of an older version, so an existing store gets this change only from a manual
+push of `src/store`. A new store gets it from its first run.
+
 ## 0.25.0
 
 Every preview and development client of `Convex.HubClient` and `alchemy-convex hub-client` expires

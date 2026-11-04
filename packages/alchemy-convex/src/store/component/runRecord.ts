@@ -12,6 +12,21 @@ export const runRecord = v.object({
   recordedAt: v.string(),
 });
 
+type RunRecord = Infer<typeof runRecord>;
+
+/**
+ * True when a write with `next` must replace `current`, the record of the stage. Records that differ
+ * only in `recordedAt`, the time of one write, name the same run. Two laptop deploys of one commit
+ * have no `runUrl`, so they are the same run too. A write without a record (`null`) clears one.
+ */
+export const runChanged = (current: RunRecord | undefined, next: RunRecord | null) => {
+  if (next === null || current === undefined) return next !== null || current !== undefined;
+  const other = new Map(Object.entries(next));
+  return Object.entries(current).some(
+    ([field, value]) => field !== "recordedAt" && other.get(field) !== value,
+  );
+};
+
 /** Whether `value` passes `validator`. Only the kinds of {@link runRecord} pass; another kind fails. */
 export const validate = <V extends GenericValidator>(
   validator: V,
