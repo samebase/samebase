@@ -1,4 +1,4 @@
-import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { useAction } from "convex/react";
 import { Loader2 } from "lucide-react";
 import { useState } from "react";
@@ -8,8 +8,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectTrigger, SelectValue } from "@/components/ui/select";
-
-const FIRST_PAGE: string | null = null;
 
 const BLOCK_KINDS = [
   { value: "repository", label: "Repository" },
@@ -26,27 +24,15 @@ const formatCount = (count: { count: number; atLeast: boolean }) =>
   `${count.count}${count.atLeast ? "+" : ""}`;
 
 /**
-The registrations of the identity hub's `/hub-clients`, every client at the hub, and the blocks and
-their events.
+Every client at the identity hub with who made it (a repository's GitHub Actions run at
+`/hub-clients`, or the team's Convex login), and the blocks and their events.
 */
 export function AdminHubClientsPage() {
   const readOverview = useAction(api.hubClients.moderation.readOverview);
-  const listRegistrations = useAction(api.hubClients.moderation.listRegistrations);
   const changeBlock = useAction(api.hubClients.moderation.changeBlock);
   const overview = useQuery({
     queryKey: ["admin-hub-clients-overview"],
     queryFn: async () => await readOverview({}),
-    retry: false,
-  });
-  const registrations = useInfiniteQuery({
-    queryKey: ["admin-hub-clients-registrations"],
-    queryFn: async ({ pageParam }) => await listRegistrations({ cursor: pageParam }),
-    initialPageParam: FIRST_PAGE,
-    getNextPageParam: (last) =>
-      last.status === "on" && !last.registrations.isDone
-        ? last.registrations.continueCursor
-        : undefined,
-    enabled: overview.data?.status === "on",
     retry: false,
   });
   const [kind, setKind] = useState<BlockKind>("repository");
@@ -79,10 +65,6 @@ export function AdminHubClientsPage() {
     }
   };
 
-  const rows = (registrations.data?.pages ?? []).flatMap((page) =>
-    page.status === "on" ? page.registrations.page : [],
-  );
-
   return (
     <main
       data-testid="admin-hub-clients-page"
@@ -105,68 +87,17 @@ export function AdminHubClientsPage() {
             {formatCount(overview.data.counts.week)} in the last week.
           </p>
 
-          <h2 className="mt-10 text-base font-semibold">Registrations</h2>
+          <h2 className="mt-10 text-base font-semibold">Clients</h2>
           <div className="mt-3 overflow-x-auto border-t">
-            <table className="w-full min-w-5xl text-left text-sm">
-              <thead className="border-b">
-                <tr>
-                  <th className="py-3 pr-4 font-medium">Registered</th>
-                  <th className="py-3 pr-4 font-medium">Repository</th>
-                  <th className="py-3 pr-4 font-medium">Owner</th>
-                  <th className="py-3 pr-4 font-medium">Actor</th>
-                  <th className="py-3 pr-4 font-medium">Stage</th>
-                  <th className="py-3 pr-4 font-medium">App</th>
-                  <th className="py-3 font-medium">Return address</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((row) => (
-                  <tr key={row.clientId} className="border-b">
-                    <td className="py-3 pr-4">{formatTime(row.registeredAt)}</td>
-                    <td className="py-3 pr-4">
-                      {row.githubRepository}{" "}
-                      <span className="text-muted-foreground">
-                        {row.githubRepositoryDatabaseId}
-                      </span>
-                    </td>
-                    <td className="py-3 pr-4">{row.githubOwnerId}</td>
-                    <td className="py-3 pr-4">{row.githubActorLogin}</td>
-                    <td className="py-3 pr-4">{row.stage}</td>
-                    <td className="py-3 pr-4">{row.app}</td>
-                    <td className="py-3 break-all">{row.redirectUri}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          {registrations.isError ? (
-            <p className="mt-4 text-sm text-destructive" role="alert">
-              Could not load the registrations.
-            </p>
-          ) : registrations.isSuccess && rows.length === 0 ? (
-            <p className="mt-4 text-sm text-muted-foreground">No registrations.</p>
-          ) : null}
-          {registrations.hasNextPage ? (
-            <Button
-              type="button"
-              variant="outline"
-              className="mt-4"
-              disabled={registrations.isFetchingNextPage}
-              onClick={() => void registrations.fetchNextPage()}
-            >
-              {registrations.isFetchingNextPage ? "Loading..." : "Load more"}
-            </Button>
-          ) : null}
-
-          <h2 className="mt-10 text-base font-semibold">All clients</h2>
-          <div className="mt-3 overflow-x-auto border-t">
-            <table className="w-full min-w-6xl text-left text-sm">
+            <table className="w-full min-w-7xl text-left text-sm">
               <thead className="border-b">
                 <tr>
                   <th className="py-3 pr-4 font-medium">Created</th>
+                  <th className="py-3 pr-4 font-medium">Registered by</th>
+                  <th className="py-3 pr-4 font-medium">Owner</th>
+                  <th className="py-3 pr-4 font-medium">Actor</th>
                   <th className="py-3 pr-4 font-medium">App</th>
                   <th className="py-3 pr-4 font-medium">Client</th>
-                  <th className="py-3 pr-4 font-medium">Client ID</th>
                   <th className="py-3 pr-4 font-medium">Deployment</th>
                   <th className="py-3 pr-4 font-medium">Return address</th>
                   <th className="py-3 pr-4 font-medium">Expires</th>
@@ -178,9 +109,33 @@ export function AdminHubClientsPage() {
                 {overview.data.clientList.clients.map((client) => (
                   <tr key={client.clientId} className="border-b">
                     <td className="py-3 pr-4">{formatTime(client.createdAt)}</td>
-                    <td className="py-3 pr-4 break-all">{client.appId}</td>
-                    <td className="py-3 pr-4">{client.clientName}</td>
-                    <td className="py-3 pr-4 break-all">{client.clientId}</td>
+                    {client.registeredBy.kind === "github" ? (
+                      <>
+                        <td className="py-3 pr-4">
+                          {client.registeredBy.githubRepository}{" "}
+                          <span className="text-muted-foreground">
+                            {client.registeredBy.githubRepositoryDatabaseId}
+                          </span>
+                        </td>
+                        <td className="py-3 pr-4">{client.registeredBy.githubOwnerId}</td>
+                        <td className="py-3 pr-4">{client.registeredBy.githubActorLogin}</td>
+                        <td className="py-3 pr-4 break-all">
+                          {client.registeredBy.app}{" "}
+                          <span className="text-muted-foreground">{client.appId}</span>
+                        </td>
+                      </>
+                    ) : (
+                      <>
+                        <td className="py-3 pr-4" colSpan={3}>
+                          {client.registeredBy.kind === "team" ? "Team login" : "No record"}
+                        </td>
+                        <td className="py-3 pr-4 break-all">{client.appId}</td>
+                      </>
+                    )}
+                    <td className="py-3 pr-4 break-all">
+                      {client.clientName}{" "}
+                      <span className="text-muted-foreground">{client.clientId}</span>
+                    </td>
                     <td className="py-3 pr-4">{client.deploymentType}</td>
                     <td className="py-3 pr-4 break-all">{client.redirectUri}</td>
                     <td className="py-3 pr-4">{formatOptionalTime(client.removeAt)}</td>

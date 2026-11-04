@@ -49,7 +49,6 @@ async function readTenant(t: ConvexTest, tenantId: string) {
 }
 
 const ENDPOINTS = [
-  ["GET", "/moderation/registrations"],
   ["GET", "/moderation/counts"],
   ["GET", "/moderation/blocks"],
   ["POST", "/moderation/blocks"],
@@ -121,37 +120,6 @@ describe("the moderation key", () => {
 });
 
 describe("the registrations", () => {
-  it("lists them newest first, a page at a time", async () => {
-    const t = makeConvexTest();
-    const now = Date.now();
-    await importRows(
-      t,
-      Array.from({ length: 55 }, (_, index) => importedRow(index, now - index * 1_000)),
-    );
-
-    const first = await moderationRequest(t, "/moderation/registrations");
-    const firstPage: { page: { clientId: string }[]; isDone: boolean; continueCursor: string } =
-      await first.json();
-    const second = await moderationRequest(
-      t,
-      `/moderation/registrations?cursor=${encodeURIComponent(firstPage.continueCursor)}`,
-    );
-    const secondPage: { page: { clientId: string }[]; isDone: boolean } = await second.json();
-
-    expect(first.headers.get("Cache-Control")).toBe("no-store");
-    expect(firstPage.page).toHaveLength(50);
-    expect(firstPage.page[0]).toEqual(importedRow(0, now));
-    expect(firstPage.isDone).toBe(false);
-    expect(secondPage.page.map((row) => row.clientId)).toEqual([
-      "cl_imported_50",
-      "cl_imported_51",
-      "cl_imported_52",
-      "cl_imported_53",
-      "cl_imported_54",
-    ]);
-    expect(secondPage.isDone).toBe(true);
-  });
-
   it("counts the last day and the last week", async () => {
     const t = makeConvexTest();
     const now = Date.now();
@@ -241,16 +209,12 @@ describe("the registrations", () => {
     await setBlock(t, { action: "block", kind: "owner", githubId: "999" });
 
     const answers = await Promise.all(
-      [
-        "/moderation/registrations",
-        "/moderation/counts",
-        "/moderation/blocks",
-        "/moderation/clients",
-      ].map(async (path) => await (await moderationRequest(t, path)).text()),
+      ["/moderation/counts", "/moderation/blocks", "/moderation/clients"].map(
+        async (path) => await (await moderationRequest(t, path)).text(),
+      ),
     );
 
-    expect(answers[0]).toContain(client.client_id);
-    expect(answers[3]).toContain(client.client_id);
+    expect(answers[2]).toContain(client.client_id);
     for (const answer of answers) {
       expect(answer).not.toContain(client.client_secret);
       expect(answer).not.toContain(client.registration_access_token);
@@ -386,9 +350,22 @@ describe("the blocks", () => {
 });
 
 describe("the clients", () => {
-  it("lists every client at the broker newest first, the team's own included, with no secret", async () => {
+  it("lists every client at the broker newest first with who made it, and no secret", async () => {
     vi.useFakeTimers({ now: 1_800_000_000_000, toFake: ["Date"] });
     const t = makeConvexTest();
+    // A client of an app that is gone.
+    await t.mutation(components.identityBroker.clients.create, {
+      clientId: "cl_orphan",
+      appId: "gh-75-gone",
+      secretHash: "hash",
+      tokenEndpointAuthMethod: "client_secret_post",
+      redirectUri: "https://gone.example/auth/hub/callback",
+      deploymentType: "production",
+      clientName: "prod",
+      softwareVersion: "abc123",
+      createdAt: 1_799_999_999_000,
+      expires: false,
+    });
     const own = await t.mutation(internal.identityBroker.registerClient, {
       appId: "samebase",
       redirectUri: "https://samebase.com/auth/hub/callback",
@@ -428,6 +405,7 @@ describe("the clients", () => {
           renewedAt: null,
           lastSignInAt: null,
           removeAt: 1_800_000_003_000 + 14 * 24 * 60 * 60 * 1_000,
+          registeredBy: { kind: "team" },
         },
         {
           clientId: thirdParty.client_id,
@@ -439,6 +417,14 @@ describe("the clients", () => {
           renewedAt: 1_800_000_002_000,
           lastSignInAt: null,
           removeAt: null,
+          registeredBy: {
+            kind: "github",
+            githubRepository: "octo-org/octo-repo",
+            githubRepositoryDatabaseId: REPOSITORY_ID,
+            githubOwnerId: OWNER_ID,
+            githubActorLogin: "octocat",
+            app: "my-app",
+          },
         },
         {
           clientId: own.clientId,
@@ -450,6 +436,19 @@ describe("the clients", () => {
           renewedAt: null,
           lastSignInAt: null,
           removeAt: null,
+          registeredBy: { kind: "team" },
+        },
+        {
+          clientId: "cl_orphan",
+          appId: "gh-75-gone",
+          clientName: "prod",
+          deploymentType: "production",
+          redirectUri: "https://gone.example/auth/hub/callback",
+          createdAt: 1_799_999_999_000,
+          renewedAt: null,
+          lastSignInAt: null,
+          removeAt: null,
+          registeredBy: { kind: "unknown" },
         },
       ],
       limitReached: false,
