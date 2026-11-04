@@ -325,6 +325,13 @@ function AdminAppRightSidebarLinks() {
       >
         Emails
       </Link>
+      <Link
+        {...APP_SIDEBAR_NAVIGATION_LINK_PROPS}
+        className={APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME}
+        to="/admin/hub-clients"
+      >
+        Hub clients
+      </Link>
     </nav>
   );
 }

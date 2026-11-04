@@ -300,6 +300,12 @@ importers:
       convex:
         specifier: 1.48.0
         version: 1.48.0(react@19.3.0)
+      convex-helpers:
+        specifier: 0.1.128
+        version: 0.1.128(@standard-schema/spec@1.1.0)(convex@1.48.0(react@19.3.0))(hono@4.13.13)(react@19.3.0)(typescript@7.0.2)(zod@4.6.7)
+      jose:
+        specifier: 6.2.13
+        version: 6.2.13
     devDependencies:
       '@effect/platform-node':
         specifier: 4.1.2
@@ -310,6 +316,9 @@ importers:
       alchemy:
         specifier: 2.0.0-beta.85
         version: 2.0.0-beta.85(@arethetypeswrong/core@0.18.5)(@effect/platform-bun@4.1.0(effect@4.1.2))(@effect/platform-node@4.1.2(effect@4.1.2)(redis@6.3.0(@opentelemetry/api@1.9.1)))(@types/node@24.19.2)(@types/react@19.3.0)(@typescript/native-preview@7.0.0-dev.20260707.2)(effect@4.1.2)(esbuild@0.28.2)(jiti@2.7.0)(publint@0.3.25)(terser@5.49.0)(typescript@7.0.2)(ws@8.22.0)
+      convex-test:
+        specifier: 0.0.61
+        version: 0.0.61(convex@1.48.0(react@19.3.0))
       effect:
         specifier: 4.1.2
         version: 4.1.2

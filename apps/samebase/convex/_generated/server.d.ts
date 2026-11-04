@@ -50,6 +50,7 @@ type Env = {
   readonly HUB_CLIENT_ID: string;
   readonly HUB_CLIENT_SECRET: string;
   readonly HUB_ISSUER: string;
+  readonly HUB_MODERATION_KEY: string | undefined;
   readonly HUB_REGISTRATION_KEY: string | undefined;
   readonly OPENAI_APPS_CHALLENGE_TOKEN: string | undefined;
   readonly PASSWORD_AUTH_ENABLED: string | undefined;

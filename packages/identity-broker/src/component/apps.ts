@@ -14,20 +14,47 @@ export const vApp = object({
   firstParty: boolean(),
   connector: optional(string()),
   tenantId: optional(string()),
-  /** The tenant of the app is suspended. */
+  /** The tenant of the app is suspended, disconnected, or its owner is blocked. */
   suspended: boolean(),
   createdAt: number(),
 });
+
+export async function tenantRow(ctx: QueryCtx, tenantId: string) {
+  return await ctx.db
+    .query("tenants")
+    .withIndex("by_tenant_id", (q) => q.eq("tenantId", tenantId))
+    .unique();
+}
+
+/**
+ * Whether no client of `tenant` may register, renew, or sign in: the administrator suspended it, the
+ * host disconnected it, or `ownerId` is blocked. `ownerId` is the tenant's recorded owner, or the
+ * owner that a new registration names.
+ */
+export async function isStopped(
+  ctx: QueryCtx,
+  tenant: Doc<"tenants"> | null,
+  ownerId: string | undefined,
+): Promise<boolean> {
+  if (tenant?.suspendedAt !== undefined || tenant?.disconnected === true) {
+    return true;
+  }
+  if (ownerId === undefined) {
+    return false;
+  }
+  const blocked = await ctx.db
+    .query("blockedOwners")
+    .withIndex("by_owner_id", (q) => q.eq("ownerId", ownerId))
+    .unique();
+  return blocked !== null;
+}
 
 export async function isSuspended(ctx: QueryCtx, tenantId: string | undefined): Promise<boolean> {
   if (tenantId === undefined) {
     return false;
   }
-  const tenant = await ctx.db
-    .query("tenants")
-    .withIndex("by_tenant_id", (q) => q.eq("tenantId", tenantId))
-    .unique();
-  return tenant?.suspendedAt !== undefined || tenant?.disconnected === true;
+  const tenant = await tenantRow(ctx, tenantId);
+  return await isStopped(ctx, tenant, tenant?.ownerId);
 }
 
 /** An app row with what `/authorize` and `/continue` need to know about its tenant. */

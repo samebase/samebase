@@ -94,16 +94,36 @@ export default defineSchema({
     .index("by_app_id", ["appId"])
     .index("by_tenant_id", ["tenantId"]),
 
-  /** One row for each tenant that `/register` has seen. It stays when the tenant's apps go. */
+  /**
+   * One row for each tenant that registration has seen, through `/register` or the host's own
+   * mutation. It stays when the tenant's apps go.
+   */
   tenants: defineTable({
     tenantId: string(),
     /** Set by the hub's administrator. While set, no client of the tenant can sign in or register. */
     suspendedAt: optional(number()),
-    /** The tenant left the service that registers it. It blocks the same things. */
+    /** The tenant left the service that registers it, or the host blocked it. It blocks the same things. */
     disconnected: optional(boolean()),
-    /** The newest change of `disconnected`. An older one that arrives late changes nothing. */
+    /**
+     * The newest change of `disconnected`. An older one that arrives late changes nothing. The host's
+     * own switch (`registration.switchConnection`) raises it by one.
+     */
     connectionRevision: optional(number()),
+    /**
+     * The owner that the newest registration named, such as the id of the GitHub account that owns
+     * the repository. A row in `blockedOwners` with this id blocks the same things as `disconnected`.
+     */
+    ownerId: optional(string()),
   }).index("by_tenant_id", ["tenantId"]),
+
+  /**
+   * The owner switch: one row for each blocked owner, set by the host. It stops every tenant whose
+   * `ownerId` is this owner, so a block touches no tenant row and has no size limit.
+   */
+  blockedOwners: defineTable({
+    ownerId: string(),
+    blockedAt: number(),
+  }).index("by_owner_id", ["ownerId"]),
 
   clients: defineTable({
     clientId: string(),

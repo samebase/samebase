@@ -1,26 +1,15 @@
-import { defineIdentityBroker } from "@samebase/identity-broker";
 import { httpRouter } from "convex/server";
-import { components } from "./_generated/api";
-import { env } from "./_generated/server";
-import { connectors } from "./connectors";
-import { resources } from "./resources";
-
-export const broker = defineIdentityBroker({
-  component: components.identityBroker,
-  // Host-only by default: the deployment's own convex.site URL. A custom domain changes the issuer
-  // that every consuming app names, so ISSUER is set before the first app registers.
-  issuer: env.ISSUER ?? env.CONVEX_SITE_URL,
-  keys: () => env.IDENTITY_BROKER_KEYS,
-  connectors,
-  resources,
-  registration: {
-    initialAccessToken: () => env.REGISTRATION_ACCESS_TOKEN,
-    connector: "google-apps",
-    paused: () => env.THIRD_PARTY_PAUSED === "true",
-  },
-});
+import { broker } from "./broker";
+import { registerHubClient } from "./hubClients";
+import { changeBlock, countRegistrations, listBlocks, listRegistrations } from "./moderation";
 
 const http = httpRouter();
 broker.addHttpRoutes(http);
+http.route({ path: "/hub-clients", method: "POST", handler: registerHubClient });
+// samebase.com's admin page, with HUB_MODERATION_KEY.
+http.route({ path: "/moderation/registrations", method: "GET", handler: listRegistrations });
+http.route({ path: "/moderation/counts", method: "GET", handler: countRegistrations });
+http.route({ path: "/moderation/blocks", method: "GET", handler: listBlocks });
+http.route({ path: "/moderation/blocks", method: "POST", handler: changeBlock });
 
 export default http;

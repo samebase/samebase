@@ -39,7 +39,11 @@ import {
   readParameters,
   redirect,
 } from "./responses.js";
-import { registrationEndpoints, type RegistrationConfig } from "./registration.js";
+import {
+  newClientCredentials,
+  registrationEndpoints,
+  type RegistrationConfig,
+} from "./registration.js";
 import { appSalt, pairwiseSubject, randomToken, sha256Hex } from "./subject.js";
 import { resourceEndpoints, resourceTokenResponse } from "./resources.js";
 import type { ResourceProvider } from "./resourceProviders.js";
@@ -81,7 +85,10 @@ export type IdentityBrokerConfig = {
    * no client, because a deployment whose client was deleted does not register again by itself.
    */
   previewClientIdleDays?: number;
-  /** Lets apps that are not the host's own register (RFC 7591). Absent: no `/register` endpoint. */
+  /**
+   * Lets apps that are not the host's own register (RFC 7591), and manage their clients (RFC 7592).
+   * Absent: no `/register` endpoint.
+   */
   registration?: RegistrationConfig;
 };
 
@@ -242,7 +249,9 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
     token_endpoint: `${issuer}/token`,
     userinfo_endpoint: `${issuer}/userinfo`,
     jwks_uri: `${issuer}/.well-known/jwks.json`,
-    ...(registration === undefined ? {} : { registration_endpoint: `${issuer}/register` }),
+    ...(registration?.initialAccessToken === undefined
+      ? {}
+      : { registration_endpoint: `${issuer}/register` }),
     scopes_supported: [...SCOPES, ...resources.scopes],
     response_types_supported: ["code"],
     response_modes_supported: ["query"],
@@ -830,6 +839,13 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
         registrationEndpoints({ component, issuer, path, registration }).addRoutes(http);
       }
     },
+
+    /**
+     * The credentials of a client that the host registers in its own mutation, through
+     * `component.registration.register` with the hashes. Call it in an action: the secret and the
+     * registration access token go to the caller of the host's endpoint, and nowhere else.
+     */
+    newClientCredentials: async () => await newClientCredentials(issuer),
 
     /**
      * Administration as internal functions of the host, for `npx convex run`: export them from a

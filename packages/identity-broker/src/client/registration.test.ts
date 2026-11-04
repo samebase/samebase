@@ -737,6 +737,224 @@ describe("suspension", () => {
   });
 });
 
+/**
+ * A client that the host creates in its own mutation, as a hub without `/register` does, in the
+ * shape of a `/register` answer.
+ */
+async function registerHere(
+  h: Harness,
+  args: { tenantId?: string; ownerId?: string; appId?: string } = {},
+) {
+  const credentials = await h.broker.newClientCredentials();
+  const result = await h.t.mutation(api.registration.register, {
+    tenantId: args.tenantId ?? "gh-1",
+    ...(args.ownerId === undefined ? {} : { ownerId: args.ownerId }),
+    appId: args.appId ?? "gh-1-app",
+    connector: "fake-apps",
+    deploymentType: "preview",
+    clientId: credentials.clientId,
+    secretHash: credentials.secretHash,
+    registrationTokenHash: credentials.registrationTokenHash,
+    tokenEndpointAuthMethod: "client_secret_post",
+    redirectUri: REDIRECT_URI,
+    clientName: "pr-1",
+    softwareVersion: "abc123",
+    now: Date.now(),
+  });
+  return {
+    result,
+    client: {
+      client_id: credentials.clientId,
+      client_secret: credentials.clientSecret,
+      registration_access_token: credentials.registrationAccessToken,
+      registration_client_uri: credentials.registrationClientUri,
+    },
+  };
+}
+
+async function blockOwner(h: Harness, ownerId: string, blocked: boolean) {
+  await h.t.mutation(api.registration.setOwnerBlocked, { ownerId, blocked, now: Date.now() });
+}
+
+describe("the owner switch", () => {
+  test("it stops registration, renewal, sign-in, and redemption of every tenant of the owner", async () => {
+    const h = await hub();
+    const { client: first } = await registerHere(h, { ownerId: "65" });
+    const { client: second } = await registerHere(h, {
+      tenantId: "gh-2",
+      appId: "gh-2-app",
+      ownerId: "65",
+    });
+    const { client: other } = await registerHere(h, {
+      tenantId: "gh-3",
+      appId: "gh-3-app",
+      ownerId: "66",
+    });
+    const { verifier, challenge } = await pkce();
+    const started = await h.fetchBroker(authorizeUrl(h, first.client_id, challenge));
+    const code = await finishUpstream(h, started);
+
+    await blockOwner(h, "65", true);
+
+    expect((await registerHere(h, { ownerId: "65" })).result).toEqual({
+      ok: false,
+      error: "suspended",
+    });
+    for (const client of [first, second]) {
+      const read = configuration(client, client.registration_access_token, "GET");
+      expect((await h.fetchBroker(read.url, read.init)).status).toBe(403);
+      const stopped = await h.fetchBroker(authorizeUrl(h, client.client_id, challenge));
+      expect(stopped.status).toBe(403);
+      expect(stopped.headers.get("location")).toBeNull();
+    }
+    const redeemed = await redeem(h, {
+      code,
+      clientId: first.client_id,
+      clientSecret: first.client_secret,
+      verifier,
+    });
+    expect(redeemed.status).toBe(401);
+    expect((await signIn(h, other)).status).toBe(200);
+
+    await blockOwner(h, "65", false);
+    expect((await signIn(h, first)).status).toBe(200);
+    expect((await signIn(h, second)).status).toBe(200);
+  });
+
+  test("it leaves the tenant switches as they are, and they stay after an unblock", async () => {
+    const h = await hub();
+    const { client } = await registerHere(h, { ownerId: "65" });
+    await h.t.mutation(api.registration.switchConnection, { tenantId: "gh-1", connected: false });
+    await blockOwner(h, "65", true);
+    await blockOwner(h, "65", false);
+    const { challenge } = await pkce();
+    expect((await h.fetchBroker(authorizeUrl(h, client.client_id, challenge))).status).toBe(403);
+    await h.t.mutation(api.registration.switchConnection, { tenantId: "gh-1", connected: true });
+    expect((await signIn(h, client)).status).toBe(200);
+  });
+
+  test("a new client under another owner records that owner, as after a transfer", async () => {
+    const h = await hub();
+    const { client } = await registerHere(h, { ownerId: "65" });
+    await blockOwner(h, "65", true);
+    const moved = await registerHere(h, { ownerId: "66" });
+    expect(moved.result).toEqual({ ok: true });
+    expect((await signIn(h, client)).status).toBe(200);
+    expect((await signIn(h, moved.client)).status).toBe(200);
+    await blockOwner(h, "66", true);
+    expect((await registerHere(h, { ownerId: "65" })).result).toEqual({
+      ok: false,
+      error: "suspended",
+    });
+  });
+
+  test("an owner recorded later covers a tenant registered without one, and never replaces one", async () => {
+    const h = await hub();
+    const old = await register(h);
+    await h.t.mutation(api.registration.recordOwner, { tenantId: "gh-1", ownerId: "65" });
+    await h.t.mutation(api.registration.recordOwner, { tenantId: "gh-1", ownerId: "66" });
+    await h.t.mutation(api.registration.recordOwner, { tenantId: "gh-9", ownerId: "65" });
+    await blockOwner(h, "65", true);
+    const { challenge } = await pkce();
+    expect((await h.fetchBroker(authorizeUrl(h, old.client_id, challenge))).status).toBe(403);
+    expect(await h.t.run(async (ctx) => await ctx.db.query("tenants").collect())).toEqual([
+      expect.objectContaining({ tenantId: "gh-1", ownerId: "65" }),
+    ]);
+  });
+
+  test("a registration without an owner keeps the recorded one", async () => {
+    const h = await hub();
+    await registerHere(h, { ownerId: "65" });
+    await register(h);
+    await blockOwner(h, "65", true);
+    expect((await postRegister(h, metadata())).status).toBe(403);
+  });
+});
+
+describe("the host's connection switch", () => {
+  test("it raises the revision, so a late request from before it changes nothing", async () => {
+    const h = await hub();
+    const client = await register(h);
+    await setConnection(h, "gh-1", true, 7);
+    await h.t.mutation(api.registration.switchConnection, { tenantId: "gh-1", connected: false });
+    await setConnection(h, "gh-1", true, 8);
+    const { challenge } = await pkce();
+    expect((await h.fetchBroker(authorizeUrl(h, client.client_id, challenge))).status).toBe(403);
+    await h.t.mutation(api.registration.switchConnection, { tenantId: "gh-1", connected: true });
+    expect((await signIn(h, client)).status).toBe(200);
+  });
+
+  test("connecting does not clear the administrator's suspension", async () => {
+    const h = await hub();
+    const client = await register(h);
+    await suspend(h, "gh-1", true);
+    await h.t.mutation(api.registration.switchConnection, { tenantId: "gh-1", connected: true });
+    const { challenge } = await pkce();
+    expect((await h.fetchBroker(authorizeUrl(h, client.client_id, challenge))).status).toBe(403);
+  });
+
+  test("it holds for a tenant that has no client yet", async () => {
+    const h = await hub();
+    await h.t.mutation(api.registration.switchConnection, { tenantId: "gh-1", connected: false });
+    expect((await postRegister(h, metadata())).status).toBe(403);
+    expect((await registerHere(h)).result).toEqual({ ok: false, error: "suspended" });
+  });
+});
+
+describe("management only", () => {
+  async function managementHub(options: { paused?: () => boolean } = {}) {
+    const { connector } = fakeUpstream();
+    return await createHarness({
+      connectors: [connector, { ...connector, name: "fake-apps", reserved: true }],
+      registration: {
+        connector: "fake-apps",
+        ...(options.paused === undefined ? {} : { paused: options.paused }),
+      },
+    });
+  }
+
+  test("it serves no registration and no connection endpoint, and discovery names none", async () => {
+    const h = await managementHub();
+    expect((await postRegister(h, metadata())).status).toBe(404);
+    const connection = await h.fetchBroker(`${h.issuer}/tenant-connection`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${TOKEN}` },
+      body: JSON.stringify({ tenant_id: "gh-1", connected: false, revision: 1 }),
+    });
+    expect(connection.status).toBe(404);
+    const document = await h.fetchBroker(`${h.issuer}/.well-known/openid-configuration`);
+    expect(await document.json()).not.toHaveProperty("registration_endpoint");
+  });
+
+  test("a client of the host reads, renews, and deletes its own record", async () => {
+    vi.useFakeTimers({ now: 1_000_000_000_000 });
+    const h = await managementHub();
+    const { client } = await registerHere(h);
+    expect(client.registration_client_uri).toBe(`${h.issuer}/register/${client.client_id}`);
+    vi.setSystemTime(Date.now() + 1_000);
+    const read = configuration(client, client.registration_access_token, "GET");
+    const answer = await h.fetchBroker(read.url, read.init);
+    expect(answer.status).toBe(200);
+    expect(await answer.json()).toMatchObject({ client_id: client.client_id });
+    expect((await readClient(h, client.client_id))?.removeAt).toBe(Date.now() + LEASE_MS);
+    const other = configuration(client, "another-token", "DELETE");
+    expect((await h.fetchBroker(other.url, other.init)).status).toBe(401);
+    const remove = configuration(client, client.registration_access_token, "DELETE");
+    expect((await h.fetchBroker(remove.url, remove.init)).status).toBe(204);
+    expect(await readClient(h, client.client_id)).toBeNull();
+  });
+
+  test("the pause still stops sign-in", async () => {
+    let paused = false;
+    const h = await managementHub({ paused: () => paused });
+    const { client } = await registerHere(h);
+    expect((await signIn(h, client)).status).toBe(200);
+    paused = true;
+    const { challenge } = await pkce();
+    expect((await h.fetchBroker(authorizeUrl(h, client.client_id, challenge))).status).toBe(503);
+  });
+});
+
 describe("the budget of a tenant", () => {
   test("a flood at one tenant writes no row and leaves others and the host's own apps alone", async () => {
     const h = await hub();

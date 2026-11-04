@@ -618,6 +618,7 @@ describe("AppRightSidebarContent", () => {
     ["/admin/users", "Users"],
     ["/admin/account-deletions", "Account deletions"],
     ["/admin/emails", "Emails"],
+    ["/admin/hub-clients", "Hub clients"],
     ["/org/samebase/repositories", "Repositories"],
     ["/org/samebase/providers", "Providers"],
     ["/org/samebase/new-app", "New app"],
@@ -694,6 +695,7 @@ describe("AppRightSidebarContent", () => {
     expect(hydratedMarkup).toContain('href="/admin/users"');
     expect(hydratedMarkup).toContain('href="/admin/account-deletions"');
     expect(hydratedMarkup).toContain('href="/admin/emails"');
+    expect(hydratedMarkup).toContain('href="/admin/hub-clients"');
   });
 
   it.each([

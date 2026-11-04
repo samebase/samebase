@@ -2,10 +2,10 @@ import { v } from "convex/values";
 // oxlint-disable-next-line samebase/no-raw-public-convex-function-builders -- Component entrypoints are internal to the host; host functions enforce access.
 import { mutation, type MutationCtx } from "./_generated/server";
 import type { Doc } from "./_generated/dataModel";
-import { isSuspended } from "./apps";
+import { isStopped, isSuspended, tenantRow } from "./apps";
 import { vTokenEndpointAuthMethod } from "./schema";
 
-const { literal, number, object, string, union } = v;
+const { literal, number, object, optional, string, union } = v;
 
 /** How long a preview client lives after its last deploy or sign-in. */
 export const LEASE_MS = 14 * 24 * 60 * 60 * 1000;
@@ -41,10 +41,17 @@ async function clientAt(ctx: MutationCtx, clientId: string, registrationTokenHas
  * Registers one deployment as a client of a third-party app (RFC 7591), creating the app with its
  * first client. Everything is in one transaction, so a suspension or a cap cannot be raced. A client
  * is never replaced: a deployment that lost its client gets a new one, and any older one stays valid.
+ * The host's own mutation can call it too, with the credentials of `newClientCredentials`, and then
+ * write its own record of the client in the same transaction.
  */
 export const register = mutation({
   args: {
     tenantId: string(),
+    /**
+     * The owner of the tenant as of this registration, checked against the owner switch and then
+     * recorded on the tenant. Absent: the recorded owner is checked and kept.
+     */
+    ownerId: optional(string()),
     appId: string(),
     connector: string(),
     deploymentType: vDeployment,
@@ -70,7 +77,8 @@ export const register = mutation({
     }),
   ),
   handler: async (ctx, args) => {
-    if (await isSuspended(ctx, args.tenantId)) {
+    const tenant = await tenantRow(ctx, args.tenantId);
+    if (await isStopped(ctx, tenant, args.ownerId ?? tenant?.ownerId)) {
       return { ok: false as const, error: "suspended" as const };
     }
     const app = await ctx.db
@@ -96,13 +104,15 @@ export const register = mutation({
         tenantId: args.tenantId,
         createdAt: args.now,
       });
-      const tenant = await ctx.db
-        .query("tenants")
-        .withIndex("by_tenant_id", (q) => q.eq("tenantId", args.tenantId))
-        .unique();
-      if (tenant === null) {
-        await ctx.db.insert("tenants", { tenantId: args.tenantId });
-      }
+    }
+    // A transferred repository gets its new owner here, at its next new client.
+    if (tenant === null) {
+      await ctx.db.insert("tenants", {
+        tenantId: args.tenantId,
+        ...(args.ownerId === undefined ? {} : { ownerId: args.ownerId }),
+      });
+    } else if (args.ownerId !== undefined && args.ownerId !== tenant.ownerId) {
+      await ctx.db.patch("tenants", tenant._id, { ownerId: args.ownerId });
     }
     const rows = await ctx.db
       .query("clients")
@@ -214,15 +224,77 @@ export const setConnection = mutation({
   args: { tenantId: string(), connected: v.boolean(), revision: number() },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const tenant = await ctx.db
-      .query("tenants")
-      .withIndex("by_tenant_id", (q) => q.eq("tenantId", args.tenantId))
-      .unique();
+    const tenant = await tenantRow(ctx, args.tenantId);
     const change = { disconnected: !args.connected, connectionRevision: args.revision };
     if (tenant === null) {
       await ctx.db.insert("tenants", { tenantId: args.tenantId, ...change });
     } else if (args.revision > (tenant.connectionRevision ?? Number.NEGATIVE_INFINITY)) {
       await ctx.db.patch("tenants", tenant._id, change);
+    }
+    return null;
+  },
+});
+
+/**
+ * The host's own switch of a tenant's connection, such as a block of a repository. It raises the
+ * stored revision by one in this transaction, so the host never counts revisions, and a request of
+ * `/tenant-connection` that was sent before it and arrives late changes nothing. It leaves the
+ * administrator's suspension as it is.
+ */
+export const switchConnection = mutation({
+  args: { tenantId: string(), connected: v.boolean() },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const tenant = await tenantRow(ctx, args.tenantId);
+    if (tenant === null) {
+      await ctx.db.insert("tenants", {
+        tenantId: args.tenantId,
+        disconnected: !args.connected,
+        connectionRevision: 1,
+      });
+    } else {
+      await ctx.db.patch("tenants", tenant._id, {
+        disconnected: !args.connected,
+        connectionRevision: (tenant.connectionRevision ?? 0) + 1,
+      });
+    }
+    return null;
+  },
+});
+
+/**
+ * Records the owner of a tenant that has none, such as a tenant whose clients were registered before
+ * owners were recorded. A tenant with an owner keeps it, since its newest registration named it, and
+ * a tenant that does not exist has no client to stop.
+ */
+export const recordOwner = mutation({
+  args: { tenantId: string(), ownerId: string() },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const tenant = await tenantRow(ctx, args.tenantId);
+    if (tenant !== null && tenant.ownerId === undefined) {
+      await ctx.db.patch("tenants", tenant._id, { ownerId: args.ownerId });
+    }
+    return null;
+  },
+});
+
+/**
+ * The owner switch. A blocked owner stops every tenant whose recorded owner it is, on registration,
+ * renewal, sign-in, and code exchange, also tenants that register later. It changes no tenant row.
+ */
+export const setOwnerBlocked = mutation({
+  args: { ownerId: string(), blocked: v.boolean(), now: number() },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const row = await ctx.db
+      .query("blockedOwners")
+      .withIndex("by_owner_id", (q) => q.eq("ownerId", args.ownerId))
+      .unique();
+    if (args.blocked && row === null) {
+      await ctx.db.insert("blockedOwners", { ownerId: args.ownerId, blockedAt: args.now });
+    } else if (!args.blocked && row !== null) {
+      await ctx.db.delete("blockedOwners", row._id);
     }
     return null;
   },
@@ -236,10 +308,7 @@ export const setSuspended = mutation({
   args: { tenantId: string(), suspended: v.boolean(), now: number() },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const tenant = await ctx.db
-      .query("tenants")
-      .withIndex("by_tenant_id", (q) => q.eq("tenantId", args.tenantId))
-      .unique();
+    const tenant = await tenantRow(ctx, args.tenantId);
     const suspendedAt = args.suspended ? args.now : undefined;
     if (tenant === null) {
       await ctx.db.insert("tenants", {

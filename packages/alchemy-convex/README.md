@@ -309,16 +309,17 @@ call.
   destroy deletes the client.
 
 - `Convex.SharedHubClient`: `{ app, redirectUri, deploymentType, softwareVersion? }` gets a client
-  of the central identity hub through samebase.com, for an app that deploys in its own GitHub
-  Actions run, on any host. The workflow needs `permissions: id-token: write` and no Samebase key.
-  The origin of `redirectUri` must serve `/samebase-verification.json` with the numeric GitHub id of
-  the repository, `{ "repository": "123" }`, which `gh api repos/<owner>/<name> --jq .id` prints.
-  Samebase reads it before it registers the client, so the site must be live first. Outputs
-  `status`, `issuer`, `clientId`, `clientSecret`, `registrationAccessToken`,
-  `registrationClientUri`, `deploymentType`, and `redirectUri`.
+  of the central identity hub, for an app that deploys in its own GitHub Actions run, on any host.
+  The workflow needs `permissions: id-token: write`, and no key and no Samebase account. `app` is at
+  most 64 characters. The origin of `redirectUri` must serve `/samebase-verification.json` with the
+  numeric GitHub id of the repository, `{ "repository": "123" }`, which
+  `gh api repos/<owner>/<name> --jq .id` prints. The hub reads it before it registers the client, so
+  the site must be live first. Outputs `status`, `issuer`, `clientId`, `clientSecret`,
+  `registrationAccessToken`, `registrationClientUri`, `deploymentType`, and `redirectUri`.
   - Each deploy reads the saved client on the hub with its own token. A client that is gone gets a
     new one, and a client on another `redirectUri` too.
-  - A refusal logs its reason, such as a host that does not serve the file.
+  - A new client logs the link to the terms of the shared sign-in service. A refusal logs its
+    reason, such as a host that does not serve the file, a block, or the hourly limit it reached.
   - No failure stops a deploy or a destroy. A failed renewal keeps the saved values. Without saved
     values, `status` is `off`, and `issuer`, `clientId`, and `clientSecret` are the `no-hub` values
     of a checkout without a hub. A run without a GitHub OIDC token, such as on a laptop, does the
@@ -326,7 +327,7 @@ call.
   - `status` is `suspended` when the hub suspended the client. The client keeps its values.
   - A destroy deletes a preview client. It does nothing to a production client, because the
     production deployment can stay.
-  - `SAMEBASE_URL` replaces `https://samebase.com`.
+  - `HUB_URL` replaces `https://auth.samebase.com`, the hub that the run asks at `/hub-clients`.
 
 A development deployment has no stack, so the package has a command for it. Run it in the directory
 of the app, before the first push: it registers the deployment of that directory with
