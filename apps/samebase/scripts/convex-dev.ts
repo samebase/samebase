@@ -5,9 +5,9 @@ import { spawn, spawnSync } from "child_process";
 import {
   readLocalDevOriginState,
   isPortInUse,
-  parsePort,
   sleep,
   usesLocalConvexDeployment,
+  waitForLocalBackend,
 } from "./convex-local-utils.ts";
 import { guard } from "@samebase/dependent/main";
 import { pickAvailableAnonymousLocalPorts } from "../../../runtime/anonymousLocalPorts.ts";
@@ -130,69 +130,6 @@ const pickAnonymousLocalPorts = () => {
 
   console.warn("No free anonymous worktree port pair found; falling back to Convex defaults.");
   return null;
-};
-
-const readLocalBackendPorts = () => {
-  const ports = [3214, 3210];
-  const envFile = path.join(process.cwd(), ".env.local");
-  if (!fs.existsSync(envFile)) {
-    return ports;
-  }
-
-  const contents = fs.readFileSync(envFile, "utf8");
-  for (const line of contents.split(/\r?\n/)) {
-    if (!line.startsWith("VITE_CONVEX_URL=") && !line.startsWith("CONVEX_URL=")) {
-      continue;
-    }
-    const eqIndex = line.indexOf("=");
-    if (eqIndex <= 0) {
-      continue;
-    }
-    const rawValue = line.slice(eqIndex + 1).trim();
-    const unquoted =
-      (rawValue.startsWith('"') && rawValue.endsWith('"')) ||
-      (rawValue.startsWith("'") && rawValue.endsWith("'"))
-        ? rawValue.slice(1, -1)
-        : rawValue;
-    const parsedPort = parsePort(unquoted);
-    if (parsedPort !== null && !ports.includes(parsedPort)) {
-      ports.unshift(parsedPort);
-    }
-  }
-
-  return ports;
-};
-
-const isLocalBackendReady = async (port: number) => {
-  try {
-    const response = await fetch(`http://127.0.0.1:${port}/instance_name`, {
-      signal: AbortSignal.timeout(500),
-    });
-    if (!response.ok) {
-      return false;
-    }
-    const instance = (await response.text()).trim();
-    return (
-      instance.startsWith("anonymous-") ||
-      instance.startsWith("local-") ||
-      instance === "anonymous-agent"
-    );
-  } catch {
-    return false;
-  }
-};
-
-const waitForLocalBackend = async (timeoutMs: number) => {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    for (const port of readLocalBackendPorts()) {
-      if (await isLocalBackendReady(port)) {
-        return true;
-      }
-    }
-    await sleep(250);
-  }
-  return false;
 };
 
 const isProcessRunning = (processId: number) => {

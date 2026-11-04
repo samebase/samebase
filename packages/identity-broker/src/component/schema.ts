@@ -138,9 +138,12 @@ export default defineSchema({
     lastSignInAt: optional(number()),
     /** SHA-256 hex of the registration access token (RFC 7592). A client from `/register` has one. */
     registrationTokenHash: optional(string()),
-    /** When `cleanup` deletes the client. Absent: never by date. */
+    /**
+     * When `cleanup` deletes the client. Absent: never by date. Only a preview or development
+     * client gets one.
+     */
     removeAt: optional(number()),
-    /** The last registration or renewal of a client from `/register`. */
+    /** The last registration or renewal of a client from `/register`, or renewal by `renewClient`. */
     renewedAt: optional(number()),
   })
     .index("by_client_id", ["clientId"])

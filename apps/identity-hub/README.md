@@ -88,11 +88,12 @@ const client =
   });
 ```
 
-The resource finds this hub by the name of its project, and it runs `identityBroker:registerClient`
-with a short-lived key that the Convex credential of the stack mints. So the app has no token of its
-own. The first client of an `app` creates the app as a first-party app, which sends the user
-straight to the connector without the chooser. For an app that is not the team's own, run
-`createApp` with `firstParty` false first. A development deployment has no stack: the command
+The resource finds this hub by the name of its project. At each deploy it runs
+`identityBroker:renewClient`, and `identityBroker:registerClient` when the client is gone, with a
+short-lived key that the Convex credential of the stack mints. So the app has no token of its own.
+The first client of an `app` creates the app as a first-party app, which sends the user straight to
+the connector without the chooser. For an app that is not the team's own, run `createApp` with
+`firstParty` false first. A development deployment has no stack: the command
 `alchemy-convex hub-client` does the same with the Convex CLI login. Deleting an app removes its
 clients. Recreating it with the same id keeps the subjects of its users.
 
@@ -116,10 +117,13 @@ of the hub with the team's Convex token, for its hub client. These keys can run 
 only, and they end with the run. The team token itself reaches the hub, so treat it as an
 administrator credential too. The Convex CLI ignores `--prod` when `CONVEX_DEPLOY_KEY` names another
 deployment, so unset it before an admin command. A cron runs the broker's cleanup daily: expired
-requests and codes, sign-in records older than 90 days, and third-party preview clients past their
-removal date. Other idle preview clients are kept: the broker prunes them only when the host sets
-`previewClientIdleDays`, and this hub does not, because a consumer's `Convex.HubClient` does not
-register a pruned client again.
+requests and codes, sign-in records older than 90 days, and preview and development clients past
+their removal date. A client gets a removal date when it is a third-party preview client, or when
+`Convex.HubClient` or `alchemy-convex hub-client` of @samebase/alchemy-convex 0.25.0 or later renews
+it with `renewClient`, at each deploy and dev start. These register a new client when theirs is
+gone. A production client never expires: remove a dead one with `identityBroker:deleteClient`. Other
+idle preview clients are kept: the broker prunes them only when the host sets
+`previewClientIdleDays`, and this hub does not.
 
 Never run `npx convex import --replace-all` on this deployment, also not with `--component`: it also
 deletes the rows of the other components. To restore the tables of one component, import a ZIP of

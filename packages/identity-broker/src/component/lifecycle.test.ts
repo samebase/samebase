@@ -12,9 +12,10 @@ const NOW = 1_000 * DAY;
 const MAX_AGE = 30 * DAY;
 
 type Fields = {
-  deploymentType: "production" | "preview";
+  deploymentType: "production" | "development" | "preview";
   createdAt: number;
   lastSignInAt?: number;
+  removeAt?: number;
 };
 
 async function seed(t: ReturnType<typeof convexTest>, clients: (Fields & { clientId: string })[]) {
@@ -45,7 +46,7 @@ const cleanup = async (t: ReturnType<typeof convexTest>) =>
     signInRetentionMs: 90 * DAY,
   });
 
-describe("preview client cleanup", () => {
+describe("client cleanup", () => {
   // A full batch schedules the next one. It stays queued, so it cannot run after the test ends.
   beforeEach(() => {
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
@@ -76,6 +77,34 @@ describe("preview client cleanup", () => {
     expect(await cleanup(t)).toMatchObject({ previewClients: 4 });
 
     expect(await remaining(t)).toEqual(["never-used-recent", "production", "used-recently"]);
+  });
+
+  test("a client past its removal date goes, and a client without one stays", async () => {
+    const t = convexTest(schema, modules);
+    const old = NOW - MAX_AGE - DAY;
+    await seed(t, [
+      {
+        clientId: "development-past",
+        deploymentType: "development",
+        createdAt: old,
+        removeAt: NOW - 1,
+      },
+      { clientId: "preview-past", deploymentType: "preview", createdAt: NOW, removeAt: NOW - 1 },
+      {
+        clientId: "development-ahead",
+        deploymentType: "development",
+        createdAt: old,
+        removeAt: NOW + 1,
+      },
+      { clientId: "development-undated", deploymentType: "development", createdAt: old },
+      { clientId: "production", deploymentType: "production", createdAt: old },
+    ]);
+
+    expect(
+      await t.mutation(api.lifecycle.cleanup, { now: NOW, signInRetentionMs: 90 * DAY }),
+    ).toMatchObject({ expiredClients: 2, previewClients: 0 });
+
+    expect(await remaining(t)).toEqual(["development-ahead", "development-undated", "production"]);
   });
 
   test("recent clients in front of the idle ones do not hide them", async () => {

@@ -139,8 +139,8 @@ async function cleanupBatch(
 /**
  * Deletes what has run out: expired requests and codes, preview clients nobody used for
  * `previewClientMaxAgeMs` when the host passes it, clients past their removal date, and audit rows
- * older than `signInRetentionMs`. The host schedules this daily from a cron; a production or
- * development client has no removal date and is never touched.
+ * older than `signInRetentionMs`. The host schedules this daily from a cron; a production client
+ * has no removal date and is never touched.
  * The counts are this call's batch: a full batch schedules the next one, so one call drains
  * everything older than `now`.
  */

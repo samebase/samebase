@@ -160,14 +160,16 @@ export function AdminHubClientsPage() {
 
           <h2 className="mt-10 text-base font-semibold">All clients</h2>
           <div className="mt-3 overflow-x-auto border-t">
-            <table className="w-full min-w-5xl text-left text-sm">
+            <table className="w-full min-w-6xl text-left text-sm">
               <thead className="border-b">
                 <tr>
                   <th className="py-3 pr-4 font-medium">Created</th>
                   <th className="py-3 pr-4 font-medium">App</th>
                   <th className="py-3 pr-4 font-medium">Client</th>
+                  <th className="py-3 pr-4 font-medium">Client ID</th>
                   <th className="py-3 pr-4 font-medium">Deployment</th>
-                  <th className="py-3 pr-4 font-medium">Return host</th>
+                  <th className="py-3 pr-4 font-medium">Return address</th>
+                  <th className="py-3 pr-4 font-medium">Expires</th>
                   <th className="py-3 pr-4 font-medium">Last renewed</th>
                   <th className="py-3 font-medium">Last sign-in</th>
                 </tr>
@@ -178,8 +180,10 @@ export function AdminHubClientsPage() {
                     <td className="py-3 pr-4">{formatTime(client.createdAt)}</td>
                     <td className="py-3 pr-4 break-all">{client.appId}</td>
                     <td className="py-3 pr-4">{client.clientName}</td>
+                    <td className="py-3 pr-4 break-all">{client.clientId}</td>
                     <td className="py-3 pr-4">{client.deploymentType}</td>
-                    <td className="py-3 pr-4 break-all">{client.redirectHost}</td>
+                    <td className="py-3 pr-4 break-all">{client.redirectUri}</td>
+                    <td className="py-3 pr-4">{formatOptionalTime(client.removeAt)}</td>
                     <td className="py-3 pr-4">{formatOptionalTime(client.renewedAt)}</td>
                     <td className="py-3">{formatOptionalTime(client.lastSignInAt)}</td>
                   </tr>

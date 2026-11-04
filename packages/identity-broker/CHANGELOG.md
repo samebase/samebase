@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.15.0
+
+- Add the admin function `renewClient({ clientId, expires })`. It answers whether the client exists,
+  sets `renewedAt`, and moves a removal date 14 days forward. With `expires: true`, a preview or
+  development client without a removal date gets one. A production client never gets one.
+- `registerClient` takes an optional `expires`. With `true`, a preview or development client gets a
+  removal date 14 days ahead. Without it, the client gets no removal date, as before.
+- A resource authorization and a provider refresh move the removal date 14 days forward, as a
+  sign-in does.
+- `clients.create` takes a required `expires`, and `clients.renew` is new.
+
 ## 0.14.0
 
 - Add `clients.list`, which lists the clients of every app, first-party apps included, newest first

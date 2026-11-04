@@ -852,7 +852,7 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
      * host module such as `convex/identityBroker.ts`.
      */
     admin() {
-      const { boolean, string } = v;
+      const { boolean, optional, string } = v;
       return {
         createApp: internalMutationGeneric({
           args: { name: string(), firstParty: boolean() },
@@ -879,7 +879,9 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
         /**
          * Registers one deployment of `appId` as a client, and answers with the issuer and the
          * client. The secret is in this reply only. The first client creates the app, as a first-party
-         * app: whoever runs this function administers this hub, so the app is the team's own.
+         * app: whoever runs this function administers this hub, so the app is the team's own. With
+         * `expires`, a preview or development client is deleted 14 days after its last renewal or
+         * use. Absent: false, and the client stays until `deleteClient`.
          */
         registerClient: internalMutationGeneric({
           args: {
@@ -889,6 +891,7 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
             clientName: string(),
             softwareVersion: string(),
             tokenEndpointAuthMethod: vTokenEndpointAuthMethod,
+            expires: optional(boolean()),
           },
           returns: v.object({ issuer: string(), clientId: string(), clientSecret: string() }),
           handler: async (ctx, args) => {
@@ -919,9 +922,25 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
               clientName: args.clientName,
               softwareVersion: args.softwareVersion,
               createdAt: now,
+              expires: args.expires ?? false,
             });
             return { issuer, clientId, clientSecret };
           },
+        }),
+        /**
+         * Renews one client, as a deploy or a dev start of its deployment does: false when the client
+         * is gone. A client with a removal date then lives 14 more days. With `expires`, a preview or
+         * development client without one gets one. A production client never does.
+         */
+        renewClient: internalMutationGeneric({
+          args: { clientId: string(), expires: boolean() },
+          returns: boolean(),
+          handler: async (ctx, args) =>
+            await ctx.runMutation(component.clients.renew, {
+              clientId: args.clientId,
+              expires: args.expires,
+              now: Date.now(),
+            }),
         }),
         deleteClient: internalMutationGeneric({
           args: { clientId: string() },

@@ -8,6 +8,7 @@ import {
   moderationRequest,
   OWNER_ID,
   postHubClient,
+  PRODUCTION_CALLBACK,
   readOwnRecord,
   REPOSITORY_ID,
   setBlock,
@@ -400,6 +401,16 @@ describe("the clients", () => {
     const thirdParty = await createClient(t);
     vi.setSystemTime(1_800_000_002_000);
     await readOwnRecord(t, thirdParty);
+    vi.setSystemTime(1_800_000_003_000);
+    const preview = await t.mutation(internal.identityBroker.registerClient, {
+      appId: "samebase",
+      redirectUri: "https://happy-otter-123.convex.site/auth/hub/callback",
+      deploymentType: "preview",
+      clientName: "pr-12",
+      softwareVersion: "abc123",
+      tokenEndpointAuthMethod: "client_secret_post",
+      expires: true,
+    });
 
     const response = await moderationRequest(t, "/moderation/clients");
     const text = await response.text();
@@ -408,29 +419,43 @@ describe("the clients", () => {
     expect(JSON.parse(text)).toEqual({
       clients: [
         {
+          clientId: preview.clientId,
+          appId: "samebase",
+          clientName: "pr-12",
+          deploymentType: "preview",
+          redirectUri: "https://happy-otter-123.convex.site/auth/hub/callback",
+          createdAt: 1_800_000_003_000,
+          renewedAt: null,
+          lastSignInAt: null,
+          removeAt: 1_800_000_003_000 + 14 * 24 * 60 * 60 * 1_000,
+        },
+        {
           clientId: thirdParty.client_id,
           appId: `gh-${REPOSITORY_ID}-${APP_HASH}`,
           clientName: "prod",
           deploymentType: "production",
-          redirectHost: "ideal-dolphin-15.convex.site",
+          redirectUri: PRODUCTION_CALLBACK,
           createdAt: 1_800_000_001_000,
           renewedAt: 1_800_000_002_000,
           lastSignInAt: null,
+          removeAt: null,
         },
         {
           clientId: own.clientId,
           appId: "samebase",
           clientName: "prod",
           deploymentType: "production",
-          redirectHost: "samebase.com",
+          redirectUri: "https://samebase.com/auth/hub/callback",
           createdAt: 1_800_000_000_000,
           renewedAt: null,
           lastSignInAt: null,
+          removeAt: null,
         },
       ],
       limitReached: false,
     });
     expect(text).not.toContain(own.clientSecret);
+    expect(text).not.toContain(preview.clientSecret);
   });
 
   it("lists the newest 500 and says that it reached the limit", async () => {
@@ -446,6 +471,7 @@ describe("the clients", () => {
         clientName: `pr-${index}`,
         softwareVersion: "abc123",
         createdAt: index,
+        expires: false,
       });
     }
 

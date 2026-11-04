@@ -2,6 +2,7 @@
 import { decodeJwt } from "jose";
 import { afterEach, describe, expect, test, vi } from "vite-plus/test";
 import { api } from "../component/_generated/api.js";
+import { LEASE_MS } from "../component/registration.js";
 import { google } from "./connectors/google.js";
 import { defineIdentityBroker } from "./index.js";
 import {
@@ -177,6 +178,69 @@ describe("registration", () => {
       }),
     ).rejects.toThrow("redirect URI");
     expect(await h.t.query(api.apps.list, {})).toEqual([]);
+  });
+
+  test("expires gives a removal date to a preview or development client only; without it, none", async () => {
+    vi.useFakeTimers({ now: 1_000_000_000_000, toFake: ["Date"] });
+    const h = await createHarness({ connectors: [fakeUpstream().connector] });
+    const cases = [
+      { deploymentType: "preview", expires: true, removeAt: Date.now() + LEASE_MS },
+      { deploymentType: "development", expires: true, removeAt: Date.now() + LEASE_MS },
+      { deploymentType: "production", expires: true, removeAt: undefined },
+      { deploymentType: "preview", expires: false, removeAt: undefined },
+      { deploymentType: "development", expires: undefined, removeAt: undefined },
+    ] as const;
+    for (const { deploymentType, expires, removeAt } of cases) {
+      const { clientId } = await h.runRegisterClient({
+        appId: "scout",
+        redirectUri: REDIRECT_URI,
+        deploymentType,
+        tokenEndpointAuthMethod: "client_secret_post",
+        ...(expires === undefined ? {} : { expires }),
+      });
+      expect((await h.t.query(api.clients.get, { clientId }))?.removeAt).toBe(removeAt);
+    }
+  });
+
+  test("renewClient answers whether the client exists, and moves or starts its removal date", async () => {
+    vi.useFakeTimers({ now: 1_000_000_000_000, toFake: ["Date"] });
+    const h = await createHarness({ connectors: [fakeUpstream().connector] });
+    const register = async (
+      deploymentType: "production" | "development" | "preview",
+      expires: boolean,
+    ) =>
+      (
+        await h.runRegisterClient({
+          appId: "scout",
+          redirectUri: REDIRECT_URI,
+          deploymentType,
+          tokenEndpointAuthMethod: "client_secret_post",
+          expires,
+        })
+      ).clientId;
+    const read = async (clientId: string) => await h.t.query(api.clients.get, { clientId });
+    const dated = await register("preview", true);
+    const undated = await register("development", false);
+    const production = await register("production", false);
+
+    vi.setSystemTime(Date.now() + LEASE_MS / 2);
+    // Without expires, a client keeps the removal date it has, and one without stays without.
+    expect(await h.runRenewClient({ clientId: dated, expires: false })).toBe(true);
+    expect(await h.runRenewClient({ clientId: undated, expires: false })).toBe(true);
+    expect(await read(dated)).toMatchObject({
+      renewedAt: Date.now(),
+      removeAt: Date.now() + LEASE_MS,
+    });
+    expect((await read(undated))?.removeAt).toBeUndefined();
+
+    // With expires, a preview or development client starts to expire. Production never does.
+    expect(await h.runRenewClient({ clientId: undated, expires: true })).toBe(true);
+    expect(await h.runRenewClient({ clientId: production, expires: true })).toBe(true);
+    expect((await read(undated))?.removeAt).toBe(Date.now() + LEASE_MS);
+    expect(await read(production)).toMatchObject({ renewedAt: Date.now() });
+    expect((await read(production))?.removeAt).toBeUndefined();
+
+    expect(await h.runRenewClient({ clientId: "cl_gone", expires: true })).toBe(false);
   });
 
   test("a deleted client cannot sign in", async () => {
@@ -1069,6 +1133,7 @@ describe("cleanup", () => {
       redirectUri: REDIRECT_URI,
       clientName: "c",
       softwareVersion: "v",
+      expires: false,
     };
     await h.t.mutation(api.clients.create, {
       ...client,
@@ -1164,6 +1229,7 @@ describe("cleanup", () => {
         clientName: "c",
         softwareVersion: "v",
         createdAt: now - 40 * 86_400_000,
+        expires: false,
       });
       const { cleanup } = h.broker.admin();
       // @ts-expect-error internalMutationGeneric keeps the function as _handler; RegisteredMutation does not declare it. Its handler only calls ctx.runMutation, which an action ctx has.

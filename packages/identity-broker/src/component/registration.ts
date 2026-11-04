@@ -7,7 +7,10 @@ import { vTokenEndpointAuthMethod } from "./schema";
 
 const { literal, number, object, optional, string, union } = v;
 
-/** How long a preview client lives after its last deploy or sign-in. */
+/**
+ * How long a client with a removal date lives after its last deploy, dev start, sign-in, resource
+ * authorization, or provider refresh. Only preview and development clients get a removal date.
+ */
 export const LEASE_MS = 14 * 24 * 60 * 60 * 1000;
 /** The rows of one app. The deployments of a stack cannot grow past this. */
 export const MAX_CLIENTS_PER_APP = 30;
@@ -15,6 +18,17 @@ export const MAX_CLIENTS_PER_APP = 30;
 export const MAX_APPS_PER_TENANT = 10;
 
 const vDeployment = union(literal("production"), literal("preview"));
+
+/**
+ * What a sign-in, a resource authorization, or a provider refresh writes on the client it used: a
+ * client with a removal date then lives `LEASE_MS` from now.
+ */
+export function used(client: Doc<"clients">, now: number) {
+  return {
+    lastSignInAt: now,
+    ...(client.removeAt === undefined ? {} : { removeAt: now + LEASE_MS }),
+  };
+}
 
 /**
  * The one row that makes way for a new client at the cap. A preview client can always go, because

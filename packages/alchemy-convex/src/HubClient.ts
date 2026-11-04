@@ -13,6 +13,11 @@
 // change of `app` updates the stored props and does not move the client: the
 // app is the identity of the users of the app, and it does not change. The
 // team does not change either: the state of a stack is in its team.
+//
+// Each deploy renews the client on the hub, so a preview or development client
+// is deleted 14 days after its last deploy or use. A client that the hub no
+// longer has gets a new one in the same run. A production client never
+// expires, and a destroy leaves it: the production deployment can stay.
 import { Resource } from "alchemy";
 import { isResolved } from "alchemy/Diff";
 import * as Provider from "alchemy/Provider";
@@ -82,6 +87,9 @@ const Registered = Schema.Struct({
   clientSecret: Schema.NonEmptyString,
 });
 
+/** The reply of `identityBroker:renewClient`: false when the hub no longer has the client. */
+const Renewed = Schema.Boolean;
+
 /** Runs `use` with the function API of the hub of `team`, with a key of this call only. */
 const withHub = <A, E, R>(
   api: ManagementApiService,
@@ -114,7 +122,7 @@ const runHub = (
   functions: FunctionApi,
   team: string | number,
   name: string,
-  args: Record<string, string>,
+  args: Record<string, string | boolean>,
 ) =>
   functions.call(`identityBroker:${name}`, args).pipe(
     Effect.mapError((error) => new HubClientFailed({ team, reason: error.message })),
@@ -126,8 +134,9 @@ const runHub = (
   );
 
 /**
- * Registers one client. An attempt that a lost reply repeats leaves one spare
- * client on the hub, which signs nobody in.
+ * Registers one client, which expires unless it is a production client. An
+ * attempt that a lost reply repeats leaves one spare client on the hub, which
+ * signs nobody in, and which the hub deletes after 14 days.
  */
 export const registerHubClient = (api: ManagementApiService, props: HubClientProps) =>
   withHub(api, props.team, (functions) =>
@@ -139,6 +148,7 @@ export const registerHubClient = (api: ManagementApiService, props: HubClientPro
       softwareVersion: props.softwareVersion ?? "unknown",
       // Convex Auth's generic OAuth method posts the client credentials in the body.
       tokenEndpointAuthMethod: "client_secret_post",
+      expires: true,
     }),
   ).pipe(
     Effect.flatMap((value) =>
@@ -155,6 +165,35 @@ export const registerHubClient = (api: ManagementApiService, props: HubClientPro
     })),
   );
 
+/**
+ * Renews one client: true while the hub has it. A preview or development client
+ * then expires 14 days after this call.
+ */
+const renewHubClient = (api: ManagementApiService, team: string | number, clientId: string) =>
+  withHub(api, team, (functions) =>
+    runHub(functions, team, "renewClient", { clientId, expires: true }),
+  ).pipe(
+    Effect.flatMap((value) =>
+      Schema.decodeUnknownEffect(Renewed)(value).pipe(
+        Effect.mapError(() => new HubClientFailed({ team, reason: "renewClient gave no answer" })),
+      ),
+    ),
+  );
+
+/**
+ * Renews a client whose values the caller holds: false only when the hub answers that the client is
+ * gone. Any other failure, such as a hub or a Convex API that cannot answer, keeps the client and
+ * warns, so an outage never stops a deploy or a dev start; the next one renews it.
+ */
+const renewOrKeep = (api: ManagementApiService, team: string | number, clientId: string) =>
+  renewHubClient(api, team, clientId).pipe(
+    Effect.catch((error) =>
+      Effect.logWarning(
+        `Convex.HubClient: ${clientId} keeps its saved values, because the hub could not renew it: ${error.message}`,
+      ).pipe(Effect.as(true)),
+    ),
+  );
+
 const unregister = (api: ManagementApiService, team: string | number, clientId: string) =>
   withHub(api, team, (functions) => runHub(functions, team, "deleteClient", { clientId }));
 
@@ -168,27 +207,24 @@ export const HubClientProvider = () =>
     Effect.gen(function* () {
       const api = yield* ManagementApi;
       return {
-        diff: ({ news, olds, output }) =>
-          Effect.succeed(
-            // Props that are unresolved at plan time, such as a redirectUri from a deployment that
-            // this run creates, are compared in reconcile.
-            !isResolved(news) || output === undefined
-              ? undefined
-              : !registeredFor(output, news)
-                ? ({ action: "replace" } as const)
-                : olds.team === news.team && olds.app === news.app
-                  ? ({ action: "noop" } as const)
-                  : ({ action: "update" } as const),
-          ),
+        // Always an update, so that each deploy reaches the hub and renews the client. No attribute
+        // is stable, so a push reads the values that this run ended with. The same values cause no
+        // other push.
+        diff: ({ news }) =>
+          Effect.succeed(isResolved(news) ? ({ action: "update" } as const) : undefined),
 
         read: ({ output }) => Effect.succeed(output),
 
         reconcile: Effect.fn(function* ({ news, output }) {
-          if (output !== undefined && registeredFor(output, news)) return output;
+          const saved = output !== undefined && registeredFor(output, news) ? output : undefined;
+          if (saved !== undefined && (yield* renewOrKeep(api, news.team, saved.clientId))) {
+            return saved;
+          }
+          // A new client: the hub no longer has the saved one, or the redirect URI or the
+          // deployment type changed. In the second case the old client goes, and the new client is
+          // returned whatever happens to the old one.
           const client = yield* registerHubClient(api, news);
-          // An update whose props were unresolved at plan time registers in place of a
-          // replacement. The new client is returned whatever happens to the old one.
-          if (output !== undefined) {
+          if (output !== undefined && saved === undefined) {
             yield* unregister(api, news.team, output.clientId).pipe(
               Effect.catchTag("HubClientFailed", (error) =>
                 Effect.logWarning(
@@ -205,8 +241,11 @@ export const HubClientProvider = () =>
           };
         }),
 
+        // A destroy can leave a production deployment running, so its client stays.
         delete: ({ olds, output }) =>
-          unregister(api, olds.team, output.clientId).pipe(Effect.asVoid),
+          output.deploymentType === "production"
+            ? Effect.void
+            : unregister(api, olds.team, output.clientId).pipe(Effect.asVoid),
       };
     }),
   );
@@ -224,13 +263,16 @@ export interface DevelopmentClientOptions {
 
 /**
  * `alchemy-convex hub-client`: a stack deploys production and previews, and this covers the
- * development deployment, which no stack deploys. A deployment with all three variables keeps
- * them. So a deployment that holds placeholder values for a checkout without a hub is left alone.
- * The secret reaches the Convex CLI on standard input, never in its arguments.
+ * development deployment, which no stack deploys. Run it at each dev start: it renews the client
+ * that the three variables name, so the client expires 14 days after the last dev start or use. A
+ * deployment without all three variables, or whose client the hub no longer has, such as one with
+ * the `no-hub` values, gets a new client. Answers the callback URL of a new client, or undefined
+ * for a renewal. The secret reaches the Convex CLI on standard input, never in its arguments.
  */
 export const registerDevelopmentClient = (options: DevelopmentClientOptions) =>
   Effect.gen(function* () {
     const { convex } = options;
+    const api = yield* ManagementApi;
     const envPrefix = options.envPrefix ?? "HUB";
     const variables = [
       `${envPrefix}_ISSUER`,
@@ -238,7 +280,10 @@ export const registerDevelopmentClient = (options: DevelopmentClientOptions) =>
       `${envPrefix}_CLIENT_SECRET`,
     ];
     const names = convex(["env", "list", "--names-only"]).split("\n");
-    if (variables.every((name) => names.includes(name))) return undefined;
+    if (variables.every((name) => names.includes(name))) {
+      const clientId = convex(["env", "get", `${envPrefix}_CLIENT_ID`]);
+      if (yield* renewOrKeep(api, options.team, clientId)) return undefined;
+    }
     const siteUrl = yield* Schema.decodeUnknownEffect(Schema.fromJsonString(Schema.String))(
       convex(["run", "--inline-query", "process.env.CONVEX_SITE_URL"]),
     ).pipe(
@@ -247,7 +292,7 @@ export const registerDevelopmentClient = (options: DevelopmentClientOptions) =>
       ),
     );
     const callbackUrl = `${siteUrl.replace(/\/$/, "")}${options.callbackPath}`;
-    const client = yield* registerHubClient(yield* ManagementApi, {
+    const client = yield* registerHubClient(api, {
       team: options.team,
       app: options.app,
       redirectUri: callbackUrl,

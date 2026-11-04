@@ -4,11 +4,12 @@
 //   alchemy-convex hub-client --team <team> --app <app> --callback-path <path>
 //   alchemy-convex stack-comment [--team <team>]
 //
-// hub-client runs in the directory of a Convex app, and gives the development deployment of that
-// directory a client of the identity hub of the team: see registerDevelopmentClient. stack-comment
-// runs as a step of a pull request workflow after the deploys, and keeps one comment with the stacks
-// of the repository: see src/StackComment.ts. It needs GITHUB_TOKEN and, with a team access token,
-// no --team. Both use CONVEX_ACCESS_TOKEN or the Convex CLI login.
+// hub-client runs in the directory of a Convex app at each dev start, and renews the client of the
+// identity hub of the team that the development deployment of that directory has, or gives it a new
+// one: see registerDevelopmentClient. stack-comment runs as a step of a pull request workflow after
+// the deploys, and keeps one comment with the stacks of the repository: see src/StackComment.ts. It
+// needs GITHUB_TOKEN and, with a team access token, no --team. Both use CONVEX_ACCESS_TOKEN or the
+// Convex CLI login.
 import { execFileSync } from "node:child_process";
 import { parseArgs } from "node:util";
 import * as NodeServices from "@effect/platform-node/NodeServices";
@@ -49,7 +50,7 @@ const hubClient = (hub: { team: string; app: string; callbackPath: string; envPr
     });
     console.log(
       callbackUrl === undefined
-        ? "Hub client already registered."
+        ? "Hub client renewed."
         : `Hub client registered for ${callbackUrl}.`,
     );
   }).pipe(Effect.provide(ManagementApiLive().pipe(Layer.provide(fromConfig()))));

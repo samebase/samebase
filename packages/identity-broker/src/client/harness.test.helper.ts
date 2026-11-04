@@ -94,12 +94,23 @@ export async function createHarness(options: {
     redirectUri: string;
     deploymentType: "production" | "development" | "preview";
     tokenEndpointAuthMethod: "client_secret_post" | "client_secret_basic";
+    expires?: boolean;
   }): Promise<{ issuer: string; clientId: string; clientSecret: string }> {
     const { registerClient: admin } = broker.admin();
     return await t.action(
       async (ctx) =>
         // @ts-expect-error internalMutationGeneric keeps the function as _handler; RegisteredMutation does not declare it.
         await admin._handler(ctx, { ...args, clientName: "dev", softwareVersion: "dev-1" }),
+    );
+  }
+
+  /** The admin function `renewClient`, as a deploy or a dev start runs it. */
+  async function runRenewClient(args: { clientId: string; expires: boolean }): Promise<boolean> {
+    const { renewClient: admin } = broker.admin();
+    return await t.action(
+      async (ctx) =>
+        // @ts-expect-error internalMutationGeneric keeps the function as _handler; RegisteredMutation does not declare it.
+        await admin._handler(ctx, args),
     );
   }
 
@@ -128,7 +139,17 @@ export async function createHarness(options: {
     return { appId, clientId: client.clientId, clientSecret: client.clientSecret };
   }
 
-  return { t, broker, http, fetchBroker, registerClient, runRegisterClient, keySet, issuer };
+  return {
+    t,
+    broker,
+    http,
+    fetchBroker,
+    registerClient,
+    runRegisterClient,
+    runRenewClient,
+    keySet,
+    issuer,
+  };
 }
 
 /** The `Cookie` header of the browser that received `response`, with its transaction cookie. */

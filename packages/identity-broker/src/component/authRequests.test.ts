@@ -3,6 +3,7 @@ import { convexTest, type TestConvex } from "convex-test";
 import { calculatePKCECodeChallenge } from "oauth4webapi";
 import { describe, expect, test } from "vite-plus/test";
 import { api } from "./_generated/api.js";
+import { LEASE_MS } from "./registration.js";
 import schema from "./schema.js";
 
 const modules = import.meta.glob(["./**/*.ts", "!./**/*.test.ts"]);
@@ -18,7 +19,7 @@ const cl = {
 } as const;
 
 /** App "app" with its client "cl", as `registerClient` stores them. */
-async function registered() {
+async function registered(expires = false) {
   const t = convexTest(schema, modules);
   await t.mutation(api.apps.create, {
     appId: "app",
@@ -36,6 +37,7 @@ async function registered() {
     clientName: "App preview",
     softwareVersion: "v1",
     createdAt: now,
+    expires,
   });
   return t;
 }
@@ -143,8 +145,8 @@ describe("upstream path", () => {
   });
 
   /** A request completed through the upstream path, with code hash "ch" issued to client "cl". */
-  async function completedCode() {
-    const t = await pendingRequest();
+  async function completedCode(given?: TestConvex<typeof schema>) {
+    const t = await pendingRequest("r1", given);
     await t.mutation(api.authRequests.startUpstream, {
       requestId: "r1",
       connector: "g",
@@ -231,6 +233,24 @@ describe("upstream path", () => {
       description: "The authorization code was already used.",
     });
     expect(await codes()).toEqual([]);
+  });
+
+  test("a sign-in moves the removal date of a client that expires, and gives none to another", async () => {
+    for (const expires of [true, false]) {
+      const { t, redeem } = await completedCode(await registered(expires));
+      // The client was created at `now` too, so an older date shows that the sign-in moved it.
+      await t.run(async (ctx) => {
+        const client = await ctx.db
+          .query("clients")
+          .withIndex("by_client_id", (q) => q.eq("clientId", cl.clientId))
+          .unique();
+        if (client !== null && expires) await ctx.db.patch("clients", client._id, { removeAt: 1 });
+      });
+      expect(await redeem(cl)).toMatchObject({ ok: true });
+      const client = await t.query(api.clients.get, { clientId: cl.clientId });
+      expect(client?.lastSignInAt).toBe(now);
+      expect(client?.removeAt).toBe(expires ? now + LEASE_MS : undefined);
+    }
   });
 
   test("expiry at every step", async () => {

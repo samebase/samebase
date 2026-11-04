@@ -3,7 +3,11 @@ import process from "node:process";
 
 import { describe, expect, it } from "vite-plus/test";
 
-import { buildWorktreeDevCommandPlan, parseWorktreeDevArgs } from "./run-worktree-dev.ts";
+import {
+  buildWorktreeDevCommandPlan,
+  parseWorktreeDevArgs,
+  selectWorktreeDevSteps,
+} from "./run-worktree-dev.ts";
 import {
   LOCAL_WORKTREE_PASSWORD_AUTH_EMAIL,
   LOCAL_WORKTREE_PASSWORD_AUTH_PASSWORD,
@@ -112,8 +116,65 @@ describe("run-worktree-dev", () => {
       ["bootstrap the current worktree", "always"],
       ["generate tracked file path types", "always"],
       ["bootstrap and seed the anonymous local backend", "once-bootstrap"],
+      ["register or renew the identity hub client (hub:client)", "backend-ready"],
+      ["register or renew the identity hub client (hub:resource-client)", "backend-ready"],
       ["launch the long-running worktree dev server", "long-running"],
     ]);
+  });
+
+  it("with the bootstrap marker, skips the seed and still runs both hub client commands", () => {
+    const plan = buildWorktreeDevCommandPlan(
+      {
+        once: false,
+        enableBranch: true,
+        forceBootstrap: false,
+        vitePort: 5174,
+        showHelp: false,
+      },
+      "/repo",
+      { CONVEX_DEPLOY_KEY: "dev:ambient|token" },
+    );
+
+    const steps = selectWorktreeDevSteps(plan, true);
+
+    expect(steps.blocking.map(({ label }) => label)).not.toContain(
+      "bootstrap and seed the anonymous local backend",
+    );
+    expect(steps.longRunning?.label).toBe("launch the long-running worktree dev server");
+    expect(steps.backendReady).toEqual([
+      expect.objectContaining({
+        cwd: path.join("/repo", "apps", "samebase"),
+        command: process.execPath,
+        args: ["--run", "hub:client"],
+        env: { CONVEX_AGENT_MODE: "anonymous" },
+      }),
+      expect.objectContaining({
+        cwd: path.join("/repo", "apps", "samebase"),
+        command: process.execPath,
+        args: ["--run", "hub:resource-client"],
+        env: { CONVEX_AGENT_MODE: "anonymous" },
+      }),
+    ]);
+  });
+
+  it("without the marker, the seed runs the hub client commands and nothing runs beside the dev server", () => {
+    const plan = buildWorktreeDevCommandPlan(
+      {
+        once: false,
+        enableBranch: true,
+        forceBootstrap: false,
+        vitePort: 5174,
+        showHelp: false,
+      },
+      "/repo",
+      {},
+    );
+
+    const steps = selectWorktreeDevSteps(plan, false);
+
+    expect(steps.blocking.at(-1)?.label).toBe("bootstrap and seed the anonymous local backend");
+    expect(steps.backendReady).toEqual([]);
+    expect(steps.longRunning?.phase).toBe("long-running");
   });
 
   it("keeps only first-time anonymous backend setup noninteractive", () => {

@@ -85,6 +85,7 @@ import { broker } from "./http";
 export const {
   createApp,
   registerClient,
+  renewClient,
   deleteClient,
   deleteApp,
   listApps,
@@ -112,6 +113,12 @@ The first client of an `appId` creates the app as a first-party app. For an app 
 own, run `createApp` with `firstParty` false first. A Convex Auth v2 app points its generic OAuth
 method at `<issuer>/authorize` and `<issuer>/token`; see the
 [docs](https://github.com/samebase/samebase/blob/main/packages/identity-broker/docs/consumers.md).
+
+With `"expires":true`, a preview or development client gets a removal date 14 days ahead, and the
+daily `cleanup` deletes it after that date.
+`identityBroker:renewClient '{"clientId":"...","expires":true}'` answers whether the client exists
+and moves the date 14 days forward; run it at each deploy. A sign-in, a resource authorization, and
+a provider refresh also move it. A production client never gets a removal date.
 
 When a deployment goes away, `identityBroker:deleteClient` deletes its client. A client that is gone
 is no error.

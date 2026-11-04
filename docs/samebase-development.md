@@ -161,10 +161,12 @@ three variables to the deployment before its push. The hub is in the `samebase` 
 Convex team, and the Convex credential of the run reaches it, so sign-in needs no secret of its own.
 
 The development deployment of the primary checkout and the local deployment of each linked worktree
-get their clients from the package scripts `hub:client` and `hub:resource-client`, which
-`pnpm run dev` runs before the first push with your Convex login. Each registers once, on the
-deployment's own site URL, and writes its three variables. A deployment with all three variables
-keeps them.
+get their clients from the package scripts `hub:client` and `hub:resource-client`, with your Convex
+login. In a linked worktree, `pnpm run dev` runs them before the first push and at each later start,
+once the local backend is up. From `@samebase/alchemy-convex` 0.25.0, each renews the client that
+the three variables name, so a development client expires 14 days after the last start or use. A
+deployment without the three variables, or whose client the hub no longer has, gets a new client on
+its own site URL.
 
 Password sign-in is for accounts that only server functions create. Local worktrees use their seeded
 password account. Preview deployments use `DEV_SEED_AUTH_EMAIL` and `DEV_SEED_AUTH_PASSWORD` (at

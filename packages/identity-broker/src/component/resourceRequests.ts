@@ -1,9 +1,10 @@
 import { v, type Infer } from "convex/values";
 import { calculatePKCECodeChallenge } from "oauth4webapi";
 import { internal } from "./_generated/api";
-import type { Doc, Id } from "./_generated/dataModel";
+import type { Doc } from "./_generated/dataModel";
 // oxlint-disable-next-line samebase/no-raw-public-convex-function-builders -- Component functions are called only by the host's authenticated OAuth endpoints.
 import { mutation, internalMutation, type MutationCtx } from "./_generated/server";
+import { used } from "./registration";
 import { resourceRequestFields, vResourceTokens } from "./resourceSchema";
 import { vTokenEndpointAuthMethod } from "./schema";
 
@@ -167,7 +168,7 @@ export async function exchangeResourceCode(
   ctx: MutationCtx,
   code: Extract<Doc<"authorizationCodes">, { resourceRequestId: unknown }>,
   args: {
-    client: Id<"clients">;
+    client: Doc<"clients">;
     redirectUri?: string;
     codeVerifier: string;
     resource?: string;
@@ -216,7 +217,7 @@ export async function exchangeResourceCode(
     ...(refreshGrantId === undefined ? {} : { refreshGrantId }),
   });
   await ctx.db.delete("resourceRequests", request._id);
-  await ctx.db.patch("clients", args.client, { lastSignInAt: args.now });
+  await ctx.db.patch("clients", args.client._id, used(args.client, args.now));
   return {
     ok: true,
     kind: "resource",
@@ -279,7 +280,7 @@ export const claimRefresh = mutation({
         description: "A refresh is already running. Retry shortly.",
       };
     await ctx.db.patch("refreshGrants", grant._id, { refreshStartedAt: args.now });
-    await ctx.db.patch("clients", client._id, { lastSignInAt: args.now });
+    await ctx.db.patch("clients", client._id, used(client, args.now));
     return {
       ok: true,
       grantId: grant._id,
