@@ -2,7 +2,7 @@
 
 ## Document Control
 
-- Status: Proposal
+- Status: Done. PR 1, the new path, shipped in v2259. PR 2, the old path removed, ships in v2261.
 - Owner: Nicu Chiciuc
 - Created: 2026-11-04
 - Follows RFC 129, which made a repository prove its host with `/samebase-verification.json`.
