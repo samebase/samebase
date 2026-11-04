@@ -1,6 +1,6 @@
 {
   "name": "@samebase/identity-broker",
-  "version": "0.12.0",
+  "version": "0.13.0",
   "description": "An OpenID Provider for Convex that holds a team's upstream sign-in connections once and keeps no user accounts.",
   "license": "Apache-2.0",
   "repository": {
@@ -13,6 +13,9 @@
   },
   "files": [
     "dist",
+    "src/test.ts",
+    "src/component",
+    "!src/component/**/*.test.ts",
     "LICENSE",
     "NOTICE",
     "README.md"
@@ -21,6 +24,7 @@
   "exports": {
     ".": {
       "types": "./dist/client/index.d.ts",
+      "samebase-source": "./src/client/index.ts",
       "default": "./dist/client/index.js"
     },
     "./convex.config": {
@@ -29,7 +33,8 @@
     },
     "./_generated/component.js": {
       "types": "./dist/component/_generated/component.d.ts"
-    }
+    },
+    "./test": "./src/test.ts"
   },
   "scripts": {
     "build": "tsc --build ./tsconfig.build.json --force",

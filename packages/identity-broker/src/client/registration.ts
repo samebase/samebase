@@ -12,10 +12,15 @@ import { randomToken, sha256Hex } from "./subject.js";
 export type RegistrationConfig = {
   /**
    * The initial access token of RFC 7591 section 3, read in the request. Whoever holds it can create
-   * clients of third-party apps, and can do nothing to the host's own apps. Absent: every request
-   * is refused.
+   * clients of third-party apps, and can do nothing to the host's own apps. When it returns nothing,
+   * every request is refused.
+   *
+   * Leave the option out for management only: the host creates each client in its own mutation with
+   * `newClientCredentials` and `component.registration.register`, and `POST /register`,
+   * `/tenant-connection`, and the discovery entry `registration_endpoint` are not served. Each
+   * client still reads and deletes its own record at `/register/<client>` with its own token.
    */
-  initialAccessToken: () => string | undefined;
+  initialAccessToken?: () => string | undefined;
   /** The one connector of every app that registers here. */
   connector: string;
   /** While true, no app from `/register` can sign in or register. An emergency brake for all of them. */
@@ -139,9 +144,29 @@ function clientInformation(args: {
 }
 
 /**
+ * The credentials of a new client of a third-party app. The secret and the registration access
+ * token go to the caller once; the component keeps only their hashes. `registrationClientUri` is the
+ * client's own record at this host (RFC 7592).
+ */
+export async function newClientCredentials(issuer: string) {
+  const clientId = `cl_${randomToken(16)}`;
+  const clientSecret = randomToken(32);
+  const registrationAccessToken = randomToken(32);
+  return {
+    clientId,
+    clientSecret,
+    registrationAccessToken,
+    registrationClientUri: `${issuer}/register/${clientId}`,
+    secretHash: await sha256Hex(clientSecret),
+    registrationTokenHash: await sha256Hex(registrationAccessToken),
+  };
+}
+
+/**
  * Dynamic client registration (RFC 7591) and client management (RFC 7592). The initial access token
- * opens `/register` and `/tenant-connection`. Each client holds its own registration access token for
- * its own record, so a client can read or delete only itself.
+ * opens `/register` and `/tenant-connection`; without the option neither is served. Each client
+ * holds its own registration access token for its own record, so a client can read or delete only
+ * itself.
  */
 export function registrationEndpoints(args: {
   component: ComponentApi;
@@ -153,7 +178,7 @@ export function registrationEndpoints(args: {
 
   /** Compared by hash, so the time it takes says nothing about the token. */
   async function holdsInitialToken(request: Request): Promise<boolean> {
-    const expected = registration.initialAccessToken();
+    const expected = registration.initialAccessToken?.();
     const presented = readBearerToken(request.headers.get("authorization"));
     return (
       expected !== undefined &&
@@ -175,17 +200,16 @@ export function registrationEndpoints(args: {
       return registrationError(400, metadata.error, metadata.description);
     }
     const now = Date.now();
-    const clientId = `cl_${randomToken(16)}`;
-    const clientSecret = randomToken(32);
-    const registrationAccessToken = randomToken(32);
+    const { clientId, clientSecret, registrationAccessToken, secretHash, registrationTokenHash } =
+      await newClientCredentials(issuer);
     const result = await ctx.runMutation(component.registration.register, {
       tenantId: metadata.tenantId,
       appId: metadata.softwareId,
       connector: registration.connector,
       deploymentType: metadata.deploymentType,
       clientId,
-      secretHash: await sha256Hex(clientSecret),
-      registrationTokenHash: await sha256Hex(registrationAccessToken),
+      secretHash,
+      registrationTokenHash,
       tokenEndpointAuthMethod: metadata.tokenEndpointAuthMethod,
       redirectUri: metadata.redirectUri,
       clientName: metadata.clientName,
@@ -283,10 +307,12 @@ export function registrationEndpoints(args: {
 
   return {
     addRoutes(http: HttpRouter): void {
-      http.route({ path: path("/register"), method: "POST", handler: register });
+      if (registration.initialAccessToken !== undefined) {
+        http.route({ path: path("/register"), method: "POST", handler: register });
+        http.route({ path: path("/tenant-connection"), method: "POST", handler: connection });
+      }
       http.route({ pathPrefix: path("/register/"), method: "GET", handler: read });
       http.route({ pathPrefix: path("/register/"), method: "DELETE", handler: remove });
-      http.route({ path: path("/tenant-connection"), method: "POST", handler: connection });
     },
   };
 }

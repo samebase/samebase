@@ -430,6 +430,13 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
       >;
     };
     registration: {
+      recordOwner: FunctionReference<
+        "mutation",
+        "internal",
+        { ownerId: string; tenantId: string },
+        null,
+        Name
+      >;
       register: FunctionReference<
         "mutation",
         "internal",
@@ -440,6 +447,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           connector: string;
           deploymentType: "production" | "preview";
           now: number;
+          ownerId?: string;
           redirectUri: string;
           registrationTokenHash: string;
           secretHash: string;
@@ -486,10 +494,24 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         null,
         Name
       >;
+      setOwnerBlocked: FunctionReference<
+        "mutation",
+        "internal",
+        { blocked: boolean; now: number; ownerId: string },
+        null,
+        Name
+      >;
       setSuspended: FunctionReference<
         "mutation",
         "internal",
         { now: number; suspended: boolean; tenantId: string },
+        null,
+        Name
+      >;
+      switchConnection: FunctionReference<
+        "mutation",
+        "internal",
+        { connected: boolean; tenantId: string },
         null,
         Name
       >;
