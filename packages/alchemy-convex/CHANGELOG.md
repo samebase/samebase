@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.25.0
+
+Every preview and development client of `Convex.HubClient` and `alchemy-convex hub-client` expires
+14 days after its last deploy, dev start, or use. A production client never expires. The hub must
+have `identityBroker:renewClient` of `@samebase/identity-broker` 0.15.0 or later.
+
+- `Convex.HubClient` renews its client on the hub at each deploy: its diff is always an update. A
+  client that the hub no longer has gets a new one, and the `env` of the `Convex.Deployment` gets
+  the new values in the same run. A destroy deletes a preview client and leaves a production client,
+  because the production deployment can stay.
+- `alchemy-convex hub-client` renews the client that the three variables name. A deployment whose
+  client the hub no longer has, such as one with the `no-hub` values, gets a new client in one
+  `env set --force`. Run it at each dev start.
+- Each new client is registered with `expires: true`.
+
+The state store protocol does not change.
+
 ## 0.24.0
 
 `Convex.SharedHubClient` asks the identity hub for a new client at

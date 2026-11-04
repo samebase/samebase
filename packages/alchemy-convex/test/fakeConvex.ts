@@ -73,12 +73,18 @@ export interface Store {
 /** The admin functions of an identity hub, as the broker answers them. */
 export class Hub {
   readonly clients = new Map<string, Record<string, unknown>>();
+  /** The arguments of each `renewClient` call, in order. */
+  readonly renewals: Record<string, unknown>[] = [];
   private nextClient = 1;
   constructor(readonly issuer: string) {}
   run(path: string, args: Record<string, unknown>) {
     if (path === "identityBroker:deleteClient") {
       this.clients.delete(String(args["clientId"]));
       return null;
+    }
+    if (path === "identityBroker:renewClient") {
+      this.renewals.push(args);
+      return this.clients.has(String(args["clientId"]));
     }
     const clientId = `cl_${this.nextClient++}`;
     this.clients.set(clientId, args);

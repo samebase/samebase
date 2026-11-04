@@ -173,7 +173,7 @@ export interface FunctionApi {
   /** POST /api/function, the call that `convex run` makes: the reply, which can be a function error. */
   readonly call: (
     path: string,
-    args: Record<string, string | RunRecord | undefined>,
+    args: Record<string, string | boolean | RunRecord | undefined>,
   ) => Effect.Effect<Reply, StateStoreError>;
 }
 
