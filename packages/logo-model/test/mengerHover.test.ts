@@ -401,7 +401,9 @@ describe("Menger hover", () => {
     expect(topology.stages[1]?.maximumBlockerLinksPerMove).toBe(2);
   });
 
-  it("builds the supported depth-five model and topology", () => {
+  // The depth-five build takes about 1.6 s on an 8 vCPU runner. It takes 6.5 s on the 4 vCPU
+  // GitHub runner while the checks job runs other tasks in parallel.
+  it("builds the supported depth-five model and topology", { timeout: 30_000 }, () => {
     const model = createMengerDepthTransitionModel({
       maximumDepth: 5,
       retainFinalSettledVoxels: false,
