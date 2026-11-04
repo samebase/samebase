@@ -427,9 +427,9 @@ dependencies = [
 
 [[package]]
 name = "cc"
-version = "1.10.0"
+version = "1.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "86e055fa6e3e40ad6187ba25b6855eeb635d5271f8e0f0e1e9a5826b8d75bea0"
+checksum = "375989decec1a0fa424442bed520fa12ede43a48475ce8c7417d2c69b32b5f6b"
 dependencies = [
  "find-msvc-tools",
  "jobserver",
@@ -687,9 +687,9 @@ dependencies = [
 
 [[package]]
 name = "crc32fast"
-version = "1.5.3"
+version = "1.5.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0ba106e844045ddc02c20768ac4b0b7cb45f2cc2ecbd833ac9f5dacb183c2055"
+checksum = "5f97d3416d5337d15c4b0d78c8c91df922ca143f57ec20e2d1c188333047ef04"
 dependencies = [
  "cfg-if",
 ]
@@ -988,9 +988,9 @@ dependencies = [
 
 [[package]]
 name = "fframes-media"
-version = "1.3.0"
+version = "1.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2f3a62d43801d70cc28c880c9394108405c15f1c19a11e06c66c3d2363c0846f"
+checksum = "df033545483057b21628e7e76eb12100c895965e4c05b01bdc5891347e5aefd2"
 dependencies = [
  "base64 0.22.1",
  "bytemuck",
@@ -999,6 +999,8 @@ dependencies = [
  "itoa",
  "libc",
  "log",
+ "serde",
+ "serde_json",
  "ttf-parser",
  "usvgr",
  "wasm-bindgen",
@@ -1007,9 +1009,9 @@ dependencies = [
 
 [[package]]
 name = "fframes-media-dir-macro"
-version = "1.3.0"
+version = "1.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "afa6d70f99856829586df8eaf4c7b76691b3bca6f1d70d664eab0440dd11e889"
+checksum = "49b72e357d9b99a5fd17e21526253029a8b095b34d78f092a98acb582fc01f61"
 dependencies = [
  "base64 0.22.1",
  "bytemuck",
@@ -3255,9 +3257,9 @@ dependencies = [
 
 [[package]]
 name = "svgr-macro"
-version = "1.3.0"
+version = "1.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "48136da9847ae3000024defa0b6f68b3f1f71d38f74ad4d5f14c08738f9d7bc0"
+checksum = "8ae1171799e604fe00e07e6d5e25cf171887b138ee3f46734e73e7d64c84301c"
 dependencies = [
  "lazy_static",
  "proc-macro-crate",
@@ -3471,9 +3473,9 @@ dependencies = [
 
 [[package]]
 name = "toml"
-version = "1.1.8+spec-1.1.0"
+version = "1.2.0+spec-1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "20489e00e4d8741d6be680764cc12e270655e375a20d1011e844a9c3379e678d"
+checksum = "c5ffcdf8f50436dbbfd675c1fe1b8e0854f42b7defea8584bdebe1aee900e561"
 dependencies = [
  "indexmap",
  "serde_core",
@@ -3495,9 +3497,9 @@ dependencies = [
 
 [[package]]
 name = "toml_edit"
-version = "0.25.17+spec-1.1.0"
+version = "0.25.18+spec-1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e3641d5bbb5349a79e1020a242d251efbc546ad8048d133958323ce9c40a9c9c"
+checksum = "1ec6e78bd70db9420d8d212fa9dc97f116448a1ceff5d00eabb991d407e21396"
 dependencies = [
  "indexmap",
  "toml_datetime",
@@ -3516,9 +3518,9 @@ dependencies = [
 
 [[package]]
 name = "toml_writer"
-version = "1.1.3+spec-1.1.0"
+version = "1.2.0+spec-1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "06bdbd8cfc056b8d2e2e85f29b56a3bdbecb527cef81eb39e3e7b98af4652770"
+checksum = "009dbb7700f11c55ef83aebbe4c0e9cf1f1ac0844bd8d6f00dc38f302026e13a"
 
 [[package]]
 name = "tracing"
@@ -3586,15 +3588,15 @@ checksum = "a2c754d6c33795a1c324727428e5a7dedb5b06195f9890bdbcba760d3e246563"
 
 [[package]]
 name = "unicode-properties"
-version = "0.1.4"
+version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7df058c713841ad818f1dc5d3fd88063241cc61f49f5fbea4b951e8cf5a8d71d"
+checksum = "993ad287eb20e8ba755312801cfe1413e0f25d604075863acaddca10b04c1833"
 
 [[package]]
 name = "unicode-script"
-version = "0.5.8"
+version = "0.5.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "383ad40bb927465ec0ce7720e033cb4ca06912855fc35db31b5755d0de75b1ee"
+checksum = "aa04c955db05429d464c74d495c1ee677e1866e783a4c3747f9c0cef7756cabf"
 
 [[package]]
 name = "unicode-segmentation"
@@ -3898,9 +3900,9 @@ dependencies = [
 
 [[package]]
 name = "webvtt-parser"
-version = "1.3.0"
+version = "1.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "38e0fbc428094020f967c12db944859cff2de8839db8affae0a809b87a98268f"
+checksum = "340c64883a37d53bb135dd227aaab048f06640866f377ac72820bd19ff1787f4"
 dependencies = [
  "nom 7.1.3",
  "nom_locate",
