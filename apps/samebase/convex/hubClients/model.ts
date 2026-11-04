@@ -36,7 +36,10 @@ export const hubClientTables = {
     githubOwnerId: string(),
     /** `owner/name` at the time of the run. */
     githubRepository: string(),
+    /** The account that started the run. */
     githubActorId: string(),
+    /** Its login at the time of the run. */
+    githubActorLogin: string(),
     commitSha: string(),
     /** `prod` or `pr-<number>`, from the token's event and ref. */
     stage: string(),

@@ -740,6 +740,7 @@ describe("POST /api/hub-clients", () => {
           githubOwnerId: OWNER_ID,
           githubRepository: "octo-org/octo-repo",
           githubActorId: "12",
+          githubActorLogin: "octocat",
           commitSha: "example-sha",
           stage: "prod",
           app: "my-app",

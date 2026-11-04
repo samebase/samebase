@@ -128,8 +128,8 @@ including none. The hub registers the string exactly as the run sent it.
 ### What samebase.com does, in order
 
 1. `readHub`: 404 while the feature is off. Unchanged.
-2. `readRun`: verify the token, derive the stage. Unchanged. Add `repository`, `actor_id`, and `sha`
-   to the claims that are read; GitHub's documented example token has all three. Not
+2. `readRun`: verify the token, derive the stage. Unchanged. Add `repository`, `actor_id`, `actor`,
+   and `sha` to the claims that are read; GitHub's documented example token has all four. Not
    `job_workflow_ref`: GitHub documents it for reusable workflows, and the template's job is not
    one.
 3. `readBody`: the new body. A bad `redirectUri` answers 400 `invalid_request` and fetches nothing.
@@ -162,9 +162,9 @@ including none. The hub registers the string exactly as the run sent it.
 6. `registerAtHub`: unchanged, with the request's `redirectUri`. `client_name` stays the stage.
 7. **Record the registration.** Insert one row in a new table `hubClientRegistrations`: the hub's
    `clientId`, `githubRepositoryDatabaseId`, `githubOwnerId`, `githubRepository` (`owner/name` as of
-   this run), `githubActorId`, `commitSha`, `stage`, `app`, `redirectUri`. Index by
-   `githubRepositoryDatabaseId`. No secret and no token is stored. The row is the record that later
-   blocks, limits by GitHub ids, and a sign-in page naming the repository will read; it costs
+   this run), `githubActorId`, `githubActorLogin`, `commitSha`, `stage`, `app`, `redirectUri`. Index
+   by `githubRepositoryDatabaseId`. No secret and no token is stored. The row is the record that
+   later blocks, limits by GitHub ids, and a sign-in page naming the repository will read; it costs
    nothing now and spares a migration later. Rows are never deleted by this RFC; a preview client's
    row outlives the client. A refused registration records nothing.
 8. Reply 201 with the same shape as today, including `redirect_uri`.

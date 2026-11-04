@@ -56,6 +56,7 @@ const sureGitHubClaims = sureObject({
   repository_owner_id: sureString,
   repository: sureString,
   actor_id: sureString,
+  actor: sureString,
   sha: sureString,
 });
 
@@ -239,6 +240,7 @@ export const recordRegistration = internalMutation({
     githubOwnerId: string(),
     githubRepository: string(),
     githubActorId: string(),
+    githubActorLogin: string(),
     commitSha: string(),
     stage: string(),
     app: string(),
@@ -252,6 +254,7 @@ export const recordRegistration = internalMutation({
       githubOwnerId: args.githubOwnerId,
       githubRepository: args.githubRepository,
       githubActorId: args.githubActorId,
+      githubActorLogin: args.githubActorLogin,
       commitSha: args.commitSha,
       stage: args.stage,
       app: args.app,
@@ -487,6 +490,7 @@ export const registerHubClient = httpAction(async (ctx, request) => {
     githubOwnerId: run.claims.repository_owner_id,
     githubRepository: run.claims.repository,
     githubActorId: run.claims.actor_id,
+    githubActorLogin: run.claims.actor,
     commitSha: run.claims.sha,
     stage: run.stage,
     app: body.app,
