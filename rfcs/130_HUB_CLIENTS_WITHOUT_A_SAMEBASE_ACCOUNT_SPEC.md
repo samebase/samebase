@@ -58,8 +58,10 @@ From `origin/main`:
 `admitRequest` takes the token's repository id and owner id and does, in one transaction:
 
 1. Refuse with `blocked` when `hubClientBlocks` has the repository or the owner.
-2. Count the request in two fixed one-hour windows, one for the repository id and one for the owner
-   id: 30 and 100 as today. Refuse with `rate_limited` when either is full.
+2. Count the request in fixed one-hour windows: one for the repository id (30), one for the owner id
+   (100), and one global window for requests from owners that have no registration yet (50 new
+   owners per hour). Refuse with `rate_limited` when any is full. The global window bounds what one
+   person with many GitHub accounts can do to the "Samebase Apps" Google project.
 
 It no longer reads `repositories` or `organizations`. The refusals `repository_not_connected` and
 `owner_mismatch` go away, and `blocked` joins the fixed reasons that `Convex.SharedHubClient` logs
@@ -67,10 +69,11 @@ It no longer reads `repositories` or `organizations`. The refusals `repository_n
 
 ### Request windows
 
-A new table `hubClientRequestWindows`: `{ scope: "repository" | "owner", githubId, count }`, indexed
-by scope and id, one row per key, the window starting at the row's creation, as today. Rows are not
-tied to Samebase rows, so repository and organization deletion no longer touch them.
-`hubClientRateLimits` and its cleanup steps are removed.
+A new table `hubClientRequestWindows`:
+`{ scope: "repository" | "owner" | "newOwners", githubId, count }` (`githubId` is empty for
+`newOwners`), indexed by scope and id, one row per key, the window starting at the row's creation,
+as today. Rows are not tied to Samebase rows, so repository and organization deletion no longer
+touch them. `hubClientRateLimits` and its cleanup steps are removed.
 
 ### Blocks
 
@@ -150,7 +153,8 @@ sections, and a docs changelog entry. A pull request on `samebase/base` updates 
 
 1. Leaving Samebase no longer stops Google sign-in.
 2. A block is by repository id or by owner id, set by an admin on the admin page.
-3. The limits stay at 30 per repository and 100 per owner per hour.
+3. The limits are 30 per repository and 100 per owner per hour, as today, plus 50 new owners per
+   hour across all of Samebase (agreed 2026-11-04; the number is a starting point).
 4. Terms are accepted by using the service, with no signup.
 
 ## Validation
@@ -167,5 +171,8 @@ sections, and a docs changelog entry. A pull request on `samebase/base` updates 
 
 - Sign-in counts per app. The hub holds them; samebase.com cannot read them without a new hub
   endpoint.
-- The page before Google that names the repository and the return site.
+- The page before Google that names the repository and the return site. Follow-up idea from
+  2026-11-04: the hub shows that page by default, an app can ask to go straight to Google, and an
+  admin can force the page for a repository or an owner from the admin page. That forcing switch
+  would travel to the hub the same way as blocks, as tenant state set by samebase.com.
 - Automatic blocks or alerts.
