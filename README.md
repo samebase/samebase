@@ -35,20 +35,19 @@ staff in the hosted service.
 
 This is the source of the Samebase service, its workspace packages, and its app starter.
 
-| Path                                                                                                              | Contents                                                                                     |
-| ----------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| [apps/samebase](apps/samebase)                                                                                    | Dashboard, MCP server, provider integrations, and Convex backend                             |
-| [packages/plugin](packages/plugin)                                                                                | Agent plugin, exported to [samebase/plugin](https://github.com/samebase/plugin)              |
-| [packages/git-editor](packages/git-editor)                                                                        | Git file editing and collaboration components                                                |
-| [packages/sidebars](packages/sidebars)                                                                            | Sidebar layout components                                                                    |
-| [packages/sure](packages/sure) and [packages/dependent](packages/dependent)                                       | Validation and shared TypeScript utilities                                                   |
-| [templates/base](templates/base)                                                                                  | Convex-hosted Alchemy starter, exported to [samebase/base](https://github.com/samebase/base) |
-| [apps/sidebars-example](apps/sidebars-example)                                                                    | Sidebar example app                                                                          |
-| [apps/remotion-studio](apps/remotion-studio)                                                                      | Video workbench and source recordings, separately licensed                                   |
-| [apps/identity-broker-explainer](apps/identity-broker-explainer)                                                  | Source of the animation in the identity-broker README                                        |
-| [packages/logo-model](packages/logo-model) and [packages/onboarding-video-tools](packages/onboarding-video-tools) | Logo geometry and video tooling                                                              |
-| [apps/workspace-layout-v2-solid](apps/workspace-layout-v2-solid)                                                  | Sidebar layout prototype                                                                     |
-| [specs](specs), [docs](docs), [research](research), and [archive](archive)                                        | Current contracts, runbooks, investigations, and historical material                         |
+| Path                                                                                                              | Contents                                                                        |
+| ----------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| [apps/samebase](apps/samebase)                                                                                    | Dashboard, MCP server, provider integrations, and Convex backend                |
+| [packages/plugin](packages/plugin)                                                                                | Agent plugin, exported to [samebase/plugin](https://github.com/samebase/plugin) |
+| [packages/git-editor](packages/git-editor)                                                                        | Git file editing and collaboration components                                   |
+| [packages/sidebars](packages/sidebars)                                                                            | Sidebar layout components                                                       |
+| [packages/sure](packages/sure) and [packages/dependent](packages/dependent)                                       | Validation and shared TypeScript utilities                                      |
+| [apps/sidebars-example](apps/sidebars-example)                                                                    | Sidebar example app                                                             |
+| [apps/remotion-studio](apps/remotion-studio)                                                                      | Video workbench and source recordings, separately licensed                      |
+| [apps/identity-broker-explainer](apps/identity-broker-explainer)                                                  | Source of the animation in the identity-broker README                           |
+| [packages/logo-model](packages/logo-model) and [packages/onboarding-video-tools](packages/onboarding-video-tools) | Logo geometry and video tooling                                                 |
+| [apps/workspace-layout-v2-solid](apps/workspace-layout-v2-solid)                                                  | Sidebar layout prototype                                                        |
+| [specs](specs), [docs](docs), [research](research), and [archive](archive)                                        | Current contracts, runbooks, investigations, and historical material            |
 
 The service uses TypeScript, React, TanStack Start, Convex, Tailwind CSS, Base UI, and shadcn/ui.
 Vite+ runs the build, lint, format, and test tasks in a pnpm workspace. The Samebase service is

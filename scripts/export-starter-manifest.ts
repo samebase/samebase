@@ -1,14 +1,19 @@
-import { execFileSync, spawn, spawnSync } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
 import { createHash } from "node:crypto";
-import { lstat, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import path from "node:path";
 import { TextDecoder } from "node:util";
 
 import { isMainModule, resolveRepoRoot, runMain } from "./lib/scriptRuntime.ts";
 import { trackedFilePath } from "./lib/trackedFilePath.ts";
-import { baseTemplateSourceRoot } from "./publish-repository-exports.ts";
 
 const PNPM_COMMAND = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
+
+/** The starter's source. samebase.com seeds new apps from one pinned commit of it. */
+export const starterSourceRepository = "https://github.com/samebase/base.git";
+
+const manifestPath = trackedFilePath("apps/samebase/convex/starterSeedManifest.generated.ts");
 
 // rawContent and mode are the source of truth for hashing; content is only the
 // deterministic UTF-8/base64 manifest representation derived from those bytes.
@@ -18,11 +23,6 @@ export type CollectedTemplateFile = {
   encoding: "utf-8" | "base64";
   rawContent: Buffer;
   mode: "100644" | "100755";
-};
-
-type TrackedTemplateFile = {
-  objectId: string;
-  mode: string;
 };
 
 function isExecutableCollectedFile(
@@ -77,11 +77,12 @@ function containsBinaryControlByte(buffer: Buffer): boolean {
   return false;
 }
 
-function gitOutput(repoRoot: string, args: readonly string[]): Buffer {
+function gitOutput(cwd: string, args: readonly string[]): Buffer {
   return execFileSync("git", args, {
-    cwd: repoRoot,
+    cwd,
     encoding: "buffer",
     maxBuffer: 10 * 1024 * 1024,
+    stdio: ["ignore", "pipe", "pipe"],
   });
 }
 
@@ -92,97 +93,41 @@ function parseNullSeparatedPaths(output: Buffer): string[] {
     .filter((filePath) => filePath.length > 0);
 }
 
-function readTrackedFiles(repoRoot: string, sourceRoot: string): Map<string, TrackedTemplateFile> {
-  const entries = parseNullSeparatedPaths(
-    gitOutput(repoRoot, ["ls-files", "--stage", "-z", "--", sourceRoot]),
-  );
-  const trackedFiles = new Map<string, TrackedTemplateFile>();
+function assertCommitSha(value: string, source: string): string {
+  if (!/^[0-9a-f]{40}$/.test(value)) {
+    throw new Error(`${source} is not a full commit sha: ${value}`);
+  }
+  return value;
+}
+
+/** Reads every file of a commit as Git stores it, so the seed holds the exact committed bytes. */
+export function collectTemplateFiles(
+  gitDirectory: string,
+  commit: string,
+): CollectedTemplateFile[] {
+  const entries = parseNullSeparatedPaths(gitOutput(gitDirectory, ["ls-tree", "-r", "-z", commit]));
+  const files: CollectedTemplateFile[] = [];
+  const decoder = new TextDecoder("utf-8", { fatal: true });
 
   for (const entry of entries) {
     const separatorIndex = entry.indexOf("\t");
     const metadata = entry.slice(0, separatorIndex);
-    const repoPath = entry.slice(separatorIndex + 1);
-    const match = /^(\d{6}) ([0-9a-f]+) (\d)$/.exec(metadata);
-    if (separatorIndex === -1 || match === null || match[3] !== "0" || repoPath.length === 0) {
-      throw new Error(`Unsupported Git index entry for the starter template: ${entry}`);
+    const relativePath = entry.slice(separatorIndex + 1);
+    const match = /^(\d{6}) (\w+) ([0-9a-f]+)$/.exec(metadata);
+    if (separatorIndex === -1 || match === null || relativePath.length === 0) {
+      throw new Error(`Unsupported Git tree entry in the starter: ${entry}`);
     }
-    if (trackedFiles.has(repoPath)) {
-      throw new Error(`Duplicate Git index entry for the starter template: ${repoPath}`);
-    }
-    trackedFiles.set(repoPath, {
-      mode: match[1],
-      objectId: match[2],
-    });
-  }
-
-  return trackedFiles;
-}
-
-function assertTemplateIndexIsComplete(repoRoot: string, sourceRoot: string): void {
-  const diffResult = spawnSync("git", ["diff", "--quiet", "--", sourceRoot], {
-    cwd: repoRoot,
-    encoding: "utf8",
-    stdio: ["ignore", "pipe", "pipe"],
-  });
-  if (diffResult.error) {
-    throw diffResult.error;
-  }
-  if (diffResult.status === 1) {
-    throw new Error(`Stage tracked changes under ${sourceRoot} before export`);
-  }
-  if (diffResult.status !== 0) {
-    const detail = diffResult.stderr.trim() || diffResult.stdout.trim();
-    throw new Error(`git diff failed${detail ? `: ${detail}` : "."}`);
-  }
-
-  const untrackedPaths = parseNullSeparatedPaths(
-    gitOutput(repoRoot, ["ls-files", "--others", "--exclude-standard", "-z", "--", sourceRoot]),
-  );
-  if (untrackedPaths.length > 0) {
-    throw new Error(
-      `Stage new files under ${sourceRoot} before export: ${untrackedPaths.join(", ")}`,
-    );
-  }
-}
-
-function templateRelativePath(repoPath: string, sourceRoot: string): string {
-  const prefix = `${sourceRoot}/`;
-  if (!repoPath.startsWith(prefix) || repoPath.length === prefix.length) {
-    throw new Error(`Git returned a path outside the starter template: ${repoPath}`);
-  }
-  return repoPath.slice(prefix.length);
-}
-
-export async function collectTemplateFiles(
-  repoRoot: string,
-  sourceRoot: string,
-): Promise<CollectedTemplateFile[]> {
-  assertTemplateIndexIsComplete(repoRoot, sourceRoot);
-  const trackedFiles = readTrackedFiles(repoRoot, sourceRoot);
-  const repoPaths = [...trackedFiles.keys()].sort(compareUtf8PathBytes);
-  const files: CollectedTemplateFile[] = [];
-  const decoder = new TextDecoder("utf-8", { fatal: true });
-
-  for (const repoPath of repoPaths) {
-    const relativePath = templateRelativePath(repoPath, sourceRoot);
-    const absolutePath = path.resolve(repoRoot, ...repoPath.split("/"));
-    const fileStats = await lstat(absolutePath);
-
-    if (!fileStats.isFile()) {
-      throw new Error(`Unsupported starter template entry: ${relativePath}`);
-    }
-
-    const trackedFile = trackedFiles.get(repoPath);
-    if (trackedFile === undefined) {
-      throw new Error(`Missing Git index entry for the starter template: ${relativePath}`);
+    const [, treeMode, type, objectId] = match;
+    if (type !== "blob") {
+      throw new Error(`Unsupported starter ${type} entry: ${relativePath}`);
     }
     let mode: CollectedTemplateFile["mode"];
-    if (trackedFile.mode === "100644" || trackedFile.mode === "100755") {
-      mode = trackedFile.mode;
+    if (treeMode === "100644" || treeMode === "100755") {
+      mode = treeMode;
     } else {
-      throw new Error(`Unsupported starter template mode ${trackedFile.mode}: ${relativePath}`);
+      throw new Error(`Unsupported starter mode ${treeMode}: ${relativePath}`);
     }
-    const buffer = gitOutput(repoRoot, ["cat-file", "blob", trackedFile.objectId]);
+    const buffer = gitOutput(gitDirectory, ["cat-file", "blob", objectId]);
 
     if (containsBinaryControlByte(buffer)) {
       files.push({
@@ -219,9 +164,9 @@ export async function collectTemplateFiles(
   }
 
   if (files.length === 0) {
-    throw new Error(`${sourceRoot} contained no files`);
+    throw new Error(`Starter commit ${commit} contained no files`);
   }
-  return files;
+  return files.sort((left, right) => compareUtf8PathBytes(left.relativePath, right.relativePath));
 }
 
 function computeContentHash(files: readonly CollectedTemplateFile[]): string {
@@ -248,12 +193,51 @@ function compareUtf8PathBytes(left: string, right: string): number {
 }
 
 function printUsage(): void {
-  console.log(`Usage: pnpm run template:export
+  console.log(`Usage: pnpm run template:export [-- --update]
 
-Exports templates/base into starterSeedManifest.generated.ts.`);
+Regenerates starterSeedManifest.generated.ts from the samebase/base commit that it pins.
+--update pins the current main of samebase/base first.`);
 }
 
-function buildManifest(files: readonly CollectedTemplateFile[]) {
+/** The commit that a generated manifest pins. */
+export function readPinnedCommit(manifestSource: string): string {
+  const matches = [...manifestSource.matchAll(/^\s*"?sourceCommit"?: "([^"]*)",?$/gm)];
+  if (matches.length !== 1) {
+    throw new Error(`${manifestPath} must name exactly one sourceCommit`);
+  }
+  return assertCommitSha(matches[0][1], "sourceCommit");
+}
+
+function readSourceMainCommit(): string {
+  const output = execFileSync(
+    "git",
+    ["ls-remote", "--exit-code", starterSourceRepository, "refs/heads/main"],
+    { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] },
+  );
+  return assertCommitSha(output.split("\t")[0] ?? "", "main of samebase/base");
+}
+
+/** Fetches only the pinned commit. GitHub serves a full sha of a public repository directly. */
+function fetchSourceCommit(gitDirectory: string, commit: string): void {
+  gitOutput(gitDirectory, ["init", "--quiet"]);
+  try {
+    gitOutput(gitDirectory, [
+      "fetch",
+      "--quiet",
+      "--depth=1",
+      "--no-tags",
+      starterSourceRepository,
+      commit,
+    ]);
+  } catch (error) {
+    throw new Error(
+      `Could not fetch samebase/base@${commit}. If that commit is gone, pin a new one with pnpm run template:export -- --update.`,
+      { cause: error },
+    );
+  }
+}
+
+function buildManifest(files: readonly CollectedTemplateFile[], commit: string) {
   const contentHash = computeContentHash(files);
   const textFiles = Object.fromEntries(
     files
@@ -272,8 +256,8 @@ function buildManifest(files: readonly CollectedTemplateFile[]) {
   );
   return {
     version: `samebase-base-${contentHash.slice(0, 12)}`,
-    sourcePath: baseTemplateSourceRoot,
-    publishedRepo: "https://github.com/samebase/base.git",
+    sourceRepository: starterSourceRepository,
+    sourceCommit: commit,
     contentHash,
     commitMessage: "Initialize app from Samebase starter build v2210",
     files: textFiles,
@@ -282,14 +266,13 @@ function buildManifest(files: readonly CollectedTemplateFile[]) {
   };
 }
 
-export async function renderStarterSeedManifest(repoRoot: string) {
-  const files = await collectTemplateFiles(repoRoot, baseTemplateSourceRoot);
-  const manifest = buildManifest(files);
+export function renderStarterSeedManifest(gitDirectory: string, commit: string) {
+  const manifest = buildManifest(collectTemplateFiles(gitDirectory, commit), commit);
 
   return {
-    outputPath: trackedFilePath("apps/samebase/convex/starterSeedManifest.generated.ts"),
+    outputPath: manifestPath,
     manifest,
-    source: `// @generated by scripts/export-starter-manifest.ts
+    source: `// @generated by scripts/export-starter-manifest.ts from ${starterSourceRepository}
 
 import type { StarterTemplateManifest } from "./starterSeed";
 
@@ -298,25 +281,38 @@ export const starterTemplateManifest: StarterTemplateManifest = ${JSON.stringify
   };
 }
 
-export async function writeStarterSeedManifest(repoRoot: string): Promise<void> {
-  const { outputPath, manifest, source } = await renderStarterSeedManifest(repoRoot);
-  const absolutePath = path.resolve(repoRoot, outputPath);
-  await writeFile(absolutePath, source, "utf8");
-  await formatGeneratedFile(absolutePath, repoRoot);
-  const fileCount = Object.keys(manifest.files).length + Object.keys(manifest.binaryFiles).length;
-  console.log(`wrote ${absolutePath} from ${manifest.sourcePath} (${fileCount} files)`);
+export async function writeStarterSeedManifest(
+  repoRoot: string,
+  options: { update: boolean },
+): Promise<void> {
+  const absolutePath = path.resolve(repoRoot, manifestPath);
+  const commit = options.update
+    ? readSourceMainCommit()
+    : readPinnedCommit(await readFile(absolutePath, "utf8"));
+  const gitDirectory = await mkdtemp(path.join(tmpdir(), "samebase-base-"));
+
+  try {
+    fetchSourceCommit(gitDirectory, commit);
+    const { manifest, source } = renderStarterSeedManifest(gitDirectory, commit);
+    await writeFile(absolutePath, source, "utf8");
+    await formatGeneratedFile(absolutePath, repoRoot);
+    const fileCount = Object.keys(manifest.files).length + Object.keys(manifest.binaryFiles).length;
+    console.log(`wrote ${absolutePath} from samebase/base@${commit} (${fileCount} files)`);
+  } finally {
+    await rm(gitDirectory, { force: true, recursive: true });
+  }
 }
 
 if (isMainModule(import.meta.url)) {
   await runMain(async () => {
-    const args = process.argv.slice(2);
+    const args = process.argv.slice(2).filter((arg) => arg !== "--");
     if (args.length === 1 && (args[0] === "--help" || args[0] === "-h")) {
       printUsage();
       return;
     }
-    if (args.length > 0) {
+    if (args.length > 1 || (args.length === 1 && args[0] !== "--update")) {
       throw new Error(`Unknown template export arguments: ${args.join(" ")}`);
     }
-    await writeStarterSeedManifest(resolveRepoRoot());
+    await writeStarterSeedManifest(resolveRepoRoot(), { update: args[0] === "--update" });
   });
 }

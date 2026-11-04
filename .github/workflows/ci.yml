@@ -39,6 +39,7 @@ jobs:
         ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' ||
         (github.event_name == 'pull_request' && steps.filter.outcome != 'success') ||
         steps.filter.outputs.windows_smoke == 'true' }}
+      starter_commit: ${{ steps.starter.outputs.commit }}
 
     steps:
       # GitHub lists at most 3000 changed files. A larger pull request selects every job.
@@ -59,7 +60,7 @@ jobs:
               - pnpm-workspace.yaml
             templates:
               - .github/workflows/ci.yml
-              - templates/base/**
+              - apps/samebase/convex/starterSeedManifest.generated.ts
             windows_launcher:
               - .github/workflows/ci.yml
               - .nvmrc
@@ -71,11 +72,7 @@ jobs:
               - packages/dependent/**
               - pnpm-lock.yaml
               - pnpm-workspace.yaml
-              - templates/base/.node-version
-              - templates/base/package.json
-              - templates/base/pnpm-lock.yaml
-              - templates/base/pnpm-workspace.yaml
-              - templates/base/scripts/**
+              - apps/samebase/convex/starterSeedManifest.generated.ts
             windows_smoke:
               - .github/workflows/ci.yml
               - apps/samebase/scripts/convex-dev.ts
@@ -91,7 +88,26 @@ jobs:
               - scripts/lib/convexAuthKeys.ts
               - scripts/lib/scriptRuntime.ts
               - scripts/lib/trackedFilePath.ts
-              - templates/base/**
+              - apps/samebase/convex/starterSeedManifest.generated.ts
+
+      # samebase/base is the starter's source. The seed manifest pins the commit that samebase.com
+      # seeds, and the starter jobs check out that commit.
+      - name: Check out the seed manifest
+        uses: actions/checkout@v7
+        with:
+          sparse-checkout: apps/samebase/convex/starterSeedManifest.generated.ts
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+
+      - name: Read the starter commit
+        id: starter
+        run: |
+          commit=$(sed -nE 's/^ *"?sourceCommit"?: "([0-9a-f]{40})",?$/\1/p' apps/samebase/convex/starterSeedManifest.generated.ts)
+          if ! [[ "$commit" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "The seed manifest must pin exactly one samebase/base commit."
+            exit 1
+          fi
+          echo "commit=$commit" >> "$GITHUB_OUTPUT"
 
   # A pull request audits only when it changes dependencies: a new advisory for an unchanged
   # dependency is already on main, and the nightly run reports it.
@@ -138,8 +154,13 @@ jobs:
         working-directory: templates/base
 
     steps:
-      - name: Checkout code
+      - name: Check out the starter from samebase/base
         uses: actions/checkout@v7
+        with:
+          repository: samebase/base
+          ref: ${{ needs.changes.outputs.starter_commit }}
+          path: templates/base
+          persist-credentials: false
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v6
@@ -177,8 +198,13 @@ jobs:
         working-directory: templates/base
 
     steps:
-      - name: Checkout code
+      - name: Check out the starter from samebase/base
         uses: actions/checkout@v7
+        with:
+          repository: samebase/base
+          ref: ${{ needs.changes.outputs.starter_commit }}
+          path: templates/base
+          persist-credentials: false
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v6
@@ -434,6 +460,14 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Check out the starter from samebase/base
+        uses: actions/checkout@v7
+        with:
+          repository: samebase/base
+          ref: ${{ needs.changes.outputs.starter_commit }}
+          path: templates/base
+          persist-credentials: false
+
       - name: Install starter template dependencies
         working-directory: templates/base
         run: pnpm install --frozen-lockfile
@@ -493,6 +527,14 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Check out the starter from samebase/base
+        uses: actions/checkout@v7
+        with:
+          repository: samebase/base
+          ref: ${{ needs.changes.outputs.starter_commit }}
+          path: templates/base
+          persist-credentials: false
 
       - name: Install starter template dependencies
         working-directory: templates/base
@@ -595,15 +637,7 @@ jobs:
 
   publish_repository_exports:
     name: publish repository exports
-    needs:
-      [
-        supply_chain,
-        starter_template_supply_chain,
-        starter_template_check,
-        checks,
-        unit_tests,
-        app_build,
-      ]
+    needs: [supply_chain, checks, unit_tests, app_build]
     if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10

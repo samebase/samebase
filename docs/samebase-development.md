@@ -2,7 +2,7 @@
 
 This runbook describes the maintainer setup for the Samebase service. Read
 [Contributing](../CONTRIBUTING.md) first for prerequisites and the limits of a fresh checkout. The
-app starter has a separate setup in [templates/base](../templates/base/README.md).
+app starter has its own setup in [samebase/base](https://github.com/samebase/base).
 
 Paths and commands below are relative to the repository root unless a step names another directory.
 

@@ -43,7 +43,7 @@ The full service does not yet have an independent contributor setup:
 
 Do not copy production credentials to make a fork work. Discuss a full-service change with a
 maintainer first. The [development runbook](docs/samebase-development.md) documents the existing
-setup. For a standalone app, use [templates/base](templates/base/README.md).
+setup. For a standalone app, use [samebase/base](https://github.com/samebase/base).
 
 ## Prepare a pull request
 

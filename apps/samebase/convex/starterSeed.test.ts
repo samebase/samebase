@@ -146,8 +146,8 @@ describe("buildTreeEntriesForManifest", () => {
 describe("seedRepositoryWithStarter", () => {
   const manifest: StarterTemplateManifest = {
     version: "starter-template-test",
-    sourcePath: "templates/base",
-    publishedRepo: "https://github.com/samebase/base.git",
+    sourceRepository: "https://github.com/samebase/base.git",
+    sourceCommit: "0000000000000000000000000000000000000000",
     contentHash: "starter-template-test",
     commitMessage: "Initialize Samebase app",
     files: {

@@ -1,8 +1,7 @@
 # samebase/base artifact regeneration
 
-`templates/base` is the maintained source for the public `samebase/base` teaching artifact. Routine
-changes belong in the template and publish through the repository exporter. Keep major edition
-instructions, prompts, and decision notes here.
+`samebase/base` is the maintained source of the public teaching artifact. Routine changes are pull
+requests on that repository. Keep major edition instructions, prompts, and decision notes here.
 
 ## Core Idea
 
@@ -20,11 +19,11 @@ artifact should look deliberately built.
   `2. add ...`, and so on.
 - Create or update `REPO_HISTORY.md` inside each numbered commit. It is part of the teaching
   artifact, not a report reconstructed at the end.
-- Treat the current `templates/base` state as the feature-parity source before changing the stack.
+- Treat the current `samebase/base` `main` as the feature-parity source before changing the stack.
   Inventory small visible details, including the QR share block, shadcn primitives, Convex todo
   backend, local workflow, Convex AI files, docs, and logos.
-- After the edition is accepted, copy its final tree into `templates/base`. Let the normal publisher
-  append that accepted state to public `main`.
+- After the edition is accepted, append its final tree to public `main` with a pull request on
+  `samebase/base`.
 - Do not put regeneration prompt files inside generated artifact repos. Put them here, or in another
   durable Samebase repo document.
 
@@ -148,7 +147,7 @@ So the current preference is:
 ## Workers Migration Notes
 
 These notes apply to the older Workers edition in the public repository history. The maintained
-`templates/base` now uses Alchemy and Convex hosting.
+`samebase/base` now uses Alchemy and Convex hosting.
 
 For a Workers version of the artifact:
 

@@ -90,25 +90,17 @@ describe("repository exports", () => {
     vi.unstubAllGlobals();
   });
 
-  it("publishes the standalone base to samebase/base", () => {
-    expect(repositoryExports).toContainEqual({
-      sourceRoot: "templates/base",
-      targetBranch: "main",
-      targetRepository: "base",
-    });
-  });
-
   it("names each target repository that GitHub cannot find", async () => {
     const fetch = vi.fn((url: string) =>
-      Promise.resolve(new Response(null, { status: url.endsWith("/base") ? 404 : 200 })),
+      Promise.resolve(new Response(null, { status: url.endsWith("/plugin") ? 404 : 200 })),
     );
     vi.stubGlobal("fetch", fetch);
 
     await expect(
       findMissingTargetRepositories({ owner: "samebase", lookupToken: "lookup-token" }),
-    ).resolves.toEqual(["samebase/base"]);
+    ).resolves.toEqual(["samebase/plugin"]);
     expect(fetch).toHaveBeenCalledWith(
-      "https://api.github.com/repos/samebase/base",
+      "https://api.github.com/repos/samebase/plugin",
       expect.objectContaining({
         headers: expect.objectContaining({ Authorization: "Bearer lookup-token" }),
       }),
@@ -246,7 +238,7 @@ describe("repository exports", () => {
           stdio: ["ignore", "pipe", "pipe"],
         },
       );
-      expect(readFileSync(outputPath, "utf8")).toBe("repositories=plugin,base\n");
+      expect(readFileSync(outputPath, "utf8")).toBe("repositories=plugin\n");
     } finally {
       rmSync(temporaryRoot, { recursive: true, force: true });
     }
