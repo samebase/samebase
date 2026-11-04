@@ -358,12 +358,9 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           deploymentType: "production" | "development" | "preview";
           lastSignInAt?: number;
           redirectUri: string;
-          registrationTokenHash?: string;
           removeAt?: number;
           renewedAt?: number;
-          secretHash: string;
           softwareVersion: string;
-          tokenEndpointAuthMethod: "client_secret_post" | "client_secret_basic";
         }>,
         Name
       >;

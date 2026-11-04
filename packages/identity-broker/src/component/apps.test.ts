@@ -79,5 +79,9 @@ describe("clients.list", () => {
       "other-client-0",
       "bristol-client-1",
     ]);
+    for (const client of clients) {
+      expect(client).not.toHaveProperty("secretHash");
+      expect(client).not.toHaveProperty("registrationTokenHash");
+    }
   });
 });

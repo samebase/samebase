@@ -23,6 +23,20 @@ const vClient = object({
   renewedAt: optional(number()),
 });
 
+/** A client without its credentials: `list` returns these, so no hash leaves the component there. */
+const vClientSummary = object({
+  clientId: string(),
+  appId: string(),
+  redirectUri: string(),
+  deploymentType: vDeploymentType,
+  clientName: string(),
+  softwareVersion: string(),
+  createdAt: number(),
+  lastSignInAt: optional(number()),
+  removeAt: optional(number()),
+  renewedAt: optional(number()),
+});
+
 /** Registers one deployment of an app as a client with its single exact redirect URI. */
 export const create = mutation({
   args: {
@@ -100,10 +114,21 @@ export const withApp = query({
 /** The newest clients of every app, first-party apps included, newest first, at most `limit`. */
 export const list = query({
   args: { limit: number() },
-  returns: array(vClient),
+  returns: array(vClientSummary),
   handler: async (ctx, args) => {
     const clients = await ctx.db.query("clients").order("desc").take(args.limit);
-    return clients.map(({ _id, _creationTime, ...fields }) => fields);
+    return clients.map((client) => ({
+      clientId: client.clientId,
+      appId: client.appId,
+      redirectUri: client.redirectUri,
+      deploymentType: client.deploymentType,
+      clientName: client.clientName,
+      softwareVersion: client.softwareVersion,
+      createdAt: client.createdAt,
+      ...(client.lastSignInAt === undefined ? {} : { lastSignInAt: client.lastSignInAt }),
+      ...(client.removeAt === undefined ? {} : { removeAt: client.removeAt }),
+      ...(client.renewedAt === undefined ? {} : { renewedAt: client.renewedAt }),
+    }));
   },
 });
 
