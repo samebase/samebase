@@ -119,9 +119,6 @@ audit:
     # repository's own config, and anyone who can edit those can already run code here.
     - GHSA-g3hv-75wg-m249
 overrides:
-  # @effect/platform-node 4.0.5 asks for shared ^4.0.5, and every later shared release requires a
-  # newer Effect. The 4.1 adapter pins its own shared version.
-  "@effect/platform-node@4.0.5>@effect/platform-node-shared": 4.0.5
   "@babel/core": 7.29.7
   "@hono/node-server": 2.1.5
   "@modelcontextprotocol/sdk": 1.32.1
