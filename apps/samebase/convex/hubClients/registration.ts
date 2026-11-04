@@ -311,20 +311,19 @@ async function readSmallBody(response: Response) {
     return "";
   }
   const reader = response.body.getReader();
-  const decoder = new TextDecoder();
-  let text = "";
+  const bytes = new Uint8Array(MAX_VERIFICATION_BYTES);
   let size = 0;
   for (;;) {
     const { done, value } = await reader.read();
     if (done) {
-      return text + decoder.decode();
+      return new TextDecoder().decode(bytes.subarray(0, size));
     }
-    size += value.byteLength;
-    if (size > MAX_VERIFICATION_BYTES) {
+    if (size + value.byteLength > MAX_VERIFICATION_BYTES) {
       await reader.cancel();
       return null;
     }
-    text += decoder.decode(value, { stream: true });
+    bytes.set(value, size);
+    size += value.byteLength;
   }
 }
 
