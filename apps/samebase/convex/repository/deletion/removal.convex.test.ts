@@ -20,7 +20,6 @@ import {
   testCredential,
 } from "../../test.setup";
 
-const HUB_ISSUER = "https://hub.example.test";
 const TEAM_PROJECTS_URL = "https://api.convex.dev/v1/teams/38516/projects";
 
 afterEach(() => {
@@ -36,9 +35,6 @@ rows are every kind that removal leaves in the user's accounts: `provisioned` ro
 and rows on an account or team other than the repository's.
 */
 async function seedRepository() {
-  vi.stubEnv("HUB_ISSUER", HUB_ISSUER);
-  vi.stubEnv("HUB_CLIENT_ID", "samebase-production-client");
-  vi.stubEnv("HUB_REGISTRATION_KEY", "hub-registration-key");
   const t = makeConvexTest();
   const ids = await t.run(async (ctx) => {
     const userId = await ctx.db.insert("users", {
@@ -151,7 +147,7 @@ async function readRemoval({ repositoryId, t }: Awaited<ReturnType<typeof seedRe
 }
 
 describe("repository removal", () => {
-  it("removes the repository and its rows, suspends the hub tenant, and calls no provider", async () => {
+  it("removes the repository and its rows, and calls no provider", async () => {
     vi.useFakeTimers();
     const fixture = await seedRepository();
     const requests = recordRequests();
@@ -165,7 +161,7 @@ describe("repository removal", () => {
       repository: null,
       runStates: ["succeeded"],
     });
-    expect(requests).toEqual([`${HUB_ISSUER}/tenant-connection`]);
+    expect(requests).toEqual([]);
     expect(githubRepos.delete).not.toHaveBeenCalled();
   });
 
@@ -183,10 +179,7 @@ describe("repository removal", () => {
     await fixture.t.finishAllScheduledFunctions(vi.runAllTimers, 1_000);
 
     expect((await readRemoval(fixture)).runStates).toEqual(["succeeded"]);
-    expect(requests).toEqual([
-      expect.stringContaining(TEAM_PROJECTS_URL),
-      `${HUB_ISSUER}/tenant-connection`,
-    ]);
+    expect(requests).toEqual([expect.stringContaining(TEAM_PROJECTS_URL)]);
     expect(githubRepos.delete).toHaveBeenCalledExactlyOnceWith({ owner: "octo-org", repo: "app" });
   });
 

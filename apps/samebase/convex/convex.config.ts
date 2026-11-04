@@ -32,9 +32,6 @@ const app = defineApp({
     RESOURCE_HUB_ISSUER: v.string(),
     RESOURCE_HUB_CLIENT_ID: v.string(),
     RESOURCE_HUB_CLIENT_SECRET: v.string(),
-    // The hub's initial access token (RFC 7591), which creates third-party clients and sets their
-    // tenant switch. Unset: hubClients/registration.ts answers 404 and no switch call is made.
-    HUB_REGISTRATION_KEY: v.optional(v.string()),
     // The key of the hub's moderation endpoints, which /admin/hub-clients calls through
     // hubClients/moderation.ts: it reads registrations and sets blocks, and nothing else. Set by hand,
     // as on the hub. Unset, as in CI: the page says that moderation is off.

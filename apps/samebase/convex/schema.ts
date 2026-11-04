@@ -4,7 +4,6 @@ import { accountDeletionTables } from "./accountDeletion/model";
 import { githubAppSetupTables } from "./githubAppSetupModel";
 import { githubBackoffTables } from "./githubBackoffModel";
 import { githubUserAuthorizationTables } from "./githubUserAuthorizationModel";
-import { hubClientTables } from "./hubClients/model";
 import { identityTables } from "./identity/model";
 import { mcpTables } from "./mcp/model";
 import { organizationTables } from "./organization/model";
@@ -37,5 +36,4 @@ export default defineSchema({
   ...repositoryDeletionTables,
   ...repositoryEditorTables,
   ...mcpTables,
-  ...hubClientTables,
 });

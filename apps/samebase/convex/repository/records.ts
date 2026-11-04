@@ -39,7 +39,6 @@ import {
   requireBillingResourceCapacity,
   requireBillingResourceCapacityForRepositoryProvisioning,
 } from "../billingResourceQuotas";
-import { startTenantConnectionSync } from "../hubClients/tenantConnection";
 
 const nullValidator = v.null();
 const { array, id, object, optional, string, union } = v;
@@ -563,9 +562,6 @@ export const connectExistingRepositoryGitHub = internalMutation({
       connectedAt: Date.now(),
       createdAt: repository.createdAt,
     });
-    // Only this path can connect a GitHub repository again: a created repository has a new id,
-    // which the hub has never suspended.
-    await startTenantConnectionSync(ctx, args.githubRepositoryDatabaseId, true);
 
     return null;
   },

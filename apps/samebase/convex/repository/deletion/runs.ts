@@ -11,14 +11,12 @@ import {
   type RepositoryDeletionRetainedSnapshot,
 } from "./model";
 import { readRepositoryDeletionEligibility } from "./eligibility";
-import { isConnectedRepository } from "../state";
 import { requireRepositoryForUser, requireRepositoryOrganization } from "../../organizationAccess";
 import {
   requireActiveRepositoryDeletionContinuation,
   requireActiveRepositoryDeletionRun,
 } from "../../repositoryWorkflowAuthority";
 import { readActiveUser } from "../../identity/lifecycle";
-import { startTenantConnectionSync } from "../../hubClients/tenantConnection";
 
 const { boolean, id, literal, object, string, union } = v;
 
@@ -219,10 +217,6 @@ export const createInitialRun = internalMutation({
         requestedAt: now,
       },
     });
-    // The repository stops being live here, and a removal never returns it to live.
-    if (isConnectedRepository(repository)) {
-      await startTenantConnectionSync(ctx, repository.githubRepositoryDatabaseId, false);
-    }
 
     return { deletionRunId };
   },
