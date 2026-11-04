@@ -3,7 +3,7 @@ import { Resource } from "alchemy";
 import * as Namespace from "alchemy/Namespace";
 import * as Provider from "alchemy/Provider";
 import * as State from "alchemy/State";
-import * as Test from "alchemy/Test/Vitest";
+import * as Test from "@alchemy.run/test/Vitest";
 import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
 import * as Layer from "effect/Layer";

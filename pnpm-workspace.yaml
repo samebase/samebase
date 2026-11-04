@@ -21,23 +21,33 @@ minimumReleaseAgeExclude:
   # Reviewed Convex Auth 2 beta (apps/samebase signs in with it, RFC 128), published
   # 2026-10-15 21:13 UTC. Remove after 2026-10-22 21:14 UTC.
   - "@convex-dev/auth@2.0.0-beta.0"
-  # Alchemy 2.0.0-beta.84 with its provider packages @alchemy.run/cloudflare and @alchemy.run/github
-  # (apps/samebase/alchemy.run.ts deploys samebase.com with them), and the @alchemy.run and @distilled.cloud
-  # versions that they install. Published 2026-10-23 23:03 UTC to 2026-10-24 04:03 UTC. Remove
-  # after 2026-10-31 04:03 UTC.
-  - "alchemy@2.0.0-beta.84"
-  - "@alchemy.run/acme@2.0.0-beta.84"
-  - "@alchemy.run/cloudflare@2.0.0-beta.84"
-  - "@alchemy.run/cloudflare-runtime@2.0.0-beta.84"
-  - "@alchemy.run/docker@2.0.0-beta.84"
-  - "@alchemy.run/github@2.0.0-beta.84"
-  - "@alchemy.run/node-utils@2.0.0-beta.84"
-  - "@alchemy.run/sql@2.0.0-beta.84"
-  - "@distilled.cloud/acme@1.0.0-rc.17"
-  - "@distilled.cloud/aws4signer@1.0.0-rc.17"
-  - "@distilled.cloud/cloudflare@1.0.0-rc.17"
-  - "@distilled.cloud/core@1.0.0-rc.17"
-  - "@distilled.cloud/iceberg@1.0.0-rc.17"
+  # Alchemy 2.0.0-beta.85 with its provider packages, the @alchemy.run and @distilled.cloud versions
+  # that they install, and Effect 4.1, which beta.85 requires (Effect 4.0.x now resolves
+  # @effect/platform-node-shared 4.1, which needs effect 4.1). apps/samebase, apps/sidebars-example,
+  # apps/identity-hub, and packages/alchemy-convex deploy or test with them. Published 2026-10-29
+  # 03:45 UTC to 2026-11-02 21:08 UTC. Remove after 2026-11-09 21:09 UTC.
+  - "alchemy@2.0.0-beta.85"
+  - "@alchemy.run/acme@2.0.0-beta.85"
+  - "@alchemy.run/cloudflare@2.0.0-beta.85"
+  - "@alchemy.run/cloudflare-runtime@2.0.0-beta.85"
+  - "@alchemy.run/docker@2.0.0-beta.85"
+  - "@alchemy.run/github@2.0.0-beta.85"
+  - "@alchemy.run/node-utils@2.0.0-beta.85"
+  - "@alchemy.run/sql@2.0.0-beta.85"
+  - "@alchemy.run/test@2.0.0-beta.85"
+  - "@distilled.cloud/acme@1.0.0-rc.18"
+  - "@distilled.cloud/aws@1.0.0-rc.18"
+  - "@distilled.cloud/aws4signer@1.0.0-rc.18"
+  - "@distilled.cloud/cloudflare@1.0.0-rc.18"
+  - "@distilled.cloud/core@1.0.0-rc.18"
+  - "@distilled.cloud/github@1.0.0-rc.18"
+  - "@distilled.cloud/iceberg@1.0.0-rc.18"
+  - "effect@4.1.2"
+  - "@effect/platform-bun@4.1.0"
+  - "@effect/platform-node@4.1.2"
+  - "@effect/platform-node-shared@4.1.2"
+  - "@effect/sql-d1@4.1.0"
+  - "@effect/vitest@4.1.2"
   # Reviewed release: the Convex CLI that @samebase/alchemy-convex 0.11.0 (peer ^1.48.0) pushes its
   # store with; the store signs its read tokens with the native JWT signing of 1.48.0. Published
   # 2026-10-22 23:32 UTC. Remove after 2026-10-29 23:33 UTC.
@@ -109,8 +119,9 @@ audit:
     # repository's own config, and anyone who can edit those can already run code here.
     - GHSA-g3hv-75wg-m249
 overrides:
-  # Shared adapter 4.0.6 requires Effect ^4.0.6.
-  "@effect/platform-node-shared": 4.0.5
+  # @effect/platform-node 4.0.5 asks for shared ^4.0.5, and every later shared release requires a
+  # newer Effect. The 4.1 adapter pins its own shared version.
+  "@effect/platform-node@4.0.5>@effect/platform-node-shared": 4.0.5
   "@babel/core": 7.29.7
   "@hono/node-server": 2.1.5
   "@modelcontextprotocol/sdk": 1.32.1

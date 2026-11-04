@@ -10,8 +10,8 @@
 import { randomBytes } from "node:crypto";
 import { adopt } from "alchemy/AdoptPolicy";
 import * as RemovalPolicy from "alchemy/RemovalPolicy";
-import * as Core from "alchemy/Test/Core";
-import * as Test from "alchemy/Test/Vitest";
+import * as Core from "@alchemy.run/test/Core";
+import * as Test from "@alchemy.run/test/Vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Schema from "effect/Schema";

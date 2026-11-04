@@ -1,7 +1,7 @@
 // Convex.HubClient against the fake Convex control plane: the resource finds the base by name and
 // runs the admin functions of the hub with a short-lived key.
 import * as Output from "alchemy/Output";
-import * as Test from "alchemy/Test/Vitest";
+import * as Test from "@alchemy.run/test/Vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Redacted from "effect/Redacted";
