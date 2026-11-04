@@ -578,3 +578,40 @@ describe("POST /hub-clients", () => {
     });
   });
 });
+
+describe("the shared registration key", () => {
+  it("creates no client and switches no tenant, also while the old variable is still set", async () => {
+    const t = makeConvexTest();
+    vi.stubEnv("REGISTRATION_ACCESS_TOKEN", "registration-token");
+    const client = await createClient(t);
+    const headers = {
+      Authorization: "Bearer registration-token",
+      "Content-Type": "application/json",
+    };
+
+    const register = await t.fetch("/register", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        redirect_uris: [PRODUCTION_CALLBACK],
+        client_name: "prod",
+        software_id: "gh-74-app",
+        software_version: "abc123",
+        tenant_id: "gh-74",
+        deployment_type: "production",
+        token_endpoint_auth_method: "client_secret_post",
+      }),
+    });
+    const connection = await t.fetch("/tenant-connection", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ tenant_id: "gh-74", connected: false, revision: 99 }),
+    });
+    const discovery = await t.fetch("/.well-known/openid-configuration");
+
+    expect(register.status).toBe(404);
+    expect(connection.status).toBe(404);
+    expect(await discovery.json()).not.toHaveProperty("registration_endpoint");
+    expect(await readOwnRecord(t, client)).toBe(200);
+  });
+});

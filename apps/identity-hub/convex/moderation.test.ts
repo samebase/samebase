@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { components, internal } from "./_generated/api";
 import {
+  APP_HASH,
   createClient,
   makeConvexTest,
   MODERATION_KEY,
@@ -51,6 +52,7 @@ const ENDPOINTS = [
   ["GET", "/moderation/counts"],
   ["GET", "/moderation/blocks"],
   ["POST", "/moderation/blocks"],
+  ["GET", "/moderation/clients"],
 ] as const;
 
 describe("the moderation key", () => {
@@ -95,7 +97,6 @@ describe("the moderation key", () => {
 
   it("cannot create a client, here or at the broker's registration endpoint", async () => {
     const t = makeConvexTest();
-    vi.stubEnv("REGISTRATION_ACCESS_TOKEN", "registration-token");
     stubProviders();
 
     const hubClient = await postHubClient(t, MODERATION_KEY);
@@ -113,7 +114,7 @@ describe("the moderation key", () => {
     });
 
     expect(hubClient.status).toBe(401);
-    expect(register.status).toBe(401);
+    expect(register.status).toBe(404);
     expect(await t.query(components.identityBroker.apps.list, {})).toEqual([]);
   });
 });
@@ -239,12 +240,16 @@ describe("the registrations", () => {
     await setBlock(t, { action: "block", kind: "owner", githubId: "999" });
 
     const answers = await Promise.all(
-      ["/moderation/registrations", "/moderation/counts", "/moderation/blocks"].map(
-        async (path) => await (await moderationRequest(t, path)).text(),
-      ),
+      [
+        "/moderation/registrations",
+        "/moderation/counts",
+        "/moderation/blocks",
+        "/moderation/clients",
+      ].map(async (path) => await (await moderationRequest(t, path)).text()),
     );
 
     expect(answers[0]).toContain(client.client_id);
+    expect(answers[3]).toContain(client.client_id);
     for (const answer of answers) {
       expect(answer).not.toContain(client.client_secret);
       expect(answer).not.toContain(client.registration_access_token);
@@ -353,26 +358,6 @@ describe("the blocks", () => {
     expect(await readOwnRecord(t, client)).toBe(200);
   });
 
-  it("refuses a block while the shared registration key is set, and stores nothing", async () => {
-    const t = makeConvexTest();
-    vi.stubEnv("REGISTRATION_ACCESS_TOKEN", "registration-token");
-
-    const response = await moderationRequest(t, "/moderation/blocks", {
-      method: "POST",
-      body: {
-        action: "block",
-        kind: "owner",
-        githubId: OWNER_ID,
-        reason: "Phishing page",
-        adminEmail: "nicu@samebase.com",
-      },
-    });
-
-    expect(response.status).toBe(409);
-    expect(await response.json()).toEqual({ error: "registration_key_still_set" });
-    expect(await t.run(async (ctx) => await ctx.db.query("blocks").collect())).toEqual([]);
-  });
-
   it.each([
     ["no reason", { reason: " " }],
     ["no admin", { adminEmail: "" }],
@@ -396,5 +381,137 @@ describe("the blocks", () => {
 
     expect(response.status).toBe(400);
     expect(await t.run(async (ctx) => await ctx.db.query("blocks").collect())).toEqual([]);
+  });
+});
+
+describe("the clients", () => {
+  it("lists every client at the broker newest first, the team's own included, with no secret", async () => {
+    vi.useFakeTimers({ now: 1_800_000_000_000, toFake: ["Date"] });
+    const t = makeConvexTest();
+    const own = await t.mutation(internal.identityBroker.registerClient, {
+      appId: "samebase",
+      redirectUri: "https://samebase.com/auth/hub/callback",
+      deploymentType: "production",
+      clientName: "prod",
+      softwareVersion: "abc123",
+      tokenEndpointAuthMethod: "client_secret_post",
+    });
+    vi.setSystemTime(1_800_000_001_000);
+    const thirdParty = await createClient(t);
+    vi.setSystemTime(1_800_000_002_000);
+    await readOwnRecord(t, thirdParty);
+
+    const response = await moderationRequest(t, "/moderation/clients");
+    const text = await response.text();
+
+    expect(response.headers.get("Cache-Control")).toBe("no-store");
+    expect(JSON.parse(text)).toEqual({
+      clients: [
+        {
+          clientId: thirdParty.client_id,
+          appId: `gh-${REPOSITORY_ID}-${APP_HASH}`,
+          clientName: "prod",
+          deploymentType: "production",
+          redirectHost: "ideal-dolphin-15.convex.site",
+          createdAt: 1_800_000_001_000,
+          renewedAt: 1_800_000_002_000,
+          lastSignInAt: null,
+        },
+        {
+          clientId: own.clientId,
+          appId: "samebase",
+          clientName: "prod",
+          deploymentType: "production",
+          redirectHost: "samebase.com",
+          createdAt: 1_800_000_000_000,
+          renewedAt: null,
+          lastSignInAt: null,
+        },
+      ],
+      limitReached: false,
+    });
+    expect(text).not.toContain(own.clientSecret);
+  });
+
+  it("lists the newest 500 and says that it reached the limit", async () => {
+    const t = makeConvexTest();
+    for (let index = 0; index < 501; index += 1) {
+      await t.mutation(components.identityBroker.clients.create, {
+        clientId: `cl_${index}`,
+        appId: "samebase",
+        secretHash: "hash",
+        tokenEndpointAuthMethod: "client_secret_post",
+        redirectUri: "https://samebase.com/auth/hub/callback",
+        deploymentType: "preview",
+        clientName: `pr-${index}`,
+        softwareVersion: "abc123",
+        createdAt: index,
+      });
+    }
+
+    const list: { clients: { clientId: string }[]; limitReached: boolean } = await (
+      await moderationRequest(t, "/moderation/clients")
+    ).json();
+
+    expect(list.clients).toHaveLength(500);
+    expect(list.clients[0]?.clientId).toBe("cl_500");
+    expect(list.clients.at(-1)?.clientId).toBe("cl_1");
+    expect(list.limitReached).toBe(true);
+  });
+});
+
+describe("switching tenants back on", () => {
+  /** samebase.com's tenant switch, which it sent when a repository left Samebase. */
+  async function switchOff(t: ConvexTest, githubId: string) {
+    await t.mutation(components.identityBroker.registration.setConnection, {
+      tenantId: `gh-${githubId}`,
+      connected: false,
+      revision: 1,
+    });
+  }
+
+  it("switches on each tenant unless its repository is blocked, and keeps the other switches", async () => {
+    const t = makeConvexTest();
+    const left = await createClient(t);
+    const blocked = await createClient(t, { repository_id: "75", repository: "octo-org/two" });
+    const suspended = await createClient(t, { repository_id: "76", repository: "octo-org/three" });
+    const ownerBlocked = await createClient(t, {
+      repository_id: "77",
+      repository_owner_id: "66",
+      repository: "someone/else",
+    });
+    for (const githubId of [REPOSITORY_ID, "75", "76", "77"]) {
+      await switchOff(t, githubId);
+    }
+    await setBlock(t, { action: "block", kind: "repository", githubId: "75" });
+    await setBlock(t, { action: "block", kind: "owner", githubId: "66" });
+    await t.mutation(components.identityBroker.registration.setSuspended, {
+      tenantId: "gh-76",
+      suspended: true,
+      now: Date.now(),
+    });
+
+    const result = await t.mutation(internal.moderation.reconnectTenants, {
+      githubRepositoryDatabaseIds: [REPOSITORY_ID, "75", "76", "77"],
+    });
+
+    expect(result).toEqual({ reconnected: [REPOSITORY_ID, "76", "77"], blocked: ["75"] });
+    expect(await readOwnRecord(t, left)).toBe(200);
+    expect(await readOwnRecord(t, blocked)).toBe(403);
+    expect(await readOwnRecord(t, suspended)).toBe(403);
+    expect(await readOwnRecord(t, ownerBlocked)).toBe(403);
+  });
+
+  it("refuses an id that is not a GitHub repository id, and switches nothing on", async () => {
+    const t = makeConvexTest();
+    const client = await createClient(t);
+    await switchOff(t, REPOSITORY_ID);
+
+    await expect(
+      t.mutation(internal.moderation.reconnectTenants, {
+        githubRepositoryDatabaseIds: [REPOSITORY_ID, "gh-75"],
+      }),
+    ).rejects.toThrow('"gh-75" is not a GitHub repository id.');
+    expect(await readOwnRecord(t, client)).toBe(403);
   });
 });

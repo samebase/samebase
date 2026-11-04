@@ -10,7 +10,7 @@ import { env } from "./_generated/server";
  * Any other OAuth 2.0 or OpenID Connect provider is an `oauth` or `oidc` connector with its
  * endpoints copied in.
  */
-/** The connector of every third-party app: the apps of `/register` and of `/hub-clients`. */
+/** The connector of every third-party app: the apps of `/hub-clients`. */
 export const APPS_CONNECTOR = "google-apps";
 
 export const connectors: Connector[] = [
@@ -21,9 +21,9 @@ export const connectors: Connector[] = [
     clientId: () => env.AUTH_GITHUB_CLIENT_ID,
     clientSecret: () => env.AUTH_GITHUB_CLIENT_SECRET,
   }),
-  // The Google client of third-party apps, the one connector of each app from `/register` and
-  // `/hub-clients`. Reserved, so the team's own apps never see it, and it always asks Google to show
-  // the account screen.
+  // The Google client of third-party apps, the one connector of each app from `/hub-clients`.
+  // Reserved, so the team's own apps never see it, and it always asks Google to show the account
+  // screen.
   google({
     name: APPS_CONNECTOR,
     clientId: () => env.GOOGLE_APPS_CLIENT_ID,
