@@ -33,6 +33,7 @@ import docsTheBigMigrationMarkdown from "@/content/docs-the-big-migration.md?raw
 import docsTheStackMarkdown from "@/content/docs-the-stack.md?raw";
 import { MENGER_SPONGE_VOXEL_STATE } from "@samebase/logo-model/voxel";
 import { Link } from "@tanstack/react-router";
+import { Star } from "lucide-react";
 import { useRef, useState, type ReactNode } from "react";
 
 type LandingPreviewDocumentKey =
@@ -296,23 +297,34 @@ function LandingPreviewOverview() {
     >
       <div className="mx-auto w-full max-w-[1200px] px-6 pt-10 @2xl:px-10 @3xl:pt-0">
         <section>
+          <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3 @3xl:pt-4">
+            <p className="flex items-center gap-4">
+              <span className="flex items-center gap-1.5">
+                <img
+                  alt=""
+                  className="h-9 w-9 dark:invert"
+                  height="36"
+                  src={LANDING_INLINE_80_PERCENT_MARK_SVG_URL}
+                  width="36"
+                />
+                <span className="text-2xl font-semibold tracking-[-0.01em]">Samebase</span>
+              </span>
+              <Badge className="h-7 -rotate-3 rounded-none border-0 bg-blue-600 px-3 py-0 text-sm font-semibold text-white">
+                BETA
+              </Badge>
+            </p>
+            <a
+              className="flex items-center gap-1.5 text-sm font-medium text-primary hover:text-foreground"
+              href="https://github.com/samebase/samebase"
+              rel="noreferrer"
+              target="_blank"
+            >
+              <Star aria-hidden className="size-4 fill-amber-400 text-amber-400" />
+              Star on GitHub
+            </a>
+          </div>
           <div className="@3xl:grid @3xl:grid-cols-2 @3xl:gap-4">
-            <div className="pb-4 @3xl:pt-4">
-              <p className="flex items-center gap-4">
-                <span className="flex items-center gap-1.5">
-                  <img
-                    alt=""
-                    className="h-9 w-9 dark:invert"
-                    height="36"
-                    src={LANDING_INLINE_80_PERCENT_MARK_SVG_URL}
-                    width="36"
-                  />
-                  <span className="text-2xl font-semibold tracking-[-0.01em]">Samebase</span>
-                </span>
-                <Badge className="h-7 -rotate-3 rounded-none border-0 bg-blue-600 px-3 py-0 text-sm font-semibold text-white">
-                  BETA
-                </Badge>
-              </p>
+            <div className="pb-4">
               <h1 className="mt-10 max-w-[24ch] text-[clamp(34px,4.6cqw,56px)] font-bold leading-[1.06] tracking-[-0.035em]">
                 Give your coding agent a working app.
               </h1>

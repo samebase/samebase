@@ -122,6 +122,9 @@ describe("LandingPage", () => {
     expect(markup).toContain(`src="${LANDING_INLINE_80_PERCENT_MARK_SVG_URL}"`);
     // Hero: the agent heading, what you get, who deploys it, the template link, and the agent prompt.
     expect(markup).toContain(">BETA</span>");
+    expect(markup).toMatch(
+      /href="https:\/\/github\.com\/samebase\/samebase" rel="noreferrer" target="_blank"><svg[^]*?<\/svg>Star on GitHub<\/a>/,
+    );
     expect(markup).toContain("Give your coding agent a working app.");
     expect(markup).toContain(
       "A repository in your GitHub, a Convex project in your team, a live URL, Google sign-in, and a preview per pull request. Deployed by Alchemy from your own GitHub Actions.",
