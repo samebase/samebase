@@ -127,6 +127,6 @@ the Samebase build and pull request it came from, checked 2026-11-03.
 An app created through Samebase lives in your GitHub account and your Convex team, and your
 repository's GitHub Actions deploy it. Delete your Samebase account and the app keeps running and
 deploying: Samebase cannot revoke its Convex OAuth token, so the repository's `CONVEX_ACCESS_TOKEN`
-still works. Replace it with your own team token before you revoke Samebase at Convex. New Google
-sign-ins through Samebase stop; guest sign-in keeps working. [Do it yourself](/docs/do-it-yourself)
-is the same setup with no Samebase account at all.
+still works. Replace it with your own team token before you revoke Samebase at Convex. Google and
+guest sign-in keep working. [Do it yourself](/docs/do-it-yourself) is the same setup with no
+Samebase account at all.

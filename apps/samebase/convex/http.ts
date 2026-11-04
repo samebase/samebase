@@ -2,7 +2,6 @@ import { httpRouter } from "convex/server";
 import { routeAll } from "@samebase/convex-hosting";
 import { finishCloudflareMcpOAuth } from "./cloudflareMcpOAuth";
 import { finishGitHubAppInstallation, finishHubOAuth } from "./githubAppInstallation";
-import { registerHubClient } from "./hubClients/registration";
 import {
   authorizeMcpOauthRequest,
   exchangeMcpOauthToken,
@@ -132,12 +131,6 @@ http.route({
   path: "/webhooks/polar",
   method: "POST",
   handler: handlePolarWebhook,
-});
-
-http.route({
-  path: "/api/hub-clients",
-  method: "POST",
-  handler: registerHubClient,
 });
 
 // The built site, every method at every path, as a Cloudflare Worker with static assets: a file

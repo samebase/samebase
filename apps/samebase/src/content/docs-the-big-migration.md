@@ -55,8 +55,8 @@ run in your repository, and you fix a failed deploy there: read the Actions log,
 stack yourself or with your agent.
 
 To leave Samebase, replace `CONVEX_ACCESS_TOKEN` with a Convex team access token, then remove the
-repository from Samebase and keep its resources. Your app keeps deploying. Google sign-in through
-`auth.samebase.com` stops, so connect your own first.
+repository from Samebase and keep its resources. Your app keeps deploying, and Google sign-in
+through `auth.samebase.com` keeps working.
 
 Do not revoke Samebase's OAuth authorization at Convex before replacing `CONVEX_ACCESS_TOKEN`.
 Revoking it stops your deploys.

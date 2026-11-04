@@ -177,7 +177,7 @@ describe("LandingPage", () => {
     expect(markup).toContain("Delete your Samebase account. Your app keeps running.");
     expect(markup).toContain("It keeps deploying too.");
     expect(markup).toContain("before you revoke Samebase at Convex");
-    expect(markup).toContain("New Google sign-ins through Samebase stop.");
+    expect(markup).toContain("Google sign-in keeps working.");
     expect(markup).toContain(">do-it-yourself recipe</a>");
     expect(markup).toContain("No client-facing database to leave open.");
     expect(markup).toContain("Access checks live in code you can read and test.");

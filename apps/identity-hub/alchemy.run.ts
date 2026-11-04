@@ -15,8 +15,7 @@
 // on a laptop; it mints the deploy key itself. Every run also reads the Google and GitHub client
 // ids and secrets and hands them to the deployment, for the three connectors: no connector variable
 // is ever set by hand. IDENTITY_BROKER_KEYS is not in `env`: it stays on the deployment, and the
-// `deploy` script stops when it is missing. REGISTRATION_ACCESS_TOKEN is not in `env` either: it
-// stays on the deployment too and is set by hand, and `/register` refuses every request without it.
+// `deploy` script stops when it is missing.
 import { execFileSync } from "node:child_process";
 import { relative } from "node:path";
 import * as Convex from "@samebase/alchemy-convex";

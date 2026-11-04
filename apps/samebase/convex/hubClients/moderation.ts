@@ -59,13 +59,30 @@ const vBlockList = object({
   ),
 });
 
+const vClientList = object({
+  clients: array(
+    object({
+      clientId: string(),
+      appId: string(),
+      clientName: string(),
+      deploymentType: union(literal("production"), literal("development"), literal("preview")),
+      redirectHost: string(),
+      createdAt: number(),
+      renewedAt: union(number(), v.null()),
+      lastSignInAt: union(number(), v.null()),
+    }),
+  ),
+  limitReached: boolean(),
+});
+
 const vBlockChangeResult = object({ changed: boolean() });
 
 const vOff = object({ status: literal("off") });
 
 /**
 The hub's moderation endpoints, or null while `HUB_MODERATION_KEY` is unset: the admin page then
-says that moderation is off. The key can only read registrations and set blocks at the hub.
+says that moderation is off. The key can only read registrations and clients and set blocks at the
+hub.
 */
 function readModeration() {
   const key = env.HUB_MODERATION_KEY?.trim();
@@ -86,11 +103,6 @@ async function callHub<T>(
     ...(request.body === undefined ? {} : { body: JSON.stringify(request.body) }),
     signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
   });
-  if (response.status === 409) {
-    throw new Error(
-      "Blocks start working once the identity hub stops taking the shared registration key (RFC 130, PR 2).",
-    );
-  }
   const body: unknown = response.ok ? await response.json() : null;
   if (!validate(request.validator, body)) {
     throw new Error(`The identity hub answered ${response.status} without a usable answer.`);
@@ -98,22 +110,34 @@ async function callHub<T>(
   return body;
 }
 
-/** The registration counts of the last day and week, the blocks, and the newest block events. */
+/**
+The registration counts of the last day and week, the blocks, the newest block events, and the
+newest clients of every app at the hub.
+*/
 export const readOverview = action({
   access: "access_admin",
   args: {},
-  returns: union(vOff, object({ status: literal("on"), counts: vCounts, blockList: vBlockList })),
+  returns: union(
+    vOff,
+    object({
+      status: literal("on"),
+      counts: vCounts,
+      blockList: vBlockList,
+      clientList: vClientList,
+    }),
+  ),
   handler: async () => {
     const moderation = readModeration();
     if (moderation === null) {
       return { status: "off" as const };
     }
 
-    const [counts, blockList] = await Promise.all([
+    const [counts, blockList, clientList] = await Promise.all([
       callHub(moderation, { path: "/moderation/counts", validator: vCounts }),
       callHub(moderation, { path: "/moderation/blocks", validator: vBlockList }),
+      callHub(moderation, { path: "/moderation/clients", validator: vClientList }),
     ]);
-    return { status: "on" as const, counts, blockList };
+    return { status: "on" as const, counts, blockList, clientList };
   },
 });
 

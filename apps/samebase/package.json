@@ -102,7 +102,6 @@
     "convex-helpers": "^0.1.128",
     "diff": "^9.0.0",
     "html-to-image": "^1.11.13",
-    "jose": "6.2.13",
     "lossless-json": "^4.3.1",
     "lucide-react": "^0.577.0",
     "minimatch": "^10.2.6",

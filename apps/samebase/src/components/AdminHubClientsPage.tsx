@@ -20,10 +20,15 @@ type BlockKind = (typeof BLOCK_KINDS)[number]["value"];
 
 const formatTime = (time: number) => new Date(time).toLocaleString();
 
+const formatOptionalTime = (time: number | null) => (time === null ? "Never" : formatTime(time));
+
 const formatCount = (count: { count: number; atLeast: boolean }) =>
   `${count.count}${count.atLeast ? "+" : ""}`;
 
-/** The registrations, blocks, and block events of the identity hub's `/hub-clients`. */
+/**
+The registrations of the identity hub's `/hub-clients`, every client at the hub, and the blocks and
+their events.
+*/
 export function AdminHubClientsPage() {
   const readOverview = useAction(api.hubClients.moderation.readOverview);
   const listRegistrations = useAction(api.hubClients.moderation.listRegistrations);
@@ -151,6 +156,43 @@ export function AdminHubClientsPage() {
             >
               {registrations.isFetchingNextPage ? "Loading..." : "Load more"}
             </Button>
+          ) : null}
+
+          <h2 className="mt-10 text-base font-semibold">All clients</h2>
+          <div className="mt-3 overflow-x-auto border-t">
+            <table className="w-full min-w-5xl text-left text-sm">
+              <thead className="border-b">
+                <tr>
+                  <th className="py-3 pr-4 font-medium">Created</th>
+                  <th className="py-3 pr-4 font-medium">App</th>
+                  <th className="py-3 pr-4 font-medium">Client</th>
+                  <th className="py-3 pr-4 font-medium">Deployment</th>
+                  <th className="py-3 pr-4 font-medium">Return host</th>
+                  <th className="py-3 pr-4 font-medium">Last renewed</th>
+                  <th className="py-3 font-medium">Last sign-in</th>
+                </tr>
+              </thead>
+              <tbody>
+                {overview.data.clientList.clients.map((client) => (
+                  <tr key={client.clientId} className="border-b">
+                    <td className="py-3 pr-4">{formatTime(client.createdAt)}</td>
+                    <td className="py-3 pr-4 break-all">{client.appId}</td>
+                    <td className="py-3 pr-4">{client.clientName}</td>
+                    <td className="py-3 pr-4">{client.deploymentType}</td>
+                    <td className="py-3 pr-4 break-all">{client.redirectHost}</td>
+                    <td className="py-3 pr-4">{formatOptionalTime(client.renewedAt)}</td>
+                    <td className="py-3">{formatOptionalTime(client.lastSignInAt)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {overview.data.clientList.clients.length === 0 ? (
+            <p className="mt-4 text-sm text-muted-foreground">No clients.</p>
+          ) : overview.data.clientList.limitReached ? (
+            <p className="mt-4 text-sm text-muted-foreground">
+              The newest {overview.data.clientList.clients.length} clients.
+            </p>
           ) : null}
 
           <h2 className="mt-10 text-base font-semibold">Blocks</h2>

@@ -5,6 +5,12 @@ change. If a change needs action from you, the entry says so.
 
 ## 2026-11-04
 
+- **v2261: Google sign-in without a Samebase account.** An app made from
+  [samebase/base](https://github.com/samebase/base) gets Sign in with Google from the identity hub
+  directly, so it needs no Samebase account, and leaving Samebase no longer stops it. An app on
+  `@samebase/alchemy-convex` before 0.24.0 keeps its Google sign-in, but a new deployment, such as a
+  new pull request preview, gets only guest sign-in until you update the package to 0.24.0. Ask your
+  agent to apply the v2261 entry of the starter changelog.
 - **v2253: Google sign-in checks your site.** A deploy gets its Google sign-in client only when the
   site serves `/samebase-verification.json` with the repository's GitHub ID, so the client can be on
   any host and callback path. New apps write the file on every deploy. In an app made before this,

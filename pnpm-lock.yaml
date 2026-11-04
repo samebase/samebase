@@ -578,9 +578,6 @@ importers:
       html-to-image:
         specifier: ^1.11.13
         version: 1.11.13
-      jose:
-        specifier: 6.2.13
-        version: 6.2.13
       lossless-json:
         specifier: ^4.3.1
         version: 4.3.1

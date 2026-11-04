@@ -23,6 +23,8 @@ const DAY_MS = 24 * 60 * 60 * 1_000;
 /** The newest blocks and events that `GET /moderation/blocks` returns. */
 const BLOCK_LIST_LIMIT = 200;
 const EVENT_LIST_LIMIT = 100;
+/** The newest clients that `GET /moderation/clients` returns. A list that reaches it says so. */
+const CLIENT_LIST_LIMIT = 500;
 const MAX_REASON_LENGTH = 1_000;
 const MAX_EMAIL_LENGTH = 320;
 
@@ -41,6 +43,20 @@ const vRegistration = object({
 });
 
 const vCount = object({ count: number(), atLeast: boolean() });
+
+/** One client at the broker, of any app, with no secret, hash, or token. */
+const vClient = object({
+  clientId: string(),
+  appId: string(),
+  clientName: string(),
+  deploymentType: union(literal("production"), literal("development"), literal("preview")),
+  /** The host of the one address where the broker sends people back with a code. */
+  redirectHost: string(),
+  createdAt: number(),
+  /** The last registration or renewal. Null for a client that the hub's administrator created. */
+  renewedAt: union(number(), v.null()),
+  lastSignInAt: union(number(), v.null()),
+});
 
 const vBlock = object({
   kind: vBlockKind,
@@ -175,6 +191,30 @@ export const blockList = internalQuery({
   },
 });
 
+/** The newest clients that the broker holds, of the team's own apps and of third-party apps. */
+export const clientList = internalQuery({
+  args: {},
+  returns: object({ clients: array(vClient), limitReached: boolean() }),
+  handler: async (ctx) => {
+    const clients = await ctx.runQuery(components.identityBroker.clients.list, {
+      limit: CLIENT_LIST_LIMIT,
+    });
+    return {
+      clients: clients.map((client) => ({
+        clientId: client.clientId,
+        appId: client.appId,
+        clientName: client.clientName,
+        deploymentType: client.deploymentType,
+        redirectHost: new URL(client.redirectUri).host,
+        createdAt: client.createdAt,
+        renewedAt: client.renewedAt ?? null,
+        lastSignInAt: client.lastSignInAt ?? null,
+      })),
+      limitReached: clients.length === CLIENT_LIST_LIMIT,
+    };
+  },
+});
+
 /**
  * Blocks or unblocks a repository or an owner, and appends the audit event. A repository block
  * disconnects the broker's tenant `gh-<id>`; an owner block sets the broker's owner switch. Neither
@@ -275,6 +315,41 @@ export const importRegistrations = internalMutation({
   },
 });
 
+/**
+ * Switches the broker's tenant `gh-<id>` of each repository back on. Run once by hand after the
+ * deploy of RFC 130 PR 2: samebase.com switched a tenant off when its repository left Samebase, and
+ * leaving Samebase no longer stops sign-in. A repository with a block here stays off. The operator's
+ * suspension and owner blocks are separate switches, so they stay as they are. From
+ * apps/identity-hub, for every tenant that is switched off:
+ *
+ *   npx convex data tenants --component identityBroker --prod --limit 100000 --format jsonArray > tenants.json
+ *   jq '{githubRepositoryDatabaseIds: [.[] | select(.disconnected == true and (.tenantId | startswith("gh-"))) | .tenantId[3:]]}' tenants.json > ids.json
+ *   npx convex run --prod moderation:reconnectTenants "$(cat ids.json)"
+ */
+export const reconnectTenants = internalMutation({
+  args: { githubRepositoryDatabaseIds: array(string()) },
+  returns: object({ reconnected: array(string()), blocked: array(string()) }),
+  handler: async (ctx, args) => {
+    const reconnected: string[] = [];
+    const blocked: string[] = [];
+    for (const githubId of args.githubRepositoryDatabaseIds) {
+      if (!/^[1-9][0-9]*$/.test(githubId)) {
+        throw new Error(`"${githubId}" is not a GitHub repository id.`);
+      }
+      if ((await readBlock(ctx, "repository", githubId)) !== null) {
+        blocked.push(githubId);
+        continue;
+      }
+      await ctx.runMutation(components.identityBroker.registration.switchConnection, {
+        tenantId: `gh-${githubId}`,
+        connected: true,
+      });
+      reconnected.push(githubId);
+    }
+    return { reconnected, blocked };
+  },
+});
+
 /** Registrations newest first, `REGISTRATION_PAGE_SIZE` at a time. `?cursor=` reads the next page. */
 export const listRegistrations = moderationEndpoint(async (ctx, request) => {
   const result = await ctx.runQuery(internal.moderation.registrationPage, {
@@ -296,6 +371,11 @@ export const countRegistrations = moderationEndpoint(async (ctx) =>
 
 export const listBlocks = moderationEndpoint(async (ctx) =>
   reply(200, await ctx.runQuery(internal.moderation.blockList, {})),
+);
+
+/** Every client at the broker, newest first, up to `CLIENT_LIST_LIMIT`. */
+export const listClients = moderationEndpoint(async (ctx) =>
+  reply(200, await ctx.runQuery(internal.moderation.clientList, {})),
 );
 
 /** The change, if its ids are GitHub ids and its reason and admin are given. */
@@ -320,16 +400,8 @@ function readBlockChange(body: unknown): BlockChange | null {
     : null;
 }
 
-/**
-Blocks or unblocks one repository or owner. Answers `{ changed }`. Refused while the hub still takes
-the shared registration key: samebase.com's old endpoint then registers clients with no owner, which
-an owner block cannot reach, and its tenant switch can undo a repository block. Removing
-`REGISTRATION_ACCESS_TOKEN` closes both, so blocks start working then.
-*/
+/** Blocks or unblocks one repository or owner. Answers `{ changed }`. */
 export const changeBlock = moderationEndpoint(async (ctx, request) => {
-  if (env.REGISTRATION_ACCESS_TOKEN) {
-    return reply(409, { error: "registration_key_still_set" });
-  }
   const change = readBlockChange(await request.json().catch(() => null));
   if (change === null) {
     return reply(400, { error: "invalid_request" });

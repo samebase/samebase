@@ -399,7 +399,7 @@ function LandingPreviewOverview() {
           <div className="grid gap-x-14 gap-y-10 @3xl:grid-cols-2">
             <LandingClaim heading="Delete your Samebase account. Your app keeps running.">
               It keeps deploying too. Swap CONVEX_ACCESS_TOKEN for your own team token before you
-              revoke Samebase at Convex. New Google sign-ins through Samebase stop. The{" "}
+              revoke Samebase at Convex. Google sign-in keeps working. The{" "}
               <LandingInlineLink to={DOCS_DO_IT_YOURSELF_ROUTE}>
                 do-it-yourself recipe
               </LandingInlineLink>{" "}

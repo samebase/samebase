@@ -346,6 +346,24 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         } | null,
         Name
       >;
+      list: FunctionReference<
+        "query",
+        "internal",
+        { limit: number },
+        Array<{
+          appId: string;
+          clientId: string;
+          clientName: string;
+          createdAt: number;
+          deploymentType: "production" | "development" | "preview";
+          lastSignInAt?: number;
+          redirectUri: string;
+          removeAt?: number;
+          renewedAt?: number;
+          softwareVersion: string;
+        }>,
+        Name
+      >;
       listByApp: FunctionReference<
         "query",
         "internal",

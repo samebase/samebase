@@ -21,10 +21,9 @@ export const broker = defineIdentityBroker({
   keys: () => env.IDENTITY_BROKER_KEYS,
   connectors,
   resources,
+  // No `initialAccessToken`: `POST /hub-clients` creates every third-party client, so the broker
+  // serves no `/register` and no `/tenant-connection`, only each client's own record.
   registration: {
-    // samebase.com's `/api/hub-clients` registers through `/register` with this token until
-    // `/hub-clients` replaces it. Without this line the broker serves only each client's own record.
-    initialAccessToken: () => env.REGISTRATION_ACCESS_TOKEN,
     connector: APPS_CONNECTOR,
     paused: isPaused,
   },

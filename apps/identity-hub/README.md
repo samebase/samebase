@@ -96,10 +96,14 @@ straight to the connector without the chooser. For an app that is not the team's
 `alchemy-convex hub-client` does the same with the Convex CLI login. Deleting an app removes its
 clients. Recreating it with the same id keeps the subjects of its users.
 
-A third-party app registers at `/register` (RFC 7591), which refuses every request until
-`REGISTRATION_ACCESS_TOKEN` is set by hand on the deployment, as `IDENTITY_BROKER_KEYS` is. Samebase
-holds that token and registers on the app's behalf. `THIRD_PARTY_PAUSED=true` stops every such app,
-and `identityBroker:setTenantSuspended` stops one tenant.
+A third-party app gets its client at `POST /hub-clients`, from the `Convex.SharedHubClient` resource
+of `@samebase/alchemy-convex` 0.24.0 or later in its own GitHub Actions run. The hub checks GitHub's
+OIDC token, the `/samebase-verification.json` file of the site, the hourly limits, and the blocks.
+No Samebase account is needed. The broker serves no `/register`: each client only reads and deletes
+its own record at `/register/<client>`. `THIRD_PARTY_PAUSED=true` stops every such app, and
+`identityBroker:setTenantSuspended` stops one tenant. samebase.com's admin page at
+`/admin/hub-clients` lists the registrations and every client, and blocks a repository or an owner,
+with `HUB_MODERATION_KEY`, which is set by hand on both deployments.
 
 See the component's [consumer guide](../../packages/identity-broker/docs/consumers.md).
 
@@ -112,10 +116,10 @@ of the hub with the team's Convex token, for its hub client. These keys can run 
 only, and they end with the run. The team token itself reaches the hub, so treat it as an
 administrator credential too. The Convex CLI ignores `--prod` when `CONVEX_DEPLOY_KEY` names another
 deployment, so unset it before an admin command. A cron runs the broker's cleanup daily: expired
-requests and codes, sign-in records older than 90 days, and preview clients from `/register` past
-their removal date. Other idle preview clients are kept: the broker prunes them only when the host
-sets `previewClientIdleDays`, and this hub does not, because a consumer's `Convex.HubClient` does
-not register a pruned client again.
+requests and codes, sign-in records older than 90 days, and third-party preview clients past their
+removal date. Other idle preview clients are kept: the broker prunes them only when the host sets
+`previewClientIdleDays`, and this hub does not, because a consumer's `Convex.HubClient` does not
+register a pruned client again.
 
 Never run `npx convex import --replace-all` on this deployment, also not with `--component`: it also
 deletes the rows of the other components. To restore the tables of one component, import a ZIP of
