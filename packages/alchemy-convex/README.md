@@ -308,13 +308,17 @@ call.
   the `Convex.Deployment` writes to the deployment. Another `redirectUri` is a new client, and a
   destroy deletes the client.
 
-- `Convex.SharedHubClient`: `{ app, deployment, deploymentType, softwareVersion? }` gets a client of
-  the central identity hub through samebase.com, for an app that deploys in its own GitHub Actions
-  run. The workflow needs `permissions: id-token: write` and no Samebase key. Outputs `status`,
-  `issuer`, `clientId`, `clientSecret`, `registrationAccessToken`, `registrationClientUri`,
-  `deployment`, `deploymentType`, and `redirectUri`.
+- `Convex.SharedHubClient`: `{ app, redirectUri, deploymentType, softwareVersion? }` gets a client
+  of the central identity hub through samebase.com, for an app that deploys in its own GitHub
+  Actions run, on any host. The workflow needs `permissions: id-token: write` and no Samebase key.
+  The origin of `redirectUri` must serve `/samebase-verification.json` with the numeric GitHub id of
+  the repository, `{ "repository": "123" }`, which `gh api repos/<owner>/<name> --jq .id` prints.
+  Samebase reads it before it registers the client, so the site must be live first. Outputs
+  `status`, `issuer`, `clientId`, `clientSecret`, `registrationAccessToken`,
+  `registrationClientUri`, `deploymentType`, and `redirectUri`.
   - Each deploy reads the saved client on the hub with its own token. A client that is gone gets a
-    new one, and a client on another deployment too.
+    new one, and a client on another `redirectUri` too.
+  - A refusal logs its reason, such as a host that does not serve the file.
   - No failure stops a deploy or a destroy. A failed renewal keeps the saved values. Without saved
     values, `status` is `off`, and `issuer`, `clientId`, and `clientSecret` are the `no-hub` values
     of a checkout without a hub. A run without a GitHub OIDC token, such as on a laptop, does the

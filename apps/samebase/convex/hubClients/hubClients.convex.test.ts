@@ -3,11 +3,7 @@ import { afterEach, beforeAll, describe, expect, it, vi } from "vite-plus/test";
 
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
-import {
-  observedBaseAlchemyProductionDeployment,
-  observedBaseAlchemyProject,
-} from "../repository/fixtures/observedAlchemyState";
-import { makeConvexTest, sealTestCredentials, testCredential } from "../test.setup";
+import { makeConvexTest } from "../test.setup";
 
 // t.fetch loads convex/http.ts, which imports these modules that only a build and a deploy write.
 vi.mock("../../dist/server/server.js", () => ({ default: { fetch: async () => new Response() } }));
@@ -20,31 +16,12 @@ type ConvexTest = ReturnType<typeof makeConvexTest>;
 const HUB_ISSUER = "https://hub.example.test";
 const HUB_KEY = "hub-registration-key";
 const JWKS_URL = "https://token.actions.githubusercontent.com/.well-known/jwks";
-const TEAM_ID = "38516";
 const REPOSITORY_ID = "74";
 const OWNER_ID = "65";
 /** The first 32 hex characters of the SHA-256 of `my-app`, from `shasum -a 256`. */
 const APP_HASH = "4c9a75cca717efb68c856f26ba825073";
-
-const production = observedBaseAlchemyProductionDeployment;
-const project = observedBaseAlchemyProject;
-/** The observed row, changed to the preview that a stage `pr-12` deploys, in a European region. */
-const preview = {
-  ...production,
-  name: "calm-cow-456",
-  deploymentType: "preview",
-  previewIdentifier: "pr-12",
-  isDefault: false,
-  reference: "preview/pr-12",
-  deploymentUrl: "https://calm-cow-456.eu-west-1.convex.cloud",
-};
-const otherPreview = {
-  ...preview,
-  name: "quick-fox-789",
-  previewIdentifier: "pr-13",
-  reference: "preview/pr-13",
-  deploymentUrl: "https://quick-fox-789.convex.cloud",
-};
+const PRODUCTION_HOST = "https://ideal-dolphin-15.convex.site";
+const PRODUCTION_CALLBACK = `${PRODUCTION_HOST}/auth/hub/callback`;
 
 /**
 The claims of the example token on
@@ -128,19 +105,22 @@ const hubClientReply = () =>
     201,
   );
 
+/** The requests for `/samebase-verification.json` since the last `stubProviders`, with their options. */
+let fileRequests: { url: string; init: RequestInit | undefined }[] = [];
+
 /**
-Answers GitHub's key set, the Convex Management API, and the hub. Each request to the hub is
-recorded, and `hub` chooses its answer. A deployment that is not in `deployments` answers 404.
+Answers GitHub's key set, the hub, and every other host's `/samebase-verification.json`. Each request
+to the hub is recorded, and `hub` chooses its answer. `host` answers the file, which by default names
+this repository.
 */
 function stubProviders(
   args: {
-    deployments?: { name: string }[];
     hub?: (path: string) => Response | Promise<Response>;
-    team?: number;
+    host?: () => Response | Promise<Response>;
   } = {},
 ) {
-  const deployments = args.deployments ?? [production, preview, otherPreview];
   const hubRequests: { url: string; authorization: string | null; body: unknown }[] = [];
+  fileRequests = [];
   vi.stubGlobal(
     "fetch",
     vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -158,26 +138,26 @@ function stubProviders(
         });
         return await (args.hub ?? hubClientReply)(pathname);
       }
-      if (request.headers.get("Authorization") !== "Bearer convex-oauth-token") {
-        throw new Error(`A provider call without the organization's token: ${request.url}`);
-      }
-      if (pathname === `/v1/projects/${project.id}`) {
-        return jsonResponse({ ...project, teamId: args.team ?? project.teamId });
-      }
-      if (pathname === `/v1/projects/${project.id}/list_deployments`) {
-        return jsonResponse(deployments.filter((deployment) => deployment !== production));
-      }
-      const deployment = deployments.find(
-        (candidate) => pathname === `/v1/deployments/${candidate.name}`,
-      );
-      // GET /deployments/{name} answers no preview identifier (packages/alchemy-convex/src/Deployment.ts).
-      return deployment
-        ? jsonResponse({ ...deployment, previewIdentifier: null })
-        : jsonResponse({ code: "DeploymentNotFound" }, 404);
+      fileRequests.push({ url: request.url, init });
+      return await (args.host ?? (() => jsonResponse({ repository: REPOSITORY_ID })))();
     }),
   );
   return hubRequests;
 }
+
+/** A body that arrives in chunks with no Content-Length, as a host may send it. */
+const streamedResponse = (chunks: string[]) =>
+  new Response(
+    new ReadableStream({
+      start(controller) {
+        for (const chunk of chunks) {
+          controller.enqueue(new TextEncoder().encode(chunk));
+        }
+        controller.close();
+      },
+    }),
+    { status: 200 },
+  );
 
 /** Connects the repository through the real flow, while the feature is off. */
 async function connectRepository(
@@ -228,18 +208,6 @@ async function seedOrganization(t: ConvexTest) {
       githubInstallationId: "installation-65",
     },
   );
-  await t.run(async (ctx) => {
-    await ctx.db.patch(organizationId, { convexTeam: { teamId: TEAM_ID } });
-    await ctx.db.insert("organizationProviderCredentials", {
-      organizationId,
-      convex: {
-        connectedByUserId: userId,
-        updatedAt: 1,
-        auth: { method: "oauth", credential: testCredential("convex-oauth-token") },
-      },
-    });
-  });
-  await sealTestCredentials(t);
   return { organizationId, userId };
 }
 
@@ -267,7 +235,7 @@ async function postHubClient(
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
     body: JSON.stringify({
       app: "my-app",
-      deployment: production.name,
+      redirectUri: PRODUCTION_CALLBACK,
       softwareVersion: "abc123",
       ...body,
     }),
@@ -290,6 +258,10 @@ async function finishProvisioningRun(
 
 async function readRateLimits(t: ConvexTest) {
   return await t.run(async (ctx) => await ctx.db.query("hubClientRateLimits").collect());
+}
+
+async function readRegistrations(t: ConvexTest) {
+  return await t.run(async (ctx) => await ctx.db.query("hubClientRegistrations").collect());
 }
 
 describe("POST /api/hub-clients", () => {
@@ -429,25 +401,13 @@ describe("POST /api/hub-clients", () => {
       expect(await readRateLimits(t)).toEqual([]);
     });
 
-    it("refuses an organization without a Convex connection", async () => {
-      const { t, organizationId } = await seedConnectedRepository();
-      await t.run(async (ctx) => {
-        const credentials = await ctx.db
-          .query("organizationProviderCredentials")
-          .withIndex("by_organization", (query) => query.eq("organizationId", organizationId))
-          .unique();
-        if (credentials) {
-          await ctx.db.delete(credentials._id);
-        }
-      });
+    it("needs no Convex connection", async () => {
+      const { t } = await seedConnectedRepository();
       stubProviders();
 
       const response = await postHubClient(t, await signToken());
 
-      expect(await response.json()).toEqual({
-        error: "not_allowed",
-        reason: "convex_not_connected",
-      });
+      expect(response.status).toBe(201);
     });
   });
 
@@ -522,49 +482,7 @@ describe("POST /api/hub-clients", () => {
     });
   });
 
-  describe("the deployment", () => {
-    it("refuses a pull_request run that names production", async () => {
-      const { t } = await seedConnectedRepository();
-      const hubRequests = stubProviders();
-
-      const response = await postHubClient(t, await signToken(pullRequestClaims));
-
-      expect(response.status).toBe(403);
-      expect(await response.json()).toEqual({
-        error: "not_allowed",
-        reason: "deployment_not_allowed_for_run",
-      });
-      expect(hubRequests).toEqual([]);
-    });
-
-    it("refuses a pull_request run that names the preview of another pull request", async () => {
-      const { t } = await seedConnectedRepository();
-      const hubRequests = stubProviders();
-
-      const response = await postHubClient(t, await signToken(pullRequestClaims), {
-        deployment: otherPreview.name,
-      });
-
-      expect(response.status).toBe(403);
-      expect(await response.json()).toEqual({
-        error: "not_allowed",
-        reason: "deployment_not_allowed_for_run",
-      });
-      expect(hubRequests).toEqual([]);
-    });
-
-    it("refuses a run of main that names a preview", async () => {
-      const { t } = await seedConnectedRepository();
-      stubProviders();
-
-      const response = await postHubClient(t, await signToken(), { deployment: preview.name });
-
-      expect(await response.json()).toEqual({
-        error: "not_allowed",
-        reason: "deployment_not_allowed_for_run",
-      });
-    });
-
+  describe("the run", () => {
     it.each([
       ["a push on another branch", { event_name: "push", ref: "refs/heads/feature" }],
       ["a push of a tag", { event_name: "push", ref: "refs/tags/main" }],
@@ -582,39 +500,23 @@ describe("POST /api/hub-clients", () => {
       expect(hubRequests).toEqual([]);
     });
 
-    it("refuses a deployment in another team", async () => {
-      const { t } = await seedConnectedRepository();
-      const hubRequests = stubProviders({ team: 99 });
-
-      const response = await postHubClient(t, await signToken());
-
-      expect(response.status).toBe(403);
-      expect(await response.json()).toEqual({
-        error: "not_allowed",
-        reason: "deployment_not_in_team",
-      });
-      expect(hubRequests).toEqual([]);
-    });
-
-    it("refuses a deployment that the connection cannot read", async () => {
-      const { t } = await seedConnectedRepository();
-      stubProviders({ deployments: [] });
-
-      const response = await postHubClient(t, await signToken());
-
-      expect(await response.json()).toEqual({
-        error: "not_allowed",
-        reason: "deployment_not_in_team",
-      });
-    });
-
     it.each([
-      ["a name with a path", { deployment: "../projects/1" }],
       ["no app", { app: "" }],
       ["no version", { softwareVersion: "" }],
       ["a very long version", { softwareVersion: "v".repeat(257) }],
       ["a body that is not text", { app: 1 }],
-    ])("answers 400 for %s", async (_, body) => {
+      ["no return address", { redirectUri: undefined }],
+      ["an http return address", { redirectUri: "http://ideal-dolphin-15.convex.site/cb" }],
+      ["a fragment", { redirectUri: `${PRODUCTION_CALLBACK}#top` }],
+      ["an empty fragment", { redirectUri: `${PRODUCTION_CALLBACK}#` }],
+      ["user info", { redirectUri: "https://user:pass@ideal-dolphin-15.convex.site/cb" }],
+      ["an IPv4 address", { redirectUri: "https://127.0.0.1/cb" }],
+      ["an IPv4 address in hex", { redirectUri: "https://0x7f000001/cb" }],
+      ["an IPv6 address", { redirectUri: "https://[::1]/cb" }],
+      ["localhost", { redirectUri: "https://localhost/cb" }],
+      ["a name under localhost", { redirectUri: "https://app.localhost/cb" }],
+      ["a very long address", { redirectUri: `${PRODUCTION_HOST}/${"a".repeat(2_048)}` }],
+    ])("answers 400 for %s and fetches nothing", async (_, body) => {
       const { t } = await seedConnectedRepository();
       stubProviders();
 
@@ -623,6 +525,128 @@ describe("POST /api/hub-clients", () => {
       expect(response.status).toBe(400);
       expect(await response.json()).toEqual({ error: "invalid_request" });
       expect(await readRateLimits(t)).toEqual([]);
+      expect(fileRequests).toEqual([]);
+    });
+  });
+
+  describe("the host", () => {
+    it("reads the file at the root of the return address's origin, with no redirects", async () => {
+      const { t } = await seedConnectedRepository();
+      stubProviders();
+
+      await postHubClient(t, await signToken(), {
+        redirectUri: "https://app.example.com:8443/api/auth/callback/hub?x=1",
+      });
+
+      expect(fileRequests).toEqual([
+        {
+          url: "https://app.example.com:8443/samebase-verification.json",
+          init: expect.objectContaining({ redirect: "manual" }),
+        },
+      ]);
+      expect(fileRequests[0]?.init?.credentials).toBeUndefined();
+    });
+
+    it.each([
+      ["a timeout", () => Promise.reject(new DOMException("timed out", "TimeoutError"))],
+      ["a failed connection", () => Promise.reject(new TypeError("fetch failed"))],
+    ])("refuses with host_unreachable on %s", async (_, host) => {
+      const { t } = await seedConnectedRepository();
+      const hubRequests = stubProviders({ host });
+
+      const response = await postHubClient(t, await signToken());
+
+      expect(response.status).toBe(403);
+      expect(await response.json()).toEqual({ error: "not_allowed", reason: "host_unreachable" });
+      expect(hubRequests).toEqual([]);
+    });
+
+    it.each([
+      ["404", () => new Response("Not Found", { status: 404 })],
+      [
+        "a redirect, which it never follows",
+        () =>
+          new Response(null, {
+            status: 301,
+            headers: { Location: "https://elsewhere.example.com/samebase-verification.json" },
+          }),
+      ],
+    ])("refuses with verification_file_missing on %s", async (_, host) => {
+      const { t } = await seedConnectedRepository();
+      const hubRequests = stubProviders({ host });
+
+      const response = await postHubClient(t, await signToken());
+
+      expect(await response.json()).toEqual({
+        error: "not_allowed",
+        reason: "verification_file_missing",
+      });
+      expect(hubRequests).toEqual([]);
+      expect(fileRequests).toHaveLength(1);
+    });
+
+    it.each([
+      ["text that is not JSON", () => new Response("<html></html>")],
+      ["JSON without the id", () => jsonResponse({ repo: REPOSITORY_ID })],
+      ["a name instead of the id", () => jsonResponse({ repository: "octo-org/octo-repo" })],
+      ["a fraction", () => jsonResponse({ repository: 74.5 })],
+      [
+        "a body over 4 KiB",
+        () => jsonResponse({ repository: REPOSITORY_ID, pad: "x".repeat(4_096) }),
+      ],
+      [
+        "a streamed body over 4 KiB with no length",
+        () =>
+          streamedResponse([`{"repository":"${REPOSITORY_ID}","pad":"`, "x".repeat(5_000), '"}']),
+      ],
+    ])("refuses with verification_file_invalid on %s", async (_, host) => {
+      const { t } = await seedConnectedRepository();
+      const hubRequests = stubProviders({ host });
+
+      const response = await postHubClient(t, await signToken());
+
+      expect(await response.json()).toEqual({
+        error: "not_allowed",
+        reason: "verification_file_invalid",
+      });
+      expect(hubRequests).toEqual([]);
+    });
+
+    it("refuses with repository_mismatch on another id, and never shows that id", async () => {
+      const { t } = await seedConnectedRepository();
+      const hubRequests = stubProviders({ host: () => jsonResponse({ repository: "999" }) });
+
+      const response = await postHubClient(t, await signToken());
+      const text = await response.text();
+
+      expect(JSON.parse(text)).toEqual({ error: "not_allowed", reason: "repository_mismatch" });
+      expect(text).not.toContain("999");
+      expect(hubRequests).toEqual([]);
+    });
+
+    it.each([
+      ["a string", () => jsonResponse({ repository: REPOSITORY_ID })],
+      ["a number", () => jsonResponse({ repository: Number(REPOSITORY_ID) })],
+      ["more members and no Content-Type", () => new Response(`{"repository":74,"note":"hi"}`)],
+      ["a streamed body", () => streamedResponse(['{"repos', `itory":"${REPOSITORY_ID}"}`])],
+    ])("accepts the id as %s", async (_, host) => {
+      const { t } = await seedConnectedRepository();
+      stubProviders({ host });
+
+      const response = await postHubClient(t, await signToken());
+
+      expect(response.status).toBe(201);
+    });
+
+    it("checks the host after the repository and the rate limits", async () => {
+      const t = makeConvexTest();
+      await seedOrganization(t);
+      turnFeatureOn();
+      stubProviders();
+
+      await postHubClient(t, await signToken());
+
+      expect(fileRequests).toEqual([]);
     });
   });
 
@@ -646,7 +670,7 @@ describe("POST /api/hub-clients", () => {
             tenant_id: "gh-74",
             software_id: `gh-74-${APP_HASH}`,
             software_version: "abc123",
-            redirect_uris: ["https://ideal-dolphin-15.convex.site/auth/hub/callback"],
+            redirect_uris: [PRODUCTION_CALLBACK],
             deployment_type: "production",
             client_name: "prod",
             token_endpoint_auth_method: "client_secret_post",
@@ -661,16 +685,16 @@ describe("POST /api/hub-clients", () => {
         client_secret: "raw-client-secret",
         registration_access_token: "raw-registration-token",
         registration_client_uri: `${HUB_ISSUER}/register/cl_test`,
-        redirect_uri: "https://ideal-dolphin-15.convex.site/auth/hub/callback",
+        redirect_uri: PRODUCTION_CALLBACK,
       });
     });
 
-    it("registers a preview in its own app, on the URL of its region", async () => {
+    it("registers a preview in its own app, on the exact address that the run sent", async () => {
       const { t } = await seedConnectedRepository();
       const hubRequests = stubProviders();
 
       const response = await postHubClient(t, await signToken(pullRequestClaims), {
-        deployment: preview.name,
+        redirectUri: "https://calm-cow-456.eu-west-1.convex.site/api/auth/callback/hub",
       });
 
       expect(hubRequests.map((request) => request.body)).toEqual([
@@ -678,13 +702,60 @@ describe("POST /api/hub-clients", () => {
           tenant_id: "gh-74",
           software_id: `gh-74-${APP_HASH}-preview`,
           software_version: "abc123",
-          redirect_uris: ["https://calm-cow-456.eu-west-1.convex.site/auth/hub/callback"],
+          redirect_uris: ["https://calm-cow-456.eu-west-1.convex.site/api/auth/callback/hub"],
           deployment_type: "preview",
           client_name: "pr-12",
           token_endpoint_auth_method: "client_secret_post",
         },
       ]);
       expect(response.status).toBe(201);
+    });
+
+    it("registers a preview of a pull_request run on the production address, which can redeem no code of it", async () => {
+      const { t } = await seedConnectedRepository();
+      const hubRequests = stubProviders();
+
+      const response = await postHubClient(t, await signToken(pullRequestClaims));
+
+      expect(response.status).toBe(201);
+      expect(hubRequests.map((request) => request.body)).toEqual([
+        expect.objectContaining({
+          software_id: `gh-74-${APP_HASH}-preview`,
+          redirect_uris: [PRODUCTION_CALLBACK],
+          deployment_type: "preview",
+        }),
+      ]);
+    });
+
+    it("records what the token said, with the client ID and no secret", async () => {
+      const { t } = await seedConnectedRepository();
+      stubProviders();
+
+      await postHubClient(t, await signToken());
+
+      expect(await readRegistrations(t)).toEqual([
+        expect.objectContaining({
+          clientId: "cl_test",
+          githubRepositoryDatabaseId: REPOSITORY_ID,
+          githubOwnerId: OWNER_ID,
+          githubRepository: "octo-org/octo-repo",
+          githubActorId: "12",
+          commitSha: "example-sha",
+          stage: "prod",
+          app: "my-app",
+          redirectUri: PRODUCTION_CALLBACK,
+        }),
+      ]);
+      expect(JSON.stringify(await readRegistrations(t))).not.toContain("raw-");
+    });
+
+    it("records nothing when the hub refuses", async () => {
+      const { t } = await seedConnectedRepository();
+      stubProviders({ hub: () => jsonResponse({ error: "access_denied" }, 403) });
+
+      await postHubClient(t, await signToken());
+
+      expect(await readRegistrations(t)).toEqual([]);
     });
 
     it("accepts a workflow_dispatch run on main", async () => {

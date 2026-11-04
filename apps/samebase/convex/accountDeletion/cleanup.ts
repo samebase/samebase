@@ -59,6 +59,7 @@ export const ACCOUNT_DELETION_TABLE_REGISTRY = {
   audit_mcpAccess_events: "account_data",
   hubClientRateLimits: "organization_preserved",
   hubClientConnectionRevisions: "global",
+  hubClientRegistrations: "global",
 } satisfies Record<TableNames, AccountDeletionTablePolicy>;
 
 type AccountDataTableName = {

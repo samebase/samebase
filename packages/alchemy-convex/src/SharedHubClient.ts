@@ -1,16 +1,17 @@
 // Convex.SharedHubClient: one deployment of an app as a client of the central identity hub, for an
-// app that deploys in its own GitHub Actions run.
+// app that deploys in its own GitHub Actions run, on any host.
 //
 // The run asks samebase.com for a new client with a GitHub OIDC token, so the stack needs no
-// Samebase key. Samebase checks the token, chooses the callback, and registers the client. The
-// answer holds the client's own registration access token (RFC 7591), and each later deploy reads
-// the client on the hub with that token (RFC 7592). The hub keeps only hashes, so the state is the
-// only record of the secret and the token.
+// Samebase key. The token names the repository. Samebase reads `/samebase-verification.json` at the
+// origin of the return address, which must name the same repository, and registers the client on
+// that address. The answer holds the client's own registration access token (RFC 7591), and each
+// later deploy reads the client on the hub with that token (RFC 7592). The hub keeps only hashes, so
+// the state is the only record of the secret and the token.
 //
 // A push removes a variable that a deploy stops passing, so a failure here must not drop working
 // variables or stop the deploy. A renewal that fails keeps the saved values. Only a client that
-// cannot work asks for a new one: it is gone, or it has the callback of another deployment. If that
-// request fails, the run gives the off values, so the app has guest sign-in and not a broken button.
+// cannot work asks for a new one: it is gone, or it has another return address. If that request
+// fails, the run gives the off values, so the app has guest sign-in and not a broken button.
 // The off values are the `no-hub` variables of a checkout without a hub: Convex needs the variables,
 // and the app hides the button for this client ID.
 //
@@ -19,6 +20,7 @@ import { Resource } from "alchemy";
 import { isResolved } from "alchemy/Diff";
 import * as Provider from "alchemy/Provider";
 import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
 import * as Redacted from "effect/Redacted";
 import * as Schema from "effect/Schema";
 import type { Providers } from "./Providers.ts";
@@ -29,8 +31,12 @@ const REQUEST_TIMEOUT_MS = 30_000;
 export interface SharedHubClientProps {
   /** The stable name of the app, set once in the stack. */
   readonly app: string;
-  /** The Convex deployment name. It can come from a deployment that this run creates. */
-  readonly deployment: string;
+  /**
+   * The return address of the hub's sign-ins, such as `${site.siteUrl}/auth/hub/callback`: an https
+   * URL whose origin serves `/samebase-verification.json` with the numeric GitHub id of this
+   * repository, `{ "repository": "123" }`. It can come from a resource that this run creates.
+   */
+  readonly redirectUri: string;
   readonly deploymentType: "production" | "preview";
   /** Recorded on the hub's client, such as the commit. The hub records "unknown" without it. */
   readonly softwareVersion?: string;
@@ -47,9 +53,8 @@ export interface SharedHubClientAttributes {
   /** Returned only at registration. It reads and deletes this client on the hub, and nothing else. */
   readonly registrationAccessToken: Redacted.Redacted<string>;
   readonly registrationClientUri: string;
-  /** The deployment that the client serves. */
-  readonly deployment: string;
   readonly deploymentType: "production" | "preview";
+  /** The return address that the client serves. Empty for the off values. */
   readonly redirectUri: string;
 }
 
@@ -82,11 +87,42 @@ const NewClient = Schema.Struct({
 
 /** The other answers of `POST /api/hub-clients`, by status. */
 const REFUSALS: Readonly<Record<number, string>> = {
+  400: "Samebase refused the request: the return address must be https on a DNS name",
   401: "Samebase refused the GitHub OIDC token",
-  403: "Samebase does not allow this repository or deployment",
+  403: "Samebase does not allow this repository or return address",
   404: "hub clients are off on Samebase",
   429: "Samebase limits the requests of this repository",
   502: "the identity hub is not available",
+};
+
+/** The reasons of a 403 that a log line shows. Any other text of the answer is never logged. */
+const NOT_ALLOWED = new Map([
+  ["run_not_allowed", "Samebase gives clients only to runs of main and of pull requests"],
+  ["repository_not_connected", "the repository is not connected to Samebase"],
+  ["owner_mismatch", "the repository's owner is not the owner connected to Samebase"],
+  ["host_unreachable", "Samebase could not reach the host of the return address"],
+  [
+    "verification_file_missing",
+    "the host of the return address does not serve /samebase-verification.json",
+  ],
+  ["verification_file_invalid", "/samebase-verification.json on the host holds no repository id"],
+  ["repository_mismatch", "/samebase-verification.json on the host names another repository"],
+  ["hub_refused", "the identity hub refused this repository"],
+]);
+
+const Refusal = Schema.Struct({ reason: Schema.String });
+
+/** The text of a refusal: a known reason of a 403, else the text of its status. */
+const refusalOf = (status: number, body: unknown) => {
+  const reason =
+    status === 403
+      ? Option.getOrUndefined(Schema.decodeUnknownOption(Refusal)(body))?.reason
+      : undefined;
+  return (
+    (reason === undefined ? undefined : NOT_ALLOWED.get(reason)) ??
+    REFUSALS[status] ??
+    "Samebase refused the request"
+  );
 };
 
 const send = (who: string, url: string, token: string, init: { method: string; body?: string }) =>
@@ -138,14 +174,14 @@ const requestNewClient = (props: SharedHubClientProps, requestUrl: string, reque
         method: "POST",
         body: JSON.stringify({
           app: props.app,
-          deployment: props.deployment,
+          redirectUri: props.redirectUri,
           softwareVersion: props.softwareVersion ?? "unknown",
         }),
       },
     );
     if (status !== 201) {
       return yield* new SharedHubClientFailed({
-        reason: `${REFUSALS[status] ?? "Samebase refused the request"} (HTTP ${status})`,
+        reason: `${refusalOf(status, body)} (HTTP ${status})`,
       });
     }
     const client = yield* decode(NewClient, "Samebase")(body);
@@ -156,7 +192,6 @@ const requestNewClient = (props: SharedHubClientProps, requestUrl: string, reque
       clientSecret: Redacted.make(client.client_secret),
       registrationAccessToken: Redacted.make(client.registration_access_token),
       registrationClientUri: client.registration_client_uri,
-      deployment: props.deployment,
       deploymentType: props.deploymentType,
       redirectUri: client.redirect_uri,
     };
@@ -164,7 +199,7 @@ const requestNewClient = (props: SharedHubClientProps, requestUrl: string, reque
 
 /** A new client, or `saved`, or the off values. `saved` holds no off values. */
 const newClient = (props: SharedHubClientProps) => {
-  const label = `Convex.SharedHubClient: ${props.app} on ${props.deployment} deploys without the hub`;
+  const label = `Convex.SharedHubClient: ${props.app} on ${props.redirectUri} deploys without the hub`;
   const off: SharedHubClientAttributes = {
     status: "off",
     issuer: "http://127.0.0.1:1",
@@ -172,7 +207,6 @@ const newClient = (props: SharedHubClientProps) => {
     clientSecret: Redacted.make("no-hub"),
     registrationAccessToken: Redacted.make(""),
     registrationClientUri: "",
-    deployment: props.deployment,
     deploymentType: props.deploymentType,
     redirectUri: "",
   };
@@ -212,7 +246,7 @@ const renew = (saved: SharedHubClientAttributes) =>
         return undefined;
       case 403:
         yield* Effect.logWarning(
-          `Convex.SharedHubClient: the hub suspended the client of ${saved.deployment}. It keeps its values, and nobody can sign in with it.`,
+          `Convex.SharedHubClient: the hub suspended the client of ${saved.redirectUri}. It keeps its values, and nobody can sign in with it.`,
         );
         return { ...saved, status: "suspended" as const };
       default:
@@ -223,7 +257,7 @@ const renew = (saved: SharedHubClientAttributes) =>
   }).pipe(
     Effect.catchTag("SharedHubClientFailed", (error) =>
       Effect.logWarning(
-        `Convex.SharedHubClient: ${saved.deployment} keeps the saved client: ${error.reason}.`,
+        `Convex.SharedHubClient: ${saved.redirectUri} keeps the saved client: ${error.reason}.`,
       ).pipe(Effect.as(saved)),
     ),
   );
@@ -239,7 +273,7 @@ export const SharedHubClientProvider = () =>
 
     reconcile: Effect.fn(function* ({ news, output }) {
       const saved = output?.status === "off" ? undefined : output;
-      const renewed = saved?.deployment === news.deployment ? yield* renew(saved) : undefined;
+      const renewed = saved?.redirectUri === news.redirectUri ? yield* renew(saved) : undefined;
       return renewed ?? (yield* newClient(news));
     }),
 
@@ -264,7 +298,7 @@ export const SharedHubClientProvider = () =>
           }).pipe(
             Effect.catchTag("SharedHubClientFailed", (error) =>
               Effect.logWarning(
-                `Convex.SharedHubClient: the client of ${output.deployment} stays on the hub until its removal date: ${error.reason}.`,
+                `Convex.SharedHubClient: the client of ${output.redirectUri} stays on the hub until its removal date: ${error.reason}.`,
               ),
             ),
           ),
