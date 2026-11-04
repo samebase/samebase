@@ -1,231 +1,131 @@
-# 130 Hub clients without a Samebase account
+# 130 The hub registers apps itself, without a Samebase account
 
 ## Document Control
 
-- Status: Proposal, reviewed
-- Reviewed on 2026-11-04 by an Opus subagent against the code. The section Review amendments
-  overrides the Target where they differ.
+- Status: Proposal
 - Owner: Nicu Chiciuc
 - Created: 2026-11-04
-- Base: `origin/main` at `6ca950b9d` (v2255)
 - Follows RFC 129, which made a repository prove its host with `/samebase-verification.json`.
+- Rewritten on 2026-11-04 after two reviews and a research report (`reports/hub-rules-placement.md`,
+  outside the repository). The first version kept the rules in samebase.com and sent each block to
+  the hub; every problem the reviews found came from that.
 
 ## Summary
 
-Since RFC 129, GitHub's token proves which repository asks for a hub client, and the file proves
-that the repository controls the return host. The Samebase account proves nothing more. It still
-does three jobs, which this RFC moves elsewhere before the account check goes:
+Today an app's deploy asks samebase.com for a Google sign-in client. samebase.com checks GitHub's
+token, the verification file, the Samebase account, and the limits, then asks the hub to create the
+client. The rules live in samebase.com and the clients live in the hub.
 
-1. The rate limits count per Samebase repository and organization row.
-2. Leaving Samebase suspends the repository at the hub, which is the only automatic off switch.
-3. An account holder accepted Samebase's terms.
+After this RFC the deploy asks the hub directly. The hub checks GitHub's token, the verification
+file, the limits, and the blocks, records the registration, and creates the client. No Samebase
+account is needed. samebase.com keeps an admin page that reads the hub's records and sets blocks
+through a key that can do nothing else.
 
-After this RFC, any GitHub repository whose deploy sends GitHub's token and whose host serves the
-file gets a client of the public "Samebase Apps" Google client. A fork of `samebase/base` with only
-`CONVEX_ACCESS_TOKEN` and `CONVEX_TEAM_ID` set has Google sign-in on its first deploy.
+What this means for a real person:
 
-## Facts
+- Someone forks or copies `samebase/base`, sets `CONVEX_ACCESS_TOKEN` and `CONVEX_TEAM_ID`, and
+  pushes. The first deploy has Sign in with Google. They never visit samebase.com.
+- Nicu opens the admin page on samebase.com, sees which repositories registered and who deployed
+  them, and blocks a repository or a GitHub owner. A block stops new clients and sign-ins at once.
 
-From `origin/main`:
+## What moves where
 
-1. `admitRequest` in `apps/samebase/convex/hubClients/registration.ts` requires a live connected
-   repository (`readRepositoryByGitHubId`, `isLiveConnectedRepository`) whose organization's
-   `githubOwnerId` equals the token's `repository_owner_id`, then counts `hubClientRateLimits`: 30
-   per repository and 100 per organization in a fixed one-hour window. The rows are keyed on the
-   Convex ids `repositoryId` and `organizationId`.
-2. `hubClientRateLimits` rows are deleted with their repository (`repository/deletion/cleanup.ts`)
-   and their organization (`organizations.ts`).
-3. `startTenantConnectionSync` (`hubClients/tenantConnection.ts`) sends `connected: true` when a
-   GitHub repository connects (`repository/records.ts`) and `connected: false` when it is removed
-   (`repository/deletion/runs.ts`), through a workflow that retries for about 34 hours, ordered by
-   `hubClientConnectionRevisions`. The hub stores it as `disconnected` on the tenant
-   (`packages/identity-broker/src/component/registration.ts` `setConnection`). A disconnected tenant
-   cannot register and cannot sign anyone in.
-4. The hub has a second, separate switch: `identityBroker:setTenantSuspended`, an internal function
-   that an operator runs with the hub's deploy key. Neither switch knows owners: a tenant is one
-   repository, `gh-<repository id>`.
-5. `hubClientRegistrations` (RFC 129) records each client with `githubRepositoryDatabaseId`,
-   `githubOwnerId`, `githubRepository`, `githubActorId`, `githubActorLogin`, `commitSha`, `stage`,
-   `app`, and `redirectUri`, indexed by repository id.
-6. samebase.com has admin pages (`/admin/users`, `/admin/emails`) whose functions use
-   `access: "access_admin"`; `identity/access.ts` lists the admin emails.
-7. The terms of service and the privacy policy do not mention the hub, the shared Google client, or
-   the people who sign in to apps built from the starter.
-8. The hub caps each repository at 10 apps and each app at 30 clients.
+**Into the hub app (`apps/identity-hub`).**
 
-## Target
+- A new endpoint `POST https://auth.samebase.com/hub-clients`, which does what
+  `apps/samebase/convex/hubClients/registration.ts` does today, minus the account check: verify
+  GitHub's token, read the verification file with the same rules (https on a DNS name, no redirects,
+  5 seconds, 4 KiB), count the limits, check the blocks, record the registration, and create the
+  client through the broker component in the same mutation as the record.
+- Tables: `registrations` (as `hubClientRegistrations` today: client id, repository id and name,
+  owner id, actor id and login, commit, stage, app, return address), `blocks` (by repository id or
+  by owner id, with a reason and who set it), and `requestWindows` (the hourly counts).
+- Limits per hour: 30 per repository, 100 per owner, and 50 new owners across the whole hub. A new
+  owner is one with no registration yet, counted once.
+- `app` is at most 64 characters.
 
-### Admission
+**Blocks are local to the hub.** Blocking a repository or an owner does, in one transaction:
 
-`admitRequest` takes the token's repository id and owner id and does, in one transaction:
+1. Store the block.
+2. Switch off the broker tenant of every repository the hub has a registration for, under that
+   repository or owner, with the broker's existing tenant switch.
 
-1. Refuse with `blocked` when `hubClientBlocks` has the repository or the owner.
-2. Count the request in fixed one-hour windows: one for the repository id (30), one for the owner id
-   (100), and one global window for requests from owners that have no registration yet (50 new
-   owners per hour). Refuse with `rate_limited` when any is full. The global window bounds what one
-   person with many GitHub accounts can do to the "Samebase Apps" Google project.
+A registration from a blocked repository or owner is refused before anything else. Unblocking
+deletes the block and switches each tenant back on, unless another block still covers it. Because
+the rules and the clients are in one database, there are no network calls, retries, or batches
+between services.
 
-It no longer reads `repositories` or `organizations`. The refusals `repository_not_connected` and
-`owner_mismatch` go away, and `blocked` joins the fixed reasons that `Convex.SharedHubClient` logs
-(a package patch release).
+**Out of samebase.com.** The endpoint `/api/hub-clients`, the tables `hubClientRateLimits`,
+`hubClientRegistrations`, and `hubClientConnectionRevisions`, the tenant switch it sends when a
+repository connects or leaves, and the variable `HUB_REGISTRATION_KEY`. Leaving Samebase no longer
+stops Google sign-in.
 
-### Request windows
+**The hub stops accepting the shared registration key.** The broker's `POST /register` and
+`/tenant-connection` routes are not mounted by the hub any more. Each client keeps reading and
+deleting its own record with its own token, as today, so renewals do not change.
 
-A new table `hubClientRequestWindows`:
-`{ scope: "repository" | "owner" | "newOwners", githubId, count }` (`githubId` is empty for
-`newOwners`), indexed by scope and id, one row per key, the window starting at the row's creation,
-as today. Rows are not tied to Samebase rows, so repository and organization deletion no longer
-touch them. `hubClientRateLimits` and its cleanup steps are removed.
+**The admin page on samebase.com.** `/admin/hub-clients`, for admins only, as the other admin pages.
+It calls admin endpoints on the hub with a new key, `HUB_MODERATION_KEY`, that can only: list
+registrations (newest first, paginated), return counts for the last day and week, and block or
+unblock a repository or an owner with a reason. Counts read at most a fixed number of rows and say
+"at least" when they reach it. A ranking of owners is left for later.
 
-### Blocks
+**The package and the starter.** `Convex.SharedHubClient` sends its request to
+`<hub issuer>/hub-clients`, with `https://auth.samebase.com` as the default, in a new release of
+`@samebase/alchemy-convex`. `samebase/base` updates to it. Between the merge and that update, a
+deploy that needs a new client gets guest sign-in; saved clients keep working.
 
-A new table `hubClientBlocks`:
-`{ scope: "repository" | "owner", githubId, reason, blockedAt, blockedByUserId }`, indexed by scope
-and id.
+## Terms and privacy
 
-- Blocking refuses every later registration of that repository, or of every repository of that
-  owner.
-- Blocking also stops the clients that exist: for a repository, its tenant; for an owner, the tenant
-  of every repository id that `hubClientRegistrations` holds for that owner. samebase.com sends
-  `connected: false` for each through the existing tenant connection workflow, so the hub refuses
-  their registrations and sign-ins within seconds, with retries during a hub outage.
-- Unblocking deletes the row and sends `connected: true` for the same tenants. An operator's
-  `setTenantSuspended` at the hub stays separate and is not cleared.
+Both pages get a short section about the shared sign-in service, written in the pull request and
+approved by Nicu before merge:
 
-### The tenant switch changes meaning
+- Terms: what apps may use it for, and that Samebase may block a repository or an owner at any time.
+  A new client's deploy log shows the terms link, which the hub returns with the client.
+- Privacy: for people who sign in to such an app, the hub passes their name, email, whether the
+  email is verified, picture, and a per-app id to the app; it keeps sign-in records for 90 days and
+  registration records with the developer's GitHub repository, login, and commit. Samebase controls
+  the hub's records; each app's developer controls what their app receives. People reach Samebase at
+  the contact email.
 
-Today `connected` means "connected to Samebase". After this RFC it means "not blocked by
-samebase.com". Connecting a repository and removing it from Samebase no longer call
-`startTenantConnectionSync`: leaving Samebase does not stop Google sign-in, because Samebase is no
-longer needed for it. The hub does not change.
+The landing page and the docs pages that say leaving Samebase stops Google sign-in, or that Google
+sign-in needs a connected repository, change in the same pull request.
 
-Tenants that were disconnected because their repository left Samebase stay disconnected at the hub.
-The admin page lists blocks only, so such a tenant is cleared by blocking and unblocking its
-repository, which sends `connected: true` with a newer revision. Before PR 2, list the disconnected
-tenants on the hub once and clear each that should work.
+## Decisions
 
-### Admin page
+Taken by Nicu on 2026-11-04:
 
-`/admin/hub-clients`, with `access: "access_admin"` functions:
+1. The rules move into the hub; the hub stays its own Convex deployment.
+2. The hub stays in the same Convex team. A separate team costs another subscription.
+3. The admin page stays on samebase.com and uses a key that can only read registrations and set
+   blocks.
+4. No special handling for repository transfers or for clients registered before v2252. The
+   registered apps are almost all Nicu's own. A transferred repository is only re-checked at its
+   next new client.
+5. Limits: 30 per repository, 100 per owner, 50 new owners per hour.
 
-- The latest registrations, newest first, paginated: time, `owner/name` linked to GitHub, owner id,
-  actor login, stage, app, and the return host.
-- For the last 24 hours and the last 7 days: the number of registrations, of distinct repositories,
-  and of distinct owners, and the owners with the most distinct repositories in the last 7 days.
-  This is the abuse pattern: one person making many repositories.
-- Block or unblock a repository or an owner, with a required reason. The block list with its
-  reasons.
+## Before building
 
-The counts are read from `hubClientRegistrations` with a bounded scan of the time window; if the
-table grows past what a query reads in one call, the counts become an aggregate in a later change.
-
-### Terms and privacy
-
-Both pages get a short section, written in PR 2 and approved by Nicu before merge:
-
-- Terms: the shared sign-in service, acceptable use for apps that use it, and that Samebase may
-  block a repository or an owner at any time without notice. Using the service from a deploy means
-  accepting these terms.
-- Privacy: for people who sign in to an app through the hub, the hub receives their Google name,
-  email, and Google account id, gives the app a per-app id, name, and email, and keeps a record of
-  the sign-in. Samebase handles this for the app, which is responsible for its own use of the data.
-
-The starter's README (in `samebase/base`) states the same in one sentence where it describes Google
-sign-in, and drops "after leaving Samebase, new Google sign-ins fail".
-
-### What does not change
-
-The hub, the file check of RFC 129, the 14-day removal of preview clients, the hub's caps, and the
-first-party route `Convex.HubClient`.
-
-## Changes
-
-### PR 1. Limits by GitHub ids, blocks, and the admin page
-
-The account check stays on. The new limits and blocks run next to it, and the admin page shows real
-registrations before anyone without an account can register. The tenant switch stops following
-connect and leave in this PR.
-
-### PR 2. No account, terms, and privacy
-
-Removes the connected-repository and owner checks from `admitRequest`, adds the terms and privacy
-sections, and a docs changelog entry. A pull request on `samebase/base` updates the README.
-
-## Decisions to confirm
-
-1. Leaving Samebase no longer stops Google sign-in.
-2. A block is by repository id or by owner id, set by an admin on the admin page.
-3. The limits are 30 per repository and 100 per owner per hour, as today, plus 50 new owners per
-   hour across all of Samebase (agreed 2026-11-04; the number is a starting point).
-4. Terms are accepted by using the service, with no signup.
-
-## Review amendments
-
-Decided on 2026-11-04 after the review. Each item overrides the Target text above.
-
-1. **The global window counts distinct new owners.** The first request of an owner with no
-   registration inserts a `newOwner` row for that owner id in the window and adds 1 to the global
-   count. Later requests from the same owner add nothing. Otherwise one account sending 50 requests
-   with a bad host fills the window for everyone.
-2. **A block decides each repository from both scopes.** On every block and unblock, samebase.com
-   sends `connected = !(repository blocked || owner blocked)` for each affected repository, never a
-   fixed value, so unblocking an owner cannot turn on a repository that has its own block.
-3. **Blocks catch races and transfers.** `recordRegistration` reads `hubClientBlocks` for the
-   repository and the owner and starts `connected: false` in the same transaction when either is
-   blocked. A registration refused with `blocked` also sends `connected: false` for that repository,
-   which catches a repository transferred to a blocked owner on its next run. The owner of a
-   repository is the owner of its latest registration row.
-4. **Old clients.** Clients registered before v2252 have no rows. PR 1 backfills an owner block's
-   reach from `repositories` joined to `organizations.githubOwnerId`, because every such repository
-   was connected.
-5. **Earlier disconnects are cleared in PR 1.** PR 1 stops connect from sending `connected: true`,
-   so it also ships a one-time internal mutation that sends `connected: true` for every row of
-   `hubClientConnectionRevisions` that has no block. The hub needs no list of tenants.
-6. **Indexes and batches.** `hubClientRegistrations` gets `by_github_owner_id`; the new-owner test
-   is `.first()` on it. An owner block fans out in batches that schedule the next batch.
-7. **`app` is at most 64 characters**, refused with 400 in `readBody`. Anyone can send it after this
-   RFC, and a huge value would break the admin scan and the registration row.
-8. **The admin counts** read `by_creation_time` with `take(N)` and show "at least N" when they hit
-   it. Distinct repositories and owners are counted in memory.
-9. **RFC 129's live checks come first.** A host that redirects and a host that resolves to a private
-   address must both be refused on production before PR 2, because PR 2 lets any GitHub account
-   trigger the file fetch.
-10. **Privacy and terms state what the hub does.** The privacy section names the data the hub passes
-    to apps (name, email, `email_verified`, picture, a per-app id), that it keeps sign-in records
-    for 90 days and registration records with the developer's GitHub repository, login, and commit,
-    that Google user data goes to third-party apps, that Samebase controls the hub's records and
-    each app's developer controls what the app receives, and how a person who signs in reaches
-    Samebase at the contact email. The 201 reply carries the terms URL, and `Convex.SharedHubClient`
-    logs it on a new client, so developers see the terms. Nicu approves the wording; this is not
-    legal advice.
-11. **Every text that says leaving Samebase stops Google sign-in changes**, in the PR that changes
-    the behavior: `LandingPreviewPage.tsx` and its test, `docs-the-big-migration.md`,
-    `docs-do-it-yourself.md`, and the starter README in `samebase/base`.
-12. **The old table goes in one PR.** Convex deploys a schema without `hubClientRateLimits` and
-    keeps its rows as a table with no schema; delete it in the dashboard afterwards. Remove every
-    reference (model, registration, repository and organization deletion, the account deletion
-    registry, tests) and classify `hubClientRequestWindows` and `hubClientBlocks` as `global`.
-13. **Smaller items.** A 429 says which window refused. A block is refused while samebase.com has no
-    hub key, because the switch would not be sent. Tests say "before the file fetch and the hub
-    call", since GitHub's key set is fetched first. The live test uses a repository made from the
-    template, or turns on Actions in a fork.
+The verification file fetch moves from samebase.com to the hub, and anyone can trigger it. Check
+once on the hub's runtime that a host that redirects and a host on a private address are both
+refused.
 
 ## Validation
 
-- Unit tests: a registration without any Samebase row succeeds (PR 2), a blocked repository and a
-  blocked owner are refused before any fetch, the windows count per GitHub id, blocking an owner
-  sends `connected: false` for each of its recorded repositories and unblocking sends `true`,
-  connect and leave no longer start the workflow, and admin functions refuse a non-admin.
-- Live after PR 2: a fork of `samebase/base` from a second GitHub account, with no Samebase account,
-  gets Google sign-in on its first deploy, shows on the admin page, and loses sign-in when its owner
-  is blocked.
+- Hub tests: a registration with no Samebase account succeeds; a blocked repository and a blocked
+  owner are refused before the file is fetched; blocking an owner switches off each recorded
+  repository and unblocking switches back on only those with no other block; the limits count per
+  repository, per owner, and per new owner; `app` over 64 characters is refused; the shared key no
+  longer creates a client; the moderation key cannot create clients.
+- samebase.com tests: the admin functions refuse non-admins; the page lists registrations and blocks
+  through the moderation key.
+- Live: a repository made from `samebase/base` under a second GitHub account, with no Samebase
+  account, gets Google sign-in on its first deploy, shows on the admin page, and loses new sign-ins
+  when its owner is blocked.
 
-## Non-Goals
+## Not in this RFC
 
-- Sign-in counts per app. The hub holds them; samebase.com cannot read them without a new hub
-  endpoint.
-- The page before Google that names the repository and the return site. Follow-up idea from
-  2026-11-04: the hub shows that page by default, an app can ask to go straight to Google, and an
-  admin can force the page for a repository or an owner from the admin page. That forcing switch
-  would travel to the hub the same way as blocks, as tenant state set by samebase.com.
-- Automatic blocks or alerts.
+- The page before Google that names the repository and the return site, with an admin switch to
+  force it. After this RFC the hub holds everything it needs.
+- A separate Convex team for the hub.
+- Sign-in counts per app on the admin page.
