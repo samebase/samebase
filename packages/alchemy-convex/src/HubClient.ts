@@ -180,6 +180,20 @@ const renewHubClient = (api: ManagementApiService, team: string | number, client
     ),
   );
 
+/**
+ * Renews a client whose values the caller holds: false only when the hub answers that the client is
+ * gone. Any other failure, such as a hub or a Convex API that cannot answer, keeps the client and
+ * warns, so an outage never stops a deploy or a dev start; the next one renews it.
+ */
+const renewOrKeep = (api: ManagementApiService, team: string | number, clientId: string) =>
+  renewHubClient(api, team, clientId).pipe(
+    Effect.catch((error) =>
+      Effect.logWarning(
+        `Convex.HubClient: ${clientId} keeps its saved values, because the hub could not renew it: ${error.message}`,
+      ).pipe(Effect.as(true)),
+    ),
+  );
+
 const unregister = (api: ManagementApiService, team: string | number, clientId: string) =>
   withHub(api, team, (functions) => runHub(functions, team, "deleteClient", { clientId }));
 
@@ -203,18 +217,7 @@ export const HubClientProvider = () =>
 
         reconcile: Effect.fn(function* ({ news, output }) {
           const saved = output !== undefined && registeredFor(output, news) ? output : undefined;
-          // A hub that cannot answer must not stop a deploy: the saved client keeps working, and the
-          // next deploy renews it. Only a hub that answers that the client is gone replaces it.
-          const kept =
-            saved !== undefined &&
-            (yield* renewHubClient(api, news.team, saved.clientId).pipe(
-              Effect.catchTag("HubClientFailed", (error) =>
-                Effect.logWarning(
-                  `Convex.HubClient: ${saved.clientId} keeps its saved values, because the hub could not renew it: ${error.message}`,
-                ).pipe(Effect.as(true)),
-              ),
-            ));
-          if (saved !== undefined && kept) {
+          if (saved !== undefined && (yield* renewOrKeep(api, news.team, saved.clientId))) {
             return saved;
           }
           // A new client: the hub no longer has the saved one, or the redirect URI or the
@@ -279,7 +282,7 @@ export const registerDevelopmentClient = (options: DevelopmentClientOptions) =>
     const names = convex(["env", "list", "--names-only"]).split("\n");
     if (variables.every((name) => names.includes(name))) {
       const clientId = convex(["env", "get", `${envPrefix}_CLIENT_ID`]);
-      if (yield* renewHubClient(api, options.team, clientId)) return undefined;
+      if (yield* renewOrKeep(api, options.team, clientId)) return undefined;
     }
     const siteUrl = yield* Schema.decodeUnknownEffect(Schema.fromJsonString(Schema.String))(
       convex(["run", "--inline-query", "process.env.CONVEX_SITE_URL"]),

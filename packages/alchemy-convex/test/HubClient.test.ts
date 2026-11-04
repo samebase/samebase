@@ -109,6 +109,19 @@ describe("Convex.HubClient", () => {
     }),
   );
 
+  test.provider("a Convex API that cannot make the hub key keeps the saved client", (stack) =>
+    Effect.gen(function* () {
+      const { fake, hub, deployment } = withHub();
+      const first = yield* stack.deploy(client(props()));
+      fake.scripted.set(`POST api.convex.dev/v1/deployments/${deployment}/create_deploy_key`, [
+        { status: 500, body: { code: "InternalServerError", message: "Convex is down" } },
+      ]);
+      const again = yield* stack.deploy(client(props()));
+      expect(again).toEqual(first);
+      expect(hub.clients.size).toBe(1);
+    }),
+  );
+
   test.provider("another app or team stores the new props and keeps the client", (stack) =>
     Effect.gen(function* () {
       const { hub } = withHub();
@@ -260,6 +273,22 @@ describe("registerDevelopmentClient", () => {
     expect(await run(convex)).toBeUndefined();
     expect(calls).toEqual(["env list --names-only", "env get HUB_CLIENT_ID"]);
     expect(hub.renewals).toEqual([{ clientId: "cl_7", expires: true }]);
+    expect([...hub.clients.keys()]).toEqual(["cl_7"]);
+  });
+
+  it("a hub that cannot renew keeps the development client and writes nothing", async () => {
+    const { hub } = withHub();
+    hub.clients.set("cl_7", {});
+    hub.renewAnswer = "not an answer";
+    const { convex, calls } = cli(
+      new Map([
+        ["HUB_ISSUER", ISSUER],
+        ["HUB_CLIENT_ID", "cl_7"],
+        ["HUB_CLIENT_SECRET", "secret-of-cl_7"],
+      ]),
+    );
+    expect(await run(convex)).toBeUndefined();
+    expect(calls).toEqual(["env list --names-only", "env get HUB_CLIENT_ID"]);
     expect([...hub.clients.keys()]).toEqual(["cl_7"]);
   });
 
