@@ -2401,6 +2401,7 @@ export const trackedFilePaths = [
   "rfcs/126_REPOSITORY_ACTIONS_PROVISIONING_MVP.md",
   "rfcs/127_SAMEBASE_ON_CONVEX_HOSTING_ROLLOUT.md",
   "rfcs/128_SAMEBASE_SSR_WITH_COOKIE_SESSIONS_ROLLOUT.md",
+  "rfcs/129_HUB_CLIENT_HOST_VERIFICATION_SPEC.md",
   "rfcs/README.md",
   "rfcs/assets/079-editor-sidebar-return-drag/monaco-return-drag.png",
   "rfcs/assets/079-editor-sidebar-return-drag/prosemark-return-drag.png",

@@ -3,6 +3,14 @@
 What changed in Samebase, newest first. Each `v` number is the Samebase version that shipped the
 change. If a change needs action from you, the entry says so.
 
+## 2026-11-04
+
+- **v2253: Google sign-in checks your site.** A deploy gets its Google sign-in client only when the
+  site serves `/samebase-verification.json` with the repository's GitHub ID, so the client can be on
+  any host and callback path. New apps write the file on every deploy. In an app made before this,
+  production keeps Google sign-in, but a new preview has only guest sign-in until you apply the
+  v2253 entry of the starter changelog. Ask your agent to do it.
+
 ## 2026-11-03
 
 - **v2251: Free during the beta.** Samebase no longer offers Pro to new organizations. A personal
