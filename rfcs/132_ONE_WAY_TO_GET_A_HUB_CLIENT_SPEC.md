@@ -6,108 +6,134 @@
 - Owner: Nicu Chiciuc
 - Created: 2026-11-04
 - Base: `origin/main` at v2263 (RFC 129, 130, and 131 shipped).
+- Rewritten on 2026-11-04 after a Codex review of the first version, which moved the team's apps
+  onto the strangers' path. Every serious finding came from that move, so this version keeps each
+  app on the proof it has and makes everything after the proof the same.
 
 ## Summary
 
-Today the identity hub hands out clients in three ways, each with its own rules: third-party apps
-ask with GitHub's token (`Convex.SharedHubClient`), the team's apps run an internal function with
-the team's Convex login (`Convex.HubClient`), and laptops do the same through
-`alchemy-convex hub-client`. Each new question ("how do strangers get Google sign-in on localhost?",
-"why does the admin page have two tables?") needs a new answer.
+The identity hub creates clients in two places today with different rules: the team's apps run the
+internal function `registerClient` with the team's Convex login, and strangers' apps call
+`POST /hub-clients` with GitHub's token. Only the second records a registration, returns a renewal
+token, counts limits, and checks blocks. Strangers have no way to get a client on their laptop.
 
-This RFC makes one way for every client:
+After this RFC there is one create step, and the ways of proving who you are feed into it:
 
-> Every client comes from `POST https://auth.samebase.com/hub-clients`, and renews and deletes
-> itself with its own registration token. Only the proof differs, and the proof decides the kind of
-> client.
+> A proof says who is asking and for which repository or app. The create step decides everything
+> else, the same way for every client.
 
-| Where the request comes from   | Proof                                 | Client      | Return address proven by                  |
-| ------------------------------ | ------------------------------------- | ----------- | ----------------------------------------- |
-| GitHub Actions, a push to main | GitHub's OIDC token                   | production  | `/samebase-verification.json` on its host |
-| GitHub Actions, a pull request | GitHub's OIDC token                   | preview     | `/samebase-verification.json` on its host |
-| A laptop                       | a one-time approval from samebase.com | development | being a loopback address                  |
+| Proof                   | Used by                               | Clients it can create              | Audience |
+| ----------------------- | ------------------------------------- | ---------------------------------- | -------- |
+| The team's Convex login | the team's apps, in CI and on laptops | production, preview, development   | team     |
+| GitHub's OIDC token     | strangers' apps in GitHub Actions     | production, preview                | public   |
+| A samebase.com approval | strangers' apps on a laptop           | development, on a loopback address | public   |
 
-Everything else is the same for every client, whoever owns the app:
+The create step, for every proof:
 
-- **What it can sign in with** comes from the GitHub owner id that the proof carries. The team's
-  owners (the `nicu-chiciuc` account and the `samebase` organization) get the "Samebase" Google
-  client and GitHub sign-in. Every other owner gets only "Samebase Apps". A request cannot choose.
-- **Provider logins** (the Convex, Cloudflare, and GitHub API logins that samebase.com saves) are a
-  second purpose of a client, allowed only for the apps on a short list in the hub's code: today
-  samebase.com.
-- **Which app it belongs to** comes from the repository id and the app name. A new app gets
-  `gh-<repository id>-<hash>`. The team's four existing apps are bound once to the app ids they have
-  today, so no user id changes.
-- **How long it lives:** production never expires; preview and development clients expire 14 days
-  after their last deploy, dev start, sign-in, or provider login (RFC 131).
-- **What the hub records:** one registration row per client: proof, repository, owner, who asked,
-  app, purpose, return address. The admin page shows one table.
-- **Blocks** by repository or owner apply to every client.
+1. Checks blocks for the repository and owner, when the proof names them, and the limits of RFC 130
+   for public proofs.
+2. Picks the app: the app id the team's stack names for a team proof, `gh-<repository id>-<hash>`
+   for a public proof. App ids, salts, and first-party status of existing apps never change.
+3. Picks the sign-in methods from the catalog below.
+4. Creates the client with the lifetime of RFC 131: production never expires; preview and
+   development clients expire 14 days after their last deploy, dev start, sign-in, or provider
+   login.
+5. Records one registration row: the proof, who asked, the repository or app, the purpose, and the
+   return address.
 
-## The laptop approval
+The admin page shows one table: every client with its registration row.
 
-Local Google sign-in needs a Samebase account, because samebase.com is what knows who a person is
-and which repositories they work on. It follows the native-app pattern of OAuth (RFC 8252, a
-loopback redirect with a one-time code and PKCE), so no secret passes through samebase.com or the
+## Sign-in methods
+
+The hub keeps a short catalog. Each method has a team version and, when one exists, a public
+version:
+
+| Method   | Team version                 | Public version                    |
+| -------- | ---------------------------- | --------------------------------- |
+| `google` | the "Samebase" Google client | the "Samebase Apps" Google client |
+| `github` | the team's GitHub OAuth App  | none yet                          |
+
+- An app asks by plain name, `signInWith: ["google", "github"]`, in its Alchemy stack; the default
+  is `["google"]`. The audience of the proof picks the version. A method without a public version is
+  refused with a clear message to a public proof.
+- The broker stores the methods on the app as a list (today a public app holds one connector). A
+  sign-in through any other connector is refused. An app with one method goes straight to it; an app
+  with several shows the broker's chooser.
+- Adding a method to an app adds it; removing one stops new sign-ins through it. Each method gives a
+  person a separate account in the app, because the hub never links accounts by email.
+- The team's apps keep every team connector, as today.
+- Adding a public GitHub later is one new OAuth App and one catalog line.
+
+## Provider logins
+
+The saved Convex, Cloudflare, and GitHub API logins of samebase.com are a second purpose of a
+client. Only a team proof can ask for it, and only for the apps on a list in the hub's code, today
+`samebase-ahbfh`. The purpose is stored on each client, and the broker checks it, and the blocks and
+suspensions, at authorization, code exchange, and refresh. Today a refresh checks neither blocks nor
+suspensions; this fixes that.
+
+## The laptop approval for strangers
+
+Local Google sign-in for a stranger's app needs a Samebase account, because samebase.com knows who
+the person is and can check GitHub for their access. It follows the native-app pattern of OAuth (RFC
+8252, a loopback redirect, and PKCE with S256), so no secret passes through samebase.com or the
 browser:
 
 1. `pnpm run dev` finds no working development client. `alchemy-convex hub-client` opens a listener
-   on `127.0.0.1` and opens the browser at a samebase.com page, with the repository, the app, the
-   local callback address, and a PKCE challenge.
-2. samebase.com shows, to a signed-in member of the repository's organization: "Create a development
-   client for owner/name on http://127.0.0.1:PORT?"
-3. On Create, samebase.com asks the hub for a one-time approval code, with a key that can do nothing
-   else (`HUB_DEV_APPROVAL_KEY`). The hub binds the code to the repository, owner, app, loopback
-   callback, challenge, and approver, for five minutes.
-4. samebase.com sends the browser to the listener with the code.
-5. The command sends the code and the PKCE verifier to `POST /hub-clients`. The hub creates the
-   development client and answers with its credentials and registration token. The command writes
-   the three variables to the local backend and keeps the token in a gitignored file.
-6. Each later dev start renews the client with that token. A client that is gone starts at step 1.
+   on `127.0.0.1` and opens a samebase.com page with: the repository, the app, the client's callback
+   on the local backend, and a PKCE challenge. The listener's address is a second, separate callback
+   that only receives the approval.
+2. samebase.com asks GitHub, with the signed-in person's GitHub authorization, whether they can push
+   to the repository, and resolves the repository's numeric id and owner id itself. The repository
+   need not be connected to Samebase.
+3. On Create, samebase.com asks the hub for a one-time code with `HUB_DEV_APPROVAL_KEY`. The code is
+   bound to the repository, owner, app, both callbacks, the challenge, and the approver, for five
+   minutes, and is used once.
+4. samebase.com sends the browser to the listener with the code. The command sends the code and the
+   PKCE verifier to `POST /hub-clients`, which creates the development client in the same
+   transaction that uses up the code.
+5. The command writes the three variables to the local backend and keeps the renewal token in a
+   gitignored file. Each later dev start renews with it; a client that is gone starts again at
+   step 1.
 
-The approval key can only create development clients on loopback addresses. A leaked key lets
-someone sign themselves in on their own laptop, nothing more.
+The approval key can only create public development clients on loopback addresses, with public
+sign-in methods. It can never create a client of a team app or with a team connector. A leaked key
+lets someone make localhost clients for any repository's public namespace, which signs in only
+people who use that laptop.
 
-## Moving the team's apps
+## What does not change
 
-The team's four apps (samebase.com, Bristol, ailegis, trailscout) move once:
+- The team's apps keep registering with the team login, the same app ids, salts, connectors, and
+  first-party claims. Their users keep their ids.
+- Strangers' production and preview clients keep the GitHub token and the verification file.
+- The hub's internal admin functions stay for emergencies, run by hand.
 
-1. The hub stores a binding for each: repository id and app name to its current app id, and the salt
-   mode it uses today (a client without a repository record uses the hub's salt directly, RFC 130's
-   apps use a per-app salt). The binding never changes, so their users keep their ids.
-2. Each app's build writes `/samebase-verification.json`, and its workflow gets `id-token: write`.
-3. Each stack switches from `Convex.HubClient` to the one resource. On its first deploy it adopts
-   its existing client with the client's secret and fresh proof, and gets a registration token for
-   the same client id. samebase.com's provider-login client keeps its id, so its saved logins stay.
-4. Worktrees switch to the laptop approval.
-5. `Convex.HubClient`, the Convex-login path of `alchemy-convex hub-client`, and the hub-key minting
-   from app CI are removed. The hub's internal `registerClient` stays for emergencies only, run by
-   hand.
+## Existing clients
 
-## What goes away
-
-- Two Alchemy resources become one.
-- Three ways to register become one endpoint with three proofs.
-- App CI no longer creates keys that can run any internal function of the hub.
-- The admin page's two tables become one.
+A one-time function gives every existing client without a registration row one, with the proof "team
+login, before records", its app, its purpose (a client whose return path is `/oauth/hub/callback` is
+a provider-login client), and its return address.
 
 ## Order of work
 
-1. Hub: bindings, owner-based connectors, the provider-login list, adoption of an existing client,
-   and the laptop approval endpoints. The resource and the CLI learn adoption and approval. No app
-   changes yet.
-2. samebase.com: the approval page and the one-table admin page.
-3. The four apps move, one at a time, samebase.com last.
-4. The old paths are removed.
+1. The create step in the hub: the team proof calls it in place of `registerClient`, with the same
+   answer; registration rows for team clients; the purpose on each client and the refresh fix; the
+   backfill; the one-table admin page.
+2. The sign-in method catalog: the list of methods on an app, `signInWith` on
+   `Convex.SharedHubClient` and `Convex.HubClient`.
+3. The laptop approval: the hub's code endpoint, the samebase.com page, and the command.
 
-## Decisions to confirm
+Each step ships alone and changes nothing for a signed-in user.
 
-1. Local Google sign-in needs a Samebase account.
-2. The team's owners are the `nicu-chiciuc` account and the `samebase` organization.
-3. Provider logins only for samebase.com.
-4. Forks get no GitHub token for pull requests, so a fork's preview never gets the team's clients.
+## Decisions
+
+- Three proofs and one create step; the team's apps keep their proof.
+- Local Google sign-in for strangers needs a Samebase account and push access to the repository.
+- Provider logins only for samebase.com.
+- Sign-in methods by plain name; the proof's audience picks the version; Google is the default.
 
 ## Not in this RFC
 
+- A public GitHub OAuth App and other providers.
 - The page before Google that names the repository and the return site.
 - A separate Convex team for the hub.
