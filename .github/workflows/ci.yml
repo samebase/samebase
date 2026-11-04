@@ -359,7 +359,7 @@ jobs:
     needs: supply_chain
     # Keep heavy browser coverage off PRs for now so branch validation stays
     # within the org Actions budget. Main pushes still exercise the full matrix.
-    if: ${{ github.event_name == 'push' }}
+    if: ${{ github.event_name == 'push' || github.event_name == 'pull_request' }}
 
     strategy:
       fail-fast: false
