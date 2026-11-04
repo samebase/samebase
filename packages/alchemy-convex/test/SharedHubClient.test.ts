@@ -493,25 +493,25 @@ describe("Convex.SharedHubClient", () => {
     (stack) =>
       Effect.gen(function* () {
         // The order of the template: the site is live before Samebase reads its file, so the
-        // client takes the site's URL, which is unresolved in the plan of the first deploy, and a
-        // row with no source writes the variables. Each later plan has an update that reads the
-        // new client.
+        // client takes the URL of the row that pushes, which is unresolved in the plan of the first
+        // deploy, and a second row with no source writes the variables. Each later plan has an
+        // update that reads the new client.
         const convex = new FakeConvex();
         const fake = new FakeServices(convex.fetch).install();
         const projectId = convex.addProject({ name: "scout", teamId: TEAM });
         const app = Effect.gen(function* () {
           const project = { projectId };
-          const site = yield* Convex.Deployment("Site", {
+          const deployment = yield* Convex.Deployment("Deployment", {
             project,
             type: "preview",
             name: "pr-1",
           });
           const hub = yield* Convex.SharedHubClient("Client", {
             app: "scout",
-            redirectUri: Output.interpolate`${site.siteUrl}/auth/hub/callback`,
+            redirectUri: Output.interpolate`${deployment.siteUrl}/auth/hub/callback`,
             deploymentType: "preview",
           });
-          const variables = yield* Convex.Deployment("Variables", {
+          const site = yield* Convex.Deployment("Site", {
             project,
             type: "preview",
             name: "pr-1",
@@ -521,7 +521,7 @@ describe("Convex.SharedHubClient", () => {
               HUB_CLIENT_SECRET: hub.clientSecret,
             },
           }).pipe(adopt(true));
-          return { name: variables.name, status: hub.status };
+          return { name: site.name, status: hub.status };
         });
 
         const { name } = yield* stack.deploy(app);

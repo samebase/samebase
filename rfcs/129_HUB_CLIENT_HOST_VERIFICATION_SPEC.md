@@ -7,8 +7,9 @@
 - Created: 2026-11-04
 - Base: `origin/main` at `059ac58da` (v2251)
 - Reviewed on 2026-11-04 by Codex (`gpt-6-astra`) against the code. Its findings are folded in: the
-  recorded claims, the fetch rules, the refusal reasons in deploy logs, the first-upgrade window,
-  and two pull requests instead of three.
+  recorded claims, the fetch rules, the refusal reasons in deploy logs, and two pull requests
+  instead of three. Its finding of a sign-in gap on the first upgraded run led to the stack order
+  under The template, which removes no variable.
 - Decisions taken on 2026-11-04 are listed under Decisions. They are settled; do not reopen them in
   the implementation.
 
@@ -204,32 +205,26 @@ Props become `{ app, redirectUri, deploymentType, softwareVersion? }`. `deployme
 
 ### The template
 
-1. The build writes the file. A script `scripts/write-samebase-verification.ts` runs after
-   `vp run build` in the `deploy` script and writes `dist/client/samebase-verification.json` with
+1. The build writes the file. A script `scripts/write-samebase-verification.ts` runs at the end of
+   the `deploy` script's build and writes `dist/client/samebase-verification.json` with
    `{ "repository": "<GITHUB_REPOSITORY_ID>" }`. Without `GITHUB_REPOSITORY_ID` (a laptop,
    `deploy:dev`) it writes nothing and prints one line. The file is never in git. A fork gets its
    own id with no change to any file.
-2. The stack order in `alchemy.run.ts` changes, because the site must be live before samebase.com
-   can read the file:
-   - "Deployment": unchanged, creates the deployment with no source. It stays, because removing a
-     row from the stack deletes it with its removal policy, and a preview "Deployment" row has
-     `destroy`, which would delete a preview that "Site" still uses. It can go in a later cleanup
-     once no fork has an open pull request on the old stack.
-   - "Site": pushes the source with the `env` it has today minus the three `HUB_` variables.
-   - "HubClient": `redirectUri: Output.interpolate\`${site.siteUrl}/auth/hub/callback\``, after
-     "Site". An Alchemy output cannot be put in a plain template literal.
-   - "Variables": a fourth `Convex.Deployment` row on the same deployment with `adopt(true)`, no
-     source, and `env` holding only the three `HUB_` variables. A `Convex.Deployment` with `env` and
-     no source sets the variables and pushes nothing.
+2. The stack in `alchemy.run.ts` keeps its three rows and swaps what two of them do, because the
+   site must be live before samebase.com can read the file, and so the push cannot take the client's
+   variables in `env`:
+   - "Deployment" pushes: it gets `source`. Today it creates the deployment with no source.
+   - "HubClient": `redirectUri: Output.interpolate\`${deployment.siteUrl}/auth/hub/callback\``. An
+     Alchemy output cannot be put in a plain template literal.
+   - "Site" writes the three `HUB_` variables and pushes nothing: it keeps `env` and loses `source`.
+     A `Convex.Deployment` with `env` and no source sets the variables only.
 
-   On the first run of an upgraded stack, "Site" stops managing the `HUB_` names and removes them
-   before its push command starts. `ensure-convex-auth.ts` sets the off values during the push, and
-   "Variables" writes the real values after the push, in the same run. The deploy script runs
-   `ensure-convex-auth.ts` before `vp run build`, not after it as today, so the deployment is
-   without the three variables for seconds, not for the whole build. The Google button is then
-   hidden until "Variables" finishes, once, on that run. A run that fails between the push and
-   "Variables" leaves guest sign-in until the next run. Later runs change nothing. Convex functions
-   read variables at call time, so no push is needed after "Variables". The stack test in
+   "Site" keeps the `HUB_` names it already manages, so the first run of an upgraded stack removes
+   no variable and the Google button never goes away. "Deployment" is already in the stack's state,
+   so its first push needs no `--adopt`. The client depends on "Deployment" through the site URL,
+   and "Site" on the client, so the rows run in this order. Convex functions read variables at call
+   time, so no push is needed after "Site". A run that fails between the push and "Site" keeps the
+   earlier client's variables, which still work until the next run. The stack test in
    `packages/alchemy-convex/test/SharedHubClient.test.ts` runs this order.
 
 3. README, Google sign-in section: the deploy writes `samebase-verification.json` into the site and
@@ -319,7 +314,7 @@ because the timeout is real time.
 
 Unit tests in `SharedHubClient.test.ts`: the request body, renewal when `redirectUri` is unchanged,
 a new client when it changes, the 400 line, a known 403 reason in the log, an unknown 403 reason
-kept out of the log, and the template's stack order (site, client, variables).
+kept out of the log, and the template's stack order (push, client, variables).
 
 Template: `write-samebase-verification.test.ts` for the file content and for the laptop case.
 
