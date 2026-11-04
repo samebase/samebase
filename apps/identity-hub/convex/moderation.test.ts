@@ -353,6 +353,26 @@ describe("the blocks", () => {
     expect(await readOwnRecord(t, client)).toBe(200);
   });
 
+  it("refuses a block while the shared registration key is set, and stores nothing", async () => {
+    const t = makeConvexTest();
+    vi.stubEnv("REGISTRATION_ACCESS_TOKEN", "registration-token");
+
+    const response = await moderationRequest(t, "/moderation/blocks", {
+      method: "POST",
+      body: {
+        action: "block",
+        kind: "owner",
+        githubId: OWNER_ID,
+        reason: "Phishing page",
+        adminEmail: "nicu@samebase.com",
+      },
+    });
+
+    expect(response.status).toBe(409);
+    expect(await response.json()).toEqual({ error: "registration_key_still_set" });
+    expect(await t.run(async (ctx) => await ctx.db.query("blocks").collect())).toEqual([]);
+  });
+
   it.each([
     ["no reason", { reason: " " }],
     ["no admin", { adminEmail: "" }],

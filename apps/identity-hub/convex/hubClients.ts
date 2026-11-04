@@ -324,19 +324,20 @@ export const admitRequest = internalMutation({
     const now = Date.now();
     const repository = await readRateLimit(ctx, "repository", args.githubRepositoryDatabaseId);
     const owner = await readRateLimit(ctx, "owner", args.githubOwnerId);
-    // An owner that asked in this window was counted then, if it was new.
+    const newOwners = await ctx.db
+      .query("rateLimits")
+      .withIndex("by_scope_and_github_id", (q) => q.eq("scope", "new_owners").eq("githubId", ""))
+      .unique();
+    // The new-owners window that counts a request now: the running one, or one that starts now.
+    const newOwnersWindow =
+      newOwners !== null && countIn(newOwners, now) > 0 ? newOwners.startedAt : now;
+    // An owner with no registration is counted once in each new-owners window.
     const newOwner =
-      countIn(owner, now) === 0 &&
+      owner?.newOwnersWindowStartedAt !== newOwnersWindow &&
       (await ctx.db
         .query("registrations")
         .withIndex("by_github_owner_id", (q) => q.eq("githubOwnerId", args.githubOwnerId))
         .first()) === null;
-    const newOwners = newOwner
-      ? await ctx.db
-          .query("rateLimits")
-          .withIndex("by_scope_and_github_id", (q) => q.eq("scope", "new_owners"))
-          .unique()
-      : null;
 
     if (countIn(repository, now) >= RATE_LIMITS.repository) {
       return { status: "rate_limited" as const, window: "repository" as const };
@@ -351,17 +352,45 @@ export const admitRequest = internalMutation({
     await countRequest(
       ctx,
       repository,
-      { scope: "repository", githubId: args.githubRepositoryDatabaseId, startedAt: now, count: 1 },
+      {
+        scope: "repository",
+        githubId: args.githubRepositoryDatabaseId,
+        startedAt: now,
+        count: 1,
+        newOwnersWindowStartedAt: null,
+      },
       now,
     );
-    await countRequest(
-      ctx,
-      owner,
-      { scope: "owner", githubId: args.githubOwnerId, startedAt: now, count: 1 },
-      now,
-    );
+    const newOwnersWindowStartedAt = newOwner
+      ? newOwnersWindow
+      : (owner?.newOwnersWindowStartedAt ?? null);
+    if (owner === null) {
+      await ctx.db.insert("rateLimits", {
+        scope: "owner",
+        githubId: args.githubOwnerId,
+        startedAt: now,
+        count: 1,
+        newOwnersWindowStartedAt,
+      });
+    } else {
+      await ctx.db.patch("rateLimits", owner._id, {
+        ...(countIn(owner, now) === 0 ? { startedAt: now, count: 1 } : { count: owner.count + 1 }),
+        newOwnersWindowStartedAt,
+      });
+    }
     if (newOwner) {
-      await countRequest(ctx, newOwners, { scope: "new_owners", startedAt: now, count: 1 }, now);
+      await countRequest(
+        ctx,
+        newOwners,
+        {
+          scope: "new_owners",
+          githubId: "",
+          startedAt: now,
+          count: 1,
+          newOwnersWindowStartedAt: null,
+        },
+        now,
+      );
     }
     return { status: "admitted" as const };
   },

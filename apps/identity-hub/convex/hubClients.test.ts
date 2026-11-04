@@ -451,19 +451,29 @@ describe("POST /hub-clients", () => {
   describe("the limits", () => {
     async function seedWindow(
       t: ConvexTest,
-      row:
-        | { scope: "repository" | "owner"; githubId: string; count: number }
-        | { scope: "new_owners"; count: number },
+      row: {
+        scope: "repository" | "owner" | "new_owners";
+        githubId: string;
+        count: number;
+        newOwnersWindowStartedAt: number | null;
+      },
+      startedAt = Date.now(),
     ) {
       await t.run(async (ctx) => {
-        await ctx.db.insert("rateLimits", { ...row, startedAt: Date.now() });
+        await ctx.db.insert("rateLimits", { ...row, startedAt });
       });
     }
 
     it.each([
-      ["repository", { scope: "repository", githubId: REPOSITORY_ID, count: 30 }],
-      ["owner", { scope: "owner", githubId: OWNER_ID, count: 100 }],
-      ["new_owners", { scope: "new_owners", count: 50 }],
+      [
+        "repository",
+        { scope: "repository", githubId: REPOSITORY_ID, count: 30, newOwnersWindowStartedAt: null },
+      ],
+      ["owner", { scope: "owner", githubId: OWNER_ID, count: 100, newOwnersWindowStartedAt: null }],
+      [
+        "new_owners",
+        { scope: "new_owners", githubId: "", count: 50, newOwnersWindowStartedAt: null },
+      ],
     ] as const)("limits the window %s, and fetches nothing", async (window, row) => {
       const t = makeConvexTest();
       await seedWindow(t, row);
@@ -493,6 +503,34 @@ describe("POST /hub-clients", () => {
       );
     });
 
+    it("counts a new owner again in a later new-owners window, while its own window runs", async () => {
+      const t = makeConvexTest();
+      const now = Date.now();
+      // Counted as new in a window that has ended; its own window is still running.
+      await seedWindow(
+        t,
+        {
+          scope: "owner",
+          githubId: OWNER_ID,
+          count: 1,
+          newOwnersWindowStartedAt: now - 2 * 60 * 60 * 1_000,
+        },
+        now - 10 * 60 * 1_000,
+      );
+      await seedWindow(
+        t,
+        { scope: "new_owners", githubId: "", count: 50, newOwnersWindowStartedAt: null },
+        now - 5 * 60 * 1_000,
+      );
+      const fileRequests = stubProviders();
+
+      const response = await postHubClient(t, await signToken());
+
+      expect(response.status).toBe(429);
+      expect(await response.json()).toEqual({ error: "rate_limited", window: "new_owners" });
+      expect(fileRequests).toEqual([]);
+    });
+
     it("does not count an owner with a registration as new, and still limits the others", async () => {
       const t = makeConvexTest();
       await createClient(t);
@@ -519,7 +557,12 @@ describe("POST /hub-clients", () => {
     it("starts a new window after an hour", async () => {
       vi.useFakeTimers({ toFake: ["Date"] });
       const t = makeConvexTest();
-      await seedWindow(t, { scope: "repository", githubId: REPOSITORY_ID, count: 30 });
+      await seedWindow(t, {
+        scope: "repository",
+        githubId: REPOSITORY_ID,
+        count: 30,
+        newOwnersWindowStartedAt: null,
+      });
       const token = await signToken({}, { expiresInSeconds: 7_200 });
       vi.setSystemTime(Date.now() + 60 * 60 * 1_000 + 1);
       stubProviders();

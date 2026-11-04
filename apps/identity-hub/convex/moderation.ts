@@ -320,8 +320,16 @@ function readBlockChange(body: unknown): BlockChange | null {
     : null;
 }
 
-/** Blocks or unblocks one repository or owner. Answers `{ changed }`. */
+/**
+Blocks or unblocks one repository or owner. Answers `{ changed }`. Refused while the hub still takes
+the shared registration key: samebase.com's old endpoint then registers clients with no owner, which
+an owner block cannot reach, and its tenant switch can undo a repository block. Removing
+`REGISTRATION_ACCESS_TOKEN` closes both, so blocks start working then.
+*/
 export const changeBlock = moderationEndpoint(async (ctx, request) => {
+  if (env.REGISTRATION_ACCESS_TOKEN) {
+    return reply(409, { error: "registration_key_still_set" });
+  }
   const change = readBlockChange(await request.json().catch(() => null));
   if (change === null) {
     return reply(400, { error: "invalid_request" });

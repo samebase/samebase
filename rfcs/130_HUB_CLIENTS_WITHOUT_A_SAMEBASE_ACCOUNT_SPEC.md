@@ -126,14 +126,19 @@ Two pull requests in the monorepo, so nothing is lost between them:
    import of samebase.com's `hubClientRegistrations` rows with their original times. samebase.com
    gets the admin page. `@samebase/alchemy-convex` points to the hub. samebase.com's old endpoint
    still works, so old starter versions keep registering.
-2. **Between the PRs.** Set `HUB_MODERATION_KEY` on both deployments. Run the import and compare the
-   counts. Check on the hub's runtime that a redirecting host and a private-address host are
-   refused. Update `samebase/base` to the new package. Wait until samebase.com has no tenant switch
-   workflow still retrying (they retry for up to about 34 hours).
-3. **PR 2, the old path removed.** samebase.com loses its endpoint, tables, tenant switch, and
-   registration key; the hub switches to the management-only mode; the terms, privacy, landing page,
-   and docs change. Tenants that samebase.com disconnected because they left Samebase are switched
-   back on, unless blocked; manual suspensions stay.
+2. **Between the PRs.** Set `HUB_MODERATION_KEY` on both deployments. The admin page then shows
+   registrations, but the hub refuses blocks while it still takes the shared registration key
+   (`REGISTRATION_ACCESS_TOKEN`): until then samebase.com's old endpoint registers clients with no
+   owner, and its tenant switch could undo a repository block. Check on the hub's runtime that a
+   redirecting host and a private-address host are refused. Update `samebase/base` to the new
+   package. Wait until samebase.com has no tenant switch workflow still retrying (they retry for up
+   to about 34 hours).
+3. **PR 2, the old path removed.** First remove `REGISTRATION_ACCESS_TOKEN` from the hub, which
+   closes the old path and turns blocks on; then run the import of samebase.com's registration
+   records, which is now final, and compare the counts; then merge. samebase.com loses its endpoint,
+   tables, tenant switch, and registration key; the hub switches to the management-only mode; the
+   terms, privacy, landing page, and docs change. Tenants that samebase.com disconnected because
+   they left Samebase are switched back on, unless blocked; manual suspensions stay.
 
 ## Validation
 

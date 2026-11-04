@@ -86,6 +86,11 @@ async function callHub<T>(
     ...(request.body === undefined ? {} : { body: JSON.stringify(request.body) }),
     signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
   });
+  if (response.status === 409) {
+    throw new Error(
+      "Blocks start working once the identity hub stops taking the shared registration key (RFC 130, PR 2).",
+    );
+  }
   const body: unknown = response.ok ? await response.json() : null;
   if (!validate(request.validator, body)) {
     throw new Error(`The identity hub answered ${response.status} without a usable answer.`);

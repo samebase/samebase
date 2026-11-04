@@ -1,7 +1,7 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 
-const { literal, number, object, string, union } = v;
+const { literal, number, string, union } = v;
 
 /** What a block stops: one GitHub repository, or every repository of one GitHub owner. */
 export const vBlockKind = union(literal("repository"), literal("owner"));
@@ -80,15 +80,16 @@ export default defineSchema({
    * per repository, one per owner, and one for the owners that had no registration yet. Only admitted
    * requests count.
    */
-  rateLimits: defineTable(
-    union(
-      object({
-        scope: union(literal("repository"), literal("owner")),
-        githubId: string(),
-        startedAt: number(),
-        count: number(),
-      }),
-      object({ scope: literal("new_owners"), startedAt: number(), count: number() }),
-    ),
-  ).index("by_scope_and_github_id", ["scope", "githubId"]),
+  rateLimits: defineTable({
+    scope: union(literal("repository"), literal("owner"), literal("new_owners")),
+    /** The repository or owner id. Empty for `new_owners`, the one window of all new owners. */
+    githubId: string(),
+    startedAt: number(),
+    count: number(),
+    /**
+     * For an owner: the start of the new-owners window that counted it, so an owner is counted once
+     * in each such window whatever its own window does. Null otherwise.
+     */
+    newOwnersWindowStartedAt: union(number(), v.null()),
+  }).index("by_scope_and_github_id", ["scope", "githubId"]),
 });
