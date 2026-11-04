@@ -24,7 +24,7 @@ jobs:
   # audit runs first when a dependency changes and costs a pull request nothing when none does.
   changes:
     name: changes
-    runs-on: blacksmith-2vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
       pull-requests: read
@@ -113,7 +113,7 @@ jobs:
   # dependency is already on main, and the nightly run reports it.
   supply_chain:
     name: supply-chain
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     timeout-minutes: 10
     needs: changes
     if: ${{ needs.changes.outputs.dependencies == 'true' }}
@@ -145,7 +145,7 @@ jobs:
 
   starter_template_supply_chain:
     name: starter template supply-chain
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     timeout-minutes: 10
     needs: changes
     if: ${{ needs.changes.outputs.templates == 'true' }}
@@ -189,7 +189,7 @@ jobs:
 
   starter_template_check:
     name: starter template check
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     timeout-minutes: 15
     needs: [changes, starter_template_supply_chain]
     if: ${{ needs.changes.outputs.templates == 'true' }}
@@ -229,7 +229,7 @@ jobs:
 
   checks:
     name: checks
-    runs-on: blacksmith-8vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     timeout-minutes: 20
     needs: [changes, supply_chain]
     if:
@@ -279,7 +279,7 @@ jobs:
 
   unit_tests:
     name: unit tests
-    runs-on: blacksmith-8vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     timeout-minutes: 20
     needs: [changes, supply_chain]
     if:
@@ -314,7 +314,7 @@ jobs:
 
   app_build:
     name: app build
-    runs-on: blacksmith-8vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     timeout-minutes: 20
     needs: [changes, supply_chain]
     if:
@@ -354,7 +354,7 @@ jobs:
 
   playwright:
     name: playwright (${{ matrix.shard }})
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     timeout-minutes: 30
     needs: supply_chain
     # Keep heavy browser coverage off PRs for now so branch validation stays
@@ -432,7 +432,7 @@ jobs:
   # or the dependencies that choose their executables change.
   windows_launcher:
     name: windows launcher
-    runs-on: blacksmith-4vcpu-windows-2025
+    runs-on: windows-latest
     timeout-minutes: 15
     needs: [changes, supply_chain, starter_template_supply_chain]
     if:
@@ -496,7 +496,7 @@ jobs:
   # Runs nightly, and on a pull request that changes startup code. Linux fails with the same app build
   # errors, so an ordinary app change does not need it.
   windows-smoke:
-    runs-on: blacksmith-4vcpu-windows-2025
+    runs-on: windows-latest
     timeout-minutes: 20
     needs: [changes, supply_chain, starter_template_supply_chain]
     if:
@@ -555,7 +555,7 @@ jobs:
 
   ci:
     name: ci (24.x)
-    runs-on: blacksmith-2vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     needs:
       [
         changes,
