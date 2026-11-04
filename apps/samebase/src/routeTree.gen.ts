@@ -46,6 +46,7 @@ import { Route as logoSvgRouteImport } from "./routes/logo-svg";
 import { Route as logoTransitionLabRouteImport } from "./routes/logo-transition-lab";
 import { Route as adminAccountDeletionsRouteImport } from "./routes/admin-account-deletions";
 import { Route as adminEmailsRouteImport } from "./routes/admin-emails";
+import { Route as adminHubClientsRouteImport } from "./routes/admin-hub-clients";
 import { Route as adminUsersRouteImport } from "./routes/admin-users";
 import { Route as oauthProviderCompleteRouteImport } from "./routes/oauth-provider-complete";
 import { Route as orgRouteImport } from "./routes/org";
@@ -255,6 +256,11 @@ const adminEmailsRoute = adminEmailsRouteImport.update({
   path: "/admin/emails",
   getParentRoute: () => authedRoute,
 } as any);
+const adminHubClientsRoute = adminHubClientsRouteImport.update({
+  id: "/admin/hub-clients",
+  path: "/admin/hub-clients",
+  getParentRoute: () => authedRoute,
+} as any);
 const adminUsersRoute = adminUsersRouteImport.update({
   id: "/admin/users",
   path: "/admin/users",
@@ -413,6 +419,7 @@ export interface FileRoutesByFullPath {
   "/repo/": typeof repositoryDashboardRootRoute;
   "/admin/account-deletions": typeof adminAccountDeletionsRoute;
   "/admin/emails": typeof adminEmailsRoute;
+  "/admin/hub-clients": typeof adminHubClientsRoute;
   "/admin/users": typeof adminUsersRoute;
   "/oauth/provider-complete": typeof oauthProviderCompleteRoute;
   "/org/$owner": typeof orgRoute;
@@ -474,6 +481,7 @@ export interface FileRoutesByTo {
   "/repo": typeof repositoryDashboardRootRoute;
   "/admin/account-deletions": typeof adminAccountDeletionsRoute;
   "/admin/emails": typeof adminEmailsRoute;
+  "/admin/hub-clients": typeof adminHubClientsRoute;
   "/admin/users": typeof adminUsersRoute;
   "/oauth/provider-complete": typeof oauthProviderCompleteRoute;
   "/org/$owner": typeof orgRoute;
@@ -537,6 +545,7 @@ export interface FileRoutesById {
   "/_authed/repo/": typeof repositoryDashboardRootRoute;
   "/_authed/admin/account-deletions": typeof adminAccountDeletionsRoute;
   "/_authed/admin/emails": typeof adminEmailsRoute;
+  "/_authed/admin/hub-clients": typeof adminHubClientsRoute;
   "/_authed/admin/users": typeof adminUsersRoute;
   "/_authed/oauth/provider-complete": typeof oauthProviderCompleteRoute;
   "/_authed/org/$owner": typeof orgRoute;
@@ -600,6 +609,7 @@ export interface FileRouteTypes {
     | "/repo/"
     | "/admin/account-deletions"
     | "/admin/emails"
+    | "/admin/hub-clients"
     | "/admin/users"
     | "/oauth/provider-complete"
     | "/org/$owner"
@@ -661,6 +671,7 @@ export interface FileRouteTypes {
     | "/repo"
     | "/admin/account-deletions"
     | "/admin/emails"
+    | "/admin/hub-clients"
     | "/admin/users"
     | "/oauth/provider-complete"
     | "/org/$owner"
@@ -723,6 +734,7 @@ export interface FileRouteTypes {
     | "/_authed/repo/"
     | "/_authed/admin/account-deletions"
     | "/_authed/admin/emails"
+    | "/_authed/admin/hub-clients"
     | "/_authed/admin/users"
     | "/_authed/oauth/provider-complete"
     | "/_authed/org/$owner"
@@ -1044,6 +1056,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof adminEmailsRouteImport;
       parentRoute: typeof authedRoute;
     };
+    "/_authed/admin/hub-clients": {
+      id: "/_authed/admin/hub-clients";
+      path: "/admin/hub-clients";
+      fullPath: "/admin/hub-clients";
+      preLoaderRoute: typeof adminHubClientsRouteImport;
+      parentRoute: typeof authedRoute;
+    };
     "/_authed/admin/users": {
       id: "/_authed/admin/users";
       path: "/admin/users";
@@ -1219,6 +1238,7 @@ interface authedRouteChildren {
   repositoryDashboardRootRoute: typeof repositoryDashboardRootRoute;
   adminAccountDeletionsRoute: typeof adminAccountDeletionsRoute;
   adminEmailsRoute: typeof adminEmailsRoute;
+  adminHubClientsRoute: typeof adminHubClientsRoute;
   adminUsersRoute: typeof adminUsersRoute;
   oauthProviderCompleteRoute: typeof oauthProviderCompleteRoute;
   orgRoute: typeof orgRoute;
@@ -1249,6 +1269,7 @@ const authedRouteChildren: authedRouteChildren = {
   repositoryDashboardRootRoute: repositoryDashboardRootRoute,
   adminAccountDeletionsRoute: adminAccountDeletionsRoute,
   adminEmailsRoute: adminEmailsRoute,
+  adminHubClientsRoute: adminHubClientsRoute,
   adminUsersRoute: adminUsersRoute,
   oauthProviderCompleteRoute: oauthProviderCompleteRoute,
   orgRoute: orgRoute,

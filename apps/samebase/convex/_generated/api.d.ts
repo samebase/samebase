@@ -71,6 +71,7 @@ import type * as githubUserAuthorizationModel from "../githubUserAuthorizationMo
 import type * as githubUserAuthorizations from "../githubUserAuthorizations.js";
 import type * as http from "../http.js";
 import type * as hubClients_model from "../hubClients/model.js";
+import type * as hubClients_moderation from "../hubClients/moderation.js";
 import type * as hubClients_registration from "../hubClients/registration.js";
 import type * as hubClients_tenantConnection from "../hubClients/tenantConnection.js";
 import type * as hubResourceOAuth from "../hubResourceOAuth.js";
@@ -260,6 +261,7 @@ declare const fullApi: ApiFromModules<{
   githubUserAuthorizations: typeof githubUserAuthorizations;
   http: typeof http;
   "hubClients/model": typeof hubClients_model;
+  "hubClients/moderation": typeof hubClients_moderation;
   "hubClients/registration": typeof hubClients_registration;
   "hubClients/tenantConnection": typeof hubClients_tenantConnection;
   hubResourceOAuth: typeof hubResourceOAuth;

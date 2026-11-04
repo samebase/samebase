@@ -277,13 +277,17 @@ export const importRegistrations = internalMutation({
 
 /** Registrations newest first, `REGISTRATION_PAGE_SIZE` at a time. `?cursor=` reads the next page. */
 export const listRegistrations = moderationEndpoint(async (ctx, request) => {
-  const cursor = new URL(request.url).searchParams.get("cursor");
-  return reply(
-    200,
-    await ctx.runQuery(internal.moderation.registrationPage, {
-      paginationOpts: { numItems: REGISTRATION_PAGE_SIZE, cursor },
-    }),
-  );
+  const result = await ctx.runQuery(internal.moderation.registrationPage, {
+    paginationOpts: {
+      numItems: REGISTRATION_PAGE_SIZE,
+      cursor: new URL(request.url).searchParams.get("cursor"),
+    },
+  });
+  return reply(200, {
+    page: result.page,
+    isDone: result.isDone,
+    continueCursor: result.continueCursor,
+  });
 });
 
 export const countRegistrations = moderationEndpoint(async (ctx) =>
