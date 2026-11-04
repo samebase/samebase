@@ -49,7 +49,8 @@ one by hand from the admin page.
 3. **`Convex.HubClient`.** Its `diff` always answers "update", as `Convex.SharedHubClient` does, so
    every deploy reaches `reconcile`. There it calls `renewClient` with `expires: true`; if the
    client is gone, it registers a new one with `expires: true`, and the new values reach the
-   deployment's variables in the same run. Its `delete` leaves production clients alone, as
+   deployment's variables in the same run. A hub that cannot answer keeps the saved client and only
+   warns, so a hub outage never stops a deploy. Its `delete` leaves production clients alone, as
    `Convex.SharedHubClient` does: a destroy can leave a production deployment running.
 4. **Development clients.** `registerDevelopmentClient` renews the client named by the existing
    variables, with `expires: true`. If the hub no longer has it, it registers a new one and
