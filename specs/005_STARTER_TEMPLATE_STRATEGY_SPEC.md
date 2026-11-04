@@ -2,16 +2,15 @@
 
 ## Document Control
 
-- Status: Accepted, amended 2026-08-31.
+- Status: Accepted, amended 2026-11-04.
 - Owner: Samebase backend/frontend
 - Date: 2026-02-13
 - Related specs:
 - Related files:
   - `apps/samebase/convex/repository/actions.ts`
   - `apps/samebase/convex/starterSeed.ts` (or replacement)
-  - `templates/base`
+  - [samebase/base](https://github.com/samebase/base)
   - `scripts/export-starter-manifest.ts`
-  - `scripts/publish-repository-exports.ts`
   - `apps/samebase/convex/starterSeedManifest.generated.ts`
 
 ## Summary
@@ -34,6 +33,11 @@ commit from a stored generated manifest.
 The 2026-08-31 amendment renames the maintained source to `templates/base`, the public repository to
 `samebase/base`, and the private package to `samebase-base`. Product actions and generated user
 repositories continue to use app language.
+
+The 2026-11-04 amendment makes `samebase/base` the maintained source again, so its pull requests
+deploy previews before merge. The monorepo no longer holds or exports the template. The generated
+manifest pins one `samebase/base` commit, and a maintainer moves the pin by hand. Samebase still
+seeds one commit from the stored manifest.
 
 ## Problem Statement
 
@@ -166,33 +170,28 @@ Operational cost:
   - exact commands run (Vite, Convex, Tailwind, shadcn setup),
   - regeneration guidance for future updates.
 
-## Current Decision (Amended 2026-08-31)
+## Current Decision (Amended 2026-11-04)
 
-- Use `templates/base` as the starter source of truth.
-- Keep `templates/base` outside the root pnpm workspace. It owns its own `package.json`,
-  `pnpm-workspace.yaml`, and `pnpm-lock.yaml`.
+- Use `samebase/base` as the starter source of truth. Change it with pull requests there.
 - Name the private root package `samebase-base`.
-- Publish the committed `templates/base` tree to `samebase/base` after required checks pass.
 - Keep the single-commit seeding behavior.
 - Store the generated manifest in the Samebase deployment bundle. Runtime app creation reads this
-  stored manifest and does not read `templates/base` or fetch `samebase/base`.
-- Stage template changes, refresh the generated manifest, and stage the manifest with:
+  stored manifest and does not fetch `samebase/base`.
+- Pin one `samebase/base` commit in the manifest. Pin the current `main` and regenerate the manifest
+  with:
 
 ```bash
-git add templates/base
-pnpm run template:export
+pnpm run template:export -- --update
 git add apps/samebase/convex/starterSeedManifest.generated.ts
 ```
 
 - Store source provenance in the manifest:
-  - `sourcePath`
-  - `publishedRepo`
+  - `sourceRepository`
+  - `sourceCommit`
   - `contentHash`
-- Derive the `samebase-base-<hash>` template version from `contentHash`. Do not store a source
-  commit because the monorepo commit and public export commit do not exist until after the manifest
-  is generated.
-- Require manifest freshness, standalone supply-chain checks, and a standalone build before the
-  public export can run.
+- Derive the `samebase-base-<hash>` template version from `contentHash`.
+- Require manifest freshness against the pinned commit. Run the standalone supply-chain checks, the
+  standalone build, and the Windows checks on the pinned commit when the pin changes and nightly.
 
 ## Public API / Behavior Changes
 
@@ -210,15 +209,12 @@ Behavioral contract for Iteration 1:
 
 ## Technical Contract for Iteration 1
 
-- Authoring source: `templates/base`.
-- Source of seeded content: committed generated manifest exported from `templates/base`.
+- Authoring source: `samebase/base`.
+- Source of seeded content: committed generated manifest of one pinned `samebase/base` commit.
 - Seeding outcome in target repository:
   - one commit containing full runnable starter app content.
 - Reliability-first requirement:
   - no dependency on a live external template fetch during repository creation.
-- Publication requirement:
-  - `samebase/base` receives the exact committed `templates/base` Git tree only after required
-    checks pass.
 
 ## Important Changes / Additions to Interfaces and Types
 
@@ -227,8 +223,8 @@ Iteration 1 simplifies the manifest contract to a single snapshot representation
 ```ts
 type StarterTemplateManifest = {
   version: string;
-  sourcePath: string;
-  publishedRepo: string;
+  sourceRepository: string;
+  sourceCommit: string;
   contentHash: string;
   commitMessage: string;
   files: Record<string, string>;
@@ -246,27 +242,25 @@ Out of scope for Iteration 1:
 - Spec clearly records the discussion questions/problems and rationale.
 - Spec explicitly defines Iteration 1 scope and deferred topics.
 - Spec states exact single-commit seeding rule.
-- Spec requires local source and public repository provenance in the generated manifest.
-- Starter manifest includes exactly the Git-visible `templates/base` files.
+- Spec requires source repository and commit provenance in the generated manifest.
+- Starter manifest includes exactly the files of the pinned `samebase/base` commit.
 - Required CI rejects a stale manifest, an unsafe standalone lockfile, or a failed standalone build.
-- Repository publication exports the exact committed `templates/base` tree to `samebase/base`.
 
 ## Test Cases and Scenarios
 
 1. Creating a new samebase-managed repository yields exactly one starter-seeding commit.
-2. Seeded repository builds and runs with the current `templates/base` stack.
+2. Seeded repository builds and runs with the pinned `samebase/base` stack.
 3. Infra provisioning still triggers and reaches ready state.
-4. `pnpm run template:export` refreshes the manifest from staged Git blobs under `templates/base`.
-5. Ignored local files do not enter the manifest.
-6. A clean standalone install, supply-chain audit, and build pass with the nested lockfile.
-7. A successful main push publishes the template tree to `samebase/base` without rewriting its
-   existing history.
+4. `pnpm run template:export` regenerates the manifest from the Git blobs of the pinned commit, and
+   `--update` pins the current `main` of `samebase/base`.
+5. Only files committed at the pinned commit enter the manifest.
+6. A clean standalone install, supply-chain audit, and build pass with the starter's lockfile.
 
 ## Assumptions and Defaults
 
 - Reliability is prioritized over runtime freshness for Iteration 1.
-- Manifest freshness is automatic in required CI.
-- `samebase/base` is public generated output and its `main` branch is append-only.
+- Manifest freshness against the pinned commit is automatic in required CI.
+- `samebase/base` is the public source and its `main` branch is append-only.
 
 ## Deferred / Future Iterations
 
@@ -274,4 +268,4 @@ Out of scope for Iteration 1:
   single-commit flow.
 - Evaluate preserving staged pedagogical commit history in generated repos.
 - Use manual edition branches only when the public teaching artifact needs major stack re-curation.
-  Routine updates use the monorepo export.
+  Routine updates are pull requests on `samebase/base`.
