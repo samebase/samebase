@@ -2616,6 +2616,8 @@ export const trackedFilePaths = [
   "templates/base/scripts/run-context-dev.ts",
   "templates/base/scripts/run-primary-dev.ts",
   "templates/base/scripts/run-worktree-dev.ts",
+  "templates/base/scripts/write-samebase-verification.test.ts",
+  "templates/base/scripts/write-samebase-verification.ts",
   "templates/base/skills-lock.json",
   "templates/base/src/components/GoogleSignIn.tsx",
   "templates/base/src/components/GuestSignIn.tsx",
