@@ -7,8 +7,13 @@ Each component's own rules live in its repository.
   gets its variables declared in `convex/convex.config.ts`.
 - `convex/resources.ts` lists the API providers. They use OAuth code and refresh grants, not login
   identities.
-- `convex/http.ts` mounts the broker; `convex/identityBroker.ts` exports the admin functions for
-  `npx convex run`; `convex/crons.ts` runs the cleanup.
+- `convex/broker.ts` defines the broker; `convex/http.ts` mounts it with the hub's own routes;
+  `convex/identityBroker.ts` exports the admin functions for `npx convex run`; `convex/crons.ts`
+  runs the cleanup.
+- `convex/hubClients.ts` is `POST /hub-clients`: a GitHub Actions run gets a client of a third-party
+  app with GitHub's OIDC token, with the limits and blocks of `convex/schema.ts`.
+  `convex/moderation.ts` is `/moderation/*` for samebase.com's admin page, with
+  `HUB_MODERATION_KEY`. Tests run against the real broker component (`convex/test.setup.ts`).
 - `alchemy.run.ts` is the stack `samebase/samebase/apps/identity-hub` (adopted project, adopted
   production deployment, push); `scripts/check-keys.ts` checks the key set inside the `deploy`
   script the push runs and never creates it; `scripts/init-keys.ts` creates it once, by hand.

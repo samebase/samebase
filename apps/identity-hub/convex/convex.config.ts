@@ -43,8 +43,17 @@ const app = defineApp({
      * Without it, `/register` refuses every request.
      */
     REGISTRATION_ACCESS_TOKEN: v.optional(v.string()),
-    /** `true` stops sign-in and registration for every app from `/register`: the emergency brake. */
+    /**
+     * `true` stops sign-in and registration for every app from `/register` and `/hub-clients`: the
+     * emergency brake.
+     */
     THIRD_PARTY_PAUSED: v.optional(v.string()),
+    /**
+     * The key of the moderation endpoints under `/moderation`, which samebase.com's admin page holds:
+     * it lists registrations and sets blocks, and nothing else. Set by hand on both deployments.
+     * Unset or empty: every moderation request is refused.
+     */
+    HUB_MODERATION_KEY: v.optional(v.string()),
   },
 });
 

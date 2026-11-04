@@ -36,6 +36,7 @@ type Env = {
   readonly GOOGLE_APPS_CLIENT_SECRET: string;
   readonly GOOGLE_CLIENT_ID: string;
   readonly GOOGLE_CLIENT_SECRET: string;
+  readonly HUB_MODERATION_KEY: string | undefined;
   readonly IDENTITY_BROKER_KEYS: string;
   readonly ISSUER: string | undefined;
   readonly PROVIDER_CLOUDFLARE_OAUTH_CLIENT_ID: string;
