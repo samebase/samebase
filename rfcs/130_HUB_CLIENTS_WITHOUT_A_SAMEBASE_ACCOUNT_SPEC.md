@@ -2,7 +2,9 @@
 
 ## Document Control
 
-- Status: Proposal
+- Status: Proposal, reviewed
+- Reviewed on 2026-11-04 by an Opus subagent against the code. The section Review amendments
+  overrides the Target where they differ.
 - Owner: Nicu Chiciuc
 - Created: 2026-11-04
 - Base: `origin/main` at `6ca950b9d` (v2255)
@@ -156,6 +158,57 @@ sections, and a docs changelog entry. A pull request on `samebase/base` updates 
 3. The limits are 30 per repository and 100 per owner per hour, as today, plus 50 new owners per
    hour across all of Samebase (agreed 2026-11-04; the number is a starting point).
 4. Terms are accepted by using the service, with no signup.
+
+## Review amendments
+
+Decided on 2026-11-04 after the review. Each item overrides the Target text above.
+
+1. **The global window counts distinct new owners.** The first request of an owner with no
+   registration inserts a `newOwner` row for that owner id in the window and adds 1 to the global
+   count. Later requests from the same owner add nothing. Otherwise one account sending 50 requests
+   with a bad host fills the window for everyone.
+2. **A block decides each repository from both scopes.** On every block and unblock, samebase.com
+   sends `connected = !(repository blocked || owner blocked)` for each affected repository, never a
+   fixed value, so unblocking an owner cannot turn on a repository that has its own block.
+3. **Blocks catch races and transfers.** `recordRegistration` reads `hubClientBlocks` for the
+   repository and the owner and starts `connected: false` in the same transaction when either is
+   blocked. A registration refused with `blocked` also sends `connected: false` for that repository,
+   which catches a repository transferred to a blocked owner on its next run. The owner of a
+   repository is the owner of its latest registration row.
+4. **Old clients.** Clients registered before v2252 have no rows. PR 1 backfills an owner block's
+   reach from `repositories` joined to `organizations.githubOwnerId`, because every such repository
+   was connected.
+5. **Earlier disconnects are cleared in PR 1.** PR 1 stops connect from sending `connected: true`,
+   so it also ships a one-time internal mutation that sends `connected: true` for every row of
+   `hubClientConnectionRevisions` that has no block. The hub needs no list of tenants.
+6. **Indexes and batches.** `hubClientRegistrations` gets `by_github_owner_id`; the new-owner test
+   is `.first()` on it. An owner block fans out in batches that schedule the next batch.
+7. **`app` is at most 64 characters**, refused with 400 in `readBody`. Anyone can send it after this
+   RFC, and a huge value would break the admin scan and the registration row.
+8. **The admin counts** read `by_creation_time` with `take(N)` and show "at least N" when they hit
+   it. Distinct repositories and owners are counted in memory.
+9. **RFC 129's live checks come first.** A host that redirects and a host that resolves to a private
+   address must both be refused on production before PR 2, because PR 2 lets any GitHub account
+   trigger the file fetch.
+10. **Privacy and terms state what the hub does.** The privacy section names the data the hub passes
+    to apps (name, email, `email_verified`, picture, a per-app id), that it keeps sign-in records
+    for 90 days and registration records with the developer's GitHub repository, login, and commit,
+    that Google user data goes to third-party apps, that Samebase controls the hub's records and
+    each app's developer controls what the app receives, and how a person who signs in reaches
+    Samebase at the contact email. The 201 reply carries the terms URL, and `Convex.SharedHubClient`
+    logs it on a new client, so developers see the terms. Nicu approves the wording; this is not
+    legal advice.
+11. **Every text that says leaving Samebase stops Google sign-in changes**, in the PR that changes
+    the behavior: `LandingPreviewPage.tsx` and its test, `docs-the-big-migration.md`,
+    `docs-do-it-yourself.md`, and the starter README in `samebase/base`.
+12. **The old table goes in one PR.** Convex deploys a schema without `hubClientRateLimits` and
+    keeps its rows as a table with no schema; delete it in the dashboard afterwards. Remove every
+    reference (model, registration, repository and organization deletion, the account deletion
+    registry, tests) and classify `hubClientRequestWindows` and `hubClientBlocks` as `global`.
+13. **Smaller items.** A 429 says which window refused. A block is refused while samebase.com has no
+    hub key, because the switch would not be sent. Tests say "before the file fetch and the hub
+    call", since GitHub's key set is fetched first. The live test uses a repository made from the
+    template, or turns on Actions in a fork.
 
 ## Validation
 
