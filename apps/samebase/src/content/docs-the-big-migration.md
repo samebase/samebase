@@ -76,21 +76,20 @@ with npm.
 1. Install the packages at these exact versions, and add `.alchemy` to `.gitignore`:
 
    ```sh
-   pnpm add -D alchemy@2.0.0-beta.84 @alchemy.run/cloudflare@2.0.0-beta.84 \
-     @samebase/alchemy-convex@0.20.0 effect@4.0.5 @effect/platform-node@4.0.5
+   pnpm add -D alchemy@2.0.0-beta.85 @alchemy.run/cloudflare@2.0.0-beta.85 \
+     @samebase/alchemy-convex@0.23.0 effect@4.1.2 @effect/platform-node@4.1.2
    ```
 
-   A fresh install picks newer Effect packages, and Alchemy fails to load, so pin them. With pnpm,
-   set `packageManager` in `package.json` and add this to `pnpm-workspace.yaml`. With npm, put the
-   two pins under `overrides` in `package.json`.
+   A fresh install can pick a newer `@effect/sql-d1` than `effect`, and Alchemy fails to load, so
+   pin it. With pnpm, set `packageManager` in `package.json` and add this to `pnpm-workspace.yaml`.
+   With npm, put the pin under `overrides` in `package.json`.
 
    ```yaml
    allowBuilds:
      esbuild: true
      workerd: true
    overrides:
-     "@effect/platform-node-shared": 4.0.5
-     "@effect/sql-d1": 4.0.5
+     "@effect/sql-d1": 4.1.2
    ```
 
 2. Add `alchemy.run.ts`. Name the stack after your GitHub `owner/repo`, because Samebase finds it by
