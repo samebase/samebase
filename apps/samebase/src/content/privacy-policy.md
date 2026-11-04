@@ -1,9 +1,10 @@
 # Privacy Policy
 
-Effective: October 2, 2026
+Effective: November 4, 2026
 
 This Privacy Policy explains how Samebase handles personal information when you use samebase.com,
-the Samebase web app, the Samebase remote MCP server, or a published Samebase agent plugin.
+the Samebase web app, the Samebase remote MCP server, a published Samebase agent plugin, or the
+shared sign-in service.
 
 ## Who operates Samebase
 
@@ -77,6 +78,20 @@ Samebase also shares information:
 Invitation links disclose public GitHub profile information to people who open them.
 
 Samebase does not sell personal information or share it for cross-context behavioral advertising.
+
+## Shared sign-in service
+
+Apps that other developers deploy can let you sign in with Google through Samebase's shared sign-in
+service at auth.samebase.com. When you sign in to such an app, the service passes that app your
+name, email address, whether the email address is verified, profile picture, and an ID that is
+different for each app. The legal basis is Samebase's legitimate interest in providing the sign-in
+that you ask for.
+
+The service keeps records of sign-ins for 90 days. It keeps a registration record for each app, with
+the developer's GitHub repository, GitHub login, and commit.
+
+Samebase controls the service's records. Each app's developer controls the information that their
+app receives. Email contact@samebase.com for questions or requests about the service's records.
 
 ## Browser storage and analytics
 
