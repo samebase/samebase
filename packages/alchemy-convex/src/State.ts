@@ -268,7 +268,7 @@ export const storeDirectory = () =>
   join(dirname(fileURLToPath(import.meta.url)), "..", "src", "store", "convex");
 
 export interface StoreOptions {
-  /** Team slug or numeric team id of the `alchemy-state-store` project, or undefined with a team access token, which names its team. */
+  /** Team slug or numeric team id of the `alchemy-state-store` project, or undefined: see ManagementApi.resolveTeamId. */
   readonly team: string | number | undefined;
   readonly api: ManagementApiService;
   readonly spawner: ChildProcessSpawner.ChildProcessSpawner["Service"];
@@ -495,9 +495,10 @@ export const makeConvexState = (options: StoreOptions) =>
 
 /**
  * Alchemy state in the `alchemy-state-store` project of `team`, with the team token
- * in CONVEX_ACCESS_TOKEN or the Convex CLI login. A team access token names
- * its team, so `team` is optional with one; the Convex CLI login needs the
- * slug or the id. The first use of the run finds or creates the project and
+ * in CONVEX_ACCESS_TOKEN or the Convex CLI login. Without `team`: the team that
+ * a team access token or an OAuth token names, or with the Convex CLI login,
+ * the team of the deployment that the CLI selected (CONVEX_DEPLOYMENT, see
+ * ManagementApi.resolveTeamId). The first use of the run finds or creates the project and
  * pushes the store when it is missing or older. `alchemy plan` on another
  * stack never touches Convex.
  */

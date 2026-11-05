@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.29.0
+
+- No `team` is necessary. `Convex.state()` and `Convex.Project` with a `name` take the team that the
+  token names: a team access token and an OAuth token of a team name it in `GET /token_details`. The
+  Convex CLI login names no team, so a run with it takes the team of the deployment that the Convex
+  CLI selected: `CONVEX_DEPLOYMENT` in the environment or in `.env.local`, then the project of that
+  deployment, then the team of that project. Before, the Convex CLI login needed `team`.
+- `Convex.Project` with a `name` accepts no `team`. A stack that set `team` before and sets none now
+  keeps its project when the token names the same team.
+
 ## 0.28.0
 
 - `Convex.Deployment` with `type: "dev"`: `name` is a dev reference or the Convex name of a dev

@@ -342,3 +342,24 @@ describe("Convex.Project", () => {
     }),
   );
 });
+
+/** The bearer value that FakeConvex takes for a team access token. */
+const teamTokenTest = Test.make({
+  providers: Convex.providers(Convex.fromValues({ accessToken: Redacted.make("team-token") })),
+});
+
+describe("Convex.Project without a team", () => {
+  teamTokenTest.test.provider(
+    "creates the project in the team that the token names, and takes a team that was set before",
+    (stack) =>
+      Effect.gen(function* () {
+        const fake = new FakeConvex().install();
+        fake.teamTokenTeamId = TEAM;
+        const withTeam = yield* stack.deploy(project({ team: TEAM, name: NAME }));
+        const withoutTeam = yield* stack.deploy(project({ name: NAME }));
+        expect(withoutTeam.projectId).toBe(withTeam.projectId);
+        expect(fake.projects.length).toBe(1);
+        expect(fake.project(withTeam.projectId)?.teamId).toBe(TEAM);
+      }),
+  );
+});

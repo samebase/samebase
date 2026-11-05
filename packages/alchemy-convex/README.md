@@ -183,17 +183,19 @@ export default Alchemy.Stack(
 ```
 
 Every run needs the team token in `CONVEX_ACCESS_TOKEN`, or the Convex CLI login on a laptop. A team
-access token names its team, so `Convex.state()` needs no `team` with one; a `team` slug that is set
-must be the slug of that team, checked against its projects, and a token of another team fails the
-run. The Convex CLI login needs the slug or the id. The first run of a team creates the project
-`alchemy-state-store` and pushes the store functions to its production deployment with the Convex
-CLI of the app; a later version of this package pushes a newer store when it finds an older one. A
-store that is newer than the package fails the run with both versions, so the repositories of a team
-upgrade the package together. Each run makes a deploy key of that deployment that can only run the
-store's internal functions, and deletes it at the end. Rows are in the tables `resources` and
-`outputs` of the component `alchemyState` in the dashboard, under the stack name. The store has no
-lock: run one deploy of a stage at a time, such as with a CI concurrency group. The store and its
-readers (Samebase) are released and upgraded together.
+access token and an OAuth token of a team name their team, so `Convex.state()` and `Convex.Project`
+with a `name` need no `team` with one; a `team` slug that is set must be the slug of that team,
+checked against its projects, and a token of another team fails the run. The Convex CLI login names
+no team. Without a `team`, the run uses the team of the deployment that the Convex CLI selected:
+`CONVEX_DEPLOYMENT` in the environment or in `.env.local`, which `npx convex dev` writes. The first
+run of a team creates the project `alchemy-state-store` and pushes the store functions to its
+production deployment with the Convex CLI of the app; a later version of this package pushes a newer
+store when it finds an older one. A store that is newer than the package fails the run with both
+versions, so the repositories of a team upgrade the package together. Each run makes a deploy key of
+that deployment that can only run the store's internal functions, and deletes it at the end. Rows
+are in the tables `resources` and `outputs` of the component `alchemyState` in the dashboard, under
+the stack name. The store has no lock: run one deploy of a stage at a time, such as with a CI
+concurrency group. The store and its readers (Samebase) are released and upgraded together.
 
 Store version 3 supports native subscriptions. A trusted server checks repository access, then calls
 internal `reader:authorize({ repository, subject })` with a deployment credential. It gives the

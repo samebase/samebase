@@ -38,8 +38,12 @@ export type DeploymentRegion = components["schemas"]["RegionName"];
 
 export type ProjectProps =
   | {
-      /** Team slug or numeric team id. A slug costs one extra lookup per run. Cannot change. */
-      readonly team: string | number;
+      /**
+       * Team slug or numeric team id. A slug costs one extra lookup per run. Cannot change.
+       * Without it: the team of a team access token or an OAuth token, or with the Convex CLI login,
+       * the team of the deployment that the CLI selected (CONVEX_DEPLOYMENT).
+       */
+      readonly team?: string | number;
       /** Display name. Convex derives the slug from it at creation. A change renames the project. */
       readonly name: string;
       /** Region of the deployment created with the project. Defaults to the team default. Cannot change. */

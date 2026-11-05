@@ -142,6 +142,7 @@ describe("ManagementApi.resolveTeamId", () => {
 
   afterEach(() => {
     vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
   });
 
   it("uses a numeric id as it is, with no request", async () => {
@@ -196,6 +197,28 @@ describe("ManagementApi.resolveTeamId", () => {
     expect(await failureOf(resolve("cli-login", "no-such-team"))).toContain(
       'no team with slug "no-such-team"',
     );
-    expect(await failureOf(resolve("cli-login", undefined))).toContain("set team to the slug");
+  });
+
+  // Measured with the Convex CLI login: token_details answers 403, and the deployment and its
+  // project answer with the project id and the team id.
+  it("takes the team of the deployment that the Convex CLI selected for the Convex CLI login", async () => {
+    const fake = new FakeConvex().install();
+    const projectId = fake.addProject({ name: "app", teamId: 38516 });
+    const selected = fake.addDeployment({ projectId, type: "dev", name: "dev/nicu" });
+    vi.stubEnv("CONVEX_DEPLOYMENT", `dev:${selected}`);
+    expect(await Effect.runPromise(resolve("cli-login", undefined))).toBe(38516);
+    expect(fake.lines()).toEqual([
+      "GET api.convex.dev/v1/token_details",
+      `GET api.convex.dev/v1/deployments/${selected}`,
+      `GET api.convex.dev/v1/projects/${projectId}`,
+    ]);
+  });
+
+  it("refuses the Convex CLI login with no team and no selected deployment", async () => {
+    new FakeConvex().install();
+    vi.stubEnv("CONVEX_DEPLOYMENT", "");
+    expect(await failureOf(resolve("cli-login", undefined))).toContain(
+      "no deployment is selected. Run `npx convex dev` once",
+    );
   });
 });

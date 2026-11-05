@@ -4,6 +4,8 @@
 // `{ data, error, response }`. This service turns that into an Effect with one
 // typed error, resolves credentials lazily, and validates the fields the
 // provider relies on at runtime.
+import { readFileSync } from "node:fs";
+import { parseEnv } from "node:util";
 import { createDeploymentClient, createManagementClient } from "@convex-dev/platform";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
@@ -70,11 +72,12 @@ export interface ManagementApiService {
     run: (client: DeploymentClient) => Promise<FetchResult<T>>,
   ) => Effect.Effect<T, ConvexApiError>;
   /**
-   * Team id for a numeric id, a slug, or nothing. A team access token names
-   * its team (`GET /token_details`); a slug is then checked against the
-   * `teamSlug` of the team's projects, so a token of another team fails. The
-   * Convex CLI login and a personal token answer 403 there, so a slug goes to
-   * the dashboard's team list, and nothing is an error.
+   * Team id for a numeric id, a slug, or nothing. A team access token and an
+   * OAuth token of a team name their team (`GET /token_details`); a slug is
+   * then checked against the `teamSlug` of the team's projects, so a token of
+   * another team fails. The Convex CLI login and a personal token answer 403
+   * there, so a slug goes to the dashboard's team list, and nothing is the team
+   * of the deployment that the Convex CLI selected (CONVEX_DEPLOYMENT).
    */
   readonly resolveTeamId: (
     team: string | number | undefined,
@@ -199,6 +202,33 @@ const ProjectSlugRows = Schema.Struct({
   items: Schema.Array(Schema.Struct({ teamSlug: Schema.String })),
 });
 
+/** GET /deployments/{name}: the project of the deployment. */
+const DeploymentProject = Schema.Struct({ projectId: Schema.Number });
+
+/** GET /projects/{id}: the team of the project. */
+const ProjectTeam = Schema.Struct({ teamId: Schema.Number });
+
+/**
+ * The deployment name that the Convex CLI selected: CONVEX_DEPLOYMENT in the environment or in
+ * `.env.local` of the working directory, as `npx convex dev` writes it (`dev:happy-animal-123`),
+ * without the type prefix. Undefined when neither has it.
+ */
+const selectedDeployment = () => {
+  const fromEnv = process.env["CONVEX_DEPLOYMENT"];
+  const value =
+    fromEnv !== undefined && fromEnv !== ""
+      ? fromEnv
+      : (() => {
+          try {
+            return parseEnv(readFileSync(".env.local", "utf8"))["CONVEX_DEPLOYMENT"];
+          } catch {
+            return undefined;
+          }
+        })();
+  const name = value?.replace(/^(dev|prod|preview):/, "");
+  return name === undefined || name === "" ? undefined : name;
+};
+
 /** GET /token_details: the team of a team token, or the project of a project token. */
 const TokenDetails = Schema.Union([
   Schema.Struct({ type: Schema.Literal("teamToken"), teamId: Schema.Number }),
@@ -301,12 +331,27 @@ const makeService = (source: Effect.Effect<ResolvedCredentials>): ManagementApiS
         });
       }
       if (team === undefined) {
-        return yield* new ConvexApiError({
-          operation: "resolve team",
-          status: 0,
-          message:
-            "set team to the slug or the id of the Convex team: this access token does not name a team.",
-        });
+        // The Convex CLI login names no team, but the deployment that `npx convex dev` selected
+        // belongs to a project, and the project to a team.
+        const selected = selectedDeployment();
+        if (selected === undefined) {
+          return yield* new ConvexApiError({
+            operation: "resolve team",
+            status: 0,
+            message:
+              "this access token does not name a team, and no deployment is selected. Run `npx convex dev` once, or set team to the slug or the id of the Convex team.",
+          });
+        }
+        const deployment = yield* request("get deployment", (c) =>
+          c.GET("/deployments/{deployment_name}", {
+            params: { path: { deployment_name: selected } },
+          }),
+        );
+        const { projectId } = Schema.decodeUnknownSync(DeploymentProject)(deployment);
+        const project = yield* request("get project", (c) =>
+          c.GET("/projects/{project_id}", { params: { path: { project_id: projectId } } }),
+        );
+        return Schema.decodeUnknownSync(ProjectTeam)(project).teamId;
       }
       const resolved = yield* credentials;
       const rows = yield* Effect.tryPromise({
