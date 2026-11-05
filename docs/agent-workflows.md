@@ -149,9 +149,9 @@ Rules:
   `v1146: Tighten legal page padding`.
 - Do not amend or rewrite branch commit subjects only to add or refresh the projected app build
   label during normal PR updates.
-- GitHub's squash UI uses the commit subject as the default squash title for a one-commit PR, but
-  uses the PR title for PRs with two or more commits. Account for that only during final merge prep,
-  not during every PR update.
+- The repository setting makes the PR title the default squash commit subject. The required
+  `pr build label` check (`.github/workflows/pr-title.yml`) fails while the PR title does not start
+  with the label projected from the latest `origin/main`. It runs again when the title changes.
 - Treat PR title labels as provisional. Overlapping PRs can share the same projected label until one
   lands and the others are refreshed.
 - Do not put `v<N>` in branch names.
