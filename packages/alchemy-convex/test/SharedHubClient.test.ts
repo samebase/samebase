@@ -1224,10 +1224,21 @@ describe("Convex.SharedHubClient.read", () => {
         const { initialAccessToken: _token, repository: _repository, ...attr } = row.attr;
         yield* state.set({ ...request, value: { ...row, attr } });
       }).pipe(Effect.provide(stack.state));
-      // The read dies: a defect, not a failure of the run.
+      // The read dies: a defect, not a failure of the run. Every text of the defect is checked: the
+      // JSON, which has the enumerable fields, and the message and the stack, which it leaves out.
       const defect = yield* stack
         .deploy(readProd)
-        .pipe(Effect.catchDefect((cause) => Effect.succeed(JSON.stringify(cause))));
+        .pipe(
+          Effect.catchDefect((cause) =>
+            Effect.succeed(
+              [
+                JSON.stringify(cause),
+                String(cause),
+                cause instanceof Error ? (cause.stack ?? "") : "",
+              ].join("\n"),
+            ),
+          ),
+        );
       expect(defect).toContain("holds attributes that this version cannot read");
       expect(defect).not.toContain("secret-of");
     }),
