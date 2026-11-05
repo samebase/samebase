@@ -209,9 +209,10 @@ const DeploymentProject = Schema.Struct({ projectId: Schema.Number });
 const ProjectTeam = Schema.Struct({ teamId: Schema.Number });
 
 /**
- * The deployment name that the Convex CLI selected: CONVEX_DEPLOYMENT in the environment or in
+ * The cloud deployment that the Convex CLI selected: CONVEX_DEPLOYMENT in the environment or in
  * `.env.local` of the working directory, as `npx convex dev` writes it (`dev:happy-animal-123`),
- * without the type prefix. Undefined when neither has it.
+ * without the type prefix. Undefined when neither has it, and for a local or anonymous deployment
+ * (`local:local-team-app`, `anonymous:anonymous-app`), which runs on this machine and is in no team.
  */
 const selectedDeployment = () => {
   const fromEnv = process.env["CONVEX_DEPLOYMENT"];
@@ -225,8 +226,8 @@ const selectedDeployment = () => {
             return undefined;
           }
         })();
-  const name = value?.replace(/^(dev|prod|preview):/, "");
-  return name === undefined || name === "" ? undefined : name;
+  const name = /^(?:(?:dev|prod|preview):)?([^:]+)$/.exec(value ?? "")?.[1];
+  return name === undefined || name.startsWith("anonymous-") ? undefined : name;
 };
 
 /** GET /token_details: the team of a team token, or the project of a project token. */
@@ -339,7 +340,7 @@ const makeService = (source: Effect.Effect<ResolvedCredentials>): ManagementApiS
             operation: "resolve team",
             status: 0,
             message:
-              "this access token does not name a team, and no deployment is selected. Run `npx convex dev` once, or set team to the slug or the id of the Convex team.",
+              "this access token does not name a team, and no cloud deployment is selected. Run `npx convex dev` once with a cloud deployment, or set team to the slug or the id of the Convex team.",
           });
         }
         const deployment = yield* request("get deployment", (c) =>

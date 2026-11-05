@@ -214,11 +214,20 @@ describe("ManagementApi.resolveTeamId", () => {
     ]);
   });
 
-  it("refuses the Convex CLI login with no team and no selected deployment", async () => {
-    new FakeConvex().install();
-    vi.stubEnv("CONVEX_DEPLOYMENT", "");
-    expect(await failureOf(resolve("cli-login", undefined))).toContain(
-      "no deployment is selected. Run `npx convex dev` once",
-    );
-  });
+  // A set CONVEX_DEPLOYMENT wins over .env.local, so these cases read no file.
+  it.each([
+    ["a local deployment", "local:local-nicu-app"],
+    ["an anonymous deployment", "anonymous:anonymous-app"],
+    ["an anonymous deployment without a prefix", "anonymous-app"],
+  ])(
+    "refuses the Convex CLI login with no team and %s, with no deployment request",
+    async (_name, selected) => {
+      const fake = new FakeConvex().install();
+      vi.stubEnv("CONVEX_DEPLOYMENT", selected);
+      expect(await failureOf(resolve("cli-login", undefined))).toContain(
+        "no cloud deployment is selected. Run `npx convex dev` once with a cloud deployment",
+      );
+      expect(fake.lines()).toEqual(["GET api.convex.dev/v1/token_details"]);
+    },
+  );
 });

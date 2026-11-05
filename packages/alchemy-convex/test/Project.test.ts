@@ -356,10 +356,23 @@ describe("Convex.Project without a team", () => {
         const fake = new FakeConvex().install();
         fake.teamTokenTeamId = TEAM;
         const withTeam = yield* stack.deploy(project({ team: TEAM, name: NAME }));
+        const from = fake.sent.length;
         const withoutTeam = yield* stack.deploy(project({ name: NAME }));
         expect(withoutTeam.projectId).toBe(withTeam.projectId);
         expect(fake.projects.length).toBe(1);
         expect(fake.project(withTeam.projectId)?.teamId).toBe(TEAM);
+        // The team that went away is checked and read, never written.
+        expect(fake.sent.slice(from).filter((request) => request.method !== "GET")).toEqual([]);
       }),
+  );
+
+  teamTokenTest.test.provider("creates a project in the team that the token names", (stack) =>
+    Effect.gen(function* () {
+      const fake = new FakeConvex().install();
+      fake.teamTokenTeamId = TEAM;
+      const out = yield* stack.deploy(project({ name: NAME }));
+      expect(fake.project(out.projectId)?.teamId).toBe(TEAM);
+      expect(fake.lines()).toContain(`POST ${API}/teams/${TEAM}/create_project`);
+    }),
   );
 });
