@@ -11,7 +11,7 @@ import * as Redacted from "effect/Redacted";
 import * as Schema from "effect/Schema";
 import { afterEach, describe, expect, vi } from "vitest";
 import * as Convex from "../src/index.ts";
-import { FakeConvex } from "./fakeConvex.ts";
+import { FakeConvex, hubFixture } from "./fakeConvex.ts";
 
 const TEAM = 38516;
 const ISSUER = "https://hub.test";
@@ -24,9 +24,12 @@ const OIDC_REQUEST_TOKEN = "oidc-request-token";
 const OIDC_TOKEN = "oidc-token";
 /** Where a run asks for a new client without HUB_URL. */
 const HUB_CLIENTS = "https://auth.samebase.com/hub-clients";
-const TERMS = "https://samebase.com/terms";
+/** The 201 answers of `POST /hub-clients`, recorded from the hub of RFC 133. */
+const PRODUCTION_ANSWER = hubFixture("hub-clients-production.json");
+const PREVIEW_ANSWER = hubFixture("hub-clients-preview.json");
+const TERMS = String(PREVIEW_ANSWER["terms"]);
 /** The numeric GitHub id of the repository, which the hub gives with the token. */
-const REPOSITORY_ID = "1088421373";
+const REPOSITORY_ID = String(PRODUCTION_ANSWER["repository"]);
 
 const { test } = Test.make({
   providers: Convex.providers(Convex.fromValues({ accessToken: Redacted.make("test-token") })),
@@ -117,7 +120,13 @@ const REFUSALS: readonly (readonly [string, Answer])[] = [
   ],
   ["github_unavailable", () => Response.json({ error: "github_unavailable" }, { status: 502 })],
   ["a network error", networkDown],
-  ["an unreadable 201", () => new Response("<html>", { status: 201 })],
+  [
+    "a 201 without a client secret",
+    () => {
+      const { client_secret: _secret, ...answer } = PREVIEW_ANSWER;
+      return Response.json(answer, { status: 201 });
+    },
+  ],
 ];
 
 class FakeServices {
@@ -184,16 +193,14 @@ class FakeServices {
     const { redirectUri } = Schema.decodeUnknownSync(ClientRequest)(body);
     return Response.json(
       {
+        ...(this.production ? PRODUCTION_ANSWER : PREVIEW_ANSWER),
         issuer: ISSUER,
         client_id: clientId,
         client_secret: `secret-of-${clientId}`,
         registration_access_token: token,
         registration_client_uri: `${ISSUER}/register/${clientId}`,
         redirect_uri: redirectUri,
-        terms: TERMS,
-        ...(this.production
-          ? { initial_access_token: `iat-of-${clientId}`, repository: REPOSITORY_ID }
-          : {}),
+        ...(this.production ? { initial_access_token: `iat-of-${clientId}` } : {}),
       },
       { status: 201 },
     );
@@ -746,7 +753,10 @@ describe("Convex.SharedHubClient", () => {
       yield* deploy();
       fake.registrar = echo;
       yield* deploy({ ...props(), redirectUri: OTHER_REDIRECT_URI });
-      fake.registrar = () => new Response('{"client_secret":"secret-of-cl_1"}', { status: 201 });
+      // The recorded answer without its client ID, with a secret in it.
+      const { client_id: _clientId, ...withoutClient } = PRODUCTION_ANSWER;
+      fake.registrar = () =>
+        Response.json({ ...withoutClient, client_secret: "secret-of-cl_1" }, { status: 201 });
       yield* deploy({ ...props(), redirectUri: OTHER_REDIRECT_URI });
       fake.github = networkDown;
       yield* deploy({ ...props(), redirectUri: OTHER_REDIRECT_URI });

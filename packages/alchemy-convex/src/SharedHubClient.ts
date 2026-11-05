@@ -46,8 +46,11 @@ const REQUEST_TIMEOUT_MS = 30_000;
 /** The variables of a deployment without a hub client, as the starter writes them. */
 const OFF_VALUES = { issuer: "http://127.0.0.1:1", clientId: "no-hub", clientSecret: "no-hub" };
 
+/** The hub that a run asks, which is also its issuer. */
+const hubUrl = () => process.env["HUB_URL"] ?? "https://auth.samebase.com";
+
 /** Where a run asks for a new client. */
-const hubClientsUrl = () => `${process.env["HUB_URL"] ?? "https://auth.samebase.com"}/hub-clients`;
+const hubClientsUrl = () => `${hubUrl()}/hub-clients`;
 
 export interface SharedHubClientProps {
   /** The stable name of the app, set once in the stack. */
@@ -469,7 +472,7 @@ const readSavedToken = (api: ManagementApiService, team: string | number, stack:
       }),
     );
     if (reply.status === "error") {
-      return yield* new SharedHubClientFailed({ reason: reply.errorMessage.trim() });
+      return yield* new SharedHubClientFailed({ reason: "the state store refused the read" });
     }
     const text = yield* decode(Schema.NullOr(Schema.String), "The state store")(reply.value);
     if (text === null) return undefined;
@@ -480,6 +483,12 @@ const readSavedToken = (api: ManagementApiService, team: string | number, stack:
     return Option.getOrUndefined(Schema.decodeUnknownOption(SavedToken)(row))?.attr;
   });
 
+/** Replaces any failure or defect of a step with a fixed text, which quotes nothing. */
+const failsWith =
+  (reason: string) =>
+  <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+    effect.pipe(Effect.catchCause(() => Effect.fail(new SharedHubClientFailed({ reason }))));
+
 /** What the hub says about the client that the variables name. */
 const readClient = (uri: string, token: string, callbackUrl: string) =>
   Effect.gen(function* () {
@@ -487,7 +496,8 @@ const readClient = (uri: string, token: string, callbackUrl: string) =>
     switch (status) {
       case 200: {
         const record = yield* decode(ClientRecord, "The identity hub")(body);
-        return record.redirect_uris[0] === callbackUrl ? "renewed" : "moved";
+        const [only, ...more] = record.redirect_uris;
+        return only === callbackUrl && more.length === 0 ? "renewed" : "moved";
       }
       case 401:
         return "gone";
@@ -509,9 +519,11 @@ const readClient = (uri: string, token: string, callbackUrl: string) =>
  *
  * 1. The team: `team`, else `CONVEX_TEAM_ID`, else the team of the selected cloud development
  *    deployment.
- * 2. The five variables name a client: the hub renews it on a read with its own token (RFC 7592). A
- *    client on another address, or one that the hub no longer has, gets a new client. A client that
- *    the hub stopped gets the off values.
+ * 2. The five variables name a client of this hub (`<prefix>_ISSUER` is `HUB_URL` or
+ *    `https://auth.samebase.com`) with a real client ID and secret: the hub renews it on a read with
+ *    its own token (RFC 7592) when its `redirect_uris` are exactly the current callback. A client on
+ *    another address, or one that the hub no longer has, gets a new client. A client that the hub
+ *    stopped gets the off values.
  * 3. The token from the client row of stage `prod`, the repository id on an https site, and a new
  *    client, in one `env set --force`.
  *
@@ -520,13 +532,23 @@ const readClient = (uri: string, token: string, callbackUrl: string) =>
  */
 export const registerSharedDevelopmentClient = (options: SharedDevelopmentClientOptions) =>
   Effect.gen(function* () {
-    const { convex } = options;
     const api = yield* ManagementApi;
+    /** One call of the Convex CLI. Its error can quote the deployment, so it gives a fixed text. */
+    const convex = (args: readonly string[], input?: string) =>
+      Effect.try({
+        try: () => options.convex(args, input),
+        catch: () =>
+          new SharedHubClientFailed({
+            reason: `\`convex ${args.slice(0, 2).join(" ")}\` failed`,
+          }),
+      });
     const named = options.team ?? process.env["CONVEX_TEAM_ID"];
     const team =
       named !== undefined && named !== ""
         ? named
-        : yield* teamOfSelectedDeployment(api, options.cwd);
+        : yield* teamOfSelectedDeployment(api, options.cwd).pipe(
+            failsWith("the Convex API could not read the selected development deployment"),
+          );
     if (team === undefined) {
       return "No Convex team for Google sign-in on this laptop: set CONVEX_TEAM_ID, or select a cloud development deployment.";
     }
@@ -535,40 +557,53 @@ export const registerSharedDevelopmentClient = (options: SharedDevelopmentClient
     const siteUrl = yield* decode(
       Schema.fromJsonString(Schema.String),
       "The deployment",
-    )(convex(["run", "--inline-query", "process.env.CONVEX_SITE_URL"]));
+    )(yield* convex(["run", "--inline-query", "process.env.CONVEX_SITE_URL"]));
     const callbackUrl = `${siteUrl.replace(/\/$/, "")}${options.callbackPath}`;
 
-    const names = convex(["env", "list", "--names-only"]).split(/\r?\n/);
-    const variables = ["ISSUER", "CLIENT_ID", "CLIENT_SECRET", "REGISTRATION_URI"].map(
-      (name) => `${prefix}_${name}`,
-    );
-    const tokenVariable = `${prefix}_REGISTRATION_TOKEN`;
-    if (
-      [...variables, tokenVariable].every((name) => names.includes(name)) &&
-      convex(["env", "get", `${prefix}_CLIENT_ID`]) !== OFF_VALUES.clientId
-    ) {
+    const names = (yield* convex(["env", "list", "--names-only"])).split(/\r?\n/);
+    const variable = (name: string) => `${prefix}_${name}`;
+    const tokenVariable = variable("REGISTRATION_TOKEN");
+    const complete = [
+      "ISSUER",
+      "CLIENT_ID",
+      "CLIENT_SECRET",
+      "REGISTRATION_URI",
+      "REGISTRATION_TOKEN",
+    ].every((name) => names.includes(variable(name)));
+    // Only a client of the hub that this run asks, with real values, is renewed: the off values,
+    // and a client of another hub, get a new client.
+    const renewable =
+      complete &&
+      (yield* convex(["env", "get", variable("ISSUER")])) === hubUrl() &&
+      (yield* convex(["env", "get", variable("CLIENT_ID")])) !== OFF_VALUES.clientId &&
+      ![OFF_VALUES.clientSecret, ""].includes(
+        yield* convex(["env", "get", variable("CLIENT_SECRET")]),
+      );
+    if (renewable) {
       const client = yield* readClient(
-        convex(["env", "get", `${prefix}_REGISTRATION_URI`]),
-        convex(["env", "get", tokenVariable]),
+        yield* convex(["env", "get", variable("REGISTRATION_URI")]),
+        yield* convex(["env", "get", tokenVariable]),
         callbackUrl,
       );
       if (client === "renewed") return "Hub client renewed.";
       if (client === "stopped") {
-        convex(
+        yield* convex(
           ["env", "set", "--force"],
           `${prefix}_ISSUER='${OFF_VALUES.issuer}'\n${prefix}_CLIENT_ID='${OFF_VALUES.clientId}'\n${prefix}_CLIENT_SECRET='${OFF_VALUES.clientSecret}'\n`,
         );
-        convex(["env", "remove", `${prefix}_REGISTRATION_URI`]);
-        convex(["env", "remove", tokenVariable]);
+        yield* convex(["env", "remove", variable("REGISTRATION_URI")]);
+        yield* convex(["env", "remove", tokenVariable]);
         return "The identity hub stopped the hub client of this laptop (HTTP 403), so the laptop has guest sign-in.";
       }
     }
 
-    const saved = yield* readSavedToken(api, team, options.stack);
+    const saved = yield* readSavedToken(api, team, options.stack).pipe(
+      failsWith("the state store of the team could not be read"),
+    );
     if (saved === undefined) return "Deploy to main once for Google sign-in on this laptop.";
     if (new URL(siteUrl).protocol === "https:") {
       // The hub reads /samebase-verification.json of an https site, which serves this variable.
-      convex(["env", "set", "SAMEBASE_REPOSITORY_ID", saved.repository]);
+      yield* convex(["env", "set", "SAMEBASE_REPOSITORY_ID", saved.repository]);
     }
     const { body, status } = yield* send(
       "The identity hub",
@@ -593,22 +628,18 @@ export const registerSharedDevelopmentClient = (options: SharedDevelopmentClient
     const client = yield* decode(NewClient, "The identity hub")(body);
     // One request, so that an interrupted run cannot leave half a client. `--force` replaces the
     // values of an earlier one.
-    convex(
+    yield* convex(
       ["env", "set", "--force"],
       `${prefix}_ISSUER='${client.issuer}'\n${prefix}_CLIENT_ID='${client.client_id}'\n${prefix}_CLIENT_SECRET='${client.client_secret}'\n${prefix}_REGISTRATION_URI='${client.registration_client_uri}'\n${tokenVariable}='${client.registration_access_token}'\n`,
     );
     return `Hub client registered for ${callbackUrl}.`;
   }).pipe(
-    // A dev start goes on after any failure. The text of a failure holds no secret: a request of
-    // this file names no answer, and the Convex CLI gets no secret in its arguments.
+    // A dev start goes on after any failure. Each step gives a fixed text, and the text of any
+    // other failure is never shown, because it can quote an answer or a secret.
     Effect.catchCause((cause) => {
       const error = Cause.squash(cause);
       const reason =
-        error instanceof SharedHubClientFailed
-          ? error.reason
-          : error instanceof Error
-            ? error.message
-            : "an unknown failure";
+        error instanceof SharedHubClientFailed ? error.reason : "an unexpected failure";
       return Effect.succeed(`The hub client keeps its values: ${reason}.`);
     }),
   );

@@ -1,0 +1,1 @@
+Recorded on 2026-11-05 from the identity hub of RFC 133 PR 1 (PR 1898, identity-broker 0.16.0) by a throwaway hub test, "records the answers", that posted to `POST /hub-clients` in apps/identity-hub's convex-test backend with GitHub tokens for `prod` and `pr-12`; the secret values are replaced by `REDACTED`.

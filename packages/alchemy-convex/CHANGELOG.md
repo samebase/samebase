@@ -10,11 +10,14 @@ registration, and take that token at `POST /hub-clients`.
   registration. A renewal keeps them. They are empty for a preview, for the off values, and for a
   client saved by an earlier version until its next production registration.
 - `alchemy-convex hub-client --shared --stack <owner/name> --app <app> --callback-path <path>`
-  renews the laptop's client, or reads the token from the `HubClient` row of stage `prod` and asks
-  the hub for a development client. It writes `HUB_ISSUER`, `HUB_CLIENT_ID`, `HUB_CLIENT_SECRET`,
-  `HUB_REGISTRATION_URI`, and `HUB_REGISTRATION_TOKEN` on standard input, and
+  renews the laptop's client when `HUB_ISSUER` is the hub that it asks (`HUB_URL`, else
+  `https://auth.samebase.com`), the client ID and the secret are not `no-hub`, and the hub answers
+  exactly the current callback. Else, it reads the token from the `HubClient` row of stage `prod`
+  and asks the hub for a development client. It writes `HUB_ISSUER`, `HUB_CLIENT_ID`,
+  `HUB_CLIENT_SECRET`, `HUB_REGISTRATION_URI`, and `HUB_REGISTRATION_TOKEN` on standard input, and
   `SAMEBASE_REPOSITORY_ID` on an https site. It finds the team from `--team`, `CONVEX_TEAM_ID`, or
-  the selected cloud development deployment. It never stops a dev start.
+  the selected cloud development deployment. A failure prints a fixed text that quotes no answer and
+  no error. It never stops a dev start.
 - A refusal with the reason `app_mismatch` logs that the token belongs to another app.
 
 The state store protocol does not change.

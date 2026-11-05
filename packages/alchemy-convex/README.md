@@ -364,13 +364,15 @@ npx alchemy-convex hub-client --shared --stack owner/name --app app --callback-p
 
 The team is `--team`, else `CONVEX_TEAM_ID`, else the team of the cloud development deployment that
 `.env.local` selects. A linked git worktree reads the `.env.local` of the main checkout. The command
-renews the client that `HUB_REGISTRATION_URI` and `HUB_REGISTRATION_TOKEN` name. Without one, it
-reads the initial access token from the `HubClient` row of stage `prod` of the stack, and asks the
-hub for a development client on the deployment's `CONVEX_SITE_URL`. It writes `HUB_ISSUER`,
-`HUB_CLIENT_ID`, `HUB_CLIENT_SECRET`, `HUB_REGISTRATION_URI`, and `HUB_REGISTRATION_TOKEN` in one
-`env set --force`, and `SAMEBASE_REPOSITORY_ID` on an https site. A client that the hub stopped gets
-the off values. Without a token, after a refusal, or after a failure, it prints one line, and the
-variables stay. It never stops a dev start.
+renews the client that `HUB_REGISTRATION_URI` and `HUB_REGISTRATION_TOKEN` name, only when
+`HUB_ISSUER` is the hub that it asks (`HUB_URL`, else `https://auth.samebase.com`), the client ID
+and the secret are not `no-hub`, and the hub answers exactly the current callback. Else, it reads
+the initial access token from the `HubClient` row of stage `prod` of the stack, and asks the hub for
+a development client on the deployment's `CONVEX_SITE_URL`. It writes `HUB_ISSUER`, `HUB_CLIENT_ID`,
+`HUB_CLIENT_SECRET`, `HUB_REGISTRATION_URI`, and `HUB_REGISTRATION_TOKEN` in one `env set --force`,
+and `SAMEBASE_REPOSITORY_ID` on an https site. A client that the hub stopped gets the off values.
+Without a token, after a refusal, or after a failure, it prints one line, and the variables stay. It
+never stops a dev start.
 
 ## Pull request comment
 

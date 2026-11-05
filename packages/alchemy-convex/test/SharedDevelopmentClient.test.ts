@@ -1,31 +1,36 @@
 // `alchemy-convex hub-client --shared` against the fake Convex control plane, a fake state store,
 // and a fake identity hub behind a stubbed fetch. The production row comes from a real deploy of
 // Convex.SharedHubClient, saved as the store client saves it.
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import * as Test from "@alchemy.run/test/Vitest";
 import { encodeState, State } from "alchemy/State";
 import * as Effect from "effect/Effect";
+import * as Exit from "effect/Exit";
 import * as Layer from "effect/Layer";
 import * as Redacted from "effect/Redacted";
 import * as Schema from "effect/Schema";
-import { afterEach, beforeEach, describe, expect, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as Convex from "../src/index.ts";
 import { fromValues } from "../src/Credentials.ts";
 import { ManagementApiLive } from "../src/ManagementApi.ts";
 import { registerSharedDevelopmentClient } from "../src/SharedHubClient.ts";
 import { STORE_PROJECT_NAME } from "../src/State.ts";
 import { STORE_VERSION } from "../src/store/convex/version.ts";
-import { FakeConvex } from "./fakeConvex.ts";
+import { FakeConvex, hubFixture, recorded, stateFixture } from "./fakeConvex.ts";
 
 const TEAM = 38516;
 const STACK = "nicu/scout";
 const ISSUER = "https://hub.test";
 const OIDC_REQUEST_URL = "https://oidc.test/token?api-version=2.0";
 const OIDC_TOKEN = "oidc-token";
-const REPOSITORY_ID = "1088421373";
+/** The 201 answers of `POST /hub-clients`, recorded from the hub of RFC 133. */
+const PRODUCTION_ANSWER = hubFixture("hub-clients-production.json");
+const PREVIEW_ANSWER = hubFixture("hub-clients-preview.json");
+const REPOSITORY_ID = String(PRODUCTION_ANSWER["repository"]);
 const PRODUCTION_URI = "https://prod-site-1.convex.site/auth/hub/callback";
 const CLOUD_SITE = "https://happy-otter-123.convex.site";
 const LOCAL_SITE = "http://127.0.0.1:3211";
@@ -107,18 +112,18 @@ class FakeHub {
     this.clients.set(clientId, { token, redirectUri });
     const initialAccessToken = `iat-of-${clientId}`;
     if (production && this.issuesTokens) this.tokens.set(app, initialAccessToken);
+    // A production answer without the token fields is the recorded preview answer.
+    const withToken = production && this.issuesTokens;
     return Response.json(
       {
+        ...(withToken ? PRODUCTION_ANSWER : PREVIEW_ANSWER),
         issuer: ISSUER,
         client_id: clientId,
         client_secret: `secret-of-${clientId}`,
         registration_access_token: token,
         registration_client_uri: `${ISSUER}/register/${clientId}`,
         redirect_uri: redirectUri,
-        terms: "https://samebase.com/terms",
-        ...(production && this.issuesTokens
-          ? { initial_access_token: initialAccessToken, repository: REPOSITORY_ID }
-          : {}),
+        ...(withToken ? { initial_access_token: initialAccessToken } : {}),
       },
       { status: 201 },
     );
@@ -248,7 +253,7 @@ const world = (stack: Test.ScratchStack) => {
     });
     hub.sent.length = 0;
   });
-  return { convex, hub, deployment, deployMain };
+  return { convex, hub, deployment, deployMain, store: store.name };
 };
 
 const run = (options: {
@@ -556,7 +561,10 @@ describe("registerSharedDevelopmentClient", () => {
       hub.clients.clear();
       hub.registrar = echo;
       lines.push(yield* run({ cwd, convex }));
-      hub.registrar = () => new Response('{"client_secret":"secret-of-cl_1"}', { status: 201 });
+      // The recorded answer without its client ID, with a secret in it.
+      const { client_id: _clientId, ...withoutClient } = PRODUCTION_ANSWER;
+      hub.registrar = () =>
+        Response.json({ ...withoutClient, client_secret: "secret-of-cl_1" }, { status: 201 });
       lines.push(yield* run({ cwd, convex }));
       hub.registrar = () => {
         throw new TypeError("fetch failed: Bearer iat-of-cl_1");
@@ -569,4 +577,152 @@ describe("registerSharedDevelopmentClient", () => {
       }
     }),
   );
+
+  for (const [name, variable, value] of [
+    ["another issuer", "HUB_ISSUER", "https://other.test"],
+    ["the off issuer", "HUB_ISSUER", "http://127.0.0.1:1"],
+    ["the no-hub secret", "HUB_CLIENT_SECRET", "no-hub"],
+    ["an empty secret", "HUB_CLIENT_SECRET", ""],
+  ] as const) {
+    test.provider(`a client with ${name} is not renewed and gets a new client`, (stack) =>
+      Effect.gen(function* () {
+        const { deployMain, deployment, hub } = world(stack);
+        yield* deployMain;
+        hub.clients.set("cl_9", {
+          token: "token-of-cl_9",
+          redirectUri: `${LOCAL_SITE}${CALLBACK_PATH}`,
+        });
+        const { convex, writes } = cli(LOCAL_SITE, variablesOf("cl_9").set(variable, value));
+        expect(yield* run({ cwd: selecting(deployment), convex })).toContain(
+          "Hub client registered",
+        );
+        expect(hub.sent.map(({ method, url }) => `${method} ${url}`)).toEqual([
+          `POST ${ISSUER}/hub-clients`,
+        ]);
+        expect(writes).toEqual([writeOf("cl_2")]);
+      }),
+    );
+  }
+
+  test.provider("a client with a second return address gets a new client", (stack) =>
+    Effect.gen(function* () {
+      const { deployMain, deployment, hub } = world(stack);
+      yield* deployMain;
+      hub.record = () =>
+        Response.json({
+          client_id: "cl_9",
+          redirect_uris: [`${LOCAL_SITE}${CALLBACK_PATH}`, "http://127.0.0.1:3212/x"],
+        });
+      const { convex, writes } = cli(LOCAL_SITE, variablesOf("cl_9"));
+      expect(yield* run({ cwd: selecting(deployment), convex })).toContain("Hub client registered");
+      expect(writes).toEqual([writeOf("cl_2")]);
+    }),
+  );
+
+  /** A secret that a failure of a service quotes. */
+  const MARKER = "SECRET-MARKER-7f3a";
+
+  test.provider("a Convex CLI error that quotes a secret prints a fixed text", (stack) =>
+    Effect.gen(function* () {
+      const { deployment } = world(stack);
+      const exit = yield* Effect.exit(
+        run({
+          cwd: selecting(deployment),
+          convex: () => {
+            throw new Error(`Command failed: convex env get HUB_CLIENT_SECRET ${MARKER}`);
+          },
+        }),
+      );
+      expect(exit).toEqual(
+        Exit.succeed("The hub client keeps its values: `convex run --inline-query` failed."),
+      );
+    }),
+  );
+
+  test.provider("a Management API error that quotes a secret prints a fixed text", (stack) =>
+    Effect.gen(function* () {
+      const { convex: fake, deployment } = world(stack);
+      fake.scripted.set(`GET api.convex.dev/v1/deployments/${deployment}`, [
+        { status: 500, body: { ...recorded("project_not_found.json"), message: MARKER } },
+      ]);
+      const { convex } = cli(LOCAL_SITE);
+      const exit = yield* Effect.exit(run({ cwd: selecting(deployment), convex }));
+      expect(exit).toEqual(
+        Exit.succeed(
+          "The hub client keeps its values: the Convex API could not read the selected development deployment.",
+        ),
+      );
+    }),
+  );
+
+  for (const [name, script] of [
+    [
+      "a function error of the store",
+      (fake: FakeConvex, store: string) =>
+        fake.scripted.set(`POST ${store}.convex.cloud/api/function`, [
+          {
+            status: 200,
+            body: { ...stateFixture("function_version_missing.json"), errorMessage: MARKER },
+          },
+        ]),
+    ],
+    [
+      "a Management API error of the store lookup",
+      (fake: FakeConvex) =>
+        fake.scripted.set(`GET api.convex.dev/v1/teams/${TEAM}/projects`, [
+          { status: 500, body: { ...recorded("project_not_found.json"), message: MARKER } },
+        ]),
+    ],
+  ] as const) {
+    test.provider(`${name} that quotes a secret prints a fixed text`, (stack) =>
+      Effect.gen(function* () {
+        const { convex: fake, deployMain, deployment, store } = world(stack);
+        yield* deployMain;
+        script(fake, store);
+        const { convex, writes } = cli(LOCAL_SITE);
+        const exit = yield* Effect.exit(run({ cwd: selecting(deployment), convex }));
+        expect(exit).toEqual(
+          Exit.succeed(
+            "The hub client keeps its values: the state store of the team could not be read.",
+          ),
+        );
+        expect(writes).toEqual([]);
+      }),
+    );
+  }
+});
+
+describe("alchemy-convex hub-client --shared, as a process", () => {
+  const cliPath = fileURLToPath(new URL("../src/cli.ts", import.meta.url));
+  /** The fixture app resolves the installed convex package of this package. */
+  const app = fileURLToPath(new URL("./fixtures/convex-app/", import.meta.url));
+  const spawn = (args: readonly string[]) =>
+    spawnSync(process.execPath, [cliPath, ...args], {
+      cwd: app,
+      encoding: "utf8",
+      env: { ...process.env, CONVEX_TEAM_ID: "", HUB_URL: ISSUER },
+    });
+
+  it("exits 1 with the usage for a missing --stack", () => {
+    const result = spawn(["hub-client", "--shared", "--app", "scout", "--callback-path", "/x"]);
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("hub-client --shared --stack <owner/name>");
+  });
+
+  it("exits 0 with one line when it finds no team", () => {
+    const result = spawn([
+      "hub-client",
+      "--shared",
+      "--stack",
+      STACK,
+      "--app",
+      "scout",
+      "--callback-path",
+      CALLBACK_PATH,
+    ]);
+    expect(result.status).toBe(0);
+    expect(result.stdout).toBe(
+      "No Convex team for Google sign-in on this laptop: set CONVEX_TEAM_ID, or select a cloud development deployment.\n",
+    );
+  });
 });
