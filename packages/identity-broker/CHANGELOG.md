@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.16.0
+
+- `registration.register` takes `deploymentType: "development"`, for a client on a laptop. It gets a
+  removal date 14 days ahead, as a preview client does, and at the cap of an app it can evict any
+  row, as a preview client can. `POST /register` still takes `production` and `preview` only.
+
 ## 0.15.0
 
 - Add the admin function `renewClient({ clientId, expires })`. It answers whether the client exists,

@@ -743,7 +743,12 @@ describe("suspension", () => {
  */
 async function registerHere(
   h: Harness,
-  args: { tenantId?: string; ownerId?: string; appId?: string } = {},
+  args: {
+    tenantId?: string;
+    ownerId?: string;
+    appId?: string;
+    deploymentType?: "production" | "preview" | "development";
+  } = {},
 ) {
   const credentials = await h.broker.newClientCredentials();
   const result = await h.t.mutation(api.registration.register, {
@@ -751,7 +756,7 @@ async function registerHere(
     ...(args.ownerId === undefined ? {} : { ownerId: args.ownerId }),
     appId: args.appId ?? "gh-1-app",
     connector: "fake-apps",
-    deploymentType: "preview",
+    deploymentType: args.deploymentType ?? "preview",
     clientId: credentials.clientId,
     secretHash: credentials.secretHash,
     registrationTokenHash: credentials.registrationTokenHash,
@@ -898,6 +903,55 @@ describe("the host's connection switch", () => {
     await h.t.mutation(api.registration.switchConnection, { tenantId: "gh-1", connected: false });
     expect((await postRegister(h, metadata())).status).toBe(403);
     expect((await registerHere(h)).result).toEqual({ ok: false, error: "suspended" });
+  });
+});
+
+describe("a development client", () => {
+  test("it gets a removal date, renews it, and cleanup deletes it after the date", async () => {
+    vi.useFakeTimers({ now: 1_000_000_000_000 });
+    const h = await hub();
+    const { result, client } = await registerHere(h, { deploymentType: "development" });
+    expect(result).toEqual({ ok: true });
+    expect((await readClient(h, client.client_id))?.removeAt).toBe(Date.now() + LEASE_MS);
+
+    vi.advanceTimersByTime(1_000);
+    const read = configuration(client, client.registration_access_token, "GET");
+    expect((await h.fetchBroker(read.url, read.init)).status).toBe(200);
+    expect((await readClient(h, client.client_id))?.removeAt).toBe(Date.now() + LEASE_MS);
+
+    const counts = await h.t.mutation(api.lifecycle.cleanup, {
+      now: Date.now() + LEASE_MS + 1,
+      signInRetentionMs: 1,
+    });
+    expect(counts.expiredClients).toBe(1);
+    expect(await readClient(h, client.client_id)).toBeNull();
+  });
+
+  test("at the cap it evicts the row renewed longest ago, also one that signed someone in", async () => {
+    vi.useFakeTimers({ now: 1_000_000_000_000 });
+    const h = await hub();
+    const { client: oldest } = await registerHere(h, { deploymentType: "development" });
+    expect((await signIn(h, oldest)).status).toBe(200);
+    for (let index = 1; index < MAX_CLIENTS_PER_APP; index += 1) {
+      vi.advanceTimersByTime(1_000);
+      await registerHere(h, { deploymentType: index % 2 === 0 ? "preview" : "development" });
+    }
+
+    vi.advanceTimersByTime(1_000);
+    const { result } = await registerHere(h, { deploymentType: "development" });
+    expect(result).toEqual({ ok: true });
+    expect(await readClient(h, oldest.client_id)).toBeNull();
+    expect(await h.t.query(api.clients.listByApp, { appId: "gh-1-app" })).toHaveLength(
+      MAX_CLIENTS_PER_APP,
+    );
+  });
+
+  test("a renewal of a suspended tenant's client answers 403", async () => {
+    const h = await hub();
+    const { client } = await registerHere(h, { deploymentType: "development" });
+    await suspend(h, "gh-1", true);
+    const read = configuration(client, client.registration_access_token, "GET");
+    expect((await h.fetchBroker(read.url, read.init)).status).toBe(403);
   });
 });
 

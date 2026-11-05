@@ -1,4 +1,4 @@
-import { v } from "convex/values";
+import { v, type Infer } from "convex/values";
 // oxlint-disable-next-line samebase/no-raw-public-convex-function-builders -- Component entrypoints are internal to the host; host functions enforce access.
 import { mutation, type MutationCtx } from "./_generated/server";
 import type { Doc } from "./_generated/dataModel";
@@ -17,7 +17,8 @@ export const MAX_CLIENTS_PER_APP = 30;
 /** The apps of one tenant: five names, each with a production app and a preview app. */
 export const MAX_APPS_PER_TENANT = 10;
 
-const vDeployment = union(literal("production"), literal("preview"));
+/** `development`: a laptop's client, which lives and goes like a preview's. */
+const vDeployment = union(literal("production"), literal("preview"), literal("development"));
 
 /**
  * What a sign-in, a resource authorization, or a provider refresh writes on the client it used: a
@@ -31,13 +32,14 @@ export function used(client: Doc<"clients">, now: number) {
 }
 
 /**
- * The one row that makes way for a new client at the cap. A preview client can always go, because
- * its next deploy registers again. A production client goes only if it never signed anyone in: the
- * hub cannot know which client a deployment holds, so one that has served users stays.
+ * The one row that makes way for a new client at the cap. For a preview or development client any
+ * row can go, because the next deploy or dev start of its owner registers again. For a production
+ * client a row goes only if it never signed anyone in: the hub cannot know which client a deployment
+ * holds, so one that has served users stays.
  */
-function evicted(rows: Doc<"clients">[], deploymentType: "production" | "preview") {
+function evicted(rows: Doc<"clients">[], deploymentType: Infer<typeof vDeployment>) {
   const candidates =
-    deploymentType === "preview" ? rows : rows.filter((row) => row.lastSignInAt === undefined);
+    deploymentType === "production" ? rows.filter((row) => row.lastSignInAt === undefined) : rows;
   return [...candidates].sort(
     (a, b) => (a.renewedAt ?? a.createdAt) - (b.renewedAt ?? b.createdAt),
   )[0];
@@ -151,7 +153,7 @@ export const register = mutation({
       softwareVersion: args.softwareVersion,
       createdAt: args.now,
       renewedAt: args.now,
-      ...(args.deploymentType === "preview" ? { removeAt: args.now + LEASE_MS } : {}),
+      ...(args.deploymentType === "production" ? {} : { removeAt: args.now + LEASE_MS }),
     });
     return { ok: true as const };
   },
