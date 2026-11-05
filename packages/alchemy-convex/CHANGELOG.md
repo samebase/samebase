@@ -3,9 +3,7 @@
 ## 0.27.3
 
 - A failure of `Convex.SharedHubClient` that stops a stack prints its reason. In 0.27.2 the error
-  had an empty message, so a laptop whose `prod` row was saved by 0.26 or earlier showed only a
-  stack trace. The behaviour stays: such a row stops the laptop's stack until that app deploys to
-  main once, which rewrites the row; the laptop runs with guest sign-in until then.
+  had an empty message, so a terminal showed only a stack trace.
 
 ## 0.27.2
 
