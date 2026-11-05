@@ -1,15 +1,20 @@
 // Convex.SharedHubClient against a fake GitHub and identity hub behind a stubbed fetch. The hub
 // answers `/hub-clients` as apps/identity-hub/convex/hubClients.ts does, and a client's own record as
 // `registrationEndpoints` of @samebase/identity-broker does.
+import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join, relative } from "node:path";
+import { fileURLToPath } from "node:url";
 import { adopt } from "alchemy/AdoptPolicy";
 import * as Output from "alchemy/Output";
-import { State } from "alchemy/State";
+import { encodeState, type PersistedState, reviveState, State } from "alchemy/State";
+import type { ScratchStack } from "@alchemy.run/test/Core";
 import * as Test from "@alchemy.run/test/Vitest";
 import * as Effect from "effect/Effect";
 import * as Logger from "effect/Logger";
 import * as Redacted from "effect/Redacted";
 import * as Schema from "effect/Schema";
-import { afterEach, describe, expect, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as Convex from "../src/index.ts";
 import { FakeConvex, hubFixture } from "./fakeConvex.ts";
 
@@ -27,6 +32,7 @@ const HUB_CLIENTS = "https://auth.samebase.com/hub-clients";
 /** The 201 answers of `POST /hub-clients`, recorded from the hub of RFC 133. */
 const PRODUCTION_ANSWER = hubFixture("hub-clients-production.json");
 const PREVIEW_ANSWER = hubFixture("hub-clients-preview.json");
+const DEVELOPMENT_ANSWER = hubFixture("hub-clients-development.json");
 const TERMS = String(PREVIEW_ANSWER["terms"]);
 /** The numeric GitHub id of the repository, which the hub gives with the token. */
 const REPOSITORY_ID = String(PRODUCTION_ANSWER["repository"]);
@@ -35,12 +41,32 @@ const { test } = Test.make({
   providers: Convex.providers(Convex.fromValues({ accessToken: Redacted.make("test-token") })),
 });
 
-const props = (
-  overrides: Partial<Convex.SharedHubClientProps> = {},
-): Convex.SharedHubClientProps => ({
+/** The props of a client that asks with the GitHub OIDC token. */
+type GitHubProps = Extract<
+  Convex.SharedHubClientProps,
+  { readonly deploymentType: "production" | "preview" }
+>;
+type DevelopmentProps = Extract<
+  Convex.SharedHubClientProps,
+  { readonly deploymentType: "development" }
+>;
+
+const props = (overrides: Partial<GitHubProps> = {}): GitHubProps => ({
   app: "scout",
   redirectUri: REDIRECT_URI,
   deploymentType: "preview",
+  softwareVersion: "abc",
+  ...overrides,
+});
+
+/** The app's initial access token that the fake hub knows. */
+const INITIAL_ACCESS_TOKEN = "iat-of-scout";
+
+const development = (overrides: Partial<DevelopmentProps> = {}): DevelopmentProps => ({
+  app: "scout",
+  redirectUri: REDIRECT_URI,
+  deploymentType: "development",
+  initialAccessToken: Redacted.make(INITIAL_ACCESS_TOKEN),
   softwareVersion: "abc",
   ...overrides,
 });
@@ -63,14 +89,14 @@ const client = (input: Convex.SharedHubClientProps) =>
   });
 
 /** The outputs of the client `clientId` on `redirectUri`. */
-const issued = (clientId = "cl_1", redirectUri = REDIRECT_URI) => ({
+const issued = (clientId = "cl_1", redirectUri = REDIRECT_URI, deploymentType = "preview") => ({
   status: "on",
   issuer: ISSUER,
   clientId,
   clientSecret: `secret-of-${clientId}`,
   registrationAccessToken: `token-of-${clientId}`,
   registrationClientUri: `${ISSUER}/register/${clientId}`,
-  deploymentType: "preview",
+  deploymentType,
   redirectUri,
   initialAccessToken: "",
   repository: "",
@@ -142,6 +168,10 @@ class FakeServices {
   hub: Answer | undefined;
   /** Set: the hub answers as to a run of main, with the app's initial access token. */
   production = false;
+  /** The initial access tokens that the hub takes for a development client. */
+  readonly initialAccessTokens = new Set([INITIAL_ACCESS_TOKEN]);
+  /** Every request in order, also those to Convex, as "METHOD URL". */
+  readonly timeline: string[] = [];
   private nextClient = 1;
 
   constructor(private readonly rest?: typeof fetch) {}
@@ -168,6 +198,7 @@ class FakeServices {
 
   private readonly fetch = async (input: string | URL | Request, init?: RequestInit) => {
     const request = new Request(input, init);
+    this.timeline.push(`${request.method} ${request.url}`);
     const answer = this.answerOf(request.url);
     if (answer === undefined) {
       if (this.rest === undefined) throw new Error(`unexpected request to ${request.url}`);
@@ -186,21 +217,29 @@ class FakeServices {
 
   private readonly answerGitHub: Answer = () => Response.json({ count: 1, value: OIDC_TOKEN });
 
-  private readonly answerRegistrar: Answer = ({ body }) => {
+  /** A GitHub token gives a production or preview client, an initial access token a development one. */
+  private readonly answerRegistrar: Answer = ({ authorization, body }) => {
+    const bearer = authorization.replace(/^Bearer /, "");
+    const withGitHub = bearer === OIDC_TOKEN;
+    if (!withGitHub && !this.initialAccessTokens.has(bearer)) {
+      return Response.json({ error: "invalid_token" }, { status: 401 });
+    }
     const clientId = `cl_${this.nextClient++}`;
     const token = `token-of-${clientId}`;
     this.clients.set(clientId, token);
     const { redirectUri } = Schema.decodeUnknownSync(ClientRequest)(body);
+    const production = withGitHub && this.production;
+    if (production) this.initialAccessTokens.add(`iat-of-${clientId}`);
     return Response.json(
       {
-        ...(this.production ? PRODUCTION_ANSWER : PREVIEW_ANSWER),
+        ...(withGitHub ? (production ? PRODUCTION_ANSWER : PREVIEW_ANSWER) : DEVELOPMENT_ANSWER),
         issuer: ISSUER,
         client_id: clientId,
         client_secret: `secret-of-${clientId}`,
         registration_access_token: token,
         registration_client_uri: `${ISSUER}/register/${clientId}`,
         redirect_uri: redirectUri,
-        ...(this.production ? { initial_access_token: `iat-of-${clientId}` } : {}),
+        ...(production ? { initial_access_token: `iat-of-${clientId}` } : {}),
       },
       { status: 201 },
     );
@@ -775,5 +814,410 @@ describe("Convex.SharedHubClient", () => {
         expect(lines.filter((line) => line.includes(secret))).toEqual([]);
       }
     }),
+  );
+});
+
+describe("Convex.SharedHubClient for a development client", () => {
+  const DEVELOPED = issued("cl_1", REDIRECT_URI, "development");
+
+  it("takes the initial access token only for a development client", () => {
+    // @ts-expect-error A preview client asks with the GitHub OIDC token.
+    const preview: Convex.SharedHubClientProps = {
+      app: "scout",
+      redirectUri: REDIRECT_URI,
+      deploymentType: "preview",
+      initialAccessToken: Redacted.make(INITIAL_ACCESS_TOKEN),
+    };
+    // @ts-expect-error A development client needs the token.
+    const withoutToken: Convex.SharedHubClientProps = {
+      app: "scout",
+      redirectUri: REDIRECT_URI,
+      deploymentType: "development",
+    };
+    expect([preview, withoutToken]).toHaveLength(2);
+  });
+
+  test.provider(
+    "registers with the initial access token and no OIDC token, from the recorded answer",
+    (stack) =>
+      Effect.gen(function* () {
+        const fake = new FakeServices().install();
+        expect(yield* stack.deploy(client(development()))).toEqual(DEVELOPED);
+        expect(fake.sent).toEqual([
+          {
+            method: "POST",
+            url: HUB_CLIENTS,
+            authorization: `Bearer ${INITIAL_ACCESS_TOKEN}`,
+            body: { app: "scout", redirectUri: REDIRECT_URI, softwareVersion: "abc" },
+          },
+        ]);
+      }),
+  );
+
+  test.provider("renews with the saved address and token", (stack) =>
+    Effect.gen(function* () {
+      const fake = new FakeServices().install();
+      yield* stack.deploy(client(development()));
+      fake.sent.length = 0;
+      expect(yield* stack.deploy(client(development()))).toEqual(DEVELOPED);
+      expect(fake.sent).toEqual([
+        {
+          method: "GET",
+          url: `${ISSUER}/register/cl_1`,
+          authorization: "Bearer token-of-cl_1",
+          body: undefined,
+        },
+      ]);
+    }),
+  );
+
+  test.provider("registers anew for another return address", (stack) =>
+    Effect.gen(function* () {
+      const fake = new FakeServices().install();
+      yield* stack.deploy(client(development()));
+      fake.sent.length = 0;
+      const moved = yield* stack.deploy(client(development({ redirectUri: OTHER_REDIRECT_URI })));
+      expect(moved).toEqual(issued("cl_2", OTHER_REDIRECT_URI, "development"));
+      expect(fake.calls(ISSUER)).toEqual([]);
+    }),
+  );
+
+  test.provider("registers anew for another type on the same return address", (stack) =>
+    Effect.gen(function* () {
+      const fake = new FakeServices().install();
+      yield* stack.deploy(client(props()));
+      fake.sent.length = 0;
+      expect(yield* stack.deploy(client(development()))).toEqual(
+        issued("cl_2", REDIRECT_URI, "development"),
+      );
+      expect(fake.calls(ISSUER)).toEqual([]);
+      expect(fake.calls(HUB_CLIENTS)).toEqual([`POST ${HUB_CLIENTS}`]);
+    }),
+  );
+
+  test.provider("registers anew when the hub no longer has the client", (stack) =>
+    Effect.gen(function* () {
+      const fake = new FakeServices().install();
+      yield* stack.deploy(client(development()));
+      fake.clients.delete("cl_1");
+      expect(yield* stack.deploy(client(development()))).toEqual(
+        issued("cl_2", REDIRECT_URI, "development"),
+      );
+    }),
+  );
+
+  test.provider("403 on a renewal keeps the saved client in state, suspended", (stack) =>
+    Effect.gen(function* () {
+      const fake = new FakeServices().install();
+      yield* stack.deploy(client(development()));
+      fake.hub = () => Response.json({ error: "access_denied" }, { status: 403 });
+      fake.sent.length = 0;
+      expect(yield* stack.deploy(client(development()))).toEqual({
+        ...DEVELOPED,
+        status: "suspended",
+      });
+      expect(fake.calls(HUB_CLIENTS)).toEqual([]);
+
+      // The hub lifts the suspension, and the same client serves again.
+      fake.hub = undefined;
+      expect(yield* stack.deploy(client(development()))).toEqual(DEVELOPED);
+      expect(fake.calls(HUB_CLIENTS)).toEqual([]);
+    }),
+  );
+
+  test.provider("an empty token gives the off values with one line and no request", (stack) =>
+    Effect.gen(function* () {
+      const fake = new FakeServices().install();
+      const { layer, lines } = capturedLogs();
+      const off = yield* stack
+        .deploy(client(development({ initialAccessToken: Redacted.make("") })))
+        .pipe(Effect.provide(layer));
+      expect(off).toEqual({ ...OFF, deploymentType: "development" });
+      expect(fake.sent).toEqual([]);
+      expect(lines.filter((line) => line.includes("Convex.SharedHubClient"))).toEqual([
+        "Info: Convex.SharedHubClient: deploy to main once for Google sign-in on this laptop.",
+      ]);
+    }),
+  );
+
+  for (const [name, answer, text] of [
+    ["a refused token", undefined, "the identity hub refused the initial access token (HTTP 401)"],
+    [
+      "app_mismatch",
+      () => Response.json({ error: "not_allowed", reason: "app_mismatch" }, { status: 403 }),
+      "the initial access token belongs to another app on the identity hub (HTTP 403)",
+    ],
+  ] satisfies readonly (readonly [string, Answer | undefined, string])[]) {
+    test.provider(`${name} gives the off values and says why`, (stack) =>
+      Effect.gen(function* () {
+        const fake = new FakeServices().install();
+        fake.initialAccessTokens.delete(INITIAL_ACCESS_TOKEN);
+        fake.registrar = answer;
+        const { layer, lines } = capturedLogs();
+        const off = yield* stack.deploy(client(development())).pipe(Effect.provide(layer));
+        expect(off).toEqual({ ...OFF, deploymentType: "development" });
+        expect(warningsIn(lines)).toEqual([expect.stringContaining(text)]);
+      }),
+    );
+  }
+
+  test.provider("a destroy deletes the development client", (stack) =>
+    Effect.gen(function* () {
+      const fake = new FakeServices().install();
+      yield* stack.deploy(client(development()));
+      fake.sent.length = 0;
+      yield* stack.destroy();
+      expect(fake.calls(ISSUER)).toEqual([`DELETE ${ISSUER}/register/cl_1`]);
+      expect(fake.clients.size).toBe(0);
+    }),
+  );
+
+  test.provider("no logged line holds a secret or a token", (stack) =>
+    Effect.gen(function* () {
+      const fake = new FakeServices().install();
+      const { layer, lines } = capturedLogs();
+      const deploy = (input = development()) =>
+        stack.deploy(client(input)).pipe(Effect.provide(layer));
+      const echo: Answer = ({ authorization }) =>
+        Response.json({ error: authorization }, { status: 500 });
+
+      yield* deploy();
+      fake.hub = echo;
+      yield* deploy();
+      fake.hub = () => new Response(null, { status: 403 });
+      yield* deploy();
+      fake.registrar = echo;
+      yield* deploy(development({ redirectUri: OTHER_REDIRECT_URI }));
+      fake.registrar = networkDown;
+      yield* deploy(development({ redirectUri: OTHER_REDIRECT_URI }));
+      fake.registrar = undefined;
+      fake.initialAccessTokens.clear();
+      yield* deploy(development({ redirectUri: OTHER_REDIRECT_URI }));
+      fake.hub = echo;
+      yield* stack.destroy().pipe(Effect.provide(layer));
+
+      expect(warningsIn(lines).length).toBeGreaterThanOrEqual(4);
+      for (const secret of [INITIAL_ACCESS_TOKEN, "secret-of-cl_1", "token-of-cl_1", "Bearer"]) {
+        expect(lines.filter((line) => line.includes(secret))).toEqual([]);
+      }
+    }),
+  );
+});
+
+describe("Convex.SharedHubClient.variables", () => {
+  const variables = (input: Convex.SharedHubClientProps) =>
+    Effect.gen(function* () {
+      const resource = yield* Convex.SharedHubClient("Client", input);
+      const values = Convex.SharedHubClient.variables(resource);
+      return {
+        issuer: values.issuer,
+        clientId: values.clientId,
+        clientSecret: Output.map(values.clientSecret, Redacted.value),
+      };
+    });
+  const REAL = { issuer: ISSUER, clientId: "cl_1", clientSecret: "secret-of-cl_1" };
+  const OFF_VARIABLES = { issuer: OFF.issuer, clientId: OFF.clientId, clientSecret: "no-hub" };
+
+  test.provider("gives the client's values when it is on", (stack) =>
+    Effect.gen(function* () {
+      new FakeServices().install();
+      expect(yield* stack.deploy(variables(development()))).toEqual(REAL);
+    }),
+  );
+
+  test.provider("gives the off values while suspended, and the client's values after", (stack) =>
+    Effect.gen(function* () {
+      const fake = new FakeServices().install();
+      yield* stack.deploy(variables(development()));
+      fake.hub = () => new Response(null, { status: 403 });
+      expect(yield* stack.deploy(variables(development()))).toEqual(OFF_VARIABLES);
+      fake.hub = undefined;
+      expect(yield* stack.deploy(variables(development()))).toEqual(REAL);
+    }),
+  );
+
+  test.provider("gives the off values without a client", (stack) =>
+    Effect.gen(function* () {
+      new FakeServices().install();
+      const off = development({ initialAccessToken: Redacted.make("") });
+      expect(yield* stack.deploy(variables(off))).toEqual(OFF_VARIABLES);
+    }),
+  );
+});
+
+/**
+ * The client row of stage `prod`, from a production deploy of this stack, as the Convex store
+ * answers it: encoded to JSON and revived.
+ */
+const deployProduction = (stack: ScratchStack, fake: FakeServices) =>
+  Effect.gen(function* () {
+    fake.production = true;
+    yield* stack.deploy(
+      Convex.SharedHubClient("HubClient", props({ deploymentType: "production" })),
+    );
+    yield* Effect.gen(function* () {
+      const state = yield* yield* State;
+      const row = yield* state.get({ stack: stack.name, stage: stack.stage, fqn: "HubClient" });
+      if (row === undefined) throw new Error("the deploy saved no client");
+      const stored: PersistedState = JSON.parse(JSON.stringify(encodeState(row)), reviveState);
+      yield* state.set({ stack: stack.name, stage: "prod", fqn: "HubClient", value: stored });
+    }).pipe(Effect.provide(stack.state));
+    // A production client stays on the hub, and the row of this stage goes.
+    yield* stack.destroy();
+    fake.production = false;
+    fake.sent.length = 0;
+    fake.timeline.length = 0;
+  });
+
+describe("Convex.SharedHubClient.read", () => {
+  const readProd = Effect.sync(() => {
+    const prod = Convex.SharedHubClient.read("HubClient", { stage: "prod" });
+    return {
+      status: prod.status,
+      clientId: prod.clientId,
+      deploymentType: prod.deploymentType,
+      repository: prod.repository,
+      initialAccessToken: Output.map(prod.initialAccessToken, (token) =>
+        Redacted.isRedacted(token) ? Redacted.value(token) : "not redacted",
+      ),
+      clientSecret: Output.map(prod.clientSecret, (secret) =>
+        Redacted.isRedacted(secret) ? Redacted.value(secret) : "not redacted",
+      ),
+    };
+  });
+
+  test.provider("gives the row's attributes with the secrets as Redacted", (stack) =>
+    Effect.gen(function* () {
+      yield* deployProduction(stack, new FakeServices().install());
+      expect(yield* stack.deploy(readProd)).toEqual({
+        status: "on",
+        clientId: "cl_1",
+        deploymentType: "production",
+        repository: REPOSITORY_ID,
+        initialAccessToken: "iat-of-cl_1",
+        clientSecret: "secret-of-cl_1",
+      });
+    }),
+  );
+
+  test.provider("gives the off attributes when the stage has no row", (stack) =>
+    Effect.gen(function* () {
+      expect(yield* stack.deploy(readProd)).toEqual({
+        status: "off",
+        clientId: "no-hub",
+        deploymentType: "production",
+        repository: "",
+        initialAccessToken: "",
+        clientSecret: "no-hub",
+      });
+    }),
+  );
+});
+
+describe("the development stage of the starter", () => {
+  const FAKE_CLI = fileURLToPath(new URL("./fixtures/fake-convex-cli.ts", import.meta.url));
+  const HELLO = fileURLToPath(new URL("./fixtures/convex-app/convex/hello.ts", import.meta.url));
+  let dir = "";
+  /** The app directory relative to the working directory of the test run, as a stack passes it. */
+  let rootDir = "";
+
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), "alchemy-convex-dev-stage-test-"));
+    const app = join(dir, "app");
+    rootDir = relative(process.cwd(), app);
+    mkdirSync(join(app, "convex"), { recursive: true });
+    mkdirSync(join(app, "node_modules", "convex"), { recursive: true });
+    writeFileSync(join(app, "package.json"), JSON.stringify({ name: "fixture-app" }));
+    copyFileSync(HELLO, join(app, "convex", "hello.ts"));
+    writeFileSync(
+      join(app, "node_modules", "convex", "package.json"),
+      JSON.stringify({ name: "convex", bin: { convex: FAKE_CLI } }),
+    );
+    vi.stubEnv("ALCHEMY_CONVEX_FAKE_CLI_LOG", join(dir, "runs.jsonl"));
+    vi.stubEnv("ALCHEMY_CONVEX_FAKE_CLI_MODE", "ok");
+  });
+  afterEach(() => {
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  test.provider(
+    "pushes, then registers with prod's token, then writes the variables, and a destroy keeps the deployment",
+    (stack) =>
+      Effect.gen(function* () {
+        const convex = new FakeConvex();
+        const services = new FakeServices(convex.fetch).install();
+        yield* deployProduction(stack, services);
+        const projectId = convex.addProject({ name: "scout", teamId: TEAM });
+        const stage = "dev-nicu";
+        const app = Effect.gen(function* () {
+          const project = { projectId };
+          const prod = Convex.SharedHubClient.read("HubClient", { stage: "prod" });
+          const deployment = yield* Convex.Deployment("Deployment", {
+            project,
+            type: "dev",
+            name: stage,
+            rootDir,
+            source: "./convex",
+            env: { SAMEBASE_REPOSITORY_ID: prod.repository },
+          }).pipe(adopt(true));
+          const hub = yield* Convex.SharedHubClient("HubClient", {
+            app: "scout",
+            redirectUri: Output.interpolate`${deployment.siteUrl}/auth/hub/callback`,
+            deploymentType: "development",
+            initialAccessToken: prod.initialAccessToken,
+          });
+          const variables = Convex.SharedHubClient.variables(hub);
+          const site = yield* Convex.Deployment("Site", {
+            project,
+            type: "dev",
+            name: stage,
+            env: {
+              HUB_ISSUER: variables.issuer,
+              HUB_CLIENT_ID: variables.clientId,
+              HUB_CLIENT_SECRET: variables.clientSecret,
+            },
+          }).pipe(adopt(true));
+          return { name: site.name, siteUrl: site.siteUrl };
+        });
+
+        const { layer, lines } = capturedLogs();
+        const { name, siteUrl } = yield* stack.deploy(app).pipe(Effect.provide(layer));
+        const callback = `${siteUrl}/auth/hub/callback`;
+        expect(services.sent.filter(({ url }) => url === HUB_CLIENTS)).toEqual([
+          {
+            method: "POST",
+            url: HUB_CLIENTS,
+            authorization: "Bearer iat-of-cl_1",
+            body: { app: "scout", redirectUri: callback, softwareVersion: "unknown" },
+          },
+        ]);
+        const at = (pattern: RegExp) =>
+          services.timeline.flatMap((line, index) => (pattern.test(line) ? [index] : []));
+        // The push of "Deployment" ends with the deletion of its key, before the request for the
+        // client, and the write of "Site" comes after it.
+        const [pushed] = at(/\/delete_deploy_key$/);
+        const [register] = at(/\/hub-clients$/);
+        const writes = at(/\/update_environment_variables$/);
+        expect(pushed).toBeLessThan(register ?? -1);
+        expect(writes.at(-1)).toBeGreaterThan(register ?? Infinity);
+        expect(readFileSync(join(dir, "runs.jsonl"), "utf8").trim().split("\n")).toHaveLength(1);
+        // "Site" leaves the variable of "Deployment": it removes only a name that leaves its own env.
+        expect(convex.variables.get(name)).toEqual({
+          SAMEBASE_REPOSITORY_ID: REPOSITORY_ID,
+          HUB_ISSUER: ISSUER,
+          HUB_CLIENT_ID: "cl_2",
+          HUB_CLIENT_SECRET: "secret-of-cl_2",
+        });
+
+        // Both rows keep the default removal policy retain: a destroy deletes the client only.
+        yield* stack.destroy().pipe(Effect.provide(layer));
+        expect(services.calls(ISSUER)).toContain(`DELETE ${ISSUER}/register/cl_2`);
+        expect(convex.deployment(name)).toMatchObject({ deploymentType: "dev", reference: stage });
+
+        expect(lines).toContainEqual(expect.stringContaining("has a new client"));
+        for (const secret of ["iat-of-cl_1", "secret-of-cl_2", "token-of-cl_2", "Bearer"]) {
+          expect(lines.filter((line) => line.includes(secret))).toEqual([]);
+        }
+      }),
   );
 });
