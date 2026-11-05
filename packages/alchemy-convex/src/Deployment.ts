@@ -113,8 +113,10 @@ export type DeploymentProps =
       /** A dev deployment or a preview deployment that this resource creates. Cannot change. */
       readonly type: "dev" | "preview";
       /**
-       * The dev reference, such as `staging`, or the preview name, such as
-       * the stage name. Unique in the project. Cannot change.
+       * The dev reference, such as `staging`, or the Convex name of a dev
+       * deployment that exists, such as `happy-animal-123` from `.env.local`
+       * (taken over with `adopt`, never created), or the preview name, such
+       * as the stage name. Unique in the project. Cannot change.
        */
       readonly name: string;
     });
@@ -334,7 +336,9 @@ const checkIdentity = (current: DeploymentTarget, news: DeploymentProps) => {
   }
   if (current.type !== news.type) return change("type", current.type, news.type);
   const currentName = nameOf(current);
-  if (news.type !== "prod" && currentName !== news.name) {
+  // A dev deployment is also named by its Convex name, as `findByName` finds it.
+  const named = news.type === "dev" && current.name === news.name;
+  if (news.type !== "prod" && currentName !== news.name && !named) {
     return change("name", currentName ?? "(none)", news.name);
   }
   return Effect.void;
@@ -454,8 +458,10 @@ export const DeploymentProvider = () =>
         );
 
       /**
-       * The one dev deployment with this reference, or the one preview
-       * deployment with this preview name, or undefined.
+       * The one dev deployment with this reference or this Convex name, or the
+       * one preview deployment with this preview name, or undefined. The name
+       * form takes the dev deployment that `npx convex dev` made, such as the
+       * one `.env.local` selects, which has a reference the stack never chose.
        */
       const findByName = (
         management: ManagementApiService,
@@ -467,7 +473,9 @@ export const DeploymentProvider = () =>
           const matches = (yield* listDeployments(management, projectId, type)).filter(
             (row) =>
               row.deploymentType === type &&
-              (type === "dev" ? row.reference === name : row.previewIdentifier === name),
+              (type === "dev"
+                ? row.reference === name || row.name === name
+                : row.previewIdentifier === name),
           );
           if (matches.length > 1) {
             return yield* new AmbiguousDeployment({

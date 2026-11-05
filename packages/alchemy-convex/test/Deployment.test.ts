@@ -142,6 +142,27 @@ describe("Convex.Deployment", () => {
     }),
   );
 
+  test.provider("takes over a dev deployment by its Convex name with --adopt", (stack) =>
+    Effect.gen(function* () {
+      const fake = new FakeConvex().install();
+      const projectId = fake.addProject({ name: NAME, teamId: TEAM });
+      // Such as the dev deployment that `npx convex dev` made, which `.env.local` selects.
+      const existing = fake.addDeployment({ projectId, type: "dev", name: "nicu" });
+      const props = { project: { projectId }, type: "dev", name: existing } as const;
+      const adopted = yield* stack.deploy(
+        Effect.gen(function* () {
+          return attributes(yield* Convex.Deployment("Deployment", props).pipe(adopt(true)));
+        }),
+      );
+      expect(adopted).toMatchObject({ name: existing, type: "dev", reference: "nicu" });
+      expect(fake.lines().filter((line) => line.endsWith("/create_deployment"))).toEqual([]);
+      // The next deploy names the same deployment: no identity change, no create.
+      const again = yield* stack.deploy(deployment(props));
+      expect(again).toEqual(adopted);
+      expect(fake.lines().filter((line) => line.endsWith("/create_deployment"))).toEqual([]);
+    }),
+  );
+
   test.provider("keeps the deployment on the next deploy without a new create", (stack) =>
     Effect.gen(function* () {
       const fake = new FakeConvex().install();

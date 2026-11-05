@@ -1,10 +1,6 @@
 // Convex.SharedHubClient against a fake GitHub and identity hub behind a stubbed fetch. The hub
 // answers `/hub-clients` as apps/identity-hub/convex/hubClients.ts does, and a client's own record as
 // `registrationEndpoints` of @samebase/identity-broker does.
-import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join, relative } from "node:path";
-import { fileURLToPath } from "node:url";
 import { adopt } from "alchemy/AdoptPolicy";
 import * as Output from "alchemy/Output";
 import { encodeState, type PersistedState, reviveState, State } from "alchemy/State";
@@ -14,7 +10,7 @@ import * as Effect from "effect/Effect";
 import * as Logger from "effect/Logger";
 import * as Redacted from "effect/Redacted";
 import * as Schema from "effect/Schema";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import * as Convex from "../src/index.ts";
 import { FakeConvex, hubFixture } from "./fakeConvex.ts";
 
@@ -1250,49 +1246,24 @@ describe("Convex.SharedHubClient.read", () => {
 });
 
 describe("the development stage of the starter", () => {
-  const FAKE_CLI = fileURLToPath(new URL("./fixtures/fake-convex-cli.ts", import.meta.url));
-  const HELLO = fileURLToPath(new URL("./fixtures/convex-app/convex/hello.ts", import.meta.url));
-  let dir = "";
-  /** The app directory relative to the working directory of the test run, as a stack passes it. */
-  let rootDir = "";
-
-  beforeEach(() => {
-    dir = mkdtempSync(join(tmpdir(), "alchemy-convex-dev-stage-test-"));
-    const app = join(dir, "app");
-    rootDir = relative(process.cwd(), app);
-    mkdirSync(join(app, "convex"), { recursive: true });
-    mkdirSync(join(app, "node_modules", "convex"), { recursive: true });
-    writeFileSync(join(app, "package.json"), JSON.stringify({ name: "fixture-app" }));
-    copyFileSync(HELLO, join(app, "convex", "hello.ts"));
-    writeFileSync(
-      join(app, "node_modules", "convex", "package.json"),
-      JSON.stringify({ name: "convex", bin: { convex: FAKE_CLI } }),
-    );
-    vi.stubEnv("ALCHEMY_CONVEX_FAKE_CLI_LOG", join(dir, "runs.jsonl"));
-    vi.stubEnv("ALCHEMY_CONVEX_FAKE_CLI_MODE", "ok");
-  });
-  afterEach(() => {
-    rmSync(dir, { recursive: true, force: true });
-  });
-
   test.provider(
-    "pushes, then registers with prod's token, then writes the variables, and a destroy keeps the deployment",
+    "writes the repository id, registers with prod's token, writes the variables, and a destroy keeps the deployment",
     (stack) =>
       Effect.gen(function* () {
         const convex = new FakeConvex();
         const services = new FakeServices(convex.fetch).install();
         yield* deployProduction(stack, services);
         const projectId = convex.addProject({ name: "scout", teamId: TEAM });
-        const stage = "dev-nicu";
+        // The dev deployment that `npx convex dev` made and `.env.local` selects, with the code
+        // already pushed. The stage takes it by its Convex name and pushes nothing.
+        const selected = convex.addDeployment({ projectId, type: "dev", name: "nicu" });
         const app = Effect.gen(function* () {
           const project = { projectId };
           const prod = Convex.SharedHubClient.read("HubClient", { stage: "prod" });
-          const deployment = yield* Convex.Deployment("Deployment", {
+          const deployment = yield* Convex.Deployment("Verification", {
             project,
             type: "dev",
-            name: stage,
-            rootDir,
-            source: "./convex",
+            name: selected,
             env: { SAMEBASE_REPOSITORY_ID: prod.repository },
           }).pipe(adopt(true));
           const hub = yield* Convex.SharedHubClient("HubClient", {
@@ -1305,7 +1276,7 @@ describe("the development stage of the starter", () => {
           const site = yield* Convex.Deployment("Site", {
             project,
             type: "dev",
-            name: stage,
+            name: selected,
             env: {
               HUB_ISSUER: variables.issuer,
               HUB_CLIENT_ID: variables.clientId,
@@ -1317,6 +1288,7 @@ describe("the development stage of the starter", () => {
 
         const { layer, lines } = capturedLogs();
         const { name, siteUrl } = yield* stack.deploy(app).pipe(Effect.provide(layer));
+        expect(name).toBe(selected);
         const callback = `${siteUrl}/auth/hub/callback`;
         expect(services.sent.filter(({ url }) => url === HUB_CLIENTS)).toEqual([
           {
@@ -1328,15 +1300,16 @@ describe("the development stage of the starter", () => {
         ]);
         const at = (pattern: RegExp) =>
           services.timeline.flatMap((line, index) => (pattern.test(line) ? [index] : []));
-        // The push of "Deployment" ends with the deletion of its key, before the request for the
-        // client, and the write of "Site" comes after it.
-        const [pushed] = at(/\/delete_deploy_key$/);
+        // The repository id is written before the request for the client, which the hub needs to
+        // read the file, and the three variables after it.
         const [register] = at(/\/hub-clients$/);
         const writes = at(/\/update_environment_variables$/);
-        expect(pushed).toBeLessThan(register ?? -1);
+        expect(writes[0]).toBeLessThan(register ?? -1);
         expect(writes.at(-1)).toBeGreaterThan(register ?? Infinity);
-        expect(readFileSync(join(dir, "runs.jsonl"), "utf8").trim().split("\n")).toHaveLength(1);
-        // "Site" leaves the variable of "Deployment": it removes only a name that leaves its own env.
+        // No new deployment and no push: `convex dev` owns the code, so no deploy key is minted
+        // for a push, only for the variable writes.
+        expect(services.timeline.filter((line) => line.endsWith("/create_deployment"))).toEqual([]);
+        // "Site" leaves the variable of "Verification": it removes only a name that leaves its own env.
         expect(convex.variables.get(name)).toEqual({
           SAMEBASE_REPOSITORY_ID: REPOSITORY_ID,
           HUB_ISSUER: ISSUER,
@@ -1347,7 +1320,7 @@ describe("the development stage of the starter", () => {
         // Both rows keep the default removal policy retain: a destroy deletes the client only.
         yield* stack.destroy().pipe(Effect.provide(layer));
         expect(services.calls(ISSUER)).toContain(`DELETE ${ISSUER}/register/cl_2`);
-        expect(convex.deployment(name)).toMatchObject({ deploymentType: "dev", reference: stage });
+        expect(convex.deployment(name)).toMatchObject({ deploymentType: "dev", reference: "nicu" });
 
         expect(lines).toContainEqual(expect.stringContaining("has a new client"));
         for (const secret of ["iat-of-cl_1", "secret-of-cl_2", "token-of-cl_2", "Bearer"]) {
