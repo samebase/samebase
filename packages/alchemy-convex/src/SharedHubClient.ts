@@ -1,44 +1,39 @@
 // Convex.SharedHubClient: one deployment of an app as a client of the central identity hub, for an
-// app that deploys in its own GitHub Actions run, on any host.
+// app that deploys in its own GitHub Actions run, on any host, and on a laptop as a stage of the same
+// stack.
 //
-// The run asks the hub for a new client with a GitHub OIDC token, so the stack needs no key and no
-// Samebase account. The token names the repository. The hub reads `/samebase-verification.json` at
-// the origin of the return address, which must name the same repository, and registers the client on
-// that address. The answer holds the client's own registration access token (RFC 7591), and each
-// later deploy reads the client on the hub with that token (RFC 7592). The hub keeps only hashes, so
-// the state is the only record of the secret and the token.
+// A run in GitHub Actions asks the hub for a new client with a GitHub OIDC token, so the stack needs
+// no key and no Samebase account. The token names the repository. The hub reads
+// `/samebase-verification.json` at the origin of the return address, which must name the same
+// repository, and registers the client on that address. The answer holds the client's own
+// registration access token (RFC 7591), and each later deploy reads the client on the hub with that
+// token (RFC 7592). The hub keeps only hashes, so the state is the only record of the secret and the
+// token.
 //
 // The answer to a production registration also holds the app's initial access token (RFC 7591
-// section 1.2) and the repository id. The state of stage `prod` keeps them. On a laptop,
-// `alchemy-convex hub-client --shared` reads that row with the Convex login of the team and asks the
-// hub for a development client with the token: see `registerSharedDevelopmentClient`.
+// section 1.2) and the repository id. The state of stage `prod` keeps them. A laptop runs the stack
+// as a stage `dev-<name>`: it reads them with `SharedHubClient.read`, and a client with
+// `deploymentType: "development"` asks the hub with the token in place of the GitHub token (RFC 133).
 //
 // A push removes a variable that a deploy stops passing, so a failure here must not drop working
 // variables or stop the deploy. A renewal that fails keeps the saved values. Only a client that
-// cannot work asks for a new one: it is gone, or it has another return address. If that request
-// fails, the run gives the off values, so the app has guest sign-in and not a broken button.
+// cannot work asks for a new one: it is gone, or it has another return address or type. If that
+// request fails, the run gives the off values, so the app has guest sign-in and not a broken button.
 // The off values are the `no-hub` variables of a checkout without a hub: Convex needs the variables,
 // and the app hides the button for this client ID.
 //
 // No text in this file quotes an answer or a fetch error, so no log line can hold a secret.
-import { execFileSync } from "node:child_process";
-import { readFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
 import { Resource } from "alchemy";
 import { isResolved } from "alchemy/Diff";
+import * as Output from "alchemy/Output";
 import * as Provider from "alchemy/Provider";
-import { reviveState } from "alchemy/State";
-import * as Cause from "effect/Cause";
+import { Stack } from "alchemy/Stack";
+import { State } from "alchemy/State";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Redacted from "effect/Redacted";
 import * as Schema from "effect/Schema";
-import { DeploymentRow } from "./Deployment.ts";
-import { ManagementApi, type ManagementApiService } from "./ManagementApi.ts";
-import { findProjectByName, getProjectById, prodDeploymentOf } from "./Project.ts";
 import type { Providers } from "./Providers.ts";
-import { withPushKey } from "./Push.ts";
-import { makeFunctionApi, STORE_PROJECT_NAME } from "./State.ts";
 
 /** A hung service must not hold a deploy: the time limit of one request. */
 const REQUEST_TIMEOUT_MS = 30_000;
@@ -46,58 +41,108 @@ const REQUEST_TIMEOUT_MS = 30_000;
 /** The variables of a deployment without a hub client, as the starter writes them. */
 const OFF_VALUES = { issuer: "http://127.0.0.1:1", clientId: "no-hub", clientSecret: "no-hub" };
 
-/** The hub that a run asks, which is also its issuer. */
-const hubUrl = () => process.env["HUB_URL"] ?? "https://auth.samebase.com";
-
-/** Where a run asks for a new client. */
-const hubClientsUrl = () => `${hubUrl()}/hub-clients`;
-
-export interface SharedHubClientProps {
+interface CommonProps {
   /** The stable name of the app, set once in the stack. */
   readonly app: string;
   /**
    * The return address of the hub's sign-ins, such as `${site.siteUrl}/auth/hub/callback`: an https
    * URL whose origin serves `/samebase-verification.json` with the numeric GitHub id of this
-   * repository, `{ "repository": "123" }`. It can come from a resource that this run creates.
+   * repository, `{ "repository": "123" }`. It can come from a resource that this run creates. A
+   * development client can also have http on a loopback host, which needs no file.
    */
   readonly redirectUri: string;
-  readonly deploymentType: "production" | "preview";
   /** Recorded on the hub's client, such as the commit. The hub records "unknown" without it. */
   readonly softwareVersion?: string;
 }
 
-export interface SharedHubClientAttributes {
+/**
+ * A production or preview client asks with the GitHub OIDC token of the run. A development client
+ * asks with the app's initial access token, which `SharedHubClient.read` gives from stage `prod`.
+ */
+export type SharedHubClientProps =
+  | (CommonProps & {
+      readonly deploymentType: "production" | "preview";
+      readonly initialAccessToken?: never;
+    })
+  | (CommonProps & {
+      readonly deploymentType: "development";
+      /** Empty before the first production registration: the client gets the off values. */
+      readonly initialAccessToken: Redacted.Redacted<string>;
+    });
+
+const DeploymentType = Schema.Literals(["production", "preview", "development"]);
+
+const Attributes = Schema.Struct({
   /** `off`: no client, and the values below are the off values. */
-  readonly status: "on" | "off" | "suspended";
+  status: Schema.Literals(["on", "off", "suspended"]),
   /** The issuer of the hub, which the deployment names to sign in. */
-  readonly issuer: string;
-  readonly clientId: string;
+  issuer: Schema.String,
+  clientId: Schema.String,
   /** Returned only at registration. */
-  readonly clientSecret: Redacted.Redacted<string>;
+  clientSecret: Schema.Redacted(Schema.String),
   /** Returned only at registration. It reads and deletes this client on the hub, and nothing else. */
-  readonly registrationAccessToken: Redacted.Redacted<string>;
-  readonly registrationClientUri: string;
-  readonly deploymentType: "production" | "preview";
+  registrationAccessToken: Schema.Redacted(Schema.String),
+  registrationClientUri: Schema.String,
+  deploymentType: DeploymentType,
   /** The return address that the client serves. Empty for the off values. */
-  readonly redirectUri: string;
+  redirectUri: Schema.String,
   /**
    * Returned only at a production registration (RFC 7591 section 1.2). It registers development
-   * clients of this app, such as `alchemy-convex hub-client --shared` on a laptop. Empty for a
-   * preview and for the off values.
+   * clients of this app. Empty for a preview, for a development client, and for the off values.
    */
-  readonly initialAccessToken: Redacted.Redacted<string>;
+  initialAccessToken: Schema.Redacted(Schema.String),
   /** The numeric GitHub id of the repository, with the initial access token. Empty without it. */
-  readonly repository: string;
-}
+  repository: Schema.String,
+});
 
-export type SharedHubClient = Resource<
-  "IdentityHub.SharedClient",
-  SharedHubClientProps,
-  SharedHubClientAttributes,
-  never,
-  Providers
->;
-export const SharedHubClient = Resource<SharedHubClient>("IdentityHub.SharedClient");
+/**
+ * The attributes keep the real values of a suspended client, so that an unblock needs no new client.
+ * `SharedHubClient.variables` gives the values that the app gets.
+ */
+export interface SharedHubClientAttributes extends Schema.Schema.Type<typeof Attributes> {}
+
+/**
+ * The attributes as the state saves them. A row of 0.25 and earlier has no token fields, and they
+ * stay empty until the next production registration.
+ */
+const SavedAttributes = Schema.Struct({
+  ...Attributes.fields,
+  initialAccessToken: Schema.optionalKey(Schema.Redacted(Schema.String)),
+  repository: Schema.optionalKey(Schema.String),
+});
+
+const savedAttributes = (value: unknown) =>
+  Schema.decodeUnknownEffect(SavedAttributes)(value).pipe(
+    Effect.map(({ initialAccessToken = Redacted.make(""), repository = "", ...attributes }) => ({
+      ...attributes,
+      initialAccessToken,
+      repository,
+    })),
+    // The text of a schema issue can quote a value of the row.
+    Effect.catchCause(() =>
+      Effect.die(
+        new SharedHubClientFailed({
+          reason: "the state holds attributes of Convex.SharedHubClient that it cannot read",
+        }),
+      ),
+    ),
+  );
+
+/** The attributes of no client. */
+const offAttributes = (
+  deploymentType: SharedHubClientAttributes["deploymentType"],
+): SharedHubClientAttributes => ({
+  status: "off",
+  issuer: OFF_VALUES.issuer,
+  clientId: OFF_VALUES.clientId,
+  clientSecret: Redacted.make(OFF_VALUES.clientSecret),
+  registrationAccessToken: Redacted.make(""),
+  registrationClientUri: "",
+  deploymentType,
+  redirectUri: "",
+  initialAccessToken: Redacted.make(""),
+  repository: "",
+});
 
 /** One request gave no usable answer. The reason holds no secret. */
 class SharedHubClientFailed extends Schema.TaggedError<SharedHubClientFailed>()(
@@ -214,21 +259,28 @@ const readOidcToken = (requestUrl: string, requestToken: string) =>
     return (yield* decode(OidcToken, "GitHub")(body)).value;
   });
 
-const requestNewClient = (props: SharedHubClientProps, requestUrl: string, requestToken: string) =>
+/** `POST /hub-clients` with `bearer`: the GitHub OIDC token, or the app's initial access token. */
+const requestNewClient = (props: SharedHubClientProps, bearer: string) =>
   Effect.gen(function* () {
-    const token = yield* readOidcToken(requestUrl, requestToken);
-    const { body, status } = yield* send("The identity hub", hubClientsUrl(), token, {
-      method: "POST",
-      body: JSON.stringify({
-        app: props.app,
-        redirectUri: props.redirectUri,
-        softwareVersion: props.softwareVersion ?? "unknown",
-      }),
-    });
+    const { body, status } = yield* send(
+      "The identity hub",
+      `${process.env["HUB_URL"] ?? "https://auth.samebase.com"}/hub-clients`,
+      bearer,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          app: props.app,
+          redirectUri: props.redirectUri,
+          softwareVersion: props.softwareVersion ?? "unknown",
+        }),
+      },
+    );
     if (status !== 201) {
-      return yield* new SharedHubClientFailed({
-        reason: `${refusalOf(status, body)} (HTTP ${status})`,
-      });
+      const reason =
+        status === 401 && props.deploymentType === "development"
+          ? "the identity hub refused the initial access token"
+          : refusalOf(status, body);
+      return yield* new SharedHubClientFailed({ reason: `${reason} (HTTP ${status})` });
     }
     const client = yield* decode(NewClient, "The identity hub")(body);
     yield* Effect.logInfo(
@@ -248,21 +300,29 @@ const requestNewClient = (props: SharedHubClientProps, requestUrl: string, reque
     };
   });
 
-/** A new client, or `saved`, or the off values. `saved` holds no off values. */
+/** A new client, or the off values. */
 const newClient = (props: SharedHubClientProps) => {
   const label = `Convex.SharedHubClient: ${props.app} on ${props.redirectUri} deploys without the hub`;
-  const off: SharedHubClientAttributes = {
-    status: "off",
-    issuer: OFF_VALUES.issuer,
-    clientId: OFF_VALUES.clientId,
-    clientSecret: Redacted.make(OFF_VALUES.clientSecret),
-    registrationAccessToken: Redacted.make(""),
-    registrationClientUri: "",
-    deploymentType: props.deploymentType,
-    redirectUri: "",
-    initialAccessToken: Redacted.make(""),
-    repository: "",
-  };
+  const off = offAttributes(props.deploymentType);
+  const request = (bearer: Effect.Effect<string, SharedHubClientFailed>) =>
+    bearer.pipe(
+      Effect.flatMap((token) => requestNewClient(props, token)),
+      Effect.catchTag("SharedHubClientFailed", (error) =>
+        Effect.logWarning(`${label}: ${error.reason}. The next deploy asks again.`).pipe(
+          Effect.as(off),
+        ),
+      ),
+    );
+
+  if (props.deploymentType === "development") {
+    const token = Redacted.value(props.initialAccessToken);
+    return token === ""
+      ? Effect.logInfo(
+          "Convex.SharedHubClient: deploy to main once for Google sign-in on this laptop.",
+        ).pipe(Effect.as(off))
+      : request(Effect.succeed(token));
+  }
+
   const requestUrl = process.env["ACTIONS_ID_TOKEN_REQUEST_URL"];
   const requestToken = process.env["ACTIONS_ID_TOKEN_REQUEST_TOKEN"];
   // A laptop, or another CI. In a workflow, `id-token: write` gives both, so a workflow without them
@@ -274,30 +334,12 @@ const newClient = (props: SharedHubClientProps) => {
         : Effect.logInfo(`${label}: this run has no GitHub OIDC token.`)
     ).pipe(Effect.as(off));
   }
-  return requestNewClient(props, requestUrl, requestToken).pipe(
-    Effect.catchTag("SharedHubClientFailed", (error) =>
-      Effect.logWarning(`${label}: ${error.reason}. The next deploy asks again.`).pipe(
-        Effect.as(off),
-      ),
-    ),
-  );
+  return request(readOidcToken(requestUrl, requestToken));
 };
 
-/**
- * The token fields of saved attributes. A row of 0.25 and earlier has neither, and they stay empty
- * until the next production registration.
- */
-const StoredToken = Schema.Struct({
-  initialAccessToken: Schema.optionalKey(Schema.Redacted(Schema.String)),
-  repository: Schema.optionalKey(Schema.String),
-});
-
 /** The client after a read on the hub, or undefined when the hub says that the client is gone. */
-const renew = (stored: SharedHubClientAttributes) => {
-  const { initialAccessToken = Redacted.make(""), repository = "" } =
-    Schema.decodeUnknownSync(StoredToken)(stored);
-  const saved = { ...stored, initialAccessToken, repository };
-  return Effect.gen(function* () {
+const renew = (saved: SharedHubClientAttributes) =>
+  Effect.gen(function* () {
     const { status } = yield* send(
       "The identity hub",
       saved.registrationClientUri,
@@ -326,7 +368,77 @@ const renew = (stored: SharedHubClientAttributes) => {
       ).pipe(Effect.as(saved)),
     ),
   );
-};
+
+/** A saved row of this resource, whose `attr` `savedAttributes` reads. */
+const SavedRow = Schema.Struct({
+  resourceType: Schema.Literal("IdentityHub.SharedClient"),
+  attr: Schema.Unknown,
+});
+
+/**
+ * The attributes of the client `id` in another stage of this stack, such as
+ * `read("HubClient", { stage: "prod" })` in the stage of a laptop, as Outputs: the
+ * `initialAccessToken` and the `repository` of the production client. Without that row, the off
+ * attributes, with `deploymentType: "production"`.
+ *
+ * `SharedHubClient.ref` is not enough: Alchemy fails the plan with `InvalidReferenceError` when the
+ * row is missing, and a laptop before the first deploy to main has none. This read runs when the
+ * plan resolves it, with the State service of the running stack and its `get`, so it never creates
+ * or upgrades a store. The store revives each secret as `Redacted`, as it does for every read.
+ */
+const read = (id: string, options: { readonly stage: string }) =>
+  Output.fromEffect(
+    Effect.gen(function* () {
+      const stack = yield* Stack;
+      const state = yield* yield* State;
+      const row = yield* state
+        .get({ stack: stack.name, stage: options.stage, fqn: id })
+        .pipe(Effect.orDie);
+      if (row === undefined) return offAttributes("production");
+      const { attr } = yield* Schema.decodeUnknownEffect(SavedRow)(row).pipe(
+        Effect.catchCause(() =>
+          Effect.die(
+            new SharedHubClientFailed({
+              reason: `the row ${id} of stage ${options.stage} is not a Convex.SharedHubClient`,
+            }),
+          ),
+        ),
+      );
+      return yield* savedAttributes(attr);
+    }),
+  );
+
+/**
+ * The three values that the app's deployment gets, such as `HUB_ISSUER`, `HUB_CLIENT_ID`, and
+ * `HUB_CLIENT_SECRET`, as Outputs: the client's values when `status` is `on`, else the off values,
+ * so that a suspended client gives guest sign-in and keeps its values in state.
+ */
+const variables = (client: SharedHubClient) =>
+  Output.map(Output.of(client), (attributes) =>
+    attributes.status === "on"
+      ? {
+          issuer: attributes.issuer,
+          clientId: attributes.clientId,
+          clientSecret: attributes.clientSecret,
+        }
+      : {
+          issuer: OFF_VALUES.issuer,
+          clientId: OFF_VALUES.clientId,
+          clientSecret: Redacted.make(OFF_VALUES.clientSecret),
+        },
+  );
+
+export type SharedHubClient = Resource<
+  "IdentityHub.SharedClient",
+  SharedHubClientProps,
+  SharedHubClientAttributes,
+  never,
+  Providers
+>;
+export const SharedHubClient = Resource<SharedHubClient>("IdentityHub.SharedClient")({
+  read,
+  variables,
+});
 
 export const SharedHubClientProvider = () =>
   Provider.succeed(SharedHubClient, {
@@ -337,14 +449,21 @@ export const SharedHubClientProvider = () =>
 
     read: ({ output }) => Effect.succeed(output),
 
+    // Only a client of the same return address and type is renewed.
     reconcile: Effect.fn(function* ({ news, output }) {
-      const saved = output?.status === "off" ? undefined : output;
-      const renewed = saved?.redirectUri === news.redirectUri ? yield* renew(saved) : undefined;
+      const saved =
+        output === undefined || output.status === "off"
+          ? undefined
+          : yield* savedAttributes(output);
+      const renewed =
+        saved?.redirectUri === news.redirectUri && saved.deploymentType === news.deploymentType
+          ? yield* renew(saved)
+          : undefined;
       return renewed ?? (yield* newClient(news));
     }),
 
-    // A failed delete does not stop a destroy: the removal date of a preview client cleans it up.
-    // A destroy can leave a production deployment running, so its client stays.
+    // A failed delete does not stop a destroy: the removal date of a preview or development client
+    // cleans it up. A destroy can leave a production deployment running, so its client stays.
     delete: ({ output }) =>
       output.deploymentType === "production" || output.status === "off"
         ? Effect.void
@@ -369,277 +488,3 @@ export const SharedHubClientProvider = () =>
             ),
           ),
   });
-
-export interface SharedDevelopmentClientOptions {
-  /** The stack of the app, the repository `owner/name`. Its stage `prod` holds the token. */
-  readonly stack: string;
-  readonly app: string;
-  /** The path of the hub's callback after the site URL of the deployment. */
-  readonly callbackPath: string;
-  /** Prefix of the five deployment variables. */
-  readonly envPrefix?: string;
-  /** The Convex team, a slug or an id, whose state store holds the stack. */
-  readonly team?: string;
-  /** The directory of the app. */
-  readonly cwd: string;
-  /** Runs the Convex CLI on the deployment of `cwd`, and answers its output. */
-  readonly convex: (args: readonly string[], input?: string) => string;
-}
-
-/** The logical id of the client in the stack of the starter. */
-const CLIENT_FQN = "HubClient";
-
-/** The one action that `state:get` needs. */
-const READ_KEY_ACTIONS = ["deployment:functions:runInternalQueries"] as const;
-
-/** `CONVEX_DEPLOYMENT` of `.env.local` for a cloud development deployment, such as `dev:happy-otter-123`. */
-const CLOUD_DEPLOYMENT = /^CONVEX_DEPLOYMENT=(?:dev:)?([a-z0-9]+(?:-[a-z0-9]+)*)[ \t]*(?:#.*)?$/m;
-
-/** The client row of stage `prod` with a token. A row without one fails to decode. */
-const SavedToken = Schema.Struct({
-  resourceType: Schema.Literal("IdentityHub.SharedClient"),
-  attr: Schema.Struct({
-    initialAccessToken: Schema.Redacted(Schema.NonEmptyString),
-    repository: Schema.NonEmptyString,
-  }),
-});
-
-/** The part of a client's own record (RFC 7592) that a renewal compares. */
-const ClientRecord = Schema.Struct({ redirect_uris: Schema.Array(Schema.String) });
-
-/**
- * The directory whose `.env.local` selects the cloud development deployment of `cwd`. A linked git
- * worktree runs a local backend, so the main checkout, the parent of the common git directory,
- * selects it.
- */
-const selectingDirectory = (cwd: string) =>
-  Effect.try({
-    try: () =>
-      // The prefix is the path of `cwd` in the checkout, and an empty line at its root.
-      execFileSync(
-        "git",
-        ["rev-parse", "--path-format=absolute", "--git-dir", "--git-common-dir", "--show-prefix"],
-        { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] },
-      ).split(/\r?\n/),
-    catch: () => undefined,
-  }).pipe(
-    Effect.map(([gitDir, commonDir, prefix = ""]) =>
-      gitDir === undefined || commonDir === undefined || gitDir === commonDir
-        ? cwd
-        : join(dirname(commonDir), prefix),
-    ),
-    Effect.orElseSucceed(() => cwd),
-  );
-
-/** The team of the cloud development deployment that `.env.local` selects, or undefined. */
-const teamOfSelectedDeployment = (api: ManagementApiService, cwd: string) =>
-  Effect.gen(function* () {
-    const directory = yield* selectingDirectory(cwd);
-    const text = yield* Effect.tryPromise(() =>
-      readFile(join(directory, ".env.local"), "utf8"),
-    ).pipe(Effect.orElseSucceed(() => ""));
-    const name = CLOUD_DEPLOYMENT.exec(text)?.[1];
-    if (name === undefined) return undefined;
-    const { projectId } = yield* api
-      .request("get deployment", (client) =>
-        client.GET("/deployments/{deployment_name}", {
-          params: { path: { deployment_name: name } },
-        }),
-      )
-      .pipe(Effect.flatMap(Schema.decodeUnknownEffect(DeploymentRow)));
-    return (yield* getProjectById(api, projectId))?.teamId;
-  });
-
-/**
- * The initial access token and the repository id in the client row of stage `prod` of `stack`, or
- * undefined. It reads the row with the store's own `state:get` and a key that runs internal queries
- * only. It never builds `Convex.state()`, which can create or upgrade the store.
- */
-const readSavedToken = (api: ManagementApiService, team: string | number, stack: string) =>
-  Effect.gen(function* () {
-    const project = yield* findProjectByName(
-      api,
-      yield* api.resolveTeamId(team),
-      STORE_PROJECT_NAME,
-    );
-    const deployment = project === undefined ? undefined : yield* prodDeploymentOf(api, project.id);
-    if (deployment === undefined) return undefined;
-    const reply = yield* withPushKey(api, deployment.name, READ_KEY_ACTIONS, (key) =>
-      makeFunctionApi(deployment.deploymentUrl, key).call("state:get", {
-        stack,
-        stage: "prod",
-        fqn: CLIENT_FQN,
-      }),
-    );
-    if (reply.status === "error") {
-      return yield* new SharedHubClientFailed({ reason: "the state store refused the read" });
-    }
-    const text = yield* decode(Schema.NullOr(Schema.String), "The state store")(reply.value);
-    if (text === null) return undefined;
-    const row = yield* Effect.try({
-      try: (): unknown => JSON.parse(text, reviveState),
-      catch: () => new SharedHubClientFailed({ reason: "the state store gave a bad row" }),
-    });
-    return Option.getOrUndefined(Schema.decodeUnknownOption(SavedToken)(row))?.attr;
-  });
-
-/** Replaces any failure or defect of a step with a fixed text, which quotes nothing. */
-const failsWith =
-  (reason: string) =>
-  <A, E, R>(effect: Effect.Effect<A, E, R>) =>
-    effect.pipe(Effect.catchCause(() => Effect.fail(new SharedHubClientFailed({ reason }))));
-
-/** What the hub says about the client that the variables name. */
-const readClient = (uri: string, token: string, callbackUrl: string) =>
-  Effect.gen(function* () {
-    const { body, status } = yield* send("The identity hub", uri, token, { method: "GET" });
-    switch (status) {
-      case 200: {
-        const record = yield* decode(ClientRecord, "The identity hub")(body);
-        const [only, ...more] = record.redirect_uris;
-        return only === callbackUrl && more.length === 0 ? "renewed" : "moved";
-      }
-      case 401:
-        return "gone";
-      case 403:
-        return "stopped";
-      default:
-        return yield* new SharedHubClientFailed({
-          reason: `the identity hub answered HTTP ${status}`,
-        });
-    }
-  });
-
-/**
- * `alchemy-convex hub-client --shared`: a development client of an app on the central identity hub,
- * for `pnpm run dev` on a laptop, with the initial access token that the stack saved at the
- * production registration (RFC 133). Run it after the first push of each dev start. Answers the one
- * line to print. It fails only for a defect: a refusal, a failed request, or no token keeps the
- * variables and answers why.
- *
- * 1. The team: `team`, else `CONVEX_TEAM_ID`, else the team of the selected cloud development
- *    deployment.
- * 2. The five variables name a client of this hub (`<prefix>_ISSUER` is `HUB_URL` or
- *    `https://auth.samebase.com`) with a real client ID and secret: the hub renews it on a read with
- *    its own token (RFC 7592) when its `redirect_uris` are exactly the current callback. A client on
- *    another address, or one that the hub no longer has, gets a new client. A client that the hub
- *    stopped gets the off values.
- * 3. The token from the client row of stage `prod`, the repository id on an https site, and a new
- *    client, in one `env set --force`.
- *
- * The secret and both tokens reach the Convex CLI on standard input, never in its arguments, and no
- * line holds them.
- */
-export const registerSharedDevelopmentClient = (options: SharedDevelopmentClientOptions) =>
-  Effect.gen(function* () {
-    const api = yield* ManagementApi;
-    /** One call of the Convex CLI. Its error can quote the deployment, so it gives a fixed text. */
-    const convex = (args: readonly string[], input?: string) =>
-      Effect.try({
-        try: () => options.convex(args, input),
-        catch: () =>
-          new SharedHubClientFailed({
-            reason: `\`convex ${args.slice(0, 2).join(" ")}\` failed`,
-          }),
-      });
-    const named = options.team ?? process.env["CONVEX_TEAM_ID"];
-    const team =
-      named !== undefined && named !== ""
-        ? named
-        : yield* teamOfSelectedDeployment(api, options.cwd).pipe(
-            failsWith("the Convex API could not read the selected development deployment"),
-          );
-    if (team === undefined) {
-      return "No Convex team for Google sign-in on this laptop: set CONVEX_TEAM_ID, or select a cloud development deployment.";
-    }
-
-    const prefix = options.envPrefix ?? "HUB";
-    const siteUrl = yield* decode(
-      Schema.fromJsonString(Schema.String),
-      "The deployment",
-    )(yield* convex(["run", "--inline-query", "process.env.CONVEX_SITE_URL"]));
-    const callbackUrl = `${siteUrl.replace(/\/$/, "")}${options.callbackPath}`;
-
-    const names = (yield* convex(["env", "list", "--names-only"])).split(/\r?\n/);
-    const variable = (name: string) => `${prefix}_${name}`;
-    const tokenVariable = variable("REGISTRATION_TOKEN");
-    const complete = [
-      "ISSUER",
-      "CLIENT_ID",
-      "CLIENT_SECRET",
-      "REGISTRATION_URI",
-      "REGISTRATION_TOKEN",
-    ].every((name) => names.includes(variable(name)));
-    // Only a client of the hub that this run asks, with real values, is renewed: the off values,
-    // and a client of another hub, get a new client.
-    const renewable =
-      complete &&
-      (yield* convex(["env", "get", variable("ISSUER")])) === hubUrl() &&
-      (yield* convex(["env", "get", variable("CLIENT_ID")])) !== OFF_VALUES.clientId &&
-      ![OFF_VALUES.clientSecret, ""].includes(
-        yield* convex(["env", "get", variable("CLIENT_SECRET")]),
-      );
-    if (renewable) {
-      const client = yield* readClient(
-        yield* convex(["env", "get", variable("REGISTRATION_URI")]),
-        yield* convex(["env", "get", tokenVariable]),
-        callbackUrl,
-      );
-      if (client === "renewed") return "Hub client renewed.";
-      if (client === "stopped") {
-        yield* convex(
-          ["env", "set", "--force"],
-          `${prefix}_ISSUER='${OFF_VALUES.issuer}'\n${prefix}_CLIENT_ID='${OFF_VALUES.clientId}'\n${prefix}_CLIENT_SECRET='${OFF_VALUES.clientSecret}'\n`,
-        );
-        yield* convex(["env", "remove", variable("REGISTRATION_URI")]);
-        yield* convex(["env", "remove", tokenVariable]);
-        return "The identity hub stopped the hub client of this laptop (HTTP 403), so the laptop has guest sign-in.";
-      }
-    }
-
-    const saved = yield* readSavedToken(api, team, options.stack).pipe(
-      failsWith("the state store of the team could not be read"),
-    );
-    if (saved === undefined) return "Deploy to main once for Google sign-in on this laptop.";
-    if (new URL(siteUrl).protocol === "https:") {
-      // The hub reads /samebase-verification.json of an https site, which serves this variable.
-      yield* convex(["env", "set", "SAMEBASE_REPOSITORY_ID", saved.repository]);
-    }
-    const { body, status } = yield* send(
-      "The identity hub",
-      hubClientsUrl(),
-      Redacted.value(saved.initialAccessToken),
-      {
-        method: "POST",
-        body: JSON.stringify({
-          app: options.app,
-          redirectUri: callbackUrl,
-          softwareVersion: new URL(siteUrl).host,
-        }),
-      },
-    );
-    if (status !== 201) {
-      const reason =
-        status === 401
-          ? "the identity hub refused the initial access token of the app"
-          : refusalOf(status, body);
-      return `The hub client keeps its values: ${reason} (HTTP ${status}).`;
-    }
-    const client = yield* decode(NewClient, "The identity hub")(body);
-    // One request, so that an interrupted run cannot leave half a client. `--force` replaces the
-    // values of an earlier one.
-    yield* convex(
-      ["env", "set", "--force"],
-      `${prefix}_ISSUER='${client.issuer}'\n${prefix}_CLIENT_ID='${client.client_id}'\n${prefix}_CLIENT_SECRET='${client.client_secret}'\n${prefix}_REGISTRATION_URI='${client.registration_client_uri}'\n${tokenVariable}='${client.registration_access_token}'\n`,
-    );
-    return `Hub client registered for ${callbackUrl}.`;
-  }).pipe(
-    // A dev start goes on after any failure. Each step gives a fixed text, and the text of any
-    // other failure is never shown, because it can quote an answer or a secret.
-    Effect.catchCause((cause) => {
-      const error = Cause.squash(cause);
-      const reason =
-        error instanceof SharedHubClientFailed ? error.reason : "an unexpected failure";
-      return Effect.succeed(`The hub client keeps its values: ${reason}.`);
-    }),
-  );

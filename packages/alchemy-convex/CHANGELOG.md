@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.27.0
+
+A laptop is a stage `dev-<name>` of the app's stack, and `Convex.SharedHubClient` gets its client
+there (RFC 133). The command `alchemy-convex hub-client --shared` and its function
+`registerSharedDevelopmentClient` are deleted. `alchemy-convex hub-client` keeps the team mode of
+`Convex.HubClient`.
+
+- `Convex.SharedHubClient` takes `deploymentType: "development"` with `initialAccessToken`, the
+  app's initial access token. Only a development client takes the token, and the props type rejects
+  other combinations. The client asks `POST /hub-clients` with the token in place of the GitHub OIDC
+  token, renews like a preview, and a destroy deletes it. With an empty token, it gives the off
+  values and logs "deploy to main once for Google sign-in on this laptop". A 401 logs that the hub
+  refused the initial access token.
+- A saved client is renewed only when its `redirectUri` and its `deploymentType` are the new ones.
+  Else, the run asks for a new client.
+- `Convex.SharedHubClient.read(id, { stage })` gives the attributes of a client row of another stage
+  of the same stack as Outputs, with the State service of the running stack. When the row is
+  missing, it gives the off attributes, where `Convex.SharedHubClient.ref` fails.
+- `Convex.SharedHubClient.variables(client)` gives `issuer`, `clientId`, and `clientSecret` for the
+  app's deployment: the client's values when `status` is `on`, else the `no-hub` values. A suspended
+  client keeps its values in state, and the app gets guest sign-in.
+
+The state store protocol does not change.
+
 ## 0.26.0
 
 A laptop gets Google sign-in for an app on the central identity hub with the app's initial access

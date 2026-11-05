@@ -1,0 +1,9 @@
+{
+  "issuer": "https://auth.test",
+  "client_id": "cl_OiT6lUwdWDk56QNFZZkZVg",
+  "client_secret": "REDACTED",
+  "registration_access_token": "REDACTED",
+  "registration_client_uri": "https://auth.test/register/cl_OiT6lUwdWDk56QNFZZkZVg",
+  "redirect_uri": "https://happy-otter-123.convex.site/auth/hub/callback",
+  "terms": "https://samebase.com/terms"
+}
