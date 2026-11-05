@@ -14,26 +14,6 @@ const vBlockAction = union(literal("block"), literal("unblock"));
 
 // The answers of the hub's `/moderation/*` endpoints in apps/identity-hub/convex/moderation.ts.
 
-const vRegistrationPage = object({
-  page: array(
-    object({
-      clientId: string(),
-      githubRepositoryDatabaseId: string(),
-      githubOwnerId: string(),
-      githubRepository: string(),
-      githubActorId: string(),
-      githubActorLogin: string(),
-      commitSha: string(),
-      stage: string(),
-      app: string(),
-      redirectUri: string(),
-      registeredAt: number(),
-    }),
-  ),
-  isDone: boolean(),
-  continueCursor: string(),
-});
-
 const vCount = object({ count: number(), atLeast: boolean() });
 const vCounts = object({ day: vCount, week: vCount });
 
@@ -71,6 +51,18 @@ const vClientList = object({
       renewedAt: union(number(), v.null()),
       lastSignInAt: union(number(), v.null()),
       removeAt: union(number(), v.null()),
+      registeredBy: union(
+        object({
+          kind: literal("github"),
+          githubRepository: string(),
+          githubRepositoryDatabaseId: string(),
+          githubOwnerId: string(),
+          githubActorLogin: string(),
+          app: string(),
+        }),
+        object({ kind: literal("team") }),
+        object({ kind: literal("unknown") }),
+      ),
     }),
   ),
   limitReached: boolean(),
@@ -82,8 +74,8 @@ const vOff = object({ status: literal("off") });
 
 /**
 The hub's moderation endpoints, or null while `HUB_MODERATION_KEY` is unset: the admin page then
-says that moderation is off. The key can only read registrations and clients and set blocks at the
-hub.
+says that moderation is off. The key can only read registration counts, clients, and blocks, and set
+blocks at the hub.
 */
 function readModeration() {
   const key = env.HUB_MODERATION_KEY?.trim();
@@ -113,7 +105,7 @@ async function callHub<T>(
 
 /**
 The registration counts of the last day and week, the blocks, the newest block events, and the
-newest clients of every app at the hub.
+newest clients of every app at the hub, each with who made it.
 */
 export const readOverview = action({
   access: "access_admin",
@@ -139,26 +131,6 @@ export const readOverview = action({
       callHub(moderation, { path: "/moderation/clients", validator: vClientList }),
     ]);
     return { status: "on" as const, counts, blockList, clientList };
-  },
-});
-
-/** One page of registrations at the hub, newest first. `cursor` is null for the first page. */
-export const listRegistrations = action({
-  access: "access_admin",
-  args: { cursor: union(string(), v.null()) },
-  returns: union(vOff, object({ status: literal("on"), registrations: vRegistrationPage })),
-  handler: async (_ctx, args) => {
-    const moderation = readModeration();
-    if (moderation === null) {
-      return { status: "off" as const };
-    }
-
-    const query = args.cursor === null ? "" : `?cursor=${encodeURIComponent(args.cursor)}`;
-    const registrations = await callHub(moderation, {
-      path: `/moderation/registrations${query}`,
-      validator: vRegistrationPage,
-    });
-    return { status: "on" as const, registrations };
   },
 });
 

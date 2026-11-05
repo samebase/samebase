@@ -1,5 +1,4 @@
 import { validate } from "convex-helpers/validators";
-import { paginationOptsValidator, paginationResultValidator } from "convex/server";
 import { v, type Infer } from "convex/values";
 import { components, internal } from "./_generated/api";
 import type { Doc } from "./_generated/dataModel";
@@ -15,8 +14,6 @@ import { vBlockKind } from "./schema";
 
 const { array, boolean, literal, number, object, string, union } = v;
 
-/** One page of `GET /moderation/registrations`. */
-const REGISTRATION_PAGE_SIZE = 50;
 /** The most rows that one count reads. A count that reaches it is "at least". */
 const COUNT_READ_LIMIT = 1_000;
 const DAY_MS = 24 * 60 * 60 * 1_000;
@@ -44,6 +41,26 @@ const vRegistration = object({
 
 const vCount = object({ count: number(), atLeast: boolean() });
 
+/**
+ * Who made a client. `github`: a GitHub Actions run at `/hub-clients`, from the hub's registration
+ * row. `team`: the team's Convex login, through `identityBroker:registerClient`, for an app that
+ * `identityBroker:createApp` made, so the app has no tenant. `unknown`: a client of a tenant's app
+ * with no registration row, or of an app that is gone.
+ */
+const vRegisteredBy = union(
+  object({
+    kind: literal("github"),
+    githubRepository: string(),
+    githubRepositoryDatabaseId: string(),
+    githubOwnerId: string(),
+    githubActorLogin: string(),
+    /** The name that the app's stack gives itself. */
+    app: string(),
+  }),
+  object({ kind: literal("team") }),
+  object({ kind: literal("unknown") }),
+);
+
 /** One client at the broker, of any app, with no secret, hash, or token. */
 const vClient = object({
   clientId: string(),
@@ -61,6 +78,7 @@ const vClient = object({
   lastSignInAt: union(number(), v.null()),
   /** When the broker's cleanup deletes the client. Null: never. */
   removeAt: union(number(), v.null()),
+  registeredBy: vRegisteredBy,
 });
 
 const vBlock = object({
@@ -135,22 +153,6 @@ function moderationEndpoint(handler: (ctx: ActionCtx, request: Request) => Promi
   });
 }
 
-export const registrationPage = internalQuery({
-  args: { paginationOpts: paginationOptsValidator },
-  returns: paginationResultValidator(vRegistration),
-  handler: async (ctx, args) => {
-    const result = await ctx.db
-      .query("registrations")
-      .withIndex("by_registered_at")
-      .order("desc")
-      .paginate(args.paginationOpts);
-    return {
-      ...result,
-      page: result.page.map(({ _id, _creationTime, ...registration }) => registration),
-    };
-  },
-});
-
 async function countSince(ctx: QueryCtx, since: number) {
   const rows = await ctx.db
     .query("registrations")
@@ -196,7 +198,10 @@ export const blockList = internalQuery({
   },
 });
 
-/** The newest clients that the broker holds, of the team's own apps and of third-party apps. */
+/**
+ * The newest clients that the broker holds, of the team's own apps and of third-party apps, each
+ * with who made it.
+ */
 export const clientList = internalQuery({
   args: {},
   returns: object({ clients: array(vClient), limitReached: boolean() }),
@@ -204,18 +209,50 @@ export const clientList = internalQuery({
     const clients = await ctx.runQuery(components.identityBroker.clients.list, {
       limit: CLIENT_LIST_LIMIT,
     });
+    // Only the apps of these clients, so the reads stay bounded by `CLIENT_LIST_LIMIT`.
+    const appIds = [...new Set(clients.map((client) => client.appId))];
+    const madeByTeam = new Map(
+      await Promise.all(
+        appIds.map(async (appId) => {
+          const app = await ctx.runQuery(components.identityBroker.apps.get, { appId });
+          return [appId, app !== null && app.tenantId === undefined] as const;
+        }),
+      ),
+    );
+    const registeredBy = async (client: (typeof clients)[number]) => {
+      const registration = await ctx.db
+        .query("registrations")
+        .withIndex("by_client_id", (q) => q.eq("clientId", client.clientId))
+        .unique();
+      if (registration !== null) {
+        return {
+          kind: "github" as const,
+          githubRepository: registration.githubRepository,
+          githubRepositoryDatabaseId: registration.githubRepositoryDatabaseId,
+          githubOwnerId: registration.githubOwnerId,
+          githubActorLogin: registration.githubActorLogin,
+          app: registration.app,
+        };
+      }
+      return madeByTeam.get(client.appId)
+        ? { kind: "team" as const }
+        : { kind: "unknown" as const };
+    };
     return {
-      clients: clients.map((client) => ({
-        clientId: client.clientId,
-        appId: client.appId,
-        clientName: client.clientName,
-        deploymentType: client.deploymentType,
-        redirectUri: client.redirectUri,
-        createdAt: client.createdAt,
-        renewedAt: client.renewedAt ?? null,
-        lastSignInAt: client.lastSignInAt ?? null,
-        removeAt: client.removeAt ?? null,
-      })),
+      clients: await Promise.all(
+        clients.map(async (client) => ({
+          clientId: client.clientId,
+          appId: client.appId,
+          clientName: client.clientName,
+          deploymentType: client.deploymentType,
+          redirectUri: client.redirectUri,
+          createdAt: client.createdAt,
+          renewedAt: client.renewedAt ?? null,
+          lastSignInAt: client.lastSignInAt ?? null,
+          removeAt: client.removeAt ?? null,
+          registeredBy: await registeredBy(client),
+        })),
+      ),
       limitReached: clients.length === CLIENT_LIST_LIMIT,
     };
   },
@@ -354,21 +391,6 @@ export const reconnectTenants = internalMutation({
     }
     return { reconnected, blocked };
   },
-});
-
-/** Registrations newest first, `REGISTRATION_PAGE_SIZE` at a time. `?cursor=` reads the next page. */
-export const listRegistrations = moderationEndpoint(async (ctx, request) => {
-  const result = await ctx.runQuery(internal.moderation.registrationPage, {
-    paginationOpts: {
-      numItems: REGISTRATION_PAGE_SIZE,
-      cursor: new URL(request.url).searchParams.get("cursor"),
-    },
-  });
-  return reply(200, {
-    page: result.page,
-    isDone: result.isDone,
-    continueCursor: result.continueCursor,
-  });
 });
 
 export const countRegistrations = moderationEndpoint(async (ctx) =>

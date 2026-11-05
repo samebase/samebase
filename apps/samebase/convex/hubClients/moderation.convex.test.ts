@@ -19,20 +19,6 @@ const jsonResponse = (value: unknown, status = 200) =>
     headers: { "Content-Type": "application/json" },
   });
 
-const registration = {
-  clientId: "cl_test",
-  githubRepositoryDatabaseId: "74",
-  githubOwnerId: "65",
-  githubRepository: "octo-org/octo-repo",
-  githubActorId: "12",
-  githubActorLogin: "octocat",
-  commitSha: "example-sha",
-  stage: "prod",
-  app: "my-app",
-  redirectUri: "https://ideal-dolphin-15.convex.site/auth/hub/callback",
-  registeredAt: 1_800_000_000_000,
-};
-
 const counts = { day: { count: 1, atLeast: false }, week: { count: 1_000, atLeast: true } };
 
 const blockList = {
@@ -69,6 +55,7 @@ const clientList = {
       renewedAt: null,
       lastSignInAt: null,
       removeAt: 1_801_209_602_000,
+      registeredBy: { kind: "team" },
     },
     {
       clientId: "cl_test",
@@ -80,6 +67,14 @@ const clientList = {
       renewedAt: 1_800_000_001_000,
       lastSignInAt: null,
       removeAt: null,
+      registeredBy: {
+        kind: "github",
+        githubRepository: "octo-org/octo-repo",
+        githubRepositoryDatabaseId: "74",
+        githubOwnerId: "65",
+        githubActorLogin: "octocat",
+        app: "my-app",
+      },
     },
   ],
   limitReached: false,
@@ -105,8 +100,6 @@ function stubHub(answer?: () => Response) {
       }
       const { pathname } = new URL(request.url);
       switch (pathname) {
-        case "/moderation/registrations":
-          return jsonResponse({ page: [registration], isDone: true, continueCursor: "next" });
         case "/moderation/counts":
           return jsonResponse(counts);
         case "/moderation/blocks":
@@ -153,9 +146,6 @@ describe("hub client moderation", () => {
         "Access denied",
       );
       await expect(
-        viewer.action(api.hubClients.moderation.listRegistrations, { cursor: null }),
-      ).rejects.toThrow("Access denied");
-      await expect(
         viewer.action(api.hubClients.moderation.changeBlock, {
           action: "block",
           kind: "owner",
@@ -177,9 +167,6 @@ describe("hub client moderation", () => {
     expect(await admin.action(api.hubClients.moderation.readOverview, {})).toEqual({
       status: "off",
     });
-    expect(
-      await admin.action(api.hubClients.moderation.listRegistrations, { cursor: null }),
-    ).toEqual({ status: "off" });
     expect(
       await admin.action(api.hubClients.moderation.changeBlock, {
         action: "block",
@@ -219,27 +206,6 @@ describe("hub client moderation", () => {
         authorization: `Bearer ${MODERATION_KEY}`,
         body: undefined,
       },
-    ]);
-  });
-
-  it("lists the registrations a page at a time", async () => {
-    const t = makeConvexTest();
-    turnModerationOn();
-    const requests = stubHub();
-    const admin = await viewerWith(t, "nicu@samebase.com");
-
-    const first = await admin.action(api.hubClients.moderation.listRegistrations, {
-      cursor: null,
-    });
-    await admin.action(api.hubClients.moderation.listRegistrations, { cursor: "a b" });
-
-    expect(first).toEqual({
-      status: "on",
-      registrations: { page: [registration], isDone: true, continueCursor: "next" },
-    });
-    expect(requests.map((request) => request.url)).toEqual([
-      `${HUB_ISSUER}/moderation/registrations`,
-      `${HUB_ISSUER}/moderation/registrations?cursor=a%20b`,
     ]);
   });
 
