@@ -62,7 +62,8 @@ const stackComment = updateStackComment.pipe(
 
 const subcommand = positionals.join(" ");
 const program: Effect.Effect<unknown, unknown> | undefined =
-  subcommand === "stack-comment"
+  // stack-comment reads the store of the team of the credential, so a --team would be ignored.
+  subcommand === "stack-comment" && team === undefined
     ? stackComment
     : subcommand === "hub-client" &&
         team !== undefined &&

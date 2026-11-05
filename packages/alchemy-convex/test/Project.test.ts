@@ -2,11 +2,15 @@
 // test gets a fresh in-memory state.
 import { adopt } from "alchemy/AdoptPolicy";
 import * as Output from "alchemy/Output";
+import * as Provider from "alchemy/Provider";
 import * as RemovalPolicy from "alchemy/RemovalPolicy";
 import * as Test from "@alchemy.run/test/Vitest";
 import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
 import * as Redacted from "effect/Redacted";
-import { describe, expect } from "vitest";
+import { describe, expect, it } from "vitest";
+import { ManagementApiLive } from "../src/ManagementApi.ts";
+import { ProjectProvider } from "../src/Project.ts";
 import * as Convex from "../src/index.ts";
 import { FakeConvex, recorded } from "./fakeConvex.ts";
 
@@ -314,4 +318,54 @@ describe("Convex.Project", () => {
       expect(fake.lines().filter((line) => line.endsWith("/create_project"))).toEqual([]);
     }),
   );
+});
+
+/** The team of the recorded project_update.json: another team than the token's. */
+const OTHER_TEAM = 38516;
+
+// A run whose credential is of another team than the project in state. The provider gets the saved
+// output of that project, as the engine gives it in plan.
+describe("Convex.Project with a credential of another team", () => {
+  const diffWith = (props: Convex.ProjectProps) =>
+    Effect.gen(function* () {
+      const service = yield* Provider.Provider<Convex.Project>("Convex.Project");
+      return yield* (
+        service.diff?.({
+          id: "Project",
+          fqn: "Project",
+          instanceId: "instance-1",
+          olds: props,
+          news: props,
+          oldBindings: [],
+          newBindings: [],
+          output: {
+            projectId: 1,
+            slug: NAME,
+            name: NAME,
+            teamId: OTHER_TEAM,
+            prodDeploymentName: undefined,
+            prodDeploymentUrl: undefined,
+          },
+        }) ?? Effect.die("Convex.Project has no diff")
+      );
+    }).pipe(
+      Effect.provide(
+        ProjectProvider().pipe(
+          Layer.provide(ManagementApiLive()),
+          Layer.provide(Convex.fromValues({ accessToken: Redacted.make("team-token") })),
+        ),
+      ),
+      Effect.flip,
+    );
+
+  it.each([
+    ["the name form", { name: NAME }],
+    ["the slug form", { slug: NAME }],
+  ] as const)("stops the plan of %s with ProjectTeamChange and no other call", async (_, props) => {
+    const fake = install();
+    const error = await Effect.runPromise(diffWith(props));
+    expect(error).toBeInstanceOf(Convex.ProjectTeamChange);
+    expect(error).toMatchObject({ projectId: 1, teamId: OTHER_TEAM, requestedTeamId: TEAM });
+    expect(fake.lines()).toEqual([`GET ${API}/token_details`]);
+  });
 });
