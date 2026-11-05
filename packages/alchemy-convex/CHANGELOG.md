@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.27.1
+
+Three fixes from the review of 0.27.0, with no change to the state store protocol.
+
+- `Convex.SharedHubClient` keeps `initialAccessToken` and `repository` from a production answer
+  only. A preview or development answer that holds them is not saved with them.
+- The log line of a new client names the request's return address, and the answer's `terms` must be
+  a page of samebase.com, so no value that an answer chose is printed. An answer with another return
+  address is a bad answer and gives the off values.
+- A saved client row that this version cannot read, such as one that 0.26 or earlier saved without
+  the token fields, is no client: the run warns and asks for a new one. For a production client that
+  also gives the app's initial access token, so an existing app needs no deletion by hand.
+
 ## 0.27.0
 
 A laptop is a stage `dev-<name>` of the app's stack, and `Convex.SharedHubClient` gets its client

@@ -153,6 +153,24 @@ const REFUSALS: readonly (readonly [string, Answer])[] = [
       return Response.json(answer, { status: 201 });
     },
   ],
+  // The log line names the terms and the return address, so neither may be a value that the
+  // answer chose.
+  [
+    "a 201 whose terms are not a page of samebase.com",
+    ({ authorization }) =>
+      Response.json(
+        { ...PREVIEW_ANSWER, terms: `https://evil.example/${authorization}` },
+        { status: 201 },
+      ),
+  ],
+  [
+    "a 201 with another return address",
+    ({ authorization }) =>
+      Response.json(
+        { ...PREVIEW_ANSWER, redirect_uri: `https://evil.example/${authorization}` },
+        { status: 201 },
+      ),
+  ],
 ];
 
 class FakeServices {
@@ -358,11 +376,13 @@ describe("Convex.SharedHubClient", () => {
       }),
   );
 
-  test.provider("a renewal of a client saved without a token gives empty values", (stack) =>
+  test.provider("a client saved by an older version gives way to a new client", (stack) =>
     Effect.gen(function* () {
-      new FakeServices().install();
-      yield* stack.deploy(client(props()));
-      // The row as 0.25 saved it.
+      const fake = new FakeServices().install();
+      fake.production = true;
+      const production = props({ deploymentType: "production" });
+      yield* stack.deploy(client(production));
+      // The row as 0.26 saved it: no token fields.
       yield* Effect.gen(function* () {
         const state = yield* yield* State;
         const request = { stack: stack.name, stage: stack.stage, fqn: "Client" };
@@ -373,7 +393,16 @@ describe("Convex.SharedHubClient", () => {
         const { initialAccessToken: _token, repository: _repository, ...attr } = row.attr;
         yield* state.set({ ...request, value: { ...row, attr } });
       }).pipe(Effect.provide(stack.state));
-      expect(yield* stack.deploy(client(props()))).toEqual(issued());
+      const { layer, lines } = capturedLogs();
+      expect(yield* stack.deploy(client(production)).pipe(Effect.provide(layer))).toEqual({
+        ...issued("cl_2"),
+        deploymentType: "production",
+        initialAccessToken: "iat-of-cl_2",
+        repository: REPOSITORY_ID,
+      });
+      expect(fake.calls(HUB_CLIENTS)).toHaveLength(2);
+      expect(warningsIn(lines)).toEqual([expect.stringContaining("older version")]);
+      expect(lines.join("\n")).not.toContain("secret-of");
     }),
   );
 
@@ -393,6 +422,28 @@ describe("Convex.SharedHubClient", () => {
       yield* stack.deploy(client(props()));
       fake.clients.delete("cl_1");
       expect(yield* stack.deploy(client(props()))).toEqual(issued("cl_2"));
+    }),
+  );
+
+  test.provider("a development answer's token fields are dropped", (stack) =>
+    Effect.gen(function* () {
+      const fake = new FakeServices().install();
+      fake.registrar = ({ body }) =>
+        Response.json(
+          {
+            ...DEVELOPMENT_ANSWER,
+            issuer: ISSUER,
+            redirect_uri: Schema.decodeUnknownSync(ClientRequest)(body).redirectUri,
+            initial_access_token: "not-for-a-development-client",
+            repository: "1",
+          },
+          { status: 201 },
+        );
+      const { layer, lines } = capturedLogs();
+      const made = yield* stack.deploy(client(development())).pipe(Effect.provide(layer));
+      expect(made.initialAccessToken).toBe("");
+      expect(made.repository).toBe("");
+      expect(lines.join("\n")).not.toContain("not-for-a-development-client");
     }),
   );
 
