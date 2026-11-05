@@ -102,14 +102,22 @@ const Attributes = Schema.Struct({
 export interface SharedHubClientAttributes extends Schema.Schema.Type<typeof Attributes> {}
 
 /**
- * The attributes of a saved row, or undefined when the row is not of this version, such as a row
- * that 0.26 or earlier saved without the token fields. The text of a schema issue can quote a value
- * of the row, so it is never kept.
+ * The attributes of a saved row, or undefined when the row does not have this version's shape, such
+ * as a row that 0.26 or earlier saved without the token fields. Only a schema issue gives undefined;
+ * any other failure of the decoder stops the run with a fixed message. The text of a schema issue
+ * can quote a value of the row, so it is never kept.
  */
 const savedAttributes = (value: unknown) =>
   Schema.decodeUnknownEffect(Attributes)(value).pipe(
     Effect.map((attributes): SharedHubClientAttributes | undefined => attributes),
-    Effect.catchCause(() => Effect.succeed(undefined)),
+    Effect.catch(() => Effect.succeed(undefined)),
+    Effect.catchDefect(() =>
+      Effect.die(
+        new SharedHubClientFailed({
+          reason: "the state holds attributes of Convex.SharedHubClient that it cannot read",
+        }),
+      ),
+    ),
   );
 
 /** The attributes of no client. */
@@ -145,10 +153,10 @@ const NewClient = Schema.Struct({
   registration_client_uri: Schema.NonEmptyString,
   redirect_uri: Schema.NonEmptyString,
   /**
-   * The terms of the shared sign-in service, which the log shows once, for the new client. Only a
-   * page of samebase.com: the log line must not print a value that the answer chose.
+   * The terms of the shared sign-in service, which the log shows once, for the new client. Exactly
+   * this page: the log line must not print a value that the answer chose.
    */
-  terms: Schema.String.check(Schema.isPattern(/^https:\/\/samebase\.com\/[a-z0-9/-]*$/)),
+  terms: Schema.Literal("https://samebase.com/terms"),
   /** Only in the answer to a production registration with the GitHub token. */
   initial_access_token: Schema.optionalKey(Schema.NonEmptyString),
   repository: Schema.optionalKey(Schema.String.check(Schema.isPattern(/^\d+$/))),
@@ -451,9 +459,10 @@ export const SharedHubClientProvider = () =>
 
     read: ({ output }) => Effect.succeed(output),
 
-    // Only a client of the same return address and type is renewed. A row that this version cannot
-    // read, such as one that 0.26 or earlier saved, is no client: the run asks for a new one, which
-    // for a production client also gives the app's initial access token.
+    // Only a client of the same return address and type is renewed. A saved row without this
+    // version's shape, such as one that 0.26 or earlier saved, is no client: the run asks for a new
+    // one, which replaces the saved client, and for a production client also replaces the app's
+    // initial access token.
     reconcile: Effect.fn(function* ({ news, output }) {
       const saved =
         output === undefined || output.status === "off"
@@ -461,7 +470,7 @@ export const SharedHubClientProvider = () =>
           : yield* savedAttributes(output);
       if (output !== undefined && output.status !== "off" && saved === undefined) {
         yield* Effect.logWarning(
-          `Convex.SharedHubClient: ${news.app} on ${news.redirectUri} has a saved client of an older version, so this run asks for a new one.`,
+          `Convex.SharedHubClient: the saved attributes of ${news.app} on ${news.redirectUri} cannot be read by this version, so this run registers a new client, which replaces the saved one.`,
         );
       }
       const renewed =

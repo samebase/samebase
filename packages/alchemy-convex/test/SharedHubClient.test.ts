@@ -164,6 +164,17 @@ const REFUSALS: readonly (readonly [string, Answer])[] = [
       ),
   ],
   [
+    "a 201 whose terms are another page of samebase.com",
+    ({ authorization }) =>
+      Response.json(
+        {
+          ...PREVIEW_ANSWER,
+          terms: `https://samebase.com/${Buffer.from(authorization).toString("hex")}`,
+        },
+        { status: 201 },
+      ),
+  ],
+  [
     "a 201 with another return address",
     ({ authorization }) =>
       Response.json(
@@ -401,7 +412,42 @@ describe("Convex.SharedHubClient", () => {
         repository: REPOSITORY_ID,
       });
       expect(fake.calls(HUB_CLIENTS)).toHaveLength(2);
-      expect(warningsIn(lines)).toEqual([expect.stringContaining("older version")]);
+      expect(warningsIn(lines)).toEqual([
+        expect.stringContaining("cannot be read by this version"),
+      ]);
+      expect(lines.join("\n")).not.toContain("secret-of");
+      // The new client is saved in this version's shape, so the next deploy renews it.
+      expect(yield* stack.deploy(client(production))).toEqual({
+        ...issued("cl_2"),
+        deploymentType: "production",
+        initialAccessToken: "iat-of-cl_2",
+        repository: REPOSITORY_ID,
+      });
+      expect(fake.calls(HUB_CLIENTS)).toHaveLength(2);
+    }),
+  );
+
+  test.provider("a saved row with a field of another shape gives way to a new client", (stack) =>
+    Effect.gen(function* () {
+      new FakeServices().install();
+      yield* stack.deploy(client(props()));
+      // Current data with one field that is not a string: a schema issue, not a defect.
+      yield* Effect.gen(function* () {
+        const state = yield* yield* State;
+        const request = { stack: stack.name, stage: stack.stage, fqn: "Client" };
+        const row = yield* state.get(request);
+        if (row === undefined || !("attr" in row) || row.attr === undefined) {
+          throw new Error("the deploy saved no client");
+        }
+        yield* state.set({ ...request, value: { ...row, attr: { ...row.attr, redirectUri: 7 } } });
+      }).pipe(Effect.provide(stack.state));
+      const { layer, lines } = capturedLogs();
+      expect(yield* stack.deploy(client(props())).pipe(Effect.provide(layer))).toEqual(
+        issued("cl_2"),
+      );
+      expect(warningsIn(lines)).toEqual([
+        expect.stringContaining("cannot be read by this version"),
+      ]);
       expect(lines.join("\n")).not.toContain("secret-of");
     }),
   );
@@ -1161,6 +1207,40 @@ describe("Convex.SharedHubClient.read", () => {
         initialAccessToken: "",
         clientSecret: "no-hub",
       });
+    }),
+  );
+
+  test.provider("stops with a fixed message when the row cannot be read", (stack) =>
+    Effect.gen(function* () {
+      yield* deployProduction(stack, new FakeServices().install());
+      // The row of prod as 0.26 saved it: no token fields.
+      yield* Effect.gen(function* () {
+        const state = yield* yield* State;
+        const request = { stack: stack.name, stage: "prod", fqn: "HubClient" };
+        const row = yield* state.get(request);
+        if (row === undefined || !("attr" in row) || row.attr === undefined) {
+          throw new Error("no row of prod");
+        }
+        const { initialAccessToken: _token, repository: _repository, ...attr } = row.attr;
+        yield* state.set({ ...request, value: { ...row, attr } });
+      }).pipe(Effect.provide(stack.state));
+      // The read dies: a defect, not a failure of the run. Every text of the defect is checked: the
+      // JSON, which has the enumerable fields, and the message and the stack, which it leaves out.
+      const defect = yield* stack
+        .deploy(readProd)
+        .pipe(
+          Effect.catchDefect((cause) =>
+            Effect.succeed(
+              [
+                JSON.stringify(cause),
+                String(cause),
+                cause instanceof Error ? (cause.stack ?? "") : "",
+              ].join("\n"),
+            ),
+          ),
+        );
+      expect(defect).toContain("holds attributes that this version cannot read");
+      expect(defect).not.toContain("secret-of");
     }),
   );
 });

@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.27.2
+
+Three fixes from the review of 0.27.1, with no change to the state store protocol.
+
+- The `terms` of a new client's answer must be exactly `https://samebase.com/terms`. In 0.27.1 any
+  path of samebase.com passed, so an answer could still put a value into the log line.
+- The run replaces a saved client row with a new client only on a schema issue, such as the missing
+  token fields of a row that 0.26 or earlier saved. Any other failure of the decoder stops the run
+  with a fixed message, so a defect never registers a client.
+- The warning of that replacement says that the saved attributes cannot be read by this version and
+  that the new client replaces the saved one. For a production client, the new registration also
+  replaces the app's initial access token.
+
 ## 0.27.1
 
 Three fixes from the review of 0.27.0, with no change to the state store protocol.
