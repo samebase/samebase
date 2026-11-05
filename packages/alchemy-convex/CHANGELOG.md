@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.28.0
+
+- `Convex.Deployment` with `type: "dev"`: `name` is a dev reference or the Convex name of a dev
+  deployment that exists, such as `happy-animal-123` from `.env.local`. With `adopt`, a stage takes
+  over the deployment that `npx convex dev` made and selected and gives it variables, with no push
+  and no new deployment; a name that matches nothing still creates a dev deployment with that
+  reference, as before. A deploy key of that deployment is accepted for the name form too. This is
+  how a laptop gets its hub client (RFC 133): `alchemy deploy --stage dev-<name>`, run on purpose
+  after `convex dev`, with three rows on that deployment: the repository id, the client, the three
+  `HUB_` variables.
+
 ## 0.27.3
 
 - A failure of `Convex.SharedHubClient` that stops a stack prints its reason. In 0.27.2 the error

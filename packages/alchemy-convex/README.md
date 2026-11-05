@@ -275,9 +275,11 @@ call.
   - `prod` is the project's default production deployment (with a deploy key: the key's production
     deployment). The resource never creates or deletes one. A production deployment with code that
     is not in state is taken over only with `--adopt`.
-  - `dev` creates a dev deployment with `name` as its reference; `preview` creates a preview
-    deployment with `name` as its preview name. An expired preview is created again on the next
-    deploy.
+  - `dev` creates a dev deployment with `name` as its reference. With `--adopt`, `name` can also be
+    the Convex name of a dev deployment that exists, such as `happy-animal-123` from `.env.local`,
+    which `npx convex dev` made: the resource takes it over. A name that matches nothing creates a
+    dev deployment with that reference. `preview` creates a preview deployment with `name` as its
+    preview name. An expired preview is created again on the next deploy.
   - `rootDir` is the app directory, relative to the directory where the deploy runs, `"."` by
     default. It must be relative (`AbsoluteRootDir`) and have a package.json (`ConvexAppNotFound`).
     There is no search in the directories above it. When convex.json puts the functions outside
@@ -371,27 +373,29 @@ variables. Each callback remains one exact registered URI.
 
 ### The development stage
 
-A laptop is a stage `dev-<name>` of the app's stack, with its own cloud development deployment. Run
-`alchemy deploy --stage dev-<name>` with `CONVEX_ACCESS_TOKEN` or the Convex CLI login of the app's
-team, before `convex dev`. The stage has the same three rows as a preview:
+A laptop gets its client from a stage `dev-<name>` of the app's stack, run on purpose, not at each
+dev start: `npx convex dev` has made and selected the dev deployment and pushed the code, and then
+`alchemy deploy --stage dev-<name>` gives that deployment its variables. The stage creates nothing
+and pushes nothing. It has three rows on the deployment that `.env.local` selects, taken over by its
+Convex name:
 
 ```ts
-// The stage is dev-<name>. `project` is the project of the deployment that the Convex CLI selects.
+// `selected` is the name in CONVEX_DEPLOYMENT of .env.local, such as happy-animal-123, and
+// `project` is the project of stage `prod`.
 const prod = Convex.SharedHubClient.read("HubClient", { stage: "prod" });
-const deployment =
+const site =
   yield *
-  Convex.Deployment("Deployment", {
+  Convex.Deployment("Verification", {
     project,
     type: "dev",
-    name: stage,
-    source: "./convex",
+    name: selected,
     env: { SAMEBASE_REPOSITORY_ID: prod.repository },
   }).pipe(adopt(true));
 const hub =
   yield *
   Convex.SharedHubClient("HubClient", {
     app: "scout",
-    redirectUri: Output.interpolate`${deployment.siteUrl}/auth/hub/callback`,
+    redirectUri: Output.interpolate`${site.siteUrl}/auth/hub/callback`,
     deploymentType: "development",
     initialAccessToken: prod.initialAccessToken,
   });
@@ -400,7 +404,7 @@ yield *
   Convex.Deployment("Site", {
     project,
     type: "dev",
-    name: stage,
+    name: selected,
     env: {
       HUB_ISSUER: variables.issuer,
       HUB_CLIENT_ID: variables.clientId,
@@ -412,11 +416,13 @@ yield *
 The imports are `alchemy/AdoptPolicy` for `adopt` and `alchemy/Output` for `Output`.
 
 1. `read` gives the initial access token and the repository id from the `HubClient` row of stage
-   `prod`. Before the first deploy to main, they are empty.
-2. "Deployment" finds the development deployment by its reference, or creates it. It sets
-   `SAMEBASE_REPOSITORY_ID`, which the site serves as `/samebase-verification.json`, and pushes.
-3. "HubClient" asks the hub for a development client on the deployment's site URL with the token.
-   Each later run renews it. A development client expires 14 days after its last run or use.
+   `prod`.
+2. "Verification" sets `SAMEBASE_REPOSITORY_ID`, which the site serves as
+   `/samebase-verification.json`. `adopt` takes over the deployment and the variables that the dev
+   start set before.
+3. "HubClient" asks the hub for a development client on the deployment's site URL with the token. A
+   later run renews it. A sign-in renews it too, so a laptop in use never needs the stage again; a
+   development client expires 14 days after its last run or sign-in.
 4. "Site" writes the three variables. It removes only a name that leaves its own `env`, so
    `SAMEBASE_REPOSITORY_ID` stays.
 
