@@ -114,9 +114,10 @@ export type DeploymentProps =
       readonly type: "dev" | "preview";
       /**
        * The dev reference, such as `staging`, or the Convex name of a dev
-       * deployment that exists, such as `happy-animal-123` from `.env.local`
-       * (taken over with `adopt`, never created), or the preview name, such
-       * as the stage name. Unique in the project. Cannot change.
+       * deployment that exists, such as `happy-animal-123` from `.env.local`,
+       * which `adopt` takes over; a name that matches nothing creates a dev
+       * deployment with that reference. Or the preview name, such as the
+       * stage name. Unique in the project. Cannot change.
        */
       readonly name: string;
     });
@@ -511,10 +512,11 @@ export const DeploymentProvider = () =>
             ),
           );
           const reference = info.reference ?? "";
+          // A dev address names the reference or the Convex name, as `findByName` finds it.
           if (
             info.projectId !== address.projectId ||
             info.deploymentType !== address.type ||
-            (address.type === "dev" && reference !== address.name)
+            (address.type === "dev" && reference !== address.name && deployment !== address.name)
           ) {
             return undefined;
           }

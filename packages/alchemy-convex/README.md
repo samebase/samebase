@@ -277,9 +277,9 @@ call.
     is not in state is taken over only with `--adopt`.
   - `dev` creates a dev deployment with `name` as its reference. With `--adopt`, `name` can also be
     the Convex name of a dev deployment that exists, such as `happy-animal-123` from `.env.local`,
-    which `npx convex dev` made: the resource takes it over and creates nothing. `preview` creates a
-    preview deployment with `name` as its preview name. An expired preview is created again on the
-    next deploy.
+    which `npx convex dev` made: the resource takes it over. A name that matches nothing creates a
+    dev deployment with that reference. `preview` creates a preview deployment with `name` as its
+    preview name. An expired preview is created again on the next deploy.
   - `rootDir` is the app directory, relative to the directory where the deploy runs, `"."` by
     default. It must be relative (`AbsoluteRootDir`) and have a package.json (`ConvexAppNotFound`).
     There is no search in the directories above it. When convex.json puts the functions outside
