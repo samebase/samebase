@@ -1,11 +1,15 @@
 // Convex.Project: a project in a Convex team, with its default production deployment.
 //
+// The team is the team of the credential (ManagementApi.teamId): the team that
+// a team access token or an OAuth token names, or with the Convex CLI login,
+// the team of the deployment that the CLI selected.
+//
 // Deleting a project deletes all of its deployments and data, so this
 // resource never replaces a project and keeps it by default:
 //
 // - A name change is an update in place: PATCH /projects/{project_id} with
 //   the new name. The slug stays the same.
-// - `team`, `deploymentType`, and `deploymentRegion` cannot change on an
+// - The team, `deploymentType`, and `deploymentRegion` cannot change on an
 //   existing project. A change fails with a typed error that names the fix.
 // - The removal policy is `retain`. Alchemy deletes the project only when the
 //   resource has `RemovalPolicy.destroy()`.
@@ -13,7 +17,7 @@
 //   a resource without state looks a project up by name, and it takes over a
 //   project that it finds only when adoption is on.
 // - With `slug` instead of `name`, the resource is an existing project,
-//   found by GET /teams/{team}/projects/{slug}. It never creates, renames, or
+//   found by GET /teams/{team_id}/projects/{slug}. It never creates, renames, or
 //   (by default) deletes that project. A stack that only pushes to an
 //   existing project can pass `{ projectId }` to Convex.Deployment instead
 //   and needs no Management API token for the project.
@@ -36,22 +40,22 @@ import type { Providers } from "./Providers.ts";
 /** Region names the Management API accepts, from the generated schema. */
 export type DeploymentRegion = components["schemas"]["RegionName"];
 
+// Each form names the key of the other as `never`. Alchemy gives a provider `Props | undefined`
+// when the forms share no key, and the check of a form is `slug !== undefined`.
 export type ProjectProps =
   | {
-      /** Team slug or numeric team id. A slug costs one extra lookup per run. Cannot change. */
-      readonly team: string | number;
       /** Display name. Convex derives the slug from it at creation. A change renames the project. */
       readonly name: string;
+      readonly slug?: never;
       /** Region of the deployment created with the project. Defaults to the team default. Cannot change. */
       readonly deploymentRegion?: DeploymentRegion;
       /** Deployment created with the project. Defaults to `prod`. Cannot change. */
       readonly deploymentType?: "prod" | "dev";
     }
   | {
-      /** Team slug or numeric team id. Cannot change. */
-      readonly team: string | number;
       /** Slug of an existing project, such as `score-four`. The resource never creates a project. Cannot change. */
       readonly slug: string;
+      readonly name?: never;
     };
 
 export interface ProjectAttributes {
@@ -66,13 +70,13 @@ export interface ProjectAttributes {
 export type Project = Resource<"Convex.Project", ProjectProps, ProjectAttributes, never, Providers>;
 export const Project = Resource<Project>("Convex.Project", { defaultRemovalPolicy: "retain" });
 
-/** The props change the team of an existing project. Convex cannot move a project. */
+/** The credential is of another team than the project. Convex cannot move a project. */
 export class ProjectTeamChange extends Schema.TaggedError<ProjectTeamChange>()(
   "ProjectTeamChange",
   { projectId: Schema.Number, teamId: Schema.Number, requestedTeamId: Schema.Number },
 ) {
   override get message() {
-    return `Convex.Project cannot move project ${this.projectId} from team ${this.teamId} to team ${this.requestedTeamId}. Set team back to ${this.teamId}. To use the other team, create a new resource with a new logical id and move the data yourself.`;
+    return `Convex.Project cannot move project ${this.projectId} from team ${this.teamId} to team ${this.requestedTeamId}, the team of the credential. Use a token of team ${this.teamId}, or with the Convex CLI login, select a deployment of team ${this.teamId}. To use the other team, create a new resource with a new logical id and move the data yourself.`;
   }
 }
 
@@ -118,11 +122,11 @@ export class CreatedProjectNotFound extends Schema.TaggedError<CreatedProjectNot
 
 /** No project in the team has the slug. A `slug` resource never creates one. */
 export class ProjectNotFound extends Schema.TaggedError<ProjectNotFound>()("ProjectNotFound", {
-  team: Schema.String,
+  teamId: Schema.Number,
   slug: Schema.String,
 }) {
   override get message() {
-    return `Team ${this.team} has no project with the slug "${this.slug}", and a Convex.Project with a slug never creates one. Check the slug in the project URL of the Convex dashboard, or use name to create a project.`;
+    return `Team ${this.teamId} has no project with the slug "${this.slug}", and a Convex.Project with a slug never creates one. Check the slug in the project URL of the Convex dashboard, or use name to create a project.`;
   }
 }
 
@@ -202,12 +206,6 @@ const checkCreateTimeProps = (
   }
   return Effect.void;
 };
-
-/** True when `team`, a slug or a numeric id, names the team of the project. */
-const isTeamOf = (details: ProjectDetails, team: string | number) =>
-  typeof team === "number" || /^\d+$/.test(team)
-    ? details.teamId === Number(team)
-    : details.teamSlug === team;
 
 /** The row of the project's default production deployment, or undefined. */
 export const prodDeploymentOf = (api: ManagementApiService, projectId: number) =>
@@ -338,12 +336,12 @@ export const ProjectProvider = () =>
 
       const getById = (projectId: number) => getProjectById(api, projectId);
 
-      /** The project with this slug in the team, or undefined. Official endpoint; the team can be a slug. */
-      const getBySlug = (team: string | number, slug: string) =>
+      /** The project with this slug in the team, or undefined. */
+      const getBySlug = (teamId: number, slug: string) =>
         absentAsUndefined(
           api.request("get project by slug", (client) =>
             client.GET("/teams/{team_id_or_slug}/projects/{project_slug}", {
-              params: { path: { team_id_or_slug: String(team), project_slug: slug } },
+              params: { path: { team_id_or_slug: String(teamId), project_slug: slug } },
             }),
           ),
         ).pipe(
@@ -384,23 +382,22 @@ export const ProjectProvider = () =>
           if (!isResolved(news)) return undefined;
           // Nothing exists yet, so nothing can be lost.
           if (output === undefined) return undefined;
-          if ("slug" in news) {
+          // A credential of another team cannot reach the project: fail in plan.
+          const teamId = yield* api.teamId;
+          if (teamId !== output.teamId) {
+            return yield* new ProjectTeamChange({
+              projectId: output.projectId,
+              teamId: output.teamId,
+              requestedTeamId: teamId,
+            });
+          }
+          if (news.slug !== undefined) {
             if (news.slug !== output.slug) {
               return yield* new ProjectSlugChange({
                 projectId: output.projectId,
                 slug: output.slug,
                 requestedSlug: news.slug,
               });
-            }
-            if (olds.team !== news.team) {
-              const details = yield* getById(output.projectId);
-              if (details !== undefined && !isTeamOf(details, news.team)) {
-                return yield* new ProjectTeamChange({
-                  projectId: output.projectId,
-                  teamId: output.teamId,
-                  requestedTeamId: yield* api.resolveTeamId(news.team),
-                });
-              }
             }
             // The resource changes nothing on the project.
             return { action: "noop" } as const;
@@ -409,21 +406,9 @@ export const ProjectProvider = () =>
           // before any API call. Reconcile compares with the props of the last
           // successful deploy. Here, `olds` can be the props of a refused
           // update, so a check here would also refuse the props that fix it.
-          if (olds.team !== news.team) {
-            const requestedTeamId = yield* api.resolveTeamId(news.team);
-            if (requestedTeamId !== output.teamId) {
-              return yield* new ProjectTeamChange({
-                projectId: output.projectId,
-                teamId: output.teamId,
-                requestedTeamId,
-              });
-            }
-          }
           // Never "replace". A name change is an update; reconcile renames
           // the project with PATCH. Otherwise the engine compares the props.
-          return "name" in olds && olds.name === news.name
-            ? undefined
-            : ({ action: "update" } as const);
+          return olds.name === news.name ? undefined : ({ action: "update" } as const);
         }),
 
         read: Effect.fn(function* ({ olds, output }) {
@@ -433,22 +418,24 @@ export const ProjectProvider = () =>
           }
           // No state: an existing project belongs to someone else until the
           // user passes --adopt. Convex has no ownership tags.
+          const teamId = yield* api.teamId;
           const existing =
-            "slug" in olds
-              ? yield* getBySlug(olds.team, olds.slug)
-              : yield* findByName(yield* api.resolveTeamId(olds.team), olds.name);
+            olds.slug !== undefined
+              ? yield* getBySlug(teamId, olds.slug)
+              : yield* findByName(teamId, olds.name);
           return existing === undefined ? undefined : Unowned(yield* attributesOf(existing));
         }),
 
         reconcile: Effect.fn(function* ({ fqn, olds, news, output }) {
-          if ("slug" in news) {
+          const teamId = yield* api.teamId;
+          if (news.slug !== undefined) {
             // An existing project: found, checked, never created or changed.
             const details =
               output === undefined
-                ? yield* getBySlug(news.team, news.slug)
+                ? yield* getBySlug(teamId, news.slug)
                 : yield* getById(output.projectId);
             if (details === undefined) {
-              return yield* new ProjectNotFound({ team: String(news.team), slug: news.slug });
+              return yield* new ProjectNotFound({ teamId, slug: news.slug });
             }
             if (details.slug !== news.slug) {
               return yield* new ProjectSlugChange({
@@ -457,11 +444,11 @@ export const ProjectProvider = () =>
                 requestedSlug: news.slug,
               });
             }
-            if (!isTeamOf(details, news.team)) {
+            if (details.teamId !== teamId) {
               return yield* new ProjectTeamChange({
                 projectId: details.id,
                 teamId: details.teamId,
-                requestedTeamId: yield* api.resolveTeamId(news.team),
+                requestedTeamId: teamId,
               });
             }
             if (output === undefined && !(yield* shouldAdopt(fqn))) {
@@ -473,10 +460,9 @@ export const ProjectProvider = () =>
             }
             return yield* attributesOf(details);
           }
-          const teamId = yield* api.resolveTeamId(news.team);
           if (output !== undefined) {
             // State names the project. Never look it up by name here.
-            if (olds !== undefined && "name" in olds) {
+            if (olds !== undefined && olds.name !== undefined) {
               yield* checkCreateTimeProps(output.projectId, olds, news);
             }
             if (output.teamId !== teamId) {

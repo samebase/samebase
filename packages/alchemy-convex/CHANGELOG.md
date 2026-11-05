@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.29.0
+
+- `team` is removed from `Convex.state()` and from both forms of `Convex.Project`, `{ name }` and
+  `{ slug }`. They are in the team of the credential. A team access token and an OAuth token of a
+  team name it in `GET /token_details`. The Convex CLI login names no team, so a run with it takes
+  the team of the deployment that the Convex CLI selected: `CONVEX_DEPLOYMENT` in the environment or
+  in `.env.local`, then the project of that deployment, then the team of that project. A local or
+  anonymous deployment is in no team, and the run stops. Remove `team` from the stack. A stack whose
+  state has `team` keeps its project and writes nothing to Convex when the credential is of the same
+  team; a credential of another team stops the plan with `ProjectTeamChange`.
+- `alchemy-convex stack-comment` takes no `--team`. `Convex.HubClient` and `hub-client --team` keep
+  `team`: it names the team of the hub, not the team of the app.
+
 ## 0.28.0
 
 - `Convex.Deployment` with `type: "dev"`: `name` is a dev reference or the Convex name of a dev

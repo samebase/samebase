@@ -1,7 +1,7 @@
 // Live Convex plane sequence through the real Alchemy engine and the real
-// Convex CLI. Runs only with ALCHEMY_CONVEX_LIVE=1 and a Convex login
-// (CONVEX_ACCESS_TOKEN or `npx convex login`) that can create projects in
-// ALCHEMY_CONVEX_LIVE_TEAM.
+// Convex CLI. Runs only with ALCHEMY_CONVEX_LIVE=1 and a team access token of
+// ALCHEMY_CONVEX_LIVE_TEAM in CONVEX_ACCESS_TOKEN: the project is in the team
+// of the token.
 //
 // The test creates one disposable project, <prefix>plane-<8 hex>, and deletes
 // it at the end, also when a step fails. A guard around fetch refuses every
@@ -196,7 +196,7 @@ const sequence = (created: number[], app: string) =>
     writeQuery(app, "v1");
     const production = (value: string) =>
       Effect.gen(function* () {
-        const project = yield* Convex.Project("Project", { team, name: projectName });
+        const project = yield* Convex.Project("Project", { name: projectName });
         const prod = yield* Convex.Deployment("Prod", {
           project,
           type: "prod",
@@ -270,7 +270,7 @@ const sequence = (created: number[], app: string) =>
 
     // 4. Take the project over by slug in another state, only with --adopt.
     const bySlug = Effect.gen(function* () {
-      const project = yield* Convex.Project("Project", { team, slug: first.slug });
+      const project = yield* Convex.Project("Project", { slug: first.slug });
       return { projectId: project.projectId };
     });
     const refused = yield* Effect.flip(adoptStack.deploy(bySlug));
@@ -284,9 +284,7 @@ const sequence = (created: number[], app: string) =>
     // 5. A preview deployment named after the stage, deleted on destroy.
     const preview = Effect.gen(function* () {
       const { stage } = yield* Alchemy.Stack;
-      const project = yield* Convex.Project("Project", { team, slug: first.slug }).pipe(
-        adopt(true),
-      );
+      const project = yield* Convex.Project("Project", { slug: first.slug }).pipe(adopt(true));
       const deployment = yield* Convex.Deployment("Preview", {
         project,
         type: "preview",

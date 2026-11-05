@@ -2,14 +2,14 @@
 // The commands of the package:
 //
 //   alchemy-convex hub-client --team <team> --app <app> --callback-path <path> [--env-prefix HUB]
-//   alchemy-convex stack-comment [--team <team>]
+//   alchemy-convex stack-comment
 //
 // hub-client runs in the directory of a Convex app at each dev start, and renews the client of the
 // identity hub of the team that the development deployment of that directory has, or gives it a new
 // one: see registerDevelopmentClient. stack-comment runs as a step of a pull request workflow after
 // the deploys, and keeps one comment with the stacks of the repository: see src/StackComment.ts. It
-// needs GITHUB_TOKEN and, with a team access token, no --team. Both use CONVEX_ACCESS_TOKEN or the
-// Convex CLI login.
+// needs GITHUB_TOKEN, and reads the store of the team of the token. Both use CONVEX_ACCESS_TOKEN or
+// the Convex CLI login.
 import { execFileSync } from "node:child_process";
 import { parseArgs } from "node:util";
 import * as NodeServices from "@effect/platform-node/NodeServices";
@@ -34,7 +34,7 @@ const { positionals, values } = parseArgs({
 const { team, app, "callback-path": callbackPath, "env-prefix": envPrefix } = values;
 const USAGE = `Usage:
   alchemy-convex hub-client --team <team> --app <app> --callback-path <path> [--env-prefix HUB]
-  alchemy-convex stack-comment [--team <team>]`;
+  alchemy-convex stack-comment`;
 
 const hubClient = (hub: { team: string; app: string; callbackPath: string; envPrefix?: string }) =>
   Effect.gen(function* () {
@@ -55,16 +55,16 @@ const hubClient = (hub: { team: string; app: string; callbackPath: string; envPr
     );
   }).pipe(Effect.provide(ManagementApiLive().pipe(Layer.provide(fromConfig()))));
 
-const stackComment = (options: { team?: string }) =>
-  updateStackComment.pipe(
-    Effect.tap((url) => Effect.sync(() => console.log(url))),
-    Effect.provide(state(options).pipe(Layer.provide(NodeServices.layer))),
-  );
+const stackComment = updateStackComment.pipe(
+  Effect.tap((url) => Effect.sync(() => console.log(url))),
+  Effect.provide(state().pipe(Layer.provide(NodeServices.layer))),
+);
 
 const subcommand = positionals.join(" ");
 const program: Effect.Effect<unknown, unknown> | undefined =
-  subcommand === "stack-comment"
-    ? stackComment(team === undefined ? {} : { team })
+  // stack-comment reads the store of the team of the credential, so a --team would be ignored.
+  subcommand === "stack-comment" && team === undefined
+    ? stackComment
     : subcommand === "hub-client" &&
         team !== undefined &&
         app !== undefined &&

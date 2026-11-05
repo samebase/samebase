@@ -713,7 +713,7 @@ describe("Convex.Deployment rootDir", () => {
           stack.deploy(
             Effect.gen(function* () {
               // A project of this stack: its create would be the first change.
-              const project = yield* Convex.Project("Project", { team: TEAM, name: NAME });
+              const project = yield* Convex.Project("Project", { name: NAME });
               const deployment = yield* Convex.Deployment("Backend", {
                 project,
                 type: "prod",

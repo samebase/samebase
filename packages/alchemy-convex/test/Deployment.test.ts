@@ -15,12 +15,13 @@ import { ProjectProvider } from "../src/Project.ts";
 import * as Convex from "../src/index.ts";
 import { FakeConvex } from "./fakeConvex.ts";
 
+/** The team of the team access token of FakeConvex. */
 const TEAM = 38516;
 const NAME = "tmp-alchemy-convex-fixture";
 const API = "api.convex.dev/v1";
 
 const { test } = Test.make({
-  providers: Convex.providers(Convex.fromValues({ accessToken: Redacted.make("test-token") })),
+  providers: Convex.providers(Convex.fromValues({ accessToken: Redacted.make("team-token") })),
 });
 
 const attributes = (deployment: Convex.Deployment) => ({
@@ -49,7 +50,7 @@ describe("Convex.Deployment", () => {
       const fake = new FakeConvex().install();
       const out = yield* stack.deploy(
         Effect.gen(function* () {
-          const project = yield* Convex.Project("Project", { team: TEAM, name: NAME });
+          const project = yield* Convex.Project("Project", { name: NAME });
           const prod = yield* Convex.Deployment("Prod", { project, type: "prod" });
           return { projectId: project.projectId, prod: attributes(prod) };
         }),

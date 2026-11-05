@@ -11,6 +11,7 @@ import {
   isRetryableWriteError,
   ManagementApi,
   ManagementApiLive,
+  type ManagementApiService,
 } from "../src/ManagementApi.ts";
 
 const fixture = (file: string): unknown =>
@@ -127,18 +128,71 @@ describe("isOAuthCredential", () => {
   });
 });
 
+const withToken = <A>(
+  token: string,
+  use: (api: ManagementApiService) => Effect.Effect<A, ConvexApiError>,
+) =>
+  Effect.gen(function* () {
+    return yield* use(yield* ManagementApi);
+  }).pipe(
+    Effect.provide(
+      ManagementApiLive().pipe(Layer.provide(fromValues({ accessToken: Redacted.make(token) }))),
+    ),
+  );
+const failureOf = (effect: Effect.Effect<number, ConvexApiError>) =>
+  Effect.runPromise(Effect.flip(effect)).then((error) => error.message);
+
+describe("ManagementApi.teamId", () => {
+  const teamOf = (token: string) => withToken(token, (api) => api.teamId);
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
+  });
+
+  it("takes the team that a team access token names, once for each service", async () => {
+    const fake = new FakeConvex().install();
+    const twice = withToken(fake.teamToken, (api) => Effect.all([api.teamId, api.teamId]));
+    expect(await Effect.runPromise(twice)).toEqual([38516, 38516]);
+    expect(fake.lines()).toEqual(["GET api.convex.dev/v1/token_details"]);
+  });
+
+  // Measured with the Convex CLI login: token_details answers 403, and the deployment and its
+  // project answer with the project id and the team id.
+  it("takes the team of the deployment that the Convex CLI selected for the Convex CLI login", async () => {
+    const fake = new FakeConvex().install();
+    const projectId = fake.addProject({ name: "app", teamId: 38516 });
+    const selected = fake.addDeployment({ projectId, type: "dev", name: "dev/nicu" });
+    vi.stubEnv("CONVEX_DEPLOYMENT", `dev:${selected}`);
+    expect(await Effect.runPromise(teamOf("cli-login"))).toBe(38516);
+    expect(fake.lines()).toEqual([
+      "GET api.convex.dev/v1/token_details",
+      `GET api.convex.dev/v1/deployments/${selected}`,
+      `GET api.convex.dev/v1/projects/${projectId}`,
+    ]);
+  });
+
+  // A set CONVEX_DEPLOYMENT wins over .env.local, so these cases read no file.
+  it.each([
+    ["a local deployment", "local:local-nicu-app"],
+    ["an anonymous deployment", "anonymous:anonymous-app"],
+    ["an anonymous deployment without a prefix", "anonymous-app"],
+  ])(
+    "refuses the Convex CLI login with %s, with no deployment request",
+    async (_name, selected) => {
+      const fake = new FakeConvex().install();
+      vi.stubEnv("CONVEX_DEPLOYMENT", selected);
+      expect(await failureOf(teamOf("cli-login"))).toContain(
+        "no cloud deployment is selected. Run `npx convex dev` once with a cloud deployment",
+      );
+      expect(fake.lines()).toEqual(["GET api.convex.dev/v1/token_details"]);
+    },
+  );
+});
+
 describe("ManagementApi.resolveTeamId", () => {
-  const resolve = (token: string, team: string | number | undefined) =>
-    Effect.gen(function* () {
-      const api = yield* ManagementApi;
-      return yield* api.resolveTeamId(team);
-    }).pipe(
-      Effect.provide(
-        ManagementApiLive().pipe(Layer.provide(fromValues({ accessToken: Redacted.make(token) }))),
-      ),
-    );
-  const failureOf = (effect: Effect.Effect<number, ConvexApiError>) =>
-    Effect.runPromise(Effect.flip(effect)).then((error) => error.message);
+  const resolve = (token: string, team: string | number) =>
+    withToken(token, (api) => api.resolveTeamId(team));
 
   afterEach(() => {
     vi.unstubAllGlobals();
@@ -152,21 +206,11 @@ describe("ManagementApi.resolveTeamId", () => {
   });
 
   // The recorded project payload carries the team slug samebase-live-tests (522530).
-  it("takes the team of a team access token, with the slug checked against its projects", async () => {
+  it("checks a slug against the projects of the team of a team access token", async () => {
     const fake = new FakeConvex().install();
     fake.teamTokenTeamId = 522530;
     fake.addProject({ name: "app", teamId: 522530 });
-    const both = Effect.gen(function* () {
-      const api = yield* ManagementApi;
-      return [yield* api.resolveTeamId(undefined), yield* api.resolveTeamId("samebase-live-tests")];
-    }).pipe(
-      Effect.provide(
-        ManagementApiLive().pipe(
-          Layer.provide(fromValues({ accessToken: Redacted.make(fake.teamToken) })),
-        ),
-      ),
-    );
-    expect(await Effect.runPromise(both)).toEqual([522530, 522530]);
+    expect(await Effect.runPromise(resolve(fake.teamToken, "samebase-live-tests"))).toBe(522530);
     expect(fake.lines()).toEqual([
       "GET api.convex.dev/v1/token_details",
       "GET api.convex.dev/v1/teams/522530/projects",
@@ -196,6 +240,5 @@ describe("ManagementApi.resolveTeamId", () => {
     expect(await failureOf(resolve("cli-login", "no-such-team"))).toContain(
       'no team with slug "no-such-team"',
     );
-    expect(await failureOf(resolve("cli-login", undefined))).toContain("set team to the slug");
   });
 });

@@ -11,10 +11,7 @@ export default Alchemy.Stack(
     state: Alchemy.localState(),
   },
   Effect.gen(function* () {
-    const project = yield* Convex.Project("Project", {
-      team: "samebase-live-tests",
-      name: "tmp-alchemy-convex-smoke",
-    });
+    const project = yield* Convex.Project("Project", { name: "tmp-alchemy-convex-smoke" });
     return {
       projectId: project.projectId,
       slug: project.slug,

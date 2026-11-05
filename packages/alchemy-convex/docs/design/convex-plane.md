@@ -40,8 +40,9 @@ Problem: 0.3 is shaped for Workers Builds: keys go to a build outside Alchemy, `
   a deploy key or change variables. So a deploy key pushes to its own deployment with no token, and
   a preview deploy key runs preview stages with no token and no `env`. The token is needed only to
   create a project or a deployment that a key cannot reach.
-- `Project` takes `{ team, slug }` (official `GET /teams/{team}/projects/{slug}`) next to
-  `{ team, name }`. Both need `--adopt` for an object not in state.
+- `Project` takes `{ slug }` (official `GET /teams/{team}/projects/{slug}`) next to `{ name }`, in
+  the team of the credential (0.29.0; before, both took `team`). Both need `--adopt` for an object
+  not in state.
 - A production deployment with code, not in state, needs `--adopt` (an empty one does not).
 - Kept invariants: never replace or delete a deployment on an input change (identity errors), retain
   by default, never delete production, ids from state and not URLs, all pages of a listing, OCC

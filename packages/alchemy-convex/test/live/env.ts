@@ -5,7 +5,10 @@
 export const liveEnabled = process.env["ALCHEMY_CONVEX_LIVE"] === "1";
 
 export const liveTargets = {
-  /** Team slug that holds the throwaway projects. */
+  /**
+   * Team slug that holds the throwaway projects, for the direct API checks. The resources take the
+   * team of the credential, so CONVEX_ACCESS_TOKEN must be a team access token of this team.
+   */
   team: process.env["ALCHEMY_CONVEX_LIVE_TEAM"] ?? "samebase-live-tests",
   /**
    * Name prefix of every project that a live test creates. A guard refuses

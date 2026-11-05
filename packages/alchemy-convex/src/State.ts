@@ -1,4 +1,4 @@
-// Alchemy state in Convex: `state: Convex.state({ team })` in `Alchemy.Stack`.
+// Alchemy state in Convex: `state: Convex.state()` in `Alchemy.Stack`.
 //
 // One project for each Convex team, `alchemy-state-store`, holds the state of
 // every stack and stage of the team in its production deployment: the
@@ -268,8 +268,7 @@ export const storeDirectory = () =>
   join(dirname(fileURLToPath(import.meta.url)), "..", "src", "store", "convex");
 
 export interface StoreOptions {
-  /** Team slug or numeric team id of the `alchemy-state-store` project, or undefined with a team access token, which names its team. */
-  readonly team: string | number | undefined;
+  /** The store is in the team of its credential: ManagementApi.teamId. */
   readonly api: ManagementApiService;
   readonly spawner: ChildProcessSpawner.ChildProcessSpawner["Service"];
   /** The key of the run is deleted when this scope closes. */
@@ -351,10 +350,10 @@ const ensureSealed = (
  * the run whose project is not the oldest deletes its own, which holds
  * nothing yet, and uses the oldest, so that every run ends on one store.
  */
-const createStoreProject = (api: ManagementApiService, teamId: number, team: string | number) =>
+const createStoreProject = (api: ManagementApiService, teamId: number) =>
   Effect.gen(function* () {
     yield* Effect.logInfo(
-      `Convex state: creating the project ${STORE_PROJECT_NAME} in team ${team}`,
+      `Convex state: creating the project ${STORE_PROJECT_NAME} in team ${teamId}`,
     );
     const created = yield* createProject(api, teamId, {
       name: STORE_PROJECT_NAME,
@@ -387,10 +386,9 @@ const createStoreProject = (api: ManagementApiService, teamId: number, team: str
 export const makeConvexState = (options: StoreOptions) =>
   Effect.gen(function* () {
     const { api } = options;
-    const teamId = yield* api.resolveTeamId(options.team);
-    const team = options.team ?? teamId;
+    const teamId = yield* api.teamId;
     const found = yield* findProjectByName(api, teamId, STORE_PROJECT_NAME);
-    const project = found ?? (yield* createStoreProject(api, teamId, team));
+    const project = found ?? (yield* createStoreProject(api, teamId));
     const deployment = yield* prodDeploymentOf(api, project.id);
     if (deployment === undefined) {
       return yield* new ProductionDeploymentNotFound({ projectId: project.id });
@@ -435,7 +433,7 @@ export const makeConvexState = (options: StoreOptions) =>
       // Code without `state:version` is another app with the name of the store.
       if (version === undefined && deployment.lastDeployTime) {
         return yield* failure(
-          `project ${STORE_PROJECT_NAME} (${project.id}) of team ${team} has code that is not the state store, and Convex.state does not push over it. Rename that project in the Convex dashboard.`,
+          `project ${STORE_PROJECT_NAME} (${project.id}) of team ${teamId} has code that is not the state store, and Convex.state does not push over it. Rename that project in the Convex dashboard.`,
         );
       }
       // Another run can push a newer store in the meantime: read again right
@@ -494,16 +492,13 @@ export const makeConvexState = (options: StoreOptions) =>
   });
 
 /**
- * Alchemy state in the `alchemy-state-store` project of `team`, with the team token
- * in CONVEX_ACCESS_TOKEN or the Convex CLI login. A team access token names
- * its team, so `team` is optional with one; the Convex CLI login needs the
- * slug or the id. The first use of the run finds or creates the project and
- * pushes the store when it is missing or older. `alchemy plan` on another
- * stack never touches Convex.
+ * Alchemy state in the `alchemy-state-store` project of the team of the credential: the team token
+ * in CONVEX_ACCESS_TOKEN, which names its team, or the Convex CLI login, with the team of the
+ * deployment that the CLI selected (CONVEX_DEPLOYMENT, see ManagementApi.teamId). The first use of
+ * the run finds or creates the project and pushes the store when it is missing or older.
+ * `alchemy plan` on another stack never touches Convex.
  */
-export const state = (
-  options: { readonly team?: string | number } = {},
-): Layer.Layer<State, never, ChildProcessSpawner.ChildProcessSpawner> =>
+export const state = (): Layer.Layer<State, never, ChildProcessSpawner.ChildProcessSpawner> =>
   Layer.effect(
     State,
     Effect.gen(function* () {
@@ -529,7 +524,6 @@ export const state = (
             ),
           );
           return yield* makeConvexState({
-            team: options.team,
             api,
             spawner,
             scope,
