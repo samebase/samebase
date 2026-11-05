@@ -2,11 +2,10 @@
 
 ## 0.27.3
 
-- `Convex.SharedHubClient.read` gives the off attributes, with one log line, for a row that an older
-  version saved without the token fields, as it does for a missing row. In 0.27.1 and 0.27.2 it
-  stopped the stack, so a laptop of an existing app failed until that app's next deploy to main. A
-  read changes nothing and must not stop a stack; the next deploy of the read stage rewrites the
-  row.
+- A failure of `Convex.SharedHubClient` that stops a stack prints its reason. In 0.27.2 the error
+  had an empty message, so a laptop whose `prod` row was saved by 0.26 or earlier showed only a
+  stack trace. The behaviour stays: such a row stops the laptop's stack until that app deploys to
+  main once, which rewrites the row; the laptop runs with guest sign-in until then.
 
 ## 0.27.2
 
