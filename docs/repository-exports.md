@@ -79,9 +79,10 @@ The convex-hosting starter is maintained in
 
 The starter is a Convex-hosted app that its own GitHub Actions deploy with Alchemy.
 
-A deploy needs the secret `CONVEX_ACCESS_TOKEN` and the variable `CONVEX_TEAM_ID`, which Samebase
-writes when it creates the repository. Samebase reads what the repository deployed from the Alchemy
-state store of the team. The `Destroy app` workflow destroys the app after a typed confirmation.
+A deploy needs only the secret `CONVEX_ACCESS_TOKEN`, which names its Convex team. Samebase writes
+it when it creates the repository, together with the variable `CONVEX_TEAM_ID`, which the starter no
+longer reads. Samebase reads what the repository deployed from the Alchemy state store of the team.
+The `Destroy app` workflow destroys the app after a typed confirmation.
 
 ### Existing-app sweep
 

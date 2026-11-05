@@ -3,6 +3,14 @@
 What changed in Samebase, newest first. Each `v` number is the Samebase version that shipped the
 change. If a change needs action from you, the entry says so.
 
+## 2026-11-06
+
+- **v2275: Google sign-in on your laptop, and one secret.** In an app made from
+  [samebase/base](https://github.com/samebase/base), `pnpm run hub --stage dev-<your name>` gives
+  your development deployment Sign in with Google, after one deploy to main. The repository needs
+  only the secret `CONVEX_ACCESS_TOKEN`: the variable `CONVEX_TEAM_ID` is no longer used. To get
+  both in an older app, ask your agent to apply the v2275 entry of the starter changelog.
+
 ## 2026-11-04
 
 - **v2261: Google sign-in without a Samebase account.** An app made from
