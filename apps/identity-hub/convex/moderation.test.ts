@@ -26,22 +26,25 @@ afterEach(() => {
 
 const DAY_MS = 24 * 60 * 60 * 1_000;
 
-/** A registration row in the shape from before `proof`, as production held 11 of them. */
-const legacyRow = (index: number, registeredAt: number) => ({
-  clientId: `cl_legacy_${index}`,
+/** A registration row of a GitHub Actions run. */
+const registrationRow = (index: number, registeredAt: number) => ({
+  clientId: `cl_${index}`,
   githubRepositoryDatabaseId: REPOSITORY_ID,
   githubOwnerId: OWNER_ID,
   githubRepository: "octo-org/octo-repo",
-  githubActorId: "12",
-  githubActorLogin: "octocat",
-  commitSha: "example-sha",
+  proof: {
+    kind: "github" as const,
+    githubActorId: "12",
+    githubActorLogin: "octocat",
+    commitSha: "example-sha",
+  },
   stage: "prod",
   app: "my-app",
   redirectUri: "https://ideal-dolphin-15.convex.site/auth/hub/callback",
   registeredAt,
 });
 
-async function insertRows(t: ConvexTest, rows: ReturnType<typeof legacyRow>[]) {
+async function insertRows(t: ConvexTest, rows: ReturnType<typeof registrationRow>[]) {
   await t.run(async (ctx) => {
     for (const row of rows) {
       await ctx.db.insert("registrations", row);
@@ -130,9 +133,9 @@ describe("the registrations", () => {
     const t = makeConvexTest();
     const now = Date.now();
     await insertRows(t, [
-      legacyRow(1, now - 1_000),
-      legacyRow(2, now - 2 * DAY_MS),
-      legacyRow(3, now - 8 * DAY_MS),
+      registrationRow(1, now - 1_000),
+      registrationRow(2, now - 2 * DAY_MS),
+      registrationRow(3, now - 8 * DAY_MS),
     ]);
 
     const response = await moderationRequest(t, "/moderation/counts");
@@ -148,7 +151,7 @@ describe("the registrations", () => {
     const now = Date.now();
     await insertRows(
       t,
-      Array.from({ length: 1_001 }, (_, index) => legacyRow(index, now - index)),
+      Array.from({ length: 1_001 }, (_, index) => registrationRow(index, now - index)),
     );
 
     const response = await moderationRequest(t, "/moderation/counts");
@@ -157,79 +160,6 @@ describe("the registrations", () => {
       day: { count: 1_000, atLeast: true },
       week: { count: 1_000, atLeast: true },
     });
-  });
-
-  it("rewrites a row from before proof into the new shape, and leaves a new row alone", async () => {
-    const t = makeConvexTest();
-    await insertRows(t, [legacyRow(1, 1_700_000_000_000)]);
-    const client = await createClient(t);
-    const before = await t.run(async (ctx) => await ctx.db.query("registrations").collect());
-
-    const first = await t.mutation(internal.moderation.rewriteRegistrationProofs, {
-      cursor: null,
-    });
-    const second = await t.mutation(internal.moderation.rewriteRegistrationProofs, {
-      cursor: null,
-    });
-
-    expect(first).toMatchObject({ rewritten: 1, isDone: true });
-    expect(second).toMatchObject({ rewritten: 0, isDone: true });
-    const after = await t.run(async (ctx) => await ctx.db.query("registrations").collect());
-    const { githubActorId, githubActorLogin, commitSha, ...legacyRest } = legacyRow(
-      1,
-      1_700_000_000_000,
-    );
-    expect(after.find((row) => row.clientId === "cl_legacy_1")).toEqual({
-      ...legacyRest,
-      _id: expect.any(String),
-      _creationTime: expect.any(Number),
-      proof: { kind: "github", githubActorId, githubActorLogin, commitSha },
-    });
-    expect(after.find((row) => row.clientId === client.client_id)).toEqual(
-      before.find((row) => row.clientId === client.client_id),
-    );
-  });
-
-  it("follows the cursor across batches until every row has the new shape", async () => {
-    const t = makeConvexTest();
-    await insertRows(
-      t,
-      Array.from({ length: 250 }, (_, index) => legacyRow(index, 1_700_000_000_000 + index)),
-    );
-
-    /** Runs the one-off from the start until it is done: the rows it rewrote, and the runs. */
-    const rewriteAll = async () => {
-      let rewritten = 0;
-      let runs = 0;
-      let cursor: string | null = null;
-      for (;;) {
-        const page: { rewritten: number; continueCursor: string; isDone: boolean } =
-          await t.mutation(internal.moderation.rewriteRegistrationProofs, { cursor });
-        rewritten += page.rewritten;
-        runs += 1;
-        if (page.isDone) return { rewritten, runs };
-        cursor = page.continueCursor;
-      }
-    };
-
-    const { rewritten, runs } = await rewriteAll();
-
-    expect(rewritten).toBe(250);
-    expect(runs).toBeGreaterThan(2);
-    const rows = await t.run(async (ctx) => await ctx.db.query("registrations").collect());
-    expect(rows).toHaveLength(250);
-    for (const row of rows) {
-      expect(row.proof).toEqual({
-        kind: "github",
-        githubActorId: "12",
-        githubActorLogin: "octocat",
-        commitSha: "example-sha",
-      });
-      expect(row).not.toHaveProperty("githubActorId");
-      expect(row).not.toHaveProperty("githubActorLogin");
-      expect(row).not.toHaveProperty("commitSha");
-    }
-    expect((await rewriteAll()).rewritten).toBe(0);
   });
 
   it("no answer holds a client secret or a registration token", async () => {
@@ -506,32 +436,6 @@ describe("the clients", () => {
         app: "my-app",
         issuedAt: 1_800_000_000_000,
       },
-    });
-  });
-
-  it("reads a row from before proof as a GitHub run", async () => {
-    const t = makeConvexTest();
-    const client = await createClient(t);
-    await t.run(async (ctx) => {
-      const row = await ctx.db
-        .query("registrations")
-        .withIndex("by_client_id", (q) => q.eq("clientId", client.client_id))
-        .unique();
-      if (row !== null) {
-        await ctx.db.replace("registrations", row._id, {
-          ...legacyRow(1, row.registeredAt),
-          clientId: client.client_id,
-          githubActorLogin: "legacy-login",
-        });
-      }
-    });
-
-    const list: { clients: { clientId: string; registeredBy: unknown }[] } = await (
-      await moderationRequest(t, "/moderation/clients")
-    ).json();
-
-    expect(list.clients.find((row) => row.clientId === client.client_id)).toMatchObject({
-      registeredBy: { kind: "github", githubActorLogin: "legacy-login" },
     });
   });
 
