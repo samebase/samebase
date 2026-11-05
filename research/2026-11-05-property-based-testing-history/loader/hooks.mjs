@@ -9,7 +9,13 @@ import { realpathSync } from "node:fs";
 const ROOT = realpathSync(fileURLToPath(new URL("..", import.meta.url))).replace(/\/$/, "");
 const VERSIONS = `${ROOT}/versions/`;
 // diff@8 for commits whose package.json pins ^8, diff@9 after.
-const DIFF9 = new Set(["v7-before-7ceb8f30c", "v8-7ceb8f30c", "v7m-before-3e3b443ae", "v8m-3e3b443ae", "v9-main"]);
+const DIFF9 = new Set([
+  "v7-before-7ceb8f30c",
+  "v8-7ceb8f30c",
+  "v7m-before-3e3b443ae",
+  "v8m-3e3b443ae",
+  "v9-main",
+]);
 
 function versionOf(path) {
   return path.startsWith(VERSIONS) ? path.slice(VERSIONS.length).split("/")[0] : null;
@@ -33,7 +39,10 @@ function classify(fromFile, spec) {
   }
   if (spec.startsWith("@samebase/dependent")) {
     const v = VERSIONS + versionOf(fromFile);
-    const file = resolveRelative(`${v}/packages/dependent/x`, `./src/${spec.split("/").slice(2).join("/") || "index"}`);
+    const file = resolveRelative(
+      `${v}/packages/dependent/x`,
+      `./src/${spec.split("/").slice(2).join("/") || "index"}`,
+    );
     return file ? { file } : { stub: true };
   }
   return { stub: true };
@@ -48,11 +57,20 @@ function bindingsToConst(clause) {
   const ns = rest.match(/^\*\s+as\s+(\w+)$/);
   if (ns) return `const ${ns[1]} = globalThis.__stub;`;
   const named = rest.match(/\{([\s\S]*)\}/);
-  const defaultPart = rest.replace(/\{[\s\S]*\}/, "").replace(/,/g, "").trim();
+  const defaultPart = rest
+    .replace(/\{[\s\S]*\}/, "")
+    .replace(/,/g, "")
+    .trim();
   if (defaultPart) out.push(`const ${defaultPart} = globalThis.__stub;`);
   if (named) {
-    const names = named[1].split(",").map((s) => s.trim()).filter((s) => s && !s.startsWith("type "));
-    if (names.length) out.push(`const { ${names.map((n) => n.replace(/\s+as\s+/, ": ")).join(", ")} } = globalThis.__stub;`);
+    const names = named[1]
+      .split(",")
+      .map((s) => s.trim())
+      .filter((s) => s && !s.startsWith("type "));
+    if (names.length)
+      out.push(
+        `const { ${names.map((n) => n.replace(/\s+as\s+/, ": ")).join(", ")} } = globalThis.__stub;`,
+      );
   }
   return out.join(" ");
 }
@@ -63,9 +81,14 @@ function transform(file, source) {
     const c = classify(file, spec);
     return c.stub ? bindingsToConst(clause) : whole;
   });
-  code = code.replace(sideEffectImportRe, (whole, spec) => (classify(file, spec).stub ? "" : whole));
+  code = code.replace(sideEffectImportRe, (whole, spec) =>
+    classify(file, spec).stub ? "" : whole,
+  );
   // Before d6e75127a the engine was not exported.
-  code = code.replace(/^async function createCommitWithMultipleFiles/m, "export async function createCommitWithMultipleFiles");
+  code = code.replace(
+    /^async function createCommitWithMultipleFiles/m,
+    "export async function createCommitWithMultipleFiles",
+  );
   return code;
 }
 
@@ -83,7 +106,11 @@ export async function load(url, context, next) {
   if (url.startsWith("file:")) {
     const file = fileURLToPath(url);
     if (versionOf(file) && /\.tsx?$/.test(file)) {
-      return { format: "module-typescript", source: transform(file, readFileSync(file, "utf8")), shortCircuit: true };
+      return {
+        format: "module-typescript",
+        source: transform(file, readFileSync(file, "utf8")),
+        shortCircuit: true,
+      };
     }
   }
   return next(url, context);
