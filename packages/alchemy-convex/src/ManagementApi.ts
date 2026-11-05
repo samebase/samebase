@@ -72,16 +72,19 @@ export interface ManagementApiService {
     run: (client: DeploymentClient) => Promise<FetchResult<T>>,
   ) => Effect.Effect<T, ConvexApiError>;
   /**
-   * Team id for a numeric id, a slug, or nothing. A team access token and an
-   * OAuth token of a team name their team (`GET /token_details`); a slug is
-   * then checked against the `teamSlug` of the team's projects, so a token of
-   * another team fails. The Convex CLI login and a personal token answer 403
-   * there, so a slug goes to the dashboard's team list, and nothing is the team
-   * of the deployment that the Convex CLI selected (CONVEX_DEPLOYMENT).
+   * The team of the credential. A team access token and an OAuth token of a
+   * team name it (`GET /token_details`). The Convex CLI login answers 403
+   * there, so its team is the team of the project of the deployment that the
+   * Convex CLI selected (CONVEX_DEPLOYMENT). Read once for each service.
    */
-  readonly resolveTeamId: (
-    team: string | number | undefined,
-  ) => Effect.Effect<number, ConvexApiError>;
+  readonly teamId: Effect.Effect<number, ConvexApiError>;
+  /**
+   * Team id for a numeric id or a slug, for Convex.HubClient, which names the
+   * team of the hub. With a team access token, a slug is checked against the
+   * `teamSlug` of the team's projects, so a token of another team fails; with
+   * the Convex CLI login, a slug goes to the dashboard's team list.
+   */
+  readonly resolveTeamId: (team: string | number) => Effect.Effect<number, ConvexApiError>;
   /**
    * True when a deploy key that Convex returned carries the token of the
    * Management API credential itself. With an OAuth token, create_deploy_key
@@ -294,44 +297,19 @@ const makeService = (source: Effect.Effect<ResolvedCredentials>): ManagementApiS
       Effect.map((body) => Schema.decodeUnknownSync(ProjectSlugRows)(body).items[0]?.teamSlug),
     );
 
-  // The Management API addresses teams by numeric id. The only slug lookup
-  // it offers is per project, so a slug falls back to the dashboard's team
-  // list, which is unofficial. Pass the numeric team id to skip this.
-  const resolveTeamId: ManagementApiService["resolveTeamId"] = (team) =>
-    Effect.gen(function* () {
-      if (typeof team === "number") return team;
-      if (team !== undefined && /^\d+$/.test(team)) return Number(team);
-      const details = yield* tokenDetails;
-      if (details?.type === "teamToken") {
-        if (team === undefined) return details.teamId;
-        // The Management API has no team-by-id call, so the slug of the
-        // team comes from any of its projects. A team without a project
-        // cannot be checked: the numeric id, or no team, is the fix.
-        const slug = yield* teamSlug(details.teamId);
-        if (slug === undefined) {
-          return yield* new ConvexApiError({
-            operation: "resolve team",
-            status: 0,
-            message: `team "${team}" cannot be checked against the access token: team ${details.teamId} has no project yet. Set team to ${details.teamId}, or leave it out.`,
-          });
-        }
-        if (slug !== team) {
-          return yield* new ConvexApiError({
-            operation: "resolve team",
-            status: 403,
-            message: `the access token belongs to team ${details.teamId} ("${slug}"), and team is "${team}". Use a token of "${team}", or set team to ${details.teamId}.`,
-          });
-        }
-        return details.teamId;
-      }
-      if (details?.type === "projectToken") {
-        return yield* new ConvexApiError({
-          operation: "resolve team",
-          status: 403,
-          message: `the access token belongs to project ${details.projectId}, and a project token cannot create projects. Use a team access token.`,
-        });
-      }
-      if (team === undefined) {
+  const projectTokenError = (projectId: number) =>
+    new ConvexApiError({
+      operation: "resolve team",
+      status: 403,
+      message: `the access token belongs to project ${projectId}, and a project token cannot create projects. Use a team access token.`,
+    });
+
+  const teamId: ManagementApiService["teamId"] = Effect.runSync(
+    Effect.cached(
+      Effect.gen(function* () {
+        const details = yield* tokenDetails;
+        if (details?.type === "teamToken") return details.teamId;
+        if (details?.type === "projectToken") return yield* projectTokenError(details.projectId);
         // The Convex CLI login names no team, but the deployment that `npx convex dev` selected
         // belongs to a project, and the project to a team.
         const selected = selectedDeployment();
@@ -340,7 +318,7 @@ const makeService = (source: Effect.Effect<ResolvedCredentials>): ManagementApiS
             operation: "resolve team",
             status: 0,
             message:
-              "this access token does not name a team, and no cloud deployment is selected. Run `npx convex dev` once with a cloud deployment, or set team to the slug or the id of the Convex team.",
+              "the Convex CLI login names no team, and no cloud deployment is selected. Run `npx convex dev` once with a cloud deployment.",
           });
         }
         const deployment = yield* request("get deployment", (c) =>
@@ -353,7 +331,40 @@ const makeService = (source: Effect.Effect<ResolvedCredentials>): ManagementApiS
           c.GET("/projects/{project_id}", { params: { path: { project_id: projectId } } }),
         );
         return Schema.decodeUnknownSync(ProjectTeam)(project).teamId;
+      }),
+    ),
+  );
+
+  // The Management API addresses teams by numeric id. The only slug lookup
+  // it offers is per project, so a slug falls back to the dashboard's team
+  // list, which is unofficial. Pass the numeric team id to skip this.
+  const resolveTeamId: ManagementApiService["resolveTeamId"] = (team) =>
+    Effect.gen(function* () {
+      if (typeof team === "number") return team;
+      if (/^\d+$/.test(team)) return Number(team);
+      const details = yield* tokenDetails;
+      if (details?.type === "teamToken") {
+        // The Management API has no team-by-id call, so the slug of the
+        // team comes from any of its projects. A team without a project
+        // cannot be checked: the numeric id, or no team, is the fix.
+        const slug = yield* teamSlug(details.teamId);
+        if (slug === undefined) {
+          return yield* new ConvexApiError({
+            operation: "resolve team",
+            status: 0,
+            message: `team "${team}" cannot be checked against the access token: team ${details.teamId} has no project yet. Set team to ${details.teamId}.`,
+          });
+        }
+        if (slug !== team) {
+          return yield* new ConvexApiError({
+            operation: "resolve team",
+            status: 403,
+            message: `the access token belongs to team ${details.teamId} ("${slug}"), and team is "${team}". Use a token of "${team}", or set team to ${details.teamId}.`,
+          });
+        }
+        return details.teamId;
       }
+      if (details?.type === "projectToken") return yield* projectTokenError(details.projectId);
       const resolved = yield* credentials;
       const rows = yield* Effect.tryPromise({
         try: async () => {
@@ -401,6 +412,7 @@ const makeService = (source: Effect.Effect<ResolvedCredentials>): ManagementApiS
     request,
     requestVoid,
     deploymentRequest,
+    teamId,
     resolveTeamId,
     isCredentialToken,
     isOAuthCredential,

@@ -44,8 +44,8 @@ export default Alchemy.Stack(
     const backend =
       stage === "prod"
         ? yield* Convex.Deployment("Backend", {
-            // An existing project. A new one: { team: "my-team", name: "my-app" }.
-            project: yield* Convex.Project("Project", { team: "my-team", slug: "my-app" }),
+            // An existing project of the team of the token. A new one: { name: "my-app" }.
+            project: yield* Convex.Project("Project", { slug: "my-app" }),
             type: "prod",
             source: "./convex",
             env: { AUTH_SECRET: Config.Redacted("AUTH_SECRET") },
@@ -81,7 +81,7 @@ relative to it:
 
 ```ts
 Effect.gen(function* () {
-  const project = yield* Convex.Project("Project", { team: "my-team", slug: "my-app" });
+  const project = yield* Convex.Project("Project", { slug: "my-app" });
   const backend = yield* Convex.Deployment("Backend", {
     project,
     type: "prod",
@@ -166,36 +166,36 @@ values explicitly: `Convex.providers(Convex.fromValues({ accessToken, deployKey 
 
 ## State in Convex
 
-`state: Convex.state({ team })` keeps the Alchemy state of every stack and stage of a Convex team in
-one project of that team, `alchemy-state-store`, the same name as the Cloudflare state store of
-Alchemy, so a repository holds one secret and a stack can create and destroy its own project.
+`state: Convex.state()` keeps the Alchemy state of every stack and stage of a Convex team in one
+project of that team, `alchemy-state-store`, the same name as the Cloudflare state store of Alchemy,
+so a repository holds one secret and a stack can create and destroy its own project.
 [docs/design/convex-state.md](docs/design/convex-state.md) records the decisions and the
 measurements.
 
 ```ts
 export default Alchemy.Stack(
   process.env["GITHUB_REPOSITORY"] ?? "my-org/my-app", // the stack name: the repository
-  { providers: Convex.providers(), state: Convex.state({ team: "my-team" }) },
+  { providers: Convex.providers(), state: Convex.state() },
   Effect.gen(function* () {
     /* ... */
   }),
 );
 ```
 
-Every run needs the team token in `CONVEX_ACCESS_TOKEN`, or the Convex CLI login on a laptop. A team
-access token and an OAuth token of a team name their team, so `Convex.state()` and `Convex.Project`
-with a `name` need no `team` with one; a `team` slug that is set must be the slug of that team,
-checked against its projects, and a token of another team fails the run. The Convex CLI login names
-no team. Without a `team`, the run uses the team of the deployment that the Convex CLI selected:
-`CONVEX_DEPLOYMENT` in the environment or in `.env.local`, which `npx convex dev` writes. The first
-run of a team creates the project `alchemy-state-store` and pushes the store functions to its
-production deployment with the Convex CLI of the app; a later version of this package pushes a newer
-store when it finds an older one. A store that is newer than the package fails the run with both
-versions, so the repositories of a team upgrade the package together. Each run makes a deploy key of
-that deployment that can only run the store's internal functions, and deletes it at the end. Rows
-are in the tables `resources` and `outputs` of the component `alchemyState` in the dashboard, under
-the stack name. The store has no lock: run one deploy of a stage at a time, such as with a CI
-concurrency group. The store and its readers (Samebase) are released and upgraded together.
+Every run needs the team token in `CONVEX_ACCESS_TOKEN`, or the Convex CLI login on a laptop. The
+state and the projects are in the team of that credential. A team access token and an OAuth token of
+a team name their team. The Convex CLI login names no team, so the run uses the team of the
+deployment that the Convex CLI selected: `CONVEX_DEPLOYMENT` in the environment or in `.env.local`,
+which `npx convex dev` writes. A local or anonymous deployment is in no team, so the run stops and
+asks for a cloud deployment. The first run of a team creates the project `alchemy-state-store` and
+pushes the store functions to its production deployment with the Convex CLI of the app; a later
+version of this package pushes a newer store when it finds an older one. A store that is newer than
+the package fails the run with both versions, so the repositories of a team upgrade the package
+together. Each run makes a deploy key of that deployment that can only run the store's internal
+functions, and deletes it at the end. Rows are in the tables `resources` and `outputs` of the
+component `alchemyState` in the dashboard, under the stack name. The store has no lock: run one
+deploy of a stage at a time, such as with a CI concurrency group. The store and its readers
+(Samebase) are released and upgraded together.
 
 Store version 3 supports native subscriptions. A trusted server checks repository access, then calls
 internal `reader:authorize({ repository, subject })` with a deployment credential. It gives the
@@ -266,11 +266,11 @@ call.
 
 ## Resources
 
-- `Convex.Project`: `{ team, name, deploymentRegion?, deploymentType? }` creates a project with its
-  default deployment, or takes over one with that exact name with `--adopt`. A changed `name`
-  renames the project in place. `{ team, slug }` is an existing project, found by its slug and taken
-  over with `--adopt`; it never creates or renames a project. Outputs `projectId`, `slug`, `name`,
-  `teamId`, `prodDeploymentName`, `prodDeploymentUrl`.
+- `Convex.Project`: `{ name, deploymentRegion?, deploymentType? }` creates a project with its
+  default deployment in the team of the credential, or takes over one with that exact name with
+  `--adopt`. A changed `name` renames the project in place. `{ slug }` is an existing project of
+  that team, found by its slug and taken over with `--adopt`; it never creates or renames a project.
+  Outputs `projectId`, `slug`, `name`, `teamId`, `prodDeploymentName`, `prodDeploymentUrl`.
 - `Convex.Deployment`: `{ project, type: "prod" }` or `{ project, type: "dev" | "preview", name }`,
   each with optional `rootDir`, `source`, and `env`. Outputs `name` (such as `happy-animal-123`),
   `url`, `siteUrl`, `type`, `projectId`, `reference`, `previewName`, `hash`, and `envNames`.
@@ -463,8 +463,8 @@ repository `owner/name`. A stack without the stage of the pull request has no ca
 
 - `Convex.Project` and `Convex.Deployment` have the removal policy `retain`. `alchemy destroy`
   forgets them and Convex keeps them. Add `RemovalPolicy.destroy()` to delete with the resource.
-- A project is never replaced. A change of `team`, `slug`, `deploymentType`, or `deploymentRegion`
-  stops the deploy with a typed error that names the fix.
+- A project is never replaced. A change of `slug`, `deploymentType`, or `deploymentRegion`, or a
+  credential of another team, stops the deploy with a typed error that names the fix.
 - A deployment keeps its `project`, `type`, and `name`; a change stops the deploy with
   `DeploymentIdentityChange`. A production deployment is never deleted, also not with
   `RemovalPolicy.destroy()`, and also not a dev deployment that became one.
@@ -496,8 +496,6 @@ repository `owner/name`. A stack without the stage of the pull request has no ca
   deployment must answer there.
 - A run that stops between a deployment create and the state write leaves a deployment that state
   does not know. The next run stops with `OwnedBySomeoneElse`; run it with `--adopt`.
-- Team slugs for `{ team, name }` resolve through an unofficial dashboard endpoint. Pass the numeric
-  team id to avoid it. `{ team, slug }` uses the official endpoint.
 - Not covered: deployment regions and classes, custom domains, log streams, teams and members,
   components, snapshots.
 
@@ -514,11 +512,11 @@ pnpm run test:live        # real API calls, see below
 
 Unit tests run against recorded Management API payloads in `test/fixtures/management/` and a fake
 Convex CLI. Live tests run only with `ALCHEMY_CONVEX_LIVE=1`, which `pnpm run test:live` sets. They
-need a Convex login or `CONVEX_ACCESS_TOKEN` that can create projects in `ALCHEMY_CONVEX_LIVE_TEAM`.
-Each test creates a project whose name starts with `ALCHEMY_CONVEX_LIVE_PREFIX` (default
-`tmp-alchemy-convex-`), deletes it at the end, also after a failure, and refuses to delete a
-project, or a deployment of a project, without that prefix. A file argument runs one live file only,
-for example `pnpm run test:live test/live/plane.live.test.ts`.
+need a team access token of `ALCHEMY_CONVEX_LIVE_TEAM` in `CONVEX_ACCESS_TOKEN`: the projects are in
+the team of the token. Each test creates a project whose name starts with
+`ALCHEMY_CONVEX_LIVE_PREFIX` (default `tmp-alchemy-convex-`), deletes it at the end, also after a
+failure, and refuses to delete a project, or a deployment of a project, without that prefix. A file
+argument runs one live file only, for example `pnpm run test:live test/live/plane.live.test.ts`.
 
 Releases: change `version` in `package.json` in a pull request. After the merge,
 `.github/workflows/release.yml` publishes that version from `main` with npm trusted publishing.

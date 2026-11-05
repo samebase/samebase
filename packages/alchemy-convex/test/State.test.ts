@@ -33,7 +33,8 @@ import { STORE_VERSION } from "../src/store/convex/version.ts";
 import { FakeConvex, recorded, stateFixture } from "./fakeConvex.ts";
 
 const TEAM = 38516;
-const TOKEN = "test-token";
+/** The bearer value that FakeConvex takes for a team access token of TEAM. */
+const TOKEN = "team-token";
 const API = "api.convex.dev/v1";
 const FAKE_CLI = fileURLToPath(new URL("./fixtures/fake-convex-cli.ts", import.meta.url));
 
@@ -113,12 +114,12 @@ const record: RunRecord = {
 };
 
 /** The store service over the fake, with its own scope, which `close` ends. */
-const open = (team: string | number = TEAM, accessToken = TOKEN) =>
+const open = (accessToken = TOKEN) =>
   Effect.gen(function* () {
     const api = yield* ManagementApi;
     const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
     const scope = yield* Scope.make();
-    const service = yield* makeConvexState({ team, api, spawner, scope, store, run: record });
+    const service = yield* makeConvexState({ api, spawner, scope, store, run: record });
     /** The read that Samebase makes: a key with the query action only, straight to the function API. */
     const read = (deployment: string, path: string, args: Record<string, string>) =>
       createDeployKey(api, deployment, "reader", ["deployment:functions:runInternalQueries"]).pipe(
@@ -151,7 +152,7 @@ describe("Convex.state", () => {
   it("runs with an OAuth credential that has white space, and never deletes it", async () => {
     const fake = new FakeConvex().install();
     fake.oauth = true;
-    const { service, close } = await run(open(TEAM, "team:samebase-live-tests|oauth-token\n"));
+    const { service, close } = await run(open("team:samebase-live-tests|oauth-token\n"));
     await run(service.set({ ...stack, fqn: "Project", value: created("Project") }));
     await run(close);
     const routes = keyCalls(fake).map((request) => request.path.split("/").pop());
@@ -429,7 +430,7 @@ describe("Convex.state", () => {
         Effect.gen(function* () {
           return yield* yield* State;
         }).pipe(
-          Effect.provide(state({ team: TEAM })),
+          Effect.provide(state()),
           Effect.provide(NodeServices.layer),
           Effect.provide(
             ConfigProvider.layer(ConfigProvider.fromEnvRecord({ CONVEX_ACCESS_TOKEN: TOKEN })),
@@ -584,7 +585,7 @@ describe("Convex.state", () => {
       Effect.gen(function* () {
         return yield* yield* State;
       }).pipe(
-        Effect.provide(state({ team: TEAM })),
+        Effect.provide(state()),
         Effect.provide(NodeServices.layer),
         Effect.provide(
           ConfigProvider.layer(ConfigProvider.fromEnvRecord({ CONVEX_ACCESS_TOKEN: TOKEN })),

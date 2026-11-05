@@ -1,6 +1,6 @@
 // Live data-safety sequence through the real Alchemy engine. Runs only with
-// ALCHEMY_CONVEX_LIVE=1 and a Convex login (CONVEX_ACCESS_TOKEN or
-// `npx convex login`) that can create projects in ALCHEMY_CONVEX_LIVE_TEAM.
+// ALCHEMY_CONVEX_LIVE=1 and a team access token of ALCHEMY_CONVEX_LIVE_TEAM in
+// CONVEX_ACCESS_TOKEN: the project is in the team of the token.
 //
 // The test creates one disposable project, <prefix><8 hex>, and deletes it at
 // the end, also when a step fails. The prefix is tmp-alchemy-convex- or
@@ -129,7 +129,7 @@ const sequence = (created: number[]) =>
     // 1. Create the project.
     const first = yield* stackA.deploy(
       Effect.gen(function* () {
-        const project = yield* Convex.Project("Project", { team, name: projectName });
+        const project = yield* Convex.Project("Project", { name: projectName });
         return { projectId: project.projectId, slug: project.slug };
       }),
     );
@@ -141,7 +141,7 @@ const sequence = (created: number[]) =>
     const refused = yield* Effect.flip(
       stackB.deploy(
         Effect.gen(function* () {
-          const project = yield* Convex.Project("Project", { team, name: projectName });
+          const project = yield* Convex.Project("Project", { name: projectName });
           return { projectId: project.projectId };
         }),
       ),
@@ -149,9 +149,7 @@ const sequence = (created: number[]) =>
     expect(refused).toMatchObject({ _tag: "OwnedBySomeoneElse" });
     const adopted = yield* stackB.deploy(
       Effect.gen(function* () {
-        const project = yield* Convex.Project("Project", { team, name: projectName }).pipe(
-          adopt(true),
-        );
+        const project = yield* Convex.Project("Project", { name: projectName }).pipe(adopt(true));
         return { projectId: project.projectId };
       }),
     );
@@ -162,7 +160,7 @@ const sequence = (created: number[]) =>
     const beforeRename = sent.length;
     const renamed = yield* stackB.deploy(
       Effect.gen(function* () {
-        const project = yield* Convex.Project("Project", { team, name: renamedName });
+        const project = yield* Convex.Project("Project", { name: renamedName });
         return { projectId: project.projectId, slug: project.slug, name: project.name };
       }),
     );
@@ -187,7 +185,7 @@ const sequence = (created: number[]) =>
     // 7. Adopt into a fresh state with RemovalPolicy.destroy(), then destroy: the project is gone.
     const destroyable = yield* stackC.deploy(
       Effect.gen(function* () {
-        const project = yield* Convex.Project("Project", { team, name: renamedName }).pipe(
+        const project = yield* Convex.Project("Project", { name: renamedName }).pipe(
           adopt(true),
           RemovalPolicy.destroy(),
         );

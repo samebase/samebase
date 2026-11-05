@@ -372,10 +372,11 @@ export class FakeConvex {
       return this.deploymentApi(deployment, method, url, body);
     }
     const bearer = authorization.replace(/^Bearer /, "");
-    // Measured: a team access token names its team in /token_details and
-    // cannot list teams; the Convex CLI login lists teams and gets 403 there.
+    // Measured: a team access token and an OAuth token of a team (`team:<slug>|...`, answered
+    // with type teamToken on 2026-11-05) name their team in /token_details, and a team access
+    // token cannot list teams; the Convex CLI login lists teams and gets 403 there.
     if (method === "GET" && url.pathname === "/v1/token_details") {
-      return bearer === this.teamToken
+      return bearer === this.teamToken || bearer.startsWith("team:")
         ? json(200, { ...recorded("token_details_team_token.json"), teamId: this.teamTokenTeamId })
         : json(403, recorded("token_details_cli_login.json"));
     }

@@ -27,8 +27,8 @@ export default Alchemy.Stack(
     const backend =
       stage === "prod"
         ? yield* Convex.Deployment("Backend", {
-            // An existing project. A new one: { team: "my-team", name: "my-app" }.
-            project: yield* Convex.Project("Project", { team: "my-team", slug: "my-app" }),
+            // An existing project of the team of the token. A new one: { name: "my-app" }.
+            project: yield* Convex.Project("Project", { slug: "my-app" }),
             type: "prod",
             source: "./convex",
             env: { AUTH_SECRET: Config.Redacted("AUTH_SECRET") },

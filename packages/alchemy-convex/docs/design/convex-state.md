@@ -27,11 +27,12 @@ reads.
 
 ## Decision: one project `alchemy-state` for each Convex team
 
-- `Convex.state({ team })`, with the team like `Convex.Project`. The first call of a run finds the
-  project by name with the team token (`CONVEX_ACCESS_TOKEN`, or the Convex CLI login), or creates
-  it with its production deployment. The tables are `resources (stack, stage, fqn, value)` and
-  `outputs (stack, stage, value)`, where `value` is the JSON text of `encodeState`. The stack name
-  is the GitHub repository, `owner/name`, so `stacks` is the index that Samebase reads.
+- `Convex.state()`, in the team of the credential, like `Convex.Project` (0.29.0; before,
+  `{ team }`). The first call of a run finds the project by name with the team token
+  (`CONVEX_ACCESS_TOKEN`, or the Convex CLI login), or creates it with its production deployment.
+  The tables are `resources (stack, stage, fqn, value)` and `outputs (stack, stage, value)`, where
+  `value` is the JSON text of `encodeState`. The stack name is the GitHub repository, `owner/name`,
+  so `stacks` is the index that Samebase reads.
 - The store exists before the stack runs, so there is no local or in-memory state during a
   bootstrap: the project and the push happen before the engine reads anything.
 - The raw state functions are internal. Measured: a public function of a root app answers
