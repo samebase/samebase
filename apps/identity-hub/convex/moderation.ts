@@ -29,7 +29,7 @@ const vCount = object({ count: number(), atLeast: boolean() });
 
 /**
  * Who made a client. `github`: a GitHub Actions run at `/hub-clients`, from the hub's registration
- * row. `laptop`: a laptop at `/hub-clients` with the app's initial access token, from the row too.
+ * row. `initial_access_token`: a development client that the app's initial access token registered at `/hub-clients`, from the row too.
  * `team`: the team's Convex login, through `identityBroker:registerClient`, for an app that
  * `identityBroker:createApp` made, so the app has no tenant. `unknown`: a client of a tenant's app
  * with no registration row, or of an app that is gone.
@@ -45,12 +45,12 @@ const vRegisteredBy = union(
     app: string(),
   }),
   object({
-    kind: literal("laptop"),
+    kind: literal("initial_access_token"),
     githubRepository: string(),
     githubRepositoryDatabaseId: string(),
     githubOwnerId: string(),
     app: string(),
-    /** When the hub issued the initial access token that the laptop used. */
+    /** When the hub issued the initial access token that registered the client. */
     issuedAt: number(),
   }),
   object({ kind: literal("team") }),
@@ -253,7 +253,7 @@ export const clientList = internalQuery({
         };
         return proof.kind === "github"
           ? { kind: "github" as const, ...repository, githubActorLogin: proof.githubActorLogin }
-          : { kind: "laptop" as const, ...repository, issuedAt: proof.issuedAt };
+          : { kind: "initial_access_token" as const, ...repository, issuedAt: proof.issuedAt };
       }
       return madeByTeam.get(client.appId)
         ? { kind: "team" as const }

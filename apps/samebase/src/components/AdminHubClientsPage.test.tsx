@@ -86,7 +86,7 @@ const overview = {
         lastSignInAt: null,
         removeAt: EXPIRY,
         registeredBy: {
-          kind: "laptop",
+          kind: "initial_access_token",
           githubRepository: "octo-org/octo-repo",
           githubRepositoryDatabaseId: "74",
           githubOwnerId: "65",
@@ -193,7 +193,7 @@ describe("AdminHubClientsPage", () => {
       ]);
       expect(cellsOf(page.rootElement, "cl_laptop")).toEqual([
         time(1),
-        `octo-org/octo-repo 74 laptop ${time(ISSUED_AT)}`,
+        `octo-org/octo-repo 74 app token ${time(ISSUED_AT)}`,
         "65",
         "",
         "my-app gh-74-4c9a75cca717efb68c856f26ba825073-preview",

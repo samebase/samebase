@@ -87,7 +87,7 @@ const clientList = {
       lastSignInAt: null,
       removeAt: 1_801_209_599_000,
       registeredBy: {
-        kind: "laptop",
+        kind: "initial_access_token",
         githubRepository: "octo-org/octo-repo",
         githubRepositoryDatabaseId: "74",
         githubOwnerId: "65",

@@ -25,7 +25,7 @@ const formatCount = (count: { count: number; atLeast: boolean }) =>
 
 /**
 Every client at the identity hub with who made it (a repository's GitHub Actions run at
-`/hub-clients`, a laptop with the app's initial access token, or the team's Convex login), and the
+`/hub-clients`, a development client with the app's initial access token, or the team's Convex login), and the
 blocks and their events.
 */
 export function AdminHubClientsPage() {
@@ -111,17 +111,17 @@ export function AdminHubClientsPage() {
                   <tr key={client.clientId} className="border-b">
                     <td className="py-3 pr-4">{formatTime(client.createdAt)}</td>
                     {client.registeredBy.kind === "github" ||
-                    client.registeredBy.kind === "laptop" ? (
+                    client.registeredBy.kind === "initial_access_token" ? (
                       <>
                         <td className="py-3 pr-4">
                           {client.registeredBy.githubRepository}{" "}
                           <span className="text-muted-foreground">
                             {client.registeredBy.githubRepositoryDatabaseId}
                           </span>
-                          {client.registeredBy.kind === "laptop" ? (
+                          {client.registeredBy.kind === "initial_access_token" ? (
                             <>
                               {" "}
-                              laptop{" "}
+                              app token{" "}
                               <span className="text-muted-foreground">
                                 {formatTime(client.registeredBy.issuedAt)}
                               </span>

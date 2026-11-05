@@ -499,7 +499,7 @@ describe("the clients", () => {
 
     expect(list.clients.find((client) => client.clientId === laptop.client_id)).toMatchObject({
       registeredBy: {
-        kind: "laptop",
+        kind: "initial_access_token",
         githubRepository: "octo-org/octo-repo",
         githubRepositoryDatabaseId: REPOSITORY_ID,
         githubOwnerId: OWNER_ID,

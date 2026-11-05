@@ -61,7 +61,7 @@ const vClientList = object({
           app: string(),
         }),
         object({
-          kind: literal("laptop"),
+          kind: literal("initial_access_token"),
           githubRepository: string(),
           githubRepositoryDatabaseId: string(),
           githubOwnerId: string(),
