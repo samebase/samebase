@@ -279,23 +279,6 @@ export const switchConnection = mutation({
 });
 
 /**
- * Records the owner of a tenant that has none, such as a tenant whose clients were registered before
- * owners were recorded. A tenant with an owner keeps it, since its newest registration named it, and
- * a tenant that does not exist has no client to stop.
- */
-export const recordOwner = mutation({
-  args: { tenantId: string(), ownerId: string() },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    const tenant = await tenantRow(ctx, args.tenantId);
-    if (tenant !== null && tenant.ownerId === undefined) {
-      await ctx.db.patch("tenants", tenant._id, { ownerId: args.ownerId });
-    }
-    return null;
-  },
-});
-
-/**
  * The owner switch. A blocked owner stops every tenant whose recorded owner it is, on registration,
  * renewal, sign-in, and code exchange, also tenants that register later. It changes no tenant row.
  */

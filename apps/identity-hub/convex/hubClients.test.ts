@@ -775,6 +775,44 @@ describe("POST /hub-clients with the initial access token", () => {
     expect(await response.json()).toEqual({ error: "not_allowed", reason: "too_many_apps" });
   });
 
+  it("evicts the preview app's oldest client at its cap, and never the production client", async () => {
+    vi.useFakeTimers({ now: 1_800_000_000_000, toFake: ["Date"] });
+    const t = makeConvexTest();
+    const production = await createClient(t);
+    const token = production.initial_access_token ?? "";
+    const previewAppId = `gh-${REPOSITORY_ID}-${APP_HASH}-preview`;
+    for (let index = 0; index < 30; index += 1) {
+      vi.setSystemTime(1_800_000_001_000 + index * 1_000);
+      await t.mutation(components.identityBroker.registration.register, {
+        tenantId: `gh-${REPOSITORY_ID}`,
+        appId: previewAppId,
+        connector: "google-apps",
+        deploymentType: "preview",
+        clientId: `cl_preview_${index}`,
+        secretHash: "hash",
+        registrationTokenHash: "hash",
+        tokenEndpointAuthMethod: "client_secret_post",
+        redirectUri: PRODUCTION_CALLBACK,
+        clientName: `pr-${index + 1}`,
+        softwareVersion: "abc123",
+        now: Date.now(),
+      });
+    }
+    vi.setSystemTime(1_800_000_100_000);
+
+    const laptop = await createDevelopmentClient(t, token);
+
+    const clients = await t.query(components.identityBroker.clients.listByApp, {
+      appId: previewAppId,
+    });
+    expect(clients).toHaveLength(30);
+    expect(clients.map((client) => client.clientId)).not.toContain("cl_preview_0");
+    expect(clients.map((client) => client.clientId)).toContain(laptop.client_id);
+    expect(
+      await t.query(components.identityBroker.clients.get, { clientId: production.client_id }),
+    ).toMatchObject({ deploymentType: "production" });
+  });
+
   it("needs the verification file for an https address", async () => {
     const t = makeConvexTest();
     const token = await createInitialAccessToken(t);

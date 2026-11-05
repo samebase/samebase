@@ -190,6 +190,48 @@ describe("the registrations", () => {
     );
   });
 
+  it("follows the cursor across batches until every row has the new shape", async () => {
+    const t = makeConvexTest();
+    await insertRows(
+      t,
+      Array.from({ length: 250 }, (_, index) => legacyRow(index, 1_700_000_000_000 + index)),
+    );
+
+    /** Runs the one-off from the start until it is done: the rows it rewrote, and the runs. */
+    const rewriteAll = async () => {
+      let rewritten = 0;
+      let runs = 0;
+      let cursor: string | null = null;
+      for (;;) {
+        const page: { rewritten: number; continueCursor: string; isDone: boolean } =
+          await t.mutation(internal.moderation.rewriteRegistrationProofs, { cursor });
+        rewritten += page.rewritten;
+        runs += 1;
+        if (page.isDone) return { rewritten, runs };
+        cursor = page.continueCursor;
+      }
+    };
+
+    const { rewritten, runs } = await rewriteAll();
+
+    expect(rewritten).toBe(250);
+    expect(runs).toBeGreaterThan(2);
+    const rows = await t.run(async (ctx) => await ctx.db.query("registrations").collect());
+    expect(rows).toHaveLength(250);
+    for (const row of rows) {
+      expect(row.proof).toEqual({
+        kind: "github",
+        githubActorId: "12",
+        githubActorLogin: "octocat",
+        commitSha: "example-sha",
+      });
+      expect(row).not.toHaveProperty("githubActorId");
+      expect(row).not.toHaveProperty("githubActorLogin");
+      expect(row).not.toHaveProperty("commitSha");
+    }
+    expect((await rewriteAll()).rewritten).toBe(0);
+  });
+
   it("no answer holds a client secret or a registration token", async () => {
     const t = makeConvexTest();
     const client = await createClient(t);

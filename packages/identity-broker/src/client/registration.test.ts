@@ -853,20 +853,6 @@ describe("the owner switch", () => {
     });
   });
 
-  test("an owner recorded later covers a tenant registered without one, and never replaces one", async () => {
-    const h = await hub();
-    const old = await register(h);
-    await h.t.mutation(api.registration.recordOwner, { tenantId: "gh-1", ownerId: "65" });
-    await h.t.mutation(api.registration.recordOwner, { tenantId: "gh-1", ownerId: "66" });
-    await h.t.mutation(api.registration.recordOwner, { tenantId: "gh-9", ownerId: "65" });
-    await blockOwner(h, "65", true);
-    const { challenge } = await pkce();
-    expect((await h.fetchBroker(authorizeUrl(h, old.client_id, challenge))).status).toBe(403);
-    expect(await h.t.run(async (ctx) => await ctx.db.query("tenants").collect())).toEqual([
-      expect.objectContaining({ tenantId: "gh-1", ownerId: "65" }),
-    ]);
-  });
-
   test("a registration without an owner keeps the recorded one", async () => {
     const h = await hub();
     await registerHere(h, { ownerId: "65" });
