@@ -2,7 +2,8 @@
 
 ## Document Control
 
-- Status: Proposal, reviewed once
+- Status: PR 1 shipped as v2267; the laptop side rewritten as a stage of the app's stack on
+  2026-11-05
 - Owner: Nicu Chiciuc
 - Created: 2026-11-05
 - Base: `origin/main` at v2265 (RFC 129, 130, and 131 shipped; PR 1896, the one admin table, open).
@@ -12,6 +13,13 @@
   version are fixed here: the command ran before the first push could exist, a token could write a
   repository's former owner back after a transfer, and the row migration could not admit a laptop
   row. The smaller findings are folded in where they are named.
+- Rewritten on 2026-11-05 after PR 1 shipped. The first starter change (samebase/base PR 42) ran a
+  separate command at each dev start and kept five variables on the dev deployment by hand. Nicu
+  asked why the laptop is not a stage of the app's own Alchemy stack. Two independent Codex reads
+  (`gpt-6.1-sol` and `gpt-6-astra`) confirmed that it can be, and named what it takes: a missing
+  `prod` row must give the off values instead of an error, the stack runs before `convex dev`, the
+  dev deployment rows keep `retain`, and the token is sealed in two rows of the store. "The
+  development stage" and "The starter" below replace the earlier "The command" and "The starter".
 
 ## Summary
 
@@ -32,6 +40,9 @@ What this means for a real person:
 - Someone creates a repository from `samebase/base`, pushes once, and the production deploy has Sign
   in with Google. They clone it, run `npx convex login` and `pnpm run dev`, and the laptop has Sign
   in with Google too. Google sees only the hub, never the laptop.
+- The laptop is one more stage of the same stack, `dev-<name>`, with its own cloud development
+  deployment: the same three rows as a preview, run from the laptop with the Convex login. No
+  separate command, no variable set by hand.
 - Before that first push to main there is no token, so a laptop has guest sign-in only.
 - Nicu's admin page shows the laptop client in the one table, with "laptop" and the repository in
   place of a GitHub run.
@@ -42,9 +53,9 @@ Nothing in a sign-in needs the hub to reach the laptop. Only the browser does, a
 the laptop.
 
 1. The person opens the app at `http://localhost:5173` and clicks Sign in with Google. The app's
-   backend, the local backend at `http://127.0.0.1:3211` or the cloud development deployment at
-   `https://<name>.convex.site`, sends the browser to
-   `https://auth.samebase.com/authorize?...&redirect_uri=<backend>/auth/hub/callback`.
+   backend, the cloud development deployment at `https://<name>.convex.site` (or a local backend at
+   `http://127.0.0.1:3211`, which the hub accepts and the starter no longer uses), sends the browser
+   to `https://auth.samebase.com/authorize?...&redirect_uri=<backend>/auth/hub/callback`.
 2. The hub sends the browser to Google. Google sends it back to the hub, to
    `auth.samebase.com/connectors/google-apps/callback`. Google never sees the laptop's address.
 3. The hub sends the browser to the return address with a code, such as
@@ -170,9 +181,9 @@ through; a Bearer with no dot is an initial access token.
    on a loopback host as the broker's rule names them (`127.0.0.1`, `[::1]`, `localhost`), any port,
    any path, with no file: the token is the proof, and the hub cannot reach a loopback address.
    PKCE, `state`, the exact match of the registered address, and the refusal of userinfo and
-   fragments stay as they are. The command registers exactly the address the deployment reports,
-   with the IP literal that Convex gives, and registers again when the port changes (RFC 8252
-   section 7.3 and 8.3).
+   fragments stay as they are. The stage registers exactly the address the deployment reports, with
+   the IP literal that Convex gives, and registers again when the port changes (RFC 8252 section 7.3
+   and 8.3).
 5. The client is created with `deploymentType: development`, in the app's preview namespace
    `gh-<repository id>-<hash>-preview`, with `clientName: development`, `removeAt` 14 days ahead,
    and a registration access token (RFC 7592) for its renewals. The mutation that creates it reads
@@ -207,52 +218,64 @@ The admin page's "Registered by" gets a fourth value next to the GitHub run, "Te
 record": the repository with its id, "laptop", and when the token was issued. samebase.com's
 validator of the hub's answer takes the new kind.
 
-### The command
+### The development stage
 
-`alchemy-convex hub-client --shared --stack <owner/name> --app <app> --callback-path /auth/hub/callback`:
+A laptop is a stage of the app's own Alchemy stack, named `dev-<name>`, with the three rows every
+stage has. Nothing is set on the deployment by hand, and no command exists next to the stack.
 
-1. Finds the team: `CONVEX_TEAM_ID` when set; else the project of the selected cloud development
-   deployment, `CONVEX_DEPLOYMENT` of `.env.local`, through `GET /deployments/{name}`, and the team
-   of that project. A linked worktree runs an anonymous local backend and has no cloud deployment of
-   its own, so it reads the main checkout's `.env.local`, which the worktree scripts already locate.
-   No team: one line, and the off values stay.
-2. Reads the dev deployment's variables and its `CONVEX_SITE_URL`, as the team command does. With
-   `HUB_ISSUER` equal to the hub's issuer, `HUB_CLIENT_ID` and `HUB_CLIENT_SECRET` not the off
-   values, and `HUB_REGISTRATION_URI` and `HUB_REGISTRATION_TOKEN` present, it reads the client on
-   the hub with `GET <HUB_REGISTRATION_URI>` and the token (RFC 7592, the URI the hub gave, never
-   built): 200 with `redirect_uris` equal to the current callback renews it and the command ends;
-   200 with another address, or 401, means a new client; 403 means the hub stopped it, so the
-   command writes the off values and prints the reason, and the laptop has guest sign-in until an
-   unblock and the next dev start.
-3. Reads the `HubClient` row of stage `prod` of stack `<owner/name>` from the team's state store
-   with the store's `get`. No row, or no token in it: one line, "deploy to main once for Google
-   sign-in on this laptop", and the off values stay.
-4. For an https site URL, sets `SAMEBASE_REPOSITORY_ID` on the dev deployment to the row's
-   `repository`, so the site serves the verification file (next section).
-5. Posts to `/hub-clients` with the token, and writes `HUB_ISSUER`, `HUB_CLIENT_ID`,
-   `HUB_CLIENT_SECRET`, `HUB_REGISTRATION_URI`, and `HUB_REGISTRATION_TOKEN` in one
-   `env set --force`. A refusal prints the hub's reason and keeps the off values. The command never
-   stops `pnpm run dev`.
+1. **Stage and deployment.** `pnpm run dev` picks the stage name `dev-<slug>`: the slug is the
+   checkout's directory name for a linked worktree, and the person's user name for the main
+   checkout, so two people and two worktrees never share a stage or its state rows. "Deployment" is
+   `Convex.Deployment({ project, type: "dev", name: <stage> })` with `adopt(true)`: it finds the dev
+   deployment by that reference, or creates it (Convex allows more than one named dev deployment per
+   member). Both deployment rows keep the default removal policy `retain`: a stage destroy never
+   deletes a person's dev deployment. The project comes from the selected deployment, not from
+   `prod`'s state, so a laptop works before the first deploy to main.
+2. **The token.** The stage reads `prod`'s `HubClient` row through a read that answers the off
+   attributes when the row does not exist:
+   `Convex.SharedHubClient.read("HubClient", { stage: "prod" })`. A plain Alchemy ref throws on a
+   missing row, so the package provides this read. It gives `initialAccessToken` and `repository`,
+   sealed, as Outputs.
+3. **"Deployment"** sets `SAMEBASE_REPOSITORY_ID` from that `repository` in its `env` and pushes
+   with the same deploy script as production: it builds the site, writes the auth keys and the off
+   values of the three `HUB_` variables when they are missing, uploads, and pushes. After it the
+   site serves the verification file.
+4. **"HubClient"** is `Convex.SharedHubClient` with `deploymentType: "development"` and
+   `initialAccessToken` from step 2. With a token it posts to `/hub-clients` with the token as the
+   Bearer and the deployment's `https://<name>.convex.site/auth/hub/callback`; the hub checks the
+   file and answers the client. Without a token it gives the off values and logs "deploy to main
+   once for Google sign-in on this laptop". It renews with the saved RFC 7592 address and token on
+   each stack run, as a preview does, registers anew when the client is gone or the address or the
+   type differ, and deletes the development client on destroy. A 403 on renewal gives the off values
+   to the app and keeps the saved client in state, so an unblock needs no new client.
+5. **"Site"** writes the three `HUB_` variables, with no push, as in every stage. The RFC 7592
+   address and token stay in the stage's state. No `HUB_REGISTRATION_*` variable exists.
+6. `pnpm run dev` then selects the deployment for the Convex CLI (`convex deployment select`, which
+   writes `.env.local`) and starts `convex dev` with the frontend as its `--start` command. The
+   stack finishes before the watcher starts, so the two never push at the same time.
 
-`--stack` is the repository `owner/name`, which the starter already derives from the origin remote.
+The team: `CONVEX_TEAM_ID` when set; else the team of the selected deployment's project, read
+through the Management API, and passed to the stack. A fresh clone with no `.env.local` runs
+`convex init` first, which configures a deployment without a push.
 
 ### The starter
 
 - `convex/http.ts` serves `GET /samebase-verification.json` as
-  `{ "repository": <SAMEBASE_REPOSITORY_ID> }` and 404 while the variable is unset. An exact route
-  wins over an uploaded file, so the variable, the route, and the removal of
-  `write-samebase-verification.ts` from the deploy script ship in one starter change, with the
-  "Deployment" row setting `SAMEBASE_REPOSITORY_ID` from `GITHUB_REPOSITORY_ID` in its `env`. The
-  laptop command sets the same variable on the dev deployment. One mechanism for production,
-  previews, and laptops; the script and its test go.
-- `convex/convex.config.ts` declares `SAMEBASE_REPOSITORY_ID`, `HUB_REGISTRATION_URI`, and
-  `HUB_REGISTRATION_TOKEN` as optional. Nothing in the app reads the last two; they belong to the
-  client on that deployment, like the other three.
-- `pnpm run dev` runs the command after the first push, not before: the `--start` command of
-  `convex dev` becomes a script that runs `alchemy-convex hub-client --shared` and then the
-  frontend, in both the main checkout and a linked worktree. On a fresh clone the README's first run
-  stays as it is, and the command runs on the first `pnpm run dev` after it.
-- README, Google sign-in: three sentences on the laptop.
+  `{ "repository": <SAMEBASE_REPOSITORY_ID> }` with `Cache-Control: no-store`, and 404 while the
+  variable is unset. An exact route wins over an uploaded file, so the variable, the route, and the
+  removal of `write-samebase-verification.ts` ship together. "Deployment" sets the variable from
+  `GITHUB_REPOSITORY_ID` in CI and from `prod`'s `repository` on a laptop. One mechanism for every
+  stage.
+- `convex/convex.config.ts` declares `SAMEBASE_REPOSITORY_ID` as optional: a deployment that never
+  ran the stack has none.
+- `alchemy.run.ts` gets the `dev-` branch next to `prod` and the previews: the three rows above.
+  `HUB_APP` stays one line in the stack; no shared constants file.
+- `pnpm run dev` (`scripts/run-primary-dev.ts`) does, in order: `convex init` when `.env.local` is
+  missing; the team and the stage name; `alchemy deploy --stage dev-<slug>`;
+  `convex deployment select`; `convex dev --start "vp run dev:frontend"`. A stack failure prints one
+  line and still starts `convex dev`, so a laptop is never blocked by the hub. Linked worktrees run
+  the same path with a cloud deployment of their own; the anonymous local backend goes.
+- README, Google sign-in: three sentences on the laptop, and the first run.
 
 ### What does not change
 
@@ -267,14 +290,15 @@ validator of the hub's answer takes the new kind.
 
 ## What a leaked token can do
 
-The token reaches one place, the Alchemy state of the app's `prod` stage, where the client secret
-already is. Whoever reads it can register development clients of that app, on loopback addresses or
-on https hosts that serve the repository's id, which is public, inside the repository's 30 requests
-an hour and the owner's 100. Such a client gets the identities of people who sign in to it, in the
-app's preview namespace, and its registrations can evict the app's preview clients at the cap. It
-cannot reach another app, a team app, a team connector, a provider login, or the production
-namespace. That is what the repository's own CI run can do today with GitHub's proof. A block on the
-repository or the owner stops it at once.
+The token lives in the Alchemy state of the app's `prod` stage, where the client secret already is,
+and sealed again in each `dev-<slug>` stage that read it. Both are rows of the team's own store.
+Whoever reads it can register development clients of that app, on loopback addresses or on https
+hosts that serve the repository's id, which is public, inside the repository's 30 requests an hour
+and the owner's 100. Such a client gets the identities of people who sign in to it, in the app's
+preview namespace, and its registrations can evict the app's preview clients at the cap. It cannot
+reach another app, a team app, a team connector, a provider login, or the production namespace. That
+is what the repository's own CI run can do today with GitHub's proof. A block on the repository or
+the owner stops it at once.
 
 ## Standards
 
@@ -295,10 +319,14 @@ repository or the owner stops it at once.
    one-off, the two RFC 130 one-time functions removed, the admin page's fourth value. Package:
    `Convex.SharedHubClient` saves the token and the repository id;
    `alchemy-convex hub-client --shared`; release. After the deploy, run the one-off.
-2. **PR 2, starter** (`samebase/base`): the route, the three variables, the `--start` script, the
-   deploy script without the file writer, the README, the package pin, the manifest.
-3. **PR 3, hub.** `proof` required, the three fields and the one-off removed.
-4. Existing public apps get a token with their next production registration, and a renewal is not
+2. **PR 2, package.** `Convex.SharedHubClient`: `deploymentType: "development"`, the
+   `initialAccessToken` input, the read of another stage's row with off values when it is missing,
+   the suspended state mapped to off values for the app; the `hub-client --shared` command and
+   `registerSharedDevelopmentClient` deleted; release.
+3. **PR 3, starter** (`samebase/base`): the route, the `dev-` stage, the dev runner, the deploy
+   script without the file writer, the README, the package pin. It replaces samebase/base PR 42.
+4. **PR 4, hub.** `proof` required, the three fields and the one-off removed (open as PR 1901).
+5. Existing public apps get a token with their next production registration, and a renewal is not
    one. The production clients of Nicu's test repositories can be deleted by hand and redeployed.
 
 ## Validation
@@ -316,20 +344,23 @@ repository or the owner stops it at once.
   and `stage: development`; only the production answer holds the token.
 - Broker tests: `development` gets `removeAt` and is evicted like a preview; cleanup deletes it
   after its date; a renewal of a blocked tenant's client answers 403.
-- alchemy-convex tests: the resource saves the token and the repository id from a recorded answer;
-  the command renews with the saved values, registers anew when the address differs or the client is
-  gone, writes the off values on 403, finds the team from the deployment and from the main
-  checkout's `.env.local`, prints the one line without a token, and keeps the off values on a
-  refusal; the stack test keeps the order push, client, variables, with `SAMEBASE_REPOSITORY_ID` set
-  by "Deployment" and kept after "Site".
-- Starter: the route answers the id and 404 without it; the `--start` script runs the command and
-  then the frontend.
+- alchemy-convex tests: the resource saves the token and the repository id from a recorded answer; a
+  development resource registers with the token and the recorded answer, renews with the saved
+  values, registers anew when the address or the type differ or the client is gone, gives the off
+  values on 403 and keeps the saved client, gives the off values with no token; the read of another
+  stage's row gives the off values when the row is missing; a stack test with the three dev rows
+  keeps the order push, client, variables, with `SAMEBASE_REPOSITORY_ID` set by "Deployment" and
+  kept after "Site", and `retain` on both deployment rows.
+- Starter: the route answers the id with `no-store` and 404 without it; the dev runner runs
+  `convex init` only without `.env.local`, then the stack, then the selection, then `convex dev`,
+  and still starts `convex dev` when the stack fails.
 - Live, on a fork of `samebase/base` under a second GitHub account with no Samebase account: push to
-  main; clone; `npx convex login`; the README's first run; `pnpm run dev` in the main checkout
-  (cloud dev deployment, https) and in a linked worktree (local backend, loopback); Sign in with
-  Google works in both; the admin page shows both laptop rows; stop the local backend and start it
-  on another port, and the next `pnpm run dev` registers again; after a block on the owner, the next
-  `pnpm run dev` prints the hub's reason and the laptop has guest sign-in only.
+  main; clone; `npx convex login`; `pnpm run dev` in the main checkout and in a linked worktree;
+  each gets its own dev deployment and Sign in with Google works in both; the admin page shows both
+  rows with the app token; `alchemy destroy --stage dev-<slug>` deletes the client and keeps the
+  deployment; after a block on the owner, the next `pnpm run dev` prints the hub's reason and the
+  laptop has guest sign-in only; before any deploy to main, `pnpm run dev` gives a working app with
+  guest sign-in.
 
 ## Decisions
 
@@ -344,15 +375,18 @@ Taken on 2026-11-05:
    from a variable through one route, in every stage.
 4. The token is replaced by each production registration, deleted by a verified run under another
    owner, and has no expiry of its own. A laptop request never changes a tenant's owner.
-5. A laptop client's RFC 7592 URI and token live on the dev deployment as `HUB_REGISTRATION_URI` and
-   `HUB_REGISTRATION_TOKEN`, next to the three variables of its client. A 403 on renewal puts the
-   laptop back on the off values.
+5. A laptop is a stage `dev-<slug>` of the app's stack, with its own cloud dev deployment, adopted
+   or created by reference and retained on destroy. The client's RFC 7592 address and token live in
+   that stage's state, as a preview's do; no variable is set by hand. A 403 on renewal gives the app
+   the off values and keeps the client in state.
 6. `registrations` gets a `proof` union, moved in two pull requests with the one-off between them.
    No invented actor or commit on a laptop row.
 7. The laptop's client is in the app's preview namespace, as a development client with the 14-day
    lease.
-8. The command runs after the first push, from `convex dev --start`, and finds the team from the
-   selected deployment.
+8. The stack runs before `convex dev`, never inside its `--start`, and finds the team from
+   `CONVEX_TEAM_ID` or the selected deployment's project.
+9. The starter uses cloud dev deployments only, in linked worktrees too. Anonymous local backends
+   get no client: the stack cannot see them, and one mechanism is worth more than the second path.
 
 ## Not in this RFC
 
@@ -360,4 +394,5 @@ Taken on 2026-11-05:
 - A list of sign-in methods per app, and a public GitHub OAuth App.
 - A token with the GitHub proof for an existing production client without a registration.
 - The pause on renewals.
+- A client for an anonymous local backend.
 - The page before Google that names the repository and the return site.
