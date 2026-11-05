@@ -1,7 +1,7 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 
-const { literal, number, object, optional, string, union } = v;
+const { literal, number, object, string, union } = v;
 
 /** What a block stops: one GitHub repository, or every repository of one GitHub owner. */
 export const vBlockKind = union(literal("repository"), literal("owner"));
@@ -31,14 +31,9 @@ export const vRegistrationProof = union(
 export default defineSchema({
   /**
    * One row for each client that `POST /hub-clients` created, written in the mutation that creates
-   * the client, and each row that samebase.com's `hubClientRegistrations` held before. The row keeps
-   * what proved the request, so a client can be traced to a repository and, for a GitHub run, a
+   * the client, and each row that samebase.com's `hubClientRegistrations` held before. Its `proof` is
+   * the record of who asked, so a client can be traced to a repository and, for a GitHub run, a
    * person. It holds no secret. Rows are never deleted: a preview client's row outlives the client.
-   *
-   * Step 1 of the move to `proof` (RFC 133): `proof` and the three GitHub fields at the top are
-   * optional, every new row has `proof` and none of the three, and
-   * `moderation:rewriteRegistrationProofs` rewrites the older rows. PR 3 makes `proof` required and
-   * removes the three fields.
    */
   registrations: defineTable({
     /** The client's id at the broker, such as `cl_3f9a...`, which the app sends as `HUB_CLIENT_ID`. */
@@ -55,14 +50,8 @@ export default defineSchema({
      * it, so look a repository up by its id.
      */
     githubRepository: string(),
-    /** A row from before `proof`: `proof.githubActorId`. */
-    githubActorId: optional(string()),
-    /** A row from before `proof`: `proof.githubActorLogin`. */
-    githubActorLogin: optional(string()),
-    /** A row from before `proof`: `proof.commitSha`. */
-    commitSha: optional(string()),
-    /** What proved the request. Absent only on a row from before it. */
-    proof: optional(vRegistrationProof),
+    /** Who asked: a GitHub Actions run, or a laptop with the app's initial access token. */
+    proof: vRegistrationProof,
     /**
      * `prod` for a run of main or `pr-<number>` for a pull request, from GitHub's token, or
      * `development` for a laptop with the app's initial access token.

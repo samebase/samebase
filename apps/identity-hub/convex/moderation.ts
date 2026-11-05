@@ -127,29 +127,6 @@ export async function isBlocked(
   );
 }
 
-/**
- * What proved a registration. A row from before `proof` holds the GitHub fields at the top: step 1
- * of the move of RFC 133, until `rewriteRegistrationProofs` has run and PR 3 removes them.
- */
-function readProof(row: Doc<"registrations">) {
-  if (row.proof !== undefined) {
-    return row.proof;
-  }
-  if (
-    row.githubActorId === undefined ||
-    row.githubActorLogin === undefined ||
-    row.commitSha === undefined
-  ) {
-    throw new Error(`The registration of ${row.clientId} has no proof.`);
-  }
-  return {
-    kind: "github" as const,
-    githubActorId: row.githubActorId,
-    githubActorLogin: row.githubActorLogin,
-    commitSha: row.commitSha,
-  };
-}
-
 function reply(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), {
     status,
@@ -244,7 +221,7 @@ export const clientList = internalQuery({
         .withIndex("by_client_id", (q) => q.eq("clientId", client.clientId))
         .unique();
       if (registration !== null) {
-        const proof = readProof(registration);
+        const { proof } = registration;
         const repository = {
           githubRepository: registration.githubRepository,
           githubRepositoryDatabaseId: registration.githubRepositoryDatabaseId,
@@ -327,46 +304,6 @@ export const setBlock = internalMutation({
       adminEmail: args.adminEmail,
     });
     return { changed: true };
-  },
-});
-
-/** The rows that one run of `rewriteRegistrationProofs` reads. */
-const REWRITE_BATCH_SIZE = 100;
-
-/**
- * Rewrites each `registrations` row from before `proof` into the current shape: `proof` from its
- * three GitHub fields, and the three fields gone. A row with `proof` stays as it is, so a second run
- * changes nothing. Run once by hand after the deploy of RFC 133 PR 1, from apps/identity-hub, and
- * again with the answer's `continueCursor` until `isDone`:
- *
- *   npx convex run --prod moderation:rewriteRegistrationProofs '{"cursor": null}'
- */
-export const rewriteRegistrationProofs = internalMutation({
-  args: { cursor: union(string(), v.null()) },
-  returns: object({ rewritten: number(), continueCursor: string(), isDone: boolean() }),
-  handler: async (ctx, args) => {
-    const page = await ctx.db
-      .query("registrations")
-      .paginate({ cursor: args.cursor, numItems: REWRITE_BATCH_SIZE });
-    let rewritten = 0;
-    for (const row of page.page) {
-      if (row.proof !== undefined) {
-        continue;
-      }
-      await ctx.db.replace("registrations", row._id, {
-        clientId: row.clientId,
-        githubRepositoryDatabaseId: row.githubRepositoryDatabaseId,
-        githubOwnerId: row.githubOwnerId,
-        githubRepository: row.githubRepository,
-        proof: readProof(row),
-        stage: row.stage,
-        app: row.app,
-        redirectUri: row.redirectUri,
-        registeredAt: row.registeredAt,
-      });
-      rewritten += 1;
-    }
-    return { rewritten, continueCursor: page.continueCursor, isDone: page.isDone };
   },
 });
 
