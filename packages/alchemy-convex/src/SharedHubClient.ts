@@ -380,8 +380,9 @@ const SavedRow = Schema.Struct({
 /**
  * The attributes of the client `id` in another stage of this stack, such as
  * `read("HubClient", { stage: "prod" })` in the stage of a laptop, as Outputs: the
- * `initialAccessToken` and the `repository` of the production client. Without that row, the off
- * attributes, with `deploymentType: "production"`.
+ * `initialAccessToken` and the `repository` of the production client. Without that row, or with a
+ * row that an older version saved without the token fields, the off attributes, with
+ * `deploymentType: "production"`.
  *
  * `SharedHubClient.ref` is not enough: Alchemy fails the plan with `InvalidReferenceError` when the
  * row is missing, and a laptop before the first deploy to main has none. This read runs when the
@@ -407,12 +408,14 @@ const read = (id: string, options: { readonly stage: string }) =>
         ),
       );
       const saved = yield* savedAttributes(attr);
+      // A row without this version's shape, such as one that 0.26 saved before the token existed:
+      // the laptop gets the off values, and the next deploy of that stage rewrites the row. A read
+      // changes nothing, so it must not stop the stack of the laptop.
       if (saved === undefined) {
-        return yield* Effect.die(
-          new SharedHubClientFailed({
-            reason: `the row ${id} of stage ${options.stage} holds attributes that this version cannot read`,
-          }),
+        yield* Effect.logInfo(
+          `Convex.SharedHubClient: the client ${id} of stage ${options.stage} was saved by an older version. Deploy that stage once for Google sign-in on this laptop.`,
         );
+        return offAttributes("production");
       }
       return saved;
     }),

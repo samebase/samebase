@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.27.3
+
+- `Convex.SharedHubClient.read` gives the off attributes, with one log line, for a row that an older
+  version saved without the token fields, as it does for a missing row. In 0.27.1 and 0.27.2 it
+  stopped the stack, so a laptop of an existing app failed until that app's next deploy to main. A
+  read changes nothing and must not stop a stack; the next deploy of the read stage rewrites the
+  row.
+
 ## 0.27.2
 
 Three fixes from the review of 0.27.1, with no change to the state store protocol.

@@ -1210,7 +1210,7 @@ describe("Convex.SharedHubClient.read", () => {
     }),
   );
 
-  test.provider("stops with a fixed message when the row cannot be read", (stack) =>
+  test.provider("gives the off attributes for a row of an older version, with one line", (stack) =>
     Effect.gen(function* () {
       yield* deployProduction(stack, new FakeServices().install());
       // The row of prod as 0.26 saved it: no token fields.
@@ -1224,23 +1224,17 @@ describe("Convex.SharedHubClient.read", () => {
         const { initialAccessToken: _token, repository: _repository, ...attr } = row.attr;
         yield* state.set({ ...request, value: { ...row, attr } });
       }).pipe(Effect.provide(stack.state));
-      // The read dies: a defect, not a failure of the run. Every text of the defect is checked: the
-      // JSON, which has the enumerable fields, and the message and the stack, which it leaves out.
-      const defect = yield* stack
-        .deploy(readProd)
-        .pipe(
-          Effect.catchDefect((cause) =>
-            Effect.succeed(
-              [
-                JSON.stringify(cause),
-                String(cause),
-                cause instanceof Error ? (cause.stack ?? "") : "",
-              ].join("\n"),
-            ),
-          ),
-        );
-      expect(defect).toContain("holds attributes that this version cannot read");
-      expect(defect).not.toContain("secret-of");
+      const { layer, lines } = capturedLogs();
+      expect(yield* stack.deploy(readProd).pipe(Effect.provide(layer))).toEqual({
+        status: "off",
+        clientId: "no-hub",
+        deploymentType: "production",
+        repository: "",
+        initialAccessToken: "",
+        clientSecret: "no-hub",
+      });
+      expect(lines).toContainEqual(expect.stringContaining("saved by an older version"));
+      expect(lines.join("\n")).not.toContain("secret-of");
     }),
   );
 });
