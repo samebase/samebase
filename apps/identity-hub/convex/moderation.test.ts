@@ -3,6 +3,8 @@ import { components, internal } from "./_generated/api";
 import {
   APP_HASH,
   createClient,
+  createDevelopmentClient,
+  createInitialAccessToken,
   makeConvexTest,
   MODERATION_KEY,
   moderationRequest,
@@ -24,9 +26,9 @@ afterEach(() => {
 
 const DAY_MS = 24 * 60 * 60 * 1_000;
 
-/** A row as samebase.com's `hubClientRegistrations` holds it, with its time as `registeredAt`. */
-const importedRow = (index: number, registeredAt: number) => ({
-  clientId: `cl_imported_${index}`,
+/** A registration row in the shape from before `proof`, as production held 11 of them. */
+const legacyRow = (index: number, registeredAt: number) => ({
+  clientId: `cl_legacy_${index}`,
   githubRepositoryDatabaseId: REPOSITORY_ID,
   githubOwnerId: OWNER_ID,
   githubRepository: "octo-org/octo-repo",
@@ -39,8 +41,12 @@ const importedRow = (index: number, registeredAt: number) => ({
   registeredAt,
 });
 
-async function importRows(t: ConvexTest, rows: ReturnType<typeof importedRow>[]) {
-  return await t.mutation(internal.moderation.importRegistrations, { rows });
+async function insertRows(t: ConvexTest, rows: ReturnType<typeof legacyRow>[]) {
+  await t.run(async (ctx) => {
+    for (const row of rows) {
+      await ctx.db.insert("registrations", row);
+    }
+  });
 }
 
 async function readTenant(t: ConvexTest, tenantId: string) {
@@ -123,10 +129,10 @@ describe("the registrations", () => {
   it("counts the last day and the last week", async () => {
     const t = makeConvexTest();
     const now = Date.now();
-    await importRows(t, [
-      importedRow(1, now - 1_000),
-      importedRow(2, now - 2 * DAY_MS),
-      importedRow(3, now - 8 * DAY_MS),
+    await insertRows(t, [
+      legacyRow(1, now - 1_000),
+      legacyRow(2, now - 2 * DAY_MS),
+      legacyRow(3, now - 8 * DAY_MS),
     ]);
 
     const response = await moderationRequest(t, "/moderation/counts");
@@ -140,9 +146,9 @@ describe("the registrations", () => {
   it("reads a fixed number of rows and says that the count is at least that", async () => {
     const t = makeConvexTest();
     const now = Date.now();
-    await importRows(
+    await insertRows(
       t,
-      Array.from({ length: 1_001 }, (_, index) => importedRow(index, now - index)),
+      Array.from({ length: 1_001 }, (_, index) => legacyRow(index, now - index)),
     );
 
     const response = await moderationRequest(t, "/moderation/counts");
@@ -153,54 +159,35 @@ describe("the registrations", () => {
     });
   });
 
-  it("imports samebase.com's rows with their times, once", async () => {
+  it("rewrites a row from before proof into the new shape, and leaves a new row alone", async () => {
     const t = makeConvexTest();
-    const rows = [importedRow(1, 1_700_000_000_000), importedRow(2, 1_700_000_001_000)];
+    await insertRows(t, [legacyRow(1, 1_700_000_000_000)]);
+    const client = await createClient(t);
+    const before = await t.run(async (ctx) => await ctx.db.query("registrations").collect());
 
-    expect(await importRows(t, rows)).toEqual({ inserted: 2, skipped: 0 });
-    expect(await importRows(t, [...rows, importedRow(3, 1_700_000_002_000)])).toEqual({
-      inserted: 1,
-      skipped: 2,
+    const first = await t.mutation(internal.moderation.rewriteRegistrationProofs, {
+      cursor: null,
+    });
+    const second = await t.mutation(internal.moderation.rewriteRegistrationProofs, {
+      cursor: null,
     });
 
-    const stored = await t.run(
-      async (ctx) => await ctx.db.query("registrations").withIndex("by_registered_at").collect(),
+    expect(first).toMatchObject({ rewritten: 1, isDone: true });
+    expect(second).toMatchObject({ rewritten: 0, isDone: true });
+    const after = await t.run(async (ctx) => await ctx.db.query("registrations").collect());
+    const { githubActorId, githubActorLogin, commitSha, ...legacyRest } = legacyRow(
+      1,
+      1_700_000_000_000,
     );
-    expect(stored.map(({ clientId, registeredAt }) => ({ clientId, registeredAt }))).toEqual([
-      { clientId: "cl_imported_1", registeredAt: 1_700_000_000_000 },
-      { clientId: "cl_imported_2", registeredAt: 1_700_000_001_000 },
-      { clientId: "cl_imported_3", registeredAt: 1_700_000_002_000 },
-    ]);
-  });
-
-  it("records the owner of the newest imported row on a tenant without one", async () => {
-    const t = makeConvexTest();
-    const register = (tenantId: string) =>
-      t.mutation(components.identityBroker.registration.register, {
-        tenantId,
-        appId: `${tenantId}-app`,
-        connector: "google-apps",
-        deploymentType: "production",
-        clientId: `cl_${tenantId}`,
-        secretHash: "hash",
-        registrationTokenHash: "hash",
-        tokenEndpointAuthMethod: "client_secret_post",
-        redirectUri: "https://ideal-dolphin-15.convex.site/auth/hub/callback",
-        clientName: "prod",
-        softwareVersion: "abc123",
-        now: Date.now(),
-      });
-    // Registered through samebase.com's /register, which names no owner.
-    await register("gh-74");
-
-    await importRows(t, [
-      { ...importedRow(1, 1_000), githubOwnerId: "64" },
-      { ...importedRow(2, 3_000), githubOwnerId: OWNER_ID },
-      { ...importedRow(3, 2_000), githubOwnerId: "63" },
-    ]);
-    await setBlock(t, { action: "block", kind: "owner", githubId: OWNER_ID });
-
-    expect(await readTenant(t, "gh-74")).toMatchObject({ suspended: true });
+    expect(after.find((row) => row.clientId === "cl_legacy_1")).toEqual({
+      ...legacyRest,
+      _id: expect.any(String),
+      _creationTime: expect.any(Number),
+      proof: { kind: "github", githubActorId, githubActorLogin, commitSha },
+    });
+    expect(after.find((row) => row.clientId === client.client_id)).toEqual(
+      before.find((row) => row.clientId === client.client_id),
+    );
   });
 
   it("no answer holds a client secret or a registration token", async () => {
@@ -457,6 +444,55 @@ describe("the clients", () => {
     expect(text).not.toContain(preview.clientSecret);
   });
 
+  it("names a laptop's client with its repository and the token's issue time", async () => {
+    vi.useFakeTimers({ now: 1_800_000_000_000, toFake: ["Date"] });
+    const t = makeConvexTest();
+    const token = await createInitialAccessToken(t);
+    vi.setSystemTime(1_800_000_001_000);
+    const laptop = await createDevelopmentClient(t, token);
+
+    const list: { clients: { clientId: string; registeredBy: unknown }[] } = await (
+      await moderationRequest(t, "/moderation/clients")
+    ).json();
+
+    expect(list.clients.find((client) => client.clientId === laptop.client_id)).toMatchObject({
+      registeredBy: {
+        kind: "laptop",
+        githubRepository: "octo-org/octo-repo",
+        githubRepositoryDatabaseId: REPOSITORY_ID,
+        githubOwnerId: OWNER_ID,
+        app: "my-app",
+        issuedAt: 1_800_000_000_000,
+      },
+    });
+  });
+
+  it("reads a row from before proof as a GitHub run", async () => {
+    const t = makeConvexTest();
+    const client = await createClient(t);
+    await t.run(async (ctx) => {
+      const row = await ctx.db
+        .query("registrations")
+        .withIndex("by_client_id", (q) => q.eq("clientId", client.client_id))
+        .unique();
+      if (row !== null) {
+        await ctx.db.replace("registrations", row._id, {
+          ...legacyRow(1, row.registeredAt),
+          clientId: client.client_id,
+          githubActorLogin: "legacy-login",
+        });
+      }
+    });
+
+    const list: { clients: { clientId: string; registeredBy: unknown }[] } = await (
+      await moderationRequest(t, "/moderation/clients")
+    ).json();
+
+    expect(list.clients.find((row) => row.clientId === client.client_id)).toMatchObject({
+      registeredBy: { kind: "github", githubActorLogin: "legacy-login" },
+    });
+  });
+
   it("lists the newest 500 and says that it reached the limit", async () => {
     const t = makeConvexTest();
     for (let index = 0; index < 501; index += 1) {
@@ -482,61 +518,5 @@ describe("the clients", () => {
     expect(list.clients[0]?.clientId).toBe("cl_500");
     expect(list.clients.at(-1)?.clientId).toBe("cl_1");
     expect(list.limitReached).toBe(true);
-  });
-});
-
-describe("switching tenants back on", () => {
-  /** samebase.com's tenant switch, which it sent when a repository left Samebase. */
-  async function switchOff(t: ConvexTest, githubId: string) {
-    await t.mutation(components.identityBroker.registration.setConnection, {
-      tenantId: `gh-${githubId}`,
-      connected: false,
-      revision: 1,
-    });
-  }
-
-  it("switches on each tenant unless its repository is blocked, and keeps the other switches", async () => {
-    const t = makeConvexTest();
-    const left = await createClient(t);
-    const blocked = await createClient(t, { repository_id: "75", repository: "octo-org/two" });
-    const suspended = await createClient(t, { repository_id: "76", repository: "octo-org/three" });
-    const ownerBlocked = await createClient(t, {
-      repository_id: "77",
-      repository_owner_id: "66",
-      repository: "someone/else",
-    });
-    for (const githubId of [REPOSITORY_ID, "75", "76", "77"]) {
-      await switchOff(t, githubId);
-    }
-    await setBlock(t, { action: "block", kind: "repository", githubId: "75" });
-    await setBlock(t, { action: "block", kind: "owner", githubId: "66" });
-    await t.mutation(components.identityBroker.registration.setSuspended, {
-      tenantId: "gh-76",
-      suspended: true,
-      now: Date.now(),
-    });
-
-    const result = await t.mutation(internal.moderation.reconnectTenants, {
-      githubRepositoryDatabaseIds: [REPOSITORY_ID, "75", "76", "77"],
-    });
-
-    expect(result).toEqual({ reconnected: [REPOSITORY_ID, "76", "77"], blocked: ["75"] });
-    expect(await readOwnRecord(t, left)).toBe(200);
-    expect(await readOwnRecord(t, blocked)).toBe(403);
-    expect(await readOwnRecord(t, suspended)).toBe(403);
-    expect(await readOwnRecord(t, ownerBlocked)).toBe(403);
-  });
-
-  it("refuses an id that is not a GitHub repository id, and switches nothing on", async () => {
-    const t = makeConvexTest();
-    const client = await createClient(t);
-    await switchOff(t, REPOSITORY_ID);
-
-    await expect(
-      t.mutation(internal.moderation.reconnectTenants, {
-        githubRepositoryDatabaseIds: [REPOSITORY_ID, "gh-75"],
-      }),
-    ).rejects.toThrow('"gh-75" is not a GitHub repository id.');
-    expect(await readOwnRecord(t, client)).toBe(403);
   });
 });

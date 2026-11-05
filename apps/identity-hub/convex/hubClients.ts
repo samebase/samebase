@@ -1,10 +1,16 @@
 import { validate } from "convex-helpers/validators";
 import type { WithoutSystemFields } from "convex/server";
 import { v } from "convex/values";
-import { createLocalJWKSet, errors as joseErrors, jwtVerify } from "jose";
+import { base64url, createLocalJWKSet, errors as joseErrors, jwtVerify } from "jose";
 import { components, internal } from "./_generated/api";
 import type { Doc } from "./_generated/dataModel";
-import { httpAction, internalMutation, type MutationCtx } from "./_generated/server";
+import {
+  httpAction,
+  internalMutation,
+  internalQuery,
+  type ActionCtx,
+  type MutationCtx,
+} from "./_generated/server";
 import { broker, isPaused, issuer } from "./broker";
 import { APPS_CONNECTOR } from "./connectors";
 import { isBlocked, sha256Hex } from "./moderation";
@@ -38,6 +44,12 @@ const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1_000;
 const RATE_LIMITS = { repository: 30, owner: 100, new_owners: 50 } as const;
 /** The terms of the shared sign-in service, which the deploy log of a new client links to. */
 const TERMS_URL = "https://samebase.com/terms";
+/**
+ * The hosts of a laptop's return address, as the broker's redirect URI rule names them
+ * (`isLoopbackHost` in packages/identity-broker/src/client/protocol.ts). The URL parser writes an
+ * IPv6 host with its brackets.
+ */
+const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]"]);
 
 // Each check below allows unknown fields: GitHub and a host send more than these name.
 
@@ -70,19 +82,34 @@ const vAdmission = union(
   object({ status: literal("rate_limited"), window: vRateLimitWindow }),
 );
 
+const vRefusal = union(
+  literal("blocked"),
+  literal("suspended"),
+  literal("too_many_apps"),
+  literal("too_many_clients"),
+  literal("app_taken"),
+);
+
 const vCreation = union(
   object({ ok: literal(true) }),
-  object({
-    ok: literal(false),
-    reason: union(
-      literal("blocked"),
-      literal("suspended"),
-      literal("too_many_apps"),
-      literal("too_many_clients"),
-      literal("app_taken"),
-    ),
-  }),
+  object({ ok: literal(false), reason: vRefusal }),
 );
+
+/**
+ * The refusals of a laptop's client. `invalid_token`: the token's row was deleted or replaced, or
+ * names another app or owner, after the request read it.
+ */
+const vDevelopmentCreation = union(
+  object({ ok: literal(true) }),
+  object({ ok: literal(false), reason: union(vRefusal, literal("invalid_token")) }),
+);
+
+/** The token row of a laptop's request, without its hash. */
+const vInitialAccessToken = object({
+  githubRepositoryDatabaseId: string(),
+  githubOwnerId: string(),
+  app: string(),
+});
 
 function reply(status: number, body: Record<string, string>): Response {
   return new Response(JSON.stringify(body), {
@@ -148,13 +175,8 @@ function readRunStage(claims: { event_name: string; ref: string }) {
   }
 }
 
-/** The verified run of a request, or the reply that refuses it. */
-async function readRun(request: Request) {
-  const token = /^Bearer\s+(\S+)$/i.exec(request.headers.get("Authorization") ?? "")?.[1];
-  if (!token) {
-    return reply(401, { error: "invalid_token" });
-  }
-
+/** The verified run of a GitHub token, or the reply that refuses it. */
+async function readRun(token: string) {
   let claims;
   try {
     claims = await verifyGitHubToken(token);
@@ -173,8 +195,10 @@ async function readRun(request: Request) {
 }
 
 /**
- * The return address, if it is an absolute https URL on a DNS name, with no fragment and no user
- * info. An IP address or `localhost` is never a host that a file can prove. Any port and any path.
+ * The return address, if it is absolute, with no fragment and no user info, and either https on a DNS
+ * name, which the verification file proves, or http on a loopback host, which only the initial access
+ * token can prove: the hub cannot reach a laptop. An IP address or `localhost` over https is never a
+ * host that a file can prove. Any port and any path.
  */
 function readRedirectUri(value: string) {
   if (value.length > MAX_REDIRECT_URI_LENGTH || value.includes("#")) {
@@ -186,14 +210,18 @@ function readRedirectUri(value: string) {
   } catch {
     return null;
   }
+  if (url.username !== "" || url.password !== "") {
+    return null;
+  }
+  if (url.protocol === "http:" && LOOPBACK_HOSTS.has(url.hostname)) {
+    return { url, loopback: true };
+  }
   // The URL parser lowercases the host and writes an IPv4 address in dotted decimal, so a DNS name
   // is the one form whose last label starts with a letter.
   return url.protocol === "https:" &&
-    url.username === "" &&
-    url.password === "" &&
     /^(?:[a-z0-9-]+\.)+[a-z][a-z0-9-]*$/.test(url.hostname) &&
     !url.hostname.endsWith(".localhost")
-    ? url
+    ? { url, loopback: false }
     : null;
 }
 
@@ -209,8 +237,8 @@ async function readBody(request: Request) {
   ) {
     return null;
   }
-  const redirectUrl = readRedirectUri(body.redirectUri);
-  return redirectUrl === null ? null : { ...body, redirectUrl };
+  const redirect = readRedirectUri(body.redirectUri);
+  return redirect === null ? null : { ...body, redirect };
 }
 
 /** The body as text, or null when it is larger than `MAX_VERIFICATION_BYTES`. It reads no further. */
@@ -397,10 +425,20 @@ export const admitRequest = internalMutation({
 });
 
 /**
- * Creates the client at the broker and records its registration, in one transaction. The blocks are
- * read again here, so a block set while the verification file was fetched still applies. The tenant
- * is `gh-<repository id>`, and the app is the repository's app of that name, with its previews in an
- * app of their own. The arguments hold the hashes of the secret and the token, never the values.
+/** The broker's app of `app` in the repository's tenant: production, or previews and laptops. */
+async function appIdOf(tenantId: string, app: string, production: boolean) {
+  const appHash = (await sha256Hex(app)).slice(0, 32);
+  return `${tenantId}-${appHash}${production ? "" : "-preview"}`;
+}
+
+/**
+ * Creates the client of a GitHub Actions run at the broker and records its registration, in one
+ * transaction. The blocks are read again here, so a block set while the verification file was fetched
+ * still applies. The tenant is `gh-<repository id>`, and the app is the repository's app of that name,
+ * with its previews in an app of their own. A production client also replaces the app's initial
+ * access token. A run whose owner is not the owner of a token row of the repository deletes that row,
+ * so the old token of a transferred repository stops. The arguments hold the hashes of the secret and
+ * the tokens, never the values.
  */
 export const createClient = internalMutation({
   args: {
@@ -413,13 +451,29 @@ export const createClient = internalMutation({
     githubActorId: string(),
     githubActorLogin: string(),
     commitSha: string(),
-    stage: string(),
+    deployment: union(
+      object({ type: literal("production"), initialAccessTokenHash: string() }),
+      object({ type: literal("preview"), stage: string() }),
+    ),
     app: string(),
     redirectUri: string(),
     softwareVersion: string(),
   },
   returns: vCreation,
   handler: async (ctx, args) => {
+    // One row per app name of the repository, so a few rows.
+    const tokens = await ctx.db
+      .query("initialAccessTokens")
+      .withIndex("by_repository_and_app", (q) =>
+        q.eq("githubRepositoryDatabaseId", args.githubRepositoryDatabaseId),
+      )
+      .collect();
+    for (const token of tokens) {
+      if (token.githubOwnerId !== args.githubOwnerId) {
+        await ctx.db.delete("initialAccessTokens", token._id);
+      }
+    }
+
     if (
       await isBlocked(ctx, {
         githubRepositoryDatabaseId: args.githubRepositoryDatabaseId,
@@ -431,20 +485,20 @@ export const createClient = internalMutation({
 
     const now = Date.now();
     const tenantId = `gh-${args.githubRepositoryDatabaseId}`;
-    const production = args.stage === "prod";
-    const appHash = (await sha256Hex(args.app)).slice(0, 32);
+    const production = args.deployment.type === "production";
+    const stage = args.deployment.type === "production" ? "prod" : args.deployment.stage;
     const result = await ctx.runMutation(components.identityBroker.registration.register, {
       tenantId,
       ownerId: args.githubOwnerId,
-      appId: `${tenantId}-${appHash}${production ? "" : "-preview"}`,
+      appId: await appIdOf(tenantId, args.app, production),
       connector: APPS_CONNECTOR,
-      deploymentType: production ? "production" : "preview",
+      deploymentType: args.deployment.type,
       clientId: args.clientId,
       secretHash: args.secretHash,
       registrationTokenHash: args.registrationTokenHash,
       tokenEndpointAuthMethod: "client_secret_post",
       redirectUri: args.redirectUri,
-      clientName: args.stage,
+      clientName: stage,
       softwareVersion: args.softwareVersion,
       now,
     });
@@ -457,11 +511,122 @@ export const createClient = internalMutation({
       githubRepositoryDatabaseId: args.githubRepositoryDatabaseId,
       githubOwnerId: args.githubOwnerId,
       githubRepository: args.githubRepository,
-      githubActorId: args.githubActorId,
-      githubActorLogin: args.githubActorLogin,
-      commitSha: args.commitSha,
-      stage: args.stage,
+      proof: {
+        kind: "github",
+        githubActorId: args.githubActorId,
+        githubActorLogin: args.githubActorLogin,
+        commitSha: args.commitSha,
+      },
+      stage,
       app: args.app,
+      redirectUri: args.redirectUri,
+      registeredAt: now,
+    });
+    if (args.deployment.type === "production") {
+      const previous = tokens.find(
+        (token) => token.app === args.app && token.githubOwnerId === args.githubOwnerId,
+      );
+      if (previous !== undefined) {
+        await ctx.db.delete("initialAccessTokens", previous._id);
+      }
+      await ctx.db.insert("initialAccessTokens", {
+        tokenHash: args.deployment.initialAccessTokenHash,
+        githubRepositoryDatabaseId: args.githubRepositoryDatabaseId,
+        githubOwnerId: args.githubOwnerId,
+        githubRepository: args.githubRepository,
+        app: args.app,
+        issuedAt: now,
+        productionClientId: args.clientId,
+      });
+    }
+    return { ok: true as const };
+  },
+});
+
+/** The row of an initial access token, or null when no row has its hash. */
+export const readInitialAccessToken = internalQuery({
+  args: { tokenHash: string() },
+  returns: union(vInitialAccessToken, v.null()),
+  handler: async (ctx, args) => {
+    const row = await ctx.db
+      .query("initialAccessTokens")
+      .withIndex("by_token_hash", (q) => q.eq("tokenHash", args.tokenHash))
+      .unique();
+    return row === null
+      ? null
+      : {
+          githubRepositoryDatabaseId: row.githubRepositoryDatabaseId,
+          githubOwnerId: row.githubOwnerId,
+          app: row.app,
+        };
+  },
+});
+
+/**
+ * Creates a laptop's development client of an app at the broker and records its registration, in
+ * one transaction. The token's row is read again here, so a token replaced or deleted while the
+ * verification file was fetched, or a row that names another app or owner, refuses the request; the
+ * blocks are read again too. The client is in the app's preview app, with a removal date. No owner
+ * goes to the broker: it checks the tenant's recorded owner and keeps it, so only a GitHub run changes
+ * a tenant's owner.
+ */
+export const createDevelopmentClient = internalMutation({
+  args: {
+    tokenHash: string(),
+    githubOwnerId: string(),
+    app: string(),
+    clientId: string(),
+    secretHash: string(),
+    registrationTokenHash: string(),
+    redirectUri: string(),
+    softwareVersion: string(),
+  },
+  returns: vDevelopmentCreation,
+  handler: async (ctx, args) => {
+    const token = await ctx.db
+      .query("initialAccessTokens")
+      .withIndex("by_token_hash", (q) => q.eq("tokenHash", args.tokenHash))
+      .unique();
+    if (token === null || token.app !== args.app || token.githubOwnerId !== args.githubOwnerId) {
+      return { ok: false as const, reason: "invalid_token" as const };
+    }
+    if (
+      await isBlocked(ctx, {
+        githubRepositoryDatabaseId: token.githubRepositoryDatabaseId,
+        githubOwnerId: token.githubOwnerId,
+      })
+    ) {
+      return { ok: false as const, reason: "blocked" as const };
+    }
+
+    const now = Date.now();
+    const tenantId = `gh-${token.githubRepositoryDatabaseId}`;
+    const result = await ctx.runMutation(components.identityBroker.registration.register, {
+      tenantId,
+      appId: await appIdOf(tenantId, token.app, false),
+      connector: APPS_CONNECTOR,
+      deploymentType: "development",
+      clientId: args.clientId,
+      secretHash: args.secretHash,
+      registrationTokenHash: args.registrationTokenHash,
+      tokenEndpointAuthMethod: "client_secret_post",
+      redirectUri: args.redirectUri,
+      clientName: "development",
+      softwareVersion: args.softwareVersion,
+      now,
+    });
+    if (!result.ok) {
+      return { ok: false as const, reason: result.error };
+    }
+
+    await ctx.db.insert("registrations", {
+      clientId: args.clientId,
+      githubRepositoryDatabaseId: token.githubRepositoryDatabaseId,
+      githubOwnerId: token.githubOwnerId,
+      githubRepository: token.githubRepository,
+      proof: { kind: "initial_access_token", issuedAt: token.issuedAt },
+      stage: "development",
+      app: token.app,
       redirectUri: args.redirectUri,
       registeredAt: now,
     });
@@ -469,30 +634,14 @@ export const createClient = internalMutation({
   },
 });
 
-/**
- * A new client for one deployment of an app, asked for by its GitHub Actions run with GitHub's OIDC
- * token. No Samebase account is needed. The hub builds the whole client, so the body chooses only a
- * name inside the repository's own namespace and a return address on a host that serves the
- * repository's id at `VERIFICATION_PATH`. The client's secret and registration access token stay in
- * this action's memory: they go to the run and to nothing else.
- */
-export const registerHubClient = httpAction(async (ctx, request) => {
-  if (isPaused()) {
-    return notAllowed("paused");
-  }
-
-  const run = await readRun(request);
-  if (run instanceof Response) {
-    return run;
-  }
-  const body = await readBody(request);
-  if (body === null) {
-    return reply(400, { error: "invalid_request" });
-  }
-
+/** Refuses a blocked or limited request, else null. It counts an admitted one. */
+async function admit(
+  ctx: ActionCtx,
+  ids: { githubRepositoryDatabaseId: string; githubOwnerId: string },
+) {
   const admission = await ctx.runMutation(internal.hubClients.admitRequest, {
-    githubRepositoryDatabaseId: run.claims.repository_id,
-    githubOwnerId: run.claims.repository_owner_id,
+    githubRepositoryDatabaseId: ids.githubRepositoryDatabaseId,
+    githubOwnerId: ids.githubOwnerId,
   });
   if (admission.status === "blocked") {
     return notAllowed("blocked");
@@ -500,13 +649,55 @@ export const registerHubClient = httpAction(async (ctx, request) => {
   if (admission.status === "rate_limited") {
     return reply(429, { error: "rate_limited", window: admission.window });
   }
+  return null;
+}
 
-  const refusal = await verifyHost(body.redirectUrl, run.claims.repository_id);
+/** The 201 answer: the client, its secret, and its RFC 7592 token, which go to nothing else. */
+function newClient(
+  credentials: Awaited<ReturnType<typeof broker.newClientCredentials>>,
+  redirectUri: string,
+) {
+  return {
+    issuer,
+    client_id: credentials.clientId,
+    client_secret: credentials.clientSecret,
+    registration_access_token: credentials.registrationAccessToken,
+    registration_client_uri: credentials.registrationClientUri,
+    redirect_uri: redirectUri,
+    terms: TERMS_URL,
+  };
+}
+
+/**
+ * A client for a GitHub Actions run, with GitHub's OIDC token. A run of main also gets the app's
+ * initial access token, which a laptop of the team uses for its development client.
+ */
+async function registerRun(ctx: ActionCtx, request: Request, githubToken: string) {
+  const run = await readRun(githubToken);
+  if (run instanceof Response) {
+    return run;
+  }
+  const body = await readBody(request);
+  if (body === null || body.redirect.loopback) {
+    return reply(400, { error: "invalid_request" });
+  }
+
+  const refused = await admit(ctx, {
+    githubRepositoryDatabaseId: run.claims.repository_id,
+    githubOwnerId: run.claims.repository_owner_id,
+  });
+  if (refused !== null) {
+    return refused;
+  }
+  const refusal = await verifyHost(body.redirect.url, run.claims.repository_id);
   if (refusal !== null) {
     return notAllowed(refusal);
   }
 
   const credentials = await broker.newClientCredentials();
+  // 32 random bytes in base64url, so the token has no dot and never looks like a JWT.
+  const initialAccessToken =
+    run.stage === "prod" ? base64url.encode(crypto.getRandomValues(new Uint8Array(32))) : null;
   const created = await ctx.runMutation(internal.hubClients.createClient, {
     clientId: credentials.clientId,
     secretHash: credentials.secretHash,
@@ -517,7 +708,10 @@ export const registerHubClient = httpAction(async (ctx, request) => {
     githubActorId: run.claims.actor_id,
     githubActorLogin: run.claims.actor,
     commitSha: run.claims.sha,
-    stage: run.stage,
+    deployment:
+      initialAccessToken === null
+        ? { type: "preview", stage: run.stage }
+        : { type: "production", initialAccessTokenHash: await sha256Hex(initialAccessToken) },
     app: body.app,
     redirectUri: body.redirectUri,
     softwareVersion: body.softwareVersion,
@@ -526,12 +720,86 @@ export const registerHubClient = httpAction(async (ctx, request) => {
     return notAllowed(created.reason);
   }
   return reply(201, {
-    issuer,
-    client_id: credentials.clientId,
-    client_secret: credentials.clientSecret,
-    registration_access_token: credentials.registrationAccessToken,
-    registration_client_uri: credentials.registrationClientUri,
-    redirect_uri: body.redirectUri,
-    terms: TERMS_URL,
+    ...newClient(credentials, body.redirectUri),
+    ...(initialAccessToken === null
+      ? {}
+      : { initial_access_token: initialAccessToken, repository: run.claims.repository_id }),
   });
+}
+
+/**
+ * A development client for a laptop, with the app's initial access token, which only a reader of the
+ * state of the app's `prod` stage has. The repository and owner come from the token's row. A loopback
+ * return address needs no verification file; an https one needs it, as for a run.
+ */
+async function registerLaptop(ctx: ActionCtx, request: Request, initialAccessToken: string) {
+  const tokenHash = await sha256Hex(initialAccessToken);
+  const token = await ctx.runQuery(internal.hubClients.readInitialAccessToken, { tokenHash });
+  if (token === null) {
+    return reply(401, { error: "invalid_token" });
+  }
+  const body = await readBody(request);
+  if (body === null) {
+    return reply(400, { error: "invalid_request" });
+  }
+  if (body.app !== token.app) {
+    return notAllowed("app_mismatch");
+  }
+
+  const refused = await admit(ctx, {
+    githubRepositoryDatabaseId: token.githubRepositoryDatabaseId,
+    githubOwnerId: token.githubOwnerId,
+  });
+  if (refused !== null) {
+    return refused;
+  }
+  if (!body.redirect.loopback) {
+    const refusal = await verifyHost(body.redirect.url, token.githubRepositoryDatabaseId);
+    if (refusal !== null) {
+      return notAllowed(refusal);
+    }
+  }
+
+  const credentials = await broker.newClientCredentials();
+  const created = await ctx.runMutation(internal.hubClients.createDevelopmentClient, {
+    tokenHash,
+    githubOwnerId: token.githubOwnerId,
+    app: token.app,
+    clientId: credentials.clientId,
+    secretHash: credentials.secretHash,
+    registrationTokenHash: credentials.registrationTokenHash,
+    redirectUri: body.redirectUri,
+    softwareVersion: body.softwareVersion,
+  });
+  if (!created.ok) {
+    return created.reason === "invalid_token"
+      ? reply(401, { error: "invalid_token" })
+      : notAllowed(created.reason);
+  }
+  return reply(201, newClient(credentials, body.redirectUri));
+}
+
+/**
+ * A new client for one deployment of an app. No Samebase account is needed. The Bearer is the proof,
+ * told apart by its shape: two dots is a JWT, GitHub's OIDC token of a GitHub Actions run, which is
+ * checked as such and refused when any check fails; no dot is the app's initial access token, for a
+ * laptop. The hub builds the whole client, so the body chooses only a name inside the repository's
+ * own namespace and a return address. The client's secret and registration access token stay in this
+ * action's memory: they go to the caller and to nothing else.
+ */
+export const registerHubClient = httpAction(async (ctx, request) => {
+  if (isPaused()) {
+    return notAllowed("paused");
+  }
+
+  const bearer = /^Bearer\s+(\S+)$/i.exec(request.headers.get("Authorization") ?? "")?.[1];
+  // A JWT has three parts; the initial access token is base64url, which has no dot.
+  const parts = bearer?.split(".").length;
+  if (bearer !== undefined && parts === 3) {
+    return await registerRun(ctx, request, bearer);
+  }
+  if (bearer !== undefined && parts === 1) {
+    return await registerLaptop(ctx, request, bearer);
+  }
+  return reply(401, { error: "invalid_token" });
 });

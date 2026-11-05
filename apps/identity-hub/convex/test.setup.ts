@@ -127,7 +127,10 @@ export async function postHubClient(
   });
 }
 
-/** The 201 answer of `POST /hub-clients`. */
+/** A laptop's return address on a local backend. */
+export const LOOPBACK_CALLBACK = "http://127.0.0.1:3211/auth/hub/callback";
+
+/** The 201 answer of `POST /hub-clients`. A production client also gets the app's token. */
 export type NewClient = {
   issuer: string;
   client_id: string;
@@ -136,6 +139,8 @@ export type NewClient = {
   registration_client_uri: string;
   redirect_uri: string;
   terms: string;
+  initial_access_token?: string;
+  repository?: string;
 };
 
 /** A client of a run of main in the repository of `claims`, which must be created. */
@@ -145,6 +150,24 @@ export async function createClient(
 ): Promise<NewClient> {
   stubProviders(() => jsonResponse({ repository: claims.repository_id ?? REPOSITORY_ID }));
   const response = await postHubClient(t, await signToken(claims));
+  if (response.status !== 201) {
+    throw new Error(`POST /hub-clients answered ${response.status}`);
+  }
+  return await response.json();
+}
+
+/** The initial access token of the app `my-app`, from a new production client of a run of main. */
+export async function createInitialAccessToken(t: ConvexTest): Promise<string> {
+  const token = (await createClient(t)).initial_access_token;
+  if (token === undefined) {
+    throw new Error("The production answer holds no initial access token.");
+  }
+  return token;
+}
+
+/** A laptop's development client on `LOOPBACK_CALLBACK`, which must be created. */
+export async function createDevelopmentClient(t: ConvexTest, token: string): Promise<NewClient> {
+  const response = await postHubClient(t, token, { redirectUri: LOOPBACK_CALLBACK });
   if (response.status !== 201) {
     throw new Error(`POST /hub-clients answered ${response.status}`);
   }
