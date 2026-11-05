@@ -9,17 +9,16 @@ Actions that deploy it with [Alchemy](https://alchemy.run). An idle app costs
 Open [samebase/base](https://github.com/samebase/base), select **Use this template**, and create
 your repository.
 
-## 2. Add a token and your team
+## 2. Add a token
 
 In the [Convex dashboard](https://dashboard.convex.dev/), open your team's **Settings**, then
 **Access Tokens**, and create a token. Then, in your repository:
 
 ```sh
 gh secret set CONVEX_ACCESS_TOKEN
-gh variable set CONVEX_TEAM_ID --body <team-slug>
 ```
 
-The team slug is the first part of any project URL in the Convex dashboard.
+The token names its team, so the app deploys to that team.
 
 ## 3. Push to main
 
