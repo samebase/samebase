@@ -313,38 +313,52 @@ call.
   - A destroy deletes a preview or development client. It does nothing to a production client,
     because the production deployment can stay.
 
-- `Convex.SharedHubClient`: `{ app, redirectUri, deploymentType, softwareVersion? }` gets a client
-  of the central identity hub, for an app that deploys in its own GitHub Actions run, on any host.
-  The workflow needs `permissions: id-token: write`, and no key and no Samebase account. `app` is at
-  most 64 characters. The origin of `redirectUri` must serve `/samebase-verification.json` with the
-  numeric GitHub id of the repository, `{ "repository": "123" }`, which
-  `gh api repos/<owner>/<name> --jq .id` prints. The hub reads it before it registers the client, so
-  the site must be live first. Outputs `status`, `issuer`, `clientId`, `clientSecret`,
-  `registrationAccessToken`, `registrationClientUri`, `deploymentType`, `redirectUri`,
-  `initialAccessToken`, and `repository`.
+- `Convex.SharedHubClient`:
+  `{ app, redirectUri, deploymentType, initialAccessToken?, softwareVersion? }` gets a client of the
+  central identity hub, for an app that deploys in its own GitHub Actions run, on any host, and for
+  a laptop as a stage of the same stack. `deploymentType` is `production`, `preview`, or
+  `development`. A production or preview client needs `permissions: id-token: write` in the
+  workflow, and no key and no Samebase account. `app` is at most 64 characters. The origin of an
+  https `redirectUri` must serve `/samebase-verification.json` with the numeric GitHub id of the
+  repository, `{ "repository": "123" }`, which `gh api repos/<owner>/<name> --jq .id` prints. The
+  hub reads it before it registers the client, so the site must be live first. Outputs `status`,
+  `issuer`, `clientId`, `clientSecret`, `registrationAccessToken`, `registrationClientUri`,
+  `deploymentType`, `redirectUri`, `initialAccessToken`, and `repository`.
   - A production registration also gets the app's initial access token (RFC 7591) and the numeric
-    repository id, which the state keeps. The token registers development clients of the app on a
-    laptop: see `hub-client --shared` below. A renewal keeps both. They are empty for a preview and
-    for the off values.
+    repository id, which the state keeps. A renewal keeps both. They are empty for a preview, for a
+    development client, and for the off values.
+  - A development client needs `initialAccessToken`, and only a development client takes it. The
+    client asks the hub with this token in place of the GitHub OIDC token, so it works on a laptop.
+    With an empty token, the client gets the off values, and the log says "deploy to main once for
+    Google sign-in on this laptop". See "The development stage" below.
   - Each deploy reads the saved client on the hub with its own token. A client that is gone gets a
-    new one, and a client on another `redirectUri` too.
+    new one, and a client on another `redirectUri` or of another `deploymentType` too.
   - A new client logs the link to the terms of the shared sign-in service. A refusal logs its
-    reason, such as a host that does not serve the file, a block, or the hourly limit it reached.
+    reason, such as a host that does not serve the file, a block, a token of another app, or the
+    hourly limit it reached.
   - No failure stops a deploy or a destroy. A failed renewal keeps the saved values. Without saved
     values, `status` is `off`, and `issuer`, `clientId`, and `clientSecret` are the `no-hub` values
-    of a checkout without a hub. A run without a GitHub OIDC token, such as on a laptop, does the
-    same, and logs no warning.
-  - `status` is `suspended` when the hub suspended the client. The client keeps its values.
-  - A destroy deletes a preview client. It does nothing to a production client, because the
-    production deployment can stay.
+    of a checkout without a hub. A production or preview run without a GitHub OIDC token, such as on
+    a laptop, does the same, and logs no warning.
+  - `status` is `suspended` when the hub suspended the client. The state keeps the client and its
+    values, so the client works again when the hub lifts the suspension.
+  - `Convex.SharedHubClient.variables(client)` gives `issuer`, `clientId`, and `clientSecret` for
+    the app's deployment: the client's values when `status` is `on`, and the `no-hub` values when it
+    is `off` or `suspended`. Give these to the deployment, not the outputs of the client.
+  - `Convex.SharedHubClient.read(id, { stage })` gives the attributes of the client `id` in another
+    stage of the same stack, from the state store of the stack. When that stage has no row, it gives
+    the off attributes and does not fail. `Convex.SharedHubClient.ref` fails when the row is
+    missing, and a laptop before the first deploy to main has no `prod` row.
+  - A destroy deletes a preview or development client. It does nothing to a production client,
+    because the production deployment can stay.
   - `HUB_URL` replaces `https://auth.samebase.com`, the hub that the run asks at `/hub-clients`.
 
-A development deployment has no stack, so the package has a command for it. Run it in the directory
-of the app, before the first push and at each dev start, with `CONVEX_ACCESS_TOKEN` or the Convex
-CLI login. It renews the client that `HUB_CLIENT_ID` names, so the client expires 14 days after the
-last dev start or use. A deployment without all three variables, or whose client the hub no longer
-has, gets a new client, and the command writes `HUB_ISSUER`, `HUB_CLIENT_ID`, and
-`HUB_CLIENT_SECRET` to it.
+A development deployment of a team app (`Convex.HubClient`) has no stack, so the package has a
+command for it. Run it in the directory of the app, before the first push and at each dev start,
+with `CONVEX_ACCESS_TOKEN` or the Convex CLI login. It renews the client that `HUB_CLIENT_ID` names,
+so the client expires 14 days after the last dev start or use. A deployment without all three
+variables, or whose client the hub no longer has, gets a new client, and the command writes
+`HUB_ISSUER`, `HUB_CLIENT_ID`, and `HUB_CLIENT_SECRET` to it.
 
 ```sh
 npx alchemy-convex hub-client --team my-team --app scout --callback-path /auth/hub/callback
@@ -355,24 +369,59 @@ For a separate API-connection callback, register another client with
 `RESOURCE_HUB_CLIENT_ID`, and `RESOURCE_HUB_CLIENT_SECRET`, preserving the sign-in client's
 variables. Each callback remains one exact registered URI.
 
-An app on the central identity hub gets its laptop client with `--shared`. Run it after the first
-push of each dev start, with `CONVEX_ACCESS_TOKEN` or the Convex CLI login of the app's team.
+### The development stage
 
-```sh
-npx alchemy-convex hub-client --shared --stack owner/name --app app --callback-path /auth/hub/callback
+A laptop is a stage `dev-<name>` of the app's stack, with its own cloud development deployment. Run
+`alchemy deploy --stage dev-<name>` with `CONVEX_ACCESS_TOKEN` or the Convex CLI login of the app's
+team, before `convex dev`. The stage has the same three rows as a preview:
+
+```ts
+// The stage is dev-<name>. `project` is the project of the deployment that the Convex CLI selects.
+const prod = Convex.SharedHubClient.read("HubClient", { stage: "prod" });
+const deployment =
+  yield *
+  Convex.Deployment("Deployment", {
+    project,
+    type: "dev",
+    name: stage,
+    source: "./convex",
+    env: { SAMEBASE_REPOSITORY_ID: prod.repository },
+  }).pipe(adopt(true));
+const hub =
+  yield *
+  Convex.SharedHubClient("HubClient", {
+    app: "scout",
+    redirectUri: Output.interpolate`${deployment.siteUrl}/auth/hub/callback`,
+    deploymentType: "development",
+    initialAccessToken: prod.initialAccessToken,
+  });
+const variables = Convex.SharedHubClient.variables(hub);
+yield *
+  Convex.Deployment("Site", {
+    project,
+    type: "dev",
+    name: stage,
+    env: {
+      HUB_ISSUER: variables.issuer,
+      HUB_CLIENT_ID: variables.clientId,
+      HUB_CLIENT_SECRET: variables.clientSecret,
+    },
+  }).pipe(adopt(true));
 ```
 
-The team is `--team`, else `CONVEX_TEAM_ID`, else the team of the cloud development deployment that
-`.env.local` selects. A linked git worktree reads the `.env.local` of the main checkout. The command
-renews the client that `HUB_REGISTRATION_URI` and `HUB_REGISTRATION_TOKEN` name, only when
-`HUB_ISSUER` is the hub that it asks (`HUB_URL`, else `https://auth.samebase.com`), the client ID
-and the secret are not `no-hub`, and the hub answers exactly the current callback. Else, it reads
-the initial access token from the `HubClient` row of stage `prod` of the stack, and asks the hub for
-a development client on the deployment's `CONVEX_SITE_URL`. It writes `HUB_ISSUER`, `HUB_CLIENT_ID`,
-`HUB_CLIENT_SECRET`, `HUB_REGISTRATION_URI`, and `HUB_REGISTRATION_TOKEN` in one `env set --force`,
-and `SAMEBASE_REPOSITORY_ID` on an https site. A client that the hub stopped gets the off values.
-Without a token, after a refusal, or after a failure, it prints one line, and the variables stay. It
-never stops a dev start.
+The imports are `alchemy/AdoptPolicy` for `adopt` and `alchemy/Output` for `Output`.
+
+1. `read` gives the initial access token and the repository id from the `HubClient` row of stage
+   `prod`. Before the first deploy to main, they are empty.
+2. "Deployment" finds the development deployment by its reference, or creates it. It sets
+   `SAMEBASE_REPOSITORY_ID`, which the site serves as `/samebase-verification.json`, and pushes.
+3. "HubClient" asks the hub for a development client on the deployment's site URL with the token.
+   Each later run renews it. A development client expires 14 days after its last run or use.
+4. "Site" writes the three variables. It removes only a name that leaves its own `env`, so
+   `SAMEBASE_REPOSITORY_ID` stays.
+
+Both deployment rows keep the default removal policy `retain`. `alchemy destroy --stage dev-<name>`
+deletes the development client and keeps the deployment.
 
 ## Pull request comment
 
