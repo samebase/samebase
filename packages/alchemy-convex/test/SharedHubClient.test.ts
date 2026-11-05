@@ -3,6 +3,7 @@
 // `registrationEndpoints` of @samebase/identity-broker does.
 import { adopt } from "alchemy/AdoptPolicy";
 import * as Output from "alchemy/Output";
+import { State } from "alchemy/State";
 import * as Test from "@alchemy.run/test/Vitest";
 import * as Effect from "effect/Effect";
 import * as Logger from "effect/Logger";
@@ -10,7 +11,7 @@ import * as Redacted from "effect/Redacted";
 import * as Schema from "effect/Schema";
 import { afterEach, describe, expect, vi } from "vitest";
 import * as Convex from "../src/index.ts";
-import { FakeConvex } from "./fakeConvex.ts";
+import { FakeConvex, hubFixture } from "./fakeConvex.ts";
 
 const TEAM = 38516;
 const ISSUER = "https://hub.test";
@@ -23,7 +24,12 @@ const OIDC_REQUEST_TOKEN = "oidc-request-token";
 const OIDC_TOKEN = "oidc-token";
 /** Where a run asks for a new client without HUB_URL. */
 const HUB_CLIENTS = "https://auth.samebase.com/hub-clients";
-const TERMS = "https://samebase.com/terms";
+/** The 201 answers of `POST /hub-clients`, recorded from the hub of RFC 133. */
+const PRODUCTION_ANSWER = hubFixture("hub-clients-production.json");
+const PREVIEW_ANSWER = hubFixture("hub-clients-preview.json");
+const TERMS = String(PREVIEW_ANSWER["terms"]);
+/** The numeric GitHub id of the repository, which the hub gives with the token. */
+const REPOSITORY_ID = String(PRODUCTION_ANSWER["repository"]);
 
 const { test } = Test.make({
   providers: Convex.providers(Convex.fromValues({ accessToken: Redacted.make("test-token") })),
@@ -51,6 +57,8 @@ const client = (input: Convex.SharedHubClientProps) =>
       registrationClientUri: resource.registrationClientUri,
       deploymentType: resource.deploymentType,
       redirectUri: resource.redirectUri,
+      initialAccessToken: Output.map(resource.initialAccessToken, Redacted.value),
+      repository: resource.repository,
     };
   });
 
@@ -64,6 +72,8 @@ const issued = (clientId = "cl_1", redirectUri = REDIRECT_URI) => ({
   registrationClientUri: `${ISSUER}/register/${clientId}`,
   deploymentType: "preview",
   redirectUri,
+  initialAccessToken: "",
+  repository: "",
 });
 
 const OFF = {
@@ -75,6 +85,8 @@ const OFF = {
   registrationClientUri: "",
   deploymentType: "preview",
   redirectUri: "",
+  initialAccessToken: "",
+  repository: "",
 };
 
 /** The body of POST /hub-clients. */
@@ -108,7 +120,13 @@ const REFUSALS: readonly (readonly [string, Answer])[] = [
   ],
   ["github_unavailable", () => Response.json({ error: "github_unavailable" }, { status: 502 })],
   ["a network error", networkDown],
-  ["an unreadable 201", () => new Response("<html>", { status: 201 })],
+  [
+    "a 201 without a client secret",
+    () => {
+      const { client_secret: _secret, ...answer } = PREVIEW_ANSWER;
+      return Response.json(answer, { status: 201 });
+    },
+  ],
 ];
 
 class FakeServices {
@@ -122,6 +140,8 @@ class FakeServices {
   registrar: Answer | undefined;
   /** A client's own record at the hub. */
   hub: Answer | undefined;
+  /** Set: the hub answers as to a run of main, with the app's initial access token. */
+  production = false;
   private nextClient = 1;
 
   constructor(private readonly rest?: typeof fetch) {}
@@ -173,13 +193,14 @@ class FakeServices {
     const { redirectUri } = Schema.decodeUnknownSync(ClientRequest)(body);
     return Response.json(
       {
+        ...(this.production ? PRODUCTION_ANSWER : PREVIEW_ANSWER),
         issuer: ISSUER,
         client_id: clientId,
         client_secret: `secret-of-${clientId}`,
         registration_access_token: token,
         registration_client_uri: `${ISSUER}/register/${clientId}`,
         redirect_uri: redirectUri,
-        terms: TERMS,
+        ...(this.production ? { initial_access_token: `iat-of-${clientId}` } : {}),
       },
       { status: 201 },
     );
@@ -276,6 +297,45 @@ describe("Convex.SharedHubClient", () => {
           },
         ]);
       }),
+  );
+
+  test.provider(
+    "a production registration saves the initial access token and the repository id",
+    (stack) =>
+      Effect.gen(function* () {
+        const fake = new FakeServices().install();
+        fake.production = true;
+        const production = props({ deploymentType: "production" });
+        const saved = {
+          ...issued(),
+          deploymentType: "production",
+          initialAccessToken: "iat-of-cl_1",
+          repository: REPOSITORY_ID,
+        };
+        expect(yield* stack.deploy(client(production))).toEqual(saved);
+        // The renewal answer has no token, and the deploy keeps the saved one.
+        expect(yield* stack.deploy(client(production))).toEqual(saved);
+        expect(fake.calls(HUB_CLIENTS)).toHaveLength(1);
+      }),
+  );
+
+  test.provider("a renewal of a client saved without a token gives empty values", (stack) =>
+    Effect.gen(function* () {
+      new FakeServices().install();
+      yield* stack.deploy(client(props()));
+      // The row as 0.25 saved it.
+      yield* Effect.gen(function* () {
+        const state = yield* yield* State;
+        const request = { stack: stack.name, stage: stack.stage, fqn: "Client" };
+        const row = yield* state.get(request);
+        if (row === undefined || !("attr" in row) || row.attr === undefined) {
+          throw new Error("the deploy saved no client");
+        }
+        const { initialAccessToken: _token, repository: _repository, ...attr } = row.attr;
+        yield* state.set({ ...request, value: { ...row, attr } });
+      }).pipe(Effect.provide(stack.state));
+      expect(yield* stack.deploy(client(props()))).toEqual(issued());
+    }),
   );
 
   test.provider("a renewal needs no OIDC token", (stack) =>
@@ -543,6 +603,7 @@ describe("Convex.SharedHubClient", () => {
             project,
             type: "preview",
             name: "pr-1",
+            env: { SAMEBASE_REPOSITORY_ID: REPOSITORY_ID },
           });
           const hub = yield* Convex.SharedHubClient("Client", {
             app: "scout",
@@ -563,18 +624,20 @@ describe("Convex.SharedHubClient", () => {
         });
 
         const { name } = yield* stack.deploy(app);
+        // "Site" leaves the variable of "Deployment": it removes only a name that leaves its own env.
         expect(convex.variables.get(name)).toEqual({
+          SAMEBASE_REPOSITORY_ID: REPOSITORY_ID,
           HUB_ISSUER: ISSUER,
           HUB_CLIENT_ID: "cl_1",
           HUB_CLIENT_SECRET: "secret-of-cl_1",
         });
         const writes = () =>
           convex.sent.filter(({ path }) => path.endsWith("/update_environment_variables"));
-        expect(writes()).toHaveLength(1);
+        expect(writes()).toHaveLength(2);
 
         yield* stack.deploy(app);
         expect(fake.calls(`${ISSUER}/register/cl_1`)).toHaveLength(1);
-        expect(writes()).toHaveLength(1);
+        expect(writes()).toHaveLength(2);
 
         fake.clients.delete("cl_1");
         yield* stack.deploy(app);
@@ -663,6 +726,7 @@ describe("Convex.SharedHubClient", () => {
   test.provider("no logged line holds a secret or a token", (stack) =>
     Effect.gen(function* () {
       const fake = new FakeServices().install();
+      fake.production = true;
       const { layer, lines } = capturedLogs();
       const deploy = (input = props()) => stack.deploy(client(input)).pipe(Effect.provide(layer));
       /** A refusal that repeats what a confused service could send back. */
@@ -689,7 +753,10 @@ describe("Convex.SharedHubClient", () => {
       yield* deploy();
       fake.registrar = echo;
       yield* deploy({ ...props(), redirectUri: OTHER_REDIRECT_URI });
-      fake.registrar = () => new Response('{"client_secret":"secret-of-cl_1"}', { status: 201 });
+      // The recorded answer without its client ID, with a secret in it.
+      const { client_id: _clientId, ...withoutClient } = PRODUCTION_ANSWER;
+      fake.registrar = () =>
+        Response.json({ ...withoutClient, client_secret: "secret-of-cl_1" }, { status: 201 });
       yield* deploy({ ...props(), redirectUri: OTHER_REDIRECT_URI });
       fake.github = networkDown;
       yield* deploy({ ...props(), redirectUri: OTHER_REDIRECT_URI });
@@ -700,6 +767,7 @@ describe("Convex.SharedHubClient", () => {
       for (const secret of [
         "secret-of-cl_1",
         "token-of-cl_1",
+        "iat-of-cl_1",
         OIDC_TOKEN,
         OIDC_REQUEST_TOKEN,
         "Bearer",

@@ -456,13 +456,6 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
       >;
     };
     registration: {
-      recordOwner: FunctionReference<
-        "mutation",
-        "internal",
-        { ownerId: string; tenantId: string },
-        null,
-        Name
-      >;
       register: FunctionReference<
         "mutation",
         "internal",
@@ -471,7 +464,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           clientId: string;
           clientName: string;
           connector: string;
-          deploymentType: "production" | "preview";
+          deploymentType: "production" | "preview" | "development";
           now: number;
           ownerId?: string;
           redirectUri: string;

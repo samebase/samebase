@@ -25,25 +25,12 @@ const CLIENT_LIST_LIMIT = 500;
 const MAX_REASON_LENGTH = 1_000;
 const MAX_EMAIL_LENGTH = 320;
 
-const vRegistration = object({
-  clientId: string(),
-  githubRepositoryDatabaseId: string(),
-  githubOwnerId: string(),
-  githubRepository: string(),
-  githubActorId: string(),
-  githubActorLogin: string(),
-  commitSha: string(),
-  stage: string(),
-  app: string(),
-  redirectUri: string(),
-  registeredAt: number(),
-});
-
 const vCount = object({ count: number(), atLeast: boolean() });
 
 /**
  * Who made a client. `github`: a GitHub Actions run at `/hub-clients`, from the hub's registration
- * row. `team`: the team's Convex login, through `identityBroker:registerClient`, for an app that
+ * row. `initial_access_token`: a development client that the app's initial access token registered at `/hub-clients`, from the row too.
+ * `team`: the team's Convex login, through `identityBroker:registerClient`, for an app that
  * `identityBroker:createApp` made, so the app has no tenant. `unknown`: a client of a tenant's app
  * with no registration row, or of an app that is gone.
  */
@@ -56,6 +43,15 @@ const vRegisteredBy = union(
     githubActorLogin: string(),
     /** The name that the app's stack gives itself. */
     app: string(),
+  }),
+  object({
+    kind: literal("initial_access_token"),
+    githubRepository: string(),
+    githubRepositoryDatabaseId: string(),
+    githubOwnerId: string(),
+    app: string(),
+    /** When the hub issued the initial access token that registered the client. */
+    issuedAt: number(),
   }),
   object({ kind: literal("team") }),
   object({ kind: literal("unknown") }),
@@ -129,6 +125,29 @@ export async function isBlocked(
     (await readBlock(ctx, "repository", ids.githubRepositoryDatabaseId)) !== null ||
     (await readBlock(ctx, "owner", ids.githubOwnerId)) !== null
   );
+}
+
+/**
+ * What proved a registration. A row from before `proof` holds the GitHub fields at the top: step 1
+ * of the move of RFC 133, until `rewriteRegistrationProofs` has run and PR 3 removes them.
+ */
+function readProof(row: Doc<"registrations">) {
+  if (row.proof !== undefined) {
+    return row.proof;
+  }
+  if (
+    row.githubActorId === undefined ||
+    row.githubActorLogin === undefined ||
+    row.commitSha === undefined
+  ) {
+    throw new Error(`The registration of ${row.clientId} has no proof.`);
+  }
+  return {
+    kind: "github" as const,
+    githubActorId: row.githubActorId,
+    githubActorLogin: row.githubActorLogin,
+    commitSha: row.commitSha,
+  };
 }
 
 function reply(status: number, body: unknown): Response {
@@ -225,14 +244,16 @@ export const clientList = internalQuery({
         .withIndex("by_client_id", (q) => q.eq("clientId", client.clientId))
         .unique();
       if (registration !== null) {
-        return {
-          kind: "github" as const,
+        const proof = readProof(registration);
+        const repository = {
           githubRepository: registration.githubRepository,
           githubRepositoryDatabaseId: registration.githubRepositoryDatabaseId,
           githubOwnerId: registration.githubOwnerId,
-          githubActorLogin: registration.githubActorLogin,
           app: registration.app,
         };
+        return proof.kind === "github"
+          ? { kind: "github" as const, ...repository, githubActorLogin: proof.githubActorLogin }
+          : { kind: "initial_access_token" as const, ...repository, issuedAt: proof.issuedAt };
       }
       return madeByTeam.get(client.appId)
         ? { kind: "team" as const }
@@ -309,87 +330,43 @@ export const setBlock = internalMutation({
   },
 });
 
+/** The rows that one run of `rewriteRegistrationProofs` reads. */
+const REWRITE_BATCH_SIZE = 100;
+
 /**
- * Copies samebase.com's `hubClientRegistrations` rows here with their original times, once, between
- * the two pull requests of RFC 130. A row whose client id is here already is skipped, so a second
- * run inserts nothing. The broker's tenants of those clients were registered without an owner, so
- * each gets the owner of its newest row, and an owner block covers them; a tenant with an owner
- * keeps it. From apps/samebase, following docs/convex-production-reads.md, then from
- * apps/identity-hub:
+ * Rewrites each `registrations` row from before `proof` into the current shape: `proof` from its
+ * three GitHub fields, and the three fields gone. A row with `proof` stays as it is, so a second run
+ * changes nothing. Run once by hand after the deploy of RFC 133 PR 1, from apps/identity-hub, and
+ * again with the answer's `continueCursor` until `isDone`:
  *
- *   npx convex data hubClientRegistrations --prod --limit 100000 --format jsonArray > rows.json
- *   jq '{rows: [.[] | del(._id) | .registeredAt = ._creationTime | del(._creationTime)]}' rows.json > import.json
- *   npx convex run --prod moderation:importRegistrations "$(cat import.json)"
+ *   npx convex run --prod moderation:rewriteRegistrationProofs '{"cursor": null}'
  */
-export const importRegistrations = internalMutation({
-  args: { rows: array(vRegistration) },
-  returns: object({ inserted: number(), skipped: number() }),
+export const rewriteRegistrationProofs = internalMutation({
+  args: { cursor: union(string(), v.null()) },
+  returns: object({ rewritten: number(), continueCursor: string(), isDone: boolean() }),
   handler: async (ctx, args) => {
-    let inserted = 0;
-    const newestFirst = [...args.rows].sort((a, b) => b.registeredAt - a.registeredAt);
-    for (const row of newestFirst) {
-      await ctx.runMutation(components.identityBroker.registration.recordOwner, {
-        tenantId: `gh-${row.githubRepositoryDatabaseId}`,
-        ownerId: row.githubOwnerId,
-      });
-      const existing = await ctx.db
-        .query("registrations")
-        .withIndex("by_client_id", (q) => q.eq("clientId", row.clientId))
-        .unique();
-      if (existing !== null) {
+    const page = await ctx.db
+      .query("registrations")
+      .paginate({ cursor: args.cursor, numItems: REWRITE_BATCH_SIZE });
+    let rewritten = 0;
+    for (const row of page.page) {
+      if (row.proof !== undefined) {
         continue;
       }
-      await ctx.db.insert("registrations", {
+      await ctx.db.replace("registrations", row._id, {
         clientId: row.clientId,
         githubRepositoryDatabaseId: row.githubRepositoryDatabaseId,
         githubOwnerId: row.githubOwnerId,
         githubRepository: row.githubRepository,
-        githubActorId: row.githubActorId,
-        githubActorLogin: row.githubActorLogin,
-        commitSha: row.commitSha,
+        proof: readProof(row),
         stage: row.stage,
         app: row.app,
         redirectUri: row.redirectUri,
         registeredAt: row.registeredAt,
       });
-      inserted += 1;
+      rewritten += 1;
     }
-    return { inserted, skipped: args.rows.length - inserted };
-  },
-});
-
-/**
- * Switches the broker's tenant `gh-<id>` of each repository back on. Run once by hand after the
- * deploy of RFC 130 PR 2: samebase.com switched a tenant off when its repository left Samebase, and
- * leaving Samebase no longer stops sign-in. A repository with a block here stays off. The operator's
- * suspension and owner blocks are separate switches, so they stay as they are. From
- * apps/identity-hub, for every tenant that is switched off:
- *
- *   npx convex data tenants --component identityBroker --prod --limit 100000 --format jsonArray > tenants.json
- *   jq '{githubRepositoryDatabaseIds: [.[] | select(.disconnected == true and (.tenantId | startswith("gh-"))) | .tenantId[3:]]}' tenants.json > ids.json
- *   npx convex run --prod moderation:reconnectTenants "$(cat ids.json)"
- */
-export const reconnectTenants = internalMutation({
-  args: { githubRepositoryDatabaseIds: array(string()) },
-  returns: object({ reconnected: array(string()), blocked: array(string()) }),
-  handler: async (ctx, args) => {
-    const reconnected: string[] = [];
-    const blocked: string[] = [];
-    for (const githubId of args.githubRepositoryDatabaseIds) {
-      if (!/^[1-9][0-9]*$/.test(githubId)) {
-        throw new Error(`"${githubId}" is not a GitHub repository id.`);
-      }
-      if ((await readBlock(ctx, "repository", githubId)) !== null) {
-        blocked.push(githubId);
-        continue;
-      }
-      await ctx.runMutation(components.identityBroker.registration.switchConnection, {
-        tenantId: `gh-${githubId}`,
-        connected: true,
-      });
-      reconnected.push(githubId);
-    }
-    return { reconnected, blocked };
+    return { rewritten, continueCursor: page.continueCursor, isDone: page.isDone };
   },
 });
 

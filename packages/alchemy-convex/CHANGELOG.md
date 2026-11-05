@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.26.0
+
+A laptop gets Google sign-in for an app on the central identity hub with the app's initial access
+token (RFC 133). The hub must answer `initial_access_token` and `repository` to a production
+registration, and take that token at `POST /hub-clients`.
+
+- `Convex.SharedHubClient` saves `initialAccessToken` (redacted) and `repository` from a production
+  registration. A renewal keeps them. They are empty for a preview, for the off values, and for a
+  client saved by an earlier version until its next production registration.
+- `alchemy-convex hub-client --shared --stack <owner/name> --app <app> --callback-path <path>`
+  renews the laptop's client when `HUB_ISSUER` is the hub that it asks (`HUB_URL`, else
+  `https://auth.samebase.com`), the client ID and the secret are not `no-hub`, and the hub answers
+  exactly the current callback. Else, it reads the token from the `HubClient` row of stage `prod`
+  and asks the hub for a development client. It writes `HUB_ISSUER`, `HUB_CLIENT_ID`,
+  `HUB_CLIENT_SECRET`, `HUB_REGISTRATION_URI`, and `HUB_REGISTRATION_TOKEN` on standard input, and
+  `SAMEBASE_REPOSITORY_ID` on an https site. It finds the team from `--team`, `CONVEX_TEAM_ID`, or
+  the selected cloud development deployment. A failure prints a fixed text that quotes no answer and
+  no error. It never stops a dev start.
+- A refusal with the reason `app_mismatch` logs that the token belongs to another app.
+
+The state store protocol does not change.
+
 ## 0.25.1
 
 - A resource write of the store writes the run record of the stage only when the run changes. The

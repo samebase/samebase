@@ -1,17 +1,44 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 
-const { literal, number, string, union } = v;
+const { literal, number, object, optional, string, union } = v;
 
 /** What a block stops: one GitHub repository, or every repository of one GitHub owner. */
 export const vBlockKind = union(literal("repository"), literal("owner"));
+
+/**
+ * What proved a registration. `github`: GitHub's OIDC token of a GitHub Actions run, and what it
+ * said about the run. `initial_access_token`: the app's token from `initialAccessTokens`, which a
+ * laptop read from the state of the app's `prod` stage.
+ */
+export const vRegistrationProof = union(
+  object({
+    kind: literal("github"),
+    /** The GitHub account that started the run. Not always the owner. */
+    githubActorId: string(),
+    /** Its login at the time of the run. */
+    githubActorLogin: string(),
+    /** The commit that the run deployed. For a pull request, GitHub's merge commit of it. */
+    commitSha: string(),
+  }),
+  object({
+    kind: literal("initial_access_token"),
+    /** When the hub issued the token, which tells one token of the app from the next. */
+    issuedAt: number(),
+  }),
+);
 
 export default defineSchema({
   /**
    * One row for each client that `POST /hub-clients` created, written in the mutation that creates
    * the client, and each row that samebase.com's `hubClientRegistrations` held before. The row keeps
-   * what GitHub's token said about the run that asked, so a client can be traced to a repository and
-   * a person. It holds no secret. Rows are never deleted: a preview client's row outlives the client.
+   * what proved the request, so a client can be traced to a repository and, for a GitHub run, a
+   * person. It holds no secret. Rows are never deleted: a preview client's row outlives the client.
+   *
+   * Step 1 of the move to `proof` (RFC 133): `proof` and the three GitHub fields at the top are
+   * optional, every new row has `proof` and none of the three, and
+   * `moderation:rewriteRegistrationProofs` rewrites the older rows. PR 3 makes `proof` required and
+   * removes the three fields.
    */
   registrations: defineTable({
     /** The client's id at the broker, such as `cl_3f9a...`, which the app sends as `HUB_CLIENT_ID`. */
@@ -23,21 +50,30 @@ export default defineSchema({
     githubRepositoryDatabaseId: string(),
     /** GitHub's numeric id of the user or organization that owned the repository at the run. */
     githubOwnerId: string(),
-    /** `owner/name` at the time of the run. A rename changes it, so look a repository up by its id. */
+    /**
+     * `owner/name` at the time of the run, or of the token's issuance for a laptop. A rename changes
+     * it, so look a repository up by its id.
+     */
     githubRepository: string(),
-    /** The GitHub account that started the run. Not always the owner. */
-    githubActorId: string(),
-    /** Its login at the time of the run. */
-    githubActorLogin: string(),
-    /** The commit that the run deployed. For a pull request, GitHub's merge commit of it. */
-    commitSha: string(),
-    /** `prod` for a run of main, or `pr-<number>` for a pull request, from the token. */
+    /** A row from before `proof`: `proof.githubActorId`. */
+    githubActorId: optional(string()),
+    /** A row from before `proof`: `proof.githubActorLogin`. */
+    githubActorLogin: optional(string()),
+    /** A row from before `proof`: `proof.commitSha`. */
+    commitSha: optional(string()),
+    /** What proved the request. Absent only on a row from before it. */
+    proof: optional(vRegistrationProof),
+    /**
+     * `prod` for a run of main or `pr-<number>` for a pull request, from GitHub's token, or
+     * `development` for a laptop with the app's initial access token.
+     */
     stage: string(),
     /** The name that the app's stack gives itself, at most 64 characters. */
     app: string(),
     /**
      * The one address where the broker sends people back with a code. Its origin served
-     * `/samebase-verification.json` with this repository's id when the client was registered.
+     * `/samebase-verification.json` with this repository's id when the client was registered, or it
+     * is http on a loopback host of a laptop, which the initial access token proved.
      */
     redirectUri: string(),
     /** When the client was registered. An imported row keeps the time of samebase.com's row. */
@@ -47,6 +83,33 @@ export default defineSchema({
     .index("by_github_repository_database_id", ["githubRepositoryDatabaseId"])
     .index("by_github_owner_id", ["githubOwnerId"])
     .index("by_registered_at", ["registeredAt"]),
+
+  /**
+   * The initial access token of an app (RFC 7591 section 1.2), one row per repository and app name.
+   * A production registration at `POST /hub-clients` answers the token once and writes its hash
+   * here, in the transaction that creates the client, replacing the row of the app, so the previous
+   * token stops. A GitHub-proof registration under another owner deletes the rows of the repository.
+   * With the token, `POST /hub-clients` gives a laptop a development client of the app. The token has
+   * no expiry; an admin can delete the row in the dashboard. The row holds no token.
+   */
+  initialAccessTokens: defineTable({
+    /** The SHA-256 of the token, in hex. The token itself is only in the production answer. */
+    tokenHash: string(),
+    /** GitHub's numeric id of the repository, from the production run's token. */
+    githubRepositoryDatabaseId: string(),
+    /** GitHub's numeric id of the repository's owner at the production run. */
+    githubOwnerId: string(),
+    /** `owner/name` at the production run. */
+    githubRepository: string(),
+    /** The name that the app's stack gives itself, as in `registrations`. */
+    app: string(),
+    /** When the production registration issued the token. */
+    issuedAt: number(),
+    /** The client id of the production client that the same request created. */
+    productionClientId: string(),
+  })
+    .index("by_token_hash", ["tokenHash"])
+    .index("by_repository_and_app", ["githubRepositoryDatabaseId", "app"]),
 
   /**
    * The blocks that an admin set on samebase.com's admin page, one row per blocked repository or

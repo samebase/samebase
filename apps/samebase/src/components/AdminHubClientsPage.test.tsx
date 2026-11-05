@@ -28,6 +28,7 @@ vi.mock("convex/react", async (importOriginal) => {
 });
 
 const EXPIRY = 1_801_209_600_000;
+const ISSUED_AT = 1_800_000_000_000;
 
 const overview = {
   status: "on",
@@ -72,6 +73,25 @@ const overview = {
           githubOwnerId: "65",
           githubActorLogin: "octocat",
           app: "my-app",
+        },
+      },
+      {
+        clientId: "cl_laptop",
+        appId: "gh-74-4c9a75cca717efb68c856f26ba825073-preview",
+        clientName: "development",
+        deploymentType: "development",
+        redirectUri: "http://127.0.0.1:3211/auth/hub/callback",
+        createdAt: 1,
+        renewedAt: 2,
+        lastSignInAt: null,
+        removeAt: EXPIRY,
+        registeredBy: {
+          kind: "initial_access_token",
+          githubRepository: "octo-org/octo-repo",
+          githubRepositoryDatabaseId: "74",
+          githubOwnerId: "65",
+          app: "my-app",
+          issuedAt: ISSUED_AT,
         },
       },
       {
@@ -171,6 +191,19 @@ describe("AdminHubClientsPage", () => {
         time(2),
         time(3),
       ]);
+      expect(cellsOf(page.rootElement, "cl_laptop")).toEqual([
+        time(1),
+        `octo-org/octo-repo 74 app token ${time(ISSUED_AT)}`,
+        "65",
+        "",
+        "my-app gh-74-4c9a75cca717efb68c856f26ba825073-preview",
+        "development cl_laptop",
+        "development",
+        "http://127.0.0.1:3211/auth/hub/callback",
+        time(EXPIRY),
+        time(2),
+        "Never",
+      ]);
       expect(cellsOf(page.rootElement, "cl_production")).toEqual([
         time(1),
         "Team login",
@@ -195,7 +228,7 @@ describe("AdminHubClientsPage", () => {
     });
     const page = await renderPage();
     try {
-      expect(page.rootElement.textContent).toContain("The newest 2 clients.");
+      expect(page.rootElement.textContent).toContain("The newest 3 clients.");
     } finally {
       await page.unmount();
     }

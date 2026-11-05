@@ -25,7 +25,8 @@ const formatCount = (count: { count: number; atLeast: boolean }) =>
 
 /**
 Every client at the identity hub with who made it (a repository's GitHub Actions run at
-`/hub-clients`, or the team's Convex login), and the blocks and their events.
+`/hub-clients`, a development client with the app's initial access token, or the team's Convex login), and the
+blocks and their events.
 */
 export function AdminHubClientsPage() {
   const readOverview = useAction(api.hubClients.moderation.readOverview);
@@ -109,16 +110,30 @@ export function AdminHubClientsPage() {
                 {overview.data.clientList.clients.map((client) => (
                   <tr key={client.clientId} className="border-b">
                     <td className="py-3 pr-4">{formatTime(client.createdAt)}</td>
-                    {client.registeredBy.kind === "github" ? (
+                    {client.registeredBy.kind === "github" ||
+                    client.registeredBy.kind === "initial_access_token" ? (
                       <>
                         <td className="py-3 pr-4">
                           {client.registeredBy.githubRepository}{" "}
                           <span className="text-muted-foreground">
                             {client.registeredBy.githubRepositoryDatabaseId}
                           </span>
+                          {client.registeredBy.kind === "initial_access_token" ? (
+                            <>
+                              {" "}
+                              app token{" "}
+                              <span className="text-muted-foreground">
+                                {formatTime(client.registeredBy.issuedAt)}
+                              </span>
+                            </>
+                          ) : null}
                         </td>
                         <td className="py-3 pr-4">{client.registeredBy.githubOwnerId}</td>
-                        <td className="py-3 pr-4">{client.registeredBy.githubActorLogin}</td>
+                        <td className="py-3 pr-4">
+                          {client.registeredBy.kind === "github"
+                            ? client.registeredBy.githubActorLogin
+                            : null}
+                        </td>
                         <td className="py-3 pr-4 break-all">
                           {client.registeredBy.app}{" "}
                           <span className="text-muted-foreground">{client.appId}</span>

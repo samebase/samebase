@@ -1,11 +1,15 @@
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { components, internal } from "./_generated/api";
+import { sha256Hex } from "./moderation";
 import {
   APP_HASH,
   createClient,
+  createDevelopmentClient,
+  createInitialAccessToken,
   foreignKey,
   ISSUER,
   jsonResponse,
+  LOOPBACK_CALLBACK,
   makeConvexTest,
   OWNER_ID,
   postHubClient,
@@ -33,6 +37,25 @@ async function readRegistrations(t: ConvexTest) {
 
 async function readRateLimits(t: ConvexTest) {
   return await t.run(async (ctx) => await ctx.db.query("rateLimits").collect());
+}
+
+async function readInitialAccessTokens(t: ConvexTest) {
+  return await t.run(async (ctx) => await ctx.db.query("initialAccessTokens").collect());
+}
+
+async function seedWindow(
+  t: ConvexTest,
+  row: {
+    scope: "repository" | "owner" | "new_owners";
+    githubId: string;
+    count: number;
+    newOwnersWindowStartedAt: number | null;
+  },
+  startedAt = Date.now(),
+) {
+  await t.run(async (ctx) => {
+    await ctx.db.insert("rateLimits", { ...row, startedAt });
+  });
 }
 
 /** A body that arrives in chunks with no Content-Length, as a host may send it. */
@@ -68,6 +91,8 @@ describe("POST /hub-clients", () => {
         registration_client_uri: `${ISSUER}/register/${client["client_id"]}`,
         redirect_uri: PRODUCTION_CALLBACK,
         terms: "https://samebase.com/terms",
+        initial_access_token: expect.stringMatching(/^[A-Za-z0-9_-]{43}$/),
+        repository: REPOSITORY_ID,
       });
     });
 
@@ -120,23 +145,33 @@ describe("POST /hub-clients", () => {
 
       const rows = await readRegistrations(t);
       expect(rows).toEqual([
-        expect.objectContaining({
+        {
+          _id: expect.any(String),
+          _creationTime: expect.any(Number),
           clientId: client.client_id,
           githubRepositoryDatabaseId: REPOSITORY_ID,
           githubOwnerId: OWNER_ID,
           githubRepository: "octo-org/octo-repo",
-          githubActorId: "12",
-          githubActorLogin: "octocat",
-          commitSha: "example-sha",
+          proof: {
+            kind: "github",
+            githubActorId: "12",
+            githubActorLogin: "octocat",
+            commitSha: "example-sha",
+          },
           stage: "prod",
           app: "my-app",
           redirectUri: PRODUCTION_CALLBACK,
           registeredAt: 1_800_000_000_000,
-        }),
+        },
       ]);
-      const tables = JSON.stringify([rows, await readRateLimits(t)]);
+      const tables = JSON.stringify([
+        rows,
+        await readRateLimits(t),
+        await readInitialAccessTokens(t),
+      ]);
       expect(tables).not.toContain(client.client_secret);
       expect(tables).not.toContain(client.registration_access_token);
+      expect(tables).not.toContain(client.initial_access_token);
     });
 
     it("keeps the secret and the token out of every log", async () => {
@@ -147,9 +182,20 @@ describe("POST /hub-clients", () => {
 
       const client = await createClient(t);
 
+      const token = client.initial_access_token ?? "";
+      const laptop = await createDevelopmentClient(t, token);
+
       const logged = JSON.stringify(logs.map((log) => log.mock.calls));
-      expect(logged).not.toContain(client.client_secret);
-      expect(logged).not.toContain(client.registration_access_token);
+      expect(token).not.toBe("");
+      for (const secret of [
+        client.client_secret,
+        client.registration_access_token,
+        token,
+        laptop.client_secret,
+        laptop.registration_access_token,
+      ]) {
+        expect(logged).not.toContain(secret);
+      }
     });
 
     it("records nothing when the broker refuses, and says why", async () => {
@@ -258,6 +304,10 @@ describe("POST /hub-clients", () => {
       ["a body that is not text", { app: 1 }],
       ["no return address", { redirectUri: undefined }],
       ["an http return address", { redirectUri: "http://ideal-dolphin-15.convex.site/cb" }],
+      [
+        "a loopback return address, which only a laptop's token proves",
+        { redirectUri: LOOPBACK_CALLBACK },
+      ],
       ["a fragment", { redirectUri: `${PRODUCTION_CALLBACK}#top` }],
       ["an empty fragment", { redirectUri: `${PRODUCTION_CALLBACK}#` }],
       ["user info", { redirectUri: "https://user:pass@ideal-dolphin-15.convex.site/cb" }],
@@ -449,21 +499,6 @@ describe("POST /hub-clients", () => {
   });
 
   describe("the limits", () => {
-    async function seedWindow(
-      t: ConvexTest,
-      row: {
-        scope: "repository" | "owner" | "new_owners";
-        githubId: string;
-        count: number;
-        newOwnersWindowStartedAt: number | null;
-      },
-      startedAt = Date.now(),
-    ) {
-      await t.run(async (ctx) => {
-        await ctx.db.insert("rateLimits", { ...row, startedAt });
-      });
-    }
-
     it.each([
       [
         "repository",
@@ -576,6 +611,427 @@ describe("POST /hub-clients", () => {
         ]),
       );
     });
+  });
+});
+
+describe("the initial access token", () => {
+  it("comes with a production client and its row, and never with a preview", async () => {
+    vi.useFakeTimers({ now: 1_800_000_000_000, toFake: ["Date"] });
+    const t = makeConvexTest();
+    const production = await createClient(t);
+    stubProviders();
+
+    const previewResponse = await postHubClient(t, await signToken(pullRequestClaims));
+    const preview: Record<string, string> = await previewResponse.json();
+
+    expect(previewResponse.status).toBe(201);
+    expect(preview).not.toHaveProperty("initial_access_token");
+    expect(preview).not.toHaveProperty("repository");
+    expect(await readInitialAccessTokens(t)).toEqual([
+      {
+        _id: expect.any(String),
+        _creationTime: expect.any(Number),
+        tokenHash: await sha256Hex(production.initial_access_token ?? ""),
+        githubRepositoryDatabaseId: REPOSITORY_ID,
+        githubOwnerId: OWNER_ID,
+        githubRepository: "octo-org/octo-repo",
+        app: "my-app",
+        issuedAt: 1_800_000_000_000,
+        productionClientId: production.client_id,
+      },
+    ]);
+  });
+
+  it("is replaced by the next production client, and the first one stops", async () => {
+    const t = makeConvexTest();
+    const first = await createInitialAccessToken(t);
+    const second = await createInitialAccessToken(t);
+    stubProviders();
+
+    const refused = await postHubClient(t, first, { redirectUri: LOOPBACK_CALLBACK });
+
+    expect(first).not.toBe(second);
+    expect(refused.status).toBe(401);
+    expect(await refused.json()).toEqual({ error: "invalid_token" });
+    expect(await readInitialAccessTokens(t)).toHaveLength(1);
+    expect((await createDevelopmentClient(t, second)).client_id).toMatch(/^cl_/);
+  });
+
+  it("stops at the first GitHub run under another owner, also of a preview", async () => {
+    const t = makeConvexTest();
+    const token = await createInitialAccessToken(t);
+    stubProviders();
+
+    const sameOwner = await postHubClient(t, await signToken(pullRequestClaims));
+    expect(sameOwner.status).toBe(201);
+    expect(await readInitialAccessTokens(t)).toHaveLength(1);
+    const transferred = await postHubClient(
+      t,
+      await signToken({ ...pullRequestClaims, repository_owner_id: "66" }),
+    );
+
+    expect(transferred.status).toBe(201);
+    expect(await readInitialAccessTokens(t)).toEqual([]);
+    expect((await postHubClient(t, token, { redirectUri: LOOPBACK_CALLBACK })).status).toBe(401);
+  });
+});
+
+describe("POST /hub-clients with the initial access token", () => {
+  it("registers a development client on a loopback address without a fetch", async () => {
+    vi.useFakeTimers({ now: 1_800_000_000_000, toFake: ["Date"] });
+    const t = makeConvexTest();
+    const token = await createInitialAccessToken(t);
+    const fileRequests = stubProviders();
+
+    const response = await postHubClient(t, token, { redirectUri: LOOPBACK_CALLBACK });
+
+    expect(response.status).toBe(201);
+    expect(fetch).not.toHaveBeenCalled();
+    expect(fileRequests).toEqual([]);
+    const client: Record<string, string> = await response.json();
+    expect(client).toEqual({
+      issuer: ISSUER,
+      client_id: expect.stringMatching(/^cl_/),
+      client_secret: expect.any(String),
+      registration_access_token: expect.any(String),
+      registration_client_uri: `${ISSUER}/register/${client["client_id"]}`,
+      redirect_uri: LOOPBACK_CALLBACK,
+      terms: "https://samebase.com/terms",
+    });
+    expect(
+      await t.query(components.identityBroker.clients.get, { clientId: client["client_id"] ?? "" }),
+    ).toMatchObject({
+      appId: `gh-${REPOSITORY_ID}-${APP_HASH}-preview`,
+      redirectUri: LOOPBACK_CALLBACK,
+      deploymentType: "development",
+      clientName: "development",
+      removeAt: 1_800_000_000_000 + 14 * 24 * 60 * 60 * 1_000,
+    });
+    expect(
+      (await readRegistrations(t)).find((row) => row.clientId === client["client_id"]),
+    ).toEqual({
+      _id: expect.any(String),
+      _creationTime: expect.any(Number),
+      clientId: client["client_id"],
+      githubRepositoryDatabaseId: REPOSITORY_ID,
+      githubOwnerId: OWNER_ID,
+      githubRepository: "octo-org/octo-repo",
+      proof: { kind: "initial_access_token", issuedAt: 1_800_000_000_000 },
+      stage: "development",
+      app: "my-app",
+      redirectUri: LOOPBACK_CALLBACK,
+      registeredAt: 1_800_000_000_000,
+    });
+  });
+
+  it.each(["http://[::1]:3211/auth/hub/callback", "http://localhost:5173/callback"])(
+    "accepts the loopback address %s",
+    async (redirectUri) => {
+      const t = makeConvexTest();
+      const token = await createInitialAccessToken(t);
+      stubProviders();
+
+      expect((await postHubClient(t, token, { redirectUri })).status).toBe(201);
+    },
+  );
+
+  it("creates the preview app with the first laptop client, inside the tenant's budget", async () => {
+    const t = makeConvexTest();
+    const token = await createInitialAccessToken(t);
+    const previewAppId = `gh-${REPOSITORY_ID}-${APP_HASH}-preview`;
+    expect(await t.query(components.identityBroker.apps.get, { appId: previewAppId })).toBeNull();
+
+    await createDevelopmentClient(t, token);
+
+    expect(
+      await t.query(components.identityBroker.apps.get, { appId: previewAppId }),
+    ).toMatchObject({ tenantId: `gh-${REPOSITORY_ID}`, connector: "google-apps" });
+  });
+
+  it("is refused at the tenant's budget of apps", async () => {
+    const t = makeConvexTest();
+    const token = await createInitialAccessToken(t);
+    for (let index = 1; index < 10; index += 1) {
+      await t.mutation(components.identityBroker.registration.register, {
+        tenantId: `gh-${REPOSITORY_ID}`,
+        appId: `gh-${REPOSITORY_ID}-other-${index}`,
+        connector: "google-apps",
+        deploymentType: "production",
+        clientId: `cl_other_${index}`,
+        secretHash: "hash",
+        registrationTokenHash: "hash",
+        tokenEndpointAuthMethod: "client_secret_post",
+        redirectUri: PRODUCTION_CALLBACK,
+        clientName: "prod",
+        softwareVersion: "abc123",
+        now: Date.now(),
+      });
+    }
+    stubProviders();
+
+    const response = await postHubClient(t, token, { redirectUri: LOOPBACK_CALLBACK });
+
+    expect(response.status).toBe(403);
+    expect(await response.json()).toEqual({ error: "not_allowed", reason: "too_many_apps" });
+  });
+
+  it("evicts the preview app's oldest client at its cap, and never the production client", async () => {
+    vi.useFakeTimers({ now: 1_800_000_000_000, toFake: ["Date"] });
+    const t = makeConvexTest();
+    const production = await createClient(t);
+    const token = production.initial_access_token ?? "";
+    const previewAppId = `gh-${REPOSITORY_ID}-${APP_HASH}-preview`;
+    for (let index = 0; index < 30; index += 1) {
+      vi.setSystemTime(1_800_000_001_000 + index * 1_000);
+      await t.mutation(components.identityBroker.registration.register, {
+        tenantId: `gh-${REPOSITORY_ID}`,
+        appId: previewAppId,
+        connector: "google-apps",
+        deploymentType: "preview",
+        clientId: `cl_preview_${index}`,
+        secretHash: "hash",
+        registrationTokenHash: "hash",
+        tokenEndpointAuthMethod: "client_secret_post",
+        redirectUri: PRODUCTION_CALLBACK,
+        clientName: `pr-${index + 1}`,
+        softwareVersion: "abc123",
+        now: Date.now(),
+      });
+    }
+    vi.setSystemTime(1_800_000_100_000);
+
+    const laptop = await createDevelopmentClient(t, token);
+
+    const clients = await t.query(components.identityBroker.clients.listByApp, {
+      appId: previewAppId,
+    });
+    expect(clients).toHaveLength(30);
+    expect(clients.map((client) => client.clientId)).not.toContain("cl_preview_0");
+    expect(clients.map((client) => client.clientId)).toContain(laptop.client_id);
+    expect(
+      await t.query(components.identityBroker.clients.get, { clientId: production.client_id }),
+    ).toMatchObject({ deploymentType: "production" });
+  });
+
+  it("needs the verification file for an https address", async () => {
+    const t = makeConvexTest();
+    const token = await createInitialAccessToken(t);
+    const missing = stubProviders(() => new Response("Not Found", { status: 404 }));
+
+    const refused = await postHubClient(t, token, {
+      redirectUri: "https://calm-cow-456.convex.site/auth/hub/callback",
+    });
+
+    expect(refused.status).toBe(403);
+    expect(await refused.json()).toEqual({
+      error: "not_allowed",
+      reason: "verification_file_missing",
+    });
+    expect(missing).toHaveLength(1);
+    const served = stubProviders();
+    const accepted = await postHubClient(t, token, {
+      redirectUri: "https://calm-cow-456.convex.site/auth/hub/callback",
+    });
+    expect(accepted.status).toBe(201);
+    expect(served).toEqual([
+      {
+        url: "https://calm-cow-456.convex.site/samebase-verification.json",
+        init: expect.objectContaining({ redirect: "manual" }),
+      },
+    ]);
+  });
+
+  it("refuses another app of the repository", async () => {
+    const t = makeConvexTest();
+    const token = await createInitialAccessToken(t);
+    stubProviders();
+
+    const response = await postHubClient(t, token, {
+      app: "other-app",
+      redirectUri: LOOPBACK_CALLBACK,
+    });
+
+    expect(response.status).toBe(403);
+    expect(await response.json()).toEqual({ error: "not_allowed", reason: "app_mismatch" });
+  });
+
+  it("refuses a token whose row was deleted while the file was fetched", async () => {
+    const t = makeConvexTest();
+    const token = await createInitialAccessToken(t);
+    stubProviders(async () => {
+      await t.run(async (ctx) => {
+        for (const row of await ctx.db.query("initialAccessTokens").collect()) {
+          await ctx.db.delete("initialAccessTokens", row._id);
+        }
+      });
+      return jsonResponse({ repository: REPOSITORY_ID });
+    });
+
+    const response = await postHubClient(t, token, {
+      redirectUri: "https://calm-cow-456.convex.site/auth/hub/callback",
+    });
+
+    expect(response.status).toBe(401);
+    expect(await response.json()).toEqual({ error: "invalid_token" });
+    expect((await readRegistrations(t)).map((row) => row.stage)).toEqual(["prod"]);
+    expect(
+      await t.query(components.identityBroker.apps.get, {
+        appId: `gh-${REPOSITORY_ID}-${APP_HASH}-preview`,
+      }),
+    ).toBeNull();
+  });
+
+  it("passes no owner: the broker checks the tenant's recorded owner and keeps it", async () => {
+    const t = makeConvexTest();
+    const token = await createInitialAccessToken(t);
+    // Another app of the tenant records owner 66 at the broker, as after a transfer whose run
+    // made no client of `my-app`; the token's row still names owner 65.
+    await t.mutation(components.identityBroker.registration.register, {
+      tenantId: `gh-${REPOSITORY_ID}`,
+      ownerId: "66",
+      appId: `gh-${REPOSITORY_ID}-other`,
+      connector: "google-apps",
+      deploymentType: "production",
+      clientId: "cl_other",
+      secretHash: "hash",
+      registrationTokenHash: "hash",
+      tokenEndpointAuthMethod: "client_secret_post",
+      redirectUri: PRODUCTION_CALLBACK,
+      clientName: "prod",
+      softwareVersion: "abc123",
+      now: Date.now(),
+    });
+    const setOwnerBlocked = async (ownerId: string, blocked: boolean) =>
+      await t.mutation(components.identityBroker.registration.setOwnerBlocked, {
+        ownerId,
+        blocked,
+        now: Date.now(),
+      });
+    stubProviders();
+
+    await setOwnerBlocked("66", true);
+    const refused = await postHubClient(t, token, { redirectUri: LOOPBACK_CALLBACK });
+    expect(await refused.json()).toEqual({ error: "not_allowed", reason: "suspended" });
+
+    await setOwnerBlocked("66", false);
+    await setOwnerBlocked(OWNER_ID, true);
+    expect((await postHubClient(t, token, { redirectUri: LOOPBACK_CALLBACK })).status).toBe(201);
+
+    await setOwnerBlocked(OWNER_ID, false);
+    await setOwnerBlocked("66", true);
+    const app = await t.query(components.identityBroker.apps.get, {
+      appId: `gh-${REPOSITORY_ID}-${APP_HASH}`,
+    });
+    expect(app).toMatchObject({ suspended: true });
+  });
+
+  it.each([
+    ["repository", REPOSITORY_ID],
+    ["owner", OWNER_ID],
+  ] as const)("refuses a blocked %s", async (kind, githubId) => {
+    const t = makeConvexTest();
+    const token = await createInitialAccessToken(t);
+    await setBlock(t, { action: "block", kind, githubId });
+    const before = await readRateLimits(t);
+    stubProviders();
+
+    const response = await postHubClient(t, token, { redirectUri: LOOPBACK_CALLBACK });
+
+    expect(response.status).toBe(403);
+    expect(await response.json()).toEqual({ error: "not_allowed", reason: "blocked" });
+    expect(await readRateLimits(t)).toEqual(before);
+  });
+
+  it("refuses it while THIRD_PARTY_PAUSED is true", async () => {
+    const t = makeConvexTest();
+    const token = await createInitialAccessToken(t);
+    vi.stubEnv("THIRD_PARTY_PAUSED", "true");
+    stubProviders();
+
+    const response = await postHubClient(t, token, { redirectUri: LOOPBACK_CALLBACK });
+
+    expect(response.status).toBe(403);
+    expect(await response.json()).toEqual({ error: "not_allowed", reason: "paused" });
+  });
+
+  it.each([
+    ["repository", { scope: "repository", githubId: REPOSITORY_ID, count: 30 }],
+    ["owner", { scope: "owner", githubId: OWNER_ID, count: 100 }],
+  ] as const)("is limited in the %s window", async (window, row) => {
+    const t = makeConvexTest();
+    const token = await createInitialAccessToken(t);
+    await t.run(async (ctx) => {
+      for (const existing of await ctx.db.query("rateLimits").collect()) {
+        await ctx.db.delete("rateLimits", existing._id);
+      }
+    });
+    await seedWindow(t, { ...row, newOwnersWindowStartedAt: null });
+    stubProviders();
+
+    const response = await postHubClient(t, token, { redirectUri: LOOPBACK_CALLBACK });
+
+    expect(response.status).toBe(429);
+    expect(await response.json()).toEqual({ error: "rate_limited", window });
+  });
+
+  it("counts in the repository and owner windows, and not in the new-owners window", async () => {
+    const t = makeConvexTest();
+    const token = await createInitialAccessToken(t);
+    // A new-owners window that is full, and an owner whose own window has ended.
+    await t.run(async (ctx) => {
+      for (const row of await ctx.db.query("rateLimits").collect()) {
+        if (row.scope === "owner") await ctx.db.delete("rateLimits", row._id);
+        if (row.scope === "new_owners") await ctx.db.patch("rateLimits", row._id, { count: 50 });
+      }
+    });
+    stubProviders();
+
+    await createDevelopmentClient(t, token);
+
+    expect(await readRateLimits(t)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ scope: "repository", githubId: REPOSITORY_ID, count: 2 }),
+        expect.objectContaining({ scope: "owner", githubId: OWNER_ID, count: 1 }),
+        expect.objectContaining({ scope: "new_owners", count: 50 }),
+      ]),
+    );
+  });
+
+  it("never tries a JWT that fails verification as a token, and refuses other shapes", async () => {
+    const t = makeConvexTest();
+    await createInitialAccessToken(t);
+    const badJwt = await signToken({}, { key: foreignKey });
+    // A row whose hash is the bad JWT's: only the opaque path would find it.
+    await t.run(async (ctx) => {
+      await ctx.db.insert("initialAccessTokens", {
+        tokenHash: await sha256Hex(badJwt),
+        githubRepositoryDatabaseId: REPOSITORY_ID,
+        githubOwnerId: OWNER_ID,
+        githubRepository: "octo-org/octo-repo",
+        app: "my-app",
+        issuedAt: Date.now(),
+        productionClientId: "cl_other",
+      });
+    });
+    stubProviders();
+
+    for (const bearer of [badJwt, "one.dot", "four.parts.in.it"]) {
+      const response = await postHubClient(t, bearer, { redirectUri: LOOPBACK_CALLBACK });
+      expect(response.status).toBe(401);
+      expect(await response.json()).toEqual({ error: "invalid_token" });
+    }
+    expect((await readRegistrations(t)).map((row) => row.stage)).toEqual(["prod"]);
+  });
+
+  it("answers 401 for a token that no row has", async () => {
+    const t = makeConvexTest();
+    stubProviders();
+
+    const response = await postHubClient(t, "unknown-token", { redirectUri: LOOPBACK_CALLBACK });
+
+    expect(response.status).toBe(401);
+    expect(await response.json()).toEqual({ error: "invalid_token" });
+    expect(await readRateLimits(t)).toEqual([]);
   });
 });
 
