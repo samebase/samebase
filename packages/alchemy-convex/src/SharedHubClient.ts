@@ -140,7 +140,11 @@ const offAttributes = (
 class SharedHubClientFailed extends Schema.TaggedError<SharedHubClientFailed>()(
   "SharedHubClientFailed",
   { reason: Schema.String },
-) {}
+) {
+  override get message() {
+    return `Convex.SharedHubClient: ${this.reason}.`;
+  }
+}
 
 const OidcToken = Schema.Struct({ value: Schema.NonEmptyString });
 

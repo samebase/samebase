@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.27.3
+
+- A failure of `Convex.SharedHubClient` that stops a stack prints its reason. In 0.27.2 the error
+  had an empty message, so a terminal showed only a stack trace.
+
 ## 0.27.2
 
 Three fixes from the review of 0.27.1, with no change to the state store protocol.

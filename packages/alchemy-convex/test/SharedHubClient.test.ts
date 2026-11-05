@@ -1240,6 +1240,10 @@ describe("Convex.SharedHubClient.read", () => {
           ),
         );
       expect(defect).toContain("holds attributes that this version cannot read");
+      // The message names the reason, so a terminal shows more than a stack trace.
+      expect(defect).toContain(
+        "Convex.SharedHubClient: the row HubClient of stage prod holds attributes that this version cannot read.",
+      );
       expect(defect).not.toContain("secret-of");
     }),
   );
