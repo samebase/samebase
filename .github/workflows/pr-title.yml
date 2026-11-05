@@ -1,0 +1,45 @@
+# Checks that the PR title starts with the projected `v<N>:` build label. The squash commit takes
+# the PR title as its subject, and the main run of ci.yml fails when that subject has no current
+# label. As a required check, this blocks a merge whose title has no label or an old one.
+#
+# `edited` runs it again when only the title changes, so a fixed title needs no new push. A push to
+# main does not run it, so a pass goes stale when another PR merges first. The ruleset setting that
+# requires branches to be up to date closes that gap: the rebase runs the check again. The check needs
+# no dependencies and never puts the title in a shell command.
+name: PR title
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, edited, synchronize, reopened]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-title-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  build-label:
+    name: pr build label
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      # Full history without file contents: the label is the commit count of main.
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+          filter: tree:0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: 24.x
+
+      - name: Check the build label in the PR title
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: node ./scripts/pr-build-label.ts --check

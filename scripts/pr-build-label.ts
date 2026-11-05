@@ -9,6 +9,13 @@ ready, and before merge) into one deterministic command.
 Usage:
   node ./scripts/pr-build-label.ts            # compute and update the PR title
   node ./scripts/pr-build-label.ts --print-only
+  PR_TITLE="..." node ./scripts/pr-build-label.ts --check
+
+`--check` is the required pull request check in .github/workflows/pr-title.yml.
+GitHub squash merges use the PR title as the commit subject, and
+validate-main-build-label.ts fails main when that subject has no current label.
+The title comes from an environment variable because the workflow must not
+put it in a shell command.
 
 @see docs/agent-workflows.md "Main Build Version Labels" for the full protocol,
 including the squash-subject rule this script intentionally leaves manual.
@@ -50,6 +57,18 @@ function readCurrentPr(): { number: number; title: string } | null {
 
 const printOnly = process.argv.includes("--print-only");
 const label = computeProjectedLabel();
+
+if (process.argv.includes("--check")) {
+  const title = process.env.PR_TITLE ?? "";
+  if (!title.startsWith(`${label}:`)) {
+    console.error(
+      `The PR title must start with "${label}:". Run node ./scripts/pr-build-label.ts.`,
+    );
+    process.exit(1);
+  }
+  console.log(`PR title has the current label ${label}.`);
+  process.exit(0);
+}
 const pr = readCurrentPr();
 
 if (!pr) {
