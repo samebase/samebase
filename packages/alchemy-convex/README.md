@@ -320,7 +320,12 @@ call.
   numeric GitHub id of the repository, `{ "repository": "123" }`, which
   `gh api repos/<owner>/<name> --jq .id` prints. The hub reads it before it registers the client, so
   the site must be live first. Outputs `status`, `issuer`, `clientId`, `clientSecret`,
-  `registrationAccessToken`, `registrationClientUri`, `deploymentType`, and `redirectUri`.
+  `registrationAccessToken`, `registrationClientUri`, `deploymentType`, `redirectUri`,
+  `initialAccessToken`, and `repository`.
+  - A production registration also gets the app's initial access token (RFC 7591) and the numeric
+    repository id, which the state keeps. The token registers development clients of the app on a
+    laptop: see `hub-client --shared` below. A renewal keeps both. They are empty for a preview and
+    for the off values.
   - Each deploy reads the saved client on the hub with its own token. A client that is gone gets a
     new one, and a client on another `redirectUri` too.
   - A new client logs the link to the terms of the shared sign-in service. A refusal logs its
@@ -349,6 +354,23 @@ For a separate API-connection callback, register another client with
 `--callback-path /oauth/hub/callback --env-prefix RESOURCE_HUB`. This writes `RESOURCE_HUB_ISSUER`,
 `RESOURCE_HUB_CLIENT_ID`, and `RESOURCE_HUB_CLIENT_SECRET`, preserving the sign-in client's
 variables. Each callback remains one exact registered URI.
+
+An app on the central identity hub gets its laptop client with `--shared`. Run it after the first
+push of each dev start, with `CONVEX_ACCESS_TOKEN` or the Convex CLI login of the app's team.
+
+```sh
+npx alchemy-convex hub-client --shared --stack owner/name --app app --callback-path /auth/hub/callback
+```
+
+The team is `--team`, else `CONVEX_TEAM_ID`, else the team of the cloud development deployment that
+`.env.local` selects. A linked git worktree reads the `.env.local` of the main checkout. The command
+renews the client that `HUB_REGISTRATION_URI` and `HUB_REGISTRATION_TOKEN` name. Without one, it
+reads the initial access token from the `HubClient` row of stage `prod` of the stack, and asks the
+hub for a development client on the deployment's `CONVEX_SITE_URL`. It writes `HUB_ISSUER`,
+`HUB_CLIENT_ID`, `HUB_CLIENT_SECRET`, `HUB_REGISTRATION_URI`, and `HUB_REGISTRATION_TOKEN` in one
+`env set --force`, and `SAMEBASE_REPOSITORY_ID` on an https site. A client that the hub stopped gets
+the off values. Without a token, after a refusal, or after a failure, it prints one line, and the
+variables stay. It never stops a dev start.
 
 ## Pull request comment
 
