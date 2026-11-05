@@ -102,30 +102,14 @@ const Attributes = Schema.Struct({
 export interface SharedHubClientAttributes extends Schema.Schema.Type<typeof Attributes> {}
 
 /**
- * The attributes as the state saves them. A row of 0.25 and earlier has no token fields, and they
- * stay empty until the next production registration.
+ * The attributes of a saved row, or undefined when the row is not of this version, such as a row
+ * that 0.26 or earlier saved without the token fields. The text of a schema issue can quote a value
+ * of the row, so it is never kept.
  */
-const SavedAttributes = Schema.Struct({
-  ...Attributes.fields,
-  initialAccessToken: Schema.optionalKey(Schema.Redacted(Schema.String)),
-  repository: Schema.optionalKey(Schema.String),
-});
-
 const savedAttributes = (value: unknown) =>
-  Schema.decodeUnknownEffect(SavedAttributes)(value).pipe(
-    Effect.map(({ initialAccessToken = Redacted.make(""), repository = "", ...attributes }) => ({
-      ...attributes,
-      initialAccessToken,
-      repository,
-    })),
-    // The text of a schema issue can quote a value of the row.
-    Effect.catchCause(() =>
-      Effect.die(
-        new SharedHubClientFailed({
-          reason: "the state holds attributes of Convex.SharedHubClient that it cannot read",
-        }),
-      ),
-    ),
+  Schema.decodeUnknownEffect(Attributes)(value).pipe(
+    Effect.map((attributes): SharedHubClientAttributes | undefined => attributes),
+    Effect.catchCause(() => Effect.succeed(undefined)),
   );
 
 /** The attributes of no client. */
@@ -160,8 +144,11 @@ const NewClient = Schema.Struct({
   registration_access_token: Schema.NonEmptyString,
   registration_client_uri: Schema.NonEmptyString,
   redirect_uri: Schema.NonEmptyString,
-  /** The terms of the shared sign-in service, which the log shows once, for the new client. */
-  terms: Schema.NonEmptyString,
+  /**
+   * The terms of the shared sign-in service, which the log shows once, for the new client. Only a
+   * page of samebase.com: the log line must not print a value that the answer chose.
+   */
+  terms: Schema.String.check(Schema.isPattern(/^https:\/\/samebase\.com\/[a-z0-9/-]*$/)),
   /** Only in the answer to a production registration with the GitHub token. */
   initial_access_token: Schema.optionalKey(Schema.NonEmptyString),
   repository: Schema.optionalKey(Schema.String.check(Schema.isPattern(/^\d+$/))),
@@ -283,9 +270,16 @@ const requestNewClient = (props: SharedHubClientProps, bearer: string) =>
       return yield* new SharedHubClientFailed({ reason: `${reason} (HTTP ${status})` });
     }
     const client = yield* decode(NewClient, "The identity hub")(body);
+    // The hub registers the address that the request sent. The log names the request's, so no
+    // value that the answer chose is printed.
+    if (client.redirect_uri !== props.redirectUri) {
+      return yield* new SharedHubClientFailed({ reason: "The identity hub gave a bad answer" });
+    }
     yield* Effect.logInfo(
-      `Convex.SharedHubClient: ${props.app} on ${client.redirect_uri} has a new client of the identity hub. Its use is under ${client.terms}.`,
+      `Convex.SharedHubClient: ${props.app} on ${props.redirectUri} has a new client of the identity hub. Its use is under ${client.terms}.`,
     );
+    // Only a production registration gives the app's token (RFC 7591); any other answer's is dropped.
+    const production = props.deploymentType === "production";
     return {
       status: "on" as const,
       issuer: client.issuer,
@@ -294,9 +288,9 @@ const requestNewClient = (props: SharedHubClientProps, bearer: string) =>
       registrationAccessToken: Redacted.make(client.registration_access_token),
       registrationClientUri: client.registration_client_uri,
       deploymentType: props.deploymentType,
-      redirectUri: client.redirect_uri,
-      initialAccessToken: Redacted.make(client.initial_access_token ?? ""),
-      repository: client.repository ?? "",
+      redirectUri: props.redirectUri,
+      initialAccessToken: Redacted.make(production ? (client.initial_access_token ?? "") : ""),
+      repository: production ? (client.repository ?? "") : "",
     };
   });
 
@@ -404,7 +398,15 @@ const read = (id: string, options: { readonly stage: string }) =>
           ),
         ),
       );
-      return yield* savedAttributes(attr);
+      const saved = yield* savedAttributes(attr);
+      if (saved === undefined) {
+        return yield* Effect.die(
+          new SharedHubClientFailed({
+            reason: `the row ${id} of stage ${options.stage} holds attributes that this version cannot read`,
+          }),
+        );
+      }
+      return saved;
     }),
   );
 
@@ -449,12 +451,19 @@ export const SharedHubClientProvider = () =>
 
     read: ({ output }) => Effect.succeed(output),
 
-    // Only a client of the same return address and type is renewed.
+    // Only a client of the same return address and type is renewed. A row that this version cannot
+    // read, such as one that 0.26 or earlier saved, is no client: the run asks for a new one, which
+    // for a production client also gives the app's initial access token.
     reconcile: Effect.fn(function* ({ news, output }) {
       const saved =
         output === undefined || output.status === "off"
           ? undefined
           : yield* savedAttributes(output);
+      if (output !== undefined && output.status !== "off" && saved === undefined) {
+        yield* Effect.logWarning(
+          `Convex.SharedHubClient: ${news.app} on ${news.redirectUri} has a saved client of an older version, so this run asks for a new one.`,
+        );
+      }
       const renewed =
         saved?.redirectUri === news.redirectUri && saved.deploymentType === news.deploymentType
           ? yield* renew(saved)
