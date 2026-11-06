@@ -148,6 +148,18 @@ describe("rebaseStagedContent", () => {
 
     expect(result).toEqual({ content: "top\na\nB\nc\n", hasConflict: false });
   });
+
+  it("returns a conflict when upstream made only some of the staged changes", () => {
+    // Both sides deleted "b"; only the staged side added "X". Patching in "X" alone once dropped
+    // the final newline from a clean result.
+    const result = rebaseStagedContent({
+      baseContent: "\nb\n\n\n",
+      stagedContent: "\n\nX\n",
+      upstreamContent: "Y\n\n\n",
+    });
+
+    expect(result.hasConflict).toBe(true);
+  });
 });
 
 // Every line is a unique token, so "a line is lost or written twice" is a count.
