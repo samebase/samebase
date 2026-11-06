@@ -7,11 +7,12 @@ import { createRoot } from "react-dom/client";
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { api } from "../../convex/_generated/api";
 import { AdminHubClientsPage } from "./AdminHubClientsPage";
+import type { AdminHubClientsRouteSearch } from "@/routeSearch/adminHubClients";
 
-const actionState = vi.hoisted(() => ({
-  readOverview: vi.fn(),
-  changeBlock: vi.fn(),
-}));
+const testState = vi.hoisted(() => {
+  const search: AdminHubClientsRouteSearch = {};
+  return { readOverview: vi.fn(), changeBlock: vi.fn(), navigate: vi.fn(), search };
+});
 
 vi.mock("convex/react", async (importOriginal) => {
   const actual = await importOriginal<typeof import("convex/react")>();
@@ -20,10 +21,21 @@ vi.mock("convex/react", async (importOriginal) => {
     useAction: (reference: Parameters<typeof actual.useAction>[0]) => {
       const name = getFunctionName(reference);
       if (name === getFunctionName(api.hubClients.moderation.readOverview)) {
-        return actionState.readOverview;
+        return testState.readOverview;
       }
-      return actionState.changeBlock;
+      return testState.changeBlock;
     },
+  };
+});
+
+vi.mock("@tanstack/react-router", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@tanstack/react-router")>();
+  return {
+    ...actual,
+    getRouteApi: () => ({
+      useNavigate: () => testState.navigate,
+      useSearch: () => testState.search,
+    }),
   };
 });
 
@@ -64,14 +76,14 @@ const overview = {
         redirectUri: "https://calm-cow-456.eu-west-1.convex.site/auth/hub/callback",
         createdAt: 1,
         renewedAt: 2,
-        lastSignInAt: 3,
+        lastSignInAt: null,
         removeAt: EXPIRY,
         registeredBy: {
           kind: "github",
           githubRepository: "octo-org/octo-repo",
           githubRepositoryDatabaseId: "74",
           githubOwnerId: "65",
-          githubActorLogin: "octocat",
+          githubActorLogin: "renovate[bot]",
           app: "my-app",
         },
       },
@@ -100,15 +112,15 @@ const overview = {
         clientName: "prod",
         deploymentType: "production",
         redirectUri: "https://samebase.com/auth/hub/callback",
-        createdAt: 1,
-        renewedAt: 2,
-        lastSignInAt: 3,
+        createdAt: 5,
+        renewedAt: 6,
+        lastSignInAt: 7,
         removeAt: null,
         registeredBy: {
           kind: "github",
-          githubRepository: "octo-org/own",
+          githubRepository: "other-org/own",
           githubRepositoryDatabaseId: "81",
-          githubOwnerId: "65",
+          githubOwnerId: "90",
           githubActorLogin: "octocat",
           app: "my-app",
         },
@@ -140,12 +152,11 @@ async function renderPage() {
   };
 }
 
-/** The cell texts of the client row with `clientId`. */
-function cellsOf(container: HTMLElement, clientId: string) {
-  const row = Array.from(container.querySelectorAll("tr")).find((candidate) =>
-    candidate.textContent.includes(clientId),
+/** The text of each body row, cells joined by `|`. */
+function rowTexts(container: HTMLElement) {
+  return Array.from(container.querySelectorAll("tbody tr"), (row) =>
+    Array.from(row.querySelectorAll("td"), (cell) => cell.textContent).join("|"),
   );
-  return Array.from(row?.cells ?? [], (cell) => cell.textContent);
 }
 
 /** Types into a React-controlled input. */
@@ -159,16 +170,28 @@ function type(container: HTMLElement, selector: string, value: string) {
   input.dispatchEvent(new Event("input", { bubbles: true }));
 }
 
+function button(container: HTMLElement, text: string) {
+  const match = Array.from(container.querySelectorAll("button")).find(
+    (candidate) => candidate.textContent === text,
+  );
+  if (match === undefined) {
+    throw new Error(`No button ${text}.`);
+  }
+  return match;
+}
+
 describe("AdminHubClientsPage", () => {
   beforeEach(() => {
-    actionState.readOverview.mockReset();
-    actionState.readOverview.mockResolvedValue(overview);
-    actionState.changeBlock.mockReset();
-    actionState.changeBlock.mockResolvedValue({ status: "on", changed: true });
+    testState.readOverview.mockReset();
+    testState.readOverview.mockResolvedValue(overview);
+    testState.changeBlock.mockReset();
+    testState.changeBlock.mockResolvedValue({ status: "on", changed: true });
+    testState.navigate.mockReset();
+    testState.search = {};
   });
 
   it("says that moderation is off without the key", async () => {
-    actionState.readOverview.mockResolvedValue({ status: "off" });
+    testState.readOverview.mockResolvedValue({ status: "off" });
     const page = await renderPage();
     try {
       expect(page.rootElement.textContent).toContain("Moderation is off");
@@ -177,88 +200,97 @@ describe("AdminHubClientsPage", () => {
     }
   });
 
-  it("lists the counts, the clients with who made them, the blocks, and their events", async () => {
+  it("groups the clients by repository, newest group first, production before previews", async () => {
     const page = await renderPage();
     try {
-      const text = page.rootElement.textContent;
-      expect(text).toContain("3 registrations in the last day, 1000+ in the last week.");
-      expect(text).toContain("owner 65: Phishing page");
-      expect(text).toContain("block owner 65: Phishing page");
-      const time = (value: number) => new Date(value).toLocaleString();
-      expect(cellsOf(page.rootElement, "cl_test")).toEqual([
-        time(1),
-        "octo-org/octo-repo 74",
-        "65",
-        "octocat",
-        "my-app gh-74-4c9a75cca717efb68c856f26ba825073",
-        "pr-12 cl_test",
-        "preview",
-        "https://calm-cow-456.eu-west-1.convex.site/auth/hub/callback",
-        time(EXPIRY),
-        time(2),
-        time(3),
-      ]);
-      expect(cellsOf(page.rootElement, "cl_laptop")).toEqual([
-        time(1),
-        "octo-org/octo-repo 74",
-        "65",
-        `Laptop, token of ${time(ISSUED_AT)}`,
-        "my-app gh-74-4c9a75cca717efb68c856f26ba825073-preview",
-        "development cl_laptop",
-        "development",
-        "http://127.0.0.1:3211/auth/hub/callback",
-        time(EXPIRY),
-        time(2),
-        "Never",
-      ]);
-      expect(cellsOf(page.rootElement, "cl_production")).toEqual([
-        time(1),
-        "octo-org/own 81",
-        "65",
-        "octocat",
-        "my-app gh-81-4c9a75cca717efb68c856f26ba825073",
-        "prod cl_production",
-        "production",
-        "https://samebase.com/auth/hub/callback",
-        "Never",
-        time(2),
-        time(3),
-      ]);
-      expect(text).not.toContain("The newest");
+      expect(page.rootElement.textContent).toContain(
+        "3 registrations in the last day, 1000+ in the last week.",
+      );
+      const rows = rowTexts(page.rootElement);
+      expect(rows).toHaveLength(5);
+      expect(rows[0]).toMatch(/^other-org \/ own.*1 production.*Last sign-in/);
+      expect(rows[1]).toMatch(/^Productionmy-app\|samebase\.com\|octocat\|.*\|Never\|$/);
+      expect(rows[2]).toMatch(
+        /^octo-org \/ octo-repo\s*Blocked.*1 preview.*1 development.*No sign-ins/,
+      );
+      expect(rows[3]).toMatch(
+        /^PR 12Blockedmy-app\|calm-cow-456\.eu-west-1\.convex\.site\|renovate\[bot\]\|Never\|in \d+d\|$/,
+      );
+      expect(rows[4]).toMatch(
+        /^DevelopmentBlockedmy-app\|127\.0\.0\.1:3211\|Laptop token\|Never\|/,
+      );
+      expect(page.rootElement.textContent).not.toContain("The newest");
     } finally {
       await page.unmount();
     }
   });
 
-  it("says when the client list reached its limit", async () => {
-    actionState.readOverview.mockResolvedValue({
+  it("shows a client's ids when its row is opened", async () => {
+    const page = await renderPage();
+    try {
+      const row = Array.from(page.rootElement.querySelectorAll<HTMLElement>("tbody tr")).find(
+        (candidate) => candidate.textContent.includes("127.0.0.1:3211"),
+      );
+      await act(async () => row?.click());
+      const text = page.rootElement.textContent;
+      expect(text).toContain("cl_laptop");
+      expect(text).toContain("gh-74-4c9a75cca717efb68c856f26ba825073-preview");
+      expect(text).toContain(`token of ${new Date(ISSUED_AT).toLocaleString()}`);
+    } finally {
+      await page.unmount();
+    }
+  });
+
+  it("applies the search, the filters, and the grouping from the URL", async () => {
+    testState.search = { q: "octo-repo", stage: "development,production", group: "none" };
+    const page = await renderPage();
+    try {
+      const rows = rowTexts(page.rootElement);
+      expect(rows).toHaveLength(1);
+      expect(rows[0]).toMatch(/^DevelopmentBlockedocto-repo · my-app\|127\.0\.0\.1:3211/);
+    } finally {
+      await page.unmount();
+    }
+  });
+
+  it("says when no client matches and when the client list reached its limit", async () => {
+    testState.search = { owner: "nobody" };
+    testState.readOverview.mockResolvedValue({
       ...overview,
       clientList: { ...overview.clientList, limitReached: true },
     });
     const page = await renderPage();
     try {
-      expect(page.rootElement.textContent).toContain("The newest 3 clients.");
+      expect(page.rootElement.textContent).toContain("No clients match.");
     } finally {
       await page.unmount();
     }
+
+    testState.search = {};
+    const unfiltered = await renderPage();
+    try {
+      expect(unfiltered.rootElement.textContent).toContain("The newest 3 clients.");
+    } finally {
+      await unfiltered.unmount();
+    }
   });
 
-  it("unblocks with the id and the reason", async () => {
+  it("lists the blocks and their events, and unblocks with the id and the reason", async () => {
     const page = await renderPage();
     try {
+      await act(async () => button(page.rootElement, "Blocks 1").click());
+      expect(page.rootElement.textContent).toContain("owner 65: Phishing page");
+      expect(page.rootElement.textContent).toContain("block owner 65: Phishing page");
       await act(async () => {
         type(page.rootElement, "#admin-hub-clients-github-id", "74");
         type(page.rootElement, "#admin-hub-clients-reason", "Fixed");
       });
-      const unblock = Array.from(page.rootElement.querySelectorAll("button")).find(
-        (button) => button.textContent === "Unblock",
-      );
       await act(async () => {
-        unblock?.click();
+        button(page.rootElement, "Unblock").click();
         await Promise.resolve();
       });
 
-      expect(actionState.changeBlock).toHaveBeenCalledWith({
+      expect(testState.changeBlock).toHaveBeenCalledWith({
         action: "unblock",
         kind: "repository",
         githubId: "74",
