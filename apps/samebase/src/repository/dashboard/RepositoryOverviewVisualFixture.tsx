@@ -354,47 +354,41 @@ const FIXTURE_NO_CHECKS = {
 type FixturePullRequest = RepositoryPullRequest;
 
 const FIXTURE_SUCCESSFUL_STATUS_CHECK_ROLLUP = {
-  contexts: {
-    totalCount: 4,
-    checkRunCount: 3,
-    statusContextCount: 1,
-    checkRunCountsByState: [{ state: "SUCCESS", count: 3 }],
-    statusContextCountsByState: [{ state: "SUCCESS", count: 1 }],
-    nodes: [
-      {
-        kind: "check_run",
-        name: "supply-chain",
-        status: "COMPLETED",
-        conclusion: "SUCCESS",
-        detailsUrl: "https://github.com/samebase/samebase/actions/runs/1/job/1",
-        title: null,
-      },
-      {
-        kind: "check_run",
-        name: "checks (24.x)",
-        status: "COMPLETED",
-        conclusion: "SUCCESS",
-        detailsUrl: "https://github.com/samebase/samebase/actions/runs/1/job/2",
-        title: null,
-      },
-      {
-        kind: "check_run",
-        name: "Workers Builds: samebase",
-        status: "COMPLETED",
-        conclusion: "SUCCESS",
-        detailsUrl:
-          "https://dash.cloudflare.com/account-1/workers/services/view/samebase/production/builds/build-1",
-        title: "Workers Builds: samebase",
-      },
-      {
-        kind: "status_context",
-        context: "Cloudflare Workers",
-        state: "SUCCESS",
-        targetUrl: "https://dash.cloudflare.com/builds/legacy-1",
-        description: "Deployment completed",
-      },
-    ],
-  },
+  complete: true,
+  checks: [
+    {
+      kind: "check_run",
+      name: "supply-chain",
+      status: "COMPLETED",
+      conclusion: "SUCCESS",
+      detailsUrl: "https://github.com/samebase/samebase/actions/runs/1/job/1",
+      title: null,
+    },
+    {
+      kind: "check_run",
+      name: "checks (24.x)",
+      status: "COMPLETED",
+      conclusion: "SUCCESS",
+      detailsUrl: "https://github.com/samebase/samebase/actions/runs/1/job/2",
+      title: null,
+    },
+    {
+      kind: "check_run",
+      name: "Workers Builds: samebase",
+      status: "COMPLETED",
+      conclusion: "SUCCESS",
+      detailsUrl:
+        "https://dash.cloudflare.com/account-1/workers/services/view/samebase/production/builds/build-1",
+      title: "Workers Builds: samebase",
+    },
+    {
+      kind: "status_context",
+      context: "Cloudflare Workers",
+      state: "SUCCESS",
+      targetUrl: "https://dash.cloudflare.com/builds/legacy-1",
+      description: "Deployment completed",
+    },
+  ],
 } satisfies NonNullable<FixturePullRequest["statusCheckRollup"]>;
 
 const FIXTURE_DEFAULT_BRANCH_CHECKS = {

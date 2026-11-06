@@ -12,8 +12,11 @@ import {
 } from "./contracts/getUserRepositories";
 import { retryInfrastructureProvisioningContract } from "./contracts/retryInfrastructureProvisioning";
 import type { RepositoryActionsCiSecrets } from "./provisioningModel";
-import { classifyRepositoryCheck, type RepositoryStatusCheckRollup } from "./pullRequestModel";
-import { summarizeRepositoryChecks } from "../../shared/repositoryChecks";
+import {
+  classifyRepositoryCheck,
+  summarizeRepositoryChecks,
+  type RepositoryStatusCheckRollup,
+} from "./pullRequestModel";
 
 /*
 The pure parts of repository:getStatus: the status of the stacks, the attention rules, and the MCP
@@ -247,16 +250,13 @@ export function buildRepositoryAttention(args: {
   ];
 }
 
-/**
-The counts of every check from GitHub's aggregate counts, and the names of the failed checks among
-the listed nodes. Null when the commit has no checks.
-*/
+/** The counts of the newest run of each check, and the failed names. Null when there are no checks. */
 function summarizeChecksForMcp(rollup: RepositoryStatusCheckRollup) {
-  if (rollup === null || rollup.contexts.totalCount === 0) {
+  if (rollup === null || rollup.checks.length === 0) {
     return null;
   }
   const summary = summarizeRepositoryChecks(rollup);
-  const failedNames = rollup.contexts.nodes
+  const failedNames = rollup.checks
     .filter((check) => classifyRepositoryCheck(check) === "failure")
     .map((check) => (check.kind === "check_run" ? check.name : check.context))
     .sort((left, right) => left.localeCompare(right));
@@ -266,7 +266,7 @@ function summarizeChecksForMcp(rollup: RepositoryStatusCheckRollup) {
     pending: summary.runningCount,
     unknown: summary.unknownCount,
     failedNames,
-    failedNamesComplete: failedNames.length >= summary.failureCount,
+    failedNamesComplete: rollup.complete,
   };
 }
 

@@ -237,8 +237,6 @@ describe("repository_getStatus", () => {
     heads: Record<string, string>;
     checks: Array<{ name: string; conclusion: "SUCCESS" | "FAILURE" }>;
   }) {
-    const countChecks = (conclusion: "SUCCESS" | "FAILURE") =>
-      args.checks.filter((check) => check.conclusion === conclusion).length;
     const getRepository = vi.fn(async () => ({
       data: { id: 4242, owner: { id: 1 }, default_branch: args.defaultBranch },
     }));
@@ -264,14 +262,7 @@ describe("repository_getStatus", () => {
                       ? null
                       : {
                           contexts: {
-                            totalCount: args.checks.length,
-                            checkRunCount: args.checks.length,
-                            statusContextCount: 0,
-                            checkRunCountsByState: [
-                              { state: "SUCCESS", count: countChecks("SUCCESS") },
-                              { state: "FAILURE", count: countChecks("FAILURE") },
-                            ].filter((counts) => counts.count > 0),
-                            statusContextCountsByState: [],
+                            pageInfo: { hasNextPage: false },
                             nodes: args.checks.map((check) => ({
                               __typename: "CheckRun",
                               name: check.name,
@@ -279,6 +270,8 @@ describe("repository_getStatus", () => {
                               conclusion: check.conclusion,
                               detailsUrl: `https://github.com/scout-owner/scout/actions/runs/1/job/${check.name}`,
                               title: null,
+                              startedAt: "2026-09-29T20:46:00Z",
+                              checkSuite: { workflowRun: { workflow: { name: "CI" } } },
                             })),
                           },
                         },

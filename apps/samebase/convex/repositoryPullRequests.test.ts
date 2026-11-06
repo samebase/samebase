@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
 
 import type { Id } from "./_generated/dataModel";
+import { summarizeRepositoryChecks } from "./repository/pullRequestModel";
 import {
   normalizeGitHubPullRequestPage,
   normalizeGitHubRepositorySidebarSummaries,
@@ -30,11 +31,7 @@ function providerPage() {
           url: "https://github.com/samebase/samebase/commit/main123",
           statusCheckRollup: {
             contexts: {
-              totalCount: 1,
-              checkRunCount: 1,
-              statusContextCount: 0,
-              checkRunCountsByState: [{ state: "SUCCESS", count: 1 }],
-              statusContextCountsByState: [],
+              pageInfo: { hasNextPage: false },
               nodes: [
                 {
                   __typename: "CheckRun",
@@ -43,6 +40,8 @@ function providerPage() {
                   conclusion: "SUCCESS",
                   detailsUrl: "https://github.com/samebase/samebase/actions/runs/2/job/1",
                   title: null,
+                  startedAt: "2026-07-21T09:31:00Z",
+                  checkSuite: { workflowRun: { workflow: { name: "CI" } } },
                 },
               ],
             },
@@ -83,11 +82,7 @@ function providerPage() {
                     oid: "abc123",
                     statusCheckRollup: {
                       contexts: {
-                        totalCount: 2,
-                        checkRunCount: 1,
-                        statusContextCount: 1,
-                        checkRunCountsByState: [{ state: "SUCCESS", count: 1 }],
-                        statusContextCountsByState: [{ state: "SUCCESS", count: 1 }],
+                        pageInfo: { hasNextPage: false },
                         nodes: [
                           {
                             __typename: "CheckRun",
@@ -96,6 +91,8 @@ function providerPage() {
                             conclusion: "SUCCESS",
                             detailsUrl: "https://github.com/samebase/samebase/actions/runs/1/job/1",
                             title: null,
+                            startedAt: "2026-07-21T10:01:00Z",
+                            checkSuite: { workflowRun: { workflow: { name: "CI" } } },
                           },
                           {
                             __typename: "StatusContext",
@@ -103,6 +100,7 @@ function providerPage() {
                             state: "SUCCESS",
                             targetUrl: "https://dash.cloudflare.com/builds/1",
                             description: "Build succeeded",
+                            createdAt: "2026-07-21T10:02:00Z",
                           },
                         ],
                       },
@@ -118,6 +116,40 @@ function providerPage() {
   };
 }
 
+/** The provider page with other check runs on the pull request head commit. */
+function providerPageWithChecks(nodes: readonly unknown[]) {
+  const page = providerPage();
+  const pullRequest = page.repository.pullRequests.nodes[0];
+  const commit = pullRequest.commits.nodes[0].commit;
+  return {
+    repository: {
+      ...page.repository,
+      pullRequests: {
+        ...page.repository.pullRequests,
+        nodes: [
+          {
+            ...pullRequest,
+            commits: {
+              nodes: [
+                {
+                  commit: {
+                    ...commit,
+                    statusCheckRollup: { contexts: { pageInfo: { hasNextPage: false }, nodes } },
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      },
+    },
+  };
+}
+
+function pullRequestChecksOf(value: unknown) {
+  return normalizeGitHubPullRequestPage(value).repository?.pullRequests.nodes[0].statusCheckRollup;
+}
+
 describe("normalizeGitHubPullRequestPage", () => {
   it("keeps the provider page and cursor shape", () => {
     expect(normalizeGitHubPullRequestPage(providerPage())).toEqual({
@@ -131,11 +163,10 @@ describe("normalizeGitHubPullRequestPage", () => {
           headCommitTitle: "Keep the workspace model explicit",
           headCommitCommittedAt: "2026-07-21T09:30:00Z",
           headCommitUrl: "https://github.com/samebase/samebase/commit/main123",
-          statusCheckRollup: expect.objectContaining({
-            contexts: expect.objectContaining({
-              nodes: [expect.objectContaining({ name: "main checks (24.x)" })],
-            }),
-          }),
+          statusCheckRollup: {
+            complete: true,
+            checks: [expect.objectContaining({ name: "main checks (24.x)" })],
+          },
         },
         pullRequests: {
           totalCount: 1,
@@ -147,9 +178,13 @@ describe("normalizeGitHubPullRequestPage", () => {
               headRefName: "feature/provider-truth",
               headRefOid: "abc123",
               labels: { nodes: [{ name: "product", color: "1a7f37" }] },
-              statusCheckRollup: expect.objectContaining({
-                contexts: expect.any(Object),
-              }),
+              statusCheckRollup: {
+                complete: true,
+                checks: [
+                  expect.objectContaining({ name: "checks (24.x)" }),
+                  expect.objectContaining({ context: "Cloudflare Workers" }),
+                ],
+              },
             }),
           ],
         },
@@ -157,44 +192,128 @@ describe("normalizeGitHubPullRequestPage", () => {
     });
   });
 
-  it("normalizes future GitHub check enums without rejecting the page", () => {
-    const value = providerPage();
-    const rollup = value.repository.pullRequests.nodes[0].commits.nodes[0].commit.statusCheckRollup;
-    rollup.contexts.totalCount = 2;
-    rollup.contexts.statusContextCount = 1;
-    rollup.contexts.checkRunCountsByState = [{ state: "FUTURE_CHECK_RUN_STATE", count: 1 }];
-    rollup.contexts.statusContextCountsByState = [
-      { state: "FUTURE_STATUS_CONTEXT_STATE", count: 1 },
-    ];
+  it("keeps the newest run of each check, as GitHub, gh, and T3 Code count them", () => {
+    // Runs of PR 1915 in samebase/samebase, read on 2026-11-06. The title edit after the PR opened
+    // started a second `pr build label` run, which cancelled the first one. GitHub reported the
+    // commit as SUCCESS, and the dashboard showed 1 failed check.
+    const run = (args: {
+      workflow: string;
+      name: string;
+      conclusion: string;
+      startedAt: string;
+      job: number;
+    }) => ({
+      __typename: "CheckRun",
+      name: args.name,
+      status: "COMPLETED",
+      conclusion: args.conclusion,
+      detailsUrl: `https://github.com/samebase/samebase/actions/runs/1/job/${args.job}`,
+      title: null,
+      startedAt: args.startedAt,
+      checkSuite: { workflowRun: { workflow: { name: args.workflow } } },
+    });
+    const rollup = pullRequestChecksOf(
+      providerPageWithChecks([
+        run({
+          workflow: "PR title",
+          name: "pr build label",
+          conclusion: "CANCELLED",
+          startedAt: "2026-11-06T13:56:07Z",
+          job: 127931488253,
+        }),
+        run({
+          workflow: "Alchemy",
+          name: "Destroy the preview",
+          conclusion: "SKIPPED",
+          startedAt: "2026-11-06T13:56:07Z",
+          job: 127931488254,
+        }),
+        run({
+          workflow: "PR title",
+          name: "pr build label",
+          conclusion: "SUCCESS",
+          startedAt: "2026-11-06T13:56:11Z",
+          job: 127931499461,
+        }),
+        run({
+          workflow: "Alchemy",
+          name: "Deploy the preview",
+          conclusion: "SUCCESS",
+          startedAt: "2026-11-06T13:56:34Z",
+          job: 127931499462,
+        }),
+        run({
+          workflow: "Alchemy",
+          name: "Sidebars example / Destroy the preview",
+          conclusion: "SKIPPED",
+          startedAt: "2026-11-06T13:56:07Z",
+          job: 127931499463,
+        }),
+        run({
+          workflow: "Alchemy",
+          name: "Destroy the preview",
+          conclusion: "SUCCESS",
+          startedAt: "2026-11-06T14:01:49Z",
+          job: 127931499464,
+        }),
+      ]),
+    );
+    expect(
+      rollup?.checks.map((check) =>
+        check.kind === "check_run" ? [check.name, check.conclusion] : [check.context, check.state],
+      ),
+    ).toEqual([
+      ["pr build label", "SUCCESS"],
+      ["Destroy the preview", "SUCCESS"],
+      ["Deploy the preview", "SUCCESS"],
+      ["Sidebars example / Destroy the preview", "SKIPPED"],
+    ]);
+    expect(summarizeRepositoryChecks(rollup ?? null)).toMatchObject({
+      state: "success",
+      totalCount: 4,
+      failureCount: 0,
+    });
+  });
+
+  it("keeps same-named checks of two workflows apart and names their workflows", () => {
+    const nodes =
+      providerPage().repository.pullRequests.nodes[0].commits.nodes[0].commit.statusCheckRollup
+        .contexts.nodes;
+    const rollup = pullRequestChecksOf(
+      providerPageWithChecks([
+        ...nodes,
+        {
+          ...nodes[0],
+          conclusion: "FAILURE",
+          checkSuite: { workflowRun: { workflow: { name: "Release" } } },
+        },
+      ]),
+    );
 
     expect(
-      normalizeGitHubPullRequestPage(value).repository?.pullRequests.nodes[0].statusCheckRollup,
-    ).toEqual({
-      contexts: {
-        totalCount: 2,
-        checkRunCount: 1,
-        statusContextCount: 1,
-        checkRunCountsByState: [{ state: "UNKNOWN", count: 1 }],
-        statusContextCountsByState: [{ state: "UNKNOWN", count: 1 }],
-        nodes: [
-          {
-            kind: "check_run",
-            name: "checks (24.x)",
-            status: "COMPLETED",
-            conclusion: "SUCCESS",
-            detailsUrl: "https://github.com/samebase/samebase/actions/runs/1/job/1",
-            title: null,
-          },
-          {
-            kind: "status_context",
-            context: "Cloudflare Workers",
-            state: "SUCCESS",
-            targetUrl: "https://dash.cloudflare.com/builds/1",
-            description: "Build succeeded",
-          },
-        ],
-      },
-    });
+      rollup?.checks.map((check) => (check.kind === "check_run" ? check.name : check.context)),
+    ).toEqual(["CI / checks (24.x)", "Cloudflare Workers", "Release / checks (24.x)"]);
+  });
+
+  it("keeps a finished run over a newer run that has not started", () => {
+    const nodes =
+      providerPage().repository.pullRequests.nodes[0].commits.nodes[0].commit.statusCheckRollup
+        .contexts.nodes;
+    const rollup = pullRequestChecksOf(
+      providerPageWithChecks([
+        ...nodes,
+        { ...nodes[0], status: "QUEUED", conclusion: null, startedAt: null },
+      ]),
+    );
+
+    expect(rollup?.checks[0]).toMatchObject({ name: "checks (24.x)", conclusion: "SUCCESS" });
+  });
+
+  it("says when GitHub has more check runs than the read lists", () => {
+    const value = providerPage();
+    value.repository.pullRequests.nodes[0].commits.nodes[0].commit.statusCheckRollup.contexts.pageInfo.hasNextPage = true;
+
+    expect(pullRequestChecksOf(value)?.complete).toBe(false);
   });
 
   it("normalizes individual check states that GitHub adds in the future", () => {
@@ -208,7 +327,7 @@ describe("normalizeGitHubPullRequestPage", () => {
 
     expect(
       normalizeGitHubPullRequestPage(value).repository?.pullRequests.nodes[0].statusCheckRollup
-        ?.contexts.nodes,
+        ?.checks,
     ).toEqual([
       expect.objectContaining({
         kind: "check_run",
@@ -241,16 +360,6 @@ describe("normalizeGitHubPullRequestPage", () => {
     );
   });
 
-  it("rejects inconsistent grouped check counts at the provider boundary", () => {
-    const value = providerPage();
-    value.repository.pullRequests.nodes[0].commits.nodes[0].commit.statusCheckRollup.contexts.checkRunCountsByState =
-      [];
-
-    expect(() => normalizeGitHubPullRequestPage(value)).toThrow(
-      "GitHub returned inconsistent check counts.",
-    );
-  });
-
   it("rejects an incomplete label page at the provider boundary", () => {
     const value = providerPage();
     value.repository.pullRequests.nodes[0].labels.totalCount = 2;
@@ -270,7 +379,7 @@ describe("normalizeGitHubRepositorySidebarSummaries", () => {
     defaultBranch: "main",
   };
 
-  it("keeps main check counts and the open pull request total", () => {
+  it("keeps the main checks and the open pull request total", () => {
     expect(
       normalizeGitHubRepositorySidebarSummaries(
         {
@@ -280,15 +389,7 @@ describe("normalizeGitHubRepositorySidebarSummaries", () => {
               name: "main",
               target: {
                 __typename: "Commit",
-                statusCheckRollup: {
-                  contexts: {
-                    totalCount: 2,
-                    checkRunCount: 1,
-                    statusContextCount: 1,
-                    checkRunCountsByState: [{ state: "SUCCESS", count: 1 }],
-                    statusContextCountsByState: [{ state: "SUCCESS", count: 1 }],
-                  },
-                },
+                statusCheckRollup: providerPage().repository.defaultBranch.target.statusCheckRollup,
               },
             },
             pullRequests: { totalCount: 7 },
@@ -302,13 +403,8 @@ describe("normalizeGitHubRepositorySidebarSummaries", () => {
         repository: {
           openPullRequestCount: 7,
           statusCheckRollup: {
-            contexts: {
-              totalCount: 2,
-              checkRunCount: 1,
-              statusContextCount: 1,
-              checkRunCountsByState: [{ state: "SUCCESS", count: 1 }],
-              statusContextCountsByState: [{ state: "SUCCESS", count: 1 }],
-            },
+            complete: true,
+            checks: [expect.objectContaining({ name: "main checks (24.x)" })],
           },
         },
       },

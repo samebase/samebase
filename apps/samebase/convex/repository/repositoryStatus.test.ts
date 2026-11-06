@@ -22,31 +22,21 @@ const repository: RepositoryStatusRepository = {
   providerPlan: null,
 };
 
-/** A rollup as GitHub returns it: aggregate counts of every check, and the first 100 nodes. */
+/** The newest run of each check, as the GitHub read returns them. */
 function checkRollup(
   checks: Array<{ name: string; conclusion: "SUCCESS" | "FAILURE" | "UNKNOWN" | null }>,
+  complete = true,
 ): RepositoryStatusCheckRollup {
-  const countsByState = new Map<"SUCCESS" | "FAILURE" | "UNKNOWN" | "IN_PROGRESS", number>();
-  for (const check of checks) {
-    const state = check.conclusion ?? "IN_PROGRESS";
-    countsByState.set(state, (countsByState.get(state) ?? 0) + 1);
-  }
   return {
-    contexts: {
-      totalCount: checks.length,
-      checkRunCount: checks.length,
-      statusContextCount: 0,
-      checkRunCountsByState: [...countsByState].map(([state, count]) => ({ state, count })),
-      statusContextCountsByState: [],
-      nodes: checks.slice(0, 100).map((check) => ({
-        kind: "check_run" as const,
-        name: check.name,
-        status: check.conclusion === null ? ("IN_PROGRESS" as const) : ("COMPLETED" as const),
-        conclusion: check.conclusion,
-        detailsUrl: `https://github.com/samebase/chess-merge/actions/runs/18234567890/job/51928374650`,
-        title: null,
-      })),
-    },
+    complete,
+    checks: checks.map((check) => ({
+      kind: "check_run" as const,
+      name: check.name,
+      status: check.conclusion === null ? ("IN_PROGRESS" as const) : ("COMPLETED" as const),
+      conclusion: check.conclusion,
+      detailsUrl: `https://github.com/samebase/chess-merge/actions/runs/18234567890/job/51928374650`,
+      title: null,
+    })),
   };
 }
 
@@ -586,18 +576,15 @@ describe("projectRepositoryStatusForMcp", () => {
     }
   });
 
-  it("counts every check from GitHub's aggregate counts, beyond the 100 listed checks", () => {
-    // 102 checks: GitHub lists the first 100, which hold one unknown check; a failure and a
-    // pending check come after them.
-    const checks = checkRollup([
-      ...Array.from({ length: 99 }, (_, index) => ({
-        name: `unit ${index + 1}`,
-        conclusion: "SUCCESS" as const,
-      })),
-      { name: "license scan", conclusion: "UNKNOWN" },
-      { name: "deploy preview", conclusion: "FAILURE" },
-      { name: "e2e", conclusion: null },
-    ]);
+  it("says that failed names can miss a check when GitHub has more than 100 runs", () => {
+    const checks = checkRollup(
+      [
+        { name: "license scan", conclusion: "UNKNOWN" },
+        { name: "deploy preview", conclusion: "FAILURE" },
+        { name: "e2e", conclusion: null },
+      ],
+      false,
+    );
     const mcpResult = projectRepositoryStatusForMcp({
       repository,
       status: {
@@ -615,11 +602,11 @@ describe("projectRepositoryStatusForMcp", () => {
     });
 
     expect(mcpResult.defaultBranch?.checks).toEqual({
-      total: 102,
+      total: 3,
       failed: 1,
       pending: 1,
       unknown: 1,
-      failedNames: [],
+      failedNames: ["deploy preview"],
       failedNamesComplete: false,
     });
   });

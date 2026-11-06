@@ -19,17 +19,13 @@ import {
   GITHUB_CHECK_STATUSES,
   vRepositoryPullRequestPage,
   vRepositorySidebarSummary,
+  type RepositoryCheck,
   type RepositoryPullRequestPage,
   type RepositorySidebarSummary,
-  type RepositoryStatusCheckCounts,
   type RepositoryStatusCheckRollup,
 } from "./repository/pullRequestModel";
 import { isLiveConnectedRepository } from "./repository/state";
-import {
-  GITHUB_CHECK_RUN_STATES,
-  GITHUB_STATUS_STATES,
-  UNKNOWN_GITHUB_STATE,
-} from "../shared/repositoryChecks";
+import { GITHUB_STATUS_STATES, UNKNOWN_GITHUB_STATE } from "../shared/repositoryChecks";
 
 const { array, id, number, object, string, union } = v;
 const REPOSITORY_SIDEBAR_SUMMARY_BATCH_SIZE = 20;
@@ -55,7 +51,6 @@ function providerEnumWithUnknown<const T extends readonly [string, ...string[]]>
   });
 }
 
-const providerCheckRunStateSchema = providerEnumWithUnknown(GITHUB_CHECK_RUN_STATES);
 const providerStatusStateSchema = providerEnumWithUnknown(GITHUB_STATUS_STATES);
 const providerCheckStatusSchema = providerEnumWithUnknown(GITHUB_CHECK_STATUSES);
 const providerCheckConclusionSchema = providerEnumWithUnknown(GITHUB_CHECK_CONCLUSIONS);
@@ -67,6 +62,12 @@ const providerCheckContextSchema = z.discriminatedUnion("__typename", [
     conclusion: providerCheckConclusionSchema.nullable(),
     detailsUrl: z.url().nullable(),
     title: z.string().nullable(),
+    // Null while the run is queued.
+    startedAt: z.iso.datetime().nullable(),
+    checkSuite: z.object({
+      // Null for checks that GitHub Actions does not run, such as a code review app.
+      workflowRun: z.object({ workflow: z.object({ name: z.string() }) }).nullable(),
+    }),
   }),
   z.object({
     __typename: z.literal("StatusContext"),
@@ -74,33 +75,13 @@ const providerCheckContextSchema = z.discriminatedUnion("__typename", [
     state: providerStatusStateSchema,
     targetUrl: z.url().nullable(),
     description: z.string().nullable(),
+    createdAt: z.iso.datetime(),
   }),
 ]);
-const providerStatusCheckCountsSchema = z.object({
-  totalCount: countSchema,
-  checkRunCount: countSchema,
-  statusContextCount: countSchema,
-  checkRunCountsByState: z.array(
-    z.object({
-      state: providerCheckRunStateSchema,
-      count: countSchema,
-    }),
-  ),
-  statusContextCountsByState: z.array(
-    z.object({
-      state: providerStatusStateSchema,
-      count: countSchema,
-    }),
-  ),
-});
-const statusCheckCountsSchema = z
-  .object({
-    contexts: providerStatusCheckCountsSchema,
-  })
-  .nullable();
 const statusCheckRollupSchema = z
   .object({
-    contexts: providerStatusCheckCountsSchema.extend({
+    contexts: z.object({
+      pageInfo: z.object({ hasNextPage: z.boolean() }),
       nodes: z.array(providerCheckContextSchema),
     }),
   })
@@ -178,6 +159,34 @@ const providerPageSchema = z.object({
     .nullable(),
 });
 
+// The start time and workflow name pick the newest run of each check in normalizeStatusCheckRollup.
+const STATUS_CHECK_ROLLUP_FRAGMENT = `
+  fragment StatusCheckRollupFields on StatusCheckRollup {
+    contexts(first: 100) {
+      pageInfo { hasNextPage }
+      nodes {
+        __typename
+        ... on CheckRun {
+          name
+          status
+          conclusion
+          detailsUrl
+          title
+          startedAt
+          checkSuite { workflowRun { workflow { name } } }
+        }
+        ... on StatusContext {
+          context
+          state
+          targetUrl
+          description
+          createdAt
+        }
+      }
+    }
+  }
+`;
+
 const REPOSITORY_PULL_REQUEST_PAGE_QUERY = `
   query RepositoryPullRequestPage(
     $owner: String!
@@ -240,31 +249,7 @@ const REPOSITORY_PULL_REQUEST_PAGE_QUERY = `
     }
   }
 
-  fragment StatusCheckRollupFields on StatusCheckRollup {
-    contexts(first: 100) {
-      totalCount
-      checkRunCount
-      statusContextCount
-      checkRunCountsByState { state count }
-      statusContextCountsByState { state count }
-      nodes {
-        __typename
-        ... on CheckRun {
-          name
-          status
-          conclusion
-          detailsUrl
-          title
-        }
-        ... on StatusContext {
-          context
-          state
-          targetUrl
-          description
-        }
-      }
-    }
-  }
+  ${STATUS_CHECK_ROLLUP_FRAGMENT}
 `;
 
 const providerSidebarRepositorySchema = z
@@ -275,7 +260,7 @@ const providerSidebarRepositorySchema = z
         name: z.string().min(1),
         target: z.object({
           __typename: z.literal("Commit"),
-          statusCheckRollup: statusCheckCountsSchema,
+          statusCheckRollup: statusCheckRollupSchema,
         }),
       })
       .nullable(),
@@ -299,7 +284,6 @@ const providerMissingSidebarRepositoriesErrorSchema = z.object({
   data: z.unknown(),
 });
 
-type ProviderStatusCheckCounts = z.infer<typeof statusCheckCountsSchema>;
 type ProviderStatusCheckRollup = z.infer<typeof statusCheckRollupSchema>;
 
 function buildRepositorySidebarSummariesQuery(
@@ -322,15 +306,7 @@ function buildRepositorySidebarSummariesQuery(
             target {
               __typename
               ... on Commit {
-                statusCheckRollup {
-                  contexts(first: 1) {
-                    totalCount
-                    checkRunCount
-                    statusContextCount
-                    checkRunCountsByState { state count }
-                    statusContextCountsByState { state count }
-                  }
-                }
+                statusCheckRollup { ...StatusCheckRollupFields }
               }
             }
           }
@@ -348,6 +324,8 @@ function buildRepositorySidebarSummariesQuery(
     ) {
       ${repositoryFields}
     }
+
+    ${STATUS_CHECK_ROLLUP_FRAGMENT}
   `;
 }
 
@@ -385,69 +363,80 @@ export function repositorySidebarSummaryBatches(
   return batches;
 }
 
-function normalizeStatusCheckCounts(
-  rollup: NonNullable<ProviderStatusCheckCounts>,
-): NonNullable<RepositoryStatusCheckCounts> {
-  const checkRunCount = rollup.contexts.checkRunCountsByState.reduce(
-    (total, count) => total + count.count,
-    0,
-  );
-  const statusContextCount = rollup.contexts.statusContextCountsByState.reduce(
-    (total, count) => total + count.count,
-    0,
-  );
-  if (
-    checkRunCount !== rollup.contexts.checkRunCount ||
-    statusContextCount !== rollup.contexts.statusContextCount ||
-    checkRunCount + statusContextCount !== rollup.contexts.totalCount
-  ) {
-    throw new Error("GitHub returned inconsistent check counts.");
-  }
-  return {
-    contexts: {
-      totalCount: rollup.contexts.totalCount,
-      checkRunCount: rollup.contexts.checkRunCount,
-      statusContextCount: rollup.contexts.statusContextCount,
-      checkRunCountsByState: rollup.contexts.checkRunCountsByState,
-      statusContextCountsByState: rollup.contexts.statusContextCountsByState,
-    },
-  };
-}
-
+/**
+Keeps the newest run of each check. GitHub lists every run on the commit, also the runs that a newer
+run of the same check replaced, such as a run cancelled when the PR title changed. This is the rule
+of `gh pr checks` (eliminateDuplicates in cli/cli pkg/cmd/pr/checks/aggregate.go) and of T3 Code
+(dedupeChecks in pingdotgg/t3code): a check is its workflow name plus its name, because two workflows
+can have jobs with the same name, and a run that has not started counts as the oldest. When two
+remaining checks share a name, the workflow name goes in front, as T3 Code shows them.
+*/
 function normalizeStatusCheckRollup(
   rollup: ProviderStatusCheckRollup,
 ): RepositoryStatusCheckRollup {
   if (rollup === null) {
     return null;
   }
-  const counts = normalizeStatusCheckCounts(rollup);
-  return {
-    contexts: {
-      totalCount: counts.contexts.totalCount,
-      checkRunCount: counts.contexts.checkRunCount,
-      statusContextCount: counts.contexts.statusContextCount,
-      checkRunCountsByState: counts.contexts.checkRunCountsByState,
-      statusContextCountsByState: counts.contexts.statusContextCountsByState,
-      nodes: rollup.contexts.nodes.map((context) => {
-        if (context.__typename === "CheckRun") {
-          return {
-            kind: "check_run" as const,
-            name: context.name,
-            status: context.status,
-            conclusion: context.conclusion,
-            detailsUrl: context.detailsUrl,
-            title: context.title,
+  const newestByCheck = new Map<
+    string,
+    { check: RepositoryCheck; workflowName: string | null; startedAt: number }
+  >();
+  for (const context of rollup.contexts.nodes) {
+    const entry =
+      context.__typename === "CheckRun"
+        ? {
+            key: JSON.stringify([
+              "check_run",
+              context.checkSuite.workflowRun?.workflow.name ?? "",
+              context.name,
+            ]),
+            workflowName: context.checkSuite.workflowRun?.workflow.name ?? null,
+            startedAt:
+              context.startedAt === null ? Number.NEGATIVE_INFINITY : Date.parse(context.startedAt),
+            check: {
+              kind: "check_run" as const,
+              name: context.name,
+              status: context.status,
+              conclusion: context.conclusion,
+              detailsUrl: context.detailsUrl,
+              title: context.title,
+            },
+          }
+        : {
+            key: JSON.stringify(["status_context", context.context]),
+            workflowName: null,
+            startedAt: Date.parse(context.createdAt),
+            check: {
+              kind: "status_context" as const,
+              context: context.context,
+              state: context.state,
+              targetUrl: context.targetUrl,
+              description: context.description,
+            },
           };
-        }
-        return {
-          kind: "status_context" as const,
-          context: context.context,
-          state: context.state,
-          targetUrl: context.targetUrl,
-          description: context.description,
-        };
-      }),
-    },
+    const kept = newestByCheck.get(entry.key);
+    if (kept === undefined || entry.startedAt >= kept.startedAt) {
+      newestByCheck.set(entry.key, entry);
+    }
+  }
+
+  const newest = [...newestByCheck.values()];
+  const checkRunCountByName = new Map<string, number>();
+  for (const { check } of newest) {
+    if (check.kind === "check_run") {
+      checkRunCountByName.set(check.name, (checkRunCountByName.get(check.name) ?? 0) + 1);
+    }
+  }
+  return {
+    checks: newest.map(({ check, workflowName }) =>
+      check.kind === "check_run" &&
+      workflowName !== null &&
+      workflowName.length > 0 &&
+      (checkRunCountByName.get(check.name) ?? 0) > 1
+        ? { ...check, name: `${workflowName} / ${check.name}` }
+        : check,
+    ),
+    complete: !rollup.contexts.pageInfo.hasNextPage,
   };
 }
 
@@ -541,10 +530,7 @@ export function normalizeGitHubRepositorySidebarSummaries(
       repositoryId: repository.repositoryId,
       repository: {
         openPullRequestCount: providerRepository.pullRequests.totalCount,
-        statusCheckRollup:
-          defaultBranch.target.statusCheckRollup === null
-            ? null
-            : normalizeStatusCheckCounts(defaultBranch.target.statusCheckRollup),
+        statusCheckRollup: normalizeStatusCheckRollup(defaultBranch.target.statusCheckRollup),
       },
     };
   });

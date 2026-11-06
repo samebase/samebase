@@ -76,7 +76,7 @@ export function RepositoryChecksPopover({
   statusCheckRollup: RepositoryStatusCheckRollup;
   triggerTitle: string;
 }) {
-  const contexts = [...(statusCheckRollup?.contexts.nodes ?? [])].sort(
+  const contexts = [...(statusCheckRollup?.checks ?? [])].sort(
     (left, right) =>
       checkStateOrder[classifyRepositoryCheck(left)] -
         checkStateOrder[classifyRepositoryCheck(right)] ||
@@ -156,9 +156,9 @@ export function RepositoryChecksPopover({
             })}
           </ul>
         )}
-        {contexts.length < checks.totalCount ? (
+        {statusCheckRollup && !statusCheckRollup.complete ? (
           <div className="border-t border-border/60 px-3 py-2 text-xs text-muted-foreground">
-            Showing {contexts.length} of {checks.totalCount}.{" "}
+            Showing checks from the first 100 runs.{" "}
             <a
               href={detailsUrl}
               target="_blank"
