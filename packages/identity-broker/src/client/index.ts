@@ -12,7 +12,7 @@ import * as oauth from "oauth4webapi";
 import type { ComponentApi } from "../component/_generated/component.js";
 import type { Connector } from "./connectors/types.js";
 import { finishUpstream, startUpstream, type UpstreamFinish } from "./connectors/upstream.js";
-import { cancelledPage, chooserPage, consentPage, errorPage } from "./html.js";
+import { cancelledPage, errorPage, signInPage, type Consent } from "./html.js";
 import {
   signAccessToken,
   signIdToken,
@@ -396,7 +396,7 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
     if (args.app.firstParty || connector === undefined) {
       return null;
     }
-    let deployment: Parameters<typeof consentPage>[0]["deployment"];
+    let deployment: Consent["deployment"];
     switch (client.deploymentType) {
       case "production":
         return null;
@@ -410,16 +410,24 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
         return client.deploymentType satisfies never;
     }
     const redirect = new URL(client.redirectUri);
-    return consentPage({
-      host: redirect.host,
-      loopback: LOOPBACK_HOSTS.has(redirect.hostname),
-      deployment,
-      repository: client.registeredBy.githubRepository,
-      connector: { label: connector.label, provider: connector.provider },
-      scopes: args.scopes,
-      continueHref: continueHref(args.requestId, connector),
-      cancelHref: `${path("/continue")}?request=${encodeURIComponent(args.requestId)}&deny=1`,
-      issuerHost: new URL(issuer).host,
+    return signInPage({
+      to: {
+        kind: "consent",
+        host: redirect.host,
+        loopback: LOOPBACK_HOSTS.has(redirect.hostname),
+        deployment,
+        repository: client.registeredBy.githubRepository,
+        scopes: args.scopes,
+        cancelHref: `${path("/continue")}?request=${encodeURIComponent(args.requestId)}&deny=1`,
+        issuerHost: new URL(issuer).host,
+      },
+      connectors: [
+        {
+          label: connector.label,
+          provider: connector.provider,
+          href: continueHref(args.requestId, connector),
+        },
+      ],
     });
   }
 
@@ -542,10 +550,9 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
       response.headers.append("Set-Cookie", setCookie);
       return response;
     }
-    const page = chooserPage({
-      appName: app.name,
+    const page = signInPage({
+      to: { kind: "app", name: app.name },
       connectors: openConnectors.map((connector) => ({
-        name: connector.name,
         label: connector.label,
         provider: connector.provider,
         href: continueHref(requestId, connector),

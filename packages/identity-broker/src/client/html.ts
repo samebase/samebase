@@ -111,26 +111,13 @@ function hostMarkup(host: string) {
     .join("<wbr>");
 }
 
-/** The connector choice of a first-party app: the host's own apps need no consent. */
-export function chooserPage(args: {
-  appName: string;
-  connectors: Array<{ name: string; label: string; provider: string; href: string }>;
-}): Response {
-  return page(
-    `Sign in to ${args.appName}`,
-    `<h1>Sign in to ${escape(args.appName)}</h1>
-<div class="actions">${args.connectors.map(connectorButton).join("\n")}</div>`,
-  );
-}
-
 /**
- * The decision that a third-party app's preview or development client asks for before the user
- * goes to its connector. Its name is self-asserted (RFC 7591 section 5), so the page names what the
- * hub checked: the host that gets the sign-in, which served the repository's verification file or
- * is the user's own computer, and the GitHub repository that registered it. It has no link out of
- * the sign-in but Continue and Cancel; Cancel ends the sign-in on `cancelledPage`.
+ * What a third-party app's preview or development client adds to the sign-in page: its consent.
+ * Its name is self-asserted (RFC 7591 section 5), so the page names what the hub checked: the host
+ * that gets the sign-in, which served the repository's verification file or is the user's own
+ * computer, and the GitHub repository that registered it.
  */
-export function consentPage(args: {
+export type Consent = {
   /** The host of the client's return address, with its port. */
   host: string;
   /** A loopback return address: the sign-in ends on the user's own computer. */
@@ -138,33 +125,51 @@ export function consentPage(args: {
   deployment: { kind: "preview"; stage: string } | { kind: "development" };
   /** `owner/name` of the GitHub repository at registration. */
   repository: string;
-  connector: { label: string; provider: string };
   scopes: string[];
-  continueHref: string;
+  /** Ends the sign-in on `cancelledPage`. */
   cancelHref: string;
   /** The host of the issuer, which says that it reviewed nothing. */
   issuerHost: string;
+};
+
+/**
+ * The sign-in page: one "Continue with" button per connector. The host's own apps need no consent:
+ * the page names the app. A consent names the host, the deploy, and what the app gets, with
+ * Cancel, and has no other link out of the sign-in.
+ */
+export function signInPage(args: {
+  to: { kind: "app"; name: string } | ({ kind: "consent" } & Consent);
+  connectors: Array<{ label: string; provider: string; href: string }>;
 }): Response {
+  const buttons = args.connectors.map(connectorButton).join("\n");
+  const { to } = args;
+  if (to.kind === "app") {
+    return page(
+      `Sign in to ${to.name}`,
+      `<h1>Sign in to ${escape(to.name)}</h1>
+<div class="actions">${buttons}</div>`,
+    );
+  }
   let from: string;
-  switch (args.deployment.kind) {
+  switch (to.deployment.kind) {
     case "preview":
-      from = `Preview ${args.deployment.stage} of ${args.repository}`;
+      from = `Preview ${to.deployment.stage} of ${to.repository}`;
       break;
     case "development":
-      from = `Development server of ${args.repository}${args.loopback ? " on this computer" : ""}`;
+      from = `Development server of ${to.repository}${to.loopback ? " on this computer" : ""}`;
       break;
     default:
-      return args.deployment satisfies never;
+      return to.deployment satisfies never;
   }
   return page(
-    `Sign in to ${args.host}`,
-    `<h1>Sign in to<br>${hostMarkup(args.host)}</h1>
+    `Sign in to ${to.host}`,
+    `<h1>Sign in to<br>${hostMarkup(to.host)}</h1>
 <p class="sub">${escape(from)}</p>
 <div class="actions">
-${connectorButton({ ...args.connector, href: args.continueHref })}
-<a class="cancel" href="${escape(args.cancelHref)}">Cancel</a>
+${buttons}
+<a class="cancel" href="${escape(to.cancelHref)}">Cancel</a>
 </div>
-<p class="fine">${escape(released(args.scopes))} ${escape(args.issuerHost)} has not reviewed this app.</p>`,
+<p class="fine">${escape(released(to.scopes))} ${escape(to.issuerHost)} has not reviewed this app.</p>`,
   );
 }
 
