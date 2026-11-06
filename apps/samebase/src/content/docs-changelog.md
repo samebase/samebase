@@ -5,6 +5,12 @@ change. If a change needs action from you, the entry says so.
 
 ## 2026-11-06
 
+- **v2277: A person's sign-in id is their Google id.** The identity hub gives each app the same id
+  for a person, `google:` and Google's own id for the account, in place of a different id in each
+  app. The id now stays the same if your app moves to another hub. Each person who signs in to your
+  app once more gets the new id once: an app made from
+  [samebase/base](https://github.com/samebase/base) makes them a new account then. No outside app
+  had sign-ins yet, so no action is needed.
 - **v2275: Google sign-in on your laptop, and one secret.** In an app made from
   [samebase/base](https://github.com/samebase/base), `pnpm run hub --stage dev-<your name>` gives
   your development deployment Sign in with Google, after one deploy to main. The repository needs
