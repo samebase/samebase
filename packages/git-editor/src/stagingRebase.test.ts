@@ -1,3 +1,7 @@
+import { spawnSync } from "node:child_process";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import fc from "fast-check";
 import { describe, it, expect } from "vite-plus/test";
 import { rebaseStagedContent } from "./stagingRebase";
@@ -150,8 +154,8 @@ describe("rebaseStagedContent", () => {
   });
 
   it("returns a conflict when upstream made only some of the staged changes", () => {
-    // Both sides deleted "b"; only the staged side added "X". Patching in "X" alone once dropped
-    // the final newline from a clean result.
+    // Both sides deleted "b", and their other changes touch, as git merge-file also finds. A patch
+    // of only the staged-only change once applied here and dropped the final newline.
     const result = rebaseStagedContent({
       baseContent: "\nb\n\n\n",
       stagedContent: "\n\nX\n",
@@ -176,6 +180,32 @@ const inserts = (prefix: string) =>
   fc
     .array(fc.nat(), { maxLength: 4 })
     .map((positions) => positions.map((at, i) => ({ at, line: `${prefix}${i}` })));
+/** Inserts, deletes, and replaces lines; new lines are unique tokens. */
+const edits = (prefix: string) =>
+  fc
+    .array(fc.record({ kind: fc.constantFrom("insert", "delete", "replace"), at: fc.nat() }), {
+      maxLength: 4,
+    })
+    .map((list) => list.map((edit, i) => ({ ...edit, line: `${prefix}${i}` })));
+const applyEdits = (
+  lines: string[],
+  list: Array<{ kind: "insert" | "delete" | "replace"; at: number; line: string }>,
+) =>
+  list.reduce((result, { kind, at, line }) => {
+    if (kind === "insert") {
+      const index = at % (result.length + 1);
+      return [...result.slice(0, index), line, ...result.slice(index)];
+    }
+    if (result.length === 0) {
+      return result;
+    }
+    const index = at % result.length;
+    return [
+      ...result.slice(0, index),
+      ...(kind === "replace" ? [line] : []),
+      ...result.slice(index + 1),
+    ];
+  }, lines);
 
 describe("rebaseStagedContent properties", () => {
   it("adds nothing when upstream already has the staged edit", () => {
@@ -213,5 +243,47 @@ describe("rebaseStagedContent properties", () => {
       }),
       { numRuns: 2_000 },
     );
+  });
+
+  it("gives git's result whenever git merge-file merges cleanly", () => {
+    const dir = mkdtempSync(path.join(tmpdir(), "staging-rebase-"));
+    const gitMerge = (base: string, ours: string, theirs: string): string | null => {
+      writeFileSync(path.join(dir, "base"), base);
+      writeFileSync(path.join(dir, "ours"), ours);
+      writeFileSync(path.join(dir, "theirs"), theirs);
+      const merged = spawnSync("git", ["merge-file", "-p", "ours", "base", "theirs"], {
+        cwd: dir,
+        encoding: "utf8",
+      });
+      // Exit status 0 is a clean merge; a positive status is the number of conflicts.
+      return merged.status === 0 ? merged.stdout : null;
+    };
+    try {
+      fc.assert(
+        fc.property(
+          baseLines,
+          edits("user"),
+          edits("teammate"),
+          fc.boolean(),
+          (base, user, teammate, teammateStartsFromUser) => {
+            const staged = applyEdits(base, user);
+            const upstream = applyEdits(teammateStartsFromUser ? staged : base, teammate);
+            const git = gitMerge(text(base), text(staged), text(upstream));
+            fc.pre(git !== null);
+
+            expect(
+              rebaseStagedContent({
+                baseContent: text(base),
+                stagedContent: text(staged),
+                upstreamContent: text(upstream),
+              }),
+            ).toEqual({ content: git, hasConflict: false });
+          },
+        ),
+        { numRuns: 300 },
+      );
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });
