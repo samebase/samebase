@@ -5,6 +5,10 @@ change. If a change needs action from you, the entry says so.
 
 ## 2026-11-06
 
+- **v2278: Connect GitHub or Cloudflare once more if Samebase asks.** samebase.com now gets its
+  sign-in from the identity hub the same way every app does. A GitHub authorization or a Cloudflare
+  connection made through the hub before this stops working once: when Samebase asks, connect it
+  again. Convex connections and your account stay as they are.
 - **v2277: A person's sign-in id is their Google id.** The identity hub gives each app the same id
   for a person, `google:` and Google's own id for the account, in place of a different id in each
   app. The id now stays the same if your app moves to another hub. Each person who signs in to your
