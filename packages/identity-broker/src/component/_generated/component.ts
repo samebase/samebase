@@ -377,7 +377,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         "mutation",
         "internal",
         { clientId: string },
-        null,
+        { changed: boolean },
         Name
       >;
       withApp: FunctionReference<
@@ -607,6 +607,40 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           day: { atLeast: boolean; count: number };
           week: { atLeast: boolean; count: number };
         },
+        Name
+      >;
+      repositoryClients: FunctionReference<
+        "query",
+        "internal",
+        { githubRepositoryDatabaseIds: Array<string> },
+        Array<{
+          appId: string;
+          clientId: string;
+          clientName: string;
+          createdAt: number;
+          deploymentType: "production" | "development" | "preview";
+          lastSignInAt: number | null;
+          redirectUri: string;
+          registeredBy:
+            | {
+                app: string;
+                githubActorLogin: string;
+                githubOwnerId: string;
+                githubRepository: string;
+                githubRepositoryDatabaseId: string;
+                kind: "github";
+              }
+            | {
+                app: string;
+                githubOwnerId: string;
+                githubRepository: string;
+                githubRepositoryDatabaseId: string;
+                issuedAt: number;
+                kind: "initial_access_token";
+              };
+          removeAt: number | null;
+          renewedAt: number;
+        }>,
         Name
       >;
       setBlock: FunctionReference<

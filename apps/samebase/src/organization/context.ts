@@ -30,6 +30,9 @@ function readOrganizationSection(segments: string[]): OrganizationRouteSection |
   if (segments.length === 3 && segments[2] === "providers") {
     return "providers";
   }
+  if (segments.length === 3 && segments[2] === "hub-clients") {
+    return "hub-clients";
+  }
   if (segments.length === 3 && segments[2] === "new-app") {
     return "new-app";
   }

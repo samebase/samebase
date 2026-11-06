@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { api } from "../_generated/api";
-import { makeConvexTest } from "../test.setup";
+import { insertTestOrganizationBillingAccount, makeConvexTest } from "../test.setup";
 
 type ConvexTest = ReturnType<typeof makeConvexTest>;
 
@@ -131,9 +131,15 @@ function stubHub(answer?: () => Response) {
         case "/moderation/blocks":
           return jsonResponse(request.method === "GET" ? blockList : { changed: true });
         case "/moderation/clients":
-          return jsonResponse(clientList);
+          return jsonResponse(
+            new URL(request.url).searchParams.has("repository")
+              ? { clients: clientList.clients }
+              : clientList,
+          );
         default:
-          return new Response("Not Found", { status: 404 });
+          return request.method === "DELETE" && pathname.startsWith("/moderation/clients/")
+            ? jsonResponse({ changed: true })
+            : new Response("Not Found", { status: 404 });
       }
     }),
   );
@@ -278,5 +284,179 @@ describe("hub client moderation", () => {
     await expect(admin.action(api.hubClients.moderation.readOverview, {})).rejects.toThrow(
       "The identity hub answered",
     );
+  });
+});
+
+/**
+A member of an organization with two connected repositories, GitHub ids 74 and 81, and one that is
+not connected yet, and an outsider.
+*/
+async function organizationWithMember(t: ConvexTest) {
+  const ids = await t.run(async (ctx) => {
+    const user = async (email: string) =>
+      await ctx.db.insert("users", {
+        state: "active",
+        email,
+        isApproved: true,
+        termsVersion: "2026-08-12",
+        termsAcceptedAt: 1,
+      });
+    const memberId = await user("ada@example.test");
+    const outsiderId = await user("eve@example.test");
+    const organizationId = await ctx.db.insert("organizations", {
+      githubInstallationId: "installation-1",
+      githubOwnerId: "65",
+      githubOwnerLogin: "octo-org",
+      githubOwnerLoginNormalized: "octo-org",
+      githubOwnerType: "organization",
+    });
+    await ctx.db.insert("organizationMemberships", {
+      organizationId,
+      userId: memberId,
+      role: "owner",
+    });
+    await insertTestOrganizationBillingAccount(ctx.db, organizationId);
+    const repository = async (connected: { githubId: string; name: string } | null) => {
+      const repositoryId = await ctx.db.insert("repositories", {
+        organizationId,
+        convexTeamId: "convex-team",
+        cloudflareAccountId: "cloudflare-account",
+        deletion: { state: "not_deleting" },
+        createdAt: 1,
+        state: "not_connected",
+      });
+      if (connected === null) {
+        return;
+      }
+      const runId = await ctx.db.insert("workflow_repositoryProvisioning_runs", {
+        organizationId,
+        userId: memberId,
+        repositoryId,
+        githubRepositoryFullName: `octo-org/${connected.name}`,
+        trigger: "create",
+        state: "succeeded",
+        currentStep: "finish",
+        createdAt: 1,
+        updatedAt: 2,
+        completedAt: 3,
+      });
+      await ctx.db.replace(repositoryId, {
+        organizationId,
+        convexTeamId: "convex-team",
+        cloudflareAccountId: "cloudflare-account",
+        deletion: { state: "not_deleting" },
+        createdAt: 1,
+        state: "connected",
+        githubMode: "create_repository",
+        runId,
+        githubRepositoryDatabaseId: connected.githubId,
+        githubRepositoryName: connected.name,
+        defaultBranch: "main",
+        visibility: "private",
+        connectedAt: 4,
+      });
+    };
+    await repository({ githubId: "74", name: "octo-repo" });
+    await repository({ githubId: "81", name: "other-repo" });
+    await repository(null);
+    return { memberId, outsiderId, organizationId };
+  });
+  const viewer = (userId: string) =>
+    t.withIdentity({ subject: userId, tokenIdentifier: `test:${userId}` });
+  return {
+    member: viewer(ids.memberId),
+    outsider: viewer(ids.outsiderId),
+    organizationId: ids.organizationId,
+  };
+}
+
+const ORGANIZATION_LIST = `${HUB_ISSUER}/moderation/clients?repository=74&repository=81`;
+
+describe("an organization's hub clients", () => {
+  it("lists the clients of its connected repositories for a member, in one request", async () => {
+    const t = makeConvexTest();
+    turnModerationOn();
+    const requests = stubHub();
+    const { member, organizationId } = await organizationWithMember(t);
+
+    const result = await member.action(api.hubClients.moderation.readClientsOfOrganization, {
+      organizationId,
+    });
+
+    expect(result).toEqual({
+      status: "on",
+      clients: [...clientList.clients].sort(
+        (a, b) => b.createdAt - a.createdAt || a.clientId.localeCompare(b.clientId),
+      ),
+    });
+    expect(requests.map((request) => `${request.method} ${request.url}`)).toEqual([
+      `GET ${ORGANIZATION_LIST}`,
+    ]);
+  });
+
+  it("refuses a user outside the organization, and calls no hub", async () => {
+    const t = makeConvexTest();
+    turnModerationOn();
+    const requests = stubHub();
+    const { outsider, organizationId } = await organizationWithMember(t);
+
+    await expect(
+      outsider.action(api.hubClients.moderation.readClientsOfOrganization, { organizationId }),
+    ).rejects.toThrow("Organization membership is required.");
+    await expect(
+      outsider.action(api.hubClients.moderation.deleteClientOfOrganization, {
+        organizationId,
+        clientId: "cl_test",
+      }),
+    ).rejects.toThrow("Organization membership is required.");
+    expect(requests).toEqual([]);
+  });
+
+  it("deletes a client of the organization's repositories", async () => {
+    const t = makeConvexTest();
+    turnModerationOn();
+    const requests = stubHub();
+    const { member, organizationId } = await organizationWithMember(t);
+
+    const result = await member.action(api.hubClients.moderation.deleteClientOfOrganization, {
+      organizationId,
+      clientId: "cl_test",
+    });
+
+    expect(result).toEqual({ status: "on", changed: true });
+    expect(requests.map((request) => `${request.method} ${request.url}`)).toEqual([
+      `GET ${ORGANIZATION_LIST}`,
+      `DELETE ${HUB_ISSUER}/moderation/clients/cl_test`,
+    ]);
+  });
+
+  it("deletes nothing for a client that is not in the organization's list", async () => {
+    const t = makeConvexTest();
+    turnModerationOn();
+    const requests = stubHub();
+    const { member, organizationId } = await organizationWithMember(t);
+
+    const result = await member.action(api.hubClients.moderation.deleteClientOfOrganization, {
+      organizationId,
+      clientId: "cl_of_another_organization",
+    });
+
+    expect(result).toEqual({ status: "on", changed: false });
+    expect(requests.map((request) => request.method)).toEqual(["GET"]);
+  });
+
+  it("says that moderation is off without the key, and calls no hub", async () => {
+    const t = makeConvexTest();
+    vi.stubEnv("HUB_ISSUER", HUB_ISSUER);
+    vi.stubEnv("HUB_MODERATION_KEY", " ");
+    const requests = stubHub();
+    const { member, organizationId } = await organizationWithMember(t);
+
+    expect(
+      await member.action(api.hubClients.moderation.readClientsOfOrganization, {
+        organizationId,
+      }),
+    ).toEqual({ status: "off" });
+    expect(requests).toEqual([]);
   });
 });

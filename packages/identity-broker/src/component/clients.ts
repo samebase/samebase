@@ -76,9 +76,13 @@ export const listByApp = query({
   },
 });
 
+/**
+ * Deletes a client and its provider grants, as the hub's administrator. The deployment that held it
+ * gets a new client at its next deploy. `changed` is false for a client that was already gone.
+ */
 export const remove = mutation({
   args: { clientId: string() },
-  returns: v.null(),
+  returns: object({ changed: v.boolean() }),
   handler: async (ctx, args) => {
     const client = await ctx.db
       .query("clients")
@@ -88,6 +92,6 @@ export const remove = mutation({
       await ctx.db.delete("clients", client._id);
     }
     await removeClientGrants(ctx, args.clientId);
-    return null;
+    return { changed: client !== null };
   },
 });

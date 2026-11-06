@@ -75,6 +75,8 @@ const ENDPOINTS = [
   ["GET", "/moderation/blocks"],
   ["POST", "/moderation/blocks"],
   ["GET", "/moderation/clients"],
+  ["GET", `/moderation/clients?repository=${REPOSITORY_ID}`],
+  ["DELETE", "/moderation/clients/cl_any"],
 ] as const;
 
 describe("the moderation key", () => {
@@ -406,5 +408,91 @@ describe("the clients", () => {
     expect(list.clients[0]?.clientId).toBe("cl_500");
     expect(list.clients.at(-1)?.clientId).toBe("cl_1");
     expect(list.limitReached).toBe(true);
+  });
+});
+
+describe("the clients of given repositories", () => {
+  async function repositoryClientIds(h: Harness, ...repositories: string[]) {
+    const query = repositories.map((repository) => `repository=${repository}`).join("&");
+    const list: { clients: { clientId: string }[] } = await (
+      await moderationRequest(h, `/moderation/clients?${query}`)
+    ).json();
+    return list.clients.map((client) => client.clientId);
+  }
+
+  it("lists only that repository's clients, newest first, of every app and stage", async () => {
+    vi.useFakeTimers({ now: 1_800_000_000_000, toFake: ["Date"] });
+    const h = await createHub();
+    const production = await createClient(h);
+    vi.setSystemTime(1_800_000_001_000);
+    const laptop = await createDevelopmentClient(h, production.initial_access_token ?? "");
+    vi.setSystemTime(1_800_000_002_000);
+    await createClient(h, { repository_id: "81", repository: "octo-org/other" });
+
+    expect(await repositoryClientIds(h, REPOSITORY_ID)).toEqual([
+      laptop.client_id,
+      production.client_id,
+    ]);
+    expect(await repositoryClientIds(h, "999")).toEqual([]);
+  });
+
+  it("lists the clients of several repositories in one request, newest first, each once", async () => {
+    vi.useFakeTimers({ now: 1_800_000_000_000, toFake: ["Date"] });
+    const h = await createHub();
+    const first = await createClient(h);
+    vi.setSystemTime(1_800_000_001_000);
+    const second = await createClient(h, { repository_id: "81", repository: "octo-org/other" });
+    vi.setSystemTime(1_800_000_002_000);
+    await createClient(h, { repository_id: "82", repository: "octo-org/third" });
+
+    expect(await repositoryClientIds(h, REPOSITORY_ID, "81", REPOSITORY_ID)).toEqual([
+      second.client_id,
+      first.client_id,
+    ]);
+  });
+
+  it.each(["", "0", "abc", "74x"])("refuses the repository %j", async (repository) => {
+    const h = await createHub();
+    const response = await moderationRequest(h, `/moderation/clients?repository=${repository}`);
+    expect(response.status).toBe(400);
+  });
+
+  it("refuses more than 100 repositories in one request", async () => {
+    const h = await createHub();
+    const query = Array.from({ length: 101 }, (_, index) => `repository=${index + 1}`).join("&");
+    const response = await moderationRequest(h, `/moderation/clients?${query}`);
+    expect(response.status).toBe(400);
+  });
+
+  it("deletes one client, which then neither signs in nor renews, and a second delete changes nothing", async () => {
+    const h = await createHub();
+    const client = await createClient(h);
+
+    const deleted = await moderationRequest(h, `/moderation/clients/${client.client_id}`, {
+      method: "DELETE",
+    });
+    expect(await deleted.json()).toEqual({ changed: true });
+    expect(await repositoryClientIds(h, REPOSITORY_ID)).toEqual([]);
+    expect(await readOwnRecord(h, client)).toBe(401);
+
+    const again = await moderationRequest(h, `/moderation/clients/${client.client_id}`, {
+      method: "DELETE",
+    });
+    expect(await again.json()).toEqual({ changed: false });
+  });
+
+  it("refuses a delete without exactly one client id, and deletes nothing", async () => {
+    const h = await createHub();
+    const client = await createClient(h);
+
+    for (const path of [
+      "/moderation/clients/not-a-client",
+      `/moderation/clients/cl_other/${client.client_id}`,
+      `/moderation/clients/${client.client_id}/`,
+    ]) {
+      const response = await moderationRequest(h, path, { method: "DELETE" });
+      expect(response.status).toBe(400);
+    }
+    expect(await repositoryClientIds(h, REPOSITORY_ID)).toEqual([client.client_id]);
   });
 });

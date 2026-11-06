@@ -23,6 +23,7 @@ import { rootQueries } from "@/routes/root.queries";
 import { DASHBOARD_ROUTE } from "@/lib/dashboardRoute";
 import {
   ORGANIZATION_CONNECT_REPO_ROUTE,
+  ORGANIZATION_HUB_CLIENTS_ROUTE,
   ORGANIZATION_MEMBERS_ROUTE,
   ORGANIZATION_NEW_APP_ROUTE,
   ORGANIZATION_PROVIDERS_ROUTE,
@@ -358,6 +359,14 @@ function OrganizationAppRightSidebarLinks({ organization }: { organization: View
         to={ORGANIZATION_PROVIDERS_ROUTE}
       >
         Providers
+      </Link>
+      <Link
+        {...APP_SIDEBAR_NAVIGATION_LINK_PROPS}
+        className={APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME}
+        params={params}
+        to={ORGANIZATION_HUB_CLIENTS_ROUTE}
+      >
+        Sign-in clients
       </Link>
       <Link
         {...APP_SIDEBAR_NAVIGATION_LINK_PROPS}

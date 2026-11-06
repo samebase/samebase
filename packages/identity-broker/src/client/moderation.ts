@@ -19,6 +19,8 @@ const { literal, object, string, union } = v;
 type Ctx = GenericActionCtx<GenericDataModel>;
 
 const MAX_REASON_LENGTH = 1_000;
+/** The repositories of one `GET /moderation/clients` request, such as those of one organization. */
+const MAX_REPOSITORIES_PER_REQUEST = 100;
 const MAX_EMAIL_LENGTH = 320;
 
 /** The body of `POST /moderation/blocks`. */
@@ -56,8 +58,10 @@ function readBlockChange(body: unknown) {
 export function moderationEndpoints(args: {
   component: ComponentApi;
   registration: RegistrationConfig;
+  path: (suffix: string) => string;
 }) {
-  const { component, registration } = args;
+  const { component, registration, path } = args;
+  const clientsPrefix = path("/moderation/clients/");
 
   /**
    * An endpoint that answers only a request with the moderation key, compared by hash, so the time it
@@ -82,10 +86,40 @@ export function moderationEndpoints(args: {
     reply(200, await ctx.runQuery(component.moderation.blockList, {})),
   );
 
-  /** Every client, newest first, up to the list's limit. */
-  const listClients = moderationEndpoint(async (ctx) =>
-    reply(200, await ctx.runQuery(component.moderation.clientList, {})),
-  );
+  /**
+   * Every client, newest first, up to the list's limit. With `?repository=<GitHub id>`, once for
+   * each of at most `MAX_REPOSITORIES_PER_REQUEST` repositories, every client of those repositories
+   * as `{ clients }`.
+   */
+  const listClients = moderationEndpoint(async (ctx, request) => {
+    const repositories = new URL(request.url).searchParams.getAll("repository");
+    if (repositories.length === 0) {
+      return reply(200, await ctx.runQuery(component.moderation.clientList, {}));
+    }
+    if (
+      repositories.length > MAX_REPOSITORIES_PER_REQUEST ||
+      !repositories.every((repository) => /^[1-9][0-9]*$/.test(repository))
+    ) {
+      return reply(400, { error: "invalid_request" });
+    }
+    const clients = await ctx.runQuery(component.moderation.repositoryClients, {
+      githubRepositoryDatabaseIds: [...new Set(repositories)],
+    });
+    return reply(200, { clients });
+  });
+
+  /**
+   * `DELETE /moderation/clients/<client id>`: deletes one client. The deployment that held it gets
+   * a new client at its next deploy. Answers `{ changed }`, false for a client already gone.
+   */
+  const deleteClient = moderationEndpoint(async (ctx, request) => {
+    // Exactly one segment after the prefix: `cl_A/cl_B` is a malformed path, not a delete of cl_B.
+    const clientId = new URL(request.url).pathname.slice(clientsPrefix.length);
+    if (!/^cl_[A-Za-z0-9_-]+$/.test(clientId)) {
+      return reply(400, { error: "invalid_request" });
+    }
+    return reply(200, await ctx.runMutation(component.clients.remove, { clientId }));
+  });
 
   /** Blocks or unblocks one repository or owner. Answers `{ changed }`. */
   const changeBlock = moderationEndpoint(async (ctx, request) => {
@@ -106,11 +140,12 @@ export function moderationEndpoints(args: {
   });
 
   return {
-    addRoutes(http: HttpRouter, path: (suffix: string) => string): void {
+    addRoutes(http: HttpRouter): void {
       http.route({ path: path("/moderation/counts"), method: "GET", handler: countRegistrations });
       http.route({ path: path("/moderation/blocks"), method: "GET", handler: listBlocks });
       http.route({ path: path("/moderation/blocks"), method: "POST", handler: changeBlock });
       http.route({ path: path("/moderation/clients"), method: "GET", handler: listClients });
+      http.route({ pathPrefix: clientsPrefix, method: "DELETE", handler: deleteClient });
     },
   };
 }

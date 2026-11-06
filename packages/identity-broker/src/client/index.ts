@@ -846,7 +846,7 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
           method: "POST",
           handler: hubClientsEndpoint({ component, issuer, registration }),
         });
-        moderationEndpoints({ component, registration }).addRoutes(http, path);
+        moderationEndpoints({ component, registration, path }).addRoutes(http);
       }
     },
 

@@ -7,10 +7,10 @@ import { createRoot } from "react-dom/client";
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { api } from "../../convex/_generated/api";
 import { AdminHubClientsPage } from "./AdminHubClientsPage";
-import type { AdminHubClientsRouteSearch } from "@/routeSearch/adminHubClients";
+import type { HubClientsRouteSearch } from "@/routeSearch/hubClients";
 
 const testState = vi.hoisted(() => {
-  const search: AdminHubClientsRouteSearch = {};
+  const search: HubClientsRouteSearch = {};
   return { readOverview: vi.fn(), changeBlock: vi.fn(), navigate: vi.fn(), search };
 });
 

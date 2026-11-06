@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.21.0
+
+- `GET /moderation/clients?repository=<GitHub id>`, with the parameter once per repository (at most
+  100), answers every client of those repositories, newest first, as `{ clients }`, and
+  `DELETE /moderation/clients/<client id>` deletes one client and its provider grants, as
+  `{ changed }`. Both take the moderation key, so a hub's console can show each developer the
+  clients of their own repositories.
+- `clients.remove` answers `{ changed }`, false for a client that was already gone.
+
 ## 0.20.0
 
 - `clients.app` and `clients.registeredBy` are required. Remove `tenants.disconnected` and
