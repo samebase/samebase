@@ -1,7 +1,7 @@
 import { defineIdentityBroker } from "@samebase/identity-broker";
 import { components } from "./_generated/api";
 import { env } from "./_generated/server";
-import { APPS_CONNECTOR, connectors } from "./connectors";
+import { connectors } from "./connectors";
 import { resources } from "./resources";
 
 /**
@@ -21,10 +21,6 @@ export const broker = defineIdentityBroker({
   keys: () => env.IDENTITY_BROKER_KEYS,
   connectors,
   resources,
-  // No `initialAccessToken`: `POST /hub-clients` creates every third-party client, so the broker
-  // serves no `/register` and no `/tenant-connection`, only each client's own record.
-  registration: {
-    connector: APPS_CONNECTOR,
-    paused: isPaused,
-  },
+  // `POST /hub-clients` creates every client; the broker serves each client's own record.
+  registration: { paused: isPaused },
 });

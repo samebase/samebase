@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.31.0
+
+- Remove `Convex.HubClient`, its provider, `HUB_PROJECT_NAME`, `HubClientAttributes`,
+  `HubClientFailed`, `HubClientProps`, and `HubDeploymentType`, and the command
+  `alchemy-convex hub-client`. The identity broker no longer has `registerClient` or `renewClient`:
+  every app gets its clients from `Convex.SharedHubClient`. A stack whose state still holds an
+  `IdentityHub.Client` row stops its plan: destroy that stage, or deploy it once with 0.30.0 first.
+- Remove `ManagementApi.resolveTeamId`. `ManagementApi.teamId` gives the team of the credential.
+- `alchemy-convex stack-comment` is the only command.
+
 ## 0.30.0
 
 - `Convex.SharedHubClient` takes `required`. With `true`, the run fails unless the hub confirms the

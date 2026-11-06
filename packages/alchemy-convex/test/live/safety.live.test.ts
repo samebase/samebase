@@ -26,7 +26,6 @@ const PREFIX = liveTargets.prefix;
 const hex = randomBytes(4).toString("hex");
 const projectName = `${PREFIX}${hex}`;
 const renamedName = `${PREFIX}${hex}-renamed`;
-const { team } = liveTargets;
 
 /** One request that left this process: method, host, path, status. Never headers or bodies. */
 interface Sent {
@@ -93,7 +92,7 @@ const getProject = (projectId: number) =>
 const cleanup = (projectIds: ReadonlyArray<number>) =>
   Effect.gen(function* () {
     const api = yield* ManagementApi;
-    const teamId = yield* api.resolveTeamId(team);
+    const teamId = yield* api.teamId;
     const ids = new Set(projectIds);
     for (const name of [projectName, renamedName]) {
       const page = Schema.decodeUnknownSync(ProjectPage)(

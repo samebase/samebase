@@ -79,10 +79,9 @@ jobs:
               - apps/samebase/scripts/convex-local-utils.ts
               - apps/samebase/scripts/localConvexAdminClient.ts
               - apps/samebase/scripts/normalizeEnvValue.ts
-              - apps/samebase/scripts/predev.ts
               - apps/samebase/scripts/seed-local-password-account.ts
               - packages/dependent/**
-              - runtime/anonymousLocalPorts.ts
+              - runtime/localBackendPorts.ts
               - scripts/ci-bootstrap-convex.ts
               - scripts/ci-windows-start.ts
               - scripts/lib/convexAuthKeys.ts
@@ -540,14 +539,8 @@ jobs:
         working-directory: templates/base
         run: pnpm install --frozen-lockfile
 
-      - name: Bootstrap Convex for Windows predev
+      - name: Bootstrap Convex on Windows
         run: node ./scripts/ci-bootstrap-convex.ts
-
-      - name: Run anonymous predev smoke on Windows
-        working-directory: apps/samebase
-        env:
-          CONVEX_AGENT_MODE: anonymous
-        run: node ./scripts/predev.ts
 
       - name: Start the starter template and load a page on Windows
         working-directory: templates/base

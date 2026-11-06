@@ -19,14 +19,6 @@ export {
   ProductionDeploymentNotFound,
 } from "./Deployment.ts";
 export {
-  HUB_PROJECT_NAME,
-  HubClient,
-  type HubClientAttributes,
-  HubClientFailed,
-  type HubClientProps,
-  type HubDeploymentType,
-} from "./HubClient.ts";
-export {
   LocalDeployment,
   type LocalDeploymentAttributes,
   LocalDeploymentNotFound,

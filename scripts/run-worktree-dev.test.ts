@@ -1,11 +1,15 @@
+import { spawnSync } from "node:child_process";
+import { createServer } from "node:net";
 import path from "node:path";
 import process from "node:process";
 
 import { describe, expect, it } from "vite-plus/test";
 
 import {
+  buildDevServerEnvironment,
   buildWorktreeDevCommandPlan,
   parseWorktreeDevArgs,
+  resolveDevStage,
   selectWorktreeDevSteps,
 } from "./run-worktree-dev.ts";
 import {
@@ -13,17 +17,49 @@ import {
   LOCAL_WORKTREE_PASSWORD_AUTH_PASSWORD,
 } from "../runtime/localWorktreePasswordAuth.ts";
 
+const reserveFreePort = async (): Promise<string> =>
+  await new Promise((resolve, reject) => {
+    const server = createServer();
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", () => {
+      const address = server.address();
+      if (!address || typeof address === "string") {
+        server.close(() => {
+          reject(new Error("Expected an ephemeral TCP port."));
+        });
+        return;
+      }
+
+      server.close((error) => {
+        if (error) {
+          reject(error);
+          return;
+        }
+        resolve(String(address.port));
+      });
+    });
+  });
+
+const options = {
+  once: false,
+  enableBranch: true,
+  forceBootstrap: false,
+  vitePort: 5174,
+  showHelp: false,
+};
+
 describe("run-worktree-dev", () => {
-  it("defaults to the long-running worktree dev flow on port 5174", () => {
-    expect(parseWorktreeDevArgs([])).toMatchObject({
+  it("defaults to the long-running dev flow on the given frontend port", () => {
+    expect(parseWorktreeDevArgs([], {})).toMatchObject({
       once: false,
       enableBranch: true,
       forceBootstrap: false,
       vitePort: 5174,
     });
+    expect(parseWorktreeDevArgs([], {}, 5173)).toMatchObject({ vitePort: 5173 });
   });
 
-  it("reads env fallbacks for the worktree bootstrap flow", () => {
+  it("reads env fallbacks for the bootstrap flow", () => {
     expect(
       parseWorktreeDevArgs([], {
         WORKTREE_DEV_VITE_PORT: "6210",
@@ -47,154 +83,108 @@ describe("run-worktree-dev", () => {
     });
   });
 
-  it("omits the final dev process for dev:worktree:once", () => {
-    const plan = buildWorktreeDevCommandPlan(
-      {
-        once: true,
-        enableBranch: true,
-        forceBootstrap: false,
-        vitePort: 5174,
-        showHelp: false,
-      },
-      "/repo",
-      {},
-    );
-
-    expect(plan.at(-1)?.label).toBe("bootstrap and seed the anonymous local backend");
-    expect(plan.at(-1)?.phase).toBe("once-bootstrap");
+  it("names the stage after the user in the main checkout and after the folder in a worktree", () => {
+    expect(resolveDevStage("main", "/Users/nicu/dev/samebase", "Nicu")).toBe("dev-nicu");
+    expect(resolveDevStage("linked", "/wt/RFC_134.laptops", "nicu")).toBe("dev-rfc-134-laptops");
   });
 
-  it("adds the long-running primary dev step for worktree dev", () => {
-    const plan = buildWorktreeDevCommandPlan(
-      {
-        once: false,
-        enableBranch: false,
-        forceBootstrap: false,
-        vitePort: 6001,
-        showHelp: false,
-      },
-      "/repo",
-      { CONVEX_DEPLOY_KEY: "dev:ambient|token" },
-    );
-
-    expect(plan.at(-1)).toMatchObject({
-      label: "launch the long-running worktree dev server",
-      cwd: "/repo",
-      command: process.execPath,
-      env: {
-        CONVEX_AGENT_MODE: "anonymous",
-        DEV_ENV_ORIGIN: "http://localhost:6001",
-        VITE_LOCAL_WORKTREE_PASSWORD_EMAIL: LOCAL_WORKTREE_PASSWORD_AUTH_EMAIL,
-        VITE_LOCAL_WORKTREE_PASSWORD_VALUE: LOCAL_WORKTREE_PASSWORD_AUTH_PASSWORD,
-        VITE_PORT: "6001",
-      },
-      phase: "long-running",
-    });
-    expect(plan.at(-1)?.args.slice(1)).toEqual(["run", "--filter=samebase", "dev:raw"]);
-    expect(plan[0]).toMatchObject({
-      args: [path.join("/repo", "scripts", "killport.ts")],
-      phase: "always",
-    });
-    expect(plan.at(-1)).not.toHaveProperty("env.CONVEX_DEPLOY_KEY");
-  });
-
-  it("marks one-time seed and auth work separately from always-on startup work", () => {
-    const plan = buildWorktreeDevCommandPlan(
-      {
-        once: false,
-        enableBranch: true,
-        forceBootstrap: false,
-        vitePort: 5174,
-        showHelp: false,
-      },
-      "/repo",
-      {},
-    );
+  it("orders the steps of one start", () => {
+    const plan = buildWorktreeDevCommandPlan(options, "/repo", "dev-feature", {});
 
     expect(plan.map(({ label, phase }) => [label, phase])).toEqual([
       ["stop existing local backend listeners", "always"],
       ["bootstrap the current worktree", "always"],
       ["generate tracked file path types", "always"],
-      ["bootstrap and seed the anonymous local backend", "once-bootstrap"],
-      ["register or renew the identity hub client (hub:client)", "backend-ready"],
-      ["register or renew the identity hub client (hub:resource-client)", "backend-ready"],
+      ["set up and seed the local deployment", "once-bootstrap"],
+      ["deploy the Alchemy stage dev-feature", "backend-ready"],
       ["launch the long-running worktree dev server", "long-running"],
     ]);
+    expect(plan[0]).toMatchObject({
+      args: [path.join("/repo", "scripts", "killport.ts")],
+    });
   });
 
-  it("with the bootstrap marker, skips the seed and still runs both hub client commands", () => {
-    const plan = buildWorktreeDevCommandPlan(
-      {
-        once: false,
-        enableBranch: true,
-        forceBootstrap: false,
-        vitePort: 5174,
-        showHelp: false,
-      },
-      "/repo",
-      { CONVEX_DEPLOY_KEY: "dev:ambient|token" },
-    );
+  it("with --once, ends after the seed, which needs no input", () => {
+    const plan = buildWorktreeDevCommandPlan({ ...options, once: true }, "/repo", "dev-x", {});
 
+    expect(plan.at(-1)).toMatchObject({
+      label: "set up and seed the local deployment",
+      phase: "once-bootstrap",
+      stdio: ["ignore", "inherit", "inherit"],
+    });
+    expect(plan.filter(({ stdio }) => stdio !== undefined)).toHaveLength(1);
+  });
+
+  it("runs the stage in apps/samebase without a deploy key of the shell", () => {
+    const plan = buildWorktreeDevCommandPlan(options, "/repo", "dev-feature", {
+      CONVEX_DEPLOY_KEY: "dev:ambient|token",
+    });
     const steps = selectWorktreeDevSteps(plan, true);
 
-    expect(steps.blocking.map(({ label }) => label)).not.toContain(
-      "bootstrap and seed the anonymous local backend",
-    );
-    expect(steps.longRunning?.label).toBe("launch the long-running worktree dev server");
     expect(steps.backendReady).toEqual([
       expect.objectContaining({
         cwd: path.join("/repo", "apps", "samebase"),
-        command: process.execPath,
-        args: ["--run", "hub:client"],
-        env: { CONVEX_AGENT_MODE: "anonymous" },
-      }),
-      expect.objectContaining({
-        cwd: path.join("/repo", "apps", "samebase"),
-        command: process.execPath,
-        args: ["--run", "hub:resource-client"],
-        env: { CONVEX_AGENT_MODE: "anonymous" },
+        command: "pnpm",
+        args: ["exec", "alchemy", "deploy", "--stage", "dev-feature", "--yes", "--no-input"],
       }),
     ]);
+    expect(steps.backendReady[0]).not.toHaveProperty("env.CONVEX_DEPLOY_KEY");
   });
 
-  it("without the marker, the seed runs the hub client commands and nothing runs beside the dev server", () => {
-    const plan = buildWorktreeDevCommandPlan(
-      {
-        once: false,
-        enableBranch: true,
-        forceBootstrap: false,
-        vitePort: 5174,
-        showHelp: false,
-      },
-      "/repo",
-      {},
+  it("skips only the seed when the bootstrap marker is current", () => {
+    const plan = buildWorktreeDevCommandPlan(options, "/repo", "dev-feature", {});
+
+    expect(selectWorktreeDevSteps(plan, true).blocking.map(({ label }) => label)).not.toContain(
+      "set up and seed the local deployment",
     );
-
-    const steps = selectWorktreeDevSteps(plan, false);
-
-    expect(steps.blocking.at(-1)?.label).toBe("bootstrap and seed the anonymous local backend");
-    expect(steps.backendReady).toEqual([]);
-    expect(steps.longRunning?.phase).toBe("long-running");
+    const firstStart = selectWorktreeDevSteps(plan, false);
+    expect(firstStart.blocking.at(-1)?.label).toBe("set up and seed the local deployment");
+    expect(firstStart.backendReady).toHaveLength(1);
+    expect(firstStart.longRunning?.phase).toBe("long-running");
   });
 
-  it("keeps only first-time anonymous backend setup noninteractive", () => {
-    const plan = buildWorktreeDevCommandPlan(
-      {
-        once: true,
-        enableBranch: true,
-        forceBootstrap: false,
-        vitePort: 5174,
-        showHelp: false,
-      },
-      "/repo",
-      {},
-    );
+  it("launches the dev server through the Vite+ entrypoint with the password autofill", () => {
+    const plan = buildWorktreeDevCommandPlan({ ...options, vitePort: 6001 }, "/repo", "dev-x", {
+      CONVEX_DEPLOY_KEY: "dev:ambient|token",
+    });
+    const devServer = plan.at(-1);
 
-    expect(plan.filter(({ stdio }) => stdio !== undefined)).toEqual([
-      expect.objectContaining({
-        label: "bootstrap and seed the anonymous local backend",
-        stdio: ["ignore", "inherit", "inherit"],
-      }),
-    ]);
+    expect(devServer).toMatchObject({
+      cwd: "/repo",
+      command: process.execPath,
+      env: {
+        DEV_ENV_ORIGIN: "http://localhost:6001",
+        VITE_LOCAL_WORKTREE_PASSWORD_EMAIL: LOCAL_WORKTREE_PASSWORD_AUTH_EMAIL,
+        VITE_LOCAL_WORKTREE_PASSWORD_VALUE: LOCAL_WORKTREE_PASSWORD_AUTH_PASSWORD,
+        VITE_PORT: "6001",
+      },
+    });
+    expect(devServer?.args.slice(1)).toEqual(["run", "--filter=samebase", "dev:raw"]);
+    expect(devServer).not.toHaveProperty("env.CONVEX_DEPLOY_KEY");
+
+    const result = spawnSync(process.execPath, [devServer?.args[0] ?? "", "--help"], {
+      encoding: "utf8",
+    });
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain("Vite+");
+  });
+
+  it("pins VITE_PORT and DEV_ENV_ORIGIN together when the origin is missing", async () => {
+    const freePort = await reserveFreePort();
+
+    expect(buildDevServerEnvironment({ VITE_PORT: freePort })).toMatchObject({
+      DEV_ENV_ORIGIN: `http://localhost:${freePort}`,
+      VITE_PORT: freePort,
+    });
+  });
+
+  it("backfills VITE_PORT from an explicit localhost origin and leaves other origins alone", () => {
+    expect(buildDevServerEnvironment({ DEV_ENV_ORIGIN: "http://localhost:43121" })).toMatchObject({
+      DEV_ENV_ORIGIN: "http://localhost:43121",
+      VITE_PORT: "43121",
+    });
+    expect(buildDevServerEnvironment({ DEV_ENV_ORIGIN: "https://preview.samebase.md" })).toEqual({
+      DEV_ENV_ORIGIN: "https://preview.samebase.md",
+    });
   });
 });

@@ -47,15 +47,22 @@ const clientList = {
   clients: [
     {
       clientId: "cl_preview",
-      appId: "samebase",
+      appId: "gh-81-4c9a75cca717efb68c856f26ba825073-preview",
       clientName: "pr-12",
       deploymentType: "preview",
       redirectUri: "https://happy-otter-123.convex.site/auth/hub/callback",
       createdAt: 1_800_000_002_000,
-      renewedAt: null,
+      renewedAt: 1_800_000_002_000,
       lastSignInAt: null,
       removeAt: 1_801_209_602_000,
-      registeredBy: { kind: "team" },
+      registeredBy: {
+        kind: "github",
+        githubRepository: "octo-org/own",
+        githubRepositoryDatabaseId: "81",
+        githubOwnerId: "65",
+        githubActorLogin: "octocat",
+        app: "my-app",
+      },
     },
     {
       clientId: "cl_test",

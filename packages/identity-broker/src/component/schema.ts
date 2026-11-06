@@ -2,7 +2,7 @@ import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 import { vRefreshGrant, vResourceRequest } from "./resourceSchema.js";
 
-const { array, boolean, literal, number, object, optional, string, union } = v;
+const { boolean, literal, number, object, optional, string, union } = v;
 
 /** How a client authenticates at the token endpoint. Public clients are not supported yet. */
 export const vTokenEndpointAuthMethod = union(
@@ -80,35 +80,25 @@ export default defineSchema({
     appId: string(),
     name: string(),
     firstParty: boolean(),
-    /** No longer read. The rows of a hub from before 0.8.0 still hold it. */
-    allowedCallbackHosts: optional(array(string())),
     /**
-     * The one connector of an app from `/register`. The app goes straight to it, and no other
-     * connector can sign in to the app. Absent on every other app.
+     * The one connector of a third-party app. The app goes straight to it, and no other connector can
+     * sign in to the app. Absent on a first-party app.
      */
     connector: optional(string()),
-    /** The tenant of an app from `/register`. Absent on every other app. */
-    tenantId: optional(string()),
+    tenantId: string(),
     createdAt: number(),
   })
     .index("by_app_id", ["appId"])
     .index("by_tenant_id", ["tenantId"]),
 
-  /**
-   * One row for each tenant that registration has seen, through `/register` or the host's own
-   * mutation. It stays when the tenant's apps go.
-   */
+  /** One row for each tenant that `registration.register` has seen. It stays when the tenant's apps go. */
   tenants: defineTable({
     tenantId: string(),
-    /** Set by the hub's administrator. While set, no client of the tenant can sign in or register. */
-    suspendedAt: optional(number()),
-    /** The tenant left the service that registers it, or the host blocked it. It blocks the same things. */
-    disconnected: optional(boolean()),
     /**
-     * The newest change of `disconnected`. An older one that arrives late changes nothing. The host's
-     * own switch (`registration.switchConnection`) raises it by one.
+     * The host blocked the tenant (`registration.switchConnection`). While set, no client of the
+     * tenant can register, renew, or sign in.
      */
-    connectionRevision: optional(number()),
+    disconnected: optional(boolean()),
     /**
      * The owner that the newest registration named, such as the id of the GitHub account that owns
      * the repository. A row in `blockedOwners` with this id blocks the same things as `disconnected`.
@@ -136,15 +126,15 @@ export default defineSchema({
     softwareVersion: string(),
     createdAt: number(),
     lastSignInAt: optional(number()),
-    /** SHA-256 hex of the registration access token (RFC 7592). A client from `/register` has one. */
-    registrationTokenHash: optional(string()),
+    /** SHA-256 hex of the registration access token (RFC 7592). */
+    registrationTokenHash: string(),
     /**
      * When `cleanup` deletes the client. Absent: never by date. Only a preview or development
      * client gets one.
      */
     removeAt: optional(number()),
-    /** The last registration or renewal of a client from `/register`, or renewal by `renewClient`. */
-    renewedAt: optional(number()),
+    /** The registration of the client, or its last renewal at `/register/<client>`. */
+    renewedAt: number(),
   })
     .index("by_client_id", ["clientId"])
     .index("by_app_id", ["appId"])

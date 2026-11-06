@@ -52,6 +52,34 @@ async function insertRows(t: ConvexTest, rows: ReturnType<typeof registrationRow
   });
 }
 
+/**
+ * `count` preview clients `cl_<index>` at the broker, each with its registration row, as
+ * `/hub-clients` writes them. 30 clients to an app and 10 apps to a tenant, the broker's caps.
+ */
+async function insertClients(t: ConvexTest, count: number) {
+  for (let index = 0; index < count; index += 1) {
+    const tenantId = `gh-${Math.floor(index / 300) + 1}`;
+    await t.mutation(components.identityBroker.registration.register, {
+      tenantId,
+      appId: `${tenantId}-app-${Math.floor(index / 30)}-preview`,
+      trust: { firstParty: false, connector: "google-apps" },
+      deploymentType: "preview",
+      clientId: `cl_${index}`,
+      secretHash: "hash",
+      registrationTokenHash: "token-hash",
+      tokenEndpointAuthMethod: "client_secret_post",
+      redirectUri: "https://ideal-dolphin-15.convex.site/auth/hub/callback",
+      clientName: `pr-${index}`,
+      softwareVersion: "abc123",
+      now: index,
+    });
+  }
+  await insertRows(
+    t,
+    Array.from({ length: count }, (_, index) => registrationRow(index, index)),
+  );
+}
+
 async function readTenant(t: ConvexTest, tenantId: string) {
   const apps = await t.query(components.identityBroker.apps.list, {});
   return apps.find((app) => app.tenantId === tenantId);
@@ -258,30 +286,6 @@ describe("the blocks", () => {
     expect(list.events).toHaveLength(1);
   });
 
-  it("never touches the operator's suspension", async () => {
-    const t = makeConvexTest();
-    const client = await createClient(t);
-    await t.mutation(components.identityBroker.registration.setSuspended, {
-      tenantId: "gh-74",
-      suspended: true,
-      now: Date.now(),
-    });
-
-    for (const kind of ["repository", "owner"] as const) {
-      const githubId = kind === "repository" ? REPOSITORY_ID : OWNER_ID;
-      await setBlock(t, { action: "block", kind, githubId });
-      await setBlock(t, { action: "unblock", kind, githubId });
-    }
-
-    expect(await readOwnRecord(t, client)).toBe(403);
-    await t.mutation(components.identityBroker.registration.setSuspended, {
-      tenantId: "gh-74",
-      suspended: false,
-      now: Date.now(),
-    });
-    expect(await readOwnRecord(t, client)).toBe(200);
-  });
-
   it.each([
     ["no reason", { reason: " " }],
     ["no admin", { adminEmail: "" }],
@@ -312,41 +316,12 @@ describe("the clients", () => {
   it("lists every client at the broker newest first with who made it, and no secret", async () => {
     vi.useFakeTimers({ now: 1_800_000_000_000, toFake: ["Date"] });
     const t = makeConvexTest();
-    // A client of an app that is gone.
-    await t.mutation(components.identityBroker.clients.create, {
-      clientId: "cl_orphan",
-      appId: "gh-75-gone",
-      secretHash: "hash",
-      tokenEndpointAuthMethod: "client_secret_post",
-      redirectUri: "https://gone.example/auth/hub/callback",
-      deploymentType: "production",
-      clientName: "prod",
-      softwareVersion: "abc123",
-      createdAt: 1_799_999_999_000,
-      expires: false,
-    });
-    const own = await t.mutation(internal.identityBroker.registerClient, {
-      appId: "samebase",
-      redirectUri: "https://samebase.com/auth/hub/callback",
-      deploymentType: "production",
-      clientName: "prod",
-      softwareVersion: "abc123",
-      tokenEndpointAuthMethod: "client_secret_post",
-    });
+    vi.stubEnv("OWN_REPOSITORY_IDS", "81");
+    const own = await createClient(t, { repository_id: "81", repository: "octo-org/own" });
     vi.setSystemTime(1_800_000_001_000);
     const thirdParty = await createClient(t);
     vi.setSystemTime(1_800_000_002_000);
     await readOwnRecord(t, thirdParty);
-    vi.setSystemTime(1_800_000_003_000);
-    const preview = await t.mutation(internal.identityBroker.registerClient, {
-      appId: "samebase",
-      redirectUri: "https://happy-otter-123.convex.site/auth/hub/callback",
-      deploymentType: "preview",
-      clientName: "pr-12",
-      softwareVersion: "abc123",
-      tokenEndpointAuthMethod: "client_secret_post",
-      expires: true,
-    });
 
     const response = await moderationRequest(t, "/moderation/clients");
     const text = await response.text();
@@ -354,18 +329,6 @@ describe("the clients", () => {
     expect(response.headers.get("Cache-Control")).toBe("no-store");
     expect(JSON.parse(text)).toEqual({
       clients: [
-        {
-          clientId: preview.clientId,
-          appId: "samebase",
-          clientName: "pr-12",
-          deploymentType: "preview",
-          redirectUri: "https://happy-otter-123.convex.site/auth/hub/callback",
-          createdAt: 1_800_000_003_000,
-          renewedAt: null,
-          lastSignInAt: null,
-          removeAt: 1_800_000_003_000 + 14 * 24 * 60 * 60 * 1_000,
-          registeredBy: { kind: "team" },
-        },
         {
           clientId: thirdParty.client_id,
           appId: `gh-${REPOSITORY_ID}-${APP_HASH}`,
@@ -386,34 +349,45 @@ describe("the clients", () => {
           },
         },
         {
-          clientId: own.clientId,
-          appId: "samebase",
+          clientId: own.client_id,
+          appId: `gh-81-${APP_HASH}`,
           clientName: "prod",
           deploymentType: "production",
-          redirectUri: "https://samebase.com/auth/hub/callback",
+          redirectUri: PRODUCTION_CALLBACK,
           createdAt: 1_800_000_000_000,
-          renewedAt: null,
+          renewedAt: 1_800_000_000_000,
           lastSignInAt: null,
           removeAt: null,
-          registeredBy: { kind: "team" },
-        },
-        {
-          clientId: "cl_orphan",
-          appId: "gh-75-gone",
-          clientName: "prod",
-          deploymentType: "production",
-          redirectUri: "https://gone.example/auth/hub/callback",
-          createdAt: 1_799_999_999_000,
-          renewedAt: null,
-          lastSignInAt: null,
-          removeAt: null,
-          registeredBy: { kind: "unknown" },
+          registeredBy: {
+            kind: "github",
+            githubRepository: "octo-org/own",
+            githubRepositoryDatabaseId: "81",
+            githubOwnerId: OWNER_ID,
+            githubActorLogin: "octocat",
+            app: "my-app",
+          },
         },
       ],
       limitReached: false,
     });
-    expect(text).not.toContain(own.clientSecret);
-    expect(text).not.toContain(preview.clientSecret);
+    for (const client of [own, thirdParty]) {
+      expect(text).not.toContain(client.client_secret);
+      expect(text).not.toContain(client.registration_access_token);
+    }
+  });
+
+  it("fails when a client has no registration row", async () => {
+    const t = makeConvexTest();
+    await insertClients(t, 1);
+    await t.run(async (ctx) => {
+      for (const row of await ctx.db.query("registrations").collect()) {
+        await ctx.db.delete("registrations", row._id);
+      }
+    });
+
+    await expect(t.query(internal.moderation.clientList, {})).rejects.toThrow(
+      "The client cl_0 has no registration row",
+    );
   });
 
   it("names a laptop's client with its repository and the token's issue time", async () => {
@@ -441,20 +415,7 @@ describe("the clients", () => {
 
   it("lists the newest 500 and says that it reached the limit", async () => {
     const t = makeConvexTest();
-    for (let index = 0; index < 501; index += 1) {
-      await t.mutation(components.identityBroker.clients.create, {
-        clientId: `cl_${index}`,
-        appId: "samebase",
-        secretHash: "hash",
-        tokenEndpointAuthMethod: "client_secret_post",
-        redirectUri: "https://samebase.com/auth/hub/callback",
-        deploymentType: "preview",
-        clientName: `pr-${index}`,
-        softwareVersion: "abc123",
-        createdAt: index,
-        expires: false,
-      });
-    }
+    await insertClients(t, 501);
 
     const list: { clients: { clientId: string }[]; limitReached: boolean } = await (
       await moderationRequest(t, "/moderation/clients")

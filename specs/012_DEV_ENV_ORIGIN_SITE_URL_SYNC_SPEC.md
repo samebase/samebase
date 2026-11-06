@@ -64,9 +64,8 @@ dev origin for localhost Convex deployments, and runs:
 npx convex env set SITE_URL "<origin>"
 ```
 
-This runs in `predev` for primary local development. The long-running local Convex backend also
-retries the sync after startup when the deployment points at localhost, including anonymous worktree
-mode where `predev` exits before the frontend has published its final local origin.
+The long-running local Convex backend runs the sync after startup when the deployment points at
+localhost, once the frontend has published its final local origin.
 
 ## Implementation Notes
 

@@ -2,7 +2,6 @@
 import { decodeJwt } from "jose";
 import { afterEach, describe, expect, test, vi } from "vite-plus/test";
 import { api } from "../component/_generated/api.js";
-import { LEASE_MS } from "../component/registration.js";
 import { google } from "./connectors/google.js";
 import { defineIdentityBroker } from "./index.js";
 import {
@@ -128,7 +127,9 @@ describe("metadata", () => {
       expect(metadata.subject_types_supported).toEqual(["public"]);
       expect(metadata.code_challenge_methods_supported).toEqual(["S256"]);
       expect(metadata.authorization_response_iss_parameter_supported).toBe(true);
-      expect(metadata.claims_supported).toContain("connector_account_id");
+      expect(metadata.claims_supported).toContain("connector");
+      expect(metadata.claims_supported).not.toContain("connector_account_id");
+      expect(metadata.registration_endpoint).toBeUndefined();
     }
     const jwks = await (await h.fetchBroker(`${ISSUER}/.well-known/jwks.json`)).json();
     expect(jwks.keys).toHaveLength(1);
@@ -154,115 +155,7 @@ describe("metadata", () => {
   });
 });
 
-describe("registration", () => {
-  test("the first client creates a first-party app; the next one joins it", async () => {
-    const h = await createHarness({ connectors: [fakeUpstream().connector] });
-    const client = {
-      appId: "scout",
-      redirectUri: REDIRECT_URI,
-      deploymentType: "preview",
-      tokenEndpointAuthMethod: "client_secret_post",
-    } as const;
-    const first = await h.runRegisterClient(client);
-    expect(first.issuer).toBe(ISSUER);
-    const second = await h.runRegisterClient(client);
-    expect(second.clientId).not.toBe(first.clientId);
-    expect(await h.t.query(api.apps.list, {})).toEqual([
-      {
-        appId: "scout",
-        name: "scout",
-        firstParty: true,
-        suspended: false,
-        createdAt: expect.any(Number),
-      },
-    ]);
-    const stored = await h.t.query(api.clients.get, { clientId: first.clientId });
-    expect(stored?.secretHash).toBe(await sha256Hex(first.clientSecret));
-    expect(JSON.stringify(stored)).not.toContain(first.clientSecret);
-  });
-
-  test("an app that exists keeps its row", async () => {
-    const h = await createHarness({ connectors: [fakeUpstream().connector] });
-    await h.registerClient({ appName: "Third", firstParty: false, redirectUri: REDIRECT_URI });
-    expect((await h.t.query(api.apps.get, { appId: "third-test" }))?.firstParty).toBe(false);
-  });
-
-  test("a redirect URI that is not https, or http on a loopback host, is refused", async () => {
-    const h = await createHarness({ connectors: [fakeUpstream().connector] });
-    await expect(
-      h.runRegisterClient({
-        appId: "scout",
-        redirectUri: "http://app.test/cb",
-        deploymentType: "preview",
-        tokenEndpointAuthMethod: "client_secret_post",
-      }),
-    ).rejects.toThrow("redirect URI");
-    expect(await h.t.query(api.apps.list, {})).toEqual([]);
-  });
-
-  test("expires gives a removal date to a preview or development client only; without it, none", async () => {
-    vi.useFakeTimers({ now: 1_000_000_000_000, toFake: ["Date"] });
-    const h = await createHarness({ connectors: [fakeUpstream().connector] });
-    const cases = [
-      { deploymentType: "preview", expires: true, removeAt: Date.now() + LEASE_MS },
-      { deploymentType: "development", expires: true, removeAt: Date.now() + LEASE_MS },
-      { deploymentType: "production", expires: true, removeAt: undefined },
-      { deploymentType: "preview", expires: false, removeAt: undefined },
-      { deploymentType: "development", expires: undefined, removeAt: undefined },
-    ] as const;
-    for (const { deploymentType, expires, removeAt } of cases) {
-      const { clientId } = await h.runRegisterClient({
-        appId: "scout",
-        redirectUri: REDIRECT_URI,
-        deploymentType,
-        tokenEndpointAuthMethod: "client_secret_post",
-        ...(expires === undefined ? {} : { expires }),
-      });
-      expect((await h.t.query(api.clients.get, { clientId }))?.removeAt).toBe(removeAt);
-    }
-  });
-
-  test("renewClient answers whether the client exists, and moves or starts its removal date", async () => {
-    vi.useFakeTimers({ now: 1_000_000_000_000, toFake: ["Date"] });
-    const h = await createHarness({ connectors: [fakeUpstream().connector] });
-    const register = async (
-      deploymentType: "production" | "development" | "preview",
-      expires: boolean,
-    ) =>
-      (
-        await h.runRegisterClient({
-          appId: "scout",
-          redirectUri: REDIRECT_URI,
-          deploymentType,
-          tokenEndpointAuthMethod: "client_secret_post",
-          expires,
-        })
-      ).clientId;
-    const read = async (clientId: string) => await h.t.query(api.clients.get, { clientId });
-    const dated = await register("preview", true);
-    const undated = await register("development", false);
-    const production = await register("production", false);
-
-    vi.setSystemTime(Date.now() + LEASE_MS / 2);
-    // Without expires, a client keeps the removal date it has, and one without stays without.
-    expect(await h.runRenewClient({ clientId: dated, expires: false })).toBe(true);
-    expect(await h.runRenewClient({ clientId: undated, expires: false })).toBe(true);
-    expect(await read(dated)).toMatchObject({
-      renewedAt: Date.now(),
-      removeAt: Date.now() + LEASE_MS,
-    });
-    expect((await read(undated))?.removeAt).toBeUndefined();
-
-    // With expires, a preview or development client starts to expire. Production never does.
-    expect(await h.runRenewClient({ clientId: undated, expires: true })).toBe(true);
-    expect(await h.runRenewClient({ clientId: production, expires: true })).toBe(true);
-    expect((await read(undated))?.removeAt).toBe(Date.now() + LEASE_MS);
-    expect(await read(production)).toMatchObject({ renewedAt: Date.now() });
-    expect((await read(production))?.removeAt).toBeUndefined();
-
-    expect(await h.runRenewClient({ clientId: "cl_gone", expires: true })).toBe(false);
-  });
-
+describe("clients", () => {
   test("a deleted client cannot sign in", async () => {
     const h = await createHarness({ connectors: [fakeUpstream().connector] });
     const { clientId } = await h.registerClient({
@@ -359,14 +252,12 @@ describe("authorization code flow with an OAuth connector", () => {
     expect(claims["email_verified"]).toBe(true);
     expect(claims["connector"]).toBe("fake");
     expect(typeof claims.auth_time).toBe("number");
-    // The fake GitHub user's id, the same in every app.
-    expect(claims["connector_account_id"]).toBe("42");
 
     const userinfo = await h.fetchBroker(`${ISSUER}/userinfo`, {
       headers: { Authorization: `Bearer ${body.access_token}` },
     });
     expect(userinfo.status).toBe(200);
-    expect(await userinfo.json()).toMatchObject({ sub: claims.sub, connector_account_id: "42" });
+    expect(await userinfo.json()).toMatchObject({ sub: claims.sub, connector: "fake" });
 
     const signIns = await h.t.run(async (ctx) => await ctx.db.query("signIns").collect());
     expect(signIns).toHaveLength(1);
@@ -397,10 +288,7 @@ describe("authorization code flow with an OAuth connector", () => {
         verifier: otherPkce.verifier,
       })
     ).json();
-    expect(decodeJwt(otherTokens.id_token)).toMatchObject({
-      sub: claims.sub,
-      connector_account_id: "42",
-    });
+    expect(decodeJwt(otherTokens.id_token)).toMatchObject({ sub: claims.sub });
   });
 
   test("a code is single use, bound to the client and the verifier; replay revokes it", async () => {
@@ -671,8 +559,8 @@ describe("authorization code flow with an OAuth connector", () => {
       const idToken = decodeJwt((await tokens.json()).id_token);
       // The callback's time, never the upstream's hour-old value.
       expect(idToken.auth_time).toBeGreaterThanOrEqual(signIn.createdSecond);
-      // The upstream id_token's `sub`.
-      expect(idToken["connector_account_id"]).toBe("24400320");
+      // The upstream id_token's `sub`, behind the provider.
+      expect(idToken.sub).toBe("idp:24400320");
     }
   });
 
@@ -843,8 +731,9 @@ describe("authorization code flow with an OAuth connector", () => {
       firstParty: true,
       redirectUri: REDIRECT_URI,
     });
-    const { clientId, clientSecret } = await h.runRegisterClient({
-      appId: posting.appId,
+    const { clientId, clientSecret } = await h.registerClient({
+      appName: "Bristol",
+      firstParty: true,
       redirectUri: REDIRECT_URI,
       deploymentType: "preview",
       tokenEndpointAuthMethod: "client_secret_basic",
@@ -928,8 +817,9 @@ describe("authorization code flow with an OAuth connector", () => {
             ["email", "email_verified", "name", "picture"].includes(name),
           ),
         ).toEqual(claimed);
-        // Not a scoped claim: present with `openid` alone.
-        expect(claims["connector_account_id"]).toBe("42");
+        // Not scoped claims: present with `openid` alone.
+        expect(claims).toMatchObject({ sub: "fake:42", connector: "fake" });
+        expect(Object.keys(claims)).not.toContain("connector_account_id");
       }
     }
   });
@@ -1084,7 +974,7 @@ describe("authorization code flow with an OAuth connector", () => {
     expect((await exchange(h, { code, clientId, clientSecret, verifier })).status).toBe(200);
   });
 
-  test("a third-party app gets the public sub and no account id", async () => {
+  test("a third-party app gets the public sub", async () => {
     const h = await createHarness({ connectors: [fakeUpstream().connector] });
     const { clientId, clientSecret } = await h.registerClient({
       appName: "Stranger",
@@ -1112,10 +1002,9 @@ describe("authorization code flow with an OAuth connector", () => {
         headers: { Authorization: `Bearer ${tokens.access_token}` },
       })
     ).json();
-    // The consent promised a stable id: the public sub, without the connector's own account id.
+    // The consent promised a stable id: the public sub.
     for (const claims of [decodeJwt(tokens.id_token), userinfo]) {
       expect(claims).toMatchObject({ sub: "fake:42", connector: "fake" });
-      expect(Object.keys(claims)).not.toContain("connector_account_id");
       expect(Object.keys(claims)).not.toContain("email");
     }
   });
@@ -1139,42 +1028,49 @@ describe("authorization code flow with an OAuth connector", () => {
 });
 
 describe("cleanup", () => {
+  /** First-party app "a". */
+  const insertApp = async (h: Harness, now: number) =>
+    await h.t.run(async (ctx) => {
+      await ctx.db.insert("apps", {
+        appId: "a",
+        name: "A",
+        firstParty: true,
+        tenantId: "gh-1",
+        createdAt: now,
+      });
+    });
+  /** A client of app "a" without a removal date, last renewed when it was created. */
+  const insertClient = async (
+    h: Harness,
+    args: { clientId: string; deploymentType: "production" | "preview"; createdAt: number },
+  ) =>
+    await h.t.run(async (ctx) => {
+      await ctx.db.insert("clients", {
+        clientId: args.clientId,
+        appId: "a",
+        secretHash: "h",
+        registrationTokenHash: "r",
+        tokenEndpointAuthMethod: "client_secret_post",
+        redirectUri: REDIRECT_URI,
+        deploymentType: args.deploymentType,
+        clientName: "c",
+        softwareVersion: "v",
+        createdAt: args.createdAt,
+        renewedAt: args.createdAt,
+      });
+    });
+
   test("drops expired requests and codes and old audit rows; idle preview clients only when asked", async () => {
     const h = await createHarness({ connectors: [fakeUpstream().connector] });
     const now = Date.now();
-    await h.t.mutation(api.apps.create, {
-      appId: "a",
-      name: "A",
-      firstParty: true,
-      createdAt: now,
-    });
-    const client = {
-      appId: "a",
-      secretHash: "h",
-      tokenEndpointAuthMethod: "client_secret_post" as const,
-      redirectUri: REDIRECT_URI,
-      clientName: "c",
-      softwareVersion: "v",
-      expires: false,
-    };
-    await h.t.mutation(api.clients.create, {
-      ...client,
-      clientId: "preview-old",
-      deploymentType: "preview",
-      createdAt: now - 40 * 86_400_000,
-    });
-    await h.t.mutation(api.clients.create, {
-      ...client,
-      clientId: "preview-new",
-      deploymentType: "preview",
-      createdAt: now,
-    });
-    await h.t.mutation(api.clients.create, {
-      ...client,
-      clientId: "prod-old",
-      deploymentType: "production",
-      createdAt: now - 400 * 86_400_000,
-    });
+    await insertApp(h, now);
+    for (const [clientId, deploymentType, createdAt] of [
+      ["preview-old", "preview", now - 40 * 86_400_000],
+      ["preview-new", "preview", now],
+      ["prod-old", "production", now - 400 * 86_400_000],
+    ] as const) {
+      await insertClient(h, { clientId, deploymentType, createdAt });
+    }
     await h.t.mutation(api.authRequests.create, {
       requestId: "r-old",
       appId: "a",
@@ -1235,23 +1131,11 @@ describe("cleanup", () => {
         ...(previewClientIdleDays === undefined ? {} : { previewClientIdleDays }),
       });
       const now = Date.now();
-      await h.t.mutation(api.apps.create, {
-        appId: "a",
-        name: "A",
-        firstParty: true,
-        createdAt: now,
-      });
-      await h.t.mutation(api.clients.create, {
+      await insertApp(h, now);
+      await insertClient(h, {
         clientId: "preview-40-days",
-        appId: "a",
-        secretHash: "h",
-        tokenEndpointAuthMethod: "client_secret_post",
-        redirectUri: REDIRECT_URI,
         deploymentType: "preview",
-        clientName: "c",
-        softwareVersion: "v",
         createdAt: now - 40 * 86_400_000,
-        expires: false,
       });
       const { cleanup } = h.broker.admin();
       // @ts-expect-error internalMutationGeneric keeps the function as _handler; RegisteredMutation does not declare it. Its handler only calls ctx.runMutation, which an action ctx has.

@@ -27,10 +27,10 @@ ends: rows written during it run out after the cutoff. A completed request lives
 after its authorization code expires, so cleanup never removes a request whose code can still be
 redeemed.
 
-A preview or development client that `registerClient` or `renewClient` got with `expires` has a
-removal date: cleanup deletes it 14 days after its last renewal, sign-in, resource authorization, or
-provider refresh. A deployment renews its client at each deploy and dev start, and gets a new one
-when the client is gone. A production client never gets a removal date: a destroy can leave a
+A preview or development client has a removal date: cleanup deletes it 14 days after its
+registration or its last renewal, sign-in, resource authorization, or provider refresh. A deployment
+renews its client at each deploy and dev start with a read of `/register/<client>`, and gets a new
+one when the client is gone. A production client never gets a removal date: a destroy can leave a
 production deployment running, and the hub cannot know that it stopped.
 
 Other clients stay until `deleteClient` removes them, or their app is deleted. A host that sets
@@ -40,11 +40,24 @@ itself.
 
 ## Registration
 
-`registerClient` is an internal function: it needs the hub's deploy key, and it registers one
-deployment of an app as a client. There is no public registration endpoint, and no token of its own:
-in a team base, everyone who may register a client already holds the Convex credential of the team,
-so a second credential would guard nothing. For the same reason an app has no list of allowed
-callback hosts. The first client of an app id creates the app as a first-party app.
+The broker has no registration endpoint of its own. The host decides who may get a client, and
+creates it in its own mutation: `newClientCredentials` makes the client id, the secret, and the
+registration access token, and `component.registration.register` stores their hashes in one
+transaction with the host's own record. The hub's `POST /hub-clients`
+([`apps/identity-hub/convex/hubClients.ts`](../../../apps/identity-hub/convex/hubClients.ts)) is the
+reference host: it takes GitHub's OIDC token of a GitHub Actions run, or the app's own token on a
+laptop, and checks that the return address names the repository.
+
+Every app belongs to a tenant, such as `gh-<repository id>`, and the host says whether it is
+first-party: every connector but a reserved one, and API resources. A third-party app has one
+connector. The first client of an app id creates the app, and an existing app keeps what it was
+created as. Each client holds its own registration access token, and reads (which renews it) or
+deletes its own record at `/register/<client>` (RFC 7592).
+
+The host stops a tenant with `registration.switchConnection` and an owner with
+`registration.setOwnerBlocked`; either stops registration, renewal, sign-in, code exchange, and
+provider refresh. These are the only switches. Our hub sets them from Block repository and Block
+owner on samebase.com's admin page.
 
 ## Token endpoint
 
@@ -66,12 +79,12 @@ authorization has no scope parameter, so a requested scope answers `invalid_scop
 multiple resources answer `invalid_target`. The code binds the resource, so `/token` can omit it; if
 supplied, it must match exactly. Neither this response nor refresh issues an ID Token.
 
-Only administrator-registered first-party apps without a tenant or fixed sign-in connector can
-request API access. As with first-party sign-in, the broker adds no consent screen: the trusted app
-starts the flow and the provider supplies its authorization screen. This trust is intentional;
-publicly registered clients cannot receive API credentials. The two OAuth legs have independent
-state and PKCE values. The browser cookie binds the upstream callback to the initiating browser. The
-downstream response includes `iss`, and its code lasts 60 seconds and is usable once.
+Only first-party apps can request API access. As with first-party sign-in, the broker adds no
+consent screen: the trusted app starts the flow and the provider supplies its authorization screen.
+This trust is intentional; clients of third-party apps cannot receive API credentials. The two OAuth
+legs have independent state and PKCE values. The browser cookie binds the upstream callback to the
+initiating browser. The downstream response includes `iss`, and its code lasts 60 seconds and is
+usable once.
 
 The broker returns the provider's bearer access token unchanged. The resource server remains the
 provider API; a broker issuer on the authorization response does not claim that the broker signed
@@ -138,9 +151,9 @@ when it moves to another broker, which needs nothing then:
 - The salt made the app id, the connector name, the key set, and the issuer part of every user's
   identity. Losing the key set, moving an app, or changing an app's kind gave every user a new id.
 
-Every id_token and every UserInfo response also carry `connector`, the connector's name. Those of a
-first-party app carry `connector_account_id` too: the connector's own id for the account, the same
-id as in `sub`, for the first-party apps that read it there. It goes once they read `sub`.
+Every id_token and every UserInfo response also carry `connector`, the connector's name. Until
+0.18.0 those of a first-party app also carried `connector_account_id`, the id in `sub` without the
+provider.
 
 ## Named departures from the specifications
 
@@ -168,15 +181,15 @@ id as in `sub`, for the first-party apps that read it there. It goes once they r
   Subjects for the reasons.
 - Clients inherit the trust of their app: a first-party app's deployments skip the chooser and
   consent, because every deployment of a first-party app registers at deploy time.
-- An app from `/register` shows no page of the hub: it goes straight to its one connector, and the
+- A third-party app shows no page of the hub: it goes straight to its one connector, and the
   connector's own screen names the hub, not the app. This falls short of RFC 6749 section 10.12,
   which asks that a client get no authorization without the user's awareness of it, and it is the
   confused deputy shape of the MCP security guide. A host that wants this accepts it knowingly and
   sets `selectAccount`, so the provider shows its account screen on each sign-in and a user is never
-  passed through with no click. The user still does not learn which app is asking. Suspending the
+  passed through with no click. The user still does not learn which app is asking. Blocking the
   app's tenant is the answer to a bad app.
-- A refusal before sign-in goes to an error page for an app from `/register`, not to its redirect
-  URI, because nobody reviewed that URI (RFC 9700 section 4.11.2).
+- A refusal before sign-in goes to an error page for a third-party app, not to its redirect URI,
+  because nobody reviewed that URI (RFC 9700 section 4.11.2).
 - A read of a client (RFC 7592 section 2.1) renews it, and answers without `client_secret` and
   `registration_access_token`, which the section includes. The hub keeps only their hashes, and the
   client already holds both. No request changes a secret: a client that lost it registers a new
@@ -197,14 +210,13 @@ id as in `sub`, for the first-party apps that read it there. It goes once they r
 ## Keys
 
 `IDENTITY_BROKER_KEYS` holds one current RS256 private key and the public halves of retired keys
-with their retirement time. A key set from before 0.17.0 also holds `pairwiseSalt`, which nothing
-reads. The host parses it in each request and refuses a key without its RSA members. The JWKS
-publishes each key under its entry's kid, the kid the signer writes into a token header.
-`keys --rotate` only parses its input, so a current key the signer refuses, such as RSA under the
-2048 bits RS256 needs, can still be rotated out. It checks its output instead: a test id_token
-signed with the new current key must verify against the JWKS the broker publishes, and each retired
-key there must be RSA of 2048 bits or more; a weak key carried over as retired is dropped with
-`--no-overlap`. `keys --rotate` keeps the retired public key in the JWKS for 14 days. After a key
-compromise, `keys --rotate --no-overlap` drops the retired keys at once, so every token signed
+with their retirement time. The host parses it in each request and refuses a key without its RSA
+members. The JWKS publishes each key under its entry's kid, the kid the signer writes into a token
+header. `keys --rotate` only parses its input, so a current key the signer refuses, such as RSA
+under the 2048 bits RS256 needs, can still be rotated out. It checks its output instead: a test
+id_token signed with the new current key must verify against the JWKS the broker publishes, and each
+retired key there must be RSA of 2048 bits or more; a weak key carried over as retired is dropped
+with `--no-overlap`. `keys --rotate` keeps the retired public key in the JWKS for 14 days. After a
+key compromise, `keys --rotate --no-overlap` drops the retired keys at once, so every token signed
 before stops verifying. The key set holds no identity, so a lost one is replaced with a new one:
 tokens signed before stop verifying, and no user changes.

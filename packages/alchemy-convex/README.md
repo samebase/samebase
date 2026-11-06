@@ -304,20 +304,6 @@ call.
     as the build inputs `["src/**", "public/**", "vite.config.ts"]`. A minted key for a command has
     every action, because the command can do more than a push.
 
-- `Convex.HubClient`: `{ team, app, redirectUri, deploymentType, clientName, softwareVersion? }`
-  registers one deployment as a client of the identity hub of the team. The hub is the production
-  deployment of the project `identity-hub`. The resource finds it by name and runs its internal
-  functions `identityBroker:renewClient` and `identityBroker:registerClient` with a short-lived key,
-  so the stack needs no other credential and no hub address. The first client of an `app` creates
-  the app. Outputs `issuer`, `clientId`, `clientSecret`, `redirectUri`, `deploymentType`, and
-  `clientName`, which the `env` of the `Convex.Deployment` writes to the deployment.
-  - Each deploy renews the client on the hub. A preview or development client expires 14 days after
-    its last deploy or use, and a production client never expires. A client that the hub no longer
-    has gets a new one in the same run.
-  - Another `redirectUri` is a new client, and the old one goes.
-  - A destroy deletes a preview or development client. It does nothing to a production client,
-    because the production deployment can stay.
-
 - `Convex.SharedHubClient`:
   `{ app, redirectUri, deploymentType, initialAccessToken?, softwareVersion? }` gets a client of the
   central identity hub, for an app that deploys in its own GitHub Actions run, on any host, and for
@@ -375,22 +361,6 @@ call.
     folder has no logged-in local deployment, also for an anonymous one.
   - With a `local:` deployment selected in `.env.local`, the Convex CLI login takes the team of the
     project in `config.json`.
-
-A development deployment of a team app (`Convex.HubClient`) has no stack, so the package has a
-command for it. Run it in the directory of the app, before the first push and at each dev start,
-with `CONVEX_ACCESS_TOKEN` or the Convex CLI login. It renews the client that `HUB_CLIENT_ID` names,
-so the client expires 14 days after the last dev start or use. A deployment without all three
-variables, or whose client the hub no longer has, gets a new client, and the command writes
-`HUB_ISSUER`, `HUB_CLIENT_ID`, and `HUB_CLIENT_SECRET` to it.
-
-```sh
-npx alchemy-convex hub-client --team my-team --app scout --callback-path /auth/hub/callback
-```
-
-For a separate API-connection callback, register another client with
-`--callback-path /oauth/hub/callback --env-prefix RESOURCE_HUB`. This writes `RESOURCE_HUB_ISSUER`,
-`RESOURCE_HUB_CLIENT_ID`, and `RESOURCE_HUB_CLIENT_SECRET`, preserving the sign-in client's
-variables. Each callback remains one exact registered URI.
 
 ### The development stage
 

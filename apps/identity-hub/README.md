@@ -74,39 +74,32 @@ way.
 
 ## Register an app
 
-An app of the team needs no step on the hub. Each deployment registers itself through the
-`Convex.HubClient` resource of `@samebase/alchemy-convex` in its Alchemy stack, which also writes
-the client into the deployment's variables:
+An app needs no step on the hub. Every app gets its clients at `POST /hub-clients`, from the
+`Convex.SharedHubClient` resource of `@samebase/alchemy-convex` in its Alchemy stack, which also
+writes the client into the deployment's variables:
 
 ```ts
 const client =
   yield *
-  Convex.HubClient("HubClient", {
-    team,
+  Convex.SharedHubClient("SignInClient", {
     app: "bristol",
-    redirectUri: `${siteUrl}/oauth/hub/callback`,
-    deploymentType: "preview",
-    clientName: stage,
+    redirectUri: Output.interpolate`${deployment.siteUrl}/auth/hub/callback`,
+    deploymentType: stage === "prod" ? "production" : "preview",
   });
 ```
 
-The resource finds this hub by the name of its project. At each deploy it runs
-`identityBroker:renewClient`, and `identityBroker:registerClient` when the client is gone, with a
-short-lived key that the Convex credential of the stack mints. So the app has no token of its own.
-The first client of an `app` creates the app as a first-party app, which sends the user straight to
-the connector without the chooser. For an app that is not the team's own, run `createApp` with
-`firstParty` false first. A development deployment has no stack: the command
-`alchemy-convex hub-client` does the same with the Convex CLI login. Deleting an app removes its
-clients. Recreating it with the same id keeps the subjects of its users.
+A production or preview deployment asks in its own GitHub Actions run, with GitHub's OIDC token. The
+hub checks the token, the `/samebase-verification.json` file of the site, the hourly limits, and the
+blocks. No Samebase account is needed. The answer to a production registration holds the app's
+initial access token, and a laptop asks with it for a development client. Each client reads and
+deletes its own record at `/register/<client>`, and the broker serves no `/register`.
 
-A third-party app gets its client at `POST /hub-clients`, from the `Convex.SharedHubClient` resource
-of `@samebase/alchemy-convex` 0.24.0 or later in its own GitHub Actions run. The hub checks GitHub's
-OIDC token, the `/samebase-verification.json` file of the site, the hourly limits, and the blocks.
-No Samebase account is needed. The broker serves no `/register`: each client only reads and deletes
-its own record at `/register/<client>`. `THIRD_PARTY_PAUSED=true` stops every such app, and
-`identityBroker:setTenantSuspended` stops one tenant. samebase.com's admin page at
-`/admin/hub-clients` lists the registrations and every client, and blocks a repository or an owner,
-with `HUB_MODERATION_KEY`, which is set by hand on both deployments.
+A repository in `OWN_REPOSITORY_IDS` gets first-party apps, which send the user straight to the
+connector without the chooser and can use the API connections. Every other repository gets
+third-party apps with the one connector `google-apps`. `THIRD_PARTY_PAUSED=true` stops every
+third-party app. samebase.com's admin page at `/admin/hub-clients` lists the registrations and every
+client, and Block repository and Block owner there are the switches of one repository or owner, with
+`HUB_MODERATION_KEY`, which is set by hand on both deployments.
 
 See the component's [consumer guide](../../packages/identity-broker/docs/consumers.md).
 
@@ -114,18 +107,14 @@ See the component's [consumer guide](../../packages/identity-broker/docs/consume
 
 The admin functions are internal: `npx convex run --prod identityBroker:<name>`, from a checkout
 that selects the project `identity-hub`. The deploy key of the hub is an administrator credential:
-it can read and replace the keys and run every internal function. Every stack of the team mints keys
-of the hub with the team's Convex token, for its hub client. These keys can run internal functions
-only, and they end with the run. The team token itself reaches the hub, so treat it as an
-administrator credential too. The Convex CLI ignores `--prod` when `CONVEX_DEPLOY_KEY` names another
-deployment, so unset it before an admin command. A cron runs the broker's cleanup daily: expired
-requests and codes, sign-in records older than 90 days, and preview and development clients past
-their removal date. A client gets a removal date when it is a third-party preview client, or when
-`Convex.HubClient` or `alchemy-convex hub-client` of @samebase/alchemy-convex 0.25.0 or later renews
-it with `renewClient`, at each deploy and dev start. These register a new client when theirs is
-gone. A production client never expires: remove a dead one with `identityBroker:deleteClient`. Other
-idle preview clients are kept: the broker prunes them only when the host sets
-`previewClientIdleDays`, and this hub does not.
+it can read and replace the keys and run every internal function. The team's Convex token reaches
+the hub, so treat it as an administrator credential too. The Convex CLI ignores `--prod` when
+`CONVEX_DEPLOY_KEY` names another deployment, so unset it before an admin command. A cron runs the
+broker's cleanup daily: expired requests and codes, sign-in records older than 90 days, and preview
+and development clients past their removal date. Every preview and development client gets a removal
+date 14 days ahead, and each deploy's read of `/register/<client>` moves it. A deployment whose
+client is gone registers a new one. A production client never expires: remove a dead one with
+`identityBroker:deleteClient`.
 
 Never run `npx convex import --replace-all` on this deployment, also not with `--component`: it also
 deletes the rows of the other components. To restore the tables of one component, import a ZIP of

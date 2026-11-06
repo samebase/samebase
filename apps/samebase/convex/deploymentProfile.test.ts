@@ -24,6 +24,15 @@ describe("deploymentProfile", () => {
     ).toEqual({ kind: "local_worktree" });
   });
 
+  it("classifies a backend on a loopback address as a local worktree", () => {
+    expect(
+      resolveDeploymentProfileFromEnv({
+        CONVEX_CLOUD_URL: "http://127.0.0.1:11234",
+        CONVEX_SITE_URL: "http://127.0.0.1:11235",
+      }),
+    ).toEqual({ kind: "local_worktree" });
+  });
+
   it("classifies local Convex deployments as local development", () => {
     expect(
       resolveDeploymentProfileFromEnv({

@@ -5,7 +5,6 @@ import { anyApi, httpRouter, ROUTABLE_HTTP_METHODS } from "convex/server";
 import { exportJWK, generateKeyPair, SignJWT } from "jose";
 import { vi } from "vite-plus/test";
 import type { ComponentApi } from "../component/_generated/component.js";
-import { api } from "../component/_generated/api.js";
 import schema from "../component/schema.js";
 import type { Connector, OidcConnector } from "./connectors/types.js";
 import { defineIdentityBroker } from "./index.js";
@@ -88,33 +87,11 @@ export async function createHarness(options: {
     });
   }
 
-  /** The admin function `registerClient`, as `npx convex run` or a stack runs it. */
-  async function runRegisterClient(args: {
-    appId: string;
-    redirectUri: string;
-    deploymentType: "production" | "development" | "preview";
-    tokenEndpointAuthMethod: "client_secret_post" | "client_secret_basic";
-    expires?: boolean;
-  }): Promise<{ issuer: string; clientId: string; clientSecret: string }> {
-    const { registerClient: admin } = broker.admin();
-    return await t.action(
-      async (ctx) =>
-        // @ts-expect-error internalMutationGeneric keeps the function as _handler; RegisteredMutation does not declare it.
-        await admin._handler(ctx, { ...args, clientName: "dev", softwareVersion: "dev-1" }),
-    );
-  }
-
-  /** The admin function `renewClient`, as a deploy or a dev start runs it. */
-  async function runRenewClient(args: { clientId: string; expires: boolean }): Promise<boolean> {
-    const { renewClient: admin } = broker.admin();
-    return await t.action(
-      async (ctx) =>
-        // @ts-expect-error internalMutationGeneric keeps the function as _handler; RegisteredMutation does not declare it.
-        await admin._handler(ctx, args),
-    );
-  }
-
-  /** An app and one client with `redirectUri`, through the admin function that a stack runs. */
+  /**
+   * One client with `redirectUri` of the app `<appName>-test`, which the first call creates with
+   * every connector. A third-party app made here has no connector of its own, so the chooser is its
+   * consent page; one with a connector comes from `registration.register`.
+   */
   async function registerClient(args: {
     appName: string;
     firstParty: boolean;
@@ -124,19 +101,38 @@ export async function createHarness(options: {
     deploymentType?: "production" | "development" | "preview";
   }) {
     const appId = `${args.appName.toLowerCase()}-test`;
-    await t.mutation(api.apps.create, {
-      appId,
-      name: args.appName,
-      firstParty: args.firstParty,
-      createdAt: Date.now(),
+    const { clientId, clientSecret, secretHash, registrationTokenHash } =
+      await broker.newClientCredentials();
+    const now = Date.now();
+    await t.run(async (ctx) => {
+      const app = await ctx.db
+        .query("apps")
+        .withIndex("by_app_id", (q) => q.eq("appId", appId))
+        .unique();
+      if (app === null) {
+        await ctx.db.insert("apps", {
+          appId,
+          name: args.appName,
+          firstParty: args.firstParty,
+          tenantId: `${appId}-tenant`,
+          createdAt: now,
+        });
+      }
+      await ctx.db.insert("clients", {
+        clientId,
+        appId,
+        secretHash,
+        registrationTokenHash,
+        tokenEndpointAuthMethod: args.tokenEndpointAuthMethod ?? "client_secret_post",
+        redirectUri: args.redirectUri,
+        deploymentType: args.deploymentType ?? "development",
+        clientName: "dev",
+        softwareVersion: "dev-1",
+        createdAt: now,
+        renewedAt: now,
+      });
     });
-    const client = await runRegisterClient({
-      appId,
-      redirectUri: args.redirectUri,
-      deploymentType: args.deploymentType ?? "development",
-      tokenEndpointAuthMethod: args.tokenEndpointAuthMethod ?? "client_secret_post",
-    });
-    return { appId, clientId: client.clientId, clientSecret: client.clientSecret };
+    return { appId, clientId, clientSecret };
   }
 
   return {
@@ -145,8 +141,6 @@ export async function createHarness(options: {
     http,
     fetchBroker,
     registerClient,
-    runRegisterClient,
-    runRenewClient,
     keySet,
     issuer,
   };

@@ -96,15 +96,22 @@ const overview = {
       },
       {
         clientId: "cl_production",
-        appId: "samebase",
+        appId: "gh-81-4c9a75cca717efb68c856f26ba825073",
         clientName: "prod",
         deploymentType: "production",
         redirectUri: "https://samebase.com/auth/hub/callback",
         createdAt: 1,
-        renewedAt: null,
+        renewedAt: 2,
         lastSignInAt: 3,
         removeAt: null,
-        registeredBy: { kind: "team" },
+        registeredBy: {
+          kind: "github",
+          githubRepository: "octo-org/own",
+          githubRepositoryDatabaseId: "81",
+          githubOwnerId: "65",
+          githubActorLogin: "octocat",
+          app: "my-app",
+        },
       },
     ],
     limitReached: false,
@@ -193,9 +200,9 @@ describe("AdminHubClientsPage", () => {
       ]);
       expect(cellsOf(page.rootElement, "cl_laptop")).toEqual([
         time(1),
-        `octo-org/octo-repo 74 app token ${time(ISSUED_AT)}`,
+        "octo-org/octo-repo 74",
         "65",
-        "",
+        `Laptop, token of ${time(ISSUED_AT)}`,
         "my-app gh-74-4c9a75cca717efb68c856f26ba825073-preview",
         "development cl_laptop",
         "development",
@@ -206,13 +213,15 @@ describe("AdminHubClientsPage", () => {
       ]);
       expect(cellsOf(page.rootElement, "cl_production")).toEqual([
         time(1),
-        "Team login",
-        "samebase",
+        "octo-org/own 81",
+        "65",
+        "octocat",
+        "my-app gh-81-4c9a75cca717efb68c856f26ba825073",
         "prod cl_production",
         "production",
         "https://samebase.com/auth/hub/callback",
         "Never",
-        "Never",
+        time(2),
         time(3),
       ]);
       expect(text).not.toContain("The newest");

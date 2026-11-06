@@ -7,26 +7,17 @@ import { describe, expect, it } from "vite-plus/test";
 
 import { resolveRepoRoot } from "./lib/scriptRuntime.ts";
 import { trackedFilePath } from "./lib/trackedFilePath.ts";
-import { buildContextBootstrapArgs, classifyWorktree, selectDevRunner } from "./run-context-dev.ts";
+import { buildContextBootstrapArgs, classifyWorktree } from "./run-context-dev.ts";
 
 describe("run-context-dev", () => {
-  it("uses the primary dev runner when Git dir and common dir match", () => {
+  it("tells the main checkout from a linked worktree by the Git dirs", () => {
     expect(classifyWorktree("/repo/.git", "/repo/.git")).toBe("main");
-    expect(selectDevRunner("main")).toBe("run-primary-dev.ts");
-  });
-
-  it("uses the anonymous worktree runner when Git dir is per-worktree", () => {
     expect(classifyWorktree("/repo/.git/worktrees/feature", "/repo/.git")).toBe("linked");
-    expect(selectDevRunner("linked")).toBe("run-worktree-dev.ts");
-    expect(buildContextBootstrapArgs("linked", ["--once"])).toEqual(["--anon"]);
   });
 
-  it("forwards the branch override to the dependency bootstrap", () => {
-    expect(buildContextBootstrapArgs("main", ["--no-branch"])).toEqual(["--no-branch"]);
-    expect(buildContextBootstrapArgs("linked", ["--once", "--no-branch"])).toEqual([
-      "--anon",
-      "--no-branch",
-    ]);
+  it("forwards only the branch override to the dependency bootstrap", () => {
+    expect(buildContextBootstrapArgs(["--once"])).toEqual([]);
+    expect(buildContextBootstrapArgs(["--once", "--no-branch"])).toEqual(["--no-branch"]);
   });
 
   it("loads without installed workspace dependencies", () => {

@@ -13,13 +13,14 @@ afterEach(() => {
 });
 
 async function appWith(t: ReturnType<typeof convexTest>, args: { appId: string; clients: number }) {
-  await t.mutation(api.apps.create, {
-    appId: args.appId,
-    name: args.appId,
-    firstParty: true,
-    createdAt: now,
-  });
   await t.run(async (ctx) => {
+    await ctx.db.insert("apps", {
+      appId: args.appId,
+      name: args.appId,
+      firstParty: true,
+      tenantId: `${args.appId}-tenant`,
+      createdAt: now,
+    });
     for (let row = 0; row < args.clients; row++) {
       await ctx.db.insert("clients", {
         clientId: `${args.appId}-client-${row}`,
@@ -30,7 +31,9 @@ async function appWith(t: ReturnType<typeof convexTest>, args: { appId: string; 
         deploymentType: "preview",
         clientName: "c",
         softwareVersion: "v",
+        registrationTokenHash: "r",
         createdAt: now,
+        renewedAt: now,
       });
     }
   });

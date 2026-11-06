@@ -1,8 +1,8 @@
 /**
  * sync-site-url.ts
  *
- * Sets the SITE_URL environment variable on the Convex dev deployment.
- * Runs automatically as part of `predev` before the dev server starts.
+ * Sets the SITE_URL environment variable on the folder's local Convex
+ * deployment. scripts/convex-dev.ts runs it once the backend and Vite are up.
  *
  * WHY THIS EXISTS:
  * Convex Auth lets a GitHub or Google sign-in return only to the SITE_URL origin
@@ -18,17 +18,14 @@
  *
  *   - Local development: Reuses the deterministic local Vite port that Samebase
  *     picks before startup, beginning with http://localhost:5173.
- *
- * KNOWN LIMITATION:
- * All contributors share a single Convex dev deployment, so running this
- * script overwrites the SITE_URL for everyone. If multiple people are
- * developing simultaneously, only the last person to start their dev server
- * will have working OAuth redirects. The fix for this would be separate
- * Convex dev deployments per contributor.
  */
 
 import { spawnSync } from "child_process";
+import { fileURLToPath } from "node:url";
 import { resolveSiteUrlSyncOrigin, usesLocalConvexDeployment } from "./convex-local-utils.ts";
+
+/** Run through node: `npx` needs a shell on Windows, and spawnSync starts none. */
+const convexCliPath = fileURLToPath(new URL("../node_modules/convex/bin/main.js", import.meta.url));
 
 const writeProcessOutput = (stream: NodeJS.WriteStream, value: string | null | undefined): void => {
   if (typeof value === "string" && value.length > 0) {
@@ -47,7 +44,7 @@ try {
 }
 
 console.log(`Setting Convex SITE_URL to ${origin}`);
-const result = spawnSync("npx", ["convex", "env", "set", "SITE_URL", origin], {
+const result = spawnSync(process.execPath, [convexCliPath, "env", "set", "SITE_URL", origin], {
   stdio: "pipe",
   encoding: "utf8",
 });
