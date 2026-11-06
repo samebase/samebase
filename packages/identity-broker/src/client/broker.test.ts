@@ -857,9 +857,22 @@ describe("authorization code flow with an OAuth connector", () => {
     const requestId = new URL(`${ISSUER}${deny}`).searchParams.get("request") ?? "";
     expect(cookie.startsWith(`__Host-broker_txn_${requestId}=`)).toBe(true);
     const denied = await h.fetchBroker(`${ISSUER}${deny}`, { headers: { Cookie: cookie } });
-    expect(new URL(denied.headers.get("location") ?? "").searchParams.get("error")).toBe(
-      "access_denied",
+    // No redirect to a host that the user may have cancelled because they distrust it (RFC 9700
+    // section 4.11.2): a page, and a link back with the `access_denied` answer.
+    expect(denied.status).toBe(200);
+    expect(denied.headers.get("location")).toBeNull();
+    const cancelled = await denied.text();
+    expect(cancelled).toContain("<h1>Sign-in cancelled</h1>");
+    const back = new URL(
+      cancelled.match(/href="([^"]*)" rel="noreferrer">Return to /)?.[1]?.replace(/&amp;/g, "&") ??
+        "",
     );
+    expect(back.origin + back.pathname).toBe(REDIRECT_URI);
+    expect(Object.fromEntries(back.searchParams)).toMatchObject({
+      error: "access_denied",
+      state: "client-state",
+      iss: ISSUER,
+    });
     // The abandoned request deletes its cookie.
     expect(denied.headers.get("set-cookie")).toBe(
       `__Host-broker_txn_${requestId}=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0`,

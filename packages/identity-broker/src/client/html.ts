@@ -23,7 +23,7 @@ const STYLE = `
   a { color: inherit; text-underline-offset: 0.2em; text-decoration-thickness: 1px; }
   a:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
   .muted { color: var(--muted); }
-  .label { white-space: nowrap; }
+  .label { display: inline-block; max-width: 100%; }
   .facts { display: grid; grid-template-columns: max-content 1fr; gap: 0.5rem 1.25rem;
     margin: 1.5rem 0; padding: 1rem 0; border-block: 1px solid var(--line); }
   .facts dt { color: var(--muted); }
@@ -76,6 +76,20 @@ function released(scopes: string[]) {
     : `${parts.slice(0, -1).join(", ")}, and ${parts.slice(-1).join("")}`;
 }
 
+/**
+ * A host that breaks after a dot. Each label is a box as wide as the line at most, so it breaks
+ * inside, at a hyphen or anywhere, only when it is wider than the line by itself.
+ */
+function hostMarkup(host: string) {
+  return host
+    .split(".")
+    .map((label, index, labels) => {
+      const dot = index < labels.length - 1 ? "." : "";
+      return `<span class="label">${escape(label)}${dot}</span>`;
+    })
+    .join("<wbr>");
+}
+
 /** The connector choice of a first-party app: the host's own apps need no consent. */
 export function chooserPage(args: {
   appName: string;
@@ -97,8 +111,8 @@ export function chooserPage(args: {
  * The decision that a third-party app's preview or development client asks for before the user
  * goes to its connector. Its name is self-asserted (RFC 7591 section 5), so the page names what the
  * hub checked: the host that gets the sign-in, which served the repository's verification file or
- * is the user's own computer, and the GitHub repository that registered it. Cancel answers
- * `access_denied` to that host.
+ * is the user's own computer, and the GitHub repository that registered it. Cancel ends the
+ * sign-in on `cancelledPage`.
  */
 export function consentPage(args: {
   /** The host of the client's return address, with its port. */
@@ -126,17 +140,9 @@ export function consentPage(args: {
     default:
       return args.deployment satisfies never;
   }
-  // A long host breaks only after a dot, never at a hyphen inside a label.
-  const host = args.host
-    .split(".")
-    .map((label, index, labels) => {
-      const dot = index < labels.length - 1 ? "." : "";
-      return `<span class="label">${escape(label)}${dot}</span>`;
-    })
-    .join("<wbr>");
   return page(
     `Sign in to ${args.host}`,
-    `<h1>Sign in to ${host}</h1>
+    `<h1>Sign in to ${hostMarkup(args.host)}</h1>
 <dl class="facts">
 <dt>Repository</dt><dd><a href="https://github.com/${escape(args.repository)}" rel="noreferrer">${escape(args.repository)}</a></dd>
 <dt>Deploy</dt><dd>${escape(deploy)}</dd>
@@ -145,6 +151,19 @@ export function consentPage(args: {
 <a class="button primary" href="${escape(args.continueHref)}">Continue with ${escape(args.connectorLabel)}</a>
 <a class="cancel" href="${escape(args.cancelHref)}">Cancel</a>
 <p class="note">${escape(args.issuerHost)} did not review this app. Continue only if you trust it.</p>`,
+  );
+}
+
+/**
+ * After Cancel on the consent page. It does not send the user to the host, which they may distrust;
+ * the link back carries the `access_denied` answer for a user who wants to return.
+ */
+export function cancelledPage(args: { host: string; returnHref: string }): Response {
+  return page(
+    "Sign-in cancelled",
+    `<h1>Sign-in cancelled</h1>
+<p class="muted">Nothing was shared with ${hostMarkup(args.host)}. You can close this tab.</p>
+<p class="note"><a href="${escape(args.returnHref)}" rel="noreferrer">Return to ${hostMarkup(args.host)}</a></p>`,
   );
 }
 

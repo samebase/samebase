@@ -30,9 +30,27 @@ export function redirect(location: string): Response {
 }
 
 /**
- * The authorization response (OAuth 2.1 section 4.1.2): parameters on the registered redirect URI,
- * with `iss` on every response (RFC 9207) and `state` when the client sent one.
+ * The URL of an authorization response (OAuth 2.1 section 4.1.2): parameters on the registered
+ * redirect URI, with `iss` on every response (RFC 9207) and `state` when the client sent one.
  */
+export function authorizationResponseUrl(args: {
+  redirectUri: string;
+  issuer: string;
+  state: string | undefined;
+  params: Record<string, string>;
+}): string {
+  const url = new URL(args.redirectUri);
+  for (const [key, value] of Object.entries(args.params)) {
+    url.searchParams.set(key, value);
+  }
+  if (args.state !== undefined) {
+    url.searchParams.set("state", args.state);
+  }
+  url.searchParams.set("iss", args.issuer);
+  return url.toString();
+}
+
+/** The authorization response as a redirect to the client. */
 export function authorizationResponse(args: {
   redirectUri: string;
   issuer: string;
@@ -44,15 +62,7 @@ export function authorizationResponse(args: {
   clearCookie: string | undefined;
   params: Record<string, string>;
 }): Response {
-  const url = new URL(args.redirectUri);
-  for (const [key, value] of Object.entries(args.params)) {
-    url.searchParams.set(key, value);
-  }
-  if (args.state !== undefined) {
-    url.searchParams.set("state", args.state);
-  }
-  url.searchParams.set("iss", args.issuer);
-  const response = redirect(url.toString());
+  const response = redirect(authorizationResponseUrl(args));
   if (args.clearCookie !== undefined) {
     response.headers.append("Set-Cookie", args.clearCookie);
   }

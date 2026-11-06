@@ -12,7 +12,7 @@ import * as oauth from "oauth4webapi";
 import type { ComponentApi } from "../component/_generated/component.js";
 import type { Connector } from "./connectors/types.js";
 import { finishUpstream, startUpstream, type UpstreamFinish } from "./connectors/upstream.js";
-import { chooserPage, consentPage, errorPage } from "./html.js";
+import { cancelledPage, chooserPage, consentPage, errorPage } from "./html.js";
 import {
   signAccessToken,
   signIdToken,
@@ -32,6 +32,7 @@ import {
 import {
   authorizationError,
   authorizationResponse,
+  authorizationResponseUrl,
   json,
   oauthError,
   readParameters,
@@ -576,11 +577,21 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
     };
     if (url.searchParams.get("deny") !== null) {
       await ctx.runMutation(component.authRequests.abandon, { requestId });
-      return authorizationError({
-        ...back,
-        error: "access_denied",
-        description: "The user cancelled the sign-in.",
+      // No redirect: a user may cancel because they distrust the host, which nobody reviewed (RFC
+      // 9700 section 4.11.2). The way back is a link they choose, with the `access_denied` answer.
+      const page = cancelledPage({
+        host: new URL(stored.redirectUri).host,
+        returnHref: authorizationResponseUrl({
+          redirectUri: stored.redirectUri,
+          issuer,
+          state: stored.state,
+          params: { error: "access_denied", error_description: "The user cancelled the sign-in." },
+        }),
       });
+      if (back.clearCookie !== undefined) {
+        page.headers.append("Set-Cookie", back.clearCookie);
+      }
+      return page;
     }
     if (stored.status === "completed" || stored.status === "claimed") {
       return errorPage(
