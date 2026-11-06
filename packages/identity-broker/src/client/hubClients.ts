@@ -34,7 +34,7 @@ const MAX_APP_LENGTH = 64;
  * The hosts of a laptop's return address, as the redirect URI rule names them (`isLoopbackHost` in
  * protocol.ts). The URL parser writes an IPv6 host with its brackets.
  */
-const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]"]);
+export const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]"]);
 
 // Each check below allows unknown fields: GitHub and a host send more than these name.
 

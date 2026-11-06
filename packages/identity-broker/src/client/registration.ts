@@ -28,8 +28,18 @@ export type RegistrationConfig = {
   paused: () => boolean;
   /** The key of `/moderation/*`, read in the request. Unset or empty: every request is refused. */
   moderationKey: () => string | undefined;
-  /** The terms of the hub's sign-in service, which the answer of every new client names. */
+  /** The name of the hub's sign-in service as users know it, such as `Samebase`. */
+  name: string;
+  /**
+   * The terms of the hub's sign-in service, which the answer of every new client names and the
+   * sign-in page links.
+   */
   terms: string;
+  /**
+   * The privacy notice of the hub's sign-in service, linked under the sign-in page. It says what
+   * the hub keeps and passes to apps (Google's user data policy; GDPR articles 13 and 14).
+   */
+  privacy: string;
 };
 
 type TokenMethod = "client_secret_post" | "client_secret_basic";

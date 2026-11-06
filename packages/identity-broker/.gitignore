@@ -1,3 +1,5 @@
 # Written by `npx convex dev --once` in a scratch deployment; codegen needs none of it.
 /convex/
 .env.local
+# Reports of `pnpm run test:pages`; the images it makes are in screenshots/.
+/.playwright/

@@ -89,13 +89,14 @@ export async function createHarness(options: {
   }
 
   /**
-   * One client with `redirectUri` of the app `<appName>-test`, which the first call creates with
-   * every connector. A third-party app made here has no connector of its own, so the chooser is its
-   * consent page; one with a connector comes from `registration.register`.
+   * One client with `redirectUri` of the app `<appName>-test`, which the first call creates. A
+   * first-party app has every open connector; a third-party app has `connector` as its one.
    */
   async function registerClient(args: {
     appName: string;
     firstParty: boolean;
+    /** The one connector of a third-party app. */
+    connector?: string;
     redirectUri: string;
     /** As @samebase/alchemy-convex registers: Convex Auth posts the client credentials. */
     tokenEndpointAuthMethod?: "client_secret_post" | "client_secret_basic";
@@ -115,6 +116,7 @@ export async function createHarness(options: {
           appId,
           name: args.appName,
           firstParty: args.firstParty,
+          ...(args.firstParty ? {} : { connector: args.connector ?? "fake" }),
           tenantId: `${appId}-tenant`,
           createdAt: now,
         });

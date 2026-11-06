@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.23.0
+
+- `registration.name` is required: the hub's name as users know it, which the consent page uses in
+  "<name> has not reviewed this app."
+- `registration.privacy` is required: the hub's privacy notice. The sign-in page links it and
+  `registration.terms` under its card, as Google's user data policy and GDPR articles 13 and 14 ask
+  of the service that passes users' data on.
+- A third-party app's preview or development client shows a consent page before its connector: the
+  host that gets the sign-in, the GitHub repository, the deploy, and what the app receives, with
+  Continue. It has no Cancel: the browser's Back does that. Production clients go straight to the
+  connector as before.
+- A third-party app whose connector is not configured answers an error page instead of the chooser,
+  which offered the host's own connectors.
+- The broker's pages (consent, chooser, errors) are one card that follows the system's light or dark
+  theme. A connector button shows its provider's mark: Google's G in Google's own button colors, and
+  GitHub's mark.
+
 ## 0.22.0
 
 Fixes from the RFC 136 security review, each found by a model-based test that now guards it.

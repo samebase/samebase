@@ -22,6 +22,8 @@ export const broker = defineIdentityBroker({
     thirdPartyConnector: APPS_CONNECTOR,
     paused: () => env.THIRD_PARTY_PAUSED === "true",
     moderationKey: () => env.HUB_MODERATION_KEY,
+    name: "Samebase",
     terms: "https://samebase.com/terms",
+    privacy: "https://samebase.com/privacy",
   },
 });
