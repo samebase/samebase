@@ -99,7 +99,7 @@ test.provider("changes component bindings without replacing resources or pushing
           pullRequest: null,
           headCommit: "test-commit",
           runUrl: null,
-          source: "laptop",
+          source: "checkout",
           recordedAt: "2026-10-24T12:00:00.000Z",
         },
       });

@@ -1,5 +1,5 @@
 // The run record from recorded environments: a pull_request event, a push,
-// and a development checkout made with the real git.
+// and a checkout made with the real git.
 import { execFileSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -130,7 +130,7 @@ describe("runRecord", () => {
     ).toContain("cannot be read");
   });
 
-  it("records a development checkout from git", async () => {
+  it("records a checkout from git", async () => {
     const record = await at(join(checkout, "apps", "site"), {});
     expect(record).toEqual({
       version: 1,
@@ -140,7 +140,7 @@ describe("runRecord", () => {
       pullRequest: null,
       headCommit: git(checkout, "rev-parse", "HEAD"),
       runUrl: null,
-      source: "laptop",
+      source: "checkout",
       recordedAt: "2026-10-21T10:00:00.000Z",
     } satisfies RunRecord);
     expect(record.headCommit).toMatch(/^[0-9a-f]{40}$/);
@@ -158,7 +158,7 @@ describe("runRecord", () => {
     }
   });
 
-  it("fails on a development machine outside a checkout, without origin, with a path remote, or on no branch", async () => {
+  it("fails outside a checkout, without origin, with a path remote, or on no branch", async () => {
     expect(await failureOf(dir, {})).toContain("git remote get-url origin failed");
     git(checkout, "remote", "remove", "origin");
     expect(await failureOf(checkout, {})).toContain("git remote get-url origin failed");
@@ -179,7 +179,7 @@ describe("withRunRecord", () => {
     pullRequest: null,
     headCommit: HEAD_SHA,
     runUrl: null,
-    source: "laptop",
+    source: "checkout",
     recordedAt: "2026-10-21T10:00:00.000Z",
   };
 
