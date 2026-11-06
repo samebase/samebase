@@ -84,9 +84,12 @@ or null for a conflict:
 - Both sides insert at the same place, and the insertions share no line: both, the staged lines
   first. `git merge-file` reports a conflict here; Samebase keeps both.
 - Both sides insert at the same place, or replace the same base lines, and one side's lines include
-  the other's in order: the larger side, as when a teammate pushed the user's edit plus more. Only
-  when each shared line appears once in the staged and once in the upstream content, because with a
-  repeated line the diff can match the user's copy to a different copy upstream.
+  the other's in order: the larger side, as when a teammate pushed the user's edit plus more.
+
+Writing a shared line once needs each shared line, and the base lines just before and after the
+changes, to appear once in each of the base, staged, and upstream content. With a repeated line,
+the two diffs can match the user's copy and a teammate's copy to different places, and one copy
+would be lost.
 
 Anything else is a conflict, so a base line that one side removed never comes back from the other.
 */
@@ -96,12 +99,17 @@ function mergeTouchingChanges(
   end: number,
   staged: LineChange[],
   upstream: LineChange[],
-  appearsOnceOnEachSide: (line: string) => boolean,
+  appearsOnceInEach: (line: string) => boolean,
 ): string[] | null {
   const ours = applyChanges(base, start, end, staged);
   const theirs = applyChanges(base, start, end, upstream);
+  const before = base[start - 1];
+  const after = base[end];
+  const placeIsUnambiguous =
+    (before === undefined || appearsOnceInEach(before)) &&
+    (after === undefined || appearsOnceInEach(after));
   if (ours.join("") === theirs.join("")) {
-    return ours;
+    return placeIsUnambiguous && ours.every(appearsOnceInEach) ? ours : null;
   }
   const theirLines = new Set(theirs);
   const shared = ours.filter((line) => theirLines.has(line));
@@ -118,9 +126,10 @@ function mergeTouchingChanges(
     upstream[0].end === end;
   if (
     (bothInsertOnly || sameRange) &&
+    placeIsUnambiguous &&
     ours.length > 0 &&
     theirs.length > 0 &&
-    shared.every(appearsOnceOnEachSide)
+    shared.every(appearsOnceInEach)
   ) {
     if (includesInOrder(theirs, ours)) {
       return theirs;
@@ -139,10 +148,14 @@ where they do not touch the other side's. Where they touch, `mergeTouchingChange
 function mergeLines(base: string[], staged: string[], upstream: string[]): string[] | null {
   const ours = lineChanges(base, staged);
   const theirs = lineChanges(base, upstream);
+  const baseCounts = countLines(base);
   const stagedCounts = countLines(staged);
   const upstreamCounts = countLines(upstream);
-  const appearsOnceOnEachSide = (line: string) =>
-    stagedCounts.get(line) === 1 && upstreamCounts.get(line) === 1;
+  // A line the base lacks counts as once in the base: only the two sides can repeat it.
+  const appearsOnceInEach = (line: string) =>
+    (baseCounts.get(line) ?? 1) === 1 &&
+    stagedCounts.get(line) === 1 &&
+    upstreamCounts.get(line) === 1;
   const chunks: string[][] = [];
   let index = 0;
   let i = 0;
@@ -176,7 +189,7 @@ function mergeLines(base: string[], staged: string[], upstream: string[]): strin
         ? applyChanges(base, start, end, groupOurs)
         : groupOurs.length === 0
           ? applyChanges(base, start, end, groupTheirs)
-          : mergeTouchingChanges(base, start, end, groupOurs, groupTheirs, appearsOnceOnEachSide);
+          : mergeTouchingChanges(base, start, end, groupOurs, groupTheirs, appearsOnceInEach);
     if (lines === null) {
       return null;
     }
