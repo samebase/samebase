@@ -344,7 +344,8 @@ export default defineConfig({
           name: "identity-broker",
           environment: "edge-runtime",
           include: ["packages/identity-broker/src/**/*.test.ts"],
-          exclude: ["**/node_modules/**", "dist", "dev-dist"],
+          // `*.pages.test.ts` are the broker's Playwright screenshots (its playwright.config.ts).
+          exclude: ["**/node_modules/**", "dist", "dev-dist", "**/*.pages.test.ts"],
         },
       },
       {

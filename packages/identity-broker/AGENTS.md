@@ -19,6 +19,8 @@ From this folder:
 
 - `pnpm run check`: typecheck, lint, tests.
 - `pnpm run lint`, `pnpm run test`, `pnpm run build`.
+- `pnpm run test:pages`: screenshots of every page state in `src/client/html.ts`, in Linux Docker;
+  `pnpm run test:pages -- --update-snapshots` after a page change. `screenshots/` is the gallery.
 
 ## Rules
 

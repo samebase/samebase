@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { spawnSync } from "node:child_process";
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import process from "node:process";
 
@@ -49,6 +49,31 @@ tar \
 cd /work
 pnpm config set store-dir /pnpm-store >/dev/null
 pnpm install --frozen-lockfile
+
+# A package's own Playwright (--package): no Convex backend and no app build. Its report is under
+# <package>/.playwright and its images under <package>/screenshots.
+if [ -n "$PLAYWRIGHT_LINUX_PACKAGE" ]; then
+  set +e
+  pnpm --dir "$PLAYWRIGHT_LINUX_PACKAGE" exec playwright test "$@"
+  status=$?
+  set -e
+
+  rm -rf /out/playwright-report /out/test-results
+  if [ -d "$PLAYWRIGHT_LINUX_PACKAGE/.playwright/report" ]; then
+    cp -a "$PLAYWRIGHT_LINUX_PACKAGE/.playwright/report" /out/playwright-report
+  fi
+  if [ -d "$PLAYWRIGHT_LINUX_PACKAGE/.playwright/test-results" ]; then
+    cp -a "$PLAYWRIGHT_LINUX_PACKAGE/.playwright/test-results" /out/test-results
+  fi
+  if [ "$PLAYWRIGHT_LINUX_UPDATE_SNAPSHOTS" = "1" ] && [ -d "$PLAYWRIGHT_LINUX_PACKAGE/screenshots" ]; then
+    target="/src/$PLAYWRIGHT_LINUX_PACKAGE/screenshots"
+    mkdir -p "$target"
+    find "$target" -mindepth 1 -maxdepth 1 -exec rm -rf {} +
+    cp -a "$PLAYWRIGHT_LINUX_PACKAGE/screenshots/." "$target/"
+  fi
+  exit "$status"
+fi
+
 node ${ciBootstrapConvexScriptPath} --keep-running
 PLAYWRIGHT=1 pnpm --filter samebase build:ci
 
@@ -228,10 +253,33 @@ Linux Playwright artifacts:
 `);
 }
 
+/**
+ * `--package <folder>` runs the Playwright config of that workspace package instead of the
+ * Samebase app's. The folder is a direct child of `packages/` with a `playwright.config.ts`: the
+ * container copies images back into it, so nothing else is accepted.
+ */
+function readPackageArg(repoRoot: string, args: string[]) {
+  const index = args.indexOf("--package");
+  if (index === -1) {
+    return { packageDir: "", rest: args };
+  }
+  const packageDir = args[index + 1] ?? "";
+  if (
+    !/^packages\/[a-z0-9-]+$/.test(packageDir) ||
+    !existsSync(path.join(repoRoot, packageDir, "playwright.config.ts"))
+  ) {
+    fail(
+      `--package needs a packages/<name> folder with a playwright.config.ts, not "${packageDir}".`,
+    );
+  }
+  return { packageDir, rest: [...args.slice(0, index), ...args.slice(index + 2)] };
+}
+
 function runDocker(
   repoRoot: string,
   runnerPath: string,
   outDirPath: string,
+  packageDir: string,
   args: string[],
 ): number {
   ensureDockerIsRunning();
@@ -257,6 +305,8 @@ function runDocker(
     platform,
     "-e",
     `PLAYWRIGHT_LINUX_UPDATE_SNAPSHOTS=${updateSnapshots}`,
+    "-e",
+    `PLAYWRIGHT_LINUX_PACKAGE=${packageDir}`,
     "-e",
     `PLAYWRIGHT_VITE_PORT=${vitePort}`,
     "-e",
@@ -298,7 +348,8 @@ async function main(): Promise<void> {
   }
 
   const repoRoot = resolveRepoRoot();
-  const playwrightArgs = readLinuxPlaywrightArgs(stripPnpmSeparator(process.argv.slice(2)));
+  const { packageDir, rest } = readPackageArg(repoRoot, process.argv.slice(2));
+  const playwrightArgs = readLinuxPlaywrightArgs(stripPnpmSeparator(rest));
   const outDirRaw = readEnv("PLAYWRIGHT_LINUX_OUT", DEFAULT_OUT_DIR);
   const outDirPath = path.resolve(repoRoot, outDirRaw);
   const tempDir = path.resolve(repoRoot, ".tmp");
@@ -310,7 +361,7 @@ async function main(): Promise<void> {
   writeFileSync(runnerPath, CONTAINER_SCRIPT, { mode: 0o600 });
 
   try {
-    const status = runDocker(repoRoot, runnerPath, outDirPath, playwrightArgs);
+    const status = runDocker(repoRoot, runnerPath, outDirPath, packageDir, playwrightArgs);
     process.exitCode = status;
   } finally {
     rmSync(runnerPath, { force: true });

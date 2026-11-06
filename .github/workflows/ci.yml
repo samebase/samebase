@@ -35,6 +35,9 @@ jobs:
         ${{ steps.filter.outcome != 'success' || steps.filter.outputs.templates == 'true' }}
       windows_launcher:
         ${{ steps.filter.outcome != 'success' || steps.filter.outputs.windows_launcher == 'true' }}
+      identity_broker_pages:
+        ${{ steps.filter.outcome != 'success' || steps.filter.outputs.identity_broker_pages ==
+        'true' }}
       windows_smoke:
         ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' ||
         (github.event_name == 'pull_request' && steps.filter.outcome != 'success') ||
@@ -73,6 +76,10 @@ jobs:
               - pnpm-lock.yaml
               - pnpm-workspace.yaml
               - apps/samebase/convex/starterSeedManifest.generated.ts
+            identity_broker_pages:
+              - .github/workflows/ci.yml
+              - packages/identity-broker/**
+              - pnpm-lock.yaml
             windows_smoke:
               - .github/workflows/ci.yml
               - apps/samebase/scripts/convex-dev.ts
@@ -427,6 +434,53 @@ jobs:
             apps/samebase/e2e/playwright-report
             apps/samebase/e2e/test-results
 
+  # Screenshots of the identity broker's pages in every state (packages/identity-broker/
+  # playwright.config.ts). They need no server, so they run on pull requests too. The container is
+  # the image of `pnpm run test:pages`, which makes the images, so the fonts are the same.
+  identity_broker_pages:
+    name: identity-broker pages
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: [changes, supply_chain]
+    if:
+      ${{ !cancelled() && needs.changes.result == 'success' &&
+      needs.changes.outputs.identity_broker_pages == 'true' && (needs.supply_chain.result ==
+      'success' || needs.supply_chain.result == 'skipped') }}
+    container:
+      image: mcr.microsoft.com/playwright:v1.58.2-noble
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 12.14.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24.x
+          check-latest: true
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Compare the pages with their screenshots
+        working-directory: packages/identity-broker
+        run: pnpm exec playwright test
+
+      - name: Upload the report with the differences
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: identity-broker-pages
+          if-no-files-found: ignore
+          retention-days: 7
+          path: packages/identity-broker/.playwright
+
   # The launcher checks are the Windows-only contract of a pull request. They run when the launchers
   # or the dependencies that choose their executables change.
   windows_launcher:
@@ -559,6 +613,7 @@ jobs:
         unit_tests,
         app_build,
         playwright,
+        identity_broker_pages,
         windows_launcher,
         windows-smoke,
       ]
@@ -576,6 +631,8 @@ jobs:
           SELECT_TEMPLATES: ${{ needs.changes.outputs.templates }}
           SELECT_WINDOWS_LAUNCHER: ${{ needs.changes.outputs.windows_launcher }}
           SELECT_WINDOWS_SMOKE: ${{ needs.changes.outputs.windows_smoke }}
+          SELECT_IDENTITY_BROKER_PAGES: ${{ needs.changes.outputs.identity_broker_pages }}
+          IDENTITY_BROKER_PAGES: ${{ needs.identity_broker_pages.result }}
           SUPPLY_CHAIN: ${{ needs.supply_chain.result }}
           STARTER_TEMPLATE_SUPPLY_CHAIN: ${{ needs.starter_template_supply_chain.result }}
           STARTER_TEMPLATE_CHECK: ${{ needs.starter_template_check.result }}
@@ -620,6 +677,7 @@ jobs:
           require_selected "starter template check" "$STARTER_TEMPLATE_CHECK" "$SELECT_TEMPLATES"
           require_selected "windows launcher" "$WINDOWS_LAUNCHER" "$SELECT_WINDOWS_LAUNCHER"
           require_selected "windows-smoke" "$WINDOWS_SMOKE" "$SELECT_WINDOWS_SMOKE"
+          require_selected "identity-broker pages" "$IDENTITY_BROKER_PAGES" "$SELECT_IDENTITY_BROKER_PAGES"
 
           if [ "$EVENT_NAME" = "push" ]; then
             require_success "playwright" "$PLAYWRIGHT"
