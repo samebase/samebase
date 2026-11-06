@@ -7,6 +7,9 @@
 // - Stage `pr-<number>`, on each pull request: a Convex preview deployment with the name of the
 //   stage, which `alchemy destroy` deletes when the pull request closes. It reads the project by its
 //   slug, so it does not depend on the state of `prod`, and it creates no Workers.
+// - Stage `dev-<name>`, on a laptop at each `pnpm run dev`: the two hub clients of the folder's
+//   logged-in Convex local deployment and their six variables. `<name>` is the user name in the
+//   main checkout and the folder name in a linked worktree (scripts/run-worktree-dev.ts).
 //
 // The state of every stage is in the `alchemy-state-store` project of the Convex team of the
 // credential, under the stack name samebase/samebase/apps/samebase, the repository and the folder of
@@ -66,6 +69,49 @@ export default Alchemy.Stack(
   },
   Effect.gen(function* () {
     const { stage } = yield* Alchemy.Stack;
+
+    if (stage.startsWith("dev-")) {
+      // A laptop folder: the logged-in local deployment of this folder, which `convex dev` runs and
+      // pushes. `pnpm run dev` runs this stage once the backend answers. The clients are
+      // development clients on the backend's site port, which stays fixed for the folder, and they
+      // ask the hub with the initial access tokens that production's registration saved in the
+      // state of `prod`. "Site" only writes the six variables.
+      const local = Convex.LocalDeployment.of();
+      const signIn = Convex.SharedHubClient.variables(
+        yield* Convex.SharedHubClient("SignInClient", {
+          app: SIGN_IN_APP,
+          redirectUri: `${local.siteUrl}${HUB_CALLBACK_PATH}`,
+          deploymentType: "development",
+          initialAccessToken: Convex.SharedHubClient.read("SignInClient", { stage: "prod" })
+            .initialAccessToken,
+          softwareVersion: commit,
+          required: true,
+        }),
+      );
+      const connections = Convex.SharedHubClient.variables(
+        yield* Convex.SharedHubClient("ConnectionsClient", {
+          app: CONNECTIONS_APP,
+          redirectUri: `${local.siteUrl}${RESOURCE_HUB_CALLBACK_PATH}`,
+          deploymentType: "development",
+          initialAccessToken: Convex.SharedHubClient.read("ConnectionsClient", { stage: "prod" })
+            .initialAccessToken,
+          softwareVersion: commit,
+          required: true,
+        }),
+      );
+      const site = yield* Convex.LocalDeployment("Site", {
+        env: {
+          HUB_ISSUER: signIn.issuer,
+          HUB_CLIENT_ID: signIn.clientId,
+          HUB_CLIENT_SECRET: signIn.clientSecret,
+          RESOURCE_HUB_ISSUER: connections.issuer,
+          RESOURCE_HUB_CLIENT_ID: connections.clientId,
+          RESOURCE_HUB_CLIENT_SECRET: connections.clientSecret,
+        },
+      });
+
+      return { url: site.siteUrl };
+    }
 
     if (stage !== "prod") {
       // The project of samebase.com, read by its slug: this stage never creates, changes, or
