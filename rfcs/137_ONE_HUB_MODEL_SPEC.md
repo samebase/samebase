@@ -2,9 +2,10 @@
 
 ## Document Control
 
-- Status: Proposal, 2026-11-07. Written after the Codex research of 2026-11-07 (prior art,
-  standards, policy as code, shared upstream clients, pause semantics), then reviewed by Codex
-  (design review, 17 findings, all folded in). Two decisions are open, under "Open decisions".
+- Status: Accepted on 2026-11-07, build in progress. Written after the Codex research of 2026-11-07
+  (prior art, standards, policy as code, shared upstream clients, pause semantics), then reviewed by
+  Codex (design review, 17 findings, all folded in), then decided by Nicu (the section "Decisions
+  taken after the review").
 - Owner: Nicu Chiciuc
 - Supersedes, once accepted: the hub model of RFC 130 (registration without an account), RFC 133
   (development clients with the initial access token), RFC 134 (one path, own apps by repository),
@@ -226,10 +227,14 @@ registration: {
       samebase(registration) && registration.app === "samebase-connections"
         ? ["convex", "cloudflare", "github"]
         : [],
-    // Open decision 1: true for every client, or `registration.deploymentType !== "production"`.
+    // For every client, production included. This field is the lever: a later rule can return
+    // false for a case that needs no page, without a change to the broker.
     consent: true,
-    // Open decision 2: all of samebase.com, or its production only.
-    paused: env.APPS_PAUSED === "true" && !samebase(registration),
+    // samebase.com's production keeps running; its previews and development servers feel the
+    // pause as a stranger's app does.
+    paused:
+      env.APPS_PAUSED === "true" &&
+      !(samebase(registration) && registration.deploymentType === "production"),
   }),
 }
 ```
@@ -254,22 +259,24 @@ registration: {
 - Changing the registration limits, the caps, the expiry, the blocks, or the subjects.
 - Recalling issued tokens or app sessions on a policy change (decision 2 names the boundary).
 
-## Open decisions
+## Decisions taken after the review
 
-1. **Consent for production.** Codex rates this P1: with a shared GitHub OAuth App, GitHub reuses a
-   user's earlier authorization of that app and asks nothing, and Google's account chooser is not
-   consent to the downstream app either. A stranger's production client would then get a user's
-   identity with no page that names the recipient (RFC 6749 section 10.12). The sample above sets
-   `consent: true` for every client. The alternative keeps today's rule, no page for production, and
-   accepts that gap until the page has been judged in previews.
-2. **Pause scope.** Codex recommends exempting samebase.com's production only, so that its previews
-   and development servers feel the pause as a stranger's do. The alternative exempts every
-   deployment of samebase.com.
-
-Decided after the review: one public Google client for every app, samebase.com included, with the
-hub's homepage, privacy notice, and Google verification describing the brokerage (Codex finds no
-documented prohibition and names the shared reputation as the accepted cost); and hub error pages
-for every refusal before the user continued (decision 5).
+1. **Consent for production: yes.** Codex rated the gap P1: with a shared GitHub OAuth App, GitHub
+   reuses a user's earlier authorization of that app and asks nothing, and Google's account chooser
+   is not consent to the downstream app either, so a stranger's production client would get a user's
+   identity with no page that names the recipient (RFC 6749 section 10.12). Every client gets the
+   page. The policy's `consent` field keeps the way open: when a case is found that needs no page,
+   the hub's policy returns false for it, and the broker does not change.
+2. **Pause scope: samebase.com's production only**, so that its previews and development servers
+   feel the pause as a stranger's app does.
+3. **One public Google client for every app**, samebase.com included, with the hub's homepage,
+   privacy notice, and Google verification describing the shared sign-in service. Codex found no
+   documented prohibition and named the shared reputation as the accepted cost.
+4. **Hub error pages for every refusal before the user continued** (decision 5).
+5. **The public clients are named "Samebase"** at Google and at GitHub, not "Samebase apps": they
+   are the one sign-in service of Samebase, for its own apps and for apps built with it, and the
+   brand matches the homepage that describes the service. The private clients that leave the hub
+   free the name.
 
 ## Validation
 
@@ -297,12 +304,13 @@ Every repository of the team moves the same day, as for store version 6. Codex w
 credential change (step 1 and the env of step 3) into a later phase; one day is chosen because the
 hub has no outside users yet.
 
-1. Nicu, before the merge: create the public GitHub OAuth App with the callback
-   `https://auth.samebase.com/connectors/github/callback`; add
-   `https://auth.samebase.com/connectors/google/callback` to the public Google client's redirect
-   URIs; make the hub's homepage, privacy notice, and Google verification describe the shared
-   sign-in service; put the two client ids and secrets into the GitHub environment `identity-hub` as
-   `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `AUTH_GITHUB_CLIENT_ID`, and
+1. Nicu, before the merge: create the public GitHub OAuth App, named "Samebase", with the callback
+   `https://auth.samebase.com/connectors/github/callback` (until it exists, the hub's `github`
+   connector keeps the team's GitHub login OAuth App behind it, as `google` kept the private client
+   until now); add `https://auth.samebase.com/connectors/google/callback` to the public Google
+   client's redirect URIs; make the hub's homepage, privacy notice, and Google verification describe
+   the shared sign-in service; put the two client ids and secrets into the GitHub environment
+   `identity-hub` as `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `AUTH_GITHUB_CLIENT_ID`, and
    `AUTH_GITHUB_CLIENT_SECRET`, replacing the private clients' values.
 2. Broker 0.24.0 and the hub, one PR: the schema (apps lose `firstParty` and `connector`; clients
    gain `connectors`; auth requests gain the requested set), the policy contract, discovery, the
