@@ -13,8 +13,8 @@ export const vApp = object({
   name: string(),
   firstParty: boolean(),
   connector: optional(string()),
-  tenantId: optional(string()),
-  /** The tenant of the app is suspended, disconnected, or its owner is blocked. */
+  tenantId: string(),
+  /** The host blocked the tenant of the app, or its owner. */
   suspended: boolean(),
   createdAt: number(),
 });
@@ -27,16 +27,16 @@ export async function tenantRow(ctx: QueryCtx, tenantId: string) {
 }
 
 /**
- * Whether no client of `tenant` may register, renew, or sign in: the administrator suspended it, the
- * host disconnected it, or `ownerId` is blocked. `ownerId` is the tenant's recorded owner, or the
- * owner that a new registration names.
+ * Whether no client of `tenant` may register, renew, or sign in: the host disconnected it, or
+ * `ownerId` is blocked. `ownerId` is the tenant's recorded owner, or the owner that a new
+ * registration names.
  */
 export async function isStopped(
   ctx: QueryCtx,
   tenant: Doc<"tenants"> | null,
   ownerId: string | undefined,
 ): Promise<boolean> {
-  if (tenant?.suspendedAt !== undefined || tenant?.disconnected === true) {
+  if (tenant?.disconnected === true) {
     return true;
   }
   if (ownerId === undefined) {
@@ -49,10 +49,7 @@ export async function isStopped(
   return blocked !== null;
 }
 
-export async function isSuspended(ctx: QueryCtx, tenantId: string | undefined): Promise<boolean> {
-  if (tenantId === undefined) {
-    return false;
-  }
+export async function isSuspended(ctx: QueryCtx, tenantId: string): Promise<boolean> {
   const tenant = await tenantRow(ctx, tenantId);
   return await isStopped(ctx, tenant, tenant?.ownerId);
 }
@@ -64,38 +61,11 @@ export async function appView(ctx: QueryCtx, app: Doc<"apps">) {
     name: app.name,
     firstParty: app.firstParty,
     ...(app.connector === undefined ? {} : { connector: app.connector }),
-    ...(app.tenantId === undefined ? {} : { tenantId: app.tenantId }),
+    tenantId: app.tenantId,
     suspended: await isSuspended(ctx, app.tenantId),
     createdAt: app.createdAt,
   };
 }
-
-/** Registers an app. Its clients come later, one per deployment. */
-export const create = mutation({
-  args: {
-    appId: string(),
-    name: string(),
-    firstParty: boolean(),
-    createdAt: number(),
-  },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    const existing = await ctx.db
-      .query("apps")
-      .withIndex("by_app_id", (q) => q.eq("appId", args.appId))
-      .unique();
-    if (existing !== null) {
-      throw new Error(`An app with id "${args.appId}" already exists`);
-    }
-    await ctx.db.insert("apps", {
-      appId: args.appId,
-      name: args.name,
-      firstParty: args.firstParty,
-      createdAt: args.createdAt,
-    });
-    return null;
-  },
-});
 
 export const get = query({
   args: { appId: string() },

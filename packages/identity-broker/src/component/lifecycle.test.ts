@@ -28,6 +28,8 @@ async function seed(t: ReturnType<typeof convexTest>, clients: (Fields & { clien
         redirectUri: "https://app.test/callback",
         clientName: "test",
         softwareVersion: "test",
+        registrationTokenHash: "token-hash",
+        renewedAt: client.createdAt,
         ...client,
       });
     }

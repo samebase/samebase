@@ -24,24 +24,29 @@ const refresh = {
 
 async function grant(expires = false) {
   const t = convexTest(schema, modules);
-  await t.mutation(api.apps.create, {
-    appId: "app",
-    name: "App",
-    firstParty: true,
-    createdAt: NOW,
-  });
-  // A day before the authorization, so a removal date that the authorization moves differs.
-  await t.mutation(api.clients.create, {
-    clientId: auth.clientId,
-    appId: "app",
-    secretHash: auth.clientSecretHash,
-    tokenEndpointAuthMethod: auth.tokenEndpointAuthMethod,
-    redirectUri: "https://preview.example/cb",
-    deploymentType: "preview",
-    clientName: "preview",
-    softwareVersion: "test",
-    createdAt: NOW - DAY,
-    expires,
+  await t.run(async (ctx) => {
+    await ctx.db.insert("apps", {
+      appId: "app",
+      name: "App",
+      firstParty: true,
+      tenantId: "gh-1",
+      createdAt: NOW,
+    });
+    // A day before the authorization, so a removal date that the authorization moves differs.
+    await ctx.db.insert("clients", {
+      clientId: auth.clientId,
+      appId: "app",
+      secretHash: auth.clientSecretHash,
+      registrationTokenHash: "token-hash",
+      tokenEndpointAuthMethod: auth.tokenEndpointAuthMethod,
+      redirectUri: "https://preview.example/cb",
+      deploymentType: "preview",
+      clientName: "preview",
+      softwareVersion: "test",
+      createdAt: NOW - DAY,
+      renewedAt: NOW - DAY,
+      ...(expires ? { removeAt: NOW - DAY + LEASE_MS } : {}),
+    });
   });
   await t.mutation(api.resourceRequests.create, {
     requestId: "request",
@@ -118,17 +123,20 @@ test("only one upstream refresh starts, and a stale attempt can be claimed again
 
 test("refresh binding rejects other clients and resources without changing the grant", async () => {
   const { t } = await grant();
-  await t.mutation(api.clients.create, {
-    clientId: "other-client",
-    appId: "app",
-    secretHash: auth.clientSecretHash,
-    tokenEndpointAuthMethod: auth.tokenEndpointAuthMethod,
-    redirectUri: "https://other.example/cb",
-    deploymentType: "preview",
-    clientName: "other",
-    softwareVersion: "test",
-    createdAt: NOW,
-    expires: false,
+  await t.run(async (ctx) => {
+    await ctx.db.insert("clients", {
+      clientId: "other-client",
+      appId: "app",
+      secretHash: auth.clientSecretHash,
+      registrationTokenHash: "other-token-hash",
+      tokenEndpointAuthMethod: auth.tokenEndpointAuthMethod,
+      redirectUri: "https://other.example/cb",
+      deploymentType: "preview",
+      clientName: "other",
+      softwareVersion: "test",
+      createdAt: NOW,
+      renewedAt: NOW,
+    });
   });
   expect(
     await t.mutation(api.resourceRequests.claimRefresh, { ...refresh, clientId: "other-client" }),
@@ -186,12 +194,6 @@ test("a deleted app stops refresh before the batches remove its client rows", as
 test("a blocked repository or owner of a first-party app stops refresh, and an unblock restores it", async () => {
   const { t } = await grant();
   await t.run(async (ctx) => {
-    const app = await ctx.db
-      .query("apps")
-      .withIndex("by_app_id", (q) => q.eq("appId", "app"))
-      .unique();
-    if (app === null) throw new Error("Fixture app missing");
-    await ctx.db.patch("apps", app._id, { tenantId: "gh-1" });
     await ctx.db.insert("tenants", { tenantId: "gh-1", ownerId: "7" });
   });
   await t.mutation(api.registration.switchConnection, { tenantId: "gh-1", connected: false });

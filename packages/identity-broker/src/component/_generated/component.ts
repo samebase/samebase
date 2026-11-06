@@ -24,13 +24,6 @@ import type { FunctionReference } from "convex/server";
 export type ComponentApi<Name extends string | undefined = string | undefined> =
   {
     apps: {
-      create: FunctionReference<
-        "mutation",
-        "internal",
-        { appId: string; createdAt: number; firstParty: boolean; name: string },
-        null,
-        Name
-      >;
       get: FunctionReference<
         "query",
         "internal",
@@ -42,7 +35,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           firstParty: boolean;
           name: string;
           suspended: boolean;
-          tenantId?: string;
+          tenantId: string;
         } | null,
         Name
       >;
@@ -57,7 +50,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           firstParty: boolean;
           name: string;
           suspended: boolean;
-          tenantId?: string;
+          tenantId: string;
         }>,
         Name
       >;
@@ -183,7 +176,6 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             appId: string;
             authTime: number;
             clientId: string;
-            firstParty: boolean;
             identity: {
               connector: string;
               email?: string;
@@ -307,24 +299,6 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
       >;
     };
     clients: {
-      create: FunctionReference<
-        "mutation",
-        "internal",
-        {
-          appId: string;
-          clientId: string;
-          clientName: string;
-          createdAt: number;
-          deploymentType: "production" | "development" | "preview";
-          expires: boolean;
-          redirectUri: string;
-          secretHash: string;
-          softwareVersion: string;
-          tokenEndpointAuthMethod: "client_secret_post" | "client_secret_basic";
-        },
-        null,
-        Name
-      >;
       get: FunctionReference<
         "query",
         "internal",
@@ -337,9 +311,9 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           deploymentType: "production" | "development" | "preview";
           lastSignInAt?: number;
           redirectUri: string;
-          registrationTokenHash?: string;
+          registrationTokenHash: string;
           removeAt?: number;
-          renewedAt?: number;
+          renewedAt: number;
           secretHash: string;
           softwareVersion: string;
           tokenEndpointAuthMethod: "client_secret_post" | "client_secret_basic";
@@ -359,7 +333,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           lastSignInAt?: number;
           redirectUri: string;
           removeAt?: number;
-          renewedAt?: number;
+          renewedAt: number;
           softwareVersion: string;
         }>,
         Name
@@ -376,9 +350,9 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           deploymentType: "production" | "development" | "preview";
           lastSignInAt?: number;
           redirectUri: string;
-          registrationTokenHash?: string;
+          registrationTokenHash: string;
           removeAt?: number;
-          renewedAt?: number;
+          renewedAt: number;
           secretHash: string;
           softwareVersion: string;
           tokenEndpointAuthMethod: "client_secret_post" | "client_secret_basic";
@@ -390,13 +364,6 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         "internal",
         { clientId: string },
         null,
-        Name
-      >;
-      renew: FunctionReference<
-        "mutation",
-        "internal",
-        { clientId: string; expires: boolean; now: number },
-        boolean,
         Name
       >;
       withApp: FunctionReference<
@@ -411,7 +378,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             firstParty: boolean;
             name: string;
             suspended: boolean;
-            tenantId?: string;
+            tenantId: string;
           } | null;
           client: {
             appId: string;
@@ -421,9 +388,9 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             deploymentType: "production" | "development" | "preview";
             lastSignInAt?: number;
             redirectUri: string;
-            registrationTokenHash?: string;
+            registrationTokenHash: string;
             removeAt?: number;
-            renewedAt?: number;
+            renewedAt: number;
             secretHash: string;
             softwareVersion: string;
             tokenEndpointAuthMethod:
@@ -506,24 +473,10 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         | { error: "invalid_token" | "suspended"; ok: false },
         Name
       >;
-      setConnection: FunctionReference<
-        "mutation",
-        "internal",
-        { connected: boolean; revision: number; tenantId: string },
-        null,
-        Name
-      >;
       setOwnerBlocked: FunctionReference<
         "mutation",
         "internal",
         { blocked: boolean; now: number; ownerId: string },
-        null,
-        Name
-      >;
-      setSuspended: FunctionReference<
-        "mutation",
-        "internal",
-        { now: number; suspended: boolean; tenantId: string },
         null,
         Name
       >;

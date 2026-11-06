@@ -10,7 +10,6 @@ import {
 import { v } from "convex/values";
 import * as oauth from "oauth4webapi";
 import type { ComponentApi } from "../component/_generated/component.js";
-import { vDeploymentType, vTokenEndpointAuthMethod } from "../component/schema.js";
 import type { Connector } from "./connectors/types.js";
 import { finishUpstream, startUpstream, type UpstreamFinish } from "./connectors/upstream.js";
 import { chooserPage, errorPage } from "./html.js";
@@ -24,7 +23,6 @@ import {
 import { parseKeySet, publicJwks, SIGNING_ALGORITHM, type KeySet } from "./keys.js";
 import {
   isSecureUrl,
-  parseRedirectUri,
   readBearerToken,
   readClientAuthentication,
   validateAuthorizeRest,
@@ -78,7 +76,7 @@ export type IdentityBrokerConfig = {
   /** The content of `IDENTITY_BROKER_KEYS`, read in the request. */
   keys: () => string | undefined;
   connectors: Connector[];
-  /** OAuth API resources available to administrator-registered first-party apps. */
+  /** OAuth API resources available to first-party apps. */
   resources?: ResourceProvider[];
   /**
    * Days without a sign-in after which `cleanup` deletes a preview client. Absent: `cleanup` deletes
@@ -86,8 +84,8 @@ export type IdentityBrokerConfig = {
    */
   previewClientIdleDays?: number;
   /**
-   * Lets apps that are not the host's own register (RFC 7591), and manage their clients (RFC 7592).
-   * Absent: no `/register` endpoint.
+   * Lets each client of the host's registrations read and delete its own record (RFC 7592), and
+   * pause third-party apps. Absent: no `/register/<client>` endpoint.
    */
   registration?: RegistrationConfig;
 };
@@ -145,9 +143,6 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
     providerIssuers.set(connector.provider, connector.issuer);
   }
   const { previewClientIdleDays, registration } = config;
-  if (registration !== undefined && !connectors.has(registration.connector)) {
-    throw new Error(`No connector "${registration.connector}" for registration`);
-  }
   const openConnectors = [...connectors.values()].filter(
     (connector) => connector.reserved !== true,
   );
@@ -192,14 +187,14 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
       400,
     );
 
-  /** An app from `/register` has one connector. Any other app has every connector but a reserved one. */
+  /** A third-party app has one connector. A first-party app has every connector but a reserved one. */
   const connectorAllowed = (app: { connector?: string }, connector: Connector) =>
     app.connector === undefined ? connector.reserved !== true : connector.name === app.connector;
 
   /**
    * The connector `/authorize` goes to with no page. A first-party app may skip the chooser: the one
-   * it named, or the only one. An app from `/register` goes to its one connector, and the URL has no
-   * say. Any other third-party app always gets the page, which doubles as consent (RFC 9700 4.11).
+   * it named, or the only one. A third-party app goes to its one connector, and the URL has no say.
+   * Any other app gets the page, which doubles as consent (RFC 9700 4.11).
    */
   function directConnector(
     app: { connector?: string; firstParty: boolean },
@@ -219,7 +214,7 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
         : undefined;
   }
 
-  /** A sign-in of an app from `/register` that stopped: suspended, or stopped for all such apps. */
+  /** A sign-in that stopped: its tenant is stopped, or the pause stops every third-party app. */
   const stoppedPage = (app: { suspended: boolean; connector?: string }) =>
     app.suspended
       ? errorPage("Sign-in is off", "Sign-in for this app is turned off.", 403)
@@ -228,9 +223,9 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
         : null;
 
   /**
-   * A refusal before the user has authenticated. An app from `/register` holds a redirect URI that
-   * nobody reviewed, so a redirect would let a link on this host end on any page of that app. It gets
-   * an error page here (RFC 9700 section 4.11.2).
+   * A refusal before the user has authenticated. A third-party app holds a redirect URI that nobody
+   * reviewed, so a redirect would let a link on this host end on any page of that app. It gets an
+   * error page here (RFC 9700 section 4.11.2).
    */
   function refuse(
     app: { connector?: string } | null,
@@ -262,9 +257,6 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
     token_endpoint: `${issuer}/token`,
     userinfo_endpoint: `${issuer}/userinfo`,
     jwks_uri: `${issuer}/.well-known/jwks.json`,
-    ...(registration?.initialAccessToken === undefined
-      ? {}
-      : { registration_endpoint: `${issuer}/register` }),
     scopes_supported: [...SCOPES, ...resources.scopes],
     response_types_supported: ["code"],
     response_modes_supported: ["query"],
@@ -294,7 +286,6 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
       "name",
       "picture",
       "connector",
-      "connector_account_id",
     ],
     authorization_response_iss_parameter_supported: true,
     claims_parameter_supported: false,
@@ -448,7 +439,7 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
     const requestId = randomToken(24);
     const created = await ctx.runMutation(component.authRequests.create, {
       // A third-party app spends its tenant's budget. The host's own apps have none.
-      ...(app.firstParty || app.tenantId === undefined ? {} : { tenantId: app.tenantId }),
+      ...(app.firstParty ? {} : { tenantId: app.tenantId }),
       requestId,
       appId: app.appId,
       clientId: client.clientId,
@@ -757,11 +748,6 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
     // Claims follow the granted scopes (OIDC Core 5.4); userinfo reads them from the access token.
     const scopes = exchange.scope.split(" ");
     const claims: IdentityClaims = { sub, connector: exchange.identity.connector };
-    // The same id as in `sub`, for the first-party apps that read it here. It goes when they read
-    // the id from `sub`.
-    if (exchange.firstParty) {
-      claims.connector_account_id = exchange.identity.upstreamId;
-    }
     if (scopes.includes("email") && exchange.identity.email !== undefined) {
       claims.email = exchange.identity.email;
       claims.email_verified = exchange.identity.emailVerified === true;
@@ -847,7 +833,7 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
         });
       }
       if (registration !== undefined) {
-        registrationEndpoints({ component, issuer, path, registration }).addRoutes(http);
+        registrationEndpoints({ component, issuer, path }).addRoutes(http);
       }
     },
 
@@ -863,113 +849,13 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
      * host module such as `convex/identityBroker.ts`.
      */
     admin() {
-      const { boolean, optional, string } = v;
+      const { string } = v;
       return {
-        createApp: internalMutationGeneric({
-          args: { name: string(), firstParty: boolean() },
-          returns: v.object({ appId: string() }),
-          handler: async (ctx, args) => {
-            const slug =
-              args.name
-                .toLowerCase()
-                .replace(/[^a-z0-9]+/g, "-")
-                .replace(/^-|-$/g, "") || "app";
-            const appId = `${slug}-${randomToken(4)
-              .toLowerCase()
-              .replace(/[^a-z0-9]/g, "")
-              .slice(0, 5)}`;
-            await ctx.runMutation(component.apps.create, {
-              appId,
-              name: args.name,
-              firstParty: args.firstParty,
-              createdAt: Date.now(),
-            });
-            return { appId };
-          },
-        }),
-        /**
-         * Registers one deployment of `appId` as a client, and answers with the issuer and the
-         * client. The secret is in this reply only. The first client creates the app, as a first-party
-         * app: whoever runs this function administers this hub, so the app is the team's own. With
-         * `expires`, a preview or development client is deleted 14 days after its last renewal or
-         * use. Absent: false, and the client stays until `deleteClient`.
-         */
-        registerClient: internalMutationGeneric({
-          args: {
-            appId: string(),
-            redirectUri: string(),
-            deploymentType: vDeploymentType,
-            clientName: string(),
-            softwareVersion: string(),
-            tokenEndpointAuthMethod: vTokenEndpointAuthMethod,
-            expires: optional(boolean()),
-          },
-          returns: v.object({ issuer: string(), clientId: string(), clientSecret: string() }),
-          handler: async (ctx, args) => {
-            if (parseRedirectUri(args.redirectUri) === null) {
-              throw new Error(
-                "The redirect URI must be an absolute https URL without a fragment, or http on a loopback host.",
-              );
-            }
-            const now = Date.now();
-            const { appId } = args;
-            if ((await ctx.runQuery(component.apps.get, { appId })) === null) {
-              await ctx.runMutation(component.apps.create, {
-                appId,
-                name: appId,
-                firstParty: true,
-                createdAt: now,
-              });
-            }
-            const clientId = `cl_${randomToken(16)}`;
-            const clientSecret = randomToken(32);
-            await ctx.runMutation(component.clients.create, {
-              clientId,
-              appId,
-              secretHash: await sha256Hex(clientSecret),
-              tokenEndpointAuthMethod: args.tokenEndpointAuthMethod,
-              redirectUri: args.redirectUri,
-              deploymentType: args.deploymentType,
-              clientName: args.clientName,
-              softwareVersion: args.softwareVersion,
-              createdAt: now,
-              expires: args.expires ?? false,
-            });
-            return { issuer, clientId, clientSecret };
-          },
-        }),
-        /**
-         * Renews one client, as a deploy or a dev start of its deployment does: false when the client
-         * is gone. A client with a removal date then lives 14 more days. With `expires`, a preview or
-         * development client without one gets one. A production client never does.
-         */
-        renewClient: internalMutationGeneric({
-          args: { clientId: string(), expires: boolean() },
-          returns: boolean(),
-          handler: async (ctx, args) =>
-            await ctx.runMutation(component.clients.renew, {
-              clientId: args.clientId,
-              expires: args.expires,
-              now: Date.now(),
-            }),
-        }),
         deleteClient: internalMutationGeneric({
           args: { clientId: string() },
           returns: v.null(),
           handler: async (ctx, args) => {
             await ctx.runMutation(component.clients.remove, { clientId: args.clientId });
-            return null;
-          },
-        }),
-        /** Turns a tenant's switch on or off. It covers every app of the tenant. */
-        setTenantSuspended: internalMutationGeneric({
-          args: { tenantId: string(), suspended: boolean() },
-          returns: v.null(),
-          handler: async (ctx, args) => {
-            await ctx.runMutation(component.registration.setSuspended, {
-              ...args,
-              now: Date.now(),
-            });
             return null;
           },
         }),

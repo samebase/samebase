@@ -40,9 +40,7 @@ export function used(client: Doc<"clients">, now: number) {
 function evicted(rows: Doc<"clients">[], deploymentType: Infer<typeof vDeployment>) {
   const candidates =
     deploymentType === "production" ? rows.filter((row) => row.lastSignInAt === undefined) : rows;
-  return [...candidates].sort(
-    (a, b) => (a.renewedAt ?? a.createdAt) - (b.renewedAt ?? b.createdAt),
-  )[0];
+  return [...candidates].sort((a, b) => a.renewedAt - b.renewedAt)[0];
 }
 
 async function clientAt(ctx: MutationCtx, clientId: string, registrationTokenHash: string) {
@@ -54,11 +52,11 @@ async function clientAt(ctx: MutationCtx, clientId: string, registrationTokenHas
 }
 
 /**
- * Registers one deployment as a client of an app (RFC 7591), creating the app with its first
- * client. Everything is in one transaction, so a suspension or a cap cannot be raced. A client is
- * never replaced: a deployment that lost its client gets a new one, and any older one stays valid.
- * The host's own mutation can call it too, with the credentials of `newClientCredentials`, and then
- * write its own record of the client in the same transaction.
+ * Registers one deployment as a client of an app, creating the app with its first client. The
+ * host's own mutation calls it with the credentials of `newClientCredentials`, and can write its own
+ * record of the client in the same transaction. Everything is in one transaction, so a block or a
+ * cap cannot be raced. A client is never replaced: a deployment that lost its client gets a new one,
+ * and any older one stays valid.
  */
 export const register = mutation({
   args: {
@@ -244,30 +242,8 @@ export const remove = mutation({
 });
 
 /**
- * Records that a tenant left or came back. The service that registers tenants calls this, and it can
- * retry, so a request can arrive after a newer one: only a newer revision changes anything. This is
- * separate from `setSuspended`, so coming back cannot clear an administrator's suspension.
- */
-export const setConnection = mutation({
-  args: { tenantId: string(), connected: v.boolean(), revision: number() },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    const tenant = await tenantRow(ctx, args.tenantId);
-    const change = { disconnected: !args.connected, connectionRevision: args.revision };
-    if (tenant === null) {
-      await ctx.db.insert("tenants", { tenantId: args.tenantId, ...change });
-    } else if (args.revision > (tenant.connectionRevision ?? Number.NEGATIVE_INFINITY)) {
-      await ctx.db.patch("tenants", tenant._id, change);
-    }
-    return null;
-  },
-});
-
-/**
- * The host's own switch of a tenant's connection, such as a block of a repository. It raises the
- * stored revision by one in this transaction, so the host never counts revisions, and a request of
- * `/tenant-connection` that was sent before it and arrives late changes nothing. It leaves the
- * administrator's suspension as it is.
+ * The host's switch of a tenant, such as a block of a repository. It holds for apps of the tenant
+ * that do not exist yet, so it needs no list of them.
  */
 export const switchConnection = mutation({
   args: { tenantId: string(), connected: v.boolean() },
@@ -275,16 +251,9 @@ export const switchConnection = mutation({
   handler: async (ctx, args) => {
     const tenant = await tenantRow(ctx, args.tenantId);
     if (tenant === null) {
-      await ctx.db.insert("tenants", {
-        tenantId: args.tenantId,
-        disconnected: !args.connected,
-        connectionRevision: 1,
-      });
+      await ctx.db.insert("tenants", { tenantId: args.tenantId, disconnected: !args.connected });
     } else {
-      await ctx.db.patch("tenants", tenant._id, {
-        disconnected: !args.connected,
-        connectionRevision: (tenant.connectionRevision ?? 0) + 1,
-      });
+      await ctx.db.patch("tenants", tenant._id, { disconnected: !args.connected });
     }
     return null;
   },
@@ -306,28 +275,6 @@ export const setOwnerBlocked = mutation({
       await ctx.db.insert("blockedOwners", { ownerId: args.ownerId, blockedAt: args.now });
     } else if (!args.blocked && row !== null) {
       await ctx.db.delete("blockedOwners", row._id);
-    }
-    return null;
-  },
-});
-
-/**
- * The administrator's switch on a tenant. It covers every app of the tenant, and it holds for apps
- * that do not exist yet, so it needs no list of them.
- */
-export const setSuspended = mutation({
-  args: { tenantId: string(), suspended: v.boolean(), now: number() },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    const tenant = await tenantRow(ctx, args.tenantId);
-    const suspendedAt = args.suspended ? args.now : undefined;
-    if (tenant === null) {
-      await ctx.db.insert("tenants", {
-        tenantId: args.tenantId,
-        ...(suspendedAt === undefined ? {} : { suspendedAt }),
-      });
-    } else {
-      await ctx.db.patch("tenants", tenant._id, { suspendedAt });
     }
     return null;
   },

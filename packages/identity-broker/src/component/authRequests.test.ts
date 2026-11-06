@@ -18,26 +18,31 @@ const cl = {
   tokenEndpointAuthMethod: "client_secret_post",
 } as const;
 
-/** App "app" with its client "cl", as `registerClient` stores them. */
+/** First-party app "app" with its preview client "cl", with or without a removal date. */
 async function registered(expires = false) {
   const t = convexTest(schema, modules);
-  await t.mutation(api.apps.create, {
-    appId: "app",
-    name: "App",
-    firstParty: true,
-    createdAt: now,
-  });
-  await t.mutation(api.clients.create, {
-    clientId: cl.clientId,
-    appId: "app",
-    secretHash: cl.clientSecretHash,
-    tokenEndpointAuthMethod: cl.tokenEndpointAuthMethod,
-    redirectUri: "https://app.test/cb",
-    deploymentType: "preview",
-    clientName: "App preview",
-    softwareVersion: "v1",
-    createdAt: now,
-    expires,
+  await t.run(async (ctx) => {
+    await ctx.db.insert("apps", {
+      appId: "app",
+      name: "App",
+      firstParty: true,
+      tenantId: "gh-1",
+      createdAt: now,
+    });
+    await ctx.db.insert("clients", {
+      clientId: cl.clientId,
+      appId: "app",
+      secretHash: cl.clientSecretHash,
+      registrationTokenHash: "token-hash",
+      tokenEndpointAuthMethod: cl.tokenEndpointAuthMethod,
+      redirectUri: "https://app.test/cb",
+      deploymentType: "preview",
+      clientName: "App preview",
+      softwareVersion: "v1",
+      createdAt: now,
+      renewedAt: now,
+      ...(expires ? { removeAt: now + LEASE_MS } : {}),
+    });
   });
   return t;
 }

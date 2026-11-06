@@ -24,17 +24,17 @@ steps.
 ## What it is
 
 - `@samebase/identity-broker`: a Convex component plus the host-side endpoints. Authorization code
-  flow with PKCE, discovery, JWKS, userinfo, and an internal function that registers a client. RS256
-  `id_token`s with public subjects, the provider's own id such as `google:104325...`, the same in
-  every app and every broker.
+  flow with PKCE, discovery, JWKS, userinfo, and a component mutation that the host's own endpoint
+  calls to register a client. RS256 `id_token`s with public subjects, the provider's own id such as
+  `google:104325...`, the same in every app and every broker.
 - Connectors are configuration: any OAuth 2.0 provider that publishes RFC 8414 metadata, and any
   OpenID Connect provider. `github()` and `google()` are included.
 - API resource providers authorize access without creating an identity. `convexConnection()`,
   `cloudflareConnection()`, and `githubConnection()` use the same authorization and token endpoints
-  with the standard `resource` parameter. Only administrator-registered first-party apps can use
-  them.
-- `Convex.HubClient` of [`@samebase/alchemy-convex`](https://github.com/samebase/alchemy-convex), an
-  Alchemy v2 resource, registers a deployment as a client at deploy time.
+  with the standard `resource` parameter. Only first-party apps can use them.
+- `Convex.SharedHubClient` of
+  [`@samebase/alchemy-convex`](https://github.com/samebase/samebase/tree/main/packages/alchemy-convex),
+  an Alchemy v2 resource, gets a deployment its client from our hub at deploy time.
 
 ## Mount it
 
@@ -72,6 +72,8 @@ export const broker = defineIdentityBroker({
       clientSecret: () => process.env.GOOGLE_CLIENT_SECRET!,
     }),
   ],
+  // Each client reads and deletes its own record at `/register/<client>`.
+  registration: {},
 });
 
 const http = httpRouter();
@@ -82,16 +84,7 @@ export default http;
 ```ts
 // convex/identityBroker.ts: administration for `npx convex run`
 import { broker } from "./http";
-export const {
-  createApp,
-  registerClient,
-  renewClient,
-  deleteClient,
-  deleteApp,
-  listApps,
-  listClients,
-  cleanup,
-} = broker.admin();
+export const { deleteClient, deleteApp, listApps, listClients, cleanup } = broker.admin();
 ```
 
 Keys: `npx identity-broker keys` prints the value for `IDENTITY_BROKER_KEYS`; `keys --rotate`
@@ -102,27 +95,25 @@ its JWKS.
 
 ## Register an app's deployments
 
-Registration is an internal function of the hub, so it needs the hub's deploy key and no token of
-its own:
-
-```sh
-npx convex run identityBroker:registerClient '{"appId":"bristol","redirectUri":"https://bristol.example/oauth/hub/callback","deploymentType":"production","clientName":"prod","softwareVersion":"1","tokenEndpointAuthMethod":"client_secret_post"}'
-```
-
-The reply holds the `issuer`, the `clientId`, and the `clientSecret`, which only this reply carries.
-The first client of an `appId` creates the app as a first-party app. For an app that is not your
-own, run `createApp` with `firstParty` false first. A Convex Auth v2 app points its generic OAuth
-method at `<issuer>/authorize` and `<issuer>/token`; see the
+The host decides who gets a client, in its own endpoint. That endpoint checks its own proof of the
+caller, calls `broker.newClientCredentials()` in an action, and stores the client with
+`component.registration.register` in a mutation, with the hashes only. The call names the tenant,
+the app, and whether the app is the host's own (`trust`), and the first client of an app creates it.
+The hub's `POST /hub-clients`
+([`apps/identity-hub/convex/hubClients.ts`](https://github.com/samebase/samebase/blob/main/apps/identity-hub/convex/hubClients.ts))
+is the reference: it gives a client to a GitHub Actions run with GitHub's OIDC token, and to a
+laptop with the app's own token. A Convex Auth v2 app points its generic OAuth method at
+`<issuer>/authorize` and `<issuer>/token`; see the
 [docs](https://github.com/samebase/samebase/blob/main/packages/identity-broker/docs/consumers.md).
 
-With `"expires":true`, a preview or development client gets a removal date 14 days ahead, and the
-daily `cleanup` deletes it after that date.
-`identityBroker:renewClient '{"clientId":"...","expires":true}'` answers whether the client exists
-and moves the date 14 days forward; run it at each deploy. A sign-in, a resource authorization, and
-a provider refresh also move it. A production client never gets a removal date.
+A preview or development client gets a removal date 14 days ahead, and the daily `cleanup` deletes
+it after that date. A read of `/register/<client>` with the client's registration access token
+(RFC 7592) renews it and moves the date 14 days forward; run it at each deploy. A sign-in, a
+resource authorization, and a provider refresh also move it. A production client never gets a
+removal date.
 
-When a deployment goes away, `identityBroker:deleteClient` deletes its client. A client that is gone
-is no error.
+A preview or development client deletes itself with `DELETE /register/<client>`. The administrator
+deletes any client with `identityBroker:deleteClient`. A client that is gone is no error.
 
 ## Connect provider APIs
 

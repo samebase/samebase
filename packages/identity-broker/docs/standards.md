@@ -19,7 +19,7 @@ document. A deliberate difference is a named departure in [design.md](design.md)
 | [RFC 9207](https://www.rfc-editor.org/rfc/rfc9207.html)                                                  | 2, 3                                      | `iss` on authorization responses, and checking it upstream                    | Implemented                                          |
 | [RFC 9700](https://www.rfc-editor.org/rfc/rfc9700.html), OAuth security BCP                              | 2.1.1, 2.2.2, 4.1.3, 4.4, 4.7, 4.14, 4.16 | PKCE, exact redirects, mix-up and CSRF defenses, confidential refresh binding | Implemented for these sections                       |
 | [RFC 6750](https://www.rfc-editor.org/rfc/rfc6750.html), Bearer tokens                                   | 2.1, 3                                    | The UserInfo endpoint and its challenges                                      | Implemented, the header method only                  |
-| [RFC 7591](https://www.rfc-editor.org/rfc/rfc7591.html), dynamic client registration                     | 2, 3, 5                                   | `/register` for apps that are not the host's own                              | Implemented, with an initial access token required   |
+| [RFC 7591](https://www.rfc-editor.org/rfc/rfc7591.html), dynamic client registration                     | 3.2.1                                     | The client information that `/register/<client>` answers with                 | Partly: no `/register`, the host creates clients     |
 | [RFC 7592](https://www.rfc-editor.org/rfc/rfc7592.html), client management (Experimental)                | 2.1, 2.3                                  | Read and delete with a token of one client                                    | Partly: no update, see the departures                |
 
 ## Tokens and keys
@@ -44,19 +44,19 @@ providers through [`oauth4webapi`](https://github.com/panva/oauth4webapi).
 
 ## Client registration
 
-The host's own apps get their id and secret from the administrator of the hub, through the internal
-function `registerClient`. No standard covers this step, and none needs to: RFC 6749 section 2
-leaves the means of registration open, as in a provider's own console.
+The host creates each client in its own mutation, with `newClientCredentials` and
+`component.registration.register`, after its own proof of who asks. The hub's `POST /hub-clients`
+takes the OIDC token of a GitHub Actions run or the app's own token. No standard covers this step,
+and none needs to: RFC 6749 section 2 leaves the means of registration open, as in a provider's own
+console.
 
-A host can also set `registration`, which opens `/register` (RFC 7591) to whoever holds its initial
-access token. An app from there is third-party, and each of its clients holds a registration access
-token for its own record (RFC 7592). After that, a client of either kind is an ordinary confidential
-OAuth client.
+With `registration` set, each client holds a registration access token for its own record at
+`/register/<client>` (RFC 7592). After that, a client is an ordinary confidential OAuth client.
 
 ## Not implemented
 
-- Open registration: `/register` always needs the initial access token, and OpenID Connect Dynamic
-  Client Registration is not implemented. RFC 7592 update (`PUT`) is not implemented.
+- RFC 7591 `POST /register` and OpenID Connect Dynamic Client Registration. RFC 7592 update (`PUT`)
+  is not implemented.
 - Refresh tokens for sign-in: apps keep their own sessions. Resource refresh requires confidential
   client authentication and keeps the broker token stable, as RFC 6749 section 6 permits.
 - RFC 8693 token exchange: resource authorization uses the authorization-code grant, not a

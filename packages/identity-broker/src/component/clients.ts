@@ -2,11 +2,10 @@ import { v } from "convex/values";
 // oxlint-disable-next-line samebase/no-raw-public-convex-function-builders -- Component entrypoints are internal to the host; host functions enforce access.
 import { mutation, query } from "./_generated/server";
 import { appView, vApp } from "./apps";
-import { LEASE_MS } from "./registration";
 import { vDeploymentType, vTokenEndpointAuthMethod } from "./schema";
 import { removeClientGrants } from "./resourceRequests";
 
-const { array, boolean, number, object, optional, string } = v;
+const { array, number, object, optional, string } = v;
 
 const vClient = object({
   clientId: string(),
@@ -19,9 +18,9 @@ const vClient = object({
   softwareVersion: string(),
   createdAt: number(),
   lastSignInAt: optional(number()),
-  registrationTokenHash: optional(string()),
+  registrationTokenHash: string(),
   removeAt: optional(number()),
-  renewedAt: optional(number()),
+  renewedAt: number(),
 });
 
 /** A client without its credentials: `list` returns these, so no hash leaves the component there. */
@@ -35,79 +34,7 @@ const vClientSummary = object({
   createdAt: number(),
   lastSignInAt: optional(number()),
   removeAt: optional(number()),
-  renewedAt: optional(number()),
-});
-
-/**
- * Registers one deployment of an app as a client with its single exact redirect URI. With
- * `expires`, a preview or development client gets a removal date `LEASE_MS` after `createdAt`. A
- * production client never gets one.
- */
-export const create = mutation({
-  args: {
-    clientId: string(),
-    appId: string(),
-    secretHash: string(),
-    tokenEndpointAuthMethod: vTokenEndpointAuthMethod,
-    redirectUri: string(),
-    deploymentType: vDeploymentType,
-    clientName: string(),
-    softwareVersion: string(),
-    createdAt: number(),
-    expires: boolean(),
-  },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    const existing = await ctx.db
-      .query("clients")
-      .withIndex("by_client_id", (q) => q.eq("clientId", args.clientId))
-      .unique();
-    if (existing !== null) {
-      throw new Error(`A client with id "${args.clientId}" already exists`);
-    }
-    await ctx.db.insert("clients", {
-      clientId: args.clientId,
-      appId: args.appId,
-      secretHash: args.secretHash,
-      tokenEndpointAuthMethod: args.tokenEndpointAuthMethod,
-      redirectUri: args.redirectUri,
-      deploymentType: args.deploymentType,
-      clientName: args.clientName,
-      softwareVersion: args.softwareVersion,
-      createdAt: args.createdAt,
-      ...(args.expires && args.deploymentType !== "production"
-        ? { removeAt: args.createdAt + LEASE_MS }
-        : {}),
-    });
-    return null;
-  },
-});
-
-/**
- * A deploy or a dev start of the client's deployment: false when the client is gone. It sets
- * `renewedAt`, and a client with a removal date lives `LEASE_MS` from `now`. With `expires`, a
- * preview or development client without a removal date gets one. A production client never does.
- */
-export const renew = mutation({
-  args: { clientId: string(), expires: boolean(), now: number() },
-  returns: boolean(),
-  handler: async (ctx, args) => {
-    const client = await ctx.db
-      .query("clients")
-      .withIndex("by_client_id", (q) => q.eq("clientId", args.clientId))
-      .unique();
-    if (client === null) {
-      return false;
-    }
-
-    const expires =
-      client.removeAt !== undefined || (args.expires && client.deploymentType !== "production");
-    await ctx.db.patch("clients", client._id, {
-      renewedAt: args.now,
-      ...(expires ? { removeAt: args.now + LEASE_MS } : {}),
-    });
-    return true;
-  },
+  renewedAt: number(),
 });
 
 export const get = query({
@@ -163,7 +90,7 @@ export const list = query({
       createdAt: client.createdAt,
       ...(client.lastSignInAt === undefined ? {} : { lastSignInAt: client.lastSignInAt }),
       ...(client.removeAt === undefined ? {} : { removeAt: client.removeAt }),
-      ...(client.renewedAt === undefined ? {} : { renewedAt: client.renewedAt }),
+      renewedAt: client.renewedAt,
     }));
   },
 });

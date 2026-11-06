@@ -270,8 +270,6 @@ const vExchangeResult = union(
   object({
     ok: literal(true),
     appId: string(),
-    /** The app's `firstParty`, read in the redemption. */
-    firstParty: boolean(),
     clientId: string(),
     scope: string(),
     nonce: optional(string()),
@@ -307,7 +305,7 @@ export const exchangeCode = mutation({
     codeVerifier: string(),
     resource: optional(string()),
     refreshTokenHash: string(),
-    /** The host stopped all apps from `/register`. A sign-in that already started stops here too. */
+    /** The host paused every third-party app. A sign-in that already started stops here too. */
     registrationPaused: optional(boolean()),
     now: number(),
   },
@@ -429,7 +427,6 @@ export const exchangeCode = mutation({
     return {
       ok: true,
       appId: request.appId,
-      firstParty: app.firstParty,
       clientId: request.clientId,
       scope: request.scope,
       ...optionalField("nonce", request.nonce),

@@ -41,31 +41,22 @@ export const { startSignIn: startSignInWithHub, completeSignIn: completeSignInWi
   );
 ```
 
-Register the deployment once, after it exists, with the hub's deploy key:
-
-```sh
-npx convex run identityBroker:registerClient "{\"appId\":\"bristol\",\"redirectUri\":\"$CONVEX_SITE_URL/oauth/hub/callback\",\"deploymentType\":\"preview\",\"clientName\":\"Bristol\",\"softwareVersion\":\"$DEPLOYMENT\",\"tokenEndpointAuthMethod\":\"client_secret_post\"}"
-```
-
-`client_secret_post` because Convex Auth's generic OAuth method posts the client credentials in the
-body.
-
-Store the returned `issuer`, `clientId`, and `clientSecret` on that deployment as `HUB_ISSUER`,
-`HUB_CLIENT_ID`, and `HUB_CLIENT_SECRET` (`npx convex env set --deployment <name> ...`). When the
-deployment goes away, `identityBroker:deleteClient '{"clientId":"..."}'` deletes its client.
-
-In an Alchemy v2 stack, the `Convex.HubClient` resource of `@samebase/alchemy-convex` makes these
-calls with a short-lived key of the base: it renews or registers at deploy time, with `expires`, and
-deletes a preview client on destroy. The `env` of `Convex.Deployment` stores the client on the
-deployment. The `alchemy-convex hub-client` command does the same for a development deployment.
+Each deployment gets its client from the host. Our hub's `POST /hub-clients`
+([`apps/identity-hub/convex/hubClients.ts`](../../../apps/identity-hub/convex/hubClients.ts)) gives
+one to a GitHub Actions run with GitHub's OIDC token, and to a laptop with the app's own token. In
+an Alchemy v2 stack, the `Convex.SharedHubClient` resource of `@samebase/alchemy-convex` asks for it
+at deploy time, renews it at each deploy at `/register/<client>`, and deletes a preview client on
+destroy. The `env` of `Convex.Deployment` stores the client on the deployment as `HUB_ISSUER`,
+`HUB_CLIENT_ID`, and `HUB_CLIENT_SECRET`. Each client uses `client_secret_post`, because Convex
+Auth's generic OAuth method posts the client credentials in the body.
 
 The `connector` query parameter on `/authorize` (`connector=github`) skips the chooser for a
 first-party app. `sub` is the provider's own id with the provider in front, such as
 `github:4076804`: for GitHub and Google the id an app saw when it signed users in to GitHub or
-Google directly, the same in every app and every broker.
+Google directly, the same in every app and every broker. An app that needs the provider's id reads
+it from `sub`.
 
-The id_token also carries `connector`, the connector's name, and for a first-party app
-`connector_account_id`, the same id as in `sub` without the provider.
+The id_token also carries `connector`, the connector's name.
 
 Each app owns admission and account linking by email. `connector=google` in the authorize URL
 selects a connector for the chooser skip and does not enforce a Google-only policy; the app's

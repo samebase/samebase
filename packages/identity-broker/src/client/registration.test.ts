@@ -14,7 +14,6 @@ import {
   type Harness,
 } from "./harness.test.helper.js";
 
-const TOKEN = "initial-access-token";
 const REDIRECT_URI = "https://app-1.convex.site/auth/hub/callback";
 
 afterEach(() => {
@@ -23,68 +22,77 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-/** A hub with an open connector, and a reserved one that apps from /register use. */
+/** A hub with an open connector, and a reserved one that third-party apps use. */
 async function hub(options: { paused?: () => boolean } = {}) {
   const { connector } = fakeUpstream();
   const reserved: Connector = { ...connector, name: "fake-apps", reserved: true };
   const h = await createHarness({
     connectors: [connector, reserved],
-    registration: {
-      initialAccessToken: () => TOKEN,
-      connector: "fake-apps",
-      ...(options.paused === undefined ? {} : { paused: options.paused }),
-    },
+    registration: options.paused === undefined ? {} : { paused: options.paused },
   });
   return h;
 }
 
-const metadata = (overrides: Record<string, unknown> = {}) => ({
-  redirect_uris: [REDIRECT_URI],
-  client_name: "production",
-  software_id: "gh-1-app",
-  software_version: "abc123",
-  tenant_id: "gh-1",
-  deployment_type: "production",
-  token_endpoint_auth_method: "client_secret_post",
-  ...overrides,
-});
-
-async function postRegister(h: Harness, body: unknown, token: string | null = TOKEN) {
-  return await h.fetchBroker(`${h.issuer}/register`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...(token === null ? {} : { Authorization: `Bearer ${token}` }),
-    },
-    body: JSON.stringify(body),
+/**
+ * A client that the host creates in its own mutation with `newClientCredentials`, as the hub's
+ * `POST /hub-clients` does, in the shape of an RFC 7591 answer.
+ */
+async function registerHere(
+  h: Harness,
+  args: {
+    tenantId?: string;
+    ownerId?: string;
+    appId?: string;
+    deploymentType?: "production" | "preview" | "development";
+    /** One of the host's own apps, with every open connector. */
+    firstParty?: boolean;
+    /** The one connector of a third-party app. */
+    connector?: string;
+  } = {},
+) {
+  const credentials = await h.broker.newClientCredentials();
+  const result = await h.t.mutation(api.registration.register, {
+    tenantId: args.tenantId ?? "gh-1",
+    ...(args.ownerId === undefined ? {} : { ownerId: args.ownerId }),
+    appId: args.appId ?? "gh-1-app",
+    trust: args.firstParty
+      ? { firstParty: true }
+      : { firstParty: false, connector: args.connector ?? "fake-apps" },
+    deploymentType: args.deploymentType ?? "preview",
+    clientId: credentials.clientId,
+    secretHash: credentials.secretHash,
+    registrationTokenHash: credentials.registrationTokenHash,
+    tokenEndpointAuthMethod: "client_secret_post",
+    redirectUri: REDIRECT_URI,
+    clientName: "pr-1",
+    softwareVersion: "abc123",
+    now: Date.now(),
   });
+  return {
+    result,
+    client: {
+      client_id: credentials.clientId,
+      client_secret: credentials.clientSecret,
+      registration_access_token: credentials.registrationAccessToken,
+      registration_client_uri: credentials.registrationClientUri,
+    },
+  };
 }
 
-async function register(h: Harness, overrides: Record<string, unknown> = {}) {
-  const response = await postRegister(h, metadata(overrides));
-  expect(response.status).toBe(201);
-  const client: {
-    client_id: string;
-    client_secret: string;
-    registration_access_token: string;
-    registration_client_uri: string;
-  } = await response.json();
+/** A third-party production client of `gh-1-app` unless `args` says otherwise, which must register. */
+async function register(h: Harness, args: Parameters<typeof registerHere>[1] = {}) {
+  const { result, client } = await registerHere(h, { deploymentType: "production", ...args });
+  expect(result).toEqual({ ok: true });
   return client;
 }
 
-/** The administrator's switch. */
-async function suspend(h: Harness, tenantId: string, suspended: boolean) {
-  await h.t.mutation(api.registration.setSuspended, { tenantId, suspended, now: Date.now() });
+/** The host's switch of a tenant, such as Block repository. */
+async function switchConnection(h: Harness, tenantId: string, connected: boolean) {
+  await h.t.mutation(api.registration.switchConnection, { tenantId, connected });
 }
 
-/** What the service that registers tenants sends when a tenant leaves or comes back. */
-async function setConnection(h: Harness, tenantId: string, connected: boolean, revision: number) {
-  const response = await h.fetchBroker(`${h.issuer}/tenant-connection`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${TOKEN}` },
-    body: JSON.stringify({ tenant_id: tenantId, connected, revision }),
-  });
-  expect(response.status).toBe(204);
+async function blockOwner(h: Harness, ownerId: string, blocked: boolean) {
+  await h.t.mutation(api.registration.setOwnerBlocked, { ownerId, blocked, now: Date.now() });
 }
 
 function authorizeUrl(
@@ -160,68 +168,20 @@ const configuration = (
   init: { method, headers: { Authorization: `Bearer ${token}` } },
 });
 
-describe("RFC 7591 registration", () => {
-  test("the metadata names the endpoint only when a host offers it", async () => {
+describe("registration", () => {
+  test("the host registers in its own mutation: no /register endpoint, and discovery names none", async () => {
     const h = await hub();
-    const document = await h.fetchBroker(`${h.issuer}/.well-known/openid-configuration`);
-    expect(await document.json()).toMatchObject({ registration_endpoint: `${h.issuer}/register` });
-    const plain = await createHarness({ connectors: [fakeUpstream().connector] });
-    const none = await plain.fetchBroker(`${plain.issuer}/.well-known/openid-configuration`);
-    expect(await none.json()).not.toHaveProperty("registration_endpoint");
-    expect((await postRegister(plain, metadata())).status).toBe(404);
-  });
-
-  test("the initial access token opens it, and an unset token opens nothing", async () => {
-    const h = await hub();
-    const missing = await postRegister(h, metadata(), null);
-    expect(missing.status).toBe(401);
-    expect(missing.headers.get("www-authenticate")).toContain("invalid_token");
-    expect((await postRegister(h, metadata(), "wrong")).status).toBe(401);
-    const unset = await createHarness({
-      connectors: [fakeUpstream().connector],
-      registration: { initialAccessToken: () => undefined, connector: "fake" },
+    const created = await h.fetchBroker(`${h.issuer}/register`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "{}",
     });
-    expect((await postRegister(unset, metadata(), "")).status).toBe(401);
-    expect((await postRegister(unset, metadata(), "undefined")).status).toBe(401);
-  });
-
-  test("it answers with the fields of the RFC and keeps only hashes", async () => {
-    const h = await hub();
-    const response = await postRegister(h, metadata());
-    expect(response.status).toBe(201);
-    expect(response.headers.get("cache-control")).toBe("no-store");
-    const body: Record<string, unknown> = await response.json();
-    expect(body).toMatchObject({
-      client_secret_expires_at: 0,
-      redirect_uris: [REDIRECT_URI],
-      grant_types: ["authorization_code"],
-      response_types: ["code"],
-      software_id: "gh-1-app",
-    });
-    expect(typeof body["client_id_issued_at"]).toBe("number");
-    const clientId = String(body["client_id"]);
-    expect(body["registration_client_uri"]).toBe(`${h.issuer}/register/${clientId}`);
-    const row = await readClient(h, clientId);
-    expect(row?.secretHash).toBe(await sha256Hex(String(body["client_secret"])));
-    expect(row?.registrationTokenHash).toBe(
-      await sha256Hex(String(body["registration_access_token"])),
+    expect(created.status).toBe(404);
+    expect((await h.fetchBroker(`${h.issuer}/tenant-connection`, { method: "POST" })).status).toBe(
+      404,
     );
-  });
-
-  test.each([
-    ["no redirect URI", { redirect_uris: [] }, "invalid_redirect_uri"],
-    ["two redirect URIs", { redirect_uris: [REDIRECT_URI, REDIRECT_URI] }, "invalid_redirect_uri"],
-    ["a plain http URI", { redirect_uris: ["http://example.com/cb"] }, "invalid_redirect_uri"],
-    ["no app", { software_id: "" }, "invalid_client_metadata"],
-    ["no tenant", { tenant_id: undefined }, "invalid_client_metadata"],
-    ["a development client", { deployment_type: "development" }, "invalid_client_metadata"],
-    ["another grant", { grant_types: ["implicit"] }, "invalid_client_metadata"],
-    ["another auth method", { token_endpoint_auth_method: "none" }, "invalid_client_metadata"],
-  ])("it refuses %s", async (_name, overrides, error) => {
-    const h = await hub();
-    const response = await postRegister(h, metadata(overrides));
-    expect(response.status).toBe(400);
-    expect(await response.json()).toMatchObject({ error });
+    const document = await h.fetchBroker(`${h.issuer}/.well-known/openid-configuration`);
+    expect(await document.json()).not.toHaveProperty("registration_endpoint");
   });
 
   test("an app is third-party with its one connector, and a lost client just gets a new one", async () => {
@@ -239,26 +199,19 @@ describe("RFC 7591 registration", () => {
     expect((await signIn(h, second)).status).toBe(200);
   });
 
-  test("it cannot reach an app of the host or of another tenant", async () => {
+  test("it cannot reach an app of another tenant", async () => {
     const h = await hub();
-    await h.t.mutation(api.apps.create, {
-      appId: "samebase-com",
-      name: "Samebase",
-      firstParty: true,
-      createdAt: 1,
-    });
-    await register(h, { software_id: "gh-1-app" });
-    for (const overrides of [
-      { software_id: "samebase-com" },
-      { software_id: "gh-1-app", tenant_id: "gh-2" },
+    await register(h, { appId: "gh-9-own", tenantId: "gh-9", firstParty: true });
+    await register(h);
+    for (const args of [
+      { appId: "gh-9-own", firstParty: true },
+      { appId: "gh-1-app", tenantId: "gh-2" },
     ]) {
-      const response = await postRegister(h, metadata(overrides));
-      expect(response.status).toBe(403);
-      expect(await response.json()).toMatchObject({ error: "access_denied" });
+      expect((await registerHere(h, args)).result).toEqual({ ok: false, error: "app_taken" });
     }
   });
 
-  test("a paused hub refuses registration and sign-in, but not the host's own apps", async () => {
+  test("a paused hub refuses sign-in of a third-party app, but not of the host's own apps", async () => {
     let paused = false;
     const h = await hub({ paused: () => paused });
     const client = await register(h);
@@ -268,7 +221,6 @@ describe("RFC 7591 registration", () => {
       redirectUri: REDIRECT_URI,
     });
     paused = true;
-    expect((await postRegister(h, metadata())).status).toBe(403);
     const { challenge } = await pkce();
     expect((await h.fetchBroker(authorizeUrl(h, client.client_id, challenge))).status).toBe(503);
     const ownStart = await h.fetchBroker(
@@ -278,8 +230,8 @@ describe("RFC 7591 registration", () => {
   });
 });
 
-describe("the one connector of an app from /register", () => {
-  test("the app goes straight to it, whatever the URL says, and gets no first-party claim", async () => {
+describe("the one connector of a third-party app", () => {
+  test("the app goes straight to it, whatever the URL says", async () => {
     const h = await hub();
     const client = await register(h);
     const { verifier, challenge } = await pkce();
@@ -300,9 +252,7 @@ describe("the one connector of an app from /register", () => {
         verifier,
       })
     ).json();
-    const claims = decodeJwt(tokens.id_token);
-    expect(claims["connector"]).toBe("fake-apps");
-    expect(claims).not.toHaveProperty("connector_account_id");
+    expect(decodeJwt(tokens.id_token)["connector"]).toBe("fake-apps");
   });
 
   test("/continue cannot move a request to another connector, also after it started", async () => {
@@ -402,9 +352,9 @@ describe("the one connector of an app from /register", () => {
     const { connector } = await fakeOidcUpstream();
     const h = await createHarness({
       connectors: [{ ...connector, name: "idp-apps", reserved: true, selectAccount: true }],
-      registration: { initialAccessToken: () => TOKEN, connector: "idp-apps" },
+      registration: {},
     });
-    const client = await register(h);
+    const client = await register(h, { connector: "idp-apps" });
     const { challenge } = await pkce();
     const start = await h.fetchBroker(authorizeUrl(h, client.client_id, challenge));
     expect(new URL(start.headers.get("location") ?? "").searchParams.get("prompt")).toBe(
@@ -443,11 +393,11 @@ describe("a refusal before sign-in (RFC 9700 section 4.11.2)", () => {
   });
 });
 
-describe("the subject of an app from /register", () => {
+describe("the subject of a third-party app", () => {
   test("every app of one person gets the provider's own id, also through a reserved connector", async () => {
     const h = await hub();
-    const first = await register(h, { software_id: "gh-1-a" });
-    const second = await register(h, { software_id: "gh-1-b" });
+    const first = await register(h, { appId: "gh-1-a" });
+    const second = await register(h, { appId: "gh-1-b" });
     const subject = async (client: { client_id: string; client_secret: string }) => {
       const tokens: { id_token: string } = await (await signIn(h, client)).json();
       return decodeJwt(tokens.id_token).sub;
@@ -463,12 +413,25 @@ describe("RFC 7592 client management", () => {
     const h = await hub();
     const client = await register(h);
     const other = await register(h);
+    expect(client.registration_client_uri).toBe(`${h.issuer}/register/${client.client_id}`);
     const own = configuration(client, client.registration_access_token, "GET");
     const response = await h.fetchBroker(own.url, own.init);
     expect(response.status).toBe(200);
+    expect(response.headers.get("cache-control")).toBe("no-store");
     const body: Record<string, unknown> = await response.json();
-    expect(body).toMatchObject({ client_id: client.client_id, redirect_uris: [REDIRECT_URI] });
+    expect(body).toMatchObject({
+      client_id: client.client_id,
+      client_secret_expires_at: 0,
+      redirect_uris: [REDIRECT_URI],
+      grant_types: ["authorization_code"],
+      response_types: ["code"],
+      software_id: "gh-1-app",
+    });
     expect(body).not.toHaveProperty("client_secret");
+    // The component keeps only the hashes of the secret and the token.
+    const row = await readClient(h, client.client_id);
+    expect(row?.secretHash).toBe(await sha256Hex(client.client_secret));
+    expect(row?.registrationTokenHash).toBe(await sha256Hex(client.registration_access_token));
     const wrong = configuration(client, other.registration_access_token, "GET");
     expect((await h.fetchBroker(wrong.url, wrong.init)).status).toBe(401);
     const bare = await h.fetchBroker(client.registration_client_uri);
@@ -478,7 +441,7 @@ describe("RFC 7592 client management", () => {
   test("a read renews a preview client and never dates a production client", async () => {
     vi.useFakeTimers({ now: 1_000_000_000_000 });
     const h = await hub();
-    const preview = await register(h, { software_id: "gh-1-app-p", deployment_type: "preview" });
+    const preview = await register(h, { appId: "gh-1-app-p", deploymentType: "preview" });
     const production = await register(h);
     expect((await readClient(h, preview.client_id))?.removeAt).toBe(Date.now() + LEASE_MS);
     vi.setSystemTime(Date.now() + LEASE_MS / 2);
@@ -486,14 +449,17 @@ describe("RFC 7592 client management", () => {
       const read = configuration(client, client.registration_access_token, "GET");
       await h.fetchBroker(read.url, read.init);
     }
-    expect((await readClient(h, preview.client_id))?.removeAt).toBe(Date.now() + LEASE_MS);
+    expect(await readClient(h, preview.client_id)).toMatchObject({
+      renewedAt: Date.now(),
+      removeAt: Date.now() + LEASE_MS,
+    });
     expect((await readClient(h, production.client_id))?.removeAt).toBeUndefined();
   });
 
   test("a sign-in moves the date in the redemption", async () => {
     vi.useFakeTimers({ now: 1_000_000_000_000, toFake: ["Date"] });
     const h = await hub();
-    const client = await register(h, { software_id: "gh-1-app-p", deployment_type: "preview" });
+    const client = await register(h, { appId: "gh-1-app-p", deploymentType: "preview" });
     vi.setSystemTime(Date.now() + LEASE_MS / 2);
     expect((await signIn(h, client)).status).toBe(200);
     expect((await readClient(h, client.client_id))?.removeAt).toBe(Date.now() + LEASE_MS);
@@ -510,7 +476,7 @@ describe("RFC 7592 client management", () => {
 
   test("a delete removes only the client that asks, and a gone client answers 401", async () => {
     const h = await hub();
-    const preview = { software_id: "gh-1-p", deployment_type: "preview" };
+    const preview = { appId: "gh-1-p", deploymentType: "preview" } as const;
     const client = await register(h, preview);
     const other = await register(h, preview);
     const forged = configuration(client, other.registration_access_token, "DELETE");
@@ -584,19 +550,20 @@ describe("caps and cleanup", () => {
   test("a preview app over its cap loses the client renewed longest ago", async () => {
     vi.useFakeTimers({ now: 1_000_000_000_000 });
     const h = await hub();
-    const first = await register(h, { software_id: "gh-1-p", deployment_type: "preview" });
+    const preview = { appId: "gh-1-p", deploymentType: "preview" } as const;
+    const first = await register(h, preview);
     vi.advanceTimersByTime(1000);
-    const second = await register(h, { software_id: "gh-1-p", deployment_type: "preview" });
+    const second = await register(h, preview);
     for (let index = 2; index < MAX_CLIENTS_PER_APP; index += 1) {
       vi.advanceTimersByTime(1000);
-      await register(h, { software_id: "gh-1-p", deployment_type: "preview" });
+      await register(h, preview);
     }
     vi.advanceTimersByTime(1000);
     // A deploy of the oldest client keeps it, so the next oldest goes.
     const read = configuration(first, first.registration_access_token, "GET");
     await h.fetchBroker(read.url, read.init);
     vi.advanceTimersByTime(1000);
-    await register(h, { software_id: "gh-1-p", deployment_type: "preview" });
+    await register(h, preview);
     expect(await readClient(h, second.client_id)).toBeNull();
     expect(await readClient(h, first.client_id)).not.toBeNull();
     const rows = await h.t.query(api.clients.listByApp, { appId: "gh-1-p" });
@@ -625,24 +592,28 @@ describe("caps and cleanup", () => {
         }
       });
     }
-    const refused = await postRegister(h, metadata());
-    expect(refused.status).toBe(403);
-    expect(await refused.json()).toMatchObject({ error: "access_denied" });
+    expect((await registerHere(h, { deploymentType: "production" })).result).toEqual({
+      ok: false,
+      error: "too_many_clients",
+    });
   });
 
   test("a tenant has a limit on apps", async () => {
     const h = await hub();
     for (let index = 0; index < MAX_APPS_PER_TENANT; index += 1) {
-      await register(h, { software_id: `gh-1-${index}` });
+      await register(h, { appId: `gh-1-${index}` });
     }
-    expect((await postRegister(h, metadata({ software_id: "gh-1-one-more" }))).status).toBe(403);
-    await register(h, { software_id: "gh-1-0" });
+    expect((await registerHere(h, { appId: "gh-1-one-more" })).result).toEqual({
+      ok: false,
+      error: "too_many_apps",
+    });
+    await register(h, { appId: "gh-1-0" });
   });
 
   test("cleanup deletes clients past their date and never touches a production client", async () => {
     vi.useFakeTimers({ now: 1_000_000_000_000 });
     const h = await hub();
-    const preview = await register(h, { software_id: "gh-1-p", deployment_type: "preview" });
+    const preview = await register(h, { appId: "gh-1-p", deploymentType: "preview" });
     const production = await register(h);
     const now = Date.now() + LEASE_MS + 1;
     const counts = await h.t.mutation(api.lifecycle.cleanup, { now, signInRetentionMs: 1 });
@@ -652,37 +623,40 @@ describe("caps and cleanup", () => {
   });
 });
 
-describe("suspension", () => {
+describe("the tenant switch", () => {
   test("it stops sign-in, registration, and renewal, and turning it off restores them", async () => {
     const h = await hub();
     const client = await register(h);
-    await suspend(h, "gh-1", true);
+    await switchConnection(h, "gh-1", false);
     const { challenge } = await pkce();
     const stopped = await h.fetchBroker(authorizeUrl(h, client.client_id, challenge));
     expect(stopped.status).toBe(403);
     expect(stopped.headers.get("location")).toBeNull();
-    expect((await postRegister(h, metadata())).status).toBe(403);
+    expect((await registerHere(h)).result).toEqual({ ok: false, error: "suspended" });
     const read = configuration(client, client.registration_access_token, "GET");
     expect((await h.fetchBroker(read.url, read.init)).status).toBe(403);
-    await suspend(h, "gh-1", false);
+    await switchConnection(h, "gh-1", true);
     expect((await signIn(h, client)).status).toBe(200);
   });
 
   test("it covers a new app of the tenant, and leaves other tenants alone", async () => {
     const h = await hub();
-    await suspend(h, "gh-1", true);
-    expect((await postRegister(h, metadata({ software_id: "gh-1-new" }))).status).toBe(403);
-    const other = await register(h, { software_id: "gh-2-app", tenant_id: "gh-2" });
+    await switchConnection(h, "gh-1", false);
+    expect((await registerHere(h, { appId: "gh-1-new" })).result).toEqual({
+      ok: false,
+      error: "suspended",
+    });
+    const other = await register(h, { appId: "gh-2-app", tenantId: "gh-2" });
     expect((await signIn(h, other)).status).toBe(200);
   });
 
-  test("a suspension that commits before the redemption refuses the code", async () => {
+  test("a switch that commits before the redemption refuses the code", async () => {
     const h = await hub();
     const client = await register(h);
     const { verifier, challenge } = await pkce();
     const start = await h.fetchBroker(authorizeUrl(h, client.client_id, challenge));
     const code = await finishUpstream(h, start);
-    await suspend(h, "gh-1", true);
+    await switchConnection(h, "gh-1", false);
     const response = await redeem(h, {
       code,
       clientId: client.client_id,
@@ -691,100 +665,10 @@ describe("suspension", () => {
     });
     expect(response.status).toBe(401);
   });
-
-  test("the connection endpoint needs the initial access token", async () => {
-    const h = await hub();
-    const response = await h.fetchBroker(`${h.issuer}/tenant-connection`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ tenant_id: "gh-1", connected: false, revision: 1 }),
-    });
-    expect(response.status).toBe(401);
-  });
-
-  test("a tenant that leaves stops, and one that comes back works again", async () => {
-    const h = await hub();
-    const client = await register(h);
-    await setConnection(h, "gh-1", false, 1);
-    const { challenge } = await pkce();
-    expect((await h.fetchBroker(authorizeUrl(h, client.client_id, challenge))).status).toBe(403);
-    await setConnection(h, "gh-1", true, 2);
-    expect((await signIn(h, client)).status).toBe(200);
-  });
-
-  test("coming back does not clear the administrator's suspension", async () => {
-    const h = await hub();
-    const client = await register(h);
-    await suspend(h, "gh-1", true);
-    await setConnection(h, "gh-1", false, 1);
-    await setConnection(h, "gh-1", true, 2);
-    const { challenge } = await pkce();
-    expect((await h.fetchBroker(authorizeUrl(h, client.client_id, challenge))).status).toBe(403);
-    await suspend(h, "gh-1", false);
-    expect((await signIn(h, client)).status).toBe(200);
-  });
-
-  test("an older request that arrives late changes nothing, in either direction", async () => {
-    const h = await hub();
-    const client = await register(h);
-    await setConnection(h, "gh-1", false, 20);
-    await setConnection(h, "gh-1", true, 10);
-    const { challenge } = await pkce();
-    expect((await h.fetchBroker(authorizeUrl(h, client.client_id, challenge))).status).toBe(403);
-    await setConnection(h, "gh-1", true, 30);
-    await setConnection(h, "gh-1", false, 25);
-    expect((await signIn(h, client)).status).toBe(200);
-  });
 });
 
-/**
- * A client that the host creates in its own mutation, as a hub without `/register` does, in the
- * shape of a `/register` answer.
- */
-async function registerHere(
-  h: Harness,
-  args: {
-    tenantId?: string;
-    ownerId?: string;
-    appId?: string;
-    deploymentType?: "production" | "preview" | "development";
-    /** One of the host's own apps, with every open connector. */
-    firstParty?: boolean;
-  } = {},
-) {
-  const credentials = await h.broker.newClientCredentials();
-  const result = await h.t.mutation(api.registration.register, {
-    tenantId: args.tenantId ?? "gh-1",
-    ...(args.ownerId === undefined ? {} : { ownerId: args.ownerId }),
-    appId: args.appId ?? "gh-1-app",
-    trust: args.firstParty ? { firstParty: true } : { firstParty: false, connector: "fake-apps" },
-    deploymentType: args.deploymentType ?? "preview",
-    clientId: credentials.clientId,
-    secretHash: credentials.secretHash,
-    registrationTokenHash: credentials.registrationTokenHash,
-    tokenEndpointAuthMethod: "client_secret_post",
-    redirectUri: REDIRECT_URI,
-    clientName: "pr-1",
-    softwareVersion: "abc123",
-    now: Date.now(),
-  });
-  return {
-    result,
-    client: {
-      client_id: credentials.clientId,
-      client_secret: credentials.clientSecret,
-      registration_access_token: credentials.registrationAccessToken,
-      registration_client_uri: credentials.registrationClientUri,
-    },
-  };
-}
-
-async function blockOwner(h: Harness, ownerId: string, blocked: boolean) {
-  await h.t.mutation(api.registration.setOwnerBlocked, { ownerId, blocked, now: Date.now() });
-}
-
 describe("a first-party app of a tenant", () => {
-  test("it signs in through an open connector with the account id, and never a reserved one", async () => {
+  test("it signs in through an open connector, and never a reserved one", async () => {
     const h = await hub();
     const { result, client } = await registerHere(h, { firstParty: true });
     expect(result).toEqual({ ok: true });
@@ -805,11 +689,7 @@ describe("a first-party app of a tenant", () => {
     });
     expect(response.status).toBe(200);
     const tokens: { id_token: string } = await response.json();
-    expect(decodeJwt(tokens.id_token)).toMatchObject({
-      sub: "fake:42",
-      connector: "fake",
-      connector_account_id: "42",
-    });
+    expect(decodeJwt(tokens.id_token)).toMatchObject({ sub: "fake:42", connector: "fake" });
 
     // Naming the reserved connector goes to the one open connector, never to the reserved one.
     const reserved = await h.fetchBroker(
@@ -856,9 +736,9 @@ describe("a first-party app of a tenant", () => {
     };
     expect(await signInHere()).toBe(200);
     paused = false;
-    await h.t.mutation(api.registration.switchConnection, { tenantId: "gh-1", connected: false });
+    await switchConnection(h, "gh-1", false);
     expect(await signInHere()).toBe(403);
-    await h.t.mutation(api.registration.switchConnection, { tenantId: "gh-1", connected: true });
+    await switchConnection(h, "gh-1", true);
     await blockOwner(h, "65", true);
     expect(await signInHere()).toBe(403);
     await blockOwner(h, "65", false);
@@ -911,15 +791,15 @@ describe("the owner switch", () => {
     expect((await signIn(h, second)).status).toBe(200);
   });
 
-  test("it leaves the tenant switches as they are, and they stay after an unblock", async () => {
+  test("it leaves the tenant switch as it is, and it stays after an unblock", async () => {
     const h = await hub();
     const { client } = await registerHere(h, { ownerId: "65" });
-    await h.t.mutation(api.registration.switchConnection, { tenantId: "gh-1", connected: false });
+    await switchConnection(h, "gh-1", false);
     await blockOwner(h, "65", true);
     await blockOwner(h, "65", false);
     const { challenge } = await pkce();
     expect((await h.fetchBroker(authorizeUrl(h, client.client_id, challenge))).status).toBe(403);
-    await h.t.mutation(api.registration.switchConnection, { tenantId: "gh-1", connected: true });
+    await switchConnection(h, "gh-1", true);
     expect((await signIn(h, client)).status).toBe(200);
   });
 
@@ -943,36 +823,12 @@ describe("the owner switch", () => {
     await registerHere(h, { ownerId: "65" });
     await register(h);
     await blockOwner(h, "65", true);
-    expect((await postRegister(h, metadata())).status).toBe(403);
-  });
-});
-
-describe("the host's connection switch", () => {
-  test("it raises the revision, so a late request from before it changes nothing", async () => {
-    const h = await hub();
-    const client = await register(h);
-    await setConnection(h, "gh-1", true, 7);
-    await h.t.mutation(api.registration.switchConnection, { tenantId: "gh-1", connected: false });
-    await setConnection(h, "gh-1", true, 8);
-    const { challenge } = await pkce();
-    expect((await h.fetchBroker(authorizeUrl(h, client.client_id, challenge))).status).toBe(403);
-    await h.t.mutation(api.registration.switchConnection, { tenantId: "gh-1", connected: true });
-    expect((await signIn(h, client)).status).toBe(200);
+    expect((await registerHere(h)).result).toEqual({ ok: false, error: "suspended" });
   });
 
-  test("connecting does not clear the administrator's suspension", async () => {
+  test("the tenant switch holds for a tenant that has no client yet", async () => {
     const h = await hub();
-    const client = await register(h);
-    await suspend(h, "gh-1", true);
-    await h.t.mutation(api.registration.switchConnection, { tenantId: "gh-1", connected: true });
-    const { challenge } = await pkce();
-    expect((await h.fetchBroker(authorizeUrl(h, client.client_id, challenge))).status).toBe(403);
-  });
-
-  test("it holds for a tenant that has no client yet", async () => {
-    const h = await hub();
-    await h.t.mutation(api.registration.switchConnection, { tenantId: "gh-1", connected: false });
-    expect((await postRegister(h, metadata())).status).toBe(403);
+    await switchConnection(h, "gh-1", false);
     expect((await registerHere(h)).result).toEqual({ ok: false, error: "suspended" });
   });
 });
@@ -1017,66 +873,12 @@ describe("a development client", () => {
     );
   });
 
-  test("a renewal of a suspended tenant's client answers 403", async () => {
+  test("a renewal of a blocked tenant's client answers 403", async () => {
     const h = await hub();
     const { client } = await registerHere(h, { deploymentType: "development" });
-    await suspend(h, "gh-1", true);
+    await switchConnection(h, "gh-1", false);
     const read = configuration(client, client.registration_access_token, "GET");
     expect((await h.fetchBroker(read.url, read.init)).status).toBe(403);
-  });
-});
-
-describe("management only", () => {
-  async function managementHub(options: { paused?: () => boolean } = {}) {
-    const { connector } = fakeUpstream();
-    return await createHarness({
-      connectors: [connector, { ...connector, name: "fake-apps", reserved: true }],
-      registration: {
-        connector: "fake-apps",
-        ...(options.paused === undefined ? {} : { paused: options.paused }),
-      },
-    });
-  }
-
-  test("it serves no registration and no connection endpoint, and discovery names none", async () => {
-    const h = await managementHub();
-    expect((await postRegister(h, metadata())).status).toBe(404);
-    const connection = await h.fetchBroker(`${h.issuer}/tenant-connection`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${TOKEN}` },
-      body: JSON.stringify({ tenant_id: "gh-1", connected: false, revision: 1 }),
-    });
-    expect(connection.status).toBe(404);
-    const document = await h.fetchBroker(`${h.issuer}/.well-known/openid-configuration`);
-    expect(await document.json()).not.toHaveProperty("registration_endpoint");
-  });
-
-  test("a client of the host reads, renews, and deletes its own record", async () => {
-    vi.useFakeTimers({ now: 1_000_000_000_000 });
-    const h = await managementHub();
-    const { client } = await registerHere(h);
-    expect(client.registration_client_uri).toBe(`${h.issuer}/register/${client.client_id}`);
-    vi.setSystemTime(Date.now() + 1_000);
-    const read = configuration(client, client.registration_access_token, "GET");
-    const answer = await h.fetchBroker(read.url, read.init);
-    expect(answer.status).toBe(200);
-    expect(await answer.json()).toMatchObject({ client_id: client.client_id });
-    expect((await readClient(h, client.client_id))?.removeAt).toBe(Date.now() + LEASE_MS);
-    const other = configuration(client, "another-token", "DELETE");
-    expect((await h.fetchBroker(other.url, other.init)).status).toBe(401);
-    const remove = configuration(client, client.registration_access_token, "DELETE");
-    expect((await h.fetchBroker(remove.url, remove.init)).status).toBe(204);
-    expect(await readClient(h, client.client_id)).toBeNull();
-  });
-
-  test("the pause still stops sign-in", async () => {
-    let paused = false;
-    const h = await managementHub({ paused: () => paused });
-    const { client } = await registerHere(h);
-    expect((await signIn(h, client)).status).toBe(200);
-    paused = true;
-    const { challenge } = await pkce();
-    expect((await h.fetchBroker(authorizeUrl(h, client.client_id, challenge))).status).toBe(503);
   });
 });
 
@@ -1084,7 +886,7 @@ describe("the budget of a tenant", () => {
   test("a flood at one tenant writes no row and leaves others and the host's own apps alone", async () => {
     const h = await hub();
     const flooded = await register(h);
-    const other = await register(h, { software_id: "gh-2-app", tenant_id: "gh-2" });
+    const other = await register(h, { appId: "gh-2-app", tenantId: "gh-2" });
     const own = await h.registerClient({
       appName: "Own",
       firstParty: true,
