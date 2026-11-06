@@ -1,5 +1,5 @@
 // Convex.SharedHubClient against a fake GitHub and identity hub behind a stubbed fetch. The hub
-// answers `/hub-clients` as apps/identity-hub/convex/hubClients.ts does, and a client's own record as
+// answers `/hub-clients` as packages/identity-broker/src/client/hubClients.ts does, and a client's own record as
 // `registrationEndpoints` of @samebase/identity-broker does.
 import { adopt } from "alchemy/AdoptPolicy";
 import * as Output from "alchemy/Output";

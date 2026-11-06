@@ -40,13 +40,20 @@ itself.
 
 ## Registration
 
-The broker has no registration endpoint of its own. The host decides who may get a client, and
-creates it in its own mutation: `newClientCredentials` makes the client id, the secret, and the
-registration access token, and `component.registration.register` stores their hashes in one
-transaction with the host's own record. The hub's `POST /hub-clients`
-([`apps/identity-hub/convex/hubClients.ts`](../../../apps/identity-hub/convex/hubClients.ts)) is the
-reference host: it takes GitHub's OIDC token of a GitHub Actions run, or the app's own token on a
-laptop, and checks that the return address names the repository.
+The broker holds every row and every rule of a hub (RFC 135), so every copy of a hub has the same
+caps, expiry, blocks, history, and moderation. A hub is configuration: connectors, resources, env,
+keys. `POST /hub-clients` (`src/client/hubClients.ts`) takes GitHub's OIDC token of a GitHub Actions
+run, or the app's initial access token on a laptop, and checks that the return address names the
+repository. It is GitHub-first on purpose: the proof is one section of that file, and everything
+after it works on GitHub's ids. A second proof would be a second section, not a change to the rest.
+A host with another proof can still call `component.registration.register` with
+`newClientCredentials` itself.
+
+The checks run in two transactions with a fetch between them. `hubClients.admit` reads the blocks
+and counts the request in the hourly windows before the hub fetches the verification file; the
+creating mutation reads the blocks again, creates the client, records who made it on the client,
+appends the registration event, and replaces the app's initial access token. A block set during the
+fetch still applies, and a refused request counts nowhere.
 
 Every app belongs to a tenant, such as `gh-<repository id>`, and the host says whether it is
 first-party: every connector but a reserved one, and API resources. A third-party app has one
@@ -54,10 +61,10 @@ connector. The first client of an app id creates the app, and an existing app ke
 created as. Each client holds its own registration access token, and reads (which renews it) or
 deletes its own record at `/register/<client>` (RFC 7592).
 
-The host stops a tenant with `registration.switchConnection` and an owner with
-`registration.setOwnerBlocked`; either stops registration, renewal, sign-in, code exchange, and
-provider refresh. These are the only switches. Our hub sets them from Block repository and Block
-owner on samebase.com's admin page.
+A row in `blocks` stops a repository, or every repository of an owner: registration, renewal,
+sign-in, code exchange, and provider refresh read it. It is the one block state, and
+`moderation.setBlock` its one writer, which also appends the event. Our hub sets it from Block
+repository and Block owner on samebase.com's admin page, through `/moderation/blocks`.
 
 ## Token endpoint
 
