@@ -195,26 +195,27 @@ export const clientList = query({
 });
 
 /**
- * Every client of one repository, newest first: at most `MAX_APPS_PER_TENANT` apps of
- * `MAX_CLIENTS_PER_APP` clients each, so the list needs no limit.
+ * Every client of the given repositories, newest first. Each repository has at most
+ * `MAX_APPS_PER_TENANT` apps of `MAX_CLIENTS_PER_APP` clients, and the HTTP endpoint caps the
+ * repositories of one request, so the list needs no limit.
  */
 export const repositoryClients = query({
-  args: { githubRepositoryDatabaseId: string() },
+  args: { githubRepositoryDatabaseIds: array(string()) },
   returns: array(vClientView),
   handler: async (ctx, args) => {
-    const apps = await ctx.db
-      .query("apps")
-      .withIndex("by_tenant_id", (q) =>
-        q.eq("tenantId", tenantIdOf(args.githubRepositoryDatabaseId)),
-      )
-      .collect();
     const views = [];
-    for (const app of apps) {
-      for (const client of await ctx.db
-        .query("clients")
-        .withIndex("by_app_id", (q) => q.eq("appId", app.appId))
-        .collect()) {
-        views.push(clientView(client, args.githubRepositoryDatabaseId));
+    for (const repositoryId of args.githubRepositoryDatabaseIds) {
+      const apps = await ctx.db
+        .query("apps")
+        .withIndex("by_tenant_id", (q) => q.eq("tenantId", tenantIdOf(repositoryId)))
+        .collect();
+      for (const app of apps) {
+        for (const client of await ctx.db
+          .query("clients")
+          .withIndex("by_app_id", (q) => q.eq("appId", app.appId))
+          .collect()) {
+          views.push(clientView(client, repositoryId));
+        }
       }
     }
     return views.sort((a, b) => b.createdAt - a.createdAt || a.clientId.localeCompare(b.clientId));

@@ -411,10 +411,11 @@ describe("the clients", () => {
   });
 });
 
-describe("the clients of one repository", () => {
-  async function repositoryClientIds(h: Harness, repository: string) {
+describe("the clients of given repositories", () => {
+  async function repositoryClientIds(h: Harness, ...repositories: string[]) {
+    const query = repositories.map((repository) => `repository=${repository}`).join("&");
     const list: { clients: { clientId: string }[] } = await (
-      await moderationRequest(h, `/moderation/clients?repository=${repository}`)
+      await moderationRequest(h, `/moderation/clients?${query}`)
     ).json();
     return list.clients.map((client) => client.clientId);
   }
@@ -435,9 +436,31 @@ describe("the clients of one repository", () => {
     expect(await repositoryClientIds(h, "999")).toEqual([]);
   });
 
+  it("lists the clients of several repositories in one request, newest first, each once", async () => {
+    vi.useFakeTimers({ now: 1_800_000_000_000, toFake: ["Date"] });
+    const h = await createHub();
+    const first = await createClient(h);
+    vi.setSystemTime(1_800_000_001_000);
+    const second = await createClient(h, { repository_id: "81", repository: "octo-org/other" });
+    vi.setSystemTime(1_800_000_002_000);
+    await createClient(h, { repository_id: "82", repository: "octo-org/third" });
+
+    expect(await repositoryClientIds(h, REPOSITORY_ID, "81", REPOSITORY_ID)).toEqual([
+      second.client_id,
+      first.client_id,
+    ]);
+  });
+
   it.each(["", "0", "abc", "74x"])("refuses the repository %j", async (repository) => {
     const h = await createHub();
     const response = await moderationRequest(h, `/moderation/clients?repository=${repository}`);
+    expect(response.status).toBe(400);
+  });
+
+  it("refuses more than 100 repositories in one request", async () => {
+    const h = await createHub();
+    const query = Array.from({ length: 101 }, (_, index) => `repository=${index + 1}`).join("&");
+    const response = await moderationRequest(h, `/moderation/clients?${query}`);
     expect(response.status).toBe(400);
   });
 

@@ -612,7 +612,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
       repositoryClients: FunctionReference<
         "query",
         "internal",
-        { githubRepositoryDatabaseId: string },
+        { githubRepositoryDatabaseIds: Array<string> },
         Array<{
           appId: string;
           clientId: string;

@@ -19,6 +19,8 @@ const { literal, object, string, union } = v;
 type Ctx = GenericActionCtx<GenericDataModel>;
 
 const MAX_REASON_LENGTH = 1_000;
+/** The repositories of one `GET /moderation/clients` request, such as those of one organization. */
+const MAX_REPOSITORIES_PER_REQUEST = 100;
 const MAX_EMAIL_LENGTH = 320;
 
 /** The body of `POST /moderation/blocks`. */
@@ -85,19 +87,23 @@ export function moderationEndpoints(args: {
   );
 
   /**
-   * Every client, newest first, up to the list's limit. With `?repository=<GitHub id>`, every client
-   * of that repository as `{ clients }`.
+   * Every client, newest first, up to the list's limit. With `?repository=<GitHub id>`, once for
+   * each of at most `MAX_REPOSITORIES_PER_REQUEST` repositories, every client of those repositories
+   * as `{ clients }`.
    */
   const listClients = moderationEndpoint(async (ctx, request) => {
-    const repository = new URL(request.url).searchParams.get("repository");
-    if (repository === null) {
+    const repositories = new URL(request.url).searchParams.getAll("repository");
+    if (repositories.length === 0) {
       return reply(200, await ctx.runQuery(component.moderation.clientList, {}));
     }
-    if (!/^[1-9][0-9]*$/.test(repository)) {
+    if (
+      repositories.length > MAX_REPOSITORIES_PER_REQUEST ||
+      !repositories.every((repository) => /^[1-9][0-9]*$/.test(repository))
+    ) {
       return reply(400, { error: "invalid_request" });
     }
     const clients = await ctx.runQuery(component.moderation.repositoryClients, {
-      githubRepositoryDatabaseId: repository,
+      githubRepositoryDatabaseIds: [...new Set(repositories)],
     });
     return reply(200, { clients });
   });
