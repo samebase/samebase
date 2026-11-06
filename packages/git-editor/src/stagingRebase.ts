@@ -1,4 +1,4 @@
-import { applyPatch, createTwoFilesPatch, diffArrays, diffLines } from "diff";
+import { diffArrays } from "diff";
 
 type RebaseInput = {
   baseContent: string;
@@ -11,133 +11,8 @@ type RebaseResult = {
   hasConflict: boolean;
 };
 
-const ANCHOR_CONTEXT_LINE_COUNT = 3;
-
 function buildConflictContent(ours: string, theirs: string): string {
   return ["<<<<<<< samebase", ours, "=======", theirs, ">>>>>>> main"].join("\n");
-}
-
-function splitLogicalLines(content: string): string[] {
-  if (content.length === 0) {
-    return [];
-  }
-  const parts = content.split("\n");
-  if (parts[parts.length - 1] === "") {
-    parts.pop();
-  }
-  return parts;
-}
-
-function joinLogicalLines(lines: string[], trailingNewline: boolean): string {
-  const joined = lines.join("\n");
-  if (trailingNewline) {
-    return joined.length === 0 ? "\n" : `${joined}\n`;
-  }
-  return joined;
-}
-
-function splitDiffPartLines(value: string): string[] {
-  return splitLogicalLines(value);
-}
-
-function findSequenceStart(lines: string[], sequence: string[], startIndex: number): number | null {
-  if (sequence.length === 0) {
-    return startIndex <= lines.length ? startIndex : null;
-  }
-
-  for (let i = startIndex; i <= lines.length - sequence.length; i++) {
-    let matched = true;
-    for (let j = 0; j < sequence.length; j++) {
-      if (lines[i + j] !== sequence[j]) {
-        matched = false;
-        break;
-      }
-    }
-    if (matched) {
-      return i;
-    }
-  }
-
-  return null;
-}
-
-function mergeInsertionOnlyEdits(args: RebaseInput): string | null {
-  const parts = diffLines(args.baseContent, args.stagedContent);
-  if (parts.some((part) => part.removed)) {
-    return null;
-  }
-
-  const upstreamTrailingNewline = args.upstreamContent.endsWith("\n");
-  const mergedLines = splitLogicalLines(args.upstreamContent);
-  let searchCursor = 0;
-  const contextParts = parts.filter((part) => !part.added).values();
-  let nextContextPart = contextParts.next();
-  let previousContextPartLines: string[] | null = null;
-
-  for (const part of parts) {
-    if (!part.added) {
-      previousContextPartLines = splitDiffPartLines(part.value);
-      nextContextPart = contextParts.next();
-      continue;
-    }
-
-    const insertedLines = splitDiffPartLines(part.value);
-    if (insertedLines.length === 0) {
-      continue;
-    }
-
-    const nextContextPartLines = nextContextPart.done
-      ? null
-      : splitDiffPartLines(nextContextPart.value.value);
-
-    const previousContextLines =
-      previousContextPartLines === null
-        ? []
-        : nextContextPartLines === null
-          ? previousContextPartLines
-          : previousContextPartLines.slice(-ANCHOR_CONTEXT_LINE_COUNT);
-
-    const nextContextLines =
-      nextContextPartLines === null
-        ? []
-        : previousContextPartLines === null
-          ? nextContextPartLines
-          : nextContextPartLines.slice(0, ANCHOR_CONTEXT_LINE_COUNT);
-
-    const insertionStart =
-      previousContextLines.length === 0
-        ? searchCursor
-        : (() => {
-            const previousMatch = findSequenceStart(
-              mergedLines,
-              previousContextLines,
-              searchCursor,
-            );
-            return previousMatch === null ? null : previousMatch + previousContextLines.length;
-          })();
-    if (insertionStart === null) {
-      return null;
-    }
-
-    const nextMatch =
-      nextContextLines.length === 0
-        ? mergedLines.length
-        : findSequenceStart(mergedLines, nextContextLines, insertionStart);
-    if (nextMatch === null || nextMatch < insertionStart) {
-      return null;
-    }
-
-    const existingInsertion = findSequenceStart(mergedLines, insertedLines, insertionStart);
-    if (existingInsertion === insertionStart) {
-      searchCursor = existingInsertion + insertedLines.length;
-      continue;
-    }
-
-    mergedLines.splice(insertionStart, 0, ...insertedLines);
-    searchCursor = insertionStart + insertedLines.length;
-  }
-
-  return joinLogicalLines(mergedLines, upstreamTrailingNewline);
 }
 
 /** Base lines `start` to `end` replaced by `lines`. Lines keep their line endings. */
@@ -171,6 +46,18 @@ function lineChanges(base: string[], side: string[]): LineChange[] {
   return changes;
 }
 
+/** Base lines `start` to `end` with `changes`, which lie inside them, applied. */
+function applyChanges(base: string[], start: number, end: number, changes: LineChange[]): string[] {
+  const lines: string[] = [];
+  let index = start;
+  for (const change of changes) {
+    lines.push(...base.slice(index, change.start), ...change.lines);
+    index = change.end;
+  }
+  lines.push(...base.slice(index, end));
+  return lines;
+}
+
 function includesInOrder(lines: string[], wanted: string[]): boolean {
   let found = 0;
   for (const line of lines) {
@@ -182,66 +69,107 @@ function includesInOrder(lines: string[], wanted: string[]): boolean {
 }
 
 /**
-Whether upstream already made every staged change at the same base lines, so the staged edit adds
-nothing. This is the case when a teammate or an agent pushed the same edit, or when an earlier
-commit of these staged files landed; applying the patch again would write its lines twice. A change
-counts as made when upstream replaced the same base lines with lines that include the staged lines
-in order, so upstream has every staged line. A staged deletion counts only when upstream deleted the
-same lines too. When some staged change is missing upstream, the whole staged edit goes through the
-patch, because a patch of only the missing changes can apply at the wrong place.
+The merged lines for base lines `start` to `end`, where the staged and the upstream changes touch,
+or null for a conflict. Both sides inserting at the same place keeps both insertions, a line they
+both inserted once, and the staged lines first where they differ. Otherwise both sides must give the
+same lines, or replace the same base lines with lines where one side's include the other's in order,
+as when a teammate pushed the user's edit plus more. Any other overlap is a conflict, so a base line
+that one side removed never comes back from the other side.
 */
-function upstreamMadeEveryStagedChange({
-  baseContent,
-  stagedContent,
-  upstreamContent,
-}: RebaseInput): boolean {
-  const base = splitKeepingLineEndings(baseContent);
-  const upstreamChanges = lineChanges(base, splitKeepingLineEndings(upstreamContent));
-  return lineChanges(base, splitKeepingLineEndings(stagedContent)).every((change) =>
-    upstreamChanges.some(
-      (upstream) =>
-        upstream.start === change.start &&
-        upstream.end === change.end &&
-        (change.lines.length === 0) === (upstream.lines.length === 0) &&
-        includesInOrder(upstream.lines, change.lines),
-    ),
-  );
+function mergeTouchingChanges(
+  base: string[],
+  start: number,
+  end: number,
+  staged: LineChange[],
+  upstream: LineChange[],
+): string[] | null {
+  const ours = applyChanges(base, start, end, staged);
+  const theirs = applyChanges(base, start, end, upstream);
+  const bothInsertOnly = start === end;
+  const sameRangeOneIncludesTheOther =
+    staged.length === 1 &&
+    upstream.length === 1 &&
+    staged[0]?.start === start &&
+    staged[0].end === end &&
+    upstream[0]?.start === start &&
+    upstream[0].end === end &&
+    ours.length > 0 &&
+    theirs.length > 0 &&
+    (includesInOrder(ours, theirs) || includesInOrder(theirs, ours));
+  if (bothInsertOnly || sameRangeOneIncludesTheOther || ours.join("") === theirs.join("")) {
+    // A diff of the two sides lists each shared line once, and the staged-only lines first.
+    return diffArrays(ours, theirs).flatMap((part) => part.value);
+  }
+  return null;
 }
 
+/**
+A three-way merge by lines, as `git merge-file` does: each side's changes against the base apply
+where they do not touch the other side's. Where they touch, `mergeTouchingChanges` decides.
+*/
+function mergeLines(base: string[], staged: string[], upstream: string[]): string[] | null {
+  const ours = lineChanges(base, staged);
+  const theirs = lineChanges(base, upstream);
+  const merged: string[] = [];
+  let index = 0;
+  let i = 0;
+  let j = 0;
+  while (i < ours.length || j < theirs.length) {
+    const start = Math.min(ours.at(i)?.start ?? Infinity, theirs.at(j)?.start ?? Infinity);
+    let end = start;
+    const groupOurs: LineChange[] = [];
+    const groupTheirs: LineChange[] = [];
+    // Changes of one side never touch each other, so a group grows only across the two sides.
+    let grew = true;
+    while (grew) {
+      grew = false;
+      const nextOurs = ours.at(i);
+      if (nextOurs !== undefined && nextOurs.start <= end) {
+        groupOurs.push(nextOurs);
+        end = Math.max(end, nextOurs.end);
+        i++;
+        grew = true;
+      }
+      const nextTheirs = theirs.at(j);
+      if (nextTheirs !== undefined && nextTheirs.start <= end) {
+        groupTheirs.push(nextTheirs);
+        end = Math.max(end, nextTheirs.end);
+        j++;
+        grew = true;
+      }
+    }
+    const lines =
+      groupTheirs.length === 0
+        ? applyChanges(base, start, end, groupOurs)
+        : groupOurs.length === 0
+          ? applyChanges(base, start, end, groupTheirs)
+          : mergeTouchingChanges(base, start, end, groupOurs, groupTheirs);
+    if (lines === null) {
+      return null;
+    }
+    merged.push(...base.slice(index, start), ...lines);
+    index = end;
+  }
+  merged.push(...base.slice(index));
+  return merged;
+}
+
+/**
+Rebases a staged edit onto newer upstream content: a three-way merge of the staged and the upstream
+content against the content the edit started from. A change both sides made is written once. A
+conflict returns both versions between conflict markers.
+*/
 export function rebaseStagedContent({
   baseContent,
   stagedContent,
   upstreamContent,
 }: RebaseInput): RebaseResult {
-  if (stagedContent === upstreamContent) {
-    return { content: upstreamContent, hasConflict: false };
-  }
-
-  if (upstreamMadeEveryStagedChange({ baseContent, stagedContent, upstreamContent })) {
-    return { content: upstreamContent, hasConflict: false };
-  }
-
-  const patch = createTwoFilesPatch("base", "staged", baseContent, stagedContent);
-
-  const rebased = applyPatch(upstreamContent, patch, { fuzzFactor: 1 });
-  if (rebased === false) {
-    const insertionOnlyMerged = mergeInsertionOnlyEdits({
-      baseContent,
-      stagedContent,
-      upstreamContent,
-    });
-    if (insertionOnlyMerged !== null) {
-      return {
-        content: insertionOnlyMerged,
-        hasConflict: false,
-      };
-    }
-
-    return {
-      content: buildConflictContent(stagedContent, upstreamContent),
-      hasConflict: true,
-    };
-  }
-
-  return { content: rebased, hasConflict: false };
+  const merged = mergeLines(
+    splitKeepingLineEndings(baseContent),
+    splitKeepingLineEndings(stagedContent),
+    splitKeepingLineEndings(upstreamContent),
+  );
+  return merged === null
+    ? { content: buildConflictContent(stagedContent, upstreamContent), hasConflict: true }
+    : { content: merged.join(""), hasConflict: false };
 }
