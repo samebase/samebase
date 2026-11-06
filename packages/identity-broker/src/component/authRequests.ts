@@ -48,7 +48,7 @@ const limits = new RateLimiter(components.rateLimiter, {
  */
 export const create = mutation({
   args: {
-    /** The tenant of the app, whose budget this request spends. */
+    /** The tenant of a third-party app, whose budget this request spends. Absent for a first-party app. */
     tenantId: optional(string()),
     requestId: string(),
     appId: string(),
@@ -272,8 +272,6 @@ const vExchangeResult = union(
     appId: string(),
     /** The app's `firstParty`, read in the redemption. */
     firstParty: boolean(),
-    /** The app's tenant, read in the redemption. */
-    tenantId: optional(string()),
     clientId: string(),
     scope: string(),
     nonce: optional(string()),
@@ -334,7 +332,7 @@ export const exchangeCode = mutation({
       client.tokenEndpointAuthMethod !== args.tokenEndpointAuthMethod ||
       client.secretHash !== args.clientSecretHash ||
       (await isSuspended(ctx, app.tenantId)) ||
-      (args.registrationPaused === true && app.tenantId !== undefined)
+      (args.registrationPaused === true && !app.firstParty)
     ) {
       return { ok: false, error: "invalid_client", description: "Client authentication failed." };
     }
@@ -432,7 +430,6 @@ export const exchangeCode = mutation({
       ok: true,
       appId: request.appId,
       firstParty: app.firstParty,
-      ...optionalField("tenantId", app.tenantId),
       clientId: request.clientId,
       scope: request.scope,
       ...optionalField("nonce", request.nonce),

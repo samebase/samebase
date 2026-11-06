@@ -14,6 +14,7 @@ import {
 import { broker, isPaused, issuer } from "./broker";
 import { APPS_CONNECTOR } from "./connectors";
 import { isBlocked, sha256Hex } from "./moderation";
+import { OWN_REPOSITORY_IDS } from "./ownApps";
 
 const { array, literal, number, object, string, union } = v;
 
@@ -424,11 +425,20 @@ export const admitRequest = internalMutation({
   },
 });
 
-/**
 /** The broker's app of `app` in the repository's tenant: production, or previews and laptops. */
 async function appIdOf(tenantId: string, app: string, production: boolean) {
   const appHash = (await sha256Hex(app)).slice(0, 32);
   return `${tenantId}-${appHash}${production ? "" : "-preview"}`;
+}
+
+/**
+ * What the broker makes the apps of a repository: the hub's own, with every connector, for a
+ * repository of `OWN_REPOSITORY_IDS`, else third-party with the one connector `APPS_CONNECTOR`.
+ */
+function trustOf(githubRepositoryDatabaseId: string) {
+  return OWN_REPOSITORY_IDS.has(githubRepositoryDatabaseId)
+    ? { firstParty: true as const }
+    : { firstParty: false as const, connector: APPS_CONNECTOR };
 }
 
 /**
@@ -491,7 +501,7 @@ export const createClient = internalMutation({
       tenantId,
       ownerId: args.githubOwnerId,
       appId: await appIdOf(tenantId, args.app, production),
-      connector: APPS_CONNECTOR,
+      trust: trustOf(args.githubRepositoryDatabaseId),
       deploymentType: args.deployment.type,
       clientId: args.clientId,
       secretHash: args.secretHash,
@@ -604,7 +614,7 @@ export const createDevelopmentClient = internalMutation({
     const result = await ctx.runMutation(components.identityBroker.registration.register, {
       tenantId,
       appId: await appIdOf(tenantId, token.app, false),
-      connector: APPS_CONNECTOR,
+      trust: trustOf(token.githubRepositoryDatabaseId),
       deploymentType: "development",
       clientId: args.clientId,
       secretHash: args.secretHash,

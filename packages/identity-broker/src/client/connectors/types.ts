@@ -8,6 +8,12 @@ export type UpstreamIdentity = {
 };
 
 type Credentials = {
+  /**
+   * The provider whose accounts the connector signs in, such as `google`: lowercase letters, digits,
+   * and hyphens. Every `sub` the connector makes is `<provider>:<upstreamId>`, so two connectors of
+   * one provider, such as two Google clients, give one account the same `sub`.
+   */
+  provider: string;
   /** Read lazily, in the request, so a missing env var fails that request and not the deploy. */
   clientId: () => string;
   clientSecret: () => string;

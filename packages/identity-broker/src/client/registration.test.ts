@@ -443,8 +443,8 @@ describe("a refusal before sign-in (RFC 9700 section 4.11.2)", () => {
   });
 });
 
-describe("the salt of an app from /register", () => {
-  test("two apps of one person get unrelated subjects, and the first-party salt is not used", async () => {
+describe("the subject of an app from /register", () => {
+  test("every app of one person gets the provider's own id, also through a reserved connector", async () => {
     const h = await hub();
     const first = await register(h, { software_id: "gh-1-a" });
     const second = await register(h, { software_id: "gh-1-b" });
@@ -452,9 +452,9 @@ describe("the salt of an app from /register", () => {
       const tokens: { id_token: string } = await (await signIn(h, client)).json();
       return decodeJwt(tokens.id_token).sub;
     };
-    const a = await subject(first);
-    expect(a).toBe(await subject(first));
-    expect(a).not.toBe(await subject(second));
+    // `fake-apps` is a second connector of the provider `fake`: one account, one subject.
+    expect(await subject(first)).toBe("fake:42");
+    expect(await subject(second)).toBe("fake:42");
   });
 });
 
@@ -748,6 +748,8 @@ async function registerHere(
     ownerId?: string;
     appId?: string;
     deploymentType?: "production" | "preview" | "development";
+    /** One of the host's own apps, with every open connector. */
+    firstParty?: boolean;
   } = {},
 ) {
   const credentials = await h.broker.newClientCredentials();
@@ -755,7 +757,7 @@ async function registerHere(
     tenantId: args.tenantId ?? "gh-1",
     ...(args.ownerId === undefined ? {} : { ownerId: args.ownerId }),
     appId: args.appId ?? "gh-1-app",
-    connector: "fake-apps",
+    trust: args.firstParty ? { firstParty: true } : { firstParty: false, connector: "fake-apps" },
     deploymentType: args.deploymentType ?? "preview",
     clientId: credentials.clientId,
     secretHash: credentials.secretHash,
@@ -780,6 +782,87 @@ async function registerHere(
 async function blockOwner(h: Harness, ownerId: string, blocked: boolean) {
   await h.t.mutation(api.registration.setOwnerBlocked, { ownerId, blocked, now: Date.now() });
 }
+
+describe("a first-party app of a tenant", () => {
+  test("it signs in through an open connector with the account id, and never a reserved one", async () => {
+    const h = await hub();
+    const { result, client } = await registerHere(h, { firstParty: true });
+    expect(result).toEqual({ ok: true });
+    const app = await h.t.query(api.apps.get, { appId: "gh-1-app" });
+    expect(app).toMatchObject({ firstParty: true, tenantId: "gh-1" });
+    expect(app).not.toHaveProperty("connector");
+
+    const { verifier, challenge } = await pkce();
+    const start = await h.fetchBroker(
+      authorizeUrl(h, client.client_id, challenge, { connector: "fake" }),
+    );
+    const code = await finishUpstream(h, start);
+    const response = await redeem(h, {
+      code,
+      clientId: client.client_id,
+      clientSecret: client.client_secret,
+      verifier,
+    });
+    expect(response.status).toBe(200);
+    const tokens: { id_token: string } = await response.json();
+    expect(decodeJwt(tokens.id_token)).toMatchObject({
+      sub: "fake:42",
+      connector: "fake",
+      connector_account_id: "42",
+    });
+
+    const reserved = await h.fetchBroker(
+      authorizeUrl(h, client.client_id, challenge, { connector: "fake-apps" }),
+    );
+    expect(await reserved.text()).not.toContain("fake-apps");
+  });
+
+  test("an app keeps what it was created as: the other kind of registration answers app_taken", async () => {
+    const h = await hub();
+    expect((await registerHere(h, { appId: "gh-1-own", firstParty: true })).result).toEqual({
+      ok: true,
+    });
+    expect((await registerHere(h, { appId: "gh-1-own" })).result).toEqual({
+      ok: false,
+      error: "app_taken",
+    });
+    expect((await registerHere(h, { appId: "gh-1-guest" })).result).toEqual({ ok: true });
+    expect((await registerHere(h, { appId: "gh-1-guest", firstParty: true })).result).toEqual({
+      ok: false,
+      error: "app_taken",
+    });
+  });
+
+  test("the pause leaves it alone, and a block of its tenant or owner stops it", async () => {
+    let paused = true;
+    const h = await hub({ paused: () => paused });
+    const { client } = await registerHere(h, { ownerId: "65", firstParty: true });
+    /** The status of the token request, or of `/authorize` when it sends the browser nowhere. */
+    const signInHere = async () => {
+      const { verifier, challenge } = await pkce();
+      const start = await h.fetchBroker(
+        authorizeUrl(h, client.client_id, challenge, { connector: "fake" }),
+      );
+      if (start.headers.get("location") === null) return start.status;
+      const response = await redeem(h, {
+        code: await finishUpstream(h, start),
+        clientId: client.client_id,
+        clientSecret: client.client_secret,
+        verifier,
+      });
+      return response.status;
+    };
+    expect(await signInHere()).toBe(200);
+    paused = false;
+    await h.t.mutation(api.registration.switchConnection, { tenantId: "gh-1", connected: false });
+    expect(await signInHere()).toBe(403);
+    await h.t.mutation(api.registration.switchConnection, { tenantId: "gh-1", connected: true });
+    await blockOwner(h, "65", true);
+    expect(await signInHere()).toBe(403);
+    await blockOwner(h, "65", false);
+    expect(await signInHere()).toBe(200);
+  });
+});
 
 describe("the owner switch", () => {
   test("it stops registration, renewal, sign-in, and redemption of every tenant of the owner", async () => {

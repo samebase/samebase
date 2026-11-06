@@ -205,7 +205,7 @@ export function registrationEndpoints(args: {
     const result = await ctx.runMutation(component.registration.register, {
       tenantId: metadata.tenantId,
       appId: metadata.softwareId,
-      connector: registration.connector,
+      trust: { firstParty: false, connector: registration.connector },
       deploymentType: metadata.deploymentType,
       clientId,
       secretHash,

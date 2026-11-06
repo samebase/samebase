@@ -93,6 +93,26 @@ describe("issuer", () => {
   });
 });
 
+describe("connectors", () => {
+  test("a provider is [a-z0-9-]+, and its connectors share one issuer", () => {
+    const { connector } = fakeUpstream();
+    const config = { component, keys: () => undefined, issuer: ISSUER };
+    expect(() =>
+      defineIdentityBroker({ ...config, connectors: [{ ...connector, provider: "fake:x" }] }),
+    ).toThrow("has a provider that is not [a-z0-9-]+");
+    const second = { ...connector, name: "fake-apps", reserved: true };
+    expect(() =>
+      defineIdentityBroker({ ...config, connectors: [connector, second] }),
+    ).not.toThrow();
+    expect(() =>
+      defineIdentityBroker({
+        ...config,
+        connectors: [connector, { ...second, issuer: "https://other.test" }],
+      }),
+    ).toThrow('The connectors of provider "fake" have two issuers');
+  });
+});
+
 describe("metadata", () => {
   test("both discovery documents and the JWKS", async () => {
     const h = await createHarness({ connectors: [fakeUpstream().connector] });
@@ -105,7 +125,7 @@ describe("metadata", () => {
       const metadata = await response.json();
       expect(metadata.issuer).toBe(ISSUER);
       expect(metadata.jwks_uri).toBe(`${ISSUER}/.well-known/jwks.json`);
-      expect(metadata.subject_types_supported).toEqual(["pairwise"]);
+      expect(metadata.subject_types_supported).toEqual(["public"]);
       expect(metadata.code_challenge_methods_supported).toEqual(["S256"]);
       expect(metadata.authorization_response_iss_parameter_supported).toBe(true);
       expect(metadata.claims_supported).toContain("connector_account_id");
@@ -353,7 +373,8 @@ describe("authorization code flow with an OAuth connector", () => {
     expect(signIns[0]).toMatchObject({ appId, clientId, connector: "fake", sub: claims.sub });
     expect(signIns[0]).not.toHaveProperty("email");
 
-    // The subject is pairwise per app: another app of the same user gets another subject.
+    // The subject is public: the provider's own id, so another app of the same user gets the same.
+    expect(claims.sub).toBe("fake:42");
     const other = await h.registerClient({
       appName: "Other",
       firstParty: true,
@@ -376,9 +397,10 @@ describe("authorization code flow with an OAuth connector", () => {
         verifier: otherPkce.verifier,
       })
     ).json();
-    // The pairwise sub differs; the connector's account id is the same in both first-party apps.
-    expect(decodeJwt(otherTokens.id_token)).toMatchObject({ connector_account_id: "42" });
-    expect(decodeJwt(otherTokens.id_token).sub).not.toBe(claims.sub);
+    expect(decodeJwt(otherTokens.id_token)).toMatchObject({
+      sub: claims.sub,
+      connector_account_id: "42",
+    });
   });
 
   test("a code is single use, bound to the client and the verifier; replay revokes it", async () => {
@@ -1062,7 +1084,7 @@ describe("authorization code flow with an OAuth connector", () => {
     expect((await exchange(h, { code, clientId, clientSecret, verifier })).status).toBe(200);
   });
 
-  test("a third-party app gets the pairwise sub and no account id", async () => {
+  test("a third-party app gets the public sub and no account id", async () => {
     const h = await createHarness({ connectors: [fakeUpstream().connector] });
     const { clientId, clientSecret } = await h.registerClient({
       appName: "Stranger",
@@ -1090,9 +1112,9 @@ describe("authorization code flow with an OAuth connector", () => {
         headers: { Authorization: `Bearer ${tokens.access_token}` },
       })
     ).json();
-    // The consent promised a stable id: the pairwise sub, without the connector's own account id.
+    // The consent promised a stable id: the public sub, without the connector's own account id.
     for (const claims of [decodeJwt(tokens.id_token), userinfo]) {
-      expect(claims).toMatchObject({ connector: "fake" });
+      expect(claims).toMatchObject({ sub: "fake:42", connector: "fake" });
       expect(Object.keys(claims)).not.toContain("connector_account_id");
       expect(Object.keys(claims)).not.toContain("email");
     }

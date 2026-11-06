@@ -195,7 +195,6 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             nonce?: string;
             ok: true;
             scope: string;
-            tenantId?: string;
           }
         | {
             description: string;
@@ -463,7 +462,6 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           appId: string;
           clientId: string;
           clientName: string;
-          connector: string;
           deploymentType: "production" | "preview" | "development";
           now: number;
           ownerId?: string;
@@ -473,6 +471,8 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           softwareVersion: string;
           tenantId: string;
           tokenEndpointAuthMethod: "client_secret_post" | "client_secret_basic";
+          trust:
+            { firstParty: true } | { connector: string; firstParty: false };
         },
         | { ok: true }
         | {

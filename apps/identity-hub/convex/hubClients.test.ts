@@ -119,6 +119,36 @@ describe("POST /hub-clients", () => {
       expect(await readOwnRecord(t, client)).toBe(200);
     });
 
+    it("makes the apps of an own repository first-party, its laptops' too, and no other's", async () => {
+      const t = makeConvexTest();
+      const own = { repository_id: "1021726325", repository: "samebase/samebase" };
+      const production = await createClient(t, own);
+      const productionApp = await t.query(components.identityBroker.apps.get, {
+        appId: `gh-1021726325-${APP_HASH}`,
+      });
+      expect(productionApp).toMatchObject({ firstParty: true, tenantId: "gh-1021726325" });
+      expect(productionApp).not.toHaveProperty("connector");
+
+      stubProviders();
+      const laptop = await createDevelopmentClient(t, production.initial_access_token ?? "");
+      expect(
+        await t.query(components.identityBroker.clients.get, { clientId: laptop.client_id }),
+      ).toMatchObject({ appId: `gh-1021726325-${APP_HASH}-preview` });
+      expect(
+        await t.query(components.identityBroker.apps.get, {
+          appId: `gh-1021726325-${APP_HASH}-preview`,
+        }),
+      ).toMatchObject({ firstParty: true });
+
+      // Another repository of the same owner is a guest.
+      await createClient(t);
+      expect(
+        await t.query(components.identityBroker.apps.get, {
+          appId: `gh-${REPOSITORY_ID}-${APP_HASH}`,
+        }),
+      ).toMatchObject({ firstParty: false, connector: "google-apps" });
+    });
+
     it("puts a preview in its own app, on the exact address that the run sent", async () => {
       const t = makeConvexTest();
       stubProviders();
@@ -755,7 +785,7 @@ describe("POST /hub-clients with the initial access token", () => {
       await t.mutation(components.identityBroker.registration.register, {
         tenantId: `gh-${REPOSITORY_ID}`,
         appId: `gh-${REPOSITORY_ID}-other-${index}`,
-        connector: "google-apps",
+        trust: { firstParty: false, connector: "google-apps" },
         deploymentType: "production",
         clientId: `cl_other_${index}`,
         secretHash: "hash",
@@ -786,7 +816,7 @@ describe("POST /hub-clients with the initial access token", () => {
       await t.mutation(components.identityBroker.registration.register, {
         tenantId: `gh-${REPOSITORY_ID}`,
         appId: previewAppId,
-        connector: "google-apps",
+        trust: { firstParty: false, connector: "google-apps" },
         deploymentType: "preview",
         clientId: `cl_preview_${index}`,
         secretHash: "hash",
@@ -890,7 +920,7 @@ describe("POST /hub-clients with the initial access token", () => {
       tenantId: `gh-${REPOSITORY_ID}`,
       ownerId: "66",
       appId: `gh-${REPOSITORY_ID}-other`,
-      connector: "google-apps",
+      trust: { firstParty: false, connector: "google-apps" },
       deploymentType: "production",
       clientId: "cl_other",
       secretHash: "hash",

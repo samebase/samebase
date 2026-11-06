@@ -36,7 +36,7 @@ test("rotation checks its output, so a key that cannot sign leaves with --no-ove
   ] as const) {
     const rotated = await rotateKeys(input, { overlap });
     expect(rotated.keys.map((key) => key.status)).toEqual(statuses);
-    expect(rotated.pairwiseSalt).toBe(parseKeySet(input).pairwiseSalt);
+    expect(rotated).not.toHaveProperty("pairwiseSalt");
     await expect(assertKeySetUsable(rotated)).resolves.toBeUndefined();
   }
   const { kid } = currentKey(parseKeySet(weak));

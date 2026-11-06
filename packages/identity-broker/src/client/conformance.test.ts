@@ -11,7 +11,7 @@ import {
   txnCookie,
   type Harness,
 } from "./harness.test.helper.js";
-import { createKeySet, rotateKeySet, rotateKeySetWithoutOverlap, type KeySet } from "./keys.js";
+import { createKeySet, rotateKeySet, type KeySet } from "./keys.js";
 
 const REDIRECT_URI = "https://app.test/oauth/hub/callback";
 
@@ -127,7 +127,7 @@ test("a token signed before a rotation verifies against the JWKS after it", asyn
   // An emergency rotation drops the old key from the JWKS at once.
   const replaced = await createHarness({
     connectors: [fakeUpstream().connector],
-    keySet: await rotateKeySetWithoutOverlap(keySet),
+    keySet: await createKeySet(),
   });
   await expect(verifyWithJwks(replaced, idToken, clientId)).rejects.toThrow();
 });
