@@ -4,6 +4,7 @@ import {
   DefaultBranchSection,
   RepositoryOverviewLoadingLines,
 } from "@/repository/dashboard/RepositoryEnvironmentTree";
+import { HubClientsSection } from "@/repository/dashboard/RepositoryHubClientsSection";
 import { PullRequestsSection } from "@/repository/dashboard/RepositoryPullRequestsSection";
 import { RepositoryGitHubIdentityNotice } from "@/repository/dashboard/RepositoryGitHubIdentityNotice";
 import { RepositorySetupStackStatus } from "@/repository/dashboard/RepositorySetupStackStatus";
@@ -252,11 +253,20 @@ export function RepositoryOverviewPage({
         ) : null}
         {developerToolsVisible ? <RepositoryWorkspaceDataInspector workspace={workspace} /> : null}
         {showRepositoryContent ? (
-          <PullRequestsSection
-            filesReadEnabled={filesReadEnabled}
-            pullRequests={workspace.pullRequests}
-            repository={workspace.repository}
-          />
+          <>
+            <PullRequestsSection
+              filesReadEnabled={filesReadEnabled}
+              pullRequests={workspace.pullRequests}
+              repository={workspace.repository}
+            />
+            <HubClientsSection
+              canDelete={
+                workspace.access.state === "ready" &&
+                workspace.access.accessKeys.includes("access_app_create")
+              }
+              repositoryId={workspace.repository.repositoryId}
+            />
+          </>
         ) : null}
       </main>
       <div aria-hidden="true" className="h-[20svh] min-h-20" />

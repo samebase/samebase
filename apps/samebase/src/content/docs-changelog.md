@@ -5,6 +5,9 @@ change. If a change needs action from you, the entry says so.
 
 ## 2026-11-06
 
+- **v2286: See and delete your app's sign-in clients.** A repository's page lists the identity hub's
+  sign-in clients of its deployments: the app, the stage, the return address, and the last sign-in.
+  A member who can create apps can delete one; that deployment gets a new client at its next deploy.
 - **v2278: Connect GitHub or Cloudflare once more if Samebase asks.** samebase.com now gets its
   sign-in from the identity hub the same way every app does. A GitHub authorization or a Cloudflare
   connection made through the hub before this stops working once: when Samebase asks, connect it
