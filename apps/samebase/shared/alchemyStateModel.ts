@@ -24,7 +24,7 @@ export const vAlchemyRunRecord = object({
   pullRequest: union(number(), v.null()),
   headCommit: string(),
   runUrl: union(string(), v.null()),
-  source: union(literal("github-actions"), literal("laptop")),
+  source: union(literal("github-actions"), literal("checkout")),
   /** ISO 8601, when the record was written. */
   recordedAt: string(),
 });

@@ -20,7 +20,7 @@ const vResourceState = object({ status: string(), resourceType: string() });
 
 const RUN_SOURCE_LABELS = {
   "github-actions": "GitHub Actions",
-  laptop: "Laptop",
+  checkout: "Git checkout",
 } satisfies Record<AlchemyRunRecord["source"], string>;
 
 /**
