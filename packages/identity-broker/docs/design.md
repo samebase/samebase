@@ -207,15 +207,15 @@ provider.
   that gets the sign-in, the GitHub repository that registered the client, the deploy, and what the
   app receives. The app's own name is not on it: client metadata is self-asserted (RFC 7591 section
   5), and the host and repository are what the hub checked. Continue goes to the app's one
-  connector. Cancel ends on a page of the hub, not at the host, because a user may cancel out of
-  distrust (RFC 9700 section 4.11.2); its link back carries `access_denied` (RFC 6749 section
-  4.1.2.1) for a user who chooses to return. A third-party production client still shows no page of
-  the hub: it goes straight to its connector, and the connector's own screen names the hub, not the
-  app. This falls short of RFC 6749 section 10.12, which asks that a client get no authorization
-  without the user's awareness of it, and it is the confused deputy shape of the MCP security guide.
-  A host that wants this accepts it knowingly and sets `selectAccount`, so the provider shows its
-  account screen on each sign-in and a user is never passed through with no click. Blocking the
-  app's tenant is the answer to a bad app.
+  connector. It has no Cancel that answers `access_denied` at the host (RFC 6749 section 4.1.2.1): a
+  stranger's link may have brought the user here, and a user who declines may distrust the host (RFC
+  9700 section 4.11.2). The browser's Back leaves; the app learns nothing, and the request expires.
+  A third-party production client still shows no page of the hub: it goes straight to its connector,
+  and the connector's own screen names the hub, not the app. This falls short of RFC 6749 section
+  10.12, which asks that a client get no authorization without the user's awareness of it, and it is
+  the confused deputy shape of the MCP security guide. A host that wants this accepts it knowingly
+  and sets `selectAccount`, so the provider shows its account screen on each sign-in and a user is
+  never passed through with no click. Blocking the app's tenant is the answer to a bad app.
 - A refusal before sign-in goes to an error page for a third-party app, not to its redirect URI,
   because nobody reviewed that URI (RFC 9700 section 4.11.2).
 - A read of a client (RFC 7592 section 2.1) renews it, and answers without `client_secret` and

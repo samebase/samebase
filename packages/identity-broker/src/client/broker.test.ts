@@ -825,7 +825,7 @@ describe("authorization code flow with an OAuth connector", () => {
     }
   });
 
-  test("a third-party preview or laptop asks for consent, and cancel returns access_denied", async () => {
+  test("a third-party preview or laptop asks for consent", async () => {
     const h = await createHarness({ connectors: [fakeUpstream().connector] });
     const { clientId } = await h.registerClient({
       appName: "Stranger",
@@ -848,35 +848,15 @@ describe("authorization code flow with an OAuth connector", () => {
       "It gets your name, picture, and email address. auth.test has not reviewed this app.",
     );
     expect(html).toContain("Continue with Fake");
-    // No link out of the sign-in but Continue and Cancel.
-    expect(html.match(/<a /g)).toHaveLength(2);
+    // One link, Continue, and no script. Nothing sends the user to the host, which a stranger's link
+    // may have chosen (RFC 9700 section 4.11.2).
+    expect(html.match(/<a /g)).toHaveLength(1);
+    expect(html).not.toContain("<script");
+    expect(html).not.toContain(REDIRECT_URI);
     expect(html).not.toContain("Stranger");
-    const deny = html.match(/href="([^"]*deny=1)"/)?.[1]?.replace(/&amp;/g, "&") ?? "";
-    const requestId = new URL(`${ISSUER}${deny}`).searchParams.get("request") ?? "";
+    const href = html.match(/href="([^"]*connector=fake)"/)?.[1]?.replace(/&amp;/g, "&") ?? "";
+    const requestId = new URL(`${ISSUER}${href}`).searchParams.get("request") ?? "";
     expect(cookie.startsWith(`__Host-broker_txn_${requestId}=`)).toBe(true);
-    const denied = await h.fetchBroker(`${ISSUER}${deny}`, { headers: { Cookie: cookie } });
-    // No redirect to a host that the user may have cancelled because they distrust it (RFC 9700
-    // section 4.11.2): a page, and a link back with the `access_denied` answer.
-    expect(denied.status).toBe(200);
-    expect(denied.headers.get("location")).toBeNull();
-    const cancelled = await denied.text();
-    expect(cancelled).toContain("<h1>Sign-in cancelled</h1>");
-    const back = new URL(
-      cancelled.match(/href="([^"]*)" rel="noreferrer">Return to /)?.[1]?.replace(/&amp;/g, "&") ??
-        "",
-    );
-    expect(back.origin + back.pathname).toBe(REDIRECT_URI);
-    expect(Object.fromEntries(back.searchParams)).toMatchObject({
-      error: "access_denied",
-      state: "client-state",
-      iss: ISSUER,
-    });
-    // The abandoned request deletes its cookie.
-    expect(denied.headers.get("set-cookie")).toBe(
-      `__Host-broker_txn_${requestId}=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0`,
-    );
-    const again = await h.fetchBroker(`${ISSUER}${deny}`, { headers: { Cookie: cookie } });
-    expect(again.status).toBe(404);
     // The consent names only what the requested scopes release.
     const openidOnly = await h.fetchBroker(
       authorizeUrl(h, { clientId, challenge, extra: { scope: "openid" } }),
@@ -970,7 +950,6 @@ describe("authorization code flow with an OAuth connector", () => {
     const link = (pattern: RegExp) =>
       `${ISSUER}${html.match(pattern)?.[1]?.replace(/&amp;/g, "&") ?? ""}`;
     const choose = link(/href="([^"]*connector=fake)"/);
-    const deny = link(/href="([^"]*deny=1)"/);
     const requestId = new URL(choose).searchParams.get("request") ?? "";
     for (const headers of [
       {},
@@ -979,7 +958,6 @@ describe("authorization code flow with an OAuth connector", () => {
       { Cookie: `__Host-broker_txn_other=${cookie.split("=")[1] ?? ""}` },
     ]) {
       expect((await h.fetchBroker(choose, { headers })).status).toBe(400);
-      expect((await h.fetchBroker(deny, { headers })).status).toBe(400);
     }
     expect((await h.t.query(api.authRequests.get, { requestId }))?.status).toBe("pending");
     const chosen = await h.fetchBroker(choose, { headers: { Cookie: `theme=dark; ${cookie}` } });

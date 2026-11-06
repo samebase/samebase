@@ -1,4 +1,4 @@
-import { cancelledPage, errorPage, signInPage, type Consent } from "./html.js";
+import { errorPage, signInPage, type Consent } from "./html.js";
 
 /**
  * Every state of every page the broker renders, with sample values. `html.pages.test.ts` takes a
@@ -13,7 +13,6 @@ const preview: Consent = {
   deployment: { kind: "preview", stage: "pr-12" },
   repository: "octo-org/weather-app",
   scopes: ["openid", "email", "profile"],
-  cancelHref: "#cancel",
   issuerHost: "auth.samebase.com",
 };
 
@@ -43,11 +42,6 @@ export const pageStates: Record<string, () => Response> = {
     signInPage({
       to: { kind: "consent", ...preview, host: `pr-12-${"a".repeat(53)}-app.example.com` },
       connectors: google,
-    }),
-  cancelled: () =>
-    cancelledPage({
-      host: "pr-12.weather-app.example.com",
-      returnHref: "#return",
     }),
   error: () => errorPage("Sign-in is off", "Sign-in for this app is turned off.", 403),
 };

@@ -4,9 +4,8 @@
 
 - A third-party app's preview or development client shows a consent page before its connector: the
   host that gets the sign-in, the GitHub repository, the deploy, and what the app receives, with
-  Continue and Cancel. Cancel ends on a page of the hub, with a link back that carries
-  `access_denied`: it never sends the user to a host they may distrust. Production clients go
-  straight to the connector as before.
+  Continue. It has no Cancel: the browser's Back does that. Production clients go straight to the
+  connector as before.
 - A third-party app whose connector is not configured answers an error page instead of the chooser,
   which offered the host's own connectors.
 - The broker's pages (consent, chooser, errors) are one card that follows the system's light or dark

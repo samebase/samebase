@@ -38,9 +38,6 @@ const STYLE = `
     font-weight: 500; text-decoration: none; }
   a.button:hover { background: var(--button-hover); }
   a.button svg { width: 18px; height: 18px; flex: none; }
-  .cancel { display: block; padding: 0.5rem; color: var(--muted); font-size: 0.875rem;
-    text-align: center; text-decoration: none; }
-  .cancel:hover { color: var(--fg); text-decoration: underline; }
   .fine { margin-top: 1.25rem; padding-top: 1rem; border-top: 1px solid var(--line);
     color: var(--muted); font-size: 0.8125rem; }
 `;
@@ -126,16 +123,15 @@ export type Consent = {
   /** `owner/name` of the GitHub repository at registration. */
   repository: string;
   scopes: string[];
-  /** Ends the sign-in on `cancelledPage`. */
-  cancelHref: string;
   /** The host of the issuer, which says that it reviewed nothing. */
   issuerHost: string;
 };
 
 /**
  * The sign-in page: one "Continue with" button per connector. The host's own apps need no consent:
- * the page names the app. A consent names the host, the deploy, and what the app gets, with
- * Cancel, and has no other link out of the sign-in.
+ * the page names the app. A consent names the host, the deploy, and what the app gets, and has no
+ * link but the buttons. It has no Cancel: the browser's Back does that, and it never sends the user
+ * to the host, which a stranger's link may have chosen (RFC 9700 section 4.11.2).
  */
 export function signInPage(args: {
   to: { kind: "app"; name: string } | ({ kind: "consent" } & Consent);
@@ -165,24 +161,8 @@ export function signInPage(args: {
     `Sign in to ${to.host}`,
     `<h1>Sign in to<br>${hostMarkup(to.host)}</h1>
 <p class="sub">${escape(from)}</p>
-<div class="actions">
-${buttons}
-<a class="cancel" href="${escape(to.cancelHref)}">Cancel</a>
-</div>
+<div class="actions">${buttons}</div>
 <p class="fine">${escape(released(to.scopes))} ${escape(to.issuerHost)} has not reviewed this app.</p>`,
-  );
-}
-
-/**
- * After Cancel on the consent page. It does not send the user to the host, which they may distrust;
- * the link back carries the `access_denied` answer for a user who wants to return.
- */
-export function cancelledPage(args: { host: string; returnHref: string }): Response {
-  return page(
-    "Sign-in cancelled",
-    `<h1>Sign-in cancelled</h1>
-<p class="sub">Nothing was shared with ${hostMarkup(args.host)}. You can close this tab.</p>
-<p class="fine"><a href="${escape(args.returnHref)}" rel="noreferrer">Return to ${escape(args.host)}</a></p>`,
   );
 }
 

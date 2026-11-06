@@ -12,7 +12,7 @@ import * as oauth from "oauth4webapi";
 import type { ComponentApi } from "../component/_generated/component.js";
 import type { Connector } from "./connectors/types.js";
 import { finishUpstream, startUpstream, type UpstreamFinish } from "./connectors/upstream.js";
-import { cancelledPage, errorPage, signInPage, type Consent } from "./html.js";
+import { errorPage, signInPage, type Consent } from "./html.js";
 import {
   signAccessToken,
   signIdToken,
@@ -32,7 +32,6 @@ import {
 import {
   authorizationError,
   authorizationResponse,
-  authorizationResponseUrl,
   json,
   oauthError,
   readParameters,
@@ -418,7 +417,6 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
         deployment,
         repository: client.registeredBy.githubRepository,
         scopes: args.scopes,
-        cancelHref: `${path("/continue")}?request=${encodeURIComponent(args.requestId)}&deny=1`,
         issuerHost: new URL(issuer).host,
       },
       connectors: [
@@ -562,7 +560,10 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
     return page;
   });
 
-  /** A chooser click: start the chosen connector, or abandon the request on deny. */
+  /**
+   * A "Continue with" click on the sign-in page: start that connector. There is no Cancel: a user
+   * who does not continue closes the tab, and the request expires.
+   */
   const continueSignIn = httpActionGeneric(async (ctx, request) => {
     const url = new URL(request.url);
     const requestId = url.searchParams.get("request") ?? "";
@@ -583,24 +584,6 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
       state: stored.state,
       clearCookie: clearTxnCookie(request, requestId),
     };
-    if (url.searchParams.get("deny") !== null) {
-      await ctx.runMutation(component.authRequests.abandon, { requestId });
-      // No redirect: a user may cancel because they distrust the host, which nobody reviewed (RFC
-      // 9700 section 4.11.2). The way back is a link they choose, with the `access_denied` answer.
-      const page = cancelledPage({
-        host: new URL(stored.redirectUri).host,
-        returnHref: authorizationResponseUrl({
-          redirectUri: stored.redirectUri,
-          issuer,
-          state: stored.state,
-          params: { error: "access_denied", error_description: "The user cancelled the sign-in." },
-        }),
-      });
-      if (back.clearCookie !== undefined) {
-        page.headers.append("Set-Cookie", back.clearCookie);
-      }
-      return page;
-    }
     if (stored.status === "completed" || stored.status === "claimed") {
       return errorPage(
         "Sign-in finished",
