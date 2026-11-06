@@ -19,9 +19,9 @@ Every repository of the team deploys the same way. The reference implementation 
 4. **One secret**: `CONVEX_ACCESS_TOKEN`, a team access token, or the organization's OAuth token in
    a repository that Samebase created. The run mints every deploy key itself, and the keys never
    leave the run. An OAuth token comes back as its own key, with no limits. The identity hub needs
-   no secret: `Convex.HubClient` reaches it with this token. A stack with Cloudflare resources adds
-   the Cloudflare login (`CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`) for those resources, not
-   for state.
+   no secret: `Convex.SharedHubClient` asks it with the run's GitHub OIDC token (`id-token: write`).
+   A stack with Cloudflare resources adds the Cloudflare login (`CLOUDFLARE_API_TOKEN`,
+   `CLOUDFLARE_ACCOUNT_ID`) for those resources, not for state.
 5. **Stages**: `prod` on each push to `main`; `pr-<number>` on each pull request from the
    repository, a preview deployment named after the stage with a comment that names its URL,
    destroyed when the pull request closes. The workflow runs one deploy of a stage at a time.

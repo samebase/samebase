@@ -151,10 +151,10 @@ its old keys. For rotation, follow the
 - `SITE_URL`: the app origin. OAuth sign-ins may return only to `SITE_URL` and to the deployment's
   own `CONVEX_SITE_URL`.
 
-`apps/samebase/alchemy.run.ts` registers production and each preview with `Convex.HubClient`, on
-`https://samebase.com/auth/hub/callback` and `<preview site>/auth/hub/callback`, and writes the
-three variables to the deployment before its push. The hub is in the `samebase` project of the
-Convex team, and the Convex credential of the run reaches it, so sign-in needs no secret of its own.
+`apps/samebase/alchemy.run.ts` gets the clients of production and each preview from the hub's
+`POST /hub-clients` with `Convex.SharedHubClient`, on `https://samebase.com/auth/hub/callback` and
+`<preview site>/auth/hub/callback`, with the run's GitHub OIDC token, so sign-in needs no secret of
+its own. The hub reads `/samebase-verification.json` on the site before it registers a client.
 
 The local deployment of each laptop folder gets its two clients from the stage `dev-<name>`, which
 `pnpm run dev` runs at each start. They are development clients on
