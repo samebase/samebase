@@ -30,12 +30,10 @@ type HubIdentity = {
 /**
 The sign-in that a hub method hands to the user callbacks: the profile mapping of convex/auth.ts
 applied to id_token claims. The claims have the shape of `signIdToken` in
-`packages/identity-broker/src/client/jwt.ts`, with
-`connector_account_id` from its next release.
+`packages/identity-broker/src/client/jwt.ts`: the public subject `<connector>:<account id>`.
 */
 function hubProvider(connector: "github" | "google", identity: HubIdentity) {
-  // A subject that differs from the connector's account id: the user is found by the account id.
-  const subject = `${connector}-subject-${identity.id}`;
+  const subject = `${connector}:${identity.id}`;
   return {
     name: `hub-${connector}` as const,
     accountId: subject,
@@ -47,7 +45,6 @@ function hubProvider(connector: "github" | "google", identity: HubIdentity) {
         exp: 1_800_000_300,
         sub: subject,
         connector,
-        connector_account_id: identity.id,
         email: identity.email,
         email_verified: identity.emailVerified ?? true,
         name: "OAuth User",
@@ -463,14 +460,25 @@ describe("Samebase OAuth sign-in callbacks", () => {
 });
 
 describe("hub profile mapping", () => {
+  it("reads the account id from the subject", () => {
+    expect(
+      readHubProfile(
+        { sub: "github:4076804", connector: "github", email_verified: true },
+        "github",
+      ),
+    ).toEqual({ id: "github:4076804", providerAccountId: "4076804", connector: "github" });
+  });
+
   it.each([
-    // The broker before `connector_account_id`: its users cannot be mapped to existing accounts.
-    ["without the connector's account id", { sub: "s", connector: "github", email_verified: true }],
+    // A pairwise subject of the broker before 0.17.0: its users cannot be mapped to accounts.
+    ["with a subject without the provider", { sub: "s", connector: "github" }],
+    ["with the subject of another provider", { sub: "google:1", connector: "github" }],
+    ["with a subject without an account id", { sub: "github:", connector: "github" }],
     [
       "with a string email_verified",
-      { sub: "s", connector: "github", connector_account_id: "1", email_verified: "true" },
+      { sub: "github:1", connector: "github", email_verified: "true" },
     ],
-    ["of another connector", { sub: "s", connector: "google", connector_account_id: "1" }],
+    ["of another connector", { sub: "google:1", connector: "google" }],
   ])("refuses claims %s with a message for the sign-in page", (_name, claims) => {
     expect(() => readHubProfile(claims, "github")).toThrow(
       new ConvexError("The identity hub did not complete the GitHub sign-in. Try again later."),

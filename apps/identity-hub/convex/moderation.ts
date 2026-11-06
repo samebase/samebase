@@ -28,11 +28,8 @@ const MAX_EMAIL_LENGTH = 320;
 const vCount = object({ count: number(), atLeast: boolean() });
 
 /**
- * Who made a client. `github`: a GitHub Actions run at `/hub-clients`, from the hub's registration
- * row. `initial_access_token`: a development client that the app's initial access token registered at `/hub-clients`, from the row too.
- * `team`: the team's Convex login, through `identityBroker:registerClient`, for an app that
- * `identityBroker:createApp` made, so the app has no tenant. `unknown`: a client of a tenant's app
- * with no registration row, or of an app that is gone.
+ * Who made a client at `/hub-clients`, from the hub's registration row. `github`: a GitHub Actions
+ * run. `initial_access_token`: a laptop's development client, with the app's initial access token.
  */
 const vRegisteredBy = union(
   object({
@@ -53,24 +50,21 @@ const vRegisteredBy = union(
     /** When the hub issued the initial access token that registered the client. */
     issuedAt: number(),
   }),
-  object({ kind: literal("team") }),
-  object({ kind: literal("unknown") }),
 );
 
 /** One client at the broker, of any app, with no secret, hash, or token. */
 const vClient = object({
   clientId: string(),
   appId: string(),
+  /** The app is one of the hub's own (`OWN_REPOSITORY_IDS`). False for an app that is gone. */
+  firstParty: boolean(),
   clientName: string(),
   deploymentType: union(literal("production"), literal("development"), literal("preview")),
   /** The one address where the broker sends people back with a code. */
   redirectUri: string(),
   createdAt: number(),
-  /**
-   * The last registration at `/hub-clients` or renewal. Null for a client from `registerClient` that
-   * was never renewed.
-   */
-  renewedAt: union(number(), v.null()),
+  /** The registration at `/hub-clients`, or the last renewal. */
+  renewedAt: number(),
   lastSignInAt: union(number(), v.null()),
   /** When the broker's cleanup deletes the client. Null: never. */
   removeAt: union(number(), v.null()),
@@ -195,8 +189,9 @@ export const blockList = internalQuery({
 });
 
 /**
- * The newest clients that the broker holds, of the team's own apps and of third-party apps, each
- * with who made it.
+ * The newest clients that the broker holds, of the hub's own apps and of third-party apps, each
+ * with who made it. `/hub-clients` writes the registration row in the transaction that creates the
+ * client, so a client without one breaks that invariant, and the list fails.
  */
 export const clientList = internalQuery({
   args: {},
@@ -205,13 +200,14 @@ export const clientList = internalQuery({
     const clients = await ctx.runQuery(components.identityBroker.clients.list, {
       limit: CLIENT_LIST_LIMIT,
     });
-    // Only the apps of these clients, so the reads stay bounded by `CLIENT_LIST_LIMIT`.
+    // Only the apps of these clients, so the reads stay bounded by `CLIENT_LIST_LIMIT`. The clients
+    // of a deleted app stay until their batch is deleted.
     const appIds = [...new Set(clients.map((client) => client.appId))];
-    const madeByTeam = new Map(
+    const firstParty = new Map(
       await Promise.all(
         appIds.map(async (appId) => {
           const app = await ctx.runQuery(components.identityBroker.apps.get, { appId });
-          return [appId, app !== null && app.tenantId === undefined] as const;
+          return [appId, app !== null && app.firstParty] as const;
         }),
       ),
     );
@@ -220,32 +216,31 @@ export const clientList = internalQuery({
         .query("registrations")
         .withIndex("by_client_id", (q) => q.eq("clientId", client.clientId))
         .unique();
-      if (registration !== null) {
-        const { proof } = registration;
-        const repository = {
-          githubRepository: registration.githubRepository,
-          githubRepositoryDatabaseId: registration.githubRepositoryDatabaseId,
-          githubOwnerId: registration.githubOwnerId,
-          app: registration.app,
-        };
-        return proof.kind === "github"
-          ? { kind: "github" as const, ...repository, githubActorLogin: proof.githubActorLogin }
-          : { kind: "initial_access_token" as const, ...repository, issuedAt: proof.issuedAt };
+      if (registration === null) {
+        throw new Error(`The client ${client.clientId} has no registration row`);
       }
-      return madeByTeam.get(client.appId)
-        ? { kind: "team" as const }
-        : { kind: "unknown" as const };
+      const { proof } = registration;
+      const repository = {
+        githubRepository: registration.githubRepository,
+        githubRepositoryDatabaseId: registration.githubRepositoryDatabaseId,
+        githubOwnerId: registration.githubOwnerId,
+        app: registration.app,
+      };
+      return proof.kind === "github"
+        ? { kind: "github" as const, ...repository, githubActorLogin: proof.githubActorLogin }
+        : { kind: "initial_access_token" as const, ...repository, issuedAt: proof.issuedAt };
     };
     return {
       clients: await Promise.all(
         clients.map(async (client) => ({
           clientId: client.clientId,
           appId: client.appId,
+          firstParty: firstParty.get(client.appId) === true,
           clientName: client.clientName,
           deploymentType: client.deploymentType,
           redirectUri: client.redirectUri,
           createdAt: client.createdAt,
-          renewedAt: client.renewedAt ?? null,
+          renewedAt: client.renewedAt,
           lastSignInAt: client.lastSignInAt ?? null,
           removeAt: client.removeAt ?? null,
           registeredBy: await registeredBy(client),
@@ -258,9 +253,9 @@ export const clientList = internalQuery({
 
 /**
  * Blocks or unblocks a repository or an owner, and appends the audit event. A repository block
- * disconnects the broker's tenant `gh-<id>`; an owner block sets the broker's owner switch. Neither
- * touches the operator's suspension of a tenant. A change that is already in place changes nothing
- * and appends nothing.
+ * disconnects the broker's tenant `gh-<id>`; an owner block sets the broker's owner switch. These
+ * are the broker's only switches. A change that is already in place changes nothing and appends
+ * nothing.
  */
 export const setBlock = internalMutation({
   args: vBlockChange.fields,

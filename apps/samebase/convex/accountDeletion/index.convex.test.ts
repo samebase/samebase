@@ -604,11 +604,11 @@ describe("account deletion with Convex Auth 2", () => {
     const githubSignUp = {
       claims: {
         providerName: "hub-github",
-        providerAccountId: "hub-subject-deleted-account",
+        providerAccountId: "github:deleted-account",
         profile: {
-          id: "hub-subject-deleted-account",
+          id: "github:deleted-account",
           connector: "github",
-          connector_account_id: "github-deleted-account",
+          providerAccountId: "deleted-account",
           name: "Deleted User",
           email,
           picture: "https://example.com/avatar.png",
@@ -634,7 +634,7 @@ describe("account deletion with Convex Auth 2", () => {
     await expect(
       t.query(components.auth.public.getUserIdByAccount, {
         provider: "hub-github",
-        providerAccountId: "hub-subject-deleted-account",
+        providerAccountId: "github:deleted-account",
       }),
     ).resolves.toBe(userId);
 
@@ -669,7 +669,7 @@ describe("account deletion with Convex Auth 2", () => {
     await expect(
       t.query(components.auth.public.getUserIdByAccount, {
         provider: "hub-github",
-        providerAccountId: "hub-subject-deleted-account",
+        providerAccountId: "github:deleted-account",
       }),
     ).resolves.toBeNull();
     const nextSession = await t.mutation(components.auth.public.signUp, githubSignUp);

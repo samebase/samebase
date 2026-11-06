@@ -44,11 +44,12 @@ const vClientList = object({
     object({
       clientId: string(),
       appId: string(),
+      firstParty: boolean(),
       clientName: string(),
       deploymentType: union(literal("production"), literal("development"), literal("preview")),
       redirectUri: string(),
       createdAt: number(),
-      renewedAt: union(number(), v.null()),
+      renewedAt: number(),
       lastSignInAt: union(number(), v.null()),
       removeAt: union(number(), v.null()),
       registeredBy: union(
@@ -68,8 +69,6 @@ const vClientList = object({
           app: string(),
           issuedAt: number(),
         }),
-        object({ kind: literal("team") }),
-        object({ kind: literal("unknown") }),
       ),
     }),
   ),

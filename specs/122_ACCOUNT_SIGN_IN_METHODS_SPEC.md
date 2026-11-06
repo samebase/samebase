@@ -28,11 +28,11 @@ terminal PII-free deleted row.
 
 The hub's `sub` is public (RFC 134): the provider and its own account id, such as `github:4076804`,
 so the core keeps one account for each provider account. The id_token also carries `connector`
-(`github` or `google`) and `connector_account_id`, the connector's own account id: GitHub's numeric
-user id as a string, or Google's `sub`. A GitHub or Google `authAccounts` row is keyed by the
-connector and that id, the same key as before the hub. The hub sends `connector_account_id` only to
-first-party apps. A method refuses an id_token without it, with claims of another type, or of
-another connector than its own, with a message on the sign-in page.
+(`github` or `google`). The part of `sub` after the provider is the connector's own account id:
+GitHub's numeric user id as a string, or Google's `sub`. A GitHub or Google `authAccounts` row is
+keyed by the connector and that id, the same key as before the hub. A method refuses an id_token
+whose `sub` is not `<connector>:<id>`, with claims of another type, or of another connector than its
+own, with a message on the sign-in page.
 
 `users.email` is one stable, verified email on a non-deleted Samebase account. One normalized
 account email belongs to at most one active Samebase account. A deleted row has no email. The email
@@ -99,8 +99,8 @@ Samebase has three separate GitHub records:
 3. A `githubUserAuthorizations` row stores one Samebase user's GitHub App user authorization.
 
 GitHub sign-in through the hub creates or refreshes only the first record, keyed by the raw GitHub
-user id from `connector_account_id`; a Google sign-in does not touch it. The hub's GitHub connector
-requests `read:user user:email`, and Samebase receives no GitHub token. The GitHub App flow supplies
+user id from `sub`; a Google sign-in does not touch it. The hub's GitHub connector requests
+`read:user user:email`, and Samebase receives no GitHub token. The GitHub App flow supplies
 repository permissions through the other two relationship types.
 
 One Samebase user can have at most one GitHub sign-in identity and one GitHub App user

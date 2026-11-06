@@ -229,10 +229,9 @@ describe("POST /hub-clients", () => {
 
     it("records nothing when the broker refuses, and says why", async () => {
       const t = makeConvexTest();
-      await t.mutation(components.identityBroker.registration.setSuspended, {
+      await t.mutation(components.identityBroker.registration.switchConnection, {
         tenantId: "gh-74",
-        suspended: true,
-        now: Date.now(),
+        connected: false,
       });
       stubProviders();
 

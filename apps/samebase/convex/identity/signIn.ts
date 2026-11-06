@@ -21,16 +21,14 @@ const { boolean, id, literal, null: vNull, number, object, optional, string, uni
 
 /**
 The id_token claims of the identity hub that a sign-in reads. `sub` is public (RFC 134): the
-provider and its own account id, such as `github:4076804`, the same in every app of the hub.
-`connector_account_id` is the same account id without the provider: GitHub's numeric user id as a
-string, or Google's `sub`. Convex Auth checks the issuer, audience, and expiry of the id_token, which it
-received over TLS from the hub's token endpoint, but not the types of its claims, so `parse` checks
-them and drops the other claims.
+provider and its own account id, such as `github:4076804`, the same in every app of the hub. The
+account id is GitHub's numeric user id as a string, or Google's `sub`. Convex Auth checks the
+issuer, audience, and expiry of the id_token, which it received over TLS from the hub's token
+endpoint, but not the types of its claims, so `parse` checks them and drops the other claims.
 */
 const vHubClaims = object({
   sub: string(),
   connector: vAuthAccountProvider,
-  connector_account_id: string(),
   email: optional(string()),
   email_verified: optional(boolean()),
   name: optional(string()),
@@ -39,14 +37,17 @@ const vHubClaims = object({
 
 /**
 The profile mapping of the hub method of `connector` in convex/auth.ts. It refuses claims of
-another shape, such as those of a broker without `connector_account_id`, and claims of another
-connector than the method's, with a message for the sign-in page. The callbacks below find existing
-users by the email, so only an address that the hub verified counts.
+another shape, a `sub` that is not `<connector>:<account id>`, and claims of another connector than
+the method's, with a message for the sign-in page. The callbacks below find existing users by the
+email, so only an address that the hub verified counts.
 */
 export function readHubProfile(claims: unknown, connector: AuthAccountProvider) {
+  const prefix = `${connector}:`;
   if (
     !validate(vHubClaims, claims, { allowUnknownFields: true }) ||
-    claims.connector !== connector
+    claims.connector !== connector ||
+    !claims.sub.startsWith(prefix) ||
+    !/^\S+$/.test(claims.sub.slice(prefix.length))
   ) {
     throw new ConvexError(
       `The identity hub did not complete the ${readProviderLabel(connector)} sign-in. Try again later.`,
@@ -55,6 +56,7 @@ export function readHubProfile(claims: unknown, connector: AuthAccountProvider) 
   const { sub, email, email_verified, ...profile } = parse(vHubClaims, claims);
   return {
     id: sub,
+    providerAccountId: sub.slice(prefix.length),
     ...profile,
     ...(email_verified === true && email !== undefined ? { email } : {}),
   };
@@ -63,13 +65,15 @@ export function readHubProfile(claims: unknown, connector: AuthAccountProvider) 
 /**
 The sign-ins that the `hub-github` and `hub-google` methods of convex/auth.ts hand to the user
 callbacks, with the profile of `readHubProfile`. `accountId` and `profile.id` are the hub's
-subject. The connector and its own account id are the provider and the account id of the
-`authAccounts` key.
+subject. The connector and the account id in the subject are the provider and the account id of
+the `authAccounts` key.
 */
 const vHubSignInProvider = object({
   name: union(literal("hub-github"), literal("hub-google")),
   accountId: string(),
-  profile: vHubClaims.omit("sub", "email_verified").extend({ id: string() }),
+  profile: vHubClaims
+    .omit("sub", "email_verified")
+    .extend({ id: string(), providerAccountId: string() }),
 });
 type HubSignInProvider = Infer<typeof vHubSignInProvider>;
 
@@ -100,7 +104,7 @@ Reads the identity that a hub sign-in may use. The hub must attest a verified em
 matches existing accounts by it and stores it as the account email of a new user.
 */
 function readHubIdentity(provider: HubSignInProvider) {
-  const { connector, connector_account_id, email, name, picture } = provider.profile;
+  const { connector, providerAccountId, email, name, picture } = provider.profile;
   if (email === undefined) {
     throw new ConvexError(
       `${readProviderLabel(connector)} did not provide a verified email address.`,
@@ -108,7 +112,7 @@ function readHubIdentity(provider: HubSignInProvider) {
   }
   return {
     provider: connector,
-    providerAccountId: connector_account_id,
+    providerAccountId,
     email: normalizeAccountEmail(email),
     name,
     image: picture,

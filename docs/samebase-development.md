@@ -110,9 +110,10 @@ GitHub App installation callback keeps `/oauth/github/callback` in `convex/http.
 
 The hub's `sub` is the provider and its own account id, such as `github:4076804` (RFC 134).
 `convex/identity/signIn.ts` finds a user by the `authAccounts` row of the connector and the
-connector's own account id (`connector_account_id`: GitHub's numeric user id, or Google's `sub`),
-then by the verified email, so an account from before the hub keeps its user. A GitHub sign-in keeps
-the `github` row with the raw GitHub user id, which the GitHub App authorization must match.
+connector's own account id (the part of `sub` after the provider: GitHub's numeric user id, or
+Google's `sub`), then by the verified email, so an account from before the hub keeps its user. A
+GitHub sign-in keeps the `github` row with the raw GitHub user id, which the GitHub App
+authorization must match.
 
 The session lives in two httpOnly cookies, `__convexAuthJWT` and `__convexAuthRefreshToken`, through
 [`@samebase/convex-auth-tanstack-start`](https://github.com/samebase/convex-hosting/tree/main/packages/convex-auth-tanstack-start).
