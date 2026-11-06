@@ -25,8 +25,6 @@ import * as RemovalPolicy from "alchemy/RemovalPolicy";
 import * as Config from "effect/Config";
 import * as Effect from "effect/Effect";
 
-/** The Convex team that holds the project and the state. */
-const team = "nicu";
 /** The workspace dependencies of package.json. A change in one must also start a push. */
 const workspacePackages = execFileSync(
   "pnpm",
@@ -39,7 +37,7 @@ const workspacePackages = execFileSync(
 
 export default Alchemy.Stack(
   "samebase/samebase/apps/identity-hub",
-  { providers: Convex.providers(), state: Convex.state({ team }) },
+  { providers: Convex.providers(), state: Convex.state() },
   Effect.gen(function* () {
     const { stage } = yield* Alchemy.Stack;
     // One stage: any other name would push this code over the same production deployment.
@@ -81,7 +79,7 @@ export default Alchemy.Stack(
         "PROVIDER_GITHUB_APP_CLIENT_SECRET",
       ),
     };
-    const project = yield* Convex.Project("Project", { team, name: "identity-hub" }).pipe(
+    const project = yield* Convex.Project("Project", { name: "identity-hub" }).pipe(
       adopt(true),
       RemovalPolicy.retain(),
     );
