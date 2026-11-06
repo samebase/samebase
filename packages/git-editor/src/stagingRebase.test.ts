@@ -174,6 +174,22 @@ describe("rebaseStagedContent", () => {
       upstreamContent: "b\na\nb\na\n",
     },
     {
+      // The two diffs match the user's and the teammate's "a" to different base lines, so the
+      // touching changes look the same and one inserted "a" would be lost.
+      name: "identical-looking changes made of a repeated line",
+      baseContent: "a\n",
+      stagedContent: "a\na\n",
+      upstreamContent: "b\na\na\n",
+    },
+    {
+      // Upstream has two "a", so the user's "b" after the base "a" may or may not be the
+      // teammate's "b"; git keeps both.
+      name: "an insertion next to a line that repeats upstream",
+      baseContent: "a\n",
+      stagedContent: "a\nb\n",
+      upstreamContent: "\na\nb\na\n",
+    },
+    {
       // Kept side by side, "mine" without a line ending would join "theirs" into one line.
       name: "an insertion without a final newline next to another insertion",
       baseContent: "anchor\n",
@@ -245,6 +261,28 @@ const applyEdits = (
     ];
   }, lines);
 
+/** Runs `test` with a `git merge-file -p` that returns the merged text, or null on a conflict. */
+function withGit(
+  test: (gitMerge: (base: string, ours: string, theirs: string) => string | null) => void,
+) {
+  const dir = mkdtempSync(path.join(tmpdir(), "staging-rebase-"));
+  try {
+    test((base, ours, theirs) => {
+      writeFileSync(path.join(dir, "base"), base);
+      writeFileSync(path.join(dir, "ours"), ours);
+      writeFileSync(path.join(dir, "theirs"), theirs);
+      const merged = spawnSync("git", ["merge-file", "-p", "ours", "base", "theirs"], {
+        cwd: dir,
+        encoding: "utf8",
+      });
+      // Exit status 0 is a clean merge; a positive status is the number of conflicts.
+      return merged.status === 0 ? merged.stdout : null;
+    });
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
 describe("rebaseStagedContent properties", () => {
   it("adds nothing when upstream already has the staged edit", () => {
     fc.assert(
@@ -283,20 +321,8 @@ describe("rebaseStagedContent properties", () => {
     );
   });
 
-  it("gives git's result whenever git merge-file merges cleanly", () => {
-    const dir = mkdtempSync(path.join(tmpdir(), "staging-rebase-"));
-    const gitMerge = (base: string, ours: string, theirs: string): string | null => {
-      writeFileSync(path.join(dir, "base"), base);
-      writeFileSync(path.join(dir, "ours"), ours);
-      writeFileSync(path.join(dir, "theirs"), theirs);
-      const merged = spawnSync("git", ["merge-file", "-p", "ours", "base", "theirs"], {
-        cwd: dir,
-        encoding: "utf8",
-      });
-      // Exit status 0 is a clean merge; a positive status is the number of conflicts.
-      return merged.status === 0 ? merged.stdout : null;
-    };
-    try {
+  it("gives git's result whenever git merge-file merges cleanly", { timeout: 60_000 }, () => {
+    withGit((gitMerge) => {
       fc.assert(
         fc.property(
           baseLines,
@@ -320,10 +346,33 @@ describe("rebaseStagedContent properties", () => {
         ),
         { numRuns: 300 },
       );
-    } finally {
-      rmSync(dir, { recursive: true, force: true });
-    }
+    });
   });
+
+  it(
+    "keeps git's count of every line when both merge cleanly, with repeated lines",
+    { timeout: 60_000 },
+    () => {
+      // With repeated lines git and the diff here can pick different copies, so lines can land in a
+      // different order, but a clean merge must never have a copy more or less than git's.
+      const line = fc.constantFrom("a\n", "b\n", "\n", "a\r\n", "x\n");
+      const content = fc.array(line, { maxLength: 6 }).map((lines) => lines.join(""));
+      const sortedLines = (text: string) => (text === "" ? [] : text.split(/(?<=\n)/)).sort();
+      withGit((gitMerge) => {
+        fc.assert(
+          fc.property(content, content, content, (baseContent, stagedContent, upstreamContent) => {
+            const result = rebaseStagedContent({ baseContent, stagedContent, upstreamContent });
+            fc.pre(!result.hasConflict);
+            const git = gitMerge(baseContent, stagedContent, upstreamContent);
+            fc.pre(git !== null);
+
+            expect(sortedLines(result.content)).toEqual(sortedLines(git));
+          }),
+          { numRuns: 300 },
+        );
+      });
+    },
+  );
 
   it("never makes up or joins lines, with repeated lines and any line endings", () => {
     // Repeated lines make "which copy changed" ambiguous, so the exact result can differ from git.
