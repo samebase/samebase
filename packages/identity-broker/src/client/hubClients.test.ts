@@ -707,6 +707,7 @@ describe("the initial access token", () => {
   });
 
   it("stops at the first GitHub run under another owner, also of a preview", async () => {
+    vi.useFakeTimers({ now: 1_800_000_000_000, toFake: ["Date"] });
     const h = await createHub();
     const token = await createInitialAccessToken(h);
     stubProviders();
@@ -714,6 +715,15 @@ describe("the initial access token", () => {
     const sameOwner = await postHubClient(h, await signToken(pullRequestClaims));
     expect(sameOwner.status).toBe(201);
     expect(await readInitialAccessTokens(h)).toHaveLength(1);
+    // Another owner's token must be newer than the newest accepted one, by `iat` in seconds.
+    const sameSecond = await postHubClient(
+      h,
+      await signToken({ ...pullRequestClaims, repository_owner_id: "66" }),
+    );
+    expect(sameSecond.status).toBe(403);
+    expect(await sameSecond.json()).toEqual({ error: "not_allowed", reason: "stale_proof" });
+    expect(await readInitialAccessTokens(h)).toHaveLength(1);
+    vi.setSystemTime(Date.now() + 1_000);
     const transferred = await postHubClient(
       h,
       await signToken({ ...pullRequestClaims, repository_owner_id: "66" }),

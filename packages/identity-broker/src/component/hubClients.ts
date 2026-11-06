@@ -180,8 +180,8 @@ const vCredentialHashes = {
  * previews in an app of their own. A production client also replaces the app's initial access token.
  * A run whose owner is not the owner of a token row of the repository deletes that row, so the old
  * token of a transferred repository stops. A proof that names another owner than the tenant's and
- * is older than the tenant's newest proof is refused (`stale_proof`), so a replayed proof of the
- * old owner cannot move the repository back. Every refusal writes nothing.
+ * is not newer than the tenant's newest proof is refused (`stale_proof`), so a replayed proof of
+ * the old owner cannot move the repository back. Every refusal writes nothing.
  */
 export const createClient = mutation({
   args: {
@@ -223,10 +223,12 @@ export const createClient = mutation({
 
     const tenantId = tenantIdOf(args.githubRepositoryDatabaseId);
     const tenant = await tenantRow(ctx, tenantId);
+    // Strictly newer: with a tie, the old owner's token could take the repository back after the
+    // new owner's token of the same second.
     if (
       tenant?.ownerProofIssuedAt !== undefined &&
       tenant.ownerId !== args.githubOwnerId &&
-      args.proofIssuedAt < tenant.ownerProofIssuedAt
+      args.proofIssuedAt <= tenant.ownerProofIssuedAt
     ) {
       return { ok: false as const, reason: "stale_proof" as const };
     }

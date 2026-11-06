@@ -59,9 +59,10 @@ new-owners window only when its registration succeeds, so failed attempts cannot
 allowance for everyone.
 
 The tenant records the `iat` of the newest accepted GitHub token. A token that names another owner
-and is older than that is refused (`stale_proof`): GitHub's tokens live a few minutes, and without
-this a retained token of the old owner could move a transferred repository back and delete the new
-owner's initial access tokens.
+and is not newer than that, the same second included, is refused (`stale_proof`): GitHub's tokens
+live a few minutes, and without this a retained token of the old owner could move a transferred
+repository back and delete the new owner's initial access tokens. A tenant with no recorded `iat`
+(one registered before 0.22.0) accepts the next token of any owner and records it.
 
 Every app belongs to a tenant, such as `gh-<repository id>`, and the host says whether it is
 first-party: every connector but a reserved one, and API resources. A third-party app has one
@@ -114,9 +115,10 @@ authenticated confidential client. The broker token stays stable; upstream rotat
 its grant before returning a response. Every refresh authenticates the client and checks its app and
 resource. One attempt holds the grant at a time, and a concurrent attempt gets
 `503 temporarily_unavailable`. An attempt that stopped without an outcome frees the grant after 60
-seconds, and from then on it can change nothing: each attempt finishes or fails the grant only while
-its own claim holds it. Only an upstream `invalid_grant` deletes the grant. Any other failure keeps
-it and answers `503 temporarily_unavailable`: if rotation had already happened, the retry gets
+seconds. Once another attempt claims the grant, the first attempt can change nothing; until then a
+late answer is still saved, because the provider may have rotated the refresh token and only that
+answer holds the new one. Only an upstream `invalid_grant` deletes the grant. Any other failure
+keeps it and answers `503 temporarily_unavailable`: if rotation had already happened, the retry gets
 `invalid_grant` from the provider's replay check (RFC 9700 section 4.14.2), which is the same end
 state. The mutation that saves the provider's answer reads the client, its app, and the blocks
 again: a block or a client delete that committed while the provider answered keeps the new access

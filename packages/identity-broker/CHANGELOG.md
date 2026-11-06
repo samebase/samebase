@@ -9,14 +9,15 @@ Fixes from the RFC 136 security review, each found by a model-based test that no
 - A new owner counts in the new-owners window when its registration succeeds, not when it is
   admitted, so failed host checks cannot use up the window for everyone. A full window found after
   the host check answers `429 rate_limited` with `window: "new_owners"`. `rateLimits` loses
-  `newOwnersWindowStartedAt`: clear the table before this deploy (its rows are hourly counts).
+  `newOwnersWindowStartedAt`: clear the table, then deploy. A deploy that still finds a row with the
+  field (a request in between) fails and changes nothing: clear again and deploy again.
 - `POST /hub-clients` requires `iat` in GitHub's token, and `tenants.ownerProofIssuedAt` keeps the
-  newest one. A token of another owner that is older is refused with `403 stale_proof`, so a
-  retained token cannot move a transferred repository back.
+  newest one. A token of another owner that is not newer, the same second included, is refused with
+  `403 stale_proof`, so a retained token cannot move a transferred repository back.
 - A provider refresh reads the client, its app, and the blocks again after the provider answers: a
   block or a client delete in that time answers `401 invalid_client`. Each attempt finishes or fails
   the grant only while its own claim holds it (`attempt` on `claimRefresh`, `finishRefresh`,
-  `failRefresh`), so an attempt whose claim expired changes nothing.
+  `failRefresh`), so an attempt that another attempt took over changes nothing.
 - A client that deletes itself, or that the cap evicts, loses its refresh grants. API authorization
   of a blocked app answers 403 before it goes to the provider.
 

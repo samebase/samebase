@@ -46,8 +46,8 @@ commit engine and the broker). Reviewed by Codex (test design) before the build.
 - `admit` counts the repository and the owner. A new owner counts in the new-owners window in
   `createClient`, when its registration succeeds; that window is read again there, so a window
   filled during the host check answers 429. `rateLimits.newOwnersWindowStartedAt` is removed.
-- `tenants.ownerProofIssuedAt` keeps the newest accepted `iat`. A token of another owner that is
-  older is refused with `stale_proof`. `iat` is a required claim.
+- `tenants.ownerProofIssuedAt` keeps the newest accepted `iat`. A token of another owner that is not
+  newer, the same second included, is refused with `stale_proof`. `iat` is a required claim.
 - `claimRefresh` answers its `attempt`; `finishRefresh` and `failRefresh` change the grant only
   while that attempt holds it. `finishRefresh` reads the client, its app, and the blocks again after
   the provider answered, and the hub then answers `401 invalid_client` instead of the token.
@@ -59,9 +59,33 @@ and 3, found nothing.
 
 ## Deploy
 
-`rateLimits` rows of 0.21.0 hold `newOwnersWindowStartedAt`, which the 0.22.0 schema does not allow.
-Clear the table on the hub's production deployment right before the merge (the rows are hourly
-counts, so nothing is lost but the current hour's counts). Dry-run the deploy first.
+`rateLimits` rows of 0.21.0 hold `newOwnersWindowStartedAt`, which the 0.22.0 schema does not allow,
+and Convex checks every existing row when it pushes a schema. The rows are hourly counts, so
+clearing them loses only the current hour's counts.
+
+1. Clear `rateLimits` on the hub's production deployment, then merge.
+2. A request admitted before the push writes a row with the old field again. The push then fails and
+   changes nothing: 0.21.0 keeps running. Clear the table again and rerun the `identity-hub`
+   workflow (`workflow_dispatch`).
+
+No pause is needed: a failed push is safe, and `paused` would stop third-party apps only.
+
+## After the code review (Codex, 2026-11-06)
+
+- A tie in `iat` let the old owner's token of the same second take the repository back. Fixed: a
+  token of another owner must be strictly newer. A fixed story covers it.
+- The new-owners check allowed less growth than expected. Fixed: exactly one for a successful new
+  owner, none for any other request.
+- No test held a refresh grant on a client that the cap evicts (the stories are too short to reach
+  the cap). Fixed with a fixed test.
+- Kept: an attempt whose 60-second claim ran out, with no attempt after it, still saves the
+  provider's answer. The provider may have rotated the refresh token, and only that answer holds the
+  new one: dropping it would break the grant. Only an attempt that another attempt took over changes
+  nothing.
+- Kept: a tenant registered before 0.22.0 has no recorded `iat`, so its next token of any owner is
+  accepted once and recorded. GitHub's tokens expire minutes after they are issued, so only a
+  repository transferred in the minutes before the deploy, with the old owner's token replayed in
+  the minutes after it, is open. A migration for that window is not worth it.
 
 ## Later
 

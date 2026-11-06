@@ -191,7 +191,7 @@ function createModel() {
     /** The order of accepted registrations. */
     order: 0,
     proofs: new Array<Proof>(),
-    /** The newest accepted proof of each repository, by `iat`; a later acceptance wins a tie. */
+    /** The newest accepted proof of each repository, by `iat`. */
     newest: new Map<string, { iat: number; ownerId: string; proof: string }>(),
     acceptedRuns: new Array<{ repository: string; ownerId: string; order: number }>(),
     blocks: new Set<string>(),
@@ -322,7 +322,7 @@ function checkNewOwners(checks: Checks, before: Rows, after: Rows, newOwnerRegis
   check(
     checks,
     "newOwnersOnlyForSuccess",
-    growth <= (newOwnerRegistered ? 1 : 0),
+    growth === (newOwnerRegistered ? 1 : 0),
     `the new-owners count grew by ${growth} for a request that ${newOwnerRegistered ? "registered one new owner" : "registered no new owner"}`,
   );
 }
@@ -497,7 +497,8 @@ async function playRun(
     order: model.order,
   });
   const newest = model.newest.get(proof.repository);
-  if (newest === undefined || proof.iat >= newest.iat) {
+  // Another owner needs a strictly newer proof, so an accepted tie can only be the same owner.
+  if (newest === undefined || proof.iat > newest.iat) {
     model.newest.set(proof.repository, {
       iat: proof.iat,
       ownerId: proof.ownerId,
@@ -780,6 +781,34 @@ describe("RFC 136 property A regressions", () => {
           proof: "new",
         },
         { kind: "tick", ms: 1_000 },
+        { kind: "transfer", repository: "101", owner: "202" },
+        {
+          kind: "run",
+          repository: "101",
+          app: "app-a",
+          stage: "prod",
+          host: "present",
+          proof: "new",
+        },
+        { kind: "run", repository: "101", app: "app-a", stage: "prod", host: "present", proof: 0 },
+      ],
+      "ownerFollowsNewestProof",
+    );
+  });
+
+  // F5 with a tie (Codex review of PR 1922): the new owner's token of the same second was accepted,
+  // so the old owner's token of that second could take the repository back.
+  it("F5: a proof of another owner from the same second does not move the owner", async () => {
+    await replay(
+      [
+        {
+          kind: "run",
+          repository: "101",
+          app: "app-a",
+          stage: "prod",
+          host: "present",
+          proof: "new",
+        },
         { kind: "transfer", repository: "101", owner: "202" },
         {
           kind: "run",
