@@ -28,7 +28,8 @@ const STYLE = `
   h1 strong { font-weight: 600; }
   .host { font-weight: 600; text-decoration-color: var(--line); }
   .host:hover { text-decoration-color: currentColor; }
-  .below { display: flex; gap: 1rem; align-items: center; margin-top: 0.75rem;
+  /* Inset by the card's corner radius, so the links line up with its straight edges. */
+  .below { display: flex; gap: 1rem; align-items: center; margin-top: 0.75rem; padding: 0 16px;
     font-size: 0.75rem; }
   .below a { padding: 0.25rem 0; color: var(--muted); text-decoration: none; }
   .below a:hover { color: var(--fg); }
