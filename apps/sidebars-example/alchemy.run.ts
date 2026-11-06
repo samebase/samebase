@@ -19,7 +19,7 @@ export default Alchemy.Stack(
   "samebase/samebase/apps/sidebars-example",
   {
     providers: Cloudflare.providers(),
-    state: Convex.state({ team: "nicu" }),
+    state: Convex.state(),
   },
   Effect.gen(function* () {
     const { stage } = yield* Alchemy.Stack;
