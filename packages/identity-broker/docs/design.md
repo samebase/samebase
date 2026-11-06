@@ -50,10 +50,18 @@ A host with another proof can still call `component.registration.register` with
 `newClientCredentials` itself.
 
 The checks run in two transactions with a fetch between them. `hubClients.admit` reads the blocks
-and counts the request in the hourly windows before the hub fetches the verification file; the
-creating mutation reads the blocks again, creates the client, records who made it on the client,
-appends the registration event, and replaces the app's initial access token. A block set during the
-fetch still applies, and a refused request counts nowhere.
+and counts the request in the repository's and the owner's hourly windows before the hub fetches the
+verification file; the creating mutation reads the blocks again, creates the client, records who
+made it on the client, appends the registration event, and replaces the app's initial access token.
+A block set during the fetch still applies. Every refusal comes before the first write, so a refused
+request writes nothing past those two counts. An owner with no registration yet counts in the
+new-owners window only when its registration succeeds, so failed attempts cannot use up that
+allowance for everyone.
+
+The tenant records the `iat` of the newest accepted GitHub token. A token that names another owner
+and is older than that is refused (`stale_proof`): GitHub's tokens live a few minutes, and without
+this a retained token of the old owner could move a transferred repository back and delete the new
+owner's initial access tokens.
 
 Every app belongs to a tenant, such as `gh-<repository id>`, and the host says whether it is
 first-party: every connector but a reserved one, and API resources. A third-party app has one
@@ -106,9 +114,14 @@ authenticated confidential client. The broker token stays stable; upstream rotat
 its grant before returning a response. Every refresh authenticates the client and checks its app and
 resource. One attempt holds the grant at a time, and a concurrent attempt gets
 `503 temporarily_unavailable`. An attempt that stopped without an outcome frees the grant after 60
-seconds. Only an upstream `invalid_grant` deletes the grant. Any other failure keeps it and answers
-`503 temporarily_unavailable`: if rotation had already happened, the retry gets `invalid_grant` from
-the provider's replay check (RFC 9700 section 4.14.2), which is the same end state.
+seconds, and from then on it can change nothing: each attempt finishes or fails the grant only while
+its own claim holds it. Only an upstream `invalid_grant` deletes the grant. Any other failure keeps
+it and answers `503 temporarily_unavailable`: if rotation had already happened, the retry gets
+`invalid_grant` from the provider's replay check (RFC 9700 section 4.14.2), which is the same end
+state. The mutation that saves the provider's answer reads the client, its app, and the blocks
+again: a block or a client delete that committed while the provider answered keeps the new access
+token from the caller (`401 invalid_client`), and the saved rotation lets the grant work again after
+an unblock.
 
 RFC 7009 `/revoke` authenticates the client with its registered method and removes only its broker
 refresh grant. Unknown tokens, including another client's token, return an empty 200 response. Token
