@@ -458,11 +458,18 @@ describe("the clients of one repository", () => {
     expect(await again.json()).toEqual({ changed: false });
   });
 
-  it("refuses a delete without a client id", async () => {
+  it("refuses a delete without exactly one client id, and deletes nothing", async () => {
     const h = await createHub();
-    const response = await moderationRequest(h, "/moderation/clients/not-a-client", {
-      method: "DELETE",
-    });
-    expect(response.status).toBe(400);
+    const client = await createClient(h);
+
+    for (const path of [
+      "/moderation/clients/not-a-client",
+      `/moderation/clients/cl_other/${client.client_id}`,
+      `/moderation/clients/${client.client_id}/`,
+    ]) {
+      const response = await moderationRequest(h, path, { method: "DELETE" });
+      expect(response.status).toBe(400);
+    }
+    expect(await repositoryClientIds(h, REPOSITORY_ID)).toEqual([client.client_id]);
   });
 });

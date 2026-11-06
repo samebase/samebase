@@ -140,11 +140,10 @@ export const blockList = query({
  * A client with who made it, without its secret, hash, or token. A client of an app whose tenant is
  * not a repository's (`registration.register` with another tenant) fails: a hub has none.
  */
-async function clientView(
-  ctx: QueryCtx,
+function clientView(
   client: Doc<"clients">,
   repositoryId: string | undefined,
-): Promise<Infer<typeof vClientView>> {
+): Infer<typeof vClientView> {
   if (repositoryId === undefined) {
     throw new Error(`The client ${client.clientId} is not of a repository's app`);
   }
@@ -189,7 +188,7 @@ export const clientList = query({
         .query("apps")
         .withIndex("by_app_id", (q) => q.eq("appId", client.appId))
         .unique();
-      views.push(await clientView(ctx, client, repositoryIdOf(app?.tenantId)));
+      views.push(clientView(client, repositoryIdOf(app?.tenantId)));
     }
     return { clients: views, limitReached: clients.length === CLIENT_LIST_LIMIT };
   },
@@ -215,7 +214,7 @@ export const repositoryClients = query({
         .query("clients")
         .withIndex("by_app_id", (q) => q.eq("appId", app.appId))
         .collect()) {
-        views.push(await clientView(ctx, client, args.githubRepositoryDatabaseId));
+        views.push(clientView(client, args.githubRepositoryDatabaseId));
       }
     }
     return views.sort((a, b) => b.createdAt - a.createdAt || a.clientId.localeCompare(b.clientId));

@@ -56,8 +56,10 @@ function readBlockChange(body: unknown) {
 export function moderationEndpoints(args: {
   component: ComponentApi;
   registration: RegistrationConfig;
+  path: (suffix: string) => string;
 }) {
-  const { component, registration } = args;
+  const { component, registration, path } = args;
+  const clientsPrefix = path("/moderation/clients/");
 
   /**
    * An endpoint that answers only a request with the moderation key, compared by hash, so the time it
@@ -105,7 +107,8 @@ export function moderationEndpoints(args: {
    * a new client at its next deploy. Answers `{ changed }`, false for a client already gone.
    */
   const deleteClient = moderationEndpoint(async (ctx, request) => {
-    const clientId = new URL(request.url).pathname.split("/").at(-1) ?? "";
+    // Exactly one segment after the prefix: `cl_A/cl_B` is a malformed path, not a delete of cl_B.
+    const clientId = new URL(request.url).pathname.slice(clientsPrefix.length);
     if (!/^cl_[A-Za-z0-9_-]+$/.test(clientId)) {
       return reply(400, { error: "invalid_request" });
     }
@@ -131,16 +134,12 @@ export function moderationEndpoints(args: {
   });
 
   return {
-    addRoutes(http: HttpRouter, path: (suffix: string) => string): void {
+    addRoutes(http: HttpRouter): void {
       http.route({ path: path("/moderation/counts"), method: "GET", handler: countRegistrations });
       http.route({ path: path("/moderation/blocks"), method: "GET", handler: listBlocks });
       http.route({ path: path("/moderation/blocks"), method: "POST", handler: changeBlock });
       http.route({ path: path("/moderation/clients"), method: "GET", handler: listClients });
-      http.route({
-        pathPrefix: path("/moderation/clients/"),
-        method: "DELETE",
-        handler: deleteClient,
-      });
+      http.route({ pathPrefix: clientsPrefix, method: "DELETE", handler: deleteClient });
     },
   };
 }
