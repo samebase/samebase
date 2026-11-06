@@ -9,7 +9,9 @@
   straight to the connector as before.
 - A third-party app whose connector is not configured answers an error page instead of the chooser,
   which offered the host's own connectors.
-- The broker's pages (consent, chooser, errors) follow the system's light or dark theme.
+- The broker's pages (consent, chooser, errors) are one card that follows the system's light or dark
+  theme. A connector button shows its provider's mark: Google's G in Google's own button colors, and
+  GitHub's mark.
 
 ## 0.22.0
 

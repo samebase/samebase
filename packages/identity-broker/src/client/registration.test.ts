@@ -155,7 +155,7 @@ async function finishUpstream(h: Harness, start: Response) {
   const cookie = txnCookie(start);
   const continueHref =
     start.status === 200
-      ? (await start.text()).match(/class="button primary" href="([^"]*)"/)?.[1]
+      ? (await start.text()).match(/class="button" href="([^"]*connector=[^"]*)"/)?.[1]
       : undefined;
   const redirected =
     continueHref === undefined

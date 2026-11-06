@@ -8,35 +8,41 @@ function escape(value: string): string {
     .replace(/"/g, "&quot;");
 }
 
+// The button colors of a provider follow its sign-in branding: Google's are those of its own
+// "Continue with Google" button, in light and dark.
 const STYLE = `
-  :root { color-scheme: light dark; --fg: #111; --muted: #5c5c5c; --bg: #fff; --line: #e2e2e2; }
+  :root { color-scheme: light dark; --fg: #18181b; --muted: #71717a; --bg: #f4f4f5; --card: #fff;
+    --line: #e4e4e7; --button: #fff; --button-line: #747775; --button-fg: #1f1f1f;
+    --button-hover: #f2f2f2; }
   @media (prefers-color-scheme: dark) {
-    :root { --fg: #ededed; --muted: #a3a3a3; --bg: #111; --line: #2e2e2e; }
+    :root { --fg: #fafafa; --muted: #a1a1aa; --bg: #09090b; --card: #18181b; --line: #27272a;
+      --button: #131314; --button-line: #8e918f; --button-fg: #e3e3e3; --button-hover: #1f1f20; }
   }
-  body { margin: 0; font: 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--fg);
-    background: var(--bg); }
-  main { max-width: 26rem; margin: 12vh auto; padding: 0 1.25rem 3rem; }
-  h1 { margin: 0 0 0.5rem; font-size: 1.375rem; line-height: 1.3; font-weight: 600;
-    overflow-wrap: anywhere; }
-  p { margin: 0.5rem 0; }
-  ::selection { color: var(--bg); background: var(--fg); }
+  body { margin: 0; min-height: 100vh; display: grid; place-items: center; color: var(--fg);
+    background: var(--bg); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { box-sizing: border-box; width: calc(100% - 2rem); max-width: 25rem; margin: 1.5rem 0;
+    padding: 2rem 1.75rem 1.5rem; background: var(--card); border: 1px solid var(--line);
+    border-radius: 16px; }
+  h1 { margin: 0; font-size: 1.25rem; line-height: 1.35; font-weight: 600;
+    letter-spacing: -0.01em; overflow-wrap: anywhere; }
+  p { margin: 0; }
+  ::selection { color: var(--card); background: var(--fg); }
   a { color: inherit; text-underline-offset: 0.2em; text-decoration-thickness: 1px; }
   a:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
-  .muted { color: var(--muted); }
   .label { display: inline-block; max-width: 100%; }
-  .facts { display: grid; grid-template-columns: max-content 1fr; gap: 0.5rem 1.25rem;
-    margin: 1.5rem 0; padding: 1rem 0; border-block: 1px solid var(--line); }
-  .facts dt { color: var(--muted); }
-  .facts dd { margin: 0; overflow-wrap: anywhere; }
-  .list { display: grid; gap: 0.5rem; margin: 1.5rem 0; }
-  a.button { display: block; width: 100%; box-sizing: border-box; padding: 0.75rem 1rem;
-    font: inherit; font-weight: 500; color: var(--fg); background: var(--bg);
-    border: 1px solid var(--fg); text-align: center; text-decoration: none; cursor: pointer; }
-  a.button:hover { background: var(--line); }
-  a.button.primary { color: var(--bg); background: var(--fg); }
-  a.button.primary:hover { background: var(--muted); border-color: var(--muted); }
-  .cancel { display: block; padding: 0.75rem 1rem; text-align: center; }
-  .note { margin-top: 1.5rem; font-size: 0.875rem; color: var(--muted); }
+  .sub { margin-top: 0.375rem; color: var(--muted); font-size: 0.875rem; overflow-wrap: anywhere; }
+  .actions { display: grid; gap: 0.5rem; margin-top: 1.75rem; }
+  a.button { display: flex; align-items: center; justify-content: center; gap: 0.625rem;
+    box-sizing: border-box; min-height: 2.75rem; padding: 0 1rem; color: var(--button-fg);
+    background: var(--button); border: 1px solid var(--button-line); border-radius: 999px;
+    font-weight: 500; text-decoration: none; }
+  a.button:hover { background: var(--button-hover); }
+  a.button svg { width: 18px; height: 18px; flex: none; }
+  .cancel { display: block; padding: 0.5rem; color: var(--muted); font-size: 0.875rem;
+    text-align: center; text-decoration: none; }
+  .cancel:hover { color: var(--fg); text-decoration: underline; }
+  .fine { margin-top: 1.25rem; padding-top: 1rem; border-top: 1px solid var(--line);
+    color: var(--muted); font-size: 0.8125rem; }
 `;
 
 export function page(title: string, body: string, status = 200): Response {
@@ -64,16 +70,31 @@ export function page(title: string, body: string, status = 200): Response {
   });
 }
 
-/** What the granted scopes release, as one phrase: the consent names nothing else. */
+/** The marks of the providers that have one: Google's standard-color G, and GitHub's mark. */
+const ICONS: Record<string, string> = {
+  google: `<svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>`,
+  github: `<svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z"/></svg>`,
+};
+
+/** A connector button: the provider's mark, when it has one, and "Continue with <label>". */
+function connectorButton(connector: { label: string; provider: string; href: string }) {
+  return `<a class="button" href="${escape(connector.href)}">${ICONS[connector.provider] ?? ""}Continue with ${escape(connector.label)}</a>`;
+}
+
+/** What the granted scopes release, as one sentence: the consent names nothing else. */
 function released(scopes: string[]) {
   const parts = [
-    "a stable id",
-    ...(scopes.includes("profile") ? ["your name and picture"] : []),
-    ...(scopes.includes("email") ? ["your email address"] : []),
+    ...(scopes.includes("profile") ? ["name", "picture"] : []),
+    ...(scopes.includes("email") ? ["email address"] : []),
   ];
-  return parts.length <= 2
-    ? parts.join(" and ")
-    : `${parts.slice(0, -1).join(", ")}, and ${parts.slice(-1).join("")}`;
+  if (parts.length === 0) {
+    return "It gets only an id for your account.";
+  }
+  const list =
+    parts.length <= 2
+      ? parts.join(" and ")
+      : `${parts.slice(0, -1).join(", ")}, and ${parts.slice(-1).join("")}`;
+  return `It gets your ${list}.`;
 }
 
 /**
@@ -93,17 +114,12 @@ function hostMarkup(host: string) {
 /** The connector choice of a first-party app: the host's own apps need no consent. */
 export function chooserPage(args: {
   appName: string;
-  connectors: Array<{ name: string; label: string; href: string }>;
+  connectors: Array<{ name: string; label: string; provider: string; href: string }>;
 }): Response {
-  const buttons = args.connectors
-    .map(
-      (connector) =>
-        `<a class="button" href="${escape(connector.href)}">Continue with ${escape(connector.label)}</a>`,
-    )
-    .join("\n");
   return page(
     `Sign in to ${args.appName}`,
-    `<h1>Sign in to ${escape(args.appName)}</h1><div class="list">${buttons}</div>`,
+    `<h1>Sign in to ${escape(args.appName)}</h1>
+<div class="actions">${args.connectors.map(connectorButton).join("\n")}</div>`,
   );
 }
 
@@ -111,8 +127,8 @@ export function chooserPage(args: {
  * The decision that a third-party app's preview or development client asks for before the user
  * goes to its connector. Its name is self-asserted (RFC 7591 section 5), so the page names what the
  * hub checked: the host that gets the sign-in, which served the repository's verification file or
- * is the user's own computer, and the GitHub repository that registered it. Cancel ends the
- * sign-in on `cancelledPage`.
+ * is the user's own computer, and the GitHub repository that registered it. It has no link out of
+ * the sign-in but Continue and Cancel; Cancel ends the sign-in on `cancelledPage`.
  */
 export function consentPage(args: {
   /** The host of the client's return address, with its port. */
@@ -122,35 +138,33 @@ export function consentPage(args: {
   deployment: { kind: "preview"; stage: string } | { kind: "development" };
   /** `owner/name` of the GitHub repository at registration. */
   repository: string;
-  connectorLabel: string;
+  connector: { label: string; provider: string };
   scopes: string[];
   continueHref: string;
   cancelHref: string;
   /** The host of the issuer, which says that it reviewed nothing. */
   issuerHost: string;
 }): Response {
-  let deploy: string;
+  let from: string;
   switch (args.deployment.kind) {
     case "preview":
-      deploy = `Preview ${args.deployment.stage}`;
+      from = `Preview ${args.deployment.stage} of ${args.repository}`;
       break;
     case "development":
-      deploy = args.loopback ? "Development server on this computer" : "Development server";
+      from = `Development server of ${args.repository}${args.loopback ? " on this computer" : ""}`;
       break;
     default:
       return args.deployment satisfies never;
   }
   return page(
     `Sign in to ${args.host}`,
-    `<h1>Sign in to ${hostMarkup(args.host)}</h1>
-<dl class="facts">
-<dt>Repository</dt><dd><a href="https://github.com/${escape(args.repository)}" rel="noreferrer">${escape(args.repository)}</a></dd>
-<dt>Deploy</dt><dd>${escape(deploy)}</dd>
-<dt>Receives</dt><dd>${escape(released(args.scopes))}</dd>
-</dl>
-<a class="button primary" href="${escape(args.continueHref)}">Continue with ${escape(args.connectorLabel)}</a>
+    `<h1>Sign in to<br>${hostMarkup(args.host)}</h1>
+<p class="sub">${escape(from)}</p>
+<div class="actions">
+${connectorButton({ ...args.connector, href: args.continueHref })}
 <a class="cancel" href="${escape(args.cancelHref)}">Cancel</a>
-<p class="note">${escape(args.issuerHost)} did not review this app. Continue only if you trust it.</p>`,
+</div>
+<p class="fine">${escape(released(args.scopes))} ${escape(args.issuerHost)} has not reviewed this app.</p>`,
   );
 }
 
@@ -162,11 +176,11 @@ export function cancelledPage(args: { host: string; returnHref: string }): Respo
   return page(
     "Sign-in cancelled",
     `<h1>Sign-in cancelled</h1>
-<p class="muted">Nothing was shared with ${hostMarkup(args.host)}. You can close this tab.</p>
-<p class="note"><a href="${escape(args.returnHref)}" rel="noreferrer">Return to ${escape(args.host)}</a></p>`,
+<p class="sub">Nothing was shared with ${hostMarkup(args.host)}. You can close this tab.</p>
+<p class="fine"><a href="${escape(args.returnHref)}" rel="noreferrer">Return to ${escape(args.host)}</a></p>`,
   );
 }
 
 export function errorPage(title: string, message: string, status = 400): Response {
-  return page(title, `<h1>${escape(title)}</h1><p class="muted">${escape(message)}</p>`, status);
+  return page(title, `<h1>${escape(title)}</h1><p class="sub">${escape(message)}</p>`, status);
 }

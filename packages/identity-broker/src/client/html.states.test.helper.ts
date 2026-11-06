@@ -7,7 +7,7 @@ import { cancelledPage, chooserPage, consentPage, errorPage } from "./html.js";
 
 const consent = {
   repository: "octo-org/weather-app",
-  connectorLabel: "Google",
+  connector: { label: "Google", provider: "google" },
   scopes: ["openid", "email", "profile"],
   continueHref: "#continue",
   cancelHref: "#cancel",
@@ -54,8 +54,8 @@ export const pageStates: Record<string, () => Response> = {
     chooserPage({
       appName: "Samebase",
       connectors: [
-        { name: "google", label: "Google", href: "#google" },
-        { name: "github", label: "GitHub", href: "#github" },
+        { name: "google", label: "Google", provider: "google", href: "#google" },
+        { name: "github", label: "GitHub", provider: "github", href: "#github" },
       ],
     }),
   error: () => errorPage("Sign-in is off", "Sign-in for this app is turned off.", 403),

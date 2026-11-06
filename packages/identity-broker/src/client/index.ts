@@ -415,7 +415,7 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
       loopback: LOOPBACK_HOSTS.has(redirect.hostname),
       deployment,
       repository: client.registeredBy.githubRepository,
-      connectorLabel: connector.label,
+      connector: { label: connector.label, provider: connector.provider },
       scopes: args.scopes,
       continueHref: continueHref(args.requestId, connector),
       cancelHref: `${path("/continue")}?request=${encodeURIComponent(args.requestId)}&deny=1`,
@@ -547,6 +547,7 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
       connectors: openConnectors.map((connector) => ({
         name: connector.name,
         label: connector.label,
+        provider: connector.provider,
         href: continueHref(requestId, connector),
       })),
     });

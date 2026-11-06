@@ -843,15 +843,13 @@ describe("authorization code flow with an OAuth connector", () => {
     const html = await page.text();
     // What the hub checked, not what the app says of itself (RFC 7591 section 5).
     expect(html).toContain("<title>Sign in to app.test</title>");
+    expect(html).toContain('<p class="sub">Development server of octo-org/octo-repo</p>');
     expect(html).toContain(
-      '<dt>Repository</dt><dd><a href="https://github.com/octo-org/octo-repo" rel="noreferrer">octo-org/octo-repo</a></dd>',
-    );
-    expect(html).toContain("<dt>Deploy</dt><dd>Development server</dd>");
-    expect(html).toContain(
-      "<dt>Receives</dt><dd>a stable id, your name and picture, and your email address</dd>",
+      "It gets your name, picture, and email address. auth.test has not reviewed this app.",
     );
     expect(html).toContain("Continue with Fake");
-    expect(html).toContain("auth.test did not review this app.");
+    // No link out of the sign-in but Continue and Cancel.
+    expect(html.match(/<a /g)).toHaveLength(2);
     expect(html).not.toContain("Stranger");
     const deny = html.match(/href="([^"]*deny=1)"/)?.[1]?.replace(/&amp;/g, "&") ?? "";
     const requestId = new URL(`${ISSUER}${deny}`).searchParams.get("request") ?? "";
@@ -883,7 +881,7 @@ describe("authorization code flow with an OAuth connector", () => {
     const openidOnly = await h.fetchBroker(
       authorizeUrl(h, { clientId, challenge, extra: { scope: "openid" } }),
     );
-    expect(await openidOnly.text()).toContain("<dt>Receives</dt><dd>a stable id</dd>");
+    expect(await openidOnly.text()).toContain("It gets only an id for your account.");
   });
 
   test("a third-party preview names its stage, and production goes straight to the connector", async () => {
@@ -905,10 +903,10 @@ describe("authorization code flow with an OAuth connector", () => {
         }),
       )
     ).text();
-    expect(html).toContain("<dt>Deploy</dt><dd>Preview dev</dd>");
+    expect(html).toContain('<p class="sub">Preview dev of octo-org/octo-repo</p>');
     // The host breaks only after a dot, never at the hyphen of `pr-12`.
     expect(html).toContain(
-      '<h1>Sign in to <span class="label">pr-12.</span><wbr><span class="label">stranger.</span><wbr><span class="label">test</span></h1>',
+      '<h1>Sign in to<br><span class="label">pr-12.</span><wbr><span class="label">stranger.</span><wbr><span class="label">test</span></h1>',
     );
 
     const production = await h.registerClient({
@@ -939,7 +937,9 @@ describe("authorization code flow with an OAuth connector", () => {
       )
     ).text();
     expect(html).toContain("<title>Sign in to localhost:5173</title>");
-    expect(html).toContain("<dt>Deploy</dt><dd>Development server on this computer</dd>");
+    expect(html).toContain(
+      '<p class="sub">Development server of octo-org/octo-repo on this computer</p>',
+    );
   });
 
   test("a third-party app whose connector is not configured gets no chooser", async () => {
