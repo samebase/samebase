@@ -4,7 +4,7 @@ import { calculatePKCECodeChallenge } from "oauth4webapi";
 import { expect, test } from "vite-plus/test";
 import { api } from "./_generated/api.js";
 import { testClientRecord } from "../client/registeredBy.test.helper.js";
-import { LEASE_MS } from "./registration.js";
+import { LEASE_MS, MAX_CLIENTS_PER_APP } from "./registration.js";
 import schema from "./schema.js";
 
 const modules = import.meta.glob(["./**/*.ts", "!./**/*.test.ts"]);
@@ -168,6 +168,62 @@ test("refresh binding rejects other clients and resources without changing the g
   });
 });
 
+test("a client that the cap evicts loses its refresh grant", async () => {
+  const { t } = await grant();
+  // The grant's client was renewed a day ago, so it is the oldest of the full app.
+  await t.run(async (ctx) => {
+    for (let index = 1; index < MAX_CLIENTS_PER_APP; index += 1) {
+      await ctx.db.insert("clients", {
+        clientId: `client-${index}`,
+        appId: "app",
+        secretHash: "other-secret-hash",
+        registrationTokenHash: `token-hash-${index}`,
+        tokenEndpointAuthMethod: auth.tokenEndpointAuthMethod,
+        redirectUri: "https://preview.example/cb",
+        deploymentType: "preview",
+        clientName: `pr-${index}`,
+        softwareVersion: "test",
+        createdAt: NOW,
+        renewedAt: NOW,
+        ...testClientRecord,
+      });
+    }
+  });
+
+  expect(
+    await t.mutation(api.registration.register, {
+      tenantId: "gh-1",
+      appId: "app",
+      trust: { firstParty: true },
+      deploymentType: "preview",
+      clientId: "newest",
+      secretHash: "newest-secret-hash",
+      registrationTokenHash: "newest-token-hash",
+      tokenEndpointAuthMethod: auth.tokenEndpointAuthMethod,
+      redirectUri: "https://preview.example/cb",
+      clientName: "pr-30",
+      softwareVersion: "test",
+      ...testClientRecord,
+      now: NOW,
+    }),
+  ).toEqual({ ok: true });
+
+  const left = await t.run(async (ctx) => ({
+    client: await ctx.db
+      .query("clients")
+      .withIndex("by_client_id", (q) => q.eq("clientId", auth.clientId))
+      .unique(),
+    grants: await ctx.db
+      .query("refreshGrants")
+      .withIndex("by_client_id", (q) => q.eq("clientId", auth.clientId))
+      .collect(),
+  }));
+  expect(left).toEqual({ client: null, grants: [] });
+  expect(await t.mutation(api.resourceRequests.claimRefresh, refresh)).toMatchObject({
+    ok: false,
+  });
+});
+
 test("replaying a resource code revokes its broker refresh grant", async () => {
   const { t, exchange } = await grant();
   expect(await t.mutation(api.authRequests.exchangeCode, exchange)).toMatchObject({
@@ -182,10 +238,18 @@ test("a failed attempt frees the grant, and a provider rejection deletes it", as
   const { t } = await grant();
   const first = await t.mutation(api.resourceRequests.claimRefresh, refresh);
   if (!first.ok) throw new Error("Expected a claim");
-  await t.mutation(api.resourceRequests.failRefresh, { grantId: first.grantId, rejected: false });
+  await t.mutation(api.resourceRequests.failRefresh, {
+    grantId: first.grantId,
+    attempt: first.attempt,
+    rejected: false,
+  });
   const second = await t.mutation(api.resourceRequests.claimRefresh, refresh);
   if (!second.ok) throw new Error("Expected a claim");
-  await t.mutation(api.resourceRequests.failRefresh, { grantId: second.grantId, rejected: true });
+  await t.mutation(api.resourceRequests.failRefresh, {
+    grantId: second.grantId,
+    attempt: second.attempt,
+    rejected: true,
+  });
   expect(await t.mutation(api.resourceRequests.claimRefresh, refresh)).toMatchObject({
     error: "invalid_grant",
   });
@@ -221,6 +285,7 @@ test("a blocked repository or owner of a first-party app stops refresh, and an u
   if (!restored.ok) throw new Error("Expected a claim after the unblock");
   await t.mutation(api.resourceRequests.failRefresh, {
     grantId: restored.grantId,
+    attempt: restored.attempt,
     rejected: false,
   });
 

@@ -238,6 +238,8 @@ const vRefreshClaim = union(
   object({
     ok: literal(true),
     grantId: v.id("refreshGrants"),
+    /** This attempt's claim: only the attempt that holds it can finish or fail the grant. */
+    attempt: number(),
     resource: string(),
     upstreamRefreshToken: string(),
   }),
@@ -290,33 +292,61 @@ export const claimRefresh = mutation({
     return {
       ok: true,
       grantId: grant._id,
+      attempt: args.now,
       resource: grant.resource,
       upstreamRefreshToken: grant.upstreamRefreshToken,
     };
   },
 });
 
+/**
+ * Saves the provider's answer to the attempt that still holds the claim, then decides whether the
+ * new access token may go out. `stale`: the claim expired and another attempt holds the grant now,
+ * so this answer changes nothing. `refused`: the rotation is saved, so the grant works again after
+ * an unblock, but a block, a client delete, or a lost first-party status committed while the
+ * provider answered keeps the token from the caller. `gone`: the grant was deleted.
+ */
 export const finishRefresh = mutation({
-  args: { grantId: v.id("refreshGrants"), tokens: vResourceTokens, now: number() },
-  returns: boolean(),
+  args: {
+    grantId: v.id("refreshGrants"),
+    attempt: number(),
+    tokens: vResourceTokens,
+    now: number(),
+  },
+  returns: union(literal("released"), literal("refused"), literal("stale"), literal("gone")),
   handler: async (ctx, args) => {
     const grant = await ctx.db.get("refreshGrants", args.grantId);
-    if (grant === null) return false;
+    if (grant === null) return "gone" as const;
+    if (grant.refreshStartedAt !== args.attempt) return "stale" as const;
     await ctx.db.patch("refreshGrants", grant._id, {
       upstreamRefreshToken: args.tokens.refreshToken ?? grant.upstreamRefreshToken,
       expiresAt: args.now + REFRESH_IDLE_MS,
       refreshStartedAt: undefined,
     });
-    return true;
+    const client = await ctx.db
+      .query("clients")
+      .withIndex("by_client_id", (q) => q.eq("clientId", grant.clientId))
+      .unique();
+    const app =
+      client === null
+        ? null
+        : await ctx.db
+            .query("apps")
+            .withIndex("by_app_id", (q) => q.eq("appId", client.appId))
+            .unique();
+    return app === null || !app.firstParty || (await isSuspended(ctx, app.tenantId))
+      ? ("refused" as const)
+      : ("released" as const);
   },
 });
 
+/** Ends this attempt after a provider error. An attempt whose claim was taken over changes nothing. */
 export const failRefresh = mutation({
-  args: { grantId: v.id("refreshGrants"), rejected: boolean() },
+  args: { grantId: v.id("refreshGrants"), attempt: number(), rejected: boolean() },
   returns: v.null(),
   handler: async (ctx, args) => {
     const grant = await ctx.db.get("refreshGrants", args.grantId);
-    if (grant === null) return null;
+    if (grant === null || grant.refreshStartedAt !== args.attempt) return null;
     if (args.rejected) await ctx.db.delete("refreshGrants", grant._id);
     else await ctx.db.patch("refreshGrants", grant._id, { refreshStartedAt: undefined });
     return null;

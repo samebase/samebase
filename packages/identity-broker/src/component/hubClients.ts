@@ -3,7 +3,7 @@ import { v } from "convex/values";
 // oxlint-disable-next-line samebase/no-raw-public-convex-function-builders -- Component entrypoints are internal to the host; host functions enforce access.
 import { mutation, query, type MutationCtx } from "./_generated/server";
 import type { Doc } from "./_generated/dataModel";
-import { readBlock, tenantIdOf } from "./apps";
+import { readBlock, tenantIdOf, tenantRow } from "./apps";
 import { registerClient } from "./registration";
 import { vRateLimitScope } from "./schema";
 
@@ -11,13 +11,13 @@ import { vRateLimitScope } from "./schema";
 // proof and the host between `admit` and the creating mutation, and these hold every rule that reads
 // or writes a row, each in one transaction.
 
-const { literal, object, string, union } = v;
+const { literal, number, object, string, union } = v;
 
 const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1_000;
 /**
- * Requests per hour. A run asks only when it has no saved client: later deploys renew at
- * `/register/<client>` directly. A new owner is one with no registration yet, and it counts once in
- * its window.
+ * Per hour: admitted requests of a repository and of an owner, and owners whose first registration
+ * succeeded. A run asks only when it has no saved client: later deploys renew at
+ * `/register/<client>` directly.
  */
 const RATE_LIMITS = { repository: 30, owner: 100, new_owners: 50 } as const;
 
@@ -87,9 +87,29 @@ async function readRateLimit(
 }
 
 /**
+ * An owner with no successful registration yet. A registration event is never deleted, so an owner
+ * whose clients are all gone is still not new.
+ */
+async function isNewOwner(ctx: MutationCtx, githubOwnerId: string) {
+  return (
+    (await ctx.db
+      .query("events")
+      .withIndex("by_github_owner_id", (q) => q.eq("githubOwnerId", githubOwnerId))
+      .first()) === null
+  );
+}
+
+/** Whether the new-owners window of `now` has room for one more new owner. */
+async function newOwnersWindowFull(ctx: MutationCtx, now: number) {
+  return countIn(await readRateLimit(ctx, "new_owners", ""), now) >= RATE_LIMITS.new_owners;
+}
+
+/**
  * Refuses a blocked repository or owner, then counts the request in the hourly windows of the
- * repository, the owner, and, for an owner with no registration yet, all new owners. A refused
- * request counts nowhere. Runs before the verification file is fetched.
+ * repository and the owner. A new owner is refused while the new-owners window is full, but it is
+ * counted there only when its registration succeeds (`createClient`), so failed attempts cannot fill
+ * that window for everyone. A refused request counts nowhere. Runs before the verification file is
+ * fetched.
  */
 export const admit = mutation({
   args: { githubRepositoryDatabaseId: string(), githubOwnerId: string() },
@@ -108,18 +128,6 @@ export const admit = mutation({
     const now = Date.now();
     const repository = await readRateLimit(ctx, "repository", args.githubRepositoryDatabaseId);
     const owner = await readRateLimit(ctx, "owner", args.githubOwnerId);
-    const newOwners = await readRateLimit(ctx, "new_owners", "");
-    // The new-owners window that counts a request now: the running one, or one that starts now.
-    const newOwnersWindow =
-      newOwners !== null && countIn(newOwners, now) > 0 ? newOwners.startedAt : now;
-    // An owner with no registration is counted once in each new-owners window. A registration event
-    // is never deleted, so an owner whose clients are all gone is still not new.
-    const newOwner =
-      owner?.newOwnersWindowStartedAt !== newOwnersWindow &&
-      (await ctx.db
-        .query("events")
-        .withIndex("by_github_owner_id", (q) => q.eq("githubOwnerId", args.githubOwnerId))
-        .first()) === null;
 
     if (countIn(repository, now) >= RATE_LIMITS.repository) {
       return { status: "rate_limited" as const, window: "repository" as const };
@@ -127,53 +135,22 @@ export const admit = mutation({
     if (countIn(owner, now) >= RATE_LIMITS.owner) {
       return { status: "rate_limited" as const, window: "owner" as const };
     }
-    if (newOwner && countIn(newOwners, now) >= RATE_LIMITS.new_owners) {
+    if ((await isNewOwner(ctx, args.githubOwnerId)) && (await newOwnersWindowFull(ctx, now))) {
       return { status: "rate_limited" as const, window: "new_owners" as const };
     }
 
     await countRequest(
       ctx,
       repository,
-      {
-        scope: "repository",
-        githubId: args.githubRepositoryDatabaseId,
-        startedAt: now,
-        count: 1,
-        newOwnersWindowStartedAt: null,
-      },
+      { scope: "repository", githubId: args.githubRepositoryDatabaseId, startedAt: now, count: 1 },
       now,
     );
-    const newOwnersWindowStartedAt = newOwner
-      ? newOwnersWindow
-      : (owner?.newOwnersWindowStartedAt ?? null);
-    if (owner === null) {
-      await ctx.db.insert("rateLimits", {
-        scope: "owner",
-        githubId: args.githubOwnerId,
-        startedAt: now,
-        count: 1,
-        newOwnersWindowStartedAt,
-      });
-    } else {
-      await ctx.db.patch("rateLimits", owner._id, {
-        ...(countIn(owner, now) === 0 ? { startedAt: now, count: 1 } : { count: owner.count + 1 }),
-        newOwnersWindowStartedAt,
-      });
-    }
-    if (newOwner) {
-      await countRequest(
-        ctx,
-        newOwners,
-        {
-          scope: "new_owners",
-          githubId: "",
-          startedAt: now,
-          count: 1,
-          newOwnersWindowStartedAt: null,
-        },
-        now,
-      );
-    }
+    await countRequest(
+      ctx,
+      owner,
+      { scope: "owner", githubId: args.githubOwnerId, startedAt: now, count: 1 },
+      now,
+    );
     return { status: "admitted" as const };
   },
 });
@@ -202,7 +179,9 @@ const vCredentialHashes = {
  * The tenant is `gh-<repository id>`, and the app is the repository's app of that name, with its
  * previews in an app of their own. A production client also replaces the app's initial access token.
  * A run whose owner is not the owner of a token row of the repository deletes that row, so the old
- * token of a transferred repository stops.
+ * token of a transferred repository stops. A proof that names another owner than the tenant's and
+ * is not newer than the tenant's newest proof is refused (`stale_proof`), so a replayed proof of
+ * the old owner cannot move the repository back. Every refusal writes nothing.
  */
 export const createClient = mutation({
   args: {
@@ -213,6 +192,8 @@ export const createClient = mutation({
     githubActorId: string(),
     githubActorLogin: string(),
     commitSha: string(),
+    /** The `iat` of GitHub's OIDC token, in seconds. */
+    proofIssuedAt: number(),
     deployment: union(
       object({ type: literal("production"), initialAccessTokenHash: string() }),
       object({ type: literal("preview"), stage: string() }),
@@ -222,22 +203,15 @@ export const createClient = mutation({
     redirectUri: string(),
     softwareVersion: string(),
   },
-  returns: union(object({ ok: literal(true) }), object({ ok: literal(false), reason: vRefusal })),
+  returns: union(
+    object({ ok: literal(true) }),
+    object({
+      ok: literal(false),
+      reason: union(vRefusal, literal("stale_proof"), literal("new_owners")),
+    }),
+  ),
   handler: async (ctx, args) => {
     const now = Date.now();
-    // One row per app name of the repository, so a few rows.
-    const tokens = await ctx.db
-      .query("initialAccessTokens")
-      .withIndex("by_repository_and_app", (q) =>
-        q.eq("githubRepositoryDatabaseId", args.githubRepositoryDatabaseId),
-      )
-      .collect();
-    for (const token of tokens) {
-      if (token.githubOwnerId !== args.githubOwnerId) {
-        await ctx.db.delete("initialAccessTokens", token._id);
-      }
-    }
-
     if (
       await isBlocked(ctx, {
         githubRepositoryDatabaseId: args.githubRepositoryDatabaseId,
@@ -248,6 +222,22 @@ export const createClient = mutation({
     }
 
     const tenantId = tenantIdOf(args.githubRepositoryDatabaseId);
+    const tenant = await tenantRow(ctx, tenantId);
+    // Strictly newer: with a tie, the old owner's token could take the repository back after the
+    // new owner's token of the same second.
+    if (
+      tenant?.ownerProofIssuedAt !== undefined &&
+      tenant.ownerId !== args.githubOwnerId &&
+      args.proofIssuedAt <= tenant.ownerProofIssuedAt
+    ) {
+      return { ok: false as const, reason: "stale_proof" as const };
+    }
+    // Read again, as `admit` did: another new owner may have filled the window since.
+    const newOwner = await isNewOwner(ctx, args.githubOwnerId);
+    if (newOwner && (await newOwnersWindowFull(ctx, now))) {
+      return { ok: false as const, reason: "new_owners" as const };
+    }
+
     const production = args.deployment.type === "production";
     const result = await registerClient(ctx, {
       tenantId,
@@ -277,6 +267,35 @@ export const createClient = mutation({
       return { ok: false as const, reason: result.error };
     }
 
+    // `registerClient` wrote the tenant with this owner. The proof time only moves forward.
+    const registered = await tenantRow(ctx, tenantId);
+    if (
+      registered !== null &&
+      (registered.ownerProofIssuedAt === undefined ||
+        args.proofIssuedAt > registered.ownerProofIssuedAt)
+    ) {
+      await ctx.db.patch("tenants", registered._id, { ownerProofIssuedAt: args.proofIssuedAt });
+    }
+    if (newOwner) {
+      await countRequest(
+        ctx,
+        await readRateLimit(ctx, "new_owners", ""),
+        { scope: "new_owners", githubId: "", startedAt: now, count: 1 },
+        now,
+      );
+    }
+    // One row per app name of the repository, so a few rows.
+    const tokens = await ctx.db
+      .query("initialAccessTokens")
+      .withIndex("by_repository_and_app", (q) =>
+        q.eq("githubRepositoryDatabaseId", args.githubRepositoryDatabaseId),
+      )
+      .collect();
+    for (const token of tokens) {
+      if (token.githubOwnerId !== args.githubOwnerId) {
+        await ctx.db.delete("initialAccessTokens", token._id);
+      }
+    }
     await ctx.db.insert("events", {
       kind: "registration",
       clientId: args.clientId,

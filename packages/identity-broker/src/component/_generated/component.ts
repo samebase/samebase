@@ -458,6 +458,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           githubOwnerId: string;
           githubRepository: string;
           githubRepositoryDatabaseId: string;
+          proofIssuedAt: number;
           redirectUri: string;
           registrationTokenHash: string;
           secretHash: string;
@@ -473,7 +474,9 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
               | "suspended"
               | "too_many_apps"
               | "too_many_clients"
-              | "app_taken";
+              | "app_taken"
+              | "stale_proof"
+              | "new_owners";
           },
         Name
       >;
@@ -777,6 +780,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           }
         | { description: string; error: "temporarily_unavailable"; ok: false }
         | {
+            attempt: number;
             grantId: string;
             ok: true;
             resource: string;
@@ -823,7 +827,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
       failRefresh: FunctionReference<
         "mutation",
         "internal",
-        { grantId: string; rejected: boolean },
+        { attempt: number; grantId: string; rejected: boolean },
         null,
         Name
       >;
@@ -831,6 +835,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         "mutation",
         "internal",
         {
+          attempt: number;
           grantId: string;
           now: number;
           tokens: {
@@ -840,7 +845,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             scope: string;
           };
         },
-        boolean,
+        "released" | "refused" | "stale" | "gone",
         Name
       >;
       revoke: FunctionReference<
