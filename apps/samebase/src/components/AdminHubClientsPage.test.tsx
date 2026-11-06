@@ -209,15 +209,18 @@ describe("AdminHubClientsPage", () => {
       const rows = rowTexts(page.rootElement);
       expect(rows).toHaveLength(5);
       expect(rows[0]).toMatch(/^other-org \/ own.*1 production.*Last sign-in/);
-      expect(rows[1]).toMatch(/^Productionmy-app\|samebase\.com\|octocat\|.*\|Never\|$/);
+      // The first cell ends with the line that narrow panes show in place of the other columns.
+      expect(rows[1]).toMatch(
+        /^Productionmy-appsamebase\.com · signed in \S+ ago\|samebase\.com\|octocat\|.*\|Never\|$/,
+      );
       expect(rows[2]).toMatch(
         /^octo-org \/ octo-repo\s*Blocked.*1 preview.*1 development.*No sign-ins/,
       );
       expect(rows[3]).toMatch(
-        /^PR 12Blockedmy-app\|calm-cow-456\.eu-west-1\.convex\.site\|renovate\[bot\]\|Never\|in \d+d\|$/,
+        /^PR 12Blockedmy-appcalm-cow-456\.eu-west-1\.convex\.site · never signed in\|calm-cow-456\.eu-west-1\.convex\.site\|renovate\[bot\]\|Never\|in \d+d\|$/,
       );
       expect(rows[4]).toMatch(
-        /^DevelopmentBlockedmy-app\|127\.0\.0\.1:3211\|Laptop token\|Never\|/,
+        /^DevelopmentBlockedmy-app127\.0\.0\.1:3211 · never signed in\|127\.0\.0\.1:3211\|Laptop token\|Never\|/,
       );
       expect(page.rootElement.textContent).not.toContain("The newest");
     } finally {
@@ -247,7 +250,7 @@ describe("AdminHubClientsPage", () => {
     try {
       const rows = rowTexts(page.rootElement);
       expect(rows).toHaveLength(1);
-      expect(rows[0]).toMatch(/^DevelopmentBlockedocto-repo · my-app\|127\.0\.0\.1:3211/);
+      expect(rows[0]).toMatch(/^DevelopmentBlockedocto-repo · my-app[^|]*\|127\.0\.0\.1:3211/);
     } finally {
       await page.unmount();
     }

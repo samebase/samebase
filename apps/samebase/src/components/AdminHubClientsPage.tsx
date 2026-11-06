@@ -255,7 +255,7 @@ export function AdminHubClientsPage() {
     <main
       data-testid="admin-hub-clients-page"
       data-posthog-mask
-      className="container mx-auto w-full max-w-6xl py-6"
+      className="container mx-auto w-full max-w-6xl py-6 @max-3xl:px-3"
     >
       <h1 className="text-xl font-semibold @2xl:text-2xl">Hub clients</h1>
       {overview.isError ? (
@@ -427,7 +427,7 @@ function ClientsTable({
   return (
     <>
       <div className="mt-4 flex flex-wrap items-center gap-2">
-        <div className="relative w-full max-w-60">
+        <div className="relative w-full @3xl:max-w-60">
           <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             aria-label="Search clients"
@@ -488,23 +488,25 @@ function ClientsTable({
         </div>
       </div>
 
-      <Table className="mt-4 min-w-4xl table-fixed">
-        <colgroup>
-          <col className="w-[32%]" />
-          <col className="w-[24%]" />
-          <col className="w-[18%]" />
-          <col className="w-[12%]" />
-          <col className="w-[10%]" />
-          <col className="w-10" />
-        </colgroup>
+      <Table className="mt-4 table-fixed">
         <TableHeader>
           <TableRow>
-            <TableHead>Client</TableHead>
-            <TableHead>Return address</TableHead>
-            <TableHead>Registered by</TableHead>
-            <TableHead>Last sign-in</TableHead>
-            <TableHead>Expires</TableHead>
-            <TableHead />
+            {/* Narrow panes keep the four detail columns at zero width instead of removing them:
+            the group row spans them, so a removed cell would move the menu into the wrong column. */}
+            <TableHead className="@3xl:w-[32%]">Client</TableHead>
+            <TableHead className="w-0 overflow-hidden px-0 @3xl:w-[24%] @3xl:px-2">
+              Return address
+            </TableHead>
+            <TableHead className="w-0 overflow-hidden px-0 @3xl:w-[18%] @3xl:px-2">
+              Registered by
+            </TableHead>
+            <TableHead className="w-0 overflow-hidden px-0 @3xl:w-[12%] @3xl:px-2">
+              Last sign-in
+            </TableHead>
+            <TableHead className="w-0 overflow-hidden px-0 @3xl:w-[10%] @3xl:px-2">
+              Expires
+            </TableHead>
+            <TableHead className="w-10" />
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -652,8 +654,8 @@ function GroupRow({
       className="cursor-pointer bg-muted/50 hover:bg-muted"
       onClick={() => row.toggleExpanded()}
     >
-      <TableCell colSpan={5}>
-        <span className="flex items-center gap-3">
+      <TableCell colSpan={5} className="whitespace-normal">
+        <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
           <ChevronRight
             className={
               row.getIsExpanded()
@@ -679,7 +681,7 @@ function GroupRow({
               </span>
             );
           })}
-          <span className="ml-auto text-xs text-muted-foreground">
+          <span className="ml-auto hidden text-xs text-muted-foreground @3xl:inline">
             {lastSignIns.length === 0
               ? "No sign-ins"
               : `Last sign-in ${formatRelativeTimeAgo(Math.max(...lastSignIns), now)}`}
@@ -787,7 +789,7 @@ function ClientRow({
         data-state={open ? "selected" : undefined}
         onClick={onToggle}
       >
-        <TableCell className={indented ? "truncate pl-9" : "truncate"}>
+        <TableCell className={indented ? "truncate pl-4 @3xl:pl-9" : "truncate"}>
           <span className="flex items-center gap-2">
             <StageBadge client={client} />
             {blocked ? <BlockedBadge /> : null}
@@ -800,24 +802,34 @@ function ClientRow({
               {client.registeredBy.app}
             </span>
           </span>
+          {/* Narrow panes hide the other columns, so the address and the sign-in move here. */}
+          <span className="mt-1 block truncate text-xs text-muted-foreground @3xl:hidden">
+            {new URL(client.redirectUri).host} ·{" "}
+            {client.lastSignInAt === null
+              ? "never signed in"
+              : `signed in ${formatRelativeTimeAgo(client.lastSignInAt, now)}`}
+            {client.removeAt !== null && client.removeAt - now < EXPIRY_WARNING_MS
+              ? ` · expires ${formatRelativeTimeUntil(client.removeAt, now)}`
+              : null}
+          </span>
         </TableCell>
         <TableCell
-          className="truncate font-mono text-xs text-muted-foreground"
+          className="truncate px-0 font-mono text-xs text-muted-foreground @3xl:px-2"
           title={client.redirectUri}
         >
           {new URL(client.redirectUri).host}
         </TableCell>
-        <TableCell className="truncate">
+        <TableCell className="truncate px-0 @3xl:px-2">
           <RegisteredBy client={client} />
         </TableCell>
-        <TableCell>
+        <TableCell className="truncate px-0 @3xl:px-2">
           {client.lastSignInAt === null ? (
             <span className="text-muted-foreground">Never</span>
           ) : (
             formatRelativeTimeAgo(client.lastSignInAt, now)
           )}
         </TableCell>
-        <TableCell>
+        <TableCell className="overflow-hidden px-0 @3xl:px-2">
           {client.removeAt === null ? (
             <span className="text-muted-foreground">Never</span>
           ) : client.removeAt - now < EXPIRY_WARNING_MS ? (
@@ -872,7 +884,7 @@ function ClientRow({
         <TableRow className="hover:bg-transparent">
           <TableCell
             colSpan={6}
-            className={indented ? "pl-9 whitespace-normal" : "whitespace-normal"}
+            className={indented ? "pl-4 whitespace-normal @3xl:pl-9" : "whitespace-normal"}
           >
             <dl className="grid grid-cols-[9rem_1fr] gap-x-4 gap-y-1.5 text-sm">
               <dt className="text-muted-foreground">Client id</dt>
