@@ -2,6 +2,8 @@
 
 ## 0.23.0
 
+- `registration.name` is required: the hub's name as users know it, which the consent page uses in
+  "<name> has not reviewed this app."
 - `registration.privacy` is required: the hub's privacy notice. The sign-in page links it and
   `registration.terms` under its card, as Google's user data policy and GDPR articles 13 and 14 ask
   of the service that passes users' data on.

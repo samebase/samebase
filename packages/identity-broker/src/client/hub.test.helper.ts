@@ -35,6 +35,7 @@ export async function createHub() {
       moderationKey: () => process.env["HUB_MODERATION_KEY"],
       terms: "https://samebase.com/terms",
       privacy: "https://samebase.com/privacy",
+      name: "Samebase",
     },
   });
 }

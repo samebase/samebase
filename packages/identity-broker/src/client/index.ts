@@ -423,7 +423,7 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
         deployment,
         repository: client.registeredBy.githubRepository,
         scopes: args.scopes,
-        issuerHost: new URL(issuer).host,
+        reviewer: registration?.name ?? new URL(issuer).host,
       },
       connectors: [
         {

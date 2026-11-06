@@ -150,8 +150,8 @@ export type Consent = {
   /** `owner/name` of the GitHub repository at registration. */
   repository: string;
   scopes: string[];
-  /** The host of the issuer, which says that it reviewed nothing. */
-  issuerHost: string;
+  /** Who says that it reviewed nothing: the hub's name, or the issuer's host for a broker with none. */
+  reviewer: string;
 };
 
 /**
@@ -195,7 +195,7 @@ export function signInPage(args: {
     `<h1>Sign in to<br><a class="host" href="${escape(to.origin)}" target="_blank" rel="noopener noreferrer">${hostMarkup(to.host)}</a></h1>
 <p class="sub">${from}</p>
 <div class="actions">${buttons}</div>
-<p class="fine">${escape(released(to.scopes))} ${escape(to.issuerHost)} has not reviewed this app.</p>`,
+<p class="fine">${escape(released(to.scopes))} ${escape(to.reviewer)} has not reviewed this app.</p>`,
     200,
     legal,
   );

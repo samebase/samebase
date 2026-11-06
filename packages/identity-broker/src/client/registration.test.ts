@@ -42,6 +42,7 @@ function hubRegistration(thirdPartyConnector: string, paused: () => boolean = ()
     moderationKey: () => undefined,
     terms: "https://samebase.com/terms",
     privacy: "https://samebase.com/privacy",
+    name: "Samebase",
   };
 }
 
@@ -502,12 +503,13 @@ describe("RFC 7592 client management", () => {
     expect((await readClient(h, production.client_id))?.removeAt).toBeUndefined();
   });
 
-  test("a hub's consent page links its privacy notice and terms", async () => {
+  test("a hub's consent page names the hub, and links its privacy notice and terms", async () => {
     const h = await hub();
     const client = await register(h, { appId: "gh-1-app-p", deploymentType: "preview" });
     const { challenge } = await pkce();
     const page = await h.fetchBroker(authorizeUrl(h, client.client_id, challenge));
     const html = await page.text();
+    expect(html).toContain("Samebase has not reviewed this app.");
     expect(html).toContain(
       '<a href="https://samebase.com/privacy" target="_blank" rel="noopener noreferrer">Privacy</a>',
     );

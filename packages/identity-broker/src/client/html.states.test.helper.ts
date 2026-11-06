@@ -15,7 +15,7 @@ const preview: Consent = {
   deployment: { kind: "preview", stage: "pr-12" },
   repository: "octo-org/weather-app",
   scopes: ["openid", "email", "profile"],
-  issuerHost: "auth.samebase.com",
+  reviewer: "Samebase",
 };
 
 const consent = (to: Partial<Consent>) =>

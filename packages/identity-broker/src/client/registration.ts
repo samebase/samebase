@@ -28,6 +28,8 @@ export type RegistrationConfig = {
   paused: () => boolean;
   /** The key of `/moderation/*`, read in the request. Unset or empty: every request is refused. */
   moderationKey: () => string | undefined;
+  /** The name of the hub's sign-in service as users know it, such as `Samebase`. */
+  name: string;
   /**
    * The terms of the hub's sign-in service, which the answer of every new client names and the
    * sign-in page links.
