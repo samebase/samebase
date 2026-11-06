@@ -28,9 +28,20 @@ async function hub(options: { paused?: () => boolean } = {}) {
   const reserved: Connector = { ...connector, name: "fake-apps", reserved: true };
   const h = await createHarness({
     connectors: [connector, reserved],
-    registration: options.paused === undefined ? {} : { paused: options.paused },
+    registration: hubRegistration("fake-apps", options.paused ?? (() => false)),
   });
   return h;
+}
+
+/** The hub mode with no own repositories and no moderation key. */
+function hubRegistration(thirdPartyConnector: string, paused: () => boolean = () => false) {
+  return {
+    ownRepositoryIds: () => undefined,
+    thirdPartyConnector,
+    paused,
+    moderationKey: () => undefined,
+    terms: "https://samebase.com/terms",
+  };
 }
 
 /**
@@ -66,6 +77,15 @@ async function registerHere(
     redirectUri: REDIRECT_URI,
     clientName: "pr-1",
     softwareVersion: "abc123",
+    app: "app",
+    registeredBy: {
+      kind: "github",
+      githubRepository: "octo-org/octo-repo",
+      githubOwnerId: args.ownerId ?? "65",
+      githubActorId: "12",
+      githubActorLogin: "octocat",
+      commitSha: "abc123",
+    },
     now: Date.now(),
   });
   return {
@@ -86,13 +106,24 @@ async function register(h: Harness, args: Parameters<typeof registerHere>[1] = {
   return client;
 }
 
-/** The host's switch of a tenant, such as Block repository. */
+async function setBlock(h: Harness, kind: "repository" | "owner", githubId: string, on: boolean) {
+  await h.t.mutation(api.moderation.setBlock, {
+    action: on ? "block" : "unblock",
+    kind,
+    githubId,
+    reason: "Phishing page",
+    adminEmail: "admin@example.com",
+    now: Date.now(),
+  });
+}
+
+/** Block repository on the tenant `gh-<id>`, or its unblock. */
 async function switchConnection(h: Harness, tenantId: string, connected: boolean) {
-  await h.t.mutation(api.registration.switchConnection, { tenantId, connected });
+  await setBlock(h, "repository", tenantId.replace(/^gh-/, ""), !connected);
 }
 
 async function blockOwner(h: Harness, ownerId: string, blocked: boolean) {
-  await h.t.mutation(api.registration.setOwnerBlocked, { ownerId, blocked, now: Date.now() });
+  await setBlock(h, "owner", ownerId, blocked);
 }
 
 function authorizeUrl(
@@ -352,7 +383,7 @@ describe("the one connector of a third-party app", () => {
     const { connector } = await fakeOidcUpstream();
     const h = await createHarness({
       connectors: [{ ...connector, name: "idp-apps", reserved: true, selectAccount: true }],
-      registration: {},
+      registration: hubRegistration("idp-apps"),
     });
     const client = await register(h, { connector: "idp-apps" });
     const { challenge } = await pkce();

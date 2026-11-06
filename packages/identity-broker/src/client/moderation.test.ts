@@ -1,22 +1,24 @@
+/// <reference types="vite-plus/client" />
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
-import { components, internal } from "./_generated/api";
+import { api } from "../component/_generated/api.js";
+import type { Harness } from "./harness.test.helper.js";
 import {
   APP_HASH,
   createClient,
   createDevelopmentClient,
+  createHub,
   createInitialAccessToken,
-  makeConvexTest,
   MODERATION_KEY,
   moderationRequest,
   OWNER_ID,
   postHubClient,
   PRODUCTION_CALLBACK,
   readOwnRecord,
+  registerAtBroker,
   REPOSITORY_ID,
   setBlock,
   stubProviders,
-  type ConvexTest,
-} from "./test.setup";
+} from "./hub.test.helper.js";
 
 afterEach(() => {
   vi.useRealTimers();
@@ -26,62 +28,45 @@ afterEach(() => {
 
 const DAY_MS = 24 * 60 * 60 * 1_000;
 
-/** A registration row of a GitHub Actions run. */
-const registrationRow = (index: number, registeredAt: number) => ({
-  clientId: `cl_${index}`,
-  githubRepositoryDatabaseId: REPOSITORY_ID,
-  githubOwnerId: OWNER_ID,
-  githubRepository: "octo-org/octo-repo",
-  proof: {
-    kind: "github" as const,
-    githubActorId: "12",
-    githubActorLogin: "octocat",
-    commitSha: "example-sha",
-  },
-  stage: "prod",
-  app: "my-app",
-  redirectUri: "https://ideal-dolphin-15.convex.site/auth/hub/callback",
-  registeredAt,
-});
-
-async function insertRows(t: ConvexTest, rows: ReturnType<typeof registrationRow>[]) {
-  await t.run(async (ctx) => {
-    for (const row of rows) {
-      await ctx.db.insert("registrations", row);
+/** One registration event of a client `cl_<index>` at each time of `at`. */
+async function insertRegistrationEvents(h: Harness, at: number[]) {
+  await h.t.run(async (ctx) => {
+    for (const [index, time] of at.entries()) {
+      await ctx.db.insert("events", {
+        kind: "registration",
+        clientId: `cl_${index}`,
+        githubRepositoryDatabaseId: REPOSITORY_ID,
+        githubOwnerId: OWNER_ID,
+        at: time,
+      });
     }
   });
 }
 
 /**
- * `count` preview clients `cl_<index>` at the broker, each with its registration row, as
+ * `count` preview clients `cl_<index>` at the broker, each with its registration event, as
  * `/hub-clients` writes them. 30 clients to an app and 10 apps to a tenant, the broker's caps.
  */
-async function insertClients(t: ConvexTest, count: number) {
+async function insertClients(h: Harness, count: number) {
   for (let index = 0; index < count; index += 1) {
     const tenantId = `gh-${Math.floor(index / 300) + 1}`;
-    await t.mutation(components.identityBroker.registration.register, {
+    await registerAtBroker(h, {
       tenantId,
       appId: `${tenantId}-app-${Math.floor(index / 30)}-preview`,
-      trust: { firstParty: false, connector: "google-apps" },
       deploymentType: "preview",
       clientId: `cl_${index}`,
-      secretHash: "hash",
-      registrationTokenHash: "token-hash",
-      tokenEndpointAuthMethod: "client_secret_post",
-      redirectUri: "https://ideal-dolphin-15.convex.site/auth/hub/callback",
       clientName: `pr-${index}`,
-      softwareVersion: "abc123",
       now: index,
     });
   }
-  await insertRows(
-    t,
-    Array.from({ length: count }, (_, index) => registrationRow(index, index)),
+  await insertRegistrationEvents(
+    h,
+    Array.from({ length: count }, (_, index) => index),
   );
 }
 
-async function readTenant(t: ConvexTest, tenantId: string) {
-  const apps = await t.query(components.identityBroker.apps.list, {});
+async function readTenant(h: Harness, tenantId: string) {
+  const apps = await h.t.query(api.apps.list, {});
   return apps.find((app) => app.tenantId === tenantId);
 }
 
@@ -96,10 +81,10 @@ describe("the moderation key", () => {
   it.each(ENDPOINTS)(
     "%s %s refuses a request without the key or with another",
     async (method, path) => {
-      const t = makeConvexTest();
+      const h = await createHub();
 
       for (const key of [null, "", "wrong-key", `${MODERATION_KEY}x`]) {
-        const response = await moderationRequest(t, path, {
+        const response = await moderationRequest(h, path, {
           method,
           key,
           ...(method === "POST" ? { body: {} } : {}),
@@ -110,11 +95,11 @@ describe("the moderation key", () => {
   );
 
   it.each(["", "   "])("refuses every request while the key is %j", async (value) => {
-    const t = makeConvexTest();
+    const h = await createHub();
     vi.stubEnv("HUB_MODERATION_KEY", value);
 
     for (const [method, path] of ENDPOINTS) {
-      const response = await moderationRequest(t, path, {
+      const response = await moderationRequest(h, path, {
         method,
         key: value,
         ...(method === "POST" ? { body: {} } : {}),
@@ -124,20 +109,20 @@ describe("the moderation key", () => {
   });
 
   it("refuses every request while the key is unset", async () => {
-    const t = makeConvexTest();
+    const h = await createHub();
     vi.stubEnv("HUB_MODERATION_KEY", undefined);
 
-    const response = await moderationRequest(t, "/moderation/counts", { key: "undefined" });
+    const response = await moderationRequest(h, "/moderation/counts", { key: "undefined" });
 
     expect(response.status).toBe(401);
   });
 
   it("cannot create a client, here or at the broker's registration endpoint", async () => {
-    const t = makeConvexTest();
+    const h = await createHub();
     stubProviders();
 
-    const hubClient = await postHubClient(t, MODERATION_KEY);
-    const register = await moderationRequest(t, "/register", {
+    const hubClient = await postHubClient(h, MODERATION_KEY);
+    const register = await moderationRequest(h, "/register", {
       method: "POST",
       body: {
         redirect_uris: ["https://ideal-dolphin-15.convex.site/auth/hub/callback"],
@@ -152,21 +137,17 @@ describe("the moderation key", () => {
 
     expect(hubClient.status).toBe(401);
     expect(register.status).toBe(404);
-    expect(await t.query(components.identityBroker.apps.list, {})).toEqual([]);
+    expect(await h.t.query(api.apps.list, {})).toEqual([]);
   });
 });
 
 describe("the registrations", () => {
   it("counts the last day and the last week", async () => {
-    const t = makeConvexTest();
+    const h = await createHub();
     const now = Date.now();
-    await insertRows(t, [
-      registrationRow(1, now - 1_000),
-      registrationRow(2, now - 2 * DAY_MS),
-      registrationRow(3, now - 8 * DAY_MS),
-    ]);
+    await insertRegistrationEvents(h, [now - 1_000, now - 2 * DAY_MS, now - 8 * DAY_MS]);
 
-    const response = await moderationRequest(t, "/moderation/counts");
+    const response = await moderationRequest(h, "/moderation/counts");
 
     expect(await response.json()).toEqual({
       day: { count: 1, atLeast: false },
@@ -175,14 +156,14 @@ describe("the registrations", () => {
   });
 
   it("reads a fixed number of rows and says that the count is at least that", async () => {
-    const t = makeConvexTest();
+    const h = await createHub();
     const now = Date.now();
-    await insertRows(
-      t,
-      Array.from({ length: 1_001 }, (_, index) => registrationRow(index, now - index)),
+    await insertRegistrationEvents(
+      h,
+      Array.from({ length: 1_001 }, (_, index) => now - index),
     );
 
-    const response = await moderationRequest(t, "/moderation/counts");
+    const response = await moderationRequest(h, "/moderation/counts");
 
     expect(await response.json()).toEqual({
       day: { count: 1_000, atLeast: true },
@@ -191,13 +172,13 @@ describe("the registrations", () => {
   });
 
   it("no answer holds a client secret or a registration token", async () => {
-    const t = makeConvexTest();
-    const client = await createClient(t);
-    await setBlock(t, { action: "block", kind: "owner", githubId: "999" });
+    const h = await createHub();
+    const client = await createClient(h);
+    await setBlock(h, { action: "block", kind: "owner", githubId: "999" });
 
     const answers = await Promise.all(
       ["/moderation/counts", "/moderation/blocks", "/moderation/clients"].map(
-        async (path) => await (await moderationRequest(t, path)).text(),
+        async (path) => await (await moderationRequest(h, path)).text(),
       ),
     );
 
@@ -211,28 +192,28 @@ describe("the registrations", () => {
 
 describe("the blocks", () => {
   it("blocks and unblocks a repository at the broker, and keeps every event", async () => {
-    const t = makeConvexTest();
-    const client = await createClient(t);
+    const h = await createHub();
+    const client = await createClient(h);
 
-    const blocked = await setBlock(t, {
+    const blocked = await setBlock(h, {
       action: "block",
       kind: "repository",
       githubId: REPOSITORY_ID,
     });
     expect(await blocked.json()).toEqual({ changed: true });
-    expect(await readOwnRecord(t, client)).toBe(403);
-    expect(await readTenant(t, "gh-74")).toMatchObject({ suspended: true });
+    expect(await readOwnRecord(h, client)).toBe(403);
+    expect(await readTenant(h, "gh-74")).toMatchObject({ suspended: true });
 
-    const unblocked = await setBlock(t, {
+    const unblocked = await setBlock(h, {
       action: "unblock",
       kind: "repository",
       githubId: REPOSITORY_ID,
       reason: "Fixed",
     });
     expect(await unblocked.json()).toEqual({ changed: true });
-    expect(await readOwnRecord(t, client)).toBe(200);
+    expect(await readOwnRecord(h, client)).toBe(200);
 
-    const list = await moderationRequest(t, "/moderation/blocks");
+    const list = await moderationRequest(h, "/moderation/blocks");
     expect(await list.json()).toEqual({
       blocks: [],
       events: [
@@ -257,12 +238,12 @@ describe("the blocks", () => {
   });
 
   it("lists the blocks that hold, newest first", async () => {
-    const t = makeConvexTest();
-    await setBlock(t, { action: "block", kind: "owner", githubId: OWNER_ID });
-    await setBlock(t, { action: "block", kind: "repository", githubId: "75" });
+    const h = await createHub();
+    await setBlock(h, { action: "block", kind: "owner", githubId: OWNER_ID });
+    await setBlock(h, { action: "block", kind: "repository", githubId: "75" });
 
     const list: { blocks: unknown[] } = await (
-      await moderationRequest(t, "/moderation/blocks")
+      await moderationRequest(h, "/moderation/blocks")
     ).json();
 
     expect(list.blocks).toEqual([
@@ -272,16 +253,16 @@ describe("the blocks", () => {
   });
 
   it("changes nothing when the block is already in place, or already gone", async () => {
-    const t = makeConvexTest();
-    await setBlock(t, { action: "block", kind: "owner", githubId: OWNER_ID });
+    const h = await createHub();
+    await setBlock(h, { action: "block", kind: "owner", githubId: OWNER_ID });
 
-    const again = await setBlock(t, { action: "block", kind: "owner", githubId: OWNER_ID });
-    const gone = await setBlock(t, { action: "unblock", kind: "repository", githubId: "75" });
+    const again = await setBlock(h, { action: "block", kind: "owner", githubId: OWNER_ID });
+    const gone = await setBlock(h, { action: "unblock", kind: "repository", githubId: "75" });
 
     expect(await again.json()).toEqual({ changed: false });
     expect(await gone.json()).toEqual({ changed: false });
     const list: { events: unknown[] } = await (
-      await moderationRequest(t, "/moderation/blocks")
+      await moderationRequest(h, "/moderation/blocks")
     ).json();
     expect(list.events).toHaveLength(1);
   });
@@ -293,9 +274,9 @@ describe("the blocks", () => {
     ["another kind", { kind: "app" }],
     ["another action", { action: "suspend" }],
   ])("refuses %s", async (_, change) => {
-    const t = makeConvexTest();
+    const h = await createHub();
 
-    const response = await moderationRequest(t, "/moderation/blocks", {
+    const response = await moderationRequest(h, "/moderation/blocks", {
       method: "POST",
       body: {
         action: "block",
@@ -308,22 +289,22 @@ describe("the blocks", () => {
     });
 
     expect(response.status).toBe(400);
-    expect(await t.run(async (ctx) => await ctx.db.query("blocks").collect())).toEqual([]);
+    expect(await h.t.run(async (ctx) => await ctx.db.query("blocks").collect())).toEqual([]);
   });
 });
 
 describe("the clients", () => {
   it("lists every client at the broker newest first with who made it, and no secret", async () => {
     vi.useFakeTimers({ now: 1_800_000_000_000, toFake: ["Date"] });
-    const t = makeConvexTest();
+    const h = await createHub();
     vi.stubEnv("OWN_REPOSITORY_IDS", "81");
-    const own = await createClient(t, { repository_id: "81", repository: "octo-org/own" });
+    const own = await createClient(h, { repository_id: "81", repository: "octo-org/own" });
     vi.setSystemTime(1_800_000_001_000);
-    const thirdParty = await createClient(t);
+    const thirdParty = await createClient(h);
     vi.setSystemTime(1_800_000_002_000);
-    await readOwnRecord(t, thirdParty);
+    await readOwnRecord(h, thirdParty);
 
-    const response = await moderationRequest(t, "/moderation/clients");
+    const response = await moderationRequest(h, "/moderation/clients");
     const text = await response.text();
 
     expect(response.headers.get("Cache-Control")).toBe("no-store");
@@ -376,29 +357,29 @@ describe("the clients", () => {
     }
   });
 
-  it("fails when a client has no registration row", async () => {
-    const t = makeConvexTest();
-    await insertClients(t, 1);
-    await t.run(async (ctx) => {
-      for (const row of await ctx.db.query("registrations").collect()) {
-        await ctx.db.delete("registrations", row._id);
+  it("fails when a client has no registration", async () => {
+    const h = await createHub();
+    await insertClients(h, 1);
+    await h.t.run(async (ctx) => {
+      for (const row of await ctx.db.query("clients").collect()) {
+        await ctx.db.patch("clients", row._id, { registeredBy: undefined });
       }
     });
 
-    await expect(t.query(internal.moderation.clientList, {})).rejects.toThrow(
-      "The client cl_0 has no registration row",
+    await expect(h.t.query(api.moderation.clientList, {})).rejects.toThrow(
+      "The client cl_0 has no registration of a repository",
     );
   });
 
   it("names a laptop's client with its repository and the token's issue time", async () => {
     vi.useFakeTimers({ now: 1_800_000_000_000, toFake: ["Date"] });
-    const t = makeConvexTest();
-    const token = await createInitialAccessToken(t);
+    const h = await createHub();
+    const token = await createInitialAccessToken(h);
     vi.setSystemTime(1_800_000_001_000);
-    const laptop = await createDevelopmentClient(t, token);
+    const laptop = await createDevelopmentClient(h, token);
 
     const list: { clients: { clientId: string; registeredBy: unknown }[] } = await (
-      await moderationRequest(t, "/moderation/clients")
+      await moderationRequest(h, "/moderation/clients")
     ).json();
 
     expect(list.clients.find((client) => client.clientId === laptop.client_id)).toMatchObject({
@@ -414,11 +395,11 @@ describe("the clients", () => {
   });
 
   it("lists the newest 500 and says that it reached the limit", async () => {
-    const t = makeConvexTest();
-    await insertClients(t, 501);
+    const h = await createHub();
+    await insertClients(h, 501);
 
     const list: { clients: { clientId: string }[]; limitReached: boolean } = await (
-      await moderationRequest(t, "/moderation/clients")
+      await moderationRequest(h, "/moderation/clients")
     ).json();
 
     expect(list.clients).toHaveLength(500);
