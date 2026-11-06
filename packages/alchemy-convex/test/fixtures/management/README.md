@@ -77,8 +77,6 @@ The token files were captured on 2026-10-21 with a temporary team access token
 | --- | --- |
 | token_details_team_token.json | GET /token_details with a team access token (200) |
 | token_details_cli_login.json | GET /token_details with the Convex CLI login (403 `NotOAuthTeamToken`) |
-| dashboard_teams_cli_login.json | GET https://api.convex.dev/api/dashboard/teams with the Convex CLI login (200, referral codes replaced) |
-| dashboard_teams_team_token.json | the same with a team access token (403 `NotAllowed`) |
 
 Facts learned: a team access token names its team only through `/token_details`; it cannot list
 teams. The Convex CLI login lists teams and gets 403 from `/token_details`.

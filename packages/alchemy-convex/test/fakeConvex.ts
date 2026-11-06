@@ -75,30 +75,6 @@ export interface Store {
   resealError: string | undefined;
 }
 
-/** The admin functions of an identity hub, as the broker answers them. */
-export class Hub {
-  readonly clients = new Map<string, Record<string, unknown>>();
-  /** The arguments of each `renewClient` call, in order. */
-  readonly renewals: Record<string, unknown>[] = [];
-  /** Set: what `renewClient` answers in place of whether the client exists. */
-  renewAnswer: unknown;
-  private nextClient = 1;
-  constructor(readonly issuer: string) {}
-  run(path: string, args: Record<string, unknown>) {
-    if (path === "identityBroker:deleteClient") {
-      this.clients.delete(String(args["clientId"]));
-      return null;
-    }
-    if (path === "identityBroker:renewClient") {
-      this.renewals.push(args);
-      return this.renewAnswer ?? this.clients.has(String(args["clientId"]));
-    }
-    const clientId = `cl_${this.nextClient++}`;
-    this.clients.set(clientId, args);
-    return { issuer: this.issuer, clientId, clientSecret: `secret-of-${clientId}` };
-  }
-}
-
 /** The internal functions of the store that a query key runs, and those that need a mutation key. */
 const STORE_QUERIES = [
   "sealing",
@@ -120,7 +96,6 @@ const STORE_FUNCTION_SINCE: Record<string, number> = {
   chooseKey: 5,
   reseal: 5,
 };
-const HubCall = Schema.Struct({ args: Schema.Record(Schema.String, Schema.Unknown) });
 const FunctionCall = Schema.Struct({
   path: Schema.String,
   args: Schema.Struct({
@@ -201,8 +176,6 @@ export class FakeConvex {
   readonly localPorts = new Map<number, string>();
   /** The store of each deployment that has one: POST /api/function answers its functions. */
   readonly stores = new Map<string, Store>();
-  /** The identity hub of each deployment that has one: POST /api/function answers its admin functions. */
-  readonly hubs = new Map<string, Hub>();
   /** The store functions that ran, as "<deployment> <path>" lines. */
   readonly functionCalls: string[] = [];
   /** Every deploy key secret ever created for each deployment, also the deleted ones. */
@@ -388,11 +361,6 @@ export class FakeConvex {
         ? json(200, { ...recorded("token_details_team_token.json"), teamId: this.teamTokenTeamId })
         : json(403, recorded("token_details_cli_login.json"));
     }
-    if (method === "GET" && url.pathname === "/api/dashboard/teams") {
-      return bearer === this.teamToken
-        ? json(403, recorded("dashboard_teams_team_token.json"))
-        : json(200, fixture("dashboard_teams_cli_login.json"));
-    }
     const route = `${method} ${url.pathname.replace(/\/\d+(?=\/|$)/g, "/{id}")}`;
     const id = Number(/\/(\d+)(?:\/|$)/.exec(url.pathname)?.[1]);
     const deployment = /^\/v1\/deployments\/([^/]+)\//.exec(url.pathname)?.[1] ?? "";
@@ -547,21 +515,6 @@ export class FakeConvex {
     const key = this.keysOf(this.keys, deployment).find((candidate) => candidate.secret === secret);
     if (key === undefined) return json(403, stateFixture("function_no_key.json"));
     const { path, args } = Schema.decodeUnknownSync(FunctionCall)(body);
-    const hub = this.hubs.get(deployment);
-    if (path.startsWith("identityBroker:") && hub !== undefined) {
-      if (
-        key.actions !== undefined &&
-        !key.actions.includes("deployment:functions:runInternalMutations")
-      ) {
-        return json(200, {
-          ...stateFixture("function_version_missing.json"),
-          errorMessage: "no permission",
-        });
-      }
-      this.functionCalls.push(`${deployment} ${path}`);
-      const { args: hubArgs } = Schema.decodeUnknownSync(HubCall)(body);
-      return json(200, { ...stateFixture("function_version.json"), value: hub.run(path, hubArgs) });
-    }
     const name = path.replace(/^state:/, "");
     // A push of the fake CLI with a key of this deployment installs the
     // store, or raises an older one to the current version with its rows.

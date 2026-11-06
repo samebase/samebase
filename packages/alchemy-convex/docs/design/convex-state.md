@@ -209,7 +209,7 @@ hub, so that a team would have one project. That was reversed for three reasons,
 - They fail together. A push replaces every function of a deployment, so a broken hub deploy would
   stop the state reads of every stack of the team.
 - The one-credential benefit does not need one project: the team token reaches every project of the
-  team, and `Convex.HubClient` finds the hub by the name of its project.
+  team. Until 0.31.0, `Convex.HubClient` found the hub by the name of its project.
 
 The hub stayed in the project `samebase` at first, because a rename was unsafe while a version of
 this package that looks for its store under that name could run. Since 0.17.0 the hub is the project
