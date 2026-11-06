@@ -26,32 +26,38 @@ export async function tenantRow(ctx: QueryCtx, tenantId: string) {
     .unique();
 }
 
+/** The tenant of a GitHub repository. */
+export function tenantIdOf(githubRepositoryDatabaseId: string) {
+  return `gh-${githubRepositoryDatabaseId}`;
+}
+
+export async function readBlock(ctx: QueryCtx, kind: Doc<"blocks">["kind"], githubId: string) {
+  return await ctx.db
+    .query("blocks")
+    .withIndex("by_kind_and_github_id", (q) => q.eq("kind", kind).eq("githubId", githubId))
+    .unique();
+}
+
 /**
- * Whether no client of `tenant` may register, renew, or sign in: the host disconnected it, or
- * `ownerId` is blocked. `ownerId` is the tenant's recorded owner, or the owner that a new
- * registration names.
+ * Whether no client of the tenant may register, renew, or sign in: its repository is blocked, or
+ * `ownerId` is. `ownerId` is the tenant's recorded owner, or the owner that a new registration
+ * names. A tenant that is not a repository's (`gh-<id>`) has no repository block.
  */
 export async function isStopped(
   ctx: QueryCtx,
-  tenant: Doc<"tenants"> | null,
+  tenantId: string,
   ownerId: string | undefined,
 ): Promise<boolean> {
-  if (tenant?.disconnected === true) {
+  const repositoryId = /^gh-([1-9][0-9]*)$/.exec(tenantId)?.[1];
+  if (repositoryId !== undefined && (await readBlock(ctx, "repository", repositoryId)) !== null) {
     return true;
   }
-  if (ownerId === undefined) {
-    return false;
-  }
-  const blocked = await ctx.db
-    .query("blockedOwners")
-    .withIndex("by_owner_id", (q) => q.eq("ownerId", ownerId))
-    .unique();
-  return blocked !== null;
+  return ownerId !== undefined && (await readBlock(ctx, "owner", ownerId)) !== null;
 }
 
 export async function isSuspended(ctx: QueryCtx, tenantId: string): Promise<boolean> {
   const tenant = await tenantRow(ctx, tenantId);
-  return await isStopped(ctx, tenant, tenant?.ownerId);
+  return await isStopped(ctx, tenantId, tenant?.ownerId);
 }
 
 /** An app row with what `/authorize` and `/continue` need to know about its tenant. */

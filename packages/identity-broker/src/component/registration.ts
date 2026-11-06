@@ -3,7 +3,7 @@ import { v, type Infer } from "convex/values";
 import { mutation, type MutationCtx } from "./_generated/server";
 import type { Doc } from "./_generated/dataModel";
 import { isStopped, isSuspended, tenantRow } from "./apps";
-import { vTokenEndpointAuthMethod } from "./schema";
+import { vRegisteredBy, vTokenEndpointAuthMethod } from "./schema";
 
 const { literal, number, object, optional, string, union } = v;
 
@@ -51,122 +51,141 @@ async function clientAt(ctx: MutationCtx, clientId: string, registrationTokenHas
   return client !== null && client.registrationTokenHash === registrationTokenHash ? client : null;
 }
 
+const registerArgs = {
+  tenantId: string(),
+  /**
+   * The owner of the tenant as of this registration, checked against the owner switch and then
+   * recorded on the tenant. Absent: the recorded owner is checked and kept.
+   */
+  ownerId: optional(string()),
+  appId: string(),
+  /**
+   * What the host decided the app is. A first-party app is one of the host's own: every connector
+   * but a reserved one, and API resources. A third-party app signs in through its one connector.
+   * An existing app keeps what it was created as, and a registration that says otherwise answers
+   * `app_taken`.
+   */
+  trust: union(
+    object({ firstParty: literal(true) }),
+    object({ firstParty: literal(false), connector: string() }),
+  ),
+  deploymentType: vDeployment,
+  clientId: string(),
+  secretHash: string(),
+  registrationTokenHash: string(),
+  tokenEndpointAuthMethod: vTokenEndpointAuthMethod,
+  redirectUri: string(),
+  clientName: string(),
+  softwareVersion: string(),
+  /** The name that the app's stack gives itself. */
+  app: string(),
+  registeredBy: vRegisteredBy,
+  now: number(),
+};
+
+const vRegisterResult = union(
+  object({ ok: literal(true) }),
+  object({
+    ok: literal(false),
+    error: union(
+      literal("suspended"),
+      literal("too_many_apps"),
+      literal("too_many_clients"),
+      literal("app_taken"),
+    ),
+  }),
+);
+
+const vRegisterArgs = object(registerArgs);
+
 /**
- * Registers one deployment as a client of an app, creating the app with its first client. The
- * host's own mutation calls it with the credentials of `newClientCredentials`, and can write its own
- * record of the client in the same transaction. Everything is in one transaction, so a block or a
- * cap cannot be raced. A client is never replaced: a deployment that lost its client gets a new one,
- * and any older one stays valid.
+ * Registers one deployment as a client of an app, creating the app with its first client.
+ * `hubClients.createClient` and `hubClients.createDevelopmentClient` call it in their own
+ * transaction, which also records the registration, so a block or a cap cannot be raced. A client is
+ * never replaced: a deployment that lost its client gets a new one, and any older one stays valid.
+ */
+export async function registerClient(
+  ctx: MutationCtx,
+  args: Infer<typeof vRegisterArgs>,
+): Promise<Infer<typeof vRegisterResult>> {
+  const tenant = await tenantRow(ctx, args.tenantId);
+  if (await isStopped(ctx, args.tenantId, args.ownerId ?? tenant?.ownerId)) {
+    return { ok: false as const, error: "suspended" as const };
+  }
+  const app = await ctx.db
+    .query("apps")
+    .withIndex("by_app_id", (q) => q.eq("appId", args.appId))
+    .unique();
+  if (
+    app !== null &&
+    (app.firstParty !== args.trust.firstParty || app.tenantId !== args.tenantId)
+  ) {
+    return { ok: false as const, error: "app_taken" as const };
+  }
+  if (app === null) {
+    const apps = await ctx.db
+      .query("apps")
+      .withIndex("by_tenant_id", (q) => q.eq("tenantId", args.tenantId))
+      .take(MAX_APPS_PER_TENANT);
+    if (apps.length >= MAX_APPS_PER_TENANT) {
+      return { ok: false as const, error: "too_many_apps" as const };
+    }
+    await ctx.db.insert("apps", {
+      appId: args.appId,
+      name: args.appId,
+      firstParty: args.trust.firstParty,
+      ...(args.trust.firstParty ? {} : { connector: args.trust.connector }),
+      tenantId: args.tenantId,
+      createdAt: args.now,
+    });
+  }
+  // A transferred repository gets its new owner here, at its next new client.
+  if (tenant === null) {
+    await ctx.db.insert("tenants", {
+      tenantId: args.tenantId,
+      ...(args.ownerId === undefined ? {} : { ownerId: args.ownerId }),
+    });
+  } else if (args.ownerId !== undefined && args.ownerId !== tenant.ownerId) {
+    await ctx.db.patch("tenants", tenant._id, { ownerId: args.ownerId });
+  }
+  const rows = await ctx.db
+    .query("clients")
+    .withIndex("by_app_id", (q) => q.eq("appId", args.appId))
+    .take(MAX_CLIENTS_PER_APP);
+  if (rows.length >= MAX_CLIENTS_PER_APP) {
+    const row = evicted(rows, args.deploymentType);
+    if (row === undefined) {
+      return { ok: false as const, error: "too_many_clients" as const };
+    }
+    await ctx.db.delete("clients", row._id);
+  }
+  await ctx.db.insert("clients", {
+    clientId: args.clientId,
+    appId: args.appId,
+    secretHash: args.secretHash,
+    registrationTokenHash: args.registrationTokenHash,
+    tokenEndpointAuthMethod: args.tokenEndpointAuthMethod,
+    redirectUri: args.redirectUri,
+    deploymentType: args.deploymentType,
+    clientName: args.clientName,
+    softwareVersion: args.softwareVersion,
+    createdAt: args.now,
+    renewedAt: args.now,
+    ...(args.deploymentType === "production" ? {} : { removeAt: args.now + LEASE_MS }),
+    app: args.app,
+    registeredBy: args.registeredBy,
+  });
+  return { ok: true as const };
+}
+
+/**
+ * `registerClient` as a component function: the low-level registration that `POST /hub-clients`
+ * builds on, for a host that proves its callers in another way. It records no registration event.
  */
 export const register = mutation({
-  args: {
-    tenantId: string(),
-    /**
-     * The owner of the tenant as of this registration, checked against the owner switch and then
-     * recorded on the tenant. Absent: the recorded owner is checked and kept.
-     */
-    ownerId: optional(string()),
-    appId: string(),
-    /**
-     * What the host decided the app is. A first-party app is one of the host's own: every connector
-     * but a reserved one, and API resources. A third-party app signs in through its one connector.
-     * An existing app keeps what it was created as, and a registration that says otherwise answers
-     * `app_taken`.
-     */
-    trust: union(
-      object({ firstParty: literal(true) }),
-      object({ firstParty: literal(false), connector: string() }),
-    ),
-    deploymentType: vDeployment,
-    clientId: string(),
-    secretHash: string(),
-    registrationTokenHash: string(),
-    tokenEndpointAuthMethod: vTokenEndpointAuthMethod,
-    redirectUri: string(),
-    clientName: string(),
-    softwareVersion: string(),
-    now: number(),
-  },
-  returns: union(
-    object({ ok: literal(true) }),
-    object({
-      ok: literal(false),
-      error: union(
-        literal("suspended"),
-        literal("too_many_apps"),
-        literal("too_many_clients"),
-        literal("app_taken"),
-      ),
-    }),
-  ),
-  handler: async (ctx, args) => {
-    const tenant = await tenantRow(ctx, args.tenantId);
-    if (await isStopped(ctx, tenant, args.ownerId ?? tenant?.ownerId)) {
-      return { ok: false as const, error: "suspended" as const };
-    }
-    const app = await ctx.db
-      .query("apps")
-      .withIndex("by_app_id", (q) => q.eq("appId", args.appId))
-      .unique();
-    if (
-      app !== null &&
-      (app.firstParty !== args.trust.firstParty || app.tenantId !== args.tenantId)
-    ) {
-      return { ok: false as const, error: "app_taken" as const };
-    }
-    if (app === null) {
-      const apps = await ctx.db
-        .query("apps")
-        .withIndex("by_tenant_id", (q) => q.eq("tenantId", args.tenantId))
-        .take(MAX_APPS_PER_TENANT);
-      if (apps.length >= MAX_APPS_PER_TENANT) {
-        return { ok: false as const, error: "too_many_apps" as const };
-      }
-      await ctx.db.insert("apps", {
-        appId: args.appId,
-        name: args.appId,
-        firstParty: args.trust.firstParty,
-        ...(args.trust.firstParty ? {} : { connector: args.trust.connector }),
-        tenantId: args.tenantId,
-        createdAt: args.now,
-      });
-    }
-    // A transferred repository gets its new owner here, at its next new client.
-    if (tenant === null) {
-      await ctx.db.insert("tenants", {
-        tenantId: args.tenantId,
-        ...(args.ownerId === undefined ? {} : { ownerId: args.ownerId }),
-      });
-    } else if (args.ownerId !== undefined && args.ownerId !== tenant.ownerId) {
-      await ctx.db.patch("tenants", tenant._id, { ownerId: args.ownerId });
-    }
-    const rows = await ctx.db
-      .query("clients")
-      .withIndex("by_app_id", (q) => q.eq("appId", args.appId))
-      .take(MAX_CLIENTS_PER_APP);
-    if (rows.length >= MAX_CLIENTS_PER_APP) {
-      const row = evicted(rows, args.deploymentType);
-      if (row === undefined) {
-        return { ok: false as const, error: "too_many_clients" as const };
-      }
-      await ctx.db.delete("clients", row._id);
-    }
-    await ctx.db.insert("clients", {
-      clientId: args.clientId,
-      appId: args.appId,
-      secretHash: args.secretHash,
-      registrationTokenHash: args.registrationTokenHash,
-      tokenEndpointAuthMethod: args.tokenEndpointAuthMethod,
-      redirectUri: args.redirectUri,
-      deploymentType: args.deploymentType,
-      clientName: args.clientName,
-      softwareVersion: args.softwareVersion,
-      createdAt: args.now,
-      renewedAt: args.now,
-      ...(args.deploymentType === "production" ? {} : { removeAt: args.now + LEASE_MS }),
-    });
-    return { ok: true as const };
-  },
+  args: registerArgs,
+  returns: vRegisterResult,
+  handler: registerClient,
 });
 
 /**
@@ -238,44 +257,5 @@ export const remove = mutation({
     }
     await ctx.db.delete("clients", client._id);
     return { ok: true as const };
-  },
-});
-
-/**
- * The host's switch of a tenant, such as a block of a repository. It holds for apps of the tenant
- * that do not exist yet, so it needs no list of them.
- */
-export const switchConnection = mutation({
-  args: { tenantId: string(), connected: v.boolean() },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    const tenant = await tenantRow(ctx, args.tenantId);
-    if (tenant === null) {
-      await ctx.db.insert("tenants", { tenantId: args.tenantId, disconnected: !args.connected });
-    } else {
-      await ctx.db.patch("tenants", tenant._id, { disconnected: !args.connected });
-    }
-    return null;
-  },
-});
-
-/**
- * The owner switch. A blocked owner stops every tenant whose recorded owner it is, on registration,
- * renewal, sign-in, and code exchange, also tenants that register later. It changes no tenant row.
- */
-export const setOwnerBlocked = mutation({
-  args: { ownerId: string(), blocked: v.boolean(), now: number() },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    const row = await ctx.db
-      .query("blockedOwners")
-      .withIndex("by_owner_id", (q) => q.eq("ownerId", args.ownerId))
-      .unique();
-    if (args.blocked && row === null) {
-      await ctx.db.insert("blockedOwners", { ownerId: args.ownerId, blockedAt: args.now });
-    } else if (!args.blocked && row !== null) {
-      await ctx.db.delete("blockedOwners", row._id);
-    }
-    return null;
   },
 });

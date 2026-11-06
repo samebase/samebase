@@ -10,13 +10,26 @@ import { json } from "./responses.js";
 import { randomToken, sha256Hex } from "./subject.js";
 
 /**
- * The host creates each client in its own mutation with `newClientCredentials` and
- * `component.registration.register`. With this option, each client reads and deletes its own record
- * at `/register/<client>` with its own registration access token (RFC 7592).
+ * The hub mode. With this option the broker mounts `POST /hub-clients`, where a GitHub Actions run or
+ * a laptop with the app's initial access token gets a client (src/client/hubClients.ts),
+ * `/register/<client>`, where each client reads and deletes its own record with its own registration
+ * access token (RFC 7592), and `/moderation/*` for the hub's administrator.
  */
 export type RegistrationConfig = {
-  /** While true, no third-party app can sign in. An emergency brake for all of them. */
-  paused?: () => boolean;
+  /**
+   * The numeric GitHub ids of the repositories whose apps are this hub's own, separated by commas,
+   * read in the request. Their apps are first-party: every connector but a reserved one, and API
+   * resources; the pause does not stop them. Every other repository's apps are third-party.
+   */
+  ownRepositoryIds: () => string | undefined;
+  /** The one connector of every third-party app: a reserved connector of `connectors`. */
+  thirdPartyConnector: string;
+  /** While true, no third-party app registers or signs in. An emergency brake for all of them. */
+  paused: () => boolean;
+  /** The key of `/moderation/*`, read in the request. Unset or empty: every request is refused. */
+  moderationKey: () => string | undefined;
+  /** The terms of the hub's sign-in service, which the answer of every new client names. */
+  terms: string;
 };
 
 type TokenMethod = "client_secret_post" | "client_secret_basic";

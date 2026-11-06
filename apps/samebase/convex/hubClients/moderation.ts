@@ -12,7 +12,8 @@ const REQUEST_TIMEOUT_MS = 10_000;
 const vBlockKind = union(literal("repository"), literal("owner"));
 const vBlockAction = union(literal("block"), literal("unblock"));
 
-// The answers of the hub's `/moderation/*` endpoints in apps/identity-hub/convex/moderation.ts.
+// The answers of the hub's `/moderation/*` endpoints in
+// packages/identity-broker/src/component/moderation.ts.
 
 const vCount = object({ count: number(), atLeast: boolean() });
 const vCounts = object({ day: vCount, week: vCount });

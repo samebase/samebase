@@ -1,28 +1,28 @@
+/// <reference types="vite-plus/client" />
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
-import { components, internal } from "./_generated/api";
-import { sha256Hex } from "./moderation";
+import { api } from "../component/_generated/api.js";
+import { ISSUER, sha256Hex, type Harness } from "./harness.test.helper.js";
 import {
   APP_HASH,
   createClient,
   createDevelopmentClient,
+  createHub,
   createInitialAccessToken,
   foreignKey,
-  ISSUER,
   jsonResponse,
   LOOPBACK_CALLBACK,
-  makeConvexTest,
   OWNER_ID,
   postHubClient,
   PRODUCTION_CALLBACK,
   PRODUCTION_HOST,
   pullRequestClaims,
   readOwnRecord,
+  registerAtBroker,
   REPOSITORY_ID,
   setBlock,
   signToken,
   stubProviders,
-  type ConvexTest,
-} from "./test.setup";
+} from "./hub.test.helper.js";
 
 afterEach(() => {
   vi.useRealTimers();
@@ -31,20 +31,30 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-async function readRegistrations(t: ConvexTest) {
-  return await t.run(async (ctx) => await ctx.db.query("registrations").collect());
+async function readClients(h: Harness) {
+  return await h.t.run(async (ctx) => await ctx.db.query("clients").collect());
 }
 
-async function readRateLimits(t: ConvexTest) {
-  return await t.run(async (ctx) => await ctx.db.query("rateLimits").collect());
+async function readRegistrationEvents(h: Harness) {
+  return await h.t.run(
+    async (ctx) =>
+      await ctx.db
+        .query("events")
+        .withIndex("by_kind_and_at", (q) => q.eq("kind", "registration"))
+        .collect(),
+  );
 }
 
-async function readInitialAccessTokens(t: ConvexTest) {
-  return await t.run(async (ctx) => await ctx.db.query("initialAccessTokens").collect());
+async function readRateLimits(h: Harness) {
+  return await h.t.run(async (ctx) => await ctx.db.query("rateLimits").collect());
+}
+
+async function readInitialAccessTokens(h: Harness) {
+  return await h.t.run(async (ctx) => await ctx.db.query("initialAccessTokens").collect());
 }
 
 async function seedWindow(
-  t: ConvexTest,
+  h: Harness,
   row: {
     scope: "repository" | "owner" | "new_owners";
     githubId: string;
@@ -53,8 +63,14 @@ async function seedWindow(
   },
   startedAt = Date.now(),
 ) {
-  await t.run(async (ctx) => {
-    await ctx.db.insert("rateLimits", { ...row, startedAt });
+  await h.t.run(async (ctx) => {
+    await ctx.db.insert("rateLimits", {
+      scope: row.scope,
+      githubId: row.githubId,
+      count: row.count,
+      newOwnersWindowStartedAt: row.newOwnersWindowStartedAt,
+      startedAt,
+    });
   });
 }
 
@@ -75,10 +91,10 @@ const streamedResponse = (chunks: string[]) =>
 describe("POST /hub-clients", () => {
   describe("a new client", () => {
     it("needs no Samebase account, and answers the client with the terms", async () => {
-      const t = makeConvexTest();
+      const h = await createHub();
       stubProviders();
 
-      const response = await postHubClient(t, await signToken());
+      const response = await postHubClient(h, await signToken());
 
       expect(response.status).toBe(201);
       expect(response.headers.get("Cache-Control")).toBe("no-store");
@@ -97,12 +113,10 @@ describe("POST /hub-clients", () => {
     });
 
     it("creates the client at the broker in the repository's tenant, under its owner", async () => {
-      const t = makeConvexTest();
-      const client = await createClient(t);
+      const h = await createHub();
+      const client = await createClient(h);
 
-      const row = await t.query(components.identityBroker.clients.get, {
-        clientId: client.client_id,
-      });
+      const row = await h.t.query(api.clients.get, { clientId: client.client_id });
       expect(row).toMatchObject({
         appId: `gh-${REPOSITORY_ID}-${APP_HASH}`,
         redirectUri: PRODUCTION_CALLBACK,
@@ -112,54 +126,46 @@ describe("POST /hub-clients", () => {
         tokenEndpointAuthMethod: "client_secret_post",
       });
       expect(
-        await t.query(components.identityBroker.apps.get, {
-          appId: `gh-${REPOSITORY_ID}-${APP_HASH}`,
-        }),
+        await h.t.query(api.apps.get, { appId: `gh-${REPOSITORY_ID}-${APP_HASH}` }),
       ).toMatchObject({ firstParty: false, connector: "google-apps", tenantId: "gh-74" });
-      expect(await readOwnRecord(t, client)).toBe(200);
+      expect(await readOwnRecord(h, client)).toBe(200);
     });
 
     it("makes the apps of an own repository first-party, its laptops' too, and no other's", async () => {
-      const t = makeConvexTest();
+      const h = await createHub();
       vi.stubEnv("OWN_REPOSITORY_IDS", "80, 81");
       const own = { repository_id: "81", repository: "octo-org/own" };
-      const production = await createClient(t, own);
-      const productionApp = await t.query(components.identityBroker.apps.get, {
-        appId: `gh-81-${APP_HASH}`,
-      });
+      const production = await createClient(h, own);
+      const productionApp = await h.t.query(api.apps.get, { appId: `gh-81-${APP_HASH}` });
       expect(productionApp).toMatchObject({ firstParty: true, tenantId: "gh-81" });
       expect(productionApp).not.toHaveProperty("connector");
 
       stubProviders(() => jsonResponse({ repository: "81" }));
-      const laptop = await createDevelopmentClient(t, production.initial_access_token ?? "");
-      expect(
-        await t.query(components.identityBroker.clients.get, { clientId: laptop.client_id }),
-      ).toMatchObject({ appId: `gh-81-${APP_HASH}-preview` });
-      expect(
-        await t.query(components.identityBroker.apps.get, { appId: `gh-81-${APP_HASH}-preview` }),
-      ).toMatchObject({ firstParty: true });
+      const laptop = await createDevelopmentClient(h, production.initial_access_token ?? "");
+      expect(await h.t.query(api.clients.get, { clientId: laptop.client_id })).toMatchObject({
+        appId: `gh-81-${APP_HASH}-preview`,
+      });
+      expect(await h.t.query(api.apps.get, { appId: `gh-81-${APP_HASH}-preview` })).toMatchObject({
+        firstParty: true,
+      });
 
       // Another repository of the same owner is a guest.
-      await createClient(t);
+      await createClient(h);
       expect(
-        await t.query(components.identityBroker.apps.get, {
-          appId: `gh-${REPOSITORY_ID}-${APP_HASH}`,
-        }),
+        await h.t.query(api.apps.get, { appId: `gh-${REPOSITORY_ID}-${APP_HASH}` }),
       ).toMatchObject({ firstParty: false, connector: "google-apps" });
     });
 
     it("puts a preview in its own app, on the exact address that the run sent", async () => {
-      const t = makeConvexTest();
+      const h = await createHub();
       stubProviders();
 
-      const response = await postHubClient(t, await signToken(pullRequestClaims), {
+      const response = await postHubClient(h, await signToken(pullRequestClaims), {
         redirectUri: "https://calm-cow-456.eu-west-1.convex.site/api/auth/callback/hub",
       });
       const client: { client_id: string } = await response.json();
 
-      expect(
-        await t.query(components.identityBroker.clients.get, { clientId: client.client_id }),
-      ).toMatchObject({
+      expect(await h.t.query(api.clients.get, { clientId: client.client_id })).toMatchObject({
         appId: `gh-${REPOSITORY_ID}-${APP_HASH}-preview`,
         redirectUri: "https://calm-cow-456.eu-west-1.convex.site/api/auth/callback/hub",
         deploymentType: "preview",
@@ -169,34 +175,44 @@ describe("POST /hub-clients", () => {
 
     it("records what the token said, with the client id and no secret", async () => {
       vi.useFakeTimers({ now: 1_800_000_000_000, toFake: ["Date"] });
-      const t = makeConvexTest();
-      const client = await createClient(t);
+      const h = await createHub();
+      const client = await createClient(h);
 
-      const rows = await readRegistrations(t);
-      expect(rows).toEqual([
-        {
-          _id: expect.any(String),
-          _creationTime: expect.any(Number),
+      const clients = await readClients(h);
+      expect(clients).toEqual([
+        expect.objectContaining({
           clientId: client.client_id,
-          githubRepositoryDatabaseId: REPOSITORY_ID,
-          githubOwnerId: OWNER_ID,
-          githubRepository: "octo-org/octo-repo",
-          proof: {
+          clientName: "prod",
+          app: "my-app",
+          redirectUri: PRODUCTION_CALLBACK,
+          createdAt: 1_800_000_000_000,
+          registeredBy: {
             kind: "github",
+            githubRepository: "octo-org/octo-repo",
+            githubOwnerId: OWNER_ID,
             githubActorId: "12",
             githubActorLogin: "octocat",
             commitSha: "example-sha",
           },
-          stage: "prod",
-          app: "my-app",
-          redirectUri: PRODUCTION_CALLBACK,
-          registeredAt: 1_800_000_000_000,
+        }),
+      ]);
+      const events = await readRegistrationEvents(h);
+      expect(events).toEqual([
+        {
+          _id: expect.any(String),
+          _creationTime: expect.any(Number),
+          kind: "registration",
+          clientId: client.client_id,
+          githubRepositoryDatabaseId: REPOSITORY_ID,
+          githubOwnerId: OWNER_ID,
+          at: 1_800_000_000_000,
         },
       ]);
       const tables = JSON.stringify([
-        rows,
-        await readRateLimits(t),
-        await readInitialAccessTokens(t),
+        clients,
+        events,
+        await readRateLimits(h),
+        await readInitialAccessTokens(h),
       ]);
       expect(tables).not.toContain(client.client_secret);
       expect(tables).not.toContain(client.registration_access_token);
@@ -204,15 +220,15 @@ describe("POST /hub-clients", () => {
     });
 
     it("keeps the secret and the token out of every log", async () => {
-      const t = makeConvexTest();
+      const h = await createHub();
       const logs = (["log", "info", "warn", "error"] as const).map((method) =>
         vi.spyOn(console, method),
       );
 
-      const client = await createClient(t);
+      const client = await createClient(h);
 
       const token = client.initial_access_token ?? "";
-      const laptop = await createDevelopmentClient(t, token);
+      const laptop = await createDevelopmentClient(h, token);
 
       const logged = JSON.stringify(logs.map((log) => log.mock.calls));
       expect(token).not.toBe("");
@@ -228,40 +244,48 @@ describe("POST /hub-clients", () => {
     });
 
     it("records nothing when the broker refuses, and says why", async () => {
-      const t = makeConvexTest();
-      await t.mutation(components.identityBroker.registration.switchConnection, {
-        tenantId: "gh-74",
-        connected: false,
-      });
+      const h = await createHub();
+      // The tenant's budget of apps is full, so the broker refuses a new app of the repository.
+      for (let index = 0; index < 10; index += 1) {
+        await registerAtBroker(h, {
+          tenantId: `gh-${REPOSITORY_ID}`,
+          appId: `gh-${REPOSITORY_ID}-other-${index}`,
+          deploymentType: "production",
+          clientId: `cl_other_${index}`,
+          clientName: "prod",
+          now: Date.now(),
+        });
+      }
       stubProviders();
 
-      const response = await postHubClient(t, await signToken());
+      const response = await postHubClient(h, await signToken());
 
       expect(response.status).toBe(403);
-      expect(await response.json()).toEqual({ error: "not_allowed", reason: "suspended" });
-      expect(await readRegistrations(t)).toEqual([]);
+      expect(await response.json()).toEqual({ error: "not_allowed", reason: "too_many_apps" });
+      expect(await readRegistrationEvents(h)).toEqual([]);
+      expect(await readInitialAccessTokens(h)).toEqual([]);
     });
   });
 
   describe("the pause", () => {
     it("refuses a third-party repository while THIRD_PARTY_PAUSED is true, before it reads the file", async () => {
-      const t = makeConvexTest();
+      const h = await createHub();
       vi.stubEnv("THIRD_PARTY_PAUSED", "true");
       const fileRequests = stubProviders();
 
-      const response = await postHubClient(t, await signToken());
+      const response = await postHubClient(h, await signToken());
 
       expect(response.status).toBe(403);
       expect(await response.json()).toEqual({ error: "not_allowed", reason: "paused" });
       expect(fileRequests).toEqual([]);
-      expect(await readRateLimits(t)).toEqual([]);
+      expect(await readRateLimits(h)).toEqual([]);
     });
 
     it("lets an own repository register while THIRD_PARTY_PAUSED is true", async () => {
-      const t = makeConvexTest();
+      const h = await createHub();
       vi.stubEnv("THIRD_PARTY_PAUSED", "true");
       vi.stubEnv("OWN_REPOSITORY_IDS", "81");
-      const own = await createClient(t, { repository_id: "81" });
+      const own = await createClient(h, { repository_id: "81" });
       expect(own.client_id).toMatch(/^cl_/);
     });
   });
@@ -277,25 +301,25 @@ describe("POST /hub-clients", () => {
     };
 
     it.each(Object.entries(tokens))("refuses %s and touches no table", async (_, sign) => {
-      const t = makeConvexTest();
+      const h = await createHub();
       const fileRequests = stubProviders();
 
-      const response = await postHubClient(t, await sign());
+      const response = await postHubClient(h, await sign());
 
       expect(response.status).toBe(401);
       expect(await response.json()).toEqual({ error: "invalid_token" });
       expect(fileRequests).toEqual([]);
-      expect(await readRateLimits(t)).toEqual([]);
+      expect(await readRateLimits(h)).toEqual([]);
     });
 
     it("answers 502, not 401, when GitHub's key set cannot be read", async () => {
-      const t = makeConvexTest();
+      const h = await createHub();
       vi.stubGlobal(
         "fetch",
         vi.fn(async () => new Response("Service Unavailable", { status: 503 })),
       );
 
-      const response = await postHubClient(t, await signToken());
+      const response = await postHubClient(h, await signToken());
 
       expect(response.status).toBe(502);
       expect(await response.json()).toEqual({ error: "github_unavailable" });
@@ -308,10 +332,10 @@ describe("POST /hub-clients", () => {
       ["a push of a tag", { event_name: "push", ref: "refs/tags/main" }],
       ["a pull request head ref", { event_name: "pull_request", ref: "refs/pull/12/head" }],
     ])("refuses %s", async (_, claims) => {
-      const t = makeConvexTest();
+      const h = await createHub();
       const fileRequests = stubProviders();
 
-      const response = await postHubClient(t, await signToken(claims));
+      const response = await postHubClient(h, await signToken(claims));
 
       expect(response.status).toBe(403);
       expect(await response.json()).toEqual({ error: "not_allowed", reason: "run_not_allowed" });
@@ -319,11 +343,11 @@ describe("POST /hub-clients", () => {
     });
 
     it("accepts a workflow_dispatch run on main", async () => {
-      const t = makeConvexTest();
+      const h = await createHub();
       stubProviders();
 
       const response = await postHubClient(
-        t,
+        h,
         await signToken({ event_name: "workflow_dispatch", ref: "refs/heads/main" }),
       );
 
@@ -354,22 +378,22 @@ describe("POST /hub-clients", () => {
       ["a name under localhost", { redirectUri: "https://app.localhost/cb" }],
       ["a very long address", { redirectUri: `${PRODUCTION_HOST}/${"a".repeat(2_048)}` }],
     ])("answers 400 for %s and fetches nothing", async (_, body) => {
-      const t = makeConvexTest();
+      const h = await createHub();
       const fileRequests = stubProviders();
 
-      const response = await postHubClient(t, await signToken(), body);
+      const response = await postHubClient(h, await signToken(), body);
 
       expect(response.status).toBe(400);
       expect(await response.json()).toEqual({ error: "invalid_request" });
-      expect(await readRateLimits(t)).toEqual([]);
+      expect(await readRateLimits(h)).toEqual([]);
       expect(fileRequests).toEqual([]);
     });
 
     it("accepts an app of exactly 64 characters", async () => {
-      const t = makeConvexTest();
+      const h = await createHub();
       stubProviders();
 
-      const response = await postHubClient(t, await signToken(), { app: "a".repeat(64) });
+      const response = await postHubClient(h, await signToken(), { app: "a".repeat(64) });
 
       expect(response.status).toBe(201);
     });
@@ -377,10 +401,10 @@ describe("POST /hub-clients", () => {
 
   describe("the host", () => {
     it("reads the file at the root of the return address's origin, with no redirects", async () => {
-      const t = makeConvexTest();
+      const h = await createHub();
       const fileRequests = stubProviders();
 
-      await postHubClient(t, await signToken(), {
+      await postHubClient(h, await signToken(), {
         redirectUri: "https://app.example.com:8443/api/auth/callback/hub?x=1",
       });
 
@@ -434,16 +458,17 @@ describe("POST /hub-clients", () => {
       ],
       ["another id", () => jsonResponse({ repository: "999" }), "repository_mismatch"],
     ])("refuses on %s, creates nothing, and never shows the body", async (_, host, reason) => {
-      const t = makeConvexTest();
+      const h = await createHub();
       stubProviders(host);
 
-      const response = await postHubClient(t, await signToken());
+      const response = await postHubClient(h, await signToken());
       const text = await response.text();
 
       expect(response.status).toBe(403);
       expect(JSON.parse(text)).toEqual({ error: "not_allowed", reason });
       expect(text).not.toContain("999");
-      expect(await readRegistrations(t)).toEqual([]);
+      expect(await readRegistrationEvents(h)).toEqual([]);
+      expect(await readClients(h)).toEqual([]);
     });
 
     it.each([
@@ -451,10 +476,10 @@ describe("POST /hub-clients", () => {
       ["more members and no Content-Type", () => new Response(`{"repository":74,"note":"hi"}`)],
       ["a streamed body", () => streamedResponse(['{"repos', `itory":"${REPOSITORY_ID}"}`])],
     ])("accepts the id as %s", async (_, host) => {
-      const t = makeConvexTest();
+      const h = await createHub();
       stubProviders(host);
 
-      const response = await postHubClient(t, await signToken());
+      const response = await postHubClient(h, await signToken());
 
       expect(response.status).toBe(201);
     });
@@ -465,17 +490,17 @@ describe("POST /hub-clients", () => {
       ["repository", REPOSITORY_ID],
       ["owner", OWNER_ID],
     ] as const)("refuses a blocked %s before it fetches the file", async (kind, githubId) => {
-      const t = makeConvexTest();
-      expect((await setBlock(t, { action: "block", kind, githubId })).status).toBe(200);
+      const h = await createHub();
+      expect((await setBlock(h, { action: "block", kind, githubId })).status).toBe(200);
       const fileRequests = stubProviders();
 
-      const response = await postHubClient(t, await signToken());
+      const response = await postHubClient(h, await signToken());
 
       expect(response.status).toBe(403);
       expect(await response.json()).toEqual({ error: "not_allowed", reason: "blocked" });
       expect(fileRequests).toEqual([]);
-      expect(await readRateLimits(t)).toEqual([]);
-      expect(await readRegistrations(t)).toEqual([]);
+      expect(await readRateLimits(h)).toEqual([]);
+      expect(await readRegistrationEvents(h)).toEqual([]);
     });
 
     it.each([
@@ -484,9 +509,9 @@ describe("POST /hub-clients", () => {
     ] as const)(
       "refuses a %s blocked while the file was fetched, and creates no client",
       async (kind, githubId) => {
-        const t = makeConvexTest();
+        const h = await createHub();
         stubProviders(async () => {
-          await t.mutation(internal.moderation.setBlock, {
+          await h.t.mutation(api.moderation.setBlock, {
             action: "block",
             kind,
             githubId,
@@ -496,41 +521,41 @@ describe("POST /hub-clients", () => {
           return jsonResponse({ repository: REPOSITORY_ID });
         });
 
-        const response = await postHubClient(t, await signToken());
+        const response = await postHubClient(h, await signToken());
 
         expect(response.status).toBe(403);
         expect(await response.json()).toEqual({ error: "not_allowed", reason: "blocked" });
-        expect(await readRegistrations(t)).toEqual([]);
-        expect(await t.query(components.identityBroker.apps.list, {})).toEqual([]);
+        expect(await readRegistrationEvents(h)).toEqual([]);
+        expect(await h.t.query(api.apps.list, {})).toEqual([]);
       },
     );
 
     it("blocking an owner stops each of its repositories, and unblocking restores only those with no other block", async () => {
-      const t = makeConvexTest();
-      const first = await createClient(t);
-      const second = await createClient(t, { repository_id: "75", repository: "octo-org/two" });
-      const other = await createClient(t, {
+      const h = await createHub();
+      const first = await createClient(h);
+      const second = await createClient(h, { repository_id: "75", repository: "octo-org/two" });
+      const other = await createClient(h, {
         repository_id: "76",
         repository_owner_id: "66",
         repository: "someone/else",
       });
 
-      await setBlock(t, { action: "block", kind: "owner", githubId: OWNER_ID });
-      await setBlock(t, { action: "block", kind: "repository", githubId: "75" });
+      await setBlock(h, { action: "block", kind: "owner", githubId: OWNER_ID });
+      await setBlock(h, { action: "block", kind: "repository", githubId: "75" });
 
-      expect(await readOwnRecord(t, first)).toBe(403);
-      expect(await readOwnRecord(t, second)).toBe(403);
-      expect(await readOwnRecord(t, other)).toBe(200);
-      const signIn = await t.fetch(
-        `/authorize?client_id=${first.client_id}&redirect_uri=${encodeURIComponent(PRODUCTION_CALLBACK)}&response_type=code&scope=openid&code_challenge=${"a".repeat(43)}&code_challenge_method=S256`,
+      expect(await readOwnRecord(h, first)).toBe(403);
+      expect(await readOwnRecord(h, second)).toBe(403);
+      expect(await readOwnRecord(h, other)).toBe(200);
+      const signIn = await h.fetchBroker(
+        `${h.issuer}/authorize?client_id=${first.client_id}&redirect_uri=${encodeURIComponent(PRODUCTION_CALLBACK)}&response_type=code&scope=openid&code_challenge=${"a".repeat(43)}&code_challenge_method=S256`,
       );
       expect(signIn.status).toBe(403);
       expect(signIn.headers.get("location")).toBeNull();
 
-      await setBlock(t, { action: "unblock", kind: "owner", githubId: OWNER_ID });
+      await setBlock(h, { action: "unblock", kind: "owner", githubId: OWNER_ID });
 
-      expect(await readOwnRecord(t, first)).toBe(200);
-      expect(await readOwnRecord(t, second)).toBe(403);
+      expect(await readOwnRecord(h, first)).toBe(200);
+      expect(await readOwnRecord(h, second)).toBe(403);
     });
   });
 
@@ -546,11 +571,11 @@ describe("POST /hub-clients", () => {
         { scope: "new_owners", githubId: "", count: 50, newOwnersWindowStartedAt: null },
       ],
     ] as const)("limits the window %s, and fetches nothing", async (window, row) => {
-      const t = makeConvexTest();
-      await seedWindow(t, row);
+      const h = await createHub();
+      await seedWindow(h, row);
       const fileRequests = stubProviders();
 
-      const response = await postHubClient(t, await signToken());
+      const response = await postHubClient(h, await signToken());
 
       expect(response.status).toBe(429);
       expect(await response.json()).toEqual({ error: "rate_limited", window });
@@ -558,14 +583,14 @@ describe("POST /hub-clients", () => {
     });
 
     it("counts each request against the repository, the owner, and a new owner once", async () => {
-      const t = makeConvexTest();
+      const h = await createHub();
       stubProviders(() => new Response("Not Found", { status: 404 }));
       const token = await signToken();
 
-      await postHubClient(t, token);
-      await postHubClient(t, token);
+      await postHubClient(h, token);
+      await postHubClient(h, token);
 
-      expect(await readRateLimits(t)).toEqual(
+      expect(await readRateLimits(h)).toEqual(
         expect.arrayContaining([
           expect.objectContaining({ scope: "repository", githubId: REPOSITORY_ID, count: 2 }),
           expect.objectContaining({ scope: "owner", githubId: OWNER_ID, count: 2 }),
@@ -575,11 +600,11 @@ describe("POST /hub-clients", () => {
     });
 
     it("counts a new owner again in a later new-owners window, while its own window runs", async () => {
-      const t = makeConvexTest();
+      const h = await createHub();
       const now = Date.now();
       // Counted as new in a window that has ended; its own window is still running.
       await seedWindow(
-        t,
+        h,
         {
           scope: "owner",
           githubId: OWNER_ID,
@@ -589,13 +614,13 @@ describe("POST /hub-clients", () => {
         now - 10 * 60 * 1_000,
       );
       await seedWindow(
-        t,
+        h,
         { scope: "new_owners", githubId: "", count: 50, newOwnersWindowStartedAt: null },
         now - 5 * 60 * 1_000,
       );
       const fileRequests = stubProviders();
 
-      const response = await postHubClient(t, await signToken());
+      const response = await postHubClient(h, await signToken());
 
       expect(response.status).toBe(429);
       expect(await response.json()).toEqual({ error: "rate_limited", window: "new_owners" });
@@ -603,10 +628,10 @@ describe("POST /hub-clients", () => {
     });
 
     it("does not count an owner with a registration as new, and still limits the others", async () => {
-      const t = makeConvexTest();
-      await createClient(t);
+      const h = await createHub();
+      await createClient(h);
       // The owner's window has ended, so only its registration says that it is not new.
-      await t.run(async (ctx) => {
+      await h.t.run(async (ctx) => {
         for (const row of await ctx.db.query("rateLimits").collect()) {
           if (row.scope === "owner") await ctx.db.delete("rateLimits", row._id);
           if (row.scope === "new_owners") await ctx.db.patch("rateLimits", row._id, { count: 50 });
@@ -614,9 +639,9 @@ describe("POST /hub-clients", () => {
       });
       stubProviders();
 
-      const known = await postHubClient(t, await signToken());
+      const known = await postHubClient(h, await signToken());
       const stranger = await postHubClient(
-        t,
+        h,
         await signToken({ repository_id: "80", repository_owner_id: "90" }),
       );
 
@@ -627,8 +652,8 @@ describe("POST /hub-clients", () => {
 
     it("starts a new window after an hour", async () => {
       vi.useFakeTimers({ toFake: ["Date"] });
-      const t = makeConvexTest();
-      await seedWindow(t, {
+      const h = await createHub();
+      await seedWindow(h, {
         scope: "repository",
         githubId: REPOSITORY_ID,
         count: 30,
@@ -638,10 +663,10 @@ describe("POST /hub-clients", () => {
       vi.setSystemTime(Date.now() + 60 * 60 * 1_000 + 1);
       stubProviders();
 
-      const response = await postHubClient(t, token);
+      const response = await postHubClient(h, token);
 
       expect(response.status).toBe(201);
-      expect(await readRateLimits(t)).toEqual(
+      expect(await readRateLimits(h)).toEqual(
         expect.arrayContaining([
           expect.objectContaining({ scope: "repository", githubId: REPOSITORY_ID, count: 1 }),
         ]),
@@ -653,17 +678,17 @@ describe("POST /hub-clients", () => {
 describe("the initial access token", () => {
   it("comes with a production client and its row, and never with a preview", async () => {
     vi.useFakeTimers({ now: 1_800_000_000_000, toFake: ["Date"] });
-    const t = makeConvexTest();
-    const production = await createClient(t);
+    const h = await createHub();
+    const production = await createClient(h);
     stubProviders();
 
-    const previewResponse = await postHubClient(t, await signToken(pullRequestClaims));
+    const previewResponse = await postHubClient(h, await signToken(pullRequestClaims));
     const preview: Record<string, string> = await previewResponse.json();
 
     expect(previewResponse.status).toBe(201);
     expect(preview).not.toHaveProperty("initial_access_token");
     expect(preview).not.toHaveProperty("repository");
-    expect(await readInitialAccessTokens(t)).toEqual([
+    expect(await readInitialAccessTokens(h)).toEqual([
       {
         _id: expect.any(String),
         _creationTime: expect.any(Number),
@@ -673,53 +698,52 @@ describe("the initial access token", () => {
         githubRepository: "octo-org/octo-repo",
         app: "my-app",
         issuedAt: 1_800_000_000_000,
-        productionClientId: production.client_id,
       },
     ]);
   });
 
   it("is replaced by the next production client, and the first one stops", async () => {
-    const t = makeConvexTest();
-    const first = await createInitialAccessToken(t);
-    const second = await createInitialAccessToken(t);
+    const h = await createHub();
+    const first = await createInitialAccessToken(h);
+    const second = await createInitialAccessToken(h);
     stubProviders();
 
-    const refused = await postHubClient(t, first, { redirectUri: LOOPBACK_CALLBACK });
+    const refused = await postHubClient(h, first, { redirectUri: LOOPBACK_CALLBACK });
 
     expect(first).not.toBe(second);
     expect(refused.status).toBe(401);
     expect(await refused.json()).toEqual({ error: "invalid_token" });
-    expect(await readInitialAccessTokens(t)).toHaveLength(1);
-    expect((await createDevelopmentClient(t, second)).client_id).toMatch(/^cl_/);
+    expect(await readInitialAccessTokens(h)).toHaveLength(1);
+    expect((await createDevelopmentClient(h, second)).client_id).toMatch(/^cl_/);
   });
 
   it("stops at the first GitHub run under another owner, also of a preview", async () => {
-    const t = makeConvexTest();
-    const token = await createInitialAccessToken(t);
+    const h = await createHub();
+    const token = await createInitialAccessToken(h);
     stubProviders();
 
-    const sameOwner = await postHubClient(t, await signToken(pullRequestClaims));
+    const sameOwner = await postHubClient(h, await signToken(pullRequestClaims));
     expect(sameOwner.status).toBe(201);
-    expect(await readInitialAccessTokens(t)).toHaveLength(1);
+    expect(await readInitialAccessTokens(h)).toHaveLength(1);
     const transferred = await postHubClient(
-      t,
+      h,
       await signToken({ ...pullRequestClaims, repository_owner_id: "66" }),
     );
 
     expect(transferred.status).toBe(201);
-    expect(await readInitialAccessTokens(t)).toEqual([]);
-    expect((await postHubClient(t, token, { redirectUri: LOOPBACK_CALLBACK })).status).toBe(401);
+    expect(await readInitialAccessTokens(h)).toEqual([]);
+    expect((await postHubClient(h, token, { redirectUri: LOOPBACK_CALLBACK })).status).toBe(401);
   });
 });
 
 describe("POST /hub-clients with the initial access token", () => {
   it("registers a development client on a loopback address without a fetch", async () => {
     vi.useFakeTimers({ now: 1_800_000_000_000, toFake: ["Date"] });
-    const t = makeConvexTest();
-    const token = await createInitialAccessToken(t);
+    const h = await createHub();
+    const token = await createInitialAccessToken(h);
     const fileRequests = stubProviders();
 
-    const response = await postHubClient(t, token, { redirectUri: LOOPBACK_CALLBACK });
+    const response = await postHubClient(h, token, { redirectUri: LOOPBACK_CALLBACK });
 
     expect(response.status).toBe(201);
     expect(fetch).not.toHaveBeenCalled();
@@ -734,78 +758,77 @@ describe("POST /hub-clients with the initial access token", () => {
       redirect_uri: LOOPBACK_CALLBACK,
       terms: "https://samebase.com/terms",
     });
-    expect(
-      await t.query(components.identityBroker.clients.get, { clientId: client["client_id"] ?? "" }),
-    ).toMatchObject({
+    const clientId = client["client_id"] ?? "";
+    expect(await h.t.query(api.clients.get, { clientId })).toMatchObject({
       appId: `gh-${REPOSITORY_ID}-${APP_HASH}-preview`,
       redirectUri: LOOPBACK_CALLBACK,
       deploymentType: "development",
       clientName: "development",
       removeAt: 1_800_000_000_000 + 14 * 24 * 60 * 60 * 1_000,
+      app: "my-app",
+      registeredBy: {
+        kind: "initial_access_token",
+        githubRepository: "octo-org/octo-repo",
+        githubOwnerId: OWNER_ID,
+        issuedAt: 1_800_000_000_000,
+      },
     });
     expect(
-      (await readRegistrations(t)).find((row) => row.clientId === client["client_id"]),
+      (await readRegistrationEvents(h)).find(
+        (row) => row.kind === "registration" && row.clientId === clientId,
+      ),
     ).toEqual({
       _id: expect.any(String),
       _creationTime: expect.any(Number),
-      clientId: client["client_id"],
+      kind: "registration",
+      clientId,
       githubRepositoryDatabaseId: REPOSITORY_ID,
       githubOwnerId: OWNER_ID,
-      githubRepository: "octo-org/octo-repo",
-      proof: { kind: "initial_access_token", issuedAt: 1_800_000_000_000 },
-      stage: "development",
-      app: "my-app",
-      redirectUri: LOOPBACK_CALLBACK,
-      registeredAt: 1_800_000_000_000,
+      at: 1_800_000_000_000,
     });
   });
 
   it.each(["http://[::1]:3211/auth/hub/callback", "http://localhost:5173/callback"])(
     "accepts the loopback address %s",
     async (redirectUri) => {
-      const t = makeConvexTest();
-      const token = await createInitialAccessToken(t);
+      const h = await createHub();
+      const token = await createInitialAccessToken(h);
       stubProviders();
 
-      expect((await postHubClient(t, token, { redirectUri })).status).toBe(201);
+      expect((await postHubClient(h, token, { redirectUri })).status).toBe(201);
     },
   );
 
   it("creates the preview app with the first laptop client, inside the tenant's budget", async () => {
-    const t = makeConvexTest();
-    const token = await createInitialAccessToken(t);
+    const h = await createHub();
+    const token = await createInitialAccessToken(h);
     const previewAppId = `gh-${REPOSITORY_ID}-${APP_HASH}-preview`;
-    expect(await t.query(components.identityBroker.apps.get, { appId: previewAppId })).toBeNull();
+    expect(await h.t.query(api.apps.get, { appId: previewAppId })).toBeNull();
 
-    await createDevelopmentClient(t, token);
+    await createDevelopmentClient(h, token);
 
-    expect(
-      await t.query(components.identityBroker.apps.get, { appId: previewAppId }),
-    ).toMatchObject({ tenantId: `gh-${REPOSITORY_ID}`, connector: "google-apps" });
+    expect(await h.t.query(api.apps.get, { appId: previewAppId })).toMatchObject({
+      tenantId: `gh-${REPOSITORY_ID}`,
+      connector: "google-apps",
+    });
   });
 
   it("is refused at the tenant's budget of apps", async () => {
-    const t = makeConvexTest();
-    const token = await createInitialAccessToken(t);
+    const h = await createHub();
+    const token = await createInitialAccessToken(h);
     for (let index = 1; index < 10; index += 1) {
-      await t.mutation(components.identityBroker.registration.register, {
+      await registerAtBroker(h, {
         tenantId: `gh-${REPOSITORY_ID}`,
         appId: `gh-${REPOSITORY_ID}-other-${index}`,
-        trust: { firstParty: false, connector: "google-apps" },
         deploymentType: "production",
         clientId: `cl_other_${index}`,
-        secretHash: "hash",
-        registrationTokenHash: "hash",
-        tokenEndpointAuthMethod: "client_secret_post",
-        redirectUri: PRODUCTION_CALLBACK,
         clientName: "prod",
-        softwareVersion: "abc123",
         now: Date.now(),
       });
     }
     stubProviders();
 
-    const response = await postHubClient(t, token, { redirectUri: LOOPBACK_CALLBACK });
+    const response = await postHubClient(h, token, { redirectUri: LOOPBACK_CALLBACK });
 
     expect(response.status).toBe(403);
     expect(await response.json()).toEqual({ error: "not_allowed", reason: "too_many_apps" });
@@ -813,48 +836,40 @@ describe("POST /hub-clients with the initial access token", () => {
 
   it("evicts the preview app's oldest client at its cap, and never the production client", async () => {
     vi.useFakeTimers({ now: 1_800_000_000_000, toFake: ["Date"] });
-    const t = makeConvexTest();
-    const production = await createClient(t);
+    const h = await createHub();
+    const production = await createClient(h);
     const token = production.initial_access_token ?? "";
     const previewAppId = `gh-${REPOSITORY_ID}-${APP_HASH}-preview`;
     for (let index = 0; index < 30; index += 1) {
       vi.setSystemTime(1_800_000_001_000 + index * 1_000);
-      await t.mutation(components.identityBroker.registration.register, {
+      await registerAtBroker(h, {
         tenantId: `gh-${REPOSITORY_ID}`,
         appId: previewAppId,
-        trust: { firstParty: false, connector: "google-apps" },
         deploymentType: "preview",
         clientId: `cl_preview_${index}`,
-        secretHash: "hash",
-        registrationTokenHash: "hash",
-        tokenEndpointAuthMethod: "client_secret_post",
-        redirectUri: PRODUCTION_CALLBACK,
         clientName: `pr-${index + 1}`,
-        softwareVersion: "abc123",
         now: Date.now(),
       });
     }
     vi.setSystemTime(1_800_000_100_000);
 
-    const laptop = await createDevelopmentClient(t, token);
+    const laptop = await createDevelopmentClient(h, token);
 
-    const clients = await t.query(components.identityBroker.clients.listByApp, {
-      appId: previewAppId,
-    });
+    const clients = await h.t.query(api.clients.listByApp, { appId: previewAppId });
     expect(clients).toHaveLength(30);
     expect(clients.map((client) => client.clientId)).not.toContain("cl_preview_0");
     expect(clients.map((client) => client.clientId)).toContain(laptop.client_id);
-    expect(
-      await t.query(components.identityBroker.clients.get, { clientId: production.client_id }),
-    ).toMatchObject({ deploymentType: "production" });
+    expect(await h.t.query(api.clients.get, { clientId: production.client_id })).toMatchObject({
+      deploymentType: "production",
+    });
   });
 
   it("needs the verification file for an https address", async () => {
-    const t = makeConvexTest();
-    const token = await createInitialAccessToken(t);
+    const h = await createHub();
+    const token = await createInitialAccessToken(h);
     const missing = stubProviders(() => new Response("Not Found", { status: 404 }));
 
-    const refused = await postHubClient(t, token, {
+    const refused = await postHubClient(h, token, {
       redirectUri: "https://calm-cow-456.convex.site/auth/hub/callback",
     });
 
@@ -865,7 +880,7 @@ describe("POST /hub-clients with the initial access token", () => {
     });
     expect(missing).toHaveLength(1);
     const served = stubProviders();
-    const accepted = await postHubClient(t, token, {
+    const accepted = await postHubClient(h, token, {
       redirectUri: "https://calm-cow-456.convex.site/auth/hub/callback",
     });
     expect(accepted.status).toBe(201);
@@ -878,11 +893,11 @@ describe("POST /hub-clients with the initial access token", () => {
   });
 
   it("refuses another app of the repository", async () => {
-    const t = makeConvexTest();
-    const token = await createInitialAccessToken(t);
+    const h = await createHub();
+    const token = await createInitialAccessToken(h);
     stubProviders();
 
-    const response = await postHubClient(t, token, {
+    const response = await postHubClient(h, token, {
       app: "other-app",
       redirectUri: LOOPBACK_CALLBACK,
     });
@@ -892,10 +907,10 @@ describe("POST /hub-clients with the initial access token", () => {
   });
 
   it("refuses a token whose row was deleted while the file was fetched", async () => {
-    const t = makeConvexTest();
-    const token = await createInitialAccessToken(t);
+    const h = await createHub();
+    const token = await createInitialAccessToken(h);
     stubProviders(async () => {
-      await t.run(async (ctx) => {
+      await h.t.run(async (ctx) => {
         for (const row of await ctx.db.query("initialAccessTokens").collect()) {
           await ctx.db.delete("initialAccessTokens", row._id);
         }
@@ -903,61 +918,48 @@ describe("POST /hub-clients with the initial access token", () => {
       return jsonResponse({ repository: REPOSITORY_ID });
     });
 
-    const response = await postHubClient(t, token, {
+    const response = await postHubClient(h, token, {
       redirectUri: "https://calm-cow-456.convex.site/auth/hub/callback",
     });
 
     expect(response.status).toBe(401);
     expect(await response.json()).toEqual({ error: "invalid_token" });
-    expect((await readRegistrations(t)).map((row) => row.stage)).toEqual(["prod"]);
+    expect((await readClients(h)).map((row) => row.clientName)).toEqual(["prod"]);
+    expect(await readRegistrationEvents(h)).toHaveLength(1);
     expect(
-      await t.query(components.identityBroker.apps.get, {
-        appId: `gh-${REPOSITORY_ID}-${APP_HASH}-preview`,
-      }),
+      await h.t.query(api.apps.get, { appId: `gh-${REPOSITORY_ID}-${APP_HASH}-preview` }),
     ).toBeNull();
   });
 
   it("passes no owner: the broker checks the tenant's recorded owner and keeps it", async () => {
-    const t = makeConvexTest();
-    const token = await createInitialAccessToken(t);
+    const h = await createHub();
+    const token = await createInitialAccessToken(h);
     // Another app of the tenant records owner 66 at the broker, as after a transfer whose run
     // made no client of `my-app`; the token's row still names owner 65.
-    await t.mutation(components.identityBroker.registration.register, {
+    await registerAtBroker(h, {
       tenantId: `gh-${REPOSITORY_ID}`,
       ownerId: "66",
       appId: `gh-${REPOSITORY_ID}-other`,
-      trust: { firstParty: false, connector: "google-apps" },
       deploymentType: "production",
       clientId: "cl_other",
-      secretHash: "hash",
-      registrationTokenHash: "hash",
-      tokenEndpointAuthMethod: "client_secret_post",
-      redirectUri: PRODUCTION_CALLBACK,
       clientName: "prod",
-      softwareVersion: "abc123",
       now: Date.now(),
     });
-    const setOwnerBlocked = async (ownerId: string, blocked: boolean) =>
-      await t.mutation(components.identityBroker.registration.setOwnerBlocked, {
-        ownerId,
-        blocked,
-        now: Date.now(),
-      });
+    const setOwnerBlocked = async (githubId: string, blocked: boolean) =>
+      await setBlock(h, { action: blocked ? "block" : "unblock", kind: "owner", githubId });
     stubProviders();
 
     await setOwnerBlocked("66", true);
-    const refused = await postHubClient(t, token, { redirectUri: LOOPBACK_CALLBACK });
+    const refused = await postHubClient(h, token, { redirectUri: LOOPBACK_CALLBACK });
     expect(await refused.json()).toEqual({ error: "not_allowed", reason: "suspended" });
 
+    // A block of the token's own owner refuses as `blocked`: "refuses a blocked owner" below.
     await setOwnerBlocked("66", false);
-    await setOwnerBlocked(OWNER_ID, true);
-    expect((await postHubClient(t, token, { redirectUri: LOOPBACK_CALLBACK })).status).toBe(201);
+    expect((await postHubClient(h, token, { redirectUri: LOOPBACK_CALLBACK })).status).toBe(201);
 
-    await setOwnerBlocked(OWNER_ID, false);
+    // The laptop's client left the recorded owner 66 in place.
     await setOwnerBlocked("66", true);
-    const app = await t.query(components.identityBroker.apps.get, {
-      appId: `gh-${REPOSITORY_ID}-${APP_HASH}`,
-    });
+    const app = await h.t.query(api.apps.get, { appId: `gh-${REPOSITORY_ID}-${APP_HASH}` });
     expect(app).toMatchObject({ suspended: true });
   });
 
@@ -965,26 +967,26 @@ describe("POST /hub-clients with the initial access token", () => {
     ["repository", REPOSITORY_ID],
     ["owner", OWNER_ID],
   ] as const)("refuses a blocked %s", async (kind, githubId) => {
-    const t = makeConvexTest();
-    const token = await createInitialAccessToken(t);
-    await setBlock(t, { action: "block", kind, githubId });
-    const before = await readRateLimits(t);
+    const h = await createHub();
+    const token = await createInitialAccessToken(h);
+    await setBlock(h, { action: "block", kind, githubId });
+    const before = await readRateLimits(h);
     stubProviders();
 
-    const response = await postHubClient(t, token, { redirectUri: LOOPBACK_CALLBACK });
+    const response = await postHubClient(h, token, { redirectUri: LOOPBACK_CALLBACK });
 
     expect(response.status).toBe(403);
     expect(await response.json()).toEqual({ error: "not_allowed", reason: "blocked" });
-    expect(await readRateLimits(t)).toEqual(before);
+    expect(await readRateLimits(h)).toEqual(before);
   });
 
   it("refuses it while THIRD_PARTY_PAUSED is true", async () => {
-    const t = makeConvexTest();
-    const token = await createInitialAccessToken(t);
+    const h = await createHub();
+    const token = await createInitialAccessToken(h);
     vi.stubEnv("THIRD_PARTY_PAUSED", "true");
     stubProviders();
 
-    const response = await postHubClient(t, token, { redirectUri: LOOPBACK_CALLBACK });
+    const response = await postHubClient(h, token, { redirectUri: LOOPBACK_CALLBACK });
 
     expect(response.status).toBe(403);
     expect(await response.json()).toEqual({ error: "not_allowed", reason: "paused" });
@@ -994,27 +996,32 @@ describe("POST /hub-clients with the initial access token", () => {
     ["repository", { scope: "repository", githubId: REPOSITORY_ID, count: 30 }],
     ["owner", { scope: "owner", githubId: OWNER_ID, count: 100 }],
   ] as const)("is limited in the %s window", async (window, row) => {
-    const t = makeConvexTest();
-    const token = await createInitialAccessToken(t);
-    await t.run(async (ctx) => {
+    const h = await createHub();
+    const token = await createInitialAccessToken(h);
+    await h.t.run(async (ctx) => {
       for (const existing of await ctx.db.query("rateLimits").collect()) {
         await ctx.db.delete("rateLimits", existing._id);
       }
     });
-    await seedWindow(t, { ...row, newOwnersWindowStartedAt: null });
+    await seedWindow(h, {
+      scope: row.scope,
+      githubId: row.githubId,
+      count: row.count,
+      newOwnersWindowStartedAt: null,
+    });
     stubProviders();
 
-    const response = await postHubClient(t, token, { redirectUri: LOOPBACK_CALLBACK });
+    const response = await postHubClient(h, token, { redirectUri: LOOPBACK_CALLBACK });
 
     expect(response.status).toBe(429);
     expect(await response.json()).toEqual({ error: "rate_limited", window });
   });
 
   it("counts in the repository and owner windows, and not in the new-owners window", async () => {
-    const t = makeConvexTest();
-    const token = await createInitialAccessToken(t);
+    const h = await createHub();
+    const token = await createInitialAccessToken(h);
     // A new-owners window that is full, and an owner whose own window has ended.
-    await t.run(async (ctx) => {
+    await h.t.run(async (ctx) => {
       for (const row of await ctx.db.query("rateLimits").collect()) {
         if (row.scope === "owner") await ctx.db.delete("rateLimits", row._id);
         if (row.scope === "new_owners") await ctx.db.patch("rateLimits", row._id, { count: 50 });
@@ -1022,9 +1029,9 @@ describe("POST /hub-clients with the initial access token", () => {
     });
     stubProviders();
 
-    await createDevelopmentClient(t, token);
+    await createDevelopmentClient(h, token);
 
-    expect(await readRateLimits(t)).toEqual(
+    expect(await readRateLimits(h)).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ scope: "repository", githubId: REPOSITORY_ID, count: 2 }),
         expect.objectContaining({ scope: "owner", githubId: OWNER_ID, count: 1 }),
@@ -1034,54 +1041,55 @@ describe("POST /hub-clients with the initial access token", () => {
   });
 
   it("never tries a JWT that fails verification as a token, and refuses other shapes", async () => {
-    const t = makeConvexTest();
-    await createInitialAccessToken(t);
+    const h = await createHub();
+    await createInitialAccessToken(h);
     const badJwt = await signToken({}, { key: foreignKey });
     // A row whose hash is the bad JWT's: only the opaque path would find it.
-    await t.run(async (ctx) => {
+    const badJwtHash = await sha256Hex(badJwt);
+    await h.t.run(async (ctx) => {
       await ctx.db.insert("initialAccessTokens", {
-        tokenHash: await sha256Hex(badJwt),
+        tokenHash: badJwtHash,
         githubRepositoryDatabaseId: REPOSITORY_ID,
         githubOwnerId: OWNER_ID,
         githubRepository: "octo-org/octo-repo",
         app: "my-app",
         issuedAt: Date.now(),
-        productionClientId: "cl_other",
       });
     });
     stubProviders();
 
     for (const bearer of [badJwt, "one.dot", "four.parts.in.it"]) {
-      const response = await postHubClient(t, bearer, { redirectUri: LOOPBACK_CALLBACK });
+      const response = await postHubClient(h, bearer, { redirectUri: LOOPBACK_CALLBACK });
       expect(response.status).toBe(401);
       expect(await response.json()).toEqual({ error: "invalid_token" });
     }
-    expect((await readRegistrations(t)).map((row) => row.stage)).toEqual(["prod"]);
+    expect((await readClients(h)).map((row) => row.clientName)).toEqual(["prod"]);
+    expect(await readRegistrationEvents(h)).toHaveLength(1);
   });
 
   it("answers 401 for a token that no row has", async () => {
-    const t = makeConvexTest();
+    const h = await createHub();
     stubProviders();
 
-    const response = await postHubClient(t, "unknown-token", { redirectUri: LOOPBACK_CALLBACK });
+    const response = await postHubClient(h, "unknown-token", { redirectUri: LOOPBACK_CALLBACK });
 
     expect(response.status).toBe(401);
     expect(await response.json()).toEqual({ error: "invalid_token" });
-    expect(await readRateLimits(t)).toEqual([]);
+    expect(await readRateLimits(h)).toEqual([]);
   });
 });
 
 describe("the shared registration key", () => {
   it("creates no client and switches no tenant, also while the old variable is still set", async () => {
-    const t = makeConvexTest();
+    const h = await createHub();
     vi.stubEnv("REGISTRATION_ACCESS_TOKEN", "registration-token");
-    const client = await createClient(t);
+    const client = await createClient(h);
     const headers = {
       Authorization: "Bearer registration-token",
       "Content-Type": "application/json",
     };
 
-    const register = await t.fetch("/register", {
+    const register = await h.fetchBroker(`${h.issuer}/register`, {
       method: "POST",
       headers,
       body: JSON.stringify({
@@ -1094,16 +1102,16 @@ describe("the shared registration key", () => {
         token_endpoint_auth_method: "client_secret_post",
       }),
     });
-    const connection = await t.fetch("/tenant-connection", {
+    const connection = await h.fetchBroker(`${h.issuer}/tenant-connection`, {
       method: "POST",
       headers,
       body: JSON.stringify({ tenant_id: "gh-74", connected: false, revision: 99 }),
     });
-    const discovery = await t.fetch("/.well-known/openid-configuration");
+    const discovery = await h.fetchBroker(`${h.issuer}/.well-known/openid-configuration`);
 
     expect(register.status).toBe(404);
     expect(connection.status).toBe(404);
     expect(await discovery.json()).not.toHaveProperty("registration_endpoint");
-    expect(await readOwnRecord(t, client)).toBe(200);
+    expect(await readOwnRecord(h, client)).toBe(200);
   });
 });

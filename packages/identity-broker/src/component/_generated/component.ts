@@ -304,6 +304,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         "internal",
         { clientId: string },
         {
+          app?: string;
           appId: string;
           clientId: string;
           clientName: string;
@@ -311,6 +312,21 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           deploymentType: "production" | "development" | "preview";
           lastSignInAt?: number;
           redirectUri: string;
+          registeredBy?:
+            | {
+                commitSha: string;
+                githubActorId: string;
+                githubActorLogin: string;
+                githubOwnerId: string;
+                githubRepository: string;
+                kind: "github";
+              }
+            | {
+                githubOwnerId: string;
+                githubRepository: string;
+                issuedAt: number;
+                kind: "initial_access_token";
+              };
           registrationTokenHash: string;
           removeAt?: number;
           renewedAt: number;
@@ -320,29 +336,12 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         } | null,
         Name
       >;
-      list: FunctionReference<
-        "query",
-        "internal",
-        { limit: number },
-        Array<{
-          appId: string;
-          clientId: string;
-          clientName: string;
-          createdAt: number;
-          deploymentType: "production" | "development" | "preview";
-          lastSignInAt?: number;
-          redirectUri: string;
-          removeAt?: number;
-          renewedAt: number;
-          softwareVersion: string;
-        }>,
-        Name
-      >;
       listByApp: FunctionReference<
         "query",
         "internal",
         { appId: string },
         Array<{
+          app?: string;
           appId: string;
           clientId: string;
           clientName: string;
@@ -350,6 +349,21 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           deploymentType: "production" | "development" | "preview";
           lastSignInAt?: number;
           redirectUri: string;
+          registeredBy?:
+            | {
+                commitSha: string;
+                githubActorId: string;
+                githubActorLogin: string;
+                githubOwnerId: string;
+                githubRepository: string;
+                kind: "github";
+              }
+            | {
+                githubOwnerId: string;
+                githubRepository: string;
+                issuedAt: number;
+                kind: "initial_access_token";
+              };
           registrationTokenHash: string;
           removeAt?: number;
           renewedAt: number;
@@ -381,6 +395,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             tenantId: string;
           } | null;
           client: {
+            app?: string;
             appId: string;
             clientId: string;
             clientName: string;
@@ -388,6 +403,21 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             deploymentType: "production" | "development" | "preview";
             lastSignInAt?: number;
             redirectUri: string;
+            registeredBy?:
+              | {
+                  commitSha: string;
+                  githubActorId: string;
+                  githubActorLogin: string;
+                  githubOwnerId: string;
+                  githubRepository: string;
+                  kind: "github";
+                }
+              | {
+                  githubOwnerId: string;
+                  githubRepository: string;
+                  issuedAt: number;
+                  kind: "initial_access_token";
+                };
             registrationTokenHash: string;
             removeAt?: number;
             renewedAt: number;
@@ -396,6 +426,93 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             tokenEndpointAuthMethod:
               "client_secret_post" | "client_secret_basic";
           };
+        } | null,
+        Name
+      >;
+    };
+    hubClients: {
+      admit: FunctionReference<
+        "mutation",
+        "internal",
+        { githubOwnerId: string; githubRepositoryDatabaseId: string },
+        | { status: "admitted" }
+        | { status: "blocked" }
+        | {
+            status: "rate_limited";
+            window: "repository" | "owner" | "new_owners";
+          },
+        Name
+      >;
+      createClient: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          app: string;
+          clientId: string;
+          commitSha: string;
+          deployment:
+            | { initialAccessTokenHash: string; type: "production" }
+            | { stage: string; type: "preview" };
+          githubActorId: string;
+          githubActorLogin: string;
+          githubOwnerId: string;
+          githubRepository: string;
+          githubRepositoryDatabaseId: string;
+          redirectUri: string;
+          registrationTokenHash: string;
+          secretHash: string;
+          softwareVersion: string;
+          trust:
+            { firstParty: true } | { connector: string; firstParty: false };
+        },
+        | { ok: true }
+        | {
+            ok: false;
+            reason:
+              | "blocked"
+              | "suspended"
+              | "too_many_apps"
+              | "too_many_clients"
+              | "app_taken";
+          },
+        Name
+      >;
+      createDevelopmentClient: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          app: string;
+          clientId: string;
+          githubOwnerId: string;
+          redirectUri: string;
+          registrationTokenHash: string;
+          secretHash: string;
+          softwareVersion: string;
+          tokenHash: string;
+          trust:
+            { firstParty: true } | { connector: string; firstParty: false };
+        },
+        | { ok: true }
+        | {
+            ok: false;
+            reason:
+              | "blocked"
+              | "suspended"
+              | "too_many_apps"
+              | "too_many_clients"
+              | "app_taken"
+              | "invalid_token";
+          },
+        Name
+      >;
+      readInitialAccessToken: FunctionReference<
+        "query",
+        "internal",
+        { tokenHash: string },
+        {
+          app: string;
+          githubOwnerId: string;
+          githubRepositoryDatabaseId: string;
         } | null,
         Name
       >;
@@ -421,11 +538,159 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         Name
       >;
     };
+    migration: {
+      importHubRows: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          blockEvents: Array<{
+            action: "block" | "unblock";
+            adminEmail: string;
+            at: number;
+            githubId: string;
+            kind: "repository" | "owner";
+            reason: string;
+          }>;
+          blocks: Array<{
+            adminEmail: string;
+            at: number;
+            githubId: string;
+            kind: "repository" | "owner";
+            reason: string;
+          }>;
+          initialAccessTokens: Array<{
+            app: string;
+            githubOwnerId: string;
+            githubRepository: string;
+            githubRepositoryDatabaseId: string;
+            issuedAt: number;
+            tokenHash: string;
+          }>;
+          registrations: Array<{
+            app: string;
+            clientId: string;
+            githubOwnerId: string;
+            githubRepositoryDatabaseId: string;
+            registeredAt: number;
+            registeredBy:
+              | {
+                  commitSha: string;
+                  githubActorId: string;
+                  githubActorLogin: string;
+                  githubOwnerId: string;
+                  githubRepository: string;
+                  kind: "github";
+                }
+              | {
+                  githubOwnerId: string;
+                  githubRepository: string;
+                  issuedAt: number;
+                  kind: "initial_access_token";
+                };
+          }>;
+        },
+        {
+          blockEvents: number;
+          blocks: number;
+          clientsFilled: number;
+          initialAccessTokens: number;
+          registrationEvents: number;
+          tenantsCleared: number;
+        },
+        Name
+      >;
+    };
+    moderation: {
+      blockList: FunctionReference<
+        "query",
+        "internal",
+        {},
+        {
+          blocks: Array<{
+            adminEmail: string;
+            createdAt: number;
+            githubId: string;
+            kind: "repository" | "owner";
+            reason: string;
+          }>;
+          events: Array<{
+            action: "block" | "unblock";
+            adminEmail: string;
+            createdAt: number;
+            githubId: string;
+            kind: "repository" | "owner";
+            reason: string;
+          }>;
+        },
+        Name
+      >;
+      clientList: FunctionReference<
+        "query",
+        "internal",
+        {},
+        {
+          clients: Array<{
+            appId: string;
+            clientId: string;
+            clientName: string;
+            createdAt: number;
+            deploymentType: "production" | "development" | "preview";
+            lastSignInAt: number | null;
+            redirectUri: string;
+            registeredBy:
+              | {
+                  app: string;
+                  githubActorLogin: string;
+                  githubOwnerId: string;
+                  githubRepository: string;
+                  githubRepositoryDatabaseId: string;
+                  kind: "github";
+                }
+              | {
+                  app: string;
+                  githubOwnerId: string;
+                  githubRepository: string;
+                  githubRepositoryDatabaseId: string;
+                  issuedAt: number;
+                  kind: "initial_access_token";
+                };
+            removeAt: number | null;
+            renewedAt: number;
+          }>;
+          limitReached: boolean;
+        },
+        Name
+      >;
+      counts: FunctionReference<
+        "query",
+        "internal",
+        { now: number },
+        {
+          day: { atLeast: boolean; count: number };
+          week: { atLeast: boolean; count: number };
+        },
+        Name
+      >;
+      setBlock: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          action: "block" | "unblock";
+          adminEmail: string;
+          githubId: string;
+          kind: "repository" | "owner";
+          reason: string;
+        },
+        { changed: boolean },
+        Name
+      >;
+    };
     registration: {
       register: FunctionReference<
         "mutation",
         "internal",
         {
+          app: string;
           appId: string;
           clientId: string;
           clientName: string;
@@ -433,6 +698,21 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           now: number;
           ownerId?: string;
           redirectUri: string;
+          registeredBy:
+            | {
+                commitSha: string;
+                githubActorId: string;
+                githubActorLogin: string;
+                githubOwnerId: string;
+                githubRepository: string;
+                kind: "github";
+              }
+            | {
+                githubOwnerId: string;
+                githubRepository: string;
+                issuedAt: number;
+                kind: "initial_access_token";
+              };
           registrationTokenHash: string;
           secretHash: string;
           softwareVersion: string;
@@ -471,20 +751,6 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
               "client_secret_post" | "client_secret_basic";
           }
         | { error: "invalid_token" | "suspended"; ok: false },
-        Name
-      >;
-      setOwnerBlocked: FunctionReference<
-        "mutation",
-        "internal",
-        { blocked: boolean; now: number; ownerId: string },
-        null,
-        Name
-      >;
-      switchConnection: FunctionReference<
-        "mutation",
-        "internal",
-        { connected: boolean; tenantId: string },
-        null,
         Name
       >;
     };

@@ -22,6 +22,18 @@ const refresh = {
   now: NOW,
 };
 
+type Test = Awaited<ReturnType<typeof grant>>["t"];
+
+async function setBlock(t: Test, kind: "repository" | "owner", githubId: string, on: boolean) {
+  await t.mutation(api.moderation.setBlock, {
+    action: on ? "block" : "unblock",
+    kind,
+    githubId,
+    reason: "Phishing page",
+    adminEmail: "admin@example.com",
+  });
+}
+
 async function grant(expires = false) {
   const t = convexTest(schema, modules);
   await t.run(async (ctx) => {
@@ -196,12 +208,12 @@ test("a blocked repository or owner of a first-party app stops refresh, and an u
   await t.run(async (ctx) => {
     await ctx.db.insert("tenants", { tenantId: "gh-1", ownerId: "7" });
   });
-  await t.mutation(api.registration.switchConnection, { tenantId: "gh-1", connected: false });
+  await setBlock(t, "repository", "1", true);
   expect(await t.mutation(api.resourceRequests.claimRefresh, refresh)).toMatchObject({
     error: "invalid_client",
   });
   // The unblock restores refresh; the attempt is then freed for the next claim.
-  await t.mutation(api.registration.switchConnection, { tenantId: "gh-1", connected: true });
+  await setBlock(t, "repository", "1", false);
   const restored = await t.mutation(api.resourceRequests.claimRefresh, refresh);
   if (!restored.ok) throw new Error("Expected a claim after the unblock");
   await t.mutation(api.resourceRequests.failRefresh, {
@@ -209,11 +221,11 @@ test("a blocked repository or owner of a first-party app stops refresh, and an u
     rejected: false,
   });
 
-  await t.mutation(api.registration.setOwnerBlocked, { ownerId: "7", blocked: true, now: NOW });
+  await setBlock(t, "owner", "7", true);
   expect(await t.mutation(api.resourceRequests.claimRefresh, refresh)).toMatchObject({
     error: "invalid_client",
   });
-  await t.mutation(api.registration.setOwnerBlocked, { ownerId: "7", blocked: false, now: NOW });
+  await setBlock(t, "owner", "7", false);
   expect(await t.mutation(api.resourceRequests.claimRefresh, refresh)).toMatchObject({ ok: true });
 });
 
@@ -227,11 +239,11 @@ test("a blocked client can still revoke its own token", async () => {
     if (app === null) throw new Error("Fixture app missing");
     await ctx.db.patch("apps", app._id, { tenantId: "gh-1" });
   });
-  await t.mutation(api.registration.switchConnection, { tenantId: "gh-1", connected: false });
+  await setBlock(t, "repository", "1", true);
   expect(
     await t.mutation(api.resourceRequests.revoke, { ...auth, tokenHash: refresh.tokenHash }),
   ).toBe(true);
-  await t.mutation(api.registration.switchConnection, { tenantId: "gh-1", connected: true });
+  await setBlock(t, "repository", "1", false);
   expect(await t.mutation(api.resourceRequests.claimRefresh, refresh)).toMatchObject({
     error: "invalid_grant",
   });

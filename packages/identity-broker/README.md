@@ -24,9 +24,9 @@ steps.
 ## What it is
 
 - `@samebase/identity-broker`: a Convex component plus the host-side endpoints. Authorization code
-  flow with PKCE, discovery, JWKS, userinfo, and a component mutation that the host's own endpoint
-  calls to register a client. RS256 `id_token`s with public subjects, the provider's own id such as
-  `google:104325...`, the same in every app and every broker.
+  flow with PKCE, discovery, JWKS, userinfo, and `POST /hub-clients`, where each deployment of an
+  app gets its own client at deploy time. RS256 `id_token`s with public subjects, the provider's own
+  id such as `google:104325...`, the same in every app and every broker.
 - Connectors are configuration: any OAuth 2.0 provider that publishes RFC 8414 metadata, and any
   OpenID Connect provider. `github()` and `google()` are included.
 - API resource providers authorize access without creating an identity. `convexConnection()`,
@@ -71,9 +71,23 @@ export const broker = defineIdentityBroker({
       clientId: () => process.env.GOOGLE_CLIENT_ID!,
       clientSecret: () => process.env.GOOGLE_CLIENT_SECRET!,
     }),
+    // The one connector of every app that is not the hub's own.
+    google({
+      name: "google-apps",
+      clientId: () => process.env.GOOGLE_APPS_CLIENT_ID!,
+      clientSecret: () => process.env.GOOGLE_APPS_CLIENT_SECRET!,
+      reserved: true,
+      selectAccount: true,
+    }),
   ],
-  // Each client reads and deletes its own record at `/register/<client>`.
-  registration: {},
+  // `POST /hub-clients`, `/register/<client>`, and `/moderation/*`.
+  registration: {
+    ownRepositoryIds: () => process.env.OWN_REPOSITORY_IDS,
+    thirdPartyConnector: "google-apps",
+    paused: () => process.env.THIRD_PARTY_PAUSED === "true",
+    moderationKey: () => process.env.HUB_MODERATION_KEY,
+    terms: "https://example.com/terms",
+  },
 });
 
 const http = httpRouter();
@@ -95,14 +109,19 @@ its JWKS.
 
 ## Register an app's deployments
 
-The host decides who gets a client, in its own endpoint. That endpoint checks its own proof of the
-caller, calls `broker.newClientCredentials()` in an action, and stores the client with
-`component.registration.register` in a mutation, with the hashes only. The call names the tenant,
-the app, and whether the app is the host's own (`trust`), and the first client of an app creates it.
-The hub's `POST /hub-clients`
-([`apps/identity-hub/convex/hubClients.ts`](https://github.com/samebase/samebase/blob/main/apps/identity-hub/convex/hubClients.ts))
-is the reference: it gives a client to a GitHub Actions run with GitHub's OIDC token, and to a
-laptop with the app's own token. A Convex Auth v2 app points its generic OAuth method at
+`POST /hub-clients` gives a client to one deployment of an app, with no account at the hub:
+
+- A GitHub Actions run sends GitHub's OIDC token (audience `samebase`). A run of `main` gets a
+  production client, a pull request a preview client. The return address must be https, and its host
+  must serve `/samebase-verification.json` with the repository's numeric id.
+  `Convex.SharedHubClient` of `@samebase/alchemy-convex` does this at each deploy.
+- A production answer also holds the app's initial access token (RFC 7591 section 1.2). A laptop
+  sends it for a development client, on a loopback return address.
+
+The apps of a repository in `ownRepositoryIds` are the hub's own: every connector but a reserved
+one, and the API resources. Every other repository's apps sign in only through
+`thirdPartyConnector`. Each repository and owner has hourly limits, and `/moderation/blocks` stops a
+repository or an owner at once. A Convex Auth v2 app points its generic OAuth method at
 `<issuer>/authorize` and `<issuer>/token`; see the
 [docs](https://github.com/samebase/samebase/blob/main/packages/identity-broker/docs/consumers.md).
 

@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.19.0
+
+The broker holds every row and every rule of a hub (RFC 135). A hub is configuration only.
+
+- `registration` in the config is the hub mode, with the options `ownRepositoryIds`,
+  `thirdPartyConnector` (a reserved connector), `paused`, `moderationKey`, and `terms`, all
+  required. It mounts `POST /hub-clients`, where a GitHub Actions run (GitHub's OIDC token) or a
+  laptop (the app's initial access token) gets a client, and `/moderation/*` for the hub's
+  administrator, next to `/register/<client>`.
+- New tables: `blocks`, the one block state that registration, renewal, sign-in, and code exchange
+  read; `events`, the append-only history of registrations and block changes; `initialAccessTokens`;
+  `rateLimits`. Each client has `app` and `registeredBy`.
+- `moderation.setBlock` replaces `registration.switchConnection` and `registration.setOwnerBlocked`.
+  The table `blockedOwners` is removed; `tenants.disconnected` is read by nothing.
+- `registration.register` takes `app` and `registeredBy`, for a host that proves its callers in
+  another way. `clients.list` is removed: `moderation.clientList` lists the clients with who made
+  them.
+- Upgrade from a hub that kept these rows itself: deploy, then call `migration.importHubRows` with
+  its rows while registration is paused. 0.20.0 makes `app` and `registeredBy` required and removes
+  `migration` and `tenants.disconnected`.
+
 ## 0.18.0
 
 - The host's own mutation is the only way to make a client: `newClientCredentials` and

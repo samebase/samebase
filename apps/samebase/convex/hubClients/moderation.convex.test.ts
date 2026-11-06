@@ -106,7 +106,7 @@ const clientList = {
   limitReached: false,
 };
 
-/** The hub's moderation endpoints, as apps/identity-hub/convex/moderation.ts answers them. */
+/** The hub's moderation endpoints, as packages/identity-broker/src/client/moderation.ts answers them. */
 function stubHub(answer?: () => Response) {
   const requests: { url: string; method: string; authorization: string | null; body: unknown }[] =
     [];
