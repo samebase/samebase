@@ -164,6 +164,44 @@ describe("rebaseStagedContent", () => {
 
     expect(result.hasConflict).toBe(true);
   });
+
+  it.each([
+    {
+      // With a repeated line, the user's "a" could match a different "a" upstream and vanish.
+      name: "a repeated line that may already be upstream",
+      baseContent: "a\n",
+      stagedContent: "a\na\n",
+      upstreamContent: "b\na\nb\na\n",
+    },
+    {
+      // Kept side by side, "mine" without a line ending would join "theirs" into one line.
+      name: "an insertion without a final newline next to another insertion",
+      baseContent: "anchor\n",
+      stagedContent: "anchor\nmine",
+      upstreamContent: "anchor\ntheirs\n",
+    },
+    {
+      name: "the same inserted lines in a different order",
+      baseContent: "anchor\n",
+      stagedContent: "anchor\nL1\nL2\n",
+      upstreamContent: "anchor\nL2\nL1\n",
+    },
+  ])("returns a conflict for $name", ({ baseContent, stagedContent, upstreamContent }) => {
+    expect(rebaseStagedContent({ baseContent, stagedContent, upstreamContent }).hasConflict).toBe(
+      true,
+    );
+  });
+
+  it("merges a large file", () => {
+    const baseContent = "a\n".repeat(150_000);
+    const result = rebaseStagedContent({
+      baseContent,
+      stagedContent: `X\n${baseContent}`,
+      upstreamContent: `${baseContent}Y\n`,
+    });
+
+    expect(result).toEqual({ content: `X\n${baseContent}Y\n`, hasConflict: false });
+  });
 });
 
 // Every line is a unique token, so "a line is lost or written twice" is a count.
@@ -285,5 +323,32 @@ describe("rebaseStagedContent properties", () => {
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
+  });
+
+  it("never makes up or joins lines, with repeated lines and any line endings", () => {
+    // Repeated lines make "which copy changed" ambiguous, so the exact result can differ from git.
+    // Whatever the merge picks, a clean result holds only lines of the two sides, and a side that
+    // did not change the file gets the other side's content exactly.
+    const line = fc.constantFrom("a\n", "b\n", "\n", "a\r\n", "a", "");
+    const content = fc.array(line, { maxLength: 6 }).map((lines) => lines.join(""));
+    const lineSet = (text: string) => new Set(text === "" ? [] : text.split(/(?<=\n)/));
+    fc.assert(
+      fc.property(content, content, content, (baseContent, stagedContent, upstreamContent) => {
+        const result = rebaseStagedContent({ baseContent, stagedContent, upstreamContent });
+        if (stagedContent === baseContent) {
+          expect(result).toEqual({ content: upstreamContent, hasConflict: false });
+        }
+        if (upstreamContent === baseContent) {
+          expect(result).toEqual({ content: stagedContent, hasConflict: false });
+        }
+        fc.pre(!result.hasConflict);
+
+        const sides = new Set([...lineSet(stagedContent), ...lineSet(upstreamContent)]);
+        for (const merged of lineSet(result.content)) {
+          expect(sides, JSON.stringify(merged)).toContain(merged);
+        }
+      }),
+      { numRuns: 5_000 },
+    );
   });
 });
