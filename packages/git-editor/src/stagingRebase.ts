@@ -40,7 +40,7 @@ function lineChanges(base: string[], side: string[]): LineChange[] {
       change.end += part.value.length;
       index += part.value.length;
     } else {
-      change.lines.push(...part.value);
+      change.lines = change.lines.concat(part.value);
     }
   }
   return changes;
@@ -48,14 +48,14 @@ function lineChanges(base: string[], side: string[]): LineChange[] {
 
 /** Base lines `start` to `end` with `changes`, which lie inside them, applied. */
 function applyChanges(base: string[], start: number, end: number, changes: LineChange[]): string[] {
-  const lines: string[] = [];
+  const chunks: string[][] = [];
   let index = start;
   for (const change of changes) {
-    lines.push(...base.slice(index, change.start), ...change.lines);
+    chunks.push(base.slice(index, change.start), change.lines);
     index = change.end;
   }
-  lines.push(...base.slice(index, end));
-  return lines;
+  chunks.push(base.slice(index, end));
+  return chunks.flat();
 }
 
 function includesInOrder(lines: string[], wanted: string[]): boolean {
@@ -68,13 +68,27 @@ function includesInOrder(lines: string[], wanted: string[]): boolean {
   return found === wanted.length;
 }
 
+function countLines(lines: string[]): Map<string, number> {
+  const counts = new Map<string, number>();
+  for (const line of lines) {
+    counts.set(line, (counts.get(line) ?? 0) + 1);
+  }
+  return counts;
+}
+
 /**
 The merged lines for base lines `start` to `end`, where the staged and the upstream changes touch,
-or null for a conflict. Both sides inserting at the same place keeps both insertions, a line they
-both inserted once, and the staged lines first where they differ. Otherwise both sides must give the
-same lines, or replace the same base lines with lines where one side's include the other's in order,
-as when a teammate pushed the user's edit plus more. Any other overlap is a conflict, so a base line
-that one side removed never comes back from the other side.
+or null for a conflict:
+
+- Both sides give the same lines: those lines, once.
+- Both sides insert at the same place, and the insertions share no line: both, the staged lines
+  first. `git merge-file` reports a conflict here; Samebase keeps both.
+- Both sides insert at the same place, or replace the same base lines, and one side's lines include
+  the other's in order: the larger side, as when a teammate pushed the user's edit plus more. Only
+  when each shared line appears once in the staged and once in the upstream content, because with a
+  repeated line the diff can match the user's copy to a different copy upstream.
+
+Anything else is a conflict, so a base line that one side removed never comes back from the other.
 */
 function mergeTouchingChanges(
   base: string[],
@@ -82,23 +96,38 @@ function mergeTouchingChanges(
   end: number,
   staged: LineChange[],
   upstream: LineChange[],
+  appearsOnceOnEachSide: (line: string) => boolean,
 ): string[] | null {
   const ours = applyChanges(base, start, end, staged);
   const theirs = applyChanges(base, start, end, upstream);
+  if (ours.join("") === theirs.join("")) {
+    return ours;
+  }
+  const theirLines = new Set(theirs);
+  const shared = ours.filter((line) => theirLines.has(line));
   const bothInsertOnly = start === end;
-  const sameRangeOneIncludesTheOther =
+  if (bothInsertOnly && shared.length === 0) {
+    return ours.concat(theirs);
+  }
+  const sameRange =
     staged.length === 1 &&
     upstream.length === 1 &&
     staged[0]?.start === start &&
     staged[0].end === end &&
     upstream[0]?.start === start &&
-    upstream[0].end === end &&
+    upstream[0].end === end;
+  if (
+    (bothInsertOnly || sameRange) &&
     ours.length > 0 &&
     theirs.length > 0 &&
-    (includesInOrder(ours, theirs) || includesInOrder(theirs, ours));
-  if (bothInsertOnly || sameRangeOneIncludesTheOther || ours.join("") === theirs.join("")) {
-    // A diff of the two sides lists each shared line once, and the staged-only lines first.
-    return diffArrays(ours, theirs).flatMap((part) => part.value);
+    shared.every(appearsOnceOnEachSide)
+  ) {
+    if (includesInOrder(theirs, ours)) {
+      return theirs;
+    }
+    if (includesInOrder(ours, theirs)) {
+      return ours;
+    }
   }
   return null;
 }
@@ -110,7 +139,11 @@ where they do not touch the other side's. Where they touch, `mergeTouchingChange
 function mergeLines(base: string[], staged: string[], upstream: string[]): string[] | null {
   const ours = lineChanges(base, staged);
   const theirs = lineChanges(base, upstream);
-  const merged: string[] = [];
+  const stagedCounts = countLines(staged);
+  const upstreamCounts = countLines(upstream);
+  const appearsOnceOnEachSide = (line: string) =>
+    stagedCounts.get(line) === 1 && upstreamCounts.get(line) === 1;
+  const chunks: string[][] = [];
   let index = 0;
   let i = 0;
   let j = 0;
@@ -143,15 +176,17 @@ function mergeLines(base: string[], staged: string[], upstream: string[]): strin
         ? applyChanges(base, start, end, groupOurs)
         : groupOurs.length === 0
           ? applyChanges(base, start, end, groupTheirs)
-          : mergeTouchingChanges(base, start, end, groupOurs, groupTheirs);
+          : mergeTouchingChanges(base, start, end, groupOurs, groupTheirs, appearsOnceOnEachSide);
     if (lines === null) {
       return null;
     }
-    merged.push(...base.slice(index, start), ...lines);
+    chunks.push(base.slice(index, start), lines);
     index = end;
   }
-  merged.push(...base.slice(index));
-  return merged;
+  chunks.push(base.slice(index));
+  const merged = chunks.flat();
+  // A line without a line ending can only be the last one; anywhere else, two lines would join.
+  return merged.slice(0, -1).every((line) => line.endsWith("\n")) ? merged : null;
 }
 
 /**
