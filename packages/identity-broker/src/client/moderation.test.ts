@@ -373,18 +373,18 @@ describe("the clients", () => {
     );
   });
 
-  it("names a laptop's client with its repository and the token's issue time", async () => {
+  it("names a development client with its repository and the token's issue time", async () => {
     vi.useFakeTimers({ now: 1_800_000_000_000, toFake: ["Date"] });
     const h = await createHub();
     const token = await createInitialAccessToken(h);
     vi.setSystemTime(1_800_000_001_000);
-    const laptop = await createDevelopmentClient(h, token);
+    const development = await createDevelopmentClient(h, token);
 
     const list: { clients: { clientId: string; registeredBy: unknown }[] } = await (
       await moderationRequest(h, "/moderation/clients")
     ).json();
 
-    expect(list.clients.find((client) => client.clientId === laptop.client_id)).toMatchObject({
+    expect(list.clients.find((client) => client.clientId === development.client_id)).toMatchObject({
       registeredBy: {
         kind: "initial_access_token",
         githubRepository: "octo-org/octo-repo",
@@ -425,12 +425,12 @@ describe("the clients of given repositories", () => {
     const h = await createHub();
     const production = await createClient(h);
     vi.setSystemTime(1_800_000_001_000);
-    const laptop = await createDevelopmentClient(h, production.initial_access_token ?? "");
+    const development = await createDevelopmentClient(h, production.initial_access_token ?? "");
     vi.setSystemTime(1_800_000_002_000);
     await createClient(h, { repository_id: "81", repository: "octo-org/other" });
 
     expect(await repositoryClientIds(h, REPOSITORY_ID)).toEqual([
-      laptop.client_id,
+      development.client_id,
       production.client_id,
     ]);
     expect(await repositoryClientIds(h, "999")).toEqual([]);

@@ -3,7 +3,7 @@
 // the Samebase research of 2026-10-21), so a state layer adds this record to
 // the output document under the reserved key `samebase.run`. The record
 // depends on no store: it comes from the GitHub Actions variables, or from
-// git on a laptop, and holds no secret. See docs/design/convex-state.md.
+// git on a development machine, and holds no secret. See docs/design/convex-state.md.
 import { execFile } from "node:child_process";
 import { readFile, realpath } from "node:fs/promises";
 import { relative, sep } from "node:path";
@@ -27,11 +27,11 @@ export interface RunRecord {
   readonly stackFile: string;
   /** The branch that was deployed: the head branch of a pull request, else the pushed branch. */
   readonly branch: string;
-  /** The pull request whose head was deployed, or null for a push and for a laptop. */
+  /** The pull request whose head was deployed, or null for a push and for a development machine. */
   readonly pullRequest: number | null;
   /** The commit that was deployed: the head of the pull request, else GITHUB_SHA, else git HEAD. */
   readonly headCommit: string;
-  /** The GitHub Actions run and attempt, or null for a laptop. */
+  /** The GitHub Actions run and attempt, or null for a development machine. */
   readonly runUrl: string | null;
   readonly source: "github-actions" | "laptop";
   /** ISO 8601, when the record was written. */

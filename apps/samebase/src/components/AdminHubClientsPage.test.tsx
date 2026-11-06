@@ -88,7 +88,7 @@ const overview = {
         },
       },
       {
-        clientId: "cl_laptop",
+        clientId: "cl_development",
         appId: "gh-74-4c9a75cca717efb68c856f26ba825073-preview",
         clientName: "development",
         deploymentType: "development",
@@ -220,7 +220,7 @@ describe("AdminHubClientsPage", () => {
         /^PR 12Blockedmy-appcalm-cow-456\.eu-west-1\.convex\.site · never signed in\|calm-cow-456\.eu-west-1\.convex\.site\|renovate\[bot\]\|Never\|in \d+d\|$/,
       );
       expect(rows[4]).toMatch(
-        /^DevelopmentBlockedmy-app127\.0\.0\.1:3211 · never signed in\|127\.0\.0\.1:3211\|Laptop token\|Never\|/,
+        /^DevelopmentBlockedmy-app127\.0\.0\.1:3211 · never signed in\|127\.0\.0\.1:3211\|Development\|Never\|/,
       );
       expect(page.rootElement.textContent).not.toContain("The newest");
     } finally {
@@ -236,7 +236,7 @@ describe("AdminHubClientsPage", () => {
       );
       await act(async () => row?.click());
       const text = page.rootElement.textContent;
-      expect(text).toContain("cl_laptop");
+      expect(text).toContain("cl_development");
       expect(text).toContain("gh-74-4c9a75cca717efb68c856f26ba825073-preview");
       expect(text).toContain(`token of ${new Date(ISSUED_AT).toLocaleString()}`);
     } finally {

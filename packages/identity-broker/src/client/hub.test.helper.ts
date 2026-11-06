@@ -12,7 +12,7 @@ export const OWNER_ID = "65";
 export const APP_HASH = "4c9a75cca717efb68c856f26ba825073";
 export const PRODUCTION_HOST = "https://ideal-dolphin-15.convex.site";
 export const PRODUCTION_CALLBACK = `${PRODUCTION_HOST}/auth/hub/callback`;
-/** A laptop's return address on a local backend. */
+/** A development server's return address on a local backend. */
 export const LOOPBACK_CALLBACK = "http://127.0.0.1:3211/auth/hub/callback";
 const JWKS_URL = "https://token.actions.githubusercontent.com/.well-known/jwks";
 
@@ -166,7 +166,7 @@ export async function createInitialAccessToken(h: Harness): Promise<string> {
   return token;
 }
 
-/** A laptop's development client on `LOOPBACK_CALLBACK`, which must be created. */
+/** A development client on `LOOPBACK_CALLBACK`, which must be created. */
 export async function createDevelopmentClient(h: Harness, token: string): Promise<NewClient> {
   const response = await postHubClient(h, token, { redirectUri: LOOPBACK_CALLBACK });
   if (response.status !== 201) {

@@ -43,10 +43,10 @@ export const { startSignIn: startSignInWithHub, completeSignIn: completeSignInWi
 
 Each deployment gets its client from the hub. `POST /hub-clients`
 ([`src/client/hubClients.ts`](../src/client/hubClients.ts)) gives one to a GitHub Actions run with
-GitHub's OIDC token, and to a laptop with the app's own token. In an Alchemy v2 stack, the
-`Convex.SharedHubClient` resource of `@samebase/alchemy-convex` asks for it at deploy time, renews
-it at each deploy at `/register/<client>`, and deletes a preview client on destroy. The `env` of
-`Convex.Deployment` stores the client on the deployment as `HUB_ISSUER`, `HUB_CLIENT_ID`, and
+GitHub's OIDC token, and to a development server with the app's own token. In an Alchemy v2 stack,
+the `Convex.SharedHubClient` resource of `@samebase/alchemy-convex` asks for it at deploy time,
+renews it at each deploy at `/register/<client>`, and deletes a preview client on destroy. The `env`
+of `Convex.Deployment` stores the client on the deployment as `HUB_ISSUER`, `HUB_CLIENT_ID`, and
 `HUB_CLIENT_SECRET`. Each client uses `client_secret_post`, because Convex Auth's generic OAuth
 method posts the client credentials in the body.
 

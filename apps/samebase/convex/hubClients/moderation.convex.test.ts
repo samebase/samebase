@@ -84,7 +84,7 @@ const clientList = {
       },
     },
     {
-      clientId: "cl_laptop",
+      clientId: "cl_development",
       appId: "gh-74-4c9a75cca717efb68c856f26ba825073-preview",
       clientName: "development",
       deploymentType: "development",

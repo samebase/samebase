@@ -15,7 +15,7 @@ broke.
 | `newOwnersOnlyForSuccess`       | The new-owners count grows by one for a new owner whose registration succeeded, and by nothing for any other request.                          |
 | `blockedGetsNothing`            | A blocked repository or owner gets no new client and no renewal, also when the block lands while the hub fetches the verification file.        |
 | `ownerFollowsNewestProof`       | A tenant's owner is the owner of the newest accepted GitHub token by `iat`. A retained older token never moves it back.                        |
-| `laptopTokenScope`              | An initial access token registers only a development client of its own app and repository, and stops when a later run replaces or moves it.    |
+| `developmentTokenScope`         | An initial access token registers only a development client of its own app and repository, and stops when a later run replaces or moves it.    |
 | `appStable`                     | An app never changes its tenant, its trust, or its connector, and is never deleted.                                                            |
 | `caps`                          | An app has at most 30 clients and a tenant at most 10 apps. The stories are too short to reach a cap; fixed tests cover the caps and eviction. |
 | `clientsMatchModel`             | Every client row is one that the model created, and a client goes only by its own delete, an admin delete, or the cap's eviction.              |

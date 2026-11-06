@@ -1061,7 +1061,7 @@ describe("Convex.SharedHubClient for a development client", () => {
       expect(off).toEqual({ ...OFF, deploymentType: "development" });
       expect(fake.sent).toEqual([]);
       expect(lines.filter((line) => line.includes("Convex.SharedHubClient"))).toEqual([
-        "Info: Convex.SharedHubClient: deploy to main once for Google sign-in on this laptop.",
+        "Info: Convex.SharedHubClient: deploy to main once for Google sign-in in development.",
       ]);
     }),
   );

@@ -121,7 +121,8 @@ export function resolveDeploymentProfileFromEnv(env: DeploymentProfileEnv): Depl
   }
 
   // A backend on a loopback address runs on the machine of its operator: the logged-in local
-  // deployment of a laptop folder, the main checkout or a worktree, which `pnpm run dev` seeds.
+  // deployment of a development checkout, the main checkout or a worktree, which
+  // `pnpm run dev` seeds.
   const cloudUrl = readTrimmedValue(env.CONVEX_CLOUD_URL);
   if (cloudUrl !== null && isLocalhostUrl(cloudUrl)) {
     return { kind: "local_worktree" };

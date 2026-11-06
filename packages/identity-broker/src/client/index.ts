@@ -380,9 +380,9 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
 
   /**
    * The consent page of a sign-in, or null when it goes on without one. A third-party app's preview
-   * or laptop asks first: anyone with a repository can make one, on a host of their own, and nobody
-   * reviewed it (RFC 7591 section 5). The host's own apps never ask, and a third-party production
-   * client goes straight to its connector for now.
+   * or development client asks first: anyone with a repository can make one, on a host of their
+   * own, and nobody reviewed it (RFC 7591 section 5). The host's own apps never ask, and a
+   * third-party production client goes straight to its connector for now.
    */
   function consentFor(args: {
     app: { firstParty: boolean };

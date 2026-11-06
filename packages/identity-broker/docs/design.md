@@ -43,7 +43,7 @@ itself.
 The broker holds every row and every rule of a hub (RFC 135), so every copy of a hub has the same
 caps, expiry, blocks, history, and moderation. A hub is configuration: connectors, resources, env,
 keys. `POST /hub-clients` (`src/client/hubClients.ts`) takes GitHub's OIDC token of a GitHub Actions
-run, or the app's initial access token on a laptop, and checks that the return address names the
+run, or the app's initial access token in development, and checks that the return address names the
 repository. It is GitHub-first on purpose: the proof is one section of that file, and everything
 after it works on GitHub's ids. A second proof would be a second section, not a change to the rest.
 A host with another proof can still call `component.registration.register` with

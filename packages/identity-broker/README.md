@@ -115,8 +115,8 @@ its JWKS.
   production client, a pull request a preview client. The return address must be https, and its host
   must serve `/samebase-verification.json` with the repository's numeric id.
   `Convex.SharedHubClient` of `@samebase/alchemy-convex` does this at each deploy.
-- A production answer also holds the app's initial access token (RFC 7591 section 1.2). A laptop
-  sends it for a development client, on a loopback return address.
+- A production answer also holds the app's initial access token (RFC 7591 section 1.2). A
+  development server sends it for a development client, on a loopback return address.
 
 The apps of a repository in `ownRepositoryIds` are the hub's own: every connector but a reserved
 one, and the API resources. Every other repository's apps sign in only through

@@ -100,7 +100,10 @@ const created = (fqn: string): CreatedResourceState => ({
   attr: { projectId: 1 },
 });
 
-/** The record of the test run, as a laptop derivation gives it; `recordedAt` is set at each write. */
+/**
+ * The record of the test run, as a development derivation gives it; `recordedAt` is set at each
+ * write.
+ */
 const record: RunRecord = {
   version: 1,
   repository: "samebase/app",

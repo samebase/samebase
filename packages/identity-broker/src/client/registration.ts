@@ -11,9 +11,10 @@ import { randomToken, sha256Hex } from "./subject.js";
 
 /**
  * The hub mode. With this option the broker mounts `POST /hub-clients`, where a GitHub Actions run or
- * a laptop with the app's initial access token gets a client (src/client/hubClients.ts),
- * `/register/<client>`, where each client reads and deletes its own record with its own registration
- * access token (RFC 7592), and `/moderation/*` for the hub's administrator.
+ * a development server with the app's initial access token gets a client
+ * (src/client/hubClients.ts), `/register/<client>`, where each client reads and deletes its own
+ * record with its own registration access token (RFC 7592), and `/moderation/*` for the hub's
+ * administrator.
  */
 export type RegistrationConfig = {
   /**

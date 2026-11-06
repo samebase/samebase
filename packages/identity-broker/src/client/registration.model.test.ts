@@ -21,10 +21,11 @@ import {
   type World,
 } from "./model.test.helper.js";
 
-// RFC 136, property A: registration and ownership. Random stories of GitHub Actions runs, laptops,
-// repository transfers, blocks, renewals, and self-deletes, played through `fetchBroker` against the
-// real component. The model knows each repository's owner in the fake GitHub and the newest
-// accepted proof of each repository; it never reads expected ownership back from the rows.
+// RFC 136, property A: registration and ownership. Random stories of GitHub Actions runs,
+// development clients, repository transfers, blocks, renewals, and self-deletes, played through
+// `fetchBroker` against the real component. The model knows each repository's owner in the fake
+// GitHub and the newest accepted proof of each repository; it never reads expected ownership back
+// from the rows.
 
 afterEach(() => {
   vi.useRealTimers();
@@ -65,7 +66,7 @@ type Command =
       /** `new`: a token issued now. A number: a retained older token of the repository, by index. */
       proof: "new" | number;
     }
-  | { kind: "laptop"; token: number; app: "own" | "other"; redirect: "loopback" | HostOutcome }
+  | { kind: "development"; token: number; app: "own" | "other"; redirect: "loopback" | HostOutcome }
   | { kind: "transfer"; repository: Repository; owner: Owner }
   | { kind: "block"; action: "block" | "unblock"; scope: "repository"; githubId: Repository }
   | { kind: "block"; action: "block" | "unblock"; scope: "owner"; githubId: Owner }
@@ -106,7 +107,7 @@ const commandArbitrary: fc.Arbitrary<Command> = fc.oneof(
   {
     weight: 2,
     arbitrary: fc.record({
-      kind: fc.constant("laptop" as const),
+      kind: fc.constant("development" as const),
       token: fc.nat({ max: 7 }),
       app: fc.oneof(
         { weight: 3, arbitrary: fc.constant("own" as const) },
@@ -209,9 +210,9 @@ const isBlocked = (model: Model, repository: string, ownerId: string) =>
   model.blocks.has(`repository:${repository}`) || model.blocks.has(`owner:${ownerId}`);
 
 /**
- * A laptop token works while no later production run of its app and owner replaced it, no accepted
- * run of its repository named another owner since, and its owner is the owner of the newest
- * accepted proof.
+ * A development token works while no later production run of its app and owner replaced it, no
+ * accepted run of its repository named another owner since, and its owner is the owner of the
+ * newest accepted proof.
  */
 function tokenValid(model: Model, token: Token) {
   const replaced = model.tokens.some(
@@ -531,17 +532,17 @@ async function playRun(
   story.trace.push(`${label}: 201, ${client.handle}${issued}`);
 }
 
-async function playLaptop(
+async function playDevelopment(
   h: Harness,
   world: World,
   model: Model,
-  command: Extract<Command, { kind: "laptop" }>,
+  command: Extract<Command, { kind: "development" }>,
   checks: Checks,
   story: Story,
 ) {
   const token = model.tokens[command.token % Math.max(1, model.tokens.length)];
   if (token === undefined) {
-    story.trace.push("laptop: no initial access token yet, skipped");
+    story.trace.push("development: no initial access token yet, skipped");
     return;
   }
   const app =
@@ -565,7 +566,7 @@ async function playLaptop(
   const accepted = response.status === 201;
   const answer: Partial<NewClient> & { reason?: string } = await response.json();
   const label =
-    `laptop with ${token.handle} (${repositoryHandle(token.repository)} ${token.app}, owner ${ownerHandle(token.ownerId)}${valid ? "" : ", stopped in the model"}) ` +
+    `development with ${token.handle} (${repositoryHandle(token.repository)} ${token.app}, owner ${ownerHandle(token.ownerId)}${valid ? "" : ", stopped in the model"}) ` +
     `for ${app} on ${command.redirect}`;
   story.trace.push(
     `${label}: ${response.status}${answer.reason === undefined ? "" : ` ${answer.reason}`}`,
@@ -573,13 +574,13 @@ async function playLaptop(
   checkAnswer(checks, label, response);
   check(
     checks,
-    "laptopTokenScope",
+    "developmentTokenScope",
     !(accepted && !valid),
     `${label} registered with a token that must have stopped`,
   );
   check(
     checks,
-    "laptopTokenScope",
+    "developmentTokenScope",
     !(accepted && app !== token.app),
     `${label} registered another app`,
   );
@@ -594,7 +595,7 @@ async function playLaptop(
   const row = after.clients.find((candidate) => candidate.clientId === answer.client_id);
   check(
     checks,
-    "laptopTokenScope",
+    "developmentTokenScope",
     row !== undefined &&
       row.app === token.app &&
       row.appId.startsWith(`gh-${token.repository}-`) &&
@@ -674,8 +675,8 @@ async function playCommand(
   switch (command.kind) {
     case "run":
       return await playRun(h, world, model, command, checks, story);
-    case "laptop":
-      return await playLaptop(h, world, model, command, checks, story);
+    case "development":
+      return await playDevelopment(h, world, model, command, checks, story);
     case "transfer": {
       const from = world.github.ownerOf(command.repository);
       world.github.transfer(command.repository, command.owner);
@@ -824,9 +825,9 @@ describe("RFC 136 property A regressions", () => {
     );
   });
 
-  // F5, seen from the laptop: the replayed older proof deleted the new owner's token and gave the
+  // F5, seen from development: the replayed older proof deleted the new owner's token and gave the
   // old owner a fresh one (T3), which then registered a development client.
-  it("F5: the old owner's laptop gets no client after a transfer", async () => {
+  it("F5: the old owner's development server gets no client after a transfer", async () => {
     await replay(
       [
         {
@@ -848,9 +849,9 @@ describe("RFC 136 property A regressions", () => {
           proof: "new",
         },
         { kind: "run", repository: "101", app: "app-a", stage: "prod", host: "present", proof: 0 },
-        { kind: "laptop", token: 2, app: "own", redirect: "loopback" },
+        { kind: "development", token: 2, app: "own", redirect: "loopback" },
       ],
-      "laptopTokenScope",
+      "developmentTokenScope",
     );
   });
 

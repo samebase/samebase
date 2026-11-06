@@ -176,9 +176,9 @@ const args = ["dev", ...process.argv.slice(2)];
 if (!args.some((arg) => arg.startsWith("--codegen"))) {
   args.push("--codegen=disable");
 }
-// Every checkout runs a local backend: the logged-in local deployment of a laptop folder, or the
-// anonymous one of CI. Each folder keeps its own fixed ports, so the identity hub callback on the
-// site port keeps its address from one start to the next.
+// Every checkout runs a local backend: the logged-in local deployment of a development checkout,
+// or the anonymous one of CI. Each folder keeps its own fixed ports, so the identity hub callback
+// on the site port keeps its address from one start to the next.
 if (!hasCliOption(args, "--local-cloud-port") && !hasCliOption(args, "--local-site-port")) {
   const localBackendPorts = pickLocalBackendPorts();
   if (localBackendPorts) {

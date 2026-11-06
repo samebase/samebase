@@ -64,8 +64,8 @@ const ownerTarget = (client: HubClient, clients: readonly HubClient[]): BlockTar
 
 /**
 Every client at the identity hub with who made it at `/hub-clients` (a repository's GitHub Actions
-run with its actor, or a laptop with the app's initial access token), grouped by repository, and the
-blocks and their events.
+run with its actor, or a development server with the app's initial access token), grouped by
+repository, and the blocks and their events.
 */
 export function AdminHubClientsPage() {
   const readOverview = useAction(api.hubClients.moderation.readOverview);

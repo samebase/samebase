@@ -1,6 +1,6 @@
 // Convex.SharedHubClient: one deployment of an app as a client of the central identity hub, for an
-// app that deploys in its own GitHub Actions run, on any host, and on a laptop as a stage of the same
-// stack.
+// app that deploys in its own GitHub Actions run, on any host, and in development as a stage of the
+// same stack.
 //
 // A run in GitHub Actions asks the hub for a new client with a GitHub OIDC token, so the stack needs
 // no key and no Samebase account. The token names the repository. The hub reads
@@ -11,9 +11,10 @@
 // token.
 //
 // The answer to a production registration also holds the app's initial access token (RFC 7591
-// section 1.2) and the repository id. The state of stage `prod` keeps them. A laptop runs the stack
-// as a stage `dev-<name>`: it reads them with `SharedHubClient.read`, and a client with
-// `deploymentType: "development"` asks the hub with the token in place of the GitHub token (RFC 133).
+// section 1.2) and the repository id. The state of stage `prod` keeps them. A development checkout
+// runs the stack as a stage `dev-<name>`: it reads them with `SharedHubClient.read`, and a client
+// with `deploymentType: "development"` asks the hub with the token in place of the GitHub token
+// (RFC 133).
 //
 // A push removes a variable that a deploy stops passing, so a failure here must not drop working
 // variables or stop the deploy. A renewal that fails keeps the saved values. Only a client that
@@ -331,15 +332,15 @@ const newClient = (props: SharedHubClientProps) => {
     const token = Redacted.value(props.initialAccessToken);
     return token === ""
       ? Effect.logInfo(
-          "Convex.SharedHubClient: deploy to main once for Google sign-in on this laptop.",
+          "Convex.SharedHubClient: deploy to main once for Google sign-in in development.",
         ).pipe(Effect.as(off))
       : request(Effect.succeed(token));
   }
 
   const requestUrl = process.env["ACTIONS_ID_TOKEN_REQUEST_URL"];
   const requestToken = process.env["ACTIONS_ID_TOKEN_REQUEST_TOKEN"];
-  // A laptop, or another CI. In a workflow, `id-token: write` gives both, so a workflow without them
-  // is a mistake to show, not a normal run.
+  // A development machine, or another CI. In a workflow, `id-token: write` gives both, so a
+  // workflow without them is a mistake to show, not a normal run.
   if (!requestUrl || !requestToken) {
     return (
       process.env["GITHUB_ACTIONS"] === "true"
@@ -401,14 +402,15 @@ const SavedRow = Schema.Struct({
 
 /**
  * The attributes of the client `id` in another stage of this stack, such as
- * `read("HubClient", { stage: "prod" })` in the stage of a laptop, as Outputs: the
+ * `read("HubClient", { stage: "prod" })` in a development stage, as Outputs: the
  * `initialAccessToken` and the `repository` of the production client. Without that row, the off
  * attributes, with `deploymentType: "production"`.
  *
  * `SharedHubClient.ref` is not enough: Alchemy fails the plan with `InvalidReferenceError` when the
- * row is missing, and a laptop before the first deploy to main has none. This read runs when the
- * plan resolves it, with the State service of the running stack and its `get`, so it never creates
- * or upgrades a store. The store revives each secret as `Redacted`, as it does for every read.
+ * row is missing, and a development stage before the first deploy to main has none. This read runs
+ * when the plan resolves it, with the State service of the running stack and its `get`, so it never
+ * creates or upgrades a store. The store revives each secret as `Redacted`, as it does for every
+ * read.
  */
 const read = (id: string, options: { readonly stage: string }) =>
   Output.fromEffect(

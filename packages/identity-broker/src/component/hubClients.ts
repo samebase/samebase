@@ -160,7 +160,7 @@ async function sha256Hex(input: string) {
   return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
-/** The app of `app` in the repository's tenant: production, or previews and laptops. */
+/** The app of `app` in the repository's tenant: production, or previews and development clients. */
 async function appIdOf(tenantId: string, app: string, production: boolean) {
   const appHash = (await sha256Hex(app)).slice(0, 32);
   return `${tenantId}-${appHash}${production ? "" : "-preview"}`;
@@ -346,10 +346,10 @@ export const readInitialAccessToken = query({
 });
 
 /**
- * Creates a laptop's development client of an app and records its registration, in one
- * transaction. The token's row is read again here, so a token replaced or deleted while the
- * verification file was fetched, or a row that names another app or owner, refuses the request
- * (`invalid_token`); the blocks are read again too. The client is in the app's preview app, with a
+ * Creates a development client of an app and records its registration, in one transaction. The
+ * token's row is read again here, so a token replaced or deleted while the verification file was
+ * fetched, or a row that names another app or owner, refuses the request (`invalid_token`); the
+ * blocks are read again too. The client is in the app's preview app, with a
  * removal date. No owner goes to `registerClient`: it checks the tenant's recorded owner and keeps
  * it, so only a GitHub run changes a tenant's owner.
  */

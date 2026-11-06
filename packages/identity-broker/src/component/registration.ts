@@ -18,7 +18,7 @@ export const MAX_CLIENTS_PER_APP = 30;
 /** The apps of one tenant: five names, each with a production app and a preview app. */
 export const MAX_APPS_PER_TENANT = 10;
 
-/** `development`: a laptop's client, which lives and goes like a preview's. */
+/** `development`: a development server's client, which lives and goes like a preview's. */
 const vDeployment = union(literal("production"), literal("preview"), literal("development"));
 
 /**

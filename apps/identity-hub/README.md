@@ -43,8 +43,8 @@ stack skips the push when nothing of the hub changed. Pull requests run the chec
    replaces it.
 4. Merge to `main`. The stack adopts the project and its production deployment, so no run needs
    `--adopt`, and it retains both on destroy. Adoption replaces the code and sets the variables of
-   the stack. It does not change other variables, the data, or the project. From a laptop,
-   `pnpm exec alchemy deploy --stage prod` runs the same stack with the Convex CLI login.
+   the stack. It does not change other variables, the data, or the project. From a development
+   machine, `pnpm exec alchemy deploy --stage prod` runs the same stack with the Convex CLI login.
 
 `IDENTITY_BROKER_KEYS` holds the signing keys and no user identity: a user's `sub` is the provider's
 own id, such as `google:104325...`. A hub that lost the variable gets a new key set by hand with
@@ -91,8 +91,8 @@ const client =
 A production or preview deployment asks in its own GitHub Actions run, with GitHub's OIDC token. The
 hub checks the token, the `/samebase-verification.json` file of the site, the hourly limits, and the
 blocks. No Samebase account is needed. The answer to a production registration holds the app's
-initial access token, and a laptop asks with it for a development client. Each client reads and
-deletes its own record at `/register/<client>`, and the broker serves no `/register`.
+initial access token, and a development server asks with it for a development client. Each client
+reads and deletes its own record at `/register/<client>`, and the broker serves no `/register`.
 
 A repository in `OWN_REPOSITORY_IDS` gets first-party apps, which send the user straight to the
 connector without the chooser and can use the API connections. Every other repository gets
