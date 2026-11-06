@@ -231,7 +231,7 @@ describe("useRepositoryPullRequests", () => {
                 pullRequest: 24,
                 headCommit: headRefOid,
                 runUrl: null,
-                source: "laptop" as const,
+                source: "checkout" as const,
                 recordedAt: "2026-10-21T19:58:06.882Z",
               },
               deployedHeadCommit: headRefOid,

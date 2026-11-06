@@ -692,7 +692,7 @@ describe("Alchemy stack cards", () => {
                 pullRequest: null,
                 headCommit: "a".repeat(40),
                 runUrl: null,
-                source: "laptop",
+                source: "checkout",
                 recordedAt: "2026-10-21T12:00:00.000Z",
               },
               deployedHeadCommit: "a".repeat(40),
