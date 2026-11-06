@@ -186,16 +186,17 @@ Every run needs the team token in `CONVEX_ACCESS_TOKEN`, or the Convex CLI login
 state and the projects are in the team of that credential. A team access token and an OAuth token of
 a team name their team. The Convex CLI login names no team, so the run uses the team of the
 deployment that the Convex CLI selected: `CONVEX_DEPLOYMENT` in the environment or in `.env.local`,
-which `npx convex dev` writes. A local or anonymous deployment is in no team, so the run stops and
-asks for a cloud deployment. The first run of a team creates the project `alchemy-state-store` and
-pushes the store functions to its production deployment with the Convex CLI of the app; a later
-version of this package pushes a newer store when it finds an older one. A store that is newer than
-the package fails the run with both versions, so the repositories of a team upgrade the package
-together. Each run makes a deploy key of that deployment that can only run the store's internal
-functions, and deletes it at the end. Rows are in the tables `resources` and `outputs` of the
-component `alchemyState` in the dashboard, under the stack name. The store has no lock: run one
-deploy of a stage at a time, such as with a CI concurrency group. The store and its readers
-(Samebase) are released and upgraded together.
+which `npx convex dev` writes. A logged-in local deployment gives the team of its project, from the
+folder's `.convex/local/default/config.json`. An anonymous deployment is in no team, so the run
+stops and asks for a deployment of a project. The first run of a team creates the project
+`alchemy-state-store` and pushes the store functions to its production deployment with the Convex
+CLI of the app; a later version of this package pushes a newer store when it finds an older one. A
+store that is newer than the package fails the run with both versions, so the repositories of a team
+upgrade the package together. Each run makes a deploy key of that deployment that can only run the
+store's internal functions, and deletes it at the end. Rows are in the tables `resources` and
+`outputs` of the component `alchemyState` in the dashboard, under the stack name. The store has no
+lock: run one deploy of a stage at a time, such as with a CI concurrency group. The store and its
+readers (Samebase) are released and upgraded together.
 
 Store version 3 supports native subscriptions. A trusted server checks repository access, then calls
 internal `reader:authorize({ repository, subject })` with a deployment credential. It gives the
@@ -344,6 +345,10 @@ call.
     values, `status` is `off`, and `issuer`, `clientId`, and `clientSecret` are the `no-hub` values
     of a checkout without a hub. A production or preview run without a GitHub OIDC token, such as on
     a laptop, does the same, and logs no warning.
+  - `required: true` makes the run fail when the client ends with any `status` but `on`: a refusal,
+    a hub that does not answer a registration, or a suspended client. Set it where sign-in is the
+    product, so a deploy never ships guest sign-in with a green run. A renewal that gets no answer
+    keeps the saved client and does not fail.
   - `status` is `suspended` when the hub suspended the client. The state keeps the client and its
     values, so the client works again when the hub lifts the suspension.
   - `Convex.SharedHubClient.variables(client)` gives `issuer`, `clientId`, and `clientSecret` for
@@ -356,6 +361,20 @@ call.
   - A destroy deletes a preview or development client. It does nothing to a production client,
     because the production deployment can stay.
   - `HUB_URL` replaces `https://auth.samebase.com`, the hub that the run asks at `/hub-clients`.
+
+- `Convex.LocalDeployment`: `{ rootDir?, env }` writes the `env` of the logged-in local deployment
+  of the folder `rootDir` (the working directory without it), which
+  `npx convex deployment create <team>:<project>:local --select` makes and `npx convex dev` runs.
+  Each folder, such as each git worktree, has its own, with its own data. The resource reads the
+  deployment's name, ports, and admin key from `.convex/local/default/config.json`, and writes with
+  the admin key. It never creates, pushes, or deletes: run the stack while `convex dev` runs. A name
+  that leaves `env` is removed. A destroy changes nothing. Outputs `name`, `url`, `siteUrl`, and
+  `envNames`.
+  - `Convex.LocalDeployment.of(rootDir?)` gives `name`, `url`, and `siteUrl` when the stack's
+    program runs, so a client can take the local `siteUrl` for its callback. It throws when the
+    folder has no logged-in local deployment, also for an anonymous one.
+  - With a `local:` deployment selected in `.env.local`, the Convex CLI login takes the team of the
+    project in `config.json`.
 
 A development deployment of a team app (`Convex.HubClient`) has no stack, so the package has a
 command for it. Run it in the directory of the app, before the first push and at each dev start,

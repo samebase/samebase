@@ -194,6 +194,11 @@ export class FakeConvex {
   >();
   /** The deploy key that the deployment API accepts, for each deployment that has one here. */
   readonly deploymentKeys = new Map<string, string>();
+  /**
+   * The local deployment that answers on each port of 127.0.0.1, which `npx convex dev` runs. Its
+   * key in `deploymentKeys` is the admin key of its `.convex/local/default/config.json`.
+   */
+  readonly localPorts = new Map<number, string>();
   /** The store of each deployment that has one: POST /api/function answers its functions. */
   readonly stores = new Map<string, Store>();
   /** The identity hub of each deployment that has one: POST /api/function answers its admin functions. */
@@ -352,24 +357,27 @@ export class FakeConvex {
     body: Record<string, unknown> | undefined,
     authorization: string,
   ): Response {
-    const deploymentHost = /^([a-z0-9-]+)\.convex\.cloud$/.exec(url.host);
-    if (deploymentHost !== null) {
-      const deployment = deploymentHost[1] ?? "";
+    const localPort = /^127\.0\.0\.1:(\d+)$/.exec(url.host)?.[1];
+    const target =
+      localPort === undefined
+        ? /^([a-z0-9-]+)\.convex\.cloud$/.exec(url.host)?.[1]
+        : this.localPorts.get(Number(localPort));
+    if (target !== undefined) {
       if (authorization.startsWith("Convex preview:")) {
         return json(403, { code: "Unauthorized", message: "Not authorized" });
       }
       if (url.pathname === "/api/function") {
-        return this.functionApi(deployment, authorization.replace(/^Convex /, ""), body);
+        return this.functionApi(target, authorization.replace(/^Convex /, ""), body);
       }
-      const key = this.deploymentKeys.get(deployment);
+      const key = this.deploymentKeys.get(target);
       if (key !== undefined && authorization !== `Convex ${key}`) {
         return json(401, {
           ...recorded("project_not_found.json"),
           code: "Unauthorized",
-          message: `The deploy key is not for ${deployment} (fake)`,
+          message: `The deploy key is not for ${target} (fake)`,
         });
       }
-      return this.deploymentApi(deployment, method, url, body);
+      return this.deploymentApi(target, method, url, body);
     }
     const bearer = authorization.replace(/^Bearer /, "");
     // Measured: a team access token and an OAuth token of a team (`team:<slug>|...`, answered

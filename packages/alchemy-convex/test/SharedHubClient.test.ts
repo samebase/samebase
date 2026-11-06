@@ -7,6 +7,7 @@ import { encodeState, type PersistedState, reviveState, State } from "alchemy/St
 import type { ScratchStack } from "@alchemy.run/test/Core";
 import * as Test from "@alchemy.run/test/Vitest";
 import * as Effect from "effect/Effect";
+import * as Exit from "effect/Exit";
 import * as Logger from "effect/Logger";
 import * as Redacted from "effect/Redacted";
 import * as Schema from "effect/Schema";
@@ -532,6 +533,35 @@ describe("Convex.SharedHubClient", () => {
       }),
     );
   }
+
+  test.provider(
+    "a required client fails the run on a refusal, in place of the off values",
+    (stack) =>
+      Effect.gen(function* () {
+        const fake = new FakeServices().install();
+        fake.registrar = () =>
+          Response.json({ error: "not_allowed", reason: "blocked" }, { status: 403 });
+        const exit = yield* Effect.exit(stack.deploy(client(props({ required: true }))));
+        expect(Exit.isFailure(exit)).toBe(true);
+        expect(String(exit)).toContain("is required and has no working client (off)");
+      }),
+  );
+
+  test.provider(
+    "a required client fails the run when suspended, and keeps a client a hub outage left",
+    (stack) =>
+      Effect.gen(function* () {
+        const fake = new FakeServices().install();
+        expect(yield* stack.deploy(client(props({ required: true })))).toEqual(issued());
+        fake.hub = () => new Response(null, { status: 500 });
+        expect(yield* stack.deploy(client(props({ required: true })))).toEqual(issued());
+        fake.hub = () => new Response(null, { status: 403 });
+        const exit = yield* Effect.exit(stack.deploy(client(props({ required: true }))));
+        expect(String(exit)).toContain("is required and has no working client (suspended)");
+        fake.hub = undefined;
+        expect(yield* stack.deploy(client(props({ required: true })))).toEqual(issued());
+      }),
+  );
 
   test.provider("a 5xx keeps the saved status of a suspended client", (stack) =>
     Effect.gen(function* () {

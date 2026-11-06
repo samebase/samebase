@@ -53,6 +53,13 @@ interface CommonProps {
   readonly redirectUri: string;
   /** Recorded on the hub's client, such as the commit. The hub records "unknown" without it. */
   readonly softwareVersion?: string;
+  /**
+   * The run fails when the client ends with any status but `on`: the hub refused or did not answer
+   * a registration, or it suspended the client. Without it, such a run gives the off values, so
+   * the app deploys with guest sign-in. Set it where sign-in is the product. A renewal that gets
+   * no answer keeps the saved client, whose values work, and does not fail the run.
+   */
+  readonly required?: boolean;
 }
 
 /**
@@ -481,7 +488,13 @@ export const SharedHubClientProvider = () =>
         saved?.redirectUri === news.redirectUri && saved.deploymentType === news.deploymentType
           ? yield* renew(saved)
           : undefined;
-      return renewed ?? (yield* newClient(news));
+      const client = renewed ?? (yield* newClient(news));
+      if (news.required === true && client.status !== "on") {
+        return yield* new SharedHubClientFailed({
+          reason: `${news.app} on ${news.redirectUri} is required and has no working client (${client.status}). The warning above names the reason`,
+        });
+      }
+      return client;
     }),
 
     // A failed delete does not stop a destroy: the removal date of a preview or development client

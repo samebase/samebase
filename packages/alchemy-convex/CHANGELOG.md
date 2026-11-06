@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.30.0
+
+- `Convex.SharedHubClient` takes `required`. With `true`, the run fails when the client ends with
+  any status but `on`: a refused or unanswered registration, or a suspended client. Without it, the
+  run gives the off values, as before.
+- Add `Convex.LocalDeployment`, which writes the `env` of the logged-in local deployment of a
+  folder, from its `.convex/local/default/config.json`, with its admin key. It never creates,
+  pushes, or deletes. `Convex.LocalDeployment.of(rootDir?)` gives its `siteUrl` to the stack's
+  program.
+- With the Convex CLI login, a selected `local:` deployment gives the team of its project, from the
+  folder's `config.json`. Before, a run with a local deployment selected stopped.
+
 ## 0.29.0
 
 - `team` is removed from `Convex.state()` and from both forms of `Convex.Project`, `{ name }` and
