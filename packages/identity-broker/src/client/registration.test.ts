@@ -150,8 +150,8 @@ function authorizeUrl(
 
 /** Follows the upstream redirect back into the broker, and answers with the client's code. */
 /**
- * Ends a sign-in at the fake provider. The consent page of a third-party preview or laptop is
- * answered with Continue first, in the browser that got it, as a user does.
+ * Ends a sign-in at the fake provider. The consent page of a third-party preview or development
+ * client is answered with Continue first, in the browser that got it, as a user does.
  */
 async function finishUpstream(h: Harness, start: Response) {
   const cookie = txnCookie(start);

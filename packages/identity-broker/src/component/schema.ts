@@ -20,8 +20,8 @@ export const vDeploymentType = union(
 /**
  * Who made a client at `POST /hub-clients`, as of that registration: the owner is the one of that
  * moment, so a transfer of the repository later changes nothing here. `github`: a GitHub Actions run,
- * with what GitHub's OIDC token said about it. `initial_access_token`: a laptop with the app's token,
- * with the repository and owner of the token's production run.
+ * with what GitHub's OIDC token said about it. `initial_access_token`: a development server with
+ * the app's token, with the repository and owner of the token's production run.
  */
 export const vRegisteredBy = union(
   object({

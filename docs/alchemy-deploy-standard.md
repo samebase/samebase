@@ -14,8 +14,8 @@ Every repository of the team deploys the same way. The reference implementation 
    `alchemy-state-store` project of that team, which the first run creates. Never
    `Cloudflare.state()`, never a local `.alchemy/` directory in CI, never a state artifact.
 3. **Stack name = repository full name**, `owner/name`, from `GITHUB_REPOSITORY` in Actions or the
-   origin remote on a laptop. That name is how the Samebase repository pages find the stack. A stack
-   in a folder of a repository is `owner/name/<folder>`.
+   origin remote on a development machine. That name is how the Samebase repository pages find the
+   stack. A stack in a folder of a repository is `owner/name/<folder>`.
 4. **One secret**: `CONVEX_ACCESS_TOKEN`, a team access token, or the organization's OAuth token in
    a repository that Samebase created. The run mints every deploy key itself, and the keys never
    leave the run. An OAuth token comes back as its own key, with no limits. The identity hub needs
@@ -49,9 +49,9 @@ Every repository of the team deploys the same way. The reference implementation 
 ## Why
 
 The state store is the one place that knows what exists, so Samebase can read it, destroy is safe,
-and a laptop and CI see the same truth. One token per repository means nothing to rotate per
-deployment and nothing to copy between repositories. The same shape everywhere means a new
-repository is a copy of the starter, and a reader of one stack has read them all.
+and a development machine and CI see the same truth. One token per repository means nothing to
+rotate per deployment and nothing to copy between repositories. The same shape everywhere means a
+new repository is a copy of the starter, and a reader of one stack has read them all.
 
 ## Checklist for a new repository
 

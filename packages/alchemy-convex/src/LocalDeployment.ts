@@ -3,7 +3,7 @@
 // this machine. Each folder, such as each git worktree, has its own, with its own data.
 //
 // The resource writes its `env` and nothing else. The running `convex dev` owns the backend and
-// pushes the functions, so the stage of a laptop runs after `convex dev` has started, and the
+// pushes the functions, so the development stage runs after `convex dev` has started, and the
 // first push of a new local deployment takes the variables that the project's default variables
 // for development gave it. The resource reads the deployment from
 // `.convex/local/default/config.json`, where the Convex CLI keeps its name, ports, and admin key,

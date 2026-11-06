@@ -825,7 +825,7 @@ describe("authorization code flow with an OAuth connector", () => {
     }
   });
 
-  test("a third-party preview or laptop asks for consent", async () => {
+  test("a third-party preview or development client asks for consent", async () => {
     const h = await createHarness({ connectors: [fakeUpstream().connector] });
     const { clientId } = await h.registerClient({
       appName: "Stranger",
@@ -907,7 +907,7 @@ describe("authorization code flow with an OAuth connector", () => {
     expect(new URL(direct.headers.get("location") ?? "").origin).toBe("https://upstream.test");
   });
 
-  test("a laptop on a loopback address is said to be on this computer", async () => {
+  test("a development client on a loopback address is said to be on this computer", async () => {
     const h = await createHarness({ connectors: [fakeUpstream().connector] });
     const redirectUri = "http://localhost:5173/auth/hub/callback";
     const { clientId } = await h.registerClient({

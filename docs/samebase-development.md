@@ -126,19 +126,19 @@ key ring during routine setup. Replacing the credential key ring loses access to
 its old keys. For rotation, follow the
 [credential encryption contract](../specs/130_PROVIDER_CREDENTIAL_ENCRYPTION_AT_REST_SPEC.md#rotation).
 
-- `AUTH_PRIVATE_KEY` and `AUTH_JWKS`: the signing keys of the auth component. A laptop folder gets
-  them from its first `pnpm run dev`, and CI from its bootstrap. For another deployment, run this
-  from `apps/samebase` with the deployment selected (for example `--prod` or `--preview-name <name>`
-  after `set`):
+- `AUTH_PRIVATE_KEY` and `AUTH_JWKS`: the signing keys of the auth component. A development checkout
+  gets them from its first `pnpm run dev`, and CI from its bootstrap. For another deployment, run
+  this from `apps/samebase` with the deployment selected (for example `--prod` or
+  `--preview-name <name>` after `set`):
 
   ```bash
   node -e 'import("../../scripts/lib/convexAuthKeys.ts").then(({ generateConvexAuthKeys }) => { for (const [name, value] of Object.entries(generateConvexAuthKeys())) require("node:child_process").spawnSync("npx", ["convex", "env", "set", name], { input: value, stdio: ["pipe", "inherit", "inherit"] }); })'
   ```
 
 - `CREDENTIAL_KEYS`: the key ring that seals the stored provider credentials
-  (`specs/130_PROVIDER_CREDENTIAL_ENCRYPTION_AT_REST_SPEC.md`). A laptop folder gets it from its
-  first `pnpm run dev`, CI from its bootstrap, and a preview from its push. For production, run this
-  from `apps/samebase` with the deployment selected:
+  (`specs/130_PROVIDER_CREDENTIAL_ENCRYPTION_AT_REST_SPEC.md`). A development checkout gets it from
+  its first `pnpm run dev`, CI from its bootstrap, and a preview from its push. For production, run
+  this from `apps/samebase` with the deployment selected:
 
   ```bash
   node -e 'import("../../scripts/lib/convexAuthKeys.ts").then(({ generateCredentialKeys }) => { for (const [name, value] of Object.entries(generateCredentialKeys())) require("node:child_process").spawnSync("npx", ["convex", "env", "set", name], { input: value, stdio: ["pipe", "inherit", "inherit"] }); })'
@@ -156,8 +156,8 @@ its old keys. For rotation, follow the
 `<preview site>/auth/hub/callback`, with the run's GitHub OIDC token, so sign-in needs no secret of
 its own. The hub reads `/samebase-verification.json` on the site before it registers a client.
 
-The local deployment of each laptop folder gets its two clients from the stage `dev-<name>`, which
-`pnpm run dev` runs at each start. They are development clients on
+The local deployment of each development checkout gets its two clients from the stage `dev-<name>`,
+which `pnpm run dev` runs at each start. They are development clients on
 `http://127.0.0.1:<site port>/auth/hub/callback` and `/oauth/hub/callback`, registered with the
 initial access tokens of the apps `samebase` and `samebase-connections`, which the state of `prod`
 keeps. Each start renews them, so a development client expires 14 days after the last start or use.

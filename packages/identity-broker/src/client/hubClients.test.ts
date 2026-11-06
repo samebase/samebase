@@ -129,7 +129,7 @@ describe("POST /hub-clients", () => {
       expect(await readOwnRecord(h, client)).toBe(200);
     });
 
-    it("makes the apps of an own repository first-party, its laptops' too, and no other's", async () => {
+    it("makes the apps of an own repository first-party, its development clients too, and no other's", async () => {
       const h = await createHub();
       vi.stubEnv("OWN_REPOSITORY_IDS", "80, 81");
       const own = { repository_id: "81", repository: "octo-org/own" };
@@ -139,8 +139,8 @@ describe("POST /hub-clients", () => {
       expect(productionApp).not.toHaveProperty("connector");
 
       stubProviders(() => jsonResponse({ repository: "81" }));
-      const laptop = await createDevelopmentClient(h, production.initial_access_token ?? "");
-      expect(await h.t.query(api.clients.get, { clientId: laptop.client_id })).toMatchObject({
+      const development = await createDevelopmentClient(h, production.initial_access_token ?? "");
+      expect(await h.t.query(api.clients.get, { clientId: development.client_id })).toMatchObject({
         appId: `gh-81-${APP_HASH}-preview`,
       });
       expect(await h.t.query(api.apps.get, { appId: `gh-81-${APP_HASH}-preview` })).toMatchObject({
@@ -226,7 +226,7 @@ describe("POST /hub-clients", () => {
       const client = await createClient(h);
 
       const token = client.initial_access_token ?? "";
-      const laptop = await createDevelopmentClient(h, token);
+      const development = await createDevelopmentClient(h, token);
 
       const logged = JSON.stringify(logs.map((log) => log.mock.calls));
       expect(token).not.toBe("");
@@ -234,8 +234,8 @@ describe("POST /hub-clients", () => {
         client.client_secret,
         client.registration_access_token,
         token,
-        laptop.client_secret,
-        laptop.registration_access_token,
+        development.client_secret,
+        development.registration_access_token,
       ]) {
         expect(logged).not.toContain(secret);
       }
@@ -363,7 +363,7 @@ describe("POST /hub-clients", () => {
       ["no return address", { redirectUri: undefined }],
       ["an http return address", { redirectUri: "http://ideal-dolphin-15.convex.site/cb" }],
       [
-        "a loopback return address, which only a laptop's token proves",
+        "a loopback return address, which only the app's initial access token proves",
         { redirectUri: LOOPBACK_CALLBACK },
       ],
       ["a fragment", { redirectUri: `${PRODUCTION_CALLBACK}#top` }],
@@ -798,7 +798,7 @@ describe("POST /hub-clients with the initial access token", () => {
     },
   );
 
-  it("creates the preview app with the first laptop client, inside the tenant's budget", async () => {
+  it("creates the preview app with the first development client, inside the tenant's budget", async () => {
     const h = await createHub();
     const token = await createInitialAccessToken(h);
     const previewAppId = `gh-${REPOSITORY_ID}-${APP_HASH}-preview`;
@@ -852,12 +852,12 @@ describe("POST /hub-clients with the initial access token", () => {
     }
     vi.setSystemTime(1_800_000_100_000);
 
-    const laptop = await createDevelopmentClient(h, token);
+    const development = await createDevelopmentClient(h, token);
 
     const clients = await h.t.query(api.clients.listByApp, { appId: previewAppId });
     expect(clients).toHaveLength(30);
     expect(clients.map((client) => client.clientId)).not.toContain("cl_preview_0");
-    expect(clients.map((client) => client.clientId)).toContain(laptop.client_id);
+    expect(clients.map((client) => client.clientId)).toContain(development.client_id);
     expect(await h.t.query(api.clients.get, { clientId: production.client_id })).toMatchObject({
       deploymentType: "production",
     });
@@ -956,7 +956,7 @@ describe("POST /hub-clients with the initial access token", () => {
     await setOwnerBlocked("66", false);
     expect((await postHubClient(h, token, { redirectUri: LOOPBACK_CALLBACK })).status).toBe(201);
 
-    // The laptop's client left the recorded owner 66 in place.
+    // The development client left the recorded owner 66 in place.
     await setOwnerBlocked("66", true);
     const app = await h.t.query(api.apps.get, { appId: `gh-${REPOSITORY_ID}-${APP_HASH}` });
     expect(app).toMatchObject({ suspended: true });

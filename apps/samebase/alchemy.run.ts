@@ -7,19 +7,19 @@
 // - Stage `pr-<number>`, on each pull request: a Convex preview deployment with the name of the
 //   stage, which `alchemy destroy` deletes when the pull request closes. It reads the project by its
 //   slug, so it does not depend on the state of `prod`, and it creates no Workers.
-// - Stage `dev-<name>`, on a laptop at each `pnpm run dev`: the two hub clients of the folder's
+// - Stage `dev-<name>`, in development at each `pnpm run dev`: the two hub clients of the folder's
 //   logged-in Convex local deployment and their six variables. `<name>` is the user name in the
 //   main checkout and the folder name in a linked worktree (scripts/run-worktree-dev.ts).
 //
 // The state of every stage is in the `alchemy-state-store` project of the Convex team of the
 // credential, under the stack name samebase/samebase/apps/samebase, the repository and the folder of
 // this file, where the repository pages of Samebase read it. Every run needs the team token
-// CONVEX_ACCESS_TOKEN, or the Convex CLI login (`npx convex login`) on a laptop; it mints the deploy
-// key of each push itself. The stage `prod` also needs a Cloudflare login (`npx alchemy login`, or
-// CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID in .env). That token needs Workers Scripts Edit,
-// Account Settings Read, and Account API Tokens Write, plus Workers Routes Edit and Zone Read on
-// samebase.com. The build reads the variables that alchemy.yml sets on each deploy step, such as
-// VITE_SAMEBASE_ROUTE_ENVIRONMENT.
+// CONVEX_ACCESS_TOKEN, or the Convex CLI login (`npx convex login`) on a development machine; it
+// mints the deploy key of each push itself. The stage `prod` also needs a Cloudflare login
+// (`npx alchemy login`, or CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID in .env). That token
+// needs Workers Scripts Edit, Account Settings Read, and Account API Tokens Write, plus Workers
+// Routes Edit and Zone Read on samebase.com. The build reads the variables that alchemy.yml sets on
+// each deploy step, such as VITE_SAMEBASE_ROUTE_ENVIRONMENT.
 //
 // Each deployment has two clients of the identity hub (RFC 134): one for the sign-in with GitHub and
 // Google, one for the provider logins. Convex.SharedHubClient asks `POST /hub-clients` with the
@@ -48,7 +48,7 @@ const HUB_CALLBACK_PATH = "/auth/hub/callback";
 const RESOURCE_HUB_CALLBACK_PATH = "/oauth/hub/callback";
 /**
 The two apps of this repository on the identity hub. Two names, because the hub keeps one initial
-access token for each repository and name, which a laptop's stage reads from `prod`.
+access token for each repository and name, which a development stage reads from `prod`.
 */
 const SIGN_IN_APP = "samebase";
 const CONNECTIONS_APP = "samebase-connections";
@@ -71,8 +71,8 @@ export default Alchemy.Stack(
     const { stage } = yield* Alchemy.Stack;
 
     if (stage.startsWith("dev-")) {
-      // A laptop folder: the logged-in local deployment of this folder, which `convex dev` runs and
-      // pushes. `pnpm run dev` runs this stage once the backend answers. The clients are
+      // A development checkout: the logged-in local deployment of this folder, which `convex dev`
+      // runs and pushes. `pnpm run dev` runs this stage once the backend answers. The clients are
       // development clients on the backend's site port, which stays fixed for the folder, and they
       // ask the hub with the initial access tokens that production's registration saved in the
       // state of `prod`. "Site" only writes the six variables.

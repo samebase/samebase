@@ -182,20 +182,20 @@ export default Alchemy.Stack(
 );
 ```
 
-Every run needs the team token in `CONVEX_ACCESS_TOKEN`, or the Convex CLI login on a laptop. The
-state and the projects are in the team of that credential. A team access token and an OAuth token of
-a team name their team. The Convex CLI login names no team, so the run uses the team of the
-deployment that the Convex CLI selected: `CONVEX_DEPLOYMENT` in the environment or in `.env.local`,
-which `npx convex dev` writes. A logged-in local deployment gives the team of its project, from the
-folder's `.convex/local/default/config.json`. An anonymous deployment is in no team, so the run
-stops and asks for a deployment of a project. The first run of a team creates the project
-`alchemy-state-store` and pushes the store functions to its production deployment with the Convex
-CLI of the app; a later version of this package pushes a newer store when it finds an older one. A
-store that is newer than the package fails the run with both versions, so the repositories of a team
-upgrade the package together. Each run makes a deploy key of that deployment that can only run the
-store's internal functions, and deletes it at the end. Rows are in the tables `resources` and
-`outputs` of the component `alchemyState` in the dashboard, under the stack name. The store has no
-lock: run one deploy of a stage at a time, such as with a CI concurrency group. The store and its
+Every run needs the team token in `CONVEX_ACCESS_TOKEN`, or the Convex CLI login on a development
+machine. The state and the projects are in the team of that credential. A team access token and an
+OAuth token of a team name their team. The Convex CLI login names no team, so the run uses the team
+of the deployment that the Convex CLI selected: `CONVEX_DEPLOYMENT` in the environment or in
+`.env.local`, which `npx convex dev` writes. A logged-in local deployment gives the team of its
+project, from the folder's `.convex/local/default/config.json`. An anonymous deployment is in no
+team, so the run stops and asks for a deployment of a project. The first run of a team creates the
+project `alchemy-state-store` and pushes the store functions to its production deployment with the
+Convex CLI of the app; a later version of this package pushes a newer store when it finds an older
+one. A store that is newer than the package fails the run with both versions, so the repositories of
+a team upgrade the package together. Each run makes a deploy key of that deployment that can only
+run the store's internal functions, and deletes it at the end. Rows are in the tables `resources`
+and `outputs` of the component `alchemyState` in the dashboard, under the stack name. The store has
+no lock: run one deploy of a stage at a time, such as with a CI concurrency group. The store and its
 readers (Samebase) are released and upgraded together.
 
 Store version 3 supports native subscriptions. A trusted server checks repository access, then calls
@@ -236,8 +236,8 @@ To rotate the key, from a directory that selects the project `alchemy-state-stor
 
 Alchemy state holds no time, commit, branch, or run. `Convex.state()` adds them to the stage output:
 the document that `setOutput` stores is the stack's output plus the key `samebase.run`. On GitHub
-Actions the record comes from the run's variables and the event payload; on a laptop from git, which
-needs a branch and an `origin` remote. It holds no secret.
+Actions the record comes from the run's variables and the event payload; on a development machine
+from git, which needs a branch and an `origin` remote. It holds no secret.
 
 ```json
 {
@@ -257,13 +257,13 @@ needs a branch and an `origin` remote. It holds no secret.
 ```
 
 `stackFile` is the working directory of the run below the repository root plus `alchemy.run.ts`.
-`pullRequest` and `runUrl` are `null` for a push and for a laptop, where `source` is `laptop`. A
-value that the stack itself returns under `samebase.run` stays. A checkout that gives no record,
-such as a tarball without git or a detached HEAD, writes its outputs without one, and the log says
-why. Alchemy writes the output once after a full successful deploy, so a failed deploy leaves the
-previous record, and a deploy of selected resources writes none. A reader gets every stage of a
-stack, with its resources and output, from the store function `state:readStack({ stack })` in one
-call.
+`pullRequest` and `runUrl` are `null` for a push and for a development machine, where `source` is
+`laptop`. A value that the stack itself returns under `samebase.run` stays. A checkout that gives no
+record, such as a tarball without git or a detached HEAD, writes its outputs without one, and the
+log says why. Alchemy writes the output once after a full successful deploy, so a failed deploy
+leaves the previous record, and a deploy of selected resources writes none. A reader gets every
+stage of a stack, with its resources and output, from the store function
+`state:readStack({ stack })` in one call.
 
 ## Resources
 
@@ -307,7 +307,7 @@ call.
 - `Convex.SharedHubClient`:
   `{ app, redirectUri, deploymentType, initialAccessToken?, softwareVersion? }` gets a client of the
   central identity hub, for an app that deploys in its own GitHub Actions run, on any host, and for
-  a laptop as a stage of the same stack. `deploymentType` is `production`, `preview`, or
+  development as a stage of the same stack. `deploymentType` is `production`, `preview`, or
   `development`. A production or preview client needs `permissions: id-token: write` in the
   workflow, and no key and no Samebase account. `app` is at most 64 characters. The origin of an
   https `redirectUri` must serve `/samebase-verification.json` with the numeric GitHub id of the
@@ -319,9 +319,9 @@ call.
     repository id, which the state keeps. A renewal keeps both. They are empty for a preview, for a
     development client, and for the off values.
   - A development client needs `initialAccessToken`, and only a development client takes it. The
-    client asks the hub with this token in place of the GitHub OIDC token, so it works on a laptop.
-    With an empty token, the client gets the off values, and the log says "deploy to main once for
-    Google sign-in on this laptop". See "The development stage" below.
+    client asks the hub with this token in place of the GitHub OIDC token, so it works in
+    development. With an empty token, the client gets the off values, and the log says "deploy to
+    main once for Google sign-in in development". See "The development stage" below.
   - Each deploy reads the saved client on the hub with its own token. A client that is gone gets a
     new one, and a client on another `redirectUri` or of another `deploymentType` too.
   - A new client logs the link to the terms of the shared sign-in service. A refusal logs its
@@ -330,7 +330,7 @@ call.
   - No failure stops a deploy or a destroy. A failed renewal keeps the saved values. Without saved
     values, `status` is `off`, and `issuer`, `clientId`, and `clientSecret` are the `no-hub` values
     of a checkout without a hub. A production or preview run without a GitHub OIDC token, such as on
-    a laptop, does the same, and logs no warning.
+    a development machine, does the same, and logs no warning.
   - `required: true` makes the run fail unless the hub confirms the client in this run: a refusal, a
     hub that does not answer a registration or a renewal, or a suspended client fails it. Set it
     where sign-in is the product, so a deploy never ships guest sign-in, or a client that the hub
@@ -343,7 +343,7 @@ call.
   - `Convex.SharedHubClient.read(id, { stage })` gives the attributes of the client `id` in another
     stage of the same stack, from the state store of the stack. When that stage has no row, it gives
     the off attributes and does not fail. `Convex.SharedHubClient.ref` fails when the row is
-    missing, and a laptop before the first deploy to main has no `prod` row.
+    missing, and a development stage before the first deploy to main has no `prod` row.
   - A destroy deletes a preview or development client. It does nothing to a production client,
     because the production deployment can stay.
   - `HUB_URL` replaces `https://auth.samebase.com`, the hub that the run asks at `/hub-clients`.
@@ -364,11 +364,11 @@ call.
 
 ### The development stage
 
-A laptop gets its client from a stage `dev-<name>` of the app's stack, run on purpose, not at each
-dev start: `npx convex dev` has made and selected the dev deployment and pushed the code, and then
-`alchemy deploy --stage dev-<name>` gives that deployment its variables. The stage creates nothing
-and pushes nothing. It has three rows on the deployment that `.env.local` selects, taken over by its
-Convex name:
+A development checkout gets its client from a stage `dev-<name>` of the app's stack, run on purpose,
+not at each dev start: `npx convex dev` has made and selected the dev deployment and pushed the
+code, and then `alchemy deploy --stage dev-<name>` gives that deployment its variables. The stage
+creates nothing and pushes nothing. It has three rows on the deployment that `.env.local` selects,
+taken over by its Convex name:
 
 ```ts
 // `selected` is the name in CONVEX_DEPLOYMENT of .env.local, such as happy-animal-123, and
@@ -412,8 +412,8 @@ The imports are `alchemy/AdoptPolicy` for `adopt` and `alchemy/Output` for `Outp
    `/samebase-verification.json`. `adopt` takes over the deployment and the variables that the dev
    start set before.
 3. "HubClient" asks the hub for a development client on the deployment's site URL with the token. A
-   later run renews it. A sign-in renews it too, so a laptop in use never needs the stage again; a
-   development client expires 14 days after its last run or sign-in.
+   later run renews it. A sign-in renews it too, so a development server in use never needs the
+   stage again; a development client expires 14 days after its last run or sign-in.
 4. "Site" writes the three variables. It removes only a name that leaves its own `env`, so
    `SAMEBASE_REPOSITORY_ID` stays.
 

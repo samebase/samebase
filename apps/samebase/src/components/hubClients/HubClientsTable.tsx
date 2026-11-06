@@ -22,10 +22,10 @@ import {
   Copy,
   ExternalLink,
   Github,
-  Laptop,
   MoreHorizontal,
   PlusCircle,
   Search,
+  SquareTerminal,
 } from "lucide-react";
 import { useMemo, useState, type ReactNode } from "react";
 import { formatTime, type HubClient, ownerOf } from "@/components/hubClients/hubClient";
@@ -92,7 +92,7 @@ const FACETS = [
     label: "Registered",
     options: [
       { value: "github", label: "GitHub Actions" },
-      { value: "laptop", label: "Laptop token" },
+      { value: "development", label: "Development" },
     ],
   },
   {
@@ -111,10 +111,13 @@ const filterColumns = columnHelper.columns([
   columnHelper.accessor((client) => ownerOf(client), { id: "owner", filterFn: "arrHas" }),
   columnHelper.accessor((client) => client.registeredBy.githubRepository, { id: "repository" }),
   columnHelper.accessor((client) => client.deploymentType, { id: "stage", filterFn: "arrHas" }),
-  columnHelper.accessor((client) => (client.registeredBy.kind === "github" ? "github" : "laptop"), {
-    id: "registered",
-    filterFn: "arrHas",
-  }),
+  columnHelper.accessor(
+    (client) => (client.registeredBy.kind === "github" ? "github" : "development"),
+    {
+      id: "registered",
+      filterFn: "arrHas",
+    },
+  ),
   columnHelper.accessor((client) => (client.lastSignInAt === null ? "never" : "yes"), {
     id: "signIn",
     filterFn: "arrHas",
@@ -175,8 +178,8 @@ function RegisteredBy({ client }: { client: HubClient }) {
   if (registeredBy.kind === "initial_access_token") {
     return (
       <span className="inline-flex items-center gap-1.5">
-        <Laptop className="size-3.5 text-muted-foreground" />
-        Laptop token
+        <SquareTerminal className="size-3.5 text-muted-foreground" />
+        Development
       </span>
     );
   }

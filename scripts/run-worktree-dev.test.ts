@@ -85,7 +85,9 @@ describe("run-worktree-dev", () => {
 
   it("names the stage after the user in the main checkout and after the folder in a worktree", () => {
     expect(resolveDevStage("main", "/Users/nicu/dev/samebase", "Nicu")).toBe("dev-nicu");
-    expect(resolveDevStage("linked", "/wt/RFC_134.laptops", "nicu")).toBe("dev-rfc-134-laptops");
+    expect(resolveDevStage("linked", "/wt/RFC_134.development", "nicu")).toBe(
+      "dev-rfc-134-development",
+    );
   });
 
   it("orders the steps of one start", () => {

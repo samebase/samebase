@@ -1,5 +1,5 @@
 // The run record from recorded environments: a pull_request event, a push,
-// and a laptop checkout made with the real git.
+// and a development checkout made with the real git.
 import { execFileSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -130,7 +130,7 @@ describe("runRecord", () => {
     ).toContain("cannot be read");
   });
 
-  it("records a laptop checkout from git", async () => {
+  it("records a development checkout from git", async () => {
     const record = await at(join(checkout, "apps", "site"), {});
     expect(record).toEqual({
       version: 1,
@@ -158,7 +158,7 @@ describe("runRecord", () => {
     }
   });
 
-  it("fails on a laptop outside a checkout, without origin, with a path remote, or on no branch", async () => {
+  it("fails on a development machine outside a checkout, without origin, with a path remote, or on no branch", async () => {
     expect(await failureOf(dir, {})).toContain("git remote get-url origin failed");
     git(checkout, "remote", "remove", "origin");
     expect(await failureOf(checkout, {})).toContain("git remote get-url origin failed");

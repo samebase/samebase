@@ -30,7 +30,7 @@ export const pageStates: Record<string, () => Response> = {
       legal,
     }),
   "consent-preview": () => consent({}),
-  "consent-laptop": () =>
+  "consent-development": () =>
     consent({
       host: "localhost:5173",
       origin: "http://localhost:5173",

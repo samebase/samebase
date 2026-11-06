@@ -39,7 +39,7 @@ const RouteSearchSchema_adminHubClients = defineRouteSearchParams({
   }),
   registered: routeSearchValueParam(routeSearchNonEmptyString, {
     access: "access_admin",
-    sampleValue: "laptop",
+    sampleValue: "development",
     suggestion: "route",
     valueType: "freeform",
   }),
@@ -73,7 +73,7 @@ const RouteSearchSchema_organizationHubClients = defineRouteSearchParams({
   }),
   registered: routeSearchValueParam(routeSearchNonEmptyString, {
     access: "access_dashboard",
-    sampleValue: "laptop",
+    sampleValue: "development",
     suggestion: "route",
     valueType: "freeform",
   }),

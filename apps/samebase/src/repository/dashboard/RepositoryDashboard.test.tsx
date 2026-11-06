@@ -706,8 +706,8 @@ describe("Alchemy stack cards", () => {
     const repository = makeRepositorySettingsBuilderRepository({});
     const { cards } = renderStackCards(stacksWith(worker), repository, "b".repeat(40));
 
-    // A run from a laptop has no run URL, so its line links nowhere. The address is the one URL of
-    // the Worker, so the Worker row shows no URL and no build state.
+    // A run from a development machine has no run URL, so its line links nowhere. The address is
+    // the one URL of the Worker, so the Worker row shows no URL and no build state.
     expect(cards.map((card) => card.textContent)).toEqual([
       "tmp-k7m2-rows.pfp.workers.devaaaaaaatmp-k7m2-rows",
     ]);

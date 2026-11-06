@@ -7,9 +7,9 @@ import { newClientCredentials, type RegistrationConfig } from "./registration.js
 import { sha256Hex } from "./subject.js";
 
 // `POST /hub-clients`: a new client for one deployment of an app, with no account at the hub. The
-// Bearer is the proof. A GitHub Actions run proves its repository with GitHub's OIDC token; a laptop
-// proves the app with the app's initial access token, which a production run got. The rows and the
-// rules that read them are in src/component/hubClients.ts.
+// Bearer is the proof. A GitHub Actions run proves its repository with GitHub's OIDC token; a
+// development server proves the app with the app's initial access token, which a production run
+// got. The rows and the rules that read them are in src/component/hubClients.ts.
 
 const { array, literal, number, object, string, union } = v;
 
@@ -31,8 +31,8 @@ const MAX_SOFTWARE_VERSION_LENGTH = 256;
 /** The app's name is stored on every client and shown on the admin page. */
 const MAX_APP_LENGTH = 64;
 /**
- * The hosts of a laptop's return address, as the redirect URI rule names them (`isLoopbackHost` in
- * protocol.ts). The URL parser writes an IPv6 host with its brackets.
+ * The hosts of a development server's return address, as the redirect URI rule names them
+ * (`isLoopbackHost` in protocol.ts). The URL parser writes an IPv6 host with its brackets.
  */
 export const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]"]);
 
@@ -157,8 +157,8 @@ async function readRun(token: string) {
 /**
  * The return address, if it is absolute, with no fragment and no user info, and either https on a DNS
  * name, which the verification file proves, or http on a loopback host, which only the initial access
- * token can prove: the hub cannot reach a laptop. An IP address or `localhost` over https is never a
- * host that a file can prove. Any port and any path.
+ * token can prove: the hub cannot reach a development server. An IP address or `localhost` over
+ * https is never a host that a file can prove. Any port and any path.
  */
 function readRedirectUri(value: string) {
   if (value.length > MAX_REDIRECT_URI_LENGTH || value.includes("#")) {
@@ -330,7 +330,7 @@ export function hubClientsEndpoint(args: {
 
   /**
    * A client for a GitHub Actions run, with GitHub's OIDC token. A run of main also gets the app's
-   * initial access token, which a laptop of the team uses for its development client.
+   * initial access token, which a development server of the team uses for its development client.
    */
   async function registerRun(ctx: Ctx, request: Request, githubToken: string) {
     const run = await readRun(githubToken);
@@ -392,11 +392,11 @@ export function hubClientsEndpoint(args: {
   }
 
   /**
-   * A development client for a laptop, with the app's initial access token, which only a reader of
-   * the state of the app's `prod` stage has. The repository and owner come from the token's row. A
-   * loopback return address needs no verification file; an https one needs it, as for a run.
+   * A development client, with the app's initial access token, which only a reader of the state of
+   * the app's `prod` stage has. The repository and owner come from the token's row. A loopback
+   * return address needs no verification file; an https one needs it, as for a run.
    */
-  async function registerLaptop(ctx: Ctx, request: Request, initialAccessToken: string) {
+  async function registerDevelopment(ctx: Ctx, request: Request, initialAccessToken: string) {
     const tokenHash = await sha256Hex(initialAccessToken);
     const token = await ctx.runQuery(component.hubClients.readInitialAccessToken, { tokenHash });
     if (token === null) {
@@ -447,10 +447,10 @@ export function hubClientsEndpoint(args: {
   /**
    * The Bearer is the proof, told apart by its shape: two dots is a JWT, GitHub's OIDC token of a
    * GitHub Actions run, which is checked as such and refused when any check fails; no dot is the
-   * app's initial access token, for a laptop. The hub builds the whole client, so the body chooses
-   * only a name inside the repository's own namespace and a return address. The client's secret and
-   * registration access token stay in this action's memory: they go to the caller and to nothing
-   * else.
+   * app's initial access token, for a development client. The hub builds the whole client, so the
+   * body chooses only a name inside the repository's own namespace and a return address. The
+   * client's secret and registration access token stay in this action's memory: they go to the
+   * caller and to nothing else.
    */
   return httpActionGeneric(async (ctx, request) => {
     const bearer = /^Bearer\s+(\S+)$/i.exec(request.headers.get("Authorization") ?? "")?.[1];
@@ -460,7 +460,7 @@ export function hubClientsEndpoint(args: {
       return await registerRun(ctx, request, bearer);
     }
     if (bearer !== undefined && parts === 1) {
-      return await registerLaptop(ctx, request, bearer);
+      return await registerDevelopment(ctx, request, bearer);
     }
     return reply(401, { error: "invalid_token" });
   });
