@@ -8,33 +8,32 @@ Paths and commands below are relative to the repository root unless a step names
 
 ## Local development
 
-For a primary checkout with the maintainer's Convex access and provider configuration, run:
+The main checkout and every linked worktree start the same way. It needs the maintainer's Convex CLI
+login (`npx convex login`) and no file of another checkout:
 
 ```bash
+pnpm run dev --once   # optional: set up and exit
 pnpm run dev
 ```
 
-The command installs dependencies, prepares the development deployment, and starts the frontend and
-backend. Open the URL printed by Vite. If the default port is busy, startup picks another port and
-keeps `SITE_URL` aligned.
+1. Each folder gets its own logged-in Convex local deployment of the project `samebase-com`, made by
+   `npx convex deployment create nicu:samebase-com:local --select` in `apps/samebase`. It is listed
+   in the Convex dashboard under the project. It imports the project's default variables for
+   development: the GitHub App, the GitHub owner of the seeded organization, and the off values of
+   the six identity hub variables. A folder that still has an anonymous local deployment loses it
+   and its data.
+2. The first start seeds it: the Convex Auth keys, the credential key ring, one local site deploy,
+   and the password account.
+3. `convex dev` runs the backend on two ports that a hash of the folder picks, so they stay the same
+   at each start.
+4. Once the backend answers, `pnpm exec alchemy deploy --stage dev-<name>` runs in `apps/samebase`:
+   `<name>` is your user name in the main checkout and the folder name in a linked worktree. The
+   stage registers or renews two development clients of the identity hub on the backend's site port,
+   and writes their six variables to the local deployment. A failure prints one line, and the dev
+   server keeps running.
 
-For a linked worktree, run:
-
-```bash
-pnpm run dev --once
-pnpm run dev
-```
-
-Worktree setup needs the maintainer's Convex CLI login (`npx convex login`), no file of another
-checkout. It starts the worktree's own local Convex deployment and copies the GitHub App settings
-and the GitHub owner of the seeded organization from the development deployment of the project
-`samebase-com`. It registers that local deployment with the identity hub, so GitHub sign-in and the
-Connect buttons work as on a preview. The word "anonymous" in the runner refers to the local Convex
-deployment, not a setup that works without maintainer credentials.
-
-On native Windows, use the same commands in PowerShell. Startup retries local `SITE_URL` sync after
-the backend starts. If it cannot stop a stale local backend on port `3210`, stop that process and
-retry.
+Open the URL printed by Vite. If the frontend port is busy, startup picks another port and keeps
+`SITE_URL` aligned. On native Windows, use the same commands in PowerShell.
 
 ## Checks and build
 
@@ -81,12 +80,8 @@ stack in `apps/sidebars-example/alchemy.run.ts`:
 
 A local build never deploys production. `convex/http.ts` imports `.convex-hosting/version.js`, which
 only a deploy writes, and `dist/server/server.js`, which only a build writes, so the first push of a
-fresh checkout fails until one deploy to its development deployment has run. `pnpm run dev` runs
-that deploy in a linked worktree; a primary checkout runs it once by hand:
-
-```bash
-pnpm --filter samebase run deploy --dev
-```
+fresh checkout fails until one deploy to its local deployment has run. The first `pnpm run dev` of a
+folder runs that deploy.
 
 ## Environment Setup
 
@@ -130,9 +125,9 @@ key ring during routine setup. Replacing the credential key ring loses access to
 its old keys. For rotation, follow the
 [credential encryption contract](../specs/130_PROVIDER_CREDENTIAL_ENCRYPTION_AT_REST_SPEC.md#rotation).
 
-- `AUTH_PRIVATE_KEY` and `AUTH_JWKS`: the signing keys of the auth component. A linked worktree gets
-  them from `pnpm run dev --once`, and CI from its bootstrap. For another deployment, run this from
-  `apps/samebase` with the deployment selected (for example `--prod` or `--preview-name <name>`
+- `AUTH_PRIVATE_KEY` and `AUTH_JWKS`: the signing keys of the auth component. A laptop folder gets
+  them from its first `pnpm run dev`, and CI from its bootstrap. For another deployment, run this
+  from `apps/samebase` with the deployment selected (for example `--prod` or `--preview-name <name>`
   after `set`):
 
   ```bash
@@ -140,9 +135,9 @@ its old keys. For rotation, follow the
   ```
 
 - `CREDENTIAL_KEYS`: the key ring that seals the stored provider credentials
-  (`specs/130_PROVIDER_CREDENTIAL_ENCRYPTION_AT_REST_SPEC.md`). A linked worktree gets it from
-  `pnpm run dev --once`, CI from its bootstrap, and a preview from its push. For production and the
-  development deployment, run this from `apps/samebase` with the deployment selected:
+  (`specs/130_PROVIDER_CREDENTIAL_ENCRYPTION_AT_REST_SPEC.md`). A laptop folder gets it from its
+  first `pnpm run dev`, CI from its bootstrap, and a preview from its push. For production, run this
+  from `apps/samebase` with the deployment selected:
 
   ```bash
   node -e 'import("../../scripts/lib/convexAuthKeys.ts").then(({ generateCredentialKeys }) => { for (const [name, value] of Object.entries(generateCredentialKeys())) require("node:child_process").spawnSync("npx", ["convex", "env", "set", name], { input: value, stdio: ["pipe", "inherit", "inherit"] }); })'
@@ -160,15 +155,13 @@ its old keys. For rotation, follow the
 three variables to the deployment before its push. The hub is in the `samebase` project of the
 Convex team, and the Convex credential of the run reaches it, so sign-in needs no secret of its own.
 
-The development deployment of the primary checkout and the local deployment of each linked worktree
-get their clients from the package scripts `hub:client` and `hub:resource-client`, with your Convex
-login. In a linked worktree, `pnpm run dev` runs them before the first push and at each later start,
-once the local backend is up. From `@samebase/alchemy-convex` 0.25.0, each renews the client that
-the three variables name, so a development client expires 14 days after the last start or use. A
-deployment without the three variables, or whose client the hub no longer has, gets a new client on
-its own site URL.
+The local deployment of each laptop folder gets its two clients from the stage `dev-<name>`, which
+`pnpm run dev` runs at each start. They are development clients on
+`http://127.0.0.1:<site port>/auth/hub/callback` and `/oauth/hub/callback`, registered with the
+initial access tokens of the apps `samebase` and `samebase-connections`, which the state of `prod`
+keeps. Each start renews them, so a development client expires 14 days after the last start or use.
 
-Password sign-in is for accounts that only server functions create. Local worktrees use their seeded
-password account. Preview deployments use `DEV_SEED_AUTH_EMAIL` and `DEV_SEED_AUTH_PASSWORD` (at
-least 10 characters). Other deployments can use the
+Password sign-in is for accounts that only server functions create. Local deployments use their
+seeded password account. Preview deployments use `DEV_SEED_AUTH_EMAIL` and `DEV_SEED_AUTH_PASSWORD`
+(at least 10 characters). Other deployments can use the
 [manual password account runbook](manual-password-auth.md).

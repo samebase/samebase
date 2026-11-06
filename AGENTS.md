@@ -8,9 +8,10 @@ silently drops the tail (`pnpm check:agents-budget` enforces the budget; history
 
 ## Startup
 
-- Use `pnpm run dev` everywhere. It installs dependencies, completes linked-worktree local Convex
-  seed/auth setup, then starts the correct primary or anonymous dev flow. It does not depend on a
-  Codex setup command.
+- Use `pnpm run dev` everywhere, in the main checkout and in each linked worktree. It installs
+  dependencies, gives the folder its own logged-in Convex local deployment (Convex CLI login
+  needed), seeds it, starts the dev server, and runs the Alchemy stage `dev-<name>` for the hub
+  clients. It does not depend on a Codex setup command.
 - In a new linked worktree, use `pnpm run dev --once` to perform the same setup and exit before
   lint/test/commit workflows. Do not replace this flow with direct `npx convex dev`.
 - If Convex tooling complains about missing `CONVEX_DEPLOYMENT`, or a worktree command fails with
