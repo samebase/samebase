@@ -847,7 +847,7 @@ describe("authorization code flow with an OAuth connector", () => {
       '<a href="https://github.com/octo-org/octo-repo" target="_blank" rel="noopener noreferrer">octo-org/octo-repo</a>';
     expect(html).toContain(`<p class="sub">Development server of ${repository}</p>`);
     expect(html).toContain(
-      "It gets your name, picture, and email address. auth.test has not reviewed this app.",
+      "The app gets your name, picture, and email address. auth.test has not reviewed this app.",
     );
     expect(html).toContain("Continue with Fake");
     // Continue, and in new tabs the host, the repository, and the attribution; no script, and no
@@ -866,7 +866,7 @@ describe("authorization code flow with an OAuth connector", () => {
     const openidOnly = await h.fetchBroker(
       authorizeUrl(h, { clientId, challenge, extra: { scope: "openid" } }),
     );
-    expect(await openidOnly.text()).toContain("It gets only an id for your account.");
+    expect(await openidOnly.text()).toContain("The app gets only an id for your account.");
   });
 
   test("a third-party preview names its stage, and production goes straight to the connector", async () => {
