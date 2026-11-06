@@ -37,6 +37,8 @@ import {
   readParameters,
   redirect,
 } from "./responses.js";
+import { hubClientsEndpoint } from "./hubClients.js";
+import { moderationEndpoints } from "./moderation.js";
 import {
   newClientCredentials,
   registrationEndpoints,
@@ -84,8 +86,8 @@ export type IdentityBrokerConfig = {
    */
   previewClientIdleDays?: number;
   /**
-   * Lets each client of the host's registrations read and delete its own record (RFC 7592), and
-   * pause third-party apps. Absent: no `/register/<client>` endpoint.
+   * The hub mode: `POST /hub-clients`, `/register/<client>` (RFC 7592), `/moderation/*`, and the
+   * pause of third-party apps. Absent: none of these endpoints.
    */
   registration?: RegistrationConfig;
 };
@@ -146,6 +148,11 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
   const openConnectors = [...connectors.values()].filter(
     (connector) => connector.reserved !== true,
   );
+  const thirdPartyConnector =
+    registration === undefined ? undefined : connectors.get(registration.thirdPartyConnector);
+  if (registration !== undefined && thirdPartyConnector?.reserved !== true) {
+    throw new Error("registration.thirdPartyConnector must name a reserved connector");
+  }
   // Zero or less would delete every preview client at the next cleanup.
   if (previewClientIdleDays !== undefined && !(previewClientIdleDays > 0)) {
     throw new Error("previewClientIdleDays must be a positive number of days");
@@ -218,7 +225,7 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
   const stoppedPage = (app: { suspended: boolean; connector?: string }) =>
     app.suspended
       ? errorPage("Sign-in is off", "Sign-in for this app is turned off.", 403)
-      : app.connector !== undefined && registration?.paused?.() === true
+      : app.connector !== undefined && registration?.paused() === true
         ? errorPage("Sign-in is off", "Sign-in is paused. Try again later.", 503)
         : null;
 
@@ -726,7 +733,7 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
       codeVerifier: validation.value.codeVerifier,
       ...(resource === undefined ? {} : { resource }),
       refreshTokenHash: await sha256Hex(refreshToken),
-      ...(registration?.paused?.() === true ? { registrationPaused: true } : {}),
+      ...(registration?.paused() === true ? { registrationPaused: true } : {}),
       now,
     });
     if (!exchange.ok) {
@@ -834,12 +841,18 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
       }
       if (registration !== undefined) {
         registrationEndpoints({ component, issuer, path }).addRoutes(http);
+        http.route({
+          path: path("/hub-clients"),
+          method: "POST",
+          handler: hubClientsEndpoint({ component, issuer, registration }),
+        });
+        moderationEndpoints({ component, registration }).addRoutes(http, path);
       }
     },
 
     /**
-     * The credentials of a client that the host registers in its own mutation, through
-     * `component.registration.register` with the hashes. Call it in an action: the secret and the
+     * The credentials of a client for `component.registration.register`, for a host that proves its
+     * callers in another way than `POST /hub-clients`. Call it in an action: the secret and the
      * registration access token go to the caller of the host's endpoint, and nowhere else.
      */
     newClientCredentials: async () => await newClientCredentials(issuer),

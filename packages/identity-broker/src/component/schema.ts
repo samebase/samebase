@@ -18,6 +18,43 @@ export const vDeploymentType = union(
 );
 
 /**
+ * Who made a client at `POST /hub-clients`, as of that registration: the owner is the one of that
+ * moment, so a transfer of the repository later changes nothing here. `github`: a GitHub Actions run,
+ * with what GitHub's OIDC token said about it. `initial_access_token`: a laptop with the app's token,
+ * with the repository and owner of the token's production run.
+ */
+export const vRegisteredBy = union(
+  object({
+    kind: literal("github"),
+    /** `owner/name` at the time of the run. A rename changes it, so look a repository up by its id. */
+    githubRepository: string(),
+    githubOwnerId: string(),
+    /** The GitHub account that started the run. Not always the owner. */
+    githubActorId: string(),
+    githubActorLogin: string(),
+    /** The commit that the run deployed. For a pull request, GitHub's merge commit of it. */
+    commitSha: string(),
+  }),
+  object({
+    kind: literal("initial_access_token"),
+    githubRepository: string(),
+    githubOwnerId: string(),
+    /** When the token was issued, which tells one token of the app from the next. */
+    issuedAt: number(),
+  }),
+);
+
+/** What a block stops: one GitHub repository, or every repository of one GitHub owner. */
+export const vBlockKind = union(literal("repository"), literal("owner"));
+
+/** The windows of `POST /hub-clients`. `new_owners` is the one window of all owners new to the hub. */
+export const vRateLimitScope = union(
+  literal("repository"),
+  literal("owner"),
+  literal("new_owners"),
+);
+
+/**
  * What a connector attested about the user. `upstreamId` is the connector's own stable id for the
  * account (the GitHub user id, the OIDC `sub`). The pairwise subject is derived from it on the host,
  * where the salt lives.
@@ -91,29 +128,104 @@ export default defineSchema({
     .index("by_app_id", ["appId"])
     .index("by_tenant_id", ["tenantId"]),
 
-  /** One row for each tenant that `registration.register` has seen. It stays when the tenant's apps go. */
+  /**
+   * One row for each tenant that `registration.register` has seen. It stays when the tenant's apps
+   * go. A repository's tenant is `gh-<its GitHub id>`.
+   */
   tenants: defineTable({
     tenantId: string(),
-    /**
-     * The host blocked the tenant (`registration.switchConnection`). While set, no client of the
-     * tenant can register, renew, or sign in.
-     */
+    /** Read by nothing: rows of 0.18.0 hold it. RFC 135 PR B removes it after the import clears it. */
     disconnected: optional(boolean()),
     /**
      * The owner that the newest registration named, such as the id of the GitHub account that owns
-     * the repository. A row in `blockedOwners` with this id blocks the same things as `disconnected`.
+     * the repository. An owner block in `blocks` stops every tenant whose owner it is.
      */
     ownerId: optional(string()),
   }).index("by_tenant_id", ["tenantId"]),
 
   /**
-   * The owner switch: one row for each blocked owner, set by the host. It stops every tenant whose
-   * `ownerId` is this owner, so a block touches no tenant row and has no size limit.
+   * The one block state: one row per blocked repository or owner, set by the hub's administrator
+   * with `moderation.setBlock`. While a row exists, no client of the repository, or of any repository
+   * whose recorded owner it is, can register, renew, or sign in, also clients of apps made later.
+   * Unblocking deletes the row. A block needs no tenant row, so it holds for a repository that never
+   * registered.
    */
-  blockedOwners: defineTable({
-    ownerId: string(),
-    blockedAt: number(),
-  }).index("by_owner_id", ["ownerId"]),
+  blocks: defineTable({
+    kind: vBlockKind,
+    /** The repository's or the owner's numeric GitHub id. */
+    githubId: string(),
+    reason: string(),
+    /** The email of the administrator who set it. */
+    adminEmail: string(),
+    at: number(),
+  })
+    .index("by_kind_and_github_id", ["kind", "githubId"])
+    .index("by_at", ["at"]),
+
+  /**
+   * Append-only history, never changed or deleted. `registration`: one row per client that
+   * `POST /hub-clients` created, written with the client; it outlives the client, so it answers the
+   * registration counts and whether an owner has ever registered. `block_change`: one row per block
+   * and unblock that changed something.
+   */
+  events: defineTable(
+    union(
+      object({
+        kind: literal("registration"),
+        clientId: string(),
+        githubRepositoryDatabaseId: string(),
+        githubOwnerId: string(),
+        at: number(),
+      }),
+      object({
+        kind: literal("block_change"),
+        action: union(literal("block"), literal("unblock")),
+        scope: vBlockKind,
+        githubId: string(),
+        reason: string(),
+        adminEmail: string(),
+        at: number(),
+      }),
+    ),
+  )
+    .index("by_kind_and_at", ["kind", "at"])
+    .index("by_github_owner_id", ["githubOwnerId"]),
+
+  /**
+   * The initial access token of an app (RFC 7591 section 1.2), one row per repository and app name,
+   * shared by the production app and its preview app. A production registration at
+   * `POST /hub-clients` answers the token once and writes its hash here, in the transaction that
+   * creates the client, replacing the row of the app, so the previous token stops. A registration
+   * under another owner deletes the repository's rows. The row holds no token.
+   */
+  initialAccessTokens: defineTable({
+    /** The SHA-256 of the token, in hex. */
+    tokenHash: string(),
+    githubRepositoryDatabaseId: string(),
+    /** The repository's owner at the production run. */
+    githubOwnerId: string(),
+    /** `owner/name` at the production run. */
+    githubRepository: string(),
+    /** The name that the app's stack gives itself. */
+    app: string(),
+    issuedAt: number(),
+  })
+    .index("by_token_hash", ["tokenHash"])
+    .index("by_repository_and_app", ["githubRepositoryDatabaseId", "app"]),
+
+  /** The fixed one-hour windows of `POST /hub-clients`, one row per repository, per owner, and one for all new owners. */
+  rateLimits: defineTable({
+    scope: vRateLimitScope,
+    /** The repository or owner id. Empty for `new_owners`. */
+    githubId: string(),
+    startedAt: number(),
+    count: number(),
+    /**
+     * For an owner: the start of the new-owners window that counted it, so an owner is counted once
+     * in each such window whatever its own window does. Null otherwise.
+     */
+    newOwnersWindowStartedAt: union(number(), v.null()),
+  }).index("by_scope_and_github_id", ["scope", "githubId"]),
 
   clients: defineTable({
     clientId: string(),
@@ -135,6 +247,10 @@ export default defineSchema({
     removeAt: optional(number()),
     /** The registration of the client, or its last renewal at `/register/<client>`. */
     renewedAt: number(),
+    /** The name that the app's stack gives itself, at most 64 characters. Required in RFC 135 PR B. */
+    app: optional(string()),
+    /** Who made the client. Required in RFC 135 PR B, after the import fills the rows of 0.18.0. */
+    registeredBy: optional(vRegisteredBy),
   })
     .index("by_client_id", ["clientId"])
     .index("by_app_id", ["appId"])

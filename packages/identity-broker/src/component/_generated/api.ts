@@ -11,7 +11,10 @@
 import type * as apps from "../apps.js";
 import type * as authRequests from "../authRequests.js";
 import type * as clients from "../clients.js";
+import type * as hubClients from "../hubClients.js";
 import type * as lifecycle from "../lifecycle.js";
+import type * as migration from "../migration.js";
+import type * as moderation from "../moderation.js";
 import type * as registration from "../registration.js";
 import type * as resourceRequests from "../resourceRequests.js";
 import type * as resourceSchema from "../resourceSchema.js";
@@ -28,7 +31,10 @@ const fullApi: ApiFromModules<{
   apps: typeof apps;
   authRequests: typeof authRequests;
   clients: typeof clients;
+  hubClients: typeof hubClients;
   lifecycle: typeof lifecycle;
+  migration: typeof migration;
+  moderation: typeof moderation;
   registration: typeof registration;
   resourceRequests: typeof resourceRequests;
   resourceSchema: typeof resourceSchema;

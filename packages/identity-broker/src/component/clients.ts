@@ -2,7 +2,7 @@ import { v } from "convex/values";
 // oxlint-disable-next-line samebase/no-raw-public-convex-function-builders -- Component entrypoints are internal to the host; host functions enforce access.
 import { mutation, query } from "./_generated/server";
 import { appView, vApp } from "./apps";
-import { vDeploymentType, vTokenEndpointAuthMethod } from "./schema";
+import { vDeploymentType, vRegisteredBy, vTokenEndpointAuthMethod } from "./schema";
 import { removeClientGrants } from "./resourceRequests";
 
 const { array, number, object, optional, string } = v;
@@ -21,20 +21,8 @@ const vClient = object({
   registrationTokenHash: string(),
   removeAt: optional(number()),
   renewedAt: number(),
-});
-
-/** A client without its credentials: `list` returns these, so no hash leaves the component there. */
-const vClientSummary = object({
-  clientId: string(),
-  appId: string(),
-  redirectUri: string(),
-  deploymentType: vDeploymentType,
-  clientName: string(),
-  softwareVersion: string(),
-  createdAt: number(),
-  lastSignInAt: optional(number()),
-  removeAt: optional(number()),
-  renewedAt: number(),
+  app: optional(string()),
+  registeredBy: optional(vRegisteredBy),
 });
 
 export const get = query({
@@ -71,27 +59,6 @@ export const withApp = query({
       .withIndex("by_app_id", (q) => q.eq("appId", client.appId))
       .unique();
     return { client, app: app === null ? null : await appView(ctx, app) };
-  },
-});
-
-/** The newest clients of every app, first-party apps included, newest first, at most `limit`. */
-export const list = query({
-  args: { limit: number() },
-  returns: array(vClientSummary),
-  handler: async (ctx, args) => {
-    const clients = await ctx.db.query("clients").order("desc").take(args.limit);
-    return clients.map((client) => ({
-      clientId: client.clientId,
-      appId: client.appId,
-      redirectUri: client.redirectUri,
-      deploymentType: client.deploymentType,
-      clientName: client.clientName,
-      softwareVersion: client.softwareVersion,
-      createdAt: client.createdAt,
-      ...(client.lastSignInAt === undefined ? {} : { lastSignInAt: client.lastSignInAt }),
-      ...(client.removeAt === undefined ? {} : { removeAt: client.removeAt }),
-      renewedAt: client.renewedAt,
-    }));
   },
 });
 

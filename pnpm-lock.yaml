@@ -978,6 +978,9 @@ importers:
       '@convex-dev/rate-limiter':
         specifier: 0.4.2
         version: 0.4.2(@standard-schema/spec@1.1.0)(convex@1.48.0(react@19.3.0))(hono@4.13.13)(react@19.3.0)(typescript@7.0.2)(zod@4.6.7)
+      convex-helpers:
+        specifier: 0.1.128
+        version: 0.1.128(@standard-schema/spec@1.1.0)(convex@1.48.0(react@19.3.0))(hono@4.13.13)(react@19.3.0)(typescript@7.0.2)(zod@4.6.7)
       jose:
         specifier: 6.2.13
         version: 6.2.13
