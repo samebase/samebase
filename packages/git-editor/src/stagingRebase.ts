@@ -1,4 +1,4 @@
-import { applyPatch, createTwoFilesPatch, diffLines } from "diff";
+import { applyPatch, createTwoFilesPatch, diffArrays, diffLines } from "diff";
 
 type RebaseInput = {
   baseContent: string;
@@ -140,6 +140,81 @@ function mergeInsertionOnlyEdits(args: RebaseInput): string | null {
   return joinLogicalLines(mergedLines, upstreamTrailingNewline);
 }
 
+/** Base lines `start` to `end` replaced by `lines`. Lines keep their line endings. */
+type LineChange = { start: number; end: number; lines: string[] };
+
+function splitKeepingLineEndings(content: string): string[] {
+  return content === "" ? [] : content.split(/(?<=\n)/);
+}
+
+function lineChanges(base: string[], side: string[]): LineChange[] {
+  const changes: LineChange[] = [];
+  let index = 0;
+  for (const part of diffArrays(base, side)) {
+    if (!part.added && !part.removed) {
+      index += part.value.length;
+      continue;
+    }
+    // A removal and an addition next to each other are one replacement.
+    let change = changes.at(-1);
+    if (change?.end !== index) {
+      change = { start: index, end: index, lines: [] };
+      changes.push(change);
+    }
+    if (part.removed) {
+      change.end += part.value.length;
+      index += part.value.length;
+    } else {
+      change.lines.push(...part.value);
+    }
+  }
+  return changes;
+}
+
+function includesInOrder(lines: string[], wanted: string[]): boolean {
+  let found = 0;
+  for (const line of lines) {
+    if (line === wanted[found]) {
+      found++;
+    }
+  }
+  return found === wanted.length;
+}
+
+/**
+The staged content without the changes that upstream already made at the same base lines, so a
+patch does not apply them a second time. This is the case when a teammate or an agent pushed the
+same edit, or when an earlier commit of these staged files landed. A change counts as made when
+upstream replaced the same base lines with lines that include the staged lines in order, so the
+result still has every staged line. A staged deletion counts only when upstream deleted the same
+lines too.
+*/
+function withoutChangesUpstreamMade({
+  baseContent,
+  stagedContent,
+  upstreamContent,
+}: RebaseInput): string {
+  const base = splitKeepingLineEndings(baseContent);
+  const upstreamChanges = lineChanges(base, splitKeepingLineEndings(upstreamContent));
+  let content = "";
+  let index = 0;
+  for (const change of lineChanges(base, splitKeepingLineEndings(stagedContent))) {
+    const madeUpstream = upstreamChanges.some(
+      (upstream) =>
+        upstream.start === change.start &&
+        upstream.end === change.end &&
+        (change.lines.length === 0) === (upstream.lines.length === 0) &&
+        includesInOrder(upstream.lines, change.lines),
+    );
+    if (madeUpstream) {
+      continue;
+    }
+    content += base.slice(index, change.start).join("") + change.lines.join("");
+    index = change.end;
+  }
+  return content + base.slice(index).join("");
+}
+
 export function rebaseStagedContent({
   baseContent,
   stagedContent,
@@ -149,17 +224,22 @@ export function rebaseStagedContent({
     return { content: upstreamContent, hasConflict: false };
   }
 
-  if (stagedContent === baseContent) {
+  const remainingContent = withoutChangesUpstreamMade({
+    baseContent,
+    stagedContent,
+    upstreamContent,
+  });
+  if (remainingContent === baseContent) {
     return { content: upstreamContent, hasConflict: false };
   }
 
-  const patch = createTwoFilesPatch("base", "staged", baseContent, stagedContent);
+  const patch = createTwoFilesPatch("base", "staged", baseContent, remainingContent);
 
   const rebased = applyPatch(upstreamContent, patch, { fuzzFactor: 1 });
   if (rebased === false) {
     const insertionOnlyMerged = mergeInsertionOnlyEdits({
       baseContent,
-      stagedContent,
+      stagedContent: remainingContent,
       upstreamContent,
     });
     if (insertionOnlyMerged !== null) {
