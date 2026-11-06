@@ -843,14 +843,17 @@ describe("authorization code flow with an OAuth connector", () => {
     const html = await page.text();
     // What the hub checked, not what the app says of itself (RFC 7591 section 5).
     expect(html).toContain("<title>Sign in to app.test</title>");
-    expect(html).toContain('<p class="sub">Development server of octo-org/octo-repo</p>');
+    const repository =
+      '<a href="https://github.com/octo-org/octo-repo" target="_blank" rel="noopener noreferrer">octo-org/octo-repo</a>';
+    expect(html).toContain(`<p class="sub">Development server of ${repository}</p>`);
     expect(html).toContain(
       "It gets your name, picture, and email address. auth.test has not reviewed this app.",
     );
     expect(html).toContain("Continue with Fake");
-    // One link, Continue, and no script. Nothing sends the user to the host, which a stranger's link
-    // may have chosen (RFC 9700 section 4.11.2).
-    expect(html.match(/<a /g)).toHaveLength(1);
+    // Continue, the repository and the attribution in new tabs, and no script. Nothing sends the
+    // user to the host, which a stranger's link may have chosen (RFC 9700 section 4.11.2).
+    expect(html.match(/<a /g)).toHaveLength(3);
+    expect(html.match(/target="_blank"/g)).toHaveLength(2);
     expect(html).not.toContain("<script");
     expect(html).not.toContain(REDIRECT_URI);
     expect(html).not.toContain("Stranger");
@@ -883,10 +886,10 @@ describe("authorization code flow with an OAuth connector", () => {
         }),
       )
     ).text();
-    expect(html).toContain('<p class="sub">Preview dev of octo-org/octo-repo</p>');
+    expect(html).toContain('<p class="sub">Preview dev of <a href="https://github.com/octo-org');
     // The host breaks only after a dot, never at the hyphen of `pr-12`.
     expect(html).toContain(
-      '<h1>Sign in to<br><span class="label">pr-12.</span><wbr><span class="label">stranger.</span><wbr><span class="label">test</span></h1>',
+      '<h1>Sign in to<br><span class="host"><span class="label">pr-12.</span><wbr><span class="label">stranger.</span><wbr><span class="label">test</span></span></h1>',
     );
 
     const production = await h.registerClient({
@@ -917,9 +920,7 @@ describe("authorization code flow with an OAuth connector", () => {
       )
     ).text();
     expect(html).toContain("<title>Sign in to localhost:5173</title>");
-    expect(html).toContain(
-      '<p class="sub">Development server of octo-org/octo-repo on this computer</p>',
-    );
+    expect(html).toContain("octo-org/octo-repo</a> on this computer</p>");
   });
 
   test("a third-party app whose connector is not configured gets no chooser", async () => {

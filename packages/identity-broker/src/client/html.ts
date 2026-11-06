@@ -20,11 +20,18 @@ const STYLE = `
   }
   body { margin: 0; min-height: 100vh; display: grid; place-items: center; color: var(--fg);
     background: var(--bg); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
-  main { box-sizing: border-box; width: calc(100% - 2rem); max-width: 25rem; margin: 1.5rem 0;
-    padding: 2rem 1.75rem 1.5rem; background: var(--card); border: 1px solid var(--line);
-    border-radius: 16px; }
-  h1 { margin: 0; font-size: 1.25rem; line-height: 1.35; font-weight: 600;
+  .frame { width: calc(100% - 2rem); max-width: 25rem; margin: 1.5rem 0; }
+  main { box-sizing: border-box; padding: 2rem 1.75rem 1.5rem; background: var(--card);
+    border: 1px solid var(--line); border-radius: 16px; }
+  h1 { margin: 0; font-size: 1.25rem; line-height: 1.35; font-weight: 400;
     letter-spacing: -0.01em; overflow-wrap: anywhere; }
+  h1 strong { font-weight: 600; }
+  .host { font: 600 1.0625rem/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    letter-spacing: 0; }
+  .attribution { display: block; width: fit-content; margin: 0.75rem 0 0 auto; padding: 0.25rem 0;
+    color: var(--muted); font-size: 0.75rem; text-decoration: none; }
+  .attribution:hover { color: var(--fg); }
+  .attribution svg { width: 0.75em; height: 0.75em; margin-right: 0.15em; vertical-align: baseline; }
   p { margin: 0; }
   ::selection { color: var(--card); background: var(--fg); }
   a { color: inherit; text-underline-offset: 0.2em; text-decoration-thickness: 1px; }
@@ -42,6 +49,9 @@ const STYLE = `
     color: var(--muted); font-size: 0.8125rem; }
 `;
 
+/** Under the card of every page: the broker is Samebase's, as on samebase.com. */
+const ATTRIBUTION = `<a class="attribution" href="https://samebase.com" target="_blank" rel="noopener noreferrer">Managed with <b><svg viewBox="0 0 60 60" shape-rendering="crispEdges" aria-hidden="true"><path d="M0 0h60v60H0z M20 20h20v20H20z" fill="currentColor" fill-rule="evenodd"/></svg>Samebase</b></a>`;
+
 export function page(title: string, body: string, status = 200): Response {
   const html = `<!doctype html>
 <html lang="en">
@@ -52,7 +62,7 @@ export function page(title: string, body: string, status = 200): Response {
 <title>${escape(title)}</title>
 <style>${STYLE}</style>
 </head>
-<body><main>${body}</main></body>
+<body><div class="frame"><main>${body}</main>${ATTRIBUTION}</div></body>
 </html>`;
   return new Response(html, {
     status,
@@ -142,25 +152,27 @@ export function signInPage(args: {
   if (to.kind === "app") {
     return page(
       `Sign in to ${to.name}`,
-      `<h1>Sign in to ${escape(to.name)}</h1>
+      `<h1>Sign in to <strong>${escape(to.name)}</strong></h1>
 <div class="actions">${buttons}</div>`,
     );
   }
+  // GitHub names the repository; it opens in a new tab, so the sign-in stays where it is.
+  const repository = `<a href="https://github.com/${escape(to.repository)}" target="_blank" rel="noopener noreferrer">${escape(to.repository)}</a>`;
   let from: string;
   switch (to.deployment.kind) {
     case "preview":
-      from = `Preview ${to.deployment.stage} of ${to.repository}`;
+      from = `Preview ${escape(to.deployment.stage)} of ${repository}`;
       break;
     case "development":
-      from = `Development server of ${to.repository}${to.loopback ? " on this computer" : ""}`;
+      from = `Development server of ${repository}${to.loopback ? " on this computer" : ""}`;
       break;
     default:
       return to.deployment satisfies never;
   }
   return page(
     `Sign in to ${to.host}`,
-    `<h1>Sign in to<br>${hostMarkup(to.host)}</h1>
-<p class="sub">${escape(from)}</p>
+    `<h1>Sign in to<br><span class="host">${hostMarkup(to.host)}</span></h1>
+<p class="sub">${from}</p>
 <div class="actions">${buttons}</div>
 <p class="fine">${escape(released(to.scopes))} ${escape(to.issuerHost)} has not reviewed this app.</p>`,
   );
