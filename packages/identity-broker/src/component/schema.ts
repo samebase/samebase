@@ -99,8 +99,6 @@ export default defineSchema({
      * tenant can register, renew, or sign in.
      */
     disconnected: optional(boolean()),
-    /** Old rows hold it; nothing reads or writes it. */
-    connectionRevision: optional(number()),
     /**
      * The owner that the newest registration named, such as the id of the GitHub account that owns
      * the repository. A row in `blockedOwners` with this id blocks the same things as `disconnected`.

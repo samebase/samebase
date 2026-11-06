@@ -126,7 +126,6 @@ export function parseKeySet(raw: string | undefined): KeySet {
     );
   }
   const record = asRecord(JSON.parse(raw));
-  // A key set of a broker before 0.17.0 also holds `pairwiseSalt`, which nothing reads.
   if (record["version"] !== 1 || !Array.isArray(record["keys"])) {
     throw new Error("IDENTITY_BROKER_KEYS is not a version 1 key set");
   }

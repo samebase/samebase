@@ -8,11 +8,13 @@
   client renews at `GET /register/<client>` (RFC 7592), which stays with `DELETE`.
 - Remove `POST /register` and `POST /tenant-connection`, the `initialAccessToken` and `connector`
   options of `RegistrationConfig`, and `registration.setConnection`. Discovery names no
-  `registration_endpoint`. `registration.switchConnection` sets `disconnected` only, and nothing
-  reads or writes `tenants.connectionRevision`.
+  `registration_endpoint`. `registration.switchConnection` sets `disconnected` only, and
+  `tenants.connectionRevision` is removed: clear it from the rows before you deploy.
 - Remove the admin function `setTenantSuspended`, `registration.setSuspended`, and
   `tenants.suspendedAt`. `registration.switchConnection` and `registration.setOwnerBlocked` are the
   only switches.
+- id_tokens and UserInfo no longer carry `connector_account_id`, and discovery no longer lists it.
+  Read the provider's id from `sub`, `<provider>:<id>`.
 - Schema: `apps.tenantId`, `clients.registrationTokenHash`, and `clients.renewedAt` are required;
   `apps.allowedCallbackHosts` and `tenants.suspendedAt` are gone. Delete the rows that lack them
   before the upgrade: the apps without a tenant and their clients.

@@ -470,7 +470,6 @@ describe("hub profile mapping", () => {
   });
 
   it.each([
-    // A pairwise subject of the broker before 0.17.0: its users cannot be mapped to accounts.
     ["with a subject without the provider", { sub: "s", connector: "github" }],
     ["with the subject of another provider", { sub: "google:1", connector: "github" }],
     ["with a subject without an account id", { sub: "github:", connector: "github" }],

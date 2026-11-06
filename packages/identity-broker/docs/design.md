@@ -151,9 +151,9 @@ when it moves to another broker, which needs nothing then:
 - The salt made the app id, the connector name, the key set, and the issuer part of every user's
   identity. Losing the key set, moving an app, or changing an app's kind gave every user a new id.
 
-Every id_token and every UserInfo response also carry `connector`, the connector's name. Those of a
-first-party app also carry `connector_account_id`, the id in `sub` without the provider, for
-first-party apps of older versions that read it. It goes once they read `sub`.
+Every id_token and every UserInfo response also carry `connector`, the connector's name. Until
+0.18.0 those of a first-party app also carried `connector_account_id`, the id in `sub` without the
+provider.
 
 ## Named departures from the specifications
 
@@ -210,14 +210,13 @@ first-party apps of older versions that read it. It goes once they read `sub`.
 ## Keys
 
 `IDENTITY_BROKER_KEYS` holds one current RS256 private key and the public halves of retired keys
-with their retirement time. A key set from before 0.17.0 also holds `pairwiseSalt`, which nothing
-reads. The host parses it in each request and refuses a key without its RSA members. The JWKS
-publishes each key under its entry's kid, the kid the signer writes into a token header.
-`keys --rotate` only parses its input, so a current key the signer refuses, such as RSA under the
-2048 bits RS256 needs, can still be rotated out. It checks its output instead: a test id_token
-signed with the new current key must verify against the JWKS the broker publishes, and each retired
-key there must be RSA of 2048 bits or more; a weak key carried over as retired is dropped with
-`--no-overlap`. `keys --rotate` keeps the retired public key in the JWKS for 14 days. After a key
-compromise, `keys --rotate --no-overlap` drops the retired keys at once, so every token signed
+with their retirement time. The host parses it in each request and refuses a key without its RSA
+members. The JWKS publishes each key under its entry's kid, the kid the signer writes into a token
+header. `keys --rotate` only parses its input, so a current key the signer refuses, such as RSA
+under the 2048 bits RS256 needs, can still be rotated out. It checks its output instead: a test
+id_token signed with the new current key must verify against the JWKS the broker publishes, and each
+retired key there must be RSA of 2048 bits or more; a weak key carried over as retired is dropped
+with `--no-overlap`. `keys --rotate` keeps the retired public key in the JWKS for 14 days. After a
+key compromise, `keys --rotate --no-overlap` drops the retired keys at once, so every token signed
 before stops verifying. The key set holds no identity, so a lost one is replaced with a new one:
 tokens signed before stop verifying, and no user changes.

@@ -36,12 +36,6 @@ describe("key set", () => {
     expect(again.keys).toHaveLength(2);
   });
 
-  test("a key set of a broker before 0.17.0, with its pairwise salt, still parses", async () => {
-    const keySet = await createKeySet();
-    const old = JSON.stringify({ ...keySet, pairwiseSalt: "A".repeat(43) });
-    expect(parseKeySet(old)).toEqual(keySet);
-  });
-
   test("refuses incomplete sets", async () => {
     expect(() => parseKeySet(undefined)).toThrow(/IDENTITY_BROKER_KEYS/);
     expect(() => parseKeySet("{}")).toThrow(/version 1/);

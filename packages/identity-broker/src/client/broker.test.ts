@@ -128,7 +128,7 @@ describe("metadata", () => {
       expect(metadata.code_challenge_methods_supported).toEqual(["S256"]);
       expect(metadata.authorization_response_iss_parameter_supported).toBe(true);
       expect(metadata.claims_supported).toContain("connector");
-      expect(metadata.claims_supported).toContain("connector_account_id");
+      expect(metadata.claims_supported).not.toContain("connector_account_id");
       expect(metadata.registration_endpoint).toBeUndefined();
     }
     const jwks = await (await h.fetchBroker(`${ISSUER}/.well-known/jwks.json`)).json();
@@ -818,12 +818,8 @@ describe("authorization code flow with an OAuth connector", () => {
           ),
         ).toEqual(claimed);
         // Not scoped claims: present with `openid` alone.
-        // A first-party app also gets the id without the provider, until its readers move to `sub`.
-        expect(claims).toMatchObject({
-          sub: "fake:42",
-          connector: "fake",
-          connector_account_id: "42",
-        });
+        expect(claims).toMatchObject({ sub: "fake:42", connector: "fake" });
+        expect(Object.keys(claims)).not.toContain("connector_account_id");
       }
     }
   });
@@ -1009,7 +1005,6 @@ describe("authorization code flow with an OAuth connector", () => {
     // The consent promised a stable id: the public sub.
     for (const claims of [decodeJwt(tokens.id_token), userinfo]) {
       expect(claims).toMatchObject({ sub: "fake:42", connector: "fake" });
-      expect(Object.keys(claims)).not.toContain("connector_account_id");
       expect(Object.keys(claims)).not.toContain("email");
     }
   });

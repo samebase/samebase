@@ -9,8 +9,8 @@
   `registerClient`, `renewClient`, `createApp`, `POST /register`, `/tenant-connection`,
   `setTenantSuspended` and `suspendedAt`, `connector_account_id`, `Convex.HubClient`, and the
   `hub-client` command. The schema requires `apps.tenantId`, `clients.registrationTokenHash`, and
-  `clients.renewedAt`; `tenants.connectionRevision` stays optional because old rows hold it. The
-  admin page shows a run or a laptop for each client, and "own" for a first-party app.
+  `clients.renewedAt`. `tenants.connectionRevision` is removed after the field was cleared from the
+  rows. The admin page shows a run or a laptop for each client.
 - Owner: Nicu Chiciuc
 - Created: 2026-11-06
 - Base: `origin/main` at v2275 (RFC 133 shipped).

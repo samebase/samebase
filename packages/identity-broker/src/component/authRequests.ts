@@ -270,8 +270,6 @@ const vExchangeResult = union(
   object({
     ok: literal(true),
     appId: string(),
-    /** The app's `firstParty`, read in the redemption. */
-    firstParty: boolean(),
     clientId: string(),
     scope: string(),
     nonce: optional(string()),
@@ -429,7 +427,6 @@ export const exchangeCode = mutation({
     return {
       ok: true,
       appId: request.appId,
-      firstParty: app.firstParty,
       clientId: request.clientId,
       scope: request.scope,
       ...optionalField("nonce", request.nonce),

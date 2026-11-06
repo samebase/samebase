@@ -286,7 +286,6 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
       "name",
       "picture",
       "connector",
-      "connector_account_id",
     ],
     authorization_response_iss_parameter_supported: true,
     claims_parameter_supported: false,
@@ -749,11 +748,6 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
     // Claims follow the granted scopes (OIDC Core 5.4); userinfo reads them from the access token.
     const scopes = exchange.scope.split(" ");
     const claims: IdentityClaims = { sub, connector: exchange.identity.connector };
-    // The same id as in `sub`, for first-party apps of older versions that read it here. It goes
-    // once every deployed first-party app reads the id from `sub`.
-    if (exchange.firstParty) {
-      claims.connector_account_id = exchange.identity.upstreamId;
-    }
     if (scopes.includes("email") && exchange.identity.email !== undefined) {
       claims.email = exchange.identity.email;
       claims.email_verified = exchange.identity.emailVerified === true;
