@@ -5,7 +5,7 @@ import { ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
 import {
   ADMIN_HUB_CLIENTS_ROUTE_SEARCH_STATIC_DATA,
   validateAdminHubClientsRouteSearch,
-} from "@/routeSearch/adminHubClients";
+} from "@/routeSearch/hubClients";
 
 function AdminHubClientsRouteComponent() {
   return (

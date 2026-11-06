@@ -5,7 +5,7 @@ import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { env, internalQuery, type ActionCtx } from "../_generated/server";
 import { action } from "../functions";
-import { requireRepositoryForUser } from "../organizationAccess";
+import { requireOrganizationAccessContext } from "../organizationAccess";
 
 const { array, boolean, id, literal, number, object, string, union } = v;
 
@@ -85,7 +85,7 @@ const vOff = object({ status: literal("off") });
 The hub's moderation endpoints, or null while `HUB_MODERATION_KEY` is unset: the admin page then
 says that moderation is off. The key can only read registration counts, clients, and blocks, set
 blocks, and delete clients at the hub. samebase.com decides who may use it: an admin for every app,
-a member of a repository's organization for that repository's clients.
+a member of an organization for the clients of its connected repositories.
 */
 function readModeration() {
   const key = env.HUB_MODERATION_KEY?.trim();
@@ -179,77 +179,97 @@ export const changeBlock = action({
   },
 });
 
+/** The repositories of one hub request: the hub's own limit. */
+const REPOSITORIES_PER_REQUEST = 100;
+
 /**
-The GitHub id of a repository that the user may see, through membership of its organization, or
-null while the repository is not connected: it has no clients then.
+The GitHub ids of an organization's connected repositories, for a member of the organization. Only
+connected repositories: a member may not have GitHub access to every repository of the owner, so the
+owner's other repositories are not this organization's to see.
 */
-export const readRepositoryTarget = internalQuery({
-  args: { userId: id("users"), repositoryId: id("repositories") },
-  returns: union(string(), v.null()),
+export const readOrganizationRepositoryIds = internalQuery({
+  args: { userId: id("users"), organizationId: id("organizations") },
+  returns: array(string()),
   handler: async (ctx, args) => {
-    const repository = await requireRepositoryForUser(ctx.db, {
+    await requireOrganizationAccessContext(ctx.db, {
       userId: args.userId,
-      repositoryId: args.repositoryId,
+      organizationId: args.organizationId,
     });
-    return repository.state === "connected" ? repository.githubRepositoryDatabaseId : null;
+    const repositories = await ctx.db
+      .query("repositories")
+      .withIndex("by_organization_and_state_and_deletion_state", (q) =>
+        q.eq("organizationId", args.organizationId).eq("state", "connected"),
+      )
+      .collect();
+    return repositories.flatMap((repository) =>
+      repository.state === "connected" ? [repository.githubRepositoryDatabaseId] : [],
+    );
   },
 });
 
-async function readRepositoryClients(
+async function readOrganizationClients(
   ctx: Pick<ActionCtx, "runQuery">,
   moderation: { issuer: string; key: string },
-  args: { userId: Id<"users">; repositoryId: Id<"repositories"> },
+  args: { userId: Id<"users">; organizationId: Id<"organizations"> },
 ): Promise<Infer<typeof vClient>[]> {
-  const githubRepositoryDatabaseId = await ctx.runQuery(
-    internal.hubClients.moderation.readRepositoryTarget,
-    { userId: args.userId, repositoryId: args.repositoryId },
+  const repositoryIds = await ctx.runQuery(
+    internal.hubClients.moderation.readOrganizationRepositoryIds,
+    { userId: args.userId, organizationId: args.organizationId },
   );
-  if (githubRepositoryDatabaseId === null) {
-    return [];
+  const clients = [];
+  for (let start = 0; start < repositoryIds.length; start += REPOSITORIES_PER_REQUEST) {
+    const query = repositoryIds
+      .slice(start, start + REPOSITORIES_PER_REQUEST)
+      .map((repositoryId) => `repository=${repositoryId}`)
+      .join("&");
+    const answer = await callHub(moderation, {
+      method: "GET",
+      path: `/moderation/clients?${query}`,
+      validator: vRepositoryClients,
+    });
+    clients.push(...answer.clients);
   }
-  const { clients } = await callHub(moderation, {
-    method: "GET",
-    path: `/moderation/clients?repository=${githubRepositoryDatabaseId}`,
-    validator: vRepositoryClients,
-  });
-  return clients;
+  return clients.sort((a, b) => b.createdAt - a.createdAt || a.clientId.localeCompare(b.clientId));
 }
 
-/** The hub's clients of one repository that the user may see, newest first, each with who made it. */
-export const readClientsOfRepository = action({
+/**
+The hub's clients of an organization's connected repositories, for a member, newest first, each
+with who made it.
+*/
+export const readClientsOfOrganization = action({
   access: "access_dashboard",
-  args: { repositoryId: id("repositories") },
+  args: { organizationId: id("organizations") },
   returns: union(vOff, object({ status: literal("on"), clients: array(vClient) })),
   handler: async (ctx, args) => {
     const moderation = readModeration();
     if (moderation === null) {
       return { status: "off" as const };
     }
-    const clients = await readRepositoryClients(ctx, moderation, {
+    const clients = await readOrganizationClients(ctx, moderation, {
       userId: ctx.viewer.userId,
-      repositoryId: args.repositoryId,
+      organizationId: args.organizationId,
     });
     return { status: "on" as const, clients };
   },
 });
 
 /**
-Deletes one client of a repository at the hub. The client must be in the repository's list, so a
-member can delete only the clients of a repository that they may see. The deployment that held it
-gets a new client at its next deploy.
+Deletes one client of an organization's repositories at the hub. The client must be in the
+organization's list, so a member can delete only the clients of repositories they may see. The
+deployment that held it gets a new client at its next deploy.
 */
-export const deleteClientOfRepository = action({
+export const deleteClientOfOrganization = action({
   access: "access_app_create",
-  args: { repositoryId: id("repositories"), clientId: string() },
+  args: { organizationId: id("organizations"), clientId: string() },
   returns: union(vOff, object({ status: literal("on"), changed: boolean() })),
   handler: async (ctx, args) => {
     const moderation = readModeration();
     if (moderation === null) {
       return { status: "off" as const };
     }
-    const clients = await readRepositoryClients(ctx, moderation, {
+    const clients = await readOrganizationClients(ctx, moderation, {
       userId: ctx.viewer.userId,
-      repositoryId: args.repositoryId,
+      organizationId: args.organizationId,
     });
     if (!clients.some((client) => client.clientId === args.clientId)) {
       return { status: "on" as const, changed: false };

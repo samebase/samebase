@@ -59,6 +59,7 @@ import { Route as logoMengerTransitionResearchRouteImport } from "./routes/logo-
 import { Route as logoTransitionTransformsLabRouteImport } from "./routes/logo-transition-transforms-lab";
 import { Route as mcpConsentRouteImport } from "./routes/mcp-consent";
 import { Route as orgConnectRepoRouteImport } from "./routes/org-connect-repo";
+import { Route as orgHubClientsRouteImport } from "./routes/org-hub-clients";
 import { Route as orgNewAppRouteImport } from "./routes/org-new-app";
 import { Route as orgProvidersRouteImport } from "./routes/org-providers";
 import { Route as orgRepositoriesRouteImport } from "./routes/org-repositories";
@@ -323,6 +324,11 @@ const orgConnectRepoRoute = orgConnectRepoRouteImport.update({
   path: "/org/$owner/connect-repo",
   getParentRoute: () => authedRoute,
 } as any);
+const orgHubClientsRoute = orgHubClientsRouteImport.update({
+  id: "/org/$owner/hub-clients",
+  path: "/org/$owner/hub-clients",
+  getParentRoute: () => authedRoute,
+} as any);
 const orgNewAppRoute = orgNewAppRouteImport.update({
   id: "/org/$owner/new-app",
   path: "/org/$owner/new-app",
@@ -431,6 +437,7 @@ export interface FileRoutesByFullPath {
   "/logo/transition/transforms": typeof logoTransitionTransformsLabRoute;
   "/oauth/mcp/consent": typeof mcpConsentRoute;
   "/org/$owner/connect-repo": typeof orgConnectRepoRoute;
+  "/org/$owner/hub-clients": typeof orgHubClientsRoute;
   "/org/$owner/new-app": typeof orgNewAppRoute;
   "/org/$owner/providers": typeof orgProvidersRoute;
   "/org/$owner/repositories": typeof orgRepositoriesRoute;
@@ -493,6 +500,7 @@ export interface FileRoutesByTo {
   "/logo/transition/transforms": typeof logoTransitionTransformsLabRoute;
   "/oauth/mcp/consent": typeof mcpConsentRoute;
   "/org/$owner/connect-repo": typeof orgConnectRepoRoute;
+  "/org/$owner/hub-clients": typeof orgHubClientsRoute;
   "/org/$owner/new-app": typeof orgNewAppRoute;
   "/org/$owner/providers": typeof orgProvidersRoute;
   "/org/$owner/repositories": typeof orgRepositoriesRoute;
@@ -557,6 +565,7 @@ export interface FileRoutesById {
   "/logo/transition/transforms": typeof logoTransitionTransformsLabRoute;
   "/oauth/mcp/consent": typeof mcpConsentRoute;
   "/_authed/org/$owner/connect-repo": typeof orgConnectRepoRoute;
+  "/_authed/org/$owner/hub-clients": typeof orgHubClientsRoute;
   "/_authed/org/$owner/new-app": typeof orgNewAppRoute;
   "/_authed/org/$owner/providers": typeof orgProvidersRoute;
   "/_authed/org/$owner/repositories": typeof orgRepositoriesRoute;
@@ -621,6 +630,7 @@ export interface FileRouteTypes {
     | "/logo/transition/transforms"
     | "/oauth/mcp/consent"
     | "/org/$owner/connect-repo"
+    | "/org/$owner/hub-clients"
     | "/org/$owner/new-app"
     | "/org/$owner/providers"
     | "/org/$owner/repositories"
@@ -683,6 +693,7 @@ export interface FileRouteTypes {
     | "/logo/transition/transforms"
     | "/oauth/mcp/consent"
     | "/org/$owner/connect-repo"
+    | "/org/$owner/hub-clients"
     | "/org/$owner/new-app"
     | "/org/$owner/providers"
     | "/org/$owner/repositories"
@@ -746,6 +757,7 @@ export interface FileRouteTypes {
     | "/logo/transition/transforms"
     | "/oauth/mcp/consent"
     | "/_authed/org/$owner/connect-repo"
+    | "/_authed/org/$owner/hub-clients"
     | "/_authed/org/$owner/new-app"
     | "/_authed/org/$owner/providers"
     | "/_authed/org/$owner/repositories"
@@ -1147,6 +1159,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof orgConnectRepoRouteImport;
       parentRoute: typeof authedRoute;
     };
+    "/_authed/org/$owner/hub-clients": {
+      id: "/_authed/org/$owner/hub-clients";
+      path: "/org/$owner/hub-clients";
+      fullPath: "/org/$owner/hub-clients";
+      preLoaderRoute: typeof orgHubClientsRouteImport;
+      parentRoute: typeof authedRoute;
+    };
     "/_authed/org/$owner/new-app": {
       id: "/_authed/org/$owner/new-app";
       path: "/org/$owner/new-app";
@@ -1245,6 +1264,7 @@ interface authedRouteChildren {
   pitchPrintRoute: typeof pitchPrintRoute;
   repositoryFileRoute: typeof repositoryFileRoute;
   orgConnectRepoRoute: typeof orgConnectRepoRoute;
+  orgHubClientsRoute: typeof orgHubClientsRoute;
   orgNewAppRoute: typeof orgNewAppRoute;
   orgProvidersRoute: typeof orgProvidersRoute;
   orgRepositoriesRoute: typeof orgRepositoriesRoute;
@@ -1276,6 +1296,7 @@ const authedRouteChildren: authedRouteChildren = {
   pitchPrintRoute: pitchPrintRoute,
   repositoryFileRoute: repositoryFileRoute,
   orgConnectRepoRoute: orgConnectRepoRoute,
+  orgHubClientsRoute: orgHubClientsRoute,
   orgNewAppRoute: orgNewAppRoute,
   orgProvidersRoute: orgProvidersRoute,
   orgRepositoriesRoute: orgRepositoriesRoute,

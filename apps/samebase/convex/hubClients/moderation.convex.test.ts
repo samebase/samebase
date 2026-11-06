@@ -287,8 +287,11 @@ describe("hub client moderation", () => {
   });
 });
 
-/** A member of an organization with one connected repository, GitHub id 74, and an outsider. */
-async function repositoryWithMember(t: ConvexTest) {
+/**
+A member of an organization with two connected repositories, GitHub ids 74 and 81, and one that is
+not connected yet, and an outsider.
+*/
+async function organizationWithMember(t: ConvexTest) {
   const ids = await t.run(async (ctx) => {
     const user = async (email: string) =>
       await ctx.db.insert("users", {
@@ -313,66 +316,81 @@ async function repositoryWithMember(t: ConvexTest) {
       role: "owner",
     });
     await insertTestOrganizationBillingAccount(ctx.db, organizationId);
-    const repositoryId = await ctx.db.insert("repositories", {
-      organizationId,
-      convexTeamId: "convex-team",
-      cloudflareAccountId: "cloudflare-account",
-      deletion: { state: "not_deleting" },
-      createdAt: 1,
-      state: "not_connected",
-    });
-    const runId = await ctx.db.insert("workflow_repositoryProvisioning_runs", {
-      organizationId,
-      userId: memberId,
-      repositoryId,
-      githubRepositoryFullName: "octo-org/octo-repo",
-      trigger: "create",
-      state: "succeeded",
-      currentStep: "finish",
-      createdAt: 1,
-      updatedAt: 2,
-      completedAt: 3,
-    });
-    await ctx.db.replace(repositoryId, {
-      organizationId,
-      convexTeamId: "convex-team",
-      cloudflareAccountId: "cloudflare-account",
-      deletion: { state: "not_deleting" },
-      createdAt: 1,
-      state: "connected",
-      githubMode: "create_repository",
-      runId,
-      githubRepositoryDatabaseId: "74",
-      githubRepositoryName: "octo-repo",
-      defaultBranch: "main",
-      visibility: "private",
-      connectedAt: 4,
-    });
-    return { memberId, outsiderId, repositoryId };
+    const repository = async (connected: { githubId: string; name: string } | null) => {
+      const repositoryId = await ctx.db.insert("repositories", {
+        organizationId,
+        convexTeamId: "convex-team",
+        cloudflareAccountId: "cloudflare-account",
+        deletion: { state: "not_deleting" },
+        createdAt: 1,
+        state: "not_connected",
+      });
+      if (connected === null) {
+        return;
+      }
+      const runId = await ctx.db.insert("workflow_repositoryProvisioning_runs", {
+        organizationId,
+        userId: memberId,
+        repositoryId,
+        githubRepositoryFullName: `octo-org/${connected.name}`,
+        trigger: "create",
+        state: "succeeded",
+        currentStep: "finish",
+        createdAt: 1,
+        updatedAt: 2,
+        completedAt: 3,
+      });
+      await ctx.db.replace(repositoryId, {
+        organizationId,
+        convexTeamId: "convex-team",
+        cloudflareAccountId: "cloudflare-account",
+        deletion: { state: "not_deleting" },
+        createdAt: 1,
+        state: "connected",
+        githubMode: "create_repository",
+        runId,
+        githubRepositoryDatabaseId: connected.githubId,
+        githubRepositoryName: connected.name,
+        defaultBranch: "main",
+        visibility: "private",
+        connectedAt: 4,
+      });
+    };
+    await repository({ githubId: "74", name: "octo-repo" });
+    await repository({ githubId: "81", name: "other-repo" });
+    await repository(null);
+    return { memberId, outsiderId, organizationId };
   });
   const viewer = (userId: string) =>
     t.withIdentity({ subject: userId, tokenIdentifier: `test:${userId}` });
   return {
     member: viewer(ids.memberId),
     outsider: viewer(ids.outsiderId),
-    repositoryId: ids.repositoryId,
+    organizationId: ids.organizationId,
   };
 }
 
-describe("a repository's hub clients", () => {
-  it("lists them for a member of the repository's organization, by the repository's GitHub id", async () => {
+const ORGANIZATION_LIST = `${HUB_ISSUER}/moderation/clients?repository=74&repository=81`;
+
+describe("an organization's hub clients", () => {
+  it("lists the clients of its connected repositories for a member, in one request", async () => {
     const t = makeConvexTest();
     turnModerationOn();
     const requests = stubHub();
-    const { member, repositoryId } = await repositoryWithMember(t);
+    const { member, organizationId } = await organizationWithMember(t);
 
-    const result = await member.action(api.hubClients.moderation.readClientsOfRepository, {
-      repositoryId,
+    const result = await member.action(api.hubClients.moderation.readClientsOfOrganization, {
+      organizationId,
     });
 
-    expect(result).toEqual({ status: "on", clients: clientList.clients });
+    expect(result).toEqual({
+      status: "on",
+      clients: [...clientList.clients].sort(
+        (a, b) => b.createdAt - a.createdAt || a.clientId.localeCompare(b.clientId),
+      ),
+    });
     expect(requests.map((request) => `${request.method} ${request.url}`)).toEqual([
-      `GET ${HUB_ISSUER}/moderation/clients?repository=74`,
+      `GET ${ORGANIZATION_LIST}`,
     ]);
   });
 
@@ -380,47 +398,47 @@ describe("a repository's hub clients", () => {
     const t = makeConvexTest();
     turnModerationOn();
     const requests = stubHub();
-    const { outsider, repositoryId } = await repositoryWithMember(t);
+    const { outsider, organizationId } = await organizationWithMember(t);
 
     await expect(
-      outsider.action(api.hubClients.moderation.readClientsOfRepository, { repositoryId }),
-    ).rejects.toThrow("Repository not found");
+      outsider.action(api.hubClients.moderation.readClientsOfOrganization, { organizationId }),
+    ).rejects.toThrow("Organization membership is required.");
     await expect(
-      outsider.action(api.hubClients.moderation.deleteClientOfRepository, {
-        repositoryId,
+      outsider.action(api.hubClients.moderation.deleteClientOfOrganization, {
+        organizationId,
         clientId: "cl_test",
       }),
-    ).rejects.toThrow("Repository not found");
+    ).rejects.toThrow("Organization membership is required.");
     expect(requests).toEqual([]);
   });
 
-  it("deletes a client of the repository", async () => {
+  it("deletes a client of the organization's repositories", async () => {
     const t = makeConvexTest();
     turnModerationOn();
     const requests = stubHub();
-    const { member, repositoryId } = await repositoryWithMember(t);
+    const { member, organizationId } = await organizationWithMember(t);
 
-    const result = await member.action(api.hubClients.moderation.deleteClientOfRepository, {
-      repositoryId,
+    const result = await member.action(api.hubClients.moderation.deleteClientOfOrganization, {
+      organizationId,
       clientId: "cl_test",
     });
 
     expect(result).toEqual({ status: "on", changed: true });
     expect(requests.map((request) => `${request.method} ${request.url}`)).toEqual([
-      `GET ${HUB_ISSUER}/moderation/clients?repository=74`,
+      `GET ${ORGANIZATION_LIST}`,
       `DELETE ${HUB_ISSUER}/moderation/clients/cl_test`,
     ]);
   });
 
-  it("deletes nothing for a client that is not in the repository's list", async () => {
+  it("deletes nothing for a client that is not in the organization's list", async () => {
     const t = makeConvexTest();
     turnModerationOn();
     const requests = stubHub();
-    const { member, repositoryId } = await repositoryWithMember(t);
+    const { member, organizationId } = await organizationWithMember(t);
 
-    const result = await member.action(api.hubClients.moderation.deleteClientOfRepository, {
-      repositoryId,
-      clientId: "cl_of_another_repository",
+    const result = await member.action(api.hubClients.moderation.deleteClientOfOrganization, {
+      organizationId,
+      clientId: "cl_of_another_organization",
     });
 
     expect(result).toEqual({ status: "on", changed: false });
@@ -432,10 +450,12 @@ describe("a repository's hub clients", () => {
     vi.stubEnv("HUB_ISSUER", HUB_ISSUER);
     vi.stubEnv("HUB_MODERATION_KEY", " ");
     const requests = stubHub();
-    const { member, repositoryId } = await repositoryWithMember(t);
+    const { member, organizationId } = await organizationWithMember(t);
 
     expect(
-      await member.action(api.hubClients.moderation.readClientsOfRepository, { repositoryId }),
+      await member.action(api.hubClients.moderation.readClientsOfOrganization, {
+        organizationId,
+      }),
     ).toEqual({ status: "off" });
     expect(requests).toEqual([]);
   });

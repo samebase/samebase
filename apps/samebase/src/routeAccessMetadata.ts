@@ -121,6 +121,10 @@ export const ROUTE_ACCESS_METADATA_BY_PATH = {
     access: "access_provider_connections",
     appWorkspaceRouteChrome: { leftPane: "none" },
   },
+  "/org/$owner/hub-clients": {
+    access: "access_dashboard",
+    appWorkspaceRouteChrome: { leftPane: "none" },
+  },
   "/org/$owner/settings": {
     access: "access_dashboard",
     appWorkspaceRouteChrome: { leftPane: "none" },

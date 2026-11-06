@@ -2,6 +2,7 @@ export const ORGANIZATIONS_ROUTE = "/org";
 export const ORGANIZATION_ROUTE = "/org/$owner";
 export const ORGANIZATION_REPOSITORIES_ROUTE = "/org/$owner/repositories";
 export const ORGANIZATION_PROVIDERS_ROUTE = "/org/$owner/providers";
+export const ORGANIZATION_HUB_CLIENTS_ROUTE = "/org/$owner/hub-clients";
 export const ORGANIZATION_MEMBERS_ROUTE = "/org/$owner/settings/members";
 export const ORGANIZATION_NEW_APP_ROUTE = "/org/$owner/new-app";
 export const ORGANIZATION_CONNECT_REPO_ROUTE = "/org/$owner/connect-repo";
@@ -10,6 +11,7 @@ export const ORGANIZATION_SETTINGS_ROUTE = "/org/$owner/settings";
 export type OrganizationRouteSection =
   | "repositories"
   | "providers"
+  | "hub-clients"
   | "members"
   | "new-app"
   | "connect-repo"
@@ -20,6 +22,7 @@ const ORGANIZATION_ROUTE_SUFFIX_BY_SECTION = {
   "new-app": "/new-app",
   members: "/settings/members",
   providers: "/providers",
+  "hub-clients": "/hub-clients",
   settings: "/settings",
   repositories: "/repositories",
 } as const satisfies Record<OrganizationRouteSection, string>;
