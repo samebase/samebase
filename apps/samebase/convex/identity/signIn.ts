@@ -20,10 +20,10 @@ import { buildNewUserNotification } from "./newUserNotification";
 const { boolean, id, literal, null: vNull, number, object, optional, string, union } = v;
 
 /**
-The id_token claims of the identity hub that a sign-in reads. `sub` is pairwise: stable for
-Samebase, different in every other app of the hub, and different for each connector.
-`connector_account_id` is the connector's own account id: GitHub's numeric user id as a string, or
-Google's `sub`. Convex Auth checks the issuer, audience, and expiry of the id_token, which it
+The id_token claims of the identity hub that a sign-in reads. `sub` is public (RFC 134): the
+provider and its own account id, such as `github:4076804`, the same in every app of the hub.
+`connector_account_id` is the same account id without the provider: GitHub's numeric user id as a
+string, or Google's `sub`. Convex Auth checks the issuer, audience, and expiry of the id_token, which it
 received over TLS from the hub's token endpoint, but not the types of its claims, so `parse` checks
 them and drops the other claims.
 */
@@ -62,7 +62,7 @@ export function readHubProfile(claims: unknown, connector: AuthAccountProvider) 
 
 /**
 The sign-ins that the `hub-github` and `hub-google` methods of convex/auth.ts hand to the user
-callbacks, with the profile of `readHubProfile`. `accountId` and `profile.id` are the hub's pairwise
+callbacks, with the profile of `readHubProfile`. `accountId` and `profile.id` are the hub's
 subject. The connector and its own account id are the provider and the account id of the
 `authAccounts` key.
 */

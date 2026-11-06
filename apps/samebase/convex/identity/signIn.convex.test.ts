@@ -34,7 +34,7 @@ applied to id_token claims. The claims have the shape of `signIdToken` in
 `connector_account_id` from its next release.
 */
 function hubProvider(connector: "github" | "google", identity: HubIdentity) {
-  // The hub's pairwise subject differs from the connector's account id.
+  // A subject that differs from the connector's account id: the user is found by the account id.
   const subject = `${connector}-subject-${identity.id}`;
   return {
     name: `hub-${connector}` as const,

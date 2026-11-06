@@ -7,7 +7,7 @@ import { v } from "convex/values";
 // stack hands the Google variables to the deployment.
 const app = defineApp({
   env: {
-    /** The key set and the pairwise salt: `npx identity-broker keys`. */
+    /** The signing key set: `npx identity-broker keys`. */
     IDENTITY_BROKER_KEYS: v.string(),
     /** The issuer URL, which the stack sets. Without it, the deployment's own convex.site URL. */
     ISSUER: v.optional(v.string()),

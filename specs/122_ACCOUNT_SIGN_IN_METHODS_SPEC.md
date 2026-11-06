@@ -26,13 +26,13 @@ functions write it, and Samebase reads a user's identities from it. The Samebase
 product identity. An email address or GitHub login is not the product identity. Spec 113 defines the
 terminal PII-free deleted row.
 
-The hub's `sub` is pairwise: stable for Samebase and different for each connector, so the core keeps
-one account for each hub subject. The id_token also carries `connector` (`github` or `google`) and
-`connector_account_id`, the connector's own account id: GitHub's numeric user id as a string, or
-Google's `sub`. A GitHub or Google `authAccounts` row is keyed by the connector and that id, the
-same key as before the hub. The hub sends `connector_account_id` only to first-party apps. A method
-refuses an id_token without it, with claims of another type, or of another connector than its own,
-with a message on the sign-in page.
+The hub's `sub` is public (RFC 134): the provider and its own account id, such as `github:4076804`,
+so the core keeps one account for each provider account. The id_token also carries `connector`
+(`github` or `google`) and `connector_account_id`, the connector's own account id: GitHub's numeric
+user id as a string, or Google's `sub`. A GitHub or Google `authAccounts` row is keyed by the
+connector and that id, the same key as before the hub. The hub sends `connector_account_id` only to
+first-party apps. A method refuses an id_token without it, with claims of another type, or of
+another connector than its own, with a message on the sign-in page.
 
 `users.email` is one stable, verified email on a non-deleted Samebase account. One normalized
 account email belongs to at most one active Samebase account. A deleted row has no email. The email
