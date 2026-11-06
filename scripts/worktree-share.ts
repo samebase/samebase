@@ -11,10 +11,7 @@ type ChildProcess = import("node:child_process").ChildProcess;
 
 type StdioOptions = import("node:child_process").StdioOptions;
 
-type ShareMode = "worktree" | "local";
-
 type ParsedArgs = {
-  mode: ShareMode;
   preferredPort: number;
   showHelp: boolean;
 };
@@ -57,7 +54,6 @@ type DevLaunchArgs = {
   repoRoot: string;
   frontendPort: number;
   frontendOrigin: string;
-  modeConfig: ShareModeConfig;
 };
 
 type CloudflaredQuickTunnelArgs = {
@@ -73,25 +69,6 @@ type CloudflaredQuickTunnelProcess = {
   close: () => Promise<void>;
 };
 
-type ShareModeConfig = {
-  bootstrapCommand: string;
-  bootstrapArgs: string[];
-  devCommand: string;
-  buildDevArgs: (frontendPort: number) => string[];
-  /**
-   * `null` means this mode pins the frontend port via CLI args instead of an
-   * injected env var. Non-null means `startDevServer` must inject the named
-   * env var so the child dev command binds the probed share port deterministically.
-   */
-  devTargetPortVar: string | null;
-  defaultStartPort: number;
-  shareLabel: string;
-  devLabel: string;
-  readyLabel: string;
-  bootstrapMessage: string;
-  startMessage: (origin: string) => string;
-};
-
 const FRONTEND_READY_TIMEOUT_MS = 120_000;
 const CLOUDFLARED_READY_TIMEOUT_MS = 60_000;
 const PROCESS_SHUTDOWN_TIMEOUT_MS = 10_000;
@@ -101,44 +78,12 @@ const PNPM_COMMAND = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
 
 const CONFIGURED_CONVEX_ENV_KEYS: readonly string[] = ["VITE_CONVEX_URL", "CONVEX_URL"];
 
-const SHARE_MODE_CONFIG: Record<ShareMode, ShareModeConfig> = {
-  worktree: {
-    bootstrapCommand: PNPM_COMMAND,
-    bootstrapArgs: ["run", "dev:worktree:once"],
-    devCommand: PNPM_COMMAND,
-    buildDevArgs: (frontendPort) => [
-      "run",
-      "dev:worktree",
-      "--",
-      "--vite-port",
-      String(frontendPort),
-    ],
-    devTargetPortVar: null,
-    defaultStartPort: 5174,
-    shareLabel: "Worktree share",
-    devLabel: "worktree dev",
-    readyLabel: "worktree frontend",
-    bootstrapMessage: "Bootstrapping worktree dev environment with `pnpm dev:worktree:once`.",
-    startMessage: (origin) => `Starting worktree dev on ${origin} with a private Convex proxy.`,
-  },
-  local: {
-    bootstrapCommand: PNPM_COMMAND,
-    bootstrapArgs: ["run", "bootstrap"],
-    devCommand: PNPM_COMMAND,
-    buildDevArgs: () => ["run", "dev:primary"],
-    devTargetPortVar: "VITE_PORT",
-    defaultStartPort: 5173,
-    shareLabel: "Local share",
-    devLabel: "local dev",
-    readyLabel: "local frontend",
-    bootstrapMessage: "Bootstrapping local environment with `pnpm run bootstrap`.",
-    startMessage: (origin) => `Starting local dev on ${origin} with a private Convex proxy.`,
-  },
-};
+/** The main checkout and every linked worktree run the same dev runner, so one share fits both. */
+const DEFAULT_START_PORT = 5174;
 
 /**
- * `pnpm share:worktree` and `pnpm share:local` both expose one public frontend URL
- * while keeping the configured Convex backend behind Vite's same-origin proxy.
+ * `pnpm share:worktree` exposes one public frontend URL while keeping the configured Convex
+ * backend behind Vite's same-origin proxy.
  */
 function getHelpText(): string {
   return `Usage: node scripts/worktree-share.ts [options]
@@ -148,12 +93,8 @@ quick tunnel while keeping the configured Convex backend behind Vite's
 same-origin proxy path.
 
 Options:
-  --mode <worktree|local>
-      Share mode. Defaults to worktree.
-      worktree default port: ${SHARE_MODE_CONFIG.worktree.defaultStartPort}
-      local default port:    ${SHARE_MODE_CONFIG.local.defaultStartPort}
   --port <port>
-      Preferred frontend port for the selected mode.
+      Preferred frontend port. Defaults to ${DEFAULT_START_PORT}.
   -h, --help
       Show this help message.
 `;
@@ -237,8 +178,6 @@ function readEnvAssignmentValue(contents: string, key: string): string | null {
 }
 
 function parseArgs(argv: string[]): ParsedArgs {
-  let mode: ShareMode = "worktree";
-
   let preferredPort: number | null = null;
   let showHelp = false;
 
@@ -246,15 +185,6 @@ function parseArgs(argv: string[]): ParsedArgs {
     const arg = argv[index];
     if (arg === "--help" || arg === "-h") {
       showHelp = true;
-      continue;
-    }
-    if (arg === "--mode") {
-      const value = argv[index + 1];
-      if (!value || value.startsWith("-")) {
-        throw new Error(`Missing value for ${arg}.\n\n${getHelpText()}`);
-      }
-      mode = parseMode(value);
-      index += 1;
       continue;
     }
     if (arg === "--port") {
@@ -270,18 +200,9 @@ function parseArgs(argv: string[]): ParsedArgs {
   }
 
   return {
-    mode,
-    preferredPort: preferredPort ?? SHARE_MODE_CONFIG[mode].defaultStartPort,
+    preferredPort: preferredPort ?? DEFAULT_START_PORT,
     showHelp,
   };
-}
-
-function parseMode(value: string): ShareMode {
-  if (value === "worktree" || value === "local") {
-    return value;
-  }
-
-  throw new Error(`Invalid mode "${value}". Expected "worktree" or "local".`);
 }
 
 function parsePort(value: string): number {
@@ -480,21 +401,13 @@ async function ensureCloudflaredBinary(repoRoot: string): Promise<void> {
 }
 
 function startDevServer(args: DevLaunchArgs): ChildProcess {
-  // `devTargetPortVar === null` means this mode already threads the chosen port
-  // through CLI args, so injecting an env var here would be redundant and could
-  // fight the explicit command contract.
-  const portEnv =
-    args.modeConfig.devTargetPortVar === null
-      ? {}
-      : { [args.modeConfig.devTargetPortVar]: String(args.frontendPort) };
   const childProcess: ChildProcess = spawn(
-    args.modeConfig.devCommand,
-    args.modeConfig.buildDevArgs(args.frontendPort),
+    PNPM_COMMAND,
+    ["run", "dev:worktree", "--", "--vite-port", String(args.frontendPort)],
     {
       cwd: args.repoRoot,
       env: {
         ...process.env,
-        ...portEnv,
         DEV_ENV_ORIGIN: args.frontendOrigin,
         SAMEBASE_DEV_ALLOWED_HOSTS: ".trycloudflare.com",
         SAMEBASE_DEV_PORT: String(args.frontendPort),
@@ -743,21 +656,18 @@ async function main(): Promise<void> {
     return;
   }
 
-  const modeConfig = SHARE_MODE_CONFIG[parsedArgs.mode];
   const repoRoot = resolveRepoRoot();
   const frontendPort = await findAvailablePort(parsedArgs.preferredPort);
   if (frontendPort !== parsedArgs.preferredPort) {
-    console.log(
-      `Port ${parsedArgs.preferredPort} is busy; using ${frontendPort} for ${modeConfig.shareLabel.toLowerCase()} instead.`,
-    );
+    console.log(`Port ${parsedArgs.preferredPort} is busy; using ${frontendPort} instead.`);
   }
 
   await ensureCloudflaredBinary(repoRoot);
 
-  console.log(modeConfig.bootstrapMessage);
+  console.log("Bootstrapping the dev environment with `pnpm dev:worktree:once`.");
   await runCommand({
-    command: modeConfig.bootstrapCommand,
-    args: modeConfig.bootstrapArgs,
+    command: PNPM_COMMAND,
+    args: ["run", "dev:worktree:once"],
     cwd: repoRoot,
     env: process.env,
   });
@@ -765,14 +675,13 @@ async function main(): Promise<void> {
   // Throws if .env.local is missing or lacks a Convex URL after bootstrap.
   void readConfiguredConvexUrl(repoRoot);
   const requestedFrontendOrigin = `http://127.0.0.1:${frontendPort}`;
-  console.log(modeConfig.startMessage(requestedFrontendOrigin));
+  console.log(`Starting dev on ${requestedFrontendOrigin} with a private Convex proxy.`);
 
   const frontendLaunchStartedAt = Date.now();
   const devChild = startDevServer({
     repoRoot,
     frontendPort,
     frontendOrigin: requestedFrontendOrigin,
-    modeConfig,
   });
   const devExitState = createExitState();
   const devExitPromise = waitForChildExit(devChild, devExitState);
@@ -814,7 +723,7 @@ async function main(): Promise<void> {
       minimumWrittenAt: frontendLaunchStartedAt,
       timeoutMs: FRONTEND_READY_TIMEOUT_MS,
       exitState: devExitState,
-      devLabel: modeConfig.devLabel,
+      devLabel: "dev",
     });
     if (frontendOrigin !== requestedFrontendOrigin) {
       console.log(
@@ -824,7 +733,7 @@ async function main(): Promise<void> {
 
     await waitForUrlReady({
       url: frontendOrigin,
-      label: modeConfig.readyLabel,
+      label: "frontend",
       timeoutMs: FRONTEND_READY_TIMEOUT_MS,
       exitState: devExitState,
     });
@@ -839,7 +748,7 @@ async function main(): Promise<void> {
     await setLocalSiteUrl(repoRoot, quickTunnelUrl);
 
     console.log("");
-    console.log(`${modeConfig.shareLabel} ready.`);
+    console.log("Share ready.");
     console.log(`- Local:  ${frontendOrigin}`);
     console.log(`- Public: ${quickTunnelUrl}`);
     console.log("Press Ctrl-C to stop the local dev server and quick tunnel.");
@@ -855,10 +764,7 @@ async function main(): Promise<void> {
 
     if (exitingChild === "dev") {
       throw new Error(
-        `${modeConfig.devLabel} exited unexpectedly (${describeProcessExit(
-          devExitState.code,
-          devExitState.signal,
-        )}).`,
+        `dev exited unexpectedly (${describeProcessExit(devExitState.code, devExitState.signal)}).`,
       );
     }
 

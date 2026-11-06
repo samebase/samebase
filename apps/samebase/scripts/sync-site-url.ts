@@ -21,7 +21,11 @@
  */
 
 import { spawnSync } from "child_process";
+import { fileURLToPath } from "node:url";
 import { resolveSiteUrlSyncOrigin, usesLocalConvexDeployment } from "./convex-local-utils.ts";
+
+/** Run through node: `npx` needs a shell on Windows, and spawnSync starts none. */
+const convexCliPath = fileURLToPath(new URL("../node_modules/convex/bin/main.js", import.meta.url));
 
 const writeProcessOutput = (stream: NodeJS.WriteStream, value: string | null | undefined): void => {
   if (typeof value === "string" && value.length > 0) {
@@ -40,7 +44,7 @@ try {
 }
 
 console.log(`Setting Convex SITE_URL to ${origin}`);
-const result = spawnSync("npx", ["convex", "env", "set", "SITE_URL", origin], {
+const result = spawnSync(process.execPath, [convexCliPath, "env", "set", "SITE_URL", origin], {
   stdio: "pipe",
   encoding: "utf8",
 });

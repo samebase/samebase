@@ -19,6 +19,8 @@ const localEnvPath = path.join(appDir, ".env.local");
 const versionModulePath = path.join(appDir, ".convex-hosting", "version.js");
 const serverBuildPath = path.join(appDir, "dist", "server", "server.js");
 const FUNCTIONS_READY_MARKER = "Convex functions ready!";
+/** Run through node: `npx` needs a shell on Windows, and spawnSync starts none. */
+const convexCliPath = path.join(appDir, "node_modules", "convex", "bin", "main.js");
 /**
 The Convex project of samebase.com. Each folder gets its own logged-in local deployment in it, which
 imports the project's default variables for development: the GitHub App, the GitHub owner of the
@@ -188,12 +190,16 @@ try {
 process.exitCode = exitCode;
 
 function readLocalConvexEnv(name: string): string | null {
-  const result = spawnSync("npx", ["convex", "env", "get", name, "--env-file", localEnvPath], {
-    cwd: appDir,
-    env: localConvexEnv,
-    encoding: "utf8",
-    stdio: ["ignore", "pipe", "inherit"],
-  });
+  const result = spawnSync(
+    process.execPath,
+    [convexCliPath, "env", "get", name, "--env-file", localEnvPath],
+    {
+      cwd: appDir,
+      env: localConvexEnv,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "inherit"],
+    },
+  );
   if (result.status !== 0) {
     exitWithError(`Failed to read ${name} from local Convex env`);
   }
@@ -226,8 +232,8 @@ function ensureLoggedInLocalDeployment(): void {
     );
   }
   const result = spawnSync(
-    "npx",
-    ["convex", "deployment", "create", LOCAL_DEPLOYMENT_SELECTOR, "--select"],
+    process.execPath,
+    [convexCliPath, "deployment", "create", LOCAL_DEPLOYMENT_SELECTOR, "--select"],
     { cwd: appDir, env: localConvexEnv, stdio: ["ignore", "inherit", "inherit"] },
   );
   if (result.status !== 0) {
@@ -239,13 +245,17 @@ function ensureLoggedInLocalDeployment(): void {
 }
 
 function setLocalConvexEnv(name: string, value: string): void {
-  const result = spawnSync("npx", ["convex", "env", "set", name, "--env-file", localEnvPath], {
-    cwd: appDir,
-    env: localConvexEnv,
-    input: value,
-    encoding: "utf8",
-    stdio: ["pipe", "inherit", "inherit"],
-  });
+  const result = spawnSync(
+    process.execPath,
+    [convexCliPath, "env", "set", name, "--env-file", localEnvPath],
+    {
+      cwd: appDir,
+      env: localConvexEnv,
+      input: value,
+      encoding: "utf8",
+      stdio: ["pipe", "inherit", "inherit"],
+    },
+  );
   if (result.status !== 0) {
     exitWithError(`Failed to set ${name} in local Convex env`);
   }
