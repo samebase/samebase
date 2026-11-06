@@ -101,7 +101,6 @@ export function moderationEndpoints(args: {
         githubId: change.githubId,
         reason: change.reason,
         adminEmail: change.adminEmail,
-        now: Date.now(),
       }),
     );
   });

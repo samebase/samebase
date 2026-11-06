@@ -113,7 +113,6 @@ async function setBlock(h: Harness, kind: "repository" | "owner", githubId: stri
     githubId,
     reason: "Phishing page",
     adminEmail: "admin@example.com",
-    now: Date.now(),
   });
 }
 

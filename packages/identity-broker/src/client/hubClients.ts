@@ -299,7 +299,6 @@ export function hubClientsEndpoint(args: {
     const admission = await ctx.runMutation(component.hubClients.admit, {
       githubRepositoryDatabaseId: ids.githubRepositoryDatabaseId,
       githubOwnerId: ids.githubOwnerId,
-      now: Date.now(),
     });
     if (admission.status === "blocked") {
       return notAllowed("blocked");
@@ -374,7 +373,6 @@ export function hubClientsEndpoint(args: {
       app: body.app,
       redirectUri: body.redirectUri,
       softwareVersion: body.softwareVersion,
-      now: Date.now(),
     });
     if (!created.ok) {
       return notAllowed(created.reason);
@@ -431,7 +429,6 @@ export function hubClientsEndpoint(args: {
       app: token.app,
       redirectUri: body.redirectUri,
       softwareVersion: body.softwareVersion,
-      now: Date.now(),
     });
     if (!created.ok) {
       return created.reason === "invalid_token"

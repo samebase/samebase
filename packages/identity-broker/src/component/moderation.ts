@@ -203,10 +203,10 @@ export const setBlock = mutation({
     githubId: string(),
     reason: string(),
     adminEmail: string(),
-    now: number(),
   },
   returns: object({ changed: boolean() }),
   handler: async (ctx, args) => {
+    const now = Date.now();
     const row = await readBlock(ctx, args.kind, args.githubId);
     if (args.action === "block") {
       if (row !== null) {
@@ -217,7 +217,7 @@ export const setBlock = mutation({
         githubId: args.githubId,
         reason: args.reason,
         adminEmail: args.adminEmail,
-        at: args.now,
+        at: now,
       });
     } else {
       if (row === null) {
@@ -232,7 +232,7 @@ export const setBlock = mutation({
       githubId: args.githubId,
       reason: args.reason,
       adminEmail: args.adminEmail,
-      at: args.now,
+      at: now,
     });
     return { changed: true };
   },

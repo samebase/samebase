@@ -4,8 +4,9 @@ import { mutation } from "./_generated/server";
 import { vBlockKind, vRegisteredBy } from "./schema";
 
 // RFC 135, once: the rows of a hub of 0.18.0, which kept them in its own tables. RFC 135 PR B deletes
-// this module. Run it while registration is paused (`THIRD_PARTY_PAUSED=true`, no app deploys), so no
-// row is written in between. Every step is idempotent: a second run changes nothing.
+// this module. Run it right after the deploy, with third-party registration paused. A client that
+// registered in between already has its record and its event, and an app whose token was replaced in
+// between keeps the new one. Every step is idempotent: a second run changes nothing.
 
 const { array, literal, number, object, string, union } = v;
 
@@ -101,10 +102,14 @@ export const importHubRows = mutation({
       }
     }
     for (const token of args.initialAccessTokens) {
+      // A production run that registered after the deploy already replaced this app's token here:
+      // the hub's older row must not come back next to it.
       const existing = await ctx.db
         .query("initialAccessTokens")
-        .withIndex("by_token_hash", (q) => q.eq("tokenHash", token.tokenHash))
-        .unique();
+        .withIndex("by_repository_and_app", (q) =>
+          q.eq("githubRepositoryDatabaseId", token.githubRepositoryDatabaseId).eq("app", token.app),
+        )
+        .first();
       if (existing === null) {
         await ctx.db.insert("initialAccessTokens", token);
         result.initialAccessTokens += 1;

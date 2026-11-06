@@ -434,11 +434,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
       admit: FunctionReference<
         "mutation",
         "internal",
-        {
-          githubOwnerId: string;
-          githubRepositoryDatabaseId: string;
-          now: number;
-        },
+        { githubOwnerId: string; githubRepositoryDatabaseId: string },
         | { status: "admitted" }
         | { status: "blocked" }
         | {
@@ -462,7 +458,6 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           githubOwnerId: string;
           githubRepository: string;
           githubRepositoryDatabaseId: string;
-          now: number;
           redirectUri: string;
           registrationTokenHash: string;
           secretHash: string;
@@ -489,7 +484,6 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           app: string;
           clientId: string;
           githubOwnerId: string;
-          now: number;
           redirectUri: string;
           registrationTokenHash: string;
           secretHash: string;
@@ -685,7 +679,6 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           adminEmail: string;
           githubId: string;
           kind: "repository" | "owner";
-          now: number;
           reason: string;
         },
         { changed: boolean },

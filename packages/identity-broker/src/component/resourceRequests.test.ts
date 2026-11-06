@@ -31,7 +31,6 @@ async function setBlock(t: Test, kind: "repository" | "owner", githubId: string,
     githubId,
     reason: "Phishing page",
     adminEmail: "admin@example.com",
-    now: NOW,
   });
 }
 

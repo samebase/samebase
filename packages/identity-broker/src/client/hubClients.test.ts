@@ -517,7 +517,6 @@ describe("POST /hub-clients", () => {
             githubId,
             reason: "Phishing page",
             adminEmail: "nicu@samebase.com",
-            now: Date.now(),
           });
           return jsonResponse({ repository: REPOSITORY_ID });
         });

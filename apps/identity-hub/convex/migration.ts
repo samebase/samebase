@@ -4,9 +4,10 @@ import { internalMutation } from "./_generated/server";
 
 /**
  * RFC 135, once: copies the rows of this hub's own tables into the broker, which holds every row from
- * broker 0.19.0 on. Run it with `npx convex run migration:importHubRows` while `THIRD_PARTY_PAUSED`
- * is `true` and no app deploys, then check its counts. It is idempotent. RFC 135 PR B deletes it and
- * the tables of convex/schema.ts. Rate limit windows are not copied: nothing registers while paused.
+ * broker 0.19.0 on. Run it on production right after the deploy, from this folder:
+ * `npx convex run --prod migration:importHubRows`, while `THIRD_PARTY_PAUSED` is `true`, then check
+ * its counts. It is idempotent. RFC 135 PR B deletes it and the tables of convex/schema.ts. Rate limit
+ * windows are not copied: they are hourly, and third-party registration is paused.
  */
 export const importHubRows = internalMutation({
   args: {},

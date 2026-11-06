@@ -62,14 +62,23 @@ admin. So the move uses a freeze of about ten minutes, not a mirroring layer tha
 afterwards. Production on 2026-11-06: 51 registrations (21 live clients), 8 initial access tokens,
 no blocks, no block events, 12 rate limit rows.
 
-1. Set `THIRD_PARTY_PAUSED=true` on the hub. Deploy no app.
+1. Set `THIRD_PARTY_PAUSED=true` on the hub's production deployment.
 2. Merge PR A (broker 0.19.0): the new tables, the package's routes, the hub's own routes and
    writers removed, the new client fields optional for this one release, and the one-time import.
-3. Run `npx convex run migration:importHubRows` on the hub. Check: every client has `registeredBy`,
-   8 tokens, 51 registration events.
+3. When the hub's deploy is done, run `npx convex run --prod migration:importHubRows` from
+   `apps/identity-hub`. Check: every client has `registeredBy`, 8 tokens, 51 registration events.
 4. Unset the pause.
-5. PR B (broker 0.20.0): `app` and `registeredBy` required; `tenants.disconnected`, the import, and
-   the hub's `schema.ts` and `migration.ts` deleted.
+
+The merge also deploys samebase.com, which is one of the hub's own repositories, so the pause does
+not stop it. Its deploy renews its saved clients and makes none. If an own app did register in
+between, its client already has its record and its event, and the import keeps the token that run
+made, not the hub's older one.
+
+Between the deploy and the import: samebase.com's admin page cannot list the clients (a client
+without `registeredBy` fails the list), a laptop with an initial access token gets
+`401 invalid_token`, and every saved client renews and signs in as before. 5. PR B (broker 0.20.0):
+`app` and `registeredBy` required; `tenants.disconnected`, the import, and the hub's `schema.ts` and
+`migration.ts` deleted.
 
 Rate limit windows are not copied: nothing registers during the freeze.
 

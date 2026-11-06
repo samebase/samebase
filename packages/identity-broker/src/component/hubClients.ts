@@ -11,7 +11,7 @@ import { vRateLimitScope } from "./schema";
 // proof and the host between `admit` and the creating mutation, and these hold every rule that reads
 // or writes a row, each in one transaction.
 
-const { literal, number, object, string, union } = v;
+const { literal, object, string, union } = v;
 
 const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1_000;
 /**
@@ -92,7 +92,7 @@ async function readRateLimit(
  * request counts nowhere. Runs before the verification file is fetched.
  */
 export const admit = mutation({
-  args: { githubRepositoryDatabaseId: string(), githubOwnerId: string(), now: number() },
+  args: { githubRepositoryDatabaseId: string(), githubOwnerId: string() },
   returns: vAdmission,
   handler: async (ctx, args) => {
     if (
@@ -104,7 +104,8 @@ export const admit = mutation({
       return { status: "blocked" as const };
     }
 
-    const { now } = args;
+    // The time of this transaction, so a request that waited in a queue counts in the window it runs in.
+    const now = Date.now();
     const repository = await readRateLimit(ctx, "repository", args.githubRepositoryDatabaseId);
     const owner = await readRateLimit(ctx, "owner", args.githubOwnerId);
     const newOwners = await readRateLimit(ctx, "new_owners", "");
@@ -220,10 +221,10 @@ export const createClient = mutation({
     app: string(),
     redirectUri: string(),
     softwareVersion: string(),
-    now: number(),
   },
   returns: union(object({ ok: literal(true) }), object({ ok: literal(false), reason: vRefusal })),
   handler: async (ctx, args) => {
+    const now = Date.now();
     // One row per app name of the repository, so a few rows.
     const tokens = await ctx.db
       .query("initialAccessTokens")
@@ -270,7 +271,7 @@ export const createClient = mutation({
         githubActorLogin: args.githubActorLogin,
         commitSha: args.commitSha,
       },
-      now: args.now,
+      now,
     });
     if (!result.ok) {
       return { ok: false as const, reason: result.error };
@@ -281,7 +282,7 @@ export const createClient = mutation({
       clientId: args.clientId,
       githubRepositoryDatabaseId: args.githubRepositoryDatabaseId,
       githubOwnerId: args.githubOwnerId,
-      at: args.now,
+      at: now,
     });
     if (args.deployment.type === "production") {
       const previous = tokens.find(
@@ -296,7 +297,7 @@ export const createClient = mutation({
         githubOwnerId: args.githubOwnerId,
         githubRepository: args.githubRepository,
         app: args.app,
-        issuedAt: args.now,
+        issuedAt: now,
       });
     }
     return { ok: true as const };
@@ -342,13 +343,13 @@ export const createDevelopmentClient = mutation({
     app: string(),
     redirectUri: string(),
     softwareVersion: string(),
-    now: number(),
   },
   returns: union(
     object({ ok: literal(true) }),
     object({ ok: literal(false), reason: union(vRefusal, literal("invalid_token")) }),
   ),
   handler: async (ctx, args) => {
+    const now = Date.now();
     const token = await ctx.db
       .query("initialAccessTokens")
       .withIndex("by_token_hash", (q) => q.eq("tokenHash", args.tokenHash))
@@ -385,7 +386,7 @@ export const createDevelopmentClient = mutation({
         githubOwnerId: token.githubOwnerId,
         issuedAt: token.issuedAt,
       },
-      now: args.now,
+      now,
     });
     if (!result.ok) {
       return { ok: false as const, reason: result.error };
@@ -396,7 +397,7 @@ export const createDevelopmentClient = mutation({
       clientId: args.clientId,
       githubRepositoryDatabaseId: token.githubRepositoryDatabaseId,
       githubOwnerId: token.githubOwnerId,
-      at: args.now,
+      at: now,
     });
     return { ok: true as const };
   },

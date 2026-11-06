@@ -83,7 +83,7 @@ const registerArgs = {
   now: number(),
 };
 
-export const vRegisterResult = union(
+const vRegisterResult = union(
   object({ ok: literal(true) }),
   object({
     ok: literal(false),
