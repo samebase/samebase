@@ -245,8 +245,11 @@ The public template,
 [samebase/base](https://github.com/samebase/base), is published automatically from the Samebase
 monorepo as the base improves, and each template commit names the Samebase build it came from. The
 template and the [plugin](https://github.com/samebase/plugin), including its bundled skill, are open source
-under Apache 2.0. The Samebase app is licensed under AGPL-3.0-only. Other folders have their own
-licenses, including MIT and all rights reserved for the video workbench and recordings. See the
+under Apache 2.0. The Samebase app is source-available under the
+[Functional Source License](https://fsl.software), FSL-1.1-ALv2: any use except a competing
+commercial service, and each version becomes Apache 2.0 two years after its release. Other folders
+have their own licenses, including MIT and all rights reserved for the video workbench and
+recordings. See the
 [license map](https://github.com/samebase/samebase/blob/main/LICENSING.md).
 
 The \`.md\` links under Docs return raw markdown, and the same paths without \`.md\` serve the

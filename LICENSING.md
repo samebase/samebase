@@ -4,7 +4,7 @@ A folder's own license replaces the root license for that folder.
 
 | Folder                                                                                                                   | License                                                                            |
 | ------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------- |
-| `apps/samebase`, and every folder that this table does not list                                                          | [AGPL-3.0-only](LICENSE)                                                           |
+| `apps/samebase`, and every folder that this table does not list                                                          | [FSL-1.1-ALv2](LICENSE)                                                            |
 | `packages/dependent`, `packages/git-editor`, `packages/logo-model`, `packages/onboarding-video-tools`, `packages/plugin` | Apache-2.0, in the folder's `LICENSE`                                              |
 | `packages/identity-broker`, `apps/identity-hub`, `apps/identity-broker-explainer`                                        | Apache-2.0, in the folder's `LICENSE`                                              |
 | `packages/sidebars`, `packages/sure`, `apps/sidebars-example`                                                            | MIT, in the folder's `LICENSE.md`                                                  |
@@ -12,6 +12,11 @@ A folder's own license replaces the root license for that folder.
 
 Copyright (c) 2026 Nicușor Chiciuc, unless a file says otherwise. No license in this repository
 grants rights to the Samebase name or logo.
+
+`apps/samebase` is Fair Source, not open source. The Functional Source License allows any use,
+including running your own copy, except making the software available to others in a commercial
+product or service that competes with Samebase. Each version becomes Apache-2.0 two years after its
+release. Versions published before this change stay under AGPL-3.0-only.
 
 `apps/remotion-studio` is not open source because it holds personal recordings and depends on
 Remotion, which has its own license.
@@ -24,7 +29,7 @@ Each dependency stays under its own license.
   licenses.
 - The review found no GPL, AGPL, LGPL, or source-available dependency.
 - `dompurify` is offered under `MPL-2.0 OR Apache-2.0`. Use the Apache-2.0 option.
-- `lightningcss` is MPL-2.0, which is compatible with AGPL-3.0. Keep its license notices.
+- `lightningcss` is MPL-2.0. Keep its license notices.
 - `apps/remotion-studio` uses the Remotion packages and `mediabunny`. Check their current terms
   before you redistribute that folder or upgrade those versions.
 
