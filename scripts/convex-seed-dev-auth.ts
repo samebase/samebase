@@ -1,14 +1,15 @@
 #!/usr/bin/env node
 import { spawn, spawnSync } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { generateConvexAuthKeys, generateCredentialKeys } from "./lib/convexAuthKeys.ts";
-import { readEnvFile, type EnvFile } from "./lib/envFile.ts";
+import { readEnvFile } from "./lib/envFile.ts";
 import { resolveRepoRoot } from "./lib/scriptRuntime.ts";
 import { samebaseAppFilePath } from "./lib/trackedFilePath.ts";
 import path from "node:path";
 import {
   listListeningPids,
   parsePort,
+  readLocalDeploymentName,
   sleep,
 } from "../apps/samebase/scripts/convex-local-utils.ts";
 
@@ -19,26 +20,17 @@ const versionModulePath = path.join(appDir, ".convex-hosting", "version.js");
 const serverBuildPath = path.join(appDir, "dist", "server", "server.js");
 const FUNCTIONS_READY_MARKER = "Convex functions ready!";
 /**
-The development deployment of the project, the personal one of the Convex CLI login. It holds the
-GitHub App that convex/convex.config.ts requires, and the GitHub owner of the seeded organization.
+The Convex project of samebase.com. Each folder gets its own logged-in local deployment in it, which
+imports the project's default variables for development: the GitHub App, the GitHub owner of the
+seeded organization, and the off values of the six identity hub variables.
 */
-const DEVELOPMENT_DEPLOYMENT = "nicu:samebase-com:dev";
-const DEVELOPMENT_DEPLOYMENT_VARIABLES = [
-  "GITHUB_APP_CLIENT_ID",
-  "GITHUB_APP_CLIENT_SECRET",
-  "GITHUB_APP_ID",
-  "GITHUB_APP_PRIVATE_KEY",
-  "GITHUB_APP_SLUG",
-  "DEV_SEED_GITHUB_INSTALLATION_ID",
-  "DEV_SEED_GITHUB_OWNER_ID",
-  "DEV_SEED_GITHUB_OWNER_LOGIN",
-  "DEV_SEED_GITHUB_OWNER_TYPE",
-] as const;
-// A deploy key in the shell points the Convex CLI at its own deployment, before the anonymous mode
-// and before `--deployment`.
-const shellEnv: NodeJS.ProcessEnv = { ...process.env };
-delete shellEnv.CONVEX_DEPLOY_KEY;
-const localConvexEnv: NodeJS.ProcessEnv = { ...shellEnv, CONVEX_AGENT_MODE: "anonymous" };
+const LOCAL_DEPLOYMENT_SELECTOR = "nicu:samebase-com:local";
+// A deploy key in the shell points the Convex CLI at its own deployment, before the selection in
+// .env.local.
+const localConvexEnv: NodeJS.ProcessEnv = { ...process.env };
+delete localConvexEnv.CONVEX_DEPLOY_KEY;
+
+ensureLoggedInLocalDeployment();
 
 let functionsReady = false;
 let backendOutputTail = "";
@@ -123,26 +115,11 @@ const terminateListeningPidsOnPort = async (port: number): Promise<void> => {
 let exitCode = 0;
 let backendPort: number | null = null;
 try {
-  const localEnv = await waitForLocalEnv();
-  if (localEnv === null) {
-    exitWithError(`Local backend did not write ${localEnvPath}`);
-  }
-  backendPort = resolveBackendPort(localEnv.vars);
+  backendPort = await waitForOwnBackend();
   if (backendPort === null) {
-    exitWithError(`Local env file does not contain VITE_CONVEX_URL or CONVEX_URL: ${localEnvPath}`);
+    exitWithError(`The local backend of ${appDir} did not start`);
   }
 
-  const ready = await waitForBackend(backendPort);
-  if (!ready) {
-    exitWithError(`Local backend did not start on port ${backendPort}`);
-  }
-
-  for (const name of DEVELOPMENT_DEPLOYMENT_VARIABLES) {
-    setLocalConvexEnv(name, readDevelopmentConvexEnv(name));
-  }
-  // convex/deploymentProfile.ts reads it as the local_worktree profile, which seeds the password
-  // account below. The CI bootstrap sets the same value.
-  setLocalConvexEnv("CONVEX_AGENT_MODE", "anonymous");
   // convex/convex.config.ts requires the signing keys of the Convex Auth component, so they exist
   // before the deploy below pushes. A worktree backend keeps the keys it already has.
   if (readLocalConvexEnv("AUTH_PRIVATE_KEY") === null || readLocalConvexEnv("AUTH_JWKS") === null) {
@@ -157,27 +134,8 @@ try {
       setLocalConvexEnv(name, value);
     }
   }
-  // A backend set up before worktrees had hub clients holds the CI placeholders. Convex refuses to
-  // remove them, since convex/convex.config.ts requires the variables, and the registration below
-  // keeps existing values, so only a new backend gets clients.
-  if (readLocalConvexEnv("HUB_CLIENT_ID") === "no-hub") {
-    console.warn(
-      "This worktree's local backend has no identity hub client, so GitHub sign-in and the Connect buttons fail. To get them, delete apps/samebase/.convex/local, which holds the local data, and run `pnpm run dev --once`.",
-    );
-  }
-  // Two clients of the identity hub on this backend's own site URL: one signs in with GitHub and
-  // Google, one connects GitHub, Convex, and Cloudflare. A backend that has a client keeps it, so
-  // each worktree registers once. The Convex CLI login reaches the hub.
-  for (const script of ["hub:client", "hub:resource-client"]) {
-    const result = spawnSync(process.execPath, ["--run", script], {
-      cwd: appDir,
-      env: localConvexEnv,
-      stdio: "inherit",
-    });
-    if (result.status !== 0) {
-      exitWithError(`Failed to register the local backend with the identity hub (${script})`);
-    }
-  }
+  // The identity hub clients come later, from the Alchemy stage that `pnpm run dev` runs once the
+  // long-running backend answers. Until then the off values of the project's defaults hold.
 
   // convex/http.ts imports .convex-hosting/version.js, which only a deploy writes, and the server
   // build dist/server/server.js, which only a build writes, so the first push of a fresh worktree
@@ -245,23 +203,39 @@ function readLocalConvexEnv(name: string): string | null {
   return value.length > 0 ? value : null;
 }
 
-function readDevelopmentConvexEnv(name: string): string {
-  const result = spawnSync(
-    "npx",
-    ["convex", "env", "get", name, "--deployment", DEVELOPMENT_DEPLOYMENT],
-    { cwd: appDir, env: shellEnv, encoding: "utf8", stdio: ["ignore", "pipe", "inherit"] },
-  );
-  if (result.status !== 0) {
-    exitWithError(
-      `Failed to read ${name} from ${DEVELOPMENT_DEPLOYMENT}. Log in with \`npx convex login\`.`,
+/**
+ * Gives this folder a logged-in local deployment when it has none or an anonymous one. The
+ * anonymous folder goes with its data: no worktree's local data is kept. `--select` writes the new
+ * deployment to .env.local, and a cloud deploy key there would win over it, so it goes first.
+ */
+function ensureLoggedInLocalDeployment(): void {
+  const name = readLocalDeploymentName(appDir);
+  if (name?.startsWith("local-")) {
+    return;
+  }
+  if (name !== null) {
+    console.log(`Deleting the anonymous local deployment ${name} of this folder and its data.`);
+  }
+  rmSync(path.join(appDir, ".convex", "local", "default"), { recursive: true, force: true });
+  if (existsSync(localEnvPath)) {
+    const lines = readFileSync(localEnvPath, "utf8").split(/\r?\n/);
+    writeFileSync(
+      localEnvPath,
+      lines.filter((line) => !line.trim().startsWith("CONVEX_DEPLOY_KEY=")).join("\n"),
+      "utf8",
     );
   }
-  // The CLI ends the value with a newline, and answers an empty line when the variable is absent.
-  const value = result.stdout.replace(/\r?\n$/, "");
-  if (value.length === 0) {
-    exitWithError(`${DEVELOPMENT_DEPLOYMENT} has no ${name}`);
+  const result = spawnSync(
+    "npx",
+    ["convex", "deployment", "create", LOCAL_DEPLOYMENT_SELECTOR, "--select"],
+    { cwd: appDir, env: localConvexEnv, stdio: ["ignore", "inherit", "inherit"] },
+  );
+  if (result.status !== 0) {
+    console.error(
+      `Failed to create a local deployment of ${LOCAL_DEPLOYMENT_SELECTOR}. Log in with \`npx convex login\`.`,
+    );
+    process.exit(1);
   }
-  return value;
 }
 
 function setLocalConvexEnv(name: string, value: string): void {
@@ -291,41 +265,34 @@ function resolveBackendPort(vars: Record<string, string | undefined>): number | 
   return null;
 }
 
-async function waitForLocalEnv(): Promise<EnvFile | null> {
-  const deadline = Date.now() + 20000;
+/**
+ * The port of this folder's backend once it answers with the folder's deployment name. Each try
+ * reads .env.local again: `deployment create` writes the default port, and `convex dev` then
+ * writes the fixed port of the folder, where another folder's backend can never answer.
+ */
+async function waitForOwnBackend(): Promise<number | null> {
+  const deadline = Date.now() + 60000;
   while (Date.now() < deadline) {
     if (backend.exitCode !== null || backend.signalCode !== null) {
       return null;
     }
     const localEnv = readEnvFile(localEnvPath);
-    if (localEnv !== null && resolveBackendPort(localEnv.vars) !== null) {
-      return localEnv;
+    const port = localEnv === null ? null : resolveBackendPort(localEnv.vars);
+    if (port !== null) {
+      try {
+        const response = await fetch(`http://127.0.0.1:${port}/instance_name`, {
+          signal: AbortSignal.timeout(500),
+        });
+        if (response.ok && (await response.text()).trim() === readLocalDeploymentName(appDir)) {
+          return port;
+        }
+      } catch {
+        // ignore and retry
+      }
     }
     await sleep(250);
   }
   return null;
-}
-
-async function waitForBackend(port: number): Promise<boolean> {
-  const deadline = Date.now() + 20000;
-  while (Date.now() < deadline) {
-    if (backend.exitCode !== null || backend.signalCode !== null) {
-      return false;
-    }
-
-    try {
-      const response = await fetch(`http://127.0.0.1:${port}/instance_name`, {
-        signal: AbortSignal.timeout(500),
-      });
-      if (response.ok) {
-        return true;
-      }
-    } catch {
-      // ignore and retry
-    }
-    await sleep(250);
-  }
-  return false;
 }
 
 async function waitForFunctions(): Promise<boolean> {

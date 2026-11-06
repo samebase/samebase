@@ -13,20 +13,17 @@ import {
 import path from "node:path";
 
 type BootstrapOptions = {
-  anonMode: boolean;
   enableBranch: boolean;
 };
 
 type InstallOptions = {
-  anonMode: boolean;
   currentHash: string;
   workspaceDir: string;
 };
 
-const HELP_TEXT = `Usage: scripts/bootstrap-worktree.ts [--anon] [--no-branch]
+const HELP_TEXT = `Usage: scripts/bootstrap-worktree.ts [--no-branch]
 
 Options:
-  --anon       Run dependency install with CONVEX_AGENT_MODE=anonymous.
   --no-branch  Disable detached-HEAD auto-branch creation.
   -h, --help   Show this help message.`;
 
@@ -117,22 +114,16 @@ if (options.enableBranch) {
 configureCacheRoot();
 const currentHash = computeInstallHash(workspaceDir);
 installDependenciesIfNeeded({
-  anonMode: options.anonMode,
   currentHash,
   workspaceDir,
 });
 
 function parseArgs(args: string[]): BootstrapOptions {
   const result: BootstrapOptions = {
-    anonMode: false,
     enableBranch: true,
   };
 
   for (const arg of args) {
-    if (arg === "--anon") {
-      result.anonMode = true;
-      continue;
-    }
     if (arg === "--no-branch") {
       result.enableBranch = false;
       continue;
@@ -408,7 +399,6 @@ function collectPackageJsonFiles(relativeDir: string, depth: number, output: str
 }
 
 function installDependenciesIfNeeded({
-  anonMode,
   currentHash,
   workspaceDir: workspace,
 }: InstallOptions): void {
@@ -425,14 +415,8 @@ function installDependenciesIfNeeded({
   }
 
   console.log("Installing dependencies with pnpm...");
-  const env = {
-    ...process.env,
-    ...(anonMode ? { CONVEX_AGENT_MODE: "anonymous" } : {}),
-  };
-
   const installResult = spawnSync("pnpm", ["install", "--frozen-lockfile", "--prefer-offline"], {
     stdio: "inherit",
-    env,
   });
 
   if (installResult.status !== 0) {

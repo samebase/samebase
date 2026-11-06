@@ -4,7 +4,7 @@ import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 
-export type WorktreeKind = "main" | "linked";
+type WorktreeKind = "main" | "linked";
 
 type WorktreeContext = {
   kind: WorktreeKind;
@@ -19,7 +19,7 @@ export function classifyWorktree(gitDir: string, gitCommonDir: string): Worktree
   return gitDir === gitCommonDir ? "main" : "linked";
 }
 
-function resolveWorktreeContext(cwd = process.cwd()): WorktreeContext {
+export function resolveWorktreeContext(cwd = process.cwd()): WorktreeContext {
   const result = spawnSync(
     "git",
     ["rev-parse", "--path-format=absolute", "--show-toplevel", "--git-dir", "--git-common-dir"],
@@ -46,27 +46,17 @@ function resolveWorktreeContext(cwd = process.cwd()): WorktreeContext {
   };
 }
 
-export function buildContextBootstrapArgs(kind: WorktreeKind, args: string[]): string[] {
-  const bootstrapArgs = kind === "linked" ? ["--anon"] : [];
-  if (args.includes("--no-branch")) {
-    bootstrapArgs.push("--no-branch");
-  }
-  return bootstrapArgs;
+export function buildContextBootstrapArgs(args: string[]): string[] {
+  return args.includes("--no-branch") ? ["--no-branch"] : [];
 }
 
-export function selectDevRunner(kind: WorktreeKind): string {
-  return kind === "main" ? "run-primary-dev.ts" : "run-worktree-dev.ts";
-}
-
-function runDependencyBootstrap(context: WorktreeContext, args: string[]): void {
+/** Installs the dependencies, which the dev runner imports, before it starts. */
+function runDependencyBootstrap(repoRoot: string, args: string[]): void {
   const result = spawnSync(
     process.execPath,
-    [
-      path.join(context.repoRoot, "scripts", "bootstrap-worktree.ts"),
-      ...buildContextBootstrapArgs(context.kind, args),
-    ],
+    [path.join(repoRoot, "scripts", "bootstrap-worktree.ts"), ...buildContextBootstrapArgs(args)],
     {
-      cwd: context.repoRoot,
+      cwd: repoRoot,
       stdio: "inherit",
     },
   );
@@ -83,12 +73,13 @@ function runDependencyBootstrap(context: WorktreeContext, args: string[]): void 
   }
 }
 
-async function runDev(context: WorktreeContext, args: string[]): Promise<void> {
-  const runnerPath = path.join(context.repoRoot, "scripts", selectDevRunner(context.kind));
+/** The main checkout and every linked worktree start through the same runner. */
+async function runDev(repoRoot: string, args: string[]): Promise<void> {
+  const runnerPath = path.join(repoRoot, "scripts", "run-worktree-dev.ts");
 
   await new Promise<void>((resolve, reject) => {
     const child = spawn(process.execPath, [runnerPath, ...args], {
-      cwd: context.repoRoot,
+      cwd: repoRoot,
       stdio: "inherit",
     });
 
@@ -109,9 +100,9 @@ async function runDev(context: WorktreeContext, args: string[]): Promise<void> {
 
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
-  const context = resolveWorktreeContext();
-  runDependencyBootstrap(context, args);
-  await runDev(context, args);
+  const { repoRoot } = resolveWorktreeContext();
+  runDependencyBootstrap(repoRoot, args);
+  await runDev(repoRoot, args);
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {

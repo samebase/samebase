@@ -207,6 +207,28 @@ export const listListeningPids = (port: number): string[] => {
 
 export const isPortInUse = (port: number): boolean => listListeningPids(port).length > 0;
 
+/**
+ * The name of the folder's local deployment in `.convex/local/default/config.json`, which the
+ * Convex CLI writes for the local backend of `cwd`: `local-<team>-<project>-<n>` for a logged-in
+ * one, `anonymous-<name>` for an anonymous one. Null when the folder has none.
+ */
+export const readLocalDeploymentName = (cwd: string = process.cwd()): string | null => {
+  let config: unknown;
+  try {
+    config = JSON.parse(
+      fs.readFileSync(path.join(cwd, ".convex", "local", "default", "config.json"), "utf8"),
+    );
+  } catch {
+    return null;
+  }
+  return typeof config === "object" &&
+    config !== null &&
+    "deploymentName" in config &&
+    typeof config.deploymentName === "string"
+    ? config.deploymentName
+    : null;
+};
+
 const isLocalBackendReady = async (port: number) => {
   try {
     const response = await fetch(`http://127.0.0.1:${port}/instance_name`, {

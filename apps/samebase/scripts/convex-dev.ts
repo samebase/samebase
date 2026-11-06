@@ -10,7 +10,7 @@ import {
   waitForLocalBackend,
 } from "./convex-local-utils.ts";
 import { guard } from "@samebase/dependent/main";
-import { pickAvailableAnonymousLocalPorts } from "../../../runtime/anonymousLocalPorts.ts";
+import { pickAvailableLocalBackendPorts } from "../../../runtime/localBackendPorts.ts";
 
 const SUPPORTED_NODE_MAJORS = ["24", "22", "20", "18"];
 
@@ -121,14 +121,14 @@ const resolveWorktreeRoot = () => {
   return root.length > 0 ? root : process.cwd();
 };
 
-const pickAnonymousLocalPorts = () => {
+const pickLocalBackendPorts = () => {
   const worktreeRoot = resolveWorktreeRoot();
-  const ports = pickAvailableAnonymousLocalPorts(worktreeRoot, isPortInUse);
+  const ports = pickAvailableLocalBackendPorts(worktreeRoot, isPortInUse);
   if (ports) {
     return ports;
   }
 
-  console.warn("No free anonymous worktree port pair found; falling back to Convex defaults.");
+  console.warn("No free local backend port pair found; falling back to Convex defaults.");
   return null;
 };
 
@@ -173,23 +173,19 @@ const supportedNodeCommand = path.join(
 );
 
 const args = ["dev", ...process.argv.slice(2)];
-if (
-  process.env.CONVEX_AGENT_MODE === "anonymous" &&
-  !args.some((arg) => arg.startsWith("--codegen"))
-) {
+if (!args.some((arg) => arg.startsWith("--codegen"))) {
   args.push("--codegen=disable");
 }
-if (process.env.CONVEX_AGENT_MODE === "anonymous") {
-  // Convex selects anonymous local mode from CONVEX_AGENT_MODE and the
-  // deployment env value; passing the old --local flag now makes dev fail.
-  if (!hasCliOption(args, "--local-cloud-port") && !hasCliOption(args, "--local-site-port")) {
-    const anonymousLocalPorts = pickAnonymousLocalPorts();
-    if (anonymousLocalPorts) {
-      args.push(
-        `--local-cloud-port=${anonymousLocalPorts.cloud}`,
-        `--local-site-port=${anonymousLocalPorts.site}`,
-      );
-    }
+// Every checkout runs a local backend: the logged-in local deployment of a laptop folder, or the
+// anonymous one of CI. Each folder keeps its own fixed ports, so the identity hub callback on the
+// site port keeps its address from one start to the next.
+if (!hasCliOption(args, "--local-cloud-port") && !hasCliOption(args, "--local-site-port")) {
+  const localBackendPorts = pickLocalBackendPorts();
+  if (localBackendPorts) {
+    args.push(
+      `--local-cloud-port=${localBackendPorts.cloud}`,
+      `--local-site-port=${localBackendPorts.site}`,
+    );
   }
 }
 
