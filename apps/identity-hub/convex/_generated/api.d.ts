@@ -15,6 +15,7 @@ import type * as http from "../http.js";
 import type * as hubClients from "../hubClients.js";
 import type * as identityBroker from "../identityBroker.js";
 import type * as moderation from "../moderation.js";
+import type * as ownApps from "../ownApps.js";
 import type * as resources from "../resources.js";
 
 import type {
@@ -31,6 +32,7 @@ declare const fullApi: ApiFromModules<{
   hubClients: typeof hubClients;
   identityBroker: typeof identityBroker;
   moderation: typeof moderation;
+  ownApps: typeof ownApps;
   resources: typeof resources;
 }>;
 

@@ -121,23 +121,22 @@ describe("POST /hub-clients", () => {
 
     it("makes the apps of an own repository first-party, its laptops' too, and no other's", async () => {
       const t = makeConvexTest();
-      const own = { repository_id: "1021726325", repository: "samebase/samebase" };
+      vi.stubEnv("OWN_REPOSITORY_IDS", "80, 81");
+      const own = { repository_id: "81", repository: "octo-org/own" };
       const production = await createClient(t, own);
       const productionApp = await t.query(components.identityBroker.apps.get, {
-        appId: `gh-1021726325-${APP_HASH}`,
+        appId: `gh-81-${APP_HASH}`,
       });
-      expect(productionApp).toMatchObject({ firstParty: true, tenantId: "gh-1021726325" });
+      expect(productionApp).toMatchObject({ firstParty: true, tenantId: "gh-81" });
       expect(productionApp).not.toHaveProperty("connector");
 
-      stubProviders();
+      stubProviders(() => jsonResponse({ repository: "81" }));
       const laptop = await createDevelopmentClient(t, production.initial_access_token ?? "");
       expect(
         await t.query(components.identityBroker.clients.get, { clientId: laptop.client_id }),
-      ).toMatchObject({ appId: `gh-1021726325-${APP_HASH}-preview` });
+      ).toMatchObject({ appId: `gh-81-${APP_HASH}-preview` });
       expect(
-        await t.query(components.identityBroker.apps.get, {
-          appId: `gh-1021726325-${APP_HASH}-preview`,
-        }),
+        await t.query(components.identityBroker.apps.get, { appId: `gh-81-${APP_HASH}-preview` }),
       ).toMatchObject({ firstParty: true });
 
       // Another repository of the same owner is a guest.
@@ -262,7 +261,8 @@ describe("POST /hub-clients", () => {
     it("lets an own repository register while THIRD_PARTY_PAUSED is true", async () => {
       const t = makeConvexTest();
       vi.stubEnv("THIRD_PARTY_PAUSED", "true");
-      const own = await createClient(t, { repository_id: "1021726325" });
+      vi.stubEnv("OWN_REPOSITORY_IDS", "81");
+      const own = await createClient(t, { repository_id: "81" });
       expect(own.client_id).toMatch(/^cl_/);
     });
   });

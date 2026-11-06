@@ -36,9 +36,11 @@ stack skips the push when nothing of the hub changed. Pull requests run the chec
    variable is set by hand.
 3. Create the keys of production once, by hand, with the Convex CLI login:
    `pnpm run keys:init --prod` writes `IDENTITY_BROKER_KEYS`, the signing key, and refuses a
-   deployment that has the variable. Every deploy then checks the variable before the push and stops
-   when it is missing or holds anything that is not a key set; no deploy ever creates or replaces
-   it.
+   deployment that has the variable. Set `OWN_REPOSITORY_IDS` by hand too, when the hub has own
+   apps: the numeric GitHub ids of their repositories, separated by commas. No deploy sets it, so
+   the ids are in no file and no log. Every deploy then checks the variable before the push and
+   stops when it is missing or holds anything that is not a key set; no deploy ever creates or
+   replaces it.
 4. Merge to `main`. The stack adopts the project and its production deployment, so no run needs
    `--adopt`, and it retains both on destroy. Adoption replaces the code and sets the variables of
    the stack. It does not change other variables, the data, or the project. From a laptop,

@@ -14,7 +14,7 @@ import {
 import { broker, isPaused, issuer } from "./broker";
 import { APPS_CONNECTOR } from "./connectors";
 import { isBlocked, sha256Hex } from "./moderation";
-import { OWN_REPOSITORY_IDS } from "./ownApps";
+import { isOwnRepository } from "./ownApps";
 
 const { array, literal, number, object, string, union } = v;
 
@@ -436,7 +436,7 @@ async function appIdOf(tenantId: string, app: string, production: boolean) {
  * repository of `OWN_REPOSITORY_IDS`, else third-party with the one connector `APPS_CONNECTOR`.
  */
 function trustOf(githubRepositoryDatabaseId: string) {
-  return OWN_REPOSITORY_IDS.has(githubRepositoryDatabaseId)
+  return isOwnRepository(githubRepositoryDatabaseId)
     ? { firstParty: true as const }
     : { firstParty: false as const, connector: APPS_CONNECTOR };
 }
@@ -653,7 +653,7 @@ async function admit(
   ctx: ActionCtx,
   ids: { githubRepositoryDatabaseId: string; githubOwnerId: string },
 ) {
-  if (isPaused() && !OWN_REPOSITORY_IDS.has(ids.githubRepositoryDatabaseId)) {
+  if (isPaused() && !isOwnRepository(ids.githubRepositoryDatabaseId)) {
     return notAllowed("paused");
   }
   const admission = await ctx.runMutation(internal.hubClients.admitRequest, {

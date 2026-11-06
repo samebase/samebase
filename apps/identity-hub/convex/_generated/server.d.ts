@@ -39,6 +39,7 @@ type Env = {
   readonly HUB_MODERATION_KEY: string | undefined;
   readonly IDENTITY_BROKER_KEYS: string;
   readonly ISSUER: string | undefined;
+  readonly OWN_REPOSITORY_IDS: string | undefined;
   readonly PROVIDER_CLOUDFLARE_OAUTH_CLIENT_ID: string;
   readonly PROVIDER_CLOUDFLARE_OAUTH_CLIENT_SECRET: string;
   readonly PROVIDER_CONVEX_OAUTH_CLIENT_ID: string;

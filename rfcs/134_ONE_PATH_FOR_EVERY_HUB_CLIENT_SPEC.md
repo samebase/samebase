@@ -16,15 +16,15 @@
 
 ## Summary
 
-Today the hub makes clients in two ways. Nicu's four apps (samebase.com, Bristol, ailegis,
-TrailScout) use the team's Convex login and the internal function `registerClient`. Every other app
-uses `POST /hub-clients` with GitHub's token in CI and the app's own token on a laptop. After this
-RFC there is one way: `POST /hub-clients` for every app.
+Today the hub makes clients in two ways. Nicu's four apps (samebase.com, TrailScout, and two private
+apps) use the team's Convex login and the internal function `registerClient`. Every other app uses
+`POST /hub-clients` with GitHub's token in CI and the app's own token on a laptop. After this RFC
+there is one way: `POST /hub-clients` for every app.
 
 What a real person sees:
 
 - Nothing on samebase.com. A user keeps their account.
-- A user of Bristol, ailegis, or TrailScout keeps their account. The app finds them by email.
+- A user of the other three apps keeps their account. Each app finds them by email.
 - On a laptop, samebase.com runs a logged-in Convex local deployment in each folder, in place of an
   anonymous one. It is listed in the Convex dashboard under the project.
 - The admin page lists every client with the repository and the run or laptop that made it.
@@ -53,22 +53,14 @@ Taken on 2026-11-06:
 
 ### The hub
 
-- `apps/identity-hub/convex/ownApps.ts`:
-
-  ```ts
-  /** The repositories whose apps are this hub's own: every connector and provider logins. */
-  export const OWN_REPOSITORY_IDS = new Set([
-    "1021726325", // samebase/samebase
-    "851029727", // nicu-chiciuc/bristol_tsx
-    "1343236238", // nicu-chiciuc/ailegis-same
-    "1347540564", // samebase/scout
-  ]);
-  ```
-
+- The variable `OWN_REPOSITORY_IDS` on the hub deployment: the numeric GitHub ids of the own
+  repositories, separated by commas. It is set by hand, as `IDENTITY_BROKER_KEYS` is, and the stack
+  does not set it, so no id or name of a private repository is in the public code or in a deploy
+  log. Without it, the hub has no own apps. A copy of the hub sets its own value.
 - `createClient` and `createDevelopmentClient` (`apps/identity-hub/convex/hubClients.ts:429`,
-  `:538`) pass `firstParty: OWN_REPOSITORY_IDS.has(<repository id>)` to the broker. The repository
-  id is GitHub's signed `repository_id` for a run, and the token row's for a laptop. A first-party
-  app gets no connector; a guest app gets `google-apps`, as today.
+  `:538`) pass `firstParty: isOwnRepository(<repository id>)` to the broker. The repository id is
+  GitHub's signed `repository_id` for a run, and the token row's for a laptop. A first-party app
+  gets no connector; a guest app gets `google-apps`, as today.
 - The app id is `gh-<repository id>-<hash of the name>` for production and the same with `-preview`
   for previews and laptops, as today, for every app. A listed repository is a new app id, so no
   existing app changes its kind.
@@ -88,9 +80,9 @@ Taken on 2026-11-06:
   after the hub's deploy the variable is written again without it. `appSalt` and `pairwiseSubject`
   go.
 - Every existing user gets a new `sub` once. That is a sign-up in each app, and each app finds the
-  existing user: samebase.com by connector and `connector_account_id`, Bristol, TrailScout, and
-  ailegis by email. ailegis needs that lookup first: its `createUser` inserts without one
-  (`ailegis-same/convex/owner.ts:38`). Users of the guest apps that `samebase/base` and Nicu's test
+  existing user: samebase.com by connector and `connector_account_id`, the other three by email. One
+  of the private apps needed that lookup first: its `createUser` inserted without one, which its own
+  repository fixed on 2026-11-06. Users of the guest apps that `samebase/base` and Nicu's test
   repositories made get new accounts in those apps, because the starter's `createUser` inserts. No
   stranger has signed in to any guest app.
 
@@ -102,7 +94,7 @@ Taken on 2026-11-06:
   correlation among clients. It is a consideration, not a requirement. Google itself publishes
   `subject_types_supported: ["public"]`.
 - **Pairwise hides nothing here.** It stops two apps from matching one user by `sub`. Every app of
-  this hub also asks for `email` (the starter, samebase.com, Bristol, ailegis, TrailScout), and an
+  this hub also asks for `email` (the starter, samebase.com, and the three other own apps), and an
   email matches the user across apps more surely than any `sub`. An app that asks for `openid` alone
   would lose that protection; no app does today.
 - **The id stays unique and is never reassigned**, as section 8 requires: Google's `sub` is unique
@@ -216,7 +208,7 @@ a production client on the hub and unregisters a preview's.
   scripts `hub:client` and `hub:resource-client`. The dev deployment `quiet-robin-508` is deleted by
   hand after the move.
 
-### Bristol, ailegis, TrailScout
+### The three other own apps
 
 Each one, in its own repository, the shape above: production clients before the pushing row,
 previews push first, the verification route, `id-token: write`, preview default variables with the
@@ -235,19 +227,20 @@ provider id from `sub` (`scout/apps/scout/convex/auth.ts:408`) in its PR 3 chang
 The old path stays until every app has left it, because the installed package of each app calls
 `registerClient`.
 
-1. **ailegis**: `createUser` finds the owner by email before it inserts.
-2. **PR 1, monorepo, additive**: the repository list, `firstParty` in `register`, the limit and
+1. **The private app whose `createUser` inserted without a lookup** finds the owner by email before
+   it inserts. Done on 2026-11-06.
+2. **PR 1, monorepo, additive**: `OWN_REPOSITORY_IDS`, `firstParty` in `register`, the limit and
    pause rule, the refresh checks, public subjects with `connector_account_id` kept, the key set
    parser without the salt, `required`, `Convex.LocalDeployment`, `teamId` for `local:`, and
    samebase.com's verification route. Release the broker and alchemy-convex 0.30.0. After the hub's
    deploy: write `IDENTITY_BROKER_KEYS` again without the salt. After samebase.com's deploy:
    production serves the route.
 3. **PR 2, monorepo: samebase.com** on the one path, with the default variables, and local
-   deployments on laptops. The three provider connections are connected again once: their refresh
-   grants belong to the old resource client. Then the old clients of `samebase-ahbfh` and the app
-   are deleted by hand.
-4. **Bristol, ailegis, TrailScout**, two PRs each: the verification route, then the stack. Then
-   their old apps and 7 clients are deleted by hand.
+   deployments on laptops. Before it, `OWN_REPOSITORY_IDS` is set on the hub. The three provider
+   connections are connected again once: their refresh grants belong to the old resource client.
+   Then the old clients of `samebase-ahbfh` and the app are deleted by hand.
+4. **The three other own apps**, two PRs each: the verification route, then the stack. Then their
+   old apps and 7 clients are deleted by hand.
 5. **Drain.** List every stage of every stack in the team's store. Each stage that still holds an
    `IdentityHub.Client` row is destroyed, or deployed once with 0.30.0. The list must be empty.
 6. **PR 3, monorepo, deletion**: everything marked "Deleted" above, the schema changes,

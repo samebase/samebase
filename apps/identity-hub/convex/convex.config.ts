@@ -12,6 +12,12 @@ const app = defineApp({
     /** The issuer URL, which the stack sets. Without it, the deployment's own convex.site URL. */
     ISSUER: v.optional(v.string()),
     /**
+     * The numeric GitHub ids of the repositories whose apps are this hub's own, separated by commas,
+     * set by hand on the deployment as IDENTITY_BROKER_KEYS is: the stack does not set it, so no
+     * id is in the code or in a log. Without it, the hub has no own apps.
+     */
+    OWN_REPOSITORY_IDS: v.optional(v.string()),
+    /**
      * The Google OAuth client of the team, whose redirect URIs include
      * `<issuer>/connectors/google/callback`. The stack hands both to the deployment.
      */
