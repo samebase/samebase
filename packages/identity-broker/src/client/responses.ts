@@ -77,8 +77,9 @@ export function authorizationError(args: {
 }
 
 /**
- * The parameters of a GET query or a form POST, which the authorization endpoint accepts alike. A
- * parameter sent without a value counts as omitted (RFC 6749 section 3.1).
+ * The parameters of a GET query or a form POST, which the authorization endpoint accepts alike, and
+ * of the token endpoint's form POST. A parameter sent without a value counts as omitted (RFC 6749
+ * sections 3.1 and 3.2).
  */
 export async function readParameters(request: Request): Promise<URLSearchParams | null> {
   const contentType = request.headers.get("content-type")?.toLowerCase() ?? "";
