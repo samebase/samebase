@@ -2,6 +2,7 @@
 import { convexTest } from "convex-test";
 import { afterEach, describe, expect, test, vi } from "vite-plus/test";
 import { api } from "./_generated/api.js";
+import { testClientRecord } from "../client/registeredBy.test.helper.js";
 import schema from "./schema.js";
 
 const modules = import.meta.glob(["./**/*.ts", "!./**/*.test.ts"]);
@@ -34,6 +35,7 @@ async function appWith(t: ReturnType<typeof convexTest>, args: { appId: string; 
         registrationTokenHash: "r",
         createdAt: now,
         renewedAt: now,
+        ...testClientRecord,
       });
     }
   });

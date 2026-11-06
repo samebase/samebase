@@ -3,7 +3,6 @@ import { register as registerIdentityBroker } from "@samebase/identity-broker/te
 import { convexTest } from "convex-test";
 import { exportJWK, generateKeyPair, SignJWT, type JWK } from "jose";
 import { vi } from "vite-plus/test";
-import schema from "./schema";
 
 const modules = import.meta.glob([
   "./**/*.ts",
@@ -24,7 +23,8 @@ const JWKS_URL = "https://token.actions.githubusercontent.com/.well-known/jwks";
 export function makeConvexTest() {
   vi.stubEnv("ISSUER", "https://auth.test");
   vi.stubEnv("HUB_MODERATION_KEY", MODERATION_KEY);
-  const t = convexTest(schema, modules);
+  // The hub has no tables of its own: every row is in the broker component.
+  const t = convexTest(undefined, modules);
   registerIdentityBroker(t);
   return t;
 }

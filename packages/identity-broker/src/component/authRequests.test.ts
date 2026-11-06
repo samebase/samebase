@@ -3,6 +3,7 @@ import { convexTest, type TestConvex } from "convex-test";
 import { calculatePKCECodeChallenge } from "oauth4webapi";
 import { describe, expect, test } from "vite-plus/test";
 import { api } from "./_generated/api.js";
+import { testClientRecord } from "../client/registeredBy.test.helper.js";
 import { LEASE_MS } from "./registration.js";
 import schema from "./schema.js";
 
@@ -41,6 +42,7 @@ async function registered(expires = false) {
       softwareVersion: "v1",
       createdAt: now,
       renewedAt: now,
+      ...testClientRecord,
       ...(expires ? { removeAt: now + LEASE_MS } : {}),
     });
   });

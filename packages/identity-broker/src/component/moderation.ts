@@ -136,9 +136,8 @@ export const blockList = query({
 });
 
 /**
- * The newest clients of every app, each with who made it. Every client of `POST /hub-clients` and of
- * `registration.register` holds `registeredBy`, so a client without it breaks that invariant, and
- * the list fails.
+ * The newest clients of every app, each with who made it. A client of an app whose tenant is not a
+ * repository's (`registration.register` with another tenant) fails the list: this hub has none.
  */
 export const clientList = query({
   args: {},
@@ -153,8 +152,8 @@ export const clientList = query({
         .unique();
       const repositoryId = /^gh-([1-9][0-9]*)$/.exec(app?.tenantId ?? "")?.[1];
       const { registeredBy } = client;
-      if (registeredBy === undefined || client.app === undefined || repositoryId === undefined) {
-        throw new Error(`The client ${client.clientId} has no registration of a repository`);
+      if (repositoryId === undefined) {
+        throw new Error(`The client ${client.clientId} is not of a repository's app`);
       }
       const repository = {
         githubRepository: registeredBy.githubRepository,

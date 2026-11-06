@@ -4,6 +4,7 @@ import { afterEach, describe, expect, test, vi } from "vite-plus/test";
 import { api } from "../component/_generated/api.js";
 import { google } from "./connectors/google.js";
 import { defineIdentityBroker } from "./index.js";
+import { testClientRecord } from "./registeredBy.test.helper.js";
 import {
   component,
   createHarness,
@@ -1057,6 +1058,7 @@ describe("cleanup", () => {
         softwareVersion: "v",
         createdAt: args.createdAt,
         renewedAt: args.createdAt,
+        ...testClientRecord,
       });
     });
 

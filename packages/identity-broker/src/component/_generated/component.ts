@@ -304,7 +304,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         "internal",
         { clientId: string },
         {
-          app?: string;
+          app: string;
           appId: string;
           clientId: string;
           clientName: string;
@@ -312,7 +312,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           deploymentType: "production" | "development" | "preview";
           lastSignInAt?: number;
           redirectUri: string;
-          registeredBy?:
+          registeredBy:
             | {
                 commitSha: string;
                 githubActorId: string;
@@ -341,7 +341,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         "internal",
         { appId: string },
         Array<{
-          app?: string;
+          app: string;
           appId: string;
           clientId: string;
           clientName: string;
@@ -349,7 +349,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           deploymentType: "production" | "development" | "preview";
           lastSignInAt?: number;
           redirectUri: string;
-          registeredBy?:
+          registeredBy:
             | {
                 commitSha: string;
                 githubActorId: string;
@@ -395,7 +395,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             tenantId: string;
           } | null;
           client: {
-            app?: string;
+            app: string;
             appId: string;
             clientId: string;
             clientName: string;
@@ -403,7 +403,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             deploymentType: "production" | "development" | "preview";
             lastSignInAt?: number;
             redirectUri: string;
-            registeredBy?:
+            registeredBy:
               | {
                   commitSha: string;
                   githubActorId: string;
@@ -534,68 +534,6 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           refreshGrants: number;
           resourceRequests: number;
           signIns: number;
-        },
-        Name
-      >;
-    };
-    migration: {
-      importHubRows: FunctionReference<
-        "mutation",
-        "internal",
-        {
-          blockEvents: Array<{
-            action: "block" | "unblock";
-            adminEmail: string;
-            at: number;
-            githubId: string;
-            kind: "repository" | "owner";
-            reason: string;
-          }>;
-          blocks: Array<{
-            adminEmail: string;
-            at: number;
-            githubId: string;
-            kind: "repository" | "owner";
-            reason: string;
-          }>;
-          initialAccessTokens: Array<{
-            app: string;
-            githubOwnerId: string;
-            githubRepository: string;
-            githubRepositoryDatabaseId: string;
-            issuedAt: number;
-            tokenHash: string;
-          }>;
-          registrations: Array<{
-            app: string;
-            clientId: string;
-            githubOwnerId: string;
-            githubRepositoryDatabaseId: string;
-            registeredAt: number;
-            registeredBy:
-              | {
-                  commitSha: string;
-                  githubActorId: string;
-                  githubActorLogin: string;
-                  githubOwnerId: string;
-                  githubRepository: string;
-                  kind: "github";
-                }
-              | {
-                  githubOwnerId: string;
-                  githubRepository: string;
-                  issuedAt: number;
-                  kind: "initial_access_token";
-                };
-          }>;
-        },
-        {
-          blockEvents: number;
-          blocks: number;
-          clientsFilled: number;
-          initialAccessTokens: number;
-          registrationEvents: number;
-          tenantsCleared: number;
         },
         Name
       >;
