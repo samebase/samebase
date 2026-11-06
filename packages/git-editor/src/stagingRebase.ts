@@ -182,37 +182,30 @@ function includesInOrder(lines: string[], wanted: string[]): boolean {
 }
 
 /**
-The staged content without the changes that upstream already made at the same base lines, so a
-patch does not apply them a second time. This is the case when a teammate or an agent pushed the
-same edit, or when an earlier commit of these staged files landed. A change counts as made when
-upstream replaced the same base lines with lines that include the staged lines in order, so the
-result still has every staged line. A staged deletion counts only when upstream deleted the same
-lines too.
+Whether upstream already made every staged change at the same base lines, so the staged edit adds
+nothing. This is the case when a teammate or an agent pushed the same edit, or when an earlier
+commit of these staged files landed; applying the patch again would write its lines twice. A change
+counts as made when upstream replaced the same base lines with lines that include the staged lines
+in order, so upstream has every staged line. A staged deletion counts only when upstream deleted the
+same lines too. When some staged change is missing upstream, the whole staged edit goes through the
+patch, because a patch of only the missing changes can apply at the wrong place.
 */
-function withoutChangesUpstreamMade({
+function upstreamMadeEveryStagedChange({
   baseContent,
   stagedContent,
   upstreamContent,
-}: RebaseInput): string {
+}: RebaseInput): boolean {
   const base = splitKeepingLineEndings(baseContent);
   const upstreamChanges = lineChanges(base, splitKeepingLineEndings(upstreamContent));
-  let content = "";
-  let index = 0;
-  for (const change of lineChanges(base, splitKeepingLineEndings(stagedContent))) {
-    const madeUpstream = upstreamChanges.some(
+  return lineChanges(base, splitKeepingLineEndings(stagedContent)).every((change) =>
+    upstreamChanges.some(
       (upstream) =>
         upstream.start === change.start &&
         upstream.end === change.end &&
         (change.lines.length === 0) === (upstream.lines.length === 0) &&
         includesInOrder(upstream.lines, change.lines),
-    );
-    if (madeUpstream) {
-      continue;
-    }
-    content += base.slice(index, change.start).join("") + change.lines.join("");
-    index = change.end;
-  }
-  return content + base.slice(index).join("");
+    ),
+  );
 }
 
 export function rebaseStagedContent({
@@ -224,22 +217,17 @@ export function rebaseStagedContent({
     return { content: upstreamContent, hasConflict: false };
   }
 
-  const remainingContent = withoutChangesUpstreamMade({
-    baseContent,
-    stagedContent,
-    upstreamContent,
-  });
-  if (remainingContent === baseContent) {
+  if (upstreamMadeEveryStagedChange({ baseContent, stagedContent, upstreamContent })) {
     return { content: upstreamContent, hasConflict: false };
   }
 
-  const patch = createTwoFilesPatch("base", "staged", baseContent, remainingContent);
+  const patch = createTwoFilesPatch("base", "staged", baseContent, stagedContent);
 
   const rebased = applyPatch(upstreamContent, patch, { fuzzFactor: 1 });
   if (rebased === false) {
     const insertionOnlyMerged = mergeInsertionOnlyEdits({
       baseContent,
-      stagedContent: remainingContent,
+      stagedContent,
       upstreamContent,
     });
     if (insertionOnlyMerged !== null) {
