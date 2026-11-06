@@ -268,7 +268,7 @@ function checkRefusedRows(checks: Checks, before: Rows, after: Rows) {
 
 /**
  * A refused registration changes in `rateLimits` only the request counts of its repository and its
- * owner: never the `new_owners` row, and never an owner row's `newOwnersWindowStartedAt`.
+ * owner, never the `new_owners` row.
  */
 function checkRefusedRateLimits(
   checks: Checks,
@@ -293,13 +293,6 @@ function checkRefusedRateLimits(
         old !== undefined && sameRows(old, row),
         `a refused registration ${old === undefined ? "created" : "changed"} ${name}` +
           (row.scope === "new_owners" ? ` (count ${old?.count ?? 0} to ${row.count})` : ""),
-      );
-    } else if (row.scope === "owner") {
-      check(
-        checks,
-        "refusedRegistrationRateLimits",
-        row.newOwnersWindowStartedAt === (old?.newOwnersWindowStartedAt ?? null),
-        `a refused registration set newOwnersWindowStartedAt on ${name}`,
       );
     }
   }
@@ -743,9 +736,7 @@ async function replay(commands: Command[], invariant: string) {
 }
 
 describe("RFC 136 property A: registration and ownership", () => {
-  // Fails on today's code (F3 first, see the regressions below), so the property is marked to fail.
-  // Remove `.fails` when F3, F5, and the refused writes are fixed.
-  it.fails("keeps every registration invariant in random stories", async () => {
+  it("keeps every registration invariant in random stories", async () => {
     const { report } = await checkModel({
       name: "property A",
       // `size: "max"`: lengths up to the whole budget, not fast-check's small default of ten.
@@ -757,9 +748,10 @@ describe("RFC 136 property A: registration and ownership", () => {
   }, 600_000);
 });
 
-describe("RFC 136 property A regressions, failing on today's code", () => {
-  // F3: `admit` counts a new owner before the host check, so a refused request uses the allowance.
-  it.fails("F3: a refused registration does not count a new owner", async () => {
+// The counterexamples that property A found in 0.21.0, kept as fixed stories.
+describe("RFC 136 property A regressions", () => {
+  // F3: `admit` counted a new owner before the host check, so a refused request used the allowance.
+  it("F3: a refused registration does not count a new owner", async () => {
     await replay(
       [
         {
@@ -775,8 +767,8 @@ describe("RFC 136 property A regressions, failing on today's code", () => {
     );
   });
 
-  // F5: a retained older GitHub token moves the tenant's owner back after a transfer.
-  it.fails("F5: an older proof never moves the owner back", async () => {
+  // F5: a retained older GitHub token moved the tenant's owner back after a transfer.
+  it("F5: an older proof never moves the owner back", async () => {
     await replay(
       [
         {
@@ -803,9 +795,9 @@ describe("RFC 136 property A regressions, failing on today's code", () => {
     );
   });
 
-  // F5, seen from the laptop: the replayed older proof deletes the new owner's token and gives the
-  // old owner a fresh one (T3), which then registers a development client.
-  it.fails("F5: the old owner's laptop gets no client after a transfer", async () => {
+  // F5, seen from the laptop: the replayed older proof deleted the new owner's token and gave the
+  // old owner a fresh one (T3), which then registered a development client.
+  it("F5: the old owner's laptop gets no client after a transfer", async () => {
     await replay(
       [
         {
@@ -833,9 +825,9 @@ describe("RFC 136 property A regressions, failing on today's code", () => {
     );
   });
 
-  // Writes before refusals: `createClient` deletes the old owner's initial access token before it
-  // reads the blocks again, so a run refused by a block set during its host check still deletes it.
-  it.fails("a refused registration deletes no initial access token", async () => {
+  // Writes before refusals: `createClient` deleted the old owner's initial access token before it
+  // read the blocks again, so a run refused by a block set during its host check still deleted it.
+  it("a refused registration deletes no initial access token", async () => {
     await replay(
       [
         {
@@ -860,8 +852,8 @@ describe("RFC 136 property A regressions, failing on today's code", () => {
     );
   });
 
-  // Writes before refusals (F3's write): `admit` marks a new owner as counted before the host check.
-  it.fails("a refused registration changes only the repository and owner counts", async () => {
+  // Writes before refusals (F3's write): `admit` marked a new owner as counted before the host check.
+  it("a refused registration changes only the repository and owner counts", async () => {
     await replay(
       [
         {

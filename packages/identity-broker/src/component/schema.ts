@@ -139,6 +139,12 @@ export default defineSchema({
      * the repository. An owner block in `blocks` stops every tenant whose owner it is.
      */
     ownerId: optional(string()),
+    /**
+     * The issue time, in seconds, of the newest accepted proof of the owner, such as the `iat` of a
+     * GitHub OIDC token. A proof that names another owner and is older than this is refused, so a
+     * replayed old proof cannot move a transferred repository back. Absent: no proof was recorded.
+     */
+    ownerProofIssuedAt: optional(number()),
   }).index("by_tenant_id", ["tenantId"]),
 
   /**
@@ -211,18 +217,17 @@ export default defineSchema({
     .index("by_token_hash", ["tokenHash"])
     .index("by_repository_and_app", ["githubRepositoryDatabaseId", "app"]),
 
-  /** The fixed one-hour windows of `POST /hub-clients`, one row per repository, per owner, and one for all new owners. */
+  /**
+   * The fixed one-hour windows of `POST /hub-clients`, one row per repository, per owner, and one
+   * for all new owners. The repository and owner rows count admitted requests; the new-owners row
+   * counts owners whose first registration succeeded.
+   */
   rateLimits: defineTable({
     scope: vRateLimitScope,
     /** The repository or owner id. Empty for `new_owners`. */
     githubId: string(),
     startedAt: number(),
     count: number(),
-    /**
-     * For an owner: the start of the new-owners window that counted it, so an owner is counted once
-     * in each such window whatever its own window does. Null otherwise.
-     */
-    newOwnersWindowStartedAt: union(number(), v.null()),
   }).index("by_scope_and_github_id", ["scope", "githubId"]),
 
   clients: defineTable({

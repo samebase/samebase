@@ -83,6 +83,10 @@ export function resourceEndpoints(options: {
         403,
       );
     }
+    // A blocked app starts no provider authorization, as it starts no sign-in.
+    if (app.suspended) {
+      return errorPage("Sign-in is off", "Sign-in for this app is turned off.", 403);
+    }
     const back = {
       redirectUri: client.redirectUri,
       issuer,
@@ -236,23 +240,38 @@ export function resourceEndpoints(options: {
         provider,
         refreshToken: claim.upstreamRefreshToken,
       });
-      const saved = await ctx.runMutation(component.resourceRequests.finishRefresh, {
+      const finished = await ctx.runMutation(component.resourceRequests.finishRefresh, {
         grantId: claim.grantId,
+        attempt: claim.attempt,
         tokens,
         now: Date.now(),
       });
-      if (!saved)
-        return oauthError(
-          400,
-          "invalid_grant",
-          "The grant is no longer available. Authorize again.",
-        );
-      return resourceTokenResponse(tokens, refreshToken);
+      switch (finished) {
+        case "released":
+          return resourceTokenResponse(tokens, refreshToken);
+        case "refused":
+          return oauthError(401, "invalid_client", "Client authentication failed.", challenge);
+        case "stale":
+          return oauthError(
+            503,
+            "temporarily_unavailable",
+            "Another refresh holds this grant. Retry shortly.",
+          );
+        case "gone":
+          return oauthError(
+            400,
+            "invalid_grant",
+            "The grant is no longer available. Authorize again.",
+          );
+        default:
+          return finished satisfies never;
+      }
     } catch (error) {
       // Only the provider can say a token is dead. Its replay check judges any retry of this one.
       const rejected = error instanceof oauth.ResponseBodyError && error.error === "invalid_grant";
       await ctx.runMutation(component.resourceRequests.failRefresh, {
         grantId: claim.grantId,
+        attempt: claim.attempt,
         rejected,
       });
       console.error(`Resource "${provider.name}" refresh failed: ${failureName(error)}`);

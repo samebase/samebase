@@ -59,7 +59,6 @@ async function seedWindow(
     scope: "repository" | "owner" | "new_owners";
     githubId: string;
     count: number;
-    newOwnersWindowStartedAt: number | null;
   },
   startedAt = Date.now(),
 ) {
@@ -68,7 +67,6 @@ async function seedWindow(
       scope: row.scope,
       githubId: row.githubId,
       count: row.count,
-      newOwnersWindowStartedAt: row.newOwnersWindowStartedAt,
       startedAt,
     });
   });
@@ -561,15 +559,9 @@ describe("POST /hub-clients", () => {
 
   describe("the limits", () => {
     it.each([
-      [
-        "repository",
-        { scope: "repository", githubId: REPOSITORY_ID, count: 30, newOwnersWindowStartedAt: null },
-      ],
-      ["owner", { scope: "owner", githubId: OWNER_ID, count: 100, newOwnersWindowStartedAt: null }],
-      [
-        "new_owners",
-        { scope: "new_owners", githubId: "", count: 50, newOwnersWindowStartedAt: null },
-      ],
+      ["repository", { scope: "repository", githubId: REPOSITORY_ID, count: 30 }],
+      ["owner", { scope: "owner", githubId: OWNER_ID, count: 100 }],
+      ["new_owners", { scope: "new_owners", githubId: "", count: 50 }],
     ] as const)("limits the window %s, and fetches nothing", async (window, row) => {
       const h = await createHub();
       await seedWindow(h, row);
@@ -582,49 +574,51 @@ describe("POST /hub-clients", () => {
       expect(fileRequests).toEqual([]);
     });
 
-    it("counts each request against the repository, the owner, and a new owner once", async () => {
+    it("counts each request against the repository and the owner, and a new owner only once it registers", async () => {
       const h = await createHub();
-      stubProviders(() => new Response("Not Found", { status: 404 }));
+      let host = () => new Response("Not Found", { status: 404 });
+      stubProviders(() => host());
       const token = await signToken();
 
       await postHubClient(h, token);
       await postHubClient(h, token);
 
+      // A failed host check uses no new-owner allowance.
+      expect(await readRateLimits(h)).toEqual([
+        expect.objectContaining({ scope: "repository", githubId: REPOSITORY_ID, count: 2 }),
+        expect.objectContaining({ scope: "owner", githubId: OWNER_ID, count: 2 }),
+      ]);
+
+      host = () => jsonResponse({ repository: REPOSITORY_ID });
+      expect((await postHubClient(h, token)).status).toBe(201);
+      expect((await postHubClient(h, await signToken(pullRequestClaims))).status).toBe(201);
+
       expect(await readRateLimits(h)).toEqual(
         expect.arrayContaining([
-          expect.objectContaining({ scope: "repository", githubId: REPOSITORY_ID, count: 2 }),
-          expect.objectContaining({ scope: "owner", githubId: OWNER_ID, count: 2 }),
+          expect.objectContaining({ scope: "owner", githubId: OWNER_ID, count: 4 }),
           expect.objectContaining({ scope: "new_owners", count: 1 }),
         ]),
       );
     });
 
-    it("counts a new owner again in a later new-owners window, while its own window runs", async () => {
+    it("refuses a new owner when other new owners filled the window during its host check", async () => {
       const h = await createHub();
-      const now = Date.now();
-      // Counted as new in a window that has ended; its own window is still running.
-      await seedWindow(
-        h,
-        {
-          scope: "owner",
-          githubId: OWNER_ID,
-          count: 1,
-          newOwnersWindowStartedAt: now - 2 * 60 * 60 * 1_000,
-        },
-        now - 10 * 60 * 1_000,
-      );
-      await seedWindow(
-        h,
-        { scope: "new_owners", githubId: "", count: 50, newOwnersWindowStartedAt: null },
-        now - 5 * 60 * 1_000,
-      );
-      const fileRequests = stubProviders();
+      await seedWindow(h, { scope: "new_owners", githubId: "", count: 49 });
+      stubProviders(async () => {
+        // Another new owner registers while this request fetches its verification file.
+        await h.t.run(async (ctx) => {
+          const row = await ctx.db.query("rateLimits").first();
+          if (row?.scope !== "new_owners") throw new Error("Expected the new-owners row");
+          await ctx.db.patch("rateLimits", row._id, { count: 50 });
+        });
+        return jsonResponse({ repository: REPOSITORY_ID });
+      });
 
       const response = await postHubClient(h, await signToken());
 
       expect(response.status).toBe(429);
       expect(await response.json()).toEqual({ error: "rate_limited", window: "new_owners" });
-      expect(fileRequests).toEqual([]);
+      expect(await readClients(h)).toEqual([]);
     });
 
     it("does not count an owner with a registration as new, and still limits the others", async () => {
@@ -653,12 +647,7 @@ describe("POST /hub-clients", () => {
     it("starts a new window after an hour", async () => {
       vi.useFakeTimers({ toFake: ["Date"] });
       const h = await createHub();
-      await seedWindow(h, {
-        scope: "repository",
-        githubId: REPOSITORY_ID,
-        count: 30,
-        newOwnersWindowStartedAt: null,
-      });
+      await seedWindow(h, { scope: "repository", githubId: REPOSITORY_ID, count: 30 });
       const token = await signToken({}, { expiresInSeconds: 7_200 });
       vi.setSystemTime(Date.now() + 60 * 60 * 1_000 + 1);
       stubProviders();
@@ -1003,12 +992,7 @@ describe("POST /hub-clients with the initial access token", () => {
         await ctx.db.delete("rateLimits", existing._id);
       }
     });
-    await seedWindow(h, {
-      scope: row.scope,
-      githubId: row.githubId,
-      count: row.count,
-      newOwnersWindowStartedAt: null,
-    });
+    await seedWindow(h, { scope: row.scope, githubId: row.githubId, count: row.count });
     stubProviders();
 
     const response = await postHubClient(h, token, { redirectUri: LOOPBACK_CALLBACK });

@@ -565,9 +565,7 @@ async function replay(commands: Command[], invariant: string) {
 }
 
 describe("RFC 136 property B: resource refresh", () => {
-  // Fails on today's code (see the regressions below), so the property is marked to fail. Remove
-  // `.fails` when F4 and the stale attempt are fixed.
-  it.fails("keeps every refresh invariant in random stories", async () => {
+  it("keeps every refresh invariant in random stories", async () => {
     const { report } = await checkModel({
       name: "property B",
       // `size: "max"`: lengths up to the whole budget, not fast-check's small default of ten.
@@ -579,10 +577,11 @@ describe("RFC 136 property B: resource refresh", () => {
   }, 600_000);
 });
 
-describe("RFC 136 property B regressions, failing on today's code", () => {
-  // F4, block: `finishRefresh` saves the provider's answer and the hub returns it, with no second
+// The counterexamples that property B found in 0.21.0, kept as fixed stories.
+describe("RFC 136 property B regressions", () => {
+  // F4, block: `finishRefresh` saved the provider's answer and the hub returned it, with no second
   // read of the blocks after the provider answered.
-  it.fails("F4: no provider token after a block that committed during the refresh", async () => {
+  it("F4: no provider token after a block that committed during the refresh", async () => {
     await replay(
       [
         { kind: "authorize", client: 0 },
@@ -594,9 +593,9 @@ describe("RFC 136 property B regressions, failing on today's code", () => {
     );
   });
 
-  // F4, self-delete: the grant outlives its client, so a refresh that was held while the client
-  // deleted itself still saves and returns the provider's answer.
-  it.fails("F4: no provider token after the client deleted itself during the refresh", async () => {
+  // F4, self-delete: the grant outlived its client, so a refresh that was held while the client
+  // deleted itself still saved and returned the provider's answer.
+  it("F4: no provider token after the client deleted itself during the refresh", async () => {
     await replay(
       [
         { kind: "authorize", client: 1 },
@@ -608,17 +607,17 @@ describe("RFC 136 property B regressions, failing on today's code", () => {
     );
   });
 
-  // F4, self-delete: `registration.remove` deletes the client row and none of its refresh grants.
-  it.fails("F4: a client that deleted itself has no refresh grants", async () => {
+  // F4, self-delete: `registration.remove` deleted the client row and none of its refresh grants.
+  it("F4: a client that deleted itself has no refresh grants", async () => {
     await replay(
       [{ kind: "authorize", client: 2 }, { kind: "deleteOwn", client: 2 }, { kind: "drain" }],
       "deletedClientHasNoGrants",
     );
   });
 
-  // Stale attempt: `finishRefresh` and `failRefresh` take the grant id only, so an attempt whose
-  // lease ran out writes over the attempt that claimed the grant after it.
-  it.fails("a stale refresh attempt does not overwrite the provider refresh token", async () => {
+  // Stale attempt: `finishRefresh` and `failRefresh` took the grant id only, so an attempt whose
+  // lease ran out wrote over the attempt that claimed the grant after it.
+  it("a stale refresh attempt does not overwrite the provider refresh token", async () => {
     await replay(
       [
         { kind: "authorize", client: 0 },
@@ -631,7 +630,7 @@ describe("RFC 136 property B regressions, failing on today's code", () => {
     );
   });
 
-  it.fails("a stale refresh attempt does not delete the grant", async () => {
+  it("a stale refresh attempt does not delete the grant", async () => {
     await replay(
       [
         { kind: "authorize", client: 0 },

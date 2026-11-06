@@ -77,6 +77,8 @@ const vGitHubClaims = object({
   actor_id: string(),
   actor: string(),
   sha: string(),
+  /** Seconds. It orders two proofs of one repository, so an older one cannot undo a newer one. */
+  iat: number(),
 });
 
 /** GitHub's key set, read for each token: Convex functions keep no memory between requests. */
@@ -101,7 +103,7 @@ async function verifyGitHubToken(token: string) {
         algorithms: ["RS256"],
         audience: GITHUB_OIDC_AUDIENCE,
         issuer: GITHUB_OIDC_ISSUER,
-        requiredClaims: ["exp"],
+        requiredClaims: ["exp", "iat"],
       },
     );
     return validate(vGitHubClaims, payload, { allowUnknownFields: true }) ? payload : null;
@@ -286,8 +288,9 @@ export function hubClientsEndpoint(args: {
   }
 
   /**
-   * Refuses a paused, blocked, or limited request, else null. It counts an admitted one. The pause
-   * stops third-party repositories only, so the hub's own apps keep getting clients.
+   * Refuses a paused, blocked, or limited request, else null. It counts an admitted one in the
+   * repository and owner windows. The pause stops third-party repositories only, so the hub's own
+   * apps keep getting clients.
    */
   async function admit(
     ctx: Ctx,
@@ -365,6 +368,7 @@ export function hubClientsEndpoint(args: {
       githubActorId: run.claims.actor_id,
       githubActorLogin: run.claims.actor,
       commitSha: run.claims.sha,
+      proofIssuedAt: run.claims.iat,
       deployment:
         initialAccessToken === null
           ? { type: "preview", stage: run.stage }
@@ -375,7 +379,9 @@ export function hubClientsEndpoint(args: {
       softwareVersion: body.softwareVersion,
     });
     if (!created.ok) {
-      return notAllowed(created.reason);
+      return created.reason === "new_owners"
+        ? reply(429, { error: "rate_limited", window: "new_owners" })
+        : notAllowed(created.reason);
     }
     return reply(201, {
       ...newClient(credentials, body.redirectUri),

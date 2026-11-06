@@ -3,6 +3,7 @@ import { v, type Infer } from "convex/values";
 import { mutation, type MutationCtx } from "./_generated/server";
 import type { Doc } from "./_generated/dataModel";
 import { isStopped, isSuspended, tenantRow } from "./apps";
+import { removeClientGrants } from "./resourceRequests";
 import { vRegisteredBy, vTokenEndpointAuthMethod } from "./schema";
 
 const { literal, number, object, optional, string, union } = v;
@@ -32,12 +33,15 @@ export function used(client: Doc<"clients">, now: number) {
 }
 
 /**
- * The one row that makes way for a new client at the cap. For a preview or development client any
- * row can go, because the next deploy or dev start of its owner registers again. For a production
- * client a row goes only if it never signed anyone in: the hub cannot know which client a deployment
- * holds, so one that has served users stays.
+ * The one row that makes way for a new client at the cap: null below the cap, and undefined when no
+ * row can go. For a preview or development client any row can go, because the next deploy or dev
+ * start of its owner registers again. For a production client a row goes only if it never signed
+ * anyone in: the hub cannot know which client a deployment holds, so one that has served users stays.
  */
 function evicted(rows: Doc<"clients">[], deploymentType: Infer<typeof vDeployment>) {
+  if (rows.length < MAX_CLIENTS_PER_APP) {
+    return null;
+  }
   const candidates =
     deploymentType === "production" ? rows.filter((row) => row.lastSignInAt === undefined) : rows;
   return [...candidates].sort((a, b) => a.renewedAt - b.renewedAt)[0];
@@ -130,6 +134,21 @@ export async function registerClient(
     if (apps.length >= MAX_APPS_PER_TENANT) {
       return { ok: false as const, error: "too_many_apps" as const };
     }
+  }
+  const rows =
+    app === null
+      ? []
+      : await ctx.db
+          .query("clients")
+          .withIndex("by_app_id", (q) => q.eq("appId", args.appId))
+          .take(MAX_CLIENTS_PER_APP);
+  const evictedRow = evicted(rows, args.deploymentType);
+  if (evictedRow === undefined) {
+    return { ok: false as const, error: "too_many_clients" as const };
+  }
+
+  // Every refusal is above this line: a refused registration writes nothing.
+  if (app === null) {
     await ctx.db.insert("apps", {
       appId: args.appId,
       name: args.appId,
@@ -148,16 +167,9 @@ export async function registerClient(
   } else if (args.ownerId !== undefined && args.ownerId !== tenant.ownerId) {
     await ctx.db.patch("tenants", tenant._id, { ownerId: args.ownerId });
   }
-  const rows = await ctx.db
-    .query("clients")
-    .withIndex("by_app_id", (q) => q.eq("appId", args.appId))
-    .take(MAX_CLIENTS_PER_APP);
-  if (rows.length >= MAX_CLIENTS_PER_APP) {
-    const row = evicted(rows, args.deploymentType);
-    if (row === undefined) {
-      return { ok: false as const, error: "too_many_clients" as const };
-    }
-    await ctx.db.delete("clients", row._id);
+  if (evictedRow !== null) {
+    await ctx.db.delete("clients", evictedRow._id);
+    await removeClientGrants(ctx, evictedRow.clientId);
   }
   await ctx.db.insert("clients", {
     clientId: args.clientId,
@@ -256,6 +268,7 @@ export const remove = mutation({
       return { ok: false as const, error: "production" as const };
     }
     await ctx.db.delete("clients", client._id);
+    await removeClientGrants(ctx, client.clientId);
     return { ok: true as const };
   },
 });

@@ -182,10 +182,18 @@ test("a failed attempt frees the grant, and a provider rejection deletes it", as
   const { t } = await grant();
   const first = await t.mutation(api.resourceRequests.claimRefresh, refresh);
   if (!first.ok) throw new Error("Expected a claim");
-  await t.mutation(api.resourceRequests.failRefresh, { grantId: first.grantId, rejected: false });
+  await t.mutation(api.resourceRequests.failRefresh, {
+    grantId: first.grantId,
+    attempt: first.attempt,
+    rejected: false,
+  });
   const second = await t.mutation(api.resourceRequests.claimRefresh, refresh);
   if (!second.ok) throw new Error("Expected a claim");
-  await t.mutation(api.resourceRequests.failRefresh, { grantId: second.grantId, rejected: true });
+  await t.mutation(api.resourceRequests.failRefresh, {
+    grantId: second.grantId,
+    attempt: second.attempt,
+    rejected: true,
+  });
   expect(await t.mutation(api.resourceRequests.claimRefresh, refresh)).toMatchObject({
     error: "invalid_grant",
   });
@@ -221,6 +229,7 @@ test("a blocked repository or owner of a first-party app stops refresh, and an u
   if (!restored.ok) throw new Error("Expected a claim after the unblock");
   await t.mutation(api.resourceRequests.failRefresh, {
     grantId: restored.grantId,
+    attempt: restored.attempt,
     rejected: false,
   });
 
