@@ -687,15 +687,15 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
   }
 
   const token = httpActionGeneric(async (ctx, request) => {
-    const contentType = request.headers.get("content-type")?.toLowerCase() ?? "";
-    if (!contentType.startsWith("application/x-www-form-urlencoded")) {
+    // The route takes POST only, so readParameters refuses only a body that is not a form.
+    const params = await readParameters(request);
+    if (params === null) {
       return oauthError(
         415,
         "invalid_request",
         "The body must be application/x-www-form-urlencoded.",
       );
     }
-    const params = new URLSearchParams(await request.text());
     const authorization = request.headers.get("authorization");
     // A 401 carries a challenge (RFC 9110 section 15.5.2), which also names the scheme this endpoint
     // takes for a client that sent its secret in the body (RFC 6749 section 5.2).

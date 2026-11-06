@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.20.1
+
+- The token endpoint treats a parameter sent without a value as omitted (RFC 6749 section 3.2), as
+  the authorization endpoint does. A code exchange with `redirect_uri=` succeeded only when the
+  parameter was left out.
+
 ## 0.20.0
 
 - `clients.app` and `clients.registeredBy` are required. Remove `tenants.disconnected` and

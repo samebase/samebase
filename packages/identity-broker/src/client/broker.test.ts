@@ -613,12 +613,12 @@ describe("authorization code flow with an OAuth connector", () => {
   test("a parameter sent without a value counts as omitted", async () => {
     const upstream = fakeUpstream();
     const h = await createHarness({ connectors: [upstream.connector] });
-    const { clientId } = await h.registerClient({
+    const { clientId, clientSecret } = await h.registerClient({
       appName: "Bristol",
       firstParty: true,
       redirectUri: REDIRECT_URI,
     });
-    const { challenge } = await pkce();
+    const { verifier, challenge } = await pkce();
     // An empty max_age is no freshness request, which this connector would have to refuse.
     const started = await h.fetchBroker(
       authorizeUrl(h, { clientId, challenge, extra: { max_age: "", state: "" } }),
@@ -626,6 +626,16 @@ describe("authorization code flow with an OAuth connector", () => {
     const location = new URL((await completeUpstream(h, started)).headers.get("location") ?? "");
     expect(location.searchParams.has("code")).toBe(true);
     expect(location.searchParams.has("state")).toBe(false);
+
+    // The token endpoint takes the same rule (RFC 6749 section 3.2): an empty redirect_uri is none.
+    const tokens = await exchange(h, {
+      code: location.searchParams.get("code") ?? "",
+      clientId,
+      clientSecret,
+      verifier,
+      redirectUri: "",
+    });
+    expect(tokens.status).toBe(200);
   });
 
   test("a replayed or unknown upstream state is refused, a denied upstream goes back as access_denied", async () => {
