@@ -59,7 +59,6 @@ const overview = {
       {
         clientId: "cl_test",
         appId: "gh-74-4c9a75cca717efb68c856f26ba825073",
-        firstParty: false,
         clientName: "pr-12",
         deploymentType: "preview",
         redirectUri: "https://calm-cow-456.eu-west-1.convex.site/auth/hub/callback",
@@ -79,7 +78,6 @@ const overview = {
       {
         clientId: "cl_laptop",
         appId: "gh-74-4c9a75cca717efb68c856f26ba825073-preview",
-        firstParty: false,
         clientName: "development",
         deploymentType: "development",
         redirectUri: "http://127.0.0.1:3211/auth/hub/callback",
@@ -99,7 +97,6 @@ const overview = {
       {
         clientId: "cl_production",
         appId: "gh-81-4c9a75cca717efb68c856f26ba825073",
-        firstParty: true,
         clientName: "prod",
         deploymentType: "production",
         redirectUri: "https://samebase.com/auth/hub/callback",
@@ -219,7 +216,7 @@ describe("AdminHubClientsPage", () => {
         "octo-org/own 81",
         "65",
         "octocat",
-        "my-app (own) gh-81-4c9a75cca717efb68c856f26ba825073",
+        "my-app gh-81-4c9a75cca717efb68c856f26ba825073",
         "prod cl_production",
         "production",
         "https://samebase.com/auth/hub/callback",

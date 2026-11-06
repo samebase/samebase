@@ -44,7 +44,6 @@ const vClientList = object({
     object({
       clientId: string(),
       appId: string(),
-      firstParty: boolean(),
       clientName: string(),
       deploymentType: union(literal("production"), literal("development"), literal("preview")),
       redirectUri: string(),

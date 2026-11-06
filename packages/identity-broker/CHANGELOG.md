@@ -13,8 +13,6 @@
 - Remove the admin function `setTenantSuspended`, `registration.setSuspended`, and
   `tenants.suspendedAt`. `registration.switchConnection` and `registration.setOwnerBlocked` are the
   only switches.
-- id_tokens and UserInfo no longer carry `connector_account_id`, and discovery no longer lists it.
-  Read the provider's id from `sub`, `<provider>:<id>`.
 - Schema: `apps.tenantId`, `clients.registrationTokenHash`, and `clients.renewedAt` are required;
   `apps.allowedCallbackHosts` and `tenants.suspendedAt` are gone. Delete the rows that lack them
   before the upgrade: the apps without a tenant and their clients.

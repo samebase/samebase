@@ -151,9 +151,9 @@ when it moves to another broker, which needs nothing then:
 - The salt made the app id, the connector name, the key set, and the issuer part of every user's
   identity. Losing the key set, moving an app, or changing an app's kind gave every user a new id.
 
-Every id_token and every UserInfo response also carry `connector`, the connector's name. Until
-0.18.0 those of a first-party app also carried `connector_account_id`, the id in `sub` without the
-provider.
+Every id_token and every UserInfo response also carry `connector`, the connector's name. Those of a
+first-party app also carry `connector_account_id`, the id in `sub` without the provider, for
+first-party apps of older versions that read it. It goes once they read `sub`.
 
 ## Named departures from the specifications
 

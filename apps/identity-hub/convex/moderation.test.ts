@@ -332,7 +332,6 @@ describe("the clients", () => {
         {
           clientId: thirdParty.client_id,
           appId: `gh-${REPOSITORY_ID}-${APP_HASH}`,
-          firstParty: false,
           clientName: "prod",
           deploymentType: "production",
           redirectUri: PRODUCTION_CALLBACK,
@@ -352,7 +351,6 @@ describe("the clients", () => {
         {
           clientId: own.client_id,
           appId: `gh-81-${APP_HASH}`,
-          firstParty: true,
           clientName: "prod",
           deploymentType: "production",
           redirectUri: PRODUCTION_CALLBACK,

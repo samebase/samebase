@@ -56,8 +56,6 @@ const vRegisteredBy = union(
 const vClient = object({
   clientId: string(),
   appId: string(),
-  /** The app is one of the hub's own (`OWN_REPOSITORY_IDS`). False for an app that is gone. */
-  firstParty: boolean(),
   clientName: string(),
   deploymentType: union(literal("production"), literal("development"), literal("preview")),
   /** The one address where the broker sends people back with a code. */
@@ -200,17 +198,6 @@ export const clientList = internalQuery({
     const clients = await ctx.runQuery(components.identityBroker.clients.list, {
       limit: CLIENT_LIST_LIMIT,
     });
-    // Only the apps of these clients, so the reads stay bounded by `CLIENT_LIST_LIMIT`. The clients
-    // of a deleted app stay until their batch is deleted.
-    const appIds = [...new Set(clients.map((client) => client.appId))];
-    const firstParty = new Map(
-      await Promise.all(
-        appIds.map(async (appId) => {
-          const app = await ctx.runQuery(components.identityBroker.apps.get, { appId });
-          return [appId, app !== null && app.firstParty] as const;
-        }),
-      ),
-    );
     const registeredBy = async (client: (typeof clients)[number]) => {
       const registration = await ctx.db
         .query("registrations")
@@ -235,7 +222,6 @@ export const clientList = internalQuery({
         clients.map(async (client) => ({
           clientId: client.clientId,
           appId: client.appId,
-          firstParty: firstParty.get(client.appId) === true,
           clientName: client.clientName,
           deploymentType: client.deploymentType,
           redirectUri: client.redirectUri,

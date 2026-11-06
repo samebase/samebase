@@ -130,8 +130,7 @@ export function AdminHubClientsPage() {
                       )}
                     </td>
                     <td className="py-3 pr-4 break-all">
-                      {client.registeredBy.app}
-                      {client.firstParty ? " (own)" : null}{" "}
+                      {client.registeredBy.app}{" "}
                       <span className="text-muted-foreground">{client.appId}</span>
                     </td>
                     <td className="py-3 pr-4 break-all">
