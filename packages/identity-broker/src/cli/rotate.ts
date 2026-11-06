@@ -1,21 +1,17 @@
 import { assertKeySetUsable } from "../client/jwt.js";
-import {
-  parseKeySet,
-  rotateKeySet,
-  rotateKeySetWithoutOverlap,
-  type KeySet,
-} from "../client/keys.js";
+import { createKeySet, parseKeySet, rotateKeySet, type KeySet } from "../client/keys.js";
 
 /**
  * `identity-broker keys --rotate`. The input is only parsed, so a key set whose current key cannot
  * sign, such as RSA under 2048 bits, can still be rotated out; the output must be usable. Its new
  * current key is fresh, so with overlap a failure comes from a key carried over as retired, which
- * only `--no-overlap` drops.
+ * only `--no-overlap` drops. Without overlap the output is a new key set: after a key compromise
+ * every token signed before stops verifying at once.
  */
 export async function rotateKeys(raw: string, options: { overlap: boolean }): Promise<KeySet> {
   const input = parseKeySet(raw);
   if (!options.overlap) {
-    const rotated = await rotateKeySetWithoutOverlap(input);
+    const rotated = await createKeySet();
     await assertKeySetUsable(rotated);
     return rotated;
   }

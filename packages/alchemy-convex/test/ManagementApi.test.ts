@@ -1,4 +1,6 @@
-import { readFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Redacted from "effect/Redacted";
@@ -172,9 +174,10 @@ describe("ManagementApi.teamId", () => {
     ]);
   });
 
-  // A set CONVEX_DEPLOYMENT wins over .env.local, so these cases read no file.
+  // A set CONVEX_DEPLOYMENT wins over .env.local, so these cases read no `.env.local`. The working
+  // directory of the test run has no `.convex/local/default`.
   it.each([
-    ["a local deployment", "local:local-nicu-app"],
+    ["a local deployment that the working directory does not hold", "local:local-nicu-app"],
     ["an anonymous deployment", "anonymous:anonymous-app"],
     ["an anonymous deployment without a prefix", "anonymous-app"],
   ])(
@@ -183,11 +186,47 @@ describe("ManagementApi.teamId", () => {
       const fake = new FakeConvex().install();
       vi.stubEnv("CONVEX_DEPLOYMENT", selected);
       expect(await failureOf(teamOf("cli-login"))).toContain(
-        "no cloud deployment is selected. Run `npx convex dev` once with a cloud deployment",
+        "no deployment of a project is selected",
       );
       expect(fake.lines()).toEqual(["GET api.convex.dev/v1/token_details"]);
     },
   );
+
+  // `npx convex deployment create <team>:<project>:local --select` writes the project id into the
+  // folder's `.convex/local/default/config.json`.
+  it("takes the team of the project of the selected local deployment of the working directory", async () => {
+    const fake = new FakeConvex().install();
+    const projectId = fake.addProject({ name: "app", teamId: 38516 });
+    const dir = mkdtempSync(join(tmpdir(), "alchemy-convex-team-"));
+    const cwd = process.cwd();
+    try {
+      mkdirSync(join(dir, ".convex", "local", "default"), { recursive: true });
+      writeFileSync(
+        join(dir, ".convex", "local", "default", "config.json"),
+        JSON.stringify({
+          ports: { cloud: 3210, site: 3211 },
+          adminKey: "REDACTED",
+          cloudProjectId: projectId,
+          deploymentName: "local-nicu-app-1",
+        }),
+      );
+      process.chdir(dir);
+      vi.stubEnv("CONVEX_DEPLOYMENT", "local:local-nicu-app-1");
+      expect(await Effect.runPromise(teamOf("cli-login"))).toBe(38516);
+      expect(fake.lines()).toEqual([
+        "GET api.convex.dev/v1/token_details",
+        `GET api.convex.dev/v1/projects/${projectId}`,
+      ]);
+      // Another local deployment selected than the folder holds: no team from the folder.
+      vi.stubEnv("CONVEX_DEPLOYMENT", "local:local-nicu-app-2");
+      expect(await failureOf(teamOf("cli-login"))).toContain(
+        "no deployment of a project is selected",
+      );
+    } finally {
+      process.chdir(cwd);
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
 });
 
 describe("ManagementApi.resolveTeamId", () => {

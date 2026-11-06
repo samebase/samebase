@@ -35,18 +35,20 @@ stack skips the push when nothing of the hub changed. Pull requests run the chec
 2. The stack hands the clients from `alchemy.run.ts` to the deployment it pushes: no connector
    variable is set by hand.
 3. Create the keys of production once, by hand, with the Convex CLI login:
-   `pnpm run keys:init --prod` writes `IDENTITY_BROKER_KEYS`, the signing key and the pairwise salt,
-   and refuses a deployment that has the variable. Every deploy then checks the variable before the
-   push and stops when it is missing or holds anything that is not a key set; no deploy ever creates
-   or replaces it.
+   `pnpm run keys:init --prod` writes `IDENTITY_BROKER_KEYS`, the signing key, and refuses a
+   deployment that has the variable. Set `OWN_REPOSITORY_IDS` by hand too, when the hub has own
+   apps: the numeric GitHub ids of their repositories, separated by commas. No deploy sets it, so
+   the ids are in no file and no log. Every deploy then checks the variable before the push and
+   stops when it is missing or holds anything that is not a key set; no deploy ever creates or
+   replaces it.
 4. Merge to `main`. The stack adopts the project and its production deployment, so no run needs
    `--adopt`, and it retains both on destroy. Adoption replaces the code and sets the variables of
    the stack. It does not change other variables, the data, or the project. From a laptop,
    `pnpm exec alchemy deploy --stage prod` runs the same stack with the Convex CLI login.
 
-Back up `IDENTITY_BROKER_KEYS` somewhere safe. It holds the signing keys and the pairwise salt: a
-hub that loses it issues new subjects to every user of every app. An established hub that lost the
-variable gets the backup restored by hand; its deploys stop until then.
+`IDENTITY_BROKER_KEYS` holds the signing keys and no user identity: a user's `sub` is the provider's
+own id, such as `google:104325...`. A hub that lost the variable gets a new key set by hand with
+`pnpm run keys:init`; its deploys stop until then, and tokens signed before stop verifying.
 
 ## Issuer
 
@@ -54,8 +56,8 @@ The hub answers at the deployment's `.convex.site` URL and at the custom domain 
 The stack sets `ISSUER` to that domain: the issuer is the name every app trusts, in discovery, in
 every `id_token`, and in the callback URLs registered with GitHub and Google. Changing it later
 means changing `HUB_ISSUER` on every app's deployments and the callback URLs at every provider in
-one go; the app ids, the clients and the salt stay, so the subjects do not change. An app reads the
-issuer from the reply of its registration, so it needs no setting of its own.
+one go; a user's `sub` does not depend on the issuer, so it does not change. An app reads the issuer
+from the reply of its registration, so it needs no setting of its own.
 
 ## Connectors
 

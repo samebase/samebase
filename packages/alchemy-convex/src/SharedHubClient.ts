@@ -53,6 +53,13 @@ interface CommonProps {
   readonly redirectUri: string;
   /** Recorded on the hub's client, such as the commit. The hub records "unknown" without it. */
   readonly softwareVersion?: string;
+  /**
+   * The run fails unless the hub confirms the client in this run: it fails when the hub refuses or
+   * does not answer a registration or a renewal, and when it suspended the client. Without it, such
+   * a run gives the off values or keeps the saved client, so the app deploys anyway. Set it where
+   * sign-in is the product. A failed run saves nothing, so the next run asks the hub again.
+   */
+  readonly required?: boolean;
 }
 
 /**
@@ -343,8 +350,13 @@ const newClient = (props: SharedHubClientProps) => {
   return request(readOidcToken(requestUrl, requestToken));
 };
 
-/** The client after a read on the hub, or undefined when the hub says that the client is gone. */
-const renew = (saved: SharedHubClientAttributes) =>
+/**
+ * The client after a read on the hub, or undefined when the hub says that the client is gone. A
+ * read with no usable answer keeps the saved client, except for a required one: a required client
+ * passes a run only when the hub confirms it in that run, so a suspension that an earlier run saw,
+ * and did not save because that run failed, cannot pass a run that the hub does not answer.
+ */
+const renew = (saved: SharedHubClientAttributes, required: boolean) =>
   Effect.gen(function* () {
     const { status } = yield* send(
       "The identity hub",
@@ -369,9 +381,15 @@ const renew = (saved: SharedHubClientAttributes) =>
     }
   }).pipe(
     Effect.catchTag("SharedHubClientFailed", (error) =>
-      Effect.logWarning(
-        `Convex.SharedHubClient: ${saved.redirectUri} keeps the saved client: ${error.reason}.`,
-      ).pipe(Effect.as(saved)),
+      required
+        ? Effect.fail(
+            new SharedHubClientFailed({
+              reason: `${saved.redirectUri} is required, and the hub did not confirm its client: ${error.reason}`,
+            }),
+          )
+        : Effect.logWarning(
+            `Convex.SharedHubClient: ${saved.redirectUri} keeps the saved client: ${error.reason}.`,
+          ).pipe(Effect.as(saved)),
     ),
   );
 
@@ -479,9 +497,15 @@ export const SharedHubClientProvider = () =>
       }
       const renewed =
         saved?.redirectUri === news.redirectUri && saved.deploymentType === news.deploymentType
-          ? yield* renew(saved)
+          ? yield* renew(saved, news.required === true)
           : undefined;
-      return renewed ?? (yield* newClient(news));
+      const client = renewed ?? (yield* newClient(news));
+      if (news.required === true && client.status !== "on") {
+        return yield* new SharedHubClientFailed({
+          reason: `${news.app} on ${news.redirectUri} is required and has no working client (${client.status}). The warning above names the reason`,
+        });
+      }
+      return client;
     }),
 
     // A failed delete does not stop a destroy: the removal date of a preview or development client

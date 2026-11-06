@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.17.0
+
+- Public subjects (OIDC Core section 8): `sub` is `<provider>:<upstreamId>`, such as
+  `google:104325...`, the same in every app and every broker. Discovery says
+  `subject_types_supported: ["public"]`. Every existing user of every app gets a new `sub` once; an
+  app that finds its users by email or by `connector_account_id` keeps them. docs/design.md records
+  why the pairwise subjects stopped.
+- Each connector has a required `provider`. `google()` sets `google` and `github()` sets `github`,
+  whatever the connector's name. `defineIdentityBroker` refuses a provider that is not `[a-z0-9-]+`
+  and two connectors of one provider with two issuers.
+- `IDENTITY_BROKER_KEYS` holds no salt. `createKeySet` and `rotateKeySet` write none, and
+  `parseKeySet` reads none, so a key set from before still parses. Remove `appSalt`,
+  `pairwiseSubject`, and `rotateKeySetWithoutOverlap`: `keys --rotate --no-overlap` prints a new key
+  set.
+- `registration.register` takes `trust`: `{ firstParty: true }` for an app of the host, or
+  `{ firstParty: false, connector }` in place of `connector`. An existing app of the other kind
+  answers `app_taken`.
+- The sign-in budget of a tenant and the pause apply to third-party apps only, also when a
+  first-party app has a tenant.
+- A provider refresh is refused while the client's tenant is suspended or disconnected, or its owner
+  is blocked, as a code exchange is. A revocation still works.
+
 ## 0.16.0
 
 - `registration.register` takes `deploymentType: "development"`, for a client on a laptop. It gets a

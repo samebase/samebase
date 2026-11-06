@@ -43,6 +43,17 @@ const openAiAppsChallenge = httpAction(async () => {
   });
 });
 
+// The identity hub reads this file on a site before it registers a client there (RFC 129, RFC 134):
+// it names this repository, samebase/samebase, by its numeric GitHub id, which a rename does not
+// change. Every deployment serves the same answer, previews included, and no answer is cached.
+http.route({
+  path: "/samebase-verification.json",
+  method: "GET",
+  handler: httpAction(async () =>
+    Response.json({ repository: "1021726325" }, { headers: { "Cache-Control": "no-store" } }),
+  ),
+});
+
 http.route({
   path: "/oauth/hub/callback",
   method: "GET",

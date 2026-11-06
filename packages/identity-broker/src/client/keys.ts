@@ -1,6 +1,5 @@
 import { exportJWK, generateKeyPair, importJWK, type CryptoKey, type JWK } from "jose";
 import { asRecord } from "./protocol.js";
-import { randomToken } from "./subject.js";
 
 export const SIGNING_ALGORITHM = "RS256";
 
@@ -8,13 +7,12 @@ export const SIGNING_ALGORITHM = "RS256";
 export const KEY_OVERLAP_MS = 14 * 24 * 60 * 60 * 1000;
 
 /**
- * The content of the `IDENTITY_BROKER_KEYS` env var: one current private key, the public halves of
- * recently retired keys, and the pairwise salt. `identity-broker keys` writes it.
+ * The content of the `IDENTITY_BROKER_KEYS` env var: one current private key and the public halves
+ * of recently retired keys. `identity-broker keys` writes it. It holds no user identity: a `sub` is
+ * the provider's own id, so a new key set changes no user.
  */
 export type KeySet = {
   version: 1;
-  /** Created once with the first key set and never rotated: a new salt changes every subject. */
-  pairwiseSalt: string;
   keys: Array<
     | { kid: string; status: "current"; privateJwk: JWK }
     | { kid: string; status: "retired"; retiredAt: number; publicJwk: JWK }
@@ -44,15 +42,15 @@ async function freshKey(): Promise<{ kid: string; privateJwk: JWK }> {
   return { kid, privateJwk: { ...privateJwk, kid, alg: SIGNING_ALGORITHM, use: "sig" } };
 }
 
-/** A new key set: one current key and a salt. */
+/** A new key set: one current key. */
 export async function createKeySet(): Promise<KeySet> {
   const key = await freshKey();
-  return { version: 1, pairwiseSalt: randomToken(32), keys: [{ status: "current", ...key }] };
+  return { version: 1, keys: [{ status: "current", ...key }] };
 }
 
 /**
  * Rotation: the current key keeps only its public half and a retirement time, a new key becomes
- * current, and keys retired longer than the overlap window drop out. The salt never changes.
+ * current, and keys retired longer than the overlap window drop out.
  */
 export async function rotateKeySet(keySet: KeySet, now = Date.now()): Promise<KeySet> {
   const key = await freshKey();
@@ -69,25 +67,12 @@ export async function rotateKeySet(keySet: KeySet, now = Date.now()): Promise<Ke
     }
     return entry.retiredAt + KEY_OVERLAP_MS > now ? [entry] : [];
   });
-  return {
-    version: 1,
-    pairwiseSalt: keySet.pairwiseSalt,
-    keys: [{ status: "current", ...key }, ...kept],
-  };
-}
-
-/**
- * Rotation after a key compromise: a new current key and no retired keys, so every token signed
- * before stops verifying at once. The salt never changes.
- */
-export async function rotateKeySetWithoutOverlap(keySet: KeySet): Promise<KeySet> {
-  const key = await freshKey();
-  return { version: 1, pairwiseSalt: keySet.pairwiseSalt, keys: [{ status: "current", ...key }] };
+  return { version: 1, keys: [{ status: "current", ...key }, ...kept] };
 }
 
 /**
  * Unpadded base64url (RFC 7515 section 2) of a length that decodes, so not 4k + 1: the encoding of
- * JWK members (RFC 7518 section 6.3) and of the pairwise salt.
+ * JWK members (RFC 7518 section 6.3).
  */
 const BASE64URL = /^(?:[A-Za-z0-9_-]{4})*[A-Za-z0-9_-]{2,4}$/;
 
@@ -141,14 +126,9 @@ export function parseKeySet(raw: string | undefined): KeySet {
     );
   }
   const record = asRecord(JSON.parse(raw));
+  // A key set of a broker before 0.17.0 also holds `pairwiseSalt`, which nothing reads.
   if (record["version"] !== 1 || !Array.isArray(record["keys"])) {
     throw new Error("IDENTITY_BROKER_KEYS is not a version 1 key set");
-  }
-  // `createKeySet` writes 32 random bytes. A short salt lets anyone who knows an upstream id, such
-  // as a public GitHub user id, compute its subject for an app.
-  const salt = record["pairwiseSalt"];
-  if (typeof salt !== "string" || !BASE64URL.test(salt) || Math.floor((salt.length * 3) / 4) < 16) {
-    throw new Error("IDENTITY_BROKER_KEYS pairwiseSalt must be base64url of at least 16 bytes");
   }
   const keys = record["keys"].map((entry: unknown): KeySet["keys"][number] => {
     const key = asRecord(entry);
@@ -177,7 +157,7 @@ export function parseKeySet(raw: string | undefined): KeySet {
   if (keys.filter((key) => key.status === "current").length !== 1) {
     throw new Error("IDENTITY_BROKER_KEYS must hold exactly one current key");
   }
-  return { version: 1, pairwiseSalt: salt, keys };
+  return { version: 1, keys };
 }
 
 export function currentKey(keySet: KeySet): { kid: string; privateJwk: JWK } {

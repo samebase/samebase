@@ -5,11 +5,13 @@
 // typed error, resolves credentials lazily, and validates the fields the
 // provider relies on at runtime.
 import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { parseEnv } from "node:util";
 import { createDeploymentClient, createManagementClient } from "@convex-dev/platform";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import * as Option from "effect/Option";
 import * as Redacted from "effect/Redacted";
 import * as Schedule from "effect/Schedule";
 import * as Schema from "effect/Schema";
@@ -211,13 +213,63 @@ const DeploymentProject = Schema.Struct({ projectId: Schema.Number });
 /** GET /projects/{id}: the team of the project. */
 const ProjectTeam = Schema.Struct({ teamId: Schema.Number });
 
+/** A folder's `.convex/local/default/config.json`, as the Convex CLI writes it. */
+const LocalConfig = Schema.Struct({
+  deploymentName: Schema.String,
+  ports: Schema.Struct({ cloud: Schema.Number, site: Schema.Number }),
+  adminKey: Schema.String,
+  /** The project of a logged-in local deployment. An anonymous one has none. */
+  cloudProjectId: Schema.Number,
+});
+
+export interface LocalDeploymentInfo {
+  /** Such as `local-nicu-samebase_com-1`. */
+  readonly name: string;
+  /** The client URL, `http://127.0.0.1:<cloud port>`. */
+  readonly url: string;
+  /** The HTTP actions URL, `http://127.0.0.1:<site port>`, the local `CONVEX_SITE_URL`. */
+  readonly siteUrl: string;
+  /** The Convex project that the deployment belongs to. */
+  readonly projectId: number;
+  readonly adminKey: Redacted.Redacted<string>;
+}
+
 /**
- * The cloud deployment that the Convex CLI selected: CONVEX_DEPLOYMENT in the environment or in
- * `.env.local` of the working directory, as `npx convex dev` writes it (`dev:happy-animal-123`),
- * without the type prefix. Undefined when neither has it, and for a local or anonymous deployment
- * (`local:local-team-app`, `anonymous:anonymous-app`), which runs on this machine and is in no team.
+ * The logged-in local deployment of `rootDir`, which `npx convex deployment create
+ * <team>:<project>:local` makes: undefined when the folder has none, or only an anonymous one, which
+ * belongs to no project.
  */
-const selectedDeployment = () => {
+export const readLocalDeployment = (rootDir = "."): LocalDeploymentInfo | undefined => {
+  let raw: unknown;
+  try {
+    raw = JSON.parse(
+      readFileSync(join(rootDir, ".convex", "local", "default", "config.json"), "utf8"),
+    );
+  } catch {
+    return undefined;
+  }
+  const config = Option.getOrUndefined(Schema.decodeUnknownOption(LocalConfig)(raw));
+  if (config === undefined || !config.deploymentName.startsWith("local-")) return undefined;
+  return {
+    name: config.deploymentName,
+    url: `http://127.0.0.1:${config.ports.cloud}`,
+    siteUrl: `http://127.0.0.1:${config.ports.site}`,
+    projectId: config.cloudProjectId,
+    adminKey: Redacted.make(config.adminKey),
+  };
+};
+
+/**
+ * The deployment that the Convex CLI selected: CONVEX_DEPLOYMENT in the environment or in
+ * `.env.local` of the working directory, as `npx convex dev` writes it. A cloud deployment
+ * (`dev:happy-animal-123`) by its name; a logged-in local deployment (`local:local-team-app`) by the
+ * project in the working directory's `.convex/local/default`, when that is the selected one.
+ * Undefined when neither has it, and for an anonymous deployment, which is in no project.
+ */
+const selectedDeployment = ():
+  | { readonly kind: "cloud"; readonly name: string }
+  | { readonly kind: "local"; readonly projectId: number }
+  | undefined => {
   const fromEnv = process.env["CONVEX_DEPLOYMENT"];
   const value =
     fromEnv !== undefined && fromEnv !== ""
@@ -229,8 +281,13 @@ const selectedDeployment = () => {
             return undefined;
           }
         })();
+  const localName = /^local:(local-[^:]+)$/.exec(value ?? "")?.[1];
+  if (localName !== undefined) {
+    const local = readLocalDeployment();
+    return local?.name === localName ? { kind: "local", projectId: local.projectId } : undefined;
+  }
   const name = /^(?:(?:dev|prod|preview):)?([^:]+)$/.exec(value ?? "")?.[1];
-  return name === undefined || name.startsWith("anonymous-") ? undefined : name;
+  return name === undefined || name.startsWith("anonymous-") ? undefined : { kind: "cloud", name };
 };
 
 /** GET /token_details: the team of a team token, or the project of a project token. */
@@ -318,15 +375,19 @@ const makeService = (source: Effect.Effect<ResolvedCredentials>): ManagementApiS
             operation: "resolve team",
             status: 0,
             message:
-              "the Convex CLI login names no team, and no cloud deployment is selected. Run `npx convex dev` once with a cloud deployment.",
+              "the Convex CLI login names no team, and no deployment of a project is selected. Run `npx convex dev` once with a cloud deployment, or create a local one with `npx convex deployment create <team>:<project>:local --select`.",
           });
         }
-        const deployment = yield* request("get deployment", (c) =>
-          c.GET("/deployments/{deployment_name}", {
-            params: { path: { deployment_name: selected } },
-          }),
-        );
-        const { projectId } = Schema.decodeUnknownSync(DeploymentProject)(deployment);
+        const projectId =
+          selected.kind === "local"
+            ? selected.projectId
+            : Schema.decodeUnknownSync(DeploymentProject)(
+                yield* request("get deployment", (c) =>
+                  c.GET("/deployments/{deployment_name}", {
+                    params: { path: { deployment_name: selected.name } },
+                  }),
+                ),
+              ).projectId;
         const project = yield* request("get project", (c) =>
           c.GET("/projects/{project_id}", { params: { path: { project_id: projectId } } }),
         );

@@ -44,7 +44,7 @@ import {
   registrationEndpoints,
   type RegistrationConfig,
 } from "./registration.js";
-import { appSalt, pairwiseSubject, randomToken, sha256Hex } from "./subject.js";
+import { randomToken, sha256Hex } from "./subject.js";
 import { resourceEndpoints, resourceTokenResponse } from "./resources.js";
 import type { ResourceProvider } from "./resourceProviders.js";
 
@@ -130,6 +130,19 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
   }
   if (connectors.size === 0) {
     throw new Error("At least one connector is required");
+  }
+  // A provider is the first part of every `sub` its connectors make, so it holds no colon, and its
+  // connectors sign in the accounts of one issuer: another issuer could reuse an upstream id.
+  const providerIssuers = new Map<string, string>();
+  for (const connector of config.connectors) {
+    if (!/^[a-z0-9-]+$/.test(connector.provider)) {
+      throw new Error(`Connector "${connector.name}" has a provider that is not [a-z0-9-]+`);
+    }
+    const issuerOfProvider = providerIssuers.get(connector.provider) ?? connector.issuer;
+    if (issuerOfProvider !== connector.issuer) {
+      throw new Error(`The connectors of provider "${connector.provider}" have two issuers`);
+    }
+    providerIssuers.set(connector.provider, connector.issuer);
   }
   const { previewClientIdleDays, registration } = config;
   if (registration !== undefined && !connectors.has(registration.connector)) {
@@ -258,7 +271,7 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
     grant_types_supported: resources.enabled
       ? ["authorization_code", "refresh_token"]
       : ["authorization_code"],
-    subject_types_supported: ["pairwise"],
+    subject_types_supported: ["public"],
     id_token_signing_alg_values_supported: [SIGNING_ALGORITHM],
     token_endpoint_auth_methods_supported: ["client_secret_post", "client_secret_basic"],
     ...(resources.enabled
@@ -434,7 +447,8 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
     const now = Date.now();
     const requestId = randomToken(24);
     const created = await ctx.runMutation(component.authRequests.create, {
-      ...(app.tenantId === undefined ? {} : { tenantId: app.tenantId }),
+      // A third-party app spends its tenant's budget. The host's own apps have none.
+      ...(app.firstParty || app.tenantId === undefined ? {} : { tenantId: app.tenantId }),
       requestId,
       appId: app.appId,
       clientId: client.clientId,
@@ -733,21 +747,18 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
       return resourceTokenResponse(exchange, exchange.refresh ? refreshToken : undefined);
     }
     const keys = keySet();
-    const sub = await pairwiseSubject({
-      appId: exchange.appId,
-      connector: exchange.identity.connector,
-      upstreamId: exchange.identity.upstreamId,
-      salt:
-        exchange.tenantId === undefined
-          ? keys.pairwiseSalt
-          : await appSalt(keys.pairwiseSalt, exchange.appId),
-    });
+    const connector = connectors.get(exchange.identity.connector);
+    if (connector === undefined) {
+      throw new Error(`The connector "${exchange.identity.connector}" of a sign-in is gone`);
+    }
+    // A public subject (OIDC Core 8): the provider's own id, the same in every app and every broker,
+    // so an app keeps its users' ids when it moves to another broker.
+    const sub = `${connector.provider}:${exchange.identity.upstreamId}`;
     // Claims follow the granted scopes (OIDC Core 5.4); userinfo reads them from the access token.
     const scopes = exchange.scope.split(" ");
     const claims: IdentityClaims = { sub, connector: exchange.identity.connector };
-    // The connector's own account id is the same in every app, so only a first-party app, which
-    // skips consent as the hub owner's own, receives it. A third-party app's consent promises a
-    // stable id, the pairwise `sub`.
+    // The same id as in `sub`, for the first-party apps that read it here. It goes when they read
+    // the id from `sub`.
     if (exchange.firstParty) {
       claims.connector_account_id = exchange.identity.upstreamId;
     }

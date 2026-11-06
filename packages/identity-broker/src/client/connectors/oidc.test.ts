@@ -82,6 +82,7 @@ async function fakeProvider(options: { subject?: string; authTime?: number } = {
 
 const connector: OidcConnector = {
   kind: "oidc",
+  provider: "idp",
   name: "idp",
   label: "IdP",
   issuer: ISSUER,

@@ -183,6 +183,58 @@ test("a deleted app stops refresh before the batches remove its client rows", as
   });
 });
 
+test("a blocked repository or owner of a first-party app stops refresh, and an unblock restores it", async () => {
+  const { t } = await grant();
+  await t.run(async (ctx) => {
+    const app = await ctx.db
+      .query("apps")
+      .withIndex("by_app_id", (q) => q.eq("appId", "app"))
+      .unique();
+    if (app === null) throw new Error("Fixture app missing");
+    await ctx.db.patch("apps", app._id, { tenantId: "gh-1" });
+    await ctx.db.insert("tenants", { tenantId: "gh-1", ownerId: "7" });
+  });
+  await t.mutation(api.registration.switchConnection, { tenantId: "gh-1", connected: false });
+  expect(await t.mutation(api.resourceRequests.claimRefresh, refresh)).toMatchObject({
+    error: "invalid_client",
+  });
+  // The unblock restores refresh; the attempt is then freed for the next claim.
+  await t.mutation(api.registration.switchConnection, { tenantId: "gh-1", connected: true });
+  const restored = await t.mutation(api.resourceRequests.claimRefresh, refresh);
+  if (!restored.ok) throw new Error("Expected a claim after the unblock");
+  await t.mutation(api.resourceRequests.failRefresh, {
+    grantId: restored.grantId,
+    rejected: false,
+  });
+
+  await t.mutation(api.registration.setOwnerBlocked, { ownerId: "7", blocked: true, now: NOW });
+  expect(await t.mutation(api.resourceRequests.claimRefresh, refresh)).toMatchObject({
+    error: "invalid_client",
+  });
+  await t.mutation(api.registration.setOwnerBlocked, { ownerId: "7", blocked: false, now: NOW });
+  expect(await t.mutation(api.resourceRequests.claimRefresh, refresh)).toMatchObject({ ok: true });
+});
+
+test("a blocked client can still revoke its own token", async () => {
+  const { t } = await grant();
+  await t.run(async (ctx) => {
+    const app = await ctx.db
+      .query("apps")
+      .withIndex("by_app_id", (q) => q.eq("appId", "app"))
+      .unique();
+    if (app === null) throw new Error("Fixture app missing");
+    await ctx.db.patch("apps", app._id, { tenantId: "gh-1" });
+  });
+  await t.mutation(api.registration.switchConnection, { tenantId: "gh-1", connected: false });
+  expect(
+    await t.mutation(api.resourceRequests.revoke, { ...auth, tokenHash: refresh.tokenHash }),
+  ).toBe(true);
+  await t.mutation(api.registration.switchConnection, { tenantId: "gh-1", connected: true });
+  expect(await t.mutation(api.resourceRequests.claimRefresh, refresh)).toMatchObject({
+    error: "invalid_grant",
+  });
+});
+
 test("cleanup removes expired resource requests and idle refresh secrets", async () => {
   const { t } = await grant();
   await t.mutation(api.resourceRequests.create, {

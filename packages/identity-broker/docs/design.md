@@ -7,8 +7,8 @@ can also authorize API resources through ordinary OAuth without creating an iden
 
 Apps, clients (one per deployment: exact redirect URI, hashed secret), authorization requests for
 ten minutes, authorization codes for sixty seconds and one use, an audit row per issued `id_token`
-(app, client, connector, pairwise subject, time). Apart from those audit rows, nothing about a user
-outlives the sign-in request that carried it. The audit rows keep the pairwise subject for 90 days.
+(app, client, connector, subject, time). Apart from those audit rows, nothing about a user outlives
+the sign-in request that carried it. The audit rows keep the subject for 90 days.
 
 API authorizations use separate request and refresh-grant tables in the same component. A request
 holds its upstream token only until code redemption or expiry. A refresh grant holds the upstream
@@ -114,19 +114,33 @@ waiting for the browser that started it.
 
 ## Subjects
 
-`sub` is pairwise per app (OIDC Core 8.1), computed as
-`base64url(SHA-256(appId || connector || upstreamId || salt))`. The salt is created once with the
-key set and never rotated: a new salt is a new identity for everyone.
+`sub` is public (OIDC Core section 8): `<provider>:<upstreamId>`, such as `google:104325...` or
+`github:4076804`. `provider` is a field of each connector, the same for every connector of one
+provider, such as the two Google clients of a hub, so one account has one `sub` through either. The
+broker refuses a provider with a colon and two connectors of one provider with two issuers, so two
+providers cannot give one `sub`. The value is the same in every app of the broker and in every
+broker, and it depends on nothing the broker holds: not the app id, the connector name, the key set,
+or the issuer.
 
-App ids and connector names are identity namespaces. Recreating an app (a new app id) or renaming a
-connector changes every `sub` it produces. The salt lives only in `IDENTITY_BROKER_KEYS`, so back up
-the key set: a lost salt cannot be recreated.
+Until 0.17.0 the subject was pairwise per app (OIDC Core 8.1):
+`base64url(SHA-256(appId || connector || upstreamId || salt))`, with a salt in
+`IDENTITY_BROKER_KEYS`, and an app from `/register` derived its own salt from it so that an owner
+who left could take that salt to another broker. It stopped, so that an app keeps its users' ids
+when it moves to another broker, which needs nothing then:
+
+- The standard allows it. Section 8 makes `public` the default, and section 17.3 says pairwise
+  subjects "SHOULD be considered" against correlation among clients: a consideration, not a
+  requirement. Google publishes `subject_types_supported: ["public"]` itself.
+- Pairwise subjects hid nothing in practice. Every app of the hub that made the change asked for
+  `email`, which matches a user across apps more surely than any `sub`. A host whose apps ask for
+  `openid` alone, and who wants them not to be correlated, should keep a pairwise broker.
+- A `sub` is not a credential: each id_token names one client in `aud`.
+- The salt made the app id, the connector name, the key set, and the issuer part of every user's
+  identity. Losing the key set, moving an app, or changing an app's kind gave every user a new id.
 
 Every id_token and every UserInfo response also carry `connector`, the connector's name. Those of a
-first-party app carry `connector_account_id` too: the connector's own id for the account, the GitHub
-user id or the upstream OIDC `sub`. An app whose users are keyed by provider and account id maps
-them by this pair. The pair is as stable as the provider's id: an upstream OIDC provider with
-pairwise subjects gives the hub other ids than it gave an app's own client.
+first-party app carry `connector_account_id` too: the connector's own id for the account, the same
+id as in `sub`, for the first-party apps that read it there. It goes once they read `sub`.
 
 ## Named departures from the specifications
 
@@ -149,12 +163,9 @@ pairwise subjects gives the hub other ids than it gave an app's own client.
   no `auth_time` to check, and Google, which documents no `login` value for `prompt`. A freshness
   request against these is refused rather than pretended. Other `prompt` values, such as `consent`
   and `select_account`, answer `invalid_request`.
-- Pairwise subjects use the app, not a `sector_identifier_uri`, as the sector, so previews on random
-  hosts keep the same subjects.
-- `connector_account_id` goes to first-party apps only, the same in each and with every scope. Those
-  apps can correlate a user with each other and with the provider account, which pairwise subjects
-  (OIDC Core 8.1) exist to prevent. A third-party app gets only the pairwise `sub`, the stable id
-  its consent names.
+- Subjects are public (OIDC Core section 8), not pairwise, against the consideration of section
+  17.3: every app can correlate a user with every other app and with the provider account. See
+  Subjects for the reasons.
 - Clients inherit the trust of their app: a first-party app's deployments skip the chooser and
   consent, because every deployment of a first-party app registers at deploy time.
 - An app from `/register` shows no page of the hub: it goes straight to its one connector, and the
@@ -173,8 +184,6 @@ pairwise subjects gives the hub other ids than it gave an app's own client.
 - A production client cannot delete itself, which RFC 7592 section 2.3 allows a server to refuse. A
   stack destroy can leave a production deployment running, so only the hub's administrator deletes
   one.
-- An app from `/register` derives its salt from the hub's salt and the app id, so an owner who
-  leaves can take that one salt to a broker of their own and keep their users' subjects.
 - No loopback exception on redirect URIs: a local deployment registers its exact
   `http://127.0.0.1:<port>/...` URI.
 - `auth_time` is the hub's completion time: when the broker completed the sign-in, after the
@@ -187,13 +196,15 @@ pairwise subjects gives the hub other ids than it gave an app's own client.
 
 ## Keys
 
-`IDENTITY_BROKER_KEYS` holds one current RS256 private key, the public halves of retired keys with
-their retirement time, and the salt. The host parses it in each request and refuses a salt shorter
-than 16 bytes or a key without its RSA members. The JWKS publishes each key under its entry's kid,
-the kid the signer writes into a token header. `keys --rotate` only parses its input, so a current
-key the signer refuses, such as RSA under the 2048 bits RS256 needs, can still be rotated out. It
-checks its output instead: a test id_token signed with the new current key must verify against the
-JWKS the broker publishes, and each retired key there must be RSA of 2048 bits or more; a weak key
-carried over as retired is dropped with `--no-overlap`. `keys --rotate` keeps the retired public key
-in the JWKS for 14 days. After a key compromise, `keys --rotate --no-overlap` drops the retired keys
-at once, so every token signed before stops verifying; the salt is kept.
+`IDENTITY_BROKER_KEYS` holds one current RS256 private key and the public halves of retired keys
+with their retirement time. A key set from before 0.17.0 also holds `pairwiseSalt`, which nothing
+reads. The host parses it in each request and refuses a key without its RSA members. The JWKS
+publishes each key under its entry's kid, the kid the signer writes into a token header.
+`keys --rotate` only parses its input, so a current key the signer refuses, such as RSA under the
+2048 bits RS256 needs, can still be rotated out. It checks its output instead: a test id_token
+signed with the new current key must verify against the JWKS the broker publishes, and each retired
+key there must be RSA of 2048 bits or more; a weak key carried over as retired is dropped with
+`--no-overlap`. `keys --rotate` keeps the retired public key in the JWKS for 14 days. After a key
+compromise, `keys --rotate --no-overlap` drops the retired keys at once, so every token signed
+before stops verifying. The key set holds no identity, so a lost one is replaced with a new one:
+tokens signed before stop verifying, and no user changes.

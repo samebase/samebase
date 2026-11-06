@@ -225,6 +225,7 @@ export function fakeUpstream(options: { userId?: string } = {}) {
   vi.stubGlobal("fetch", fetchStub);
   const connector: Connector = {
     kind: "oauth",
+    provider: "fake",
     name: "fake",
     label: "Fake",
     issuer: "https://upstream.test",
@@ -306,6 +307,7 @@ export async function fakeOidcUpstream() {
   );
   const connector: OidcConnector = {
     kind: "oidc",
+    provider: "idp",
     name: "idp",
     label: "IdP",
     issuer,

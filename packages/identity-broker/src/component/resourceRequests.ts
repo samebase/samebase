@@ -4,6 +4,7 @@ import { internal } from "./_generated/api";
 import type { Doc } from "./_generated/dataModel";
 // oxlint-disable-next-line samebase/no-raw-public-convex-function-builders -- Component functions are called only by the host's authenticated OAuth endpoints.
 import { mutation, internalMutation, type MutationCtx } from "./_generated/server";
+import { isSuspended } from "./apps";
 import { used } from "./registration";
 import { resourceRequestFields, vResourceTokens } from "./resourceSchema";
 import { vTokenEndpointAuthMethod } from "./schema";
@@ -14,7 +15,10 @@ const REFRESH_IDLE_MS = 90 * 24 * 60 * 60 * 1000;
 const REFRESH_ATTEMPT_MS = 60 * 1000;
 const CLEANUP_BATCH = 200;
 
-/** Publicly registered clients have never been authorized to receive the team's API credentials. */
+/**
+ * The client and its app, when the client authenticates and its app is first-party. Publicly
+ * registered clients have never been authorized to receive the team's API credentials.
+ */
 async function authenticate(
   ctx: MutationCtx,
   args: {
@@ -37,7 +41,7 @@ async function authenticate(
     .query("apps")
     .withIndex("by_app_id", (q) => q.eq("appId", client.appId))
     .unique();
-  return app?.firstParty ? client : null;
+  return app?.firstParty ? { client, app } : null;
 }
 
 function fields(request: Doc<"resourceRequests">) {
@@ -250,9 +254,11 @@ export const claimRefresh = mutation({
   },
   returns: vRefreshClaim,
   handler: async (ctx, args): Promise<Infer<typeof vRefreshClaim>> => {
-    const client = await authenticate(ctx, args);
-    if (client === null)
+    const authenticated = await authenticate(ctx, args);
+    // A blocked or suspended tenant stops provider access here, as it stops a code exchange.
+    if (authenticated === null || (await isSuspended(ctx, authenticated.app.tenantId)))
       return { ok: false, error: "invalid_client", description: "Client authentication failed." };
+    const { client } = authenticated;
     const grant = await ctx.db
       .query("refreshGrants")
       .withIndex("by_token_hash", (q) => q.eq("tokenHash", args.tokenHash))
@@ -327,13 +333,14 @@ export const revoke = mutation({
   },
   returns: boolean(),
   handler: async (ctx, args) => {
-    const client = await authenticate(ctx, args);
-    if (client === null) return false;
+    // A blocked client can still revoke its own token.
+    const authenticated = await authenticate(ctx, args);
+    if (authenticated === null) return false;
     const grant = await ctx.db
       .query("refreshGrants")
       .withIndex("by_token_hash", (q) => q.eq("tokenHash", args.tokenHash))
       .unique();
-    if (grant !== null && grant.clientId === client.clientId)
+    if (grant !== null && grant.clientId === authenticated.client.clientId)
       await ctx.db.delete("refreshGrants", grant._id);
     return true;
   },

@@ -25,8 +25,8 @@ steps.
 
 - `@samebase/identity-broker`: a Convex component plus the host-side endpoints. Authorization code
   flow with PKCE, discovery, JWKS, userinfo, and an internal function that registers a client. RS256
-  `id_token`s with pairwise subjects per app; a first-party app also gets the connector's own id for
-  the account in `connector_account_id`.
+  `id_token`s with public subjects, the provider's own id such as `google:104325...`, the same in
+  every app and every broker.
 - Connectors are configuration: any OAuth 2.0 provider that publishes RFC 8414 metadata, and any
   OpenID Connect provider. `github()` and `google()` are included.
 - API resource providers authorize access without creating an identity. `convexConnection()`,
@@ -95,9 +95,10 @@ export const {
 ```
 
 Keys: `npx identity-broker keys` prints the value for `IDENTITY_BROKER_KEYS`; `keys --rotate`
-advances it, and `keys --rotate --no-overlap` replaces a compromised key at once. Back up the key
-set: its salt makes every `sub`. `parseKeySet` checks a value's shape before a deploy, and
-`assertKeySetUsable` signs a test token with it and verifies that token against its JWKS.
+advances it, and `keys --rotate --no-overlap` replaces a compromised key at once. The key set holds
+no user identity, so a lost one is replaced with a new one. `parseKeySet` checks a value's shape
+before a deploy, and `assertKeySetUsable` signs a test token with it and verifies that token against
+its JWKS.
 
 ## Register an app's deployments
 

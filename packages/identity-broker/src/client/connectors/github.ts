@@ -58,6 +58,7 @@ export function github(credentials: {
 }): OauthConnector {
   return {
     kind: "oauth",
+    provider: "github",
     name: credentials.name ?? "github",
     label: "GitHub",
     // GitHub publishes RFC 8414 metadata for this issuer and sends it as `iss` on its

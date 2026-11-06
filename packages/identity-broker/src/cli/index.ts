@@ -7,7 +7,7 @@ identity-broker keys --rotate                read the current key set on stdin, 
                                              rotated one once it signs and verifies; the
                                              retired public key stays for 14 days
 identity-broker keys --rotate --no-overlap   the same after a key compromise: retired keys are
-                                             dropped at once; the salt is kept`;
+                                             dropped at once`;
 
 async function readStdin(): Promise<string> {
   const chunks: Buffer[] = [];
@@ -24,7 +24,7 @@ async function main(argv: string[]): Promise<number> {
   }
   const rotate = argv.includes("--rotate");
   const noOverlap = argv.includes("--no-overlap");
-  // Without --rotate, --no-overlap would print a new key set with a new salt: every sub changes.
+  // --no-overlap changes only a rotation.
   if (noOverlap && !rotate) {
     console.error(USAGE);
     return 2;

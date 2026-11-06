@@ -119,6 +119,35 @@ describe("POST /hub-clients", () => {
       expect(await readOwnRecord(t, client)).toBe(200);
     });
 
+    it("makes the apps of an own repository first-party, its laptops' too, and no other's", async () => {
+      const t = makeConvexTest();
+      vi.stubEnv("OWN_REPOSITORY_IDS", "80, 81");
+      const own = { repository_id: "81", repository: "octo-org/own" };
+      const production = await createClient(t, own);
+      const productionApp = await t.query(components.identityBroker.apps.get, {
+        appId: `gh-81-${APP_HASH}`,
+      });
+      expect(productionApp).toMatchObject({ firstParty: true, tenantId: "gh-81" });
+      expect(productionApp).not.toHaveProperty("connector");
+
+      stubProviders(() => jsonResponse({ repository: "81" }));
+      const laptop = await createDevelopmentClient(t, production.initial_access_token ?? "");
+      expect(
+        await t.query(components.identityBroker.clients.get, { clientId: laptop.client_id }),
+      ).toMatchObject({ appId: `gh-81-${APP_HASH}-preview` });
+      expect(
+        await t.query(components.identityBroker.apps.get, { appId: `gh-81-${APP_HASH}-preview` }),
+      ).toMatchObject({ firstParty: true });
+
+      // Another repository of the same owner is a guest.
+      await createClient(t);
+      expect(
+        await t.query(components.identityBroker.apps.get, {
+          appId: `gh-${REPOSITORY_ID}-${APP_HASH}`,
+        }),
+      ).toMatchObject({ firstParty: false, connector: "google-apps" });
+    });
+
     it("puts a preview in its own app, on the exact address that the run sent", async () => {
       const t = makeConvexTest();
       stubProviders();
@@ -216,17 +245,25 @@ describe("POST /hub-clients", () => {
   });
 
   describe("the pause", () => {
-    it("refuses every request while THIRD_PARTY_PAUSED is true, before it reads the token", async () => {
+    it("refuses a third-party repository while THIRD_PARTY_PAUSED is true, before it reads the file", async () => {
       const t = makeConvexTest();
       vi.stubEnv("THIRD_PARTY_PAUSED", "true");
       const fileRequests = stubProviders();
 
-      const response = await postHubClient(t, "not-a-token");
+      const response = await postHubClient(t, await signToken());
 
       expect(response.status).toBe(403);
       expect(await response.json()).toEqual({ error: "not_allowed", reason: "paused" });
-      expect(fetch).not.toHaveBeenCalled();
       expect(fileRequests).toEqual([]);
+      expect(await readRateLimits(t)).toEqual([]);
+    });
+
+    it("lets an own repository register while THIRD_PARTY_PAUSED is true", async () => {
+      const t = makeConvexTest();
+      vi.stubEnv("THIRD_PARTY_PAUSED", "true");
+      vi.stubEnv("OWN_REPOSITORY_IDS", "81");
+      const own = await createClient(t, { repository_id: "81" });
+      expect(own.client_id).toMatch(/^cl_/);
     });
   });
 
@@ -755,7 +792,7 @@ describe("POST /hub-clients with the initial access token", () => {
       await t.mutation(components.identityBroker.registration.register, {
         tenantId: `gh-${REPOSITORY_ID}`,
         appId: `gh-${REPOSITORY_ID}-other-${index}`,
-        connector: "google-apps",
+        trust: { firstParty: false, connector: "google-apps" },
         deploymentType: "production",
         clientId: `cl_other_${index}`,
         secretHash: "hash",
@@ -786,7 +823,7 @@ describe("POST /hub-clients with the initial access token", () => {
       await t.mutation(components.identityBroker.registration.register, {
         tenantId: `gh-${REPOSITORY_ID}`,
         appId: previewAppId,
-        connector: "google-apps",
+        trust: { firstParty: false, connector: "google-apps" },
         deploymentType: "preview",
         clientId: `cl_preview_${index}`,
         secretHash: "hash",
@@ -890,7 +927,7 @@ describe("POST /hub-clients with the initial access token", () => {
       tenantId: `gh-${REPOSITORY_ID}`,
       ownerId: "66",
       appId: `gh-${REPOSITORY_ID}-other`,
-      connector: "google-apps",
+      trust: { firstParty: false, connector: "google-apps" },
       deploymentType: "production",
       clientId: "cl_other",
       secretHash: "hash",

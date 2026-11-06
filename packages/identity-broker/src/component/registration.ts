@@ -54,9 +54,9 @@ async function clientAt(ctx: MutationCtx, clientId: string, registrationTokenHas
 }
 
 /**
- * Registers one deployment as a client of a third-party app (RFC 7591), creating the app with its
- * first client. Everything is in one transaction, so a suspension or a cap cannot be raced. A client
- * is never replaced: a deployment that lost its client gets a new one, and any older one stays valid.
+ * Registers one deployment as a client of an app (RFC 7591), creating the app with its first
+ * client. Everything is in one transaction, so a suspension or a cap cannot be raced. A client is
+ * never replaced: a deployment that lost its client gets a new one, and any older one stays valid.
  * The host's own mutation can call it too, with the credentials of `newClientCredentials`, and then
  * write its own record of the client in the same transaction.
  */
@@ -69,7 +69,16 @@ export const register = mutation({
      */
     ownerId: optional(string()),
     appId: string(),
-    connector: string(),
+    /**
+     * What the host decided the app is. A first-party app is one of the host's own: every connector
+     * but a reserved one, and API resources. A third-party app signs in through its one connector.
+     * An existing app keeps what it was created as, and a registration that says otherwise answers
+     * `app_taken`.
+     */
+    trust: union(
+      object({ firstParty: literal(true) }),
+      object({ firstParty: literal(false), connector: string() }),
+    ),
     deploymentType: vDeployment,
     clientId: string(),
     secretHash: string(),
@@ -101,7 +110,10 @@ export const register = mutation({
       .query("apps")
       .withIndex("by_app_id", (q) => q.eq("appId", args.appId))
       .unique();
-    if (app !== null && (app.firstParty || app.tenantId !== args.tenantId)) {
+    if (
+      app !== null &&
+      (app.firstParty !== args.trust.firstParty || app.tenantId !== args.tenantId)
+    ) {
       return { ok: false as const, error: "app_taken" as const };
     }
     if (app === null) {
@@ -115,8 +127,8 @@ export const register = mutation({
       await ctx.db.insert("apps", {
         appId: args.appId,
         name: args.appId,
-        firstParty: false,
-        connector: args.connector,
+        firstParty: args.trust.firstParty,
+        ...(args.trust.firstParty ? {} : { connector: args.trust.connector }),
         tenantId: args.tenantId,
         createdAt: args.now,
       });

@@ -26,6 +26,12 @@ export {
   type HubClientProps,
   type HubDeploymentType,
 } from "./HubClient.ts";
+export {
+  LocalDeployment,
+  type LocalDeploymentAttributes,
+  LocalDeploymentNotFound,
+  type LocalDeploymentProps,
+} from "./LocalDeployment.ts";
 export { ConvexApiError, ManagementApi } from "./ManagementApi.ts";
 export {
   AmbiguousProject,

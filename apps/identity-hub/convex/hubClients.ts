@@ -14,6 +14,7 @@ import {
 import { broker, isPaused, issuer } from "./broker";
 import { APPS_CONNECTOR } from "./connectors";
 import { isBlocked, sha256Hex } from "./moderation";
+import { isOwnRepository } from "./ownApps";
 
 const { array, literal, number, object, string, union } = v;
 
@@ -424,11 +425,20 @@ export const admitRequest = internalMutation({
   },
 });
 
-/**
 /** The broker's app of `app` in the repository's tenant: production, or previews and laptops. */
 async function appIdOf(tenantId: string, app: string, production: boolean) {
   const appHash = (await sha256Hex(app)).slice(0, 32);
   return `${tenantId}-${appHash}${production ? "" : "-preview"}`;
+}
+
+/**
+ * What the broker makes the apps of a repository: the hub's own, with every connector, for a
+ * repository of `OWN_REPOSITORY_IDS`, else third-party with the one connector `APPS_CONNECTOR`.
+ */
+function trustOf(githubRepositoryDatabaseId: string) {
+  return isOwnRepository(githubRepositoryDatabaseId)
+    ? { firstParty: true as const }
+    : { firstParty: false as const, connector: APPS_CONNECTOR };
 }
 
 /**
@@ -491,7 +501,7 @@ export const createClient = internalMutation({
       tenantId,
       ownerId: args.githubOwnerId,
       appId: await appIdOf(tenantId, args.app, production),
-      connector: APPS_CONNECTOR,
+      trust: trustOf(args.githubRepositoryDatabaseId),
       deploymentType: args.deployment.type,
       clientId: args.clientId,
       secretHash: args.secretHash,
@@ -604,7 +614,7 @@ export const createDevelopmentClient = internalMutation({
     const result = await ctx.runMutation(components.identityBroker.registration.register, {
       tenantId,
       appId: await appIdOf(tenantId, token.app, false),
-      connector: APPS_CONNECTOR,
+      trust: trustOf(token.githubRepositoryDatabaseId),
       deploymentType: "development",
       clientId: args.clientId,
       secretHash: args.secretHash,
@@ -634,11 +644,18 @@ export const createDevelopmentClient = internalMutation({
   },
 });
 
-/** Refuses a blocked or limited request, else null. It counts an admitted one. */
+/**
+ * Refuses a paused, blocked, or limited request, else null. It counts an admitted one. The pause
+ * (`THIRD_PARTY_PAUSED`) stops third-party repositories only, so the hub's own apps keep getting
+ * clients.
+ */
 async function admit(
   ctx: ActionCtx,
   ids: { githubRepositoryDatabaseId: string; githubOwnerId: string },
 ) {
+  if (isPaused() && !isOwnRepository(ids.githubRepositoryDatabaseId)) {
+    return notAllowed("paused");
+  }
   const admission = await ctx.runMutation(internal.hubClients.admitRequest, {
     githubRepositoryDatabaseId: ids.githubRepositoryDatabaseId,
     githubOwnerId: ids.githubOwnerId,
@@ -788,10 +805,6 @@ async function registerLaptop(ctx: ActionCtx, request: Request, initialAccessTok
  * action's memory: they go to the caller and to nothing else.
  */
 export const registerHubClient = httpAction(async (ctx, request) => {
-  if (isPaused()) {
-    return notAllowed("paused");
-  }
-
   const bearer = /^Bearer\s+(\S+)$/i.exec(request.headers.get("Authorization") ?? "")?.[1];
   // A JWT has three parts; the initial access token is base64url, which has no dot.
   const parts = bearer?.split(".").length;

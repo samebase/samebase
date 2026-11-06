@@ -14,6 +14,7 @@ export function google(credentials: {
 }): OidcConnector {
   return {
     kind: "oidc",
+    provider: "google",
     name: credentials.name ?? "google",
     label: "Google",
     issuer: "https://accounts.google.com",

@@ -8,26 +8,25 @@ import {
   parseKeySet,
   publicJwks,
   rotateKeySet,
-  rotateKeySetWithoutOverlap,
 } from "./keys.js";
 
 describe("key set", () => {
   test("create, serialize, parse", async () => {
     const keySet = await createKeySet();
     expect(keySet.keys).toHaveLength(1);
+    expect(keySet).not.toHaveProperty("pairwiseSalt");
     const parsed = parseKeySet(JSON.stringify(keySet));
-    expect(parsed.pairwiseSalt).toBe(keySet.pairwiseSalt);
+    expect(parsed).toEqual(keySet);
     const jwks = publicJwks(parsed);
     expect(jwks.keys).toHaveLength(1);
     expect(jwks.keys[0]).not.toHaveProperty("d");
     expect(jwks.keys[0]).toHaveProperty("kid");
   });
 
-  test("rotation keeps the salt, retires the public half, drops it after the overlap", async () => {
+  test("rotation retires the public half and drops it after the overlap", async () => {
     const first = await createKeySet();
     const now = 1_700_000_000_000;
     const rotated = await rotateKeySet(first, now);
-    expect(rotated.pairwiseSalt).toBe(first.pairwiseSalt);
     expect(rotated.keys.map((key) => key.status)).toEqual(["current", "retired"]);
     const retired = rotated.keys[1];
     expect(retired?.status === "retired" && "d" in retired.publicJwk).toBe(false);
@@ -37,14 +36,10 @@ describe("key set", () => {
     expect(again.keys).toHaveLength(2);
   });
 
-  test("rotation without overlap keeps the salt and only the new key", async () => {
-    const first = await rotateKeySet(await createKeySet());
-    const replaced = await rotateKeySetWithoutOverlap(first);
-    expect(replaced.pairwiseSalt).toBe(first.pairwiseSalt);
-    expect(replaced.keys.map((key) => key.status)).toEqual(["current"]);
-    const oldKids = first.keys.map((key) => key.kid);
-    expect(oldKids).not.toContain(replaced.keys[0]?.kid);
-    expect(publicJwks(replaced).keys).toHaveLength(1);
+  test("a key set of a broker before 0.17.0, with its pairwise salt, still parses", async () => {
+    const keySet = await createKeySet();
+    const old = JSON.stringify({ ...keySet, pairwiseSalt: "A".repeat(43) });
+    expect(parseKeySet(old)).toEqual(keySet);
   });
 
   test("refuses incomplete sets", async () => {
@@ -82,38 +77,14 @@ describe("key set validation", () => {
     }
   });
 
-  test("the review's key set, an empty salt and a bare RSA key, is refused", async () => {
+  test("the review's key set, a bare RSA key, is refused", () => {
     const review = {
       version: 1,
-      pairwiseSalt: "",
       keys: [{ kid: "k", status: "current", privateJwk: { kty: "RSA" } }],
     };
     expect(() => parseKeySet(JSON.stringify(review))).toThrow(
-      "IDENTITY_BROKER_KEYS pairwiseSalt must be base64url of at least 16 bytes",
-    );
-    const { pairwiseSalt } = await createKeySet();
-    expect(() => parseKeySet(JSON.stringify({ ...review, pairwiseSalt }))).toThrow(
       'IDENTITY_BROKER_KEYS key "k" privateJwk.n must be a non-empty base64url string',
     );
-  });
-
-  test("the salt must be base64url of at least 16 bytes", async () => {
-    const keySet = await createKeySet();
-    const parse = (pairwiseSalt: unknown) =>
-      parseKeySet(JSON.stringify({ ...keySet, pairwiseSalt }));
-    // 22 characters decode to 16 bytes, 21 to 15; a length of 4k + 1 decodes to nothing.
-    for (const salt of [
-      undefined,
-      42,
-      "",
-      "A".repeat(21),
-      "A".repeat(25),
-      `${"A".repeat(22)}==`,
-      `${"A".repeat(21)}+`,
-    ]) {
-      expect(() => parse(salt)).toThrow(/pairwiseSalt must be base64url of at least 16 bytes/);
-    }
-    expect(parse("A".repeat(22)).pairwiseSalt).toBe("A".repeat(22));
   });
 
   test("the current key must be an RSA private JWK with every member", async () => {
