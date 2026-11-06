@@ -101,9 +101,9 @@ const vRepositoryStatus = object({
 });
 
 /**
-The checks of one commit, null when it has none. The counts come from GitHub's aggregate counts, so
-they cover every check. GitHub lists only the first 100 checks, so failedNames can miss a failure;
-failedNamesComplete is false when it names fewer checks than `failed` counts.
+The checks of one commit, null when it has none. Each check counts once, by its newest run.
+failedNamesComplete is false when GitHub has more than the 100 runs that the read lists, so a
+check can be missing from the counts and from failedNames.
 */
 const vMcpChecks = union(
   v.null(),
@@ -196,9 +196,10 @@ store: the facts that the repository overview shows. It changes nothing.
   an item says when the store is unreadable, has no stack of the repository, does not exist yet, or
   has no Convex connection.
 
-Checks give the total, failed, pending, and unknown counts of every check, and the names of the
-failed checks among the first 100 that GitHub lists; \`failedNamesComplete\` is false when a
-failed check is not named. GitHub facts that cannot be read are reported as null or empty rather
+Checks give the total, failed, pending, and unknown counts, and the names of the failed checks.
+Each check counts once, by its newest run, so a run that a newer run replaced does not count.
+\`failedNamesComplete\` is false when the commit has more than the 100 check runs that GitHub
+lists, so a failed check can be missing. GitHub facts that cannot be read are reported as null or empty rather
 than failing the whole read, and they give no attention item. A completed deploy does not prove
 that the app serves the expected content.`,
 } as const;

@@ -31,11 +31,12 @@ facts that the repository overview shows. It changes nothing.
   says when the store is unreadable, has no stack of the repository, does not exist yet, or has no
   Convex connection.
 
-Checks give the total, failed, pending, and unknown counts of every check, and the names of the
-failed checks among the first 100 that GitHub lists; `failedNamesComplete` is false when a failed
-check is not named. GitHub facts that cannot be read are reported as null or empty rather than
-failing the whole read, and they give no attention item. A completed deploy does not prove that the
-app serves the expected content.
+Checks give the total, failed, pending, and unknown counts, and the names of the failed checks. Each
+check counts once, by its newest run, so a run that a newer run replaced does not count.
+`failedNamesComplete` is false when the commit has more than the 100 check runs that GitHub lists,
+so a failed check can be missing. GitHub facts that cannot be read are reported as null or empty
+rather than failing the whole read, and they give no attention item. A completed deploy does not
+prove that the app serves the expected content.
 
 ## Arguments
 

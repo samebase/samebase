@@ -1,17 +1,16 @@
 import { v, type Infer } from "convex/values";
 
 import {
-  GITHUB_CHECK_RUN_STATES,
   GITHUB_STATUS_STATES,
   UNKNOWN_GITHUB_STATE,
   type RepositoryCheckState,
+  type RepositoryCheckSummary,
 } from "../../shared/repositoryChecks";
 
 /*
 Result validators of the GitHub pull request reads in repositoryPullRequests.ts, and the
-classification of one check. They live in this default-runtime module so that repository:getStatus
-can declare the same shapes and classify checks like the dashboard. The count validators take their
-state literals from shared/repositoryChecks.ts, which summarizes the counts.
+classification and summary of checks. They live in this default-runtime module so that
+repository:getStatus can declare the same shapes and count checks like the dashboard.
 */
 
 const { array, boolean, id, literal, number, object, string, union } = v;
@@ -36,9 +35,6 @@ export const GITHUB_CHECK_CONCLUSIONS = [
   "STALE",
 ] as const;
 
-const checkRunState = union(
-  ...[...GITHUB_CHECK_RUN_STATES, UNKNOWN_GITHUB_STATE].map((state) => literal(state)),
-);
 const statusState = union(
   ...[...GITHUB_STATUS_STATES, UNKNOWN_GITHUB_STATE].map((state) => literal(state)),
 );
@@ -65,26 +61,17 @@ const checkContext = union(
     description: union(v.null(), string()),
   }),
 );
-const checkCountFields = {
-  totalCount: number(),
-  checkRunCount: number(),
-  statusContextCount: number(),
-  checkRunCountsByState: array(object({ state: checkRunState, count: number() })),
-  statusContextCountsByState: array(object({ state: statusState, count: number() })),
-};
-const vStatusCheckCounts = union(
-  v.null(),
-  object({
-    contexts: object(checkCountFields),
-  }),
-);
+/**
+The checks of one commit, null when GitHub has none. `checks` holds the newest run of each check:
+GitHub also lists the runs that a newer run of the same check replaced, such as a run cancelled by a
+newer push or title edit. `complete` is false when GitHub has more than the 100 runs that the read
+lists, so a check can be missing.
+*/
 const vStatusCheckRollup = union(
   v.null(),
   object({
-    contexts: object({
-      ...checkCountFields,
-      nodes: array(checkContext),
-    }),
+    checks: array(checkContext),
+    complete: boolean(),
   }),
 );
 const vPullRequest = object({
@@ -150,13 +137,12 @@ export const vRepositorySidebarSummary = object({
     v.null(),
     object({
       openPullRequestCount: number(),
-      statusCheckRollup: vStatusCheckCounts,
+      statusCheckRollup: vStatusCheckRollup,
     }),
   ),
 });
 export type RepositoryPullRequestPage = Infer<typeof vRepositoryPullRequestPage>;
 export type RepositoryPullRequest = Infer<typeof vPullRequest>;
-export type RepositoryStatusCheckCounts = Infer<typeof vStatusCheckCounts>;
 export type RepositoryStatusCheckRollup = Infer<typeof vStatusCheckRollup>;
 export type RepositorySidebarSummary = Infer<typeof vRepositorySidebarSummary>;
 export type RepositoryCheck = Infer<typeof checkContext>;
@@ -215,4 +201,57 @@ export function classifyRepositoryCheck(check: RepositoryCheck): RepositoryCheck
       check.conclusion satisfies never;
       return "unknown";
   }
+}
+
+/** Counts the checks of one commit by state. Any failed check makes the whole commit fail. */
+export function summarizeRepositoryChecks(
+  rollup: RepositoryStatusCheckRollup,
+): RepositoryCheckSummary {
+  const totals = {
+    successCount: 0,
+    failureCount: 0,
+    runningCount: 0,
+    neutralCount: 0,
+    unknownCount: 0,
+  };
+  for (const check of rollup?.checks ?? []) {
+    const state = classifyRepositoryCheck(check);
+    switch (state) {
+      case "success":
+        totals.successCount += 1;
+        break;
+      case "failure":
+        totals.failureCount += 1;
+        break;
+      case "running":
+        totals.runningCount += 1;
+        break;
+      case "neutral":
+        totals.neutralCount += 1;
+        break;
+      case "unknown":
+        totals.unknownCount += 1;
+        break;
+      default:
+        state satisfies never;
+    }
+  }
+  const totalCount = rollup?.checks.length ?? 0;
+
+  return {
+    state:
+      totalCount === 0
+        ? "none"
+        : totals.failureCount > 0
+          ? "failure"
+          : totals.runningCount > 0
+            ? "running"
+            : totals.unknownCount > 0
+              ? "unknown"
+              : totals.successCount > 0
+                ? "success"
+                : "neutral",
+    totalCount,
+    ...totals,
+  };
 }

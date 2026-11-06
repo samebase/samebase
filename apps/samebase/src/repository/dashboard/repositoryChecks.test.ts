@@ -1,13 +1,29 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import type { RepositoryStatusCheckRollup } from "../../../convex/repository/pullRequestModel";
 import {
   summarizeRepositoryChecks,
-  type RepositoryCheckSummary,
-} from "../../../shared/repositoryChecks";
+  type RepositoryCheck,
+  type RepositoryStatusCheckRollup,
+} from "../../../convex/repository/pullRequestModel";
+import type { RepositoryCheckSummary } from "../../../shared/repositoryChecks";
 import { formatRepositoryCheckSummary } from "./repositoryChecks";
 
 type StatusCheckRollup = NonNullable<RepositoryStatusCheckRollup>;
+
+function checkRun(
+  name: string,
+  status: Extract<RepositoryCheck, { kind: "check_run" }>["status"],
+  conclusion: Extract<RepositoryCheck, { kind: "check_run" }>["conclusion"],
+): RepositoryCheck {
+  return {
+    kind: "check_run",
+    name,
+    status,
+    conclusion,
+    detailsUrl: `https://github.com/samebase/samebase/actions/runs/1/job/${name}`,
+    title: null,
+  };
+}
 
 describe("summarizeRepositoryChecks", () => {
   it("keeps no checks distinct from a successful rollup", () => {
@@ -22,20 +38,22 @@ describe("summarizeRepositoryChecks", () => {
     });
   });
 
-  it("derives presentation state from GitHub's native grouped counts", () => {
+  it("counts each listed check by its state", () => {
     const rollup = {
-      contexts: {
-        totalCount: 5,
-        checkRunCount: 4,
-        statusContextCount: 1,
-        checkRunCountsByState: [
-          { state: "SUCCESS", count: 2 },
-          { state: "IN_PROGRESS", count: 1 },
-          { state: "NEUTRAL", count: 1 },
-        ],
-        statusContextCountsByState: [{ state: "FAILURE", count: 1 }],
-        nodes: [],
-      },
+      complete: true,
+      checks: [
+        checkRun("lint", "COMPLETED", "SUCCESS"),
+        checkRun("test", "COMPLETED", "SUCCESS"),
+        checkRun("e2e", "IN_PROGRESS", null),
+        checkRun("preview", "COMPLETED", "NEUTRAL"),
+        {
+          kind: "status_context",
+          context: "Cloudflare Workers",
+          state: "FAILURE",
+          targetUrl: "https://dash.cloudflare.com/builds/1",
+          description: "Build failed",
+        },
+      ],
     } satisfies StatusCheckRollup;
 
     expect(summarizeRepositoryChecks(rollup)).toEqual({
@@ -51,14 +69,17 @@ describe("summarizeRepositoryChecks", () => {
 
   it("surfaces provider states that were normalized to unknown", () => {
     const rollup = {
-      contexts: {
-        totalCount: 2,
-        checkRunCount: 1,
-        statusContextCount: 1,
-        checkRunCountsByState: [{ state: "UNKNOWN", count: 1 }],
-        statusContextCountsByState: [{ state: "UNKNOWN", count: 1 }],
-        nodes: [],
-      },
+      complete: true,
+      checks: [
+        checkRun("lint", "COMPLETED", "UNKNOWN"),
+        {
+          kind: "status_context",
+          context: "Cloudflare Workers",
+          state: "UNKNOWN",
+          targetUrl: null,
+          description: null,
+        },
+      ],
     } satisfies StatusCheckRollup;
 
     expect(summarizeRepositoryChecks(rollup)).toEqual({
