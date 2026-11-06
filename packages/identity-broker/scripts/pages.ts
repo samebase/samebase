@@ -25,12 +25,15 @@ registerHooks({
 const { pageStates } = await import("../src/client/html.states.test.helper.ts");
 
 // Only these served copies get it: the open connection breaks when `node --watch` restarts the
-// server, and the page reloads once it connects again.
+// server, and the page reloads once it connects again. Only the top window connects: a browser
+// keeps at most six connections to one host, and the index holds a frame for every page.
 const RELOAD = `<script>
-  let lost = false;
-  const events = new EventSource("/events");
-  events.onerror = () => { lost = true; };
-  events.onopen = () => { if (lost) location.reload(); };
+  if (window.top === window) {
+    let lost = false;
+    const events = new EventSource("/events");
+    events.onerror = () => { lost = true; };
+    events.onopen = () => { if (lost) location.reload(); };
+  }
 </script>`;
 
 function index() {
