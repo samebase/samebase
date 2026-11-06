@@ -2,7 +2,15 @@
 
 ## Document Control
 
-- Status: Accepted on 2026-11-06. PR 1 is the pull request that adds this file.
+- Status: Shipped. Accepted on 2026-11-06. PR 1 (v2277) added this file, public subjects, and
+  `firstParty` from `OWN_REPOSITORY_IDS`; PR 2a (v2278) moved samebase.com's deployments to
+  `/hub-clients`. PR 3 is the last PR: it moves samebase.com's laptops to logged-in local
+  deployments, and deletes the old path with identity-broker 0.18.0 and alchemy-convex 0.31.0:
+  `registerClient`, `renewClient`, `createApp`, `POST /register`, `/tenant-connection`,
+  `setTenantSuspended` and `suspendedAt`, `connector_account_id`, `Convex.HubClient`, and the
+  `hub-client` command. The schema requires `apps.tenantId`, `clients.registrationTokenHash`, and
+  `clients.renewedAt`; `tenants.connectionRevision` stays optional because old rows hold it. The
+  admin page shows a run or a laptop for each client, and "own" for a first-party app.
 - Owner: Nicu Chiciuc
 - Created: 2026-11-06
 - Base: `origin/main` at v2275 (RFC 133 shipped).
