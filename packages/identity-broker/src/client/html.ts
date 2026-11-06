@@ -163,7 +163,7 @@ export function cancelledPage(args: { host: string; returnHref: string }): Respo
     "Sign-in cancelled",
     `<h1>Sign-in cancelled</h1>
 <p class="muted">Nothing was shared with ${hostMarkup(args.host)}. You can close this tab.</p>
-<p class="note"><a href="${escape(args.returnHref)}" rel="noreferrer">Return to ${hostMarkup(args.host)}</a></p>`,
+<p class="note"><a href="${escape(args.returnHref)}" rel="noreferrer">Return to ${escape(args.host)}</a></p>`,
   );
 }
 
