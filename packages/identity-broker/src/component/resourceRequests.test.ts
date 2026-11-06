@@ -3,6 +3,7 @@ import { convexTest } from "convex-test";
 import { calculatePKCECodeChallenge } from "oauth4webapi";
 import { expect, test } from "vite-plus/test";
 import { api } from "./_generated/api.js";
+import { testClientRecord } from "../client/registeredBy.test.helper.js";
 import { LEASE_MS } from "./registration.js";
 import schema from "./schema.js";
 
@@ -57,6 +58,7 @@ async function grant(expires = false) {
       softwareVersion: "test",
       createdAt: NOW - DAY,
       renewedAt: NOW - DAY,
+      ...testClientRecord,
       ...(expires ? { removeAt: NOW - DAY + LEASE_MS } : {}),
     });
   });
@@ -148,6 +150,7 @@ test("refresh binding rejects other clients and resources without changing the g
       softwareVersion: "test",
       createdAt: NOW,
       renewedAt: NOW,
+      ...testClientRecord,
     });
   });
   expect(

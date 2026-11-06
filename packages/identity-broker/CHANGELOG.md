@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.20.0
+
+- `clients.app` and `clients.registeredBy` are required. Remove `tenants.disconnected` and
+  `migration.importHubRows`. Upgrade from 0.18.0 through 0.19.0 and its import: a client row without
+  both fields fails this deploy.
+
 ## 0.19.0
 
 The broker holds every row and every rule of a hub (RFC 135). A hub is configuration only.

@@ -21,8 +21,8 @@ const vClient = object({
   registrationTokenHash: string(),
   removeAt: optional(number()),
   renewedAt: number(),
-  app: optional(string()),
-  registeredBy: optional(vRegisteredBy),
+  app: string(),
+  registeredBy: vRegisteredBy,
 });
 
 export const get = query({

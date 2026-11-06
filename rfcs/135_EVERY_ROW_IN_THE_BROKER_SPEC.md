@@ -76,11 +76,15 @@ made, not the hub's older one.
 
 Between the deploy and the import: samebase.com's admin page cannot list the clients (a client
 without `registeredBy` fails the list), a laptop with an initial access token gets
-`401 invalid_token`, and every saved client renews and signs in as before. 5. PR B (broker 0.20.0):
-`app` and `registeredBy` required; `tenants.disconnected`, the import, and the hub's `schema.ts` and
-`migration.ts` deleted.
+`401 invalid_token`, and every saved client renews and signs in as before. Rate limit windows are
+not copied: third-party registration is paused.
 
-Rate limit windows are not copied: nothing registers during the freeze.
+Done on 2026-11-06 with PR A (v2284): the import filled 25 clients and copied 8 tokens and 59
+registration events, each equal to the hub's old rows; the pause was on for about fifteen minutes.
+
+Then PR B (broker 0.20.0): `app` and `registeredBy` required; `tenants.disconnected`, the import,
+and the hub's `schema.ts` and `migration.ts` deleted. The hub has no schema, and the data of its
+five old tables is cleared after the deploy.
 
 ## Later RFCs
 

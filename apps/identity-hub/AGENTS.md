@@ -11,8 +11,7 @@ Each component's own rules live in its repository.
   connector, the pause, the moderation key, the terms); `convex/http.ts` mounts it, which also
   mounts `POST /hub-clients` and `/moderation/*`; `convex/identityBroker.ts` exports the admin
   functions for `npx convex run`; `convex/crons.ts` runs the cleanup. Every table and rule is in the
-  broker package (RFC 135); `convex/schema.ts` and `convex/migration.ts` exist only for the one-time
-  import, and RFC 135 PR B deletes them. `convex/http.test.ts` checks this wiring
+  broker package (RFC 135): the hub has no schema. `convex/http.test.ts` checks this wiring
   (`convex/test.setup.ts`); the rules' tests are in the package.
 - `alchemy.run.ts` is the stack `samebase/samebase/apps/identity-hub` (adopted project, adopted
   production deployment, push); `scripts/check-keys.ts` checks the key set inside the `deploy`

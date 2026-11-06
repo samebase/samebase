@@ -9,6 +9,7 @@ import schema from "../component/schema.js";
 import type { Connector, OidcConnector } from "./connectors/types.js";
 import { defineIdentityBroker } from "./index.js";
 import { createKeySet, type KeySet } from "./keys.js";
+import { testClientRecord } from "./registeredBy.test.helper.js";
 import type { RegistrationConfig } from "./registration.js";
 import type { ResourceProvider } from "./resourceProviders.js";
 
@@ -130,6 +131,7 @@ export async function createHarness(options: {
         softwareVersion: "dev-1",
         createdAt: now,
         renewedAt: now,
+        ...testClientRecord,
       });
     });
     return { appId, clientId, clientSecret };

@@ -3,6 +3,7 @@ import { convexTest } from "convex-test";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vite-plus/test";
 import { api } from "./_generated/api.js";
 import { BATCH } from "./lifecycle.js";
+import { testClientRecord } from "../client/registeredBy.test.helper.js";
 import schema from "./schema.js";
 
 const modules = import.meta.glob(["./**/*.ts", "!./**/*.test.ts"]);
@@ -30,6 +31,7 @@ async function seed(t: ReturnType<typeof convexTest>, clients: (Fields & { clien
         softwareVersion: "test",
         registrationTokenHash: "token-hash",
         renewedAt: client.createdAt,
+        ...testClientRecord,
         ...client,
       });
     }

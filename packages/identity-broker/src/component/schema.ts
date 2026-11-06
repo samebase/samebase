@@ -134,8 +134,6 @@ export default defineSchema({
    */
   tenants: defineTable({
     tenantId: string(),
-    /** Read by nothing: rows of 0.18.0 hold it. RFC 135 PR B removes it after the import clears it. */
-    disconnected: optional(boolean()),
     /**
      * The owner that the newest registration named, such as the id of the GitHub account that owns
      * the repository. An owner block in `blocks` stops every tenant whose owner it is.
@@ -247,10 +245,10 @@ export default defineSchema({
     removeAt: optional(number()),
     /** The registration of the client, or its last renewal at `/register/<client>`. */
     renewedAt: number(),
-    /** The name that the app's stack gives itself, at most 64 characters. Required in RFC 135 PR B. */
-    app: optional(string()),
-    /** Who made the client. Required in RFC 135 PR B, after the import fills the rows of 0.18.0. */
-    registeredBy: optional(vRegisteredBy),
+    /** The name that the app's stack gives itself, at most 64 characters. */
+    app: string(),
+    /** Who made the client. */
+    registeredBy: vRegisteredBy,
   })
     .index("by_client_id", ["clientId"])
     .index("by_app_id", ["appId"])

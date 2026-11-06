@@ -357,17 +357,17 @@ describe("the clients", () => {
     }
   });
 
-  it("fails when a client has no registration", async () => {
+  it("fails when a client's app is not of a repository", async () => {
     const h = await createHub();
     await insertClients(h, 1);
     await h.t.run(async (ctx) => {
-      for (const row of await ctx.db.query("clients").collect()) {
-        await ctx.db.patch("clients", row._id, { registeredBy: undefined });
+      for (const row of await ctx.db.query("apps").collect()) {
+        await ctx.db.patch("apps", row._id, { tenantId: "team-1" });
       }
     });
 
     await expect(h.t.query(api.moderation.clientList, {})).rejects.toThrow(
-      "The client cl_0 has no registration of a repository",
+      "The client cl_0 is not of a repository's app",
     );
   });
 
