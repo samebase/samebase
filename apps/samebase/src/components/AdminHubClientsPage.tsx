@@ -255,7 +255,7 @@ export function AdminHubClientsPage() {
     <main
       data-testid="admin-hub-clients-page"
       data-posthog-mask
-      className="container mx-auto w-full max-w-6xl py-6"
+      className="container mx-auto w-full max-w-6xl py-6 @max-3xl:px-3"
     >
       <h1 className="text-xl font-semibold @2xl:text-2xl">Hub clients</h1>
       {overview.isError ? (
@@ -427,7 +427,7 @@ function ClientsTable({
   return (
     <>
       <div className="mt-4 flex flex-wrap items-center gap-2">
-        <div className="relative w-full max-w-60">
+        <div className="relative w-full @3xl:max-w-60">
           <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             aria-label="Search clients"
@@ -789,7 +789,7 @@ function ClientRow({
         data-state={open ? "selected" : undefined}
         onClick={onToggle}
       >
-        <TableCell className={indented ? "truncate pl-9" : "truncate"}>
+        <TableCell className={indented ? "truncate pl-4 @3xl:pl-9" : "truncate"}>
           <span className="flex items-center gap-2">
             <StageBadge client={client} />
             {blocked ? <BlockedBadge /> : null}
@@ -884,7 +884,7 @@ function ClientRow({
         <TableRow className="hover:bg-transparent">
           <TableCell
             colSpan={6}
-            className={indented ? "pl-9 whitespace-normal" : "whitespace-normal"}
+            className={indented ? "pl-4 whitespace-normal @3xl:pl-9" : "whitespace-normal"}
           >
             <dl className="grid grid-cols-[9rem_1fr] gap-x-4 gap-y-1.5 text-sm">
               <dt className="text-muted-foreground">Client id</dt>
