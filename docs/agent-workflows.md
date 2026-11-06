@@ -17,15 +17,15 @@ git rev-parse --abbrev-ref HEAD
 ```
 
 2. Use `pnpm dev` as the normal startup path, including in a checkout with no `node_modules`. It
-   installs dependencies when the workspace manifests or lockfile changed, then dispatches to the
-   primary dev runner from the main checkout or the anonymous local runner from a linked worktree. A
-   Codex environment setup command may prewarm dependencies, but startup does not depend on it.
-3. In a new linked worktree, `pnpm dev` performs dependency install, local Convex startup, the copy
-   of the GitHub App settings from the development deployment, the identity hub registration, and
-   local auth setup before it starts the long-running processes. Use `pnpm dev --once` to perform
-   the same setup and exit. Both commands are safe to run again. A successful run records that the
-   anonymous seed/auth bootstrap completed, so later `pnpm dev` starts can skip that one-time work.
-   Use `pnpm dev --force-bootstrap` when normal startup should rerun it.
+   installs dependencies when the workspace manifests or lockfile changed, then starts the same
+   runner in the main checkout and in a linked worktree. A Codex environment setup command may
+   prewarm dependencies, but startup does not depend on it.
+3. In a new folder, `pnpm dev` performs dependency install, the creation of the folder's logged-in
+   Convex local deployment, and local auth setup before it starts the long-running processes, then
+   runs the Alchemy stage `dev-<name>` for the identity hub clients. Use `pnpm dev --once` to
+   perform the setup and exit. Both commands are safe to run again. A successful run records that
+   the seed/auth bootstrap completed, so later `pnpm dev` starts can skip that one-time work. Use
+   `pnpm dev --force-bootstrap` when normal startup should rerun it.
 4. Do not replace worktree startup with direct `npx convex dev`.
 5. Do not run `npx convex dev --env-file` pointing at another checkout's `.env.local`; it rewrites
    the current worktree's env and breaks local worktree bootstrapping.
