@@ -9,15 +9,34 @@ function escape(value: string): string {
 }
 
 const STYLE = `
-  body { margin: 0; font: 16px/1.5 system-ui, sans-serif; color: #111; background: #fff; }
-  main { max-width: 24rem; margin: 10vh auto; padding: 0 1rem; }
-  h1 { font-size: 1.25rem; font-weight: 600; }
+  :root { color-scheme: light dark; --fg: #111; --muted: #5c5c5c; --bg: #fff; --line: #e2e2e2; }
+  @media (prefers-color-scheme: dark) {
+    :root { --fg: #ededed; --muted: #a3a3a3; --bg: #111; --line: #2e2e2e; }
+  }
+  body { margin: 0; font: 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--fg);
+    background: var(--bg); }
+  main { max-width: 26rem; margin: 12vh auto; padding: 0 1.25rem 3rem; }
+  h1 { margin: 0 0 0.5rem; font-size: 1.375rem; line-height: 1.3; font-weight: 600;
+    overflow-wrap: anywhere; }
   p { margin: 0.5rem 0; }
+  ::selection { color: var(--bg); background: var(--fg); }
+  a { color: inherit; text-underline-offset: 0.2em; text-decoration-thickness: 1px; }
+  a:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
+  .muted { color: var(--muted); }
+  .label { white-space: nowrap; }
+  .facts { display: grid; grid-template-columns: max-content 1fr; gap: 0.5rem 1.25rem;
+    margin: 1.5rem 0; padding: 1rem 0; border-block: 1px solid var(--line); }
+  .facts dt { color: var(--muted); }
+  .facts dd { margin: 0; overflow-wrap: anywhere; }
   .list { display: grid; gap: 0.5rem; margin: 1.5rem 0; }
   a.button { display: block; width: 100%; box-sizing: border-box; padding: 0.75rem 1rem;
-    font: inherit; color: #111; background: #fff; border: 1px solid #111; text-align: center;
-    text-decoration: none; cursor: pointer; }
-  .muted { color: #555; }
+    font: inherit; font-weight: 500; color: var(--fg); background: var(--bg);
+    border: 1px solid var(--fg); text-align: center; text-decoration: none; cursor: pointer; }
+  a.button:hover { background: var(--line); }
+  a.button.primary { color: var(--bg); background: var(--fg); }
+  a.button.primary:hover { background: var(--muted); border-color: var(--muted); }
+  .cancel { display: block; padding: 0.75rem 1rem; text-align: center; }
+  .note { margin-top: 1.5rem; font-size: 0.875rem; color: var(--muted); }
 `;
 
 export function page(title: string, body: string, status = 200): Response {
@@ -38,24 +57,29 @@ export function page(title: string, body: string, status = 200): Response {
       "Content-Type": "text/html; charset=utf-8",
       "Cache-Control": "no-store",
       "Referrer-Policy": "no-referrer",
-      // No page of the broker may be framed: the chooser doubles as consent.
+      // No page of the broker may be framed: the consent page asks for a decision (RFC 9700 4.16).
       "Content-Security-Policy": "frame-ancestors 'none'",
       "X-Frame-Options": "DENY",
     },
   });
 }
 
-/**
- * The connector choice. A third-party app gets the consent wording and a deny link; a first-party
- * app only sees the buttons.
- */
+/** What the granted scopes release, as one phrase: the consent names nothing else. */
+function released(scopes: string[]) {
+  const parts = [
+    "a stable id",
+    ...(scopes.includes("profile") ? ["your name and picture"] : []),
+    ...(scopes.includes("email") ? ["your email address"] : []),
+  ];
+  return parts.length <= 2
+    ? parts.join(" and ")
+    : `${parts.slice(0, -1).join(", ")}, and ${parts.slice(-1).join("")}`;
+}
+
+/** The connector choice of a first-party app: the host's own apps need no consent. */
 export function chooserPage(args: {
   appName: string;
-  firstParty: boolean;
-  /** The granted scopes: the consent names only what they release. */
-  scopes: string[];
   connectors: Array<{ name: string; label: string; href: string }>;
-  denyHref: string;
 }): Response {
   const buttons = args.connectors
     .map(
@@ -63,27 +87,67 @@ export function chooserPage(args: {
         `<a class="button" href="${escape(connector.href)}">Continue with ${escape(connector.label)}</a>`,
     )
     .join("\n");
-  const released = [
-    "a stable id",
-    ...(args.scopes.includes("profile") ? ["your name and picture"] : []),
-    ...(args.scopes.includes("email") ? ["your verified email address"] : []),
-  ];
-  const list =
-    released.length <= 2
-      ? released.join(" and ")
-      : `${released.slice(0, -1).join(", ")}, and ${released.slice(-1).join("")}`;
-  const consent = args.firstParty
-    ? ""
-    : `<p class="muted">${escape(args.appName)} will receive your identity from the provider you choose: ${list}.</p>`;
-  const deny = args.firstParty
-    ? ""
-    : `<p><a href="${escape(args.denyHref)}">Cancel and return to ${escape(args.appName)}</a></p>`;
   return page(
     `Sign in to ${args.appName}`,
-    `<h1>Sign in to ${escape(args.appName)}</h1>${consent}<div class="list">${buttons}</div>${deny}`,
+    `<h1>Sign in to ${escape(args.appName)}</h1><div class="list">${buttons}</div>`,
+  );
+}
+
+/**
+ * The decision that a third-party app's preview or development client asks for before the user
+ * goes to its connector. Its name is self-asserted (RFC 7591 section 5), so the page names what the
+ * hub checked: the host that gets the sign-in, which served the repository's verification file or
+ * is the user's own computer, and the GitHub repository that registered it. Cancel answers
+ * `access_denied` to that host.
+ */
+export function consentPage(args: {
+  /** The host of the client's return address, with its port. */
+  host: string;
+  /** A loopback return address: the sign-in ends on the user's own computer. */
+  loopback: boolean;
+  deployment: { kind: "preview"; stage: string } | { kind: "development" };
+  /** `owner/name` of the GitHub repository at registration. */
+  repository: string;
+  connectorLabel: string;
+  scopes: string[];
+  continueHref: string;
+  cancelHref: string;
+  /** The host of the issuer, which says that it reviewed nothing. */
+  issuerHost: string;
+}): Response {
+  let deploy: string;
+  switch (args.deployment.kind) {
+    case "preview":
+      deploy = `Preview ${args.deployment.stage}`;
+      break;
+    case "development":
+      deploy = args.loopback ? "Development server on this computer" : "Development server";
+      break;
+    default:
+      return args.deployment satisfies never;
+  }
+  // A long host breaks only after a dot, never at a hyphen inside a label.
+  const host = args.host
+    .split(".")
+    .map((label, index, labels) => {
+      const dot = index < labels.length - 1 ? "." : "";
+      return `<span class="label">${escape(label)}${dot}</span>`;
+    })
+    .join("<wbr>");
+  return page(
+    `Sign in to ${args.host}`,
+    `<h1>Sign in to ${host}</h1>
+<dl class="facts">
+<dt>Repository</dt><dd><a href="https://github.com/${escape(args.repository)}" rel="noreferrer">${escape(args.repository)}</a></dd>
+<dt>Deploy</dt><dd>${escape(deploy)}</dd>
+<dt>Receives</dt><dd>${escape(released(args.scopes))}</dd>
+</dl>
+<a class="button primary" href="${escape(args.continueHref)}">Continue with ${escape(args.connectorLabel)}</a>
+<a class="cancel" href="${escape(args.cancelHref)}">Cancel</a>
+<p class="note">${escape(args.issuerHost)} did not review this app. Continue only if you trust it.</p>`,
   );
 }
 
 export function errorPage(title: string, message: string, status = 400): Response {
-  return page(title, `<h1>${escape(title)}</h1><p>${escape(message)}</p>`, status);
+  return page(title, `<h1>${escape(title)}</h1><p class="muted">${escape(message)}</p>`, status);
 }

@@ -12,7 +12,7 @@ import * as oauth from "oauth4webapi";
 import type { ComponentApi } from "../component/_generated/component.js";
 import type { Connector } from "./connectors/types.js";
 import { finishUpstream, startUpstream, type UpstreamFinish } from "./connectors/upstream.js";
-import { chooserPage, errorPage } from "./html.js";
+import { chooserPage, consentPage, errorPage } from "./html.js";
 import {
   signAccessToken,
   signIdToken,
@@ -37,7 +37,7 @@ import {
   readParameters,
   redirect,
 } from "./responses.js";
-import { hubClientsEndpoint } from "./hubClients.js";
+import { hubClientsEndpoint, LOOPBACK_HOSTS } from "./hubClients.js";
 import { moderationEndpoints } from "./moderation.js";
 import {
   newClientCredentials,
@@ -199,9 +199,9 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
     app.connector === undefined ? connector.reserved !== true : connector.name === app.connector;
 
   /**
-   * The connector `/authorize` goes to with no page. A first-party app may skip the chooser: the one
-   * it named, or the only one. A third-party app goes to its one connector, and the URL has no say.
-   * Any other app gets the page, which doubles as consent (RFC 9700 4.11).
+   * The connector of a sign-in. A third-party app has its one connector, and the URL has no say. A
+   * first-party app may skip the chooser: the one it named, or the only one. Undefined: the chooser
+   * of a first-party app, or a third-party app whose connector is not configured.
    */
   function directConnector(
     app: { connector?: string; firstParty: boolean },
@@ -370,6 +370,58 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
     return redirect(start.url);
   }
 
+  const continueHref = (requestId: string, connector: Connector) =>
+    `${path("/continue")}?request=${encodeURIComponent(requestId)}&connector=${encodeURIComponent(connector.name)}`;
+
+  /**
+   * The consent page of a sign-in, or null when it goes on without one. A third-party app's preview
+   * or laptop asks first: anyone with a repository can make one, on a host of their own, and nobody
+   * reviewed it (RFC 7591 section 5). The host's own apps never ask, and a third-party production
+   * client goes straight to its connector for now.
+   */
+  function consentFor(args: {
+    app: { firstParty: boolean };
+    client: {
+      redirectUri: string;
+      deploymentType: "production" | "preview" | "development";
+      clientName: string;
+      registeredBy: { githubRepository: string };
+    };
+    connector: Connector | undefined;
+    requestId: string;
+    scopes: string[];
+  }): Response | null {
+    const { client, connector } = args;
+    if (args.app.firstParty || connector === undefined) {
+      return null;
+    }
+    let deployment: Parameters<typeof consentPage>[0]["deployment"];
+    switch (client.deploymentType) {
+      case "production":
+        return null;
+      case "preview":
+        deployment = { kind: "preview", stage: client.clientName };
+        break;
+      case "development":
+        deployment = { kind: "development" };
+        break;
+      default:
+        return client.deploymentType satisfies never;
+    }
+    const redirect = new URL(client.redirectUri);
+    return consentPage({
+      host: redirect.host,
+      loopback: LOOPBACK_HOSTS.has(redirect.hostname),
+      deployment,
+      repository: client.registeredBy.githubRepository,
+      connectorLabel: connector.label,
+      scopes: args.scopes,
+      continueHref: continueHref(args.requestId, connector),
+      cancelHref: `${path("/continue")}?request=${encodeURIComponent(args.requestId)}&deny=1`,
+      issuerHost: new URL(issuer).host,
+    });
+  }
+
   async function readApp(ctx: Ctx, appId: string) {
     return await ctx.runQuery(component.apps.get, { appId });
   }
@@ -439,6 +491,10 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
     const freshLogin = rest.value.prompt.includes("login") || rest.value.maxAge !== undefined;
     const scopes = SCOPES.filter((scope) => rest.value.scopes.includes(scope));
     const chosen = directConnector(app, rest.value.connector);
+    // The chooser offers the host's own connectors, so a third-party app never gets it.
+    if (chosen === undefined && !app.firstParty) {
+      return errorPage("Sign-in unavailable", "This app has no sign-in method here.", 500);
+    }
     // Every later step needs this cookie: a client that fetches the chooser itself cannot send a
     // user's browser on from it, and a provider callback finishes only where the sign-in started.
     const txnCookie = randomToken(32);
@@ -464,6 +520,11 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
       return errorPage("Too many sign-ins", "Too many sign-ins for this app. Try again soon.", 429);
     }
     const setCookie = `${txnCookiePrefix}${requestId}=${txnCookie}; ${txnCookieAttributes}; Max-Age=${AUTH_REQUEST_TTL_MS / 1000}`;
+    const consent = consentFor({ app, client, connector: chosen, requestId, scopes });
+    if (consent !== null) {
+      consent.headers.append("Set-Cookie", setCookie);
+      return consent;
+    }
     if (chosen !== undefined) {
       const response = await startConnector(ctx, {
         connector: chosen,
@@ -482,14 +543,11 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
     }
     const page = chooserPage({
       appName: app.name,
-      firstParty: app.firstParty,
-      scopes,
       connectors: openConnectors.map((connector) => ({
         name: connector.name,
         label: connector.label,
-        href: `${path("/continue")}?request=${encodeURIComponent(requestId)}&connector=${encodeURIComponent(connector.name)}`,
+        href: continueHref(requestId, connector),
       })),
-      denyHref: `${path("/continue")}?request=${encodeURIComponent(requestId)}&deny=1`,
     });
     page.headers.append("Set-Cookie", setCookie);
     return page;

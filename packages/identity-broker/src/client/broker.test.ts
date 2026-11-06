@@ -825,7 +825,7 @@ describe("authorization code flow with an OAuth connector", () => {
     }
   });
 
-  test("a third-party app sees the chooser, and deny returns access_denied", async () => {
+  test("a third-party preview or laptop asks for consent, and cancel returns access_denied", async () => {
     const h = await createHarness({ connectors: [fakeUpstream().connector] });
     const { clientId } = await h.registerClient({
       appName: "Stranger",
@@ -841,10 +841,18 @@ describe("authorization code flow with an OAuth connector", () => {
     );
     const cookie = setCookie.split(";")[0] ?? "";
     const html = await page.text();
-    expect(html).toContain("Continue with Fake");
+    // What the hub checked, not what the app says of itself (RFC 7591 section 5).
+    expect(html).toContain("<title>Sign in to app.test</title>");
     expect(html).toContain(
-      "from the provider you choose: a stable id, your name and picture, and your verified email address.",
+      '<dt>Repository</dt><dd><a href="https://github.com/octo-org/octo-repo" rel="noreferrer">octo-org/octo-repo</a></dd>',
     );
+    expect(html).toContain("<dt>Deploy</dt><dd>Development server</dd>");
+    expect(html).toContain(
+      "<dt>Receives</dt><dd>a stable id, your name and picture, and your email address</dd>",
+    );
+    expect(html).toContain("Continue with Fake");
+    expect(html).toContain("auth.test did not review this app.");
+    expect(html).not.toContain("Stranger");
     const deny = html.match(/href="([^"]*deny=1)"/)?.[1]?.replace(/&amp;/g, "&") ?? "";
     const requestId = new URL(`${ISSUER}${deny}`).searchParams.get("request") ?? "";
     expect(cookie.startsWith(`__Host-broker_txn_${requestId}=`)).toBe(true);
@@ -862,7 +870,77 @@ describe("authorization code flow with an OAuth connector", () => {
     const openidOnly = await h.fetchBroker(
       authorizeUrl(h, { clientId, challenge, extra: { scope: "openid" } }),
     );
-    expect(await openidOnly.text()).toContain("from the provider you choose: a stable id.");
+    expect(await openidOnly.text()).toContain("<dt>Receives</dt><dd>a stable id</dd>");
+  });
+
+  test("a third-party preview names its stage, and production goes straight to the connector", async () => {
+    const h = await createHarness({ connectors: [fakeUpstream().connector] });
+    const { challenge } = await pkce();
+    const redirectUri = "https://pr-12.stranger.test/auth/hub/callback";
+    const preview = await h.registerClient({
+      appName: "Stranger",
+      firstParty: false,
+      redirectUri,
+      deploymentType: "preview",
+    });
+    const html = await (
+      await h.fetchBroker(
+        authorizeUrl(h, {
+          clientId: preview.clientId,
+          challenge,
+          extra: { redirect_uri: redirectUri },
+        }),
+      )
+    ).text();
+    expect(html).toContain("<dt>Deploy</dt><dd>Preview dev</dd>");
+    // The host breaks only after a dot, never at the hyphen of `pr-12`.
+    expect(html).toContain(
+      '<h1>Sign in to <span class="label">pr-12.</span><wbr><span class="label">stranger.</span><wbr><span class="label">test</span></h1>',
+    );
+
+    const production = await h.registerClient({
+      appName: "Stranger",
+      firstParty: false,
+      redirectUri: REDIRECT_URI,
+      deploymentType: "production",
+    });
+    const direct = await h.fetchBroker(
+      authorizeUrl(h, { clientId: production.clientId, challenge }),
+    );
+    expect(direct.status).toBe(302);
+    expect(new URL(direct.headers.get("location") ?? "").origin).toBe("https://upstream.test");
+  });
+
+  test("a laptop on a loopback address is said to be on this computer", async () => {
+    const h = await createHarness({ connectors: [fakeUpstream().connector] });
+    const redirectUri = "http://localhost:5173/auth/hub/callback";
+    const { clientId } = await h.registerClient({
+      appName: "Stranger",
+      firstParty: false,
+      redirectUri,
+    });
+    const { challenge } = await pkce();
+    const html = await (
+      await h.fetchBroker(
+        authorizeUrl(h, { clientId, challenge, extra: { redirect_uri: redirectUri } }),
+      )
+    ).text();
+    expect(html).toContain("<title>Sign in to localhost:5173</title>");
+    expect(html).toContain("<dt>Deploy</dt><dd>Development server on this computer</dd>");
+  });
+
+  test("a third-party app whose connector is not configured gets no chooser", async () => {
+    const h = await createHarness({ connectors: [fakeUpstream().connector] });
+    const { clientId } = await h.registerClient({
+      appName: "Stranger",
+      firstParty: false,
+      connector: "gone",
+      redirectUri: REDIRECT_URI,
+    });
+    const { challenge } = await pkce();
+    const page = await h.fetchBroker(authorizeUrl(h, { clientId, challenge }));
+    expect(page.status).toBe(500);
+    expect(await page.text()).not.toContain("Continue with");
   });
 
   test("the chooser's links work only in the browser that saw the chooser", async () => {

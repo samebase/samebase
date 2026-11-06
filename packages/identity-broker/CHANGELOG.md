@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.23.0
+
+- A third-party app's preview or development client shows a consent page before its connector: the
+  host that gets the sign-in, the GitHub repository, the deploy, and what the app receives, with
+  Continue and Cancel. Production clients go straight to the connector as before.
+- A third-party app whose connector is not configured answers an error page instead of the chooser,
+  which offered the host's own connectors.
+- The broker's pages (consent, chooser, errors) follow the system's light or dark theme.
+
 ## 0.22.0
 
 Fixes from the RFC 136 security review, each found by a model-based test that now guards it.

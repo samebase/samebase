@@ -203,12 +203,16 @@ provider.
   Subjects for the reasons.
 - Clients inherit the trust of their app: a first-party app's deployments skip the chooser and
   consent, because every deployment of a first-party app registers at deploy time.
-- A third-party app shows no page of the hub: it goes straight to its one connector, and the
-  connector's own screen names the hub, not the app. This falls short of RFC 6749 section 10.12,
-  which asks that a client get no authorization without the user's awareness of it, and it is the
-  confused deputy shape of the MCP security guide. A host that wants this accepts it knowingly and
-  sets `selectAccount`, so the provider shows its account screen on each sign-in and a user is never
-  passed through with no click. The user still does not learn which app is asking. Blocking the
+- A third-party app's preview or development client first shows the hub's consent page: the host
+  that gets the sign-in, the GitHub repository that registered the client, the deploy, and what the
+  app receives. The app's own name is not on it: client metadata is self-asserted (RFC 7591 section
+  5), and the host and repository are what the hub checked. Continue goes to the app's one
+  connector; Cancel answers `access_denied`. A third-party production client still shows no page of
+  the hub: it goes straight to its connector, and the connector's own screen names the hub, not the
+  app. This falls short of RFC 6749 section 10.12, which asks that a client get no authorization
+  without the user's awareness of it, and it is the confused deputy shape of the MCP security guide.
+  A host that wants this accepts it knowingly and sets `selectAccount`, so the provider shows its
+  account screen on each sign-in and a user is never passed through with no click. Blocking the
   app's tenant is the answer to a bad app.
 - A refusal before sign-in goes to an error page for a third-party app, not to its redirect URI,
   because nobody reviewed that URI (RFC 9700 section 4.11.2).

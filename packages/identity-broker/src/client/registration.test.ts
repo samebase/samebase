@@ -147,12 +147,27 @@ function authorizeUrl(
 }
 
 /** Follows the upstream redirect back into the broker, and answers with the client's code. */
+/**
+ * Ends a sign-in at the fake provider. The consent page of a third-party preview or laptop is
+ * answered with Continue first, in the browser that got it, as a user does.
+ */
 async function finishUpstream(h: Harness, start: Response) {
-  const upstream = new URL(start.headers.get("location") ?? "");
+  const cookie = txnCookie(start);
+  const continueHref =
+    start.status === 200
+      ? (await start.text()).match(/class="button primary" href="([^"]*)"/)?.[1]
+      : undefined;
+  const redirected =
+    continueHref === undefined
+      ? start
+      : await h.fetchBroker(`${h.issuer}${continueHref.replace(/&amp;/g, "&")}`, {
+          headers: cookie,
+        });
+  const upstream = new URL(redirected.headers.get("location") ?? "");
   const callback = new URL(upstream.searchParams.get("redirect_uri") ?? "");
   callback.searchParams.set("code", "upstream-code");
   callback.searchParams.set("state", upstream.searchParams.get("state") ?? "");
-  const response = await h.fetchBroker(callback, { headers: txnCookie(start) });
+  const response = await h.fetchBroker(callback, { headers: cookie });
   return new URL(response.headers.get("location") ?? "").searchParams.get("code") ?? "";
 }
 
