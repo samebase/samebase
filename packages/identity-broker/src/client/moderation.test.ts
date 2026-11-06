@@ -75,6 +75,8 @@ const ENDPOINTS = [
   ["GET", "/moderation/blocks"],
   ["POST", "/moderation/blocks"],
   ["GET", "/moderation/clients"],
+  ["GET", `/moderation/clients?repository=${REPOSITORY_ID}`],
+  ["DELETE", "/moderation/clients/cl_any"],
 ] as const;
 
 describe("the moderation key", () => {
@@ -406,5 +408,61 @@ describe("the clients", () => {
     expect(list.clients[0]?.clientId).toBe("cl_500");
     expect(list.clients.at(-1)?.clientId).toBe("cl_1");
     expect(list.limitReached).toBe(true);
+  });
+});
+
+describe("the clients of one repository", () => {
+  async function repositoryClientIds(h: Harness, repository: string) {
+    const list: { clients: { clientId: string }[] } = await (
+      await moderationRequest(h, `/moderation/clients?repository=${repository}`)
+    ).json();
+    return list.clients.map((client) => client.clientId);
+  }
+
+  it("lists only that repository's clients, newest first, of every app and stage", async () => {
+    vi.useFakeTimers({ now: 1_800_000_000_000, toFake: ["Date"] });
+    const h = await createHub();
+    const production = await createClient(h);
+    vi.setSystemTime(1_800_000_001_000);
+    const laptop = await createDevelopmentClient(h, production.initial_access_token ?? "");
+    vi.setSystemTime(1_800_000_002_000);
+    await createClient(h, { repository_id: "81", repository: "octo-org/other" });
+
+    expect(await repositoryClientIds(h, REPOSITORY_ID)).toEqual([
+      laptop.client_id,
+      production.client_id,
+    ]);
+    expect(await repositoryClientIds(h, "999")).toEqual([]);
+  });
+
+  it.each(["", "0", "abc", "74x"])("refuses the repository %j", async (repository) => {
+    const h = await createHub();
+    const response = await moderationRequest(h, `/moderation/clients?repository=${repository}`);
+    expect(response.status).toBe(400);
+  });
+
+  it("deletes one client, which then neither signs in nor renews, and a second delete changes nothing", async () => {
+    const h = await createHub();
+    const client = await createClient(h);
+
+    const deleted = await moderationRequest(h, `/moderation/clients/${client.client_id}`, {
+      method: "DELETE",
+    });
+    expect(await deleted.json()).toEqual({ changed: true });
+    expect(await repositoryClientIds(h, REPOSITORY_ID)).toEqual([]);
+    expect(await readOwnRecord(h, client)).toBe(401);
+
+    const again = await moderationRequest(h, `/moderation/clients/${client.client_id}`, {
+      method: "DELETE",
+    });
+    expect(await again.json()).toEqual({ changed: false });
+  });
+
+  it("refuses a delete without a client id", async () => {
+    const h = await createHub();
+    const response = await moderationRequest(h, "/moderation/clients/not-a-client", {
+      method: "DELETE",
+    });
+    expect(response.status).toBe(400);
   });
 });

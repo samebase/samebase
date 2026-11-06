@@ -82,10 +82,35 @@ export function moderationEndpoints(args: {
     reply(200, await ctx.runQuery(component.moderation.blockList, {})),
   );
 
-  /** Every client, newest first, up to the list's limit. */
-  const listClients = moderationEndpoint(async (ctx) =>
-    reply(200, await ctx.runQuery(component.moderation.clientList, {})),
-  );
+  /**
+   * Every client, newest first, up to the list's limit. With `?repository=<GitHub id>`, every client
+   * of that repository as `{ clients }`.
+   */
+  const listClients = moderationEndpoint(async (ctx, request) => {
+    const repository = new URL(request.url).searchParams.get("repository");
+    if (repository === null) {
+      return reply(200, await ctx.runQuery(component.moderation.clientList, {}));
+    }
+    if (!/^[1-9][0-9]*$/.test(repository)) {
+      return reply(400, { error: "invalid_request" });
+    }
+    const clients = await ctx.runQuery(component.moderation.repositoryClients, {
+      githubRepositoryDatabaseId: repository,
+    });
+    return reply(200, { clients });
+  });
+
+  /**
+   * `DELETE /moderation/clients/<client id>`: deletes one client. The deployment that held it gets
+   * a new client at its next deploy. Answers `{ changed }`, false for a client already gone.
+   */
+  const deleteClient = moderationEndpoint(async (ctx, request) => {
+    const clientId = new URL(request.url).pathname.split("/").at(-1) ?? "";
+    if (!/^cl_[A-Za-z0-9_-]+$/.test(clientId)) {
+      return reply(400, { error: "invalid_request" });
+    }
+    return reply(200, await ctx.runMutation(component.clients.remove, { clientId }));
+  });
 
   /** Blocks or unblocks one repository or owner. Answers `{ changed }`. */
   const changeBlock = moderationEndpoint(async (ctx, request) => {
@@ -111,6 +136,11 @@ export function moderationEndpoints(args: {
       http.route({ path: path("/moderation/blocks"), method: "GET", handler: listBlocks });
       http.route({ path: path("/moderation/blocks"), method: "POST", handler: changeBlock });
       http.route({ path: path("/moderation/clients"), method: "GET", handler: listClients });
+      http.route({
+        pathPrefix: path("/moderation/clients/"),
+        method: "DELETE",
+        handler: deleteClient,
+      });
     },
   };
 }

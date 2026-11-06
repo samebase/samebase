@@ -121,8 +121,10 @@ its JWKS.
 The apps of a repository in `ownRepositoryIds` are the hub's own: every connector but a reserved
 one, and the API resources. Every other repository's apps sign in only through
 `thirdPartyConnector`. Each repository and owner has hourly limits, and `/moderation/blocks` stops a
-repository or an owner at once. A Convex Auth v2 app points its generic OAuth method at
-`<issuer>/authorize` and `<issuer>/token`; see the
+repository or an owner at once. `/moderation/clients?repository=<id>` lists one repository's clients
+and `DELETE /moderation/clients/<id>` deletes one, for a console that shows each developer their
+own. A Convex Auth v2 app points its generic OAuth method at `<issuer>/authorize` and
+`<issuer>/token`; see the
 [docs](https://github.com/samebase/samebase/blob/main/packages/identity-broker/docs/consumers.md).
 
 A preview or development client gets a removal date 14 days ahead, and the daily `cleanup` deletes

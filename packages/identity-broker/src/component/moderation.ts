@@ -1,7 +1,8 @@
-import { v } from "convex/values";
+import { v, type Infer } from "convex/values";
 // oxlint-disable-next-line samebase/no-raw-public-convex-function-builders -- Component entrypoints are internal to the host; host functions enforce access.
 import { mutation, query, type QueryCtx } from "./_generated/server";
-import { readBlock } from "./apps";
+import type { Doc } from "./_generated/dataModel";
+import { readBlock, tenantIdOf } from "./apps";
 import { vBlockKind, vDeploymentType } from "./schema";
 
 // The database half of `/moderation/*` (src/client/moderation.ts). The answers keep the names that
@@ -136,9 +137,47 @@ export const blockList = query({
 });
 
 /**
- * The newest clients of every app, each with who made it. A client of an app whose tenant is not a
- * repository's (`registration.register` with another tenant) fails the list: this hub has none.
+ * A client with who made it, without its secret, hash, or token. A client of an app whose tenant is
+ * not a repository's (`registration.register` with another tenant) fails: a hub has none.
  */
+async function clientView(
+  ctx: QueryCtx,
+  client: Doc<"clients">,
+  repositoryId: string | undefined,
+): Promise<Infer<typeof vClientView>> {
+  if (repositoryId === undefined) {
+    throw new Error(`The client ${client.clientId} is not of a repository's app`);
+  }
+  const { registeredBy } = client;
+  const repository = {
+    githubRepository: registeredBy.githubRepository,
+    githubRepositoryDatabaseId: repositoryId,
+    githubOwnerId: registeredBy.githubOwnerId,
+    app: client.app,
+  };
+  return {
+    clientId: client.clientId,
+    appId: client.appId,
+    clientName: client.clientName,
+    deploymentType: client.deploymentType,
+    redirectUri: client.redirectUri,
+    createdAt: client.createdAt,
+    renewedAt: client.renewedAt,
+    lastSignInAt: client.lastSignInAt ?? null,
+    removeAt: client.removeAt ?? null,
+    registeredBy:
+      registeredBy.kind === "github"
+        ? { kind: "github", ...repository, githubActorLogin: registeredBy.githubActorLogin }
+        : { kind: "initial_access_token", ...repository, issuedAt: registeredBy.issuedAt },
+  };
+}
+
+/** The repository id of a tenant `gh-<id>`, or undefined for any other tenant. */
+function repositoryIdOf(tenantId: string | undefined) {
+  return /^gh-([1-9][0-9]*)$/.exec(tenantId ?? "")?.[1];
+}
+
+/** The newest clients of every app, each with who made it. */
 export const clientList = query({
   args: {},
   returns: object({ clients: array(vClientView), limitReached: boolean() }),
@@ -150,42 +189,36 @@ export const clientList = query({
         .query("apps")
         .withIndex("by_app_id", (q) => q.eq("appId", client.appId))
         .unique();
-      const repositoryId = /^gh-([1-9][0-9]*)$/.exec(app?.tenantId ?? "")?.[1];
-      const { registeredBy } = client;
-      if (repositoryId === undefined) {
-        throw new Error(`The client ${client.clientId} is not of a repository's app`);
-      }
-      const repository = {
-        githubRepository: registeredBy.githubRepository,
-        githubRepositoryDatabaseId: repositoryId,
-        githubOwnerId: registeredBy.githubOwnerId,
-        app: client.app,
-      };
-      views.push({
-        clientId: client.clientId,
-        appId: client.appId,
-        clientName: client.clientName,
-        deploymentType: client.deploymentType,
-        redirectUri: client.redirectUri,
-        createdAt: client.createdAt,
-        renewedAt: client.renewedAt,
-        lastSignInAt: client.lastSignInAt ?? null,
-        removeAt: client.removeAt ?? null,
-        registeredBy:
-          registeredBy.kind === "github"
-            ? {
-                kind: "github" as const,
-                ...repository,
-                githubActorLogin: registeredBy.githubActorLogin,
-              }
-            : {
-                kind: "initial_access_token" as const,
-                ...repository,
-                issuedAt: registeredBy.issuedAt,
-              },
-      });
+      views.push(await clientView(ctx, client, repositoryIdOf(app?.tenantId)));
     }
     return { clients: views, limitReached: clients.length === CLIENT_LIST_LIMIT };
+  },
+});
+
+/**
+ * Every client of one repository, newest first: at most `MAX_APPS_PER_TENANT` apps of
+ * `MAX_CLIENTS_PER_APP` clients each, so the list needs no limit.
+ */
+export const repositoryClients = query({
+  args: { githubRepositoryDatabaseId: string() },
+  returns: array(vClientView),
+  handler: async (ctx, args) => {
+    const apps = await ctx.db
+      .query("apps")
+      .withIndex("by_tenant_id", (q) =>
+        q.eq("tenantId", tenantIdOf(args.githubRepositoryDatabaseId)),
+      )
+      .collect();
+    const views = [];
+    for (const app of apps) {
+      for (const client of await ctx.db
+        .query("clients")
+        .withIndex("by_app_id", (q) => q.eq("appId", app.appId))
+        .collect()) {
+        views.push(await clientView(ctx, client, args.githubRepositoryDatabaseId));
+      }
+    }
+    return views.sort((a, b) => b.createdAt - a.createdAt || a.clientId.localeCompare(b.clientId));
   },
 });
 
