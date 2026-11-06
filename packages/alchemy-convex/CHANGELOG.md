@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.32.0
+
+- A run record's `source` is `github-actions` or `checkout`; `laptop` is gone. `checkout` names
+  where the record came from, git in a checkout outside GitHub Actions (a developer's machine, a
+  sandbox, another CI), and says nothing of the stage: a checkout can deploy `prod`.
+- Store version 6. The first run of 0.32.0 pushes it, and from then on a client of 0.31.0 fails its
+  runs until it upgrades: upgrade every repository of a team together. A stored output whose run
+  record says `laptop` stops the push: delete that output row first (its stage writes it again at
+  its next run).
+
 ## 0.31.0
 
 - Remove `Convex.HubClient`, its provider, `HUB_PROJECT_NAME`, `HubClientAttributes`,

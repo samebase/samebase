@@ -12,4 +12,5 @@
 // 4: the store is a component (same functions).
 // 5: rows hold their secrets sealed: `set` and `setOutput` are actions, with `sealing`, `chooseKey`,
 //    `rotateKey`, and `reseal` (0.19.0).
-export const STORE_VERSION = 5;
+// 6: a run record's `source` is `github-actions` or `checkout`, no longer `laptop` (0.32.0).
+export const STORE_VERSION = 6;

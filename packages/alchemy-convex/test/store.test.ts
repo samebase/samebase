@@ -349,7 +349,7 @@ describe("the state store", () => {
         pullRequest: null,
         headCommit: "commit",
         runUrl: null,
-        source: "laptop" as const,
+        source: "checkout" as const,
         recordedAt: "2026-10-31T10:00:00.000Z",
       };
       await t.mutation(internal.state.writeResource, { ...clearRow, run });
@@ -469,7 +469,7 @@ describe("the state store", () => {
         pullRequest: null,
         headCommit: "commit",
         runUrl: null,
-        source: "laptop" as const,
+        source: "checkout" as const,
         recordedAt: "2026-10-31T10:00:00.000Z",
       };
       await t.mutation(internal.state.writeResource, { ...clearRow, run });

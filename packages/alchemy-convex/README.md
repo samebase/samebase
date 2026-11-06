@@ -257,12 +257,12 @@ from git, which needs a branch and an `origin` remote. It holds no secret.
 ```
 
 `stackFile` is the working directory of the run below the repository root plus `alchemy.run.ts`.
-`pullRequest` and `runUrl` are `null` for a push and for a development machine, where `source` is
-`laptop`. A value that the stack itself returns under `samebase.run` stays. A checkout that gives no
-record, such as a tarball without git or a detached HEAD, writes its outputs without one, and the
-log says why. Alchemy writes the output once after a full successful deploy, so a failed deploy
-leaves the previous record, and a deploy of selected resources writes none. A reader gets every
-stage of a stack, with its resources and output, from the store function
+`pullRequest` and `runUrl` are `null` for a push and for a checkout outside GitHub Actions, where
+`source` is `checkout`. A value that the stack itself returns under `samebase.run` stays. A checkout
+that gives no record, such as a tarball without git or a detached HEAD, writes its outputs without
+one, and the log says why. Alchemy writes the output once after a full successful deploy, so a
+failed deploy leaves the previous record, and a deploy of selected resources writes none. A reader
+gets every stage of a stack, with its resources and output, from the store function
 `state:readStack({ stack })` in one call.
 
 ## Resources

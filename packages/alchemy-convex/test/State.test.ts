@@ -100,10 +100,7 @@ const created = (fqn: string): CreatedResourceState => ({
   attr: { projectId: 1 },
 });
 
-/**
- * The record of the test run, as a development derivation gives it; `recordedAt` is set at each
- * write.
- */
+/** The record of the test run, as a checkout derivation gives it; `recordedAt` is set at each write. */
 const record: RunRecord = {
   version: 1,
   repository: "samebase/app",
@@ -112,7 +109,7 @@ const record: RunRecord = {
   pullRequest: null,
   headCommit: "8af3c5b7932c528939cbc7aa0597b1fc36c8dc83",
   runUrl: null,
-  source: "laptop",
+  source: "checkout",
   recordedAt: "unset",
 };
 

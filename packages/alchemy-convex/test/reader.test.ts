@@ -12,7 +12,7 @@ const run: RunRecord = {
   pullRequest: null,
   headCommit: "new-commit",
   runUrl: null,
-  source: "laptop",
+  source: "checkout",
   recordedAt: "2026-10-24T10:00:00.000Z",
 };
 const identity = { subject: "reader", scope: "alchemy:read", repository: run.repository };

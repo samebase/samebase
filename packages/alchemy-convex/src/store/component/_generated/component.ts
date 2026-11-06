@@ -72,7 +72,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                 recordedAt: string;
                 repository: string;
                 runUrl: string | null;
-                source: "github-actions" | "laptop";
+                source: "github-actions" | "checkout";
                 stackFile: string;
                 version: 1;
               };
@@ -131,7 +131,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
               recordedAt: string;
               repository: string;
               runUrl: string | null;
-              source: "github-actions" | "laptop";
+              source: "github-actions" | "checkout";
               stackFile: string;
               version: 1;
             } | null;
@@ -153,7 +153,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             recordedAt: string;
             repository: string;
             runUrl: string | null;
-            source: "github-actions" | "laptop";
+            source: "github-actions" | "checkout";
             stackFile: string;
             version: 1;
           } | null;
@@ -232,7 +232,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             recordedAt: string;
             repository: string;
             runUrl: string | null;
-            source: "github-actions" | "laptop";
+            source: "github-actions" | "checkout";
             stackFile: string;
             version: 1;
           } | null;
@@ -254,7 +254,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             recordedAt: string;
             repository: string;
             runUrl: string | null;
-            source: "github-actions" | "laptop";
+            source: "github-actions" | "checkout";
             stackFile: string;
             version: 1;
           } | null;
