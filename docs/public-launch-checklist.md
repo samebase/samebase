@@ -20,7 +20,7 @@ limits.
       already supplies an email reporting channel.
 - [ ] After publication, verify external-contributor workflow approval and branch protection, then
       run a real fork pull request through CI. Fork code must not receive deployment credentials.
-- [ ] Verify the deployed FAQ and agent docs show the app's AGPL license, then check the repository
+- [ ] Verify the deployed FAQ and agent docs show the app's FSL license, then check the repository
       and license links without authentication.
 
 The full-service startup still needs maintainer configuration. The contributor guide states that

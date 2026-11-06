@@ -125,8 +125,14 @@ const LANDING_FAQS = [
     question: "Is Samebase stable?",
   },
   {
-    answer:
-      "The Samebase app is AGPL-3.0. The template and the agent plugin are Apache 2.0. Other folders have their own licenses.",
+    answer: (
+      <>
+        Source-available, not open source. The app is under the{" "}
+        <LandingReceiptLink href="https://fsl.software">FSL</LandingReceiptLink>: use it, change it,
+        run your own, but do not sell a competing service. Each version becomes Apache 2.0 two years
+        after its release. The template and the agent plugin are Apache 2.0.
+      </>
+    ),
     question: "Is Samebase open source?",
   },
   {

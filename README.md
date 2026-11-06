@@ -71,6 +71,7 @@ Follow [SECURITY.md](SECURITY.md) for private vulnerability reports.
 
 ## License
 
-The Samebase app is [AGPL-3.0-only](LICENSE). Packages and templates have their own licenses,
-including Apache-2.0 and MIT. The video workbench and its recordings are all rights reserved. See
-[LICENSING.md](LICENSING.md) for the folder-by-folder terms.
+The Samebase app is [FSL-1.1-ALv2](LICENSE): any use except a competing commercial service, and each
+version becomes Apache-2.0 two years after its release. Packages and templates have their own
+licenses, including Apache-2.0 and MIT. The video workbench and its recordings are all rights
+reserved. See [LICENSING.md](LICENSING.md) for the folder-by-folder terms.
