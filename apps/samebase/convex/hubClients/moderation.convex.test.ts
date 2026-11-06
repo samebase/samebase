@@ -48,7 +48,6 @@ const clientList = {
     {
       clientId: "cl_preview",
       appId: "gh-81-4c9a75cca717efb68c856f26ba825073-preview",
-      firstParty: true,
       clientName: "pr-12",
       deploymentType: "preview",
       redirectUri: "https://happy-otter-123.convex.site/auth/hub/callback",
@@ -68,7 +67,6 @@ const clientList = {
     {
       clientId: "cl_test",
       appId: "gh-74-4c9a75cca717efb68c856f26ba825073",
-      firstParty: false,
       clientName: "prod",
       deploymentType: "production",
       redirectUri: "https://ideal-dolphin-15.convex.site/auth/hub/callback",
@@ -88,7 +86,6 @@ const clientList = {
     {
       clientId: "cl_laptop",
       appId: "gh-74-4c9a75cca717efb68c856f26ba825073-preview",
-      firstParty: false,
       clientName: "development",
       deploymentType: "development",
       redirectUri: "http://127.0.0.1:3211/auth/hub/callback",
