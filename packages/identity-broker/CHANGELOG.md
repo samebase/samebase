@@ -2,6 +2,9 @@
 
 ## 0.23.0
 
+- `registration.privacy` is required: the hub's privacy notice. The sign-in page links it and
+  `registration.terms` under its card, as Google's user data policy and GDPR articles 13 and 14 ask
+  of the service that passes users' data on.
 - A third-party app's preview or development client shows a consent page before its connector: the
   host that gets the sign-in, the GitHub repository, the deploy, and what the app receives, with
   Continue. It has no Cancel: the browser's Back does that. Production clients go straight to the

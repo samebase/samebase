@@ -34,6 +34,7 @@ export async function createHub() {
       paused: () => process.env["THIRD_PARTY_PAUSED"] === "true",
       moderationKey: () => process.env["HUB_MODERATION_KEY"],
       terms: "https://samebase.com/terms",
+      privacy: "https://samebase.com/privacy",
     },
   });
 }

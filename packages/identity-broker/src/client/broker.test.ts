@@ -850,10 +850,12 @@ describe("authorization code flow with an OAuth connector", () => {
       "It gets your name, picture, and email address. auth.test has not reviewed this app.",
     );
     expect(html).toContain("Continue with Fake");
-    // Continue, the repository and the attribution in new tabs, and no script. Nothing sends the
-    // user to the host, which a stranger's link may have chosen (RFC 9700 section 4.11.2).
-    expect(html.match(/<a /g)).toHaveLength(3);
-    expect(html.match(/target="_blank"/g)).toHaveLength(2);
+    // Continue, and in new tabs the host, the repository, and the attribution; no script, and no
+    // privacy notice or terms without a hub. Nothing sends the user to the host by itself, and a
+    // stranger's link may have chosen it (RFC 9700 section 4.11.2).
+    expect(html.match(/<a /g)).toHaveLength(4);
+    expect(html.match(/target="_blank"/g)).toHaveLength(3);
+    expect(html).not.toContain(">Privacy</a>");
     expect(html).not.toContain("<script");
     expect(html).not.toContain(REDIRECT_URI);
     expect(html).not.toContain("Stranger");
@@ -889,7 +891,7 @@ describe("authorization code flow with an OAuth connector", () => {
     expect(html).toContain('<p class="sub">Preview dev of <a href="https://github.com/octo-org');
     // The host breaks only after a dot, never at the hyphen of `pr-12`.
     expect(html).toContain(
-      '<h1>Sign in to<br><span class="host"><span class="label">pr-12.</span><wbr><span class="label">stranger.</span><wbr><span class="label">test</span></span></h1>',
+      '<h1>Sign in to<br><a class="host" href="https://pr-12.stranger.test" target="_blank" rel="noopener noreferrer"><span class="label">pr-12.</span><wbr><span class="label">stranger.</span><wbr><span class="label">test</span></a></h1>',
     );
 
     const production = await h.registerClient({

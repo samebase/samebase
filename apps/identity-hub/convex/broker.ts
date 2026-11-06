@@ -23,5 +23,6 @@ export const broker = defineIdentityBroker({
     paused: () => env.THIRD_PARTY_PAUSED === "true",
     moderationKey: () => env.HUB_MODERATION_KEY,
     terms: "https://samebase.com/terms",
+    privacy: "https://samebase.com/privacy",
   },
 });

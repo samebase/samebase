@@ -150,6 +150,11 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
   );
   const thirdPartyConnector =
     registration === undefined ? undefined : connectors.get(registration.thirdPartyConnector);
+  /** The hub's privacy notice and terms, under its sign-in page. */
+  const legal =
+    registration === undefined
+      ? null
+      : { privacy: registration.privacy, terms: registration.terms };
   if (registration !== undefined && thirdPartyConnector?.reserved !== true) {
     throw new Error("registration.thirdPartyConnector must name a reserved connector");
   }
@@ -413,6 +418,7 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
       to: {
         kind: "consent",
         host: redirect.host,
+        origin: redirect.origin,
         loopback: LOOPBACK_HOSTS.has(redirect.hostname),
         deployment,
         repository: client.registeredBy.githubRepository,
@@ -426,6 +432,7 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
           href: continueHref(args.requestId, connector),
         },
       ],
+      legal,
     });
   }
 
@@ -555,6 +562,7 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
         provider: connector.provider,
         href: continueHref(requestId, connector),
       })),
+      legal,
     });
     page.headers.append("Set-Cookie", setCookie);
     return page;

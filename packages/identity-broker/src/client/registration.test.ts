@@ -41,6 +41,7 @@ function hubRegistration(thirdPartyConnector: string, paused: () => boolean = ()
     paused,
     moderationKey: () => undefined,
     terms: "https://samebase.com/terms",
+    privacy: "https://samebase.com/privacy",
   };
 }
 
@@ -499,6 +500,20 @@ describe("RFC 7592 client management", () => {
       removeAt: Date.now() + LEASE_MS,
     });
     expect((await readClient(h, production.client_id))?.removeAt).toBeUndefined();
+  });
+
+  test("a hub's consent page links its privacy notice and terms", async () => {
+    const h = await hub();
+    const client = await register(h, { appId: "gh-1-app-p", deploymentType: "preview" });
+    const { challenge } = await pkce();
+    const page = await h.fetchBroker(authorizeUrl(h, client.client_id, challenge));
+    const html = await page.text();
+    expect(html).toContain(
+      '<a href="https://samebase.com/privacy" target="_blank" rel="noopener noreferrer">Privacy</a>',
+    );
+    expect(html).toContain(
+      '<a href="https://samebase.com/terms" target="_blank" rel="noopener noreferrer">Terms</a>',
+    );
   });
 
   test("a sign-in moves the date in the redemption", async () => {

@@ -19,18 +19,20 @@ const STYLE = `
       --button: #131314; --button-line: #8e918f; --button-fg: #e3e3e3; --button-hover: #1f1f20; }
   }
   body { margin: 0; min-height: 100vh; display: grid; place-items: center; color: var(--fg);
-    background: var(--bg); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+    background: var(--bg); font: 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
   .frame { width: calc(100% - 2rem); max-width: 25rem; margin: 1.5rem 0; }
   main { box-sizing: border-box; padding: 2rem 1.75rem 1.5rem; background: var(--card);
     border: 1px solid var(--line); border-radius: 16px; }
   h1 { margin: 0; font-size: 1.25rem; line-height: 1.35; font-weight: 400;
     letter-spacing: -0.01em; overflow-wrap: anywhere; }
   h1 strong { font-weight: 600; }
-  .host { font: 600 1.0625rem/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    letter-spacing: 0; }
-  .attribution { display: block; width: fit-content; margin: 0.75rem 0 0 auto; padding: 0.25rem 0;
-    color: var(--muted); font-size: 0.75rem; text-decoration: none; }
-  .attribution:hover { color: var(--fg); }
+  .host { font-weight: 600; text-decoration-color: var(--line); }
+  .host:hover { text-decoration-color: currentColor; }
+  .below { display: flex; gap: 1rem; align-items: center; margin-top: 0.75rem;
+    font-size: 0.75rem; }
+  .below a { padding: 0.25rem 0; color: var(--muted); text-decoration: none; }
+  .below a:hover { color: var(--fg); }
+  .attribution { margin-left: auto; }
   .attribution svg { width: 0.75em; height: 0.75em; margin-right: 0.15em; vertical-align: baseline; }
   p { margin: 0; }
   ::selection { color: var(--card); background: var(--fg); }
@@ -52,7 +54,16 @@ const STYLE = `
 /** Under the card of every page: the broker is Samebase's, as on samebase.com. */
 const ATTRIBUTION = `<a class="attribution" href="https://samebase.com" target="_blank" rel="noopener noreferrer">Managed with <b><svg viewBox="0 0 60 60" shape-rendering="crispEdges" aria-hidden="true"><path d="M0 0h60v60H0z M20 20h20v20H20z" fill="currentColor" fill-rule="evenodd"/></svg>Samebase</b></a>`;
 
-export function page(title: string, body: string, status = 200): Response {
+/** The privacy notice and terms of a hub's sign-in service, linked under its sign-in page. */
+export type Legal = { privacy: string; terms: string };
+
+function legalLinks(legal: Legal | null) {
+  return legal === null
+    ? ""
+    : `<a href="${escape(legal.privacy)}" target="_blank" rel="noopener noreferrer">Privacy</a><a href="${escape(legal.terms)}" target="_blank" rel="noopener noreferrer">Terms</a>`;
+}
+
+export function page(title: string, body: string, status: number, legal: Legal | null): Response {
   const html = `<!doctype html>
 <html lang="en">
 <head>
@@ -62,7 +73,7 @@ export function page(title: string, body: string, status = 200): Response {
 <title>${escape(title)}</title>
 <style>${STYLE}</style>
 </head>
-<body><div class="frame"><main>${body}</main>${ATTRIBUTION}</div></body>
+<body><div class="frame"><main>${body}</main><div class="below">${legalLinks(legal)}${ATTRIBUTION}</div></div></body>
 </html>`;
   return new Response(html, {
     status,
@@ -127,6 +138,11 @@ function hostMarkup(host: string) {
 export type Consent = {
   /** The host of the client's return address, with its port. */
   host: string;
+  /**
+   * The origin of that address. The host links it in a new tab, so the user can look at the app;
+   * nothing sends the user there by itself.
+   */
+  origin: string;
   /** A loopback return address: the sign-in ends on the user's own computer. */
   loopback: boolean;
   deployment: { kind: "preview"; stage: string } | { kind: "development" };
@@ -146,14 +162,18 @@ export type Consent = {
 export function signInPage(args: {
   to: { kind: "app"; name: string } | ({ kind: "consent" } & Consent);
   connectors: Array<{ label: string; provider: string; href: string }>;
+  /** A hub's privacy notice and terms; null for a broker with no hub mode. */
+  legal: Legal | null;
 }): Response {
   const buttons = args.connectors.map(connectorButton).join("\n");
-  const { to } = args;
+  const { to, legal } = args;
   if (to.kind === "app") {
     return page(
       `Sign in to ${to.name}`,
       `<h1>Sign in to <strong>${escape(to.name)}</strong></h1>
 <div class="actions">${buttons}</div>`,
+      200,
+      legal,
     );
   }
   // GitHub names the repository; it opens in a new tab, so the sign-in stays where it is.
@@ -171,13 +191,20 @@ export function signInPage(args: {
   }
   return page(
     `Sign in to ${to.host}`,
-    `<h1>Sign in to<br><span class="host">${hostMarkup(to.host)}</span></h1>
+    `<h1>Sign in to<br><a class="host" href="${escape(to.origin)}" target="_blank" rel="noopener noreferrer">${hostMarkup(to.host)}</a></h1>
 <p class="sub">${from}</p>
 <div class="actions">${buttons}</div>
 <p class="fine">${escape(released(to.scopes))} ${escape(to.issuerHost)} has not reviewed this app.</p>`,
+    200,
+    legal,
   );
 }
 
 export function errorPage(title: string, message: string, status = 400): Response {
-  return page(title, `<h1>${escape(title)}</h1><p class="sub">${escape(message)}</p>`, status);
+  return page(
+    title,
+    `<h1>${escape(title)}</h1><p class="sub">${escape(message)}</p>`,
+    status,
+    null,
+  );
 }

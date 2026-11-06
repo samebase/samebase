@@ -6,9 +6,11 @@ import { errorPage, signInPage, type Consent } from "./html.js";
  */
 
 const google = [{ label: "Google", provider: "google", href: "#google" }];
+const legal = { privacy: "#privacy", terms: "#terms" };
 
 const preview: Consent = {
   host: "pr-12.weather-app.example.com",
+  origin: "https://pr-12.weather-app.example.com",
   loopback: false,
   deployment: { kind: "preview", stage: "pr-12" },
   repository: "octo-org/weather-app",
@@ -16,32 +18,30 @@ const preview: Consent = {
   issuerHost: "auth.samebase.com",
 };
 
+const consent = (to: Partial<Consent>) =>
+  signInPage({ to: { kind: "consent", ...preview, ...to }, connectors: google, legal });
+
 export const pageStates: Record<string, () => Response> = {
   // One of the hub's own apps: every open connector, and no consent.
   "sign-in": () =>
     signInPage({
       to: { kind: "app", name: "Samebase" },
       connectors: [...google, { label: "GitHub", provider: "github", href: "#github" }],
+      legal,
     }),
-  "consent-preview": () => signInPage({ to: { kind: "consent", ...preview }, connectors: google }),
+  "consent-preview": () => consent({}),
   "consent-laptop": () =>
-    signInPage({
-      to: {
-        kind: "consent",
-        ...preview,
-        host: "localhost:5173",
-        loopback: true,
-        deployment: { kind: "development" },
-      },
-      connectors: google,
+    consent({
+      host: "localhost:5173",
+      origin: "http://localhost:5173",
+      loopback: true,
+      deployment: { kind: "development" },
     }),
-  "consent-openid-only": () =>
-    signInPage({ to: { kind: "consent", ...preview, scopes: ["openid"] }, connectors: google }),
+  "consent-openid-only": () => consent({ scopes: ["openid"] }),
   // A DNS label is at most 63 characters: the longest one that a host can hold.
-  "consent-long-host": () =>
-    signInPage({
-      to: { kind: "consent", ...preview, host: `pr-12-${"a".repeat(53)}-app.example.com` },
-      connectors: google,
-    }),
+  "consent-long-host": () => {
+    const host = `pr-12-${"a".repeat(53)}-app.example.com`;
+    return consent({ host, origin: `https://${host}` });
+  },
   error: () => errorPage("Sign-in is off", "Sign-in for this app is turned off.", 403),
 };
