@@ -345,10 +345,10 @@ call.
     values, `status` is `off`, and `issuer`, `clientId`, and `clientSecret` are the `no-hub` values
     of a checkout without a hub. A production or preview run without a GitHub OIDC token, such as on
     a laptop, does the same, and logs no warning.
-  - `required: true` makes the run fail when the client ends with any `status` but `on`: a refusal,
-    a hub that does not answer a registration, or a suspended client. Set it where sign-in is the
-    product, so a deploy never ships guest sign-in with a green run. A renewal that gets no answer
-    keeps the saved client and does not fail.
+  - `required: true` makes the run fail unless the hub confirms the client in this run: a refusal, a
+    hub that does not answer a registration or a renewal, or a suspended client fails it. Set it
+    where sign-in is the product, so a deploy never ships guest sign-in, or a client that the hub
+    stopped, with a green run. A failed run saves nothing, and the next run asks the hub again.
   - `status` is `suspended` when the hub suspended the client. The state keeps the client and its
     values, so the client works again when the hub lifts the suspension.
   - `Convex.SharedHubClient.variables(client)` gives `issuer`, `clientId`, and `clientSecret` for

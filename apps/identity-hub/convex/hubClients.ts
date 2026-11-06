@@ -644,11 +644,18 @@ export const createDevelopmentClient = internalMutation({
   },
 });
 
-/** Refuses a blocked or limited request, else null. It counts an admitted one. */
+/**
+ * Refuses a paused, blocked, or limited request, else null. It counts an admitted one. The pause
+ * (`THIRD_PARTY_PAUSED`) stops third-party repositories only, so the hub's own apps keep getting
+ * clients.
+ */
 async function admit(
   ctx: ActionCtx,
   ids: { githubRepositoryDatabaseId: string; githubOwnerId: string },
 ) {
+  if (isPaused() && !OWN_REPOSITORY_IDS.has(ids.githubRepositoryDatabaseId)) {
+    return notAllowed("paused");
+  }
   const admission = await ctx.runMutation(internal.hubClients.admitRequest, {
     githubRepositoryDatabaseId: ids.githubRepositoryDatabaseId,
     githubOwnerId: ids.githubOwnerId,
@@ -798,10 +805,6 @@ async function registerLaptop(ctx: ActionCtx, request: Request, initialAccessTok
  * action's memory: they go to the caller and to nothing else.
  */
 export const registerHubClient = httpAction(async (ctx, request) => {
-  if (isPaused()) {
-    return notAllowed("paused");
-  }
-
   const bearer = /^Bearer\s+(\S+)$/i.exec(request.headers.get("Authorization") ?? "")?.[1];
   // A JWT has three parts; the initial access token is base64url, which has no dot.
   const parts = bearer?.split(".").length;

@@ -811,10 +811,12 @@ describe("a first-party app of a tenant", () => {
       connector_account_id: "42",
     });
 
+    // Naming the reserved connector goes to the one open connector, never to the reserved one.
     const reserved = await h.fetchBroker(
       authorizeUrl(h, client.client_id, challenge, { connector: "fake-apps" }),
     );
-    expect(await reserved.text()).not.toContain("fake-apps");
+    const upstream = new URL(reserved.headers.get("location") ?? "");
+    expect(upstream.searchParams.get("redirect_uri")).toBe(`${h.issuer}/connectors/fake/callback`);
   });
 
   test("an app keeps what it was created as: the other kind of registration answers app_taken", async () => {

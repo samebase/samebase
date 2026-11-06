@@ -548,16 +548,19 @@ describe("Convex.SharedHubClient", () => {
   );
 
   test.provider(
-    "a required client fails the run when suspended, and keeps a client a hub outage left",
+    "a required client fails the run when suspended, and when the hub then does not answer",
     (stack) =>
       Effect.gen(function* () {
         const fake = new FakeServices().install();
         expect(yield* stack.deploy(client(props({ required: true })))).toEqual(issued());
-        fake.hub = () => new Response(null, { status: 500 });
-        expect(yield* stack.deploy(client(props({ required: true })))).toEqual(issued());
         fake.hub = () => new Response(null, { status: 403 });
-        const exit = yield* Effect.exit(stack.deploy(client(props({ required: true }))));
-        expect(String(exit)).toContain("is required and has no working client (suspended)");
+        const suspended = yield* Effect.exit(stack.deploy(client(props({ required: true }))));
+        expect(String(suspended)).toContain("is required and has no working client (suspended)");
+        // The failed run saved nothing, so the state still says `on`: a run that the hub does not
+        // answer must not pass with it.
+        fake.hub = () => new Response(null, { status: 500 });
+        const outage = yield* Effect.exit(stack.deploy(client(props({ required: true }))));
+        expect(String(outage)).toContain("is required, and the hub did not confirm its client");
         fake.hub = undefined;
         expect(yield* stack.deploy(client(props({ required: true })))).toEqual(issued());
       }),

@@ -2,9 +2,9 @@
 
 ## 0.30.0
 
-- `Convex.SharedHubClient` takes `required`. With `true`, the run fails when the client ends with
-  any status but `on`: a refused or unanswered registration, or a suspended client. Without it, the
-  run gives the off values, as before.
+- `Convex.SharedHubClient` takes `required`. With `true`, the run fails unless the hub confirms the
+  client in this run: a refused or unanswered registration or renewal, or a suspended client, fails
+  it. Without it, the run gives the off values or keeps the saved client, as before.
 - Add `Convex.LocalDeployment`, which writes the `env` of the logged-in local deployment of a
   folder, from its `.convex/local/default/config.json`, with its admin key. It never creates,
   pushes, or deletes. `Convex.LocalDeployment.of(rootDir?)` gives its `siteUrl` to the stack's

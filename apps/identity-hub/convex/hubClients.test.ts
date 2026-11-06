@@ -246,17 +246,24 @@ describe("POST /hub-clients", () => {
   });
 
   describe("the pause", () => {
-    it("refuses every request while THIRD_PARTY_PAUSED is true, before it reads the token", async () => {
+    it("refuses a third-party repository while THIRD_PARTY_PAUSED is true, before it reads the file", async () => {
       const t = makeConvexTest();
       vi.stubEnv("THIRD_PARTY_PAUSED", "true");
       const fileRequests = stubProviders();
 
-      const response = await postHubClient(t, "not-a-token");
+      const response = await postHubClient(t, await signToken());
 
       expect(response.status).toBe(403);
       expect(await response.json()).toEqual({ error: "not_allowed", reason: "paused" });
-      expect(fetch).not.toHaveBeenCalled();
       expect(fileRequests).toEqual([]);
+      expect(await readRateLimits(t)).toEqual([]);
+    });
+
+    it("lets an own repository register while THIRD_PARTY_PAUSED is true", async () => {
+      const t = makeConvexTest();
+      vi.stubEnv("THIRD_PARTY_PAUSED", "true");
+      const own = await createClient(t, { repository_id: "1021726325" });
+      expect(own.client_id).toMatch(/^cl_/);
     });
   });
 
