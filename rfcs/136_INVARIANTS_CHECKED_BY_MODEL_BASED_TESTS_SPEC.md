@@ -30,7 +30,7 @@ commit engine and the broker). Reviewed by Codex (test design) before the build.
 | Finding        | Invariant                       | Story                                                                                                                  | Found at                   |
 | -------------- | ------------------------------- | ---------------------------------------------------------------------------------------------------------------------- | -------------------------- |
 | F3             | `newOwnersOnlyForSuccess`       | One run of a new owner whose host has no verification file: the new-owners count grew by 1.                            | 25 runs                    |
-| F3's write     | `refusedRegistrationRateLimits` | The same run set `newOwnersWindowStartedAt` on the owner's row.                                                        | regression of the F3 story |
+| F3's write     | `refusedRegistrationRateLimits` | The same run set `newOwnersWindowStartedAt` on the owner's row.                                                        | 25 runs                    |
 | Refused writes | `refusedRegistrationRows`       | After a transfer, a run that a block refused during its host check still deleted the old owner's initial access token. | 275 runs                   |
 | F5             | `ownerFollowsNewestProof`       | Transfer, a run of the new owner, then the old owner's retained token: the tenant's owner moved back.                  | 170 runs                   |
 | F5, laptop     | `laptopTokenScope`              | The same replay gave the old owner a fresh initial access token, which registered a development client.                | regression of the F5 story |
@@ -54,7 +54,8 @@ commit engine and the broker). Reviewed by Codex (test design) before the build.
 - Self-delete and cap eviction remove the client's refresh grants. API authorization of a blocked
   app answers 403 before it goes to the provider.
 
-After the fixes: 3,000 stories per property from seed 136 found nothing.
+After the fixes: 3,000 stories per property from seed 136, and 2,000 from each of the seeds 1, 2,
+and 3, found nothing.
 
 ## Deploy
 
