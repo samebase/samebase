@@ -87,13 +87,16 @@ answer is the connectors the client may enroll in and use, the API resources (by
 may authorize, whether the sign-in page asks for consent, and whether it is paused.
 
 The policy runs in the host's HTTP action, once per request, at registration, `/authorize`,
-`/continue`, the connector callback (before the request is claimed), code exchange, API
-authorization, and provider refresh. The mutation that enforces the decision receives it with the
-owner the policy decided on, and refuses when its rows say otherwise: the tenant's owner changed, or
-the request's set, the client's enrollment, or the decision no longer holds the connector. A policy
-that throws or answers a malformed value refuses the request (`503 temporarily_unavailable`, or an
-error page) and writes nothing. Without hub mode there is no policy: the host is its own, and every
-client may use its enrollment and every resource, with no consent and no pause.
+`/continue`, the connector callback (before the request is claimed, and again after the provider
+answered, before the code is issued), code exchange, API authorization (at the start and after the
+provider answered), and provider refresh. The mutation that enforces the decision receives it with
+the owner the policy decided on, and refuses when its rows say otherwise: the tenant's owner
+changed, a block landed, or the request's set, the client's enrollment, or the decision no longer
+holds the connector. A policy that throws or answers a malformed value refuses the request
+(`503 temporarily_unavailable`, or an error page before the user continued, or an authorization
+error at the return address after) and writes nothing. Without hub mode there is no policy: the host
+is its own, and every client may use its enrollment and every resource, with no consent and no
+pause.
 
 A pause refuses new registrations, sign-ins, API authorizations, callback completions, code
 exchanges, and refreshes before the provider is called. It leaves client reads and renewals,
@@ -263,23 +266,11 @@ provider.
 - Subjects are public (OIDC Core section 8), not pairwise, against the consideration of section
   17.3: every app can correlate a user with every other app and with the provider account. See
   Subjects for the reasons.
-- Clients inherit the trust of their app: a first-party app's deployments skip the chooser and
-  consent, because every deployment of a first-party app registers at deploy time.
-- A third-party app's preview or development client first shows the hub's consent page: the host
-  that gets the sign-in, the GitHub repository that registered the client, the deploy, and what the
-  app receives. The app's own name is not on it: client metadata is self-asserted (RFC 7591 section
-  5), and the host and repository are what the hub checked. Continue goes to the app's one
-  connector. It has no Cancel that answers `access_denied` at the host (RFC 6749 section 4.1.2.1): a
-  stranger's link may have brought the user here, and a user who declines may distrust the host (RFC
-  9700 section 4.11.2). The browser's Back leaves; the app learns nothing, and the request expires.
-  A third-party production client still shows no page of the hub: it goes straight to its connector,
-  and the connector's own screen names the hub, not the app. This falls short of RFC 6749 section
-  10.12, which asks that a client get no authorization without the user's awareness of it, and it is
-  the confused deputy shape of the MCP security guide. A host that wants this accepts it knowingly
-  and sets `selectAccount`, so the provider shows its account screen on each sign-in and a user is
-  never passed through with no click. Blocking the app's tenant is the answer to a bad app.
-- A refusal before sign-in goes to an error page for a third-party app, not to its redirect URI,
-  because nobody reviewed that URI (RFC 9700 section 4.11.2).
+- The sign-in page has no Cancel that answers `access_denied` at the host (RFC 6749 section
+  4.1.2.1): a stranger's link may have brought the user here, and a user who declines may distrust
+  the host (RFC 9700 section 4.11.2). The browser's Back leaves; the app learns nothing, and the
+  request expires. The app's own name is not on the page: client metadata is self-asserted (RFC 7591
+  section 5), and the host and the repository are what the hub checked.
 - A read of a client (RFC 7592 section 2.1) renews it, and answers without `client_secret` and
   `registration_access_token`, which the section includes. The hub keeps only their hashes, and the
   client already holds both. No request changes a secret: a client that lost it registers a new

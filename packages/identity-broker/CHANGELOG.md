@@ -33,8 +33,14 @@ One hub model (RFC 137): connectors by enrollment, and the policy as hub code.
   return address.
 - A pause refuses registration, sign-in, API authorization, callback completion, code exchange, and
   refresh before the provider; reads, renewals, revocation, self-delete, and moderation stay. A
-  refresh has two policy evaluations, admission and release; a refused release keeps the rotation
-  and answers `401 invalid_client`.
+  callback completion decides the policy again after the provider answered, and the mutation that
+  issues the code reads the blocks, the owner, the enrollment, and the request's set once more. A
+  refresh has two policy evaluations, admission and release; a refused release, also one whose read
+  of the client failed, keeps the rotation and answers `401 invalid_client`.
+- A bound browser that comes back to a callback too late, or while the policy fails, or whose client
+  is gone, goes back to the app with an authorization error instead of a page of the hub.
+- A log of a provider failure names a standard OAuth error code or the exception's class, never the
+  provider's text.
 - The sign-in budget per tenant applies to every app.
 - Model-based tests: property A gains `policyAtRegistration` and `enrollmentImmutable`, property B
   the pause and a withdrawn resource under `noTokenAfterStop`, and property C (sign-in) proves

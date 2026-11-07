@@ -1,6 +1,8 @@
 # RFC 135: Every row and every rule in the broker; the hub holds no table
 
-Decided 2026-11-06. Builds on RFC 134. Reviewed by Codex (data model) before the build.
+Status: Superseded by [RFC 137](../rfcs/137_ONE_HUB_MODEL_SPEC.md), which restates what stays and
+amends this one: the hub supplies decisions as code. Historical: decided 2026-11-06. Builds on
+RFC 134. Reviewed by Codex (data model) before the build.
 
 ## Decision
 
