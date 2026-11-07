@@ -69,6 +69,8 @@ const production = {
     app: "my-app",
   },
   connectors: ["github", "google"],
+  ownerId: "65",
+  signInPage: "shown",
 } as const;
 
 async function renderPage() {

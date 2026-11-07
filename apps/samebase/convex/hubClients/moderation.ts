@@ -73,9 +73,42 @@ const vClient = object({
   ),
   /** The connectors the client's sign-ins may use. */
   connectors: array(string()),
+  /** The repository's owner that the hub recorded last, which an app's exemption binds to. */
+  ownerId: union(string(), v.null()),
+  /**
+  Whether the hub shows its sign-in page to this client's users, by the hub's policy: `shown`, or
+  what skips it. Null when the hub could not decide.
+  */
+  signInPage: union(
+    literal("shown"),
+    literal("every_app"),
+    literal("this_app"),
+    literal("policy"),
+    v.null(),
+  ),
 });
 
 const vClientList = object({ clients: array(vClient), limitReached: boolean() });
+
+/** The exemptions from the hub's sign-in page. */
+const vSignInPageList = object({
+  everyApp: union(object({ reason: string() }), v.null()),
+  apps: array(
+    object({
+      appId: string(),
+      ownerId: string(),
+      reason: string(),
+      repository: union(string(), v.null()),
+      app: union(string(), v.null()),
+      production: union(boolean(), v.null()),
+    }),
+  ),
+});
+
+const vSignInPageTarget = union(
+  object({ scope: literal("every_app") }),
+  object({ scope: literal("app"), appId: string(), expectedOwnerId: string() }),
+);
 
 const vRepositoryClients = object({ clients: array(vClient) });
 
@@ -85,13 +118,29 @@ const vOff = object({ status: literal("off") });
 
 /**
 The hub's moderation endpoints, or null while `HUB_MODERATION_KEY` is unset: the admin page then
-says that moderation is off. The key can only read registration counts, clients, and blocks, set
-blocks, and delete clients at the hub. samebase.com decides who may use it: an admin for every app,
+says that moderation is off. The key can only read registration counts, clients, blocks, and
+exemptions from the sign-in page, set blocks and exemptions, and delete clients at the hub. samebase.com decides who may use it: an admin for every app,
 a member of an organization for the clients of its connected repositories.
 */
 function readModeration() {
   const key = env.HUB_MODERATION_KEY?.trim();
   return key ? { issuer: env.HUB_ISSUER, key } : null;
+}
+
+/** One request to a moderation endpoint, with the key. */
+async function fetchHub(
+  moderation: { issuer: string; key: string },
+  request: { method: "GET" | "POST" | "DELETE"; path: string; body?: unknown },
+): Promise<Response> {
+  return await fetch(`${moderation.issuer}${request.path}`, {
+    method: request.method,
+    headers: {
+      Authorization: `Bearer ${moderation.key}`,
+      "Content-Type": "application/json",
+    },
+    ...(request.body === undefined ? {} : { body: JSON.stringify(request.body) }),
+    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+  });
 }
 
 /** The validated answer of one moderation endpoint. A refusal or a bad answer throws. */
@@ -104,15 +153,7 @@ async function callHub<T>(
     body?: unknown;
   },
 ): Promise<T> {
-  const response = await fetch(`${moderation.issuer}${request.path}`, {
-    method: request.method,
-    headers: {
-      Authorization: `Bearer ${moderation.key}`,
-      "Content-Type": "application/json",
-    },
-    ...(request.body === undefined ? {} : { body: JSON.stringify(request.body) }),
-    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-  });
+  const response = await fetchHub(moderation, request);
   const body: unknown = response.ok ? await response.json() : null;
   if (!validate(request.validator, body)) {
     throw new Error(`The identity hub answered ${response.status} without a usable answer.`);
@@ -121,8 +162,9 @@ async function callHub<T>(
 }
 
 /**
-The registration counts of the last day and week, the blocks, the newest block events, and the
-newest clients of every app at the hub, each with who made it.
+The registration counts of the last day and week, the blocks, the newest block events, the
+newest clients of every app at the hub, each with who made it, and the exemptions from the hub's
+sign-in page.
 */
 export const readOverview = action({
   access: "access_admin",
@@ -134,6 +176,7 @@ export const readOverview = action({
       counts: vCounts,
       blockList: vBlockList,
       clientList: vClientList,
+      signInPage: vSignInPageList,
     }),
   ),
   handler: async () => {
@@ -142,12 +185,71 @@ export const readOverview = action({
       return { status: "off" as const };
     }
 
-    const [counts, blockList, clientList] = await Promise.all([
+    const [counts, blockList, clientList, signInPage] = await Promise.all([
       callHub(moderation, { method: "GET", path: "/moderation/counts", validator: vCounts }),
       callHub(moderation, { method: "GET", path: "/moderation/blocks", validator: vBlockList }),
       callHub(moderation, { method: "GET", path: "/moderation/clients", validator: vClientList }),
+      callHub(moderation, {
+        method: "GET",
+        path: "/moderation/sign-in-page",
+        validator: vSignInPageList,
+      }),
     ]);
-    return { status: "on" as const, counts, blockList, clientList };
+    return { status: "on" as const, counts, blockList, clientList, signInPage };
+  },
+});
+
+/**
+Skips (`skip: true`) or shows again the hub's sign-in page for every app or for one app, in the name
+of the signed-in admin. An app's exemption names the repository owner that the admin saw: the hub
+answers `owner_changed` when the repository has another owner now, and `unknown_app` for an app it
+does not have.
+*/
+export const changeSignInPage = action({
+  access: "access_admin",
+  args: { target: vSignInPageTarget, skip: boolean(), reason: string() },
+  returns: union(
+    vOff,
+    object({
+      status: literal("on"),
+      result: union(
+        literal("changed"),
+        literal("unchanged"),
+        literal("owner_changed"),
+        literal("unknown_app"),
+      ),
+    }),
+  ),
+  handler: async (ctx, args) => {
+    const moderation = readModeration();
+    if (moderation === null) {
+      return { status: "off" as const };
+    }
+
+    const response = await fetchHub(moderation, {
+      method: "POST",
+      path: "/moderation/sign-in-page",
+      body: {
+        target: args.target,
+        skip: args.skip,
+        reason: args.reason,
+        adminEmail: ctx.viewer.user.email,
+      },
+    });
+    const body: unknown = await response.json().catch(() => null);
+    if (response.ok && validate(vChangeResult, body)) {
+      return {
+        status: "on" as const,
+        result: body.changed ? ("changed" as const) : ("unchanged" as const),
+      };
+    }
+    if (
+      (response.status === 409 || response.status === 404) &&
+      validate(object({ error: union(literal("owner_changed"), literal("unknown_app")) }), body)
+    ) {
+      return { status: "on" as const, result: body.error };
+    }
+    throw new Error(`The identity hub answered ${response.status} without a usable answer.`);
   },
 });
 
