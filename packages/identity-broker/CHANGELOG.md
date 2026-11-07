@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.26.1
+
+- The card of the broker's pages no longer jumps when the page loads with a browser extension that
+  adds an element to the body, such as LanguageTool: the card owns the first row of the page's grid,
+  and the added element goes into a row below the screen.
+
 ## 0.26.0
 
 Connector grants, set by the hub's administrator (RFC 137 decision 10).

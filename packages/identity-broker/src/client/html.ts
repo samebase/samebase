@@ -18,9 +18,13 @@ const STYLE = `
     :root { --fg: #fafafa; --muted: #a1a1aa; --bg: #09090b; --card: #18181b; --line: #27272a;
       --button: #131314; --button-line: #8e918f; --button-fg: #e3e3e3; --button-hover: #1f1f20; }
   }
-  body { margin: 0; min-height: 100svh; display: grid; place-items: center; color: var(--fg);
-    background: var(--bg); font: 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
-  .frame { width: calc(100% - 2rem); max-width: 25rem; margin: 1.5rem 0; }
+  /* The frame owns the first row, a screen tall. A browser extension that adds an element to the
+     body, as LanguageTool does with a hidden iframe on every page load, gets a row below the
+     screen, and the card does not move. */
+  body { margin: 0; display: grid; grid-template-rows: minmax(100svh, auto); place-items: center;
+    color: var(--fg); background: var(--bg);
+    font: 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  .frame { grid-row: 1; width: calc(100% - 2rem); max-width: 25rem; margin: 1.5rem 0; }
   main { box-sizing: border-box; padding: 2rem 1.75rem 1.5rem; background: var(--card);
     border: 1px solid var(--line); border-radius: 16px; }
   h1 { margin: 0; font-size: 1.25rem; line-height: 1.35; font-weight: 400;
