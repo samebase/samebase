@@ -80,10 +80,14 @@ export function decide(args: {
   configured: string[];
 }): Decision | null {
   const { enrollment, providers, configured } = args;
+  // The one rule (`usableNames`) with no grant: the policy's part, which the mutations fence on.
+  const policyPart = (allowed: string[]) =>
+    usableNames({ requested: enrollment, enrollment, policy: allowed, granted: [], configured });
   if (args.policy === undefined) {
     return {
       paused: false,
-      connectors: enrollment.filter((name) => configured.includes(name)),
+      // The host is its own policy: the enrollment.
+      connectors: policyPart(enrollment),
       resources: providers.map((provider) => provider.resource),
       configured,
     };
@@ -98,9 +102,7 @@ export function decide(args: {
   return {
     ownerId: args.registration.ownerId,
     paused: policy.paused,
-    connectors: enrollment.filter(
-      (name) => policy.connectors.includes(name) && configured.includes(name),
-    ),
+    connectors: policyPart(policy.connectors),
     resources: providers
       .filter((provider) => policy.resources.includes(provider.name))
       .map((provider) => provider.resource),

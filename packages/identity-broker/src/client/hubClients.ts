@@ -3,6 +3,7 @@ import { httpActionGeneric, type GenericActionCtx, type GenericDataModel } from 
 import { v } from "convex/values";
 import { base64url, createLocalJWKSet, errors as joseErrors, jwtVerify } from "jose";
 import type { ComponentApi } from "../component/_generated/component.js";
+import { usableNames } from "../component/connectorRule.js";
 import { evaluate, type Registration } from "./policy.js";
 import { newClientCredentials, type RegistrationConfig } from "./registration.js";
 import { sha256Hex } from "./subject.js";
@@ -317,10 +318,15 @@ export function hubClientsEndpoint(args: {
       app: facts.app,
       production: facts.deploymentType === "production",
     });
-    const policyConnectors = args.connectors.filter((name) => policy.connectors.includes(name));
-    const allowed = args.connectors
-      .filter((name) => policyConnectors.includes(name) || granted.includes(name))
-      .sort();
+    // The one rule (`usableNames`), over the hub's configured connectors: the policy's alone for the
+    // mutation, which reads the grants again, and with the grants for this request's answer.
+    const rule = {
+      requested: args.connectors,
+      enrollment: args.connectors,
+      configured: args.connectors,
+    };
+    const policyConnectors = usableNames({ ...rule, policy: policy.connectors, granted: [] });
+    const allowed = usableNames({ ...rule, policy: policy.connectors, granted }).sort();
     const enrollment = readEnrollment(connectors, allowed);
     if (enrollment === null) {
       return reply(400, { error: "invalid_connectors", allowed });

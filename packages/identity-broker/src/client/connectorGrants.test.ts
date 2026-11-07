@@ -14,10 +14,12 @@ import {
   createHub,
   hubRegistration,
   jsonResponse,
+  LOOPBACK_CALLBACK,
   MODERATION_KEY,
   moderationRequest,
   OWNER_ID,
   postHubClient,
+  PRODUCTION_CALLBACK,
   pullRequestClaims,
   REPOSITORY_ID,
   signToken,
@@ -413,6 +415,52 @@ describe("the connector grants", () => {
     expect(list.clients).toMatchObject([
       { policyConnectors: ["fake"], usableConnectors: ["fake"], grantedConnectors: [] },
     ]);
+  });
+
+  it("refuse an unconfigured connector at both creating mutations, whatever the policy names", async () => {
+    const h = await createHub({ policy: hubPolicy });
+    const production = await registered(h, ["fake"]);
+    const refusal = { ok: false, reason: "invalid_connectors", allowed: ["fake"] };
+
+    // `okta` is in the policy's argument but not among the configured connectors.
+    expect(
+      await h.t.mutation(api.hubClients.createClient, {
+        clientId: "cl_run",
+        secretHash: "secret-hash",
+        registrationTokenHash: "token-hash",
+        githubRepositoryDatabaseId: REPOSITORY_ID,
+        githubOwnerId: OWNER_ID,
+        githubRepository: "octo-org/octo-repo",
+        githubActorId: "12",
+        githubActorLogin: "octocat",
+        commitSha: "sha",
+        proofIssuedAt: Math.floor(Date.now() / 1_000),
+        deployment: { type: "preview", stage: "pr-1" },
+        connectors: ["okta"],
+        policyConnectors: ["fake", "okta"],
+        configuredConnectors: ["fake", "other"],
+        app: "my-app",
+        redirectUri: PRODUCTION_CALLBACK,
+        softwareVersion: "v1",
+      }),
+    ).toEqual(refusal);
+    expect(
+      await h.t.mutation(api.hubClients.createDevelopmentClient, {
+        clientId: "cl_dev",
+        secretHash: "secret-hash",
+        registrationTokenHash: "token-hash",
+        tokenHash: await sha256Hex(production.initial_access_token ?? ""),
+        githubRepositoryDatabaseId: REPOSITORY_ID,
+        githubOwnerId: OWNER_ID,
+        githubRepository: "octo-org/octo-repo",
+        app: "my-app",
+        connectors: ["okta"],
+        policyConnectors: ["fake", "okta"],
+        configuredConnectors: ["fake", "other"],
+        redirectUri: LOOPBACK_CALLBACK,
+        softwareVersion: "v1",
+      }),
+    ).toEqual(refusal);
   });
 
   it("store and offer only what the grants allow when the request is created", async () => {

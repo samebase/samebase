@@ -5,6 +5,7 @@ import { mutation, query, type MutationCtx } from "./_generated/server";
 import type { Doc } from "./_generated/dataModel";
 import { appIdOf, readBlock, tenantIdOf, tenantRow } from "./apps";
 import { grantedTo } from "./connectorGrants";
+import { usableNames } from "./connectorRule";
 import { registerClient } from "./registration";
 import { vRateLimitScope } from "./schema";
 
@@ -62,12 +63,14 @@ async function connectorRefusal(
     tenantOwnerId: args.tenantOwnerId,
     clientOwnerId: args.ownerId,
   });
-  const allowed = [
-    ...new Set([
-      ...allowedBy.policy,
-      ...granted.filter((name) => allowedBy.configured.includes(name)),
-    ]),
-  ].sort();
+  // The one rule (`usableNames`): of the configured connectors, the policy's and the granted ones.
+  const allowed = usableNames({
+    requested: allowedBy.configured,
+    enrollment: allowedBy.configured,
+    policy: allowedBy.policy,
+    granted,
+    configured: allowedBy.configured,
+  }).sort();
   return connectors.every((name) => allowed.includes(name))
     ? null
     : { ok: false as const, reason: "invalid_connectors" as const, allowed };
