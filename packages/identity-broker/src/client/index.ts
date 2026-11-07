@@ -39,7 +39,14 @@ import {
 } from "./responses.js";
 import { hubClientsEndpoint, LOOPBACK_HOSTS } from "./hubClients.js";
 import { moderationEndpoints } from "./moderation.js";
-import { decide, pageShown, policyArg, type Decision, type Registration } from "./policy.js";
+import {
+  decide,
+  pageShown,
+  policyArg,
+  usableNow,
+  type Decision,
+  type Registration,
+} from "./policy.js";
 import {
   newClientCredentials,
   registrationEndpoints,
@@ -457,17 +464,17 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
     const freshLogin = rest.value.prompt.includes("login") || rest.value.maxAge !== undefined;
     const scopes = SCOPES.filter((scope) => rest.value.scopes.includes(scope));
     // The set of the request: the connectors the app named, else every one the client may use
-    // now. A name outside the enrollment is a request error; an enrolled one that the policy no
-    // longer allows is not offered, and a set with none left is a stopped sign-in.
+    // now (what the policy gives, and what the admin granted its app). A name outside the
+    // enrollment is a request error; an enrolled one that neither allows now is not offered, and
+    // a set with none left is a stopped sign-in.
     const named = rest.value.connectors;
     const notEnrolled = named.find((name) => !client.connectors.includes(name));
     if (notEnrolled !== undefined) {
       return refusePage(`This client is not enrolled in the connector "${notEnrolled}".`);
     }
+    const usable = usableNow(decision, client.connectors, found.granted);
     const offered = connectorsNamed(
-      named.length === 0
-        ? decision.connectors
-        : named.filter((name) => decision.connectors.includes(name)),
+      named.length === 0 ? usable : named.filter((name) => usable.includes(name)),
     );
     if (offered.length === 0) {
       return offPage();
@@ -605,7 +612,7 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
     if (decision.paused) {
       return refuse("temporarily_unavailable", "Sign-in is paused.");
     }
-    if (!decision.connectors.includes(name)) {
+    if (!usableNow(decision, found.client.connectors, found.granted).includes(name)) {
       return refuse("access_denied", "That sign-in method is no longer available.");
     }
     return await startConnector(ctx, {
@@ -996,7 +1003,12 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
             connectors: [...connectors.keys()],
           }),
         });
-        moderationEndpoints({ component, registration, path }).addRoutes(http);
+        moderationEndpoints({
+          component,
+          registration,
+          connectors: [...connectors.keys()],
+          path,
+        }).addRoutes(http);
       }
     },
 

@@ -99,6 +99,17 @@ export function decide(args: {
   };
 }
 
+/**
+ * The connectors a client may use now, as the host sees them: its enrollment, of those the
+ * decision's policy gives or that the hub's administrator granted its app (`granted`, read with the
+ * client's facts). The mutation that moves a sign-in on decides this again with the grants of its
+ * own transaction (`usableConnectors` in src/component/policy.ts), so `decision.connectors` stays
+ * the policy's part alone.
+ */
+export function usableNow(decision: Decision, enrollment: string[], granted: string[]): string[] {
+  return enrollment.filter((name) => decision.connectors.includes(name) || granted.includes(name));
+}
+
 /** The decision as a mutation takes it: the fields of `vPolicyDecision`, nothing wider. */
 export function policyArg(decision: Decision) {
   return {

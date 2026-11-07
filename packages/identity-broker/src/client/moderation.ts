@@ -12,10 +12,11 @@ import { evaluate, pageShown } from "./policy.js";
 import type { RegistrationConfig } from "./registration.js";
 import { sha256Hex } from "./subject.js";
 
-// `/moderation/*`: the registration counts, the clients with who made them, the blocks, and the
-// exemptions from the sign-in page, for the hub's administrator page (samebase.com's admin page
-// for the shared hub). Every request needs the moderation key. The rows are in
-// src/component/moderation.ts and src/component/signInPage.ts.
+// `/moderation/*`: the registration counts, the clients with who made them, the blocks, the
+// exemptions from the sign-in page, and the connector grants, for the hub's administrator page
+// (samebase.com's admin page for the shared hub). Every request needs the moderation key. The rows
+// are in src/component/moderation.ts, src/component/signInPage.ts, and
+// src/component/connectorGrants.ts.
 
 const { boolean, literal, object, string, union } = v;
 
@@ -45,6 +46,20 @@ const vSignInPageChange = object({
     object({ scope: literal("app"), appId: string(), expectedOwnerId: string() }),
   ),
   skip: boolean(),
+  reason: string(),
+  adminEmail: string(),
+});
+
+/**
+ * The body of `POST /moderation/connector-grants`: grant (`grant: true`) or revoke one connector of
+ * one app. It names the owner that the admin saw: the tenant's recorded owner to grant, the row's
+ * owner to revoke.
+ */
+const vConnectorGrantChange = object({
+  appId: string(),
+  connector: string(),
+  expectedOwnerId: string(),
+  grant: boolean(),
   reason: string(),
   adminEmail: string(),
 });
@@ -92,31 +107,78 @@ function readSignInPageChange(body: unknown) {
     : null;
 }
 
+/** The change, if its reason and admin are given and it names an app and a GitHub owner id. */
+function readConnectorGrantChange(body: unknown) {
+  if (!validate(vConnectorGrantChange, body)) {
+    return null;
+  }
+  const reason = body.reason.trim();
+  const adminEmail = body.adminEmail.trim();
+  return body.appId !== "" &&
+    /^[1-9][0-9]*$/.test(body.expectedOwnerId) &&
+    reason !== "" &&
+    reason.length <= MAX_REASON_LENGTH &&
+    adminEmail !== "" &&
+    adminEmail.length <= MAX_EMAIL_LENGTH
+    ? {
+        appId: body.appId,
+        connector: body.connector,
+        expectedOwnerId: body.expectedOwnerId,
+        grant: body.grant,
+        reason,
+        adminEmail,
+      }
+    : null;
+}
+
 export function moderationEndpoints(args: {
   component: ComponentApi;
   registration: RegistrationConfig;
+  /** The names of the hub's connectors, the only ones a grant may name. */
+  connectors: string[];
   path: (suffix: string) => string;
 }) {
-  const { component, registration, path } = args;
+  const { component, registration, connectors, path } = args;
   const clientsPrefix = path("/moderation/clients/");
 
   /**
-   * A listed client with the tenant's recorded owner and its sign-in page, by the rule that
-   * `/authorize` applies (`pageShown`): `shown`, or skipped by the `every_app` or the `this_app`
-   * exemption. Null when the client cannot sign in at all: the policy has no facts or failed.
+   * A listed client with the tenant's recorded owner, its sign-in page by the rule that
+   * `/authorize` applies (`pageShown`: `shown`, or skipped by the `every_app` or the `this_app`
+   * exemption), and its connectors by the rule that every step of a sign-in applies: the hub's
+   * connectors that the policy gives it (`policyConnectors`), the enrolled ones it may use now
+   * (`usableConnectors`), and those of them that only a grant allows (`grantedConnectors`). The
+   * page and the connector lists are null when the client cannot sign in at all: the policy has no
+   * facts or failed.
    */
   function clientAnswer(entry: ClientEntry) {
     const policy =
       entry.registration === null ? null : evaluate(registration.policy, entry.registration);
-    const signInPage =
-      policy === null
-        ? null
-        : pageShown(entry.exemption)
-          ? ("shown" as const)
-          : entry.exemption.everyApp
-            ? ("every_app" as const)
-            : ("this_app" as const);
-    return { ...entry.client, ownerId: entry.ownerId, signInPage };
+    if (policy === null) {
+      return {
+        ...entry.client,
+        ownerId: entry.ownerId,
+        signInPage: null,
+        policyConnectors: null,
+        usableConnectors: null,
+        grantedConnectors: null,
+      };
+    }
+    const policyConnectors = connectors.filter((name) => policy.connectors.includes(name));
+    const usableConnectors = entry.client.connectors.filter(
+      (name) => policyConnectors.includes(name) || entry.granted.includes(name),
+    );
+    return {
+      ...entry.client,
+      ownerId: entry.ownerId,
+      signInPage: pageShown(entry.exemption)
+        ? ("shown" as const)
+        : entry.exemption.everyApp
+          ? ("every_app" as const)
+          : ("this_app" as const),
+      policyConnectors,
+      usableConnectors,
+      grantedConnectors: usableConnectors.filter((name) => !policyConnectors.includes(name)),
+    };
   }
 
   /**
@@ -233,8 +295,53 @@ export function moderationEndpoints(args: {
     return reply(result.error === "owner_changed" ? 409 : 404, { error: result.error });
   });
 
+  /** The hub's connectors, which a grant may name, and every grant. */
+  const listConnectorGrants = moderationEndpoint(async (ctx) =>
+    reply(200, {
+      connectors,
+      grants: await ctx.runQuery(component.connectorGrants.list, {}),
+    }),
+  );
+
+  /**
+   * Grants or revokes one connector of one app. Answers `{ changed }`; 400 `unknown_connector` for
+   * a connector the hub does not have, 409 `owner_changed` when the owner is no longer the one the
+   * admin saw, and 404 `unknown_app` for an app the hub does not have.
+   */
+  const changeConnectorGrant = moderationEndpoint(async (ctx, request) => {
+    const change = readConnectorGrantChange(await request.json().catch(() => null));
+    if (change === null) {
+      return reply(400, { error: "invalid_request" });
+    }
+    if (!connectors.includes(change.connector)) {
+      return reply(400, { error: "unknown_connector" });
+    }
+    const result = await ctx.runMutation(component.connectorGrants.set, {
+      appId: change.appId,
+      connector: change.connector,
+      expectedOwnerId: change.expectedOwnerId,
+      grant: change.grant,
+      reason: change.reason,
+      adminEmail: change.adminEmail,
+    });
+    if (result.ok) {
+      return reply(200, { changed: result.changed });
+    }
+    return reply(result.error === "owner_changed" ? 409 : 404, { error: result.error });
+  });
+
   return {
     addRoutes(http: HttpRouter): void {
+      http.route({
+        path: path("/moderation/connector-grants"),
+        method: "GET",
+        handler: listConnectorGrants,
+      });
+      http.route({
+        path: path("/moderation/connector-grants"),
+        method: "POST",
+        handler: changeConnectorGrant,
+      });
       http.route({ path: path("/moderation/counts"), method: "GET", handler: countRegistrations });
       http.route({ path: path("/moderation/blocks"), method: "GET", handler: listBlocks });
       http.route({ path: path("/moderation/blocks"), method: "POST", handler: changeBlock });

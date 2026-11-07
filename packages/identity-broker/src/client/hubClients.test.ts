@@ -407,6 +407,7 @@ describe("POST /hub-clients", () => {
             githubRepository: seen.githubRepository,
             app: seen.app,
             connectors: ["fake"],
+            policyConnectors: ["fake"],
             redirectUri: LOOPBACK_CALLBACK,
             softwareVersion: "dev-1",
           }),

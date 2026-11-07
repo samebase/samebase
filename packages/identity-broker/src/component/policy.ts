@@ -81,13 +81,20 @@ export async function refusalOf(
   return decision.paused ? "paused" : null;
 }
 
-/** The connectors a request may use now: its set, the client's enrollment, and the decision's. */
+/**
+ * The connectors a request may use now: its set and the client's enrollment, of those the
+ * decision's policy gives or the admin granted the client's app (`granted`, read by the caller in
+ * the transaction that decides, so a revoked grant stops the next step).
+ */
 export function usableConnectors(
   request: { connectors: string[] },
   client: { connectors: string[] },
   decision: PolicyDecision,
+  granted: string[],
 ): string[] {
   return request.connectors.filter(
-    (name) => client.connectors.includes(name) && decision.connectors.includes(name),
+    (name) =>
+      client.connectors.includes(name) &&
+      (decision.connectors.includes(name) || granted.includes(name)),
   );
 }

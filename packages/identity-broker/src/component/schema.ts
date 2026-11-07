@@ -189,11 +189,29 @@ export default defineSchema({
   }).index("by_target", ["target.scope", "target.appId"]),
 
   /**
+   * The connector grants, set by the hub's administrator with `connectorGrants.set`: one row per
+   * broker app and connector. A row lets the app's clients enroll in and use the connector on top
+   * of what the host's policy gives them. It counts only while the tenant's recorded owner and the
+   * owner that registered the client are the row's `ownerId`; at registration, the owner of the
+   * incoming proof. Every step of a sign-in reads it again in its own transaction.
+   */
+  connectorGrants: defineTable({
+    appId: string(),
+    connector: string(),
+    /** The repository's recorded owner when the admin set the row. */
+    ownerId: string(),
+    /** Why, as the admin wrote it. */
+    reason: string(),
+  }).index("by_app_id_and_connector", ["appId", "connector"]),
+
+  /**
    * Append-only history, never changed or deleted. `registration`: one row per client that
    * `POST /hub-clients` created, written with the client; it outlives the client, so it answers the
    * registration counts and whether an owner has ever registered. `block_change`: one row per block
    * and unblock that changed something. `sign_in_page_change`: one row per exemption from the
    * sign-in page that was set (`skip`) or removed (`show`), when it changed something.
+   * `connector_grant_change`: one row per connector grant that was set or removed, when it changed
+   * something.
    */
   events: defineTable(
     union(
@@ -217,6 +235,16 @@ export default defineSchema({
         kind: literal("sign_in_page_change"),
         action: union(literal("skip"), literal("show")),
         target: vSignInPageTarget,
+        reason: string(),
+        adminEmail: string(),
+        at: number(),
+      }),
+      object({
+        kind: literal("connector_grant_change"),
+        action: union(literal("grant"), literal("revoke")),
+        appId: string(),
+        connector: string(),
+        ownerId: string(),
         reason: string(),
         adminEmail: string(),
         at: number(),

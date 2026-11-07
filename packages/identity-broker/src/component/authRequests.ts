@@ -5,8 +5,9 @@ import { components } from "./_generated/api";
 // oxlint-disable-next-line samebase/no-raw-public-convex-function-builders -- Component entrypoints are internal to the host; host functions enforce access.
 import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import type { Doc } from "./_generated/dataModel";
-import { isSuspended } from "./apps";
+import { isSuspended, tenantRow } from "./apps";
 import { clientWithApp, vClientWithApp } from "./clients";
+import { grantedTo } from "./connectorGrants";
 import { refusalOf, usableConnectors, vPolicyDecision } from "./policy";
 import { used } from "./registration";
 import { vAuthRequest, vTokenEndpointAuthMethod, vUpstreamIdentity } from "./schema";
@@ -61,9 +62,16 @@ async function allowed(
   decision: Infer<typeof vPolicyDecision>,
 ): Promise<boolean> {
   const rows = await rowsOf(ctx, request);
+  if (rows === null) {
+    return false;
+  }
+  const granted = await grantedTo(ctx, {
+    appId: rows.client.appId,
+    tenantOwnerId: (await tenantRow(ctx, rows.app.tenantId))?.ownerId,
+    clientOwnerId: rows.client.registeredBy.githubOwnerId,
+  });
   return (
-    rows !== null &&
-    usableConnectors(request, rows.client, decision).includes(connector) &&
+    usableConnectors(request, rows.client, decision, granted).includes(connector) &&
     !(await isSuspended(ctx, rows.app.tenantId)) &&
     (await refusalOf(ctx, decision, rows.app.tenantId)) === null
   );
@@ -529,7 +537,14 @@ export const exchangeCode = mutation({
         description: "code_verifier does not match code_challenge.",
       };
     }
-    if (!usableConnectors(request, client, args.policy).includes(request.identity.connector)) {
+    const granted = await grantedTo(ctx, {
+      appId: client.appId,
+      tenantOwnerId: (await tenantRow(ctx, app.tenantId))?.ownerId,
+      clientOwnerId: client.registeredBy.githubOwnerId,
+    });
+    if (
+      !usableConnectors(request, client, args.policy, granted).includes(request.identity.connector)
+    ) {
       return {
         ok: false,
         error: "invalid_grant",
