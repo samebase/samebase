@@ -1,8 +1,18 @@
-import { defineIdentityBroker, type Registration } from "@samebase/identity-broker";
+import {
+  cloudflareConnection,
+  convexConnection,
+  defineIdentityBroker,
+  github,
+  githubConnection,
+  google,
+  type Registration,
+} from "@samebase/identity-broker";
 import { components } from "./_generated/api";
 import { env } from "./_generated/server";
-import { connectors } from "./connectors";
-import { resources } from "./resources";
+
+// The whole hub: its connectors, its API resources, its policy, and its admin functions. Copy this
+// folder and change this file and `alchemy.run.ts` to run another hub. `http.ts` mounts the routes,
+// `crons.ts` runs the cleanup, and `convex.config.ts` declares the env.
 
 /**
  * Host-only by default: the deployment's own convex.site URL. A custom domain changes the issuer
@@ -31,8 +41,54 @@ export const broker = defineIdentityBroker({
   component: components.identityBroker,
   issuer,
   keys: () => env.IDENTITY_BROKER_KEYS,
-  connectors,
-  resources,
+  // Two clients per provider (RFC 137 decision 10). `google` and `github` are the operator's
+  // private clients: samebase.com's own sign-in, and the apps that the admin grants them to on
+  // samebase.com's admin page. `google-apps` and `github-apps` are the public clients named
+  // "Samebase", for every app. A user's `sub` comes from the provider, so it is `google:<id>` or
+  // `github:<id>` through either client of a provider. Each one asks the provider for its account
+  // screen on every sign-in: an earlier app of this hub must not pass a user through to another app
+  // with no click. Add a provider by appending its wrapper, with the credentials read from the
+  // deployment's env, and register `<issuer>/connectors/<name>/callback` with it. The policy below
+  // can name only these connectors: a misspelt one does not compile.
+  connectors: [
+    google({
+      clientId: () => env.GOOGLE_CLIENT_ID,
+      clientSecret: () => env.GOOGLE_CLIENT_SECRET,
+      selectAccount: true,
+    }),
+    github({
+      clientId: () => env.AUTH_GITHUB_CLIENT_ID,
+      clientSecret: () => env.AUTH_GITHUB_CLIENT_SECRET,
+      selectAccount: true,
+    }),
+    google({
+      name: "google-apps",
+      clientId: () => env.GOOGLE_APPS_CLIENT_ID,
+      clientSecret: () => env.GOOGLE_APPS_CLIENT_SECRET,
+      selectAccount: true,
+    }),
+    github({
+      name: "github-apps",
+      clientId: () => env.AUTH_GITHUB_APPS_CLIENT_ID,
+      clientSecret: () => env.AUTH_GITHUB_APPS_CLIENT_SECRET,
+      selectAccount: true,
+    }),
+  ],
+  // API authorization for the operator's apps. These providers do not sign users in.
+  resources: [
+    convexConnection({
+      clientId: () => env.PROVIDER_CONVEX_OAUTH_CLIENT_ID,
+      clientSecret: () => env.PROVIDER_CONVEX_OAUTH_CLIENT_SECRET,
+    }),
+    cloudflareConnection({
+      clientId: () => env.PROVIDER_CLOUDFLARE_OAUTH_CLIENT_ID,
+      clientSecret: () => env.PROVIDER_CLOUDFLARE_OAUTH_CLIENT_SECRET,
+    }),
+    githubConnection({
+      clientId: () => env.PROVIDER_GITHUB_APP_CLIENT_ID,
+      clientSecret: () => env.PROVIDER_GITHUB_APP_CLIENT_SECRET,
+    }),
+  ],
   // `POST /hub-clients` creates every client, `/moderation/*` serves samebase.com's admin page.
   registration: {
     name: "Samebase",
@@ -61,3 +117,9 @@ export const broker = defineIdentityBroker({
     }),
   },
 });
+
+// Administration for `npx convex run --prod broker:<name>`:
+//   listApps, listClients '{"appId":"..."}', deleteClient '{"clientId":"..."}', deleteApp '{"appId":"..."}'
+// Every client comes from the broker's `POST /hub-clients`. Block repository and Block owner on
+// samebase.com's admin page stop a tenant. `crons.ts` runs `cleanup` daily.
+export const { deleteApp, listApps, listClients, deleteClient, cleanup } = broker.admin();

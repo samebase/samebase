@@ -7,9 +7,9 @@ clients of Samebase once, and signs users in to every app that registers with it
 apps built with Samebase alike. It also brokers Convex, Cloudflare, and GitHub API authorization for
 samebase.com. It keeps no user accounts; each app creates its own user from the `id_token` it gets.
 
-This folder holds no secrets. The values of the team are the constants in `alchemy.run.ts`, the
-lines in `convex/connectors.ts`, and the policy in `convex/broker.ts`, so a copy of it with other
-values runs another team's hub. To start one, ask your agent to copy this folder.
+This folder holds no secrets. The values of the team are the constants in `alchemy.run.ts` and the
+connectors, API resources, and policy in `convex/broker.ts`, so a copy of it with other values runs
+another team's hub. To start one, ask your agent to copy this folder.
 
 ## Deploy
 
@@ -62,7 +62,7 @@ from the reply of its registration, so it needs no setting of its own.
 
 ## Connectors
 
-`convex/connectors.ts` lists four, two per provider:
+`convex/broker.ts` lists four, two per provider:
 
 | Connector     | Credentials                                  | Callback                                   |
 | ------------- | -------------------------------------------- | ------------------------------------------ |
@@ -127,16 +127,16 @@ See the component's [consumer guide](../../packages/identity-broker/docs/consume
 
 ## Operate
 
-The admin functions are internal: `npx convex run --prod identityBroker:<name>`, from a checkout
-that selects the project `identity-hub`. The deploy key of the hub is an administrator credential:
-it can read and replace the keys and run every internal function. The team's Convex token reaches
-the hub, so treat it as an administrator credential too. The Convex CLI ignores `--prod` when
+The admin functions are internal: `npx convex run --prod broker:<name>`, from a checkout that
+selects the project `identity-hub`. The deploy key of the hub is an administrator credential: it can
+read and replace the keys and run every internal function. The team's Convex token reaches the hub,
+so treat it as an administrator credential too. The Convex CLI ignores `--prod` when
 `CONVEX_DEPLOY_KEY` names another deployment, so unset it before an admin command. A cron runs the
 broker's cleanup daily: expired requests and codes, sign-in records older than 90 days, and preview
 and development clients past their removal date. Every preview and development client gets a removal
 date 14 days ahead, and each deploy's read of `/register/<client>` moves it. A deployment whose
 client is gone registers a new one. A production client never expires: remove a dead one with
-`identityBroker:deleteClient`.
+`broker:deleteClient`.
 
 Never run `npx convex import --replace-all` on this deployment, also not with `--component`: it also
 deletes the rows of the other components. To restore the tables of one component, import a ZIP of

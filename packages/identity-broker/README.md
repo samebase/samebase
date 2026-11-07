@@ -16,10 +16,9 @@ client at deploy time and never touches GitHub or Google.
 A hub is a small Convex app that mounts this component.
 [`apps/identity-hub`](https://github.com/samebase/samebase/tree/main/apps/identity-hub) is the hub
 we run in production, and it is also the example: there is no separate template. To run your own,
-copy that folder and change the values in `alchemy.run.ts` and `convex/connectors.ts`, or ask your
-agent to do it. Its
-[README](https://github.com/samebase/samebase/blob/main/apps/identity-hub/README.md) has the deploy
-steps.
+copy that folder and change the values in `alchemy.run.ts` and `convex/broker.ts`, or ask your agent
+to do it. Its [README](https://github.com/samebase/samebase/blob/main/apps/identity-hub/README.md)
+has the deploy steps.
 
 ## What it is
 
@@ -53,8 +52,7 @@ export default app;
 ```
 
 ```ts
-// convex/http.ts
-import { httpRouter } from "convex/server";
+// convex/broker.ts: the whole hub config, and its admin functions for `npx convex run broker:<name>`
 import { defineIdentityBroker, github, google } from "@samebase/identity-broker";
 import { components } from "./_generated/api";
 
@@ -80,24 +78,27 @@ export const broker = defineIdentityBroker({
     terms: "https://example.com/terms",
     privacy: "https://example.com/privacy",
     moderationKey: () => process.env.HUB_MODERATION_KEY,
-    // What each registration may do, from its facts: run at registration and at each use.
-    policy: (registration) => ({
+    // What each registration may do, from its facts: run at registration and at each use. It can
+    // name only the connectors and resources above: a misspelt one does not compile.
+    policy: () => ({
       connectors: ["github", "google"],
-      resources: registration.repositoryId === "1021726325" ? ["convex", "cloudflare"] : [],
+      resources: [],
       paused: process.env.APPS_PAUSED === "true",
     }),
   },
 });
 
-const http = httpRouter();
-broker.addHttpRoutes(http);
-export default http;
+export const { deleteClient, deleteApp, listApps, listClients, cleanup } = broker.admin();
 ```
 
 ```ts
-// convex/identityBroker.ts: administration for `npx convex run`
-import { broker } from "./http";
-export const { deleteClient, deleteApp, listApps, listClients, cleanup } = broker.admin();
+// convex/http.ts
+import { httpRouter } from "convex/server";
+import { broker } from "./broker";
+
+const http = httpRouter();
+broker.addHttpRoutes(http);
+export default http;
 ```
 
 Keys: `npx identity-broker keys` prints the value for `IDENTITY_BROKER_KEYS`; `keys --rotate`
@@ -154,7 +155,7 @@ resource authorization, and a provider refresh also move it. A production client
 removal date.
 
 A preview or development client deletes itself with `DELETE /register/<client>`. The administrator
-deletes any client with `identityBroker:deleteClient`. A client that is gone is no error.
+deletes any client with `broker:deleteClient`. A client that is gone is no error.
 
 ## Connect provider APIs
 

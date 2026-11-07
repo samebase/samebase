@@ -1041,8 +1041,8 @@ export function defineIdentityBroker<C extends Connector, R extends ResourceProv
     newClientCredentials: async () => await newClientCredentials(issuer),
 
     /**
-     * Administration as internal functions of the host, for `npx convex run`: export them from a
-     * host module such as `convex/identityBroker.ts`.
+     * Administration as internal functions of the host, for `npx convex run`: export them from the
+     * host module that defines the broker, such as `convex/broker.ts`.
      */
     admin() {
       const { string } = v;

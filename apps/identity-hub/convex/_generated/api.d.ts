@@ -9,11 +9,8 @@
  */
 
 import type * as broker from "../broker.js";
-import type * as connectors from "../connectors.js";
 import type * as crons from "../crons.js";
 import type * as http from "../http.js";
-import type * as identityBroker from "../identityBroker.js";
-import type * as resources from "../resources.js";
 
 import type {
   ApiFromModules,
@@ -23,11 +20,8 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   broker: typeof broker;
-  connectors: typeof connectors;
   crons: typeof crons;
   http: typeof http;
-  identityBroker: typeof identityBroker;
-  resources: typeof resources;
 }>;
 
 /**
