@@ -1087,24 +1087,30 @@ describe("a development client", () => {
 });
 
 describe("the budget of a tenant", () => {
-  test("a flood at one tenant writes no row and leaves other tenants alone", async () => {
-    const h = await hub();
-    const flooded = await register(h);
-    const other = await register(h, { appId: "gh-2-app", tenantId: "gh-2" });
-    const { challenge } = await pkce();
-    const statuses: number[] = [];
-    for (let index = 0; index < 400; index += 1) {
-      const response = await h.fetchBroker(authorizeUrl(h, flooded.client_id, challenge));
-      statuses.push(response.status);
-    }
-    const started = statuses.filter((status) => status === 302).length;
-    expect(statuses.filter((status) => status === 429).length).toBe(400 - started);
-    // The bucket holds 240 and refills while the test runs. Only a started sign-in writes a row.
-    expect(started).toBeLessThan(300);
-    const rows = await h.t.run(
-      async (ctx) => (await ctx.db.query("authRequests").collect()).length,
-    );
-    expect(rows).toBe(started);
-    expect((await h.fetchBroker(authorizeUrl(h, other.client_id, challenge))).status).toBe(302);
-  });
+  // 400 sign-in starts in a row: on a loaded CI runner this passed 3.5 s of the 5 s default before
+  // the connector grants added their reads, so it gets its own limit.
+  test(
+    "a flood at one tenant writes no row and leaves other tenants alone",
+    { timeout: 20_000 },
+    async () => {
+      const h = await hub();
+      const flooded = await register(h);
+      const other = await register(h, { appId: "gh-2-app", tenantId: "gh-2" });
+      const { challenge } = await pkce();
+      const statuses: number[] = [];
+      for (let index = 0; index < 400; index += 1) {
+        const response = await h.fetchBroker(authorizeUrl(h, flooded.client_id, challenge));
+        statuses.push(response.status);
+      }
+      const started = statuses.filter((status) => status === 302).length;
+      expect(statuses.filter((status) => status === 429).length).toBe(400 - started);
+      // The bucket holds 240 and refills while the test runs. Only a started sign-in writes a row.
+      expect(started).toBeLessThan(300);
+      const rows = await h.t.run(
+        async (ctx) => (await ctx.db.query("authRequests").collect()).length,
+      );
+      expect(rows).toBe(started);
+      expect((await h.fetchBroker(authorizeUrl(h, other.client_id, challenge))).status).toBe(302);
+    },
+  );
 });

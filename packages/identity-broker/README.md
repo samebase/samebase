@@ -101,6 +101,19 @@ broker.addHttpRoutes(http);
 export default http;
 ```
 
+```ts
+// convex/crons.ts: expired requests and codes, old audit rows, and expired preview clients
+import { cronJobs } from "convex/server";
+import { internal } from "./_generated/api";
+
+const crons = cronJobs();
+crons.daily("identity broker cleanup", { hourUTC: 4, minuteUTC: 17 }, internal.broker.cleanup, {});
+export default crons;
+```
+
+Convex reads the routes from `http.ts` and the schedule from `crons.ts`, so those two stay their own
+files; everything else of the hub is in `broker.ts`.
+
 Keys: `npx identity-broker keys` prints the value for `IDENTITY_BROKER_KEYS`; `keys --rotate`
 advances it, and `keys --rotate --no-overlap` replaces a compromised key at once. The key set holds
 no user identity, so a lost one is replaced with a new one. `parseKeySet` checks a value's shape
