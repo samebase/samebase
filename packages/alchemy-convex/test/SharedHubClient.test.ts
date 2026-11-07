@@ -52,6 +52,7 @@ const props = (overrides: Partial<GitHubProps> = {}): GitHubProps => ({
   app: "scout",
   redirectUri: REDIRECT_URI,
   deploymentType: "preview",
+  connectors: ["google"],
   softwareVersion: "abc",
   ...overrides,
 });
@@ -63,8 +64,18 @@ const development = (overrides: Partial<DevelopmentProps> = {}): DevelopmentProp
   app: "scout",
   redirectUri: REDIRECT_URI,
   deploymentType: "development",
+  connectors: ["google"],
   initialAccessToken: Redacted.make(INITIAL_ACCESS_TOKEN),
   softwareVersion: "abc",
+  ...overrides,
+});
+
+/** The body of a registration, as the fake and the tests expect it. */
+const requestBody = (overrides: Record<string, unknown> = {}) => ({
+  app: "scout",
+  redirectUri: REDIRECT_URI,
+  softwareVersion: "abc",
+  connectors: ["google"],
   ...overrides,
 });
 
@@ -80,6 +91,7 @@ const client = (input: Convex.SharedHubClientProps) =>
       registrationClientUri: resource.registrationClientUri,
       deploymentType: resource.deploymentType,
       redirectUri: resource.redirectUri,
+      connectors: resource.connectors,
       initialAccessToken: Output.map(resource.initialAccessToken, Redacted.value),
       repository: resource.repository,
     };
@@ -95,6 +107,7 @@ const issued = (clientId = "cl_1", redirectUri = REDIRECT_URI, deploymentType = 
   registrationClientUri: `${ISSUER}/register/${clientId}`,
   deploymentType,
   redirectUri,
+  connectors: ["google"],
   initialAccessToken: "",
   repository: "",
 });
@@ -108,12 +121,16 @@ const OFF = {
   registrationClientUri: "",
   deploymentType: "preview",
   redirectUri: "",
+  connectors: [],
   initialAccessToken: "",
   repository: "",
 };
 
 /** The body of POST /hub-clients. */
-const ClientRequest = Schema.Struct({ redirectUri: Schema.String });
+const ClientRequest = Schema.Struct({
+  redirectUri: Schema.String,
+  connectors: Schema.Array(Schema.String),
+});
 
 /** One request that reached the fake. */
 interface Sent {
@@ -179,6 +196,28 @@ const REFUSALS: readonly (readonly [string, Answer])[] = [
         { status: 201 },
       ),
   ],
+  [
+    "a 201 with other connectors",
+    ({ body }) =>
+      Response.json(
+        {
+          ...PREVIEW_ANSWER,
+          redirect_uri: Schema.decodeUnknownSync(ClientRequest)(body).redirectUri,
+          connectors: ["google", "github"],
+        },
+        { status: 201 },
+      ),
+  ],
+  [
+    "a 201 without connectors",
+    ({ body }) => {
+      const { connectors: _connectors, ...answer } = PREVIEW_ANSWER;
+      return Response.json(
+        { ...answer, redirect_uri: Schema.decodeUnknownSync(ClientRequest)(body).redirectUri },
+        { status: 201 },
+      );
+    },
+  ],
 ];
 
 class FakeServices {
@@ -196,6 +235,8 @@ class FakeServices {
   production = false;
   /** The initial access tokens that the hub takes for a development client. */
   readonly initialAccessTokens = new Set([INITIAL_ACCESS_TOKEN]);
+  /** The connectors the hub's policy allows this app. */
+  allowedConnectors = ["github", "google"];
   /** Every request in order, also those to Convex, as "METHOD URL". */
   readonly timeline: string[] = [];
   private nextClient = 1;
@@ -250,10 +291,17 @@ class FakeServices {
     if (!withGitHub && !this.initialAccessTokens.has(bearer)) {
       return Response.json({ error: "invalid_token" }, { status: 401 });
     }
+    const { redirectUri, connectors } = Schema.decodeUnknownSync(ClientRequest)(body);
+    // The hub's policy allows these; another name is refused with the allowed ones, as the hub does.
+    if (!connectors.every((name) => this.allowedConnectors.includes(name))) {
+      return Response.json(
+        { error: "invalid_connectors", allowed: this.allowedConnectors },
+        { status: 400 },
+      );
+    }
     const clientId = `cl_${this.nextClient++}`;
     const token = `token-of-${clientId}`;
     this.clients.set(clientId, token);
-    const { redirectUri } = Schema.decodeUnknownSync(ClientRequest)(body);
     const production = withGitHub && this.production;
     if (production) this.initialAccessTokens.add(`iat-of-${clientId}`);
     return Response.json(
@@ -265,6 +313,7 @@ class FakeServices {
         registration_access_token: token,
         registration_client_uri: `${ISSUER}/register/${clientId}`,
         redirect_uri: redirectUri,
+        connectors,
         ...(production ? { initial_access_token: `iat-of-${clientId}` } : {}),
       },
       { status: 201 },
@@ -316,9 +365,89 @@ describe("Convex.SharedHubClient", () => {
           method: "POST",
           url: HUB_CLIENTS,
           authorization: `Bearer ${OIDC_TOKEN}`,
-          body: { app: "scout", redirectUri: REDIRECT_URI, softwareVersion: "abc" },
+          body: requestBody(),
         },
       ]);
+    }),
+  );
+
+  test.provider("the request sends the connectors as a set, sorted, each once", (stack) =>
+    Effect.gen(function* () {
+      const fake = new FakeServices().install();
+      const made = yield* stack.deploy(
+        client(props({ connectors: ["google", "github", "google"] })),
+      );
+      expect(made.connectors).toEqual(["github", "google"]);
+      expect(fake.sent.at(-1)?.body).toEqual(requestBody({ connectors: ["github", "google"] }));
+    }),
+  );
+
+  test.provider("another connector set asks for a new client without a renewal", (stack) =>
+    Effect.gen(function* () {
+      const fake = new FakeServices().install();
+      yield* stack.deploy(client(props()));
+      fake.sent.length = 0;
+      const changed = yield* stack.deploy(client(props({ connectors: ["google", "github"] })));
+      expect(changed).toEqual({ ...issued("cl_2"), connectors: ["github", "google"] });
+      expect(fake.calls(ISSUER)).toEqual([]);
+      // The same set in another order, with a name twice, renews that client.
+      fake.sent.length = 0;
+      expect(
+        yield* stack.deploy(client(props({ connectors: ["github", "google", "github"] }))),
+      ).toEqual(changed);
+      expect(fake.calls(ISSUER)).toEqual([`GET ${ISSUER}/register/cl_2`]);
+      expect(fake.calls(HUB_CLIENTS)).toEqual([]);
+    }),
+  );
+
+  for (const [name, connectors] of [
+    ["no connector", []],
+    ["a name with a capital letter", ["Google"]],
+    ["a name with a space", ["google apps"]],
+    ["a name of 65 characters", ["a".repeat(65)]],
+  ] satisfies readonly (readonly [string, string[]])[]) {
+    test.provider(`${name} fails the run before any request`, (stack) =>
+      Effect.gen(function* () {
+        const fake = new FakeServices().install();
+        const exit = yield* Effect.exit(stack.deploy(client(props({ connectors }))));
+        expect(Exit.isFailure(exit)).toBe(true);
+        expect(String(exit)).toContain("needs connectors: one or more names of [a-z0-9-]{1,64}");
+        expect(fake.sent).toEqual([]);
+      }),
+    );
+  }
+
+  test.provider("invalid_connectors gives the off values and names the allowed ones", (stack) =>
+    Effect.gen(function* () {
+      const fake = new FakeServices().install();
+      fake.allowedConnectors = ["google"];
+      const { layer, lines } = capturedLogs();
+      const off = yield* stack
+        .deploy(client(props({ connectors: ["google", "github"] })))
+        .pipe(Effect.provide(layer));
+      expect(off).toEqual(OFF);
+      expect(warningsIn(lines)).toEqual([
+        expect.stringContaining(
+          "does not offer or allow one of the connectors; it allows google (HTTP 400)",
+        ),
+      ]);
+    }),
+  );
+
+  test.provider("invalid_connectors prints only names of the connector grammar", (stack) =>
+    Effect.gen(function* () {
+      const fake = new FakeServices().install();
+      fake.registrar = ({ authorization }) =>
+        Response.json(
+          { error: "invalid_connectors", allowed: [authorization, "Google", "evil example"] },
+          { status: 400 },
+        );
+      const { layer, lines } = capturedLogs();
+      yield* stack.deploy(client(props())).pipe(Effect.provide(layer));
+      expect(warningsIn(lines)).toEqual([
+        expect.stringContaining("it allows none for this app (HTTP 400)"),
+      ]);
+      expect(lines.filter((line) => /Google|evil|Bearer/.test(line))).toEqual([]);
     }),
   );
 
@@ -390,7 +519,7 @@ describe("Convex.SharedHubClient", () => {
       fake.production = true;
       const production = props({ deploymentType: "production" });
       yield* stack.deploy(client(production));
-      // The row as 0.26 saved it: no token fields.
+      // The row as 0.32 saved it: no connectors.
       yield* Effect.gen(function* () {
         const state = yield* yield* State;
         const request = { stack: stack.name, stage: stack.stage, fqn: "Client" };
@@ -398,7 +527,7 @@ describe("Convex.SharedHubClient", () => {
         if (row === undefined || !("attr" in row) || row.attr === undefined) {
           throw new Error("the deploy saved no client");
         }
-        const { initialAccessToken: _token, repository: _repository, ...attr } = row.attr;
+        const { connectors: _connectors, ...attr } = row.attr;
         yield* state.set({ ...request, value: { ...row, attr } });
       }).pipe(Effect.provide(stack.state));
       const { layer, lines } = capturedLogs();
@@ -774,6 +903,7 @@ describe("Convex.SharedHubClient", () => {
             app: "scout",
             redirectUri: Output.interpolate`${deployment.siteUrl}/auth/hub/callback`,
             deploymentType: "preview",
+            connectors: ["google"],
           });
           const site = yield* Convex.Deployment("Site", {
             project,
@@ -952,6 +1082,7 @@ describe("Convex.SharedHubClient for a development client", () => {
       app: "scout",
       redirectUri: REDIRECT_URI,
       deploymentType: "preview",
+      connectors: ["google"],
       initialAccessToken: Redacted.make(INITIAL_ACCESS_TOKEN),
     };
     // @ts-expect-error A development client needs the token.
@@ -959,8 +1090,15 @@ describe("Convex.SharedHubClient for a development client", () => {
       app: "scout",
       redirectUri: REDIRECT_URI,
       deploymentType: "development",
+      connectors: ["google"],
     };
-    expect([preview, withoutToken]).toHaveLength(2);
+    // @ts-expect-error Every client names its connectors.
+    const withoutConnectors: Convex.SharedHubClientProps = {
+      app: "scout",
+      redirectUri: REDIRECT_URI,
+      deploymentType: "preview",
+    };
+    expect([preview, withoutToken, withoutConnectors]).toHaveLength(3);
   });
 
   test.provider(
@@ -974,7 +1112,7 @@ describe("Convex.SharedHubClient for a development client", () => {
             method: "POST",
             url: HUB_CLIENTS,
             authorization: `Bearer ${INITIAL_ACCESS_TOKEN}`,
-            body: { app: "scout", redirectUri: REDIRECT_URI, softwareVersion: "abc" },
+            body: requestBody(),
           },
         ]);
       }),
@@ -1061,7 +1199,7 @@ describe("Convex.SharedHubClient for a development client", () => {
       expect(off).toEqual({ ...OFF, deploymentType: "development" });
       expect(fake.sent).toEqual([]);
       expect(lines.filter((line) => line.includes("Convex.SharedHubClient"))).toEqual([
-        "Info: Convex.SharedHubClient: deploy to main once for Google sign-in in development.",
+        "Info: Convex.SharedHubClient: deploy to main once for hub sign-in in development.",
       ]);
     }),
   );
@@ -1202,6 +1340,7 @@ describe("Convex.SharedHubClient.read", () => {
       status: prod.status,
       clientId: prod.clientId,
       deploymentType: prod.deploymentType,
+      connectors: prod.connectors,
       repository: prod.repository,
       initialAccessToken: Output.map(prod.initialAccessToken, (token) =>
         Redacted.isRedacted(token) ? Redacted.value(token) : "not redacted",
@@ -1219,6 +1358,7 @@ describe("Convex.SharedHubClient.read", () => {
         status: "on",
         clientId: "cl_1",
         deploymentType: "production",
+        connectors: ["google"],
         repository: REPOSITORY_ID,
         initialAccessToken: "iat-of-cl_1",
         clientSecret: "secret-of-cl_1",
@@ -1232,6 +1372,7 @@ describe("Convex.SharedHubClient.read", () => {
         status: "off",
         clientId: "no-hub",
         deploymentType: "production",
+        connectors: [],
         repository: "",
         initialAccessToken: "",
         clientSecret: "no-hub",
@@ -1242,7 +1383,7 @@ describe("Convex.SharedHubClient.read", () => {
   test.provider("stops with a fixed message when the row cannot be read", (stack) =>
     Effect.gen(function* () {
       yield* deployProduction(stack, new FakeServices().install());
-      // The row of prod as 0.26 saved it: no token fields.
+      // The row of prod as 0.32 saved it: no connectors.
       yield* Effect.gen(function* () {
         const state = yield* yield* State;
         const request = { stack: stack.name, stage: "prod", fqn: "HubClient" };
@@ -1250,7 +1391,7 @@ describe("Convex.SharedHubClient.read", () => {
         if (row === undefined || !("attr" in row) || row.attr === undefined) {
           throw new Error("no row of prod");
         }
-        const { initialAccessToken: _token, repository: _repository, ...attr } = row.attr;
+        const { connectors: _connectors, ...attr } = row.attr;
         yield* state.set({ ...request, value: { ...row, attr } });
       }).pipe(Effect.provide(stack.state));
       // The read dies: a defect, not a failure of the run. Every text of the defect is checked: the
@@ -1303,6 +1444,7 @@ describe("the development stage of the starter", () => {
             app: "scout",
             redirectUri: Output.interpolate`${deployment.siteUrl}/auth/hub/callback`,
             deploymentType: "development",
+            connectors: ["google"],
             initialAccessToken: prod.initialAccessToken,
           });
           const variables = Convex.SharedHubClient.variables(hub);
@@ -1328,7 +1470,7 @@ describe("the development stage of the starter", () => {
             method: "POST",
             url: HUB_CLIENTS,
             authorization: "Bearer iat-of-cl_1",
-            body: { app: "scout", redirectUri: callback, softwareVersion: "unknown" },
+            body: requestBody({ redirectUri: callback, softwareVersion: "unknown" }),
           },
         ]);
         const at = (pattern: RegExp) =>
