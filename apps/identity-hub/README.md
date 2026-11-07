@@ -88,7 +88,7 @@ writes the client into the deployment's variables:
 const client =
   yield *
   Convex.SharedHubClient("SignInClient", {
-    app: "bristol",
+    app: "my-app",
     redirectUri: Output.interpolate`${deployment.siteUrl}/auth/hub/callback`,
     deploymentType: stage === "prod" ? "production" : "preview",
     connectors: ["google-apps", "github-apps"],

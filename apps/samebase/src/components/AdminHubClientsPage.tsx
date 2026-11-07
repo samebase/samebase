@@ -485,11 +485,13 @@ function BlocksSection({
     try {
       const result = await changeBlock({ action, kind, githubId: githubId.trim(), reason });
       setMessage(
-        result.status === "on" && !result.changed
-          ? action === "block"
-            ? "Already blocked."
-            : "Not blocked."
-          : null,
+        result.status === "off"
+          ? MODERATION_OFF
+          : result.changed
+            ? null
+            : action === "block"
+              ? "Already blocked."
+              : "Not blocked.",
       );
       setReason("");
       await onChanged();
@@ -620,12 +622,20 @@ type ChangeSignInPage = ReturnType<
 >;
 
 /** What the hub answered to a change that it did not make, for the admin. */
-const signInPageRefusal = (result: string) =>
-  result === "owner_changed"
-    ? "The repository has another owner now. Reload the page and try again."
-    : result === "unknown_app"
-      ? "The hub no longer has this app."
-      : null;
+/** Moderation went off while the page was open: the hub changed nothing. */
+const MODERATION_OFF = "Moderation is off: the hub changed nothing.";
+
+/** The answer of a change: moderation off, or the hub's result. */
+type ChangeAnswer = { status: "off" } | { status: "on"; result: string };
+
+const signInPageRefusal = (answer: ChangeAnswer) =>
+  answer.status === "off"
+    ? MODERATION_OFF
+    : answer.result === "owner_changed"
+      ? "The repository has another owner now. Reload the page and try again."
+      : answer.result === "unknown_app"
+        ? "The hub no longer has this app."
+        : null;
 
 /** Skips or shows again the hub's sign-in page for one app, with a reason. */
 function SignInPageDialog({
@@ -658,7 +668,7 @@ function SignInPageDialog({
         skip: !pageTarget.exempt,
         reason,
       });
-      const refusal = answer.status === "on" ? signInPageRefusal(answer.result) : null;
+      const refusal = signInPageRefusal(answer);
       if (refusal !== null) {
         setError(refusal);
         return;
@@ -771,7 +781,7 @@ function SignInPageSection({
     setMessage(null);
     try {
       const answer = await changeSignInPage({ target, skip, reason });
-      setMessage(answer.status === "on" ? signInPageRefusal(answer.result) : null);
+      setMessage(signInPageRefusal(answer));
       setReason("");
       await onChanged();
     } catch {
@@ -870,10 +880,10 @@ type ChangeConnectorGrant = ReturnType<
 >;
 
 /** What the hub answered to a grant that it did not change, for the admin. */
-const connectorGrantRefusal = (result: string) =>
-  result === "unknown_connector"
+const connectorGrantRefusal = (answer: ChangeAnswer) =>
+  answer.status === "on" && answer.result === "unknown_connector"
     ? "The hub does not have this connector."
-    : signInPageRefusal(result);
+    : signInPageRefusal(answer);
 
 /**
 The private connectors of one app: a checkbox for each connector of the hub that its policy does not
@@ -895,14 +905,19 @@ function ConnectorsDialog({
   onClose: () => void;
   onChanged: () => Promise<void>;
 }) {
+  // A save in progress keeps the dialog open: it closes the dialog when it ends, and must not close
+  // the dialog of another app that the admin opened meanwhile.
+  const [pending, setPending] = useState(false);
   return (
-    <Dialog open={target !== null} onOpenChange={(open) => (open ? null : onClose())}>
+    <Dialog open={target !== null} onOpenChange={(open) => (open || pending ? null : onClose())}>
       {target === null ? null : (
         <ConnectorsForm
           key={target.appId}
           target={target}
           overview={overview}
           changeConnectorGrant={changeConnectorGrant}
+          pending={pending}
+          setPending={setPending}
           onOutcome={onOutcome}
           onClose={onClose}
           onChanged={onChanged}
@@ -916,6 +931,8 @@ function ConnectorsForm({
   target,
   overview,
   changeConnectorGrant,
+  pending,
+  setPending,
   onOutcome,
   onClose,
   onChanged,
@@ -923,6 +940,9 @@ function ConnectorsForm({
   target: ConnectorsTarget;
   overview: Overview;
   changeConnectorGrant: ChangeConnectorGrant;
+  /** Whether a save is in progress, owned by the dialog, which stays open meanwhile. */
+  pending: boolean;
+  setPending: (pending: boolean) => void;
   /** The report of a save, which the page shows outside the overview it reloads. */
   onOutcome: (outcome: string) => void;
   onClose: () => void;
@@ -937,7 +957,6 @@ function ConnectorsForm({
   );
   const [checked, setChecked] = useState<string[]>(saved);
   const [reason, setReason] = useState("");
-  const [pending, setPending] = useState(false);
   const changes = choices.filter((name) => checked.includes(name) !== saved.includes(name));
 
   /**
@@ -961,7 +980,7 @@ function ConnectorsForm({
           grant,
           reason,
         });
-        const refusal = answer.status === "on" ? connectorGrantRefusal(answer.result) : null;
+        const refusal = connectorGrantRefusal(answer);
         if (refusal === null) {
           saved.push(connector);
         } else {
@@ -1087,7 +1106,7 @@ function ConnectorGrantsSection({
         grant: false,
         reason,
       });
-      setMessage(answer.status === "on" ? connectorGrantRefusal(answer.result) : null);
+      setMessage(connectorGrantRefusal(answer));
       setReason("");
       await onChanged();
     } catch {

@@ -559,6 +559,98 @@ describe("AdminHubClientsPage", () => {
     }
   });
 
+  /** Opens Connectors… of cl_test, whose policy gives the public pair, and checks `google`. */
+  async function checkGoogleInConnectorsDialog() {
+    const trigger = Array.from(document.querySelectorAll("button")).find(
+      (candidate) => candidate.getAttribute("aria-label") === "cl_test actions",
+    );
+    await act(async () => {
+      trigger?.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, button: 0 }));
+      trigger?.click();
+    });
+    const connectors = Array.from(document.querySelectorAll("[role=menuitem]")).find(
+      (item) => item.textContent === "Connectors…",
+    );
+    await act(async () => {
+      connectors?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    const google = Array.from(document.querySelectorAll("[role=dialog] label")).find(
+      (label) => label.textContent === "google",
+    );
+    await act(async () => {
+      google?.querySelector<HTMLElement>("[data-slot=checkbox]")?.click();
+    });
+    await act(async () => type(document.body, "#admin-hub-clients-connectors-reason", "Ours"));
+  }
+
+  async function submitConnectorsDialog() {
+    await act(async () => {
+      document
+        .querySelector<HTMLFormElement>("#admin-hub-clients-connectors-form")
+        ?.requestSubmit();
+      await Promise.resolve();
+    });
+  }
+
+  it("reports a change as refused when moderation went off while the page was open", async () => {
+    const [first, ...rest] = overview.clientList.clients;
+    testState.readOverview.mockResolvedValue({
+      ...overview,
+      clientList: {
+        ...overview.clientList,
+        clients: [{ ...first, policyConnectors: ["google-apps", "github-apps"] }, ...rest],
+      },
+    });
+    testState.changeConnectorGrant.mockResolvedValueOnce({ status: "off" });
+    const page = await renderPage();
+    try {
+      await checkGoogleInConnectorsDialog();
+      await submitConnectorsDialog();
+      await act(async () => await new Promise((resolve) => setTimeout(resolve, 0)));
+
+      const text = page.rootElement.textContent;
+      expect(text).toContain("Refused: google: Moderation is off: the hub changed nothing.");
+      expect(text).not.toContain("Saved:");
+    } finally {
+      await page.unmount();
+    }
+  });
+
+  it("keeps the connectors dialog open while its save runs", async () => {
+    const [first, ...rest] = overview.clientList.clients;
+    testState.readOverview.mockResolvedValue({
+      ...overview,
+      clientList: {
+        ...overview.clientList,
+        clients: [{ ...first, policyConnectors: ["google-apps", "github-apps"] }, ...rest],
+      },
+    });
+    let finish: (answer: { status: "on"; result: "changed" }) => void = () => undefined;
+    testState.changeConnectorGrant.mockReturnValueOnce(
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+    );
+    const page = await renderPage();
+    try {
+      await checkGoogleInConnectorsDialog();
+      await submitConnectorsDialog();
+      await act(async () => {
+        document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+      });
+      expect(document.querySelector("[role=dialog]")).not.toBeNull();
+
+      await act(async () => {
+        finish({ status: "on", result: "changed" });
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      });
+      expect(document.querySelector("[role=dialog]")).toBeNull();
+      expect(page.rootElement.textContent).toContain("Saved: google.");
+    } finally {
+      await page.unmount();
+    }
+  });
+
   it("keeps the report of a partial save when the reload after it fails", async () => {
     const [first, ...rest] = overview.clientList.clients;
     testState.readOverview.mockResolvedValue({
