@@ -179,7 +179,7 @@ export default defineSchema({
   /**
    * The exemptions from the sign-in page, set by the hub's administrator with
    * `signInPage.set`. One row per target. A row that covers a client skips the sign-in page for
-   * it, whatever the host's policy asks. A one-app row counts only while the tenant's recorded
+   * it, which hub mode shows otherwise. A one-app row counts only while the tenant's recorded
    * owner and the owner that registered the client are the row's `ownerId`.
    */
   signInPageExemptions: defineTable({

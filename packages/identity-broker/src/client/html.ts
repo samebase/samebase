@@ -131,10 +131,10 @@ function hostMarkup(host: string) {
 }
 
 /**
- * What the sign-in page adds when it asks for consent: in hub mode, unless an admin exemption covers
- * the client. An exempt client with several connectors gets the picker alone. An app's name is self-asserted
- * (RFC 7591 section 5), so the page names what the hub checked: the deploy, the GitHub repository
- * that registered the client, and what the app gets.
+ * What the sign-in page adds when it asks for consent: in hub mode, unless an admin exemption
+ * covers the client. An exempt client with several connectors gets the picker alone. An app's name
+ * is self-asserted (RFC 7591 section 5), so the page names what the hub checked: the deploy, the
+ * GitHub repository that registered the client, and what the app gets.
  */
 export type Consent = {
   /** A loopback return address: the sign-in ends on the user's own computer. */
