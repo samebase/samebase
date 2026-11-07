@@ -55,11 +55,12 @@ A client enrolls in connectors at registration: `connectors: ["google", "github"
 discovery) and its policy, and which the client cannot change. The `connector` query parameter on
 `/authorize` is a space-delimited list of the enrolled names (`connector=google+github` in a URL).
 One name goes straight to that connector when the hub's policy asks for no consent, as when the
-app's own page picked; no parameter offers every connector the client may use; several names offer
-those. A name the client is not enrolled in is a request error. `sub` is the provider's own id with
-the provider in front, such as `github:4076804`: for GitHub and Google the id an app saw when it
-signed users in to GitHub or Google directly, the same in every app and every broker. An app that
-needs the provider's id reads it from `sub`.
+app's own page picked or the hub's administrator exempted the app from the sign-in page; no
+parameter offers every connector the client may use; several names offer those. A name the client is
+not enrolled in is a request error. `sub` is the provider's own id with the provider in front, such
+as `github:4076804`: for GitHub and Google the id an app saw when it signed users in to GitHub or
+Google directly, the same in every app and every broker. An app that needs the provider's id reads
+it from `sub`.
 
 The id_token also carries `connector`, one string: the connector the user signed in with.
 

@@ -74,7 +74,9 @@ record at `/register/<client>` (RFC 7592).
 A row in `blocks` stops a repository, or every repository of an owner: registration, renewal,
 sign-in, code exchange, and provider refresh read it. It is the one block state, and
 `moderation.setBlock` its one writer, which also appends the event. Our hub sets it from Block
-repository and Block owner on samebase.com's admin page, through `/moderation/blocks`.
+repository and Block owner on samebase.com's admin page, through `/moderation/blocks`. A row in
+`signInPageExemptions` is the other thing the admin sets (see Policy): it only feeds the policy, and
+a block wins over it.
 
 ## Policy
 
@@ -85,6 +87,18 @@ facts come from GitHub's token or the initial access token's row and the request
 the client's and the tenant's rows, so a changed policy applies to existing clients at once. Its
 answer is the connectors the client may enroll in and use, the API resources (by provider name) it
 may authorize, whether the sign-in page asks for consent, and whether it is paused.
+
+Its second input, `admin`, is what the hub's administrator set, apart from the facts the app's
+registration proved: `skipForEveryApp` and `skipForThisApp`, from `signInPageExemptions`. The broker
+reads them with the facts, in the same query (`clientWithApp`, so `/authorize`, `/continue`, the
+callback, code exchange, refresh, and API authorization all see them), and at registration through
+`signInPage.forRegistration` after the proof; never from a request. A one-app row counts only while
+the tenant's recorded owner and the owner that registered the client are the row's owner, so a
+transfer stops it and an old client of a previous owner never gets it; it counts again if the
+repository comes back to the same owner. The broker gives them no meaning: the policy decides, and
+our hub turns them into `consent: false`. `signInPage.set` is their one writer, through
+`/moderation/sign-in-page`; it checks that the recorded owner is still the one the admin saw before
+it sets a one-app row, and appends a `sign_in_page_change` event in the same transaction.
 
 The policy runs in the host's HTTP action, once per request, at registration, `/authorize`,
 `/continue`, the connector callback (before the request is claimed, and again after the provider
@@ -124,6 +138,14 @@ registered the client, what the app receives, and links the hub's privacy notice
 picker and the consent are one page, so no user sees two pickers. `/continue`, the callback, and
 code exchange accept only a connector in the set, the enrollment, and the policy of the moment. The
 id_token keeps `connector` as one string, the connector the user signed in with.
+
+Whether the page asks for consent is decided once, at the `/authorize` that stores the request: an
+exemption set or removed later does not change a request that already passed it, in either
+direction. `/continue`, the callback, code exchange, and refresh keep every other check; they do not
+decide the page again. Removing an exemption is not a revocation: to stop an app, block it. With the
+page skipped, the provider's screen is the only one, and it names the hub, not the app; a connector
+with `selectAccount` makes that screen ask for a click, so no app gets a user who authorized the hub
+before with no click at all.
 
 A refusal before the user continued from the page (or, with no page, before the redirect to the
 provider) is an error page of the hub, for every client: the user has not accepted the return

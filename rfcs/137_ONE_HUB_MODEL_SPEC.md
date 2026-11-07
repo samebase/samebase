@@ -6,6 +6,10 @@
   (prior art, standards, policy as code, shared upstream clients, pause semantics), then reviewed by
   Codex (design review, 17 findings, all folded in), then decided by Nicu (the section "Decisions
   taken after the review").
+- Amended on 2026-11-07, after the rollout: the hub's administrator can exempt one app or every app
+  from the sign-in page, and GitHub shows its account picker on each sign-in (decisions 2, 5, and 9,
+  the first decision taken after the review, and the validation). Designed by Claude, designed
+  independently by Codex Sol, reviewed by Codex Astra, and decided by Nicu (broker 0.25.0).
 - Owner: Nicu Chiciuc
 - Supersedes, once accepted: the hub model of RFC 130 (registration without an account), RFC 133
   (development clients with the initial access token), RFC 134 (one path, own apps by repository),
@@ -36,6 +40,7 @@ What stays. Each line names the document that holds the detail.
 | Expiry               | A preview or development client lives 14 days after its last deploy, dev start, sign-in, resource authorization, or refresh. A production client never expires (RFC 131).                                                                                                                                                                                                                                                                                                    |
 | Limits               | `POST /hub-clients`: 30 per repository and 100 per owner per hour, and 50 new owners per hour for the whole hub. Sign-ins: a token bucket per tenant (RFC 130, 136).                                                                                                                                                                                                                                                                                                         |
 | Blocks               | The hub's administrator blocks a repository or an owner at `/moderation/blocks`. A block stops registration, renewal, sign-in, code exchange, and refresh at once, in the transaction that reads it (RFC 135).                                                                                                                                                                                                                                                               |
+| Exemptions           | The hub's administrator exempts one app (a repository's production app, or its preview app with its development servers, bound to the repository's recorded owner) or every app from the sign-in page at `/moderation/sign-in-page`, with a reason and one event per change. The policy gets them as `admin` and decides (decisions 2 and 5).                                                                                                                                |
 | Ownership            | The tenant records its owner from the newest accepted GitHub token (`iat`); an older token of another owner is refused, so a transfer cannot be undone by a replay (RFC 136).                                                                                                                                                                                                                                                                                                |
 | Subjects             | `sub` is `<provider>:<the provider's id>`, public, the same in every app (RFC 134).                                                                                                                                                                                                                                                                                                                                                                                          |
 | Invariants           | `packages/identity-broker/docs/invariants.md`, checked by the model-based tests (RFC 136).                                                                                                                                                                                                                                                                                                                                                                                   |
@@ -93,7 +98,15 @@ type Policy = {
   paused: boolean;
 };
 
-registration.policy: (registration: Registration) => Policy;
+/** What the hub's administrator set, read by the broker from its rows, never from a request. */
+type AdminSettings = {
+  /** The "every app" exemption from the sign-in page exists. */
+  skipForEveryApp: boolean;
+  /** The exemption of the client's app exists, bound to the recorded owner and the client's. */
+  skipForThisApp: boolean;
+};
+
+registration.policy: (registration: Registration, admin: AdminSettings) => Policy;
 ```
 
 Where each input comes from, so a policy knows what it can trust:
@@ -126,6 +139,10 @@ Where each input comes from, so a policy knows what it can trust:
   default, and a missing env value is a configuration failure, never "allow".
 - RFC 135 is amended: the hub supplies decisions as code; the broker still owns validation,
   persistence, and enforcement.
+- `admin` is the second input, kept apart from what the app's registration proved. The broker reads
+  it from `signInPageExemptions` in the query that reads the facts at each use, and at registration
+  after the proof. A one-app row counts only while the tenant's recorded owner and the owner that
+  registered the client are the row's owner. The broker gives it no meaning; the policy decides.
 
 ### 3. The authorize contract
 
@@ -162,6 +179,12 @@ in its registration answer, not in discovery.
   are the same page, so no user sees two pickers: either the app's page picked, or the hub's page
   does.
 - With one offered connector and `consent: false`, there is no page.
+- The hub's administrator can make the policy skip the page for one app or for every app, from
+  samebase.com's admin page (`/moderation/sign-in-page`). Setting a one-app row checks that the
+  repository's recorded owner is still the one the admin saw. Each set and removal appends an event
+  with the admin's email and reason. The page is decided at `/authorize` only: a sign-in that passed
+  it finishes with that decision, and removing an exemption is not a revocation (a block is).
+  Turning the page back on cannot take back what apps received while it was off.
 - Refusals before the user continued from the hub's page (or, with no page, before the redirect to
   the provider) end on an error page of the hub, for every client: no redirect to a return address
   that the user has not accepted (RFC 9700 section 4.11.2). After the user continued, every outcome
@@ -221,15 +244,19 @@ registration: {
   terms: "https://samebase.com/terms",
   privacy: "https://samebase.com/privacy",
   moderationKey: () => env.HUB_MODERATION_KEY,
-  policy: (registration) => ({
+  policy: (registration, admin) => ({
     connectors: ["google", "github"],
     resources:
       samebase(registration) && registration.app === "samebase-connections"
         ? ["convex", "cloudflare", "github"]
         : [],
-    // Every client but samebase.com's production, whose recipient Google's and GitHub's screens
-    // already name. This field is the lever for other cases, without a change to the broker.
-    consent: !(samebase(registration) && registration.deploymentType === "production"),
+    // Every client but the apps the admin exempts and samebase.com's production, whose recipient
+    // Google's and GitHub's screens already name.
+    consent: !(
+      admin.skipForEveryApp ||
+      admin.skipForThisApp ||
+      (samebase(registration) && registration.deploymentType === "production")
+    ),
     // samebase.com's production keeps running; its previews and development servers feel the
     // pause as a stranger's app does.
     paused:
@@ -242,9 +269,10 @@ registration: {
 - The owner id is checked with the repository id: a transferred repository keeps its numeric id, and
   the stale-proof rule stops only a replay of the old owner, not the new owner's forward claim.
 - `google` is the Google OAuth client of the public project (today `google-apps`), with
-  `selectAccount: true`. `github` is a new public GitHub OAuth App for every app of the hub. The
-  private Google client and the team's GitHub login OAuth App leave the hub. samebase.com, the
-  owner's other apps, and every stranger's app go through the same two connectors.
+  `selectAccount: true`. `github` is a new public GitHub OAuth App for every app of the hub, also
+  with `selectAccount: true` (GitHub's `prompt=select_account`, changelog 2024-06-07). The private
+  Google client and the team's GitHub login OAuth App leave the hub. samebase.com, the owner's other
+  apps, and every stranger's app go through the same two connectors.
 - No private repository id or name is in the code: samebase.com's repository and organization are
   public.
 
@@ -254,6 +282,9 @@ registration: {
   the app provides them, and no app does yet.
 - Remembered consent per browser and app, and a Cancel on the sign-in page: added when a user needs
   them.
+- Exemptions per owner or per repository, per connector, or per host; a row that puts the page back
+  for one app while every app is exempt; an end time on a row; app owners setting their own; the
+  pause or API resources from the admin page: added when a need appears.
 - A second proof (GitLab, other CI): `proof` is a field of the policy input so a later proof fits,
   but nothing is built for it.
 - Changing the registration limits, the caps, the expiry, the blocks, or the subjects.
@@ -267,7 +298,11 @@ registration: {
    identity with no page that names the recipient (RFC 6749 section 10.12). Every client gets the
    page but samebase.com's production, whose recipient is the Samebase that Google's and GitHub's
    screens name. The policy's `consent` field keeps the way open: when a case is found that needs no
-   page, the hub's policy returns false for it, and the broker does not change.
+   page, the hub's policy returns false for it, and the broker does not change. Amended on
+   2026-11-07: the page is the default, and the apps the admin exempts (decision 5) skip it, an
+   accepted product risk for their users, who then do not see which app gets their identity.
+   GitHub's silent reuse is answered by its account picker, which the hub asks for on every GitHub
+   sign-in, so no exempt app gets a user with no click.
 2. **Pause scope: samebase.com's production only**, so that its previews and development servers
    feel the pause as a stranger's app does.
 3. **One public Google client for every app**, samebase.com included, with the hub's homepage,
@@ -294,6 +329,14 @@ registration: {
   enrollment, and the current policy.
 - Page screenshots (`pnpm run test:pages`): picker with two connectors, consent with two, consent
   with one, plain with one.
+- Exemptions (`src/client/signInPage.test.ts`): an empty table changes nothing; one app skips the
+  page and its preview app and other apps do not; every app, new ones included; owner binding
+  through a transfer, a transfer back, and an old client of another owner; a stale admin view (409)
+  and an unknown app (404); one event per change and none for a change in place; a sign-in that
+  passed `/authorize` finishes after the row goes; a block and the pause win; the policy gets the
+  settings at both registration paths; the admin list says what decides each client's page; an
+  exemption grants no API resource; GitHub's URL carries `prompt=select_account`. Property C plays
+  the every-app exemption in its stories.
 - A stranger walkthrough on `samebase/base`: register with `["google", "github"]`, sign in through
   both, see the page on a preview and in production.
 - After the rollout: sign in to samebase.com through both connectors with an existing account, and

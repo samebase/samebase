@@ -65,9 +65,9 @@ every app of the hub shares. Google uses `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_S
 secrets that the stack hands to the deployment, and that client's redirect URIs must include
 `<issuer>/connectors/google/callback`; it always asks Google to show the account screen. GitHub uses
 the public OAuth App the same way, `AUTH_GITHUB_CLIENT_ID` and `AUTH_GITHUB_CLIENT_SECRET`, with the
-callback `<issuer>/connectors/github/callback`. Another provider is one more wrapper line, its
-variables declared in `convex/convex.config.ts` and handed down the same way, and a name in the
-policy's `connectors`.
+callback `<issuer>/connectors/github/callback`, and always asks GitHub to show its account picker.
+Another provider is one more wrapper line, its variables declared in `convex/convex.config.ts` and
+handed down the same way, and a name in the policy's `connectors`.
 
 ## Register an app
 
@@ -95,12 +95,17 @@ client reads and deletes its own record at `/register/<client>`, and the broker 
 
 `connectors` is the client's enrollment: the connectors its sign-ins may use, which the policy
 intersects at each sign-in and which never changes on a client. The policy in `convex/broker.ts`
-gives every registration both connectors, asks every client but samebase.com's production for
-consent on the sign-in page, gives the API resources to the `samebase-connections` app of the
-samebase repository alone, and pauses every app but samebase.com's production while `APPS_PAUSED` is
-`true`. samebase.com's admin page at `/admin/hub-clients` lists the registrations and every client,
-and Block repository and Block owner there are the switches of one repository or owner, with
-`HUB_MODERATION_KEY`, which is set by hand on both deployments.
+gives every registration both connectors, asks every client for consent on the sign-in page but
+samebase.com's production and the apps that the admin exempts, gives the API resources to the
+`samebase-connections` app of the samebase repository alone, and pauses every app but samebase.com's
+production while `APPS_PAUSED` is `true`. samebase.com's admin page at `/admin/hub-clients` lists
+the registrations and every client, with `HUB_MODERATION_KEY`, which is set by hand on both
+deployments. Block repository and Block owner there are the switches of one repository or owner.
+Skip the sign-in page there exempts one app (a repository's production app, or its preview app with
+its development servers) for as long as the repository's recorded owner stays the one the admin saw,
+and Skip the sign-in page for every app exempts all of them, new ones included. Each change is
+recorded with the admin's email and reason. Turning the page back on reaches new sign-ins only: what
+an app got while its page was off stays with it.
 
 See the component's [consumer guide](../../packages/identity-broker/docs/consumers.md).
 

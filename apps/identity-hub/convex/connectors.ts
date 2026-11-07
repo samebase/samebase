@@ -17,8 +17,11 @@ export const connectors: Connector[] = [
     clientSecret: () => env.GOOGLE_CLIENT_SECRET,
     selectAccount: true,
   }),
+  // The same for GitHub, which otherwise passes a user who authorized Samebase for any app through
+  // with no screen: with the page skipped, an app could learn a visitor's account with no click.
   github({
     clientId: () => env.AUTH_GITHUB_CLIENT_ID,
     clientSecret: () => env.AUTH_GITHUB_CLIENT_SECRET,
+    selectAccount: true,
   }),
 ];

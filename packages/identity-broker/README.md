@@ -66,6 +66,7 @@ export const broker = defineIdentityBroker({
     github({
       clientId: () => process.env.GITHUB_CLIENT_ID!,
       clientSecret: () => process.env.GITHUB_CLIENT_SECRET!,
+      selectAccount: true,
     }),
     google({
       clientId: () => process.env.GOOGLE_CLIENT_ID!,
@@ -79,11 +80,12 @@ export const broker = defineIdentityBroker({
     terms: "https://example.com/terms",
     privacy: "https://example.com/privacy",
     moderationKey: () => process.env.HUB_MODERATION_KEY,
-    // What each registration may do, from its facts: run at registration and at each use.
-    policy: (registration) => ({
+    // What each registration may do, from its facts and what the admin set: run at registration
+    // and at each use.
+    policy: (registration, admin) => ({
       connectors: ["github", "google"],
       resources: registration.repositoryId === "1021726325" ? ["convex", "cloudflare"] : [],
-      consent: true,
+      consent: !(admin.skipForEveryApp || admin.skipForThisApp),
       paused: process.env.APPS_PAUSED === "true",
     }),
   },
@@ -132,7 +134,10 @@ broker runs it at registration and at each use (`/authorize`, `/continue`, the c
 code exchange, API authorization, and provider refresh) on the client's and the tenant's rows, so a
 change applies to existing clients at once. A policy that throws or answers a malformed value
 refuses the request; nothing is allowed by default. A paused client gets no registration, sign-in,
-code exchange, or refresh, and keeps its reads, renewals, revocations, and self-deletes.
+code exchange, or refresh, and keeps its reads, renewals, revocations, and self-deletes. Its second
+argument, `admin`, is what the hub's administrator set at `/moderation/sign-in-page`, read from the
+broker's rows: `skipForEveryApp`, and `skipForThisApp` for an app exempted while the repository's
+recorded owner, and the client's, is the one the admin saw. The policy decides what they mean.
 
 Each repository and owner has hourly limits, and `/moderation/blocks` stops a repository or an owner
 at once, policy or not. `/moderation/clients?repository=<id>&repository=<id>` lists the clients of

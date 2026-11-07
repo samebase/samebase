@@ -135,6 +135,84 @@ describe("the hub", () => {
     );
   });
 
+  it("skips the page for an app or every app that the admin exempts, and GitHub shows its account picker", async () => {
+    const t = makeConvexTest();
+    vi.stubEnv("GOOGLE_CLIENT_ID", "google-client");
+    vi.stubEnv("GOOGLE_CLIENT_SECRET", "google-secret");
+    vi.stubEnv("AUTH_GITHUB_CLIENT_ID", "github-client");
+    vi.stubEnv("AUTH_GITHUB_CLIENT_SECRET", "github-secret");
+    stubProviders();
+    const trusted = await (await postHubClient(t, await signToken())).json();
+    stubProviders("75");
+    const other = await (await postHubClient(t, await signToken({ repository_id: "75" }))).json();
+    const moderation = (path: string, body?: unknown) =>
+      t.fetch(path, {
+        method: body === undefined ? "GET" : "POST",
+        headers: { Authorization: `Bearer ${MODERATION_KEY}`, "Content-Type": "application/json" },
+        ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+      });
+    // The admin page binds the row to the app and the owner it shows.
+    const list: { clients: Array<{ clientId: string; appId: string; ownerId: string }> } = await (
+      await moderation("/moderation/clients")
+    ).json();
+    const shown = list.clients.find((client) => client.clientId === trusted.client_id);
+    const exempt = await moderation("/moderation/sign-in-page", {
+      target: { scope: "app", appId: shown?.appId, expectedOwnerId: shown?.ownerId },
+      skip: true,
+      reason: "A team we know",
+      adminEmail: "nicu@samebase.com",
+    });
+    expect(await exempt.json()).toEqual({ changed: true });
+
+    const signIn = async (client: { client_id: string }, connector: string) =>
+      await t.fetch(
+        // eslint-disable-next-line no-restricted-globals -- This test sends an OAuth authorize request.
+        `/authorize?${new URLSearchParams({
+          client_id: client.client_id,
+          redirect_uri: PRODUCTION_CALLBACK,
+          response_type: "code",
+          scope: "openid email profile",
+          code_challenge: "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM",
+          code_challenge_method: "S256",
+          connector,
+        }).toString()}`,
+      );
+    // Google's discovery document and GitHub's RFC 8414 metadata: their endpoints, read 2026-11-07.
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) =>
+        Response.json(
+          new Request(input).url.startsWith("https://github.com/")
+            ? {
+                issuer: "https://github.com/login/oauth",
+                authorization_endpoint: "https://github.com/login/oauth/authorize",
+                token_endpoint: "https://github.com/login/oauth/access_token",
+              }
+            : {
+                issuer: "https://accounts.google.com",
+                authorization_endpoint: "https://accounts.google.com/o/oauth2/v2/auth",
+                token_endpoint: "https://oauth2.googleapis.com/token",
+                jwks_uri: "https://www.googleapis.com/oauth2/v3/certs",
+              },
+        ),
+      ),
+    );
+
+    expect((await signIn(trusted, "google")).status).toBe(302);
+    expect((await signIn(other, "google")).status).toBe(200);
+    await moderation("/moderation/sign-in-page", {
+      target: { scope: "every_app" },
+      skip: true,
+      reason: "Launch week",
+      adminEmail: "nicu@samebase.com",
+    });
+    const github = await signIn(other, "github");
+    expect(github.status).toBe(302);
+    const location = new URL(github.headers.get("location") ?? "");
+    expect(location.origin + location.pathname).toBe("https://github.com/login/oauth/authorize");
+    expect(location.searchParams.get("prompt")).toBe("select_account");
+  });
+
   it("answers /moderation/counts only with HUB_MODERATION_KEY", async () => {
     const t = makeConvexTest();
 
