@@ -75,7 +75,14 @@ export { assertKeySetUsable } from "./jwt.js";
 export type { Policy, Registration } from "./policy.js";
 export type { RegistrationConfig } from "./registration.js";
 
-export type IdentityBrokerConfig = {
+/**
+ * `C` and `R` are the host's connectors and API resources. The policy in `registration` can name
+ * only theirs, so a misspelt connector or resource is a type error.
+ */
+export type IdentityBrokerConfig<
+  C extends Connector = Connector,
+  R extends ResourceProvider = ResourceProvider,
+> = {
   /** `components.identityBroker` of the host app. */
   component: ComponentApi;
   /**
@@ -87,12 +94,12 @@ export type IdentityBrokerConfig = {
   /** The content of `IDENTITY_BROKER_KEYS`, read in the request. */
   keys: () => string | undefined;
   /** The connectors a client may enroll in. A hub's policy decides which ones each client gets. */
-  connectors: Connector[];
+  connectors: readonly C[];
   /**
    * OAuth API resources. In hub mode the policy's `resources` names the providers a client may
    * authorize; without hub mode every client may authorize every one.
    */
-  resources?: ResourceProvider[];
+  resources?: readonly R[];
   /**
    * Days without a sign-in after which `cleanup` deletes a preview client. Absent: `cleanup` deletes
    * no client, because a deployment whose client was deleted does not register again by itself.
@@ -102,7 +109,7 @@ export type IdentityBrokerConfig = {
    * The hub mode: `POST /hub-clients`, `/register/<client>` (RFC 7592), `/moderation/*`, and the
    * policy. Absent: none of these endpoints, and the host is its own policy.
    */
-  registration?: RegistrationConfig;
+  registration?: RegistrationConfig<C["name"], R["name"]>;
 };
 
 /** A request lives this long from /authorize to the code redirect. */
@@ -118,7 +125,9 @@ export const SIGN_IN_RETENTION_MS = 90 * 24 * 60 * 60 * 1000;
 
 type Ctx = GenericActionCtx<GenericDataModel>;
 
-export function defineIdentityBroker(config: IdentityBrokerConfig) {
+export function defineIdentityBroker<C extends Connector, R extends ResourceProvider = never>(
+  config: IdentityBrokerConfig<C, R>,
+) {
   const issuerUrl = new URL(config.issuer);
   if (!isSecureUrl(issuerUrl)) {
     throw new Error("The issuer must be https, or http on a loopback host for local development");

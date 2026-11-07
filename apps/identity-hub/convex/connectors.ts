@@ -1,4 +1,4 @@
-import { github, google, type Connector } from "@samebase/identity-broker";
+import { github, google } from "@samebase/identity-broker";
 import { env } from "./_generated/server";
 
 /**
@@ -12,9 +12,10 @@ import { env } from "./_generated/server";
  * Each one asks the provider for its account screen on every sign-in: an earlier app of this hub
  * must not pass a user through to another app with no click. Add a provider by appending its
  * wrapper, with the credentials read from the deployment's env, and register
- * `<issuer>/connectors/<name>/callback` with it.
+ * `<issuer>/connectors/<name>/callback` with it. The list keeps each connector's name as a literal
+ * type, so the policy in `broker.ts` can name only these four.
  */
-export const connectors: Connector[] = [
+export const connectors = [
   google({
     clientId: () => env.GOOGLE_CLIENT_ID,
     clientSecret: () => env.GOOGLE_CLIENT_SECRET,

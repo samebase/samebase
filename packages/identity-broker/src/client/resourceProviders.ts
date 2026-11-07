@@ -4,8 +4,9 @@ import { asRecord } from "./protocol.js";
 type Credentials = { clientId: () => string; clientSecret: () => string };
 
 /** A configured OAuth API resource. These providers grant API access without attesting an identity. */
-export type ResourceProvider = Credentials & {
-  name: string;
+/** `Name` is the provider's name as a literal type, so a hub's policy can only name its own. */
+export type ResourceProvider<Name extends string = string> = Credentials & {
+  name: Name;
   resource: string;
   server: oauth.AuthorizationServer & { authorization_endpoint: string };
   tokenEndpointAuthMethod: "client_secret_post" | "client_secret_basic";
@@ -18,7 +19,7 @@ export type ResourceProvider = Credentials & {
 const REFRESH_TIMEOUT_MS = 30 * 1000;
 
 /** Convex's team flow grants management access; it has no OAuth scope parameter or refresh grant. */
-export function convexConnection(credentials: Credentials): ResourceProvider {
+export function convexConnection(credentials: Credentials): ResourceProvider<"convex"> {
   return {
     ...credentials,
     name: "convex",
@@ -34,7 +35,7 @@ export function convexConnection(credentials: Credentials): ResourceProvider {
 }
 
 /** Cloudflare OAuth Applications, using API permission scopes and its documented token endpoint. */
-export function cloudflareConnection(credentials: Credentials): ResourceProvider {
+export function cloudflareConnection(credentials: Credentials): ResourceProvider<"cloudflare"> {
   return {
     ...credentials,
     name: "cloudflare",
@@ -75,7 +76,7 @@ async function githubTokenResponse(response: Response) {
 }
 
 /** The user access tokens of a GitHub App. The App's permissions set their access, not a scope. */
-export function githubConnection(credentials: Credentials): ResourceProvider {
+export function githubConnection(credentials: Credentials): ResourceProvider<"github"> {
   return {
     ...credentials,
     name: "github",

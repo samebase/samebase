@@ -25,7 +25,7 @@ const samebase = (registration: Registration) =>
   registration.ownerId === SAMEBASE_OWNER_ID;
 
 /** The public clients named "Samebase", which every app may use. */
-const PUBLIC_CONNECTORS = ["google-apps", "github-apps"];
+const PUBLIC_CONNECTORS = ["google-apps", "github-apps"] as const;
 
 export const broker = defineIdentityBroker({
   component: components.identityBroker,

@@ -4,6 +4,11 @@
 
 Connector grants, set by the hub's administrator (RFC 137 decision 10).
 
+- The policy can name only the host's own connectors and API resources: `google()`, `github()`, and
+  the resource providers return their names as literal types, and `defineIdentityBroker` passes them
+  to the policy's `connectors` and `resources`, so a misspelt name does not compile. Keep the
+  connector list without a `Connector[]` annotation, which would widen the names to `string`.
+
 - A new table, `connectorGrants`: one row per broker app (a repository's production app, or its
   preview app with its development clients) and connector, bound to the repository's recorded owner.
   Additive: no data to clear.

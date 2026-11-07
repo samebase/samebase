@@ -8,11 +8,11 @@
  * host's configuration stops here, whatever the policy still lists and whatever grant is kept.
  */
 export function usableNames(args: {
-  requested: string[];
-  enrollment: string[];
-  policy: string[];
-  granted: string[];
-  configured: string[];
+  requested: readonly string[];
+  enrollment: readonly string[];
+  policy: readonly string[];
+  granted: readonly string[];
+  configured: readonly string[];
 }): string[] {
   return args.requested.filter(
     (name) =>

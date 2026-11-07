@@ -22,9 +22,18 @@ export const vPolicy = object({
   /** Evaluated at registration and at each use. */
   paused: boolean(),
 });
-export type Policy = Infer<typeof vPolicy>;
+/**
+ * A policy's answer. `Connector` and `Resource` are the names of the hub's connectors and API
+ * resources, so `defineIdentityBroker` rejects a name the hub does not configure at compile time.
+ */
+export type Policy<Connector extends string = string, Resource extends string = string> = Omit<
+  Infer<typeof vPolicy>,
+  "connectors" | "resources"
+> & { connectors: readonly Connector[]; resources: readonly Resource[] };
 
-export type PolicyFunction = (registration: Registration) => Policy;
+export type PolicyFunction<Connector extends string = string, Resource extends string = string> = (
+  registration: Registration,
+) => Policy<Connector, Resource>;
 
 /**
  * The policy's answer, or null when it threw or answered a malformed value: the request is refused
@@ -75,13 +84,13 @@ export function decide(args: {
   policy: PolicyFunction | undefined;
   registration: Registration | null;
   enrollment: string[];
-  providers: Array<{ name: string; resource: string }>;
+  providers: ReadonlyArray<{ name: string; resource: string }>;
   /** The host's configured connector names. */
   configured: string[];
 }): Decision | null {
   const { enrollment, providers, configured } = args;
   // The one rule (`usableNames`) with no grant: the policy's part, which the mutations fence on.
-  const policyPart = (allowed: string[]) =>
+  const policyPart = (allowed: readonly string[]) =>
     usableNames({ requested: enrollment, enrollment, policy: allowed, granted: [], configured });
   if (args.policy === undefined) {
     return {
