@@ -2,26 +2,39 @@ import { github, google, type Connector } from "@samebase/identity-broker";
 import { env } from "./_generated/server";
 
 /**
- * The connectors this hub offers: the public Google client and the public GitHub OAuth App of
- * Samebase, which every app of the hub shares (RFC 137). The policy in `broker.ts` decides which
- * ones a registration may enroll in. Add a provider by appending its wrapper, with the credentials
- * read from the deployment's env, and register `<issuer>/connectors/<name>/callback` with it. Any
- * other OAuth 2.0 or OpenID Connect provider is an `oauth` or `oidc` connector with its endpoints
- * copied in.
+ * The connectors this hub offers, two per provider (RFC 137 decision 3). `google` and `github` are
+ * the operator's private clients: samebase.com's own sign-in, and the apps that the admin grants
+ * them to on samebase.com's admin page. `google-apps` and `github-apps` are the public clients
+ * named "Samebase", for every app. The policy in `broker.ts` gives the public pair to every
+ * registration and all four to the operator. A user's `sub` comes from the provider, so it is
+ * `google:<id>` or `github:<id>` through either client of a provider.
+ *
+ * Each one asks the provider for its account screen on every sign-in: an earlier app of this hub
+ * must not pass a user through to another app with no click. Add a provider by appending its
+ * wrapper, with the credentials read from the deployment's env, and register
+ * `<issuer>/connectors/<name>/callback` with it.
  */
 export const connectors: Connector[] = [
-  // Always asks Google to show the account screen: an earlier app of this hub must not pass a user
-  // through to another app with no click.
   google({
     clientId: () => env.GOOGLE_CLIENT_ID,
     clientSecret: () => env.GOOGLE_CLIENT_SECRET,
     selectAccount: true,
   }),
-  // The same for GitHub, which otherwise passes a user who authorized Samebase for any app through
-  // with no screen: with the page skipped, an app could learn a visitor's account with no click.
   github({
     clientId: () => env.AUTH_GITHUB_CLIENT_ID,
     clientSecret: () => env.AUTH_GITHUB_CLIENT_SECRET,
+    selectAccount: true,
+  }),
+  google({
+    name: "google-apps",
+    clientId: () => env.GOOGLE_APPS_CLIENT_ID,
+    clientSecret: () => env.GOOGLE_APPS_CLIENT_SECRET,
+    selectAccount: true,
+  }),
+  github({
+    name: "github-apps",
+    clientId: () => env.AUTH_GITHUB_APPS_CLIENT_ID,
+    clientSecret: () => env.AUTH_GITHUB_APPS_CLIENT_SECRET,
     selectAccount: true,
   }),
 ];
