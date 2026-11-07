@@ -760,40 +760,56 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
         }
         authTime = authTimeSeconds * 1000;
       }
-      // The decision again, on the rows as they are now: the provider took time, and a block, a
-      // transfer, or a policy change may have landed. The mutation reads those rows once more.
-      const current = await ctx.runQuery(component.clients.withApp, {
-        clientId: found.client.clientId,
-      });
-      const completion = current === null ? null : decideFor(current);
-      if (completion === null) {
-        await ctx.runMutation(component.authRequests.abandon, { requestId: claim.requestId });
-        return authorizationError({
+      // The completion: the decision again, on the rows as they are now (the provider took time,
+      // and a block, a transfer, or a policy change may have landed), then the mutation, which
+      // reads those rows once more. The provider's code is spent, so whatever fails in here still
+      // answers the app, and the request is abandoned when that write goes through.
+      const unavailable = () =>
+        authorizationError({
           ...back,
           error: "temporarily_unavailable",
           description: "Sign-in is not available right now.",
         });
+      try {
+        const current = await ctx.runQuery(component.clients.withApp, {
+          clientId: found.client.clientId,
+        });
+        const completion = current === null ? null : decideFor(current);
+        if (completion === null) {
+          await ctx.runMutation(component.authRequests.abandon, { requestId: claim.requestId });
+          return unavailable();
+        }
+        const code = randomToken(32);
+        const completed = await ctx.runMutation(component.authRequests.complete, {
+          requestId: claim.requestId,
+          identity: { connector: connector.name, ...upstream.identity },
+          authTime,
+          codeHash: await sha256Hex(code),
+          codeExpiresAt: now + CODE_TTL_MS,
+          policy: policyArg(completion),
+          now,
+        });
+        if (!completed.ok) {
+          return completed.error === "refused"
+            ? stoppedNow(completion.paused)
+            : authorizationError({
+                ...back,
+                error: "access_denied",
+                description: "The sign-in expired.",
+              });
+        }
+        return authorizationResponse({ ...back, params: { code } });
+      } catch (error) {
+        console.error(
+          `Connector "${connector.name}" completion failed: ${error instanceof Error ? error.constructor.name : typeof error}`,
+        );
+        try {
+          await ctx.runMutation(component.authRequests.abandon, { requestId: claim.requestId });
+        } catch {
+          // The request stays claimed until it expires; nothing can finish it.
+        }
+        return unavailable();
       }
-      const code = randomToken(32);
-      const completed = await ctx.runMutation(component.authRequests.complete, {
-        requestId: claim.requestId,
-        identity: { connector: connector.name, ...upstream.identity },
-        authTime,
-        codeHash: await sha256Hex(code),
-        codeExpiresAt: now + CODE_TTL_MS,
-        policy: policyArg(completion),
-        now,
-      });
-      if (!completed.ok) {
-        return completed.error === "refused"
-          ? stoppedNow(completion.paused)
-          : authorizationError({
-              ...back,
-              error: "access_denied",
-              description: "The sign-in expired.",
-            });
-      }
-      return authorizationResponse({ ...back, params: { code } });
     });
   }
 

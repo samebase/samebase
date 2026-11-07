@@ -238,39 +238,65 @@ export function resourceEndpoints(options: {
           description: "The provider authorization did not complete.",
         });
       }
-      // The decision again, on the rows as they are now; the mutation reads them once more.
-      const current = await ctx.runQuery(component.clients.withApp, { clientId: claim.clientId });
-      const completion = current === null ? null : decide(current);
-      if (completion === null) {
-        await ctx.runMutation(component.resourceRequests.abandon, { requestId: claim.requestId });
-        return authorizationError({
+      // The completion: the decision again, on the rows as they are now, then the mutation, which
+      // reads them once more. The provider's code is spent, so whatever fails in here still
+      // answers the app, and the request is abandoned when that write goes through.
+      const unavailable = () =>
+        authorizationError({
           ...back,
           error: "temporarily_unavailable",
           description: "Authorization is not available right now.",
         });
-      }
-      const code = randomToken(32);
-      const completed = await ctx.runMutation(component.resourceRequests.complete, {
-        requestId: claim.requestId,
-        tokens,
-        codeHash: await sha256Hex(code),
-        codeExpiresAt: Date.now() + CODE_TTL_MS,
-        policy: policyArg(completion),
-        now: Date.now(),
-      });
-      switch (completed) {
-        case "completed":
-          return authorizationResponse({ ...back, params: { code } });
-        case "refused":
-          return authorizationError({
-            ...back,
-            error: "access_denied",
-            description: "This client cannot connect this API resource.",
+      try {
+        const current = await ctx.runQuery(component.clients.withApp, {
+          clientId: claim.clientId,
+        });
+        const completion = current === null ? null : decide(current);
+        if (completion === null) {
+          await ctx.runMutation(component.resourceRequests.abandon, {
+            requestId: claim.requestId,
           });
-        case "gone":
-          return expired();
-        default:
-          return completed satisfies never;
+          return unavailable();
+        }
+        const code = randomToken(32);
+        const completed = await ctx.runMutation(component.resourceRequests.complete, {
+          requestId: claim.requestId,
+          tokens,
+          codeHash: await sha256Hex(code),
+          codeExpiresAt: Date.now() + CODE_TTL_MS,
+          policy: policyArg(completion),
+          now: Date.now(),
+        });
+        switch (completed) {
+          case "completed":
+            return authorizationResponse({ ...back, params: { code } });
+          case "refused":
+            return completion.paused
+              ? authorizationError({
+                  ...back,
+                  error: "temporarily_unavailable",
+                  description: "Authorization is paused.",
+                })
+              : authorizationError({
+                  ...back,
+                  error: "access_denied",
+                  description: "This client cannot connect this API resource.",
+                });
+          case "gone":
+            return expired();
+          default:
+            return completed satisfies never;
+        }
+      } catch (error) {
+        console.error(`Resource "${provider.name}" completion failed: ${failureName(error)}`);
+        try {
+          await ctx.runMutation(component.resourceRequests.abandon, {
+            requestId: claim.requestId,
+          });
+        } catch {
+          // The request stays claimed until it expires; nothing can finish it.
+        }
+        return unavailable();
       }
     });
   }

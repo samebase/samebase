@@ -528,6 +528,29 @@ describe("the policy", () => {
     expect(rows.map((row) => row.status)).toEqual(["completed"]);
   });
 
+  test("a read that fails after the provider answered sends the user back and abandons the request", async () => {
+    const h = await hub();
+    const client = await register(h);
+    const { challenge } = await pkce();
+    const start = await h.fetchBroker(authorizeUrl(h, client.client_id, challenge));
+    const upstream = new URL(start.headers.get("location") ?? "");
+    const callback = new URL(upstream.searchParams.get("redirect_uri") ?? "");
+    callback.searchParams.set("code", "upstream-code");
+    callback.searchParams.set("state", upstream.searchParams.get("state") ?? "");
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    // The callback's first read finds the request; the client's read after the provider fails.
+    h.failReads((name) => name === "clients:withApp");
+
+    const back = await h.fetchBroker(callback, { headers: txnCookie(start) });
+
+    h.failReads(null);
+    const location = new URL(back.headers.get("location") ?? "");
+    expect(location.origin + location.pathname).toBe(REDIRECT_URI);
+    expect(location.searchParams.get("error")).toBe("temporarily_unavailable");
+    expect(location.searchParams.get("state")).toBe("client-state");
+    expect(await h.t.run(async (ctx) => await ctx.db.query("authRequests").collect())).toEqual([]);
+  });
+
   test("a client that is not a repository's gets no decision in hub mode", async () => {
     const h = await hub();
     const { client } = await registerHere(h, { tenantId: "team-1", appId: "team-1-app" });

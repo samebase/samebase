@@ -571,6 +571,48 @@ test("a bound browser that comes back late, or after the resource was withdrawn,
   ).toEqual([]);
 });
 
+test("a read that fails after the provider answered sends the user back and abandons the authorization", async () => {
+  const args = await setup();
+  const { start } = await authorize(args, cloudflare.resource);
+  vi.spyOn(console, "error").mockImplementation(() => undefined);
+  // The claim needs no client read; the read after the provider fails.
+  args.h.failReads((name) => name === "clients:withApp");
+
+  const finished = await complete(args.h, start);
+
+  args.h.failReads(null);
+  expect(args.tokenCalls).toHaveLength(1);
+  expect(finished.back.status).toBe(302);
+  expect(finished.url.origin + finished.url.pathname).toBe(REDIRECT);
+  expect(finished.url.searchParams.get("error")).toBe("temporarily_unavailable");
+  expect(finished.url.searchParams.get("state")).toBe("preview-state");
+  expect(
+    await args.h.t.run(async (ctx) => await ctx.db.query("resourceRequests").collect()),
+  ).toEqual([]);
+});
+
+test("a pause that lands while the provider answers sends the user back as temporarily unavailable", async () => {
+  let paused = false;
+  const args = await setup(() => testPolicy({ resources: ["cloudflare"], paused }));
+  const { start } = await authorize(args, cloudflare.resource);
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async () => {
+      paused = true;
+      return Response.json({ ...oauthToken, token_type: "Bearer" });
+    }),
+  );
+
+  const finished = await complete(args.h, start);
+
+  expect(finished.url.origin + finished.url.pathname).toBe(REDIRECT);
+  expect(finished.url.searchParams.get("error")).toBe("temporarily_unavailable");
+  expect(finished.url.searchParams.has("code")).toBe(false);
+  expect(
+    await args.h.t.run(async (ctx) => await ctx.db.query("resourceRequests").collect()),
+  ).toEqual([]);
+});
+
 test("a resource withdrawn while the provider answers keeps the rotation and answers 401", async () => {
   let resources = ["cloudflare"];
   const args = await setup(() => testPolicy({ resources }));
