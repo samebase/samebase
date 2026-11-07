@@ -97,6 +97,8 @@ const vSignInPageList = object({
     object({
       appId: string(),
       ownerId: string(),
+      /** False after a recorded transfer to another owner: the row then covers no client. */
+      active: boolean(),
       reason: string(),
       repository: union(string(), v.null()),
       app: union(string(), v.null()),

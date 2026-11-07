@@ -39,8 +39,7 @@ import {
 } from "./responses.js";
 import { hubClientsEndpoint, LOOPBACK_HOSTS } from "./hubClients.js";
 import { moderationEndpoints } from "./moderation.js";
-import { decide, policyArg, type Decision, type Registration } from "./policy.js";
-import type { Exemption } from "../component/signInPage.js";
+import { decide, pageShown, policyArg, type Decision, type Registration } from "./policy.js";
 import {
   newClientCredentials,
   registrationEndpoints,
@@ -167,12 +166,10 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
   const decideFor = (found: {
     client: { connectors: string[] };
     registration: Registration | null;
-    exemption: Exemption;
   }): Decision | null =>
     decide({
       policy: registration?.policy,
       registration: found.registration,
-      exemption: found.exemption,
       enrollment: found.client.connectors,
       providers,
     });
@@ -416,7 +413,7 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
     if (!target.ok) {
       return errorPage("Invalid sign-in request", target.description, target.status);
     }
-    const found = await ctx.runQuery(component.clients.withApp, {
+    const found = await ctx.runQuery(component.clients.forAuthorize, {
       clientId: target.value.clientId,
     });
     if (found === null) {
@@ -475,9 +472,12 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
     if (offered.length === 0) {
       return offPage();
     }
+    // The facts the page names when it asks: the policy asks for it and no exemption of the hub's
+    // administrator covers the client (`pageShown`). Decided here only, on this snapshot.
+    const consent = pageShown(decision.consent !== null, found.exemption) ? decision.consent : null;
     // One offered connector and no consent to ask: straight to it (decision 5 of RFC 137). A fresh
     // login that the connector cannot do is refused here, before anything is stored.
-    const direct = offered.length === 1 && decision.consent === null ? offered[0] : undefined;
+    const direct = offered.length === 1 && consent === null ? offered[0] : undefined;
     if (direct !== undefined && freshLogin && cannotReauthenticate(direct)) {
       return refusePage(freshLoginRefusal(direct));
     }
@@ -532,9 +532,9 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
       host: redirectUrl.host,
       origin: redirectUrl.origin,
       consent:
-        decision.consent === null
+        consent === null
           ? null
-          : consentOf(decision.consent, client, scopes, LOOPBACK_HOSTS.has(redirectUrl.hostname)),
+          : consentOf(consent, client, scopes, LOOPBACK_HOSTS.has(redirectUrl.hostname)),
       connectors: offered.map((connector) => ({
         label: connector.label,
         provider: connector.provider,

@@ -121,6 +121,7 @@ const signInPage = {
     {
       appId: "gh-74-4c9a75cca717efb68c856f26ba825073",
       ownerId: "65",
+      active: true,
       reason: "A team we know",
       repository: "octo-org/octo-repo",
       app: "my-app",

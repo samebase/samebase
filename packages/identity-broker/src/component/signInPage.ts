@@ -59,6 +59,11 @@ const vAppExemption = object({
   appId: string(),
   /** The owner the row is bound to. */
   ownerId: string(),
+  /**
+   * Whether the row is bound to the tenant's recorded owner now. False after a recorded transfer to
+   * another owner: the row then covers no client until the repository comes back to this owner.
+   */
+  active: boolean(),
   reason: string(),
   /** From the app's newest client: `owner/name` and the stack's app name. Null with no client. */
   repository: union(string(), v.null()),
@@ -91,9 +96,15 @@ export const list = query({
         .withIndex("by_app_id", (q) => q.eq("appId", appId))
         .order("desc")
         .first();
+      const app = await ctx.db
+        .query("apps")
+        .withIndex("by_app_id", (q) => q.eq("appId", appId))
+        .unique();
+      const tenant = app === null ? null : await tenantRow(ctx, app.tenantId);
       apps.push({
         appId,
         ownerId: row.target.ownerId,
+        active: tenant?.ownerId === row.target.ownerId,
         reason: row.reason,
         repository: client?.registeredBy.githubRepository ?? null,
         app: client?.app ?? null,
@@ -112,7 +123,9 @@ export const list = query({
  * change that is already in place changes nothing and appends nothing. Setting a one-app row needs
  * the app and refuses when the tenant's recorded owner is not `expectedOwnerId`, the owner that
  * the admin saw; a row of another owner, which no longer counts, is bound to this one. Removing a
- * one-app row needs neither, so a row that no longer counts can go.
+ * one-app row refuses when the row is bound to another owner than `expectedOwnerId`, the row's
+ * owner that the admin saw, so a stale page cannot remove a row that another admin bound since; it
+ * does not need the tenant's owner, so a row that no longer counts can go.
  */
 export const set = mutation({
   args: {
@@ -161,6 +174,9 @@ export const set = mutation({
     if (!args.skip) {
       if (row === null) {
         return unchanged;
+      }
+      if (row.target.scope !== "app" || row.target.ownerId !== expectedOwnerId) {
+        return { ok: false as const, error: "owner_changed" as const };
       }
       await ctx.db.delete("signInPageExemptions", row._id);
       return await event("show", row.target);

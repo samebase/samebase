@@ -90,14 +90,18 @@ may authorize, whether the sign-in page asks for consent, and whether it is paus
 
 The hub's administrator can exempt one app, or every app, from the sign-in page
 (`signInPageExemptions`), and the broker applies that itself: the page shows only when the policy's
-`consent` asks for it and no exemption covers the client (`decide` in src/client/policy.ts). The
-broker reads the exemptions with the facts, in the same query (`clientWithApp`), never from a
-request, and they matter only at `/authorize`. A one-app row counts only while the tenant's recorded
-owner and the owner that registered the client are the row's owner, so a transfer stops it and an
-old client of a previous owner never gets it; it counts again if the repository comes back to the
-same owner. `signInPage.set` is their one writer, through `/moderation/sign-in-page`; it checks that
-the recorded owner is still the one the admin saw before it sets a one-app row, and appends a
-`sign_in_page_change` event in the same transaction.
+`consent` asks for it and no exemption covers the client (`pageShown` in src/client/policy.ts, which
+`/authorize` decides with and `/moderation/clients` reports with). Only those two read the
+exemptions: `/authorize` with the client's facts in one query (`clients.forAuthorize`), and the
+moderation list with each client, never from a request. `/continue`, the callbacks, code exchange,
+API authorization, and refresh do not read them, because the page matters only at `/authorize`. A
+one-app row counts only while the tenant's recorded owner and the owner that registered the client
+are the row's owner, so a transfer stops it and an old client of a previous owner never gets it; it
+counts again if the repository comes back to the same owner. `signInPage.set` is their one writer,
+through `/moderation/sign-in-page`; it checks that the recorded owner is still the one the admin saw
+before it sets a one-app row, and that the row is still bound to the owner the admin saw before it
+removes one, and appends a `sign_in_page_change` event in the same transaction. The list says per
+one-app row whether it is active, bound to the repository's recorded owner now.
 
 Decision: the broker applies the admin's exemptions, not the policy. The broker draws its own
 sign-in page, so it applies the admin's flag itself, as Keycloak's per-client "Consent required" and

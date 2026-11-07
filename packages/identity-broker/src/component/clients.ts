@@ -2,7 +2,7 @@ import { v } from "convex/values";
 // oxlint-disable-next-line samebase/no-raw-public-convex-function-builders -- Component entrypoints are internal to the host; host functions enforce access.
 import { mutation, query, type QueryCtx } from "./_generated/server";
 import type { Doc } from "./_generated/dataModel";
-import { appView, tenantRow, vApp } from "./apps";
+import { appView, vApp } from "./apps";
 import { registrationOf, vRegistration } from "./policy";
 import { exemptionOf, vExemption } from "./signInPage";
 import { vDeploymentType, vRegisteredBy, vTokenEndpointAuthMethod } from "./schema";
@@ -31,15 +31,12 @@ const vClient = object({
 
 /**
  * A client with its app and the facts the host's policy decides on. `registration` is null when the
- * app is gone or the client is not a repository's (`registrationOf`). `exemption` is which of the
- * administrator's exemptions from the sign-in page cover the client (`signInPage.ts`), read in the
- * same snapshot; the broker applies it, the policy never sees it.
+ * app is gone or the client is not a repository's (`registrationOf`).
  */
 export const vClientWithApp = object({
   client: vClient,
   app: v.union(vApp, v.null()),
   registration: v.union(vRegistration, v.null()),
-  exemption: vExemption,
 });
 
 export async function clientWithApp(ctx: QueryCtx, row: Doc<"clients">) {
@@ -48,16 +45,10 @@ export async function clientWithApp(ctx: QueryCtx, row: Doc<"clients">) {
     .query("apps")
     .withIndex("by_app_id", (q) => q.eq("appId", client.appId))
     .unique();
-  const tenant = app === null ? null : await tenantRow(ctx, app.tenantId);
   return {
     client,
     app: app === null ? null : await appView(ctx, app),
     registration: app === null ? null : await registrationOf(ctx, row, app),
-    exemption: await exemptionOf(ctx, {
-      appId: client.appId,
-      tenantOwnerId: tenant?.ownerId,
-      clientOwnerId: client.registeredBy.githubOwnerId,
-    }),
   };
 }
 
@@ -87,6 +78,35 @@ export const withApp = query({
       .withIndex("by_client_id", (q) => q.eq("clientId", args.clientId))
       .unique();
     return row === null ? null : await clientWithApp(ctx, row);
+  },
+});
+
+/**
+ * `withApp` for `/authorize`, with the exemptions from the sign-in page that cover the client
+ * (`signInPage.ts`), read in the same snapshot as its facts. Only `/authorize` decides the page, so
+ * only it reads them; the policy never sees them.
+ */
+export const forAuthorize = query({
+  args: { clientId: string() },
+  returns: v.union(object({ ...vClientWithApp.fields, exemption: vExemption }), v.null()),
+  handler: async (ctx, args) => {
+    const row = await ctx.db
+      .query("clients")
+      .withIndex("by_client_id", (q) => q.eq("clientId", args.clientId))
+      .unique();
+    if (row === null) {
+      return null;
+    }
+    const found = await clientWithApp(ctx, row);
+    return {
+      ...found,
+      exemption: await exemptionOf(ctx, {
+        appId: row.appId,
+        // The tenant's recorded owner, which the facts carry; no facts, no exemption.
+        tenantOwnerId: found.registration?.ownerId,
+        clientOwnerId: row.registeredBy.githubOwnerId,
+      }),
+    };
   },
 });
 

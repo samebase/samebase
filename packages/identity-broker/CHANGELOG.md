@@ -9,16 +9,18 @@ Exemptions from the sign-in page, set by the hub's administrator (RFC 137 decisi
   repository's recorded owner. Additive: no data to clear.
 - The broker applies them itself: the sign-in page shows only when the policy's `consent` asks for
   it and no exemption covers the client. The policy keeps its one input, the registration's facts,
-  and never sees the exemptions. They are read with the client's facts in the same snapshot, never
-  from a request. A one-app row counts only while the tenant's recorded owner and the owner that
-  registered the client are the row's owner.
-- `GET /moderation/sign-in-page` lists them, and `POST /moderation/sign-in-page` sets or removes
-  one, with a reason and the admin's email, and appends a `sign_in_page_change` event in the same
-  transaction. Setting a one-app row answers 409 `owner_changed` when the recorded owner is not the
-  one the admin saw, and 404 `unknown_app` for an app the broker does not have.
+  and never sees the exemptions. Only `/authorize` reads them, with the client's facts in one query
+  (`clients.forAuthorize`), and the moderation list; never from a request. A one-app row counts only
+  while the tenant's recorded owner and the owner that registered the client are the row's owner.
+- `GET /moderation/sign-in-page` lists them, each one-app row with its owner and whether it is
+  `active` (bound to the repository's recorded owner now), and `POST /moderation/sign-in-page` sets
+  or removes one, with a reason and the admin's email, and appends a `sign_in_page_change` event in
+  the same transaction. Setting a one-app row answers 409 `owner_changed` when the recorded owner is
+  not the one the admin saw, removing one when the row is bound to another owner than the one the
+  admin saw, and 404 `unknown_app` for an app the broker does not have.
 - The clients of `/moderation/clients` carry `ownerId`, the tenant's recorded owner, and
-  `signInPage`, decided as `/authorize` decides it: skipped by `every_app` or `this_app`, else
-  `shown` when the policy asks for the page and skipped by the `policy` when it does not.
+  `signInPage`, by the rule `/authorize` applies: `shown`, or skipped by `every_app`, `this_app`, or
+  the `policy`.
 - The page is decided at `/authorize` only: a sign-in that passed it finishes with that decision.
   Removing an exemption is not a revocation; a block is.
 - A plain OAuth connector takes `selectAccount`, as an OIDC connector does, and `github()` passes it

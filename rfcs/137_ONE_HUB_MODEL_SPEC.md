@@ -133,8 +133,8 @@ Where each input comes from, so a policy knows what it can trust:
 - RFC 135 is amended: the hub supplies decisions as code; the broker still owns validation,
   persistence, and enforcement.
 - The policy has one input, the registration's facts. The administrator's exemptions from the
-  sign-in page (decision 5) never reach it: the broker reads them from `signInPageExemptions` in the
-  query that reads the facts at each use, and applies them on top of the policy's `consent`. The
+  sign-in page (decision 5) never reach it: `/authorize` reads them from `signInPageExemptions` in
+  the query that reads the client's facts, and applies them on top of the policy's `consent`. The
   broker draws its own page, so it applies the admin's flag itself, as Keycloak's per-client
   "Consent required" and Auth0's first-party flag are applied by the server; Ory Hydra passes its
   `skip_consent` to a consent app only because it has no page. A hub cannot force the page for an
@@ -179,7 +179,9 @@ in its registration answer, not in discovery.
   page (`/moderation/sign-in-page`). The page shows only when the policy's `consent` asks for it and
   no exemption covers the client. A one-app row counts only while the tenant's recorded owner and
   the owner that registered the client are the row's owner. Setting a one-app row checks that the
-  repository's recorded owner is still the one the admin saw. Each set and removal appends an event
+  repository's recorded owner is still the one the admin saw, and removing one checks that the row
+  is still bound to the owner the admin saw. The admin page marks a row that a recorded transfer
+  left without a client as not active, and keeps its Remove. Each set and removal appends an event
   with the admin's email and reason. The page is decided at `/authorize` only: a sign-in that passed
   it finishes with that decision, and removing an exemption is not a revocation (a block is).
   Turning the page back on cannot take back what apps received while it was off.

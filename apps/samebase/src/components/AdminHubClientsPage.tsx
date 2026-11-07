@@ -770,6 +770,10 @@ function SignInPageSection({
                     ? ", production"
                     : ", previews and development"}
                 : {app.reason}
+                <span className="block text-muted-foreground">
+                  Bound to the owner with GitHub id {app.ownerId}.
+                  {app.active ? null : " Not active: the repository has another owner now."}
+                </span>
               </span>
               <Button
                 type="button"

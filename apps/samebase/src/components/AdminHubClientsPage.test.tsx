@@ -152,6 +152,8 @@ const overview = {
       {
         appId: "gh-81-4c9a75cca717efb68c856f26ba825073",
         ownerId: "90",
+        // The hub has recorded owner 65 for this repository since the row was set.
+        active: false,
         reason: "A team we know",
         repository: "other-org/own",
         app: "my-app",
@@ -343,6 +345,10 @@ describe("AdminHubClientsPage", () => {
       await act(async () => button(page.rootElement, "Sign-in page").click());
       const text = page.rootElement.textContent;
       expect(text).toContain("other-org/own my-app, production: A team we know");
+      // A row kept through a transfer covers no client, and the admin can still remove it.
+      expect(text).toContain(
+        "Bound to the owner with GitHub id 90. Not active: the repository has another owner now.",
+      );
       // Nothing goes to the hub without a reason.
       expect(button(page.rootElement, "Skip the sign-in page for every app").disabled).toBe(true);
 

@@ -20,7 +20,7 @@ export const vPolicy = object({
   resources: array(string()),
   /**
    * The sign-in page asks before the first hop to a provider, unless an exemption that the hub's
-   * administrator set covers the client: the broker applies those itself.
+   * administrator set covers the client: the broker applies those itself (`pageShown`).
    */
   consent: boolean(),
   /** Evaluated at registration and at each use. */
@@ -56,20 +56,30 @@ export type Decision = {
   connectors: string[];
   /** The resource URLs of the providers the policy gives the client now. */
   resources: string[];
-  /** The facts the sign-in page names when it asks for consent; null when it asks for none. */
+  /**
+   * The facts the sign-in page names when the policy asks for consent; null when it asks for none.
+   * `/authorize` also applies the administrator's exemptions (`pageShown`).
+   */
   consent: Registration | null;
 };
 
 /**
+ * Whether the sign-in page asks before the first hop to a provider: only when the policy asks for
+ * it and no exemption that the hub's administrator set covers the client (RFC 137 decision 5).
+ * `/authorize` decides the page with it, and `/moderation/clients` reports it with it.
+ */
+export function pageShown(policyConsent: boolean, exemption: Exemption): boolean {
+  return policyConsent && !exemption.everyApp && !exemption.thisApp;
+}
+
+/**
  * Decides for a client. In hub mode a client without registration facts (not a repository's, or a
- * tenant without a recorded owner) gives null, as a failed policy does. The sign-in page asks only
- * when the policy asks and no exemption of the hub's administrator covers the client. Without hub
- * mode the host is its own policy: the enrollment, every resource, no consent, no pause.
+ * tenant without a recorded owner) gives null, as a failed policy does. Without hub mode the host
+ * is its own policy: the enrollment, every resource, no consent, no pause.
  */
 export function decide(args: {
   policy: PolicyFunction | undefined;
   registration: Registration | null;
-  exemption: Exemption;
   enrollment: string[];
   providers: Array<{ name: string; resource: string }>;
 }): Decision | null {
@@ -89,7 +99,6 @@ export function decide(args: {
   if (policy === null) {
     return null;
   }
-  const exempt = args.exemption.everyApp || args.exemption.thisApp;
   return {
     ownerId: args.registration.ownerId,
     paused: policy.paused,
@@ -97,7 +106,7 @@ export function decide(args: {
     resources: providers
       .filter((provider) => policy.resources.includes(provider.name))
       .map((provider) => provider.resource),
-    consent: policy.consent && !exempt ? args.registration : null,
+    consent: policy.consent ? args.registration : null,
   };
 }
 

@@ -130,6 +130,7 @@ describe("the exemptions from the sign-in page", () => {
         {
           appId: PRODUCTION_APP,
           ownerId: OWNER_ID,
+          active: true,
           reason: "Trusted team",
           repository: "octo-org/octo-repo",
           app: "my-app",
@@ -163,6 +164,11 @@ describe("the exemptions from the sign-in page", () => {
     const newOwnersClient = await createClient(h, { repository_owner_id: "66" });
     expect((await signIn(h, ownersClient)).went).toBe("page");
     expect((await signIn(h, newOwnersClient)).went).toBe("page");
+    // The kept row says it covers no client now.
+    const kept: { apps: Array<{ ownerId: string; active: boolean }> } = await (
+      await moderationRequest(h, "/moderation/sign-in-page")
+    ).json();
+    expect(kept.apps).toMatchObject([{ ownerId: OWNER_ID, active: false }]);
     // A row set from a view of the old owner is refused; the admin sees the new one and reloads.
     const stale = await oneApp(h, true);
     expect(stale.status).toBe(409);
@@ -189,6 +195,32 @@ describe("the exemptions from the sign-in page", () => {
       { scope: "app", appId: PRODUCTION_APP, ownerId: OWNER_ID },
       { scope: "app", appId: PRODUCTION_APP, ownerId: "66" },
     ]);
+  });
+
+  it("refuse a removal from a stale view, and remove a row that no longer counts", async () => {
+    vi.useFakeTimers({ now: 1_800_000_000_000, toFake: ["Date"] });
+    const h = await createHub({ policy: hubPolicy });
+    await createClient(h);
+    await oneApp(h, true);
+    vi.setSystemTime(1_800_000_001_000);
+    const newOwnersClient = await createClient(h, { repository_owner_id: "66" });
+    // A second admin binds the row to the new owner while the first admin's page still shows 65.
+    await oneApp(h, true, PRODUCTION_APP, "66");
+
+    const stale = await oneApp(h, false);
+    expect(stale.status).toBe(409);
+    expect(await stale.json()).toEqual({ error: "owner_changed" });
+    expect((await signIn(h, newOwnersClient)).went).toBe("provider");
+
+    // The repository moves on to owner 67: the row, bound to 66, no longer counts, and its own
+    // owner still removes it.
+    vi.setSystemTime(1_800_000_002_000);
+    await createClient(h, { repository_owner_id: "67" });
+    expect(await (await oneApp(h, false, PRODUCTION_APP, "66")).json()).toEqual({ changed: true });
+    expect(await (await moderationRequest(h, "/moderation/sign-in-page")).json()).toEqual({
+      everyApp: null,
+      apps: [],
+    });
   });
 
   it("refuse an app the hub does not have, and a malformed change", async () => {

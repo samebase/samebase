@@ -8,7 +8,7 @@ import {
 import { v } from "convex/values";
 import type { FunctionReturnType } from "convex/server";
 import type { ComponentApi } from "../component/_generated/component.js";
-import { evaluate } from "./policy.js";
+import { evaluate, pageShown } from "./policy.js";
 import type { RegistrationConfig } from "./registration.js";
 import { sha256Hex } from "./subject.js";
 
@@ -101,10 +101,9 @@ export function moderationEndpoints(args: {
   const clientsPrefix = path("/moderation/clients/");
 
   /**
-   * A listed client with the tenant's recorded owner and what decides its sign-in page, as
-   * `/authorize` decides it (`decide` in policy.ts): skipped by the `every_app` or the `this_app`
-   * exemption, else `shown` when the hub's policy asks for it and skipped by the `policy` when it
-   * does not. Null when the policy has no facts or failed.
+   * A listed client with the tenant's recorded owner and what decides its sign-in page, by the rule
+   * that `/authorize` applies (`pageShown`): `shown`, or skipped by the `every_app` or the
+   * `this_app` exemption, or by the hub's `policy`. Null when the policy has no facts or failed.
    */
   function clientAnswer(entry: ClientEntry) {
     const policy =
@@ -112,12 +111,12 @@ export function moderationEndpoints(args: {
     const signInPage =
       policy === null
         ? null
-        : entry.exemption.everyApp
-          ? ("every_app" as const)
-          : entry.exemption.thisApp
-            ? ("this_app" as const)
-            : policy.consent
-              ? ("shown" as const)
+        : pageShown(policy.consent, entry.exemption)
+          ? ("shown" as const)
+          : entry.exemption.everyApp
+            ? ("every_app" as const)
+            : entry.exemption.thisApp
+              ? ("this_app" as const)
               : ("policy" as const);
     return { ...entry.client, ownerId: entry.ownerId, signInPage };
   }
