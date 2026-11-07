@@ -95,12 +95,12 @@ client reads and deletes its own record at `/register/<client>`, and the broker 
 
 `connectors` is the client's enrollment: the connectors its sign-ins may use, which the policy
 intersects at each sign-in and which never changes on a client. The policy in `convex/broker.ts`
-gives every registration both connectors, asks every client for consent on the sign-in page, gives
-the API resources to the `samebase-connections` app of the samebase repository alone, and pauses
-every app but samebase.com's production while `APPS_PAUSED` is `true`. samebase.com's admin page at
-`/admin/hub-clients` lists the registrations and every client, and Block repository and Block owner
-there are the switches of one repository or owner, with `HUB_MODERATION_KEY`, which is set by hand
-on both deployments.
+gives every registration both connectors, asks every client but samebase.com's production for
+consent on the sign-in page, gives the API resources to the `samebase-connections` app of the
+samebase repository alone, and pauses every app but samebase.com's production while `APPS_PAUSED` is
+`true`. samebase.com's admin page at `/admin/hub-clients` lists the registrations and every client,
+and Block repository and Block owner there are the switches of one repository or owner, with
+`HUB_MODERATION_KEY`, which is set by hand on both deployments.
 
 See the component's [consumer guide](../../packages/identity-broker/docs/consumers.md).
 

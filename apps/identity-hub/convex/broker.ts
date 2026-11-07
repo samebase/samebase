@@ -43,9 +43,10 @@ export const broker = defineIdentityBroker({
         samebase(registration) && registration.app === "samebase-connections"
           ? ["convex", "cloudflare", "github"]
           : [],
-      // For every client, production included. This field is the lever: a later rule can return
-      // false for a case that needs no page, without a change to the broker.
-      consent: true,
+      // The page names the app that gets the user, because Google's and GitHub's screens name only
+      // Samebase. samebase.com's production is Samebase, so it goes straight to the connector that
+      // its button named. Its previews and development servers keep the page, as every other app.
+      consent: !(samebase(registration) && registration.deploymentType === "production"),
       // samebase.com's production keeps running; its previews and development servers feel the
       // pause as a stranger's app does.
       paused:

@@ -227,9 +227,9 @@ registration: {
       samebase(registration) && registration.app === "samebase-connections"
         ? ["convex", "cloudflare", "github"]
         : [],
-    // For every client, production included. This field is the lever: a later rule can return
-    // false for a case that needs no page, without a change to the broker.
-    consent: true,
+    // Every client but samebase.com's production, whose recipient Google's and GitHub's screens
+    // already name. This field is the lever for other cases, without a change to the broker.
+    consent: !(samebase(registration) && registration.deploymentType === "production"),
     // samebase.com's production keeps running; its previews and development servers feel the
     // pause as a stranger's app does.
     paused:
@@ -265,8 +265,9 @@ registration: {
    reuses a user's earlier authorization of that app and asks nothing, and Google's account chooser
    is not consent to the downstream app either, so a stranger's production client would get a user's
    identity with no page that names the recipient (RFC 6749 section 10.12). Every client gets the
-   page. The policy's `consent` field keeps the way open: when a case is found that needs no page,
-   the hub's policy returns false for it, and the broker does not change.
+   page but samebase.com's production, whose recipient is the Samebase that Google's and GitHub's
+   screens name. The policy's `consent` field keeps the way open: when a case is found that needs no
+   page, the hub's policy returns false for it, and the broker does not change.
 2. **Pause scope: samebase.com's production only**, so that its previews and development servers
    feel the pause as a stranger's app does.
 3. **One public Google client for every app**, samebase.com included, with the hub's homepage,
