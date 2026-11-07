@@ -68,6 +68,7 @@ const production = {
     githubActorLogin: "octocat",
     app: "my-app",
   },
+  connectors: ["github", "google"],
 } as const;
 
 async function renderPage() {

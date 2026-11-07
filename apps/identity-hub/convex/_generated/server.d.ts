@@ -30,23 +30,20 @@ import type { DataModel } from "./dataModel.js";
 type Env = {
   readonly CONVEX_CLOUD_URL: string;
   readonly CONVEX_SITE_URL: string;
+  readonly APPS_PAUSED: string | undefined;
   readonly AUTH_GITHUB_CLIENT_ID: string;
   readonly AUTH_GITHUB_CLIENT_SECRET: string;
-  readonly GOOGLE_APPS_CLIENT_ID: string;
-  readonly GOOGLE_APPS_CLIENT_SECRET: string;
   readonly GOOGLE_CLIENT_ID: string;
   readonly GOOGLE_CLIENT_SECRET: string;
   readonly HUB_MODERATION_KEY: string | undefined;
   readonly IDENTITY_BROKER_KEYS: string;
   readonly ISSUER: string | undefined;
-  readonly OWN_REPOSITORY_IDS: string | undefined;
   readonly PROVIDER_CLOUDFLARE_OAUTH_CLIENT_ID: string;
   readonly PROVIDER_CLOUDFLARE_OAUTH_CLIENT_SECRET: string;
   readonly PROVIDER_CONVEX_OAUTH_CLIENT_ID: string;
   readonly PROVIDER_CONVEX_OAUTH_CLIENT_SECRET: string;
   readonly PROVIDER_GITHUB_APP_CLIENT_ID: string;
   readonly PROVIDER_GITHUB_APP_CLIENT_SECRET: string;
-  readonly THIRD_PARTY_PAUSED: string | undefined;
 };
 
 /**

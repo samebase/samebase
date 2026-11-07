@@ -63,6 +63,7 @@ const clientList = {
         githubActorLogin: "octocat",
         app: "my-app",
       },
+      connectors: ["github", "google"],
     },
     {
       clientId: "cl_test",
@@ -82,6 +83,7 @@ const clientList = {
         githubActorLogin: "octocat",
         app: "my-app",
       },
+      connectors: ["github", "google"],
     },
     {
       clientId: "cl_development",
@@ -101,6 +103,7 @@ const clientList = {
         app: "my-app",
         issuedAt: 1_799_000_000_000,
       },
+      connectors: ["github", "google"],
     },
   ],
   limitReached: false,

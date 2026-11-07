@@ -1,14 +1,15 @@
 # identity-hub
 
-The sign-in hub of the Samebase team on [Convex](https://convex.dev): the code of the production
-deployment of the project `identity-hub`. It mounts `identityBroker` from
-[`@samebase/identity-broker`](../../packages/identity-broker), holds the team's Google and GitHub
-connections once, and signs users in to all its apps. It also brokers Convex and Cloudflare API
-authorization. It keeps no user accounts; each app creates its own user from the `id_token` it gets.
+The sign-in hub of Samebase on [Convex](https://convex.dev): the code of the production deployment
+of the project `identity-hub`. It mounts `identityBroker` from
+[`@samebase/identity-broker`](../../packages/identity-broker), holds the public Google and GitHub
+clients of Samebase once, and signs users in to every app that registers with it, samebase.com and
+apps built with Samebase alike. It also brokers Convex, Cloudflare, and GitHub API authorization for
+samebase.com. It keeps no user accounts; each app creates its own user from the `id_token` it gets.
 
-This folder holds no secrets. The values of the team are the constants in `alchemy.run.ts` and the
-lines in `convex/connectors.ts`, so a copy of it with other values runs another team's hub. To start
-one, ask your agent to copy this folder.
+This folder holds no secrets. The values of the team are the constants in `alchemy.run.ts`, the
+lines in `convex/connectors.ts`, and the policy in `convex/broker.ts`, so a copy of it with other
+values runs another team's hub. To start one, ask your agent to copy this folder.
 
 ## Deploy
 
@@ -23,10 +24,9 @@ stack skips the push when nothing of the hub changed. Pull requests run the chec
 
 1. Set `CONVEX_ACCESS_TOKEN`, the team's Convex access token, as a repository secret. The run mints
    the deploy key with it. In the GitHub environment `identity-hub`, which only `main` can use, set
-   `GOOGLE_CLIENT_ID` with `GOOGLE_CLIENT_SECRET`, the team's Google OAuth client,
-   `GOOGLE_APPS_CLIENT_ID` with `GOOGLE_APPS_CLIENT_SECRET`, the Google OAuth client of third-party
-   apps, `AUTH_GITHUB_CLIENT_ID` with `AUTH_GITHUB_CLIENT_SECRET`, the team's GitHub login OAuth
-   App, and `PROVIDER_CONVEX_OAUTH_CLIENT_ID` with `PROVIDER_CONVEX_OAUTH_CLIENT_SECRET` and
+   `GOOGLE_CLIENT_ID` with `GOOGLE_CLIENT_SECRET`, the public Google OAuth client named "Samebase",
+   `AUTH_GITHUB_CLIENT_ID` with `AUTH_GITHUB_CLIENT_SECRET`, the public GitHub OAuth App named
+   "Samebase", and `PROVIDER_CONVEX_OAUTH_CLIENT_ID` with `PROVIDER_CONVEX_OAUTH_CLIENT_SECRET` and
    `PROVIDER_CLOUDFLARE_OAUTH_CLIENT_ID` with `PROVIDER_CLOUDFLARE_OAUTH_CLIENT_SECRET`, and
    `PROVIDER_GITHUB_APP_CLIENT_ID` with `PROVIDER_GITHUB_APP_CLIENT_SECRET`, the team's API OAuth
    applications. Register `https://auth.samebase.com/connections/convex/callback`,
@@ -36,11 +36,10 @@ stack skips the push when nothing of the hub changed. Pull requests run the chec
    variable is set by hand.
 3. Create the keys of production once, by hand, with the Convex CLI login:
    `pnpm run keys:init --prod` writes `IDENTITY_BROKER_KEYS`, the signing key, and refuses a
-   deployment that has the variable. Set `OWN_REPOSITORY_IDS` by hand too, when the hub has own
-   apps: the numeric GitHub ids of their repositories, separated by commas. No deploy sets it, so
-   the ids are in no file and no log. Every deploy then checks the variable before the push and
-   stops when it is missing or holds anything that is not a key set; no deploy ever creates or
-   replaces it.
+   deployment that has the variable. Every deploy then checks the variable before the push and stops
+   when it is missing or holds anything that is not a key set; no deploy ever creates or replaces
+   it. `APPS_PAUSED=true`, set by hand, is the emergency brake: it pauses every app but
+   samebase.com's production (`convex/broker.ts`).
 4. Merge to `main`. The stack adopts the project and its production deployment, so no run needs
    `--adopt`, and it retains both on destroy. Adoption replaces the code and sets the variables of
    the stack. It does not change other variables, the data, or the project. From a development
@@ -61,16 +60,14 @@ from the reply of its registration, so it needs no setting of its own.
 
 ## Connectors
 
-`convex/connectors.ts` lists them: Google, GitHub, and `google-apps`. Google uses the team's OAuth
-client, `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` as repository secrets that the stack hands to
-the deployment, and that client's redirect URIs must include `<issuer>/connectors/google/callback`.
-GitHub uses the team's login OAuth App the same way, `AUTH_GITHUB_CLIENT_ID` and
-`AUTH_GITHUB_CLIENT_SECRET`; that app lists `<issuer>/connectors/github/callback` among its redirect
-URIs, exact, next to Samebase's own. `google-apps` is the reserved connector of third-party apps,
-with `GOOGLE_APPS_CLIENT_ID` and `GOOGLE_APPS_CLIENT_SECRET` and the redirect URI
-`<issuer>/connectors/google-apps/callback`. The team's own apps never see it. Another provider is
-one more wrapper line, its variables declared in `convex/convex.config.ts` and handed down the same
-way.
+`convex/connectors.ts` lists them: `google` and `github`, the two public clients of Samebase that
+every app of the hub shares. Google uses `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` as repository
+secrets that the stack hands to the deployment, and that client's redirect URIs must include
+`<issuer>/connectors/google/callback`; it always asks Google to show the account screen. GitHub uses
+the public OAuth App the same way, `AUTH_GITHUB_CLIENT_ID` and `AUTH_GITHUB_CLIENT_SECRET`, with the
+callback `<issuer>/connectors/github/callback`. Another provider is one more wrapper line, its
+variables declared in `convex/convex.config.ts` and handed down the same way, and a name in the
+policy's `connectors`.
 
 ## Register an app
 
@@ -85,21 +82,25 @@ const client =
     app: "bristol",
     redirectUri: Output.interpolate`${deployment.siteUrl}/auth/hub/callback`,
     deploymentType: stage === "prod" ? "production" : "preview",
+    connectors: ["google", "github"],
   });
 ```
 
 A production or preview deployment asks in its own GitHub Actions run, with GitHub's OIDC token. The
-hub checks the token, the `/samebase-verification.json` file of the site, the hourly limits, and the
-blocks. No Samebase account is needed. The answer to a production registration holds the app's
-initial access token, and a development server asks with it for a development client. Each client
-reads and deletes its own record at `/register/<client>`, and the broker serves no `/register`.
+hub checks the token, the `/samebase-verification.json` file of the site, the policy, the hourly
+limits, and the blocks. No Samebase account is needed. The answer to a production registration holds
+the app's initial access token, and a development server asks with it for a development client. Each
+client reads and deletes its own record at `/register/<client>`, and the broker serves no
+`/register`.
 
-A repository in `OWN_REPOSITORY_IDS` gets first-party apps, which send the user straight to the
-connector without the chooser and can use the API connections. Every other repository gets
-third-party apps with the one connector `google-apps`. `THIRD_PARTY_PAUSED=true` stops every
-third-party app. samebase.com's admin page at `/admin/hub-clients` lists the registrations and every
-client, and Block repository and Block owner there are the switches of one repository or owner, with
-`HUB_MODERATION_KEY`, which is set by hand on both deployments.
+`connectors` is the client's enrollment: the connectors its sign-ins may use, which the policy
+intersects at each sign-in and which never changes on a client. The policy in `convex/broker.ts`
+gives every registration both connectors, asks every client for consent on the sign-in page, gives
+the API resources to the `samebase-connections` app of the samebase repository alone, and pauses
+every app but samebase.com's production while `APPS_PAUSED` is `true`. samebase.com's admin page at
+`/admin/hub-clients` lists the registrations and every client, and Block repository and Block owner
+there are the switches of one repository or owner, with `HUB_MODERATION_KEY`, which is set by hand
+on both deployments.
 
 See the component's [consumer guide](../../packages/identity-broker/docs/consumers.md).
 

@@ -71,6 +71,8 @@ const vClient = object({
       issuedAt: number(),
     }),
   ),
+  /** The connectors the client's sign-ins may use. */
+  connectors: array(string()),
 });
 
 const vClientList = object({ clients: array(vClient), limitReached: boolean() });

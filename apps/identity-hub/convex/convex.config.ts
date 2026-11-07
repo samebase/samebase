@@ -4,7 +4,7 @@ import { v } from "convex/values";
 
 // A push fails while a required variable is missing. scripts/check-keys.ts checks
 // IDENTITY_BROKER_KEYS before each deploy and scripts/init-keys.ts creates it once by hand; the
-// stack hands the Google variables to the deployment.
+// stack hands the connector and provider variables to the deployment.
 const app = defineApp({
   env: {
     /** The signing key set: `npx identity-broker keys`. */
@@ -12,26 +12,14 @@ const app = defineApp({
     /** The issuer URL, which the stack sets. Without it, the deployment's own convex.site URL. */
     ISSUER: v.optional(v.string()),
     /**
-     * The numeric GitHub ids of the repositories whose apps are this hub's own, separated by commas,
-     * set by hand on the deployment as IDENTITY_BROKER_KEYS is: the stack does not set it, so no
-     * id is in the code or in a log. Without it, the hub has no own apps.
-     */
-    OWN_REPOSITORY_IDS: v.optional(v.string()),
-    /**
-     * The Google OAuth client of the team, whose redirect URIs include
-     * `<issuer>/connectors/google/callback`. The stack hands both to the deployment.
+     * The public Google OAuth client of Samebase, for every app of the hub, whose redirect URIs
+     * include `<issuer>/connectors/google/callback`. The stack hands both to the deployment.
      */
     GOOGLE_CLIENT_ID: v.string(),
     GOOGLE_CLIENT_SECRET: v.string(),
     /**
-     * The Google OAuth client of third-party apps, whose redirect URIs include
-     * `<issuer>/connectors/google-apps/callback`. The stack hands both to the deployment.
-     */
-    GOOGLE_APPS_CLIENT_ID: v.string(),
-    GOOGLE_APPS_CLIENT_SECRET: v.string(),
-    /**
-     * The team's GitHub login OAuth App, which lists `<issuer>/connectors/github/callback` among
-     * its redirect URIs. The stack hands both to the deployment.
+     * The public GitHub OAuth App of Samebase, for every app of the hub, whose callback is
+     * `<issuer>/connectors/github/callback`. The stack hands both to the deployment.
      * Named with the AUTH_ prefix: GitHub reserves GITHUB_ for its own secrets and variables.
      */
     AUTH_GITHUB_CLIENT_ID: v.string(),
@@ -45,9 +33,11 @@ const app = defineApp({
     PROVIDER_GITHUB_APP_CLIENT_ID: v.string(),
     PROVIDER_GITHUB_APP_CLIENT_SECRET: v.string(),
     /**
-     * `true` stops sign-in and registration for every app from `/hub-clients`: the emergency brake.
+     * `true` pauses every app but samebase.com's production: no registration, sign-in, code
+     * exchange, or provider refresh for the others (RFC 137 decision 6). The emergency brake, set
+     * by hand on the deployment.
      */
-    THIRD_PARTY_PAUSED: v.optional(v.string()),
+    APPS_PAUSED: v.optional(v.string()),
     /**
      * The key of the moderation endpoints under `/moderation`, which samebase.com's admin page holds:
      * it lists registrations and clients and sets blocks, and nothing else. Set by hand on both
