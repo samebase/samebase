@@ -67,6 +67,10 @@ With `registration` set, each client holds a registration access token for its o
 
 ## Certification
 
-The broker is not OpenID Certified, and the conformance suite has not been run against it. The
-Config OP profile is the realistic first target. The Basic OP test plan cannot pass as it stands,
-because its requests omit PKCE, which the broker requires.
+The broker is not OpenID Certified. On 2026-11-07 the OpenID Foundation conformance suite ran
+against a local hub with a fake upstream connector. The Config OP plan passes once the suite is told
+about the `connectors_supported` extension. The Basic OP plan cannot pass as it stands, because its
+requests omit PKCE, which the broker requires. With PKCE added by a test adapter, 13 of its modules
+pass and none fails. The modules that stop are named departures in docs/design.md: the hub's error
+page before the user continued, no sessions for `prompt=none`, and a fresh login only through a
+connector that can reauthenticate.
