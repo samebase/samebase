@@ -2,6 +2,7 @@
 import fc from "fast-check";
 import { decodeJwt } from "jose";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
+import { appIdOf, tenantIdOf } from "../component/apps.js";
 import { ISSUER, pkce, txnCookie, type Harness } from "./harness.test.helper.js";
 import { moderationRequest, postHubClient, setBlock, type NewClient } from "./hub.test.helper.js";
 import {
@@ -23,9 +24,10 @@ import {
 // RFC 136, property C (RFC 137): sign-in. Random stories of `/authorize` with a requested set, the
 // page's Continue links (edited ones too), connector callbacks whose provider answer is held
 // between `callbackStart` and `callbackFinish` (also on another connector's route), code
-// redemptions, policy changes, blocks, repository transfers, and clock steps, played through
-// `fetchBroker` against the real component. The model knows each client's enrollment, each
-// request's set, and the hub's policy of the moment; it never reads what is allowed back from the
+// redemptions, policy changes, the admin's connector grants and revokes (RFC 137 decision 10),
+// blocks, repository transfers, and clock steps, played through `fetchBroker` against the real
+// component. The model knows each client's enrollment, each request's set, the hub's policy of the
+// moment, and each grant with the owner it is bound to; it never reads what is allowed back from the
 // rows.
 
 afterEach(() => {
@@ -72,6 +74,19 @@ type Command =
   | { kind: "policy"; connectors: PolicyName; paused: boolean }
   /** The admin switches the sign-in page off or on for every app; the broker skips the page then. */
   | { kind: "exemption"; skip: boolean }
+  /**
+   * The admin grants or revokes a connector for one broker app of the repository, naming the owner
+   * the admin page shows (`current`: the recorded owner for a grant, the row's owner for a revoke) or
+   * the other one, as a page that a transfer or another admin made stale (`stale`).
+   */
+  | {
+      kind: "grant";
+      repository: Repository;
+      production: boolean;
+      connector: ConnectorName;
+      grant: boolean;
+      view: "current" | "stale";
+    }
   | { kind: "block"; action: "block" | "unblock"; scope: "repository"; githubId: Repository }
   | { kind: "block"; action: "block" | "unblock"; scope: "owner"; githubId: Owner }
   /** GitHub transfers the repository, and a run of its new owner registers a client. */
@@ -152,6 +167,20 @@ const commandArbitrary: fc.Arbitrary<Command> = fc.oneof(
     arbitrary: fc.record({ kind: fc.constant("exemption" as const), skip: fc.boolean() }),
   },
   {
+    weight: 3,
+    arbitrary: fc.record({
+      kind: fc.constant("grant" as const),
+      repository: fc.constantFrom(...REPOSITORIES),
+      production: fc.boolean(),
+      connector: fc.constantFrom(...CONNECTORS),
+      grant: fc.boolean(),
+      view: fc.oneof(
+        { weight: 4, arbitrary: fc.constant("current" as const) },
+        { weight: 1, arbitrary: fc.constant("stale" as const) },
+      ),
+    }),
+  },
+  {
     weight: 1,
     arbitrary: fc.record({
       kind: fc.constant("transfer" as const),
@@ -171,7 +200,12 @@ type Client = {
   clientSecret: string;
   redirectUri: string;
   repository: string;
+  /** Whether the client is of the repository's production app, else of its preview app. */
+  production: boolean;
+  /** The tenant's recorded owner at the hub: it moves with an accepted transfer. */
   ownerId: string;
+  /** The owner whose run registered the client: it never moves. */
+  registeredOwner: string;
   connectors: readonly string[];
 };
 
@@ -226,6 +260,8 @@ function createModel(clients: Client[], policy: PolicyState) {
     clients,
     policy,
     blocks: new Set<string>(),
+    /** The admin's grants, by `grantKey`, each with the owner it is bound to. */
+    grants: new Map<string, string>(),
     pages: new Array<PageRequest>(),
     upstreams: new Array<Upstream>(),
     attempts: new Array<Attempt>(),
@@ -235,14 +271,28 @@ function createModel(clients: Client[], policy: PolicyState) {
 
 type Model = ReturnType<typeof createModel>;
 
+const grantKey = (repository: string, production: boolean, connector: string) =>
+  `${repository}:${production ? "production" : "preview"}:${connector}`;
+
 /**
- * The connectors the client may use now: its enrollment and the policy of the moment, inside the
- * set of a request when one is given.
+ * Whether a grant opens `connector` to the client now: the grant of its app is bound to the
+ * tenant's recorded owner, and that owner registered the client.
+ */
+function grantedNow(model: Model, client: Client, connector: string) {
+  const owner = model.grants.get(grantKey(client.repository, client.production, connector));
+  return owner === client.ownerId && owner === client.registeredOwner;
+}
+
+/**
+ * The connectors the client may use now: its enrollment, and the policy of the moment or its app's
+ * grants, inside the set of a request when one is given.
  */
 function allowedNow(model: Model, client: Client, requested?: readonly string[]) {
   const policy: readonly string[] = POLICIES[model.policy.connectors];
   return client.connectors.filter(
-    (name) => policy.includes(name) && (requested === undefined || requested.includes(name)),
+    (name) =>
+      (policy.includes(name) || grantedNow(model, client, name)) &&
+      (requested === undefined || requested.includes(name)),
   );
 }
 
@@ -340,7 +390,9 @@ async function registerClient(
     clientSecret: answer.client_secret,
     redirectUri,
     repository: spec.repository,
+    production: spec.stage === "prod",
     ownerId: proof.ownerId,
+    registeredOwner: proof.ownerId,
     connectors: spec.connectors,
   };
   model.clients.push(client);
@@ -668,6 +720,70 @@ async function playRedeem(h: Harness, model: Model, code: Code, checks: Checks, 
   check(checks, "noSignInWhenStopped", stop === null, `${label} issued an id_token while ${stop}`);
 }
 
+/**
+ * The admin grants or revokes a connector at `/moderation/connector-grants`. `grantBoundToOwner`:
+ * the answer is the model's. A grant needs the app and the recorded owner the admin saw; a revoke
+ * needs only the row's owner the admin saw; a change already in place changes nothing.
+ */
+async function playGrant(
+  h: Harness,
+  model: Model,
+  command: Extract<Command, { kind: "grant" }>,
+  checks: Checks,
+  story: Story,
+) {
+  const key = grantKey(command.repository, command.production, command.connector);
+  const row = model.grants.get(key);
+  const tenantOwner =
+    model.clients.find((client) => client.repository === command.repository)?.ownerId ?? "";
+  const shown = command.grant ? tenantOwner : (row ?? tenantOwner);
+  const expectedOwnerId =
+    command.view === "current" ? shown : (OWNERS.find((owner) => owner !== shown) ?? shown);
+  const appExists = model.clients.some(
+    (client) =>
+      client.repository === command.repository && client.production === command.production,
+  );
+  const predicted = !command.grant
+    ? row === undefined
+      ? { status: 200, body: { changed: false } }
+      : row !== expectedOwnerId
+        ? { status: 409, body: { error: "owner_changed" } }
+        : { status: 200, body: { changed: true } }
+    : !appExists
+      ? { status: 404, body: { error: "unknown_app" } }
+      : tenantOwner !== expectedOwnerId
+        ? { status: 409, body: { error: "owner_changed" } }
+        : { status: 200, body: { changed: row !== expectedOwnerId } };
+  const response = await moderationRequest(h, "/moderation/connector-grants", {
+    method: "POST",
+    body: {
+      appId: await appIdOf(tenantIdOf(command.repository), "app-a", command.production),
+      connector: command.connector,
+      expectedOwnerId,
+      grant: command.grant,
+      reason: "A team we know",
+      adminEmail: "nicu@samebase.com",
+    },
+  });
+  const label = `${command.grant ? "grant" : "revoke"} ${command.connector} for ${repositoryHandle(command.repository)} ${command.production ? "production" : "preview"} as ${ownerHandle(expectedOwnerId)}`;
+  checkAnswer(checks, label, response);
+  const body: unknown = await response.json();
+  story.trace.push(`${label}: ${response.status} ${JSON.stringify(body)}`);
+  check(
+    checks,
+    "grantBoundToOwner",
+    response.status === predicted.status && JSON.stringify(body) === JSON.stringify(predicted.body),
+    `${label} answered ${response.status} ${JSON.stringify(body)}, the model ${predicted.status} ${JSON.stringify(predicted.body)}`,
+  );
+  if (response.status === 200) {
+    if (command.grant) {
+      model.grants.set(key, expectedOwnerId);
+    } else {
+      model.grants.delete(key);
+    }
+  }
+}
+
 async function playCommand(
   h: Harness,
   world: World,
@@ -721,6 +837,8 @@ async function playCommand(
       checkAnswer(checks, "exemption", response);
       return;
     }
+    case "grant":
+      return await playGrant(h, model, command, checks, story);
     case "block": {
       const response = await setBlock(h, {
         action: command.action,
@@ -873,6 +991,97 @@ describe("RFC 136 property C regressions", () => {
       ],
       "enrollmentHonored",
     );
+    expect(trace).toContain("callback U1 (C3, other): A1 held at the provider");
+    expect(trace).toContain("callback finish A1 (C3, other) with identity: 302 access_denied");
+    expect(trace).toContain("redeem: no code yet, skipped");
+  });
+
+  it("a grant bound to the new owner after a transfer does not open the old owner's client", async () => {
+    const trace = await replay(
+      [
+        { kind: "policy", connectors: "fakeOnly", paused: false },
+        // The new owner's proof must be newer than the setup's, by a second.
+        { kind: "tick", ms: 1_000 },
+        { kind: "transfer", repository: "101", owner: "202" },
+        {
+          kind: "grant",
+          repository: "101",
+          production: false,
+          connector: "other",
+          grant: true,
+          view: "current",
+        },
+        { kind: "authorize", client: 1, requested: "other" },
+      ],
+      "enrollmentHonored",
+    );
+    expect(trace).toContain("transfer R1 from O1 to O2: C4 registered");
+    expect(trace).toContain('grant other for R1 preview as O2: 200 {"changed":true}');
+    // C2 was registered by O1: the grant is O2's, so `other` is not C2's to use.
+    expect(trace.at(-1)).toMatch(/^authorize C2 \(other\): (?!straight)/);
+  });
+
+  it("a grant revoked between the page and Continue sends no one to the provider", async () => {
+    const trace = await replay(
+      [
+        { kind: "policy", connectors: "fakeOnly", paused: false },
+        {
+          kind: "grant",
+          repository: "101",
+          production: false,
+          connector: "other",
+          grant: true,
+          view: "current",
+        },
+        { kind: "authorize", client: 1, requested: "both" },
+        {
+          kind: "grant",
+          repository: "101",
+          production: false,
+          connector: "other",
+          grant: false,
+          view: "current",
+        },
+        { kind: "continue", request: 0, connector: "other" },
+        { kind: "continue", request: 0, connector: "fake" },
+      ],
+      "enrollmentHonored",
+    );
+    expect(trace).toContain("authorize C2 (both): page P1 offers fake, other");
+    expect(trace).toContain('revoke other for R1 preview as O1: 200 {"changed":true}');
+    expect(trace.at(-2)).toMatch(/^continue P1 \(C2\) with other: \d+$/);
+    expect(trace.at(-1)).toBe("continue P1 (C2) with fake: to fake, U1");
+  });
+
+  it("a grant revoked while the provider answers completes no sign-in", async () => {
+    const trace = await replay(
+      [
+        { kind: "exemption", skip: true },
+        { kind: "policy", connectors: "fakeOnly", paused: false },
+        {
+          kind: "grant",
+          repository: "102",
+          production: false,
+          connector: "other",
+          grant: true,
+          view: "current",
+        },
+        { kind: "authorize", client: 2, requested: "none" },
+        { kind: "callbackStart", upstream: 0, route: "own" },
+        {
+          kind: "grant",
+          repository: "102",
+          production: false,
+          connector: "other",
+          grant: false,
+          view: "current",
+        },
+        { kind: "callbackFinish", attempt: 0, outcome: "identity" },
+        { kind: "redeem", code: 0 },
+      ],
+      "enrollmentHonored",
+    );
+    expect(trace).toContain("authorize C3 (none): straight to other, U1");
     expect(trace).toContain("callback U1 (C3, other): A1 held at the provider");
     expect(trace).toContain("callback finish A1 (C3, other) with identity: 302 access_denied");
     expect(trace).toContain("redeem: no code yet, skipped");

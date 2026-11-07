@@ -394,7 +394,10 @@ registration: {
   clients only; a stale grant or revoke is refused; a row of a deleted app or of a dropped connector
   can be revoked; a revoke during a held callback refuses the completion, and one after the code
   refuses the exchange; a grant gives no API resource and skips no page
-  (`src/client/connectorGrants.test.ts`).
+  (`src/client/connectorGrants.test.ts`). Property C plays grants and revokes in every window of a
+  sign-in, with transfers, under `enrollmentHonored` and `grantBoundToOwner`; fixed stories pin a
+  new owner's grant against an old owner's client and a revoke before `/continue` and during the
+  provider's answer.
 - After the rollout: sign in to samebase.com through both connectors with an existing account, and
   reconnect Cloudflare and GitHub.
 
