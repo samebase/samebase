@@ -3,6 +3,7 @@ import { httpActionGeneric, type GenericActionCtx, type GenericDataModel } from 
 import { v } from "convex/values";
 import { base64url, createLocalJWKSet, errors as joseErrors, jwtVerify } from "jose";
 import type { ComponentApi } from "../component/_generated/component.js";
+import { usableNames } from "../component/connectorRule.js";
 import { evaluate, type Registration } from "./policy.js";
 import { newClientCredentials, type RegistrationConfig } from "./registration.js";
 import { sha256Hex } from "./subject.js";
@@ -295,10 +296,11 @@ export function hubClientsEndpoint(args: {
   const { component, issuer, registration } = args;
 
   /**
-   * The enrollment of an admitted request, or the answer that refuses it: a paused policy, a set
-   * that is empty, malformed, or outside the hub's connectors or the policy's (with the names the
-   * policy allows), a block, or a limit. A failed policy refuses with 503 and writes nothing. It
-   * counts an admitted request in the repository and owner windows; a refused one counts nowhere.
+   * The enrollment of an admitted request, with the hub's connectors that the policy gives it, or
+   * the answer that refuses it: a paused policy, a set that is empty, malformed, or outside the
+   * hub's connectors, the policy's, and the app's grants (with the names allowed), a block, or a
+   * limit. A failed policy refuses with 503 and writes nothing. It counts an admitted request in the
+   * repository and owner windows; a refused one counts nowhere.
    */
   async function admit(ctx: Ctx, facts: Registration, connectors: string[]) {
     const policy = evaluate(registration.policy, facts);
@@ -308,7 +310,23 @@ export function hubClientsEndpoint(args: {
     if (policy.paused) {
       return notAllowed("paused");
     }
-    const allowed = args.connectors.filter((name) => policy.connectors.includes(name)).sort();
+    // What the policy gives, and what the admin granted the app for the owner of this proof. The
+    // creating mutation reads the grants again.
+    const granted = await ctx.runQuery(component.connectorGrants.forRegistration, {
+      githubRepositoryDatabaseId: facts.repositoryId,
+      githubOwnerId: facts.ownerId,
+      app: facts.app,
+      production: facts.deploymentType === "production",
+    });
+    // The one rule (`usableNames`), over the hub's configured connectors: the policy's alone for the
+    // mutation, which reads the grants again, and with the grants for this request's answer.
+    const rule = {
+      requested: args.connectors,
+      enrollment: args.connectors,
+      configured: args.connectors,
+    };
+    const policyConnectors = usableNames({ ...rule, policy: policy.connectors, granted: [] });
+    const allowed = usableNames({ ...rule, policy: policy.connectors, granted }).sort();
     const enrollment = readEnrollment(connectors, allowed);
     if (enrollment === null) {
       return reply(400, { error: "invalid_connectors", allowed });
@@ -323,8 +341,15 @@ export function hubClientsEndpoint(args: {
     if (admission.status === "rate_limited") {
       return reply(429, { error: "rate_limited", window: admission.window });
     }
-    return enrollment;
+    return { enrollment, policyConnectors };
   }
+
+  /** A grant went away while the host checked: the creating mutation's allowed names. */
+  const grantRevoked = (allowed: string[]) =>
+    reply(400, {
+      error: "invalid_connectors",
+      allowed: allowed.filter((name) => args.connectors.includes(name)),
+    });
 
   /** The 201 answer: the client, its secret, and its RFC 7592 token, which go to nothing else. */
   function newClient(
@@ -357,7 +382,7 @@ export function hubClientsEndpoint(args: {
       return reply(400, { error: "invalid_request" });
     }
 
-    const enrollment = await admit(
+    const admitted = await admit(
       ctx,
       {
         repositoryId: run.claims.repository_id,
@@ -370,9 +395,10 @@ export function hubClientsEndpoint(args: {
       },
       body.connectors,
     );
-    if (enrollment instanceof Response) {
-      return enrollment;
+    if (admitted instanceof Response) {
+      return admitted;
     }
+    const { enrollment, policyConnectors } = admitted;
     const refusal = await verifyHost(body.redirect.url, run.claims.repository_id);
     if (refusal !== null) {
       return notAllowed(refusal);
@@ -398,11 +424,16 @@ export function hubClientsEndpoint(args: {
           ? { type: "preview", stage: run.stage }
           : { type: "production", initialAccessTokenHash: await sha256Hex(initialAccessToken) },
       connectors: enrollment,
+      policyConnectors,
+      configuredConnectors: args.connectors,
       app: body.app,
       redirectUri: body.redirectUri,
       softwareVersion: body.softwareVersion,
     });
     if (!created.ok) {
+      if (created.reason === "invalid_connectors") {
+        return grantRevoked(created.allowed);
+      }
       return created.reason === "new_owners"
         ? reply(429, { error: "rate_limited", window: "new_owners" })
         : notAllowed(created.reason);
@@ -434,7 +465,7 @@ export function hubClientsEndpoint(args: {
       return notAllowed("app_mismatch");
     }
 
-    const enrollment = await admit(
+    const admitted = await admit(
       ctx,
       {
         repositoryId: token.githubRepositoryDatabaseId,
@@ -447,9 +478,10 @@ export function hubClientsEndpoint(args: {
       },
       body.connectors,
     );
-    if (enrollment instanceof Response) {
-      return enrollment;
+    if (admitted instanceof Response) {
+      return admitted;
     }
+    const { enrollment, policyConnectors } = admitted;
     if (!body.redirect.loopback) {
       const refusal = await verifyHost(body.redirect.url, token.githubRepositoryDatabaseId);
       if (refusal !== null) {
@@ -468,10 +500,15 @@ export function hubClientsEndpoint(args: {
       githubRepository: token.githubRepository,
       app: token.app,
       connectors: enrollment,
+      policyConnectors,
+      configuredConnectors: args.connectors,
       redirectUri: body.redirectUri,
       softwareVersion: body.softwareVersion,
     });
     if (!created.ok) {
+      if (created.reason === "invalid_connectors") {
+        return grantRevoked(created.allowed);
+      }
       return created.reason === "invalid_token"
         ? reply(401, { error: "invalid_token" })
         : notAllowed(created.reason);

@@ -108,7 +108,8 @@ export async function postHubClient(
       app: "my-app",
       redirectUri: PRODUCTION_CALLBACK,
       softwareVersion: "abc123",
-      connectors: ["google", "github"],
+      // The public pair, which every app may use.
+      connectors: ["google-apps", "github-apps"],
       ...body,
     }),
   });

@@ -3,6 +3,7 @@ import { v } from "convex/values";
 import { mutation, query, type QueryCtx } from "./_generated/server";
 import type { Doc } from "./_generated/dataModel";
 import { appView, vApp } from "./apps";
+import { grantedToClient } from "./connectorGrants";
 import { registrationOf, vRegistration } from "./policy";
 import { exemptionOf, vExemption } from "./signInPage";
 import { vDeploymentType, vRegisteredBy, vTokenEndpointAuthMethod } from "./schema";
@@ -31,12 +32,15 @@ const vClient = object({
 
 /**
  * A client with its app and the facts the host's policy decides on. `registration` is null when the
- * app is gone or the client is not a repository's (`registrationOf`).
+ * app is gone or the client is not a repository's (`registrationOf`). `granted` is the connectors
+ * that the hub's administrator granted the client's app (`connectorGrants.ts`), which the host adds
+ * to what its policy gives; every mutation that moves a sign-in on reads them again.
  */
 export const vClientWithApp = object({
   client: vClient,
   app: v.union(vApp, v.null()),
   registration: v.union(vRegistration, v.null()),
+  granted: array(string()),
 });
 
 export async function clientWithApp(ctx: QueryCtx, row: Doc<"clients">) {
@@ -49,6 +53,7 @@ export async function clientWithApp(ctx: QueryCtx, row: Doc<"clients">) {
     client,
     app: app === null ? null : await appView(ctx, app),
     registration: app === null ? null : await registrationOf(ctx, row, app),
+    granted: await grantedToClient(ctx, row),
   };
 }
 

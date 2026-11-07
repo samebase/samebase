@@ -73,6 +73,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           connector: string;
           now: number;
           policy: {
+            configured: Array<string>;
             connectors: Array<string>;
             ownerId?: string;
             paused: boolean;
@@ -125,6 +126,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           };
           now: number;
           policy: {
+            configured: Array<string>;
             connectors: Array<string>;
             ownerId?: string;
             paused: boolean;
@@ -154,6 +156,13 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           expiresAt: number;
           freshLogin: boolean;
           nonce?: string;
+          policy: {
+            configured: Array<string>;
+            connectors: Array<string>;
+            ownerId?: string;
+            paused: boolean;
+            resources: Array<string>;
+          };
           redirectUri: string;
           requestId: string;
           scope: string;
@@ -161,7 +170,8 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           tenantId: string;
           txnCookieHash: string;
         },
-        { ok: true } | { error: "rate_limited" | "suspended"; ok: false },
+        | { connectors: Array<string>; ok: true }
+        | { error: "rate_limited" | "suspended" | "off"; ok: false },
         Name
       >;
       exchangeCode: FunctionReference<
@@ -174,6 +184,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           codeVerifier: string;
           now: number;
           policy: {
+            configured: Array<string>;
             connectors: Array<string>;
             ownerId?: string;
             paused: boolean;
@@ -307,6 +318,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           connector: string;
           now: number;
           policy: {
+            configured: Array<string>;
             connectors: Array<string>;
             ownerId?: string;
             paused: boolean;
@@ -373,6 +385,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
               tokenEndpointAuthMethod:
                 "client_secret_post" | "client_secret_basic";
             };
+            granted: Array<string>;
             registration: {
               app: string;
               deploymentType: "production" | "development" | "preview";
@@ -440,6 +453,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
               "client_secret_post" | "client_secret_basic";
           };
           exemption: { everyApp: boolean; thisApp: boolean };
+          granted: Array<string>;
           registration: {
             app: string;
             deploymentType: "production" | "development" | "preview";
@@ -580,6 +594,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             tokenEndpointAuthMethod:
               "client_secret_post" | "client_secret_basic";
           };
+          granted: Array<string>;
           registration: {
             app: string;
             deploymentType: "production" | "development" | "preview";
@@ -590,6 +605,51 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             repositoryId: string;
           } | null;
         } | null,
+        Name
+      >;
+    };
+    connectorGrants: {
+      forRegistration: FunctionReference<
+        "query",
+        "internal",
+        {
+          app: string;
+          githubOwnerId: string;
+          githubRepositoryDatabaseId: string;
+          production: boolean;
+        },
+        Array<string>,
+        Name
+      >;
+      list: FunctionReference<
+        "query",
+        "internal",
+        {},
+        Array<{
+          active: boolean;
+          app: string | null;
+          appId: string;
+          connector: string;
+          ownerId: string;
+          production: boolean | null;
+          reason: string;
+          repository: string | null;
+        }>,
+        Name
+      >;
+      set: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          adminEmail: string;
+          appId: string;
+          connector: string;
+          expectedOwnerId: string;
+          grant: boolean;
+          reason: string;
+        },
+        | { changed: boolean; ok: true }
+        | { error: "owner_changed" | "unknown_app"; ok: false },
         Name
       >;
     };
@@ -613,6 +673,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           app: string;
           clientId: string;
           commitSha: string;
+          configuredConnectors: Array<string>;
           connectors: Array<string>;
           deployment:
             | { initialAccessTokenHash: string; type: "production" }
@@ -622,6 +683,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           githubOwnerId: string;
           githubRepository: string;
           githubRepositoryDatabaseId: string;
+          policyConnectors: Array<string>;
           proofIssuedAt: number;
           redirectUri: string;
           registrationTokenHash: string;
@@ -639,7 +701,8 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
               | "app_taken"
               | "stale_proof"
               | "new_owners";
-          },
+          }
+        | { allowed: Array<string>; ok: false; reason: "invalid_connectors" },
         Name
       >;
       createDevelopmentClient: FunctionReference<
@@ -648,10 +711,12 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         {
           app: string;
           clientId: string;
+          configuredConnectors: Array<string>;
           connectors: Array<string>;
           githubOwnerId: string;
           githubRepository: string;
           githubRepositoryDatabaseId: string;
+          policyConnectors: Array<string>;
           redirectUri: string;
           registrationTokenHash: string;
           secretHash: string;
@@ -668,7 +733,8 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
               | "too_many_clients"
               | "app_taken"
               | "invalid_token";
-          },
+          }
+        | { allowed: Array<string>; ok: false; reason: "invalid_connectors" },
         Name
       >;
       readInitialAccessToken: FunctionReference<
@@ -765,6 +831,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
               renewedAt: number;
             };
             exemption: { everyApp: boolean; thisApp: boolean };
+            granted: Array<string>;
             ownerId: string | null;
             registration: {
               app: string;
@@ -825,6 +892,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             renewedAt: number;
           };
           exemption: { everyApp: boolean; thisApp: boolean };
+          granted: Array<string>;
           ownerId: string | null;
           registration: {
             app: string;
@@ -968,6 +1036,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           clientSecretHash: string;
           now: number;
           policy: {
+            configured: Array<string>;
             connectors: Array<string>;
             ownerId?: string;
             paused: boolean;
@@ -1000,6 +1069,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           codeHash: string;
           now: number;
           policy: {
+            configured: Array<string>;
             connectors: Array<string>;
             ownerId?: string;
             paused: boolean;
@@ -1024,6 +1094,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           codeChallenge: string;
           expiresAt: number;
           policy: {
+            configured: Array<string>;
             connectors: Array<string>;
             ownerId?: string;
             paused: boolean;
@@ -1055,6 +1126,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           grantId: string;
           now: number;
           policy: {
+            configured: Array<string>;
             connectors: Array<string>;
             ownerId?: string;
             paused: boolean;

@@ -15,6 +15,7 @@ const testState = vi.hoisted(() => {
     readOverview: vi.fn(),
     changeBlock: vi.fn(),
     changeSignInPage: vi.fn(),
+    changeConnectorGrant: vi.fn(),
     navigate: vi.fn(),
     search,
   };
@@ -31,6 +32,9 @@ vi.mock("convex/react", async (importOriginal) => {
       }
       if (name === getFunctionName(api.hubClients.moderation.changeSignInPage)) {
         return testState.changeSignInPage;
+      }
+      if (name === getFunctionName(api.hubClients.moderation.changeConnectorGrant)) {
+        return testState.changeConnectorGrant;
       }
       return testState.changeBlock;
     },
@@ -98,6 +102,9 @@ const overview = {
         connectors: ["github", "google"],
         ownerId: "65",
         signInPage: "shown",
+        policyConnectors: ["github", "google"],
+        usableConnectors: ["github", "google"],
+        grantedConnectors: [],
       },
       {
         clientId: "cl_development",
@@ -120,6 +127,9 @@ const overview = {
         connectors: ["github", "google"],
         ownerId: "65",
         signInPage: "shown",
+        policyConnectors: ["github", "google"],
+        usableConnectors: ["github", "google"],
+        grantedConnectors: [],
       },
       {
         clientId: "cl_production",
@@ -142,6 +152,9 @@ const overview = {
         connectors: ["github", "google"],
         ownerId: "65",
         signInPage: "shown",
+        policyConnectors: ["github", "google"],
+        usableConnectors: ["github", "google"],
+        grantedConnectors: [],
       },
     ],
     limitReached: false,
@@ -155,6 +168,21 @@ const overview = {
         // The hub has recorded owner 65 for this repository since the row was set.
         active: false,
         reason: "A team we know",
+        repository: "other-org/own",
+        app: "my-app",
+        production: true,
+      },
+    ],
+  },
+  connectorGrants: {
+    connectors: ["google", "github", "google-apps", "github-apps"],
+    grants: [
+      {
+        appId: "gh-81-4c9a75cca717efb68c856f26ba825073",
+        connector: "google",
+        ownerId: "90",
+        active: false,
+        reason: "Our other app",
         repository: "other-org/own",
         app: "my-app",
         production: true,
@@ -221,6 +249,8 @@ describe("AdminHubClientsPage", () => {
     testState.changeBlock.mockResolvedValue({ status: "on", changed: true });
     testState.changeSignInPage.mockReset();
     testState.changeSignInPage.mockResolvedValue({ status: "on", result: "changed" });
+    testState.changeConnectorGrant.mockReset();
+    testState.changeConnectorGrant.mockResolvedValue({ status: "on", result: "changed" });
     testState.navigate.mockReset();
     testState.search = {};
   });
@@ -438,6 +468,148 @@ describe("AdminHubClientsPage", () => {
         reason: "Known",
       });
       expect(document.body.textContent).toContain("The repository has another owner now.");
+    } finally {
+      await page.unmount();
+    }
+  });
+
+  it("grants a private connector to a client's app from its menu, bound to the recorded owner", async () => {
+    // The hub's policy gives cl_test's app the public pair; the private pair needs a grant.
+    const [first, ...rest] = overview.clientList.clients;
+    testState.readOverview.mockResolvedValue({
+      ...overview,
+      clientList: {
+        ...overview.clientList,
+        clients: [{ ...first, policyConnectors: ["google-apps", "github-apps"] }, ...rest],
+      },
+    });
+    const page = await renderPage();
+    try {
+      const trigger = Array.from(document.querySelectorAll("button")).find(
+        (candidate) => candidate.getAttribute("aria-label") === "cl_test actions",
+      );
+      await act(async () => {
+        trigger?.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, button: 0 }));
+        trigger?.click();
+      });
+      const connectors = Array.from(document.querySelectorAll("[role=menuitem]")).find(
+        (item) => item.textContent === "Connectors…",
+      );
+      await act(async () => {
+        connectors?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      });
+      const dialog = document.querySelector("[role=dialog]");
+      expect(dialog?.textContent).toContain("gives this app google-apps, github-apps");
+      expect(dialog?.textContent).toContain("GitHub id 65");
+      const google = Array.from(dialog?.querySelectorAll("label") ?? []).find(
+        (label) => label.textContent === "google",
+      );
+      expect(dialog?.textContent).toContain("github");
+      await act(async () => {
+        google?.querySelector<HTMLElement>("[data-slot=checkbox]")?.click();
+      });
+      await act(async () => type(document.body, "#admin-hub-clients-connectors-reason", "Ours"));
+      await act(async () => {
+        document
+          .querySelector<HTMLFormElement>("#admin-hub-clients-connectors-form")
+          ?.requestSubmit();
+        await Promise.resolve();
+      });
+      await act(async () => await new Promise((resolve) => setTimeout(resolve, 0)));
+      expect(testState.changeConnectorGrant).toHaveBeenCalledTimes(1);
+      expect(testState.changeConnectorGrant).toHaveBeenLastCalledWith({
+        appId: "gh-74-4c9a75cca717efb68c856f26ba825073",
+        connector: "google",
+        expectedOwnerId: "65",
+        grant: true,
+        reason: "Ours",
+      });
+    } finally {
+      await page.unmount();
+    }
+  });
+
+  it("keeps the report of a partial save when the reload after it fails", async () => {
+    const [first, ...rest] = overview.clientList.clients;
+    testState.readOverview.mockResolvedValue({
+      ...overview,
+      clientList: {
+        ...overview.clientList,
+        clients: [{ ...first, policyConnectors: ["google-apps", "github-apps"] }, ...rest],
+      },
+    });
+    testState.changeConnectorGrant
+      .mockResolvedValueOnce({ status: "on", result: "changed" })
+      .mockRejectedValueOnce(new Error("The hub is down"));
+    const page = await renderPage();
+    try {
+      const trigger = Array.from(document.querySelectorAll("button")).find(
+        (candidate) => candidate.getAttribute("aria-label") === "cl_test actions",
+      );
+      await act(async () => {
+        trigger?.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, button: 0 }));
+        trigger?.click();
+      });
+      const connectors = Array.from(document.querySelectorAll("[role=menuitem]")).find(
+        (item) => item.textContent === "Connectors…",
+      );
+      await act(async () => {
+        connectors?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      });
+      const dialog = document.querySelector("[role=dialog]");
+      for (const name of ["google", "github"]) {
+        const label = Array.from(dialog?.querySelectorAll("label") ?? []).find(
+          (candidate) => candidate.textContent === name,
+        );
+        await act(async () => {
+          label?.querySelector<HTMLElement>("[data-slot=checkbox]")?.click();
+        });
+      }
+      await act(async () => type(document.body, "#admin-hub-clients-connectors-reason", "Ours"));
+      const reads = testState.readOverview.mock.calls.length;
+      // The reload after the save fails: the overview, and the dialog with it, go away.
+      testState.readOverview.mockRejectedValueOnce(new Error("The hub is down"));
+      await act(async () => {
+        document
+          .querySelector<HTMLFormElement>("#admin-hub-clients-connectors-form")
+          ?.requestSubmit();
+        await Promise.resolve();
+      });
+      await act(async () => await new Promise((resolve) => setTimeout(resolve, 0)));
+
+      expect(testState.changeConnectorGrant).toHaveBeenCalledTimes(2);
+      expect(testState.readOverview.mock.calls.length).toBeGreaterThan(reads);
+      const text = page.rootElement.textContent;
+      expect(text).toContain("Saved: google. Refused: github: The hub refused the change.");
+      expect(text).toContain("Could not reach the identity hub.");
+    } finally {
+      await page.unmount();
+    }
+  });
+
+  it("lists the connector grants and removes one with the row's owner and the reason", async () => {
+    const page = await renderPage();
+    try {
+      await act(async () => button(page.rootElement, "Connector grants 1").click());
+      const text = page.rootElement.textContent;
+      expect(text).toContain("google for other-org/own my-app, production: Our other app");
+      expect(text).toContain("Not active: the repository has another owner now.");
+      expect(button(page.rootElement, "Remove").disabled).toBe(true);
+
+      await act(async () =>
+        type(page.rootElement, "#admin-hub-clients-connector-grants-reason", "Done"),
+      );
+      await act(async () => {
+        button(page.rootElement, "Remove").click();
+        await Promise.resolve();
+      });
+      expect(testState.changeConnectorGrant).toHaveBeenLastCalledWith({
+        appId: "gh-81-4c9a75cca717efb68c856f26ba825073",
+        connector: "google",
+        expectedOwnerId: "90",
+        grant: false,
+        reason: "Done",
+      });
     } finally {
       await page.unmount();
     }

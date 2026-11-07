@@ -3,6 +3,7 @@ import { v, type Infer } from "convex/values";
 import { mutation, query, type QueryCtx } from "./_generated/server";
 import type { Doc } from "./_generated/dataModel";
 import { readBlock, tenantIdOf, tenantRow } from "./apps";
+import { grantedTo } from "./connectorGrants";
 import { registrationOf, vRegistration } from "./policy";
 import { vBlockKind, vDeploymentType } from "./schema";
 import { exemptionOf, vExemption } from "./signInPage";
@@ -182,14 +183,16 @@ function repositoryIdOf(tenantId: string | undefined) {
 }
 
 /**
- * A client of the lists, with what the HTTP endpoint needs to say what decides its sign-in page:
- * the tenant's recorded owner, the client's policy facts, and the exemptions that cover it.
+ * A client of the lists, with what the HTTP endpoint needs to say what decides its sign-in page
+ * and its connectors: the tenant's recorded owner, the client's policy facts, the exemptions that
+ * cover it, and the connectors granted to its app.
  */
 const vClientEntry = object({
   client: vClientView,
   ownerId: union(string(), v.null()),
   registration: union(vRegistration, v.null()),
   exemption: vExemption,
+  granted: array(string()),
 });
 
 async function clientEntry(
@@ -203,6 +206,11 @@ async function clientEntry(
     ownerId: tenant?.ownerId ?? null,
     registration: app === null ? null : await registrationOf(ctx, client, app),
     exemption: await exemptionOf(ctx, {
+      appId: client.appId,
+      tenantOwnerId: tenant?.ownerId,
+      clientOwnerId: client.registeredBy.githubOwnerId,
+    }),
+    granted: await grantedTo(ctx, {
       appId: client.appId,
       tenantOwnerId: tenant?.ownerId,
       clientOwnerId: client.registeredBy.githubOwnerId,

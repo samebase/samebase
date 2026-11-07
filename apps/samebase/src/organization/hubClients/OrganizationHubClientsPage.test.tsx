@@ -71,6 +71,9 @@ const production = {
   connectors: ["github", "google"],
   ownerId: "65",
   signInPage: "shown",
+  policyConnectors: ["github", "google"],
+  usableConnectors: ["github", "google"],
+  grantedConnectors: [],
 } as const;
 
 async function renderPage() {

@@ -23,9 +23,10 @@ type Credentials = {
  * A plain OAuth 2.0 provider found through its RFC 8414 metadata: identity comes from an API call
  * with the access token.
  */
-export type OauthConnector = Credentials & {
+/** `Name` is the connector's name as a literal type, so a hub's policy can only name its own. */
+export type OauthConnector<Name extends string = string> = Credentials & {
   kind: "oauth";
-  name: string;
+  name: Name;
   /** Shown on the chooser button, e.g. "GitHub". */
   label: string;
   issuer: string;
@@ -39,9 +40,9 @@ export type OauthConnector = Credentials & {
 };
 
 /** An OpenID Connect provider found through discovery: identity comes from the id_token. */
-export type OidcConnector = Credentials & {
+export type OidcConnector<Name extends string = string> = Credentials & {
   kind: "oidc";
-  name: string;
+  name: Name;
   label: string;
   issuer: string;
   scopes: string[];
@@ -57,4 +58,4 @@ export type OidcConnector = Credentials & {
   selectAccount?: boolean;
 };
 
-export type Connector = OauthConnector | OidcConnector;
+export type Connector<Name extends string = string> = OauthConnector<Name> | OidcConnector<Name>;

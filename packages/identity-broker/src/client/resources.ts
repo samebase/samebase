@@ -81,7 +81,7 @@ export function resourceEndpoints(options: {
   component: ComponentApi;
   issuer: string;
   path: (suffix: string) => string;
-  providers: ResourceProvider[];
+  providers: readonly ResourceProvider[];
   /** The host's decision for a client at this request; null when its policy refused (see `decide`). */
   decide: (found: ClientWithApp) => Decision | null;
   cookies: {

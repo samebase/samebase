@@ -478,6 +478,24 @@ test("an exemption from the sign-in page grants no API resource", async () => {
   expect(args.tokenCalls).toHaveLength(0);
 });
 
+test("a connector grant gives no API resource", async () => {
+  const args = await setup(() => testPolicy({ resources: [] }));
+  await args.h.t.run(async (ctx) => {
+    const client = await ctx.db.query("clients").unique();
+    if (client === null) throw new Error("No client");
+    await ctx.db.insert("connectorGrants", {
+      appId: client.appId,
+      connector: "cloudflare",
+      ownerId: client.registeredBy.githubOwnerId,
+      reason: "A grant names a sign-in connector, never a resource",
+    });
+  });
+  const { start } = await authorize(args, cloudflare.resource);
+  expect(start.status).toBe(403);
+  expect(start.headers.get("location")).toBeNull();
+  expect(args.tokenCalls).toHaveLength(0);
+});
+
 test("a paused or failed policy refuses API authorization and refresh before the provider", async () => {
   let policy: () => Policy = () => testPolicy({ resources: ["cloudflare"] });
   const args = await setup(() => policy());

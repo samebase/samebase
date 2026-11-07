@@ -2,7 +2,9 @@
 import { decodeJwt } from "jose";
 import { afterEach, describe, expect, test, vi } from "vite-plus/test";
 import { api } from "../component/_generated/api.js";
+import { github } from "./connectors/github.js";
 import { google } from "./connectors/google.js";
+import { convexConnection } from "./resourceProviders.js";
 import { defineIdentityBroker } from "./index.js";
 import { testClientRecord } from "./registeredBy.test.helper.js";
 import {
@@ -111,6 +113,62 @@ describe("connectors", () => {
         connectors: [connector, { ...second, issuer: "https://other.test" }],
       }),
     ).toThrow('The connectors of provider "fake" have two issuers');
+  });
+
+  test("the policy names only the hub's connectors and resources: a misspelt one does not compile", () => {
+    const credentials = { clientId: () => "id", clientSecret: () => "secret" };
+    const config = {
+      component,
+      keys: () => undefined,
+      issuer: ISSUER,
+      connectors: [google(credentials), github({ ...credentials, name: "github-apps" })],
+      resources: [convexConnection(credentials)],
+    };
+    const registration = {
+      name: "Test",
+      terms: "https://hub.test/terms",
+      privacy: "https://hub.test/privacy",
+      moderationKey: () => undefined,
+    };
+    expect(() =>
+      defineIdentityBroker({
+        ...config,
+        registration: {
+          ...registration,
+          policy: () => ({
+            connectors: ["google", "github-apps"],
+            resources: ["convex"],
+            paused: false,
+          }),
+        },
+      }),
+    ).not.toThrow();
+    // The checks are the compiler's: each `@ts-expect-error` fails the type check if its line
+    // ever compiles.
+    defineIdentityBroker({
+      ...config,
+      registration: {
+        ...registration,
+        policy: () => ({
+          // @ts-expect-error "googles" is not a connector of this hub.
+          connectors: ["googles"],
+          resources: [],
+          paused: false,
+        }),
+      },
+    });
+    defineIdentityBroker({
+      ...config,
+      registration: {
+        ...registration,
+        policy: () => ({
+          connectors: [],
+          // @ts-expect-error "cloudflare" is not a resource of this hub.
+          resources: ["cloudflare"],
+          paused: false,
+        }),
+      },
+    });
   });
 });
 
@@ -1134,6 +1192,7 @@ describe("cleanup", () => {
       scope: "openid",
       codeChallenge: "c",
       connectors: ["fake"],
+      policy: { paused: false, connectors: ["fake"], resources: [], configured: ["fake"] },
       freshLogin: false,
       txnCookieHash: "h",
       createdAt: now - 3_600_000,

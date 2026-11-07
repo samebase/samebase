@@ -16,10 +16,9 @@ client at deploy time and never touches GitHub or Google.
 A hub is a small Convex app that mounts this component.
 [`apps/identity-hub`](https://github.com/samebase/samebase/tree/main/apps/identity-hub) is the hub
 we run in production, and it is also the example: there is no separate template. To run your own,
-copy that folder and change the values in `alchemy.run.ts` and `convex/connectors.ts`, or ask your
-agent to do it. Its
-[README](https://github.com/samebase/samebase/blob/main/apps/identity-hub/README.md) has the deploy
-steps.
+copy that folder and change the values in `alchemy.run.ts` and `convex/broker.ts`, or ask your agent
+to do it. Its [README](https://github.com/samebase/samebase/blob/main/apps/identity-hub/README.md)
+has the deploy steps.
 
 ## What it is
 
@@ -53,8 +52,7 @@ export default app;
 ```
 
 ```ts
-// convex/http.ts
-import { httpRouter } from "convex/server";
+// convex/broker.ts: the whole hub config, and its admin functions for `npx convex run broker:<name>`
 import { defineIdentityBroker, github, google } from "@samebase/identity-broker";
 import { components } from "./_generated/api";
 
@@ -80,14 +78,23 @@ export const broker = defineIdentityBroker({
     terms: "https://example.com/terms",
     privacy: "https://example.com/privacy",
     moderationKey: () => process.env.HUB_MODERATION_KEY,
-    // What each registration may do, from its facts: run at registration and at each use.
-    policy: (registration) => ({
+    // What each registration may do, from its facts: run at registration and at each use. It can
+    // name only the connectors and resources above: a misspelt one does not compile.
+    policy: () => ({
       connectors: ["github", "google"],
-      resources: registration.repositoryId === "1021726325" ? ["convex", "cloudflare"] : [],
+      resources: [],
       paused: process.env.APPS_PAUSED === "true",
     }),
   },
 });
+
+export const { deleteClient, deleteApp, listApps, listClients, cleanup } = broker.admin();
+```
+
+```ts
+// convex/http.ts
+import { httpRouter } from "convex/server";
+import { broker } from "./broker";
 
 const http = httpRouter();
 broker.addHttpRoutes(http);
@@ -95,10 +102,17 @@ export default http;
 ```
 
 ```ts
-// convex/identityBroker.ts: administration for `npx convex run`
-import { broker } from "./http";
-export const { deleteClient, deleteApp, listApps, listClients, cleanup } = broker.admin();
+// convex/crons.ts: expired requests and codes, old audit rows, and expired preview clients
+import { cronJobs } from "convex/server";
+import { internal } from "./_generated/api";
+
+const crons = cronJobs();
+crons.daily("identity broker cleanup", { hourUTC: 4, minuteUTC: 17 }, internal.broker.cleanup, {});
+export default crons;
 ```
+
+Convex reads the routes from `http.ts` and the schedule from `crons.ts`, so those two stay their own
+files; everything else of the hub is in `broker.ts`.
 
 Keys: `npx identity-broker keys` prints the value for `IDENTITY_BROKER_KEYS`; `keys --rotate`
 advances it, and `keys --rotate --no-overlap` replaces a compromised key at once. The key set holds
@@ -135,7 +149,10 @@ A paused client gets no registration, sign-in, code exchange, or refresh, and ke
 renewals, revocations, and self-deletes. The sign-in page is not the policy's: it shows for every
 client unless the hub's administrator exempts its app, or every app, at `/moderation/sign-in-page`,
 and the broker applies that itself. A one-app exemption counts while the repository's recorded
-owner, and the client's, is the one the admin saw.
+owner, and the client's, is the one the admin saw. The administrator can also grant one app a
+connector that the policy does not give it, at `/moderation/connector-grants`: its clients may then
+enroll in and use it, bound to the recorded owner in the same way. Every step of a sign-in reads the
+grants again, so a revoked grant stops the next step.
 
 Each repository and owner has hourly limits, and `/moderation/blocks` stops a repository or an owner
 at once, policy or not. `/moderation/clients?repository=<id>&repository=<id>` lists the clients of
@@ -151,7 +168,7 @@ resource authorization, and a provider refresh also move it. A production client
 removal date.
 
 A preview or development client deletes itself with `DELETE /register/<client>`. The administrator
-deletes any client with `identityBroker:deleteClient`. A client that is gone is no error.
+deletes any client with `broker:deleteClient`. A client that is gone is no error.
 
 ## Connect provider APIs
 

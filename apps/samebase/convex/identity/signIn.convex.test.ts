@@ -50,7 +50,7 @@ function hubProvider(connector: "github" | "google", identity: HubIdentity) {
         name: "OAuth User",
         picture: "https://example.com/avatar.png",
       },
-      connector,
+      { connector, provider: connector },
     ),
   };
 }
@@ -464,9 +464,25 @@ describe("hub profile mapping", () => {
     expect(
       readHubProfile(
         { sub: "github:4076804", connector: "github", email_verified: true },
-        "github",
+        { connector: "github", provider: "github" },
       ),
     ).toEqual({ id: "github:4076804", providerAccountId: "4076804", connector: "github" });
+  });
+
+  it("keys a sign-in through a public connector by its provider", () => {
+    // `google-apps` is the hub's public Google client: the subject still starts with `google:`.
+    expect(
+      readHubProfile(
+        { sub: "google:1234", connector: "google-apps", email_verified: true },
+        { connector: "google-apps", provider: "google" },
+      ),
+    ).toEqual({ id: "google:1234", providerAccountId: "1234", connector: "google" });
+    expect(() =>
+      readHubProfile(
+        { sub: "google:1234", connector: "google", email_verified: true },
+        { connector: "google-apps", provider: "google" },
+      ),
+    ).toThrow(ConvexError);
   });
 
   it.each([
@@ -479,7 +495,7 @@ describe("hub profile mapping", () => {
     ],
     ["of another connector", { sub: "google:1", connector: "google" }],
   ])("refuses claims %s with a message for the sign-in page", (_name, claims) => {
-    expect(() => readHubProfile(claims, "github")).toThrow(
+    expect(() => readHubProfile(claims, { connector: "github", provider: "github" })).toThrow(
       new ConvexError("The identity hub did not complete the GitHub sign-in. Try again later."),
     );
   });

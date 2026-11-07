@@ -597,6 +597,22 @@ function GroupRow({
   );
 }
 
+/**
+The connectors a client enrolled in, each marked when only an admin's grant allows it or when it may
+not be used now: the hub's policy and the grants no longer allow it, or the client cannot sign in.
+*/
+function connectorsText(client: HubClient) {
+  return client.connectors
+    .map((name) =>
+      client.usableConnectors === null || !client.usableConnectors.includes(name)
+        ? `${name} (not usable now)`
+        : client.grantedConnectors?.includes(name)
+          ? `${name} (granted)`
+          : name,
+    )
+    .join(", ");
+}
+
 function ClientRow({
   client,
   indented,
@@ -725,6 +741,8 @@ function ClientRow({
               </dd>
               <dt className="text-muted-foreground">Owner id</dt>
               <dd>{client.registeredBy.githubOwnerId}</dd>
+              <dt className="text-muted-foreground">Connectors</dt>
+              <dd>{connectorsText(client)}</dd>
               <dt className="text-muted-foreground">Registered</dt>
               <dd>
                 {formatTime(client.createdAt)}

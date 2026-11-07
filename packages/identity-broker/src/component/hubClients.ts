@@ -3,7 +3,9 @@ import { v } from "convex/values";
 // oxlint-disable-next-line samebase/no-raw-public-convex-function-builders -- Component entrypoints are internal to the host; host functions enforce access.
 import { mutation, query, type MutationCtx } from "./_generated/server";
 import type { Doc } from "./_generated/dataModel";
-import { readBlock, tenantIdOf, tenantRow } from "./apps";
+import { appIdOf, readBlock, tenantIdOf, tenantRow } from "./apps";
+import { grantedTo } from "./connectorGrants";
+import { usableNames } from "./connectorRule";
 import { registerClient } from "./registration";
 import { vRateLimitScope } from "./schema";
 
@@ -34,6 +36,45 @@ const vRefusal = union(
   literal("too_many_clients"),
   literal("app_taken"),
 );
+
+/**
+ * An enrollment outside what the policy gives and what the app is granted, read again in the
+ * registering transaction: a grant revoked since the host's check refuses it. `allowed` is the
+ * union, for the refusal's answer.
+ */
+const vInvalidConnectors = object({
+  ok: literal(false),
+  reason: literal("invalid_connectors"),
+  allowed: array(string()),
+});
+
+/**
+ * The refusal of an enrollment that the policy and the app's grants of the host's configured
+ * connectors do not cover, or null.
+ */
+async function connectorRefusal(
+  ctx: MutationCtx,
+  args: { appId: string; ownerId: string; tenantOwnerId: string | undefined },
+  connectors: string[],
+  allowedBy: { policy: string[]; configured: string[] },
+) {
+  const granted = await grantedTo(ctx, {
+    appId: args.appId,
+    tenantOwnerId: args.tenantOwnerId,
+    clientOwnerId: args.ownerId,
+  });
+  // The one rule (`usableNames`): of the configured connectors, the policy's and the granted ones.
+  const allowed = usableNames({
+    requested: allowedBy.configured,
+    enrollment: allowedBy.configured,
+    policy: allowedBy.policy,
+    granted,
+    configured: allowedBy.configured,
+  }).sort();
+  return connectors.every((name) => allowed.includes(name))
+    ? null
+    : { ok: false as const, reason: "invalid_connectors" as const, allowed };
+}
 
 /** Whether an admin blocked the repository or its owner. */
 async function isBlocked(
@@ -149,17 +190,6 @@ export const admit = mutation({
   },
 });
 
-async function sha256Hex(input: string) {
-  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(input));
-  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
-}
-
-/** The app of `app` in the repository's tenant: production, or previews and development clients. */
-async function appIdOf(tenantId: string, app: string, production: boolean) {
-  const appHash = (await sha256Hex(app)).slice(0, 32);
-  return `${tenantId}-${appHash}${production ? "" : "-preview"}`;
-}
-
 /** The credentials of `newClientCredentials`: hashes only, never the values. */
 const vCredentialHashes = {
   clientId: string(),
@@ -192,8 +222,12 @@ export const createClient = mutation({
       object({ type: literal("production"), initialAccessTokenHash: string() }),
       object({ type: literal("preview"), stage: string() }),
     ),
-    /** The enrollment, checked by the host against its connectors and its policy. */
+    /** The enrollment, checked by the host against its connectors, its policy, and the grants. */
     connectors: array(string()),
+    /** The hub's connectors that the policy gives this registration; grants are read here. */
+    policyConnectors: array(string()),
+    /** The hub's configured connectors, the only ones a grant can open. */
+    configuredConnectors: array(string()),
     app: string(),
     redirectUri: string(),
     softwareVersion: string(),
@@ -204,6 +238,7 @@ export const createClient = mutation({
       ok: literal(false),
       reason: union(vRefusal, literal("stale_proof"), literal("new_owners")),
     }),
+    vInvalidConnectors,
   ),
   handler: async (ctx, args) => {
     const now = Date.now();
@@ -234,10 +269,21 @@ export const createClient = mutation({
     }
 
     const production = args.deployment.type === "production";
+    const appId = await appIdOf(tenantId, args.app, production);
+    // The owner of this proof becomes the tenant's recorded owner with this client.
+    const refused = await connectorRefusal(
+      ctx,
+      { appId, ownerId: args.githubOwnerId, tenantOwnerId: args.githubOwnerId },
+      args.connectors,
+      { policy: args.policyConnectors, configured: args.configuredConnectors },
+    );
+    if (refused !== null) {
+      return refused;
+    }
     const result = await registerClient(ctx, {
       tenantId,
       ownerId: args.githubOwnerId,
-      appId: await appIdOf(tenantId, args.app, production),
+      appId,
       connectors: args.connectors,
       deploymentType: args.deployment.type,
       clientId: args.clientId,
@@ -364,12 +410,17 @@ export const createDevelopmentClient = mutation({
     githubRepository: string(),
     app: string(),
     connectors: array(string()),
+    /** The hub's connectors that the policy gives this registration; grants are read here. */
+    policyConnectors: array(string()),
+    /** The hub's configured connectors, the only ones a grant can open. */
+    configuredConnectors: array(string()),
     redirectUri: string(),
     softwareVersion: string(),
   },
   returns: union(
     object({ ok: literal(true) }),
     object({ ok: literal(false), reason: union(vRefusal, literal("invalid_token")) }),
+    vInvalidConnectors,
   ),
   handler: async (ctx, args) => {
     const now = Date.now();
@@ -396,9 +447,24 @@ export const createDevelopmentClient = mutation({
     }
 
     const tenantId = tenantIdOf(token.githubRepositoryDatabaseId);
+    const appId = await appIdOf(tenantId, token.app, false);
+    // A development client keeps the tenant's recorded owner, which must be the token's.
+    const refused = await connectorRefusal(
+      ctx,
+      {
+        appId,
+        ownerId: token.githubOwnerId,
+        tenantOwnerId: (await tenantRow(ctx, tenantId))?.ownerId,
+      },
+      args.connectors,
+      { policy: args.policyConnectors, configured: args.configuredConnectors },
+    );
+    if (refused !== null) {
+      return refused;
+    }
     const result = await registerClient(ctx, {
       tenantId,
-      appId: await appIdOf(tenantId, token.app, false),
+      appId,
       connectors: args.connectors,
       deploymentType: "development",
       clientId: args.clientId,

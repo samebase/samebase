@@ -39,7 +39,14 @@ import {
 } from "./responses.js";
 import { hubClientsEndpoint, LOOPBACK_HOSTS } from "./hubClients.js";
 import { moderationEndpoints } from "./moderation.js";
-import { decide, pageShown, policyArg, type Decision, type Registration } from "./policy.js";
+import {
+  decide,
+  pageShown,
+  policyArg,
+  usableNow,
+  type Decision,
+  type Registration,
+} from "./policy.js";
 import {
   newClientCredentials,
   registrationEndpoints,
@@ -68,7 +75,14 @@ export { assertKeySetUsable } from "./jwt.js";
 export type { Policy, Registration } from "./policy.js";
 export type { RegistrationConfig } from "./registration.js";
 
-export type IdentityBrokerConfig = {
+/**
+ * `C` and `R` are the host's connectors and API resources. The policy in `registration` can name
+ * only theirs, so a misspelt connector or resource is a type error.
+ */
+export type IdentityBrokerConfig<
+  C extends Connector = Connector,
+  R extends ResourceProvider = ResourceProvider,
+> = {
   /** `components.identityBroker` of the host app. */
   component: ComponentApi;
   /**
@@ -80,12 +94,12 @@ export type IdentityBrokerConfig = {
   /** The content of `IDENTITY_BROKER_KEYS`, read in the request. */
   keys: () => string | undefined;
   /** The connectors a client may enroll in. A hub's policy decides which ones each client gets. */
-  connectors: Connector[];
+  connectors: readonly C[];
   /**
    * OAuth API resources. In hub mode the policy's `resources` names the providers a client may
    * authorize; without hub mode every client may authorize every one.
    */
-  resources?: ResourceProvider[];
+  resources?: readonly R[];
   /**
    * Days without a sign-in after which `cleanup` deletes a preview client. Absent: `cleanup` deletes
    * no client, because a deployment whose client was deleted does not register again by itself.
@@ -95,7 +109,7 @@ export type IdentityBrokerConfig = {
    * The hub mode: `POST /hub-clients`, `/register/<client>` (RFC 7592), `/moderation/*`, and the
    * policy. Absent: none of these endpoints, and the host is its own policy.
    */
-  registration?: RegistrationConfig;
+  registration?: RegistrationConfig<C["name"], R["name"]>;
 };
 
 /** A request lives this long from /authorize to the code redirect. */
@@ -111,7 +125,9 @@ export const SIGN_IN_RETENTION_MS = 90 * 24 * 60 * 60 * 1000;
 
 type Ctx = GenericActionCtx<GenericDataModel>;
 
-export function defineIdentityBroker(config: IdentityBrokerConfig) {
+export function defineIdentityBroker<C extends Connector, R extends ResourceProvider = never>(
+  config: IdentityBrokerConfig<C, R>,
+) {
   const issuerUrl = new URL(config.issuer);
   if (!isSecureUrl(issuerUrl)) {
     throw new Error("The issuer must be https, or http on a loopback host for local development");
@@ -172,6 +188,7 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
       registration: found.registration,
       enrollment: found.client.connectors,
       providers,
+      configured: [...connectors.keys()],
     });
 
   /** The configured connectors of these names, in this order. A name no longer configured is skipped. */
@@ -457,17 +474,17 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
     const freshLogin = rest.value.prompt.includes("login") || rest.value.maxAge !== undefined;
     const scopes = SCOPES.filter((scope) => rest.value.scopes.includes(scope));
     // The set of the request: the connectors the app named, else every one the client may use
-    // now. A name outside the enrollment is a request error; an enrolled one that the policy no
-    // longer allows is not offered, and a set with none left is a stopped sign-in.
+    // now (what the policy gives, and what the admin granted its app). A name outside the
+    // enrollment is a request error; an enrolled one that neither allows now is not offered, and
+    // a set with none left is a stopped sign-in.
     const named = rest.value.connectors;
     const notEnrolled = named.find((name) => !client.connectors.includes(name));
     if (notEnrolled !== undefined) {
       return refusePage(`This client is not enrolled in the connector "${notEnrolled}".`);
     }
+    const usable = usableNow(decision, client.connectors, found.granted);
     const offered = connectorsNamed(
-      named.length === 0
-        ? decision.connectors
-        : named.filter((name) => decision.connectors.includes(name)),
+      named.length === 0 ? usable : named.filter((name) => usable.includes(name)),
     );
     if (offered.length === 0) {
       return offPage();
@@ -501,6 +518,7 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
       ...(rest.value.nonce === undefined ? {} : { nonce: rest.value.nonce }),
       codeChallenge: rest.value.codeChallenge,
       connectors: offered.map((connector) => connector.name),
+      policy: policyArg(decision),
       freshLogin,
       txnCookieHash: await sha256Hex(txnCookie),
       createdAt: now,
@@ -515,15 +533,25 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
             429,
           );
         case "suspended":
+        case "off":
           return offPage();
         default:
           return created.error satisfies never;
       }
     }
+    // The stored set, which the mutation decided with the grants of its own transaction: a grant
+    // revoked since this action's read is neither stored nor shown.
+    const stored = connectorsNamed(created.connectors);
+    const storedDirect = stored.length === 1 && consent === null ? stored[0] : undefined;
+    if (storedDirect !== undefined && freshLogin && cannotReauthenticate(storedDirect)) {
+      // Only when a revoked grant left one connector that the snapshot did not go straight to.
+      await ctx.runMutation(component.authRequests.abandon, { requestId });
+      return refusePage(freshLoginRefusal(storedDirect));
+    }
     const setCookie = `${txnCookiePrefix}${requestId}=${txnCookie}; ${txnCookieAttributes}; Max-Age=${AUTH_REQUEST_TTL_MS / 1000}`;
-    if (direct !== undefined) {
+    if (storedDirect !== undefined) {
       const response = await startConnector(ctx, {
-        connector: direct,
+        connector: storedDirect,
         request: { requestId, freshLogin },
         decision,
         refuse: (_error, description) => refusePage(description),
@@ -539,7 +567,7 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
         consent === null
           ? null
           : consentOf(consent, client, scopes, LOOPBACK_HOSTS.has(redirectUrl.hostname)),
-      connectors: offered.map((connector) => ({
+      connectors: stored.map((connector) => ({
         label: connector.label,
         provider: connector.provider,
         href: continueHref(requestId, connector),
@@ -605,7 +633,7 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
     if (decision.paused) {
       return refuse("temporarily_unavailable", "Sign-in is paused.");
     }
-    if (!decision.connectors.includes(name)) {
+    if (!usableNow(decision, found.client.connectors, found.granted).includes(name)) {
       return refuse("access_denied", "That sign-in method is no longer available.");
     }
     return await startConnector(ctx, {
@@ -996,7 +1024,12 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
             connectors: [...connectors.keys()],
           }),
         });
-        moderationEndpoints({ component, registration, path }).addRoutes(http);
+        moderationEndpoints({
+          component,
+          registration,
+          connectors: [...connectors.keys()],
+          path,
+        }).addRoutes(http);
       }
     },
 
@@ -1008,8 +1041,8 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
     newClientCredentials: async () => await newClientCredentials(issuer),
 
     /**
-     * Administration as internal functions of the host, for `npx convex run`: export them from a
-     * host module such as `convex/identityBroker.ts`.
+     * Administration as internal functions of the host, for `npx convex run`: export them from the
+     * host module that defines the broker, such as `convex/broker.ts`.
      */
     admin() {
       const { string } = v;

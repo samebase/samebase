@@ -1,5 +1,44 @@
 # Changelog
 
+## 0.26.0
+
+Connector grants, set by the hub's administrator (RFC 137 decision 10).
+
+- The policy can name only the host's own connectors and API resources: `google()`, `github()`, and
+  the resource providers return their names as literal types, and `defineIdentityBroker` passes them
+  to the policy's `connectors` and `resources`, so a misspelt name does not compile. Keep the
+  connector list without a `Connector[]` annotation, which would widen the names to `string`.
+
+- A new table, `connectorGrants`: one row per broker app (a repository's production app, or its
+  preview app with its development clients) and connector, bound to the repository's recorded owner.
+  Additive: no data to clear.
+- A grant adds its connector to what the host's policy gives the app's clients: a client may enroll
+  in and use the policy's connectors and its app's granted ones, of the host's configured
+  connectors. A row counts only while the tenant's recorded owner and the owner that registered the
+  client are the row's owner; at registration, the owner of the incoming proof. It counts again if
+  the repository comes back to that owner.
+- Every step reads the grants in its own transaction: `POST /hub-clients` and both creating
+  mutations (`policyConnectors` goes to them, and a grant revoked while the host checked answers
+  `400 invalid_connectors` with the allowed names), `/authorize`'s stored set (`authRequests.create`
+  takes the decision, decides the set with the grants of its own transaction, and answers it, and
+  the page renders that set; `off` when none is left), `/continue`, the callback's claim and
+  completion, and code exchange. Revoking a grant stops a sign-in at its next step; issued tokens
+  and app sessions stay. `decision.connectors` stays the policy's part, and the host adds the grants
+  that the client's facts carry (`granted` on `clients.withApp`) with `usableNow`.
+- A grant counts only for one of the host's configured connectors: the decision carries them
+  (`configured`), and the creating mutations take `configuredConnectors`, so a connector removed
+  from the host's configuration stops at the next step, a kept grant of it included.
+- `GET /moderation/connector-grants` answers the host's connector names and every grant, each with
+  its owner and whether it is `active`; `POST /moderation/connector-grants` grants or revokes one,
+  with a reason and the admin's email, and appends a `connector_grant_change` event in the same
+  transaction. Granting answers 409 `owner_changed` when the recorded owner is not the one the admin
+  saw, revoking when the row is bound to another owner than the one the admin saw, 404 `unknown_app`
+  for an app the broker does not have, and 400 `unknown_connector` for a connector the host does not
+  configure.
+- The clients of `/moderation/clients` carry `policyConnectors`, `usableConnectors`, and
+  `grantedConnectors`.
+- Grants give no API resource and skip no sign-in page; exemptions grant no connector.
+
 ## 0.25.0
 
 Exemptions from the sign-in page, set by the hub's administrator (RFC 137 decision 5, as amended).
