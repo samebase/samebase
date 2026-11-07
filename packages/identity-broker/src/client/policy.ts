@@ -1,6 +1,7 @@
 import { validate } from "convex-helpers/validators";
 import { v, type Infer } from "convex/values";
 import type { vRegistration } from "../component/policy.js";
+import type { AdminSettings } from "../component/signInPage.js";
 
 // The policy contract of a hub (RFC 137 decision 2): the broker defines and enforces it, the hub
 // implements it as a function. It runs here, in the host's HTTP action, once per request; the
@@ -10,6 +11,10 @@ const { array, boolean, object, string } = v;
 
 /** The facts of a client that a hub's policy decides on. */
 export type Registration = Infer<typeof vRegistration>;
+
+// What the hub's administrator set for a client (src/component/signInPage.ts), which the broker
+// reads from its rows with the facts, never from a request.
+export type { AdminSettings };
 
 /** What a hub's policy decides for one registration, at registration and at each use. */
 export const vPolicy = object({
@@ -24,16 +29,20 @@ export const vPolicy = object({
 });
 export type Policy = Infer<typeof vPolicy>;
 
-export type PolicyFunction = (registration: Registration) => Policy;
+export type PolicyFunction = (registration: Registration, admin: AdminSettings) => Policy;
 
 /**
  * The policy's answer, or null when it threw or answered a malformed value: the request is refused
  * and nothing is written. Nothing is allowed by default.
  */
-export function evaluate(policy: PolicyFunction, registration: Registration): Policy | null {
+export function evaluate(
+  policy: PolicyFunction,
+  registration: Registration,
+  admin: AdminSettings,
+): Policy | null {
   let answer: unknown;
   try {
-    answer = policy(registration);
+    answer = policy(registration, admin);
   } catch (error) {
     console.error(
       `The policy failed: ${error instanceof Error ? error.constructor.name : typeof error}`,
@@ -64,6 +73,7 @@ export type Decision = {
 export function decide(args: {
   policy: PolicyFunction | undefined;
   registration: Registration | null;
+  admin: AdminSettings;
   enrollment: string[];
   providers: Array<{ name: string; resource: string }>;
 }): Decision | null {
@@ -79,7 +89,7 @@ export function decide(args: {
   if (args.registration === null) {
     return null;
   }
-  const policy = evaluate(args.policy, args.registration);
+  const policy = evaluate(args.policy, args.registration, args.admin);
   if (policy === null) {
     return null;
   }

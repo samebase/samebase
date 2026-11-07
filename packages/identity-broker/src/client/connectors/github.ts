@@ -50,11 +50,17 @@ async function githubIdentity(accessToken: string): Promise<UpstreamIdentity> {
   return identity;
 }
 
-/** GitHub as an OAuth connector. The callback must be registered on the OAuth App or GitHub App. */
+/**
+ * GitHub as an OAuth connector. The callback must be registered on the OAuth App or GitHub App.
+ * `selectAccount` sends `prompt=select_account`: GitHub then shows its account picker on each
+ * sign-in, also to a user who authorized the app before and has one account signed in, in place of
+ * passing the user through with no click.
+ */
 export function github(credentials: {
   clientId: () => string;
   clientSecret: () => string;
   name?: string;
+  selectAccount?: boolean;
 }): OauthConnector {
   return {
     kind: "oauth",
@@ -68,5 +74,8 @@ export function github(credentials: {
     clientId: credentials.clientId,
     clientSecret: credentials.clientSecret,
     identity: githubIdentity,
+    ...(credentials.selectAccount === undefined
+      ? {}
+      : { selectAccount: credentials.selectAccount }),
   };
 }

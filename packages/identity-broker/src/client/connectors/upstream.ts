@@ -60,7 +60,7 @@ export async function startUpstream(args: {
     // checks; prompt=login asks for the login itself.
     url.searchParams.set("prompt", "login");
     url.searchParams.set("max_age", "0");
-  } else if (args.connector.kind === "oidc" && args.connector.selectAccount === true) {
+  } else if (args.connector.selectAccount === true) {
     url.searchParams.set("prompt", "select_account");
   }
   return { url: url.toString(), state, codeVerifier, nonce };

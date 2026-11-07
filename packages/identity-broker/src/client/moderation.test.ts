@@ -77,6 +77,8 @@ const ENDPOINTS = [
   ["GET", "/moderation/clients"],
   ["GET", `/moderation/clients?repository=${REPOSITORY_ID}`],
   ["DELETE", "/moderation/clients/cl_any"],
+  ["GET", "/moderation/sign-in-page"],
+  ["POST", "/moderation/sign-in-page"],
 ] as const;
 
 describe("the moderation key", () => {
@@ -330,6 +332,8 @@ describe("the clients", () => {
             app: "my-app",
           },
           connectors: ["fake"],
+          ownerId: OWNER_ID,
+          signInPage: "shown",
         },
         {
           clientId: first.client_id,
@@ -350,6 +354,8 @@ describe("the clients", () => {
             app: "my-app",
           },
           connectors: ["fake"],
+          ownerId: OWNER_ID,
+          signInPage: "shown",
         },
       ],
       limitReached: false,

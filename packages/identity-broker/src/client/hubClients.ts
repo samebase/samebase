@@ -301,7 +301,14 @@ export function hubClientsEndpoint(args: {
    * counts an admitted request in the repository and owner windows; a refused one counts nowhere.
    */
   async function admit(ctx: Ctx, facts: Registration, connectors: string[]) {
-    const policy = evaluate(registration.policy, facts);
+    // What the hub's administrator set for the app the client will join, read after the proof.
+    const admin = await ctx.runQuery(component.signInPage.forRegistration, {
+      githubRepositoryDatabaseId: facts.repositoryId,
+      githubOwnerId: facts.ownerId,
+      app: facts.app,
+      production: facts.deploymentType === "production",
+    });
+    const policy = evaluate(registration.policy, facts, admin);
     if (policy === null) {
       return reply(503, { error: "temporarily_unavailable" });
     }

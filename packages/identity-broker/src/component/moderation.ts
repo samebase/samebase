@@ -2,8 +2,10 @@ import { v, type Infer } from "convex/values";
 // oxlint-disable-next-line samebase/no-raw-public-convex-function-builders -- Component entrypoints are internal to the host; host functions enforce access.
 import { mutation, query, type QueryCtx } from "./_generated/server";
 import type { Doc } from "./_generated/dataModel";
-import { readBlock, tenantIdOf } from "./apps";
+import { readBlock, tenantIdOf, tenantRow } from "./apps";
+import { registrationOf, vRegistration } from "./policy";
 import { vBlockKind, vDeploymentType } from "./schema";
+import { adminSettingsOf, vAdminSettings } from "./signInPage";
 
 // The database half of `/moderation/*` (src/client/moderation.ts). The answers keep the names that
 // samebase.com's admin page reads (apps/samebase/convex/hubClients/moderation.ts).
@@ -179,21 +181,50 @@ function repositoryIdOf(tenantId: string | undefined) {
   return /^gh-([1-9][0-9]*)$/.exec(tenantId ?? "")?.[1];
 }
 
+/**
+ * A client of the lists, with what the HTTP endpoint needs to say what decides its sign-in page:
+ * the tenant's recorded owner, the client's policy facts, and its admin settings.
+ */
+const vClientEntry = object({
+  client: vClientView,
+  ownerId: union(string(), v.null()),
+  registration: union(vRegistration, v.null()),
+  admin: vAdminSettings,
+});
+
+async function clientEntry(
+  ctx: QueryCtx,
+  client: Doc<"clients">,
+  app: Doc<"apps"> | null,
+): Promise<Infer<typeof vClientEntry>> {
+  const tenant = app === null ? null : await tenantRow(ctx, app.tenantId);
+  return {
+    client: clientView(client, repositoryIdOf(app?.tenantId)),
+    ownerId: tenant?.ownerId ?? null,
+    registration: app === null ? null : await registrationOf(ctx, client, app),
+    admin: await adminSettingsOf(ctx, {
+      appId: client.appId,
+      tenantOwnerId: tenant?.ownerId,
+      clientOwnerId: client.registeredBy.githubOwnerId,
+    }),
+  };
+}
+
 /** The newest clients of every app, each with who made it. */
 export const clientList = query({
   args: {},
-  returns: object({ clients: array(vClientView), limitReached: boolean() }),
+  returns: object({ clients: array(vClientEntry), limitReached: boolean() }),
   handler: async (ctx) => {
     const clients = await ctx.db.query("clients").order("desc").take(CLIENT_LIST_LIMIT);
-    const views = [];
+    const entries = [];
     for (const client of clients) {
       const app = await ctx.db
         .query("apps")
         .withIndex("by_app_id", (q) => q.eq("appId", client.appId))
         .unique();
-      views.push(clientView(client, repositoryIdOf(app?.tenantId)));
+      entries.push(await clientEntry(ctx, client, app));
     }
-    return { clients: views, limitReached: clients.length === CLIENT_LIST_LIMIT };
+    return { clients: entries, limitReached: clients.length === CLIENT_LIST_LIMIT };
   },
 });
 
@@ -204,9 +235,9 @@ export const clientList = query({
  */
 export const repositoryClients = query({
   args: { githubRepositoryDatabaseIds: array(string()) },
-  returns: array(vClientView),
+  returns: array(vClientEntry),
   handler: async (ctx, args) => {
-    const views = [];
+    const entries = [];
     for (const repositoryId of args.githubRepositoryDatabaseIds) {
       const apps = await ctx.db
         .query("apps")
@@ -217,11 +248,15 @@ export const repositoryClients = query({
           .query("clients")
           .withIndex("by_app_id", (q) => q.eq("appId", app.appId))
           .collect()) {
-          views.push(clientView(client, repositoryId));
+          entries.push(await clientEntry(ctx, client, app));
         }
       }
     }
-    return views.sort((a, b) => b.createdAt - a.createdAt || a.clientId.localeCompare(b.clientId));
+    return entries.sort(
+      (a, b) =>
+        b.client.createdAt - a.client.createdAt ||
+        a.client.clientId.localeCompare(b.client.clientId),
+    );
   },
 });
 

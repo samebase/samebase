@@ -3,9 +3,11 @@ import { decodeJwt } from "jose";
 import { afterEach, describe, expect, test, vi } from "vite-plus/test";
 import { api } from "../component/_generated/api.js";
 import { LEASE_MS, MAX_APPS_PER_TENANT, MAX_CLIENTS_PER_APP } from "../component/registration.js";
+import { github } from "./connectors/github.js";
 import {
   createHarness,
   fakeOidcUpstream,
+  fakeUpstream,
   pkce,
   sha256Hex,
   txnCookie,
@@ -409,6 +411,27 @@ describe("the connectors of a client", () => {
     expect(new URL(start.headers.get("location") ?? "").searchParams.get("prompt")).toBe(
       "select_account",
     );
+  });
+
+  test("selectAccount sends prompt=select_account to a plain OAuth provider too, as GitHub documents", async () => {
+    const { connector } = fakeUpstream();
+    const h = await createHarness({
+      connectors: [{ ...connector, selectAccount: true }],
+      registration: hubRegistration(() => testPolicy({ consent: false, connectors: ["fake"] })),
+    });
+    const client = await register(h, { connectors: ["fake"] });
+    const { challenge } = await pkce();
+    const start = await h.fetchBroker(authorizeUrl(h, client.client_id, challenge));
+    const upstream = new URL(start.headers.get("location") ?? "");
+    expect(upstream.origin).toBe("https://upstream.test");
+    expect(upstream.searchParams.get("prompt")).toBe("select_account");
+    expect(github({ clientId: () => "id", clientSecret: () => "secret" }).selectAccount).toBe(
+      undefined,
+    );
+    expect(
+      github({ clientId: () => "id", clientSecret: () => "secret", selectAccount: true })
+        .selectAccount,
+    ).toBe(true);
   });
 });
 

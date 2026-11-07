@@ -18,6 +18,7 @@ import type * as policy from "../policy.js";
 import type * as registration from "../registration.js";
 import type * as resourceRequests from "../resourceRequests.js";
 import type * as resourceSchema from "../resourceSchema.js";
+import type * as signInPage from "../signInPage.js";
 import type * as signIns from "../signIns.js";
 
 import type {
@@ -38,6 +39,7 @@ const fullApi: ApiFromModules<{
   registration: typeof registration;
   resourceRequests: typeof resourceRequests;
   resourceSchema: typeof resourceSchema;
+  signInPage: typeof signInPage;
   signIns: typeof signIns;
 }> = anyApi as any;
 

@@ -3,7 +3,7 @@ import fc from "fast-check";
 import { decodeJwt } from "jose";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { ISSUER, pkce, txnCookie, type Harness } from "./harness.test.helper.js";
-import { postHubClient, setBlock, type NewClient } from "./hub.test.helper.js";
+import { moderationRequest, postHubClient, setBlock, type NewClient } from "./hub.test.helper.js";
 import {
   advanceClock,
   check,
@@ -70,6 +70,8 @@ type Command =
   | { kind: "callbackFinish"; attempt: number; outcome: SignInOutcome }
   | { kind: "redeem"; code: number }
   | { kind: "policy"; connectors: PolicyName; consent: boolean; paused: boolean }
+  /** The admin switches the sign-in page off or on for every app; the policy skips the page then. */
+  | { kind: "exemption"; skip: boolean }
   | { kind: "block"; action: "block" | "unblock"; scope: "repository"; githubId: Repository }
   | { kind: "block"; action: "block" | "unblock"; scope: "owner"; githubId: Owner }
   /** GitHub transfers the repository, and a run of its new owner registers a client. */
@@ -145,6 +147,10 @@ const commandArbitrary: fc.Arbitrary<Command> = fc.oneof(
         githubId: fc.constantFrom(...OWNERS),
       }),
     ),
+  },
+  {
+    weight: 1,
+    arbitrary: fc.record({ kind: fc.constant("exemption" as const), skip: fc.boolean() }),
   },
   {
     weight: 1,
@@ -703,6 +709,22 @@ async function playCommand(
         `policy: ${command.connectors}${command.consent ? ", consent" : ""}${command.paused ? ", paused" : ""}`,
       );
       return;
+    case "exemption": {
+      const response = await moderationRequest(h, "/moderation/sign-in-page", {
+        method: "POST",
+        body: {
+          target: { scope: "every_app" },
+          skip: command.skip,
+          reason: "Launch week",
+          adminEmail: "nicu@samebase.com",
+        },
+      });
+      story.trace.push(
+        `sign-in page ${command.skip ? "off" : "on"} for every app: ${response.status}`,
+      );
+      checkAnswer(checks, "exemption", response);
+      return;
+    }
     case "block": {
       const response = await setBlock(h, {
         action: command.action,
@@ -744,10 +766,11 @@ async function play(commands: Command[], checks: Checks, story: Story) {
   const policy: PolicyState = { connectors: "all", consent: true, paused: false };
   const h = await createModelHub({
     resources: [],
-    policy: () => ({
+    // As our hub: the every-app exemption skips the page, and changes nothing else.
+    policy: (_registration, admin) => ({
       connectors: [...POLICIES[policy.connectors]],
       resources: [],
-      consent: policy.consent,
+      consent: policy.consent && !admin.skipForEveryApp,
       paused: policy.paused,
     }),
   });

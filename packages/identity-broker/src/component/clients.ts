@@ -2,8 +2,9 @@ import { v } from "convex/values";
 // oxlint-disable-next-line samebase/no-raw-public-convex-function-builders -- Component entrypoints are internal to the host; host functions enforce access.
 import { mutation, query, type QueryCtx } from "./_generated/server";
 import type { Doc } from "./_generated/dataModel";
-import { appView, vApp } from "./apps";
+import { appView, tenantRow, vApp } from "./apps";
 import { registrationOf, vRegistration } from "./policy";
+import { adminSettingsOf, vAdminSettings } from "./signInPage";
 import { vDeploymentType, vRegisteredBy, vTokenEndpointAuthMethod } from "./schema";
 import { removeClientGrants } from "./resourceRequests";
 
@@ -30,12 +31,14 @@ const vClient = object({
 
 /**
  * A client with its app and the facts the host's policy decides on. `registration` is null when the
- * app is gone or the client is not a repository's (`registrationOf`).
+ * app is gone or the client is not a repository's (`registrationOf`). `admin` is what the hub's
+ * administrator set for the client (`signInPage.ts`), read in the same snapshot.
  */
 export const vClientWithApp = object({
   client: vClient,
   app: v.union(vApp, v.null()),
   registration: v.union(vRegistration, v.null()),
+  admin: vAdminSettings,
 });
 
 export async function clientWithApp(ctx: QueryCtx, row: Doc<"clients">) {
@@ -44,10 +47,16 @@ export async function clientWithApp(ctx: QueryCtx, row: Doc<"clients">) {
     .query("apps")
     .withIndex("by_app_id", (q) => q.eq("appId", client.appId))
     .unique();
+  const tenant = app === null ? null : await tenantRow(ctx, app.tenantId);
   return {
     client,
     app: app === null ? null : await appView(ctx, app),
     registration: app === null ? null : await registrationOf(ctx, row, app),
+    admin: await adminSettingsOf(ctx, {
+      appId: client.appId,
+      tenantOwnerId: tenant?.ownerId,
+      clientOwnerId: client.registeredBy.githubOwnerId,
+    }),
   };
 }
 

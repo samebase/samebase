@@ -333,6 +333,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         { upstreamStateHash: string },
         {
           client: {
+            admin: { skipForEveryApp: boolean; skipForThisApp: boolean };
             app: {
               appId: string;
               createdAt: number;
@@ -482,6 +483,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         "internal",
         { clientId: string },
         {
+          admin: { skipForEveryApp: boolean; skipForThisApp: boolean };
           app: {
             appId: string;
             createdAt: number;
@@ -677,6 +679,68 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         {},
         {
           clients: Array<{
+            admin: { skipForEveryApp: boolean; skipForThisApp: boolean };
+            client: {
+              appId: string;
+              clientId: string;
+              clientName: string;
+              connectors: Array<string>;
+              createdAt: number;
+              deploymentType: "production" | "development" | "preview";
+              lastSignInAt: number | null;
+              redirectUri: string;
+              registeredBy:
+                | {
+                    app: string;
+                    githubActorLogin: string;
+                    githubOwnerId: string;
+                    githubRepository: string;
+                    githubRepositoryDatabaseId: string;
+                    kind: "github";
+                  }
+                | {
+                    app: string;
+                    githubOwnerId: string;
+                    githubRepository: string;
+                    githubRepositoryDatabaseId: string;
+                    issuedAt: number;
+                    kind: "initial_access_token";
+                  };
+              removeAt: number | null;
+              renewedAt: number;
+            };
+            ownerId: string | null;
+            registration: {
+              app: string;
+              deploymentType: "production" | "development" | "preview";
+              ownerId: string;
+              proof: "github-actions" | "initial-access-token";
+              redirectUri: string;
+              repository: string;
+              repositoryId: string;
+            } | null;
+          }>;
+          limitReached: boolean;
+        },
+        Name
+      >;
+      counts: FunctionReference<
+        "query",
+        "internal",
+        { now: number },
+        {
+          day: { atLeast: boolean; count: number };
+          week: { atLeast: boolean; count: number };
+        },
+        Name
+      >;
+      repositoryClients: FunctionReference<
+        "query",
+        "internal",
+        { githubRepositoryDatabaseIds: Array<string> },
+        Array<{
+          admin: { skipForEveryApp: boolean; skipForThisApp: boolean };
+          client: {
             appId: string;
             clientId: string;
             clientName: string;
@@ -704,53 +768,17 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                 };
             removeAt: number | null;
             renewedAt: number;
-          }>;
-          limitReached: boolean;
-        },
-        Name
-      >;
-      counts: FunctionReference<
-        "query",
-        "internal",
-        { now: number },
-        {
-          day: { atLeast: boolean; count: number };
-          week: { atLeast: boolean; count: number };
-        },
-        Name
-      >;
-      repositoryClients: FunctionReference<
-        "query",
-        "internal",
-        { githubRepositoryDatabaseIds: Array<string> },
-        Array<{
-          appId: string;
-          clientId: string;
-          clientName: string;
-          connectors: Array<string>;
-          createdAt: number;
-          deploymentType: "production" | "development" | "preview";
-          lastSignInAt: number | null;
-          redirectUri: string;
-          registeredBy:
-            | {
-                app: string;
-                githubActorLogin: string;
-                githubOwnerId: string;
-                githubRepository: string;
-                githubRepositoryDatabaseId: string;
-                kind: "github";
-              }
-            | {
-                app: string;
-                githubOwnerId: string;
-                githubRepository: string;
-                githubRepositoryDatabaseId: string;
-                issuedAt: number;
-                kind: "initial_access_token";
-              };
-          removeAt: number | null;
-          renewedAt: number;
+          };
+          ownerId: string | null;
+          registration: {
+            app: string;
+            deploymentType: "production" | "development" | "preview";
+            ownerId: string;
+            proof: "github-actions" | "initial-access-token";
+            redirectUri: string;
+            repository: string;
+            repositoryId: string;
+          } | null;
         }>,
         Name
       >;
@@ -996,6 +1024,52 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           tokenHash: string;
         },
         boolean,
+        Name
+      >;
+    };
+    signInPage: {
+      forRegistration: FunctionReference<
+        "query",
+        "internal",
+        {
+          app: string;
+          githubOwnerId: string;
+          githubRepositoryDatabaseId: string;
+          production: boolean;
+        },
+        { skipForEveryApp: boolean; skipForThisApp: boolean },
+        Name
+      >;
+      list: FunctionReference<
+        "query",
+        "internal",
+        {},
+        {
+          apps: Array<{
+            app: string | null;
+            appId: string;
+            ownerId: string;
+            production: boolean | null;
+            reason: string;
+            repository: string | null;
+          }>;
+          everyApp: { reason: string } | null;
+        },
+        Name
+      >;
+      set: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          adminEmail: string;
+          reason: string;
+          skip: boolean;
+          target:
+            | { scope: "every_app" }
+            | { appId: string; expectedOwnerId: string; scope: "app" };
+        },
+        | { changed: boolean; ok: true }
+        | { error: "owner_changed" | "unknown_app"; ok: false },
         Name
       >;
     };
