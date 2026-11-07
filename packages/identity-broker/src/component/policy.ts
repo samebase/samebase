@@ -2,6 +2,7 @@ import { v, type Infer } from "convex/values";
 import type { QueryCtx } from "./_generated/server";
 import type { Doc } from "./_generated/dataModel";
 import { tenantRow } from "./apps";
+import { usableNames } from "./connectorRule";
 import { vDeploymentType } from "./schema";
 
 // The host's policy (RFC 137) runs in its HTTP actions, on facts that these rows hold. The facts go
@@ -87,10 +88,9 @@ export async function refusalOf(
 }
 
 /**
- * The connectors a request may use now: its set and the client's enrollment, of those the
- * decision's policy gives or the admin granted the client's app (`granted`, read by the caller in
- * the transaction that decides, so a revoked grant stops the next step) of the host's configured
- * connectors.
+ * The connectors a request may use now (`usableNames`): its set, the client's enrollment, the host's
+ * configured connectors, and the decision's policy or the grants of the client's app (`granted`,
+ * read by the caller in the transaction that decides, so a revoked grant stops the next step).
  */
 export function usableConnectors(
   request: { connectors: string[] },
@@ -98,10 +98,11 @@ export function usableConnectors(
   decision: PolicyDecision,
   granted: string[],
 ): string[] {
-  return request.connectors.filter(
-    (name) =>
-      client.connectors.includes(name) &&
-      (decision.connectors.includes(name) ||
-        (granted.includes(name) && decision.configured.includes(name))),
-  );
+  return usableNames({
+    requested: request.connectors,
+    enrollment: client.connectors,
+    policy: decision.connectors,
+    granted,
+    configured: decision.configured,
+  });
 }

@@ -2100,6 +2100,7 @@ export const trackedFilePaths = [
   "packages/identity-broker/src/component/authRequests.ts",
   "packages/identity-broker/src/component/clients.ts",
   "packages/identity-broker/src/component/connectorGrants.ts",
+  "packages/identity-broker/src/component/connectorRule.ts",
   "packages/identity-broker/src/component/convex.config.ts",
   "packages/identity-broker/src/component/hubClients.ts",
   "packages/identity-broker/src/component/lifecycle.test.ts",

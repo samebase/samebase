@@ -140,6 +140,8 @@ export function AdminHubClientsPage() {
   const [blockTarget, setBlockTarget] = useState<BlockTarget | null>(null);
   const [signInPageTarget, setSignInPageTarget] = useState<SignInPageTarget | null>(null);
   const [connectorsTargetOpen, setConnectorsTarget] = useState<ConnectorsTarget | null>(null);
+  // Outside the overview: a reload that fails after a save must not take the save's report away.
+  const [connectorsOutcome, setConnectorsOutcome] = useState<string | null>(null);
   const refetch = async () => {
     await overview.refetch();
   };
@@ -151,6 +153,11 @@ export function AdminHubClientsPage() {
       className="container mx-auto w-full max-w-6xl py-6 @max-3xl:px-3"
     >
       <h1 className="text-xl font-semibold @2xl:text-2xl">Hub clients</h1>
+      {connectorsOutcome === null ? null : (
+        <p className="mt-2 text-sm" role="status">
+          {connectorsOutcome}
+        </p>
+      )}
       {overview.isError ? (
         <p className="mt-6 text-sm text-destructive" role="alert">
           Could not reach the identity hub.
@@ -213,6 +220,7 @@ export function AdminHubClientsPage() {
             target={connectorsTargetOpen}
             overview={overview.data}
             changeConnectorGrant={changeConnectorGrant}
+            onOutcome={setConnectorsOutcome}
             onClose={() => setConnectorsTarget(null)}
             onChanged={refetch}
           />
@@ -876,12 +884,14 @@ function ConnectorsDialog({
   target,
   overview,
   changeConnectorGrant,
+  onOutcome,
   onClose,
   onChanged,
 }: {
   target: ConnectorsTarget | null;
   overview: Overview;
   changeConnectorGrant: ChangeConnectorGrant;
+  onOutcome: (outcome: string) => void;
   onClose: () => void;
   onChanged: () => Promise<void>;
 }) {
@@ -893,6 +903,7 @@ function ConnectorsDialog({
           target={target}
           overview={overview}
           changeConnectorGrant={changeConnectorGrant}
+          onOutcome={onOutcome}
           onClose={onClose}
           onChanged={onChanged}
         />
@@ -905,12 +916,15 @@ function ConnectorsForm({
   target,
   overview,
   changeConnectorGrant,
+  onOutcome,
   onClose,
   onChanged,
 }: {
   target: ConnectorsTarget;
   overview: Overview;
   changeConnectorGrant: ChangeConnectorGrant;
+  /** The report of a save, which the page shows outside the overview it reloads. */
+  onOutcome: (outcome: string) => void;
   onClose: () => void;
   onChanged: () => Promise<void>;
 }) {
@@ -924,16 +938,15 @@ function ConnectorsForm({
   const [checked, setChecked] = useState<string[]>(saved);
   const [reason, setReason] = useState("");
   const [pending, setPending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const changes = choices.filter((name) => checked.includes(name) !== saved.includes(name));
 
   /**
-  One write per changed connector. Each one is saved or refused on its own, so the page reloads after
-  every attempt and says which were saved and which were refused.
+  One write per changed connector. Each one is saved or refused on its own, so the page reports which
+  were saved and which were refused, closes the dialog, and reloads after every attempt. The report
+  is the page's, so a reload that fails leaves it in place.
   */
   const save = async () => {
     setPending(true);
-    setError(null);
     const saved: string[] = [];
     const refused: string[] = [];
     for (const connector of changes) {
@@ -958,18 +971,17 @@ function ConnectorsForm({
         refused.push(`${connector}: The hub refused the change.`);
       }
     }
-    try {
-      await onChanged();
-    } finally {
-      setPending(false);
-    }
-    if (refused.length === 0) {
-      onClose();
-      return;
-    }
-    setError(
-      `${saved.length === 0 ? "" : `Saved: ${saved.join(", ")}. `}Refused: ${refused.join(" ")}`,
+    onOutcome(
+      [
+        saved.length === 0 ? null : `Saved: ${saved.join(", ")}.`,
+        refused.length === 0 ? null : `Refused: ${refused.join(" ")}`,
+      ]
+        .filter((part) => part !== null)
+        .join(" "),
     );
+    setPending(false);
+    onClose();
+    await onChanged();
   };
 
   return (
@@ -1021,11 +1033,6 @@ function ConnectorsForm({
           value={reason}
           onChange={(event) => setReason(event.target.value)}
         />
-        {error === null ? null : (
-          <p className="text-sm text-destructive" role="alert">
-            {error}
-          </p>
-        )}
       </form>
       <DialogFooter>
         <Button variant="outline" disabled={pending} onClick={onClose}>

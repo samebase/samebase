@@ -529,7 +529,7 @@ describe("AdminHubClientsPage", () => {
     }
   });
 
-  it("reloads after a partial save and says which grants were saved and which were refused", async () => {
+  it("keeps the report of a partial save when the reload after it fails", async () => {
     const [first, ...rest] = overview.clientList.clients;
     testState.readOverview.mockResolvedValue({
       ...overview,
@@ -567,6 +567,8 @@ describe("AdminHubClientsPage", () => {
       }
       await act(async () => type(document.body, "#admin-hub-clients-connectors-reason", "Ours"));
       const reads = testState.readOverview.mock.calls.length;
+      // The reload after the save fails: the overview, and the dialog with it, go away.
+      testState.readOverview.mockRejectedValueOnce(new Error("The hub is down"));
       await act(async () => {
         document
           .querySelector<HTMLFormElement>("#admin-hub-clients-connectors-form")
@@ -577,9 +579,9 @@ describe("AdminHubClientsPage", () => {
 
       expect(testState.changeConnectorGrant).toHaveBeenCalledTimes(2);
       expect(testState.readOverview.mock.calls.length).toBeGreaterThan(reads);
-      expect(document.body.textContent).toContain(
-        "Saved: google. Refused: github: The hub refused the change.",
-      );
+      const text = page.rootElement.textContent;
+      expect(text).toContain("Saved: google. Refused: github: The hub refused the change.");
+      expect(text).toContain("Could not reach the identity hub.");
     } finally {
       await page.unmount();
     }

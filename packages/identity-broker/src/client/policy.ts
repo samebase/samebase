@@ -1,5 +1,6 @@
 import { validate } from "convex-helpers/validators";
 import { v, type Infer } from "convex/values";
+import { usableNames } from "../component/connectorRule.js";
 import type { vRegistration } from "../component/policy.js";
 import type { Exemption } from "../component/signInPage.js";
 
@@ -82,7 +83,7 @@ export function decide(args: {
   if (args.policy === undefined) {
     return {
       paused: false,
-      connectors: enrollment,
+      connectors: enrollment.filter((name) => configured.includes(name)),
       resources: providers.map((provider) => provider.resource),
       configured,
     };
@@ -97,7 +98,9 @@ export function decide(args: {
   return {
     ownerId: args.registration.ownerId,
     paused: policy.paused,
-    connectors: enrollment.filter((name) => policy.connectors.includes(name)),
+    connectors: enrollment.filter(
+      (name) => policy.connectors.includes(name) && configured.includes(name),
+    ),
     resources: providers
       .filter((provider) => policy.resources.includes(provider.name))
       .map((provider) => provider.resource),
@@ -113,11 +116,13 @@ export function decide(args: {
  * the policy's part alone.
  */
 export function usableNow(decision: Decision, enrollment: string[], granted: string[]): string[] {
-  return enrollment.filter(
-    (name) =>
-      decision.connectors.includes(name) ||
-      (granted.includes(name) && decision.configured.includes(name)),
-  );
+  return usableNames({
+    requested: enrollment,
+    enrollment,
+    policy: decision.connectors,
+    granted,
+    configured: decision.configured,
+  });
 }
 
 /** The decision as a mutation takes it: the fields of `vPolicyDecision`, nothing wider. */

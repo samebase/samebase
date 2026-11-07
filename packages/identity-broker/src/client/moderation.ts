@@ -8,6 +8,7 @@ import {
 import { v } from "convex/values";
 import type { FunctionReturnType } from "convex/server";
 import type { ComponentApi } from "../component/_generated/component.js";
+import { usableNames } from "../component/connectorRule.js";
 import { evaluate, pageShown } from "./policy.js";
 import type { RegistrationConfig } from "./registration.js";
 import { sha256Hex } from "./subject.js";
@@ -164,9 +165,14 @@ export function moderationEndpoints(args: {
       };
     }
     const policyConnectors = connectors.filter((name) => policy.connectors.includes(name));
-    const usableConnectors = entry.client.connectors.filter(
-      (name) => policyConnectors.includes(name) || entry.granted.includes(name),
-    );
+    // The rule of every step of a sign-in, so the report and the fences cannot disagree.
+    const usableConnectors = usableNames({
+      requested: entry.client.connectors,
+      enrollment: entry.client.connectors,
+      policy: policyConnectors,
+      granted: entry.granted,
+      configured: connectors,
+    });
     return {
       ...entry.client,
       ownerId: entry.ownerId,

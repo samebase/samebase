@@ -1,11 +1,20 @@
 /// <reference types="vite-plus/client" />
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { api } from "../component/_generated/api.js";
-import { fakeUpstream, pkce, sha256Hex, txnCookie, type Harness } from "./harness.test.helper.js";
+import {
+  createHarness,
+  fakeUpstream,
+  pkce,
+  sha256Hex,
+  txnCookie,
+  type Harness,
+} from "./harness.test.helper.js";
 import {
   APP_HASH,
   createHub,
+  hubRegistration,
   jsonResponse,
+  MODERATION_KEY,
   moderationRequest,
   OWNER_ID,
   postHubClient,
@@ -356,24 +365,54 @@ describe("the connector grants", () => {
     const { response, verifier } = await signIn(h, client, "other");
     const code = (await finish(h, response)).searchParams.get("code") ?? "";
 
-    // The hub's configuration and policy drop `other`; the grant row stays.
-    const exchanged = await h.t.mutation(api.authRequests.exchangeCode, {
-      clientId: client.client_id,
-      clientSecretHash: await sha256Hex(client.client_secret),
-      tokenEndpointAuthMethod: "client_secret_post",
-      codeHash: await sha256Hex(code),
-      codeVerifier: verifier,
-      refreshTokenHash: await sha256Hex("refresh"),
-      policy: {
-        ownerId: OWNER_ID,
-        paused: false,
-        connectors: ["fake"],
-        resources: [],
-        configured: ["fake"],
-      },
-      now: Date.now(),
+    // The hub's configuration drops `other`: the grant row stays, and the policy may still list it.
+    for (const policyConnectors of [["fake"], ["fake", "other"]]) {
+      const exchanged = await h.t.mutation(api.authRequests.exchangeCode, {
+        clientId: client.client_id,
+        clientSecretHash: await sha256Hex(client.client_secret),
+        tokenEndpointAuthMethod: "client_secret_post",
+        codeHash: await sha256Hex(code),
+        codeVerifier: verifier,
+        refreshTokenHash: await sha256Hex("refresh"),
+        policy: {
+          ownerId: OWNER_ID,
+          paused: false,
+          connectors: policyConnectors,
+          resources: [],
+          configured: ["fake"],
+        },
+        now: Date.now(),
+      });
+      expect(exchanged).toMatchObject({ ok: false, error: "invalid_grant" });
+    }
+  });
+
+  it("report no connector as usable once it leaves the hub's configuration", async () => {
+    // A hub that configures `fake` alone, whose policy still lists `other`.
+    vi.stubEnv("HUB_MODERATION_KEY", MODERATION_KEY);
+    const h = await createHarness({
+      connectors: [fakeUpstream().connector],
+      registration: hubRegistration(() => testPolicy({ connectors: ["fake", "other"] })),
     });
-    expect(exchanged).toMatchObject({ ok: false, error: "invalid_grant" });
+    await registered(h, ["fake"]);
+    // A client enrolled in `other` and a grant of it, kept from before `other` left.
+    await h.t.run(async (ctx) => {
+      const client = await ctx.db.query("clients").unique();
+      if (client === null) throw new Error("No client");
+      await ctx.db.patch("clients", client._id, { connectors: ["fake", "other"] });
+      await ctx.db.insert("connectorGrants", {
+        appId: client.appId,
+        connector: "other",
+        ownerId: OWNER_ID,
+        reason: "From before",
+      });
+    });
+
+    const list: { clients: Array<{ usableConnectors: string[]; grantedConnectors: string[] }> } =
+      await (await moderationRequest(h, "/moderation/clients")).json();
+    expect(list.clients).toMatchObject([
+      { policyConnectors: ["fake"], usableConnectors: ["fake"], grantedConnectors: [] },
+    ]);
   });
 
   it("store and offer only what the grants allow when the request is created", async () => {
