@@ -4,6 +4,9 @@ import { vi } from "vite-plus/test";
 import { api } from "../component/_generated/api.js";
 import type { Connector } from "./connectors/types.js";
 import { createHarness, fakeUpstream, type Harness } from "./harness.test.helper.js";
+import type { Policy, PolicyFunction } from "./policy.js";
+import type { RegistrationConfig } from "./registration.js";
+import type { ResourceProvider } from "./resourceProviders.js";
 
 export const MODERATION_KEY = "moderation-key";
 export const REPOSITORY_ID = "74";
@@ -16,27 +19,54 @@ export const PRODUCTION_CALLBACK = `${PRODUCTION_HOST}/auth/hub/callback`;
 export const LOOPBACK_CALLBACK = "http://127.0.0.1:3211/auth/hub/callback";
 const JWKS_URL = "https://token.actions.githubusercontent.com/.well-known/jwks";
 
+/** The names of the test hub's two connectors, both of the fake provider. */
+export const HUB_CONNECTORS = ["fake", "other"] as const;
+
 /**
- * The broker in the hub mode, as the shared hub mounts it: an open connector, the reserved
- * `google-apps` of third-party apps, and a `registration` config that reads the hub's env in each
- * request, so `vi.stubEnv` of `OWN_REPOSITORY_IDS`, `THIRD_PARTY_PAUSED`, and `HUB_MODERATION_KEY`
- * holds.
+ * The policy of the test hub, in the shape of our hub's: every connector, no resources, consent,
+ * and the pause of `APPS_PAUSED`, read in the request so `vi.stubEnv` of it holds. `overrides`
+ * replace any field.
  */
-export async function createHub() {
-  vi.stubEnv("HUB_MODERATION_KEY", MODERATION_KEY);
+export function testPolicy(overrides: Partial<Policy> = {}): Policy {
+  return {
+    connectors: [...HUB_CONNECTORS],
+    resources: [],
+    consent: true,
+    paused: process.env["APPS_PAUSED"] === "true",
+    ...overrides,
+  };
+}
+
+/** The hub mode with `policy`, which reads `HUB_MODERATION_KEY` in each request. */
+export function hubRegistration(policy: PolicyFunction = () => testPolicy()): RegistrationConfig {
+  return {
+    policy,
+    moderationKey: () => process.env["HUB_MODERATION_KEY"],
+    terms: "https://samebase.com/terms",
+    privacy: "https://samebase.com/privacy",
+    name: "Samebase",
+  };
+}
+
+/** The fake connector of `fakeUpstream`, and a second connector of the same provider. */
+export function hubConnectors() {
   const { connector } = fakeUpstream();
-  const reserved: Connector = { ...connector, name: "google-apps", reserved: true };
+  const other: Connector = { ...connector, name: "other", label: "Other" };
+  return [connector, other];
+}
+
+/**
+ * The broker in the hub mode, as the shared hub mounts it: two connectors and a `registration`
+ * config with `policy` (the test policy by default), whose env is read in each request.
+ */
+export async function createHub(
+  options: { policy?: PolicyFunction; resources?: ResourceProvider[] } = {},
+) {
+  vi.stubEnv("HUB_MODERATION_KEY", MODERATION_KEY);
   return await createHarness({
-    connectors: [connector, reserved],
-    registration: {
-      ownRepositoryIds: () => process.env["OWN_REPOSITORY_IDS"],
-      thirdPartyConnector: "google-apps",
-      paused: () => process.env["THIRD_PARTY_PAUSED"] === "true",
-      moderationKey: () => process.env["HUB_MODERATION_KEY"],
-      terms: "https://samebase.com/terms",
-      privacy: "https://samebase.com/privacy",
-      name: "Samebase",
-    },
+    connectors: hubConnectors(),
+    ...(options.resources === undefined ? {} : { resources: options.resources }),
+    registration: hubRegistration(options.policy),
   });
 }
 
@@ -126,6 +156,7 @@ export async function postHubClient(
       app: "my-app",
       redirectUri: PRODUCTION_CALLBACK,
       softwareVersion: "abc123",
+      connectors: ["fake"],
       ...body,
     }),
   });
@@ -139,6 +170,7 @@ export type NewClient = {
   registration_access_token: string;
   registration_client_uri: string;
   redirect_uri: string;
+  connectors: string[];
   terms: string;
   initial_access_token?: string;
   repository?: string;
@@ -185,7 +217,7 @@ export async function readOwnRecord(h: Harness, client: NewClient) {
 
 /**
  * A client that `registration.register` creates directly, as a host that proves its callers in
- * another way: a third-party client of a GitHub run, with no registration event.
+ * another way: a client of a GitHub run, enrolled in the fake connector, with no registration event.
  */
 export async function registerAtBroker(
   h: Harness,
@@ -204,7 +236,7 @@ export async function registerAtBroker(
     tenantId: args.tenantId,
     ...(args.ownerId === undefined ? {} : { ownerId: args.ownerId }),
     appId: args.appId,
-    trust: { firstParty: false, connector: "google-apps" },
+    connectors: ["fake"],
     deploymentType: args.deploymentType,
     clientId: args.clientId,
     secretHash: "hash",

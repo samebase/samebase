@@ -50,6 +50,23 @@ describe("authorize", () => {
     }
   });
 
+  test("connector is a space-delimited list; an empty value counts as omitted", () => {
+    const target = { clientId: "cl_1", redirectUri: base.redirect_uri };
+    const connectors = (value: string | undefined) => {
+      const params = new URLSearchParams(base);
+      if (value !== undefined) params.set("connector", value);
+      const rest = validateAuthorizeRest(params, target);
+      return rest.ok ? rest.value.connectors : rest.error;
+    };
+    expect(connectors(undefined)).toEqual([]);
+    expect(connectors("")).toEqual([]);
+    expect(connectors("   ")).toEqual([]);
+    expect(connectors("google")).toEqual(["google"]);
+    // `connector=google+github` in a URL: the plus is a space.
+    expect(connectors("google github")).toEqual(["google", "github"]);
+    expect(connectors(" github  google github ")).toEqual(["github", "google"]);
+  });
+
   test("a repeated parameter of any name is refused before the target is read", () => {
     for (const name of ["client_id", "redirect_uri", "scope"]) {
       const params = new URLSearchParams(base);

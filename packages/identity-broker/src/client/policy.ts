@@ -1,0 +1,105 @@
+import { validate } from "convex-helpers/validators";
+import { v, type Infer } from "convex/values";
+import type { vRegistration } from "../component/policy.js";
+
+// The policy contract of a hub (RFC 137 decision 2): the broker defines and enforces it, the hub
+// implements it as a function. It runs here, in the host's HTTP action, once per request; the
+// component's mutations receive the decision and refuse it when their rows say otherwise.
+
+const { array, boolean, object, string } = v;
+
+/** The facts of a client that a hub's policy decides on. */
+export type Registration = Infer<typeof vRegistration>;
+
+/** What a hub's policy decides for one registration, at registration and at each use. */
+export const vPolicy = object({
+  /** The connectors this registration may enroll in, and may use now. */
+  connectors: array(string()),
+  /** The API resources this client may authorize, by provider name. */
+  resources: array(string()),
+  /** The sign-in page asks before the first hop to a provider. */
+  consent: boolean(),
+  /** Evaluated at registration and at each use. */
+  paused: boolean(),
+});
+export type Policy = Infer<typeof vPolicy>;
+
+export type PolicyFunction = (registration: Registration) => Policy;
+
+/**
+ * The policy's answer, or null when it threw or answered a malformed value: the request is refused
+ * and nothing is written. Nothing is allowed by default.
+ */
+export function evaluate(policy: PolicyFunction, registration: Registration): Policy | null {
+  let answer: unknown;
+  try {
+    answer = policy(registration);
+  } catch (error) {
+    console.error(
+      `The policy failed: ${error instanceof Error ? error.constructor.name : typeof error}`,
+    );
+    return null;
+  }
+  return validate(vPolicy, answer) ? answer : null;
+}
+
+/** The decision for one client at one request, in the terms the component's mutations fence on. */
+export type Decision = {
+  /** The tenant owner the policy decided on. Absent without hub mode. */
+  ownerId?: string;
+  paused: boolean;
+  /** The connectors the client may use now: its enrollment, intersected with the policy's. */
+  connectors: string[];
+  /** The resource URLs of the providers the policy gives the client now. */
+  resources: string[];
+  /** The facts the sign-in page names when it asks for consent; null when it asks for none. */
+  consent: Registration | null;
+};
+
+/**
+ * Decides for a client. In hub mode a client without registration facts (not a repository's, or a
+ * tenant without a recorded owner) gives null, as a failed policy does. Without hub mode the host
+ * is its own policy: the enrollment, every resource, no consent, no pause.
+ */
+export function decide(args: {
+  policy: PolicyFunction | undefined;
+  registration: Registration | null;
+  enrollment: string[];
+  providers: Array<{ name: string; resource: string }>;
+}): Decision | null {
+  const { enrollment, providers } = args;
+  if (args.policy === undefined) {
+    return {
+      paused: false,
+      connectors: enrollment,
+      resources: providers.map((provider) => provider.resource),
+      consent: null,
+    };
+  }
+  if (args.registration === null) {
+    return null;
+  }
+  const policy = evaluate(args.policy, args.registration);
+  if (policy === null) {
+    return null;
+  }
+  return {
+    ownerId: args.registration.ownerId,
+    paused: policy.paused,
+    connectors: enrollment.filter((name) => policy.connectors.includes(name)),
+    resources: providers
+      .filter((provider) => policy.resources.includes(provider.name))
+      .map((provider) => provider.resource),
+    consent: policy.consent ? args.registration : null,
+  };
+}
+
+/** The decision as a mutation takes it: the fields of `vPolicyDecision`, nothing wider. */
+export function policyArg(decision: Decision) {
+  return {
+    ...(decision.ownerId === undefined ? {} : { ownerId: decision.ownerId }),
+    paused: decision.paused,
+    connectors: decision.connectors,
+    resources: decision.resources,
+  };
+}

@@ -3,6 +3,9 @@ import { afterEach, expect, test, vi } from "vite-plus/test";
 import { api } from "../component/_generated/api.js";
 import { google } from "./connectors/google.js";
 import { createHarness, ISSUER, pkce, txnCookie, type Harness } from "./harness.test.helper.js";
+import { hubRegistration, testPolicy } from "./hub.test.helper.js";
+import { deferred } from "./model.test.helper.js";
+import type { Policy } from "./policy.js";
 import { cloudflareConnection, convexConnection, githubConnection } from "./resourceProviders.js";
 
 const REDIRECT = "https://preview.example.com/oauth/hub/callback";
@@ -48,14 +51,18 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-async function setup(firstParty = true) {
+/**
+ * A broker with the three providers. Without `policy` it has no hub mode, so every client may
+ * authorize every resource; with one, the hub's policy decides, read at each request.
+ */
+async function setup(policy?: () => Policy) {
   const h = await createHarness({
     connectors: [google(credentials)],
     resources: [convex, cloudflare, github],
+    ...(policy === undefined ? {} : { registration: hubRegistration(policy) }),
   });
   const registered = await h.registerClient({
     appName: "Resource app",
-    firstParty,
     redirectUri: REDIRECT,
   });
   const tokenCalls: URLSearchParams[] = [];
@@ -338,7 +345,6 @@ test("RFC 7009 revocation authenticates the owner and keeps unknown or another c
   const initial: { refresh_token: string } = await response.json();
   const other = await args.h.registerClient({
     appName: "Other app",
-    firstParty: true,
     redirectUri: REDIRECT,
   });
   const revoke = (clientId: string, secret: string, token: string) =>
@@ -368,21 +374,20 @@ test("RFC 7009 revocation authenticates the owner and keeps unknown or another c
   ).toHaveLength(0);
 });
 
-test("authorization refuses an unknown resource before contacting a provider", async () => {
+test("authorization refuses an unknown resource on a page, before contacting a provider", async () => {
   const args = await setup();
   const { start } = await authorize(args, "https://attacker.example/api");
-  expect(new URL(start.headers.get("location") ?? "").searchParams.get("error")).toBe(
-    "invalid_target",
-  );
+  expect(start.status).toBe(400);
+  expect(start.headers.get("location")).toBeNull();
+  expect(await start.text()).toContain("Request one configured API resource.");
   expect(args.tokenCalls).toHaveLength(0);
 });
 
-test("a resource with no scopes refuses a requested scope", async () => {
+test("a resource with no scopes refuses a requested scope on a page", async () => {
   const args = await setup();
   const { start } = await authorize(args, convex.resource, { scope: "read" });
-  expect(new URL(start.headers.get("location") ?? "").searchParams.get("error")).toBe(
-    "invalid_scope",
-  );
+  expect(start.status).toBe(400);
+  expect(await start.text()).toContain("This API resource has no scopes.");
 });
 
 test("a refresh leaves out a scope the provider left out", async () => {
@@ -443,9 +448,96 @@ test.each([
   },
 );
 
-test("a third-party app cannot obtain an API grant", async () => {
-  const args = await setup(false);
-  expect((await authorize(args)).start.status).toBe(403);
+test("a client gets the resources its policy names, at authorization and at the code", async () => {
+  let resources = ["convex"];
+  const args = await setup(() => testPolicy({ resources }));
+  expect((await authorize(args, cloudflare.resource)).start.status).toBe(403);
+  expect(args.tokenCalls).toHaveLength(0);
+  const { start, proof } = await authorize(args, convex.resource);
+  expect(start.status).toBe(302);
+  const finished = await complete(args.h, start);
+  const code = finished.url.searchParams.get("code") ?? "";
+  // The resource is withdrawn between the callback and the redemption.
+  resources = [];
+  const refused = await redeem(args, code, proof.verifier);
+  expect(refused.status).toBe(400);
+  expect(await refused.json()).toMatchObject({ error: "invalid_target" });
+});
+
+test("a paused or failed policy refuses API authorization and refresh before the provider", async () => {
+  let policy: () => Policy = () => testPolicy({ resources: ["cloudflare"] });
+  const args = await setup(() => policy());
+  const { start, proof } = await authorize(args, cloudflare.resource);
+  const finished = await complete(args.h, start);
+  const response = await redeem(args, finished.url.searchParams.get("code") ?? "", proof.verifier);
+  const initial: { refresh_token: string } = await response.json();
+  const calls = args.tokenCalls.length;
+
+  policy = () => testPolicy({ resources: ["cloudflare"], paused: true });
+  expect((await authorize(args, cloudflare.resource)).start.status).toBe(503);
+  const paused = await refreshToken(args, initial.refresh_token);
+  expect(paused.status).toBe(401);
+  expect(await paused.json()).toMatchObject({ error: "invalid_client" });
+
+  policy = () => {
+    throw new Error("no env");
+  };
+  vi.spyOn(console, "error").mockImplementation(() => undefined);
+  expect((await authorize(args, cloudflare.resource)).start.status).toBe(503);
+  const failed = await refreshToken(args, initial.refresh_token);
+  expect(failed.status).toBe(503);
+  expect(await failed.json()).toMatchObject({ error: "temporarily_unavailable" });
+  expect(args.tokenCalls).toHaveLength(calls);
+  expect(
+    await args.h.t.run(async (ctx) => await ctx.db.query("resourceRequests").collect()),
+  ).toHaveLength(0);
+});
+
+test("a resource withdrawn while the provider answers keeps the rotation and answers 401", async () => {
+  let resources = ["cloudflare"];
+  const args = await setup(() => testPolicy({ resources }));
+  const { start, proof } = await authorize(args, cloudflare.resource);
+  const finished = await complete(args.h, start);
+  const response = await redeem(args, finished.url.searchParams.get("code") ?? "", proof.verifier);
+  const initial: { refresh_token: string } = await response.json();
+  // The provider's answer waits until the test releases it.
+  const reached = deferred<true>();
+  const release = deferred<undefined>();
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async () => {
+      reached.settle(true);
+      await release.promise;
+      return Response.json({
+        ...oauthToken,
+        token_type: "Bearer",
+        refresh_token: "rotated-provider-token",
+      });
+    }),
+  );
+  const pending = refreshToken(args, initial.refresh_token);
+  await reached.promise;
+  resources = [];
+  release.settle(undefined);
+  const refused = await pending;
+  expect(refused.status).toBe(401);
+  expect(await refused.json()).toMatchObject({ error: "invalid_client" });
+  const grants = await args.h.t.run(async (ctx) => await ctx.db.query("refreshGrants").collect());
+  expect(grants.map((grant) => grant.upstreamRefreshToken)).toEqual(["rotated-provider-token"]);
+  expect(grants[0]?.refreshStartedAt).toBeUndefined();
+  // The client can still revoke the grant it may no longer refresh.
+  const revoked = await args.h.fetchBroker(`${ISSUER}/revoke`, {
+    method: "POST",
+    body: new URLSearchParams({
+      client_id: args.registered.clientId,
+      client_secret: args.registered.clientSecret,
+      token: initial.refresh_token,
+    }),
+  });
+  expect(revoked.status).toBe(200);
+  expect(
+    await args.h.t.run(async (ctx) => await ctx.db.query("refreshGrants").collect()),
+  ).toHaveLength(0);
 });
 
 test("resource callback requires the initiating browser and cannot be replayed", async () => {

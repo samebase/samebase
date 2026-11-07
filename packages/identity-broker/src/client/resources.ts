@@ -8,6 +8,7 @@ import {
 import * as oauth from "oauth4webapi";
 import type { ComponentApi } from "../component/_generated/component.js";
 import { errorPage } from "./html.js";
+import { policyArg, type Decision } from "./policy.js";
 import { readClientAuthentication, validateAuthorizeRest, type TokenInput } from "./protocol.js";
 import {
   authorizationError,
@@ -58,6 +59,8 @@ export function resourceEndpoints(options: {
   issuer: string;
   path: (suffix: string) => string;
   providers: ResourceProvider[];
+  /** The host's decision for a client at this request; null when its policy refused (see `decide`). */
+  decide: (found: ClientWithApp) => Decision | null;
   cookies: {
     prefix: string;
     attributes: string;
@@ -65,63 +68,76 @@ export function resourceEndpoints(options: {
     clear: (request: Request, requestId: string) => string | undefined;
   };
 }) {
-  const { component, issuer, path, cookies } = options;
+  const { component, issuer, path, cookies, decide } = options;
   const providers = new Map(options.providers.map((provider) => [provider.resource, provider]));
   const callbackUrl = (provider: ResourceProvider) =>
     `${issuer}/connections/${provider.name}/callback`;
+  const refusedPage = () =>
+    errorPage(
+      "API authorization unavailable",
+      "This client cannot connect this API resource.",
+      403,
+    );
 
+  /**
+   * The start of an API authorization. Nobody has continued from a page yet, so every refusal is
+   * an error page here, as at `/authorize` (RFC 9700 section 4.11.2).
+   */
   async function authorize(
     ctx: Ctx,
     params: URLSearchParams,
     found: ClientWithApp,
   ): Promise<Response> {
     const { client, app } = found;
-    if (app === null || !app.firstParty) {
-      return errorPage(
-        "API authorization unavailable",
-        "Only the hub's registered first-party apps can connect API resources.",
-        403,
-      );
+    if (app === null) {
+      return errorPage("API authorization unavailable", "The client's app is gone.", 400);
     }
     // A blocked app starts no provider authorization, as it starts no sign-in.
     if (app.suspended) {
       return errorPage("Sign-in is off", "Sign-in for this app is turned off.", 403);
     }
-    const back = {
-      redirectUri: client.redirectUri,
-      issuer,
-      state: params.get("state") ?? undefined,
-      clearCookie: undefined,
-    };
+    const decision = decide(found);
+    if (decision === null) {
+      return errorPage(
+        "API authorization unavailable",
+        "Authorization is not available right now. Try again later.",
+        503,
+      );
+    }
+    if (decision.paused) {
+      return errorPage(
+        "API authorization unavailable",
+        "Authorization is paused. Try again later.",
+        503,
+      );
+    }
     const targets = params.getAll("resource");
     const provider = targets.length === 1 ? providers.get(targets[0] ?? "") : undefined;
-    if (provider === undefined)
-      return authorizationError({
-        ...back,
-        error: "invalid_target",
-        description: "Request one configured API resource.",
-      });
+    if (provider === undefined) {
+      return errorPage("API authorization refused", "Request one configured API resource.", 400);
+    }
+    if (!decision.resources.includes(provider.resource)) {
+      return refusedPage();
+    }
     const parsed = validateAuthorizeRest(
       params,
       { clientId: client.clientId, redirectUri: client.redirectUri },
       "resource",
     );
-    if (!parsed.ok)
-      return authorizationError({ ...back, error: parsed.error, description: parsed.description });
+    if (!parsed.ok) {
+      return errorPage("API authorization refused", parsed.description, 400);
+    }
     // RFC 6749 section 3.3: a response without `scope` would claim the requested scope was granted.
-    if (provider.scopes.length === 0 && parsed.value.scopes.length > 0)
-      return authorizationError({
-        ...back,
-        error: "invalid_scope",
-        description: "This API resource has no scopes.",
-      });
+    if (provider.scopes.length === 0 && parsed.value.scopes.length > 0) {
+      return errorPage("API authorization refused", "This API resource has no scopes.", 400);
+    }
     const start = await startResourceAuthorization({
       provider,
       callbackUrl: callbackUrl(provider),
     });
     const requestId = randomToken(24);
     const cookie = randomToken(32);
-    await ctx.runMutation(component.resourceRequests.create, {
+    const created = await ctx.runMutation(component.resourceRequests.create, {
       requestId,
       clientId: client.clientId,
       redirectUri: client.redirectUri,
@@ -132,7 +148,11 @@ export function resourceEndpoints(options: {
       expiresAt: Date.now() + REQUEST_TTL_MS,
       upstreamStateHash: await sha256Hex(start.state),
       upstreamCodeVerifier: start.codeVerifier,
+      policy: policyArg(decision),
     });
+    if (!created) {
+      return refusedPage();
+    }
     const response = redirect(start.url);
     response.headers.append(
       "Set-Cookie",
@@ -204,6 +224,11 @@ export function resourceEndpoints(options: {
     });
   }
 
+  /**
+   * A refresh has two decisions: the admission, before the provider is called, and the release,
+   * after it answered, each on the rows of that moment. A refused release keeps the grant with the
+   * provider's rotation and answers 401 (RFC 137 decision 7).
+   */
   async function refresh(
     ctx: Ctx,
     params: URLSearchParams,
@@ -215,12 +240,19 @@ export function resourceEndpoints(options: {
     if (params.getAll("resource").length > 1)
       return oauthError(400, "invalid_target", "Request one API resource.");
     const resource = params.get("resource") ?? undefined;
+    const found = await ctx.runQuery(component.clients.withApp, { clientId: client.clientId });
+    const admission = found === null ? null : decide(found);
+    if (found === null)
+      return oauthError(401, "invalid_client", "Client authentication failed.", challenge);
+    if (admission === null)
+      return oauthError(503, "temporarily_unavailable", "Refresh is not available right now.");
     const claim = await ctx.runMutation(component.resourceRequests.claimRefresh, {
       clientId: client.clientId,
       clientSecretHash: await sha256Hex(client.clientSecret),
       tokenEndpointAuthMethod: client.method,
       tokenHash: await sha256Hex(refreshToken),
       ...(resource === undefined ? {} : { resource }),
+      policy: policyArg(admission),
       now: Date.now(),
     });
     if (!claim.ok) {
@@ -240,10 +272,17 @@ export function resourceEndpoints(options: {
         provider,
         refreshToken: claim.upstreamRefreshToken,
       });
+      // The release decision, on the rows as they are now. A client that is gone, or a policy
+      // that fails now, refuses the release; the rotation is saved either way.
+      const current = await ctx.runQuery(component.clients.withApp, {
+        clientId: client.clientId,
+      });
+      const release = current === null ? null : decide(current);
       const finished = await ctx.runMutation(component.resourceRequests.finishRefresh, {
         grantId: claim.grantId,
         attempt: claim.attempt,
         tokens,
+        policy: release === null ? null : policyArg(release),
         now: Date.now(),
       });
       switch (finished) {

@@ -16,6 +16,7 @@ import {
   txnCookie,
   type Harness,
 } from "./harness.test.helper.js";
+import { hubRegistration, testPolicy } from "./hub.test.helper.js";
 
 const REDIRECT_URI = "https://app.test/oauth/hub/callback";
 
@@ -100,7 +101,7 @@ describe("connectors", () => {
     expect(() =>
       defineIdentityBroker({ ...config, connectors: [{ ...connector, provider: "fake:x" }] }),
     ).toThrow("has a provider that is not [a-z0-9-]+");
-    const second = { ...connector, name: "fake-apps", reserved: true };
+    const second = { ...connector, name: "other" };
     expect(() =>
       defineIdentityBroker({ ...config, connectors: [connector, second] }),
     ).not.toThrow();
@@ -130,6 +131,7 @@ describe("metadata", () => {
       expect(metadata.authorization_response_iss_parameter_supported).toBe(true);
       expect(metadata.claims_supported).toContain("connector");
       expect(metadata.claims_supported).not.toContain("connector_account_id");
+      expect(metadata.connectors_supported).toEqual(["fake"]);
       expect(metadata.registration_endpoint).toBeUndefined();
     }
     const jwks = await (await h.fetchBroker(`${ISSUER}/.well-known/jwks.json`)).json();
@@ -159,11 +161,7 @@ describe("metadata", () => {
 describe("clients", () => {
   test("a deleted client cannot sign in", async () => {
     const h = await createHarness({ connectors: [fakeUpstream().connector] });
-    const { clientId } = await h.registerClient({
-      appName: "Bristol",
-      firstParty: true,
-      redirectUri: REDIRECT_URI,
-    });
+    const { clientId } = await h.registerClient({ appName: "Bristol", redirectUri: REDIRECT_URI });
     await h.t.mutation(api.clients.remove, { clientId });
     const { challenge } = await pkce();
     expect((await h.fetchBroker(authorizeUrl(h, { clientId, challenge }))).status).toBe(400);
@@ -175,7 +173,6 @@ describe("app deletion", () => {
     const h = await createHarness({ connectors: [fakeUpstream().connector] });
     const { appId, clientId, clientSecret } = await h.registerClient({
       appName: "Bristol",
-      firstParty: true,
       redirectUri: REDIRECT_URI,
     });
     const { verifier, challenge } = await pkce();
@@ -195,11 +192,11 @@ describe("app deletion", () => {
     });
     expect(await h.t.query(api.clients.get, { clientId })).not.toBeNull();
 
+    // Nobody has continued from a page: the refusal is a page of the hub, not a redirect.
     const authorized = await h.fetchBroker(authorizeUrl(h, { clientId, challenge }));
-    expect(authorized.status).toBe(302);
-    const location = new URL(authorized.headers.get("location") ?? "");
-    expect(location.origin + location.pathname).toBe(REDIRECT_URI);
-    expect(location.searchParams.get("error")).toBe("server_error");
+    expect(authorized.status).toBe(400);
+    expect(authorized.headers.get("location")).toBeNull();
+    expect(await authorized.text()).toContain("The client's app is gone.");
 
     const tokens = await exchange(h, { code, clientId, clientSecret, verifier });
     expect(tokens.status).toBe(401);
@@ -208,18 +205,17 @@ describe("app deletion", () => {
 });
 
 describe("authorization code flow with an OAuth connector", () => {
-  test("first-party app with one connector goes straight upstream and back with a code", async () => {
+  test("a client enrolled in one connector goes straight upstream and back with a code", async () => {
     const upstream = fakeUpstream();
     const h = await createHarness({ connectors: [upstream.connector] });
     const { appId, clientId, clientSecret } = await h.registerClient({
       appName: "Bristol",
-      firstParty: true,
       redirectUri: REDIRECT_URI,
     });
     const { verifier, challenge } = await pkce();
 
     const started = await h.fetchBroker(authorizeUrl(h, { clientId, challenge }));
-    // A first-party request skips the chooser, not the binding to the browser that started it.
+    // One connector and no consent skips the page, not the binding to the browser that started it.
     expect(started.headers.get("set-cookie")).toMatch(
       /^__Host-broker_txn_[^=]+=[^;]+; Path=\/; HttpOnly; Secure; SameSite=Lax; Max-Age=600$/,
     );
@@ -267,11 +263,7 @@ describe("authorization code flow with an OAuth connector", () => {
 
     // The subject is public: the provider's own id, so another app of the same user gets the same.
     expect(claims.sub).toBe("fake:42");
-    const other = await h.registerClient({
-      appName: "Other",
-      firstParty: true,
-      redirectUri: REDIRECT_URI,
-    });
+    const other = await h.registerClient({ appName: "Other", redirectUri: REDIRECT_URI });
     const otherPkce = await pkce();
     const otherBack = await completeUpstream(
       h,
@@ -297,14 +289,9 @@ describe("authorization code flow with an OAuth connector", () => {
     const h = await createHarness({ connectors: [upstream.connector] });
     const { clientId, clientSecret } = await h.registerClient({
       appName: "Bristol",
-      firstParty: true,
       redirectUri: REDIRECT_URI,
     });
-    const other = await h.registerClient({
-      appName: "Other",
-      firstParty: true,
-      redirectUri: REDIRECT_URI,
-    });
+    const other = await h.registerClient({ appName: "Other", redirectUri: REDIRECT_URI });
     const { verifier, challenge } = await pkce();
     const back = await completeUpstream(
       h,
@@ -347,13 +334,9 @@ describe("authorization code flow with an OAuth connector", () => {
     expect((await replay.json()).error_description).toMatch(/already used/);
   });
 
-  test("errors before the client is known are pages; after, they redirect with error and iss", async () => {
+  test("every refusal before the user continued is a page of the hub, never a redirect", async () => {
     const h = await createHarness({ connectors: [fakeUpstream().connector] });
-    const { clientId } = await h.registerClient({
-      appName: "Bristol",
-      firstParty: true,
-      redirectUri: REDIRECT_URI,
-    });
+    const { clientId } = await h.registerClient({ appName: "Bristol", redirectUri: REDIRECT_URI });
     const { challenge } = await pkce();
 
     const unknownClient = await h.fetchBroker(
@@ -383,29 +366,25 @@ describe("authorization code flow with an OAuth connector", () => {
       expect(await response.text()).toContain("A parameter is repeated.");
     }
 
-    const noOpenid = await h.fetchBroker(
-      authorizeUrl(h, { clientId, challenge, extra: { scope: "email" } }),
-    );
-    expect(noOpenid.status).toBe(302);
-    const noOpenidUrl = new URL(noOpenid.headers.get("location") ?? "");
-    expect(noOpenidUrl.searchParams.get("error")).toBe("invalid_scope");
-    expect(noOpenidUrl.searchParams.get("state")).toBe("client-state");
-    expect(noOpenidUrl.searchParams.get("iss")).toBe(ISSUER);
-
-    const none = await h.fetchBroker(
-      authorizeUrl(h, { clientId, challenge, extra: { prompt: "none" } }),
-    );
-    expect(new URL(none.headers.get("location") ?? "").searchParams.get("error")).toBe(
-      "login_required",
-    );
-
-    // An OAuth connector cannot force a fresh login, whether prompt=login or max_age asked for it:
-    // the answer goes back to the client before anything goes upstream.
+    // Once the client is known too: the user has not accepted the return address (RFC 9700
+    // section 4.11.2), so a refusal is a page, with the description the redirect would have carried.
+    const refusedWith = async (extra: Record<string, string>, description: string) => {
+      const refused = await h.fetchBroker(authorizeUrl(h, { clientId, challenge, extra }));
+      expect(refused.status).toBe(400);
+      expect(refused.headers.get("location")).toBeNull();
+      expect(refused.headers.get("content-type")).toMatch(/text\/html/);
+      expect(await refused.text()).toContain(description);
+    };
+    await refusedWith({ scope: "email" }, "scope must include &quot;openid&quot;.");
+    await refusedWith({ prompt: "none" }, "This provider has no session to reuse.");
+    // A request refused before its connector is chosen stores nothing.
+    expect(await h.t.run(async (ctx) => await ctx.db.query("authRequests").collect())).toEqual([]);
+    // An OAuth connector cannot force a fresh login, whether prompt=login or max_age asked for it.
     for (const extra of [{ prompt: "login" }, { max_age: "300" }]) {
-      const fresh = await h.fetchBroker(authorizeUrl(h, { clientId, challenge, extra }));
-      const location = new URL(fresh.headers.get("location") ?? "");
-      expect(location.origin + location.pathname).toBe(REDIRECT_URI);
-      expect(location.searchParams.get("error")).toBe("login_required");
+      await refusedWith(
+        extra,
+        "Fake cannot reauthenticate the user, which prompt=login or max_age asked for.",
+      );
     }
   });
 
@@ -413,18 +392,12 @@ describe("authorization code flow with an OAuth connector", () => {
     const h = await createHarness({
       connectors: [google({ clientId: () => "google-client", clientSecret: () => "s" })],
     });
-    const { clientId } = await h.registerClient({
-      appName: "Bristol",
-      firstParty: true,
-      redirectUri: REDIRECT_URI,
-    });
+    const { clientId } = await h.registerClient({ appName: "Bristol", redirectUri: REDIRECT_URI });
     for (const extra of [{ prompt: "login" }, { max_age: "0" }]) {
       const { challenge } = await pkce();
       const response = await h.fetchBroker(authorizeUrl(h, { clientId, challenge, extra }));
-      const location = new URL(response.headers.get("location") ?? "");
-      expect(location.origin + location.pathname).toBe(REDIRECT_URI);
-      expect(location.searchParams.get("error")).toBe("login_required");
-      expect(location.searchParams.get("error_description")).toBe(
+      expect(response.status).toBe(400);
+      expect(await response.text()).toContain(
         "Google cannot reauthenticate the user, which prompt=login or max_age asked for.",
       );
     }
@@ -488,7 +461,6 @@ describe("authorization code flow with an OAuth connector", () => {
     const h = await createHarness({ connectors: [idp.connector] });
     const { clientId, clientSecret } = await h.registerClient({
       appName: "Bristol",
-      firstParty: true,
       redirectUri: REDIRECT_URI,
     });
     // Both ways to ask for a fresh login, against an upstream auth_time that is missing, or this
@@ -542,7 +514,6 @@ describe("authorization code flow with an OAuth connector", () => {
     const h = await createHarness({ connectors: [idp.connector] });
     const { clientId, clientSecret } = await h.registerClient({
       appName: "Bristol",
-      firstParty: true,
       redirectUri: REDIRECT_URI,
     });
     for (const offset of [undefined, -3600]) {
@@ -565,14 +536,10 @@ describe("authorization code flow with an OAuth connector", () => {
     }
   });
 
-  test("a first-party callback in another browser is refused and stays claimable", async () => {
+  test("a callback in another browser is refused and stays claimable", async () => {
     const upstream = fakeUpstream();
     const h = await createHarness({ connectors: [upstream.connector] });
-    const { clientId } = await h.registerClient({
-      appName: "Bristol",
-      firstParty: true,
-      redirectUri: REDIRECT_URI,
-    });
+    const { clientId } = await h.registerClient({ appName: "Bristol", redirectUri: REDIRECT_URI });
     const { challenge } = await pkce();
     const started = await h.fetchBroker(authorizeUrl(h, { clientId, challenge }));
     const upstreamUrl = new URL(started.headers.get("location") ?? "");
@@ -590,38 +557,40 @@ describe("authorization code flow with an OAuth connector", () => {
 
   test("a Request Object is refused, not ignored", async () => {
     const h = await createHarness({ connectors: [fakeUpstream().connector] });
-    const { clientId } = await h.registerClient({
-      appName: "Bristol",
-      firstParty: true,
-      redirectUri: REDIRECT_URI,
-    });
+    const { clientId } = await h.registerClient({ appName: "Bristol", redirectUri: REDIRECT_URI });
     const { challenge } = await pkce();
-    for (const [parameter, error] of [
-      ["request", "request_not_supported"],
-      ["request_uri", "request_uri_not_supported"],
+    for (const [parameter, description] of [
+      ["request", "Request Objects are not supported."],
+      ["request_uri", "request_uri is not supported."],
     ] as const) {
       const refused = await h.fetchBroker(
         authorizeUrl(h, { clientId, challenge, extra: { [parameter]: "x" } }),
       );
-      const location = new URL(refused.headers.get("location") ?? "");
-      expect(location.origin + location.pathname).toBe(REDIRECT_URI);
-      expect(location.searchParams.get("error")).toBe(error);
-      expect(location.searchParams.get("state")).toBe("client-state");
+      expect(refused.status).toBe(400);
+      expect(refused.headers.get("location")).toBeNull();
+      expect(await refused.text()).toContain(description);
     }
   });
 
   test("a parameter sent without a value counts as omitted", async () => {
     const upstream = fakeUpstream();
-    const h = await createHarness({ connectors: [upstream.connector] });
-    const { clientId } = await h.registerClient({
-      appName: "Bristol",
-      firstParty: true,
-      redirectUri: REDIRECT_URI,
-    });
+    const other = { ...upstream.connector, name: "other", label: "Other" };
+    const h = await createHarness({ connectors: [upstream.connector, other] });
+    const { clientId } = await h.registerClient({ appName: "Bristol", redirectUri: REDIRECT_URI });
     const { challenge } = await pkce();
-    // An empty max_age is no freshness request, which this connector would have to refuse.
+    // An empty connector offers every connector: the page. An empty max_age is no freshness
+    // request, which this connector would have to refuse.
+    const page = await h.fetchBroker(
+      authorizeUrl(h, { clientId, challenge, extra: { connector: "  " } }),
+    );
+    expect(page.status).toBe(200);
+    expect(await page.text()).toContain("Continue with Other");
     const started = await h.fetchBroker(
-      authorizeUrl(h, { clientId, challenge, extra: { max_age: "", state: "" } }),
+      authorizeUrl(h, {
+        clientId,
+        challenge,
+        extra: { max_age: "", state: "", connector: "fake" },
+      }),
     );
     const location = new URL((await completeUpstream(h, started)).headers.get("location") ?? "");
     expect(location.searchParams.has("code")).toBe(true);
@@ -631,11 +600,7 @@ describe("authorization code flow with an OAuth connector", () => {
   test("a replayed or unknown upstream state is refused, a denied upstream goes back as access_denied", async () => {
     const upstream = fakeUpstream();
     const h = await createHarness({ connectors: [upstream.connector] });
-    const { clientId } = await h.registerClient({
-      appName: "Bristol",
-      firstParty: true,
-      redirectUri: REDIRECT_URI,
-    });
+    const { clientId } = await h.registerClient({ appName: "Bristol", redirectUri: REDIRECT_URI });
     const { challenge } = await pkce();
     const started = await h.fetchBroker(authorizeUrl(h, { clientId, challenge }));
     const upstreamUrl = new URL(started.headers.get("location") ?? "");
@@ -664,11 +629,7 @@ describe("authorization code flow with an OAuth connector", () => {
     const upstream = fakeUpstream();
     const other = { ...upstream.connector, name: "other", label: "Other" };
     const h = await createHarness({ connectors: [upstream.connector, other] });
-    const { clientId } = await h.registerClient({
-      appName: "Bristol",
-      firstParty: true,
-      redirectUri: REDIRECT_URI,
-    });
+    const { clientId } = await h.registerClient({ appName: "Bristol", redirectUri: REDIRECT_URI });
     const { challenge } = await pkce();
     const started = await h.fetchBroker(
       authorizeUrl(h, { clientId, challenge, extra: { connector: "fake" } }),
@@ -685,11 +646,7 @@ describe("authorization code flow with an OAuth connector", () => {
 
   test("provider errors are logged by class name and answered with a fixed description", async () => {
     const h = await createHarness({ connectors: [fakeUpstream().connector] });
-    const { clientId } = await h.registerClient({
-      appName: "Bristol",
-      firstParty: true,
-      redirectUri: REDIRECT_URI,
-    });
+    const { clientId } = await h.registerClient({ appName: "Bristol", redirectUri: REDIRECT_URI });
     const logged = vi.spyOn(console, "error").mockImplementation(() => {});
     const callback = async (params: Record<string, string>) => {
       const { challenge } = await pkce();
@@ -727,14 +684,9 @@ describe("authorization code flow with an OAuth connector", () => {
 
   test("a client authenticates by the method it registered, and by one method only", async () => {
     const h = await createHarness({ connectors: [fakeUpstream().connector] });
-    const posting = await h.registerClient({
-      appName: "Bristol",
-      firstParty: true,
-      redirectUri: REDIRECT_URI,
-    });
+    const posting = await h.registerClient({ appName: "Bristol", redirectUri: REDIRECT_URI });
     const { clientId, clientSecret } = await h.registerClient({
       appName: "Bristol",
-      firstParty: true,
       redirectUri: REDIRECT_URI,
       deploymentType: "preview",
       tokenEndpointAuthMethod: "client_secret_basic",
@@ -791,7 +743,6 @@ describe("authorization code flow with an OAuth connector", () => {
     const h = await createHarness({ connectors: [fakeUpstream().connector] });
     const { clientId, clientSecret } = await h.registerClient({
       appName: "Bristol",
-      firstParty: true,
       redirectUri: REDIRECT_URI,
     });
     for (const [scope, granted, claimed] of [
@@ -825,13 +776,12 @@ describe("authorization code flow with an OAuth connector", () => {
     }
   });
 
-  test("a third-party preview or development client asks for consent", async () => {
-    const h = await createHarness({ connectors: [fakeUpstream().connector] });
-    const { clientId } = await h.registerClient({
-      appName: "Stranger",
-      firstParty: false,
-      redirectUri: REDIRECT_URI,
+  test("a hub whose policy asks for consent shows the page before the connector", async () => {
+    const h = await createHarness({
+      connectors: [fakeUpstream().connector],
+      registration: hubRegistration(),
     });
+    const { clientId } = await h.registerClient({ appName: "Stranger", redirectUri: REDIRECT_URI });
     const { challenge } = await pkce();
     const page = await h.fetchBroker(authorizeUrl(h, { clientId, challenge }));
     expect(page.status).toBe(200);
@@ -847,15 +797,14 @@ describe("authorization code flow with an OAuth connector", () => {
       '<a href="https://github.com/octo-org/octo-repo" target="_blank" rel="noopener noreferrer">octo-org/octo-repo</a>';
     expect(html).toContain(`<p class="sub">Development server of ${repository}</p>`);
     expect(html).toContain(
-      "The app gets your name, picture, and email address. auth.test has not reviewed this app.",
+      "The app gets your name, picture, and email address. Samebase has not reviewed this app.",
     );
     expect(html).toContain("Continue with Fake");
-    // Continue, and in new tabs the host, the repository, and the attribution; no script, and no
-    // privacy notice or terms without a hub. Nothing sends the user to the host by itself, and a
-    // stranger's link may have chosen it (RFC 9700 section 4.11.2).
-    expect(html.match(/<a /g)).toHaveLength(4);
-    expect(html.match(/target="_blank"/g)).toHaveLength(3);
-    expect(html).not.toContain(">Privacy</a>");
+    // Continue, and in new tabs the host, the repository, the privacy notice, the terms, and the
+    // attribution; no script. Nothing sends the user to the host by itself, and a stranger's link
+    // may have chosen it (RFC 9700 section 4.11.2).
+    expect(html.match(/<a /g)).toHaveLength(6);
+    expect(html.match(/target="_blank"/g)).toHaveLength(5);
     expect(html).not.toContain("<script");
     expect(html).not.toContain(REDIRECT_URI);
     expect(html).not.toContain("Stranger");
@@ -869,13 +818,15 @@ describe("authorization code flow with an OAuth connector", () => {
     expect(await openidOnly.text()).toContain("The app gets only an id for your account.");
   });
 
-  test("a third-party preview names its stage, and production goes straight to the connector", async () => {
-    const h = await createHarness({ connectors: [fakeUpstream().connector] });
+  test("the consent names the deploy: a preview's stage, production, or this computer", async () => {
+    const h = await createHarness({
+      connectors: [fakeUpstream().connector],
+      registration: hubRegistration(),
+    });
     const { challenge } = await pkce();
     const redirectUri = "https://pr-12.stranger.test/auth/hub/callback";
     const preview = await h.registerClient({
       appName: "Stranger",
-      firstParty: false,
       redirectUri,
       deploymentType: "preview",
     });
@@ -894,58 +845,109 @@ describe("authorization code flow with an OAuth connector", () => {
       '<h1>Sign in to<br><a class="host" href="https://pr-12.stranger.test" target="_blank" rel="noopener noreferrer"><span class="label">pr-12.</span><wbr><span class="label">stranger.</span><wbr><span class="label">test</span></a></h1>',
     );
 
+    // Production asks too (RFC 137, decision 1 after the review).
     const production = await h.registerClient({
       appName: "Stranger",
-      firstParty: false,
       redirectUri: REDIRECT_URI,
       deploymentType: "production",
     });
-    const direct = await h.fetchBroker(
+    const asked = await h.fetchBroker(
       authorizeUrl(h, { clientId: production.clientId, challenge }),
     );
-    expect(direct.status).toBe(302);
-    expect(new URL(direct.headers.get("location") ?? "").origin).toBe("https://upstream.test");
-  });
+    expect(asked.status).toBe(200);
+    expect(await asked.text()).toContain(
+      '<p class="sub">Production of <a href="https://github.com/octo-org/octo-repo"',
+    );
 
-  test("a development client on a loopback address is said to be on this computer", async () => {
-    const h = await createHarness({ connectors: [fakeUpstream().connector] });
-    const redirectUri = "http://localhost:5173/auth/hub/callback";
-    const { clientId } = await h.registerClient({
-      appName: "Stranger",
-      firstParty: false,
-      redirectUri,
-    });
-    const { challenge } = await pkce();
-    const html = await (
+    const loopback = "http://localhost:5173/auth/hub/callback";
+    const development = await h.registerClient({ appName: "Stranger", redirectUri: loopback });
+    const local = await (
       await h.fetchBroker(
-        authorizeUrl(h, { clientId, challenge, extra: { redirect_uri: redirectUri } }),
+        authorizeUrl(h, {
+          clientId: development.clientId,
+          challenge,
+          extra: { redirect_uri: loopback },
+        }),
       )
     ).text();
-    expect(html).toContain("<title>Sign in to localhost:5173</title>");
-    expect(html).toContain("octo-org/octo-repo</a> on this computer</p>");
+    expect(local).toContain("<title>Sign in to localhost:5173</title>");
+    expect(local).toContain("octo-org/octo-repo</a> on this computer</p>");
   });
 
-  test("a third-party app whose connector is not configured gets no chooser", async () => {
+  test("without consent, one offered connector goes straight on and several get the picker", async () => {
+    const upstream = fakeUpstream();
+    const other = { ...upstream.connector, name: "other", label: "Other" };
+    const h = await createHarness({
+      connectors: [upstream.connector, other],
+      registration: hubRegistration(() => testPolicy({ consent: false })),
+    });
+    const one = await h.registerClient({
+      appName: "One",
+      redirectUri: REDIRECT_URI,
+      connectors: ["fake"],
+    });
+    const two = await h.registerClient({ appName: "Two", redirectUri: REDIRECT_URI });
+    const { challenge } = await pkce();
+    const direct = await h.fetchBroker(authorizeUrl(h, { clientId: one.clientId, challenge }));
+    expect(direct.status).toBe(302);
+    expect(new URL(direct.headers.get("location") ?? "").origin).toBe("https://upstream.test");
+
+    const picker = await h.fetchBroker(authorizeUrl(h, { clientId: two.clientId, challenge }));
+    expect(picker.status).toBe(200);
+    const html = await picker.text();
+    expect(html).toContain("<title>Sign in to app.test</title>");
+    expect(html).toContain("Continue with Fake");
+    expect(html).toContain("Continue with Other");
+    expect(html).not.toContain('class="sub"');
+    expect(html).not.toContain("has not reviewed");
+
+    // The app's own page picked: no picker. Several names: the picker offers those.
+    const named = await h.fetchBroker(
+      authorizeUrl(h, { clientId: two.clientId, challenge, extra: { connector: "other" } }),
+    );
+    expect(new URL(named.headers.get("location") ?? "").searchParams.get("redirect_uri")).toBe(
+      `${ISSUER}/connectors/other/callback`,
+    );
+    const both = await h.fetchBroker(
+      authorizeUrl(h, { clientId: two.clientId, challenge, extra: { connector: "other fake" } }),
+    );
+    expect(await both.text()).toContain("Continue with Other");
+    // A name outside the enrollment is a request error, on a page.
+    const outside = await h.fetchBroker(
+      authorizeUrl(h, { clientId: one.clientId, challenge, extra: { connector: "fake other" } }),
+    );
+    expect(outside.status).toBe(400);
+    expect(await outside.text()).toContain("not enrolled in the connector &quot;other&quot;");
+  });
+
+  test("a client enrolled only in a connector that is not configured gets no sign-in", async () => {
     const h = await createHarness({ connectors: [fakeUpstream().connector] });
     const { clientId } = await h.registerClient({
       appName: "Stranger",
-      firstParty: false,
-      connector: "gone",
       redirectUri: REDIRECT_URI,
+      connectors: ["gone"],
     });
     const { challenge } = await pkce();
     const page = await h.fetchBroker(authorizeUrl(h, { clientId, challenge }));
-    expect(page.status).toBe(500);
-    expect(await page.text()).not.toContain("Continue with");
+    expect(page.status).toBe(403);
+    const html = await page.text();
+    expect(html).toContain("Sign-in for this app is turned off.");
+    expect(html).not.toContain("Continue with");
   });
 
-  test("the chooser's links work only in the browser that saw the chooser", async () => {
-    const h = await createHarness({ connectors: [fakeUpstream().connector] });
-    const { clientId } = await h.registerClient({
-      appName: "Stranger",
-      firstParty: false,
-      redirectUri: REDIRECT_URI,
+  /** A broker with two connectors of the fake provider: a client enrolled in both gets the picker. */
+  async function twoConnectors(issuer?: string) {
+    const upstream = fakeUpstream();
+    const other = { ...upstream.connector, name: "other", label: "Other" };
+    return await createHarness({
+      connectors: [upstream.connector, other],
+      ...(issuer === undefined ? {} : { issuer }),
     });
+  }
+
+  test("the picker's links work only in the browser that saw the picker", async () => {
+    const h = await twoConnectors();
+    const { clientId } = await h.registerClient({ appName: "Stranger", redirectUri: REDIRECT_URI });
     const { challenge } = await pkce();
     const page = await h.fetchBroker(authorizeUrl(h, { clientId, challenge }));
     const cookie = (page.headers.get("set-cookie") ?? "").split(";")[0] ?? "";
@@ -968,16 +970,9 @@ describe("authorization code flow with an OAuth connector", () => {
     expect(new URL(chosen.headers.get("location") ?? "").origin).toBe("https://upstream.test");
   });
 
-  test("a path issuer scopes the chooser cookie to its path", async () => {
-    const h = await createHarness({
-      connectors: [fakeUpstream().connector],
-      issuer: "https://samebase.test/identity",
-    });
-    const { clientId } = await h.registerClient({
-      appName: "Stranger",
-      firstParty: false,
-      redirectUri: REDIRECT_URI,
-    });
+  test("a path issuer scopes the picker cookie to its path", async () => {
+    const h = await twoConnectors("https://samebase.test/identity");
+    const { clientId } = await h.registerClient({ appName: "Stranger", redirectUri: REDIRECT_URI });
     const { challenge } = await pkce();
     const page = await h.fetchBroker(authorizeUrl(h, { clientId, challenge }));
     expect(page.headers.get("set-cookie")).toMatch(
@@ -986,12 +981,8 @@ describe("authorization code flow with an OAuth connector", () => {
   });
 
   test("two sign-ins in one browser keep their own cookies", async () => {
-    const h = await createHarness({ connectors: [fakeUpstream().connector] });
-    const { clientId } = await h.registerClient({
-      appName: "Stranger",
-      firstParty: false,
-      redirectUri: REDIRECT_URI,
-    });
+    const h = await twoConnectors();
+    const { clientId } = await h.registerClient({ appName: "Stranger", redirectUri: REDIRECT_URI });
     const chooser = async () => {
       const { challenge } = await pkce();
       const page = await h.fetchBroker(authorizeUrl(h, { clientId, challenge }));
@@ -1010,15 +1001,14 @@ describe("authorization code flow with an OAuth connector", () => {
     }
   });
 
-  test("a chooser request's callback without the cookie is refused and stays claimable", async () => {
-    const h = await createHarness({ connectors: [fakeUpstream().connector] });
+  test("a picker request's callback without the cookie is refused and stays claimable", async () => {
+    const h = await twoConnectors();
     const { clientId, clientSecret } = await h.registerClient({
       appName: "Stranger",
-      firstParty: false,
       redirectUri: REDIRECT_URI,
     });
     const { verifier, challenge } = await pkce();
-    // A client can fetch the chooser and continue it itself, then send a user the upstream URL.
+    // A client can fetch the picker and continue it itself, then send a user the upstream URL.
     const page = await h.fetchBroker(authorizeUrl(h, { clientId, challenge }));
     const cookie = (page.headers.get("set-cookie") ?? "").split(";")[0] ?? "";
     const choose = (await page.text()).match(/href="([^"]*connector=fake)"/)?.[1] ?? "";
@@ -1037,7 +1027,7 @@ describe("authorization code flow with an OAuth connector", () => {
       expect((await h.t.query(api.authRequests.get, { requestId }))?.status).toBe("upstream");
     }
 
-    // The browser that saw the chooser finishes the sign-in, and the cookie is deleted.
+    // The browser that saw the picker finishes the sign-in, and the cookie is deleted.
     const back = await h.fetchBroker(callback, { headers: { Cookie: cookie } });
     expect(back.status).toBe(302);
     expect(back.headers.get("set-cookie")).toBe(
@@ -1047,11 +1037,10 @@ describe("authorization code flow with an OAuth connector", () => {
     expect((await exchange(h, { code, clientId, clientSecret, verifier })).status).toBe(200);
   });
 
-  test("a third-party app gets the public sub", async () => {
-    const h = await createHarness({ connectors: [fakeUpstream().connector] });
+  test("a sign-in from the picker gets the public sub", async () => {
+    const h = await twoConnectors();
     const { clientId, clientSecret } = await h.registerClient({
       appName: "Stranger",
-      firstParty: false,
       redirectUri: REDIRECT_URI,
     });
     const { verifier, challenge } = await pkce();
@@ -1083,12 +1072,8 @@ describe("authorization code flow with an OAuth connector", () => {
   });
 
   test("every page refuses to be framed", async () => {
-    const h = await createHarness({ connectors: [fakeUpstream().connector] });
-    const { clientId } = await h.registerClient({
-      appName: "Stranger",
-      firstParty: false,
-      redirectUri: REDIRECT_URI,
-    });
+    const h = await twoConnectors();
+    const { clientId } = await h.registerClient({ appName: "Stranger", redirectUri: REDIRECT_URI });
     const { challenge } = await pkce();
     for (const response of [
       await h.fetchBroker(authorizeUrl(h, { clientId, challenge })),
@@ -1101,16 +1086,10 @@ describe("authorization code flow with an OAuth connector", () => {
 });
 
 describe("cleanup", () => {
-  /** First-party app "a". */
+  /** App "a" of the repository `gh-1`. */
   const insertApp = async (h: Harness, now: number) =>
     await h.t.run(async (ctx) => {
-      await ctx.db.insert("apps", {
-        appId: "a",
-        name: "A",
-        firstParty: true,
-        tenantId: "gh-1",
-        createdAt: now,
-      });
+      await ctx.db.insert("apps", { appId: "a", name: "A", tenantId: "gh-1", createdAt: now });
     });
   /** A client of app "a" without a removal date, last renewed when it was created. */
   const insertClient = async (
@@ -1146,12 +1125,14 @@ describe("cleanup", () => {
       await insertClient(h, { clientId, deploymentType, createdAt });
     }
     await h.t.mutation(api.authRequests.create, {
+      tenantId: "gh-1",
       requestId: "r-old",
       appId: "a",
       clientId: "prod-old",
       redirectUri: REDIRECT_URI,
       scope: "openid",
       codeChallenge: "c",
+      connectors: ["fake"],
       freshLogin: false,
       txnCookieHash: "h",
       createdAt: now - 3_600_000,
@@ -1274,11 +1255,17 @@ describe("cleanup", () => {
       for (let row = 0; row < 51 * 200 + 1; row++) {
         await ctx.db.insert("authRequests", {
           ...request,
+          connectors: ["fake"],
           requestId: `r-${row}`,
           expiresAt: now - 1,
         });
       }
-      await ctx.db.insert("authRequests", { ...request, requestId: "live", expiresAt: now + 1 });
+      await ctx.db.insert("authRequests", {
+        ...request,
+        connectors: ["fake"],
+        requestId: "live",
+        expiresAt: now + 1,
+      });
     });
     await h.t.mutation(api.lifecycle.cleanup, { now, signInRetentionMs: 90 * 86_400_000 });
     await h.t.finishAllScheduledFunctions(vi.runAllTimers);

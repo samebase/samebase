@@ -131,22 +131,14 @@ function hostMarkup(host: string) {
 }
 
 /**
- * What a third-party app's preview or development client adds to the sign-in page: its consent.
- * Its name is self-asserted (RFC 7591 section 5), so the page names what the hub checked: the host
- * that gets the sign-in, which served the repository's verification file or is the user's own
- * computer, and the GitHub repository that registered it.
+ * What the sign-in page adds when the policy asks for consent. An app's name is self-asserted
+ * (RFC 7591 section 5), so the page names what the hub checked: the deploy, the GitHub repository
+ * that registered the client, and what the app gets.
  */
 export type Consent = {
-  /** The host of the client's return address, with its port. */
-  host: string;
-  /**
-   * The origin of that address. The host links it in a new tab, so the user can look at the app;
-   * nothing sends the user there by itself.
-   */
-  origin: string;
   /** A loopback return address: the sign-in ends on the user's own computer. */
   loopback: boolean;
-  deployment: { kind: "preview"; stage: string } | { kind: "development" };
+  deployment: { kind: "production" } | { kind: "preview"; stage: string } | { kind: "development" };
   /** `owner/name` of the GitHub repository at registration. */
   repository: string;
   scopes: string[];
@@ -155,47 +147,59 @@ export type Consent = {
 };
 
 /**
- * The sign-in page: one "Continue with" button per connector. The host's own apps need no consent:
- * the page names the app. A consent names the host, the deploy, and what the app gets, and has no
- * link but the buttons. It has no Cancel: the browser's Back does that, and it never sends the user
- * to the host, which a stranger's link may have chosen (RFC 9700 section 4.11.2).
+ * The sign-in page: one "Continue with" button per offered connector, under the host that gets the
+ * sign-in, which served the repository's verification file or is the user's own computer. With a
+ * consent it also names the deploy, the repository, and what the app gets. It has no Cancel: the
+ * browser's Back does that, and it never sends the user to the host, which a stranger's link may
+ * have chosen (RFC 9700 section 4.11.2).
  */
 export function signInPage(args: {
-  to: { kind: "app"; name: string } | ({ kind: "consent" } & Consent);
+  /** The host of the client's return address, with its port. */
+  host: string;
+  /**
+   * The origin of that address. The host links it in a new tab, so the user can look at the app;
+   * nothing sends the user there by itself.
+   */
+  origin: string;
+  consent: Consent | null;
   connectors: Array<{ label: string; provider: string; href: string }>;
   /** A hub's privacy notice and terms; null for a broker with no hub mode. */
   legal: Legal | null;
 }): Response {
   const buttons = args.connectors.map(connectorButton).join("\n");
-  const { to, legal } = args;
-  if (to.kind === "app") {
+  const { consent, legal } = args;
+  const heading = `<h1>Sign in to<br><a class="host" href="${escape(args.origin)}" target="_blank" rel="noopener noreferrer">${hostMarkup(args.host)}</a></h1>`;
+  if (consent === null) {
     return page(
-      `Sign in to ${to.name}`,
-      `<h1>Sign in to <strong>${escape(to.name)}</strong></h1>
+      `Sign in to ${args.host}`,
+      `${heading}
 <div class="actions">${buttons}</div>`,
       200,
       legal,
     );
   }
   // GitHub names the repository; it opens in a new tab, so the sign-in stays where it is.
-  const repository = `<a href="https://github.com/${escape(to.repository)}" target="_blank" rel="noopener noreferrer">${escape(to.repository)}</a>`;
+  const repository = `<a href="https://github.com/${escape(consent.repository)}" target="_blank" rel="noopener noreferrer">${escape(consent.repository)}</a>`;
   let from: string;
-  switch (to.deployment.kind) {
+  switch (consent.deployment.kind) {
+    case "production":
+      from = `Production of ${repository}`;
+      break;
     case "preview":
-      from = `Preview ${escape(to.deployment.stage)} of ${repository}`;
+      from = `Preview ${escape(consent.deployment.stage)} of ${repository}`;
       break;
     case "development":
-      from = `Development server of ${repository}${to.loopback ? " on this computer" : ""}`;
+      from = `Development server of ${repository}${consent.loopback ? " on this computer" : ""}`;
       break;
     default:
-      return to.deployment satisfies never;
+      return consent.deployment satisfies never;
   }
   return page(
-    `Sign in to ${to.host}`,
-    `<h1>Sign in to<br><a class="host" href="${escape(to.origin)}" target="_blank" rel="noopener noreferrer">${hostMarkup(to.host)}</a></h1>
+    `Sign in to ${args.host}`,
+    `${heading}
 <p class="sub">${from}</p>
 <div class="actions">${buttons}</div>
-<p class="fine">${escape(released(to.scopes))} ${escape(to.reviewer)} has not reviewed this app.</p>`,
+<p class="fine">${escape(released(consent.scopes))} ${escape(consent.reviewer)} has not reviewed this app.</p>`,
     200,
     legal,
   );

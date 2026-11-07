@@ -1,9 +1,16 @@
 /// <reference types="vite-plus/client" />
 import fc from "fast-check";
 import { vi } from "vite-plus/test";
-import type { Connector } from "./connectors/types.js";
-import { createHarness, fakeUpstream, sha256Hex, type Harness } from "./harness.test.helper.js";
-import { jsonResponse, MODERATION_KEY, signToken, stubProviders } from "./hub.test.helper.js";
+import { createHarness, sha256Hex, type Harness } from "./harness.test.helper.js";
+import {
+  hubConnectors,
+  hubRegistration,
+  jsonResponse,
+  MODERATION_KEY,
+  signToken,
+  stubProviders,
+} from "./hub.test.helper.js";
+import type { PolicyFunction } from "./policy.js";
 import { cloudflareConnection, type ResourceProvider } from "./resourceProviders.js";
 
 // The world of the model-based tests of RFC 136: one hub on the real component, one clock, and one
@@ -35,25 +42,18 @@ export function deferred<T>() {
 }
 
 /**
- * The broker in the hub mode, as `createHub` of hub.test.helper.ts mounts it, with API resources.
- * `OWN_REPOSITORY_IDS` is read in each request, so `vi.stubEnv` of it holds.
+ * The broker in the hub mode, as `createHub` of hub.test.helper.ts mounts it, with API resources
+ * and the story's policy, which reads the model's state at each request.
  */
-export async function createModelHub(options: { resources: ResourceProvider[] }) {
+export async function createModelHub(options: {
+  resources: ResourceProvider[];
+  policy: PolicyFunction;
+}) {
   vi.stubEnv("HUB_MODERATION_KEY", MODERATION_KEY);
-  const { connector } = fakeUpstream();
-  const reserved: Connector = { ...connector, name: "google-apps", reserved: true };
   return await createHarness({
-    connectors: [connector, reserved],
+    connectors: hubConnectors(),
     resources: options.resources,
-    registration: {
-      ownRepositoryIds: () => process.env["OWN_REPOSITORY_IDS"],
-      thirdPartyConnector: "google-apps",
-      paused: () => false,
-      moderationKey: () => process.env["HUB_MODERATION_KEY"],
-      terms: "https://samebase.com/terms",
-      privacy: "https://samebase.com/privacy",
-      name: "Samebase",
-    },
+    registration: hubRegistration(options.policy),
   });
 }
 
@@ -83,6 +83,15 @@ export type HeldRefresh = {
   upstreamRefreshToken: string;
   answer: (outcome: RefreshOutcome) => void;
 };
+
+/** What the held sign-in provider answers to the hub's code exchange of a callback. */
+export type SignInOutcome = "identity" | "invalid_grant";
+
+/** A connector callback whose code exchange reached the sign-in provider, waiting for its answer. */
+export type HeldSignIn = { answer: (outcome: SignInOutcome) => void };
+
+/** The sign-in provider of the fake connectors, as `fakeUpstream` serves it. */
+const UPSTREAM = "https://upstream.test";
 
 /** What a host serves at `/samebase-verification.json`. */
 export type HostOutcome = "present" | "missing" | "wrongId";
@@ -122,6 +131,7 @@ export async function createWorld(repositories: Record<string, string>) {
   };
   let hostHold: { reached: () => void; release: Promise<void> } | null = null;
   let refreshWaiter: ((held: HeldRefresh) => void) | null = null;
+  let signInWaiter: ((held: HeldSignIn) => void) | null = null;
   let serial = 0;
   /** Requests that no command expected, such as a refresh with no waiter. They fail the run. */
   const unexpected: string[] = [];
@@ -172,6 +182,33 @@ export async function createWorld(repositories: Record<string, string>) {
     }
   }
 
+  /**
+   * The sign-in provider's code exchange. With a waiter, the answer waits for the command that
+   * releases it; without one, the identity is answered at once.
+   */
+  async function answerSignIn(request: Request) {
+    const body = new URLSearchParams(await request.text());
+    if (body.get("code") !== "upstream-code" || body.get("client_secret") !== "up-secret") {
+      return Response.json({ error: "invalid_grant" }, { status: 400 });
+    }
+    const waiter = signInWaiter;
+    signInWaiter = null;
+    let outcome: SignInOutcome = "identity";
+    if (waiter !== null) {
+      const answer = deferred<SignInOutcome>();
+      waiter({ answer: answer.settle });
+      outcome = await answer.promise;
+    }
+    switch (outcome) {
+      case "identity":
+        return Response.json({ access_token: "up-access", token_type: "bearer" });
+      case "invalid_grant":
+        return Response.json({ error: "invalid_grant" }, { status: 400 });
+      default:
+        return outcome satisfies never;
+    }
+  }
+
   vi.stubGlobal(
     "fetch",
     vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -185,6 +222,22 @@ export async function createWorld(repositories: Record<string, string>) {
       }
       if (request.url === RESOURCE.server.token_endpoint && request.method === "POST") {
         return await answerProvider(request);
+      }
+      if (request.url === `${UPSTREAM}/.well-known/oauth-authorization-server`) {
+        return Response.json({
+          issuer: UPSTREAM,
+          authorization_endpoint: `${UPSTREAM}/authorize`,
+          token_endpoint: `${UPSTREAM}/token`,
+          response_types_supported: ["code"],
+        });
+      }
+      if (request.url === `${UPSTREAM}/token` && request.method === "POST") {
+        return await answerSignIn(request);
+      }
+      if (request.url === "https://api.upstream.test/user") {
+        return request.headers.get("authorization") === "Bearer up-access"
+          ? Response.json({ id: "42", name: "Octo Cat", email: "octo@example.com" })
+          : new Response("unauthorized", { status: 401 });
       }
       unexpected.push(`unexpected ${request.method} ${url.origin}${url.pathname}`);
       return new Response("unexpected", { status: 599 });
@@ -243,6 +296,15 @@ export async function createWorld(repositories: Record<string, string>) {
       },
       cancelExpect() {
         refreshWaiter = null;
+      },
+      /** Settles with the next callback whose code exchange reaches the sign-in provider. */
+      expectSignIn() {
+        const arrival = deferred<HeldSignIn>();
+        signInWaiter = arrival.settle;
+        return arrival.promise;
+      },
+      cancelExpectSignIn() {
+        signInWaiter = null;
       },
     },
   };

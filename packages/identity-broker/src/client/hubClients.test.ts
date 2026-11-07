@@ -22,6 +22,7 @@ import {
   setBlock,
   signToken,
   stubProviders,
+  testPolicy,
 } from "./hub.test.helper.js";
 
 afterEach(() => {
@@ -104,6 +105,7 @@ describe("POST /hub-clients", () => {
         registration_access_token: expect.any(String),
         registration_client_uri: `${ISSUER}/register/${client["client_id"]}`,
         redirect_uri: PRODUCTION_CALLBACK,
+        connectors: ["fake"],
         terms: "https://samebase.com/terms",
         initial_access_token: expect.stringMatching(/^[A-Za-z0-9_-]{43}$/),
         repository: REPOSITORY_ID,
@@ -122,36 +124,37 @@ describe("POST /hub-clients", () => {
         clientName: "prod",
         softwareVersion: "abc123",
         tokenEndpointAuthMethod: "client_secret_post",
+        connectors: ["fake"],
       });
-      expect(
-        await h.t.query(api.apps.get, { appId: `gh-${REPOSITORY_ID}-${APP_HASH}` }),
-      ).toMatchObject({ firstParty: false, connector: "google-apps", tenantId: "gh-74" });
+      expect(await h.t.query(api.apps.get, { appId: `gh-${REPOSITORY_ID}-${APP_HASH}` })).toEqual({
+        appId: `gh-${REPOSITORY_ID}-${APP_HASH}`,
+        name: `gh-${REPOSITORY_ID}-${APP_HASH}`,
+        tenantId: "gh-74",
+        suspended: false,
+        createdAt: expect.any(Number),
+      });
       expect(await readOwnRecord(h, client)).toBe(200);
     });
 
-    it("makes the apps of an own repository first-party, its development clients too, and no other's", async () => {
+    it("records the enrollment sorted and unique, and the client's own record repeats it", async () => {
       const h = await createHub();
-      vi.stubEnv("OWN_REPOSITORY_IDS", "80, 81");
-      const own = { repository_id: "81", repository: "octo-org/own" };
-      const production = await createClient(h, own);
-      const productionApp = await h.t.query(api.apps.get, { appId: `gh-81-${APP_HASH}` });
-      expect(productionApp).toMatchObject({ firstParty: true, tenantId: "gh-81" });
-      expect(productionApp).not.toHaveProperty("connector");
+      stubProviders();
 
-      stubProviders(() => jsonResponse({ repository: "81" }));
-      const development = await createDevelopmentClient(h, production.initial_access_token ?? "");
-      expect(await h.t.query(api.clients.get, { clientId: development.client_id })).toMatchObject({
-        appId: `gh-81-${APP_HASH}-preview`,
+      const response = await postHubClient(h, await signToken(), {
+        connectors: ["other", "fake", "other"],
       });
-      expect(await h.t.query(api.apps.get, { appId: `gh-81-${APP_HASH}-preview` })).toMatchObject({
-        firstParty: true,
-      });
+      const client: { client_id: string; connectors: string[]; registration_access_token: string } =
+        await response.json();
 
-      // Another repository of the same owner is a guest.
-      await createClient(h);
-      expect(
-        await h.t.query(api.apps.get, { appId: `gh-${REPOSITORY_ID}-${APP_HASH}` }),
-      ).toMatchObject({ firstParty: false, connector: "google-apps" });
+      expect(response.status).toBe(201);
+      expect(client.connectors).toEqual(["fake", "other"]);
+      expect(await h.t.query(api.clients.get, { clientId: client.client_id })).toMatchObject({
+        connectors: ["fake", "other"],
+      });
+      const record = await h.fetchBroker(`${ISSUER}/register/${client.client_id}`, {
+        headers: { Authorization: `Bearer ${client.registration_access_token}` },
+      });
+      expect(await record.json()).toMatchObject({ connectors: ["fake", "other"] });
     });
 
     it("puts a preview in its own app, on the exact address that the run sent", async () => {
@@ -265,10 +268,15 @@ describe("POST /hub-clients", () => {
     });
   });
 
-  describe("the pause", () => {
-    it("refuses a third-party repository while THIRD_PARTY_PAUSED is true, before it reads the file", async () => {
-      const h = await createHub();
-      vi.stubEnv("THIRD_PARTY_PAUSED", "true");
+  describe("the policy", () => {
+    it("refuses a paused registration before it reads the file, and lets one the policy exempts register", async () => {
+      const h = await createHub({
+        policy: (registration) =>
+          testPolicy({
+            paused: process.env["APPS_PAUSED"] === "true" && registration.repositoryId !== "81",
+          }),
+      });
+      vi.stubEnv("APPS_PAUSED", "true");
       const fileRequests = stubProviders();
 
       const response = await postHubClient(h, await signToken());
@@ -277,14 +285,93 @@ describe("POST /hub-clients", () => {
       expect(await response.json()).toEqual({ error: "not_allowed", reason: "paused" });
       expect(fileRequests).toEqual([]);
       expect(await readRateLimits(h)).toEqual([]);
+      const exempt = await createClient(h, { repository_id: "81" });
+      expect(exempt.client_id).toMatch(/^cl_/);
     });
 
-    it("lets an own repository register while THIRD_PARTY_PAUSED is true", async () => {
-      const h = await createHub();
-      vi.stubEnv("THIRD_PARTY_PAUSED", "true");
-      vi.stubEnv("OWN_REPOSITORY_IDS", "81");
-      const own = await createClient(h, { repository_id: "81" });
-      expect(own.client_id).toMatch(/^cl_/);
+    it("sees the registration's facts: the repository, its owner, the app, the deploy, the address, and the proof", async () => {
+      const seen: unknown[] = [];
+      const h = await createHub({
+        policy: (registration) => {
+          seen.push(registration);
+          return testPolicy();
+        },
+      });
+      const production = await createClient(h);
+      await createDevelopmentClient(h, production.initial_access_token ?? "");
+      stubProviders();
+      await postHubClient(h, await signToken(pullRequestClaims));
+
+      expect(seen).toEqual([
+        {
+          repositoryId: REPOSITORY_ID,
+          repository: "octo-org/octo-repo",
+          ownerId: OWNER_ID,
+          app: "my-app",
+          deploymentType: "production",
+          redirectUri: PRODUCTION_CALLBACK,
+          proof: "github-actions",
+        },
+        {
+          repositoryId: REPOSITORY_ID,
+          repository: "octo-org/octo-repo",
+          ownerId: OWNER_ID,
+          app: "my-app",
+          deploymentType: "development",
+          redirectUri: LOOPBACK_CALLBACK,
+          proof: "initial-access-token",
+        },
+        expect.objectContaining({ deploymentType: "preview", proof: "github-actions" }),
+      ]);
+    });
+
+    it("refuses an enrollment outside the hub's connectors or the policy's, and names the allowed ones", async () => {
+      const h = await createHub({
+        policy: (registration) =>
+          testPolicy({ connectors: registration.app === "my-app" ? ["other"] : ["fake", "other"] }),
+      });
+      const fileRequests = stubProviders();
+
+      const unknown = await postHubClient(h, await signToken(), { connectors: ["okta"] });
+      const disallowed = await postHubClient(h, await signToken(), {
+        connectors: ["fake", "other"],
+      });
+      const allowed = await postHubClient(h, await signToken(), { connectors: ["other"] });
+
+      expect(unknown.status).toBe(400);
+      expect(await unknown.json()).toEqual({ error: "invalid_connectors", allowed: ["other"] });
+      expect(disallowed.status).toBe(400);
+      expect(await disallowed.json()).toEqual({ error: "invalid_connectors", allowed: ["other"] });
+      expect(allowed.status).toBe(201);
+      // The two refusals fetched nothing and counted nowhere.
+      expect(fileRequests).toHaveLength(1);
+      expect(await readRateLimits(h)).toEqual([
+        expect.objectContaining({ scope: "repository", count: 1 }),
+        expect.objectContaining({ scope: "owner", count: 1 }),
+        expect.objectContaining({ scope: "new_owners", count: 1 }),
+      ]);
+    });
+
+    it("refuses with 503 and writes nothing when the policy throws or answers a malformed value", async () => {
+      let answer: () => unknown = () => {
+        throw new Error("no env");
+      };
+      // @ts-expect-error The policy is wrong on purpose: the broker validates its answer at runtime.
+      const h = await createHub({ policy: () => answer() });
+      vi.spyOn(console, "error").mockImplementation(() => undefined);
+      const fileRequests = stubProviders();
+
+      const thrown = await postHubClient(h, await signToken());
+      answer = () => ({ connectors: "fake", resources: [], consent: true, paused: false });
+      const malformed = await postHubClient(h, await signToken());
+
+      for (const response of [thrown, malformed]) {
+        expect(response.status).toBe(503);
+        expect(await response.json()).toEqual({ error: "temporarily_unavailable" });
+      }
+      expect(fileRequests).toEqual([]);
+      expect(await readRateLimits(h)).toEqual([]);
+      expect(await readClients(h)).toEqual([]);
     });
   });
 
@@ -375,6 +462,11 @@ describe("POST /hub-clients", () => {
       ["localhost", { redirectUri: "https://localhost/cb" }],
       ["a name under localhost", { redirectUri: "https://app.localhost/cb" }],
       ["a very long address", { redirectUri: `${PRODUCTION_HOST}/${"a".repeat(2_048)}` }],
+      ["no connectors", { connectors: [] }],
+      ["connectors that are not a list", { connectors: "fake" }],
+      ["a connector name with a capital", { connectors: ["Fake"] }],
+      ["a connector name with a space", { connectors: ["fake other"] }],
+      ["a connector name over 64 characters", { connectors: ["a".repeat(65)] }],
     ])("answers 400 for %s and fetches nothing", async (_, body) => {
       const h = await createHub();
       const fileRequests = stubProviders();
@@ -755,6 +847,7 @@ describe("POST /hub-clients with the initial access token", () => {
       registration_access_token: expect.any(String),
       registration_client_uri: `${ISSUER}/register/${client["client_id"]}`,
       redirect_uri: LOOPBACK_CALLBACK,
+      connectors: ["fake"],
       terms: "https://samebase.com/terms",
     });
     const clientId = client["client_id"] ?? "";
@@ -808,8 +901,31 @@ describe("POST /hub-clients with the initial access token", () => {
 
     expect(await h.t.query(api.apps.get, { appId: previewAppId })).toMatchObject({
       tenantId: `gh-${REPOSITORY_ID}`,
-      connector: "google-apps",
     });
+  });
+
+  it("enrolls in what the policy allows a development client, which can differ from production's", async () => {
+    const h = await createHub({
+      policy: (registration) =>
+        testPolicy({
+          connectors: registration.deploymentType === "development" ? ["fake"] : ["fake", "other"],
+        }),
+    });
+    const production = await createClient(h, undefined);
+    const token = production.initial_access_token ?? "";
+    stubProviders();
+
+    const refused = await postHubClient(h, token, {
+      redirectUri: LOOPBACK_CALLBACK,
+      connectors: ["fake", "other"],
+    });
+    const accepted = await postHubClient(h, token, {
+      redirectUri: LOOPBACK_CALLBACK,
+      connectors: ["fake"],
+    });
+
+    expect(await refused.json()).toEqual({ error: "invalid_connectors", allowed: ["fake"] });
+    expect(accepted.status).toBe(201);
   });
 
   it("is refused at the tenant's budget of apps", async () => {
@@ -979,10 +1095,10 @@ describe("POST /hub-clients with the initial access token", () => {
     expect(await readRateLimits(h)).toEqual(before);
   });
 
-  it("refuses it while THIRD_PARTY_PAUSED is true", async () => {
+  it("refuses it while the policy pauses the app", async () => {
     const h = await createHub();
     const token = await createInitialAccessToken(h);
-    vi.stubEnv("THIRD_PARTY_PAUSED", "true");
+    vi.stubEnv("APPS_PAUSED", "true");
     stubProviders();
 
     const response = await postHubClient(h, token, { redirectUri: LOOPBACK_CALLBACK });

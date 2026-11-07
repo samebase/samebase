@@ -3,13 +3,15 @@ import { httpActionGeneric, type GenericActionCtx, type GenericDataModel } from 
 import { v } from "convex/values";
 import { base64url, createLocalJWKSet, errors as joseErrors, jwtVerify } from "jose";
 import type { ComponentApi } from "../component/_generated/component.js";
+import { evaluate, type Registration } from "./policy.js";
 import { newClientCredentials, type RegistrationConfig } from "./registration.js";
 import { sha256Hex } from "./subject.js";
 
 // `POST /hub-clients`: a new client for one deployment of an app, with no account at the hub. The
 // Bearer is the proof. A GitHub Actions run proves its repository with GitHub's OIDC token; a
 // development server proves the app with the app's initial access token, which a production run
-// got. The rows and the rules that read them are in src/component/hubClients.ts.
+// got. The hub's policy decides what the registration may enroll in. The rows and the rules that
+// read them are in src/component/hubClients.ts.
 
 const { array, literal, number, object, string, union } = v;
 
@@ -36,14 +38,23 @@ const MAX_APP_LENGTH = 64;
  */
 export const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]"]);
 
+/** A connector name as a registration may send it. */
+const CONNECTOR_NAME = /^[a-z0-9-]{1,64}$/;
+
 // Each check below allows unknown fields: GitHub and a host send more than these name.
 
-const vRequestBody = object({ app: string(), redirectUri: string(), softwareVersion: string() });
+const vRequestBody = object({
+  app: string(),
+  redirectUri: string(),
+  softwareVersion: string(),
+  /** The enrollment: at least one connector name. Duplicates collapse; the order does not matter. */
+  connectors: array(string()),
+});
 
 /** The file's one field: the numeric GitHub repository id, as a string of digits or a JSON number. */
 const vVerificationFile = object({ repository: union(string(), number()) });
 
-function reply(status: number, body: Record<string, string>): Response {
+function reply(status: number, body: Record<string, string | string[]>): Response {
   return new Response(JSON.stringify(body), {
     status,
     headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
@@ -185,7 +196,7 @@ function readRedirectUri(value: string) {
     : null;
 }
 
-/** The body, if it is valid. */
+/** The body, if it is valid, with the enrollment sorted and unique. */
 async function readBody(request: Request) {
   const body: unknown = await request.json().catch(() => null);
   if (
@@ -193,12 +204,16 @@ async function readBody(request: Request) {
     body.app.length === 0 ||
     body.app.length > MAX_APP_LENGTH ||
     body.softwareVersion.length === 0 ||
-    body.softwareVersion.length > MAX_SOFTWARE_VERSION_LENGTH
+    body.softwareVersion.length > MAX_SOFTWARE_VERSION_LENGTH ||
+    body.connectors.length === 0 ||
+    !body.connectors.every((name) => CONNECTOR_NAME.test(name))
   ) {
     return null;
   }
   const redirect = readRedirectUri(body.redirectUri);
-  return redirect === null ? null : { ...body, redirect };
+  return redirect === null
+    ? null
+    : { ...body, connectors: [...new Set(body.connectors)].sort(), redirect };
 }
 
 /** The body as text, or null when it is larger than `MAX_VERIFICATION_BYTES`. It reads no further. */
@@ -266,42 +281,31 @@ export function hubClientsEndpoint(args: {
   component: ComponentApi;
   issuer: string;
   registration: RegistrationConfig;
+  /** The names of the hub's connectors, which an enrollment may name. */
+  connectors: string[];
 }) {
   const { component, issuer, registration } = args;
 
-  /** Whether the repository's apps are the hub's own, by its id in `ownRepositoryIds`. */
-  function isOwnRepository(githubRepositoryDatabaseId: string) {
-    return (registration.ownRepositoryIds() ?? "")
-      .split(",")
-      .some((id) => id.trim() === githubRepositoryDatabaseId);
-  }
-
   /**
-   * What the apps of a repository are: the hub's own, with every connector but a reserved one, or
-   * third-party with the one connector `thirdPartyConnector`. An existing app keeps what it was made
-   * as: a registration that says otherwise is refused with `app_taken`.
+   * Refuses a request that the policy pauses or does not allow the enrollment, a blocked one, or a
+   * limited one, else null. A failed policy refuses with 503 and writes nothing. It counts an
+   * admitted request in the repository and owner windows; a refused one counts nowhere.
    */
-  function trustOf(githubRepositoryDatabaseId: string) {
-    return isOwnRepository(githubRepositoryDatabaseId)
-      ? { firstParty: true as const }
-      : { firstParty: false as const, connector: registration.thirdPartyConnector };
-  }
-
-  /**
-   * Refuses a paused, blocked, or limited request, else null. It counts an admitted one in the
-   * repository and owner windows. The pause stops third-party repositories only, so the hub's own
-   * apps keep getting clients.
-   */
-  async function admit(
-    ctx: Ctx,
-    ids: { githubRepositoryDatabaseId: string; githubOwnerId: string },
-  ) {
-    if (registration.paused() && !isOwnRepository(ids.githubRepositoryDatabaseId)) {
+  async function admit(ctx: Ctx, facts: Registration, connectors: string[]) {
+    const policy = evaluate(registration.policy, facts);
+    if (policy === null) {
+      return reply(503, { error: "temporarily_unavailable" });
+    }
+    if (policy.paused) {
       return notAllowed("paused");
     }
+    const allowed = args.connectors.filter((name) => policy.connectors.includes(name)).sort();
+    if (connectors.some((name) => !allowed.includes(name))) {
+      return reply(400, { error: "invalid_connectors", allowed });
+    }
     const admission = await ctx.runMutation(component.hubClients.admit, {
-      githubRepositoryDatabaseId: ids.githubRepositoryDatabaseId,
-      githubOwnerId: ids.githubOwnerId,
+      githubRepositoryDatabaseId: facts.repositoryId,
+      githubOwnerId: facts.ownerId,
     });
     if (admission.status === "blocked") {
       return notAllowed("blocked");
@@ -315,7 +319,7 @@ export function hubClientsEndpoint(args: {
   /** The 201 answer: the client, its secret, and its RFC 7592 token, which go to nothing else. */
   function newClient(
     credentials: Awaited<ReturnType<typeof newClientCredentials>>,
-    redirectUri: string,
+    body: { redirectUri: string; connectors: string[] },
   ) {
     return {
       issuer,
@@ -323,7 +327,8 @@ export function hubClientsEndpoint(args: {
       client_secret: credentials.clientSecret,
       registration_access_token: credentials.registrationAccessToken,
       registration_client_uri: credentials.registrationClientUri,
-      redirect_uri: redirectUri,
+      redirect_uri: body.redirectUri,
+      connectors: body.connectors,
       terms: registration.terms,
     };
   }
@@ -342,10 +347,19 @@ export function hubClientsEndpoint(args: {
       return reply(400, { error: "invalid_request" });
     }
 
-    const refused = await admit(ctx, {
-      githubRepositoryDatabaseId: run.claims.repository_id,
-      githubOwnerId: run.claims.repository_owner_id,
-    });
+    const refused = await admit(
+      ctx,
+      {
+        repositoryId: run.claims.repository_id,
+        repository: run.claims.repository,
+        ownerId: run.claims.repository_owner_id,
+        app: body.app,
+        deploymentType: run.stage === "prod" ? "production" : "preview",
+        redirectUri: body.redirectUri,
+        proof: "github-actions",
+      },
+      body.connectors,
+    );
     if (refused !== null) {
       return refused;
     }
@@ -373,7 +387,7 @@ export function hubClientsEndpoint(args: {
         initialAccessToken === null
           ? { type: "preview", stage: run.stage }
           : { type: "production", initialAccessTokenHash: await sha256Hex(initialAccessToken) },
-      trust: trustOf(run.claims.repository_id),
+      connectors: body.connectors,
       app: body.app,
       redirectUri: body.redirectUri,
       softwareVersion: body.softwareVersion,
@@ -384,7 +398,7 @@ export function hubClientsEndpoint(args: {
         : notAllowed(created.reason);
     }
     return reply(201, {
-      ...newClient(credentials, body.redirectUri),
+      ...newClient(credentials, body),
       ...(initialAccessToken === null
         ? {}
         : { initial_access_token: initialAccessToken, repository: run.claims.repository_id }),
@@ -410,10 +424,19 @@ export function hubClientsEndpoint(args: {
       return notAllowed("app_mismatch");
     }
 
-    const refused = await admit(ctx, {
-      githubRepositoryDatabaseId: token.githubRepositoryDatabaseId,
-      githubOwnerId: token.githubOwnerId,
-    });
+    const refused = await admit(
+      ctx,
+      {
+        repositoryId: token.githubRepositoryDatabaseId,
+        repository: token.githubRepository,
+        ownerId: token.githubOwnerId,
+        app: token.app,
+        deploymentType: "development",
+        redirectUri: body.redirectUri,
+        proof: "initial-access-token",
+      },
+      body.connectors,
+    );
     if (refused !== null) {
       return refused;
     }
@@ -430,9 +453,11 @@ export function hubClientsEndpoint(args: {
       secretHash: credentials.secretHash,
       registrationTokenHash: credentials.registrationTokenHash,
       tokenHash,
+      githubRepositoryDatabaseId: token.githubRepositoryDatabaseId,
       githubOwnerId: token.githubOwnerId,
-      trust: trustOf(token.githubRepositoryDatabaseId),
+      githubRepository: token.githubRepository,
       app: token.app,
+      connectors: body.connectors,
       redirectUri: body.redirectUri,
       softwareVersion: body.softwareVersion,
     });
@@ -441,7 +466,7 @@ export function hubClientsEndpoint(args: {
         ? reply(401, { error: "invalid_token" })
         : notAllowed(created.reason);
     }
-    return reply(201, newClient(credentials, body.redirectUri));
+    return reply(201, newClient(credentials, body));
   }
 
   /**

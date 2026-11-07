@@ -22,10 +22,10 @@ import {
 } from "./model.test.helper.js";
 
 // RFC 136, property A: registration and ownership. Random stories of GitHub Actions runs,
-// development clients, repository transfers, blocks, renewals, and self-deletes, played through
-// `fetchBroker` against the real component. The model knows each repository's owner in the fake
-// GitHub and the newest accepted proof of each repository; it never reads expected ownership back
-// from the rows.
+// development clients, repository transfers, blocks, policy changes, renewals, and self-deletes,
+// played through `fetchBroker` against the real component. The model knows each repository's owner
+// in the fake GitHub, the newest accepted proof of each repository, and the hub's policy; it never
+// reads expected ownership or enrollment back from the rows.
 
 afterEach(() => {
   vi.useRealTimers();
@@ -37,6 +37,10 @@ const REPOSITORIES = ["101", "102"] as const;
 const OWNERS = ["201", "202", "203"] as const;
 const APPS = ["app-a", "app-b"] as const;
 const STAGES = ["prod", "pr-1", "pr-2"] as const;
+/** The enrollments a registration asks for, by name. */
+const ENROLLMENTS = { fake: ["fake"], both: ["fake", "other"], other: ["other"] } as const;
+/** What the hub's policy allows, by name: every connector, one, or none. */
+const POLICIES = { all: ["fake", "other"], fakeOnly: ["fake"], none: [] } as const;
 /**
  * Mostly short steps, so a retained proof (300 s) is still valid when it is replayed, and a few
  * around its lifetime and around the one-hour windows.
@@ -46,13 +50,13 @@ const tickArbitrary = fc.oneof(
   { weight: 1, arbitrary: fc.constantFrom(299_000, 301_000) },
   { weight: 1, arbitrary: fc.constantFrom(3_599_000, 3_600_000, 3_601_000) },
 );
-/** The first repository's apps are the hub's own, so both kinds of trust are in every story. */
-const OWN_REPOSITORY = "101";
 
 type Repository = (typeof REPOSITORIES)[number];
 type Owner = (typeof OWNERS)[number];
 type App = (typeof APPS)[number];
 type Stage = (typeof STAGES)[number];
+type Enrollment = keyof typeof ENROLLMENTS;
+type PolicyName = keyof typeof POLICIES;
 /** `blockedWhileFetched`: the file is present, and an admin blocks the repository while it is read. */
 type RunHost = HostOutcome | "blockedWhileFetched";
 
@@ -62,14 +66,23 @@ type Command =
       repository: Repository;
       app: App;
       stage: Stage;
+      enrollment: Enrollment;
       host: RunHost;
       /** `new`: a token issued now. A number: a retained older token of the repository, by index. */
       proof: "new" | number;
     }
-  | { kind: "development"; token: number; app: "own" | "other"; redirect: "loopback" | HostOutcome }
+  | {
+      kind: "development";
+      token: number;
+      app: "own" | "other";
+      enrollment: Enrollment;
+      redirect: "loopback" | HostOutcome;
+    }
   | { kind: "transfer"; repository: Repository; owner: Owner }
   | { kind: "block"; action: "block" | "unblock"; scope: "repository"; githubId: Repository }
   | { kind: "block"; action: "block" | "unblock"; scope: "owner"; githubId: Owner }
+  /** The hub's policy changes: what it allows, and whether every app but R1's production pauses. */
+  | { kind: "policy"; connectors: PolicyName; paused: boolean }
   | { kind: "renew"; client: number }
   | { kind: "deleteOwn"; client: number }
   | { kind: "tick"; ms: number };
@@ -86,6 +99,8 @@ const hostArbitrary = fc.oneof(
   { weight: 1, arbitrary: fc.constant("wrongId" as const) },
 );
 
+const enrollmentArbitrary = fc.constantFrom<Enrollment>("fake", "both", "other");
+
 const commandArbitrary: fc.Arbitrary<Command> = fc.oneof(
   {
     weight: 6,
@@ -94,6 +109,7 @@ const commandArbitrary: fc.Arbitrary<Command> = fc.oneof(
       repository: fc.constantFrom(...REPOSITORIES),
       app: fc.constantFrom(...APPS),
       stage: fc.constantFrom(...STAGES),
+      enrollment: enrollmentArbitrary,
       host: fc.oneof(
         { weight: 12, arbitrary: hostArbitrary },
         { weight: 1, arbitrary: fc.constant("blockedWhileFetched" as const) },
@@ -113,6 +129,7 @@ const commandArbitrary: fc.Arbitrary<Command> = fc.oneof(
         { weight: 3, arbitrary: fc.constant("own" as const) },
         { weight: 1, arbitrary: fc.constant("other" as const) },
       ),
+      enrollment: enrollmentArbitrary,
       redirect: fc.oneof(
         { weight: 3, arbitrary: fc.constant("loopback" as const) },
         { weight: 1, arbitrary: hostArbitrary },
@@ -125,6 +142,14 @@ const commandArbitrary: fc.Arbitrary<Command> = fc.oneof(
       kind: fc.constant("transfer" as const),
       repository: fc.constantFrom(...REPOSITORIES),
       owner: fc.constantFrom(...OWNERS),
+    }),
+  },
+  {
+    weight: 1,
+    arbitrary: fc.record({
+      kind: fc.constant("policy" as const),
+      connectors: fc.constantFrom<PolicyName>("all", "fakeOnly", "none"),
+      paused: fc.boolean(),
     }),
   },
   {
@@ -184,10 +209,15 @@ type Client = {
   registrationClientUri: string;
   repository: string;
   production: boolean;
+  /** The enrollment the registration asked for, sorted and unique: the row's, for good. */
+  connectors: string[];
   deleted: boolean;
 };
 
-function createModel() {
+/** The hub's policy of the moment, which `createModelHub`'s policy function reads at each request. */
+type PolicyState = { connectors: PolicyName; paused: boolean };
+
+function createModel(policy: PolicyState) {
   return {
     /** The order of accepted registrations. */
     order: 0,
@@ -196,11 +226,12 @@ function createModel() {
     newest: new Map<string, { iat: number; ownerId: string; proof: string }>(),
     acceptedRuns: new Array<{ repository: string; ownerId: string; order: number }>(),
     blocks: new Set<string>(),
+    policy,
     clients: new Array<Client>(),
     tokens: new Array<Token>(),
     /** The owners with an accepted registration: they are never new again. */
     everRegistered: new Set<string>(),
-    apps: new Map<string, { tenantId: string; firstParty: boolean; connector: string | null }>(),
+    apps: new Map<string, { tenantId: string }>(),
   };
 }
 
@@ -208,6 +239,44 @@ type Model = ReturnType<typeof createModel>;
 
 const isBlocked = (model: Model, repository: string, ownerId: string) =>
   model.blocks.has(`repository:${repository}`) || model.blocks.has(`owner:${ownerId}`);
+
+/** The pause of the hub's policy: every app but the production of R1. */
+const isPaused = (model: Model, repository: string, stage: string) =>
+  model.policy.paused && !(repository === REPOSITORIES[0] && stage === "prod");
+
+/** Whether the policy of the moment lets a registration enroll in `enrollment`. */
+const enrollmentAllowed = (model: Model, enrollment: Enrollment) => {
+  const allowed: readonly string[] = POLICIES[model.policy.connectors];
+  return ENROLLMENTS[enrollment].every((name) => allowed.includes(name));
+};
+
+/**
+ * `policyAtRegistration`: a registration that the policy of the moment pauses or does not allow is
+ * refused with the reason of the policy, and one that it allows is never refused for the policy.
+ */
+function checkPolicy(
+  checks: Checks,
+  label: string,
+  response: Response,
+  answer: { reason?: string; error?: string },
+  model: Model,
+  args: { repository: string; stage: string; enrollment: Enrollment },
+) {
+  const paused = isPaused(model, args.repository, args.stage);
+  const allowed = enrollmentAllowed(model, args.enrollment);
+  check(
+    checks,
+    "policyAtRegistration",
+    !(response.status === 201 && (paused || !allowed)),
+    `${label} registered ${paused ? "while paused" : "outside the policy"}`,
+  );
+  check(
+    checks,
+    "policyAtRegistration",
+    !(answer.reason === "paused" && !paused) && !(answer.error === "invalid_connectors" && allowed),
+    `${label} was refused for the policy, which allows it`,
+  );
+}
 
 /**
  * A development token works while no later production run of its app and owner replaced it, no
@@ -332,17 +401,21 @@ function checkNewOwners(checks: Checks, before: Rows, after: Rows, newOwnerRegis
 async function checkState(h: Harness, model: Model, checks: Checks) {
   const rows = await readRows(h);
   for (const app of rows.apps) {
-    const trust = {
-      tenantId: app.tenantId,
-      firstParty: app.firstParty,
-      connector: app.connector ?? null,
-    };
     const seen = model.apps.get(app.appId);
     if (seen === undefined) {
-      model.apps.set(app.appId, trust);
+      model.apps.set(app.appId, { tenantId: app.tenantId });
     } else {
-      check(checks, "appStable", sameRows(seen, trust), "an app changed its tenant or trust");
+      check(checks, "appStable", seen.tenantId === app.tenantId, "an app changed its tenant");
     }
+  }
+  for (const client of model.clients.filter((candidate) => !candidate.deleted)) {
+    const row = rows.clients.find((candidate) => candidate.clientId === client.clientId);
+    check(
+      checks,
+      "enrollmentImmutable",
+      row === undefined || sameRows(row.connectors, client.connectors),
+      `${client.handle} enrolled in ${client.connectors.join(", ")} and now holds ${row?.connectors.join(", ") ?? ""}`,
+    );
   }
   check(
     checks,
@@ -444,6 +517,7 @@ async function playRun(
     app: command.app,
     redirectUri: `https://${command.app}-${proof.stage}.r${proof.repository}.example/auth/hub/callback`,
     softwareVersion: "abc123",
+    connectors: [...ENROLLMENTS[command.enrollment]],
   };
   const before = await readRows(h);
   let blockedWhileFetched = false;
@@ -469,9 +543,9 @@ async function playRun(
   }
   const after = await readRows(h);
   const accepted = response.status === 201;
-  const answer: Partial<NewClient> & { reason?: string } = await response.json();
+  const answer: Partial<NewClient> & { reason?: string; error?: string } = await response.json();
   const label =
-    `run of ${repositoryHandle(proof.repository)} ${command.app} ${proof.stage} with ${origin} ${proof.handle} ` +
+    `run of ${repositoryHandle(proof.repository)} ${command.app} ${proof.stage} (${command.enrollment}) with ${origin} ${proof.handle} ` +
     `(owner ${ownerHandle(proof.ownerId)}, iat ${since(proof.iat)}), host ${command.host}`;
   checkAnswer(checks, label, response);
   check(
@@ -480,15 +554,26 @@ async function playRun(
     !(accepted && (blockedBefore || blockedWhileFetched)),
     `${label} registered while blocked`,
   );
+  checkPolicy(checks, label, response, answer, model, {
+    repository: proof.repository,
+    stage: proof.stage,
+    enrollment: command.enrollment,
+  });
   if (!accepted) {
     story.trace.push(
-      `${label}: ${response.status}${answer.reason === undefined ? "" : ` ${answer.reason}`}`,
+      `${label}: ${response.status}${answer.reason === undefined ? "" : ` ${answer.reason}`}${answer.error === undefined ? "" : ` ${answer.error}`}`,
     );
     checkRefusedRows(checks, before, after);
     checkRefusedRateLimits(checks, before, after, proof.repository, proof.ownerId);
     checkNewOwners(checks, before, after, false);
     return;
   }
+  check(
+    checks,
+    "enrollmentImmutable",
+    sameRows(answer.connectors, [...new Set(ENROLLMENTS[command.enrollment])].sort()),
+    `${label} answered the enrollment ${answer.connectors?.join(", ") ?? "none"}`,
+  );
   checkNewOwners(checks, before, after, !model.everRegistered.has(proof.ownerId));
   model.order += 1;
   model.everRegistered.add(proof.ownerId);
@@ -513,6 +598,7 @@ async function playRun(
     registrationClientUri: answer.registration_client_uri ?? "",
     repository: proof.repository,
     production: proof.stage === "prod",
+    connectors: answer.connectors ?? [],
     deleted: false,
   };
   model.clients.push(client);
@@ -561,17 +647,27 @@ async function playDevelopment(
     app,
     redirectUri,
     softwareVersion: "dev-1",
+    connectors: [...ENROLLMENTS[command.enrollment]],
   });
   const after = await readRows(h);
   const accepted = response.status === 201;
-  const answer: Partial<NewClient> & { reason?: string } = await response.json();
+  const answer: Partial<NewClient> & { reason?: string; error?: string } = await response.json();
   const label =
     `development with ${token.handle} (${repositoryHandle(token.repository)} ${token.app}, owner ${ownerHandle(token.ownerId)}${valid ? "" : ", stopped in the model"}) ` +
-    `for ${app} on ${command.redirect}`;
+    `for ${app} (${command.enrollment}) on ${command.redirect}`;
   story.trace.push(
-    `${label}: ${response.status}${answer.reason === undefined ? "" : ` ${answer.reason}`}`,
+    `${label}: ${response.status}${answer.reason === undefined ? "" : ` ${answer.reason}`}${answer.error === undefined ? "" : ` ${answer.error}`}`,
   );
   checkAnswer(checks, label, response);
+  // A token whose row names another app or owner is refused before the policy runs; the policy
+  // sees the token's row, so a development client is never R1's production.
+  if (valid && app === token.app) {
+    checkPolicy(checks, label, response, answer, model, {
+      repository: token.repository,
+      stage: "development",
+      enrollment: command.enrollment,
+    });
+  }
   check(
     checks,
     "developmentTokenScope",
@@ -612,6 +708,7 @@ async function playDevelopment(
     registrationClientUri: answer.registration_client_uri ?? "",
     repository: token.repository,
     production: false,
+    connectors: answer.connectors ?? [],
     deleted: false,
   });
 }
@@ -704,6 +801,13 @@ async function playCommand(
       }
       return;
     }
+    case "policy":
+      model.policy.connectors = command.connectors;
+      model.policy.paused = command.paused;
+      story.trace.push(
+        `policy: ${command.connectors}${command.paused ? ", paused but R1 prod" : ""}`,
+      );
+      return;
     case "renew":
     case "deleteOwn":
       return await playClient(h, model, command, checks, story);
@@ -719,10 +823,24 @@ async function playCommand(
 /** Plays one story on a fresh hub, from the epoch, and checks the invariants after each command. */
 async function play(commands: Command[], checks: Checks, story: Story) {
   startClock();
-  vi.stubEnv("OWN_REPOSITORY_IDS", OWN_REPOSITORY);
-  const h = await createModelHub({ resources: [] });
+  const policy: PolicyState = { connectors: "all", paused: false };
+  // The shape of our hub's policy: every connector, consent, and a pause that spares R1's production.
+  const h = await createModelHub({
+    resources: [],
+    policy: (registration) => ({
+      connectors: [...POLICIES[policy.connectors]],
+      resources: [],
+      consent: true,
+      paused:
+        policy.paused &&
+        !(
+          registration.repositoryId === REPOSITORIES[0] &&
+          registration.deploymentType === "production"
+        ),
+    }),
+  });
   const world = await createWorld({ [REPOSITORIES[0]]: OWNERS[0], [REPOSITORIES[1]]: OWNERS[1] });
-  const model = createModel();
+  const model = createModel(policy);
   for (const command of commands) {
     await step(checks, story, async () => {
       await playCommand(h, world, model, command, checks, story);
@@ -758,6 +876,7 @@ describe("RFC 136 property A regressions", () => {
       [
         {
           kind: "run",
+          enrollment: "fake",
           repository: "102",
           app: "app-a",
           stage: "prod",
@@ -775,6 +894,7 @@ describe("RFC 136 property A regressions", () => {
       [
         {
           kind: "run",
+          enrollment: "fake",
           repository: "101",
           app: "app-a",
           stage: "prod",
@@ -785,13 +905,22 @@ describe("RFC 136 property A regressions", () => {
         { kind: "transfer", repository: "101", owner: "202" },
         {
           kind: "run",
+          enrollment: "fake",
           repository: "101",
           app: "app-a",
           stage: "prod",
           host: "present",
           proof: "new",
         },
-        { kind: "run", repository: "101", app: "app-a", stage: "prod", host: "present", proof: 0 },
+        {
+          kind: "run",
+          enrollment: "fake",
+          repository: "101",
+          app: "app-a",
+          stage: "prod",
+          host: "present",
+          proof: 0,
+        },
       ],
       "ownerFollowsNewestProof",
     );
@@ -804,6 +933,7 @@ describe("RFC 136 property A regressions", () => {
       [
         {
           kind: "run",
+          enrollment: "fake",
           repository: "101",
           app: "app-a",
           stage: "prod",
@@ -813,13 +943,22 @@ describe("RFC 136 property A regressions", () => {
         { kind: "transfer", repository: "101", owner: "202" },
         {
           kind: "run",
+          enrollment: "fake",
           repository: "101",
           app: "app-a",
           stage: "prod",
           host: "present",
           proof: "new",
         },
-        { kind: "run", repository: "101", app: "app-a", stage: "prod", host: "present", proof: 0 },
+        {
+          kind: "run",
+          enrollment: "fake",
+          repository: "101",
+          app: "app-a",
+          stage: "prod",
+          host: "present",
+          proof: 0,
+        },
       ],
       "ownerFollowsNewestProof",
     );
@@ -832,6 +971,7 @@ describe("RFC 136 property A regressions", () => {
       [
         {
           kind: "run",
+          enrollment: "fake",
           repository: "101",
           app: "app-a",
           stage: "prod",
@@ -842,14 +982,23 @@ describe("RFC 136 property A regressions", () => {
         { kind: "transfer", repository: "101", owner: "202" },
         {
           kind: "run",
+          enrollment: "fake",
           repository: "101",
           app: "app-a",
           stage: "prod",
           host: "present",
           proof: "new",
         },
-        { kind: "run", repository: "101", app: "app-a", stage: "prod", host: "present", proof: 0 },
-        { kind: "development", token: 2, app: "own", redirect: "loopback" },
+        {
+          kind: "run",
+          enrollment: "fake",
+          repository: "101",
+          app: "app-a",
+          stage: "prod",
+          host: "present",
+          proof: 0,
+        },
+        { kind: "development", token: 2, app: "own", enrollment: "fake", redirect: "loopback" },
       ],
       "developmentTokenScope",
     );
@@ -862,6 +1011,7 @@ describe("RFC 136 property A regressions", () => {
       [
         {
           kind: "run",
+          enrollment: "fake",
           repository: "102",
           app: "app-a",
           stage: "prod",
@@ -871,6 +1021,7 @@ describe("RFC 136 property A regressions", () => {
         { kind: "transfer", repository: "102", owner: "201" },
         {
           kind: "run",
+          enrollment: "fake",
           repository: "102",
           app: "app-a",
           stage: "prod",
@@ -888,6 +1039,7 @@ describe("RFC 136 property A regressions", () => {
       [
         {
           kind: "run",
+          enrollment: "fake",
           repository: "102",
           app: "app-a",
           stage: "prod",

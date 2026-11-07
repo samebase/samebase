@@ -89,15 +89,14 @@ export async function createHarness(options: {
   }
 
   /**
-   * One client with `redirectUri` of the app `<appName>-test`, which the first call creates. A
-   * first-party app has every open connector; a third-party app has `connector` as its one.
+   * One client with `redirectUri` of the app `<appName>-test`, which the first call creates in the
+   * tenant of the repository `gh-1` of owner 65, so a hub's policy has its facts. The client is
+   * enrolled in `connectors`, else in every configured connector.
    */
   async function registerClient(args: {
     appName: string;
-    firstParty: boolean;
-    /** The one connector of a third-party app. */
-    connector?: string;
     redirectUri: string;
+    connectors?: string[];
     /** As @samebase/alchemy-convex registers: Convex Auth posts the client credentials. */
     tokenEndpointAuthMethod?: "client_secret_post" | "client_secret_basic";
     deploymentType?: "production" | "development" | "preview";
@@ -106,7 +105,17 @@ export async function createHarness(options: {
     const { clientId, clientSecret, secretHash, registrationTokenHash } =
       await broker.newClientCredentials();
     const now = Date.now();
+    const connectors = [
+      ...new Set(args.connectors ?? options.connectors.map((connector) => connector.name)),
+    ].sort();
     await t.run(async (ctx) => {
+      const tenant = await ctx.db
+        .query("tenants")
+        .withIndex("by_tenant_id", (q) => q.eq("tenantId", "gh-1"))
+        .unique();
+      if (tenant === null) {
+        await ctx.db.insert("tenants", { tenantId: "gh-1", ownerId: "65" });
+      }
       const app = await ctx.db
         .query("apps")
         .withIndex("by_app_id", (q) => q.eq("appId", appId))
@@ -115,9 +124,7 @@ export async function createHarness(options: {
         await ctx.db.insert("apps", {
           appId,
           name: args.appName,
-          firstParty: args.firstParty,
-          ...(args.firstParty ? {} : { connector: args.connector ?? "fake" }),
-          tenantId: `${appId}-tenant`,
+          tenantId: "gh-1",
           createdAt: now,
         });
       }
@@ -134,9 +141,10 @@ export async function createHarness(options: {
         createdAt: now,
         renewedAt: now,
         ...testClientRecord,
+        connectors,
       });
     });
-    return { appId, clientId, clientSecret };
+    return { appId, clientId, clientSecret, connectors };
   }
 
   return {
