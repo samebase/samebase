@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.24.1
+
+- The hub's pages are as tall as the phone screen with the browser's address bar shown (`100svh`),
+  so they no longer scroll a little on a phone.
+
 ## 0.24.0
 
 One hub model (RFC 137): connectors by enrollment, and the policy as hub code.
