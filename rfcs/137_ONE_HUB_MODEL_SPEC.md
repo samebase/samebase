@@ -12,6 +12,14 @@
   independently by Codex Sol, reviewed by Codex Astra, and decided by Nicu (broker 0.25.0). Decided
   by Nicu the same day: the exemptions are the one lever of the page and the broker applies them;
   the policy loses `consent` and keeps one input, and the hub has no code rule for the page.
+- Amended again on 2026-11-07 (broker 0.26.0): the post-review decision 3, "one public Google client
+  for every app", is withdrawn. Claude wrote it under the decisions taken after the review, and Nicu
+  never made it: he had asked only whether the public clients should be named "Samebase" or
+  "Samebase apps", and that other apps must not use his private client. The hub keeps four
+  connectors, the private `google` and `github` and the public `google-apps` and `github-apps`
+  (decision 9), and the administrator grants a private connector to one app (decision 10, from the
+  Codex Sol research of 2026-11-07 on how Auth0, WorkOS, Clerk, Okta, Keycloak, Ory, Dex, ZITADEL,
+  FusionAuth, and Cognito control which application may use which provider).
 - Owner: Nicu Chiciuc
 - Supersedes, once accepted: the hub model of RFC 130 (registration without an account), RFC 133
   (development clients with the initial access token), RFC 134 (one path, own apps by repository),
@@ -43,6 +51,7 @@ What stays. Each line names the document that holds the detail.
 | Limits               | `POST /hub-clients`: 30 per repository and 100 per owner per hour, and 50 new owners per hour for the whole hub. Sign-ins: a token bucket per tenant (RFC 130, 136).                                                                                                                                                                                                                                                                                                         |
 | Blocks               | The hub's administrator blocks a repository or an owner at `/moderation/blocks`. A block stops registration, renewal, sign-in, code exchange, and refresh at once, in the transaction that reads it (RFC 135).                                                                                                                                                                                                                                                               |
 | Exemptions           | The hub's administrator exempts one app (a repository's production app, or its preview app with its development servers, bound to the repository's recorded owner) or every app from the sign-in page at `/moderation/sign-in-page`, with a reason and one event per change. They are the one lever of the page, and the broker applies them (decision 5).                                                                                                                   |
+| Connector grants     | The hub's administrator grants one app (bound to the repository's recorded owner) a connector that the policy does not give it, at `/moderation/connector-grants`, with a reason and one event per change. Every step of a sign-in reads the grants again (decision 10).                                                                                                                                                                                                     |
 | Ownership            | The tenant records its owner from the newest accepted GitHub token (`iat`); an older token of another owner is refused, so a transfer cannot be undone by a replay (RFC 136).                                                                                                                                                                                                                                                                                                |
 | Subjects             | `sub` is `<provider>:<the provider's id>`, public, the same in every app (RFC 134).                                                                                                                                                                                                                                                                                                                                                                                          |
 | Invariants           | `packages/identity-broker/docs/invariants.md`, checked by the model-based tests (RFC 136).                                                                                                                                                                                                                                                                                                                                                                                   |
@@ -53,8 +62,10 @@ What stays. Each line names the document that holds the detail.
 
 - `firstParty`, `connector` on the app, `reserved` on a connector, `ownRepositoryIds`, and
   `thirdPartyConnector` go.
-- A hub offers connectors. Every connector is public: available to the registrations that the policy
-  allows, with its OAuth client secret private to the hub. Our hub offers `google` and `github`.
+- A hub offers connectors, each available to the registrations that the policy allows or that the
+  hub's administrator granted (decision 10), with its OAuth client secret private to the hub. Our
+  hub offers four: the private `google` and `github`, and the public `google-apps` and `github-apps`
+  (decision 9).
 - `POST /hub-clients` takes `connectors: string[]`: at least one name, each `[a-z0-9-]{1,64}`,
   duplicates collapsed, order ignored. Each must be a connector of the hub and one that the policy
   allows this registration. The hub records the set on the client; the 201 answer and the RFC 7592
@@ -163,9 +174,9 @@ Where each input comes from, so a policy knows what it can trust:
 ### 4. Discovery
 
 The discovery document adds `connectors_supported`, the names of the hub's connectors, such as
-`["google", "github"]`. OIDC Discovery section 3 and RFC 8414 section 2 allow additional metadata,
-so this is an extension, not a departure; the name is unregistered. What a given client may use is
-in its registration answer, not in discovery.
+`["google", "github", "google-apps", "github-apps"]`. OIDC Discovery section 3 and RFC 8414 section
+2 allow additional metadata, so this is an extension, not a departure; the name is unregistered.
+What a given client may use is in its registration answer, not in discovery.
 
 ### 5. One sign-in page
 
@@ -244,7 +255,11 @@ registration: {
   privacy: "https://samebase.com/privacy",
   moderationKey: () => env.HUB_MODERATION_KEY,
   policy: (registration) => ({
-    connectors: ["google", "github"],
+    // The operator gets every connector in code; every other app the public pair, plus the
+    // private connectors that the admin grants its app (decision 10).
+    connectors: samebase(registration)
+      ? ["google", "github", "google-apps", "github-apps"]
+      : ["google-apps", "github-apps"],
     resources:
       samebase(registration) && registration.app === "samebase-connections"
         ? ["convex", "cloudflare", "github"]
@@ -260,13 +275,49 @@ registration: {
 
 - The owner id is checked with the repository id: a transferred repository keeps its numeric id, and
   the stale-proof rule stops only a replay of the old owner, not the new owner's forward claim.
-- `google` is the Google OAuth client of the public project (today `google-apps`), with
-  `selectAccount: true`. `github` is a new public GitHub OAuth App for every app of the hub, also
-  with `selectAccount: true` (GitHub's `prompt=select_account`, changelog 2024-06-07). The private
-  Google client and the team's GitHub login OAuth App leave the hub. samebase.com, the owner's other
-  apps, and every stranger's app go through the same two connectors.
+- Four connectors, two per provider, each with `selectAccount: true` (GitHub's
+  `prompt=select_account`, changelog 2024-06-07):
+
+  | Connector     | Credentials                                                 | Who may use it                                |
+  | ------------- | ----------------------------------------------------------- | --------------------------------------------- |
+  | `google`      | The operator's private Google client                        | The operator, and apps the admin grants it to |
+  | `github`      | The operator's private GitHub OAuth App, "Samebase Account" | The operator, and apps the admin grants it to |
+  | `google-apps` | The public Google client named "Samebase"                   | Every app                                     |
+  | `github-apps` | The public GitHub OAuth App named "Samebase"                | Every app                                     |
+
+- The operator is samebase/samebase under the samebase organization: samebase.com and this hub. It
+  gets every connector in code, so no mistake on the admin page can lock samebase.com out.
+- A user's `sub` comes from the provider: `google:<id>` through `google` and through `google-apps`
+  alike. The `connector` claim names the connector; an app keys accounts by `sub` and checks
+  `connector` against its method's connector name, not against the provider.
 - No private repository id or name is in the code: samebase.com's repository and organization are
   public.
+
+### 10. Connector grants
+
+- The hub's administrator grants one broker app (a repository's production app, or its preview app
+  with its development clients) a connector that the policy does not give it, from samebase.com's
+  admin page (Connectors… on a client's menu), at `/moderation/connector-grants`, with a reason. The
+  broker keeps the row in `connectorGrants` and appends one `connector_grant_change` event per
+  change. A grant is additive: a client may enroll in and use the policy's connectors and its app's
+  granted ones, of the hub's configured connectors.
+- A grant is bound to the repository's recorded owner, as an exemption is: it counts only while the
+  tenant's recorded owner and the owner that registered the client are the grant's; at registration,
+  the owner of the incoming proof. A transfer stops it, an old client of a previous owner never gets
+  it, and it counts again if the repository comes back to that owner. Granting refuses a stale view
+  (409 `owner_changed`), revoking refuses a row bound to another owner than the one the admin saw.
+- Unlike an exemption, a grant is read at every step, in the transaction that decides it: the
+  registering mutation, the offered set at `/authorize`, `/continue`, the callback's claim and
+  completion, and code exchange. Revoking a grant stops a sign-in at its next step; issued tokens
+  and app sessions stay. A grant gives no API resource and skips no page; an exemption grants no
+  connector.
+- The default lives in the policy (hub code) and the exceptions in the broker's rows (the admin
+  page), so a hub copied as a template keeps its defaults in code and its grants out of it. This is
+  how Auth0 and FusionAuth enable connections per application and Cognito and Dex keep a provider
+  list per client; Auth0's third-party apps get only the connections opened to every app, and no
+  product lets a self-registered client choose the operator's private providers.
+- A client uses a granted connector only after it enrolls in it: its next deploy registers a new
+  client with the new set (alchemy-convex 0.33.0 replaces a client whose set differs).
 
 ## Non-goals
 
@@ -297,14 +348,15 @@ registration: {
    on every GitHub sign-in, so no exempt app gets a user with no click.
 2. **Pause scope: samebase.com's production only**, so that its previews and development servers
    feel the pause as a stranger's app does.
-3. **One public Google client for every app**, samebase.com included, with the hub's homepage,
-   privacy notice, and Google verification describing the shared sign-in service. Codex found no
-   documented prohibition and named the shared reputation as the accepted cost.
+3. **Withdrawn.** This item said "one public Google client for every app, samebase.com included".
+   Nicu never decided it; it reversed what he had asked, that other apps must not use his private
+   client, and it put every app on his private Google client until the amendment of broker 0.26.0.
+   The hub keeps a private and a public client per provider (decisions 9 and 10).
 4. **Hub error pages for every refusal before the user continued** (decision 5).
 5. **The public clients are named "Samebase"** at Google and at GitHub, not "Samebase apps": they
-   are the one sign-in service of Samebase, for its own apps and for apps built with it, and the
-   brand matches the homepage that describes the service. The private clients that leave the hub
-   free the name.
+   are the sign-in service of Samebase for apps built with it, and the brand matches the homepage
+   that describes the service. The private clients keep their own names, such as "Samebase Account"
+   at GitHub.
 
 ## Validation
 
@@ -331,8 +383,14 @@ registration: {
   page; an exemption grants no API resource; GitHub's URL carries `prompt=select_account`. The hub's
   test shows samebase.com's production the page until an exemption is set through the moderation
   route. Property C plays the every-app exemption, the one lever of the page.
-- A stranger walkthrough on `samebase/base`: register with `["google", "github"]`, sign in through
-  both, see the page on a preview and in production.
+- A stranger walkthrough on `samebase/base`: register with `["google-apps", "github-apps"]`, sign in
+  through both, see the page on a preview and in production; a registration with `["google"]` is
+  refused with the public pair as the allowed names.
+- Connector grants (decision 10): a grant opens a private connector to one app only, not to its
+  preview app or another repository; a transfer stops it and its return restarts it for the owner's
+  clients only; a stale grant or revoke is refused; a revoke during a held callback refuses the
+  completion, and one after the code refuses the exchange; a grant gives no API resource and skips
+  no page (`src/client/connectorGrants.test.ts`).
 - After the rollout: sign in to samebase.com through both connectors with an existing account, and
   reconnect Cloudflare and GitHub.
 
@@ -383,6 +441,21 @@ hub has no outside users yet.
    samebase.com's production shows the hub's page like every app; the admin then sets the exemption
    of samebase.com's production app on samebase.com's admin page (Skip the sign-in page), which
    brings back its straight hop to Google or GitHub.
+8. The amendment of broker 0.26.0, the four connectors and the grants: additive, with no data to
+   clear. Its push fails while a required variable is missing, so in this order: a. Nicu changes the
+   callback of the public "Samebase" GitHub OAuth App to
+   `https://auth.samebase.com/connectors/github-apps/callback` and generates its secret, and checks
+   that the public Google client lists `https://auth.samebase.com/connectors/google-apps/callback`.
+   The GitHub environment `identity-hub` gets `AUTH_GITHUB_APPS_CLIENT_ID` and
+   `AUTH_GITHUB_APPS_CLIENT_SECRET`; `GOOGLE_APPS_CLIENT_ID` and `GOOGLE_APPS_CLIENT_SECRET` are
+   already there. b. Merge; the hub deploys with four connectors. Every app keeps its client and its
+   enrollment. An app enrolled in `google` or `github` that is not the operator's and has no grant
+   cannot sign in through them from then on. c. On samebase.com's admin page, Connectors… grants
+   `google` to the production apps of the owner's other apps that keep the private client. d.
+   Bristol and the starter move to `google-apps` (the starter also to `github-apps`) in their own
+   pull requests, each with the consumer fix of `docs/consumers.md`: a profile mapping that checks
+   `connector` against the method's connector name and keys the account by the provider in `sub`, as
+   samebase.com's `readHubProfile` now does. Then the starter manifest is pinned again.
 
 ## Sources
 

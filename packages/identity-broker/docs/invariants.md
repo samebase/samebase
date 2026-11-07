@@ -41,6 +41,12 @@ answers is not seen by that action's second decision: the request completes unde
 it started with, and the next request refuses (RFC 137 decision 2). The model's policy is a closure
 that every decision reads at once, so the stories cannot show that window.
 
+A connector grant (RFC 137 decision 10) is a row that every connector-sensitive mutation reads in
+its own transaction, as a block is: a revoked grant stops the next step of a sign-in, and an
+enrollment that names a connector outside the policy's and the app's grants is refused at
+registration, also when the grant goes while the host checked. Its tests are in
+`src/client/connectorGrants.test.ts`; the model-based properties do not play grants yet.
+
 Property A (`src/client/registration.model.test.ts`) covers registration and ownership, with the
 policy's enrollment rule and pause. Property B (`src/client/refresh.model.test.ts`) covers API
 authorization and refresh, with the pause and a withdrawn resource. Property C
