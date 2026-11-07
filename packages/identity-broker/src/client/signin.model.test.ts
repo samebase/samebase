@@ -22,9 +22,11 @@ import {
 
 // RFC 136, property C (RFC 137): sign-in. Random stories of `/authorize` with a requested set, the
 // page's Continue links (edited ones too), connector callbacks whose provider answer is held
-// between `callbackStart` and `callbackFinish`, code redemptions, policy changes, blocks, and clock
-// steps, played through `fetchBroker` against the real component. The model knows each client's
-// enrollment and the hub's policy of the moment; it never reads what is allowed back from the rows.
+// between `callbackStart` and `callbackFinish` (also on another connector's route), code
+// redemptions, policy changes, blocks, repository transfers, and clock steps, played through
+// `fetchBroker` against the real component. The model knows each client's enrollment, each
+// request's set, and the hub's policy of the moment; it never reads what is allowed back from the
+// rows.
 
 afterEach(() => {
   vi.useRealTimers();
@@ -63,12 +65,15 @@ type PolicyName = keyof typeof POLICIES;
 type Command =
   | { kind: "authorize"; client: number; requested: RequestName }
   | { kind: "continue"; request: number; connector: ConnectorName }
-  | { kind: "callbackStart"; upstream: number }
+  /** `crossed`: the callback comes back on the other connector's route, with the same state. */
+  | { kind: "callbackStart"; upstream: number; route: "own" | "crossed" }
   | { kind: "callbackFinish"; attempt: number; outcome: SignInOutcome }
   | { kind: "redeem"; code: number }
   | { kind: "policy"; connectors: PolicyName; consent: boolean; paused: boolean }
   | { kind: "block"; action: "block" | "unblock"; scope: "repository"; githubId: Repository }
   | { kind: "block"; action: "block" | "unblock"; scope: "owner"; githubId: Owner }
+  /** GitHub transfers the repository, and a run of its new owner registers a client. */
+  | { kind: "transfer"; repository: Repository; owner: Owner }
   | { kind: "tick"; ms: number };
 
 const repositoryHandle = (id: string) =>
@@ -97,6 +102,10 @@ const commandArbitrary: fc.Arbitrary<Command> = fc.oneof(
     arbitrary: fc.record({
       kind: fc.constant("callbackStart" as const),
       upstream: fc.nat({ max: 7 }),
+      route: fc.oneof(
+        { weight: 5, arbitrary: fc.constant("own" as const) },
+        { weight: 1, arbitrary: fc.constant("crossed" as const) },
+      ),
     }),
   },
   {
@@ -139,6 +148,14 @@ const commandArbitrary: fc.Arbitrary<Command> = fc.oneof(
   },
   {
     weight: 1,
+    arbitrary: fc.record({
+      kind: fc.constant("transfer" as const),
+      repository: fc.constantFrom(...REPOSITORIES),
+      owner: fc.constantFrom(...OWNERS),
+    }),
+  },
+  {
+    weight: 1,
     arbitrary: fc.record({ kind: fc.constant("tick" as const), ms: fc.constantFrom(...TICKS) }),
   },
 );
@@ -170,6 +187,8 @@ type Upstream = {
   handle: string;
   client: Client;
   connector: string;
+  /** The set of the request that sent the browser there. */
+  requested: readonly string[];
   callback: URL;
   cookie: { Cookie: string };
   verifier: string;
@@ -188,6 +207,7 @@ type Code = {
   handle: string;
   client: Client;
   connector: string;
+  requested: readonly string[];
   code: string;
   verifier: string;
   redeemed: boolean;
@@ -210,10 +230,15 @@ function createModel(clients: Client[], policy: PolicyState) {
 
 type Model = ReturnType<typeof createModel>;
 
-/** The connectors the client may use now: its enrollment and the policy of the moment. */
-function allowedNow(model: Model, client: Client) {
+/**
+ * The connectors the client may use now: its enrollment and the policy of the moment, inside the
+ * set of a request when one is given.
+ */
+function allowedNow(model: Model, client: Client, requested?: readonly string[]) {
   const policy: readonly string[] = POLICIES[model.policy.connectors];
-  return client.connectors.filter((name) => policy.includes(name));
+  return client.connectors.filter(
+    (name) => policy.includes(name) && (requested === undefined || requested.includes(name)),
+  );
 }
 
 /** Why the client may not sign anyone in now, or null. */
@@ -265,7 +290,7 @@ function checkHop(
   requested: readonly string[],
   connector: string,
 ) {
-  const usable = allowedNow(model, client).filter((name) => requested.includes(name));
+  const usable = allowedNow(model, client, requested);
   check(
     checks,
     "enrollmentHonored",
@@ -281,34 +306,84 @@ function checkHop(
   );
 }
 
-/** The three clients of a story, registered at `POST /hub-clients` by runs of their repository. */
-async function registerClients(h: Harness, world: World) {
-  const clients: Client[] = [];
-  for (const [index, spec] of CLIENTS.entries()) {
-    const proof = await world.github.prove(spec.repository, spec.stage);
-    world.hosts.serve({ outcome: "present", repositoryId: spec.repository });
-    const redirectUri = `https://app-a-${spec.stage}.r${spec.repository}.example/auth/hub/callback`;
-    const response = await postHubClient(h, proof.token, {
-      app: "app-a",
-      redirectUri,
-      softwareVersion: "abc123",
-      connectors: [...spec.connectors],
-    });
-    if (response.status !== 201) {
-      throw new Error(`The setup registration of C${index + 1} answered ${response.status}`);
-    }
-    const answer: NewClient = await response.json();
-    clients.push({
-      handle: `C${index + 1}`,
-      clientId: answer.client_id,
-      clientSecret: answer.client_secret,
-      redirectUri,
-      repository: spec.repository,
-      ownerId: proof.ownerId,
-      connectors: spec.connectors,
-    });
+/**
+ * A client of the repository, registered at `POST /hub-clients` by a run of its current owner.
+ * Null when the hub refused the run.
+ */
+async function registerClient(
+  h: Harness,
+  world: World,
+  model: { clients: Client[] },
+  spec: { repository: string; stage: string; connectors: readonly string[] },
+) {
+  const proof = await world.github.prove(spec.repository, spec.stage);
+  world.hosts.serve({ outcome: "present", repositoryId: spec.repository });
+  const redirectUri = `https://app-a-${spec.stage}.r${spec.repository}.example/auth/hub/callback`;
+  const response = await postHubClient(h, proof.token, {
+    app: "app-a",
+    redirectUri,
+    softwareVersion: "abc123",
+    connectors: [...spec.connectors],
+  });
+  if (response.status !== 201) {
+    return null;
   }
-  return clients;
+  const answer: NewClient = await response.json();
+  const client: Client = {
+    handle: `C${model.clients.length + 1}`,
+    clientId: answer.client_id,
+    clientSecret: answer.client_secret,
+    redirectUri,
+    repository: spec.repository,
+    ownerId: proof.ownerId,
+    connectors: spec.connectors,
+  };
+  model.clients.push(client);
+  return client;
+}
+
+/** The three clients of a story. */
+async function registerClients(h: Harness, world: World) {
+  const model = { clients: new Array<Client>() };
+  for (const [index, spec] of CLIENTS.entries()) {
+    if ((await registerClient(h, world, model, spec)) === null) {
+      throw new Error(`The setup registration of C${index + 1} was refused`);
+    }
+  }
+  return model.clients;
+}
+
+/**
+ * GitHub transfers the repository, and a run of its new owner registers a production client, which
+ * moves the tenant's owner at the hub: the clients of the repository now belong to that owner, and
+ * a decision made on the old one is stale. A refused run leaves the fake GitHub as it was.
+ */
+async function playTransfer(
+  h: Harness,
+  world: World,
+  model: Model,
+  command: Extract<Command, { kind: "transfer" }>,
+  story: Story,
+) {
+  const from = world.github.ownerOf(command.repository);
+  const label = `transfer ${repositoryHandle(command.repository)} from ${ownerHandle(from)} to ${ownerHandle(command.owner)}`;
+  world.github.transfer(command.repository, command.owner);
+  const client = await registerClient(h, world, model, {
+    repository: command.repository,
+    stage: "prod",
+    connectors: ["fake"],
+  });
+  if (client === null) {
+    world.github.transfer(command.repository, from);
+    story.trace.push(`${label}: the run was refused, no transfer`);
+    return;
+  }
+  for (const owned of model.clients) {
+    if (owned.repository === command.repository) {
+      owned.ownerId = command.owner;
+    }
+  }
+  story.trace.push(`${label}: ${client.handle} registered`);
 }
 
 async function playAuthorize(
@@ -338,7 +413,7 @@ async function playAuthorize(
   const response = await h.fetchBroker(`${ISSUER}/authorize?${params}`);
   checkAnswer(checks, label, response);
   const requested = named.length === 0 ? client.connectors : named;
-  const usable = allowedNow(model, client).filter((name) => requested.includes(name));
+  const usable = allowedNow(model, client, requested);
   const stop = stopReason(model, client);
   const hop = providerRedirect(response);
   if (hop !== null) {
@@ -347,6 +422,7 @@ async function playAuthorize(
       handle: `U${model.upstreams.length + 1}`,
       client,
       connector: hop.connector,
+      requested,
       callback: hop.callback,
       cookie: txnCookie(response),
       verifier,
@@ -422,6 +498,7 @@ async function playContinue(
     handle: `U${model.upstreams.length + 1}`,
     client: page.client,
     connector: hop.connector,
+    requested: page.requested,
     callback: hop.callback,
     cookie: page.cookie,
     verifier: page.verifier,
@@ -445,9 +522,15 @@ async function playCallbackStart(
     return;
   }
   const { client } = upstream;
-  const label = `callback ${upstream.handle} (${client.handle}, ${upstream.connector})`;
+  const crossed = command.route === "crossed";
+  const other = CONNECTORS.find((name) => name !== upstream.connector) ?? upstream.connector;
+  const callback = new URL(upstream.callback);
+  if (crossed) {
+    callback.pathname = `/connectors/${other}/callback`;
+  }
+  const label = `callback ${upstream.handle} (${client.handle}, ${upstream.connector})${crossed ? ` on the route of ${other}` : ""}`;
   const arrival = world.provider.expectSignIn();
-  const response = h.fetchBroker(upstream.callback, { headers: upstream.cookie });
+  const response = h.fetchBroker(callback, { headers: upstream.cookie });
   const first: { held: HeldSignIn } | { done: Response } = await Promise.race([
     arrival.then((held) => ({ held })),
     response.then((done) => ({ done })),
@@ -461,13 +544,16 @@ async function playCallbackStart(
     );
     return;
   }
-  // The provider is asked only for a connector the client may use now, and never while stopped.
-  const usable = allowedNow(model, client);
+  // The provider is asked only on the connector's own route, for a connector the client may use
+  // now inside the request's set, and never while stopped.
+  const usable = allowedNow(model, client, upstream.requested);
   check(
     checks,
     "enrollmentHonored",
-    usable.includes(upstream.connector),
-    `${label} reached the provider, outside the usable set ${usable.join(", ") || "(none)"}`,
+    !crossed && usable.includes(upstream.connector),
+    crossed
+      ? `${label} reached the provider through another connector's route`
+      : `${label} reached the provider, outside the usable set ${usable.join(", ") || "(none)"}`,
   );
   const stop = stopReason(model, client);
   check(
@@ -495,10 +581,11 @@ async function playCallbackFinish(
   story: Story,
 ) {
   const { upstream } = attempt;
+  const { client } = upstream;
   attempt.open = false;
   attempt.held.answer(outcome);
   const response = await attempt.response;
-  const label = `callback finish ${attempt.handle} (${upstream.client.handle}, ${upstream.connector}) with ${outcome}`;
+  const label = `callback finish ${attempt.handle} (${client.handle}, ${upstream.connector}) with ${outcome}`;
   checkAnswer(checks, label, response);
   const location = new URL(response.headers.get("location") ?? "", ISSUER);
   const code = location.searchParams.get("code");
@@ -506,10 +593,22 @@ async function playCallbackFinish(
     story.trace.push(`${label}: ${response.status} ${location.searchParams.get("error") ?? ""}`);
     return;
   }
+  // A code is issued only under the restrictions of this moment: what landed while the provider
+  // answered counts.
+  const usable = allowedNow(model, client, upstream.requested);
+  check(
+    checks,
+    "enrollmentHonored",
+    usable.includes(upstream.connector),
+    `${label} issued a code through ${upstream.connector}, outside the usable set ${usable.join(", ") || "(none)"}`,
+  );
+  const stop = stopReason(model, client);
+  check(checks, "noSignInWhenStopped", stop === null, `${label} issued a code while ${stop}`);
   const issued: Code = {
     handle: `K${model.codes.length + 1}`,
-    client: upstream.client,
+    client,
     connector: upstream.connector,
+    requested: upstream.requested,
     code,
     verifier: upstream.verifier,
     redeemed: false,
@@ -553,7 +652,7 @@ async function playRedeem(h: Harness, model: Model, code: Code, checks: Checks, 
     claim === code.connector,
     `${label} issued an id_token whose connector claim is ${JSON.stringify(claim)}`,
   );
-  const usable = allowedNow(model, client);
+  const usable = allowedNow(model, client, code.requested);
   check(
     checks,
     "enrollmentHonored",
@@ -623,6 +722,8 @@ async function playCommand(
       }
       return;
     }
+    case "transfer":
+      return await playTransfer(h, world, model, command, story);
     case "tick":
       advanceClock(command.ms);
       story.trace.push(`tick ${command.ms / 1_000}s`);
@@ -707,13 +808,31 @@ describe("RFC 136 property C regressions", () => {
     ]);
   });
 
+  it("a callback on another connector's route reaches nothing, and the request still waits for its own", async () => {
+    const trace = await replay(
+      [
+        { kind: "policy", connectors: "all", consent: false, paused: false },
+        { kind: "authorize", client: 1, requested: "fake" },
+        { kind: "callbackStart", upstream: 0, route: "crossed" },
+        { kind: "callbackStart", upstream: 0, route: "own" },
+        { kind: "callbackFinish", attempt: 0, outcome: "identity" },
+      ],
+      "enrollmentHonored",
+    );
+    expect(trace).toContain(
+      "callback U1 (C2, fake) on the route of other: 400 , the provider saw nothing",
+    );
+    expect(trace).toContain("callback U1 (C2, fake): A1 held at the provider");
+    expect(trace).toContain("callback finish A1 (C2, fake) with identity: K1");
+  });
+
   it("a connector withdrawn while the user is at the provider is not completed", async () => {
     const trace = await replay(
       [
         { kind: "policy", connectors: "all", consent: false, paused: false },
         { kind: "authorize", client: 1, requested: "other" },
         { kind: "policy", connectors: "fakeOnly", consent: false, paused: false },
-        { kind: "callbackStart", upstream: 0 },
+        { kind: "callbackStart", upstream: 0, route: "own" },
         { kind: "callbackFinish", attempt: 0, outcome: "identity" },
         { kind: "redeem", code: 0 },
       ],
@@ -723,12 +842,12 @@ describe("RFC 136 property C regressions", () => {
     expect(trace).toContain("callback U1 (C2, other): 302 access_denied, the provider saw nothing");
   });
 
-  it("a connector withdrawn while the provider answers gives no id_token", async () => {
+  it("a connector withdrawn while the provider answers completes no sign-in", async () => {
     const trace = await replay(
       [
         { kind: "policy", connectors: "all", consent: false, paused: false },
         { kind: "authorize", client: 2, requested: "none" },
-        { kind: "callbackStart", upstream: 0 },
+        { kind: "callbackStart", upstream: 0, route: "own" },
         { kind: "policy", connectors: "fakeOnly", consent: false, paused: false },
         { kind: "callbackFinish", attempt: 0, outcome: "identity" },
         { kind: "redeem", code: 0 },
@@ -736,8 +855,45 @@ describe("RFC 136 property C regressions", () => {
       "enrollmentHonored",
     );
     expect(trace).toContain("callback U1 (C3, other): A1 held at the provider");
-    expect(trace).toContain("callback finish A1 (C3, other) with identity: K1");
-    expect(trace).toContain("redeem K1 (C3, other): 400 invalid_grant");
+    expect(trace).toContain("callback finish A1 (C3, other) with identity: 302 access_denied");
+    expect(trace).toContain("redeem: no code yet, skipped");
+  });
+
+  it("a block that lands while the provider answers completes no sign-in", async () => {
+    const trace = await replay(
+      [
+        { kind: "policy", connectors: "all", consent: false, paused: false },
+        { kind: "authorize", client: 0, requested: "none" },
+        { kind: "callbackStart", upstream: 0, route: "own" },
+        { kind: "block", action: "block", scope: "owner", githubId: "201" },
+        { kind: "callbackFinish", attempt: 0, outcome: "identity" },
+      ],
+      "noSignInWhenStopped",
+    );
+    expect(trace).toContain("callback finish A1 (C1, fake) with identity: 302 access_denied");
+  });
+
+  it("a transfer while the provider answers completes the sign-in on the new owner's policy", async () => {
+    const trace = await replay(
+      [
+        { kind: "policy", connectors: "all", consent: false, paused: false },
+        { kind: "authorize", client: 0, requested: "none" },
+        { kind: "callbackStart", upstream: 0, route: "own" },
+        // The new owner's proof must be newer than the setup's, by a second.
+        { kind: "tick", ms: 1_000 },
+        { kind: "transfer", repository: "101", owner: "202" },
+        { kind: "callbackFinish", attempt: 0, outcome: "identity" },
+        { kind: "redeem", code: 0 },
+        { kind: "block", action: "block", scope: "owner", githubId: "202" },
+        { kind: "authorize", client: 0, requested: "none" },
+      ],
+      "noSignInWhenStopped",
+    );
+    expect(trace).toContain("transfer R1 from O1 to O2: C4 registered");
+    expect(trace).toContain("callback finish A1 (C1, fake) with identity: K1");
+    expect(trace).toContain("redeem K1 (C1, fake): 200 ");
+    // The clients of the repository belong to the new owner: its block stops them.
+    expect(trace.at(-1)).toBe("authorize C1 (none): 403");
   });
 
   it("a pause that lands during the sign-in gives no id_token, and its end restores nothing issued", async () => {
@@ -745,7 +901,7 @@ describe("RFC 136 property C regressions", () => {
       [
         { kind: "policy", connectors: "all", consent: false, paused: false },
         { kind: "authorize", client: 0, requested: "none" },
-        { kind: "callbackStart", upstream: 0 },
+        { kind: "callbackStart", upstream: 0, route: "own" },
         { kind: "callbackFinish", attempt: 0, outcome: "identity" },
         { kind: "policy", connectors: "all", consent: false, paused: true },
         { kind: "redeem", code: 0 },

@@ -337,6 +337,14 @@ async function playRefreshStart(
     );
     return;
   }
+  // A stopped refresh is refused at the admission, before anything reaches the provider.
+  const stop = stopReason(model, client);
+  check(
+    checks,
+    "noRefreshWhenStopped",
+    stop === null,
+    `${label} reached the provider while ${stop}`,
+  );
   const attempt: Attempt = {
     handle: `A${model.attempts.length + 1}`,
     grant,
