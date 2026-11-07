@@ -1333,3 +1333,200 @@ describe("cleanup", () => {
     expect(left.map((row) => row.requestId)).toEqual(["live"]);
   });
 });
+
+/** The id_token and the `/userinfo` answer of one completed sign-in with `scope`. */
+async function signedInClaims(h: Harness, clientId: string, clientSecret: string, scope: string) {
+  const { verifier, challenge } = await pkce();
+  const back = await completeUpstream(
+    h,
+    await h.fetchBroker(authorizeUrl(h, { clientId, challenge, extra: { scope } })),
+  );
+  const code = new URL(back.headers.get("location") ?? "").searchParams.get("code") ?? "";
+  const response = await exchange(h, { code, clientId, clientSecret, verifier });
+  expect(response.status).toBe(200);
+  const tokens: { id_token: string; access_token: string } = await response.json();
+  const userinfo = await h.fetchBroker(`${ISSUER}/userinfo`, {
+    headers: { Authorization: `Bearer ${tokens.access_token}` },
+  });
+  expect(userinfo.status).toBe(200);
+  const answer: Record<string, unknown> = await userinfo.json();
+  return [decodeJwt(tokens.id_token), answer];
+}
+
+// Rules of the request handlers that mutation testing (StrykerJS) found no test for: each test
+// fails when the rule is weakened, such as a cookie check that accepts any cookie name.
+describe("handler rules at their edges", () => {
+  test("only the __Host- transaction cookie carries a sign-in, at /continue and at the callback", async () => {
+    const upstream = fakeUpstream();
+    const h = await createHarness({
+      connectors: [upstream.connector, { ...upstream.connector, name: "other" }],
+    });
+    const { clientId, clientSecret } = await h.registerClient({
+      appName: "My app",
+      redirectUri: REDIRECT_URI,
+    });
+    const { verifier, challenge } = await pkce();
+    const page = await h.fetchBroker(authorizeUrl(h, { clientId, challenge }));
+    expect(page.status).toBe(200);
+    const hostCookie = txnCookie(page);
+    // A sibling subdomain can plant an ordinary cookie, never a __Host- one. The name keeps its
+    // length, so a check that ignores the prefix reads the same request id from it.
+    const plantedCookie = { Cookie: hostCookie.Cookie.replace("__Host-", "planted") };
+    const requestId = hostCookie.Cookie.split("=")[0]?.replace("__Host-broker_txn_", "") ?? "";
+    const link = `${ISSUER}/continue?request=${requestId}&connector=fake`;
+
+    const plantedContinue = await h.fetchBroker(link, { headers: plantedCookie });
+    expect(plantedContinue.status).toBe(400);
+    expect(plantedContinue.headers.get("location")).toBeNull();
+
+    const started = await h.fetchBroker(link, { headers: hostCookie });
+    expect(started.status).toBe(302);
+    const provider = new URL(started.headers.get("location") ?? "");
+    const callback = new URL(provider.searchParams.get("redirect_uri") ?? "");
+    callback.searchParams.set("state", provider.searchParams.get("state") ?? "");
+    callback.searchParams.set("code", "upstream-code");
+
+    const plantedCallback = await h.fetchBroker(callback, { headers: plantedCookie });
+    expect(plantedCallback.status).toBe(400);
+    expect(plantedCallback.headers.get("location")).toBeNull();
+    expect(upstream.calls.filter((request) => request.method === "POST")).toHaveLength(0);
+
+    const back = await h.fetchBroker(callback, { headers: hostCookie });
+    expect(back.status).toBe(302);
+    const code = new URL(back.headers.get("location") ?? "").searchParams.get("code") ?? "";
+    expect((await exchange(h, { code, clientId, clientSecret, verifier })).status).toBe(200);
+  });
+
+  test.each(["false", "absent"] as const)(
+    "never upgrades an email whose verification is %s to verified",
+    async (verification) => {
+      const upstream = fakeUpstream().connector;
+      const h = await createHarness({
+        connectors: [
+          {
+            ...upstream,
+            identity: async (accessToken) => {
+              const identity = await upstream.identity(accessToken);
+              delete identity.emailVerified;
+              return verification === "false" ? { ...identity, emailVerified: false } : identity;
+            },
+          },
+        ],
+      });
+      const { clientId, clientSecret } = await h.registerClient({
+        appName: "My app",
+        redirectUri: REDIRECT_URI,
+      });
+      for (const claims of await signedInClaims(h, clientId, clientSecret, "openid email")) {
+        expect(claims["email"]).toBe("octo@example.com");
+        expect(claims["email_verified"]).toBe(false);
+      }
+    },
+  );
+
+  test("releases the picture only with the profile scope", async () => {
+    const picture = "https://github.com/images/error/octocat_happy.gif";
+    const upstream = fakeUpstream().connector;
+    const h = await createHarness({
+      connectors: [
+        {
+          ...upstream,
+          identity: async (accessToken) => ({ ...(await upstream.identity(accessToken)), picture }),
+        },
+      ],
+    });
+    const { clientId, clientSecret } = await h.registerClient({
+      appName: "My app",
+      redirectUri: REDIRECT_URI,
+    });
+    for (const scope of ["openid", "openid email", "openid profile"]) {
+      for (const claims of await signedInClaims(h, clientId, clientSecret, scope)) {
+        if (scope.includes("profile")) {
+          expect(claims["picture"]).toBe(picture);
+        } else {
+          expect(claims).not.toHaveProperty("picture");
+        }
+      }
+    }
+  });
+
+  test("sends no one to the provider when a block lands while the hub reads its discovery", async () => {
+    const providerIssuer = "https://block-during-discovery.test";
+    const h = await createHarness({
+      connectors: [{ ...fakeUpstream().connector, issuer: providerIssuer }],
+    });
+    const { clientId } = await h.registerClient({ appName: "My app", redirectUri: REDIRECT_URI });
+    const { challenge } = await pkce();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const request = new Request(input, init);
+        expect(request.url).toBe(`${providerIssuer}/.well-known/oauth-authorization-server`);
+        await h.t.mutation(api.moderation.setBlock, {
+          action: "block",
+          kind: "repository",
+          githubId: "1",
+          reason: "Blocked during discovery",
+          adminEmail: "admin@example.com",
+        });
+        return Response.json({
+          issuer: providerIssuer,
+          authorization_endpoint: `${providerIssuer}/authorize`,
+          token_endpoint: `${providerIssuer}/token`,
+          response_types_supported: ["code"],
+        });
+      }),
+    );
+
+    const response = await h.fetchBroker(authorizeUrl(h, { clientId, challenge }));
+    expect(response.status).toBe(400);
+    expect(response.headers.get("location")).toBeNull();
+    expect(await response.text()).toContain("no longer available");
+    const requests = await h.t.run(async (ctx) => await ctx.db.query("authRequests").collect());
+    expect(requests.every((request) => request.status === "pending")).toBe(true);
+  });
+
+  test("exchanges a code only from a form body", async () => {
+    const h = await createHarness({ connectors: [fakeUpstream().connector] });
+    const { clientId, clientSecret } = await h.registerClient({
+      appName: "My app",
+      redirectUri: REDIRECT_URI,
+    });
+    const { verifier, challenge } = await pkce();
+    const back = await completeUpstream(
+      h,
+      await h.fetchBroker(authorizeUrl(h, { clientId, challenge })),
+    );
+    const code = new URL(back.headers.get("location") ?? "").searchParams.get("code") ?? "";
+    const body = new URLSearchParams({
+      grant_type: "authorization_code",
+      client_id: clientId,
+      client_secret: clientSecret,
+      code,
+      code_verifier: verifier,
+    }).toString();
+    for (const contentType of ["text/plain", "application/json"]) {
+      const response = await h.fetchBroker(`${ISSUER}/token`, {
+        method: "POST",
+        headers: { "Content-Type": contentType },
+        body,
+      });
+      expect(response.status).toBe(415);
+      expect(await response.json()).toMatchObject({ error: "invalid_request" });
+    }
+    // The refused requests did not spend the code.
+    expect((await exchange(h, { code, clientId, clientSecret, verifier })).status).toBe(200);
+  });
+
+  test("answers 401 at /userinfo for a missing or invalid bearer token", async () => {
+    const h = await createHarness({ connectors: [fakeUpstream().connector] });
+    for (const headers of [{}, { Authorization: "Bearer invalid" }]) {
+      for (const method of ["GET", "POST"]) {
+        const response = await h.fetchBroker(`${ISSUER}/userinfo`, { method, headers });
+        expect(response.status).toBe(401);
+        expect(response.headers.get("www-authenticate")).toBe('Bearer error="invalid_token"');
+        expect(await response.json()).toMatchObject({ error: "invalid_token" });
+      }
+    }
+  });
+});
