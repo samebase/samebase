@@ -3,6 +3,15 @@
 What changed in Samebase, newest first. Each `v` number is the Samebase version that shipped the
 change. If a change needs action from you, the entry says so.
 
+## 2026-11-07
+
+- **v2297: Apps made from samebase/base need one update for sign-in.** The identity hub now asks
+  each app which sign-in providers it uses, and it shows a page that names the app before Google or
+  GitHub. An app made from [samebase/base](https://github.com/samebase/base) before today needs
+  `@samebase/alchemy-convex` 0.33.0 and `connectors` in `alchemy.run.ts`, and its sign-in fails
+  until it deploys them. Ask your agent to apply the starter changelog, or follow its v2297 entry.
+  New apps have it from the start.
+
 ## 2026-11-06
 
 - **v2286: See and delete your apps' sign-in clients.** Sign-in clients, in an organization's menu,
