@@ -1,25 +1,24 @@
 import { v, type Infer } from "convex/values";
 // oxlint-disable-next-line samebase/no-raw-public-convex-function-builders -- Component entrypoints are internal to the host; host functions enforce access.
 import { mutation, query, type QueryCtx } from "./_generated/server";
-import { tenantIdOf, tenantRow } from "./apps";
-import { appIdOf } from "./hubClients";
+import { tenantRow } from "./apps";
 import { vSignInPageTarget } from "./schema";
 
 // The exemptions from the sign-in page that the hub's administrator sets (RFC 137 decision 5, as
-// amended). The broker stores them and hands them to the host's policy as `admin`, next to a
-// registration's facts; the policy decides what they mean. The decision is read at `/authorize`
-// and nowhere later: a sign-in that passed `/authorize` finishes with that decision.
+// amended). The broker stores them and applies them itself: the page shows only when the host's
+// policy asks for it and no exemption covers the client (docs/design.md). The decision is read at
+// `/authorize` and nowhere later: a sign-in that passed `/authorize` finishes with that decision.
 
 const { array, boolean, literal, object, string, union } = v;
 
-/** The admin settings that the host's policy gets with the facts of a client. */
-export const vAdminSettings = object({
+/** Which exemptions cover a client, read with its facts in the same snapshot. */
+export const vExemption = object({
   /** The "every app" row exists. */
-  skipForEveryApp: boolean(),
+  everyApp: boolean(),
   /** A row of the client's app exists, bound to the tenant's recorded owner and the client's. */
-  skipForThisApp: boolean(),
+  thisApp: boolean(),
 });
-export type AdminSettings = Infer<typeof vAdminSettings>;
+export type Exemption = Infer<typeof vExemption>;
 
 async function everyAppRow(ctx: QueryCtx) {
   return await ctx.db
@@ -36,45 +35,25 @@ async function appRow(ctx: QueryCtx, appId: string) {
 }
 
 /**
- * The admin settings of a client of `appId`. The app's row counts only while the tenant's recorded
+ * The exemptions of a client of `appId`. The app's row counts only while the tenant's recorded
  * owner and the owner that registered the client are the row's owner: a transfer to another owner
  * stops it, and an old client of a previous owner never gets it. The row counts again if the
  * repository comes back to the same owner.
  */
-export async function adminSettingsOf(
+export async function exemptionOf(
   ctx: QueryCtx,
   args: { appId: string; tenantOwnerId: string | undefined; clientOwnerId: string },
-): Promise<AdminSettings> {
+): Promise<Exemption> {
   const app = await appRow(ctx, args.appId);
   return {
-    skipForEveryApp: (await everyAppRow(ctx)) !== null,
-    skipForThisApp:
+    everyApp: (await everyAppRow(ctx)) !== null,
+    thisApp:
       app !== null &&
       app.target.scope === "app" &&
       app.target.ownerId === args.tenantOwnerId &&
       app.target.ownerId === args.clientOwnerId,
   };
 }
-
-/**
- * The admin settings of a registration at `POST /hub-clients`, after its proof: the owner that
- * registers is the one the tenant records with the new client.
- */
-export const forRegistration = query({
-  args: {
-    githubRepositoryDatabaseId: string(),
-    githubOwnerId: string(),
-    app: string(),
-    production: boolean(),
-  },
-  returns: vAdminSettings,
-  handler: async (ctx, args) =>
-    await adminSettingsOf(ctx, {
-      appId: await appIdOf(tenantIdOf(args.githubRepositoryDatabaseId), args.app, args.production),
-      tenantOwnerId: args.githubOwnerId,
-      clientOwnerId: args.githubOwnerId,
-    }),
-});
 
 const vAppExemption = object({
   appId: string(),

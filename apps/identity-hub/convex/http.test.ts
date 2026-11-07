@@ -198,6 +198,7 @@ describe("the hub", () => {
       ),
     );
 
+    // The hub's policy asks for the page for both apps; the broker applies the exemption on top.
     expect((await signIn(trusted, "google")).status).toBe(302);
     expect((await signIn(other, "google")).status).toBe(200);
     await moderation("/moderation/sign-in-page", {

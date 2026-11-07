@@ -39,13 +39,8 @@ import {
 } from "./responses.js";
 import { hubClientsEndpoint, LOOPBACK_HOSTS } from "./hubClients.js";
 import { moderationEndpoints } from "./moderation.js";
-import {
-  decide,
-  policyArg,
-  type AdminSettings,
-  type Decision,
-  type Registration,
-} from "./policy.js";
+import { decide, policyArg, type Decision, type Registration } from "./policy.js";
+import type { Exemption } from "../component/signInPage.js";
 import {
   newClientCredentials,
   registrationEndpoints,
@@ -71,7 +66,7 @@ export {
 } from "./resourceProviders.js";
 export { createKeySet, parseKeySet, rotateKeySet, type KeySet } from "./keys.js";
 export { assertKeySetUsable } from "./jwt.js";
-export type { AdminSettings, Policy, Registration } from "./policy.js";
+export type { Policy, Registration } from "./policy.js";
 export type { RegistrationConfig } from "./registration.js";
 
 export type IdentityBrokerConfig = {
@@ -172,12 +167,12 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
   const decideFor = (found: {
     client: { connectors: string[] };
     registration: Registration | null;
-    admin: AdminSettings;
+    exemption: Exemption;
   }): Decision | null =>
     decide({
       policy: registration?.policy,
       registration: found.registration,
-      admin: found.admin,
+      exemption: found.exemption,
       enrollment: found.client.connectors,
       providers,
     });

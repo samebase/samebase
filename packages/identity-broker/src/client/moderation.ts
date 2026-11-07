@@ -101,24 +101,23 @@ export function moderationEndpoints(args: {
   const clientsPrefix = path("/moderation/clients/");
 
   /**
-   * A listed client with the tenant's recorded owner and what decides its sign-in page, by the
-   * hub's policy with the client's facts and admin settings: `shown`, or skipped by `every_app`, by
-   * `this_app`, or by another rule of the `policy`. Null when the policy has no facts or failed.
+   * A listed client with the tenant's recorded owner and what decides its sign-in page, as
+   * `/authorize` decides it (`decide` in policy.ts): skipped by the `every_app` or the `this_app`
+   * exemption, else `shown` when the hub's policy asks for it and skipped by the `policy` when it
+   * does not. Null when the policy has no facts or failed.
    */
   function clientAnswer(entry: ClientEntry) {
     const policy =
-      entry.registration === null
-        ? null
-        : evaluate(registration.policy, entry.registration, entry.admin);
+      entry.registration === null ? null : evaluate(registration.policy, entry.registration);
     const signInPage =
       policy === null
         ? null
-        : policy.consent
-          ? ("shown" as const)
-          : entry.admin.skipForEveryApp
-            ? ("every_app" as const)
-            : entry.admin.skipForThisApp
-              ? ("this_app" as const)
+        : entry.exemption.everyApp
+          ? ("every_app" as const)
+          : entry.exemption.thisApp
+            ? ("this_app" as const)
+            : policy.consent
+              ? ("shown" as const)
               : ("policy" as const);
     return { ...entry.client, ownerId: entry.ownerId, signInPage };
   }

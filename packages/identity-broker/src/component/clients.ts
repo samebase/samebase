@@ -4,7 +4,7 @@ import { mutation, query, type QueryCtx } from "./_generated/server";
 import type { Doc } from "./_generated/dataModel";
 import { appView, tenantRow, vApp } from "./apps";
 import { registrationOf, vRegistration } from "./policy";
-import { adminSettingsOf, vAdminSettings } from "./signInPage";
+import { exemptionOf, vExemption } from "./signInPage";
 import { vDeploymentType, vRegisteredBy, vTokenEndpointAuthMethod } from "./schema";
 import { removeClientGrants } from "./resourceRequests";
 
@@ -31,14 +31,15 @@ const vClient = object({
 
 /**
  * A client with its app and the facts the host's policy decides on. `registration` is null when the
- * app is gone or the client is not a repository's (`registrationOf`). `admin` is what the hub's
- * administrator set for the client (`signInPage.ts`), read in the same snapshot.
+ * app is gone or the client is not a repository's (`registrationOf`). `exemption` is which of the
+ * administrator's exemptions from the sign-in page cover the client (`signInPage.ts`), read in the
+ * same snapshot; the broker applies it, the policy never sees it.
  */
 export const vClientWithApp = object({
   client: vClient,
   app: v.union(vApp, v.null()),
   registration: v.union(vRegistration, v.null()),
-  admin: vAdminSettings,
+  exemption: vExemption,
 });
 
 export async function clientWithApp(ctx: QueryCtx, row: Doc<"clients">) {
@@ -52,7 +53,7 @@ export async function clientWithApp(ctx: QueryCtx, row: Doc<"clients">) {
     client,
     app: app === null ? null : await appView(ctx, app),
     registration: app === null ? null : await registrationOf(ctx, row, app),
-    admin: await adminSettingsOf(ctx, {
+    exemption: await exemptionOf(ctx, {
       appId: client.appId,
       tenantOwnerId: tenant?.ownerId,
       clientOwnerId: client.registeredBy.githubOwnerId,

@@ -75,8 +75,8 @@ A row in `blocks` stops a repository, or every repository of an owner: registrat
 sign-in, code exchange, and provider refresh read it. It is the one block state, and
 `moderation.setBlock` its one writer, which also appends the event. Our hub sets it from Block
 repository and Block owner on samebase.com's admin page, through `/moderation/blocks`. A row in
-`signInPageExemptions` is the other thing the admin sets (see Policy): it only feeds the policy, and
-a block wins over it.
+`signInPageExemptions` is the other thing the admin sets (see Policy): it only skips the sign-in
+page, and a block wins over it.
 
 ## Policy
 
@@ -88,17 +88,24 @@ the client's and the tenant's rows, so a changed policy applies to existing clie
 answer is the connectors the client may enroll in and use, the API resources (by provider name) it
 may authorize, whether the sign-in page asks for consent, and whether it is paused.
 
-Its second input, `admin`, is what the hub's administrator set, apart from the facts the app's
-registration proved: `skipForEveryApp` and `skipForThisApp`, from `signInPageExemptions`. The broker
-reads them with the facts, in the same query (`clientWithApp`, so `/authorize`, `/continue`, the
-callback, code exchange, refresh, and API authorization all see them), and at registration through
-`signInPage.forRegistration` after the proof; never from a request. A one-app row counts only while
-the tenant's recorded owner and the owner that registered the client are the row's owner, so a
-transfer stops it and an old client of a previous owner never gets it; it counts again if the
-repository comes back to the same owner. The broker gives them no meaning: the policy decides, and
-our hub turns them into `consent: false`. `signInPage.set` is their one writer, through
-`/moderation/sign-in-page`; it checks that the recorded owner is still the one the admin saw before
-it sets a one-app row, and appends a `sign_in_page_change` event in the same transaction.
+The hub's administrator can exempt one app, or every app, from the sign-in page
+(`signInPageExemptions`), and the broker applies that itself: the page shows only when the policy's
+`consent` asks for it and no exemption covers the client (`decide` in src/client/policy.ts). The
+broker reads the exemptions with the facts, in the same query (`clientWithApp`), never from a
+request, and they matter only at `/authorize`. A one-app row counts only while the tenant's recorded
+owner and the owner that registered the client are the row's owner, so a transfer stops it and an
+old client of a previous owner never gets it; it counts again if the repository comes back to the
+same owner. `signInPage.set` is their one writer, through `/moderation/sign-in-page`; it checks that
+the recorded owner is still the one the admin saw before it sets a one-app row, and appends a
+`sign_in_page_change` event in the same transaction.
+
+Decision: the broker applies the admin's exemptions, not the policy. The broker draws its own
+sign-in page, so it applies the admin's flag itself, as Keycloak's per-client "Consent required" and
+Auth0's first-party flag are applied by the server that owns the page. Ory Hydra passes its
+per-client `skip_consent` to a consent app only because Hydra has no page of its own. The policy
+keeps its one input, the registration's facts. The cost is that a hub cannot force the page for an
+exempt app; that needs no lever, because the admin who sets an exemption and the operator who writes
+the hub's policy are the same party.
 
 The policy runs in the host's HTTP action, once per request, at registration, `/authorize`,
 `/continue`, the connector callback (before the request is claimed, and again after the provider

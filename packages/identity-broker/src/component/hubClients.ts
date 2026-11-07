@@ -155,7 +155,7 @@ async function sha256Hex(input: string) {
 }
 
 /** The app of `app` in the repository's tenant: production, or previews and development clients. */
-export async function appIdOf(tenantId: string, app: string, production: boolean) {
+async function appIdOf(tenantId: string, app: string, production: boolean) {
   const appHash = (await sha256Hex(app)).slice(0, 32);
   return `${tenantId}-${appHash}${production ? "" : "-preview"}`;
 }

@@ -333,7 +333,6 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         { upstreamStateHash: string },
         {
           client: {
-            admin: { skipForEveryApp: boolean; skipForThisApp: boolean };
             app: {
               appId: string;
               createdAt: number;
@@ -374,6 +373,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
               tokenEndpointAuthMethod:
                 "client_secret_post" | "client_secret_basic";
             };
+            exemption: { everyApp: boolean; thisApp: boolean };
             registration: {
               app: string;
               deploymentType: "production" | "development" | "preview";
@@ -483,7 +483,6 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         "internal",
         { clientId: string },
         {
-          admin: { skipForEveryApp: boolean; skipForThisApp: boolean };
           app: {
             appId: string;
             createdAt: number;
@@ -524,6 +523,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             tokenEndpointAuthMethod:
               "client_secret_post" | "client_secret_basic";
           };
+          exemption: { everyApp: boolean; thisApp: boolean };
           registration: {
             app: string;
             deploymentType: "production" | "development" | "preview";
@@ -679,7 +679,6 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         {},
         {
           clients: Array<{
-            admin: { skipForEveryApp: boolean; skipForThisApp: boolean };
             client: {
               appId: string;
               clientId: string;
@@ -709,6 +708,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
               removeAt: number | null;
               renewedAt: number;
             };
+            exemption: { everyApp: boolean; thisApp: boolean };
             ownerId: string | null;
             registration: {
               app: string;
@@ -739,7 +739,6 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         "internal",
         { githubRepositoryDatabaseIds: Array<string> },
         Array<{
-          admin: { skipForEveryApp: boolean; skipForThisApp: boolean };
           client: {
             appId: string;
             clientId: string;
@@ -769,6 +768,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             removeAt: number | null;
             renewedAt: number;
           };
+          exemption: { everyApp: boolean; thisApp: boolean };
           ownerId: string | null;
           registration: {
             app: string;
@@ -1028,18 +1028,6 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
       >;
     };
     signInPage: {
-      forRegistration: FunctionReference<
-        "query",
-        "internal",
-        {
-          app: string;
-          githubOwnerId: string;
-          githubRepositoryDatabaseId: string;
-          production: boolean;
-        },
-        { skipForEveryApp: boolean; skipForThisApp: boolean },
-        Name
-      >;
       list: FunctionReference<
         "query",
         "internal",

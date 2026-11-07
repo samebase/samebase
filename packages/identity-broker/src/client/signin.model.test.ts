@@ -766,11 +766,12 @@ async function play(commands: Command[], checks: Checks, story: Story) {
   const policy: PolicyState = { connectors: "all", consent: true, paused: false };
   const h = await createModelHub({
     resources: [],
-    // As our hub: the every-app exemption skips the page, and changes nothing else.
-    policy: (_registration, admin) => ({
+    // The broker applies the every-app exemption on top of this answer: it skips the page, and
+    // changes nothing else.
+    policy: () => ({
       connectors: [...POLICIES[policy.connectors]],
       resources: [],
-      consent: policy.consent && !admin.skipForEveryApp,
+      consent: policy.consent,
       paused: policy.paused,
     }),
   });

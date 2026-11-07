@@ -465,9 +465,7 @@ test("a client gets the resources its policy names, at authorization and at the 
 });
 
 test("an exemption from the sign-in page grants no API resource", async () => {
-  const args = await setup((_registration, admin) =>
-    testPolicy({ resources: [], consent: !admin.skipForEveryApp }),
-  );
+  const args = await setup(() => testPolicy({ resources: [] }));
   await args.h.t.run(async (ctx) => {
     await ctx.db.insert("signInPageExemptions", {
       target: { scope: "every_app" },

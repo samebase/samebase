@@ -34,9 +34,8 @@ export const broker = defineIdentityBroker({
     terms: "https://samebase.com/terms",
     privacy: "https://samebase.com/privacy",
     moderationKey: () => env.HUB_MODERATION_KEY,
-    // The policy of RFC 137 decision 9. `admin` is what samebase.com's admin page set at
-    // `/moderation/sign-in-page`, which the broker reads from its rows.
-    policy: (registration, admin) => ({
+    // The policy of RFC 137 decision 9.
+    policy: (registration) => ({
       connectors: ["google", "github"],
       // The app that holds users' Cloudflare, Convex, and GitHub connections, proven by the
       // samebase repository and owner. Its sign-in app and every other app get none.
@@ -45,14 +44,11 @@ export const broker = defineIdentityBroker({
           ? ["convex", "cloudflare", "github"]
           : [],
       // The page names the app that gets the user, because Google's and GitHub's screens name only
-      // Samebase. The admin can skip it for one app or for every app. samebase.com's production is
-      // Samebase, so it goes straight to the connector that its button named. Its previews and
-      // development servers keep the page, as every other app.
-      consent: !(
-        admin.skipForEveryApp ||
-        admin.skipForThisApp ||
-        (samebase(registration) && registration.deploymentType === "production")
-      ),
+      // Samebase. samebase.com's production is Samebase, so it goes straight to the connector that
+      // its button named. Its previews and development servers keep the page, as every other app.
+      // The exemptions that samebase.com's admin page sets at `/moderation/sign-in-page`, for one
+      // app or for every app, are applied by the broker on top of this answer.
+      consent: !(samebase(registration) && registration.deploymentType === "production"),
       // samebase.com's production keeps running; its previews and development servers feel the
       // pause as a stranger's app does.
       paused:

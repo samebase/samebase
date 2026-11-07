@@ -18,11 +18,11 @@ import {
   testPolicy,
   type NewClient,
 } from "./hub.test.helper.js";
-import type { AdminSettings, PolicyFunction } from "./policy.js";
+import type { PolicyFunction } from "./policy.js";
 
 // The exemptions from the sign-in page (RFC 137 decision 5, as amended): the hub's administrator
-// sets them at `/moderation/sign-in-page`, the broker hands them to the policy as `admin`, and the
-// policy decides. The test hub's policy reads them as our hub does.
+// sets them at `/moderation/sign-in-page`, and the broker applies them itself. The test hub's
+// policy asks for the page for every client, so each skip below is the broker's.
 
 afterEach(() => {
   vi.useRealTimers();
@@ -30,8 +30,7 @@ afterEach(() => {
   vi.unstubAllEnvs();
 });
 
-const hubPolicy: PolicyFunction = (_registration, admin) =>
-  testPolicy({ consent: !(admin.skipForEveryApp || admin.skipForThisApp) });
+const hubPolicy: PolicyFunction = () => testPolicy({ consent: true });
 
 const PRODUCTION_APP = `gh-${REPOSITORY_ID}-${APP_HASH}`;
 const PREVIEW_APP = `${PRODUCTION_APP}-preview`;
@@ -304,43 +303,37 @@ describe("the exemptions from the sign-in page", () => {
     expect((await signIn(h, client)).went).toBe("provider");
   });
 
-  it("reach the policy at both registration paths, read from the rows after the proof", async () => {
-    const seen: Array<{ deploymentType: string } & AdminSettings> = [];
+  it("leave the page to the policy without an exemption, and skip it over the policy with one", async () => {
     const h = await createHub({
-      policy: (registration, admin) => {
-        seen.push({ deploymentType: registration.deploymentType, ...admin });
-        return testPolicy();
-      },
+      policy: (registration) => testPolicy({ consent: registration.repositoryId !== "82" }),
     });
+    const asks = await createClient(h);
+    const declines = await createClient(h, { repository_id: "82", repository: "octo-org/own" });
+
+    expect((await signIn(h, asks)).went).toBe("page");
+    expect((await signIn(h, declines)).went).toBe("provider");
+    await oneApp(h, true);
+    // The policy still asks for the page; the broker applies the exemption.
+    expect((await signIn(h, asks)).went).toBe("provider");
+    expect((await signIn(h, declines)).went).toBe("provider");
+  });
+
+  it("apply to a development client of the exempt preview app", async () => {
+    const h = await createHub({ policy: hubPolicy });
     await createClient(h);
-    await createPreviewClient(h);
-    expect(await (await oneApp(h, true)).json()).toEqual({ changed: true });
-    expect(await (await oneApp(h, true, PREVIEW_APP)).json()).toEqual({ changed: true });
     // A production registration replaces the app's initial access token: the newest one counts.
     const token = await createInitialAccessToken(h);
-    await createPreviewClient(h);
     stubProviders();
-    await createDevelopmentClient(h, token);
-    await everyApp(h, true);
-    await createClient(h, { repository_id: "81", repository: "octo-org/other" });
+    const development = await createDevelopmentClient(h, token);
 
-    expect(seen).toEqual([
-      { deploymentType: "production", skipForEveryApp: false, skipForThisApp: false },
-      { deploymentType: "preview", skipForEveryApp: false, skipForThisApp: false },
-      { deploymentType: "production", skipForEveryApp: false, skipForThisApp: true },
-      { deploymentType: "preview", skipForEveryApp: false, skipForThisApp: true },
-      { deploymentType: "development", skipForEveryApp: false, skipForThisApp: true },
-      { deploymentType: "production", skipForEveryApp: true, skipForThisApp: false },
-    ]);
+    expect((await signIn(h, development)).went).toBe("page");
+    expect(await (await oneApp(h, true, PREVIEW_APP)).json()).toEqual({ changed: true });
+    expect((await signIn(h, development)).went).toBe("provider");
   });
 
   it("tell the admin page what decides each client's page", async () => {
     const h = await createHub({
-      policy: (registration, admin) =>
-        testPolicy({
-          consent:
-            !(admin.skipForEveryApp || admin.skipForThisApp) && registration.repositoryId !== "82",
-        }),
+      policy: (registration) => testPolicy({ consent: registration.repositoryId !== "82" }),
     });
     await createClient(h);
     await createClient(h, { repository_id: "81", repository: "octo-org/other" });

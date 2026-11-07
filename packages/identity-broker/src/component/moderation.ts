@@ -5,7 +5,7 @@ import type { Doc } from "./_generated/dataModel";
 import { readBlock, tenantIdOf, tenantRow } from "./apps";
 import { registrationOf, vRegistration } from "./policy";
 import { vBlockKind, vDeploymentType } from "./schema";
-import { adminSettingsOf, vAdminSettings } from "./signInPage";
+import { exemptionOf, vExemption } from "./signInPage";
 
 // The database half of `/moderation/*` (src/client/moderation.ts). The answers keep the names that
 // samebase.com's admin page reads (apps/samebase/convex/hubClients/moderation.ts).
@@ -183,13 +183,13 @@ function repositoryIdOf(tenantId: string | undefined) {
 
 /**
  * A client of the lists, with what the HTTP endpoint needs to say what decides its sign-in page:
- * the tenant's recorded owner, the client's policy facts, and its admin settings.
+ * the tenant's recorded owner, the client's policy facts, and the exemptions that cover it.
  */
 const vClientEntry = object({
   client: vClientView,
   ownerId: union(string(), v.null()),
   registration: union(vRegistration, v.null()),
-  admin: vAdminSettings,
+  exemption: vExemption,
 });
 
 async function clientEntry(
@@ -202,7 +202,7 @@ async function clientEntry(
     client: clientView(client, repositoryIdOf(app?.tenantId)),
     ownerId: tenant?.ownerId ?? null,
     registration: app === null ? null : await registrationOf(ctx, client, app),
-    admin: await adminSettingsOf(ctx, {
+    exemption: await exemptionOf(ctx, {
       appId: client.appId,
       tenantOwnerId: tenant?.ownerId,
       clientOwnerId: client.registeredBy.githubOwnerId,
