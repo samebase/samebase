@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { getRouteApi } from "@tanstack/react-router";
 import { useAction } from "convex/react";
 import type { FunctionReturnType } from "convex/server";
-import { Ban, Eye, EyeOff, Loader2 } from "lucide-react";
+import { Ban, Eye, EyeOff, Loader2, Plug } from "lucide-react";
 import { useMemo, useState } from "react";
 import { api } from "../../convex/_generated/api";
 import { AppDialogContent } from "@/components/AppDialogContent";
@@ -10,6 +10,7 @@ import { AppSelectContent, AppSelectItem } from "@/components/AppSelect";
 import { formatTime, type HubClient, ownerOf } from "@/components/hubClients/hubClient";
 import { HubClientsTable } from "@/components/hubClients/HubClientsTable";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogDescription,
@@ -88,6 +89,30 @@ const SIGN_IN_PAGE_NOW = {
   this_app: "The hub skips its sign-in page for this app.",
 } as const;
 
+/**
+The app of a client, for its connector grants: its broker app (the production app, or the preview
+app with the development servers), the repository owner that the hub recorded, which a new grant
+binds to, and the connectors that the hub's policy already gives it.
+*/
+type ConnectorsTarget = {
+  appId: string;
+  ownerId: string;
+  name: string;
+  production: boolean;
+  policyConnectors: string[];
+};
+
+const connectorsTarget = (client: HubClient): ConnectorsTarget | null =>
+  client.ownerId === null || client.policyConnectors === null
+    ? null
+    : {
+        appId: client.appId,
+        ownerId: client.ownerId,
+        name: `${client.registeredBy.githubRepository} ${client.registeredBy.app}`,
+        production: client.deploymentType === "production",
+        policyConnectors: client.policyConnectors,
+      };
+
 const ownerTarget = (client: HubClient, clients: readonly HubClient[]): BlockTarget => ({
   kind: "owner",
   githubId: client.registeredBy.githubOwnerId,
@@ -106,6 +131,7 @@ export function AdminHubClientsPage() {
   const readOverview = useAction(api.hubClients.moderation.readOverview);
   const changeBlock = useAction(api.hubClients.moderation.changeBlock);
   const changeSignInPage = useAction(api.hubClients.moderation.changeSignInPage);
+  const changeConnectorGrant = useAction(api.hubClients.moderation.changeConnectorGrant);
   const overview = useQuery({
     queryKey: ["admin-hub-clients-overview"],
     queryFn: async () => await readOverview({}),
@@ -113,6 +139,7 @@ export function AdminHubClientsPage() {
   });
   const [blockTarget, setBlockTarget] = useState<BlockTarget | null>(null);
   const [signInPageTarget, setSignInPageTarget] = useState<SignInPageTarget | null>(null);
+  const [connectorsTargetOpen, setConnectorsTarget] = useState<ConnectorsTarget | null>(null);
   const refetch = async () => {
     await overview.refetch();
   };
@@ -147,6 +174,9 @@ export function AdminHubClientsPage() {
                 Blocks {overview.data.blockList.blocks.length}
               </TabsTrigger>
               <TabsTrigger value="sign-in-page">Sign-in page</TabsTrigger>
+              <TabsTrigger value="connector-grants">
+                Connector grants {overview.data.connectorGrants.grants.length}
+              </TabsTrigger>
             </TabsList>
             <TabsContent value="clients">
               <AdminClientsTable
@@ -154,6 +184,7 @@ export function AdminHubClientsPage() {
                 now={overview.dataUpdatedAt}
                 onBlock={setBlockTarget}
                 onSignInPage={setSignInPageTarget}
+                onConnectors={setConnectorsTarget}
               />
             </TabsContent>
             <TabsContent value="blocks">
@@ -170,7 +201,21 @@ export function AdminHubClientsPage() {
                 onChanged={refetch}
               />
             </TabsContent>
+            <TabsContent value="connector-grants">
+              <ConnectorGrantsSection
+                overview={overview.data}
+                changeConnectorGrant={changeConnectorGrant}
+                onChanged={refetch}
+              />
+            </TabsContent>
           </Tabs>
+          <ConnectorsDialog
+            target={connectorsTargetOpen}
+            overview={overview.data}
+            changeConnectorGrant={changeConnectorGrant}
+            onClose={() => setConnectorsTarget(null)}
+            onChanged={refetch}
+          />
           <BlockDialog
             target={blockTarget}
             changeBlock={changeBlock}
@@ -195,11 +240,13 @@ function AdminClientsTable({
   now,
   onBlock,
   onSignInPage,
+  onConnectors,
 }: {
   overview: Overview;
   now: number;
   onBlock: (target: BlockTarget) => void;
   onSignInPage: (target: SignInPageTarget) => void;
+  onConnectors: (target: ConnectorsTarget) => void;
 }) {
   const navigate = adminHubClientsRouteApi.useNavigate();
   const search = adminHubClientsRouteApi.useSearch();
@@ -247,6 +294,18 @@ function AdminClientsTable({
               Skip the sign-in page…
             </DropdownMenuItem>
           )}
+          <DropdownMenuItem
+            disabled={connectorsTarget(client) === null}
+            onSelect={() => {
+              const target = connectorsTarget(client);
+              if (target !== null) {
+                onConnectors(target);
+              }
+            }}
+          >
+            <Plug />
+            Connectors…
+          </DropdownMenuItem>
           <DropdownMenuItem
             variant="destructive"
             onSelect={() => onBlock(repositoryTarget(client, clients))}
@@ -792,6 +851,290 @@ function SignInPageSection({
               </Button>
             </li>
           ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+type ChangeConnectorGrant = ReturnType<
+  typeof useAction<typeof api.hubClients.moderation.changeConnectorGrant>
+>;
+
+/** What the hub answered to a grant that it did not change, for the admin. */
+const connectorGrantRefusal = (result: string) =>
+  result === "unknown_connector"
+    ? "The hub does not have this connector."
+    : signInPageRefusal(result);
+
+/**
+The private connectors of one app: a checkbox for each connector of the hub that its policy does not
+already give the app, checked when the app has a grant bound to the recorded owner. Save writes one
+grant or revoke for each changed box, with the reason.
+*/
+function ConnectorsDialog({
+  target,
+  overview,
+  changeConnectorGrant,
+  onClose,
+  onChanged,
+}: {
+  target: ConnectorsTarget | null;
+  overview: Overview;
+  changeConnectorGrant: ChangeConnectorGrant;
+  onClose: () => void;
+  onChanged: () => Promise<void>;
+}) {
+  return (
+    <Dialog open={target !== null} onOpenChange={(open) => (open ? null : onClose())}>
+      {target === null ? null : (
+        <ConnectorsForm
+          key={target.appId}
+          target={target}
+          overview={overview}
+          changeConnectorGrant={changeConnectorGrant}
+          onClose={onClose}
+          onChanged={onChanged}
+        />
+      )}
+    </Dialog>
+  );
+}
+
+function ConnectorsForm({
+  target,
+  overview,
+  changeConnectorGrant,
+  onClose,
+  onChanged,
+}: {
+  target: ConnectorsTarget;
+  overview: Overview;
+  changeConnectorGrant: ChangeConnectorGrant;
+  onClose: () => void;
+  onChanged: () => Promise<void>;
+}) {
+  const rows = overview.connectorGrants.grants.filter((grant) => grant.appId === target.appId);
+  const choices = overview.connectorGrants.connectors.filter(
+    (name) => !target.policyConnectors.includes(name),
+  );
+  const saved = choices.filter((name) =>
+    rows.some((row) => row.connector === name && row.ownerId === target.ownerId),
+  );
+  const [checked, setChecked] = useState<string[]>(saved);
+  const [reason, setReason] = useState("");
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const changes = choices.filter((name) => checked.includes(name) !== saved.includes(name));
+
+  const save = async () => {
+    setPending(true);
+    setError(null);
+    try {
+      const refusals = [];
+      for (const connector of changes) {
+        const grant = checked.includes(connector);
+        const row = rows.find((candidate) => candidate.connector === connector);
+        const answer = await changeConnectorGrant({
+          appId: target.appId,
+          connector,
+          // A grant binds to the recorded owner; a revoke names the owner of the row it removes.
+          expectedOwnerId: grant || row === undefined ? target.ownerId : row.ownerId,
+          grant,
+          reason,
+        });
+        const refusal = answer.status === "on" ? connectorGrantRefusal(answer.result) : null;
+        if (refusal !== null) {
+          refusals.push(`${connector}: ${refusal}`);
+        }
+      }
+      await onChanged();
+      if (refusals.length > 0) {
+        setError(refusals.join(" "));
+        return;
+      }
+      onClose();
+    } catch {
+      setError("The hub refused the change.");
+    } finally {
+      setPending(false);
+    }
+  };
+
+  return (
+    <AppDialogContent>
+      <DialogHeader>
+        <DialogTitle>Connectors of {target.name}</DialogTitle>
+        <DialogDescription>
+          {target.production ? "Production" : "Previews and development servers"}. The hub's policy
+          gives this app {target.policyConnectors.join(", ")}. A grant adds a private connector for
+          every client of this app. It trusts the repository's owner that the hub recorded, GitHub
+          id {target.ownerId}, and stops when the repository has another owner. A client uses a
+          granted connector once it enrolls in it, at its next deploy.
+        </DialogDescription>
+      </DialogHeader>
+      <form
+        id="admin-hub-clients-connectors-form"
+        className="grid gap-3"
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (!pending && changes.length > 0 && reason.trim() !== "") {
+            void save();
+          }
+        }}
+      >
+        {choices.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            The hub's policy already gives this app every connector.
+          </p>
+        ) : (
+          choices.map((name) => (
+            <Label key={name} className="flex items-center gap-2 font-normal">
+              <Checkbox
+                checked={checked.includes(name)}
+                disabled={pending}
+                onCheckedChange={(value) =>
+                  setChecked((current) =>
+                    value ? [...current, name] : current.filter((other) => other !== name),
+                  )
+                }
+              />
+              {name}
+            </Label>
+          ))
+        )}
+        <Label htmlFor="admin-hub-clients-connectors-reason">Reason</Label>
+        <Input
+          id="admin-hub-clients-connectors-reason"
+          required
+          value={reason}
+          onChange={(event) => setReason(event.target.value)}
+        />
+        {error === null ? null : (
+          <p className="text-sm text-destructive" role="alert">
+            {error}
+          </p>
+        )}
+      </form>
+      <DialogFooter>
+        <Button variant="outline" disabled={pending} onClick={onClose}>
+          Cancel
+        </Button>
+        <Button
+          type="submit"
+          form="admin-hub-clients-connectors-form"
+          disabled={pending || changes.length === 0 || reason.trim() === ""}
+        >
+          {pending ? (
+            <>
+              <Loader2 className="animate-spin" />
+              Saving...
+            </>
+          ) : (
+            "Save"
+          )}
+        </Button>
+      </DialogFooter>
+    </AppDialogContent>
+  );
+}
+
+/** Every connector grant, each with a Remove. A removal needs the reason above. */
+function ConnectorGrantsSection({
+  overview,
+  changeConnectorGrant,
+  onChanged,
+}: {
+  overview: Overview;
+  changeConnectorGrant: ChangeConnectorGrant;
+  onChanged: () => Promise<void>;
+}) {
+  const [reason, setReason] = useState("");
+  const [pending, setPending] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+  const { grants } = overview.connectorGrants;
+
+  const revoke = async (grant: (typeof grants)[number]) => {
+    const key = `${grant.appId}:${grant.connector}`;
+    if (pending !== null || reason.trim() === "") {
+      return;
+    }
+    setPending(key);
+    setMessage(null);
+    try {
+      const answer = await changeConnectorGrant({
+        appId: grant.appId,
+        connector: grant.connector,
+        expectedOwnerId: grant.ownerId,
+        grant: false,
+        reason,
+      });
+      setMessage(answer.status === "on" ? connectorGrantRefusal(answer.result) : null);
+      setReason("");
+      await onChanged();
+    } catch {
+      setMessage("The hub refused the change.");
+    } finally {
+      setPending(null);
+    }
+  };
+
+  return (
+    <div className="mt-4 grid max-w-xl gap-4">
+      <p className="text-sm text-muted-foreground">
+        Grant a private connector to an app with Connectors… in its client's menu.
+      </p>
+      <div className="grid gap-2">
+        <Label htmlFor="admin-hub-clients-connector-grants-reason">Reason</Label>
+        <Input
+          id="admin-hub-clients-connector-grants-reason"
+          required
+          value={reason}
+          onChange={(event) => setReason(event.target.value)}
+        />
+      </div>
+      {message === null ? null : (
+        <p className="text-sm text-muted-foreground" role="status">
+          {message}
+        </p>
+      )}
+      {grants.length === 0 ? (
+        <p className="text-sm text-muted-foreground">No grant.</p>
+      ) : (
+        <ul className="divide-y border-y">
+          {grants.map((grant) => {
+            const key = `${grant.appId}:${grant.connector}`;
+            return (
+              <li key={key} className="flex items-center gap-3 py-3 text-sm">
+                <span className="min-w-0 flex-1">
+                  {grant.connector} for{" "}
+                  {grant.repository === null
+                    ? grant.appId
+                    : `${grant.repository} ${grant.app ?? ""}`}
+                  {grant.production === null
+                    ? null
+                    : grant.production
+                      ? ", production"
+                      : ", previews and development"}
+                  : {grant.reason}
+                  <span className="block text-muted-foreground">
+                    Bound to the owner with GitHub id {grant.ownerId}.
+                    {grant.active ? null : " Not active: the repository has another owner now."}
+                  </span>
+                </span>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={pending !== null || reason.trim() === ""}
+                  onClick={() => void revoke(grant)}
+                >
+                  {pending === key ? <Loader2 className="animate-spin" /> : null}
+                  Remove
+                </Button>
+              </li>
+            );
+          })}
         </ul>
       )}
     </div>

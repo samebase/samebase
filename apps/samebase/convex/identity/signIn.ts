@@ -28,7 +28,8 @@ endpoint, but not the types of its claims, so `parse` checks them and drops the 
 */
 const vHubClaims = object({
   sub: string(),
-  connector: vAuthAccountProvider,
+  /** The hub's connector of the sign-in, such as `google` or `google-apps`. */
+  connector: string(),
   email: optional(string()),
   email_verified: optional(boolean()),
   name: optional(string()),
@@ -36,28 +37,36 @@ const vHubClaims = object({
 });
 
 /**
-The profile mapping of the hub method of `connector` in convex/auth.ts. It refuses claims of
-another shape, a `sub` that is not `<connector>:<account id>`, and claims of another connector than
-the method's, with a message for the sign-in page. The callbacks below find existing users by the
-email, so only an address that the hub verified counts.
+The profile mapping of a hub method in convex/auth.ts, which signs in through the hub's connector
+`method.connector` of the provider `method.provider`. The `sub` starts with the provider, not the
+connector: `google:<id>` through `google` and through `google-apps` alike. It refuses claims of
+another shape, a `sub` that is not `<provider>:<account id>`, and claims of another connector than
+the method's, with a message for the sign-in page. The profile's `connector` is the provider, the
+key of `authAccounts`. The callbacks below find existing users by the email, so only an address
+that the hub verified counts.
 */
-export function readHubProfile(claims: unknown, connector: AuthAccountProvider) {
-  const prefix = `${connector}:`;
+export function readHubProfile(
+  claims: unknown,
+  method: { connector: string; provider: AuthAccountProvider },
+) {
+  const prefix = `${method.provider}:`;
   if (
     !validate(vHubClaims, claims, { allowUnknownFields: true }) ||
-    claims.connector !== connector ||
+    claims.connector !== method.connector ||
     !claims.sub.startsWith(prefix) ||
     !/^\S+$/.test(claims.sub.slice(prefix.length))
   ) {
     throw new ConvexError(
-      `The identity hub did not complete the ${readProviderLabel(connector)} sign-in. Try again later.`,
+      `The identity hub did not complete the ${readProviderLabel(method.provider)} sign-in. Try again later.`,
     );
   }
-  const { sub, email, email_verified, ...profile } = parse(vHubClaims, claims);
+  const { sub, email, email_verified, name, picture } = parse(vHubClaims, claims);
   return {
     id: sub,
     providerAccountId: sub.slice(prefix.length),
-    ...profile,
+    connector: method.provider,
+    ...(name === undefined ? {} : { name }),
+    ...(picture === undefined ? {} : { picture }),
     ...(email_verified === true && email !== undefined ? { email } : {}),
   };
 }
@@ -72,8 +81,8 @@ const vHubSignInProvider = object({
   name: union(literal("hub-github"), literal("hub-google")),
   accountId: string(),
   profile: vHubClaims
-    .omit("sub", "email_verified")
-    .extend({ id: string(), providerAccountId: string() }),
+    .omit("sub", "email_verified", "connector")
+    .extend({ id: string(), providerAccountId: string(), connector: vAuthAccountProvider }),
 });
 type HubSignInProvider = Infer<typeof vHubSignInProvider>;
 
