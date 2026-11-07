@@ -17,11 +17,6 @@ type Credentials = {
   /** Read lazily, in the request, so a missing env var fails that request and not the deploy. */
   clientId: () => string;
   clientSecret: () => string;
-  /**
-   * Only a third-party app with this connector can start it, and the chooser never lists it. It keeps
-   * a client that strangers' apps share away from the host's own apps.
-   */
-  reserved?: boolean;
 };
 
 /**

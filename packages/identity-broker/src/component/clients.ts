@@ -1,7 +1,9 @@
 import { v } from "convex/values";
 // oxlint-disable-next-line samebase/no-raw-public-convex-function-builders -- Component entrypoints are internal to the host; host functions enforce access.
-import { mutation, query } from "./_generated/server";
+import { mutation, query, type QueryCtx } from "./_generated/server";
+import type { Doc } from "./_generated/dataModel";
 import { appView, vApp } from "./apps";
+import { registrationOf, vRegistration } from "./policy";
 import { vDeploymentType, vRegisteredBy, vTokenEndpointAuthMethod } from "./schema";
 import { removeClientGrants } from "./resourceRequests";
 
@@ -23,7 +25,31 @@ const vClient = object({
   renewedAt: number(),
   app: string(),
   registeredBy: vRegisteredBy,
+  connectors: array(string()),
 });
+
+/**
+ * A client with its app and the facts the host's policy decides on. `registration` is null when the
+ * app is gone or the client is not a repository's (`registrationOf`).
+ */
+export const vClientWithApp = object({
+  client: vClient,
+  app: v.union(vApp, v.null()),
+  registration: v.union(vRegistration, v.null()),
+});
+
+export async function clientWithApp(ctx: QueryCtx, row: Doc<"clients">) {
+  const { _id, _creationTime, ...client } = row;
+  const app = await ctx.db
+    .query("apps")
+    .withIndex("by_app_id", (q) => q.eq("appId", client.appId))
+    .unique();
+  return {
+    client,
+    app: app === null ? null : await appView(ctx, app),
+    registration: app === null ? null : await registrationOf(ctx, row, app),
+  };
+}
 
 export const get = query({
   args: { clientId: string() },
@@ -41,24 +67,16 @@ export const get = query({
   },
 });
 
-/** A client with its app, in one call, for the start of `/authorize`. */
+/** A client with its app and its policy facts, in one call, for the start of each use of it. */
 export const withApp = query({
   args: { clientId: string() },
-  returns: v.union(object({ client: vClient, app: v.union(vApp, v.null()) }), v.null()),
+  returns: v.union(vClientWithApp, v.null()),
   handler: async (ctx, args) => {
     const row = await ctx.db
       .query("clients")
       .withIndex("by_client_id", (q) => q.eq("clientId", args.clientId))
       .unique();
-    if (row === null) {
-      return null;
-    }
-    const { _id, _creationTime, ...client } = row;
-    const app = await ctx.db
-      .query("apps")
-      .withIndex("by_app_id", (q) => q.eq("appId", client.appId))
-      .unique();
-    return { client, app: app === null ? null : await appView(ctx, app) };
+    return row === null ? null : await clientWithApp(ctx, row);
   },
 });
 

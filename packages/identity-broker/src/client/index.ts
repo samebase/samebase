@@ -39,6 +39,7 @@ import {
 } from "./responses.js";
 import { hubClientsEndpoint, LOOPBACK_HOSTS } from "./hubClients.js";
 import { moderationEndpoints } from "./moderation.js";
+import { decide, policyArg, type Decision, type Registration } from "./policy.js";
 import {
   newClientCredentials,
   registrationEndpoints,
@@ -64,6 +65,7 @@ export {
 } from "./resourceProviders.js";
 export { createKeySet, parseKeySet, rotateKeySet, type KeySet } from "./keys.js";
 export { assertKeySetUsable } from "./jwt.js";
+export type { Policy, Registration } from "./policy.js";
 export type { RegistrationConfig } from "./registration.js";
 
 export type IdentityBrokerConfig = {
@@ -77,8 +79,12 @@ export type IdentityBrokerConfig = {
   issuer: string;
   /** The content of `IDENTITY_BROKER_KEYS`, read in the request. */
   keys: () => string | undefined;
+  /** The connectors a client may enroll in. A hub's policy decides which ones each client gets. */
   connectors: Connector[];
-  /** OAuth API resources available to first-party apps. */
+  /**
+   * OAuth API resources. In hub mode the policy's `resources` names the providers a client may
+   * authorize; without hub mode every client may authorize every one.
+   */
   resources?: ResourceProvider[];
   /**
    * Days without a sign-in after which `cleanup` deletes a preview client. Absent: `cleanup` deletes
@@ -87,7 +93,7 @@ export type IdentityBrokerConfig = {
   previewClientIdleDays?: number;
   /**
    * The hub mode: `POST /hub-clients`, `/register/<client>` (RFC 7592), `/moderation/*`, and the
-   * pause of third-party apps. Absent: none of these endpoints.
+   * policy. Absent: none of these endpoints, and the host is its own policy.
    */
   registration?: RegistrationConfig;
 };
@@ -145,23 +151,35 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
     providerIssuers.set(connector.provider, connector.issuer);
   }
   const { previewClientIdleDays, registration } = config;
-  const openConnectors = [...connectors.values()].filter(
-    (connector) => connector.reserved !== true,
-  );
-  const thirdPartyConnector =
-    registration === undefined ? undefined : connectors.get(registration.thirdPartyConnector);
+  const providers = config.resources ?? [];
   /** The hub's privacy notice and terms, under its sign-in page. */
   const legal =
     registration === undefined
       ? null
       : { privacy: registration.privacy, terms: registration.terms };
-  if (registration !== undefined && thirdPartyConnector?.reserved !== true) {
-    throw new Error("registration.thirdPartyConnector must name a reserved connector");
-  }
   // Zero or less would delete every preview client at the next cleanup.
   if (previewClientIdleDays !== undefined && !(previewClientIdleDays > 0)) {
     throw new Error("previewClientIdleDays must be a positive number of days");
   }
+
+  /** The decision for a client at this request; null when the policy refused it (see `decide`). */
+  const decideFor = (found: {
+    client: { connectors: string[] };
+    registration: Registration | null;
+  }): Decision | null =>
+    decide({
+      policy: registration?.policy,
+      registration: found.registration,
+      enrollment: found.client.connectors,
+      providers,
+    });
+
+  /** The configured connectors of these names, in this order. A name no longer configured is skipped. */
+  const connectorsNamed = (names: string[]): Connector[] =>
+    names.flatMap((name) => {
+      const connector = connectors.get(name);
+      return connector === undefined ? [] : [connector];
+    });
 
   /** The transaction cookies the browser sent, by request id. */
   function readTxnCookies(request: Request): Map<string, string> {
@@ -198,55 +216,21 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
       "This sign-in did not start in this browser. Return to the app and try again.",
       400,
     );
-
-  /** A third-party app has one connector. A first-party app has every connector but a reserved one. */
-  const connectorAllowed = (app: { connector?: string }, connector: Connector) =>
-    app.connector === undefined ? connector.reserved !== true : connector.name === app.connector;
-
-  /**
-   * The connector of a sign-in. A third-party app has its one connector, and the URL has no say. A
-   * first-party app may skip the chooser: the one it named, or the only one. Undefined: the chooser
-   * of a first-party app, or a third-party app whose connector is not configured.
-   */
-  function directConnector(
-    app: { connector?: string; firstParty: boolean },
-    named: string | undefined,
-  ): Connector | undefined {
-    if (app.connector !== undefined) {
-      return connectors.get(app.connector);
-    }
-    if (!app.firstParty) {
-      return undefined;
-    }
-    const connector = named === undefined ? undefined : connectors.get(named);
-    return connector !== undefined && connectorAllowed(app, connector)
-      ? connector
-      : openConnectors.length === 1
-        ? openConnectors[0]
-        : undefined;
-  }
-
-  /** A sign-in that stopped: its tenant is stopped, or the pause stops every third-party app. */
-  const stoppedPage = (app: { suspended: boolean; connector?: string }) =>
-    app.suspended
-      ? errorPage("Sign-in is off", "Sign-in for this app is turned off.", 403)
-      : app.connector !== undefined && registration?.paused() === true
-        ? errorPage("Sign-in is off", "Sign-in is paused. Try again later.", 503)
-        : null;
+  /** The tenant of the client is blocked. */
+  const offPage = () => errorPage("Sign-in is off", "Sign-in for this app is turned off.", 403);
+  /** The policy pauses the client. */
+  const pausedPage = () => errorPage("Sign-in is off", "Sign-in is paused. Try again later.", 503);
+  /** The policy failed, or the client has no facts for it. */
+  const unavailablePage = () =>
+    errorPage("Sign-in unavailable", "Sign-in is not available right now. Try again later.", 503);
 
   /**
-   * A refusal before the user has authenticated. A third-party app holds a redirect URI that nobody
-   * reviewed, so a redirect would let a link on this host end on any page of that app. It gets an
-   * error page here (RFC 9700 section 4.11.2).
+   * A refusal before the user continued from the hub's page, or, with no page, before the redirect
+   * to the provider: an error page, for every client. The user has not accepted the return address,
+   * so nothing sends the user there (RFC 9700 section 4.11.2; a departure from OIDC Core section
+   * 3.1.2.6, named in docs/design.md).
    */
-  function refuse(
-    app: { connector?: string } | null,
-    back: Parameters<typeof authorizationError>[0],
-  ): Response {
-    return app?.connector === undefined
-      ? authorizationError(back)
-      : errorPage("Sign-in refused", back.description, 400);
-  }
+  const refusePage = (description: string) => errorPage("Sign-in refused", description, 400);
 
   const keySet = (): KeySet => parseKeySet(config.keys());
   const callbackUrl = (connector: Connector) => `${issuer}/connectors/${connector.name}/callback`;
@@ -254,7 +238,8 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
     component,
     issuer,
     path,
-    providers: config.resources ?? [],
+    providers,
+    decide: decideFor,
     cookies: {
       prefix: txnCookiePrefix,
       attributes: txnCookieAttributes,
@@ -270,6 +255,9 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
     userinfo_endpoint: `${issuer}/userinfo`,
     jwks_uri: `${issuer}/.well-known/jwks.json`,
     scopes_supported: [...SCOPES, ...resources.scopes],
+    // An extension: the names a registration may enroll in. What a client may use is in its
+    // registration answer.
+    connectors_supported: [...connectors.keys()],
     response_types_supported: ["code"],
     response_modes_supported: ["query"],
     grant_types_supported: resources.enabled
@@ -313,37 +301,32 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
     json(publicJwks(keySet()), 200, { "Cache-Control": "public, max-age=300" }),
   );
 
-  /** Sends the user to a connector for a stored request. */
+  /**
+   * Freshness is honored only as prompt=login upstream: a plain OAuth connector, or an OIDC
+   * connector whose provider documents no `login` value, is refused, never pretended.
+   */
+  const cannotReauthenticate = (connector: Connector) =>
+    connector.kind === "oauth" || !connector.promptLogin;
+  const freshLoginRefusal = (connector: Connector) =>
+    `${connector.label} cannot reauthenticate the user, which prompt=login or max_age asked for.`;
+
+  /**
+   * Sends the user to a connector for a stored request. `refuse` answers a refusal: the hub's
+   * error page from `/authorize`, where the user has not continued, and the authorization error
+   * at the return address from `/continue`, where the user has.
+   */
   async function startConnector(
     ctx: Ctx,
     args: {
       connector: Connector;
-      app: { connector?: string };
-      request: {
-        requestId: string;
-        appId: string;
-        redirectUri: string;
-        state: string | undefined;
-        freshLogin: boolean;
-      };
-      clearCookie: string | undefined;
+      request: { requestId: string; freshLogin: boolean };
+      decision: Decision;
+      refuse: (error: string, description: string) => Response;
     },
   ): Promise<Response> {
     const { connector, request } = args;
-    const back = {
-      redirectUri: request.redirectUri,
-      issuer,
-      state: request.state,
-      clearCookie: args.clearCookie,
-    };
-    // Freshness is honored only as prompt=login upstream; a connector without it is refused, never
-    // pretended.
-    if (request.freshLogin && (connector.kind === "oauth" || !connector.promptLogin)) {
-      return refuse(args.app, {
-        ...back,
-        error: "login_required",
-        description: `${connector.label} cannot reauthenticate the user, which prompt=login or max_age asked for.`,
-      });
+    if (request.freshLogin && cannotReauthenticate(connector)) {
+      return args.refuse("login_required", freshLoginRefusal(connector));
     }
     const start = await startUpstream({
       connector,
@@ -357,20 +340,26 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
       upstreamStateHash: await sha256Hex(start.state),
       upstreamCodeVerifier: start.codeVerifier,
       ...(start.nonce === undefined ? {} : { upstreamNonce: start.nonce }),
+      policy: policyArg(args.decision),
       now,
     });
     if (!result.ok) {
-      return result.error === "not_found"
-        ? errorPage(
+      switch (result.error) {
+        case "not_found":
+          return errorPage(
             "Sign-in not found",
             "This sign-in is unknown. Return to the app and try again.",
             404,
-          )
-        : refuse(args.app, {
-            ...back,
-            error: "access_denied",
-            description: `The sign-in ${result.error === "expired" ? "expired" : "already moved on"}.`,
-          });
+          );
+        case "expired":
+          return args.refuse("access_denied", "The sign-in expired.");
+        case "wrong_status":
+          return args.refuse("access_denied", "The sign-in already moved on.");
+        case "refused":
+          return args.refuse("access_denied", "That sign-in method is no longer available.");
+        default:
+          return result satisfies never;
+      }
     }
     return redirect(start.url);
   }
@@ -379,31 +368,20 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
     `${path("/continue")}?request=${encodeURIComponent(requestId)}&connector=${encodeURIComponent(connector.name)}`;
 
   /**
-   * The consent page of a sign-in, or null when it goes on without one. A third-party app's preview
-   * or development client asks first: anyone with a repository can make one, on a host of their
-   * own, and nobody reviewed it (RFC 7591 section 5). The host's own apps never ask, and a
-   * third-party production client goes straight to its connector for now.
+   * What the sign-in page names when the policy asks for consent: the deploy and the repository
+   * from the client's facts, which the hub checked (RFC 7591 section 5).
    */
-  function consentFor(args: {
-    app: { firstParty: boolean };
-    client: {
-      redirectUri: string;
-      deploymentType: "production" | "preview" | "development";
-      clientName: string;
-      registeredBy: { githubRepository: string };
-    };
-    connector: Connector | undefined;
-    requestId: string;
-    scopes: string[];
-  }): Response | null {
-    const { client, connector } = args;
-    if (args.app.firstParty || connector === undefined) {
-      return null;
-    }
+  function consentOf(
+    facts: Registration,
+    client: { clientName: string },
+    scopes: string[],
+    loopback: boolean,
+  ): Consent {
     let deployment: Consent["deployment"];
-    switch (client.deploymentType) {
+    switch (facts.deploymentType) {
       case "production":
-        return null;
+        deployment = { kind: "production" };
+        break;
       case "preview":
         deployment = { kind: "preview", stage: client.clientName };
         break;
@@ -411,33 +389,15 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
         deployment = { kind: "development" };
         break;
       default:
-        return client.deploymentType satisfies never;
+        return facts.deploymentType satisfies never;
     }
-    const redirect = new URL(client.redirectUri);
-    return signInPage({
-      to: {
-        kind: "consent",
-        host: redirect.host,
-        origin: redirect.origin,
-        loopback: LOOPBACK_HOSTS.has(redirect.hostname),
-        deployment,
-        repository: client.registeredBy.githubRepository,
-        scopes: args.scopes,
-        reviewer: registration?.name ?? new URL(issuer).host,
-      },
-      connectors: [
-        {
-          label: connector.label,
-          provider: connector.provider,
-          href: continueHref(args.requestId, connector),
-        },
-      ],
-      legal,
-    });
-  }
-
-  async function readApp(ctx: Ctx, appId: string) {
-    return await ctx.runQuery(component.apps.get, { appId });
+    return {
+      loopback,
+      deployment,
+      repository: facts.repository,
+      scopes,
+      reviewer: registration?.name ?? new URL(issuer).host,
+    };
   }
 
   const authorize = httpActionGeneric(async (ctx, request) => {
@@ -472,51 +432,59 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
         400,
       );
     }
-    const back = {
-      redirectUri: client.redirectUri,
-      issuer,
-      state: params.get("state") ?? undefined,
-      clearCookie: undefined,
-    };
     if (params.has("resource")) return await resources.authorize(ctx, params, found);
     const rest = validateAuthorizeRest(params, target.value);
     if (!rest.ok) {
-      return refuse(app, { ...back, error: rest.error, description: rest.description });
+      return refusePage(rest.description);
     }
     if (app === null) {
-      return authorizationError({
-        ...back,
-        error: "server_error",
-        description: "The client's app is gone.",
-      });
+      return errorPage("Sign-in unavailable", "The client's app is gone.", 400);
     }
-    const stopped = stoppedPage(app);
-    if (stopped !== null) {
-      return stopped;
+    if (app.suspended) {
+      return offPage();
+    }
+    const decision = decideFor(found);
+    if (decision === null) {
+      return unavailablePage();
+    }
+    if (decision.paused) {
+      return pausedPage();
     }
     if (rest.value.prompt.includes("none")) {
       // The broker keeps no session, so it can never answer without interaction.
-      return refuse(app, {
-        ...back,
-        error: "login_required",
-        description: "This provider has no session to reuse.",
-      });
+      return refusePage("This provider has no session to reuse.");
     }
     const freshLogin = rest.value.prompt.includes("login") || rest.value.maxAge !== undefined;
     const scopes = SCOPES.filter((scope) => rest.value.scopes.includes(scope));
-    const chosen = directConnector(app, rest.value.connector);
-    // The chooser offers the host's own connectors, so a third-party app never gets it.
-    if (chosen === undefined && !app.firstParty) {
-      return errorPage("Sign-in unavailable", "This app has no sign-in method here.", 500);
+    // The set of the request: the connectors the app named, else every one the client may use
+    // now. A name outside the enrollment is a request error; an enrolled one that the policy no
+    // longer allows is not offered, and a set with none left is a stopped sign-in.
+    const named = rest.value.connectors;
+    const notEnrolled = named.find((name) => !client.connectors.includes(name));
+    if (notEnrolled !== undefined) {
+      return refusePage(`This client is not enrolled in the connector "${notEnrolled}".`);
     }
-    // Every later step needs this cookie: a client that fetches the chooser itself cannot send a
+    const offered = connectorsNamed(
+      named.length === 0
+        ? decision.connectors
+        : named.filter((name) => decision.connectors.includes(name)),
+    );
+    if (offered.length === 0) {
+      return offPage();
+    }
+    // One offered connector and no consent to ask: straight to it (decision 5 of RFC 137). A fresh
+    // login that the connector cannot do is refused here, before anything is stored.
+    const direct = offered.length === 1 && decision.consent === null ? offered[0] : undefined;
+    if (direct !== undefined && freshLogin && cannotReauthenticate(direct)) {
+      return refusePage(freshLoginRefusal(direct));
+    }
+    // Every later step needs this cookie: a client that fetches the page itself cannot send a
     // user's browser on from it, and a provider callback finishes only where the sign-in started.
     const txnCookie = randomToken(32);
     const now = Date.now();
     const requestId = randomToken(24);
     const created = await ctx.runMutation(component.authRequests.create, {
-      // A third-party app spends its tenant's budget. The host's own apps have none.
-      ...(app.firstParty ? {} : { tenantId: app.tenantId }),
+      tenantId: app.tenantId,
       requestId,
       appId: app.appId,
       clientId: client.clientId,
@@ -525,39 +493,46 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
       ...(rest.value.state === undefined ? {} : { state: rest.value.state }),
       ...(rest.value.nonce === undefined ? {} : { nonce: rest.value.nonce }),
       codeChallenge: rest.value.codeChallenge,
+      connectors: offered.map((connector) => connector.name),
       freshLogin,
       txnCookieHash: await sha256Hex(txnCookie),
       createdAt: now,
       expiresAt: now + AUTH_REQUEST_TTL_MS,
     });
     if (!created.ok) {
-      return errorPage("Too many sign-ins", "Too many sign-ins for this app. Try again soon.", 429);
+      switch (created.error) {
+        case "rate_limited":
+          return errorPage(
+            "Too many sign-ins",
+            "Too many sign-ins for this app. Try again soon.",
+            429,
+          );
+        case "suspended":
+          return offPage();
+        default:
+          return created.error satisfies never;
+      }
     }
     const setCookie = `${txnCookiePrefix}${requestId}=${txnCookie}; ${txnCookieAttributes}; Max-Age=${AUTH_REQUEST_TTL_MS / 1000}`;
-    const consent = consentFor({ app, client, connector: chosen, requestId, scopes });
-    if (consent !== null) {
-      consent.headers.append("Set-Cookie", setCookie);
-      return consent;
-    }
-    if (chosen !== undefined) {
+    if (direct !== undefined) {
       const response = await startConnector(ctx, {
-        connector: chosen,
-        app,
-        request: {
-          requestId,
-          appId: app.appId,
-          redirectUri: client.redirectUri,
-          state: rest.value.state,
-          freshLogin,
-        },
-        clearCookie: undefined,
+        connector: direct,
+        request: { requestId, freshLogin },
+        decision,
+        refuse: (_error, description) => refusePage(description),
       });
       response.headers.append("Set-Cookie", setCookie);
       return response;
     }
+    const redirectUrl = new URL(client.redirectUri);
     const page = signInPage({
-      to: { kind: "app", name: app.name },
-      connectors: openConnectors.map((connector) => ({
+      host: redirectUrl.host,
+      origin: redirectUrl.origin,
+      consent:
+        decision.consent === null
+          ? null
+          : consentOf(decision.consent, client, scopes, LOOPBACK_HOSTS.has(redirectUrl.hostname)),
+      connectors: offered.map((connector) => ({
         label: connector.label,
         provider: connector.provider,
         href: continueHref(requestId, connector),
@@ -569,8 +544,9 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
   });
 
   /**
-   * A "Continue with" click on the sign-in page: start that connector. There is no Cancel: a user
-   * who does not continue closes the tab, and the request expires.
+   * A "Continue with" click on the sign-in page: start that connector. The user accepted the
+   * return address on the page, so a refusal from here on is an authorization error there. There
+   * is no Cancel: a user who does not continue closes the tab, and the request expires.
    */
   const continueSignIn = httpActionGeneric(async (ctx, request) => {
     const url = new URL(request.url);
@@ -592,6 +568,8 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
       state: stored.state,
       clearCookie: clearTxnCookie(request, requestId),
     };
+    const refuse = (error: string, description: string) =>
+      authorizationError({ ...back, error, description });
     if (stored.status === "completed" || stored.status === "claimed") {
       return errorPage(
         "Sign-in finished",
@@ -599,38 +577,35 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
         409,
       );
     }
-    const connector = connectors.get(url.searchParams.get("connector") ?? "");
-    if (connector === undefined) {
-      return errorPage("Unknown connector", "That sign-in method is not configured.", 404);
+    // The page's link carries the connector, so a user can edit it: only one of the request's set
+    // goes on. The page offered no other, so an edited link gets no redirect.
+    const name = url.searchParams.get("connector") ?? "";
+    const connector = connectors.get(name);
+    if (connector === undefined || !stored.connectors.includes(name)) {
+      return errorPage("Unknown connector", "That sign-in method is not offered here.", 404);
     }
-    const app = await readApp(ctx, stored.appId);
-    if (app === null) {
-      return authorizationError({
-        ...back,
-        error: "server_error",
-        description: "The client's app is gone.",
-      });
+    const found = await ctx.runQuery(component.clients.withApp, { clientId: stored.clientId });
+    if (found === null || found.app === null) {
+      return refuse("server_error", "The client's app is gone.");
     }
-    const stopped = stoppedPage(app);
-    if (stopped !== null) {
-      return stopped;
+    if (found.app.suspended) {
+      return refuse("access_denied", "Sign-in for this app is turned off.");
     }
-    // The chooser link carries the connector, so a user can edit it, and this route can restart a
-    // request that already went upstream. The rule holds here as it does in /authorize.
-    if (!connectorAllowed(app, connector)) {
-      return errorPage("Unknown connector", "That sign-in method is not configured.", 404);
+    const decision = decideFor(found);
+    if (decision === null) {
+      return refuse("temporarily_unavailable", "Sign-in is not available right now.");
+    }
+    if (decision.paused) {
+      return refuse("temporarily_unavailable", "Sign-in is paused.");
+    }
+    if (!decision.connectors.includes(name)) {
+      return refuse("access_denied", "That sign-in method is no longer available.");
     }
     return await startConnector(ctx, {
       connector,
-      app,
-      request: {
-        requestId,
-        appId: stored.appId,
-        redirectUri: stored.redirectUri,
-        state: stored.state,
-        freshLogin: stored.freshLogin,
-      },
-      clearCookie: back.clearCookie,
+      request: { requestId, freshLogin: stored.freshLogin },
+      decision,
+      refuse,
     });
   });
 
@@ -642,36 +617,87 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
         return errorPage("Invalid callback", "The provider sent no state.", 400);
       }
       const now = Date.now();
-      const claim = await ctx.runMutation(component.authRequests.claimUpstream, {
-        upstreamStateHash: await sha256Hex(state),
-        connector: connector.name,
-        txnCookieHashes: await Promise.all(
-          [...readTxnCookies(request).values()].map((cookie) => sha256Hex(cookie)),
-        ),
-        now,
-      });
-      if (claim.status === "missing") {
-        return errorPage(
+      const upstreamStateHash = await sha256Hex(state);
+      const linkUsedPage = () =>
+        errorPage(
           "Sign-in link used",
           "This sign-in link is invalid or was already used. Return to the app and try again.",
           400,
         );
+      // The waiting request and its client, read before the claim: the user continued from the
+      // page or went straight on, so a refusal from here goes to the return address, once the
+      // browser proves it holds the request's cookie. A failed policy writes nothing.
+      const waiting = await ctx.runQuery(component.authRequests.upstreamClient, {
+        upstreamStateHash,
+      });
+      if (waiting === null) {
+        return linkUsedPage();
+      }
+      if (!(await browserBound(request, waiting.request))) {
+        return unboundPage();
+      }
+      const back = {
+        redirectUri: waiting.request.redirectUri,
+        issuer,
+        state: waiting.request.state,
+        clearCookie: clearTxnCookie(request, waiting.request.requestId),
+      };
+      const found = waiting.client;
+      if (found === null || found.app === null) {
+        await ctx.runMutation(component.authRequests.abandon, {
+          requestId: waiting.request.requestId,
+        });
+        return authorizationError({
+          ...back,
+          error: "server_error",
+          description: "The client's app is gone.",
+        });
+      }
+      const decision = decideFor(found);
+      if (decision === null) {
+        return authorizationError({
+          ...back,
+          error: "temporarily_unavailable",
+          description: "Sign-in is not available right now.",
+        });
+      }
+      const claim = await ctx.runMutation(component.authRequests.claimUpstream, {
+        upstreamStateHash,
+        connector: connector.name,
+        txnCookieHashes: await Promise.all(
+          [...readTxnCookies(request).values()].map((cookie) => sha256Hex(cookie)),
+        ),
+        policy: policyArg(decision),
+        now,
+      });
+      if (claim.status === "missing") {
+        return linkUsedPage();
       }
       if (claim.status === "unbound") {
         return unboundPage();
       }
-      const back = {
-        redirectUri: claim.redirectUri,
-        issuer,
-        state: claim.state,
-        clearCookie: clearTxnCookie(request, claim.requestId),
-      };
       if (claim.status === "expired") {
         return authorizationError({
           ...back,
           error: "access_denied",
           description: "The sign-in expired.",
         });
+      }
+      /** The policy, a block, or a changed owner stops the sign-in: to the app, as refused. */
+      const stoppedNow = (paused: boolean) =>
+        paused
+          ? authorizationError({
+              ...back,
+              error: "temporarily_unavailable",
+              description: "Sign-in is paused.",
+            })
+          : authorizationError({
+              ...back,
+              error: "access_denied",
+              description: "Sign-in for this app is no longer available.",
+            });
+      if (claim.status === "refused") {
+        return stoppedNow(decision.paused);
       }
       let upstream: UpstreamFinish;
       try {
@@ -734,23 +760,56 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
         }
         authTime = authTimeSeconds * 1000;
       }
-      const code = randomToken(32);
-      const completed = await ctx.runMutation(component.authRequests.complete, {
-        requestId: claim.requestId,
-        identity: { connector: connector.name, ...upstream.identity },
-        authTime,
-        codeHash: await sha256Hex(code),
-        codeExpiresAt: now + CODE_TTL_MS,
-        now,
-      });
-      if (!completed.ok) {
-        return authorizationError({
+      // The completion: the decision again, on the rows as they are now (the provider took time,
+      // and a block, a transfer, or a policy change may have landed), then the mutation, which
+      // reads those rows once more. The provider's code is spent, so whatever fails in here still
+      // answers the app, and the request is abandoned when that write goes through.
+      const unavailable = () =>
+        authorizationError({
           ...back,
-          error: "access_denied",
-          description: "The sign-in expired.",
+          error: "temporarily_unavailable",
+          description: "Sign-in is not available right now.",
         });
+      try {
+        const current = await ctx.runQuery(component.clients.withApp, {
+          clientId: found.client.clientId,
+        });
+        const completion = current === null ? null : decideFor(current);
+        if (completion === null) {
+          await ctx.runMutation(component.authRequests.abandon, { requestId: claim.requestId });
+          return unavailable();
+        }
+        const code = randomToken(32);
+        const completed = await ctx.runMutation(component.authRequests.complete, {
+          requestId: claim.requestId,
+          identity: { connector: connector.name, ...upstream.identity },
+          authTime,
+          codeHash: await sha256Hex(code),
+          codeExpiresAt: now + CODE_TTL_MS,
+          policy: policyArg(completion),
+          now,
+        });
+        if (!completed.ok) {
+          return completed.error === "refused"
+            ? stoppedNow(completion.paused)
+            : authorizationError({
+                ...back,
+                error: "access_denied",
+                description: "The sign-in expired.",
+              });
+        }
+        return authorizationResponse({ ...back, params: { code } });
+      } catch (error) {
+        console.error(
+          `Connector "${connector.name}" completion failed: ${error instanceof Error ? error.constructor.name : typeof error}`,
+        );
+        try {
+          await ctx.runMutation(component.authRequests.abandon, { requestId: claim.requestId });
+        } catch {
+          // The request stays claimed until it expires; nothing can finish it.
+        }
+        return unavailable();
       }
-      return authorizationResponse({ ...back, params: { code } });
     });
   }
 
@@ -789,6 +848,17 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
     const now = Date.now();
     const refreshToken = randomToken(32);
     const resource = params.get("resource") ?? undefined;
+    // The policy is decided on the client's rows of this moment; the mutation checks them again.
+    const found = await ctx.runQuery(component.clients.withApp, {
+      clientId: clientAuth.value.clientId,
+    });
+    if (found === null) {
+      return oauthError(401, "invalid_client", "Client authentication failed.", challenge);
+    }
+    const decision = decideFor(found);
+    if (decision === null) {
+      return oauthError(503, "temporarily_unavailable", "Sign-in is not available right now.");
+    }
     // The client is authenticated in the transaction that redeems the code.
     const exchange = await ctx.runMutation(component.authRequests.exchangeCode, {
       clientId: clientAuth.value.clientId,
@@ -801,7 +871,7 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
       codeVerifier: validation.value.codeVerifier,
       ...(resource === undefined ? {} : { resource }),
       refreshTokenHash: await sha256Hex(refreshToken),
-      ...(registration?.paused() === true ? { registrationPaused: true } : {}),
+      policy: policyArg(decision),
       now,
     });
     if (!exchange.ok) {
@@ -912,7 +982,12 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
         http.route({
           path: path("/hub-clients"),
           method: "POST",
-          handler: hubClientsEndpoint({ component, issuer, registration }),
+          handler: hubClientsEndpoint({
+            component,
+            issuer,
+            registration,
+            connectors: [...connectors.keys()],
+          }),
         });
         moderationEndpoints({ component, registration, path }).addRoutes(http);
       }

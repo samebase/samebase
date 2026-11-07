@@ -6,7 +6,7 @@ import { isStopped, isSuspended, tenantRow } from "./apps";
 import { removeClientGrants } from "./resourceRequests";
 import { vRegisteredBy, vTokenEndpointAuthMethod } from "./schema";
 
-const { literal, number, object, optional, string, union } = v;
+const { array, literal, number, object, optional, string, union } = v;
 
 /**
  * How long a client with a removal date lives after its last deploy, dev start, sign-in, resource
@@ -64,15 +64,10 @@ const registerArgs = {
   ownerId: optional(string()),
   appId: string(),
   /**
-   * What the host decided the app is. A first-party app is one of the host's own: every connector
-   * but a reserved one, and API resources. A third-party app signs in through its one connector.
-   * An existing app keeps what it was created as, and a registration that says otherwise answers
-   * `app_taken`.
+   * The connectors the client enrolls in: at least one. The host checked each against its
+   * connectors and its policy. Stored sorted and unique, and never changed.
    */
-  trust: union(
-    object({ firstParty: literal(true) }),
-    object({ firstParty: literal(false), connector: string() }),
-  ),
+  connectors: array(string()),
   deploymentType: vDeployment,
   clientId: string(),
   secretHash: string(),
@@ -102,6 +97,15 @@ const vRegisterResult = union(
 
 const vRegisterArgs = object(registerArgs);
 
+/** The enrollment as stored: sorted and unique. An empty enrollment is a host bug, never a client. */
+export function enrollment(connectors: string[]) {
+  const unique = [...new Set(connectors)].sort();
+  if (unique.length === 0) {
+    throw new Error("A client enrolls in at least one connector");
+  }
+  return unique;
+}
+
 /**
  * Registers one deployment as a client of an app, creating the app with its first client.
  * `hubClients.createClient` and `hubClients.createDevelopmentClient` call it in their own
@@ -112,6 +116,7 @@ export async function registerClient(
   ctx: MutationCtx,
   args: Infer<typeof vRegisterArgs>,
 ): Promise<Infer<typeof vRegisterResult>> {
+  const connectors = enrollment(args.connectors);
   const tenant = await tenantRow(ctx, args.tenantId);
   if (await isStopped(ctx, args.tenantId, args.ownerId ?? tenant?.ownerId)) {
     return { ok: false as const, error: "suspended" as const };
@@ -120,10 +125,7 @@ export async function registerClient(
     .query("apps")
     .withIndex("by_app_id", (q) => q.eq("appId", args.appId))
     .unique();
-  if (
-    app !== null &&
-    (app.firstParty !== args.trust.firstParty || app.tenantId !== args.tenantId)
-  ) {
+  if (app !== null && app.tenantId !== args.tenantId) {
     return { ok: false as const, error: "app_taken" as const };
   }
   if (app === null) {
@@ -152,8 +154,6 @@ export async function registerClient(
     await ctx.db.insert("apps", {
       appId: args.appId,
       name: args.appId,
-      firstParty: args.trust.firstParty,
-      ...(args.trust.firstParty ? {} : { connector: args.trust.connector }),
       tenantId: args.tenantId,
       createdAt: args.now,
     });
@@ -186,6 +186,7 @@ export async function registerClient(
     ...(args.deploymentType === "production" ? {} : { removeAt: args.now + LEASE_MS }),
     app: args.app,
     registeredBy: args.registeredBy,
+    connectors,
   });
   return { ok: true as const };
 }
@@ -215,6 +216,7 @@ export const renew = mutation({
       tokenEndpointAuthMethod: vTokenEndpointAuthMethod,
       appId: string(),
       createdAt: number(),
+      connectors: array(string()),
     }),
     object({ ok: literal(false), error: union(literal("invalid_token"), literal("suspended")) }),
   ),
@@ -245,6 +247,7 @@ export const renew = mutation({
       tokenEndpointAuthMethod: client.tokenEndpointAuthMethod,
       appId: client.appId,
       createdAt: client.createdAt,
+      connectors: client.connectors,
     };
   },
 });

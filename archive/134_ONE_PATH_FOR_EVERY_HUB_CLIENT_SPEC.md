@@ -2,10 +2,11 @@
 
 ## Document Control
 
-- Status: Shipped. Accepted on 2026-11-06. PR 1 (v2277) added this file, public subjects, and
-  `firstParty` from `OWN_REPOSITORY_IDS`; PR 2a (v2278) moved samebase.com's deployments to
-  `/hub-clients`. PR 3 is the last PR: it moves samebase.com's laptops to logged-in local
-  deployments, and deletes the old path with identity-broker 0.18.0 and alchemy-convex 0.31.0:
+- Status: Superseded by [RFC 137](../rfcs/137_ONE_HUB_MODEL_SPEC.md), which restates what stays and
+  replaces `firstParty`. Historical: shipped, accepted on 2026-11-06. PR 1 (v2277) added this file,
+  public subjects, and `firstParty` from `OWN_REPOSITORY_IDS`; PR 2a (v2278) moved samebase.com's
+  deployments to `/hub-clients`. PR 3 is the last PR: it moves samebase.com's laptops to logged-in
+  local deployments, and deletes the old path with identity-broker 0.18.0 and alchemy-convex 0.31.0:
   `registerClient`, `renewClient`, `createApp`, `POST /register`, `/tenant-connection`,
   `setTenantSuspended` and `suspendedAt`, `connector_account_id`, `Convex.HubClient`, and the
   `hub-client` command. The schema requires `apps.tenantId`, `clients.registrationTokenHash`, and

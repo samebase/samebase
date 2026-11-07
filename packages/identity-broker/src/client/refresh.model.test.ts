@@ -23,9 +23,10 @@ import {
 } from "./model.test.helper.js";
 
 // RFC 136, property B: resource refresh. Random stories of API resource authorizations, refreshes
-// whose provider answer is held between `refreshStart` and `refreshFinish`, blocks, client deletes,
-// revocations, and clock steps, played through `fetchBroker` against the real component. Both
-// repositories are the hub's own, so their apps are first-party and may hold API grants.
+// whose provider answer is held between `refreshStart` and `refreshFinish`, blocks, policy changes
+// (the resource withdrawn, or the pause), client deletes, revocations, and clock steps, played
+// through `fetchBroker` against the real component. The hub's policy gives every client the one
+// resource until a story withdraws it.
 
 afterEach(() => {
   vi.useRealTimers();
@@ -54,6 +55,8 @@ type Command =
   | { kind: "refreshFinish"; attempt: number; outcome: RefreshOutcome }
   | { kind: "block"; action: "block" | "unblock"; scope: "repository"; githubId: Repository }
   | { kind: "block"; action: "block" | "unblock"; scope: "owner"; githubId: Owner }
+  /** The hub's policy changes: whether it gives the resource, and whether it pauses every client. */
+  | { kind: "policy"; resources: boolean; paused: boolean }
   | { kind: "deleteOwn"; client: number }
   | { kind: "adminDelete"; client: number }
   | { kind: "revoke"; grant: number }
@@ -99,6 +102,14 @@ const commandArbitrary: fc.Arbitrary<Command> = fc.oneof(
         githubId: fc.constantFrom(...OWNERS),
       }),
     ),
+  },
+  {
+    weight: 2,
+    arbitrary: fc.record({
+      kind: fc.constant("policy" as const),
+      resources: fc.boolean(),
+      paused: fc.boolean(),
+    }),
   },
   {
     weight: 1,
@@ -150,10 +161,14 @@ type Attempt = {
   open: boolean;
 };
 
-function createModel(clients: Client[]) {
+/** The hub's policy of the moment, which `createModelHub`'s policy function reads at each request. */
+type PolicyState = { resources: boolean; paused: boolean };
+
+function createModel(clients: Client[], policy: PolicyState) {
   return {
     clients,
     blocks: new Set<string>(),
+    policy,
     grants: new Array<Grant>(),
     attempts: new Array<Attempt>(),
   };
@@ -172,6 +187,12 @@ function stopReason(model: Model, client: Client) {
   if (model.blocks.has(`owner:${client.ownerId}`)) {
     return `owner ${ownerHandle(client.ownerId)} was blocked`;
   }
+  if (model.policy.paused) {
+    return "the policy paused every client";
+  }
+  if (!model.policy.resources) {
+    return "the policy withdrew the resource";
+  }
   return null;
 }
 
@@ -186,6 +207,7 @@ async function registerClients(h: Harness, world: World) {
       app: "app-a",
       redirectUri,
       softwareVersion: "abc123",
+      connectors: ["fake"],
     });
     if (response.status !== 201) {
       throw new Error(`The setup registration of C${index + 1} answered ${response.status}`);
@@ -315,6 +337,14 @@ async function playRefreshStart(
     );
     return;
   }
+  // A stopped refresh is refused at the admission, before anything reaches the provider.
+  const stop = stopReason(model, client);
+  check(
+    checks,
+    "noRefreshWhenStopped",
+    stop === null,
+    `${label} reached the provider while ${stop}`,
+  );
   const attempt: Attempt = {
     handle: `A${model.attempts.length + 1}`,
     grant,
@@ -429,6 +459,13 @@ async function playCommand(
       }
       return;
     }
+    case "policy":
+      model.policy.resources = command.resources;
+      model.policy.paused = command.paused;
+      story.trace.push(
+        `policy: ${command.resources ? "the resource" : "no resource"}${command.paused ? ", paused" : ""}`,
+      );
+      return;
     case "deleteOwn": {
       const client = model.clients[command.client % model.clients.length];
       if (client === undefined) {
@@ -539,10 +576,18 @@ async function play(commands: Command[], checks: Checks, story: Story) {
   // The hub logs each failed provider refresh by its error name; a story makes many on purpose.
   vi.spyOn(console, "error").mockImplementation(() => undefined);
   startClock();
-  vi.stubEnv("OWN_REPOSITORY_IDS", REPOSITORIES.join(","));
-  const h = await createModelHub({ resources: [RESOURCE] });
+  const policy: PolicyState = { resources: true, paused: false };
+  const h = await createModelHub({
+    resources: [RESOURCE],
+    policy: () => ({
+      connectors: ["fake", "other"],
+      resources: policy.resources ? [RESOURCE.name] : [],
+      consent: false,
+      paused: policy.paused,
+    }),
+  });
   const world = await createWorld({ [REPOSITORIES[0]]: OWNERS[0], [REPOSITORIES[1]]: OWNERS[1] });
-  const model = createModel(await registerClients(h, world));
+  const model = createModel(await registerClients(h, world), policy);
   try {
     for (const command of commands) {
       await step(checks, story, () => playCommand(h, world, model, command, checks, story));

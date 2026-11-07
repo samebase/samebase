@@ -96,7 +96,11 @@ export function stubProviders(repositoryId = REPOSITORY_ID) {
   );
 }
 
-export async function postHubClient(t: ConvexTest, token: string): Promise<Response> {
+export async function postHubClient(
+  t: ConvexTest,
+  token: string,
+  body: Record<string, unknown> = {},
+): Promise<Response> {
   return await t.fetch("/hub-clients", {
     method: "POST",
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
@@ -104,6 +108,8 @@ export async function postHubClient(t: ConvexTest, token: string): Promise<Respo
       app: "my-app",
       redirectUri: PRODUCTION_CALLBACK,
       softwareVersion: "abc123",
+      connectors: ["google", "github"],
+      ...body,
     }),
   });
 }

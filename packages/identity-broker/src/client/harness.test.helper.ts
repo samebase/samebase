@@ -1,7 +1,7 @@
 /// <reference types="vite-plus/client" />
 import rateLimiterTest from "@convex-dev/rate-limiter/test";
 import { convexTest } from "convex-test";
-import { anyApi, httpRouter, ROUTABLE_HTTP_METHODS } from "convex/server";
+import { anyApi, getFunctionName, httpRouter, ROUTABLE_HTTP_METHODS } from "convex/server";
 import { exportJWK, generateKeyPair, SignJWT } from "jose";
 import { vi } from "vite-plus/test";
 import type { ComponentApi } from "../component/_generated/component.js";
@@ -56,6 +56,8 @@ export async function createHarness(options: {
   });
   const http = httpRouter();
   broker.addHttpRoutes(http);
+  /** A test's read outage: the queries whose name this answers true for throw, while it is set. */
+  const reads: { failing: ((name: string) => boolean) | null } = { failing: null };
 
   async function fetchBroker(input: string | URL, init?: RequestInit): Promise<Response> {
     const request = new Request(input, init);
@@ -73,8 +75,17 @@ export async function createHarness(options: {
         url,
         body === undefined ? { method, headers } : { method, headers, body },
       );
+      const failing: typeof ctx = {
+        ...ctx,
+        runQuery: async (query, ...args) => {
+          if (reads.failing?.(getFunctionName(query)) === true) {
+            throw new Error("The read failed");
+          }
+          return await ctx.runQuery(query, ...args);
+        },
+      };
       // @ts-expect-error httpActionGeneric keeps the function as _handler; PublicHttpAction does not declare it.
-      const response: Response = await handler._handler(ctx, replay);
+      const response: Response = await handler._handler(failing, replay);
       return {
         status: response.status,
         headers: [...response.headers.entries()],
@@ -89,15 +100,14 @@ export async function createHarness(options: {
   }
 
   /**
-   * One client with `redirectUri` of the app `<appName>-test`, which the first call creates. A
-   * first-party app has every open connector; a third-party app has `connector` as its one.
+   * One client with `redirectUri` of the app `<appName>-test`, which the first call creates in the
+   * tenant of the repository `gh-1` of owner 65, so a hub's policy has its facts. The client is
+   * enrolled in `connectors`, else in every configured connector.
    */
   async function registerClient(args: {
     appName: string;
-    firstParty: boolean;
-    /** The one connector of a third-party app. */
-    connector?: string;
     redirectUri: string;
+    connectors?: string[];
     /** As @samebase/alchemy-convex registers: Convex Auth posts the client credentials. */
     tokenEndpointAuthMethod?: "client_secret_post" | "client_secret_basic";
     deploymentType?: "production" | "development" | "preview";
@@ -106,7 +116,17 @@ export async function createHarness(options: {
     const { clientId, clientSecret, secretHash, registrationTokenHash } =
       await broker.newClientCredentials();
     const now = Date.now();
+    const connectors = [
+      ...new Set(args.connectors ?? options.connectors.map((connector) => connector.name)),
+    ].sort();
     await t.run(async (ctx) => {
+      const tenant = await ctx.db
+        .query("tenants")
+        .withIndex("by_tenant_id", (q) => q.eq("tenantId", "gh-1"))
+        .unique();
+      if (tenant === null) {
+        await ctx.db.insert("tenants", { tenantId: "gh-1", ownerId: "65" });
+      }
       const app = await ctx.db
         .query("apps")
         .withIndex("by_app_id", (q) => q.eq("appId", appId))
@@ -115,9 +135,7 @@ export async function createHarness(options: {
         await ctx.db.insert("apps", {
           appId,
           name: args.appName,
-          firstParty: args.firstParty,
-          ...(args.firstParty ? {} : { connector: args.connector ?? "fake" }),
-          tenantId: `${appId}-tenant`,
+          tenantId: "gh-1",
           createdAt: now,
         });
       }
@@ -134,9 +152,10 @@ export async function createHarness(options: {
         createdAt: now,
         renewedAt: now,
         ...testClientRecord,
+        connectors,
       });
     });
-    return { appId, clientId, clientSecret };
+    return { appId, clientId, clientSecret, connectors };
   }
 
   return {
@@ -145,6 +164,10 @@ export async function createHarness(options: {
     http,
     fetchBroker,
     registerClient,
+    /** Makes the queries whose name `failing` answers true for throw; null ends the outage. */
+    failReads(failing: ((name: string) => boolean) | null) {
+      reads.failing = failing;
+    },
     keySet,
     issuer,
   };

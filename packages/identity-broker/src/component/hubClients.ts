@@ -11,7 +11,7 @@ import { vRateLimitScope } from "./schema";
 // proof and the host between `admit` and the creating mutation, and these hold every rule that reads
 // or writes a row, each in one transaction.
 
-const { literal, number, object, string, union } = v;
+const { array, literal, number, object, string, union } = v;
 
 const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1_000;
 /**
@@ -33,12 +33,6 @@ const vRefusal = union(
   literal("too_many_apps"),
   literal("too_many_clients"),
   literal("app_taken"),
-);
-
-/** What the host decided the apps of the repository are, from its own-repository list. */
-const vTrust = union(
-  object({ firstParty: literal(true) }),
-  object({ firstParty: literal(false), connector: string() }),
 );
 
 /** Whether an admin blocked the repository or its owner. */
@@ -198,7 +192,8 @@ export const createClient = mutation({
       object({ type: literal("production"), initialAccessTokenHash: string() }),
       object({ type: literal("preview"), stage: string() }),
     ),
-    trust: vTrust,
+    /** The enrollment, checked by the host against its connectors and its policy. */
+    connectors: array(string()),
     app: string(),
     redirectUri: string(),
     softwareVersion: string(),
@@ -243,7 +238,7 @@ export const createClient = mutation({
       tenantId,
       ownerId: args.githubOwnerId,
       appId: await appIdOf(tenantId, args.app, production),
-      trust: args.trust,
+      connectors: args.connectors,
       deploymentType: args.deployment.type,
       clientId: args.clientId,
       secretHash: args.secretHash,
@@ -327,7 +322,12 @@ export const createClient = mutation({
 export const readInitialAccessToken = query({
   args: { tokenHash: string() },
   returns: union(
-    object({ githubRepositoryDatabaseId: string(), githubOwnerId: string(), app: string() }),
+    object({
+      githubRepositoryDatabaseId: string(),
+      githubOwnerId: string(),
+      githubRepository: string(),
+      app: string(),
+    }),
     v.null(),
   ),
   handler: async (ctx, args) => {
@@ -340,6 +340,7 @@ export const readInitialAccessToken = query({
       : {
           githubRepositoryDatabaseId: row.githubRepositoryDatabaseId,
           githubOwnerId: row.githubOwnerId,
+          githubRepository: row.githubRepository,
           app: row.app,
         };
   },
@@ -348,18 +349,21 @@ export const readInitialAccessToken = query({
 /**
  * Creates a development client of an app and records its registration, in one transaction. The
  * token's row is read again here, so a token replaced or deleted while the verification file was
- * fetched, or a row that names another app or owner, refuses the request (`invalid_token`); the
- * blocks are read again too. The client is in the app's preview app, with a
- * removal date. No owner goes to `registerClient`: it checks the tenant's recorded owner and keeps
- * it, so only a GitHub run changes a tenant's owner.
+ * fetched, or a row that names another repository, owner, or app than the host's policy decided on,
+ * refuses the request (`invalid_token`); the blocks are read again too. The client is in the app's
+ * preview app, with a removal date. No owner goes to `registerClient`: it checks the tenant's
+ * recorded owner and keeps it, so only a GitHub run changes a tenant's owner.
  */
 export const createDevelopmentClient = mutation({
   args: {
     ...vCredentialHashes,
     tokenHash: string(),
+    /** The token's row as the host read it: the facts its policy decided on. */
+    githubRepositoryDatabaseId: string(),
     githubOwnerId: string(),
-    trust: vTrust,
+    githubRepository: string(),
     app: string(),
+    connectors: array(string()),
     redirectUri: string(),
     softwareVersion: string(),
   },
@@ -373,7 +377,13 @@ export const createDevelopmentClient = mutation({
       .query("initialAccessTokens")
       .withIndex("by_token_hash", (q) => q.eq("tokenHash", args.tokenHash))
       .unique();
-    if (token === null || token.app !== args.app || token.githubOwnerId !== args.githubOwnerId) {
+    if (
+      token === null ||
+      token.githubRepositoryDatabaseId !== args.githubRepositoryDatabaseId ||
+      token.githubOwnerId !== args.githubOwnerId ||
+      token.githubRepository !== args.githubRepository ||
+      token.app !== args.app
+    ) {
       return { ok: false as const, reason: "invalid_token" as const };
     }
     if (
@@ -389,7 +399,7 @@ export const createDevelopmentClient = mutation({
     const result = await registerClient(ctx, {
       tenantId,
       appId: await appIdOf(tenantId, token.app, false),
-      trust: args.trust,
+      connectors: args.connectors,
       deploymentType: "development",
       clientId: args.clientId,
       secretHash: args.secretHash,

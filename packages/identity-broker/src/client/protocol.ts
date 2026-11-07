@@ -64,7 +64,12 @@ export type AuthorizeInput = {
   codeChallenge: string;
   prompt: string[];
   maxAge: number | undefined;
-  connector: string | undefined;
+  /**
+   * The connectors the app asks for, from `connector`: a space-delimited list, as `scope` and
+   * `prompt` are (OIDC Core section 3.1.2.1). Empty when the parameter is absent, empty, or
+   * whitespace (RFC 6749 section 3.1): the page then offers every connector the client may use.
+   */
+  connectors: string[];
 };
 
 /**
@@ -143,7 +148,9 @@ export function validateAuthorizeRest(
       return invalid(400, "invalid_request", "max_age must be a non-negative integer.");
     }
   }
-  const connector = params.get("connector")?.trim() || undefined;
+  const connectors = [
+    ...new Set((params.get("connector") ?? "").split(/\s+/).filter((name) => name.length > 0)),
+  ];
   return {
     ok: true,
     value: {
@@ -155,7 +162,7 @@ export function validateAuthorizeRest(
       codeChallenge,
       prompt,
       maxAge,
-      connector,
+      connectors,
     },
   };
 }

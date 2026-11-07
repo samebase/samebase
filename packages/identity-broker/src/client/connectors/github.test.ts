@@ -113,18 +113,14 @@ test("a /user response without an id is an error", async () => {
 });
 
 /**
- * A first-party sign-in through the broker's GitHub callback. The query has the shape of a real
- * GitHub callback to the hub on 2026-10-29, `code`, then `iss` (RFC 9207), then `state`; the code
- * and the state are this test's own. An `iss` of `undefined` leaves the parameter out.
+ * A sign-in through the broker's GitHub callback. The query has the shape of a real GitHub
+ * callback to the hub on 2026-10-29, `code`, then `iss` (RFC 9207), then `state`; the code and
+ * the state are this test's own. An `iss` of `undefined` leaves the parameter out.
  */
 async function signInWithIss(iss: string | undefined) {
   const h = await createHarness({ connectors: [connector] });
   const redirectUri = "https://app.test/oauth/hub/callback";
-  const { clientId } = await h.registerClient({
-    appName: "Bristol",
-    firstParty: true,
-    redirectUri,
-  });
+  const { clientId } = await h.registerClient({ appName: "Bristol", redirectUri });
   const { challenge } = await pkce();
   const authorize = new URL(`${h.issuer}/authorize`);
   authorize.search = new URLSearchParams({

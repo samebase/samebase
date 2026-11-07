@@ -30,9 +30,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         { appId: string },
         {
           appId: string;
-          connector?: string;
           createdAt: number;
-          firstParty: boolean;
           name: string;
           suspended: boolean;
           tenantId: string;
@@ -45,9 +43,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         {},
         Array<{
           appId: string;
-          connector?: string;
           createdAt: number;
-          firstParty: boolean;
           name: string;
           suspended: boolean;
           tenantId: string;
@@ -76,6 +72,12 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         {
           connector: string;
           now: number;
+          policy: {
+            connectors: Array<string>;
+            ownerId?: string;
+            paused: boolean;
+            resources: Array<string>;
+          };
           txnCookieHashes: Array<string>;
           upstreamStateHash: string;
         },
@@ -95,6 +97,12 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             requestId: string;
             state?: string;
             status: "expired";
+          }
+        | {
+            redirectUri: string;
+            requestId: string;
+            state?: string;
+            status: "refused";
           }
         | { status: "unbound" }
         | { status: "missing" },
@@ -116,11 +124,17 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             upstreamId: string;
           };
           now: number;
+          policy: {
+            connectors: Array<string>;
+            ownerId?: string;
+            paused: boolean;
+            resources: Array<string>;
+          };
           requestId: string;
         },
         | { ok: true; redirectUri: string; state?: string }
         | {
-            error: "expired" | "wrong_status";
+            error: "expired" | "wrong_status" | "refused";
             ok: false;
             redirectUri: string;
             state?: string;
@@ -135,6 +149,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           appId: string;
           clientId: string;
           codeChallenge: string;
+          connectors: Array<string>;
           createdAt: number;
           expiresAt: number;
           freshLogin: boolean;
@@ -143,10 +158,10 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           requestId: string;
           scope: string;
           state?: string;
-          tenantId?: string;
+          tenantId: string;
           txnCookieHash: string;
         },
-        { ok: boolean },
+        { ok: true } | { error: "rate_limited" | "suspended"; ok: false },
         Name
       >;
       exchangeCode: FunctionReference<
@@ -158,9 +173,14 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           codeHash: string;
           codeVerifier: string;
           now: number;
+          policy: {
+            connectors: Array<string>;
+            ownerId?: string;
+            paused: boolean;
+            resources: Array<string>;
+          };
           redirectUri?: string;
           refreshTokenHash: string;
-          registrationPaused?: boolean;
           resource?: string;
           tokenEndpointAuthMethod: "client_secret_post" | "client_secret_basic";
         },
@@ -203,6 +223,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             appId: string;
             clientId: string;
             codeChallenge: string;
+            connectors: Array<string>;
             createdAt: number;
             expiresAt: number;
             freshLogin: boolean;
@@ -219,6 +240,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             clientId: string;
             codeChallenge: string;
             connector: string;
+            connectors: Array<string>;
             createdAt: number;
             expiresAt: number;
             freshLogin: boolean;
@@ -238,6 +260,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             clientId: string;
             codeChallenge: string;
             connector: string;
+            connectors: Array<string>;
             createdAt: number;
             expiresAt: number;
             freshLogin: boolean;
@@ -254,6 +277,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             authTime: number;
             clientId: string;
             codeChallenge: string;
+            connectors: Array<string>;
             createdAt: number;
             expiresAt: number;
             freshLogin: boolean;
@@ -282,6 +306,12 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         {
           connector: string;
           now: number;
+          policy: {
+            connectors: Array<string>;
+            ownerId?: string;
+            paused: boolean;
+            resources: Array<string>;
+          };
           requestId: string;
           upstreamCodeVerifier: string;
           upstreamNonce?: string;
@@ -289,12 +319,77 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         },
         | { ok: true; redirectUri: string; state?: string }
         | {
-            error: "expired" | "wrong_status";
+            error: "expired" | "wrong_status" | "refused";
             ok: false;
             redirectUri: string;
             state?: string;
           }
         | { error: "not_found"; ok: false },
+        Name
+      >;
+      upstreamClient: FunctionReference<
+        "query",
+        "internal",
+        { upstreamStateHash: string },
+        {
+          client: {
+            app: {
+              appId: string;
+              createdAt: number;
+              name: string;
+              suspended: boolean;
+              tenantId: string;
+            } | null;
+            client: {
+              app: string;
+              appId: string;
+              clientId: string;
+              clientName: string;
+              connectors: Array<string>;
+              createdAt: number;
+              deploymentType: "production" | "development" | "preview";
+              lastSignInAt?: number;
+              redirectUri: string;
+              registeredBy:
+                | {
+                    commitSha: string;
+                    githubActorId: string;
+                    githubActorLogin: string;
+                    githubOwnerId: string;
+                    githubRepository: string;
+                    kind: "github";
+                  }
+                | {
+                    githubOwnerId: string;
+                    githubRepository: string;
+                    issuedAt: number;
+                    kind: "initial_access_token";
+                  };
+              registrationTokenHash: string;
+              removeAt?: number;
+              renewedAt: number;
+              secretHash: string;
+              softwareVersion: string;
+              tokenEndpointAuthMethod:
+                "client_secret_post" | "client_secret_basic";
+            };
+            registration: {
+              app: string;
+              deploymentType: "production" | "development" | "preview";
+              ownerId: string;
+              proof: "github-actions" | "initial-access-token";
+              redirectUri: string;
+              repository: string;
+              repositoryId: string;
+            } | null;
+          } | null;
+          request: {
+            redirectUri: string;
+            requestId: string;
+            state?: string;
+            txnCookieHash: string;
+          };
+        } | null,
         Name
       >;
     };
@@ -308,6 +403,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           appId: string;
           clientId: string;
           clientName: string;
+          connectors: Array<string>;
           createdAt: number;
           deploymentType: "production" | "development" | "preview";
           lastSignInAt?: number;
@@ -345,6 +441,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           appId: string;
           clientId: string;
           clientName: string;
+          connectors: Array<string>;
           createdAt: number;
           deploymentType: "production" | "development" | "preview";
           lastSignInAt?: number;
@@ -387,9 +484,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         {
           app: {
             appId: string;
-            connector?: string;
             createdAt: number;
-            firstParty: boolean;
             name: string;
             suspended: boolean;
             tenantId: string;
@@ -399,6 +494,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             appId: string;
             clientId: string;
             clientName: string;
+            connectors: Array<string>;
             createdAt: number;
             deploymentType: "production" | "development" | "preview";
             lastSignInAt?: number;
@@ -426,6 +522,15 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             tokenEndpointAuthMethod:
               "client_secret_post" | "client_secret_basic";
           };
+          registration: {
+            app: string;
+            deploymentType: "production" | "development" | "preview";
+            ownerId: string;
+            proof: "github-actions" | "initial-access-token";
+            redirectUri: string;
+            repository: string;
+            repositoryId: string;
+          } | null;
         } | null,
         Name
       >;
@@ -450,6 +555,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           app: string;
           clientId: string;
           commitSha: string;
+          connectors: Array<string>;
           deployment:
             | { initialAccessTokenHash: string; type: "production" }
             | { stage: string; type: "preview" };
@@ -463,8 +569,6 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           registrationTokenHash: string;
           secretHash: string;
           softwareVersion: string;
-          trust:
-            { firstParty: true } | { connector: string; firstParty: false };
         },
         | { ok: true }
         | {
@@ -486,14 +590,15 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         {
           app: string;
           clientId: string;
+          connectors: Array<string>;
           githubOwnerId: string;
+          githubRepository: string;
+          githubRepositoryDatabaseId: string;
           redirectUri: string;
           registrationTokenHash: string;
           secretHash: string;
           softwareVersion: string;
           tokenHash: string;
-          trust:
-            { firstParty: true } | { connector: string; firstParty: false };
         },
         | { ok: true }
         | {
@@ -515,6 +620,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         {
           app: string;
           githubOwnerId: string;
+          githubRepository: string;
           githubRepositoryDatabaseId: string;
         } | null,
         Name
@@ -574,6 +680,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             appId: string;
             clientId: string;
             clientName: string;
+            connectors: Array<string>;
             createdAt: number;
             deploymentType: "production" | "development" | "preview";
             lastSignInAt: number | null;
@@ -620,6 +727,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           appId: string;
           clientId: string;
           clientName: string;
+          connectors: Array<string>;
           createdAt: number;
           deploymentType: "production" | "development" | "preview";
           lastSignInAt: number | null;
@@ -669,6 +777,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           appId: string;
           clientId: string;
           clientName: string;
+          connectors: Array<string>;
           deploymentType: "production" | "preview" | "development";
           now: number;
           ownerId?: string;
@@ -693,8 +802,6 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           softwareVersion: string;
           tenantId: string;
           tokenEndpointAuthMethod: "client_secret_post" | "client_secret_basic";
-          trust:
-            { firstParty: true } | { connector: string; firstParty: false };
         },
         | { ok: true }
         | {
@@ -718,6 +825,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         | {
             appId: string;
             clientName: string;
+            connectors: Array<string>;
             createdAt: number;
             ok: true;
             redirectUri: string;
@@ -758,6 +866,12 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             txnCookieHash: string;
             upstreamCodeVerifier: string;
           }
+        | {
+            redirectUri: string;
+            requestId: string;
+            state?: string;
+            status: "expired";
+          }
         | { status: "missing" }
         | { status: "unbound" },
         Name
@@ -769,6 +883,12 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           clientId: string;
           clientSecretHash: string;
           now: number;
+          policy: {
+            connectors: Array<string>;
+            ownerId?: string;
+            paused: boolean;
+            resources: Array<string>;
+          };
           resource?: string;
           tokenEndpointAuthMethod: "client_secret_post" | "client_secret_basic";
           tokenHash: string;
@@ -795,6 +915,12 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           codeExpiresAt: number;
           codeHash: string;
           now: number;
+          policy: {
+            connectors: Array<string>;
+            ownerId?: string;
+            paused: boolean;
+            resources: Array<string>;
+          };
           requestId: string;
           tokens: {
             accessToken: string;
@@ -803,7 +929,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             scope: string;
           };
         },
-        boolean,
+        "completed" | "refused" | "gone",
         Name
       >;
       create: FunctionReference<
@@ -813,6 +939,12 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           clientId: string;
           codeChallenge: string;
           expiresAt: number;
+          policy: {
+            connectors: Array<string>;
+            ownerId?: string;
+            paused: boolean;
+            resources: Array<string>;
+          };
           redirectUri: string;
           requestId: string;
           resource: string;
@@ -821,7 +953,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           upstreamCodeVerifier: string;
           upstreamStateHash: string;
         },
-        null,
+        boolean,
         Name
       >;
       failRefresh: FunctionReference<
@@ -838,6 +970,12 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           attempt: number;
           grantId: string;
           now: number;
+          policy: {
+            connectors: Array<string>;
+            ownerId?: string;
+            paused: boolean;
+            resources: Array<string>;
+          } | null;
           tokens: {
             accessToken: string;
             expiresAt?: number;

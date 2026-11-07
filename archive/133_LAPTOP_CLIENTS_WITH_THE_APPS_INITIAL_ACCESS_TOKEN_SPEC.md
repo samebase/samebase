@@ -2,7 +2,8 @@
 
 ## Document Control
 
-- Status: PR 1 shipped as v2267; the laptop side rewritten as a stage of the app's stack on
+- Status: Superseded by [RFC 137](../rfcs/137_ONE_HUB_MODEL_SPEC.md), which restates what stays.
+  Historical: PR 1 shipped as v2267; the laptop side rewritten as a stage of the app's stack on
   2026-11-05
 - Owner: Nicu Chiciuc
 - Created: 2026-11-05

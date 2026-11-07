@@ -7,6 +7,7 @@ import {
 import type { ComponentApi } from "../component/_generated/component.js";
 import { readBearerToken } from "./protocol.js";
 import { json } from "./responses.js";
+import type { PolicyFunction } from "./policy.js";
 import { randomToken, sha256Hex } from "./subject.js";
 
 /**
@@ -18,15 +19,13 @@ import { randomToken, sha256Hex } from "./subject.js";
  */
 export type RegistrationConfig = {
   /**
-   * The numeric GitHub ids of the repositories whose apps are this hub's own, separated by commas,
-   * read in the request. Their apps are first-party: every connector but a reserved one, and API
-   * resources; the pause does not stop them. Every other repository's apps are third-party.
+   * What a registration may do, decided from its facts (RFC 137 decision 2): the connectors it may
+   * enroll in and use, the API resources it may authorize, whether the sign-in page asks for
+   * consent, and whether it is paused. Run at registration and at each use, on the client's and
+   * the tenant's rows, so a change applies to existing clients at once. A policy that throws or
+   * answers a malformed value refuses the request, and nothing is allowed by default.
    */
-  ownRepositoryIds: () => string | undefined;
-  /** The one connector of every third-party app: a reserved connector of `connectors`. */
-  thirdPartyConnector: string;
-  /** While true, no third-party app registers or signs in. An emergency brake for all of them. */
-  paused: () => boolean;
+  policy: PolicyFunction;
   /** The key of `/moderation/*`, read in the request. Unset or empty: every request is refused. */
   moderationKey: () => string | undefined;
   /** The name of the hub's sign-in service as users know it, such as `Samebase`. */
@@ -53,7 +52,10 @@ const invalidToken = () =>
     "WWW-Authenticate": 'Bearer error="invalid_token"',
   });
 
-/** The client information response (RFC 7591 section 3.2.1), without what only the first holds. */
+/**
+ * The client information response (RFC 7591 section 3.2.1), without what only the first holds.
+ * `connectors` is the enrollment, the hub's own field.
+ */
 function clientInformation(args: {
   issuer: string;
   clientId: string;
@@ -63,6 +65,7 @@ function clientInformation(args: {
   softwareId: string;
   softwareVersion: string;
   tokenEndpointAuthMethod: TokenMethod;
+  connectors: string[];
 }) {
   return {
     client_id: args.clientId,
@@ -76,6 +79,7 @@ function clientInformation(args: {
     token_endpoint_auth_method: args.tokenEndpointAuthMethod,
     grant_types: ["authorization_code"],
     response_types: ["code"],
+    connectors: args.connectors,
   };
 }
 
@@ -143,6 +147,7 @@ export function registrationEndpoints(args: {
         softwareId: result.appId,
         softwareVersion: result.softwareVersion,
         tokenEndpointAuthMethod: result.tokenEndpointAuthMethod,
+        connectors: result.connectors,
       }),
     );
   });

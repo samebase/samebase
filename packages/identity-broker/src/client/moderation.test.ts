@@ -296,15 +296,14 @@ describe("the blocks", () => {
 });
 
 describe("the clients", () => {
-  it("lists every client at the broker newest first with who made it, and no secret", async () => {
+  it("lists every client at the broker newest first with who made it and its enrollment, and no secret", async () => {
     vi.useFakeTimers({ now: 1_800_000_000_000, toFake: ["Date"] });
     const h = await createHub();
-    vi.stubEnv("OWN_REPOSITORY_IDS", "81");
-    const own = await createClient(h, { repository_id: "81", repository: "octo-org/own" });
+    const first = await createClient(h, { repository_id: "81", repository: "octo-org/own" });
     vi.setSystemTime(1_800_000_001_000);
-    const thirdParty = await createClient(h);
+    const second = await createClient(h);
     vi.setSystemTime(1_800_000_002_000);
-    await readOwnRecord(h, thirdParty);
+    await readOwnRecord(h, second);
 
     const response = await moderationRequest(h, "/moderation/clients");
     const text = await response.text();
@@ -313,7 +312,7 @@ describe("the clients", () => {
     expect(JSON.parse(text)).toEqual({
       clients: [
         {
-          clientId: thirdParty.client_id,
+          clientId: second.client_id,
           appId: `gh-${REPOSITORY_ID}-${APP_HASH}`,
           clientName: "prod",
           deploymentType: "production",
@@ -330,9 +329,10 @@ describe("the clients", () => {
             githubActorLogin: "octocat",
             app: "my-app",
           },
+          connectors: ["fake"],
         },
         {
-          clientId: own.client_id,
+          clientId: first.client_id,
           appId: `gh-81-${APP_HASH}`,
           clientName: "prod",
           deploymentType: "production",
@@ -349,11 +349,12 @@ describe("the clients", () => {
             githubActorLogin: "octocat",
             app: "my-app",
           },
+          connectors: ["fake"],
         },
       ],
       limitReached: false,
     });
-    for (const client of [own, thirdParty]) {
+    for (const client of [first, second]) {
       expect(text).not.toContain(client.client_secret);
       expect(text).not.toContain(client.registration_access_token);
     }

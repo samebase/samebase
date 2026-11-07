@@ -86,6 +86,7 @@ const overview = {
           githubActorLogin: "renovate[bot]",
           app: "my-app",
         },
+        connectors: ["github", "google"],
       },
       {
         clientId: "cl_development",
@@ -105,6 +106,7 @@ const overview = {
           app: "my-app",
           issuedAt: ISSUED_AT,
         },
+        connectors: ["github", "google"],
       },
       {
         clientId: "cl_production",
@@ -124,6 +126,7 @@ const overview = {
           githubActorLogin: "octocat",
           app: "my-app",
         },
+        connectors: ["github", "google"],
       },
     ],
     limitReached: false,
