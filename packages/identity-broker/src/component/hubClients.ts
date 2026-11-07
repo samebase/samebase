@@ -47,19 +47,27 @@ const vInvalidConnectors = object({
   allowed: array(string()),
 });
 
-/** The refusal of an enrollment that the policy and the app's grants do not cover, or null. */
+/**
+ * The refusal of an enrollment that the policy and the app's grants of the host's configured
+ * connectors do not cover, or null.
+ */
 async function connectorRefusal(
   ctx: MutationCtx,
   args: { appId: string; ownerId: string; tenantOwnerId: string | undefined },
   connectors: string[],
-  policyConnectors: string[],
+  allowedBy: { policy: string[]; configured: string[] },
 ) {
   const granted = await grantedTo(ctx, {
     appId: args.appId,
     tenantOwnerId: args.tenantOwnerId,
     clientOwnerId: args.ownerId,
   });
-  const allowed = [...new Set([...policyConnectors, ...granted])].sort();
+  const allowed = [
+    ...new Set([
+      ...allowedBy.policy,
+      ...granted.filter((name) => allowedBy.configured.includes(name)),
+    ]),
+  ].sort();
   return connectors.every((name) => allowed.includes(name))
     ? null
     : { ok: false as const, reason: "invalid_connectors" as const, allowed };
@@ -215,6 +223,8 @@ export const createClient = mutation({
     connectors: array(string()),
     /** The hub's connectors that the policy gives this registration; grants are read here. */
     policyConnectors: array(string()),
+    /** The hub's configured connectors, the only ones a grant can open. */
+    configuredConnectors: array(string()),
     app: string(),
     redirectUri: string(),
     softwareVersion: string(),
@@ -262,7 +272,7 @@ export const createClient = mutation({
       ctx,
       { appId, ownerId: args.githubOwnerId, tenantOwnerId: args.githubOwnerId },
       args.connectors,
-      args.policyConnectors,
+      { policy: args.policyConnectors, configured: args.configuredConnectors },
     );
     if (refused !== null) {
       return refused;
@@ -399,6 +409,8 @@ export const createDevelopmentClient = mutation({
     connectors: array(string()),
     /** The hub's connectors that the policy gives this registration; grants are read here. */
     policyConnectors: array(string()),
+    /** The hub's configured connectors, the only ones a grant can open. */
+    configuredConnectors: array(string()),
     redirectUri: string(),
     softwareVersion: string(),
   },
@@ -442,7 +454,7 @@ export const createDevelopmentClient = mutation({
         tenantOwnerId: (await tenantRow(ctx, tenantId))?.ownerId,
       },
       args.connectors,
-      args.policyConnectors,
+      { policy: args.policyConnectors, configured: args.configuredConnectors },
     );
     if (refused !== null) {
       return refused;

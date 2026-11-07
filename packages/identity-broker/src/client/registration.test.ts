@@ -747,7 +747,13 @@ describe("what a redemption does at once", () => {
       tokenEndpointAuthMethod: "client_secret_post",
       codeHash: await sha256Hex(code),
       codeVerifier: verifier,
-      policy: { ownerId: "65", paused: false, connectors: ["fake"], resources: [] },
+      policy: {
+        ownerId: "65",
+        paused: false,
+        connectors: ["fake"],
+        resources: [],
+        configured: ["fake"],
+      },
       now: Date.now(),
     });
     expect((await readClient(h, client.client_id))?.lastSignInAt).toBeDefined();

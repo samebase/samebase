@@ -122,9 +122,9 @@ export const list = query({
 
 /**
  * Grants (`grant: true`) or revokes one connector of one app and appends the event, in one
- * transaction. A change that is already in place changes nothing and appends nothing. Granting
- * needs the app and refuses when the tenant's recorded owner is not `expectedOwnerId`, the owner
- * that the admin saw; a row of another owner, which no longer counts, is bound to this one.
+ * transaction. Both need the app (`unknown_app`). A change that is already in place changes nothing
+ * and appends nothing. Granting refuses when the tenant's recorded owner is not `expectedOwnerId`,
+ * the owner that the admin saw; a row of another owner, which no longer counts, is bound to this one.
  * Revoking refuses when the row is bound to another owner than `expectedOwnerId`, the row's owner
  * that the admin saw, so a stale page cannot revoke a row that another admin bound since; it does
  * not need the tenant's owner, so a row that no longer counts can go. The host checks that the
@@ -158,6 +158,13 @@ export const set = mutation({
       return { ok: true as const, changed: true };
     };
     const unchanged = { ok: true as const, changed: false };
+    const app = await ctx.db
+      .query("apps")
+      .withIndex("by_app_id", (q) => q.eq("appId", args.appId))
+      .unique();
+    if (app === null) {
+      return { ok: false as const, error: "unknown_app" as const };
+    }
     const row = await ctx.db
       .query("connectorGrants")
       .withIndex("by_app_id_and_connector", (q) =>
@@ -169,18 +176,12 @@ export const set = mutation({
       if (row === null) {
         return unchanged;
       }
+      // The row's owner, not the tenant's: a row that no longer counts can go too.
       if (row.ownerId !== args.expectedOwnerId) {
         return { ok: false as const, error: "owner_changed" as const };
       }
       await ctx.db.delete("connectorGrants", row._id);
       return await event("revoke", row.ownerId);
-    }
-    const app = await ctx.db
-      .query("apps")
-      .withIndex("by_app_id", (q) => q.eq("appId", args.appId))
-      .unique();
-    if (app === null) {
-      return { ok: false as const, error: "unknown_app" as const };
     }
     if ((await tenantRow(ctx, app.tenantId))?.ownerId !== args.expectedOwnerId) {
       return { ok: false as const, error: "owner_changed" as const };

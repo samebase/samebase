@@ -408,6 +408,7 @@ describe("POST /hub-clients", () => {
             app: seen.app,
             connectors: ["fake"],
             policyConnectors: ["fake"],
+            configuredConnectors: ["fake"],
             redirectUri: LOOPBACK_CALLBACK,
             softwareVersion: "dev-1",
           }),

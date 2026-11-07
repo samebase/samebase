@@ -88,8 +88,11 @@ const limits = new RateLimiter(components.rateLimiter, {
 
 /**
  * Stores a validated /authorize request. The caller has already checked the client, the redirect
- * URI, and the policy. The budget of the tenant and its blocks are read in this mutation, so a
- * refused request writes no row.
+ * URI, and the policy, and sends the set it would offer. The grants are read here again, so the
+ * stored set is that set of the connectors the client may use now: a grant revoked since the
+ * caller's read is not stored, and the caller renders the set this answers. The budget of the
+ * tenant and its blocks are read in this mutation too, so a refused request writes no row; `off`
+ * when no connector is left.
  */
 export const create = mutation({
   args: {
@@ -103,19 +106,44 @@ export const create = mutation({
     state: optional(string()),
     nonce: optional(string()),
     codeChallenge: string(),
+    /** The set the caller would offer, from its snapshot of the client's facts and grants. */
     connectors: array(string()),
+    policy: vPolicyDecision,
     freshLogin: boolean(),
     txnCookieHash: string(),
     createdAt: number(),
     expiresAt: number(),
   },
   returns: union(
-    object({ ok: literal(true) }),
-    object({ ok: literal(false), error: union(literal("rate_limited"), literal("suspended")) }),
+    object({ ok: literal(true), connectors: array(string()) }),
+    object({
+      ok: literal(false),
+      error: union(literal("rate_limited"), literal("suspended"), literal("off")),
+    }),
   ),
   handler: async (ctx, args) => {
     if (await isSuspended(ctx, args.tenantId)) {
       return { ok: false as const, error: "suspended" as const };
+    }
+    const client = await ctx.db
+      .query("clients")
+      .withIndex("by_client_id", (q) => q.eq("clientId", args.clientId))
+      .unique();
+    const connectors =
+      client === null
+        ? []
+        : usableConnectors(
+            { connectors: args.connectors },
+            client,
+            args.policy,
+            await grantedTo(ctx, {
+              appId: client.appId,
+              tenantOwnerId: (await tenantRow(ctx, args.tenantId))?.ownerId,
+              clientOwnerId: client.registeredBy.githubOwnerId,
+            }),
+          );
+    if (connectors.length === 0) {
+      return { ok: false as const, error: "off" as const };
     }
     const { ok } = await limits.limit(ctx, "tenantSignIn", { key: args.tenantId });
     if (!ok) {
@@ -131,13 +159,13 @@ export const create = mutation({
       ...optionalField("state", args.state),
       ...optionalField("nonce", args.nonce),
       codeChallenge: args.codeChallenge,
-      connectors: args.connectors,
+      connectors,
       freshLogin: args.freshLogin,
       txnCookieHash: args.txnCookieHash,
       createdAt: args.createdAt,
       expiresAt: args.expiresAt,
     });
-    return { ok: true as const };
+    return { ok: true as const, connectors };
   },
 });
 

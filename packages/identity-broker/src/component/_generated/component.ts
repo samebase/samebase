@@ -73,6 +73,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           connector: string;
           now: number;
           policy: {
+            configured: Array<string>;
             connectors: Array<string>;
             ownerId?: string;
             paused: boolean;
@@ -125,6 +126,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           };
           now: number;
           policy: {
+            configured: Array<string>;
             connectors: Array<string>;
             ownerId?: string;
             paused: boolean;
@@ -154,6 +156,13 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           expiresAt: number;
           freshLogin: boolean;
           nonce?: string;
+          policy: {
+            configured: Array<string>;
+            connectors: Array<string>;
+            ownerId?: string;
+            paused: boolean;
+            resources: Array<string>;
+          };
           redirectUri: string;
           requestId: string;
           scope: string;
@@ -161,7 +170,8 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           tenantId: string;
           txnCookieHash: string;
         },
-        { ok: true } | { error: "rate_limited" | "suspended"; ok: false },
+        | { connectors: Array<string>; ok: true }
+        | { error: "rate_limited" | "suspended" | "off"; ok: false },
         Name
       >;
       exchangeCode: FunctionReference<
@@ -174,6 +184,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           codeVerifier: string;
           now: number;
           policy: {
+            configured: Array<string>;
             connectors: Array<string>;
             ownerId?: string;
             paused: boolean;
@@ -307,6 +318,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           connector: string;
           now: number;
           policy: {
+            configured: Array<string>;
             connectors: Array<string>;
             ownerId?: string;
             paused: boolean;
@@ -661,6 +673,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           app: string;
           clientId: string;
           commitSha: string;
+          configuredConnectors: Array<string>;
           connectors: Array<string>;
           deployment:
             | { initialAccessTokenHash: string; type: "production" }
@@ -698,6 +711,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         {
           app: string;
           clientId: string;
+          configuredConnectors: Array<string>;
           connectors: Array<string>;
           githubOwnerId: string;
           githubRepository: string;
@@ -1022,6 +1036,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           clientSecretHash: string;
           now: number;
           policy: {
+            configured: Array<string>;
             connectors: Array<string>;
             ownerId?: string;
             paused: boolean;
@@ -1054,6 +1069,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           codeHash: string;
           now: number;
           policy: {
+            configured: Array<string>;
             connectors: Array<string>;
             ownerId?: string;
             paused: boolean;
@@ -1078,6 +1094,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           codeChallenge: string;
           expiresAt: number;
           policy: {
+            configured: Array<string>;
             connectors: Array<string>;
             ownerId?: string;
             paused: boolean;
@@ -1109,6 +1126,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           grantId: string;
           now: number;
           policy: {
+            configured: Array<string>;
             connectors: Array<string>;
             ownerId?: string;
             paused: boolean;

@@ -419,6 +419,7 @@ export function hubClientsEndpoint(args: {
           : { type: "production", initialAccessTokenHash: await sha256Hex(initialAccessToken) },
       connectors: enrollment,
       policyConnectors,
+      configuredConnectors: args.connectors,
       app: body.app,
       redirectUri: body.redirectUri,
       softwareVersion: body.softwareVersion,
@@ -494,6 +495,7 @@ export function hubClientsEndpoint(args: {
       app: token.app,
       connectors: enrollment,
       policyConnectors,
+      configuredConnectors: args.connectors,
       redirectUri: body.redirectUri,
       softwareVersion: body.softwareVersion,
     });

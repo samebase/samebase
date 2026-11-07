@@ -1134,6 +1134,7 @@ describe("cleanup", () => {
       scope: "openid",
       codeChallenge: "c",
       connectors: ["fake"],
+      policy: { paused: false, connectors: ["fake"], resources: [], configured: ["fake"] },
       freshLogin: false,
       txnCookieHash: "h",
       createdAt: now - 3_600_000,

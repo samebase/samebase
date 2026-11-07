@@ -927,14 +927,19 @@ function ConnectorsForm({
   const [error, setError] = useState<string | null>(null);
   const changes = choices.filter((name) => checked.includes(name) !== saved.includes(name));
 
+  /**
+  One write per changed connector. Each one is saved or refused on its own, so the page reloads after
+  every attempt and says which were saved and which were refused.
+  */
   const save = async () => {
     setPending(true);
     setError(null);
-    try {
-      const refusals = [];
-      for (const connector of changes) {
-        const grant = checked.includes(connector);
-        const row = rows.find((candidate) => candidate.connector === connector);
+    const saved: string[] = [];
+    const refused: string[] = [];
+    for (const connector of changes) {
+      const grant = checked.includes(connector);
+      const row = rows.find((candidate) => candidate.connector === connector);
+      try {
         const answer = await changeConnectorGrant({
           appId: target.appId,
           connector,
@@ -944,21 +949,27 @@ function ConnectorsForm({
           reason,
         });
         const refusal = answer.status === "on" ? connectorGrantRefusal(answer.result) : null;
-        if (refusal !== null) {
-          refusals.push(`${connector}: ${refusal}`);
+        if (refusal === null) {
+          saved.push(connector);
+        } else {
+          refused.push(`${connector}: ${refusal}`);
         }
+      } catch {
+        refused.push(`${connector}: The hub refused the change.`);
       }
+    }
+    try {
       await onChanged();
-      if (refusals.length > 0) {
-        setError(refusals.join(" "));
-        return;
-      }
-      onClose();
-    } catch {
-      setError("The hub refused the change.");
     } finally {
       setPending(false);
     }
+    if (refused.length === 0) {
+      onClose();
+      return;
+    }
+    setError(
+      `${saved.length === 0 ? "" : `Saved: ${saved.join(", ")}. `}Refused: ${refused.join(" ")}`,
+    );
   };
 
   return (

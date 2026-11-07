@@ -1,6 +1,7 @@
 /// <reference types="vite-plus/client" />
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
-import { fakeUpstream, pkce, txnCookie, type Harness } from "./harness.test.helper.js";
+import { api } from "../component/_generated/api.js";
+import { fakeUpstream, pkce, sha256Hex, txnCookie, type Harness } from "./harness.test.helper.js";
 import {
   APP_HASH,
   createHub,
@@ -214,7 +215,7 @@ describe("the connector grants", () => {
     const refused = await register(h, ["fake", "other"], { repository_owner_id: "66" });
     expect(refused.status).toBe(400);
     expect(await refused.json()).toEqual({ error: "invalid_connectors", allowed: ["fake"] });
-    const newOwnersClient = await registered(h, ["fake"], { repository_owner_id: "66" });
+    await registered(h, ["fake"], { repository_owner_id: "66" });
     expect((await signIn(h, ownersClient, "other")).went).toBe("status 403");
     const kept: { grants: Array<{ ownerId: string; active: boolean }> } = await (
       await moderationRequest(h, "/moderation/connector-grants")
@@ -225,11 +226,34 @@ describe("the connector grants", () => {
     expect(stale.status).toBe(409);
     expect(await stale.json()).toEqual({ error: "owner_changed" });
 
-    // The repository comes back to owner 65: the grant counts again, for 65's clients only.
+    // The repository comes back to owner 65: the grant counts again.
     vi.setSystemTime(1_800_000_002_000);
     await registered(h, ["fake"]);
     expect((await signIn(h, ownersClient, "other")).went).toBe("provider");
-    expect((await signIn(h, newOwnersClient, "other")).went).toBe("status 400");
+  });
+
+  it("never let an old client of another owner use a grant bound to the recorded owner", async () => {
+    vi.useFakeTimers({ now: 1_800_000_000_000, toFake: ["Date"] });
+    const h = await createHub({ policy: hubPolicy });
+    await skipSignInPage(h);
+    await registered(h, ["fake"]);
+
+    // The repository moves to owner 66, which gets the grant and a client enrolled in `other`.
+    vi.setSystemTime(1_800_000_001_000);
+    await registered(h, ["fake"], { repository_owner_id: "66" });
+    await changeGrant(h, { expectedOwnerId: "66", grant: true });
+    const sixtySixsClient = await registered(h, ["fake", "other"], { repository_owner_id: "66" });
+    expect((await signIn(h, sixtySixsClient, "other")).went).toBe("provider");
+
+    // It comes back to owner 65, and the admin binds the grant to 65.
+    vi.setSystemTime(1_800_000_002_000);
+    await registered(h, ["fake"]);
+    expect(await (await changeGrant(h, { grant: true })).json()).toEqual({ changed: true });
+
+    // 66's client is enrolled in `other`, and the grant is active, but it is not 66's.
+    expect((await signIn(h, sixtySixsClient, "other")).went).toBe("status 403");
+    const sixtyFivesClient = await registered(h, ["fake", "other"]);
+    expect((await signIn(h, sixtyFivesClient, "other")).went).toBe("provider");
   });
 
   it("refuse a revoke from a stale view, an unknown app, an unknown connector, and a malformed change", async () => {
@@ -249,9 +273,11 @@ describe("the connector grants", () => {
       changed: true,
     });
 
-    const unknownApp = await changeGrant(h, { appId: "gh-99-app", grant: true });
-    expect(unknownApp.status).toBe(404);
-    expect(await unknownApp.json()).toEqual({ error: "unknown_app" });
+    for (const grant of [true, false]) {
+      const unknownApp = await changeGrant(h, { appId: "gh-99-app", grant });
+      expect(unknownApp.status).toBe(404);
+      expect(await unknownApp.json()).toEqual({ error: "unknown_app" });
+    }
     const unknownConnector = await changeGrant(h, { connector: "okta", grant: true });
     expect(unknownConnector.status).toBe(400);
     expect(await unknownConnector.json()).toEqual({ error: "unknown_connector" });
@@ -319,6 +345,73 @@ describe("the connector grants", () => {
     });
     expect(exchanged.status).toBe(400);
     expect(await exchanged.json()).toMatchObject({ error: "invalid_grant" });
+  });
+
+  it("refuse the exchange of a code once its connector leaves the hub's configuration", async () => {
+    const h = await createHub({ policy: hubPolicy });
+    await skipSignInPage(h);
+    await registered(h, ["fake"]);
+    await changeGrant(h, { grant: true });
+    const client = await registered(h, ["fake", "other"]);
+    const { response, verifier } = await signIn(h, client, "other");
+    const code = (await finish(h, response)).searchParams.get("code") ?? "";
+
+    // The hub's configuration and policy drop `other`; the grant row stays.
+    const exchanged = await h.t.mutation(api.authRequests.exchangeCode, {
+      clientId: client.client_id,
+      clientSecretHash: await sha256Hex(client.client_secret),
+      tokenEndpointAuthMethod: "client_secret_post",
+      codeHash: await sha256Hex(code),
+      codeVerifier: verifier,
+      refreshTokenHash: await sha256Hex("refresh"),
+      policy: {
+        ownerId: OWNER_ID,
+        paused: false,
+        connectors: ["fake"],
+        resources: [],
+        configured: ["fake"],
+      },
+      now: Date.now(),
+    });
+    expect(exchanged).toMatchObject({ ok: false, error: "invalid_grant" });
+  });
+
+  it("store and offer only what the grants allow when the request is created", async () => {
+    const h = await createHub({ policy: hubPolicy });
+    await registered(h, ["fake"]);
+    await changeGrant(h, { grant: true });
+    const client = await registered(h, ["fake", "other"]);
+    // The caller read the grant; it was revoked before the request was created.
+    await changeGrant(h, { grant: false });
+    const create = async (requestId: string, connectors: string[]) =>
+      await h.t.mutation(api.authRequests.create, {
+        tenantId: `gh-${REPOSITORY_ID}`,
+        requestId,
+        appId: PRODUCTION_APP,
+        clientId: client.client_id,
+        redirectUri: client.redirect_uri,
+        scope: "openid",
+        codeChallenge: "c",
+        connectors,
+        policy: {
+          ownerId: OWNER_ID,
+          paused: false,
+          connectors: ["fake"],
+          resources: [],
+          configured: ["fake", "other"],
+        },
+        freshLogin: false,
+        txnCookieHash: "cookie-hash",
+        createdAt: Date.now(),
+        expiresAt: Date.now() + 600_000,
+      });
+
+    expect(await create("r1", ["fake", "other"])).toEqual({ ok: true, connectors: ["fake"] });
+    expect(await h.t.query(api.authRequests.get, { requestId: "r1" })).toMatchObject({
+      connectors: ["fake"],
+    });
+    expect(await create("r2", ["other"])).toEqual({ ok: false, error: "off" });
+    expect(await h.t.query(api.authRequests.get, { requestId: "r2" })).toBeNull();
   });
 
   it("skip no sign-in page: a grant and an exemption are separate", async () => {

@@ -51,6 +51,8 @@ export type Decision = {
   connectors: string[];
   /** The resource URLs of the providers the policy gives the client now. */
   resources: string[];
+  /** The host's configured connectors, the only ones a grant can open. */
+  configured: string[];
 };
 
 /**
@@ -73,13 +75,16 @@ export function decide(args: {
   registration: Registration | null;
   enrollment: string[];
   providers: Array<{ name: string; resource: string }>;
+  /** The host's configured connector names. */
+  configured: string[];
 }): Decision | null {
-  const { enrollment, providers } = args;
+  const { enrollment, providers, configured } = args;
   if (args.policy === undefined) {
     return {
       paused: false,
       connectors: enrollment,
       resources: providers.map((provider) => provider.resource),
+      configured,
     };
   }
   if (args.registration === null) {
@@ -96,6 +101,7 @@ export function decide(args: {
     resources: providers
       .filter((provider) => policy.resources.includes(provider.name))
       .map((provider) => provider.resource),
+    configured,
   };
 }
 
@@ -107,7 +113,11 @@ export function decide(args: {
  * the policy's part alone.
  */
 export function usableNow(decision: Decision, enrollment: string[], granted: string[]): string[] {
-  return enrollment.filter((name) => decision.connectors.includes(name) || granted.includes(name));
+  return enrollment.filter(
+    (name) =>
+      decision.connectors.includes(name) ||
+      (granted.includes(name) && decision.configured.includes(name)),
+  );
 }
 
 /** The decision as a mutation takes it: the fields of `vPolicyDecision`, nothing wider. */
@@ -117,5 +127,6 @@ export function policyArg(decision: Decision) {
     paused: decision.paused,
     connectors: decision.connectors,
     resources: decision.resources,
+    configured: decision.configured,
   };
 }

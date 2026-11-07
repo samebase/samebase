@@ -18,7 +18,13 @@ const auth = {
   tokenEndpointAuthMethod: "client_secret_post",
 } as const;
 /** The host's decision for the client: the resource of the grant, and nothing stops it. */
-const policy = { ownerId: "7", paused: false, connectors: ["fake"], resources: [RESOURCE] };
+const policy = {
+  ownerId: "7",
+  paused: false,
+  connectors: ["fake"],
+  resources: [RESOURCE],
+  configured: ["fake"],
+};
 const refresh = {
   ...auth,
   tokenHash: "broker-refresh-hash",

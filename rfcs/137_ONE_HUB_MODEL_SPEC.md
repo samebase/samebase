@@ -67,10 +67,10 @@ What stays. Each line names the document that holds the detail.
   hub offers four: the private `google` and `github`, and the public `google-apps` and `github-apps`
   (decision 9).
 - `POST /hub-clients` takes `connectors: string[]`: at least one name, each `[a-z0-9-]{1,64}`,
-  duplicates collapsed, order ignored. Each must be a connector of the hub and one that the policy
-  allows this registration. The hub records the set on the client; the 201 answer and the RFC 7592
-  read repeat it. A set that names an unknown or disallowed connector is refused with 400 and the
-  names the policy allows.
+  duplicates collapsed, order ignored. Each must be one of the hub's configured connectors that the
+  policy allows this registration or that an active grant of its app, bound to the owner of its
+  proof, adds (decision 10). The hub records the set on the client; the 201 answer and the RFC 7592
+  read repeat it. A set that names any other connector is refused with 400 and those allowed names.
 - Enrollment is per client and immutable. A stack whose `connectors` differ from its saved client's
   registers a new client, as it does today for a changed return address or deployment type. A
   preview registration cannot change production's enrollment. A replacement does not revoke the

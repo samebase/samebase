@@ -35,6 +35,11 @@ export const vPolicyDecision = object({
   paused: boolean(),
   connectors: array(string()),
   resources: array(string()),
+  /**
+   * The host's configured connectors. A grant counts only for one of them, so a connector removed
+   * from the host's configuration stops at the next step even while a grant of it is kept.
+   */
+  configured: array(string()),
 });
 export type PolicyDecision = Infer<typeof vPolicyDecision>;
 
@@ -84,7 +89,8 @@ export async function refusalOf(
 /**
  * The connectors a request may use now: its set and the client's enrollment, of those the
  * decision's policy gives or the admin granted the client's app (`granted`, read by the caller in
- * the transaction that decides, so a revoked grant stops the next step).
+ * the transaction that decides, so a revoked grant stops the next step) of the host's configured
+ * connectors.
  */
 export function usableConnectors(
   request: { connectors: string[] },
@@ -95,6 +101,7 @@ export function usableConnectors(
   return request.connectors.filter(
     (name) =>
       client.connectors.includes(name) &&
-      (decision.connectors.includes(name) || granted.includes(name)),
+      (decision.connectors.includes(name) ||
+        (granted.includes(name) && decision.configured.includes(name))),
   );
 }

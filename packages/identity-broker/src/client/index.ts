@@ -179,6 +179,7 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
       registration: found.registration,
       enrollment: found.client.connectors,
       providers,
+      configured: [...connectors.keys()],
     });
 
   /** The configured connectors of these names, in this order. A name no longer configured is skipped. */
@@ -508,6 +509,7 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
       ...(rest.value.nonce === undefined ? {} : { nonce: rest.value.nonce }),
       codeChallenge: rest.value.codeChallenge,
       connectors: offered.map((connector) => connector.name),
+      policy: policyArg(decision),
       freshLogin,
       txnCookieHash: await sha256Hex(txnCookie),
       createdAt: now,
@@ -522,15 +524,25 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
             429,
           );
         case "suspended":
+        case "off":
           return offPage();
         default:
           return created.error satisfies never;
       }
     }
+    // The stored set, which the mutation decided with the grants of its own transaction: a grant
+    // revoked since this action's read is neither stored nor shown.
+    const stored = connectorsNamed(created.connectors);
+    const storedDirect = stored.length === 1 && consent === null ? stored[0] : undefined;
+    if (storedDirect !== undefined && freshLogin && cannotReauthenticate(storedDirect)) {
+      // Only when a revoked grant left one connector that the snapshot did not go straight to.
+      await ctx.runMutation(component.authRequests.abandon, { requestId });
+      return refusePage(freshLoginRefusal(storedDirect));
+    }
     const setCookie = `${txnCookiePrefix}${requestId}=${txnCookie}; ${txnCookieAttributes}; Max-Age=${AUTH_REQUEST_TTL_MS / 1000}`;
-    if (direct !== undefined) {
+    if (storedDirect !== undefined) {
       const response = await startConnector(ctx, {
-        connector: direct,
+        connector: storedDirect,
         request: { requestId, freshLogin },
         decision,
         refuse: (_error, description) => refusePage(description),
@@ -546,7 +558,7 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
         consent === null
           ? null
           : consentOf(consent, client, scopes, LOOPBACK_HOSTS.has(redirectUrl.hostname)),
-      connectors: offered.map((connector) => ({
+      connectors: stored.map((connector) => ({
         label: connector.label,
         provider: connector.provider,
         href: continueHref(requestId, connector),

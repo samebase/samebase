@@ -14,11 +14,15 @@ Connector grants, set by the hub's administrator (RFC 137 decision 10).
   the repository comes back to that owner.
 - Every step reads the grants in its own transaction: `POST /hub-clients` and both creating
   mutations (`policyConnectors` goes to them, and a grant revoked while the host checked answers
-  `400 invalid_connectors` with the allowed names), `/authorize`'s offered set, `/continue`, the
-  callback's claim and completion, and code exchange. Revoking a grant stops a sign-in at its next
-  step; issued tokens and app sessions stay. `decision.connectors` stays the policy's part, and the
-  host adds the grants that the client's facts carry (`granted` on `clients.withApp`) with
-  `usableNow`.
+  `400 invalid_connectors` with the allowed names), `/authorize`'s stored set (`authRequests.create`
+  takes the decision, decides the set with the grants of its own transaction, and answers it, and
+  the page renders that set; `off` when none is left), `/continue`, the callback's claim and
+  completion, and code exchange. Revoking a grant stops a sign-in at its next step; issued tokens
+  and app sessions stay. `decision.connectors` stays the policy's part, and the host adds the grants
+  that the client's facts carry (`granted` on `clients.withApp`) with `usableNow`.
+- A grant counts only for one of the host's configured connectors: the decision carries them
+  (`configured`), and the creating mutations take `configuredConnectors`, so a connector removed
+  from the host's configuration stops at the next step, a kept grant of it included.
 - `GET /moderation/connector-grants` answers the host's connector names and every grant, each with
   its owner and whether it is `active`; `POST /moderation/connector-grants` grants or revokes one,
   with a reason and the admin's email, and appends a `connector_grant_change` event in the same

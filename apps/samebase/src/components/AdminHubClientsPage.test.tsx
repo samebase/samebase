@@ -529,6 +529,62 @@ describe("AdminHubClientsPage", () => {
     }
   });
 
+  it("reloads after a partial save and says which grants were saved and which were refused", async () => {
+    const [first, ...rest] = overview.clientList.clients;
+    testState.readOverview.mockResolvedValue({
+      ...overview,
+      clientList: {
+        ...overview.clientList,
+        clients: [{ ...first, policyConnectors: ["google-apps", "github-apps"] }, ...rest],
+      },
+    });
+    testState.changeConnectorGrant
+      .mockResolvedValueOnce({ status: "on", result: "changed" })
+      .mockRejectedValueOnce(new Error("The hub is down"));
+    const page = await renderPage();
+    try {
+      const trigger = Array.from(document.querySelectorAll("button")).find(
+        (candidate) => candidate.getAttribute("aria-label") === "cl_test actions",
+      );
+      await act(async () => {
+        trigger?.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, button: 0 }));
+        trigger?.click();
+      });
+      const connectors = Array.from(document.querySelectorAll("[role=menuitem]")).find(
+        (item) => item.textContent === "Connectors…",
+      );
+      await act(async () => {
+        connectors?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      });
+      const dialog = document.querySelector("[role=dialog]");
+      for (const name of ["google", "github"]) {
+        const label = Array.from(dialog?.querySelectorAll("label") ?? []).find(
+          (candidate) => candidate.textContent === name,
+        );
+        await act(async () => {
+          label?.querySelector<HTMLElement>("[data-slot=checkbox]")?.click();
+        });
+      }
+      await act(async () => type(document.body, "#admin-hub-clients-connectors-reason", "Ours"));
+      const reads = testState.readOverview.mock.calls.length;
+      await act(async () => {
+        document
+          .querySelector<HTMLFormElement>("#admin-hub-clients-connectors-form")
+          ?.requestSubmit();
+        await Promise.resolve();
+      });
+      await act(async () => await new Promise((resolve) => setTimeout(resolve, 0)));
+
+      expect(testState.changeConnectorGrant).toHaveBeenCalledTimes(2);
+      expect(testState.readOverview.mock.calls.length).toBeGreaterThan(reads);
+      expect(document.body.textContent).toContain(
+        "Saved: google. Refused: github: The hub refused the change.",
+      );
+    } finally {
+      await page.unmount();
+    }
+  });
+
   it("lists the connector grants and removes one with the row's owner and the reason", async () => {
     const page = await renderPage();
     try {
