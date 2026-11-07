@@ -381,20 +381,57 @@ describe("AdminHubClientsPage", () => {
     }
   });
 
-  it("says when the repository has another owner than the one the admin saw", async () => {
+  it("binds a skip to the recorded owner, names it, and says when the repository moved on", async () => {
+    // cl_test was registered by owner 11; the hub has recorded owner 65 since.
+    const [first, ...rest] = overview.clientList.clients;
+    testState.readOverview.mockResolvedValue({
+      ...overview,
+      clientList: {
+        ...overview.clientList,
+        clients: [
+          { ...first, registeredBy: { ...first.registeredBy, githubOwnerId: "11" } },
+          ...rest,
+        ],
+      },
+    });
     testState.changeSignInPage.mockResolvedValue({ status: "on", result: "owner_changed" });
     const page = await renderPage();
     try {
-      await act(async () => button(page.rootElement, "Sign-in page").click());
-      await act(async () =>
-        type(page.rootElement, "#admin-hub-clients-sign-in-page-change-reason", "Done"),
+      const trigger = Array.from(document.querySelectorAll("button")).find(
+        (candidate) => candidate.getAttribute("aria-label") === "cl_test actions",
       );
       await act(async () => {
-        button(page.rootElement, "Remove").click();
+        trigger?.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, button: 0 }));
+        trigger?.click();
+      });
+      const skip = Array.from(document.querySelectorAll("[role=menuitem]")).find(
+        (item) => item.textContent === "Skip the sign-in page…",
+      );
+      await act(async () => {
+        skip?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      });
+      const dialog = document.querySelector("[role=dialog]");
+      expect(dialog?.textContent).toContain("recorded, GitHub id 65,");
+      expect(dialog?.textContent).toContain("registered by an earlier owner, GitHub id 11");
+
+      await act(async () => type(document.body, "#admin-hub-clients-sign-in-page-reason", "Known"));
+      await act(async () => {
+        document
+          .querySelector<HTMLFormElement>("#admin-hub-clients-sign-in-page-form")
+          ?.requestSubmit();
         await Promise.resolve();
       });
       await act(async () => await new Promise((resolve) => setTimeout(resolve, 0)));
-      expect(page.rootElement.textContent).toContain("The repository has another owner now.");
+      expect(testState.changeSignInPage).toHaveBeenLastCalledWith({
+        target: {
+          scope: "app",
+          appId: "gh-74-4c9a75cca717efb68c856f26ba825073",
+          expectedOwnerId: "65",
+        },
+        skip: true,
+        reason: "Known",
+      });
+      expect(document.body.textContent).toContain("The repository has another owner now.");
     } finally {
       await page.unmount();
     }

@@ -61,6 +61,8 @@ row's to remove it, else the repository owner that the hub recorded, which a new
 type SignInPageTarget = {
   appId: string;
   ownerId: string | null;
+  /** The owner that registered this client, which can be an earlier owner than `ownerId`. */
+  registeredByOwnerId: string;
   name: string;
   production: boolean;
   exempt: boolean;
@@ -72,6 +74,7 @@ const signInPageTarget = (client: HubClient, overview: Overview): SignInPageTarg
   return {
     appId: client.appId,
     ownerId: row === undefined ? client.ownerId : row.ownerId,
+    registeredByOwnerId: client.registeredBy.githubOwnerId,
     name: `${client.registeredBy.githubRepository} ${client.registeredBy.app}`,
     production: client.deploymentType === "production",
     exempt: row !== undefined,
@@ -614,8 +617,11 @@ function SignInPageDialog({
             <DialogDescription>
               {target.now === null ? null : `${SIGN_IN_PAGE_NOW[target.now]} `}
               {target.exempt
-                ? "The hub shows its page again from the next sign-in. Sign-ins that already started finish as they started."
-                : `The users of this app's ${target.production ? "production" : "previews and development servers"} go straight to Google or GitHub, with no page that names the app, while the repository keeps its current owner.`}
+                ? "This removes the app's own exemption. From the next sign-in the hub shows its page, unless the switch for every app or the hub's own rules skip it. Sign-ins that already started finish as they started."
+                : `The users of this app's ${target.production ? "production" : "previews and development servers"} go straight to Google or GitHub, with no page that names the app. The exemption trusts the repository's owner that the hub recorded, GitHub id ${target.ownerId ?? "none"}, and stops when the repository has another owner.`}
+              {!target.exempt && target.registeredByOwnerId !== target.ownerId
+                ? ` This client was registered by an earlier owner, GitHub id ${target.registeredByOwnerId}, and keeps the page: only clients of the recorded owner skip it.`
+                : null}
             </DialogDescription>
           </DialogHeader>
           <form
@@ -722,7 +728,7 @@ function SignInPageSection({
       </div>
       <p className="text-sm">
         {everyApp === null
-          ? "The hub shows its sign-in page to every app's users, but the apps below."
+          ? "The switch for every app is off. The hub skips its sign-in page only for the apps below and where its own rules say so, such as samebase.com's production."
           : `The hub skips its sign-in page for every app: ${everyApp.reason}`}
       </p>
       <div>
