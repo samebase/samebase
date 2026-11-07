@@ -4,6 +4,7 @@ import { convexTest, type TestConvex } from "convex-test";
 import { calculatePKCECodeChallenge } from "oauth4webapi";
 import { describe, expect, test } from "vite-plus/test";
 import { api } from "./_generated/api.js";
+import { policyArg } from "../client/policy.js";
 import { testClientRecord } from "../client/registeredBy.test.helper.js";
 import { LEASE_MS } from "./registration.js";
 import schema from "./schema.js";
@@ -623,5 +624,134 @@ describe("what a request may use", () => {
       }),
     ).toEqual({ ok: false, error: "suspended" });
     expect(await t.query(api.authRequests.get, { requestId: "r1" })).toBeNull();
+  });
+});
+
+/** Starts, claims, and completes request "r1" through "g", issuing code "code-hash" until `codeExpiresAt`. */
+async function completedRequest(codeExpiresAt = now + 60_000) {
+  const t = await pendingRequest();
+  await t.mutation(api.authRequests.startUpstream, {
+    requestId: "r1",
+    connector: "g",
+    upstreamStateHash: "sh",
+    upstreamCodeVerifier: "v",
+    policy,
+    now,
+  });
+  await t.mutation(api.authRequests.claimUpstream, {
+    upstreamStateHash: "sh",
+    connector: "g",
+    txnCookieHashes: ["cookie-hash"],
+    policy,
+    now,
+  });
+  const completed = await t.mutation(api.authRequests.complete, {
+    requestId: "r1",
+    identity: { connector: "g", upstreamId: "user" },
+    authTime: now,
+    codeHash: "code-hash",
+    codeExpiresAt,
+    policy,
+    now,
+  });
+  expect(completed).toMatchObject({ ok: true });
+  return t;
+}
+
+// Rules that mutation testing (StrykerJS) found no test for: each test fails when the rule is
+// weakened, such as `<=` turned into `<` at an expiry or a fence dropped from the host's decision.
+describe("fences at the edges", () => {
+  test("a decision made before the repository changed owner starts no upstream hop", async () => {
+    const t = await pendingRequest();
+    // The host decided for owner 65; the tenant's recorded owner moves before the mutation runs.
+    const decision = policyArg(policy);
+    await t.run(async (ctx) => {
+      const tenant = await ctx.db.query("tenants").first();
+      if (tenant === null) {
+        throw new Error("The fixture has no tenant.");
+      }
+      await ctx.db.patch("tenants", tenant._id, { ownerId: "66" });
+    });
+    expect(
+      await t.mutation(api.authRequests.startUpstream, {
+        requestId: "r1",
+        connector: "g",
+        upstreamStateHash: "sh",
+        upstreamCodeVerifier: "v",
+        policy: decision,
+        now,
+      }),
+    ).toMatchObject({ ok: false, error: "refused" });
+  });
+
+  test.each(["start", "claim", "complete"] as const)(
+    "a request refuses to %s at the very millisecond it expires",
+    async (step) => {
+      const t = await pendingRequest();
+      const expiry = now + 600_000;
+      const started = await t.mutation(api.authRequests.startUpstream, {
+        requestId: "r1",
+        connector: "g",
+        upstreamStateHash: "sh",
+        upstreamCodeVerifier: "v",
+        policy,
+        now: step === "start" ? expiry : now,
+      });
+      if (step === "start") {
+        expect(started).toMatchObject({ ok: false, error: "expired" });
+        return;
+      }
+      const claimed = await t.mutation(api.authRequests.claimUpstream, {
+        upstreamStateHash: "sh",
+        connector: "g",
+        txnCookieHashes: ["cookie-hash"],
+        policy,
+        now: step === "claim" ? expiry : now,
+      });
+      if (step === "claim") {
+        expect(claimed).toMatchObject({ status: "expired" });
+        return;
+      }
+      expect(
+        await t.mutation(api.authRequests.complete, {
+          requestId: "r1",
+          identity: { connector: "g", upstreamId: "user" },
+          authTime: now,
+          codeHash: "code-hash",
+          codeExpiresAt: expiry + 60_000,
+          policy,
+          now: expiry,
+        }),
+      ).toMatchObject({ ok: false, error: "expired" });
+    },
+  );
+
+  test("a code refuses redemption at the very millisecond it expires", async () => {
+    const t = await completedRequest(now + 60_000);
+    expect(
+      await t.mutation(api.authRequests.exchangeCode, {
+        ...cl,
+        codeHash: "code-hash",
+        codeVerifier: verifier,
+        refreshTokenHash: "refresh-hash",
+        policy,
+        now: now + 60_000,
+      }),
+    ).toMatchObject({ ok: false, error: "invalid_grant" });
+  });
+
+  test("a sign-in code refuses a resource parameter", async () => {
+    const t = await completedRequest();
+    expect(
+      await t.mutation(api.authRequests.exchangeCode, {
+        ...cl,
+        codeHash: "code-hash",
+        codeVerifier: verifier,
+        resource: "https://api.example.test/",
+        refreshTokenHash: "refresh-hash",
+        policy,
+        now,
+      }),
+    ).toMatchObject({ ok: false, error: "invalid_target" });
   });
 });

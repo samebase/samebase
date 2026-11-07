@@ -453,6 +453,22 @@ describe("the connector grants", () => {
     ]);
   });
 
+  it("refuse an enrollment that mixes a policy connector with a grant revoked while the hub checked", async () => {
+    const h = await createHub({ policy: hubPolicy });
+    await registered(h, ["fake"]);
+    expect((await changeGrant(h, { grant: true })).status).toBe(200);
+    // The admin revokes `other` while the hub fetches the app's verification file: the creating
+    // mutation must judge every enrolled connector, not just one, against the grants it reads.
+    stubProviders(async () => {
+      expect((await changeGrant(h, { grant: false })).status).toBe(200);
+      return jsonResponse({ repository: REPOSITORY_ID });
+    });
+
+    const refused = await postHubClient(h, await signToken(), { connectors: ["fake", "other"] });
+    expect(refused.status).toBe(400);
+    expect(await refused.json()).toMatchObject({ error: "invalid_connectors" });
+  });
+
   it("refuse an unconfigured connector at both creating mutations, whatever the policy names", async () => {
     const h = await createHub({ policy: hubPolicy });
     const production = await registered(h, ["fake"]);

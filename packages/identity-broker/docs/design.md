@@ -316,7 +316,12 @@ provider.
 - The token endpoint answers `temporarily_unavailable` when a provider cannot refresh, which RFC
   6749 section 5.2 lists only for the authorization endpoint. Provider-issued access tokens are not
   revocable through the broker's RFC 7009 endpoint.
-- No sessions at the broker: `prompt=none` returns `login_required`; there is no logout protocol.
+- No sessions at the broker, so it can never answer without interaction: `prompt=none` ends on the
+  hub's error page by the rule above, where OIDC Core section 3.1.2.6 sends `login_required` to the
+  client. There is no logout protocol.
+- PKCE with S256 is required of every client, confidential ones included, as OAuth 2.1 requires.
+  OIDC Core does not require it, so the OpenID Basic OP certification plan, whose requests omit it,
+  cannot pass.
 - `response_type=code` only, so the "dynamic OP" profile of OIDC Core 15.2 is not met.
 - `max_age` is honored only as a fresh login: `prompt=login` or any `max_age` sends `prompt=login`
   and `max_age=0` to an OIDC connector whose provider documents `prompt=login`. `max_age` obliges
