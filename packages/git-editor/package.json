@@ -43,9 +43,9 @@
     "diff": "^9.0.0"
   },
   "devDependencies": {
-    "@types/node": "^24.19.2",
-    "@types/react": "^19.3.0",
-    "convex-test": "^0.0.61",
+    "@types/node": "24.19.2",
+    "@types/react": "19.3.0",
+    "convex-test": "0.0.61",
     "vite": "catalog:",
     "vite-plus": "catalog:"
   },
