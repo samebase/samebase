@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.33.0
+
+- `Convex.SharedHubClient` takes `connectors`, the names of the hub's connectors the client signs in
+  through, such as `["google", "github"]` (RFC 137): required, at least one name of
+  `[a-z0-9-]{1,64}`. The request sends the set, the hub records it on the client, and the attributes
+  and outputs hold it as `connectors`, sorted, each once. A client is renewed only when its return
+  address, its type, and its connector set are the saved ones; another set registers a new client. A
+  400 `invalid_connectors` logs the connectors the hub allows this app.
+- Every app sets `connectors` and deploys once. The saved attributes changed shape, so the first run
+  of 0.33.0 registers a new client for every saved client, and a production run also gets a new
+  initial access token: deploy production first, then previews, then start development again,
+  because a development run reads the production row and cannot read one that 0.32.0 saved. A
+  replaced production client stays valid on the hub until its administrator deletes it.
+- The pull request comment says `Sign-in with google, github: on` for a client, in place of
+  `Google sign-in: on`.
+
 ## 0.32.0
 
 - A run record's `source` is `github-actions` or `checkout`; `laptop` is gone. `checkout` names
