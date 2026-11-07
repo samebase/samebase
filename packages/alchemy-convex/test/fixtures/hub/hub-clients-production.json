@@ -5,6 +5,7 @@
   "registration_access_token": "REDACTED",
   "registration_client_uri": "https://auth.test/register/cl_8KXU5IawBkSGAtORWaGVeg",
   "redirect_uri": "https://ideal-dolphin-15.convex.site/auth/hub/callback",
+  "connectors": ["google"],
   "terms": "https://samebase.com/terms",
   "initial_access_token": "REDACTED",
   "repository": "74"

@@ -305,28 +305,36 @@ gets every stage of a stack, with its resources and output, from the store funct
     every action, because the command can do more than a push.
 
 - `Convex.SharedHubClient`:
-  `{ app, redirectUri, deploymentType, initialAccessToken?, softwareVersion? }` gets a client of the
-  central identity hub, for an app that deploys in its own GitHub Actions run, on any host, and for
-  development as a stage of the same stack. `deploymentType` is `production`, `preview`, or
-  `development`. A production or preview client needs `permissions: id-token: write` in the
-  workflow, and no key and no Samebase account. `app` is at most 64 characters. The origin of an
-  https `redirectUri` must serve `/samebase-verification.json` with the numeric GitHub id of the
+  `{ app, redirectUri, deploymentType, connectors, initialAccessToken?, softwareVersion? }` gets a
+  client of the central identity hub, for an app that deploys in its own GitHub Actions run, on any
+  host, and for development as a stage of the same stack. `deploymentType` is `production`,
+  `preview`, or `development`. A production or preview client needs `permissions: id-token: write`
+  in the workflow, and no key and no Samebase account. `app` is at most 64 characters. The origin of
+  an https `redirectUri` must serve `/samebase-verification.json` with the numeric GitHub id of the
   repository, `{ "repository": "123" }`, which `gh api repos/<owner>/<name> --jq .id` prints. The
   hub reads it before it registers the client, so the site must be live first. Outputs `status`,
   `issuer`, `clientId`, `clientSecret`, `registrationAccessToken`, `registrationClientUri`,
-  `deploymentType`, `redirectUri`, `initialAccessToken`, and `repository`.
+  `deploymentType`, `redirectUri`, `connectors`, `initialAccessToken`, and `repository`.
+  - `connectors` names the hub's connectors the client signs in through, such as
+    `["google", "github"]`: at least one name of `[a-z0-9-]{1,64}`. The hub's discovery document
+    lists what it offers in `connectors_supported`, and its policy decides what a repository may
+    enroll in; a name outside that is refused, and the log names the allowed ones. The set is
+    recorded on the client for good, sorted, each once. The app sends `connector=<name>` to
+    `/authorize` to skip the hub's page, or nothing to let the user choose among the set.
   - A production registration also gets the app's initial access token (RFC 7591) and the numeric
     repository id, which the state keeps. A renewal keeps both. They are empty for a preview, for a
     development client, and for the off values.
   - A development client needs `initialAccessToken`, and only a development client takes it. The
     client asks the hub with this token in place of the GitHub OIDC token, so it works in
     development. With an empty token, the client gets the off values, and the log says "deploy to
-    main once for Google sign-in in development". See "The development stage" below.
+    main once for hub sign-in in development". See "The development stage" below.
   - Each deploy reads the saved client on the hub with its own token. A client that is gone gets a
-    new one, and a client on another `redirectUri` or of another `deploymentType` too.
+    new one, and a client on another `redirectUri`, of another `deploymentType`, or with other
+    `connectors` too. A replaced production client stays valid on the hub until its administrator
+    deletes it.
   - A new client logs the link to the terms of the shared sign-in service. A refusal logs its
-    reason, such as a host that does not serve the file, a block, a token of another app, or the
-    hourly limit it reached.
+    reason, such as a host that does not serve the file, a block, a token of another app, a
+    connector the hub does not offer or allow, or the hourly limit it reached.
   - No failure stops a deploy or a destroy. A failed renewal keeps the saved values. Without saved
     values, `status` is `off`, and `issuer`, `clientId`, and `clientSecret` are the `no-hub` values
     of a checkout without a hub. A production or preview run without a GitHub OIDC token, such as on
@@ -388,6 +396,7 @@ const hub =
     app: "scout",
     redirectUri: Output.interpolate`${site.siteUrl}/auth/hub/callback`,
     deploymentType: "development",
+    connectors: ["google", "github"],
     initialAccessToken: prod.initialAccessToken,
   });
 const variables = Convex.SharedHubClient.variables(hub);
@@ -424,7 +433,7 @@ deletes the development client and keeps the deployment.
 
 `alchemy-convex stack-comment` keeps one comment on a pull request. The comment has a card for each
 stack of the repository at the stage `pr-<number>`: the folder, the address, the last run, the
-Convex deployments, Workers, and R2 buckets, and the Google sign-in status of a
+Convex deployments, Workers, and R2 buckets, and the sign-in status and connectors of a
 `Convex.SharedHubClient`. A stack sees only itself, so a comment that a stack declares cannot show
 this.
 

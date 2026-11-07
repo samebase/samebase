@@ -164,15 +164,16 @@ describe("renderStackComment", () => {
   });
 
   it.each([
-    ["on", "Google sign-in: on"],
-    ["off", "Google sign-in: not set up"],
-    ["suspended", "Google sign-in: suspended"],
+    ["on", "Sign-in with github, google: on"],
+    ["off", "Sign-in: not set up"],
+    ["suspended", "Sign-in with github, google: suspended"],
   ])("shows a shared hub client that is %s, and no secret of its row", async (status, line) => {
     const row = {
       fqn: "Client",
       resourceType: "IdentityHub.SharedClient",
       attr: {
         status,
+        connectors: status === "off" ? [] : ["github", "google"],
         clientId: "client-id",
         clientSecret: "client-secret",
         registrationAccessToken: "registration-token",

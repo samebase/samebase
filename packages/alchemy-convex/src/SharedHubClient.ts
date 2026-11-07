@@ -16,14 +16,20 @@
 // with `deploymentType: "development"` asks the hub with the token in place of the GitHub token
 // (RFC 133).
 //
+// A client is enrolled in the connectors it signs in through, such as `google` and `github`, at
+// registration (RFC 137). The hub records the set on the client and never changes it: a stack with
+// another set registers a new client.
+//
 // A push removes a variable that a deploy stops passing, so a failure here must not drop working
 // variables or stop the deploy. A renewal that fails keeps the saved values. Only a client that
-// cannot work asks for a new one: it is gone, or it has another return address or type. If that
-// request fails, the run gives the off values, so the app has guest sign-in and not a broken button.
-// The off values are the `no-hub` variables of a checkout without a hub: Convex needs the variables,
-// and the app hides the button for this client ID.
+// cannot work asks for a new one: it is gone, or it has another return address, type, or connector
+// set. If that request fails, the run gives the off values, so the app has guest sign-in and not a
+// broken button. The off values are the `no-hub` variables of a checkout without a hub: Convex
+// needs the variables, and the app hides the button for this client ID.
 //
-// No text in this file quotes an answer or a fetch error, so no log line can hold a secret.
+// No text in this file quotes an answer or a fetch error, so no log line can hold a secret. The one
+// exception is the connector names of an `invalid_connectors` refusal, each checked against the
+// grammar of a connector name before it is printed.
 import { Resource } from "alchemy";
 import { isResolved } from "alchemy/Diff";
 import * as Output from "alchemy/Output";
@@ -42,9 +48,19 @@ const REQUEST_TIMEOUT_MS = 30_000;
 /** The variables of a deployment without a hub client, as the starter writes them. */
 const OFF_VALUES = { issuer: "http://127.0.0.1:1", clientId: "no-hub", clientSecret: "no-hub" };
 
+/** The name of a connector on the hub. */
+const CONNECTOR_NAME = /^[a-z0-9-]{1,64}$/;
+
 interface CommonProps {
   /** The stable name of the app, set once in the stack. */
   readonly app: string;
+  /**
+   * The connectors the client signs in through, by their names on the hub, such as
+   * `["google", "github"]`: at least one, each of `[a-z0-9-]{1,64}`. The hub refuses a name it does
+   * not offer, or does not allow this repository, and the log then names the allowed ones. The set
+   * is recorded on the client for good: a changed set registers a new client.
+   */
+  readonly connectors: readonly string[];
   /**
    * The return address of the hub's sign-ins, such as `${site.siteUrl}/auth/hub/callback`: an https
    * URL whose origin serves `/samebase-verification.json` with the numeric GitHub id of this
@@ -94,6 +110,8 @@ const Attributes = Schema.Struct({
   deploymentType: DeploymentType,
   /** The return address that the client serves. Empty for the off values. */
   redirectUri: Schema.String,
+  /** The connectors the client is enrolled in, sorted, each once. Empty for the off values. */
+  connectors: Schema.Array(Schema.String),
   /**
    * Returned only at a production registration (RFC 7591 section 1.2). It registers development
    * clients of this app. Empty for a preview, for a development client, and for the off values.
@@ -140,9 +158,16 @@ const offAttributes = (
   registrationClientUri: "",
   deploymentType,
   redirectUri: "",
+  connectors: [],
   initialAccessToken: Redacted.make(""),
   repository: "",
 });
+
+/** The set of `names`: sorted, each once. */
+const connectorSet = (names: readonly string[]) => [...new Set(names)].sort();
+
+const sameSet = (a: readonly string[], b: readonly string[]) =>
+  a.length === b.length && a.every((name, index) => name === b[index]);
 
 /** One request gave no usable answer. The reason holds no secret. */
 class SharedHubClientFailed extends Schema.TaggedError<SharedHubClientFailed>()(
@@ -164,6 +189,8 @@ const NewClient = Schema.Struct({
   registration_access_token: Schema.NonEmptyString,
   registration_client_uri: Schema.NonEmptyString,
   redirect_uri: Schema.NonEmptyString,
+  /** The set the hub recorded, which must be the set the request sent. */
+  connectors: Schema.Array(Schema.String),
   /**
    * The terms of the shared sign-in service, which the log shows once, for the new client. Exactly
    * this page: the log line must not print a value that the answer chose.
@@ -186,7 +213,7 @@ const REFUSALS: Readonly<Record<number, string>> = {
 
 /** The reasons of a 403 that a log line shows. Any other text of the answer is never logged. */
 const NOT_ALLOWED = new Map([
-  ["paused", "the identity hub pauses new clients of third-party apps"],
+  ["paused", "this app is paused on the identity hub"],
   ["run_not_allowed", "the identity hub gives clients only to runs of main and of pull requests"],
   ["blocked", "Samebase blocked this repository or its owner"],
   ["suspended", "the identity hub suspended this repository"],
@@ -212,20 +239,37 @@ const RATE_LIMITED = new Map([
 
 const Refusal = Schema.Struct({ reason: Schema.String });
 const RateLimited = Schema.Struct({ window: Schema.String });
+/** A 400 for a connector the hub does not offer or allow, with the names it allows. */
+const InvalidConnectors = Schema.Struct({
+  error: Schema.Literal("invalid_connectors"),
+  allowed: Schema.Array(Schema.String),
+});
 
-/** The text of a refusal: a known reason of a 403 or window of a 429, else the text of its status. */
-const refusalOf = (status: number, body: unknown) => {
-  const known =
-    status === 403
-      ? NOT_ALLOWED.get(
-          Option.getOrUndefined(Schema.decodeUnknownOption(Refusal)(body))?.reason ?? "",
-        )
-      : status === 429
-        ? RATE_LIMITED.get(
-            Option.getOrUndefined(Schema.decodeUnknownOption(RateLimited)(body))?.window ?? "",
-          )
-        : undefined;
-  return known ?? REFUSALS[status] ?? "the identity hub refused the request";
+/**
+ * The text of a refusal: a known reason of a 403 or window of a 429, the allowed connectors of an
+ * `invalid_connectors` 400 (only names of the connector grammar, so no other text of the answer is
+ * printed), else the text of its status.
+ */
+const refusalOf = (status: number, body: unknown): string => {
+  const decoded = <S extends Schema.Codec<unknown, unknown>>(schema: S) =>
+    Option.getOrUndefined(Schema.decodeUnknownOption(schema)(body));
+  const ofStatus = () => REFUSALS[status] ?? "the identity hub refused the request";
+  switch (status) {
+    case 400: {
+      const allowed = decoded(InvalidConnectors)?.allowed.filter((name) =>
+        CONNECTOR_NAME.test(name),
+      );
+      return allowed === undefined
+        ? ofStatus()
+        : `the identity hub does not offer or allow one of the connectors; it allows ${allowed.length === 0 ? "none for this app" : allowed.join(", ")}`;
+    }
+    case 403:
+      return NOT_ALLOWED.get(decoded(Refusal)?.reason ?? "") ?? ofStatus();
+    case 429:
+      return RATE_LIMITED.get(decoded(RateLimited)?.window ?? "") ?? ofStatus();
+    default:
+      return ofStatus();
+  }
 };
 
 const send = (who: string, url: string, token: string, init: { method: string; body?: string }) =>
@@ -267,7 +311,11 @@ const readOidcToken = (requestUrl: string, requestToken: string) =>
   });
 
 /** `POST /hub-clients` with `bearer`: the GitHub OIDC token, or the app's initial access token. */
-const requestNewClient = (props: SharedHubClientProps, bearer: string) =>
+const requestNewClient = (
+  props: SharedHubClientProps,
+  connectors: readonly string[],
+  bearer: string,
+) =>
   Effect.gen(function* () {
     const { body, status } = yield* send(
       "The identity hub",
@@ -279,6 +327,7 @@ const requestNewClient = (props: SharedHubClientProps, bearer: string) =>
           app: props.app,
           redirectUri: props.redirectUri,
           softwareVersion: props.softwareVersion ?? "unknown",
+          connectors,
         }),
       },
     );
@@ -290,9 +339,9 @@ const requestNewClient = (props: SharedHubClientProps, bearer: string) =>
       return yield* new SharedHubClientFailed({ reason: `${reason} (HTTP ${status})` });
     }
     const client = yield* decode(NewClient, "The identity hub")(body);
-    // The hub registers the address that the request sent. The log names the request's, so no
-    // value that the answer chose is printed.
-    if (client.redirect_uri !== props.redirectUri) {
+    // The hub registers the address and the connectors that the request sent. The log and the state
+    // hold the request's, so no value that the answer chose is printed or kept.
+    if (client.redirect_uri !== props.redirectUri || !sameSet(client.connectors, connectors)) {
       return yield* new SharedHubClientFailed({ reason: "The identity hub gave a bad answer" });
     }
     yield* Effect.logInfo(
@@ -309,18 +358,19 @@ const requestNewClient = (props: SharedHubClientProps, bearer: string) =>
       registrationClientUri: client.registration_client_uri,
       deploymentType: props.deploymentType,
       redirectUri: props.redirectUri,
+      connectors,
       initialAccessToken: Redacted.make(production ? (client.initial_access_token ?? "") : ""),
       repository: production ? (client.repository ?? "") : "",
     };
   });
 
 /** A new client, or the off values. */
-const newClient = (props: SharedHubClientProps) => {
+const newClient = (props: SharedHubClientProps, connectors: readonly string[]) => {
   const label = `Convex.SharedHubClient: ${props.app} on ${props.redirectUri} deploys without the hub`;
   const off = offAttributes(props.deploymentType);
   const request = (bearer: Effect.Effect<string, SharedHubClientFailed>) =>
     bearer.pipe(
-      Effect.flatMap((token) => requestNewClient(props, token)),
+      Effect.flatMap((token) => requestNewClient(props, connectors, token)),
       Effect.catchTag("SharedHubClientFailed", (error) =>
         Effect.logWarning(`${label}: ${error.reason}. The next deploy asks again.`).pipe(
           Effect.as(off),
@@ -332,7 +382,7 @@ const newClient = (props: SharedHubClientProps) => {
     const token = Redacted.value(props.initialAccessToken);
     return token === ""
       ? Effect.logInfo(
-          "Convex.SharedHubClient: deploy to main once for Google sign-in in development.",
+          "Convex.SharedHubClient: deploy to main once for hub sign-in in development.",
         ).pipe(Effect.as(off))
       : request(Effect.succeed(token));
   }
@@ -483,11 +533,21 @@ export const SharedHubClientProvider = () =>
 
     read: ({ output }) => Effect.succeed(output),
 
-    // Only a client of the same return address and type is renewed. A saved row without this
-    // version's shape, such as one that 0.26 or earlier saved, is no client: the run asks for a new
-    // one, which replaces the saved client, and for a production client also replaces the app's
-    // initial access token.
+    // Only a client of the same return address, type, and connector set is renewed. A saved row
+    // without this version's shape, such as one that 0.32 or earlier saved, is no client: the run
+    // asks for a new one, which replaces the saved client, and for a production client also
+    // replaces the app's initial access token.
     reconcile: Effect.fn(function* ({ news, output }) {
+      // A bad prop is a mistake of the stack, not of the hub: the run fails, with no request.
+      if (
+        news.connectors.length === 0 ||
+        !news.connectors.every((name) => CONNECTOR_NAME.test(name))
+      ) {
+        return yield* new SharedHubClientFailed({
+          reason: `${news.app} on ${news.redirectUri} needs connectors: one or more names of [a-z0-9-]{1,64}`,
+        });
+      }
+      const connectors = connectorSet(news.connectors);
       const saved =
         output === undefined || output.status === "off"
           ? undefined
@@ -498,10 +558,12 @@ export const SharedHubClientProvider = () =>
         );
       }
       const renewed =
-        saved?.redirectUri === news.redirectUri && saved.deploymentType === news.deploymentType
+        saved?.redirectUri === news.redirectUri &&
+        saved.deploymentType === news.deploymentType &&
+        sameSet(saved.connectors, connectors)
           ? yield* renew(saved, news.required === true)
           : undefined;
-      const client = renewed ?? (yield* newClient(news));
+      const client = renewed ?? (yield* newClient(news, connectors));
       if (news.required === true && client.status !== "on") {
         return yield* new SharedHubClientFailed({
           reason: `${news.app} on ${news.redirectUri} is required and has no working client (${client.status}). The warning above names the reason`,

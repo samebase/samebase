@@ -54,7 +54,10 @@ const Resource = Schema.Union([
   }),
   Schema.Struct({
     resourceType: Schema.Literal("IdentityHub.SharedClient"),
-    attr: Schema.Struct({ status: Schema.Literals(["on", "off", "suspended"]) }),
+    attr: Schema.Struct({
+      status: Schema.Literals(["on", "off", "suspended"]),
+      connectors: Schema.Array(Schema.String),
+    }),
   }),
 ]);
 type Resource = typeof Resource.Type;
@@ -188,8 +191,10 @@ const resourceRow = (resource: Resource, address: string | null) => {
       );
     }
     case "IdentityHub.SharedClient": {
-      const { status } = resource.attr;
-      return `Google sign-in: ${status === "off" ? "not set up" : status}`;
+      const { status, connectors } = resource.attr;
+      return status === "off"
+        ? "Sign-in: not set up"
+        : `Sign-in with ${connectors.join(", ")}: ${status}`;
     }
   }
 };
