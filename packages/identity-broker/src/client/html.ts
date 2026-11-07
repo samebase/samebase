@@ -18,7 +18,7 @@ const STYLE = `
     :root { --fg: #fafafa; --muted: #a1a1aa; --bg: #09090b; --card: #18181b; --line: #27272a;
       --button: #131314; --button-line: #8e918f; --button-fg: #e3e3e3; --button-hover: #1f1f20; }
   }
-  body { margin: 0; min-height: 100vh; display: grid; place-items: center; color: var(--fg);
+  body { margin: 0; min-height: 100svh; display: grid; place-items: center; color: var(--fg);
     background: var(--bg); font: 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
   .frame { width: calc(100% - 2rem); max-width: 25rem; margin: 1.5rem 0; }
   main { box-sizing: border-box; padding: 2rem 1.75rem 1.5rem; background: var(--card);
