@@ -196,7 +196,7 @@ function readRedirectUri(value: string) {
     : null;
 }
 
-/** The body, if it is valid, with the enrollment sorted and unique. */
+/** The body, if it is valid. The enrollment it names is checked by `admit`, against the policy. */
 async function readBody(request: Request) {
   const body: unknown = await request.json().catch(() => null);
   if (
@@ -204,16 +204,24 @@ async function readBody(request: Request) {
     body.app.length === 0 ||
     body.app.length > MAX_APP_LENGTH ||
     body.softwareVersion.length === 0 ||
-    body.softwareVersion.length > MAX_SOFTWARE_VERSION_LENGTH ||
-    body.connectors.length === 0 ||
-    !body.connectors.every((name) => CONNECTOR_NAME.test(name))
+    body.softwareVersion.length > MAX_SOFTWARE_VERSION_LENGTH
   ) {
     return null;
   }
   const redirect = readRedirectUri(body.redirectUri);
-  return redirect === null
-    ? null
-    : { ...body, connectors: [...new Set(body.connectors)].sort(), redirect };
+  return redirect === null ? null : { ...body, redirect };
+}
+
+/**
+ * The enrollment a body names, sorted and unique: at least one name of `[a-z0-9-]{1,64}`, each one
+ * of `allowed`. Null for any other set.
+ */
+function readEnrollment(connectors: string[], allowed: string[]) {
+  const names = [...new Set(connectors)].sort();
+  return names.length > 0 &&
+    names.every((name) => CONNECTOR_NAME.test(name) && allowed.includes(name))
+    ? names
+    : null;
 }
 
 /** The body as text, or null when it is larger than `MAX_VERIFICATION_BYTES`. It reads no further. */
@@ -287,9 +295,10 @@ export function hubClientsEndpoint(args: {
   const { component, issuer, registration } = args;
 
   /**
-   * Refuses a request that the policy pauses or does not allow the enrollment, a blocked one, or a
-   * limited one, else null. A failed policy refuses with 503 and writes nothing. It counts an
-   * admitted request in the repository and owner windows; a refused one counts nowhere.
+   * The enrollment of an admitted request, or the answer that refuses it: a paused policy, a set
+   * that is empty, malformed, or outside the hub's connectors or the policy's (with the names the
+   * policy allows), a block, or a limit. A failed policy refuses with 503 and writes nothing. It
+   * counts an admitted request in the repository and owner windows; a refused one counts nowhere.
    */
   async function admit(ctx: Ctx, facts: Registration, connectors: string[]) {
     const policy = evaluate(registration.policy, facts);
@@ -300,7 +309,8 @@ export function hubClientsEndpoint(args: {
       return notAllowed("paused");
     }
     const allowed = args.connectors.filter((name) => policy.connectors.includes(name)).sort();
-    if (connectors.some((name) => !allowed.includes(name))) {
+    const enrollment = readEnrollment(connectors, allowed);
+    if (enrollment === null) {
       return reply(400, { error: "invalid_connectors", allowed });
     }
     const admission = await ctx.runMutation(component.hubClients.admit, {
@@ -313,7 +323,7 @@ export function hubClientsEndpoint(args: {
     if (admission.status === "rate_limited") {
       return reply(429, { error: "rate_limited", window: admission.window });
     }
-    return null;
+    return enrollment;
   }
 
   /** The 201 answer: the client, its secret, and its RFC 7592 token, which go to nothing else. */
@@ -347,7 +357,7 @@ export function hubClientsEndpoint(args: {
       return reply(400, { error: "invalid_request" });
     }
 
-    const refused = await admit(
+    const enrollment = await admit(
       ctx,
       {
         repositoryId: run.claims.repository_id,
@@ -360,8 +370,8 @@ export function hubClientsEndpoint(args: {
       },
       body.connectors,
     );
-    if (refused !== null) {
-      return refused;
+    if (enrollment instanceof Response) {
+      return enrollment;
     }
     const refusal = await verifyHost(body.redirect.url, run.claims.repository_id);
     if (refusal !== null) {
@@ -387,7 +397,7 @@ export function hubClientsEndpoint(args: {
         initialAccessToken === null
           ? { type: "preview", stage: run.stage }
           : { type: "production", initialAccessTokenHash: await sha256Hex(initialAccessToken) },
-      connectors: body.connectors,
+      connectors: enrollment,
       app: body.app,
       redirectUri: body.redirectUri,
       softwareVersion: body.softwareVersion,
@@ -398,7 +408,7 @@ export function hubClientsEndpoint(args: {
         : notAllowed(created.reason);
     }
     return reply(201, {
-      ...newClient(credentials, body),
+      ...newClient(credentials, { redirectUri: body.redirectUri, connectors: enrollment }),
       ...(initialAccessToken === null
         ? {}
         : { initial_access_token: initialAccessToken, repository: run.claims.repository_id }),
@@ -424,7 +434,7 @@ export function hubClientsEndpoint(args: {
       return notAllowed("app_mismatch");
     }
 
-    const refused = await admit(
+    const enrollment = await admit(
       ctx,
       {
         repositoryId: token.githubRepositoryDatabaseId,
@@ -437,8 +447,8 @@ export function hubClientsEndpoint(args: {
       },
       body.connectors,
     );
-    if (refused !== null) {
-      return refused;
+    if (enrollment instanceof Response) {
+      return enrollment;
     }
     if (!body.redirect.loopback) {
       const refusal = await verifyHost(body.redirect.url, token.githubRepositoryDatabaseId);
@@ -457,7 +467,7 @@ export function hubClientsEndpoint(args: {
       githubOwnerId: token.githubOwnerId,
       githubRepository: token.githubRepository,
       app: token.app,
-      connectors: body.connectors,
+      connectors: enrollment,
       redirectUri: body.redirectUri,
       softwareVersion: body.softwareVersion,
     });
@@ -466,7 +476,10 @@ export function hubClientsEndpoint(args: {
         ? reply(401, { error: "invalid_token" })
         : notAllowed(created.reason);
     }
-    return reply(201, newClient(credentials, body));
+    return reply(
+      201,
+      newClient(credentials, { redirectUri: body.redirectUri, connectors: enrollment }),
+    );
   }
 
   /**

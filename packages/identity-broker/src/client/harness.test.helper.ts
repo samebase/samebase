@@ -1,7 +1,7 @@
 /// <reference types="vite-plus/client" />
 import rateLimiterTest from "@convex-dev/rate-limiter/test";
 import { convexTest } from "convex-test";
-import { anyApi, httpRouter, ROUTABLE_HTTP_METHODS } from "convex/server";
+import { anyApi, getFunctionName, httpRouter, ROUTABLE_HTTP_METHODS } from "convex/server";
 import { exportJWK, generateKeyPair, SignJWT } from "jose";
 import { vi } from "vite-plus/test";
 import type { ComponentApi } from "../component/_generated/component.js";
@@ -56,6 +56,8 @@ export async function createHarness(options: {
   });
   const http = httpRouter();
   broker.addHttpRoutes(http);
+  /** A test's read outage: the queries whose name this answers true for throw, while it is set. */
+  const reads: { failing: ((name: string) => boolean) | null } = { failing: null };
 
   async function fetchBroker(input: string | URL, init?: RequestInit): Promise<Response> {
     const request = new Request(input, init);
@@ -73,8 +75,17 @@ export async function createHarness(options: {
         url,
         body === undefined ? { method, headers } : { method, headers, body },
       );
+      const failing: typeof ctx = {
+        ...ctx,
+        runQuery: async (query, ...args) => {
+          if (reads.failing?.(getFunctionName(query)) === true) {
+            throw new Error("The read failed");
+          }
+          return await ctx.runQuery(query, ...args);
+        },
+      };
       // @ts-expect-error httpActionGeneric keeps the function as _handler; PublicHttpAction does not declare it.
-      const response: Response = await handler._handler(ctx, replay);
+      const response: Response = await handler._handler(failing, replay);
       return {
         status: response.status,
         headers: [...response.headers.entries()],
@@ -153,6 +164,10 @@ export async function createHarness(options: {
     http,
     fetchBroker,
     registerClient,
+    /** Makes the queries whose name `failing` answers true for throw; null ends the outage. */
+    failReads(failing: ((name: string) => boolean) | null) {
+      reads.failing = failing;
+    },
     keySet,
     issuer,
   };

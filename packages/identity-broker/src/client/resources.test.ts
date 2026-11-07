@@ -493,6 +493,84 @@ test("a paused or failed policy refuses API authorization and refresh before the
   ).toHaveLength(0);
 });
 
+test("a release read that fails keeps the rotation and answers 401, and the next refresh uses it", async () => {
+  const args = await setup();
+  const { start, proof } = await authorize(args, cloudflare.resource);
+  const finished = await complete(args.h, start);
+  const response = await redeem(args, finished.url.searchParams.get("code") ?? "", proof.verifier);
+  const initial: { refresh_token: string } = await response.json();
+  const reached = deferred<true>();
+  const release = deferred<undefined>();
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const body = new URLSearchParams(await new Request(input, init).text());
+      args.tokenCalls.push(body);
+      reached.settle(true);
+      await release.promise;
+      return Response.json({
+        ...oauthToken,
+        token_type: "Bearer",
+        refresh_token: `rotated-${body.get("refresh_token") ?? ""}`,
+      });
+    }),
+  );
+  vi.spyOn(console, "error").mockImplementation(() => undefined);
+  const pending = refreshToken(args, initial.refresh_token);
+  await reached.promise;
+  // The read of the client fails after the provider rotated the token.
+  args.h.failReads((name) => name === "clients:withApp");
+  release.settle(undefined);
+  const refused = await pending;
+  expect(refused.status).toBe(401);
+  expect(await refused.json()).toMatchObject({ error: "invalid_client" });
+  const grants = await args.h.t.run(async (ctx) => await ctx.db.query("refreshGrants").collect());
+  expect(grants.map((grant) => grant.upstreamRefreshToken)).toEqual([
+    `rotated-${oauthToken.refresh_token}`,
+  ]);
+  args.h.failReads(null);
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      args.tokenCalls.push(new URLSearchParams(await new Request(input, init).text()));
+      return Response.json({ ...oauthToken, token_type: "Bearer" });
+    }),
+  );
+  expect((await refreshToken(args, initial.refresh_token)).status).toBe(200);
+  expect(args.tokenCalls.at(-1)?.get("refresh_token")).toBe(`rotated-${oauthToken.refresh_token}`);
+});
+
+test("a bound browser that comes back late, or after the resource was withdrawn, goes back to the app", async () => {
+  let resources = ["cloudflare"];
+  const args = await setup(() => testPolicy({ resources }));
+  vi.useFakeTimers({ toFake: ["Date"] });
+  const late = await authorize(args, cloudflare.resource);
+  vi.setSystemTime(Date.now() + 600_001);
+  const expired = await complete(args.h, late.start);
+  expect(expired.back.status).toBe(302);
+  expect(expired.url.origin + expired.url.pathname).toBe(REDIRECT);
+  expect(expired.url.searchParams.get("error")).toBe("access_denied");
+  expect(expired.url.searchParams.get("state")).toBe("preview-state");
+  expect(args.tokenCalls).toHaveLength(0);
+
+  const { start } = await authorize(args, cloudflare.resource);
+  // The provider answers; the resource is withdrawn before the hub completes the authorization.
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async () => {
+      resources = [];
+      return Response.json({ ...oauthToken, token_type: "Bearer" });
+    }),
+  );
+  const withdrawn = await complete(args.h, start);
+  expect(withdrawn.url.origin + withdrawn.url.pathname).toBe(REDIRECT);
+  expect(withdrawn.url.searchParams.get("error")).toBe("access_denied");
+  expect(withdrawn.url.searchParams.has("code")).toBe(false);
+  expect(
+    await args.h.t.run(async (ctx) => await ctx.db.query("resourceRequests").collect()),
+  ).toEqual([]);
+});
+
 test("a resource withdrawn while the provider answers keeps the rotation and answers 401", async () => {
   let resources = ["cloudflare"];
   const args = await setup(() => testPolicy({ resources }));

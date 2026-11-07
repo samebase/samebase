@@ -31,10 +31,33 @@ const REQUEST_TTL_MS = 10 * 60 * 1000;
 const CODE_TTL_MS = 60 * 1000;
 const challenge = { "WWW-Authenticate": 'Basic realm="token"' };
 
-/** The OAuth error code or the class name: provider errors carry token responses. */
+/** The error codes of RFC 6749 sections 4.1.2.1 and 5.2 and RFC 8707, which a log may name. */
+const OAUTH_ERRORS = new Set([
+  "invalid_request",
+  "invalid_client",
+  "invalid_grant",
+  "unauthorized_client",
+  "unsupported_grant_type",
+  "invalid_scope",
+  "access_denied",
+  "unsupported_response_type",
+  "server_error",
+  "temporarily_unavailable",
+  "invalid_target",
+]);
+
+/**
+ * What a log says of a provider failure: a standard OAuth error code, else the class name. Provider
+ * errors carry token responses and free text, and none of that is logged.
+ */
 function failureName(error: unknown) {
-  if (error instanceof oauth.AuthorizationResponseError || error instanceof oauth.ResponseBodyError)
+  if (
+    (error instanceof oauth.AuthorizationResponseError ||
+      error instanceof oauth.ResponseBodyError) &&
+    OAUTH_ERRORS.has(error.error)
+  ) {
     return error.error;
+  }
   return error instanceof Error ? error.constructor.name : typeof error;
 }
 
@@ -172,43 +195,37 @@ export function resourceEndpoints(options: {
         cookieHashes: await Promise.all([...cookies.read(request).values()].map(sha256Hex)),
         now: Date.now(),
       });
-      if (claim.status !== "claimed")
+      if (claim.status === "missing" || claim.status === "unbound")
         return errorPage(
           "Authorization unavailable",
           claim.status === "unbound"
             ? "Return to the browser that started authorization."
-            : "The authorization expired or was already used.",
+            : "The authorization was already used.",
           400,
         );
+      // The browser holds the request's cookie: from here on, every outcome goes to the app.
       const back = {
         redirectUri: claim.redirectUri,
         issuer,
         state: claim.state,
         clearCookie: cookies.clear(request, claim.requestId),
       };
+      const expired = () =>
+        authorizationError({
+          ...back,
+          error: "access_denied",
+          description: "The authorization expired.",
+        });
+      if (claim.status === "expired") return expired();
+      let tokens;
       try {
-        const tokens = await finishResourceAuthorization({
+        tokens = await finishResourceAuthorization({
           provider,
           callbackUrl: callbackUrl(provider),
           currentUrl: url,
           state,
           codeVerifier: claim.upstreamCodeVerifier,
         });
-        const code = randomToken(32);
-        const completed = await ctx.runMutation(component.resourceRequests.complete, {
-          requestId: claim.requestId,
-          tokens,
-          codeHash: await sha256Hex(code),
-          codeExpiresAt: Date.now() + CODE_TTL_MS,
-          now: Date.now(),
-        });
-        if (!completed)
-          return authorizationError({
-            ...back,
-            error: "access_denied",
-            description: "The authorization expired.",
-          });
-        return authorizationResponse({ ...back, params: { code } });
       } catch (error) {
         await ctx.runMutation(component.resourceRequests.abandon, { requestId: claim.requestId });
         console.error(`Resource "${provider.name}" failed: ${failureName(error)}`);
@@ -220,6 +237,40 @@ export function resourceEndpoints(options: {
               : "server_error",
           description: "The provider authorization did not complete.",
         });
+      }
+      // The decision again, on the rows as they are now; the mutation reads them once more.
+      const current = await ctx.runQuery(component.clients.withApp, { clientId: claim.clientId });
+      const completion = current === null ? null : decide(current);
+      if (completion === null) {
+        await ctx.runMutation(component.resourceRequests.abandon, { requestId: claim.requestId });
+        return authorizationError({
+          ...back,
+          error: "temporarily_unavailable",
+          description: "Authorization is not available right now.",
+        });
+      }
+      const code = randomToken(32);
+      const completed = await ctx.runMutation(component.resourceRequests.complete, {
+        requestId: claim.requestId,
+        tokens,
+        codeHash: await sha256Hex(code),
+        codeExpiresAt: Date.now() + CODE_TTL_MS,
+        policy: policyArg(completion),
+        now: Date.now(),
+      });
+      switch (completed) {
+        case "completed":
+          return authorizationResponse({ ...back, params: { code } });
+        case "refused":
+          return authorizationError({
+            ...back,
+            error: "access_denied",
+            description: "This client cannot connect this API resource.",
+          });
+        case "gone":
+          return expired();
+        default:
+          return completed satisfies never;
       }
     });
   }
@@ -267,44 +318,9 @@ export function resourceEndpoints(options: {
     const provider = providers.get(claim.resource);
     if (provider === undefined)
       return oauthError(400, "invalid_target", "The API resource is unavailable.");
+    let tokens;
     try {
-      const tokens = await refreshResourceToken({
-        provider,
-        refreshToken: claim.upstreamRefreshToken,
-      });
-      // The release decision, on the rows as they are now. A client that is gone, or a policy
-      // that fails now, refuses the release; the rotation is saved either way.
-      const current = await ctx.runQuery(component.clients.withApp, {
-        clientId: client.clientId,
-      });
-      const release = current === null ? null : decide(current);
-      const finished = await ctx.runMutation(component.resourceRequests.finishRefresh, {
-        grantId: claim.grantId,
-        attempt: claim.attempt,
-        tokens,
-        policy: release === null ? null : policyArg(release),
-        now: Date.now(),
-      });
-      switch (finished) {
-        case "released":
-          return resourceTokenResponse(tokens, refreshToken);
-        case "refused":
-          return oauthError(401, "invalid_client", "Client authentication failed.", challenge);
-        case "stale":
-          return oauthError(
-            503,
-            "temporarily_unavailable",
-            "Another refresh holds this grant. Retry shortly.",
-          );
-        case "gone":
-          return oauthError(
-            400,
-            "invalid_grant",
-            "The grant is no longer available. Authorize again.",
-          );
-        default:
-          return finished satisfies never;
-      }
+      tokens = await refreshResourceToken({ provider, refreshToken: claim.upstreamRefreshToken });
     } catch (error) {
       // Only the provider can say a token is dead. Its replay check judges any retry of this one.
       const rejected = error instanceof oauth.ResponseBodyError && error.error === "invalid_grant";
@@ -317,6 +333,45 @@ export function resourceEndpoints(options: {
       return rejected
         ? oauthError(400, "invalid_grant", "The provider refused this grant. Authorize again.")
         : oauthError(503, "temporarily_unavailable", "The provider is unavailable. Retry shortly.");
+    }
+    // The release decision, on the rows as they are now. A client that is gone, a policy that
+    // fails now, or a read that fails refuses the release; the provider may have rotated the
+    // refresh token, and only `finishRefresh` saves it, so it runs either way.
+    let release: Decision | null = null;
+    try {
+      const current = await ctx.runQuery(component.clients.withApp, {
+        clientId: client.clientId,
+      });
+      release = current === null ? null : decide(current);
+    } catch (error) {
+      console.error(`Resource "${provider.name}" release read failed: ${failureName(error)}`);
+    }
+    const finished = await ctx.runMutation(component.resourceRequests.finishRefresh, {
+      grantId: claim.grantId,
+      attempt: claim.attempt,
+      tokens,
+      policy: release === null ? null : policyArg(release),
+      now: Date.now(),
+    });
+    switch (finished) {
+      case "released":
+        return resourceTokenResponse(tokens, refreshToken);
+      case "refused":
+        return oauthError(401, "invalid_client", "Client authentication failed.", challenge);
+      case "stale":
+        return oauthError(
+          503,
+          "temporarily_unavailable",
+          "Another refresh holds this grant. Retry shortly.",
+        );
+      case "gone":
+        return oauthError(
+          400,
+          "invalid_grant",
+          "The grant is no longer available. Authorize again.",
+        );
+      default:
+        return finished satisfies never;
     }
   }
 

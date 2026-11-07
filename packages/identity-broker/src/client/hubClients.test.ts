@@ -352,6 +352,73 @@ describe("POST /hub-clients", () => {
       ]);
     });
 
+    it.each([
+      ["no connectors", []],
+      ["a connector name with a capital", ["Fake"]],
+      ["a connector name with a space", ["fake other"]],
+      ["a connector name over 64 characters", ["a".repeat(65)]],
+      ["a connector the hub does not have", ["fake", "okta"]],
+    ])("answers invalid_connectors with the allowed names for %s", async (_, connectors) => {
+      const h = await createHub();
+      const fileRequests = stubProviders();
+
+      const response = await postHubClient(h, await signToken(), { connectors });
+
+      expect(response.status).toBe(400);
+      expect(await response.json()).toEqual({
+        error: "invalid_connectors",
+        allowed: ["fake", "other"],
+      });
+      expect(fileRequests).toEqual([]);
+      expect(await readRateLimits(h)).toEqual([]);
+      expect(await readClients(h)).toEqual([]);
+    });
+
+    it("the development mutation refuses a token row that differs from any fact the policy saw, and writes nothing", async () => {
+      const h = await createHub();
+      const token = await createInitialAccessToken(h);
+      const facts = {
+        tokenHash: await sha256Hex(token),
+        githubRepositoryDatabaseId: REPOSITORY_ID,
+        githubOwnerId: OWNER_ID,
+        githubRepository: "octo-org/octo-repo",
+        app: "my-app",
+      };
+      const before = {
+        clients: await readClients(h),
+        events: await readRegistrationEvents(h),
+        apps: await h.t.query(api.apps.list, {}),
+      };
+      for (const changed of [
+        { githubRepositoryDatabaseId: "75" },
+        { githubOwnerId: "66" },
+        { githubRepository: "octo-org/other" },
+        { app: "other-app" },
+      ]) {
+        const seen = { ...facts, ...changed };
+        expect(
+          await h.t.mutation(api.hubClients.createDevelopmentClient, {
+            clientId: "cl_dev",
+            secretHash: "secret-hash",
+            registrationTokenHash: "token-hash",
+            tokenHash: seen.tokenHash,
+            githubRepositoryDatabaseId: seen.githubRepositoryDatabaseId,
+            githubOwnerId: seen.githubOwnerId,
+            githubRepository: seen.githubRepository,
+            app: seen.app,
+            connectors: ["fake"],
+            redirectUri: LOOPBACK_CALLBACK,
+            softwareVersion: "dev-1",
+          }),
+        ).toEqual({ ok: false, reason: "invalid_token" });
+      }
+      expect({
+        clients: await readClients(h),
+        events: await readRegistrationEvents(h),
+        apps: await h.t.query(api.apps.list, {}),
+      }).toEqual(before);
+    });
+
     it("refuses with 503 and writes nothing when the policy throws or answers a malformed value", async () => {
       let answer: () => unknown = () => {
         throw new Error("no env");
@@ -462,11 +529,7 @@ describe("POST /hub-clients", () => {
       ["localhost", { redirectUri: "https://localhost/cb" }],
       ["a name under localhost", { redirectUri: "https://app.localhost/cb" }],
       ["a very long address", { redirectUri: `${PRODUCTION_HOST}/${"a".repeat(2_048)}` }],
-      ["no connectors", { connectors: [] }],
       ["connectors that are not a list", { connectors: "fake" }],
-      ["a connector name with a capital", { connectors: ["Fake"] }],
-      ["a connector name with a space", { connectors: ["fake other"] }],
-      ["a connector name over 64 characters", { connectors: ["a".repeat(65)] }],
     ])("answers 400 for %s and fetches nothing", async (_, body) => {
       const h = await createHub();
       const fileRequests = stubProviders();

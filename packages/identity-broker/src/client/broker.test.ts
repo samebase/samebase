@@ -377,8 +377,6 @@ describe("authorization code flow with an OAuth connector", () => {
     };
     await refusedWith({ scope: "email" }, "scope must include &quot;openid&quot;.");
     await refusedWith({ prompt: "none" }, "This provider has no session to reuse.");
-    // A request refused before its connector is chosen stores nothing.
-    expect(await h.t.run(async (ctx) => await ctx.db.query("authRequests").collect())).toEqual([]);
     // An OAuth connector cannot force a fresh login, whether prompt=login or max_age asked for it.
     for (const extra of [{ prompt: "login" }, { max_age: "300" }]) {
       await refusedWith(
@@ -386,6 +384,8 @@ describe("authorization code flow with an OAuth connector", () => {
         "Fake cannot reauthenticate the user, which prompt=login or max_age asked for.",
       );
     }
+    // A refused request stores nothing and spends no budget.
+    expect(await h.t.run(async (ctx) => await ctx.db.query("authRequests").collect())).toEqual([]);
   });
 
   test("Google documents no prompt=login, so a fresh login through it is refused", async () => {

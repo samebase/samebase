@@ -124,6 +124,12 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             upstreamId: string;
           };
           now: number;
+          policy: {
+            connectors: Array<string>;
+            ownerId?: string;
+            paused: boolean;
+            resources: Array<string>;
+          };
           requestId: string;
         },
         | { ok: true; redirectUri: string; state?: string }
@@ -326,55 +332,63 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         "internal",
         { upstreamStateHash: string },
         {
-          app: {
-            appId: string;
-            createdAt: number;
-            name: string;
-            suspended: boolean;
-            tenantId: string;
-          } | null;
           client: {
-            app: string;
-            appId: string;
-            clientId: string;
-            clientName: string;
-            connectors: Array<string>;
-            createdAt: number;
-            deploymentType: "production" | "development" | "preview";
-            lastSignInAt?: number;
-            redirectUri: string;
-            registeredBy:
-              | {
-                  commitSha: string;
-                  githubActorId: string;
-                  githubActorLogin: string;
-                  githubOwnerId: string;
-                  githubRepository: string;
-                  kind: "github";
-                }
-              | {
-                  githubOwnerId: string;
-                  githubRepository: string;
-                  issuedAt: number;
-                  kind: "initial_access_token";
-                };
-            registrationTokenHash: string;
-            removeAt?: number;
-            renewedAt: number;
-            secretHash: string;
-            softwareVersion: string;
-            tokenEndpointAuthMethod:
-              "client_secret_post" | "client_secret_basic";
-          };
-          registration: {
-            app: string;
-            deploymentType: "production" | "development" | "preview";
-            ownerId: string;
-            proof: "github-actions" | "initial-access-token";
-            redirectUri: string;
-            repository: string;
-            repositoryId: string;
+            app: {
+              appId: string;
+              createdAt: number;
+              name: string;
+              suspended: boolean;
+              tenantId: string;
+            } | null;
+            client: {
+              app: string;
+              appId: string;
+              clientId: string;
+              clientName: string;
+              connectors: Array<string>;
+              createdAt: number;
+              deploymentType: "production" | "development" | "preview";
+              lastSignInAt?: number;
+              redirectUri: string;
+              registeredBy:
+                | {
+                    commitSha: string;
+                    githubActorId: string;
+                    githubActorLogin: string;
+                    githubOwnerId: string;
+                    githubRepository: string;
+                    kind: "github";
+                  }
+                | {
+                    githubOwnerId: string;
+                    githubRepository: string;
+                    issuedAt: number;
+                    kind: "initial_access_token";
+                  };
+              registrationTokenHash: string;
+              removeAt?: number;
+              renewedAt: number;
+              secretHash: string;
+              softwareVersion: string;
+              tokenEndpointAuthMethod:
+                "client_secret_post" | "client_secret_basic";
+            };
+            registration: {
+              app: string;
+              deploymentType: "production" | "development" | "preview";
+              ownerId: string;
+              proof: "github-actions" | "initial-access-token";
+              redirectUri: string;
+              repository: string;
+              repositoryId: string;
+            } | null;
           } | null;
+          request: {
+            redirectUri: string;
+            requestId: string;
+            state?: string;
+            txnCookieHash: string;
+          };
         } | null,
         Name
       >;
@@ -852,6 +866,12 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             txnCookieHash: string;
             upstreamCodeVerifier: string;
           }
+        | {
+            redirectUri: string;
+            requestId: string;
+            state?: string;
+            status: "expired";
+          }
         | { status: "missing" }
         | { status: "unbound" },
         Name
@@ -895,6 +915,12 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           codeExpiresAt: number;
           codeHash: string;
           now: number;
+          policy: {
+            connectors: Array<string>;
+            ownerId?: string;
+            paused: boolean;
+            resources: Array<string>;
+          };
           requestId: string;
           tokens: {
             accessToken: string;
@@ -903,7 +929,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             scope: string;
           };
         },
-        boolean,
+        "completed" | "refused" | "gone",
         Name
       >;
       create: FunctionReference<

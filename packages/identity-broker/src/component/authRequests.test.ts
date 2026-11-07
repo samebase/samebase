@@ -130,6 +130,7 @@ describe("upstream path", () => {
       authTime: now,
       codeHash: "ch",
       codeExpiresAt: now + 60_000,
+      policy,
       now,
     });
     expect(completed.ok).toBe(true);
@@ -197,6 +198,7 @@ describe("upstream path", () => {
       authTime: now,
       codeHash: "ch",
       codeExpiresAt: now + 60_000,
+      policy,
       now,
     });
     const redeem = (
@@ -410,6 +412,7 @@ describe("upstream path", () => {
       authTime: late,
       codeHash: "ch",
       codeExpiresAt: late + 60_000,
+      policy,
       now: late,
     });
     const cleanup = (at: number) =>
@@ -454,6 +457,7 @@ describe("upstream path", () => {
       authTime: now,
       codeHash: "ch",
       codeExpiresAt: now + 60_000,
+      policy,
       now,
     });
     expect(
@@ -530,6 +534,58 @@ describe("what a request may use", () => {
         state: "s",
       });
       expect(await t.query(api.authRequests.get, { requestId: "r1" })).toBeNull();
+    }
+  });
+
+  test("a block, a changed owner, a pause, or a withdrawn connector that landed while the provider answered refuses the completion", async () => {
+    const block = async (t: TestConvex<typeof schema>) => {
+      await t.mutation(api.moderation.setBlock, {
+        action: "block",
+        kind: "owner",
+        githubId: "65",
+        reason: "Phishing page",
+        adminEmail: "admin@example.com",
+      });
+      return policy;
+    };
+    for (const landed of [
+      block,
+      async () => ({ ...policy, ownerId: "66" }),
+      async () => ({ ...policy, paused: true }),
+      async () => ({ ...policy, connectors: ["g", "google"] }),
+    ]) {
+      const t = await pendingRequest();
+      await t.mutation(api.authRequests.startUpstream, {
+        requestId: "r1",
+        connector: "github",
+        upstreamStateHash: "sh",
+        upstreamCodeVerifier: "v",
+        policy,
+        now,
+      });
+      await t.mutation(api.authRequests.claimUpstream, {
+        upstreamStateHash: "sh",
+        connector: "github",
+        txnCookieHashes: ["cookie-hash"],
+        policy,
+        now,
+      });
+      const decision = await landed(t);
+      expect(
+        await t.mutation(api.authRequests.complete, {
+          requestId: "r1",
+          identity: { connector: "github", upstreamId: "42" },
+          authTime: now,
+          codeHash: "ch",
+          codeExpiresAt: now + 60_000,
+          policy: decision,
+          now,
+        }),
+      ).toEqual({ ok: false, error: "refused", redirectUri: "https://app.test/cb", state: "s" });
+      expect(await t.query(api.authRequests.get, { requestId: "r1" })).toBeNull();
+      expect(
+        await t.run(async (ctx) => await ctx.db.query("authorizationCodes").collect()),
+      ).toEqual([]);
     }
   });
 

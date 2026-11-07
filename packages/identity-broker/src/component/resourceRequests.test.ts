@@ -1,5 +1,5 @@
 /// <reference types="vite-plus/client" />
-import { convexTest } from "convex-test";
+import { convexTest, type TestConvex } from "convex-test";
 import { calculatePKCECodeChallenge } from "oauth4webapi";
 import { expect, test } from "vite-plus/test";
 import { api } from "./_generated/api.js";
@@ -38,6 +38,56 @@ async function setBlock(t: Test, kind: "repository" | "owner", githubId: string,
   });
 }
 
+/** A resource authorization of the client, up to and including the provider's answer. */
+async function claimedAuthorization(
+  t: TestConvex<typeof schema>,
+  args: { requestId: string; stateHash: string },
+) {
+  await t.mutation(api.resourceRequests.create, {
+    requestId: args.requestId,
+    clientId: auth.clientId,
+    redirectUri: "https://preview.example/cb",
+    resource: RESOURCE,
+    codeChallenge: await calculatePKCECodeChallenge(VERIFIER),
+    txnCookieHash: "browser",
+    upstreamStateHash: args.stateHash,
+    upstreamCodeVerifier: "upstream-verifier",
+    expiresAt: NOW + 600_000,
+    policy,
+  });
+  await t.mutation(api.resourceRequests.claim, {
+    stateHash: args.stateHash,
+    resource: RESOURCE,
+    cookieHashes: ["browser"],
+    now: NOW,
+  });
+}
+
+const upstreamTokens = {
+  accessToken: "upstream-access",
+  scope: "workers-scripts.read",
+  refreshToken: "upstream-refresh",
+  expiresAt: NOW + 3_600_000,
+};
+
+/** A completed resource authorization of the client, whose code `codeHash` waits for the exchange. */
+async function completedAuthorization(
+  t: TestConvex<typeof schema>,
+  args: { requestId: string; stateHash: string; codeHash: string },
+) {
+  await claimedAuthorization(t, args);
+  expect(
+    await t.mutation(api.resourceRequests.complete, {
+      requestId: args.requestId,
+      tokens: upstreamTokens,
+      codeHash: args.codeHash,
+      codeExpiresAt: NOW + 60_000,
+      policy,
+      now: NOW,
+    }),
+  ).toBe("completed");
+}
+
 async function grant(expires = false) {
   const t = convexTest(schema, modules);
   await t.run(async (ctx) => {
@@ -65,35 +115,10 @@ async function grant(expires = false) {
       ...(expires ? { removeAt: NOW - DAY + LEASE_MS } : {}),
     });
   });
-  await t.mutation(api.resourceRequests.create, {
+  await completedAuthorization(t, {
     requestId: "request",
-    clientId: auth.clientId,
-    redirectUri: "https://preview.example/cb",
-    resource: RESOURCE,
-    codeChallenge: await calculatePKCECodeChallenge(VERIFIER),
-    txnCookieHash: "browser",
-    upstreamStateHash: "upstream-state",
-    upstreamCodeVerifier: "upstream-verifier",
-    expiresAt: NOW + 600_000,
-    policy,
-  });
-  await t.mutation(api.resourceRequests.claim, {
     stateHash: "upstream-state",
-    resource: RESOURCE,
-    cookieHashes: ["browser"],
-    now: NOW,
-  });
-  await t.mutation(api.resourceRequests.complete, {
-    requestId: "request",
-    tokens: {
-      accessToken: "upstream-access",
-      scope: "workers-scripts.read",
-      refreshToken: "upstream-refresh",
-      expiresAt: NOW + 3_600_000,
-    },
     codeHash: "code",
-    codeExpiresAt: NOW + 60_000,
-    now: NOW,
   });
   const exchange = {
     ...auth,
@@ -381,13 +406,105 @@ test("the policy's resources gate the authorization, the code, the admission, an
       now: NOW + 3,
     }),
   ).toBe("refused");
+  // A release whose owner is no longer the tenant's refuses too, and saves the rotation.
+  const third = await t.mutation(api.resourceRequests.claimRefresh, { ...refresh, now: NOW + 4 });
+  if (!third.ok) throw new Error("Expected a claim");
+  expect(third).toMatchObject({ upstreamRefreshToken: "rotated-again" });
   expect(
-    await t.mutation(api.resourceRequests.claimRefresh, { ...refresh, now: NOW + 4 }),
-  ).toMatchObject({ ok: true, upstreamRefreshToken: "rotated-again" });
-  // The code of a completed authorization is refused once the resource is withdrawn.
+    await t.mutation(api.resourceRequests.finishRefresh, {
+      grantId: third.grantId,
+      attempt: third.attempt,
+      tokens: { ...tokens, refreshToken: "rotated-thrice" },
+      policy: { ...policy, ownerId: "8" },
+      now: NOW + 5,
+    }),
+  ).toBe("refused");
   expect(
-    await t.mutation(api.authRequests.exchangeCode, { ...exchange, policy: withdrawn }),
-  ).toMatchObject({ ok: false, error: "invalid_grant" });
+    (await t.run(async (ctx) => await ctx.db.get("refreshGrants", third.grantId)))
+      ?.upstreamRefreshToken,
+  ).toBe("rotated-thrice");
+  expect(
+    await t.mutation(api.resourceRequests.claimRefresh, { ...refresh, now: NOW + 6 }),
+  ).toMatchObject({ ok: true, upstreamRefreshToken: "rotated-thrice" });
+  // The unused code of a completed authorization is refused once the resource is withdrawn.
+  await completedAuthorization(t, {
+    requestId: "second",
+    stateHash: "second-state",
+    codeHash: "code-2",
+  });
+  expect(
+    await t.mutation(api.authRequests.exchangeCode, {
+      ...exchange,
+      codeHash: "code-2",
+      refreshTokenHash: "second-refresh-hash",
+      policy: withdrawn,
+    }),
+  ).toMatchObject({ ok: false, error: "invalid_target" });
+});
+
+test("a withdrawn resource, a pause, a changed owner, or a block that landed while the provider answered refuses the completion", async () => {
+  const block = async (t: TestConvex<typeof schema>) => {
+    await setBlock(t, "owner", "7", true);
+    return policy;
+  };
+  for (const landed of [
+    async () => ({ ...policy, resources: [] }),
+    async () => ({ ...policy, paused: true }),
+    async () => ({ ...policy, ownerId: "8" }),
+    block,
+  ]) {
+    const { t } = await grant();
+    await claimedAuthorization(t, { requestId: "second", stateHash: "second-state" });
+    const decision = await landed(t);
+    expect(
+      await t.mutation(api.resourceRequests.complete, {
+        requestId: "second",
+        tokens: upstreamTokens,
+        codeHash: "code-2",
+        codeExpiresAt: NOW + 60_000,
+        policy: decision,
+        now: NOW,
+      }),
+    ).toBe("refused");
+    const rows = await t.run(async (ctx) => ({
+      requests: await ctx.db.query("resourceRequests").collect(),
+      codes: (await ctx.db.query("authorizationCodes").collect()).map((code) => code.codeHash),
+    }));
+    expect(rows).toEqual({ requests: [], codes: ["code"] });
+  }
+});
+
+test("the bound browser of an expired resource request learns where to go back", async () => {
+  const { t } = await grant();
+  await t.mutation(api.resourceRequests.create, {
+    requestId: "late",
+    clientId: auth.clientId,
+    redirectUri: "https://preview.example/cb",
+    resource: RESOURCE,
+    state: "late-state",
+    codeChallenge: await calculatePKCECodeChallenge(VERIFIER),
+    txnCookieHash: "browser",
+    upstreamStateHash: "late-upstream",
+    upstreamCodeVerifier: "upstream-verifier",
+    expiresAt: NOW + 600_000,
+    policy,
+  });
+  const claim = (cookieHashes: string[]) =>
+    t.mutation(api.resourceRequests.claim, {
+      stateHash: "late-upstream",
+      resource: RESOURCE,
+      cookieHashes,
+      now: NOW + 600_001,
+    });
+  // Another browser learns nothing, and the request waits for its own.
+  expect(await claim(["other"])).toEqual({ status: "unbound" });
+  expect(await claim(["browser"])).toEqual({
+    status: "expired",
+    requestId: "late",
+    redirectUri: "https://preview.example/cb",
+    state: "late-state",
+  });
+  expect(await claim(["browser"])).toEqual({ status: "missing" });
 });
 
 test("cleanup removes expired resource requests and idle refresh secrets", async () => {

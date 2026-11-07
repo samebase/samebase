@@ -115,6 +115,13 @@ const vClaim = union(
     ...resourceRequestFields,
     upstreamCodeVerifier: string(),
   }),
+  /** The bound browser came back too late; the request is deleted, and the app learns of it. */
+  object({
+    status: literal("expired"),
+    requestId: string(),
+    redirectUri: string(),
+    state: optional(string()),
+  }),
   object({ status: literal("missing") }),
   object({ status: literal("unbound") }),
 );
@@ -132,7 +139,12 @@ export const claim = mutation({
     if (!args.cookieHashes.includes(request.txnCookieHash)) return { status: "unbound" };
     if (request.expiresAt <= args.now) {
       await ctx.db.delete("resourceRequests", request._id);
-      return { status: "missing" };
+      return {
+        status: "expired",
+        requestId: request.requestId,
+        redirectUri: request.redirectUri,
+        ...(request.state === undefined ? {} : { state: request.state }),
+      };
     }
     await ctx.db.replace("resourceRequests", request._id, {
       status: "claimed",
@@ -146,22 +158,39 @@ export const claim = mutation({
   },
 });
 
+/**
+ * The provider answered after a claim; the authorization code can be handed out, unless `policy`,
+ * decided after the provider answered, no longer gives the client the resource, or a block, a
+ * changed owner, or a pause committed while the provider answered (`refused`: the request is
+ * deleted). `gone`: the request is not waiting, or expired.
+ */
 export const complete = mutation({
   args: {
     requestId: string(),
     tokens: vResourceTokens,
     codeHash: string(),
     codeExpiresAt: number(),
+    policy: vPolicyDecision,
     now: number(),
   },
-  returns: boolean(),
+  returns: union(literal("completed"), literal("refused"), literal("gone")),
   handler: async (ctx, args) => {
     const request = await ctx.db
       .query("resourceRequests")
       .withIndex("by_request_id", (q) => q.eq("requestId", args.requestId))
       .unique();
     if (request === null || request.status !== "claimed" || request.expiresAt <= args.now)
-      return false;
+      return "gone" as const;
+    const app = await appOfClient(ctx, request.clientId);
+    if (
+      app === null ||
+      !args.policy.resources.includes(request.resource) ||
+      (await isSuspended(ctx, app.tenantId)) ||
+      (await refusalOf(ctx, args.policy, app.tenantId)) !== null
+    ) {
+      await ctx.db.delete("resourceRequests", request._id);
+      return "refused" as const;
+    }
     await ctx.db.replace("resourceRequests", request._id, {
       status: "completed",
       ...fields(request),
@@ -174,7 +203,7 @@ export const complete = mutation({
       clientId: request.clientId,
       expiresAt: args.codeExpiresAt,
     });
-    return true;
+    return "completed" as const;
   },
 });
 

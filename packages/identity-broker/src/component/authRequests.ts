@@ -194,13 +194,20 @@ export const startUpstream = mutation({
 });
 
 /**
- * The client of the request that waits for the callback with this state, with its app and policy
- * facts, so the host decides the policy before it claims the request. Null when no request waits
- * for that state, or its client is gone.
+ * The request that waits for the callback with this state: where it goes back to and its cookie
+ * hash, so the host can answer a bound browser at the return address before the claim, and its
+ * client with the policy facts, so the host decides the policy before it claims the request. Null
+ * when no request waits for that state; `client` is null when the client is gone.
  */
 export const upstreamClient = query({
   args: { upstreamStateHash: string() },
-  returns: union(vClientWithApp, v.null()),
+  returns: union(
+    object({
+      request: object({ requestId: string(), txnCookieHash: string(), ...vReturn.fields }),
+      client: union(vClientWithApp, v.null()),
+    }),
+    v.null(),
+  ),
   handler: async (ctx, args) => {
     const request = await ctx.db
       .query("authRequests")
@@ -213,7 +220,14 @@ export const upstreamClient = query({
       .query("clients")
       .withIndex("by_client_id", (q) => q.eq("clientId", request.clientId))
       .unique();
-    return client === null ? null : await clientWithApp(ctx, client);
+    return {
+      request: {
+        requestId: request.requestId,
+        txnCookieHash: request.txnCookieHash,
+        ...returnTo(request),
+      },
+      client: client === null ? null : await clientWithApp(ctx, client),
+    };
   },
 });
 
@@ -293,7 +307,12 @@ export const claimUpstream = mutation({
   },
 });
 
-/** The connector attested the identity after a claim; the authorization code can be handed out. */
+/**
+ * The connector attested the identity after a claim; the authorization code can be handed out,
+ * unless `policy`, decided after the provider answered, no longer allows the request's connector,
+ * or a block, a changed owner, or a pause committed while the provider answered: the request is
+ * then deleted and nothing is issued.
+ */
 export const complete = mutation({
   args: {
     requestId: string(),
@@ -301,6 +320,7 @@ export const complete = mutation({
     authTime: number(),
     codeHash: string(),
     codeExpiresAt: number(),
+    policy: vPolicyDecision,
     now: number(),
   },
   returns: vTransitionResult,
@@ -315,6 +335,10 @@ export const complete = mutation({
     }
     if (request.status !== "claimed") {
       return { ok: false, error: "wrong_status", ...back };
+    }
+    if (!(await allowed(ctx, request, request.connector, args.policy))) {
+      await ctx.db.delete("authRequests", request._id);
+      return { ok: false, error: "refused", ...back };
     }
     await ctx.db.replace("authRequests", request._id, {
       status: "completed",

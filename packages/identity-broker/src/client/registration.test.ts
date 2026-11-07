@@ -332,13 +332,13 @@ describe("the connectors of a client", () => {
     const h = await hub(() => testPolicy({ connectors }));
     const client = await register(h, { connectors: ["fake", "other"] });
     const { challenge } = await pkce();
-    const both = await (await h.fetchBroker(authorizeUrl(h, client.client_id, challenge))).text();
+    const bothPage = await h.fetchBroker(authorizeUrl(h, client.client_id, challenge));
+    const both = await bothPage.text();
     expect(continueLink(h, both, "fake")).toBeDefined();
     expect(continueLink(h, both, "other")).toBeDefined();
 
     connectors = ["fake"];
-    const page = await h.fetchBroker(authorizeUrl(h, client.client_id, challenge));
-    const html = await page.text();
+    const html = await (await h.fetchBroker(authorizeUrl(h, client.client_id, challenge))).text();
     expect(continueLink(h, html, "fake")).toBeDefined();
     expect(continueLink(h, html, "other")).toBeUndefined();
     // Enrolled, named, and no longer allowed: nothing is offered.
@@ -347,14 +347,16 @@ describe("the connectors of a client", () => {
     );
     expect(off.status).toBe(403);
     expect(await off.text()).toContain("Sign-in for this app is turned off.");
-    // A link of the page outlives the policy: the connector is checked again at /continue.
-    const link = continueLink(h, both, "other") ?? "";
-    const cookie = txnCookie(page);
-    const requestId = cookie.Cookie.split("=")[0]?.replace("__Host-broker_txn_", "") ?? "";
-    const late = await h.fetchBroker(link.replace(/request=[^&]*/, `request=${requestId}`), {
-      headers: cookie,
+    // The page offered `other` before the policy shrank: its link is checked again at /continue,
+    // and the user continued, so the refusal goes to the app.
+    const late = await h.fetchBroker(continueLink(h, both, "other") ?? "", {
+      headers: txnCookie(bothPage),
     });
-    expect(late.status).toBe(404);
+    expect(late.status).toBe(302);
+    const location = new URL(late.headers.get("location") ?? "");
+    expect(location.origin + location.pathname).toBe(REDIRECT_URI);
+    expect(location.searchParams.get("error")).toBe("access_denied");
+    expect(location.searchParams.get("state")).toBe("client-state");
   });
 
   test("a connector withdrawn after the callback refuses the code, and one withdrawn before it refuses the callback", async () => {
@@ -486,6 +488,46 @@ describe("the policy", () => {
     ).toBe(200);
   });
 
+  test("a policy that fails, or a client that is gone, while the user is at the provider answers the app", async () => {
+    let policy: () => Policy = () => testPolicy({ consent: false });
+    const h = await hub(() => policy());
+    const client = await register(h);
+    const { challenge } = await pkce();
+    const callbackOf = async () => {
+      const start = await h.fetchBroker(authorizeUrl(h, client.client_id, challenge));
+      const upstream = new URL(start.headers.get("location") ?? "");
+      const callback = new URL(upstream.searchParams.get("redirect_uri") ?? "");
+      callback.searchParams.set("code", "upstream-code");
+      callback.searchParams.set("state", upstream.searchParams.get("state") ?? "");
+      return { callback, cookie: txnCookie(start) };
+    };
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    const first = await callbackOf();
+    policy = () => {
+      throw new Error("no env");
+    };
+    // Another browser learns nothing; the bound one goes back to the app, and the request waits.
+    expect((await h.fetchBroker(first.callback)).status).toBe(400);
+    const failed = await h.fetchBroker(first.callback, { headers: first.cookie });
+    const failedAt = new URL(failed.headers.get("location") ?? "");
+    expect(failedAt.origin + failedAt.pathname).toBe(REDIRECT_URI);
+    expect(failedAt.searchParams.get("error")).toBe("temporarily_unavailable");
+    policy = () => testPolicy({ consent: false });
+    const back = await h.fetchBroker(first.callback, { headers: first.cookie });
+    expect(new URL(back.headers.get("location") ?? "").searchParams.has("code")).toBe(true);
+
+    const second = await callbackOf();
+    await h.t.mutation(api.clients.remove, { clientId: client.client_id });
+    const gone = await h.fetchBroker(second.callback, { headers: second.cookie });
+    const goneAt = new URL(gone.headers.get("location") ?? "");
+    expect(goneAt.origin + goneAt.pathname).toBe(REDIRECT_URI);
+    expect(goneAt.searchParams.get("error")).toBe("server_error");
+    // The second request is gone; the first waits, completed, for its code's redemption.
+    const rows = await h.t.run(async (ctx) => await ctx.db.query("authRequests").collect());
+    expect(rows.map((row) => row.status)).toEqual(["completed"]);
+  });
+
   test("a client that is not a repository's gets no decision in hub mode", async () => {
     const h = await hub();
     const { client } = await registerHere(h, { tenantId: "team-1", appId: "team-1-app" });
@@ -505,8 +547,9 @@ describe("the policy", () => {
     });
     const client = await register(h, { deploymentType: "production" });
     expect((await signIn(h, client)).status).toBe(200);
-    // /authorize, the callback, and the redemption each decided on the same facts.
-    expect(seen).toHaveLength(3);
+    // /authorize, the callback before its claim and after the provider answered, and the
+    // redemption each decided on the same facts.
+    expect(seen).toHaveLength(4);
     expect(seen[0]).toEqual({
       repositoryId: "1",
       repository: "octo-org/octo-repo",
@@ -518,6 +561,7 @@ describe("the policy", () => {
     });
     expect(seen[1]).toEqual(seen[0]);
     expect(seen[2]).toEqual(seen[0]);
+    expect(seen[3]).toEqual(seen[0]);
   });
 });
 

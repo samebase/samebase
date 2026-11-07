@@ -302,6 +302,15 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
   );
 
   /**
+   * Freshness is honored only as prompt=login upstream: a plain OAuth connector, or an OIDC
+   * connector whose provider documents no `login` value, is refused, never pretended.
+   */
+  const cannotReauthenticate = (connector: Connector) =>
+    connector.kind === "oauth" || !connector.promptLogin;
+  const freshLoginRefusal = (connector: Connector) =>
+    `${connector.label} cannot reauthenticate the user, which prompt=login or max_age asked for.`;
+
+  /**
    * Sends the user to a connector for a stored request. `refuse` answers a refusal: the hub's
    * error page from `/authorize`, where the user has not continued, and the authorization error
    * at the return address from `/continue`, where the user has.
@@ -316,13 +325,8 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
     },
   ): Promise<Response> {
     const { connector, request } = args;
-    // Freshness is honored only as prompt=login upstream; a connector without it is refused, never
-    // pretended.
-    if (request.freshLogin && (connector.kind === "oauth" || !connector.promptLogin)) {
-      return args.refuse(
-        "login_required",
-        `${connector.label} cannot reauthenticate the user, which prompt=login or max_age asked for.`,
-      );
+    if (request.freshLogin && cannotReauthenticate(connector)) {
+      return args.refuse("login_required", freshLoginRefusal(connector));
     }
     const start = await startUpstream({
       connector,
@@ -468,6 +472,12 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
     if (offered.length === 0) {
       return offPage();
     }
+    // One offered connector and no consent to ask: straight to it (decision 5 of RFC 137). A fresh
+    // login that the connector cannot do is refused here, before anything is stored.
+    const direct = offered.length === 1 && decision.consent === null ? offered[0] : undefined;
+    if (direct !== undefined && freshLogin && cannotReauthenticate(direct)) {
+      return refusePage(freshLoginRefusal(direct));
+    }
     // Every later step needs this cookie: a client that fetches the page itself cannot send a
     // user's browser on from it, and a provider callback finishes only where the sign-in started.
     const txnCookie = randomToken(32);
@@ -504,11 +514,9 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
       }
     }
     const setCookie = `${txnCookiePrefix}${requestId}=${txnCookie}; ${txnCookieAttributes}; Max-Age=${AUTH_REQUEST_TTL_MS / 1000}`;
-    // One offered connector and no consent to ask: straight to it (decision 5 of RFC 137).
-    const [only] = offered;
-    if (only !== undefined && offered.length === 1 && decision.consent === null) {
+    if (direct !== undefined) {
       const response = await startConnector(ctx, {
-        connector: only,
+        connector: direct,
         request: { requestId, freshLogin },
         decision,
         refuse: (_error, description) => refusePage(description),
@@ -610,42 +618,64 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
       }
       const now = Date.now();
       const upstreamStateHash = await sha256Hex(state);
-      // The policy is decided before the claim, so a failed policy writes nothing.
-      const found = await ctx.runQuery(component.authRequests.upstreamClient, {
-        upstreamStateHash,
-      });
-      const decision = found === null ? null : decideFor(found);
-      if (found !== null && decision === null) {
-        return unavailablePage();
-      }
-      const claim =
-        decision === null
-          ? ({ status: "missing" } as const)
-          : await ctx.runMutation(component.authRequests.claimUpstream, {
-              upstreamStateHash,
-              connector: connector.name,
-              txnCookieHashes: await Promise.all(
-                [...readTxnCookies(request).values()].map((cookie) => sha256Hex(cookie)),
-              ),
-              policy: policyArg(decision),
-              now,
-            });
-      if (claim.status === "missing") {
-        return errorPage(
+      const linkUsedPage = () =>
+        errorPage(
           "Sign-in link used",
           "This sign-in link is invalid or was already used. Return to the app and try again.",
           400,
         );
+      // The waiting request and its client, read before the claim: the user continued from the
+      // page or went straight on, so a refusal from here goes to the return address, once the
+      // browser proves it holds the request's cookie. A failed policy writes nothing.
+      const waiting = await ctx.runQuery(component.authRequests.upstreamClient, {
+        upstreamStateHash,
+      });
+      if (waiting === null) {
+        return linkUsedPage();
+      }
+      if (!(await browserBound(request, waiting.request))) {
+        return unboundPage();
+      }
+      const back = {
+        redirectUri: waiting.request.redirectUri,
+        issuer,
+        state: waiting.request.state,
+        clearCookie: clearTxnCookie(request, waiting.request.requestId),
+      };
+      const found = waiting.client;
+      if (found === null || found.app === null) {
+        await ctx.runMutation(component.authRequests.abandon, {
+          requestId: waiting.request.requestId,
+        });
+        return authorizationError({
+          ...back,
+          error: "server_error",
+          description: "The client's app is gone.",
+        });
+      }
+      const decision = decideFor(found);
+      if (decision === null) {
+        return authorizationError({
+          ...back,
+          error: "temporarily_unavailable",
+          description: "Sign-in is not available right now.",
+        });
+      }
+      const claim = await ctx.runMutation(component.authRequests.claimUpstream, {
+        upstreamStateHash,
+        connector: connector.name,
+        txnCookieHashes: await Promise.all(
+          [...readTxnCookies(request).values()].map((cookie) => sha256Hex(cookie)),
+        ),
+        policy: policyArg(decision),
+        now,
+      });
+      if (claim.status === "missing") {
+        return linkUsedPage();
       }
       if (claim.status === "unbound") {
         return unboundPage();
       }
-      const back = {
-        redirectUri: claim.redirectUri,
-        issuer,
-        state: claim.state,
-        clearCookie: clearTxnCookie(request, claim.requestId),
-      };
       if (claim.status === "expired") {
         return authorizationError({
           ...back,
@@ -653,8 +683,9 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
           description: "The sign-in expired.",
         });
       }
-      if (claim.status === "refused") {
-        return decision?.paused === true
+      /** The policy, a block, or a changed owner stops the sign-in: to the app, as refused. */
+      const stoppedNow = (paused: boolean) =>
+        paused
           ? authorizationError({
               ...back,
               error: "temporarily_unavailable",
@@ -663,8 +694,10 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
           : authorizationError({
               ...back,
               error: "access_denied",
-              description: "That sign-in method is no longer available.",
+              description: "Sign-in for this app is no longer available.",
             });
+      if (claim.status === "refused") {
+        return stoppedNow(decision.paused);
       }
       let upstream: UpstreamFinish;
       try {
@@ -727,6 +760,20 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
         }
         authTime = authTimeSeconds * 1000;
       }
+      // The decision again, on the rows as they are now: the provider took time, and a block, a
+      // transfer, or a policy change may have landed. The mutation reads those rows once more.
+      const current = await ctx.runQuery(component.clients.withApp, {
+        clientId: found.client.clientId,
+      });
+      const completion = current === null ? null : decideFor(current);
+      if (completion === null) {
+        await ctx.runMutation(component.authRequests.abandon, { requestId: claim.requestId });
+        return authorizationError({
+          ...back,
+          error: "temporarily_unavailable",
+          description: "Sign-in is not available right now.",
+        });
+      }
       const code = randomToken(32);
       const completed = await ctx.runMutation(component.authRequests.complete, {
         requestId: claim.requestId,
@@ -734,14 +781,17 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
         authTime,
         codeHash: await sha256Hex(code),
         codeExpiresAt: now + CODE_TTL_MS,
+        policy: policyArg(completion),
         now,
       });
       if (!completed.ok) {
-        return authorizationError({
-          ...back,
-          error: "access_denied",
-          description: "The sign-in expired.",
-        });
+        return completed.error === "refused"
+          ? stoppedNow(completion.paused)
+          : authorizationError({
+              ...back,
+              error: "access_denied",
+              description: "The sign-in expired.",
+            });
       }
       return authorizationResponse({ ...back, params: { code } });
     });
