@@ -1,7 +1,7 @@
 /// <reference types="vite-plus/client" />
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { api } from "../component/_generated/api.js";
-import { ISSUER, sha256Hex, type Harness } from "./harness.test.helper.js";
+import { ISSUER, pkce, sha256Hex, type Harness } from "./harness.test.helper.js";
 import {
   APP_HASH,
   createClient,
@@ -1288,5 +1288,120 @@ describe("the shared registration key", () => {
     expect(connection.status).toBe(404);
     expect(await discovery.json()).not.toHaveProperty("registration_endpoint");
     expect(await readOwnRecord(h, client)).toBe(200);
+  });
+});
+
+// Rules that mutation testing (StrykerJS) found no test for: each test fails when the rule is
+// weakened, such as a timestamp that stops advancing or an hour that becomes a second.
+describe("registration rules at their edges", () => {
+  it("keeps the newest accepted proof's time when an older proof of the current owner arrives late", async () => {
+    const epoch = 1_800_000_000_000;
+    vi.useFakeTimers({ now: epoch, toFake: ["Date"] });
+    const h = await createHub();
+    const first = await signToken({ repository_owner_id: "65" });
+    vi.setSystemTime(epoch + 10_000);
+    const olderOfNewOwner = await signToken({ repository_owner_id: "66" });
+    vi.setSystemTime(epoch + 15_000);
+    const retainedOfOldOwner = await signToken({ repository_owner_id: "65" });
+    vi.setSystemTime(epoch + 20_000);
+    const newestOfNewOwner = await signToken({ repository_owner_id: "66" });
+    vi.setSystemTime(epoch + 21_000);
+    stubProviders();
+
+    expect((await postHubClient(h, first)).status).toBe(201);
+    expect((await postHubClient(h, newestOfNewOwner)).status).toBe(201);
+    // Accepted, but older than the newest: the recorded time must not move back to it.
+    expect((await postHubClient(h, olderOfNewOwner)).status).toBe(201);
+    // Newer than the late proof, older than the newest: the old owner cannot come back with it.
+    const refused = await postHubClient(h, retainedOfOldOwner);
+    expect(refused.status).toBe(403);
+    expect(await refused.json()).toMatchObject({ reason: "stale_proof" });
+  });
+
+  it("replaces only the initial access token of the app that registered", async () => {
+    const h = await createHub();
+    stubProviders();
+    expect((await postHubClient(h, await signToken(), { app: "app-a" })).status).toBe(201);
+    expect((await postHubClient(h, await signToken(), { app: "app-b" })).status).toBe(201);
+    // Known tokens for both apps, so the test can present app B's old one.
+    const oldTokenB = "initial-access-token-of-app-b";
+    await h.t.run(async (ctx) => {
+      for (const row of await ctx.db.query("initialAccessTokens").collect()) {
+        await ctx.db.delete("initialAccessTokens", row._id);
+      }
+      for (const [app, token] of [
+        ["app-a", "initial-access-token-of-app-a"],
+        ["app-b", oldTokenB],
+      ] as const) {
+        await ctx.db.insert("initialAccessTokens", {
+          tokenHash: await sha256Hex(token),
+          githubRepositoryDatabaseId: REPOSITORY_ID,
+          githubOwnerId: OWNER_ID,
+          githubRepository: "octo-org/octo-repo",
+          app,
+          issuedAt: Date.now(),
+        });
+      }
+    });
+
+    expect((await postHubClient(h, await signToken(), { app: "app-b" })).status).toBe(201);
+
+    const refused = await postHubClient(h, oldTokenB, {
+      app: "app-b",
+      redirectUri: LOOPBACK_CALLBACK,
+    });
+    expect(refused.status).toBe(401);
+    const apps = await h.t.run(async (ctx) =>
+      (await ctx.db.query("initialAccessTokens").collect()).map((row) => row.app).sort(),
+    );
+    expect(apps).toEqual(["app-a", "app-b"]);
+  });
+
+  it("keeps a full hourly window full a second later", async () => {
+    const epoch = 1_800_000_000_000;
+    vi.useFakeTimers({ now: epoch, toFake: ["Date"] });
+    const h = await createHub();
+    await seedWindow(h, { scope: "repository", githubId: REPOSITORY_ID, count: 30 }, epoch);
+    vi.setSystemTime(epoch + 1_001);
+    stubProviders();
+
+    expect((await postHubClient(h, await signToken())).status).toBe(429);
+  });
+
+  it.each([
+    "http://unproved.example.test/auth/callback",
+    "https://localhost/auth/callback",
+    "https://name@deployment.example.test/auth/callback",
+    "https://:secret@deployment.example.test/auth/callback",
+  ])("refuses a development client whose return address is %s", async (redirectUri) => {
+    const h = await createHub();
+    const token = await createInitialAccessToken(h);
+    stubProviders();
+
+    expect((await postHubClient(h, token, { redirectUri })).status).toBe(400);
+  });
+
+  it("tells the policy that a development client was proven by the initial access token", async () => {
+    let pauseDevelopment = false;
+    const h = await createHub({
+      policy: (registration) =>
+        testPolicy({
+          paused: pauseDevelopment && registration.proof === "initial-access-token",
+        }),
+    });
+    const development = await createDevelopmentClient(h, await createInitialAccessToken(h));
+    pauseDevelopment = true;
+    const { challenge } = await pkce();
+    const params = new URLSearchParams({
+      client_id: development.client_id,
+      redirect_uri: LOOPBACK_CALLBACK,
+      response_type: "code",
+      scope: "openid",
+      connector: "fake",
+      code_challenge: challenge,
+      code_challenge_method: "S256",
+    });
+
+    expect((await h.fetchBroker(`${ISSUER}/authorize?${params}`)).status).toBe(503);
   });
 });
