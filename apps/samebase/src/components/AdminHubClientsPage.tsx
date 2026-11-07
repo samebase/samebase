@@ -86,7 +86,6 @@ const SIGN_IN_PAGE_NOW = {
   shown: "The hub shows its sign-in page to this app's users.",
   every_app: "The hub skips its sign-in page for every app.",
   this_app: "The hub skips its sign-in page for this app.",
-  policy: "The hub's own rules skip its sign-in page for this app.",
 } as const;
 
 const ownerTarget = (client: HubClient, clients: readonly HubClient[]): BlockTarget => ({
@@ -617,7 +616,7 @@ function SignInPageDialog({
             <DialogDescription>
               {target.now === null ? null : `${SIGN_IN_PAGE_NOW[target.now]} `}
               {target.exempt
-                ? "This removes the app's own exemption. From the next sign-in the hub shows its page, unless the switch for every app or the hub's own rules skip it. Sign-ins that already started finish as they started."
+                ? "This removes the app's own exemption. From the next sign-in the hub shows its page, unless the switch for every app skips it. Sign-ins that already started finish as they started."
                 : `The users of this app's ${target.production ? "production" : "previews and development servers"} go straight to Google or GitHub, with no page that names the app. The exemption trusts the repository's owner that the hub recorded, GitHub id ${target.ownerId ?? "none"}, and stops when the repository has another owner.`}
               {!target.exempt && target.registeredByOwnerId !== target.ownerId
                 ? ` This client was registered by an earlier owner, GitHub id ${target.registeredByOwnerId}, and keeps the page: only clients of the recorded owner skip it.`
@@ -728,7 +727,7 @@ function SignInPageSection({
       </div>
       <p className="text-sm">
         {everyApp === null
-          ? "The switch for every app is off. The hub skips its sign-in page only for the apps below and where its own rules say so, such as samebase.com's production."
+          ? "The switch for every app is off. The hub skips its sign-in page only for the apps below."
           : `The hub skips its sign-in page for every app: ${everyApp.reason}`}
       </p>
       <div>

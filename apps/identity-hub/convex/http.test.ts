@@ -74,30 +74,35 @@ describe("the hub", () => {
     expect(samebaseProduction.status).toBe(201);
   });
 
-  it("shows the consent page to every app but samebase.com's production", async () => {
+  it("shows the page to every app, samebase.com's production included, until the admin exempts it", async () => {
     const t = makeConvexTest();
     vi.stubEnv("GOOGLE_CLIENT_ID", "google-client");
     vi.stubEnv("GOOGLE_CLIENT_SECRET", "google-secret");
     stubProviders();
-    const stranger = await postHubClient(t, await signToken());
+    const stranger: { client_id: string } = await (
+      await postHubClient(t, await signToken())
+    ).json();
     stubProviders("1021726325");
-    const samebasePreview = await postHubClient(
-      t,
-      await signToken({
-        repository_id: "1021726325",
-        repository_owner_id: "285392744",
-        event_name: "pull_request",
-        ref: "refs/pull/12/merge",
-      }),
-    );
-    const samebaseProduction = await postHubClient(
-      t,
-      await signToken({ repository_id: "1021726325", repository_owner_id: "285392744" }),
-    );
+    const samebasePreview: { client_id: string } = await (
+      await postHubClient(
+        t,
+        await signToken({
+          repository_id: "1021726325",
+          repository_owner_id: "285392744",
+          event_name: "pull_request",
+          ref: "refs/pull/12/merge",
+        }),
+      )
+    ).json();
+    const samebaseProduction: { client_id: string } = await (
+      await postHubClient(
+        t,
+        await signToken({ repository_id: "1021726325", repository_owner_id: "285392744" }),
+      )
+    ).json();
 
-    const signIn = async (registration: Response) => {
-      const { client_id } = await registration.json();
-      return await t.fetch(
+    const signIn = async ({ client_id }: { client_id: string }) =>
+      await t.fetch(
         // eslint-disable-next-line no-restricted-globals -- This test sends an OAuth authorize request.
         `/authorize?${new URLSearchParams({
           client_id,
@@ -109,7 +114,6 @@ describe("the hub", () => {
           connector: "google",
         }).toString()}`,
       );
-    };
     // The connector's first hop reads Google's discovery document: its endpoints, read 2026-11-07.
     vi.stubGlobal(
       "fetch",
@@ -123,16 +127,39 @@ describe("the hub", () => {
       ),
     );
     const strangerPage = await signIn(stranger);
-    const previewPage = await signIn(samebasePreview);
-    const production = await signIn(samebaseProduction);
-
     expect(strangerPage.status).toBe(200);
     expect(await strangerPage.text()).toContain("Samebase has not reviewed this app.");
-    expect(previewPage.status).toBe(200);
-    expect(production.status).toBe(302);
-    expect(new URL(production.headers.get("location") ?? "").origin).toBe(
+    expect((await signIn(samebasePreview)).status).toBe(200);
+    expect((await signIn(samebaseProduction)).status).toBe(200);
+
+    // The admin exempts samebase.com's production app from samebase.com's admin page.
+    const list: { clients: Array<{ clientId: string; appId: string; ownerId: string }> } = await (
+      await t.fetch("/moderation/clients", {
+        headers: { Authorization: `Bearer ${MODERATION_KEY}` },
+      })
+    ).json();
+    const production = list.clients.find(
+      (client) => client.clientId === samebaseProduction.client_id,
+    );
+    const exempt = await t.fetch("/moderation/sign-in-page", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${MODERATION_KEY}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        target: { scope: "app", appId: production?.appId, expectedOwnerId: production?.ownerId },
+        skip: true,
+        reason: "samebase.com is Samebase",
+        adminEmail: "nicu@samebase.com",
+      }),
+    });
+    expect(await exempt.json()).toEqual({ changed: true });
+
+    const direct = await signIn(samebaseProduction);
+    expect(direct.status).toBe(302);
+    expect(new URL(direct.headers.get("location") ?? "").origin).toBe(
       "https://accounts.google.com",
     );
+    expect((await signIn(samebasePreview)).status).toBe(200);
+    expect((await signIn(stranger)).status).toBe(200);
   });
 
   it("skips the page for an app or every app that the admin exempts, and GitHub shows its account picker", async () => {
@@ -198,7 +225,7 @@ describe("the hub", () => {
       ),
     );
 
-    // The hub's policy asks for the page for both apps; the broker applies the exemption on top.
+    // The page shows by default; the broker skips it for the exempt app only.
     expect((await signIn(trusted, "google")).status).toBe(302);
     expect((await signIn(other, "google")).status).toBe(200);
     await moderation("/moderation/sign-in-page", {

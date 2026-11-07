@@ -368,8 +368,8 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
     `${path("/continue")}?request=${encodeURIComponent(requestId)}&connector=${encodeURIComponent(connector.name)}`;
 
   /**
-   * What the sign-in page names when the policy asks for consent: the deploy and the repository
-   * from the client's facts, which the hub checked (RFC 7591 section 5).
+   * What a hub's sign-in page names when it asks for consent: the deploy and the repository from
+   * the client's facts, which the hub checked (RFC 7591 section 5).
    */
   function consentOf(
     facts: Registration,
@@ -472,9 +472,13 @@ export function defineIdentityBroker(config: IdentityBrokerConfig) {
     if (offered.length === 0) {
       return offPage();
     }
-    // The facts the page names when it asks: the policy asks for it and no exemption of the hub's
-    // administrator covers the client (`pageShown`). Decided here only, on this snapshot.
-    const consent = pageShown(decision.consent !== null, found.exemption) ? decision.consent : null;
+    // The facts the page names when it asks: a hub asks unless an exemption of its administrator
+    // covers the client (`pageShown`). Decided here only, on this snapshot. Without hub mode, no
+    // page asks.
+    const consent =
+      registration !== undefined && found.registration !== null && pageShown(found.exemption)
+        ? found.registration
+        : null;
     // One offered connector and no consent to ask: straight to it (decision 5 of RFC 137). A fresh
     // login that the connector cannot do is refused here, before anything is stored.
     const direct = offered.length === 1 && consent === null ? offered[0] : undefined;

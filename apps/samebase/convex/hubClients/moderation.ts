@@ -76,16 +76,10 @@ const vClient = object({
   /** The repository's owner that the hub recorded last, which an app's exemption binds to. */
   ownerId: union(string(), v.null()),
   /**
-  Whether the hub shows its sign-in page to this client's users, by the hub's policy: `shown`, or
-  what skips it. Null when the hub could not decide.
+  Whether the hub shows its sign-in page to this client's users: `shown`, or the exemption that
+  skips it. Null when the client cannot sign in at all.
   */
-  signInPage: union(
-    literal("shown"),
-    literal("every_app"),
-    literal("this_app"),
-    literal("policy"),
-    v.null(),
-  ),
+  signInPage: union(literal("shown"), literal("every_app"), literal("this_app"), v.null()),
 });
 
 const vClientList = object({ clients: array(vClient), limitReached: boolean() });

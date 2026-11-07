@@ -54,8 +54,8 @@ A client enrolls in connectors at registration: `connectors: ["google", "github"
 `Convex.SharedHubClient`, which the hub checks against its connectors (`connectors_supported` in
 discovery) and its policy, and which the client cannot change. The `connector` query parameter on
 `/authorize` is a space-delimited list of the enrolled names (`connector=google+github` in a URL).
-One name goes straight to that connector when the hub's policy asks for no consent or the hub's
-administrator exempted the app from the sign-in page, which the broker applies itself; no parameter
+One name goes straight to that connector when the hub's administrator exempted the app, or every
+app, from the sign-in page, and otherwise shows the hub's page with that one button; no parameter
 offers every connector the client may use; several names offer those. A name the client is not
 enrolled in is a request error. `sub` is the provider's own id with the provider in front, such as
 `github:4076804`: for GitHub and Google the id an app saw when it signed users in to GitHub or

@@ -429,7 +429,7 @@ describe("POST /hub-clients", () => {
       const fileRequests = stubProviders();
 
       const thrown = await postHubClient(h, await signToken());
-      answer = () => ({ connectors: "fake", resources: [], consent: true, paused: false });
+      answer = () => ({ connectors: "fake", resources: [], paused: false });
       const malformed = await postHubClient(h, await signToken());
 
       for (const response of [thrown, malformed]) {

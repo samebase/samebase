@@ -69,8 +69,8 @@ type Command =
   | { kind: "callbackStart"; upstream: number; route: "own" | "crossed" }
   | { kind: "callbackFinish"; attempt: number; outcome: SignInOutcome }
   | { kind: "redeem"; code: number }
-  | { kind: "policy"; connectors: PolicyName; consent: boolean; paused: boolean }
-  /** The admin switches the sign-in page off or on for every app; the policy skips the page then. */
+  | { kind: "policy"; connectors: PolicyName; paused: boolean }
+  /** The admin switches the sign-in page off or on for every app; the broker skips the page then. */
   | { kind: "exemption"; skip: boolean }
   | { kind: "block"; action: "block" | "unblock"; scope: "repository"; githubId: Repository }
   | { kind: "block"; action: "block" | "unblock"; scope: "owner"; githubId: Owner }
@@ -127,7 +127,6 @@ const commandArbitrary: fc.Arbitrary<Command> = fc.oneof(
     arbitrary: fc.record({
       kind: fc.constant("policy" as const),
       connectors: fc.constantFrom<PolicyName>("all", "fakeOnly", "otherOnly", "none"),
-      consent: fc.boolean(),
       paused: fc.boolean(),
     }),
   },
@@ -220,7 +219,7 @@ type Code = {
 };
 
 /** The hub's policy of the moment, which `createModelHub`'s policy function reads at each request. */
-type PolicyState = { connectors: PolicyName; consent: boolean; paused: boolean };
+type PolicyState = { connectors: PolicyName; paused: boolean };
 
 function createModel(clients: Client[], policy: PolicyState) {
   return {
@@ -703,11 +702,8 @@ async function playCommand(
     }
     case "policy":
       model.policy.connectors = command.connectors;
-      model.policy.consent = command.consent;
       model.policy.paused = command.paused;
-      story.trace.push(
-        `policy: ${command.connectors}${command.consent ? ", consent" : ""}${command.paused ? ", paused" : ""}`,
-      );
+      story.trace.push(`policy: ${command.connectors}${command.paused ? ", paused" : ""}`);
       return;
     case "exemption": {
       const response = await moderationRequest(h, "/moderation/sign-in-page", {
@@ -763,15 +759,14 @@ async function play(commands: Command[], checks: Checks, story: Story) {
   // The hub logs each failed provider exchange by its class name; a story makes some on purpose.
   vi.spyOn(console, "error").mockImplementation(() => undefined);
   startClock();
-  const policy: PolicyState = { connectors: "all", consent: true, paused: false };
+  const policy: PolicyState = { connectors: "all", paused: false };
   const h = await createModelHub({
     resources: [],
-    // The broker applies the every-app exemption on top of this answer: it skips the page, and
-    // changes nothing else.
+    // The page is not the policy's: it shows unless the admin's every-app exemption skips it, and
+    // the exemption changes nothing else.
     policy: () => ({
       connectors: [...POLICIES[policy.connectors]],
       resources: [],
-      consent: policy.consent,
       paused: policy.paused,
     }),
   });
@@ -835,7 +830,7 @@ describe("RFC 136 property C regressions", () => {
   it("a callback on another connector's route reaches nothing, and the request still waits for its own", async () => {
     const trace = await replay(
       [
-        { kind: "policy", connectors: "all", consent: false, paused: false },
+        { kind: "exemption", skip: true },
         { kind: "authorize", client: 1, requested: "fake" },
         { kind: "callbackStart", upstream: 0, route: "crossed" },
         { kind: "callbackStart", upstream: 0, route: "own" },
@@ -853,9 +848,9 @@ describe("RFC 136 property C regressions", () => {
   it("a connector withdrawn while the user is at the provider is not completed", async () => {
     const trace = await replay(
       [
-        { kind: "policy", connectors: "all", consent: false, paused: false },
+        { kind: "exemption", skip: true },
         { kind: "authorize", client: 1, requested: "other" },
-        { kind: "policy", connectors: "fakeOnly", consent: false, paused: false },
+        { kind: "policy", connectors: "fakeOnly", paused: false },
         { kind: "callbackStart", upstream: 0, route: "own" },
         { kind: "callbackFinish", attempt: 0, outcome: "identity" },
         { kind: "redeem", code: 0 },
@@ -869,10 +864,10 @@ describe("RFC 136 property C regressions", () => {
   it("a connector withdrawn while the provider answers completes no sign-in", async () => {
     const trace = await replay(
       [
-        { kind: "policy", connectors: "all", consent: false, paused: false },
+        { kind: "exemption", skip: true },
         { kind: "authorize", client: 2, requested: "none" },
         { kind: "callbackStart", upstream: 0, route: "own" },
-        { kind: "policy", connectors: "fakeOnly", consent: false, paused: false },
+        { kind: "policy", connectors: "fakeOnly", paused: false },
         { kind: "callbackFinish", attempt: 0, outcome: "identity" },
         { kind: "redeem", code: 0 },
       ],
@@ -886,7 +881,7 @@ describe("RFC 136 property C regressions", () => {
   it("a block that lands while the provider answers completes no sign-in", async () => {
     const trace = await replay(
       [
-        { kind: "policy", connectors: "all", consent: false, paused: false },
+        { kind: "exemption", skip: true },
         { kind: "authorize", client: 0, requested: "none" },
         { kind: "callbackStart", upstream: 0, route: "own" },
         { kind: "block", action: "block", scope: "owner", githubId: "201" },
@@ -900,7 +895,7 @@ describe("RFC 136 property C regressions", () => {
   it("a transfer while the provider answers completes the sign-in on the new owner's policy", async () => {
     const trace = await replay(
       [
-        { kind: "policy", connectors: "all", consent: false, paused: false },
+        { kind: "exemption", skip: true },
         { kind: "authorize", client: 0, requested: "none" },
         { kind: "callbackStart", upstream: 0, route: "own" },
         // The new owner's proof must be newer than the setup's, by a second.
@@ -923,13 +918,13 @@ describe("RFC 136 property C regressions", () => {
   it("a pause that lands during the sign-in gives no id_token, and its end restores nothing issued", async () => {
     const trace = await replay(
       [
-        { kind: "policy", connectors: "all", consent: false, paused: false },
+        { kind: "exemption", skip: true },
         { kind: "authorize", client: 0, requested: "none" },
         { kind: "callbackStart", upstream: 0, route: "own" },
         { kind: "callbackFinish", attempt: 0, outcome: "identity" },
-        { kind: "policy", connectors: "all", consent: false, paused: true },
+        { kind: "policy", connectors: "all", paused: true },
         { kind: "redeem", code: 0 },
-        { kind: "policy", connectors: "all", consent: false, paused: false },
+        { kind: "policy", connectors: "all", paused: false },
         { kind: "redeem", code: 0 },
         { kind: "redeem", code: 0 },
       ],

@@ -18,11 +18,6 @@ export const vPolicy = object({
   connectors: array(string()),
   /** The API resources this client may authorize, by provider name. */
   resources: array(string()),
-  /**
-   * The sign-in page asks before the first hop to a provider, unless an exemption that the hub's
-   * administrator set covers the client: the broker applies those itself (`pageShown`).
-   */
-  consent: boolean(),
   /** Evaluated at registration and at each use. */
   paused: boolean(),
 });
@@ -56,26 +51,22 @@ export type Decision = {
   connectors: string[];
   /** The resource URLs of the providers the policy gives the client now. */
   resources: string[];
-  /**
-   * The facts the sign-in page names when the policy asks for consent; null when it asks for none.
-   * `/authorize` also applies the administrator's exemptions (`pageShown`).
-   */
-  consent: Registration | null;
 };
 
 /**
- * Whether the sign-in page asks before the first hop to a provider: only when the policy asks for
- * it and no exemption that the hub's administrator set covers the client (RFC 137 decision 5).
- * `/authorize` decides the page with it, and `/moderation/clients` reports it with it.
+ * Whether a hub's sign-in page asks before the first hop to a provider: always, unless an exemption
+ * that the hub's administrator set covers the client, for every app or for the client's app (RFC
+ * 137 decision 5). The policy has no say in it. `/authorize` decides the page with it in hub mode,
+ * and `/moderation/clients` reports it with it. Without hub mode there is no page.
  */
-export function pageShown(policyConsent: boolean, exemption: Exemption): boolean {
-  return policyConsent && !exemption.everyApp && !exemption.thisApp;
+export function pageShown(exemption: Exemption): boolean {
+  return !exemption.everyApp && !exemption.thisApp;
 }
 
 /**
  * Decides for a client. In hub mode a client without registration facts (not a repository's, or a
  * tenant without a recorded owner) gives null, as a failed policy does. Without hub mode the host
- * is its own policy: the enrollment, every resource, no consent, no pause.
+ * is its own policy: the enrollment, every resource, no pause.
  */
 export function decide(args: {
   policy: PolicyFunction | undefined;
@@ -89,7 +80,6 @@ export function decide(args: {
       paused: false,
       connectors: enrollment,
       resources: providers.map((provider) => provider.resource),
-      consent: null,
     };
   }
   if (args.registration === null) {
@@ -106,7 +96,6 @@ export function decide(args: {
     resources: providers
       .filter((provider) => policy.resources.includes(provider.name))
       .map((provider) => provider.resource),
-    consent: policy.consent ? args.registration : null,
   };
 }
 

@@ -30,7 +30,7 @@ afterEach(() => {
   vi.unstubAllEnvs();
 });
 
-const hubPolicy: PolicyFunction = () => testPolicy({ consent: true });
+const hubPolicy: PolicyFunction = () => testPolicy();
 
 const PRODUCTION_APP = `gh-${REPOSITORY_ID}-${APP_HASH}`;
 const PREVIEW_APP = `${PRODUCTION_APP}-preview`;
@@ -335,19 +335,20 @@ describe("the exemptions from the sign-in page", () => {
     expect((await signIn(h, client)).went).toBe("provider");
   });
 
-  it("leave the page to the policy without an exemption, and skip it over the policy with one", async () => {
+  it("show the page by default for every hub client, whatever its policy decides", async () => {
+    // The policy decides connectors, resources, and the pause; it has no say in the page.
     const h = await createHub({
-      policy: (registration) => testPolicy({ consent: registration.repositoryId !== "82" }),
+      policy: (registration) =>
+        testPolicy({ resources: registration.repositoryId === "82" ? ["cloudflare"] : [] }),
     });
-    const asks = await createClient(h);
-    const declines = await createClient(h, { repository_id: "82", repository: "octo-org/own" });
+    const client = await createClient(h);
+    const own = await createClient(h, { repository_id: "82", repository: "octo-org/own" });
 
-    expect((await signIn(h, asks)).went).toBe("page");
-    expect((await signIn(h, declines)).went).toBe("provider");
+    expect((await signIn(h, client)).went).toBe("page");
+    expect((await signIn(h, own)).went).toBe("page");
     await oneApp(h, true);
-    // The policy still asks for the page; the broker applies the exemption.
-    expect((await signIn(h, asks)).went).toBe("provider");
-    expect((await signIn(h, declines)).went).toBe("provider");
+    expect((await signIn(h, client)).went).toBe("provider");
+    expect((await signIn(h, own)).went).toBe("page");
   });
 
   it("apply to a development client of the exempt preview app", async () => {
@@ -364,12 +365,9 @@ describe("the exemptions from the sign-in page", () => {
   });
 
   it("tell the admin page what decides each client's page", async () => {
-    const h = await createHub({
-      policy: (registration) => testPolicy({ consent: registration.repositoryId !== "82" }),
-    });
+    const h = await createHub({ policy: hubPolicy });
     await createClient(h);
     await createClient(h, { repository_id: "81", repository: "octo-org/other" });
-    await createClient(h, { repository_id: "82", repository: "octo-org/own" });
     await oneApp(h, true);
 
     const pages = async () => {
@@ -379,12 +377,8 @@ describe("the exemptions from the sign-in page", () => {
         list.clients.map((client) => [client.appId.split("-")[1], client.signInPage]),
       );
     };
-    expect(await pages()).toEqual({ [REPOSITORY_ID]: "this_app", "81": "shown", "82": "policy" });
+    expect(await pages()).toEqual({ [REPOSITORY_ID]: "this_app", "81": "shown" });
     await everyApp(h, true);
-    expect(await pages()).toEqual({
-      [REPOSITORY_ID]: "every_app",
-      "81": "every_app",
-      "82": "every_app",
-    });
+    expect(await pages()).toEqual({ [REPOSITORY_ID]: "every_app", "81": "every_app" });
   });
 });

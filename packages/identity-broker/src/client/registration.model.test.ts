@@ -824,13 +824,12 @@ async function playCommand(
 async function play(commands: Command[], checks: Checks, story: Story) {
   startClock();
   const policy: PolicyState = { connectors: "all", paused: false };
-  // The shape of our hub's policy: every connector, consent, and a pause that spares R1's production.
+  // The shape of our hub's policy: every connector, and a pause that spares R1's production.
   const h = await createModelHub({
     resources: [],
     policy: (registration) => ({
       connectors: [...POLICIES[policy.connectors]],
       resources: [],
-      consent: true,
       paused:
         policy.paused &&
         !(

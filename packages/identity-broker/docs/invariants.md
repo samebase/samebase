@@ -46,8 +46,8 @@ policy's enrollment rule and pause. Property B (`src/client/refresh.model.test.t
 authorization and refresh, with the pause and a withdrawn resource. Property C
 (`src/client/signin.model.test.ts`) covers sign-in: `/authorize` with a requested set, the page's
 links, the callback with a held provider answer, and redemption, under policy changes, blocks,
-repository transfers, and the admin's every-app exemption from the sign-in page, which the broker
-applies on top of the story's policy, so no exemption can let a stopped client sign in. Each runs 25
+repository transfers, and the admin's every-app exemption from the sign-in page, the one lever of
+the page, which the broker applies, so no exemption can let a stopped client sign in. Each runs 25
 stories of at most 30 steps in CI. Change the run with these env vars: `RFC136_RUNS` (stories),
 `RFC136_SEED` (the default is 136), `RFC136_ONLY` (one invariant), and `RFC136_REPORT` (print the
 stories).
