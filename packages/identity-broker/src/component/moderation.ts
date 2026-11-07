@@ -58,6 +58,8 @@ const vClientView = object({
   /** When `cleanup` deletes the client. Null: never. */
   removeAt: union(number(), v.null()),
   registeredBy: vRegisteredByView,
+  /** The enrollment: the connectors the client's sign-ins may use. */
+  connectors: array(string()),
 });
 
 const vBlockView = object({
@@ -168,6 +170,7 @@ function clientView(
       registeredBy.kind === "github"
         ? { kind: "github", ...repository, githubActorLogin: registeredBy.githubActorLogin }
         : { kind: "initial_access_token", ...repository, issuedAt: registeredBy.issuedAt },
+    connectors: client.connectors,
   };
 }
 

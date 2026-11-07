@@ -1,6 +1,7 @@
 /**
- * The two fields that every client row holds, for a test that writes a client row itself. The claims
- * are those of GitHub's documented example token.
+ * The fields that every client row holds besides its credentials, for a test that writes a client
+ * row itself. The claims are those of GitHub's documented example token; the enrollment is the
+ * fake connector of the harness.
  */
 export const testClientRecord = {
   app: "my-app",
@@ -12,4 +13,5 @@ export const testClientRecord = {
     githubActorLogin: "octocat",
     commitSha: "example-sha",
   },
+  connectors: ["fake"],
 };

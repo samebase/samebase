@@ -1,4 +1,5 @@
 /// <reference types="vite-plus/client" />
+import rateLimiterTest from "@convex-dev/rate-limiter/test";
 import { convexTest, type TestConvex } from "convex-test";
 import { calculatePKCECodeChallenge } from "oauth4webapi";
 import { describe, expect, test } from "vite-plus/test";
@@ -11,6 +12,8 @@ const modules = import.meta.glob(["./**/*.ts", "!./**/*.test.ts"]);
 
 const now = 1_700_000_000_000;
 const verifier = "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk";
+/** The enrollment of client "cl", and the set of every request of it. */
+const CONNECTORS = ["g", "github", "google"];
 
 /** What the token endpoint passes for client "cl", registered for client_secret_post. */
 const cl = {
@@ -19,14 +22,18 @@ const cl = {
   tokenEndpointAuthMethod: "client_secret_post",
 } as const;
 
-/** First-party app "app" with its preview client "cl", with or without a removal date. */
+/** The host's decision for "cl" when its policy allows everything it enrolled in. */
+const policy = { ownerId: "65", paused: false, connectors: CONNECTORS, resources: [] };
+
+/** App "app" of the repository `gh-1` of owner 65, with its preview client "cl", with or without a removal date. */
 async function registered(expires = false) {
   const t = convexTest(schema, modules);
+  rateLimiterTest.register(t);
   await t.run(async (ctx) => {
+    await ctx.db.insert("tenants", { tenantId: "gh-1", ownerId: "65" });
     await ctx.db.insert("apps", {
       appId: "app",
       name: "App",
-      firstParty: true,
       tenantId: "gh-1",
       createdAt: now,
     });
@@ -43,15 +50,21 @@ async function registered(expires = false) {
       createdAt: now,
       renewedAt: now,
       ...testClientRecord,
+      connectors: CONNECTORS,
       ...(expires ? { removeAt: now + LEASE_MS } : {}),
     });
   });
   return t;
 }
 
-async function pendingRequest(requestId = "r1", given?: TestConvex<typeof schema>) {
+async function pendingRequest(
+  requestId = "r1",
+  given?: TestConvex<typeof schema>,
+  connectors = CONNECTORS,
+) {
   const t = given ?? (await registered());
-  await t.mutation(api.authRequests.create, {
+  const created = await t.mutation(api.authRequests.create, {
+    tenantId: "gh-1",
     requestId,
     appId: "app",
     clientId: "cl",
@@ -59,11 +72,13 @@ async function pendingRequest(requestId = "r1", given?: TestConvex<typeof schema
     scope: "openid",
     state: "s",
     codeChallenge: await calculatePKCECodeChallenge(verifier),
+    connectors,
     freshLogin: false,
     txnCookieHash: "cookie-hash",
     createdAt: now,
     expiresAt: now + 600_000,
   });
+  expect(created).toEqual({ ok: true });
   return t;
 }
 
@@ -75,6 +90,7 @@ describe("upstream path", () => {
       connector: "github",
       upstreamStateHash: "sh",
       upstreamCodeVerifier: "v",
+      policy,
       now,
     });
     expect(started).toEqual({ ok: true, redirectUri: "https://app.test/cb", state: "s" });
@@ -83,6 +99,7 @@ describe("upstream path", () => {
       upstreamStateHash: "sh",
       connector: "github",
       txnCookieHashes: ["cookie-hash"],
+      policy,
       now,
     });
     expect(claim.status).toBe("claimed");
@@ -92,6 +109,7 @@ describe("upstream path", () => {
         upstreamStateHash: "sh",
         connector: "github",
         txnCookieHashes: ["cookie-hash"],
+        policy,
         now,
       }),
     ).toEqual({ status: "missing" });
@@ -101,6 +119,7 @@ describe("upstream path", () => {
       connector: "github",
       upstreamStateHash: "x",
       upstreamCodeVerifier: "v",
+      policy,
       now,
     });
     expect(restart).toMatchObject({ ok: false, error: "wrong_status" });
@@ -120,6 +139,7 @@ describe("upstream path", () => {
       codeHash: "ch",
       ...cl,
       codeVerifier: "x".repeat(43),
+      policy,
       now,
     });
     expect(wrongVerifier).toMatchObject({
@@ -132,6 +152,7 @@ describe("upstream path", () => {
       ...cl,
       redirectUri: "https://app.test/cb",
       codeVerifier: verifier,
+      policy,
       now,
     });
     expect(exchanged).toMatchObject({
@@ -146,6 +167,7 @@ describe("upstream path", () => {
       codeHash: "ch",
       ...cl,
       codeVerifier: verifier,
+      policy,
       now,
     });
     expect(replay).toMatchObject({ ok: false, description: expect.stringMatching(/already used/) });
@@ -159,12 +181,14 @@ describe("upstream path", () => {
       connector: "g",
       upstreamStateHash: "sh",
       upstreamCodeVerifier: "v",
+      policy,
       now,
     });
     await t.mutation(api.authRequests.claimUpstream, {
       upstreamStateHash: "sh",
       connector: "g",
       txnCookieHashes: ["cookie-hash"],
+      policy,
       now,
     });
     await t.mutation(api.authRequests.complete, {
@@ -175,16 +199,20 @@ describe("upstream path", () => {
       codeExpiresAt: now + 60_000,
       now,
     });
-    const redeem = (credentials: {
-      clientId: string;
-      clientSecretHash: string;
-      tokenEndpointAuthMethod: "client_secret_post" | "client_secret_basic";
-    }) =>
+    const redeem = (
+      credentials: {
+        clientId: string;
+        clientSecretHash: string;
+        tokenEndpointAuthMethod: "client_secret_post" | "client_secret_basic";
+      },
+      decision = policy,
+    ) =>
       t.mutation(api.authRequests.exchangeCode, {
         refreshTokenHash: "unused-for-identity",
         ...credentials,
         codeHash: "ch",
         codeVerifier: verifier,
+        policy: decision,
         now,
       });
     const codes = () => t.run(async (ctx) => await ctx.db.query("authorizationCodes").collect());
@@ -225,6 +253,31 @@ describe("upstream path", () => {
     });
     expect(await redeem(cl)).toEqual(refused);
     await unchanged();
+  });
+
+  test("the policy's pause and a stale owner refuse the redemption and leave the code", async () => {
+    const { t, redeem, codes } = await completedCode();
+    expect(await redeem(cl, { ...policy, paused: true })).toEqual({
+      ok: false,
+      error: "invalid_client",
+      description: "This client is paused.",
+    });
+    // The tenant's owner is no longer the one the policy decided on.
+    expect(await redeem(cl, { ...policy, ownerId: "66" })).toEqual(refused);
+    expect((await codes()).map((code) => code.usedAt)).toEqual([undefined]);
+    expect(await t.query(api.authRequests.get, { requestId: "r1" })).toMatchObject({
+      status: "completed",
+    });
+    expect(await redeem(cl)).toMatchObject({ ok: true });
+  });
+
+  test("a connector that the policy withdrew after the callback refuses the redemption", async () => {
+    const { redeem } = await completedCode();
+    expect(await redeem(cl, { ...policy, connectors: ["github", "google"] })).toEqual({
+      ok: false,
+      error: "invalid_grant",
+      description: "This client cannot sign in through that connector.",
+    });
   });
 
   test("a code redeems once, and a failed authentication does not revoke a used code", async () => {
@@ -269,6 +322,7 @@ describe("upstream path", () => {
         connector: "g",
         upstreamStateHash: "sh",
         upstreamCodeVerifier: "v",
+        policy,
         now: late,
       }),
     ).toMatchObject({ ok: false, error: "expired" });
@@ -277,6 +331,7 @@ describe("upstream path", () => {
       connector: "g",
       upstreamStateHash: "sh",
       upstreamCodeVerifier: "v",
+      policy,
       now,
     });
     expect(
@@ -284,6 +339,7 @@ describe("upstream path", () => {
         upstreamStateHash: "sh",
         connector: "g",
         txnCookieHashes: ["cookie-hash"],
+        policy,
         now: late,
       }),
     ).toEqual({
@@ -303,6 +359,7 @@ describe("upstream path", () => {
       upstreamStateHash: "sh",
       upstreamCodeVerifier: "v",
       upstreamNonce: "n",
+      policy,
       now,
     });
     expect(
@@ -310,6 +367,7 @@ describe("upstream path", () => {
         upstreamStateHash: "sh",
         connector: "github",
         txnCookieHashes: ["cookie-hash"],
+        policy,
         now,
       }),
     ).toEqual({ status: "missing" });
@@ -321,6 +379,7 @@ describe("upstream path", () => {
         upstreamStateHash: "sh",
         connector: "google",
         txnCookieHashes: ["cookie-hash"],
+        policy,
         now,
       }),
     ).toMatchObject({ status: "claimed", connector: "google", upstreamNonce: "n" });
@@ -335,12 +394,14 @@ describe("upstream path", () => {
       connector: "g",
       upstreamStateHash: "sh",
       upstreamCodeVerifier: "v",
+      policy,
       now: late,
     });
     await t.mutation(api.authRequests.claimUpstream, {
       upstreamStateHash: "sh",
       connector: "g",
       txnCookieHashes: ["cookie-hash"],
+      policy,
       now: late,
     });
     await t.mutation(api.authRequests.complete, {
@@ -364,6 +425,7 @@ describe("upstream path", () => {
         codeHash: "ch",
         ...cl,
         codeVerifier: verifier,
+        policy,
         now: late + 59_000,
       }),
     ).toMatchObject({ ok: true });
@@ -376,12 +438,14 @@ describe("upstream path", () => {
       connector: "g",
       upstreamStateHash: "sh",
       upstreamCodeVerifier: "v",
+      policy,
       now,
     });
     await t.mutation(api.authRequests.claimUpstream, {
       upstreamStateHash: "sh",
       connector: "g",
       txnCookieHashes: ["cookie-hash"],
+      policy,
       now,
     });
     await t.mutation(api.authRequests.complete, {
@@ -398,8 +462,102 @@ describe("upstream path", () => {
         codeHash: "ch",
         ...cl,
         codeVerifier: verifier,
+        policy,
         now: now + 60_001,
       }),
     ).toMatchObject({ ok: false, description: expect.stringMatching(/expired/) });
+  });
+});
+
+describe("what a request may use", () => {
+  test("a connector outside the request's set, the enrollment, or the policy does not start", async () => {
+    const t = await pendingRequest("r1", undefined, ["g", "github"]);
+    const start = (connector: string, decision = policy) =>
+      t.mutation(api.authRequests.startUpstream, {
+        requestId: "r1",
+        connector,
+        upstreamStateHash: `sh-${connector}`,
+        upstreamCodeVerifier: "v",
+        policy: decision,
+        now,
+      });
+    const refused = {
+      ok: false,
+      error: "refused",
+      redirectUri: "https://app.test/cb",
+      state: "s",
+    };
+    // Enrolled and allowed, but not in the request's set.
+    expect(await start("google")).toEqual(refused);
+    // In the set, but withdrawn by the policy since the request was stored.
+    expect(await start("github", { ...policy, connectors: ["g"] })).toEqual(refused);
+    // In the set and allowed, but the policy decided on another owner, or paused the client.
+    expect(await start("github", { ...policy, ownerId: "66" })).toEqual(refused);
+    expect(await start("github", { ...policy, paused: true })).toEqual(refused);
+    expect(await t.query(api.authRequests.get, { requestId: "r1" })).toMatchObject({
+      status: "pending",
+    });
+    expect(await start("github")).toMatchObject({ ok: true });
+  });
+
+  test("a callback whose connector the policy withdrew, or that is paused, is refused and deleted", async () => {
+    for (const decision of [
+      { ...policy, connectors: ["g", "google"] },
+      { ...policy, paused: true },
+      { ...policy, ownerId: "66" },
+    ]) {
+      const t = await pendingRequest();
+      await t.mutation(api.authRequests.startUpstream, {
+        requestId: "r1",
+        connector: "github",
+        upstreamStateHash: "sh",
+        upstreamCodeVerifier: "v",
+        policy,
+        now,
+      });
+      expect(
+        await t.mutation(api.authRequests.claimUpstream, {
+          upstreamStateHash: "sh",
+          connector: "github",
+          txnCookieHashes: ["cookie-hash"],
+          policy: decision,
+          now,
+        }),
+      ).toEqual({
+        status: "refused",
+        requestId: "r1",
+        redirectUri: "https://app.test/cb",
+        state: "s",
+      });
+      expect(await t.query(api.authRequests.get, { requestId: "r1" })).toBeNull();
+    }
+  });
+
+  test("a request of a blocked tenant is not stored, and the budget is per tenant", async () => {
+    const t = await registered();
+    await t.mutation(api.moderation.setBlock, {
+      action: "block",
+      kind: "repository",
+      githubId: "1",
+      reason: "Phishing page",
+      adminEmail: "admin@example.com",
+    });
+    expect(
+      await t.mutation(api.authRequests.create, {
+        tenantId: "gh-1",
+        requestId: "r1",
+        appId: "app",
+        clientId: "cl",
+        redirectUri: "https://app.test/cb",
+        scope: "openid",
+        codeChallenge: "c",
+        connectors: CONNECTORS,
+        freshLogin: false,
+        txnCookieHash: "cookie-hash",
+        createdAt: now,
+        expiresAt: now + 600_000,
+      }),
+    ).toEqual({ ok: false, error: "suspended" });
+    expect(await t.query(api.authRequests.get, { requestId: "r1" })).toBeNull();
   });
 });

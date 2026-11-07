@@ -5,6 +5,7 @@ import type { Doc } from "./_generated/dataModel";
 // oxlint-disable-next-line samebase/no-raw-public-convex-function-builders -- Component functions are called only by the host's authenticated OAuth endpoints.
 import { mutation, internalMutation, type MutationCtx } from "./_generated/server";
 import { isSuspended } from "./apps";
+import { refusalOf, vPolicyDecision } from "./policy";
 import { used } from "./registration";
 import { resourceRequestFields, vResourceTokens } from "./resourceSchema";
 import { vTokenEndpointAuthMethod } from "./schema";
@@ -15,10 +16,7 @@ const REFRESH_IDLE_MS = 90 * 24 * 60 * 60 * 1000;
 const REFRESH_ATTEMPT_MS = 60 * 1000;
 const CLEANUP_BATCH = 200;
 
-/**
- * The client and its app, when the client authenticates and its app is first-party. Publicly
- * registered clients have never been authorized to receive the team's API credentials.
- */
+/** The client and its app, when the client authenticates and its app exists. */
 async function authenticate(
   ctx: MutationCtx,
   args: {
@@ -41,7 +39,21 @@ async function authenticate(
     .query("apps")
     .withIndex("by_app_id", (q) => q.eq("appId", client.appId))
     .unique();
-  return app?.firstParty ? { client, app } : null;
+  return app === null ? null : { client, app };
+}
+
+/** The app of a client, for the policy's tenant check; null when either is gone. */
+async function appOfClient(ctx: MutationCtx, clientId: string) {
+  const client = await ctx.db
+    .query("clients")
+    .withIndex("by_client_id", (q) => q.eq("clientId", clientId))
+    .unique();
+  return client === null
+    ? null
+    : await ctx.db
+        .query("apps")
+        .withIndex("by_app_id", (q) => q.eq("appId", client.appId))
+        .unique();
 }
 
 function fields(request: Doc<"resourceRequests">) {
@@ -57,16 +69,43 @@ function fields(request: Doc<"resourceRequests">) {
   };
 }
 
+/**
+ * Stores an API authorization that goes to the provider. The policy's resources, the blocks, and
+ * the pause are read here, so a refused request writes nothing: false, and the host answers with
+ * an error page.
+ */
 export const create = mutation({
   args: {
     ...resourceRequestFields,
     upstreamStateHash: string(),
     upstreamCodeVerifier: string(),
+    policy: vPolicyDecision,
   },
-  returns: v.null(),
+  returns: boolean(),
   handler: async (ctx, args) => {
-    await ctx.db.insert("resourceRequests", { status: "upstream", ...args });
-    return null;
+    const app = await appOfClient(ctx, args.clientId);
+    if (
+      app === null ||
+      !args.policy.resources.includes(args.resource) ||
+      (await isSuspended(ctx, app.tenantId)) ||
+      (await refusalOf(ctx, args.policy, app.tenantId)) !== null
+    ) {
+      return false;
+    }
+    await ctx.db.insert("resourceRequests", {
+      status: "upstream",
+      requestId: args.requestId,
+      clientId: args.clientId,
+      redirectUri: args.redirectUri,
+      resource: args.resource,
+      ...(args.state === undefined ? {} : { state: args.state }),
+      codeChallenge: args.codeChallenge,
+      txnCookieHash: args.txnCookieHash,
+      expiresAt: args.expiresAt,
+      upstreamStateHash: args.upstreamStateHash,
+      upstreamCodeVerifier: args.upstreamCodeVerifier,
+    });
+    return true;
   },
 });
 
@@ -167,7 +206,11 @@ const vError = object({
   description: string(),
 });
 
-/** Called after the shared code redemption has authenticated the client and checked code lifetime. */
+/**
+ * Called after the shared code redemption has authenticated the client, checked the policy's
+ * pause and owner, and checked the code's lifetime. `allowedResources` is what the policy gives
+ * the client now: a resource withdrawn since the authorization refuses the code.
+ */
 export async function exchangeResourceCode(
   ctx: MutationCtx,
   code: Extract<Doc<"authorizationCodes">, { resourceRequestId: unknown }>,
@@ -176,6 +219,7 @@ export async function exchangeResourceCode(
     redirectUri?: string;
     codeVerifier: string;
     resource?: string;
+    allowedResources: string[];
     refreshTokenHash: string;
     now: number;
   },
@@ -193,6 +237,13 @@ export async function exchangeResourceCode(
       ok: false,
       error: "invalid_target",
       description: "The resource does not match the authorization.",
+    };
+  }
+  if (!args.allowedResources.includes(request.resource)) {
+    return {
+      ok: false,
+      error: "invalid_target",
+      description: "This client cannot use that API resource.",
     };
   }
   if (
@@ -245,6 +296,11 @@ const vRefreshClaim = union(
   }),
 );
 
+/**
+ * The admission of a refresh: the client authenticates, its tenant is not stopped, the policy
+ * still applies and keeps the grant's resource, and no other attempt holds the grant. Every
+ * refusal is before the provider is called and writes nothing but an expired grant's deletion.
+ */
 export const claimRefresh = mutation({
   args: {
     clientId: string(),
@@ -252,13 +308,18 @@ export const claimRefresh = mutation({
     tokenEndpointAuthMethod: vTokenEndpointAuthMethod,
     tokenHash: string(),
     resource: optional(string()),
+    policy: vPolicyDecision,
     now: number(),
   },
   returns: vRefreshClaim,
   handler: async (ctx, args): Promise<Infer<typeof vRefreshClaim>> => {
     const authenticated = await authenticate(ctx, args);
     // A blocked or suspended tenant stops provider access here, as it stops a code exchange.
-    if (authenticated === null || (await isSuspended(ctx, authenticated.app.tenantId)))
+    if (
+      authenticated === null ||
+      (await isSuspended(ctx, authenticated.app.tenantId)) ||
+      (await refusalOf(ctx, args.policy, authenticated.app.tenantId)) !== null
+    )
       return { ok: false, error: "invalid_client", description: "Client authentication failed." };
     const { client } = authenticated;
     const grant = await ctx.db
@@ -276,6 +337,13 @@ export const claimRefresh = mutation({
         ok: false,
         error: "invalid_target",
         description: "The resource does not match the grant.",
+      };
+    }
+    if (!args.policy.resources.includes(grant.resource)) {
+      return {
+        ok: false,
+        error: "invalid_target",
+        description: "This client cannot use that API resource.",
       };
     }
     if (
@@ -300,17 +368,20 @@ export const claimRefresh = mutation({
 });
 
 /**
- * Saves the provider's answer to the attempt that still holds the claim, then decides whether the
- * new access token may go out. `stale`: the claim expired and another attempt holds the grant now,
- * so this answer changes nothing. `refused`: the rotation is saved, so the grant works again after
- * an unblock, but a block, a client delete, or a lost first-party status committed while the
- * provider answered keeps the token from the caller. `gone`: the grant was deleted.
+ * The release of a refresh: saves the provider's answer to the attempt that still holds the claim,
+ * then decides whether the new access token may go out. `stale`: the claim expired and another
+ * attempt holds the grant now, so this answer changes nothing. `refused`: the rotation is saved, so
+ * the grant works again once the block, the pause, or the policy lifts, but a block, a client
+ * delete, a pause, a changed owner, or a withdrawn resource committed while the provider answered
+ * keeps the token from the caller. `gone`: the grant was deleted.
  */
 export const finishRefresh = mutation({
   args: {
     grantId: v.id("refreshGrants"),
     attempt: number(),
     tokens: vResourceTokens,
+    /** The decision the host made after the provider answered. Null: its policy failed, so refuse. */
+    policy: union(vPolicyDecision, v.null()),
     now: number(),
   },
   returns: union(literal("released"), literal("refused"), literal("stale"), literal("gone")),
@@ -323,18 +394,12 @@ export const finishRefresh = mutation({
       expiresAt: args.now + REFRESH_IDLE_MS,
       refreshStartedAt: undefined,
     });
-    const client = await ctx.db
-      .query("clients")
-      .withIndex("by_client_id", (q) => q.eq("clientId", grant.clientId))
-      .unique();
-    const app =
-      client === null
-        ? null
-        : await ctx.db
-            .query("apps")
-            .withIndex("by_app_id", (q) => q.eq("appId", client.appId))
-            .unique();
-    return app === null || !app.firstParty || (await isSuspended(ctx, app.tenantId))
+    const app = await appOfClient(ctx, grant.clientId);
+    return app === null ||
+      args.policy === null ||
+      !args.policy.resources.includes(grant.resource) ||
+      (await isSuspended(ctx, app.tenantId)) ||
+      (await refusalOf(ctx, args.policy, app.tenantId)) !== null
       ? ("refused" as const)
       : ("released" as const);
   },

@@ -18,7 +18,6 @@ async function appWith(t: ReturnType<typeof convexTest>, args: { appId: string; 
     await ctx.db.insert("apps", {
       appId: args.appId,
       name: args.appId,
-      firstParty: true,
       tenantId: `${args.appId}-tenant`,
       createdAt: now,
     });

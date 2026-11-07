@@ -2,7 +2,7 @@ import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 import { vRefreshGrant, vResourceRequest } from "./resourceSchema.js";
 
-const { boolean, literal, number, object, optional, string, union } = v;
+const { array, boolean, literal, number, object, optional, string, union } = v;
 
 /** How a client authenticates at the token endpoint. Public clients are not supported yet. */
 export const vTokenEndpointAuthMethod = union(
@@ -78,6 +78,11 @@ const authRequestFields = {
   state: optional(string()),
   nonce: optional(string()),
   codeChallenge: string(),
+  /**
+   * The connectors the request may use: those the authorize request named, else every one the
+   * client may use at that moment. `/continue` and the callback stay inside this set.
+   */
+  connectors: array(string()),
   /** `prompt=login` or `max_age` was sent: the connector must reauthenticate or refuse. */
   freshLogin: boolean(),
   /**
@@ -113,15 +118,10 @@ export const vAuthRequest = union(
 );
 
 export default defineSchema({
+  /** An app: a namespace of clients in a tenant. What an app may do is on each of its clients. */
   apps: defineTable({
     appId: string(),
     name: string(),
-    firstParty: boolean(),
-    /**
-     * The one connector of a third-party app. The app goes straight to it, and no other connector can
-     * sign in to the app. Absent on a first-party app.
-     */
-    connector: optional(string()),
     tenantId: string(),
     createdAt: number(),
   })
@@ -254,6 +254,12 @@ export default defineSchema({
     app: string(),
     /** Who made the client. */
     registeredBy: vRegisteredBy,
+    /**
+     * The connectors the client enrolled in at registration, sorted and unique: the only ones its
+     * sign-ins may use, intersected with what the host's policy allows at that moment. Immutable: a
+     * deployment that wants another set registers a new client.
+     */
+    connectors: array(string()),
   })
     .index("by_client_id", ["clientId"])
     .index("by_app_id", ["appId"])

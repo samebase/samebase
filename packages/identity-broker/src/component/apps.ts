@@ -6,13 +6,11 @@ import type { MutationCtx, QueryCtx } from "./_generated/server";
 import type { Doc } from "./_generated/dataModel";
 import { BATCH } from "./lifecycle";
 
-const { array, boolean, number, object, optional, string } = v;
+const { array, boolean, number, object, string } = v;
 
 export const vApp = object({
   appId: string(),
   name: string(),
-  firstParty: boolean(),
-  connector: optional(string()),
   tenantId: string(),
   /** The host blocked the tenant of the app, or its owner. */
   suspended: boolean(),
@@ -65,8 +63,6 @@ export async function appView(ctx: QueryCtx, app: Doc<"apps">) {
   return {
     appId: app.appId,
     name: app.name,
-    firstParty: app.firstParty,
-    ...(app.connector === undefined ? {} : { connector: app.connector }),
     tenantId: app.tenantId,
     suspended: await isSuspended(ctx, app.tenantId),
     createdAt: app.createdAt,

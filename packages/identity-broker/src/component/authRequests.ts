@@ -3,9 +3,11 @@ import { calculatePKCECodeChallenge } from "oauth4webapi";
 import { MINUTE, RateLimiter } from "@convex-dev/rate-limiter";
 import { components } from "./_generated/api";
 // oxlint-disable-next-line samebase/no-raw-public-convex-function-builders -- Component entrypoints are internal to the host; host functions enforce access.
-import { mutation, query, type MutationCtx } from "./_generated/server";
+import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import type { Doc } from "./_generated/dataModel";
 import { isSuspended } from "./apps";
+import { clientWithApp, vClientWithApp } from "./clients";
+import { refusalOf, usableConnectors, vPolicyDecision } from "./policy";
 import { used } from "./registration";
 import { vAuthRequest, vTokenEndpointAuthMethod, vUpstreamIdentity } from "./schema";
 import { exchangeResourceCode, vResourceExchange } from "./resourceRequests";
@@ -19,7 +21,8 @@ const vTransitionResult = union(
   object({ ok: literal(true), ...vReturn.fields }),
   object({
     ok: literal(false),
-    error: union(literal("expired"), literal("wrong_status")),
+    /** `refused`: the connector is outside what the request may use now, or the policy stops it. */
+    error: union(literal("expired"), literal("wrong_status"), literal("refused")),
     ...vReturn.fields,
   }),
   object({ ok: literal(false), error: literal("not_found") }),
@@ -33,6 +36,39 @@ async function findByRequestId(ctx: MutationCtx, requestId: string) {
     .unique();
 }
 
+/** The client and the app of a request, read in the transaction that decides on it. */
+async function rowsOf(ctx: QueryCtx, request: Doc<"authRequests">) {
+  const client = await ctx.db
+    .query("clients")
+    .withIndex("by_client_id", (q) => q.eq("clientId", request.clientId))
+    .unique();
+  const app = await ctx.db
+    .query("apps")
+    .withIndex("by_app_id", (q) => q.eq("appId", request.appId))
+    .unique();
+  return client === null || app === null ? null : { client, app };
+}
+
+/**
+ * Whether `connector` may go on for `request` under `decision`: the client and app exist, the
+ * connector is in the request's set, the enrollment, and the decision, the tenant is not stopped,
+ * and the decision still applies. Every mutation that moves a sign-in on decides this again.
+ */
+async function allowed(
+  ctx: QueryCtx,
+  request: Doc<"authRequests">,
+  connector: string,
+  decision: Infer<typeof vPolicyDecision>,
+): Promise<boolean> {
+  const rows = await rowsOf(ctx, request);
+  return (
+    rows !== null &&
+    usableConnectors(request, rows.client, decision).includes(connector) &&
+    !(await isSuspended(ctx, rows.app.tenantId)) &&
+    (await refusalOf(ctx, decision, rows.app.tenantId)) === null
+  );
+}
+
 /**
  * The sign-ins of one tenant. Anyone can start a sign-in for a public client id, so this budget stops
  * a flood at one tenant from reaching the others. It does not protect that tenant: a limit by source
@@ -43,13 +79,14 @@ const limits = new RateLimiter(components.rateLimiter, {
 });
 
 /**
- * Stores a validated /authorize request. The caller has already checked the client and redirect URI.
- * The budget of a tenant is in this mutation, so a refused request writes no row.
+ * Stores a validated /authorize request. The caller has already checked the client, the redirect
+ * URI, and the policy. The budget of the tenant and its blocks are read in this mutation, so a
+ * refused request writes no row.
  */
 export const create = mutation({
   args: {
-    /** The tenant of a third-party app, whose budget this request spends. Absent for a first-party app. */
-    tenantId: optional(string()),
+    /** The tenant of the app, whose budget this request spends. */
+    tenantId: string(),
     requestId: string(),
     appId: string(),
     clientId: string(),
@@ -58,18 +95,23 @@ export const create = mutation({
     state: optional(string()),
     nonce: optional(string()),
     codeChallenge: string(),
+    connectors: array(string()),
     freshLogin: boolean(),
     txnCookieHash: string(),
     createdAt: number(),
     expiresAt: number(),
   },
-  returns: object({ ok: boolean() }),
+  returns: union(
+    object({ ok: literal(true) }),
+    object({ ok: literal(false), error: union(literal("rate_limited"), literal("suspended")) }),
+  ),
   handler: async (ctx, args) => {
-    if (args.tenantId !== undefined) {
-      const { ok } = await limits.limit(ctx, "tenantSignIn", { key: args.tenantId });
-      if (!ok) {
-        return { ok: false };
-      }
+    if (await isSuspended(ctx, args.tenantId)) {
+      return { ok: false as const, error: "suspended" as const };
+    }
+    const { ok } = await limits.limit(ctx, "tenantSignIn", { key: args.tenantId });
+    if (!ok) {
+      return { ok: false as const, error: "rate_limited" as const };
     }
     await ctx.db.insert("authRequests", {
       status: "pending",
@@ -81,12 +123,13 @@ export const create = mutation({
       ...optionalField("state", args.state),
       ...optionalField("nonce", args.nonce),
       codeChallenge: args.codeChallenge,
+      connectors: args.connectors,
       freshLogin: args.freshLogin,
       txnCookieHash: args.txnCookieHash,
       createdAt: args.createdAt,
       expiresAt: args.expiresAt,
     });
-    return { ok: true };
+    return { ok: true as const };
   },
 });
 
@@ -106,7 +149,10 @@ export const get = query({
   },
 });
 
-/** The user chose an OAuth or OIDC connector; the request now waits for that connector's callback. */
+/**
+ * The user chose an OAuth or OIDC connector; the request now waits for that connector's callback.
+ * The connector must be one the request may use under `policy`, read again here.
+ */
 export const startUpstream = mutation({
   args: {
     requestId: string(),
@@ -114,6 +160,7 @@ export const startUpstream = mutation({
     upstreamStateHash: string(),
     upstreamCodeVerifier: string(),
     upstreamNonce: optional(string()),
+    policy: vPolicyDecision,
     now: number(),
   },
   returns: vTransitionResult,
@@ -131,6 +178,9 @@ export const startUpstream = mutation({
     if (request.status !== "pending" && request.status !== "upstream") {
       return { ok: false, error: "wrong_status", ...back };
     }
+    if (!(await allowed(ctx, request, args.connector, args.policy))) {
+      return { ok: false, error: "refused", ...back };
+    }
     await ctx.db.replace("authRequests", request._id, {
       status: "upstream",
       ...baseFields(request),
@@ -140,6 +190,30 @@ export const startUpstream = mutation({
       ...optionalField("upstreamNonce", args.upstreamNonce),
     });
     return { ok: true, ...back };
+  },
+});
+
+/**
+ * The client of the request that waits for the callback with this state, with its app and policy
+ * facts, so the host decides the policy before it claims the request. Null when no request waits
+ * for that state, or its client is gone.
+ */
+export const upstreamClient = query({
+  args: { upstreamStateHash: string() },
+  returns: union(vClientWithApp, v.null()),
+  handler: async (ctx, args) => {
+    const request = await ctx.db
+      .query("authRequests")
+      .withIndex("by_upstream_state_hash", (q) => q.eq("upstreamStateHash", args.upstreamStateHash))
+      .unique();
+    if (request === null || request.status !== "upstream") {
+      return null;
+    }
+    const client = await ctx.db
+      .query("clients")
+      .withIndex("by_client_id", (q) => q.eq("clientId", request.clientId))
+      .unique();
+    return client === null ? null : await clientWithApp(ctx, client);
   },
 });
 
@@ -156,6 +230,8 @@ const vClaimResult = union(
     ...vReturn.fields,
   }),
   object({ status: literal("expired"), requestId: string(), ...vReturn.fields }),
+  /** The policy stops the sign-in now; the request is deleted. */
+  object({ status: literal("refused"), requestId: string(), ...vReturn.fields }),
   object({ status: literal("unbound") }),
   object({ status: literal("missing") }),
 );
@@ -166,7 +242,8 @@ type ClaimResult = Infer<typeof vClaimResult>;
  * the same mutation that finds it, so a replayed or raced callback finds nothing to claim. A
  * request started for another connector is not claimed: its state cannot finish elsewhere. A
  * request is claimed only from the browser that holds its transaction cookie; any other browser
- * gets `unbound` and the request keeps waiting.
+ * gets `unbound` and the request keeps waiting. A request that `policy` stops now is deleted
+ * instead of claimed: the provider's code is never redeemed.
  */
 export const claimUpstream = mutation({
   args: {
@@ -174,6 +251,7 @@ export const claimUpstream = mutation({
     connector: string(),
     /** SHA-256 hex of each transaction cookie the callback request carried. */
     txnCookieHashes: array(string()),
+    policy: vPolicyDecision,
     now: number(),
   },
   returns: vClaimResult,
@@ -192,6 +270,10 @@ export const claimUpstream = mutation({
     if (request.expiresAt <= args.now) {
       await ctx.db.delete("authRequests", request._id);
       return { status: "expired", requestId: request.requestId, ...back };
+    }
+    if (!(await allowed(ctx, request, request.connector, args.policy))) {
+      await ctx.db.delete("authRequests", request._id);
+      return { status: "refused", requestId: request.requestId, ...back };
     }
     await ctx.db.replace("authRequests", request._id, {
       status: "claimed",
@@ -289,9 +371,10 @@ type ExchangeResult = Infer<typeof vExchangeResult>;
  * redirect URI and the PKCE challenge of its request (OAuth 2.1 section 4.1.3). The client and its
  * app are read in this transaction, so a client that fails authentication leaves the code as it
  * was, and deleting the client or its app commits wholly before the redemption or after it. The
- * same holds for a suspension: one that commits first refuses the code. On success the code is
- * marked used and the request is gone. The client's `lastSignInAt` and removal date move in this
- * transaction, so neither `cleanup` nor a cap can delete a client that has just signed someone in.
+ * same holds for a suspension or a pause: one that commits first refuses the code. On success the
+ * code is marked used and the request is gone. The client's `lastSignInAt` and removal date move in
+ * this transaction, so neither `cleanup` nor a cap can delete a client that has just signed someone
+ * in.
  */
 export const exchangeCode = mutation({
   args: {
@@ -305,8 +388,7 @@ export const exchangeCode = mutation({
     codeVerifier: string(),
     resource: optional(string()),
     refreshTokenHash: string(),
-    /** The host paused every third-party app. A sign-in that already started stops here too. */
-    registrationPaused: optional(boolean()),
+    policy: vPolicyDecision,
     now: number(),
   },
   returns: vExchangeResult,
@@ -329,10 +411,18 @@ export const exchangeCode = mutation({
       app === null ||
       client.tokenEndpointAuthMethod !== args.tokenEndpointAuthMethod ||
       client.secretHash !== args.clientSecretHash ||
-      (await isSuspended(ctx, app.tenantId)) ||
-      (args.registrationPaused === true && !app.firstParty)
+      (await isSuspended(ctx, app.tenantId))
     ) {
       return { ok: false, error: "invalid_client", description: "Client authentication failed." };
+    }
+    const refusal = await refusalOf(ctx, args.policy, app.tenantId);
+    if (refusal !== null) {
+      return {
+        ok: false,
+        error: "invalid_client",
+        description:
+          refusal === "paused" ? "This client is paused." : "Client authentication failed.",
+      };
     }
     const code = await ctx.db
       .query("authorizationCodes")
@@ -381,6 +471,7 @@ export const exchangeCode = mutation({
         codeVerifier: args.codeVerifier,
         ...(args.redirectUri === undefined ? {} : { redirectUri: args.redirectUri }),
         ...(args.resource === undefined ? {} : { resource: args.resource }),
+        allowedResources: args.policy.resources,
         refreshTokenHash: args.refreshTokenHash,
         now: args.now,
       });
@@ -414,11 +505,11 @@ export const exchangeCode = mutation({
         description: "code_verifier does not match code_challenge.",
       };
     }
-    if (app.connector !== undefined && request.identity.connector !== app.connector) {
+    if (!usableConnectors(request, client, args.policy).includes(request.identity.connector)) {
       return {
         ok: false,
         error: "invalid_grant",
-        description: "This app cannot sign in through that connector.",
+        description: "This client cannot sign in through that connector.",
       };
     }
     await ctx.db.patch("authorizationCodes", code._id, { usedAt: args.now });
@@ -466,6 +557,7 @@ function baseFields(request: Doc<"authRequests">) {
     ...optionalField("state", request.state),
     ...optionalField("nonce", request.nonce),
     codeChallenge: request.codeChallenge,
+    connectors: request.connectors,
     freshLogin: request.freshLogin,
     txnCookieHash: request.txnCookieHash,
     createdAt: request.createdAt,

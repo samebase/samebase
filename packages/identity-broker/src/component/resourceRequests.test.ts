@@ -17,9 +17,12 @@ const auth = {
   clientSecretHash: "client-secret-hash",
   tokenEndpointAuthMethod: "client_secret_post",
 } as const;
+/** The host's decision for the client: the resource of the grant, and nothing stops it. */
+const policy = { ownerId: "7", paused: false, connectors: ["fake"], resources: [RESOURCE] };
 const refresh = {
   ...auth,
   tokenHash: "broker-refresh-hash",
+  policy,
   now: NOW,
 };
 
@@ -38,10 +41,10 @@ async function setBlock(t: Test, kind: "repository" | "owner", githubId: string,
 async function grant(expires = false) {
   const t = convexTest(schema, modules);
   await t.run(async (ctx) => {
+    await ctx.db.insert("tenants", { tenantId: "gh-1", ownerId: "7" });
     await ctx.db.insert("apps", {
       appId: "app",
       name: "App",
-      firstParty: true,
       tenantId: "gh-1",
       createdAt: NOW,
     });
@@ -72,6 +75,7 @@ async function grant(expires = false) {
     upstreamStateHash: "upstream-state",
     upstreamCodeVerifier: "upstream-verifier",
     expiresAt: NOW + 600_000,
+    policy,
   });
   await t.mutation(api.resourceRequests.claim, {
     stateHash: "upstream-state",
@@ -97,6 +101,7 @@ async function grant(expires = false) {
     redirectUri: "https://preview.example/cb",
     codeVerifier: VERIFIER,
     refreshTokenHash: refresh.tokenHash,
+    policy,
     now: NOW,
   };
   expect(await t.mutation(api.authRequests.exchangeCode, exchange)).toMatchObject({
@@ -194,7 +199,6 @@ test("a client that the cap evicts loses its refresh grant", async () => {
     await t.mutation(api.registration.register, {
       tenantId: "gh-1",
       appId: "app",
-      trust: { firstParty: true },
       deploymentType: "preview",
       clientId: "newest",
       secretHash: "newest-secret-hash",
@@ -270,11 +274,8 @@ test("a deleted app stops refresh before the batches remove its client rows", as
   });
 });
 
-test("a blocked repository or owner of a first-party app stops refresh, and an unblock restores it", async () => {
+test("a blocked repository or owner stops refresh, and an unblock restores it", async () => {
   const { t } = await grant();
-  await t.run(async (ctx) => {
-    await ctx.db.insert("tenants", { tenantId: "gh-1", ownerId: "7" });
-  });
   await setBlock(t, "repository", "1", true);
   expect(await t.mutation(api.resourceRequests.claimRefresh, refresh)).toMatchObject({
     error: "invalid_client",
@@ -317,6 +318,78 @@ test("a blocked client can still revoke its own token", async () => {
   });
 });
 
+test("the policy's resources gate the authorization, the code, the admission, and the release", async () => {
+  const { t, exchange } = await grant();
+  const withdrawn = { ...policy, resources: [] };
+  // A new authorization of a withdrawn resource writes nothing.
+  expect(
+    await t.mutation(api.resourceRequests.create, {
+      requestId: "later",
+      clientId: auth.clientId,
+      redirectUri: "https://preview.example/cb",
+      resource: RESOURCE,
+      codeChallenge: await calculatePKCECodeChallenge(VERIFIER),
+      txnCookieHash: "browser",
+      upstreamStateHash: "later-state",
+      upstreamCodeVerifier: "upstream-verifier",
+      expiresAt: NOW + 600_000,
+      policy: withdrawn,
+    }),
+  ).toBe(false);
+  expect(await t.run(async (ctx) => await ctx.db.query("resourceRequests").collect())).toEqual([]);
+  // The admission: before the provider is called.
+  expect(
+    await t.mutation(api.resourceRequests.claimRefresh, { ...refresh, policy: withdrawn }),
+  ).toMatchObject({ ok: false, error: "invalid_target" });
+  expect(
+    await t.mutation(api.resourceRequests.claimRefresh, {
+      ...refresh,
+      policy: { ...policy, paused: true },
+    }),
+  ).toMatchObject({ ok: false, error: "invalid_client" });
+  expect(
+    await t.mutation(api.resourceRequests.claimRefresh, {
+      ...refresh,
+      policy: { ...policy, ownerId: "8" },
+    }),
+  ).toMatchObject({ ok: false, error: "invalid_client" });
+  // The release: the rotation is saved, the token is kept from the caller.
+  const claim = await t.mutation(api.resourceRequests.claimRefresh, refresh);
+  if (!claim.ok) throw new Error("Expected a claim");
+  const tokens = { accessToken: "new-access", scope: "", refreshToken: "rotated" };
+  expect(
+    await t.mutation(api.resourceRequests.finishRefresh, {
+      grantId: claim.grantId,
+      attempt: claim.attempt,
+      tokens,
+      policy: withdrawn,
+      now: NOW + 1,
+    }),
+  ).toBe("refused");
+  const grantRow = await t.run(async (ctx) => await ctx.db.get("refreshGrants", claim.grantId));
+  expect(grantRow?.upstreamRefreshToken).toBe("rotated");
+  expect(grantRow?.refreshStartedAt).toBeUndefined();
+  // A policy that failed at the release refuses too, and the next claim works again.
+  const again = await t.mutation(api.resourceRequests.claimRefresh, { ...refresh, now: NOW + 2 });
+  if (!again.ok) throw new Error("Expected a claim");
+  expect(
+    await t.mutation(api.resourceRequests.finishRefresh, {
+      grantId: again.grantId,
+      attempt: again.attempt,
+      tokens: { ...tokens, refreshToken: "rotated-again" },
+      policy: null,
+      now: NOW + 3,
+    }),
+  ).toBe("refused");
+  expect(
+    await t.mutation(api.resourceRequests.claimRefresh, { ...refresh, now: NOW + 4 }),
+  ).toMatchObject({ ok: true, upstreamRefreshToken: "rotated-again" });
+  // The code of a completed authorization is refused once the resource is withdrawn.
+  expect(
+    await t.mutation(api.authRequests.exchangeCode, { ...exchange, policy: withdrawn }),
+  ).toMatchObject({ ok: false, error: "invalid_grant" });
+});
+
 test("cleanup removes expired resource requests and idle refresh secrets", async () => {
   const { t } = await grant();
   await t.mutation(api.resourceRequests.create, {
@@ -329,6 +402,7 @@ test("cleanup removes expired resource requests and idle refresh secrets", async
     upstreamStateHash: "abandoned-state",
     upstreamCodeVerifier: "upstream-verifier",
     expiresAt: NOW + 600_000,
+    policy,
   });
   expect(
     await t.mutation(api.lifecycle.cleanup, {
