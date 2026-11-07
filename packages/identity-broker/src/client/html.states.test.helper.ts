@@ -28,7 +28,7 @@ const consent = (
 ) => signInPage({ ...host, ...page, consent: { ...preview, ...to }, connectors, legal });
 
 export const pageStates: Record<string, () => Response> = {
-  // The policy asks for no consent and the client offers two connectors: the picker alone.
+  // An admin exemption covers the client, which offers two connectors: the picker alone.
   "sign-in": () => signInPage({ ...host, consent: null, connectors: [google, github], legal }),
   "consent-preview": () => consent({}, {}, [google, github]),
   "consent-production": () =>

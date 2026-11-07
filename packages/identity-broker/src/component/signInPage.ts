@@ -5,8 +5,8 @@ import { tenantRow } from "./apps";
 import { vSignInPageTarget } from "./schema";
 
 // The exemptions from the sign-in page that the hub's administrator sets (RFC 137 decision 5, as
-// amended). The broker stores them and applies them itself: the page shows only when the host's
-// policy asks for it and no exemption covers the client (docs/design.md). The decision is read at
+// amended). The broker stores them and applies them itself: in hub mode the page shows unless an
+// exemption covers the client (docs/design.md). The decision is read at
 // `/authorize` and nowhere later: a sign-in that passed `/authorize` finishes with that decision.
 
 const { array, boolean, literal, object, string, union } = v;

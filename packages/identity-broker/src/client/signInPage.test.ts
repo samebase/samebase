@@ -21,8 +21,8 @@ import {
 import type { PolicyFunction } from "./policy.js";
 
 // The exemptions from the sign-in page (RFC 137 decision 5, as amended): the hub's administrator
-// sets them at `/moderation/sign-in-page`, and the broker applies them itself. The test hub's
-// policy asks for the page for every client, so each skip below is the broker's.
+// sets them at `/moderation/sign-in-page`, and the broker applies them itself. In hub mode the page
+// shows for every client by default, so each skip below comes from an exemption.
 
 afterEach(() => {
   vi.useRealTimers();
