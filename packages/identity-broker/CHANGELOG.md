@@ -32,9 +32,11 @@ Connector grants, set by the hub's administrator (RFC 137 decision 10).
   its owner and whether it is `active`; `POST /moderation/connector-grants` grants or revokes one,
   with a reason and the admin's email, and appends a `connector_grant_change` event in the same
   transaction. Granting answers 409 `owner_changed` when the recorded owner is not the one the admin
-  saw, revoking when the row is bound to another owner than the one the admin saw, 404 `unknown_app`
-  for an app the broker does not have, and 400 `unknown_connector` for a connector the host does not
-  configure.
+  saw, 404 `unknown_app` for an app the broker does not have, and 400 `unknown_connector` for a
+  connector the host does not configure. Revoking answers 409 `owner_changed` when the row is bound
+  to another owner than the one the admin saw, and needs neither the app nor the connector, so a row
+  of an app that `apps.remove` deleted, which would count again when the app registers again, or of
+  a connector the host dropped can always go.
 - The clients of `/moderation/clients` carry `policyConnectors`, `usableConnectors`, and
   `grantedConnectors`.
 - Grants give no API resource and skip no sign-in page; exemptions grant no connector.

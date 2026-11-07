@@ -267,7 +267,7 @@ describe("the connector grants", () => {
     expect((await signIn(h, sixtyFivesClient, "other")).went).toBe("provider");
   });
 
-  it("refuse a revoke from a stale view, an unknown app, an unknown connector, and a malformed change", async () => {
+  it("refuse a revoke from a stale view, a grant to an unknown app or connector, and a malformed change", async () => {
     vi.useFakeTimers({ now: 1_800_000_000_000, toFake: ["Date"] });
     const h = await createHub({ policy: hubPolicy });
     await registered(h, ["fake"]);
@@ -284,11 +284,13 @@ describe("the connector grants", () => {
       changed: true,
     });
 
-    for (const grant of [true, false]) {
-      const unknownApp = await changeGrant(h, { appId: "gh-99-app", grant });
-      expect(unknownApp.status).toBe(404);
-      expect(await unknownApp.json()).toEqual({ error: "unknown_app" });
-    }
+    const unknownApp = await changeGrant(h, { appId: "gh-99-app", grant: true });
+    expect(unknownApp.status).toBe(404);
+    expect(await unknownApp.json()).toEqual({ error: "unknown_app" });
+    // A revoke of a row that does not exist is already in place.
+    expect(await (await changeGrant(h, { appId: "gh-99-app", grant: false })).json()).toEqual({
+      changed: false,
+    });
     const unknownConnector = await changeGrant(h, { connector: "okta", grant: true });
     expect(unknownConnector.status).toBe(400);
     expect(await unknownConnector.json()).toEqual({ error: "unknown_connector" });
@@ -297,6 +299,40 @@ describe("the connector grants", () => {
       body: { appId: PRODUCTION_APP, connector: "other", grant: true, reason: "" },
     });
     expect(malformed.status).toBe(400);
+  });
+
+  it("revoke a row of a deleted app, and of a connector the hub no longer has", async () => {
+    const h = await createHub({ policy: hubPolicy });
+    await registered(h, ["fake"]);
+    await changeGrant(h, { grant: true });
+    // A row that a hub wrote while it still configured `okta`.
+    await h.t.run(async (ctx) => {
+      await ctx.db.insert("connectorGrants", {
+        appId: PRODUCTION_APP,
+        connector: "okta",
+        ownerId: OWNER_ID,
+        reason: "Before the hub dropped okta",
+      });
+    });
+    // The emergency revocation deletes the app and its clients; its next registration would bring
+    // the rows back into force, so the admin must be able to remove them now.
+    await h.t.mutation(api.apps.remove, { appId: PRODUCTION_APP });
+    const listed = await (await moderationRequest(h, "/moderation/connector-grants")).json();
+    expect(listed.grants).toMatchObject([
+      { appId: PRODUCTION_APP, connector: "okta", active: false, app: null },
+      { appId: PRODUCTION_APP, connector: "other", active: false, app: null },
+    ]);
+
+    for (const connector of ["okta", "other"]) {
+      expect(await (await changeGrant(h, { connector, grant: false })).json()).toEqual({
+        changed: true,
+      });
+    }
+    expect(await (await moderationRequest(h, "/moderation/connector-grants")).json()).toEqual({
+      connectors: ["fake", "other"],
+      grants: [],
+    });
+    expect((await changeGrant(h, { connector: "okta", grant: true })).status).toBe(400);
   });
 
   it("write one event per change, and none for a change already in place", async () => {

@@ -54,9 +54,9 @@ A client enrolls in connectors at registration: `connectors: ["google-apps", "gi
 `Convex.SharedHubClient` at our hub, which the hub checks against its connectors
 (`connectors_supported` in discovery), its policy, and the connectors its administrator granted the
 app, and which the client cannot change. The `connector` query parameter on `/authorize` is a
-space-delimited list of the enrolled names (`connector=google+github` in a URL). One name goes
-straight to that connector when the hub's administrator exempted the app, or every app, from the
-sign-in page, and otherwise shows the hub's page with that one button; no parameter offers every
+space-delimited list of the enrolled names (`connector=google-apps+github-apps` in a URL). One name
+goes straight to that connector when the hub's administrator exempted the app, or every app, from
+the sign-in page, and otherwise shows the hub's page with that one button; no parameter offers every
 connector the client may use; several names offer those. A name the client is not enrolled in is a
 request error. `sub` is the provider's own id with the provider in front, such as `github:4076804`:
 for GitHub and Google the id an app saw when it signed users in to GitHub or Google directly, the
@@ -67,6 +67,6 @@ differ from the provider in `sub`: a sign-in through `google-apps` has `connecto
 and `sub: "google:<id>"`. Key an account by `sub`, and check `connector` against the method's
 connector name, never against the provider.
 
-Each app owns admission and account linking by email. `connector=google` in the authorize URL
+Each app owns admission and account linking by email. `connector=google-apps` in the authorize URL
 selects the connector of that sign-in and does not enforce a Google-only policy; the app's admission
 does.

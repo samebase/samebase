@@ -11,11 +11,12 @@ Each component's own rules live in its repository.
   `npx convex run broker:<name>`. The admin's connector grants and sign-in page exemptions are
   broker rows, set on samebase.com's admin page. A connector that needs credentials also gets its
   variables declared in `convex/convex.config.ts`, in `alchemy.run.ts`, and in
-  `.github/workflows/identity-hub.yml`; the push fails while a required one is missing.
-  `convex/http.ts` mounts the broker, which also mounts `POST /hub-clients` and `/moderation/*`;
-  `convex/crons.ts` runs the cleanup. Every table and rule is in the broker package (RFC 135): the
-  hub has no schema. `convex/http.test.ts` checks this wiring (`convex/test.setup.ts`); the rules'
-  tests are in the package.
+  `.github/workflows/identity-hub.yml`. Add its secrets to the `identity-hub` environment before the
+  merge: GitHub passes a missing secret as an empty string, which no check catches. `convex/http.ts`
+  mounts the broker, which also mounts `POST /hub-clients` and `/moderation/*`; `convex/crons.ts`
+  runs the cleanup. Every table and rule is in the broker package (RFC 135): the hub has no schema.
+  `convex/http.test.ts` checks this wiring (`convex/test.setup.ts`); the rules' tests are in the
+  package.
 - `alchemy.run.ts` is the stack `samebase/samebase/apps/identity-hub` (adopted project, adopted
   production deployment, push); `scripts/check-keys.ts` checks the key set inside the `deploy`
   script the push runs and never creates it; `scripts/init-keys.ts` creates it once, by hand.

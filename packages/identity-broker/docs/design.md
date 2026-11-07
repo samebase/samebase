@@ -124,8 +124,10 @@ The host adds the grants that `clients.withApp` carries to the policy's part (`u
 `decision.connectors`, which the mutations fence on, stays the policy's part alone, so a grant
 revoked after the host read it stops the next step. `connectorGrants.set` is their one writer,
 through `/moderation/connector-grants`, with the same owner checks as `signInPage.set`, and it
-appends a `connector_grant_change` event in the same transaction. Grants give no API resource and
-skip no page; an exemption grants no connector.
+appends a `connector_grant_change` event in the same transaction. A revoke needs neither the app nor
+a configured connector, so the admin can remove the row of an app that `apps.remove` deleted, which
+would count again when the app registers again. Grants give no API resource and skip no page; an
+exemption grants no connector.
 
 Decision: a grant adds to the policy's default, per broker app, bound to the recorded owner, and is
 checked at every step. Auth0 and FusionAuth enable connections per application, Cognito and Dex keep

@@ -13,7 +13,7 @@
 //
 // Every run needs the team token CONVEX_ACCESS_TOKEN, or a Convex CLI login (`npx convex login`)
 // on a development machine; it mints the deploy key itself. Every run also reads the Google and
-// GitHub client ids and secrets and hands them to the deployment, for the three connectors: no
+// GitHub client ids and secrets and hands them to the deployment, for the four connectors: no
 // connector variable is ever set by hand. IDENTITY_BROKER_KEYS is not in `env`: it stays on the
 // deployment, and the `deploy` script stops when it is missing.
 import { execFileSync } from "node:child_process";

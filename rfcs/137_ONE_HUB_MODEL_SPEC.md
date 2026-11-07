@@ -305,7 +305,10 @@ registration: {
   tenant's recorded owner and the owner that registered the client are the grant's; at registration,
   the owner of the incoming proof. A transfer stops it, an old client of a previous owner never gets
   it, and it counts again if the repository comes back to that owner. Granting refuses a stale view
-  (409 `owner_changed`), revoking refuses a row bound to another owner than the one the admin saw.
+  (409 `owner_changed`), revoking refuses a row bound to another owner than the one the admin saw. A
+  revoke needs neither the app nor a configured connector: `deleteApp` leaves the app's grants,
+  which count again when the app registers again, and the admin removes them from the Connector
+  grants tab.
 - Unlike an exemption, a grant is read at every step, in the transaction that decides it: the
   registering mutation, the offered set at `/authorize`, `/continue`, the callback's claim and
   completion, and code exchange. Revoking a grant stops a sign-in at its next step; issued tokens
@@ -388,9 +391,10 @@ registration: {
   refused with the public pair as the allowed names.
 - Connector grants (decision 10): a grant opens a private connector to one app only, not to its
   preview app or another repository; a transfer stops it and its return restarts it for the owner's
-  clients only; a stale grant or revoke is refused; a revoke during a held callback refuses the
-  completion, and one after the code refuses the exchange; a grant gives no API resource and skips
-  no page (`src/client/connectorGrants.test.ts`).
+  clients only; a stale grant or revoke is refused; a row of a deleted app or of a dropped connector
+  can be revoked; a revoke during a held callback refuses the completion, and one after the code
+  refuses the exchange; a grant gives no API resource and skips no page
+  (`src/client/connectorGrants.test.ts`).
 - After the rollout: sign in to samebase.com through both connectors with an existing account, and
   reconnect Cloudflare and GitHub.
 
@@ -442,20 +446,24 @@ hub has no outside users yet.
    of samebase.com's production app on samebase.com's admin page (Skip the sign-in page), which
    brings back its straight hop to Google or GitHub.
 8. The amendment of broker 0.26.0, the four connectors and the grants: additive, with no data to
-   clear. Its push fails while a required variable is missing, so in this order: a. Nicu changes the
-   callback of the public "Samebase" GitHub OAuth App to
+   clear. GitHub passes a missing secret as an empty string, so the variables come first, in this
+   order: a. Nicu changes the callback of the public "Samebase" GitHub OAuth App to
    `https://auth.samebase.com/connectors/github-apps/callback` and generates its secret, and checks
    that the public Google client lists `https://auth.samebase.com/connectors/google-apps/callback`.
    The GitHub environment `identity-hub` gets `AUTH_GITHUB_APPS_CLIENT_ID` and
    `AUTH_GITHUB_APPS_CLIENT_SECRET`; `GOOGLE_APPS_CLIENT_ID` and `GOOGLE_APPS_CLIENT_SECRET` are
    already there. b. Merge; the hub deploys with four connectors. Every app keeps its client and its
    enrollment. An app enrolled in `google` or `github` that is not the operator's and has no grant
-   cannot sign in through them from then on. c. On samebase.com's admin page, Connectors… grants
-   `google` to the production apps of the owner's other apps that keep the private client. d.
-   Bristol and the starter move to `google-apps` (the starter also to `github-apps`) in their own
-   pull requests, each with the consumer fix of `docs/consumers.md`: a profile mapping that checks
+   cannot sign in through them from then on: the admin page marks it "No sign-in". The pinned
+   starter enrolls in `google` and `github`, so until step d the hub refuses the registration of a
+   new app from samebase.com or a fork, and the app deploys with guest sign-in only. c. On
+   samebase.com's admin page, Connectors… grants `google` to the production apps of the owner's
+   other apps that keep the private client. d. The starter, and the owner's apps that leave the
+   private client, move to `google-apps` (the starter also to `github-apps`) in their own pull
+   requests, each with the consumer fix of `docs/consumers.md`: a profile mapping that checks
    `connector` against the method's connector name and keys the account by the provider in `sub`, as
-   samebase.com's `readHubProfile` now does. Then the starter manifest is pinned again.
+   samebase.com's `readHubProfile` now does. A preview of the starter signs in through both public
+   connectors, their first use. Then the starter manifest is pinned again.
 
 ## Sources
 

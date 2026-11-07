@@ -311,15 +311,16 @@ export function moderationEndpoints(args: {
 
   /**
    * Grants or revokes one connector of one app. Answers `{ changed }`; 400 `unknown_connector` for
-   * a connector the hub does not have, 409 `owner_changed` when the owner is no longer the one the
-   * admin saw, and 404 `unknown_app` for an app the hub does not have.
+   * a grant of a connector the hub does not have, 409 `owner_changed` when the owner is no longer
+   * the one the admin saw, and 404 `unknown_app` for a grant to an app the hub does not have. A
+   * revoke needs neither, so the admin can remove a row of a deleted app or of a removed connector.
    */
   const changeConnectorGrant = moderationEndpoint(async (ctx, request) => {
     const change = readConnectorGrantChange(await request.json().catch(() => null));
     if (change === null) {
       return reply(400, { error: "invalid_request" });
     }
-    if (!connectors.includes(change.connector)) {
+    if (change.grant && !connectors.includes(change.connector)) {
       return reply(400, { error: "unknown_connector" });
     }
     const result = await ctx.runMutation(component.connectorGrants.set, {
