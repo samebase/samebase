@@ -93,8 +93,9 @@ The hub's administrator can exempt one app, or every app, from the sign-in page
 `consent` asks for it and no exemption covers the client (`pageShown` in src/client/policy.ts, which
 `/authorize` decides with and `/moderation/clients` reports with). Only those two read the
 exemptions: `/authorize` with the client's facts in one query (`clients.forAuthorize`), and the
-moderation list with each client, never from a request. `/continue`, the callbacks, code exchange,
-API authorization, and refresh do not read them, because the page matters only at `/authorize`. A
+moderation list with each client, never from a request. An API authorization through `/authorize`
+reads them with the facts but has no page, so it does not apply them; `/continue`, the callbacks,
+code exchange, and refresh do not read them, because the page matters only at `/authorize`. A
 one-app row counts only while the tenant's recorded owner and the owner that registered the client
 are the row's owner, so a transfer stops it and an old client of a previous owner never gets it; it
 counts again if the repository comes back to the same owner. `signInPage.set` is their one writer,
