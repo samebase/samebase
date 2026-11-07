@@ -1137,7 +1137,9 @@ function ConnectorGrantsSection({
                   : {grant.reason}
                   <span className="block text-muted-foreground">
                     Bound to the owner with GitHub id {grant.ownerId}.
-                    {grant.active ? null : " Not active: the repository has another owner now."}
+                    {grant.active
+                      ? null
+                      : " Not active: the hub has no such app now, or the repository has another owner."}
                   </span>
                 </span>
                 <Button

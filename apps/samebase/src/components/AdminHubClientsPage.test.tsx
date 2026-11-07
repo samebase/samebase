@@ -293,6 +293,33 @@ describe("AdminHubClientsPage", () => {
     }
   });
 
+  it("marks a client that no enrolled connector lets sign in, unless it is blocked", async () => {
+    const [preview, development, production] = overview.clientList.clients;
+    testState.readOverview.mockResolvedValue({
+      ...overview,
+      clientList: {
+        ...overview.clientList,
+        clients: [
+          // Blocked: the block says it already.
+          { ...preview, usableConnectors: null },
+          development,
+          // The policy no longer gives `github` or `google`, and no grant does.
+          { ...production, usableConnectors: [] },
+        ],
+      },
+    });
+    const page = await renderPage();
+    try {
+      const rows = rowTexts(page.rootElement);
+      expect(rows[1]).toMatch(/^ProductionNo sign-inmy-app/);
+      expect(rows[3]).toMatch(/^PR 12Blockedmy-app/);
+      expect(rows[4]).toMatch(/^DevelopmentBlockedmy-app/);
+      expect(page.rootElement.textContent.match(/No sign-in(?!s)/g)).toHaveLength(1);
+    } finally {
+      await page.unmount();
+    }
+  });
+
   it("shows a client's ids when its row is opened", async () => {
     const page = await renderPage();
     try {
@@ -499,14 +526,17 @@ describe("AdminHubClientsPage", () => {
         connectors?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
       });
       const dialog = document.querySelector("[role=dialog]");
+      expect(dialog?.textContent).toContain("Previews and development servers. The hub's policy");
       expect(dialog?.textContent).toContain("gives this app google-apps, github-apps");
       expect(dialog?.textContent).toContain("GitHub id 65");
-      const google = Array.from(dialog?.querySelectorAll("label") ?? []).find(
-        (label) => label.textContent === "google",
+      // One box per connector the policy does not give: the private pair, never the public one.
+      const boxes = Array.from(dialog?.querySelectorAll("label") ?? []).filter(
+        (label) => label.querySelector("[data-slot=checkbox]") !== null,
       );
-      expect(dialog?.textContent).toContain("github");
+      expect(boxes.map((label) => label.textContent)).toEqual(["google", "github"]);
+      const google = boxes[0];
       await act(async () => {
-        google?.querySelector<HTMLElement>("[data-slot=checkbox]")?.click();
+        google.querySelector<HTMLElement>("[data-slot=checkbox]")?.click();
       });
       await act(async () => type(document.body, "#admin-hub-clients-connectors-reason", "Ours"));
       await act(async () => {
@@ -593,7 +623,9 @@ describe("AdminHubClientsPage", () => {
       await act(async () => button(page.rootElement, "Connector grants 1").click());
       const text = page.rootElement.textContent;
       expect(text).toContain("google for other-org/own my-app, production: Our other app");
-      expect(text).toContain("Not active: the repository has another owner now.");
+      expect(text).toContain(
+        "Not active: the hub has no such app now, or the repository has another owner.",
+      );
       expect(button(page.rootElement, "Remove").disabled).toBe(true);
 
       await act(async () =>

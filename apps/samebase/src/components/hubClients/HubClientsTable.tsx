@@ -173,6 +173,15 @@ function BlockedBadge() {
   );
 }
 
+/**
+A client that no connector it enrolled in lets sign in now: the policy and the grants allow none of
+them, or the client cannot sign in at all. After a change of the policy these are the clients that
+need a grant or a new enrollment.
+*/
+function NoSignInBadge() {
+  return <Badge variant="secondary">No sign-in</Badge>;
+}
+
 function RegisteredBy({ client }: { client: HubClient }) {
   const { registeredBy } = client;
   if (registeredBy.kind === "initial_access_token") {
@@ -645,7 +654,11 @@ function ClientRow({
         <TableCell className={indented ? "truncate pl-4 @3xl:pl-9" : "truncate"}>
           <span className="flex items-center gap-2">
             <StageBadge client={client} />
-            {blocked ? <BlockedBadge /> : null}
+            {blocked ? (
+              <BlockedBadge />
+            ) : client.usableConnectors === null || client.usableConnectors.length === 0 ? (
+              <NoSignInBadge />
+            ) : null}
             <span className="truncate">
               {showRepository ? (
                 <span className="text-muted-foreground">

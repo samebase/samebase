@@ -139,9 +139,10 @@ const vOff = object({ status: literal("off") });
 
 /**
 The hub's moderation endpoints, or null while `HUB_MODERATION_KEY` is unset: the admin page then
-says that moderation is off. The key can only read registration counts, clients, blocks, and
-exemptions from the sign-in page, set blocks and exemptions, and delete clients at the hub. samebase.com decides who may use it: an admin for every app,
-a member of an organization for the clients of its connected repositories.
+says that moderation is off. The key can only read registration counts, clients, blocks,
+exemptions from the sign-in page, and connector grants, set blocks, exemptions, and grants, and
+delete clients at the hub. samebase.com decides who may use it: an admin for every app, a member of
+an organization for the clients of its connected repositories.
 */
 function readModeration() {
   const key = env.HUB_MODERATION_KEY?.trim();
@@ -229,8 +230,8 @@ export const readOverview = action({
 /**
 Grants (`grant: true`) or revokes one of the hub's connectors for one app, in the name of the
 signed-in admin. It names the repository owner that the admin saw: the hub answers `owner_changed`
-when that is no longer the owner, `unknown_app` for an app it does not have, and
-`unknown_connector` for a connector it does not have.
+when that is no longer the owner. A grant also gets `unknown_app` for an app the hub does not have,
+and `unknown_connector` for a connector it does not have; a revoke needs neither.
 */
 export const changeConnectorGrant = action({
   access: "access_admin",

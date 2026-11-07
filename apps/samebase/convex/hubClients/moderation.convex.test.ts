@@ -245,6 +245,15 @@ describe("hub client moderation", () => {
           reason: "Launch week",
         }),
       ).rejects.toThrow("Access denied");
+      await expect(
+        viewer.action(api.hubClients.moderation.changeConnectorGrant, {
+          appId: "gh-74-app",
+          connector: "google",
+          expectedOwnerId: "65",
+          grant: true,
+          reason: "A trusted team",
+        }),
+      ).rejects.toThrow("Access denied");
       expect(requests).toEqual([]);
     },
   );
