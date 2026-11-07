@@ -5,7 +5,7 @@ import { google } from "./connectors/google.js";
 import { createHarness, ISSUER, pkce, txnCookie, type Harness } from "./harness.test.helper.js";
 import { hubRegistration, testPolicy } from "./hub.test.helper.js";
 import { deferred } from "./model.test.helper.js";
-import type { Policy } from "./policy.js";
+import type { Policy, PolicyFunction } from "./policy.js";
 import { cloudflareConnection, convexConnection, githubConnection } from "./resourceProviders.js";
 
 const REDIRECT = "https://preview.example.com/oauth/hub/callback";
@@ -55,7 +55,7 @@ afterEach(() => {
  * A broker with the three providers. Without `policy` it has no hub mode, so every client may
  * authorize every resource; with one, the hub's policy decides, read at each request.
  */
-async function setup(policy?: () => Policy) {
+async function setup(policy?: PolicyFunction) {
   const h = await createHarness({
     connectors: [google(credentials)],
     resources: [convex, cloudflare, github],
@@ -462,6 +462,20 @@ test("a client gets the resources its policy names, at authorization and at the 
   const refused = await redeem(args, code, proof.verifier);
   expect(refused.status).toBe(400);
   expect(await refused.json()).toMatchObject({ error: "invalid_target" });
+});
+
+test("an exemption from the sign-in page grants no API resource", async () => {
+  const args = await setup(() => testPolicy({ resources: [] }));
+  await args.h.t.run(async (ctx) => {
+    await ctx.db.insert("signInPageExemptions", {
+      target: { scope: "every_app" },
+      reason: "Launch week",
+    });
+  });
+  const { start } = await authorize(args, cloudflare.resource);
+  expect(start.status).toBe(403);
+  expect(start.headers.get("location")).toBeNull();
+  expect(args.tokenCalls).toHaveLength(0);
 });
 
 test("a paused or failed policy refuses API authorization and refresh before the provider", async () => {

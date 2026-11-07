@@ -6,15 +6,18 @@ import {
   type HttpRouter,
 } from "convex/server";
 import { v } from "convex/values";
+import type { FunctionReturnType } from "convex/server";
 import type { ComponentApi } from "../component/_generated/component.js";
+import { evaluate, pageShown } from "./policy.js";
 import type { RegistrationConfig } from "./registration.js";
 import { sha256Hex } from "./subject.js";
 
-// `/moderation/*`: the registration counts, the clients with who made them, and the blocks, for the
-// hub's administrator page (samebase.com's admin page for the shared hub). Every request needs the
-// moderation key. The rows are in src/component/moderation.ts.
+// `/moderation/*`: the registration counts, the clients with who made them, the blocks, and the
+// exemptions from the sign-in page, for the hub's administrator page (samebase.com's admin page
+// for the shared hub). Every request needs the moderation key. The rows are in
+// src/component/moderation.ts and src/component/signInPage.ts.
 
-const { literal, object, string, union } = v;
+const { boolean, literal, object, string, union } = v;
 
 type Ctx = GenericActionCtx<GenericDataModel>;
 
@@ -31,6 +34,22 @@ const vBlockChange = object({
   reason: string(),
   adminEmail: string(),
 });
+
+/**
+ * The body of `POST /moderation/sign-in-page`: set (`skip: true`) or remove one exemption. An app
+ * target names the recorded owner that the admin saw, which the hub checks before it sets the row.
+ */
+const vSignInPageChange = object({
+  target: union(
+    object({ scope: literal("every_app") }),
+    object({ scope: literal("app"), appId: string(), expectedOwnerId: string() }),
+  ),
+  skip: boolean(),
+  reason: string(),
+  adminEmail: string(),
+});
+
+type ClientEntry = FunctionReturnType<ComponentApi["moderation"]["clientList"]>["clients"][number];
 
 function reply(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), {
@@ -55,6 +74,24 @@ function readBlockChange(body: unknown) {
     : null;
 }
 
+/** The change, if its reason and admin are given and an app target names a GitHub owner id. */
+function readSignInPageChange(body: unknown) {
+  if (!validate(vSignInPageChange, body)) {
+    return null;
+  }
+  const reason = body.reason.trim();
+  const adminEmail = body.adminEmail.trim();
+  const { target } = body;
+  return (target.scope === "every_app" ||
+    (target.appId !== "" && /^[1-9][0-9]*$/.test(target.expectedOwnerId))) &&
+    reason !== "" &&
+    reason.length <= MAX_REASON_LENGTH &&
+    adminEmail !== "" &&
+    adminEmail.length <= MAX_EMAIL_LENGTH
+    ? { target, skip: body.skip, reason, adminEmail }
+    : null;
+}
+
 export function moderationEndpoints(args: {
   component: ComponentApi;
   registration: RegistrationConfig;
@@ -62,6 +99,25 @@ export function moderationEndpoints(args: {
 }) {
   const { component, registration, path } = args;
   const clientsPrefix = path("/moderation/clients/");
+
+  /**
+   * A listed client with the tenant's recorded owner and its sign-in page, by the rule that
+   * `/authorize` applies (`pageShown`): `shown`, or skipped by the `every_app` or the `this_app`
+   * exemption. Null when the client cannot sign in at all: the policy has no facts or failed.
+   */
+  function clientAnswer(entry: ClientEntry) {
+    const policy =
+      entry.registration === null ? null : evaluate(registration.policy, entry.registration);
+    const signInPage =
+      policy === null
+        ? null
+        : pageShown(entry.exemption)
+          ? ("shown" as const)
+          : entry.exemption.everyApp
+            ? ("every_app" as const)
+            : ("this_app" as const);
+    return { ...entry.client, ownerId: entry.ownerId, signInPage };
+  }
 
   /**
    * An endpoint that answers only a request with the moderation key, compared by hash, so the time it
@@ -94,7 +150,11 @@ export function moderationEndpoints(args: {
   const listClients = moderationEndpoint(async (ctx, request) => {
     const repositories = new URL(request.url).searchParams.getAll("repository");
     if (repositories.length === 0) {
-      return reply(200, await ctx.runQuery(component.moderation.clientList, {}));
+      const list = await ctx.runQuery(component.moderation.clientList, {});
+      return reply(200, {
+        clients: list.clients.map(clientAnswer),
+        limitReached: list.limitReached,
+      });
     }
     if (
       repositories.length > MAX_REPOSITORIES_PER_REQUEST ||
@@ -105,7 +165,7 @@ export function moderationEndpoints(args: {
     const clients = await ctx.runQuery(component.moderation.repositoryClients, {
       githubRepositoryDatabaseIds: [...new Set(repositories)],
     });
-    return reply(200, { clients });
+    return reply(200, { clients: clients.map(clientAnswer) });
   });
 
   /**
@@ -139,11 +199,55 @@ export function moderationEndpoints(args: {
     );
   });
 
+  /** The "every app" exemption from the sign-in page, if set, and every one-app exemption. */
+  const listSignInPage = moderationEndpoint(async (ctx) =>
+    reply(200, await ctx.runQuery(component.signInPage.list, {})),
+  );
+
+  /**
+   * Sets or removes one exemption from the sign-in page. Answers `{ changed }`; 409
+   * `owner_changed` when the repository's recorded owner is no longer the one the admin saw, and
+   * 404 `unknown_app` for an app the hub does not have.
+   */
+  const changeSignInPage = moderationEndpoint(async (ctx, request) => {
+    const change = readSignInPageChange(await request.json().catch(() => null));
+    if (change === null) {
+      return reply(400, { error: "invalid_request" });
+    }
+    const result = await ctx.runMutation(component.signInPage.set, {
+      target:
+        change.target.scope === "every_app"
+          ? { scope: "every_app" }
+          : {
+              scope: "app",
+              appId: change.target.appId,
+              expectedOwnerId: change.target.expectedOwnerId,
+            },
+      skip: change.skip,
+      reason: change.reason,
+      adminEmail: change.adminEmail,
+    });
+    if (result.ok) {
+      return reply(200, { changed: result.changed });
+    }
+    return reply(result.error === "owner_changed" ? 409 : 404, { error: result.error });
+  });
+
   return {
     addRoutes(http: HttpRouter): void {
       http.route({ path: path("/moderation/counts"), method: "GET", handler: countRegistrations });
       http.route({ path: path("/moderation/blocks"), method: "GET", handler: listBlocks });
       http.route({ path: path("/moderation/blocks"), method: "POST", handler: changeBlock });
+      http.route({
+        path: path("/moderation/sign-in-page"),
+        method: "GET",
+        handler: listSignInPage,
+      });
+      http.route({
+        path: path("/moderation/sign-in-page"),
+        method: "POST",
+        handler: changeSignInPage,
+      });
       http.route({ path: path("/moderation/clients"), method: "GET", handler: listClients });
       http.route({ pathPrefix: clientsPrefix, method: "DELETE", handler: deleteClient });
     },

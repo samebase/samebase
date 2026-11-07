@@ -20,8 +20,9 @@ import { randomToken, sha256Hex } from "./subject.js";
 export type RegistrationConfig = {
   /**
    * What a registration may do, decided from its facts (RFC 137 decision 2): the connectors it may
-   * enroll in and use, the API resources it may authorize, whether the sign-in page asks for
-   * consent, and whether it is paused. Run at registration and at each use, on the client's and
+   * enroll in and use, the API resources it may authorize, and whether it is paused. The sign-in
+   * page is not the policy's: it shows unless an exemption of the administrator covers the client
+   * (`pageShown`). Run at registration and at each use, on the client's and
    * the tenant's rows, so a change applies to existing clients at once. A policy that throws or
    * answers a malformed value refuses the request, and nothing is allowed by default.
    */

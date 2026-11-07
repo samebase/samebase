@@ -31,6 +31,11 @@ export type OauthConnector = Credentials & {
   issuer: string;
   scopes: string[];
   identity: (accessToken: string) => Promise<UpstreamIdentity>;
+  /**
+   * Sends `prompt=select_account`, so the provider shows its account screen on each sign-in, as
+   * for an OIDC connector. GitHub documents it for OAuth Apps (changelog 2024-06-07).
+   */
+  selectAccount?: boolean;
 };
 
 /** An OpenID Connect provider found through discovery: identity comes from the id_token. */

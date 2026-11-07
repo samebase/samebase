@@ -64,6 +64,8 @@ const clientList = {
         app: "my-app",
       },
       connectors: ["github", "google"],
+      ownerId: "65",
+      signInPage: "shown",
     },
     {
       clientId: "cl_test",
@@ -84,6 +86,8 @@ const clientList = {
         app: "my-app",
       },
       connectors: ["github", "google"],
+      ownerId: "65",
+      signInPage: "shown",
     },
     {
       clientId: "cl_development",
@@ -104,9 +108,26 @@ const clientList = {
         issuedAt: 1_799_000_000_000,
       },
       connectors: ["github", "google"],
+      ownerId: "65",
+      signInPage: "shown",
     },
   ],
   limitReached: false,
+};
+
+const signInPage = {
+  everyApp: null,
+  apps: [
+    {
+      appId: "gh-74-4c9a75cca717efb68c856f26ba825073",
+      ownerId: "65",
+      active: true,
+      reason: "A team we know",
+      repository: "octo-org/octo-repo",
+      app: "my-app",
+      production: true,
+    },
+  ],
 };
 
 /** The hub's moderation endpoints, as packages/identity-broker/src/client/moderation.ts answers them. */
@@ -139,6 +160,8 @@ function stubHub(answer?: () => Response) {
               ? { clients: clientList.clients }
               : clientList,
           );
+        case "/moderation/sign-in-page":
+          return jsonResponse(request.method === "GET" ? signInPage : { changed: true });
         default:
           return request.method === "DELETE" && pathname.startsWith("/moderation/clients/")
             ? jsonResponse({ changed: true })
@@ -188,6 +211,13 @@ describe("hub client moderation", () => {
           reason: "Phishing page",
         }),
       ).rejects.toThrow("Access denied");
+      await expect(
+        viewer.action(api.hubClients.moderation.changeSignInPage, {
+          target: { scope: "every_app" },
+          skip: true,
+          reason: "Launch week",
+        }),
+      ).rejects.toThrow("Access denied");
       expect(requests).toEqual([]);
     },
   );
@@ -210,6 +240,13 @@ describe("hub client moderation", () => {
         reason: "Phishing page",
       }),
     ).toEqual({ status: "off" });
+    expect(
+      await admin.action(api.hubClients.moderation.changeSignInPage, {
+        target: { scope: "every_app" },
+        skip: true,
+        reason: "Launch week",
+      }),
+    ).toEqual({ status: "off" });
     expect(requests).toEqual([]);
   });
 
@@ -221,7 +258,7 @@ describe("hub client moderation", () => {
 
     const overview = await admin.action(api.hubClients.moderation.readOverview, {});
 
-    expect(overview).toEqual({ status: "on", counts, blockList, clientList });
+    expect(overview).toEqual({ status: "on", counts, blockList, clientList, signInPage });
     expect(requests).toEqual([
       {
         url: `${HUB_ISSUER}/moderation/counts`,
@@ -241,7 +278,67 @@ describe("hub client moderation", () => {
         authorization: `Bearer ${MODERATION_KEY}`,
         body: undefined,
       },
+      {
+        url: `${HUB_ISSUER}/moderation/sign-in-page`,
+        method: "GET",
+        authorization: `Bearer ${MODERATION_KEY}`,
+        body: undefined,
+      },
     ]);
+  });
+
+  it("skips the sign-in page for an app in the name of the signed-in admin", async () => {
+    const t = makeConvexTest();
+    turnModerationOn();
+    const requests = stubHub();
+    const admin = await viewerWith(t, "nicu@samebase.com");
+
+    const result = await admin.action(api.hubClients.moderation.changeSignInPage, {
+      target: {
+        scope: "app",
+        appId: "gh-74-4c9a75cca717efb68c856f26ba825073",
+        expectedOwnerId: "65",
+      },
+      skip: true,
+      reason: "A team we know",
+    });
+
+    expect(result).toEqual({ status: "on", result: "changed" });
+    expect(requests).toEqual([
+      {
+        url: `${HUB_ISSUER}/moderation/sign-in-page`,
+        method: "POST",
+        authorization: `Bearer ${MODERATION_KEY}`,
+        body: {
+          target: {
+            scope: "app",
+            appId: "gh-74-4c9a75cca717efb68c856f26ba825073",
+            expectedOwnerId: "65",
+          },
+          skip: true,
+          reason: "A team we know",
+          adminEmail: "nicu@samebase.com",
+        },
+      },
+    ]);
+  });
+
+  it.each([
+    [409, "owner_changed"],
+    [404, "unknown_app"],
+  ] as const)("passes on the hub's %i %s for a sign-in page change", async (status, error) => {
+    const t = makeConvexTest();
+    turnModerationOn();
+    stubHub(() => jsonResponse({ error }, status));
+    const admin = await viewerWith(t, "nicu@samebase.com");
+
+    expect(
+      await admin.action(api.hubClients.moderation.changeSignInPage, {
+        target: { scope: "app", appId: "gh-74-app", expectedOwnerId: "65" },
+        skip: true,
+        reason: "A team we know",
+      }),
+    ).toEqual({ status: "on", result: error });
   });
 
   it("sets a block in the name of the signed-in admin", async () => {

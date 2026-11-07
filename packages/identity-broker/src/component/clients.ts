@@ -4,6 +4,7 @@ import { mutation, query, type QueryCtx } from "./_generated/server";
 import type { Doc } from "./_generated/dataModel";
 import { appView, vApp } from "./apps";
 import { registrationOf, vRegistration } from "./policy";
+import { exemptionOf, vExemption } from "./signInPage";
 import { vDeploymentType, vRegisteredBy, vTokenEndpointAuthMethod } from "./schema";
 import { removeClientGrants } from "./resourceRequests";
 
@@ -77,6 +78,35 @@ export const withApp = query({
       .withIndex("by_client_id", (q) => q.eq("clientId", args.clientId))
       .unique();
     return row === null ? null : await clientWithApp(ctx, row);
+  },
+});
+
+/**
+ * `withApp` for `/authorize`, with the exemptions from the sign-in page that cover the client
+ * (`signInPage.ts`), read in the same snapshot as its facts. Only `/authorize` decides the page, so
+ * only it reads them; the policy never sees them.
+ */
+export const forAuthorize = query({
+  args: { clientId: string() },
+  returns: v.union(object({ ...vClientWithApp.fields, exemption: vExemption }), v.null()),
+  handler: async (ctx, args) => {
+    const row = await ctx.db
+      .query("clients")
+      .withIndex("by_client_id", (q) => q.eq("clientId", args.clientId))
+      .unique();
+    if (row === null) {
+      return null;
+    }
+    const found = await clientWithApp(ctx, row);
+    return {
+      ...found,
+      exemption: await exemptionOf(ctx, {
+        appId: row.appId,
+        // The tenant's recorded owner, which the facts carry; no facts, no exemption.
+        tenantOwnerId: found.registration?.ownerId,
+        clientOwnerId: row.registeredBy.githubOwnerId,
+      }),
+    };
   },
 });
 

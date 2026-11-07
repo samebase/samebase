@@ -74,7 +74,9 @@ record at `/register/<client>` (RFC 7592).
 A row in `blocks` stops a repository, or every repository of an owner: registration, renewal,
 sign-in, code exchange, and provider refresh read it. It is the one block state, and
 `moderation.setBlock` its one writer, which also appends the event. Our hub sets it from Block
-repository and Block owner on samebase.com's admin page, through `/moderation/blocks`.
+repository and Block owner on samebase.com's admin page, through `/moderation/blocks`. A row in
+`signInPageExemptions` is the other thing the admin sets (see Policy): it only skips the sign-in
+page, and a block wins over it.
 
 ## Policy
 
@@ -84,7 +86,32 @@ tenant's owner, the app, the deployment type, the return address, and the proof.
 facts come from GitHub's token or the initial access token's row and the request body; at use, from
 the client's and the tenant's rows, so a changed policy applies to existing clients at once. Its
 answer is the connectors the client may enroll in and use, the API resources (by provider name) it
-may authorize, whether the sign-in page asks for consent, and whether it is paused.
+may authorize, and whether it is paused. The sign-in page is not the policy's.
+
+In hub mode the sign-in page shows for every client, unless the hub's administrator exempted its app
+or every app (`signInPageExemptions`); the broker applies that itself (`pageShown` in
+src/client/policy.ts, which `/authorize` decides with and `/moderation/clients` reports with). Only
+those two read the exemptions: `/authorize` with the client's facts in one query
+(`clients.forAuthorize`), and the moderation list with each client, never from a request. An API
+authorization through `/authorize` reads them with the facts but has no page, so it does not apply
+them; `/continue`, the callbacks, code exchange, and refresh do not read them, because the page
+matters only at `/authorize`. A one-app row counts only while the tenant's recorded owner and the
+owner that registered the client are the row's owner, so a transfer stops it and an old client of a
+previous owner never gets it; it counts again if the repository comes back to the same owner.
+`signInPage.set` is their one writer, through `/moderation/sign-in-page`; it checks that the
+recorded owner is still the one the admin saw before it sets a one-app row, and that the row is
+still bound to the owner the admin saw before it removes one, and appends a `sign_in_page_change`
+event in the same transaction. The list says per one-app row whether it is active, bound to the
+repository's recorded owner now.
+
+Decision: the admin's exemptions are the one lever of the page, and the broker applies them; the
+policy decides connectors, resources, and the pause only. The broker draws its own sign-in page, so
+it applies the admin's flag itself, the standard server behavior of Keycloak's per-client "Consent
+required" and Auth0's first-party flag. Ory Hydra passes its per-client `skip_consent` to a consent
+app only because Hydra has no page of its own. A hub has no code rule for the page: an app that
+should skip it, such as the hub's own product, gets an ordinary exemption from the admin page. The
+cost is that a hub cannot skip or force the page in code; the admin who sets an exemption and the
+operator who writes the hub's policy are the same party, so one lever is enough.
 
 The policy runs in the host's HTTP action, once per request, at registration, `/authorize`,
 `/continue`, the connector callback (before the request is claimed, and again after the provider
@@ -100,7 +127,8 @@ the provider answers is not seen by that action's second decision, so the reques
 the configuration it started with, and the next request refuses. That is the boundary RFC 137
 decision 2 chose; moderation (a block) stays a row that every mutation reads in its own transaction,
 and it stops a request in that window. Without hub mode there is no policy: the host is its own, and
-every client may use its enrollment and every resource, with no consent and no pause.
+every client may use its enrollment and every resource, with no page asking for consent and no
+pause.
 
 A pause refuses new registrations, sign-ins, API authorizations, callback completions, code
 exchanges, and refreshes before the provider is called. It leaves client reads and renewals,
@@ -116,14 +144,23 @@ is the app's.
 space-delimited list, as `scope` and `prompt` are; an empty or whitespace value counts as omitted),
 else every connector the client may use now. A name outside the enrollment answers
 `invalid_request`; the set is then intersected with the policy's connectors, and an empty set is
-"Sign-in is off" (403). With one connector in the set and no consent, the browser goes straight to
-the provider; otherwise one page offers a "Continue with" button per connector of the set. With
-consent, the page also names the host that gets the sign-in (which served the repository's
-verification file, or is the user's own computer), the deploy and the GitHub repository that
-registered the client, what the app receives, and links the hub's privacy notice and terms. The
-picker and the consent are one page, so no user sees two pickers. `/continue`, the callback, and
-code exchange accept only a connector in the set, the enrollment, and the policy of the moment. The
-id_token keeps `connector` as one string, the connector the user signed in with.
+"Sign-in is off" (403). With one connector in the set and no page to ask for consent (no hub mode,
+or an exemption), the browser goes straight to the provider; otherwise one page offers a "Continue
+with" button per connector of the set. When it asks for consent, the page also names the host that
+gets the sign-in (which served the repository's verification file, or is the user's own computer),
+the deploy and the GitHub repository that registered the client, what the app receives, and links
+the hub's privacy notice and terms. The picker and the consent are one page, so no user sees two
+pickers. `/continue`, the callback, and code exchange accept only a connector in the set, the
+enrollment, and the policy of the moment. The id_token keeps `connector` as one string, the
+connector the user signed in with.
+
+Whether the page asks for consent is decided once, at the `/authorize` that stores the request: an
+exemption set or removed later does not change a request that already passed it, in either
+direction. `/continue`, the callback, code exchange, and refresh keep every other check; they do not
+decide the page again. Removing an exemption is not a revocation: to stop an app, block it. With the
+page skipped, the provider's screen is the only one, and it names the hub, not the app; a connector
+with `selectAccount` makes that screen ask for a click, so no app gets a user who authorized the hub
+before with no click at all.
 
 A refusal before the user continued from the page (or, with no page, before the redirect to the
 provider) is an error page of the hub, for every client: the user has not accepted the return
@@ -202,9 +239,9 @@ verified in browsers.
 ## Browser binding
 
 `/authorize` sets one transaction cookie per request, and every later step needs it: `/continue` and
-the connector callback (RFC 9700 section 2.1.1). A request with one connector and no consent skips
-the page, not this binding. A link or a callback that reaches another browser gets an error page,
-and the request keeps waiting for the browser that started it.
+the connector callback (RFC 9700 section 2.1.1). A request with one connector and no page to ask for
+consent skips the page, not this binding. A link or a callback that reaches another browser gets an
+error page, and the request keeps waiting for the browser that started it.
 
 ## Subjects
 

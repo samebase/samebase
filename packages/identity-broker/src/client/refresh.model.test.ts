@@ -582,7 +582,6 @@ async function play(commands: Command[], checks: Checks, story: Story) {
     policy: () => ({
       connectors: ["fake", "other"],
       resources: policy.resources ? [RESOURCE.name] : [],
-      consent: false,
       paused: policy.paused,
     }),
   });

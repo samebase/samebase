@@ -47,6 +47,16 @@ export const vRegisteredBy = union(
 /** What a block stops: one GitHub repository, or every repository of one GitHub owner. */
 export const vBlockKind = union(literal("repository"), literal("owner"));
 
+/**
+ * What an exemption from the sign-in page covers: every app, strangers' and future ones included,
+ * or one broker app (a repository's production app, or its preview app, which holds previews and
+ * development clients) bound to the repository's owner that the hub recorded when the admin set it.
+ */
+export const vSignInPageTarget = union(
+  object({ scope: literal("every_app") }),
+  object({ scope: literal("app"), appId: string(), ownerId: string() }),
+);
+
 /** The windows of `POST /hub-clients`. `new_owners` is the one window of all owners new to the hub. */
 export const vRateLimitScope = union(
   literal("repository"),
@@ -167,10 +177,23 @@ export default defineSchema({
     .index("by_at", ["at"]),
 
   /**
+   * The exemptions from the sign-in page, set by the hub's administrator with
+   * `signInPage.set`. One row per target. A row that covers a client skips the sign-in page for
+   * it, which hub mode shows otherwise. A one-app row counts only while the tenant's recorded
+   * owner and the owner that registered the client are the row's `ownerId`.
+   */
+  signInPageExemptions: defineTable({
+    target: vSignInPageTarget,
+    /** Why, as the admin wrote it. */
+    reason: string(),
+  }).index("by_target", ["target.scope", "target.appId"]),
+
+  /**
    * Append-only history, never changed or deleted. `registration`: one row per client that
    * `POST /hub-clients` created, written with the client; it outlives the client, so it answers the
    * registration counts and whether an owner has ever registered. `block_change`: one row per block
-   * and unblock that changed something.
+   * and unblock that changed something. `sign_in_page_change`: one row per exemption from the
+   * sign-in page that was set (`skip`) or removed (`show`), when it changed something.
    */
   events: defineTable(
     union(
@@ -186,6 +209,14 @@ export default defineSchema({
         action: union(literal("block"), literal("unblock")),
         scope: vBlockKind,
         githubId: string(),
+        reason: string(),
+        adminEmail: string(),
+        at: number(),
+      }),
+      object({
+        kind: literal("sign_in_page_change"),
+        action: union(literal("skip"), literal("show")),
+        target: vSignInPageTarget,
         reason: string(),
         adminEmail: string(),
         at: number(),

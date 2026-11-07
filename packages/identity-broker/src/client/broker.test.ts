@@ -16,7 +16,7 @@ import {
   txnCookie,
   type Harness,
 } from "./harness.test.helper.js";
-import { hubRegistration, testPolicy } from "./hub.test.helper.js";
+import { hubRegistration, skipSignInPage, testPolicy } from "./hub.test.helper.js";
 
 const REDIRECT_URI = "https://app.test/oauth/hub/callback";
 
@@ -776,7 +776,7 @@ describe("authorization code flow with an OAuth connector", () => {
     }
   });
 
-  test("a hub whose policy asks for consent shows the page before the connector", async () => {
+  test("a hub shows the page before the connector by default", async () => {
     const h = await createHarness({
       connectors: [fakeUpstream().connector],
       registration: hubRegistration(),
@@ -874,13 +874,14 @@ describe("authorization code flow with an OAuth connector", () => {
     expect(local).toContain("octo-org/octo-repo</a> on this computer</p>");
   });
 
-  test("without consent, one offered connector goes straight on and several get the picker", async () => {
+  test("with an exemption, one offered connector goes straight on and several get the picker", async () => {
     const upstream = fakeUpstream();
     const other = { ...upstream.connector, name: "other", label: "Other" };
     const h = await createHarness({
       connectors: [upstream.connector, other],
-      registration: hubRegistration(() => testPolicy({ consent: false })),
+      registration: hubRegistration(() => testPolicy()),
     });
+    await skipSignInPage(h);
     const one = await h.registerClient({
       appName: "One",
       redirectUri: REDIRECT_URI,

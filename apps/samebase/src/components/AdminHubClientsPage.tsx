@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { getRouteApi } from "@tanstack/react-router";
 import { useAction } from "convex/react";
 import type { FunctionReturnType } from "convex/server";
-import { Ban, Loader2 } from "lucide-react";
+import { Ban, Eye, EyeOff, Loader2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { api } from "../../convex/_generated/api";
 import { AppDialogContent } from "@/components/AppDialogContent";
@@ -53,6 +53,41 @@ const repositoryTarget = (client: HubClient, clients: readonly HubClient[]): Blo
   ).length,
 });
 
+/**
+The app of a client, for the hub's sign-in page: its broker app (the production app, or the preview
+app with the development servers), whether a row of it exists now, and the owner to send: the
+row's to remove it, else the repository owner that the hub recorded, which a new row binds to.
+*/
+type SignInPageTarget = {
+  appId: string;
+  ownerId: string | null;
+  /** The owner that registered this client, which can be an earlier owner than `ownerId`. */
+  registeredByOwnerId: string;
+  name: string;
+  production: boolean;
+  exempt: boolean;
+  now: HubClient["signInPage"];
+};
+
+const signInPageTarget = (client: HubClient, overview: Overview): SignInPageTarget => {
+  const row = overview.signInPage.apps.find((app) => app.appId === client.appId);
+  return {
+    appId: client.appId,
+    ownerId: row === undefined ? client.ownerId : row.ownerId,
+    registeredByOwnerId: client.registeredBy.githubOwnerId,
+    name: `${client.registeredBy.githubRepository} ${client.registeredBy.app}`,
+    production: client.deploymentType === "production",
+    exempt: row !== undefined,
+    now: client.signInPage,
+  };
+};
+
+const SIGN_IN_PAGE_NOW = {
+  shown: "The hub shows its sign-in page to this app's users.",
+  every_app: "The hub skips its sign-in page for every app.",
+  this_app: "The hub skips its sign-in page for this app.",
+} as const;
+
 const ownerTarget = (client: HubClient, clients: readonly HubClient[]): BlockTarget => ({
   kind: "owner",
   githubId: client.registeredBy.githubOwnerId,
@@ -70,12 +105,17 @@ repository, and the blocks and their events.
 export function AdminHubClientsPage() {
   const readOverview = useAction(api.hubClients.moderation.readOverview);
   const changeBlock = useAction(api.hubClients.moderation.changeBlock);
+  const changeSignInPage = useAction(api.hubClients.moderation.changeSignInPage);
   const overview = useQuery({
     queryKey: ["admin-hub-clients-overview"],
     queryFn: async () => await readOverview({}),
     retry: false,
   });
   const [blockTarget, setBlockTarget] = useState<BlockTarget | null>(null);
+  const [signInPageTarget, setSignInPageTarget] = useState<SignInPageTarget | null>(null);
+  const refetch = async () => {
+    await overview.refetch();
+  };
 
   return (
     <main
@@ -106,21 +146,28 @@ export function AdminHubClientsPage() {
               <TabsTrigger value="blocks">
                 Blocks {overview.data.blockList.blocks.length}
               </TabsTrigger>
+              <TabsTrigger value="sign-in-page">Sign-in page</TabsTrigger>
             </TabsList>
             <TabsContent value="clients">
               <AdminClientsTable
                 overview={overview.data}
                 now={overview.dataUpdatedAt}
                 onBlock={setBlockTarget}
+                onSignInPage={setSignInPageTarget}
               />
             </TabsContent>
             <TabsContent value="blocks">
               <BlocksSection
                 overview={overview.data}
                 changeBlock={changeBlock}
-                onChanged={async () => {
-                  await overview.refetch();
-                }}
+                onChanged={refetch}
+              />
+            </TabsContent>
+            <TabsContent value="sign-in-page">
+              <SignInPageSection
+                overview={overview.data}
+                changeSignInPage={changeSignInPage}
+                onChanged={refetch}
               />
             </TabsContent>
           </Tabs>
@@ -128,9 +175,13 @@ export function AdminHubClientsPage() {
             target={blockTarget}
             changeBlock={changeBlock}
             onClose={() => setBlockTarget(null)}
-            onChanged={async () => {
-              await overview.refetch();
-            }}
+            onChanged={refetch}
+          />
+          <SignInPageDialog
+            target={signInPageTarget}
+            changeSignInPage={changeSignInPage}
+            onClose={() => setSignInPageTarget(null)}
+            onChanged={refetch}
           />
         </>
       )}
@@ -143,10 +194,12 @@ function AdminClientsTable({
   overview,
   now,
   onBlock,
+  onSignInPage,
 }: {
   overview: Overview;
   now: number;
   onBlock: (target: BlockTarget) => void;
+  onSignInPage: (target: SignInPageTarget) => void;
 }) {
   const navigate = adminHubClientsRouteApi.useNavigate();
   const search = adminHubClientsRouteApi.useSearch();
@@ -180,6 +233,20 @@ function AdminClientsTable({
       clientActions={(client) => (
         <>
           <DropdownMenuSeparator />
+          {overview.signInPage.apps.some((app) => app.appId === client.appId) ? (
+            <DropdownMenuItem onSelect={() => onSignInPage(signInPageTarget(client, overview))}>
+              <Eye />
+              Show the sign-in page…
+            </DropdownMenuItem>
+          ) : (
+            <DropdownMenuItem
+              disabled={client.ownerId === null}
+              onSelect={() => onSignInPage(signInPageTarget(client, overview))}
+            >
+              <EyeOff />
+              Skip the sign-in page…
+            </DropdownMenuItem>
+          )}
           <DropdownMenuItem
             variant="destructive"
             onSelect={() => onBlock(repositoryTarget(client, clients))}
@@ -478,5 +545,255 @@ function BlocksSection({
         </ol>
       )}
     </>
+  );
+}
+
+type ChangeSignInPage = ReturnType<
+  typeof useAction<typeof api.hubClients.moderation.changeSignInPage>
+>;
+
+/** What the hub answered to a change that it did not make, for the admin. */
+const signInPageRefusal = (result: string) =>
+  result === "owner_changed"
+    ? "The repository has another owner now. Reload the page and try again."
+    : result === "unknown_app"
+      ? "The hub no longer has this app."
+      : null;
+
+/** Skips or shows again the hub's sign-in page for one app, with a reason. */
+function SignInPageDialog({
+  target,
+  changeSignInPage,
+  onClose,
+  onChanged,
+}: {
+  target: SignInPageTarget | null;
+  changeSignInPage: ChangeSignInPage;
+  onClose: () => void;
+  onChanged: () => Promise<void>;
+}) {
+  const [reason, setReason] = useState("");
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const close = () => {
+    setReason("");
+    setError(null);
+    onClose();
+  };
+
+  const change = async (pageTarget: SignInPageTarget, ownerId: string) => {
+    setPending(true);
+    setError(null);
+    try {
+      const answer = await changeSignInPage({
+        target: { scope: "app", appId: pageTarget.appId, expectedOwnerId: ownerId },
+        skip: !pageTarget.exempt,
+        reason,
+      });
+      const refusal = answer.status === "on" ? signInPageRefusal(answer.result) : null;
+      if (refusal !== null) {
+        setError(refusal);
+        return;
+      }
+      await onChanged();
+      close();
+    } catch {
+      setError("The hub refused the change.");
+    } finally {
+      setPending(false);
+    }
+  };
+
+  return (
+    <Dialog open={target !== null} onOpenChange={(open) => (open || pending ? null : close())}>
+      {target === null ? null : (
+        <AppDialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {target.exempt ? "Show" : "Skip"} the sign-in page for {target.name}?
+            </DialogTitle>
+            <DialogDescription>
+              {target.now === null ? null : `${SIGN_IN_PAGE_NOW[target.now]} `}
+              {target.exempt
+                ? "This removes the app's own exemption. From the next sign-in the hub shows its page, unless the switch for every app skips it. Sign-ins that already started finish as they started."
+                : `The users of this app's ${target.production ? "production" : "previews and development servers"} go straight to Google or GitHub, with no page that names the app. The exemption trusts the repository's owner that the hub recorded, GitHub id ${target.ownerId ?? "none"}, and stops when the repository has another owner.`}
+              {!target.exempt && target.registeredByOwnerId !== target.ownerId
+                ? ` This client was registered by an earlier owner, GitHub id ${target.registeredByOwnerId}, and keeps the page: only clients of the recorded owner skip it.`
+                : null}
+            </DialogDescription>
+          </DialogHeader>
+          <form
+            id="admin-hub-clients-sign-in-page-form"
+            className="grid gap-2"
+            onSubmit={(event) => {
+              event.preventDefault();
+              // The hub recorded no owner of the repository: no row can bind to one.
+              if (!pending && target.ownerId !== null) {
+                void change(target, target.ownerId);
+              }
+            }}
+          >
+            <Label htmlFor="admin-hub-clients-sign-in-page-reason">Reason</Label>
+            <Input
+              id="admin-hub-clients-sign-in-page-reason"
+              required
+              value={reason}
+              onChange={(event) => setReason(event.target.value)}
+            />
+            {error === null ? null : (
+              <p className="text-sm text-destructive" role="alert">
+                {error}
+              </p>
+            )}
+          </form>
+          <DialogFooter>
+            <Button variant="outline" disabled={pending} onClick={close}>
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              form="admin-hub-clients-sign-in-page-form"
+              disabled={pending || reason.trim() === "" || target.ownerId === null}
+            >
+              {pending ? (
+                <>
+                  <Loader2 className="animate-spin" />
+                  Saving...
+                </>
+              ) : target.exempt ? (
+                "Show the page"
+              ) : (
+                "Skip the page"
+              )}
+            </Button>
+          </DialogFooter>
+        </AppDialogContent>
+      )}
+    </Dialog>
+  );
+}
+
+/**
+The "every app" switch of the hub's sign-in page, and the apps that skip it, each with a Remove.
+Every change needs the reason above.
+*/
+function SignInPageSection({
+  overview,
+  changeSignInPage,
+  onChanged,
+}: {
+  overview: Overview;
+  changeSignInPage: ChangeSignInPage;
+  onChanged: () => Promise<void>;
+}) {
+  const [reason, setReason] = useState("");
+  const [pending, setPending] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+  const { everyApp, apps } = overview.signInPage;
+
+  const submit = async (
+    key: string,
+    target: { scope: "every_app" } | { scope: "app"; appId: string; expectedOwnerId: string },
+    skip: boolean,
+  ) => {
+    if (pending !== null || reason.trim() === "") {
+      return;
+    }
+    setPending(key);
+    setMessage(null);
+    try {
+      const answer = await changeSignInPage({ target, skip, reason });
+      setMessage(answer.status === "on" ? signInPageRefusal(answer.result) : null);
+      setReason("");
+      await onChanged();
+    } catch {
+      setMessage("The hub refused the change.");
+    } finally {
+      setPending(null);
+    }
+  };
+
+  return (
+    <div className="mt-4 grid max-w-xl gap-4">
+      <div className="grid gap-2">
+        <Label htmlFor="admin-hub-clients-sign-in-page-change-reason">Reason</Label>
+        <Input
+          id="admin-hub-clients-sign-in-page-change-reason"
+          required
+          value={reason}
+          onChange={(event) => setReason(event.target.value)}
+        />
+      </div>
+      <p className="text-sm">
+        {everyApp === null
+          ? "The switch for every app is off. The hub skips its sign-in page only for the apps below."
+          : `The hub skips its sign-in page for every app: ${everyApp.reason}`}
+      </p>
+      <div>
+        <Button
+          type="button"
+          variant={everyApp === null ? "destructive" : "outline"}
+          disabled={pending !== null || reason.trim() === ""}
+          onClick={() => void submit("every_app", { scope: "every_app" }, everyApp === null)}
+        >
+          {pending === "every_app" ? (
+            <>
+              <Loader2 className="animate-spin" />
+              Saving...
+            </>
+          ) : everyApp === null ? (
+            "Skip the sign-in page for every app"
+          ) : (
+            "Show the sign-in page for every app"
+          )}
+        </Button>
+      </div>
+      {message === null ? null : (
+        <p className="text-sm text-muted-foreground" role="status">
+          {message}
+        </p>
+      )}
+      <h2 className="mt-6 text-base font-semibold">Apps that skip the sign-in page</h2>
+      {apps.length === 0 ? (
+        <p className="text-sm text-muted-foreground">No app.</p>
+      ) : (
+        <ul className="divide-y border-y">
+          {apps.map((app) => (
+            <li key={app.appId} className="flex items-center gap-3 py-3 text-sm">
+              <span className="min-w-0 flex-1">
+                {app.repository === null ? app.appId : `${app.repository} ${app.app ?? ""}`}
+                {app.production === null
+                  ? null
+                  : app.production
+                    ? ", production"
+                    : ", previews and development"}
+                : {app.reason}
+                <span className="block text-muted-foreground">
+                  Bound to the owner with GitHub id {app.ownerId}.
+                  {app.active ? null : " Not active: the repository has another owner now."}
+                </span>
+              </span>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={pending !== null || reason.trim() === ""}
+                onClick={() =>
+                  void submit(
+                    app.appId,
+                    { scope: "app", appId: app.appId, expectedOwnerId: app.ownerId },
+                    false,
+                  )
+                }
+              >
+                {pending === app.appId ? <Loader2 className="animate-spin" /> : null}
+                Remove
+              </Button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }

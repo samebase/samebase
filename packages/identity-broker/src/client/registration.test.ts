@@ -3,15 +3,17 @@ import { decodeJwt } from "jose";
 import { afterEach, describe, expect, test, vi } from "vite-plus/test";
 import { api } from "../component/_generated/api.js";
 import { LEASE_MS, MAX_APPS_PER_TENANT, MAX_CLIENTS_PER_APP } from "../component/registration.js";
+import { github } from "./connectors/github.js";
 import {
   createHarness,
   fakeOidcUpstream,
+  fakeUpstream,
   pkce,
   sha256Hex,
   txnCookie,
   type Harness,
 } from "./harness.test.helper.js";
-import { hubConnectors, hubRegistration, testPolicy } from "./hub.test.helper.js";
+import { hubConnectors, hubRegistration, skipSignInPage, testPolicy } from "./hub.test.helper.js";
 import type { Policy, PolicyFunction } from "./policy.js";
 
 const REDIRECT_URI = "https://app-1.convex.site/auth/hub/callback";
@@ -23,14 +25,19 @@ afterEach(() => {
 });
 
 /**
- * A hub with the two connectors of the fake provider and `policy`, which asks for no consent
- * unless a test says otherwise, so a client enrolled in one connector goes straight to it.
+ * A hub with the two connectors of the fake provider and `policy`, with the sign-in page skipped
+ * for every app, so a client enrolled in one connector goes straight to it. `page` keeps the page,
+ * as a hub without exemptions shows it.
  */
-async function hub(policy: PolicyFunction = () => testPolicy({ consent: false })) {
-  return await createHarness({
+async function hub(policy: PolicyFunction = () => testPolicy(), options: { page?: true } = {}) {
+  const h = await createHarness({
     connectors: hubConnectors(),
     registration: hubRegistration(policy),
   });
+  if (options.page === undefined) {
+    await skipSignInPage(h);
+  }
+  return h;
 }
 
 /**
@@ -261,7 +268,7 @@ describe("registration", () => {
   test("a pause refuses the sign-in of the clients it names, and leaves the others alone", async () => {
     let paused = false;
     const h = await hub((registration) =>
-      testPolicy({ consent: false, paused: paused && registration.app !== "own" }),
+      testPolicy({ paused: paused && registration.app !== "own" }),
     );
     const client = await register(h);
     const own = await register(h, { appId: "gh-1-own", app: "own" });
@@ -304,7 +311,7 @@ describe("the connectors of a client", () => {
   });
 
   test("/continue cannot move a request to another connector, also after it started", async () => {
-    const h = await hub(() => testPolicy());
+    const h = await hub(() => testPolicy(), { page: true });
     const client = await register(h, { connectors: ["fake", "other"] });
     const { challenge } = await pkce();
     const start = await h.fetchBroker(
@@ -329,7 +336,7 @@ describe("the connectors of a client", () => {
 
   test("the page offers the enrollment intersected with the policy, and none left is off", async () => {
     let connectors = ["fake", "other"];
-    const h = await hub(() => testPolicy({ connectors }));
+    const h = await hub(() => testPolicy({ connectors }), { page: true });
     const client = await register(h, { connectors: ["fake", "other"] });
     const { challenge } = await pkce();
     const bothPage = await h.fetchBroker(authorizeUrl(h, client.client_id, challenge));
@@ -361,7 +368,7 @@ describe("the connectors of a client", () => {
 
   test("a connector withdrawn after the callback refuses the code, and one withdrawn before it refuses the callback", async () => {
     let connectors = ["fake", "other"];
-    const h = await hub(() => testPolicy({ consent: false, connectors }));
+    const h = await hub(() => testPolicy({ connectors }));
     const client = await register(h, { connectors: ["fake", "other"] });
     const { verifier, challenge } = await pkce();
     const start = await h.fetchBroker(
@@ -401,14 +408,37 @@ describe("the connectors of a client", () => {
     const { connector } = await fakeOidcUpstream();
     const h = await createHarness({
       connectors: [{ ...connector, selectAccount: true }],
-      registration: hubRegistration(() => testPolicy({ consent: false, connectors: ["idp"] })),
+      registration: hubRegistration(() => testPolicy({ connectors: ["idp"] })),
     });
+    await skipSignInPage(h);
     const client = await register(h, { connectors: ["idp"] });
     const { challenge } = await pkce();
     const start = await h.fetchBroker(authorizeUrl(h, client.client_id, challenge));
     expect(new URL(start.headers.get("location") ?? "").searchParams.get("prompt")).toBe(
       "select_account",
     );
+  });
+
+  test("selectAccount sends prompt=select_account to a plain OAuth provider too, as GitHub documents", async () => {
+    const { connector } = fakeUpstream();
+    const h = await createHarness({
+      connectors: [{ ...connector, selectAccount: true }],
+      registration: hubRegistration(() => testPolicy({ connectors: ["fake"] })),
+    });
+    await skipSignInPage(h);
+    const client = await register(h, { connectors: ["fake"] });
+    const { challenge } = await pkce();
+    const start = await h.fetchBroker(authorizeUrl(h, client.client_id, challenge));
+    const upstream = new URL(start.headers.get("location") ?? "");
+    expect(upstream.origin).toBe("https://upstream.test");
+    expect(upstream.searchParams.get("prompt")).toBe("select_account");
+    expect(github({ clientId: () => "id", clientSecret: () => "secret" }).selectAccount).toBe(
+      undefined,
+    );
+    expect(
+      github({ clientId: () => "id", clientSecret: () => "secret", selectAccount: true })
+        .selectAccount,
+    ).toBe(true);
   });
 });
 
@@ -427,7 +457,7 @@ describe("a refusal before sign-in (RFC 9700 section 4.11.2)", () => {
   });
 
   test("after the user continued from the page, a refusal goes back to the app", async () => {
-    const h = await hub(() => testPolicy());
+    const h = await hub(() => testPolicy(), { page: true });
     const client = await register(h);
     const { challenge } = await pkce();
     const page = await h.fetchBroker(
@@ -446,7 +476,7 @@ describe("a refusal before sign-in (RFC 9700 section 4.11.2)", () => {
 
 describe("the policy", () => {
   test("a throwing or malformed policy refuses every use with 503 and writes nothing", async () => {
-    let policy: () => Policy = () => testPolicy({ consent: false });
+    let policy: () => Policy = () => testPolicy();
     const h = await hub(() => policy());
     const client = await register(h);
     const { verifier, challenge } = await pkce();
@@ -458,7 +488,7 @@ describe("the policy", () => {
         throw new Error("no env");
       },
       // @ts-expect-error The policy answers a wrong shape on purpose.
-      () => ({ connectors: ["fake"], consent: false, paused: false }),
+      () => ({ connectors: ["fake"], paused: false }),
     ];
     for (const answer of broken) {
       policy = answer;
@@ -475,7 +505,7 @@ describe("the policy", () => {
       expect(await redeemed.json()).toMatchObject({ error: "temporarily_unavailable" });
     }
     // The code is still there: the policy's failure consumed nothing.
-    policy = () => testPolicy({ consent: false });
+    policy = () => testPolicy();
     expect(
       (
         await redeem(h, {
@@ -489,7 +519,7 @@ describe("the policy", () => {
   });
 
   test("a policy that fails, or a client that is gone, while the user is at the provider answers the app", async () => {
-    let policy: () => Policy = () => testPolicy({ consent: false });
+    let policy: () => Policy = () => testPolicy();
     const h = await hub(() => policy());
     const client = await register(h);
     const { challenge } = await pkce();
@@ -513,7 +543,7 @@ describe("the policy", () => {
     const failedAt = new URL(failed.headers.get("location") ?? "");
     expect(failedAt.origin + failedAt.pathname).toBe(REDIRECT_URI);
     expect(failedAt.searchParams.get("error")).toBe("temporarily_unavailable");
-    policy = () => testPolicy({ consent: false });
+    policy = () => testPolicy();
     const back = await h.fetchBroker(first.callback, { headers: first.cookie });
     expect(new URL(back.headers.get("location") ?? "").searchParams.has("code")).toBe(true);
 
@@ -566,7 +596,7 @@ describe("the policy", () => {
     const seen: unknown[] = [];
     const h = await hub((registration) => {
       seen.push(registration);
-      return testPolicy({ consent: false });
+      return testPolicy();
     });
     const client = await register(h, { deploymentType: "production" });
     expect((await signIn(h, client)).status).toBe(200);
@@ -653,7 +683,7 @@ describe("RFC 7592 client management", () => {
   });
 
   test("a hub's consent page names the hub, and links its privacy notice and terms", async () => {
-    const h = await hub(() => testPolicy());
+    const h = await hub(() => testPolicy(), { page: true });
     const client = await register(h, { appId: "gh-1-app-p", deploymentType: "preview" });
     const { challenge } = await pkce();
     const page = await h.fetchBroker(authorizeUrl(h, client.client_id, challenge));
@@ -726,7 +756,7 @@ describe("what a redemption does at once", () => {
   test("a pause stops a sign-in that already started, and not a client the policy exempts", async () => {
     let paused = false;
     const h = await hub((registration) =>
-      testPolicy({ consent: false, paused: paused && registration.app !== "own" }),
+      testPolicy({ paused: paused && registration.app !== "own" }),
     );
     const client = await register(h);
     const own = await register(h, { appId: "gh-1-own", app: "own" });
@@ -747,7 +777,7 @@ describe("what a redemption does at once", () => {
 
   test("a pause that lands while the user is at the provider sends the user back refused", async () => {
     let paused = false;
-    const h = await hub(() => testPolicy({ consent: false, paused }));
+    const h = await hub(() => testPolicy({ paused }));
     const client = await register(h);
     const { challenge } = await pkce();
     const start = await h.fetchBroker(authorizeUrl(h, client.client_id, challenge));

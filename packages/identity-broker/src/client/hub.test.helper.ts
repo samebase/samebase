@@ -23,18 +23,30 @@ const JWKS_URL = "https://token.actions.githubusercontent.com/.well-known/jwks";
 export const HUB_CONNECTORS = ["fake", "other"] as const;
 
 /**
- * The policy of the test hub, in the shape of our hub's: every connector, no resources, consent,
- * and the pause of `APPS_PAUSED`, read in the request so `vi.stubEnv` of it holds. `overrides`
- * replace any field.
+ * The policy of the test hub, in the shape of our hub's: every connector, no resources, and the
+ * pause of `APPS_PAUSED`, read in the request so `vi.stubEnv` of it holds. `overrides` replace any
+ * field.
  */
 export function testPolicy(overrides: Partial<Policy> = {}): Policy {
   return {
     connectors: [...HUB_CONNECTORS],
     resources: [],
-    consent: true,
     paused: process.env["APPS_PAUSED"] === "true",
     ...overrides,
   };
+}
+
+/**
+ * Skips the hub's sign-in page for every app, as the admin's switch does, so a sign-in with one
+ * offered connector goes straight to it. For tests about what follows the page.
+ */
+export async function skipSignInPage(h: Harness) {
+  await h.t.run(async (ctx) => {
+    await ctx.db.insert("signInPageExemptions", {
+      target: { scope: "every_app" },
+      reason: "A test about what follows the page",
+    });
+  });
 }
 
 /** The hub mode with `policy`, which reads `HUB_MODERATION_KEY` in each request. */

@@ -11,7 +11,13 @@ import type { HubClientsRouteSearch } from "@/routeSearch/hubClients";
 
 const testState = vi.hoisted(() => {
   const search: HubClientsRouteSearch = {};
-  return { readOverview: vi.fn(), changeBlock: vi.fn(), navigate: vi.fn(), search };
+  return {
+    readOverview: vi.fn(),
+    changeBlock: vi.fn(),
+    changeSignInPage: vi.fn(),
+    navigate: vi.fn(),
+    search,
+  };
 });
 
 vi.mock("convex/react", async (importOriginal) => {
@@ -22,6 +28,9 @@ vi.mock("convex/react", async (importOriginal) => {
       const name = getFunctionName(reference);
       if (name === getFunctionName(api.hubClients.moderation.readOverview)) {
         return testState.readOverview;
+      }
+      if (name === getFunctionName(api.hubClients.moderation.changeSignInPage)) {
+        return testState.changeSignInPage;
       }
       return testState.changeBlock;
     },
@@ -87,6 +96,8 @@ const overview = {
           app: "my-app",
         },
         connectors: ["github", "google"],
+        ownerId: "65",
+        signInPage: "shown",
       },
       {
         clientId: "cl_development",
@@ -107,6 +118,8 @@ const overview = {
           issuedAt: ISSUED_AT,
         },
         connectors: ["github", "google"],
+        ownerId: "65",
+        signInPage: "shown",
       },
       {
         clientId: "cl_production",
@@ -127,9 +140,26 @@ const overview = {
           app: "my-app",
         },
         connectors: ["github", "google"],
+        ownerId: "65",
+        signInPage: "shown",
       },
     ],
     limitReached: false,
+  },
+  signInPage: {
+    everyApp: null,
+    apps: [
+      {
+        appId: "gh-81-4c9a75cca717efb68c856f26ba825073",
+        ownerId: "90",
+        // The hub has recorded owner 65 for this repository since the row was set.
+        active: false,
+        reason: "A team we know",
+        repository: "other-org/own",
+        app: "my-app",
+        production: true,
+      },
+    ],
   },
 };
 
@@ -189,6 +219,8 @@ describe("AdminHubClientsPage", () => {
     testState.readOverview.mockResolvedValue(overview);
     testState.changeBlock.mockReset();
     testState.changeBlock.mockResolvedValue({ status: "on", changed: true });
+    testState.changeSignInPage.mockReset();
+    testState.changeSignInPage.mockResolvedValue({ status: "on", result: "changed" });
     testState.navigate.mockReset();
     testState.search = {};
   });
@@ -302,6 +334,110 @@ describe("AdminHubClientsPage", () => {
         githubId: "74",
         reason: "Fixed",
       });
+    } finally {
+      await page.unmount();
+    }
+  });
+
+  it("skips the sign-in page for every app and removes an app's exemption, each with the reason", async () => {
+    const page = await renderPage();
+    try {
+      await act(async () => button(page.rootElement, "Sign-in page").click());
+      const text = page.rootElement.textContent;
+      expect(text).toContain("other-org/own my-app, production: A team we know");
+      // A row kept through a transfer covers no client, and the admin can still remove it.
+      expect(text).toContain(
+        "Bound to the owner with GitHub id 90. Not active: the repository has another owner now.",
+      );
+      // Nothing goes to the hub without a reason.
+      expect(button(page.rootElement, "Skip the sign-in page for every app").disabled).toBe(true);
+
+      await act(async () =>
+        type(page.rootElement, "#admin-hub-clients-sign-in-page-change-reason", "Launch week"),
+      );
+      await act(async () => {
+        button(page.rootElement, "Skip the sign-in page for every app").click();
+        await Promise.resolve();
+      });
+      expect(testState.changeSignInPage).toHaveBeenLastCalledWith({
+        target: { scope: "every_app" },
+        skip: true,
+        reason: "Launch week",
+      });
+
+      await act(async () =>
+        type(page.rootElement, "#admin-hub-clients-sign-in-page-change-reason", "Done"),
+      );
+      await act(async () => {
+        button(page.rootElement, "Remove").click();
+        await Promise.resolve();
+      });
+      // The row's owner, so a row that no longer counts can go too.
+      expect(testState.changeSignInPage).toHaveBeenLastCalledWith({
+        target: {
+          scope: "app",
+          appId: "gh-81-4c9a75cca717efb68c856f26ba825073",
+          expectedOwnerId: "90",
+        },
+        skip: false,
+        reason: "Done",
+      });
+    } finally {
+      await page.unmount();
+    }
+  });
+
+  it("binds a skip to the recorded owner, names it, and says when the repository moved on", async () => {
+    // cl_test was registered by owner 11; the hub has recorded owner 65 since.
+    const [first, ...rest] = overview.clientList.clients;
+    testState.readOverview.mockResolvedValue({
+      ...overview,
+      clientList: {
+        ...overview.clientList,
+        clients: [
+          { ...first, registeredBy: { ...first.registeredBy, githubOwnerId: "11" } },
+          ...rest,
+        ],
+      },
+    });
+    testState.changeSignInPage.mockResolvedValue({ status: "on", result: "owner_changed" });
+    const page = await renderPage();
+    try {
+      const trigger = Array.from(document.querySelectorAll("button")).find(
+        (candidate) => candidate.getAttribute("aria-label") === "cl_test actions",
+      );
+      await act(async () => {
+        trigger?.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, button: 0 }));
+        trigger?.click();
+      });
+      const skip = Array.from(document.querySelectorAll("[role=menuitem]")).find(
+        (item) => item.textContent === "Skip the sign-in page…",
+      );
+      await act(async () => {
+        skip?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      });
+      const dialog = document.querySelector("[role=dialog]");
+      expect(dialog?.textContent).toContain("recorded, GitHub id 65,");
+      expect(dialog?.textContent).toContain("registered by an earlier owner, GitHub id 11");
+
+      await act(async () => type(document.body, "#admin-hub-clients-sign-in-page-reason", "Known"));
+      await act(async () => {
+        document
+          .querySelector<HTMLFormElement>("#admin-hub-clients-sign-in-page-form")
+          ?.requestSubmit();
+        await Promise.resolve();
+      });
+      await act(async () => await new Promise((resolve) => setTimeout(resolve, 0)));
+      expect(testState.changeSignInPage).toHaveBeenLastCalledWith({
+        target: {
+          scope: "app",
+          appId: "gh-74-4c9a75cca717efb68c856f26ba825073",
+          expectedOwnerId: "65",
+        },
+        skip: true,
+        reason: "Known",
+      });
+      expect(document.body.textContent).toContain("The repository has another owner now.");
     } finally {
       await page.unmount();
     }

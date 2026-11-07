@@ -66,6 +66,7 @@ export const broker = defineIdentityBroker({
     github({
       clientId: () => process.env.GITHUB_CLIENT_ID!,
       clientSecret: () => process.env.GITHUB_CLIENT_SECRET!,
+      selectAccount: true,
     }),
     google({
       clientId: () => process.env.GOOGLE_CLIENT_ID!,
@@ -83,7 +84,6 @@ export const broker = defineIdentityBroker({
     policy: (registration) => ({
       connectors: ["github", "google"],
       resources: registration.repositoryId === "1021726325" ? ["convex", "cloudflare"] : [],
-      consent: true,
       paused: process.env.APPS_PAUSED === "true",
     }),
   },
@@ -127,12 +127,15 @@ its JWKS.
 repository's numeric id and `owner/name`, its owner's id, the app name, the deployment type, the
 return address, and the proof (`github-actions` or `initial-access-token`). It answers the
 `connectors` the registration may enroll in and use, the API `resources` (by provider name) its
-client may authorize, whether the sign-in page asks for `consent`, and whether it is `paused`. The
-broker runs it at registration and at each use (`/authorize`, `/continue`, the connector callback,
-code exchange, API authorization, and provider refresh) on the client's and the tenant's rows, so a
-change applies to existing clients at once. A policy that throws or answers a malformed value
-refuses the request; nothing is allowed by default. A paused client gets no registration, sign-in,
-code exchange, or refresh, and keeps its reads, renewals, revocations, and self-deletes.
+client may authorize, and whether it is `paused`. The broker runs it at registration and at each use
+(`/authorize`, `/continue`, the connector callback, code exchange, API authorization, and provider
+refresh) on the client's and the tenant's rows, so a change applies to existing clients at once. A
+policy that throws or answers a malformed value refuses the request; nothing is allowed by default.
+A paused client gets no registration, sign-in, code exchange, or refresh, and keeps its reads,
+renewals, revocations, and self-deletes. The sign-in page is not the policy's: it shows for every
+client unless the hub's administrator exempts its app, or every app, at `/moderation/sign-in-page`,
+and the broker applies that itself. A one-app exemption counts while the repository's recorded
+owner, and the client's, is the one the admin saw.
 
 Each repository and owner has hourly limits, and `/moderation/blocks` stops a repository or an owner
 at once, policy or not. `/moderation/clients?repository=<id>&repository=<id>` lists the clients of
