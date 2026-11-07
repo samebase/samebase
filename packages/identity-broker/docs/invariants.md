@@ -34,6 +34,13 @@ minimized story, and the invariant it broke.
 | `codeSingleUse`                 | An authorization code redeems once.                                                                                                                                                                                                                                        |
 | `connectorClaimIsOne`           | The `connector` claim of an id_token is one string, the connector the user signed in with.                                                                                                                                                                                 |
 
+`noSignInWhenStopped` and `noRefreshWhenStopped` hold for a block in every window: a block is a row
+that every mutation reads in its own transaction. A pause or a policy change is configuration, read
+with the env at the start of the action that serves a request, so one that lands while the provider
+answers is not seen by that action's second decision: the request completes under the configuration
+it started with, and the next request refuses (RFC 137 decision 2). The model's policy is a closure
+that every decision reads at once, so the stories cannot show that window.
+
 Property A (`src/client/registration.model.test.ts`) covers registration and ownership, with the
 policy's enrollment rule and pause. Property B (`src/client/refresh.model.test.ts`) covers API
 authorization and refresh, with the pause and a withdrawn resource. Property C

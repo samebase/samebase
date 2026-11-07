@@ -94,9 +94,13 @@ the owner the policy decided on, and refuses when its rows say otherwise: the te
 changed, a block landed, or the request's set, the client's enrollment, or the decision no longer
 holds the connector. A policy that throws or answers a malformed value refuses the request
 (`503 temporarily_unavailable`, or an error page before the user continued, or an authorization
-error at the return address after) and writes nothing. Without hub mode there is no policy: the host
-is its own, and every client may use its enrollment and every resource, with no consent and no
-pause.
+error at the return address after) and writes nothing. The policy is configuration, read with the
+env at the start of the action that serves a request: a pause or a policy change that lands while
+the provider answers is not seen by that action's second decision, so the request completes under
+the configuration it started with, and the next request refuses. That is the boundary RFC 137
+decision 2 chose; moderation (a block) stays a row that every mutation reads in its own transaction,
+and it stops a request in that window. Without hub mode there is no policy: the host is its own, and
+every client may use its enrollment and every resource, with no consent and no pause.
 
 A pause refuses new registrations, sign-ins, API authorizations, callback completions, code
 exchanges, and refreshes before the provider is called. It leaves client reads and renewals,
