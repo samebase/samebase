@@ -80,6 +80,13 @@ const vClient = object({
   skips it. Null when the client cannot sign in at all.
   */
   signInPage: union(literal("shown"), literal("every_app"), literal("this_app"), v.null()),
+  /**
+  The hub's connectors that its policy gives the client, the enrolled ones it may use now, and those
+  of them that only an admin's grant to its app allows. Null when the client cannot sign in at all.
+  */
+  policyConnectors: union(array(string()), v.null()),
+  usableConnectors: union(array(string()), v.null()),
+  grantedConnectors: union(array(string()), v.null()),
 });
 
 const vClientList = object({ clients: array(vClient), limitReached: boolean() });
@@ -92,6 +99,24 @@ const vSignInPageList = object({
       appId: string(),
       ownerId: string(),
       /** False after a recorded transfer to another owner: the row then covers no client. */
+      active: boolean(),
+      reason: string(),
+      repository: union(string(), v.null()),
+      app: union(string(), v.null()),
+      production: union(boolean(), v.null()),
+    }),
+  ),
+});
+
+/** The hub's connectors, which a grant may name, and every connector grant. */
+const vConnectorGrantList = object({
+  connectors: array(string()),
+  grants: array(
+    object({
+      appId: string(),
+      connector: string(),
+      ownerId: string(),
+      /** False after a recorded transfer to another owner: the row then grants nothing. */
       active: boolean(),
       reason: string(),
       repository: union(string(), v.null()),
@@ -114,9 +139,10 @@ const vOff = object({ status: literal("off") });
 
 /**
 The hub's moderation endpoints, or null while `HUB_MODERATION_KEY` is unset: the admin page then
-says that moderation is off. The key can only read registration counts, clients, blocks, and
-exemptions from the sign-in page, set blocks and exemptions, and delete clients at the hub. samebase.com decides who may use it: an admin for every app,
-a member of an organization for the clients of its connected repositories.
+says that moderation is off. The key can only read registration counts, clients, blocks,
+exemptions from the sign-in page, and connector grants, set blocks, exemptions, and grants, and
+delete clients at the hub. samebase.com decides who may use it: an admin for every app, a member of
+an organization for the clients of its connected repositories.
 */
 function readModeration() {
   const key = env.HUB_MODERATION_KEY?.trim();
@@ -159,8 +185,8 @@ async function callHub<T>(
 
 /**
 The registration counts of the last day and week, the blocks, the newest block events, the
-newest clients of every app at the hub, each with who made it, and the exemptions from the hub's
-sign-in page.
+newest clients of every app at the hub, each with who made it, the exemptions from the hub's
+sign-in page, and the connector grants.
 */
 export const readOverview = action({
   access: "access_admin",
@@ -173,6 +199,7 @@ export const readOverview = action({
       blockList: vBlockList,
       clientList: vClientList,
       signInPage: vSignInPageList,
+      connectorGrants: vConnectorGrantList,
     }),
   ),
   handler: async () => {
@@ -181,7 +208,7 @@ export const readOverview = action({
       return { status: "off" as const };
     }
 
-    const [counts, blockList, clientList, signInPage] = await Promise.all([
+    const [counts, blockList, clientList, signInPage, connectorGrants] = await Promise.all([
       callHub(moderation, { method: "GET", path: "/moderation/counts", validator: vCounts }),
       callHub(moderation, { method: "GET", path: "/moderation/blocks", validator: vBlockList }),
       callHub(moderation, { method: "GET", path: "/moderation/clients", validator: vClientList }),
@@ -190,8 +217,85 @@ export const readOverview = action({
         path: "/moderation/sign-in-page",
         validator: vSignInPageList,
       }),
+      callHub(moderation, {
+        method: "GET",
+        path: "/moderation/connector-grants",
+        validator: vConnectorGrantList,
+      }),
     ]);
-    return { status: "on" as const, counts, blockList, clientList, signInPage };
+    return { status: "on" as const, counts, blockList, clientList, signInPage, connectorGrants };
+  },
+});
+
+/**
+Grants (`grant: true`) or revokes one of the hub's connectors for one app, in the name of the
+signed-in admin. It names the repository owner that the admin saw: the hub answers `owner_changed`
+when that is no longer the owner. A grant also gets `unknown_app` for an app the hub does not have,
+and `unknown_connector` for a connector it does not have; a revoke needs neither.
+*/
+export const changeConnectorGrant = action({
+  access: "access_admin",
+  args: {
+    appId: string(),
+    connector: string(),
+    expectedOwnerId: string(),
+    grant: boolean(),
+    reason: string(),
+  },
+  returns: union(
+    vOff,
+    object({
+      status: literal("on"),
+      result: union(
+        literal("changed"),
+        literal("unchanged"),
+        literal("owner_changed"),
+        literal("unknown_app"),
+        literal("unknown_connector"),
+      ),
+    }),
+  ),
+  handler: async (ctx, args) => {
+    const moderation = readModeration();
+    if (moderation === null) {
+      return { status: "off" as const };
+    }
+
+    const response = await fetchHub(moderation, {
+      method: "POST",
+      path: "/moderation/connector-grants",
+      body: {
+        appId: args.appId,
+        connector: args.connector,
+        expectedOwnerId: args.expectedOwnerId,
+        grant: args.grant,
+        reason: args.reason,
+        adminEmail: ctx.viewer.user.email,
+      },
+    });
+    const body: unknown = await response.json().catch(() => null);
+    if (response.ok && validate(vChangeResult, body)) {
+      return {
+        status: "on" as const,
+        result: body.changed ? ("changed" as const) : ("unchanged" as const),
+      };
+    }
+    if (
+      (response.status === 409 || response.status === 404 || response.status === 400) &&
+      validate(
+        object({
+          error: union(
+            literal("owner_changed"),
+            literal("unknown_app"),
+            literal("unknown_connector"),
+          ),
+        }),
+        body,
+      )
+    ) {
+      return { status: "on" as const, result: body.error };
+    }
+    throw new Error(`The identity hub answered ${response.status} without a usable answer.`);
   },
 });
 

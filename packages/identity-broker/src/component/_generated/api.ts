@@ -11,6 +11,8 @@
 import type * as apps from "../apps.js";
 import type * as authRequests from "../authRequests.js";
 import type * as clients from "../clients.js";
+import type * as connectorGrants from "../connectorGrants.js";
+import type * as connectorRule from "../connectorRule.js";
 import type * as hubClients from "../hubClients.js";
 import type * as lifecycle from "../lifecycle.js";
 import type * as moderation from "../moderation.js";
@@ -32,6 +34,8 @@ const fullApi: ApiFromModules<{
   apps: typeof apps;
   authRequests: typeof authRequests;
   clients: typeof clients;
+  connectorGrants: typeof connectorGrants;
+  connectorRule: typeof connectorRule;
   hubClients: typeof hubClients;
   lifecycle: typeof lifecycle;
   moderation: typeof moderation;

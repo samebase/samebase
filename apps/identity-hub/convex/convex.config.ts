@@ -12,18 +12,31 @@ const app = defineApp({
     /** The issuer URL, which the stack sets. Without it, the deployment's own convex.site URL. */
     ISSUER: v.optional(v.string()),
     /**
-     * The public Google OAuth client of Samebase, for every app of the hub, whose redirect URIs
-     * include `<issuer>/connectors/google/callback`. The stack hands both to the deployment.
+     * The operator's private Google OAuth client, the connector `google`: samebase.com and the apps
+     * the admin grants it to. Its redirect URIs include `<issuer>/connectors/google/callback`. The
+     * stack hands both to the deployment.
      */
     GOOGLE_CLIENT_ID: v.string(),
     GOOGLE_CLIENT_SECRET: v.string(),
     /**
-     * The public GitHub OAuth App of Samebase, for every app of the hub, whose callback is
-     * `<issuer>/connectors/github/callback`. The stack hands both to the deployment.
+     * The operator's private GitHub OAuth App, "Samebase Account", the connector `github`, whose
+     * callback is `<issuer>/connectors/github/callback`. The stack hands both to the deployment.
      * Named with the AUTH_ prefix: GitHub reserves GITHUB_ for its own secrets and variables.
      */
     AUTH_GITHUB_CLIENT_ID: v.string(),
     AUTH_GITHUB_CLIENT_SECRET: v.string(),
+    /**
+     * The public Google OAuth client named "Samebase", the connector `google-apps`, for every app.
+     * Its redirect URIs include `<issuer>/connectors/google-apps/callback`.
+     */
+    GOOGLE_APPS_CLIENT_ID: v.string(),
+    GOOGLE_APPS_CLIENT_SECRET: v.string(),
+    /**
+     * The public GitHub OAuth App named "Samebase", the connector `github-apps`, for every app,
+     * whose callback is `<issuer>/connectors/github-apps/callback`.
+     */
+    AUTH_GITHUB_APPS_CLIENT_ID: v.string(),
+    AUTH_GITHUB_APPS_CLIENT_SECRET: v.string(),
     /** OAuth applications whose fixed callbacks are at this hub's /connections/<name>/callback. */
     PROVIDER_CONVEX_OAUTH_CLIENT_ID: v.string(),
     PROVIDER_CONVEX_OAUTH_CLIENT_SECRET: v.string(),

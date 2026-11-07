@@ -26,25 +26,76 @@ describe("the hub", () => {
 
     expect(response.status).toBe(201);
     expect(await response.json()).toMatchObject({
-      connectors: ["github", "google"],
+      connectors: ["github-apps", "google-apps"],
       terms: "https://samebase.com/terms",
       initial_access_token: expect.any(String),
     });
   });
 
-  it("offers google and github, and names them to a registration that asks for another", async () => {
+  it("offers four connectors, and names the public pair to a registration that asks for another", async () => {
     const t = makeConvexTest();
     stubProviders();
 
     const discovery = await t.fetch("/.well-known/openid-configuration");
     const response = await postHubClient(t, await signToken(), { connectors: ["okta"] });
 
-    expect((await discovery.json()).connectors_supported).toEqual(["google", "github"]);
+    expect((await discovery.json()).connectors_supported).toEqual([
+      "google",
+      "github",
+      "google-apps",
+      "github-apps",
+    ]);
     expect(response.status).toBe(400);
     expect(await response.json()).toEqual({
       error: "invalid_connectors",
-      allowed: ["github", "google"],
+      allowed: ["github-apps", "google-apps"],
     });
+  });
+
+  it("gives the operator every connector, and an app the private one that the admin grants it", async () => {
+    const t = makeConvexTest();
+    stubProviders();
+    const moderation = (path: string, body?: unknown) =>
+      t.fetch(path, {
+        method: body === undefined ? "GET" : "POST",
+        headers: { Authorization: `Bearer ${MODERATION_KEY}`, "Content-Type": "application/json" },
+        ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+      });
+
+    const stranger = await postHubClient(t, await signToken(), { connectors: ["google"] });
+    expect(stranger.status).toBe(400);
+    expect(await stranger.json()).toEqual({
+      error: "invalid_connectors",
+      allowed: ["github-apps", "google-apps"],
+    });
+    stubProviders("1021726325");
+    const operator = await postHubClient(
+      t,
+      await signToken({ repository_id: "1021726325", repository_owner_id: "285392744" }),
+      { connectors: ["google", "github"] },
+    );
+    expect(operator.status).toBe(201);
+
+    // The admin grants `google` to the stranger's production app from samebase.com's admin page.
+    stubProviders();
+    const publicClient: { client_id: string } = await (
+      await postHubClient(t, await signToken())
+    ).json();
+    const list: { clients: Array<{ clientId: string; appId: string; ownerId: string }> } = await (
+      await moderation("/moderation/clients")
+    ).json();
+    const app = list.clients.find((client) => client.clientId === publicClient.client_id);
+    const granted = await moderation("/moderation/connector-grants", {
+      appId: app?.appId,
+      connector: "google",
+      expectedOwnerId: app?.ownerId,
+      grant: true,
+      reason: "A team we know",
+      adminEmail: "nicu@samebase.com",
+    });
+    expect(await granted.json()).toEqual({ changed: true });
+    const withGrant = await postHubClient(t, await signToken(), { connectors: ["google"] });
+    expect(withGrant.status).toBe(201);
   });
 
   it("pauses every app but samebase.com's production with APPS_PAUSED", async () => {
@@ -76,8 +127,8 @@ describe("the hub", () => {
 
   it("shows the page to every app, samebase.com's production included, until the admin exempts it", async () => {
     const t = makeConvexTest();
-    vi.stubEnv("GOOGLE_CLIENT_ID", "google-client");
-    vi.stubEnv("GOOGLE_CLIENT_SECRET", "google-secret");
+    vi.stubEnv("GOOGLE_APPS_CLIENT_ID", "google-client");
+    vi.stubEnv("GOOGLE_APPS_CLIENT_SECRET", "google-secret");
     stubProviders();
     const stranger: { client_id: string } = await (
       await postHubClient(t, await signToken())
@@ -111,7 +162,7 @@ describe("the hub", () => {
           scope: "openid email profile",
           code_challenge: "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM",
           code_challenge_method: "S256",
-          connector: "google",
+          connector: "google-apps",
         }).toString()}`,
       );
     // The connector's first hop reads Google's discovery document: its endpoints, read 2026-11-07.
@@ -164,10 +215,10 @@ describe("the hub", () => {
 
   it("skips the page for an app or every app that the admin exempts, and GitHub shows its account picker", async () => {
     const t = makeConvexTest();
-    vi.stubEnv("GOOGLE_CLIENT_ID", "google-client");
-    vi.stubEnv("GOOGLE_CLIENT_SECRET", "google-secret");
-    vi.stubEnv("AUTH_GITHUB_CLIENT_ID", "github-client");
-    vi.stubEnv("AUTH_GITHUB_CLIENT_SECRET", "github-secret");
+    vi.stubEnv("GOOGLE_APPS_CLIENT_ID", "google-client");
+    vi.stubEnv("GOOGLE_APPS_CLIENT_SECRET", "google-secret");
+    vi.stubEnv("AUTH_GITHUB_APPS_CLIENT_ID", "github-client");
+    vi.stubEnv("AUTH_GITHUB_APPS_CLIENT_SECRET", "github-secret");
     stubProviders();
     const trusted = await (await postHubClient(t, await signToken())).json();
     stubProviders("75");
@@ -226,15 +277,15 @@ describe("the hub", () => {
     );
 
     // The page shows by default; the broker skips it for the exempt app only.
-    expect((await signIn(trusted, "google")).status).toBe(302);
-    expect((await signIn(other, "google")).status).toBe(200);
+    expect((await signIn(trusted, "google-apps")).status).toBe(302);
+    expect((await signIn(other, "google-apps")).status).toBe(200);
     await moderation("/moderation/sign-in-page", {
       target: { scope: "every_app" },
       skip: true,
       reason: "Launch week",
       adminEmail: "nicu@samebase.com",
     });
-    const github = await signIn(other, "github");
+    const github = await signIn(other, "github-apps");
     expect(github.status).toBe(302);
     const location = new URL(github.headers.get("location") ?? "");
     expect(location.origin + location.pathname).toBe("https://github.com/login/oauth/authorize");

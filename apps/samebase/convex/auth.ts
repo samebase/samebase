@@ -51,7 +51,8 @@ function setupHubMethod<Connector extends AuthAccountProvider>(
       tokenEndpoint: `${env.HUB_ISSUER}/token`,
       issuer: env.HUB_ISSUER,
       scopes: ["openid", "email", "profile"],
-      profile: (claims) => readHubProfile(claims, connector),
+      // samebase.com signs in through the operator's connectors, whose names are the providers.
+      profile: (claims) => readHubProfile(claims, { connector, provider: connector }),
     },
     {
       createUser: internal.identity.signIn.createUser,

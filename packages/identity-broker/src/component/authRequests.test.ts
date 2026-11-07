@@ -23,7 +23,13 @@ const cl = {
 } as const;
 
 /** The host's decision for "cl" when its policy allows everything it enrolled in. */
-const policy = { ownerId: "65", paused: false, connectors: CONNECTORS, resources: [] };
+const policy = {
+  ownerId: "65",
+  paused: false,
+  connectors: CONNECTORS,
+  resources: [],
+  configured: CONNECTORS,
+};
 
 /** App "app" of the repository `gh-1` of owner 65, with its preview client "cl", with or without a removal date. */
 async function registered(expires = false) {
@@ -73,12 +79,13 @@ async function pendingRequest(
     state: "s",
     codeChallenge: await calculatePKCECodeChallenge(verifier),
     connectors,
+    policy,
     freshLogin: false,
     txnCookieHash: "cookie-hash",
     createdAt: now,
     expiresAt: now + 600_000,
   });
-  expect(created).toEqual({ ok: true });
+  expect(created).toEqual({ ok: true, connectors });
   return t;
 }
 
@@ -608,6 +615,7 @@ describe("what a request may use", () => {
         scope: "openid",
         codeChallenge: "c",
         connectors: CONNECTORS,
+        policy,
         freshLogin: false,
         txnCookieHash: "cookie-hash",
         createdAt: now,

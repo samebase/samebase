@@ -31,8 +31,12 @@ type Env = {
   readonly CONVEX_CLOUD_URL: string;
   readonly CONVEX_SITE_URL: string;
   readonly APPS_PAUSED: string | undefined;
+  readonly AUTH_GITHUB_APPS_CLIENT_ID: string;
+  readonly AUTH_GITHUB_APPS_CLIENT_SECRET: string;
   readonly AUTH_GITHUB_CLIENT_ID: string;
   readonly AUTH_GITHUB_CLIENT_SECRET: string;
+  readonly GOOGLE_APPS_CLIENT_ID: string;
+  readonly GOOGLE_APPS_CLIENT_SECRET: string;
   readonly GOOGLE_CLIENT_ID: string;
   readonly GOOGLE_CLIENT_SECRET: string;
   readonly HUB_MODERATION_KEY: string | undefined;

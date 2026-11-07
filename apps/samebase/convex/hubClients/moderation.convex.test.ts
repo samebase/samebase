@@ -66,6 +66,9 @@ const clientList = {
       connectors: ["github", "google"],
       ownerId: "65",
       signInPage: "shown",
+      policyConnectors: ["github", "google"],
+      usableConnectors: ["github", "google"],
+      grantedConnectors: [],
     },
     {
       clientId: "cl_test",
@@ -88,6 +91,9 @@ const clientList = {
       connectors: ["github", "google"],
       ownerId: "65",
       signInPage: "shown",
+      policyConnectors: ["github", "google"],
+      usableConnectors: ["github", "google"],
+      grantedConnectors: [],
     },
     {
       clientId: "cl_development",
@@ -110,6 +116,9 @@ const clientList = {
       connectors: ["github", "google"],
       ownerId: "65",
       signInPage: "shown",
+      policyConnectors: ["github", "google"],
+      usableConnectors: ["github", "google"],
+      grantedConnectors: [],
     },
   ],
   limitReached: false,
@@ -120,6 +129,22 @@ const signInPage = {
   apps: [
     {
       appId: "gh-74-4c9a75cca717efb68c856f26ba825073",
+      ownerId: "65",
+      active: true,
+      reason: "A team we know",
+      repository: "octo-org/octo-repo",
+      app: "my-app",
+      production: true,
+    },
+  ],
+};
+
+const connectorGrants = {
+  connectors: ["google", "github", "google-apps", "github-apps"],
+  grants: [
+    {
+      appId: "gh-74-4c9a75cca717efb68c856f26ba825073",
+      connector: "google",
       ownerId: "65",
       active: true,
       reason: "A team we know",
@@ -162,6 +187,8 @@ function stubHub(answer?: () => Response) {
           );
         case "/moderation/sign-in-page":
           return jsonResponse(request.method === "GET" ? signInPage : { changed: true });
+        case "/moderation/connector-grants":
+          return jsonResponse(request.method === "GET" ? connectorGrants : { changed: true });
         default:
           return request.method === "DELETE" && pathname.startsWith("/moderation/clients/")
             ? jsonResponse({ changed: true })
@@ -218,6 +245,15 @@ describe("hub client moderation", () => {
           reason: "Launch week",
         }),
       ).rejects.toThrow("Access denied");
+      await expect(
+        viewer.action(api.hubClients.moderation.changeConnectorGrant, {
+          appId: "gh-74-app",
+          connector: "google",
+          expectedOwnerId: "65",
+          grant: true,
+          reason: "A trusted team",
+        }),
+      ).rejects.toThrow("Access denied");
       expect(requests).toEqual([]);
     },
   );
@@ -258,7 +294,14 @@ describe("hub client moderation", () => {
 
     const overview = await admin.action(api.hubClients.moderation.readOverview, {});
 
-    expect(overview).toEqual({ status: "on", counts, blockList, clientList, signInPage });
+    expect(overview).toEqual({
+      status: "on",
+      counts,
+      blockList,
+      clientList,
+      signInPage,
+      connectorGrants,
+    });
     expect(requests).toEqual([
       {
         url: `${HUB_ISSUER}/moderation/counts`,
@@ -284,7 +327,51 @@ describe("hub client moderation", () => {
         authorization: `Bearer ${MODERATION_KEY}`,
         body: undefined,
       },
+      {
+        url: `${HUB_ISSUER}/moderation/connector-grants`,
+        method: "GET",
+        authorization: `Bearer ${MODERATION_KEY}`,
+        body: undefined,
+      },
     ]);
+  });
+
+  it("grants a connector to an app in the name of the signed-in admin, and says when the hub refuses", async () => {
+    const t = makeConvexTest();
+    turnModerationOn();
+    const requests = stubHub();
+    const admin = await viewerWith(t, "nicu@samebase.com");
+    const change = {
+      appId: "gh-74-4c9a75cca717efb68c856f26ba825073",
+      connector: "google",
+      expectedOwnerId: "65",
+      grant: true,
+      reason: "A team we know",
+    };
+
+    expect(await admin.action(api.hubClients.moderation.changeConnectorGrant, change)).toEqual({
+      status: "on",
+      result: "changed",
+    });
+    expect(requests).toEqual([
+      {
+        url: `${HUB_ISSUER}/moderation/connector-grants`,
+        method: "POST",
+        authorization: `Bearer ${MODERATION_KEY}`,
+        body: { ...change, adminEmail: "nicu@samebase.com" },
+      },
+    ]);
+
+    stubHub(() => jsonResponse({ error: "owner_changed" }, 409));
+    expect(await admin.action(api.hubClients.moderation.changeConnectorGrant, change)).toEqual({
+      status: "on",
+      result: "owner_changed",
+    });
+    stubHub(() => jsonResponse({ error: "unknown_connector" }, 400));
+    expect(await admin.action(api.hubClients.moderation.changeConnectorGrant, change)).toEqual({
+      status: "on",
+      result: "unknown_connector",
+    });
   });
 
   it("skips the sign-in page for an app in the name of the signed-in admin", async () => {

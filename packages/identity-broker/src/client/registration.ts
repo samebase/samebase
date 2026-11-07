@@ -17,7 +17,10 @@ import { randomToken, sha256Hex } from "./subject.js";
  * record with its own registration access token (RFC 7592), and `/moderation/*` for the hub's
  * administrator.
  */
-export type RegistrationConfig = {
+export type RegistrationConfig<
+  Connector extends string = string,
+  Resource extends string = string,
+> = {
   /**
    * What a registration may do, decided from its facts (RFC 137 decision 2): the connectors it may
    * enroll in and use, the API resources it may authorize, and whether it is paused. The sign-in
@@ -26,7 +29,7 @@ export type RegistrationConfig = {
    * the tenant's rows, so a change applies to existing clients at once. A policy that throws or
    * answers a malformed value refuses the request, and nothing is allowed by default.
    */
-  policy: PolicyFunction;
+  policy: PolicyFunction<Connector, Resource>;
   /** The key of `/moderation/*`, read in the request. Unset or empty: every request is refused. */
   moderationKey: () => string | undefined;
   /** The name of the hub's sign-in service as users know it, such as `Samebase`. */
