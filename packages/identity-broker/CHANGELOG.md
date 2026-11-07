@@ -1,5 +1,45 @@
 # Changelog
 
+## 0.24.0
+
+One hub model (RFC 137): connectors by enrollment, and the policy as hub code.
+
+- `apps` loses `firstParty` and `connector`; `clients` and the authorization requests gain
+  `connectors`. Clear `apps`, `clients`, `authRequests`, `authorizationCodes`, `resourceRequests`,
+  and `refreshGrants` before the deploy: the first two change shape, and the other four point at
+  them. Every deployment then registers a new client at its next deploy, and users of API resources
+  connect their providers again.
+- `POST /hub-clients` takes `connectors`: at least one name, `[a-z0-9-]{1,64}`, duplicates
+  collapsed. Each must be one of the hub's connectors and one that the policy allows, else
+  `400 invalid_connectors` with the allowed names. The enrollment is per client and never changes;
+  the 201 answer and the RFC 7592 record repeat it. `registration.register` takes `connectors` too.
+  `Convex.SharedHubClient` of `@samebase/alchemy-convex` 0.33.0 sends it.
+- `registration` is `{ name, terms, privacy, moderationKey, policy }`. `ownRepositoryIds`,
+  `thirdPartyConnector`, and `paused` go; `reserved` on a connector goes. `policy` decides, from a
+  registration's facts, the connectors it may enroll in and use, the API resources (by provider
+  name) its client may authorize, whether the sign-in page asks for consent, and whether it is
+  paused. It runs at registration and at each use, on the client's and the tenant's rows. A throwing
+  or malformed policy refuses the request. Without hub mode every client may use its enrollment and
+  every resource.
+- `connector` on `/authorize` is a space-delimited list. One name goes straight to the connector
+  when the policy asks for no consent; none offers every connector the client may use; several offer
+  those. A name outside the enrollment answers `invalid_request`; an enrolled connector that the
+  policy no longer allows is not offered, and none left is "Sign-in is off" (403). `/continue`, the
+  callback, and code exchange accept only a connector in the request's set, the enrollment, and the
+  policy of the moment. Discovery adds `connectors_supported`.
+- One sign-in page: a "Continue with" button per offered connector, with the consent (host, deploy,
+  repository, what the app gets) when the policy asks for it, also for production clients. Every
+  refusal before the user continued is an error page of the hub; after, every outcome goes to the
+  return address.
+- A pause refuses registration, sign-in, API authorization, callback completion, code exchange, and
+  refresh before the provider; reads, renewals, revocation, self-delete, and moderation stay. A
+  refresh has two policy evaluations, admission and release; a refused release keeps the rotation
+  and answers `401 invalid_client`.
+- The sign-in budget per tenant applies to every app.
+- Model-based tests: property A gains `policyAtRegistration` and `enrollmentImmutable`, property B
+  the pause and a withdrawn resource under `noTokenAfterStop`, and property C (sign-in) proves
+  `enrollmentHonored`, `noSignInWhenStopped`, `codeSingleUse`, and `connectorClaimIsOne`.
+
 ## 0.23.0
 
 - `registration.name` is required: the hub's name as users know it, which the consent page uses in

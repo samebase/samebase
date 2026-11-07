@@ -31,7 +31,7 @@ steps.
   OpenID Connect provider. `github()` and `google()` are included.
 - API resource providers authorize access without creating an identity. `convexConnection()`,
   `cloudflareConnection()`, and `githubConnection()` use the same authorization and token endpoints
-  with the standard `resource` parameter. Only first-party apps can use them.
+  with the standard `resource` parameter. A hub's policy says which clients may use them.
 - `Convex.SharedHubClient` of
   [`@samebase/alchemy-convex`](https://github.com/samebase/samebase/tree/main/packages/alchemy-convex),
   an Alchemy v2 resource, gets a deployment its client from our hub at deploy time.
@@ -70,23 +70,22 @@ export const broker = defineIdentityBroker({
     google({
       clientId: () => process.env.GOOGLE_CLIENT_ID!,
       clientSecret: () => process.env.GOOGLE_CLIENT_SECRET!,
-    }),
-    // The one connector of every app that is not the hub's own.
-    google({
-      name: "google-apps",
-      clientId: () => process.env.GOOGLE_APPS_CLIENT_ID!,
-      clientSecret: () => process.env.GOOGLE_APPS_CLIENT_SECRET!,
-      reserved: true,
       selectAccount: true,
     }),
   ],
-  // `POST /hub-clients`, `/register/<client>`, and `/moderation/*`.
+  // `POST /hub-clients`, `/register/<client>`, `/moderation/*`, and the policy.
   registration: {
-    ownRepositoryIds: () => process.env.OWN_REPOSITORY_IDS,
-    thirdPartyConnector: "google-apps",
-    paused: () => process.env.THIRD_PARTY_PAUSED === "true",
-    moderationKey: () => process.env.HUB_MODERATION_KEY,
+    name: "Example",
     terms: "https://example.com/terms",
+    privacy: "https://example.com/privacy",
+    moderationKey: () => process.env.HUB_MODERATION_KEY,
+    // What each registration may do, from its facts: run at registration and at each use.
+    policy: (registration) => ({
+      connectors: ["github", "google"],
+      resources: registration.repositoryId === "1021726325" ? ["convex", "cloudflare"] : [],
+      consent: true,
+      paused: process.env.APPS_PAUSED === "true",
+    }),
   },
 });
 
@@ -117,14 +116,29 @@ its JWKS.
   `Convex.SharedHubClient` of `@samebase/alchemy-convex` does this at each deploy.
 - A production answer also holds the app's initial access token (RFC 7591 section 1.2). A
   development server sends it for a development client, on a loopback return address.
+- The body names the app, the return address, a version, and `connectors`: the connectors the client
+  enrolls in, such as `["google", "github"]`. Each must be one of the hub's and one that the policy
+  allows this registration; else the answer is `400 invalid_connectors` with the allowed names. The
+  enrollment is on the client for good: a deployment that wants another set registers a new client.
+  The 201 answer and the client's RFC 7592 record repeat it, and discovery lists the hub's names in
+  `connectors_supported`.
 
-The apps of a repository in `ownRepositoryIds` are the hub's own: every connector but a reserved
-one, and the API resources. Every other repository's apps sign in only through
-`thirdPartyConnector`. Each repository and owner has hourly limits, and `/moderation/blocks` stops a
-repository or an owner at once. `/moderation/clients?repository=<id>&repository=<id>` lists the
-clients of those repositories and `DELETE /moderation/clients/<id>` deletes one, for a console that
-shows each developer their own. A Convex Auth v2 app points its generic OAuth method at
-`<issuer>/authorize` and `<issuer>/token`; see the
+`registration.policy` decides what a registration may do, from facts the hub checked: the
+repository's numeric id and `owner/name`, its owner's id, the app name, the deployment type, the
+return address, and the proof (`github-actions` or `initial-access-token`). It answers the
+`connectors` the registration may enroll in and use, the API `resources` (by provider name) its
+client may authorize, whether the sign-in page asks for `consent`, and whether it is `paused`. The
+broker runs it at registration and at each use (`/authorize`, `/continue`, the connector callback,
+code exchange, API authorization, and provider refresh) on the client's and the tenant's rows, so a
+change applies to existing clients at once. A policy that throws or answers a malformed value
+refuses the request; nothing is allowed by default. A paused client gets no registration, sign-in,
+code exchange, or refresh, and keeps its reads, renewals, revocations, and self-deletes.
+
+Each repository and owner has hourly limits, and `/moderation/blocks` stops a repository or an owner
+at once, policy or not. `/moderation/clients?repository=<id>&repository=<id>` lists the clients of
+those repositories and `DELETE /moderation/clients/<id>` deletes one, for a console that shows each
+developer their own. A Convex Auth v2 app points its generic OAuth method at `<issuer>/authorize`
+and `<issuer>/token`; see the
 [docs](https://github.com/samebase/samebase/blob/main/packages/identity-broker/docs/consumers.md).
 
 A preview or development client gets a removal date 14 days ahead, and the daily `cleanup` deletes
@@ -154,7 +168,9 @@ callbacks once: `<issuer>/connections/convex/callback` and
 `<issuer>/connections/cloudflare/callback`. Preview apps register their exact callback with the hub
 using the existing client registration. Use a separate client if API connections and sign-in have
 different callback URLs. Configure the Cloudflare OAuth client with `client_secret_basic`; Convex
-uses `client_secret_post`. The constructors use these methods for code exchange and refresh.
+uses `client_secret_post`. The constructors use these methods for code exchange and refresh. In hub
+mode the policy's `resources` names the providers a client may authorize; without hub mode every
+client may authorize every one.
 
 Send an authorization-code request with S256 PKCE and one `resource`: `https://api.convex.dev` for
 Convex team access, or `https://api.cloudflare.com/client/v4/` for Cloudflare. Omit `openid`. The

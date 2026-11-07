@@ -64,16 +64,65 @@ live a few minutes, and without this a retained token of the old owner could mov
 repository back and delete the new owner's initial access tokens. A tenant with no recorded `iat`
 (one registered before 0.22.0) accepts the next token of any owner and records it.
 
-Every app belongs to a tenant, such as `gh-<repository id>`, and the host says whether it is
-first-party: every connector but a reserved one, and API resources. A third-party app has one
-connector. The first client of an app id creates the app, and an existing app keeps what it was
-created as. Each client holds its own registration access token, and reads (which renews it) or
-deletes its own record at `/register/<client>` (RFC 7592).
+Every app belongs to a tenant, such as `gh-<repository id>`. The first client of an app id creates
+the app. Each client enrolls in connectors at registration (`connectors` in the body: at least one
+name, `[a-z0-9-]{1,64}`, duplicates collapsed, stored sorted), and the enrollment never changes: a
+deployment that wants another set registers a new client, as it does for another return address.
+Each client holds its own registration access token, and reads (which renews it) or deletes its own
+record at `/register/<client>` (RFC 7592).
 
 A row in `blocks` stops a repository, or every repository of an owner: registration, renewal,
 sign-in, code exchange, and provider refresh read it. It is the one block state, and
 `moderation.setBlock` its one writer, which also appends the event. Our hub sets it from Block
 repository and Block owner on samebase.com's admin page, through `/moderation/blocks`.
+
+## Policy
+
+The broker defines the policy contract and enforces it; a hub implements it as a function
+(`registration.policy`, RFC 137). Its input is a client's facts: the repository id and name, the
+tenant's owner, the app, the deployment type, the return address, and the proof. At registration the
+facts come from GitHub's token or the initial access token's row and the request body; at use, from
+the client's and the tenant's rows, so a changed policy applies to existing clients at once. Its
+answer is the connectors the client may enroll in and use, the API resources (by provider name) it
+may authorize, whether the sign-in page asks for consent, and whether it is paused.
+
+The policy runs in the host's HTTP action, once per request, at registration, `/authorize`,
+`/continue`, the connector callback (before the request is claimed), code exchange, API
+authorization, and provider refresh. The mutation that enforces the decision receives it with the
+owner the policy decided on, and refuses when its rows say otherwise: the tenant's owner changed, or
+the request's set, the client's enrollment, or the decision no longer holds the connector. A policy
+that throws or answers a malformed value refuses the request (`503 temporarily_unavailable`, or an
+error page) and writes nothing. Without hub mode there is no policy: the host is its own, and every
+client may use its enrollment and every resource, with no consent and no pause.
+
+A pause refuses new registrations, sign-ins, API authorizations, callback completions, code
+exchanges, and refreshes before the provider is called. It leaves client reads and renewals,
+revocation, self-delete, and moderation alone, so a short pause ends without expired clients. A
+block is stronger than the pause. A withdrawn connector, resource, or pause stops later issuance
+only: an id_token and an access token live to their expiry, `/userinfo` answers a valid access
+token, a provider access token already released stays usable at the provider, and an app's session
+is the app's.
+
+## Sign-in page
+
+`/authorize` stores the request's set: the connectors the `connector` parameter named (a
+space-delimited list, as `scope` and `prompt` are; an empty or whitespace value counts as omitted),
+else every connector the client may use now. A name outside the enrollment answers
+`invalid_request`; the set is then intersected with the policy's connectors, and an empty set is
+"Sign-in is off" (403). With one connector in the set and no consent, the browser goes straight to
+the provider; otherwise one page offers a "Continue with" button per connector of the set. With
+consent, the page also names the host that gets the sign-in (which served the repository's
+verification file, or is the user's own computer), the deploy and the GitHub repository that
+registered the client, what the app receives, and links the hub's privacy notice and terms. The
+picker and the consent are one page, so no user sees two pickers. `/continue`, the callback, and
+code exchange accept only a connector in the set, the enrollment, and the policy of the moment. The
+id_token keeps `connector` as one string, the connector the user signed in with.
+
+A refusal before the user continued from the page (or, with no page, before the redirect to the
+provider) is an error page of the hub, for every client: the user has not accepted the return
+address (RFC 9700 section 4.11.2). After the user continued, every outcome goes to the client's
+registered return address as an authorization response: a denial at the provider, an expired
+callback, a pause or a withdrawn connector that landed in between.
 
 ## Token endpoint
 
@@ -95,12 +144,12 @@ authorization has no scope parameter, so a requested scope answers `invalid_scop
 multiple resources answer `invalid_target`. The code binds the resource, so `/token` can omit it; if
 supplied, it must match exactly. Neither this response nor refresh issues an ID Token.
 
-Only first-party apps can request API access. As with first-party sign-in, the broker adds no
-consent screen: the trusted app starts the flow and the provider supplies its authorization screen.
-This trust is intentional; clients of third-party apps cannot receive API credentials. The two OAuth
-legs have independent state and PKCE values. The browser cookie binds the upstream callback to the
-initiating browser. The downstream response includes `iss`, and its code lasts 60 seconds and is
-usable once.
+The policy's `resources` names the providers a client may authorize, checked at API authorization,
+at the exchange of a resource code, and at both evaluations of a refresh (below). The broker adds no
+consent screen of its own here: the provider supplies its authorization screen, and a refusal before
+it is an error page of the hub. The two OAuth legs have independent state and PKCE values. The
+browser cookie binds the upstream callback to the initiating browser. The downstream response
+includes `iss`, and its code lasts 60 seconds and is usable once.
 
 The broker returns the provider's bearer access token unchanged. The resource server remains the
 provider API; a broker issuer on the authorization response does not claim that the broker signed
@@ -120,10 +169,13 @@ late answer is still saved, because the provider may have rotated the refresh to
 answer holds the new one. Only an upstream `invalid_grant` deletes the grant. Any other failure
 keeps it and answers `503 temporarily_unavailable`: if rotation had already happened, the retry gets
 `invalid_grant` from the provider's replay check (RFC 9700 section 4.14.2), which is the same end
-state. The mutation that saves the provider's answer reads the client, its app, and the blocks
-again: a block or a client delete that committed while the provider answered keeps the new access
-token from the caller (`401 invalid_client`), and the saved rotation lets the grant work again after
-an unblock.
+state. A refresh has two policy evaluations: the admission, before the provider is called, where a
+withdrawn resource answers `invalid_target` and a pause `invalid_client`; and the release, after the
+provider answered, on the rows of that moment. The mutation that saves the provider's answer reads
+the client, its app, and the blocks again and takes the release decision: a block, a client delete,
+a pause, or a withdrawn resource that committed while the provider answered keeps the new access
+token from the caller (`401 invalid_client`), and the saved rotation lets the grant work again once
+the block or the policy lifts. A client that lost a resource can still revoke its grants.
 
 RFC 7009 `/revoke` authenticates the client with its registered method and removes only its broker
 refresh grant. Unknown tokens, including another client's token, return an empty 200 response. Token
@@ -143,9 +195,9 @@ verified in browsers.
 ## Browser binding
 
 `/authorize` sets one transaction cookie per request, and every later step needs it: `/continue` and
-the connector callback (RFC 9700 section 2.1.1). A first-party request skips the chooser, not this
-binding. A link or a callback that reaches another browser gets an error page, and the request keeps
-waiting for the browser that started it.
+the connector callback (RFC 9700 section 2.1.1). A request with one connector and no consent skips
+the page, not this binding. A link or a callback that reaches another browser gets an error page,
+and the request keeps waiting for the browser that started it.
 
 ## Subjects
 
@@ -179,6 +231,16 @@ provider.
 
 ## Named departures from the specifications
 
+- `connector` on `/authorize` is an unregistered extension parameter, kept by that name because
+  every consumer sends it; RFC 6749 section 8.2 recommends a vendor prefix for such parameters. It
+  is a space-delimited list, as OIDC Core section 3.1.2.1 shapes list parameters. The discovery
+  document's `connectors_supported` is an extension too, which OIDC Discovery section 3 and RFC 8414
+  section 2 allow; the name is unregistered.
+- A refusal before the user continued from the hub's page ends on an error page of the hub, where
+  OIDC Core section 3.1.2.6 sends an authentication error to the client's redirect URI. The user has
+  not accepted that address, and RFC 9700 section 4.11.2 warns against redirects to it: a link on
+  this host could end on any page of a stranger's app. After the user continued, every outcome goes
+  to the redirect URI as the standard says.
 - No refresh tokens for OIDC sign-in: apps keep their own sessions. API authorization supports
   refresh tokens and `offline_access` when its provider does.
 - GitHub answers token errors with HTTP 200 and calls `invalid_grant` `bad_refresh_token`. Its
