@@ -213,7 +213,7 @@ const REFUSALS: Readonly<Record<number, string>> = {
 
 /** The reasons of a 403 that a log line shows. Any other text of the answer is never logged. */
 const NOT_ALLOWED = new Map([
-  ["paused", "the identity hub pauses new clients of third-party apps"],
+  ["paused", "this app is paused on the identity hub"],
   ["run_not_allowed", "the identity hub gives clients only to runs of main and of pull requests"],
   ["blocked", "Samebase blocked this repository or its owner"],
   ["suspended", "the identity hub suspended this repository"],

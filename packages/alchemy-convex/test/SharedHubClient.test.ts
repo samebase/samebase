@@ -722,7 +722,7 @@ describe("Convex.SharedHubClient", () => {
     ["verification_file_missing", "does not serve /samebase-verification.json"],
     ["repository_mismatch", "names another repository"],
     ["blocked", "Samebase blocked this repository or its owner"],
-    ["paused", "pauses new clients of third-party apps"],
+    ["paused", "this app is paused on the identity hub"],
   ] as const) {
     test.provider(`a 403 for ${reason} says why in the log`, (stack) =>
       Effect.gen(function* () {
