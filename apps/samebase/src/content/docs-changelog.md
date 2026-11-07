@@ -5,6 +5,12 @@ change. If a change needs action from you, the entry says so.
 
 ## 2026-11-07
 
+- **v2301: Apps made from samebase/base sign in through Samebase's public clients.** The identity
+  hub's `google` and `github` connectors are now for samebase.com only. Every app signs in through
+  `google-apps` and `github-apps`, which Google and GitHub show as "Samebase". An app made from
+  [samebase/base](https://github.com/samebase/base) before today has no sign-in until
+  `alchemy.run.ts` names them. Ask your agent to apply the starter changelog, or follow its v2301
+  entry. New apps have it from the start.
 - **v2297: Apps made from samebase/base need one update for sign-in.** The identity hub now asks
   each app which sign-in providers it uses, and it shows a page that names the app before Google or
   GitHub. An app made from [samebase/base](https://github.com/samebase/base) before today needs
