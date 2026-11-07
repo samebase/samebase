@@ -1,0 +1,20 @@
+{
+  "name": "pbt-history",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "extract": "./extract.sh",
+    "merge-threshold": "node merge.test.ts && GEOMETRY=./old/geometry-at-a9d09423a.ts node merge.test.ts",
+    "crlf": "node crlf.test.ts",
+    "broker": "node broker.test.ts",
+    "commit-engine": "node --import ./loader/register.mjs --no-warnings commitEngine.test.ts",
+    "commit-engine:no-race": "RACE=0 node --import ./loader/register.mjs --no-warnings commitEngine.test.ts",
+    "merge-oracle": "node --import ./loader/register.mjs --no-warnings mergeOracle.test.ts"
+  },
+  "dependencies": {
+    "@codemirror/state": "6.7.6",
+    "diff8": "npm:diff@8.0.4",
+    "diff9": "npm:diff@9.0.0",
+    "fast-check": "4.10.2"
+  }
+}
