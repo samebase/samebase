@@ -1865,7 +1865,6 @@ export const trackedFilePaths = [
   "packages/alchemy-convex/src/store/component/convex.config.ts",
   "packages/alchemy-convex/src/store/component/keys.ts",
   "packages/alchemy-convex/src/store/component/reader.ts",
-  "packages/alchemy-convex/src/store/component/runRecord.ts",
   "packages/alchemy-convex/src/store/component/schema.ts",
   "packages/alchemy-convex/src/store/component/state.ts",
   "packages/alchemy-convex/src/store/convex/_generated/api.d.ts",
