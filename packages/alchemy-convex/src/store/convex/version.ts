@@ -15,6 +15,4 @@
 // 6: a run record's `source` is `github-actions` or `checkout`, no longer `laptop` (0.32.0).
 // 7: Alchemy's state interface only: `set`, `remove`, and `setOutput` take no `run`, `readStack`
 //    and `reader:repository` give stages as `{ name, resources, output }` (0.35.0).
-// 8: `outputs.value` is required and `outputs.currentRun` is gone, and a stored secret must be
-//    sealed. An older store upgrades through the bridge of src/store-bridge (0.36.0).
-export const STORE_VERSION = 8;
+export const STORE_VERSION = 7;

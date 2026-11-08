@@ -2,18 +2,7 @@
 
 ## 0.36.0
 
-- Store version 8. `outputs.value` is required and `outputs.currentRun` is gone. A stored secret
-  must be sealed: a `__redacted__` value without a valid sealed object fails its read and its reseal
-  with a fixed error. `state:set` and `state:setOutput` still take the clear text of `encodeState`
-  and seal it.
-- An older store upgrades in one run, with no manual step. The run pushes a bridge, a copy of the
-  store with the schema and the sealing of store version 7 in a temporary folder of the installed
-  package. Then `bridge:cleanup` deletes the output rows without a value and removes `currentRun`
-  from the others, the reseal seals each secret that is still in clear text, and the run pushes
-  store version 8. When a step fails, the run reads the version again: store version 8 means that
-  another run finished. Else it starts again, at most 3 times, and then fails with a fixed message.
-- The first run of 0.36.0 upgrades the store, and from then on a client of 0.35.0 or older fails its
-  runs until it upgrades: upgrade every repository of a team on the same day, with Samebase.
+- The store stays at version 7, so 0.35.0 and 0.36.0 work with the same store.
 - `Convex.SharedHubClient` no longer replaces a saved client whose attributes it cannot read, such
   as one that 0.32.0 or older saved. Such a row stops the run with a fixed message that holds no
   value of the row.

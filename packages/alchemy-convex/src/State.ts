@@ -13,10 +13,9 @@
 // key of its production deployment that can run internal queries and
 // mutations, and nothing else, is created for the run and deleted at its
 // end; the `state:version` query says whether the deployment has the store
-// of this version. Without one, the installed Convex CLI pushes
-// src/store/convex to it, with a push key that is deleted after the push. An
-// older one first gets the bridge of src/store-bridge, which cleans its rows
-// for the schema of this version (see `upgradeStore`). The raw state functions are internal; authenticated readers get
+// of this version. Without one, or with an older one, the installed Convex
+// CLI pushes src/store/convex to it, with a push key that is deleted after
+// the push. The raw state functions are internal; authenticated readers get
 // repository-scoped subscriptions with secret values removed. A key that stops working during a
 // long run (it expires after two hours) is replaced once per call.
 //
@@ -31,15 +30,14 @@
 // Samebase reads `stacks`, `getOutput`, `readStack`, and `reader:repository`
 // by name. The store and its readers are released and upgraded together:
 // STORE_VERSION rises with each change of a function, and a client works only
-// with a store of its own version. An older store is upgraded in the run; a
-// newer one fails the run.
+// with a store of its own version. An older store is pushed over; a newer one
+// fails the run.
 //
 // The store holds Alchemy's state interface and nothing else, so a stack can
 // use the state store of Alchemy's Cloudflare package in its place. The run
 // record that Samebase reads is a layer over any state: see `withRunRecord` in
 // src/RunRecord.ts.
-import { cp, mkdtemp, rm, writeFile } from "node:fs/promises";
-import { dirname, join, relative, sep } from "node:path";
+import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -267,26 +265,26 @@ export interface StoreOptions {
 }
 
 /**
- * Pushes the functions directory `functions` (the store, or the store of a bridge root) to the
- * production deployment of the state project with the installed Convex CLI: no typecheck, no
- * codegen, the key only in the environment of the CLI.
+ * Pushes `store` to the production deployment of the state project with the
+ * installed Convex CLI: no typecheck, no codegen, the key only in the
+ * environment of the CLI.
  */
 const pushStore = (
   options: StoreOptions,
   deployment: { readonly name: string; readonly deploymentUrl: string },
-  functions: string,
-  what: string,
 ) =>
   Effect.gen(function* () {
-    const cli = yield* installedCli(join(functions, ".."));
-    yield* Effect.logInfo(`Convex state: pushing ${what} to ${deployment.name}`);
+    const cli = yield* installedCli(join(options.store, ".."));
+    yield* Effect.logInfo(
+      `Convex state: pushing the store version ${STORE_VERSION} to ${deployment.name}`,
+    );
     yield* withPushKey(options.api, deployment.name, PUSH_KEY_ACTIONS, (key) =>
       push(options.spawner, key, {
         deployment: deployment.name,
         url: deployment.deploymentUrl,
-        rootDir: join(functions, ".."),
+        rootDir: join(options.store, ".."),
         source: {
-          path: functions,
+          path: options.store,
           command: [...cli, "deploy", "--typecheck", "disable", "--codegen", "disable"],
         },
         env: {},
@@ -301,7 +299,7 @@ const pushStore = (
  * Finishes the sealing of the store, whatever an earlier run left: a new key when the store has
  * none, then a reseal unless one finished under the current key. A run reads this each time, so a
  * run that stopped after a push cannot leave rows in clear text. This client makes a key once, and
- * it never reads a key back. It answers false when a row could not be sealed.
+ * it never reads a key back.
  */
 const ensureSealed = (
   options: StoreOptions,
@@ -321,7 +319,7 @@ const ensureSealed = (
       );
       yield* functions.call("state:chooseKey", { keyId }).pipe(Effect.flatMap(valueOf));
     }
-    if (sealed) return true;
+    if (sealed) return;
     const { failed } = yield* functions
       .call("state:reseal", {})
       .pipe(Effect.flatMap(valueOf), Effect.flatMap(decode(Resealed, "state:reseal")));
@@ -330,137 +328,7 @@ const ensureSealed = (
         `Convex state: the store could not seal ${failed.join(", ")}. The next run tries again.`,
       );
     }
-    return failed.length === 0;
   });
-
-/** The reply of `bridge:cleanup`. */
-const Cleanup = Schema.Struct({
-  cursor: Schema.String,
-  done: Schema.Boolean,
-  removed: Schema.Number,
-});
-
-/** Runs `bridge:cleanup` page by page until the last page, from the first page. */
-const cleanOutputs = (functions: FunctionApi) =>
-  Effect.gen(function* () {
-    let cursor: string | undefined;
-    let removed = 0;
-    for (;;) {
-      const page = yield* functions
-        .call("bridge:cleanup", { cursor })
-        .pipe(Effect.flatMap(valueOf), Effect.flatMap(decode(Cleanup, "bridge:cleanup")));
-      removed += page.removed;
-      if (page.done) break;
-      cursor = page.cursor;
-    }
-    if (removed > 0) {
-      yield* Effect.logInfo(
-        `Convex state: the upgrade deleted ${removed} output rows without a value.`,
-      );
-    }
-  });
-
-/** The relative import specifier of `target` in a module at `file`, with `/` on every system. */
-const specifierOf = (file: string, target: string) => {
-  const path = relative(dirname(file), target).split(sep).join("/");
-  return path.startsWith(".") ? path : `./${path}`;
-};
-
-/**
- * Makes the bridge root of one run: `<package>/.store-bridge-<random>/`, a copy of `src/store` in
- * the installed package directory, so that it resolves the `convex` package of the store. The copy
- * takes the schema and the sealing of store version 7 from `src/store-bridge`, adds the cleanup
- * module `bridge` to the component and to the app, and answers the version below this one. So a
- * store with the bridge accepts the rows of store version 6 and older, and a run that stops after
- * the bridge push does every step again. Each written module re-exports a file of
- * `src/store-bridge`, which stays where the package installed it. Nothing shared changes, so
- * parallel runs share no edited file.
- */
-const bridgeRoot = (store: string) =>
-  Effect.tryPromise({
-    try: async () => {
-      const app = join(store, "..");
-      const source = join(app, "..", "store-bridge");
-      const root = await mkdtemp(join(app, "..", "..", ".store-bridge-"));
-      await cp(app, root, { recursive: true });
-      const write = (file: string, text: (from: (name: string) => string) => string) => {
-        const path = join(root, file);
-        return writeFile(
-          path,
-          text((name) => specifierOf(path, join(source, name))),
-        );
-      };
-      await write(
-        "component/schema.ts",
-        (from) => `export { default } from "${from("schema.ts")}";\n`,
-      );
-      await write("component/bridge.ts", (from) => `export * from "${from("bridge.ts")}";\n`);
-      await write("convex/sealing.ts", (from) => `export * from "${from("sealing.ts")}";\n`);
-      await write("convex/bridge.ts", (from) => `export * from "${from("bridgeApp.ts")}";\n`);
-      await write(
-        "convex/version.ts",
-        () => `export const STORE_VERSION = ${STORE_VERSION - 1};\n`,
-      );
-      return root;
-    },
-    catch: () =>
-      failure("could not make the bridge root of the store upgrade in the package directory"),
-  });
-
-/** The attempts of one run at the upgrade of an older store. */
-const UPGRADE_ATTEMPTS = 3;
-
-/**
- * Upgrades a store that answers an older version, with the bridge root of {@link bridgeRoot}:
- * the bridge push, the cleanup pages, a sealing that must finish, the push of the store, and a new
- * read of the version. After a failed step, the version tells the next step: this version or a
- * newer one means that another run finished, else the run starts again with the bridge push. A
- * failed step is logged by its name only: a push error can quote a row.
- */
-const upgradeStore = (
-  options: StoreOptions,
-  deployment: { readonly name: string; readonly deploymentUrl: string },
-  functions: FunctionApi,
-) =>
-  Effect.acquireUseRelease(
-    bridgeRoot(options.store),
-    (root) =>
-      Effect.gen(function* () {
-        for (let attempt = 1; attempt <= UPGRADE_ATTEMPTS; attempt += 1) {
-          yield* Effect.gen(function* () {
-            yield* pushStore(
-              options,
-              deployment,
-              join(root, "convex"),
-              `the bridge to store version ${STORE_VERSION}`,
-            ).pipe(Effect.mapError(() => "bridge push"));
-            yield* cleanOutputs(functions).pipe(Effect.mapError(() => "cleanup"));
-            const sealed = yield* ensureSealed(options, deployment, functions).pipe(
-              Effect.mapError(() => "sealing"),
-            );
-            if (!sealed) return yield* Effect.fail("sealing");
-            yield* pushStore(
-              options,
-              deployment,
-              options.store,
-              `the store version ${STORE_VERSION}`,
-            ).pipe(Effect.mapError(() => "store push"));
-          }).pipe(
-            Effect.catch((step) =>
-              Effect.logWarning(
-                `Convex state: the ${step} of the upgrade to store version ${STORE_VERSION} failed (attempt ${attempt} of ${UPGRADE_ATTEMPTS}).`,
-              ),
-            ),
-          );
-          const version = yield* storeVersion(functions);
-          if (version !== undefined && version >= STORE_VERSION) return version;
-        }
-        return yield* failure(
-          `${deployment.name} did not upgrade to store version ${STORE_VERSION} in ${UPGRADE_ATTEMPTS} attempts. A run of an older version of this package can push its store in the meantime: upgrade every repository of the team to this version, and run again.`,
-        );
-      }),
-    (root) => Effect.promise(() => rm(root, { recursive: true, force: true })),
-  );
 
 /**
  * Creates the state project of the team. Two first runs can both create one:
@@ -556,12 +424,9 @@ export const makeConvexState = (options: StoreOptions) =>
       // Another run can push a newer store in the meantime: read again right
       // before the push. The push itself has no lock (see the design note).
       version = yield* storeVersion(functions);
-      if (version === undefined) {
-        // A deployment without code has no rows, so the store goes on it with no bridge.
-        yield* pushStore(options, deployment, options.store, `the store version ${STORE_VERSION}`);
+      if (version === undefined || version < STORE_VERSION) {
+        yield* pushStore(options, deployment);
         version = yield* storeVersion(functions);
-      } else if (version < STORE_VERSION) {
-        version = yield* upgradeStore(options, deployment, functions);
       }
     }
     if (version !== STORE_VERSION) {

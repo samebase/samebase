@@ -53,14 +53,13 @@ reads.
   function (reply `Could not find function for 'state:version'`) makes the run push
   `src/store/convex` with the Convex CLI of the app,
   `convex deploy --typecheck disable --codegen disable`, from `src/store` of the installed package,
-  with a push key of `PUSH_KEY_ACTIONS` that is deleted after the push. An older number makes the
-  run upgrade the store through a bridge first (see
-  [The upgrade bridge](#the-upgrade-bridge-store-version-8)). The version is read again right before
-  the push, because another run can push a newer store in the meantime. A newer number fails the run
-  with both versions: the store and its clients are released and upgraded together, and the store is
-  never pushed back. Unlike the Cloudflare store, which compares for equality and would deploy an
-  older Worker over a newer one. A deployment with code but no `state:version` is another app with
-  the name of the store, and the run fails instead of pushing over it.
+  with a push key of `PUSH_KEY_ACTIONS` that is deleted after the push. An older number does the
+  same. The version is read again right before the push, because another run can push a newer store
+  in the meantime. A newer number fails the run with both versions: the store and its clients are
+  released and upgraded together, and the store is never pushed back. Unlike the Cloudflare store,
+  which compares for equality and would deploy an older Worker over a newer one. A deployment with
+  code but no `state:version` is another app with the name of the store, and the run fails instead
+  of pushing over it.
 - The functions directory is found from the module: `src/State.ts` in a checkout, `lib/index.js` in
   the installed package, and `../src/store/convex` from either, because the package ships `src`. The
   CLI needs a `package.json` with `convex` among its dependencies or peer dependencies in the
@@ -290,10 +289,7 @@ show.
   When nothing failed, it records `sealedGeneration`.
 - Each run reads `state:sealing`, so the work does not depend on the run that pushed. A run makes a
   key when the store has none, and runs a reseal unless one finished under the current key. So a run
-  that stopped after a push, or a reseal that failed, leaves work for the next run. Since store
-  version 8 a stored `__redacted__` value must be sealed: a read or a reseal of a value without a
-  valid `__sealed__` object fails with a fixed error that quotes no part of the row. The bridge of
-  the upgrade to store version 8 seals the values that an older store holds in clear text.
+  that stopped after a push, or a reseal that failed, leaves work for the next run.
 - The additional data of a value names its row, so a sealed value opens only in the row that sealed
   it. A move of a stack goes through `get` and `set`, which open and seal again.
 - `src/store/sealedSecret.ts` has the same format as the credentials of Samebase, and it depends on
@@ -324,55 +320,16 @@ deploy conflict (0.25.1 made the conflict rare).
   record from the output and shows a stage only when the output has a record of its repository.
 - What Samebase no longer sees: a stage before its first complete deploy, and the commit and run of
   a deploy that is in progress or that failed. A stage shows its last full successful deploy.
-- Store version 7 kept `outputs.value` optional and `outputs.currentRun` in its schema for the rows
-  of store version 6. Store version 8 removes both: see the next section.
+- The rows of an older store stay: an output row can hold `currentRun`, and an output row that had
+  only a run record has no `value`. A push checks every row against the schema, and it fails on a
+  field that the schema does not declare or on a missing required field (measured on a local backend
+  with Convex 1.48.0). So the schema keeps `outputs.value` optional and `outputs.currentRun` as an
+  optional value of any shape, which nothing reads or writes. Removing them would need each store of
+  another team to clean its rows during an upgrade, which is not worth the code.
 - Two differences from the Cloudflare store stay: it lists only the stages that have a resource, and
   this store also lists a stage that has only an output. Alchemy's `syncState` copies resources and
   no outputs, so a stage that moves to another store has no output, and no run record, until its
   next deploy.
-
-## The upgrade bridge (store version 8)
-
-Store version 8 has a strict schema: an output row is `{ stack, stage, value }`, with `value`
-required. It also opens and reseals only sealed secrets. A push checks every row against the schema,
-so a push of store version 8 over a store with the output rows of store version 6 fails (measured on
-a local backend with Convex 1.48.0: `Object is missing the required field value`, and
-`Object contains extra field currentRun`). The upgrade must not need a manual step, so the run of an
-older store upgrades it in one run.
-
-1. Bridge push. `bridgeRoot` in `src/State.ts` makes `<package>/.store-bridge-<random>/` for this
-   run only, in the installed package directory, so that it resolves the `convex` package of the
-   store. It is a copy of `src/store`, with these modules replaced or added. Each one re-exports a
-   file of `src/store-bridge`, so the files stay type-checked where the package keeps them:
-   `component/schema.ts` (the schema of store version 7), `convex/sealing.ts` (the sealing of store
-   version 7, which also opens and reseals clear text), `component/bridge.ts` and `convex/bridge.ts`
-   (the cleanup), and `convex/version.ts`, which answers 7. Nothing shared changes, so parallel runs
-   share no edited file. The run removes the folder at its end.
-2. Cleanup. `bridge:cleanup` runs page by page, from the first page, until its last page. Each page
-   is one mutation of 10 rows: it deletes an output row without `value`, and it replaces a row with
-   `currentRun` by its stack, stage, and value. A sweep can start again at the first page.
-3. Sealing. `ensureSealed` runs against the bridge and must finish with no failed row. The bridge
-   sealing seals each secret that a store from before version 5 holds in clear text. The cleanup
-   comes before the sealing because the reseal reads `outputPage`, which in store version 8 has no
-   place for a row without `value`.
-4. Store push of `src/store`.
-5. `state:version` must answer 8. Then `ensureSealed` runs as on each run.
-
-The bridge answers 7, so a run that stops after the bridge push does every step again. When a step
-fails, such as a missing `bridge:cleanup` because another run pushed store version 8, or a failed
-push, the run reads `state:version` again. Version 8 or newer means that another run finished, and
-the run goes on (a newer version fails it as usual). Else the run starts again at step 1, at most 3
-times in all, and then fails with a fixed message. A failed step is logged by its name only, because
-a push error can quote a row.
-
-Measured on 2026-11-08 on an anonymous local backend (Convex 1.48.0), with the real bridge and the
-real store of 0.36.0: a store of version 7 with 60 output rows with `currentRun` (15 without
-`value`, 15 with a secret in clear text) and 10 resource rows with a secret in clear text. The
-strict push before the cleanup failed. The bridge push, 7 cleanup pages (15 rows deleted), a reseal
-of 25 rows with no failure, and the store push passed. All 45 output rows with a value kept their
-`_id`, `_creationTime`, and value, no row kept `currentRun`, and `state:get` and `state:getOutput`
-gave the text that was stored before. After the upgrade, `bridge:cleanup` answered
-`Could not find function`.
 
 ## Measured
 
@@ -439,8 +396,7 @@ store was not touched. The probe rows were deleted at the end.
 - The push of the store has no lock. Two runs of two package versions that both find an older store
   can push in the order new, then old, in the seconds between the second read of the version and the
   end of the push; the newer run then fails with both versions, and its next run pushes its store
-  again. The upgrade happens once for each new package version in a team. An upgrade through the
-  bridge starts again after an older store comes back, at most 3 times in one run.
+  again. The upgrade happens once for each new package version in a team.
 - A team access token (0.6.1): `GET /token_details` names its team, and the dashboard's team list
   answers it HTTP 403, so a slug is checked against the `teamSlug` of the team's projects instead; a
   team without a project needs the numeric id. Measured with a temporary team token on a temporary
