@@ -200,8 +200,8 @@ const vCredentialHashes = {
 /**
  * Creates the client of a GitHub Actions run and records its registration, in one transaction. The
  * blocks are read again here, so a block set while the verification file was fetched still applies.
- * The tenant is `gh-<repository id>`, and the app is the repository's app of that name, with its
- * previews in an app of their own. A production client also replaces the app's initial access token.
+ * The tenant is `gh-<repository id>`, and the app is the repository's app of that name, previews
+ * included. A production client also replaces the app's initial access token.
  * A run whose owner is not the owner of a token row of the repository deletes that row, so the old
  * token of a transferred repository stops. A proof that names another owner than the tenant's and
  * is not newer than the tenant's newest proof is refused (`stale_proof`), so a replayed proof of
@@ -268,8 +268,7 @@ export const createClient = mutation({
       return { ok: false as const, reason: "new_owners" as const };
     }
 
-    const production = args.deployment.type === "production";
-    const appId = await appIdOf(tenantId, args.app, production);
+    const appId = await appIdOf(tenantId, args.app);
     // The owner of this proof becomes the tenant's recorded owner with this client.
     const refused = await connectorRefusal(
       ctx,
@@ -397,7 +396,7 @@ export const readInitialAccessToken = query({
  * token's row is read again here, so a token replaced or deleted while the verification file was
  * fetched, or a row that names another repository, owner, or app than the host's policy decided on,
  * refuses the request (`invalid_token`); the blocks are read again too. The client is in the app's
- * preview app, with a removal date. No owner goes to `registerClient`: it checks the tenant's
+ * non-production budget, with a removal date. No owner goes to `registerClient`: it checks the tenant's
  * recorded owner and keeps it, so only a GitHub run changes a tenant's owner.
  */
 export const createDevelopmentClient = mutation({
@@ -447,7 +446,7 @@ export const createDevelopmentClient = mutation({
     }
 
     const tenantId = tenantIdOf(token.githubRepositoryDatabaseId);
-    const appId = await appIdOf(tenantId, token.app, false);
+    const appId = await appIdOf(tenantId, token.app);
     // A development client keeps the tenant's recorded owner, which must be the token's.
     const refused = await connectorRefusal(
       ctx,

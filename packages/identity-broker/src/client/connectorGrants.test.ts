@@ -49,7 +49,6 @@ const hubPolicy: PolicyFunction = (registration) =>
   });
 
 const PRODUCTION_APP = `gh-${REPOSITORY_ID}-${APP_HASH}`;
-const PREVIEW_APP = `${PRODUCTION_APP}-preview`;
 
 /** `POST /hub-clients` for a run of the repository of `claims`, enrolled in `connectors`. */
 async function register(
@@ -156,7 +155,7 @@ describe("the connector grants", () => {
     expect(await state.json()).toEqual({ connectors: ["fake", "other"], grants: [] });
   });
 
-  it("add a connector to one app's clients, not to its preview app or other apps", async () => {
+  it("add a connector to one app's clients, its previews included, not to other apps", async () => {
     const h = await createHub({ policy: hubPolicy });
     await skipSignInPage(h);
     const before = await registered(h, ["fake"]);
@@ -167,8 +166,8 @@ describe("the connector grants", () => {
     expect((await signIn(h, after, "other")).went).toBe("provider");
     // A client enrolled before keeps its enrollment: the grant opens nothing it did not enroll in.
     expect((await signIn(h, before, "other")).went).toBe("status 400");
-    const preview = await register(h, ["fake", "other"], pullRequestClaims);
-    expect(preview.status).toBe(400);
+    const preview = await registered(h, ["fake", "other"], pullRequestClaims);
+    expect((await signIn(h, preview, "other")).went).toBe("provider");
     const other = await register(h, ["fake", "other"], {
       repository_id: "82",
       repository: "octo-org/other",
@@ -185,17 +184,15 @@ describe("the connector grants", () => {
           reason: "A trusted team",
           repository: "octo-org/octo-repo",
           app: "my-app",
-          production: true,
         },
       ],
     });
   });
 
-  it("let a preview app's grant cover its development clients", async () => {
+  it("let an app's grant cover its development clients", async () => {
     const h = await createHub({ policy: hubPolicy });
     const production = await registered(h, ["fake"]);
-    await registered(h, ["fake"], pullRequestClaims);
-    await changeGrant(h, { appId: PREVIEW_APP, grant: true });
+    await changeGrant(h, { grant: true });
 
     const token = production.initial_access_token ?? "";
     stubProviders();

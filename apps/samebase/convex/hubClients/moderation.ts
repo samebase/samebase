@@ -103,7 +103,6 @@ const vSignInPageList = object({
       reason: string(),
       repository: union(string(), v.null()),
       app: union(string(), v.null()),
-      production: union(boolean(), v.null()),
     }),
   ),
 });
@@ -121,7 +120,6 @@ const vConnectorGrantList = object({
       reason: string(),
       repository: union(string(), v.null()),
       app: union(string(), v.null()),
-      production: union(boolean(), v.null()),
     }),
   ),
 });

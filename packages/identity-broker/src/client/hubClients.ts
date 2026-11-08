@@ -321,7 +321,6 @@ export function hubClientsEndpoint(args: {
       githubRepositoryDatabaseId: facts.repositoryId,
       githubOwnerId: facts.ownerId,
       app: facts.app,
-      production: facts.deploymentType === "production",
     });
     // The one rule (`usableNames`), over the hub's configured connectors: the policy's alone for the
     // mutation, which reads the grants again, and with the grants for this request's answer.

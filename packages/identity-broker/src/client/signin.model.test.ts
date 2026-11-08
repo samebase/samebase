@@ -271,15 +271,15 @@ function createModel(clients: Client[], policy: PolicyState) {
 
 type Model = ReturnType<typeof createModel>;
 
-const grantKey = (repository: string, production: boolean, connector: string) =>
-  `${repository}:${production ? "production" : "preview"}:${connector}`;
+/** One app per repository and name: its grant covers production, previews, and development. */
+const grantKey = (repository: string, connector: string) => `${repository}:${connector}`;
 
 /**
  * Whether a grant opens `connector` to the client now: the grant of its app is bound to the
  * tenant's recorded owner, and that owner registered the client.
  */
 function grantedNow(model: Model, client: Client, connector: string) {
-  const owner = model.grants.get(grantKey(client.repository, client.production, connector));
+  const owner = model.grants.get(grantKey(client.repository, connector));
   return owner === client.ownerId && owner === client.registeredOwner;
 }
 
@@ -732,17 +732,14 @@ async function playGrant(
   checks: Checks,
   story: Story,
 ) {
-  const key = grantKey(command.repository, command.production, command.connector);
+  const key = grantKey(command.repository, command.connector);
   const row = model.grants.get(key);
   const tenantOwner =
     model.clients.find((client) => client.repository === command.repository)?.ownerId ?? "";
   const shown = command.grant ? tenantOwner : (row ?? tenantOwner);
   const expectedOwnerId =
     command.view === "current" ? shown : (OWNERS.find((owner) => owner !== shown) ?? shown);
-  const appExists = model.clients.some(
-    (client) =>
-      client.repository === command.repository && client.production === command.production,
-  );
+  const appExists = model.clients.some((client) => client.repository === command.repository);
   const predicted = !command.grant
     ? row === undefined
       ? { status: 200, body: { changed: false } }
@@ -757,7 +754,7 @@ async function playGrant(
   const response = await moderationRequest(h, "/moderation/connector-grants", {
     method: "POST",
     body: {
-      appId: await appIdOf(tenantIdOf(command.repository), "app-a", command.production),
+      appId: await appIdOf(tenantIdOf(command.repository), "app-a"),
       connector: command.connector,
       expectedOwnerId,
       grant: command.grant,

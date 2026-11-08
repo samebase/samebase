@@ -33,7 +33,6 @@ afterEach(() => {
 const hubPolicy: PolicyFunction = () => testPolicy();
 
 const PRODUCTION_APP = `gh-${REPOSITORY_ID}-${APP_HASH}`;
-const PREVIEW_APP = `${PRODUCTION_APP}-preview`;
 
 async function changeSignInPage(
   h: Harness,
@@ -113,7 +112,7 @@ describe("the exemptions from the sign-in page", () => {
     expect(await state.json()).toEqual({ everyApp: null, apps: [] });
   });
 
-  it("skip the page for one app's clients, not for its preview app or other apps", async () => {
+  it("skip the page for one app's clients, its previews included, not for other apps", async () => {
     const h = await createHub({ policy: hubPolicy });
     const production = await createClient(h);
     const preview = await createPreviewClient(h);
@@ -122,7 +121,7 @@ describe("the exemptions from the sign-in page", () => {
     expect(await (await oneApp(h, true)).json()).toEqual({ changed: true });
 
     expect((await signIn(h, production)).went).toBe("provider");
-    expect((await signIn(h, preview)).went).toBe("page");
+    expect((await signIn(h, preview)).went).toBe("provider");
     expect((await signIn(h, other)).went).toBe("page");
     expect(await (await moderationRequest(h, "/moderation/sign-in-page")).json()).toEqual({
       everyApp: null,
@@ -134,7 +133,6 @@ describe("the exemptions from the sign-in page", () => {
           reason: "Trusted team",
           repository: "octo-org/octo-repo",
           app: "my-app",
-          production: true,
         },
       ],
     });
@@ -351,7 +349,7 @@ describe("the exemptions from the sign-in page", () => {
     expect((await signIn(h, own)).went).toBe("page");
   });
 
-  it("apply to a development client of the exempt preview app", async () => {
+  it("apply to a development client of the exempt app", async () => {
     const h = await createHub({ policy: hubPolicy });
     await createClient(h);
     // A production registration replaces the app's initial access token: the newest one counts.
@@ -360,7 +358,7 @@ describe("the exemptions from the sign-in page", () => {
     const development = await createDevelopmentClient(h, token);
 
     expect((await signIn(h, development)).went).toBe("page");
-    expect(await (await oneApp(h, true, PREVIEW_APP)).json()).toEqual({ changed: true });
+    expect(await (await oneApp(h, true)).json()).toEqual({ changed: true });
     expect((await signIn(h, development)).went).toBe("provider");
   });
 

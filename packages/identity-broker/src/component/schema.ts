@@ -49,8 +49,8 @@ export const vBlockKind = union(literal("repository"), literal("owner"));
 
 /**
  * What an exemption from the sign-in page covers: every app, strangers' and future ones included,
- * or one broker app (a repository's production app, or its preview app, which holds previews and
- * development clients) bound to the repository's owner that the hub recorded when the admin set it.
+ * or one app with its production, preview, and development clients, bound to the repository's owner
+ * that the hub recorded when the admin set it.
  */
 export const vSignInPageTarget = union(
   object({ scope: literal("every_app") }),
@@ -255,8 +255,8 @@ export default defineSchema({
     .index("by_github_owner_id", ["githubOwnerId"]),
 
   /**
-   * The initial access token of an app (RFC 7591 section 1.2), one row per repository and app name,
-   * shared by the production app and its preview app. A production registration at
+   * The initial access token of an app (RFC 7591 section 1.2), one row per repository and app name.
+   * A production registration at
    * `POST /hub-clients` answers the token once and writes its hash here, in the transaction that
    * creates the client, replacing the row of the app, so the previous token stops. A registration
    * under another owner deletes the repository's rows. The row holds no token.
@@ -321,7 +321,9 @@ export default defineSchema({
     connectors: array(string()),
   })
     .index("by_client_id", ["clientId"])
+    // eslint-disable-next-line @convex-dev/no-duplicate-indexes -- The lists read an app's newest client by creation time.
     .index("by_app_id", ["appId"])
+    .index("by_app_id_and_deployment_type", ["appId", "deploymentType"])
     .index("by_deployment_type_and_activity", ["deploymentType", "lastSignInAt", "createdAt"])
     .index("by_remove_at", ["removeAt"]),
 

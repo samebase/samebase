@@ -238,8 +238,8 @@ export const clientList = query({
 
 /**
  * Every client of the given repositories, newest first. Each repository has at most
- * `MAX_APPS_PER_TENANT` apps of `MAX_CLIENTS_PER_APP` clients, and the HTTP endpoint caps the
- * repositories of one request, so the list needs no limit.
+ * `MAX_APPS_PER_TENANT` apps of two budgets of `MAX_CLIENTS_PER_APP` clients, and the HTTP endpoint
+ * caps the repositories of one request, so the list needs no limit.
  */
 export const repositoryClients = query({
   args: { githubRepositoryDatabaseIds: array(string()) },

@@ -616,7 +616,6 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           app: string;
           githubOwnerId: string;
           githubRepositoryDatabaseId: string;
-          production: boolean;
         },
         Array<string>,
         Name
@@ -631,7 +630,6 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           appId: string;
           connector: string;
           ownerId: string;
-          production: boolean | null;
           reason: string;
           repository: string | null;
         }>,
@@ -1166,7 +1164,6 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             app: string | null;
             appId: string;
             ownerId: string;
-            production: boolean | null;
             reason: string;
             repository: string | null;
           }>;

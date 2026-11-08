@@ -170,7 +170,6 @@ const overview = {
         reason: "A team we know",
         repository: "other-org/own",
         app: "my-app",
-        production: true,
       },
     ],
   },
@@ -185,7 +184,6 @@ const overview = {
         reason: "Our other app",
         repository: "other-org/own",
         app: "my-app",
-        production: true,
       },
     ],
   },
@@ -401,7 +399,7 @@ describe("AdminHubClientsPage", () => {
     try {
       await act(async () => button(page.rootElement, "Sign-in page").click());
       const text = page.rootElement.textContent;
-      expect(text).toContain("other-org/own my-app, production: A team we know");
+      expect(text).toContain("other-org/own my-app: A team we know");
       // A row kept through a transfer covers no client, and the admin can still remove it.
       expect(text).toContain(
         "Bound to the owner with GitHub id 90. Not active: the repository has another owner now.",
@@ -526,7 +524,7 @@ describe("AdminHubClientsPage", () => {
         connectors?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
       });
       const dialog = document.querySelector("[role=dialog]");
-      expect(dialog?.textContent).toContain("Previews and development servers. The hub's policy");
+      expect(dialog?.textContent).toContain("production, previews, and development servers");
       expect(dialog?.textContent).toContain("gives this app google-apps, github-apps");
       expect(dialog?.textContent).toContain("GitHub id 65");
       // One box per connector the policy does not give: the private pair, never the public one.
@@ -714,7 +712,7 @@ describe("AdminHubClientsPage", () => {
     try {
       await act(async () => button(page.rootElement, "Connector grants 1").click());
       const text = page.rootElement.textContent;
-      expect(text).toContain("google for other-org/own my-app, production: Our other app");
+      expect(text).toContain("google for other-org/own my-app: Our other app");
       expect(text).toContain(
         "Not active: the hub has no such app now, or the repository has another owner.",
       );

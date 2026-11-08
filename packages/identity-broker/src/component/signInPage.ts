@@ -68,8 +68,6 @@ const vAppExemption = object({
   /** From the app's newest client: `owner/name` and the stack's app name. Null with no client. */
   repository: union(string(), v.null()),
   app: union(string(), v.null()),
-  /** Whether the app is a repository's production app, from its newest client. Null with none. */
-  production: union(boolean(), v.null()),
 });
 
 /** The "every app" row with its reason, and every one-app row, by app id. */
@@ -108,7 +106,6 @@ export const list = query({
         reason: row.reason,
         repository: client?.registeredBy.githubRepository ?? null,
         app: client?.app ?? null,
-        production: client === null ? null : client.deploymentType === "production",
       });
     }
     return {

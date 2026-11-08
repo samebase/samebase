@@ -13,9 +13,12 @@ const { array, literal, number, object, optional, string, union } = v;
  * authorization, or provider refresh. Only preview and development clients get a removal date.
  */
 export const LEASE_MS = 14 * 24 * 60 * 60 * 1000;
-/** The rows of one app. The deployments of a stack cannot grow past this. */
+/**
+ * The clients of one app in each of its two budgets: production, and previews with development
+ * servers. The deployments of a stack cannot grow past this.
+ */
 export const MAX_CLIENTS_PER_APP = 30;
-/** The apps of one tenant: five names, each with a production app and a preview app. */
+/** The apps of one tenant: ten names. */
 export const MAX_APPS_PER_TENANT = 10;
 
 /** `development`: a development server's client, which lives and goes like a preview's. */
@@ -33,10 +36,11 @@ export function used(client: Doc<"clients">, now: number) {
 }
 
 /**
- * The one row that makes way for a new client at the cap: null below the cap, and undefined when no
- * row can go. For a preview or development client any row can go, because the next deploy or dev
- * start of its owner registers again. For a production client a row goes only if it never signed
- * anyone in: the hub cannot know which client a deployment holds, so one that has served users stays.
+ * The one row of the new client's budget that makes way for it at the cap: null below the cap, and
+ * undefined when no row can go. For a preview or development client any preview or development row
+ * can go, because the next deploy or dev start of its owner registers again. For a production client
+ * a production row goes only if it never signed anyone in: the hub cannot know which client a
+ * deployment holds, so one that has served users stays.
  */
 function evicted(rows: Doc<"clients">[], deploymentType: Infer<typeof vDeployment>) {
   if (rows.length < MAX_CLIENTS_PER_APP) {
@@ -137,12 +141,17 @@ export async function registerClient(
       return { ok: false as const, error: "too_many_apps" as const };
     }
   }
+  // The budget of the new client: `development` and `preview` sort before `production`.
   const rows =
     app === null
       ? []
       : await ctx.db
           .query("clients")
-          .withIndex("by_app_id", (q) => q.eq("appId", args.appId))
+          .withIndex("by_app_id_and_deployment_type", (q) =>
+            args.deploymentType === "production"
+              ? q.eq("appId", args.appId).eq("deploymentType", "production")
+              : q.eq("appId", args.appId).lt("deploymentType", "production"),
+          )
           .take(MAX_CLIENTS_PER_APP);
   const evictedRow = evicted(rows, args.deploymentType);
   if (evictedRow === undefined) {
