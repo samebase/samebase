@@ -21,15 +21,13 @@ facts that the repository overview shows. It changes nothing.
 - Setup stack, for a repository that its GitHub Actions set up (null for any other): `state` from
   the same store read. It is done when the `prod` stage of the stack named after the repository has
   a recorded successful deployment, and no_successful_deployment before that. The store does not say
-  whether a run is running or failed. The runUrl opens the recorded Actions run when one exists,
-  otherwise it is null. It is unavailable when the store cannot be read.
+  whether a run is running or failed. It is unavailable when the store cannot be read.
 - Attention items: each names a problem and what to do about it. The repository setup state comes
   first. While Samebase setup runs, the only item says so. When it failed, the only item names
   `repository_retryProviderSetup`, the one tool that fixes a problem. Samebase repairs nothing else:
   repair lives in Alchemy and the agent. When no successful deployment is recorded, an item says so
-  and links the recorded Actions run or the repository's GitHub Actions page. After that, an item
-  says when the store is unreadable, has no stack of the repository, does not exist yet, or has no
-  Convex connection.
+  and links the repository's GitHub Actions page. After that, an item says when the store is
+  unreadable, has no stack of the repository, does not exist yet, or has no Convex connection.
 
 Checks give the total, failed, pending, and unknown counts, and the names of the failed checks. Each
 check counts once, by its newest run, so a run that a newer run replaced does not count.
@@ -332,19 +330,9 @@ JSON Schema for the tool's `structuredContent`:
           "properties": {
             "state": {
               "const": "no_successful_deployment"
-            },
-            "runUrl": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ]
             }
           },
-          "required": ["state", "runUrl"],
+          "required": ["state"],
           "additionalProperties": false
         },
         {

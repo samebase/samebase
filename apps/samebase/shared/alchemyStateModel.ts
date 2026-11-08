@@ -13,7 +13,38 @@ export const DESTROY_ALCHEMY_STACK_FIRST = "Destroy your Alchemy stack first.";
 export const CONNECT_CONVEX_TO_CHECK_STACK =
   "Connect Convex so Samebase can check for an Alchemy stack.";
 
-/** The run that last wrote the state of a stage. */
+/**
+One stage as the store gives it: Alchemy state only. `resources` are in fqn order. Their values and
+`output` are JSON texts of Alchemy state, and `output` is null for a stage without one.
+
+@see https://github.com/samebase/samebase/blob/5af4b4845f4f2ef196984bfce71a57686bd3614f/packages/alchemy-convex/src/store/component/state.ts#L292-L301
+*/
+export const vAlchemyStoredStage = object({
+  name: string(),
+  resources: array(object({ fqn: string(), value: string() })),
+  output: union(string(), v.null()),
+});
+export type AlchemyStoredStage = Infer<typeof vAlchemyStoredStage>;
+
+/**
+The value of `reader:repository` (store version 7): the stack whose name is the repository of the
+reader token, and each stack whose name starts with that name and `/`, in name order. Each stack has
+every stage with a resource or an output, in name order. The reader replaces each secret with
+`{ "__redacted__": null }` and changes nothing else, so an output keeps its run record under
+`samebase.run`.
+
+@see https://github.com/samebase/samebase/blob/5af4b4845f4f2ef196984bfce71a57686bd3614f/packages/alchemy-convex/src/store/component/reader.ts#L11-L96
+*/
+export const vAlchemyRepositoryReply = object({
+  store: literal("found"),
+  stacks: array(object({ name: string(), stages: array(vAlchemyStoredStage) })),
+});
+
+/**
+The record of the run that wrote the output of a stage. The run record layer of alchemy-convex adds
+it to the output under `samebase.run`, and Alchemy writes the output only after a full successful
+deploy.
+*/
 export const vAlchemyRunRecord = object({
   version: literal(1),
   /** GitHub `owner/name`. */
@@ -29,11 +60,11 @@ export const vAlchemyRunRecord = object({
   recordedAt: string(),
 });
 
+/** A stage of the repository after its first full successful deploy. */
 const vAlchemyStage = object({
   name: string(),
-  record: vAlchemyRunRecord,
-  /** Last completed deploy. */
-  deployedHeadCommit: union(string(), v.null()),
+  /** The run of the last full successful deploy of the stage. */
+  run: vAlchemyRunRecord,
   /** JSON from Alchemy's `encodeState`, with marked secret values removed. */
   resources: array(object({ fqn: string(), value: string() })),
   /** JSON without the run record or marked secret values. */
@@ -45,7 +76,7 @@ export type AlchemyStage = Infer<typeof vAlchemyStage>;
 const vAlchemyStack = object({ name: string(), stages: array(vAlchemyStage) });
 export type AlchemyStack = Infer<typeof vAlchemyStack>;
 
-/** The public `reader:repository` query returns only stacks of the authenticated repository. */
+/** The stacks of a repository that have a stage of the repository, or no store in the team. */
 export const vAlchemyStacksRead = union(
   object({ store: literal("missing") }),
   object({ store: literal("found"), stacks: array(vAlchemyStack) }),
@@ -57,12 +88,12 @@ The setup status of a repository_actions repository, from the `prod` stage of th
 the repository's name in the team's Alchemy state store.
 
 no_successful_deployment = no completed production deploy is recorded. The store does not say
-whether the run is still running or failed. `runUrl` opens the recorded run when one exists.
+whether a run is still running or failed.
 
-done = the stage has an output.
+done = the stage has the run record of a completed deploy of the repository.
 */
 export const vAlchemySetupStatus = union(
-  object({ state: literal("no_successful_deployment"), runUrl: union(string(), v.null()) }),
+  object({ state: literal("no_successful_deployment") }),
   object({ state: literal("done") }),
 );
 export type AlchemySetupStatus = Infer<typeof vAlchemySetupStatus>;
