@@ -780,3 +780,29 @@ test("openid-client refreshes with a stable broker token while the hub retains p
     await args.h.t.run(async (ctx) => await ctx.db.query("refreshGrants").collect()),
   ).toHaveLength(0);
 });
+
+// A rule that mutation testing (StrykerJS) found no test for: a check that reads one resource of
+// several would hand out the first resource's token.
+test("refuses a code exchange that names two resources, without spending the code", async () => {
+  const args = await setup();
+  const { start, proof } = await authorize(args, convex.resource);
+  const finished = await complete(args.h, start);
+  const code = finished.url.searchParams.get("code") ?? "";
+  const body = new URLSearchParams({
+    grant_type: "authorization_code",
+    client_id: args.registered.clientId,
+    client_secret: args.registered.clientSecret,
+    code,
+    code_verifier: proof.verifier,
+    redirect_uri: REDIRECT,
+  });
+  body.append("resource", convex.resource);
+  body.append("resource", cloudflare.resource);
+
+  const refused = await args.h.fetchBroker(`${ISSUER}/token`, { method: "POST", body });
+  expect(refused.status).toBe(400);
+  expect(await refused.json()).toMatchObject({ error: "invalid_target" });
+  expect((await redeem(args, code, proof.verifier, { resource: convex.resource })).status).toBe(
+    200,
+  );
+});
