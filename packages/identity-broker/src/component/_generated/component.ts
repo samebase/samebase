@@ -452,7 +452,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             tokenEndpointAuthMethod:
               "client_secret_post" | "client_secret_basic";
           };
-          exemption: { everyApp: boolean; thisApp: boolean };
+          exemption: { everyApp: boolean; repository: boolean };
           granted: Array<string>;
           registration: {
             app: string;
@@ -612,11 +612,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
       forRegistration: FunctionReference<
         "query",
         "internal",
-        {
-          app: string;
-          githubOwnerId: string;
-          githubRepositoryDatabaseId: string;
-        },
+        { githubOwnerId: string; githubRepositoryDatabaseId: string },
         Array<string>,
         Name
       >;
@@ -626,12 +622,10 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         {},
         Array<{
           active: boolean;
-          app: string | null;
-          appId: string;
           connector: string;
           ownerId: string;
           reason: string;
-          repository: string | null;
+          repositoryId: string;
         }>,
         Name
       >;
@@ -640,14 +634,13 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         "internal",
         {
           adminEmail: string;
-          appId: string;
           connector: string;
           expectedOwnerId: string;
           grant: boolean;
           reason: string;
+          repositoryId: string;
         },
-        | { changed: boolean; ok: true }
-        | { error: "owner_changed" | "unknown_app"; ok: false },
+        { changed: boolean; ok: true } | { error: "owner_changed"; ok: false },
         Name
       >;
     };
@@ -828,7 +821,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
               removeAt: number | null;
               renewedAt: number;
             };
-            exemption: { everyApp: boolean; thisApp: boolean };
+            exemption: { everyApp: boolean; repository: boolean };
             granted: Array<string>;
             ownerId: string | null;
             registration: {
@@ -889,7 +882,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             removeAt: number | null;
             renewedAt: number;
           };
-          exemption: { everyApp: boolean; thisApp: boolean };
+          exemption: { everyApp: boolean; repository: boolean };
           granted: Array<string>;
           ownerId: string | null;
           registration: {
@@ -1159,15 +1152,13 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         "internal",
         {},
         {
-          apps: Array<{
+          everyApp: { reason: string } | null;
+          repositories: Array<{
             active: boolean;
-            app: string | null;
-            appId: string;
             ownerId: string;
             reason: string;
-            repository: string | null;
+            repositoryId: string;
           }>;
-          everyApp: { reason: string } | null;
         },
         Name
       >;
@@ -1180,10 +1171,13 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           skip: boolean;
           target:
             | { scope: "every_app" }
-            | { appId: string; expectedOwnerId: string; scope: "app" };
+            | {
+                expectedOwnerId: string;
+                repositoryId: string;
+                scope: "repository";
+              };
         },
-        | { changed: boolean; ok: true }
-        | { error: "owner_changed" | "unknown_app"; ok: false },
+        { changed: boolean; ok: true } | { error: "owner_changed"; ok: false },
         Name
       >;
     };

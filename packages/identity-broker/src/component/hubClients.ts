@@ -49,17 +49,17 @@ const vInvalidConnectors = object({
 });
 
 /**
- * The refusal of an enrollment that the policy and the app's grants of the host's configured
+ * The refusal of an enrollment that the policy and the repository's grants of the host's configured
  * connectors do not cover, or null.
  */
 async function connectorRefusal(
   ctx: MutationCtx,
-  args: { appId: string; ownerId: string; tenantOwnerId: string | undefined },
+  args: { tenantId: string; ownerId: string; tenantOwnerId: string | undefined },
   connectors: string[],
   allowedBy: { policy: string[]; configured: string[] },
 ) {
   const granted = await grantedTo(ctx, {
-    appId: args.appId,
+    tenantId: args.tenantId,
     tenantOwnerId: args.tenantOwnerId,
     clientOwnerId: args.ownerId,
   });
@@ -272,7 +272,7 @@ export const createClient = mutation({
     // The owner of this proof becomes the tenant's recorded owner with this client.
     const refused = await connectorRefusal(
       ctx,
-      { appId, ownerId: args.githubOwnerId, tenantOwnerId: args.githubOwnerId },
+      { tenantId, ownerId: args.githubOwnerId, tenantOwnerId: args.githubOwnerId },
       args.connectors,
       { policy: args.policyConnectors, configured: args.configuredConnectors },
     );
@@ -451,7 +451,7 @@ export const createDevelopmentClient = mutation({
     const refused = await connectorRefusal(
       ctx,
       {
-        appId,
+        tenantId,
         ownerId: token.githubOwnerId,
         tenantOwnerId: (await tenantRow(ctx, tenantId))?.ownerId,
       },

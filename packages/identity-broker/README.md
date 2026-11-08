@@ -151,12 +151,13 @@ refresh) on the client's and the tenant's rows, so a change applies to existing 
 policy that throws or answers a malformed value refuses the request; nothing is allowed by default.
 A paused client gets no registration, sign-in, code exchange, or refresh, and keeps its reads,
 renewals, revocations, and self-deletes. The sign-in page is not the policy's: it shows for every
-client unless the hub's administrator exempts its app, or every app, at `/moderation/sign-in-page`,
-and the broker applies that itself. A one-app exemption counts while the repository's recorded
-owner, and the client's, is the one the admin saw. The administrator can also grant one app a
-connector that the policy does not give it, at `/moderation/connector-grants`: its clients may then
-enroll in and use it, bound to the recorded owner in the same way. Every step of a sign-in reads the
-grants again, so a revoked grant stops the next step.
+client unless the hub's administrator exempts its repository, or every app, at
+`/moderation/sign-in-page`, and the broker applies that itself. A repository's exemption covers
+every app and deployment of it, and counts while the repository's recorded owner, and the client's,
+is the owner the row is bound to. The administrator can also grant one repository a connector that
+the policy does not give it, at `/moderation/connector-grants`: its clients may then enroll in and
+use it, bound to an owner in the same way. Every step of a sign-in reads the grants again, so a
+revoked grant stops the next step.
 
 Each repository and owner has hourly limits, and `/moderation/blocks` stops a repository or an owner
 at once, policy or not. `/moderation/clients?repository=<id>&repository=<id>` lists the clients of

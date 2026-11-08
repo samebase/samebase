@@ -73,16 +73,16 @@ const vClient = object({
   ),
   /** The connectors the client's sign-ins may use. */
   connectors: array(string()),
-  /** The repository's owner that the hub recorded last, which an app's exemption binds to. */
+  /** The repository's owner that the hub recorded last, which a repository's exemption binds to. */
   ownerId: union(string(), v.null()),
   /**
   Whether the hub shows its sign-in page to this client's users: `shown`, or the exemption that
   skips it. Null when the client cannot sign in at all.
   */
-  signInPage: union(literal("shown"), literal("every_app"), literal("this_app"), v.null()),
+  signInPage: union(literal("shown"), literal("every_app"), literal("repository"), v.null()),
   /**
   The hub's connectors that its policy gives the client, the enrolled ones it may use now, and those
-  of them that only an admin's grant to its app allows. Null when the client cannot sign in at all.
+  of them that only an admin's grant to its repository allows. Null when the client cannot sign in.
   */
   policyConnectors: union(array(string()), v.null()),
   usableConnectors: union(array(string()), v.null()),
@@ -94,15 +94,13 @@ const vClientList = object({ clients: array(vClient), limitReached: boolean() })
 /** The exemptions from the hub's sign-in page. */
 const vSignInPageList = object({
   everyApp: union(object({ reason: string() }), v.null()),
-  apps: array(
+  repositories: array(
     object({
-      appId: string(),
+      repositoryId: string(),
       ownerId: string(),
-      /** False after a recorded transfer to another owner: the row then covers no client. */
+      /** False while the hub has recorded another owner: the row then covers no client. */
       active: boolean(),
       reason: string(),
-      repository: union(string(), v.null()),
-      app: union(string(), v.null()),
     }),
   ),
 });
@@ -112,22 +110,30 @@ const vConnectorGrantList = object({
   connectors: array(string()),
   grants: array(
     object({
-      appId: string(),
-      connector: string(),
+      repositoryId: string(),
       ownerId: string(),
-      /** False after a recorded transfer to another owner: the row then grants nothing. */
+      connector: string(),
+      /** False while the hub has recorded another owner: the row then grants nothing. */
       active: boolean(),
       reason: string(),
-      repository: union(string(), v.null()),
-      app: union(string(), v.null()),
     }),
   ),
 });
 
 const vSignInPageTarget = union(
   object({ scope: literal("every_app") }),
-  object({ scope: literal("app"), appId: string(), expectedOwnerId: string() }),
+  object({ scope: literal("repository"), repositoryId: string(), expectedOwnerId: string() }),
 );
+
+/** The fields of GitHub's repository answer that the hub's levers need. */
+const vGitHubRepository = object({
+  id: number(),
+  full_name: string(),
+  owner: object({ id: number() }),
+});
+
+/** `owner/name` as GitHub allows them; `.` and `..` are not repository names. */
+const GITHUB_FULL_NAME = /^([A-Za-z0-9-]+)\/(?!\.\.?$)([A-Za-z0-9._-]+)$/;
 
 const vRepositoryClients = object({ clients: array(vClient) });
 
@@ -226,15 +232,82 @@ export const readOverview = action({
 });
 
 /**
-Grants (`grant: true`) or revokes one of the hub's connectors for one app, in the name of the
-signed-in admin. It names the repository owner that the admin saw: the hub answers `owner_changed`
-when that is no longer the owner. A grant also gets `unknown_app` for an app the hub does not have,
-and `unknown_connector` for a connector it does not have; a revoke needs neither.
+The GitHub ids of a repository by `owner/name`, for a grant or an exemption. A repository that the
+hub has clients of gives its tenant's id and recorded owner; another one, GitHub's answer to a
+request without a token. `not_found` when neither knows it, such as a private repository that never
+registered.
+*/
+export const lookupRepository = action({
+  access: "access_admin",
+  args: { fullName: string() },
+  returns: union(
+    vOff,
+    object({ status: literal("not_found") }),
+    object({ status: literal("found"), repositoryId: string(), ownerId: string(), name: string() }),
+  ),
+  handler: async (_ctx, args) => {
+    const moderation = readModeration();
+    if (moderation === null) {
+      return { status: "off" as const };
+    }
+    const fullName = args.fullName.trim();
+    const match = GITHUB_FULL_NAME.exec(fullName);
+    if (match === null) {
+      return { status: "not_found" as const };
+    }
+
+    const { clients } = await callHub(moderation, {
+      method: "GET",
+      path: "/moderation/clients",
+      validator: vClientList,
+    });
+    // The newest client first: its name is the repository's newest.
+    const client = clients.find(
+      (candidate) =>
+        candidate.registeredBy.githubRepository.toLowerCase() === fullName.toLowerCase(),
+    );
+    if (client !== undefined && client.ownerId !== null) {
+      return {
+        status: "found" as const,
+        repositoryId: client.registeredBy.githubRepositoryDatabaseId,
+        ownerId: client.ownerId,
+        name: client.registeredBy.githubRepository,
+      };
+    }
+    const response = await fetch(`https://api.github.com/repos/${match[1]}/${match[2]}`, {
+      headers: {
+        Accept: "application/vnd.github+json",
+        "User-Agent": "samebase-app",
+        "X-GitHub-Api-Version": "2022-11-28",
+      },
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    });
+    if (response.status === 404) {
+      return { status: "not_found" as const };
+    }
+    const body: unknown = response.ok ? await response.json() : null;
+    if (!validate(vGitHubRepository, body, { allowUnknownFields: true })) {
+      throw new Error(`GitHub answered ${response.status} without a usable answer.`);
+    }
+    return {
+      status: "found" as const,
+      repositoryId: String(body.id),
+      ownerId: String(body.owner.id),
+      name: body.full_name,
+    };
+  },
+});
+
+/**
+Grants (`grant: true`) or revokes one of the hub's connectors for one repository and owner, in the
+name of the signed-in admin. A grant names the owner that the admin saw: the hub answers
+`owner_changed` when it recorded another owner, and `unknown_connector` for a connector it does not
+have. A revoke removes the row of the owner it names.
 */
 export const changeConnectorGrant = action({
   access: "access_admin",
   args: {
-    appId: string(),
+    repositoryId: string(),
     connector: string(),
     expectedOwnerId: string(),
     grant: boolean(),
@@ -248,7 +321,6 @@ export const changeConnectorGrant = action({
         literal("changed"),
         literal("unchanged"),
         literal("owner_changed"),
-        literal("unknown_app"),
         literal("unknown_connector"),
       ),
     }),
@@ -263,7 +335,7 @@ export const changeConnectorGrant = action({
       method: "POST",
       path: "/moderation/connector-grants",
       body: {
-        appId: args.appId,
+        repositoryId: args.repositoryId,
         connector: args.connector,
         expectedOwnerId: args.expectedOwnerId,
         grant: args.grant,
@@ -279,15 +351,9 @@ export const changeConnectorGrant = action({
       };
     }
     if (
-      (response.status === 409 || response.status === 404 || response.status === 400) &&
+      (response.status === 409 || response.status === 400) &&
       validate(
-        object({
-          error: union(
-            literal("owner_changed"),
-            literal("unknown_app"),
-            literal("unknown_connector"),
-          ),
-        }),
+        object({ error: union(literal("owner_changed"), literal("unknown_connector")) }),
         body,
       )
     ) {
@@ -298,10 +364,9 @@ export const changeConnectorGrant = action({
 });
 
 /**
-Skips (`skip: true`) or shows again the hub's sign-in page for every app or for one app, in the name
-of the signed-in admin. An app's exemption names the repository owner that the admin saw: the hub
-answers `owner_changed` when the repository has another owner now, and `unknown_app` for an app it
-does not have.
+Skips (`skip: true`) or shows again the hub's sign-in page for every app or for one repository and
+owner, in the name of the signed-in admin. A skip names the owner that the admin saw: the hub answers
+`owner_changed` when it recorded another owner. A show removes the row of the owner it names.
 */
 export const changeSignInPage = action({
   access: "access_admin",
@@ -310,12 +375,7 @@ export const changeSignInPage = action({
     vOff,
     object({
       status: literal("on"),
-      result: union(
-        literal("changed"),
-        literal("unchanged"),
-        literal("owner_changed"),
-        literal("unknown_app"),
-      ),
+      result: union(literal("changed"), literal("unchanged"), literal("owner_changed")),
     }),
   ),
   handler: async (ctx, args) => {
@@ -341,10 +401,7 @@ export const changeSignInPage = action({
         result: body.changed ? ("changed" as const) : ("unchanged" as const),
       };
     }
-    if (
-      (response.status === 409 || response.status === 404) &&
-      validate(object({ error: union(literal("owner_changed"), literal("unknown_app")) }), body)
-    ) {
+    if (response.status === 409 && validate(object({ error: literal("owner_changed") }), body)) {
       return { status: "on" as const, result: body.error };
     }
     throw new Error(`The identity hub answered ${response.status} without a usable answer.`);

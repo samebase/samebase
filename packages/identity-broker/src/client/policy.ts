@@ -72,7 +72,7 @@ export type Decision = {
  * and `/moderation/clients` reports it with it. Without hub mode there is no page.
  */
 export function pageShown(exemption: Exemption): boolean {
-  return !exemption.everyApp && !exemption.thisApp;
+  return !exemption.everyApp && !exemption.repository;
 }
 
 /**

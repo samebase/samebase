@@ -1,7 +1,7 @@
 import { v, type Infer } from "convex/values";
 // oxlint-disable-next-line samebase/no-raw-public-convex-function-builders -- Component entrypoints are internal to the host; host functions enforce access.
 import { mutation, query, type QueryCtx } from "./_generated/server";
-import { tenantRow } from "./apps";
+import { repositoryIdOf, tenantIdOf, tenantRow } from "./apps";
 import { vSignInPageTarget } from "./schema";
 
 // The exemptions from the sign-in page that the hub's administrator sets (RFC 137 decision 5, as
@@ -15,8 +15,8 @@ const { array, boolean, literal, object, string, union } = v;
 export const vExemption = object({
   /** The "every app" row exists. */
   everyApp: boolean(),
-  /** A row of the client's app exists, bound to the tenant's recorded owner and the client's. */
-  thisApp: boolean(),
+  /** A row of the client's repository exists, bound to the tenant's recorded owner and the client's. */
+  repository: boolean(),
 });
 export type Exemption = Infer<typeof vExemption>;
 
@@ -27,108 +27,95 @@ async function everyAppRow(ctx: QueryCtx) {
     .unique();
 }
 
-async function appRow(ctx: QueryCtx, appId: string) {
-  return await ctx.db
+/** The repository row of `ownerId`. Rows of other owners of the repository are left alone. */
+async function repositoryRow(ctx: QueryCtx, tenantId: string, ownerId: string) {
+  const rows = await ctx.db
     .query("signInPageExemptions")
-    .withIndex("by_target", (q) => q.eq("target.scope", "app").eq("target.appId", appId))
-    .unique();
+    .withIndex("by_target", (q) =>
+      q.eq("target.scope", "repository").eq("target.tenantId", tenantId),
+    )
+    .collect();
+  return rows.find((row) => row.target.scope === "repository" && row.target.ownerId === ownerId);
 }
 
 /**
- * The exemptions of a client of `appId`. The app's row counts only while the tenant's recorded
- * owner and the owner that registered the client are the row's owner: a transfer to another owner
- * stops it, and an old client of a previous owner never gets it. The row counts again if the
- * repository comes back to the same owner.
+ * The exemptions of a client of the repository `tenantId`. The repository's row counts only while
+ * the tenant's recorded owner and the owner that registered the client are the row's owner: a
+ * transfer to another owner stops it, and an old client of a previous owner never gets it. The row
+ * counts again if the repository comes back to the same owner.
  */
 export async function exemptionOf(
   ctx: QueryCtx,
-  args: { appId: string; tenantOwnerId: string | undefined; clientOwnerId: string },
+  args: { tenantId: string | undefined; tenantOwnerId: string | undefined; clientOwnerId: string },
 ): Promise<Exemption> {
-  const app = await appRow(ctx, args.appId);
   return {
     everyApp: (await everyAppRow(ctx)) !== null,
-    thisApp:
-      app !== null &&
-      app.target.scope === "app" &&
-      app.target.ownerId === args.tenantOwnerId &&
-      app.target.ownerId === args.clientOwnerId,
+    repository:
+      args.tenantId !== undefined &&
+      args.tenantOwnerId === args.clientOwnerId &&
+      (await repositoryRow(ctx, args.tenantId, args.clientOwnerId)) !== undefined,
   };
 }
 
-const vAppExemption = object({
-  appId: string(),
+const vRepositoryExemption = object({
+  repositoryId: string(),
   /** The owner the row is bound to. */
   ownerId: string(),
-  /**
-   * Whether the row is bound to the tenant's recorded owner now. False after a recorded transfer to
-   * another owner: the row then covers no client until the repository comes back to this owner.
-   */
+  /** False once the hub has recorded another owner of the repository: the row then covers nothing. */
   active: boolean(),
   reason: string(),
-  /** From the app's newest client: `owner/name` and the stack's app name. Null with no client. */
-  repository: union(string(), v.null()),
-  app: union(string(), v.null()),
 });
 
-/** The "every app" row with its reason, and every one-app row, by app id. */
+/** The "every app" row with its reason, and every repository row, by repository and owner. */
 export const list = query({
   args: {},
   returns: object({
     everyApp: union(object({ reason: string() }), v.null()),
-    apps: array(vAppExemption),
+    repositories: array(vRepositoryExemption),
   }),
   handler: async (ctx) => {
     const everyApp = await everyAppRow(ctx);
     const rows = await ctx.db
       .query("signInPageExemptions")
-      .withIndex("by_target", (q) => q.eq("target.scope", "app"))
+      .withIndex("by_target", (q) => q.eq("target.scope", "repository"))
       .collect();
-    const apps = [];
-    for (const row of rows) {
-      if (row.target.scope !== "app") {
+    const repositories = [];
+    for (const { target, reason } of rows) {
+      const repositoryId =
+        target.scope === "repository" ? repositoryIdOf(target.tenantId) : undefined;
+      if (repositoryId === undefined || target.scope !== "repository") {
         continue;
       }
-      const { appId } = row.target;
-      const client = await ctx.db
-        .query("clients")
-        .withIndex("by_app_id", (q) => q.eq("appId", appId))
-        .order("desc")
-        .first();
-      const app = await ctx.db
-        .query("apps")
-        .withIndex("by_app_id", (q) => q.eq("appId", appId))
-        .unique();
-      const tenant = app === null ? null : await tenantRow(ctx, app.tenantId);
-      apps.push({
-        appId,
-        ownerId: row.target.ownerId,
-        active: tenant?.ownerId === row.target.ownerId,
-        reason: row.reason,
-        repository: client?.registeredBy.githubRepository ?? null,
-        app: client?.app ?? null,
+      const recordedOwnerId = (await tenantRow(ctx, target.tenantId))?.ownerId;
+      repositories.push({
+        repositoryId,
+        ownerId: target.ownerId,
+        active: recordedOwnerId === undefined || recordedOwnerId === target.ownerId,
+        reason,
       });
     }
     return {
       everyApp: everyApp === null ? null : { reason: everyApp.reason },
-      apps: apps.sort((a, b) => a.appId.localeCompare(b.appId)),
+      repositories: repositories.sort(
+        (a, b) =>
+          a.repositoryId.localeCompare(b.repositoryId) || a.ownerId.localeCompare(b.ownerId),
+      ),
     };
   },
 });
 
 /**
  * Sets (`skip`) or removes (`show`) one exemption and appends the event, in one transaction. A
- * change that is already in place changes nothing and appends nothing. Setting a one-app row needs
- * the app and refuses when the tenant's recorded owner is not `expectedOwnerId`, the owner that
- * the admin saw; a row of another owner, which no longer counts, is bound to this one. Removing a
- * one-app row refuses when the row is bound to another owner than `expectedOwnerId`, the row's
- * owner that the admin saw, so a stale page cannot remove a row that another admin bound since; it
- * does not need the tenant's owner, so a row that no longer counts can go.
+ * change that is already in place changes nothing and appends nothing. A repository row needs no
+ * app, client, or tenant: it can come before the repository's first registration. Setting one
+ * refuses (`owner_changed`) when the hub has recorded another owner of the repository. Removing one
+ * removes the row of `expectedOwnerId` only, so it never touches another owner's row.
  */
 export const set = mutation({
   args: {
     target: union(
       object({ scope: literal("every_app") }),
-      object({ scope: literal("app"), appId: string(), expectedOwnerId: string() }),
+      object({ scope: literal("repository"), repositoryId: string(), expectedOwnerId: string() }),
     ),
     skip: boolean(),
     reason: string(),
@@ -136,7 +123,7 @@ export const set = mutation({
   },
   returns: union(
     object({ ok: literal(true), changed: boolean() }),
-    object({ ok: literal(false), error: union(literal("owner_changed"), literal("unknown_app")) }),
+    object({ ok: literal(false), error: literal("owner_changed") }),
   ),
   handler: async (ctx, args) => {
     const event = async (action: "skip" | "show", target: Infer<typeof vSignInPageTarget>) => {
@@ -166,36 +153,25 @@ export const set = mutation({
       return await event(args.skip ? "skip" : "show", target);
     }
 
-    const { appId, expectedOwnerId } = args.target;
-    const row = await appRow(ctx, appId);
+    const tenantId = tenantIdOf(args.target.repositoryId);
+    const ownerId = args.target.expectedOwnerId;
+    const row = await repositoryRow(ctx, tenantId, ownerId);
+    const target = { scope: "repository" as const, tenantId, ownerId };
     if (!args.skip) {
-      if (row === null) {
+      if (row === undefined) {
         return unchanged;
       }
-      if (row.target.scope !== "app" || row.target.ownerId !== expectedOwnerId) {
-        return { ok: false as const, error: "owner_changed" as const };
-      }
       await ctx.db.delete("signInPageExemptions", row._id);
-      return await event("show", row.target);
+      return await event("show", target);
     }
-    const app = await ctx.db
-      .query("apps")
-      .withIndex("by_app_id", (q) => q.eq("appId", appId))
-      .unique();
-    if (app === null) {
-      return { ok: false as const, error: "unknown_app" as const };
-    }
-    if ((await tenantRow(ctx, app.tenantId))?.ownerId !== expectedOwnerId) {
+    const recordedOwnerId = (await tenantRow(ctx, tenantId))?.ownerId;
+    if (recordedOwnerId !== undefined && recordedOwnerId !== ownerId) {
       return { ok: false as const, error: "owner_changed" as const };
     }
-    const target = { scope: "app" as const, appId, ownerId: expectedOwnerId };
-    if (row === null) {
-      await ctx.db.insert("signInPageExemptions", { target, reason: args.reason });
-    } else if (row.target.scope === "app" && row.target.ownerId === expectedOwnerId) {
+    if (row !== undefined) {
       return unchanged;
-    } else {
-      await ctx.db.patch("signInPageExemptions", row._id, { target, reason: args.reason });
     }
+    await ctx.db.insert("signInPageExemptions", { target, reason: args.reason });
     return await event("skip", target);
   },
 });

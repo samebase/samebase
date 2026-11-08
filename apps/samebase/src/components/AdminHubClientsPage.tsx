@@ -3,7 +3,7 @@ import { getRouteApi } from "@tanstack/react-router";
 import { useAction } from "convex/react";
 import type { FunctionReturnType } from "convex/server";
 import { Ban, Eye, EyeOff, Loader2, Plug } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useId, useMemo, useState } from "react";
 import { api } from "../../convex/_generated/api";
 import { AppDialogContent } from "@/components/AppDialogContent";
 import { AppSelectContent, AppSelectItem } from "@/components/AppSelect";
@@ -54,29 +54,51 @@ const repositoryTarget = (client: HubClient, clients: readonly HubClient[]): Blo
   ).length,
 });
 
+/** A repository by its GitHub id, the owner that a row binds to, and its `owner/name`. */
+type RepositoryTarget = { repositoryId: string; ownerId: string; name: string };
+
+/** The `owner/name` of each repository that the hub has clients of, from its newest client. */
+const repositoryNames = (clients: readonly HubClient[]) =>
+  new Map(
+    [...clients]
+      .reverse()
+      .map(
+        (client) =>
+          [
+            client.registeredBy.githubRepositoryDatabaseId,
+            client.registeredBy.githubRepository,
+          ] as const,
+      ),
+  );
+
+/** Whether the hub skips its sign-in page for the repository while the owner owns it. */
+const isExempt = (overview: Overview, repositoryId: string, ownerId: string | null) =>
+  overview.signInPage.repositories.some(
+    (row) => row.repositoryId === repositoryId && row.ownerId === ownerId,
+  );
+
 /**
-The app of a client, for the hub's sign-in page: its production, preview, and development clients,
-whether a row of it exists now, and the owner to send: the row's to remove it, else the repository
-owner that the hub recorded, which a new row binds to.
+A repository for the hub's sign-in page, which covers every app and deployment of it: whether the
+row of its recorded owner exists now, and that owner, which a new row binds to.
 */
 type SignInPageTarget = {
-  appId: string;
+  repositoryId: string;
   ownerId: string | null;
-  /** The owner that registered this client, which can be an earlier owner than `ownerId`. */
-  registeredByOwnerId: string;
+  /** The owner that registered the client of the menu, which can be an earlier owner. */
+  registeredByOwnerId: string | null;
   name: string;
   exempt: boolean;
   now: HubClient["signInPage"];
 };
 
 const signInPageTarget = (client: HubClient, overview: Overview): SignInPageTarget => {
-  const row = overview.signInPage.apps.find((app) => app.appId === client.appId);
+  const repositoryId = client.registeredBy.githubRepositoryDatabaseId;
   return {
-    appId: client.appId,
-    ownerId: row === undefined ? client.ownerId : row.ownerId,
+    repositoryId,
+    ownerId: client.ownerId,
     registeredByOwnerId: client.registeredBy.githubOwnerId,
-    name: `${client.registeredBy.githubRepository} ${client.registeredBy.app}`,
-    exempt: row !== undefined,
+    name: client.registeredBy.githubRepository,
+    exempt: isExempt(overview, repositoryId, client.ownerId),
     now: client.signInPage,
   };
 };
@@ -84,28 +106,22 @@ const signInPageTarget = (client: HubClient, overview: Overview): SignInPageTarg
 const SIGN_IN_PAGE_NOW = {
   shown: "The hub shows its sign-in page to this app's users.",
   every_app: "The hub skips its sign-in page for every app.",
-  this_app: "The hub skips its sign-in page for this app.",
+  repository: "The hub skips its sign-in page for this repository.",
 } as const;
 
 /**
-The app of a client, for its connector grants: its production, preview, and development clients,
-the repository owner that the hub recorded, which a new grant binds to, and the connectors that the
-hub's policy already gives it.
+A repository for its connector grants, which cover every app and deployment of it: the recorded
+owner, which a new grant binds to, and the connectors that the hub's policy already gives it.
 */
-type ConnectorsTarget = {
-  appId: string;
-  ownerId: string;
-  name: string;
-  policyConnectors: string[];
-};
+type ConnectorsTarget = RepositoryTarget & { policyConnectors: string[] };
 
 const connectorsTarget = (client: HubClient): ConnectorsTarget | null =>
   client.ownerId === null || client.policyConnectors === null
     ? null
     : {
-        appId: client.appId,
+        repositoryId: client.registeredBy.githubRepositoryDatabaseId,
         ownerId: client.ownerId,
-        name: `${client.registeredBy.githubRepository} ${client.registeredBy.app}`,
+        name: client.registeredBy.githubRepository,
         policyConnectors: client.policyConnectors,
       };
 
@@ -201,6 +217,7 @@ export function AdminHubClientsPage() {
               <SignInPageSection
                 overview={overview.data}
                 changeSignInPage={changeSignInPage}
+                onSignInPage={setSignInPageTarget}
                 onChanged={refetch}
               />
             </TabsContent>
@@ -208,6 +225,7 @@ export function AdminHubClientsPage() {
               <ConnectorGrantsSection
                 overview={overview.data}
                 changeConnectorGrant={changeConnectorGrant}
+                onConnectors={setConnectorsTarget}
                 onChanged={refetch}
               />
             </TabsContent>
@@ -284,7 +302,7 @@ function AdminClientsTable({
       clientActions={(client) => (
         <>
           <DropdownMenuSeparator />
-          {overview.signInPage.apps.some((app) => app.appId === client.appId) ? (
+          {signInPageTarget(client, overview).exempt ? (
             <DropdownMenuItem onSelect={() => onSignInPage(signInPageTarget(client, overview))}>
               <Eye />
               Show the sign-in page…
@@ -628,12 +646,10 @@ const signInPageRefusal = (answer: ChangeAnswer) =>
   answer.status === "off"
     ? MODERATION_OFF
     : answer.result === "owner_changed"
-      ? "The repository has another owner now. Reload the page and try again."
-      : answer.result === "unknown_app"
-        ? "The hub no longer has this app."
-        : null;
+      ? "The hub recorded another owner of the repository. Reload the page and try again."
+      : null;
 
-/** Skips or shows again the hub's sign-in page for one app, with a reason. */
+/** Skips or shows again the hub's sign-in page for one repository, with a reason. */
 function SignInPageDialog({
   target,
   changeSignInPage,
@@ -660,7 +676,11 @@ function SignInPageDialog({
     setError(null);
     try {
       const answer = await changeSignInPage({
-        target: { scope: "app", appId: pageTarget.appId, expectedOwnerId: ownerId },
+        target: {
+          scope: "repository",
+          repositoryId: pageTarget.repositoryId,
+          expectedOwnerId: ownerId,
+        },
         skip: !pageTarget.exempt,
         reason,
       });
@@ -689,9 +709,11 @@ function SignInPageDialog({
             <DialogDescription>
               {target.now === null ? null : `${SIGN_IN_PAGE_NOW[target.now]} `}
               {target.exempt
-                ? "This removes the app's own exemption. From the next sign-in the hub shows its page, unless the switch for every app skips it. Sign-ins that already started finish as they started."
-                : `The users of this app's production, previews, and development servers go straight to Google or GitHub, with no page that names the app. The exemption trusts the repository's owner that the hub recorded, GitHub id ${target.ownerId ?? "none"}, and stops when the repository has another owner.`}
-              {!target.exempt && target.registeredByOwnerId !== target.ownerId
+                ? "This removes the repository's exemption. From the next sign-in the hub shows its page, unless the switch for every app skips it. Sign-ins that already started finish as they started."
+                : `The users of every app of this repository, in production, previews, and development servers, go straight to Google or GitHub, with no page that names the app. The exemption trusts the owner with GitHub id ${target.ownerId ?? "none"}, and stops while the hub records another owner.`}
+              {!target.exempt &&
+              target.registeredByOwnerId !== null &&
+              target.registeredByOwnerId !== target.ownerId
                 ? ` This client was registered by an earlier owner, GitHub id ${target.registeredByOwnerId}, and keeps the page: only clients of the recorded owner skip it.`
                 : null}
             </DialogDescription>
@@ -748,26 +770,124 @@ function SignInPageDialog({
 }
 
 /**
-The "every app" switch of the hub's sign-in page, and the apps that skip it, each with a Remove.
-Every change needs the reason above.
+A repository for a grant or an exemption, by `owner/name`, which samebase.com resolves at the hub,
+else on GitHub. When neither knows it, such as a private repository that never registered, the
+form asks for its GitHub ids.
+*/
+function RepositoryForm({
+  label,
+  onPick,
+}: {
+  label: string;
+  onPick: (repository: RepositoryTarget) => void;
+}) {
+  const lookupRepository = useAction(api.hubClients.moderation.lookupRepository);
+  const id = useId();
+  const [name, setName] = useState("");
+  const [ids, setIds] = useState<{ repositoryId: string; ownerId: string } | null>(null);
+  const [pending, setPending] = useState(false);
+
+  const submit = async () => {
+    if (ids !== null) {
+      onPick({ ...ids, name: name.trim() });
+      return;
+    }
+    setPending(true);
+    try {
+      const answer = await lookupRepository({ fullName: name });
+      if (answer.status === "found") {
+        onPick({ repositoryId: answer.repositoryId, ownerId: answer.ownerId, name: answer.name });
+      } else {
+        setIds({ repositoryId: "", ownerId: "" });
+      }
+    } catch {
+      setIds({ repositoryId: "", ownerId: "" });
+    } finally {
+      setPending(false);
+    }
+  };
+
+  return (
+    <form
+      className="grid gap-2"
+      onSubmit={(event) => {
+        event.preventDefault();
+        if (!pending) {
+          void submit();
+        }
+      }}
+    >
+      <Label htmlFor={`${id}-repository-name`}>Repository (owner/name)</Label>
+      <Input
+        id={`${id}-repository-name`}
+        required
+        value={name}
+        onChange={(event) => {
+          setName(event.target.value);
+          setIds(null);
+        }}
+      />
+      {ids === null ? null : (
+        <>
+          <p className="text-sm text-muted-foreground">
+            Not at the hub or on GitHub: enter its ids.
+          </p>
+          <Label htmlFor={`${id}-repository-id`}>Repository id</Label>
+          <Input
+            id={`${id}-repository-id`}
+            required
+            inputMode="numeric"
+            pattern="[1-9][0-9]*"
+            value={ids.repositoryId}
+            onChange={(event) => setIds({ ...ids, repositoryId: event.target.value.trim() })}
+          />
+          <Label htmlFor={`${id}-owner-id`}>Owner id</Label>
+          <Input
+            id={`${id}-owner-id`}
+            required
+            inputMode="numeric"
+            pattern="[1-9][0-9]*"
+            value={ids.ownerId}
+            onChange={(event) => setIds({ ...ids, ownerId: event.target.value.trim() })}
+          />
+        </>
+      )}
+      <div>
+        <Button type="submit" variant="outline" disabled={pending}>
+          {pending ? <Loader2 className="animate-spin" /> : null}
+          {label}
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+/**
+A form for a repository to exempt, the "every app" switch of the hub's sign-in page, and the
+repositories that skip it, each with a Show. The switch and Show need the reason above them.
 */
 function SignInPageSection({
   overview,
   changeSignInPage,
+  onSignInPage,
   onChanged,
 }: {
   overview: Overview;
   changeSignInPage: ChangeSignInPage;
+  onSignInPage: (target: SignInPageTarget) => void;
   onChanged: () => Promise<void>;
 }) {
   const [reason, setReason] = useState("");
   const [pending, setPending] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
-  const { everyApp, apps } = overview.signInPage;
+  const { everyApp, repositories } = overview.signInPage;
+  const names = repositoryNames(overview.clientList.clients);
 
   const submit = async (
     key: string,
-    target: { scope: "every_app" } | { scope: "app"; appId: string; expectedOwnerId: string },
+    target:
+      | { scope: "every_app" }
+      | { scope: "repository"; repositoryId: string; expectedOwnerId: string },
     skip: boolean,
   ) => {
     if (pending !== null || reason.trim() === "") {
@@ -789,7 +909,18 @@ function SignInPageSection({
 
   return (
     <div className="mt-4 grid max-w-xl gap-4">
-      <div className="grid gap-2">
+      <RepositoryForm
+        label="Skip sign-in page"
+        onPick={(repository) =>
+          onSignInPage({
+            ...repository,
+            registeredByOwnerId: null,
+            exempt: isExempt(overview, repository.repositoryId, repository.ownerId),
+            now: null,
+          })
+        }
+      />
+      <div className="mt-6 grid gap-2">
         <Label htmlFor="admin-hub-clients-sign-in-page-change-reason">Reason</Label>
         <Input
           id="admin-hub-clients-sign-in-page-change-reason"
@@ -800,7 +931,7 @@ function SignInPageSection({
       </div>
       <p className="text-sm">
         {everyApp === null
-          ? "The switch for every app is off. The hub skips its sign-in page only for the apps below."
+          ? "The switch for every app is off. The hub skips its sign-in page only for the repositories below."
           : `The hub skips its sign-in page for every app: ${everyApp.reason}`}
       </p>
       <div>
@@ -827,19 +958,21 @@ function SignInPageSection({
           {message}
         </p>
       )}
-      <h2 className="mt-6 text-base font-semibold">Apps that skip the sign-in page</h2>
-      {apps.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No app.</p>
+      <h2 className="mt-6 text-base font-semibold">Repositories that skip the sign-in page</h2>
+      {repositories.length === 0 ? (
+        <p className="text-sm text-muted-foreground">No repository.</p>
       ) : (
         <ul className="divide-y border-y">
-          {apps.map((app) => (
-            <li key={app.appId} className="flex items-center gap-3 py-3 text-sm">
+          {repositories.map((row) => (
+            <li
+              key={`${row.repositoryId}:${row.ownerId}`}
+              className="flex items-center gap-3 py-3 text-sm"
+            >
               <span className="min-w-0 flex-1">
-                {app.repository === null ? app.appId : `${app.repository} ${app.app ?? ""}`}:{" "}
-                {app.reason}
+                {names.get(row.repositoryId) ?? `repository ${row.repositoryId}`}: {row.reason}
                 <span className="block text-muted-foreground">
-                  Bound to the owner with GitHub id {app.ownerId}.
-                  {app.active ? null : " Not active: the repository has another owner now."}
+                  Bound to the owner with GitHub id {row.ownerId}.
+                  {row.active ? null : " Not active: the hub recorded another owner."}
                 </span>
               </span>
               <Button
@@ -849,14 +982,20 @@ function SignInPageSection({
                 disabled={pending !== null || reason.trim() === ""}
                 onClick={() =>
                   void submit(
-                    app.appId,
-                    { scope: "app", appId: app.appId, expectedOwnerId: app.ownerId },
+                    `${row.repositoryId}:${row.ownerId}`,
+                    {
+                      scope: "repository",
+                      repositoryId: row.repositoryId,
+                      expectedOwnerId: row.ownerId,
+                    },
                     false,
                   )
                 }
               >
-                {pending === app.appId ? <Loader2 className="animate-spin" /> : null}
-                Remove
+                {pending === `${row.repositoryId}:${row.ownerId}` ? (
+                  <Loader2 className="animate-spin" />
+                ) : null}
+                Show
               </Button>
             </li>
           ))}
@@ -877,9 +1016,9 @@ const connectorGrantRefusal = (answer: ChangeAnswer) =>
     : signInPageRefusal(answer);
 
 /**
-The private connectors of one app: a checkbox for each connector of the hub that its policy does not
-already give the app, checked when the app has a grant bound to the recorded owner. Save writes one
-grant or revoke for each changed box, with the reason.
+The private connectors of one repository and owner: a checkbox for each connector of the hub that
+its policy does not already give the repository, checked when the owner's grant exists. Save writes
+one grant or revoke for each changed box, with the reason.
 */
 function ConnectorsDialog({
   target,
@@ -897,13 +1036,13 @@ function ConnectorsDialog({
   onChanged: () => Promise<void>;
 }) {
   // A save in progress keeps the dialog open: it closes the dialog when it ends, and must not close
-  // the dialog of another app that the admin opened meanwhile.
+  // the dialog of another repository that the admin opened meanwhile.
   const [pending, setPending] = useState(false);
   return (
     <Dialog open={target !== null} onOpenChange={(open) => (open || pending ? null : onClose())}>
       {target === null ? null : (
         <ConnectorsForm
-          key={target.appId}
+          key={`${target.repositoryId}:${target.ownerId}`}
           target={target}
           overview={overview}
           changeConnectorGrant={changeConnectorGrant}
@@ -939,13 +1078,13 @@ function ConnectorsForm({
   onClose: () => void;
   onChanged: () => Promise<void>;
 }) {
-  const rows = overview.connectorGrants.grants.filter((grant) => grant.appId === target.appId);
+  const rows = overview.connectorGrants.grants.filter(
+    (grant) => grant.repositoryId === target.repositoryId && grant.ownerId === target.ownerId,
+  );
   const choices = overview.connectorGrants.connectors.filter(
     (name) => !target.policyConnectors.includes(name),
   );
-  const saved = choices.filter((name) =>
-    rows.some((row) => row.connector === name && row.ownerId === target.ownerId),
-  );
+  const saved = choices.filter((name) => rows.some((row) => row.connector === name));
   const [checked, setChecked] = useState<string[]>(saved);
   const [reason, setReason] = useState("");
   const changes = choices.filter((name) => checked.includes(name) !== saved.includes(name));
@@ -961,13 +1100,11 @@ function ConnectorsForm({
     const refused: string[] = [];
     for (const connector of changes) {
       const grant = checked.includes(connector);
-      const row = rows.find((candidate) => candidate.connector === connector);
       try {
         const answer = await changeConnectorGrant({
-          appId: target.appId,
+          repositoryId: target.repositoryId,
           connector,
-          // A grant binds to the recorded owner; a revoke names the owner of the row it removes.
-          expectedOwnerId: grant || row === undefined ? target.ownerId : row.ownerId,
+          expectedOwnerId: target.ownerId,
           grant,
           reason,
         });
@@ -999,11 +1136,13 @@ function ConnectorsForm({
       <DialogHeader>
         <DialogTitle>Connectors of {target.name}</DialogTitle>
         <DialogDescription>
-          The hub's policy gives this app {target.policyConnectors.join(", ")}. A grant adds a
-          private connector for every client of this app: production, previews, and development
-          servers. It trusts the repository's owner that the hub recorded, GitHub id{" "}
-          {target.ownerId}, and stops when the repository has another owner. A client uses a granted
-          connector once it enrolls in it, at its next deploy.
+          {target.policyConnectors.length === 0
+            ? null
+            : `The hub's policy gives this repository ${target.policyConnectors.join(", ")}. `}
+          A grant adds a private connector for every app of this repository: production, previews,
+          and development servers. It trusts the owner with GitHub id {target.ownerId}, and stops
+          while the hub records another owner. A client uses a granted connector once it enrolls in
+          it, at its next deploy.
         </DialogDescription>
       </DialogHeader>
       <form
@@ -1018,7 +1157,7 @@ function ConnectorsForm({
       >
         {choices.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            The hub's policy already gives this app every connector.
+            The hub's policy already gives this repository every connector.
           </p>
         ) : (
           choices.map((name) => (
@@ -1067,23 +1206,29 @@ function ConnectorsForm({
   );
 }
 
-/** Every connector grant, each with a Remove. A removal needs the reason above. */
+/**
+A form for a repository to grant connectors to, and every connector grant, each with a Revoke. A
+revoke needs the reason above.
+*/
 function ConnectorGrantsSection({
   overview,
   changeConnectorGrant,
+  onConnectors,
   onChanged,
 }: {
   overview: Overview;
   changeConnectorGrant: ChangeConnectorGrant;
+  onConnectors: (target: ConnectorsTarget) => void;
   onChanged: () => Promise<void>;
 }) {
   const [reason, setReason] = useState("");
   const [pending, setPending] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const { grants } = overview.connectorGrants;
+  const names = repositoryNames(overview.clientList.clients);
 
   const revoke = async (grant: (typeof grants)[number]) => {
-    const key = `${grant.appId}:${grant.connector}`;
+    const key = `${grant.repositoryId}:${grant.ownerId}:${grant.connector}`;
     if (pending !== null || reason.trim() === "") {
       return;
     }
@@ -1091,7 +1236,7 @@ function ConnectorGrantsSection({
     setMessage(null);
     try {
       const answer = await changeConnectorGrant({
-        appId: grant.appId,
+        repositoryId: grant.repositoryId,
         connector: grant.connector,
         expectedOwnerId: grant.ownerId,
         grant: false,
@@ -1109,10 +1254,21 @@ function ConnectorGrantsSection({
 
   return (
     <div className="mt-4 grid max-w-xl gap-4">
-      <p className="text-sm text-muted-foreground">
-        Grant a private connector to an app with Connectors… in its client's menu.
-      </p>
-      <div className="grid gap-2">
+      <RepositoryForm
+        label="Grant a repository"
+        onPick={(repository) =>
+          onConnectors({
+            ...repository,
+            // What the policy gives the newest client; every connector for a repository without one.
+            policyConnectors:
+              overview.clientList.clients.find(
+                (client) =>
+                  client.registeredBy.githubRepositoryDatabaseId === repository.repositoryId,
+              )?.policyConnectors ?? [],
+          })
+        }
+      />
+      <div className="mt-6 grid gap-2">
         <Label htmlFor="admin-hub-clients-connector-grants-reason">Reason</Label>
         <Input
           id="admin-hub-clients-connector-grants-reason"
@@ -1131,20 +1287,16 @@ function ConnectorGrantsSection({
       ) : (
         <ul className="divide-y border-y">
           {grants.map((grant) => {
-            const key = `${grant.appId}:${grant.connector}`;
+            const key = `${grant.repositoryId}:${grant.ownerId}:${grant.connector}`;
             return (
               <li key={key} className="flex items-center gap-3 py-3 text-sm">
                 <span className="min-w-0 flex-1">
                   {grant.connector} for{" "}
-                  {grant.repository === null
-                    ? grant.appId
-                    : `${grant.repository} ${grant.app ?? ""}`}
-                  : {grant.reason}
+                  {names.get(grant.repositoryId) ?? `repository ${grant.repositoryId}`}:{" "}
+                  {grant.reason}
                   <span className="block text-muted-foreground">
                     Bound to the owner with GitHub id {grant.ownerId}.
-                    {grant.active
-                      ? null
-                      : " Not active: the hub has no such app now, or the repository has another owner."}
+                    {grant.active ? null : " Not active: the hub recorded another owner."}
                   </span>
                 </span>
                 <Button
@@ -1155,7 +1307,7 @@ function ConnectorGrantsSection({
                   onClick={() => void revoke(grant)}
                 >
                   {pending === key ? <Loader2 className="animate-spin" /> : null}
-                  Remove
+                  Revoke
                 </Button>
               </li>
             );

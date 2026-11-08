@@ -4,6 +4,7 @@ import {
   MODERATION_KEY,
   postHubClient,
   PRODUCTION_CALLBACK,
+  REPOSITORY_ID,
   signToken,
   stubProviders,
 } from "./test.setup";
@@ -76,19 +77,12 @@ describe("the hub", () => {
     );
     expect(operator.status).toBe(201);
 
-    // The admin grants `google` to the stranger's production app from samebase.com's admin page.
+    // The admin grants `google` to the stranger's repository from samebase.com's admin page.
     stubProviders();
-    const publicClient: { client_id: string } = await (
-      await postHubClient(t, await signToken())
-    ).json();
-    const list: { clients: Array<{ clientId: string; appId: string; ownerId: string }> } = await (
-      await moderation("/moderation/clients")
-    ).json();
-    const app = list.clients.find((client) => client.clientId === publicClient.client_id);
     const granted = await moderation("/moderation/connector-grants", {
-      appId: app?.appId,
+      repositoryId: REPOSITORY_ID,
       connector: "google",
-      expectedOwnerId: app?.ownerId,
+      expectedOwnerId: "65",
       grant: true,
       reason: "A team we know",
       adminEmail: "nicu@samebase.com",
@@ -183,20 +177,12 @@ describe("the hub", () => {
     expect((await signIn(samebasePreview)).status).toBe(200);
     expect((await signIn(samebaseProduction)).status).toBe(200);
 
-    // The admin exempts samebase.com's production app from samebase.com's admin page.
-    const list: { clients: Array<{ clientId: string; appId: string; ownerId: string }> } = await (
-      await t.fetch("/moderation/clients", {
-        headers: { Authorization: `Bearer ${MODERATION_KEY}` },
-      })
-    ).json();
-    const production = list.clients.find(
-      (client) => client.clientId === samebaseProduction.client_id,
-    );
+    // The admin exempts samebase.com's repository from samebase.com's admin page.
     const exempt = await t.fetch("/moderation/sign-in-page", {
       method: "POST",
       headers: { Authorization: `Bearer ${MODERATION_KEY}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        target: { scope: "app", appId: production?.appId, expectedOwnerId: production?.ownerId },
+        target: { scope: "repository", repositoryId: "1021726325", expectedOwnerId: "285392744" },
         skip: true,
         reason: "samebase.com is Samebase",
         adminEmail: "nicu@samebase.com",
@@ -209,12 +195,12 @@ describe("the hub", () => {
     expect(new URL(direct.headers.get("location") ?? "").origin).toBe(
       "https://accounts.google.com",
     );
-    // One app per repository and name: its exemption covers its previews too.
+    // The exemption covers every app and deployment of the repository.
     expect((await signIn(samebasePreview)).status).toBe(302);
     expect((await signIn(stranger)).status).toBe(200);
   });
 
-  it("skips the page for an app or every app that the admin exempts, and GitHub shows its account picker", async () => {
+  it("skips the page for a repository or every app that the admin exempts, and GitHub shows its account picker", async () => {
     const t = makeConvexTest();
     vi.stubEnv("GOOGLE_APPS_CLIENT_ID", "google-client");
     vi.stubEnv("GOOGLE_APPS_CLIENT_SECRET", "google-secret");
@@ -230,13 +216,9 @@ describe("the hub", () => {
         headers: { Authorization: `Bearer ${MODERATION_KEY}`, "Content-Type": "application/json" },
         ...(body === undefined ? {} : { body: JSON.stringify(body) }),
       });
-    // The admin page binds the row to the app and the owner it shows.
-    const list: { clients: Array<{ clientId: string; appId: string; ownerId: string }> } = await (
-      await moderation("/moderation/clients")
-    ).json();
-    const shown = list.clients.find((client) => client.clientId === trusted.client_id);
+    // The admin page binds the row to the repository and the owner it shows.
     const exempt = await moderation("/moderation/sign-in-page", {
-      target: { scope: "app", appId: shown?.appId, expectedOwnerId: shown?.ownerId },
+      target: { scope: "repository", repositoryId: REPOSITORY_ID, expectedOwnerId: "65" },
       skip: true,
       reason: "A team we know",
       adminEmail: "nicu@samebase.com",
@@ -277,7 +259,7 @@ describe("the hub", () => {
       ),
     );
 
-    // The page shows by default; the broker skips it for the exempt app only.
+    // The page shows by default; the broker skips it for the exempt repository only.
     expect((await signIn(trusted, "google-apps")).status).toBe(302);
     expect((await signIn(other, "google-apps")).status).toBe(200);
     await moderation("/moderation/sign-in-page", {

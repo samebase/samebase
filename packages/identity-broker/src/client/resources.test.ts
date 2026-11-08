@@ -482,9 +482,10 @@ test("a connector grant gives no API resource", async () => {
   const args = await setup(() => testPolicy({ resources: [] }));
   await args.h.t.run(async (ctx) => {
     const client = await ctx.db.query("clients").unique();
-    if (client === null) throw new Error("No client");
+    const app = await ctx.db.query("apps").unique();
+    if (client === null || app === null) throw new Error("No client");
     await ctx.db.insert("connectorGrants", {
-      appId: client.appId,
+      tenantId: app.tenantId,
       connector: "cloudflare",
       ownerId: client.registeredBy.githubOwnerId,
       reason: "A grant names a sign-in connector, never a resource",

@@ -66,7 +66,7 @@ async function allowed(
     return false;
   }
   const granted = await grantedTo(ctx, {
-    appId: rows.client.appId,
+    tenantId: rows.app.tenantId,
     tenantOwnerId: (await tenantRow(ctx, rows.app.tenantId))?.ownerId,
     clientOwnerId: rows.client.registeredBy.githubOwnerId,
   });
@@ -137,7 +137,7 @@ export const create = mutation({
             client,
             args.policy,
             await grantedTo(ctx, {
-              appId: client.appId,
+              tenantId: args.tenantId,
               tenantOwnerId: (await tenantRow(ctx, args.tenantId))?.ownerId,
               clientOwnerId: client.registeredBy.githubOwnerId,
             }),
@@ -566,7 +566,7 @@ export const exchangeCode = mutation({
       };
     }
     const granted = await grantedTo(ctx, {
-      appId: client.appId,
+      tenantId: app.tenantId,
       tenantOwnerId: (await tenantRow(ctx, app.tenantId))?.ownerId,
       clientOwnerId: client.registeredBy.githubOwnerId,
     });

@@ -16,6 +16,7 @@ const testState = vi.hoisted(() => {
     changeBlock: vi.fn(),
     changeSignInPage: vi.fn(),
     changeConnectorGrant: vi.fn(),
+    lookupRepository: vi.fn(),
     navigate: vi.fn(),
     search,
   };
@@ -35,6 +36,9 @@ vi.mock("convex/react", async (importOriginal) => {
       }
       if (name === getFunctionName(api.hubClients.moderation.changeConnectorGrant)) {
         return testState.changeConnectorGrant;
+      }
+      if (name === getFunctionName(api.hubClients.moderation.lookupRepository)) {
+        return testState.lookupRepository;
       }
       return testState.changeBlock;
     },
@@ -161,29 +165,18 @@ const overview = {
   },
   signInPage: {
     everyApp: null,
-    apps: [
-      {
-        appId: "gh-81-4c9a75cca717efb68c856f26ba825073",
-        ownerId: "90",
-        // The hub has recorded owner 65 for this repository since the row was set.
-        active: false,
-        reason: "A team we know",
-        repository: "other-org/own",
-        app: "my-app",
-      },
-    ],
+    // The hub has recorded owner 65 for this repository since the row was set.
+    repositories: [{ repositoryId: "81", ownerId: "90", active: false, reason: "A team we know" }],
   },
   connectorGrants: {
     connectors: ["google", "github", "google-apps", "github-apps"],
     grants: [
       {
-        appId: "gh-81-4c9a75cca717efb68c856f26ba825073",
-        connector: "google",
+        repositoryId: "81",
         ownerId: "90",
+        connector: "google",
         active: false,
         reason: "Our other app",
-        repository: "other-org/own",
-        app: "my-app",
       },
     ],
   },
@@ -249,6 +242,7 @@ describe("AdminHubClientsPage", () => {
     testState.changeSignInPage.mockResolvedValue({ status: "on", result: "changed" });
     testState.changeConnectorGrant.mockReset();
     testState.changeConnectorGrant.mockResolvedValue({ status: "on", result: "changed" });
+    testState.lookupRepository.mockReset();
     testState.navigate.mockReset();
     testState.search = {};
   });
@@ -394,15 +388,15 @@ describe("AdminHubClientsPage", () => {
     }
   });
 
-  it("skips the sign-in page for every app and removes an app's exemption, each with the reason", async () => {
+  it("skips the sign-in page for every app and removes a repository's exemption, each with the reason", async () => {
     const page = await renderPage();
     try {
       await act(async () => button(page.rootElement, "Sign-in page").click());
       const text = page.rootElement.textContent;
-      expect(text).toContain("other-org/own my-app: A team we know");
+      expect(text).toContain("other-org/own: A team we know");
       // A row kept through a transfer covers no client, and the admin can still remove it.
       expect(text).toContain(
-        "Bound to the owner with GitHub id 90. Not active: the repository has another owner now.",
+        "Bound to the owner with GitHub id 90. Not active: the hub recorded another owner.",
       );
       // Nothing goes to the hub without a reason.
       expect(button(page.rootElement, "Skip the sign-in page for every app").disabled).toBe(true);
@@ -424,18 +418,47 @@ describe("AdminHubClientsPage", () => {
         type(page.rootElement, "#admin-hub-clients-sign-in-page-change-reason", "Done"),
       );
       await act(async () => {
-        button(page.rootElement, "Remove").click();
+        button(page.rootElement, "Show").click();
         await Promise.resolve();
       });
       // The row's owner, so a row that no longer counts can go too.
       expect(testState.changeSignInPage).toHaveBeenLastCalledWith({
-        target: {
-          scope: "app",
-          appId: "gh-81-4c9a75cca717efb68c856f26ba825073",
-          expectedOwnerId: "90",
-        },
+        target: { scope: "repository", repositoryId: "81", expectedOwnerId: "90" },
         skip: false,
         reason: "Done",
+      });
+
+      // A repository by name, which samebase.com resolves at the hub or on GitHub.
+      testState.lookupRepository.mockResolvedValue({
+        status: "found",
+        repositoryId: "555",
+        ownerId: "66",
+        name: "octocat/Hello-World",
+      });
+      await act(async () =>
+        type(page.rootElement, "[id$=-repository-name]", "octocat/hello-world"),
+      );
+      await act(async () => {
+        button(page.rootElement, "Skip sign-in page").click();
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      });
+      expect(testState.lookupRepository).toHaveBeenLastCalledWith({
+        fullName: "octocat/hello-world",
+      });
+      expect(document.querySelector("[role=dialog]")?.textContent).toContain(
+        "Skip the sign-in page for octocat/Hello-World?",
+      );
+      await act(async () => type(document.body, "#admin-hub-clients-sign-in-page-reason", "Ours"));
+      await act(async () => {
+        document
+          .querySelector<HTMLFormElement>("#admin-hub-clients-sign-in-page-form")
+          ?.requestSubmit();
+        await Promise.resolve();
+      });
+      expect(testState.changeSignInPage).toHaveBeenLastCalledWith({
+        target: { scope: "repository", repositoryId: "555", expectedOwnerId: "66" },
+        skip: true,
+        reason: "Ours",
       });
     } finally {
       await page.unmount();
@@ -472,7 +495,7 @@ describe("AdminHubClientsPage", () => {
         skip?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
       });
       const dialog = document.querySelector("[role=dialog]");
-      expect(dialog?.textContent).toContain("recorded, GitHub id 65,");
+      expect(dialog?.textContent).toContain("trusts the owner with GitHub id 65,");
       expect(dialog?.textContent).toContain("registered by an earlier owner, GitHub id 11");
 
       await act(async () => type(document.body, "#admin-hub-clients-sign-in-page-reason", "Known"));
@@ -484,22 +507,20 @@ describe("AdminHubClientsPage", () => {
       });
       await act(async () => await new Promise((resolve) => setTimeout(resolve, 0)));
       expect(testState.changeSignInPage).toHaveBeenLastCalledWith({
-        target: {
-          scope: "app",
-          appId: "gh-74-4c9a75cca717efb68c856f26ba825073",
-          expectedOwnerId: "65",
-        },
+        target: { scope: "repository", repositoryId: "74", expectedOwnerId: "65" },
         skip: true,
         reason: "Known",
       });
-      expect(document.body.textContent).toContain("The repository has another owner now.");
+      expect(document.body.textContent).toContain(
+        "The hub recorded another owner of the repository.",
+      );
     } finally {
       await page.unmount();
     }
   });
 
-  it("grants a private connector to a client's app from its menu, bound to the recorded owner", async () => {
-    // The hub's policy gives cl_test's app the public pair; the private pair needs a grant.
+  it("grants a private connector to a client's repository from its menu, bound to the recorded owner", async () => {
+    // The hub's policy gives cl_test the public pair; the private pair needs a grant.
     const [first, ...rest] = overview.clientList.clients;
     testState.readOverview.mockResolvedValue({
       ...overview,
@@ -525,7 +546,7 @@ describe("AdminHubClientsPage", () => {
       });
       const dialog = document.querySelector("[role=dialog]");
       expect(dialog?.textContent).toContain("production, previews, and development servers");
-      expect(dialog?.textContent).toContain("gives this app google-apps, github-apps");
+      expect(dialog?.textContent).toContain("gives this repository google-apps, github-apps");
       expect(dialog?.textContent).toContain("GitHub id 65");
       // One box per connector the policy does not give: the private pair, never the public one.
       const boxes = Array.from(dialog?.querySelectorAll("label") ?? []).filter(
@@ -546,7 +567,7 @@ describe("AdminHubClientsPage", () => {
       await act(async () => await new Promise((resolve) => setTimeout(resolve, 0)));
       expect(testState.changeConnectorGrant).toHaveBeenCalledTimes(1);
       expect(testState.changeConnectorGrant).toHaveBeenLastCalledWith({
-        appId: "gh-74-4c9a75cca717efb68c856f26ba825073",
+        repositoryId: "74",
         connector: "google",
         expectedOwnerId: "65",
         grant: true,
@@ -707,30 +728,73 @@ describe("AdminHubClientsPage", () => {
     }
   });
 
-  it("lists the connector grants and removes one with the row's owner and the reason", async () => {
+  it("lists the connector grants and revokes one with the row's owner and the reason", async () => {
     const page = await renderPage();
     try {
       await act(async () => button(page.rootElement, "Connector grants 1").click());
       const text = page.rootElement.textContent;
-      expect(text).toContain("google for other-org/own my-app: Our other app");
-      expect(text).toContain(
-        "Not active: the hub has no such app now, or the repository has another owner.",
-      );
-      expect(button(page.rootElement, "Remove").disabled).toBe(true);
+      expect(text).toContain("google for other-org/own: Our other app");
+      expect(text).toContain("Not active: the hub recorded another owner.");
+      expect(button(page.rootElement, "Revoke").disabled).toBe(true);
 
       await act(async () =>
         type(page.rootElement, "#admin-hub-clients-connector-grants-reason", "Done"),
       );
       await act(async () => {
-        button(page.rootElement, "Remove").click();
+        button(page.rootElement, "Revoke").click();
         await Promise.resolve();
       });
       expect(testState.changeConnectorGrant).toHaveBeenLastCalledWith({
-        appId: "gh-81-4c9a75cca717efb68c856f26ba825073",
+        repositoryId: "81",
         connector: "google",
         expectedOwnerId: "90",
         grant: false,
         reason: "Done",
+      });
+    } finally {
+      await page.unmount();
+    }
+  });
+
+  it("asks for a repository's ids when neither the hub nor GitHub knows its name", async () => {
+    testState.lookupRepository.mockResolvedValue({ status: "not_found" });
+    const page = await renderPage();
+    const submit = async () =>
+      await act(async () => {
+        button(page.rootElement, "Grant a repository").click();
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      });
+    try {
+      await act(async () => button(page.rootElement, "Connector grants 1").click());
+      expect(page.rootElement.querySelector("[id$=-repository-id]")).toBeNull();
+      await act(async () => type(page.rootElement, "[id$=-repository-name]", "octo-org/secret"));
+      await submit();
+      expect(document.querySelector("[role=dialog]")).toBeNull();
+
+      await act(async () => {
+        type(page.rootElement, "[id$=-repository-id]", "555");
+        type(page.rootElement, "[id$=-owner-id]", "66");
+      });
+      await submit();
+      expect(testState.lookupRepository).toHaveBeenCalledTimes(1);
+      // No client of the repository: every connector of the hub is a choice.
+      expect(document.querySelector("[role=dialog]")?.textContent).toContain(
+        "Connectors of octo-org/secret",
+      );
+      const google = Array.from(document.querySelectorAll("[role=dialog] label")).find(
+        (label) => label.textContent === "google",
+      );
+      await act(async () => {
+        google?.querySelector<HTMLElement>("[data-slot=checkbox]")?.click();
+      });
+      await act(async () => type(document.body, "#admin-hub-clients-connectors-reason", "Ours"));
+      await submitConnectorsDialog();
+      expect(testState.changeConnectorGrant).toHaveBeenLastCalledWith({
+        repositoryId: "555",
+        connector: "google",
+        expectedOwnerId: "66",
+        grant: true,
+        reason: "Ours",
       });
     } finally {
       await page.unmount();

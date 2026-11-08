@@ -2,7 +2,6 @@
 import fc from "fast-check";
 import { decodeJwt } from "jose";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
-import { appIdOf, tenantIdOf } from "../component/apps.js";
 import { ISSUER, pkce, txnCookie, type Harness } from "./harness.test.helper.js";
 import { moderationRequest, postHubClient, setBlock, type NewClient } from "./hub.test.helper.js";
 import {
@@ -75,14 +74,13 @@ type Command =
   /** The admin switches the sign-in page off or on for every app; the broker skips the page then. */
   | { kind: "exemption"; skip: boolean }
   /**
-   * The admin grants or revokes a connector for one broker app of the repository, naming the owner
-   * the admin page shows (`current`: the recorded owner for a grant, the row's owner for a revoke) or
-   * the other one, as a page that a transfer or another admin made stale (`stale`).
+   * The admin grants or revokes a connector for one repository, naming the owner the admin page
+   * shows (`current`: the recorded owner for a grant, a row's owner for a revoke) or the other one,
+   * as a page that a transfer or another admin made stale (`stale`).
    */
   | {
       kind: "grant";
       repository: Repository;
-      production: boolean;
       connector: ConnectorName;
       grant: boolean;
       view: "current" | "stale";
@@ -171,7 +169,6 @@ const commandArbitrary: fc.Arbitrary<Command> = fc.oneof(
     arbitrary: fc.record({
       kind: fc.constant("grant" as const),
       repository: fc.constantFrom(...REPOSITORIES),
-      production: fc.boolean(),
       connector: fc.constantFrom(...CONNECTORS),
       grant: fc.boolean(),
       view: fc.oneof(
@@ -200,8 +197,6 @@ type Client = {
   clientSecret: string;
   redirectUri: string;
   repository: string;
-  /** Whether the client is of the repository's production app, else of its preview app. */
-  production: boolean;
   /** The tenant's recorded owner at the hub: it moves with an accepted transfer. */
   ownerId: string;
   /** The owner whose run registered the client: it never moves. */
@@ -260,8 +255,8 @@ function createModel(clients: Client[], policy: PolicyState) {
     clients,
     policy,
     blocks: new Set<string>(),
-    /** The admin's grants, by `grantKey`, each with the owner it is bound to. */
-    grants: new Map<string, string>(),
+    /** The admin's grants, by `grantKey`: rows of different owners coexist. */
+    grants: new Set<string>(),
     pages: new Array<PageRequest>(),
     upstreams: new Array<Upstream>(),
     attempts: new Array<Attempt>(),
@@ -271,21 +266,24 @@ function createModel(clients: Client[], policy: PolicyState) {
 
 type Model = ReturnType<typeof createModel>;
 
-/** One app per repository and name: its grant covers production, previews, and development. */
-const grantKey = (repository: string, connector: string) => `${repository}:${connector}`;
+/** A grant covers every app and deployment of its repository, for one owner. */
+const grantKey = (repository: string, owner: string, connector: string) =>
+  `${repository}:${owner}:${connector}`;
 
 /**
- * Whether a grant opens `connector` to the client now: the grant of its app is bound to the
- * tenant's recorded owner, and that owner registered the client.
+ * Whether a grant opens `connector` to the client now: its repository has a row of the tenant's
+ * recorded owner, and that owner registered the client.
  */
 function grantedNow(model: Model, client: Client, connector: string) {
-  const owner = model.grants.get(grantKey(client.repository, connector));
-  return owner === client.ownerId && owner === client.registeredOwner;
+  return (
+    client.ownerId === client.registeredOwner &&
+    model.grants.has(grantKey(client.repository, client.ownerId, connector))
+  );
 }
 
 /**
- * The connectors the client may use now: its enrollment, and the policy of the moment or its app's
- * grants, inside the set of a request when one is given.
+ * The connectors the client may use now: its enrollment, and the policy of the moment or its
+ * repository's grants, inside the set of a request when one is given.
  */
 function allowedNow(model: Model, client: Client, requested?: readonly string[]) {
   const policy: readonly string[] = POLICIES[model.policy.connectors];
@@ -390,7 +388,6 @@ async function registerClient(
     clientSecret: answer.client_secret,
     redirectUri,
     repository: spec.repository,
-    production: spec.stage === "prod",
     ownerId: proof.ownerId,
     registeredOwner: proof.ownerId,
     connectors: spec.connectors,
@@ -722,8 +719,8 @@ async function playRedeem(h: Harness, model: Model, code: Code, checks: Checks, 
 
 /**
  * The admin grants or revokes a connector at `/moderation/connector-grants`. `grantBoundToOwner`:
- * the answer is the model's. A grant needs the app and the recorded owner the admin saw; a revoke
- * needs only the row's owner the admin saw; a change already in place changes nothing.
+ * the answer is the model's. A grant needs the recorded owner the admin saw; a revoke removes the
+ * row of the owner it names; a change already in place changes nothing.
  */
 async function playGrant(
   h: Harness,
@@ -732,29 +729,24 @@ async function playGrant(
   checks: Checks,
   story: Story,
 ) {
-  const key = grantKey(command.repository, command.connector);
-  const row = model.grants.get(key);
   const tenantOwner =
     model.clients.find((client) => client.repository === command.repository)?.ownerId ?? "";
-  const shown = command.grant ? tenantOwner : (row ?? tenantOwner);
+  const shown = command.grant
+    ? tenantOwner
+    : (OWNERS.find((owner) =>
+        model.grants.has(grantKey(command.repository, owner, command.connector)),
+      ) ?? tenantOwner);
   const expectedOwnerId =
     command.view === "current" ? shown : (OWNERS.find((owner) => owner !== shown) ?? shown);
-  const appExists = model.clients.some((client) => client.repository === command.repository);
-  const predicted = !command.grant
-    ? row === undefined
-      ? { status: 200, body: { changed: false } }
-      : row !== expectedOwnerId
-        ? { status: 409, body: { error: "owner_changed" } }
-        : { status: 200, body: { changed: true } }
-    : !appExists
-      ? { status: 404, body: { error: "unknown_app" } }
-      : tenantOwner !== expectedOwnerId
-        ? { status: 409, body: { error: "owner_changed" } }
-        : { status: 200, body: { changed: row !== expectedOwnerId } };
+  const key = grantKey(command.repository, expectedOwnerId, command.connector);
+  const predicted =
+    command.grant && tenantOwner !== expectedOwnerId
+      ? { status: 409, body: { error: "owner_changed" } }
+      : { status: 200, body: { changed: command.grant !== model.grants.has(key) } };
   const response = await moderationRequest(h, "/moderation/connector-grants", {
     method: "POST",
     body: {
-      appId: await appIdOf(tenantIdOf(command.repository), "app-a"),
+      repositoryId: command.repository,
       connector: command.connector,
       expectedOwnerId,
       grant: command.grant,
@@ -762,7 +754,7 @@ async function playGrant(
       adminEmail: "nicu@samebase.com",
     },
   });
-  const label = `${command.grant ? "grant" : "revoke"} ${command.connector} for ${repositoryHandle(command.repository)} ${command.production ? "production" : "preview"} as ${ownerHandle(expectedOwnerId)}`;
+  const label = `${command.grant ? "grant" : "revoke"} ${command.connector} for ${repositoryHandle(command.repository)} as ${ownerHandle(expectedOwnerId)}`;
   checkAnswer(checks, label, response);
   const body: unknown = await response.json();
   story.trace.push(`${label}: ${response.status} ${JSON.stringify(body)}`);
@@ -774,7 +766,7 @@ async function playGrant(
   );
   if (response.status === 200) {
     if (command.grant) {
-      model.grants.set(key, expectedOwnerId);
+      model.grants.add(key);
     } else {
       model.grants.delete(key);
     }
@@ -1003,7 +995,6 @@ describe("RFC 136 property C regressions", () => {
         {
           kind: "grant",
           repository: "101",
-          production: false,
           connector: "other",
           grant: true,
           view: "current",
@@ -1013,7 +1004,7 @@ describe("RFC 136 property C regressions", () => {
       "enrollmentHonored",
     );
     expect(trace).toContain("transfer R1 from O1 to O2: C4 registered");
-    expect(trace).toContain('grant other for R1 preview as O2: 200 {"changed":true}');
+    expect(trace).toContain('grant other for R1 as O2: 200 {"changed":true}');
     // C2 was registered by O1: the grant is O2's, so `other` is not C2's to use.
     expect(trace.at(-1)).toMatch(/^authorize C2 \(other\): (?!straight)/);
   });
@@ -1025,7 +1016,6 @@ describe("RFC 136 property C regressions", () => {
         {
           kind: "grant",
           repository: "101",
-          production: false,
           connector: "other",
           grant: true,
           view: "current",
@@ -1034,7 +1024,6 @@ describe("RFC 136 property C regressions", () => {
         {
           kind: "grant",
           repository: "101",
-          production: false,
           connector: "other",
           grant: false,
           view: "current",
@@ -1045,7 +1034,7 @@ describe("RFC 136 property C regressions", () => {
       "enrollmentHonored",
     );
     expect(trace).toContain("authorize C2 (both): page P1 offers fake, other");
-    expect(trace).toContain('revoke other for R1 preview as O1: 200 {"changed":true}');
+    expect(trace).toContain('revoke other for R1 as O1: 200 {"changed":true}');
     expect(trace.at(-2)).toMatch(/^continue P1 \(C2\) with other: \d+$/);
     expect(trace.at(-1)).toBe("continue P1 (C2) with fake: to fake, U1");
   });
@@ -1058,7 +1047,6 @@ describe("RFC 136 property C regressions", () => {
         {
           kind: "grant",
           repository: "102",
-          production: false,
           connector: "other",
           grant: true,
           view: "current",
@@ -1068,7 +1056,6 @@ describe("RFC 136 property C regressions", () => {
         {
           kind: "grant",
           repository: "102",
-          production: false,
           connector: "other",
           grant: false,
           view: "current",

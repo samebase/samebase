@@ -303,7 +303,7 @@ export function hubClientsEndpoint(args: {
   /**
    * The enrollment of an admitted request, with the hub's connectors that the policy gives it, or
    * the answer that refuses it: a paused policy, a set that is empty, malformed, or outside the
-   * hub's connectors, the policy's, and the app's grants (with the names allowed), a block, or a
+   * hub's connectors, the policy's, and the repository's grants (with the names allowed), a block, or a
    * limit. A failed policy refuses with 503 and writes nothing. It counts an admitted request in the
    * repository and owner windows; a refused one counts nowhere.
    */
@@ -315,12 +315,11 @@ export function hubClientsEndpoint(args: {
     if (policy.paused) {
       return notAllowed("paused");
     }
-    // What the policy gives, and what the admin granted the app for the owner of this proof. The
+    // What the policy gives, and what the admin granted the repository for the owner of this proof. The
     // creating mutation reads the grants again.
     const granted = await ctx.runQuery(component.connectorGrants.forRegistration, {
       githubRepositoryDatabaseId: facts.repositoryId,
       githubOwnerId: facts.ownerId,
-      app: facts.app,
     });
     // The one rule (`usableNames`), over the hub's configured connectors: the policy's alone for the
     // mutation, which reads the grants again, and with the grants for this request's answer.

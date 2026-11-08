@@ -88,21 +88,22 @@ the client's and the tenant's rows, so a changed policy applies to existing clie
 answer is the connectors the client may enroll in and use, the API resources (by provider name) it
 may authorize, and whether it is paused. The sign-in page is not the policy's.
 
-In hub mode the sign-in page shows for every client, unless the hub's administrator exempted its app
-or every app (`signInPageExemptions`); the broker applies that itself (`pageShown` in
+In hub mode the sign-in page shows for every client, unless the hub's administrator exempted its
+repository or every app (`signInPageExemptions`); the broker applies that itself (`pageShown` in
 src/client/policy.ts, which `/authorize` decides with and `/moderation/clients` reports with). Only
 those two read the exemptions: `/authorize` with the client's facts in one query
 (`clients.forAuthorize`), and the moderation list with each client, never from a request. An API
 authorization through `/authorize` reads them with the facts but has no page, so it does not apply
 them; `/continue`, the callbacks, code exchange, and refresh do not read them, because the page
-matters only at `/authorize`. A one-app row counts only while the tenant's recorded owner and the
-owner that registered the client are the row's owner, so a transfer stops it and an old client of a
-previous owner never gets it; it counts again if the repository comes back to the same owner.
-`signInPage.set` is their one writer, through `/moderation/sign-in-page`; it checks that the
-recorded owner is still the one the admin saw before it sets a one-app row, and that the row is
-still bound to the owner the admin saw before it removes one, and appends a `sign_in_page_change`
-event in the same transaction. The list says per one-app row whether it is active, bound to the
-repository's recorded owner now.
+matters only at `/authorize`. A repository row covers every app and deployment of the repository,
+and counts only while the tenant's recorded owner and the owner that registered the client are the
+row's owner, so a transfer stops it and an old client of a previous owner never gets it; it counts
+again if the repository comes back to the same owner. Rows of different owners coexist.
+`signInPage.set` is their one writer, through `/moderation/sign-in-page`; it needs no tenant, so a
+row can be set before the repository registers, refuses a row for another owner than the recorded
+one, removes only the row of the owner it names, and appends a `sign_in_page_change` event in the
+same transaction. The list says per repository row whether it is active, bound to the repository's
+recorded owner now (or to no recorded owner yet).
 
 Decision: the admin's exemptions are the one lever of the page, and the broker applies them; the
 policy decides connectors, resources, and the pause only. The broker draws its own sign-in page, so
@@ -113,29 +114,30 @@ should skip it, such as the hub's own product, gets an ordinary exemption from t
 cost is that a hub cannot skip or force the page in code; the admin who sets an exemption and the
 operator who writes the hub's policy are the same party, so one lever is enough.
 
-The hub's administrator can add connectors to one app's clients (`connectorGrants`, RFC 137 decision
-10). A grant is per broker app and connector, bound to the repository's recorded owner like an
-exemption. A client may enroll in and use the policy's connectors and its app's granted ones, of the
-host's configured connectors. Unlike an exemption, a grant is read at every step, in the transaction
-that decides it: the registering mutation (with `policyConnectors` from the host), the offered set
-of `/authorize`, `/continue`, the callback's claim and completion, and code exchange
+The hub's administrator can add connectors to one repository's clients (`connectorGrants`, RFC 137
+decision 10). A grant is per repository, owner and connector, and counts like a repository
+exemption. A client may enroll in and use the policy's connectors and its repository's granted ones,
+of the host's configured connectors. At registration, the owner that the request proves stands for
+the recorded owner. Unlike an exemption, a grant is read at every step, in the transaction that
+decides it: the registering mutation (with `policyConnectors` from the host), the offered set of
+`/authorize`, `/continue`, the callback's claim and completion, and code exchange
 (`usableConnectors` in src/component/policy.ts, `grantedTo` in src/component/connectorGrants.ts).
 The host adds the grants that `clients.withApp` carries to the policy's part (`usableNow`), but
 `decision.connectors`, which the mutations fence on, stays the policy's part alone, so a grant
 revoked after the host read it stops the next step. `connectorGrants.set` is their one writer,
 through `/moderation/connector-grants`, with the same owner checks as `signInPage.set`, and it
-appends a `connector_grant_change` event in the same transaction. A revoke needs neither the app nor
-a configured connector, so the admin can remove the row of an app that `apps.remove` deleted, which
-would count again when the app registers again. Grants give no API resource and skip no page; an
-exemption grants no connector.
+appends a `connector_grant_change` event in the same transaction. A revoke needs no configured
+connector, so the admin can remove the row of a connector that the hub no longer has. Grants give no
+API resource and skip no page; an exemption grants no connector.
 
-Decision: a grant adds to the policy's default, per broker app, bound to the recorded owner, and is
-checked at every step. Auth0 and FusionAuth enable connections per application, Cognito and Dex keep
-a provider list on each client, and Auth0's third-party apps get only the connections the operator
-opened to every app. No product lets a self-registered client choose the operator's private
-providers. A hub's policy gives every app its public connectors and its own product every connector
-in code, so a mistake on the admin page cannot lock the operator out; the admin grants a private
-connector to another app at runtime, without a hub release.
+Decision: a grant adds to the policy's default, per repository, bound to an owner, and is checked at
+every step. Every app of a repository shares it: a workflow of the repository can already pick any
+app name, so a grant per app gave no real separation. Auth0 and FusionAuth enable connections per
+application, Cognito and Dex keep a provider list on each client, and Auth0's third-party apps get
+only the connections the operator opened to every app. No product lets a self-registered client
+choose the operator's private providers. A hub's policy gives every app its public connectors and
+its own product every connector in code, so a mistake on the admin page cannot lock the operator
+out; the admin grants a private connector to another app at runtime, without a hub release.
 
 The policy runs in the host's HTTP action, once per request, at registration, `/authorize`,
 `/continue`, the connector callback (before the request is claimed, and again after the provider

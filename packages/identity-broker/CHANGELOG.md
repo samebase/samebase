@@ -1,6 +1,21 @@
 # Changelog
 
-## 0.28.0
+## 0.29.0
+
+- Connector grants and sign-in page exemptions belong to a repository and an owner, not to an app:
+  one row covers every app and deployment of the repository. `connectorGrants` is keyed by
+  `tenantId`, `ownerId`, and `connector`; a repository exemption's target is
+  `{ scope: "repository", tenantId, ownerId }`. Rows of different owners coexist, and a row counts
+  while the tenant's recorded owner and the client's are its owner.
+- `POST /moderation/connector-grants` takes `repositoryId` (the numeric GitHub id) in place of
+  `appId`, and `POST /moderation/sign-in-page` the target
+  `{ scope: "repository", repositoryId, expectedOwnerId }`. Neither needs the hub to know the
+  repository, so a row can come before its first registration; both answer 409 `owner_changed` for a
+  row of another owner than the recorded one, and no longer 404 `unknown_app`. A revoke or a removal
+  deletes only the row of the owner it names. The lists answer rows by `repositoryId` and `ownerId`,
+  and a client's `signInPage` is `repository` in place of `this_app`.
+- Nothing that apps call changes. A hub must delete its grant and exemption rows before it deploys
+  this version, and set them again after: Convex does not accept the new shape over old rows.
 
 - An app is a repository plus an exact name: `appIdOf(tenantId, app)` has no `-preview` app. Its
   production, preview, and development clients are clients of that one app, so its connector grants
