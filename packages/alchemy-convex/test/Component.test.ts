@@ -91,17 +91,6 @@ test.provider("changes component bindings without replacing resources or pushing
         stage: "prod",
         fqn: "Deployment",
         value: JSON.stringify(State.encodeState(bound)),
-        run: {
-          version: 1,
-          repository: "samebase/mail",
-          stackFile: "alchemy.run.ts",
-          branch: "main",
-          pullRequest: null,
-          headCommit: "test-commit",
-          runUrl: null,
-          source: "checkout",
-          recordedAt: "2026-10-24T12:00:00.000Z",
-        },
       });
       const result = await t
         .withIdentity({

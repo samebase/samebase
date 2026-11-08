@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.35.0
+
+- `Convex.state()` holds Alchemy's state interface and nothing else, so `Cloudflare.state()` can
+  take its place in a stack. It no longer adds the run record to the stage output.
+- `Convex.withRunRecord(state)` adds the run record to the outputs of any state layer:
+  `state: Convex.withRunRecord(Convex.state())`. A stack without it writes outputs with no
+  `samebase.run`, and Samebase does not show its stages. The helper that 0.34.0 exported under this
+  name, which added a record to one output value, is gone.
+- Store version 7. `state:set`, `state:remove`, and `state:setOutput` take no `run`, and the store
+  keeps no current run record: a reader sees a stage from its first complete deploy, with the record
+  in its output. `state:readStack` and `reader:repository` give each stage as
+  `{ name, resources, output }`; the repository reader removes the secrets and nothing else. A
+  resource write no longer reads the output row of its stage.
+- The first run of 0.35.0 pushes the store, and from then on a client of 0.34.0 or older fails its
+  runs until it upgrades: upgrade every repository of a team together, with Samebase. The rows of
+  store version 6 stay as they are, and the push needs no other step.
+
 ## 0.34.0
 
 - `Convex.SharedHubClient` takes `hub`, the identity hub to register at, required:

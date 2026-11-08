@@ -33,13 +33,12 @@
 // with a store of its own version. An older store is pushed over; a newer one
 // fails the run.
 //
-// The stage output that `setOutput` stores is the stack's output plus the
-// run record of src/RunRecord.ts under the key `samebase.run`: the
-// repository, stack file, branch, pull request, commit, and run that wrote
-// the stage. `getOutput` gives the document back as stored.
+// The store holds Alchemy's state interface and nothing else, so a stack can
+// use the state store of Alchemy's Cloudflare package in its place. The run
+// record that Samebase reads is a layer over any state: see `withRunRecord` in
+// src/RunRecord.ts.
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import * as Clock from "effect/Clock";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as ChildProcessSpawner from "effect/process/ChildProcessSpawner";
@@ -81,7 +80,6 @@ import {
   withPushKey,
   writeVariables,
 } from "./Push.ts";
-import { type RunRecord, runRecord, withRunRecord } from "./RunRecord.ts";
 import { stateKeyName } from "./store/convex/sealing.ts";
 import { STORE_VERSION } from "./store/convex/version.ts";
 import { newKey, newKeyId } from "./store/sealedSecret.ts";
@@ -173,7 +171,7 @@ export interface FunctionApi {
   /** POST /api/function, the call that `convex run` makes: the reply, which can be a function error. */
   readonly call: (
     path: string,
-    args: Record<string, string | boolean | RunRecord | undefined>,
+    args: Record<string, string | boolean | undefined>,
   ) => Effect.Effect<Reply, StateStoreError>;
 }
 
@@ -193,20 +191,9 @@ const valueOf = (reply: Reply) =>
     : Effect.fail(failure(reply.errorMessage.trim()));
 
 /** The functions of the store with Alchemy's encoding: the JSON text of encodeState. */
-const remoteOf = (api: FunctionApi, record: RunRecord | undefined) => {
-  const run = (name: string, args: Record<string, string | RunRecord | undefined>) =>
+const remoteOf = (api: FunctionApi) => {
+  const run = (name: string, args: Record<string, string | undefined>) =>
     api.call(`state:${name}`, args).pipe(Effect.flatMap(valueOf));
-  const write = (name: string, args: Record<string, string>) =>
-    Effect.gen(function* () {
-      const currentRun =
-        record === undefined
-          ? undefined
-          : {
-              ...record,
-              recordedAt: new Date(yield* Clock.currentTimeMillis).toISOString(),
-            };
-      return yield* run(name, { ...args, run: currentRun });
-    });
   const strings = (name: string, args: Record<string, string>) =>
     run(name, args).pipe(Effect.flatMap(decode(Schema.Array(Schema.String), name)));
   const optional = (name: string, args: Record<string, string>) =>
@@ -235,13 +222,13 @@ const remoteOf = (api: FunctionApi, record: RunRecord | undefined) => {
         Effect.map((text): unknown => (text === null ? undefined : JSON.parse(text, reviveState))),
       ),
     set: (r: { stack: string; stage: string; fqn: string; value: PersistedState }) =>
-      write("set", { stack: r.stack, stage: r.stage, fqn: r.fqn, value: encode(r.value) }),
+      run("set", { stack: r.stack, stage: r.stage, fqn: r.fqn, value: encode(r.value) }),
     delete: (r: { stack: string; stage: string; fqn: string }) =>
-      write("remove", { stack: r.stack, stage: r.stage, fqn: r.fqn }),
+      run("remove", { stack: r.stack, stage: r.stage, fqn: r.fqn }),
     deleteStack: (r: { stack: string; stage?: string }) =>
       run("removeStack", { stack: r.stack, stage: r.stage }),
     setOutput: (r: { stack: string; stage: string; value: unknown }) =>
-      write("setOutput", { stack: r.stack, stage: r.stage, value: encode(r.value) }),
+      run("setOutput", { stack: r.stack, stage: r.stage, value: encode(r.value) }),
   };
 };
 
@@ -275,8 +262,6 @@ export interface StoreOptions {
   readonly scope: Scope.Scope;
   /** The functions directory that an outdated store gets: {@link storeDirectory}. */
   readonly store: string;
-  /** The run recorded with resource writes and output, or undefined for a run without one. */
-  readonly run: RunRecord | undefined;
 }
 
 /**
@@ -452,22 +437,7 @@ export const makeConvexState = (options: StoreOptions) =>
 
     yield* ensureSealed(options, deployment, functions);
 
-    const remote = remoteOf(functions, options.run);
-    /** The stack's output plus the record, when the run has one and the output has a place for it. */
-    const documentOf = (request: { stack: string; stage: string; value: unknown }) =>
-      Effect.gen(function* () {
-        const { run } = options;
-        if (run === undefined) return request.value;
-        const recordedAt = new Date(yield* Clock.currentTimeMillis).toISOString();
-        const document = withRunRecord(request.value, { ...run, recordedAt });
-        if (document === undefined) {
-          yield* Effect.logWarning(
-            `Convex state: the output of ${request.stack}/${request.stage} is not a plain object, so it carries no run record.`,
-          );
-          return request.value;
-        }
-        return document;
-      });
+    const remote = remoteOf(functions);
     const service: StateService = {
       id: "convex",
       getVersion: () => Effect.succeed(STATE_STORE_VERSION),
@@ -480,13 +450,7 @@ export const makeConvexState = (options: StoreOptions) =>
       set: (request) => remote.set(request).pipe(Effect.as(request.value)),
       delete: (request) => remote.delete(request).pipe(Effect.asVoid),
       deleteStack: (request) => remote.deleteStack(request).pipe(Effect.asVoid),
-      // The document is the stack's output plus the record under `samebase.run`.
-      setOutput: (request) =>
-        Effect.gen(function* () {
-          const value = yield* documentOf(request);
-          yield* remote.setOutput({ stack: request.stack, stage: request.stage, value });
-          return value;
-        }),
+      setOutput: (request) => remote.setOutput(request).pipe(Effect.as(request.value)),
     };
     return service;
   });
@@ -511,25 +475,7 @@ export const state = (): Layer.Layer<State, never, ChildProcessSpawner.ChildProc
           const api = yield* ManagementApi.pipe(
             Effect.provide(ManagementApiLive().pipe(Layer.provide(fromConfig()))),
           );
-          // The record is derived once, before the first read. A checkout
-          // that gives none, such as a tarball without git, a checkout
-          // without origin, or a detached HEAD, still reads, plans, and
-          // destroys: its outputs are written without the record, and the
-          // log says why.
-          const run = yield* runRecord({ cwd: process.cwd(), env: process.env }).pipe(
-            Effect.catch((error) =>
-              Effect.logWarning(
-                `Convex state: the stage outputs of this run carry no record. ${error.message}`,
-              ).pipe(Effect.as(undefined)),
-            ),
-          );
-          return yield* makeConvexState({
-            api,
-            spawner,
-            scope,
-            store: storeDirectory(),
-            run,
-          });
+          return yield* makeConvexState({ api, spawner, scope, store: storeDirectory() });
         }).pipe(Effect.provideContext(context), Effect.orDie),
       );
     }),

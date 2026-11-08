@@ -103,7 +103,6 @@ const FunctionCall = Schema.Struct({
     stage: Schema.optionalKey(Schema.String),
     fqn: Schema.optionalKey(Schema.String),
     value: Schema.optionalKey(Schema.String),
-    run: Schema.optionalKey(Schema.Unknown),
     keyId: Schema.optionalKey(Schema.String),
   }),
 });
@@ -630,7 +629,7 @@ export class FakeConvex {
         ].sort();
         return reply({
           stages: stages.map((name) => ({
-            stage: name,
+            name,
             resources: store.rows
               .filter((row) => row.stack === stack && row.stage === name)
               .map((row) => ({ fqn: row.fqn, value: row.value }))

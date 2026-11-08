@@ -62,20 +62,8 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           stacks: Array<{
             name: string;
             stages: Array<{
-              deployedHeadCommit: string | null;
               name: string;
-              output: string;
-              record: {
-                branch: string;
-                headCommit: string;
-                pullRequest: number | null;
-                recordedAt: string;
-                repository: string;
-                runUrl: string | null;
-                source: "github-actions" | "checkout";
-                stackFile: string;
-                version: 1;
-              };
+              output: string | null;
               resources: Array<{ fqn: string; value: string }>;
             }>;
           }>;
@@ -123,20 +111,9 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         { stack: string },
         {
           stages: Array<{
+            name: string;
             output: string | null;
-            record: {
-              branch: string;
-              headCommit: string;
-              pullRequest: number | null;
-              recordedAt: string;
-              repository: string;
-              runUrl: string | null;
-              source: "github-actions" | "checkout";
-              stackFile: string;
-              version: 1;
-            } | null;
             resources: Array<{ fqn: string; value: string }>;
-            stage: string;
           }>;
         },
         Name
@@ -144,22 +121,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
       remove: FunctionReference<
         "mutation",
         "internal",
-        {
-          fqn: string;
-          run: {
-            branch: string;
-            headCommit: string;
-            pullRequest: number | null;
-            recordedAt: string;
-            repository: string;
-            runUrl: string | null;
-            source: "github-actions" | "checkout";
-            stackFile: string;
-            version: 1;
-          } | null;
-          stack: string;
-          stage: string;
-        },
+        { fqn: string; stack: string; stage: string },
         null,
         Name
       >;
@@ -223,45 +185,14 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
       set: FunctionReference<
         "mutation",
         "internal",
-        {
-          fqn: string;
-          run: {
-            branch: string;
-            headCommit: string;
-            pullRequest: number | null;
-            recordedAt: string;
-            repository: string;
-            runUrl: string | null;
-            source: "github-actions" | "checkout";
-            stackFile: string;
-            version: 1;
-          } | null;
-          stack: string;
-          stage: string;
-          value: string;
-        },
+        { fqn: string; stack: string; stage: string; value: string },
         null,
         Name
       >;
       setOutput: FunctionReference<
         "mutation",
         "internal",
-        {
-          run: {
-            branch: string;
-            headCommit: string;
-            pullRequest: number | null;
-            recordedAt: string;
-            repository: string;
-            runUrl: string | null;
-            source: "github-actions" | "checkout";
-            stackFile: string;
-            version: 1;
-          } | null;
-          stack: string;
-          stage: string;
-          value: string;
-        },
+        { stack: string; stage: string; value: string },
         null,
         Name
       >;

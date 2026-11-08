@@ -173,6 +173,9 @@ internal state functions still return the stored values. The reader does not hid
 limits or return a partial repository. A repository above the backend's read or result limit fails
 the query.
 
+Store version 7 removed the current run record of the next two paragraphs and the record logic of
+the reader: see [Alchemy's interface only](#alchemys-interface-only-store-version-7).
+
 The writer sends the record of its run with `state:set`, `state:remove`, and `state:setOutput`. The
 mutation stores it in `outputs.currentRun` in the same transaction as the resource change, but only
 when the run changes: a record that differs only in `recordedAt` is the same run, and the write only
@@ -333,14 +336,14 @@ show.
 - `state:reseal` seals every value under the current key, one row at a time, with one transaction
   for each row. It reads `resourcePage` and `outputPage`, bounded pages in table order, because
   `list` and `readStack` read whole rows and can pass the read limit of one function. A sweep that
-  stops keeps its progress. It writes with `replaceResource` and `replaceOutput`, which keep the run
-  record and leave a row that changed. Both read `generation` in their own transaction, so a sweep
-  that a rotation overtook stops, and it cannot put an older key over the work of a newer sweep. It
-  is a generation and not a key id because a rotation can bring a key back, and then a sweep from
-  before would pass for the current one. A row that fails is named in `failed`, and the others go
-  on. Measured on a local backend with 35 rows of 600 KiB: `state:list` fails with
-  `Too many bytes read`, the sweep passes that limit, and the limit of 4 MiB written per second
-  failed 3 rows, which the next run sealed. When nothing failed, it records `sealedGeneration`.
+  stops keeps its progress. It writes with `replaceResource` and `replaceOutput`, which leave a row
+  that changed. Both read `generation` in their own transaction, so a sweep that a rotation overtook
+  stops, and it cannot put an older key over the work of a newer sweep. It is a generation and not a
+  key id because a rotation can bring a key back, and then a sweep from before would pass for the
+  current one. A row that fails is named in `failed`, and the others go on. Measured on a local
+  backend with 35 rows of 600 KiB: `state:list` fails with `Too many bytes read`, the sweep passes
+  that limit, and the limit of 4 MiB written per second failed 3 rows, which the next run sealed.
+  When nothing failed, it records `sealedGeneration`.
 - Each run reads `state:sealing`, so the work does not depend on the run that pushed. A run makes a
   key when the store has none, and runs a reseal unless one finished under the current key. So a run
   that stopped after a push, or a reseal that failed, leaves work for the next run. Until then a
@@ -351,6 +354,40 @@ show.
   nothing, so Samebase can import it from `@samebase/alchemy-convex/sealed-secret`.
 - This protects a table view, a snapshot, and a reader bug. It does not protect against the team
   token, and no store can: a run has to read the values.
+
+## Alchemy's interface only (store version 7)
+
+Goal: `Convex.state()` and `Cloudflare.state()` can take the place of each other in a stack, and
+Samebase data sits on top of either one. Store version 6 had a Samebase field in the store:
+`state:set`, `state:remove`, and `state:setOutput` took the run record as `run`, and the store kept
+it in `outputs.currentRun`, so a reader saw a stage from its first resource write. Alchemy's
+interface has no place for it, so the Cloudflare store could not hold it. It was also the reason why
+every resource write read the one output row of its stage, which made the concurrent writes of a
+deploy conflict (0.25.1 made the conflict rare).
+
+- The store functions take Alchemy's arguments only. A resource write reads and writes only the row
+  of that resource.
+- `Convex.withRunRecord(state)` is a layer over any state layer. It derives the record once, at the
+  first use of the state, and adds it to each output that `setOutput` writes, under `samebase.run`.
+  It passes every other call to the state as it is. The record and the layer use no Convex function,
+  so `withRunRecord(Cloudflare.state())` writes the same output document.
+- `state:readStack` and `reader:repository` give each stage as `{ name, resources, output }`, the
+  JSON texts of Alchemy state, with `output: null` for a stage without one. The repository reader
+  gives every stage of the stacks of the repository. It removes the secrets and nothing else: it
+  does not read `samebase.run`, and the output has the key as the stack wrote it. Samebase reads the
+  record from the output and shows a stage only when the output has a record of its repository.
+- What Samebase no longer sees: a stage before its first complete deploy, and the commit and run of
+  a deploy that is in progress or that failed. A stage shows its last full successful deploy.
+- The rows of an older store stay: an output row can hold `currentRun`, and an output row that had
+  only a run record has no `value`. A push checks every row against the schema, and it fails on a
+  field that the schema does not declare or on a missing required field (measured on a local backend
+  with Convex 1.48.0). So the schema keeps `outputs.value` optional and `outputs.currentRun` as an
+  optional value of any shape, which nothing reads or writes. The first run of 0.35.0 pushes the
+  store over a store of version 6 with no other step.
+- Two differences from the Cloudflare store stay: it lists only the stages that have a resource, and
+  this store also lists a stage that has only an output. Alchemy's `syncState` copies resources and
+  no outputs, so a stage that moves to another store has no output, and no run record, until its
+  next deploy.
 
 ## Measured
 

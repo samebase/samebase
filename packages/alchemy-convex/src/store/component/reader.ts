@@ -1,35 +1,36 @@
 // The redacted read of one repository. The app checks the reader's verified
 // token and passes the repository that the token names: a component has no
-// `ctx.auth`.
-import { v, type Infer } from "convex/values";
+// `ctx.auth`. The reply is Alchemy state only, in the stage shape of
+// `readStack`: the reader takes anything else, such as a run record, from the
+// outputs.
+import { v } from "convex/values";
 // oxlint-disable-next-line samebase/no-raw-public-convex-function-builders -- Store entrypoints have no app wrapper; the reader and the deploy key enforce access.
 import { query } from "./_generated/server.js";
-import { runRecord, validate } from "./runRecord.ts";
-
-const stage = v.object({
-  name: v.string(),
-  record: runRecord,
-  deployedHeadCommit: v.union(v.string(), v.null()),
-  resources: v.array(v.object({ fqn: v.string(), value: v.string() })),
-  output: v.string(),
-});
+import { storedStage } from "./state.ts";
 
 /** The reply of {@link repository}. */
 export const repositoryReply = v.object({
   store: v.literal("found"),
-  stacks: v.array(v.object({ name: v.string(), stages: v.array(stage) })),
+  stacks: v.array(v.object({ name: v.string(), stages: v.array(storedStage) })),
 });
 
 /** Alchemy encodes a secret as an object with __redacted__; discard that whole object's contents. */
-function withoutSecrets(text: string): unknown {
-  return JSON.parse(text, (_key, value: unknown) =>
-    typeof value === "object" && value !== null && "__redacted__" in value
-      ? { __redacted__: null }
-      : value,
+const withoutSecrets = (text: string) =>
+  JSON.stringify(
+    JSON.parse(text, (_key, value: unknown) =>
+      typeof value === "object" && value !== null && "__redacted__" in value
+        ? { __redacted__: null }
+        : value,
+    ),
   );
-}
 
-/** The stacks of `repository`: the stack of that name and the stacks below `repository + "/"`. */
+const byName = <T extends { name: string }>(a: T, b: T) =>
+  a.name < b.name ? -1 : a.name > b.name ? 1 : 0;
+
+/**
+ * The stacks of `repository`: the stack of that name and the stacks below `repository + "/"`, each
+ * with every stage that has a resource or an output, in name order. Resources stay in fqn order.
+ */
 export const repository = query({
   args: { repository: v.string() },
   returns: repositoryReply,
@@ -55,51 +56,41 @@ export const repository = query({
         .withIndex("by_stage", (q) => q.gte("stack", `${name}/`).lt("stack", `${name}0`))
         .collect(),
     ]);
-    const stacks = new Map<string, Map<string, Infer<typeof stage>>>();
-    for (const row of [...rootOutputs, ...childOutputs]) {
-      const record = row.currentRun;
-      if (record === undefined || record.repository !== name) continue;
-      // The output keeps the record of the last completed deploy under `samebase.run`.
-      let output = row.value === undefined ? null : withoutSecrets(row.value);
-      let deployed: unknown = null;
-      if (typeof output === "object" && output !== null && "samebase.run" in output) {
-        ({ "samebase.run": deployed, ...output } = output);
-      }
-      let stages = stacks.get(row.stack);
+    const stacks = new Map<
+      string,
+      Map<
+        string,
+        { name: string; resources: { fqn: string; value: string }[]; output: string | null }
+      >
+    >();
+    const stageOf = (stack: string, stage: string) => {
+      let stages = stacks.get(stack);
       if (stages === undefined) {
         stages = new Map();
-        stacks.set(row.stack, stages);
+        stacks.set(stack, stages);
       }
-      stages.set(row.stage, {
-        name: row.stage,
-        record,
-        deployedHeadCommit:
-          validate(runRecord, deployed) && deployed.repository === name
-            ? deployed.headCommit
-            : null,
-        resources: [],
-        output: JSON.stringify(output),
+      let found = stages.get(stage);
+      if (found === undefined) {
+        found = { name: stage, resources: [], output: null };
+        stages.set(stage, found);
+      }
+      return found;
+    };
+    for (const row of [...rootResources, ...childResources]) {
+      stageOf(row.stack, row.stage).resources.push({
+        fqn: row.fqn,
+        value: withoutSecrets(row.value),
       });
     }
-    for (const row of [...rootResources, ...childResources]) {
-      stacks
-        .get(row.stack)
-        ?.get(row.stage)
-        ?.resources.push({
-          fqn: row.fqn,
-          value: JSON.stringify(withoutSecrets(row.value)),
-        });
+    for (const row of [...rootOutputs, ...childOutputs]) {
+      const stage = stageOf(row.stack, row.stage);
+      if (row.value !== undefined) stage.output = withoutSecrets(row.value);
     }
     return {
       store: "found" as const,
       stacks: [...stacks]
-        .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
-        .map(([name, stages]) => ({
-          name,
-          stages: [...stages.values()].sort((a, b) =>
-            a.name < b.name ? -1 : a.name > b.name ? 1 : 0,
-          ),
-        })),
+        .map(([stack, stages]) => ({ name: stack, stages: [...stages.values()].sort(byName) }))
+        .sort(byName),
     };
   },
 });
