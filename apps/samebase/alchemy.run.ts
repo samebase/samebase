@@ -57,6 +57,8 @@ The hub's connectors that the sign-in buttons name (convex/auth.ts). The connect
 one in, but the hub enrolls every client in at least one connector, so it takes the same two.
 */
 const CONNECTORS = ["google", "github"];
+/** Samebase's identity hub, where every client of this repository registers. */
+const HUB = { issuer: "https://auth.samebase.com", terms: "https://samebase.com/terms" };
 
 /**
 The commit of this checkout. The build puts it and its number into the app (vite.config.ts), so it is
@@ -85,6 +87,7 @@ export default Alchemy.Stack(
       const signIn = Convex.SharedHubClient.variables(
         yield* Convex.SharedHubClient("SignInClient", {
           app: SIGN_IN_APP,
+          hub: HUB,
           connectors: CONNECTORS,
           redirectUri: `${local.siteUrl}${HUB_CALLBACK_PATH}`,
           deploymentType: "development",
@@ -97,6 +100,7 @@ export default Alchemy.Stack(
       const connections = Convex.SharedHubClient.variables(
         yield* Convex.SharedHubClient("ConnectionsClient", {
           app: CONNECTIONS_APP,
+          hub: HUB,
           connectors: CONNECTORS,
           redirectUri: `${local.siteUrl}${RESOURCE_HUB_CALLBACK_PATH}`,
           deploymentType: "development",
@@ -145,6 +149,7 @@ export default Alchemy.Stack(
       const signIn = Convex.SharedHubClient.variables(
         yield* Convex.SharedHubClient("SignInClient", {
           app: SIGN_IN_APP,
+          hub: HUB,
           connectors: CONNECTORS,
           redirectUri: Output.interpolate`${preview.siteUrl}${HUB_CALLBACK_PATH}`,
           deploymentType: "preview",
@@ -155,6 +160,7 @@ export default Alchemy.Stack(
       const connections = Convex.SharedHubClient.variables(
         yield* Convex.SharedHubClient("ConnectionsClient", {
           app: CONNECTIONS_APP,
+          hub: HUB,
           connectors: CONNECTORS,
           redirectUri: Output.interpolate`${preview.siteUrl}${RESOURCE_HUB_CALLBACK_PATH}`,
           deploymentType: "preview",
@@ -194,6 +200,7 @@ export default Alchemy.Stack(
     const signIn = Convex.SharedHubClient.variables(
       yield* Convex.SharedHubClient("SignInClient", {
         app: SIGN_IN_APP,
+        hub: HUB,
         connectors: CONNECTORS,
         redirectUri: `${PRODUCTION_SITE_URL}${HUB_CALLBACK_PATH}`,
         deploymentType: "production",
@@ -204,6 +211,7 @@ export default Alchemy.Stack(
     const connections = Convex.SharedHubClient.variables(
       yield* Convex.SharedHubClient("ConnectionsClient", {
         app: CONNECTIONS_APP,
+        hub: HUB,
         connectors: CONNECTORS,
         redirectUri: `${PRODUCTION_SITE_URL}${RESOURCE_HUB_CALLBACK_PATH}`,
         deploymentType: "production",
