@@ -7,7 +7,12 @@ import { errorPage, signInPage, type Consent } from "./html.js";
 
 const google = { label: "Google", provider: "google", href: "#google" };
 const github = { label: "GitHub", provider: "github", href: "#github" };
-const legal = { privacy: "#privacy", terms: "#terms" };
+/** The footer of auth.samebase.com, whose attribution is set in apps/identity-hub/convex/broker.ts. */
+const footer = {
+  privacy: "#privacy",
+  terms: "#terms",
+  attribution: `<a class="attribution" href="https://samebase.com" target="_blank" rel="noopener noreferrer">Managed with <b><svg viewBox="0 0 60 60" shape-rendering="crispEdges" aria-hidden="true"><path d="M0 0h60v60H0z M20 20h20v20H20z" fill="currentColor" fill-rule="evenodd"/></svg>Samebase</b></a>`,
+};
 const host = {
   host: "pr-12.weather-app.example.com",
   origin: "https://pr-12.weather-app.example.com",
@@ -25,11 +30,11 @@ const consent = (
   to: Partial<Consent>,
   page: Partial<{ host: string; origin: string }> = {},
   connectors = [google],
-) => signInPage({ ...host, ...page, consent: { ...preview, ...to }, connectors, legal });
+) => signInPage({ ...host, ...page, consent: { ...preview, ...to }, connectors, footer });
 
 export const pageStates: Record<string, () => Response> = {
   // An admin exemption covers the client, which offers two connectors: the picker alone.
-  "sign-in": () => signInPage({ ...host, consent: null, connectors: [google, github], legal }),
+  "sign-in": () => signInPage({ ...host, consent: null, connectors: [google, github], footer }),
   "consent-preview": () => consent({}, {}, [google, github]),
   "consent-production": () =>
     consent(

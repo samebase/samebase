@@ -168,11 +168,15 @@ export function defineIdentityBroker<C extends Connector, R extends ResourceProv
   }
   const { previewClientIdleDays, registration } = config;
   const providers = config.resources ?? [];
-  /** The hub's privacy notice and terms, under its sign-in page. */
-  const legal =
+  /** The hub's privacy notice, terms, and attribution, under its sign-in page. */
+  const footer =
     registration === undefined
       ? null
-      : { privacy: registration.privacy, terms: registration.terms };
+      : {
+          privacy: registration.privacy,
+          terms: registration.terms,
+          attribution: registration.attribution ?? null,
+        };
   // Zero or less would delete every preview client at the next cleanup.
   if (previewClientIdleDays !== undefined && !(previewClientIdleDays > 0)) {
     throw new Error("previewClientIdleDays must be a positive number of days");
@@ -572,7 +576,7 @@ export function defineIdentityBroker<C extends Connector, R extends ResourceProv
         provider: connector.provider,
         href: continueHref(requestId, connector),
       })),
-      legal,
+      footer,
     });
     page.headers.append("Set-Cookie", setCookie);
     return page;

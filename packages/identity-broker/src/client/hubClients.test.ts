@@ -1,7 +1,7 @@
 /// <reference types="vite-plus/client" />
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { api } from "../component/_generated/api.js";
-import { ISSUER, pkce, sha256Hex, type Harness } from "./harness.test.helper.js";
+import { createHarness, ISSUER, pkce, sha256Hex, type Harness } from "./harness.test.helper.js";
 import {
   APP_HASH,
   createClient,
@@ -9,6 +9,8 @@ import {
   createHub,
   createInitialAccessToken,
   foreignKey,
+  hubConnectors,
+  hubRegistration,
   jsonResponse,
   LOOPBACK_CALLBACK,
   OWNER_ID,
@@ -464,6 +466,16 @@ describe("POST /hub-clients", () => {
       expect(await response.json()).toEqual({ error: "invalid_token" });
       expect(fileRequests).toEqual([]);
       expect(await readRateLimits(h)).toEqual([]);
+    });
+
+    it("is for the hub's issuer when the hub names no audience", async () => {
+      const { githubAudience, ...registration } = hubRegistration();
+      expect(githubAudience).toBe("samebase");
+      const h = await createHarness({ connectors: hubConnectors(), registration });
+      stubProviders();
+
+      expect((await postHubClient(h, await signToken())).status).toBe(401);
+      expect((await postHubClient(h, await signToken({ aud: ISSUER }))).status).toBe(201);
     });
 
     it("answers 502, not 401, when GitHub's key set cannot be read", async () => {

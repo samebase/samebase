@@ -695,6 +695,20 @@ describe("RFC 7592 client management", () => {
     expect(html).toContain(
       '<a href="https://samebase.com/terms" target="_blank" rel="noopener noreferrer">Terms</a>',
     );
+    expect(html).not.toContain('class="attribution"');
+  });
+
+  test("a hub's attribution follows its terms, as the hub wrote it", async () => {
+    const attribution =
+      '<a class="attribution" href="https://hub.example">Run by <b>Example</b></a>';
+    const h = await createHarness({
+      connectors: hubConnectors(),
+      registration: { ...hubRegistration(), attribution },
+    });
+    const client = await register(h, { appId: "gh-1-app-p", deploymentType: "preview" });
+    const { challenge } = await pkce();
+    const page = await h.fetchBroker(authorizeUrl(h, client.client_id, challenge));
+    expect(await page.text()).toContain(`>Terms</a>${attribution}</div>`);
   });
 
   test("a sign-in moves the date in the redemption", async () => {

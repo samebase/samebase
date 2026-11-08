@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.27.0
+
+- `registration.attribution`: the hub's own HTML at the end of the line under its sign-in page,
+  shown as written. The broker has no attribution of its own any more: before, every page of every
+  broker said "Managed with Samebase". Error pages have no line under the card.
+- `registration.githubAudience`: the audience of the GitHub Actions token at `POST /hub-clients`.
+  Unset, it is the hub's issuer, so no other hub accepts the tokens made for this one. Before, it
+  was `samebase` for every hub. A hub whose apps run `Convex.SharedHubClient` 0.33 or earlier, which
+  asks for `samebase`, sets `githubAudience: "samebase"`.
+
 ## 0.26.1
 
 - The card of the broker's pages no longer jumps when the page loads with a browser extension that

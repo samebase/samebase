@@ -18,7 +18,11 @@ A hub is a small Convex app that mounts this component.
 we run in production, and it is also the example: there is no separate template. To run your own,
 copy that folder and change the values in `alchemy.run.ts` and `convex/broker.ts`, or ask your agent
 to do it. Its [README](https://github.com/samebase/samebase/blob/main/apps/identity-hub/README.md)
-has the deploy steps.
+has the deploy steps. Leave out our `attribution` and `githubAudience`: unset, the pages show no
+attribution, and the hub takes GitHub tokens made for its own issuer only. An app from the Samebase
+starter asks for the connectors `google-apps` and `github-apps`, so give your hub's connectors those
+names (`google({ name: "google-apps", ... })`), and give the app's `Convex.SharedHubClient` your hub
+as `hub`.
 
 ## What it is
 
@@ -33,7 +37,8 @@ has the deploy steps.
   with the standard `resource` parameter. A hub's policy says which clients may use them.
 - `Convex.SharedHubClient` of
   [`@samebase/alchemy-convex`](https://github.com/samebase/samebase/tree/main/packages/alchemy-convex),
-  an Alchemy v2 resource, gets a deployment its client from our hub at deploy time.
+  an Alchemy v2 resource, gets a deployment its client from a hub at deploy time, ours unless the
+  stack names another.
 
 ## Mount it
 
@@ -124,10 +129,12 @@ its JWKS.
 
 `POST /hub-clients` gives a client to one deployment of an app, with no account at the hub:
 
-- A GitHub Actions run sends GitHub's OIDC token (audience `samebase`). A run of `main` gets a
-  production client, a pull request a preview client. The return address must be https, and its host
-  must serve `/samebase-verification.json` with the repository's numeric id.
-  `Convex.SharedHubClient` of `@samebase/alchemy-convex` does this at each deploy.
+- A GitHub Actions run sends GitHub's OIDC token for the audience `registration.githubAudience`, by
+  default the hub's issuer, so no other hub accepts the tokens made for this one. A run of `main`
+  gets a production client, a pull request a preview client. The return address must be https, and
+  its host must serve `/samebase-verification.json` with the repository's numeric id.
+  `Convex.SharedHubClient` of `@samebase/alchemy-convex` does this at each deploy, at the hub of its
+  `hub` prop (`{ issuer, terms, githubAudience }`), by default Samebase's.
 - A production answer also holds the app's initial access token (RFC 7591 section 1.2). A
   development server sends it for a development client, on a loopback return address.
 - The body names the app, the return address, a version, and `connectors`: the connectors the client

@@ -57,6 +57,7 @@ export function hubRegistration(policy: PolicyFunction = () => testPolicy()): Re
     terms: "https://samebase.com/terms",
     privacy: "https://samebase.com/privacy",
     name: "Samebase",
+    githubAudience: "samebase",
   };
 }
 
