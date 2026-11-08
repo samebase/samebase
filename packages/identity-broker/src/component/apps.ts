@@ -29,13 +29,13 @@ export function tenantIdOf(githubRepositoryDatabaseId: string) {
   return `gh-${githubRepositoryDatabaseId}`;
 }
 
-/** The app of `app` in the repository's tenant: production, or previews and development clients. */
-export async function appIdOf(tenantId: string, app: string, production: boolean) {
+/** The app of `app` in the repository's tenant, with its production, preview, and development clients. */
+export async function appIdOf(tenantId: string, app: string) {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(app));
   const appHash = Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0"))
     .join("")
     .slice(0, 32);
-  return `${tenantId}-${appHash}${production ? "" : "-preview"}`;
+  return `${tenantId}-${appHash}`;
 }
 
 export async function readBlock(ctx: QueryCtx, kind: Doc<"blocks">["kind"], githubId: string) {

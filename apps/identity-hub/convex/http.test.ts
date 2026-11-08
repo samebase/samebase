@@ -209,7 +209,8 @@ describe("the hub", () => {
     expect(new URL(direct.headers.get("location") ?? "").origin).toBe(
       "https://accounts.google.com",
     );
-    expect((await signIn(samebasePreview)).status).toBe(200);
+    // One app per repository and name: its exemption covers its previews too.
+    expect((await signIn(samebasePreview)).status).toBe(302);
     expect((await signIn(stranger)).status).toBe(200);
   });
 

@@ -695,7 +695,6 @@ async function playDevelopment(
     row !== undefined &&
       row.app === token.app &&
       row.appId.startsWith(`gh-${token.repository}-`) &&
-      row.appId.endsWith("-preview") &&
       row.deploymentType === "development",
     `${label} made a client outside its app and repository`,
   );

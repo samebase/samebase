@@ -5,8 +5,8 @@ import type { Doc } from "./_generated/dataModel";
 import { appIdOf, tenantIdOf, tenantRow } from "./apps";
 
 // The connector grants that the hub's administrator sets (RFC 137 decision 10). A grant adds one
-// connector to what the host's policy gives the clients of one broker app: the production app, or
-// the preview app with its development clients. Unlike an exemption from the sign-in page, a grant
+// connector to what the host's policy gives the clients of one app: production, previews, and
+// development. Unlike an exemption from the sign-in page, a grant
 // is read again by every step of a sign-in, in the transaction that decides that step, so removing
 // it stops a sign-in at its next step. Grants give no API resource and skip no page.
 
@@ -56,12 +56,11 @@ export const forRegistration = query({
     githubRepositoryDatabaseId: string(),
     githubOwnerId: string(),
     app: string(),
-    production: boolean(),
   },
   returns: array(string()),
   handler: async (ctx, args) =>
     await grantedTo(ctx, {
-      appId: await appIdOf(tenantIdOf(args.githubRepositoryDatabaseId), args.app, args.production),
+      appId: await appIdOf(tenantIdOf(args.githubRepositoryDatabaseId), args.app),
       tenantOwnerId: args.githubOwnerId,
       clientOwnerId: args.githubOwnerId,
     }),
@@ -81,8 +80,6 @@ const vGrant = object({
   /** From the app's newest client: `owner/name` and the stack's app name. Null with no client. */
   repository: union(string(), v.null()),
   app: union(string(), v.null()),
-  /** Whether the app is a repository's production app, from its newest client. Null with none. */
-  production: union(boolean(), v.null()),
 });
 
 /** Every grant, by app id and connector. */
@@ -111,7 +108,6 @@ export const list = query({
         reason: row.reason,
         repository: client?.registeredBy.githubRepository ?? null,
         app: client?.app ?? null,
-        production: client === null ? null : client.deploymentType === "production",
       });
     }
     return grants.sort(

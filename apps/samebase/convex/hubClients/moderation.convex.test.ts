@@ -134,7 +134,6 @@ const signInPage = {
       reason: "A team we know",
       repository: "octo-org/octo-repo",
       app: "my-app",
-      production: true,
     },
   ],
 };
@@ -150,7 +149,6 @@ const connectorGrants = {
       reason: "A team we know",
       repository: "octo-org/octo-repo",
       app: "my-app",
-      production: true,
     },
   ],
 };

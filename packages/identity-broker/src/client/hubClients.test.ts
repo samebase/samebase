@@ -157,7 +157,7 @@ describe("POST /hub-clients", () => {
       expect(await record.json()).toMatchObject({ connectors: ["fake", "other"] });
     });
 
-    it("puts a preview in its own app, on the exact address that the run sent", async () => {
+    it("puts a preview in the app of its name, on the exact address that the run sent", async () => {
       const h = await createHub();
       stubProviders();
 
@@ -167,7 +167,7 @@ describe("POST /hub-clients", () => {
       const client: { client_id: string } = await response.json();
 
       expect(await h.t.query(api.clients.get, { clientId: client.client_id })).toMatchObject({
-        appId: `gh-${REPOSITORY_ID}-${APP_HASH}-preview`,
+        appId: `gh-${REPOSITORY_ID}-${APP_HASH}`,
         redirectUri: "https://calm-cow-456.eu-west-1.convex.site/api/auth/callback/hub",
         deploymentType: "preview",
         clientName: "pr-12",
@@ -920,7 +920,7 @@ describe("POST /hub-clients with the initial access token", () => {
     });
     const clientId = client["client_id"] ?? "";
     expect(await h.t.query(api.clients.get, { clientId })).toMatchObject({
-      appId: `gh-${REPOSITORY_ID}-${APP_HASH}-preview`,
+      appId: `gh-${REPOSITORY_ID}-${APP_HASH}`,
       redirectUri: LOOPBACK_CALLBACK,
       deploymentType: "development",
       clientName: "development",
@@ -959,19 +959,6 @@ describe("POST /hub-clients with the initial access token", () => {
     },
   );
 
-  it("creates the preview app with the first development client, inside the tenant's budget", async () => {
-    const h = await createHub();
-    const token = await createInitialAccessToken(h);
-    const previewAppId = `gh-${REPOSITORY_ID}-${APP_HASH}-preview`;
-    expect(await h.t.query(api.apps.get, { appId: previewAppId })).toBeNull();
-
-    await createDevelopmentClient(h, token);
-
-    expect(await h.t.query(api.apps.get, { appId: previewAppId })).toMatchObject({
-      tenantId: `gh-${REPOSITORY_ID}`,
-    });
-  });
-
   it("enrolls in what the policy allows a development client, which can differ from production's", async () => {
     const h = await createHub({
       policy: (registration) =>
@@ -996,38 +983,17 @@ describe("POST /hub-clients with the initial access token", () => {
     expect(accepted.status).toBe(201);
   });
 
-  it("is refused at the tenant's budget of apps", async () => {
-    const h = await createHub();
-    const token = await createInitialAccessToken(h);
-    for (let index = 1; index < 10; index += 1) {
-      await registerAtBroker(h, {
-        tenantId: `gh-${REPOSITORY_ID}`,
-        appId: `gh-${REPOSITORY_ID}-other-${index}`,
-        deploymentType: "production",
-        clientId: `cl_other_${index}`,
-        clientName: "prod",
-        now: Date.now(),
-      });
-    }
-    stubProviders();
-
-    const response = await postHubClient(h, token, { redirectUri: LOOPBACK_CALLBACK });
-
-    expect(response.status).toBe(403);
-    expect(await response.json()).toEqual({ error: "not_allowed", reason: "too_many_apps" });
-  });
-
-  it("evicts the preview app's oldest client at its cap, and never the production client", async () => {
+  it("evicts the oldest preview or development client at that budget's cap, never a production one", async () => {
     vi.useFakeTimers({ now: 1_800_000_000_000, toFake: ["Date"] });
     const h = await createHub();
     const production = await createClient(h);
     const token = production.initial_access_token ?? "";
-    const previewAppId = `gh-${REPOSITORY_ID}-${APP_HASH}-preview`;
+    const appId = `gh-${REPOSITORY_ID}-${APP_HASH}`;
     for (let index = 0; index < 30; index += 1) {
       vi.setSystemTime(1_800_000_001_000 + index * 1_000);
       await registerAtBroker(h, {
         tenantId: `gh-${REPOSITORY_ID}`,
-        appId: previewAppId,
+        appId,
         deploymentType: "preview",
         clientId: `cl_preview_${index}`,
         clientName: `pr-${index + 1}`,
@@ -1038,7 +1004,9 @@ describe("POST /hub-clients with the initial access token", () => {
 
     const development = await createDevelopmentClient(h, token);
 
-    const clients = await h.t.query(api.clients.listByApp, { appId: previewAppId });
+    const clients = (await h.t.query(api.clients.listByApp, { appId })).filter(
+      (client) => client.deploymentType !== "production",
+    );
     expect(clients).toHaveLength(30);
     expect(clients.map((client) => client.clientId)).not.toContain("cl_preview_0");
     expect(clients.map((client) => client.clientId)).toContain(development.client_id);
@@ -1109,9 +1077,6 @@ describe("POST /hub-clients with the initial access token", () => {
     expect(await response.json()).toEqual({ error: "invalid_token" });
     expect((await readClients(h)).map((row) => row.clientName)).toEqual(["prod"]);
     expect(await readRegistrationEvents(h)).toHaveLength(1);
-    expect(
-      await h.t.query(api.apps.get, { appId: `gh-${REPOSITORY_ID}-${APP_HASH}-preview` }),
-    ).toBeNull();
   });
 
   it("passes no owner: the broker checks the tenant's recorded owner and keeps it", async () => {

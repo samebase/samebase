@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.28.0
+
+- An app is a repository plus an exact name: `appIdOf(tenantId, app)` has no `-preview` app. Its
+  production, preview, and development clients are clients of that one app, so its connector grants
+  and its sign-in page exemption cover all of them.
+- An app has two budgets of 30 clients: production, and previews with development servers. Each
+  evicts only within itself, by the rules of 0.27.0.
+- The grant and exemption lists no longer answer `production`; `connectorGrants.forRegistration`
+  takes no `production`. Old `-preview` apps stay until the operator deletes them.
+
 ## 0.27.0
 
 - `POST /hub-clients` takes a GitHub Actions token only when its audience is the hub's issuer.

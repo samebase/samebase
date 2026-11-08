@@ -852,6 +852,21 @@ describe("caps and cleanup", () => {
     });
   });
 
+  test("previews take no place of production, and a full production budget still takes previews", async () => {
+    const h = await hub();
+    for (let index = 0; index < MAX_CLIENTS_PER_APP; index += 1) {
+      await registerHere(h, { deploymentType: "preview" });
+    }
+    const production = [];
+    for (let index = 0; index < MAX_CLIENTS_PER_APP; index += 1) {
+      production.push(await register(h));
+    }
+    expect((await registerHere(h, { deploymentType: "preview" })).result).toEqual({ ok: true });
+    for (const client of production) {
+      expect(await readClient(h, client.client_id)).not.toBeNull();
+    }
+  });
+
   test("a tenant has a limit on apps", async () => {
     const h = await hub();
     for (let index = 0; index < MAX_APPS_PER_TENANT; index += 1) {
