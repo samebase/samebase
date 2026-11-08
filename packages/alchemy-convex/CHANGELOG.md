@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.36.0
+
+- The store stays at version 7, so 0.35.0 and 0.36.0 work with the same store.
+- `Convex.SharedHubClient` no longer replaces a saved client whose attributes it cannot read, such
+  as one that 0.32.0 or older saved. Such a row stops the run with a fixed message that holds no
+  value of the row.
+- `newKeyRing` is gone from `@samebase/alchemy-convex/sealed-secret`.
+
 ## 0.35.0
 
 - `Convex.state()` holds Alchemy's state interface and nothing else, so `Cloudflare.state()` can

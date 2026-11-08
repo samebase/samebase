@@ -147,22 +147,13 @@ const Attributes = Schema.Struct({
 export interface SharedHubClientAttributes extends Schema.Schema.Type<typeof Attributes> {}
 
 /**
- * The attributes of a saved row, or undefined when the row does not have this version's shape, such
- * as a row that 0.26 or earlier saved without the token fields. Only a schema issue gives undefined;
- * any other failure of the decoder stops the run with a fixed message. The text of a schema issue
- * can quote a value of the row, so it is never kept.
+ * The attributes of a saved row. A row that does not have this version's shape, or any other
+ * failure of the decoder, stops the run with `reason`. The text of a schema issue can quote a value
+ * of the row, so it is never kept.
  */
-const savedAttributes = (value: unknown) =>
+const savedAttributes = (value: unknown, reason: string) =>
   Schema.decodeUnknownEffect(Attributes)(value).pipe(
-    Effect.map((attributes): SharedHubClientAttributes | undefined => attributes),
-    Effect.catch(() => Effect.succeed(undefined)),
-    Effect.catchDefect(() =>
-      Effect.die(
-        new SharedHubClientFailed({
-          reason: "the state holds attributes of Convex.SharedHubClient that it cannot read",
-        }),
-      ),
-    ),
+    Effect.catchCause(() => Effect.die(new SharedHubClientFailed({ reason }))),
   );
 
 /** The attributes of no client. */
@@ -501,15 +492,10 @@ const read = (id: string, options: { readonly stage: string }) =>
           ),
         ),
       );
-      const saved = yield* savedAttributes(attr);
-      if (saved === undefined) {
-        return yield* Effect.die(
-          new SharedHubClientFailed({
-            reason: `the row ${id} of stage ${options.stage} holds attributes that this version cannot read`,
-          }),
-        );
-      }
-      return saved;
+      return yield* savedAttributes(
+        attr,
+        `the row ${id} of stage ${options.stage} holds attributes that this version cannot read`,
+      );
     }),
   );
 
@@ -555,9 +541,7 @@ export const SharedHubClientProvider = () =>
     read: ({ output }) => Effect.succeed(output),
 
     // Only a client of the same hub (its issuer), return address, type, and connector set is
-    // renewed. A saved row without this version's shape, such as one that 0.32 or earlier saved, is
-    // no client: the run asks for a new one, which replaces the saved client, and for a production
-    // client also replaces the app's initial access token.
+    // renewed. A saved row without this version's shape stops the run with a fixed message.
     reconcile: Effect.fn(function* ({ news, output }) {
       // A bad prop is a mistake of the stack, not of the hub: the run fails, with no request.
       if (
@@ -572,12 +556,10 @@ export const SharedHubClientProvider = () =>
       const saved =
         output === undefined || output.status === "off"
           ? undefined
-          : yield* savedAttributes(output);
-      if (output !== undefined && output.status !== "off" && saved === undefined) {
-        yield* Effect.logWarning(
-          `Convex.SharedHubClient: the saved attributes of ${news.app} on ${news.redirectUri} cannot be read by this version, so this run registers a new client, which replaces the saved one.`,
-        );
-      }
+          : yield* savedAttributes(
+              output,
+              `the saved attributes of ${news.app} on ${news.redirectUri} cannot be read by this version`,
+            );
       const renewed =
         saved?.issuer === news.hub.issuer &&
         saved.redirectUri === news.redirectUri &&

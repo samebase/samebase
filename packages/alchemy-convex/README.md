@@ -334,14 +334,15 @@ resources and output, from the store function `state:readStack({ stack })` in on
   - Each deploy reads the saved client on the hub with its own token. A client that is gone gets a
     new one, and a client on another `redirectUri`, of another `deploymentType`, or with other
     `connectors` too. A replaced production client stays valid on the hub until its administrator
-    deletes it.
+    deletes it. A saved row whose attributes this version cannot read stops the run with a fixed
+    message, which holds no value of the row.
   - A new client logs the link to the terms of the shared sign-in service. A refusal logs its
     reason, such as a host that does not serve the file, a block, a token of another app, a
     connector the hub does not offer or allow, or the hourly limit it reached.
-  - No failure stops a deploy or a destroy. A failed renewal keeps the saved values. Without saved
-    values, `status` is `off`, and `issuer`, `clientId`, and `clientSecret` are the `no-hub` values
-    of a checkout without a hub. A production or preview run without a GitHub OIDC token, such as on
-    a development machine, does the same, and logs no warning.
+  - No failure of the hub stops a deploy or a destroy. A failed renewal keeps the saved values.
+    Without saved values, `status` is `off`, and `issuer`, `clientId`, and `clientSecret` are the
+    `no-hub` values of a checkout without a hub. A production or preview run without a GitHub OIDC
+    token, such as on a development machine, does the same, and logs no warning.
   - `required: true` makes the run fail unless the hub confirms the client in this run: a refusal, a
     hub that does not answer a registration or a renewal, or a suspended client fails it. Set it
     where sign-in is the product, so a deploy never ships guest sign-in, or a client that the hub

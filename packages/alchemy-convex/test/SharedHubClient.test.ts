@@ -562,13 +562,13 @@ describe("Convex.SharedHubClient", () => {
       }),
   );
 
-  test.provider("a client saved by an older version gives way to a new client", (stack) =>
+  test.provider("a saved row without the connectors stops the run with a fixed message", (stack) =>
     Effect.gen(function* () {
       const fake = new FakeServices().install();
       fake.production = true;
       const production = props({ deploymentType: "production" });
       yield* stack.deploy(client(production));
-      // The row as 0.32 saved it: no connectors.
+      // The saved row without one field of this version's shape.
       yield* Effect.gen(function* () {
         const state = yield* yield* State;
         const request = { stack: stack.name, stage: stack.stage, fqn: "Client" };
@@ -579,32 +579,21 @@ describe("Convex.SharedHubClient", () => {
         const { connectors: _connectors, ...attr } = row.attr;
         yield* state.set({ ...request, value: { ...row, attr } });
       }).pipe(Effect.provide(stack.state));
-      const { layer, lines } = capturedLogs();
-      expect(yield* stack.deploy(client(production)).pipe(Effect.provide(layer))).toEqual({
-        ...issued("cl_2"),
-        deploymentType: "production",
-        initialAccessToken: "iat-of-cl_2",
-        repository: REPOSITORY_ID,
-      });
-      expect(fake.calls(HUB_CLIENTS)).toHaveLength(2);
-      expect(warningsIn(lines)).toEqual([
-        expect.stringContaining("cannot be read by this version"),
-      ]);
-      expect(lines.join("\n")).not.toContain("secret-of");
-      // The new client is saved in this version's shape, so the next deploy renews it.
-      expect(yield* stack.deploy(client(production))).toEqual({
-        ...issued("cl_2"),
-        deploymentType: "production",
-        initialAccessToken: "iat-of-cl_2",
-        repository: REPOSITORY_ID,
-      });
-      expect(fake.calls(HUB_CLIENTS)).toHaveLength(2);
+      const exit = yield* Effect.exit(stack.deploy(client(production)));
+      expect(Exit.isFailure(exit)).toBe(true);
+      expect(String(exit)).toContain(
+        `Convex.SharedHubClient: the saved attributes of scout on ${REDIRECT_URI} cannot be read by this version.`,
+      );
+      expect(String(exit)).not.toContain("secret-of");
+      expect(String(exit)).not.toContain("iat-of");
+      // No request asks for a client that would replace the saved one.
+      expect(fake.calls(HUB_CLIENTS)).toHaveLength(1);
     }),
   );
 
-  test.provider("a saved row with a field of another shape gives way to a new client", (stack) =>
+  test.provider("a saved row with a field of another shape stops the run", (stack) =>
     Effect.gen(function* () {
-      new FakeServices().install();
+      const fake = new FakeServices().install();
       yield* stack.deploy(client(props()));
       // Current data with one field that is not a string: a schema issue, not a defect.
       yield* Effect.gen(function* () {
@@ -616,14 +605,11 @@ describe("Convex.SharedHubClient", () => {
         }
         yield* state.set({ ...request, value: { ...row, attr: { ...row.attr, redirectUri: 7 } } });
       }).pipe(Effect.provide(stack.state));
-      const { layer, lines } = capturedLogs();
-      expect(yield* stack.deploy(client(props())).pipe(Effect.provide(layer))).toEqual(
-        issued("cl_2"),
-      );
-      expect(warningsIn(lines)).toEqual([
-        expect.stringContaining("cannot be read by this version"),
-      ]);
-      expect(lines.join("\n")).not.toContain("secret-of");
+      const exit = yield* Effect.exit(stack.deploy(client(props())));
+      expect(Exit.isFailure(exit)).toBe(true);
+      expect(String(exit)).toContain("cannot be read by this version");
+      expect(String(exit)).not.toContain("secret-of");
+      expect(fake.calls(HUB_CLIENTS)).toHaveLength(1);
     }),
   );
 
@@ -1433,7 +1419,7 @@ describe("Convex.SharedHubClient.read", () => {
   test.provider("stops with a fixed message when the row cannot be read", (stack) =>
     Effect.gen(function* () {
       yield* deployProduction(stack, new FakeServices().install());
-      // The row of prod as 0.32 saved it: no connectors.
+      // The row of prod without one field of this version's shape.
       yield* Effect.gen(function* () {
         const state = yield* yield* State;
         const request = { stack: stack.name, stage: "prod", fqn: "HubClient" };

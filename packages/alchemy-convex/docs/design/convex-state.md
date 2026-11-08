@@ -25,7 +25,7 @@ reads.
   from the package's own module when the version differs. It writes the state of its own bootstrap
   to local files first, because the Worker does not exist before the deploy.
 
-## Decision: one project `alchemy-state` for each Convex team
+## Decision: one project `alchemy-state-store` for each Convex team
 
 - `Convex.state()`, in the team of the credential, like `Convex.Project` (0.29.0; before,
   `{ team }`). The first call of a run finds the project by name with the team token
@@ -50,15 +50,16 @@ reads.
   `Authorization: Convex <token>`; that path is not official and not measured for a team access
   token, so the store does not use it.
 - Version: `state:version` answers `STORE_VERSION` of `src/store/convex/version.ts`. A missing
-  function (reply `Could not find function for 'state:version'`) or an older number makes the run
-  push `src/store/convex` with the Convex CLI of the app,
+  function (reply `Could not find function for 'state:version'`) makes the run push
+  `src/store/convex` with the Convex CLI of the app,
   `convex deploy --typecheck disable --codegen disable`, from `src/store` of the installed package,
-  with a push key of `PUSH_KEY_ACTIONS` that is deleted after the push. The version is read again
-  right before the push, because another run can push a newer store in the meantime. A newer number
-  fails the run with both versions: the store and its clients are released and upgraded together,
-  and the store is never pushed back. Unlike the Cloudflare store, which compares for equality and
-  would deploy an older Worker over a newer one. A deployment with code but no `state:version` is
-  another app with the name of the store, and the run fails instead of pushing over it.
+  with a push key of `PUSH_KEY_ACTIONS` that is deleted after the push. An older number does the
+  same. The version is read again right before the push, because another run can push a newer store
+  in the meantime. A newer number fails the run with both versions: the store and its clients are
+  released and upgraded together, and the store is never pushed back. Unlike the Cloudflare store,
+  which compares for equality and would deploy an older Worker over a newer one. A deployment with
+  code but no `state:version` is another app with the name of the store, and the run fails instead
+  of pushing over it.
 - The functions directory is found from the module: `src/State.ts` in a checkout, `lib/index.js` in
   the installed package, and `../src/store/convex` from either, because the package ships `src`. The
   CLI needs a `package.json` with `convex` among its dependencies or peer dependencies in the
@@ -84,14 +85,15 @@ Alchemy state holds no time, author, commit, branch, or run; the only "when" is 
 section follows). The engine writes the stage output once, after a full successful apply
 (`alchemy/Apply.ts`, `state.setOutput` after `Output.evaluate`).
 
-- Placement: `Convex.state()` wraps `setOutput`. The stored document is the stack's output plus the
-  reserved key `samebase.run`; the stack's own keys stay as they are, and a value that the stack
-  itself put under `samebase.run` wins. `getOutput` returns the document as stored: the reader
-  strips nothing, and a stack that spreads the whole output of another stack into its props sees the
-  key and a new `recordedAt` after every deploy; such a stack reads the named outputs. An output
-  that is not a plain object (a string, an array, a Date, a Redacted value) has no place for the key
-  and is stored as it is, with a warning in the log. The record needs no store function, so this
-  part keeps the wire names of version 1.
+- Placement: `Convex.withRunRecord(state)` wraps `setOutput` of any state layer (since 0.35.0;
+  before, `Convex.state()` did it). The stored document is the stack's output plus the reserved key
+  `samebase.run`; the stack's own keys stay as they are, and a value that the stack itself put under
+  `samebase.run` wins. `getOutput` returns the document as stored: the reader strips nothing, and a
+  stack that spreads the whole output of another stack into its props sees the key and a new
+  `recordedAt` after every deploy; such a stack reads the named outputs. An output that is not a
+  plain object (a string, an array, a Date, a Redacted value) has no place for the key and is stored
+  as it is, with a warning in the log. The record needs no store function, so this part keeps the
+  wire names of version 1.
 - The record, version 1:
   `{ version: 1, repository, stackFile, branch, pullRequest, headCommit, runUrl, source, recordedAt }`,
   no secret. `src/RunRecord.ts` derives it with no Convex dependency, so any state layer can add it.
@@ -122,7 +124,7 @@ section follows). The engine writes the stage output once, after a full successf
   directory below the git top level plus `alchemy.run.ts`. A stack file with another name is
   recorded under the default name until Alchemy exposes the path.
 - The one-call read: `state:readStack({ stack })` answers
-  `{ stages: [{ stage, resources: [{ fqn, value }], output }] }` in stage order, resources in fqn
+  `{ stages: [{ name, resources: [{ fqn, value }], output }] }` in stage order, resources in fqn
   order, values as the JSON texts of the rows, `output: null` for a stage without one. It is a new
   function, so `STORE_VERSION` is 2: the first run of 0.7.0 in a team pushes the store in place, the
   path that 0.6.0 measured. The rows and the names of version 1 stay (unit test: a version 1 store
@@ -149,50 +151,31 @@ audience. This requires Convex 1.48.0 or newer. Deployment credentials stay on t
 The browser connects a separate `ConvexClient` to the store, uses `setAuth` to get and renew the
 token, then subscribes to `reader:repository({})`. The query takes no repository argument. It reads
 the exact stack name and names that start with `repository + "/"`, with indexed ranges. It checks
-the scope and repository claim, and returns only stages whose current run record matches that
-repository. Each query reads one consistent database snapshot. Its wire reply is:
+the scope and repository claim, and returns every stage of those stacks that has a resource or an
+output. Each query reads one consistent database snapshot. Its wire reply is:
 
 ```ts
 {
   store: "found",
   stacks: [{
     name,
-    stages: [{
-      name, record, deployedHeadCommit,
-      resources: [{ fqn, value }],
-      output,
-    }],
+    stages: [{ name, resources: [{ fqn, value }], output }],
   }],
 }
 ```
 
 Stacks, stages, and resources have deterministic name order. Resource values and output stay JSON
-strings. Before returning them, the query replaces any object that has `__redacted__` with
-`{ __redacted__: null }`, including nested values. It removes `samebase.run` from output. The raw
-internal state functions still return the stored values. The reader does not hide Convex query size
-limits or return a partial repository. A repository above the backend's read or result limit fails
-the query.
+strings, and `output` is `null` for a stage without one. Before returning them, the query replaces
+any object that has `__redacted__` with `{ __redacted__: null }`, including nested values, and
+changes nothing else: the output keeps `samebase.run` as the stack wrote it, and a reader takes the
+run record from there. The raw internal state functions still return the stored values. The reader
+does not hide Convex query size limits or return a partial repository. A repository above the
+backend's read or result limit fails the query.
 
-Store version 7 removed the current run record of the next two paragraphs and the record logic of
-the reader: see [Alchemy's interface only](#alchemys-interface-only-store-version-7).
-
-The writer sends the record of its run with `state:set`, `state:remove`, and `state:setOutput`. The
-mutation stores it in `outputs.currentRun` in the same transaction as the resource change, but only
-when the run changes: a record that differs only in `recordedAt` is the same run, and the write only
-reads the row. Alchemy writes the resources of a deploy at the same time, so a write to the one
-output row on each of them made them conflict until Convex stopped its retries. `setOutput` always
-writes the record. So `recordedAt` is the time of the first write of a run until its output, and
-then the time of the output. Two development deploys of one commit have no `runUrl`, so they count
-as one run: the second keeps the time of the first until its output. `outputs.value` is optional so
-the first resource can appear before the output. `getOutput` and `readStack.output` stay `null`
-until the stack writes an output. `readStack.record` is the current record or `null`. A write
-without a record (see the run record section) clears `currentRun`, so the reader does not show the
-stage. `removeStack` removes both the resources and the output row, including the current record.
-
-`record` is `currentRun`. `deployedHeadCommit` is the `headCommit` of the output's `samebase.run`
-when that value passes the `runRecord` validator and names the same repository, else `null`. A new
-run can therefore appear while the deployed commit stays the last successful commit. Arbitrary JSON
-outputs stay valid; an output without a run record has no deployed commit.
+Store versions 3 to 6 also kept a current run record in `outputs.currentRun`, which each resource
+write updated. Alchemy writes the resources of a deploy at the same time, so the writes to the one
+output row of a stage conflicted. Store version 7 removed that record: see
+[Alchemy's interface only](#alchemys-interface-only-store-version-7).
 
 There is no immediate token revocation table. A refused renewal ends the normal client's access; an
 issued token remains valid until the backend rejects its expiry, including its clock tolerance
@@ -214,55 +197,38 @@ hub, so that a team would have one project. That was reversed for three reasons,
 - The one-credential benefit does not need one project: the team token reaches every project of the
   team. Until 0.31.0, `Convex.HubClient` found the hub by the name of its project.
 
-The hub stayed in the project `samebase` at first, because a rename was unsafe while a version of
-this package that looks for its store under that name could run. Since 0.17.0 the hub is the project
-`identity-hub`, found by name. A team renames the project together with the upgrade of its stacks.
+Since 0.17.0 the hub is the project `identity-hub`, found by name.
 
-## The project was named samebase (0.13.0 to 0.15.0)
-
-The project that `Convex.state({ team })` finds or creates is named `samebase` (was
-`alchemy-state`). Reason: the project becomes the team's base, the deployment that holds the state
-component next to the identity broker and the other team-level components, and a team's dashboard
-should say what it is. `samebase` is the product's name, so no team has a project of that name for
-another purpose; our own team renamed its app project to `samebase-com` first.
-
-A team that has an `alchemy-state` project renames it before the first run of 0.13.0:
-`PATCH /projects/{project_id}` with `name: "samebase"` (and `slug: "samebase"` when the slug is
-free), through the Management API or the dashboard. The provider finds the project by name only; a
-run that finds no project named `samebase` creates an empty one, and a run of an older version of
-this package that finds no `alchemy-state` creates an empty one of that name. So the rename and the
-upgrade of every consumer of the team happen together.
-
-The package exports the state component for an app that mounts it next to other components:
-`import alchemyState from "@samebase/alchemy-convex/state/convex.config"`.
+From 0.13.0 to 0.15.0 the store project was named `samebase` (before, `alchemy-state`), as the
+team's base for the state component and the identity broker. 0.16.0 gave the store its own project,
+`alchemy-state-store`, for the reasons above.
 
 ## The store is a component (store version 4)
 
 Store version 4 puts the tables and the data functions of the store into the Convex component
 `alchemyState`. The provider and the readers call the same functions as before.
 
-Why: a team project will mount this component next to other components. A component has its own
-tables and functions, so it can go into an app that has other tables. The project `samebase` that
-the provider creates stays as it is: an app that has only the store.
+Why: a component has its own tables and functions, so it can go into an app that has other tables.
+The project `alchemy-state-store` that the provider creates is an app that has only the store.
 
-What moved to `src/store/component/`, with `defineComponent("alchemyState")`, its own schema, and
-its own `_generated`:
+What is in `src/store/component/`, with `defineComponent("alchemyState")`, its own schema, and its
+own `_generated`:
 
-- The tables `resources` and `outputs` and the `runRecord` validator (`schema.ts`, `runRecord.ts`).
+- The tables `resources`, `outputs`, and `keys` (`schema.ts`).
 - The data functions `stacks`, `stages`, `list`, `get`, `replaced`, `set`, `remove`, `removeStack`,
   `getOutput`, `setOutput`, and `readStack` (`state.ts`), as component queries and mutations. They
   have the same semantics, the same order, and `value` as JSON text.
-- The redacted read of one repository (`reader.ts`, `repository({ repository })`): the range reads,
-  the removal of secrets, and the `deployedHeadCommit` check.
+- The redacted read of one repository (`reader.ts`, `repository({ repository })`): the range reads
+  and the removal of secrets.
 
 What stays in the store app `src/store/convex/`, and why:
 
 - `convex.config.ts`: `defineApp()` and `app.use(alchemyState)`.
 - `state.ts`: each `state:*` function is an internal query or mutation with the same name,
   arguments, and result, and it calls the component function with the same name. The provider and
-  Samebase call these names with a deploy key. A component argument is required: an absent `run` or
-  `stage` goes to the component as `null`. This is the chosen contract of the component; the
-  generated component API also types an optional field without `undefined`.
+  Samebase call these names with a deploy key. A component argument is required: an absent `stage`
+  goes to the component as `null`. This is the chosen contract of the component; the generated
+  component API also types an optional field without `undefined`.
 - `state:version` answers `STORE_VERSION` and does not call the component. The number counts the
   functions of the app and of the component, `reader.ts` included, so the app keeps it.
 - `reader.ts`: `authorize` signs the token with `ctx.auth.signJwt`, and `repository` verifies it
@@ -276,33 +242,10 @@ of `value`. The recorded payloads in `test/fixtures/state/` stay as they are. Th
 change: `convex deploy --typecheck disable --codegen disable` from `src/store`, with the committed
 `_generated` of the app and of the component. The component directory is in that push root.
 
-The rows move. Convex keeps the tables of a component apart from the tables of the app. After the
-push of store version 4, the rows of store version 3 stay in the root tables `resources` and
-`outputs`, and no function reads them. The push does not move rows, and this package has no
-migration. A run that finds no rows plans each resource as new. A team whose store has rows moves
-them once. Every consumer pins the version of this package, so no run pushes store version 4 before
-the team upgrades a consumer: the move comes before the first upgrade, and no deploy has to stop.
-
-1. Export the store deployment before the push: with the Convex CLI login, in a directory that
-   selects the `samebase` project, `npx convex export --prod --path snapshot.zip`, and extract the
-   file. The snapshot holds every secret of the state: keep it for minutes, with permissions for the
-   operator only, and delete it after step 5.
-2. Run `alchemy plan` once for a stack that has no resources, on store version 4: a scratch stack
-   with `Convex.providers()`, `Convex.state({ team })`, and an empty body. The run pushes the store.
-   `state:version` answers 4, and `state:stacks` answers `[]`.
-3. Import each root table into the component:
-   `npx convex import --prod --component alchemyState --table resources --append resources/documents.jsonl`,
-   and the same for `outputs`. The import keeps `_id` and `_creationTime`.
-4. Compare. `state:stacks`, and `state:stages` for each stack, answer what they answered before the
-   push, and the row count of each component table is the line count of its file. After a failed or
-   partial import, delete the rows of that component table and repeat step 3 for it.
-5. Clear the root tables, which hold the secrets of store version 3 and which no function reads:
-   `npx convex import --prod --table resources --replace empty.jsonl` with an empty file, and the
-   same for `outputs`. Then delete the snapshot.
-6. Upgrade the consumers to this version. Their first run finds the rows.
-
-This version does not export the component from the package. A later version exports it, so that
-other apps can mount it.
+Convex keeps the tables of a component apart from the tables of the app, and a push does not move
+rows. So the push of store version 4 left the rows of store version 3 in the root tables, where no
+function reads them (`test/store.test.ts` shows it). The stores of that time were moved once by
+hand, with a Convex export and import; the package does not export the component.
 
 ## Sealed secrets (store version 5)
 
@@ -346,8 +289,7 @@ show.
   When nothing failed, it records `sealedGeneration`.
 - Each run reads `state:sealing`, so the work does not depend on the run that pushed. A run makes a
   key when the store has none, and runs a reseal unless one finished under the current key. So a run
-  that stopped after a push, or a reseal that failed, leaves work for the next run. Until then a
-  read gives a value with no `__sealed__` as it is.
+  that stopped after a push, or a reseal that failed, leaves work for the next run.
 - The additional data of a value names its row, so a sealed value opens only in the row that sealed
   it. A move of a stack goes through `get` and `set`, which open and seal again.
 - `src/store/sealedSecret.ts` has the same format as the credentials of Samebase, and it depends on
@@ -382,8 +324,8 @@ deploy conflict (0.25.1 made the conflict rare).
   only a run record has no `value`. A push checks every row against the schema, and it fails on a
   field that the schema does not declare or on a missing required field (measured on a local backend
   with Convex 1.48.0). So the schema keeps `outputs.value` optional and `outputs.currentRun` as an
-  optional value of any shape, which nothing reads or writes. The first run of 0.35.0 pushes the
-  store over a store of version 6 with no other step.
+  optional value of any shape, which nothing reads or writes. Removing them would need each store of
+  another team to clean its rows during an upgrade, which is not worth the code.
 - Two differences from the Cloudflare store stay: it lists only the stages that have a resource, and
   this store also lists a stage that has only an output. Alchemy's `syncState` copies resources and
   no outputs, so a stage that moves to another store has no output, and no run record, until its
@@ -448,8 +390,8 @@ store was not touched. The probe rows were deleted at the end.
   reads every `Redacted` value of every stack of the team, because a run needs those values. A team
   token can make such a key.
 - Two first runs of two repositories at the same time in a team with no store can both create a
-  project named `alchemy-state`. Each run lists the projects again after its create; the run whose
-  project is not the oldest deletes its own, which holds nothing yet, and uses the oldest. A
+  project named `alchemy-state-store`. Each run lists the projects again after its create; the run
+  whose project is not the oldest deletes its own, which holds nothing yet, and uses the oldest. A
   duplicate that a person creates by hand still fails every run with `AmbiguousProject`.
 - The push of the store has no lock. Two runs of two package versions that both find an older store
   can push in the order new, then old, in the seconds between the second read of the version and the

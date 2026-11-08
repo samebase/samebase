@@ -40,8 +40,9 @@ Every repository of the team deploys the same way. The reference implementation 
 9. **Same versions, same day**: all repositories of a team share one store, so an Alchemy or
    `@samebase/alchemy-convex` upgrade lands in every repository in one round, with dated release-age
    exceptions in `pnpm-workspace.yaml` while the versions are younger than the policy. The stacks of
-   this repository use `packages/alchemy-convex` directly, so a store change reaches the store with
-   the next deploy of `main`: release it and upgrade the other repositories the same day.
+   this repository pin a published `@samebase/alchemy-convex`, as the other repositories do, so a
+   store change reaches the store only after its release: release it, merge the pull request that
+   changes the pins here, and upgrade the other repositories the same day.
 
 10. **One deploy flow**: a repository with one stack calls `.github/workflows/alchemy-deploy.yml` of
     `samebase/samebase`, pinned to a commit, or copies it. That file holds the order of a run: one

@@ -97,7 +97,7 @@ function withoutSecretValues(stage: AlchemyStoredStage): AlchemyStoredStage {
   };
 }
 
-/** The production deployment of the connected team's `samebase` project. */
+/** The production deployment of the connected team's `alchemy-state-store` project. */
 async function findAlchemyDeployment(target: Pick<ConvexInspectionTarget, "teamId" | "token">) {
   const project = (
     await listConvexManagementProjects({ token: target.token, teamId: target.teamId })

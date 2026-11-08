@@ -1,8 +1,8 @@
 // AES-256-GCM sealing under a key ring, the same format as the credentials of Samebase.
 import { describe, expect, it } from "vitest";
 import {
+  newKey,
   newKeyId,
-  newKeyRing,
   openSecret,
   parseKeyRing,
   sealSecret,
@@ -10,7 +10,11 @@ import {
 } from "../src/store/sealedSecret.ts";
 
 const KEY = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
-const ring = () => parseKeyRing("KEYS", newKeyRing());
+/** A key ring with one random key. */
+const ring = () => {
+  const keyId = newKeyId();
+  return parseKeyRing("KEYS", JSON.stringify({ current: keyId, keys: { [keyId]: newKey() } }));
+};
 
 describe("sealed secrets", () => {
   it("opens what it sealed, with no clear text in the sealed object", async () => {
