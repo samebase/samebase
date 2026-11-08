@@ -298,7 +298,10 @@ resources and output, from the store function `state:readStack({ stack })` in on
     `env`, then pushes. A failed push sets the changed variables back, and deletes a dev or preview
     deployment that the same run created.
   - `env` values are strings or secrets such as `Config.Redacted("AUTH_SECRET")`. A name that leaves
-    `env` is removed from the deployment.
+    `env` is removed from the deployment after a successful push, because the code that runs until
+    then can require it, and Convex refuses to remove a variable that the running code requires. A
+    failed push keeps it, and the next run removes it. Without `source`, the update removes it with
+    the new values.
   - `source: { path, command?, include? }` replaces `convex deploy` with `command`, run in `rootDir`
     with the push key in `CONVEX_DEPLOY_KEY`, such as
     `["node_modules/.bin/convex-hosting", "deploy", "--build", "node_modules/.bin/vp build", "--dist", "dist/client"]`.
