@@ -137,7 +137,17 @@ try {
     }
   }
   // The identity hub clients come later, from the Alchemy stage that `pnpm run dev` runs once the
-  // long-running backend answers. Until then the off values of the project's defaults hold.
+  // long-running backend answers. Until then the off values of the project's defaults hold. A
+  // deployment made before the defaults had the IDENTITY_HUB_ names gets their off values here, so
+  // the push of code that requires them works; the stage then writes the clients and removes the
+  // HUB_ names.
+  for (const [name, value] of [
+    ["IDENTITY_HUB_ISSUER", "http://127.0.0.1:1"],
+    ["IDENTITY_HUB_CLIENT_ID", "no-hub"],
+    ["IDENTITY_HUB_CLIENT_SECRET", "no-hub"],
+  ] as const) {
+    if (readLocalConvexEnv(name) === null) setLocalConvexEnv(name, value);
+  }
 
   // convex/http.ts imports .convex-hosting/version.js, which only a deploy writes, and the server
   // build dist/server/server.js, which only a build writes, so the first push of a fresh worktree

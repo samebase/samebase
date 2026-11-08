@@ -98,10 +98,11 @@ immediately. An unset value keeps the seven-day wait.
 Samebase signs in with Convex Auth 2. GitHub and Google sign-in run through the team's identity hub
 at `https://auth.samebase.com`, an OpenID Provider (`@samebase/identity-broker`) that holds the
 GitHub and Google clients. Each button is a method of `convex/auth.ts`, `hub-github` or
-`hub-google`, whose authorize URL names its connector: `<HUB_ISSUER>/authorize?connector=github`.
-Both methods share the `authHub` component, one hub client per deployment, which serves the hub's
-callback at `<site>/auth/hub/callback`. The core component serves the key set under `/auth`. The
-GitHub App installation callback keeps `/oauth/github/callback` in `convex/http.ts`.
+`hub-google`, whose authorize URL names its connector:
+`<IDENTITY_HUB_ISSUER>/authorize?connector=github`. Both methods share the `authHub` component, one
+hub client per deployment, which serves the hub's callback at `<site>/auth/hub/callback`. The core
+component serves the key set under `/auth`. The GitHub App installation callback keeps
+`/oauth/github/callback` in `convex/http.ts`.
 
 The hub's `sub` is the provider and its own account id, such as `github:4076804` (RFC 134).
 `convex/identity/signIn.ts` finds a user by the `authAccounts` row of the connector and the
@@ -144,15 +145,16 @@ its old keys. For rotation, follow the
   node -e 'import("../../scripts/lib/convexAuthKeys.ts").then(({ generateCredentialKeys }) => { for (const [name, value] of Object.entries(generateCredentialKeys())) require("node:child_process").spawnSync("npx", ["convex", "env", "set", name], { input: value, stdio: ["pipe", "inherit", "inherit"] }); })'
   ```
 
-- `HUB_ISSUER`, `HUB_CLIENT_ID`, and `HUB_CLIENT_SECRET`: the identity hub,
-  `https://auth.samebase.com`, and this deployment's client at it. A deployment gets its client by
-  registering its callback URL `<site>/auth/hub/callback` at the hub. CI has no hub: its bootstrap
-  writes `HUB_ISSUER=http://127.0.0.1:1` and `no-hub` as the client id and secret.
+- `IDENTITY_HUB_ISSUER`, `IDENTITY_HUB_CLIENT_ID`, and `IDENTITY_HUB_CLIENT_SECRET`: the identity
+  hub, `https://auth.samebase.com`, and this deployment's client at it. A deployment gets its client
+  by registering its callback URL `<site>/auth/hub/callback` at the hub. CI has no hub: its
+  bootstrap writes `IDENTITY_HUB_ISSUER=http://127.0.0.1:1` and `no-hub` as the client id and
+  secret.
 - `SITE_URL`: the app origin. OAuth sign-ins may return only to `SITE_URL` and to the deployment's
   own `CONVEX_SITE_URL`.
 
 `apps/samebase/alchemy.run.ts` gets the clients of production and each preview from the hub's
-`POST /hub-clients` with `Convex.SharedHubClient`, on `https://samebase.com/auth/hub/callback` and
+`POST /hub-clients` with `IdentityHub.Client`, on `https://samebase.com/auth/hub/callback` and
 `<preview site>/auth/hub/callback`, with the run's GitHub OIDC token, so sign-in needs no secret of
 its own. The hub reads `/samebase-verification.json` on the site before it registers a client.
 
