@@ -307,9 +307,9 @@ resources and output, from the store function `state:readStack({ stack })` in on
     as the build inputs `["src/**", "public/**", "vite.config.ts"]`. A minted key for a command has
     every action, because the command can do more than a push.
 
-- `Convex.SharedHubClient`:
-  `{ app, redirectUri, deploymentType, connectors, initialAccessToken?, softwareVersion? }` gets a
-  client of the central identity hub, for an app that deploys in its own GitHub Actions run, on any
+- `IdentityHub.Client`, from `import * as IdentityHub from "@samebase/alchemy-convex/identity-hub"`:
+  `{ app, hub, redirectUri, deploymentType, connectors, initialAccessToken?, softwareVersion? }`
+  gets a client of an identity hub, for an app that deploys in its own GitHub Actions run, on any
   host, and for development as a stage of the same stack. `deploymentType` is `production`,
   `preview`, or `development`. A production or preview client needs `permissions: id-token: write`
   in the workflow, and no key and no Samebase account. `app` is at most 64 characters. The origin of
@@ -349,13 +349,16 @@ resources and output, from the store function `state:readStack({ stack })` in on
     stopped, with a green run. A failed run saves nothing, and the next run asks the hub again.
   - `status` is `suspended` when the hub suspended the client. The state keeps the client and its
     values, so the client works again when the hub lifts the suspension.
-  - `Convex.SharedHubClient.variables(client)` gives `issuer`, `clientId`, and `clientSecret` for
-    the app's deployment: the client's values when `status` is `on`, and the `no-hub` values when it
-    is `off` or `suspended`. Give these to the deployment, not the outputs of the client.
-  - `Convex.SharedHubClient.read(id, { stage })` gives the attributes of the client `id` in another
+  - `IdentityHub.Client.variables(client)` gives `issuer`, `clientId`, and `clientSecret` for the
+    app's deployment: the client's values when `status` is `on`, and the `no-hub` values when it is
+    `off` or `suspended`. Give these to the deployment, not the outputs of the client.
+  - `IdentityHub.Client.read(id, { stage })` gives the attributes of the client `id` in another
     stage of the same stack, from the state store of the stack. When that stage has no row, it gives
-    the off attributes and does not fail. `Convex.SharedHubClient.ref` fails when the row is
-    missing, and a development stage before the first deploy to main has no `prod` row.
+    the off attributes and does not fail. `IdentityHub.Client.ref` fails when the row is missing,
+    and a development stage before the first deploy to main has no `prod` row.
+  - The resource type is `IdentityHub.Client`. A row that an earlier version saved as
+    `IdentityHub.SharedClient` is the same client: the next deploy updates it in place and saves it
+    with the new type.
   - A destroy deletes a preview or development client. It does nothing to a production client,
     because the production deployment can stay.
   - `hub` is the identity hub to register at, required: `{ issuer, terms }`, such as
@@ -389,7 +392,7 @@ taken over by its Convex name:
 ```ts
 // `selected` is the name in CONVEX_DEPLOYMENT of .env.local, such as happy-animal-123, and
 // `project` is the project of stage `prod`.
-const prod = Convex.SharedHubClient.read("HubClient", { stage: "prod" });
+const prod = IdentityHub.Client.read("HubClient", { stage: "prod" });
 const site =
   yield *
   Convex.Deployment("Verification", {
@@ -400,28 +403,29 @@ const site =
   }).pipe(adopt(true));
 const hub =
   yield *
-  Convex.SharedHubClient("HubClient", {
+  IdentityHub.Client("HubClient", {
     app: "scout",
     redirectUri: Output.interpolate`${site.siteUrl}/auth/hub/callback`,
     deploymentType: "development",
     connectors: ["google", "github"],
     initialAccessToken: prod.initialAccessToken,
   });
-const variables = Convex.SharedHubClient.variables(hub);
+const variables = IdentityHub.Client.variables(hub);
 yield *
   Convex.Deployment("Site", {
     project,
     type: "dev",
     name: selected,
     env: {
-      HUB_ISSUER: variables.issuer,
-      HUB_CLIENT_ID: variables.clientId,
-      HUB_CLIENT_SECRET: variables.clientSecret,
+      IDENTITY_HUB_ISSUER: variables.issuer,
+      IDENTITY_HUB_CLIENT_ID: variables.clientId,
+      IDENTITY_HUB_CLIENT_SECRET: variables.clientSecret,
     },
   }).pipe(adopt(true));
 ```
 
-The imports are `alchemy/AdoptPolicy` for `adopt` and `alchemy/Output` for `Output`.
+The imports are `alchemy/AdoptPolicy` for `adopt`, `alchemy/Output` for `Output`, and
+`@samebase/alchemy-convex/identity-hub` for `IdentityHub`.
 
 1. `read` gives the initial access token and the repository id from the `HubClient` row of stage
    `prod`.
@@ -442,8 +446,7 @@ deletes the development client and keeps the deployment.
 `alchemy-convex stack-comment` keeps one comment on a pull request. The comment has a card for each
 stack of the repository at the stage `pr-<number>`: the folder, the address, the last run, the
 Convex deployments, Workers, and R2 buckets, and the sign-in status and connectors of a
-`Convex.SharedHubClient`. A stack sees only itself, so a comment that a stack declares cannot show
-this.
+`IdentityHub.Client`. A stack sees only itself, so a comment that a stack declares cannot show this.
 
 Run it after every deploy of the workflow. The run record gives the repository and the pull request,
 so the command needs no argument with a team access token:

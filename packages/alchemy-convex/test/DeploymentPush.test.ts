@@ -307,8 +307,8 @@ describe("Convex.Deployment push with the access token", () => {
                 project: { projectId },
                 type: "prod",
                 env: {
-                  HUB_CLIENT_ID: "not-secret",
-                  HUB_CLIENT_SECRET: Redacted.make("hub-client-secret"),
+                  IDENTITY_HUB_CLIENT_ID: "not-secret",
+                  IDENTITY_HUB_CLIENT_SECRET: Redacted.make("hub-client-secret"),
                   SHORT_SECRET: Redacted.make("no-hub"),
                 },
               },

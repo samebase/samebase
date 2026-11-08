@@ -1,6 +1,6 @@
 {
   "name": "@samebase/alchemy-convex",
-  "version": "0.36.0",
+  "version": "0.37.0",
   "description": "The Convex plane for Alchemy v2: projects, deployments, environment variables, and the push of the functions",
   "keywords": [
     "alchemy",
@@ -33,6 +33,7 @@
   "sideEffects": false,
   "exports": {
     ".": "./src/index.ts",
+    "./identity-hub": "./src/IdentityHub.ts",
     "./sealed-secret": "./src/store/sealedSecret.ts"
   },
   "publishConfig": {
@@ -43,6 +44,10 @@
       ".": {
         "types": "./lib/index.d.ts",
         "import": "./lib/index.js"
+      },
+      "./identity-hub": {
+        "types": "./lib/IdentityHub.d.ts",
+        "import": "./lib/IdentityHub.js"
       },
       "./sealed-secret": {
         "types": "./lib/sealedSecret.d.ts",

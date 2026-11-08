@@ -1,6 +1,8 @@
-// Convex.SharedHubClient: one deployment of an app as a client of the identity hub that the stack
+// IdentityHub.Client: one deployment of an app as a client of the identity hub that the stack
 // names, for an app that deploys in its own GitHub Actions run, on any host, and in development as a
-// stage of the same stack.
+// stage of the same stack. Import it as
+// `import * as IdentityHub from "@samebase/alchemy-convex/identity-hub"`; `Convex.providers()`
+// registers its provider.
 //
 // A run in GitHub Actions asks the hub for a new client with a GitHub OIDC token, so the stack needs
 // no key and no Samebase account. The token names the repository. The hub reads
@@ -12,7 +14,7 @@
 //
 // The answer to a production registration also holds the app's initial access token (RFC 7591
 // section 1.2) and the repository id. The state of stage `prod` keeps them. A development checkout
-// runs the stack as a stage `dev-<name>`: it reads them with `SharedHubClient.read`, and a client
+// runs the stack as a stage `dev-<name>`: it reads them with `IdentityHub.Client.read`, and a client
 // with `deploymentType: "development"` asks the hub with the token in place of the GitHub token
 // (RFC 133).
 //
@@ -100,9 +102,9 @@ interface CommonProps {
 
 /**
  * A production or preview client asks with the GitHub OIDC token of the run. A development client
- * asks with the app's initial access token, which `SharedHubClient.read` gives from stage `prod`.
+ * asks with the app's initial access token, which `IdentityHub.Client.read` gives from stage `prod`.
  */
-export type SharedHubClientProps =
+export type ClientProps =
   | (CommonProps & {
       readonly deploymentType: "production" | "preview";
       readonly initialAccessToken?: never;
@@ -142,9 +144,9 @@ const Attributes = Schema.Struct({
 
 /**
  * The attributes keep the real values of a suspended client, so that an unblock needs no new client.
- * `SharedHubClient.variables` gives the values that the app gets.
+ * `IdentityHub.Client.variables` gives the values that the app gets.
  */
-export interface SharedHubClientAttributes extends Schema.Schema.Type<typeof Attributes> {}
+export interface ClientAttributes extends Schema.Schema.Type<typeof Attributes> {}
 
 /**
  * The attributes of a saved row. A row that does not have this version's shape, or any other
@@ -153,13 +155,11 @@ export interface SharedHubClientAttributes extends Schema.Schema.Type<typeof Att
  */
 const savedAttributes = (value: unknown, reason: string) =>
   Schema.decodeUnknownEffect(Attributes)(value).pipe(
-    Effect.catchCause(() => Effect.die(new SharedHubClientFailed({ reason }))),
+    Effect.catchCause(() => Effect.die(new IdentityHubClientFailed({ reason }))),
   );
 
 /** The attributes of no client. */
-const offAttributes = (
-  deploymentType: SharedHubClientAttributes["deploymentType"],
-): SharedHubClientAttributes => ({
+const offAttributes = (deploymentType: ClientAttributes["deploymentType"]): ClientAttributes => ({
   status: "off",
   issuer: OFF_VALUES.issuer,
   clientId: OFF_VALUES.clientId,
@@ -180,12 +180,12 @@ const sameSet = (a: readonly string[], b: readonly string[]) =>
   a.length === b.length && a.every((name, index) => name === b[index]);
 
 /** One request gave no usable answer. The reason holds no secret. */
-class SharedHubClientFailed extends Schema.TaggedError<SharedHubClientFailed>()(
-  "SharedHubClientFailed",
+class IdentityHubClientFailed extends Schema.TaggedError<IdentityHubClientFailed>()(
+  "IdentityHubClientFailed",
   { reason: Schema.String },
 ) {
   override get message() {
-    return `Convex.SharedHubClient: ${this.reason}.`;
+    return `IdentityHub.Client: ${this.reason}.`;
   }
 }
 
@@ -290,14 +290,14 @@ const send = (who: string, url: string, token: string, init: { method: string; b
       const body: unknown = await response.json().catch(() => undefined);
       return { status: response.status, body };
     },
-    catch: () => new SharedHubClientFailed({ reason: `${who} gave no answer` }),
+    catch: () => new IdentityHubClientFailed({ reason: `${who} gave no answer` }),
   });
 
 const decode =
   <S extends Schema.Codec<unknown, unknown>>(schema: S, who: string) =>
   (value: unknown) =>
     Schema.decodeUnknownEffect(schema)(value).pipe(
-      Effect.mapError(() => new SharedHubClientFailed({ reason: `${who} gave a bad answer` })),
+      Effect.mapError(() => new IdentityHubClientFailed({ reason: `${who} gave a bad answer` })),
     );
 
 /**
@@ -313,7 +313,7 @@ const readOidcToken = (requestUrl: string, requestToken: string, audience: strin
       { method: "GET" },
     );
     if (status !== 200) {
-      return yield* new SharedHubClientFailed({
+      return yield* new IdentityHubClientFailed({
         reason: `GitHub gave no OIDC token (HTTP ${status})`,
       });
     }
@@ -321,11 +321,7 @@ const readOidcToken = (requestUrl: string, requestToken: string, audience: strin
   });
 
 /** `POST /hub-clients` with `bearer`: the GitHub OIDC token, or the app's initial access token. */
-const requestNewClient = (
-  props: SharedHubClientProps,
-  connectors: readonly string[],
-  bearer: string,
-) =>
+const requestNewClient = (props: ClientProps, connectors: readonly string[], bearer: string) =>
   Effect.gen(function* () {
     const { hub } = props;
     const { body, status } = yield* send("The identity hub", `${hub.issuer}/hub-clients`, bearer, {
@@ -342,7 +338,7 @@ const requestNewClient = (
         status === 401 && props.deploymentType === "development"
           ? "the identity hub refused the initial access token"
           : refusalOf(status, body);
-      return yield* new SharedHubClientFailed({ reason: `${reason} (HTTP ${status})` });
+      return yield* new IdentityHubClientFailed({ reason: `${reason} (HTTP ${status})` });
     }
     const client = yield* decode(NewClient, "The identity hub")(body);
     // The hub registers the address and the connectors that the request sent, under its own issuer
@@ -354,10 +350,10 @@ const requestNewClient = (
       !sameSet(client.connectors, connectors) ||
       client.terms !== hub.terms
     ) {
-      return yield* new SharedHubClientFailed({ reason: "The identity hub gave a bad answer" });
+      return yield* new IdentityHubClientFailed({ reason: "The identity hub gave a bad answer" });
     }
     yield* Effect.logInfo(
-      `Convex.SharedHubClient: ${props.app} on ${props.redirectUri} has a new client of the identity hub. Its use is under ${hub.terms}.`,
+      `IdentityHub.Client: ${props.app} on ${props.redirectUri} has a new client of the identity hub. Its use is under ${hub.terms}.`,
     );
     // Only a production registration gives the app's token (RFC 7591); any other answer's is dropped.
     const production = props.deploymentType === "production";
@@ -377,13 +373,13 @@ const requestNewClient = (
   });
 
 /** A new client, or the off values. */
-const newClient = (props: SharedHubClientProps, connectors: readonly string[]) => {
-  const label = `Convex.SharedHubClient: ${props.app} on ${props.redirectUri} deploys without the hub`;
+const newClient = (props: ClientProps, connectors: readonly string[]) => {
+  const label = `IdentityHub.Client: ${props.app} on ${props.redirectUri} deploys without the hub`;
   const off = offAttributes(props.deploymentType);
-  const request = (bearer: Effect.Effect<string, SharedHubClientFailed>) =>
+  const request = (bearer: Effect.Effect<string, IdentityHubClientFailed>) =>
     bearer.pipe(
       Effect.flatMap((token) => requestNewClient(props, connectors, token)),
-      Effect.catchTag("SharedHubClientFailed", (error) =>
+      Effect.catchTag("IdentityHubClientFailed", (error) =>
         Effect.logWarning(`${label}: ${error.reason}. The next deploy asks again.`).pipe(
           Effect.as(off),
         ),
@@ -394,7 +390,7 @@ const newClient = (props: SharedHubClientProps, connectors: readonly string[]) =
     const token = Redacted.value(props.initialAccessToken);
     return token === ""
       ? Effect.logInfo(
-          "Convex.SharedHubClient: deploy to main once for hub sign-in in development.",
+          "IdentityHub.Client: deploy to main once for hub sign-in in development.",
         ).pipe(Effect.as(off))
       : request(Effect.succeed(token));
   }
@@ -419,7 +415,7 @@ const newClient = (props: SharedHubClientProps, connectors: readonly string[]) =
  * passes a run only when the hub confirms it in that run, so a suspension that an earlier run saw,
  * and did not save because that run failed, cannot pass a run that the hub does not answer.
  */
-const renew = (saved: SharedHubClientAttributes, required: boolean) =>
+const renew = (saved: ClientAttributes, required: boolean) =>
   Effect.gen(function* () {
     const { status } = yield* send(
       "The identity hub",
@@ -434,31 +430,38 @@ const renew = (saved: SharedHubClientAttributes, required: boolean) =>
         return undefined;
       case 403:
         yield* Effect.logWarning(
-          `Convex.SharedHubClient: the hub suspended the client of ${saved.redirectUri}. It keeps its values, and nobody can sign in with it.`,
+          `IdentityHub.Client: the hub suspended the client of ${saved.redirectUri}. It keeps its values, and nobody can sign in with it.`,
         );
         return { ...saved, status: "suspended" as const };
       default:
-        return yield* new SharedHubClientFailed({
+        return yield* new IdentityHubClientFailed({
           reason: `The identity hub answered HTTP ${status}`,
         });
     }
   }).pipe(
-    Effect.catchTag("SharedHubClientFailed", (error) =>
+    Effect.catchTag("IdentityHubClientFailed", (error) =>
       required
         ? Effect.fail(
-            new SharedHubClientFailed({
+            new IdentityHubClientFailed({
               reason: `${saved.redirectUri} is required, and the hub did not confirm its client: ${error.reason}`,
             }),
           )
         : Effect.logWarning(
-            `Convex.SharedHubClient: ${saved.redirectUri} keeps the saved client: ${error.reason}.`,
+            `IdentityHub.Client: ${saved.redirectUri} keeps the saved client: ${error.reason}.`,
           ).pipe(Effect.as(saved)),
     ),
   );
 
+/**
+ * The type of this resource before 0.37.0. Alchemy finds this provider for a row of that type, and
+ * the next write of the row gives it the new type, with the same client. Remove it, here and in
+ * `SavedRow`, once no saved row has the old type.
+ */
+const OLD_TYPE = "IdentityHub.SharedClient";
+
 /** A saved row of this resource, whose `attr` `savedAttributes` reads. */
 const SavedRow = Schema.Struct({
-  resourceType: Schema.Literal("IdentityHub.SharedClient"),
+  resourceType: Schema.Literals(["IdentityHub.Client", OLD_TYPE]),
   attr: Schema.Unknown,
 });
 
@@ -468,7 +471,7 @@ const SavedRow = Schema.Struct({
  * `initialAccessToken` and the `repository` of the production client. Without that row, the off
  * attributes, with `deploymentType: "production"`.
  *
- * `SharedHubClient.ref` is not enough: Alchemy fails the plan with `InvalidReferenceError` when the
+ * `IdentityHub.Client.ref` is not enough: Alchemy fails the plan with `InvalidReferenceError` when the
  * row is missing, and a development stage before the first deploy to main has none. This read runs
  * when the plan resolves it, with the State service of the running stack and its `get`, so it never
  * creates or upgrades a store. The store revives each secret as `Redacted`, as it does for every
@@ -486,8 +489,8 @@ const read = (id: string, options: { readonly stage: string }) =>
       const { attr } = yield* Schema.decodeUnknownEffect(SavedRow)(row).pipe(
         Effect.catchCause(() =>
           Effect.die(
-            new SharedHubClientFailed({
-              reason: `the row ${id} of stage ${options.stage} is not a Convex.SharedHubClient`,
+            new IdentityHubClientFailed({
+              reason: `the row ${id} of stage ${options.stage} is not an IdentityHub.Client`,
             }),
           ),
         ),
@@ -500,11 +503,12 @@ const read = (id: string, options: { readonly stage: string }) =>
   );
 
 /**
- * The three values that the app's deployment gets, such as `HUB_ISSUER`, `HUB_CLIENT_ID`, and
- * `HUB_CLIENT_SECRET`, as Outputs: the client's values when `status` is `on`, else the off values,
- * so that a suspended client gives guest sign-in and keeps its values in state.
+ * The three values that the app's deployment gets, such as `IDENTITY_HUB_ISSUER`,
+ * `IDENTITY_HUB_CLIENT_ID`, and `IDENTITY_HUB_CLIENT_SECRET`, as Outputs: the client's values when
+ * `status` is `on`, else the off values, so that a suspended client gives guest sign-in and keeps
+ * its values in state.
  */
-const variables = (client: SharedHubClient) =>
+const variables = (client: Client) =>
   Output.map(Output.of(client), (attributes) =>
     attributes.status === "on"
       ? {
@@ -519,20 +523,20 @@ const variables = (client: SharedHubClient) =>
         },
   );
 
-export type SharedHubClient = Resource<
-  "IdentityHub.SharedClient",
-  SharedHubClientProps,
-  SharedHubClientAttributes,
+export type Client = Resource<
+  "IdentityHub.Client",
+  ClientProps,
+  ClientAttributes,
   never,
   Providers
 >;
-export const SharedHubClient = Resource<SharedHubClient>("IdentityHub.SharedClient")({
+export const Client = Resource<Client>("IdentityHub.Client", { aliases: [OLD_TYPE] })({
   read,
   variables,
 });
 
-export const SharedHubClientProvider = () =>
-  Provider.succeed(SharedHubClient, {
+export const ClientProvider = () =>
+  Provider.succeed(Client, {
     // Always an update, so that each deploy reaches the hub. No attribute is stable, so a push
     // reads the values that this run ended with. The same values cause no other push.
     diff: ({ news }) =>
@@ -548,7 +552,7 @@ export const SharedHubClientProvider = () =>
         news.connectors.length === 0 ||
         !news.connectors.every((name) => CONNECTOR_NAME.test(name))
       ) {
-        return yield* new SharedHubClientFailed({
+        return yield* new IdentityHubClientFailed({
           reason: `${news.app} on ${news.redirectUri} needs connectors: one or more names of [a-z0-9-]{1,64}`,
         });
       }
@@ -569,7 +573,7 @@ export const SharedHubClientProvider = () =>
           : undefined;
       const client = renewed ?? (yield* newClient(news, connectors));
       if (news.required === true && client.status !== "on") {
-        return yield* new SharedHubClientFailed({
+        return yield* new IdentityHubClientFailed({
           reason: `${news.app} on ${news.redirectUri} is required and has no working client (${client.status}). The warning above names the reason`,
         });
       }
@@ -590,14 +594,14 @@ export const SharedHubClientProvider = () =>
             );
             // 401: the client is gone already.
             if (status !== 204 && status !== 401) {
-              return yield* new SharedHubClientFailed({
+              return yield* new IdentityHubClientFailed({
                 reason: `The identity hub answered HTTP ${status}`,
               });
             }
           }).pipe(
-            Effect.catchTag("SharedHubClientFailed", (error) =>
+            Effect.catchTag("IdentityHubClientFailed", (error) =>
               Effect.logWarning(
-                `Convex.SharedHubClient: the client of ${output.redirectUri} stays on the hub until its removal date: ${error.reason}.`,
+                `IdentityHub.Client: the client of ${output.redirectUri} stays on the hub until its removal date: ${error.reason}.`,
               ),
             ),
           ),

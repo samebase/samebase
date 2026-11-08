@@ -8,7 +8,7 @@ Problem: 0.3 is shaped for Workers Builds: keys go to a build outside Alchemy, `
 
 ## Decision: adopt the 408 model, keep our implementation, do not vendor or depend
 
-- Resources: `Convex.Project`, `Convex.SharedHubClient`, `Convex.LocalDeployment`, and
+- Resources: `Convex.Project`, `IdentityHub.Client`, `Convex.LocalDeployment`, and
   `Convex.Deployment({ project, type, name?, source?, env? })`. The push of `source` happens inside
   the deployment update, and `url` and `siteUrl` flow to other resources. Reason: this is the 408
   model, and it puts no key between resources.

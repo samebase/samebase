@@ -57,7 +57,7 @@ describe("Convex.LocalDeployment", () => {
         const fake = new FakeConvex().install();
         fake.localPorts.set(3214, NAME);
         fake.deploymentKeys.set(NAME, ADMIN_KEY);
-        fake.variables.set(NAME, { HUB_CLIENT_ID: "no-hub", SET_BY_HAND: "kept" });
+        fake.variables.set(NAME, { IDENTITY_HUB_CLIENT_ID: "no-hub", SET_BY_HAND: "kept" });
 
         expect(Convex.LocalDeployment.of(dir)).toEqual({
           name: NAME,
@@ -65,21 +65,24 @@ describe("Convex.LocalDeployment", () => {
           siteUrl: "http://127.0.0.1:3215",
         });
         const first = yield* stack.deploy(
-          site({ HUB_CLIENT_ID: "cl_1", HUB_ISSUER: "https://hub" }),
+          site({ IDENTITY_HUB_CLIENT_ID: "cl_1", IDENTITY_HUB_ISSUER: "https://hub" }),
         );
         expect(first).toEqual({
           name: NAME,
           siteUrl: "http://127.0.0.1:3215",
-          envNames: ["HUB_CLIENT_ID", "HUB_ISSUER"],
+          envNames: ["IDENTITY_HUB_CLIENT_ID", "IDENTITY_HUB_ISSUER"],
         });
         expect(fake.variables.get(NAME)).toEqual({
-          HUB_CLIENT_ID: "cl_1",
-          HUB_ISSUER: "https://hub",
+          IDENTITY_HUB_CLIENT_ID: "cl_1",
+          IDENTITY_HUB_ISSUER: "https://hub",
           SET_BY_HAND: "kept",
         });
 
-        yield* stack.deploy(site({ HUB_CLIENT_ID: "cl_2" }));
-        expect(fake.variables.get(NAME)).toEqual({ HUB_CLIENT_ID: "cl_2", SET_BY_HAND: "kept" });
+        yield* stack.deploy(site({ IDENTITY_HUB_CLIENT_ID: "cl_2" }));
+        expect(fake.variables.get(NAME)).toEqual({
+          IDENTITY_HUB_CLIENT_ID: "cl_2",
+          SET_BY_HAND: "kept",
+        });
         // Only the deployment API of the local backend, with its admin key.
         const local = fake.sent.filter(({ path }) => path.startsWith("127.0.0.1:3214"));
         expect(local.length).toBeGreaterThan(0);
@@ -89,7 +92,10 @@ describe("Convex.LocalDeployment", () => {
         expect(fake.sent.some(({ path }) => path.includes("create_deploy_key"))).toBe(false);
 
         yield* stack.destroy();
-        expect(fake.variables.get(NAME)).toEqual({ HUB_CLIENT_ID: "cl_2", SET_BY_HAND: "kept" });
+        expect(fake.variables.get(NAME)).toEqual({
+          IDENTITY_HUB_CLIENT_ID: "cl_2",
+          SET_BY_HAND: "kept",
+        });
       }),
   );
 
