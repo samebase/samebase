@@ -32,7 +32,7 @@ const DEFAULT_WORKTREE_DEV_VITE_PORT = 5174;
 /** How long a start waits for the dev server's local backend before it skips the hub clients. */
 const BACKEND_READY_TIMEOUT_MS = 60_000;
 // A start reruns the seed when the marker has another value, such as after a change of the seed.
-const ONCE_BOOTSTRAP_MARKER = "local-deployment-seed-v1";
+const ONCE_BOOTSTRAP_MARKER = "local-deployment-seed-v2";
 
 const vitePlusEntrypoint = fileURLToPath(import.meta.resolve("vite-plus/bin"));
 const LOOPBACK_HOSTNAMES = new Set(["127.0.0.1", "localhost", "::1", "[::1]"]);

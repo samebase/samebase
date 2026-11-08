@@ -22,7 +22,7 @@
 // each deploy step, such as VITE_SAMEBASE_ROUTE_ENVIRONMENT.
 //
 // Each deployment has two clients of the identity hub (RFC 134): one for the sign-in with GitHub and
-// Google, one for the provider logins. Convex.SharedHubClient asks `POST /hub-clients` with the
+// Google, one for the provider logins. IdentityHub.Client asks `POST /hub-clients` with the
 // GitHub OIDC token of the run (`id-token: write` in alchemy.yml), and the hub first reads
 // /samebase-verification.json on the callback's site (convex/http.ts). This repository is one of
 // the hub's own (its OWN_REPOSITORY_IDS), so the apps are first-party. Both clients are `required`:
@@ -32,6 +32,7 @@ import { execFileSync } from "node:child_process";
 import * as Cloudflare from "@alchemy.run/cloudflare";
 import * as GitHub from "@alchemy.run/github";
 import * as Convex from "@samebase/alchemy-convex";
+import * as IdentityHub from "@samebase/alchemy-convex/identity-hub";
 import * as Alchemy from "alchemy";
 import { adopt } from "alchemy/AdoptPolicy";
 import * as Output from "alchemy/Output";
@@ -84,27 +85,27 @@ export default Alchemy.Stack(
       // ask the hub with the initial access tokens that production's registration saved in the
       // state of `prod`. "Site" only writes the six variables.
       const local = Convex.LocalDeployment.of();
-      const signIn = Convex.SharedHubClient.variables(
-        yield* Convex.SharedHubClient("SignInClient", {
+      const signIn = IdentityHub.Client.variables(
+        yield* IdentityHub.Client("SignInClient", {
           app: SIGN_IN_APP,
           hub: HUB,
           connectors: CONNECTORS,
           redirectUri: `${local.siteUrl}${HUB_CALLBACK_PATH}`,
           deploymentType: "development",
-          initialAccessToken: Convex.SharedHubClient.read("SignInClient", { stage: "prod" })
+          initialAccessToken: IdentityHub.Client.read("SignInClient", { stage: "prod" })
             .initialAccessToken,
           softwareVersion: commit,
           required: true,
         }),
       );
-      const connections = Convex.SharedHubClient.variables(
-        yield* Convex.SharedHubClient("ConnectionsClient", {
+      const connections = IdentityHub.Client.variables(
+        yield* IdentityHub.Client("ConnectionsClient", {
           app: CONNECTIONS_APP,
           hub: HUB,
           connectors: CONNECTORS,
           redirectUri: `${local.siteUrl}${RESOURCE_HUB_CALLBACK_PATH}`,
           deploymentType: "development",
-          initialAccessToken: Convex.SharedHubClient.read("ConnectionsClient", { stage: "prod" })
+          initialAccessToken: IdentityHub.Client.read("ConnectionsClient", { stage: "prod" })
             .initialAccessToken,
           softwareVersion: commit,
           required: true,
@@ -112,9 +113,9 @@ export default Alchemy.Stack(
       );
       const site = yield* Convex.LocalDeployment("Site", {
         env: {
-          HUB_ISSUER: signIn.issuer,
-          HUB_CLIENT_ID: signIn.clientId,
-          HUB_CLIENT_SECRET: signIn.clientSecret,
+          IDENTITY_HUB_ISSUER: signIn.issuer,
+          IDENTITY_HUB_CLIENT_ID: signIn.clientId,
+          IDENTITY_HUB_CLIENT_SECRET: signIn.clientSecret,
           RESOURCE_HUB_ISSUER: connections.issuer,
           RESOURCE_HUB_CLIENT_ID: connections.clientId,
           RESOURCE_HUB_CLIENT_SECRET: connections.clientSecret,
@@ -146,8 +147,8 @@ export default Alchemy.Stack(
         env: { SAMEBASE_COMMIT: commit },
         source: { path: "./convex", command: ["node", "./scripts/deploy-preview.ts"] },
       }).pipe(adopt(true), Alchemy.RemovalPolicy.destroy());
-      const signIn = Convex.SharedHubClient.variables(
-        yield* Convex.SharedHubClient("SignInClient", {
+      const signIn = IdentityHub.Client.variables(
+        yield* IdentityHub.Client("SignInClient", {
           app: SIGN_IN_APP,
           hub: HUB,
           connectors: CONNECTORS,
@@ -157,8 +158,8 @@ export default Alchemy.Stack(
           required: true,
         }),
       );
-      const connections = Convex.SharedHubClient.variables(
-        yield* Convex.SharedHubClient("ConnectionsClient", {
+      const connections = IdentityHub.Client.variables(
+        yield* IdentityHub.Client("ConnectionsClient", {
           app: CONNECTIONS_APP,
           hub: HUB,
           connectors: CONNECTORS,
@@ -174,9 +175,9 @@ export default Alchemy.Stack(
         name: stage,
         env: {
           SAMEBASE_COMMIT: commit,
-          HUB_ISSUER: signIn.issuer,
-          HUB_CLIENT_ID: signIn.clientId,
-          HUB_CLIENT_SECRET: signIn.clientSecret,
+          IDENTITY_HUB_ISSUER: signIn.issuer,
+          IDENTITY_HUB_CLIENT_ID: signIn.clientId,
+          IDENTITY_HUB_CLIENT_SECRET: signIn.clientSecret,
           RESOURCE_HUB_ISSUER: connections.issuer,
           RESOURCE_HUB_CLIENT_ID: connections.clientId,
           RESOURCE_HUB_CLIENT_SECRET: connections.clientSecret,
@@ -197,8 +198,8 @@ export default Alchemy.Stack(
     // The production clients, on the callbacks of samebase.com. The running deployment serves the
     // verification file there, so the clients register before "Site" pushes, and "Site" keeps every
     // variable it owned before. A destroy leaves a production client on the hub.
-    const signIn = Convex.SharedHubClient.variables(
-      yield* Convex.SharedHubClient("SignInClient", {
+    const signIn = IdentityHub.Client.variables(
+      yield* IdentityHub.Client("SignInClient", {
         app: SIGN_IN_APP,
         hub: HUB,
         connectors: CONNECTORS,
@@ -208,8 +209,8 @@ export default Alchemy.Stack(
         required: true,
       }),
     );
-    const connections = Convex.SharedHubClient.variables(
-      yield* Convex.SharedHubClient("ConnectionsClient", {
+    const connections = IdentityHub.Client.variables(
+      yield* IdentityHub.Client("ConnectionsClient", {
         app: CONNECTIONS_APP,
         hub: HUB,
         connectors: CONNECTORS,
@@ -248,9 +249,9 @@ export default Alchemy.Stack(
       type: "prod",
       env: {
         SAMEBASE_COMMIT: commit,
-        HUB_ISSUER: signIn.issuer,
-        HUB_CLIENT_ID: signIn.clientId,
-        HUB_CLIENT_SECRET: signIn.clientSecret,
+        IDENTITY_HUB_ISSUER: signIn.issuer,
+        IDENTITY_HUB_CLIENT_ID: signIn.clientId,
+        IDENTITY_HUB_CLIENT_SECRET: signIn.clientSecret,
         RESOURCE_HUB_ISSUER: connections.issuer,
         RESOURCE_HUB_CLIENT_ID: connections.clientId,
         RESOURCE_HUB_CLIENT_SECRET: connections.clientSecret,

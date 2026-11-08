@@ -68,7 +68,7 @@ jobs:
     permissions:
       contents: read
       pull-requests: write # The job keeps one comment with the stacks of the repository.
-      # Convex.SharedHubClient asks GitHub for an OIDC token, which proves this repository to the
+      # IdentityHub.Client asks GitHub for an OIDC token, which proves this repository to the
       # identity hub. A pull request from a fork gets none, and the condition of this job skips it.
       id-token: write
     environment:

@@ -214,8 +214,8 @@ async function viewerWith(t: ConvexTest, email: string) {
 }
 
 function turnModerationOn() {
-  vi.stubEnv("HUB_ISSUER", HUB_ISSUER);
-  vi.stubEnv("HUB_MODERATION_KEY", MODERATION_KEY);
+  vi.stubEnv("IDENTITY_HUB_ISSUER", HUB_ISSUER);
+  vi.stubEnv("IDENTITY_HUB_MODERATION_KEY", MODERATION_KEY);
 }
 
 describe("hub client moderation", () => {
@@ -260,8 +260,8 @@ describe("hub client moderation", () => {
 
   it("says that moderation is off without the key, and calls no hub", async () => {
     const t = makeConvexTest();
-    vi.stubEnv("HUB_ISSUER", HUB_ISSUER);
-    vi.stubEnv("HUB_MODERATION_KEY", " ");
+    vi.stubEnv("IDENTITY_HUB_ISSUER", HUB_ISSUER);
+    vi.stubEnv("IDENTITY_HUB_MODERATION_KEY", " ");
     const requests = stubHub();
     const admin = await viewerWith(t, "nicu@samebase.com");
 
@@ -634,8 +634,8 @@ describe("an organization's hub clients", () => {
 
   it("says that moderation is off without the key, and calls no hub", async () => {
     const t = makeConvexTest();
-    vi.stubEnv("HUB_ISSUER", HUB_ISSUER);
-    vi.stubEnv("HUB_MODERATION_KEY", " ");
+    vi.stubEnv("IDENTITY_HUB_ISSUER", HUB_ISSUER);
+    vi.stubEnv("IDENTITY_HUB_MODERATION_KEY", " ");
     const requests = stubHub();
     const { member, organizationId } = await organizationWithMember(t);
 
