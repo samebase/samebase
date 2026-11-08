@@ -107,7 +107,7 @@ export function RepositoryConvexSchemaGraphView({
         (stage) =>
           stage.name === "prod" &&
           stageResources({
-            stackFile: stage.record.stackFile,
+            stackFile: stage.run.stackFile,
             resources: stage.resources,
           }).convexDeployments.some(
             ({ state }) => String(state.attr.projectId) === convexProjectId,

@@ -8,10 +8,10 @@ import { ConvexError } from "convex/values";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
-import { stageResources } from "../../../shared/alchemyState";
+import { readDeployedStacks, stageResources } from "../../../shared/alchemyState";
 import {
   ALCHEMY_CONNECTION_UNAVAILABLE,
-  vAlchemyStacksRead,
+  vAlchemyRepositoryReply,
   type AlchemyStacksRead,
   type AlchemyStateObservation,
 } from "../../../shared/alchemyStateModel";
@@ -60,10 +60,13 @@ function useLoaderRead(repositoryId: Id<"repositories"> | null, convexTeamId: st
 One connection for the selected repository. Cleanup closes it; results belong to its target. The
 loader's read stands until the first subscription result, and the connection starts with its token,
 so the page has the stacks before any request of the browser. A reload connects again.
+`repository` is the GitHub `owner/name` of the repository: the run record of each stage that the
+page shows names it.
 */
 export function useRepositoryAlchemyState(
   repositoryId: Id<"repositories"> | null,
   convexTeamId: string | undefined,
+  repository: string | undefined,
 ): RepositoryAlchemyState {
   const { isAuthenticated } = useConvexAuth();
   const viewer = useQuery(api.users.viewer, isAuthenticated ? {} : "skip");
@@ -76,8 +79,10 @@ export function useRepositoryAlchemyState(
   const userId = isAuthenticated ? viewer?._id : undefined;
   const target = useMemo(
     () =>
-      repositoryId && userId ? { repositoryId, userId, convexTeamId, attempt, firstRead } : null,
-    [repositoryId, userId, convexTeamId, attempt, firstRead],
+      repositoryId && repository && userId
+        ? { repositoryId, repository, userId, convexTeamId, attempt, firstRead }
+        : null,
+    [repositoryId, repository, userId, convexTeamId, attempt, firstRead],
   );
   const [result, setResult] = useState<{ target: typeof target; value: StoreResult }>();
   const reload = useCallback(() => {
@@ -192,9 +197,13 @@ export function useRepositoryAlchemyState(
         (reply) => {
           if (stopped) return;
           try {
+            const { store, stacks } = parse(vAlchemyRepositoryReply, reply);
             setResult({
               target,
-              value: { state: "loaded", read: parse(vAlchemyStacksRead, reply) },
+              value: {
+                state: "loaded",
+                read: { store, stacks: readDeployedStacks(stacks, target.repository) },
+              },
             });
           } catch (error) {
             fail(error);
@@ -220,7 +229,7 @@ export function useRepositoryAlchemyState(
             .filter((stage) => stage.name === "prod")
             .flatMap((stage) =>
               stageResources({
-                stackFile: stage.record.stackFile,
+                stackFile: stage.run.stackFile,
                 resources: stage.resources,
               }).convexDeployments.map(({ state }) => `${state.attr.projectId}/${state.attr.name}`),
             ),

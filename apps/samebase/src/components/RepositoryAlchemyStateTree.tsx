@@ -11,7 +11,7 @@ import type { AlchemyStage, AlchemyStateObservation } from "../../shared/alchemy
 import { formatRelativeTimeAgo } from "@/lib/formatRelativeTime";
 import { resourceTypePresentation } from "@/components/resourceTypePresentation";
 
-type AlchemyRunRecord = AlchemyStage["record"];
+type AlchemyRunRecord = AlchemyStage["run"];
 
 const { object, string } = v;
 
@@ -146,21 +146,22 @@ function AlchemyRunRecordRows({ record }: { record: AlchemyRunRecord }) {
 }
 
 function AlchemyStageDetails({ stage }: { stage: AlchemyStage }) {
+  // The output of a stage of the repository is a JSON object, so an empty one has no entry.
   const stageOutput: unknown = JSON.parse(stage.output);
-  const output = stageOutput === null ? [] : outputEntries(stageOutput, "");
+  const output = outputEntries(stageOutput, "");
   const states = stage.resources.map((resource) => {
     const state: unknown = JSON.parse(resource.value);
     return { fqn: resource.fqn, state };
   });
   const { convexDeployments, workers } = stageResources({
-    stackFile: stage.record.stackFile,
+    stackFile: stage.run.stackFile,
     resources: stage.resources,
   });
   const { others, components } = groupResourcesByComponent(states);
 
   return (
     <dl className="ml-5 grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-2 pt-1 pb-3 text-xs">
-      <AlchemyRunRecordRows record={stage.record} />
+      <AlchemyRunRecordRows record={stage.run} />
 
       {convexDeployments.length === 0 ? null : (
         <AlchemyStateDetailRow label="Convex">
