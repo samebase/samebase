@@ -77,8 +77,9 @@ const GITHUB_OIDC_JWKS_URL = `${GITHUB_OIDC_ISSUER}/.well-known/jwks`;
 const vGitHubKeySet = object({ keys: array(object({ kty: string() })) });
 
 /**
- * `aud` is one string: jose alone also accepts a list that holds the audience, and it has already
- * checked that the audience is this hub's.
+ * `aud` is one string, the hub's issuer: jose alone also accepts a list that holds the audience,
+ * and it has already checked the value. So a token that a deploy made for one hub is no use at
+ * another hub, also when that hub's operator replays it.
  */
 const vGitHubClaims = object({
   aud: string(),
@@ -377,7 +378,7 @@ export function hubClientsEndpoint(args: {
    * initial access token, which a development server of the team uses for its development client.
    */
   async function registerRun(ctx: Ctx, request: Request, githubToken: string) {
-    const run = await readRun(githubToken, registration.githubAudience ?? issuer);
+    const run = await readRun(githubToken, issuer);
     if (run instanceof Response) {
       return run;
     }

@@ -858,11 +858,11 @@ describe("authorization code flow with an OAuth connector", () => {
       "The app gets your name, picture, and email address. Samebase has not reviewed this app.",
     );
     expect(html).toContain("Continue with Fake");
-    // Continue, and in new tabs the host, the repository, the privacy notice, and the terms; no
-    // script, and no attribution, which this hub does not set. Nothing sends the user to the host
-    // by itself, and a stranger's link may have chosen it (RFC 9700 section 4.11.2).
-    expect(html.match(/<a /g)).toHaveLength(5);
-    expect(html.match(/target="_blank"/g)).toHaveLength(4);
+    // Continue, and in new tabs the host, the repository, the privacy notice, the terms, and the
+    // attribution; no script. Nothing sends the user to the host by itself, and a stranger's link
+    // may have chosen it (RFC 9700 section 4.11.2).
+    expect(html.match(/<a /g)).toHaveLength(6);
+    expect(html.match(/target="_blank"/g)).toHaveLength(5);
     expect(html).not.toContain("<script");
     expect(html).not.toContain(REDIRECT_URI);
     expect(html).not.toContain("Stranger");

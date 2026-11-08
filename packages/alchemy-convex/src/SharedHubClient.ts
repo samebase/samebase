@@ -1,6 +1,6 @@
-// Convex.SharedHubClient: one deployment of an app as a client of an identity hub, Samebase's unless
-// the stack names another, for an app that deploys in its own GitHub Actions run, on any host, and
-// in development as a stage of the same stack.
+// Convex.SharedHubClient: one deployment of an app as a client of the identity hub that the stack
+// names, for an app that deploys in its own GitHub Actions run, on any host, and in development as a
+// stage of the same stack.
 //
 // A run in GitHub Actions asks the hub for a new client with a GitHub OIDC token, so the stack needs
 // no key and no Samebase account. The token names the repository. The hub reads
@@ -51,34 +51,28 @@ const OFF_VALUES = { issuer: "http://127.0.0.1:1", clientId: "no-hub", clientSec
 /** The name of a connector on the hub. */
 const CONNECTOR_NAME = /^[a-z0-9-]{1,64}$/;
 
-/** An identity hub of @samebase/identity-broker, which registers clients at `/hub-clients`. */
+/**
+ * An identity hub of @samebase/identity-broker, such as Samebase's:
+ * `{ issuer: "https://auth.samebase.com", terms: "https://samebase.com/terms" }`.
+ */
 export interface Hub {
-  /** The hub's issuer, such as `https://auth.example.com`. */
+  /**
+   * The hub's issuer, such as `https://auth.example.com`. The run asks at `<issuer>/hub-clients`,
+   * with a GitHub token whose audience is the issuer, so no other hub can use that token.
+   */
   readonly issuer: string;
   /**
    * The terms of the hub's sign-in service, which its answer must name. The log prints them for a
    * new client, so no value that the answer chose reaches the log.
    */
   readonly terms: string;
-  /** The audience of the run's GitHub token: the hub's `githubAudience`. Unset: `issuer`. */
-  readonly githubAudience?: string;
 }
-
-/** Samebase's hub, where a stack without `hub` registers. */
-export const SAMEBASE_HUB: Hub = {
-  issuer: "https://auth.samebase.com",
-  terms: "https://samebase.com/terms",
-  githubAudience: "samebase",
-};
 
 interface CommonProps {
   /** The stable name of the app, set once in the stack. */
   readonly app: string;
-  /**
-   * The hub to register at. Unset: `SAMEBASE_HUB`. A changed hub registers a new client there; the
-   * client at the old hub stays there.
-   */
-  readonly hub?: Hub;
+  /** The hub to register at. A changed hub registers a new client there; the old one stays. */
+  readonly hub: Hub;
   /**
    * The connectors the client signs in through, by their names on the hub, such as
    * `["google", "github"]`: at least one, each of `[a-z0-9-]{1,64}`. The hub refuses a name it does
@@ -342,7 +336,7 @@ const requestNewClient = (
   bearer: string,
 ) =>
   Effect.gen(function* () {
-    const hub = props.hub ?? SAMEBASE_HUB;
+    const { hub } = props;
     const { body, status } = yield* send("The identity hub", `${hub.issuer}/hub-clients`, bearer, {
       method: "POST",
       body: JSON.stringify({
@@ -360,10 +354,11 @@ const requestNewClient = (
       return yield* new SharedHubClientFailed({ reason: `${reason} (HTTP ${status})` });
     }
     const client = yield* decode(NewClient, "The identity hub")(body);
-    // The hub registers the address and the connectors that the request sent, under the terms that
-    // the stack names. The log and the state hold the stack's, so no value that the answer chose is
-    // printed or kept.
+    // The hub registers the address and the connectors that the request sent, under its own issuer
+    // and the terms that the stack names. The log and the state hold the stack's, so no value that
+    // the answer chose is printed or kept.
     if (
+      client.issuer !== hub.issuer ||
       client.redirect_uri !== props.redirectUri ||
       !sameSet(client.connectors, connectors) ||
       client.terms !== hub.terms
@@ -377,7 +372,7 @@ const requestNewClient = (
     const production = props.deploymentType === "production";
     return {
       status: "on" as const,
-      issuer: client.issuer,
+      issuer: hub.issuer,
       clientId: client.client_id,
       clientSecret: Redacted.make(client.client_secret),
       registrationAccessToken: Redacted.make(client.registration_access_token),
@@ -424,8 +419,7 @@ const newClient = (props: SharedHubClientProps, connectors: readonly string[]) =
         : Effect.logInfo(`${label}: this run has no GitHub OIDC token.`)
     ).pipe(Effect.as(off));
   }
-  const hub = props.hub ?? SAMEBASE_HUB;
-  return request(readOidcToken(requestUrl, requestToken, hub.githubAudience ?? hub.issuer));
+  return request(readOidcToken(requestUrl, requestToken, props.hub.issuer));
 };
 
 /**
@@ -560,11 +554,11 @@ export const SharedHubClientProvider = () =>
 
     read: ({ output }) => Effect.succeed(output),
 
-    // Only a client of the same hub, return address, type, and connector set is renewed. A saved
-    // row without this version's shape, such as one that 0.32 or earlier saved, is no client: the
-    // run asks for a new one, which replaces the saved client, and for a production client also
-    // replaces the app's initial access token.
-    reconcile: Effect.fn(function* ({ news, olds, output }) {
+    // Only a client of the same hub (its issuer), return address, type, and connector set is
+    // renewed. A saved row without this version's shape, such as one that 0.32 or earlier saved, is
+    // no client: the run asks for a new one, which replaces the saved client, and for a production
+    // client also replaces the app's initial access token.
+    reconcile: Effect.fn(function* ({ news, output }) {
       // A bad prop is a mistake of the stack, not of the hub: the run fails, with no request.
       if (
         news.connectors.length === 0 ||
@@ -585,8 +579,8 @@ export const SharedHubClientProvider = () =>
         );
       }
       const renewed =
-        (olds?.hub ?? SAMEBASE_HUB).issuer === (news.hub ?? SAMEBASE_HUB).issuer &&
-        saved?.redirectUri === news.redirectUri &&
+        saved?.issuer === news.hub.issuer &&
+        saved.redirectUri === news.redirectUri &&
         saved.deploymentType === news.deploymentType &&
         sameSet(saved.connectors, connectors)
           ? yield* renew(saved, news.required === true)

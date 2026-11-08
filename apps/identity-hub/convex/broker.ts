@@ -94,10 +94,6 @@ export const broker = defineIdentityBroker({
     name: "Samebase",
     terms: "https://samebase.com/terms",
     privacy: "https://samebase.com/privacy",
-    // As under every page of samebase.com.
-    attribution: `<a class="attribution" href="https://samebase.com" target="_blank" rel="noopener noreferrer">Managed with <b><svg viewBox="0 0 60 60" shape-rendering="crispEdges" aria-hidden="true"><path d="M0 0h60v60H0z M20 20h20v20H20z" fill="currentColor" fill-rule="evenodd"/></svg>Samebase</b></a>`,
-    // What `Convex.SharedHubClient` asks GitHub for when it registers at this hub.
-    githubAudience: "samebase",
     moderationKey: () => env.HUB_MODERATION_KEY,
     // The policy of RFC 137 decision 9.
     policy: (registration) => ({

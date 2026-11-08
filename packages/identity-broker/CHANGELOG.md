@@ -2,13 +2,15 @@
 
 ## 0.27.0
 
-- `registration.attribution`: the hub's own HTML at the end of the line under its sign-in page,
-  shown as written. The broker has no attribution of its own any more: before, every page of every
-  broker said "Managed with Samebase". Error pages have no line under the card.
-- `registration.githubAudience`: the audience of the GitHub Actions token at `POST /hub-clients`.
-  Unset, it is the hub's issuer, so no other hub accepts the tokens made for this one. Before, it
-  was `samebase` for every hub. A hub whose apps run `Convex.SharedHubClient` 0.33 or earlier, which
-  asks for `samebase`, sets `githubAudience: "samebase"`.
+- `POST /hub-clients` takes a GitHub Actions token only when its audience is the hub's issuer.
+  Before, every hub took the audience `samebase`, so a token that a deploy made for one hub also
+  worked at every other hub, and that hub's operator could replay it within its lifetime. Apps ask
+  for the new audience with `Convex.SharedHubClient` 0.34. With 0.33 or earlier, a renewal still
+  works, and a new client (a new preview, or another connector set) is refused until the app
+  upgrades.
+- The mark under every page says where the broker comes from: the Samebase square and "Samebase", in
+  the color of the links next to it. It no longer says "Managed with", which was not true of a hub
+  that someone else runs.
 
 ## 0.26.1
 

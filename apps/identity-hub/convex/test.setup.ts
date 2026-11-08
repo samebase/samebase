@@ -16,12 +16,12 @@ export const REPOSITORY_ID = "74";
 export const PRODUCTION_CALLBACK = "https://ideal-dolphin-15.convex.site/auth/hub/callback";
 const JWKS_URL = "https://token.actions.githubusercontent.com/.well-known/jwks";
 
-/**
- * The hub with the broker component, as `convex/convex.config.ts` mounts it. The issuer is read when
- * `convex/broker.ts` loads, so every test file uses the same one.
- */
+/** The hub's issuer in every test file: `convex/broker.ts` reads it when it loads. */
+const ISSUER = "https://auth.test";
+
+/** The hub with the broker component, as `convex/convex.config.ts` mounts it. */
 export function makeConvexTest() {
-  vi.stubEnv("ISSUER", "https://auth.test");
+  vi.stubEnv("ISSUER", ISSUER);
   vi.stubEnv("HUB_MODERATION_KEY", MODERATION_KEY);
   // The hub has no tables of its own: every row is in the broker component.
   const t = convexTest(undefined, modules);
@@ -33,14 +33,15 @@ export type ConvexTest = ReturnType<typeof makeConvexTest>;
 
 /**
  * The claims of the example token on
- * https://docs.github.com/en/actions/concepts/security/openid-connect, read on 2026-11-01. Only `aud`
- * and the claims that a test names differ, and the times are set when a test signs.
+ * https://docs.github.com/en/actions/concepts/security/openid-connect, read on 2026-11-01. Only `aud`,
+ * the hub's issuer, and the claims that a test names differ, and the times are set when a test
+ * signs.
  */
 const documentedClaims = {
   jti: "example-id",
   sub: "repo:octo-org/octo-repo:environment:prod",
   environment: "prod",
-  aud: "samebase",
+  aud: ISSUER,
   ref: "refs/heads/main",
   sha: "example-sha",
   repository: "octo-org/octo-repo",

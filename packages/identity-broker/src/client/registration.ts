@@ -44,17 +44,6 @@ export type RegistrationConfig<
    * the hub keeps and passes to apps (Google's user data policy; GDPR articles 13 and 14).
    */
   privacy: string;
-  /**
-   * HTML at the end of the line under the sign-in page, written by the hub and shown as written,
-   * such as a link to the product that runs it; `class="attribution"` on its root element places
-   * it at the right. Unset: nothing.
-   */
-  attribution?: string;
-  /**
-   * The audience that the GitHub Actions token of a registration must have, which the deploy asks
-   * GitHub for. Unset: the hub's issuer, so no other hub accepts the tokens made for this one.
-   */
-  githubAudience?: string;
 };
 
 type TokenMethod = "client_secret_post" | "client_secret_basic";

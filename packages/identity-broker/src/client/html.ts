@@ -57,18 +57,21 @@ const STYLE = `
 `;
 
 /**
- * Under a hub's sign-in page: links to the privacy notice and terms of its sign-in service, and
- * the hub's own attribution HTML, shown as written.
+ * Under the card of every page, on every hub: where the broker comes from. It does not say who runs
+ * the hub, which the privacy notice and terms of a hub's sign-in page do.
  */
-export type Footer = { privacy: string; terms: string; attribution: string | null };
+const ATTRIBUTION = `<a class="attribution" href="https://samebase.com" target="_blank" rel="noopener noreferrer" title="Built with the Samebase identity broker"><svg viewBox="0 0 60 60" shape-rendering="crispEdges" aria-hidden="true"><path d="M0 0h60v60H0z M20 20h20v20H20z" fill="currentColor" fill-rule="evenodd"/></svg>Samebase</a>`;
 
-function footerMarkup(footer: Footer | null) {
-  return footer === null
+/** The privacy notice and terms of a hub's sign-in service, linked under its sign-in page. */
+export type Legal = { privacy: string; terms: string };
+
+function legalLinks(legal: Legal | null) {
+  return legal === null
     ? ""
-    : `<a href="${escape(footer.privacy)}" target="_blank" rel="noopener noreferrer">Privacy</a><a href="${escape(footer.terms)}" target="_blank" rel="noopener noreferrer">Terms</a>${footer.attribution ?? ""}`;
+    : `<a href="${escape(legal.privacy)}" target="_blank" rel="noopener noreferrer">Privacy</a><a href="${escape(legal.terms)}" target="_blank" rel="noopener noreferrer">Terms</a>`;
 }
 
-export function page(title: string, body: string, status: number, footer: Footer | null): Response {
+export function page(title: string, body: string, status: number, legal: Legal | null): Response {
   const html = `<!doctype html>
 <html lang="en">
 <head>
@@ -78,7 +81,7 @@ export function page(title: string, body: string, status: number, footer: Footer
 <title>${escape(title)}</title>
 <style>${STYLE}</style>
 </head>
-<body><div class="frame"><main>${body}</main><div class="below">${footerMarkup(footer)}</div></div></body>
+<body><div class="frame"><main>${body}</main><div class="below">${legalLinks(legal)}${ATTRIBUTION}</div></div></body>
 </html>`;
   return new Response(html, {
     status,
@@ -168,11 +171,11 @@ export function signInPage(args: {
   origin: string;
   consent: Consent | null;
   connectors: Array<{ label: string; provider: string; href: string }>;
-  /** A hub's footer; null for a broker with no hub mode. */
-  footer: Footer | null;
+  /** A hub's privacy notice and terms; null for a broker with no hub mode. */
+  legal: Legal | null;
 }): Response {
   const buttons = args.connectors.map(connectorButton).join("\n");
-  const { consent, footer } = args;
+  const { consent, legal } = args;
   const heading = `<h1>Sign in to<br><a class="host" href="${escape(args.origin)}" target="_blank" rel="noopener noreferrer">${hostMarkup(args.host)}</a></h1>`;
   if (consent === null) {
     return page(
@@ -180,7 +183,7 @@ export function signInPage(args: {
       `${heading}
 <div class="actions">${buttons}</div>`,
       200,
-      footer,
+      legal,
     );
   }
   // GitHub names the repository; it opens in a new tab, so the sign-in stays where it is.
@@ -206,7 +209,7 @@ export function signInPage(args: {
 <div class="actions">${buttons}</div>
 <p class="fine">${escape(released(consent.scopes))} ${escape(consent.reviewer)} has not reviewed this app.</p>`,
     200,
-    footer,
+    legal,
   );
 }
 
