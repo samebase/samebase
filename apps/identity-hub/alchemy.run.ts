@@ -37,7 +37,7 @@ const workspacePackages = execFileSync(
 
 export default Alchemy.Stack(
   "samebase/samebase/apps/identity-hub",
-  { providers: Convex.providers(), state: Convex.state() },
+  { providers: Convex.providers(), state: Convex.withRunRecord(Convex.state()) },
   Effect.gen(function* () {
     const { stage } = yield* Alchemy.Stack;
     // One stage: any other name would push this code over the same production deployment.
