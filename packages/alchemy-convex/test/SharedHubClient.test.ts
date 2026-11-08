@@ -24,7 +24,7 @@ const OTHER_REDIRECT_URI = "https://scout.example.workers.dev/api/auth/callback/
 const OIDC_REQUEST_URL = "https://oidc.test/token?api-version=2.0";
 const OIDC_REQUEST_TOKEN = "oidc-request-token";
 const OIDC_TOKEN = "oidc-token";
-/** Where a run asks for a new client without HUB_URL. */
+/** Where a run asks for a new client without `hub`. */
 const HUB_CLIENTS = "https://auth.samebase.com/hub-clients";
 /** The 201 answers of `POST /hub-clients`, recorded from the hub of RFC 133. */
 const PRODUCTION_ANSWER = hubFixture("hub-clients-production.json");
@@ -451,13 +451,33 @@ describe("Convex.SharedHubClient", () => {
     }),
   );
 
-  test.provider("HUB_URL replaces the address of the hub", (stack) =>
+  test.provider("another hub gets the request, with a GitHub token for its own audience", (stack) =>
     Effect.gen(function* () {
       const fake = new FakeServices().install();
-      vi.stubEnv("HUB_URL", ISSUER);
-      yield* stack.deploy(client(props()));
+      yield* stack.deploy(client(props({ hub: { issuer: ISSUER, terms: TERMS } })));
+      expect(fake.calls(OIDC_REQUEST_URL)).toEqual([
+        `GET ${OIDC_REQUEST_URL}&audience=${encodeURIComponent(ISSUER)}`,
+      ]);
       expect(fake.calls(ISSUER)).toEqual([`POST ${ISSUER}/hub-clients`]);
       expect(fake.calls(HUB_CLIENTS)).toEqual([]);
+    }),
+  );
+
+  test.provider("a changed hub asks the new hub for a client, without a renewal", (stack) =>
+    Effect.gen(function* () {
+      const fake = new FakeServices().install();
+      yield* stack.deploy(client(props()));
+      fake.sent.length = 0;
+      yield* stack.deploy(client(props({ hub: { issuer: ISSUER, terms: TERMS } })));
+      expect(fake.calls(ISSUER)).toEqual([`POST ${ISSUER}/hub-clients`]);
+    }),
+  );
+
+  test.provider("an answer with other terms than the hub's gives no client", (stack) =>
+    Effect.gen(function* () {
+      new FakeServices().install();
+      const hub = { issuer: ISSUER, terms: "https://hub.test/terms" };
+      expect(yield* stack.deploy(client(props({ hub })))).toMatchObject({ status: "off" });
     }),
   );
 

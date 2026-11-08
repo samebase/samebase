@@ -1,6 +1,6 @@
-// Convex.SharedHubClient: one deployment of an app as a client of the central identity hub, for an
-// app that deploys in its own GitHub Actions run, on any host, and in development as a stage of the
-// same stack.
+// Convex.SharedHubClient: one deployment of an app as a client of an identity hub, Samebase's unless
+// the stack names another, for an app that deploys in its own GitHub Actions run, on any host, and
+// in development as a stage of the same stack.
 //
 // A run in GitHub Actions asks the hub for a new client with a GitHub OIDC token, so the stack needs
 // no key and no Samebase account. The token names the repository. The hub reads
@@ -51,9 +51,34 @@ const OFF_VALUES = { issuer: "http://127.0.0.1:1", clientId: "no-hub", clientSec
 /** The name of a connector on the hub. */
 const CONNECTOR_NAME = /^[a-z0-9-]{1,64}$/;
 
+/** An identity hub of @samebase/identity-broker, which registers clients at `/hub-clients`. */
+export interface Hub {
+  /** The hub's issuer, such as `https://auth.example.com`. */
+  readonly issuer: string;
+  /**
+   * The terms of the hub's sign-in service, which its answer must name. The log prints them for a
+   * new client, so no value that the answer chose reaches the log.
+   */
+  readonly terms: string;
+  /** The audience of the run's GitHub token: the hub's `githubAudience`. Unset: `issuer`. */
+  readonly githubAudience?: string;
+}
+
+/** Samebase's hub, where a stack without `hub` registers. */
+export const SAMEBASE_HUB: Hub = {
+  issuer: "https://auth.samebase.com",
+  terms: "https://samebase.com/terms",
+  githubAudience: "samebase",
+};
+
 interface CommonProps {
   /** The stable name of the app, set once in the stack. */
   readonly app: string;
+  /**
+   * The hub to register at. Unset: `SAMEBASE_HUB`. A changed hub registers a new client there; the
+   * client at the old hub stays there.
+   */
+  readonly hub?: Hub;
   /**
    * The connectors the client signs in through, by their names on the hub, such as
    * `["google", "github"]`: at least one, each of `[a-z0-9-]{1,64}`. The hub refuses a name it does
@@ -191,11 +216,8 @@ const NewClient = Schema.Struct({
   redirect_uri: Schema.NonEmptyString,
   /** The set the hub recorded, which must be the set the request sent. */
   connectors: Schema.Array(Schema.String),
-  /**
-   * The terms of the shared sign-in service, which the log shows once, for the new client. Exactly
-   * this page: the log line must not print a value that the answer chose.
-   */
-  terms: Schema.Literal("https://samebase.com/terms"),
+  /** The terms of the hub's sign-in service, which must be the `terms` of the stack's `hub`. */
+  terms: Schema.String,
   /** Only in the answer to a production registration with the GitHub token. */
   initial_access_token: Schema.optionalKey(Schema.NonEmptyString),
   repository: Schema.optionalKey(Schema.String.check(Schema.isPattern(/^\d+$/))),
@@ -293,12 +315,15 @@ const decode =
       Effect.mapError(() => new SharedHubClientFailed({ reason: `${who} gave a bad answer` })),
     );
 
-/** The OIDC token of this run, read right before the call, because it lives for minutes only. */
-const readOidcToken = (requestUrl: string, requestToken: string) =>
+/**
+ * The OIDC token of this run for `audience`, read right before the call, because it lives for
+ * minutes only.
+ */
+const readOidcToken = (requestUrl: string, requestToken: string, audience: string) =>
   Effect.gen(function* () {
     const { body, status } = yield* send(
       "GitHub",
-      `${requestUrl}&audience=samebase`,
+      `${requestUrl}&audience=${encodeURIComponent(audience)}`,
       requestToken,
       { method: "GET" },
     );
@@ -317,20 +342,16 @@ const requestNewClient = (
   bearer: string,
 ) =>
   Effect.gen(function* () {
-    const { body, status } = yield* send(
-      "The identity hub",
-      `${process.env["HUB_URL"] ?? "https://auth.samebase.com"}/hub-clients`,
-      bearer,
-      {
-        method: "POST",
-        body: JSON.stringify({
-          app: props.app,
-          redirectUri: props.redirectUri,
-          softwareVersion: props.softwareVersion ?? "unknown",
-          connectors,
-        }),
-      },
-    );
+    const hub = props.hub ?? SAMEBASE_HUB;
+    const { body, status } = yield* send("The identity hub", `${hub.issuer}/hub-clients`, bearer, {
+      method: "POST",
+      body: JSON.stringify({
+        app: props.app,
+        redirectUri: props.redirectUri,
+        softwareVersion: props.softwareVersion ?? "unknown",
+        connectors,
+      }),
+    });
     if (status !== 201) {
       const reason =
         status === 401 && props.deploymentType === "development"
@@ -339,13 +360,18 @@ const requestNewClient = (
       return yield* new SharedHubClientFailed({ reason: `${reason} (HTTP ${status})` });
     }
     const client = yield* decode(NewClient, "The identity hub")(body);
-    // The hub registers the address and the connectors that the request sent. The log and the state
-    // hold the request's, so no value that the answer chose is printed or kept.
-    if (client.redirect_uri !== props.redirectUri || !sameSet(client.connectors, connectors)) {
+    // The hub registers the address and the connectors that the request sent, under the terms that
+    // the stack names. The log and the state hold the stack's, so no value that the answer chose is
+    // printed or kept.
+    if (
+      client.redirect_uri !== props.redirectUri ||
+      !sameSet(client.connectors, connectors) ||
+      client.terms !== hub.terms
+    ) {
       return yield* new SharedHubClientFailed({ reason: "The identity hub gave a bad answer" });
     }
     yield* Effect.logInfo(
-      `Convex.SharedHubClient: ${props.app} on ${props.redirectUri} has a new client of the identity hub. Its use is under ${client.terms}.`,
+      `Convex.SharedHubClient: ${props.app} on ${props.redirectUri} has a new client of the identity hub. Its use is under ${hub.terms}.`,
     );
     // Only a production registration gives the app's token (RFC 7591); any other answer's is dropped.
     const production = props.deploymentType === "production";
@@ -398,7 +424,8 @@ const newClient = (props: SharedHubClientProps, connectors: readonly string[]) =
         : Effect.logInfo(`${label}: this run has no GitHub OIDC token.`)
     ).pipe(Effect.as(off));
   }
-  return request(readOidcToken(requestUrl, requestToken));
+  const hub = props.hub ?? SAMEBASE_HUB;
+  return request(readOidcToken(requestUrl, requestToken, hub.githubAudience ?? hub.issuer));
 };
 
 /**
@@ -533,11 +560,11 @@ export const SharedHubClientProvider = () =>
 
     read: ({ output }) => Effect.succeed(output),
 
-    // Only a client of the same return address, type, and connector set is renewed. A saved row
-    // without this version's shape, such as one that 0.32 or earlier saved, is no client: the run
-    // asks for a new one, which replaces the saved client, and for a production client also
+    // Only a client of the same hub, return address, type, and connector set is renewed. A saved
+    // row without this version's shape, such as one that 0.32 or earlier saved, is no client: the
+    // run asks for a new one, which replaces the saved client, and for a production client also
     // replaces the app's initial access token.
-    reconcile: Effect.fn(function* ({ news, output }) {
+    reconcile: Effect.fn(function* ({ news, olds, output }) {
       // A bad prop is a mistake of the stack, not of the hub: the run fails, with no request.
       if (
         news.connectors.length === 0 ||
@@ -558,6 +585,7 @@ export const SharedHubClientProvider = () =>
         );
       }
       const renewed =
+        (olds?.hub ?? SAMEBASE_HUB).issuer === (news.hub ?? SAMEBASE_HUB).issuer &&
         saved?.redirectUri === news.redirectUri &&
         saved.deploymentType === news.deploymentType &&
         sameSet(saved.connectors, connectors)

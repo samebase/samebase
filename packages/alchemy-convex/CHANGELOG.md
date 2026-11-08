@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.34.0
+
+- `Convex.SharedHubClient` takes `hub`, the identity hub to register at:
+  `{ issuer, terms, githubAudience? }`. Unset, it is `SAMEBASE_HUB`, so a stack on Samebase's hub
+  changes nothing. It replaces the `HUB_URL` variable. The run asks GitHub for a token for
+  `githubAudience` (unset: `issuer`), and the answer must name the hub's `terms`; before, only
+  `https://samebase.com/terms` passed, so no other hub could give a client. A changed hub registers
+  a new client there, and the client at the old hub stays there.
+
 ## 0.33.0
 
 - `Convex.SharedHubClient` takes `connectors`, the names of the hub's connectors the client signs in
