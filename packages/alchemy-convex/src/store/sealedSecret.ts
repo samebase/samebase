@@ -78,12 +78,6 @@ export const newKeyId = (): string =>
 /** A random key of 32 bytes in base64. It needs real randomness, like `sealSecret`. */
 export const newKey = (): string => toBase64(crypto.getRandomValues(new Uint8Array(32)));
 
-/** The text of a new key ring with one random key. */
-export const newKeyRing = (): string => {
-  const keyId = newKeyId();
-  return JSON.stringify({ current: keyId, keys: { [keyId]: newKey() } });
-};
-
 const importKey = (ring: KeyRing, keyId: string) => {
   const bytes = ring.keys.get(keyId);
   if (bytes === undefined) throw new Error(`The key ring has no key "${keyId}".`);
