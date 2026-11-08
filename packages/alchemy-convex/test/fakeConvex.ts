@@ -6,6 +6,7 @@
 // scenario needs changed.
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
+import { basename } from "node:path";
 import * as Schema from "effect/Schema";
 import { vi } from "vitest";
 import { STORE_VERSION } from "../src/store/convex/version.ts";
@@ -63,6 +64,10 @@ export interface StoreRow {
 /** The store of src/store/convex on one deployment: its version, rows, and outputs. */
 export interface Store {
   version: number;
+  /** True when the last push was the bridge of an upgrade, which has `bridge:cleanup`. */
+  bridge: boolean;
+  /** The output rows without a value, which `bridge:cleanup` deletes, one row for each page. */
+  staleOutputs: string[];
   rows: StoreRow[];
   readonly outputs: Map<string, string>;
   /** The current key, or null for a store with no key. */
@@ -87,7 +92,7 @@ const STORE_QUERIES = [
   "getOutput",
   "readStack",
 ];
-const STORE_MUTATIONS = ["remove", "removeStack", "chooseKey"];
+const STORE_MUTATIONS = ["remove", "removeStack", "chooseKey", "bridge:cleanup"];
 const STORE_ACTIONS = ["set", "setOutput", "reseal"];
 /** The store version that added a function; every other function is in version 1 (0.6.0). */
 const STORE_FUNCTION_SINCE: Record<string, number> = {
@@ -104,10 +109,11 @@ const FunctionCall = Schema.Struct({
     fqn: Schema.optionalKey(Schema.String),
     value: Schema.optionalKey(Schema.String),
     keyId: Schema.optionalKey(Schema.String),
+    cursor: Schema.optionalKey(Schema.String),
   }),
 });
-/** One line of the fake CLI log: the hash of the key that the push got. */
-const CliRun = Schema.Struct({ keySha256: Schema.String });
+/** One line of the fake CLI log: the hash of the key that the push got, and the push root. */
+const CliRun = Schema.Struct({ keySha256: Schema.String, cwd: Schema.String });
 const sha256 = (value: string) => createHash("sha256").update(value).digest("hex");
 
 const RequestBody = Schema.UndefinedOr(Fields);
@@ -175,8 +181,15 @@ export class FakeConvex {
   readonly localPorts = new Map<number, string>();
   /** The store of each deployment that has one: POST /api/function answers its functions. */
   readonly stores = new Map<string, Store>();
-  /** The store functions that ran, as "<deployment> <path>" lines. */
+  /**
+   * The store functions that ran, as "<deployment> <path>" lines, and the pushes of the fake CLI
+   * that the deployment took before them, as "<deployment> push bridge" or "<deployment> push store".
+   */
   readonly functionCalls: string[] = [];
+  /** A function call that waits for the promise of its path before the fake answers it, once. */
+  readonly held = new Map<string, Promise<void>>();
+  /** The count of fake CLI log lines that each deployment has taken. */
+  private readonly takenRuns = new Map<string, number>();
   /** Every deploy key secret ever created for each deployment, also the deleted ones. */
   private readonly createdSecrets = new Map<string, string[]>();
   /** Page size of GET /teams/{team_id}/projects. */
@@ -229,6 +242,8 @@ export class FakeConvex {
   addStore(deployment: string, version: number) {
     const store: Store = {
       version,
+      bridge: false,
+      staleOutputs: [],
       rows: [],
       outputs: new Map(),
       keyId: "fake-key",
@@ -314,6 +329,12 @@ export class FakeConvex {
     const path = `${url.host}${url.pathname}`;
     const authorization = request.headers.get("Authorization") ?? "";
     this.sent.push({ method: request.method, path, query: url.searchParams, body, authorization });
+    const functionPath = body?.["path"];
+    const hold = typeof functionPath === "string" ? this.held.get(functionPath) : undefined;
+    if (typeof functionPath === "string" && hold !== undefined) {
+      this.held.delete(functionPath);
+      await hold;
+    }
     const next = this.scripted.get(`${request.method} ${path}`)?.shift();
     if (next !== undefined) {
       // A change that another writer makes while this request runs.
@@ -515,17 +536,7 @@ export class FakeConvex {
     if (key === undefined) return json(403, stateFixture("function_no_key.json"));
     const { path, args } = Schema.decodeUnknownSync(FunctionCall)(body);
     const name = path.replace(/^state:/, "");
-    // A push of the fake CLI with a key of this deployment installs the
-    // store, or raises an older one to the current version with its rows.
-    if (this.pushedByCli(deployment)) {
-      const pushed = this.stores.get(deployment);
-      if (pushed === undefined || pushed.version < STORE_VERSION) {
-        const store = pushed ?? this.addStore(deployment, STORE_VERSION);
-        store.version = STORE_VERSION;
-        store.keyId = null;
-        store.sealed = false;
-      }
-    }
+    this.takePushes(deployment);
     const store = this.stores.get(deployment);
     const reply = (value: unknown) =>
       json(200, { ...stateFixture("function_version.json"), value });
@@ -534,7 +545,8 @@ export class FakeConvex {
     if (
       store === undefined ||
       ![...STORE_QUERIES, ...STORE_MUTATIONS, ...STORE_ACTIONS].includes(name) ||
-      store.version < (STORE_FUNCTION_SINCE[name] ?? 1)
+      store.version < (STORE_FUNCTION_SINCE[name] ?? 1) ||
+      (name === "bridge:cleanup" && !store.bridge)
     ) {
       return error(
         `[Request ID: fake] Server Error\nCould not find function for '${path}'. Did you forget to run \`npx convex dev\`?\n`,
@@ -618,6 +630,14 @@ export class FakeConvex {
         if (store.resealError !== undefined) return error(store.resealError);
         store.sealed = store.resealFailed.length === 0;
         return reply({ resealed: 0, skippedChanged: 0, failed: store.resealFailed });
+      case "bridge:cleanup": {
+        const removed = store.staleOutputs.splice(0, 1).length;
+        return reply({
+          cursor: `page-after-${args.cursor ?? "start"}`,
+          done: store.staleOutputs.length === 0,
+          removed,
+        });
+      }
       case "readStack": {
         const stages = [
           ...new Set([
@@ -643,17 +663,35 @@ export class FakeConvex {
     }
   }
 
-  /** True when the fake CLI log (fixtures/fake-convex-cli.ts) has a run with a key of `deployment`. */
-  private pushedByCli(deployment: string) {
+  /**
+   * Takes the runs of the fake CLI (fixtures/fake-convex-cli.ts) with a key of `deployment` that it
+   * did not take yet, in log order. A run from a bridge root (`.store-bridge-*`) installs the
+   * bridge, which answers the version below the current one; any other run installs the current
+   * store. A store keeps its rows, and a new store has no key.
+   */
+  private takePushes(deployment: string) {
     const log = process.env["ALCHEMY_CONVEX_FAKE_CLI_LOG"];
-    if (log === undefined || !existsSync(log)) return false;
+    if (log === undefined || !existsSync(log)) return;
     const hashes = new Set(this.keysOf(this.createdSecrets, deployment).map(sha256));
-    return readFileSync(log, "utf8")
+    const lines = readFileSync(log, "utf8")
       .split("\n")
-      .filter((line) => line !== "")
-      .some((line) =>
-        hashes.has(Schema.decodeUnknownSync(Schema.fromJsonString(CliRun))(line).keySha256),
-      );
+      .filter((line) => line !== "");
+    for (const line of lines.slice(this.takenRuns.get(deployment) ?? 0)) {
+      const run = Schema.decodeUnknownSync(Schema.fromJsonString(CliRun))(line);
+      if (!hashes.has(run.keySha256)) continue;
+      const bridge = basename(run.cwd).startsWith(".store-bridge-");
+      const version = bridge ? STORE_VERSION - 1 : STORE_VERSION;
+      let store = this.stores.get(deployment);
+      if (store === undefined) {
+        store = this.addStore(deployment, version);
+        store.keyId = null;
+        store.sealed = false;
+      }
+      store.version = version;
+      store.bridge = bridge;
+      this.functionCalls.push(`${deployment} push ${bridge ? "bridge" : "store"}`);
+    }
+    this.takenRuns.set(deployment, lines.length);
   }
 
   private deploymentApi(

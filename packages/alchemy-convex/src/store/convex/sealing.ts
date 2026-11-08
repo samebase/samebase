@@ -9,7 +9,8 @@
 //
 // `state:set` and `state:setOutput` seal in an action, and the reads of a run open in a query.
 // `state:readStack` and `reader:repository` give the rows as they are stored, without their
-// secrets. A value without `__sealed__` is one that `state:reseal` has not reached yet.
+// secrets. A stored `__redacted__` value is always sealed: one without a valid `__sealed__` object
+// fails its read and its reseal with a fixed error, which quotes no part of the row.
 import { openSecret, parseKeyRing, sealSecret, type SealedSecret } from "../sealedSecret.ts";
 
 const REDACTED = "__redacted__";
@@ -36,13 +37,15 @@ export const requireKey = (keyId: string) => {
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
-/** The sealed object of a `__redacted__` value, or undefined for a value in clear text. */
-const sealedIn = (value: unknown): SealedSecret | undefined => {
-  if (!isRecord(value) || !isRecord(value[SEALED])) return undefined;
-  const { keyId, iv, ciphertext } = value[SEALED];
-  return typeof keyId === "string" && typeof iv === "string" && typeof ciphertext === "string"
-    ? { keyId, iv, ciphertext }
-    : undefined;
+/** The sealed object of a stored `__redacted__` value. Anything else fails. */
+const sealedIn = (value: unknown): SealedSecret => {
+  if (isRecord(value) && isRecord(value[SEALED])) {
+    const { keyId, iv, ciphertext } = value[SEALED];
+    if (typeof keyId === "string" && typeof iv === "string" && typeof ciphertext === "string") {
+      return { keyId, iv, ciphertext };
+    }
+  }
+  throw new Error("A stored secret is not a sealed value.");
 };
 
 /** `value` with each `__redacted__` value replaced by the result of `change`. */
@@ -81,22 +84,21 @@ export const resourceAad = (row: { stack: string; stage: string; fqn: string }) 
 export const outputAad = (row: { stack: string; stage: string }) =>
   JSON.stringify(["output", row.stack, row.stage]);
 
-/** Seals each secret of a JSON text of `encodeState`. Only an action can call it. */
+/**
+ * Seals each secret of a JSON text of `encodeState`, which holds them in clear text: the text that
+ * a client writes. Only an action can call it.
+ */
 export const sealText = (text: string, aad: string, keyId: string) =>
   mapText(text, (secret) => sealValue(secret, aad, keyId));
 
 /** Opens each secret of a row, for the reads of a run. */
 export const openText = (text: string, aad: string) =>
-  mapText(text, async (secret) => {
-    const sealed = sealedIn(secret);
-    return sealed === undefined ? secret : openValue(sealed, aad);
-  });
+  mapText(text, (secret) => openValue(sealedIn(secret), aad));
 
 /** The row with every secret sealed under `keyId`. Only an action can call it. */
 export const resealText = (text: string, aad: string, keyId: string) =>
   mapText(text, async (secret) => {
     const sealed = sealedIn(secret);
-    if (sealed === undefined) return sealValue(secret, aad, keyId);
     if (sealed.keyId === keyId) return secret;
     return sealValue(await openValue(sealed, aad), aad, keyId);
   });

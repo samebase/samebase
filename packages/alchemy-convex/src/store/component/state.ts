@@ -239,7 +239,7 @@ export const resourcePage = query({
   },
 });
 
-/** One bounded page of the outputs. A row that store version 6 left without a value is left out. */
+/** Like {@link resourcePage}, for the outputs. */
 export const outputPage = query({
   args: { cursor: v.union(v.string(), v.null()) },
   returns: pageOf(v.object({ ...stage, value: v.string() })),
@@ -248,9 +248,7 @@ export const outputPage = query({
       .query("outputs")
       .paginate({ cursor: args.cursor, numItems: RESEAL_PAGE });
     return {
-      page: page.flatMap(({ stack, stage, value }) =>
-        value === undefined ? [] : [{ stack, stage, value }],
-      ),
+      page: page.map(({ stack, stage, value }) => ({ stack, stage, value })),
       continueCursor,
       isDone,
     };

@@ -83,8 +83,7 @@ export const repository = query({
       });
     }
     for (const row of [...rootOutputs, ...childOutputs]) {
-      const stage = stageOf(row.stack, row.stage);
-      if (row.value !== undefined) stage.output = withoutSecrets(row.value);
+      stageOf(row.stack, row.stage).output = withoutSecrets(row.value);
     }
     return {
       store: "found" as const,

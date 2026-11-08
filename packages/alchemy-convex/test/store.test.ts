@@ -1,5 +1,6 @@
 // The store functions of src/store/convex and its alchemyState component in convex-test.
 import { describe, expect, it, vi } from "vitest";
+import schema from "../src/store/component/schema.ts";
 import { components, internal } from "../src/store/convex/_generated/api.js";
 import { stateKeyName } from "../src/store/convex/sealing.ts";
 import { STORE_VERSION } from "../src/store/convex/version.ts";
@@ -66,6 +67,24 @@ describe("the state store", () => {
     expect(await t.query(internal.state.stages, { stack: "samebase/empty" })).toEqual(["main"]);
     await t.mutation(internal.state.removeStack, { stack: "samebase/empty" });
     expect(await t.query(internal.state.stacks, {})).toEqual(["samebase/app"]);
+  });
+
+  it("holds an output row as its stack, stage, and value, and pages every row", async () => {
+    const { fields } = schema.tables.outputs.validator;
+    expect(Object.keys(fields)).toEqual(["stack", "stage", "value"]);
+    expect(fields.value.isOptional).toBe("required");
+
+    const t = storeTest();
+    await t.action(internal.state.setOutput, { ...main, value: '{"url":"u"}' });
+    await t.action(internal.state.setOutput, { ...preview, value: '{"url":"p"}' });
+    const { outputPage } = components.alchemyState.state;
+    expect(await t.run((ctx) => ctx.runQuery(outputPage, { cursor: null }))).toMatchObject({
+      page: [
+        { ...main, value: '{"url":"u"}' },
+        { ...preview, value: '{"url":"p"}' },
+      ],
+      isDone: true,
+    });
   });
 
   it("returns only the rows with status replaced", async () => {
@@ -229,30 +248,37 @@ describe("the state store", () => {
       });
     });
 
-    it("reads a clear value that no reseal reached, and a reseal seals it", async () => {
+    it("fails the read and the reseal of a stored secret in clear text, and quotes none of it", async () => {
       const t = storeTest();
+      await withKey(t);
       await t.mutation(internal.state.writeResource, clearRow);
       await t.mutation(internal.state.writeOutput, { ...main, value: output, keyId: null });
-      await withKey(t);
-      expect(await stored(t)).toContain("secret-of-the-attribute");
-      expect(await t.query(internal.state.get, row)).toBe(value);
-      expect(await t.query(internal.state.sealing, {})).toMatchObject({ sealed: false });
 
-      expect(await t.action(internal.state.reseal, {})).toEqual({
-        resealed: 2,
-        skippedChanged: 0,
-        failed: [],
-      });
-
-      expect(await stored(t)).not.toContain("secret-of");
-      expect(await t.query(internal.state.get, row)).toBe(value);
-      expect(await t.query(internal.state.getOutput, main)).toBe(output);
-      expect(await t.query(internal.state.sealing, {})).toMatchObject({ sealed: true });
+      const error = "A stored secret is not a sealed value.";
+      await expect(t.query(internal.state.get, row)).rejects.toThrow(error);
+      await expect(t.query(internal.state.get, row)).rejects.not.toThrow("secret-of");
+      await expect(t.query(internal.state.replaced, main)).rejects.toThrow(error);
+      await expect(t.query(internal.state.getOutput, main)).rejects.toThrow(error);
       expect(await t.action(internal.state.reseal, {})).toEqual({
         resealed: 0,
         skippedChanged: 0,
-        failed: [],
+        failed: ["samebase/app/main/Api", "samebase/app/main output"],
       });
+      expect(await t.query(internal.state.sealing, {})).toMatchObject({ sealed: false });
+    });
+
+    it("fails the read of a sealed object without its key id, iv, or ciphertext", async () => {
+      const t = storeTest();
+      const keyId = await withKey(t);
+      for (const sealed of [{ keyId, iv: "iv" }, { keyId: 1, iv: "iv", ciphertext: "c" }, "text"]) {
+        const broken = JSON.stringify({
+          attr: { token: { __redacted__: { __sealed__: sealed } } },
+        });
+        await t.mutation(internal.state.writeResource, { ...row, value: broken, keyId: null });
+        await expect(t.query(internal.state.get, row)).rejects.toThrow(
+          "A stored secret is not a sealed value.",
+        );
+      }
     });
 
     it("reseals every stage of every stack, one row at a time", async () => {
@@ -260,9 +286,10 @@ describe("the state store", () => {
       await withKey(t);
       for (const stack of ["samebase/app", "samebase/other"]) {
         for (const stage of ["main", "pr-1"]) {
-          await t.mutation(internal.state.writeResource, { ...clearRow, stack, stage });
+          await t.action(internal.state.set, { ...row, stack, stage, value });
         }
       }
+      await rotate(t);
       expect(await t.action(internal.state.reseal, {})).toMatchObject({ resealed: 4 });
       for (const stack of ["samebase/app", "samebase/other"]) {
         expect(await stored(t)).not.toContain("secret-of");
@@ -324,7 +351,8 @@ describe("the state store", () => {
       const t = storeTest();
       const old = await withKey(t);
       await t.action(internal.state.set, { ...row, fqn: "Lost", value });
-      await t.mutation(internal.state.writeResource, { ...clearRow, fqn: "Zebra" });
+      await rotate(t);
+      await t.action(internal.state.set, { ...row, fqn: "Zebra", value });
       await rotate(t);
       vi.stubEnv(stateKeyName(old), "");
 
@@ -340,7 +368,7 @@ describe("the state store", () => {
     it("leaves a row that changed during the reseal", async () => {
       const t = storeTest();
       await withKey(t);
-      await t.mutation(internal.state.writeResource, clearRow);
+      await t.action(internal.state.set, { ...row, value });
       const { generation } = await t.query(internal.state.sealing, {});
       const replaced = await t.run((ctx) =>
         ctx.runMutation(components.alchemyState.state.replaceResource, {
@@ -416,14 +444,14 @@ describe("the state store", () => {
       const t = storeTest();
       await withKey(t);
       for (let index = 0; index < 25; index += 1) {
-        await t.mutation(internal.state.writeResource, { ...clearRow, fqn: `Row${index}` });
-        await t.mutation(internal.state.writeOutput, {
+        await t.action(internal.state.set, { ...row, fqn: `Row${index}`, value });
+        await t.action(internal.state.setOutput, {
           stack: main.stack,
           stage: `stage-${index}`,
           value: output,
-          keyId: null,
         });
       }
+      await rotate(t);
       const { state } = components.alchemyState;
       const first = await t.run((ctx) => ctx.runQuery(state.resourcePage, { cursor: null }));
       expect(first.page).toHaveLength(10);

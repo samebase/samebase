@@ -2,9 +2,9 @@
 // the function API of the store deployment, and the fake Convex CLI for the
 // push of the store. Every reply is a recorded payload with only the value
 // changed.
-import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readdirSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { type CreatedResourceState, State } from "alchemy/State";
@@ -44,7 +44,12 @@ const Run = Schema.Struct({
   cwd: Schema.String,
 });
 const KeyBody = Schema.Struct({ name: Schema.String, allowedActions: Schema.Array(Schema.String) });
+const FunctionBody = Schema.Struct({
+  path: Schema.String,
+  args: Schema.Record(Schema.String, Schema.Unknown),
+});
 
+/** The directory of a package laid out as this one: `src/store/convex` and `node_modules`. */
 let dir = "";
 /** The functions directory of a store app whose `convex` package is the fake CLI. */
 let store = "";
@@ -52,16 +57,17 @@ let log = "";
 
 beforeEach(() => {
   dir = mkdtempSync(join(tmpdir(), "alchemy-convex-state-test-"));
-  const app = join(dir, "store");
+  const app = join(dir, "src", "store");
   store = join(app, "convex");
   mkdirSync(store, { recursive: true });
-  mkdirSync(join(app, "node_modules", "convex"), { recursive: true });
+  mkdirSync(join(app, "component"), { recursive: true });
+  mkdirSync(join(dir, "node_modules", "convex"), { recursive: true });
   writeFileSync(
     join(app, "package.json"),
     JSON.stringify({ name: STORE_PROJECT_NAME, private: true }),
   );
   writeFileSync(
-    join(app, "node_modules", "convex", "package.json"),
+    join(dir, "node_modules", "convex", "package.json"),
     JSON.stringify({ name: "convex", bin: { convex: FAKE_CLI } }),
   );
   log = join(dir, "runs.jsonl");
@@ -170,7 +176,7 @@ describe("Convex.state", () => {
     expect(pushKeyDelete?.path).toBe(`${API}/deployments/${deployment}/delete_deploy_key`);
     const [pushed] = await run(runs());
     expect(pushed?.args).toEqual(["deploy", "--typecheck", "disable", "--codegen", "disable"]);
-    expect(pushed?.cwd).toBe(realpathSync(join(dir, "store")));
+    expect(pushed?.cwd).toBe(realpathSync(join(dir, "src", "store")));
     expect(pushed?.home).not.toBe(homedir());
 
     await run(service.set({ ...stack, fqn: "Project", value: created("Project") }));
@@ -196,6 +202,7 @@ describe("Convex.state", () => {
     expect(await run(service.listStages("samebase/app"))).toEqual(["main"]);
     expect(await run(service.getOutput(stack))).toEqual({ url: "https://app.convex.site" });
     expect(fake.functionCalls.filter((line) => !line.endsWith("state:version"))).toEqual([
+      `${deployment} push store`,
       `${deployment} state:sealing`,
       `${deployment} state:chooseKey`,
       `${deployment} state:reseal`,
@@ -360,13 +367,109 @@ describe("Convex.state", () => {
       { status: 200, body: { ...stateFixture("function_version.json"), value: 0 } },
     ]);
     await run(open());
-    expect(await run(runs())).toHaveLength(1);
+    expect(await run(runs())).toHaveLength(2);
 
     store.version = STORE_VERSION + 1;
     expect(await failureOf(open())).toContain(
       `answers store version ${STORE_VERSION + 1}, and this package needs store version ${STORE_VERSION}`,
     );
-    expect(await run(runs())).toHaveLength(1);
+    expect(await run(runs())).toHaveLength(2);
+  });
+
+  /** The bodies of the function API calls that reached the fake, in order. */
+  const functionCallsOf = (fake: FakeConvex) =>
+    fake.sent
+      .filter((request) => request.path.endsWith("/api/function"))
+      .map((request) => Schema.decodeUnknownSync(FunctionBody)(request.body));
+
+  /** The entries of the package directory whose name starts as a bridge root. */
+  const bridgeRoots = () => readdirSync(dir).filter((name) => name.startsWith(".store-bridge-"));
+
+  it("upgrades a store of the version before: bridge, cleanup pages, sealing, store, in order", async () => {
+    const fake = new FakeConvex().install();
+    const deployment =
+      fake.project(fake.addProject({ name: STORE_PROJECT_NAME, teamId: TEAM }))
+        ?.prodDeploymentName ?? "";
+    const store = fake.addStore(deployment, STORE_VERSION - 1);
+    store.staleOutputs = ["samebase/app/main", "samebase/app/pr-1"];
+    await run(open());
+
+    expect(fake.functionCalls).toEqual([
+      `${deployment} state:version`,
+      `${deployment} state:version`,
+      `${deployment} push bridge`,
+      `${deployment} bridge:cleanup`,
+      `${deployment} bridge:cleanup`,
+      `${deployment} state:sealing`,
+      `${deployment} push store`,
+      `${deployment} state:version`,
+      `${deployment} state:sealing`,
+    ]);
+    // The second page continues from the cursor of the first; the first page has none.
+    const cleanups = functionCallsOf(fake)
+      .filter((call) => call.path === "bridge:cleanup")
+      .map((call) => call.args);
+    expect(cleanups).toEqual([{}, { cursor: "page-after-start" }]);
+    expect(store.staleOutputs).toEqual([]);
+    expect(store).toMatchObject({ version: STORE_VERSION, bridge: false });
+
+    const [bridge, final] = await run(runs());
+    expect(bridge?.cwd).toMatch(/[/\\]\.store-bridge-[^/\\]+$/);
+    expect(realpathSync(join(bridge?.cwd ?? "", ".."))).toBe(realpathSync(dir));
+    expect(final?.cwd).toBe(realpathSync(join(dir, "src", "store")));
+    expect(bridgeRoots()).toEqual([]);
+  });
+
+  it("finishes when another upgrade of the same store ends first, with no push of its own", async () => {
+    const fake = new FakeConvex().install();
+    const deployment =
+      fake.project(fake.addProject({ name: STORE_PROJECT_NAME, teamId: TEAM }))
+        ?.prodDeploymentName ?? "";
+    const store = fake.addStore(deployment, STORE_VERSION - 1);
+    store.staleOutputs = ["samebase/app/main"];
+    // The first run stops before its first cleanup page until the second run has upgraded.
+    let release = () => {};
+    fake.held.set(
+      "bridge:cleanup",
+      new Promise((resolve) => {
+        release = resolve;
+      }),
+    );
+    const first = run(open());
+    await vi.waitFor(() =>
+      expect(functionCallsOf(fake).map((call) => call.path)).toContain("bridge:cleanup"),
+    );
+    await run(open());
+    expect(store).toMatchObject({ version: STORE_VERSION, bridge: false, staleOutputs: [] });
+    release();
+    await first;
+
+    // The bridge function is gone for the first run, which reads the version and goes on.
+    expect(fake.functionCalls.filter((line) => line.endsWith("bridge:cleanup"))).toHaveLength(1);
+    expect(
+      (await run(runs())).map((pushed) => basename(pushed.cwd).startsWith(".store-bridge-")),
+    ).toEqual([true, true, false]);
+    expect(store.version).toBe(STORE_VERSION);
+    expect(bridgeRoots()).toEqual([]);
+  });
+
+  it("stops after three failed upgrades with a fixed message, and removes the bridge root", async () => {
+    const fake = new FakeConvex().install();
+    const deployment =
+      fake.project(fake.addProject({ name: STORE_PROJECT_NAME, teamId: TEAM }))
+        ?.prodDeploymentName ?? "";
+    fake.addStore(deployment, STORE_VERSION - 1);
+    // The CLI fails each push and prints the deploy key and a row, as a schema error can.
+    vi.stubEnv("ALCHEMY_CONVEX_FAKE_CLI_MODE", "fail");
+    vi.stubEnv("ALCHEMY_CONVEX_FAKE_CLI_PRINT", "Object: {value: secret-of-the-row}");
+    const message = await failureOf(open());
+    expect(message).toContain(
+      `${deployment} did not upgrade to store version ${STORE_VERSION} in 3 attempts.`,
+    );
+    expect(message).not.toContain("secret-of-the-row");
+    expect(message).not.toContain("rejected");
+    expect(await run(runs())).toHaveLength(3);
+    expect(bridgeRoots()).toEqual([]);
   });
 
   it("reads, writes, and destroys without a record, when the checkout gives none", async () => {
@@ -403,9 +506,7 @@ describe("Convex.state", () => {
     }
   });
 
-  // The fake's push raises the version and keeps the rows. A real push of store version 4 leaves
-  // the rows of an older store in the root tables, which test/store.test.ts shows, and the
-  // operator moves them once (docs/design/convex-state.md).
+  // The fake's push raises the version and keeps the rows.
   it("upgrades an older store in place: the old names answer, and readStack is new", async () => {
     const fake = new FakeConvex().install();
     const deployment =
@@ -419,7 +520,7 @@ describe("Convex.state", () => {
     store.outputs.set("samebase/app/main", '{"url":"u"}');
 
     const { service, read } = await run(open());
-    expect(await run(runs())).toHaveLength(1);
+    expect(await run(runs())).toHaveLength(2);
     expect(store.version).toBe(STORE_VERSION);
     expect(await run(service.listStacks())).toEqual(["samebase/app"]);
     expect(await run(service.listStages("samebase/app"))).toEqual(["main", "pr-1"]);
