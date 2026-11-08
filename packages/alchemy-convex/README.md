@@ -191,13 +191,15 @@ of the deployment that the Convex CLI selected: `CONVEX_DEPLOYMENT` in the envir
 project, from the folder's `.convex/local/default/config.json`. An anonymous deployment is in no
 team, so the run stops and asks for a deployment of a project. The first run of a team creates the
 project `alchemy-state-store` and pushes the store functions to its production deployment with the
-Convex CLI of the app; a later version of this package pushes a newer store when it finds an older
-one. A store that is newer than the package fails the run with both versions, so the repositories of
-a team upgrade the package together. Each run makes a deploy key of that deployment that can only
-run the store's internal functions, and deletes it at the end. Rows are in the tables `resources`
-and `outputs` of the component `alchemyState` in the dashboard, under the stack name. The store has
-no lock: run one deploy of a stage at a time, such as with a CI concurrency group. The store and its
-readers (Samebase) are released and upgraded together.
+Convex CLI of the app. A later version of this package upgrades an older store in the same run: it
+pushes a bridge from a temporary folder in the installed package, cleans the rows of the older store
+for the new schema, seals each secret that is still in clear text, and then pushes the new store. A
+store that is newer than the package fails the run with both versions, so the repositories of a team
+upgrade the package together, on the same day. Each run makes a deploy key of that deployment that
+can only run the store's internal functions, and deletes it at the end. Rows are in the tables
+`resources` and `outputs` of the component `alchemyState` in the dashboard, under the stack name.
+The store has no lock: run one deploy of a stage at a time, such as with a CI concurrency group. The
+store and its readers (Samebase) are released and upgraded together.
 
 Store version 3 supports native subscriptions. A trusted server checks repository access, then calls
 internal `reader:authorize({ repository, subject })` with a deployment credential. It gives the
@@ -218,7 +220,8 @@ Each key is one variable `STATE_KEY_<keyId>` of the store deployment, and a seal
 key. A run that finds no key makes one, writes it to the deployment, and never reads it back. A
 transaction in the store chooses the current key, so two first runs cannot replace a key that a row
 needs. Each run asks if every row is sealed under the current key, and finishes the work of a run
-that stopped.
+that stopped. A stored secret must be sealed: a read of a row whose secret is not a sealed value
+fails with a fixed error.
 
 The functions that a run reads with open the values, so a holder of the team token or of a key that
 can run internal queries still reads every secret of the team. A value that is not `Redacted`, such
@@ -334,14 +337,15 @@ resources and output, from the store function `state:readStack({ stack })` in on
   - Each deploy reads the saved client on the hub with its own token. A client that is gone gets a
     new one, and a client on another `redirectUri`, of another `deploymentType`, or with other
     `connectors` too. A replaced production client stays valid on the hub until its administrator
-    deletes it.
+    deletes it. A saved row whose attributes this version cannot read stops the run with a fixed
+    message, which holds no value of the row.
   - A new client logs the link to the terms of the shared sign-in service. A refusal logs its
     reason, such as a host that does not serve the file, a block, a token of another app, a
     connector the hub does not offer or allow, or the hourly limit it reached.
-  - No failure stops a deploy or a destroy. A failed renewal keeps the saved values. Without saved
-    values, `status` is `off`, and `issuer`, `clientId`, and `clientSecret` are the `no-hub` values
-    of a checkout without a hub. A production or preview run without a GitHub OIDC token, such as on
-    a development machine, does the same, and logs no warning.
+  - No failure of the hub stops a deploy or a destroy. A failed renewal keeps the saved values.
+    Without saved values, `status` is `off`, and `issuer`, `clientId`, and `clientSecret` are the
+    `no-hub` values of a checkout without a hub. A production or preview run without a GitHub OIDC
+    token, such as on a development machine, does the same, and logs no warning.
   - `required: true` makes the run fail unless the hub confirms the client in this run: a refusal, a
     hub that does not answer a registration or a renewal, or a suspended client fails it. Set it
     where sign-in is the product, so a deploy never ships guest sign-in, or a client that the hub
