@@ -75,9 +75,10 @@ type Command =
   /** The admin switches the sign-in page off or on for every app; the broker skips the page then. */
   | { kind: "exemption"; skip: boolean }
   /**
-   * The admin grants or revokes a connector for one broker app of the repository, naming the owner
-   * the admin page shows (`current`: the recorded owner for a grant, the row's owner for a revoke) or
-   * the other one, as a page that a transfer or another admin made stale (`stale`).
+   * The admin grants or revokes a connector for the repository's app, from a client of its
+   * production storage group or of its preview one (`production`), naming the owner the admin page
+   * shows (`current`: the recorded owner for a grant, the row's owner for a revoke) or the other
+   * one, as a page that a transfer or another admin made stale (`stale`).
    */
   | {
       kind: "grant";
@@ -271,15 +272,18 @@ function createModel(clients: Client[], policy: PolicyState) {
 
 type Model = ReturnType<typeof createModel>;
 
-const grantKey = (repository: string, production: boolean, connector: string) =>
-  `${repository}:${production ? "production" : "preview"}:${connector}`;
+/**
+ * A grant of the app `app-a` of `repository`: an app is a repository plus an exact name, so one
+ * grant covers its production, preview, and development clients (RFC 137, amended 2026-11-08).
+ */
+const grantKey = (repository: string, connector: string) => `${repository}:${connector}`;
 
 /**
  * Whether a grant opens `connector` to the client now: the grant of its app is bound to the
  * tenant's recorded owner, and that owner registered the client.
  */
 function grantedNow(model: Model, client: Client, connector: string) {
-  const owner = model.grants.get(grantKey(client.repository, client.production, connector));
+  const owner = model.grants.get(grantKey(client.repository, connector));
   return owner === client.ownerId && owner === client.registeredOwner;
 }
 
@@ -732,17 +736,15 @@ async function playGrant(
   checks: Checks,
   story: Story,
 ) {
-  const key = grantKey(command.repository, command.production, command.connector);
+  const key = grantKey(command.repository, command.connector);
   const row = model.grants.get(key);
   const tenantOwner =
     model.clients.find((client) => client.repository === command.repository)?.ownerId ?? "";
   const shown = command.grant ? tenantOwner : (row ?? tenantOwner);
   const expectedOwnerId =
     command.view === "current" ? shown : (OWNERS.find((owner) => owner !== shown) ?? shown);
-  const appExists = model.clients.some(
-    (client) =>
-      client.repository === command.repository && client.production === command.production,
-  );
+  // The admin names either storage group; a client in either one proves that the app exists.
+  const appExists = model.clients.some((client) => client.repository === command.repository);
   const predicted = !command.grant
     ? row === undefined
       ? { status: 200, body: { changed: false } }

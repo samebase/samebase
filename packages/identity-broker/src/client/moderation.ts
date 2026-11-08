@@ -273,7 +273,8 @@ export function moderationEndpoints(args: {
   );
 
   /**
-   * Sets or removes one exemption from the sign-in page. Answers `{ changed }`; 409
+   * Sets or removes one exemption from the sign-in page. A one-app target may name either storage
+   * group of the app; the row covers production, previews, and development. Answers `{ changed }`; 409
    * `owner_changed` when the repository's recorded owner is no longer the one the admin saw, and
    * 404 `unknown_app` for an app the hub does not have.
    */
@@ -310,7 +311,8 @@ export function moderationEndpoints(args: {
   );
 
   /**
-   * Grants or revokes one connector of one app. Answers `{ changed }`; 400 `unknown_connector` for
+   * Grants or revokes one connector of one app, named by either of its storage groups; the row covers
+   * production, previews, and development. Answers `{ changed }`; 400 `unknown_connector` for
    * a grant of a connector the hub does not have, 409 `owner_changed` when the owner is no longer
    * the one the admin saw, and 404 `unknown_app` for a grant to an app the hub does not have. A
    * revoke needs neither, so the admin can remove a row of a deleted app or of a removed connector.

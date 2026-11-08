@@ -7,7 +7,12 @@ import { useMemo, useState } from "react";
 import { api } from "../../convex/_generated/api";
 import { AppDialogContent } from "@/components/AppDialogContent";
 import { AppSelectContent, AppSelectItem } from "@/components/AppSelect";
-import { formatTime, type HubClient, ownerOf } from "@/components/hubClients/hubClient";
+import {
+  formatTime,
+  type HubClient,
+  moderationIdOf,
+  ownerOf,
+} from "@/components/hubClients/hubClient";
 import { HubClientsTable } from "@/components/hubClients/HubClientsTable";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -55,9 +60,10 @@ const repositoryTarget = (client: HubClient, clients: readonly HubClient[]): Blo
 });
 
 /**
-The app of a client, for the hub's sign-in page: its broker app (the production app, or the preview
-app with the development servers), whether a row of it exists now, and the owner to send: the
-row's to remove it, else the repository owner that the hub recorded, which a new row binds to.
+The app of a client, for the hub's sign-in page: the repository and the exact name, with its
+production, preview, and development clients (`moderationIdOf`), whether a row of it exists now,
+and the owner to send: the row's to remove it, else the repository owner that the hub recorded,
+which a new row binds to.
 */
 type SignInPageTarget = {
   appId: string;
@@ -65,19 +71,18 @@ type SignInPageTarget = {
   /** The owner that registered this client, which can be an earlier owner than `ownerId`. */
   registeredByOwnerId: string;
   name: string;
-  production: boolean;
   exempt: boolean;
   now: HubClient["signInPage"];
 };
 
 const signInPageTarget = (client: HubClient, overview: Overview): SignInPageTarget => {
-  const row = overview.signInPage.apps.find((app) => app.appId === client.appId);
+  const appId = moderationIdOf(client);
+  const row = overview.signInPage.apps.find((app) => app.appId === appId);
   return {
-    appId: client.appId,
+    appId,
     ownerId: row === undefined ? client.ownerId : row.ownerId,
     registeredByOwnerId: client.registeredBy.githubOwnerId,
     name: `${client.registeredBy.githubRepository} ${client.registeredBy.app}`,
-    production: client.deploymentType === "production",
     exempt: row !== undefined,
     now: client.signInPage,
   };
@@ -90,15 +95,15 @@ const SIGN_IN_PAGE_NOW = {
 } as const;
 
 /**
-The app of a client, for its connector grants: its broker app (the production app, or the preview
-app with the development servers), the repository owner that the hub recorded, which a new grant
-binds to, and the connectors that the hub's policy already gives it.
+The app of a client, for its connector grants: the repository and the exact name, with its
+production, preview, and development clients (`moderationIdOf`), the repository owner that the hub
+recorded, which a new grant binds to, and the connectors that the hub's policy already gives this
+client.
 */
 type ConnectorsTarget = {
   appId: string;
   ownerId: string;
   name: string;
-  production: boolean;
   policyConnectors: string[];
 };
 
@@ -106,10 +111,9 @@ const connectorsTarget = (client: HubClient): ConnectorsTarget | null =>
   client.ownerId === null || client.policyConnectors === null
     ? null
     : {
-        appId: client.appId,
+        appId: moderationIdOf(client),
         ownerId: client.ownerId,
         name: `${client.registeredBy.githubRepository} ${client.registeredBy.app}`,
-        production: client.deploymentType === "production",
         policyConnectors: client.policyConnectors,
       };
 
@@ -288,7 +292,7 @@ function AdminClientsTable({
       clientActions={(client) => (
         <>
           <DropdownMenuSeparator />
-          {overview.signInPage.apps.some((app) => app.appId === client.appId) ? (
+          {overview.signInPage.apps.some((app) => app.appId === moderationIdOf(client)) ? (
             <DropdownMenuItem onSelect={() => onSignInPage(signInPageTarget(client, overview))}>
               <Eye />
               Show the sign-in page…
@@ -694,7 +698,7 @@ function SignInPageDialog({
               {target.now === null ? null : `${SIGN_IN_PAGE_NOW[target.now]} `}
               {target.exempt
                 ? "This removes the app's own exemption. From the next sign-in the hub shows its page, unless the switch for every app skips it. Sign-ins that already started finish as they started."
-                : `The users of this app's ${target.production ? "production" : "previews and development servers"} go straight to Google or GitHub, with no page that names the app. The exemption trusts the repository's owner that the hub recorded, GitHub id ${target.ownerId ?? "none"}, and stops when the repository has another owner.`}
+                : `The users of this app's production, previews, and development servers go straight to Google or GitHub, with no page that names the app. The exemption trusts the repository's owner that the hub recorded, GitHub id ${target.ownerId ?? "none"}, the repository's pull request runs, and the holders of the app's development token, and stops when the repository has another owner.`}
               {!target.exempt && target.registeredByOwnerId !== target.ownerId
                 ? ` This client was registered by an earlier owner, GitHub id ${target.registeredByOwnerId}, and keeps the page: only clients of the recorded owner skip it.`
                 : null}
@@ -839,13 +843,8 @@ function SignInPageSection({
           {apps.map((app) => (
             <li key={app.appId} className="flex items-center gap-3 py-3 text-sm">
               <span className="min-w-0 flex-1">
-                {app.repository === null ? app.appId : `${app.repository} ${app.app ?? ""}`}
-                {app.production === null
-                  ? null
-                  : app.production
-                    ? ", production"
-                    : ", previews and development"}
-                : {app.reason}
+                {app.repository === null ? app.appId : `${app.repository} ${app.app ?? ""}`}:{" "}
+                {app.reason}
                 <span className="block text-muted-foreground">
                   Bound to the owner with GitHub id {app.ownerId}.
                   {app.active ? null : " Not active: the repository has another owner now."}
@@ -1008,10 +1007,11 @@ function ConnectorsForm({
       <DialogHeader>
         <DialogTitle>Connectors of {target.name}</DialogTitle>
         <DialogDescription>
-          {target.production ? "Production" : "Previews and development servers"}. The hub's policy
-          gives this app {target.policyConnectors.join(", ")}. A grant adds a private connector for
-          every client of this app. It trusts the repository's owner that the hub recorded, GitHub
-          id {target.ownerId}, and stops when the repository has another owner. A client uses a
+          The hub's policy gives this client {target.policyConnectors.join(", ")}. A grant adds a
+          private connector for every client of this app: production, previews, and development
+          servers. It trusts the repository's owner that the hub recorded, GitHub id{" "}
+          {target.ownerId}, the repository's pull request runs, and the holders of the app's
+          development token, and stops when the repository has another owner. A client uses a
           granted connector once it enrolls in it, at its next deploy.
         </DialogDescription>
       </DialogHeader>
@@ -1148,11 +1148,6 @@ function ConnectorGrantsSection({
                   {grant.repository === null
                     ? grant.appId
                     : `${grant.repository} ${grant.app ?? ""}`}
-                  {grant.production === null
-                    ? null
-                    : grant.production
-                      ? ", production"
-                      : ", previews and development"}
                   : {grant.reason}
                   <span className="block text-muted-foreground">
                     Bound to the owner with GitHub id {grant.ownerId}.

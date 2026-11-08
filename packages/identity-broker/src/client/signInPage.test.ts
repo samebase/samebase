@@ -94,6 +94,14 @@ async function createPreviewClient(h: Harness): Promise<NewClient> {
   return await response.json();
 }
 
+/** A production client of the app `app` of the repository, from a run of main. */
+async function createNamedClient(h: Harness, app: string): Promise<NewClient> {
+  stubProviders();
+  const response = await postHubClient(h, await signToken(), { app });
+  expect(response.status).toBe(201);
+  return await response.json();
+}
+
 async function signInPageEvents(h: Harness) {
   return await h.t.run(async (ctx) =>
     (await ctx.db.query("events").collect()).filter(
@@ -113,17 +121,24 @@ describe("the exemptions from the sign-in page", () => {
     expect(await state.json()).toEqual({ everyApp: null, apps: [] });
   });
 
-  it("skip the page for one app's clients, not for its preview app or other apps", async () => {
+  it("skip the page for one app's production, preview, and development clients, not for other apps", async () => {
     const h = await createHub({ policy: hubPolicy });
     const production = await createClient(h);
     const preview = await createPreviewClient(h);
+    const development = await createDevelopmentClient(h, production.initial_access_token ?? "");
     const other = await createClient(h, { repository_id: "81", repository: "octo-org/other" });
+    // Another name of the same repository, which ends in `-preview` like a storage group's id.
+    const otherName = await createNamedClient(h, "my-app-preview");
 
     expect(await (await oneApp(h, true)).json()).toEqual({ changed: true });
 
     expect((await signIn(h, production)).went).toBe("provider");
-    expect((await signIn(h, preview)).went).toBe("page");
+    expect((await signIn(h, preview)).went).toBe("provider");
+    expect((await signIn(h, development)).went).toBe("provider");
     expect((await signIn(h, other)).went).toBe("page");
+    expect((await signIn(h, otherName)).went).toBe("page");
+    // The row's details come from the app's newest client in either storage group: the
+    // development client here.
     expect(await (await moderationRequest(h, "/moderation/sign-in-page")).json()).toEqual({
       everyApp: null,
       apps: [
@@ -134,10 +149,50 @@ describe("the exemptions from the sign-in page", () => {
           reason: "Trusted team",
           repository: "octo-org/octo-repo",
           app: "my-app",
-          production: true,
+          production: false,
         },
       ],
     });
+  });
+
+  it("skip the page for an app set from a preview client's menu, with no production client", async () => {
+    const h = await createHub({ policy: hubPolicy });
+    const preview = await createPreviewClient(h);
+
+    expect(await (await oneApp(h, true, PREVIEW_APP)).json()).toEqual({ changed: true });
+    expect(await (await oneApp(h, true, PREVIEW_APP)).json()).toEqual({ changed: false });
+
+    expect((await signIn(h, preview)).went).toBe("provider");
+    // The row and its one event have the app's id, so the first production client is covered too.
+    const production = await createClient(h);
+    expect((await signIn(h, production)).went).toBe("provider");
+    expect((await signInPageEvents(h)).map((event) => event.target)).toEqual([
+      { scope: "app", appId: PRODUCTION_APP, ownerId: OWNER_ID },
+    ]);
+    const listed: { apps: Array<{ appId: string; active: boolean }> } = await (
+      await moderationRequest(h, "/moderation/sign-in-page")
+    ).json();
+    expect(listed.apps).toMatchObject([{ appId: PRODUCTION_APP, active: true }]);
+    // Removing it from the production client's menu removes the same row.
+    expect(await (await oneApp(h, false)).json()).toEqual({ changed: true });
+    expect((await signIn(h, preview)).went).toBe("page");
+  });
+
+  it("keep an old preview client of a previous owner on the page", async () => {
+    vi.useFakeTimers({ now: 1_800_000_000_000, toFake: ["Date"] });
+    const h = await createHub({ policy: hubPolicy });
+    await createClient(h);
+    const oldPreview = await createPreviewClient(h);
+    await oneApp(h, true);
+    expect((await signIn(h, oldPreview)).went).toBe("provider");
+
+    // The repository moves to owner 66, and the admin binds the row to 66.
+    vi.setSystemTime(1_800_000_001_000);
+    await createClient(h, { repository_owner_id: "66" });
+    expect((await signIn(h, oldPreview)).went).toBe("page");
+    expect(await (await oneApp(h, true, PREVIEW_APP, "66")).json()).toEqual({ changed: true });
+    // The row is 66's now, and the preview client is 65's.
+    expect((await signIn(h, oldPreview)).went).toBe("page");
   });
 
   it("skip the page for every app, new ones included, until the switch is off", async () => {
@@ -351,16 +406,15 @@ describe("the exemptions from the sign-in page", () => {
     expect((await signIn(h, own)).went).toBe("page");
   });
 
-  it("apply to a development client of the exempt preview app", async () => {
+  it("apply a row set from the production client's menu to a later development client", async () => {
     const h = await createHub({ policy: hubPolicy });
     await createClient(h);
     // A production registration replaces the app's initial access token: the newest one counts.
     const token = await createInitialAccessToken(h);
+    expect(await (await oneApp(h, true)).json()).toEqual({ changed: true });
     stubProviders();
     const development = await createDevelopmentClient(h, token);
 
-    expect((await signIn(h, development)).went).toBe("page");
-    expect(await (await oneApp(h, true, PREVIEW_APP)).json()).toEqual({ changed: true });
     expect((await signIn(h, development)).went).toBe("provider");
   });
 

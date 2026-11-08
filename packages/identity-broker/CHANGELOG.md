@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.28.0
+
+An app is a repository plus an exact name (RFC 137, amended 2026-11-08).
+
+- A connector grant and a one-app exemption from the sign-in page cover the app's production,
+  preview, and development clients. The broker keys both by the app's moderation id, the id of its
+  production storage group (`moderationIdOf` in src/component/apps.ts), at every read and write:
+  registration's check before the host fetch and its re-check in the mutation, `/authorize`, every
+  later sign-in step, code exchange, and the moderation lists. Before, a row covered one storage
+  group only, so a production grant did not reach a new preview.
+- `connectorGrants.set` and `signInPage.set` take either storage group's id and write the row and
+  its event under the moderation id. A grant or an exemption needs the app in either group, so a
+  preview-only app can be granted from its preview client.
+- Existing rows on a production id now also cover the app's previews and development clients.
+- The two storage groups are unchanged: their ids (`appIdOf`), caps, and eviction stay, and
+  `apps.remove` still deletes one group and leaves the app's grants and exemption in place.
+- Only an id that `appIdOf` makes for a repository's tenant (`gh-<id>-<hash>`) maps. Another id,
+  `-preview` suffix or not, is its own app.
+
 ## 0.27.0
 
 - `POST /hub-clients` takes a GitHub Actions token only when its audience is the hub's issuer.

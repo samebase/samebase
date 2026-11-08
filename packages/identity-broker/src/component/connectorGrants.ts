@@ -2,18 +2,21 @@ import { v } from "convex/values";
 // oxlint-disable-next-line samebase/no-raw-public-convex-function-builders -- Component entrypoints are internal to the host; host functions enforce access.
 import { mutation, query, type QueryCtx } from "./_generated/server";
 import type { Doc } from "./_generated/dataModel";
-import { appIdOf, tenantIdOf, tenantRow } from "./apps";
+import { appIdOf, appRowOf, moderationIdOf, newestClientOf, tenantIdOf, tenantRow } from "./apps";
 
 // The connector grants that the hub's administrator sets (RFC 137 decision 10). A grant adds one
-// connector to what the host's policy gives the clients of one broker app: the production app, or
-// the preview app with its development clients. Unlike an exemption from the sign-in page, a grant
-// is read again by every step of a sign-in, in the transaction that decides that step, so removing
-// it stops a sign-in at its next step. Grants give no API resource and skip no page.
+// connector to what the host's policy gives the clients of one app, a repository plus an exact name:
+// its production, preview, and development clients. A row is keyed by the app's moderation id
+// (`moderationIdOf`), whichever storage group a read or a write names. Unlike an exemption from the
+// sign-in page, a grant is read again by every step of a sign-in, in the transaction that decides
+// that step, so removing it stops a sign-in at its next step. Grants give no API resource and skip
+// no page.
 
 const { array, boolean, literal, object, string, union } = v;
 
 /**
- * The connectors granted to a client of `appId`, sorted. A row counts only while the tenant's
+ * The connectors granted to a client of the storage group `appId`, sorted: the rows of its app,
+ * whichever group the client is in. A row counts only while the tenant's
  * recorded owner and the owner that registered the client are the row's owner: a transfer to
  * another owner stops it, and an old client of a previous owner never gets it. It counts again if
  * the repository comes back to the same owner.
@@ -22,9 +25,10 @@ export async function grantedTo(
   ctx: QueryCtx,
   args: { appId: string; tenantOwnerId: string | undefined; clientOwnerId: string },
 ): Promise<string[]> {
+  const appId = moderationIdOf(args.appId);
   const rows = await ctx.db
     .query("connectorGrants")
-    .withIndex("by_app_id_and_connector", (q) => q.eq("appId", args.appId))
+    .withIndex("by_app_id_and_connector", (q) => q.eq("appId", appId))
     .collect();
   return rows
     .filter((row) => row.ownerId === args.tenantOwnerId && row.ownerId === args.clientOwnerId)
@@ -47,7 +51,8 @@ export async function grantedToClient(ctx: QueryCtx, client: Doc<"clients">): Pr
 }
 
 /**
- * The connectors granted to the app that a registration joins, for the owner of its proof: the
+ * The connectors granted to the app that a registration joins, in either storage group, for the
+ * owner of its proof: the
  * owner that a GitHub run records with the new client, or the owner of an initial access token.
  * The registering mutation reads them again in its own transaction.
  */
@@ -78,10 +83,13 @@ const vGrant = object({
    */
   active: boolean(),
   reason: string(),
-  /** From the app's newest client: `owner/name` and the stack's app name. Null with no client. */
+  /**
+   * From the newest client of either storage group of the app: `owner/name` and the stack's app
+   * name. Null with no client.
+   */
   repository: union(string(), v.null()),
   app: union(string(), v.null()),
-  /** Whether the app is a repository's production app, from its newest client. Null with none. */
+  /** Whether that newest client is a production client. Null with none. */
   production: union(boolean(), v.null()),
 });
 
@@ -93,15 +101,8 @@ export const list = query({
     const rows = await ctx.db.query("connectorGrants").collect();
     const grants = [];
     for (const row of rows) {
-      const client = await ctx.db
-        .query("clients")
-        .withIndex("by_app_id", (q) => q.eq("appId", row.appId))
-        .order("desc")
-        .first();
-      const app = await ctx.db
-        .query("apps")
-        .withIndex("by_app_id", (q) => q.eq("appId", row.appId))
-        .unique();
+      const client = await newestClientOf(ctx, row.appId);
+      const app = await appRowOf(ctx, row.appId);
       const tenant = app === null ? null : await tenantRow(ctx, app.tenantId);
       grants.push({
         appId: row.appId,
@@ -122,8 +123,10 @@ export const list = query({
 
 /**
  * Grants (`grant: true`) or revokes one connector of one app and appends the event, in one
- * transaction. A change that is already in place changes nothing and appends nothing. Granting needs
- * the app (`unknown_app`), and refuses when the tenant's recorded owner is not `expectedOwnerId`,
+ * transaction. `appId` is either storage group of the app; the row and its event have the app's
+ * moderation id, so a change from a preview client's menu covers production too. A change that is
+ * already in place changes nothing and appends nothing. Granting needs the app, in either storage
+ * group (`unknown_app`), and refuses when the tenant's recorded owner is not `expectedOwnerId`,
  * the owner that the admin saw; a row of another owner, which no longer counts, is bound to this one.
  * Revoking refuses when the row is bound to another owner than `expectedOwnerId`, the row's owner
  * that the admin saw, so a stale page cannot revoke a row that another admin bound since. It needs
@@ -145,11 +148,12 @@ export const set = mutation({
     object({ ok: literal(false), error: union(literal("owner_changed"), literal("unknown_app")) }),
   ),
   handler: async (ctx, args) => {
+    const appId = moderationIdOf(args.appId);
     const event = async (action: "grant" | "revoke", ownerId: string) => {
       await ctx.db.insert("events", {
         kind: "connector_grant_change",
         action,
-        appId: args.appId,
+        appId,
         connector: args.connector,
         ownerId,
         reason: args.reason,
@@ -162,7 +166,7 @@ export const set = mutation({
     const row = await ctx.db
       .query("connectorGrants")
       .withIndex("by_app_id_and_connector", (q) =>
-        q.eq("appId", args.appId).eq("connector", args.connector),
+        q.eq("appId", appId).eq("connector", args.connector),
       )
       .unique();
 
@@ -177,10 +181,7 @@ export const set = mutation({
       await ctx.db.delete("connectorGrants", row._id);
       return await event("revoke", row.ownerId);
     }
-    const app = await ctx.db
-      .query("apps")
-      .withIndex("by_app_id", (q) => q.eq("appId", args.appId))
-      .unique();
+    const app = await appRowOf(ctx, appId);
     if (app === null) {
       return { ok: false as const, error: "unknown_app" as const };
     }
@@ -189,7 +190,7 @@ export const set = mutation({
     }
     if (row === null) {
       await ctx.db.insert("connectorGrants", {
-        appId: args.appId,
+        appId,
         connector: args.connector,
         ownerId: args.expectedOwnerId,
         reason: args.reason,

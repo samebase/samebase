@@ -21,6 +21,7 @@ import {
   postHubClient,
   PRODUCTION_CALLBACK,
   pullRequestClaims,
+  registerAtBroker,
   REPOSITORY_ID,
   signToken,
   skipSignInPage,
@@ -156,7 +157,7 @@ describe("the connector grants", () => {
     expect(await state.json()).toEqual({ connectors: ["fake", "other"], grants: [] });
   });
 
-  it("add a connector to one app's clients, not to its preview app or other apps", async () => {
+  it("add a connector to one app's production and preview clients, not to other apps", async () => {
     const h = await createHub({ policy: hubPolicy });
     await skipSignInPage(h);
     const before = await registered(h, ["fake"]);
@@ -167,13 +168,23 @@ describe("the connector grants", () => {
     expect((await signIn(h, after, "other")).went).toBe("provider");
     // A client enrolled before keeps its enrollment: the grant opens nothing it did not enroll in.
     expect((await signIn(h, before, "other")).went).toBe("status 400");
-    const preview = await register(h, ["fake", "other"], pullRequestClaims);
-    expect(preview.status).toBe(400);
+    // The app's first preview client gets the production client's grant.
+    const preview = await registered(h, ["fake", "other"], pullRequestClaims);
+    expect((await signIn(h, preview, "other")).went).toBe("provider");
     const other = await register(h, ["fake", "other"], {
       repository_id: "82",
       repository: "octo-org/other",
     });
     expect(other.status).toBe(400);
+    // Another name of the same repository, which ends in `-preview` like a storage group's id.
+    stubProviders(() => jsonResponse({ repository: REPOSITORY_ID }));
+    const otherName = await postHubClient(h, await signToken(), {
+      app: "my-app-preview",
+      connectors: ["fake", "other"],
+    });
+    expect(otherName.status).toBe(400);
+    // The preview storage group exists now, and the grant is still one row of the app, with the
+    // details of its newest client, the preview.
     expect(await (await moderationRequest(h, "/moderation/connector-grants")).json()).toEqual({
       connectors: ["fake", "other"],
       grants: [
@@ -185,31 +196,135 @@ describe("the connector grants", () => {
           reason: "A trusted team",
           repository: "octo-org/octo-repo",
           app: "my-app",
-          production: true,
+          production: false,
         },
       ],
     });
   });
 
-  it("let a preview app's grant cover its development clients", async () => {
+  it("let a production client's grant permit the first preview and development registrations", async () => {
     const h = await createHub({ policy: hubPolicy });
     const production = await registered(h, ["fake"]);
-    await registered(h, ["fake"], pullRequestClaims);
-    await changeGrant(h, { appId: PREVIEW_APP, grant: true });
+    await changeGrant(h, { grant: true });
 
-    const token = production.initial_access_token ?? "";
+    await registered(h, ["fake", "other"], pullRequestClaims);
     stubProviders();
-    const development = await h.fetchBroker(`${h.issuer}/hub-clients`, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        app: "my-app",
-        redirectUri: "http://127.0.0.1:3211/auth/hub/callback",
-        softwareVersion: "dev-1",
-        connectors: ["fake", "other"],
-      }),
+    const development = await postHubClient(h, production.initial_access_token ?? "", {
+      redirectUri: LOOPBACK_CALLBACK,
+      connectors: ["fake", "other"],
     });
     expect(development.status).toBe(201);
+  });
+
+  it("write a grant set from a preview client's menu under the app's id, with no production client", async () => {
+    const h = await createHub({ policy: hubPolicy });
+    await registered(h, ["fake"], pullRequestClaims);
+
+    expect(await (await changeGrant(h, { appId: PREVIEW_APP, grant: true })).json()).toEqual({
+      changed: true,
+    });
+    expect(await (await changeGrant(h, { appId: PREVIEW_APP, grant: true })).json()).toEqual({
+      changed: false,
+    });
+
+    expect(await grantEvents(h)).toEqual([
+      ["grant", PRODUCTION_APP, "other", OWNER_ID, "nicu@samebase.com"],
+    ]);
+    const listed: { grants: Array<{ appId: string; active: boolean; production: boolean }> } =
+      await (await moderationRequest(h, "/moderation/connector-grants")).json();
+    expect(listed.grants).toMatchObject([
+      { appId: PRODUCTION_APP, active: true, production: false },
+    ]);
+    await registered(h, ["fake", "other"], pullRequestClaims);
+    await registered(h, ["fake", "other"]);
+    // A revoke from the production client's menu removes the same row.
+    expect(await (await changeGrant(h, { grant: false })).json()).toEqual({ changed: true });
+    expect((await register(h, ["fake", "other"], pullRequestClaims)).status).toBe(400);
+  });
+
+  it("refuse a preview's enrollment when the grant is revoked while the hub checks it", async () => {
+    const h = await createHub({ policy: hubPolicy });
+    await registered(h, ["fake"]);
+    await changeGrant(h, { grant: true });
+    stubProviders(async () => {
+      expect((await changeGrant(h, { grant: false })).status).toBe(200);
+      return jsonResponse({ repository: REPOSITORY_ID });
+    });
+
+    const refused = await postHubClient(h, await signToken(pullRequestClaims), {
+      connectors: ["fake", "other"],
+    });
+    expect(refused.status).toBe(400);
+    expect(await refused.json()).toMatchObject({ error: "invalid_connectors" });
+  });
+
+  it("stop a preview's sign-in at the provider's answer when the production grant goes", async () => {
+    const h = await createHub({ policy: hubPolicy });
+    await skipSignInPage(h);
+    await registered(h, ["fake"]);
+    await changeGrant(h, { grant: true });
+    const preview = await registered(h, ["fake", "other"], pullRequestClaims);
+    const { response, went } = await signIn(h, preview, "other");
+    expect(went).toBe("provider");
+
+    await changeGrant(h, { grant: false });
+    const back = await finish(h, response);
+
+    expect(back.searchParams.get("code")).toBeNull();
+    expect(back.searchParams.get("error")).toEqual(expect.any(String));
+    expect((await signIn(h, preview, "other")).went).toBe("status 403");
+  });
+
+  it("never let an old preview client of a previous owner use a grant bound to the new owner", async () => {
+    vi.useFakeTimers({ now: 1_800_000_000_000, toFake: ["Date"] });
+    const h = await createHub({ policy: hubPolicy });
+    await skipSignInPage(h);
+    await registered(h, ["fake"]);
+    await changeGrant(h, { grant: true });
+    const oldPreview = await registered(h, ["fake", "other"], pullRequestClaims);
+    expect((await signIn(h, oldPreview, "other")).went).toBe("provider");
+
+    // The repository moves to owner 66, and the admin binds the grant to 66 from a preview's menu.
+    vi.setSystemTime(1_800_000_001_000);
+    await registered(h, ["fake"], { repository_owner_id: "66" });
+    expect((await signIn(h, oldPreview, "other")).went).toBe("status 403");
+    await changeGrant(h, { appId: PREVIEW_APP, expectedOwnerId: "66", grant: true });
+    expect((await signIn(h, oldPreview, "other")).went).toBe("status 403");
+    const newPreview = await registered(h, ["fake", "other"], {
+      ...pullRequestClaims,
+      repository_owner_id: "66",
+    });
+    expect((await signIn(h, newPreview, "other")).went).toBe("provider");
+  });
+
+  it("keep production and previews apart for eviction while one grant covers both", async () => {
+    vi.useFakeTimers({ now: 1_800_000_000_000, toFake: ["Date"] });
+    const h = await createHub({ policy: hubPolicy });
+    await skipSignInPage(h);
+    await registered(h, ["fake"]);
+    await changeGrant(h, { grant: true });
+    const production = await registered(h, ["fake", "other"]);
+    for (let index = 0; index < 30; index += 1) {
+      vi.setSystemTime(1_800_000_001_000 + index * 1_000);
+      await registerAtBroker(h, {
+        tenantId: `gh-${REPOSITORY_ID}`,
+        appId: PREVIEW_APP,
+        deploymentType: "preview",
+        clientId: `cl_preview_${index}`,
+        clientName: `pr-${index + 1}`,
+        now: Date.now(),
+      });
+    }
+    vi.setSystemTime(1_800_000_100_000);
+
+    const preview = await registered(h, ["fake", "other"], pullRequestClaims);
+
+    const previews = await h.t.query(api.clients.listByApp, { appId: PREVIEW_APP });
+    expect(previews).toHaveLength(30);
+    expect(previews.map((client) => client.clientId)).not.toContain("cl_preview_0");
+    expect(await h.t.query(api.clients.listByApp, { appId: PRODUCTION_APP })).toHaveLength(2);
+    expect((await signIn(h, production, "other")).went).toBe("provider");
+    expect((await signIn(h, preview, "other")).went).toBe("provider");
   });
 
   it("bind a grant to the recorded owner through transfers", async () => {

@@ -2,6 +2,7 @@
 import { convexTest } from "convex-test";
 import { afterEach, describe, expect, test, vi } from "vite-plus/test";
 import { api } from "./_generated/api.js";
+import { appIdOf, moderationIdOf, tenantIdOf } from "./apps.js";
 import { testClientRecord } from "../client/registeredBy.test.helper.js";
 import schema from "./schema.js";
 
@@ -68,5 +69,43 @@ describe("remove", () => {
     await t.mutation(api.apps.remove, { appId: "my-app" });
     expect(await t.query(api.apps.list, {})).toHaveLength(1);
     expect(await t.query(api.clients.listByApp, { appId: "other" })).toHaveLength(1);
+  });
+});
+
+describe("moderationIdOf", () => {
+  test("gives both storage groups of a repository's app the production group's id", async () => {
+    const production = await appIdOf(tenantIdOf("74"), "my-app", true);
+    const preview = await appIdOf(tenantIdOf("74"), "my-app", false);
+
+    expect(preview).toBe(`${production}-preview`);
+    expect(moderationIdOf(production)).toBe(production);
+    expect(moderationIdOf(preview)).toBe(production);
+  });
+
+  test("keeps apart a name that ends in -preview, another name, and another repository", async () => {
+    const app = await appIdOf(tenantIdOf("74"), "my-app", true);
+    const named = await appIdOf(tenantIdOf("74"), "my-app-preview", true);
+    const namedPreview = await appIdOf(tenantIdOf("74"), "my-app-preview", false);
+    const otherCase = await appIdOf(tenantIdOf("74"), "My-App", false);
+    const otherRepository = await appIdOf(tenantIdOf("75"), "my-app", false);
+
+    expect(moderationIdOf(named)).toBe(named);
+    expect(moderationIdOf(namedPreview)).toBe(named);
+    expect(
+      new Set([app, named, moderationIdOf(otherCase), moderationIdOf(otherRepository)]).size,
+    ).toBe(4);
+  });
+
+  test("maps no id of another format", () => {
+    for (const appId of [
+      "my-app-preview",
+      "gh-74-app-preview",
+      "team-1-4c9a75cca717efb68c856f26ba825073-preview",
+      "gh-074-4c9a75cca717efb68c856f26ba825073-preview",
+      "gh-74-4C9A75CCA717EFB68C856F26BA825073-preview",
+      "gh-74-4c9a75cca717efb68c856f26ba825073-preview-preview",
+    ]) {
+      expect(moderationIdOf(appId)).toBe(appId);
+    }
   });
 });

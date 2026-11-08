@@ -183,7 +183,7 @@ describe("the hub", () => {
     expect((await signIn(samebasePreview)).status).toBe(200);
     expect((await signIn(samebaseProduction)).status).toBe(200);
 
-    // The admin exempts samebase.com's production app from samebase.com's admin page.
+    // The admin exempts samebase.com's app from its production client's menu on the admin page.
     const list: { clients: Array<{ clientId: string; appId: string; ownerId: string }> } = await (
       await t.fetch("/moderation/clients", {
         headers: { Authorization: `Bearer ${MODERATION_KEY}` },
@@ -209,7 +209,8 @@ describe("the hub", () => {
     expect(new URL(direct.headers.get("location") ?? "").origin).toBe(
       "https://accounts.google.com",
     );
-    expect((await signIn(samebasePreview)).status).toBe(200);
+    // An app is a repository plus an exact name: the exemption covers its previews too.
+    expect((await signIn(samebasePreview)).status).toBe(302);
     expect((await signIn(stranger)).status).toBe(200);
   });
 

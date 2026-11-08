@@ -1,13 +1,16 @@
 import { v, type Infer } from "convex/values";
 // oxlint-disable-next-line samebase/no-raw-public-convex-function-builders -- Component entrypoints are internal to the host; host functions enforce access.
 import { mutation, query, type QueryCtx } from "./_generated/server";
-import { tenantRow } from "./apps";
+import { appRowOf, moderationIdOf, newestClientOf, tenantRow } from "./apps";
 import { vSignInPageTarget } from "./schema";
 
 // The exemptions from the sign-in page that the hub's administrator sets (RFC 137 decision 5, as
 // amended). The broker stores them and applies them itself: in hub mode the page shows unless an
-// exemption covers the client (docs/design.md). The decision is read at
-// `/authorize` and nowhere later: a sign-in that passed `/authorize` finishes with that decision.
+// exemption covers the client (docs/design.md). A one-app row covers the app, a repository plus an
+// exact name, with its production, preview, and development clients: it is keyed by the app's
+// moderation id (`moderationIdOf`), whichever storage group a read or a write names. The decision
+// is read at `/authorize` and nowhere later: a sign-in that passed `/authorize` finishes with that
+// decision.
 
 const { array, boolean, literal, object, string, union } = v;
 
@@ -27,18 +30,20 @@ async function everyAppRow(ctx: QueryCtx) {
     .unique();
 }
 
+/** The one-app row of the app of the storage group `appId`. */
 async function appRow(ctx: QueryCtx, appId: string) {
+  const moderationId = moderationIdOf(appId);
   return await ctx.db
     .query("signInPageExemptions")
-    .withIndex("by_target", (q) => q.eq("target.scope", "app").eq("target.appId", appId))
+    .withIndex("by_target", (q) => q.eq("target.scope", "app").eq("target.appId", moderationId))
     .unique();
 }
 
 /**
- * The exemptions of a client of `appId`. The app's row counts only while the tenant's recorded
- * owner and the owner that registered the client are the row's owner: a transfer to another owner
- * stops it, and an old client of a previous owner never gets it. The row counts again if the
- * repository comes back to the same owner.
+ * The exemptions of a client of the storage group `appId`. The app's row counts only while the
+ * tenant's recorded owner and the owner that registered the client are the row's owner: a transfer
+ * to another owner stops it, and an old client of a previous owner never gets it. The row counts
+ * again if the repository comes back to the same owner.
  */
 export async function exemptionOf(
   ctx: QueryCtx,
@@ -65,10 +70,13 @@ const vAppExemption = object({
    */
   active: boolean(),
   reason: string(),
-  /** From the app's newest client: `owner/name` and the stack's app name. Null with no client. */
+  /**
+   * From the newest client of either storage group of the app: `owner/name` and the stack's app
+   * name. Null with no client.
+   */
   repository: union(string(), v.null()),
   app: union(string(), v.null()),
-  /** Whether the app is a repository's production app, from its newest client. Null with none. */
+  /** Whether that newest client is a production client. Null with none. */
   production: union(boolean(), v.null()),
 });
 
@@ -91,15 +99,8 @@ export const list = query({
         continue;
       }
       const { appId } = row.target;
-      const client = await ctx.db
-        .query("clients")
-        .withIndex("by_app_id", (q) => q.eq("appId", appId))
-        .order("desc")
-        .first();
-      const app = await ctx.db
-        .query("apps")
-        .withIndex("by_app_id", (q) => q.eq("appId", appId))
-        .unique();
+      const client = await newestClientOf(ctx, appId);
+      const app = await appRowOf(ctx, appId);
       const tenant = app === null ? null : await tenantRow(ctx, app.tenantId);
       apps.push({
         appId,
@@ -120,8 +121,9 @@ export const list = query({
 
 /**
  * Sets (`skip`) or removes (`show`) one exemption and appends the event, in one transaction. A
- * change that is already in place changes nothing and appends nothing. Setting a one-app row needs
- * the app and refuses when the tenant's recorded owner is not `expectedOwnerId`, the owner that
+ * one-app target names either storage group of the app; the row and its event have the app's
+ * moderation id. A change that is already in place changes nothing and appends nothing. Setting a
+ * one-app row needs the app, in either storage group, and refuses when the tenant's recorded owner is not `expectedOwnerId`, the owner that
  * the admin saw; a row of another owner, which no longer counts, is bound to this one. Removing a
  * one-app row refuses when the row is bound to another owner than `expectedOwnerId`, the row's
  * owner that the admin saw, so a stale page cannot remove a row that another admin bound since; it
@@ -169,7 +171,8 @@ export const set = mutation({
       return await event(args.skip ? "skip" : "show", target);
     }
 
-    const { appId, expectedOwnerId } = args.target;
+    const { expectedOwnerId } = args.target;
+    const appId = moderationIdOf(args.target.appId);
     const row = await appRow(ctx, appId);
     if (!args.skip) {
       if (row === null) {
@@ -181,10 +184,7 @@ export const set = mutation({
       await ctx.db.delete("signInPageExemptions", row._id);
       return await event("show", row.target);
     }
-    const app = await ctx.db
-      .query("apps")
-      .withIndex("by_app_id", (q) => q.eq("appId", appId))
-      .unique();
+    const app = await appRowOf(ctx, appId);
     if (app === null) {
       return { ok: false as const, error: "unknown_app" as const };
     }

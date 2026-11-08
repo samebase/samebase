@@ -29,13 +29,75 @@ export function tenantIdOf(githubRepositoryDatabaseId: string) {
   return `gh-${githubRepositoryDatabaseId}`;
 }
 
-/** The app of `app` in the repository's tenant: production, or previews and development clients. */
+const PREVIEW_SUFFIX = "-preview";
+/** A production storage group id of `appIdOf`: a repository's tenant and the hash of an exact name. */
+const PRODUCTION_APP_ID = /^gh-[1-9][0-9]*-[0-9a-f]{32}$/;
+
+/**
+ * The storage group of `app` in the repository's tenant: production clients, or preview and
+ * development clients. The two groups keep their own caps and eviction (registration.ts).
+ */
 export async function appIdOf(tenantId: string, app: string, production: boolean) {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(app));
   const appHash = Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0"))
     .join("")
     .slice(0, 32);
-  return `${tenantId}-${appHash}${production ? "" : "-preview"}`;
+  return `${tenantId}-${appHash}${production ? "" : PREVIEW_SUFFIX}`;
+}
+
+/**
+ * The id of the app of the storage group `appId` for connector grants and sign-in page exemptions
+ * (RFC 137): an app is a repository plus an exact name, so both of its storage groups have the
+ * production group's id. Only an id that `appIdOf` makes for a repository's tenant maps; any other
+ * id, such as one with `-preview` in a host's own format, is its own app. The name is hashed before
+ * the suffix, so a name that ends in `-preview` maps like any other.
+ */
+export function moderationIdOf(appId: string): string {
+  if (!appId.endsWith(PREVIEW_SUFFIX)) {
+    return appId;
+  }
+  const production = appId.slice(0, -PREVIEW_SUFFIX.length);
+  return PRODUCTION_APP_ID.test(production) ? production : appId;
+}
+
+/** The storage groups of the app with the moderation id `moderationId`, production first. */
+function storageGroupsOf(moderationId: string): string[] {
+  return PRODUCTION_APP_ID.test(moderationId)
+    ? [moderationId, `${moderationId}${PREVIEW_SUFFIX}`]
+    : [moderationId];
+}
+
+/**
+ * The app row of the app with the moderation id `moderationId`: its production storage group,
+ * else its preview one. Either one proves that the app exists and names its tenant.
+ */
+export async function appRowOf(ctx: QueryCtx, moderationId: string) {
+  for (const appId of storageGroupsOf(moderationId)) {
+    const app = await ctx.db
+      .query("apps")
+      .withIndex("by_app_id", (q) => q.eq("appId", appId))
+      .unique();
+    if (app !== null) {
+      return app;
+    }
+  }
+  return null;
+}
+
+/** The newest client of either storage group of the app with the moderation id `moderationId`. */
+export async function newestClientOf(ctx: QueryCtx, moderationId: string) {
+  let newest: Doc<"clients"> | null = null;
+  for (const appId of storageGroupsOf(moderationId)) {
+    const client = await ctx.db
+      .query("clients")
+      .withIndex("by_app_id", (q) => q.eq("appId", appId))
+      .order("desc")
+      .first();
+    if (client !== null && (newest === null || client._creationTime > newest._creationTime)) {
+      newest = client;
+    }
+  }
+  return newest;
 }
 
 export async function readBlock(ctx: QueryCtx, kind: Doc<"blocks">["kind"], githubId: string) {
@@ -117,9 +179,10 @@ async function removeRows(ctx: MutationCtx, appId: string): Promise<void> {
 }
 
 /**
- * Deletes an app with its clients. This is the emergency revocation. The app row goes first:
- * /authorize and /token refuse a client whose app is gone, so this transaction revokes every client
- * of the app, however many batches their rows take to delete.
+ * Deletes one storage group of an app with its clients: its production group, or its preview one.
+ * The app row goes first: /authorize and /token refuse a client whose app is gone, so this
+ * transaction revokes every client of the group, however many batches their rows take to delete.
+ * The app's connector grants and sign-in page exemption stay, and still cover its other group.
  */
 export const remove = mutation({
   args: { appId: string() },

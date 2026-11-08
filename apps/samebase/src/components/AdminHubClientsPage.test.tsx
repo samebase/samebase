@@ -83,7 +83,7 @@ const overview = {
     clients: [
       {
         clientId: "cl_test",
-        appId: "gh-74-4c9a75cca717efb68c856f26ba825073",
+        appId: "gh-74-4c9a75cca717efb68c856f26ba825073-preview",
         clientName: "pr-12",
         deploymentType: "preview",
         redirectUri: "https://calm-cow-456.eu-west-1.convex.site/auth/hub/callback",
@@ -401,7 +401,7 @@ describe("AdminHubClientsPage", () => {
     try {
       await act(async () => button(page.rootElement, "Sign-in page").click());
       const text = page.rootElement.textContent;
-      expect(text).toContain("other-org/own my-app, production: A team we know");
+      expect(text).toContain("other-org/own my-app: A team we know");
       // A row kept through a transfer covers no client, and the admin can still remove it.
       expect(text).toContain(
         "Bound to the owner with GitHub id 90. Not active: the repository has another owner now.",
@@ -526,8 +526,10 @@ describe("AdminHubClientsPage", () => {
         connectors?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
       });
       const dialog = document.querySelector("[role=dialog]");
-      expect(dialog?.textContent).toContain("Previews and development servers. The hub's policy");
-      expect(dialog?.textContent).toContain("gives this app google-apps, github-apps");
+      expect(dialog?.textContent).toContain("gives this client google-apps, github-apps");
+      expect(dialog?.textContent).toContain(
+        "every client of this app: production, previews, and development servers",
+      );
       expect(dialog?.textContent).toContain("GitHub id 65");
       // One box per connector the policy does not give: the private pair, never the public one.
       const boxes = Array.from(dialog?.querySelectorAll("label") ?? []).filter(
@@ -714,7 +716,7 @@ describe("AdminHubClientsPage", () => {
     try {
       await act(async () => button(page.rootElement, "Connector grants 1").click());
       const text = page.rootElement.textContent;
-      expect(text).toContain("google for other-org/own my-app, production: Our other app");
+      expect(text).toContain("google for other-org/own my-app: Our other app");
       expect(text).toContain(
         "Not active: the hub has no such app now, or the repository has another owner.",
       );
@@ -732,6 +734,113 @@ describe("AdminHubClientsPage", () => {
         connector: "google",
         expectedOwnerId: "90",
         grant: false,
+        reason: "Done",
+      });
+    } finally {
+      await page.unmount();
+    }
+  });
+
+  it("shows a development client the rows of its app's production id, and changes those", async () => {
+    // A row of the app, from the production client's menu or another client's: its moderation id.
+    const appId = "gh-74-4c9a75cca717efb68c856f26ba825073";
+    const row = {
+      appId,
+      ownerId: "65",
+      active: true,
+      repository: "octo-org/octo-repo",
+      app: "my-app",
+      production: false,
+    };
+    testState.readOverview.mockResolvedValue({
+      ...overview,
+      clientList: {
+        ...overview.clientList,
+        clients: overview.clientList.clients.map((client) =>
+          client.clientId === "cl_development"
+            ? { ...client, policyConnectors: ["google-apps", "github-apps"] }
+            : client,
+        ),
+      },
+      signInPage: { everyApp: null, apps: [{ ...row, reason: "Ours" }] },
+      connectorGrants: {
+        ...overview.connectorGrants,
+        grants: [{ ...row, connector: "google", reason: "Ours" }],
+      },
+    });
+    const page = await renderPage();
+    try {
+      const openMenu = async () => {
+        const trigger = Array.from(document.querySelectorAll("button")).find(
+          (candidate) => candidate.getAttribute("aria-label") === "cl_development actions",
+        );
+        await act(async () => {
+          trigger?.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, button: 0 }));
+          trigger?.click();
+        });
+      };
+      const menuItem = (text: string) =>
+        Array.from(document.querySelectorAll("[role=menuitem]")).find(
+          (item) => item.textContent === text,
+        );
+
+      await openMenu();
+      expect(menuItem("Skip the sign-in page…")).toBeUndefined();
+      await act(async () => {
+        menuItem("Connectors…")?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      });
+      const boxes = Array.from(document.querySelectorAll("[role=dialog] label")).filter(
+        (label) => label.querySelector("[data-slot=checkbox]") !== null,
+      );
+      expect(
+        boxes.map((label) => [
+          label.textContent,
+          label.querySelector("[data-slot=checkbox]")?.getAttribute("aria-checked"),
+        ]),
+      ).toEqual([
+        ["google", "true"],
+        ["github", "false"],
+      ]);
+      // Unchecking google revokes the app's row, under its production id.
+      await act(async () => {
+        boxes[0]?.querySelector<HTMLElement>("[data-slot=checkbox]")?.click();
+      });
+      await act(async () => type(document.body, "#admin-hub-clients-connectors-reason", "Done"));
+      await act(async () => {
+        document
+          .querySelector<HTMLFormElement>("#admin-hub-clients-connectors-form")
+          ?.requestSubmit();
+        await Promise.resolve();
+      });
+      await act(async () => await new Promise((resolve) => setTimeout(resolve, 0)));
+      expect(testState.changeConnectorGrant).toHaveBeenLastCalledWith({
+        appId,
+        connector: "google",
+        expectedOwnerId: "65",
+        grant: false,
+        reason: "Done",
+      });
+
+      await openMenu();
+      await act(async () => {
+        menuItem("Show the sign-in page…")?.dispatchEvent(
+          new MouseEvent("click", { bubbles: true }),
+        );
+      });
+      expect(document.querySelector("[role=dialog]")?.textContent).toContain(
+        "This removes the app's own exemption.",
+      );
+      await act(async () => type(document.body, "#admin-hub-clients-sign-in-page-reason", "Done"));
+      await act(async () => {
+        document
+          .querySelector<HTMLFormElement>("#admin-hub-clients-sign-in-page-form")
+          ?.requestSubmit();
+        await Promise.resolve();
+      });
+      await act(async () => await new Promise((resolve) => setTimeout(resolve, 0)));
+      expect(testState.changeSignInPage).toHaveBeenLastCalledWith({
+        target: { scope: "app", appId, expectedOwnerId: "65" },
+        skip: false,
         reason: "Done",
       });
     } finally {

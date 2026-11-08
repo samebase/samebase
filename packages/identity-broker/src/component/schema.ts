@@ -49,8 +49,9 @@ export const vBlockKind = union(literal("repository"), literal("owner"));
 
 /**
  * What an exemption from the sign-in page covers: every app, strangers' and future ones included,
- * or one broker app (a repository's production app, or its preview app, which holds previews and
- * development clients) bound to the repository's owner that the hub recorded when the admin set it.
+ * or one app, a repository plus an exact name with its production, preview, and development
+ * clients, by its moderation id (`apps.moderationIdOf`), bound to the repository's owner that the
+ * hub recorded when the admin set it.
  */
 export const vSignInPageTarget = union(
   object({ scope: literal("every_app") }),
@@ -179,8 +180,9 @@ export default defineSchema({
   /**
    * The exemptions from the sign-in page, set by the hub's administrator with
    * `signInPage.set`. One row per target. A row that covers a client skips the sign-in page for
-   * it, which hub mode shows otherwise. A one-app row counts only while the tenant's recorded
-   * owner and the owner that registered the client are the row's `ownerId`.
+   * it, which hub mode shows otherwise. A one-app row has the app's moderation id
+   * (`apps.moderationIdOf`) and covers both of its storage groups. It counts only while the
+   * tenant's recorded owner and the owner that registered the client are the row's `ownerId`.
    */
   signInPageExemptions: defineTable({
     target: vSignInPageTarget,
@@ -190,7 +192,8 @@ export default defineSchema({
 
   /**
    * The connector grants, set by the hub's administrator with `connectorGrants.set`: one row per
-   * broker app and connector. A row lets the app's clients enroll in and use the connector on top
+   * app and connector, by the app's moderation id (`apps.moderationIdOf`), which covers both of its
+   * storage groups. A row lets the app's clients enroll in and use the connector on top
    * of what the host's policy gives them. It counts only while the tenant's recorded owner and the
    * owner that registered the client are the row's `ownerId`; at registration, the owner of the
    * incoming proof. Every step of a sign-in reads it again in its own transaction.
