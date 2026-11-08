@@ -5,12 +5,11 @@
 //
 // A stage holds one row for each resource of its stack, so the reads of one
 // stage collect all rows.
-import { v, type Infer, type Validator } from "convex/values";
-import type { MutationCtx, QueryCtx } from "./_generated/server.js";
+import { v, type Validator } from "convex/values";
+import type { QueryCtx } from "./_generated/server.js";
 // oxlint-disable-next-line samebase/no-raw-public-convex-function-builders -- Store entrypoints have no app wrapper; the reader and the deploy key enforce access.
 import { mutation, query } from "./_generated/server.js";
 import { generationOf } from "./keys.ts";
-import { runChanged, runRecord } from "./runRecord.ts";
 
 const stage = { stack: v.string(), stage: v.string() };
 const resource = { ...stage, fqn: v.string() };
@@ -34,41 +33,6 @@ const outputOf = (ctx: QueryCtx, args: { stack: string; stage: string }) =>
     .query("outputs")
     .withIndex("by_stage", (q) => q.eq("stack", args.stack).eq("stage", args.stage))
     .unique();
-
-/**
- * The run record of a write, or null for a write without one. The app's
- * functions take it as an optional field; across the component boundary it is
- * a required field, because the generated component API types an optional
- * field without `undefined`.
- */
-const run = v.union(runRecord, v.null());
-
-/**
- * A resource write and its current run become visible in one transaction. The output row of the
- * stage changes only when the run changes (see `runChanged`). Alchemy writes the resources of a
- * deploy at the same time, and a write to the one output row of the stage made all of them conflict
- * until Convex stopped the retries. A write of the same run only reads the row, and reads do not
- * conflict. So `recordedAt` stays the time of the first write of the run, until `setOutput` writes
- * it again.
- */
-const writeCurrentRun = async (
-  ctx: MutationCtx,
-  args: { stack: string; stage: string; run: Infer<typeof run> },
-) => {
-  const output = await outputOf(ctx, args);
-  if (output === null) {
-    if (args.run !== null)
-      await ctx.db.insert("outputs", {
-        stack: args.stack,
-        stage: args.stage,
-        currentRun: args.run,
-      });
-    return;
-  }
-  // A write without a run record clears the record of the previous run.
-  if (runChanged(output.currentRun, args.run))
-    await ctx.db.patch("outputs", output._id, { currentRun: args.run ?? undefined });
-};
 
 /** The sorted union of two lists of names. */
 const union = (a: readonly string[], b: readonly string[]) => [...new Set([...a, ...b])].sort();
@@ -178,8 +142,9 @@ export const replaced = query({
       }),
 });
 
+/** A resource write reads and writes only the row of that resource. */
 export const set = mutation({
-  args: { ...resource, value: v.string(), run },
+  args: { ...resource, value: v.string() },
   returns: v.null(),
   handler: async (ctx, args) => {
     const row = await rowOf(ctx, args);
@@ -191,18 +156,16 @@ export const set = mutation({
         value: args.value,
       });
     else await ctx.db.patch("resources", row._id, { value: args.value });
-    await writeCurrentRun(ctx, args);
     return null;
   },
 });
 
 export const remove = mutation({
-  args: { ...resource, run },
+  args: resource,
   returns: v.null(),
   handler: async (ctx, args) => {
     const row = await rowOf(ctx, args);
     if (row !== null) await ctx.db.delete("resources", row._id);
-    await writeCurrentRun(ctx, args);
     return null;
   },
 });
@@ -238,23 +201,13 @@ export const getOutput = query({
 });
 
 export const setOutput = mutation({
-  args: { ...stage, value: v.string(), run },
+  args: { ...stage, value: v.string() },
   returns: v.null(),
   handler: async (ctx, args) => {
     const row = await outputOf(ctx, args);
-    // The output and the record of its run, with the time of this last write of the run.
-    if (row !== null)
-      await ctx.db.patch("outputs", row._id, {
-        value: args.value,
-        currentRun: args.run ?? undefined,
-      });
+    if (row !== null) await ctx.db.patch("outputs", row._id, { value: args.value });
     else
-      await ctx.db.insert("outputs", {
-        stack: args.stack,
-        stage: args.stage,
-        value: args.value,
-        ...(args.run === null ? {} : { currentRun: args.run }),
-      });
+      await ctx.db.insert("outputs", { stack: args.stack, stage: args.stage, value: args.value });
     return null;
   },
 });
@@ -286,7 +239,7 @@ export const resourcePage = query({
   },
 });
 
-/** One bounded page of the outputs. A row with only a run record has no value and is left out. */
+/** One bounded page of the outputs. A row that store version 6 left without a value is left out. */
 export const outputPage = query({
   args: { cursor: v.union(v.string(), v.null()) },
   returns: pageOf(v.object({ ...stage, value: v.string() })),
@@ -310,10 +263,7 @@ export const outputPage = query({
  */
 const replaceResult = v.union(v.literal("replaced"), v.literal("changed"), v.literal("stale"));
 
-/**
- * Replaces the value of a row that still holds `expected`, for a reseal of `generation`: the row
- * keeps its run record.
- */
+/** Replaces the value of a row that still holds `expected`, for a reseal of `generation`. */
 export const replaceResource = mutation({
   args: { ...resource, expected: v.string(), value: v.string(), generation: v.number() },
   returns: replaceResult,
@@ -339,17 +289,19 @@ export const replaceOutput = mutation({
   },
 });
 
-/** The reply of {@link readStack}. */
-export const stackReply = v.object({
-  stages: v.array(
-    v.object({
-      stage: v.string(),
-      resources: v.array(v.object({ fqn: v.string(), value: v.string() })),
-      output: v.union(v.string(), v.null()),
-      record: v.union(runRecord, v.null()),
-    }),
-  ),
+/**
+ * One stage as the store holds it: its resources in fqn order and its output, as JSON texts, with
+ * `output: null` for a stage without one. {@link readStack} and the repository reader give stages in
+ * this shape, and the shape is Alchemy state only: a reader takes anything else from the output.
+ */
+export const storedStage = v.object({
+  name: v.string(),
+  resources: v.array(v.object({ fqn: v.string(), value: v.string() })),
+  output: v.union(v.string(), v.null()),
 });
+
+/** The reply of {@link readStack}. */
+export const stackReply = v.object({ stages: v.array(storedStage) });
 
 /**
  * One call for a reader: every stage of a stack in name order, each with its
@@ -381,12 +333,11 @@ export const readStack = query({
       stages: stages.map((stage) => {
         const output = outputs.find((row) => row.stage === stage);
         return {
-          stage,
+          name: stage,
           resources: resources
             .filter((row) => row.stage === stage)
             .map((row) => ({ fqn: row.fqn, value: row.value })),
           output: output?.value ?? null,
-          record: output?.currentRun ?? null,
         };
       }),
     };

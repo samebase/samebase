@@ -119,17 +119,16 @@ describe("the state store", () => {
     });
     expect(await t.query(internal.state.readStack, { stack: "samebase/app" })).toEqual({
       stages: [
-        { stage: "empty", resources: [], output: '{"url":"e"}', record: null },
+        { name: "empty", resources: [], output: '{"url":"e"}' },
         {
-          stage: "main",
+          name: "main",
           resources: [
             { fqn: "A", value: '{"a":0}' },
             { fqn: "B", value: '{"b":0}' },
           ],
           output: '{"url":"u"}',
-          record: null,
         },
-        { stage: "pr-1", resources: [{ fqn: "B", value: '{"b":1}' }], output: null, record: null },
+        { name: "pr-1", resources: [{ fqn: "B", value: '{"b":1}' }], output: null },
       ],
     });
   });
@@ -338,26 +337,6 @@ describe("the state store", () => {
       expect(await stored(t)).not.toContain("secret-of");
     });
 
-    it("keeps the run record of a resealed stage", async () => {
-      const t = storeTest();
-      await withKey(t);
-      const run = {
-        version: 1 as const,
-        repository: "samebase/app",
-        stackFile: "alchemy.run.ts",
-        branch: "main",
-        pullRequest: null,
-        headCommit: "commit",
-        runUrl: null,
-        source: "checkout" as const,
-        recordedAt: "2026-10-31T10:00:00.000Z",
-      };
-      await t.mutation(internal.state.writeResource, { ...clearRow, run });
-      await t.action(internal.state.reseal, {});
-      const { stages } = await t.query(internal.state.readStack, { stack: main.stack });
-      expect(stages[0]?.record).toEqual(run);
-    });
-
     it("leaves a row that changed during the reseal", async () => {
       const t = storeTest();
       await withKey(t);
@@ -456,24 +435,6 @@ describe("the state store", () => {
       });
       expect(await stored(t)).not.toContain("secret-of");
       expect(await t.query(internal.state.sealing, {})).toMatchObject({ sealed: true });
-    });
-
-    it("skips an output row that has only a run record", async () => {
-      const t = storeTest();
-      await withKey(t);
-      const run = {
-        version: 1 as const,
-        repository: "samebase/app",
-        stackFile: "alchemy.run.ts",
-        branch: "main",
-        pullRequest: null,
-        headCommit: "commit",
-        runUrl: null,
-        source: "checkout" as const,
-        recordedAt: "2026-10-31T10:00:00.000Z",
-      };
-      await t.mutation(internal.state.writeResource, { ...clearRow, run });
-      expect(await t.action(internal.state.reseal, {})).toMatchObject({ resealed: 1, failed: [] });
     });
   });
 });

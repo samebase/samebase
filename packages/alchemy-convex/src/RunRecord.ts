@@ -1,15 +1,18 @@
 // The run record: what the stage output says about the run that wrote it.
 // Alchemy state holds no time, author, commit, branch, or run (measured in
-// the Samebase research of 2026-10-21), so a state layer adds this record to
-// the output document under the reserved key `samebase.run`. The record
-// depends on no store: it comes from the GitHub Actions variables, or from
-// git in the checkout that runs the stack, and holds no secret. See docs/design/convex-state.md.
+// the Samebase research of 2026-10-21), so the layer `withRunRecord` adds this
+// record to the output document under the reserved key `samebase.run`. The
+// record depends on no store: it comes from the GitHub Actions variables, or
+// from git in the checkout that runs the stack, and holds no secret, and the
+// layer goes over any state layer. See docs/design/convex-state.md.
 import { execFile } from "node:child_process";
 import { readFile, realpath } from "node:fs/promises";
 import { relative, sep } from "node:path";
 import { promisify } from "node:util";
+import { State, type StateService } from "alchemy/State";
 import * as Clock from "effect/Clock";
 import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
 import * as Schema from "effect/Schema";
 
 /** The key of the record in the stage output document. */
@@ -206,9 +209,63 @@ const isPlainObject = (value: unknown): value is Record<string, unknown> => {
  * key: a string, an array, null, or an object that is not plain, such as a
  * Date. A value that the stack itself put under the key stays.
  */
-export const withRunRecord = (output: unknown, record: RunRecord): object | undefined =>
+export const outputWithRunRecord = (output: unknown, record: RunRecord): object | undefined =>
   isPlainObject(output)
     ? RUN_RECORD_KEY in output
       ? output
       : { ...output, [RUN_RECORD_KEY]: record }
     : undefined;
+
+/**
+ * The state of `inner`, with the record of this run in each stage output that it writes, under
+ * {@link RUN_RECORD_KEY}: `state: withRunRecord(Convex.state())`, or the same over another state
+ * layer, such as the Cloudflare state store of Alchemy. Every other call goes to `inner` as it is.
+ *
+ * The record is derived once, at the first use of the state, and `recordedAt` is the time of the
+ * output write. A checkout that gives no record, such as a tarball without git, a checkout without
+ * `origin`, or a detached HEAD, still reads, plans, and destroys: its outputs are written without
+ * the record, and the log says why. The engine writes the output only after a full successful
+ * apply, so the record names the last full successful deploy of the stage.
+ */
+export const withRunRecord = <E, R>(inner: Layer.Layer<State, E, R>): Layer.Layer<State, E, R> =>
+  Layer.effect(
+    State,
+    Effect.gen(function* () {
+      const open = yield* State;
+      return yield* Effect.cached(
+        Effect.gen(function* () {
+          const service = yield* open;
+          const run = yield* runRecord({ cwd: process.cwd(), env: process.env }).pipe(
+            Effect.catch((error) =>
+              Effect.logWarning(
+                `The stage outputs of this run carry no run record. ${error.message}`,
+              ).pipe(Effect.as(undefined)),
+            ),
+          );
+          const documentOf = (request: { stack: string; stage: string; value: unknown }) =>
+            Effect.gen(function* () {
+              if (run === undefined) return request.value;
+              const document = outputWithRunRecord(request.value, {
+                ...run,
+                recordedAt: yield* now,
+              });
+              if (document !== undefined) return document;
+              yield* Effect.logWarning(
+                `The output of ${request.stack}/${request.stage} is not a plain object, so it carries no run record.`,
+              );
+              return request.value;
+            });
+          const wrapped: StateService = {
+            ...service,
+            setOutput: (request) =>
+              documentOf(request).pipe(
+                Effect.flatMap((value) =>
+                  service.setOutput({ stack: request.stack, stage: request.stage, value }),
+                ),
+              ),
+          };
+          return wrapped;
+        }),
+      );
+    }),
+  ).pipe(Layer.provide(inner));

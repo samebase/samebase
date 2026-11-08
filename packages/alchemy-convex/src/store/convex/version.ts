@@ -13,4 +13,6 @@
 // 5: rows hold their secrets sealed: `set` and `setOutput` are actions, with `sealing`, `chooseKey`,
 //    `rotateKey`, and `reseal` (0.19.0).
 // 6: a run record's `source` is `github-actions` or `checkout`, no longer `laptop` (0.32.0).
-export const STORE_VERSION = 6;
+// 7: Alchemy's state interface only: `set`, `remove`, and `setOutput` take no `run`, `readStack`
+//    and `reader:repository` give stages as `{ name, resources, output }` (0.35.0).
+export const STORE_VERSION = 7;

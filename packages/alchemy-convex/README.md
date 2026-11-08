@@ -168,14 +168,15 @@ values explicitly: `Convex.providers(Convex.fromValues({ accessToken, deployKey 
 
 `state: Convex.state()` keeps the Alchemy state of every stack and stage of a Convex team in one
 project of that team, `alchemy-state-store`, the same name as the Cloudflare state store of Alchemy,
-so a repository holds one secret and a stack can create and destroy its own project.
+so a repository holds one secret and a stack can create and destroy its own project. The store holds
+Alchemy's state interface and nothing else, so `Cloudflare.state()` can take its place in a stack.
 [docs/design/convex-state.md](docs/design/convex-state.md) records the decisions and the
 measurements.
 
 ```ts
 export default Alchemy.Stack(
   process.env["GITHUB_REPOSITORY"] ?? "my-org/my-app", // the stack name: the repository
-  { providers: Convex.providers(), state: Convex.state() },
+  { providers: Convex.providers(), state: Convex.withRunRecord(Convex.state()) },
   Effect.gen(function* () {
     /* ... */
   }),
@@ -234,10 +235,12 @@ To rotate the key, from a directory that selects the project `alchemy-state-stor
 
 ### What the output records about a run
 
-Alchemy state holds no time, commit, branch, or run. `Convex.state()` adds them to the stage output:
-the document that `setOutput` stores is the stack's output plus the key `samebase.run`. On GitHub
-Actions the record comes from the run's variables and the event payload; on a development machine
-from git, which needs a branch and an `origin` remote. It holds no secret.
+Alchemy state holds no time, commit, branch, or run. `Convex.withRunRecord(state)` adds them to the
+stage output of any state layer, `Convex.state()` or `Cloudflare.state()`: the document that
+`setOutput` stores is the stack's output plus the key `samebase.run`. Samebase shows a stage only
+when its output has this record. On GitHub Actions the record comes from the run's variables and the
+event payload; on a development machine from git, which needs a branch and an `origin` remote. It
+holds no secret.
 
 ```json
 {
@@ -261,9 +264,9 @@ from git, which needs a branch and an `origin` remote. It holds no secret.
 `source` is `checkout`. A value that the stack itself returns under `samebase.run` stays. A checkout
 that gives no record, such as a tarball without git or a detached HEAD, writes its outputs without
 one, and the log says why. Alchemy writes the output once after a full successful deploy, so a
-failed deploy leaves the previous record, and a deploy of selected resources writes none. A reader
-gets every stage of a stack, with its resources and output, from the store function
-`state:readStack({ stack })` in one call.
+failed deploy leaves the previous record, a deploy of selected resources writes none, and a stage
+has no record until its first deploy is complete. A reader gets every stage of a stack, with its
+resources and output, from the store function `state:readStack({ stack })` in one call.
 
 ## Resources
 

@@ -4,7 +4,9 @@
 //
 // The rows are in the alchemyState component (src/store/component). Each
 // function here forwards to the component function of the same name, with the
-// same results; an absent `run` or `stage` goes to the component as null.
+// same results; an absent `stage` goes to the component as null. The functions
+// hold Alchemy's state interface and nothing else, the same as the Cloudflare
+// state store of Alchemy.
 // These names and arguments are the wire contract of STORE_VERSION. Samebase
 // reads `stacks`, `getOutput`, and `readStack` by name: a renamed function is
 // a version bump of the store and of Samebase.
@@ -14,7 +16,6 @@
 // open them for the run. `readStack` gives the rows as they are stored.
 import type { FunctionReturnType } from "convex/server";
 import { v } from "convex/values";
-import { runRecord } from "../component/runRecord.ts";
 import { stackReply } from "../component/state.ts";
 import { components, internal } from "./_generated/api.js";
 import {
@@ -119,13 +120,7 @@ export const replaced = internalQuery({
   },
 });
 
-const setArgs = {
-  stack: v.string(),
-  stage: v.string(),
-  fqn: v.string(),
-  value: v.string(),
-  run: v.optional(runRecord),
-};
+const setArgs = { stack: v.string(), stage: v.string(), fqn: v.string(), value: v.string() };
 
 export const set = internalAction({
   args: setArgs,
@@ -147,22 +142,16 @@ export const writeResource = internalMutation({
       stage: args.stage,
       fqn: args.fqn,
       value: args.value,
-      run: args.run ?? null,
     });
     return true;
   },
 });
 
 export const remove = internalMutation({
-  args: { stack: v.string(), stage: v.string(), fqn: v.string(), run: v.optional(runRecord) },
+  args: { stack: v.string(), stage: v.string(), fqn: v.string() },
   returns: v.null(),
   handler: (ctx, args) =>
-    ctx.runMutation(state.remove, {
-      stack: args.stack,
-      stage: args.stage,
-      fqn: args.fqn,
-      run: args.run ?? null,
-    }),
+    ctx.runMutation(state.remove, { stack: args.stack, stage: args.stage, fqn: args.fqn }),
 });
 
 /** Deletes the resources and outputs of one stage, or of every stage of the stack. */
@@ -183,12 +172,7 @@ export const getOutput = internalQuery({
   },
 });
 
-const setOutputArgs = {
-  stack: v.string(),
-  stage: v.string(),
-  value: v.string(),
-  run: v.optional(runRecord),
-};
+const setOutputArgs = { stack: v.string(), stage: v.string(), value: v.string() };
 
 export const setOutput = internalAction({
   args: setOutputArgs,
@@ -209,13 +193,12 @@ export const writeOutput = internalMutation({
       stack: args.stack,
       stage: args.stage,
       value: args.value,
-      run: args.run ?? null,
     });
     return true;
   },
 });
 
-/** Every stage of a stack with its resources, output, and current record, in one call. Since store version 2. */
+/** Every stage of a stack with its resources and output, in one call. Since store version 2. */
 export const readStack = internalQuery({
   args: { stack: v.string() },
   returns: stackReply,

@@ -10,8 +10,15 @@ import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
 import * as Redacted from "effect/Redacted";
 import * as TestClock from "effect/testing/TestClock";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { RUN_RECORD_KEY, type RunRecord, runRecord, withRunRecord } from "../src/RunRecord.ts";
+import { inMemoryState, State } from "alchemy/State";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  outputWithRunRecord,
+  RUN_RECORD_KEY,
+  type RunRecord,
+  runRecord,
+  withRunRecord,
+} from "../src/RunRecord.ts";
 
 const PULL_REQUEST_EVENT = fileURLToPath(
   new URL("./fixtures/github/pull_request_event.json", import.meta.url),
@@ -170,7 +177,7 @@ describe("runRecord", () => {
   });
 });
 
-describe("withRunRecord", () => {
+describe("outputWithRunRecord", () => {
   const record: RunRecord = {
     version: 1,
     repository: "samebase/app",
@@ -184,7 +191,7 @@ describe("withRunRecord", () => {
   };
 
   it("adds the record to an object output and keeps the stack's own keys", () => {
-    expect(withRunRecord({ url: "https://app.convex.site" }, record)).toEqual({
+    expect(outputWithRunRecord({ url: "https://app.convex.site" }, record)).toEqual({
       url: "https://app.convex.site",
       [RUN_RECORD_KEY]: record,
     });
@@ -192,16 +199,65 @@ describe("withRunRecord", () => {
 
   it("keeps a value that the stack put under the key", () => {
     const own = { url: "u", [RUN_RECORD_KEY]: { mine: true } };
-    expect(withRunRecord(own, record)).toBe(own);
+    expect(outputWithRunRecord(own, record)).toBe(own);
   });
 
   it("has no document for an output that is not a plain object", () => {
-    expect(withRunRecord("https://app.convex.site", record)).toBeUndefined();
-    expect(withRunRecord(["a"], record)).toBeUndefined();
-    expect(withRunRecord(null, record)).toBeUndefined();
+    expect(outputWithRunRecord("https://app.convex.site", record)).toBeUndefined();
+    expect(outputWithRunRecord(["a"], record)).toBeUndefined();
+    expect(outputWithRunRecord(null, record)).toBeUndefined();
     // A spread would keep only the enumerable own keys of these.
-    expect(withRunRecord(new Date(0), record)).toBeUndefined();
-    expect(withRunRecord(Redacted.make("secret"), record)).toBeUndefined();
-    expect(withRunRecord(Object.create(null), record)).toEqual({ [RUN_RECORD_KEY]: record });
+    expect(outputWithRunRecord(new Date(0), record)).toBeUndefined();
+    expect(outputWithRunRecord(Redacted.make("secret"), record)).toBeUndefined();
+    expect(outputWithRunRecord(Object.create(null), record)).toEqual({ [RUN_RECORD_KEY]: record });
+  });
+});
+
+describe("withRunRecord", () => {
+  /** The state of `withRunRecord` over an in-memory state, first used in `cwd` outside GitHub Actions. */
+  const open = async (cwd: string) => {
+    // CI sets GITHUB_ACTIONS.
+    vi.stubEnv("GITHUB_ACTIONS", "");
+    const before = process.cwd();
+    process.chdir(cwd);
+    try {
+      return await Effect.gen(function* () {
+        return yield* yield* State;
+      }).pipe(Effect.provide(withRunRecord(inMemoryState())), Effect.runPromise);
+    } finally {
+      process.chdir(before);
+      vi.unstubAllEnvs();
+    }
+  };
+  const stage = { stack: "samebase/tmp-run-record/apps/site", stage: "main" };
+
+  it("adds the record of the run to each output, and passes every other call to the state", async () => {
+    const state = await open(join(checkout, "apps", "site"));
+    expect(state.id).toBe("inmemory");
+    const stored = await Effect.runPromise(state.setOutput({ ...stage, value: { url: "u" } }));
+    expect(stored).toEqual({
+      url: "u",
+      [RUN_RECORD_KEY]: {
+        version: 1,
+        repository: "samebase/tmp-run-record",
+        stackFile: "apps/site/alchemy.run.ts",
+        branch: "main",
+        pullRequest: null,
+        headCommit: git(checkout, "rev-parse", "HEAD"),
+        runUrl: null,
+        source: "checkout",
+        recordedAt: expect.stringMatching(/^2\d{3}-\d\d-\d\dT.*Z$/),
+      },
+    });
+    expect(await Effect.runPromise(state.getOutput(stage))).toEqual(stored);
+    // An output with no place for the key is stored as it is.
+    expect(await Effect.runPromise(state.setOutput({ ...stage, value: "u" }))).toBe("u");
+  });
+
+  it("writes the outputs without a record when the checkout gives none", async () => {
+    const state = await open(dir);
+    expect(await Effect.runPromise(state.setOutput({ ...stage, value: { url: "u" } }))).toEqual({
+      url: "u",
+    });
   });
 });
