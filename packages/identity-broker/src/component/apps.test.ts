@@ -46,16 +46,16 @@ describe("remove", () => {
     for (const clients of [0, 199, 200, 450]) {
       vi.useFakeTimers();
       const t = convexTest(schema, modules);
-      await appWith(t, { appId: "bristol", clients });
+      await appWith(t, { appId: "my-app", clients });
       await appWith(t, { appId: "other", clients: 1 });
 
-      await t.mutation(api.apps.remove, { appId: "bristol" });
-      expect(await t.query(api.apps.get, { appId: "bristol" })).toBeNull();
-      const clientsLeft = (await t.query(api.clients.listByApp, { appId: "bristol" })).length;
+      await t.mutation(api.apps.remove, { appId: "my-app" });
+      expect(await t.query(api.apps.get, { appId: "my-app" })).toBeNull();
+      const clientsLeft = (await t.query(api.clients.listByApp, { appId: "my-app" })).length;
       expect(clientsLeft).toBe(Math.max(clients - 200, 0));
 
       await t.finishAllScheduledFunctions(vi.runAllTimers);
-      expect(await t.query(api.clients.listByApp, { appId: "bristol" })).toEqual([]);
+      expect(await t.query(api.clients.listByApp, { appId: "my-app" })).toEqual([]);
       expect(await t.query(api.apps.get, { appId: "other" })).not.toBeNull();
       expect(await t.query(api.clients.listByApp, { appId: "other" })).toHaveLength(1);
       vi.useRealTimers();
@@ -65,7 +65,7 @@ describe("remove", () => {
   test("an unknown app deletes nothing", async () => {
     const t = convexTest(schema, modules);
     await appWith(t, { appId: "other", clients: 1 });
-    await t.mutation(api.apps.remove, { appId: "bristol" });
+    await t.mutation(api.apps.remove, { appId: "my-app" });
     expect(await t.query(api.apps.list, {})).toHaveLength(1);
     expect(await t.query(api.clients.listByApp, { appId: "other" })).toHaveLength(1);
   });

@@ -125,9 +125,6 @@ File: TODO.md
         LLM-readable, human-readable, and schema-validated into TypeScript objects
 - - [ ] treat chat as a terminal UX: user sends commands, system executes/actions, then returns
         clear output (like a shell loop)
-- - [ ] pot discuta cu Predeus ca Robolex sa fie dezvoltat pe noter.md; asta e o metoda buna si
-        pentru juniori, pentru ca au acces la aceleasi posibilitati ca seniorii; faptul ca noter.md
-        e facut in noter inseamna ca produsul e bun
 - - [x] removing noter from builder.io todo is done
 
 ## d32c2b9b26128a2b61989a844c175db22be6dafe 2026-02-13 README.md[5,7]

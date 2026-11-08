@@ -2,7 +2,7 @@
 
 ## Status
 
-- Evidence: [Bristol TSX](cases/bristol-tsx.md) and [Teardown Noita 3D](cases/teardown-noita-3d.md)
+- Evidence: [Next.js app](cases/nextjs-app.md) and [browser game](cases/browser-game.md)
 - Validation: promoted rules have two-project evidence; one adoption is complete and one is partial
 - Use: validated rules plus clearly marked one-case candidates for the next project
 
@@ -50,7 +50,7 @@ Direct pnpm commands are normal. Vite+ owns the tool behavior, but it does not n
 package-script call.
 
 For an existing project, keep another package manager only when its lock file and operator or
-provider contract make that a deliberate constraint. Bristol kept npm for this reason. Its
+provider contract make that a deliberate constraint. The Next.js app kept npm for this reason. Its
 clean-root commands use npm to start a small Node TypeScript bootstrap because Vite+ cannot load an
 installed configuration before dependencies exist.
 
@@ -123,7 +123,7 @@ Keep framework runtime, repository workflow, and provider integration as separat
 
 Two-case evidence supports reviewed-commit binding and the separation of build, upload, deployment,
 and route evidence. The exact four-command preflight and Samebase control-surface rules below come
-from Teardown Noita 3D. Treat them as one-case candidates until another project uses them.
+from the browser game. Treat them as one-case candidates until another project uses them.
 
 Before provider configuration, run the exact install, build, production deploy dry-run, and preview
 deploy dry-run commands from the commit that the provider will build. Do not configure a provider

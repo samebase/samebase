@@ -1,20 +1,19 @@
-# Bristol TSX Project Adoption Case
+# Next.js App Project Adoption Case
 
 ## Status
 
-- Application: [nicu-chiciuc/bristol_tsx](https://github.com/nicu-chiciuc/bristol_tsx)
-- Production migration:
-  [Bristol pull request 15](https://github.com/nicu-chiciuc/bristol_tsx/pull/15)
-- Cutover record: [Bristol pull request 17](https://github.com/nicu-chiciuc/bristol_tsx/pull/17)
+- Application: a private app, first on Next.js and Netlify, with Convex authentication
+- Production migration: the app's pull request 15
+- Cutover record: the app's pull request 17
 - State: production cutover and 30-minute observation complete
 - Migration commit: `6fd4997e49f72c96286ea12a7e9426d436942356`
 - Cutover record commit: `e76272784aeb0b9d0679ab2901017761a957d6de`
 - Initial hosting case:
-  [Netlify to Cloudflare Workers](../../2026-07-29-bristol-tsx-netlify-to-cloudflare-workers.md)
+  [Netlify to Cloudflare Workers](../../2026-07-29-private-app-netlify-to-cloudflare-workers.md)
 
 ## Result
 
-Bristol moved its production application from Next.js and OpenNext to TanStack Start on Cloudflare
+The app moved its production application from Next.js and OpenNext to TanStack Start on Cloudflare
 Workers. The result preserves private server rendering, Convex authentication, routes, browser
 behavior, and the Netlify rollback target.
 
@@ -22,7 +21,7 @@ The merged migration commit passed the clean provider build, application and con
 authenticated Worker acceptance, two linked-worktree cycles, and the public preview route contract.
 Preview inspection reported a complete source-to-Worker-to-Convex join.
 
-Bristol leaves `AUTH_LOG_LEVEL` unset in every deployment. Password authentication rejects an
+The app leaves `AUTH_LOG_LEVEL` unset in every deployment. Password authentication rejects an
 explicit `DEBUG` value.
 
 After the cutover, the production route contract passed through the 30-minute observation window.
@@ -52,7 +51,7 @@ toolchain preflight before the first commit and one independent repeat after int
 
 ## Corrections
 
-Bristol now uses:
+The app now uses:
 
 - Node 24, ESM, and normal TypeScript for handwritten application and Node source
 - separate strict type checks for browser and Node surfaces
@@ -66,24 +65,24 @@ checks, and review now own the source rule.
 
 One clean-worktree test found an important boundary in Vite+ `0.1.24`. `vp run` loads
 `vite.config.ts` before it selects a task, so it cannot be the first process when the configuration
-dependencies are not installed. Bristol keeps npm at that clean-root boundary, starts a Node
+dependencies are not installed. The app keeps npm at that clean-root boundary, starts a Node
 TypeScript bootstrap, and uses Vite+ after installation.
 
 ## Knowledge Requests That Mattered
 
 | Question                                                     | Source                        | Result                                                                     |
 | ------------------------------------------------------------ | ----------------------------- | -------------------------------------------------------------------------- |
-| Must an anonymous worktree use an isolated backend?          | Samebase                      | Bristol uses an owned local backend and synthetic identity.                |
+| Must an anonymous worktree use an isolated backend?          | Samebase                      | The app uses an owned local backend and synthetic identity.                |
 | Is there an official TanStack Start path for Cloudflare SSR? | Current primary documentation | The team used a bounded runtime spike before migration.                    |
-| Can Vite+ start the first clean-root process?                | Bristol empty-worktree test   | The package manager starts the bootstrap, then Vite+ owns installed tools. |
+| Can Vite+ start the first clean-root process?                | The app's empty-worktree test | The package manager starts the bootstrap, then Vite+ owns installed tools. |
 
 ## Bidirectional Results
 
 | Destination  | Result                                                                                                                                                                                           |
 | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Bristol      | Data functions require authentication, sign-out clears private caches, and the TanStack Worker path has synthetic SSR and browser tests.                                                         |
-| Bristol      | Public scripts describe operator actions. Unused aliases and spike scripts were removed after the runtime decision.                                                                              |
-| Bristol      | One promotion pull request contained the reviewed stack, so the default branch received one production cutover.                                                                                  |
+| The app      | Data functions require authentication, sign-out clears private caches, and the TanStack Worker path has synthetic SSR and browser tests.                                                         |
+| The app      | Public scripts describe operator actions. Unused aliases and spike scripts were removed after the runtime decision.                                                                              |
+| The app      | One promotion pull request contained the reviewed stack, so the default branch received one production cutover.                                                                                  |
 | Samebase app | [samebase/base pull request 23](https://github.com/samebase/base/pull/23) added Node automation type checks to normal checks and the real Cloudflare build.                                      |
 | Samebase     | [Samebase pull request 1317](https://github.com/samebase/samebase/pull/1317) made TypeScript source and the Vite+ and Oxlint toolchain explicit, and moved Remotion checks to the root contract. |
 | Shared       | The manager preflight now covers package manager, source model, scripts, tool ownership, framework, providers, validation, and version pins.                                                     |
@@ -93,7 +92,7 @@ TypeScript bootstrap, and uses Vite+ after installation.
 This case does not keep:
 
 - provider build journals and temporary resource identifiers
-- historical checkpoint commands that the final Bristol branch replaced
+- historical checkpoint commands that the app's final branch replaced
 - a general preview-cleanup design
 - a source-extension or tool-name guard
 - stack rules that now live in merged Samebase guidance
@@ -103,7 +102,7 @@ resources. It is not a general adoption requirement. A project needs cleanup onl
 its own workflow creates.
 
 The initial hosting record owns the reusable Cloudflare cutover sequence. The merged production pull
-request and cutover record own Bristol's current commands and exact provider evidence.
+request and cutover record own the app's current commands and exact provider evidence.
 
 ## Next Experiment
 

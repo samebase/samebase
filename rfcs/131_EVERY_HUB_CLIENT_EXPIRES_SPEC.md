@@ -12,7 +12,7 @@
 
 The identity hub keeps one client for each deployment that can sign people in. Clients of
 third-party apps expire: a preview client is deleted 14 days after its last deploy or sign-in. The
-clients of the team's own apps (samebase.com, Bristol, ailegis, trailscout) never expire, so dead
+clients of the team's own apps (samebase.com, trailscout, two private apps) never expire, so dead
 worktree and preview clients pile up. On 2026-11-04, 21 of 53 clients were dead and removed by hand.
 
 After this RFC every preview and development client expires 14 days after its last deploy, dev
@@ -32,9 +32,9 @@ one by hand from the admin page.
 - A successful sign-in already moves `removeAt` 14 days forward when the client has one
   (`component/authRequests.ts`). The daily cleanup deletes clients past `removeAt`
   (`component/lifecycle.ts`).
-- Consumers today: samebase.com and the hub on @samebase/alchemy-convex 0.23.0, ailegis on 0.20.0,
-  Bristol and trailscout on 0.17.0. A consumer that only trusts its saved state would keep a deleted
-  client forever.
+- Consumers today: samebase.com and the hub on @samebase/alchemy-convex 0.23.0, one private app on
+  0.20.0, trailscout and the other private app on 0.17.0. A consumer that only trusts its saved
+  state would keep a deleted client forever.
 
 ## Target
 
@@ -67,7 +67,7 @@ one by hand from the admin page.
 1. One PR: the broker changes, `Convex.HubClient` and `registerDevelopmentClient`, the worktree
    start, a new @samebase/alchemy-convex release, and the admin page columns. The hub deploys
    `renewClient` with the merge.
-2. Upgrade samebase.com, ailegis, Bristol, and trailscout to the new package. Each deploy then
+2. Upgrade samebase.com, trailscout, and the two private apps to the new package. Each deploy then
    starts the expiry of its preview clients, and each worktree start that of its development
    clients.
 

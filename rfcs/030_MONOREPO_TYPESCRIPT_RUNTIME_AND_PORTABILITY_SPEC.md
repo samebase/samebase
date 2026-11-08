@@ -68,9 +68,8 @@ assumptions in core modules.
 
 Reviewed repositories:
 
-1. `https://github.com/nicu-chiciuc/ailegis` (private)
-2. `https://github.com/robolex-app/robo-turbo` (private)
-3. `https://github.com/robolex-app/public_ts` (public)
+1. Two private repositories
+2. `https://github.com/robolex-app/public_ts` (public)
 
 Patterns worth reusing:
 

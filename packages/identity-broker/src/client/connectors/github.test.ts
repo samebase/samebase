@@ -120,7 +120,7 @@ test("a /user response without an id is an error", async () => {
 async function signInWithIss(iss: string | undefined) {
   const h = await createHarness({ connectors: [connector] });
   const redirectUri = "https://app.test/oauth/hub/callback";
-  const { clientId } = await h.registerClient({ appName: "Bristol", redirectUri });
+  const { clientId } = await h.registerClient({ appName: "My app", redirectUri });
   const { challenge } = await pkce();
   const authorize = new URL(`${h.issuer}/authorize`);
   authorize.search = new URLSearchParams({

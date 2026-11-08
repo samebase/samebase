@@ -83,8 +83,8 @@ How a client is registered today, from `origin/main`:
 
 Why the Convex proof is in the way: it ties the public client to Convex deployments and to the fixed
 path of Convex Auth 2. An app on Convex Auth 0 (`/api/auth/callback/hub`), on a Cloudflare Worker,
-on a custom domain, or on any other host cannot get a client. The ailegis thread of 2026-11-03 hit
-the path limit first.
+on a custom domain, or on any other host cannot get a client. A private app hit the path limit
+first, on 2026-11-03.
 
 ## Target
 

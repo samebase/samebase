@@ -7,7 +7,7 @@
 - Created: 2026-05-19
 - Pruned: 2026-05-20
 - Prompt: design the Noter flow for connecting an existing app repo to existing or new provider
-  resources, using `github.com/nicu-chiciuc/weight_tsx` as the motivating example.
+  resources, using a private app as the motivating example.
 - Related:
   - `specs/003_REPOSITORY_INFRA_PROVISIONING_SPEC.md`
   - `archive/090_CREATE_APP_WORKFLOW_PROVISIONING_SPEC.md`
@@ -90,11 +90,11 @@ For an existing repository vault:
 6. Dashboard shows the attached resources and production URL when known.
 7. DNS stays untouched until a later verified cutover action.
 
-For `weight_tsx`, the recommended first path is:
+For that app, the recommended first path is:
 
-1. connect `nicu-chiciuc/weight_tsx`
+1. connect its repository
 2. connect an existing Convex production deployment by explicit selection
-3. create a Cloudflare Worker named `weight-tsx`
+3. create a Cloudflare Worker named after the repository
 4. configure Workers Builds and Convex deploy-key secrets
 5. display GitHub, Convex, Cloudflare, and production URL links
 6. leave Netlify/old hosting and DNS serving production until Worker verification passes

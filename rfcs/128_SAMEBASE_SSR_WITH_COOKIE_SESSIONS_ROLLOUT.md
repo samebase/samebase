@@ -11,8 +11,8 @@
   fallback and is not planned.
 - Amended on 2026-10-20 (PR 3): Decision 2 changed. The public pages without data stay prerendered
   files; the server renders the app pages and the dynamic public pages.
-- Evidence: the apps already on convex-hosting with SSR (Bristol on adapter 0.9.4 with Convex Auth
-  2.0.0-alpha.2, ChessMerge and Scout signed-out on 0.0.9x, the `tanstack-ssr` example and the
+- Evidence: the apps already on convex-hosting with SSR (a private app on adapter 0.9.4 with Convex
+  Auth 2.0.0-alpha.2, ChessMerge and Scout signed-out on 0.0.9x, the `tanstack-ssr` example and the
   `samebase/base-hosting` starter on adapter 0.10.x with 2.0.0-beta.0), the Convex Auth v2 docs at
   https://auth-v2.previews.convex.dev, and an inventory of `apps/samebase` at `origin/main`
 - Related: `rfcs/127_SAMEBASE_ON_CONVEX_HOSTING_ROLLOUT.md` (done), `specs/102_...` (archived by
