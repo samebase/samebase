@@ -8,12 +8,16 @@ import type { Id } from "../../../convex/_generated/dataModel";
 import { useRepositoryProviderObservations } from "./useRepositoryProviderObservations";
 
 const alchemy = vi.hoisted(() => ({
-  requested: vi.fn<(repositoryId: Id<"repositories"> | null) => void>(),
+  requested: vi.fn<(repositoryId: Id<"repositories"> | null, repository?: string) => void>(),
 }));
 
 vi.mock("./useRepositoryAlchemyState", () => ({
-  useRepositoryAlchemyState: (repositoryId: Id<"repositories"> | null) => {
-    alchemy.requested(repositoryId);
+  useRepositoryAlchemyState: (
+    repositoryId: Id<"repositories"> | null,
+    _convexTeamId: string | undefined,
+    repository: string | undefined,
+  ) => {
+    alchemy.requested(repositoryId, repository);
     return {
       state: "loaded",
       observation: { store: repositoryId ? "missing" : "no_connection" },
@@ -42,6 +46,7 @@ describe("useRepositoryProviderObservations", () => {
     function Probe() {
       latest = useRepositoryProviderObservations({
         repositoryId: fakeRepositoryId("repository-without-team"),
+        githubRepositoryFullName: "samebase/without-team",
         sourceSetup: { status: "not_applicable" },
         hasConnectedGitHubRepository: true,
       });
@@ -52,7 +57,7 @@ describe("useRepositoryProviderObservations", () => {
       await act(async () => {
         root.render(<Probe />);
       });
-      expect(alchemy.requested).toHaveBeenLastCalledWith(null);
+      expect(alchemy.requested).toHaveBeenLastCalledWith(null, undefined);
       expect(latest).toMatchObject({ state: "loaded", observation: { store: "no_connection" } });
     } finally {
       await act(async () => {
@@ -79,6 +84,7 @@ describe("useRepositoryProviderObservations", () => {
       latest = useRepositoryProviderObservations({
         repositoryId,
         convexTeamId: "38516",
+        githubRepositoryFullName: "samebase/being-created",
         sourceSetup,
         hasConnectedGitHubRepository,
       });
@@ -93,17 +99,17 @@ describe("useRepositoryProviderObservations", () => {
 
     try {
       await render({ hasConnectedGitHubRepository: false, sourceSetup: { status: "running" } });
-      expect(alchemy.requested).toHaveBeenLastCalledWith(null);
+      expect(alchemy.requested).toHaveBeenLastCalledWith(null, "samebase/being-created");
       // Waiting is not a read that found no store.
       expect(latest).toEqual({ state: "loading" });
 
       await render({ hasConnectedGitHubRepository: true, sourceSetup: { status: "ready" } });
-      expect(alchemy.requested).toHaveBeenLastCalledWith(repositoryId);
+      expect(alchemy.requested).toHaveBeenLastCalledWith(repositoryId, "samebase/being-created");
       expect(latest).toMatchObject({ state: "loaded" });
 
       // A failed creation will not connect by itself, so the read reports its own result.
       await render({ hasConnectedGitHubRepository: false, sourceSetup: { status: "failed" } });
-      expect(alchemy.requested).toHaveBeenLastCalledWith(repositoryId);
+      expect(alchemy.requested).toHaveBeenLastCalledWith(repositoryId, "samebase/being-created");
     } finally {
       await act(async () => {
         root.unmount();

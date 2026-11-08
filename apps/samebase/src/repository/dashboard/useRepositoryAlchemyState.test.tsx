@@ -1,7 +1,6 @@
 // @vitest-environment jsdom
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { parse } from "convex-helpers/validators";
 import type { ConvexClient } from "convex/browser";
 import { getFunctionName } from "convex/server";
 import { ConvexError } from "convex/values";
@@ -11,10 +10,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 import type { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { observedSamebaseRepositoryReply } from "../../../convex/repository/fixtures/observedSamebaseAlchemyState";
-import {
-  ALCHEMY_CONNECTION_UNAVAILABLE,
-  vAlchemyStacksRead,
-} from "../../../shared/alchemyStateModel";
+import { readDeployedStacks } from "../../../shared/alchemyState";
+import { ALCHEMY_CONNECTION_UNAVAILABLE } from "../../../shared/alchemyStateModel";
 import type { loadRepositoryOverview } from "@/routes/repository-dashboard.queries";
 import {
   useRepositoryAlchemyState,
@@ -53,8 +50,8 @@ function withProdRows(
   };
 }
 /**
-The captured `reader:repository` reply of samebase/samebase, `pr-1768` and `prod`, with the
-`rootDir` "." on the `prod` Site row that 0.8.0 writes for the stack file of `prod` in
+The captured `reader:repository` reply of samebase/samebase, `pr-1756`, `pr-1768`, and `prod`, with
+the `rootDir` "." on the `prod` Site row that 0.8.0 writes for the stack file of `prod` in
 apps/samebase, so `prod` has a Convex deployment whose metadata the hook reads.
 */
 const liveRead = withProdRows(observedSamebaseRepositoryReply, (row) =>
@@ -62,6 +59,8 @@ const liveRead = withProdRows(observedSamebaseRepositoryReply, (row) =>
     ? row.value.replace('"type":"prod"', '"type":"prod","rootDir":"."')
     : row.value,
 );
+/** The stacks of `liveRead` that the page shows: the deploy of `pr-1756` wrote no output. */
+const liveStacks = readDeployedStacks(liveRead.stacks, "samebase/samebase");
 type ClientState = {
   value: ((value: unknown) => void) | undefined;
   error: ((error: Error) => void) | undefined;
@@ -131,7 +130,7 @@ let repositoryId: Id<"repositories">;
 let teamId: string;
 
 function Probe() {
-  latest = useRepositoryAlchemyState(repositoryId, teamId);
+  latest = useRepositoryAlchemyState(repositoryId, teamId, "samebase/samebase");
   return null;
 }
 async function render() {
@@ -188,10 +187,12 @@ describe("useRepositoryAlchemyState", () => {
     const callsAfterConnect = mocks.connect.mock.calls.length;
     await act(async () => first.value?.({ store: "found", stacks: [] }));
     expect(latest).toMatchObject({ state: "loaded", observation: { store: "found", stacks: [] } });
-    await act(async () =>
-      first.value?.({ store: "found", stacks: [{ name: "owner/repo", stages: [] }] }),
-    );
-    expect(latest).toMatchObject({ observation: { stacks: [{ name: "owner/repo" }] } });
+    await act(async () => first.value?.(liveRead));
+    expect(latest).toMatchObject({
+      observation: {
+        stacks: [{ name: "samebase/samebase", stages: [{ name: "pr-1768" }, { name: "prod" }] }],
+      },
+    });
     expect(mocks.connect).toHaveBeenCalledTimes(callsAfterConnect);
 
     teamId = "team-b";
@@ -361,13 +362,13 @@ describe("useRepositoryAlchemyState", () => {
         store: "live",
         deploymentUrl: "https://test-store.convex.cloud",
         token: "loader-token",
-        snapshot: parse(vAlchemyStacksRead, liveRead),
+        snapshot: { store: "found", stacks: liveStacks },
       },
     };
     // The server render and the hydration know no session yet.
     mocks.authenticated = false;
     await render();
-    expect(latest).toMatchObject({ state: "loaded", observation: { stacks: liveRead.stacks } });
+    expect(latest).toMatchObject({ state: "loaded", observation: { stacks: liveStacks } });
     expect(mocks.clients).toHaveLength(0);
 
     mocks.authenticated = true;
@@ -375,7 +376,7 @@ describe("useRepositoryAlchemyState", () => {
     const current = client();
     expect(await current.fetchToken?.({ forceRefreshToken: false })).toBe("loader-token");
     expect(mocks.connect).not.toHaveBeenCalled();
-    expect(latest).toMatchObject({ state: "loaded", observation: { stacks: liveRead.stacks } });
+    expect(latest).toMatchObject({ state: "loaded", observation: { stacks: liveStacks } });
     await act(async () => current.value?.({ store: "found", stacks: [] }));
     expect(latest).toMatchObject({ state: "loaded", observation: { store: "found", stacks: [] } });
 
@@ -415,7 +416,7 @@ describe("useRepositoryAlchemyState", () => {
     expect(mocks.connect).toHaveBeenCalled();
     expect(latest.state).toBe("failed");
     await act(async () => client().value?.(liveRead));
-    expect(latest).toMatchObject({ state: "loaded", observation: { stacks: liveRead.stacks } });
+    expect(latest).toMatchObject({ state: "loaded", observation: { stacks: liveStacks } });
   });
 
   it("opens no client without a Convex connection", async () => {

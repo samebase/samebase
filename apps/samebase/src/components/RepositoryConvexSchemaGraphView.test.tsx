@@ -3,9 +3,8 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
-import { parse } from "convex-helpers/validators";
 import { observedSamebaseRepositoryReply } from "../../convex/repository/fixtures/observedSamebaseAlchemyState";
-import { vAlchemyStacksRead } from "../../shared/alchemyStateModel";
+import { readDeployedStacks } from "../../shared/alchemyState";
 import type { RepositoryAlchemyState } from "@/repository/dashboard/useRepositoryAlchemyState";
 import { RepositoryConvexSchemaGraphView } from "./RepositoryConvexSchemaGraphView";
 
@@ -43,12 +42,11 @@ vi.mock("@/repository/dashboard/useRepositoryProviderObservations", () => ({
 }));
 
 /**
-The captured stacks of samebase/samebase, with the `rootDir` on the `prod` Site row that 0.8.0
-writes, so `prod` deploys the Convex project 839311.
+The captured stacks of samebase/samebase as Samebase reads them, with the `rootDir` on the `prod`
+Site row that 0.8.0 writes, so `prod` deploys the Convex project 839311.
 */
-const read = parse(vAlchemyStacksRead, {
-  ...observedSamebaseRepositoryReply,
-  stacks: observedSamebaseRepositoryReply.stacks.map((stack) => ({
+const stacks = readDeployedStacks(
+  observedSamebaseRepositoryReply.stacks.map((stack) => ({
     ...stack,
     stages: stack.stages.map((stage) =>
       stage.name === "prod"
@@ -66,11 +64,11 @@ const read = parse(vAlchemyStacksRead, {
         : stage,
     ),
   })),
-});
-if (read.store !== "found") throw new Error("The fixture holds no stacks.");
+  "samebase/samebase",
+);
 const foundStacks: RepositoryAlchemyState = {
   state: "loaded",
-  observation: { ...read, liveDeployments: [] },
+  observation: { store: "found", stacks, liveDeployments: [] },
   refreshFailed: false,
   reload: () => {},
 };

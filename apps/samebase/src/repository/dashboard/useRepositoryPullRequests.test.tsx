@@ -223,7 +223,7 @@ describe("useRepositoryPullRequests", () => {
               name: "pr-24",
               resources: stage.resources,
               output: JSON.stringify({ url: "https://first-preview.example.com" }),
-              record: {
+              run: {
                 version: 1 as const,
                 repository: "samebase/base-alchemy",
                 stackFile: "alchemy.run.ts",
@@ -234,7 +234,6 @@ describe("useRepositoryPullRequests", () => {
                 source: "checkout" as const,
                 recordedAt: "2026-10-21T19:58:06.882Z",
               },
-              deployedHeadCommit: headRefOid,
             },
           ],
         },
@@ -267,7 +266,7 @@ describe("useRepositoryPullRequests", () => {
         },
       ]);
     });
-    observation.stacks[0].stages[0].deployedHeadCommit = "b".repeat(40);
+    observation.stacks[0].stages[0].run.headCommit = "b".repeat(40);
     currentAlchemyState = { ...currentAlchemyState, observation: { ...observation } };
     await renderHarness();
     expect([...settledState().resourcesByPullRequestId.values()]).toMatchObject([

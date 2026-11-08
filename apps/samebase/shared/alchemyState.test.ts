@@ -1,12 +1,20 @@
-import { parse } from "convex-helpers/validators";
+import { isRecord } from "@samebase/dependent/main";
 import { describe, expect, it } from "vite-plus/test";
-import { observedAlchemyStackReply } from "../convex/repository/fixtures/observedAlchemyState";
+import {
+  observedAlchemyStackReply,
+  observedBaseAlchemyRepositoryReply,
+} from "../convex/repository/fixtures/observedAlchemyState";
 import {
   observedSamebaseRepositoryReply,
   observedSamebaseStackReply,
 } from "../convex/repository/fixtures/observedSamebaseAlchemyState";
-import { groupResourcesByComponent, stackCards, stageResources } from "./alchemyState";
-import { vAlchemyStacksRead, type AlchemyStack } from "./alchemyStateModel";
+import {
+  groupResourcesByComponent,
+  readDeployedStacks,
+  stackCards,
+  stageResources,
+} from "./alchemyState";
+import type { AlchemyStack } from "./alchemyStateModel";
 
 const [, , prod] = observedAlchemyStackReply.value.stages;
 const [deploymentRow, projectRow] = prod.resources;
@@ -68,13 +76,83 @@ describe("groupResourcesByComponent", () => {
   });
 });
 
-/** The captured stages of samebase/samebase as `reader:repository` returns them. */
+describe("readDeployedStacks", () => {
+  /*
+  State axes of a stage that the store gives: its output absent, not a JSON object, or an object; the
+  run record of an object output absent, invalid, of another repository, or of the repository.
+  */
+  it("keeps the stages whose output has a run record of the repository, without that record", () => {
+    expect(
+      readDeployedStacks(observedSamebaseRepositoryReply.stacks, "samebase/samebase").map(
+        (stack) => ({
+          name: stack.name,
+          stages: stack.stages.map(({ name, run, output }) => ({
+            name,
+            headCommit: run.headCommit,
+            output,
+          })),
+        }),
+      ),
+    ).toEqual([
+      {
+        name: "samebase/samebase",
+        // The deploy of pr-1756 did not complete, so it wrote no output.
+        stages: [
+          {
+            name: "pr-1768",
+            headCommit: "429c1218a16d2ee74b9da68d684dc460a0a67ce8",
+            output: '{"url":"https://aware-bobcat-542.convex.site"}',
+          },
+          {
+            name: "prod",
+            headCommit: "1592243a49970f5c5142009b7ca7b2d71d31f104",
+            output: '{"url":"https://clear-butterfly-858.convex.site"}',
+          },
+        ],
+      },
+    ]);
+  });
+
+  it("leaves out a stack without a stage whose output has a run record of the repository", () => {
+    const [stack] = observedBaseAlchemyRepositoryReply.stacks;
+    const [pr24, pr25, baseProd] = stack.stages;
+    const output: unknown = JSON.parse(baseProd.output);
+    if (!isRecord(output) || !isRecord(output["samebase.run"])) {
+      throw new Error("Expected the captured run record.");
+    }
+    const run = output["samebase.run"];
+    // pr-24 and pr-25 predate the run record, so the captured `prod` is the one stage of the stack.
+    const stacksWithProdOutput = (prodOutput: string | null) => [
+      { name: stack.name, stages: [pr24, pr25, { ...baseProd, output: prodOutput }] },
+    ];
+
+    expect(
+      readDeployedStacks(observedBaseAlchemyRepositoryReply.stacks, "samebase/base-alchemy").map(
+        (deployed) => deployed.stages.map(({ name }) => name),
+      ),
+    ).toEqual([["prod"]]);
+    expect(
+      readDeployedStacks(observedBaseAlchemyRepositoryReply.stacks, "samebase/base-alchemy-two"),
+    ).toEqual([]);
+    for (const prodOutput of [
+      null,
+      JSON.stringify([output]),
+      JSON.stringify({ ...output, "samebase.run": undefined }),
+      JSON.stringify({ ...output, "samebase.run": { ...run, version: 2 } }),
+      JSON.stringify({ ...output, "samebase.run": { ...run, runUrl: undefined } }),
+    ]) {
+      expect(readDeployedStacks(stacksWithProdOutput(prodOutput), "samebase/base-alchemy")).toEqual(
+        [],
+      );
+    }
+  });
+});
+
+/** The captured stages of samebase/samebase as Samebase reads them from `reader:repository`. */
 function readerStage(name: string) {
-  const read = parse(vAlchemyStacksRead, observedSamebaseRepositoryReply);
-  const stage =
-    read.store === "found"
-      ? read.stacks.flatMap((stack) => stack.stages).find((candidate) => candidate.name === name)
-      : undefined;
+  const stage = readDeployedStacks(observedSamebaseRepositoryReply.stacks, "samebase/samebase")
+    .flatMap((stack) => stack.stages)
+    .find((candidate) => candidate.name === name);
   if (!stage) {
     throw new Error(`Expected the captured stage ${name}.`);
   }
@@ -90,7 +168,7 @@ function prodStack(
   const stage = readerStage("prod");
   return {
     name,
-    stages: [{ ...stage, record: { ...stage.record, stackFile }, resources: [...resources] }],
+    stages: [{ ...stage, run: { ...stage.run, stackFile }, resources: [...resources] }],
   };
 }
 
@@ -282,20 +360,19 @@ describe("stackCards", () => {
   });
 
   it("shows the run line only when the deployed commit differs from the head above the cards", () => {
-    // The captured stage `prod` of samebase/samebase, which deployed 1592243.
+    // The captured stage `prod` of samebase/samebase, whose run record names its deploy of 1592243.
     const deployed = "1592243a49970f5c5142009b7ca7b2d71d31f104";
-    const runsOf = (headCommit: string | null, deployedHeadCommit: string | null) =>
+    const runsOf = (headCommit: string | null) =>
       stackCards({
         stage: "prod",
         headCommit,
         liveDeployments: [],
-        stacks: [
-          { name: "samebase/samebase", stages: [{ ...readerStage("prod"), deployedHeadCommit }] },
-        ],
+        stacks: [{ name: "samebase/samebase", stages: [readerStage("prod")] }],
       }).map((card) => card.run);
 
-    expect(runsOf(deployed, deployed)).toEqual([null]);
-    expect(runsOf("81145b7d2a32186823452c7515b2d5ba2d79b350", deployed)).toEqual([
+    expect(runsOf(deployed)).toEqual([null]);
+    // The commit, the time, and the run all come from the one run record of the deploy.
+    expect(runsOf("81145b7d2a32186823452c7515b2d5ba2d79b350")).toEqual([
       {
         deployedHeadCommit: deployed,
         recordedAt: "2026-10-22T08:22:58.152Z",
@@ -303,9 +380,7 @@ describe("stackCards", () => {
       },
     ]);
     // The GitHub read has not given the head yet.
-    expect(runsOf(null, deployed)).toEqual([null]);
-    // The first deploy of the stage has not completed.
-    expect(runsOf(deployed, null)).toEqual([null]);
+    expect(runsOf(null)).toEqual([null]);
   });
 
   it("serves a stack at the site custom domain of its first Convex deployment, else at its site URL", () => {

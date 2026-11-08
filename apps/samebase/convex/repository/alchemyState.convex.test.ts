@@ -53,13 +53,56 @@ function jsonResponse(body: unknown): Response {
 /** The captured reply with the stage `prod` changed by `change`. */
 function withProdStage(change: (stage: typeof prod) => void): typeof observedAlchemyStackReply {
   const reply = structuredClone(observedAlchemyStackReply);
-  const stage = reply.value.stages.find((candidate) => candidate.stage === "prod");
+  const stage = reply.value.stages.find((candidate) => candidate.name === "prod");
   if (!stage) {
     throw new Error("Expected the captured prod stage.");
   }
   change(stage);
   return reply;
 }
+
+/** The captured reply with the run record in the output of `prod` changed by `change`. */
+function withProdRun(change: (run: Record<string, unknown>) => void) {
+  return withProdStage((stage) => {
+    const output: unknown = JSON.parse(stage.output);
+    if (!isRecord(output) || !isRecord(output["samebase.run"])) {
+      throw new Error("Expected the captured run record.");
+    }
+    change(output["samebase.run"]);
+    stage.output = JSON.stringify(output);
+  });
+}
+
+/**
+What Samebase reads from the captured store for samebase/base-alchemy: the outputs of `pr-24` and
+`pr-25` have no run record, so only `prod` is a stage of the repository.
+*/
+const deployedBaseAlchemy = {
+  store: "found",
+  stacks: [
+    {
+      name: "samebase/base-alchemy",
+      stages: [
+        {
+          name: "prod",
+          run: {
+            version: 1,
+            repository: "samebase/base-alchemy",
+            stackFile: "alchemy.run.ts",
+            branch: "main",
+            pullRequest: null,
+            headCommit: "a4d98f2ad150dee07e19fa9c348e70240aca1dac",
+            runUrl: "https://github.com/samebase/base-alchemy/actions/runs/39666079880/attempts/1",
+            source: "github-actions",
+            recordedAt: "2026-10-21T19:58:06.882Z",
+          },
+          resources: prod.resources,
+          output: '{"url":"https://ideal-dolphin-15.convex.site"}',
+        },
+      ],
+    },
+  ],
+};
 
 async function seedAlchemyRepository(t: ReturnType<typeof makeConvexTest>) {
   const ids = await t.run(async (ctx) => {
@@ -341,7 +384,7 @@ describe("repository Alchemy state", () => {
       store: "live",
       deploymentUrl: "https://brave-heron-201.convex.cloud",
       token: "reader-token",
-      snapshot: observedBaseAlchemyRepositoryReply,
+      snapshot: deployedBaseAlchemy,
     });
     // The deploy key is revoked before the read, which only the reader token makes.
     expect(requests.slice(-2)).toEqual([
@@ -395,39 +438,6 @@ describe("repository Alchemy state", () => {
       }),
     ).resolves.toEqual({ store: "missing" });
     expect(requests.some((request) => request.url.endsWith("/api/query"))).toBe(false);
-  });
-
-  it("reads deployment metadata for a first deploy before the stage has an output", async () => {
-    const t = makeConvexTest();
-    const { ids, user } = await seedAlchemyRepository(t);
-    const output: unknown = JSON.parse(prod.output);
-    if (!isRecord(output)) throw new Error("Expected the captured stage output.");
-    const current = withProdStage((stage) => {
-      stage.resources[0].value = stage.resources[0].value.replace(
-        '"type":"prod"',
-        '"type":"prod","rootDir":"."',
-      );
-    }).value.stages[2];
-    installAlchemyStateFetchStub({
-      requests: [],
-      storeReply: {
-        status: "success",
-        value: { stages: [{ ...current, output: null, record: output["samebase.run"] }] },
-      },
-      teamProjects: [storeProject],
-    });
-    await expect(
-      user.action(api.repository.alchemyState.readDeploymentMetadata, {
-        repositoryId: ids.repositoryId,
-      }),
-    ).resolves.toEqual([
-      {
-        deploymentName: "ideal-dolphin-15",
-        dashboardUrl: "https://dashboard.convex.dev/t/nicu/base-alchemy/ideal-dolphin-15",
-        region: "aws-us-east-1",
-        customDomains: [],
-      },
-    ]);
   });
 
   it("reads the verified custom domains of a production deployment, oldest first", async () => {
@@ -504,7 +514,8 @@ describe("repository Alchemy state", () => {
 /*
 State axes of the setup status of a repository_actions repository: the team store missing or found;
 the stack that carries the repository's name absent or present; its `prod` stage absent, deployed
-for the first time with no output yet, or with an output; the store read working or failing.
+for the first time with no output yet, or with an output that holds its run record; the store read
+working or failing.
 */
 describe("the stack check before a GitHub repository deletion", () => {
   async function requestDeletion(stackReplies: Record<string, unknown>, teamProjects: unknown[]) {
@@ -566,12 +577,10 @@ describe("the stack check before a GitHub repository deletion", () => {
 });
 
 describe("the setup status of a repository_actions repository", () => {
-  const output: unknown = JSON.parse(prod.output);
-  if (!isRecord(output)) throw new Error("Expected the captured stage output.");
-  /** A first deploy has its run record before it writes its output. */
+  /** A first deploy writes its resources before its output, which holds the run record. */
   const firstDeployRunning = {
     status: "success",
-    value: { stages: [{ ...prod, output: null, record: output["samebase.run"] }] },
+    value: { stages: [{ ...prod, output: null }] },
   };
 
   it.each([
@@ -588,7 +597,7 @@ describe("the setup status of a repository_actions repository", () => {
       },
     },
     {
-      name: "the first deploy has a run record and no output",
+      name: "the first deploy has written no output yet",
       store: {
         storeReply: firstDeployRunning,
         stackReplies: { "samebase/base-alchemy": firstDeployRunning },
@@ -601,7 +610,7 @@ describe("the setup status of a repository_actions repository", () => {
         storeReply: observedAlchemyStackReply,
         stackReplies: {
           "samebase/base-alchemy": withProdStage((stage) => {
-            stage.stage = "pr-26";
+            stage.name = "pr-26";
           }),
         },
         teamProjects: [storeProject],
@@ -622,13 +631,10 @@ describe("the setup status of a repository_actions repository", () => {
 
     await expect(
       user.action(api.repository.alchemyState.readSetupStatus, { repositoryId: ids.repositoryId }),
-    ).resolves.toEqual({
-      state: "no_successful_deployment",
-      runUrl: store.storeReply === firstDeployRunning ? (prod.record?.runUrl ?? null) : null,
-    });
+    ).resolves.toEqual({ state: "no_successful_deployment" });
   });
 
-  it("is done when the prod stage of the repository's stack has an output", async () => {
+  it("is done when the prod output of the repository's stack has its run record", async () => {
     const t = makeConvexTest();
     const { ids, user } = await seedAlchemyRepository(t);
     installAlchemyStateFetchStub({
@@ -665,12 +671,12 @@ describe("the setup status of a repository_actions repository", () => {
     await expect(
       user.action(api.repository.getStatus, { repositoryId: ids.repositoryId }),
     ).resolves.toMatchObject({
-      setupStack: { state: "no_successful_deployment", runUrl: prod.record?.runUrl ?? null },
+      setupStack: { state: "no_successful_deployment" },
       attention: [
         {
           tool: null,
           problem:
-            "No successful deployment recorded yet. Check GitHub Actions. https://github.com/samebase/base-alchemy/actions/runs/39666079880/attempts/1",
+            "No successful deployment recorded yet. Check GitHub Actions. https://github.com/samebase/base-alchemy/actions",
         },
       ],
     });
@@ -858,35 +864,7 @@ describe("readAlchemyStacks", () => {
 
     const observation = await readAlchemyStacks({ repository: "samebase/base-alchemy", target });
 
-    // pr-24 and pr-25 have no run record, so they are not stages of the repository.
-    expect(observation).toEqual({
-      store: "found",
-      stacks: [
-        {
-          name: "samebase/base-alchemy",
-          stages: [
-            {
-              name: "prod",
-              record: {
-                version: 1,
-                repository: "samebase/base-alchemy",
-                stackFile: "alchemy.run.ts",
-                branch: "main",
-                pullRequest: null,
-                headCommit: "a4d98f2ad150dee07e19fa9c348e70240aca1dac",
-                runUrl:
-                  "https://github.com/samebase/base-alchemy/actions/runs/39666079880/attempts/1",
-                source: "github-actions",
-                recordedAt: "2026-10-21T19:58:06.882Z",
-              },
-              deployedHeadCommit: "a4d98f2ad150dee07e19fa9c348e70240aca1dac",
-              resources: prod.resources,
-              output: '{"url":"https://ideal-dolphin-15.convex.site"}',
-            },
-          ],
-        },
-      ],
-    });
+    expect(observation).toEqual(deployedBaseAlchemy);
 
     // The stack of another repository is listed but not read.
     const storeRequests = requests.filter((request) => request.url.endsWith("/api/function"));
@@ -991,13 +969,11 @@ describe("readAlchemyStacks", () => {
   it("reads the stacks in folders of the repository and keeps the stages that its records name", async () => {
     // Mutations of the captured stack: the same stages in a stack of the folder apps/web, whose
     // `prod` was deployed from that folder, and in a stack whose `prod` names another repository.
-    const folderReply = withProdStage((stage) => {
-      if (!stage.record) throw new Error("Expected the captured run record.");
-      stage.record.stackFile = "apps/web/alchemy.run.ts";
+    const folderReply = withProdRun((run) => {
+      run["stackFile"] = "apps/web/alchemy.run.ts";
     });
-    const otherRepositoryReply = withProdStage((stage) => {
-      if (!stage.record) throw new Error("Expected the captured run record.");
-      stage.record.repository = "samebase/other";
+    const otherRepositoryReply = withProdRun((run) => {
+      run["repository"] = "samebase/other";
     });
     const requests: RecordedRequest[] = [];
     installAlchemyStateFetchStub({
@@ -1070,31 +1046,5 @@ describe("readAlchemyStacks", () => {
     expect(stage?.output).toBe(
       '{"url":"https://ideal-dolphin-15.convex.site","deployKey":{"__redacted__":null}}',
     );
-  });
-
-  it("has no deployed commit when the run record in the output has an unknown version", async () => {
-    installAlchemyStateFetchStub({
-      requests: [],
-      storeReply: withProdStage((stage) => {
-        const output: unknown = JSON.parse(stage.output);
-        if (!isRecord(output) || !isRecord(output["samebase.run"])) {
-          throw new Error("Expected the captured run record.");
-        }
-        output["samebase.run"]["version"] = 2;
-        stage.output = JSON.stringify(output);
-      }),
-      teamProjects: [storeProject],
-    });
-
-    // The current run record of the stage still makes it a stage of the repository.
-    const observation = await readAlchemyStacks({ repository: "samebase/base-alchemy", target });
-    if (observation.store !== "found") {
-      throw new Error("Expected the team store.");
-    }
-    expect(
-      observation.stacks.flatMap((stack) =>
-        stack.stages.map((stage) => [stage.name, stage.deployedHeadCommit]),
-      ),
-    ).toEqual([["prod", null]]);
   });
 });

@@ -289,15 +289,16 @@ describe("useRepositoryWorkspaceModel", () => {
             customDomains: [],
           },
         ],
-        // The captured stage as `reader:repository` returns it, with the `rootDir` "." on its
-        // Deployment row that @samebase/alchemy-convex 0.8.0 writes for a stack file at the root.
+        // The captured stage as Samebase reads it from `reader:repository`, with the `rootDir` "."
+        // on its Deployment row that @samebase/alchemy-convex 0.8.0 writes for a stack file at the
+        // root.
         stacks: [
           {
             name: "samebase/base-alchemy",
             stages: [
               {
-                name: prod.stage,
-                record: {
+                name: prod.name,
+                run: {
                   version: 1,
                   repository: "samebase/base-alchemy",
                   stackFile: "alchemy.run.ts",
@@ -309,7 +310,6 @@ describe("useRepositoryWorkspaceModel", () => {
                   source: "github-actions",
                   recordedAt: "2026-10-21T19:58:06.882Z",
                 },
-                deployedHeadCommit: "a4d98f2ad150dee07e19fa9c348e70240aca1dac",
                 resources: prod.resources.map((resource) => ({
                   fqn: resource.fqn,
                   value: resource.value.replace('"type":"prod"', '"type":"prod","rootDir":"."'),

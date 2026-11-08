@@ -71,23 +71,20 @@ describe("RepositorySetupStackStatus", () => {
     await advance(0);
   }
 
-  it.each([null, "https://github.com/samebase/actions-app/actions/runs/42"])(
-    "reports no successful deployment with run URL %s",
-    async (runUrl) => {
-      readStatus.mockResolvedValue({ state: "no_successful_deployment", runUrl });
-      await renderStatus();
+  it("reports no successful deployment with the Actions page of the repository", async () => {
+    readStatus.mockResolvedValue({ state: "no_successful_deployment" });
+    await renderStatus();
 
-      expect(element.textContent).toBe(
-        "No successful deployment recorded yet. Check GitHub Actions.",
-      );
-      expect(element.querySelector("a")?.getAttribute("href")).toBe(
-        runUrl ?? "https://github.com/samebase/actions-app/actions",
-      );
-    },
-  );
+    expect(element.textContent).toBe(
+      "No successful deployment recorded yet. Check GitHub Actions.",
+    );
+    expect(element.querySelector("a")?.getAttribute("href")).toBe(
+      "https://github.com/samebase/actions-app/actions",
+    );
+  });
 
   it("shows nothing once the deployment is done, and stops reading", async () => {
-    readStatus.mockResolvedValueOnce({ state: "no_successful_deployment", runUrl: null });
+    readStatus.mockResolvedValueOnce({ state: "no_successful_deployment" });
     readStatus.mockResolvedValue({ state: "done" });
     await renderStatus();
 
@@ -100,7 +97,7 @@ describe("RepositorySetupStackStatus", () => {
   });
 
   it("keeps the no-successful-deployment line when a later read fails", async () => {
-    readStatus.mockResolvedValueOnce({ state: "no_successful_deployment", runUrl: null });
+    readStatus.mockResolvedValueOnce({ state: "no_successful_deployment" });
     readStatus.mockRejectedValueOnce(new Error("The store is being created."));
     readStatus.mockResolvedValue({ state: "done" });
     await renderStatus();
@@ -117,7 +114,7 @@ describe("RepositorySetupStackStatus", () => {
 
   it("offers a retry when the first read fails, and keeps reading", async () => {
     readStatus.mockRejectedValueOnce(new Error("Convex is unavailable."));
-    readStatus.mockResolvedValue({ state: "no_successful_deployment", runUrl: null });
+    readStatus.mockResolvedValue({ state: "no_successful_deployment" });
     await renderStatus();
 
     expect(element.textContent).toBe("Could not read the setup status.Retry");
