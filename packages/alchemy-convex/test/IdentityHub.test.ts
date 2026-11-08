@@ -1,4 +1,4 @@
-// Convex.SharedHubClient against a fake GitHub and identity hub behind a stubbed fetch. The hub
+// IdentityHub.Client against a fake GitHub and identity hub behind a stubbed fetch. The hub
 // answers `/hub-clients` as packages/identity-broker/src/client/hubClients.ts does, and a client's own record as
 // `registrationEndpoints` of @samebase/identity-broker does.
 import { adopt } from "alchemy/AdoptPolicy";
@@ -12,6 +12,7 @@ import * as Logger from "effect/Logger";
 import * as Redacted from "effect/Redacted";
 import * as Schema from "effect/Schema";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import * as IdentityHub from "../src/IdentityHub.ts";
 import * as Convex from "../src/index.ts";
 import { FakeConvex, hubFixture } from "./fakeConvex.ts";
 
@@ -35,9 +36,9 @@ const PREVIEW_ANSWER = hubFixture("hub-clients-preview.json");
 const DEVELOPMENT_ANSWER = hubFixture("hub-clients-development.json");
 const TERMS = String(PREVIEW_ANSWER["terms"]);
 /** The hub of every test, unless a test names another. */
-const HUB: Convex.Hub = { issuer: ISSUER, terms: TERMS };
+const HUB: IdentityHub.Hub = { issuer: ISSUER, terms: TERMS };
 /** A second hub, for the tests that change the hub. */
-const OTHER_HUB: Convex.Hub = { issuer: "https://auth.other.test", terms: TERMS };
+const OTHER_HUB: IdentityHub.Hub = { issuer: "https://auth.other.test", terms: TERMS };
 /** The numeric GitHub id of the repository, which the hub gives with the token. */
 const REPOSITORY_ID = String(PRODUCTION_ANSWER["repository"]);
 
@@ -47,11 +48,11 @@ const { test } = Test.make({
 
 /** The props of a client that asks with the GitHub OIDC token. */
 type GitHubProps = Extract<
-  Convex.SharedHubClientProps,
+  IdentityHub.ClientProps,
   { readonly deploymentType: "production" | "preview" }
 >;
 type DevelopmentProps = Extract<
-  Convex.SharedHubClientProps,
+  IdentityHub.ClientProps,
   { readonly deploymentType: "development" }
 >;
 
@@ -88,9 +89,9 @@ const requestBody = (overrides: Record<string, unknown> = {}) => ({
   ...overrides,
 });
 
-const client = (input: Convex.SharedHubClientProps) =>
+const client = (input: IdentityHub.ClientProps) =>
   Effect.gen(function* () {
-    const resource = yield* Convex.SharedHubClient("Client", input);
+    const resource = yield* IdentityHub.Client("Client", input);
     return {
       status: resource.status,
       issuer: resource.issuer,
@@ -369,12 +370,35 @@ const capturedLogs = () => {
 
 const warningsIn = (lines: readonly string[]) => lines.filter((line) => line.startsWith("Warn:"));
 
+/** The type of this resource before 0.37.0, which saved rows can still have. */
+const OLD_TYPE = "IdentityHub.SharedClient";
+
+/** The saved row `fqn` of `stage`. */
+const savedRow = (stack: ScratchStack, stage: string, fqn: string) =>
+  Effect.gen(function* () {
+    const state = yield* yield* State;
+    const row = yield* state.get({ stack: stack.name, stage, fqn });
+    if (row === undefined || !("resourceType" in row)) throw new Error(`no row ${fqn} of ${stage}`);
+    return row;
+  }).pipe(Effect.provide(stack.state));
+
+const typeOfRow = (stack: ScratchStack, stage: string, fqn: string) =>
+  Effect.map(savedRow(stack, stage, fqn), (row) => row.resourceType);
+
+/** Gives the saved row `fqn` of `stage` the type `resourceType`, as an older version saved it. */
+const relabel = (stack: ScratchStack, stage: string, fqn: string, resourceType: string) =>
+  Effect.gen(function* () {
+    const row = yield* savedRow(stack, stage, fqn);
+    const state = yield* yield* State;
+    yield* state.set({ stack: stack.name, stage, fqn, value: { ...row, resourceType } });
+  }).pipe(Effect.provide(stack.state));
+
 afterEach(() => {
   vi.unstubAllGlobals();
   vi.unstubAllEnvs();
 });
 
-describe("Convex.SharedHubClient", () => {
+describe("IdentityHub.Client", () => {
   test.provider("the first deploy gets a client with the OIDC token of the run", (stack) =>
     Effect.gen(function* () {
       const fake = new FakeServices().install();
@@ -517,7 +541,7 @@ describe("Convex.SharedHubClient", () => {
       yield* stack.deploy(client(props())).pipe(Effect.provide(layer));
       yield* stack.deploy(client(props())).pipe(Effect.provide(layer));
       expect(lines.filter((line) => line.includes(TERMS))).toEqual([
-        `Info: Convex.SharedHubClient: scout on ${REDIRECT_URI} has a new client of the identity hub. Its use is under ${TERMS}.`,
+        `Info: IdentityHub.Client: scout on ${REDIRECT_URI} has a new client of the identity hub. Its use is under ${TERMS}.`,
       ]);
     }),
   );
@@ -582,12 +606,27 @@ describe("Convex.SharedHubClient", () => {
       const exit = yield* Effect.exit(stack.deploy(client(production)));
       expect(Exit.isFailure(exit)).toBe(true);
       expect(String(exit)).toContain(
-        `Convex.SharedHubClient: the saved attributes of scout on ${REDIRECT_URI} cannot be read by this version.`,
+        `IdentityHub.Client: the saved attributes of scout on ${REDIRECT_URI} cannot be read by this version.`,
       );
       expect(String(exit)).not.toContain("secret-of");
       expect(String(exit)).not.toContain("iat-of");
       // No request asks for a client that would replace the saved one.
       expect(fake.calls(HUB_CLIENTS)).toHaveLength(1);
+    }),
+  );
+
+  test.provider("a saved row of the type before 0.37.0 is updated in place", (stack) =>
+    Effect.gen(function* () {
+      const fake = new FakeServices().install();
+      yield* stack.deploy(client(props()));
+      yield* relabel(stack, stack.stage, "Client", OLD_TYPE);
+      expect(yield* typeOfRow(stack, stack.stage, "Client")).toBe(OLD_TYPE);
+
+      // The same client: no new registration and no delete, only the renewal of cl_1.
+      expect(yield* stack.deploy(client(props()))).toEqual(issued());
+      expect(fake.calls(HUB_CLIENTS)).toHaveLength(1);
+      expect(fake.calls(RECORDS)).toEqual([`GET ${ISSUER}/register/cl_1`]);
+      expect(yield* typeOfRow(stack, stack.stage, "Client")).toBe("IdentityHub.Client");
     }),
   );
 
@@ -934,7 +973,7 @@ describe("Convex.SharedHubClient", () => {
             name: "pr-1",
             env: { SAMEBASE_REPOSITORY_ID: REPOSITORY_ID },
           });
-          const hub = yield* Convex.SharedHubClient("Client", {
+          const hub = yield* IdentityHub.Client("Client", {
             app: "scout",
             hub: HUB,
             redirectUri: Output.interpolate`${deployment.siteUrl}/auth/hub/callback`,
@@ -946,9 +985,9 @@ describe("Convex.SharedHubClient", () => {
             type: "preview",
             name: "pr-1",
             env: {
-              HUB_ISSUER: hub.issuer,
-              HUB_CLIENT_ID: hub.clientId,
-              HUB_CLIENT_SECRET: hub.clientSecret,
+              IDENTITY_HUB_ISSUER: hub.issuer,
+              IDENTITY_HUB_CLIENT_ID: hub.clientId,
+              IDENTITY_HUB_CLIENT_SECRET: hub.clientSecret,
             },
           }).pipe(adopt(true));
           return { name: site.name, status: hub.status };
@@ -958,9 +997,9 @@ describe("Convex.SharedHubClient", () => {
         // "Site" leaves the variable of "Deployment": it removes only a name that leaves its own env.
         expect(convex.variables.get(name)).toEqual({
           SAMEBASE_REPOSITORY_ID: REPOSITORY_ID,
-          HUB_ISSUER: ISSUER,
-          HUB_CLIENT_ID: "cl_1",
-          HUB_CLIENT_SECRET: "secret-of-cl_1",
+          IDENTITY_HUB_ISSUER: ISSUER,
+          IDENTITY_HUB_CLIENT_ID: "cl_1",
+          IDENTITY_HUB_CLIENT_SECRET: "secret-of-cl_1",
         });
         const writes = () =>
           convex.sent.filter(({ path }) => path.endsWith("/update_environment_variables"));
@@ -973,8 +1012,8 @@ describe("Convex.SharedHubClient", () => {
         fake.clients.delete("cl_1");
         yield* stack.deploy(app);
         expect(convex.variables.get(name)).toMatchObject({
-          HUB_CLIENT_ID: "cl_2",
-          HUB_CLIENT_SECRET: "secret-of-cl_2",
+          IDENTITY_HUB_CLIENT_ID: "cl_2",
+          IDENTITY_HUB_CLIENT_SECRET: "secret-of-cl_2",
         });
       }),
   );
@@ -1109,12 +1148,12 @@ describe("Convex.SharedHubClient", () => {
   );
 });
 
-describe("Convex.SharedHubClient for a development client", () => {
+describe("IdentityHub.Client for a development client", () => {
   const DEVELOPED = issued("cl_1", REDIRECT_URI, "development");
 
   it("takes the initial access token only for a development client", () => {
     // @ts-expect-error A preview client asks with the GitHub OIDC token.
-    const preview: Convex.SharedHubClientProps = {
+    const preview: IdentityHub.ClientProps = {
       app: "scout",
       redirectUri: REDIRECT_URI,
       deploymentType: "preview",
@@ -1122,14 +1161,14 @@ describe("Convex.SharedHubClient for a development client", () => {
       initialAccessToken: Redacted.make(INITIAL_ACCESS_TOKEN),
     };
     // @ts-expect-error A development client needs the token.
-    const withoutToken: Convex.SharedHubClientProps = {
+    const withoutToken: IdentityHub.ClientProps = {
       app: "scout",
       redirectUri: REDIRECT_URI,
       deploymentType: "development",
       connectors: ["google"],
     };
     // @ts-expect-error Every client names its connectors.
-    const withoutConnectors: Convex.SharedHubClientProps = {
+    const withoutConnectors: IdentityHub.ClientProps = {
       app: "scout",
       redirectUri: REDIRECT_URI,
       deploymentType: "preview",
@@ -1234,8 +1273,8 @@ describe("Convex.SharedHubClient for a development client", () => {
         .pipe(Effect.provide(layer));
       expect(off).toEqual({ ...OFF, deploymentType: "development" });
       expect(fake.sent).toEqual([]);
-      expect(lines.filter((line) => line.includes("Convex.SharedHubClient"))).toEqual([
-        "Info: Convex.SharedHubClient: deploy to main once for hub sign-in in development.",
+      expect(lines.filter((line) => line.includes("IdentityHub.Client"))).toEqual([
+        "Info: IdentityHub.Client: deploy to main once for hub sign-in in development.",
       ]);
     }),
   );
@@ -1304,11 +1343,11 @@ describe("Convex.SharedHubClient for a development client", () => {
   );
 });
 
-describe("Convex.SharedHubClient.variables", () => {
-  const variables = (input: Convex.SharedHubClientProps) =>
+describe("IdentityHub.Client.variables", () => {
+  const variables = (input: IdentityHub.ClientProps) =>
     Effect.gen(function* () {
-      const resource = yield* Convex.SharedHubClient("Client", input);
-      const values = Convex.SharedHubClient.variables(resource);
+      const resource = yield* IdentityHub.Client("Client", input);
+      const values = IdentityHub.Client.variables(resource);
       return {
         issuer: values.issuer,
         clientId: values.clientId,
@@ -1352,9 +1391,7 @@ describe("Convex.SharedHubClient.variables", () => {
 const deployProduction = (stack: ScratchStack, fake: FakeServices) =>
   Effect.gen(function* () {
     fake.production = true;
-    yield* stack.deploy(
-      Convex.SharedHubClient("HubClient", props({ deploymentType: "production" })),
-    );
+    yield* stack.deploy(IdentityHub.Client("HubClient", props({ deploymentType: "production" })));
     yield* Effect.gen(function* () {
       const state = yield* yield* State;
       const row = yield* state.get({ stack: stack.name, stage: stack.stage, fqn: "HubClient" });
@@ -1369,9 +1406,9 @@ const deployProduction = (stack: ScratchStack, fake: FakeServices) =>
     fake.timeline.length = 0;
   });
 
-describe("Convex.SharedHubClient.read", () => {
+describe("IdentityHub.Client.read", () => {
   const readProd = Effect.sync(() => {
-    const prod = Convex.SharedHubClient.read("HubClient", { stage: "prod" });
+    const prod = IdentityHub.Client.read("HubClient", { stage: "prod" });
     return {
       status: prod.status,
       clientId: prod.clientId,
@@ -1398,6 +1435,19 @@ describe("Convex.SharedHubClient.read", () => {
         repository: REPOSITORY_ID,
         initialAccessToken: "iat-of-cl_1",
         clientSecret: "secret-of-cl_1",
+      });
+    }),
+  );
+
+  test.provider("reads a row of the type before 0.37.0 as well", (stack) =>
+    Effect.gen(function* () {
+      yield* deployProduction(stack, new FakeServices().install());
+      expect(yield* typeOfRow(stack, "prod", "HubClient")).toBe("IdentityHub.Client");
+      yield* relabel(stack, "prod", "HubClient", OLD_TYPE);
+      expect(yield* stack.deploy(readProd)).toMatchObject({
+        status: "on",
+        clientId: "cl_1",
+        initialAccessToken: "iat-of-cl_1",
       });
     }),
   );
@@ -1448,7 +1498,7 @@ describe("Convex.SharedHubClient.read", () => {
       expect(defect).toContain("holds attributes that this version cannot read");
       // The message names the reason, so a terminal shows more than a stack trace.
       expect(defect).toContain(
-        "Convex.SharedHubClient: the row HubClient of stage prod holds attributes that this version cannot read.",
+        "IdentityHub.Client: the row HubClient of stage prod holds attributes that this version cannot read.",
       );
       expect(defect).not.toContain("secret-of");
     }),
@@ -1469,14 +1519,14 @@ describe("the development stage of the starter", () => {
         const selected = convex.addDeployment({ projectId, type: "dev", name: "nicu" });
         const app = Effect.gen(function* () {
           const project = { projectId };
-          const prod = Convex.SharedHubClient.read("HubClient", { stage: "prod" });
+          const prod = IdentityHub.Client.read("HubClient", { stage: "prod" });
           const deployment = yield* Convex.Deployment("Verification", {
             project,
             type: "dev",
             name: selected,
             env: { SAMEBASE_REPOSITORY_ID: prod.repository },
           }).pipe(adopt(true));
-          const hub = yield* Convex.SharedHubClient("HubClient", {
+          const hub = yield* IdentityHub.Client("HubClient", {
             app: "scout",
             hub: HUB,
             redirectUri: Output.interpolate`${deployment.siteUrl}/auth/hub/callback`,
@@ -1484,15 +1534,15 @@ describe("the development stage of the starter", () => {
             connectors: ["google"],
             initialAccessToken: prod.initialAccessToken,
           });
-          const variables = Convex.SharedHubClient.variables(hub);
+          const variables = IdentityHub.Client.variables(hub);
           const site = yield* Convex.Deployment("Site", {
             project,
             type: "dev",
             name: selected,
             env: {
-              HUB_ISSUER: variables.issuer,
-              HUB_CLIENT_ID: variables.clientId,
-              HUB_CLIENT_SECRET: variables.clientSecret,
+              IDENTITY_HUB_ISSUER: variables.issuer,
+              IDENTITY_HUB_CLIENT_ID: variables.clientId,
+              IDENTITY_HUB_CLIENT_SECRET: variables.clientSecret,
             },
           }).pipe(adopt(true));
           return { name: site.name, siteUrl: site.siteUrl };
@@ -1524,9 +1574,9 @@ describe("the development stage of the starter", () => {
         // "Site" leaves the variable of "Verification": it removes only a name that leaves its own env.
         expect(convex.variables.get(name)).toEqual({
           SAMEBASE_REPOSITORY_ID: REPOSITORY_ID,
-          HUB_ISSUER: ISSUER,
-          HUB_CLIENT_ID: "cl_2",
-          HUB_CLIENT_SECRET: "secret-of-cl_2",
+          IDENTITY_HUB_ISSUER: ISSUER,
+          IDENTITY_HUB_CLIENT_ID: "cl_2",
+          IDENTITY_HUB_CLIENT_SECRET: "secret-of-cl_2",
         });
 
         // Both rows keep the default removal policy retain: a destroy deletes the client only.

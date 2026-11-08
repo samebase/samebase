@@ -307,8 +307,8 @@ describe("Convex.Deployment push with the access token", () => {
                 project: { projectId },
                 type: "prod",
                 env: {
-                  HUB_CLIENT_ID: "not-secret",
-                  HUB_CLIENT_SECRET: Redacted.make("hub-client-secret"),
+                  IDENTITY_HUB_CLIENT_ID: "not-secret",
+                  IDENTITY_HUB_CLIENT_SECRET: Redacted.make("hub-client-secret"),
                   SHORT_SECRET: Redacted.make("no-hub"),
                 },
               },
@@ -560,6 +560,70 @@ describe("Convex.Deployment with a preview deploy key", () => {
         expect(new Set(keyCalls(fake).map((request) => request.authorization))).toEqual(
           new Set([`Bearer ${TOKEN}`]),
         );
+      }),
+  );
+});
+
+describe("Convex.Deployment with a renamed variable that the deployed code requires", () => {
+  /** A prod deployment with `OLD_NAME`, whose code requires it until the next push. */
+  const deployedWithOldName = (stack: ScratchStack, fake: FakeConvex) =>
+    Effect.gen(function* () {
+      const projectId = fake.addProject({ name: NAME, teamId: TEAM });
+      const name = fake.project(projectId)?.prodDeploymentName ?? "";
+      const props = (env: Record<string, string>) =>
+        backend({ project: { projectId }, type: "prod", env }, "./convex");
+      yield* stack.deploy(props({ OLD_NAME: "value" }));
+      fake.requireUntilNextPush(name, ["OLD_NAME"]);
+      return { name, props, from: fake.sent.length };
+    });
+
+  /** The bodies of the variable writes since request `from`. */
+  const writes = (fake: FakeConvex, from: number) =>
+    fake.sent
+      .slice(from)
+      .filter(({ path }) => path.endsWith("/update_environment_variables"))
+      .map(({ body }) => body);
+
+  withToken.test.provider(
+    "sets the new name before the push and removes the old one after it",
+    (stack) =>
+      Effect.gen(function* () {
+        const fake = new FakeConvex().install();
+        const { name, props, from } = yield* deployedWithOldName(stack, fake);
+
+        const out = yield* stack.deploy(props({ NEW_NAME: "value" }));
+        expect(out.envNames).toEqual(["NEW_NAME"]);
+        expect(fake.variables.get(name)).toEqual({ NEW_NAME: "value" });
+        // The fake refuses the removal before the push, as Convex does.
+        expect(writes(fake, from)).toEqual([
+          { changes: [{ name: "NEW_NAME", value: "value" }] },
+          { changes: [{ name: "OLD_NAME", value: null }] },
+        ]);
+        expect(runs()).toHaveLength(2);
+      }),
+  );
+
+  withToken.test.provider(
+    "keeps the old name after a failed push, and removes it after the next push",
+    (stack) =>
+      Effect.gen(function* () {
+        const fake = new FakeConvex().install();
+        const { name, props, from } = yield* deployedWithOldName(stack, fake);
+
+        vi.stubEnv("ALCHEMY_CONVEX_FAKE_CLI_MODE", "fail");
+        yield* Effect.flip(stack.deploy(props({ NEW_NAME: "value" })));
+        expect(fake.variables.get(name)).toEqual({ OLD_NAME: "value" });
+        expect(writes(fake, from)).toEqual([
+          { changes: [{ name: "NEW_NAME", value: "value" }] },
+          { changes: [{ name: "NEW_NAME", value: null }] },
+        ]);
+
+        // State still lists the old name, so the next run removes it after its push.
+        vi.stubEnv("ALCHEMY_CONVEX_FAKE_CLI_MODE", "ok");
+        fake.requireUntilNextPush(name, ["OLD_NAME"]);
+        const out = yield* stack.deploy(props({ NEW_NAME: "value" }));
+        expect(out.envNames).toEqual(["NEW_NAME"]);
+        expect(fake.variables.get(name)).toEqual({ NEW_NAME: "value" });
       }),
   );
 });

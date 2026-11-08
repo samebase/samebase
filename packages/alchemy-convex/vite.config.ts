@@ -5,6 +5,7 @@ export default defineConfig({
     entry: {
       index: "src/index.ts",
       cli: "src/cli.ts",
+      IdentityHub: "src/IdentityHub.ts",
       sealedSecret: "src/store/sealedSecret.ts",
     },
     outDir: "lib",

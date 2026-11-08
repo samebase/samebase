@@ -100,7 +100,7 @@ describe("the moderation key", () => {
 
   it.each(["", "   "])("refuses every request while the key is %j", async (value) => {
     const h = await createHub();
-    vi.stubEnv("HUB_MODERATION_KEY", value);
+    vi.stubEnv("IDENTITY_HUB_MODERATION_KEY", value);
 
     for (const [method, path] of ENDPOINTS) {
       const response = await moderationRequest(h, path, {
@@ -114,7 +114,7 @@ describe("the moderation key", () => {
 
   it("refuses every request while the key is unset", async () => {
     const h = await createHub();
-    vi.stubEnv("HUB_MODERATION_KEY", undefined);
+    vi.stubEnv("IDENTITY_HUB_MODERATION_KEY", undefined);
 
     const response = await moderationRequest(h, "/moderation/counts", { key: "undefined" });
 

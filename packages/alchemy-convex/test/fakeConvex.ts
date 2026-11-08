@@ -149,6 +149,11 @@ export class FakeConvex {
   readonly keys = new Map<string, Key[]>();
   /** Environment variables for each deployment name. */
   readonly variables = new Map<string, Record<string, string>>();
+  /** See `requireUntilNextPush`: the names, and the CLI runs to the deployment at that time. */
+  private readonly required = new Map<
+    string,
+    { readonly names: readonly string[]; readonly runs: number }
+  >();
   /**
    * Deployment rows: recorded list_deployments rows with changed fields.
    * addProject adds the project's default production deployment.
@@ -645,15 +650,28 @@ export class FakeConvex {
 
   /** True when the fake CLI log (fixtures/fake-convex-cli.ts) has a run with a key of `deployment`. */
   private pushedByCli(deployment: string) {
+    return this.cliRunsOf(deployment) > 0;
+  }
+
+  /** The runs of the fake CLI with a key of `deployment` so far. */
+  private cliRunsOf(deployment: string) {
     const log = process.env["ALCHEMY_CONVEX_FAKE_CLI_LOG"];
-    if (log === undefined || !existsSync(log)) return false;
+    if (log === undefined || !existsSync(log)) return 0;
     const hashes = new Set(this.keysOf(this.createdSecrets, deployment).map(sha256));
     return readFileSync(log, "utf8")
       .split("\n")
       .filter((line) => line !== "")
-      .some((line) =>
+      .filter((line) =>
         hashes.has(Schema.decodeUnknownSync(Schema.fromJsonString(CliRun))(line).keySha256),
-      );
+      ).length;
+  }
+
+  /**
+   * The code on `deployment` requires `names` until the next run of the fake CLI to it, as a
+   * required `env` of `convex.config.ts`: an update that removes one of them is refused.
+   */
+  requireUntilNextPush(deployment: string, names: readonly string[]) {
+    this.required.set(deployment, { names, runs: this.cliRunsOf(deployment) });
   }
 
   private deploymentApi(
@@ -687,12 +705,29 @@ export class FakeConvex {
           convexCloudUrl: `https://${deployment}.convex.cloud`,
           convexSiteUrl: `https://${deployment}.convex.site`,
         });
-      case "POST /api/v1/update_environment_variables":
-        for (const change of Schema.decodeUnknownSync(Changes)(body).changes) {
+      case "POST /api/v1/update_environment_variables": {
+        const { changes } = Schema.decodeUnknownSync(Changes)(body);
+        const requirement = this.required.get(deployment);
+        const required =
+          requirement === undefined || this.cliRunsOf(deployment) > requirement.runs
+            ? []
+            : requirement.names;
+        const removes = ({ name, value }: (typeof changes)[number]) =>
+          (value === null || value === undefined) && required.includes(name);
+        if (changes.some(removes)) {
+          // The recorded error of this route with the code of Convex's refusal.
+          return json(400, {
+            ...recorded("deployment_update_environment_variables_conflict.json"),
+            code: "RequiredEnvironmentVariable",
+            message: "A required environment variable of the deployed code is missing (fake)",
+          });
+        }
+        for (const change of changes) {
           if (change.value === null || change.value === undefined) delete variables[change.name];
           else variables[change.name] = change.value;
         }
         return empty();
+      }
       default:
         throw new Error(`FakeConvex has no route for ${method} ${url.host}${url.pathname}`);
     }

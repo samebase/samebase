@@ -17,7 +17,8 @@
 //   `source.command` replaces `convex deploy`, such as `convex-hosting
 //   deploy`, and `source.include` adds the files that it reads to the hash.
 // - `env` is set on the deployment before the push. A name that leaves `env`
-//   is removed. A variable that exists with another value and that this
+//   is removed after a successful push, because the code that runs until then
+//   can require it; without `source`, with the new values. A variable that exists with another value and that this
 //   resource did not set is someone else's: it is overwritten only with
 //   --adopt. Delete leaves the variables: they go with the deployment.
 // - Credentials by scope (see Access below): a deploy key of the deployment,

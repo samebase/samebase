@@ -53,7 +53,9 @@ const Resource = Schema.Union([
     }),
   }),
   Schema.Struct({
-    resourceType: Schema.Literal("IdentityHub.SharedClient"),
+    // A row keeps the type before 0.37.0 until its next write. Remove the old type once no saved
+    // row has it.
+    resourceType: Schema.Literals(["IdentityHub.Client", "IdentityHub.SharedClient"]),
     attr: Schema.Struct({
       status: Schema.Literals(["on", "off", "suspended"]),
       connectors: Schema.Array(Schema.String),
@@ -190,6 +192,7 @@ const resourceRow = (resource: Resource, address: string | null) => {
         bucketName,
       );
     }
+    case "IdentityHub.Client":
     case "IdentityHub.SharedClient": {
       const { status, connectors } = resource.attr;
       return status === "off"

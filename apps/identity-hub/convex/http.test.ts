@@ -292,7 +292,7 @@ describe("the hub", () => {
     expect(location.searchParams.get("prompt")).toBe("select_account");
   });
 
-  it("answers /moderation/counts only with HUB_MODERATION_KEY", async () => {
+  it("answers /moderation/counts only with IDENTITY_HUB_MODERATION_KEY", async () => {
     const t = makeConvexTest();
 
     const without = await t.fetch("/moderation/counts");

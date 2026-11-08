@@ -511,8 +511,10 @@ export const checkSource = (rootDir: string, input: Source) =>
 /**
  * Sets the `env` variables and pushes the functions of `source` to one
  * deployment with `key`: a deploy key of the deployment, or a preview deploy
- * key of its project with `previewName`. Returns the URL that the CLI
- * printed, or undefined without `source`.
+ * key of its project with `previewName`. A name of `previousEnvNames` that
+ * left `env` is removed after a successful push, or, without `source`, in the
+ * same write as the new values. Returns the URL that the CLI printed, or
+ * undefined without `source`.
  */
 export const push = (
   spawner: ChildProcessSpawner.ChildProcessSpawner["Service"],
@@ -529,6 +531,10 @@ export const push = (
     const program = resolved?.program;
     const env = Object.entries(options.env).sort(([a], [b]) => (a < b ? -1 : 1));
     const removed = options.previousEnvNames.filter((name) => !Object.hasOwn(options.env, name));
+    // The code on the deployment can require a name that left `env`, and Convex refuses a write
+    // that removes a variable the running code requires. With a push, such names go only after the
+    // push succeeded, so a renamed variable reaches the new code first; a failed push keeps them.
+    const removedBeforePush = source === undefined ? removed : [];
 
     // 1. Variables before the push, so the push sees them. Each attempt
     // reads the current values first, so a retry after a write conflict never
@@ -536,7 +542,7 @@ export const push = (
     // changed values are written, and the earlier ones are kept for a
     // rollback.
     const written =
-      env.length === 0 && removed.length === 0
+      env.length === 0 && removedBeforePush.length === 0
         ? { current: {}, changes: [] }
         : yield* retryIdempotentWrite(
             Effect.gen(function* () {
@@ -563,12 +569,26 @@ export const push = (
                 ...env
                   .filter(([name, value]) => current[name] !== valueOf(value))
                   .map(([name, value]) => ({ name, value: valueOf(value) })),
-                ...removed
+                ...removedBeforePush
                   .filter((name) => Object.hasOwn(current, name))
                   .map((name) => ({ name, value: null })),
               ];
               if (changes.length > 0) yield* writeVariables(options.url, key, changes);
               return { current, changes };
+            }),
+          );
+
+    /** After a successful push: removes the names that left `env`, as the variables are now. */
+    const removeAfterPush =
+      removedBeforePush.length === removed.length
+        ? Effect.void
+        : retryIdempotentWrite(
+            Effect.gen(function* () {
+              const current = yield* listVariables(options.url, key);
+              const changes = removed
+                .filter((name) => Object.hasOwn(current, name))
+                .map((name) => ({ name, value: null }));
+              if (changes.length > 0) yield* writeVariables(options.url, key, changes);
             }),
           );
 
@@ -601,9 +621,16 @@ export const push = (
 
     // 2. The push, with the key only in the env file.
     if (source === undefined || cwd === undefined || program === undefined) return undefined;
-    return yield* runPush(spawner, key, { ...options, cwd, program, command: source.command }).pipe(
-      Effect.onError(() => rollback),
-    );
+    const url = yield* runPush(spawner, key, {
+      ...options,
+      cwd,
+      program,
+      command: source.command,
+    }).pipe(Effect.onError(() => rollback));
+    // 3. The names that left `env`, now that the new code runs. A failure here fails the run with
+    // the earlier state, which still lists these names, so the next run removes them.
+    yield* removeAfterPush;
+    return url;
   });
 
 /** Runs the installed CLI or the push command once, and checks the deployment that it names. */

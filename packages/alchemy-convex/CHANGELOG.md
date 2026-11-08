@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.37.0
+
+- Breaking: `Convex.SharedHubClient` is now `IdentityHub.Client`, from its own import path:
+  `import * as IdentityHub from "@samebase/alchemy-convex/identity-hub"`. Its types are
+  `IdentityHub.ClientProps`, `IdentityHub.ClientAttributes`, and `IdentityHub.Hub`. The root export
+  no longer has `SharedHubClient`, `SharedHubClientProps`, `SharedHubClientAttributes`, or `Hub`.
+  `Convex.providers()` still registers the provider.
+- The resource type is `IdentityHub.Client`. A row that an earlier version saved as
+  `IdentityHub.SharedClient` is the same client: the next deploy updates it in place, with no new
+  client and no delete, and saves it with the new type. `IdentityHub.Client.read` and
+  `alchemy-convex stack-comment` read rows of both types.
+- `Convex.Deployment` with `source` removes a name that left `env` after the push succeeds, not
+  before it. Convex refuses to remove a variable that the running code requires, so before, a
+  renamed required variable stopped the deploy. A failed push keeps the old name, and the next run
+  removes it. Without `source`, the removal stays in the same write as the new values.
+- The starter's variables are `IDENTITY_HUB_ISSUER`, `IDENTITY_HUB_CLIENT_ID`, and
+  `IDENTITY_HUB_CLIENT_SECRET` (before, `HUB_ISSUER`, `HUB_CLIENT_ID`, and `HUB_CLIENT_SECRET`).
+  Rename them in `alchemy.run.ts` and in the app that reads them, together with the move to 0.37.0.
+  The first deploy of 0.37.0 sets the new names before its push and removes the old ones after it.
+- The store stays at version 7.
+
 ## 0.36.0
 
 - The store stays at version 7, so 0.35.0 and 0.36.0 work with the same store.

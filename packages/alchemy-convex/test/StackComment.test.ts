@@ -164,13 +164,14 @@ describe("renderStackComment", () => {
   });
 
   it.each([
-    ["on", "Sign-in with github, google: on"],
-    ["off", "Sign-in: not set up"],
-    ["suspended", "Sign-in with github, google: suspended"],
-  ])("shows a shared hub client that is %s, and no secret of its row", async (status, line) => {
+    ["IdentityHub.Client", "on", "Sign-in with github, google: on"],
+    ["IdentityHub.Client", "off", "Sign-in: not set up"],
+    ["IdentityHub.Client", "suspended", "Sign-in with github, google: suspended"],
+    ["IdentityHub.SharedClient", "on", "Sign-in with github, google: on"],
+  ])("shows an %s that is %s, and no secret of its row", async (resourceType, status, line) => {
     const row = {
       fqn: "Client",
-      resourceType: "IdentityHub.SharedClient",
+      resourceType,
       attr: {
         status,
         connectors: status === "off" ? [] : ["github", "google"],

@@ -4,10 +4,10 @@ import * as Provider from "alchemy/Provider";
 import * as Layer from "effect/Layer";
 import { type Credentials, fromConfig } from "./Credentials.ts";
 import { DeploymentProvider, DeploymentResource } from "./Deployment.ts";
+import * as IdentityHub from "./IdentityHub.ts";
 import { LocalDeployment, LocalDeploymentProvider } from "./LocalDeployment.ts";
 import { ManagementApiLive } from "./ManagementApi.ts";
 import { Project, ProjectProvider } from "./Project.ts";
-import { SharedHubClient, SharedHubClientProvider } from "./SharedHubClient.ts";
 
 export class Providers extends Provider.ProviderCollection<Providers>()("Convex") {}
 
@@ -19,14 +19,14 @@ export class Providers extends Provider.ProviderCollection<Providers>()("Convex"
 export const providers = (credentials: Layer.Layer<Credentials> = fromConfig()) =>
   Layer.effect(
     Providers,
-    Provider.collection([Project, DeploymentResource, LocalDeployment, SharedHubClient]),
+    Provider.collection([Project, DeploymentResource, LocalDeployment, IdentityHub.Client]),
   ).pipe(
     Layer.provide(
       Layer.mergeAll(
         ProjectProvider(),
         DeploymentProvider(),
         LocalDeploymentProvider(),
-        SharedHubClientProvider(),
+        IdentityHub.ClientProvider(),
       ),
     ),
     Layer.provide(ManagementApiLive()),
