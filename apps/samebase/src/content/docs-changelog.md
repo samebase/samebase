@@ -3,6 +3,15 @@
 What changed in Samebase, newest first. Each `v` number is the Samebase version that shipped the
 change. If a change needs action from you, the entry says so.
 
+## 2026-11-08
+
+- **v2310: Apps made from samebase/base need one update.** The identity hub now takes a deploy's
+  GitHub token only when the token names the hub, which `@samebase/alchemy-convex` 0.34.0 and later
+  do. On an older version, sign-in keeps working, but a new preview gets no sign-in. Version 0.35.0
+  also moves the deploy state store of the Convex team to a new version, so move every app of a team
+  on the same day. Ask your agent to apply the starter changelog, or follow its v2310 entry. New
+  apps have it from the start.
+
 ## 2026-11-07
 
 - **v2301: Apps made from samebase/base sign in through Samebase's public clients.** The identity
