@@ -28,7 +28,7 @@ async function signIn(options: { keySet?: KeySet } = {}) {
   const upstream = fakeUpstream();
   const h = await createHarness({ connectors: [upstream.connector], ...options });
   const { clientId, clientSecret } = await h.registerClient({
-    appName: "Bristol",
+    appName: "My app",
     redirectUri: REDIRECT_URI,
   });
 

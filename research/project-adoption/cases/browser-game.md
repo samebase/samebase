@@ -1,18 +1,15 @@
-# Teardown Noita 3D
+# Browser Game Project Adoption Case
 
 ## Outcome
 
-[Teardown Noita 3D pull request 11](https://github.com/nicu-chiciuc/teardown-noita-3d/pull/11) moved
-the browser game to the portable Samebase repository contract. Samebase now joins the repository to
-the `teardown-noita-3d` Worker at root `/`, with separate production and preview GitHub Builds
-triggers.
+Pull request 11 of a private browser game moved the game to the portable Samebase repository
+contract. Samebase now joins the repository to the game's Worker at root `/`, with separate
+production and preview GitHub Builds triggers.
 
 After the pull request was merged, the first default-branch build deployed Worker version `599266c1`
-and made [the application](https://teardown-noita-3d.pfp.workers.dev) reachable. The later
-[preview probe pull request 12](https://github.com/nicu-chiciuc/teardown-noita-3d/pull/12) uploaded
-version `5a0f10f9`. Its [version URL](https://5a0f10f9-teardown-noita-3d.pfp.workers.dev) and
-[branch alias](https://codex-verify-preview-after-main-teardown-noita-3d.pfp.workers.dev) both
-returned the built application. The active production deployment stayed on version `599266c1`.
+and made the application reachable. The later preview probe pull request 12 uploaded version
+`5a0f10f9`. Its version URL and branch alias both returned the built application. The active
+production deployment stayed on version `599266c1`.
 
 The earlier standalone manual preview Worker was a useful provider spike, but it was not evidence
 for the Samebase repository-backed path. It was removed after this evidence was preserved.
@@ -67,19 +64,18 @@ replace the action with a manual provider-only workflow.
 ## Validation budget correction
 
 The first successful repository CI run showed that Rust and WASM were not the main cost. The
-[workflow run](https://github.com/nicu-chiciuc/teardown-noita-3d/actions/runs/30905166331) spent
-about two seconds on the WASM artifact check, nine seconds on the application build, and six minutes
-and eight seconds on Playwright. The full job took about seven minutes and twenty-three seconds.
+workflow run spent about two seconds on the WASM artifact check, nine seconds on the application
+build, and six minutes and eight seconds on Playwright. The full job took about seven minutes and
+twenty-three seconds.
 
 The adoption made the full Playwright suite a required pull request gate. Several WebGPU, gameplay,
 and touch tests allowed up to two minutes each. That was a testing-maturity decision, not a
 necessary Samebase stack decision, and the manager did not ask the operator to approve it.
 
-The target correction in
-[pull request 13](https://github.com/nicu-chiciuc/teardown-noita-3d/pull/13) keeps fast static
-checks, the build, and WASM artifact verification as required evidence. It reduces the browser
-requirement to one short application smoke test. Broader gameplay, device, and stress coverage can
-return when the operator decides that the project needs that assurance.
+The target correction in pull request 13 keeps fast static checks, the build, and WASM artifact
+verification as required evidence. It reduces the browser requirement to one short application smoke
+test. Broader gameplay, device, and stress coverage can return when the operator decides that the
+project needs that assurance.
 
 ## First-deployment preview experiment
 
@@ -133,7 +129,7 @@ logs, repair the repository or trigger, push a new commit, and wait for new term
 
 ### Candidate
 
-Teardown Noita 3D supports these rules once. Test them on the next adoption before promotion:
+The browser game supports these rules once. Test them on the next adoption before promotion:
 
 - run the exact install, build, production deploy dry-run, and preview deploy dry-run commands from
   the commit that the provider will build before trigger setup
@@ -156,8 +152,7 @@ browser and GPU test owner.
 
 Pull request 12 passed repository CI, its Samebase-connected Worker build, and review before merge.
 The experiment branch and the obsolete adoption branch were removed. The standalone manual Worker
-was also removed. The connected `teardown-noita-3d` Worker and its active production deployment were
-not changed.
+was also removed. The game's connected Worker and its active production deployment were not changed.
 
 The successful repository-backed preview evidence remains in this case and the merged pull request.
 The first-deployment behavior remains a one-case candidate until another project tests it.

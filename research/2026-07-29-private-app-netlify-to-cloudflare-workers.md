@@ -1,20 +1,20 @@
-# Bristol TSX Netlify to Cloudflare Workers Migration
+# Private App Netlify to Cloudflare Workers Migration
 
 ## Document Control
 
 - Status: completed case study
 - Date: 2026-07-29
-- Repository: [nicu-chiciuc/bristol_tsx](https://github.com/nicu-chiciuc/bristol_tsx)
-- Migration: [pull request 6](https://github.com/nicu-chiciuc/bristol_tsx/pull/6)
-- Authentication recovery: [pull request 7](https://github.com/nicu-chiciuc/bristol_tsx/pull/7)
+- Repository: a private app
+- Migration: the app's pull request 6
+- Authentication recovery: the app's pull request 7
 - Runbook: [existing application migration](../docs/existing-app-cloudflare-workers-migration.md)
 
-This note keeps only the findings that should change Samebase or the next migration. Bristol owns
+This note keeps only the findings that should change Samebase or the next migration. The app owns
 its deployment identifiers, build history, validation output, and monitoring evidence.
 
 ## Result
 
-Bristol needed a Worker server runtime because it had server-rendered private routes and an API
+The app needed a Worker server runtime because it had server-rendered private routes and an API
 route. Cloudflare Workers now serves the existing public hostname. The Netlify deployment stayed
 available as the tested rollback target.
 
@@ -41,7 +41,7 @@ not prove a successful build, uploaded version, active deployment, or working pu
 | Browser handoff first used a guest profile.                            | Show the browser profile and account before provider work. Use the operator's named profile for the cutover gate.             |
 | The Convex Auth setup guidance pinned an old Auth.js core release.     | Update the source skill and generated copies together, then run a production dependency audit.                                |
 
-Bristol kept npm because its repository and Cloudflare command contract used npm. Samebase remains
+The app kept npm because its repository and Cloudflare command contract used npm. Samebase remains
 pnpm-first. Vite Plus, Oxlint, Oxfmt, ESM, and TypeScript automation are separate stack decisions.
 The manager must inspect all of them before implementation. Similar framework names do not prove a
 similar toolchain.

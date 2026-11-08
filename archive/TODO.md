@@ -328,7 +328,7 @@ information for better coding help.
 - [ ] When repository name already exists show better error
 - [ ] make graphic of the services we use: GitHub for storage, Convex for backend+db, and Netlify
       for domains+frontend
-- [ ] Reuse typescript config files (the way we did for ailegis)
+- [ ] Reuse typescript config files (the way we did for a private app)
 
 ## Meta/Philosophy
 
@@ -370,9 +370,6 @@ information for better coding help.
       `noter "add todo or whatever paragraph"`
 - [ ] explore frontmatter-based settings in markdown (e.g. `noter.md`) as an alternative to JSON:
       LLM-readable, human-readable, and schema-validated into TypeScript objects
-- [ ] pot discuta cu Predeus ca Robolex sa fie dezvoltat pe noter.md; asta e o metoda buna si pentru
-      juniori, pentru ca au acces la aceleasi posibilitati ca seniorii; faptul ca noter.md e facut
-      in noter inseamna ca produsul e bun
 
 ## Starter Provisioning Follow-ups
 

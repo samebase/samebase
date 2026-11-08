@@ -1,4 +1,4 @@
-# Weight TSX skill-bundle comparison
+# Private app skill-bundle comparison
 
 Date: 2026-08-04
 
@@ -20,7 +20,7 @@ does the additional workflow cause overfitting and excess work?
 
 The test used these frozen inputs:
 
-- target: `nicu-chiciuc/weight_tsx` at `e26a38348dca39adbf7096d7a5ed1661ffeb3572`
+- target: a private app at `e26a38348dca39adbf7096d7a5ed1661ffeb3572`
 - public reference: `samebase/app` at `0808a374d6cfd01736f3b6823c1a73ab73cc26a9`
 - Samebase skill artifact: `230646b5e01f6fc75f0549490e7f9da3227dcf5a`
 - model: GPT-5.6 Sol, high reasoning effort
@@ -69,7 +69,7 @@ The detailed bundle also caused harmful overreach:
 - it required duplicate worktree cycles and several evidence registers
 - it added fixed 30-minute and 24-hour observation periods without project evidence
 - it required reviewer and delegation structures that were not part of the migration
-- it added a Teardown-specific Cloudflare error branch
+- it added a Cloudflare error branch specific to the browser game case
 - it incorrectly said that the frozen public reference had no repository CI
 - it invented a verified rollback host and deployment that the target did not contain
 - it overstated the import grammar and one accessibility property
@@ -88,7 +88,7 @@ Do not copy the detailed bundle into the public plugin. Extract a rule only when
 4. short enough that it does not select the whole workflow for the agent
 
 The first-production-build approval boundary meets these conditions. The public skill now contains
-this small rule. The Weight TSX parser defects belong to the target project, not the Samebase skill.
+this small rule. The target's parser defects belong to the target project, not the Samebase skill.
 
 Operator review later clarified the approval timing. One informed approval can cover a named write
 sequence after the repository, provider account, possible production effect, and rule for attaching

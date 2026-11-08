@@ -161,20 +161,20 @@ browser-link redemption.
 - Date: 2026-08-04
 - Artifact commit: `230646b5e01f6fc75f0549490e7f9da3227dcf5a`
 - Model: GPT-5.6 Sol, high reasoning effort
-- Target: `nicu-chiciuc/weight_tsx` at `e26a38348dca39adbf7096d7a5ed1661ffeb3572`
+- Target: a private app at `e26a38348dca39adbf7096d7a5ed1661ffeb3572`
 - Result: clean isolation passed. The public skill won the read-only preflight 28/32 to 22/32 and
   the local implementation 28/32 to 25/32. The public implementation used less time and output,
   preserved the frozen shared versions, covered more build boundaries, and produced the smaller
   bundle. Retire the detailed adoption skill and keep the public plugin as the source of truth. The
   public skill now names the production-build approval boundary. See
-  `research/project-adoption/experiments/weight-tsx-skill-bundles.md`.
+  `research/project-adoption/experiments/private-app-skill-bundles.md`.
 
 ## Last focused adoption implementation
 
 - Date: 2026-08-04
 - Artifact commit: `10e0b91594db18e178676947defa816a3b4a3d37`
 - Model: GPT-5.6 Sol, high reasoning effort
-- Target: `nicu-chiciuc/weight_tsx` at `e26a38348dca39adbf7096d7a5ed1661ffeb3572`
+- Target: a private app at `e26a38348dca39adbf7096d7a5ed1661ffeb3572`
 - Result: both anonymous implementations passed independent format, lint, type, focused test,
   production build, and Cloudflare dry-run checks. The public-only specimen scored 28/32. The
   public-plus-detailed specimen scored 25/32. Continue from the public-only patch after a focused
@@ -185,12 +185,12 @@ browser-link redemption.
 - Date: 2026-08-04
 - Artifact commit: `6e7f8afcda112c9f7212616df36b8672a29ea428`
 - Model: GPT-5.6 Sol, high reasoning effort
-- Target: `nicu-chiciuc/weight_tsx` at `e26a38348dca39adbf7096d7a5ed1661ffeb3572`
+- Target: a private app at `e26a38348dca39adbf7096d7a5ed1661ffeb3572`
 - Result: clean isolation passed. The public-only plan named each action that starts or requests a
   production build and required explicit approval immediately before it. The plan stayed focused at
   2,303 words and did not reproduce the detailed bundle's excess process.
 
 Operator review after this regression generalized the timing rule. One informed approval can cover a
 named production-build sequence when its repository, provider account, possible production effect,
-and rule for attaching an existing resource or creating a new one are clear. The supervised Weight
-TSX adoption will test this revised rule without another bundle comparison.
+and rule for attaching an existing resource or creating a new one are clear. The supervised adoption
+of the same private app will test this revised rule without another bundle comparison.

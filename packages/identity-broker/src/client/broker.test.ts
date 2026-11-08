@@ -219,7 +219,7 @@ describe("metadata", () => {
 describe("clients", () => {
   test("a deleted client cannot sign in", async () => {
     const h = await createHarness({ connectors: [fakeUpstream().connector] });
-    const { clientId } = await h.registerClient({ appName: "Bristol", redirectUri: REDIRECT_URI });
+    const { clientId } = await h.registerClient({ appName: "My app", redirectUri: REDIRECT_URI });
     await h.t.mutation(api.clients.remove, { clientId });
     const { challenge } = await pkce();
     expect((await h.fetchBroker(authorizeUrl(h, { clientId, challenge }))).status).toBe(400);
@@ -230,7 +230,7 @@ describe("app deletion", () => {
   test("with the app row gone, its clients are refused before their rows are", async () => {
     const h = await createHarness({ connectors: [fakeUpstream().connector] });
     const { appId, clientId, clientSecret } = await h.registerClient({
-      appName: "Bristol",
+      appName: "My app",
       redirectUri: REDIRECT_URI,
     });
     const { verifier, challenge } = await pkce();
@@ -267,7 +267,7 @@ describe("authorization code flow with an OAuth connector", () => {
     const upstream = fakeUpstream();
     const h = await createHarness({ connectors: [upstream.connector] });
     const { appId, clientId, clientSecret } = await h.registerClient({
-      appName: "Bristol",
+      appName: "My app",
       redirectUri: REDIRECT_URI,
     });
     const { verifier, challenge } = await pkce();
@@ -346,7 +346,7 @@ describe("authorization code flow with an OAuth connector", () => {
     const upstream = fakeUpstream();
     const h = await createHarness({ connectors: [upstream.connector] });
     const { clientId, clientSecret } = await h.registerClient({
-      appName: "Bristol",
+      appName: "My app",
       redirectUri: REDIRECT_URI,
     });
     const other = await h.registerClient({ appName: "Other", redirectUri: REDIRECT_URI });
@@ -394,7 +394,7 @@ describe("authorization code flow with an OAuth connector", () => {
 
   test("every refusal before the user continued is a page of the hub, never a redirect", async () => {
     const h = await createHarness({ connectors: [fakeUpstream().connector] });
-    const { clientId } = await h.registerClient({ appName: "Bristol", redirectUri: REDIRECT_URI });
+    const { clientId } = await h.registerClient({ appName: "My app", redirectUri: REDIRECT_URI });
     const { challenge } = await pkce();
 
     const unknownClient = await h.fetchBroker(
@@ -450,7 +450,7 @@ describe("authorization code flow with an OAuth connector", () => {
     const h = await createHarness({
       connectors: [google({ clientId: () => "google-client", clientSecret: () => "s" })],
     });
-    const { clientId } = await h.registerClient({ appName: "Bristol", redirectUri: REDIRECT_URI });
+    const { clientId } = await h.registerClient({ appName: "My app", redirectUri: REDIRECT_URI });
     for (const extra of [{ prompt: "login" }, { max_age: "0" }]) {
       const { challenge } = await pkce();
       const response = await h.fetchBroker(authorizeUrl(h, { clientId, challenge, extra }));
@@ -518,7 +518,7 @@ describe("authorization code flow with an OAuth connector", () => {
     const idp = await fakeOidcUpstream();
     const h = await createHarness({ connectors: [idp.connector] });
     const { clientId, clientSecret } = await h.registerClient({
-      appName: "Bristol",
+      appName: "My app",
       redirectUri: REDIRECT_URI,
     });
     // Both ways to ask for a fresh login, against an upstream auth_time that is missing, or this
@@ -571,7 +571,7 @@ describe("authorization code flow with an OAuth connector", () => {
     const idp = await fakeOidcUpstream();
     const h = await createHarness({ connectors: [idp.connector] });
     const { clientId, clientSecret } = await h.registerClient({
-      appName: "Bristol",
+      appName: "My app",
       redirectUri: REDIRECT_URI,
     });
     for (const offset of [undefined, -3600]) {
@@ -597,7 +597,7 @@ describe("authorization code flow with an OAuth connector", () => {
   test("a callback in another browser is refused and stays claimable", async () => {
     const upstream = fakeUpstream();
     const h = await createHarness({ connectors: [upstream.connector] });
-    const { clientId } = await h.registerClient({ appName: "Bristol", redirectUri: REDIRECT_URI });
+    const { clientId } = await h.registerClient({ appName: "My app", redirectUri: REDIRECT_URI });
     const { challenge } = await pkce();
     const started = await h.fetchBroker(authorizeUrl(h, { clientId, challenge }));
     const upstreamUrl = new URL(started.headers.get("location") ?? "");
@@ -615,7 +615,7 @@ describe("authorization code flow with an OAuth connector", () => {
 
   test("a Request Object is refused, not ignored", async () => {
     const h = await createHarness({ connectors: [fakeUpstream().connector] });
-    const { clientId } = await h.registerClient({ appName: "Bristol", redirectUri: REDIRECT_URI });
+    const { clientId } = await h.registerClient({ appName: "My app", redirectUri: REDIRECT_URI });
     const { challenge } = await pkce();
     for (const [parameter, description] of [
       ["request", "Request Objects are not supported."],
@@ -634,7 +634,7 @@ describe("authorization code flow with an OAuth connector", () => {
     const upstream = fakeUpstream();
     const other = { ...upstream.connector, name: "other", label: "Other" };
     const h = await createHarness({ connectors: [upstream.connector, other] });
-    const { clientId } = await h.registerClient({ appName: "Bristol", redirectUri: REDIRECT_URI });
+    const { clientId } = await h.registerClient({ appName: "My app", redirectUri: REDIRECT_URI });
     const { challenge } = await pkce();
     // An empty connector offers every connector: the page. An empty max_age is no freshness
     // request, which this connector would have to refuse.
@@ -658,7 +658,7 @@ describe("authorization code flow with an OAuth connector", () => {
   test("a replayed or unknown upstream state is refused, a denied upstream goes back as access_denied", async () => {
     const upstream = fakeUpstream();
     const h = await createHarness({ connectors: [upstream.connector] });
-    const { clientId } = await h.registerClient({ appName: "Bristol", redirectUri: REDIRECT_URI });
+    const { clientId } = await h.registerClient({ appName: "My app", redirectUri: REDIRECT_URI });
     const { challenge } = await pkce();
     const started = await h.fetchBroker(authorizeUrl(h, { clientId, challenge }));
     const upstreamUrl = new URL(started.headers.get("location") ?? "");
@@ -687,7 +687,7 @@ describe("authorization code flow with an OAuth connector", () => {
     const upstream = fakeUpstream();
     const other = { ...upstream.connector, name: "other", label: "Other" };
     const h = await createHarness({ connectors: [upstream.connector, other] });
-    const { clientId } = await h.registerClient({ appName: "Bristol", redirectUri: REDIRECT_URI });
+    const { clientId } = await h.registerClient({ appName: "My app", redirectUri: REDIRECT_URI });
     const { challenge } = await pkce();
     const started = await h.fetchBroker(
       authorizeUrl(h, { clientId, challenge, extra: { connector: "fake" } }),
@@ -704,7 +704,7 @@ describe("authorization code flow with an OAuth connector", () => {
 
   test("provider errors are logged by class name and answered with a fixed description", async () => {
     const h = await createHarness({ connectors: [fakeUpstream().connector] });
-    const { clientId } = await h.registerClient({ appName: "Bristol", redirectUri: REDIRECT_URI });
+    const { clientId } = await h.registerClient({ appName: "My app", redirectUri: REDIRECT_URI });
     const logged = vi.spyOn(console, "error").mockImplementation(() => {});
     const callback = async (params: Record<string, string>) => {
       const { challenge } = await pkce();
@@ -742,9 +742,9 @@ describe("authorization code flow with an OAuth connector", () => {
 
   test("a client authenticates by the method it registered, and by one method only", async () => {
     const h = await createHarness({ connectors: [fakeUpstream().connector] });
-    const posting = await h.registerClient({ appName: "Bristol", redirectUri: REDIRECT_URI });
+    const posting = await h.registerClient({ appName: "My app", redirectUri: REDIRECT_URI });
     const { clientId, clientSecret } = await h.registerClient({
-      appName: "Bristol",
+      appName: "My app",
       redirectUri: REDIRECT_URI,
       deploymentType: "preview",
       tokenEndpointAuthMethod: "client_secret_basic",
@@ -800,7 +800,7 @@ describe("authorization code flow with an OAuth connector", () => {
   test("claims and the granted scope follow the requested scopes", async () => {
     const h = await createHarness({ connectors: [fakeUpstream().connector] });
     const { clientId, clientSecret } = await h.registerClient({
-      appName: "Bristol",
+      appName: "My app",
       redirectUri: REDIRECT_URI,
     });
     for (const [scope, granted, claimed] of [

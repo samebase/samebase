@@ -4,12 +4,13 @@
 
 - Method: second case recorded; its repository-backed Preview gate passed after the first
   default-branch deployment
-- First case: [Bristol TSX](cases/bristol-tsx.md)
-- Second case: [Teardown Noita 3D](cases/teardown-noita-3d.md)
-- Skill-bundle experiment: [Weight TSX](experiments/weight-tsx-skill-bundles.md), where the short
+- First case: [Next.js app](cases/nextjs-app.md)
+- Second case: [browser game](cases/browser-game.md)
+- Skill-bundle experiment: [private app](experiments/private-app-skill-bundles.md), where the short
   public skill won the preflight 28/32 to 22/32 and the implementation 28/32 to 25/32
 - Worker input: [portable rules](portable-rules.md)
-- Next gate: review the winning local Weight TSX patch before any target-repository publication
+- Next gate: review the winning local patch of the skill-bundle experiment before any
+  target-repository publication
 
 ## Purpose
 
@@ -90,9 +91,10 @@ not accept an older build or an unrelated upload.
 ## Promotion
 
 One case can produce candidate guidance. A rule becomes reusable evidence only after another project
-uses it successfully. Bristol and Teardown Noita 3D support the complete manager preflight, reviewed
-commit binding, and separation of build, upload, deployment, and route evidence. The four-command
-provider preflight and authenticated Samebase browser handoff remain Teardown-only candidates.
+uses it successfully. The Next.js app and the browser game support the complete manager preflight,
+reviewed commit binding, and separation of build, upload, deployment, and route evidence. The
+four-command provider preflight and authenticated Samebase browser handoff remain candidates from
+the browser game only.
 
 Commit at meaningful checkpoints. Do not preserve provider journals, temporary identifiers, raw
 logs, or historical validation output after they stop helping a current decision.
