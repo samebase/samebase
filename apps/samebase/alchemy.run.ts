@@ -112,9 +112,9 @@ export default Alchemy.Stack(
       );
       const site = yield* Convex.LocalDeployment("Site", {
         env: {
-          HUB_ISSUER: signIn.issuer,
-          HUB_CLIENT_ID: signIn.clientId,
-          HUB_CLIENT_SECRET: signIn.clientSecret,
+          IDENTITY_HUB_ISSUER: signIn.issuer,
+          IDENTITY_HUB_CLIENT_ID: signIn.clientId,
+          IDENTITY_HUB_CLIENT_SECRET: signIn.clientSecret,
           RESOURCE_HUB_ISSUER: connections.issuer,
           RESOURCE_HUB_CLIENT_ID: connections.clientId,
           RESOURCE_HUB_CLIENT_SECRET: connections.clientSecret,
@@ -174,9 +174,9 @@ export default Alchemy.Stack(
         name: stage,
         env: {
           SAMEBASE_COMMIT: commit,
-          HUB_ISSUER: signIn.issuer,
-          HUB_CLIENT_ID: signIn.clientId,
-          HUB_CLIENT_SECRET: signIn.clientSecret,
+          IDENTITY_HUB_ISSUER: signIn.issuer,
+          IDENTITY_HUB_CLIENT_ID: signIn.clientId,
+          IDENTITY_HUB_CLIENT_SECRET: signIn.clientSecret,
           RESOURCE_HUB_ISSUER: connections.issuer,
           RESOURCE_HUB_CLIENT_ID: connections.clientId,
           RESOURCE_HUB_CLIENT_SECRET: connections.clientSecret,
@@ -248,9 +248,9 @@ export default Alchemy.Stack(
       type: "prod",
       env: {
         SAMEBASE_COMMIT: commit,
-        HUB_ISSUER: signIn.issuer,
-        HUB_CLIENT_ID: signIn.clientId,
-        HUB_CLIENT_SECRET: signIn.clientSecret,
+        IDENTITY_HUB_ISSUER: signIn.issuer,
+        IDENTITY_HUB_CLIENT_ID: signIn.clientId,
+        IDENTITY_HUB_CLIENT_SECRET: signIn.clientSecret,
         RESOURCE_HUB_ISSUER: connections.issuer,
         RESOURCE_HUB_CLIENT_ID: connections.clientId,
         RESOURCE_HUB_CLIENT_SECRET: connections.clientSecret,

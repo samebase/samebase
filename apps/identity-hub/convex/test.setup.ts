@@ -22,7 +22,7 @@ const ISSUER = "https://auth.test";
 /** The hub with the broker component, as `convex/convex.config.ts` mounts it. */
 export function makeConvexTest() {
   vi.stubEnv("ISSUER", ISSUER);
-  vi.stubEnv("HUB_MODERATION_KEY", MODERATION_KEY);
+  vi.stubEnv("IDENTITY_HUB_MODERATION_KEY", MODERATION_KEY);
   // The hub has no tables of its own: every row is in the broker component.
   const t = convexTest(undefined, modules);
   registerIdentityBroker(t);

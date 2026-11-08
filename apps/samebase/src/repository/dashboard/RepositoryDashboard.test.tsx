@@ -501,7 +501,7 @@ describe("Alchemy stack cards", () => {
               {
                 fqn: "Client",
                 value: JSON.stringify({
-                  resourceType: "IdentityHub.SharedClient",
+                  resourceType: "IdentityHub.Client",
                   attr: { status, clientId: "client-id" },
                 }),
               },

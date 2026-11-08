@@ -20,7 +20,7 @@ copy that folder and change the values in `alchemy.run.ts` and `convex/broker.ts
 to do it. Its [README](https://github.com/samebase/samebase/blob/main/apps/identity-hub/README.md)
 has the deploy steps. An app from the Samebase starter asks for the connectors `google-apps` and
 `github-apps`, so give your hub's connectors those names (`google({ name: "google-apps", ... })`),
-and give the app's `Convex.SharedHubClient` your hub as `hub: { issuer, terms }`.
+and give the app's `IdentityHub.Client` your hub as `hub: { issuer, terms }`.
 
 ## What it is
 
@@ -33,8 +33,8 @@ and give the app's `Convex.SharedHubClient` your hub as `hub: { issuer, terms }`
 - API resource providers authorize access without creating an identity. `convexConnection()`,
   `cloudflareConnection()`, and `githubConnection()` use the same authorization and token endpoints
   with the standard `resource` parameter. A hub's policy says which clients may use them.
-- `Convex.SharedHubClient` of
-  [`@samebase/alchemy-convex`](https://github.com/samebase/samebase/tree/main/packages/alchemy-convex),
+- `IdentityHub.Client` of
+  [`@samebase/alchemy-convex/identity-hub`](https://github.com/samebase/samebase/tree/main/packages/alchemy-convex),
   an Alchemy v2 resource, gets a deployment its client from the hub that the stack names, at deploy
   time.
 
@@ -80,7 +80,7 @@ export const broker = defineIdentityBroker({
     name: "Example",
     terms: "https://example.com/terms",
     privacy: "https://example.com/privacy",
-    moderationKey: () => process.env.HUB_MODERATION_KEY,
+    moderationKey: () => process.env.IDENTITY_HUB_MODERATION_KEY,
     // What each registration may do, from its facts: run at registration and at each use. It can
     // name only the connectors and resources above: a misspelt one does not compile.
     policy: () => ({
@@ -130,8 +130,8 @@ its JWKS.
 - A GitHub Actions run sends GitHub's OIDC token whose audience is the hub's issuer, so no other hub
   can use a token made for this one. A run of `main` gets a production client, a pull request a
   preview client. The return address must be https, and its host must serve
-  `/samebase-verification.json` with the repository's numeric id. `Convex.SharedHubClient` of
-  `@samebase/alchemy-convex` does this at each deploy, at the hub of its `hub` prop.
+  `/samebase-verification.json` with the repository's numeric id. `IdentityHub.Client` of
+  `@samebase/alchemy-convex/identity-hub` does this at each deploy, at the hub of its `hub` prop.
 - A production answer also holds the app's initial access token (RFC 7591 section 1.2). A
   development server sends it for a development client, on a loopback return address.
 - The body names the app, the return address, a version, and `connectors`: the connectors the client

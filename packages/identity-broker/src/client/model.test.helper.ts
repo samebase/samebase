@@ -49,7 +49,7 @@ export async function createModelHub(options: {
   resources: ResourceProvider[];
   policy: PolicyFunction;
 }) {
-  vi.stubEnv("HUB_MODERATION_KEY", MODERATION_KEY);
+  vi.stubEnv("IDENTITY_HUB_MODERATION_KEY", MODERATION_KEY);
   return await createHarness({
     connectors: hubConnectors(),
     resources: options.resources,

@@ -49,11 +49,11 @@ export async function skipSignInPage(h: Harness) {
   });
 }
 
-/** The hub mode with `policy`, which reads `HUB_MODERATION_KEY` in each request. */
+/** The hub mode with `policy`, which reads `IDENTITY_HUB_MODERATION_KEY` in each request. */
 export function hubRegistration(policy: PolicyFunction = () => testPolicy()): RegistrationConfig {
   return {
     policy,
-    moderationKey: () => process.env["HUB_MODERATION_KEY"],
+    moderationKey: () => process.env["IDENTITY_HUB_MODERATION_KEY"],
     terms: "https://samebase.com/terms",
     privacy: "https://samebase.com/privacy",
     name: "Samebase",
@@ -74,7 +74,7 @@ export function hubConnectors() {
 export async function createHub(
   options: { policy?: PolicyFunction; resources?: ResourceProvider[] } = {},
 ) {
-  vi.stubEnv("HUB_MODERATION_KEY", MODERATION_KEY);
+  vi.stubEnv("IDENTITY_HUB_MODERATION_KEY", MODERATION_KEY);
   return await createHarness({
     connectors: hubConnectors(),
     ...(options.resources === undefined ? {} : { resources: options.resources }),

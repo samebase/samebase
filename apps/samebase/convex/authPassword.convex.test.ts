@@ -5,8 +5,8 @@ import { makeConvexTest, stubConvexAuthEnv } from "./test.setup";
 const PASSWORD = "manual-account-password";
 
 beforeEach(() => {
-  // convex/auth.ts builds the hub sign-in methods from HUB_ISSUER when it loads.
-  vi.stubEnv("HUB_ISSUER", "https://hub.example.invalid");
+  // convex/auth.ts builds the hub sign-in methods from IDENTITY_HUB_ISSUER when it loads.
+  vi.stubEnv("IDENTITY_HUB_ISSUER", "https://hub.example.invalid");
 });
 
 afterEach(() => {

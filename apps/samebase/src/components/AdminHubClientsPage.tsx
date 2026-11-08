@@ -164,7 +164,7 @@ export function AdminHubClientsPage() {
         </p>
       ) : overview.data === undefined ? null : overview.data.status === "off" ? (
         <p className="mt-6 text-sm text-muted-foreground">
-          Moderation is off: HUB_MODERATION_KEY is not set on this deployment.
+          Moderation is off: IDENTITY_HUB_MODERATION_KEY is not set on this deployment.
         </p>
       ) : (
         <>

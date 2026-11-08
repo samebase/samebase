@@ -57,7 +57,7 @@ const app = defineApp({
      * connector grants, sets blocks, exemptions, and grants, and deletes clients, and nothing else.
      * Set by hand on both deployments. Unset or empty: every moderation request is refused.
      */
-    HUB_MODERATION_KEY: v.optional(v.string()),
+    IDENTITY_HUB_MODERATION_KEY: v.optional(v.string()),
   },
 });
 

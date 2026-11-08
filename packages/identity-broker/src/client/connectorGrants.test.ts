@@ -427,7 +427,7 @@ describe("the connector grants", () => {
 
   it("report no connector as usable once it leaves the hub's configuration", async () => {
     // A hub that configures `fake` alone, whose policy still lists `other`.
-    vi.stubEnv("HUB_MODERATION_KEY", MODERATION_KEY);
+    vi.stubEnv("IDENTITY_HUB_MODERATION_KEY", MODERATION_KEY);
     const h = await createHarness({
       connectors: [fakeUpstream().connector],
       registration: hubRegistration(() => testPolicy({ connectors: ["fake", "other"] })),

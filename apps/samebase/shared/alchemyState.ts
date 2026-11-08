@@ -106,14 +106,15 @@ export const vAlchemyCloudflareR2BucketState = object({
 });
 
 /**
-The state of a `Convex.SharedHubClient` resource. `attr.status` is `off` for a deployment without a
+The state of an `IdentityHub.Client` resource. `attr.status` is `off` for a deployment without a
 client, and `suspended` for a client that the hub suspended. The other attributes hold secrets, and
-a card reads none of them.
+a card reads none of them. A row that alchemy-convex 0.36.0 or older saved keeps the type
+`IdentityHub.SharedClient` until its next write; remove that type once no saved row has it.
 
-@see https://github.com/samebase/samebase/blob/main/packages/alchemy-convex/src/SharedHubClient.ts
+@see https://github.com/samebase/samebase/blob/main/packages/alchemy-convex/src/IdentityHub.ts
 */
-export const vAlchemySharedHubClientState = object({
-  resourceType: literal("IdentityHub.SharedClient"),
+export const vAlchemyIdentityHubClientState = object({
+  resourceType: union(literal("IdentityHub.Client"), literal("IdentityHub.SharedClient")),
   attr: object({ status: union(literal("on"), literal("off"), literal("suspended")) }),
 });
 
@@ -199,7 +200,7 @@ export function stageResources(stage: {
         : [],
     ),
     hubClients: states.flatMap(({ fqn, state }) =>
-      validate(vAlchemySharedHubClientState, state, { allowUnknownFields: true })
+      validate(vAlchemyIdentityHubClientState, state, { allowUnknownFields: true })
         ? [{ fqn, state }]
         : [],
     ),

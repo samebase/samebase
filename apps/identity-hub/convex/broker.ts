@@ -94,7 +94,7 @@ export const broker = defineIdentityBroker({
     name: "Samebase",
     terms: "https://samebase.com/terms",
     privacy: "https://samebase.com/privacy",
-    moderationKey: () => env.HUB_MODERATION_KEY,
+    moderationKey: () => env.IDENTITY_HUB_MODERATION_KEY,
     // The policy of RFC 137 decision 9.
     policy: (registration) => ({
       // The operator gets every connector in code, so no admin mistake can lock samebase.com out.

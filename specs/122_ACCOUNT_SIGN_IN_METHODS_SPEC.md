@@ -18,13 +18,13 @@
 An active or deleting `users` row is one Samebase account. GitHub, Google, and password are sign-in
 methods for that account. Samebase signs in with Convex Auth 2: the core component keeps sessions
 and maps each provider account to a user. GitHub and Google sign-in run through the team's identity
-hub, an OpenID Provider at `HUB_ISSUER` that holds the GitHub and Google clients: the `hub-github`
-and `hub-google` methods share one OAuth component, and each names its hub connector in the
-authorize URL. The password component runs the password method. An `authAccounts` row is Samebase's
-own record of one sign-in identity of a user. The Convex Auth callbacks and the password account
-functions write it, and Samebase reads a user's identities from it. The Samebase user ID is the
-product identity. An email address or GitHub login is not the product identity. Spec 113 defines the
-terminal PII-free deleted row.
+hub, an OpenID Provider at `IDENTITY_HUB_ISSUER` that holds the GitHub and Google clients: the
+`hub-github` and `hub-google` methods share one OAuth component, and each names its hub connector in
+the authorize URL. The password component runs the password method. An `authAccounts` row is
+Samebase's own record of one sign-in identity of a user. The Convex Auth callbacks and the password
+account functions write it, and Samebase reads a user's identities from it. The Samebase user ID is
+the product identity. An email address or GitHub login is not the product identity. Spec 113 defines
+the terminal PII-free deleted row.
 
 The hub's `sub` is public (RFC 134): the provider and its own account id, such as `github:4076804`,
 so the core keeps one account for each provider account. The id_token also carries `connector`
