@@ -26,16 +26,16 @@ const app = defineApp({
     GITHUB_APP_ID: v.string(),
     GITHUB_APP_PRIVATE_KEY: v.string(),
     GITHUB_APP_SLUG: v.string(),
-    IDENTITY_HUB_CLIENT_ID: v.string(),
-    IDENTITY_HUB_CLIENT_SECRET: v.string(),
-    IDENTITY_HUB_ISSUER: v.string(),
+    HUB_CLIENT_ID: v.string(),
+    HUB_CLIENT_SECRET: v.string(),
+    HUB_ISSUER: v.string(),
     RESOURCE_HUB_ISSUER: v.string(),
     RESOURCE_HUB_CLIENT_ID: v.string(),
     RESOURCE_HUB_CLIENT_SECRET: v.string(),
     // The key of the hub's moderation endpoints, which /admin/hub-clients calls through
     // hubClients/moderation.ts: it reads registrations and clients and sets blocks, and nothing else.
     // Set by hand, as on the hub. Unset, as in CI: the page says that moderation is off.
-    IDENTITY_HUB_MODERATION_KEY: v.optional(v.string()),
+    HUB_MODERATION_KEY: v.optional(v.string()),
     OPENAI_APPS_CHALLENGE_TOKEN: v.optional(v.string()),
     PASSWORD_AUTH_ENABLED: v.optional(v.string()),
     POLAR_ACCESS_TOKEN: v.optional(v.string()),
@@ -54,18 +54,18 @@ app.use(auth, {
     AUTH_JWKS: app.env.AUTH_JWKS,
   },
 });
-// GitHub and Google sign-in run through the team's identity hub, an OpenID Provider at
-// IDENTITY_HUB_ISSUER, with one client per deployment for both methods. The hub sends the browser
-// back to <site>/auth/hub/callback, the callback URL of the deployment's registration at the hub,
-// next to the other sign-in routes under /auth. Convex refuses to bind the component's required
-// variables to optional ones, so every deployment holds the three IDENTITY_HUB_ variables; a linked
-// worktree and CI hold no-hub values.
+// GitHub and Google sign-in run through the team's identity hub, an OpenID Provider at HUB_ISSUER,
+// with one client per deployment for both methods. The hub sends the browser back to
+// <site>/auth/hub/callback, the callback URL of the deployment's registration at the hub, next to
+// the other sign-in routes under /auth. Convex refuses to bind the component's required variables
+// to optional ones, so every deployment holds the three HUB_ variables; a linked worktree and CI
+// hold no-hub values.
 app.use(oauth, {
   name: "authHub",
   httpPrefix: "/auth/hub",
   env: {
-    CLIENT_ID: app.env.IDENTITY_HUB_CLIENT_ID,
-    CLIENT_SECRET: app.env.IDENTITY_HUB_CLIENT_SECRET,
+    CLIENT_ID: app.env.HUB_CLIENT_ID,
+    CLIENT_SECRET: app.env.HUB_CLIENT_SECRET,
   },
 });
 app.use(password);

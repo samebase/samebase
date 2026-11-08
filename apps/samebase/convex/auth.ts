@@ -47,9 +47,9 @@ function setupHubMethod<Connector extends AuthAccountProvider>(
     auth,
     `hub-${connector}` as const,
     {
-      authorizationEndpoint: `${env.IDENTITY_HUB_ISSUER}/authorize?connector=${connector}`,
-      tokenEndpoint: `${env.IDENTITY_HUB_ISSUER}/token`,
-      issuer: env.IDENTITY_HUB_ISSUER,
+      authorizationEndpoint: `${env.HUB_ISSUER}/authorize?connector=${connector}`,
+      tokenEndpoint: `${env.HUB_ISSUER}/token`,
+      issuer: env.HUB_ISSUER,
       scopes: ["openid", "email", "profile"],
       // samebase.com signs in through the operator's connectors, whose names are the providers.
       profile: (claims) => readHubProfile(claims, { connector, provider: connector }),
@@ -63,12 +63,12 @@ function setupHubMethod<Connector extends AuthAccountProvider>(
 }
 
 const hubGithub = setupHubMethod("github");
-export const startSignInWithIdentityHubGithub = hubGithub.startSignIn;
-export const completeSignInWithIdentityHubGithub = hubGithub.completeSignIn;
+export const startSignInWithHubGithub = hubGithub.startSignIn;
+export const completeSignInWithHubGithub = hubGithub.completeSignIn;
 
 const hubGoogle = setupHubMethod("google");
-export const startSignInWithIdentityHubGoogle = hubGoogle.startSignIn;
-export const completeSignInWithIdentityHubGoogle = hubGoogle.completeSignIn;
+export const startSignInWithHubGoogle = hubGoogle.startSignIn;
+export const completeSignInWithHubGoogle = hubGoogle.completeSignIn;
 
 const vPasswordSignInResult = union(
   object({ status: literal("complete"), tokens: vTokenBundle }),

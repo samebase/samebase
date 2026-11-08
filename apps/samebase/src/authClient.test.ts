@@ -38,10 +38,8 @@ vi.mock("react", async () => {
 vi.mock("@convex-dev/auth/methods/oauth/react", async () => {
   const { getFunctionName } = await import("convex/server");
   const hubMethodSignIns: Record<string, typeof githubSignInMock> = {
-    "auth:startSignInWithIdentityHubGithub auth:completeSignInWithIdentityHubGithub":
-      githubSignInMock,
-    "auth:startSignInWithIdentityHubGoogle auth:completeSignInWithIdentityHubGoogle":
-      googleSignInMock,
+    "auth:startSignInWithHubGithub auth:completeSignInWithHubGithub": githubSignInMock,
+    "auth:startSignInWithHubGoogle auth:completeSignInWithHubGoogle": googleSignInMock,
   };
   return {
     useOauthSignIn: (refs: {

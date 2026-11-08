@@ -138,15 +138,15 @@ const vChangeResult = object({ changed: boolean() });
 const vOff = object({ status: literal("off") });
 
 /**
-The hub's moderation endpoints, or null while `IDENTITY_HUB_MODERATION_KEY` is unset: the admin page then
+The hub's moderation endpoints, or null while `HUB_MODERATION_KEY` is unset: the admin page then
 says that moderation is off. The key can only read registration counts, clients, blocks,
 exemptions from the sign-in page, and connector grants, set blocks, exemptions, and grants, and
 delete clients at the hub. samebase.com decides who may use it: an admin for every app, a member of
 an organization for the clients of its connected repositories.
 */
 function readModeration() {
-  const key = env.IDENTITY_HUB_MODERATION_KEY?.trim();
-  return key ? { issuer: env.IDENTITY_HUB_ISSUER, key } : null;
+  const key = env.HUB_MODERATION_KEY?.trim();
+  return key ? { issuer: env.HUB_ISSUER, key } : null;
 }
 
 /** One request to a moderation endpoint, with the key. */

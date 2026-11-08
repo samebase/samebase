@@ -56,9 +56,10 @@ own id, such as `google:104325...`. A hub that lost the variable gets a new key 
 The hub answers at the deployment's `.convex.site` URL and at the custom domain `auth.samebase.com`.
 The stack sets `ISSUER` to that domain: the issuer is the name every app trusts, in discovery, in
 every `id_token`, and in the callback URLs registered with GitHub and Google. Changing it later
-means changing `IDENTITY_HUB_ISSUER` on every app's deployments and the callback URLs at every
-provider in one go; a user's `sub` does not depend on the issuer, so it does not change. An app
-reads the issuer from the reply of its registration, so it needs no setting of its own.
+means changing the issuer variable on every app's deployments (`IDENTITY_HUB_ISSUER` with
+alchemy-convex 0.37.0, `HUB_ISSUER` before) and the callback URLs at every provider in one go; a
+user's `sub` does not depend on the issuer, so it does not change. An app reads the issuer from the
+reply of its registration, so it needs no setting of its own.
 
 ## Connectors
 
@@ -113,15 +114,16 @@ page grants that client's app a private connector (`google` or `github`), bound 
 recorded owner; its clients use it once they enroll in it at their next deploy, and every step of a
 sign-in reads the grant again, so removing it stops the next step. It has no say in the sign-in
 page, which shows for every client, samebase.com's production included, unless the admin exempts it.
-samebase.com's admin page at `/admin/hub-clients` lists the registrations and every client, with
-`IDENTITY_HUB_MODERATION_KEY`, which is set by hand on both deployments. Block repository and Block
-owner there are the switches of one repository or owner. Skip the sign-in page there exempts one app
-(a repository's production app, or its preview app with its development servers) for as long as the
-repository's recorded owner stays the one the admin saw, and Skip the sign-in page for every app
-exempts all of them, new ones included. samebase.com's production skips the page through such an
-exemption, set once on the admin page. Each change is recorded with the admin's email and reason.
-Turning the page back on reaches new sign-ins only: what an app got while its page was off stays
-with it.
+samebase.com's admin page at `/admin/hub-clients` lists the registrations and every client, with the
+moderation key, which is set by hand on both deployments: `IDENTITY_HUB_MODERATION_KEY` on the hub,
+and `HUB_MODERATION_KEY` on samebase.com until it moves to alchemy-convex 0.37.0. Block repository
+and Block owner there are the switches of one repository or owner. Skip the sign-in page there
+exempts one app (a repository's production app, or its preview app with its development servers) for
+as long as the repository's recorded owner stays the one the admin saw, and Skip the sign-in page
+for every app exempts all of them, new ones included. samebase.com's production skips the page
+through such an exemption, set once on the admin page. Each change is recorded with the admin's
+email and reason. Turning the page back on reaches new sign-ins only: what an app got while its page
+was off stays with it.
 
 See the component's [consumer guide](../../packages/identity-broker/docs/consumers.md).
 

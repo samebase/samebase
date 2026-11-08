@@ -56,13 +56,13 @@ const deferredPostHogResetClient: PostHogResetClient = {
 function useOAuthSignIn() {
   const { signIn: signInWithGithub } = useOauthSignIn({
     providerName: "hub-github",
-    startSignIn: api.auth.startSignInWithIdentityHubGithub,
-    completeSignIn: api.auth.completeSignInWithIdentityHubGithub,
+    startSignIn: api.auth.startSignInWithHubGithub,
+    completeSignIn: api.auth.completeSignInWithHubGithub,
   });
   const { signIn: signInWithGoogle } = useOauthSignIn({
     providerName: "hub-google",
-    startSignIn: api.auth.startSignInWithIdentityHubGoogle,
-    completeSignIn: api.auth.completeSignInWithIdentityHubGoogle,
+    startSignIn: api.auth.startSignInWithHubGoogle,
+    completeSignIn: api.auth.completeSignInWithHubGoogle,
   });
 
   return useCallback(

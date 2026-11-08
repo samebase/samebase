@@ -42,8 +42,8 @@ grep -E '^(CONVEX_DEPLOYMENT|VITE_CONVEX_URL|VITE_CONVEX_SITE_URL)=' /tmp/sameba
 4. Print the identity hub client ids of each backend. Do not print the secrets:
 
 ```bash
-(cd /tmp/samebase-wt-a/apps/samebase && npx convex env get IDENTITY_HUB_CLIENT_ID && npx convex env get RESOURCE_HUB_CLIENT_ID)
-(cd /tmp/samebase-wt-b/apps/samebase && npx convex env get IDENTITY_HUB_CLIENT_ID && npx convex env get RESOURCE_HUB_CLIENT_ID)
+(cd /tmp/samebase-wt-a/apps/samebase && npx convex env get HUB_CLIENT_ID && npx convex env get RESOURCE_HUB_CLIENT_ID)
+(cd /tmp/samebase-wt-b/apps/samebase && npx convex env get HUB_CLIENT_ID && npx convex env get RESOURCE_HUB_CLIENT_ID)
 ```
 
 5. In the outputs from step 2, confirm that each first run prints:

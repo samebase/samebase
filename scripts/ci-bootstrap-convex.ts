@@ -80,9 +80,9 @@ async function main(): Promise<void> {
       ...Object.entries(generateCredentialKeys()),
       // CI has no identity hub. convex/convex.config.ts requires these variables, and convex/auth.ts
       // needs a loopback or https issuer to load, so they hold values that name the absence.
-      ["IDENTITY_HUB_ISSUER", "http://127.0.0.1:1"],
-      ["IDENTITY_HUB_CLIENT_ID", "no-hub"],
-      ["IDENTITY_HUB_CLIENT_SECRET", "no-hub"],
+      ["HUB_ISSUER", "http://127.0.0.1:1"],
+      ["HUB_CLIENT_ID", "no-hub"],
+      ["HUB_CLIENT_SECRET", "no-hub"],
       ["RESOURCE_HUB_ISSUER", "http://127.0.0.1:1"],
       ["RESOURCE_HUB_CLIENT_ID", "no-hub"],
       ["RESOURCE_HUB_CLIENT_SECRET", "no-hub"],
