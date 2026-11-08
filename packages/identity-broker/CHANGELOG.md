@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.27.0
+
+- `POST /hub-clients` takes a GitHub Actions token only when its audience is the hub's issuer.
+  Before, every hub took the audience `samebase`, so a token that a deploy made for one hub also
+  worked at every other hub, and that hub's operator could replay it within its lifetime. Apps ask
+  for the new audience with `Convex.SharedHubClient` 0.34. With 0.33 or earlier, a renewal still
+  works, and a new client (a new preview, or another connector set) is refused until the app
+  upgrades.
+- The mark under every page says where the broker comes from: the Samebase square and "Samebase", in
+  the color of the links next to it. It no longer says "Managed with", which was not true of a hub
+  that someone else runs.
+
 ## 0.26.1
 
 - The card of the broker's pages no longer jumps when the page loads with a browser extension that

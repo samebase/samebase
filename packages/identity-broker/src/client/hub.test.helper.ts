@@ -3,7 +3,7 @@ import { exportJWK, generateKeyPair, SignJWT, type CryptoKey, type JWK } from "j
 import { vi } from "vite-plus/test";
 import { api } from "../component/_generated/api.js";
 import type { Connector } from "./connectors/types.js";
-import { createHarness, fakeUpstream, type Harness } from "./harness.test.helper.js";
+import { createHarness, fakeUpstream, ISSUER, type Harness } from "./harness.test.helper.js";
 import type { Policy, PolicyFunction } from "./policy.js";
 import type { RegistrationConfig } from "./registration.js";
 import type { ResourceProvider } from "./resourceProviders.js";
@@ -84,14 +84,15 @@ export async function createHub(
 
 /**
  * The claims of the example token on
- * https://docs.github.com/en/actions/concepts/security/openid-connect, read on 2026-11-01. Only `aud`
- * and the claims that a test names differ, and the times are set when a test signs.
+ * https://docs.github.com/en/actions/concepts/security/openid-connect, read on 2026-11-01. Only `aud`,
+ * the hub's issuer, and the claims that a test names differ, and the times are set when a test
+ * signs.
  */
 const documentedClaims = {
   jti: "example-id",
   sub: "repo:octo-org/octo-repo:environment:prod",
   environment: "prod",
-  aud: "samebase",
+  aud: ISSUER,
   ref: "refs/heads/main",
   sha: "example-sha",
   repository: "octo-org/octo-repo",

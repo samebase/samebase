@@ -45,6 +45,7 @@ export {
   withRunRecord,
 } from "./RunRecord.ts";
 export {
+  type Hub,
   SharedHubClient,
   type SharedHubClientAttributes,
   type SharedHubClientProps,

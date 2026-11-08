@@ -354,7 +354,11 @@ gets every stage of a stack, with its resources and output, from the store funct
     missing, and a development stage before the first deploy to main has no `prod` row.
   - A destroy deletes a preview or development client. It does nothing to a production client,
     because the production deployment can stay.
-  - `HUB_URL` replaces `https://auth.samebase.com`, the hub that the run asks at `/hub-clients`.
+  - `hub` is the identity hub to register at, required: `{ issuer, terms }`, such as
+    `{ issuer: "https://auth.samebase.com", terms: "https://samebase.com/terms" }`. The run asks at
+    `<issuer>/hub-clients` with a GitHub token whose audience is the issuer, and the answer must
+    name that issuer and `terms`. A client is renewed only at the hub that issued it: a changed hub
+    registers a new client there, and the old one stays at the old hub.
 
 - `Convex.LocalDeployment`: `{ rootDir?, env }` writes the `env` of the logged-in local deployment
   of the folder `rootDir` (the working directory without it), which

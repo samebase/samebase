@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.34.0
+
+- `Convex.SharedHubClient` takes `hub`, the identity hub to register at, required:
+  `{ issuer, terms }`. It replaces the `HUB_URL` variable and the fixed terms of samebase.com, so
+  any hub of @samebase/identity-broker 0.27 can give a client. The run asks GitHub for a token whose
+  audience is the hub's issuer, as the broker 0.27 requires (before, `samebase`). The answer must
+  name the hub's issuer and terms. A client is renewed only at the hub that issued it, so a changed
+  hub registers a new client there.
+- Every stack sets `hub`. On Samebase's hub:
+  `hub: { issuer: "https://auth.samebase.com", terms: "https://samebase.com/terms" }`. A saved
+  client keeps working: it already holds that issuer, so the first run of 0.34.0 renews it.
+
 ## 0.33.0
 
 - `Convex.SharedHubClient` takes `connectors`, the names of the hub's connectors the client signs in

@@ -448,7 +448,10 @@ describe("POST /hub-clients", () => {
     const tokens = {
       "a bad signature": () => signToken({}, { key: foreignKey }),
       "a wrong audience": () => signToken({ aud: "https://github.com/octo-org" }),
-      "an audience list that holds samebase": () => signToken({ aud: ["samebase", "other"] }),
+      "a token for another hub": () => signToken({ aud: "https://auth.other-hub.example" }),
+      "a token for the audience every hub shared before 0.27.0": () =>
+        signToken({ aud: "samebase" }),
+      "an audience list that holds this hub": () => signToken({ aud: [ISSUER, "other"] }),
       "a wrong issuer": () => signToken({ iss: "https://issuer.example.test" }),
       "an expired token": () => signToken({}, { expiresInSeconds: -60 }),
       "a token that never expires": () => signToken({}, { withoutExpiry: true }),

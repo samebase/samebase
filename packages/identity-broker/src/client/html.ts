@@ -56,8 +56,11 @@ const STYLE = `
     color: var(--muted); font-size: 0.8125rem; }
 `;
 
-/** Under the card of every page: the broker is Samebase's, as on samebase.com. */
-const ATTRIBUTION = `<a class="attribution" href="https://samebase.com" target="_blank" rel="noopener noreferrer">Managed with <b><svg viewBox="0 0 60 60" shape-rendering="crispEdges" aria-hidden="true"><path d="M0 0h60v60H0z M20 20h20v20H20z" fill="currentColor" fill-rule="evenodd"/></svg>Samebase</b></a>`;
+/**
+ * Under the card of every page, on every hub: where the broker comes from. It does not say who runs
+ * the hub, which the privacy notice and terms of a hub's sign-in page do.
+ */
+const ATTRIBUTION = `<a class="attribution" href="https://samebase.com" target="_blank" rel="noopener noreferrer" title="Built with the Samebase identity broker"><svg viewBox="0 0 60 60" shape-rendering="crispEdges" aria-hidden="true"><path d="M0 0h60v60H0z M20 20h20v20H20z" fill="currentColor" fill-rule="evenodd"/></svg>Samebase</a>`;
 
 /** The privacy notice and terms of a hub's sign-in service, linked under its sign-in page. */
 export type Legal = { privacy: string; terms: string };

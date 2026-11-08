@@ -16,7 +16,8 @@ import * as Convex from "../src/index.ts";
 import { FakeConvex, hubFixture } from "./fakeConvex.ts";
 
 const TEAM = 38516;
-const ISSUER = "https://hub.test";
+/** The issuer of the hub that recorded the answers in `test/fixtures/hub/`. */
+const ISSUER = "https://auth.test";
 const DEPLOYMENT = "happy-otter-123";
 const REDIRECT_URI = `https://${DEPLOYMENT}.convex.site/auth/hub/callback`;
 /** Another host and another path, as a Worker on Convex Auth 0 has. */
@@ -24,13 +25,19 @@ const OTHER_REDIRECT_URI = "https://scout.example.workers.dev/api/auth/callback/
 const OIDC_REQUEST_URL = "https://oidc.test/token?api-version=2.0";
 const OIDC_REQUEST_TOKEN = "oidc-request-token";
 const OIDC_TOKEN = "oidc-token";
-/** Where a run asks for a new client without HUB_URL. */
-const HUB_CLIENTS = "https://auth.samebase.com/hub-clients";
+/** Where a run asks for a new client. */
+const HUB_CLIENTS = `${ISSUER}/hub-clients`;
+/** The clients' own records at the hub, which a renewal and a delete read. */
+const RECORDS = `${ISSUER}/register/`;
 /** The 201 answers of `POST /hub-clients`, recorded from the hub of RFC 133. */
 const PRODUCTION_ANSWER = hubFixture("hub-clients-production.json");
 const PREVIEW_ANSWER = hubFixture("hub-clients-preview.json");
 const DEVELOPMENT_ANSWER = hubFixture("hub-clients-development.json");
 const TERMS = String(PREVIEW_ANSWER["terms"]);
+/** The hub of every test, unless a test names another. */
+const HUB: Convex.Hub = { issuer: ISSUER, terms: TERMS };
+/** A second hub, for the tests that change the hub. */
+const OTHER_HUB: Convex.Hub = { issuer: "https://auth.other.test", terms: TERMS };
 /** The numeric GitHub id of the repository, which the hub gives with the token. */
 const REPOSITORY_ID = String(PRODUCTION_ANSWER["repository"]);
 
@@ -50,6 +57,7 @@ type DevelopmentProps = Extract<
 
 const props = (overrides: Partial<GitHubProps> = {}): GitHubProps => ({
   app: "scout",
+  hub: HUB,
   redirectUri: REDIRECT_URI,
   deploymentType: "preview",
   connectors: ["google"],
@@ -62,6 +70,7 @@ const INITIAL_ACCESS_TOKEN = "iat-of-scout";
 
 const development = (overrides: Partial<DevelopmentProps> = {}): DevelopmentProps => ({
   app: "scout",
+  hub: HUB,
   redirectUri: REDIRECT_URI,
   deploymentType: "development",
   connectors: ["google"],
@@ -170,7 +179,7 @@ const REFUSALS: readonly (readonly [string, Answer])[] = [
   // The log line names the terms and the return address, so neither may be a value that the
   // answer chose.
   [
-    "a 201 whose terms are not a page of samebase.com",
+    "a 201 whose terms are not the hub's",
     ({ authorization }) =>
       Response.json(
         { ...PREVIEW_ANSWER, terms: `https://evil.example/${authorization}` },
@@ -178,7 +187,7 @@ const REFUSALS: readonly (readonly [string, Answer])[] = [
       ),
   ],
   [
-    "a 201 whose terms are another page of samebase.com",
+    "a 201 whose terms are another page of the same site",
     ({ authorization }) =>
       Response.json(
         {
@@ -193,6 +202,18 @@ const REFUSALS: readonly (readonly [string, Answer])[] = [
     ({ authorization }) =>
       Response.json(
         { ...PREVIEW_ANSWER, redirect_uri: `https://evil.example/${authorization}` },
+        { status: 201 },
+      ),
+  ],
+  [
+    "a 201 that names another issuer",
+    ({ body }) =>
+      Response.json(
+        {
+          ...PREVIEW_ANSWER,
+          redirect_uri: Schema.decodeUnknownSync(ClientRequest)(body).redirectUri,
+          issuer: "https://auth.other.test",
+        },
         { status: 201 },
       ),
   ],
@@ -260,7 +281,9 @@ class FakeServices {
   private answerOf(url: string) {
     if (url.startsWith("https://oidc.test")) return this.github ?? this.answerGitHub;
     if (new URL(url).pathname === "/hub-clients") return this.registrar ?? this.answerRegistrar;
-    return url.startsWith(ISSUER) ? (this.hub ?? this.answerHub) : undefined;
+    return new URL(url).pathname.startsWith("/register/")
+      ? (this.hub ?? this.answerHub)
+      : undefined;
   }
 
   private readonly fetch = async (input: string | URL | Request, init?: RequestInit) => {
@@ -285,7 +308,9 @@ class FakeServices {
   private readonly answerGitHub: Answer = () => Response.json({ count: 1, value: OIDC_TOKEN });
 
   /** A GitHub token gives a production or preview client, an initial access token a development one. */
-  private readonly answerRegistrar: Answer = ({ authorization, body }) => {
+  /** Any hub: the answer names the issuer that the request went to. */
+  private readonly answerRegistrar: Answer = ({ authorization, body, url }) => {
+    const issuer = new URL(url).origin;
     const bearer = authorization.replace(/^Bearer /, "");
     const withGitHub = bearer === OIDC_TOKEN;
     if (!withGitHub && !this.initialAccessTokens.has(bearer)) {
@@ -307,11 +332,11 @@ class FakeServices {
     return Response.json(
       {
         ...(withGitHub ? (production ? PRODUCTION_ANSWER : PREVIEW_ANSWER) : DEVELOPMENT_ANSWER),
-        issuer: ISSUER,
+        issuer,
         client_id: clientId,
         client_secret: `secret-of-${clientId}`,
         registration_access_token: token,
-        registration_client_uri: `${ISSUER}/register/${clientId}`,
+        registration_client_uri: `${issuer}/register/${clientId}`,
         redirect_uri: redirectUri,
         connectors,
         ...(production ? { initial_access_token: `iat-of-${clientId}` } : {}),
@@ -357,7 +382,7 @@ describe("Convex.SharedHubClient", () => {
       expect(fake.sent).toEqual([
         {
           method: "GET",
-          url: `${OIDC_REQUEST_URL}&audience=samebase`,
+          url: `${OIDC_REQUEST_URL}&audience=${encodeURIComponent(ISSUER)}`,
           authorization: `Bearer ${OIDC_REQUEST_TOKEN}`,
           body: undefined,
         },
@@ -389,13 +414,13 @@ describe("Convex.SharedHubClient", () => {
       fake.sent.length = 0;
       const changed = yield* stack.deploy(client(props({ connectors: ["google", "github"] })));
       expect(changed).toEqual({ ...issued("cl_2"), connectors: ["github", "google"] });
-      expect(fake.calls(ISSUER)).toEqual([]);
+      expect(fake.calls(RECORDS)).toEqual([]);
       // The same set in another order, with a name twice, renews that client.
       fake.sent.length = 0;
       expect(
         yield* stack.deploy(client(props({ connectors: ["github", "google", "github"] }))),
       ).toEqual(changed);
-      expect(fake.calls(ISSUER)).toEqual([`GET ${ISSUER}/register/cl_2`]);
+      expect(fake.calls(RECORDS)).toEqual([`GET ${ISSUER}/register/cl_2`]);
       expect(fake.calls(HUB_CLIENTS)).toEqual([]);
     }),
   );
@@ -451,13 +476,37 @@ describe("Convex.SharedHubClient", () => {
     }),
   );
 
-  test.provider("HUB_URL replaces the address of the hub", (stack) =>
+  test.provider("another hub gets the request, with a GitHub token for its own issuer", (stack) =>
     Effect.gen(function* () {
       const fake = new FakeServices().install();
-      vi.stubEnv("HUB_URL", ISSUER);
+      expect(yield* stack.deploy(client(props({ hub: OTHER_HUB })))).toMatchObject({
+        status: "on",
+        issuer: OTHER_HUB.issuer,
+      });
+      expect(fake.calls(OIDC_REQUEST_URL)).toEqual([
+        `GET ${OIDC_REQUEST_URL}&audience=${encodeURIComponent(OTHER_HUB.issuer)}`,
+      ]);
+      expect(fake.calls(OTHER_HUB.issuer)).toEqual([`POST ${OTHER_HUB.issuer}/hub-clients`]);
+      expect(fake.calls(ISSUER)).toEqual([]);
+    }),
+  );
+
+  test.provider("a changed hub asks the new hub for a client, without a renewal", (stack) =>
+    Effect.gen(function* () {
+      const fake = new FakeServices().install();
       yield* stack.deploy(client(props()));
-      expect(fake.calls(ISSUER)).toEqual([`POST ${ISSUER}/hub-clients`]);
-      expect(fake.calls(HUB_CLIENTS)).toEqual([]);
+      fake.sent.length = 0;
+      yield* stack.deploy(client(props({ hub: OTHER_HUB })));
+      expect(fake.calls(OTHER_HUB.issuer)).toEqual([`POST ${OTHER_HUB.issuer}/hub-clients`]);
+      expect(fake.calls(ISSUER)).toEqual([]);
+    }),
+  );
+
+  test.provider("an answer with other terms than the hub's gives no client", (stack) =>
+    Effect.gen(function* () {
+      new FakeServices().install();
+      const hub = { issuer: ISSUER, terms: "https://auth.test/terms" };
+      expect(yield* stack.deploy(client(props({ hub })))).toMatchObject({ status: "off" });
     }),
   );
 
@@ -584,7 +633,7 @@ describe("Convex.SharedHubClient", () => {
       const first = yield* stack.deploy(client(props()));
       vi.stubEnv("ACTIONS_ID_TOKEN_REQUEST_URL", "");
       expect(yield* stack.deploy(client(props()))).toEqual(first);
-      expect(fake.calls(ISSUER)).toHaveLength(1);
+      expect(fake.calls(RECORDS)).toHaveLength(1);
     }),
   );
 
@@ -714,7 +763,7 @@ describe("Convex.SharedHubClient", () => {
       fake.sent.length = 0;
       const moved = yield* stack.deploy(client(props({ redirectUri: OTHER_REDIRECT_URI })));
       expect(moved).toEqual(issued("cl_2", OTHER_REDIRECT_URI));
-      expect(fake.calls(ISSUER)).toEqual([]);
+      expect(fake.calls(RECORDS)).toEqual([]);
     }),
   );
 
@@ -773,7 +822,7 @@ describe("Convex.SharedHubClient", () => {
       fake.registrar = undefined;
       fake.sent.length = 0;
       expect(yield* stack.deploy(client(props()))).toEqual(issued());
-      expect(fake.calls(ISSUER)).toEqual([]);
+      expect(fake.calls(RECORDS)).toEqual([]);
     }),
   );
 
@@ -901,6 +950,7 @@ describe("Convex.SharedHubClient", () => {
           });
           const hub = yield* Convex.SharedHubClient("Client", {
             app: "scout",
+            hub: HUB,
             redirectUri: Output.interpolate`${deployment.siteUrl}/auth/hub/callback`,
             deploymentType: "preview",
             connectors: ["google"],
@@ -1142,7 +1192,7 @@ describe("Convex.SharedHubClient for a development client", () => {
       fake.sent.length = 0;
       const moved = yield* stack.deploy(client(development({ redirectUri: OTHER_REDIRECT_URI })));
       expect(moved).toEqual(issued("cl_2", OTHER_REDIRECT_URI, "development"));
-      expect(fake.calls(ISSUER)).toEqual([]);
+      expect(fake.calls(RECORDS)).toEqual([]);
     }),
   );
 
@@ -1154,7 +1204,7 @@ describe("Convex.SharedHubClient for a development client", () => {
       expect(yield* stack.deploy(client(development()))).toEqual(
         issued("cl_2", REDIRECT_URI, "development"),
       );
-      expect(fake.calls(ISSUER)).toEqual([]);
+      expect(fake.calls(RECORDS)).toEqual([]);
       expect(fake.calls(HUB_CLIENTS)).toEqual([`POST ${HUB_CLIENTS}`]);
     }),
   );
@@ -1231,7 +1281,7 @@ describe("Convex.SharedHubClient for a development client", () => {
       yield* stack.deploy(client(development()));
       fake.sent.length = 0;
       yield* stack.destroy();
-      expect(fake.calls(ISSUER)).toEqual([`DELETE ${ISSUER}/register/cl_1`]);
+      expect(fake.calls(RECORDS)).toEqual([`DELETE ${ISSUER}/register/cl_1`]);
       expect(fake.clients.size).toBe(0);
     }),
   );
@@ -1442,6 +1492,7 @@ describe("the development stage of the starter", () => {
           }).pipe(adopt(true));
           const hub = yield* Convex.SharedHubClient("HubClient", {
             app: "scout",
+            hub: HUB,
             redirectUri: Output.interpolate`${deployment.siteUrl}/auth/hub/callback`,
             deploymentType: "development",
             connectors: ["google"],
@@ -1494,7 +1545,7 @@ describe("the development stage of the starter", () => {
 
         // Both rows keep the default removal policy retain: a destroy deletes the client only.
         yield* stack.destroy().pipe(Effect.provide(layer));
-        expect(services.calls(ISSUER)).toContain(`DELETE ${ISSUER}/register/cl_2`);
+        expect(services.calls(RECORDS)).toContain(`DELETE ${ISSUER}/register/cl_2`);
         expect(convex.deployment(name)).toMatchObject({ deploymentType: "dev", reference: "nicu" });
 
         expect(lines).toContainEqual(expect.stringContaining("has a new client"));

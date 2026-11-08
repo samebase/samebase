@@ -14,7 +14,7 @@ import { sha256Hex } from "./subject.js";
 // got. The hub's policy decides what the registration may enroll in. The rows and the rules that
 // read them are in src/component/hubClients.ts.
 
-const { array, literal, number, object, string, union } = v;
+const { array, number, object, string, union } = v;
 
 type Ctx = GenericActionCtx<GenericDataModel>;
 
@@ -72,15 +72,17 @@ function notAllowed(reason: string): Response {
 
 const GITHUB_OIDC_ISSUER = "https://token.actions.githubusercontent.com";
 const GITHUB_OIDC_JWKS_URL = `${GITHUB_OIDC_ISSUER}/.well-known/jwks`;
-/** The audience that `Convex.SharedHubClient` of @samebase/alchemy-convex asks GitHub for. */
-const GITHUB_OIDC_AUDIENCE = "samebase";
 
 /** GitHub's key set. jose checks each key, so this checks only the shape that it takes. */
 const vGitHubKeySet = object({ keys: array(object({ kty: string() })) });
 
-/** `aud` is one exact string: jose alone also accepts a list that holds the audience. */
+/**
+ * `aud` is one string, the hub's issuer: jose alone also accepts a list that holds the audience,
+ * and it has already checked the value. So a token that a deploy made for one hub is no use at
+ * another hub, also when that hub's operator replays it.
+ */
 const vGitHubClaims = object({
-  aud: literal(GITHUB_OIDC_AUDIENCE),
+  aud: string(),
   event_name: string(),
   ref: string(),
   repository_id: string(),
@@ -105,15 +107,18 @@ async function readGitHubKeySet() {
   return keySet;
 }
 
-/** The claims of a good token, or null for a bad one. It throws when GitHub cannot be reached. */
-async function verifyGitHubToken(token: string) {
+/**
+ * The claims of a good token for `audience`, or null for a bad one. It throws when GitHub cannot be
+ * reached.
+ */
+async function verifyGitHubToken(token: string, audience: string) {
   try {
     const { payload } = await jwtVerify(
       token,
       async (header, input) => createLocalJWKSet(await readGitHubKeySet())(header, input),
       {
         algorithms: ["RS256"],
-        audience: GITHUB_OIDC_AUDIENCE,
+        audience,
         issuer: GITHUB_OIDC_ISSUER,
         requiredClaims: ["exp", "iat"],
       },
@@ -145,11 +150,11 @@ function readRunStage(claims: { event_name: string; ref: string }) {
   }
 }
 
-/** The verified run of a GitHub token, or the reply that refuses it. */
-async function readRun(token: string) {
+/** The verified run of a GitHub token for `audience`, or the reply that refuses it. */
+async function readRun(token: string, audience: string) {
   let claims;
   try {
-    claims = await verifyGitHubToken(token);
+    claims = await verifyGitHubToken(token, audience);
   } catch (error) {
     console.warn("hub_clients:github_unavailable", {
       message: error instanceof Error ? error.message : "unknown",
@@ -373,7 +378,7 @@ export function hubClientsEndpoint(args: {
    * initial access token, which a development server of the team uses for its development client.
    */
   async function registerRun(ctx: Ctx, request: Request, githubToken: string) {
-    const run = await readRun(githubToken);
+    const run = await readRun(githubToken, issuer);
     if (run instanceof Response) {
       return run;
     }
