@@ -261,10 +261,16 @@ export const lookupRepository = action({
       path: "/moderation/clients",
       validator: vClientList,
     });
-    // The newest client first: its name is the repository's newest.
+    // Only the newest client of each repository (the list is newest first) names it: an older name
+    // can belong to another repository now, or to none, so it goes to GitHub.
     const client = clients.find(
-      (candidate) =>
-        candidate.registeredBy.githubRepository.toLowerCase() === fullName.toLowerCase(),
+      (candidate, index) =>
+        candidate.registeredBy.githubRepository.toLowerCase() === fullName.toLowerCase() &&
+        clients.findIndex(
+          (other) =>
+            other.registeredBy.githubRepositoryDatabaseId ===
+            candidate.registeredBy.githubRepositoryDatabaseId,
+        ) === index,
     );
     if (client !== undefined && client.ownerId !== null) {
       return {

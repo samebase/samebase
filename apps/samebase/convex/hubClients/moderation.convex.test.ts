@@ -377,6 +377,54 @@ describe("hub client moderation", () => {
     expect(requests).toHaveLength(5);
   });
 
+  it("finds a repository at the hub by its newest name only", async () => {
+    const t = makeConvexTest();
+    turnModerationOn();
+    const [, original] = clientList.clients;
+    // The repository moved to another owner; its newest client has the new name, and a newer client
+    // than the next repository's still has the old one.
+    const old = { ...original, ownerId: "66", createdAt: 1_800_000_002_000 };
+    const moved = {
+      ...old,
+      clientId: "cl_moved",
+      createdAt: 1_800_000_003_000,
+      registeredBy: { ...original.registeredBy, githubRepository: "new-owner/octo-repo" },
+    };
+    // A new repository took the old name.
+    const reused = {
+      ...original,
+      clientId: "cl_reused",
+      createdAt: 1_800_000_001_000,
+      registeredBy: { ...original.registeredBy, githubRepositoryDatabaseId: "99" },
+      ownerId: "70",
+    };
+    let clients = [moved, old];
+    const requests = stubHub((request) =>
+      request.url.startsWith("https://api.github.com/")
+        ? jsonResponse({ message: "Not Found" }, 404)
+        : jsonResponse({ clients, limitReached: false }),
+    );
+    const admin = await viewerWith(t, "nicu@samebase.com");
+    const lookup = async (fullName: string) =>
+      await admin.action(api.hubClients.moderation.lookupRepository, { fullName });
+
+    expect(await lookup("octo-org/octo-repo")).toEqual({ status: "not_found" });
+    expect(requests.at(-1)?.url).toBe("https://api.github.com/repos/octo-org/octo-repo");
+    expect(await lookup("new-owner/octo-repo")).toEqual({
+      status: "found",
+      repositoryId: "74",
+      ownerId: "66",
+      name: "new-owner/octo-repo",
+    });
+    clients = [moved, old, reused];
+    expect(await lookup("octo-org/octo-repo")).toEqual({
+      status: "found",
+      repositoryId: "99",
+      ownerId: "70",
+      name: "octo-org/octo-repo",
+    });
+  });
+
   it("grants a connector to a repository in the name of the signed-in admin, and says when the hub refuses", async () => {
     const t = makeConvexTest();
     turnModerationOn();
