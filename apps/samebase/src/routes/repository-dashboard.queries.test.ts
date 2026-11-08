@@ -4,6 +4,7 @@ import { ConvexError } from "convex/values";
 import { describe, expect, it, vi } from "vite-plus/test";
 import { api } from "../../convex/_generated/api";
 import { observedBaseAlchemyRepositoryReply } from "../../convex/repository/fixtures/observedAlchemyState";
+import { readDeployedStacks } from "../../shared/alchemyState";
 import { ALCHEMY_CONNECTION_UNAVAILABLE } from "../../shared/alchemyStateModel";
 import { AUTHENTICATED_ACCOUNT_DELETED } from "../../shared/authenticatedAccountAvailability";
 import { loadRepositoryDashboard, loadRepositoryOverview } from "./repository-dashboard.queries";
@@ -79,7 +80,10 @@ const liveConnection = {
   store: "live",
   deploymentUrl: "https://brave-heron-201.convex.cloud",
   token: "reader-token",
-  snapshot: observedBaseAlchemyRepositoryReply,
+  snapshot: {
+    store: "found",
+    stacks: readDeployedStacks(observedBaseAlchemyRepositoryReply.stacks, "samebase/base-alchemy"),
+  },
 } as const;
 
 /**

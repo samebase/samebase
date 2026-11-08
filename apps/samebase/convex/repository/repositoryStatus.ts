@@ -72,7 +72,7 @@ export function buildRepositoryStacksStatus(args: {
         state: "available",
         stacks: read.stacks.map((stack) => {
           const deployedCommit =
-            stack.stages.find((stage) => stage.name === "prod")?.deployedHeadCommit ?? null;
+            stack.stages.find((stage) => stage.name === "prod")?.run.headCommit ?? null;
           return {
             name: stack.name,
             productionUrl: readStageUrl(read, stack, "prod"),
@@ -92,7 +92,7 @@ export function buildRepositoryStacksStatus(args: {
                       {
                         pullRequestNumber: Number(pullRequest),
                         url: readStageUrl(read, stack, stage.name),
-                        deployedCommit: stage.deployedHeadCommit,
+                        deployedCommit: stage.run.headCommit,
                       },
                     ];
               })
@@ -142,7 +142,7 @@ function buildRepositoryActionsAttention(args: {
         ? [
             {
               tool: null,
-              problem: `No successful deployment recorded yet. Check GitHub Actions. ${args.setupStack.runUrl ?? `https://github.com/${repositoryFullName}/actions`}`,
+              problem: `No successful deployment recorded yet. Check GitHub Actions. https://github.com/${repositoryFullName}/actions`,
             },
           ]
         : [];

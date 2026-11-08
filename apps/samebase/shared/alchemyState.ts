@@ -1,14 +1,23 @@
 import { isRecord } from "@samebase/dependent/main";
 import { validate } from "convex-helpers/validators";
 import { v } from "convex/values";
-import type {
-  AlchemySetupStatus,
-  AlchemyStack,
-  AlchemyStateObservation,
+import {
+  vAlchemyRunRecord,
+  type AlchemySetupStatus,
+  type AlchemyStack,
+  type AlchemyStateObservation,
+  type AlchemyStoredStage,
 } from "./alchemyStateModel";
 import { REPOSITORY_ROOT_DIRECTORY } from "./repositoryRootDirectory";
 
 const { array, literal, number, object, optional, string, union } = v;
+
+/**
+The key of the run record in a stage output.
+
+@see https://github.com/samebase/samebase/blob/e992b030f0b5cb4da9959a6fa4b17be3d7a23bbf/packages/alchemy-convex/src/RunRecord.ts#L18-L19
+*/
+const RUN_RECORD_KEY = "samebase.run";
 
 /**
 Alchemy's `encodeState` writes a `Redacted` value in clear text as `{ "__redacted__": <value> }`, and
@@ -198,19 +207,53 @@ export function stageResources(stage: {
 }
 
 /**
-The setup status of a repository_actions repository. A first deploy has its run record before it
-writes its output, so a `prod` stage exists while that deploy runs. A stage without an output has no
-`deployedHeadCommit`, which comes from the run record in the output.
+The stacks of `repository` that Samebase shows, from the stages that the store gives. Samebase shows
+a stage only after its first full successful deploy: its output is a JSON object whose run record,
+under `samebase.run`, names `repository`. A stage while its first deploy runs, a stage whose deploys
+did not complete, and a stage that an older stack wrote without a run record have no such output.
+The `output` of a stage is the JSON of its output without the run record. A stack without a stage
+that Samebase shows is left out. Stacks and stages keep the order of the store. A store read on the
+server removes the secret values before it calls this.
+*/
+export function readDeployedStacks(
+  stacks: readonly { name: string; stages: readonly AlchemyStoredStage[] }[],
+  repository: string,
+): AlchemyStack[] {
+  return stacks.flatMap((stack) => {
+    const stages = stack.stages.flatMap((stage) => {
+      const output: unknown = stage.output === null ? null : JSON.parse(stage.output);
+      if (!isRecord(output)) {
+        return [];
+      }
+      const { [RUN_RECORD_KEY]: run, ...stackOutput } = output;
+      return validate(vAlchemyRunRecord, run) && run.repository === repository
+        ? [
+            {
+              name: stage.name,
+              run,
+              resources: stage.resources,
+              output: JSON.stringify(stackOutput),
+            },
+          ]
+        : [];
+    });
+    return stages.length === 0 ? [] : [{ name: stack.name, stages }];
+  });
+}
+
+/**
+The setup status of a repository_actions repository. A stage of the repository has the run record of
+a completed deploy, so a `prod` stage of the stack with the repository's name is a completed
+production deploy.
 */
 export function readAlchemySetupStatus(
   stacks: readonly AlchemyStack[],
   repository: string,
 ): AlchemySetupStatus {
   const stack = stacks.find((candidate) => candidate.name === repository);
-  const production = stack?.stages.find((stage) => stage.name === "prod");
-  return production?.deployedHeadCommit
+  return stack?.stages.some((stage) => stage.name === "prod")
     ? { state: "done" }
-    : { state: "no_successful_deployment", runUrl: production?.record.runUrl ?? null };
+    : { state: "no_successful_deployment" };
 }
 
 /**
@@ -219,11 +262,11 @@ default branch or `pr-12` for pull request 12: one card for each stack with that
 file order. `folder` is the directory of the stack file, `/` for the root, and null when the repository has one stack
 and its stack file is at the root, on every stage. A stack file outside the repository has no card.
 
-`run` is the run line of the card: the last completed deploy of the stage, `deployedHeadCommit`,
-with `recordedAt` and `runUrl` of its run record. The overview shows `headCommit` above the cards,
-the head of the default branch or of the pull request, so a stage that deployed that commit has no
-run line. A stage without a completed deploy, or a `headCommit` that is not known yet (null), also
-has none. The run record and GitHub both give full commit hashes.
+`run` is the run line of the card: the last completed deploy of the stage, from the one run record of
+that deploy: its commit as `deployedHeadCommit`, with its `recordedAt` and `runUrl`. The overview
+shows `headCommit` above the cards, the head of the default branch or of the pull request, so a
+stage that deployed that commit has no run line. A `headCommit` that is not known yet (null) also
+gives none. The run record and GitHub both give full commit hashes.
 
 `address` is where the stack serves: the first Convex deployment by fqn at its `convexSite` custom
 domain with the fewest labels, such as samebase.com before api.samebase.com (the oldest on a tie),
@@ -245,14 +288,14 @@ export function stackCards({
   const cards = stacks
     .flatMap((stack) => {
       const stage = stack.stages.find((candidate) => candidate.name === stageName);
-      const directory = stage ? stackPath(stage.record.stackFile) : null;
+      const directory = stage ? stackPath(stage.run.stackFile) : null;
       if (!stage || directory === null) {
         return [];
       }
 
-      const { record } = stage;
+      const { run } = stage;
       const resources = stageResources({
-        stackFile: record.stackFile,
+        stackFile: run.stackFile,
         resources: stage.resources,
       });
       // The store gives the rows of a stage in fqn order.
@@ -267,16 +310,19 @@ export function stackCards({
       const addressWorker = deployment
         ? undefined
         : resources.workers.find(({ state }) => state.attr.url);
-      const { deployedHeadCommit } = stage;
       return [
         {
           stack: stack.name,
-          stackFile: record.stackFile,
+          stackFile: run.stackFile,
           folder: directory === "." ? REPOSITORY_ROOT_DIRECTORY : directory,
           run:
-            !headCommit || !deployedHeadCommit || deployedHeadCommit === headCommit
+            !headCommit || run.headCommit === headCommit
               ? null
-              : { deployedHeadCommit, recordedAt: record.recordedAt, runUrl: record.runUrl },
+              : {
+                  deployedHeadCommit: run.headCommit,
+                  recordedAt: run.recordedAt,
+                  runUrl: run.runUrl,
+                },
           address: !deployment
             ? (addressWorker?.state.attr.url ?? null)
             : siteDomain

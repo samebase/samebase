@@ -139,9 +139,9 @@ function makeRepositorySettingsBuilderRepository(
 }
 
 /**
-The stacks as `reader:repository` returns the captured stage `prod` of samebase/base-alchemy,
-with the `rootDir` "." on its Deployment row that @samebase/alchemy-convex 0.8.0 writes for a stack
-file at the repository root.
+The stacks as Samebase reads the captured stage `prod` of samebase/base-alchemy, with the `rootDir`
+"." on its Deployment row that @samebase/alchemy-convex 0.8.0 writes for a stack file at the
+repository root.
 */
 function observedBaseAlchemyStack(): RepositoryAlchemyStacks {
   const [, , prod] = observedAlchemyStackReply.value.stages;
@@ -160,8 +160,8 @@ function observedBaseAlchemyStack(): RepositoryAlchemyStacks {
         name: "samebase/base-alchemy",
         stages: [
           {
-            name: prod.stage,
-            record: {
+            name: prod.name,
+            run: {
               version: 1,
               repository: "samebase/base-alchemy",
               stackFile: "alchemy.run.ts",
@@ -173,7 +173,6 @@ function observedBaseAlchemyStack(): RepositoryAlchemyStacks {
               source: "github-actions",
               recordedAt: "2026-10-21T19:58:06.882Z",
             },
-            deployedHeadCommit: "a4d98f2ad150dee07e19fa9c348e70240aca1dac",
             resources: prod.resources.map((resource) => ({
               fqn: resource.fqn,
               value: resource.value.replace('"type":"prod"', '"type":"prod","rootDir":"."'),
@@ -227,8 +226,7 @@ function samebaseStacksAfterTheMove(): RepositoryAlchemyStacks {
         stages: [
           {
             name: "prod",
-            record,
-            deployedHeadCommit: record.headCommit,
+            run: record,
             resources: [
               rowOf("Domains"),
               {
@@ -256,8 +254,7 @@ function samebaseStacksAfterTheMove(): RepositoryAlchemyStacks {
         stages: [
           {
             name: "prod",
-            record: { ...record, stackFile: "apps/sidebars-example/alchemy.run.ts" },
-            deployedHeadCommit: record.headCommit,
+            run: { ...record, stackFile: "apps/sidebars-example/alchemy.run.ts" },
             resources: [
               {
                 fqn: "Site",
@@ -463,7 +460,7 @@ describe("Alchemy stack cards", () => {
           name: "samebase/scout",
           stages: stack.stages.map((stage) => ({
             ...stage,
-            record: { ...stage.record, stackFile },
+            run: { ...stage.run, stackFile },
             resources: observedScoutR2Resources,
           })),
         })),
@@ -499,7 +496,7 @@ describe("Alchemy stack cards", () => {
           name: "samebase/scout",
           stages: stack.stages.map((stage) => ({
             ...stage,
-            record: { ...stage.record, stackFile: "alchemy.run.ts" },
+            run: { ...stage.run, stackFile: "alchemy.run.ts" },
             resources: [
               {
                 fqn: "Client",
@@ -612,8 +609,8 @@ describe("Alchemy stack cards", () => {
             name: "samebase/samebase",
             stages: [
               {
-                name: prod.stage,
-                record: {
+                name: prod.name,
+                run: {
                   version: 1,
                   repository: "samebase/samebase",
                   stackFile: "apps/samebase/alchemy.run.ts",
@@ -625,7 +622,6 @@ describe("Alchemy stack cards", () => {
                   source: "github-actions",
                   recordedAt: "2026-10-22T08:22:58.152Z",
                 },
-                deployedHeadCommit: "1592243a49970f5c5142009b7ca7b2d71d31f104",
                 resources: prod.resources,
                 output: '{"url":"https://clear-butterfly-858.convex.site"}',
               },
@@ -684,7 +680,7 @@ describe("Alchemy stack cards", () => {
           stages: [
             {
               name: "prod",
-              record: {
+              run: {
                 version: 1,
                 repository: "samebase/tmp-k7m2-rows",
                 stackFile: "alchemy.run.ts",
@@ -695,7 +691,6 @@ describe("Alchemy stack cards", () => {
                 source: "checkout",
                 recordedAt: "2026-10-21T12:00:00.000Z",
               },
-              deployedHeadCommit: "a".repeat(40),
               resources: [{ fqn: "Worker", value }],
               output: "{}",
             },
@@ -770,7 +765,7 @@ describe("Alchemy stack cards", () => {
         ...stack,
         stages: stack.stages.map((stage) => ({
           ...stage,
-          record: { ...stage.record, stackFile: "apps/mail/alchemy.run.ts" },
+          run: { ...stage.run, stackFile: "apps/mail/alchemy.run.ts" },
           resources: [
             ...stage.resources.map((resource) => ({
               fqn: resource.fqn,
@@ -849,7 +844,7 @@ describe("Alchemy stack cards", () => {
               stages: [
                 {
                   name: "pr-1768",
-                  record: {
+                  run: {
                     version: 1,
                     repository: "samebase/samebase",
                     stackFile: "alchemy.run.ts",
@@ -861,7 +856,6 @@ describe("Alchemy stack cards", () => {
                     source: "github-actions",
                     recordedAt: "2026-10-22T09:34:35.577Z",
                   },
-                  deployedHeadCommit: "429c1218a16d2ee74b9da68d684dc460a0a67ce8",
                   resources: preview.resources,
                   output: '{"url":"https://aware-bobcat-542.convex.site"}',
                 },

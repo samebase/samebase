@@ -184,7 +184,7 @@ const FIXTURE_STACKS = ((): RepositoryAlchemyStacks => {
           {
             name: "pr-1260",
             // The captured run record of `pr-1768`, for the head commit of the pull request.
-            record: {
+            run: {
               ...record,
               branch: "alchemy-root-stack",
               pullRequest: 1260,
@@ -192,14 +192,12 @@ const FIXTURE_STACKS = ((): RepositoryAlchemyStacks => {
               runUrl: "https://github.com/samebase/samebase/actions/runs/39756039340/attempts/1",
               recordedAt: "2026-10-22T09:34:35.577Z",
             },
-            deployedHeadCommit: pullRequestHead,
             resources: [previewSiteRow],
             output: '{"url":"https://aware-bobcat-542.convex.site"}',
           },
           {
             name: "prod",
-            record,
-            deployedHeadCommit: record.headCommit,
+            run: record,
             resources: [
               {
                 fqn: "Mail/Inbox",
@@ -226,8 +224,7 @@ const FIXTURE_STACKS = ((): RepositoryAlchemyStacks => {
         stages: [
           {
             name: "prod",
-            record: { ...record, stackFile: "apps/sidebars-example/alchemy.run.ts" },
-            deployedHeadCommit: record.headCommit,
+            run: { ...record, stackFile: "apps/sidebars-example/alchemy.run.ts" },
             resources: [
               { fqn: "Site", value: fixtureWorkerRow("samebase-monorepo-sidebars-example") },
             ],

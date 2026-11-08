@@ -17,7 +17,7 @@ type AlchemyStage = Extract<
 const [, , prod] = observedAlchemyStackReply.value.stages;
 const [, pr1768, samebaseProd] = observedSamebaseStackReply.value.stages;
 
-/** The run record of the captured pr-1768 stage, as `reader:repository` returns it. */
+/** The run record in the output of the captured pr-1768 stage. */
 const pr1768Record = {
   version: 1,
   repository: "samebase/samebase",
@@ -30,7 +30,7 @@ const pr1768Record = {
   recordedAt: "2026-10-22T09:34:35.577Z",
 } as const;
 
-/** The run record of the captured `prod` stage of samebase/samebase, as the reader returns it. */
+/** The run record in the output of the captured `prod` stage of samebase/samebase. */
 const prodRecord = {
   version: 1,
   repository: "samebase/samebase",
@@ -44,9 +44,8 @@ const prodRecord = {
 } as const;
 
 const pr1768Stage: AlchemyStage = {
-  name: pr1768.stage,
-  record: pr1768Record,
-  deployedHeadCommit: pr1768Record.headCommit,
+  name: pr1768.name,
+  run: pr1768Record,
   resources: pr1768.resources,
   output: '{"url":"https://aware-bobcat-542.convex.site"}',
 };
@@ -97,8 +96,7 @@ function deploymentWith(
   return oneStack("samebase/samebase", [
     {
       name: "prod",
-      record: { ...prodRecord, stackFile },
-      deployedHeadCommit: prodRecord.headCommit,
+      run: { ...prodRecord, stackFile },
       resources: [{ fqn: "Deployment", value: JSON.stringify(deployment) }],
       output: "{}",
     },
@@ -110,10 +108,8 @@ afterEach(() => {
 });
 
 describe("AlchemyStateTree", () => {
-  it("shows a stage before its first output without an empty Output row", () => {
-    const container = renderTree(
-      oneStack("samebase/samebase", [{ ...pr1768Stage, output: "null" }]),
-    );
+  it("shows no empty Output row for a stage whose output holds only its run record", () => {
+    const container = renderTree(oneStack("samebase/samebase", [{ ...pr1768Stage, output: "{}" }]));
     expect(container.textContent).toContain("pr-1768");
     expect(
       Array.from(container.querySelectorAll("dt"), (label) => label.textContent),
@@ -185,9 +181,8 @@ describe("AlchemyStateTree", () => {
           stages: [
             pr1768Stage,
             {
-              name: samebaseProd.stage,
-              record: prodRecord,
-              deployedHeadCommit: prodRecord.headCommit,
+              name: samebaseProd.name,
+              run: prodRecord,
               resources: samebaseProd.resources,
               output: '{"url":"https://clear-butterfly-858.convex.site"}',
             },
@@ -198,8 +193,7 @@ describe("AlchemyStateTree", () => {
           stages: [
             {
               name: "prod",
-              record: { ...prodRecord, stackFile: "apps/sidebars-example/alchemy.run.ts" },
-              deployedHeadCommit: prodRecord.headCommit,
+              run: { ...prodRecord, stackFile: "apps/sidebars-example/alchemy.run.ts" },
               resources: [],
               output: "{}",
             },
@@ -254,12 +248,11 @@ describe("AlchemyStateTree", () => {
       oneStack("samebase/tmp-k7m2-rows", [
         {
           name: "prod",
-          record: {
+          run: {
             ...prodRecord,
             repository: "samebase/tmp-k7m2-rows",
             stackFile: "alchemy.run.ts",
           },
-          deployedHeadCommit: prodRecord.headCommit,
           resources: [workerRow],
           output: "{}",
         },
@@ -288,12 +281,11 @@ describe("AlchemyStateTree", () => {
       oneStack("samebase/base-alchemy", [
         {
           name: "prod",
-          record: {
+          run: {
             ...prodRecord,
             repository: "samebase/base-alchemy",
             stackFile: "alchemy.run.ts",
           },
-          deployedHeadCommit: prodRecord.headCommit,
           resources: [
             {
               fqn: "Deployment",
@@ -334,8 +326,7 @@ describe("AlchemyStateTree", () => {
       oneStack("samebase/samebase", [
         {
           name: "prod",
-          record: prodRecord,
-          deployedHeadCommit: prodRecord.headCommit,
+          run: prodRecord,
           resources: [],
           output:
             '{"url":"https://clear-butterfly-858.convex.site","deployKey":{"__redacted__":"prod:clear-butterfly-858|state-secret-value"},"nested":{"token":{"__redacted__":null}}}',

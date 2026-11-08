@@ -7,10 +7,10 @@ import type { UserRepositoryResult } from "../../../convex/repository/contracts/
 
 /**
 The first deployment of a repository that its GitHub Actions set up, once Samebase's own setup
-finished. It shows while the team's Alchemy state store has no output for the repository's `prod`
-stage. The store tells no failed run from a running one, so the line links the repository's Actions
-page or the recorded run. A read that fails after a read without a completed deploy keeps that
-line: a team's first run creates the store, and a store in the middle of that fails a read.
+finished. It shows while the team's Alchemy state store has no completed deploy of the repository's
+`prod` stage. The store tells no failed run from a running one, so the line links the repository's
+Actions page. A read that fails after a read without a completed deploy keeps that line: a team's
+first run creates the store, and a store in the middle of that fails a read.
 */
 export function RepositorySetupStackStatus({
   repository,
@@ -66,7 +66,7 @@ export function RepositorySetupStackStatus({
         No successful deployment recorded yet. Check{" "}
         <a
           className="font-medium text-foreground underline underline-offset-4"
-          href={status.runUrl ?? `https://github.com/${githubRepositoryFullName}/actions`}
+          href={`https://github.com/${githubRepositoryFullName}/actions`}
           rel="noreferrer noopener"
           target="_blank"
         >

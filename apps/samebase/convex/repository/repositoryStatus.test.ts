@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 
+import { readDeployedStacks } from "../../shared/alchemyState";
 import type { AlchemyStack, AlchemyStateObservation } from "../../shared/alchemyStateModel";
 import type { Id } from "../_generated/dataModel";
 import type { RepositoryStatus } from "./contracts/getRepositoryStatus";
@@ -120,14 +121,12 @@ const githubRepository = {
   },
 };
 
-/** The captured stack of samebase/base-alchemy in the shape that a store read gives. */
-const [capturedStack] = observedBaseAlchemyRepositoryReply.stacks;
+/** The captured stack of samebase/base-alchemy as a store read gives it: only `prod` has a run. */
+const [capturedStack] = readDeployedStacks(
+  observedBaseAlchemyRepositoryReply.stacks,
+  "samebase/base-alchemy",
+);
 const [capturedStage] = capturedStack.stages;
-const capturedRecord = {
-  ...capturedStage.record,
-  version: 1,
-  source: "github-actions",
-} satisfies AlchemyStack["stages"][number]["record"];
 /** The captured Deployment row with `rootDir`, which the row of a store from 0.7.0 lacks. */
 const capturedResources = capturedStage.resources.map((resource) => ({
   ...resource,
@@ -135,9 +134,9 @@ const capturedResources = capturedStage.resources.map((resource) => ({
 }));
 const stack: AlchemyStack = {
   name: capturedStack.name,
-  stages: [{ ...capturedStage, record: capturedRecord, resources: capturedResources }],
+  stages: [{ ...capturedStage, resources: capturedResources }],
 };
-const deployedCommit = capturedStage.deployedHeadCommit;
+const deployedCommit = capturedStage.run.headCommit;
 const productionUrl = "https://ideal-dolphin-15.convex.site";
 const availableStack = {
   name: "samebase/base-alchemy",
@@ -165,17 +164,16 @@ describe("buildRepositoryStacksStatus", () => {
     const preview = {
       ...stack.stages[0],
       name: "pr-42",
-      deployedHeadCommit: headCommitOid,
-      record: { ...capturedRecord, branch: "undo", pullRequest: 42, headCommit: headCommitOid },
+      run: { ...capturedStage.run, branch: "undo", pullRequest: 42, headCommit: headCommitOid },
     };
-    const reader = {
+    const earlierPreview = {
       ...preview,
       name: "pr-7",
-      deployedHeadCommit: null,
+      run: { ...preview.run, branch: "redo", pullRequest: 7, headCommit: deployedCommit },
     };
     expect(
       buildRepositoryStacksStatus({
-        read: foundStore([{ ...stack, stages: [preview, stack.stages[0], reader] }]),
+        read: foundStore([{ ...stack, stages: [preview, stack.stages[0], earlierPreview] }]),
         headCommit: deployedCommit,
       }),
     ).toEqual({
@@ -184,7 +182,7 @@ describe("buildRepositoryStacksStatus", () => {
         {
           ...availableStack,
           previews: [
-            { pullRequestNumber: 7, url: productionUrl, deployedCommit: null },
+            { pullRequestNumber: 7, url: productionUrl, deployedCommit },
             { pullRequestNumber: 42, url: productionUrl, deployedCommit: headCommitOid },
           ],
         },
@@ -278,11 +276,11 @@ describe("buildRepositorySetupStackStatus", () => {
     ).toEqual({ state: "done" });
     expect(
       buildRepositorySetupStackStatus({ read: foundStore([]), repository: repositoryName }),
-    ).toEqual({ state: "no_successful_deployment", runUrl: null });
+    ).toEqual({ state: "no_successful_deployment" });
     // A team's first run creates the store.
     expect(
       buildRepositorySetupStackStatus({ read: { store: "missing" }, repository: repositoryName }),
-    ).toEqual({ state: "no_successful_deployment", runUrl: null });
+    ).toEqual({ state: "no_successful_deployment" });
   });
 
   it("is unavailable when the store cannot be read", () => {
@@ -475,7 +473,7 @@ describe("buildRepositoryAttention", () => {
             observations: {
               ...healthyObservations,
               stacks,
-              setupStack: { state: "no_successful_deployment", runUrl: null },
+              setupStack: { state: "no_successful_deployment" },
             },
           }),
         ).toEqual([
@@ -495,7 +493,7 @@ describe("buildRepositoryAttention", () => {
           observations: {
             ...healthyObservations,
             stacks: { state: "no_store" },
-            setupStack: { state: "no_successful_deployment", runUrl: null },
+            setupStack: { state: "no_successful_deployment" },
           },
         }),
       ).toEqual([

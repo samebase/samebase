@@ -1,9 +1,9 @@
-import { notEmpty } from "@samebase/dependent/main";
 import { parse, validate } from "convex-helpers/validators";
 import { ConvexError, Infer, v } from "convex/values";
 import {
   ALCHEMY_REDACTED_MARKER,
   readAlchemySetupStatus,
+  readDeployedStacks,
   vAlchemyConvexDeploymentState,
   vAlchemyConvexProjectState,
 } from "../../shared/alchemyState";
@@ -12,15 +12,16 @@ import {
   CONNECT_CONVEX_TO_CHECK_STACK,
   DESTROY_ALCHEMY_STACK_FIRST,
   vAlchemyNoConnection,
-  vAlchemyRunRecord,
   vAlchemyLiveDeployments,
+  vAlchemyRepositoryReply,
   vAlchemySetupStatus,
   vAlchemyStacksRead,
+  vAlchemyStoredStage,
   type AlchemySetupStatus,
-  type AlchemyStage,
   type AlchemyStack,
   type AlchemyStacksRead,
   type AlchemyStateObservation,
+  type AlchemyStoredStage,
 } from "../../shared/alchemyStateModel";
 import type { Id } from "../_generated/dataModel";
 import { env, type ActionCtx } from "../_generated/server";
@@ -50,46 +51,27 @@ const { array, id, literal, object, string, union } = v;
 const ALCHEMY_STATE_PROJECT_NAME = "alchemy-state-store";
 
 /**
-The key of the run record of the last full deploy in a stage output.
-
-@see https://github.com/samebase/alchemy-convex/blob/v0.9.0/src/RunRecord.ts#L16
-*/
-const RUN_RECORD_KEY = "samebase.run";
-
-/**
 The reply of `state:stacks`: the name of every stack of the store with a resource or an output, in
 name order.
 
-@see https://github.com/samebase/alchemy-convex/blob/v0.9.0/src/store/convex/state.ts#L74-L99
+@see https://github.com/samebase/samebase/blob/e992b030f0b5cb4da9959a6fa4b17be3d7a23bbf/packages/alchemy-convex/src/store/component/state.ts#L53-L78
 */
 const vStoreStacksReply = object({ status: literal("success"), value: array(string()) });
 
 /**
-The reply of `state:readStack` `{ stack }` of store version 3 (samebase/alchemy-convex 0.9.0): every
-stage of the stack in name order, each with its resources in fqn order and its output, as the JSON
-texts that the rows hold, and `record`, the run record of the run that last wrote the stage. A first
-deploy has its record before it writes its output (`output: null`). `record` is null when the last
-write carried no record, such as a run before 0.9.0. A stack that the store does not hold has no
-stages. The function is an internal query of the root app: only `POST /api/function` reaches it,
-with a deploy key that allows `deployment:functions:runInternalQueries`. A function error fails the
-request, which `fetchConvexDeploymentJson` throws.
+The reply of `state:readStack` `{ stack }` of store version 7: every stage of the stack in name
+order, with the JSON texts that the rows hold. A secret is still in its `__redacted__` object, sealed
+or in clear text. A stack that the store does not hold has no stages. The function is an internal
+query of the root app: only `POST /api/function` reaches it, with a deploy key that allows
+`deployment:functions:runInternalQueries`. A function error fails the request, which
+`fetchConvexDeploymentJson` throws.
 
-@see https://github.com/samebase/alchemy-convex/blob/v0.9.0/src/store/convex/state.ts#L242-L291
+@see https://github.com/samebase/samebase/blob/e992b030f0b5cb4da9959a6fa4b17be3d7a23bbf/packages/alchemy-convex/src/store/component/state.ts#L292-L345
 */
 const vStoreStackReply = object({
   status: literal("success"),
-  value: object({
-    stages: array(
-      object({
-        stage: string(),
-        record: union(vAlchemyRunRecord, v.null()),
-        resources: array(object({ fqn: string(), value: string() })),
-        output: union(string(), v.null()),
-      }),
-    ),
-  }),
+  value: object({ stages: array(vAlchemyStoredStage) }),
 });
-type StoreStage = Infer<typeof vStoreStackReply>["value"]["stages"][number];
 
 /**
 Alchemy state holds each `Redacted` value in clear text. This parses a JSON text of the state, keeps
@@ -103,34 +85,15 @@ function parseWithoutSecretValues(text: string): unknown {
   );
 }
 
-/**
-A stage whose current run record names `repository`, including a deploy with no output yet. The
-deployed commit is the one of the run record in the output, which the last full deploy wrote.
-*/
-function readStage(stage: StoreStage, repository: string): AlchemyStage | null {
-  const { record } = stage;
-  if (record?.repository !== repository) {
-    return null;
-  }
-  const output = stage.output === null ? {} : parseWithoutSecretValues(stage.output);
-  if (!isRecord(output)) {
-    return null;
-  }
-
-  const { [RUN_RECORD_KEY]: deployed, ...stackOutput } = output;
+/** A stored stage without secret values, as `reader:repository` gives it. */
+function withoutSecretValues(stage: AlchemyStoredStage): AlchemyStoredStage {
   return {
-    name: stage.stage,
-    record,
-    deployedHeadCommit:
-      validate(vAlchemyRunRecord, deployed, { allowUnknownFields: true }) &&
-      deployed.repository === repository
-        ? deployed.headCommit
-        : null,
+    name: stage.name,
     resources: stage.resources.map((resource) => ({
       fqn: resource.fqn,
       value: JSON.stringify(parseWithoutSecretValues(resource.value)),
     })),
-    output: JSON.stringify(stackOutput),
+    output: stage.output === null ? null : JSON.stringify(parseWithoutSecretValues(stage.output)),
   };
 }
 
@@ -164,9 +127,9 @@ async function readRepositoryStackNames(args: {
 
 /**
 Reads the stacks of a repository from the Alchemy state store of a Convex team, the production
-deployment of the team's `alchemy-state-store` project: `state:stacks`, then one `state:readStack` for each
-stack named `owner/name` or `owner/name/<folder>`. A stack keeps the stages whose run record names
-the repository. Other stacks of the team are not read.
+deployment of the team's `alchemy-state-store` project: `state:stacks`, then one `state:readStack`
+for each stack named `owner/name` or `owner/name/<folder>`. The secret values are removed first, and
+`readDeployedStacks` keeps the stages that Samebase shows. Other stacks of the team are not read.
 */
 export async function readAlchemyStacks(args: {
   /** The GitHub `owner/name` of the repository. */
@@ -202,12 +165,13 @@ export async function readAlchemyStacks(args: {
 
   return {
     store: "found",
-    stacks: replies.flatMap(({ name, reply }) => {
-      const stages = parse(vStoreStackReply, reply)
-        .value.stages.map((stage) => readStage(stage, args.repository))
-        .filter(notEmpty);
-      return stages.length === 0 ? [] : [{ name, stages }];
-    }),
+    stacks: readDeployedStacks(
+      replies.map(({ name, reply }) => ({
+        name,
+        stages: parse(vStoreStackReply, reply).value.stages.map(withoutSecretValues),
+      })),
+      args.repository,
+    ),
   };
 }
 
@@ -246,7 +210,8 @@ async function readStoreTarget(
 /**
 Throws unless the team's store holds no stack named for the repository: deleting the GitHub
 repository deletes the Destroy app workflow and leaves the stack running. This reads names, so it
-also counts a stack that `readAlchemyStacks` drops, such as one whose last run wrote no run record.
+also counts a stack that `readAlchemyStacks` drops, such as one whose deploys never completed or
+whose outputs hold no run record.
 */
 export async function assertRepositoryHasNoStack(
   ctx: Pick<ActionCtx, "runQuery">,
@@ -276,8 +241,8 @@ export async function assertRepositoryHasNoStack(
 
 /**
 The stacks of a repository with the live metadata of their production deployments, so that a stack's
-address is the one that the overview shows. The result holds no secret value (`readStage`), and it
-throws when the store cannot be read.
+address is the one that the overview shows. The result holds no secret value
+(`withoutSecretValues`), and it throws when the store cannot be read.
 */
 export async function readRepositoryStacks(
   ctx: Pick<ActionCtx, "runQuery">,
@@ -367,20 +332,20 @@ const vReaderAuthorizationReply = object({
   value: object({ token: string() }),
 });
 /** The reply of `POST /api/query` for `reader:repository`, the query that the browser subscribes to. */
-const vReaderRepositoryReply = object({ status: literal("success"), value: vAlchemyStacksRead });
+const vReaderRepositoryReply = object({
+  status: literal("success"),
+  value: vAlchemyRepositoryReply,
+});
 
 /**
-Checks Samebase access on every connection and token renewal. Only a five-minute, repository-scoped
-read token reaches the browser. The deploy key used to ask the store for that token stays here.
+Checks Samebase access on every connection and token renewal: the caller reads `target` for the
+viewer. Only a five-minute, repository-scoped read token reaches the browser. The deploy key used to
+ask the store for that token stays here.
 */
 async function connectReader(
-  ctx: Pick<ActionCtx, "runQuery">,
-  args: { repositoryId: Id<"repositories">; userId: Id<"users"> },
+  target: ConvexInspectionTarget,
+  userId: Id<"users">,
 ): Promise<Infer<typeof vAlchemyConnection>> {
-  const target = await readStoreTarget(ctx, args);
-  if (!target) {
-    return { store: "no_connection" };
-  }
   try {
     const deployment = await findAlchemyDeployment(target);
     if (!deployment) {
@@ -400,7 +365,7 @@ async function connectReader(
               path: "reader:authorize",
               args: {
                 repository: target.githubRepositoryFullName,
-                subject: `${env.CONVEX_CLOUD_URL}:${args.userId}`,
+                subject: `${env.CONVEX_CLOUD_URL}:${userId}`,
               },
               format: "json",
             },
@@ -418,30 +383,40 @@ export const connect = action({
   access: "access_dashboard",
   args: { repositoryId: id("repositories") },
   returns: vAlchemyConnection,
-  handler: async (ctx, args): Promise<Infer<typeof vAlchemyConnection>> =>
-    await connectReader(ctx, { repositoryId: args.repositoryId, userId: ctx.viewer.userId }),
+  handler: async (ctx, args): Promise<Infer<typeof vAlchemyConnection>> => {
+    const target = await readStoreTarget(ctx, {
+      repositoryId: args.repositoryId,
+      userId: ctx.viewer.userId,
+    });
+    return target ? await connectReader(target, ctx.viewer.userId) : { store: "no_connection" };
+  },
 });
 
 /**
 `connect` with one read of `reader:repository` through the issued token, for the loaders of the
 repository overview and the Alchemy page: the page renders the read in its first paint, and the
-browser subscribes with the same token.
+browser subscribes with the same token. The read gives the stacks that `readDeployedStacks` keeps,
+the same as the browser subscription.
 */
 export const connectWithSnapshot = action({
   access: "access_dashboard",
   args: { repositoryId: id("repositories") },
   returns: vAlchemyConnectionWithSnapshot,
   handler: async (ctx, args): Promise<Infer<typeof vAlchemyConnectionWithSnapshot>> => {
-    const connection = await connectReader(ctx, {
+    const target = await readStoreTarget(ctx, {
       repositoryId: args.repositoryId,
       userId: ctx.viewer.userId,
     });
+    if (!target) {
+      return { store: "no_connection" };
+    }
+    const connection = await connectReader(target, ctx.viewer.userId);
     if (connection.store !== "live") {
       return connection;
     }
 
     try {
-      const { value: snapshot } = parse(
+      const { value } = parse(
         vReaderRepositoryReply,
         await fetchConvexDeploymentJson({
           authorization: `Bearer ${connection.token}`,
@@ -450,7 +425,13 @@ export const connectWithSnapshot = action({
           body: { path: "reader:repository", args: {}, format: "json" },
         }),
       );
-      return { ...connection, snapshot };
+      return {
+        ...connection,
+        snapshot: {
+          store: value.store,
+          stacks: readDeployedStacks(value.stacks, target.githubRepositoryFullName),
+        },
+      };
     } catch {
       throw new ConvexError(ALCHEMY_CONNECTION_UNAVAILABLE);
     }

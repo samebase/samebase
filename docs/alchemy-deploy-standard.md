@@ -9,10 +9,12 @@ Every repository of the team deploys the same way. The reference implementation 
 
 1. **One Alchemy stack per app**, in `alchemy.run.ts` at the app's root, run by GitHub Actions.
    Nothing else deploys: no deploy-key workflow, no Workers Builds, no hand-run `convex deploy`.
-2. **State in the team's Convex store**: `state: Convex.state({ team })` from
+2. **State in the team's Convex store**: `state: Convex.withRunRecord(Convex.state())` from
    `@samebase/alchemy-convex`. The state of every stack and stage of the team lives in the
-   `alchemy-state-store` project of that team, which the first run creates. Never
-   `Cloudflare.state()`, never a local `.alchemy/` directory in CI, never a state artifact.
+   `alchemy-state-store` project of that team, which the first run creates. `withRunRecord` adds the
+   run (PR, branch, commit, run link) to each successful stage output, which the Samebase repository
+   pages need to show the stage. Never `Cloudflare.state()`, never a local `.alchemy/` directory in
+   CI, never a state artifact.
 3. **Stack name = repository full name**, `owner/name`, from `GITHUB_REPOSITORY` in Actions or the
    origin remote on a development machine. That name is how the Samebase repository pages find the
    stack. A stack in a folder of a repository is `owner/name/<folder>`.
