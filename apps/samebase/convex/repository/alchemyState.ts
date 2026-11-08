@@ -54,7 +54,7 @@ const ALCHEMY_STATE_PROJECT_NAME = "alchemy-state-store";
 The reply of `state:stacks`: the name of every stack of the store with a resource or an output, in
 name order.
 
-@see https://github.com/samebase/samebase/blob/beb3643aa9c9ef4a213020de54cad7f15a396359/packages/alchemy-convex/src/store/component/state.ts#L53-L78
+@see https://github.com/samebase/samebase/blob/e992b030f0b5cb4da9959a6fa4b17be3d7a23bbf/packages/alchemy-convex/src/store/component/state.ts#L53-L78
 */
 const vStoreStacksReply = object({ status: literal("success"), value: array(string()) });
 
@@ -66,7 +66,7 @@ query of the root app: only `POST /api/function` reaches it, with a deploy key t
 `deployment:functions:runInternalQueries`. A function error fails the request, which
 `fetchConvexDeploymentJson` throws.
 
-@see https://github.com/samebase/samebase/blob/beb3643aa9c9ef4a213020de54cad7f15a396359/packages/alchemy-convex/src/store/component/state.ts#L292-L345
+@see https://github.com/samebase/samebase/blob/e992b030f0b5cb4da9959a6fa4b17be3d7a23bbf/packages/alchemy-convex/src/store/component/state.ts#L292-L345
 */
 const vStoreStackReply = object({
   status: literal("success"),

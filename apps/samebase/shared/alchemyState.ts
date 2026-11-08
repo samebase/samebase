@@ -15,7 +15,7 @@ const { array, literal, number, object, optional, string, union } = v;
 /**
 The key of the run record in a stage output.
 
-@see https://github.com/samebase/samebase/blob/beb3643aa9c9ef4a213020de54cad7f15a396359/packages/alchemy-convex/src/RunRecord.ts#L18-L19
+@see https://github.com/samebase/samebase/blob/e992b030f0b5cb4da9959a6fa4b17be3d7a23bbf/packages/alchemy-convex/src/RunRecord.ts#L18-L19
 */
 const RUN_RECORD_KEY = "samebase.run";
 

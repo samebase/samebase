@@ -1,6 +1,6 @@
 // The replies of the @samebase/alchemy-convex 0.35.0 store (store version 7, `state:version`
 // answered 7), the directory packages/alchemy-convex/src/store of samebase/samebase at commit
-// 5af4b4845f4f2ef196984bfce71a57686bd3614f (at beb3643aa9c9ef4a213020de54cad7f15a396359 only a
+// 5af4b4845f4f2ef196984bfce71a57686bd3614f (at e992b030f0b5cb4da9959a6fa4b17be3d7a23bbf only a
 // comment of version.ts differs), on a local Convex backend
 // (precompiled-2026-10-22-1447815, Convex CLI 1.48.0), captured on 2026-11-08T13:08:01.373Z.
 // The rows are the ones captured on 2026-10-21T20:10:08.576Z from the Alchemy state store of team
@@ -12,7 +12,7 @@
 // outputs hold no run record.
 // `state:readStack` was read through `POST /api/function` with the admin key of the local backend.
 // The reply is complete and unedited.
-// https://github.com/samebase/samebase/blob/beb3643aa9c9ef4a213020de54cad7f15a396359/packages/alchemy-convex/src/store/component/state.ts#L292-L345
+// https://github.com/samebase/samebase/blob/e992b030f0b5cb4da9959a6fa4b17be3d7a23bbf/packages/alchemy-convex/src/store/component/state.ts#L292-L345
 export const observedAlchemyStackReply = {
   status: "success",
   value: {
@@ -74,7 +74,7 @@ export const observedAlchemyStackReply = {
 // token that `reader:authorize` issued for `samebase/base-alchemy`: the `value` that a subscription
 // of the browser receives. It holds every stage of the stack, with the outputs as written. Only the
 // output of `prod` has a run record of the repository.
-// https://github.com/samebase/samebase/blob/beb3643aa9c9ef4a213020de54cad7f15a396359/packages/alchemy-convex/src/store/component/reader.ts#L11-L96
+// https://github.com/samebase/samebase/blob/e992b030f0b5cb4da9959a6fa4b17be3d7a23bbf/packages/alchemy-convex/src/store/component/reader.ts#L11-L96
 export const observedBaseAlchemyRepositoryReply = {
   stacks: [
     {
