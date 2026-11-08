@@ -17,7 +17,7 @@ export const CONNECT_CONVEX_TO_CHECK_STACK =
 One stage as the store gives it: Alchemy state only. `resources` are in fqn order. Their values and
 `output` are JSON texts of Alchemy state, and `output` is null for a stage without one.
 
-@see https://github.com/samebase/samebase/blob/5af4b4845f4f2ef196984bfce71a57686bd3614f/packages/alchemy-convex/src/store/component/state.ts#L292-L301
+@see https://github.com/samebase/samebase/blob/beb3643aa9c9ef4a213020de54cad7f15a396359/packages/alchemy-convex/src/store/component/state.ts#L292-L301
 */
 export const vAlchemyStoredStage = object({
   name: string(),
@@ -33,7 +33,7 @@ every stage with a resource or an output, in name order. The reader replaces eac
 `{ "__redacted__": null }` and changes nothing else, so an output keeps its run record under
 `samebase.run`.
 
-@see https://github.com/samebase/samebase/blob/5af4b4845f4f2ef196984bfce71a57686bd3614f/packages/alchemy-convex/src/store/component/reader.ts#L11-L96
+@see https://github.com/samebase/samebase/blob/beb3643aa9c9ef4a213020de54cad7f15a396359/packages/alchemy-convex/src/store/component/reader.ts#L11-L96
 */
 export const vAlchemyRepositoryReply = object({
   store: literal("found"),

@@ -1,10 +1,11 @@
-// The replies of the @samebase/alchemy-convex 0.34.0 store (store version 7, `state:version`
+// The replies of the @samebase/alchemy-convex 0.35.0 store (store version 7, `state:version`
 // answered 7), the directory packages/alchemy-convex/src/store of samebase/samebase at commit
-// 5af4b4845f4f2ef196984bfce71a57686bd3614f, on a local Convex backend
+// 5af4b4845f4f2ef196984bfce71a57686bd3614f (at beb3643aa9c9ef4a213020de54cad7f15a396359 only a
+// comment of version.ts differs), on a local Convex backend
 // (precompiled-2026-10-22-1447815, Convex CLI 1.48.0), captured on 2026-11-08T13:08:01.373Z.
 // The rows are the ones captured on 2026-10-22T09:38:17.872Z from the Alchemy state store of team
 // `nicu` for the stack `samebase/samebase`. Each resource value went through `state:set` and each
-// output through `state:setOutput` unchanged, as a 0.34.0 run writes them. No row holds a secret.
+// output through `state:setOutput` unchanged, as a 0.35.0 run writes them. No row holds a secret.
 // - `prod`: the push to main that merged https://github.com/samebase/samebase/pull/1766, from
 //   apps/samebase/alchemy.run.ts with samebase/alchemy-convex 0.7.0, so the Site row has no rootDir.
 //   Its output holds the run record of that deploy under `samebase.run`.
@@ -16,8 +17,8 @@
 // `state:stacks` and `state:readStack` were read through `POST /api/function` with the admin key of
 // the local backend; the store also held `samebase/base-alchemy` (observedAlchemyState.ts). Each
 // reply is complete and unedited.
-// https://github.com/samebase/samebase/blob/5af4b4845f4f2ef196984bfce71a57686bd3614f/packages/alchemy-convex/src/store/component/state.ts#L53-L78
-// https://github.com/samebase/samebase/blob/5af4b4845f4f2ef196984bfce71a57686bd3614f/packages/alchemy-convex/src/store/component/state.ts#L292-L345
+// https://github.com/samebase/samebase/blob/beb3643aa9c9ef4a213020de54cad7f15a396359/packages/alchemy-convex/src/store/component/state.ts#L53-L78
+// https://github.com/samebase/samebase/blob/beb3643aa9c9ef4a213020de54cad7f15a396359/packages/alchemy-convex/src/store/component/state.ts#L292-L345
 export const observedSamebaseStacksReply = {
   status: "success",
   value: ["samebase/base-alchemy", "samebase/samebase"],
@@ -105,7 +106,7 @@ export const observedSamebaseStackReply = {
 // token that `reader:authorize` issued for `samebase/samebase`: the `value` that a subscription of
 // the browser receives. It holds every stage of the stack, with the outputs as written. `pr-1756`
 // has no output, so it has no run record.
-// https://github.com/samebase/samebase/blob/5af4b4845f4f2ef196984bfce71a57686bd3614f/packages/alchemy-convex/src/store/component/reader.ts#L11-L96
+// https://github.com/samebase/samebase/blob/beb3643aa9c9ef4a213020de54cad7f15a396359/packages/alchemy-convex/src/store/component/reader.ts#L11-L96
 export const observedSamebaseRepositoryReply = {
   stacks: [
     {
