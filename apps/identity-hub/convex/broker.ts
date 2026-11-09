@@ -85,12 +85,9 @@ export const broker = defineIdentityBroker({
       // Every other repository gets none, so it cannot register, unless the admin grants it one on
       // samebase.com's admin page and the broker adds it (RFC 137 decision 10).
       connectors: samebase(registration) ? ["google", "github"] : [],
-      // The app that holds users' Cloudflare, Convex, and GitHub connections, proven by the
-      // samebase repository and owner. Its sign-in app and every other app get none.
-      resources:
-        samebase(registration) && registration.app === "samebase-connections"
-          ? ["convex", "cloudflare", "github"]
-          : [],
+      // Every client of the samebase repository holds users' Cloudflare, Convex, and GitHub
+      // connections, proven by the repository and owner. Every other repository gets none.
+      resources: samebase(registration) ? ["convex", "cloudflare", "github"] : [],
       // samebase.com's production keeps running; its previews and development servers feel the
       // pause as a stranger's app does.
       paused:

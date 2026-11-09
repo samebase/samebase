@@ -107,7 +107,7 @@ export async function postHubClient(
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
     body: JSON.stringify({
       app: "my-app",
-      redirectUri: PRODUCTION_CALLBACK,
+      redirectUris: [PRODUCTION_CALLBACK],
       softwareVersion: "abc123",
       connectors: ["google", "github"],
       ...body,

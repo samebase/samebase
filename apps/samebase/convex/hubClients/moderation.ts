@@ -49,7 +49,8 @@ const vClient = object({
   appId: string(),
   clientName: string(),
   deploymentType: union(literal("production"), literal("development"), literal("preview")),
-  redirectUri: string(),
+  /** The return addresses the client may name, sorted. */
+  redirectUris: array(string()),
   createdAt: number(),
   renewedAt: number(),
   lastSignInAt: union(number(), v.null()),

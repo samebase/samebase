@@ -31,7 +31,7 @@ export const HUB_GRANT_IDLE_MS = 90 * 24 * 60 * 60 * 1000;
 type ResourceProvider = keyof typeof resources;
 
 function configuration() {
-  const issuer = readRequiredEnv("RESOURCE_HUB_ISSUER");
+  const issuer = readRequiredEnv("IDENTITY_HUB_ISSUER");
   const authorizationServer: oauth.AuthorizationServer = {
     issuer,
     authorization_endpoint: `${issuer}/authorize`,
@@ -41,12 +41,12 @@ function configuration() {
   };
   return {
     authorizationServer,
-    client: { client_id: readRequiredEnv("RESOURCE_HUB_CLIENT_ID") },
+    client: { client_id: readRequiredEnv("IDENTITY_HUB_CLIENT_ID") },
   };
 }
 
 function authenticate() {
-  return oauth.ClientSecretPost(readRequiredEnv("RESOURCE_HUB_CLIENT_SECRET"));
+  return oauth.ClientSecretPost(readRequiredEnv("IDENTITY_HUB_CLIENT_SECRET"));
 }
 
 function callbackUrl() {

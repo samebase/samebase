@@ -55,7 +55,7 @@ const production = {
   appId: "gh-74-app",
   clientName: "prod",
   deploymentType: "production",
-  redirectUri: "https://my-app.example.com/auth/hub/callback",
+  redirectUris: ["https://my-app.example.com/auth/hub/callback"],
   createdAt: 1,
   renewedAt: 2,
   lastSignInAt: null,

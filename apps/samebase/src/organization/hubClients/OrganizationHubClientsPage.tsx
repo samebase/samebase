@@ -22,10 +22,10 @@ import { rootQueries } from "@/routes/root.queries";
 
 /** What deleting `client` stops, for the confirmation. */
 function deletionEffect(client: HubClient) {
-  const origin = new URL(client.redirectUri).origin;
+  const origins = [...new Set(client.redirectUris.map((uri) => new URL(uri).origin))].join(", ");
   return client.deploymentType === "production"
-    ? `Sign-in on ${origin} stops until the next production deploy of ${client.registeredBy.app} gets a new client.`
-    : `Sign-in on ${origin} stops until this deployment's next deploy or dev start gets a new client.`;
+    ? `Sign-in on ${origins} stops until the next production deploy of ${client.registeredBy.app} gets a new client.`
+    : `Sign-in on ${origins} stops until this deployment's next deploy or dev start gets a new client.`;
 }
 
 function DeleteClientDialog({

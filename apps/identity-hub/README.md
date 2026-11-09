@@ -83,13 +83,16 @@ also writes the client into the deployment's variables:
 ```ts
 const client =
   yield *
-  IdentityHub.Client("SignInClient", {
-    app: "my-app",
-    redirectUri: Output.interpolate`${deployment.siteUrl}/auth/hub/callback`,
+  IdentityHub.Client("HubClient", {
+    redirectUris: [Output.interpolate`${deployment.siteUrl}/auth/hub/callback`],
     deploymentType: stage === "prod" ? "production" : "preview",
     connectors: ["google", "github"],
   });
 ```
+
+The app's name on the hub defaults to the stack's path in its repository (`app` for a stack named
+after the repository); `app` overrides it. A client lists every return address its deployment
+serves, one per handler, such as a sign-in callback and a connections callback.
 
 A production or preview deployment asks in its own GitHub Actions run, with GitHub's OIDC token. The
 hub checks the token, the `/samebase-verification.json` file of the site, the policy, the hourly
