@@ -7,11 +7,11 @@ change. If a change needs action from you, the entry says so.
 
 - **v2325: One hub client per deployment, with a list of return addresses.** A deployment now
   registers one client at the identity hub that lists every address the hub may send people back to,
-  in `@samebase/alchemy-convex` 0.39.0 as `redirectUris`. The `app` name is optional and defaults to
+  in `@samebase/alchemy-convex` 0.39.1 as `redirectUris`. The `app` name is optional and defaults to
   the stack's path in the repository. The hub's clients were registered again on this day, so
   connections to Convex, Cloudflare, and GitHub on samebase.com need a reconnect. An app made from
-  [samebase/base](https://github.com/samebase/base) deploys again once `alchemy.run.ts` lists its
-  address: ask your agent to apply the starter changelog, or follow its v2325 entry.
+  [samebase/base](https://github.com/samebase/base) has no sign-in until `alchemy.run.ts` lists its
+  address: ask your agent to apply the starter changelog, or follow its v2326 entry.
 - **v2318: Apps made from samebase/base sign in at the public hub.** Apps now sign in at
   `id.samebase.com`, deployed from the template
   [samebase/identity-hub](https://github.com/samebase/identity-hub). `auth.samebase.com` is
