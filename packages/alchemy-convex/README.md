@@ -311,16 +311,22 @@ resources and output, from the store function `state:readStack({ stack })` in on
     every action, because the command can do more than a push.
 
 - `IdentityHub.Client`, from `import * as IdentityHub from "@samebase/alchemy-convex/identity-hub"`:
-  `{ app, hub, redirectUri, deploymentType, connectors, initialAccessToken?, softwareVersion? }`
+  `{ hub, redirectUris, deploymentType, connectors, app?, initialAccessToken?, softwareVersion? }`
   gets a client of an identity hub, for an app that deploys in its own GitHub Actions run, on any
   host, and for development as a stage of the same stack. `deploymentType` is `production`,
   `preview`, or `development`. A production or preview client needs `permissions: id-token: write`
-  in the workflow, and no key and no Samebase account. `app` is at most 64 characters. The origin of
-  an https `redirectUri` must serve `/samebase-verification.json` with the numeric GitHub id of the
+  in the workflow, and no key and no Samebase account. `redirectUris` lists every return address of
+  the deployment, one to eight, one per handler that receives the hub's answers. The origin of each
+  https address must serve `/samebase-verification.json` with the numeric GitHub id of the
   repository, `{ "repository": "123" }`, which `gh api repos/<owner>/<name> --jq .id` prints. The
   hub reads it before it registers the client, so the site must be live first. Outputs `status`,
   `issuer`, `clientId`, `clientSecret`, `registrationAccessToken`, `registrationClientUri`,
-  `deploymentType`, `redirectUri`, `connectors`, `initialAccessToken`, and `repository`.
+  `deploymentType`, `app`, `redirectUris`, `connectors`, `initialAccessToken`, and `repository`.
+  - `app` is the app's name on the hub, at most 64 characters. Its default is the stack's path in
+    the repository, `apps/web` for the stack `owner/repo/apps/web`, and `app` for a stack named
+    `owner/repo`. A stack with another name, or a path over 64 characters, sets `app`. The name
+    groups the clients of one deployable thing, their budgets, and the initial access token; it
+    plays no part in user ids.
   - `connectors` names the hub's connectors the client signs in through, such as
     `["google", "github"]`: at least one name of `[a-z0-9-]{1,64}`. The hub's discovery document
     lists what it offers in `connectors_supported`, and its policy decides what a repository may
@@ -335,10 +341,12 @@ resources and output, from the store function `state:readStack({ stack })` in on
     development. With an empty token, the client gets the off values, and the log says "deploy to
     main once for hub sign-in in development". See "The development stage" below.
   - Each deploy reads the saved client on the hub with its own token. A client that is gone gets a
-    new one, and a client on another `redirectUri`, of another `deploymentType`, or with other
-    `connectors` too. A replaced production client stays valid on the hub until its administrator
-    deletes it. A saved row whose attributes this version cannot read stops the run with a fixed
-    message, which holds no value of the row.
+    new one, and a client with other `redirectUris`, another `app`, another `deploymentType`, or
+    other `connectors` too. A replaced production client stays valid on the hub until its
+    administrator deletes it, and a new production client replaces the app's initial access token,
+    so a development stage reads the latest state of `prod` before its next registration. A saved
+    row whose attributes this version cannot read stops the run with a fixed message, which holds no
+    value of the row.
   - A new client logs the hub's issuer. A refusal logs its reason, such as a host that does not
     serve the file, a block, a token of another app, a connector the hub does not offer or allow, or
     the hourly limit it reached.
@@ -407,8 +415,7 @@ const site =
 const hub =
   yield *
   IdentityHub.Client("HubClient", {
-    app: "scout",
-    redirectUri: Output.interpolate`${site.siteUrl}/auth/hub/callback`,
+    redirectUris: [Output.interpolate`${site.siteUrl}/auth/hub/callback`],
     deploymentType: "development",
     connectors: ["google", "github"],
     initialAccessToken: prod.initialAccessToken,

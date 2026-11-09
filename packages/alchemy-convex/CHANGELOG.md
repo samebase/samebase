@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.39.1
+
+- A default or explicit `app` over 64 characters, the hub's limit, stops the run before any request,
+  with a message that says to set a shorter `app`. Before, the hub refused it with a generic 400.
+- The warning of a client delete that the hub refused names the client id only. The saved row of a
+  client removed from the stack can have an earlier version's shape, and the old text read a field
+  that row lacks, which turned a tolerated failure into a crash.
+- The README describes `redirectUris`, the optional `app` and its default, and that a new production
+  client replaces the app's initial access token.
+
 ## 0.39.0
 
 - Breaking: `IdentityHub.Client` takes `redirectUris`, a list of one to eight return addresses, in
