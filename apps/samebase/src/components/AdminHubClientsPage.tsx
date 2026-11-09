@@ -1,9 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
 import { getRouteApi } from "@tanstack/react-router";
 import { useAction } from "convex/react";
-import type { FunctionReturnType } from "convex/server";
+import type { FunctionArgs, FunctionReturnType } from "convex/server";
 import { Ban, Eye, EyeOff, Loader2, Plug } from "lucide-react";
-import { useId, useMemo, useState } from "react";
+import { createContext, useContext, useId, useMemo, useState } from "react";
 import { api } from "../../convex/_generated/api";
 import { AppDialogContent } from "@/components/AppDialogContent";
 import { AppSelectContent, AppSelectItem } from "@/components/AppSelect";
@@ -134,19 +134,73 @@ const ownerTarget = (client: HubClient, clients: readonly HubClient[]): BlockTar
   ).length,
 });
 
+type Hub = FunctionArgs<typeof api.hubClients.moderation.readOverview>["hub"];
+
+const HUBS: readonly { hub: Hub; label: string; settings: string }[] = [
+  { hub: "samebase", label: "samebase.com's hub", settings: "IDENTITY_HUB_MODERATION_KEY" },
+  {
+    hub: "public",
+    label: "Public hub",
+    settings: "PUBLIC_IDENTITY_HUB_ISSUER and PUBLIC_IDENTITY_HUB_MODERATION_KEY",
+  },
+];
+
+/** The hub that the tables, dialogs, and forms below act on. */
+const HubContext = createContext<Hub | null>(null);
+
+function useHub(): Hub {
+  const hub = useContext(HubContext);
+  if (hub === null) {
+    throw new Error("A hub action outside the admin page's hub.");
+  }
+  return hub;
+}
+
 /**
-Every client at the identity hub with who made it at `/hub-clients` (a repository's GitHub Actions
+Every client at one identity hub with who made it at `/hub-clients` (a repository's GitHub Actions
 run with its actor, or a development server with the app's initial access token), grouped by
-repository, and the blocks and their events.
+repository, and the blocks and their events. The switch picks samebase.com's own hub or the public
+hub; switching remounts the hub's view, so no dialog, outcome, or answer of one hub reaches the
+other.
 */
 export function AdminHubClientsPage() {
+  const [hub, setHub] = useState<Hub>("samebase");
+
+  return (
+    <main
+      data-testid="admin-hub-clients-page"
+      data-posthog-mask
+      className="container mx-auto w-full max-w-6xl py-6 @max-3xl:px-3"
+    >
+      <h1 className="text-xl font-semibold @2xl:text-2xl">Hub clients</h1>
+      <div className="mt-3 flex gap-2" role="group" aria-label="Identity hub">
+        {HUBS.map((option) => (
+          <Button
+            key={option.hub}
+            size="sm"
+            variant={option.hub === hub ? "default" : "outline"}
+            aria-pressed={option.hub === hub}
+            onClick={() => setHub(option.hub)}
+          >
+            {option.label}
+          </Button>
+        ))}
+      </div>
+      <HubContext value={hub}>
+        <HubModeration key={hub} hub={hub} />
+      </HubContext>
+    </main>
+  );
+}
+
+function HubModeration({ hub }: { hub: Hub }) {
   const readOverview = useAction(api.hubClients.moderation.readOverview);
   const changeBlock = useAction(api.hubClients.moderation.changeBlock);
   const changeSignInPage = useAction(api.hubClients.moderation.changeSignInPage);
   const changeConnectorGrant = useAction(api.hubClients.moderation.changeConnectorGrant);
   const overview = useQuery({
-    queryKey: ["admin-hub-clients-overview"],
-    queryFn: async () => await readOverview({}),
+    queryKey: ["admin-hub-clients-overview", hub],
+    queryFn: async () => await readOverview({ hub }),
     retry: false,
   });
   const [blockTarget, setBlockTarget] = useState<BlockTarget | null>(null);
@@ -159,12 +213,7 @@ export function AdminHubClientsPage() {
   };
 
   return (
-    <main
-      data-testid="admin-hub-clients-page"
-      data-posthog-mask
-      className="container mx-auto w-full max-w-6xl py-6 @max-3xl:px-3"
-    >
-      <h1 className="text-xl font-semibold @2xl:text-2xl">Hub clients</h1>
+    <>
       {connectorsOutcome === null ? null : (
         <p className="mt-2 text-sm" role="status">
           {connectorsOutcome}
@@ -176,13 +225,14 @@ export function AdminHubClientsPage() {
         </p>
       ) : overview.data === undefined ? null : overview.data.status === "off" ? (
         <p className="mt-6 text-sm text-muted-foreground">
-          Moderation is off: IDENTITY_HUB_MODERATION_KEY is not set on this deployment.
+          Moderation is off: {HUBS.find((option) => option.hub === hub)?.settings} not set on this
+          deployment.
         </p>
       ) : (
         <>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {formatCount(overview.data.counts.day)} registrations in the last day,{" "}
-            {formatCount(overview.data.counts.week)} in the last week.
+          <p className="mt-3 text-sm text-muted-foreground">
+            {overview.data.issuer}: {formatCount(overview.data.counts.day)} registrations in the
+            last day, {formatCount(overview.data.counts.week)} in the last week.
           </p>
           <Tabs defaultValue="clients" className="mt-6">
             <TabsList variant="line">
@@ -252,7 +302,7 @@ export function AdminHubClientsPage() {
           />
         </>
       )}
-    </main>
+    </>
   );
 }
 
@@ -382,6 +432,7 @@ function BlockDialog({
   onClose: () => void;
   onChanged: () => Promise<void>;
 }) {
+  const hub = useHub();
   const [reason, setReason] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -397,6 +448,7 @@ function BlockDialog({
     setError(null);
     try {
       await changeBlock({
+        hub,
         action: "block",
         kind: blockTarget.kind,
         githubId: blockTarget.githubId,
@@ -484,6 +536,7 @@ function BlocksSection({
   changeBlock: ReturnType<typeof useAction<typeof api.hubClients.moderation.changeBlock>>;
   onChanged: () => Promise<void>;
 }) {
+  const hub = useHub();
   const [kind, setKind] = useState<BlockKind>("repository");
   const [githubId, setGithubId] = useState("");
   const [reason, setReason] = useState("");
@@ -497,7 +550,7 @@ function BlocksSection({
     setPending(action);
     setMessage(null);
     try {
-      const result = await changeBlock({ action, kind, githubId: githubId.trim(), reason });
+      const result = await changeBlock({ hub, action, kind, githubId: githubId.trim(), reason });
       setMessage(
         result.status === "off"
           ? MODERATION_OFF
@@ -661,6 +714,7 @@ function SignInPageDialog({
   onClose: () => void;
   onChanged: () => Promise<void>;
 }) {
+  const hub = useHub();
   const [reason, setReason] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -676,6 +730,7 @@ function SignInPageDialog({
     setError(null);
     try {
       const answer = await changeSignInPage({
+        hub,
         target: {
           scope: "repository",
           repositoryId: pageTarget.repositoryId,
@@ -781,6 +836,7 @@ function RepositoryForm({
   label: string;
   onPick: (repository: RepositoryTarget) => void;
 }) {
+  const hub = useHub();
   const lookupRepository = useAction(api.hubClients.moderation.lookupRepository);
   const id = useId();
   const [name, setName] = useState("");
@@ -794,7 +850,7 @@ function RepositoryForm({
     }
     setPending(true);
     try {
-      const answer = await lookupRepository({ fullName: name });
+      const answer = await lookupRepository({ hub, fullName: name });
       if (answer.status === "found") {
         onPick({ repositoryId: answer.repositoryId, ownerId: answer.ownerId, name: answer.name });
       } else {
@@ -877,6 +933,7 @@ function SignInPageSection({
   onSignInPage: (target: SignInPageTarget) => void;
   onChanged: () => Promise<void>;
 }) {
+  const hub = useHub();
   const [reason, setReason] = useState("");
   const [pending, setPending] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -896,7 +953,7 @@ function SignInPageSection({
     setPending(key);
     setMessage(null);
     try {
-      const answer = await changeSignInPage({ target, skip, reason });
+      const answer = await changeSignInPage({ hub, target, skip, reason });
       setMessage(signInPageRefusal(answer));
       setReason("");
       await onChanged();
@@ -1078,6 +1135,7 @@ function ConnectorsForm({
   onClose: () => void;
   onChanged: () => Promise<void>;
 }) {
+  const hub = useHub();
   const rows = overview.connectorGrants.grants.filter(
     (grant) => grant.repositoryId === target.repositoryId && grant.ownerId === target.ownerId,
   );
@@ -1102,6 +1160,7 @@ function ConnectorsForm({
       const grant = checked.includes(connector);
       try {
         const answer = await changeConnectorGrant({
+          hub,
           repositoryId: target.repositoryId,
           connector,
           expectedOwnerId: target.ownerId,
@@ -1221,6 +1280,7 @@ function ConnectorGrantsSection({
   onConnectors: (target: ConnectorsTarget) => void;
   onChanged: () => Promise<void>;
 }) {
+  const hub = useHub();
   const [reason, setReason] = useState("");
   const [pending, setPending] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -1236,6 +1296,7 @@ function ConnectorGrantsSection({
     setMessage(null);
     try {
       const answer = await changeConnectorGrant({
+        hub,
         repositoryId: grant.repositoryId,
         connector: grant.connector,
         expectedOwnerId: grant.ownerId,
