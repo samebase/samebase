@@ -458,6 +458,21 @@ describe("IdentityHub.Client", () => {
       }),
   );
 
+  test.provider("an app name over the hub's 64 characters fails before any request", (stack) =>
+    Effect.gen(function* () {
+      const fake = new FakeServices().install();
+      const exit = yield* Effect.exit(stack.deploy(client(props({ app: "a".repeat(65) }))));
+      expect(Exit.isFailure(exit)).toBe(true);
+      expect(String(exit)).toContain("set a shorter app");
+      expect(fake.sent).toEqual([]);
+      // 64 is the limit itself, and the hub takes it.
+      expect(yield* stack.deploy(client(props({ app: "a".repeat(64) })))).toEqual({
+        ...issued(),
+        app: "a".repeat(64),
+      });
+    }),
+  );
+
   for (const [name, redirectUris] of [
     ["no return address", []],
     ["nine return addresses", Array.from({ length: 9 }, (_, i) => `${REDIRECT_URI}/${i}`)],

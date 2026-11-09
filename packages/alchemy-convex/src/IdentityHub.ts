@@ -61,6 +61,8 @@ const CONNECTOR_NAME = /^[a-z0-9-]{1,64}$/;
 
 /** The return addresses of one client, as the hub caps them. */
 const MAX_REDIRECT_URIS = 8;
+/** The app's name, as the hub caps it. A deeper stack path needs an explicit `app`. */
+const MAX_APP_LENGTH = 64;
 
 /**
  * The app's default name: the stack's path below `owner/repo`, or `app` for a stack named after
@@ -592,6 +594,11 @@ export const ClientProvider = () =>
           reason: `the stack ${stack.name} is not named owner/repo or owner/repo/<path>, so set app`,
         });
       }
+      if (app.length > MAX_APP_LENGTH) {
+        return yield* new IdentityHubClientFailed({
+          reason: `the app name ${app} is over ${MAX_APP_LENGTH} characters, the hub's limit, so set a shorter app`,
+        });
+      }
       const enrollment: Enrollment = {
         app,
         connectors: sortedSet(news.connectors),
@@ -657,9 +664,10 @@ export const ClientProvider = () =>
               });
             }
           }).pipe(
+            // The row can be of an earlier version's shape, so the line names only the client id.
             Effect.catchTag("IdentityHubClientFailed", (error) =>
               Effect.logWarning(
-                `IdentityHub.Client: the client of ${where(output)} stays on the hub until its removal date: ${error.reason}.`,
+                `IdentityHub.Client: the client ${output.clientId} stays on the hub until its removal date: ${error.reason}.`,
               ),
             ),
           ),
