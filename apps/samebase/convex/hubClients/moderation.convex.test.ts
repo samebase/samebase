@@ -126,35 +126,36 @@ const clientList = {
 
 const signInPage = {
   everyApp: null,
-  apps: [
-    {
-      appId: "gh-74-4c9a75cca717efb68c856f26ba825073",
-      ownerId: "65",
-      active: true,
-      reason: "A team we know",
-      repository: "octo-org/octo-repo",
-      app: "my-app",
-    },
-  ],
+  repositories: [{ repositoryId: "74", ownerId: "65", active: true, reason: "A team we know" }],
 };
 
 const connectorGrants = {
   connectors: ["google", "github", "google-apps", "github-apps"],
   grants: [
     {
-      appId: "gh-74-4c9a75cca717efb68c856f26ba825073",
-      connector: "google",
+      repositoryId: "74",
       ownerId: "65",
+      connector: "google",
       active: true,
       reason: "A team we know",
-      repository: "octo-org/octo-repo",
-      app: "my-app",
     },
   ],
 };
 
+// Source: https://docs.github.com/en/rest/repos/repos?apiVersion=2022-11-28#get-a-repository,
+// the start of the example answer.
+const gitHubRepository = {
+  id: 1296269,
+  node_id: "MDEwOlJlcG9zaXRvcnkxMjk2MjY5",
+  name: "Hello-World",
+  full_name: "octocat/Hello-World",
+  owner: { login: "octocat", id: 1, node_id: "MDQ6VXNlcjE=", type: "User", site_admin: false },
+  private: false,
+  html_url: "https://github.com/octocat/Hello-World",
+};
+
 /** The hub's moderation endpoints, as packages/identity-broker/src/client/moderation.ts answers them. */
-function stubHub(answer?: () => Response) {
+function stubHub(answer?: (request: Request) => Response) {
   const requests: { url: string; method: string; authorization: string | null; body: unknown }[] =
     [];
   vi.stubGlobal(
@@ -169,7 +170,7 @@ function stubHub(answer?: () => Response) {
         body: text === "" ? undefined : JSON.parse(text),
       });
       if (answer !== undefined) {
-        return answer();
+        return answer(request);
       }
       const { pathname } = new URL(request.url);
       switch (pathname) {
@@ -245,11 +246,16 @@ describe("hub client moderation", () => {
       ).rejects.toThrow("Access denied");
       await expect(
         viewer.action(api.hubClients.moderation.changeConnectorGrant, {
-          appId: "gh-74-app",
+          repositoryId: "74",
           connector: "google",
           expectedOwnerId: "65",
           grant: true,
           reason: "A trusted team",
+        }),
+      ).rejects.toThrow("Access denied");
+      await expect(
+        viewer.action(api.hubClients.moderation.lookupRepository, {
+          fullName: "octocat/Hello-World",
         }),
       ).rejects.toThrow("Access denied");
       expect(requests).toEqual([]);
@@ -334,13 +340,98 @@ describe("hub client moderation", () => {
     ]);
   });
 
-  it("grants a connector to an app in the name of the signed-in admin, and says when the hub refuses", async () => {
+  it("finds a repository's GitHub ids at the hub, else on GitHub without a token", async () => {
+    const t = makeConvexTest();
+    turnModerationOn();
+    let gitHub = () => jsonResponse(gitHubRepository);
+    const requests = stubHub((request) =>
+      request.url.startsWith("https://api.github.com/") ? gitHub() : jsonResponse(clientList),
+    );
+    const admin = await viewerWith(t, "nicu@samebase.com");
+    const lookup = async (fullName: string) =>
+      await admin.action(api.hubClients.moderation.lookupRepository, { fullName });
+
+    // The tenant's id and recorded owner, from the hub's clients of the repository.
+    expect(await lookup(" Octo-Org/Octo-Repo ")).toEqual({
+      status: "found",
+      repositoryId: "74",
+      ownerId: "65",
+      name: "octo-org/octo-repo",
+    });
+    expect(await lookup("octocat/Hello-World")).toEqual({
+      status: "found",
+      repositoryId: "1296269",
+      ownerId: "1",
+      name: "octocat/Hello-World",
+    });
+    expect(requests.map(({ url, authorization }) => [url, authorization])).toEqual([
+      [`${HUB_ISSUER}/moderation/clients`, `Bearer ${MODERATION_KEY}`],
+      [`${HUB_ISSUER}/moderation/clients`, `Bearer ${MODERATION_KEY}`],
+      ["https://api.github.com/repos/octocat/Hello-World", null],
+    ]);
+
+    gitHub = () => jsonResponse({ message: "Not Found" }, 404);
+    expect(await lookup("octocat/private-repo")).toEqual({ status: "not_found" });
+    // A name that GitHub does not allow reaches neither.
+    expect(await lookup("octocat/..")).toEqual({ status: "not_found" });
+    expect(requests).toHaveLength(5);
+  });
+
+  it("finds a repository at the hub by its newest name only", async () => {
+    const t = makeConvexTest();
+    turnModerationOn();
+    const [, original] = clientList.clients;
+    // The repository moved to another owner; its newest client has the new name, and a newer client
+    // than the next repository's still has the old one.
+    const old = { ...original, ownerId: "66", createdAt: 1_800_000_002_000 };
+    const moved = {
+      ...old,
+      clientId: "cl_moved",
+      createdAt: 1_800_000_003_000,
+      registeredBy: { ...original.registeredBy, githubRepository: "new-owner/octo-repo" },
+    };
+    // A new repository took the old name.
+    const reused = {
+      ...original,
+      clientId: "cl_reused",
+      createdAt: 1_800_000_001_000,
+      registeredBy: { ...original.registeredBy, githubRepositoryDatabaseId: "99" },
+      ownerId: "70",
+    };
+    let clients = [moved, old];
+    const requests = stubHub((request) =>
+      request.url.startsWith("https://api.github.com/")
+        ? jsonResponse({ message: "Not Found" }, 404)
+        : jsonResponse({ clients, limitReached: false }),
+    );
+    const admin = await viewerWith(t, "nicu@samebase.com");
+    const lookup = async (fullName: string) =>
+      await admin.action(api.hubClients.moderation.lookupRepository, { fullName });
+
+    expect(await lookup("octo-org/octo-repo")).toEqual({ status: "not_found" });
+    expect(requests.at(-1)?.url).toBe("https://api.github.com/repos/octo-org/octo-repo");
+    expect(await lookup("new-owner/octo-repo")).toEqual({
+      status: "found",
+      repositoryId: "74",
+      ownerId: "66",
+      name: "new-owner/octo-repo",
+    });
+    clients = [moved, old, reused];
+    expect(await lookup("octo-org/octo-repo")).toEqual({
+      status: "found",
+      repositoryId: "99",
+      ownerId: "70",
+      name: "octo-org/octo-repo",
+    });
+  });
+
+  it("grants a connector to a repository in the name of the signed-in admin, and says when the hub refuses", async () => {
     const t = makeConvexTest();
     turnModerationOn();
     const requests = stubHub();
     const admin = await viewerWith(t, "nicu@samebase.com");
     const change = {
-      appId: "gh-74-4c9a75cca717efb68c856f26ba825073",
+      repositoryId: "74",
       connector: "google",
       expectedOwnerId: "65",
       grant: true,
@@ -372,58 +463,35 @@ describe("hub client moderation", () => {
     });
   });
 
-  it("skips the sign-in page for an app in the name of the signed-in admin", async () => {
+  it("skips the sign-in page for a repository in the name of the signed-in admin", async () => {
     const t = makeConvexTest();
     turnModerationOn();
     const requests = stubHub();
     const admin = await viewerWith(t, "nicu@samebase.com");
-
-    const result = await admin.action(api.hubClients.moderation.changeSignInPage, {
-      target: {
-        scope: "app",
-        appId: "gh-74-4c9a75cca717efb68c856f26ba825073",
-        expectedOwnerId: "65",
-      },
+    const change = {
+      target: { scope: "repository" as const, repositoryId: "74", expectedOwnerId: "65" },
       skip: true,
       reason: "A team we know",
-    });
+    };
 
-    expect(result).toEqual({ status: "on", result: "changed" });
+    expect(await admin.action(api.hubClients.moderation.changeSignInPage, change)).toEqual({
+      status: "on",
+      result: "changed",
+    });
     expect(requests).toEqual([
       {
         url: `${HUB_ISSUER}/moderation/sign-in-page`,
         method: "POST",
         authorization: `Bearer ${MODERATION_KEY}`,
-        body: {
-          target: {
-            scope: "app",
-            appId: "gh-74-4c9a75cca717efb68c856f26ba825073",
-            expectedOwnerId: "65",
-          },
-          skip: true,
-          reason: "A team we know",
-          adminEmail: "nicu@samebase.com",
-        },
+        body: { ...change, adminEmail: "nicu@samebase.com" },
       },
     ]);
-  });
 
-  it.each([
-    [409, "owner_changed"],
-    [404, "unknown_app"],
-  ] as const)("passes on the hub's %i %s for a sign-in page change", async (status, error) => {
-    const t = makeConvexTest();
-    turnModerationOn();
-    stubHub(() => jsonResponse({ error }, status));
-    const admin = await viewerWith(t, "nicu@samebase.com");
-
-    expect(
-      await admin.action(api.hubClients.moderation.changeSignInPage, {
-        target: { scope: "app", appId: "gh-74-app", expectedOwnerId: "65" },
-        skip: true,
-        reason: "A team we know",
-      }),
-    ).toEqual({ status: "on", result: error });
+    stubHub(() => jsonResponse({ error: "owner_changed" }, 409));
+    expect(await admin.action(api.hubClients.moderation.changeSignInPage, change)).toEqual({
+      status: "on",
+      result: "owner_changed",
+    });
   });
 
   it("sets a block in the name of the signed-in admin", async () => {

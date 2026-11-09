@@ -2,7 +2,7 @@ import { v, type Infer } from "convex/values";
 // oxlint-disable-next-line samebase/no-raw-public-convex-function-builders -- Component entrypoints are internal to the host; host functions enforce access.
 import { mutation, query, type QueryCtx } from "./_generated/server";
 import type { Doc } from "./_generated/dataModel";
-import { readBlock, tenantIdOf, tenantRow } from "./apps";
+import { readBlock, repositoryIdOf, tenantIdOf, tenantRow } from "./apps";
 import { grantedTo } from "./connectorGrants";
 import { registrationOf, vRegistration } from "./policy";
 import { vBlockKind, vDeploymentType } from "./schema";
@@ -177,15 +177,10 @@ function clientView(
   };
 }
 
-/** The repository id of a tenant `gh-<id>`, or undefined for any other tenant. */
-function repositoryIdOf(tenantId: string | undefined) {
-  return /^gh-([1-9][0-9]*)$/.exec(tenantId ?? "")?.[1];
-}
-
 /**
  * A client of the lists, with what the HTTP endpoint needs to say what decides its sign-in page
  * and its connectors: the tenant's recorded owner, the client's policy facts, the exemptions that
- * cover it, and the connectors granted to its app.
+ * cover it, and the connectors granted to its repository.
  */
 const vClientEntry = object({
   client: vClientView,
@@ -206,12 +201,12 @@ async function clientEntry(
     ownerId: tenant?.ownerId ?? null,
     registration: app === null ? null : await registrationOf(ctx, client, app),
     exemption: await exemptionOf(ctx, {
-      appId: client.appId,
+      tenantId: app?.tenantId,
       tenantOwnerId: tenant?.ownerId,
       clientOwnerId: client.registeredBy.githubOwnerId,
     }),
     granted: await grantedTo(ctx, {
-      appId: client.appId,
+      tenantId: app?.tenantId,
       tenantOwnerId: tenant?.ownerId,
       clientOwnerId: client.registeredBy.githubOwnerId,
     }),

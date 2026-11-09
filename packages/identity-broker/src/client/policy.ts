@@ -72,7 +72,7 @@ export type Decision = {
  * and `/moderation/clients` reports it with it. Without hub mode there is no page.
  */
 export function pageShown(exemption: Exemption): boolean {
-  return !exemption.everyApp && !exemption.thisApp;
+  return !exemption.everyApp && !exemption.repository;
 }
 
 /**
@@ -121,10 +121,10 @@ export function decide(args: {
 
 /**
  * The connectors a client may use now, as the host sees them: its enrollment, of those the
- * decision's policy gives or that the hub's administrator granted its app (`granted`, read with the
- * client's facts). The mutation that moves a sign-in on decides this again with the grants of its
- * own transaction (`usableConnectors` in src/component/policy.ts), so `decision.connectors` stays
- * the policy's part alone.
+ * decision's policy gives or that the hub's administrator granted its repository (`granted`, read
+ * with the client's facts). The mutation that moves a sign-in on decides this again with the grants
+ * of its own transaction (`usableConnectors` in src/component/policy.ts), so
+ * `decision.connectors` stays the policy's part alone.
  */
 export function usableNow(decision: Decision, enrollment: string[], granted: string[]): string[] {
   return usableNames({

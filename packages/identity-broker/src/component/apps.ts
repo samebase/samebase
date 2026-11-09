@@ -29,6 +29,11 @@ export function tenantIdOf(githubRepositoryDatabaseId: string) {
   return `gh-${githubRepositoryDatabaseId}`;
 }
 
+/** The GitHub repository id of a tenant, or undefined for a tenant that is not a repository's. */
+export function repositoryIdOf(tenantId: string | undefined) {
+  return /^gh-([1-9][0-9]*)$/.exec(tenantId ?? "")?.[1];
+}
+
 /** The app of `app` in the repository's tenant, with its production, preview, and development clients. */
 export async function appIdOf(tenantId: string, app: string) {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(app));
@@ -55,7 +60,7 @@ export async function isStopped(
   tenantId: string,
   ownerId: string | undefined,
 ): Promise<boolean> {
-  const repositoryId = /^gh-([1-9][0-9]*)$/.exec(tenantId)?.[1];
+  const repositoryId = repositoryIdOf(tenantId);
   if (repositoryId !== undefined && (await readBlock(ctx, "repository", repositoryId)) !== null) {
     return true;
   }

@@ -49,13 +49,15 @@ export const vBlockKind = union(literal("repository"), literal("owner"));
 
 /**
  * What an exemption from the sign-in page covers: every app, strangers' and future ones included,
- * or one app with its production, preview, and development clients, bound to the repository's owner
- * that the hub recorded when the admin set it.
+ * or every app and deployment of one repository (its tenant) while `ownerId` owns it.
  */
 export const vSignInPageTarget = union(
   object({ scope: literal("every_app") }),
-  object({ scope: literal("app"), appId: string(), ownerId: string() }),
+  object({ scope: literal("repository"), tenantId: string(), ownerId: string() }),
 );
+
+/** The target of the events before broker 0.29.0, one app: history only, never read for decisions. */
+const vAppTarget = object({ scope: literal("app"), appId: string(), ownerId: string() });
 
 /** The windows of `POST /hub-clients`. `new_owners` is the one window of all owners new to the hub. */
 export const vRateLimitScope = union(
@@ -179,30 +181,31 @@ export default defineSchema({
   /**
    * The exemptions from the sign-in page, set by the hub's administrator with
    * `signInPage.set`. One row per target. A row that covers a client skips the sign-in page for
-   * it, which hub mode shows otherwise. A one-app row counts only while the tenant's recorded
+   * it, which hub mode shows otherwise. A repository row counts only while the tenant's recorded
    * owner and the owner that registered the client are the row's `ownerId`.
    */
   signInPageExemptions: defineTable({
     target: vSignInPageTarget,
     /** Why, as the admin wrote it. */
     reason: string(),
-  }).index("by_target", ["target.scope", "target.appId"]),
+  }).index("by_target", ["target.scope", "target.tenantId"]),
 
   /**
    * The connector grants, set by the hub's administrator with `connectorGrants.set`: one row per
-   * broker app and connector. A row lets the app's clients enroll in and use the connector on top
-   * of what the host's policy gives them. It counts only while the tenant's recorded owner and the
-   * owner that registered the client are the row's `ownerId`; at registration, the owner of the
-   * incoming proof. Every step of a sign-in reads it again in its own transaction.
+   * repository, owner, and connector. A row lets the repository's clients enroll in and use the
+   * connector on top of what the host's policy gives them. It counts only while the tenant's
+   * recorded owner and the owner that registered the client are the row's `ownerId`; at
+   * registration, the owner of the incoming proof. Every step of a sign-in reads it again in its own
+   * transaction. Rows of different owners of one repository coexist.
    */
   connectorGrants: defineTable({
-    appId: string(),
-    connector: string(),
-    /** The repository's recorded owner when the admin set the row. */
+    tenantId: string(),
+    /** The owner that the admin named. */
     ownerId: string(),
+    connector: string(),
     /** Why, as the admin wrote it. */
     reason: string(),
-  }).index("by_app_id_and_connector", ["appId", "connector"]),
+  }).index("by_tenant_id_and_owner_id_and_connector", ["tenantId", "ownerId", "connector"]),
 
   /**
    * Append-only history, never changed or deleted. `registration`: one row per client that
@@ -234,11 +237,22 @@ export default defineSchema({
       object({
         kind: literal("sign_in_page_change"),
         action: union(literal("skip"), literal("show")),
-        target: vSignInPageTarget,
+        target: union(...vSignInPageTarget.members, vAppTarget),
         reason: string(),
         adminEmail: string(),
         at: number(),
       }),
+      object({
+        kind: literal("connector_grant_change"),
+        action: union(literal("grant"), literal("revoke")),
+        tenantId: string(),
+        connector: string(),
+        ownerId: string(),
+        reason: string(),
+        adminEmail: string(),
+        at: number(),
+      }),
+      // Before broker 0.29.0, keyed by app: history only, never read for decisions.
       object({
         kind: literal("connector_grant_change"),
         action: union(literal("grant"), literal("revoke")),

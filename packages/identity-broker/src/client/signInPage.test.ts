@@ -2,7 +2,6 @@
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { fakeUpstream, pkce, txnCookie, type Harness } from "./harness.test.helper.js";
 import {
-  APP_HASH,
   createClient,
   createDevelopmentClient,
   createHub,
@@ -32,12 +31,14 @@ afterEach(() => {
 
 const hubPolicy: PolicyFunction = () => testPolicy();
 
-const PRODUCTION_APP = `gh-${REPOSITORY_ID}-${APP_HASH}`;
+const TENANT = `gh-${REPOSITORY_ID}`;
 
 async function changeSignInPage(
   h: Harness,
   body: {
-    target: { scope: "every_app" } | { scope: "app"; appId: string; expectedOwnerId: string };
+    target:
+      | { scope: "every_app" }
+      | { scope: "repository"; repositoryId: string; expectedOwnerId: string };
     skip: boolean;
   },
 ) {
@@ -50,8 +51,12 @@ async function changeSignInPage(
 const everyApp = (h: Harness, skip: boolean) =>
   changeSignInPage(h, { target: { scope: "every_app" }, skip });
 
-const oneApp = (h: Harness, skip: boolean, appId = PRODUCTION_APP, expectedOwnerId = OWNER_ID) =>
-  changeSignInPage(h, { target: { scope: "app", appId, expectedOwnerId }, skip });
+const oneRepository = (
+  h: Harness,
+  skip: boolean,
+  expectedOwnerId = OWNER_ID,
+  repositoryId = REPOSITORY_ID,
+) => changeSignInPage(h, { target: { scope: "repository", repositoryId, expectedOwnerId }, skip });
 
 /**
  * `/authorize` for the client with the one connector named, as an app's button sends it:
@@ -109,31 +114,24 @@ describe("the exemptions from the sign-in page", () => {
     expect((await signIn(h, client)).went).toBe("page");
     const state = await moderationRequest(h, "/moderation/sign-in-page");
     expect(state.headers.get("Cache-Control")).toBe("no-store");
-    expect(await state.json()).toEqual({ everyApp: null, apps: [] });
+    expect(await state.json()).toEqual({ everyApp: null, repositories: [] });
   });
 
-  it("skip the page for one app's clients, its previews included, not for other apps", async () => {
+  it("skip the page for one repository's clients, its previews included, not for others", async () => {
     const h = await createHub({ policy: hubPolicy });
     const production = await createClient(h);
     const preview = await createPreviewClient(h);
     const other = await createClient(h, { repository_id: "81", repository: "octo-org/other" });
 
-    expect(await (await oneApp(h, true)).json()).toEqual({ changed: true });
+    expect(await (await oneRepository(h, true)).json()).toEqual({ changed: true });
 
     expect((await signIn(h, production)).went).toBe("provider");
     expect((await signIn(h, preview)).went).toBe("provider");
     expect((await signIn(h, other)).went).toBe("page");
     expect(await (await moderationRequest(h, "/moderation/sign-in-page")).json()).toEqual({
       everyApp: null,
-      apps: [
-        {
-          appId: PRODUCTION_APP,
-          ownerId: OWNER_ID,
-          active: true,
-          reason: "Trusted team",
-          repository: "octo-org/octo-repo",
-          app: "my-app",
-        },
+      repositories: [
+        { repositoryId: REPOSITORY_ID, ownerId: OWNER_ID, active: true, reason: "Trusted team" },
       ],
     });
   });
@@ -150,11 +148,11 @@ describe("the exemptions from the sign-in page", () => {
     expect((await signIn(h, before)).went).toBe("page");
   });
 
-  it("bind one app's row to its recorded owner through transfers", async () => {
+  it("bind one repository's row to its recorded owner through transfers", async () => {
     vi.useFakeTimers({ now: 1_800_000_000_000, toFake: ["Date"] });
     const h = await createHub({ policy: hubPolicy });
     const ownersClient = await createClient(h);
-    await oneApp(h, true);
+    await oneRepository(h, true);
     expect((await signIn(h, ownersClient)).went).toBe("provider");
 
     // The repository moves to owner 66, which the hub learns at its next registration.
@@ -163,12 +161,12 @@ describe("the exemptions from the sign-in page", () => {
     expect((await signIn(h, ownersClient)).went).toBe("page");
     expect((await signIn(h, newOwnersClient)).went).toBe("page");
     // The kept row says it covers no client now.
-    const kept: { apps: Array<{ ownerId: string; active: boolean }> } = await (
+    const kept: { repositories: Array<{ ownerId: string; active: boolean }> } = await (
       await moderationRequest(h, "/moderation/sign-in-page")
     ).json();
-    expect(kept.apps).toMatchObject([{ ownerId: OWNER_ID, active: false }]);
+    expect(kept.repositories).toMatchObject([{ ownerId: OWNER_ID, active: false }]);
     // A row set from a view of the old owner is refused; the admin sees the new one and reloads.
-    const stale = await oneApp(h, true);
+    const stale = await oneRepository(h, true);
     expect(stale.status).toBe(409);
     expect(await stale.json()).toEqual({ error: "owner_changed" });
 
@@ -183,54 +181,50 @@ describe("the exemptions from the sign-in page", () => {
     vi.useFakeTimers({ now: 1_800_000_000_000, toFake: ["Date"] });
     const h = await createHub({ policy: hubPolicy });
     await createClient(h);
-    await oneApp(h, true);
+    await oneRepository(h, true);
     vi.setSystemTime(1_800_000_001_000);
     const newOwnersClient = await createClient(h, { repository_owner_id: "66" });
 
-    expect(await (await oneApp(h, true, PRODUCTION_APP, "66")).json()).toEqual({ changed: true });
+    expect(await (await oneRepository(h, true, "66")).json()).toEqual({ changed: true });
     expect((await signIn(h, newOwnersClient)).went).toBe("provider");
     expect((await signInPageEvents(h)).map((event) => event.target)).toEqual([
-      { scope: "app", appId: PRODUCTION_APP, ownerId: OWNER_ID },
-      { scope: "app", appId: PRODUCTION_APP, ownerId: "66" },
+      { scope: "repository", tenantId: TENANT, ownerId: OWNER_ID },
+      { scope: "repository", tenantId: TENANT, ownerId: "66" },
     ]);
   });
 
-  it("refuse a removal from a stale view, and remove a row that no longer counts", async () => {
+  it("remove only the named owner's row, one that no longer counts included", async () => {
     vi.useFakeTimers({ now: 1_800_000_000_000, toFake: ["Date"] });
     const h = await createHub({ policy: hubPolicy });
     await createClient(h);
-    await oneApp(h, true);
+    await oneRepository(h, true);
     vi.setSystemTime(1_800_000_001_000);
     const newOwnersClient = await createClient(h, { repository_owner_id: "66" });
-    // A second admin binds the row to the new owner while the first admin's page still shows 65.
-    await oneApp(h, true, PRODUCTION_APP, "66");
+    await oneRepository(h, true, "66");
 
-    const stale = await oneApp(h, false);
-    expect(stale.status).toBe(409);
-    expect(await stale.json()).toEqual({ error: "owner_changed" });
+    expect(await (await oneRepository(h, false)).json()).toEqual({ changed: true });
     expect((await signIn(h, newOwnersClient)).went).toBe("provider");
-
-    // The repository moves on to owner 67: the row, bound to 66, no longer counts, and its own
-    // owner still removes it.
-    vi.setSystemTime(1_800_000_002_000);
-    await createClient(h, { repository_owner_id: "67" });
-    expect(await (await oneApp(h, false, PRODUCTION_APP, "66")).json()).toEqual({ changed: true });
     expect(await (await moderationRequest(h, "/moderation/sign-in-page")).json()).toEqual({
       everyApp: null,
-      apps: [],
+      repositories: [
+        { repositoryId: REPOSITORY_ID, ownerId: "66", active: true, reason: "Trusted team" },
+      ],
     });
   });
 
-  it("refuse an app the hub does not have, and a malformed change", async () => {
+  it("refuse a malformed change, and exempt a repository before its first client", async () => {
     const h = await createHub({ policy: hubPolicy });
 
-    const unknown = await oneApp(h, true, "gh-99-unknown");
-    expect(unknown.status).toBe(404);
-    expect(await unknown.json()).toEqual({ error: "unknown_app" });
     for (const body of [
       { target: { scope: "every_app" }, skip: true, reason: " ", adminEmail: "nicu@samebase.com" },
       {
-        target: { scope: "app", appId: PRODUCTION_APP, expectedOwnerId: "owner" },
+        target: { scope: "repository", repositoryId: REPOSITORY_ID, expectedOwnerId: "owner" },
+        skip: true,
+        reason: "x",
+        adminEmail: "a@b.c",
+      },
+      {
+        target: { scope: "repository", repositoryId: TENANT, expectedOwnerId: OWNER_ID },
         skip: true,
         reason: "x",
         adminEmail: "a@b.c",
@@ -244,6 +238,9 @@ describe("the exemptions from the sign-in page", () => {
       expect(response.status).toBe(400);
     }
     expect(await signInPageEvents(h)).toEqual([]);
+
+    expect(await (await oneRepository(h, true)).json()).toEqual({ changed: true });
+    expect((await signIn(h, await createClient(h))).went).toBe("provider");
   });
 
   it("write one event per change, and none for a change already in place", async () => {
@@ -252,10 +249,10 @@ describe("the exemptions from the sign-in page", () => {
 
     expect(await (await everyApp(h, true)).json()).toEqual({ changed: true });
     expect(await (await everyApp(h, true)).json()).toEqual({ changed: false });
-    expect(await (await oneApp(h, true)).json()).toEqual({ changed: true });
-    expect(await (await oneApp(h, true)).json()).toEqual({ changed: false });
-    expect(await (await oneApp(h, false)).json()).toEqual({ changed: true });
-    expect(await (await oneApp(h, false)).json()).toEqual({ changed: false });
+    expect(await (await oneRepository(h, true)).json()).toEqual({ changed: true });
+    expect(await (await oneRepository(h, true)).json()).toEqual({ changed: false });
+    expect(await (await oneRepository(h, false)).json()).toEqual({ changed: true });
+    expect(await (await oneRepository(h, false)).json()).toEqual({ changed: false });
     expect(await (await everyApp(h, false)).json()).toEqual({ changed: true });
 
     expect(
@@ -274,13 +271,13 @@ describe("the exemptions from the sign-in page", () => {
       },
       {
         action: "skip",
-        target: { scope: "app", appId: PRODUCTION_APP, ownerId: OWNER_ID },
+        target: { scope: "repository", tenantId: TENANT, ownerId: OWNER_ID },
         reason: "Trusted team",
         adminEmail: "nicu@samebase.com",
       },
       {
         action: "show",
-        target: { scope: "app", appId: PRODUCTION_APP, ownerId: OWNER_ID },
+        target: { scope: "repository", tenantId: TENANT, ownerId: OWNER_ID },
         reason: "Trusted team",
         adminEmail: "nicu@samebase.com",
       },
@@ -301,11 +298,11 @@ describe("the exemptions from the sign-in page", () => {
   it("let a sign-in that passed /authorize finish after the row goes", async () => {
     const h = await createHub({ policy: hubPolicy });
     const client = await createClient(h);
-    await oneApp(h, true);
+    await oneRepository(h, true);
     const { response, went } = await signIn(h, client);
     expect(went).toBe("provider");
 
-    await oneApp(h, false);
+    await oneRepository(h, false);
     const upstream = new URL(response.headers.get("location") ?? "");
     const callback = new URL(upstream.searchParams.get("redirect_uri") ?? "");
     callback.searchParams.set("code", "upstream-code");
@@ -344,29 +341,35 @@ describe("the exemptions from the sign-in page", () => {
 
     expect((await signIn(h, client)).went).toBe("page");
     expect((await signIn(h, own)).went).toBe("page");
-    await oneApp(h, true);
+    await oneRepository(h, true);
     expect((await signIn(h, client)).went).toBe("provider");
     expect((await signIn(h, own)).went).toBe("page");
   });
 
-  it("apply to a development client of the exempt app", async () => {
+  it("cover every app and deployment of its repository", async () => {
     const h = await createHub({ policy: hubPolicy });
-    await createClient(h);
-    // A production registration replaces the app's initial access token: the newest one counts.
+    const preview = await createPreviewClient(h);
     const token = await createInitialAccessToken(h);
     stubProviders();
     const development = await createDevelopmentClient(h, token);
+    const otherApp = await postHubClient(h, await signToken(), { app: "other-app" });
+    expect(otherApp.status).toBe(201);
+    const clients: NewClient[] = [preview, development, await otherApp.json()];
 
-    expect((await signIn(h, development)).went).toBe("page");
-    expect(await (await oneApp(h, true)).json()).toEqual({ changed: true });
-    expect((await signIn(h, development)).went).toBe("provider");
+    for (const client of clients) {
+      expect((await signIn(h, client)).went).toBe("page");
+    }
+    expect(await (await oneRepository(h, true)).json()).toEqual({ changed: true });
+    for (const client of clients) {
+      expect((await signIn(h, client)).went).toBe("provider");
+    }
   });
 
   it("tell the admin page what decides each client's page", async () => {
     const h = await createHub({ policy: hubPolicy });
     await createClient(h);
     await createClient(h, { repository_id: "81", repository: "octo-org/other" });
-    await oneApp(h, true);
+    await oneRepository(h, true);
 
     const pages = async () => {
       const list: { clients: Array<{ appId: string; signInPage: string; ownerId: string }> } =
@@ -375,7 +378,7 @@ describe("the exemptions from the sign-in page", () => {
         list.clients.map((client) => [client.appId.split("-")[1], client.signInPage]),
       );
     };
-    expect(await pages()).toEqual({ [REPOSITORY_ID]: "this_app", "81": "shown" });
+    expect(await pages()).toEqual({ [REPOSITORY_ID]: "repository", "81": "shown" });
     await everyApp(h, true);
     expect(await pages()).toEqual({ [REPOSITORY_ID]: "every_app", "81": "every_app" });
   });

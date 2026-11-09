@@ -73,12 +73,12 @@ async function registered(
 
 async function changeGrant(
   h: Harness,
-  body: { appId?: string; connector?: string; expectedOwnerId?: string; grant: boolean },
+  body: { repositoryId?: string; connector?: string; expectedOwnerId?: string; grant: boolean },
 ) {
   return await moderationRequest(h, "/moderation/connector-grants", {
     method: "POST",
     body: {
-      appId: body.appId ?? PRODUCTION_APP,
+      repositoryId: body.repositoryId ?? REPOSITORY_ID,
       connector: body.connector ?? "other",
       expectedOwnerId: body.expectedOwnerId ?? OWNER_ID,
       grant: body.grant,
@@ -128,12 +128,12 @@ async function finish(h: Harness, response: Response) {
   return new URL(back.headers.get("location") ?? "");
 }
 
-/** The grant events, as `[action, app, connector, owner, admin]`. */
+/** The grant events, as `[action, tenant, connector, owner, admin]`. */
 async function grantEvents(h: Harness) {
   return await h.t.run(async (ctx) =>
     (await ctx.db.query("events").collect()).flatMap((event) =>
-      event.kind === "connector_grant_change"
-        ? [[event.action, event.appId, event.connector, event.ownerId, event.adminEmail]]
+      event.kind === "connector_grant_change" && "tenantId" in event
+        ? [[event.action, event.tenantId, event.connector, event.ownerId, event.adminEmail]]
         : [],
     ),
   );
@@ -173,23 +173,9 @@ describe("the connector grants", () => {
       repository: "octo-org/other",
     });
     expect(other.status).toBe(400);
-    expect(await (await moderationRequest(h, "/moderation/connector-grants")).json()).toEqual({
-      connectors: ["fake", "other"],
-      grants: [
-        {
-          appId: PRODUCTION_APP,
-          connector: "other",
-          ownerId: OWNER_ID,
-          active: true,
-          reason: "A trusted team",
-          repository: "octo-org/octo-repo",
-          app: "my-app",
-        },
-      ],
-    });
   });
 
-  it("let an app's grant cover its development clients", async () => {
+  it("let a repository's grant cover its development clients", async () => {
     const h = await createHub({ policy: hubPolicy });
     const production = await registered(h, ["fake"]);
     await changeGrant(h, { grant: true });
@@ -264,60 +250,95 @@ describe("the connector grants", () => {
     expect((await signIn(h, sixtyFivesClient, "other")).went).toBe("provider");
   });
 
-  it("refuse a revoke from a stale view, a grant to an unknown app or connector, and a malformed change", async () => {
+  it("refuse a grant from a stale view, an unknown connector, and a malformed change; revoke only the owner's row", async () => {
     vi.useFakeTimers({ now: 1_800_000_000_000, toFake: ["Date"] });
     const h = await createHub({ policy: hubPolicy });
     await registered(h, ["fake"]);
     await changeGrant(h, { grant: true });
     vi.setSystemTime(1_800_000_001_000);
     await registered(h, ["fake"], { repository_owner_id: "66" });
-    await changeGrant(h, { expectedOwnerId: "66", grant: true });
 
-    // A page that still shows owner 65's row cannot revoke 66's.
-    const stale = await changeGrant(h, { grant: false });
+    // A page that still shows owner 65 cannot grant: the hub recorded 66.
+    const stale = await changeGrant(h, { grant: true, connector: "fake" });
     expect(stale.status).toBe(409);
     expect(await stale.json()).toEqual({ error: "owner_changed" });
-    expect(await (await changeGrant(h, { expectedOwnerId: "66", grant: false })).json()).toEqual({
-      changed: true,
-    });
+    await changeGrant(h, { expectedOwnerId: "66", grant: true });
+    // A revoke names its row's owner: 65's row goes, and 66's stays.
+    expect(await (await changeGrant(h, { grant: false })).json()).toEqual({ changed: true });
+    expect(await (await changeGrant(h, { grant: false })).json()).toEqual({ changed: false });
+    const kept: { grants: Array<{ ownerId: string }> } = await (
+      await moderationRequest(h, "/moderation/connector-grants")
+    ).json();
+    expect(kept.grants).toMatchObject([{ ownerId: "66" }]);
 
-    const unknownApp = await changeGrant(h, { appId: "gh-99-app", grant: true });
-    expect(unknownApp.status).toBe(404);
-    expect(await unknownApp.json()).toEqual({ error: "unknown_app" });
-    // A revoke of a row that does not exist is already in place.
-    expect(await (await changeGrant(h, { appId: "gh-99-app", grant: false })).json()).toEqual({
-      changed: false,
-    });
     const unknownConnector = await changeGrant(h, { connector: "okta", grant: true });
     expect(unknownConnector.status).toBe(400);
     expect(await unknownConnector.json()).toEqual({ error: "unknown_connector" });
     const malformed = await moderationRequest(h, "/moderation/connector-grants", {
       method: "POST",
-      body: { appId: PRODUCTION_APP, connector: "other", grant: true, reason: "" },
+      body: {
+        appId: PRODUCTION_APP,
+        connector: "other",
+        grant: true,
+        reason: "x",
+        adminEmail: "a@b.c",
+      },
     });
     expect(malformed.status).toBe(400);
   });
 
-  it("revoke a row of a deleted app, and of a connector the hub no longer has", async () => {
+  it("let a grant set before a repository's first registration open its production and previews", async () => {
+    const h = await createHub({ policy: hubPolicy });
+    expect(await (await changeGrant(h, { grant: true })).json()).toEqual({ changed: true });
+    expect(await (await moderationRequest(h, "/moderation/connector-grants")).json()).toEqual({
+      connectors: ["fake", "other"],
+      grants: [
+        {
+          repositoryId: REPOSITORY_ID,
+          ownerId: OWNER_ID,
+          connector: "other",
+          active: true,
+          reason: "A trusted team",
+        },
+      ],
+    });
+
+    await registered(h, ["fake", "other"]);
+    await registered(h, ["fake", "other"], pullRequestClaims);
+    // A grant to owner 66 does not open the repository while 65 owns it.
+    await changeGrant(h, { repositoryId: "83", expectedOwnerId: "66", grant: true });
+    expect((await register(h, ["fake", "other"], { repository_id: "83" })).status).toBe(400);
+  });
+
+  it("let two apps of one repository share its grant", async () => {
+    const h = await createHub({ policy: hubPolicy });
+    await changeGrant(h, { grant: true });
+    await registered(h, ["fake", "other"]);
+    stubProviders(() => jsonResponse({ repository: REPOSITORY_ID }));
+    const otherApp = await postHubClient(h, await signToken(), {
+      app: "other-app",
+      connectors: ["fake", "other"],
+    });
+    expect(otherApp.status).toBe(201);
+  });
+
+  it("revoke a row of a connector the hub no longer has", async () => {
     const h = await createHub({ policy: hubPolicy });
     await registered(h, ["fake"]);
     await changeGrant(h, { grant: true });
     // A row that a hub wrote while it still configured `okta`.
     await h.t.run(async (ctx) => {
       await ctx.db.insert("connectorGrants", {
-        appId: PRODUCTION_APP,
-        connector: "okta",
+        tenantId: `gh-${REPOSITORY_ID}`,
         ownerId: OWNER_ID,
+        connector: "okta",
         reason: "Before the hub dropped okta",
       });
     });
-    // The emergency revocation deletes the app and its clients; its next registration would bring
-    // the rows back into force, so the admin must be able to remove them now.
-    await h.t.mutation(api.apps.remove, { appId: PRODUCTION_APP });
     const listed = await (await moderationRequest(h, "/moderation/connector-grants")).json();
     expect(listed.grants).toMatchObject([
-      { appId: PRODUCTION_APP, connector: "okta", active: false, app: null },
-      { appId: PRODUCTION_APP, connector: "other", active: false, app: null },
+      { repositoryId: REPOSITORY_ID, connector: "okta", active: true },
+      { repositoryId: REPOSITORY_ID, connector: "other", active: true },
     ]);
 
     for (const connector of ["okta", "other"]) {
@@ -342,8 +363,8 @@ describe("the connector grants", () => {
     expect(await (await changeGrant(h, { grant: false })).json()).toEqual({ changed: false });
 
     expect(await grantEvents(h)).toEqual([
-      ["grant", PRODUCTION_APP, "other", OWNER_ID, "nicu@samebase.com"],
-      ["revoke", PRODUCTION_APP, "other", OWNER_ID, "nicu@samebase.com"],
+      ["grant", `gh-${REPOSITORY_ID}`, "other", OWNER_ID, "nicu@samebase.com"],
+      ["revoke", `gh-${REPOSITORY_ID}`, "other", OWNER_ID, "nicu@samebase.com"],
     ]);
   });
 
@@ -436,9 +457,9 @@ describe("the connector grants", () => {
       if (client === null) throw new Error("No client");
       await ctx.db.patch("clients", client._id, { connectors: ["fake", "other"] });
       await ctx.db.insert("connectorGrants", {
-        appId: client.appId,
-        connector: "other",
+        tenantId: `gh-${REPOSITORY_ID}`,
         ownerId: OWNER_ID,
+        connector: "other",
         reason: "From before",
       });
     });

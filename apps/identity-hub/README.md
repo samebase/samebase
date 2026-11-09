@@ -109,15 +109,15 @@ code, so no mistake on the admin page can lock samebase.com out, and every other
 public pair, `google-apps` and `github-apps`. It gives the API resources to the
 `samebase-connections` app of the samebase repository alone, and pauses every app but samebase.com's
 production while `APPS_PAUSED` is `true`. Connectors… on a client's menu in samebase.com's admin
-page grants that client's app a private connector (`google` or `github`), bound to the repository's
-recorded owner; its clients use it once they enroll in it at their next deploy, and every step of a
-sign-in reads the grant again, so removing it stops the next step. It has no say in the sign-in
-page, which shows for every client, samebase.com's production included, unless the admin exempts it.
-samebase.com's admin page at `/admin/hub-clients` lists the registrations and every client, with the
-moderation key `IDENTITY_HUB_MODERATION_KEY`, which is set by hand on both deployments. Block
-repository and Block owner there are the switches of one repository or owner. Skip the sign-in page
-there exempts one app (a repository's production app, or its preview app with its development
-servers) for as long as the repository's recorded owner stays the one the admin saw, and Skip the
+page, or Grant a repository on its Connector grants tab, grants a repository a private connector
+(`google` or `github`), bound to an owner; its clients use it once they enroll in it at their next
+deploy, and every step of a sign-in reads the grant again, so removing it stops the next step. It
+has no say in the sign-in page, which shows for every client, samebase.com's production included,
+unless the admin exempts it. samebase.com's admin page at `/admin/hub-clients` lists the
+registrations and every client, with the moderation key `IDENTITY_HUB_MODERATION_KEY`, which is set
+by hand on both deployments. Block repository and Block owner there are the switches of one
+repository or owner. Skip the sign-in page there exempts one repository (every app and deployment of
+it) for as long as the repository's recorded owner stays the owner the row is bound to, and Skip the
 sign-in page for every app exempts all of them, new ones included. samebase.com's production skips
 the page through such an exemption, set once on the admin page. Each change is recorded with the
 admin's email and reason. Turning the page back on reaches new sign-ins only: what an app got while

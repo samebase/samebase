@@ -27,6 +27,8 @@ const MAX_REASON_LENGTH = 1_000;
 /** The repositories of one `GET /moderation/clients` request, such as those of one organization. */
 const MAX_REPOSITORIES_PER_REQUEST = 100;
 const MAX_EMAIL_LENGTH = 320;
+/** A numeric GitHub id of a repository or an account. */
+const GITHUB_ID = /^[1-9][0-9]*$/;
 
 /** The body of `POST /moderation/blocks`. */
 const vBlockChange = object({
@@ -38,13 +40,13 @@ const vBlockChange = object({
 });
 
 /**
- * The body of `POST /moderation/sign-in-page`: set (`skip: true`) or remove one exemption. An app
- * target names the recorded owner that the admin saw, which the hub checks before it sets the row.
+ * The body of `POST /moderation/sign-in-page`: set (`skip: true`) or remove one exemption. A
+ * repository target, by its numeric GitHub id, names the owner that the row is bound to.
  */
 const vSignInPageChange = object({
   target: union(
     object({ scope: literal("every_app") }),
-    object({ scope: literal("app"), appId: string(), expectedOwnerId: string() }),
+    object({ scope: literal("repository"), repositoryId: string(), expectedOwnerId: string() }),
   ),
   skip: boolean(),
   reason: string(),
@@ -53,11 +55,10 @@ const vSignInPageChange = object({
 
 /**
  * The body of `POST /moderation/connector-grants`: grant (`grant: true`) or revoke one connector of
- * one app. It names the owner that the admin saw: the tenant's recorded owner to grant, the row's
- * owner to revoke.
+ * one repository, by its numeric GitHub id, for the owner that the row is bound to.
  */
 const vConnectorGrantChange = object({
-  appId: string(),
+  repositoryId: string(),
   connector: string(),
   expectedOwnerId: string(),
   grant: boolean(),
@@ -81,7 +82,7 @@ function readBlockChange(body: unknown) {
   }
   const reason = body.reason.trim();
   const adminEmail = body.adminEmail.trim();
-  return /^[1-9][0-9]*$/.test(body.githubId) &&
+  return GITHUB_ID.test(body.githubId) &&
     reason !== "" &&
     reason.length <= MAX_REASON_LENGTH &&
     adminEmail !== "" &&
@@ -90,7 +91,7 @@ function readBlockChange(body: unknown) {
     : null;
 }
 
-/** The change, if its reason and admin are given and an app target names a GitHub owner id. */
+/** The change, if its reason and admin are given and a repository target names GitHub ids. */
 function readSignInPageChange(body: unknown) {
   if (!validate(vSignInPageChange, body)) {
     return null;
@@ -99,7 +100,7 @@ function readSignInPageChange(body: unknown) {
   const adminEmail = body.adminEmail.trim();
   const { target } = body;
   return (target.scope === "every_app" ||
-    (target.appId !== "" && /^[1-9][0-9]*$/.test(target.expectedOwnerId))) &&
+    (GITHUB_ID.test(target.repositoryId) && GITHUB_ID.test(target.expectedOwnerId))) &&
     reason !== "" &&
     reason.length <= MAX_REASON_LENGTH &&
     adminEmail !== "" &&
@@ -108,21 +109,21 @@ function readSignInPageChange(body: unknown) {
     : null;
 }
 
-/** The change, if its reason and admin are given and it names an app and a GitHub owner id. */
+/** The change, if its reason and admin are given and it names a repository and owner by GitHub id. */
 function readConnectorGrantChange(body: unknown) {
   if (!validate(vConnectorGrantChange, body)) {
     return null;
   }
   const reason = body.reason.trim();
   const adminEmail = body.adminEmail.trim();
-  return body.appId !== "" &&
-    /^[1-9][0-9]*$/.test(body.expectedOwnerId) &&
+  return GITHUB_ID.test(body.repositoryId) &&
+    GITHUB_ID.test(body.expectedOwnerId) &&
     reason !== "" &&
     reason.length <= MAX_REASON_LENGTH &&
     adminEmail !== "" &&
     adminEmail.length <= MAX_EMAIL_LENGTH
     ? {
-        appId: body.appId,
+        repositoryId: body.repositoryId,
         connector: body.connector,
         expectedOwnerId: body.expectedOwnerId,
         grant: body.grant,
@@ -144,7 +145,7 @@ export function moderationEndpoints(args: {
 
   /**
    * A listed client with the tenant's recorded owner, its sign-in page by the rule that
-   * `/authorize` applies (`pageShown`: `shown`, or skipped by the `every_app` or the `this_app`
+   * `/authorize` applies (`pageShown`: `shown`, or skipped by the `every_app` or the `repository`
    * exemption), and its connectors by the rule that every step of a sign-in applies: the hub's
    * connectors that the policy gives it (`policyConnectors`), the enrolled ones it may use now
    * (`usableConnectors`), and those of them that only a grant allows (`grantedConnectors`). The
@@ -180,7 +181,7 @@ export function moderationEndpoints(args: {
         ? ("shown" as const)
         : entry.exemption.everyApp
           ? ("every_app" as const)
-          : ("this_app" as const),
+          : ("repository" as const),
       policyConnectors,
       usableConnectors,
       grantedConnectors: usableConnectors.filter((name) => !policyConnectors.includes(name)),
@@ -226,7 +227,7 @@ export function moderationEndpoints(args: {
     }
     if (
       repositories.length > MAX_REPOSITORIES_PER_REQUEST ||
-      !repositories.every((repository) => /^[1-9][0-9]*$/.test(repository))
+      !repositories.every((repository) => GITHUB_ID.test(repository))
     ) {
       return reply(400, { error: "invalid_request" });
     }
@@ -267,15 +268,14 @@ export function moderationEndpoints(args: {
     );
   });
 
-  /** The "every app" exemption from the sign-in page, if set, and every one-app exemption. */
+  /** The "every app" exemption from the sign-in page, if set, and every repository exemption. */
   const listSignInPage = moderationEndpoint(async (ctx) =>
     reply(200, await ctx.runQuery(component.signInPage.list, {})),
   );
 
   /**
-   * Sets or removes one exemption from the sign-in page. Answers `{ changed }`; 409
-   * `owner_changed` when the repository's recorded owner is no longer the one the admin saw, and
-   * 404 `unknown_app` for an app the hub does not have.
+   * Sets or removes one exemption from the sign-in page. Answers `{ changed }`, or 409
+   * `owner_changed` when the hub has recorded another owner of the repository.
    */
   const changeSignInPage = moderationEndpoint(async (ctx, request) => {
     const change = readSignInPageChange(await request.json().catch(() => null));
@@ -287,18 +287,17 @@ export function moderationEndpoints(args: {
         change.target.scope === "every_app"
           ? { scope: "every_app" }
           : {
-              scope: "app",
-              appId: change.target.appId,
+              scope: "repository",
+              repositoryId: change.target.repositoryId,
               expectedOwnerId: change.target.expectedOwnerId,
             },
       skip: change.skip,
       reason: change.reason,
       adminEmail: change.adminEmail,
     });
-    if (result.ok) {
-      return reply(200, { changed: result.changed });
-    }
-    return reply(result.error === "owner_changed" ? 409 : 404, { error: result.error });
+    return result.ok
+      ? reply(200, { changed: result.changed })
+      : reply(409, { error: result.error });
   });
 
   /** The hub's connectors, which a grant may name, and every grant. */
@@ -310,10 +309,10 @@ export function moderationEndpoints(args: {
   );
 
   /**
-   * Grants or revokes one connector of one app. Answers `{ changed }`; 400 `unknown_connector` for
-   * a grant of a connector the hub does not have, 409 `owner_changed` when the owner is no longer
-   * the one the admin saw, and 404 `unknown_app` for a grant to an app the hub does not have. A
-   * revoke needs neither, so the admin can remove a row of a deleted app or of a removed connector.
+   * Grants or revokes one connector of one repository. Answers `{ changed }`; 400
+   * `unknown_connector` for a grant of a connector the hub does not have, and 409 `owner_changed`
+   * when the hub has recorded another owner of the repository. A revoke can remove a row of a
+   * connector the hub no longer has.
    */
   const changeConnectorGrant = moderationEndpoint(async (ctx, request) => {
     const change = readConnectorGrantChange(await request.json().catch(() => null));
@@ -324,17 +323,16 @@ export function moderationEndpoints(args: {
       return reply(400, { error: "unknown_connector" });
     }
     const result = await ctx.runMutation(component.connectorGrants.set, {
-      appId: change.appId,
+      repositoryId: change.repositoryId,
       connector: change.connector,
       expectedOwnerId: change.expectedOwnerId,
       grant: change.grant,
       reason: change.reason,
       adminEmail: change.adminEmail,
     });
-    if (result.ok) {
-      return reply(200, { changed: result.changed });
-    }
-    return reply(result.error === "owner_changed" ? 409 : 404, { error: result.error });
+    return result.ok
+      ? reply(200, { changed: result.changed })
+      : reply(409, { error: result.error });
   });
 
   return {

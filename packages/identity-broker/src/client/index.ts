@@ -474,7 +474,7 @@ export function defineIdentityBroker<C extends Connector, R extends ResourceProv
     const freshLogin = rest.value.prompt.includes("login") || rest.value.maxAge !== undefined;
     const scopes = SCOPES.filter((scope) => rest.value.scopes.includes(scope));
     // The set of the request: the connectors the app named, else every one the client may use
-    // now (what the policy gives, and what the admin granted its app). A name outside the
+    // now (what the policy gives, and what the admin granted its repository). A name outside the
     // enrollment is a request error; an enrolled one that neither allows now is not offered, and
     // a set with none left is a stopped sign-in.
     const named = rest.value.connectors;

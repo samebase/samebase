@@ -33,7 +33,7 @@ const vClient = object({
 /**
  * A client with its app and the facts the host's policy decides on. `registration` is null when the
  * app is gone or the client is not a repository's (`registrationOf`). `granted` is the connectors
- * that the hub's administrator granted the client's app (`connectorGrants.ts`), which the host adds
+ * that the hub's administrator granted the client's repository (`connectorGrants.ts`), which the host adds
  * to what its policy gives; every mutation that moves a sign-in on reads them again.
  */
 export const vClientWithApp = object({
@@ -106,7 +106,7 @@ export const forAuthorize = query({
     return {
       ...found,
       exemption: await exemptionOf(ctx, {
-        appId: row.appId,
+        tenantId: found.app?.tenantId,
         // The tenant's recorded owner, which the facts carry; no facts, no exemption.
         tenantOwnerId: found.registration?.ownerId,
         clientOwnerId: row.registeredBy.githubOwnerId,
