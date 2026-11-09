@@ -140,7 +140,7 @@ export function OrganizationHubClientsPage({
       ) : (
         <HubClientsTable
           clients={clients.data.clients}
-          limitReached={false}
+          limitReached={clients.data.limitReached}
           now={clients.dataUpdatedAt}
           search={search}
           onSearchChange={onSearchChange}

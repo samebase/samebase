@@ -545,7 +545,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
       remove: FunctionReference<
         "mutation",
         "internal",
-        { clientId: string },
+        { clientId: string; expectedOwnerId?: string },
         { changed: boolean },
         Name
       >;

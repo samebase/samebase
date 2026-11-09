@@ -95,7 +95,7 @@ export function githubConnection(credentials: Credentials): ResourceProvider<"gi
       authorization_response_iss_parameter_supported: true,
     },
     scopes: [],
-    // GitHub keeps one signed-in account per browser; the picker lets a user connect another one.
+    // Without the picker, GitHub authorizes the browser's current account with no question.
     selectAccount: true,
     tokenEndpointAuthMethod: "client_secret_post",
     normalizeTokenResponse: githubTokenResponse,

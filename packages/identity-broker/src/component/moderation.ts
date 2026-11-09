@@ -21,8 +21,6 @@ const BLOCK_LIST_LIMIT = 200;
 const EVENT_LIST_LIMIT = 100;
 /** The newest clients that `clientList` returns. A list that reaches it says so. */
 const CLIENT_LIST_LIMIT = 500;
-/** The repositories of one owner that one list reads, so a list stays within a query's reads. */
-const MAX_REPOSITORIES_PER_OWNER = 100;
 
 const vCount = object({ count: number(), atLeast: boolean() });
 
@@ -234,40 +232,48 @@ export const clientList = query({
 });
 
 /**
- * Every client of the repositories whose recorded owner is `ownerId`, newest first: a transferred
- * repository's clients follow its new owner. Each repository has at most `MAX_APPS_PER_TENANT` apps
- * of two budgets of `MAX_CLIENTS_PER_APP` clients; the list reads the owner's first
- * `MAX_REPOSITORIES_PER_OWNER` repositories and says when it stopped there.
+ * The clients of the repositories whose recorded owner is `ownerId`, newest first: a transferred
+ * repository's clients follow its new owner. Like `clientList`, it stops at `CLIENT_LIST_LIMIT`
+ * clients and says so, which keeps one query within Convex's read limits; a truncated list holds the
+ * clients of the repositories it reached, not the owner's newest overall.
  */
 export const ownerClients = query({
   args: { ownerId: string() },
   returns: object({ clients: array(vClientEntry), limitReached: boolean() }),
   handler: async (ctx, args) => {
-    const tenants = await ctx.db
+    const found: { client: Doc<"clients">; app: Doc<"apps"> }[] = [];
+    let limitReached = false;
+    tenants: for await (const tenant of ctx.db
       .query("tenants")
-      .withIndex("by_owner_id", (q) => q.eq("ownerId", args.ownerId))
-      .take(MAX_REPOSITORIES_PER_OWNER);
-    const entries = [];
-    for (const tenant of tenants) {
+      .withIndex("by_owner_id", (q) => q.eq("ownerId", args.ownerId))) {
       const apps = await ctx.db
         .query("apps")
         .withIndex("by_tenant_id", (q) => q.eq("tenantId", tenant.tenantId))
         .collect();
       for (const app of apps) {
-        for (const client of await ctx.db
+        const clients = await ctx.db
           .query("clients")
           .withIndex("by_app_id", (q) => q.eq("appId", app.appId))
-          .collect()) {
-          entries.push(await clientEntry(ctx, client, app));
+          .collect();
+        found.push(...clients.map((client) => ({ client, app })));
+        if (found.length > CLIENT_LIST_LIMIT) {
+          limitReached = true;
+          break tenants;
         }
       }
     }
-    const clients = entries.sort(
-      (a, b) =>
-        b.client.createdAt - a.client.createdAt ||
-        a.client.clientId.localeCompare(b.client.clientId),
-    );
-    return { clients, limitReached: tenants.length === MAX_REPOSITORIES_PER_OWNER };
+    const kept = found
+      .sort(
+        (a, b) =>
+          b.client.createdAt - a.client.createdAt ||
+          a.client.clientId.localeCompare(b.client.clientId),
+      )
+      .slice(0, CLIENT_LIST_LIMIT);
+    const entries = [];
+    for (const { client, app } of kept) {
+      entries.push(await clientEntry(ctx, client, app));
+    }
+    return { clients: entries, limitReached };
   },
 });
 

@@ -605,6 +605,7 @@ async function organizationWithMember(t: ConvexTest) {
         termsAcceptedAt: 1,
       });
     const memberId = await user("ada@example.test");
+    const plainMemberId = await user("bob@example.test");
     const outsiderId = await user("eve@example.test");
     const organizationId = await ctx.db.insert("organizations", {
       githubInstallationId: "installation-1",
@@ -617,6 +618,11 @@ async function organizationWithMember(t: ConvexTest) {
       organizationId,
       userId: memberId,
       role: "owner",
+    });
+    await ctx.db.insert("organizationMemberships", {
+      organizationId,
+      userId: plainMemberId,
+      role: "member",
     });
     await insertTestOrganizationBillingAccount(ctx.db, organizationId);
     const repository = async (connected: { githubId: string; name: string } | null) => {
@@ -662,12 +668,13 @@ async function organizationWithMember(t: ConvexTest) {
     await repository({ githubId: "74", name: "octo-repo" });
     await repository({ githubId: "81", name: "other-repo" });
     await repository(null);
-    return { memberId, outsiderId, organizationId };
+    return { memberId, plainMemberId, outsiderId, organizationId };
   });
   const viewer = (userId: string) =>
     t.withIdentity({ subject: userId, tokenIdentifier: `test:${userId}` });
   return {
     member: viewer(ids.memberId),
+    plainMember: viewer(ids.plainMemberId),
     outsider: viewer(ids.outsiderId),
     organizationId: ids.organizationId,
   };
@@ -678,7 +685,7 @@ const ORGANIZATION_LIST = `${HUB_ISSUER}/moderation/clients?owner=65`;
 const PUBLIC_ORGANIZATION_LIST = `${PUBLIC_HUB_ISSUER}/moderation/clients?owner=65`;
 
 describe("an organization's hub clients", () => {
-  it("lists the clients of its owner's repositories for a member, in one request", async () => {
+  it("lists the clients of its owner's repositories for an owner, in one request", async () => {
     const t = makeConvexTest();
     turnModerationOn();
     const requests = stubHub();
@@ -693,10 +700,49 @@ describe("an organization's hub clients", () => {
       clients: [...clientList.clients]
         .sort((a, b) => b.createdAt - a.createdAt || a.clientId.localeCompare(b.clientId))
         .map((client) => ({ ...client, hub: "samebase" })),
+      limitReached: false,
     });
     expect(requests.map((request) => `${request.method} ${request.url}`)).toEqual([
       `GET ${ORGANIZATION_LIST}`,
     ]);
+  });
+
+  it("shows an owner every repository of the GitHub owner, and another member only the connected ones", async () => {
+    const t = makeConvexTest();
+    turnModerationOn();
+    const [preview] = clientList.clients;
+    // A repository of the GitHub owner that is not connected in Samebase.
+    const unconnected = {
+      ...preview,
+      clientId: "cl_unconnected",
+      registeredBy: { ...preview.registeredBy, githubRepositoryDatabaseId: "99" },
+    };
+    const requests = stubHub((request) =>
+      request.method === "DELETE"
+        ? jsonResponse({ changed: true })
+        : jsonResponse({ owner: "65", clients: [preview, unconnected], limitReached: true }),
+    );
+    const { member, plainMember, organizationId } = await organizationWithMember(t);
+    const ids = async (viewer: typeof member) => {
+      const result = await viewer.action(api.hubClients.moderation.readClientsOfOrganization, {
+        organizationId,
+      });
+      return result.status === "on" ? result.clients.map((client) => client.clientId) : [];
+    };
+
+    expect(await ids(member)).toEqual(["cl_preview", "cl_unconnected"]);
+    expect(await ids(plainMember)).toEqual(["cl_preview"]);
+    expect(
+      await member.action(api.hubClients.moderation.readClientsOfOrganization, { organizationId }),
+    ).toMatchObject({ limitReached: true });
+    // A plain member cannot delete a client they do not see.
+    expect(
+      await plainMember.action(api.hubClients.moderation.deleteClientOfOrganization, {
+        organizationId,
+        clientId: "cl_unconnected",
+      }),
+    ).toEqual({ status: "on", changed: false });
+    expect(requests.some((request) => request.method === "DELETE")).toBe(false);
   });
 
   it("lists the clients at both hubs, and deletes a client at the hub that holds it", async () => {
@@ -730,6 +776,7 @@ describe("an organization's hub clients", () => {
         { ...preview, hub: "samebase" },
         { ...production, hub: "samebase" },
       ],
+      limitReached: false,
     });
 
     await member.action(api.hubClients.moderation.deleteClientOfOrganization, {
@@ -741,7 +788,7 @@ describe("an organization's hub clients", () => {
       `GET ${PUBLIC_ORGANIZATION_LIST}`,
       `GET ${ORGANIZATION_LIST}`,
       `GET ${PUBLIC_ORGANIZATION_LIST}`,
-      `DELETE ${PUBLIC_HUB_ISSUER}/moderation/clients/cl_public`,
+      `DELETE ${PUBLIC_HUB_ISSUER}/moderation/clients/cl_public?owner=65`,
     ]);
   });
 
@@ -791,7 +838,7 @@ describe("an organization's hub clients", () => {
     expect(result).toEqual({ status: "on", changed: true });
     expect(requests.map((request) => `${request.method} ${request.url}`)).toEqual([
       `GET ${ORGANIZATION_LIST}`,
-      `DELETE ${HUB_ISSUER}/moderation/clients/cl_test`,
+      `DELETE ${HUB_ISSUER}/moderation/clients/cl_test?owner=65`,
     ]);
   });
 

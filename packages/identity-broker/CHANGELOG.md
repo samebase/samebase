@@ -3,10 +3,14 @@
 ## 0.30.0
 
 - `GET /moderation/clients?owner=<GitHub id>` lists the clients of every repository whose recorded
-  owner is that account, newest first, as `{ owner, clients, limitReached }`, up to 100 of its
-  repositories. A transferred repository's clients follow its new owner. The `repository` filter is
-  gone, and any parameter other than one `owner` is refused with 400, so a caller asking for a
-  filter this version lacks never gets the full list. `tenants` gets the index `by_owner_id`.
+  owner is that account, newest first, as `{ owner, clients, limitReached }`. Like the full list it
+  stops at 500 clients and says so. A transferred repository's clients follow its new owner. The
+  `repository` filter is gone, and any parameter other than one `owner` is refused with 400, so a
+  caller asking for a filter this version lacks never gets the full list. `tenants` gets the index
+  `by_owner_id`.
+- `DELETE /moderation/clients/<id>?owner=<GitHub id>` deletes only while the client's repository is
+  recorded under that owner, checked in the same transaction, and answers `{ changed: false }`
+  otherwise: a console that listed a client for one owner cannot delete it after a transfer.
 - The GitHub connection (`githubConnection`) sends `prompt=select_account`, so GitHub shows its
   account picker instead of reusing the account the browser is signed in to, as the `github` sign-in
   connector does with `selectAccount`.

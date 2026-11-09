@@ -241,12 +241,24 @@ export function moderationEndpoints(args: {
    * a new client at its next deploy. Answers `{ changed }`, false for a client already gone.
    */
   const deleteClient = moderationEndpoint(async (ctx, request) => {
+    const url = new URL(request.url);
     // Exactly one segment after the prefix: `cl_A/cl_B` is a malformed path, not a delete of cl_B.
-    const clientId = new URL(request.url).pathname.slice(clientsPrefix.length);
-    if (!/^cl_[A-Za-z0-9_-]+$/.test(clientId)) {
+    const clientId = url.pathname.slice(clientsPrefix.length);
+    // `?owner=<GitHub id>` deletes only while the client's repository is recorded under that owner.
+    const owner = url.searchParams.get("owner");
+    if (
+      !/^cl_[A-Za-z0-9_-]+$/.test(clientId) ||
+      url.searchParams.size > 1 ||
+      (url.searchParams.size === 1 && (owner === null || !GITHUB_ID.test(owner)))
+    ) {
       return reply(400, { error: "invalid_request" });
     }
-    return reply(200, await ctx.runMutation(component.clients.remove, { clientId }));
+    return reply(
+      200,
+      owner === null
+        ? await ctx.runMutation(component.clients.remove, { clientId })
+        : await ctx.runMutation(component.clients.remove, { clientId, expectedOwnerId: owner }),
+    );
   });
 
   /** Blocks or unblocks one repository or owner. Answers `{ changed }`. */
