@@ -268,9 +268,9 @@ describe("organization provider credential lifecycle", () => {
     "commits $operation before revoking a hub grant (hub available: $hubAvailable)",
     async ({ operation, hubAvailable }) => {
       vi.useFakeTimers();
-      vi.stubEnv("RESOURCE_HUB_ISSUER", "https://hub.example.test");
-      vi.stubEnv("RESOURCE_HUB_CLIENT_ID", "resource-client");
-      vi.stubEnv("RESOURCE_HUB_CLIENT_SECRET", "resource-secret");
+      vi.stubEnv("IDENTITY_HUB_ISSUER", "https://hub.example.test");
+      vi.stubEnv("IDENTITY_HUB_CLIENT_ID", "resource-client");
+      vi.stubEnv("IDENTITY_HUB_CLIENT_SECRET", "resource-secret");
       try {
         const seed = await seedOrganization();
         await seed.t.run(async (ctx) => {

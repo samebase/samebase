@@ -48,9 +48,9 @@ afterEach(() => {
 const HUB_ISSUER = "https://hub.example.test";
 
 function stubResourceHub(respond: (url: string) => Response) {
-  vi.stubEnv("RESOURCE_HUB_ISSUER", HUB_ISSUER);
-  vi.stubEnv("RESOURCE_HUB_CLIENT_ID", "resource-client");
-  vi.stubEnv("RESOURCE_HUB_CLIENT_SECRET", "resource-secret");
+  vi.stubEnv("IDENTITY_HUB_ISSUER", HUB_ISSUER);
+  vi.stubEnv("IDENTITY_HUB_CLIENT_ID", "resource-client");
+  vi.stubEnv("IDENTITY_HUB_CLIENT_SECRET", "resource-secret");
   const requests: Array<{ url: string; body: URLSearchParams }> = [];
   vi.stubGlobal(
     "fetch",

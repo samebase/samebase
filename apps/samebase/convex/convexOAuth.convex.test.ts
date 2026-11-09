@@ -44,8 +44,8 @@ describe("organization resource OAuth", () => {
           convexTeam: { teamId: "team-1" },
         });
       });
-      vi.stubEnv("RESOURCE_HUB_ISSUER", "https://hub.example.test");
-      vi.stubEnv("RESOURCE_HUB_CLIENT_ID", "convex-client");
+      vi.stubEnv("IDENTITY_HUB_ISSUER", "https://hub.example.test");
+      vi.stubEnv("IDENTITY_HUB_CLIENT_ID", "convex-client");
       vi.stubEnv("CONVEX_SITE_URL", "https://samebase.test");
       const owner = t.withIdentity({
         subject: userId,
