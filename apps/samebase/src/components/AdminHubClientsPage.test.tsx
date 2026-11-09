@@ -399,13 +399,14 @@ describe("AdminHubClientsPage", () => {
         type(page.rootElement, "#admin-hub-clients-reason", "Typed for samebase"),
       );
       testState.readOverview.mockResolvedValue({ ...overview, issuer: "https://id.example.test" });
-      await act(async () => {
-        button(page.rootElement, "Public hub").click();
-        await new Promise((resolve) => setTimeout(resolve, 0));
+      await act(async () => button(page.rootElement, "Public hub").click());
+      // The public hub's view mounts, asks, and renders the answer over a few ticks.
+      await vi.waitFor(async () => {
+        await act(async () => await new Promise((resolve) => setTimeout(resolve, 0)));
+        expect(page.rootElement.textContent).toContain("https://id.example.test: 3 registrations");
       });
 
       expect(testState.readOverview).toHaveBeenLastCalledWith({ hub: "public" });
-      expect(page.rootElement.textContent).toContain("https://id.example.test: 3 registrations");
       await act(async () => button(page.rootElement, "Blocks 1").click());
       expect(
         page.rootElement.querySelector<HTMLInputElement>("#admin-hub-clients-reason")?.value,
