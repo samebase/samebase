@@ -2,7 +2,7 @@ import { v } from "convex/values";
 // oxlint-disable-next-line samebase/no-raw-public-convex-function-builders -- Component entrypoints are internal to the host; host functions enforce access.
 import { mutation, query, type QueryCtx } from "./_generated/server";
 import type { Doc } from "./_generated/dataModel";
-import { appView, vApp } from "./apps";
+import { appView, tenantRow, vApp } from "./apps";
 import { grantedToClient } from "./connectorGrants";
 import { registrationOf, vRegistration } from "./policy";
 import { exemptionOf, vExemption } from "./signInPage";
@@ -131,16 +131,29 @@ export const listByApp = query({
 
 /**
  * Deletes a client and its provider grants, as the hub's administrator. The deployment that held it
- * gets a new client at its next deploy. `changed` is false for a client that was already gone.
+ * gets a new client at its next deploy. `changed` is false for a client that was already gone. With
+ * `expectedOwnerId`, the delete happens only while the client's repository is recorded under that
+ * owner, read in this same transaction: a console that listed the client for one owner cannot
+ * delete it after a transfer gave the repository to another.
  */
 export const remove = mutation({
-  args: { clientId: string() },
+  args: { clientId: string(), expectedOwnerId: v.optional(string()) },
   returns: object({ changed: v.boolean() }),
   handler: async (ctx, args) => {
     const client = await ctx.db
       .query("clients")
       .withIndex("by_client_id", (q) => q.eq("clientId", args.clientId))
       .unique();
+    if (client !== null && args.expectedOwnerId !== undefined) {
+      const app = await ctx.db
+        .query("apps")
+        .withIndex("by_app_id", (q) => q.eq("appId", client.appId))
+        .unique();
+      const tenant = app === null ? null : await tenantRow(ctx, app.tenantId);
+      if (tenant?.ownerId !== args.expectedOwnerId) {
+        return { changed: false };
+      }
+    }
     if (client !== null) {
       await ctx.db.delete("clients", client._id);
     }

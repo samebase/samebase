@@ -6,7 +6,7 @@ import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { env, internalQuery, type ActionCtx } from "../_generated/server";
 import { action } from "../functions";
-import { requireOrganizationAccessContext } from "../organizationAccess";
+import { requireOrganizationMembership } from "../organizationAccess";
 
 const { array, boolean, id, literal, number, object, string, union } = v;
 
@@ -136,8 +136,6 @@ const vGitHubRepository = object({
 /** `owner/name` as GitHub allows them; `.` and `..` are not repository names. */
 const GITHUB_FULL_NAME = /^([A-Za-z0-9-]+)\/(?!\.\.?$)([A-Za-z0-9._-]+)$/;
 
-const vRepositoryClients = object({ clients: array(vClient) });
-
 const vChangeResult = object({ changed: boolean() });
 
 const vOff = object({ status: literal("off") });
@@ -157,8 +155,9 @@ type Moderation = { hub: Hub; issuer: string; key: string };
 A hub's moderation endpoints, or null while its key is unset: the admin page then says that
 moderation of that hub is off. The key can only read registration counts, clients, blocks,
 exemptions from the sign-in page, and connector grants, set blocks, exemptions, and grants, and
-delete clients at the hub. samebase.com decides who may use it: an admin for every app, a member of
-an organization for the clients of its connected repositories. The hub comes from this fixed pair,
+delete clients at the hub. samebase.com decides who may use it: an admin for every app, an
+organization's owner for every repository of its GitHub owner, another member for the organization's
+connected repositories. The hub comes from this fixed pair,
 never from a caller's URL, so no request can send a key to another host.
 */
 function readModeration(hub: Hub): Moderation | null {
@@ -471,32 +470,51 @@ export const changeBlock = action({
   },
 });
 
-/** The repositories of one hub request: the hub's own limit. */
-const REPOSITORIES_PER_REQUEST = 100;
-
 /**
-The GitHub ids of an organization's connected repositories, for a member of the organization. Only
-connected repositories: a member may not have GitHub access to every repository of the owner, so the
-owner's other repositories are not this organization's to see.
+What a member of an organization may see at the hubs. `ownerId` is the numeric GitHub id of the
+organization's owner account, which the hubs record as each repository's owner. An organization owner
+installed Samebase on that GitHub account and sees every repository of it, connected in Samebase or
+not (`repositoryIds` null). Another member may not have GitHub access to all of them, so they see
+only the organization's connected repositories.
 */
-export const readOrganizationRepositoryIds = internalQuery({
+export const readOrganizationScope = internalQuery({
   args: { userId: id("users"), organizationId: id("organizations") },
-  returns: array(string()),
+  returns: object({ ownerId: string(), repositoryIds: union(array(string()), v.null()) }),
   handler: async (ctx, args) => {
-    await requireOrganizationAccessContext(ctx.db, {
+    const membership = await requireOrganizationMembership(ctx.db, {
       userId: args.userId,
       organizationId: args.organizationId,
     });
+    const organization = await ctx.db.get(args.organizationId);
+    if (organization === null) {
+      throw new Error("Organization not found.");
+    }
+    if (membership.role === "owner") {
+      return { ownerId: organization.githubOwnerId, repositoryIds: null };
+    }
     const repositories = await ctx.db
       .query("repositories")
       .withIndex("by_organization_and_state_and_deletion_state", (q) =>
         q.eq("organizationId", args.organizationId).eq("state", "connected"),
       )
       .collect();
-    return repositories.flatMap((repository) =>
-      repository.state === "connected" ? [repository.githubRepositoryDatabaseId] : [],
-    );
+    return {
+      ownerId: organization.githubOwnerId,
+      repositoryIds: repositories.flatMap((repository) =>
+        repository.state === "connected" ? [repository.githubRepositoryDatabaseId] : [],
+      ),
+    };
   },
+});
+
+/**
+A hub's answer for one owner. It must name that owner: a hub on a broker without the owner filter
+answers every client, which this refuses instead of showing.
+*/
+const vOwnerClients = object({
+  owner: string(),
+  clients: array(vClient),
+  limitReached: boolean(),
 });
 
 /** A client of an organization's repository, with the hub that holds it. */
@@ -505,60 +523,89 @@ const vOrganizationClient = object({ ...vClient.fields, hub: vHub });
 /** The hubs whose moderation key is set. */
 const readModerations = () => HUBS.map(readModeration).filter(notEmpty);
 
-/** The clients of an organization's connected repositories at every hub of `moderations`. */
+/**
+The clients that a member may see at every hub of `moderations` (`readOrganizationScope`), newest
+first, the GitHub owner whose clients they are, and whether a hub stopped at its limit.
+*/
 async function readOrganizationClients(
   ctx: Pick<ActionCtx, "runQuery">,
   moderations: readonly Moderation[],
   args: { userId: Id<"users">; organizationId: Id<"organizations"> },
-): Promise<Infer<typeof vOrganizationClient>[]> {
-  const repositoryIds = await ctx.runQuery(
-    internal.hubClients.moderation.readOrganizationRepositoryIds,
-    { userId: args.userId, organizationId: args.organizationId },
-  );
+): Promise<{
+  ownerId: string;
+  clients: Infer<typeof vOrganizationClient>[];
+  limitReached: boolean;
+}> {
+  const scope = await ctx.runQuery(internal.hubClients.moderation.readOrganizationScope, {
+    userId: args.userId,
+    organizationId: args.organizationId,
+  });
   const clients = [];
+  let limitReached = false;
   for (const moderation of moderations) {
-    for (let start = 0; start < repositoryIds.length; start += REPOSITORIES_PER_REQUEST) {
-      const query = repositoryIds
-        .slice(start, start + REPOSITORIES_PER_REQUEST)
-        .map((repositoryId) => `repository=${repositoryId}`)
-        .join("&");
-      const answer = await callHub(moderation, {
-        method: "GET",
-        path: `/moderation/clients?${query}`,
-        validator: vRepositoryClients,
-      });
-      clients.push(...answer.clients.map((client) => ({ ...client, hub: moderation.hub })));
+    const answer = await callHub(moderation, {
+      method: "GET",
+      path: `/moderation/clients?${new URLSearchParams({ owner: scope.ownerId }).toString()}`,
+      validator: vOwnerClients,
+    });
+    if (answer.owner !== scope.ownerId) {
+      throw new Error("The identity hub answered for another owner.");
+    }
+    limitReached ||= answer.limitReached;
+    for (const client of answer.clients) {
+      if (
+        scope.repositoryIds === null ||
+        scope.repositoryIds.includes(client.registeredBy.githubRepositoryDatabaseId)
+      ) {
+        clients.push({ ...client, hub: moderation.hub });
+      }
     }
   }
-  return clients.sort((a, b) => b.createdAt - a.createdAt || a.clientId.localeCompare(b.clientId));
+  return {
+    ownerId: scope.ownerId,
+    clients: clients.sort(
+      (a, b) => b.createdAt - a.createdAt || a.clientId.localeCompare(b.clientId),
+    ),
+    limitReached,
+  };
 }
 
 /**
-The clients of an organization's connected repositories at both hubs, for a member, newest first,
-each with who made it: an app that moved to the public hub keeps showing its old clients until they
-are deleted.
+The clients of an organization at both hubs, newest first, each with who made it: for an owner,
+every repository of the GitHub owner, connected in Samebase or not; for another member, the
+connected repositories. The list is a read of the hubs and connects nothing. An app that moved to the
+public hub keeps showing its old clients until they are deleted.
 */
 export const readClientsOfOrganization = action({
   access: "access_dashboard",
   args: { organizationId: id("organizations") },
-  returns: union(vOff, object({ status: literal("on"), clients: array(vOrganizationClient) })),
+  returns: union(
+    vOff,
+    object({
+      status: literal("on"),
+      clients: array(vOrganizationClient),
+      limitReached: boolean(),
+    }),
+  ),
   handler: async (ctx, args) => {
     const moderations = readModerations();
     if (moderations.length === 0) {
       return { status: "off" as const };
     }
-    const clients = await readOrganizationClients(ctx, moderations, {
+    const { clients, limitReached } = await readOrganizationClients(ctx, moderations, {
       userId: ctx.viewer.userId,
       organizationId: args.organizationId,
     });
-    return { status: "on" as const, clients };
+    return { status: "on" as const, clients, limitReached };
   },
 });
 
 /**
 Deletes one client of an organization's repositories, at the hub that holds it. The client must be
 in the organization's list, so a member can delete only the clients of repositories they may see.
-The deployment that held it gets a new client at its next deploy.
+The hub deletes it only while its repository is still recorded under the organization's GitHub
+owner, so a transfer after the list cannot let this organization delete another owner's client. The
+deployment that held it gets a new client at its next deploy.
 */
 export const deleteClientOfOrganization = action({
   access: "access_app_create",
@@ -569,7 +616,7 @@ export const deleteClientOfOrganization = action({
     if (moderations.length === 0) {
       return { status: "off" as const };
     }
-    const clients = await readOrganizationClients(ctx, moderations, {
+    const { ownerId, clients } = await readOrganizationClients(ctx, moderations, {
       userId: ctx.viewer.userId,
       organizationId: args.organizationId,
     });
@@ -580,7 +627,7 @@ export const deleteClientOfOrganization = action({
     }
     const { changed } = await callHub(moderation, {
       method: "DELETE",
-      path: `/moderation/clients/${args.clientId}`,
+      path: `/moderation/clients/${args.clientId}?${new URLSearchParams({ owner: ownerId }).toString()}`,
       validator: vChangeResult,
     });
     return { status: "on" as const, changed };

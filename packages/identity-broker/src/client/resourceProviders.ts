@@ -11,6 +11,11 @@ export type ResourceProvider<Name extends string = string> = Credentials & {
   server: oauth.AuthorizationServer & { authorization_endpoint: string };
   tokenEndpointAuthMethod: "client_secret_post" | "client_secret_basic";
   scopes: readonly string[];
+  /**
+   * Sends `prompt=select_account`, so the provider shows its account picker on each authorization
+   * instead of reusing the account the browser is signed in to.
+   */
+  selectAccount: boolean;
   /** Corrects a token endpoint that departs from RFC 6749 section 5.2. */
   normalizeTokenResponse?: (response: Response) => Promise<Response>;
 };
@@ -30,6 +35,7 @@ export function convexConnection(credentials: Credentials): ResourceProvider<"co
       token_endpoint: "https://api.convex.dev/oauth/token",
     },
     scopes: [],
+    selectAccount: false,
     tokenEndpointAuthMethod: "client_secret_post",
   };
 }
@@ -53,6 +59,7 @@ export function cloudflareConnection(credentials: Credentials): ResourceProvider
       "account-settings.read",
       "offline_access",
     ],
+    selectAccount: false,
     tokenEndpointAuthMethod: "client_secret_basic",
   };
 }
@@ -88,6 +95,8 @@ export function githubConnection(credentials: Credentials): ResourceProvider<"gi
       authorization_response_iss_parameter_supported: true,
     },
     scopes: [],
+    // Without the picker, GitHub authorizes the browser's current account with no question.
+    selectAccount: true,
     tokenEndpointAuthMethod: "client_secret_post",
     normalizeTokenResponse: githubTokenResponse,
   };
@@ -108,6 +117,7 @@ export async function startResourceAuthorization(args: {
   url.searchParams.set("code_challenge_method", "S256");
   if (args.provider.scopes.length > 0)
     url.searchParams.set("scope", args.provider.scopes.join(" "));
+  if (args.provider.selectAccount) url.searchParams.set("prompt", "select_account");
   return { url: url.toString(), state, codeVerifier };
 }
 

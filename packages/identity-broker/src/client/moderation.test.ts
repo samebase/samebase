@@ -52,6 +52,7 @@ async function insertClients(h: Harness, count: number) {
     const tenantId = `gh-${Math.floor(index / 300) + 1}`;
     await registerAtBroker(h, {
       tenantId,
+      ownerId: OWNER_ID,
       appId: `${tenantId}-app-${Math.floor(index / 30)}-preview`,
       deploymentType: "preview",
       clientId: `cl_${index}`,
@@ -75,7 +76,7 @@ const ENDPOINTS = [
   ["GET", "/moderation/blocks"],
   ["POST", "/moderation/blocks"],
   ["GET", "/moderation/clients"],
-  ["GET", `/moderation/clients?repository=${REPOSITORY_ID}`],
+  ["GET", `/moderation/clients?owner=${OWNER_ID}`],
   ["DELETE", "/moderation/clients/cl_any"],
   ["GET", "/moderation/sign-in-page"],
   ["POST", "/moderation/sign-in-page"],
@@ -424,55 +425,124 @@ describe("the clients", () => {
   });
 });
 
-describe("the clients of given repositories", () => {
-  async function repositoryClientIds(h: Harness, ...repositories: string[]) {
-    const query = repositories.map((repository) => `repository=${repository}`).join("&");
-    const list: { clients: { clientId: string }[] } = await (
-      await moderationRequest(h, `/moderation/clients?${query}`)
+describe("the clients of one owner", () => {
+  async function ownerClientIds(h: Harness, owner: string) {
+    const list: { owner: string; clients: { clientId: string }[]; limitReached: boolean } = await (
+      await moderationRequest(h, `/moderation/clients?owner=${owner}`)
     ).json();
+    expect(list.owner).toBe(owner);
+    expect(list.limitReached).toBe(false);
     return list.clients.map((client) => client.clientId);
   }
 
-  it("lists only that repository's clients, newest first, of every app and stage", async () => {
+  it("lists the production and development clients of each repository of the owner, newest first", async () => {
     vi.useFakeTimers({ now: 1_800_000_000_000, toFake: ["Date"] });
     const h = await createHub();
     const production = await createClient(h);
     vi.setSystemTime(1_800_000_001_000);
     const development = await createDevelopmentClient(h, production.initial_access_token ?? "");
     vi.setSystemTime(1_800_000_002_000);
-    await createClient(h, { repository_id: "81", repository: "octo-org/other" });
+    const other = await createClient(h, { repository_id: "81", repository: "octo-org/other" });
+    vi.setSystemTime(1_800_000_003_000);
+    const stranger = await createClient(h, {
+      repository_id: "82",
+      repository_owner_id: "66",
+      repository: "someone/else",
+    });
 
-    expect(await repositoryClientIds(h, REPOSITORY_ID)).toEqual([
+    expect(await ownerClientIds(h, OWNER_ID)).toEqual([
+      other.client_id,
       development.client_id,
       production.client_id,
     ]);
-    expect(await repositoryClientIds(h, "999")).toEqual([]);
+    expect(await ownerClientIds(h, "66")).toEqual([stranger.client_id]);
+    expect(await ownerClientIds(h, "999")).toEqual([]);
   });
 
-  it("lists the clients of several repositories in one request, newest first, each once", async () => {
+  it("moves a transferred repository's clients to its new owner", async () => {
     vi.useFakeTimers({ now: 1_800_000_000_000, toFake: ["Date"] });
     const h = await createHub();
-    const first = await createClient(h);
-    vi.setSystemTime(1_800_000_001_000);
-    const second = await createClient(h, { repository_id: "81", repository: "octo-org/other" });
-    vi.setSystemTime(1_800_000_002_000);
-    await createClient(h, { repository_id: "82", repository: "octo-org/third" });
+    const before = await createClient(h);
+    vi.setSystemTime(1_800_000_100_000);
+    const after = await createClient(h, { repository_owner_id: "66" });
 
-    expect(await repositoryClientIds(h, REPOSITORY_ID, "81", REPOSITORY_ID)).toEqual([
-      second.client_id,
-      first.client_id,
+    expect(await ownerClientIds(h, OWNER_ID)).toEqual([]);
+    expect(await ownerClientIds(h, "66")).toEqual([after.client_id, before.client_id]);
+
+    // Transferred back: the clients follow the repository again.
+    vi.setSystemTime(1_800_000_200_000);
+    const back = await createClient(h);
+    expect(await ownerClientIds(h, "66")).toEqual([]);
+    expect(await ownerClientIds(h, OWNER_ID)).toEqual([
+      back.client_id,
+      after.client_id,
+      before.client_id,
     ]);
   });
 
-  it.each(["", "0", "abc", "74x"])("refuses the repository %j", async (repository) => {
+  it("stops at 500 clients and says so", async () => {
     const h = await createHub();
-    const response = await moderationRequest(h, `/moderation/clients?repository=${repository}`);
-    expect(response.status).toBe(400);
+    await insertClients(h, 501);
+
+    const list: { clients: { clientId: string }[]; limitReached: boolean } = await (
+      await moderationRequest(h, `/moderation/clients?owner=${OWNER_ID}`)
+    ).json();
+
+    expect(list.clients).toHaveLength(500);
+    expect(list.limitReached).toBe(true);
   });
 
-  it("refuses more than 100 repositories in one request", async () => {
+  it("deletes with an owner only while the repository is recorded under that owner", async () => {
+    vi.useFakeTimers({ now: 1_800_000_000_000, toFake: ["Date"] });
     const h = await createHub();
-    const query = Array.from({ length: 101 }, (_, index) => `repository=${index + 1}`).join("&");
+    const client = await createClient(h);
+    // The repository moves to owner 66 between a console's list and its delete.
+    vi.setSystemTime(1_800_000_100_000);
+    await createClient(h, { repository_owner_id: "66" });
+
+    const stale = await moderationRequest(
+      h,
+      `/moderation/clients/${client.client_id}?owner=${OWNER_ID}`,
+      { method: "DELETE" },
+    );
+    expect(await stale.json()).toEqual({ changed: false });
+    expect(await ownerClientIds(h, "66")).toContain(client.client_id);
+
+    const current = await moderationRequest(h, `/moderation/clients/${client.client_id}?owner=66`, {
+      method: "DELETE",
+    });
+    expect(await current.json()).toEqual({ changed: true });
+  });
+
+  it.each(["owner=", "owner=abc", "owner=65&owner=66", "repository=74"])(
+    "refuses a delete with %j",
+    async (query) => {
+      const h = await createHub();
+      const client = await createClient(h);
+      const response = await moderationRequest(
+        h,
+        `/moderation/clients/${client.client_id}?${query}`,
+        { method: "DELETE" },
+      );
+      expect(response.status).toBe(400);
+      expect(await ownerClientIds(h, OWNER_ID)).toEqual([client.client_id]);
+    },
+  );
+
+  it.each([
+    "owner=",
+    "owner",
+    "owner=0",
+    "owner=065",
+    "owner=abc",
+    `owner=${OWNER_ID}&owner=${OWNER_ID}`,
+    `owner=${OWNER_ID}&owner=66`,
+    "unknown=",
+    `repository=${REPOSITORY_ID}`,
+    `owner=${OWNER_ID}&repository=${REPOSITORY_ID}`,
+  ])("refuses %j instead of listing every client", async (query) => {
+    const h = await createHub();
+    await createClient(h);
     const response = await moderationRequest(h, `/moderation/clients?${query}`);
     expect(response.status).toBe(400);
   });
@@ -485,7 +555,7 @@ describe("the clients of given repositories", () => {
       method: "DELETE",
     });
     expect(await deleted.json()).toEqual({ changed: true });
-    expect(await repositoryClientIds(h, REPOSITORY_ID)).toEqual([]);
+    expect(await ownerClientIds(h, OWNER_ID)).toEqual([]);
     expect(await readOwnRecord(h, client)).toBe(401);
 
     const again = await moderationRequest(h, `/moderation/clients/${client.client_id}`, {
@@ -506,6 +576,6 @@ describe("the clients of given repositories", () => {
       const response = await moderationRequest(h, path, { method: "DELETE" });
       expect(response.status).toBe(400);
     }
-    expect(await repositoryClientIds(h, REPOSITORY_ID)).toEqual([client.client_id]);
+    expect(await ownerClientIds(h, OWNER_ID)).toEqual([client.client_id]);
   });
 });

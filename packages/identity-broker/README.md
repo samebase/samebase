@@ -159,8 +159,8 @@ use it, bound to an owner in the same way. Every step of a sign-in reads the gra
 revoked grant stops the next step.
 
 Each repository and owner has hourly limits, and `/moderation/blocks` stops a repository or an owner
-at once, policy or not. `/moderation/clients?repository=<id>&repository=<id>` lists the clients of
-those repositories and `DELETE /moderation/clients/<id>` deletes one, for a console that shows each
+at once, policy or not. `/moderation/clients?owner=<id>` lists the clients of every repository of
+that GitHub account and `DELETE /moderation/clients/<id>` deletes one, for a console that shows each
 developer their own. A Convex Auth v2 app points its generic OAuth method at `<issuer>/authorize`
 and `<issuer>/token`; see the
 [docs](https://github.com/samebase/samebase/blob/main/packages/identity-broker/docs/consumers.md).

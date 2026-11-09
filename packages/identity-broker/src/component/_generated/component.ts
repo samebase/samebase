@@ -545,7 +545,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
       remove: FunctionReference<
         "mutation",
         "internal",
-        { clientId: string },
+        { clientId: string; expectedOwnerId?: string },
         { changed: boolean },
         Name
       >;
@@ -848,53 +848,56 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         },
         Name
       >;
-      repositoryClients: FunctionReference<
+      ownerClients: FunctionReference<
         "query",
         "internal",
-        { githubRepositoryDatabaseIds: Array<string> },
-        Array<{
-          client: {
-            appId: string;
-            clientId: string;
-            clientName: string;
-            connectors: Array<string>;
-            createdAt: number;
-            deploymentType: "production" | "development" | "preview";
-            lastSignInAt: number | null;
-            redirectUri: string;
-            registeredBy:
-              | {
-                  app: string;
-                  githubActorLogin: string;
-                  githubOwnerId: string;
-                  githubRepository: string;
-                  githubRepositoryDatabaseId: string;
-                  kind: "github";
-                }
-              | {
-                  app: string;
-                  githubOwnerId: string;
-                  githubRepository: string;
-                  githubRepositoryDatabaseId: string;
-                  issuedAt: number;
-                  kind: "initial_access_token";
-                };
-            removeAt: number | null;
-            renewedAt: number;
-          };
-          exemption: { everyApp: boolean; repository: boolean };
-          granted: Array<string>;
-          ownerId: string | null;
-          registration: {
-            app: string;
-            deploymentType: "production" | "development" | "preview";
-            ownerId: string;
-            proof: "github-actions" | "initial-access-token";
-            redirectUri: string;
-            repository: string;
-            repositoryId: string;
-          } | null;
-        }>,
+        { ownerId: string },
+        {
+          clients: Array<{
+            client: {
+              appId: string;
+              clientId: string;
+              clientName: string;
+              connectors: Array<string>;
+              createdAt: number;
+              deploymentType: "production" | "development" | "preview";
+              lastSignInAt: number | null;
+              redirectUri: string;
+              registeredBy:
+                | {
+                    app: string;
+                    githubActorLogin: string;
+                    githubOwnerId: string;
+                    githubRepository: string;
+                    githubRepositoryDatabaseId: string;
+                    kind: "github";
+                  }
+                | {
+                    app: string;
+                    githubOwnerId: string;
+                    githubRepository: string;
+                    githubRepositoryDatabaseId: string;
+                    issuedAt: number;
+                    kind: "initial_access_token";
+                  };
+              removeAt: number | null;
+              renewedAt: number;
+            };
+            exemption: { everyApp: boolean; repository: boolean };
+            granted: Array<string>;
+            ownerId: string | null;
+            registration: {
+              app: string;
+              deploymentType: "production" | "development" | "preview";
+              ownerId: string;
+              proof: "github-actions" | "initial-access-token";
+              redirectUri: string;
+              repository: string;
+              repositoryId: string;
+            } | null;
+          }>;
+          limitReached: boolean;
+        },
         Name
       >;
       setBlock: FunctionReference<

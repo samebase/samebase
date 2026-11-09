@@ -219,6 +219,8 @@ test("a GitHub App user token goes through the hub with no scope", async () => {
   expect(upstream.origin + upstream.pathname).toBe(github.server.authorization_endpoint);
   expect(upstream.searchParams.get("redirect_uri")).toBe(`${ISSUER}/connections/github/callback`);
   expect(upstream.searchParams.has("scope")).toBe(false);
+  // GitHub shows its account picker, so a user can connect another account than the browser's.
+  expect(upstream.searchParams.get("prompt")).toBe("select_account");
 
   const response = await connectGitHub(args);
   const tokens: Record<string, unknown> = await response.json();
@@ -414,6 +416,7 @@ test("the provider gets its configured scope, whatever the client requests", asy
   const { start } = await authorize(args, cloudflare.resource, { scope: "openid" });
   const upstream = new URL(start.headers.get("location") ?? "");
   expect(upstream.searchParams.get("scope")).toBe(cloudflare.scopes.join(" "));
+  expect(upstream.searchParams.has("prompt")).toBe(false);
 });
 
 test.each([
