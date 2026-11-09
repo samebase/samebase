@@ -59,7 +59,7 @@ one in, but the hub enrolls every client in at least one connector, so it takes 
 */
 const CONNECTORS = ["google", "github"];
 /** Samebase's identity hub, where every client of this repository registers. */
-const HUB = { issuer: "https://auth.samebase.com", terms: "https://samebase.com/terms" };
+const HUB = { issuer: "https://auth.samebase.com" };
 
 /**
 The commit of this checkout. The build puts it and its number into the app (vite.config.ts), so it is
