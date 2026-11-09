@@ -2,7 +2,7 @@ import { v, type Infer } from "convex/values";
 // oxlint-disable-next-line samebase/no-raw-public-convex-function-builders -- Component entrypoints are internal to the host; host functions enforce access.
 import { mutation, query, type QueryCtx } from "./_generated/server";
 import type { Doc } from "./_generated/dataModel";
-import { readBlock, repositoryIdOf, tenantIdOf, tenantRow } from "./apps";
+import { readBlock, repositoryIdOf, tenantRow } from "./apps";
 import { grantedTo } from "./connectorGrants";
 import { registrationOf, vRegistration } from "./policy";
 import { vBlockKind, vDeploymentType } from "./schema";
@@ -21,6 +21,8 @@ const BLOCK_LIST_LIMIT = 200;
 const EVENT_LIST_LIMIT = 100;
 /** The newest clients that `clientList` returns. A list that reaches it says so. */
 const CLIENT_LIST_LIMIT = 500;
+/** The repositories of one owner that one list reads, so a list stays within a query's reads. */
+const MAX_REPOSITORIES_PER_OWNER = 100;
 
 const vCount = object({ count: number(), atLeast: boolean() });
 
@@ -232,19 +234,24 @@ export const clientList = query({
 });
 
 /**
- * Every client of the given repositories, newest first. Each repository has at most
- * `MAX_APPS_PER_TENANT` apps of two budgets of `MAX_CLIENTS_PER_APP` clients, and the HTTP endpoint
- * caps the repositories of one request, so the list needs no limit.
+ * Every client of the repositories whose recorded owner is `ownerId`, newest first: a transferred
+ * repository's clients follow its new owner. Each repository has at most `MAX_APPS_PER_TENANT` apps
+ * of two budgets of `MAX_CLIENTS_PER_APP` clients; the list reads the owner's first
+ * `MAX_REPOSITORIES_PER_OWNER` repositories and says when it stopped there.
  */
-export const repositoryClients = query({
-  args: { githubRepositoryDatabaseIds: array(string()) },
-  returns: array(vClientEntry),
+export const ownerClients = query({
+  args: { ownerId: string() },
+  returns: object({ clients: array(vClientEntry), limitReached: boolean() }),
   handler: async (ctx, args) => {
+    const tenants = await ctx.db
+      .query("tenants")
+      .withIndex("by_owner_id", (q) => q.eq("ownerId", args.ownerId))
+      .take(MAX_REPOSITORIES_PER_OWNER);
     const entries = [];
-    for (const repositoryId of args.githubRepositoryDatabaseIds) {
+    for (const tenant of tenants) {
       const apps = await ctx.db
         .query("apps")
-        .withIndex("by_tenant_id", (q) => q.eq("tenantId", tenantIdOf(repositoryId)))
+        .withIndex("by_tenant_id", (q) => q.eq("tenantId", tenant.tenantId))
         .collect();
       for (const app of apps) {
         for (const client of await ctx.db
@@ -255,11 +262,12 @@ export const repositoryClients = query({
         }
       }
     }
-    return entries.sort(
+    const clients = entries.sort(
       (a, b) =>
         b.client.createdAt - a.client.createdAt ||
         a.client.clientId.localeCompare(b.client.clientId),
     );
+    return { clients, limitReached: tenants.length === MAX_REPOSITORIES_PER_OWNER };
   },
 });
 

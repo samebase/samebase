@@ -157,7 +157,9 @@ export default defineSchema({
      * replayed old proof cannot move a transferred repository back. Absent: no proof was recorded.
      */
     ownerProofIssuedAt: optional(number()),
-  }).index("by_tenant_id", ["tenantId"]),
+  })
+    .index("by_tenant_id", ["tenantId"])
+    .index("by_owner_id", ["ownerId"]),
 
   /**
    * The one block state: one row per blocked repository or owner, set by the hub's administrator

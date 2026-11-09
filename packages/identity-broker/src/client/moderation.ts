@@ -24,8 +24,6 @@ const { boolean, literal, object, string, union } = v;
 type Ctx = GenericActionCtx<GenericDataModel>;
 
 const MAX_REASON_LENGTH = 1_000;
-/** The repositories of one `GET /moderation/clients` request, such as those of one organization. */
-const MAX_REPOSITORIES_PER_REQUEST = 100;
 const MAX_EMAIL_LENGTH = 320;
 /** A numeric GitHub id of a repository or an account. */
 const GITHUB_ID = /^[1-9][0-9]*$/;
@@ -212,29 +210,30 @@ export function moderationEndpoints(args: {
   );
 
   /**
-   * Every client, newest first, up to the list's limit. With `?repository=<GitHub id>`, once for
-   * each of at most `MAX_REPOSITORIES_PER_REQUEST` repositories, every client of those repositories
-   * as `{ clients }`.
+   * Every client, newest first, up to the list's limit. With `?owner=<GitHub id>`, every client of
+   * the repositories whose recorded owner that account is, such as those of one organization, as
+   * `{ owner, clients, limitReached }`. Any other parameter is refused, so a caller that asks for a
+   * filter this version does not have never gets the full list.
    */
   const listClients = moderationEndpoint(async (ctx, request) => {
-    const repositories = new URL(request.url).searchParams.getAll("repository");
-    if (repositories.length === 0) {
+    const params = new URL(request.url).searchParams;
+    if (params.size === 0) {
       const list = await ctx.runQuery(component.moderation.clientList, {});
       return reply(200, {
         clients: list.clients.map(clientAnswer),
         limitReached: list.limitReached,
       });
     }
-    if (
-      repositories.length > MAX_REPOSITORIES_PER_REQUEST ||
-      !repositories.every((repository) => GITHUB_ID.test(repository))
-    ) {
+    const owner = params.get("owner");
+    if (params.size !== 1 || owner === null || !GITHUB_ID.test(owner)) {
       return reply(400, { error: "invalid_request" });
     }
-    const clients = await ctx.runQuery(component.moderation.repositoryClients, {
-      githubRepositoryDatabaseIds: [...new Set(repositories)],
+    const list = await ctx.runQuery(component.moderation.ownerClients, { ownerId: owner });
+    return reply(200, {
+      owner,
+      clients: list.clients.map(clientAnswer),
+      limitReached: list.limitReached,
     });
-    return reply(200, { clients: clients.map(clientAnswer) });
   });
 
   /**

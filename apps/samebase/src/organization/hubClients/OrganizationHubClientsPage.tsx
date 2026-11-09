@@ -96,9 +96,10 @@ function DeleteClientDialog({
 }
 
 /**
-The identity hub's sign-in clients of an organization's connected repositories, one per deployment
-that registered at `POST /hub-clients`, in the admin page's table without its owner filter. A member
-who can create apps can delete one.
+The identity hubs' sign-in clients of every repository of an organization's GitHub owner, one per
+deployment that registered at `POST /hub-clients`, in the admin page's table without its owner
+filter. A member who can create apps can delete one. The hubs are not live data, so each visit asks
+again: a cached empty answer must not hide a deploy that registered a minute ago.
 */
 export function OrganizationHubClientsPage({
   organization,
@@ -116,6 +117,7 @@ export function OrganizationHubClientsPage({
   const clients = useQuery({
     queryKey: ["organization-hub-clients", organization.organizationId],
     queryFn: async () => await readClients({ organizationId: organization.organizationId }),
+    refetchOnMount: "always",
     retry: false,
   });
   const [deleting, setDeleting] = useState<HubClient | null>(null);
