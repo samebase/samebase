@@ -110,6 +110,8 @@ export function resourceEndpoints(options: {
     ctx: Ctx,
     params: URLSearchParams,
     found: ClientWithApp,
+    /** The return address the request named, one of the client's (checked at `/authorize`). */
+    redirectUri: string,
   ): Promise<Response> {
     const { client, app } = found;
     if (app === null) {
@@ -144,7 +146,7 @@ export function resourceEndpoints(options: {
     }
     const parsed = validateAuthorizeRest(
       params,
-      { clientId: client.clientId, redirectUri: client.redirectUri },
+      { clientId: client.clientId, redirectUri },
       "resource",
     );
     if (!parsed.ok) {
@@ -163,7 +165,7 @@ export function resourceEndpoints(options: {
     const created = await ctx.runMutation(component.resourceRequests.create, {
       requestId,
       clientId: client.clientId,
-      redirectUri: client.redirectUri,
+      redirectUri,
       resource: provider.resource,
       ...(parsed.value.state === undefined ? {} : { state: parsed.value.state }),
       codeChallenge: parsed.value.codeChallenge,

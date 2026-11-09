@@ -251,7 +251,7 @@ export function HubClientsTable({
         [
           client.registeredBy.githubRepository,
           client.registeredBy.app,
-          client.redirectUri,
+          ...client.redirectUris,
           client.clientId,
           client.clientName,
           client.registeredBy.kind === "github" ? client.registeredBy.githubActorLogin : "",
@@ -610,6 +610,11 @@ function GroupRow({
 The connectors a client enrolled in, each marked when only an admin's grant allows it or when it may
 not be used now: the hub's policy and the grants no longer allow it, or the client cannot sign in.
 */
+/** The hosts of the client's return addresses, each once: one for most clients. */
+function hostsOf(client: HubClient) {
+  return [...new Set(client.redirectUris.map((uri) => new URL(uri).host))].join(", ");
+}
+
 function connectorsText(client: HubClient) {
   return client.connectors
     .map((name) =>
@@ -670,7 +675,7 @@ function ClientRow({
           </span>
           {/* Narrow panes hide the other columns, so the address and the sign-in move here. */}
           <span className="mt-1 block truncate text-xs text-muted-foreground @3xl:hidden">
-            {new URL(client.redirectUri).host} ·{" "}
+            {hostsOf(client)} ·{" "}
             {client.lastSignInAt === null
               ? "never signed in"
               : `signed in ${formatRelativeTimeAgo(client.lastSignInAt, now)}`}
@@ -681,9 +686,9 @@ function ClientRow({
         </TableCell>
         <TableCell
           className="truncate px-0 font-mono text-xs text-muted-foreground @3xl:px-2"
-          title={client.redirectUri}
+          title={client.redirectUris.join("\n")}
         >
-          {new URL(client.redirectUri).host}
+          {hostsOf(client)}
         </TableCell>
         <TableCell className="truncate px-0 @3xl:px-2">
           <RegisteredBy client={client} />
@@ -743,8 +748,16 @@ function ClientRow({
               <dd className="font-mono text-xs">{client.clientId}</dd>
               <dt className="text-muted-foreground">App id</dt>
               <dd className="font-mono text-xs break-all">{client.appId}</dd>
-              <dt className="text-muted-foreground">Return address</dt>
-              <dd className="font-mono text-xs break-all">{client.redirectUri}</dd>
+              <dt className="text-muted-foreground">
+                {client.redirectUris.length === 1 ? "Return address" : "Return addresses"}
+              </dt>
+              <dd className="font-mono text-xs break-all">
+                {client.redirectUris.map((redirectUri) => (
+                  <span key={redirectUri} className="block">
+                    {redirectUri}
+                  </span>
+                ))}
+              </dd>
               <dt className="text-muted-foreground">Repository</dt>
               <dd>
                 {client.registeredBy.githubRepository}{" "}

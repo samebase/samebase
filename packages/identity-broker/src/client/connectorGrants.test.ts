@@ -98,7 +98,7 @@ async function signIn(h: Harness, client: NewClient, connector: string) {
   const url = new URL(`${h.issuer}/authorize`);
   url.search = new URLSearchParams({
     client_id: client.client_id,
-    redirect_uri: client.redirect_uri,
+    redirect_uri: client.redirect_uris[0] ?? "",
     response_type: "code",
     scope: "openid email profile",
     state: "client-state",
@@ -187,7 +187,7 @@ describe("the connector grants", () => {
       headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
       body: JSON.stringify({
         app: "my-app",
-        redirectUri: "http://127.0.0.1:3211/auth/hub/callback",
+        redirectUris: ["http://127.0.0.1:3211/auth/hub/callback"],
         softwareVersion: "dev-1",
         connectors: ["fake", "other"],
       }),
@@ -380,7 +380,7 @@ describe("the connector grants", () => {
     await changeGrant(h, { grant: false });
     const back = await finish(h, response);
 
-    expect(back.origin + back.pathname).toBe(client.redirect_uri);
+    expect(back.origin + back.pathname).toBe(client.redirect_uris[0] ?? "");
     expect(back.searchParams.get("code")).toBeNull();
     expect(back.searchParams.get("error")).toEqual(expect.any(String));
   });
@@ -406,6 +406,7 @@ describe("the connector grants", () => {
         code_verifier: verifier,
         client_id: client.client_id,
         client_secret: client.client_secret,
+        redirect_uri: client.redirect_uris[0] ?? "",
       }).toString(),
     });
     expect(exchanged.status).toBe(400);
@@ -428,6 +429,7 @@ describe("the connector grants", () => {
         clientSecretHash: await sha256Hex(client.client_secret),
         tokenEndpointAuthMethod: "client_secret_post",
         codeHash: await sha256Hex(code),
+        redirectUri: client.redirect_uris[0] ?? "",
         codeVerifier: verifier,
         refreshTokenHash: await sha256Hex("refresh"),
         policy: {
@@ -510,7 +512,7 @@ describe("the connector grants", () => {
         policyConnectors: ["fake", "okta"],
         configuredConnectors: ["fake", "other"],
         app: "my-app",
-        redirectUri: PRODUCTION_CALLBACK,
+        redirectUris: [PRODUCTION_CALLBACK],
         softwareVersion: "v1",
       }),
     ).toEqual(refusal);
@@ -527,7 +529,7 @@ describe("the connector grants", () => {
         connectors: ["okta"],
         policyConnectors: ["fake", "okta"],
         configuredConnectors: ["fake", "other"],
-        redirectUri: LOOPBACK_CALLBACK,
+        redirectUris: [LOOPBACK_CALLBACK],
         softwareVersion: "v1",
       }),
     ).toEqual(refusal);
@@ -546,7 +548,7 @@ describe("the connector grants", () => {
         requestId,
         appId: PRODUCTION_APP,
         clientId: client.client_id,
-        redirectUri: client.redirect_uri,
+        redirectUri: client.redirect_uris[0] ?? "",
         scope: "openid",
         codeChallenge: "c",
         connectors,

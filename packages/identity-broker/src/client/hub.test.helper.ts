@@ -167,7 +167,7 @@ export async function postHubClient(
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
     body: JSON.stringify({
       app: "my-app",
-      redirectUri: PRODUCTION_CALLBACK,
+      redirectUris: [PRODUCTION_CALLBACK],
       softwareVersion: "abc123",
       connectors: ["fake"],
       ...body,
@@ -182,7 +182,7 @@ export type NewClient = {
   client_secret: string;
   registration_access_token: string;
   registration_client_uri: string;
-  redirect_uri: string;
+  redirect_uris: string[];
   connectors: string[];
   terms: string;
   initial_access_token?: string;
@@ -213,7 +213,7 @@ export async function createInitialAccessToken(h: Harness): Promise<string> {
 
 /** A development client on `LOOPBACK_CALLBACK`, which must be created. */
 export async function createDevelopmentClient(h: Harness, token: string): Promise<NewClient> {
-  const response = await postHubClient(h, token, { redirectUri: LOOPBACK_CALLBACK });
+  const response = await postHubClient(h, token, { redirectUris: [LOOPBACK_CALLBACK] });
   if (response.status !== 201) {
     throw new Error(`POST /hub-clients answered ${response.status}`);
   }
@@ -255,7 +255,7 @@ export async function registerAtBroker(
     secretHash: "hash",
     registrationTokenHash: "token-hash",
     tokenEndpointAuthMethod: "client_secret_post",
-    redirectUri: args.redirectUri ?? PRODUCTION_CALLBACK,
+    redirectUris: [args.redirectUri ?? PRODUCTION_CALLBACK],
     clientName: args.clientName,
     softwareVersion: "abc123",
     app: "my-app",

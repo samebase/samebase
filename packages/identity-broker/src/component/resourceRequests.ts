@@ -245,7 +245,7 @@ export async function exchangeResourceCode(
   code: Extract<Doc<"authorizationCodes">, { resourceRequestId: unknown }>,
   args: {
     client: Doc<"clients">;
-    redirectUri?: string;
+    redirectUri: string;
     codeVerifier: string;
     resource?: string;
     allowedResources: string[];

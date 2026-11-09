@@ -26,6 +26,11 @@
 - Amended on 2026-11-09 (broker 0.29.0): grants and exemptions belong to a repository and an owner,
   not to an app. They cover every app of the repository, and the admin can set them before it ever
   registers (decisions 5 and 10).
+- Amended on 2026-11-09 (broker 0.31.0, alchemy-convex 0.39.0): a client holds a list of return
+  addresses, one to eight, as RFC 7591 `redirect_uris`. Each request names one of them, the request
+  keeps it, and the exchange must name the same one. One client per deployment serves every handler
+  of the app, so samebase.com's second app, `samebase-connections`, is gone, and the policy gives
+  resources to the repository. The app's name defaults to the stack's path in the repository.
 - Amended on 2026-11-09 (v2318): two hubs. Apps sign in at the public hub `id.samebase.com`,
   deployed unchanged from the template samebase/identity-hub, with connectors `google` and `github`.
   `auth.samebase.com` keeps samebase.com, its API resources, and the grants; `google-apps` and
@@ -53,19 +58,19 @@ baked into the broker's config shape, when the hub, which is code, could decide.
 
 What stays. Each line names the document that holds the detail.
 
-| Part                 | Contract                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| The broker and a hub | `@samebase/identity-broker` holds every table and every rule. A hub (`apps/identity-hub`, auth.samebase.com) is configuration: connectors, API resources, env, keys, the cron, the stack, and now a policy function (RFC 135, amended by decision 2).                                                                                                                                                                                                                        |
-| Registration         | `POST /hub-clients` gives one client to one deployment of an app. A GitHub Actions run proves its repository with GitHub's OIDC token; a development server proves the app with the app's initial access token, which a production run got. The return address proves its host with `/samebase-verification.json`. `/hub-clients` is the hub's own registration format, not RFC 7591's; each client manages itself with RFC 7592 reads and deletes (RFC 129, 130, 133, 134). |
-| Apps and tenants     | A repository is the tenant `gh-<id>`, the unit of grants and exemptions. An app is a repository plus an exact name, `gh-<id>-<hash of the name>`; its production, preview, and development deployments are its clients. At most 10 apps per tenant, and 30 production and 30 preview or development clients per app; the oldest preview or development client makes way at its cap. A replaced production client stays valid until the admin deletes it (RFC 134, 135).      |
-| Expiry               | A preview or development client lives 14 days after its last deploy, dev start, sign-in, resource authorization, or refresh. A production client never expires (RFC 131).                                                                                                                                                                                                                                                                                                    |
-| Limits               | `POST /hub-clients`: 30 per repository and 100 per owner per hour, and 50 new owners per hour for the whole hub. Sign-ins: a token bucket per tenant (RFC 130, 136).                                                                                                                                                                                                                                                                                                         |
-| Blocks               | The hub's administrator blocks a repository or an owner at `/moderation/blocks`. A block stops registration, renewal, sign-in, code exchange, and refresh at once, in the transaction that reads it (RFC 135).                                                                                                                                                                                                                                                               |
-| Exemptions           | The hub's administrator exempts one repository (every app and deployment of it, bound to an owner) or every app from the sign-in page at `/moderation/sign-in-page`, with a reason and one event per change. They are the one lever of the page, and the broker applies them (decision 5).                                                                                                                                                                                   |
-| Connector grants     | The hub's administrator grants one repository (every app and deployment of it, bound to an owner) a connector that the policy does not give it, at `/moderation/connector-grants`, with a reason and one event per change. Every step of a sign-in reads the grants again (decision 10).                                                                                                                                                                                     |
-| Ownership            | The tenant records its owner from the newest accepted GitHub token (`iat`); an older token of another owner is refused, so a transfer cannot be undone by a replay (RFC 136).                                                                                                                                                                                                                                                                                                |
-| Subjects             | `sub` is `<provider>:<the provider's id>`, public, the same in every app (RFC 134).                                                                                                                                                                                                                                                                                                                                                                                          |
-| Invariants           | `packages/identity-broker/docs/invariants.md`, checked by the model-based tests (RFC 136).                                                                                                                                                                                                                                                                                                                                                                                   |
+| Part                 | Contract                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| The broker and a hub | `@samebase/identity-broker` holds every table and every rule. A hub (`apps/identity-hub`, auth.samebase.com) is configuration: connectors, API resources, env, keys, the cron, the stack, and now a policy function (RFC 135, amended by decision 2).                                                                                                                                                                                                                                                                                                                                                                         |
+| Registration         | `POST /hub-clients` gives one client to one deployment of an app. A GitHub Actions run proves its repository with GitHub's OIDC token; a development server proves the app with the app's initial access token, which a production run got. Each distinct origin of the return addresses proves its host with `/samebase-verification.json`. `/hub-clients` is the hub's own registration format, not RFC 7591's; each client manages itself with RFC 7592 reads and deletes (RFC 129, 130, 133, 134).                                                                                                                        |
+| Apps and tenants     | A repository is the tenant `gh-<id>`, the unit of grants and exemptions. An app is a repository plus an exact name, `gh-<id>-<hash of the name>`, by default the stack's path in the repository (`app` for a stack named after it); its production, preview, and development deployments are its clients, each with the return addresses of every handler of that deployment. At most 10 apps per tenant, and 30 production and 30 preview or development clients per app; the oldest preview or development client makes way at its cap. A replaced production client stays valid until the admin deletes it (RFC 134, 135). |
+| Expiry               | A preview or development client lives 14 days after its last deploy, dev start, sign-in, resource authorization, or refresh. A production client never expires (RFC 131).                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| Limits               | `POST /hub-clients`: 30 per repository and 100 per owner per hour, and 50 new owners per hour for the whole hub. Sign-ins: a token bucket per tenant (RFC 130, 136).                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| Blocks               | The hub's administrator blocks a repository or an owner at `/moderation/blocks`. A block stops registration, renewal, sign-in, code exchange, and refresh at once, in the transaction that reads it (RFC 135).                                                                                                                                                                                                                                                                                                                                                                                                                |
+| Exemptions           | The hub's administrator exempts one repository (every app and deployment of it, bound to an owner) or every app from the sign-in page at `/moderation/sign-in-page`, with a reason and one event per change. They are the one lever of the page, and the broker applies them (decision 5).                                                                                                                                                                                                                                                                                                                                    |
+| Connector grants     | The hub's administrator grants one repository (every app and deployment of it, bound to an owner) a connector that the policy does not give it, at `/moderation/connector-grants`, with a reason and one event per change. Every step of a sign-in reads the grants again (decision 10).                                                                                                                                                                                                                                                                                                                                      |
+| Ownership            | The tenant records its owner from the newest accepted GitHub token (`iat`); an older token of another owner is refused, so a transfer cannot be undone by a replay (RFC 136).                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| Subjects             | `sub` is `<provider>:<the provider's id>`, public, the same in every app (RFC 134).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| Invariants           | `packages/identity-broker/docs/invariants.md`, checked by the model-based tests (RFC 136).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 
 ## Decisions
 
@@ -107,7 +112,8 @@ type Registration = {
   ownerId: string;
   app: string;
   deploymentType: "production" | "preview" | "development";
-  redirectUri: string;
+  /** The client's return addresses, sorted and unique. */
+  redirectUris: string[];
   proof: "github-actions" | "initial-access-token";
 };
 
@@ -129,7 +135,7 @@ Where each input comes from, so a policy knows what it can trust:
 | --------------------------------------- | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------ | ---------------------------------- |
 | `repositoryId`, `repository`, `ownerId` | GitHub's signed token (`repository_id`, `repository`, `repository_owner_id`) | The initial access token's row, which a production run wrote             | The client's and the tenant's rows |
 | `deploymentType`                        | The token's event and ref: `prod` or `pr-<n>`                                | Always `development`                                                     | The client's row                   |
-| `app`, `redirectUri`                    | The request body; the host of the address is verified by the file            | The body; a loopback address needs no file; `app` must match the token's | The client's row                   |
+| `app`, `redirectUris`                   | The request body; each distinct origin is verified by the file               | The body; a loopback address needs no file; `app` must match the token's | The client's row                   |
 | `proof`                                 | `github-actions`                                                             | `initial-access-token`                                                   | The client's `registeredBy.kind`   |
 
 - The policy is evaluated at registration (enrollment must be a subset of `connectors`; a paused
@@ -242,9 +248,9 @@ the pause. Our hub: `APPS_PAUSED=true` pauses every app but samebase.com's (scop
   before the release decision, as today; a release that the policy refuses, or that fails, keeps the
   grant with its new refresh token and answers `401 invalid_client`. A client that loses a resource
   can still revoke its grants.
-- Our hub gives resources to one app of samebase.com: `samebase-connections`, the app that holds
-  users' Cloudflare, Convex, and GitHub connections, proven by the samebase repository and owner.
-  Its sign-in app and every other app of the monorepo get none.
+- Our hub gives resources to the samebase repository, proven by the repository and owner: every
+  client of samebase.com holds users' Cloudflare, Convex, and GitHub connections next to its
+  sign-in, on a second return address. Every other repository gets none.
 
 ### 8. Quotas
 
@@ -274,10 +280,7 @@ registration: {
     connectors: samebase(registration)
       ? ["google", "github", "google-apps", "github-apps"]
       : ["google-apps", "github-apps"],
-    resources:
-      samebase(registration) && registration.app === "samebase-connections"
-        ? ["convex", "cloudflare", "github"]
-        : [],
+    resources: samebase(registration) ? ["convex", "cloudflare", "github"] : [],
     // samebase.com's production keeps running; its previews and development servers feel the
     // pause as a stranger's app does.
     paused:
@@ -343,7 +346,10 @@ registration: {
   own (broker 0.29.0).
 - Previews share the hourly registration and sign-in limits with production.
 - A name with previews only counts toward the 10 apps of its repository.
-- An Alchemy stack that changes only its app name renews its old client.
+- An Alchemy stack that changes its app name registers a new client under the new name
+  (alchemy-convex 0.39.0); the old production client stays until the admin deletes it.
+- A changed list of return addresses registers a new client too. There is no RFC 7592 update of a
+  client's addresses: nothing needs one yet.
 
 ## Non-goals
 

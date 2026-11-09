@@ -122,9 +122,30 @@ async function removeRows(ctx: MutationCtx, appId: string): Promise<void> {
 }
 
 /**
- * Deletes an app with its clients. This is the emergency revocation. The app row goes first:
- * /authorize and /token refuse a client whose app is gone, so this transaction revokes every client
- * of the app, however many batches their rows take to delete.
+ * Deletes the initial access tokens of the app `appId` in its repository's tenant, so a token of a
+ * deleted app cannot register a development client of it again. The repository has one row per
+ * app name, so a few rows.
+ */
+async function removeInitialAccessTokens(ctx: MutationCtx, tenantId: string, appId: string) {
+  const repositoryId = repositoryIdOf(tenantId);
+  if (repositoryId === undefined) {
+    return;
+  }
+  const tokens = await ctx.db
+    .query("initialAccessTokens")
+    .withIndex("by_repository_and_app", (q) => q.eq("githubRepositoryDatabaseId", repositoryId))
+    .collect();
+  for (const token of tokens) {
+    if ((await appIdOf(tenantId, token.app)) === appId) {
+      await ctx.db.delete("initialAccessTokens", token._id);
+    }
+  }
+}
+
+/**
+ * Deletes an app with its clients and its initial access tokens. This is the emergency revocation.
+ * The app row goes first: /authorize and /token refuse a client whose app is gone, so this
+ * transaction revokes every client of the app, however many batches their rows take to delete.
  */
 export const remove = mutation({
   args: { appId: string() },
@@ -136,6 +157,7 @@ export const remove = mutation({
       .unique();
     if (app !== null) {
       await ctx.db.delete("apps", app._id);
+      await removeInitialAccessTokens(ctx, app.tenantId, args.appId);
     }
     await removeRows(ctx, args.appId);
     return null;

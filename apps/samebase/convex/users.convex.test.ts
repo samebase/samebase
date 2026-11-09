@@ -66,9 +66,9 @@ function stubCloudflareApiTokenAccounts(
 }
 
 function stubResourceHub(): void {
-  vi.stubEnv("RESOURCE_HUB_ISSUER", "https://hub.example.test");
-  vi.stubEnv("RESOURCE_HUB_CLIENT_ID", "resource-client");
-  vi.stubEnv("RESOURCE_HUB_CLIENT_SECRET", "resource-secret");
+  vi.stubEnv("IDENTITY_HUB_ISSUER", "https://hub.example.test");
+  vi.stubEnv("IDENTITY_HUB_CLIENT_ID", "resource-client");
+  vi.stubEnv("IDENTITY_HUB_CLIENT_SECRET", "resource-secret");
 }
 
 function stubCloudflareRefreshFailure(detail: string): void {

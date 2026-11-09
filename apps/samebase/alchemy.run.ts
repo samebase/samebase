@@ -21,12 +21,13 @@
 // Routes Edit and Zone Read on samebase.com. The build reads the variables that alchemy.yml sets on
 // each deploy step, such as VITE_SAMEBASE_ROUTE_ENVIRONMENT.
 //
-// Each deployment has two clients of the identity hub (RFC 134): one for the sign-in with GitHub and
-// Google, one for the provider logins. IdentityHub.Client asks `POST /hub-clients` with the
-// GitHub OIDC token of the run (`id-token: write` in alchemy.yml), and the hub first reads
-// /samebase-verification.json on the callback's site (convex/http.ts). This repository is one of
-// the hub's own (its OWN_REPOSITORY_IDS), so the apps are first-party. Both clients are `required`:
-// a deploy fails rather than ship guest sign-in or a client that the hub stopped.
+// Each deployment has one client of the identity hub (RFC 134, 137), with two return addresses: the
+// sign-in with GitHub and Google comes back to Convex Auth's route, a provider connection to our own
+// (convex/http.ts). IdentityHub.Client asks `POST /hub-clients` with the GitHub OIDC token of the run
+// (`id-token: write` in alchemy.yml), and the hub first reads /samebase-verification.json on the
+// callbacks' site. The hub's policy gives this repository its connectors and its API resources. The
+// client is `required`: a deploy fails rather than ship guest sign-in or a client that the hub
+// stopped.
 //   npx alchemy plan --stage prod --no-input
 import { execFileSync } from "node:child_process";
 import * as Cloudflare from "@alchemy.run/cloudflare";
@@ -44,19 +45,22 @@ The site of production. Its deployment overrides CONVEX_SITE_URL to it (RFC 127)
 builds the hub callback on it.
 */
 const PRODUCTION_SITE_URL = "https://samebase.com";
-/** The identity hub's callback into Convex Auth, after CONVEX_SITE_URL (convex/convex.config.ts). */
-const HUB_CALLBACK_PATH = "/auth/hub/callback";
-const RESOURCE_HUB_CALLBACK_PATH = "/oauth/hub/callback";
 /**
-The two apps of this repository on the identity hub. Two names, because the hub keeps one initial
-access token for each repository and name, which a development stage reads from `prod`.
+The two routes of a deployment that receive the hub's answers: the identity hub's callback into
+Convex Auth, after CONVEX_SITE_URL (convex/convex.config.ts), and the provider connections callback
+(convex/hubResourceOAuth.ts).
 */
-const SIGN_IN_APP = "samebase";
-const CONNECTIONS_APP = "samebase-connections";
+const callbacks = (siteUrl: string) => [
+  `${siteUrl}/auth/hub/callback`,
+  `${siteUrl}/oauth/hub/callback`,
+];
 /**
-The hub's connectors that the sign-in buttons name (convex/auth.ts). The connections client signs no
-one in, but the hub enrolls every client in at least one connector, so it takes the same two.
+The app of this repository on the identity hub, named before the default (the stack's path,
+`apps/samebase`) existed. The name groups the clients and the initial access token that a
+development stage reads from `prod`; it plays no part in user ids.
 */
+const APP = "samebase";
+/** The hub's connectors that the sign-in buttons name (convex/auth.ts). */
 const CONNECTORS = ["google", "github"];
 /** Samebase's identity hub, where every client of this repository registers. */
 const HUB = { issuer: "https://auth.samebase.com" };
@@ -80,32 +84,19 @@ export default Alchemy.Stack(
 
     if (stage.startsWith("dev-")) {
       // A development checkout: the logged-in local deployment of this folder, which `convex dev`
-      // runs and pushes. `pnpm run dev` runs this stage once the backend answers. The clients are
-      // development clients on the backend's site port, which stays fixed for the folder, and they
-      // ask the hub with the initial access tokens that production's registration saved in the
-      // state of `prod`. "Site" only writes the six variables.
+      // runs and pushes. `pnpm run dev` runs this stage once the backend answers. The client is a
+      // development client on the backend's site port, which stays fixed for the folder, and it
+      // asks the hub with the initial access token that production's registration saved in the
+      // state of `prod`. "Site" only writes the three variables.
       const local = Convex.LocalDeployment.of();
-      const signIn = IdentityHub.Client.variables(
-        yield* IdentityHub.Client("SignInClient", {
-          app: SIGN_IN_APP,
+      const hub = IdentityHub.Client.variables(
+        yield* IdentityHub.Client("HubClient", {
+          app: APP,
           hub: HUB,
           connectors: CONNECTORS,
-          redirectUri: `${local.siteUrl}${HUB_CALLBACK_PATH}`,
+          redirectUris: callbacks(local.siteUrl),
           deploymentType: "development",
-          initialAccessToken: IdentityHub.Client.read("SignInClient", { stage: "prod" })
-            .initialAccessToken,
-          softwareVersion: commit,
-          required: true,
-        }),
-      );
-      const connections = IdentityHub.Client.variables(
-        yield* IdentityHub.Client("ConnectionsClient", {
-          app: CONNECTIONS_APP,
-          hub: HUB,
-          connectors: CONNECTORS,
-          redirectUri: `${local.siteUrl}${RESOURCE_HUB_CALLBACK_PATH}`,
-          deploymentType: "development",
-          initialAccessToken: IdentityHub.Client.read("ConnectionsClient", { stage: "prod" })
+          initialAccessToken: IdentityHub.Client.read("HubClient", { stage: "prod" })
             .initialAccessToken,
           softwareVersion: commit,
           required: true,
@@ -113,12 +104,9 @@ export default Alchemy.Stack(
       );
       const site = yield* Convex.LocalDeployment("Site", {
         env: {
-          IDENTITY_HUB_ISSUER: signIn.issuer,
-          IDENTITY_HUB_CLIENT_ID: signIn.clientId,
-          IDENTITY_HUB_CLIENT_SECRET: signIn.clientSecret,
-          RESOURCE_HUB_ISSUER: connections.issuer,
-          RESOURCE_HUB_CLIENT_ID: connections.clientId,
-          RESOURCE_HUB_CLIENT_SECRET: connections.clientSecret,
+          IDENTITY_HUB_ISSUER: hub.issuer,
+          IDENTITY_HUB_CLIENT_ID: hub.clientId,
+          IDENTITY_HUB_CLIENT_SECRET: hub.clientSecret,
         },
       });
 
@@ -134,9 +122,9 @@ export default Alchemy.Stack(
       // verification file there before it registers a client, so the preview has code first.
       // "Preview" creates the deployment and pushes: built like production with the route
       // environment `preview`, and the push command also sets SITE_URL to the preview's site URL and
-      // seeds the password account. Its first push takes the off values of the six hub variables
-      // from the project's default variables for previews. Then the clients register, and "Site"
-      // writes their variables, with no push. Each variable keeps the row that owned it before:
+      // seeds the password account. Its first push takes the off values of the three hub variables
+      // from the project's default variables for previews. Then the client registers, and "Site"
+      // writes its variables, with no push. Each variable keeps the row that owned it before:
       // a row removes a name that leaves its own `env`. Both rows delete the deployment on destroy;
       // the second delete finds it gone. adopt(true) also takes over a preview with the name of this
       // stage that an interrupted run left behind.
@@ -147,23 +135,12 @@ export default Alchemy.Stack(
         env: { SAMEBASE_COMMIT: commit },
         source: { path: "./convex", command: ["node", "./scripts/deploy-preview.ts"] },
       }).pipe(adopt(true), Alchemy.RemovalPolicy.destroy());
-      const signIn = IdentityHub.Client.variables(
-        yield* IdentityHub.Client("SignInClient", {
-          app: SIGN_IN_APP,
+      const hub = IdentityHub.Client.variables(
+        yield* IdentityHub.Client("HubClient", {
+          app: APP,
           hub: HUB,
           connectors: CONNECTORS,
-          redirectUri: Output.interpolate`${preview.siteUrl}${HUB_CALLBACK_PATH}`,
-          deploymentType: "preview",
-          softwareVersion: commit,
-          required: true,
-        }),
-      );
-      const connections = IdentityHub.Client.variables(
-        yield* IdentityHub.Client("ConnectionsClient", {
-          app: CONNECTIONS_APP,
-          hub: HUB,
-          connectors: CONNECTORS,
-          redirectUri: Output.interpolate`${preview.siteUrl}${RESOURCE_HUB_CALLBACK_PATH}`,
+          redirectUris: Output.map(preview.siteUrl, callbacks),
           deploymentType: "preview",
           softwareVersion: commit,
           required: true,
@@ -175,12 +152,9 @@ export default Alchemy.Stack(
         name: stage,
         env: {
           SAMEBASE_COMMIT: commit,
-          IDENTITY_HUB_ISSUER: signIn.issuer,
-          IDENTITY_HUB_CLIENT_ID: signIn.clientId,
-          IDENTITY_HUB_CLIENT_SECRET: signIn.clientSecret,
-          RESOURCE_HUB_ISSUER: connections.issuer,
-          RESOURCE_HUB_CLIENT_ID: connections.clientId,
-          RESOURCE_HUB_CLIENT_SECRET: connections.clientSecret,
+          IDENTITY_HUB_ISSUER: hub.issuer,
+          IDENTITY_HUB_CLIENT_ID: hub.clientId,
+          IDENTITY_HUB_CLIENT_SECRET: hub.clientSecret,
         },
       }).pipe(adopt(true), Alchemy.RemovalPolicy.destroy());
 
@@ -195,26 +169,15 @@ export default Alchemy.Stack(
       Alchemy.RemovalPolicy.retain(),
     );
 
-    // The production clients, on the callbacks of samebase.com. The running deployment serves the
-    // verification file there, so the clients register before "Site" pushes, and "Site" keeps every
+    // The production client, on the callbacks of samebase.com. The running deployment serves the
+    // verification file there, so the client registers before "Site" pushes, and "Site" keeps every
     // variable it owned before. A destroy leaves a production client on the hub.
-    const signIn = IdentityHub.Client.variables(
-      yield* IdentityHub.Client("SignInClient", {
-        app: SIGN_IN_APP,
+    const hub = IdentityHub.Client.variables(
+      yield* IdentityHub.Client("HubClient", {
+        app: APP,
         hub: HUB,
         connectors: CONNECTORS,
-        redirectUri: `${PRODUCTION_SITE_URL}${HUB_CALLBACK_PATH}`,
-        deploymentType: "production",
-        softwareVersion: commit,
-        required: true,
-      }),
-    );
-    const connections = IdentityHub.Client.variables(
-      yield* IdentityHub.Client("ConnectionsClient", {
-        app: CONNECTIONS_APP,
-        hub: HUB,
-        connectors: CONNECTORS,
-        redirectUri: `${PRODUCTION_SITE_URL}${RESOURCE_HUB_CALLBACK_PATH}`,
+        redirectUris: callbacks(PRODUCTION_SITE_URL),
         deploymentType: "production",
         softwareVersion: commit,
         required: true,
@@ -249,12 +212,9 @@ export default Alchemy.Stack(
       type: "prod",
       env: {
         SAMEBASE_COMMIT: commit,
-        IDENTITY_HUB_ISSUER: signIn.issuer,
-        IDENTITY_HUB_CLIENT_ID: signIn.clientId,
-        IDENTITY_HUB_CLIENT_SECRET: signIn.clientSecret,
-        RESOURCE_HUB_ISSUER: connections.issuer,
-        RESOURCE_HUB_CLIENT_ID: connections.clientId,
-        RESOURCE_HUB_CLIENT_SECRET: connections.clientSecret,
+        IDENTITY_HUB_ISSUER: hub.issuer,
+        IDENTITY_HUB_CLIENT_ID: hub.clientId,
+        IDENTITY_HUB_CLIENT_SECRET: hub.clientSecret,
         CLOUDFLARE_EMAIL_ACCOUNT_ID: accountId,
         CLOUDFLARE_EMAIL_API_TOKEN: emailToken.value,
       },

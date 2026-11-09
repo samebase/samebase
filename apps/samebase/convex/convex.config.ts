@@ -29,9 +29,6 @@ const app = defineApp({
     IDENTITY_HUB_CLIENT_ID: v.string(),
     IDENTITY_HUB_CLIENT_SECRET: v.string(),
     IDENTITY_HUB_ISSUER: v.string(),
-    RESOURCE_HUB_ISSUER: v.string(),
-    RESOURCE_HUB_CLIENT_ID: v.string(),
-    RESOURCE_HUB_CLIENT_SECRET: v.string(),
     // The key of the hub's moderation endpoints, which /admin/hub-clients calls through
     // hubClients/moderation.ts: it reads registrations and clients and sets blocks, and nothing else.
     // Set by hand, as on the hub. Unset, as in CI: the page says that moderation is off.
@@ -59,11 +56,12 @@ app.use(auth, {
   },
 });
 // GitHub and Google sign-in run through the team's identity hub, an OpenID Provider at
-// IDENTITY_HUB_ISSUER, with one client per deployment for both methods. The hub sends the browser
-// back to <site>/auth/hub/callback, the callback URL of the deployment's registration at the hub,
-// next to the other sign-in routes under /auth. Convex refuses to bind the component's required
-// variables to optional ones, so every deployment holds the three IDENTITY_HUB_ variables; a linked
-// worktree and CI hold no-hub values.
+// IDENTITY_HUB_ISSUER, with one client per deployment for both methods and for the provider
+// connections (convex/hubResourceOAuth.ts). The client holds two return addresses: the hub sends a
+// sign-in back to <site>/auth/hub/callback, next to the other sign-in routes under /auth, and a
+// connection back to <site>/oauth/hub/callback (convex/http.ts). Convex refuses to bind the
+// component's required variables to optional ones, so every deployment holds the three
+// IDENTITY_HUB_ variables; a linked worktree and CI hold no-hub values.
 app.use(oauth, {
   name: "authHub",
   httpPrefix: "/auth/hub",

@@ -73,9 +73,9 @@ function resolveConnection(seed: Awaited<ReturnType<typeof seedConnection>>) {
 beforeEach(() => {
   vi.useFakeTimers();
   vi.setSystemTime(now);
-  vi.stubEnv("RESOURCE_HUB_ISSUER", "https://hub.example.test");
-  vi.stubEnv("RESOURCE_HUB_CLIENT_ID", "resource-client");
-  vi.stubEnv("RESOURCE_HUB_CLIENT_SECRET", "resource-secret");
+  vi.stubEnv("IDENTITY_HUB_ISSUER", "https://hub.example.test");
+  vi.stubEnv("IDENTITY_HUB_CLIENT_ID", "resource-client");
+  vi.stubEnv("IDENTITY_HUB_CLIENT_SECRET", "resource-secret");
 });
 
 afterEach(() => {

@@ -100,13 +100,14 @@ export async function createHarness(options: {
   }
 
   /**
-   * One client with `redirectUri` of the app `<appName>-test`, which the first call creates in the
-   * tenant of the repository `gh-1` of owner 65, so a hub's policy has its facts. The client is
-   * enrolled in `connectors`, else in every configured connector.
+   * One client with `redirectUri` (and `otherRedirectUris`) of the app `<appName>-test`, which the
+   * first call creates in the tenant of the repository `gh-1` of owner 65, so a hub's policy has
+   * its facts. The client is enrolled in `connectors`, else in every configured connector.
    */
   async function registerClient(args: {
     appName: string;
     redirectUri: string;
+    otherRedirectUris?: string[];
     connectors?: string[];
     /** As @samebase/alchemy-convex registers: Convex Auth posts the client credentials. */
     tokenEndpointAuthMethod?: "client_secret_post" | "client_secret_basic";
@@ -145,7 +146,7 @@ export async function createHarness(options: {
         secretHash,
         registrationTokenHash,
         tokenEndpointAuthMethod: args.tokenEndpointAuthMethod ?? "client_secret_post",
-        redirectUri: args.redirectUri,
+        redirectUris: [args.redirectUri, ...(args.otherRedirectUris ?? [])].sort(),
         deploymentType: args.deploymentType ?? "development",
         clientName: "dev",
         softwareVersion: "dev-1",

@@ -442,14 +442,18 @@ export function defineIdentityBroker<C extends Connector, R extends ResourceProv
     }
     const { client, app } = found;
     // Exact string comparison, and no redirect to a URI that is not registered (RFC 9700 4.1.3).
-    if (client.redirectUri !== target.value.redirectUri) {
+    // The request keeps the one the client named: the code exchange must name the same one.
+    const redirectUri = target.value.redirectUri;
+    if (!client.redirectUris.includes(redirectUri)) {
       return errorPage(
         "Invalid redirect URI",
-        "The redirect_uri is not the one registered for this client.",
+        "The redirect_uri is not one registered for this client.",
         400,
       );
     }
-    if (params.has("resource")) return await resources.authorize(ctx, params, found);
+    if (params.has("resource")) {
+      return await resources.authorize(ctx, params, found, redirectUri);
+    }
     const rest = validateAuthorizeRest(params, target.value);
     if (!rest.ok) {
       return refusePage(rest.description);
@@ -512,7 +516,7 @@ export function defineIdentityBroker<C extends Connector, R extends ResourceProv
       requestId,
       appId: app.appId,
       clientId: client.clientId,
-      redirectUri: client.redirectUri,
+      redirectUri,
       scope: scopes.join(" "),
       ...(rest.value.state === undefined ? {} : { state: rest.value.state }),
       ...(rest.value.nonce === undefined ? {} : { nonce: rest.value.nonce }),
@@ -559,7 +563,7 @@ export function defineIdentityBroker<C extends Connector, R extends ResourceProv
       response.headers.append("Set-Cookie", setCookie);
       return response;
     }
-    const redirectUrl = new URL(client.redirectUri);
+    const redirectUrl = new URL(redirectUri);
     const page = signInPage({
       host: redirectUrl.host,
       origin: redirectUrl.origin,
@@ -900,9 +904,7 @@ export function defineIdentityBroker<C extends Connector, R extends ResourceProv
       clientSecretHash: await sha256Hex(clientAuth.value.clientSecret),
       tokenEndpointAuthMethod: clientAuth.value.method,
       codeHash: await sha256Hex(validation.value.code),
-      ...(validation.value.redirectUri === undefined
-        ? {}
-        : { redirectUri: validation.value.redirectUri }),
+      redirectUri: validation.value.redirectUri,
       codeVerifier: validation.value.codeVerifier,
       ...(resource === undefined ? {} : { resource }),
       refreshTokenHash: await sha256Hex(refreshToken),

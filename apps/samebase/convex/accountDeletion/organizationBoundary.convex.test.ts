@@ -644,9 +644,9 @@ describe("account deletion organization boundary", () => {
 
   it("removes the former member's credentials and personal access but preserves shared data", async () => {
     const { ids, t } = await seedRunningDeletion();
-    vi.stubEnv("RESOURCE_HUB_ISSUER", "https://hub.example.test");
-    vi.stubEnv("RESOURCE_HUB_CLIENT_ID", "resource-client");
-    vi.stubEnv("RESOURCE_HUB_CLIENT_SECRET", "resource-secret");
+    vi.stubEnv("IDENTITY_HUB_ISSUER", "https://hub.example.test");
+    vi.stubEnv("IDENTITY_HUB_CLIENT_ID", "resource-client");
+    vi.stubEnv("IDENTITY_HUB_CLIENT_SECRET", "resource-secret");
     const fetch = vi.fn(async () => new Response(null, { status: 204 }));
     vi.stubGlobal("fetch", fetch);
 
@@ -1158,9 +1158,9 @@ describe("account deletion organization boundary", () => {
     "removes local Cloudflare %s access and revokes only hub refresh grants",
     async (cloudflareAuthMethod) => {
       vi.useFakeTimers();
-      vi.stubEnv("RESOURCE_HUB_ISSUER", "https://hub.example.test");
-      vi.stubEnv("RESOURCE_HUB_CLIENT_ID", "resource-client");
-      vi.stubEnv("RESOURCE_HUB_CLIENT_SECRET", "resource-secret");
+      vi.stubEnv("IDENTITY_HUB_ISSUER", "https://hub.example.test");
+      vi.stubEnv("IDENTITY_HUB_CLIENT_ID", "resource-client");
+      vi.stubEnv("IDENTITY_HUB_CLIENT_SECRET", "resource-secret");
       const { ids, t } = await seedRunningDeletion();
       await t.run(async (ctx) => {
         const credentials = await ctx.db.get(ids.organizationProviderCredentialsId);

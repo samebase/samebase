@@ -190,7 +190,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             paused: boolean;
             resources: Array<string>;
           };
-          redirectUri?: string;
+          redirectUri: string;
           refreshTokenHash: string;
           resource?: string;
           tokenEndpointAuthMethod: "client_secret_post" | "client_secret_basic";
@@ -361,7 +361,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
               createdAt: number;
               deploymentType: "production" | "development" | "preview";
               lastSignInAt?: number;
-              redirectUri: string;
+              redirectUris: Array<string>;
               registeredBy:
                 | {
                     commitSha: string;
@@ -391,7 +391,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
               deploymentType: "production" | "development" | "preview";
               ownerId: string;
               proof: "github-actions" | "initial-access-token";
-              redirectUri: string;
+              redirectUris: Array<string>;
               repository: string;
               repositoryId: string;
             } | null;
@@ -428,7 +428,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             createdAt: number;
             deploymentType: "production" | "development" | "preview";
             lastSignInAt?: number;
-            redirectUri: string;
+            redirectUris: Array<string>;
             registeredBy:
               | {
                   commitSha: string;
@@ -459,7 +459,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             deploymentType: "production" | "development" | "preview";
             ownerId: string;
             proof: "github-actions" | "initial-access-token";
-            redirectUri: string;
+            redirectUris: Array<string>;
             repository: string;
             repositoryId: string;
           } | null;
@@ -479,7 +479,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           createdAt: number;
           deploymentType: "production" | "development" | "preview";
           lastSignInAt?: number;
-          redirectUri: string;
+          redirectUris: Array<string>;
           registeredBy:
             | {
                 commitSha: string;
@@ -517,7 +517,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           createdAt: number;
           deploymentType: "production" | "development" | "preview";
           lastSignInAt?: number;
-          redirectUri: string;
+          redirectUris: Array<string>;
           registeredBy:
             | {
                 commitSha: string;
@@ -570,7 +570,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             createdAt: number;
             deploymentType: "production" | "development" | "preview";
             lastSignInAt?: number;
-            redirectUri: string;
+            redirectUris: Array<string>;
             registeredBy:
               | {
                   commitSha: string;
@@ -600,7 +600,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             deploymentType: "production" | "development" | "preview";
             ownerId: string;
             proof: "github-actions" | "initial-access-token";
-            redirectUri: string;
+            redirectUris: Array<string>;
             repository: string;
             repositoryId: string;
           } | null;
@@ -676,7 +676,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           githubRepositoryDatabaseId: string;
           policyConnectors: Array<string>;
           proofIssuedAt: number;
-          redirectUri: string;
+          redirectUris: Array<string>;
           registrationTokenHash: string;
           secretHash: string;
           softwareVersion: string;
@@ -708,7 +708,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           githubRepository: string;
           githubRepositoryDatabaseId: string;
           policyConnectors: Array<string>;
-          redirectUri: string;
+          redirectUris: Array<string>;
           registrationTokenHash: string;
           secretHash: string;
           softwareVersion: string;
@@ -800,7 +800,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
               createdAt: number;
               deploymentType: "production" | "development" | "preview";
               lastSignInAt: number | null;
-              redirectUri: string;
+              redirectUris: Array<string>;
               registeredBy:
                 | {
                     app: string;
@@ -829,7 +829,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
               deploymentType: "production" | "development" | "preview";
               ownerId: string;
               proof: "github-actions" | "initial-access-token";
-              redirectUri: string;
+              redirectUris: Array<string>;
               repository: string;
               repositoryId: string;
             } | null;
@@ -862,7 +862,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
               createdAt: number;
               deploymentType: "production" | "development" | "preview";
               lastSignInAt: number | null;
-              redirectUri: string;
+              redirectUris: Array<string>;
               registeredBy:
                 | {
                     app: string;
@@ -891,7 +891,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
               deploymentType: "production" | "development" | "preview";
               ownerId: string;
               proof: "github-actions" | "initial-access-token";
-              redirectUri: string;
+              redirectUris: Array<string>;
               repository: string;
               repositoryId: string;
             } | null;
@@ -927,7 +927,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           deploymentType: "production" | "preview" | "development";
           now: number;
           ownerId?: string;
-          redirectUri: string;
+          redirectUris: Array<string>;
           registeredBy:
             | {
                 commitSha: string;
@@ -974,7 +974,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             connectors: Array<string>;
             createdAt: number;
             ok: true;
-            redirectUri: string;
+            redirectUris: Array<string>;
             softwareVersion: string;
             tokenEndpointAuthMethod:
               "client_secret_post" | "client_secret_basic";

@@ -369,9 +369,9 @@ async function expectHubRevocation(request: Request | undefined, token: string) 
 
 beforeEach(() => {
   vi.clearAllMocks();
-  vi.stubEnv("RESOURCE_HUB_ISSUER", "https://hub.example.test");
-  vi.stubEnv("RESOURCE_HUB_CLIENT_ID", "resource-client");
-  vi.stubEnv("RESOURCE_HUB_CLIENT_SECRET", "resource-secret");
+  vi.stubEnv("IDENTITY_HUB_ISSUER", "https://hub.example.test");
+  vi.stubEnv("IDENTITY_HUB_CLIENT_ID", "resource-client");
+  vi.stubEnv("IDENTITY_HUB_CLIENT_SECRET", "resource-secret");
   vi.stubEnv("CONVEX_SITE_URL", "https://samebase.com");
   providerMocks.fetchConvexTeamTokenDetails.mockResolvedValue({ teamId: "convex-team" });
   providerMocks.getCloudflareAccounts.mockResolvedValue({

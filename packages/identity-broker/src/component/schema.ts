@@ -310,7 +310,11 @@ export default defineSchema({
     appId: string(),
     secretHash: string(),
     tokenEndpointAuthMethod: vTokenEndpointAuthMethod,
-    redirectUri: string(),
+    /**
+     * The return addresses the client may name in a request, sorted and unique (RFC 7591 section
+     * 2 `redirect_uris`). Each request names one of them, and that one is stored on the request.
+     */
+    redirectUris: array(string()),
     deploymentType: vDeploymentType,
     clientName: string(),
     softwareVersion: string(),

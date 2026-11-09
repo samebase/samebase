@@ -52,8 +52,8 @@ const vClientView = object({
   appId: string(),
   clientName: string(),
   deploymentType: vDeploymentType,
-  /** The one address where the broker sends people back with a code. */
-  redirectUri: string(),
+  /** The addresses where the broker may send people back with a code, sorted. */
+  redirectUris: array(string()),
   createdAt: number(),
   /** The registration, or the last renewal. */
   renewedAt: number(),
@@ -164,7 +164,7 @@ function clientView(
     appId: client.appId,
     clientName: client.clientName,
     deploymentType: client.deploymentType,
-    redirectUri: client.redirectUri,
+    redirectUris: client.redirectUris,
     createdAt: client.createdAt,
     renewedAt: client.renewedAt,
     lastSignInAt: client.lastSignInAt ?? null,

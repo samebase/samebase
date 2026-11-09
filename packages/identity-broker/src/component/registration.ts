@@ -77,7 +77,8 @@ const registerArgs = {
   secretHash: string(),
   registrationTokenHash: string(),
   tokenEndpointAuthMethod: vTokenEndpointAuthMethod,
-  redirectUri: string(),
+  /** The return addresses, checked by the host. Stored sorted and unique, and never changed. */
+  redirectUris: array(string()),
   clientName: string(),
   softwareVersion: string(),
   /** The name that the app's stack gives itself. */
@@ -106,6 +107,15 @@ export function enrollment(connectors: string[]) {
   const unique = [...new Set(connectors)].sort();
   if (unique.length === 0) {
     throw new Error("A client enrolls in at least one connector");
+  }
+  return unique;
+}
+
+/** The return addresses as stored: sorted and unique. An empty list is a host bug, never a client. */
+export function redirectUriSet(redirectUris: string[]) {
+  const unique = [...new Set(redirectUris)].sort();
+  if (unique.length === 0) {
+    throw new Error("A client has at least one redirect URI");
   }
   return unique;
 }
@@ -186,7 +196,7 @@ export async function registerClient(
     secretHash: args.secretHash,
     registrationTokenHash: args.registrationTokenHash,
     tokenEndpointAuthMethod: args.tokenEndpointAuthMethod,
-    redirectUri: args.redirectUri,
+    redirectUris: redirectUriSet(args.redirectUris),
     deploymentType: args.deploymentType,
     clientName: args.clientName,
     softwareVersion: args.softwareVersion,
@@ -219,7 +229,7 @@ export const renew = mutation({
   returns: union(
     object({
       ok: literal(true),
-      redirectUri: string(),
+      redirectUris: array(string()),
       clientName: string(),
       softwareVersion: string(),
       tokenEndpointAuthMethod: vTokenEndpointAuthMethod,
@@ -250,7 +260,7 @@ export const renew = mutation({
     });
     return {
       ok: true as const,
-      redirectUri: client.redirectUri,
+      redirectUris: client.redirectUris,
       clientName: client.clientName,
       softwareVersion: client.softwareVersion,
       tokenEndpointAuthMethod: client.tokenEndpointAuthMethod,

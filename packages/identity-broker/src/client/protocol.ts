@@ -169,7 +169,8 @@ export function validateAuthorizeRest(
 
 export type TokenInput = {
   code: string;
-  redirectUri: string | undefined;
+  /** Required: every authorization request here names one, so RFC 6749 section 4.1.3 requires it. */
+  redirectUri: string;
   codeVerifier: string;
   client: { clientId: string; clientSecret: string; method: TokenEndpointAuthMethod };
 };
@@ -243,9 +244,9 @@ export function validateTokenRequest(
   if (code.length === 0) {
     return invalid(400, "invalid_request", "code is required.");
   }
-  const redirectUri = params.get("redirect_uri") ?? undefined;
-  if (redirectUri !== undefined && parseRedirectUri(redirectUri) === null) {
-    return invalid(400, "invalid_request", "redirect_uri is invalid.");
+  const redirectUri = params.get("redirect_uri") ?? "";
+  if (parseRedirectUri(redirectUri) === null) {
+    return invalid(400, "invalid_request", "redirect_uri is missing or invalid.");
   }
   const codeVerifier = params.get("code_verifier") ?? "";
   if (!pkceValuePattern.test(codeVerifier)) {

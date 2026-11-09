@@ -16,7 +16,7 @@ const vClient = object({
   appId: string(),
   secretHash: string(),
   tokenEndpointAuthMethod: vTokenEndpointAuthMethod,
-  redirectUri: string(),
+  redirectUris: array(string()),
   deploymentType: vDeploymentType,
   clientName: string(),
   softwareVersion: string(),

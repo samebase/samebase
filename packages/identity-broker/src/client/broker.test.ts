@@ -79,7 +79,7 @@ async function exchange(
       code_verifier: args.verifier,
       client_id: args.clientId,
       client_secret: args.clientSecret,
-      ...(args.redirectUri === undefined ? {} : { redirect_uri: args.redirectUri }),
+      redirect_uri: args.redirectUri ?? REDIRECT_URI,
     }).toString(),
   });
 }
@@ -390,6 +390,52 @@ describe("authorization code flow with an OAuth connector", () => {
     const replay = await exchange(h, { code, clientId, clientSecret, verifier });
     expect(replay.status).toBe(400);
     expect((await replay.json()).error_description).toMatch(/already used/);
+  });
+
+  test("a client with two addresses signs in on either, and a code is bound to the one it named", async () => {
+    const h = await createHarness({ connectors: [fakeUpstream().connector] });
+    // REDIRECT_URI is the connections handler; this is the sign-in handler of the same app.
+    const connections = "https://app.test/auth/hub/callback";
+    const { clientId, clientSecret } = await h.registerClient({
+      appName: "My app",
+      redirectUri: REDIRECT_URI,
+      otherRedirectUris: [connections],
+    });
+    const { verifier, challenge } = await pkce();
+
+    // The request names the connections address; the hub sends the browser back to it.
+    const back = await completeUpstream(
+      h,
+      await h.fetchBroker(
+        authorizeUrl(h, { clientId, challenge, extra: { redirect_uri: connections } }),
+      ),
+    );
+    const location = new URL(back.headers.get("location") ?? "");
+    expect(location.origin + location.pathname).toBe(connections);
+    const code = location.searchParams.get("code") ?? "";
+
+    // RFC 6749 section 4.1.3: the exchange names the same address, not another listed one.
+    const otherListed = await exchange(h, { code, clientId, clientSecret, verifier });
+    expect(await otherListed.json()).toMatchObject({ error: "invalid_grant" });
+    const same = await exchange(h, {
+      code,
+      clientId,
+      clientSecret,
+      verifier,
+      redirectUri: connections,
+    });
+    expect(same.status).toBe(200);
+
+    // An address outside the list is a page of the hub, not a redirect.
+    const unlisted = await h.fetchBroker(
+      authorizeUrl(h, {
+        clientId,
+        challenge,
+        extra: { redirect_uri: "https://app.test/third/callback" },
+      }),
+    );
+    expect(unlisted.status).toBe(400);
+    expect(unlisted.headers.get("location")).toBeNull();
   });
 
   test("every refusal before the user continued is a page of the hub, never a redirect", async () => {
@@ -764,6 +810,7 @@ describe("authorization code flow with an OAuth connector", () => {
           grant_type: "authorization_code",
           code,
           code_verifier: verifier,
+          redirect_uri: REDIRECT_URI,
           ...credentials,
         }).toString(),
       });
@@ -1162,7 +1209,7 @@ describe("cleanup", () => {
         secretHash: "h",
         registrationTokenHash: "r",
         tokenEndpointAuthMethod: "client_secret_post",
-        redirectUri: REDIRECT_URI,
+        redirectUris: [REDIRECT_URI],
         deploymentType: args.deploymentType,
         clientName: "c",
         softwareVersion: "v",
@@ -1504,6 +1551,7 @@ describe("handler rules at their edges", () => {
       client_secret: clientSecret,
       code,
       code_verifier: verifier,
+      redirect_uri: REDIRECT_URI,
     }).toString();
     for (const contentType of ["text/plain", "application/json"]) {
       const response = await h.fetchBroker(`${ISSUER}/token`, {
