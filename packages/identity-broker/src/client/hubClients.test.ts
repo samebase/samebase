@@ -611,9 +611,15 @@ describe("POST /hub-clients", () => {
       });
     });
 
-    it("refuses the whole list when one origin fails, and creates nothing", async () => {
+    it("refuses the whole list when the second origin fails, and creates nothing", async () => {
       const h = await createHub();
-      stubProviders(() => new Response("Not Found", { status: 404 }));
+      // The first origin serves the file; the second does not.
+      let fetches = 0;
+      const fileRequests = stubProviders(() =>
+        fetches++ === 0
+          ? jsonResponse({ repository: REPOSITORY_ID })
+          : new Response("Not Found", { status: 404 }),
+      );
 
       const response = await postHubClient(h, await signToken(), {
         redirectUris: [PRODUCTION_CALLBACK, "https://other.example.com/auth/hub/callback"],
@@ -624,6 +630,10 @@ describe("POST /hub-clients", () => {
         error: "not_allowed",
         reason: "verification_file_missing",
       });
+      expect(fileRequests.map((request) => request.url)).toEqual([
+        `${PRODUCTION_HOST}/samebase-verification.json`,
+        "https://other.example.com/samebase-verification.json",
+      ]);
       expect(await readClients(h)).toEqual([]);
     });
 

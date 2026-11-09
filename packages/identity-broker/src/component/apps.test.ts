@@ -2,6 +2,7 @@
 import { convexTest } from "convex-test";
 import { afterEach, describe, expect, test, vi } from "vite-plus/test";
 import { api } from "./_generated/api.js";
+import { appIdOf } from "./apps.js";
 import { testClientRecord } from "../client/registeredBy.test.helper.js";
 import schema from "./schema.js";
 
@@ -60,6 +61,32 @@ describe("remove", () => {
       expect(await t.query(api.clients.listByApp, { appId: "other" })).toHaveLength(1);
       vi.useRealTimers();
     }
+  });
+
+  test("deletes the app's initial access tokens, and keeps another app's", async () => {
+    const t = convexTest(schema, modules);
+    const tenantId = "gh-74";
+    const appId = await t.run(async (ctx) => {
+      const ids = { gone: await appIdOf(tenantId, "gone"), kept: await appIdOf(tenantId, "kept") };
+      for (const name of ["gone", "kept"] as const) {
+        await ctx.db.insert("apps", { appId: ids[name], name, tenantId, createdAt: now });
+        await ctx.db.insert("initialAccessTokens", {
+          tokenHash: `hash-of-${name}`,
+          githubRepositoryDatabaseId: "74",
+          githubOwnerId: "65",
+          githubRepository: "octo-org/octo-repo",
+          app: name,
+          issuedAt: now,
+        });
+      }
+      return ids;
+    });
+
+    await t.mutation(api.apps.remove, { appId: appId.gone });
+
+    const tokens = await t.run(async (ctx) => await ctx.db.query("initialAccessTokens").collect());
+    expect(tokens.map((token) => token.app)).toEqual(["kept"]);
+    expect(await t.query(api.apps.get, { appId: appId.kept })).not.toBeNull();
   });
 
   test("an unknown app deletes nothing", async () => {

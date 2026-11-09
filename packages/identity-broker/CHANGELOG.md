@@ -16,6 +16,8 @@
   refuses the whole list when one origin fails, and refuses a GitHub run's list that holds a
   loopback address anywhere. A development client may mix loopback and verified https addresses.
 - The sign-in page names the origin of the address the request named.
+- `deleteApp` (`apps.remove`) also deletes the app's initial access tokens. Before, the token of a
+  deleted app could register a development client of it again.
 
 ## 0.30.0
 
