@@ -34,11 +34,10 @@ const RECORDS = `${ISSUER}/register/`;
 const PRODUCTION_ANSWER = hubFixture("hub-clients-production.json");
 const PREVIEW_ANSWER = hubFixture("hub-clients-preview.json");
 const DEVELOPMENT_ANSWER = hubFixture("hub-clients-development.json");
-const TERMS = String(PREVIEW_ANSWER["terms"]);
 /** The hub of every test, unless a test names another. */
-const HUB: IdentityHub.Hub = { issuer: ISSUER, terms: TERMS };
+const HUB: IdentityHub.Hub = { issuer: ISSUER };
 /** A second hub, for the tests that change the hub. */
-const OTHER_HUB: IdentityHub.Hub = { issuer: "https://auth.other.test", terms: TERMS };
+const OTHER_HUB: IdentityHub.Hub = { issuer: "https://auth.other.test" };
 /** The numeric GitHub id of the repository, which the hub gives with the token. */
 const REPOSITORY_ID = String(PRODUCTION_ANSWER["repository"]);
 
@@ -177,27 +176,7 @@ const REFUSALS: readonly (readonly [string, Answer])[] = [
       return Response.json(answer, { status: 201 });
     },
   ],
-  // The log line names the terms and the return address, so neither may be a value that the
-  // answer chose.
-  [
-    "a 201 whose terms are not the hub's",
-    ({ authorization }) =>
-      Response.json(
-        { ...PREVIEW_ANSWER, terms: `https://evil.example/${authorization}` },
-        { status: 201 },
-      ),
-  ],
-  [
-    "a 201 whose terms are another page of the same site",
-    ({ authorization }) =>
-      Response.json(
-        {
-          ...PREVIEW_ANSWER,
-          terms: `https://samebase.com/${Buffer.from(authorization).toString("hex")}`,
-        },
-        { status: 201 },
-      ),
-  ],
+  // The log line names the return address, so it may not be a value that the answer chose.
   [
     "a 201 with another return address",
     ({ authorization }) =>
@@ -526,22 +505,14 @@ describe("IdentityHub.Client", () => {
     }),
   );
 
-  test.provider("an answer with other terms than the hub's gives no client", (stack) =>
-    Effect.gen(function* () {
-      new FakeServices().install();
-      const hub = { issuer: ISSUER, terms: "https://auth.test/terms" };
-      expect(yield* stack.deploy(client(props({ hub })))).toMatchObject({ status: "off" });
-    }),
-  );
-
-  test.provider("a new client logs the terms once, and a renewal does not", (stack) =>
+  test.provider("a new client logs its hub once, and a renewal does not", (stack) =>
     Effect.gen(function* () {
       new FakeServices().install();
       const { layer, lines } = capturedLogs();
       yield* stack.deploy(client(props())).pipe(Effect.provide(layer));
       yield* stack.deploy(client(props())).pipe(Effect.provide(layer));
-      expect(lines.filter((line) => line.includes(TERMS))).toEqual([
-        `Info: IdentityHub.Client: scout on ${REDIRECT_URI} has a new client of the identity hub. Its use is under ${TERMS}.`,
+      expect(lines.filter((line) => line.includes("has a new client"))).toEqual([
+        `Info: IdentityHub.Client: scout on ${REDIRECT_URI} has a new client of the identity hub ${ISSUER}.`,
       ]);
     }),
   );

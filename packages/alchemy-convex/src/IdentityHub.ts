@@ -54,8 +54,8 @@ const OFF_VALUES = { issuer: "http://127.0.0.1:1", clientId: "no-hub", clientSec
 const CONNECTOR_NAME = /^[a-z0-9-]{1,64}$/;
 
 /**
- * An identity hub of @samebase/identity-broker, such as Samebase's:
- * `{ issuer: "https://auth.samebase.com", terms: "https://samebase.com/terms" }`.
+ * An identity hub of @samebase/identity-broker, such as Samebase's public hub:
+ * `{ issuer: "https://id.samebase.com" }`.
  */
 export interface Hub {
   /**
@@ -63,11 +63,6 @@ export interface Hub {
    * with a GitHub token whose audience is the issuer, so no other hub can use that token.
    */
   readonly issuer: string;
-  /**
-   * The terms of the hub's sign-in service, which its answer must name. The log prints them for a
-   * new client, so no value that the answer chose reaches the log.
-   */
-  readonly terms: string;
 }
 
 interface CommonProps {
@@ -201,8 +196,6 @@ const NewClient = Schema.Struct({
   redirect_uri: Schema.NonEmptyString,
   /** The set the hub recorded, which must be the set the request sent. */
   connectors: Schema.Array(Schema.String),
-  /** The terms of the hub's sign-in service, which must be the `terms` of the stack's `hub`. */
-  terms: Schema.String,
   /** Only in the answer to a production registration with the GitHub token. */
   initial_access_token: Schema.optionalKey(Schema.NonEmptyString),
   repository: Schema.optionalKey(Schema.String.check(Schema.isPattern(/^\d+$/))),
@@ -341,19 +334,18 @@ const requestNewClient = (props: ClientProps, connectors: readonly string[], bea
       return yield* new IdentityHubClientFailed({ reason: `${reason} (HTTP ${status})` });
     }
     const client = yield* decode(NewClient, "The identity hub")(body);
-    // The hub registers the address and the connectors that the request sent, under its own issuer
-    // and the terms that the stack names. The log and the state hold the stack's, so no value that
-    // the answer chose is printed or kept.
+    // The hub registers the address and the connectors that the request sent, under its own issuer.
+    // The log and the state hold the stack's values, so no value that the answer chose is printed
+    // or kept.
     if (
       client.issuer !== hub.issuer ||
       client.redirect_uri !== props.redirectUri ||
-      !sameSet(client.connectors, connectors) ||
-      client.terms !== hub.terms
+      !sameSet(client.connectors, connectors)
     ) {
       return yield* new IdentityHubClientFailed({ reason: "The identity hub gave a bad answer" });
     }
     yield* Effect.logInfo(
-      `IdentityHub.Client: ${props.app} on ${props.redirectUri} has a new client of the identity hub. Its use is under ${hub.terms}.`,
+      `IdentityHub.Client: ${props.app} on ${props.redirectUri} has a new client of the identity hub ${hub.issuer}.`,
     );
     // Only a production registration gives the app's token (RFC 7591); any other answer's is dropped.
     const production = props.deploymentType === "production";

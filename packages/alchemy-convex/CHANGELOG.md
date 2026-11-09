@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.38.0
+
+- `IdentityHub.Hub` is `{ issuer }`. The stack no longer names the hub's terms, and the answer of a
+  registration is no longer checked against them: the hub's operator can move its terms without
+  breaking every app's deploy. A new client's log line names the hub's issuer, a value of the stack.
+- A `hub` constant that still has `terms` keeps compiling; remove the line when convenient. An
+  inline `hub: { issuer, terms }` literal must drop `terms`.
+
 ## 0.37.0
 
 - Breaking: `Convex.SharedHubClient` is now `IdentityHub.Client`, from its own import path:
