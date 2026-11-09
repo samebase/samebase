@@ -339,9 +339,9 @@ resources and output, from the store function `state:readStack({ stack })` in on
     `connectors` too. A replaced production client stays valid on the hub until its administrator
     deletes it. A saved row whose attributes this version cannot read stops the run with a fixed
     message, which holds no value of the row.
-  - A new client logs the link to the terms of the shared sign-in service. A refusal logs its
-    reason, such as a host that does not serve the file, a block, a token of another app, a
-    connector the hub does not offer or allow, or the hourly limit it reached.
+  - A new client logs the hub's issuer. A refusal logs its reason, such as a host that does not
+    serve the file, a block, a token of another app, a connector the hub does not offer or allow, or
+    the hourly limit it reached.
   - No failure of the hub stops a deploy or a destroy. A failed renewal keeps the saved values.
     Without saved values, `status` is `off`, and `issuer`, `clientId`, and `clientSecret` are the
     `no-hub` values of a checkout without a hub. A production or preview run without a GitHub OIDC
@@ -364,11 +364,11 @@ resources and output, from the store function `state:readStack({ stack })` in on
     with the new type.
   - A destroy deletes a preview or development client. It does nothing to a production client,
     because the production deployment can stay.
-  - `hub` is the identity hub to register at, required: `{ issuer, terms }`, such as
-    `{ issuer: "https://auth.samebase.com", terms: "https://samebase.com/terms" }`. The run asks at
-    `<issuer>/hub-clients` with a GitHub token whose audience is the issuer, and the answer must
-    name that issuer and `terms`. A client is renewed only at the hub that issued it: a changed hub
-    registers a new client there, and the old one stays at the old hub.
+  - `hub` is the identity hub to register at, required: `{ issuer }`, such as
+    `{ issuer: "https://id.samebase.com" }`. The run asks at `<issuer>/hub-clients` with a GitHub
+    token whose audience is the issuer, and the answer must name that issuer. A client is renewed
+    only at the hub that issued it: a changed hub registers a new client there, and the old one
+    stays at the old hub.
 
 - `Convex.LocalDeployment`: `{ rootDir?, env }` writes the `env` of the logged-in local deployment
   of the folder `rootDir` (the working directory without it), which
