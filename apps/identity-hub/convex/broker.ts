@@ -98,8 +98,8 @@ export const broker = defineIdentityBroker({
     // The policy of RFC 137 decision 9.
     policy: (registration) => ({
       // The operator gets every connector in code, so no admin mistake can lock samebase.com out.
-      // Every other app gets the public pair; the admin grants a private connector to one app on
-      // samebase.com's admin page, and the broker adds it (RFC 137 decision 10).
+      // Every other app gets the public pair; the admin grants a private connector to a repository
+      // on samebase.com's admin page, and the broker adds it (RFC 137 decision 10).
       connectors: samebase(registration)
         ? ["google", "github", ...PUBLIC_CONNECTORS]
         : PUBLIC_CONNECTORS,
