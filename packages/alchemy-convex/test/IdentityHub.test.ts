@@ -58,7 +58,7 @@ type DevelopmentProps = Extract<
 const props = (overrides: Partial<GitHubProps> = {}): GitHubProps => ({
   app: "scout",
   hub: HUB,
-  redirectUri: REDIRECT_URI,
+  redirectUris: [REDIRECT_URI],
   deploymentType: "preview",
   connectors: ["google"],
   softwareVersion: "abc",
@@ -71,7 +71,7 @@ const INITIAL_ACCESS_TOKEN = "iat-of-scout";
 const development = (overrides: Partial<DevelopmentProps> = {}): DevelopmentProps => ({
   app: "scout",
   hub: HUB,
-  redirectUri: REDIRECT_URI,
+  redirectUris: [REDIRECT_URI],
   deploymentType: "development",
   connectors: ["google"],
   initialAccessToken: Redacted.make(INITIAL_ACCESS_TOKEN),
@@ -82,7 +82,7 @@ const development = (overrides: Partial<DevelopmentProps> = {}): DevelopmentProp
 /** The body of a registration, as the fake and the tests expect it. */
 const requestBody = (overrides: Record<string, unknown> = {}) => ({
   app: "scout",
-  redirectUri: REDIRECT_URI,
+  redirectUris: [REDIRECT_URI],
   softwareVersion: "abc",
   connectors: ["google"],
   ...overrides,
@@ -99,7 +99,8 @@ const client = (input: IdentityHub.ClientProps) =>
       registrationAccessToken: Output.map(resource.registrationAccessToken, Redacted.value),
       registrationClientUri: resource.registrationClientUri,
       deploymentType: resource.deploymentType,
-      redirectUri: resource.redirectUri,
+      app: resource.app,
+      redirectUris: resource.redirectUris,
       connectors: resource.connectors,
       initialAccessToken: Output.map(resource.initialAccessToken, Redacted.value),
       repository: resource.repository,
@@ -115,7 +116,8 @@ const issued = (clientId = "cl_1", redirectUri = REDIRECT_URI, deploymentType = 
   registrationAccessToken: `token-of-${clientId}`,
   registrationClientUri: `${ISSUER}/register/${clientId}`,
   deploymentType,
-  redirectUri,
+  app: "scout",
+  redirectUris: [redirectUri],
   connectors: ["google"],
   initialAccessToken: "",
   repository: "",
@@ -129,7 +131,8 @@ const OFF = {
   registrationAccessToken: "",
   registrationClientUri: "",
   deploymentType: "preview",
-  redirectUri: "",
+  app: "",
+  redirectUris: [],
   connectors: [],
   initialAccessToken: "",
   repository: "",
@@ -137,7 +140,8 @@ const OFF = {
 
 /** The body of POST /hub-clients. */
 const ClientRequest = Schema.Struct({
-  redirectUri: Schema.String,
+  app: Schema.String,
+  redirectUris: Schema.Array(Schema.String),
   connectors: Schema.Array(Schema.String),
 });
 
@@ -181,7 +185,7 @@ const REFUSALS: readonly (readonly [string, Answer])[] = [
     "a 201 with another return address",
     ({ authorization }) =>
       Response.json(
-        { ...PREVIEW_ANSWER, redirect_uri: `https://evil.example/${authorization}` },
+        { ...PREVIEW_ANSWER, redirect_uris: [`https://evil.example/${authorization}`] },
         { status: 201 },
       ),
   ],
@@ -191,7 +195,7 @@ const REFUSALS: readonly (readonly [string, Answer])[] = [
       Response.json(
         {
           ...PREVIEW_ANSWER,
-          redirect_uri: Schema.decodeUnknownSync(ClientRequest)(body).redirectUri,
+          redirect_uris: Schema.decodeUnknownSync(ClientRequest)(body).redirectUris,
           issuer: "https://auth.other.test",
         },
         { status: 201 },
@@ -203,7 +207,7 @@ const REFUSALS: readonly (readonly [string, Answer])[] = [
       Response.json(
         {
           ...PREVIEW_ANSWER,
-          redirect_uri: Schema.decodeUnknownSync(ClientRequest)(body).redirectUri,
+          redirect_uris: Schema.decodeUnknownSync(ClientRequest)(body).redirectUris,
           connectors: ["google", "github"],
         },
         { status: 201 },
@@ -214,7 +218,7 @@ const REFUSALS: readonly (readonly [string, Answer])[] = [
     ({ body }) => {
       const { connectors: _connectors, ...answer } = PREVIEW_ANSWER;
       return Response.json(
-        { ...answer, redirect_uri: Schema.decodeUnknownSync(ClientRequest)(body).redirectUri },
+        { ...answer, redirect_uris: Schema.decodeUnknownSync(ClientRequest)(body).redirectUris },
         { status: 201 },
       );
     },
@@ -296,7 +300,7 @@ class FakeServices {
     if (!withGitHub && !this.initialAccessTokens.has(bearer)) {
       return Response.json({ error: "invalid_token" }, { status: 401 });
     }
-    const { redirectUri, connectors } = Schema.decodeUnknownSync(ClientRequest)(body);
+    const { redirectUris, connectors } = Schema.decodeUnknownSync(ClientRequest)(body);
     // The hub's policy allows these; another name is refused with the allowed ones, as the hub does.
     if (!connectors.every((name) => this.allowedConnectors.includes(name))) {
       return Response.json(
@@ -317,7 +321,7 @@ class FakeServices {
         client_secret: `secret-of-${clientId}`,
         registration_access_token: token,
         registration_client_uri: `${issuer}/register/${clientId}`,
-        redirect_uri: redirectUri,
+        redirect_uris: redirectUris,
         connectors,
         ...(production ? { initial_access_token: `iat-of-${clientId}` } : {}),
       },
@@ -409,6 +413,68 @@ describe("IdentityHub.Client", () => {
       expect(fake.sent.at(-1)?.body).toEqual(requestBody({ connectors: ["github", "google"] }));
     }),
   );
+
+  test.provider("the request sends the return addresses as a set, sorted, each once", (stack) =>
+    Effect.gen(function* () {
+      const fake = new FakeServices().install();
+      const made = yield* stack.deploy(
+        client(props({ redirectUris: [REDIRECT_URI, OTHER_REDIRECT_URI, REDIRECT_URI] })),
+      );
+      const sorted = [REDIRECT_URI, OTHER_REDIRECT_URI].sort();
+      expect(made.redirectUris).toEqual(sorted);
+      expect(fake.sent.at(-1)?.body).toEqual(requestBody({ redirectUris: sorted }));
+      // The same set in another order renews that client.
+      fake.sent.length = 0;
+      expect(
+        yield* stack.deploy(client(props({ redirectUris: [OTHER_REDIRECT_URI, REDIRECT_URI] }))),
+      ).toEqual(made);
+      expect(fake.calls(HUB_CLIENTS)).toEqual([]);
+    }),
+  );
+
+  test.provider("another app name asks for a new client without a renewal", (stack) =>
+    Effect.gen(function* () {
+      const fake = new FakeServices().install();
+      yield* stack.deploy(client(props()));
+      fake.sent.length = 0;
+      const renamed = yield* stack.deploy(client(props({ app: "scout-admin" })));
+      expect(renamed).toEqual({ ...issued("cl_2"), app: "scout-admin" });
+      expect(fake.sent.at(-1)?.body).toEqual(requestBody({ app: "scout-admin" }));
+      expect(fake.calls(RECORDS)).toEqual([]);
+    }),
+  );
+
+  test.provider(
+    "without an app, a stack whose name is not owner/repo fails before any request",
+    (stack) =>
+      Effect.gen(function* () {
+        // The scratch stack's name has no slash, so no default exists.
+        const fake = new FakeServices().install();
+        const { app: _app, ...withoutApp } = props();
+        const exit = yield* Effect.exit(stack.deploy(client(withoutApp)));
+        expect(Exit.isFailure(exit)).toBe(true);
+        expect(String(exit)).toContain("so set app");
+        expect(fake.sent).toEqual([]);
+      }),
+  );
+
+  for (const [name, redirectUris] of [
+    ["no return address", []],
+    ["nine return addresses", Array.from({ length: 9 }, (_, i) => `${REDIRECT_URI}/${i}`)],
+    ["a return address that is not a URL", ["not a url"]],
+  ] as const) {
+    test.provider(`${name} fails before any request`, (stack) =>
+      Effect.gen(function* () {
+        const fake = new FakeServices().install();
+        const exit = yield* Effect.exit(
+          stack.deploy(client(props({ redirectUris: [...redirectUris] }))),
+        );
+        expect(Exit.isFailure(exit)).toBe(true);
+        expect(String(exit)).toContain("needs redirectUris");
+        expect(fake.sent).toEqual([]);
+      }),
+    );
+  }
 
   test.provider("another connector set asks for a new client without a renewal", (stack) =>
     Effect.gen(function* () {
@@ -613,7 +679,7 @@ describe("IdentityHub.Client", () => {
         if (row === undefined || !("attr" in row) || row.attr === undefined) {
           throw new Error("the deploy saved no client");
         }
-        yield* state.set({ ...request, value: { ...row, attr: { ...row.attr, redirectUri: 7 } } });
+        yield* state.set({ ...request, value: { ...row, attr: { ...row.attr, redirectUris: 7 } } });
       }).pipe(Effect.provide(stack.state));
       const exit = yield* Effect.exit(stack.deploy(client(props())));
       expect(Exit.isFailure(exit)).toBe(true);
@@ -650,7 +716,7 @@ describe("IdentityHub.Client", () => {
           {
             ...DEVELOPMENT_ANSWER,
             issuer: ISSUER,
-            redirect_uri: Schema.decodeUnknownSync(ClientRequest)(body).redirectUri,
+            redirect_uris: Schema.decodeUnknownSync(ClientRequest)(body).redirectUris,
             initial_access_token: "not-for-a-development-client",
             repository: "1",
           },
@@ -757,7 +823,7 @@ describe("IdentityHub.Client", () => {
       const fake = new FakeServices().install();
       yield* stack.deploy(client(props()));
       fake.sent.length = 0;
-      const moved = yield* stack.deploy(client(props({ redirectUri: OTHER_REDIRECT_URI })));
+      const moved = yield* stack.deploy(client(props({ redirectUris: [OTHER_REDIRECT_URI] })));
       expect(moved).toEqual(issued("cl_2", OTHER_REDIRECT_URI));
       expect(fake.calls(RECORDS)).toEqual([]);
     }),
@@ -859,10 +925,10 @@ describe("IdentityHub.Client", () => {
         const fake = new FakeServices().install();
         yield* stack.deploy(client(props()));
         fake.registrar = () => Response.json({ error: "github_unavailable" }, { status: 502 });
-        const moved = yield* stack.deploy(client(props({ redirectUri: OTHER_REDIRECT_URI })));
+        const moved = yield* stack.deploy(client(props({ redirectUris: [OTHER_REDIRECT_URI] })));
         expect(moved).toEqual(OFF);
         fake.registrar = undefined;
-        const next = yield* stack.deploy(client(props({ redirectUri: OTHER_REDIRECT_URI })));
+        const next = yield* stack.deploy(client(props({ redirectUris: [OTHER_REDIRECT_URI] })));
         expect(next).toEqual(issued("cl_2", OTHER_REDIRECT_URI));
       }),
   );
@@ -947,7 +1013,7 @@ describe("IdentityHub.Client", () => {
           const hub = yield* IdentityHub.Client("Client", {
             app: "scout",
             hub: HUB,
-            redirectUri: Output.interpolate`${deployment.siteUrl}/auth/hub/callback`,
+            redirectUris: [Output.interpolate`${deployment.siteUrl}/auth/hub/callback`],
             deploymentType: "preview",
             connectors: ["google"],
           });
@@ -1093,14 +1159,14 @@ describe("IdentityHub.Client", () => {
       fake.registrar = networkDown;
       yield* deploy();
       fake.registrar = echo;
-      yield* deploy({ ...props(), redirectUri: OTHER_REDIRECT_URI });
+      yield* deploy({ ...props(), redirectUris: [OTHER_REDIRECT_URI] });
       // The recorded answer without its client ID, with a secret in it.
       const { client_id: _clientId, ...withoutClient } = PRODUCTION_ANSWER;
       fake.registrar = () =>
         Response.json({ ...withoutClient, client_secret: "secret-of-cl_1" }, { status: 201 });
-      yield* deploy({ ...props(), redirectUri: OTHER_REDIRECT_URI });
+      yield* deploy({ ...props(), redirectUris: [OTHER_REDIRECT_URI] });
       fake.github = networkDown;
-      yield* deploy({ ...props(), redirectUri: OTHER_REDIRECT_URI });
+      yield* deploy({ ...props(), redirectUris: [OTHER_REDIRECT_URI] });
       fake.hub = echo;
       yield* stack.destroy().pipe(Effect.provide(layer));
 
@@ -1126,7 +1192,7 @@ describe("IdentityHub.Client for a development client", () => {
     // @ts-expect-error A preview client asks with the GitHub OIDC token.
     const preview: IdentityHub.ClientProps = {
       app: "scout",
-      redirectUri: REDIRECT_URI,
+      redirectUris: [REDIRECT_URI],
       deploymentType: "preview",
       connectors: ["google"],
       initialAccessToken: Redacted.make(INITIAL_ACCESS_TOKEN),
@@ -1134,14 +1200,14 @@ describe("IdentityHub.Client for a development client", () => {
     // @ts-expect-error A development client needs the token.
     const withoutToken: IdentityHub.ClientProps = {
       app: "scout",
-      redirectUri: REDIRECT_URI,
+      redirectUris: [REDIRECT_URI],
       deploymentType: "development",
       connectors: ["google"],
     };
     // @ts-expect-error Every client names its connectors.
     const withoutConnectors: IdentityHub.ClientProps = {
       app: "scout",
-      redirectUri: REDIRECT_URI,
+      redirectUris: [REDIRECT_URI],
       deploymentType: "preview",
     };
     expect([preview, withoutToken, withoutConnectors]).toHaveLength(3);
@@ -1186,7 +1252,9 @@ describe("IdentityHub.Client for a development client", () => {
       const fake = new FakeServices().install();
       yield* stack.deploy(client(development()));
       fake.sent.length = 0;
-      const moved = yield* stack.deploy(client(development({ redirectUri: OTHER_REDIRECT_URI })));
+      const moved = yield* stack.deploy(
+        client(development({ redirectUris: [OTHER_REDIRECT_URI] })),
+      );
       expect(moved).toEqual(issued("cl_2", OTHER_REDIRECT_URI, "development"));
       expect(fake.calls(RECORDS)).toEqual([]);
     }),
@@ -1297,12 +1365,12 @@ describe("IdentityHub.Client for a development client", () => {
       fake.hub = () => new Response(null, { status: 403 });
       yield* deploy();
       fake.registrar = echo;
-      yield* deploy(development({ redirectUri: OTHER_REDIRECT_URI }));
+      yield* deploy(development({ redirectUris: [OTHER_REDIRECT_URI] }));
       fake.registrar = networkDown;
-      yield* deploy(development({ redirectUri: OTHER_REDIRECT_URI }));
+      yield* deploy(development({ redirectUris: [OTHER_REDIRECT_URI] }));
       fake.registrar = undefined;
       fake.initialAccessTokens.clear();
-      yield* deploy(development({ redirectUri: OTHER_REDIRECT_URI }));
+      yield* deploy(development({ redirectUris: [OTHER_REDIRECT_URI] }));
       fake.hub = echo;
       yield* stack.destroy().pipe(Effect.provide(layer));
 
@@ -1312,6 +1380,21 @@ describe("IdentityHub.Client for a development client", () => {
       }
     }),
   );
+});
+
+describe("the app's default name", () => {
+  it("is the stack's path in the repository, or `app` for a stack named after it", () => {
+    expect(IdentityHub.defaultApp("samebase/samebase/apps/samebase")).toBe("apps/samebase");
+    expect(IdentityHub.defaultApp("octo-org/scout")).toBe("app");
+    expect(IdentityHub.defaultApp("octo-org/base/apps/web/admin")).toBe("apps/web/admin");
+  });
+
+  it("does not exist for a stack whose name is not owner/repo", () => {
+    expect(IdentityHub.defaultApp("scout")).toBeUndefined();
+    expect(IdentityHub.defaultApp("octo-org//scout")).toBeUndefined();
+    expect(IdentityHub.defaultApp("/scout")).toBeUndefined();
+    expect(IdentityHub.defaultApp("")).toBeUndefined();
+  });
 });
 
 describe("IdentityHub.Client.variables", () => {
@@ -1500,7 +1583,7 @@ describe("the development stage of the starter", () => {
           const hub = yield* IdentityHub.Client("HubClient", {
             app: "scout",
             hub: HUB,
-            redirectUri: Output.interpolate`${deployment.siteUrl}/auth/hub/callback`,
+            redirectUris: [Output.interpolate`${deployment.siteUrl}/auth/hub/callback`],
             deploymentType: "development",
             connectors: ["google"],
             initialAccessToken: prod.initialAccessToken,
@@ -1528,7 +1611,7 @@ describe("the development stage of the starter", () => {
             method: "POST",
             url: HUB_CLIENTS,
             authorization: "Bearer iat-of-cl_1",
-            body: requestBody({ redirectUri: callback, softwareVersion: "unknown" }),
+            body: requestBody({ redirectUris: [callback], softwareVersion: "unknown" }),
           },
         ]);
         const at = (pattern: RegExp) =>

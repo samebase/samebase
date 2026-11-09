@@ -19,15 +19,21 @@
 // (RFC 133).
 //
 // A client is enrolled in the connectors it signs in through, such as `google` and `github`, at
-// registration (RFC 137). The hub records the set on the client and never changes it: a stack with
-// another set registers a new client.
+// registration (RFC 137), and holds the return addresses its requests may name, one per handler of
+// the app, such as the sign-in callback and the connections callback. The hub records both sets on
+// the client and never changes them: a stack with another set registers a new client.
+//
+// The app is the stack: its name on the hub defaults to the stack's path in the repository, as the
+// state store groups stacks (`owner/repo/<path>`), and `app` for a stack named after the repository.
+// `app` overrides it. The name groups the clients, their budgets, and the initial access token; it
+// plays no part in user ids, which the hub derives from the provider's own id.
 //
 // A push removes a variable that a deploy stops passing, so a failure here must not drop working
 // variables or stop the deploy. A renewal that fails keeps the saved values. Only a client that
-// cannot work asks for a new one: it is gone, or it has another return address, type, or connector
-// set. If that request fails, the run gives the off values, so the app has guest sign-in and not a
-// broken button. The off values are the `no-hub` variables of a checkout without a hub: Convex
-// needs the variables, and the app hides the button for this client ID.
+// cannot work asks for a new one: it is gone, or it has another app name, return address set, type,
+// or connector set. If that request fails, the run gives the off values, so the app has guest
+// sign-in and not a broken button. The off values are the `no-hub` variables of a checkout without
+// a hub: Convex needs the variables, and the app hides the button for this client ID.
 //
 // No text in this file quotes an answer or a fetch error, so no log line can hold a secret. The one
 // exception is the connector names of an `invalid_connectors` refusal, each checked against the
@@ -53,6 +59,21 @@ const OFF_VALUES = { issuer: "http://127.0.0.1:1", clientId: "no-hub", clientSec
 /** The name of a connector on the hub. */
 const CONNECTOR_NAME = /^[a-z0-9-]{1,64}$/;
 
+/** The return addresses of one client, as the hub caps them. */
+const MAX_REDIRECT_URIS = 8;
+
+/**
+ * The app's default name: the stack's path below `owner/repo`, or `app` for a stack named after
+ * the repository. Undefined for a stack whose name is not `owner/repo` or `owner/repo/<path>`.
+ */
+export const defaultApp = (stackName: string): string | undefined => {
+  const segments = stackName.split("/");
+  if (segments.length < 2 || segments.some((segment) => segment === "")) {
+    return undefined;
+  }
+  return segments.slice(2).join("/") || "app";
+};
+
 /**
  * An identity hub of @samebase/identity-broker, such as Samebase's public hub:
  * `{ issuer: "https://id.samebase.com" }`.
@@ -66,8 +87,12 @@ export interface Hub {
 }
 
 interface CommonProps {
-  /** The stable name of the app, set once in the stack. */
-  readonly app: string;
+  /**
+   * The app's name in its repository. Default: the stack's path in the repository, `apps/samebase`
+   * for the stack `samebase/samebase/apps/samebase`, and `app` for a stack named after the
+   * repository. A changed name registers a new client under the new name.
+   */
+  readonly app?: string;
   /** The hub to register at. A changed hub registers a new client there; the old one stays. */
   readonly hub: Hub;
   /**
@@ -78,12 +103,15 @@ interface CommonProps {
    */
   readonly connectors: readonly string[];
   /**
-   * The return address of the hub's sign-ins, such as `${site.siteUrl}/auth/hub/callback`: an https
-   * URL whose origin serves `/samebase-verification.json` with the numeric GitHub id of this
-   * repository, `{ "repository": "123" }`. It can come from a resource that this run creates. A
-   * development client can also have http on a loopback host, which needs no file.
+   * The return addresses of this deployment, one to eight, such as
+   * `[`${site.siteUrl}/auth/hub/callback`]`: each an https URL whose origin serves
+   * `/samebase-verification.json` with the numeric GitHub id of this repository,
+   * `{ "repository": "123" }`. They can come from a resource that this run creates. A development
+   * client can also have http on a loopback host, which needs no file. Every request of the client
+   * names one of them. The set is recorded on the client for good: a changed set registers a new
+   * client.
    */
-  readonly redirectUri: string;
+  readonly redirectUris: string[];
   /** Recorded on the hub's client, such as the commit. The hub records "unknown" without it. */
   readonly softwareVersion?: string;
   /**
@@ -124,8 +152,10 @@ const Attributes = Schema.Struct({
   registrationAccessToken: Schema.Redacted(Schema.String),
   registrationClientUri: Schema.String,
   deploymentType: DeploymentType,
-  /** The return address that the client serves. Empty for the off values. */
-  redirectUri: Schema.String,
+  /** The app's name on the hub, as sent. Empty for the off values. */
+  app: Schema.String,
+  /** The return addresses the client serves, sorted, each once. Empty for the off values. */
+  redirectUris: Schema.Array(Schema.String),
   /** The connectors the client is enrolled in, sorted, each once. Empty for the off values. */
   connectors: Schema.Array(Schema.String),
   /**
@@ -162,17 +192,29 @@ const offAttributes = (deploymentType: ClientAttributes["deploymentType"]): Clie
   registrationAccessToken: Redacted.make(""),
   registrationClientUri: "",
   deploymentType,
-  redirectUri: "",
+  app: "",
+  redirectUris: [],
   connectors: [],
   initialAccessToken: Redacted.make(""),
   repository: "",
 });
 
-/** The set of `names`: sorted, each once. */
-const connectorSet = (names: readonly string[]) => [...new Set(names)].sort();
+/** The set of `values`: sorted, each once. */
+const sortedSet = (values: readonly string[]) => [...new Set(values)].sort();
 
 const sameSet = (a: readonly string[], b: readonly string[]) =>
   a.length === b.length && a.every((name, index) => name === b[index]);
+
+/** The app and its return addresses, as every log line names a client: no secret, no answer. */
+const where = (client: { app: string; redirectUris: readonly string[] }) =>
+  `${client.app} on ${client.redirectUris.join(", ")}`;
+
+/** What one registration sends, resolved from the props: the app's name and both sets. */
+interface Enrollment {
+  readonly app: string;
+  readonly connectors: readonly string[];
+  readonly redirectUris: readonly string[];
+}
 
 /** One request gave no usable answer. The reason holds no secret. */
 class IdentityHubClientFailed extends Schema.TaggedError<IdentityHubClientFailed>()(
@@ -193,8 +235,8 @@ const NewClient = Schema.Struct({
   client_secret: Schema.NonEmptyString,
   registration_access_token: Schema.NonEmptyString,
   registration_client_uri: Schema.NonEmptyString,
-  redirect_uri: Schema.NonEmptyString,
-  /** The set the hub recorded, which must be the set the request sent. */
+  /** The sets the hub recorded, which must be the sets the request sent. */
+  redirect_uris: Schema.Array(Schema.String),
   connectors: Schema.Array(Schema.String),
   /** Only in the answer to a production registration with the GitHub token. */
   initial_access_token: Schema.optionalKey(Schema.NonEmptyString),
@@ -203,7 +245,7 @@ const NewClient = Schema.Struct({
 
 /** The other answers of `POST /hub-clients`, by status. */
 const REFUSALS: Readonly<Record<number, string>> = {
-  400: "the identity hub refused the request: the return address must be https on a DNS name, and the app name at most 64 characters",
+  400: "the identity hub refused the request: one to eight return addresses, each https on a DNS name, and the app name at most 64 characters",
   401: "the identity hub refused the GitHub OIDC token",
   403: "the identity hub does not allow this repository or return address",
   404: "the identity hub has no /hub-clients",
@@ -314,14 +356,15 @@ const readOidcToken = (requestUrl: string, requestToken: string, audience: strin
   });
 
 /** `POST /hub-clients` with `bearer`: the GitHub OIDC token, or the app's initial access token. */
-const requestNewClient = (props: ClientProps, connectors: readonly string[], bearer: string) =>
+const requestNewClient = (props: ClientProps, enrollment: Enrollment, bearer: string) =>
   Effect.gen(function* () {
     const { hub } = props;
+    const { app, connectors, redirectUris } = enrollment;
     const { body, status } = yield* send("The identity hub", `${hub.issuer}/hub-clients`, bearer, {
       method: "POST",
       body: JSON.stringify({
-        app: props.app,
-        redirectUri: props.redirectUri,
+        app,
+        redirectUris,
         softwareVersion: props.softwareVersion ?? "unknown",
         connectors,
       }),
@@ -334,18 +377,18 @@ const requestNewClient = (props: ClientProps, connectors: readonly string[], bea
       return yield* new IdentityHubClientFailed({ reason: `${reason} (HTTP ${status})` });
     }
     const client = yield* decode(NewClient, "The identity hub")(body);
-    // The hub registers the address and the connectors that the request sent, under its own issuer.
-    // The log and the state hold the stack's values, so no value that the answer chose is printed
-    // or kept.
+    // The hub registers the addresses and the connectors that the request sent, under its own
+    // issuer. The log and the state hold the stack's values, so no value that the answer chose is
+    // printed or kept.
     if (
       client.issuer !== hub.issuer ||
-      client.redirect_uri !== props.redirectUri ||
+      !sameSet(sortedSet(client.redirect_uris), redirectUris) ||
       !sameSet(client.connectors, connectors)
     ) {
       return yield* new IdentityHubClientFailed({ reason: "The identity hub gave a bad answer" });
     }
     yield* Effect.logInfo(
-      `IdentityHub.Client: ${props.app} on ${props.redirectUri} has a new client of the identity hub ${hub.issuer}.`,
+      `IdentityHub.Client: ${where(enrollment)} has a new client of the identity hub ${hub.issuer}.`,
     );
     // Only a production registration gives the app's token (RFC 7591); any other answer's is dropped.
     const production = props.deploymentType === "production";
@@ -357,7 +400,8 @@ const requestNewClient = (props: ClientProps, connectors: readonly string[], bea
       registrationAccessToken: Redacted.make(client.registration_access_token),
       registrationClientUri: client.registration_client_uri,
       deploymentType: props.deploymentType,
-      redirectUri: props.redirectUri,
+      app,
+      redirectUris,
       connectors,
       initialAccessToken: Redacted.make(production ? (client.initial_access_token ?? "") : ""),
       repository: production ? (client.repository ?? "") : "",
@@ -365,12 +409,12 @@ const requestNewClient = (props: ClientProps, connectors: readonly string[], bea
   });
 
 /** A new client, or the off values. */
-const newClient = (props: ClientProps, connectors: readonly string[]) => {
-  const label = `IdentityHub.Client: ${props.app} on ${props.redirectUri} deploys without the hub`;
+const newClient = (props: ClientProps, enrollment: Enrollment) => {
+  const label = `IdentityHub.Client: ${where(enrollment)} deploys without the hub`;
   const off = offAttributes(props.deploymentType);
   const request = (bearer: Effect.Effect<string, IdentityHubClientFailed>) =>
     bearer.pipe(
-      Effect.flatMap((token) => requestNewClient(props, connectors, token)),
+      Effect.flatMap((token) => requestNewClient(props, enrollment, token)),
       Effect.catchTag("IdentityHubClientFailed", (error) =>
         Effect.logWarning(`${label}: ${error.reason}. The next deploy asks again.`).pipe(
           Effect.as(off),
@@ -422,7 +466,7 @@ const renew = (saved: ClientAttributes, required: boolean) =>
         return undefined;
       case 403:
         yield* Effect.logWarning(
-          `IdentityHub.Client: the hub suspended the client of ${saved.redirectUri}. It keeps its values, and nobody can sign in with it.`,
+          `IdentityHub.Client: the hub suspended the client of ${where(saved)}. It keeps its values, and nobody can sign in with it.`,
         );
         return { ...saved, status: "suspended" as const };
       default:
@@ -435,11 +479,11 @@ const renew = (saved: ClientAttributes, required: boolean) =>
       required
         ? Effect.fail(
             new IdentityHubClientFailed({
-              reason: `${saved.redirectUri} is required, and the hub did not confirm its client: ${error.reason}`,
+              reason: `${where(saved)} is required, and the hub did not confirm its client: ${error.reason}`,
             }),
           )
         : Effect.logWarning(
-            `IdentityHub.Client: ${saved.redirectUri} keeps the saved client: ${error.reason}.`,
+            `IdentityHub.Client: ${where(saved)} keeps the saved client: ${error.reason}.`,
           ).pipe(Effect.as(saved)),
     ),
   );
@@ -536,37 +580,59 @@ export const ClientProvider = () =>
 
     read: ({ output }) => Effect.succeed(output),
 
-    // Only a client of the same hub (its issuer), return address, type, and connector set is
-    // renewed. A saved row without this version's shape stops the run with a fixed message.
+    // Only a client of the same hub (its issuer), app name, return address set, type, and
+    // connector set is renewed. A saved row without this version's shape stops the run with a
+    // fixed message.
     reconcile: Effect.fn(function* ({ news, output }) {
       // A bad prop is a mistake of the stack, not of the hub: the run fails, with no request.
-      if (
-        news.connectors.length === 0 ||
-        !news.connectors.every((name) => CONNECTOR_NAME.test(name))
-      ) {
+      const stack = yield* Stack;
+      const app = news.app ?? defaultApp(stack.name);
+      if (app === undefined) {
         return yield* new IdentityHubClientFailed({
-          reason: `${news.app} on ${news.redirectUri} needs connectors: one or more names of [a-z0-9-]{1,64}`,
+          reason: `the stack ${stack.name} is not named owner/repo or owner/repo/<path>, so set app`,
         });
       }
-      const connectors = connectorSet(news.connectors);
+      const enrollment: Enrollment = {
+        app,
+        connectors: sortedSet(news.connectors),
+        redirectUris: sortedSet(news.redirectUris),
+      };
+      if (
+        enrollment.connectors.length === 0 ||
+        !enrollment.connectors.every((name) => CONNECTOR_NAME.test(name))
+      ) {
+        return yield* new IdentityHubClientFailed({
+          reason: `${where(enrollment)} needs connectors: one or more names of [a-z0-9-]{1,64}`,
+        });
+      }
+      if (
+        enrollment.redirectUris.length === 0 ||
+        enrollment.redirectUris.length > MAX_REDIRECT_URIS ||
+        !enrollment.redirectUris.every((uri) => URL.canParse(uri))
+      ) {
+        return yield* new IdentityHubClientFailed({
+          reason: `${app} needs redirectUris: one to ${MAX_REDIRECT_URIS} absolute URLs`,
+        });
+      }
       const saved =
         output === undefined || output.status === "off"
           ? undefined
           : yield* savedAttributes(
               output,
-              `the saved attributes of ${news.app} on ${news.redirectUri} cannot be read by this version`,
+              `the saved attributes of ${where(enrollment)} cannot be read by this version`,
             );
       const renewed =
         saved?.issuer === news.hub.issuer &&
-        saved.redirectUri === news.redirectUri &&
+        saved.app === app &&
+        sameSet(saved.redirectUris, enrollment.redirectUris) &&
         saved.deploymentType === news.deploymentType &&
-        sameSet(saved.connectors, connectors)
+        sameSet(saved.connectors, enrollment.connectors)
           ? yield* renew(saved, news.required === true)
           : undefined;
-      const client = renewed ?? (yield* newClient(news, connectors));
+      const client = renewed ?? (yield* newClient(news, enrollment));
       if (news.required === true && client.status !== "on") {
         return yield* new IdentityHubClientFailed({
-          reason: `${news.app} on ${news.redirectUri} is required and has no working client (${client.status}). The warning above names the reason`,
+          reason: `${where(enrollment)} is required and has no working client (${client.status}). The warning above names the reason`,
         });
       }
       return client;
@@ -593,7 +659,7 @@ export const ClientProvider = () =>
           }).pipe(
             Effect.catchTag("IdentityHubClientFailed", (error) =>
               Effect.logWarning(
-                `IdentityHub.Client: the client of ${output.redirectUri} stays on the hub until its removal date: ${error.reason}.`,
+                `IdentityHub.Client: the client of ${where(output)} stays on the hub until its removal date: ${error.reason}.`,
               ),
             ),
           ),

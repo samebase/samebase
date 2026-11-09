@@ -4,7 +4,11 @@
   "client_secret": "REDACTED",
   "registration_access_token": "REDACTED",
   "registration_client_uri": "https://auth.test/register/cl_OiT6lUwdWDk56QNFZZkZVg",
-  "redirect_uri": "https://happy-otter-123.convex.site/auth/hub/callback",
-  "connectors": ["google"],
+  "redirect_uris": [
+    "https://happy-otter-123.convex.site/auth/hub/callback"
+  ],
+  "connectors": [
+    "google"
+  ],
   "terms": "https://samebase.com/terms"
 }
