@@ -229,7 +229,8 @@ export const createClient = mutation({
     /** The hub's configured connectors, the only ones a grant can open. */
     configuredConnectors: array(string()),
     app: string(),
-    redirectUri: string(),
+    /** The return addresses, each checked by the host. */
+    redirectUris: array(string()),
     softwareVersion: string(),
   },
   returns: union(
@@ -289,7 +290,7 @@ export const createClient = mutation({
       secretHash: args.secretHash,
       registrationTokenHash: args.registrationTokenHash,
       tokenEndpointAuthMethod: "client_secret_post",
-      redirectUri: args.redirectUri,
+      redirectUris: args.redirectUris,
       clientName: args.deployment.type === "production" ? "prod" : args.deployment.stage,
       softwareVersion: args.softwareVersion,
       app: args.app,
@@ -413,7 +414,8 @@ export const createDevelopmentClient = mutation({
     policyConnectors: array(string()),
     /** The hub's configured connectors, the only ones a grant can open. */
     configuredConnectors: array(string()),
-    redirectUri: string(),
+    /** The return addresses, each checked by the host. */
+    redirectUris: array(string()),
     softwareVersion: string(),
   },
   returns: union(
@@ -470,7 +472,7 @@ export const createDevelopmentClient = mutation({
       secretHash: args.secretHash,
       registrationTokenHash: args.registrationTokenHash,
       tokenEndpointAuthMethod: "client_secret_post",
-      redirectUri: args.redirectUri,
+      redirectUris: args.redirectUris,
       clientName: "development",
       softwareVersion: args.softwareVersion,
       app: token.app,

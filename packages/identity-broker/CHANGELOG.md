@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.31.0
+
+- Breaking: a client holds a list of return addresses, `redirectUris`, one to eight, sorted and
+  unique, in place of one `redirectUri`: on the `clients` row, in the body of `POST /hub-clients`,
+  in `registration.register` and `renew`, in the policy's facts, in the moderation list, and as
+  `redirect_uris` in the 201 answer and the RFC 7592 record. A deployment registers every handler
+  that receives the hub's answers, such as a sign-in callback and a connections callback, on one
+  client. Existing `clients` rows do not pass the new schema: clear the table and let every
+  deployment register again.
+- `/authorize` accepts any address of the list, exact match, and the request keeps the one it named.
+  `/token` requires `redirect_uri` for every authorization code, sign-in and resource alike, and it
+  must be the request's (RFC 6749 section 4.1.3); it was optional for a sign-in code.
+- `POST /hub-clients` verifies each distinct origin of the list with `/samebase-verification.json`,
+  refuses the whole list when one origin fails, and refuses a GitHub run's list that holds a
+  loopback address anywhere. A development client may mix loopback and verified https addresses.
+- The sign-in page names the origin of the address the request named.
+
 ## 0.30.0
 
 - `GET /moderation/clients?owner=<GitHub id>` lists the clients of every repository whose recorded

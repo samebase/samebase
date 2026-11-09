@@ -26,7 +26,7 @@ async function seed(t: ReturnType<typeof convexTest>, clients: (Fields & { clien
         appId: "app",
         secretHash: "hash",
         tokenEndpointAuthMethod: "client_secret_post",
-        redirectUri: "https://app.test/callback",
+        redirectUris: ["https://app.test/callback"],
         clientName: "test",
         softwareVersion: "test",
         registrationTokenHash: "token-hash",

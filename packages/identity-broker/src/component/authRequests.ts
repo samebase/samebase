@@ -444,7 +444,8 @@ export const exchangeCode = mutation({
     /** How the token request carried the credentials; it must be the method the client registered. */
     tokenEndpointAuthMethod: vTokenEndpointAuthMethod,
     codeHash: string(),
-    redirectUri: optional(string()),
+    /** The address the token request names, which must be the one the authorization request named (RFC 6749 section 4.1.3). */
+    redirectUri: string(),
     codeVerifier: string(),
     resource: optional(string()),
     refreshTokenHash: string(),
@@ -529,7 +530,7 @@ export const exchangeCode = mutation({
       return await exchangeResourceCode(ctx, code, {
         client,
         codeVerifier: args.codeVerifier,
-        ...(args.redirectUri === undefined ? {} : { redirectUri: args.redirectUri }),
+        redirectUri: args.redirectUri,
         ...(args.resource === undefined ? {} : { resource: args.resource }),
         allowedResources: args.policy.resources,
         refreshTokenHash: args.refreshTokenHash,
@@ -551,7 +552,7 @@ export const exchangeCode = mutation({
         description: "The authorization request is gone.",
       };
     }
-    if (args.redirectUri !== undefined && args.redirectUri !== request.redirectUri) {
+    if (args.redirectUri !== request.redirectUri) {
       return {
         ok: false,
         error: "invalid_grant",

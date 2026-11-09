@@ -27,7 +27,7 @@ async function appWith(t: ReturnType<typeof convexTest>, args: { appId: string; 
         appId: args.appId,
         secretHash: "h",
         tokenEndpointAuthMethod: "client_secret_post",
-        redirectUri: "https://app.test/cb",
+        redirectUris: ["https://app.test/cb"],
         deploymentType: "preview",
         clientName: "c",
         softwareVersion: "v",

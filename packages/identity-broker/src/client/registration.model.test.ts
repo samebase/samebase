@@ -515,7 +515,9 @@ async function playRun(
   });
   const body = {
     app: command.app,
-    redirectUri: `https://${command.app}-${proof.stage}.r${proof.repository}.example/auth/hub/callback`,
+    redirectUris: [
+      `https://${command.app}-${proof.stage}.r${proof.repository}.example/auth/hub/callback`,
+    ],
     softwareVersion: "abc123",
     connectors: [...ENROLLMENTS[command.enrollment]],
   };
@@ -645,7 +647,7 @@ async function playDevelopment(
   const before = await readRows(h);
   const response = await postHubClient(h, token.value, {
     app,
-    redirectUri,
+    redirectUris: [redirectUri],
     softwareVersion: "dev-1",
     connectors: [...ENROLLMENTS[command.enrollment]],
   });

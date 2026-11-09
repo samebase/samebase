@@ -29,6 +29,8 @@ const VERIFICATION_TIMEOUT_MS = 5_000;
 /** The file holds one id. A larger body is not this file, and the read stops at this size. */
 const MAX_VERIFICATION_BYTES = 4_096;
 const MAX_REDIRECT_URI_LENGTH = 2_048;
+/** The return addresses of one client: a handler per flow of the app, with room to spare. */
+const MAX_REDIRECT_URIS = 8;
 /** Stored on every client row. A commit hash or a version fits many times. */
 const MAX_SOFTWARE_VERSION_LENGTH = 256;
 /** The app's name is stored on every client and shown on the admin page. */
@@ -46,7 +48,8 @@ const CONNECTOR_NAME = /^[a-z0-9-]{1,64}$/;
 
 const vRequestBody = object({
   app: string(),
-  redirectUri: string(),
+  /** The return addresses: one to `MAX_REDIRECT_URIS`. Duplicates collapse; the order does not matter. */
+  redirectUris: array(string()),
   softwareVersion: string(),
   /** The enrollment: at least one connector name. Duplicates collapse; the order does not matter. */
   connectors: array(string()),
@@ -202,7 +205,10 @@ function readRedirectUri(value: string) {
     : null;
 }
 
-/** The body, if it is valid. The enrollment it names is checked by `admit`, against the policy. */
+/**
+ * The body, if it is valid: `redirectUris` sorted and unique, each parsed, with `loopback` when any
+ * of them is a loopback address. The enrollment it names is checked by `admit`, against the policy.
+ */
 async function readBody(request: Request) {
   const body: unknown = await request.json().catch(() => null);
   if (
@@ -214,8 +220,22 @@ async function readBody(request: Request) {
   ) {
     return null;
   }
-  const redirect = readRedirectUri(body.redirectUri);
-  return redirect === null ? null : { ...body, redirect };
+  const redirectUris = [...new Set(body.redirectUris)].sort();
+  if (redirectUris.length === 0 || redirectUris.length > MAX_REDIRECT_URIS) {
+    return null;
+  }
+  const redirects = redirectUris.map(readRedirectUri);
+  const parsed = redirects.filter((redirect) => redirect !== null);
+  if (parsed.length !== redirects.length) {
+    return null;
+  }
+  return {
+    ...body,
+    redirectUris,
+    /** The distinct origins of the https addresses, each of which must serve the verification file. */
+    origins: [...new Set(parsed.filter((r) => !r.loopback).map((r) => r.url.origin))],
+    loopback: parsed.some((redirect) => redirect.loopback),
+  };
 }
 
 /**
@@ -253,14 +273,14 @@ async function readSmallBody(response: Response) {
 }
 
 /**
- * Null when the origin of the return address serves `VERIFICATION_PATH` with `repositoryId`, else
- * the reason of the refusal. A redirect is never followed: the file must be on the host itself. The
- * reason never holds the body or the id that the file names.
+ * Null when `origin` serves `VERIFICATION_PATH` with `repositoryId`, else the reason of the refusal.
+ * A redirect is never followed: the file must be on the host itself. The reason never holds the body
+ * or the id that the file names.
  */
-async function verifyHost(redirectUrl: URL, repositoryId: string) {
+async function verifyHost(origin: string, repositoryId: string) {
   let text;
   try {
-    const response = await fetch(new URL(VERIFICATION_PATH, redirectUrl.origin), {
+    const response = await fetch(new URL(VERIFICATION_PATH, origin), {
       headers: { Accept: "application/json" },
       redirect: "manual",
       signal: AbortSignal.timeout(VERIFICATION_TIMEOUT_MS),
@@ -288,6 +308,17 @@ async function verifyHost(redirectUrl: URL, repositoryId: string) {
     return "verification_file_invalid";
   }
   return id === repositoryId ? null : "repository_mismatch";
+}
+
+/** Null when every origin serves the file with `repositoryId`, else the first refusal, in order. */
+async function verifyHosts(origins: string[], repositoryId: string) {
+  for (const origin of origins) {
+    const refusal = await verifyHost(origin, repositoryId);
+    if (refusal !== null) {
+      return refusal;
+    }
+  }
+  return null;
 }
 
 /** `POST /hub-clients` of a hub with `registration` in its config. */
@@ -357,7 +388,7 @@ export function hubClientsEndpoint(args: {
   /** The 201 answer: the client, its secret, and its RFC 7592 token, which go to nothing else. */
   function newClient(
     credentials: Awaited<ReturnType<typeof newClientCredentials>>,
-    body: { redirectUri: string; connectors: string[] },
+    body: { redirectUris: string[]; connectors: string[] },
   ) {
     return {
       issuer,
@@ -365,7 +396,7 @@ export function hubClientsEndpoint(args: {
       client_secret: credentials.clientSecret,
       registration_access_token: credentials.registrationAccessToken,
       registration_client_uri: credentials.registrationClientUri,
-      redirect_uri: body.redirectUri,
+      redirect_uris: body.redirectUris,
       connectors: body.connectors,
       terms: registration.terms,
     };
@@ -381,7 +412,8 @@ export function hubClientsEndpoint(args: {
       return run;
     }
     const body = await readBody(request);
-    if (body === null || body.redirect.loopback) {
+    // A run's client serves no loopback address: every address is on a verified host.
+    if (body === null || body.loopback) {
       return reply(400, { error: "invalid_request" });
     }
 
@@ -393,7 +425,7 @@ export function hubClientsEndpoint(args: {
         ownerId: run.claims.repository_owner_id,
         app: body.app,
         deploymentType: run.stage === "prod" ? "production" : "preview",
-        redirectUri: body.redirectUri,
+        redirectUris: body.redirectUris,
         proof: "github-actions",
       },
       body.connectors,
@@ -402,7 +434,7 @@ export function hubClientsEndpoint(args: {
       return admitted;
     }
     const { enrollment, policyConnectors } = admitted;
-    const refusal = await verifyHost(body.redirect.url, run.claims.repository_id);
+    const refusal = await verifyHosts(body.origins, run.claims.repository_id);
     if (refusal !== null) {
       return notAllowed(refusal);
     }
@@ -430,7 +462,7 @@ export function hubClientsEndpoint(args: {
       policyConnectors,
       configuredConnectors: args.connectors,
       app: body.app,
-      redirectUri: body.redirectUri,
+      redirectUris: body.redirectUris,
       softwareVersion: body.softwareVersion,
     });
     if (!created.ok) {
@@ -442,7 +474,7 @@ export function hubClientsEndpoint(args: {
         : notAllowed(created.reason);
     }
     return reply(201, {
-      ...newClient(credentials, { redirectUri: body.redirectUri, connectors: enrollment }),
+      ...newClient(credentials, { redirectUris: body.redirectUris, connectors: enrollment }),
       ...(initialAccessToken === null
         ? {}
         : { initial_access_token: initialAccessToken, repository: run.claims.repository_id }),
@@ -476,7 +508,7 @@ export function hubClientsEndpoint(args: {
         ownerId: token.githubOwnerId,
         app: token.app,
         deploymentType: "development",
-        redirectUri: body.redirectUri,
+        redirectUris: body.redirectUris,
         proof: "initial-access-token",
       },
       body.connectors,
@@ -485,11 +517,10 @@ export function hubClientsEndpoint(args: {
       return admitted;
     }
     const { enrollment, policyConnectors } = admitted;
-    if (!body.redirect.loopback) {
-      const refusal = await verifyHost(body.redirect.url, token.githubRepositoryDatabaseId);
-      if (refusal !== null) {
-        return notAllowed(refusal);
-      }
+    // A loopback address needs no file; each https origin does.
+    const refusal = await verifyHosts(body.origins, token.githubRepositoryDatabaseId);
+    if (refusal !== null) {
+      return notAllowed(refusal);
     }
 
     const credentials = await newClientCredentials(issuer);
@@ -505,7 +536,7 @@ export function hubClientsEndpoint(args: {
       connectors: enrollment,
       policyConnectors,
       configuredConnectors: args.connectors,
-      redirectUri: body.redirectUri,
+      redirectUris: body.redirectUris,
       softwareVersion: body.softwareVersion,
     });
     if (!created.ok) {
@@ -518,7 +549,7 @@ export function hubClientsEndpoint(args: {
     }
     return reply(
       201,
-      newClient(credentials, { redirectUri: body.redirectUri, connectors: enrollment }),
+      newClient(credentials, { redirectUris: body.redirectUris, connectors: enrollment }),
     );
   }
 

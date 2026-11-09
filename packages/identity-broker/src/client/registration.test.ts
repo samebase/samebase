@@ -68,7 +68,7 @@ async function registerHere(
     secretHash: credentials.secretHash,
     registrationTokenHash: credentials.registrationTokenHash,
     tokenEndpointAuthMethod: "client_secret_post",
-    redirectUri: REDIRECT_URI,
+    redirectUris: [REDIRECT_URI],
     clientName: "pr-1",
     softwareVersion: "abc123",
     app: args.app ?? "app",
@@ -183,6 +183,7 @@ async function redeem(
       code_verifier: args.verifier,
       client_id: args.clientId,
       client_secret: args.clientSecret,
+      redirect_uri: REDIRECT_URI,
     }).toString(),
   });
 }
@@ -609,7 +610,7 @@ describe("the policy", () => {
       ownerId: "65",
       app: "app",
       deploymentType: "production",
-      redirectUri: REDIRECT_URI,
+      redirectUris: [REDIRECT_URI],
       proof: "github-actions",
     });
     expect(seen[1]).toEqual(seen[0]);
@@ -746,6 +747,7 @@ describe("what a redemption does at once", () => {
       clientSecretHash: await sha256Hex(client.client_secret),
       tokenEndpointAuthMethod: "client_secret_post",
       codeHash: await sha256Hex(code),
+      redirectUri: REDIRECT_URI,
       codeVerifier: verifier,
       policy: {
         ownerId: "65",

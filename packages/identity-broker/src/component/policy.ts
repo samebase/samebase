@@ -21,7 +21,8 @@ export const vRegistration = object({
   ownerId: string(),
   app: string(),
   deploymentType: vDeploymentType,
-  redirectUri: string(),
+  /** The client's return addresses, sorted and unique. */
+  redirectUris: array(string()),
   proof: union(literal("github-actions"), literal("initial-access-token")),
 });
 
@@ -61,7 +62,7 @@ export async function registrationOf(ctx: QueryCtx, client: Doc<"clients">, app:
     ownerId: tenant.ownerId,
     app: client.app,
     deploymentType: client.deploymentType,
-    redirectUri: client.redirectUri,
+    redirectUris: client.redirectUris,
     proof:
       client.registeredBy.kind === "github"
         ? ("github-actions" as const)

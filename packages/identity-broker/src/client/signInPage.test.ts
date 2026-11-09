@@ -69,7 +69,7 @@ async function signIn(h: Harness, client: NewClient) {
   const url = new URL(`${h.issuer}/authorize`);
   url.search = new URLSearchParams({
     client_id: client.client_id,
-    redirect_uri: client.redirect_uri,
+    redirect_uri: client.redirect_uris[0] ?? "",
     response_type: "code",
     scope: "openid email profile",
     state: "client-state",
@@ -311,7 +311,7 @@ describe("the exemptions from the sign-in page", () => {
 
     expect(back.status).toBe(302);
     const location = new URL(back.headers.get("location") ?? "");
-    expect(location.origin + location.pathname).toBe(client.redirect_uri);
+    expect(location.origin + location.pathname).toBe(client.redirect_uris[0] ?? "");
     expect(location.searchParams.get("code")).toEqual(expect.any(String));
     expect((await signIn(h, client)).went).toBe("page");
   });

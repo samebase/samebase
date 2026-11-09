@@ -155,13 +155,16 @@ describe("token", () => {
     ).toMatchObject({ ok: false, status: 401, error: "invalid_client" });
   });
 
-  test("authorization_code only, with a verifier", () => {
+  test("authorization_code only, with a verifier and the redirect URI", () => {
     const client = { clientId: "a", clientSecret: "b", method: "client_secret_post" as const };
     const verifier = "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk";
-    const ok = validateTokenRequest(
-      new URLSearchParams({ grant_type: "authorization_code", code: "c", code_verifier: verifier }),
-      client,
-    );
+    const request = {
+      grant_type: "authorization_code",
+      code: "c",
+      code_verifier: verifier,
+      redirect_uri: "https://app.test/cb",
+    };
+    const ok = validateTokenRequest(new URLSearchParams(request), client);
     expect(ok.ok).toBe(true);
     const refresh = validateTokenRequest(
       new URLSearchParams({ grant_type: "refresh_token", refresh_token: "r" }),
@@ -170,9 +173,14 @@ describe("token", () => {
     expect(refresh.ok).toBe(false);
     if (!refresh.ok) expect(refresh.error).toBe("unsupported_grant_type");
     const short = validateTokenRequest(
-      new URLSearchParams({ grant_type: "authorization_code", code: "c", code_verifier: "short" }),
+      new URLSearchParams({ ...request, code_verifier: "short" }),
       client,
     );
     expect(short.ok).toBe(false);
+    // RFC 6749 section 4.1.3: every authorization request here names one, so the exchange must too.
+    const { redirect_uri: _, ...withoutRedirect } = request;
+    const missing = validateTokenRequest(new URLSearchParams(withoutRedirect), client);
+    expect(missing.ok).toBe(false);
+    if (!missing.ok) expect(missing.description).toMatch(/redirect_uri/);
   });
 });

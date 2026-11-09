@@ -17,10 +17,12 @@ const verifier = "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk";
 const CONNECTORS = ["g", "github", "google"];
 
 /** What the token endpoint passes for client "cl", registered for client_secret_post. */
+/** The client's credentials and the return address every request of these tests names. */
 const cl = {
   clientId: "cl",
   clientSecretHash: "secret-hash",
   tokenEndpointAuthMethod: "client_secret_post",
+  redirectUri: "https://app.test/cb",
 } as const;
 
 /** The host's decision for "cl" when its policy allows everything it enrolled in. */
@@ -50,7 +52,7 @@ async function registered(expires = false) {
       secretHash: cl.clientSecretHash,
       registrationTokenHash: "token-hash",
       tokenEndpointAuthMethod: cl.tokenEndpointAuthMethod,
-      redirectUri: "https://app.test/cb",
+      redirectUris: ["https://app.test/cb"],
       deploymentType: "preview",
       clientName: "App preview",
       softwareVersion: "v1",
@@ -220,6 +222,7 @@ describe("upstream path", () => {
       t.mutation(api.authRequests.exchangeCode, {
         refreshTokenHash: "unused-for-identity",
         ...credentials,
+        redirectUri: "https://app.test/cb",
         codeHash: "ch",
         codeVerifier: verifier,
         policy: decision,

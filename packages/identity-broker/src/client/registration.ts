@@ -64,7 +64,7 @@ function clientInformation(args: {
   issuer: string;
   clientId: string;
   createdAt: number;
-  redirectUri: string;
+  redirectUris: string[];
   clientName: string;
   softwareId: string;
   softwareVersion: string;
@@ -76,7 +76,7 @@ function clientInformation(args: {
     client_id_issued_at: Math.floor(args.createdAt / 1000),
     client_secret_expires_at: 0,
     registration_client_uri: `${args.issuer}/register/${args.clientId}`,
-    redirect_uris: [args.redirectUri],
+    redirect_uris: args.redirectUris,
     client_name: args.clientName,
     software_id: args.softwareId,
     software_version: args.softwareVersion,
@@ -146,7 +146,7 @@ export function registrationEndpoints(args: {
         issuer,
         clientId: target.clientId,
         createdAt: result.createdAt,
-        redirectUri: result.redirectUri,
+        redirectUris: result.redirectUris,
         clientName: result.clientName,
         softwareId: result.appId,
         softwareVersion: result.softwareVersion,

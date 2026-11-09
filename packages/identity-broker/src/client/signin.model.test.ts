@@ -374,7 +374,7 @@ async function registerClient(
   const redirectUri = `https://app-a-${spec.stage}.r${spec.repository}.example/auth/hub/callback`;
   const response = await postHubClient(h, proof.token, {
     app: "app-a",
-    redirectUri,
+    redirectUris: [redirectUri],
     softwareVersion: "abc123",
     connectors: [...spec.connectors],
   });
