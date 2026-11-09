@@ -61,6 +61,7 @@ const ISSUED_AT = 1_800_000_000_000;
 
 const overview = {
   status: "on",
+  issuer: "https://auth.example.test",
   counts: { day: { count: 3, atLeast: false }, week: { count: 1_000, atLeast: true } },
   blockList: {
     blocks: [
@@ -261,7 +262,7 @@ describe("AdminHubClientsPage", () => {
     const page = await renderPage();
     try {
       expect(page.rootElement.textContent).toContain(
-        "3 registrations in the last day, 1000+ in the last week.",
+        "https://auth.example.test: 3 registrations in the last day, 1000+ in the last week.",
       );
       const rows = rowTexts(page.rootElement);
       expect(rows).toHaveLength(5);
@@ -378,10 +379,52 @@ describe("AdminHubClientsPage", () => {
       });
 
       expect(testState.changeBlock).toHaveBeenCalledWith({
+        hub: "samebase",
         action: "unblock",
         kind: "repository",
         githubId: "74",
         reason: "Fixed",
+      });
+    } finally {
+      await page.unmount();
+    }
+  });
+
+  it("reads and changes the public hub after the switch, and drops the other hub's form", async () => {
+    const page = await renderPage();
+    try {
+      expect(testState.readOverview).toHaveBeenLastCalledWith({ hub: "samebase" });
+      await act(async () => button(page.rootElement, "Blocks 1").click());
+      await act(async () =>
+        type(page.rootElement, "#admin-hub-clients-reason", "Typed for samebase"),
+      );
+      testState.readOverview.mockResolvedValue({ ...overview, issuer: "https://id.example.test" });
+      await act(async () => button(page.rootElement, "Public hub").click());
+      // The public hub's view mounts, asks, and renders the answer over a few ticks.
+      await vi.waitFor(async () => {
+        await act(async () => await new Promise((resolve) => setTimeout(resolve, 0)));
+        expect(page.rootElement.textContent).toContain("https://id.example.test: 3 registrations");
+      });
+
+      expect(testState.readOverview).toHaveBeenLastCalledWith({ hub: "public" });
+      await act(async () => button(page.rootElement, "Blocks 1").click());
+      expect(
+        page.rootElement.querySelector<HTMLInputElement>("#admin-hub-clients-reason")?.value,
+      ).toBe("");
+      await act(async () => {
+        type(page.rootElement, "#admin-hub-clients-github-id", "74");
+        type(page.rootElement, "#admin-hub-clients-reason", "Spam");
+      });
+      await act(async () => {
+        button(page.rootElement, "Block").click();
+        await Promise.resolve();
+      });
+      expect(testState.changeBlock).toHaveBeenLastCalledWith({
+        hub: "public",
+        action: "block",
+        kind: "repository",
+        githubId: "74",
+        reason: "Spam",
       });
     } finally {
       await page.unmount();
@@ -409,6 +452,7 @@ describe("AdminHubClientsPage", () => {
         await Promise.resolve();
       });
       expect(testState.changeSignInPage).toHaveBeenLastCalledWith({
+        hub: "samebase",
         target: { scope: "every_app" },
         skip: true,
         reason: "Launch week",
@@ -423,6 +467,7 @@ describe("AdminHubClientsPage", () => {
       });
       // The row's owner, so a row that no longer counts can go too.
       expect(testState.changeSignInPage).toHaveBeenLastCalledWith({
+        hub: "samebase",
         target: { scope: "repository", repositoryId: "81", expectedOwnerId: "90" },
         skip: false,
         reason: "Done",
@@ -443,6 +488,7 @@ describe("AdminHubClientsPage", () => {
         await new Promise((resolve) => setTimeout(resolve, 0));
       });
       expect(testState.lookupRepository).toHaveBeenLastCalledWith({
+        hub: "samebase",
         fullName: "octocat/hello-world",
       });
       expect(document.querySelector("[role=dialog]")?.textContent).toContain(
@@ -456,6 +502,7 @@ describe("AdminHubClientsPage", () => {
         await Promise.resolve();
       });
       expect(testState.changeSignInPage).toHaveBeenLastCalledWith({
+        hub: "samebase",
         target: { scope: "repository", repositoryId: "555", expectedOwnerId: "66" },
         skip: true,
         reason: "Ours",
@@ -507,6 +554,7 @@ describe("AdminHubClientsPage", () => {
       });
       await act(async () => await new Promise((resolve) => setTimeout(resolve, 0)));
       expect(testState.changeSignInPage).toHaveBeenLastCalledWith({
+        hub: "samebase",
         target: { scope: "repository", repositoryId: "74", expectedOwnerId: "65" },
         skip: true,
         reason: "Known",
@@ -567,6 +615,7 @@ describe("AdminHubClientsPage", () => {
       await act(async () => await new Promise((resolve) => setTimeout(resolve, 0)));
       expect(testState.changeConnectorGrant).toHaveBeenCalledTimes(1);
       expect(testState.changeConnectorGrant).toHaveBeenLastCalledWith({
+        hub: "samebase",
         repositoryId: "74",
         connector: "google",
         expectedOwnerId: "65",
@@ -745,6 +794,7 @@ describe("AdminHubClientsPage", () => {
         await Promise.resolve();
       });
       expect(testState.changeConnectorGrant).toHaveBeenLastCalledWith({
+        hub: "samebase",
         repositoryId: "81",
         connector: "google",
         expectedOwnerId: "90",
@@ -790,6 +840,7 @@ describe("AdminHubClientsPage", () => {
       await act(async () => type(document.body, "#admin-hub-clients-connectors-reason", "Ours"));
       await submitConnectorsDialog();
       expect(testState.changeConnectorGrant).toHaveBeenLastCalledWith({
+        hub: "samebase",
         repositoryId: "555",
         connector: "google",
         expectedOwnerId: "66",

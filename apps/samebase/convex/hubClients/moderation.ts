@@ -1,3 +1,4 @@
+import { notEmpty } from "@samebase/dependent/main";
 import { validate } from "convex-helpers/validators";
 import { v, type Infer, type Validator } from "convex/values";
 
@@ -142,20 +143,36 @@ const vChangeResult = object({ changed: boolean() });
 const vOff = object({ status: literal("off") });
 
 /**
-The hub's moderation endpoints, or null while `IDENTITY_HUB_MODERATION_KEY` is unset: the admin page then
-says that moderation is off. The key can only read registration counts, clients, blocks,
+The two identity hubs: `samebase`, samebase.com's own (IDENTITY_HUB_ISSUER, which also signs
+samebase.com in, with its connections and the connector grants), and `public`, where apps made from
+the starter sign in (PUBLIC_IDENTITY_HUB_ISSUER, deployed from samebase/identity-hub).
+*/
+const vHub = union(literal("samebase"), literal("public"));
+type Hub = Infer<typeof vHub>;
+const HUBS: readonly Hub[] = ["samebase", "public"];
+
+type Moderation = { hub: Hub; issuer: string; key: string };
+
+/**
+A hub's moderation endpoints, or null while its key is unset: the admin page then says that
+moderation of that hub is off. The key can only read registration counts, clients, blocks,
 exemptions from the sign-in page, and connector grants, set blocks, exemptions, and grants, and
 delete clients at the hub. samebase.com decides who may use it: an admin for every app, a member of
-an organization for the clients of its connected repositories.
+an organization for the clients of its connected repositories. The hub comes from this fixed pair,
+never from a caller's URL, so no request can send a key to another host.
 */
-function readModeration() {
-  const key = env.IDENTITY_HUB_MODERATION_KEY?.trim();
-  return key ? { issuer: env.IDENTITY_HUB_ISSUER, key } : null;
+function readModeration(hub: Hub): Moderation | null {
+  const [issuer, key] =
+    hub === "samebase"
+      ? [env.IDENTITY_HUB_ISSUER, env.IDENTITY_HUB_MODERATION_KEY]
+      : [env.PUBLIC_IDENTITY_HUB_ISSUER, env.PUBLIC_IDENTITY_HUB_MODERATION_KEY];
+  const trimmed = key?.trim();
+  return issuer && trimmed ? { hub, issuer, key: trimmed } : null;
 }
 
 /** One request to a moderation endpoint, with the key. */
 async function fetchHub(
-  moderation: { issuer: string; key: string },
+  moderation: Moderation,
   request: { method: "GET" | "POST" | "DELETE"; path: string; body?: unknown },
 ): Promise<Response> {
   return await fetch(`${moderation.issuer}${request.path}`, {
@@ -171,7 +188,7 @@ async function fetchHub(
 
 /** The validated answer of one moderation endpoint. A refusal or a bad answer throws. */
 async function callHub<T>(
-  moderation: { issuer: string; key: string },
+  moderation: Moderation,
   request: {
     method: "GET" | "POST" | "DELETE";
     path: string;
@@ -189,16 +206,17 @@ async function callHub<T>(
 
 /**
 The registration counts of the last day and week, the blocks, the newest block events, the
-newest clients of every app at the hub, each with who made it, the exemptions from the hub's
+newest clients of every app at one hub, each with who made it, the exemptions from the hub's
 sign-in page, and the connector grants.
 */
 export const readOverview = action({
   access: "access_admin",
-  args: {},
+  args: { hub: vHub },
   returns: union(
     vOff,
     object({
       status: literal("on"),
+      issuer: string(),
       counts: vCounts,
       blockList: vBlockList,
       clientList: vClientList,
@@ -206,8 +224,8 @@ export const readOverview = action({
       connectorGrants: vConnectorGrantList,
     }),
   ),
-  handler: async () => {
-    const moderation = readModeration();
+  handler: async (_ctx, args) => {
+    const moderation = readModeration(args.hub);
     if (moderation === null) {
       return { status: "off" as const };
     }
@@ -227,7 +245,15 @@ export const readOverview = action({
         validator: vConnectorGrantList,
       }),
     ]);
-    return { status: "on" as const, counts, blockList, clientList, signInPage, connectorGrants };
+    return {
+      status: "on" as const,
+      issuer: moderation.issuer,
+      counts,
+      blockList,
+      clientList,
+      signInPage,
+      connectorGrants,
+    };
   },
 });
 
@@ -239,14 +265,14 @@ registered.
 */
 export const lookupRepository = action({
   access: "access_admin",
-  args: { fullName: string() },
+  args: { hub: vHub, fullName: string() },
   returns: union(
     vOff,
     object({ status: literal("not_found") }),
     object({ status: literal("found"), repositoryId: string(), ownerId: string(), name: string() }),
   ),
   handler: async (_ctx, args) => {
-    const moderation = readModeration();
+    const moderation = readModeration(args.hub);
     if (moderation === null) {
       return { status: "off" as const };
     }
@@ -313,6 +339,7 @@ have. A revoke removes the row of the owner it names.
 export const changeConnectorGrant = action({
   access: "access_admin",
   args: {
+    hub: vHub,
     repositoryId: string(),
     connector: string(),
     expectedOwnerId: string(),
@@ -332,7 +359,7 @@ export const changeConnectorGrant = action({
     }),
   ),
   handler: async (ctx, args) => {
-    const moderation = readModeration();
+    const moderation = readModeration(args.hub);
     if (moderation === null) {
       return { status: "off" as const };
     }
@@ -376,7 +403,7 @@ owner, in the name of the signed-in admin. A skip names the owner that the admin
 */
 export const changeSignInPage = action({
   access: "access_admin",
-  args: { target: vSignInPageTarget, skip: boolean(), reason: string() },
+  args: { hub: vHub, target: vSignInPageTarget, skip: boolean(), reason: string() },
   returns: union(
     vOff,
     object({
@@ -385,7 +412,7 @@ export const changeSignInPage = action({
     }),
   ),
   handler: async (ctx, args) => {
-    const moderation = readModeration();
+    const moderation = readModeration(args.hub);
     if (moderation === null) {
       return { status: "off" as const };
     }
@@ -420,10 +447,10 @@ refuses a change without a reason or with an id that is not a GitHub id.
 */
 export const changeBlock = action({
   access: "access_admin",
-  args: { action: vBlockAction, kind: vBlockKind, githubId: string(), reason: string() },
+  args: { hub: vHub, action: vBlockAction, kind: vBlockKind, githubId: string(), reason: string() },
   returns: union(vOff, object({ status: literal("on"), changed: boolean() })),
   handler: async (ctx, args) => {
-    const moderation = readModeration();
+    const moderation = readModeration(args.hub);
     if (moderation === null) {
       return { status: "off" as const };
     }
@@ -472,45 +499,55 @@ export const readOrganizationRepositoryIds = internalQuery({
   },
 });
 
+/** A client of an organization's repository, with the hub that holds it. */
+const vOrganizationClient = object({ ...vClient.fields, hub: vHub });
+
+/** The hubs whose moderation key is set. */
+const readModerations = () => HUBS.map(readModeration).filter(notEmpty);
+
+/** The clients of an organization's connected repositories at every hub of `moderations`. */
 async function readOrganizationClients(
   ctx: Pick<ActionCtx, "runQuery">,
-  moderation: { issuer: string; key: string },
+  moderations: readonly Moderation[],
   args: { userId: Id<"users">; organizationId: Id<"organizations"> },
-): Promise<Infer<typeof vClient>[]> {
+): Promise<Infer<typeof vOrganizationClient>[]> {
   const repositoryIds = await ctx.runQuery(
     internal.hubClients.moderation.readOrganizationRepositoryIds,
     { userId: args.userId, organizationId: args.organizationId },
   );
   const clients = [];
-  for (let start = 0; start < repositoryIds.length; start += REPOSITORIES_PER_REQUEST) {
-    const query = repositoryIds
-      .slice(start, start + REPOSITORIES_PER_REQUEST)
-      .map((repositoryId) => `repository=${repositoryId}`)
-      .join("&");
-    const answer = await callHub(moderation, {
-      method: "GET",
-      path: `/moderation/clients?${query}`,
-      validator: vRepositoryClients,
-    });
-    clients.push(...answer.clients);
+  for (const moderation of moderations) {
+    for (let start = 0; start < repositoryIds.length; start += REPOSITORIES_PER_REQUEST) {
+      const query = repositoryIds
+        .slice(start, start + REPOSITORIES_PER_REQUEST)
+        .map((repositoryId) => `repository=${repositoryId}`)
+        .join("&");
+      const answer = await callHub(moderation, {
+        method: "GET",
+        path: `/moderation/clients?${query}`,
+        validator: vRepositoryClients,
+      });
+      clients.push(...answer.clients.map((client) => ({ ...client, hub: moderation.hub })));
+    }
   }
   return clients.sort((a, b) => b.createdAt - a.createdAt || a.clientId.localeCompare(b.clientId));
 }
 
 /**
-The hub's clients of an organization's connected repositories, for a member, newest first, each
-with who made it.
+The clients of an organization's connected repositories at both hubs, for a member, newest first,
+each with who made it: an app that moved to the public hub keeps showing its old clients until they
+are deleted.
 */
 export const readClientsOfOrganization = action({
   access: "access_dashboard",
   args: { organizationId: id("organizations") },
-  returns: union(vOff, object({ status: literal("on"), clients: array(vClient) })),
+  returns: union(vOff, object({ status: literal("on"), clients: array(vOrganizationClient) })),
   handler: async (ctx, args) => {
-    const moderation = readModeration();
-    if (moderation === null) {
+    const moderations = readModerations();
+    if (moderations.length === 0) {
       return { status: "off" as const };
     }
-    const clients = await readOrganizationClients(ctx, moderation, {
+    const clients = await readOrganizationClients(ctx, moderations, {
       userId: ctx.viewer.userId,
       organizationId: args.organizationId,
     });
@@ -519,24 +556,26 @@ export const readClientsOfOrganization = action({
 });
 
 /**
-Deletes one client of an organization's repositories at the hub. The client must be in the
-organization's list, so a member can delete only the clients of repositories they may see. The
-deployment that held it gets a new client at its next deploy.
+Deletes one client of an organization's repositories, at the hub that holds it. The client must be
+in the organization's list, so a member can delete only the clients of repositories they may see.
+The deployment that held it gets a new client at its next deploy.
 */
 export const deleteClientOfOrganization = action({
   access: "access_app_create",
   args: { organizationId: id("organizations"), clientId: string() },
   returns: union(vOff, object({ status: literal("on"), changed: boolean() })),
   handler: async (ctx, args) => {
-    const moderation = readModeration();
-    if (moderation === null) {
+    const moderations = readModerations();
+    if (moderations.length === 0) {
       return { status: "off" as const };
     }
-    const clients = await readOrganizationClients(ctx, moderation, {
+    const clients = await readOrganizationClients(ctx, moderations, {
       userId: ctx.viewer.userId,
       organizationId: args.organizationId,
     });
-    if (!clients.some((client) => client.clientId === args.clientId)) {
+    const client = clients.find((candidate) => candidate.clientId === args.clientId);
+    const moderation = moderations.find((candidate) => candidate.hub === client?.hub);
+    if (moderation === undefined) {
       return { status: "on" as const, changed: false };
     }
     const { changed } = await callHub(moderation, {
