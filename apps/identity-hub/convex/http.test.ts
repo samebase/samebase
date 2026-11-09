@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import {
+  grantConnectors,
   makeConvexTest,
   MODERATION_KEY,
   postHubClient,
@@ -21,36 +22,31 @@ afterEach(() => {
 describe("the hub", () => {
   it("answers a production registration with the enrollment, the terms, and the app's initial access token", async () => {
     const t = makeConvexTest();
-    stubProviders();
+    stubProviders("1021726325");
 
-    const response = await postHubClient(t, await signToken());
+    const response = await postHubClient(
+      t,
+      await signToken({ repository_id: "1021726325", repository_owner_id: "285392744" }),
+    );
 
     expect(response.status).toBe(201);
     expect(await response.json()).toMatchObject({
-      connectors: ["github-apps", "google-apps"],
+      connectors: ["github", "google"],
       terms: "https://samebase.com/terms",
       initial_access_token: expect.any(String),
     });
   });
 
-  it("offers four connectors, and names the public pair to a registration that asks for another", async () => {
+  it("offers two connectors, and none to a repository that the admin granted nothing", async () => {
     const t = makeConvexTest();
     stubProviders();
 
     const discovery = await t.fetch("/.well-known/openid-configuration");
-    const response = await postHubClient(t, await signToken(), { connectors: ["okta"] });
+    const response = await postHubClient(t, await signToken());
 
-    expect((await discovery.json()).connectors_supported).toEqual([
-      "google",
-      "github",
-      "google-apps",
-      "github-apps",
-    ]);
+    expect((await discovery.json()).connectors_supported).toEqual(["google", "github"]);
     expect(response.status).toBe(400);
-    expect(await response.json()).toEqual({
-      error: "invalid_connectors",
-      allowed: ["github-apps", "google-apps"],
-    });
+    expect(await response.json()).toEqual({ error: "invalid_connectors", allowed: [] });
   });
 
   it("gives the operator every connector, and an app the private one that the admin grants it", async () => {
@@ -65,10 +61,7 @@ describe("the hub", () => {
 
     const stranger = await postHubClient(t, await signToken(), { connectors: ["google"] });
     expect(stranger.status).toBe(400);
-    expect(await stranger.json()).toEqual({
-      error: "invalid_connectors",
-      allowed: ["github-apps", "google-apps"],
-    });
+    expect(await stranger.json()).toEqual({ error: "invalid_connectors", allowed: [] });
     stubProviders("1021726325");
     const operator = await postHubClient(
       t,
@@ -96,6 +89,7 @@ describe("the hub", () => {
     const t = makeConvexTest();
     vi.stubEnv("APPS_PAUSED", "true");
     stubProviders();
+    await grantConnectors(t, REPOSITORY_ID, ["google", "github"]);
 
     const stranger = await postHubClient(t, await signToken());
     stubProviders("1021726325");
@@ -121,9 +115,10 @@ describe("the hub", () => {
 
   it("shows the page to every app, samebase.com's production included, until the admin exempts it", async () => {
     const t = makeConvexTest();
-    vi.stubEnv("GOOGLE_APPS_CLIENT_ID", "google-client");
-    vi.stubEnv("GOOGLE_APPS_CLIENT_SECRET", "google-secret");
+    vi.stubEnv("GOOGLE_CLIENT_ID", "google-client");
+    vi.stubEnv("GOOGLE_CLIENT_SECRET", "google-secret");
     stubProviders();
+    await grantConnectors(t, REPOSITORY_ID, ["google", "github"]);
     const stranger: { client_id: string } = await (
       await postHubClient(t, await signToken())
     ).json();
@@ -156,7 +151,7 @@ describe("the hub", () => {
           scope: "openid email profile",
           code_challenge: "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM",
           code_challenge_method: "S256",
-          connector: "google-apps",
+          connector: "google",
         }).toString()}`,
       );
     // The connector's first hop reads Google's discovery document: its endpoints, read 2026-11-07.
@@ -202,11 +197,13 @@ describe("the hub", () => {
 
   it("skips the page for a repository or every app that the admin exempts, and GitHub shows its account picker", async () => {
     const t = makeConvexTest();
-    vi.stubEnv("GOOGLE_APPS_CLIENT_ID", "google-client");
-    vi.stubEnv("GOOGLE_APPS_CLIENT_SECRET", "google-secret");
-    vi.stubEnv("AUTH_GITHUB_APPS_CLIENT_ID", "github-client");
-    vi.stubEnv("AUTH_GITHUB_APPS_CLIENT_SECRET", "github-secret");
+    vi.stubEnv("GOOGLE_CLIENT_ID", "google-client");
+    vi.stubEnv("GOOGLE_CLIENT_SECRET", "google-secret");
+    vi.stubEnv("AUTH_GITHUB_CLIENT_ID", "github-client");
+    vi.stubEnv("AUTH_GITHUB_CLIENT_SECRET", "github-secret");
     stubProviders();
+    await grantConnectors(t, REPOSITORY_ID, ["google", "github"]);
+    await grantConnectors(t, "75", ["google", "github"]);
     const trusted = await (await postHubClient(t, await signToken())).json();
     stubProviders("75");
     const other = await (await postHubClient(t, await signToken({ repository_id: "75" }))).json();
@@ -260,15 +257,15 @@ describe("the hub", () => {
     );
 
     // The page shows by default; the broker skips it for the exempt repository only.
-    expect((await signIn(trusted, "google-apps")).status).toBe(302);
-    expect((await signIn(other, "google-apps")).status).toBe(200);
+    expect((await signIn(trusted, "google")).status).toBe(302);
+    expect((await signIn(other, "google")).status).toBe(200);
     await moderation("/moderation/sign-in-page", {
       target: { scope: "every_app" },
       skip: true,
       reason: "Launch week",
       adminEmail: "nicu@samebase.com",
     });
-    const github = await signIn(other, "github-apps");
+    const github = await signIn(other, "github");
     expect(github.status).toBe(302);
     const location = new URL(github.headers.get("location") ?? "");
     expect(location.origin + location.pathname).toBe("https://github.com/login/oauth/authorize");

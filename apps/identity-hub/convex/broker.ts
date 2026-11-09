@@ -34,22 +34,18 @@ const samebase = (registration: Registration) =>
   registration.repositoryId === SAMEBASE_REPOSITORY_ID &&
   registration.ownerId === SAMEBASE_OWNER_ID;
 
-/** The public clients named "Samebase", which every app may use. */
-const PUBLIC_CONNECTORS = ["google-apps", "github-apps"] as const;
-
 export const broker = defineIdentityBroker({
   component: components.identityBroker,
   issuer,
   keys: () => env.IDENTITY_BROKER_KEYS,
-  // Two clients per provider (RFC 137 decision 10). `google` and `github` are the operator's
-  // private clients: samebase.com's own sign-in, and the apps that the admin grants them to on
-  // samebase.com's admin page. `google-apps` and `github-apps` are the public clients named
-  // "Samebase", for every app. A user's `sub` comes from the provider, so it is `google:<id>` or
-  // `github:<id>` through either client of a provider. Each one asks the provider for its account
-  // screen on every sign-in: an earlier app of this hub must not pass a user through to another app
-  // with no click. Add a provider by appending its wrapper, with the credentials read from the
-  // deployment's env, and register `<issuer>/connectors/<name>/callback` with it. The policy below
-  // can name only these connectors: a misspelt one does not compile.
+  // The operator's private clients: samebase.com's own sign-in, and the repositories that the admin
+  // grants them to on samebase.com's admin page. Every other app signs in at the public hub,
+  // id.samebase.com (samebase/identity-hub). A user's `sub` comes from the provider, `google:<id>`
+  // or `github:<id>`, the same at both hubs. Each one asks the provider for its account screen on
+  // every sign-in: an earlier app of this hub must not pass a user through to another app with no
+  // click. Add a provider by appending its wrapper, with the credentials read from the deployment's
+  // env, and register `<issuer>/connectors/<name>/callback` with it. The policy below can name only
+  // these connectors: a misspelt one does not compile.
   connectors: [
     google({
       clientId: () => env.GOOGLE_CLIENT_ID,
@@ -59,18 +55,6 @@ export const broker = defineIdentityBroker({
     github({
       clientId: () => env.AUTH_GITHUB_CLIENT_ID,
       clientSecret: () => env.AUTH_GITHUB_CLIENT_SECRET,
-      selectAccount: true,
-    }),
-    google({
-      name: "google-apps",
-      clientId: () => env.GOOGLE_APPS_CLIENT_ID,
-      clientSecret: () => env.GOOGLE_APPS_CLIENT_SECRET,
-      selectAccount: true,
-    }),
-    github({
-      name: "github-apps",
-      clientId: () => env.AUTH_GITHUB_APPS_CLIENT_ID,
-      clientSecret: () => env.AUTH_GITHUB_APPS_CLIENT_SECRET,
       selectAccount: true,
     }),
   ],
@@ -97,12 +81,10 @@ export const broker = defineIdentityBroker({
     moderationKey: () => env.IDENTITY_HUB_MODERATION_KEY,
     // The policy of RFC 137 decision 9.
     policy: (registration) => ({
-      // The operator gets every connector in code, so no admin mistake can lock samebase.com out.
-      // Every other app gets the public pair; the admin grants a private connector to a repository
-      // on samebase.com's admin page, and the broker adds it (RFC 137 decision 10).
-      connectors: samebase(registration)
-        ? ["google", "github", ...PUBLIC_CONNECTORS]
-        : PUBLIC_CONNECTORS,
+      // The operator gets both connectors in code, so no admin mistake can lock samebase.com out.
+      // Every other repository gets none, so it cannot register, unless the admin grants it one on
+      // samebase.com's admin page and the broker adds it (RFC 137 decision 10).
+      connectors: samebase(registration) ? ["google", "github"] : [],
       // The app that holds users' Cloudflare, Convex, and GitHub connections, proven by the
       // samebase repository and owner. Its sign-in app and every other app get none.
       resources:

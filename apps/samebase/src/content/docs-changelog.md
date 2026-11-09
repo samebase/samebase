@@ -3,6 +3,15 @@
 What changed in Samebase, newest first. Each `v` number is the Samebase version that shipped the
 change. If a change needs action from you, the entry says so.
 
+## 2026-11-09
+
+- **v2318: Apps made from samebase/base sign in at the public hub.** Apps now sign in at
+  `id.samebase.com`, deployed from the template
+  [samebase/identity-hub](https://github.com/samebase/identity-hub). `auth.samebase.com` is
+  samebase.com's own hub, and its `google-apps` and `github-apps` are gone, so an app made before
+  today has no sign-in until `alchemy.run.ts` names the new hub. Users keep their accounts. Ask your
+  agent to apply the starter changelog, or follow its v2318 entry. New apps have it from the start.
+
 ## 2026-11-08
 
 - **v2310: Apps made from samebase/base need one update.** The identity hub now takes a deploy's

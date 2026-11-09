@@ -26,6 +26,11 @@
 - Amended on 2026-11-09 (broker 0.29.0): grants and exemptions belong to a repository and an owner,
   not to an app. They cover every app of the repository, and the admin can set them before it ever
   registers (decisions 5 and 10).
+- Amended on 2026-11-09 (v2318): two hubs. Apps sign in at the public hub `id.samebase.com`,
+  deployed unchanged from the template samebase/identity-hub, with connectors `google` and `github`.
+  `auth.samebase.com` keeps samebase.com, its API resources, and the grants; `google-apps` and
+  `github-apps` are gone, and its policy gives other repositories no connector, so only a grant
+  opens it. The rest of this RFC describes the one hub before that day.
 - Owner: Nicu Chiciuc
 - Supersedes, once accepted: the hub model of RFC 130 (registration without an account), RFC 133
   (development clients with the initial access token), RFC 134 (one path, own apps by repository),

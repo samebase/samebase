@@ -13,7 +13,7 @@
 //
 // Every run needs the team token CONVEX_ACCESS_TOKEN, or a Convex CLI login (`npx convex login`)
 // on a development machine; it mints the deploy key itself. Every run also reads the Google and
-// GitHub client ids and secrets and hands them to the deployment, for the four connectors: no
+// GitHub client ids and secrets and hands them to the deployment, for the two connectors: no
 // connector variable is ever set by hand. IDENTITY_BROKER_KEYS is not in `env`: it stays on the
 // deployment, and the `deploy` script stops when it is missing.
 import { execFileSync } from "node:child_process";
@@ -62,10 +62,6 @@ export default Alchemy.Stack(
       GOOGLE_CLIENT_SECRET: yield* Config.Redacted("GOOGLE_CLIENT_SECRET"),
       AUTH_GITHUB_CLIENT_ID: yield* Config.String("AUTH_GITHUB_CLIENT_ID"),
       AUTH_GITHUB_CLIENT_SECRET: yield* Config.Redacted("AUTH_GITHUB_CLIENT_SECRET"),
-      GOOGLE_APPS_CLIENT_ID: yield* Config.String("GOOGLE_APPS_CLIENT_ID"),
-      GOOGLE_APPS_CLIENT_SECRET: yield* Config.Redacted("GOOGLE_APPS_CLIENT_SECRET"),
-      AUTH_GITHUB_APPS_CLIENT_ID: yield* Config.String("AUTH_GITHUB_APPS_CLIENT_ID"),
-      AUTH_GITHUB_APPS_CLIENT_SECRET: yield* Config.Redacted("AUTH_GITHUB_APPS_CLIENT_SECRET"),
       PROVIDER_CONVEX_OAUTH_CLIENT_ID: yield* Config.String("PROVIDER_CONVEX_OAUTH_CLIENT_ID"),
       PROVIDER_CONVEX_OAUTH_CLIENT_SECRET: yield* Config.Redacted(
         "PROVIDER_CONVEX_OAUTH_CLIENT_SECRET",
