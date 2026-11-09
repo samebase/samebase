@@ -1,15 +1,15 @@
 # identity-hub
 
-The sign-in hub of Samebase on [Convex](https://convex.dev): the code of the production deployment
-of the project `identity-hub`. It mounts `identityBroker` from
-[`@samebase/identity-broker`](../../packages/identity-broker), holds the public Google and GitHub
-clients of Samebase once, and signs users in to every app that registers with it, samebase.com and
-apps built with Samebase alike. It also brokers Convex, Cloudflare, and GitHub API authorization for
-samebase.com. It keeps no user accounts; each app creates its own user from the `id_token` it gets.
+samebase.com's own sign-in hub on [Convex](https://convex.dev), at `auth.samebase.com`: the code of
+the production deployment of the project `identity-hub`. It mounts `identityBroker` from
+[`@samebase/identity-broker`](../../packages/identity-broker), holds Samebase's private Google and
+GitHub clients, and signs users in to samebase.com and to the repositories that the admin grants a
+connector. It also brokers Convex, Cloudflare, and GitHub API authorization for samebase.com. It
+keeps no user accounts; each app creates its own user from the `id_token` it gets.
 
-This folder holds no secrets. The values of the team are the constants in `alchemy.run.ts` and the
-connectors, API resources, and policy in `convex/broker.ts`, so a copy of it with other values runs
-another team's hub. To start one, ask your agent to copy this folder.
+Every other app signs in at the public hub, `id.samebase.com`, deployed unchanged from the template
+[samebase/identity-hub](https://github.com/samebase/identity-hub). To run a hub of your own, use
+that template, not this folder.
 
 ## Deploy
 
@@ -25,10 +25,8 @@ stack skips the push when nothing of the hub changed. Pull requests run the chec
 1. Set `CONVEX_ACCESS_TOKEN`, the team's Convex access token, as a repository secret. The run mints
    the deploy key with it. In the GitHub environment `identity-hub`, which only `main` can use, set
    `GOOGLE_CLIENT_ID` with `GOOGLE_CLIENT_SECRET` and `AUTH_GITHUB_CLIENT_ID` with
-   `AUTH_GITHUB_CLIENT_SECRET`, the operator's private Google client and GitHub OAuth App;
-   `GOOGLE_APPS_CLIENT_ID` with `GOOGLE_APPS_CLIENT_SECRET` and `AUTH_GITHUB_APPS_CLIENT_ID` with
-   `AUTH_GITHUB_APPS_CLIENT_SECRET`, the public Google client and GitHub OAuth App named "Samebase";
-   and `PROVIDER_CONVEX_OAUTH_CLIENT_ID` with `PROVIDER_CONVEX_OAUTH_CLIENT_SECRET` and
+   `AUTH_GITHUB_CLIENT_SECRET`, the operator's private Google client and GitHub OAuth App; and
+   `PROVIDER_CONVEX_OAUTH_CLIENT_ID` with `PROVIDER_CONVEX_OAUTH_CLIENT_SECRET` and
    `PROVIDER_CLOUDFLARE_OAUTH_CLIENT_ID` with `PROVIDER_CLOUDFLARE_OAUTH_CLIENT_SECRET`, and
    `PROVIDER_GITHUB_APP_CLIENT_ID` with `PROVIDER_GITHUB_APP_CLIENT_SECRET`, the team's API OAuth
    applications. Register `https://auth.samebase.com/connections/convex/callback`,
@@ -62,19 +60,17 @@ reads the issuer from the reply of its registration, so it needs no setting of i
 
 ## Connectors
 
-`convex/broker.ts` lists four, two per provider:
+`convex/broker.ts` lists two:
 
-| Connector     | Credentials                                  | Callback                                   |
-| ------------- | -------------------------------------------- | ------------------------------------------ |
-| `google`      | The operator's private Google client         | `<issuer>/connectors/google/callback`      |
-| `github`      | The operator's private GitHub OAuth App      | `<issuer>/connectors/github/callback`      |
-| `google-apps` | The public Google client named "Samebase"    | `<issuer>/connectors/google-apps/callback` |
-| `github-apps` | The public GitHub OAuth App named "Samebase" | `<issuer>/connectors/github-apps/callback` |
+| Connector | Credentials                             | Callback                              |
+| --------- | --------------------------------------- | ------------------------------------- |
+| `google`  | The operator's private Google client    | `<issuer>/connectors/google/callback` |
+| `github`  | The operator's private GitHub OAuth App | `<issuer>/connectors/github/callback` |
 
 The variables are the repository secrets of setup step 1, which the stack hands to the deployment.
 Each connector always asks the provider for its account screen. A user's `sub` comes from the
-provider, so it is `google:<id>` through `google` and through `google-apps` alike; an app that
-switches between them keeps its users. Another provider is one more wrapper line, its variables
+provider, `google:<id>` or `github:<id>`, the same at this hub and at the public one, so an app that
+moves between them keeps its users. Another provider is one more wrapper line, its variables
 declared in `convex/convex.config.ts` and handed down the same way, and a name in the policy's
 `connectors`.
 
@@ -91,7 +87,7 @@ const client =
     app: "my-app",
     redirectUri: Output.interpolate`${deployment.siteUrl}/auth/hub/callback`,
     deploymentType: stage === "prod" ? "production" : "preview",
-    connectors: ["google-apps", "github-apps"],
+    connectors: ["google", "github"],
   });
 ```
 
@@ -104,9 +100,9 @@ client reads and deletes its own record at `/register/<client>`, and the broker 
 
 `connectors` is the client's enrollment: the connectors its sign-ins may use, which the policy
 intersects at each sign-in and which never changes on a client. The policy in `convex/broker.ts`
-gives the operator, the samebase repository under the samebase organization, every connector in
-code, so no mistake on the admin page can lock samebase.com out, and every other registration the
-public pair, `google-apps` and `github-apps`. It gives the API resources to the
+gives the operator, the samebase repository under the samebase organization, both connectors in
+code, so no mistake on the admin page can lock samebase.com out, and every other registration none:
+a repository registers here only with a grant. It gives the API resources to the
 `samebase-connections` app of the samebase repository alone, and pauses every app but samebase.com's
 production while `APPS_PAUSED` is `true`. Connectors… on a client's menu in samebase.com's admin
 page, or Grant a repository on its Connector grants tab, grants a repository a private connector

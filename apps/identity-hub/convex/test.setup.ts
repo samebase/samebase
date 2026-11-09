@@ -109,9 +109,36 @@ export async function postHubClient(
       app: "my-app",
       redirectUri: PRODUCTION_CALLBACK,
       softwareVersion: "abc123",
-      // The public pair, which every app may use.
-      connectors: ["google-apps", "github-apps"],
+      connectors: ["google", "github"],
       ...body,
     }),
   });
+}
+
+/**
+The admin grants connectors to a repository of owner 65 on samebase.com's admin page: the only way a
+repository other than samebase/samebase can register.
+*/
+export async function grantConnectors(
+  t: ConvexTest,
+  repositoryId: string,
+  connectors: readonly string[],
+): Promise<void> {
+  for (const connector of connectors) {
+    const response = await t.fetch("/moderation/connector-grants", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${MODERATION_KEY}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        repositoryId,
+        connector,
+        expectedOwnerId: "65",
+        grant: true,
+        reason: "A team we know",
+        adminEmail: "nicu@samebase.com",
+      }),
+    });
+    if (!response.ok) {
+      throw new Error(`The grant of ${connector} answered ${response.status}.`);
+    }
+  }
 }

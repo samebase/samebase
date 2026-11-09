@@ -4,19 +4,18 @@ A Convex app that mounts the identity-broker component: the sign-in hub of one t
 Each component's own rules live in its repository.
 
 - `convex/broker.ts` is the whole hub config: the connectors (the operator's private `google` and
-  `github`, and the public `google-apps` and `github-apps`), the API providers (OAuth code and
-  refresh grants, not login identities), the name, the terms, the privacy notice, the moderation
-  key, the policy of RFC 137 (every connector for the operator and the public pair for every other
-  app, the API resources, and the pause of `APPS_PAUSED`), and the admin functions for
-  `npx convex run broker:<name>`. The admin's connector grants and sign-in page exemptions are
-  broker rows, set on samebase.com's admin page. A connector that needs credentials also gets its
-  variables declared in `convex/convex.config.ts`, in `alchemy.run.ts`, and in
-  `.github/workflows/identity-hub.yml`. Add its secrets to the `identity-hub` environment before the
-  merge: GitHub passes a missing secret as an empty string, which no check catches. `convex/http.ts`
-  mounts the broker, which also mounts `POST /hub-clients` and `/moderation/*`; `convex/crons.ts`
-  runs the cleanup. Every table and rule is in the broker package (RFC 135): the hub has no schema.
-  `convex/http.test.ts` checks this wiring (`convex/test.setup.ts`); the rules' tests are in the
-  package.
+  `github`), the API providers (OAuth code and refresh grants, not login identities), the name, the
+  terms, the privacy notice, the moderation key, the policy of RFC 137 (both connectors for the
+  operator and none for any other repository unless the admin grants one, the API resources, and the
+  pause of `APPS_PAUSED`), and the admin functions for `npx convex run broker:<name>`. The admin's
+  connector grants and sign-in page exemptions are broker rows, set on samebase.com's admin page. A
+  connector that needs credentials also gets its variables declared in `convex/convex.config.ts`, in
+  `alchemy.run.ts`, and in `.github/workflows/identity-hub.yml`. Add its secrets to the
+  `identity-hub` environment before the merge: GitHub passes a missing secret as an empty string,
+  which no check catches. `convex/http.ts` mounts the broker, which also mounts `POST /hub-clients`
+  and `/moderation/*`; `convex/crons.ts` runs the cleanup. Every table and rule is in the broker
+  package (RFC 135): the hub has no schema. `convex/http.test.ts` checks this wiring
+  (`convex/test.setup.ts`); the rules' tests are in the package.
 - `alchemy.run.ts` is the stack `samebase/samebase/apps/identity-hub` (adopted project, adopted
   production deployment, push); `scripts/check-keys.ts` checks the key set inside the `deploy`
   script the push runs and never creates it; `scripts/init-keys.ts` creates it once, by hand.

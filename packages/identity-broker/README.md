@@ -14,13 +14,12 @@ client at deploy time and never touches GitHub or Google.
 ## Start from our hub
 
 A hub is a small Convex app that mounts this component.
-[`apps/identity-hub`](https://github.com/samebase/samebase/tree/main/apps/identity-hub) is the hub
-we run in production, and it is also the example: there is no separate template. To run your own,
-copy that folder and change the values in `alchemy.run.ts` and `convex/broker.ts`, or ask your agent
-to do it. Its [README](https://github.com/samebase/samebase/blob/main/apps/identity-hub/README.md)
-has the deploy steps. An app from the Samebase starter asks for the connectors `google-apps` and
-`github-apps`, so give your hub's connectors those names (`google({ name: "google-apps", ... })`),
-and give the app's `IdentityHub.Client` your hub as `hub: { issuer, terms }`.
+[`apps/identity-hub`](https://github.com/samebase/samebase/tree/main/apps/identity-hub) is
+samebase.com's own hub. To run your own, use the template
+[samebase/identity-hub](https://github.com/samebase/identity-hub), which Samebase runs unchanged as
+its public hub; its README has the deploy steps. An app from the Samebase starter asks for the
+connectors `google` and `github`, and its `IdentityHub.Client` takes your hub as
+`hub: { issuer, terms }`.
 
 ## What it is
 

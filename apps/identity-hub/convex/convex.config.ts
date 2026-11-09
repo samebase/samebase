@@ -25,18 +25,6 @@ const app = defineApp({
      */
     AUTH_GITHUB_CLIENT_ID: v.string(),
     AUTH_GITHUB_CLIENT_SECRET: v.string(),
-    /**
-     * The public Google OAuth client named "Samebase", the connector `google-apps`, for every app.
-     * Its redirect URIs include `<issuer>/connectors/google-apps/callback`.
-     */
-    GOOGLE_APPS_CLIENT_ID: v.string(),
-    GOOGLE_APPS_CLIENT_SECRET: v.string(),
-    /**
-     * The public GitHub OAuth App named "Samebase", the connector `github-apps`, for every app,
-     * whose callback is `<issuer>/connectors/github-apps/callback`.
-     */
-    AUTH_GITHUB_APPS_CLIENT_ID: v.string(),
-    AUTH_GITHUB_APPS_CLIENT_SECRET: v.string(),
     /** OAuth applications whose fixed callbacks are at this hub's /connections/<name>/callback. */
     PROVIDER_CONVEX_OAUTH_CLIENT_ID: v.string(),
     PROVIDER_CONVEX_OAUTH_CLIENT_SECRET: v.string(),
