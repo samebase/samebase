@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.39.0
+
+- Breaking: `IdentityHub.Client` takes `redirectUris`, a list of one to eight return addresses, in
+  place of `redirectUri`. One client serves every handler of the deployment that receives the hub's
+  answers. The hub records the set for good: a changed set registers a new client, as a changed
+  connector set does. The attributes hold `redirectUris` and `app`; a row saved by an earlier
+  version cannot be read, so the cut-over resets the client rows of each stack with the hub's
+  `clients` table (identity-broker 0.31.0).
+- `app` is optional. Its default is the stack's path in the repository, `apps/samebase` for the
+  stack `samebase/samebase/apps/samebase`, and `app` for a stack named after the repository, which
+  is the name the starter has used all along. A stack whose name is not `owner/repo` or
+  `owner/repo/<path>` must set `app`. A changed name registers a new client under the new name; an
+  earlier version renewed the old client.
+- `IdentityHub.defaultApp(stackName)` is exported, for tooling that must name the app.
+
 ## 0.38.0
 
 - `IdentityHub.Hub` is `{ issuer }`. The stack no longer names the hub's terms, and the answer of a
