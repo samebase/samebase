@@ -39,6 +39,7 @@ afterEach(() => {
   vi.useRealTimers();
   vi.unstubAllGlobals();
   vi.unstubAllEnvs();
+  vi.restoreAllMocks();
 });
 
 const OPERATOR_REPOSITORY = "81";
@@ -383,6 +384,40 @@ describe("the connector grants", () => {
     expect(back.origin + back.pathname).toBe(client.redirect_uris[0] ?? "");
     expect(back.searchParams.get("code")).toBeNull();
     expect(back.searchParams.get("error")).toEqual(expect.any(String));
+  });
+
+  it("log a sign-in with its connector, and the sign-in that the revoked grant turns off", async () => {
+    const h = await createHub({ policy: hubPolicy });
+    await skipSignInPage(h);
+    await registered(h, ["fake"]);
+    await changeGrant(h, { grant: true });
+    const client = await registered(h, ["fake", "other"]);
+    const info = vi.spyOn(console, "info").mockImplementation(() => undefined);
+
+    const { response, verifier } = await signIn(h, client, "other");
+    const back = await finish(h, response);
+    const exchanged = await h.fetchBroker(`${h.issuer}/token`, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        grant_type: "authorization_code",
+        code: back.searchParams.get("code") ?? "",
+        code_verifier: verifier,
+        client_id: client.client_id,
+        client_secret: client.client_secret,
+        redirect_uri: client.redirect_uris[0] ?? "",
+      }).toString(),
+    });
+    expect(exchanged.status).toBe(200);
+    await changeGrant(h, { grant: false });
+    expect((await signIn(h, client, "other")).went).toBe("status 403");
+
+    const line = (event: string, connector: string | null, reason: string | null) =>
+      `hub_event ${JSON.stringify({ event, repository: "octo-org/octo-repo", app: "my-app", deployment: "production", connector, reason })}`;
+    expect(info.mock.calls).toEqual([
+      [line("sign_in", "other", null)],
+      [line("sign_in_refused", null, "off")],
+    ]);
   });
 
   it("refuse the code exchange when the grant goes after the code", async () => {

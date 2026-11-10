@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.32.0
+
+- The broker writes one console line, `hub_event` and a JSON object, for each sign-in that ends with
+  tokens at `/token`, each sign-in that a block, the policy, or a limit refuses at `/authorize`, and
+  each answer to `POST /hub-clients` once the hub knows the repository. The object has `event`
+  (`sign_in`, `sign_in_refused`, `registration`, `registration_refused`), `repository`, `app`,
+  `deployment`, `connector`, and `reason`: for a refused sign-in `suspended`, `off`, `unavailable`,
+  `paused`, or `rate_limited`, for a refused registration the rule that a 403 names, else its error.
+  The line names no user, token, or return address. A log stream of the deployment, such as PostHog
+  Logs, carries it out of Convex.
+
 ## 0.31.0
 
 - Breaking: a client holds a list of return addresses, `redirectUris`, one to eight, sorted and

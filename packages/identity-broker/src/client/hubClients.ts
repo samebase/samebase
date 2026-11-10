@@ -4,6 +4,7 @@ import { v } from "convex/values";
 import { base64url, createLocalJWKSet, errors as joseErrors, jwtVerify } from "jose";
 import type { ComponentApi } from "../component/_generated/component.js";
 import { usableNames } from "../component/connectorRule.js";
+import { logHubEvent } from "./hubEvents.js";
 import { evaluate, type Registration } from "./policy.js";
 import { newClientCredentials, type RegistrationConfig } from "./registration.js";
 import { sha256Hex } from "./subject.js";
@@ -14,7 +15,7 @@ import { sha256Hex } from "./subject.js";
 // got. The hub's policy decides what the registration may enroll in. The rows and the rules that
 // read them are in src/component/hubClients.ts.
 
-const { array, number, object, string, union } = v;
+const { array, number, object, optional, string, union } = v;
 
 type Ctx = GenericActionCtx<GenericDataModel>;
 
@@ -68,6 +69,31 @@ function reply(status: number, body: Record<string, string | string[]>): Respons
 /** The reason names a rule of this endpoint and never holds provider text. */
 function notAllowed(reason: string): Response {
   return reply(403, { error: "not_allowed", reason });
+}
+
+/** The body of every refusal that `reply` and `notAllowed` make. */
+const vRefusal = object({ error: string(), reason: optional(string()) });
+
+/**
+ * The answer to a registration with `facts`, after its `hub_event` line. A refusal's reason is the
+ * rule that a 403 names, else its error. The body of a 201 holds the client's secrets, so it is not
+ * read.
+ */
+async function logged(facts: Registration, response: Response) {
+  if (response.status === 201) {
+    logHubEvent({ event: "registration", facts, connector: null, reason: null });
+    return response;
+  }
+  const body: unknown = await response.clone().json();
+  logHubEvent({
+    event: "registration_refused",
+    facts,
+    connector: null,
+    reason: validate(vRefusal, body, { allowUnknownFields: true })
+      ? (body.reason ?? body.error)
+      : String(response.status),
+  });
+  return response;
 }
 
 // The GitHub Actions proof. Everything after `readRun` works on GitHub's ids, so a second proof
@@ -417,26 +443,23 @@ export function hubClientsEndpoint(args: {
       return reply(400, { error: "invalid_request" });
     }
 
-    const admitted = await admit(
-      ctx,
-      {
-        repositoryId: run.claims.repository_id,
-        repository: run.claims.repository,
-        ownerId: run.claims.repository_owner_id,
-        app: body.app,
-        deploymentType: run.stage === "prod" ? "production" : "preview",
-        redirectUris: body.redirectUris,
-        proof: "github-actions",
-      },
-      body.connectors,
-    );
+    const facts: Registration = {
+      repositoryId: run.claims.repository_id,
+      repository: run.claims.repository,
+      ownerId: run.claims.repository_owner_id,
+      app: body.app,
+      deploymentType: run.stage === "prod" ? "production" : "preview",
+      redirectUris: body.redirectUris,
+      proof: "github-actions",
+    };
+    const admitted = await admit(ctx, facts, body.connectors);
     if (admitted instanceof Response) {
-      return admitted;
+      return await logged(facts, admitted);
     }
     const { enrollment, policyConnectors } = admitted;
     const refusal = await verifyHosts(body.origins, run.claims.repository_id);
     if (refusal !== null) {
-      return notAllowed(refusal);
+      return await logged(facts, notAllowed(refusal));
     }
 
     const credentials = await newClientCredentials(issuer);
@@ -467,18 +490,24 @@ export function hubClientsEndpoint(args: {
     });
     if (!created.ok) {
       if (created.reason === "invalid_connectors") {
-        return grantRevoked(created.allowed);
+        return await logged(facts, grantRevoked(created.allowed));
       }
-      return created.reason === "new_owners"
-        ? reply(429, { error: "rate_limited", window: "new_owners" })
-        : notAllowed(created.reason);
+      return await logged(
+        facts,
+        created.reason === "new_owners"
+          ? reply(429, { error: "rate_limited", window: "new_owners" })
+          : notAllowed(created.reason),
+      );
     }
-    return reply(201, {
-      ...newClient(credentials, { redirectUris: body.redirectUris, connectors: enrollment }),
-      ...(initialAccessToken === null
-        ? {}
-        : { initial_access_token: initialAccessToken, repository: run.claims.repository_id }),
-    });
+    return await logged(
+      facts,
+      reply(201, {
+        ...newClient(credentials, { redirectUris: body.redirectUris, connectors: enrollment }),
+        ...(initialAccessToken === null
+          ? {}
+          : { initial_access_token: initialAccessToken, repository: run.claims.repository_id }),
+      }),
+    );
   }
 
   /**
@@ -500,27 +529,24 @@ export function hubClientsEndpoint(args: {
       return notAllowed("app_mismatch");
     }
 
-    const admitted = await admit(
-      ctx,
-      {
-        repositoryId: token.githubRepositoryDatabaseId,
-        repository: token.githubRepository,
-        ownerId: token.githubOwnerId,
-        app: token.app,
-        deploymentType: "development",
-        redirectUris: body.redirectUris,
-        proof: "initial-access-token",
-      },
-      body.connectors,
-    );
+    const facts: Registration = {
+      repositoryId: token.githubRepositoryDatabaseId,
+      repository: token.githubRepository,
+      ownerId: token.githubOwnerId,
+      app: token.app,
+      deploymentType: "development",
+      redirectUris: body.redirectUris,
+      proof: "initial-access-token",
+    };
+    const admitted = await admit(ctx, facts, body.connectors);
     if (admitted instanceof Response) {
-      return admitted;
+      return await logged(facts, admitted);
     }
     const { enrollment, policyConnectors } = admitted;
     // A loopback address needs no file; each https origin does.
     const refusal = await verifyHosts(body.origins, token.githubRepositoryDatabaseId);
     if (refusal !== null) {
-      return notAllowed(refusal);
+      return await logged(facts, notAllowed(refusal));
     }
 
     const credentials = await newClientCredentials(issuer);
@@ -541,15 +567,21 @@ export function hubClientsEndpoint(args: {
     });
     if (!created.ok) {
       if (created.reason === "invalid_connectors") {
-        return grantRevoked(created.allowed);
+        return await logged(facts, grantRevoked(created.allowed));
       }
-      return created.reason === "invalid_token"
-        ? reply(401, { error: "invalid_token" })
-        : notAllowed(created.reason);
+      return await logged(
+        facts,
+        created.reason === "invalid_token"
+          ? reply(401, { error: "invalid_token" })
+          : notAllowed(created.reason),
+      );
     }
-    return reply(
-      201,
-      newClient(credentials, { redirectUris: body.redirectUris, connectors: enrollment }),
+    return await logged(
+      facts,
+      reply(
+        201,
+        newClient(credentials, { redirectUris: body.redirectUris, connectors: enrollment }),
+      ),
     );
   }
 
