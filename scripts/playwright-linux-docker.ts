@@ -8,7 +8,7 @@ import { parsePositiveInteger } from "../apps/samebase/dev/appBuildMetadata.ts";
 import { fail, isMainModule, resolveRepoRoot, runMain } from "./lib/scriptRuntime.ts";
 import { samebaseAppFilePath, trackedFilePath } from "./lib/trackedFilePath.ts";
 
-const DEFAULT_IMAGE = "mcr.microsoft.com/playwright:v1.58.2-noble";
+const DEFAULT_IMAGE = "mcr.microsoft.com/playwright:v1.64.1-resolute";
 const DEFAULT_OUT_DIR = ".tmp/playwright-linux";
 const DEFAULT_PNPM_STORE_VOLUME = "samebase-playwright-linux-pnpm-store";
 const DEFAULT_CONVEX_CACHE_VOLUME = "samebase-playwright-linux-convex-cache";
@@ -21,8 +21,20 @@ const shellPlaywrightConfigArgs = "${playwright_config_args[@]}";
 
 const CONTAINER_SCRIPT = String.raw`set -euo pipefail
 
-corepack enable
-corepack prepare pnpm@12.14.0 --activate >/dev/null
+# The image ships Node 26, which Convex local Node actions do not run on. Install the .nvmrc major,
+# as CI does with actions/setup-node, checked against the release's SHASUMS256.txt.
+node_dist="https://nodejs.org/dist/latest-v$(cat /src/.nvmrc).x"
+node_arch="$(dpkg --print-architecture | sed 's/amd64/x64/')"
+(
+  cd /tmp
+  curl -fsSLO "$node_dist/SHASUMS256.txt"
+  node_file="$(grep -o "node-v[0-9.]*-linux-$node_arch.tar.gz" SHASUMS256.txt)"
+  curl -fsSLO "$node_dist/$node_file"
+  grep " $node_file\$" SHASUMS256.txt | sha256sum -c - >/dev/null
+  tar -xzf "$node_file" -C /usr/local --strip-components=1
+)
+hash -r
+npm install --global pnpm@12.14.0 >/dev/null
 
 rm -rf /work
 mkdir -p /work

@@ -16,7 +16,7 @@
     "moduleDetection": "force",
     "paths": {
       "@/*": ["./src/*"],
-      "react/jsx-runtime": ["./node_modules/@types/react/jsx-runtime.d.ts"]
+      "react/jsx-runtime": ["./node_modules/@types/react/jsx-runtime"]
     },
     "sourceMap": true,
     "inlineSources": true

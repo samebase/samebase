@@ -84,7 +84,7 @@
     "@convex-dev/eslint-plugin": "5.0.0",
     "@edge-runtime/vm": "^5.0.0",
     "@oxlint/plugins": "1.88.0",
-    "@playwright/test": "1.58.2",
+    "@playwright/test": "1.64.1",
     "@remotion/eslint-plugin": "4.0.535",
     "@samebase/dependent": "workspace:*",
     "@typescript/native-preview": "7.0.0-dev.20260707.2",

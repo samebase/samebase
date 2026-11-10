@@ -81,8 +81,9 @@ Reports are written locally after each run:
   works.
 - `PLAYWRIGHT_LINUX_PLATFORM=linux/amd64` runs the x86_64/emulated container. Use it only for
   one-off diagnostics, not for accepted screenshot baselines.
-- `PLAYWRIGHT_LINUX_IMAGE=mcr.microsoft.com/playwright:v1.58.2-noble` pins the Playwright browser
-  image. Keep this aligned with `@playwright/test`.
+- `PLAYWRIGHT_LINUX_IMAGE=mcr.microsoft.com/playwright:v1.64.1-resolute` pins the Playwright browser
+  image. Keep this aligned with `@playwright/test`, and keep its Ubuntu release the one of
+  `ubuntu-latest`, which runs the CI Playwright job.
 - `PLAYWRIGHT_LINUX_OUT=.tmp/playwright-linux` changes the report output directory.
 - `PLAYWRIGHT_LINUX_WORKERS=8` runs a higher-concurrency stress diagnostic when the command does not
   pass `--workers` / `-j`. Do not use this as the normal acceptance command.
