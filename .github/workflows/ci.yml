@@ -360,7 +360,9 @@ jobs:
 
   playwright:
     name: playwright (${{ matrix.shard }})
-    runs-on: ubuntu-latest
+    # Playwright 1.58.2 cannot install Chromium on ubuntu-latest (Ubuntu 26.04). 24.04 is the
+    # system of the -noble image that the identity broker pages job uses.
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     needs: supply_chain
     # Keep heavy browser coverage off PRs for now so branch validation stays
