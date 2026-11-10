@@ -1,5 +1,9 @@
 # identity-broker
 
+[![Convex component](https://img.shields.io/badge/Convex_component-identity--broker-8D2676)](https://www.convex.dev/components/samebase/identity-broker)
+[![npm](https://img.shields.io/npm/v/@samebase/identity-broker)](https://www.npmjs.com/package/@samebase/identity-broker)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue)](./LICENSE)
+
 An OpenID Provider that runs on [Convex](https://convex.dev). One deployment holds a team's sign-in
 connections once, such as Google and GitHub, and signs users in to many small apps. The broker keeps
 no user accounts and no sessions: every sign-in goes upstream again, and each app creates its own
