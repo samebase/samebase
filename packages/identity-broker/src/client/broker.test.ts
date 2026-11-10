@@ -1342,43 +1342,48 @@ describe("cleanup", () => {
     expect(left.map((row) => row.sub)).toEqual(["recent"]);
   });
 
-  test("one call drains more expired requests than the 51 batches 0.4.0 stopped after", async () => {
-    const h = await createHarness({ connectors: [fakeUpstream().connector] });
-    vi.useFakeTimers();
-    const now = Date.now();
-    const request = {
-      status: "pending",
-      appId: "a",
-      clientId: "c",
-      redirectUri: REDIRECT_URI,
-      scope: "openid",
-      codeChallenge: "c",
-      freshLogin: false,
-      txnCookieHash: "h",
-      createdAt: now - 600_000,
-    } as const;
-    await h.t.run(async (ctx) => {
-      // 0.4.0 ran the first batch and at most 50 continuations, 200 rows each.
-      for (let row = 0; row < 51 * 200 + 1; row++) {
+  // 10,201 rows: 2.6 s on a CI runner, and 5.6 s and 6.0 s on slower ones, past the 5 s default.
+  test(
+    "one call drains more expired requests than the 51 batches 0.4.0 stopped after",
+    { timeout: 20_000 },
+    async () => {
+      const h = await createHarness({ connectors: [fakeUpstream().connector] });
+      vi.useFakeTimers();
+      const now = Date.now();
+      const request = {
+        status: "pending",
+        appId: "a",
+        clientId: "c",
+        redirectUri: REDIRECT_URI,
+        scope: "openid",
+        codeChallenge: "c",
+        freshLogin: false,
+        txnCookieHash: "h",
+        createdAt: now - 600_000,
+      } as const;
+      await h.t.run(async (ctx) => {
+        // 0.4.0 ran the first batch and at most 50 continuations, 200 rows each.
+        for (let row = 0; row < 51 * 200 + 1; row++) {
+          await ctx.db.insert("authRequests", {
+            ...request,
+            connectors: ["fake"],
+            requestId: `r-${row}`,
+            expiresAt: now - 1,
+          });
+        }
         await ctx.db.insert("authRequests", {
           ...request,
           connectors: ["fake"],
-          requestId: `r-${row}`,
-          expiresAt: now - 1,
+          requestId: "live",
+          expiresAt: now + 1,
         });
-      }
-      await ctx.db.insert("authRequests", {
-        ...request,
-        connectors: ["fake"],
-        requestId: "live",
-        expiresAt: now + 1,
       });
-    });
-    await h.t.mutation(api.lifecycle.cleanup, { now, signInRetentionMs: 90 * 86_400_000 });
-    await h.t.finishAllScheduledFunctions(vi.runAllTimers);
-    const left = await h.t.run(async (ctx) => await ctx.db.query("authRequests").collect());
-    expect(left.map((row) => row.requestId)).toEqual(["live"]);
-  });
+      await h.t.mutation(api.lifecycle.cleanup, { now, signInRetentionMs: 90 * 86_400_000 });
+      await h.t.finishAllScheduledFunctions(vi.runAllTimers);
+      const left = await h.t.run(async (ctx) => await ctx.db.query("authRequests").collect());
+      expect(left.map((row) => row.requestId)).toEqual(["live"]);
+    },
+  );
 });
 
 /** The id_token and the `/userinfo` answer of one completed sign-in with `scope`. */
