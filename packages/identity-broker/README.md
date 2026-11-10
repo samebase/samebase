@@ -1,6 +1,6 @@
 # identity-broker
 
-[![Convex component](https://img.shields.io/badge/Convex_component-identity--broker-8D2676)](https://www.convex.dev/components/samebase/identity-broker)
+[![Convex Component](https://www.convex.dev/components/badge/samebase/identity-broker)](https://www.convex.dev/components/samebase/identity-broker)
 [![npm](https://img.shields.io/npm/v/@samebase/identity-broker)](https://www.npmjs.com/package/@samebase/identity-broker)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue)](./LICENSE)
 
