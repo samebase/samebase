@@ -72,7 +72,7 @@
     "@samebase/convex-auth-tanstack-start": "0.1.2",
     "@samebase/convex-cloudflare-email-inbox": "0.3.0",
     "@samebase/convex-cloudflare-email-inbox-ui": "0.1.0",
-    "@samebase/convex-hosting": "0.13.1",
+    "@samebase/convex-hosting": "0.15.0",
     "@samebase/convex-hosting-tanstack-start": "0.11.0",
     "@samebase/dependent": "workspace:*",
     "@samebase/git-editor": "workspace:*",

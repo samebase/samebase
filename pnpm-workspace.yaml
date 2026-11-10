@@ -101,6 +101,7 @@ trustPolicyExclude:
   # First-party: convex-hosting moved from staged approval to trusted publishing with provenance on
   # merge (samebase/convex-hosting#125), which pnpm ranks below the staged releases before it.
   - "@samebase/convex-hosting-tanstack-start@0.11.0"
+  - "@samebase/convex-hosting@0.15.0"
 audit:
   ignore:
     # TODO(2026-10-17): Remove once braces publishes a fix. No patched release

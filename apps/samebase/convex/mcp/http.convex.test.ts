@@ -23,9 +23,13 @@ import {
 // t.fetch loads convex/http.ts, which imports these modules that only a build and a deploy write.
 // Vitest keys the mock of a missing file by its import string, so also mock the http.ts spelling.
 vi.mock("../../dist/server/server.js", () => ({ default: { fetch: async () => new Response() } }));
-vi.mock("../../.convex-hosting/version.js", () => ({ versionId: "test" }));
+vi.mock("../../.convex-hosting/version.js", () => ({
+  assets: { format: 1, versionId: "test", markToken: "test", files: null },
+}));
 vi.mock("../dist/server/server.js", () => ({ default: { fetch: async () => new Response() } }));
-vi.mock("../.convex-hosting/version.js", () => ({ versionId: "test" }));
+vi.mock("../.convex-hosting/version.js", () => ({
+  assets: { format: 1, versionId: "test", markToken: "test", files: null },
+}));
 
 function mcpRequestHeaders(args: {
   accessToken?: string;

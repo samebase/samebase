@@ -18,7 +18,9 @@ vi.mock("./githubApp", async (importOriginal) => {
 
 // t.fetch loads convex/http.ts, which imports these modules that only a build and a deploy write.
 vi.mock("../dist/server/server.js", () => ({ default: { fetch: async () => new Response() } }));
-vi.mock("../.convex-hosting/version.js", () => ({ versionId: "test" }));
+vi.mock("../.convex-hosting/version.js", () => ({
+  assets: { format: 1, versionId: "test", markToken: "test", files: null },
+}));
 
 import { buildAuthorizationErrorUrl } from "../shared/authorizationError";
 import { buildGitHubOrganizationProvidersReturnUrl } from "../shared/githubApp";
