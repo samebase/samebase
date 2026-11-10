@@ -244,6 +244,24 @@ describe("POST /hub-clients", () => {
       }
     });
 
+    it("logs one hub_event line per answer, with the repository, app, and deployment", async () => {
+      const h = await createHub();
+      const info = vi.spyOn(console, "info").mockImplementation(() => undefined);
+
+      const client = await createClient(h);
+      await createDevelopmentClient(h, client.initial_access_token ?? "");
+      stubProviders(() => new Response("Not Found", { status: 404 }));
+      expect((await postHubClient(h, await signToken())).status).toBe(403);
+
+      const line = (event: string, deployment: string, reason: string | null) =>
+        `hub_event ${JSON.stringify({ event, repository: "octo-org/octo-repo", app: "my-app", deployment, connector: null, reason })}`;
+      expect(info.mock.calls).toEqual([
+        [line("registration", "production", null)],
+        [line("registration", "development", null)],
+        [line("registration_refused", "production", "verification_file_missing")],
+      ]);
+    });
+
     it("records nothing when the broker refuses, and says why", async () => {
       const h = await createHub();
       // The tenant's budget of apps is full, so the broker refuses a new app of the repository.

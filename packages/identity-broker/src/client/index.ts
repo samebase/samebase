@@ -38,6 +38,7 @@ import {
   redirect,
 } from "./responses.js";
 import { hubClientsEndpoint, LOOPBACK_HOSTS } from "./hubClients.js";
+import { logHubEvent } from "./hubEvents.js";
 import { moderationEndpoints } from "./moderation.js";
 import {
   decide,
@@ -461,15 +462,20 @@ export function defineIdentityBroker<C extends Connector, R extends ResourceProv
     if (app === null) {
       return errorPage("Sign-in unavailable", "The client's app is gone.", 400);
     }
+    /** A refusal of the policy or of a limit, which the hub's operator can act on. */
+    const refused = (reason: string, page: Response) => {
+      logHubEvent({ event: "sign_in_refused", facts: found.registration, connector: null, reason });
+      return page;
+    };
     if (app.suspended) {
-      return offPage();
+      return refused("suspended", offPage());
     }
     const decision = decideFor(found);
     if (decision === null) {
-      return unavailablePage();
+      return refused("unavailable", unavailablePage());
     }
     if (decision.paused) {
-      return pausedPage();
+      return refused("paused", pausedPage());
     }
     if (rest.value.prompt.includes("none")) {
       // The broker keeps no session, so it can never answer without interaction.
@@ -491,7 +497,7 @@ export function defineIdentityBroker<C extends Connector, R extends ResourceProv
       named.length === 0 ? usable : named.filter((name) => usable.includes(name)),
     );
     if (offered.length === 0) {
-      return offPage();
+      return refused("off", offPage());
     }
     // The facts the page names when it asks: a hub asks unless an exemption of its administrator
     // covers the client (`pageShown`). Decided here only, on this snapshot. Without hub mode, no
@@ -531,14 +537,13 @@ export function defineIdentityBroker<C extends Connector, R extends ResourceProv
     if (!created.ok) {
       switch (created.error) {
         case "rate_limited":
-          return errorPage(
-            "Too many sign-ins",
-            "Too many sign-ins for this app. Try again soon.",
-            429,
+          return refused(
+            created.error,
+            errorPage("Too many sign-ins", "Too many sign-ins for this app. Try again soon.", 429),
           );
         case "suspended":
         case "off":
-          return offPage();
+          return refused(created.error, offPage());
         default:
           return created.error satisfies never;
       }
@@ -957,6 +962,12 @@ export function defineIdentityBroker<C extends Connector, R extends ResourceProv
       connector: exchange.identity.connector,
       sub,
       at: now,
+    });
+    logHubEvent({
+      event: "sign_in",
+      facts: found.registration,
+      connector: exchange.identity.connector,
+      reason: null,
     });
     return json({
       access_token: accessToken,
