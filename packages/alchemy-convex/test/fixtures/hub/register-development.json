@@ -1,0 +1,29 @@
+{
+  "client_id": "cl_OiT6lUwdWDk56QNFZZkZVg",
+  "client_id_issued_at": 1793836800,
+  "client_secret_expires_at": 0,
+  "registration_client_uri": "https://auth.test/register/cl_OiT6lUwdWDk56QNFZZkZVg",
+  "redirect_uris": [
+    "https://happy-otter-123.convex.site/auth/hub/callback"
+  ],
+  "client_name": "development",
+  "software_id": "gh-74/my-app",
+  "software_version": "abc123",
+  "token_endpoint_auth_method": "client_secret_post",
+  "grant_types": [
+    "authorization_code"
+  ],
+  "response_types": [
+    "code"
+  ],
+  "application_type": "web",
+  "subject_type": "public",
+  "id_token_signed_response_alg": "RS256",
+  "connectors": [
+    "google"
+  ],
+  "client_secret": "REDACTED",
+  "registration_access_token": "REDACTED",
+  "issuer": "https://auth.test",
+  "terms": "https://samebase.com/terms"
+}

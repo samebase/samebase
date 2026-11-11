@@ -82,8 +82,8 @@ export const defaultApp = (stackName: string): string | undefined => {
  */
 export interface Hub {
   /**
-   * The hub's issuer, such as `https://auth.example.com`. The run asks at `<issuer>/hub-clients`,
-   * with a GitHub token whose audience is the issuer, so no other hub can use that token.
+   * The hub's issuer, such as `https://auth.example.com`. The run asks at `<issuer>/register`, with
+   * a GitHub token whose audience is the issuer, so no other hub can use that token.
    */
   readonly issuer: string;
 }
@@ -230,7 +230,10 @@ class IdentityHubClientFailed extends Schema.TaggedError<IdentityHubClientFailed
 
 const OidcToken = Schema.Struct({ value: Schema.NonEmptyString });
 
-/** The 201 answer of `POST /hub-clients`. */
+/**
+ * The 201 answer of `POST /register` (RFC 7591 section 3.2.1), in the members that this file reads.
+ * The decoder ignores the other members, such as `software_id`, whose full form the hub writes.
+ */
 const NewClient = Schema.Struct({
   issuer: Schema.NonEmptyString,
   client_id: Schema.NonEmptyString,
@@ -245,18 +248,26 @@ const NewClient = Schema.Struct({
   repository: Schema.optionalKey(Schema.String.check(Schema.isPattern(/^\d+$/))),
 });
 
-/** The other answers of `POST /hub-clients`, by status. */
+/** The other answers of `POST /register`, by status. A 401 can have no body (RFC 6750). */
 const REFUSALS: Readonly<Record<number, string>> = {
-  400: "the identity hub refused the request: one to eight return addresses, each https on a DNS name, and the app name at most 64 characters",
+  400: "the identity hub refused the client metadata, such as the app name",
   401: "the identity hub refused the GitHub OIDC token",
-  403: "the identity hub does not allow this repository or return address",
-  404: "the identity hub has no /hub-clients",
+  403: "the identity hub does not allow this repository",
+  404: "the identity hub has no /register: it runs an identity-broker before 0.33.0",
   429: "the identity hub limits new clients",
   502: "GitHub's keys are not available to the identity hub",
+  503: "the identity hub could not apply its policy",
 };
 
-/** The reasons of a 403 that a log line shows. Any other text of the answer is never logged. */
-const NOT_ALLOWED = new Map([
+/** The text of an `invalid_redirect_uri` 400 without a known reason. */
+const BAD_REDIRECT_URIS =
+  "the identity hub refused the return addresses: one to eight, each https on a DNS name, or http on a loopback host for a development client";
+
+/**
+ * The reasons of a 400 or a 403 that a log line shows. Any other text of the answer is never
+ * logged.
+ */
+const REASONS = new Map([
   ["paused", "this app is paused on the identity hub"],
   ["run_not_allowed", "the identity hub gives clients only to runs of main and of pull requests"],
   ["blocked", "Samebase blocked this repository or its owner"],
@@ -272,6 +283,7 @@ const NOT_ALLOWED = new Map([
   ["verification_file_invalid", "/samebase-verification.json on the host holds no repository id"],
   ["repository_mismatch", "/samebase-verification.json on the host names another repository"],
   ["app_mismatch", "the initial access token belongs to another app on the identity hub"],
+  ["stale_proof", "the identity hub took a newer GitHub OIDC token of this repository"],
 ]);
 
 /** The windows of a 429, by the name that the answer gives. */
@@ -282,17 +294,19 @@ const RATE_LIMITED = new Map([
 ]);
 
 const Refusal = Schema.Struct({ reason: Schema.String });
+const InvalidRedirectUri = Schema.Struct({ error: Schema.Literal("invalid_redirect_uri") });
 const RateLimited = Schema.Struct({ window: Schema.String });
 /** A 400 for a connector the hub does not offer or allow, with the names it allows. */
 const InvalidConnectors = Schema.Struct({
-  error: Schema.Literal("invalid_connectors"),
+  reason: Schema.Literal("invalid_connectors"),
   allowed: Schema.Array(Schema.String),
 });
 
 /**
- * The text of a refusal: a known reason of a 403 or window of a 429, the allowed connectors of an
- * `invalid_connectors` 400 (only names of the connector grammar, so no other text of the answer is
- * printed), else the text of its status.
+ * The text of a refusal: a known reason of a 400 or a 403, or window of a 429, the allowed
+ * connectors of an `invalid_connectors` 400 (only names of the connector grammar, so no other text
+ * of the answer is printed), the text of an `invalid_redirect_uri` 400, else the text of its
+ * status. `body` is undefined for an answer without JSON, such as a bare 401.
  */
 const refusalOf = (status: number, body: unknown): string => {
   const decoded = <S extends Schema.Codec<unknown, unknown>>(schema: S) =>
@@ -304,11 +318,12 @@ const refusalOf = (status: number, body: unknown): string => {
         CONNECTOR_NAME.test(name),
       );
       return allowed === undefined
-        ? ofStatus()
+        ? (REASONS.get(decoded(Refusal)?.reason ?? "") ??
+            (decoded(InvalidRedirectUri) === undefined ? ofStatus() : BAD_REDIRECT_URIS))
         : `the identity hub does not offer or allow one of the connectors; it allows ${allowed.length === 0 ? "none for this app" : allowed.join(", ")}`;
     }
     case 403:
-      return NOT_ALLOWED.get(decoded(Refusal)?.reason ?? "") ?? ofStatus();
+      return REASONS.get(decoded(Refusal)?.reason ?? "") ?? ofStatus();
     case 429:
       return RATE_LIMITED.get(decoded(RateLimited)?.window ?? "") ?? ofStatus();
     default:
@@ -357,18 +372,24 @@ const readOidcToken = (requestUrl: string, requestToken: string, audience: strin
     return (yield* decode(OidcToken, "GitHub")(body)).value;
   });
 
-/** `POST /hub-clients` with `bearer`: the GitHub OIDC token, or the app's initial access token. */
+/**
+ * `POST /register`, the client registration request of RFC 7591, with `bearer` as its initial
+ * access token: the GitHub OIDC token, or the app's own token. `software_id` is the app's name, and
+ * `connectors` is the hub's own metadata field. Convex Auth posts the client's secret in the body
+ * at the token endpoint, so the client registers that method.
+ */
 const requestNewClient = (props: ClientProps, enrollment: Enrollment, bearer: string) =>
   Effect.gen(function* () {
     const { hub } = props;
     const { app, connectors, redirectUris } = enrollment;
-    const { body, status } = yield* send("The identity hub", `${hub.issuer}/hub-clients`, bearer, {
+    const { body, status } = yield* send("The identity hub", `${hub.issuer}/register`, bearer, {
       method: "POST",
       body: JSON.stringify({
-        app,
-        redirectUris,
-        softwareVersion: props.softwareVersion ?? "unknown",
+        redirect_uris: redirectUris,
+        software_id: app,
+        software_version: props.softwareVersion ?? "unknown",
         connectors,
+        token_endpoint_auth_method: "client_secret_post",
       }),
     });
     if (status !== 201) {
