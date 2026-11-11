@@ -46,14 +46,15 @@ export const {
 );
 ```
 
-Each deployment gets its client from the hub. `POST /hub-clients`
-([`src/client/hubClients.ts`](../src/client/hubClients.ts)) gives one to a GitHub Actions run with
-GitHub's OIDC token, and to a development server with the app's own token. In an Alchemy v2 stack,
-the `IdentityHub.Client` resource of `@samebase/alchemy-convex/identity-hub` asks for it at deploy
-time, renews it at each deploy at `/register/<client>`, and deletes a preview client on destroy. The
-`env` of `Convex.Deployment` stores the client on the deployment as `IDENTITY_HUB_ISSUER`,
-`IDENTITY_HUB_CLIENT_ID`, and `IDENTITY_HUB_CLIENT_SECRET`. Each client uses `client_secret_post`,
-because Convex Auth's generic OAuth method posts the client credentials in the body.
+Each deployment gets its client from the hub's RFC 7591 endpoint, `POST /register`
+([`src/client/hubClients.ts`](../src/client/hubClients.ts)). It gives one to a GitHub Actions run
+with GitHub's OIDC token as the initial access token, and to a development server with the app's own
+token. In an Alchemy v2 stack, the `IdentityHub.Client` resource of
+`@samebase/alchemy-convex/identity-hub` asks for it at deploy time, renews it at each deploy at
+`/register/<client>`, and deletes a preview client on destroy. The `env` of `Convex.Deployment`
+stores the client on the deployment as `IDENTITY_HUB_ISSUER`, `IDENTITY_HUB_CLIENT_ID`, and
+`IDENTITY_HUB_CLIENT_SECRET`. Each client uses `client_secret_post`, because Convex Auth's generic
+OAuth method posts the client credentials in the body.
 
 A client enrolls in connectors at registration: `connectors: ["google", "github"]` on
 `IdentityHub.Client` at our public hub, which the hub checks against its connectors

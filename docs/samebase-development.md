@@ -154,9 +154,9 @@ its old keys. For rotation, follow the
   own `CONVEX_SITE_URL`.
 
 `apps/samebase/alchemy.run.ts` gets the clients of production and each preview from the hub's
-`POST /hub-clients` with `IdentityHub.Client`, on `https://samebase.com/auth/hub/callback` and
-`<preview site>/auth/hub/callback`, with the run's GitHub OIDC token, so sign-in needs no secret of
-its own. The hub reads `/samebase-verification.json` on the site before it registers a client.
+`POST /register` (RFC 7591) with `IdentityHub.Client`, on `https://samebase.com/auth/hub/callback`
+and `<preview site>/auth/hub/callback`, with the run's GitHub OIDC token, so sign-in needs no secret
+of its own. The hub reads `/samebase-verification.json` on the site before it registers a client.
 
 The local deployment of each development checkout gets its two clients from the stage `dev-<name>`,
 which `pnpm run dev` runs at each start. They are development clients on

@@ -12,8 +12,12 @@ with `redirect_uri_mismatch`.
 
 identity-broker is a [Convex](https://convex.dev) component that sits between your apps and the
 providers. Google and GitHub each get one redirect URL, the broker's, and you add it once. Each
-deployment of each app sends the broker its own URL when it deploys, and gets a client ID and secret
-back. To the app, the broker is an ordinary OpenID Connect provider.
+deployment of each app registers its own URL at the broker when it deploys, and gets a client ID and
+secret back. To the app, the broker is an ordinary OpenID Connect provider.
+
+The broker invents no protocol. A deployment registers with OAuth Dynamic Client Registration
+([RFC 7591](https://www.rfc-editor.org/rfc/rfc7591.html)), and a user signs in with OpenID Connect.
+[Standards](#standards) lists each one, and each place where the broker departs from it.
 
 ![Google and GitHub refuse preview deployments because each has a new URL. Identity Broker sits in front of them, so each provider sees one client and one URL, and every app and preview registers its exact URL at deploy.](https://raw.githubusercontent.com/samebase/samebase/main/packages/identity-broker/docs/how-it-works.gif)
 
@@ -21,9 +25,10 @@ back. To the app, the broker is an ordinary OpenID Connect provider.
 
 A Convex deployment that runs this component is called a **hub** in this document.
 
-1. **At deploy**, the app's GitHub Actions workflow sends its callback URL to the hub. The hub
-   checks that the request comes from the repository that controls that URL
-   ([how](#what-the-hub-checks)), and answers with a client ID and secret for that one deployment.
+1. **At deploy**, the app's GitHub Actions workflow registers its callback URL at the hub, in a
+   standard client registration request. The hub checks that the request comes from the repository
+   that controls that URL ([how](#what-the-hub-checks)), and answers with a client ID and secret for
+   that one deployment.
 2. **At sign-in**, the app sends the user to the hub's `/authorize`, as it would to any OpenID
    Connect provider.
 3. The hub shows a page that names the app, and the user picks Google or GitHub.
@@ -109,49 +114,76 @@ IdentityHub.Client("IdentityHubClient", {
 ```
 
 Without Alchemy, it is two requests. The first asks GitHub for a token that names this hub as its
-audience. The second sends that token to the hub:
+audience. The second is the client registration request of
+[RFC 7591](https://www.rfc-editor.org/rfc/rfc7591.html#section-3.1), with GitHub's token as its
+initial access token:
 
 ```sh
 token=$(curl -sS -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
   "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=https://id.samebase.com" | jq -r .value)
 
-curl -sS https://id.samebase.com/hub-clients -o client.json \
+curl -sS https://id.samebase.com/register -o client.json \
   -H "Authorization: Bearer $token" \
   -H "Content-Type: application/json" \
   -d '{
-    "app": "weather-app",
-    "redirectUris": ["https://pr-12.weather-app.example.com/auth/hub/callback"],
+    "redirect_uris": ["https://pr-12.weather-app.example.com/auth/hub/callback"],
+    "software_id": "weather-app",
+    "software_version": "1.4.0",
     "connectors": ["google", "github"],
-    "softwareVersion": "1.4.0"
+    "token_endpoint_auth_method": "client_secret_post"
   }'
 ```
 
-| Field             | Value                                                                                            |
-| ----------------- | ------------------------------------------------------------------------------------------------ |
-| `app`             | Your name for the app, 1 to 64 characters. One repository can hold several apps.                 |
-| `redirectUris`    | 1 to 8 callback URLs of this deployment. The hub matches each exactly at `/authorize`.           |
-| `connectors`      | The providers this client signs in through. Discovery lists the hub's in `connectors_supported`. |
-| `softwareVersion` | Any text up to 256 characters, such as the commit. The hub stores it with the client.            |
+Only `redirect_uris` is necessary. A client library that does dynamic client registration with an
+initial access token can make this request: the package's tests register with
+[`openid-client`](https://github.com/panva/openid-client).
+
+| Member                       | Value                                                                                  | If you leave it out                              |
+| ---------------------------- | -------------------------------------------------------------------------------------- | ------------------------------------------------ |
+| `redirect_uris`              | 1 to 8 callback URLs of this deployment. The hub matches each exactly at `/authorize`. | The hub refuses the request                      |
+| `software_id`                | Your name for the app, 1 to 64 characters. One repository can hold several apps.       | `app`                                            |
+| `software_version`           | Any text up to 256 characters, such as the commit.                                     | `unknown`                                        |
+| `connectors`                 | The providers that this client signs in through. This member is the hub's own.         | Each provider that the hub gives your repository |
+| `token_endpoint_auth_method` | `client_secret_post` or `client_secret_basic`. Convex Auth needs `client_secret_post`. | `client_secret_basic`                            |
+
+The hub ignores each member that it does not read, such as `client_name` and `logo_uri`.
 
 The answer has status `201`. It holds the client's secrets, so write it to a file or to your
 deployment's variables, and never to the log:
 
 ```json
 {
-  "issuer": "https://id.samebase.com",
-  "client_id": "...",
+  "client_id": "cl_...",
   "client_secret": "...",
-  "redirect_uris": ["https://pr-12.weather-app.example.com/auth/hub/callback"],
-  "connectors": ["github", "google"],
+  "client_id_issued_at": 1794412800,
+  "client_secret_expires_at": 0,
   "registration_access_token": "...",
-  "registration_client_uri": "https://id.samebase.com/register/<client_id>",
+  "registration_client_uri": "https://id.samebase.com/register/cl_...",
+  "redirect_uris": ["https://pr-12.weather-app.example.com/auth/hub/callback"],
+  "client_name": "pr-12",
+  "software_id": "gh-123456789/weather-app",
+  "software_version": "1.4.0",
+  "token_endpoint_auth_method": "client_secret_post",
+  "grant_types": ["authorization_code"],
+  "response_types": ["code"],
+  "application_type": "web",
+  "subject_type": "public",
+  "id_token_signed_response_alg": "RS256",
+  "connectors": ["github", "google"],
+  "issuer": "https://id.samebase.com",
   "terms": "https://samebase.com/terms"
 }
 ```
 
+Two values come from GitHub's token and not from your request, so a request cannot fake them.
+`client_name` is the deployment that the token proves, `prod` or `pr-12`. `software_id` has the
+numeric ID of your repository in front of your app's name, so no other repository can register as
+your app.
+
 Register once for each deployment, and keep the answer. At each later deploy, send a `GET` to
-`registration_client_uri` with `registration_access_token` as the Bearer. That read tells the hub
-that the deployment is still in use ([A client's lifetime](#a-clients-lifetime)). A `401` means the
+`registration_client_uri` with `registration_access_token` as the Bearer
+([RFC 7592](https://www.rfc-editor.org/rfc/rfc7592.html#section-2.1)). That read tells the hub that
+the deployment is still in use ([A client's lifetime](#a-clients-lifetime)). A `401` means the
 client is gone, so register again. `IdentityHub.Client` does all of this.
 
 A client cannot change its callback URLs or its connectors. A deployment that needs another set
@@ -177,10 +209,10 @@ Key each account by `sub`, and read `email` only when `email_verified` is `true`
 ### On a development machine
 
 A development server has no GitHub Actions run, so it cannot get GitHub's token. The answer to a
-production registration has one more field for this, `initial_access_token`. Send it to
-`POST /hub-clients` as the Bearer, in place of GitHub's token, with the same `app`. The client it
-gets may use loopback callbacks such as `http://localhost:3000/auth/hub/callback`, and those need no
-verification file.
+production registration has one more member for this, `initial_access_token`. Send it to
+`POST /register` as the Bearer, in place of GitHub's token, with the same `software_id`. The client
+it gets may use loopback callbacks such as `http://localhost:3000/auth/hub/callback`, and those need
+no verification file.
 
 Treat the token as a secret of the team: any holder can register development clients for the app.
 Each new production registration of the app replaces it. With Alchemy,
@@ -194,18 +226,21 @@ users return to. The hub's page then shows both to the user.
 
 The hub refuses a registration at the first check that fails:
 
-| Check                                                                                                    | Refusal                                                                                                 |
-| -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| GitHub signed the token for a workflow run, and its audience is this hub's issuer                        | `401 invalid_token`                                                                                     |
-| The run is a `pull_request`, or a `push` or `workflow_dispatch` on `main`                                | `403 run_not_allowed`                                                                                   |
-| The body has the four fields, and each callback URL is `https` on a DNS name, with no fragment           | `400 invalid_request`                                                                                   |
-| The hub's policy has not paused the app                                                                  | `403 paused`                                                                                            |
-| The hub's rules give this repository each connector that it asks for                                     | `400 invalid_connectors`, with the names that are `allowed`                                             |
-| The hub's administrator has not blocked the repository or its owner                                      | `403 blocked`                                                                                           |
-| The repository and its owner are inside their hourly limits                                              | `429 rate_limited`                                                                                      |
-| Each site in `redirectUris` serves the verification file, and the file names the repository of the token | `403 verification_file_missing`, `host_unreachable`, `verification_file_invalid`, `repository_mismatch` |
+| Check                                                                                                     | Status and `error`            | `reason`                                                                                            |
+| --------------------------------------------------------------------------------------------------------- | ----------------------------- | --------------------------------------------------------------------------------------------------- |
+| GitHub signed the token for a workflow run, and its audience is this hub's issuer                         | `401 invalid_token`           |                                                                                                     |
+| The run is a `pull_request`, or a `push` or `workflow_dispatch` on `main`                                 | `403 insufficient_scope`      | `run_not_allowed`                                                                                   |
+| Each member that the hub reads has a value that the hub can register                                      | `400 invalid_client_metadata` |                                                                                                     |
+| There are 1 to 8 callback URLs, each `https` on a DNS name, with no fragment                              | `400 invalid_redirect_uri`    |                                                                                                     |
+| The hub's policy has not paused the app                                                                   | `403 insufficient_scope`      | `paused`                                                                                            |
+| The hub's rules give this repository each connector that it asks for                                      | `400 invalid_client_metadata` | `invalid_connectors`, with the names that are `allowed`                                             |
+| The hub's administrator has not blocked the repository or its owner                                       | `403 insufficient_scope`      | `blocked`                                                                                           |
+| The repository and its owner are inside their hourly limits                                               | `429 rate_limited`            |                                                                                                     |
+| Each site in `redirect_uris` serves the verification file, and the file names the repository of the token | `400 invalid_redirect_uri`    | `verification_file_missing`, `host_unreachable`, `verification_file_invalid`, `repository_mismatch` |
 
-A `403` has the body `{ "error": "not_allowed", "reason": "<the name above>" }`.
+Each refusal is a JSON object with `error` and `error_description`, as RFC 7591 section 3.2.2
+describes, and `reason` is the hub's own member. A `401` and a `403` carry the `WWW-Authenticate`
+header of [RFC 6750](https://www.rfc-editor.org/rfc/rfc6750.html#section-3).
 
 The token's audience is one hub's issuer, so a token that a deploy made for one hub is of no use at
 another hub.
@@ -323,9 +358,9 @@ More that you can use:
   signs a test token with it and verifies that token.
 - **Tests.** `register` from `@samebase/identity-broker/test` adds the component to a `convex-test`
   backend.
-- **Your own registration.** Leave `registration` out, and the hub has no `/hub-clients`, no
-  `/register`, and no `/moderation`. You then create each client in a mutation of your own, with
-  `newClientCredentials` and `component.registration.register`, after your own check of who asks.
+- **Your own registration.** Leave `registration` out, and the hub has no `/register` and no
+  `/moderation`. You then create each client in a mutation of your own, with `newClientCredentials`
+  and `component.registration.register`, after your own check of who asks.
 
 ## Operate a hub
 
@@ -453,7 +488,7 @@ The policy's `resources` names the providers that a client may use.
 
 The app's side:
 
-1. Add the callback URL that receives the answer to the client's `redirectUris`, beside the sign-in
+1. Add the callback URL that receives the answer to the client's `redirect_uris`, beside the sign-in
    callback.
 2. Send the user to `/authorize` with PKCE (`S256`), one `resource` from the table, and no `openid`
    scope. The broker asks the provider for the scope that the hub configured.
@@ -471,11 +506,31 @@ describes how long grants stay and what happens when a refresh fails.
 
 ## Standards
 
-The broker follows OAuth 2.0 and the OAuth 2.1 draft (code flow, PKCE `S256`, exact redirect URLs,
-`iss` on responses), OpenID Connect Core and Discovery, and RFC 8414, 8707, 7009, 9207, and 9700. A
-client reads and deletes its own record at `/register/<client id>` as RFC 7592 describes.
-`POST /hub-clients` follows no standard: RFC 6749 section 2 leaves open how a client gets its
-credentials.
+**Sign-in** follows OAuth 2.0 and the OAuth 2.1 draft (code flow, PKCE `S256`, exact redirect URLs,
+`iss` on responses), OpenID Connect Core and Discovery, and RFC 8414, 8707, 7009, 9207, and 9700.
+
+**Registration** follows these:
+
+| Standard                                                                                                        | Where                                                            |
+| --------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| [RFC 7591](https://www.rfc-editor.org/rfc/rfc7591.html), OAuth 2.0 Dynamic Client Registration                  | `POST /register`                                                 |
+| [RFC 7592](https://www.rfc-editor.org/rfc/rfc7592.html), client management                                      | `GET` and `DELETE /register/<client id>`                         |
+| [OpenID Connect Dynamic Client Registration 1.0](https://openid.net/specs/openid-connect-registration-1_0.html) | The same two endpoints, and `registration_endpoint` in discovery |
+| [RFC 6750](https://www.rfc-editor.org/rfc/rfc6750.html), Bearer tokens                                          | The token and the token errors of both endpoints                 |
+
+The broker departs from them in these places, each on purpose:
+
+- A registration always needs an initial access token. The standards recommend that a server also
+  takes requests with no token. Here the token is the proof of who asks.
+- A client cannot update its record: `PUT` answers `405`. A deployment that needs other values
+  registers a new client.
+- A read of a client's record does not return the client secret, because the hub stores only its
+  hash.
+- The hub registers only `web` clients, with public subjects and RS256.
+
+One step is outside every standard: how the initial access token is made and checked. RFC 7591
+section 3 leaves that to the server. The hub's answer is GitHub's signed token and the verification
+file.
 
 The broker is not OpenID Certified.
 [docs/standards.md](https://github.com/samebase/samebase/blob/main/packages/identity-broker/docs/standards.md)

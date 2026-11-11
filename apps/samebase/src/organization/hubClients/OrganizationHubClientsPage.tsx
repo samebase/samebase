@@ -97,7 +97,7 @@ function DeleteClientDialog({
 
 /**
 The identity hubs' sign-in clients of every repository of an organization's GitHub owner, one per
-deployment that registered at `POST /hub-clients`, in the admin page's table without its owner
+deployment that registered at `POST /register`, in the admin page's table without its owner
 filter. A member who can create apps can delete one. The hubs are not live data, so each visit asks
 again: a cached empty answer must not hide a deploy that registered a minute ago.
 */
