@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.33.1
+
+- README: the problem in two sentences, and a table near the top with each standard and the main
+  differences from it. Shorter text in each section. No code change.
+
 ## 0.33.0
 
 - Breaking: the hub's registration endpoint is RFC 7591's, `POST /register`, in place of
