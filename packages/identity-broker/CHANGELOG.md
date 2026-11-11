@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.32.1
+
+- The README only, no code change. It starts with the three ways to use the broker, shows the
+  sign-in page, and lists what the broker does. The registration reference is in sections, and it
+  now names the `redirectUris` list of 0.31.0, the GitHub connection, and the `hub_event` line of
+  0.32.0.
+
 ## 0.32.0
 
 - The broker writes one console line, `hub_event` and a JSON object, for each sign-in that ends with
