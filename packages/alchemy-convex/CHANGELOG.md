@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.40.0
+
+- Breaking: `IdentityHub.Client` registers at `POST /register`, the client registration endpoint of
+  RFC 7591, with the metadata names of the RFC: `redirect_uris`, `software_id` (the app name),
+  `software_version`, `token_endpoint_auth_method` (`client_secret_post`), and the hub's own
+  `connectors`. It needs a hub on `@samebase/identity-broker` 0.33.0 or later. A hub on an earlier
+  broker answers 404, and the run gives the off values.
+- The props and the outputs of the resource do not change, and the state does not change.
+- A refusal of the hub logs a more precise reason: a return address that the hub refuses, metadata
+  that the hub refuses, a newer GitHub OIDC token that the hub took (`stale_proof`), and a policy
+  that the hub could not apply (503).
+
 ## 0.39.1
 
 - A default or explicit `app` over 64 characters, the hub's limit, stops the run before any request,
