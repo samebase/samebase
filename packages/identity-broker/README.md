@@ -4,8 +4,13 @@
 [![npm](https://img.shields.io/npm/v/@samebase/identity-broker)](https://www.npmjs.com/package/@samebase/identity-broker)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue)](./LICENSE)
 
-identity-broker is a [Convex](https://convex.dev) component that implements
-[RFC 7591: OAuth 2.0 Dynamic Client Registration Protocol](https://www.rfc-editor.org/rfc/rfc7591.html).
+identity-broker is a [Convex](https://convex.dev) component that implements:
+
+- [RFC 7591: OAuth 2.0 Dynamic Client Registration Protocol](https://www.rfc-editor.org/rfc/rfc7591.html)
+- [RFC 7592: OAuth 2.0 Dynamic Client Registration Management Protocol](https://www.rfc-editor.org/rfc/rfc7592.html),
+  read and delete
+- [OpenID Connect Core 1.0](https://openid.net/specs/openid-connect-core-1_0.html) and
+  [Discovery 1.0](https://openid.net/specs/openid-connect-discovery-1_0.html), as the provider
 
 This allows you to use a single OAuth client (like Google sign-in) for all your apps and for all
 your preview and development deploys.
