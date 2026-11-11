@@ -2,8 +2,9 @@
 
 ## 0.33.1
 
-- README: the problem in two sentences, and a table near the top with each standard and the main
-  differences from it. Shorter text in each section. No code change.
+- README: the first two sentences say what the component implements and what that gives you. A table
+  near the top lists each standard and the main differences from it. Shorter text in each section.
+  No code change.
 
 ## 0.33.0
 

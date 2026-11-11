@@ -4,17 +4,11 @@
 [![npm](https://img.shields.io/npm/v/@samebase/identity-broker)](https://www.npmjs.com/package/@samebase/identity-broker)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue)](./LICENSE)
 
-**Google and GitHub sign-in on every deployment, pull request previews included.**
+identity-broker is a [Convex](https://convex.dev) component that implements
+[RFC 7591: OAuth 2.0 Dynamic Client Registration Protocol](https://www.rfc-editor.org/rfc/rfc7591.html).
 
-Google sign-in does not work on a preview deployment. Google accepts only the redirect URLs that you
-add in its console, and each preview has a new URL.
-
-identity-broker is a [Convex](https://convex.dev) component that stands between your apps and the
-providers:
-
-- Google and GitHub get one redirect URL, the broker's. You add it once.
-- Each deployment registers its own URL at the broker when it deploys.
-- Your app signs users in through the broker, which is an OpenID Connect provider.
+This allows you to use a single OAuth client (like Google sign-in) for all your apps and for all
+your preview and development deploys.
 
 ![Google and GitHub refuse preview deployments because each has a new URL. Identity Broker sits in front of them, so each provider sees one client and one URL, and every app and preview registers its exact URL at deploy.](https://raw.githubusercontent.com/samebase/samebase/main/packages/identity-broker/docs/how-it-works.gif)
 
