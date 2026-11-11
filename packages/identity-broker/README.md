@@ -4,20 +4,100 @@
 [![npm](https://img.shields.io/npm/v/@samebase/identity-broker)](https://www.npmjs.com/package/@samebase/identity-broker)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue)](./LICENSE)
 
-**Google and GitHub sign-in for every deployment of every app: production, each pull request
-preview, each dev server.** An OpenID Provider as a [Convex](https://convex.dev) component. You
-register one OAuth client at each provider, once. Each deployment then gets its own client from the
-broker when it deploys. The broker keeps no user accounts and no sessions: each app gets a standard
-`id_token` and owns its users.
+**Google and GitHub sign-in that works on every deployment, pull request previews included.**
+
+Google signs a user in only when the redirect URL is on a list that you edit by hand in its console,
+and the list takes no wildcards. Every pull request preview has a new URL, so sign-in there fails
+with `redirect_uri_mismatch`.
+
+identity-broker is a [Convex](https://convex.dev) component that sits between your apps and the
+providers. Google and GitHub each get one redirect URL, the broker's, and you add it once. Each
+deployment of each app sends the broker its own URL when it deploys, and gets a client ID and secret
+back. To the app, the broker is an ordinary OpenID Connect provider.
 
 ![Google and GitHub refuse preview deployments because each has a new URL. Identity Broker sits in front of them, so each provider sees one client and one URL, and every app and preview registers its exact URL at deploy.](https://raw.githubusercontent.com/samebase/samebase/main/packages/identity-broker/docs/how-it-works.gif)
 
-## Three ways to use it
+## How it works
 
-**Sign-in in your app, with nothing to run.** Samebase runs a public hub at `id.samebase.com`. The
-[samebase/base](https://github.com/samebase/base) starter uses it from its first deploy. In an
-[Alchemy](https://alchemy.run) stack, it is one resource of
-[`@samebase/alchemy-convex`](https://github.com/samebase/samebase/tree/main/packages/alchemy-convex):
+A Convex deployment that runs this component is called a **hub** in this document.
+
+1. **At deploy**, the app's GitHub Actions workflow sends its callback URL to the hub. The hub
+   checks that the request comes from the repository that controls that URL
+   ([how](#what-the-hub-checks)), and answers with a client ID and secret for that one deployment.
+2. **At sign-in**, the app sends the user to the hub's `/authorize`, as it would to any OpenID
+   Connect provider.
+3. The hub shows a page that names the app, and the user picks Google or GitHub.
+4. The provider sends the user back to the hub, which is the one URL it knows. The hub sends the
+   user back to the app, and the app exchanges the code at `/token` for an `id_token`.
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/samebase/samebase/main/packages/identity-broker/docs/sign-in-page-dark.png">
+    <img width="460" src="https://raw.githubusercontent.com/samebase/samebase/main/packages/identity-broker/docs/sign-in-page-light.png" alt="The hub's sign-in page for a preview deployment. It names the host pr-12.weather-app.example.com, the preview pr-12, and the GitHub repository octo-org/weather-app, and offers Continue with Google and Continue with GitHub.">
+  </picture>
+</p>
+
+The app receives this `id_token`:
+
+```json
+{
+  "iss": "https://id.samebase.com",
+  "aud": "<the client ID of the deployment>",
+  "sub": "google:104325678901234567890",
+  "connector": "google",
+  "email": "ada@example.com",
+  "email_verified": true,
+  "name": "Ada Lovelace",
+  "picture": "https://lh3.googleusercontent.com/a/photo",
+  "auth_time": 1794412800,
+  "iat": 1794412800,
+  "exp": 1794413100
+}
+```
+
+`sub` is the provider's own ID of the user, with the provider's name in front. It is the same in
+every app and at every hub, so an app can move to another hub and keep its users. The broker has no
+user table and no sessions. Your app creates the user and keeps the session.
+
+## Pick a setup
+
+- **Use the public hub.** Samebase runs a hub at `https://id.samebase.com` that any GitHub
+  repository can use under [Samebase's terms](https://samebase.com/terms), with no account and
+  nothing to run. Google's and GitHub's own screens name "Samebase" as the app, and the hub's page
+  before them names yours. Read [Use a hub from your app](#use-a-hub-from-your-app). The
+  [samebase/base](https://github.com/samebase/base) starter does all of it from its first deploy.
+- **Run your own hub.** You get your name on Google's screen, your own Google project, and your own
+  rules about which repositories may register.
+  [samebase/identity-hub](https://github.com/samebase/identity-hub) is a template of a hub: this
+  component and its settings. Its README has the steps, which take about 15 minutes.
+- **Mount the component** in a Convex app that you write yourself. Read [Mount it](#mount-it).
+
+## Use a hub from your app
+
+The examples use the public hub. For another hub, replace `https://id.samebase.com` with its issuer.
+
+Your app needs three things.
+
+### 1. Serve the verification file
+
+At the root of the site that holds your callback URL, serve `/samebase-verification.json`:
+
+```json
+{ "repository": "123456789" }
+```
+
+The value is the numeric ID of your GitHub repository: `GITHUB_REPOSITORY_ID` in a workflow, or the
+output of `gh api repos/<owner>/<name> --jq .id`. The hub reads this file before it registers a
+callback URL on that site, so the site must be live first. The answer must be a `200` from the site
+itself: the hub follows no redirect.
+
+### 2. Register each deployment when it deploys
+
+Register from a GitHub Actions workflow that has `permissions: id-token: write`. A run on a pull
+request gets a preview client. A run of `main` gets a production client.
+
+With [Alchemy](https://alchemy.run), it is one resource of
+[`@samebase/alchemy-convex`](https://github.com/samebase/samebase/tree/main/packages/alchemy-convex#resources):
 
 ```ts
 IdentityHub.Client("IdentityHubClient", {
@@ -28,216 +108,326 @@ IdentityHub.Client("IdentityHubClient", {
 });
 ```
 
-**Your own hub.** [samebase/identity-hub](https://github.com/samebase/identity-hub) is a template:
-this component plus settings. Your name on the sign-in page, your Google project, your rules about
-who may register. About 15 minutes.
-
-**The component in your own Convex app.** [Mount it](#mount-it), below.
-
-## What it does
-
-<p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/samebase/samebase/main/packages/identity-broker/docs/sign-in-page-dark.png">
-    <img width="460" src="https://raw.githubusercontent.com/samebase/samebase/main/packages/identity-broker/docs/sign-in-page-light.png" alt="The broker's sign-in page for a preview deployment. It names the host pr-12.weather-app.example.com, the preview pr-12, and the GitHub repository octo-org/weather-app, and offers Continue with Google and Continue with GitHub.">
-  </picture>
-</p>
-
-- **A standard OpenID Provider.** Authorization code flow with PKCE, discovery, JWKS, userinfo, and
-  RS256 `id_token`s. Any OpenID Connect client can use it. For Convex Auth, see the
-  [consumer guide](https://github.com/samebase/samebase/blob/main/packages/identity-broker/docs/consumers.md).
-- **A client for each deployment, at deploy time.** `POST /hub-clients` takes the OIDC token of the
-  GitHub Actions run as proof of the repository. An app needs no account at the hub and no shared
-  secret.
-- **A sign-in page that names the app.** The user sees the host, the deployment, and the GitHub
-  repository that registered it, before the provider's screen.
-- **No user table.** `sub` is the provider's own id, such as `google:104325...`, the same in every
-  app and at every hub. An app can move to another hub and keep its users.
-- **Rules as code.** One `policy` function says which repositories may register, which connectors
-  and provider APIs each may use, and whether apps are paused. It runs at registration and at each
-  use.
-- **An administrator's API.** Block a repository or an owner, grant one repository a connector, let
-  a trusted app skip the sign-in page, list and delete clients.
-- **Provider API access.** The same hub authorizes access to the Convex, Cloudflare, and GitHub APIs
-  for an app's users, with the standard `resource` parameter.
-- **Connectors are configuration.** `google()` and `github()` are included. Any OpenID Connect
-  provider is a plain object. An OAuth 2.0 provider that publishes RFC 8414 metadata is one too,
-  with a function that reads the user's identity from its API.
-- **Cleanup and logs.** A preview client is deleted 14 days after its last use. Each sign-in and
-  each registration writes one log line that names no user.
-
-## Mount it
+Without Alchemy, it is two requests. The first asks GitHub for a token that names this hub as its
+audience. The second sends that token to the hub:
 
 ```sh
-npm install @samebase/identity-broker
+token=$(curl -sS -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+  "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=https://id.samebase.com" | jq -r .value)
+
+curl -sS https://id.samebase.com/hub-clients -o client.json \
+  -H "Authorization: Bearer $token" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "app": "weather-app",
+    "redirectUris": ["https://pr-12.weather-app.example.com/auth/hub/callback"],
+    "connectors": ["google", "github"],
+    "softwareVersion": "1.4.0"
+  }'
 ```
 
-```ts
-// convex/convex.config.ts
-import { defineApp } from "convex/server";
-import identityBroker from "@samebase/identity-broker/convex.config";
+| Field             | Value                                                                                            |
+| ----------------- | ------------------------------------------------------------------------------------------------ |
+| `app`             | Your name for the app, 1 to 64 characters. One repository can hold several apps.                 |
+| `redirectUris`    | 1 to 8 callback URLs of this deployment. The hub matches each exactly at `/authorize`.           |
+| `connectors`      | The providers this client signs in through. Discovery lists the hub's in `connectors_supported`. |
+| `softwareVersion` | Any text up to 256 characters, such as the commit. The hub stores it with the client.            |
 
-const app = defineApp();
-app.use(identityBroker);
-export default app;
+The answer has status `201`. It holds the client's secrets, so write it to a file or to your
+deployment's variables, and never to the log:
+
+```json
+{
+  "issuer": "https://id.samebase.com",
+  "client_id": "...",
+  "client_secret": "...",
+  "redirect_uris": ["https://pr-12.weather-app.example.com/auth/hub/callback"],
+  "connectors": ["github", "google"],
+  "registration_access_token": "...",
+  "registration_client_uri": "https://id.samebase.com/register/<client_id>",
+  "terms": "https://samebase.com/terms"
+}
 ```
 
-```ts
-// convex/broker.ts: the whole hub config, and its admin functions for `npx convex run broker:<name>`
-import { defineIdentityBroker, github, google } from "@samebase/identity-broker";
-import { components } from "./_generated/api";
+Register once for each deployment, and keep the answer. At each later deploy, send a `GET` to
+`registration_client_uri` with `registration_access_token` as the Bearer. That read tells the hub
+that the deployment is still in use ([A client's lifetime](#a-clients-lifetime)). A `401` means the
+client is gone, so register again. `IdentityHub.Client` does all of this.
 
-export const broker = defineIdentityBroker({
-  component: components.identityBroker,
-  issuer: process.env.ISSUER ?? process.env.CONVEX_SITE_URL!,
-  keys: () => process.env.IDENTITY_BROKER_KEYS,
-  connectors: [
-    github({
-      clientId: () => process.env.GITHUB_CLIENT_ID!,
-      clientSecret: () => process.env.GITHUB_CLIENT_SECRET!,
-      selectAccount: true,
-    }),
-    google({
-      clientId: () => process.env.GOOGLE_CLIENT_ID!,
-      clientSecret: () => process.env.GOOGLE_CLIENT_SECRET!,
-      selectAccount: true,
-    }),
-  ],
-  // `POST /hub-clients`, `/register/<client>`, `/moderation/*`, and the policy.
-  registration: {
-    name: "Example",
-    terms: "https://example.com/terms",
-    privacy: "https://example.com/privacy",
-    moderationKey: () => process.env.IDENTITY_HUB_MODERATION_KEY,
-    // What each registration may do, from its facts: run at registration and at each use. It can
-    // name only the connectors and resources above: a misspelt one does not compile.
-    policy: () => ({
-      connectors: ["github", "google"],
-      resources: [],
-      paused: process.env.APPS_PAUSED === "true",
-    }),
-  },
-});
+A client cannot change its callback URLs or its connectors. A deployment that needs another set
+registers a new client.
 
-export const { deleteClient, deleteApp, listApps, listClients, cleanup } = broker.admin();
-```
+### 3. Point your sign-in at the hub
 
-```ts
-// convex/http.ts
-import { httpRouter } from "convex/server";
-import { broker } from "./broker";
+Use any OpenID Connect client library. The hub's settings are at
+`https://id.samebase.com/.well-known/openid-configuration`.
 
-const http = httpRouter();
-broker.addHttpRoutes(http);
-export default http;
-```
+- Flow: authorization code with PKCE. `S256` is required.
+- Scopes: `openid email profile`.
+- Client authentication at `/token`: `client_secret_post` or `client_secret_basic`.
+- `connector=google` on the `/authorize` URL offers only that provider. With no `connector`, the
+  page offers every provider of the client.
 
-```ts
-// convex/crons.ts: expired requests and codes, old audit rows, and expired preview clients
-import { cronJobs } from "convex/server";
-import { internal } from "./_generated/api";
-
-const crons = cronJobs();
-crons.daily("identity broker cleanup", { hourUTC: 4, minuteUTC: 17 }, internal.broker.cleanup, {});
-export default crons;
-```
-
-Convex reads the routes from `http.ts` and the schedule from `crons.ts`, so those two stay their own
-files; everything else of the hub is in `broker.ts`. Register one callback with each provider:
-`<issuer>/connectors/google/callback` and `<issuer>/connectors/github/callback`.
-
-Keys: `npx identity-broker keys` prints the value for `IDENTITY_BROKER_KEYS`; `keys --rotate`
-advances it, and `keys --rotate --no-overlap` replaces a compromised key at once. The key set holds
-no user identity, so a lost one is replaced with a new one. `parseKeySet` checks a value's shape
-before a deploy, and `assertKeySetUsable` signs a test token with it and verifies that token against
-its JWKS.
-
-Tests: `register` of `@samebase/identity-broker/test` adds the component to a host's `convex-test`
-backend.
-
-## Register an app's deployments
-
-`POST /hub-clients` gives a client to one deployment of an app, with no account at the hub.
-
-### The proof
-
-- **A GitHub Actions run** sends GitHub's OIDC token whose audience is the hub's issuer, so no other
-  hub can use a token made for this one. A run of `main` gets a production client, a pull request a
-  preview client. `IdentityHub.Client` of `@samebase/alchemy-convex/identity-hub` does this at each
-  deploy, at the hub of its `hub` prop.
-- **A development server** sends the app's initial access token (RFC 7591 section 1.2), which a
-  production answer holds. It gets a development client.
-
-### The request
-
-- `redirectUris`: one to eight return addresses, each matched exactly at `/authorize`. A deployment
-  registers every handler that receives the hub's answers, such as a sign-in callback and a
-  connections callback, on one client. Each https origin must serve `/samebase-verification.json`
-  with the repository's numeric id. A GitHub run's list holds no loopback address; a development
-  client may mix loopback and verified https addresses.
-- `connectors`: the connectors the client enrolls in, such as `["google", "github"]`. Each must be
-  one of the hub's and one that the policy allows this registration; else the answer is
-  `400 invalid_connectors` with the allowed names. The enrollment is on the client for good: a
-  deployment that wants another set registers a new client.
-- The app's name and a version.
-
-The 201 answer and the client's RFC 7592 record repeat the list and the enrollment, and discovery
-lists the hub's connector names in `connectors_supported`. A Convex Auth v2 app points its generic
-OAuth method at `<issuer>/authorize` and `<issuer>/token`; the
+For Convex Auth, the
 [consumer guide](https://github.com/samebase/samebase/blob/main/packages/identity-broker/docs/consumers.md)
 has the code.
 
+Key each account by `sub`, and read `email` only when `email_verified` is `true`.
+
+### On a development machine
+
+A development server has no GitHub Actions run, so it cannot get GitHub's token. The answer to a
+production registration has one more field for this, `initial_access_token`. Send it to
+`POST /hub-clients` as the Bearer, in place of GitHub's token, with the same `app`. The client it
+gets may use loopback callbacks such as `http://localhost:3000/auth/hub/callback`, and those need no
+verification file.
+
+Treat the token as a secret of the team: any holder can register development clients for the app.
+Each new production registration of the app replaces it. With Alchemy,
+`IdentityHub.Client.read("IdentityHubClient", { stage: "prod" })` reads it from the production
+stage's state.
+
+### What the hub checks
+
+The token proves which repository asks. The file proves that this repository controls the site that
+users return to. The hub's page then shows both to the user.
+
+The hub refuses a registration at the first check that fails:
+
+| Check                                                                                                    | Refusal                                                                                                 |
+| -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| GitHub signed the token for a workflow run, and its audience is this hub's issuer                        | `401 invalid_token`                                                                                     |
+| The run is a `pull_request`, or a `push` or `workflow_dispatch` on `main`                                | `403 run_not_allowed`                                                                                   |
+| The body has the four fields, and each callback URL is `https` on a DNS name, with no fragment           | `400 invalid_request`                                                                                   |
+| The hub's policy has not paused the app                                                                  | `403 paused`                                                                                            |
+| The hub's rules give this repository each connector that it asks for                                     | `400 invalid_connectors`, with the names that are `allowed`                                             |
+| The hub's administrator has not blocked the repository or its owner                                      | `403 blocked`                                                                                           |
+| The repository and its owner are inside their hourly limits                                              | `429 rate_limited`                                                                                      |
+| Each site in `redirectUris` serves the verification file, and the file names the repository of the token | `403 verification_file_missing`, `host_unreachable`, `verification_file_invalid`, `repository_mismatch` |
+
+A `403` has the body `{ "error": "not_allowed", "reason": "<the name above>" }`.
+
+The token's audience is one hub's issuer, so a token that a deploy made for one hub is of no use at
+another hub.
+
+## Mount it
+
+You need a Convex app, and an OAuth client at each provider that you offer.
+
+1. Install the package.
+
+   ```sh
+   npm install @samebase/identity-broker
+   ```
+
+2. Add the component.
+
+   ```ts
+   // convex/convex.config.ts
+   import { defineApp } from "convex/server";
+   import identityBroker from "@samebase/identity-broker/convex.config";
+
+   const app = defineApp();
+   app.use(identityBroker);
+   export default app;
+   ```
+
+3. Write the hub's config. This file is the whole hub.
+
+   ```ts
+   // convex/broker.ts
+   import { defineIdentityBroker, github, google } from "@samebase/identity-broker";
+   import { components } from "./_generated/api";
+
+   export const broker = defineIdentityBroker({
+     component: components.identityBroker,
+     issuer: process.env.ISSUER ?? process.env.CONVEX_SITE_URL!,
+     keys: () => process.env.IDENTITY_BROKER_KEYS,
+     connectors: [
+       github({
+         clientId: () => process.env.GITHUB_CLIENT_ID!,
+         clientSecret: () => process.env.GITHUB_CLIENT_SECRET!,
+         selectAccount: true,
+       }),
+       google({
+         clientId: () => process.env.GOOGLE_CLIENT_ID!,
+         clientSecret: () => process.env.GOOGLE_CLIENT_SECRET!,
+         selectAccount: true,
+       }),
+     ],
+     registration: {
+       // The name on the sign-in page, and the two links under it.
+       name: "Example",
+       terms: "https://example.com/terms",
+       privacy: "https://example.com/privacy",
+       // The Bearer of the administrator's API.
+       moderationKey: () => process.env.IDENTITY_HUB_MODERATION_KEY,
+       // What each registration may do. See "The policy" below.
+       policy: () => ({
+         connectors: ["github", "google"],
+         resources: [],
+         paused: process.env.APPS_PAUSED === "true",
+       }),
+     },
+   });
+
+   // For `npx convex run broker:<name>`, and for the cron below.
+   export const { deleteClient, deleteApp, listApps, listClients, cleanup } = broker.admin();
+   ```
+
+4. Add the routes and the daily cleanup. Convex reads them only from these two files.
+
+   ```ts
+   // convex/http.ts
+   import { httpRouter } from "convex/server";
+   import { broker } from "./broker";
+
+   const http = httpRouter();
+   broker.addHttpRoutes(http);
+   export default http;
+   ```
+
+   ```ts
+   // convex/crons.ts
+   import { cronJobs } from "convex/server";
+   import { internal } from "./_generated/api";
+
+   const crons = cronJobs();
+   crons.daily(
+     "identity broker cleanup",
+     { hourUTC: 4, minuteUTC: 17 },
+     internal.broker.cleanup,
+     {},
+   );
+   export default crons;
+   ```
+
+5. Make the signing keys. `npx identity-broker keys` prints the value of the variable
+   `IDENTITY_BROKER_KEYS`.
+6. At each provider, set the redirect URL of your OAuth client to the hub's callback:
+   `<issuer>/connectors/google/callback` and `<issuer>/connectors/github/callback`. This is the one
+   time you add a URL by hand.
+
+The issuer is a URL with no path, such as `https://auth.example.com`. The hub's routes, such as
+`/authorize` and `/token`, are at the root of that host.
+
+More that you can use:
+
+- **Other providers.** `google()` and `github()` are included. Any OpenID Connect provider is a
+  plain object in `connectors`. An OAuth 2.0 provider that publishes RFC 8414 metadata is one too,
+  with a function that reads the user's identity from its API.
+- **Key rotation.** `npx identity-broker keys --rotate` reads the current value on stdin and prints
+  the next one. Add `--no-overlap` after a key leak, so that the old key stops at once. The key set
+  holds nothing about users, so you replace a lost one with a new one.
+- **Key checks before a deploy.** `parseKeySet` checks the shape of a value. `assertKeySetUsable`
+  signs a test token with it and verifies that token.
+- **Tests.** `register` from `@samebase/identity-broker/test` adds the component to a `convex-test`
+  backend.
+- **Your own registration.** Leave `registration` out, and the hub has no `/hub-clients`, no
+  `/register`, and no `/moderation`. You then create each client in a mutation of your own, with
+  `newClientCredentials` and `component.registration.register`, after your own check of who asks.
+
+## Operate a hub
+
 ### The policy
 
-`registration.policy` decides what a registration may do, from facts the hub checked: the
-repository's numeric id and `owner/name`, its owner's id, the app name, the deployment type, the
-return addresses, and the proof (`github-actions` or `initial-access-token`). It answers three
-things:
+`registration.policy` is a function that you write. The broker calls it with facts that it checked
+itself, and the function answers what that app may do.
 
-- `connectors`: the connectors the registration may enroll in and use.
-- `resources`: the provider APIs, by name, that its client may authorize.
-- `paused`: a paused client gets no registration, sign-in, code exchange, or refresh, and keeps its
-  reads, renewals, revocations, and self-deletes.
+```ts
+policy: ({ ownerId }) => ({
+  // Google for the repositories of one organization, GitHub for every repository.
+  connectors: ownerId === "9919" ? ["github", "google"] : ["github"],
+  resources: [],
+  paused: false,
+}),
+```
 
-The broker runs it at registration and at each use (`/authorize`, `/continue`, the connector
-callback, code exchange, API authorization, and provider refresh) on the client's and the tenant's
-rows, so a change applies to existing clients at once. A policy that throws or answers a malformed
-value refuses the request; nothing is allowed by default.
+| Fact             | Value                                                                |
+| ---------------- | -------------------------------------------------------------------- |
+| `repositoryId`   | GitHub's numeric ID of the repository                                |
+| `repository`     | `owner/name` at registration                                         |
+| `ownerId`        | GitHub's numeric ID of the account that owns the repository          |
+| `app`            | The app's name                                                       |
+| `deploymentType` | `production`, `preview`, or `development`                            |
+| `redirectUris`   | The client's callback URLs                                           |
+| `proof`          | `github-actions`, or `initial-access-token` for a development client |
 
-### The administrator
+| Answer       | Meaning                                                                                       |
+| ------------ | --------------------------------------------------------------------------------------------- |
+| `connectors` | The connectors that the client may register for and sign in through                           |
+| `resources`  | The provider APIs that the client may authorize ([Provider API access](#provider-api-access)) |
+| `paused`     | `true` stops registration, sign-in, code exchange, and refresh for the client                 |
 
-The holder of the moderation key changes these at runtime, with no deploy of the hub:
+The broker calls the policy at registration and again at each step of each sign-in, with the facts
+that the client's row holds. A change of the policy thus applies to existing clients at the next
+request. TypeScript rejects a connector or resource name that the hub does not have. If the function
+throws or gives a malformed answer, the broker refuses the request.
 
-- **Blocks.** `/moderation/blocks` stops a repository or an owner at once, policy or not.
-- **Connector grants.** `/moderation/connector-grants` gives one repository a connector that the
-  policy does not give it. Every step of a sign-in reads the grants again, so a revoked grant stops
-  the next step.
-- **The sign-in page.** The page shows for every client. `/moderation/sign-in-page` exempts one
-  repository, or every app, and the browser then goes straight to the provider.
-- **Clients.** `/moderation/clients?owner=<id>` lists the clients of every repository of that GitHub
-  account and `DELETE /moderation/clients/<id>` deletes one, for a console that shows each developer
-  their own.
+### The administrator's API
 
-A grant and an exemption cover every app and deployment of a repository, and count while the
-repository's recorded owner, and the client's, is the owner the row is bound to. A transferred
-repository does not keep them. Each repository and each owner also has hourly limits on
-registrations.
+These endpoints change what the hub allows with no deploy. Each request needs the moderation key as
+the Bearer.
+
+| Endpoint                                   | Use                                                                                                    |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------ |
+| `GET`, `POST /moderation/blocks`           | Block a repository or an owner. A block stops every request at once, whatever the policy says.         |
+| `GET`, `POST /moderation/connector-grants` | Give one repository a connector that the policy does not give it.                                      |
+| `GET`, `POST /moderation/sign-in-page`     | Let one repository, or every app, skip the hub's page. The browser then goes straight to the provider. |
+| `GET /moderation/clients?owner=<id>`       | List every client, or with `?owner=<id>` the clients of one GitHub account's repositories.             |
+| `DELETE /moderation/clients/<client id>`   | Delete one client.                                                                                     |
+| `GET /moderation/counts`                   | Read the registration counts.                                                                          |
+
+A grant and a skip cover every app and deployment of the repository. Each is bound to the
+repository's owner at the time you set it, so a repository that moves to another owner loses them.
 
 ### A client's lifetime
 
-A preview or development client gets a removal date 14 days ahead, and the daily `cleanup` deletes
-it after that date. A read of `/register/<client>` with the client's registration access token
-(RFC 7592) renews it and moves the date 14 days forward; run it at each deploy. A sign-in, a
-resource authorization, and a provider refresh also move it. A production client never gets a
-removal date.
+A production client stays until you delete it.
 
-A preview or development client deletes itself with `DELETE /register/<client>`. The administrator
-deletes any client with `broker:deleteClient`. A client that is gone is no error.
+A preview or development client is deleted 14 days after its last use. A use is a sign-in, a read of
+`/register/<client id>`, a provider API authorization, or a provider token refresh. So a deployment
+that still deploys or still has users keeps its client, and an abandoned preview cleans itself up.
 
-## Connect provider APIs
+A preview or development client can delete itself with `DELETE /register/<client id>` and its
+registration access token. `deleteClient` of `broker.admin()` deletes any client.
 
-API resource providers authorize access to a provider's API without creating an identity. Add
-`resources` alongside `connectors` in `defineIdentityBroker`:
+### Logs
+
+The broker writes one console line for each completed sign-in, each refused sign-in, and each answer
+to a registration:
+
+```
+hub_event {"event":"sign_in","repository":"octo-org/weather-app","app":"weather-app","deployment":"preview","connector":"google","reason":null}
+```
+
+`event` is `sign_in`, `sign_in_refused`, `registration`, or `registration_refused`. `reason` says
+why a request was refused. The line never names a user, a token, or a callback URL. A Convex log
+stream sends the lines to your log service.
+
+### What is stored
+
+| Row                                      | Kept for                              |
+| ---------------------------------------- | ------------------------------------- |
+| Apps and clients                         | Until deleted, as above               |
+| Authorization requests                   | 10 minutes                            |
+| Authorization codes                      | 60 seconds, one use                   |
+| One audit row for each issued `id_token` | 90 days                               |
+| Provider refresh tokens                  | Until revoked, or 90 days with no use |
+
+The audit row holds the app, the client, the connector, the `sub`, and the time. Nothing else about
+a user stays after the sign-in request ends. There are no accounts, no sessions, and no passwords.
+[docs/design.md](https://github.com/samebase/samebase/blob/main/packages/identity-broker/docs/design.md)
+describes each table and each decision.
+
+## Provider API access
+
+A hub can also get an app an access token for a provider's API on behalf of a user, with no sign-in.
+An app that deploys to its user's Convex team or Cloudflare account uses this. Its previews get it
+the same way as sign-in: through the client that they registered.
+
+Add `resources` beside `connectors` in `defineIdentityBroker`. Each credential is a function that
+reads a secret of the hub:
 
 ```ts
 import {
@@ -253,60 +443,45 @@ const resources = [
 ];
 ```
 
-Each credential value above is a function that reads the host's secret. Register these provider
-callbacks once: `<issuer>/connections/convex/callback`, `<issuer>/connections/cloudflare/callback`,
-and `<issuer>/connections/github/callback`. Preview apps register their exact callback with the hub
-using the existing client registration, in the same `redirectUris` list as the sign-in callback.
-Configure the Cloudflare OAuth client with `client_secret_basic`; Convex and GitHub use
-`client_secret_post`. The constructors use these methods for code exchange and refresh. In hub mode
-the policy's `resources` names the providers a client may authorize; without hub mode every client
-may authorize every one.
+| Provider   | The `resource` an app asks for          | Redirect URL to set at the provider        | Token endpoint method of your client there |
+| ---------- | --------------------------------------- | ------------------------------------------ | ------------------------------------------ |
+| Convex     | `https://api.convex.dev`                | `<issuer>/connections/convex/callback`     | `client_secret_post`                       |
+| Cloudflare | `https://api.cloudflare.com/client/v4/` | `<issuer>/connections/cloudflare/callback` | `client_secret_basic`                      |
+| GitHub App | `https://api.github.com`                | `<issuer>/connections/github/callback`     | `client_secret_post`                       |
 
-Send an authorization-code request with S256 PKCE and one `resource`: `https://api.convex.dev` for
-Convex team access, `https://api.cloudflare.com/client/v4/` for Cloudflare, or
-`https://api.github.com` for the user access token of a GitHub App. Omit `openid`. The broker
-requests the provider's configured scope. Redeem the code at `/token` with client authentication,
-`redirect_uri`, and `code_verifier`. The response is an OAuth bearer token response for that
-provider API, without an ID Token. The app still owns its users and connection records.
+The policy's `resources` names the providers that a client may use.
 
-Cloudflare supplies refresh credentials, which the broker retains in the same private component and
-exposes through an opaque, client-bound refresh token. Use the standard `refresh_token` grant and
-`/revoke` on disconnect. Convex's team token has no refresh grant or advertised expiry. Revoking the
-broker grant stops future refresh; it does not revoke a provider access token already issued. See
-[design.md](https://github.com/samebase/samebase/blob/main/packages/identity-broker/docs/design.md#api-authorization)
-for retention and refresh failure behavior.
+The app's side:
 
-## Logs
+1. Add the callback URL that receives the answer to the client's `redirectUris`, beside the sign-in
+   callback.
+2. Send the user to `/authorize` with PKCE (`S256`), one `resource` from the table, and no `openid`
+   scope. The broker asks the provider for the scope that the hub configured.
+3. Exchange the code at `/token` with the client's credentials, `redirect_uri`, and `code_verifier`.
+   The answer is an OAuth bearer token response for that provider's API. It has no `id_token`.
+4. Where the answer has a `refresh_token`, use the standard `refresh_token` grant at `/token`, and
+   `/revoke` when the user disconnects.
 
-The broker writes one console line, `hub_event` and a JSON object, for each sign-in that ends with
-tokens, each sign-in that a block, the policy, or a limit refuses, and each answer to
-`POST /hub-clients`:
-
-```
-hub_event {"event":"sign_in","repository":"octo-org/weather-app","app":"weather-app","deployment":"preview","connector":"google","reason":null}
-```
-
-`event` is `sign_in`, `sign_in_refused`, `registration`, or `registration_refused`, and `reason`
-says why a request was refused. The line names no user, token, or return address. A log stream of
-the deployment carries it out of Convex.
-
-## What is stored
-
-Apps, clients, authorization requests for ten minutes, authorization codes for sixty seconds, and an
-audit row per issued `id_token` for 90 days. Apart from those audit rows, nothing about a user
-outlives the sign-in request that carried it. There are no accounts, no sessions, and no passwords.
-[docs/design.md](https://github.com/samebase/samebase/blob/main/packages/identity-broker/docs/design.md)
-has each table and each decision.
+Cloudflare gives a refresh token. The broker keeps it in the component and gives the app an opaque
+token of its own, bound to the client. Convex's team token has no refresh grant and no stated
+expiry. `/revoke` stops later refreshes. It does not revoke an access token that the provider
+already issued.
+[docs/design.md](https://github.com/samebase/samebase/blob/main/packages/identity-broker/docs/design.md#api-authorization)
+describes how long grants stay and what happens when a refresh fails.
 
 ## Standards
 
-OAuth 2.0 and the OAuth 2.1 draft (code flow, PKCE S256, exact redirect URIs, `iss` on responses),
-OpenID Connect Core and Discovery, RFC 8414, RFC 8707, RFC 7009, RFC 9207, RFC 9700, and the JWT,
-JWS, JWK and cookie standards under them. A client gets its credentials out of band, which RFC 6749
-section 2 leaves open.
+The broker follows OAuth 2.0 and the OAuth 2.1 draft (code flow, PKCE `S256`, exact redirect URLs,
+`iss` on responses), OpenID Connect Core and Discovery, and RFC 8414, 8707, 7009, 9207, and 9700. A
+client reads and deletes its own record at `/register/<client id>` as RFC 7592 describes.
+`POST /hub-clients` follows no standard: RFC 6749 section 2 leaves open how a client gets its
+credentials.
+
+The broker is not OpenID Certified.
 [docs/standards.md](https://github.com/samebase/samebase/blob/main/packages/identity-broker/docs/standards.md)
-lists each with its sections and status, and departures are named in
-[docs/design.md](https://github.com/samebase/samebase/blob/main/packages/identity-broker/docs/design.md).
+lists each standard with its sections, its status, and the results of the OpenID conformance suite.
+[docs/design.md](https://github.com/samebase/samebase/blob/main/packages/identity-broker/docs/design.md)
+names each departure.
 
 ## License
 
