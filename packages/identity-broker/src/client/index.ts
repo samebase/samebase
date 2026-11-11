@@ -983,11 +983,15 @@ export function defineIdentityBroker<C extends Connector, R extends ResourceProv
     });
   });
 
-  const userinfo = httpActionGeneric(async (_ctx, request) => {
+  const userinfo = httpActionGeneric(async (ctx, request) => {
     const bearer = readBearerToken(request.headers.get("authorization"));
-    const claims =
+    const verified =
       bearer === null ? null : await verifyAccessToken({ keySet: keySet(), issuer, token: bearer });
-    if (claims === null) {
+    // A deleted client's tokens die with it (RFC 7592 section 2.3); a paused client's live to expiry.
+    if (
+      verified === null ||
+      (await ctx.runQuery(component.clients.get, { clientId: verified.clientId })) === null
+    ) {
       return json(
         {
           error: "invalid_token",
@@ -999,7 +1003,7 @@ export function defineIdentityBroker<C extends Connector, R extends ResourceProv
         },
       );
     }
-    return json(claims);
+    return json(verified.claims);
   });
 
   return {

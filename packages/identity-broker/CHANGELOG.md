@@ -38,6 +38,8 @@
     405 with `Allow: GET, DELETE`.
   - Discovery in hub mode has `registration_endpoint` and `op_tos_uri`.
 - `IdentityHub.Client` of `@samebase/alchemy-convex` 0.40.0 speaks this endpoint. No table changes.
+- `/userinfo` answers 401 `invalid_token` for the access token of a deleted client (RFC 7592 section
+  2.3).
 
 ## 0.32.2
 

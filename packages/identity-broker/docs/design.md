@@ -171,7 +171,8 @@ revocation, self-delete, and moderation alone, so a short pause ends without exp
 block is stronger than the pause. A withdrawn connector, resource, or pause stops later issuance
 only: an id_token and an access token live to their expiry, `/userinfo` answers a valid access
 token, a provider access token already released stays usable at the provider, and an app's session
-is the app's.
+is the app's. A client delete is different: `/userinfo` refuses the access token of a deleted client
+(RFC 7592 section 2.3), while an id_token already issued cannot be recalled.
 
 ## Sign-in page
 
@@ -354,11 +355,13 @@ provider.
   section 5), and the host and the repository are what the hub checked.
 - An initial access token is required: there is no open registration, which RFC 7591 section 3 and
   OpenID Connect Registration section 3 recommend.
-- A read of a client (RFC 7592 section 2.1) renews a preview or development client, where OpenID
-  Connect Registration section 4.2 says a read should be idempotent. The read answers without
-  `client_secret`: the hub keeps only its hash. It echoes the `registration_access_token` that the
-  request presented. No request changes a secret: a client that lost it registers a new client, and
-  the old one stays valid, because the hub cannot know which one a deployment holds.
+- A read of a client (RFC 7592 section 2.1) renews a preview or development client. That is inside
+  OpenID Connect Registration section 4.2, which asks a read not to change the client configuration
+  or the registered metadata: the renewal moves only the hub's removal date, which is neither. The
+  departure is the answer: the read answers without `client_secret`, because the hub keeps only its
+  hash. It echoes the `registration_access_token` that the request presented. No request changes a
+  secret: a client that lost it registers a new client, and the old one stays valid, because the hub
+  cannot know which one a deployment holds.
 - No update: `PUT` answers 405 (RFC 7592 section 2.2).
 - A production client cannot delete itself, which RFC 7592 section 2.3 allows a server to refuse. A
   stack destroy can leave a production deployment running, so only the hub's administrator deletes

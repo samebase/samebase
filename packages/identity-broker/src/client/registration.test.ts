@@ -789,6 +789,30 @@ describe("RFC 7592 client management", () => {
       expect(await response.json()).toMatchObject({ error: "invalid_token" });
     }
   });
+
+  test("/userinfo answers the access token of a paused client and refuses a deleted client's (RFC 7592 section 2.3)", async () => {
+    let paused = false;
+    const h = await hub(() => testPolicy({ paused }));
+    const client = await register(h, { appId: "gh-1-p", deploymentType: "preview" });
+    const tokens = await signIn(h, client);
+    expect(tokens.status).toBe(200);
+    const { access_token }: { access_token: string } = await tokens.json();
+    const userinfo = async () =>
+      await h.fetchBroker(`${h.issuer}/userinfo`, {
+        headers: { Authorization: `Bearer ${access_token}` },
+      });
+    const signedIn = await userinfo();
+    expect(signedIn.status).toBe(200);
+    expect(await signedIn.json()).not.toHaveProperty("client_id");
+    paused = true;
+    expect((await userinfo()).status).toBe(200);
+    const own = configuration(client, client.registration_access_token, "DELETE");
+    expect((await h.fetchBroker(own.url, own.init)).status).toBe(204);
+    const deleted = await userinfo();
+    expect(deleted.status).toBe(401);
+    expect(deleted.headers.get("WWW-Authenticate")).toBe('Bearer error="invalid_token"');
+    expect(await deleted.json()).toMatchObject({ error: "invalid_token" });
+  });
 });
 
 describe("what a redemption does at once", () => {
