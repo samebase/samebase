@@ -3,6 +3,15 @@
 What changed in Samebase, newest first. Each `v` number is the Samebase version that shipped the
 change. If a change needs action from you, the entry says so.
 
+## 2026-11-11
+
+- **v2336: Hub clients register with the public standard.** Both identity hubs now register clients
+  only with `POST /register`, the OAuth 2.0 Dynamic Client Registration standard (RFC 7591). An app
+  keeps its clients, so its sign-in keeps working. An app made from
+  [samebase/base](https://github.com/samebase/base) before today needs `@samebase/alchemy-convex`
+  0.40.0 before a new preview or a new development machine can register. Ask your agent to apply the
+  starter changelog, or follow its v2336 entry. New apps have it from the start.
+
 ## 2026-11-09
 
 - **v2325: One hub client per deployment, with a list of return addresses.** A deployment now

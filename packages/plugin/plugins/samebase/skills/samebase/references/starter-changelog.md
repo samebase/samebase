@@ -22,6 +22,24 @@ relevant, and preserve unrelated user changes.
 For a review of several apps, compare each repository independently. Do not reuse one app's starter
 build or relevance result for another app.
 
+## v2336: Hub clients register with RFC 7591
+
+On 2026-11-11 both identity hubs moved to identity-broker 0.33.0. A hub now registers clients only
+with the standard request `POST /register` (OAuth 2.0 Dynamic Client Registration, RFC 7591).
+`@samebase/alchemy-convex` 0.40.0 sends this request. An older version sends `POST /hub-clients`,
+which the hubs no longer serve. An app keeps the clients it has, so sign-in keeps working on
+production and on existing previews. A new preview or a new development machine cannot register
+until the app is on 0.40.0.
+
+Relevant when `package.json` sets `@samebase/alchemy-convex` below `0.40.0`. From commit
+[`6647ae8`](https://github.com/samebase/base/commit/6647ae8922bceb6d4e3ab2c73b778f8c8cecc3c5) of
+[samebase/base](https://github.com/samebase/base):
+
+- Set `@samebase/alchemy-convex` to `0.40.0` in `package.json` and update the lockfile.
+
+No prop of `IdentityHub.Client` changed. Verify that the pull request comment says
+`Sign-in with github, google: on`.
+
 ## v2326: A hub client lists its return addresses
 
 On 2026-11-09 both identity hubs moved to identity-broker 0.31.0: a client lists the return
