@@ -107,7 +107,7 @@ export type IdentityBrokerConfig<
    */
   previewClientIdleDays?: number;
   /**
-   * The hub mode: `POST /hub-clients`, `/register/<client>` (RFC 7592), `/moderation/*`, and the
+   * The hub mode: `POST /register` (RFC 7591), `/register/<client>` (RFC 7592), `/moderation/*`, and the
    * policy. Absent: none of these endpoints, and the host is its own policy.
    */
   registration?: RegistrationConfig<C["name"], R["name"]>;
@@ -272,6 +272,11 @@ export function defineIdentityBroker<C extends Connector, R extends ResourceProv
     token_endpoint: `${issuer}/token`,
     userinfo_endpoint: `${issuer}/userinfo`,
     jwks_uri: `${issuer}/.well-known/jwks.json`,
+    // The client registration endpoint of RFC 7591, in hub mode. It needs an initial access token.
+    // `op_tos_uri` is the terms that every new client's answer names (OpenID Connect Discovery).
+    ...(registration === undefined
+      ? {}
+      : { registration_endpoint: `${issuer}/register`, op_tos_uri: registration.terms }),
     scopes_supported: [...SCOPES, ...resources.scopes],
     // An extension: the names a registration may enroll in. What a client may use is in its
     // registration answer.
@@ -1026,14 +1031,20 @@ export function defineIdentityBroker<C extends Connector, R extends ResourceProv
         });
       }
       if (registration !== undefined) {
-        registrationEndpoints({ component, issuer, path }).addRoutes(http);
+        registrationEndpoints({
+          component,
+          issuer,
+          path,
+          refreshTokens: resources.enabled,
+        }).addRoutes(http);
         http.route({
-          path: path("/hub-clients"),
+          path: path("/register"),
           method: "POST",
           handler: hubClientsEndpoint({
             component,
             issuer,
             registration,
+            refreshTokens: resources.enabled,
             connectors: [...connectors.keys()],
           }),
         });
@@ -1048,7 +1059,7 @@ export function defineIdentityBroker<C extends Connector, R extends ResourceProv
 
     /**
      * The credentials of a client for `component.registration.register`, for a host that proves its
-     * callers in another way than `POST /hub-clients`. Call it in an action: the secret and the
+     * callers in another way than `POST /register`. Call it in an action: the secret and the
      * registration access token go to the caller of the host's endpoint, and nowhere else.
      */
     newClientCredentials: async () => await newClientCredentials(issuer),

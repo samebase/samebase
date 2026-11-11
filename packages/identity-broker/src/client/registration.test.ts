@@ -13,7 +13,13 @@ import {
   txnCookie,
   type Harness,
 } from "./harness.test.helper.js";
-import { hubConnectors, hubRegistration, skipSignInPage, testPolicy } from "./hub.test.helper.js";
+import {
+  expectInsufficientScope,
+  hubConnectors,
+  hubRegistration,
+  skipSignInPage,
+  testPolicy,
+} from "./hub.test.helper.js";
 import type { Policy, PolicyFunction } from "./policy.js";
 
 const REDIRECT_URI = "https://app-1.convex.site/auth/hub/callback";
@@ -42,7 +48,7 @@ async function hub(policy: PolicyFunction = () => testPolicy(), options: { page?
 
 /**
  * A client that the host creates in its own mutation with `newClientCredentials`, as the hub's
- * `POST /hub-clients` does, in the shape of an RFC 7591 answer. The tenant `gh-1` of owner 65,
+ * `POST /register` does, in the shape of an RFC 7591 answer. The tenant `gh-1` of owner 65,
  * unless `args` say otherwise; `ownerId: null` names no owner.
  */
 async function registerHere(
@@ -218,19 +224,19 @@ const configuration = (
 });
 
 describe("registration", () => {
-  test("the host registers in its own mutation: no /register endpoint, and discovery names none", async () => {
+  test("the registration endpoint needs an initial access token, and there is no tenant switch", async () => {
     const h = await hub();
     const created = await h.fetchBroker(`${h.issuer}/register`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: "{}",
     });
-    expect(created.status).toBe(404);
+    expect(created.status).toBe(401);
+    expect(created.headers.get("WWW-Authenticate")).toBe("Bearer");
     expect((await h.fetchBroker(`${h.issuer}/tenant-connection`, { method: "POST" })).status).toBe(
       404,
     );
-    const document = await h.fetchBroker(`${h.issuer}/.well-known/openid-configuration`);
-    expect(await document.json()).not.toHaveProperty("registration_endpoint");
+    expect(await h.t.query(api.apps.list, {})).toEqual([]);
   });
 
   test("an app holds its clients, each with its enrollment, and a lost client just gets a new one", async () => {
@@ -645,25 +651,57 @@ describe("RFC 7592 client management", () => {
     expect(response.status).toBe(200);
     expect(response.headers.get("cache-control")).toBe("no-store");
     const body: Record<string, unknown> = await response.json();
-    expect(body).toMatchObject({
+    expect(body).toEqual({
       client_id: client.client_id,
+      client_id_issued_at: expect.any(Number),
       client_secret_expires_at: 0,
+      registration_access_token: client.registration_access_token,
+      registration_client_uri: client.registration_client_uri,
       redirect_uris: [REDIRECT_URI],
+      client_name: "pr-1",
+      software_id: "gh-1/app",
+      software_version: "abc123",
+      token_endpoint_auth_method: "client_secret_post",
       grant_types: ["authorization_code"],
       response_types: ["code"],
-      software_id: "gh-1-app",
+      application_type: "web",
+      subject_type: "public",
+      id_token_signed_response_alg: "RS256",
       connectors: ["fake"],
     });
-    expect(body).not.toHaveProperty("client_secret");
     // The component keeps only the hashes of the secret and the token.
     const row = await readClient(h, client.client_id);
     expect(row?.secretHash).toBe(await sha256Hex(client.client_secret));
     expect(row?.registrationTokenHash).toBe(await sha256Hex(client.registration_access_token));
     const wrong = configuration(client, other.registration_access_token, "GET");
-    expect((await h.fetchBroker(wrong.url, wrong.init)).status).toBe(401);
-    const bare = await h.fetchBroker(client.registration_client_uri);
-    expect(bare.status).toBe(401);
+    const refused = await h.fetchBroker(wrong.url, wrong.init);
+    expect(refused.status).toBe(401);
+    expect(refused.headers.get("WWW-Authenticate")).toBe('Bearer error="invalid_token"');
+    expect(await refused.json()).toMatchObject({ error: "invalid_token" });
   });
+
+  test.each([
+    ["GET", "no Authorization header", null],
+    ["GET", "Basic credentials", "Basic dXNlcjpwYXNz"],
+    ["GET", "the word Bearer alone", "Bearer"],
+    ["DELETE", "no Authorization header", null],
+    ["DELETE", "Basic credentials", "Basic dXNlcjpwYXNz"],
+    ["DELETE", "the word Bearer alone", "Bearer"],
+  ])(
+    "a %s with %s answers 401 with the bare challenge and no body (RFC 6750 section 3.1)",
+    async (method, _, authorization) => {
+      const h = await hub();
+      const client = await register(h, { appId: "gh-1-app-p", deploymentType: "preview" });
+      const response = await h.fetchBroker(client.registration_client_uri, {
+        method,
+        headers: authorization === null ? {} : { Authorization: authorization },
+      });
+      expect(response.status).toBe(401);
+      expect(response.headers.get("WWW-Authenticate")).toBe("Bearer");
+      expect(await response.text()).toBe("");
+      expect(await readClient(h, client.client_id)).not.toBeNull();
+    },
+  );
 
   test("a read renews a preview client and never dates a production client, paused or not", async () => {
     vi.useFakeTimers({ now: 1_000_000_000_000 });
@@ -712,8 +750,25 @@ describe("RFC 7592 client management", () => {
     const client = await register(h);
     const own = configuration(client, client.registration_access_token, "DELETE");
     const response = await h.fetchBroker(own.url, own.init);
-    expect(response.status).toBe(403);
+    await expectInsufficientScope(response);
     expect(await readClient(h, client.client_id)).not.toBeNull();
+  });
+
+  test("an update answers 405 and changes nothing", async () => {
+    const h = await hub();
+    const client = await register(h);
+    const before = await readClient(h, client.client_id);
+    const response = await h.fetchBroker(client.registration_client_uri, {
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${client.registration_access_token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ client_id: client.client_id, redirect_uris: [REDIRECT_URI] }),
+    });
+    expect(response.status).toBe(405);
+    expect(response.headers.get("Allow")).toBe("GET, DELETE");
+    expect(await readClient(h, client.client_id)).toEqual(before);
   });
 
   test("a delete removes only the client that asks, also while paused, and a gone client answers 401", async () => {
@@ -726,9 +781,13 @@ describe("RFC 7592 client management", () => {
     const own = configuration(client, client.registration_access_token, "DELETE");
     expect((await h.fetchBroker(own.url, own.init)).status).toBe(204);
     expect(await readClient(h, client.client_id)).toBeNull();
-    expect((await h.fetchBroker(own.url, own.init)).status).toBe(401);
     const read = configuration(client, client.registration_access_token, "GET");
-    expect((await h.fetchBroker(read.url, read.init)).status).toBe(401);
+    for (const gone of [own, read]) {
+      const response = await h.fetchBroker(gone.url, gone.init);
+      expect(response.status).toBe(401);
+      expect(response.headers.get("WWW-Authenticate")).toBe('Bearer error="invalid_token"');
+      expect(await response.json()).toMatchObject({ error: "invalid_token" });
+    }
   });
 });
 
@@ -1099,7 +1158,7 @@ describe("a development client", () => {
     const { client } = await registerHere(h, { deploymentType: "development" });
     await switchConnection(h, "gh-1", false);
     const read = configuration(client, client.registration_access_token, "GET");
-    expect((await h.fetchBroker(read.url, read.init)).status).toBe(403);
+    await expectInsufficientScope(await h.fetchBroker(read.url, read.init));
   });
 });
 

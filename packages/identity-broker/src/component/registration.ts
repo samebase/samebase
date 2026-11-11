@@ -211,7 +211,7 @@ export async function registerClient(
 }
 
 /**
- * `registerClient` as a component function: the low-level registration that `POST /hub-clients`
+ * `registerClient` as a component function: the low-level registration that `POST /register`
  * builds on, for a host that proves its callers in another way. It records no registration event.
  */
 export const register = mutation({
@@ -233,7 +233,9 @@ export const renew = mutation({
       clientName: string(),
       softwareVersion: string(),
       tokenEndpointAuthMethod: vTokenEndpointAuthMethod,
-      appId: string(),
+      app: string(),
+      /** The tenant of the client's app: with `app`, the read's full `software_id`. */
+      tenantId: string(),
       createdAt: number(),
       connectors: array(string()),
     }),
@@ -264,7 +266,8 @@ export const renew = mutation({
       clientName: client.clientName,
       softwareVersion: client.softwareVersion,
       tokenEndpointAuthMethod: client.tokenEndpointAuthMethod,
-      appId: client.appId,
+      app: client.app,
+      tenantId: app.tenantId,
       createdAt: client.createdAt,
       connectors: client.connectors,
     };

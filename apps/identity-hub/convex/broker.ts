@@ -73,7 +73,7 @@ export const broker = defineIdentityBroker({
       clientSecret: () => env.PROVIDER_GITHUB_APP_CLIENT_SECRET,
     }),
   ],
-  // `POST /hub-clients` creates every client, `/moderation/*` serves samebase.com's admin page.
+  // `POST /register` creates every client, `/moderation/*` serves samebase.com's admin page.
   registration: {
     name: "Samebase",
     terms: "https://samebase.com/terms",
@@ -99,6 +99,6 @@ export const broker = defineIdentityBroker({
 
 // Administration for `npx convex run --prod broker:<name>`:
 //   listApps, listClients '{"appId":"..."}', deleteClient '{"clientId":"..."}', deleteApp '{"appId":"..."}'
-// Every client comes from the broker's `POST /hub-clients`. Block repository and Block owner on
+// Every client comes from the broker's `POST /register`. Block repository and Block owner on
 // samebase.com's admin page stop a tenant. `crons.ts` runs `cleanup` daily.
 export const { deleteApp, listApps, listClients, deleteClient, cleanup } = broker.admin();

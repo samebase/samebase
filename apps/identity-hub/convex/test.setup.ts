@@ -102,14 +102,15 @@ export async function postHubClient(
   token: string,
   body: Record<string, unknown> = {},
 ): Promise<Response> {
-  return await t.fetch("/hub-clients", {
+  return await t.fetch("/register", {
     method: "POST",
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
     body: JSON.stringify({
-      app: "my-app",
-      redirectUris: [PRODUCTION_CALLBACK],
-      softwareVersion: "abc123",
+      software_id: "my-app",
+      redirect_uris: [PRODUCTION_CALLBACK],
+      software_version: "abc123",
       connectors: ["google", "github"],
+      token_endpoint_auth_method: "client_secret_post",
       ...body,
     }),
   });

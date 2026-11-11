@@ -45,7 +45,7 @@ async function insertRegistrationEvents(h: Harness, at: number[]) {
 
 /**
  * `count` preview clients `cl_<index>` at the broker, each with its registration event, as
- * `/hub-clients` writes them. 30 clients to an app and 10 apps to a tenant, the broker's caps.
+ * `POST /register` writes them. 30 clients to an app and 10 apps to a tenant, the broker's caps.
  */
 async function insertClients(h: Harness, count: number) {
   for (let index = 0; index < count; index += 1) {
@@ -122,26 +122,16 @@ describe("the moderation key", () => {
     expect(response.status).toBe(401);
   });
 
-  it("cannot create a client, here or at the broker's registration endpoint", async () => {
+  it("cannot create a client at the registration endpoint", async () => {
     const h = await createHub();
     stubProviders();
 
-    const hubClient = await postHubClient(h, MODERATION_KEY);
-    const register = await moderationRequest(h, "/register", {
-      method: "POST",
-      body: {
-        redirect_uris: ["https://ideal-dolphin-15.convex.site/auth/hub/callback"],
-        client_name: "prod",
-        software_id: "gh-74-app",
-        software_version: "abc123",
-        tenant_id: "gh-74",
-        deployment_type: "production",
-        token_endpoint_auth_method: "client_secret_post",
-      },
+    const register = await postHubClient(h, MODERATION_KEY, {
+      tenant_id: "gh-74",
+      deployment_type: "production",
     });
 
-    expect(hubClient.status).toBe(401);
-    expect(register.status).toBe(404);
+    expect(register.status).toBe(401);
     expect(await h.t.query(api.apps.list, {})).toEqual([]);
   });
 });

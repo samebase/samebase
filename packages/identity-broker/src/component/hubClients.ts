@@ -7,9 +7,9 @@ import { appIdOf, readBlock, tenantIdOf, tenantRow } from "./apps";
 import { grantedTo } from "./connectorGrants";
 import { usableNames } from "./connectorRule";
 import { registerClient } from "./registration";
-import { vRateLimitScope } from "./schema";
+import { vRateLimitScope, vTokenEndpointAuthMethod } from "./schema";
 
-// The database half of `POST /hub-clients` (src/client/hubClients.ts): the HTTP action checks the
+// The database half of `POST /register` (src/client/hubClients.ts): the HTTP action checks the
 // proof and the host between `admit` and the creating mutation, and these hold every rule that reads
 // or writes a row, each in one transaction.
 
@@ -190,6 +190,15 @@ export const admit = mutation({
   },
 });
 
+/** A created client, with what the registration answer says about it and the request did not. */
+const vCreated = object({
+  ok: literal(true),
+  createdAt: number(),
+  clientName: string(),
+  /** The first part of the answer's full `software_id`, `<tenant id>/<app name>`. */
+  tenantId: string(),
+});
+
 /** The credentials of `newClientCredentials`: hashes only, never the values. */
 const vCredentialHashes = {
   clientId: string(),
@@ -232,9 +241,10 @@ export const createClient = mutation({
     /** The return addresses, each checked by the host. */
     redirectUris: array(string()),
     softwareVersion: string(),
+    tokenEndpointAuthMethod: vTokenEndpointAuthMethod,
   },
   returns: union(
-    object({ ok: literal(true) }),
+    vCreated,
     object({
       ok: literal(false),
       reason: union(vRefusal, literal("stale_proof"), literal("new_owners")),
@@ -280,6 +290,7 @@ export const createClient = mutation({
     if (refused !== null) {
       return refused;
     }
+    const clientName = args.deployment.type === "production" ? "prod" : args.deployment.stage;
     const result = await registerClient(ctx, {
       tenantId,
       ownerId: args.githubOwnerId,
@@ -289,9 +300,9 @@ export const createClient = mutation({
       clientId: args.clientId,
       secretHash: args.secretHash,
       registrationTokenHash: args.registrationTokenHash,
-      tokenEndpointAuthMethod: "client_secret_post",
+      tokenEndpointAuthMethod: args.tokenEndpointAuthMethod,
       redirectUris: args.redirectUris,
-      clientName: args.deployment.type === "production" ? "prod" : args.deployment.stage,
+      clientName,
       softwareVersion: args.softwareVersion,
       app: args.app,
       registeredBy: {
@@ -360,7 +371,7 @@ export const createClient = mutation({
         issuedAt: now,
       });
     }
-    return { ok: true as const };
+    return { ok: true as const, createdAt: now, clientName, tenantId };
   },
 });
 
@@ -417,9 +428,10 @@ export const createDevelopmentClient = mutation({
     /** The return addresses, each checked by the host. */
     redirectUris: array(string()),
     softwareVersion: string(),
+    tokenEndpointAuthMethod: vTokenEndpointAuthMethod,
   },
   returns: union(
-    object({ ok: literal(true) }),
+    vCreated,
     object({ ok: literal(false), reason: union(vRefusal, literal("invalid_token")) }),
     vInvalidConnectors,
   ),
@@ -471,7 +483,7 @@ export const createDevelopmentClient = mutation({
       clientId: args.clientId,
       secretHash: args.secretHash,
       registrationTokenHash: args.registrationTokenHash,
-      tokenEndpointAuthMethod: "client_secret_post",
+      tokenEndpointAuthMethod: args.tokenEndpointAuthMethod,
       redirectUris: args.redirectUris,
       clientName: "development",
       softwareVersion: args.softwareVersion,
@@ -495,6 +507,6 @@ export const createDevelopmentClient = mutation({
       githubOwnerId: token.githubOwnerId,
       at: now,
     });
-    return { ok: true as const };
+    return { ok: true as const, createdAt: now, clientName: "development", tenantId };
   },
 });

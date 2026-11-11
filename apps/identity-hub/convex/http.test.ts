@@ -46,7 +46,12 @@ describe("the hub", () => {
 
     expect((await discovery.json()).connectors_supported).toEqual(["google", "github"]);
     expect(response.status).toBe(400);
-    expect(await response.json()).toEqual({ error: "invalid_connectors", allowed: [] });
+    expect(await response.json()).toEqual({
+      error: "invalid_client_metadata",
+      error_description: expect.any(String),
+      reason: "invalid_connectors",
+      allowed: [],
+    });
   });
 
   it("gives the operator every connector, and an app the private one that the admin grants it", async () => {
@@ -61,7 +66,12 @@ describe("the hub", () => {
 
     const stranger = await postHubClient(t, await signToken(), { connectors: ["google"] });
     expect(stranger.status).toBe(400);
-    expect(await stranger.json()).toEqual({ error: "invalid_connectors", allowed: [] });
+    expect(await stranger.json()).toEqual({
+      error: "invalid_client_metadata",
+      error_description: expect.any(String),
+      reason: "invalid_connectors",
+      allowed: [],
+    });
     stubProviders("1021726325");
     const operator = await postHubClient(
       t,
@@ -108,7 +118,12 @@ describe("the hub", () => {
     );
 
     expect(stranger.status).toBe(403);
-    expect(await stranger.json()).toEqual({ error: "not_allowed", reason: "paused" });
+    expect(stranger.headers.get("WWW-Authenticate")).toBe('Bearer error="insufficient_scope"');
+    expect(await stranger.json()).toEqual({
+      error: "insufficient_scope",
+      error_description: expect.any(String),
+      reason: "paused",
+    });
     expect(samebasePreview.status).toBe(403);
     expect(samebaseProduction.status).toBe(201);
   });

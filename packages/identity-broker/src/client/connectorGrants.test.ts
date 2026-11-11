@@ -21,6 +21,7 @@ import {
   postHubClient,
   PRODUCTION_CALLBACK,
   pullRequestClaims,
+  refusalBody,
   REPOSITORY_ID,
   signToken,
   skipSignInPage,
@@ -51,7 +52,7 @@ const hubPolicy: PolicyFunction = (registration) =>
 
 const PRODUCTION_APP = `gh-${REPOSITORY_ID}-${APP_HASH}`;
 
-/** `POST /hub-clients` for a run of the repository of `claims`, enrolled in `connectors`. */
+/** `POST /register` for a run of the repository of `claims`, enrolled in `connectors`. */
 async function register(
   h: Harness,
   connectors: string[],
@@ -146,7 +147,9 @@ describe("the connector grants", () => {
 
     const refused = await register(h, ["fake", "other"]);
     expect(refused.status).toBe(400);
-    expect(await refused.json()).toEqual({ error: "invalid_connectors", allowed: ["fake"] });
+    expect(await refused.json()).toEqual(
+      refusalBody("invalid_client_metadata", { reason: "invalid_connectors", allowed: ["fake"] }),
+    );
     await registered(h, ["fake", "other"], {
       repository_id: OPERATOR_REPOSITORY,
       repository: "octo-org/operator",
@@ -183,15 +186,10 @@ describe("the connector grants", () => {
 
     const token = production.initial_access_token ?? "";
     stubProviders();
-    const development = await h.fetchBroker(`${h.issuer}/hub-clients`, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        app: "my-app",
-        redirectUris: ["http://127.0.0.1:3211/auth/hub/callback"],
-        softwareVersion: "dev-1",
-        connectors: ["fake", "other"],
-      }),
+    const development = await postHubClient(h, token, {
+      redirect_uris: [LOOPBACK_CALLBACK],
+      software_version: "dev-1",
+      connectors: ["fake", "other"],
     });
     expect(development.status).toBe(201);
   });
@@ -209,7 +207,9 @@ describe("the connector grants", () => {
     vi.setSystemTime(1_800_000_001_000);
     const refused = await register(h, ["fake", "other"], { repository_owner_id: "66" });
     expect(refused.status).toBe(400);
-    expect(await refused.json()).toEqual({ error: "invalid_connectors", allowed: ["fake"] });
+    expect(await refused.json()).toEqual(
+      refusalBody("invalid_client_metadata", { reason: "invalid_connectors", allowed: ["fake"] }),
+    );
     await registered(h, ["fake"], { repository_owner_id: "66" });
     expect((await signIn(h, ownersClient, "other")).went).toBe("status 403");
     const kept: { grants: Array<{ ownerId: string; active: boolean }> } = await (
@@ -521,7 +521,50 @@ describe("the connector grants", () => {
 
     const refused = await postHubClient(h, await signToken(), { connectors: ["fake", "other"] });
     expect(refused.status).toBe(400);
-    expect(await refused.json()).toMatchObject({ error: "invalid_connectors" });
+    expect(await refused.json()).toMatchObject({
+      error: "invalid_client_metadata",
+      reason: "invalid_connectors",
+    });
+  });
+
+  it("enroll a registration without `connectors` in the policy's connectors and the granted one", async () => {
+    const h = await createHub({ policy: hubPolicy });
+    await registered(h, ["fake"]);
+    expect((await changeGrant(h, { grant: true })).status).toBe(200);
+    stubProviders(() => jsonResponse({ repository: REPOSITORY_ID }));
+
+    const response = await postHubClient(h, await signToken(), { connectors: undefined });
+
+    expect(response.status).toBe(201);
+    expect(await response.json()).toMatchObject({ connectors: ["fake", "other"] });
+  });
+
+  it("refuse a registration without `connectors` whose grant is revoked while the hub checks, and write nothing", async () => {
+    const h = await createHub({ policy: hubPolicy });
+    await registered(h, ["fake"]);
+    expect((await changeGrant(h, { grant: true })).status).toBe(200);
+    const readRows = async () =>
+      await h.t.run(async (ctx) => ({
+        clients: await ctx.db.query("clients").collect(),
+        registrations: await ctx.db
+          .query("events")
+          .withIndex("by_kind_and_at", (q) => q.eq("kind", "registration"))
+          .collect(),
+      }));
+    const before = await readRows();
+    stubProviders(async () => {
+      expect((await changeGrant(h, { grant: false })).status).toBe(200);
+      return jsonResponse({ repository: REPOSITORY_ID });
+    });
+
+    const refused = await postHubClient(h, await signToken(), { connectors: undefined });
+
+    expect(refused.status).toBe(400);
+    expect(await refused.json()).toMatchObject({
+      error: "invalid_client_metadata",
+      reason: "invalid_connectors",
+    });
+    expect(await readRows()).toEqual(before);
   });
 
   it("refuse an unconfigured connector at both creating mutations, whatever the policy names", async () => {
@@ -549,6 +592,7 @@ describe("the connector grants", () => {
         app: "my-app",
         redirectUris: [PRODUCTION_CALLBACK],
         softwareVersion: "v1",
+        tokenEndpointAuthMethod: "client_secret_post",
       }),
     ).toEqual(refusal);
     expect(
@@ -566,6 +610,7 @@ describe("the connector grants", () => {
         configuredConnectors: ["fake", "other"],
         redirectUris: [LOOPBACK_CALLBACK],
         softwareVersion: "v1",
+        tokenEndpointAuthMethod: "client_secret_post",
       }),
     ).toEqual(refusal);
   });
