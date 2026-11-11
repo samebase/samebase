@@ -21,16 +21,15 @@ your preview and development deploys.
 
 | Request                     | Standard                                                                                                                                                                | Main differences                                                                                                |
 | --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| Sign a user in              | [OpenID Connect Core](https://openid.net/specs/openid-connect-core-1_0.html) and Discovery, with the OAuth 2.0 code flow                                                | PKCE (`S256`) is required. The broker has no sessions, so no `prompt=none`, no logout, and no refresh token.    |
-| Register a deployment       | [RFC 7591](https://www.rfc-editor.org/rfc/rfc7591.html) and [OpenID Connect Dynamic Client Registration](https://openid.net/specs/openid-connect-registration-1_0.html) | Each request needs an initial access token: there is no open registration. Only `web` clients, with RS256.      |
+| Sign a user in              | [OpenID Connect Core](https://openid.net/specs/openid-connect-core-1_0.html) and Discovery, with the OAuth 2.0 code flow                                                | PKCE (`S256`) is required. The broker keeps no session, so each sign-in goes to the provider.                   |
+| Register a deployment       | [RFC 7591](https://www.rfc-editor.org/rfc/rfc7591.html) and [OpenID Connect Dynamic Client Registration](https://openid.net/specs/openid-connect-registration-1_0.html) | Each request needs an initial access token. Only `web` clients, with RS256.                                     |
 | Read or delete a client     | [RFC 7592](https://www.rfc-editor.org/rfc/rfc7592.html)                                                                                                                 | No update: `PUT` answers `405`. A read does not return the client secret, because the hub stores only its hash. |
-| Token errors of those calls | [RFC 6750](https://www.rfc-editor.org/rfc/rfc6750.html)                                                                                                                 | The token goes in the `Authorization` header only.                                                              |
+| Token errors of those calls | [RFC 6750](https://www.rfc-editor.org/rfc/rfc6750.html)                                                                                                                 | None.                                                                                                           |
 
 RFC 7591 leaves one decision to the server: who may register. A hub accepts GitHub's signed token of
 the deploy as the initial access token, and checks a file on the site
 ([What the hub checks](#what-the-hub-checks)).
 
-The broker is not OpenID Certified.
 [docs/standards.md](https://github.com/samebase/samebase/blob/main/packages/identity-broker/docs/standards.md)
 lists each standard with its sections and the results of the OpenID conformance suite.
 [docs/design.md](https://github.com/samebase/samebase/blob/main/packages/identity-broker/docs/design.md#named-departures-from-the-specifications)
@@ -72,16 +71,15 @@ The `id_token`:
 ```
 
 `sub` is the provider's name and the provider's ID of the user. It is the same in every app and at
-every hub, so an app can move to another hub and keep its users. The broker stores no users and no
-sessions. Your app keeps both.
+every hub, so an app can move to another hub and keep its users. Your app creates the user and keeps
+the session.
 
 ## Pick a setup
 
 - **Use the public hub**, `https://id.samebase.com`. Any GitHub repository can use it under
-  [Samebase's terms](https://samebase.com/terms), with no account and nothing to run. Google's
-  screen says "Samebase", and the hub's page names your app. Read
-  [Use a hub from your app](#use-a-hub-from-your-app), or start from
-  [samebase/base](https://github.com/samebase/base), which has it from the first deploy.
+  [Samebase's terms](https://samebase.com/terms), with no account. Google's screen says "Samebase",
+  and the hub's page names your app. Read [Use a hub from your app](#use-a-hub-from-your-app), or
+  start from [samebase/base](https://github.com/samebase/base), which has it from the first deploy.
 - **Run your own hub** for your name on Google's screen, your Google project, and your rules for who
   may register. Start from the [samebase/identity-hub](https://github.com/samebase/identity-hub)
   template. It takes about 15 minutes.
@@ -211,9 +209,9 @@ Key each account by `sub`.
 
 ### On a development machine
 
-A development machine has no GitHub token. The answer to a production registration has one more
-member for this, `initial_access_token`. Send it as the Bearer of `POST /register`, with the same
-`software_id`, to get a development client. A development client may use loopback callbacks such as
+The answer to a production registration has one more member, `initial_access_token`. On a
+development machine, send it as the Bearer of `POST /register`, with the same `software_id`, to get
+a development client. A development client may use loopback callbacks such as
 `http://localhost:3000/auth/hub/callback`, with no verification file.
 
 Keep this token secret: its holder can register development clients for the app. Each new production
@@ -243,8 +241,6 @@ The hub refuses a registration at the first check that fails:
 A refusal is a JSON object with `error` and `error_description` (RFC 7591 section 3.2.2). `reason`
 is the hub's own member. A `401` or a `403` has the `WWW-Authenticate` header of
 [RFC 6750](https://www.rfc-editor.org/rfc/rfc6750.html#section-3).
-
-A token names one hub as its audience, so no other hub accepts it.
 
 ## Mount it
 
@@ -352,15 +348,15 @@ More that you can use:
   2.0 provider that publishes RFC 8414 metadata works too, with a function that reads the user's
   identity from its API.
 - **Key rotation.** `npx identity-broker keys --rotate` reads the current value on stdin and prints
-  the next one. After a key leak, add `--no-overlap` to stop the old key at once. The key set holds
-  nothing about users, so you can replace a lost one with a new one.
+  the next one. After a key leak, add `--no-overlap` to stop the old key at once. If you lose the
+  key set, make a new one.
 - **Key checks before a deploy.** `parseKeySet` checks the shape of a value. `assertKeySetUsable`
   signs a test token with it and verifies that token.
 - **Tests.** `register` from `@samebase/identity-broker/test` adds the component to a `convex-test`
   backend.
-- **Your own registration.** Without `registration`, the hub has no `/register` and no
-  `/moderation`. Create each client in your own mutation, with `newClientCredentials` and
-  `component.registration.register`, after your own check of who asks.
+- **Your own registration.** Leave `registration` out, and create each client in your own mutation,
+  with `newClientCredentials` and `component.registration.register`, after your own check of who
+  asks.
 
 ## Operate a hub
 
@@ -437,8 +433,7 @@ hub_event {"event":"sign_in","repository":"octo-org/weather-app","app":"weather-
 ```
 
 `event` is `sign_in`, `sign_in_refused`, `registration`, or `registration_refused`. `reason` says
-why the hub refused a request. The line names no user, token, or callback URL. A Convex log stream
-sends the lines to your log service.
+why the hub refused a request. A Convex log stream sends the lines to your log service.
 
 ### What is stored
 
@@ -450,8 +445,7 @@ sends the lines to your log service.
 | One audit row for each issued `id_token` | 90 days                               |
 | Provider refresh tokens                  | Until revoked, or 90 days with no use |
 
-The audit row holds the app, the client, the connector, the `sub`, and the time. The broker keeps
-nothing else about a user after the sign-in request ends.
+The audit row holds the app, the client, the connector, the `sub`, and the time.
 [docs/design.md](https://github.com/samebase/samebase/blob/main/packages/identity-broker/docs/design.md)
 describes each table and each decision.
 
@@ -493,7 +487,7 @@ The app's side:
 2. Send the user to `/authorize` with PKCE (`S256`), one `resource` from the table, and no `openid`
    scope. The broker asks the provider for the scope that the hub configured.
 3. Exchange the code at `/token` with the client's credentials, `redirect_uri`, and `code_verifier`.
-   The answer is an OAuth bearer token response for that provider's API. It has no `id_token`.
+   The answer is an OAuth bearer token response for that provider's API.
 4. Where the answer has a `refresh_token`, use the standard `refresh_token` grant at `/token`, and
    `/revoke` when the user disconnects.
 

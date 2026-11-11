@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.33.2
+
+- README: removed the statements that only say what the broker does not have or does not do, where
+  no reader expects the opposite. The certification status is in `docs/standards.md`. No code
+  change.
+
 ## 0.33.1
 
 - README: the first two sentences say what the component implements and what that gives you. A table
