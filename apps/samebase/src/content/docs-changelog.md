@@ -10,7 +10,9 @@ change. If a change needs action from you, the entry says so.
   keeps its clients, so its sign-in keeps working. An app made from
   [samebase/base](https://github.com/samebase/base) before today needs `@samebase/alchemy-convex`
   0.40.0 before a new preview or a new development machine can register. Ask your agent to apply the
-  starter changelog, or follow its v2336 entry. New apps have it from the start.
+  starter changelog, or follow its v2336 entry. New apps have it from the start. The same entry also
+  moves an existing app to `@samebase/convex-hosting` 0.15.0 and adds the cache rule for the build's
+  hashed files.
 
 ## 2026-11-09
 
