@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.33.1
+
+- README: the first two sentences say what the component implements and what that gives you. A table
+  near the top lists each standard and the main differences from it. Shorter text in each section.
+  No code change.
+
 ## 0.33.0
 
 - Breaking: the hub's registration endpoint is RFC 7591's, `POST /register`, in place of
