@@ -1,5 +1,46 @@
 # Changelog
 
+## 0.33.0
+
+- Breaking: the hub's registration endpoint is RFC 7591's, `POST /register`, in place of
+  `POST /hub-clients`, which is gone. The Bearer is the same proof, now the RFC's initial access
+  token. The body and the answers use the RFC's names:
+  - `redirectUris` is `redirect_uris`, `app` is `software_id`, `softwareVersion` is
+    `software_version`. `connectors` keeps its name.
+  - `software_id` takes the app name alone or the full form `<tenant id>/<app name>`, such as
+    `gh-123456789/weather-app`, whose repository must be the proof's. The answer always holds the
+    full form.
+  - New optional members: `token_endpoint_auth_method` (`client_secret_post` or
+    `client_secret_basic`, default `client_secret_basic`), `grant_types`, `response_types`,
+    `application_type` (`web` only), `subject_type` (`public` only), and
+    `id_token_signed_response_alg` (`RS256` only). Without `software_id` the app is `app`, without
+    `software_version` the version is `unknown`, and without `connectors` the client enrolls in
+    every connector the policy and the repository's grants allow. Members the hub cannot honor, such
+    as `sector_identifier_uri` and the encryption members, are refused; other members are ignored.
+  - The 201 answer adds `client_id_issued_at`, `client_secret_expires_at` (`0`), `client_name` (the
+    stage: `prod`, `pr-<n>`, or `development`), `software_id`, `software_version`,
+    `token_endpoint_auth_method`, `grant_types`, `response_types`, `application_type`,
+    `subject_type`, and `id_token_signed_response_alg`, with `Cache-Control: no-store` and
+    `Pragma: no-cache`.
+  - Errors: 401 `invalid_token` for no or a malformed `Authorization` header is 401 with
+    `WWW-Authenticate: Bearer` and no body (RFC 6750 section 3.1). 401 `invalid_token` for a bad
+    proof also has `WWW-Authenticate: Bearer error="invalid_token"`. 403 `not_allowed` with a
+    `reason` is 403 `insufficient_scope` with the same `reason` and its challenge. 400
+    `invalid_request` is 400 `invalid_client_metadata`, or `invalid_redirect_uri` for the return
+    addresses. 400 `invalid_connectors` is 400 `invalid_client_metadata` with
+    `reason: "invalid_connectors"` and `allowed`. 403 `not_allowed` for a verification file
+    (`verification_file_missing`, `host_unreachable`, `verification_file_invalid`,
+    `repository_mismatch`) is 400 `invalid_redirect_uri` with that `reason`. Every refusal has
+    `error_description`. The `hub_event` line keeps its `reason` values.
+  - The RFC 7592 read of `/register/<client>` also answers `registration_access_token`, the Bearer
+    it was sent. 403 `access_denied` for a suspended client or a production client's delete is 403
+    `insufficient_scope` with `WWW-Authenticate: Bearer error="insufficient_scope"`. `PUT` answers
+    405 with `Allow: GET, DELETE`.
+  - Discovery in hub mode has `registration_endpoint` and `op_tos_uri`.
+- `IdentityHub.Client` of `@samebase/alchemy-convex` 0.40.0 speaks this endpoint. No table changes.
+- `/userinfo` answers 401 `invalid_token` for the access token of a deleted client (RFC 7592 section
+  2.3).
+
 ## 0.32.2
 
 - The README only, no code change. It starts with the `redirect_uri_mismatch` problem, shows a

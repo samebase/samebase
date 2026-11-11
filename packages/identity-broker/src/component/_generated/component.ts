@@ -680,8 +680,9 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           registrationTokenHash: string;
           secretHash: string;
           softwareVersion: string;
+          tokenEndpointAuthMethod: "client_secret_post" | "client_secret_basic";
         },
-        | { ok: true }
+        | { clientName: string; createdAt: number; ok: true; tenantId: string }
         | {
             ok: false;
             reason:
@@ -712,9 +713,10 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           registrationTokenHash: string;
           secretHash: string;
           softwareVersion: string;
+          tokenEndpointAuthMethod: "client_secret_post" | "client_secret_basic";
           tokenHash: string;
         },
-        | { ok: true }
+        | { clientName: string; createdAt: number; ok: true; tenantId: string }
         | {
             ok: false;
             reason:
@@ -969,13 +971,14 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         "internal",
         { clientId: string; now: number; registrationTokenHash: string },
         | {
-            appId: string;
+            app: string;
             clientName: string;
             connectors: Array<string>;
             createdAt: number;
             ok: true;
             redirectUris: Array<string>;
             softwareVersion: string;
+            tenantId: string;
             tokenEndpointAuthMethod:
               "client_secret_post" | "client_secret_basic";
           }

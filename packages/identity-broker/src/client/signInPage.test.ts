@@ -352,7 +352,7 @@ describe("the exemptions from the sign-in page", () => {
     const token = await createInitialAccessToken(h);
     stubProviders();
     const development = await createDevelopmentClient(h, token);
-    const otherApp = await postHubClient(h, await signToken(), { app: "other-app" });
+    const otherApp = await postHubClient(h, await signToken(), { software_id: "other-app" });
     expect(otherApp.status).toBe(201);
     const clients: NewClient[] = [preview, development, await otherApp.json()];
 

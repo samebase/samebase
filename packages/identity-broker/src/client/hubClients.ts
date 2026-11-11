@@ -6,16 +6,25 @@ import type { ComponentApi } from "../component/_generated/component.js";
 import { usableNames } from "../component/connectorRule.js";
 import { logHubEvent } from "./hubEvents.js";
 import { evaluate, type Registration } from "./policy.js";
-import { newClientCredentials, type RegistrationConfig } from "./registration.js";
+import {
+  clientInformation,
+  insufficientScope,
+  invalidToken,
+  newClientCredentials,
+  noToken,
+  type RegistrationConfig,
+} from "./registration.js";
+import { json } from "./responses.js";
 import { sha256Hex } from "./subject.js";
 
-// `POST /hub-clients`: a new client for one deployment of an app, with no account at the hub. The
-// Bearer is the proof. A GitHub Actions run proves its repository with GitHub's OIDC token; a
-// development server proves the app with the app's initial access token, which a production run
-// got. The hub's policy decides what the registration may enroll in. The rows and the rules that
-// read them are in src/component/hubClients.ts.
+// `POST /register`, the client registration endpoint of RFC 7591: a new client for one deployment
+// of an app, with no account at the hub. The endpoint is protected (RFC 7591 appendix A.1.2): the
+// Bearer is the initial access token, and it is the proof. A GitHub Actions run proves its
+// repository with GitHub's OIDC token; a development server proves the app with the app's own
+// initial access token, which a production run got. The hub's policy decides what the registration
+// may enroll in. The rows and the rules that read them are in src/component/hubClients.ts.
 
-const { array, number, object, optional, string, union } = v;
+const { array, literal, number, object, optional, string, union } = v;
 
 type Ctx = GenericActionCtx<GenericDataModel>;
 
@@ -44,34 +53,127 @@ export const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]"]);
 
 /** A connector name as a registration may send it. */
 const CONNECTOR_NAME = /^[a-z0-9-]{1,64}$/;
+/** The app of a registration without `software_id`. */
+const DEFAULT_APP = "app";
+/** The full form of `software_id`, `<tenant id>/<app name>`, whose tenant is a repository's. */
+const FULL_SOFTWARE_ID = /^gh-[1-9][0-9]*\//;
 
 // Each check below allows unknown fields: GitHub and a host send more than these name.
 
+/**
+ * The client metadata of a registration request that the hub reads (RFC 7591 section 2), but
+ * `redirect_uris`, which has its own error. Any other member is ignored, as that section requires,
+ * but the ones in `UNSUPPORTED_MEMBERS`.
+ */
 const vRequestBody = object({
-  app: string(),
-  /** The return addresses: one to `MAX_REDIRECT_URIS`. Duplicates collapse; the order does not matter. */
-  redirectUris: array(string()),
-  softwareVersion: string(),
-  /** The enrollment: at least one connector name. Duplicates collapse; the order does not matter. */
-  connectors: array(string()),
+  /**
+   * The app: its name alone, or `<tenant id>/<app name>`. Absent: `DEFAULT_APP`. The same for each
+   * deployment of the app.
+   */
+  software_id: optional(string()),
+  /** Absent: `unknown`. */
+  software_version: optional(string()),
+  /**
+   * The enrollment, the hub's own member: at least one connector name. Duplicates collapse. Absent:
+   * every connector that this registration may enroll in.
+   */
+  connectors: optional(array(string())),
+  /** Absent: `client_secret_basic`, the default of RFC 7591 section 2. */
+  token_endpoint_auth_method: optional(
+    union(literal("client_secret_post"), literal("client_secret_basic")),
+  ),
+  /** The hub answers its own values: a client asks for nothing here that the hub does not have. */
+  grant_types: optional(array(union(literal("authorization_code"), literal("refresh_token")))),
+  response_types: optional(array(literal("code"))),
+  // The one value of each that the hub has (OpenID Connect Registration section 2).
+  application_type: optional(literal("web")),
+  subject_type: optional(literal("public")),
+  id_token_signed_response_alg: optional(literal("RS256")),
 });
+
+/** The return addresses: one to `MAX_REDIRECT_URIS`. Duplicates collapse; the order does not matter. */
+const vRedirectUris = object({ redirect_uris: array(string()) });
+
+/**
+ * Members of OpenID Connect Registration that the hub cannot honor, so a request with one is refused
+ * rather than given a client that ignores it. Any member with `_encrypted_response_` or
+ * `_encryption_` in its name is one too.
+ */
+const UNSUPPORTED_MEMBERS = new Set([
+  "sector_identifier_uri",
+  "userinfo_signed_response_alg",
+  "request_object_signing_alg",
+]);
 
 /** The file's one field: the numeric GitHub repository id, as a string of digits or a JSON number. */
 const vVerificationFile = object({ repository: union(string(), number()) });
 
-function reply(status: number, body: Record<string, string | string[]>): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
-  });
+/**
+ * A JSON refusal: `error`, with a fixed sentence as `error_description` that never quotes the
+ * request. `reason`, `allowed`, and `window` are the hub's own members.
+ */
+function refusal(
+  status: number,
+  error: string,
+  description: string,
+  more: { reason?: string; allowed?: string[]; window?: string } = {},
+): Response {
+  return json({ error, error_description: description, ...more }, status);
 }
 
-/** The reason names a rule of this endpoint and never holds provider text. */
-function notAllowed(reason: string): Response {
-  return reply(403, { error: "not_allowed", reason });
+/** A registration error of RFC 7591 section 3.2.2. */
+function invalid(
+  error: "invalid_redirect_uri" | "invalid_client_metadata",
+  description: string,
+  more: { reason?: string; allowed?: string[] } = {},
+): Response {
+  return refusal(400, error, description, more);
 }
 
-/** The body of every refusal that `reply` and `notAllowed` make. */
+/** The sentence of each refusal of a verification file. */
+const VERIFICATION_REFUSALS = {
+  verification_file_missing: "A site of redirect_uris does not serve its verification file.",
+  host_unreachable: "A site of redirect_uris cannot be reached.",
+  verification_file_invalid:
+    "A site of redirect_uris serves a verification file that is not valid.",
+  repository_mismatch: "A site of redirect_uris serves a verification file of another repository.",
+} as const;
+
+/** A site of the return addresses fails its verification file. */
+const unverifiedHost = (reason: keyof typeof VERIFICATION_REFUSALS) =>
+  invalid("invalid_redirect_uri", VERIFICATION_REFUSALS[reason], { reason });
+
+/** The sentence of each rule that refuses a good token. */
+const DENIALS = {
+  run_not_allowed: "Only a pull request or a run of main may register a client.",
+  paused: "Registration is paused for this repository.",
+  blocked: "This repository or its owner is blocked.",
+  stale_proof: "A newer token of this repository has registered a client.",
+  app_mismatch: "The initial access token is for another app.",
+  suspended: "This repository is suspended.",
+  too_many_apps: "This repository has the most apps it may have.",
+  too_many_clients: "This app has the most clients it may have.",
+  app_taken: "This app belongs to another repository.",
+} as const;
+
+/** The answer to a good token whose holder may not register: the rule that refused it. */
+function denied(reason: keyof typeof DENIALS): Response {
+  return insufficientScope(DENIALS[reason], { reason });
+}
+
+/** The answer when the repository, its owner, or all new owners used their hourly registrations. */
+const rateLimited = (window: string) =>
+  refusal(429, "rate_limited", "The hourly limit of registrations is reached.", { window });
+
+/** The connectors are not ones this registration may enroll in, with the names that are. */
+const invalidConnectors = (allowed: string[]) =>
+  invalid(
+    "invalid_client_metadata",
+    "The connectors are not ones that this registration may enroll in.",
+    { reason: "invalid_connectors", allowed },
+  );
+
+/** The body of every JSON refusal of this endpoint. */
 const vRefusal = object({ error: string(), reason: optional(string()) });
 
 /**
@@ -188,14 +290,14 @@ async function readRun(token: string, audience: string) {
     console.warn("hub_clients:github_unavailable", {
       message: error instanceof Error ? error.message : "unknown",
     });
-    return reply(502, { error: "github_unavailable" });
+    return refusal(502, "github_unavailable", "GitHub's signing keys cannot be read.");
   }
   if (claims === null) {
-    return reply(401, { error: "invalid_token" });
+    return invalidToken();
   }
 
   const stage = readRunStage(claims);
-  return stage === null ? notAllowed("run_not_allowed") : { claims, stage };
+  return stage === null ? denied("run_not_allowed") : { claims, stage };
 }
 
 // The request and the host.
@@ -232,31 +334,68 @@ function readRedirectUri(value: string) {
 }
 
 /**
- * The body, if it is valid: `redirectUris` sorted and unique, each parsed, with `loopback` when any
- * of them is a loopback address. The enrollment it names is checked by `admit`, against the policy.
+ * The client metadata of the body, or the answer that refuses it: the app's name, from a
+ * `software_id` whose full form must name `repositoryId`, the proof's repository; `redirectUris`
+ * sorted and unique, each parsed, with `loopback` when any of them is a loopback address. The
+ * enrollment it names is checked by `admit`, against the policy.
  */
-async function readBody(request: Request) {
+async function readBody(request: Request, repositoryId: string) {
   const body: unknown = await request.json().catch(() => null);
-  if (
-    !validate(vRequestBody, body, { allowUnknownFields: true }) ||
-    body.app.length === 0 ||
-    body.app.length > MAX_APP_LENGTH ||
-    body.softwareVersion.length === 0 ||
-    body.softwareVersion.length > MAX_SOFTWARE_VERSION_LENGTH
-  ) {
-    return null;
+  if (!validate(vRequestBody, body, { allowUnknownFields: true })) {
+    return invalid(
+      "invalid_client_metadata",
+      "The body is not a JSON object of valid client metadata.",
+    );
   }
-  const redirectUris = [...new Set(body.redirectUris)].sort();
+  if (
+    Object.keys(body).some(
+      (name) =>
+        UNSUPPORTED_MEMBERS.has(name) ||
+        name.includes("_encrypted_response_") ||
+        name.includes("_encryption_"),
+    )
+  ) {
+    return invalid(
+      "invalid_client_metadata",
+      "The hub supports only web clients with public subjects and RS256, without encryption.",
+    );
+  }
+  const softwareId = body.software_id ?? DEFAULT_APP;
+  const full = FULL_SOFTWARE_ID.test(softwareId);
+  if (full && !softwareId.startsWith(`gh-${repositoryId}/`)) {
+    return invalid(
+      "invalid_client_metadata",
+      "The tenant of software_id is not the repository of the token.",
+    );
+  }
+  const app = full ? softwareId.slice(softwareId.indexOf("/") + 1) : softwareId;
+  if (app.length === 0 || app.length > MAX_APP_LENGTH) {
+    return invalid("invalid_client_metadata", "The app name of software_id is 1 to 64 characters.");
+  }
+  const softwareVersion = body.software_version ?? "unknown";
+  if (softwareVersion.length === 0 || softwareVersion.length > MAX_SOFTWARE_VERSION_LENGTH) {
+    return invalid("invalid_client_metadata", "software_version is 1 to 256 characters.");
+  }
+  if (!validate(vRedirectUris, body, { allowUnknownFields: true })) {
+    return invalid("invalid_redirect_uri", "redirect_uris is a list of 1 to 8 URIs.");
+  }
+  const redirectUris = [...new Set(body.redirect_uris)].sort();
   if (redirectUris.length === 0 || redirectUris.length > MAX_REDIRECT_URIS) {
-    return null;
+    return invalid("invalid_redirect_uri", "redirect_uris is a list of 1 to 8 URIs.");
   }
   const redirects = redirectUris.map(readRedirectUri);
   const parsed = redirects.filter((redirect) => redirect !== null);
   if (parsed.length !== redirects.length) {
-    return null;
+    return invalid(
+      "invalid_redirect_uri",
+      "A redirect URI is https on a DNS name, or http on a loopback host for a development client, with no fragment and no user info.",
+    );
   }
   return {
-    ...body,
+    app,
+    softwareVersion,
+    connectors: body.connectors,
+    tokenEndpointAuthMethod: body.token_endpoint_auth_method ?? ("client_secret_basic" as const),
     redirectUris,
     /** The distinct origins of the https addresses, each of which must serve the verification file. */
     origins: [...new Set(parsed.filter((r) => !r.loopback).map((r) => r.url.origin))],
@@ -266,10 +405,10 @@ async function readBody(request: Request) {
 
 /**
  * The enrollment a body names, sorted and unique: at least one name of `[a-z0-9-]{1,64}`, each one
- * of `allowed`. Null for any other set.
+ * of `allowed`. Absent: all of `allowed`. Null for any other set, also an empty `allowed`.
  */
-function readEnrollment(connectors: string[], allowed: string[]) {
-  const names = [...new Set(connectors)].sort();
+function readEnrollment(connectors: string[] | undefined, allowed: string[]) {
+  const names = [...new Set(connectors ?? allowed)].sort();
   return names.length > 0 &&
     names.every((name) => CONNECTOR_NAME.test(name) && allowed.includes(name))
     ? names
@@ -347,13 +486,15 @@ async function verifyHosts(origins: string[], repositoryId: string) {
   return null;
 }
 
-/** `POST /hub-clients` of a hub with `registration` in its config. */
+/** `POST /register` of a hub with `registration` in its config. */
 export function hubClientsEndpoint(args: {
   component: ComponentApi;
   issuer: string;
   registration: RegistrationConfig;
   /** The names of the hub's connectors, which an enrollment may name. */
   connectors: string[];
+  /** The hub has API resources, so a client gets refresh tokens. */
+  refreshTokens: boolean;
 }) {
   const { component, issuer, registration } = args;
 
@@ -364,13 +505,13 @@ export function hubClientsEndpoint(args: {
    * limit. A failed policy refuses with 503 and writes nothing. It counts an admitted request in the
    * repository and owner windows; a refused one counts nowhere.
    */
-  async function admit(ctx: Ctx, facts: Registration, connectors: string[]) {
+  async function admit(ctx: Ctx, facts: Registration, connectors: string[] | undefined) {
     const policy = evaluate(registration.policy, facts);
     if (policy === null) {
-      return reply(503, { error: "temporarily_unavailable" });
+      return refusal(503, "temporarily_unavailable", "The hub's policy failed.");
     }
     if (policy.paused) {
-      return notAllowed("paused");
+      return denied("paused");
     }
     // What the policy gives, and what the admin granted the repository for the owner of this proof. The
     // creating mutation reads the grants again.
@@ -389,41 +530,38 @@ export function hubClientsEndpoint(args: {
     const allowed = usableNames({ ...rule, policy: policy.connectors, granted }).sort();
     const enrollment = readEnrollment(connectors, allowed);
     if (enrollment === null) {
-      return reply(400, { error: "invalid_connectors", allowed });
+      return invalidConnectors(allowed);
     }
     const admission = await ctx.runMutation(component.hubClients.admit, {
       githubRepositoryDatabaseId: facts.repositoryId,
       githubOwnerId: facts.ownerId,
     });
     if (admission.status === "blocked") {
-      return notAllowed("blocked");
+      return denied("blocked");
     }
     if (admission.status === "rate_limited") {
-      return reply(429, { error: "rate_limited", window: admission.window });
+      return rateLimited(admission.window);
     }
     return { enrollment, policyConnectors };
   }
 
   /** A grant went away while the host checked: the creating mutation's allowed names. */
   const grantRevoked = (allowed: string[]) =>
-    reply(400, {
-      error: "invalid_connectors",
-      allowed: allowed.filter((name) => args.connectors.includes(name)),
-    });
+    invalidConnectors(allowed.filter((name) => args.connectors.includes(name)));
 
-  /** The 201 answer: the client, its secret, and its RFC 7592 token, which go to nothing else. */
+  /**
+   * The 201 answer (RFC 7591 section 3.2.1): the client's registered metadata, its secret, and its
+   * RFC 7592 token, which go to nothing else. `issuer` and `terms` are the hub's own members.
+   */
   function newClient(
     credentials: Awaited<ReturnType<typeof newClientCredentials>>,
-    body: { redirectUris: string[]; connectors: string[] },
+    client: Omit<Parameters<typeof clientInformation>[0], "issuer" | "refreshTokens">,
   ) {
     return {
-      issuer,
-      client_id: credentials.clientId,
+      ...clientInformation({ ...client, issuer, refreshTokens: args.refreshTokens }),
       client_secret: credentials.clientSecret,
       registration_access_token: credentials.registrationAccessToken,
-      registration_client_uri: credentials.registrationClientUri,
-      redirect_uris: body.redirectUris,
-      connectors: body.connectors,
+      issuer,
       terms: registration.terms,
     };
   }
@@ -437,10 +575,16 @@ export function hubClientsEndpoint(args: {
     if (run instanceof Response) {
       return run;
     }
-    const body = await readBody(request);
+    const body = await readBody(request, run.claims.repository_id);
+    if (body instanceof Response) {
+      return body;
+    }
     // A run's client serves no loopback address: every address is on a verified host.
-    if (body === null || body.loopback) {
-      return reply(400, { error: "invalid_request" });
+    if (body.loopback) {
+      return invalid(
+        "invalid_redirect_uri",
+        "A GitHub Actions run cannot register a loopback redirect URI.",
+      );
     }
 
     const facts: Registration = {
@@ -457,9 +601,9 @@ export function hubClientsEndpoint(args: {
       return await logged(facts, admitted);
     }
     const { enrollment, policyConnectors } = admitted;
-    const refusal = await verifyHosts(body.origins, run.claims.repository_id);
-    if (refusal !== null) {
-      return await logged(facts, notAllowed(refusal));
+    const unverified = await verifyHosts(body.origins, run.claims.repository_id);
+    if (unverified !== null) {
+      return await logged(facts, unverifiedHost(unverified));
     }
 
     const credentials = await newClientCredentials(issuer);
@@ -487,6 +631,7 @@ export function hubClientsEndpoint(args: {
       app: body.app,
       redirectUris: body.redirectUris,
       softwareVersion: body.softwareVersion,
+      tokenEndpointAuthMethod: body.tokenEndpointAuthMethod,
     });
     if (!created.ok) {
       if (created.reason === "invalid_connectors") {
@@ -494,19 +639,30 @@ export function hubClientsEndpoint(args: {
       }
       return await logged(
         facts,
-        created.reason === "new_owners"
-          ? reply(429, { error: "rate_limited", window: "new_owners" })
-          : notAllowed(created.reason),
+        created.reason === "new_owners" ? rateLimited("new_owners") : denied(created.reason),
       );
     }
     return await logged(
       facts,
-      reply(201, {
-        ...newClient(credentials, { redirectUris: body.redirectUris, connectors: enrollment }),
-        ...(initialAccessToken === null
-          ? {}
-          : { initial_access_token: initialAccessToken, repository: run.claims.repository_id }),
-      }),
+      json(
+        {
+          ...newClient(credentials, {
+            clientId: credentials.clientId,
+            createdAt: created.createdAt,
+            redirectUris: body.redirectUris,
+            clientName: created.clientName,
+            tenantId: created.tenantId,
+            app: body.app,
+            softwareVersion: body.softwareVersion,
+            tokenEndpointAuthMethod: body.tokenEndpointAuthMethod,
+            connectors: enrollment,
+          }),
+          ...(initialAccessToken === null
+            ? {}
+            : { initial_access_token: initialAccessToken, repository: run.claims.repository_id }),
+        },
+        201,
+      ),
     );
   }
 
@@ -519,14 +675,15 @@ export function hubClientsEndpoint(args: {
     const tokenHash = await sha256Hex(initialAccessToken);
     const token = await ctx.runQuery(component.hubClients.readInitialAccessToken, { tokenHash });
     if (token === null) {
-      return reply(401, { error: "invalid_token" });
+      return invalidToken();
     }
-    const body = await readBody(request);
-    if (body === null) {
-      return reply(400, { error: "invalid_request" });
+    const body = await readBody(request, token.githubRepositoryDatabaseId);
+    if (body instanceof Response) {
+      return body;
     }
+    // The app's name: `software_id` in either form names it.
     if (body.app !== token.app) {
-      return notAllowed("app_mismatch");
+      return denied("app_mismatch");
     }
 
     const facts: Registration = {
@@ -544,9 +701,9 @@ export function hubClientsEndpoint(args: {
     }
     const { enrollment, policyConnectors } = admitted;
     // A loopback address needs no file; each https origin does.
-    const refusal = await verifyHosts(body.origins, token.githubRepositoryDatabaseId);
-    if (refusal !== null) {
-      return await logged(facts, notAllowed(refusal));
+    const unverified = await verifyHosts(body.origins, token.githubRepositoryDatabaseId);
+    if (unverified !== null) {
+      return await logged(facts, unverifiedHost(unverified));
     }
 
     const credentials = await newClientCredentials(issuer);
@@ -564,6 +721,7 @@ export function hubClientsEndpoint(args: {
       configuredConnectors: args.connectors,
       redirectUris: body.redirectUris,
       softwareVersion: body.softwareVersion,
+      tokenEndpointAuthMethod: body.tokenEndpointAuthMethod,
     });
     if (!created.ok) {
       if (created.reason === "invalid_connectors") {
@@ -571,16 +729,24 @@ export function hubClientsEndpoint(args: {
       }
       return await logged(
         facts,
-        created.reason === "invalid_token"
-          ? reply(401, { error: "invalid_token" })
-          : notAllowed(created.reason),
+        created.reason === "invalid_token" ? invalidToken() : denied(created.reason),
       );
     }
     return await logged(
       facts,
-      reply(
+      json(
+        newClient(credentials, {
+          clientId: credentials.clientId,
+          createdAt: created.createdAt,
+          redirectUris: body.redirectUris,
+          clientName: created.clientName,
+          tenantId: created.tenantId,
+          app: token.app,
+          softwareVersion: body.softwareVersion,
+          tokenEndpointAuthMethod: body.tokenEndpointAuthMethod,
+          connectors: enrollment,
+        }),
         201,
-        newClient(credentials, { redirectUris: body.redirectUris, connectors: enrollment }),
       ),
     );
   }
@@ -588,21 +754,24 @@ export function hubClientsEndpoint(args: {
   /**
    * The Bearer is the proof, told apart by its shape: two dots is a JWT, GitHub's OIDC token of a
    * GitHub Actions run, which is checked as such and refused when any check fails; no dot is the
-   * app's initial access token, for a development client. The hub builds the whole client, so the
-   * body chooses only a name inside the repository's own namespace and a return address. The
-   * client's secret and registration access token stay in this action's memory: they go to the
-   * caller and to nothing else.
+   * app's initial access token, for a development client. Any other shape is a bad token. The hub
+   * builds the whole client, so the body chooses only a name inside the repository's own namespace
+   * and a return address. The client's secret and registration access token stay in this action's
+   * memory: they go to the caller and to nothing else.
    */
   return httpActionGeneric(async (ctx, request) => {
     const bearer = /^Bearer\s+(\S+)$/i.exec(request.headers.get("Authorization") ?? "")?.[1];
+    if (bearer === undefined) {
+      return noToken();
+    }
     // A JWT has three parts; the initial access token is base64url, which has no dot.
-    const parts = bearer?.split(".").length;
-    if (bearer !== undefined && parts === 3) {
+    const parts = bearer.split(".").length;
+    if (parts === 3) {
       return await registerRun(ctx, request, bearer);
     }
-    if (bearer !== undefined && parts === 1) {
+    if (parts === 1) {
       return await registerDevelopment(ctx, request, bearer);
     }
-    return reply(401, { error: "invalid_token" });
+    return invalidToken();
   });
 }

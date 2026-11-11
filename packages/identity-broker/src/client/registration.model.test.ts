@@ -273,7 +273,8 @@ function checkPolicy(
   check(
     checks,
     "policyAtRegistration",
-    !(answer.reason === "paused" && !paused) && !(answer.error === "invalid_connectors" && allowed),
+    !(answer.reason === "paused" && !paused) &&
+      !(answer.reason === "invalid_connectors" && allowed),
     `${label} was refused for the policy, which allows it`,
   );
 }
@@ -514,11 +515,11 @@ async function playRun(
     repositoryId: proof.repository,
   });
   const body = {
-    app: command.app,
-    redirectUris: [
+    software_id: command.app,
+    redirect_uris: [
       `https://${command.app}-${proof.stage}.r${proof.repository}.example/auth/hub/callback`,
     ],
-    softwareVersion: "abc123",
+    software_version: "abc123",
     connectors: [...ENROLLMENTS[command.enrollment]],
   };
   const before = await readRows(h);
@@ -646,9 +647,9 @@ async function playDevelopment(
   const blocked = isBlocked(model, token.repository, token.ownerId);
   const before = await readRows(h);
   const response = await postHubClient(h, token.value, {
-    app,
-    redirectUris: [redirectUri],
-    softwareVersion: "dev-1",
+    software_id: app,
+    redirect_uris: [redirectUri],
+    software_version: "dev-1",
     connectors: [...ENROLLMENTS[command.enrollment]],
   });
   const after = await readRows(h);

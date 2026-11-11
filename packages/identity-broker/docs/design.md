@@ -42,11 +42,12 @@ itself.
 
 The broker holds every row and every rule of a hub (RFC 135), so every copy of a hub has the same
 caps, expiry, blocks, history, and moderation. A hub is configuration: connectors, resources, env,
-keys. `POST /hub-clients` (`src/client/hubClients.ts`) takes GitHub's OIDC token of a GitHub Actions
-run, or the app's initial access token in development, and checks that the return address names the
-repository. It is GitHub-first on purpose: the proof is one section of that file, and everything
-after it works on GitHub's ids. A second proof would be a second section, not a change to the rest.
-A host with another proof can still call `component.registration.register` with
+keys. `POST /register` (`src/client/hubClients.ts`) is the client registration endpoint of RFC 7591.
+Its Bearer is the initial access token of RFC 7591 section 3: GitHub's OIDC token of a GitHub
+Actions run, or the app's own initial access token in development. The hub checks that each return
+address names the repository. It is GitHub-first on purpose: the proof is one section of that file,
+and everything after it works on GitHub's ids. A second proof would be a second section, not a
+change to the rest. A host with another proof can still call `component.registration.register` with
 `newClientCredentials` itself.
 
 The checks run in two transactions with a fetch between them. `hubClients.admit` reads the blocks
@@ -65,11 +66,19 @@ repository back and delete the new owner's initial access tokens. A tenant with 
 (one registered before 0.22.0) accepts the next token of any owner and records it.
 
 Every app belongs to a tenant, such as `gh-<repository id>`. The first client of an app id creates
-the app. Each client enrolls in connectors at registration (`connectors` in the body: at least one
+the app. `software_id` names the app. A request sends the app name alone (`weather-app`) or the full
+form `<tenant id>/<app name>` (`gh-123456789/weather-app`); the hub registers and answers the full
+form, so it is unique at the hub. The repository part always comes from the proof: a full form that
+names another repository is refused with `invalid_client_metadata`. Without `software_id` the app
+name is `app`, without `software_version` the version is `unknown`, and without
+`token_endpoint_auth_method` the method is `client_secret_basic`, the RFC's default.
+
+Each client enrolls in connectors at registration (`connectors`, the hub's own member: at least one
 name, `[a-z0-9-]{1,64}`, duplicates collapsed, stored sorted), and the enrollment never changes: a
 deployment that wants another set registers a new client, as it does for another return address.
-Each client holds its own registration access token, and reads (which renews it) or deletes its own
-record at `/register/<client>` (RFC 7592).
+Without `connectors`, the client enrolls in every connector that the policy and the repository's
+grants allow it, and an empty set is refused. Each client holds its own registration access token,
+and reads (which renews it) or deletes its own record at `/register/<client>` (RFC 7592).
 
 A row in `blocks` stops a repository, or every repository of an owner: registration, renewal,
 sign-in, code exchange, and provider refresh read it. It is the one block state, and
@@ -162,7 +171,8 @@ revocation, self-delete, and moderation alone, so a short pause ends without exp
 block is stronger than the pause. A withdrawn connector, resource, or pause stops later issuance
 only: an id_token and an access token live to their expiry, `/userinfo` answers a valid access
 token, a provider access token already released stays usable at the provider, and an app's session
-is the app's.
+is the app's. A client delete is different: `/userinfo` refuses the access token of a deleted client
+(RFC 7592 section 2.3), while an id_token already issued cannot be recalled.
 
 ## Sign-in page
 
@@ -343,13 +353,25 @@ provider.
   the host (RFC 9700 section 4.11.2). The browser's Back leaves; the app learns nothing, and the
   request expires. The app's own name is not on the page: client metadata is self-asserted (RFC 7591
   section 5), and the host and the repository are what the hub checked.
-- A read of a client (RFC 7592 section 2.1) renews it, and answers without `client_secret` and
-  `registration_access_token`, which the section includes. The hub keeps only their hashes, and the
-  client already holds both. No request changes a secret: a client that lost it registers a new
-  client, and the old one stays valid, because the hub cannot know which one a deployment holds.
+- An initial access token is required: there is no open registration, which RFC 7591 section 3 and
+  OpenID Connect Registration section 3 recommend.
+- A read of a client (RFC 7592 section 2.1) renews a preview or development client. That is inside
+  OpenID Connect Registration section 4.2, which asks a read not to change the client configuration
+  or the registered metadata: the renewal moves only the hub's removal date, which is neither. The
+  departure is the answer: the read answers without `client_secret`, because the hub keeps only its
+  hash. It echoes the `registration_access_token` that the request presented. No request changes a
+  secret: a client that lost it registers a new client, and the old one stays valid, because the hub
+  cannot know which one a deployment holds.
+- No update: `PUT` answers 405 (RFC 7592 section 2.2).
 - A production client cannot delete itself, which RFC 7592 section 2.3 allows a server to refuse. A
   stack destroy can leave a production deployment running, so only the hub's administrator deletes
   one.
+- No CORS on the registration endpoint, which OpenID Connect Registration section 3 recommends: a
+  deploy registers, never a browser.
+- Software statements are ignored, which RFC 7591 section 3.1.1 permits.
+- Only `web` clients, `public` subjects, and RS256 ID Tokens. A request for anything else, or with a
+  metadata member the hub cannot honor, such as `sector_identifier_uri` or an encryption member, is
+  refused with `invalid_client_metadata`.
 - No loopback exception on redirect URIs: a local deployment registers its exact
   `http://127.0.0.1:<port>/...` URI.
 - `auth_time` is the hub's completion time: when the broker completed the sign-in, after the

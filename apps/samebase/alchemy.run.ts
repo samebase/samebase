@@ -23,7 +23,7 @@
 //
 // Each deployment has one client of the identity hub (RFC 134, 137), with two return addresses: the
 // sign-in with GitHub and Google comes back to Convex Auth's route, a provider connection to our own
-// (convex/http.ts). IdentityHub.Client asks `POST /hub-clients` with the GitHub OIDC token of the run
+// (convex/http.ts). IdentityHub.Client asks `POST /register` with the GitHub OIDC token of the run
 // (`id-token: write` in alchemy.yml), and the hub first reads /samebase-verification.json on the
 // callbacks' site. The hub's policy gives this repository its connectors and its API resources. The
 // client is `required`: a deploy fails rather than ship guest sign-in or a client that the hub

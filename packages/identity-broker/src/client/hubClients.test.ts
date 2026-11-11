@@ -2,17 +2,21 @@
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { api } from "../component/_generated/api.js";
 import { ISSUER, pkce, sha256Hex, type Harness } from "./harness.test.helper.js";
+import { convexConnection } from "./resourceProviders.js";
 import {
   APP_HASH,
   createClient,
   createDevelopmentClient,
   createHub,
   createInitialAccessToken,
+  expectInsufficientScope,
   foreignKey,
   jsonResponse,
   LOOPBACK_CALLBACK,
+  type NewClient,
   OWNER_ID,
   postHubClient,
+  refusalBody,
   PRODUCTION_CALLBACK,
   PRODUCTION_HOST,
   pullRequestClaims,
@@ -87,25 +91,42 @@ const streamedResponse = (chunks: string[]) =>
     { status: 200 },
   );
 
-describe("POST /hub-clients", () => {
+/** The 401 body of a missing or refused Bearer token (RFC 6750 section 3). */
+const INVALID_TOKEN = { error: "invalid_token", error_description: "The token is invalid." };
+
+describe("POST /register", () => {
   describe("a new client", () => {
     it("needs no Samebase account, and answers the client with the terms", async () => {
+      vi.useFakeTimers({ now: 1_800_000_000_000, toFake: ["Date"] });
       const h = await createHub();
       stubProviders();
 
       const response = await postHubClient(h, await signToken());
 
       expect(response.status).toBe(201);
+      expect(response.headers.get("Content-Type")).toMatch(/^application\/json/);
       expect(response.headers.get("Cache-Control")).toBe("no-store");
+      expect(response.headers.get("Pragma")).toBe("no-cache");
       const client: Record<string, string> = await response.json();
       expect(client).toEqual({
-        issuer: ISSUER,
         client_id: expect.stringMatching(/^cl_/),
-        client_secret: expect.any(String),
-        registration_access_token: expect.any(String),
+        client_id_issued_at: 1_800_000_000,
+        client_secret_expires_at: 0,
         registration_client_uri: `${ISSUER}/register/${client["client_id"]}`,
         redirect_uris: [PRODUCTION_CALLBACK],
+        client_name: "prod",
+        software_id: `gh-${REPOSITORY_ID}/my-app`,
+        software_version: "abc123",
+        token_endpoint_auth_method: "client_secret_post",
+        grant_types: ["authorization_code"],
+        response_types: ["code"],
+        application_type: "web",
+        subject_type: "public",
+        id_token_signed_response_alg: "RS256",
         connectors: ["fake"],
+        client_secret: expect.any(String),
+        registration_access_token: expect.any(String),
+        issuer: ISSUER,
         terms: "https://samebase.com/terms",
         initial_access_token: expect.stringMatching(/^[A-Za-z0-9_-]{43}$/),
         repository: REPOSITORY_ID,
@@ -162,7 +183,7 @@ describe("POST /hub-clients", () => {
       stubProviders();
 
       const response = await postHubClient(h, await signToken(pullRequestClaims), {
-        redirectUris: ["https://calm-cow-456.eu-west-1.convex.site/api/auth/callback/hub"],
+        redirect_uris: ["https://calm-cow-456.eu-west-1.convex.site/api/auth/callback/hub"],
       });
       const client: { client_id: string } = await response.json();
 
@@ -251,7 +272,7 @@ describe("POST /hub-clients", () => {
       const client = await createClient(h);
       await createDevelopmentClient(h, client.initial_access_token ?? "");
       stubProviders(() => new Response("Not Found", { status: 404 }));
-      expect((await postHubClient(h, await signToken())).status).toBe(403);
+      expect((await postHubClient(h, await signToken())).status).toBe(400);
 
       const line = (event: string, deployment: string, reason: string | null) =>
         `hub_event ${JSON.stringify({ event, repository: "octo-org/octo-repo", app: "my-app", deployment, connector: null, reason })}`;
@@ -279,10 +300,47 @@ describe("POST /hub-clients", () => {
 
       const response = await postHubClient(h, await signToken());
 
-      expect(response.status).toBe(403);
-      expect(await response.json()).toEqual({ error: "not_allowed", reason: "too_many_apps" });
+      await expectInsufficientScope(response, "too_many_apps");
       expect(await readRegistrationEvents(h)).toEqual([]);
       expect(await readInitialAccessTokens(h)).toEqual([]);
+    });
+
+    it("refuses a production client when every production client of the app has signed someone in", async () => {
+      const h = await createHub();
+      const appId = `gh-${REPOSITORY_ID}-${APP_HASH}`;
+      for (let index = 0; index < 30; index += 1) {
+        await registerAtBroker(h, {
+          tenantId: `gh-${REPOSITORY_ID}`,
+          appId,
+          deploymentType: "production",
+          clientId: `cl_prod_${index}`,
+          clientName: "prod",
+          now: Date.now(),
+        });
+      }
+      await h.t.run(async (ctx) => {
+        for (const row of await ctx.db.query("clients").collect()) {
+          await ctx.db.patch("clients", row._id, { lastSignInAt: Date.now() });
+        }
+      });
+      stubProviders();
+
+      await expectInsufficientScope(await postHubClient(h, await signToken()), "too_many_clients");
+    });
+
+    it("refuses an app whose id another tenant holds", async () => {
+      const h = await createHub();
+      await registerAtBroker(h, {
+        tenantId: "gh-99",
+        appId: `gh-${REPOSITORY_ID}-${APP_HASH}`,
+        deploymentType: "production",
+        clientId: "cl_other",
+        clientName: "prod",
+        now: Date.now(),
+      });
+      stubProviders();
+
+      await expectInsufficientScope(await postHubClient(h, await signToken()), "app_taken");
     });
   });
 
@@ -299,8 +357,7 @@ describe("POST /hub-clients", () => {
 
       const response = await postHubClient(h, await signToken());
 
-      expect(response.status).toBe(403);
-      expect(await response.json()).toEqual({ error: "not_allowed", reason: "paused" });
+      await expectInsufficientScope(response, "paused");
       expect(fileRequests).toEqual([]);
       expect(await readRateLimits(h)).toEqual([]);
       const exempt = await createClient(h, { repository_id: "81" });
@@ -356,10 +413,14 @@ describe("POST /hub-clients", () => {
       });
       const allowed = await postHubClient(h, await signToken(), { connectors: ["other"] });
 
+      const refusal = refusalBody("invalid_client_metadata", {
+        reason: "invalid_connectors",
+        allowed: ["other"],
+      });
       expect(unknown.status).toBe(400);
-      expect(await unknown.json()).toEqual({ error: "invalid_connectors", allowed: ["other"] });
+      expect(await unknown.json()).toEqual(refusal);
       expect(disallowed.status).toBe(400);
-      expect(await disallowed.json()).toEqual({ error: "invalid_connectors", allowed: ["other"] });
+      expect(await disallowed.json()).toEqual(refusal);
       expect(allowed.status).toBe(201);
       // The two refusals fetched nothing and counted nowhere.
       expect(fileRequests).toHaveLength(1);
@@ -383,13 +444,36 @@ describe("POST /hub-clients", () => {
       const response = await postHubClient(h, await signToken(), { connectors });
 
       expect(response.status).toBe(400);
-      expect(await response.json()).toEqual({
-        error: "invalid_connectors",
-        allowed: ["fake", "other"],
-      });
+      expect(await response.json()).toEqual(
+        refusalBody("invalid_client_metadata", {
+          reason: "invalid_connectors",
+          allowed: ["fake", "other"],
+        }),
+      );
       expect(fileRequests).toEqual([]);
       expect(await readRateLimits(h)).toEqual([]);
       expect(await readClients(h)).toEqual([]);
+    });
+
+    it("enrolls in every allowed connector without `connectors`, and refuses when none is allowed", async () => {
+      const h = await createHub({
+        policy: (registration) =>
+          testPolicy({ connectors: registration.app === "my-app" ? ["other", "fake"] : [] }),
+      });
+      stubProviders();
+
+      const all = await postHubClient(h, await signToken(), { connectors: undefined });
+      const none = await postHubClient(h, await signToken(), {
+        software_id: "empty-app",
+        connectors: undefined,
+      });
+
+      expect(all.status).toBe(201);
+      expect(await all.json()).toMatchObject({ connectors: ["fake", "other"] });
+      expect(none.status).toBe(400);
+      expect(await none.json()).toEqual(
+        refusalBody("invalid_client_metadata", { reason: "invalid_connectors", allowed: [] }),
+      );
     });
 
     it("the development mutation refuses a token row that differs from any fact the policy saw, and writes nothing", async () => {
@@ -429,6 +513,7 @@ describe("POST /hub-clients", () => {
             configuredConnectors: ["fake"],
             redirectUris: [LOOPBACK_CALLBACK],
             softwareVersion: "dev-1",
+            tokenEndpointAuthMethod: "client_secret_post",
           }),
         ).toEqual({ ok: false, reason: "invalid_token" });
       }
@@ -454,7 +539,7 @@ describe("POST /hub-clients", () => {
 
       for (const response of [thrown, malformed]) {
         expect(response.status).toBe(503);
-        expect(await response.json()).toEqual({ error: "temporarily_unavailable" });
+        expect(await response.json()).toEqual(refusalBody("temporarily_unavailable"));
       }
       expect(fileRequests).toEqual([]);
       expect(await readRateLimits(h)).toEqual([]);
@@ -482,7 +567,8 @@ describe("POST /hub-clients", () => {
       const response = await postHubClient(h, await sign());
 
       expect(response.status).toBe(401);
-      expect(await response.json()).toEqual({ error: "invalid_token" });
+      expect(response.headers.get("WWW-Authenticate")).toBe('Bearer error="invalid_token"');
+      expect(await response.json()).toEqual(INVALID_TOKEN);
       expect(fileRequests).toEqual([]);
       expect(await readRateLimits(h)).toEqual([]);
     });
@@ -497,7 +583,7 @@ describe("POST /hub-clients", () => {
       const response = await postHubClient(h, await signToken());
 
       expect(response.status).toBe(502);
-      expect(await response.json()).toEqual({ error: "github_unavailable" });
+      expect(await response.json()).toEqual(refusalBody("github_unavailable"));
     });
 
     it.each([
@@ -512,8 +598,7 @@ describe("POST /hub-clients", () => {
 
       const response = await postHubClient(h, await signToken(claims));
 
-      expect(response.status).toBe(403);
-      expect(await response.json()).toEqual({ error: "not_allowed", reason: "run_not_allowed" });
+      await expectInsufficientScope(response, "run_not_allowed");
       expect(fileRequests).toEqual([]);
     });
 
@@ -532,49 +617,230 @@ describe("POST /hub-clients", () => {
 
   describe("the body", () => {
     it.each([
-      ["no app", { app: "" }],
-      ["an app over 64 characters", { app: "a".repeat(65) }],
-      ["no version", { softwareVersion: "" }],
-      ["a very long version", { softwareVersion: "v".repeat(257) }],
-      ["a body that is not text", { app: 1 }],
-      ["no return address", { redirectUris: undefined }],
-      ["a return address that is not a list", { redirectUris: PRODUCTION_CALLBACK }],
-      ["an empty list of return addresses", { redirectUris: [] }],
-      [
-        "nine return addresses",
-        { redirectUris: Array.from({ length: 9 }, (_, i) => `${PRODUCTION_CALLBACK}/${i}`) },
-      ],
-      ["an http return address", { redirectUris: ["http://ideal-dolphin-15.convex.site/cb"] }],
-      [
-        "a loopback return address, which only the app's initial access token proves",
-        { redirectUris: [LOOPBACK_CALLBACK] },
-      ],
-      [
-        "a loopback return address next to a verified one",
-        { redirectUris: [PRODUCTION_CALLBACK, LOOPBACK_CALLBACK] },
-      ],
-      ["a fragment", { redirectUris: [`${PRODUCTION_CALLBACK}#top`] }],
-      ["an empty fragment", { redirectUris: [`${PRODUCTION_CALLBACK}#`] }],
-      ["user info", { redirectUris: ["https://user:pass@ideal-dolphin-15.convex.site/cb"] }],
-      ["an IPv4 address", { redirectUris: ["https://127.0.0.1/cb"] }],
-      ["an IPv4 address in hex", { redirectUris: ["https://0x7f000001/cb"] }],
-      ["an IPv6 address", { redirectUris: ["https://[::1]/cb"] }],
-      ["localhost", { redirectUris: ["https://localhost/cb"] }],
-      ["a name under localhost", { redirectUris: ["https://app.localhost/cb"] }],
-      ["a very long address", { redirectUris: [`${PRODUCTION_HOST}/${"a".repeat(2_048)}`] }],
-      [
-        "a bad address next to a good one",
-        { redirectUris: [PRODUCTION_CALLBACK, `${PRODUCTION_CALLBACK}#top`] },
-      ],
+      ["an empty app", { software_id: "" }],
+      ["an app over 64 characters", { software_id: "a".repeat(65) }],
+      ["an empty app in the full form", { software_id: `gh-${REPOSITORY_ID}/` }],
+      ["the full form of another repository", { software_id: "gh-75/my-app" }],
+      ["an empty version", { software_version: "" }],
+      ["a very long version", { software_version: "v".repeat(257) }],
+      ["a body that is not text", { software_id: 1 }],
       ["connectors that are not a list", { connectors: "fake" }],
-    ])("answers 400 for %s and fetches nothing", async (_, body) => {
+      ["the implicit grant", { grant_types: ["authorization_code", "implicit"] }],
+      ["the token response type", { response_types: ["token"] }],
+      ["a native application", { application_type: "native" }],
+      ["pairwise subjects", { subject_type: "pairwise" }],
+      ["an id_token signed with ES256", { id_token_signed_response_alg: "ES256" }],
+      ["a sector identifier", { sector_identifier_uri: `${PRODUCTION_HOST}/sector.json` }],
+      ["signed userinfo", { userinfo_signed_response_alg: "RS256" }],
+      ["signed request objects", { request_object_signing_alg: "RS256" }],
+      ["an encrypted id_token", { id_token_encrypted_response_alg: "RSA-OAEP" }],
+      ["an encrypted userinfo", { userinfo_encrypted_response_enc: "A128GCM" }],
+      ["encrypted request objects", { request_object_encryption_alg: "RSA-OAEP" }],
+    ])("answers 400 invalid_client_metadata for %s and fetches nothing", async (_, body) => {
       const h = await createHub();
       const fileRequests = stubProviders();
 
       const response = await postHubClient(h, await signToken(), body);
 
       expect(response.status).toBe(400);
-      expect(await response.json()).toEqual({ error: "invalid_request" });
+      expect(await response.json()).toEqual(refusalBody("invalid_client_metadata"));
+      expect(await readRateLimits(h)).toEqual([]);
+      expect(fileRequests).toEqual([]);
+    });
+
+    it.each([
+      ["a JSON array", "[]"],
+      ["text that is not JSON", "redirect_uris"],
+    ])("answers 400 invalid_client_metadata for %s", async (_, body) => {
+      const h = await createHub();
+      stubProviders();
+
+      const response = await h.fetchBroker(`${h.issuer}/register`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${await signToken()}` },
+        body,
+      });
+
+      expect(response.status).toBe(400);
+      expect(await response.json()).toEqual(refusalBody("invalid_client_metadata"));
+    });
+
+    it("registers with only redirect_uris, with the defaults of each other member", async () => {
+      const h = await createHub();
+      stubProviders();
+
+      const response = await h.fetchBroker(`${h.issuer}/register`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${await signToken()}` },
+        body: JSON.stringify({ redirect_uris: [PRODUCTION_CALLBACK] }),
+      });
+
+      expect(response.status).toBe(201);
+      expect(await response.json()).toMatchObject({
+        software_id: `gh-${REPOSITORY_ID}/app`,
+        software_version: "unknown",
+        token_endpoint_auth_method: "client_secret_basic",
+        connectors: ["fake", "other"],
+      });
+    });
+
+    it.each([
+      ["absent", undefined, `gh-${REPOSITORY_ID}/app`],
+      ["the app name", "weather-app", `gh-${REPOSITORY_ID}/weather-app`],
+      ["the full form", `gh-${REPOSITORY_ID}/weather-app`, `gh-${REPOSITORY_ID}/weather-app`],
+    ])(
+      "takes software_id %s, and answers the full form in the answer and the read",
+      async (_, softwareId, full) => {
+        const h = await createHub();
+        stubProviders();
+
+        const response = await postHubClient(h, await signToken(), { software_id: softwareId });
+        const client: NewClient = await response.json();
+        const record = await h.fetchBroker(client.registration_client_uri, {
+          headers: { Authorization: `Bearer ${client.registration_access_token}` },
+        });
+
+        expect(response.status).toBe(201);
+        expect(client.software_id).toBe(full);
+        expect(await record.json()).toMatchObject({ software_id: full });
+        expect(await readClients(h)).toEqual([
+          expect.objectContaining({ app: full.slice(full.indexOf("/") + 1) }),
+        ]);
+      },
+    );
+
+    it("registers an app name with a slash and its full form into the same app", async () => {
+      const h = await createHub();
+      stubProviders();
+
+      const answers: NewClient[] = [];
+      for (const softwareId of ["a/b", `gh-${REPOSITORY_ID}/a/b`]) {
+        const response = await postHubClient(h, await signToken(), { software_id: softwareId });
+        expect(response.status).toBe(201);
+        answers.push(await response.json());
+      }
+
+      expect(answers.map((client) => client.software_id)).toEqual([
+        `gh-${REPOSITORY_ID}/a/b`,
+        `gh-${REPOSITORY_ID}/a/b`,
+      ]);
+      const clients = await readClients(h);
+      expect(clients).toHaveLength(2);
+      expect(new Set(clients.map((row) => row.appId)).size).toBe(1);
+      expect(clients.map((row) => row.app)).toEqual(["a/b", "a/b"]);
+    });
+
+    it.each([
+      ["a repository id that extends the proof's", `gh-${REPOSITORY_ID}1/app`],
+      ["a repository id that the proof's extends", `gh-${REPOSITORY_ID.slice(0, -1)}/app`],
+    ])("refuses software_id with %s, and creates no client", async (_, softwareId) => {
+      const h = await createHub();
+      stubProviders();
+
+      const response = await postHubClient(h, await signToken(), { software_id: softwareId });
+
+      expect(response.status).toBe(400);
+      expect(await response.json()).toEqual(refusalBody("invalid_client_metadata"));
+      expect(await readClients(h)).toEqual([]);
+    });
+
+    it("takes the members that hold the hub's one value, and answers them", async () => {
+      const h = await createHub();
+      stubProviders();
+
+      const response = await postHubClient(h, await signToken(), {
+        application_type: "web",
+        subject_type: "public",
+        id_token_signed_response_alg: "RS256",
+        client_name: "ignored",
+        software_statement: "ignored",
+      });
+
+      expect(response.status).toBe(201);
+      expect(await response.json()).toMatchObject({
+        client_name: "prod",
+        application_type: "web",
+        subject_type: "public",
+        id_token_signed_response_alg: "RS256",
+      });
+    });
+
+    it("answers refresh_token in grant_types when the hub has API resources", async () => {
+      const h = await createHub({
+        resources: [convexConnection({ clientId: () => "id", clientSecret: () => "secret" })],
+      });
+      stubProviders();
+
+      const response = await postHubClient(h, await signToken());
+      const client: NewClient = await response.json();
+      const record = await h.fetchBroker(client.registration_client_uri, {
+        headers: { Authorization: `Bearer ${client.registration_access_token}` },
+      });
+
+      expect(client.grant_types).toEqual(["authorization_code", "refresh_token"]);
+      expect(await record.json()).toMatchObject({
+        grant_types: ["authorization_code", "refresh_token"],
+      });
+    });
+
+    it("never quotes the request in error_description", async () => {
+      const h = await createHub();
+      stubProviders();
+      const marker = "quoted-marker";
+
+      const answers = [
+        await postHubClient(h, await signToken(), { software_id: `gh-75/${marker}` }),
+        await postHubClient(h, await signToken(), { software_version: marker.repeat(30) }),
+        await postHubClient(h, await signToken(), { redirect_uris: [`https://${marker}/#x`] }),
+        await postHubClient(h, await signToken(), { connectors: [marker] }),
+        await postHubClient(h, await signToken(), { application_type: marker }),
+      ];
+
+      for (const answer of answers) {
+        expect(answer.status).toBe(400);
+        const body: { error_description: string } = await answer.json();
+        expect(body.error_description).not.toContain(marker);
+      }
+    });
+
+    it.each([
+      ["no return address", { redirect_uris: undefined }],
+      ["a return address that is not a list", { redirect_uris: PRODUCTION_CALLBACK }],
+      ["an empty list of return addresses", { redirect_uris: [] }],
+      [
+        "nine return addresses",
+        { redirect_uris: Array.from({ length: 9 }, (_, i) => `${PRODUCTION_CALLBACK}/${i}`) },
+      ],
+      ["an http return address", { redirect_uris: ["http://ideal-dolphin-15.convex.site/cb"] }],
+      [
+        "a loopback return address, which only the app's initial access token proves",
+        { redirect_uris: [LOOPBACK_CALLBACK] },
+      ],
+      [
+        "a loopback return address next to a verified one",
+        { redirect_uris: [PRODUCTION_CALLBACK, LOOPBACK_CALLBACK] },
+      ],
+      ["a fragment", { redirect_uris: [`${PRODUCTION_CALLBACK}#top`] }],
+      ["an empty fragment", { redirect_uris: [`${PRODUCTION_CALLBACK}#`] }],
+      ["user info", { redirect_uris: ["https://user:pass@ideal-dolphin-15.convex.site/cb"] }],
+      ["an IPv4 address", { redirect_uris: ["https://127.0.0.1/cb"] }],
+      ["an IPv4 address in hex", { redirect_uris: ["https://0x7f000001/cb"] }],
+      ["an IPv6 address", { redirect_uris: ["https://[::1]/cb"] }],
+      ["localhost", { redirect_uris: ["https://localhost/cb"] }],
+      ["a name under localhost", { redirect_uris: ["https://app.localhost/cb"] }],
+      ["a very long address", { redirect_uris: [`${PRODUCTION_HOST}/${"a".repeat(2_048)}`] }],
+      [
+        "a bad address next to a good one",
+        { redirect_uris: [PRODUCTION_CALLBACK, `${PRODUCTION_CALLBACK}#top`] },
+      ],
+    ])("answers 400 invalid_redirect_uri for %s and fetches nothing", async (_, body) => {
+      const h = await createHub();
+      const fileRequests = stubProviders();
+
+      const response = await postHubClient(h, await signToken(), body);
+
+      expect(response.status).toBe(400);
+      expect(await response.json()).toEqual(refusalBody("invalid_redirect_uri"));
       expect(await readRateLimits(h)).toEqual([]);
       expect(fileRequests).toEqual([]);
     });
@@ -583,7 +849,7 @@ describe("POST /hub-clients", () => {
       const h = await createHub();
       stubProviders();
 
-      const response = await postHubClient(h, await signToken(), { app: "a".repeat(64) });
+      const response = await postHubClient(h, await signToken(), { software_id: "a".repeat(64) });
 
       expect(response.status).toBe(201);
     });
@@ -595,7 +861,7 @@ describe("POST /hub-clients", () => {
       const fileRequests = stubProviders();
 
       await postHubClient(h, await signToken(), {
-        redirectUris: ["https://app.example.com:8443/api/auth/callback/hub?x=1"],
+        redirect_uris: ["https://app.example.com:8443/api/auth/callback/hub?x=1"],
       });
 
       expect(fileRequests).toEqual([
@@ -614,7 +880,7 @@ describe("POST /hub-clients", () => {
       const other = "https://other.example.com/auth/hub/callback";
 
       const response = await postHubClient(h, await signToken(), {
-        redirectUris: [connections, PRODUCTION_CALLBACK, other, PRODUCTION_CALLBACK],
+        redirect_uris: [connections, PRODUCTION_CALLBACK, other, PRODUCTION_CALLBACK],
       });
 
       expect(response.status).toBe(201);
@@ -640,14 +906,13 @@ describe("POST /hub-clients", () => {
       );
 
       const response = await postHubClient(h, await signToken(), {
-        redirectUris: [PRODUCTION_CALLBACK, "https://other.example.com/auth/hub/callback"],
+        redirect_uris: [PRODUCTION_CALLBACK, "https://other.example.com/auth/hub/callback"],
       });
 
-      expect(response.status).toBe(403);
-      expect(await response.json()).toEqual({
-        error: "not_allowed",
-        reason: "verification_file_missing",
-      });
+      expect(response.status).toBe(400);
+      expect(await response.json()).toEqual(
+        refusalBody("invalid_redirect_uri", { reason: "verification_file_missing" }),
+      );
       expect(fileRequests.map((request) => request.url)).toEqual([
         `${PRODUCTION_HOST}/samebase-verification.json`,
         "https://other.example.com/samebase-verification.json",
@@ -702,8 +967,8 @@ describe("POST /hub-clients", () => {
       const response = await postHubClient(h, await signToken());
       const text = await response.text();
 
-      expect(response.status).toBe(403);
-      expect(JSON.parse(text)).toEqual({ error: "not_allowed", reason });
+      expect(response.status).toBe(400);
+      expect(JSON.parse(text)).toEqual(refusalBody("invalid_redirect_uri", { reason }));
       expect(text).not.toContain("999");
       expect(await readRegistrationEvents(h)).toEqual([]);
       expect(await readClients(h)).toEqual([]);
@@ -734,8 +999,7 @@ describe("POST /hub-clients", () => {
 
       const response = await postHubClient(h, await signToken());
 
-      expect(response.status).toBe(403);
-      expect(await response.json()).toEqual({ error: "not_allowed", reason: "blocked" });
+      await expectInsufficientScope(response, "blocked");
       expect(fileRequests).toEqual([]);
       expect(await readRateLimits(h)).toEqual([]);
       expect(await readRegistrationEvents(h)).toEqual([]);
@@ -761,8 +1025,7 @@ describe("POST /hub-clients", () => {
 
         const response = await postHubClient(h, await signToken());
 
-        expect(response.status).toBe(403);
-        expect(await response.json()).toEqual({ error: "not_allowed", reason: "blocked" });
+        await expectInsufficientScope(response, "blocked");
         expect(await readRegistrationEvents(h)).toEqual([]);
         expect(await h.t.query(api.apps.list, {})).toEqual([]);
       },
@@ -810,7 +1073,7 @@ describe("POST /hub-clients", () => {
       const response = await postHubClient(h, await signToken());
 
       expect(response.status).toBe(429);
-      expect(await response.json()).toEqual({ error: "rate_limited", window });
+      expect(await response.json()).toEqual(refusalBody("rate_limited", { window }));
       expect(fileRequests).toEqual([]);
     });
 
@@ -857,7 +1120,7 @@ describe("POST /hub-clients", () => {
       const response = await postHubClient(h, await signToken());
 
       expect(response.status).toBe(429);
-      expect(await response.json()).toEqual({ error: "rate_limited", window: "new_owners" });
+      expect(await response.json()).toEqual(refusalBody("rate_limited", { window: "new_owners" }));
       expect(await readClients(h)).toEqual([]);
     });
 
@@ -881,7 +1144,7 @@ describe("POST /hub-clients", () => {
 
       expect(known.status).toBe(201);
       expect(stranger.status).toBe(429);
-      expect(await stranger.json()).toEqual({ error: "rate_limited", window: "new_owners" });
+      expect(await stranger.json()).toEqual(refusalBody("rate_limited", { window: "new_owners" }));
     });
 
     it("starts a new window after an hour", async () => {
@@ -937,11 +1200,11 @@ describe("the initial access token", () => {
     const second = await createInitialAccessToken(h);
     stubProviders();
 
-    const refused = await postHubClient(h, first, { redirectUris: [LOOPBACK_CALLBACK] });
+    const refused = await postHubClient(h, first, { redirect_uris: [LOOPBACK_CALLBACK] });
 
     expect(first).not.toBe(second);
     expect(refused.status).toBe(401);
-    expect(await refused.json()).toEqual({ error: "invalid_token" });
+    expect(await refused.json()).toEqual(INVALID_TOKEN);
     expect(await readInitialAccessTokens(h)).toHaveLength(1);
     expect((await createDevelopmentClient(h, second)).client_id).toMatch(/^cl_/);
   });
@@ -960,8 +1223,7 @@ describe("the initial access token", () => {
       h,
       await signToken({ ...pullRequestClaims, repository_owner_id: "66" }),
     );
-    expect(sameSecond.status).toBe(403);
-    expect(await sameSecond.json()).toEqual({ error: "not_allowed", reason: "stale_proof" });
+    await expectInsufficientScope(sameSecond, "stale_proof");
     expect(await readInitialAccessTokens(h)).toHaveLength(1);
     vi.setSystemTime(Date.now() + 1_000);
     const transferred = await postHubClient(
@@ -971,31 +1233,44 @@ describe("the initial access token", () => {
 
     expect(transferred.status).toBe(201);
     expect(await readInitialAccessTokens(h)).toEqual([]);
-    expect((await postHubClient(h, token, { redirectUris: [LOOPBACK_CALLBACK] })).status).toBe(401);
+    expect((await postHubClient(h, token, { redirect_uris: [LOOPBACK_CALLBACK] })).status).toBe(
+      401,
+    );
   });
 });
 
-describe("POST /hub-clients with the initial access token", () => {
+describe("POST /register with the initial access token", () => {
   it("registers a development client on a loopback address without a fetch", async () => {
     vi.useFakeTimers({ now: 1_800_000_000_000, toFake: ["Date"] });
     const h = await createHub();
     const token = await createInitialAccessToken(h);
     const fileRequests = stubProviders();
 
-    const response = await postHubClient(h, token, { redirectUris: [LOOPBACK_CALLBACK] });
+    const response = await postHubClient(h, token, { redirect_uris: [LOOPBACK_CALLBACK] });
 
     expect(response.status).toBe(201);
     expect(fetch).not.toHaveBeenCalled();
     expect(fileRequests).toEqual([]);
     const client: Record<string, string> = await response.json();
     expect(client).toEqual({
-      issuer: ISSUER,
       client_id: expect.stringMatching(/^cl_/),
-      client_secret: expect.any(String),
-      registration_access_token: expect.any(String),
+      client_id_issued_at: 1_800_000_000,
+      client_secret_expires_at: 0,
       registration_client_uri: `${ISSUER}/register/${client["client_id"]}`,
       redirect_uris: [LOOPBACK_CALLBACK],
+      client_name: "development",
+      software_id: `gh-${REPOSITORY_ID}/my-app`,
+      software_version: "abc123",
+      token_endpoint_auth_method: "client_secret_post",
+      grant_types: ["authorization_code"],
+      response_types: ["code"],
+      application_type: "web",
+      subject_type: "public",
+      id_token_signed_response_alg: "RS256",
       connectors: ["fake"],
+      client_secret: expect.any(String),
+      registration_access_token: expect.any(String),
+      issuer: ISSUER,
       terms: "https://samebase.com/terms",
     });
     const clientId = client["client_id"] ?? "";
@@ -1035,7 +1310,7 @@ describe("POST /hub-clients with the initial access token", () => {
       const token = await createInitialAccessToken(h);
       stubProviders();
 
-      expect((await postHubClient(h, token, { redirectUris: [redirectUri] })).status).toBe(201);
+      expect((await postHubClient(h, token, { redirect_uris: [redirectUri] })).status).toBe(201);
     },
   );
 
@@ -1051,15 +1326,17 @@ describe("POST /hub-clients with the initial access token", () => {
     stubProviders();
 
     const refused = await postHubClient(h, token, {
-      redirectUris: [LOOPBACK_CALLBACK],
+      redirect_uris: [LOOPBACK_CALLBACK],
       connectors: ["fake", "other"],
     });
     const accepted = await postHubClient(h, token, {
-      redirectUris: [LOOPBACK_CALLBACK],
+      redirect_uris: [LOOPBACK_CALLBACK],
       connectors: ["fake"],
     });
 
-    expect(await refused.json()).toEqual({ error: "invalid_connectors", allowed: ["fake"] });
+    expect(await refused.json()).toEqual(
+      refusalBody("invalid_client_metadata", { reason: "invalid_connectors", allowed: ["fake"] }),
+    );
     expect(accepted.status).toBe(201);
   });
 
@@ -1101,18 +1378,17 @@ describe("POST /hub-clients with the initial access token", () => {
     const missing = stubProviders(() => new Response("Not Found", { status: 404 }));
 
     const refused = await postHubClient(h, token, {
-      redirectUris: ["https://calm-cow-456.convex.site/auth/hub/callback"],
+      redirect_uris: ["https://calm-cow-456.convex.site/auth/hub/callback"],
     });
 
-    expect(refused.status).toBe(403);
-    expect(await refused.json()).toEqual({
-      error: "not_allowed",
-      reason: "verification_file_missing",
-    });
+    expect(refused.status).toBe(400);
+    expect(await refused.json()).toEqual(
+      refusalBody("invalid_redirect_uri", { reason: "verification_file_missing" }),
+    );
     expect(missing).toHaveLength(1);
     const served = stubProviders();
     const accepted = await postHubClient(h, token, {
-      redirectUris: ["https://calm-cow-456.convex.site/auth/hub/callback"],
+      redirect_uris: ["https://calm-cow-456.convex.site/auth/hub/callback"],
     });
     expect(accepted.status).toBe(201);
     expect(served).toEqual([
@@ -1123,18 +1399,23 @@ describe("POST /hub-clients with the initial access token", () => {
     ]);
   });
 
-  it("refuses another app of the repository", async () => {
+  it("refuses another app of the repository, in either form of software_id", async () => {
     const h = await createHub();
     const token = await createInitialAccessToken(h);
     stubProviders();
 
-    const response = await postHubClient(h, token, {
-      app: "other-app",
-      redirectUris: [LOOPBACK_CALLBACK],
+    for (const softwareId of ["other-app", `gh-${REPOSITORY_ID}/other-app`]) {
+      const response = await postHubClient(h, token, {
+        software_id: softwareId,
+        redirect_uris: [LOOPBACK_CALLBACK],
+      });
+      await expectInsufficientScope(response, "app_mismatch");
+    }
+    const full = await postHubClient(h, token, {
+      software_id: `gh-${REPOSITORY_ID}/my-app`,
+      redirect_uris: [LOOPBACK_CALLBACK],
     });
-
-    expect(response.status).toBe(403);
-    expect(await response.json()).toEqual({ error: "not_allowed", reason: "app_mismatch" });
+    expect(full.status).toBe(201);
   });
 
   it("refuses a token whose row was deleted while the file was fetched", async () => {
@@ -1150,11 +1431,11 @@ describe("POST /hub-clients with the initial access token", () => {
     });
 
     const response = await postHubClient(h, token, {
-      redirectUris: ["https://calm-cow-456.convex.site/auth/hub/callback"],
+      redirect_uris: ["https://calm-cow-456.convex.site/auth/hub/callback"],
     });
 
     expect(response.status).toBe(401);
-    expect(await response.json()).toEqual({ error: "invalid_token" });
+    expect(await response.json()).toEqual(INVALID_TOKEN);
     expect((await readClients(h)).map((row) => row.clientName)).toEqual(["prod"]);
     expect(await readRegistrationEvents(h)).toHaveLength(1);
   });
@@ -1178,12 +1459,14 @@ describe("POST /hub-clients with the initial access token", () => {
     stubProviders();
 
     await setOwnerBlocked("66", true);
-    const refused = await postHubClient(h, token, { redirectUris: [LOOPBACK_CALLBACK] });
-    expect(await refused.json()).toEqual({ error: "not_allowed", reason: "suspended" });
+    const refused = await postHubClient(h, token, { redirect_uris: [LOOPBACK_CALLBACK] });
+    await expectInsufficientScope(refused, "suspended");
 
     // A block of the token's own owner refuses as `blocked`: "refuses a blocked owner" below.
     await setOwnerBlocked("66", false);
-    expect((await postHubClient(h, token, { redirectUris: [LOOPBACK_CALLBACK] })).status).toBe(201);
+    expect((await postHubClient(h, token, { redirect_uris: [LOOPBACK_CALLBACK] })).status).toBe(
+      201,
+    );
 
     // The development client left the recorded owner 66 in place.
     await setOwnerBlocked("66", true);
@@ -1201,10 +1484,9 @@ describe("POST /hub-clients with the initial access token", () => {
     const before = await readRateLimits(h);
     stubProviders();
 
-    const response = await postHubClient(h, token, { redirectUris: [LOOPBACK_CALLBACK] });
+    const response = await postHubClient(h, token, { redirect_uris: [LOOPBACK_CALLBACK] });
 
-    expect(response.status).toBe(403);
-    expect(await response.json()).toEqual({ error: "not_allowed", reason: "blocked" });
+    await expectInsufficientScope(response, "blocked");
     expect(await readRateLimits(h)).toEqual(before);
   });
 
@@ -1214,10 +1496,9 @@ describe("POST /hub-clients with the initial access token", () => {
     vi.stubEnv("APPS_PAUSED", "true");
     stubProviders();
 
-    const response = await postHubClient(h, token, { redirectUris: [LOOPBACK_CALLBACK] });
+    const response = await postHubClient(h, token, { redirect_uris: [LOOPBACK_CALLBACK] });
 
-    expect(response.status).toBe(403);
-    expect(await response.json()).toEqual({ error: "not_allowed", reason: "paused" });
+    await expectInsufficientScope(response, "paused");
   });
 
   it.each([
@@ -1234,10 +1515,10 @@ describe("POST /hub-clients with the initial access token", () => {
     await seedWindow(h, { scope: row.scope, githubId: row.githubId, count: row.count });
     stubProviders();
 
-    const response = await postHubClient(h, token, { redirectUris: [LOOPBACK_CALLBACK] });
+    const response = await postHubClient(h, token, { redirect_uris: [LOOPBACK_CALLBACK] });
 
     expect(response.status).toBe(429);
-    expect(await response.json()).toEqual({ error: "rate_limited", window });
+    expect(await response.json()).toEqual(refusalBody("rate_limited", { window }));
   });
 
   it("counts in the repository and owner windows, and not in the new-owners window", async () => {
@@ -1282,9 +1563,10 @@ describe("POST /hub-clients with the initial access token", () => {
     stubProviders();
 
     for (const bearer of [badJwt, "one.dot", "four.parts.in.it"]) {
-      const response = await postHubClient(h, bearer, { redirectUris: [LOOPBACK_CALLBACK] });
+      const response = await postHubClient(h, bearer, { redirect_uris: [LOOPBACK_CALLBACK] });
       expect(response.status).toBe(401);
-      expect(await response.json()).toEqual({ error: "invalid_token" });
+      expect(response.headers.get("WWW-Authenticate")).toBe('Bearer error="invalid_token"');
+      expect(await response.json()).toEqual(INVALID_TOKEN);
     }
     expect((await readClients(h)).map((row) => row.clientName)).toEqual(["prod"]);
     expect(await readRegistrationEvents(h)).toHaveLength(1);
@@ -1294,48 +1576,14 @@ describe("POST /hub-clients with the initial access token", () => {
     const h = await createHub();
     stubProviders();
 
-    const response = await postHubClient(h, "unknown-token", { redirectUris: [LOOPBACK_CALLBACK] });
+    const response = await postHubClient(h, "unknown-token", {
+      redirect_uris: [LOOPBACK_CALLBACK],
+    });
 
     expect(response.status).toBe(401);
-    expect(await response.json()).toEqual({ error: "invalid_token" });
+    expect(await response.json()).toEqual(INVALID_TOKEN);
+    expect(response.headers.get("WWW-Authenticate")).toBe('Bearer error="invalid_token"');
     expect(await readRateLimits(h)).toEqual([]);
-  });
-});
-
-describe("the shared registration key", () => {
-  it("creates no client and switches no tenant, also while the old variable is still set", async () => {
-    const h = await createHub();
-    vi.stubEnv("REGISTRATION_ACCESS_TOKEN", "registration-token");
-    const client = await createClient(h);
-    const headers = {
-      Authorization: "Bearer registration-token",
-      "Content-Type": "application/json",
-    };
-
-    const register = await h.fetchBroker(`${h.issuer}/register`, {
-      method: "POST",
-      headers,
-      body: JSON.stringify({
-        redirect_uris: [PRODUCTION_CALLBACK],
-        client_name: "prod",
-        software_id: "gh-74-app",
-        software_version: "abc123",
-        tenant_id: "gh-74",
-        deployment_type: "production",
-        token_endpoint_auth_method: "client_secret_post",
-      }),
-    });
-    const connection = await h.fetchBroker(`${h.issuer}/tenant-connection`, {
-      method: "POST",
-      headers,
-      body: JSON.stringify({ tenant_id: "gh-74", connected: false, revision: 99 }),
-    });
-    const discovery = await h.fetchBroker(`${h.issuer}/.well-known/openid-configuration`);
-
-    expect(register.status).toBe(404);
-    expect(connection.status).toBe(404);
-    expect(await discovery.json()).not.toHaveProperty("registration_endpoint");
-    expect(await readOwnRecord(h, client)).toBe(200);
   });
 });
 
@@ -1369,8 +1617,8 @@ describe("registration rules at their edges", () => {
   it("replaces only the initial access token of the app that registered", async () => {
     const h = await createHub();
     stubProviders();
-    expect((await postHubClient(h, await signToken(), { app: "app-a" })).status).toBe(201);
-    expect((await postHubClient(h, await signToken(), { app: "app-b" })).status).toBe(201);
+    expect((await postHubClient(h, await signToken(), { software_id: "app-a" })).status).toBe(201);
+    expect((await postHubClient(h, await signToken(), { software_id: "app-b" })).status).toBe(201);
     // Known tokens for both apps, so the test can present app B's old one.
     const oldTokenB = "initial-access-token-of-app-b";
     await h.t.run(async (ctx) => {
@@ -1392,11 +1640,11 @@ describe("registration rules at their edges", () => {
       }
     });
 
-    expect((await postHubClient(h, await signToken(), { app: "app-b" })).status).toBe(201);
+    expect((await postHubClient(h, await signToken(), { software_id: "app-b" })).status).toBe(201);
 
     const refused = await postHubClient(h, oldTokenB, {
-      app: "app-b",
-      redirectUris: [LOOPBACK_CALLBACK],
+      software_id: "app-b",
+      redirect_uris: [LOOPBACK_CALLBACK],
     });
     expect(refused.status).toBe(401);
     const apps = await h.t.run(async (ctx) =>
@@ -1426,7 +1674,9 @@ describe("registration rules at their edges", () => {
     const token = await createInitialAccessToken(h);
     stubProviders();
 
-    expect((await postHubClient(h, token, { redirectUris: [redirectUri] })).status).toBe(400);
+    const response = await postHubClient(h, token, { redirect_uris: [redirectUri] });
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual(refusalBody("invalid_redirect_uri"));
   });
 
   it("tells the policy that a development client was proven by the initial access token", async () => {

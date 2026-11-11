@@ -224,6 +224,35 @@ describe("clients", () => {
     const { challenge } = await pkce();
     expect((await h.fetchBroker(authorizeUrl(h, { clientId, challenge }))).status).toBe(400);
   });
+
+  test("/userinfo refuses the access token of a client that deleteClient deleted", async () => {
+    const h = await createHarness({ connectors: [fakeUpstream().connector] });
+    const { clientId, clientSecret } = await h.registerClient({
+      appName: "My app",
+      redirectUri: REDIRECT_URI,
+    });
+    const { verifier, challenge } = await pkce();
+    const back = await completeUpstream(
+      h,
+      await h.fetchBroker(authorizeUrl(h, { clientId, challenge })),
+    );
+    const code = new URL(back.headers.get("location") ?? "").searchParams.get("code") ?? "";
+    const tokens = await exchange(h, { code, clientId, clientSecret, verifier });
+    expect(tokens.status).toBe(200);
+    const { access_token }: { access_token: string } = await tokens.json();
+    const userinfo = async () =>
+      await h.fetchBroker(`${ISSUER}/userinfo`, {
+        headers: { Authorization: `Bearer ${access_token}` },
+      });
+    expect((await userinfo()).status).toBe(200);
+    const { deleteClient } = h.broker.admin();
+    // @ts-expect-error internalMutationGeneric keeps the function as _handler; RegisteredMutation does not declare it. Its handler only calls ctx.runMutation, which an action ctx has.
+    await h.t.action(async (ctx) => await deleteClient._handler(ctx, { clientId }));
+    const deleted = await userinfo();
+    expect(deleted.status).toBe(401);
+    expect(deleted.headers.get("www-authenticate")).toBe('Bearer error="invalid_token"');
+    expect(await deleted.json()).toMatchObject({ error: "invalid_token" });
+  });
 });
 
 describe("app deletion", () => {

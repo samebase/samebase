@@ -1,6 +1,6 @@
 /// <reference types="vite-plus/client" />
 import { exportJWK, generateKeyPair, SignJWT, type CryptoKey, type JWK } from "jose";
-import { vi } from "vite-plus/test";
+import { expect, vi } from "vite-plus/test";
 import { api } from "../component/_generated/api.js";
 import type { Connector } from "./connectors/types.js";
 import { createHarness, fakeUpstream, ISSUER, type Harness } from "./harness.test.helper.js";
@@ -157,33 +157,75 @@ export function stubProviders(host?: () => Response | Promise<Response>) {
   return fileRequests;
 }
 
+/**
+ * `POST /register` with the client metadata of the app `my-app`, which `body` changes: a member set
+ * to `undefined` is left out. The client posts its secret, as the sign-in tests do; the hub's own
+ * default is `client_secret_basic`.
+ */
 export async function postHubClient(
   h: Harness,
   token: string,
   body: Record<string, unknown> = {},
 ): Promise<Response> {
-  return await h.fetchBroker(`${h.issuer}/hub-clients`, {
+  return await h.fetchBroker(`${h.issuer}/register`, {
     method: "POST",
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
     body: JSON.stringify({
-      app: "my-app",
-      redirectUris: [PRODUCTION_CALLBACK],
-      softwareVersion: "abc123",
+      software_id: "my-app",
+      redirect_uris: [PRODUCTION_CALLBACK],
+      software_version: "abc123",
       connectors: ["fake"],
+      token_endpoint_auth_method: "client_secret_post",
       ...body,
     }),
   });
 }
 
-/** The 201 answer of `POST /hub-clients`. A production client also gets the app's token. */
+/**
+ * The body of a JSON refusal of the registration endpoints: `error`, its fixed `error_description`,
+ * and the hub's own members in `more`.
+ */
+export const refusalBody = (error: string, more: Record<string, unknown> = {}) => ({
+  error,
+  error_description: expect.any(String),
+  ...more,
+});
+
+/**
+ * The 403 of RFC 6750 section 3.1 for a good token whose holder may not do this: the challenge and
+ * `insufficient_scope`, with the rule that refused it at `POST /register`.
+ */
+export async function expectInsufficientScope(response: Response, reason?: string) {
+  expect(response.status).toBe(403);
+  expect(response.headers.get("WWW-Authenticate")).toBe('Bearer error="insufficient_scope"');
+  expect(await response.json()).toEqual(
+    refusalBody("insufficient_scope", reason === undefined ? {} : { reason }),
+  );
+}
+
+/**
+ * The 201 answer of `POST /register` (RFC 7591 section 3.2.1). A production client also gets the
+ * app's initial access token and the repository's id.
+ */
 export type NewClient = {
-  issuer: string;
   client_id: string;
-  client_secret: string;
-  registration_access_token: string;
+  client_id_issued_at: number;
+  client_secret_expires_at: number;
   registration_client_uri: string;
   redirect_uris: string[];
+  client_name: string;
+  software_id: string;
+  software_version: string;
+  token_endpoint_auth_method: "client_secret_post" | "client_secret_basic";
+  grant_types: string[];
+  response_types: string[];
+  application_type: string;
+  subject_type: string;
+  id_token_signed_response_alg: string;
   connectors: string[];
+  client_secret: string;
+  registration_access_token: string;
+  issuer: string;
   terms: string;
   initial_access_token?: string;
   repository?: string;
@@ -197,7 +239,7 @@ export async function createClient(
   stubProviders(() => jsonResponse({ repository: claims.repository_id ?? REPOSITORY_ID }));
   const response = await postHubClient(h, await signToken(claims));
   if (response.status !== 201) {
-    throw new Error(`POST /hub-clients answered ${response.status}`);
+    throw new Error(`POST /register answered ${response.status}`);
   }
   return await response.json();
 }
@@ -213,9 +255,9 @@ export async function createInitialAccessToken(h: Harness): Promise<string> {
 
 /** A development client on `LOOPBACK_CALLBACK`, which must be created. */
 export async function createDevelopmentClient(h: Harness, token: string): Promise<NewClient> {
-  const response = await postHubClient(h, token, { redirectUris: [LOOPBACK_CALLBACK] });
+  const response = await postHubClient(h, token, { redirect_uris: [LOOPBACK_CALLBACK] });
   if (response.status !== 201) {
-    throw new Error(`POST /hub-clients answered ${response.status}`);
+    throw new Error(`POST /register answered ${response.status}`);
   }
   return await response.json();
 }

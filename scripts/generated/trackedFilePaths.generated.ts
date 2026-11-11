@@ -2082,6 +2082,7 @@ export const trackedFilePaths = [
   "packages/identity-broker/src/client/registration.model.test.ts",
   "packages/identity-broker/src/client/registration.test.ts",
   "packages/identity-broker/src/client/registration.ts",
+  "packages/identity-broker/src/client/registrationEndpoint.test.ts",
   "packages/identity-broker/src/client/resourceProviders.ts",
   "packages/identity-broker/src/client/resources.test.ts",
   "packages/identity-broker/src/client/resources.ts",
