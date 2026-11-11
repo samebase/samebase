@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.33.2
+
+- README: the certification status is only in `docs/standards.md`, with the results of the
+  conformance suite. No code change.
+
 ## 0.33.1
 
 - README: the first two sentences say what the component implements and what that gives you. A table

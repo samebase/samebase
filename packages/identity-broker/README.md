@@ -30,7 +30,6 @@ RFC 7591 leaves one decision to the server: who may register. A hub accepts GitH
 the deploy as the initial access token, and checks a file on the site
 ([What the hub checks](#what-the-hub-checks)).
 
-The broker is not OpenID Certified.
 [docs/standards.md](https://github.com/samebase/samebase/blob/main/packages/identity-broker/docs/standards.md)
 lists each standard with its sections and the results of the OpenID conformance suite.
 [docs/design.md](https://github.com/samebase/samebase/blob/main/packages/identity-broker/docs/design.md#named-departures-from-the-specifications)
