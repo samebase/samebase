@@ -14,8 +14,6 @@ your preview and development deploys.
 
 ## Standards
 
-The broker uses public standards for each request that an app sends.
-
 | Request                     | Standard                                                                                                                                                                | Main differences                                                                                                |
 | --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
 | Sign a user in              | [OpenID Connect Core](https://openid.net/specs/openid-connect-core-1_0.html) and Discovery, with the OAuth 2.0 code flow                                                | PKCE (`S256`) is required. The broker has no sessions, so no `prompt=none`, no logout, and no refresh token.    |
@@ -37,13 +35,11 @@ lists every difference.
 
 A **hub** is a Convex deployment that runs this component.
 
-1. **Deploy.** The app's GitHub Actions workflow sends its callback URL to the hub. The hub
-   [checks](#what-the-hub-checks) that the repository controls that URL, and returns a client ID and
-   secret for that deployment.
-2. **Sign-in.** The app sends the user to the hub's `/authorize`.
-3. The hub's page names the app, and the user picks Google or GitHub.
-4. The provider returns the user to the hub. The hub returns the user to the app, and the app
-   exchanges the code at `/token` for an `id_token`.
+- **At deploy**, the app's GitHub Actions workflow registers its callback URL at the hub. The hub
+  [checks](#what-the-hub-checks) that the repository controls that URL, and returns a client ID and
+  secret for that deployment.
+- **At sign-in**, the app runs the OpenID Connect code flow against the hub. The hub's page names
+  the app, and the user picks Google or GitHub.
 
 <p align="center">
   <picture>
@@ -154,8 +150,7 @@ A standard client library can send this request. The package's tests use
 
 The hub ignores other members, such as `client_name` and `logo_uri`.
 
-The answer has status `201`. It holds the client's secrets: write it to a file or to your
-deployment's variables, never to the log.
+The `201` answer:
 
 ```json
 {
@@ -194,7 +189,7 @@ To change a client's callback URLs or connectors, register a new client.
 
 ### 3. Point your sign-in at the hub
 
-Use any OpenID Connect client library. The hub's settings are at
+Use any OpenID Connect client library. Discovery is at
 `https://id.samebase.com/.well-known/openid-configuration`.
 
 - Flow: authorization code with PKCE (`S256`).
@@ -207,7 +202,7 @@ For Convex Auth, the
 [consumer guide](https://github.com/samebase/samebase/blob/main/packages/identity-broker/docs/consumers.md)
 has the code.
 
-Key each account by `sub`. Read `email` only when `email_verified` is `true`.
+Key each account by `sub`.
 
 ### On a development machine
 
