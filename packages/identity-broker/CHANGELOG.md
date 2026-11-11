@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.32.2
+
+- The README only, no code change. It starts with the `redirect_uri_mismatch` problem, shows a
+  sign-in in four steps and the `id_token` an app gets, and gives the steps for an app that uses a
+  hub: the verification file, the registration request with its answer, and each refusal.
+
 ## 0.32.1
 
 - The README only, no code change. It starts with the three ways to use the broker, shows the
