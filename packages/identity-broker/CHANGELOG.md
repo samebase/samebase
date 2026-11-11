@@ -2,8 +2,9 @@
 
 ## 0.33.2
 
-- README: the certification status is only in `docs/standards.md`, with the results of the
-  conformance suite. No code change.
+- README: removed the statements that only say what the broker does not have or does not do, where
+  no reader expects the opposite. The certification status is in `docs/standards.md`. No code
+  change.
 
 ## 0.33.1
 
