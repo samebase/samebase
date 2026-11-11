@@ -5,6 +5,9 @@
 use fframes::{AudioMap, Color, Duration, FFramesContext, Frame, Svgr, Transform, Video};
 use fframes::{include_media_dir, svgr};
 
+pub mod registration;
+pub mod render;
+
 include_media_dir!(pub struct ExplainerMedia, "media");
 
 pub const WIDTH: usize = 1920;

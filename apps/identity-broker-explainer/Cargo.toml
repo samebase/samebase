@@ -25,6 +25,10 @@ doctest = false
 name = "identity-broker-explainer"
 path = "src/main.rs"
 
+[[bin]]
+name = "registration-explainer"
+path = "src/registration_main.rs"
+
 [workspace]
 
 [profile.dev]

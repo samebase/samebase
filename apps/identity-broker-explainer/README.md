@@ -69,12 +69,37 @@ not about one provider.
 - Each provider sees one client and one URL: the hub's callback. `auth.yourteam.com` stands for the
   hub.
 - Each deployment is an ordinary client of the hub with its own exact redirect URI. It registers at
-  deploy time with the hub's deploy key, so this is not a wildcard in another place. See the
-  [consumer docs](../../packages/identity-broker/docs/consumers.md).
+  deploy time with the two proofs of the registration video below, so this is not a wildcard in
+  another place. See the [consumer docs](../../packages/identity-broker/docs/consumers.md).
 - "Any provider" means any OpenID Connect provider, through an `OidcConnector` object, and any OAuth
   2.0 provider with RFC 8414 metadata, through an `OauthConnector` object.
 
 When any of these changes, change the captions in `src/lib.rs`.
+
+## The registration video
+
+`src/registration.rs` is a second video, 37 s: how an app that the hub has never seen gets a sign-in
+client with no account. It uses the same look, fonts, and beat of 100 BPM, and it has its own
+binary:
+
+```console
+cargo run --release --bin registration-explainer -- strip -n 12
+cargo run --release --bin registration-explainer -- render --scale 2 -o out/registration.mp4
+```
+
+Three requests come to the hub, and each claim is a check in
+[`hubClients.ts`](../../packages/identity-broker/src/client/hubClients.ts):
+
+- The preview of a pull request passes. The run's GitHub OIDC token must carry GitHub's signature
+  and the hub's issuer as its audience (`verifyGitHubToken`), and the ref of a pull request makes it
+  a preview (`readRunStage`). Each origin of its redirect URIs must serve
+  `/samebase-verification.json` with the token's `repository_id` (`verifyHost`).
+- Another repository that asks for the same URL has a good token, but the file names another id:
+  `repository_mismatch`.
+- A token that GitHub did not sign fails before the hub fetches anything: `invalid_token`.
+
+The repository names, ids, and the `convex.site` host are examples. The end card does not name RFC
+7591: the broker follows it only in part, as `docs/standards.md` says.
 
 ## Licenses
 
