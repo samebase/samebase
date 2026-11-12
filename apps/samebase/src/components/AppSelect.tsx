@@ -15,7 +15,7 @@ export function AppSelectItem({ className, ...props }: ComponentProps<typeof Sel
     <SelectItemUI
       className={cn(
         className,
-        "[&>*:first-child]:line-clamp-2 [&>*:first-child]:min-w-0 [&>*:first-child]:shrink [&>*:first-child]:whitespace-normal [&>*:first-child]:[overflow-wrap:anywhere]",
+        "[&>*:first-child]:max-lines-2 [&>*:first-child]:min-w-0 [&>*:first-child]:shrink [&>*:first-child]:whitespace-normal",
       )}
       {...props}
     />

@@ -69,7 +69,7 @@ function DocsSidebarLink({ label, to }: DocsSidebarPage) {
       {({ isActive }) => (
         <span
           className={cn(
-            "block w-fit max-w-full [overflow-wrap:anywhere]",
+            "w-fit max-w-full max-lines-2",
             isActive && APP_SIDEBAR_CURRENT_LABEL_CLASS_NAME,
           )}
         >

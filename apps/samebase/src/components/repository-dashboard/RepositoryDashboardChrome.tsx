@@ -11,7 +11,7 @@ import type { AccountPresentation } from "../../../shared/accountPresentation";
 import { Link } from "@tanstack/react-router";
 import { SETTINGS_ROUTE } from "@/account/settingsRoute";
 
-const SIDEBAR_METADATA_TEXT_CLASS = "min-w-0 line-clamp-2 [overflow-wrap:anywhere]";
+const SIDEBAR_METADATA_TEXT_CLASS = "min-w-0 max-lines-2";
 // pointer-fine, not a width variant: touch devices keep the stacked full-row
 // icon regardless of pane width, and the desktop sidebar pane (96-288px) keeps
 // the inline icon it always had.
@@ -22,8 +22,7 @@ const SIDEBAR_ROW_CONTENT_CLASS =
 const SIDEBAR_ROW_TEXT_CLASS = "min-w-0 shrink grow basis-32 text-left";
 const ACCOUNT_SECTION_TRIGGER_CLASS_NAME =
   "h-auto w-full items-start justify-between gap-2 whitespace-normal px-0 text-left text-sm font-medium hover:bg-transparent [&[data-state=open]>svg]:rotate-180";
-const ACCOUNT_SECTION_TRIGGER_LABEL_CLASS_NAME =
-  "min-w-0 flex-1 line-clamp-2 text-left [overflow-wrap:anywhere]";
+const ACCOUNT_SECTION_TRIGGER_LABEL_CLASS_NAME = "min-w-0 flex-1 max-lines-2 text-left";
 export type RepositoryDashboardAccountSectionProps = {
   accountPresentation: AccountPresentation;
   dataTestId?: string;
@@ -97,7 +96,7 @@ export function RepositoryDashboardStaticAccountLoadingSection({
     >
       <div
         data-repository-dashboard-account-section-label
-        className="min-w-0 line-clamp-2 text-sm font-medium [overflow-wrap:anywhere]"
+        className="min-w-0 max-lines-2 text-sm font-medium"
       >
         {label}
       </div>

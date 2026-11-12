@@ -78,7 +78,7 @@ function PublicLandingLoggedOutAccountSection() {
     >
       <div
         data-repository-dashboard-account-section-label
-        className="min-w-0 line-clamp-2 border-b border-border/50 pb-3 text-center text-sm font-medium [overflow-wrap:anywhere]"
+        className="min-w-0 max-lines-2 border-b border-border/50 pb-3 text-center text-sm font-medium"
       >
         Sign in or create an account
       </div>

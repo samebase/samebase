@@ -280,14 +280,14 @@ export function UserSettingsPage() {
           {GOOGLE_AUTH_UI_ENABLED ? (
             <div>
               <dt className="text-sm font-medium">Google</dt>
-              <dd className="text-sm text-muted-foreground [overflow-wrap:anywhere]">
+              <dd className="max-lines-3 text-sm text-muted-foreground">
                 {settings.signInMethods.google?.email ?? "Not connected"}
               </dd>
             </div>
           ) : null}
           <div>
             <dt className="text-sm font-medium">GitHub</dt>
-            <dd className="text-sm text-muted-foreground [overflow-wrap:anywhere]">
+            <dd className="max-lines-3 text-sm text-muted-foreground">
               {settings.signInMethods.github === null
                 ? "Not connected"
                 : settings.signInMethods.github.login === undefined
@@ -298,7 +298,7 @@ export function UserSettingsPage() {
           {settings.signInMethods.password ? (
             <div>
               <dt className="text-sm font-medium">Password</dt>
-              <dd className="text-sm text-muted-foreground [overflow-wrap:anywhere]">
+              <dd className="max-lines-3 text-sm text-muted-foreground">
                 {settings.signInMethods.password.email}
               </dd>
             </div>
@@ -370,9 +370,7 @@ export function UserSettingsPage() {
         </h2>
         <dl className="mt-4 space-y-1">
           <dt className="text-sm font-medium">Account email</dt>
-          <dd className="text-sm text-muted-foreground [overflow-wrap:anywhere]">
-            {settings.accountEmail}
-          </dd>
+          <dd className="max-lines-3 text-sm text-muted-foreground">{settings.accountEmail}</dd>
         </dl>
         <div className="mt-6">{deleteAccountButton}</div>
       </section>

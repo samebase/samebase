@@ -18,7 +18,7 @@ export function BrowserStorageSidebarContent() {
   return (
     <nav
       aria-label="Storage views"
-      className="flex flex-col items-start gap-3 overflow-hidden px-2 py-3 text-base text-muted-foreground [&>a]:max-w-full [&>a]:line-clamp-2 [&>a]:wrap-anywhere"
+      className="flex flex-col items-start gap-3 overflow-hidden px-2 py-3 text-base text-muted-foreground [&>a]:max-w-full [&>a]:max-lines-2"
     >
       {browserStorageViews.map((view) => (
         <Link

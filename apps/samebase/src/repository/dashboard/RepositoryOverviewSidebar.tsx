@@ -226,7 +226,7 @@ function RepositoryRow({
         <span className="block min-w-0 max-w-full text-sm leading-5">
           <span
             className={cn(
-              "min-w-0 max-w-full w-fit line-clamp-2 text-primary [overflow-wrap:anywhere]",
+              "min-w-0 max-w-full w-fit max-lines-2 text-primary",
               selected && APP_SIDEBAR_CURRENT_LABEL_CLASS_NAME,
             )}
           >
@@ -241,7 +241,7 @@ function RepositoryRow({
               <span className={status.dotClassName} />
             )}
           </span>
-          <span className="min-w-0 line-clamp-2 [overflow-wrap:anywhere]">
+          <span className="min-w-0 max-lines-2">
             <span>{status.label}</span>
             {pullRequestCount ? (
               <span className="inline-flex @max-[200px]:hidden">

@@ -41,7 +41,7 @@ function RepositoryHeader({
       <span className="flex h-6 shrink-0 items-center">
         <GitHubProviderLogo />
       </span>
-      <div className="min-w-0 text-base [overflow-wrap:anywhere]">
+      <div className="min-w-0 max-lines-3 text-base">
         <span className="text-muted-foreground">{owner}/</span>
         <h1 className="inline font-semibold">{repoName}</h1>
       </div>

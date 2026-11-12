@@ -72,7 +72,7 @@ export function McpClientsSettingsSection() {
               </div>
               <div className="min-w-0 flex-1 basis-80">
                 <div className="text-sm font-medium">{clientLabel}</div>
-                <div className="min-w-0 text-xs leading-5 text-muted-foreground [overflow-wrap:anywhere]">
+                <div className="min-w-0 max-lines-3 text-xs leading-5 text-muted-foreground">
                   {clientName ? `${grant.clientId}, ${activity}` : activity}
                 </div>
                 <div className="mt-2 min-w-0 text-xs leading-5 text-muted-foreground [overflow-wrap:anywhere]">
