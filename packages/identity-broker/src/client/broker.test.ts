@@ -705,6 +705,71 @@ describe("authorization code flow with an OAuth connector", () => {
     }
   });
 
+  test("an id_token_hint for one user never ends in a code for another", async () => {
+    const h = await createHarness({ connectors: [fakeUpstream({ userId: "1" }).connector] });
+    const { clientId, clientSecret } = await h.registerClient({
+      appName: "My app",
+      redirectUri: REDIRECT_URI,
+    });
+    const first = await pkce();
+    const back = await completeUpstream(
+      h,
+      await h.fetchBroker(authorizeUrl(h, { clientId, challenge: first.challenge })),
+    );
+    const code = new URL(back.headers.get("location") ?? "").searchParams.get("code") ?? "";
+    const tokens = await exchange(h, { code, clientId, clientSecret, verifier: first.verifier });
+    const { id_token }: { id_token: string } = await tokens.json();
+    expect(decodeJwt(id_token).sub).toBe("fake:1");
+
+    fakeUpstream({ userId: "2" });
+    const { challenge } = await pkce();
+    const hinted = await h.fetchBroker(
+      authorizeUrl(h, { clientId, challenge, extra: { id_token_hint: id_token } }),
+    );
+    expect(hinted.status).toBe(400);
+    expect(hinted.headers.get("location")).toBeNull();
+    expect(await hinted.text()).toContain("id_token_hint is not supported.");
+  });
+
+  test("a response_mode other than query answers 400 with no redirect", async () => {
+    const h = await createHarness({ connectors: [fakeUpstream().connector] });
+    const { clientId } = await h.registerClient({ appName: "My app", redirectUri: REDIRECT_URI });
+    const { challenge } = await pkce();
+    const refused = await h.fetchBroker(
+      authorizeUrl(h, { clientId, challenge, extra: { response_mode: "form_post" } }),
+    );
+    expect(refused.status).toBe(400);
+    expect(refused.headers.get("location")).toBeNull();
+    const started = await h.fetchBroker(
+      authorizeUrl(h, { clientId, challenge, extra: { response_mode: "query" } }),
+    );
+    const location = new URL((await completeUpstream(h, started)).headers.get("location") ?? "");
+    expect(location.searchParams.has("code")).toBe(true);
+  });
+
+  test("an upstream id that makes a sub longer than 255 ASCII characters gets no code", async () => {
+    // "fake:" is 5 characters.
+    for (const [userId, accepted] of [
+      ["1".repeat(250), true],
+      ["1".repeat(251), false],
+      ["é", false],
+    ] as const) {
+      const h = await createHarness({ connectors: [fakeUpstream({ userId }).connector] });
+      const { clientId } = await h.registerClient({
+        appName: "My app",
+        redirectUri: REDIRECT_URI,
+      });
+      const { challenge } = await pkce();
+      const back = await completeUpstream(
+        h,
+        await h.fetchBroker(authorizeUrl(h, { clientId, challenge })),
+      );
+      const location = new URL(back.headers.get("location") ?? "");
+      expect(location.searchParams.has("code")).toBe(accepted);
+      expect(location.searchParams.get("error")).toBe(accepted ? null : "server_error");
+    }
+  });
+
   test("a parameter sent without a value counts as omitted", async () => {
     const upstream = fakeUpstream();
     const other = { ...upstream.connector, name: "other", label: "Other" };
@@ -1627,15 +1692,27 @@ describe("handler rules at their edges", () => {
     }
   });
 
-  test("answers 401 at /userinfo for a missing or invalid bearer token", async () => {
+  test("answers 401 at /userinfo: the bare challenge with no Bearer header, invalid_token for a bad one (RFC 6750 section 3.1)", async () => {
     const h = await createHarness({ connectors: [fakeUpstream().connector] });
-    for (const headers of [{}, { Authorization: "Bearer invalid" }]) {
-      for (const method of ["GET", "POST"]) {
-        const response = await h.fetchBroker(`${ISSUER}/userinfo`, { method, headers });
-        expect(response.status).toBe(401);
-        expect(response.headers.get("www-authenticate")).toBe('Bearer error="invalid_token"');
-        expect(await response.json()).toMatchObject({ error: "invalid_token" });
-      }
+    const form = { "Content-Type": "application/x-www-form-urlencoded" };
+    for (const [url, init] of [
+      [`${ISSUER}/userinfo`, {}],
+      [`${ISSUER}/userinfo?access_token=x`, {}],
+      [`${ISSUER}/userinfo`, { method: "POST", headers: form, body: "access_token=x" }],
+    ] as const) {
+      const response = await h.fetchBroker(url, init);
+      expect(response.status).toBe(401);
+      expect(response.headers.get("www-authenticate")).toBe("Bearer");
+      expect(await response.text()).toBe("");
+    }
+    for (const method of ["GET", "POST"]) {
+      const response = await h.fetchBroker(`${ISSUER}/userinfo`, {
+        method,
+        headers: { Authorization: "Bearer invalid" },
+      });
+      expect(response.status).toBe(401);
+      expect(response.headers.get("www-authenticate")).toBe('Bearer error="invalid_token"');
+      expect(await response.json()).toMatchObject({ error: "invalid_token" });
     }
   });
 });

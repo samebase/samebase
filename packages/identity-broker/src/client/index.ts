@@ -49,7 +49,9 @@ import {
   type Registration,
 } from "./policy.js";
 import {
+  invalidToken,
   newClientCredentials,
+  noToken,
   registrationEndpoints,
   type RegistrationConfig,
 } from "./registration.js";
@@ -758,6 +760,10 @@ export function defineIdentityBroker<C extends Connector, R extends ResourceProv
           codeVerifier: claim.upstreamCodeVerifier,
           nonce: claim.upstreamNonce,
         });
+        // OIDC Core section 2: `sub` must not exceed 255 ASCII characters.
+        if (!/^\p{ASCII}{1,255}$/u.test(`${connector.provider}:${upstream.identity.upstreamId}`)) {
+          throw new Error("The upstream id does not fit in a sub");
+        }
       } catch (error) {
         await ctx.runMutation(component.authRequests.abandon, { requestId: claim.requestId });
         // The provider's error code picks one fixed answer; nothing the provider wrote is echoed.
@@ -984,24 +990,18 @@ export function defineIdentityBroker<C extends Connector, R extends ResourceProv
   });
 
   const userinfo = httpActionGeneric(async (ctx, request) => {
+    // Only the Authorization header (RFC 6750 section 2.1): a token in the body or query is none.
     const bearer = readBearerToken(request.headers.get("authorization"));
-    const verified =
-      bearer === null ? null : await verifyAccessToken({ keySet: keySet(), issuer, token: bearer });
+    if (bearer === null) {
+      return noToken();
+    }
+    const verified = await verifyAccessToken({ keySet: keySet(), issuer, token: bearer });
     // A deleted client's tokens die with it (RFC 7592 section 2.3); a paused client's live to expiry.
     if (
       verified === null ||
       (await ctx.runQuery(component.clients.get, { clientId: verified.clientId })) === null
     ) {
-      return json(
-        {
-          error: "invalid_token",
-          error_description: "The access token is missing, invalid or expired.",
-        },
-        401,
-        {
-          "WWW-Authenticate": 'Bearer error="invalid_token"',
-        },
-      );
+      return invalidToken();
     }
     return json(verified.claims);
   });

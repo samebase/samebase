@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.33.5
+
+- `/authorize` refuses a sign-in request with `id_token_hint` on the hub's error page, with
+  `login_required` (OIDC Core section 3.1.2.2). The hint was ignored, so a sign-in could end as
+  another user.
+- `/authorize` answers `400` on the hub's error page, with no redirect, to a `response_mode` other
+  than `query` (OIDC Core section 3.1.2.6). The parameter was ignored.
+- The connector callback refuses an upstream id that makes a `sub` longer than 255 characters or not
+  ASCII (OIDC Core section 2), with `server_error` at the redirect URI. Google and GitHub ids are
+  not affected.
+- `/userinfo` answers a request with no Bearer token in the `Authorization` header with
+  `WWW-Authenticate: Bearer` and no body (RFC 6750 section 3.1). It was `invalid_token`.
+- README, docs/design.md and docs/standards.md: false claims about sign-in are corrected, and the
+  missing CORS headers are a named departure.
+
 ## 0.33.4
 
 - `/token` and `/revoke` treat a parameter with an empty value as omitted. `resource=` on a code

@@ -107,6 +107,15 @@ export function validateAuthorizeRest(
   if (params.has("request_uri")) {
     return invalid(400, "request_uri_not_supported", "request_uri is not supported.");
   }
+  // OIDC Core section 3.1.2.6: an unsupported response mode answers 400 with no error parameters.
+  const responseMode = params.get("response_mode");
+  if (responseMode !== null && responseMode !== "query") {
+    return invalid(400, "invalid_request", "response_mode must be query.");
+  }
+  // OIDC Core section 3.1.2.2: with no sessions the hub cannot check the hint's user, so it refuses.
+  if (flow === "identity" && params.has("id_token_hint")) {
+    return invalid(400, "login_required", "id_token_hint is not supported.");
+  }
   if (params.get("response_type") !== "code") {
     return invalid(400, "unsupported_response_type", "response_type must be code.");
   }

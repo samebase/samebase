@@ -334,6 +334,9 @@ provider.
 - No sessions at the broker, so it can never answer without interaction: `prompt=none` ends on the
   hub's error page by the rule above, where OIDC Core section 3.1.2.6 sends `login_required` to the
   client. There is no logout protocol.
+- No `id_token_hint`, which OIDC Core section 15.1 does not require: without sessions the hub cannot
+  make sure that the user is the one the hint names (section 3.1.2.2), so a sign-in request with it
+  ends on the hub's error page with `login_required` by the rule above.
 - PKCE with S256 is required of every client, confidential ones included, as OAuth 2.1 requires.
   OIDC Core does not require it, so the OpenID Basic OP certification plan, whose requests omit it,
   cannot pass.

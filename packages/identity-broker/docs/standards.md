@@ -66,6 +66,7 @@ Without hub mode, the host creates each client in its own mutation, with `newCli
 - RFC 8693 token exchange: resource authorization uses the authorization-code grant, not a
   `subject_token` exchange. The upstream provider integration does not define a new wire protocol.
 - Request Objects: a request with `request` or `request_uri` ends on the hub's error page.
+- `id_token_hint`: a sign-in request with it ends on the hub's error page.
 - The implicit and hybrid flows, and session management and logout.
 
 ## Certification
