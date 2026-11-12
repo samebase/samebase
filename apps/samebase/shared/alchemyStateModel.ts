@@ -13,6 +13,14 @@ export const DESTROY_ALCHEMY_STACK_FIRST = "Destroy your Alchemy stack first.";
 export const CONNECT_CONVEX_TO_CHECK_STACK =
   "Connect Convex so Samebase can check for an Alchemy stack.";
 
+/** Why Samebase will not delete a GitHub repository when Cloudflare refuses the store read. */
+export const RECONNECT_CLOUDFLARE_TO_CHECK_STACK =
+  "An owner must connect Cloudflare again on Providers and allow Secrets Store Read and Edit, so Samebase can check for an Alchemy stack.";
+
+/** Why Samebase will not delete a GitHub repository when the Cloudflare store read fails. */
+export const CLOUDFLARE_STORE_UNREADABLE =
+  "Samebase could not read the Alchemy state store in Cloudflare, so it cannot check for a stack. Try again.";
+
 /**
 One stage as the store gives it: Alchemy state only. `resources` are in fqn order. Their values and
 `output` are JSON texts of Alchemy state, and `output` is null for a stage without one.
@@ -72,8 +80,16 @@ const vAlchemyStage = object({
 });
 export type AlchemyStage = Infer<typeof vAlchemyStage>;
 
-/** Stacks and stages are in name order. Resources are in fqn order. */
-const vAlchemyStack = object({ name: string(), stages: array(vAlchemyStage) });
+/**
+Stacks and stages are in name order. Resources are in fqn order. `store` is the Alchemy state store
+that holds the stack: the store of the Convex team or of the Cloudflare account. A stack that moved
+its state can be in both, with the same name.
+*/
+const vAlchemyStack = object({
+  name: string(),
+  store: union(literal("convex"), literal("cloudflare")),
+  stages: array(vAlchemyStage),
+});
 export type AlchemyStack = Infer<typeof vAlchemyStack>;
 
 /** The stacks of a repository that have a stage of the repository, or no store in the team. */

@@ -120,7 +120,8 @@ async function seedRepository() {
 
 /**
 Records every outgoing request, so a provider call cannot pass unseen. The Convex team lists no
-projects, so it has no Alchemy state store.
+projects and the Cloudflare account has no workers.dev subdomain, so neither has an Alchemy state
+store.
 */
 function recordRequests() {
   const requests: string[] = [];
@@ -131,7 +132,7 @@ function recordRequests() {
       requests.push(url);
       return url.startsWith(TEAM_PROJECTS_URL)
         ? Response.json({ items: [], pagination: { hasMore: false } })
-        : new Response(null, { status: 204 });
+        : new Response(null, { status: 404 });
     }),
   );
   return requests;

@@ -30,8 +30,8 @@ export type RepositoryAlchemyState =
       refreshFailed: boolean;
       /**
       Why the Cloudflare store gave no stack: `reconnect` when Cloudflare refused the token,
-      `unreadable` when the read failed or the store version is unknown. Set only when the page has
-      no stack to show, so a repository with stacks never shows it.
+      `unreadable` when the read failed or the store version is unknown. The page shows it only
+      when it has no stack to show. The delete dialog uses it in every case.
       */
       cloudflareProblem?: "reconnect" | "unreadable";
       reload: () => void;
@@ -73,7 +73,8 @@ of the repository: the run record of each stage that the page shows names it.
 The store of the organization's Cloudflare account is read once when the page opens, in the
 browser, because the read takes some seconds and uploads an edge preview at Cloudflare. Its stacks
 join the Convex stacks in one observation, and while it runs, a page with no Convex stack shows its
-loading state.
+loading state. When the Convex read fails, the page shows the Cloudflare stacks with `refreshFailed`,
+and without them it shows the failure.
 */
 export function useRepositoryAlchemyState(
   repositoryId: Id<"repositories"> | null,
@@ -231,7 +232,10 @@ export function useRepositoryAlchemyState(
               target,
               value: {
                 state: "loaded",
-                read: { store, stacks: readDeployedStacks(stacks, target.repository) },
+                read: {
+                  store,
+                  stacks: readDeployedStacks(stacks, target.repository, "convex"),
+                },
               },
             });
           } catch (error) {
@@ -299,7 +303,7 @@ export function useRepositoryAlchemyState(
     ? current
     : { state: "loaded" as const, read: { store: "no_connection" as const } };
   if (!convex) return { state: "loading" };
-  if (convex.state === "failed") return { ...convex, reload };
+  if (convex.state === "failed") return withCloudflareRead({ ...convex, reload }, cloudflare);
   const observation: AlchemyStateObservation =
     convex.read.store === "found"
       ? { ...convex.read, liveDeployments: metadata.data ?? [] }
@@ -311,48 +315,61 @@ export function useRepositoryAlchemyState(
 }
 
 /**
-The loaded Convex read with the Cloudflare read. Nothing flashes: a page without a Convex stack
-waits for the Cloudflare read, and Convex stacks show at once. A read that throws counts as failed.
+The Convex read with the Cloudflare read. Nothing flashes: a page without a Convex stack waits for
+the Cloudflare read, and Convex stacks show at once. A read that throws counts as failed. A failed
+Convex read shows the Cloudflare stacks with `refreshFailed`, whose Retry reads both stores again,
+and shows the failure while the Cloudflare read runs or finds no stack.
 */
 function withCloudflareRead(
-  loaded: Extract<RepositoryAlchemyState, { state: "loaded" }>,
+  convex: Exclude<RepositoryAlchemyState, { state: "loading" }>,
   query: Pick<UseQueryResult<CloudflareStacksRead>, "data" | "isError">,
 ): RepositoryAlchemyState {
+  if (convex.state === "failed") {
+    return query.data?.state === "found" && query.data.stacks.length > 0
+      ? {
+          state: "loaded",
+          observation: {
+            store: "found",
+            stacks: query.data.stacks,
+            liveDeployments: query.data.liveDeployments,
+          },
+          refreshFailed: true,
+          reload: convex.reload,
+        }
+      : convex;
+  }
   const cloudflareRead: CloudflareStacksRead | undefined =
     query.data ?? (query.isError ? { state: "failed" } : undefined);
-  const convexStacks = loaded.observation.store === "found" ? loaded.observation : null;
+  const convexStacks = convex.observation.store === "found" ? convex.observation : null;
   if (!cloudflareRead) {
-    return convexStacks?.stacks.length ? loaded : { state: "loading" };
-  }
-  if (cloudflareRead.state === "found" && cloudflareRead.stacks.length > 0) {
-    return {
-      ...loaded,
-      observation: {
-        store: "found",
-        stacks: [...(convexStacks?.stacks ?? []), ...cloudflareRead.stacks],
-        liveDeployments: [
-          ...(convexStacks?.liveDeployments ?? []),
-          ...cloudflareRead.liveDeployments,
-        ],
-      },
-    };
-  }
-  if (convexStacks?.stacks.length) {
-    return loaded;
+    return convexStacks?.stacks.length ? convex : { state: "loading" };
   }
   switch (cloudflareRead.state) {
+    case "found":
+      return cloudflareRead.stacks.length === 0
+        ? convex
+        : {
+            ...convex,
+            observation: {
+              store: "found",
+              stacks: [...(convexStacks?.stacks ?? []), ...cloudflareRead.stacks],
+              liveDeployments: [
+                ...(convexStacks?.liveDeployments ?? []),
+                ...cloudflareRead.liveDeployments,
+              ],
+            },
+          };
     case "reconnect":
-      return { ...loaded, cloudflareProblem: "reconnect" };
+      return { ...convex, cloudflareProblem: "reconnect" };
     case "failed":
     case "unsupported_version":
-      return { ...loaded, cloudflareProblem: "unreadable" };
+      return { ...convex, cloudflareProblem: "unreadable" };
     case "not_connected":
     case "unsupported_connection":
     case "no_store":
-    case "found":
-      return loaded;
+      return convex;
     default:
       cloudflareRead satisfies never;
-      return loaded;
+      return convex;
   }
 }

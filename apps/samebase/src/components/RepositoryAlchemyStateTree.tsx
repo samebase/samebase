@@ -7,8 +7,16 @@ import {
   groupResourcesByComponent,
   stageResources,
 } from "../../shared/alchemyState";
-import type { AlchemyStage, AlchemyStateObservation } from "../../shared/alchemyStateModel";
+import type {
+  AlchemyStack,
+  AlchemyStage,
+  AlchemyStateObservation,
+} from "../../shared/alchemyStateModel";
 import { Link } from "@tanstack/react-router";
+import {
+  CloudflareProviderLogo,
+  ConvexProviderLogo,
+} from "@/components/repository-dashboard/RepositoryDashboardLogos";
 import { formatRelativeTimeAgo } from "@/lib/formatRelativeTime";
 import { resourceTypePresentation } from "@/components/resourceTypePresentation";
 import { ORGANIZATION_PROVIDERS_ROUTE } from "@/organization/organizationRoutes";
@@ -61,6 +69,22 @@ export function CloudflareStateProblem({
     </span>
   ) : (
     <span>Could not read the Alchemy state store in Cloudflare.</span>
+  );
+}
+
+const STATE_STORES = {
+  convex: { label: "State in Convex", icon: <ConvexProviderLogo /> },
+  cloudflare: { label: "State in Cloudflare", icon: <CloudflareProviderLogo /> },
+} satisfies Record<AlchemyStack["store"], { label: string; icon: ReactNode }>;
+
+/** The Alchemy state store that holds a stack, in words, since a phone shows no tooltip. */
+export function StackStateStore({ store }: { store: AlchemyStack["store"] }) {
+  const { label, icon } = STATE_STORES[store];
+  return (
+    <span className="inline-flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground">
+      {icon}
+      {label}
+    </span>
   );
 }
 
@@ -285,8 +309,11 @@ export function AlchemyStateTree({
   return (
     <div className="p-3 text-sm">
       {observation.stacks.map((stack) => (
-        <div key={stack.name}>
-          <div className="truncate py-1 font-mono font-medium">{stack.name}</div>
+        <div key={`${stack.store}:${stack.name}`}>
+          <div className="flex min-w-0 items-center gap-2 py-1">
+            <span className="min-w-0 truncate font-mono font-medium">{stack.name}</span>
+            <StackStateStore store={stack.store} />
+          </div>
           <ul className="ml-2.5 border-l border-border pl-3">
             {stack.stages.map((stage) => (
               <li key={stage.name}>

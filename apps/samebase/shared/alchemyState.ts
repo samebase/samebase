@@ -226,11 +226,12 @@ under `samebase.run`, names `repository`. A stage while its first deploy runs, a
 did not complete, and a stage that an older stack wrote without a run record have no such output.
 The `output` of a stage is the JSON of its output without the run record. A stack without a stage
 that Samebase shows is left out. Stacks and stages keep the order of the store. A store read on the
-server removes the secret values before it calls this.
+server removes the secret values before it calls this. `store` is the store that gave the stages.
 */
 export function readDeployedStacks(
   stacks: readonly { name: string; stages: readonly AlchemyStoredStage[] }[],
   repository: string,
+  store: AlchemyStack["store"],
 ): AlchemyStack[] {
   return stacks.flatMap((stack) => {
     const stages = stack.stages.flatMap((stage) => {
@@ -250,7 +251,7 @@ export function readDeployedStacks(
           ]
         : [];
     });
-    return stages.length === 0 ? [] : [{ name: stack.name, stages }];
+    return stages.length === 0 ? [] : [{ name: stack.name, store, stages }];
   });
 }
 
@@ -326,6 +327,7 @@ export function stackCards({
       return [
         {
           stack: stack.name,
+          store: stack.store,
           stackFile: run.stackFile,
           folder: directory === "." ? REPOSITORY_ROOT_DIRECTORY : directory,
           run:
@@ -348,7 +350,9 @@ export function stackCards({
     })
     .sort(
       (left, right) =>
-        left.stackFile.localeCompare(right.stackFile) || left.stack.localeCompare(right.stack),
+        left.stackFile.localeCompare(right.stackFile) ||
+        left.stack.localeCompare(right.stack) ||
+        left.store.localeCompare(right.store),
     );
 
   return cards.map((card) => ({

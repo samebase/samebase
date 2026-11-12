@@ -180,6 +180,7 @@ const FIXTURE_STACKS = ((): RepositoryAlchemyStacks => {
     stacks: [
       {
         name: "samebase/samebase",
+        store: "convex",
         stages: [
           {
             name: "pr-1260",
@@ -221,6 +222,7 @@ const FIXTURE_STACKS = ((): RepositoryAlchemyStacks => {
       },
       {
         name: "samebase/samebase/apps/sidebars-example",
+        store: "convex",
         stages: [
           {
             name: "prod",
@@ -541,6 +543,7 @@ const PROVISIONING_STACK_STORE = ((): RepositoryAlchemyState => {
     stacks: [
       {
         name: PROVISIONING_REPOSITORY.githubRepositoryFullName,
+        store: "convex",
         stages: [
           {
             ...stage,

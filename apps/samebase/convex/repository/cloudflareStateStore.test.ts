@@ -73,8 +73,13 @@ function fakeFetch(
   return requests;
 }
 
-const read = async () =>
-  await readCloudflareStateStore({ token: "oauth-token", accountId, repository: "acme/app" });
+const read = async (stopAtNamedStack = false) =>
+  await readCloudflareStateStore({
+    token: "oauth-token",
+    accountId,
+    repository: "acme/app",
+    stopAtNamedStack,
+  });
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -88,9 +93,11 @@ describe("readCloudflareStateStore", () => {
 
     expect(found).toEqual({
       state: "found",
+      namedStack: false,
       stacks: [
         {
           name: "web",
+          store: "cloudflare",
           stages: [
             {
               name: "prod",
@@ -117,6 +124,13 @@ describe("readCloudflareStateStore", () => {
       `GET ${store}/state/stacks/web/stages/prod/resources/web%2FGone`,
       `GET ${store}/state/stacks/web/stages/prod/resources/web%2FWorker`,
     ]);
+  });
+
+  it("stops at a stack named for the repository before it reads a stage, when asked", async () => {
+    const requests = fakeFetch({ store: { "/state/stacks": ["web", "acme/app/apps/api"] } });
+
+    expect(await read(true)).toEqual({ state: "found", namedStack: true, stacks: [] });
+    expect(requests.some((request) => request.includes("/stages"))).toBe(false);
   });
 
   it("fails on a row that is not JSON without logging its text", async () => {

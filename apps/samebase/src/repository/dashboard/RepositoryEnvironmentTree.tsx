@@ -6,7 +6,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { SamebaseLogoMark } from "@/components/repository-dashboard/RepositoryDashboardLogos";
-import { CloudflareStateProblem } from "@/components/RepositoryAlchemyStateTree";
+import { CloudflareStateProblem, StackStateStore } from "@/components/RepositoryAlchemyStateTree";
 import { RepositoryChecksPopover } from "@/repository/dashboard/RepositoryChecksPopover";
 import { resourceTypePresentation } from "@/components/resourceTypePresentation";
 import type {
@@ -242,7 +242,7 @@ function RepositoryStackCards({ cards }: { cards: readonly RepositoryStackCard[]
       {cards.map((card) => {
         return (
           <div
-            key={card.stack}
+            key={`${card.store}:${card.stack}`}
             aria-label={`Alchemy stack ${card.stack}`}
             className="min-w-0 border border-border"
             role="group"
@@ -263,7 +263,10 @@ function RepositoryStackCards({ cards }: { cards: readonly RepositoryStackCard[]
                   <ExternalLink className="h-3 w-3 shrink-0" />
                 </a>
               ) : null}
-              {card.run ? <StackRunLine run={card.run} /> : null}
+              <div className="flex min-h-8 flex-wrap items-center gap-x-3">
+                <StackStateStore store={card.store} />
+                {card.run ? <StackRunLine run={card.run} /> : null}
+              </div>
             </div>
             <div className="border-t border-border px-3">
               {card.resources.map((resource) => (

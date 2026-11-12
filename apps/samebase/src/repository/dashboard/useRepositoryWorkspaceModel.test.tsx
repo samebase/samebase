@@ -295,6 +295,7 @@ describe("useRepositoryWorkspaceModel", () => {
         stacks: [
           {
             name: "samebase/base-alchemy",
+            store: "convex",
             stages: [
               {
                 name: prod.name,

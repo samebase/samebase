@@ -13,10 +13,15 @@ import { requireLiveRepositoryForUser } from "./convexDeploymentInspection";
 
 const { array, id, number, object, optional, string } = v;
 
-/** The read of the store for one repository, before the Convex metadata of its deployments. */
+/**
+The read of the store for one repository, before the Convex metadata of its deployments.
+`namedStack` is true when a stack is named `owner/name` or `owner/name/<folder>`, with or without a
+run record. A read with `stopAtNamedStack` stops at such a stack before it reads a stage, so its
+`stacks` are then empty.
+*/
 type CloudflareStoreRead =
   | Exclude<CloudflareStacksRead, { state: "found" }>
-  | { state: "found"; stacks: AlchemyStack[] };
+  | { state: "found"; namedStack: boolean; stacks: AlchemyStack[] };
 
 const CLOUDFLARE_API_URL = "https://api.cloudflare.com/client/v4";
 /**
@@ -237,12 +242,15 @@ in fqn order. The resources of a stage are read only when its run record names t
 a resource that a deploy removed during the read is left out. Each row and output has its secret
 values removed as soon as it arrives, the same as a read of the Convex store, so no secret value
 leaves this function. A request that fails stops the whole read: a partial read could hide a stack.
+`stopAtNamedStack` is for the check before a GitHub repository deletion: a stack named for the
+repository answers it from the list of stack names alone.
 */
 async function readStacks(
   storeUrl: string,
   bearer: string,
-  repository: string,
-): Promise<AlchemyStack[]> {
+  args: { repository: string; stopAtNamedStack: boolean },
+): Promise<Extract<CloudflareStoreRead, { state: "found" }>> {
+  const { repository } = args;
   const limited = limiter(STORE_REQUEST_LIMIT);
   const get = async (path: string) =>
     await limited(async () => {
@@ -274,38 +282,46 @@ async function readStacks(
     }
   };
 
-  const stacks = await Promise.all(
-    (await names("/state/stacks"))
-      .filter((name) => name !== LEGACY_BOOTSTRAP_STACK)
-      .map(async (name) => {
-        const stackPath = `/state/stacks/${encodeURIComponent(name)}/stages`;
-        const stages = await Promise.all(
-          (await names(stackPath)).map(async (stage) => {
-            const stagePath = `${stackPath}/${encodeURIComponent(stage)}`;
-            const output = await state(`${stagePath}/output`);
-            const deployed = readDeployedStacks(
-              [{ name, stages: [{ name: stage, resources: [], output }] }],
-              repository,
-            )
-              .at(0)
-              ?.stages.at(0);
-            if (!deployed) {
-              return null;
-            }
-            const resources = await Promise.all(
-              (await names(`${stagePath}/resources`)).map(async (fqn) => {
-                const value = await state(`${stagePath}/resources/${encodeURIComponent(fqn)}`);
-                return value === null ? null : { fqn, value };
-              }),
-            );
-            return { ...deployed, resources: resources.filter(notEmpty) };
-          }),
-        );
-        const kept = stages.filter(notEmpty);
-        return kept.length === 0 ? null : { name, stages: kept };
-      }),
+  const stackNames = (await names("/state/stacks")).filter(
+    (name) => name !== LEGACY_BOOTSTRAP_STACK,
   );
-  return stacks.filter(notEmpty);
+  const namedStack = stackNames.some(
+    (name) => name === repository || name.startsWith(`${repository}/`),
+  );
+  if (namedStack && args.stopAtNamedStack) {
+    return { state: "found", namedStack, stacks: [] };
+  }
+  const stacks = await Promise.all(
+    stackNames.map(async (name) => {
+      const stackPath = `/state/stacks/${encodeURIComponent(name)}/stages`;
+      const stages = await Promise.all(
+        (await names(stackPath)).map(async (stage) => {
+          const stagePath = `${stackPath}/${encodeURIComponent(stage)}`;
+          const output = await state(`${stagePath}/output`);
+          const deployed = readDeployedStacks(
+            [{ name, stages: [{ name: stage, resources: [], output }] }],
+            repository,
+            "cloudflare",
+          )
+            .at(0)
+            ?.stages.at(0);
+          if (!deployed) {
+            return null;
+          }
+          const resources = await Promise.all(
+            (await names(`${stagePath}/resources`)).map(async (fqn) => {
+              const value = await state(`${stagePath}/resources/${encodeURIComponent(fqn)}`);
+              return value === null ? null : { fqn, value };
+            }),
+          );
+          return { ...deployed, resources: resources.filter(notEmpty) };
+        }),
+      );
+      const kept = stages.filter(notEmpty);
+      return kept.length === 0 ? null : { name, store: "cloudflare" as const, stages: kept };
+    }),
+  );
+  return { state: "found", namedStack, stacks: stacks.filter(notEmpty) };
 }
 
 /**
@@ -317,6 +333,7 @@ export async function readCloudflareStateStore(args: {
   token: string;
   accountId: string;
   repository: string;
+  stopAtNamedStack: boolean;
 }): Promise<CloudflareStoreRead> {
   try {
     const subdomain = await cloudflareResult(
@@ -358,7 +375,10 @@ export async function readCloudflareStateStore(args: {
       secretsStoreId: secretsStore.id,
       storeUrl,
     });
-    return { state: "found", stacks: await readStacks(storeUrl, bearer, args.repository) };
+    return await readStacks(storeUrl, bearer, {
+      repository: args.repository,
+      stopAtNamedStack: args.stopAtNamedStack,
+    });
   } catch (error) {
     if (error instanceof StoreReadStop) {
       console.warn("cloudflare_state_store:read_stopped", {
@@ -394,7 +414,7 @@ checks the user's access to the repository and needs no Convex connection.
 */
 export async function readRepositoryCloudflareStacks(
   ctx: Pick<ActionCtx, "runAction" | "runQuery">,
-  args: { repositoryId: Id<"repositories">; userId: Id<"users"> },
+  args: { repositoryId: Id<"repositories">; userId: Id<"users">; stopAtNamedStack: boolean },
 ): Promise<CloudflareStoreRead> {
   const { organizationId, githubRepositoryFullName } = await ctx.runQuery(
     internal.repository.cloudflareStateStore.readTarget,
@@ -435,5 +455,6 @@ export async function readRepositoryCloudflareStacks(
     token,
     accountId: connection.account.accountId,
     repository: githubRepositoryFullName,
+    stopAtNamedStack: args.stopAtNamedStack,
   });
 }

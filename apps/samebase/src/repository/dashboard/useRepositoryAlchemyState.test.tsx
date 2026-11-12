@@ -26,6 +26,7 @@ type CloudflareRead = (typeof api.repository.alchemyState.readCloudflareStacks)[
 /** A stack of the Cloudflare store whose name is not `owner/name`. The server filtered it. */
 const cloudflareStack = {
   name: "web",
+  store: "cloudflare" as const,
   stages: [
     {
       name: "prod",
@@ -91,7 +92,7 @@ const liveRead = withProdRows(observedSamebaseRepositoryReply, (row) =>
     : row.value,
 );
 /** The stacks of `liveRead` that the page shows: the deploy of `pr-1756` wrote no output. */
-const liveStacks = readDeployedStacks(liveRead.stacks, "samebase/samebase");
+const liveStacks = readDeployedStacks(liveRead.stacks, "samebase/samebase", "convex");
 type ClientState = {
   value: ((value: unknown) => void) | undefined;
   error: ((error: Error) => void) | undefined;
@@ -541,18 +542,53 @@ describe("useRepositoryAlchemyState with the Cloudflare store", () => {
     });
   });
 
-  it("names a Cloudflare reconnect only on a page with no stack, and reads again on reload", async () => {
+  it("names a Cloudflare reconnect next to Convex stacks too, and reads again on reload", async () => {
     mocks.cloudflare.mockResolvedValue({ state: "reconnect" });
     await render();
     await act(async () => client().value?.(liveRead));
-    expect(latest).toMatchObject({ state: "loaded", observation: { stacks: liveStacks } });
-    expect(latest).not.toHaveProperty("cloudflareProblem");
-
-    await act(async () => client().value?.({ store: "found", stacks: [] }));
-    expect(latest).toMatchObject({ state: "loaded", cloudflareProblem: "reconnect" });
+    // The page shows it only without a stack; the delete dialog needs it either way.
+    expect(latest).toMatchObject({
+      state: "loaded",
+      observation: { stacks: liveStacks },
+      cloudflareProblem: "reconnect",
+    });
 
     const reads = mocks.cloudflare.mock.calls.length;
     await act(async () => latest.state === "loaded" && latest.reload());
     expect(mocks.cloudflare).toHaveBeenCalledTimes(reads + 1);
+  });
+
+  it("shows the Cloudflare stacks when the Convex read fails, and retries both on reload", async () => {
+    mocks.connect.mockRejectedValue(new ConvexError("Access denied."));
+    const answerCloudflare = holdCloudflareRead();
+    await render();
+    // The Cloudflare read is still running, so the Convex failure shows.
+    expect(latest).toMatchObject({ state: "failed", error: { data: "Access denied." } });
+
+    await answerCloudflare(cloudflareFound);
+    expect(latest).toEqual({
+      state: "loaded",
+      observation: {
+        store: "found",
+        stacks: [cloudflareStack],
+        liveDeployments: cloudflareDeployments,
+      },
+      refreshFailed: true,
+      reload: expect.any(Function),
+    });
+
+    const connects = mocks.connect.mock.calls.length;
+    const reads = mocks.cloudflare.mock.calls.length;
+    await act(async () => latest.state === "loaded" && latest.reload());
+    expect(mocks.connect).toHaveBeenCalledTimes(connects + 1);
+    expect(mocks.cloudflare).toHaveBeenCalledTimes(reads + 1);
+  });
+
+  it("shows the Convex failure when the Cloudflare store holds no stack", async () => {
+    mocks.connect.mockRejectedValue(new ConvexError("Access denied."));
+    mocks.cloudflare.mockResolvedValue({ state: "found", stacks: [], liveDeployments: [] });
+    await render();
+    await flush();
+    expect(latest).toMatchObject({ state: "failed", error: { data: "Access denied." } });
   });
 });

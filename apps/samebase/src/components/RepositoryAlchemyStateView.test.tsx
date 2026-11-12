@@ -1,5 +1,7 @@
 // @vitest-environment jsdom
 
+import { act } from "react";
+import { createRoot } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { isRecord } from "../../convex/jsonUtils";
@@ -62,7 +64,7 @@ const workerRow = {
 
 /** An observation of one stack with `stages`. */
 function oneStack(name: string, stages: AlchemyStage[]): AlchemyStateObservation {
-  return { store: "found", liveDeployments: [], stacks: [{ name, stages }] };
+  return { store: "found", liveDeployments: [], stacks: [{ name, store: "convex", stages }] };
 }
 
 function renderTree(tree: AlchemyStateObservation) {
@@ -116,12 +118,60 @@ describe("AlchemyStateTree", () => {
     ).not.toContain("Output");
   });
 
+  it("shows a stack in both stores as two stacks, each with its store", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const stage: AlchemyStage = {
+      name: "prod",
+      run: {
+        version: 1,
+        repository: "acme/app",
+        stackFile: "alchemy.run.ts",
+        branch: "main",
+        pullRequest: null,
+        headCommit: "0123456789abcdef0123456789abcdef01234567",
+        runUrl: null,
+        source: "checkout",
+        recordedAt: "2026-11-12T10:00:00.000Z",
+      },
+      resources: [],
+      output: "{}",
+    };
+    // A client render, since only it reports a duplicate key.
+    const container = document.createElement("div");
+    const root = createRoot(container);
+    await act(async () => {
+      root.render(
+        <AlchemyStateTree
+          observation={{
+            store: "found",
+            liveDeployments: [],
+            stacks: [
+              { name: "acme/app", store: "convex", stages: [stage] },
+              { name: "acme/app", store: "cloudflare", stages: [stage] },
+            ],
+          }}
+        />,
+      );
+    });
+
+    expect(
+      Array.from(
+        container.firstElementChild?.children ?? [],
+        (stack) => stack.firstElementChild?.textContent,
+      ),
+    ).toEqual(["acme/appState in Convex", "acme/appState in Cloudflare"]);
+    expect(error.mock.calls.flat().join("\n")).not.toContain("the same key");
+    await act(async () => root.unmount());
+    error.mockRestore();
+  });
+
   it("labels each stage with its run record and each Convex deployment with its code", () => {
     vi.useFakeTimers({ now: new Date("2026-10-22T09:46:35.577Z") });
     const container = renderTree(oneStack("samebase/samebase", [pr1768Stage]));
 
+    // The header of the stack names the store that holds its state.
     expect(container.firstElementChild?.firstElementChild?.firstElementChild?.textContent).toBe(
-      "samebase/samebase",
+      "samebase/samebaseState in Convex",
     );
     expect(
       Array.from(container.querySelectorAll("ul > li > details > summary"), (summary) => {
@@ -178,6 +228,7 @@ describe("AlchemyStateTree", () => {
       stacks: [
         {
           name: "samebase/samebase",
+          store: "convex",
           stages: [
             pr1768Stage,
             {
@@ -190,6 +241,7 @@ describe("AlchemyStateTree", () => {
         },
         {
           name: "samebase/samebase/apps/sidebars-example",
+          store: "convex",
           stages: [
             {
               name: "prod",

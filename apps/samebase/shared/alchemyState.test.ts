@@ -83,7 +83,7 @@ describe("readDeployedStacks", () => {
   */
   it("keeps the stages whose output has a run record of the repository, without that record", () => {
     expect(
-      readDeployedStacks(observedSamebaseRepositoryReply.stacks, "samebase/samebase").map(
+      readDeployedStacks(observedSamebaseRepositoryReply.stacks, "samebase/samebase", "convex").map(
         (stack) => ({
           name: stack.name,
           stages: stack.stages.map(({ name, run, output }) => ({
@@ -127,12 +127,18 @@ describe("readDeployedStacks", () => {
     ];
 
     expect(
-      readDeployedStacks(observedBaseAlchemyRepositoryReply.stacks, "samebase/base-alchemy").map(
-        (deployed) => deployed.stages.map(({ name }) => name),
-      ),
+      readDeployedStacks(
+        observedBaseAlchemyRepositoryReply.stacks,
+        "samebase/base-alchemy",
+        "convex",
+      ).map((deployed) => deployed.stages.map(({ name }) => name)),
     ).toEqual([["prod"]]);
     expect(
-      readDeployedStacks(observedBaseAlchemyRepositoryReply.stacks, "samebase/base-alchemy-two"),
+      readDeployedStacks(
+        observedBaseAlchemyRepositoryReply.stacks,
+        "samebase/base-alchemy-two",
+        "convex",
+      ),
     ).toEqual([]);
     for (const prodOutput of [
       null,
@@ -141,16 +147,20 @@ describe("readDeployedStacks", () => {
       JSON.stringify({ ...output, "samebase.run": { ...run, version: 2 } }),
       JSON.stringify({ ...output, "samebase.run": { ...run, runUrl: undefined } }),
     ]) {
-      expect(readDeployedStacks(stacksWithProdOutput(prodOutput), "samebase/base-alchemy")).toEqual(
-        [],
-      );
+      expect(
+        readDeployedStacks(stacksWithProdOutput(prodOutput), "samebase/base-alchemy", "convex"),
+      ).toEqual([]);
     }
   });
 });
 
 /** The captured stages of samebase/samebase as Samebase reads them from `reader:repository`. */
 function readerStage(name: string) {
-  const stage = readDeployedStacks(observedSamebaseRepositoryReply.stacks, "samebase/samebase")
+  const stage = readDeployedStacks(
+    observedSamebaseRepositoryReply.stacks,
+    "samebase/samebase",
+    "convex",
+  )
     .flatMap((stack) => stack.stages)
     .find((candidate) => candidate.name === name);
   if (!stage) {
@@ -168,6 +178,7 @@ function prodStack(
   const stage = readerStage("prod");
   return {
     name,
+    store: "convex",
     stages: [{ ...stage, run: { ...stage.run, stackFile }, resources: [...resources] }],
   };
 }
@@ -263,7 +274,11 @@ describe("stackCards", () => {
       liveDeployments: [],
       stacks: [
         prodStack("samebase/samebase", "infra/alchemy.run.ts", [site]),
-        { name: "samebase/samebase/apps/preview", stages: [readerStage("pr-1768")] },
+        {
+          name: "samebase/samebase/apps/preview",
+          store: "convex",
+          stages: [readerStage("pr-1768")],
+        },
         prodStack(
           "samebase/samebase/apps/sidebars-example",
           "apps/sidebars-example/alchemy.run.ts",
@@ -316,7 +331,11 @@ describe("stackCards", () => {
       headCommit: "429c1218a16d2ee74b9da68d684dc460a0a67ce8",
       liveDeployments: [],
       stacks: [
-        { name: "samebase/samebase", stages: [readerStage("pr-1768"), readerStage("prod")] },
+        {
+          name: "samebase/samebase",
+          store: "convex",
+          stages: [readerStage("pr-1768"), readerStage("prod")],
+        },
         prodStack(
           "samebase/samebase/apps/sidebars-example",
           "apps/sidebars-example/alchemy.run.ts",
@@ -333,6 +352,7 @@ describe("stackCards", () => {
     ).toEqual([
       {
         stack: "samebase/samebase",
+        store: "convex",
         stackFile: "alchemy.run.ts",
         // The repository has two stacks, so the card names its folder as on the default branch.
         folder: "/",
@@ -370,7 +390,7 @@ describe("stackCards", () => {
         stage: "prod",
         headCommit,
         liveDeployments: [],
-        stacks: [{ name: "samebase/samebase", stages: [readerStage("prod")] }],
+        stacks: [{ name: "samebase/samebase", store: "convex", stages: [readerStage("prod")] }],
       }).map((card) => card.run);
 
     expect(runsOf(deployed)).toEqual([null]);
