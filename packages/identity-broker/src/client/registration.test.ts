@@ -232,7 +232,7 @@ describe("registration", () => {
       body: "{}",
     });
     expect(created.status).toBe(401);
-    expect(created.headers.get("WWW-Authenticate")).toBe("Bearer");
+    expect(created.headers.get("WWW-Authenticate")).toBe('Bearer realm="register"');
     expect((await h.fetchBroker(`${h.issuer}/tenant-connection`, { method: "POST" })).status).toBe(
       404,
     );
@@ -688,7 +688,7 @@ describe("RFC 7592 client management", () => {
     ["DELETE", "Basic credentials", "Basic dXNlcjpwYXNz"],
     ["DELETE", "the word Bearer alone", "Bearer"],
   ])(
-    "a %s with %s answers 401 with the bare challenge and no body (RFC 6750 section 3.1)",
+    "a %s with %s answers 401 with the realm challenge and no body (RFC 6750 section 3)",
     async (method, _, authorization) => {
       const h = await hub();
       const client = await register(h, { appId: "gh-1-app-p", deploymentType: "preview" });
@@ -697,7 +697,7 @@ describe("RFC 7592 client management", () => {
         headers: authorization === null ? {} : { Authorization: authorization },
       });
       expect(response.status).toBe(401);
-      expect(response.headers.get("WWW-Authenticate")).toBe("Bearer");
+      expect(response.headers.get("WWW-Authenticate")).toBe('Bearer realm="register"');
       expect(await response.text()).toBe("");
       expect(await readClient(h, client.client_id)).not.toBeNull();
     },

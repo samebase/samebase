@@ -403,6 +403,14 @@ test("a resource with no scopes refuses a requested scope on a page", async () =
   expect(await start.text()).toContain("This API resource has no scopes.");
 });
 
+test("a response_mode other than query answers 400 on a page, before contacting a provider", async () => {
+  const args = await setup();
+  const { start } = await authorize(args, convex.resource, { response_mode: "form_post" });
+  expect(start.status).toBe(400);
+  expect(start.headers.get("location")).toBeNull();
+  expect(args.tokenCalls).toHaveLength(0);
+});
+
 test("a refresh leaves out a scope the provider left out", async () => {
   const args = await setup();
   const { start, proof } = await authorize(args, cloudflare.resource);

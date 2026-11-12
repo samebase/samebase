@@ -49,11 +49,14 @@ export type RegistrationConfig<
 
 type TokenMethod = "client_secret_post" | "client_secret_basic";
 
-/** The answer to a request with no Bearer token: the challenge alone (RFC 6750 section 3.1). */
-export const noToken = () =>
+/**
+ * The answer to a request with no Bearer token: a challenge with no error code (RFC 6750 section
+ * 3.1), but with `realm`, because the scheme needs at least one parameter (section 3).
+ */
+export const noToken = (realm: "register" | "userinfo") =>
   new Response(null, {
     status: 401,
-    headers: { "WWW-Authenticate": "Bearer", "Cache-Control": "no-store" },
+    headers: { "WWW-Authenticate": `Bearer realm="${realm}"`, "Cache-Control": "no-store" },
   });
 
 /** The answer to a refused Bearer token (RFC 6750 section 3.1). */
@@ -146,13 +149,13 @@ export function registrationEndpoints(args: {
 
   /**
    * The client id and the token of a request to the client configuration endpoint, or the refusal:
-   * the bare challenge without a Bearer token, as at `POST /register`, and `invalid_token` without
+   * `noToken` without a Bearer token, as at `POST /register`, and `invalid_token` without
    * a client id.
    */
   async function clientRequest(request: Request) {
     const token = readBearerToken(request.headers.get("authorization"));
     if (token === null) {
-      return noToken();
+      return noToken("register");
     }
     const clientId = new URL(request.url).pathname.split("/").at(-1) ?? "";
     if (clientId === "") {

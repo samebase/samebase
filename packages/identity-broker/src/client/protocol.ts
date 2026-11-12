@@ -41,7 +41,13 @@ export function isSecureUrl(url: URL): boolean {
   return url.protocol === "https:" || (url.protocol === "http:" && isLoopbackHost(url.hostname));
 }
 
-/** A redirect URI: absolute, no fragment, and secure. */
+/**
+ * The parameters of the authorization response. The response adds them to the redirect URI's query,
+ * which it must retain (RFC 6749 section 3.1.2), so a redirect URI whose query has one is refused.
+ */
+const RESPONSE_PARAMETERS = ["code", "state", "iss", "error", "error_description", "error_uri"];
+
+/** A redirect URI: absolute, no fragment, secure, and no authorization response parameter. */
 export function parseRedirectUri(value: string): URL | null {
   if (value.length === 0 || value.length > MAX_REDIRECT_URI_LENGTH) {
     return null;
@@ -52,7 +58,11 @@ export function parseRedirectUri(value: string): URL | null {
   } catch {
     return null;
   }
-  return url.hash.length === 0 && isSecureUrl(url) ? url : null;
+  return url.hash.length === 0 &&
+    isSecureUrl(url) &&
+    !RESPONSE_PARAMETERS.some((name) => url.searchParams.has(name))
+    ? url
+    : null;
 }
 
 export type AuthorizeInput = {
@@ -106,6 +116,15 @@ export function validateAuthorizeRest(
   }
   if (params.has("request_uri")) {
     return invalid(400, "request_uri_not_supported", "request_uri is not supported.");
+  }
+  // OIDC Core section 3.1.2.6: an unsupported response mode answers 400 with no error parameters.
+  const responseMode = params.get("response_mode");
+  if (responseMode !== null && responseMode !== "query") {
+    return invalid(400, "invalid_request", "response_mode must be query.");
+  }
+  // OIDC Core section 3.1.2.2: with no sessions the hub cannot check the hint's user, so it refuses.
+  if (flow === "identity" && params.has("id_token_hint")) {
+    return invalid(400, "login_required", "id_token_hint is not supported.");
   }
   if (params.get("response_type") !== "code") {
     return invalid(400, "unsupported_response_type", "response_type must be code.");

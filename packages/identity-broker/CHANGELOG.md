@@ -1,5 +1,31 @@
 # Changelog
 
+## 0.33.5
+
+- `/authorize` refuses a sign-in request with `id_token_hint` on the hub's error page, with
+  `login_required` (OIDC Core section 3.1.2.2). The hint was ignored, so a sign-in could end as
+  another user.
+- `/authorize` answers `400` on the hub's error page, with no redirect, to a `response_mode` other
+  than `query` (OIDC Core section 3.1.2.6). The parameter was ignored.
+- The connector callback refuses an upstream id that makes a `sub` longer than 255 characters or not
+  ASCII (OIDC Core section 2), with `server_error` at the redirect URI. Google and GitHub ids are
+  not affected.
+- `/userinfo` answers a request with no Bearer token in the `Authorization` header with
+  `WWW-Authenticate: Bearer realm="userinfo"` and no body (RFC 6750 section 3.1). It was
+  `invalid_token`.
+- `POST /register` and `/register/<client>` answer a request with no Bearer token with
+  `WWW-Authenticate: Bearer realm="register"`. It was `Bearer` with no parameter, which RFC 6750
+  section 3 does not allow.
+- No `error_description` holds the label of a connector. A label such as `Identité` gave characters
+  that RFC 6749 section 4.1.2.1 does not allow.
+- A redirect URI whose query has `code`, `state`, `iss`, `error`, `error_description`, or
+  `error_uri` is refused: registration answers `invalid_redirect_uri`, and `/authorize` and `/token`
+  answer `invalid_request`. The authorization response replaced these values, where RFC 6749 section
+  3.1.2 requires the query to be retained.
+- README, docs/design.md and docs/standards.md: false claims about sign-in, `auth_time`, and the
+  registration members that the hub ignores are corrected. The missing CORS headers and the check of
+  an upstream ID Token with more than one audience are named departures.
+
 ## 0.33.4
 
 - `/token` and `/revoke` treat a parameter with an empty value as omitted. `resource=` on a code

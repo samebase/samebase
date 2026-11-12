@@ -13,7 +13,7 @@ document. A deliberate difference is a named departure in [design.md](design.md)
 | [RFC 7009](https://www.rfc-editor.org/rfc/rfc7009.html), token revocation                                       | 2.1, 2.2                                  | Authenticated removal of a broker refresh grant                                                                        | Refresh tokens only                                                          |
 | [OAuth 2.1, draft 16](https://datatracker.ietf.org/doc/draft-ietf-oauth-v2-1/16/)                               | 2.4, 4.1                                  | The code flow with mandatory S256, and `iss` on responses                                                              | Partly: a draft, so it can change                                            |
 | [RFC 7636](https://www.rfc-editor.org/rfc/rfc7636.html), PKCE                                                   | 4.1 to 4.6                                | S256 challenge and verifier, in both directions                                                                        | Implemented, S256 only                                                       |
-| [OpenID Connect Core 1.0, errata set 2](https://openid.net/specs/openid-connect-core-1_0.html)                  | 2, 3.1, 5.1 to 5.4, 8.1, 9, 10            | ID Tokens, claims, UserInfo, pairwise subjects, signing                                                                | Partly: see the departures in [design.md](design.md)                         |
+| [OpenID Connect Core 1.0, errata set 2](https://openid.net/specs/openid-connect-core-1_0.html)                  | 2, 3.1, 5.1 to 5.4, 8, 9, 10              | ID Tokens, claims, UserInfo, public subjects, signing                                                                  | Partly: see the departures in [design.md](design.md)                         |
 | [OpenID Connect Discovery 1.0, errata set 2](https://openid.net/specs/openid-connect-discovery-1_0.html)        | 3, 4                                      | The provider's metadata, with `registration_endpoint` and `op_tos_uri` in hub mode, and reading an upstream provider's | Implemented                                                                  |
 | [RFC 8414](https://www.rfc-editor.org/rfc/rfc8414.html)                                                         | 2, 3                                      | OAuth server metadata and its well-known location                                                                      | Implemented                                                                  |
 | [RFC 9207](https://www.rfc-editor.org/rfc/rfc9207.html)                                                         | 2, 3                                      | `iss` on authorization responses, and checking it upstream                                                             | Implemented                                                                  |
@@ -65,8 +65,8 @@ Without hub mode, the host creates each client in its own mutation, with `newCli
   client authentication and keeps the broker token stable, as RFC 6749 section 6 permits.
 - RFC 8693 token exchange: resource authorization uses the authorization-code grant, not a
   `subject_token` exchange. The upstream provider integration does not define a new wire protocol.
-- Request Objects: `request` and `request_uri` answer `request_not_supported` and
-  `request_uri_not_supported`.
+- Request Objects: a request with `request` or `request_uri` ends on the hub's error page.
+- `id_token_hint`: a sign-in request with it ends on the hub's error page.
 - The implicit and hybrid flows, and session management and logout.
 
 ## Certification

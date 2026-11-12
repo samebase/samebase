@@ -6,6 +6,7 @@ import type { ComponentApi } from "../component/_generated/component.js";
 import { usableNames } from "../component/connectorRule.js";
 import { logHubEvent } from "./hubEvents.js";
 import { evaluate, type Registration } from "./policy.js";
+import { parseRedirectUri } from "./protocol.js";
 import {
   clientInformation,
   insufficientScope,
@@ -38,7 +39,6 @@ const VERIFICATION_PATH = "/samebase-verification.json";
 const VERIFICATION_TIMEOUT_MS = 5_000;
 /** The file holds one id. A larger body is not this file, and the read stops at this size. */
 const MAX_VERIFICATION_BYTES = 4_096;
-const MAX_REDIRECT_URI_LENGTH = 2_048;
 /** The return addresses of one client: a handler per flow of the app, with room to spare. */
 const MAX_REDIRECT_URIS = 8;
 /** Stored on every client row. A commit hash or a version fits many times. */
@@ -303,22 +303,15 @@ async function readRun(token: string, audience: string) {
 // The request and the host.
 
 /**
- * The return address, if it is absolute, with no fragment and no user info, and either https on a DNS
+ * The return address, if `parseRedirectUri` takes it, with no fragment and no user info, and either https on a DNS
  * name, which the verification file proves, or http on a loopback host, which only the initial access
  * token can prove: the hub cannot reach a development server. An IP address or `localhost` over
  * https is never a host that a file can prove. Any port and any path.
  */
 function readRedirectUri(value: string) {
-  if (value.length > MAX_REDIRECT_URI_LENGTH || value.includes("#")) {
-    return null;
-  }
-  let url;
-  try {
-    url = new URL(value);
-  } catch {
-    return null;
-  }
-  if (url.username !== "" || url.password !== "") {
+  // An empty fragment parses to an empty hash, which parseRedirectUri allows.
+  const url = value.includes("#") ? null : parseRedirectUri(value);
+  if (url === null || url.username !== "" || url.password !== "") {
     return null;
   }
   if (url.protocol === "http:" && LOOPBACK_HOSTS.has(url.hostname)) {
@@ -388,7 +381,7 @@ async function readBody(request: Request, repositoryId: string) {
   if (parsed.length !== redirects.length) {
     return invalid(
       "invalid_redirect_uri",
-      "A redirect URI is https on a DNS name, or http on a loopback host for a development client, with no fragment and no user info.",
+      "A redirect URI is https on a DNS name, or http on a loopback host for a development client, with no fragment, no user info, and no authorization response parameter in its query.",
     );
   }
   return {
@@ -762,7 +755,7 @@ export function hubClientsEndpoint(args: {
   return httpActionGeneric(async (ctx, request) => {
     const bearer = /^Bearer\s+(\S+)$/i.exec(request.headers.get("Authorization") ?? "")?.[1];
     if (bearer === undefined) {
-      return noToken();
+      return noToken("register");
     }
     // A JWT has three parts; the initial access token is base64url, which has no dot.
     const parts = bearer.split(".").length;
