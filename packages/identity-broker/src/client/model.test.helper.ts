@@ -61,6 +61,7 @@ export async function createModelHub(options: {
 export const RESOURCE = cloudflareConnection({
   clientId: () => "provider-client",
   clientSecret: () => "provider-secret",
+  scopes: ["workers-scripts.read"],
 });
 
 /** RFC 6749 section 5.1's token response, with values numbered so that each answer is its own. */

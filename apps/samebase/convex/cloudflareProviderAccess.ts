@@ -24,6 +24,8 @@ const CLOUDFLARE_OAUTH_SCOPES = [
   "workers-scripts.read",
   "workers-scripts.write",
   "account-settings.read",
+  "secrets-store.read",
+  "secrets-store.write",
   "offline_access",
 ] as const;
 

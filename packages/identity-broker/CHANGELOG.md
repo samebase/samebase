@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.34.0
+
+- `cloudflareConnection` takes `scopes`, the Cloudflare API scopes that your apps need, and adds
+  `offline_access`. It asked for a fixed list before, which was samebase.com's. To ask for the same
+  scopes as before, pass
+  `["workers-ci.read", "workers-ci.write", "workers-scripts.read", "workers-scripts.write", "account-settings.read"]`.
+
 ## 0.33.6
 
 - README: the sentence about how long a new hub takes is removed. No code change.

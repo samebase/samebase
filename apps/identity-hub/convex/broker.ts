@@ -67,6 +67,18 @@ export const broker = defineIdentityBroker({
     cloudflareConnection({
       clientId: () => env.PROVIDER_CLOUDFLARE_OAUTH_CLIENT_ID,
       clientSecret: () => env.PROVIDER_CLOUDFLARE_OAUTH_CLIENT_SECRET,
+      // samebase.com checks Workers Builds and Workers, reads the account name, and reads an
+      // Alchemy `Cloudflare.state()` store. That read binds the store's token secret to a preview
+      // Worker, and Cloudflare binds a Secrets Store secret only with Edit.
+      scopes: [
+        "workers-ci.read",
+        "workers-ci.write",
+        "workers-scripts.read",
+        "workers-scripts.write",
+        "account-settings.read",
+        "secrets-store.read",
+        "secrets-store.write",
+      ],
     }),
     githubConnection({
       clientId: () => env.PROVIDER_GITHUB_APP_CLIENT_ID,
