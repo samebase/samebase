@@ -23,6 +23,13 @@ import {
   type AlchemyStateObservation,
   type AlchemyStoredStage,
 } from "../../shared/alchemyStateModel";
+import {
+  parseStoreJson,
+  storeResource,
+  storeStageRun,
+  type StateStoreRead,
+  type StoreStack,
+} from "../../shared/stateStoreStacks";
 import type { Id } from "../_generated/dataModel";
 import { env, type ActionCtx } from "../_generated/server";
 import {
@@ -108,12 +115,8 @@ async function findAlchemyDeployment(target: Pick<ConvexInspectionTarget, "teamI
     : null;
 }
 
-/** The stacks of the store named `owner/name` or `owner/name/<folder>`, in name order. */
-async function readRepositoryStackNames(args: {
-  deployKey: string;
-  deploymentUrl: string;
-  repository: string;
-}) {
+/** Every stack of the store, in name order. */
+async function readStackNames(args: { deployKey: string; deploymentUrl: string }) {
   return parse(
     vStoreStacksReply,
     await fetchConvexDeploymentJson({
@@ -122,7 +125,67 @@ async function readRepositoryStackNames(args: {
       path: "/api/function",
       body: { path: "state:stacks", args: {}, format: "json" },
     }),
-  ).value.filter((name) => name === args.repository || name.startsWith(`${args.repository}/`));
+  ).value;
+}
+
+/** The stacks of the store named `owner/name` or `owner/name/<folder>`, in name order. */
+async function readRepositoryStackNames(args: {
+  deployKey: string;
+  deploymentUrl: string;
+  repository: string;
+}) {
+  return (await readStackNames(args)).filter(
+    (name) => name === args.repository || name.startsWith(`${args.repository}/`),
+  );
+}
+
+/**
+Every stack of the team's store for the stacks page. Each row is reduced to its fqn, type, and
+status, and each output to its run record, in the action: the rest of a row can hold a secret. A
+stack whose `state:readStack` fails, such as one past Convex's read limit, is one `failed` stack.
+*/
+export async function readEveryAlchemyStack(
+  target: Pick<ConvexInspectionTarget, "authMethod" | "teamId" | "token">,
+): Promise<StateStoreRead> {
+  const deployment = await findAlchemyDeployment(target);
+  if (!deployment) {
+    return { state: "no_store" };
+  }
+  const stacks = await withConvexInspectionDeployKey(
+    { deployment, purpose: "alchemyState", target },
+    async (deployKey) =>
+      await Promise.all(
+        (await readStackNames({ deployKey, deploymentUrl: deployment.deploymentUrl })).map(
+          async (name): Promise<StoreStack> => {
+            try {
+              const reply = parse(
+                vStoreStackReply,
+                await fetchConvexDeploymentJson({
+                  authorization: `Convex ${deployKey}`,
+                  deploymentUrl: deployment.deploymentUrl,
+                  path: "/api/function",
+                  body: { path: "state:readStack", args: { stack: name }, format: "json" },
+                }),
+              );
+              return {
+                name,
+                read: "ok",
+                stages: reply.value.stages.map((stage) => ({
+                  name: stage.name,
+                  run: storeStageRun(stage.output === null ? null : parseStoreJson(stage.output)),
+                  resources: stage.resources.map((resource) =>
+                    storeResource(resource.fqn, parseStoreJson(resource.value)),
+                  ),
+                })),
+              };
+            } catch {
+              return { name, read: "failed" };
+            }
+          },
+        ),
+      ),
+  );
+  return { state: "found", stacks };
 }
 
 /**

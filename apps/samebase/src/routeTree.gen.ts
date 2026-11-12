@@ -64,6 +64,7 @@ import { Route as orgNewAppRouteImport } from "./routes/org-new-app";
 import { Route as orgProvidersRouteImport } from "./routes/org-providers";
 import { Route as orgRepositoriesRouteImport } from "./routes/org-repositories";
 import { Route as orgSettingsRouteImport } from "./routes/org-settings";
+import { Route as orgStacksRouteImport } from "./routes/org-stacks";
 import { Route as pitchPrintMobileRouteImport } from "./routes/pitch-print-mobile";
 import { Route as repositoryDashboardRouteImport } from "./routes/repository-dashboard";
 import { Route as orgMembersRouteImport } from "./routes/org-members";
@@ -349,6 +350,11 @@ const orgSettingsRoute = orgSettingsRouteImport.update({
   path: "/org/$owner/settings",
   getParentRoute: () => authedRoute,
 } as any);
+const orgStacksRoute = orgStacksRouteImport.update({
+  id: "/org/$owner/stacks",
+  path: "/org/$owner/stacks",
+  getParentRoute: () => authedRoute,
+} as any);
 const pitchPrintMobileRoute = pitchPrintMobileRouteImport.update({
   id: "/pitch/print/mobile",
   path: "/pitch/print/mobile",
@@ -442,6 +448,7 @@ export interface FileRoutesByFullPath {
   "/org/$owner/providers": typeof orgProvidersRoute;
   "/org/$owner/repositories": typeof orgRepositoriesRoute;
   "/org/$owner/settings": typeof orgSettingsRoute;
+  "/org/$owner/stacks": typeof orgStacksRoute;
   "/pitch/print/mobile": typeof pitchPrintMobileRoute;
   "/repo/$owner/$repository": typeof repositoryDashboardRoute;
   "/org/$owner/settings/members": typeof orgMembersRoute;
@@ -505,6 +512,7 @@ export interface FileRoutesByTo {
   "/org/$owner/providers": typeof orgProvidersRoute;
   "/org/$owner/repositories": typeof orgRepositoriesRoute;
   "/org/$owner/settings": typeof orgSettingsRoute;
+  "/org/$owner/stacks": typeof orgStacksRoute;
   "/pitch/print/mobile": typeof pitchPrintMobileRoute;
   "/repo/$owner/$repository": typeof repositoryDashboardRoute;
   "/org/$owner/settings/members": typeof orgMembersRoute;
@@ -570,6 +578,7 @@ export interface FileRoutesById {
   "/_authed/org/$owner/providers": typeof orgProvidersRoute;
   "/_authed/org/$owner/repositories": typeof orgRepositoriesRoute;
   "/_authed/org/$owner/settings": typeof orgSettingsRoute;
+  "/_authed/org/$owner/stacks": typeof orgStacksRoute;
   "/_authed/pitch/print/mobile": typeof pitchPrintMobileRoute;
   "/_authed/repo/$owner/$repository": typeof repositoryDashboardRoute;
   "/_authed/org/$owner/settings/members": typeof orgMembersRoute;
@@ -635,6 +644,7 @@ export interface FileRouteTypes {
     | "/org/$owner/providers"
     | "/org/$owner/repositories"
     | "/org/$owner/settings"
+    | "/org/$owner/stacks"
     | "/pitch/print/mobile"
     | "/repo/$owner/$repository"
     | "/org/$owner/settings/members"
@@ -698,6 +708,7 @@ export interface FileRouteTypes {
     | "/org/$owner/providers"
     | "/org/$owner/repositories"
     | "/org/$owner/settings"
+    | "/org/$owner/stacks"
     | "/pitch/print/mobile"
     | "/repo/$owner/$repository"
     | "/org/$owner/settings/members"
@@ -762,6 +773,7 @@ export interface FileRouteTypes {
     | "/_authed/org/$owner/providers"
     | "/_authed/org/$owner/repositories"
     | "/_authed/org/$owner/settings"
+    | "/_authed/org/$owner/stacks"
     | "/_authed/pitch/print/mobile"
     | "/_authed/repo/$owner/$repository"
     | "/_authed/org/$owner/settings/members"
@@ -1194,6 +1206,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof orgSettingsRouteImport;
       parentRoute: typeof authedRoute;
     };
+    "/_authed/org/$owner/stacks": {
+      id: "/_authed/org/$owner/stacks";
+      path: "/org/$owner/stacks";
+      fullPath: "/org/$owner/stacks";
+      preLoaderRoute: typeof orgStacksRouteImport;
+      parentRoute: typeof authedRoute;
+    };
     "/_authed/pitch/print/mobile": {
       id: "/_authed/pitch/print/mobile";
       path: "/pitch/print/mobile";
@@ -1269,6 +1288,7 @@ interface authedRouteChildren {
   orgProvidersRoute: typeof orgProvidersRoute;
   orgRepositoriesRoute: typeof orgRepositoriesRoute;
   orgSettingsRoute: typeof orgSettingsRoute;
+  orgStacksRoute: typeof orgStacksRoute;
   pitchPrintMobileRoute: typeof pitchPrintMobileRoute;
   repositoryDashboardRoute: typeof repositoryDashboardRoute;
   orgMembersRoute: typeof orgMembersRoute;
@@ -1301,6 +1321,7 @@ const authedRouteChildren: authedRouteChildren = {
   orgProvidersRoute: orgProvidersRoute,
   orgRepositoriesRoute: orgRepositoriesRoute,
   orgSettingsRoute: orgSettingsRoute,
+  orgStacksRoute: orgStacksRoute,
   pitchPrintMobileRoute: pitchPrintMobileRoute,
   repositoryDashboardRoute: repositoryDashboardRoute,
   orgMembersRoute: orgMembersRoute,

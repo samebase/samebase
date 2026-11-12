@@ -17,7 +17,7 @@ The key of the run record in a stage output.
 
 @see https://github.com/samebase/samebase/blob/e992b030f0b5cb4da9959a6fa4b17be3d7a23bbf/packages/alchemy-convex/src/RunRecord.ts#L18-L19
 */
-const RUN_RECORD_KEY = "samebase.run";
+export const RUN_RECORD_KEY = "samebase.run";
 
 /**
 Alchemy's `encodeState` writes a `Redacted` value in clear text as `{ "__redacted__": <value> }`, and

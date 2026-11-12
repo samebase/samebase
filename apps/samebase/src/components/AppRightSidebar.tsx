@@ -29,6 +29,7 @@ import {
   ORGANIZATION_PROVIDERS_ROUTE,
   ORGANIZATION_SETTINGS_ROUTE,
   ORGANIZATION_REPOSITORIES_ROUTE,
+  ORGANIZATION_STACKS_ROUTE,
   ORGANIZATIONS_ROUTE,
 } from "@/organization/organizationRoutes";
 import { APP_RIGHT_SIDEBAR_ACCOUNT_SECTION_TEST_ID } from "@/lib/publicLanding";
@@ -351,6 +352,14 @@ function OrganizationAppRightSidebarLinks({ organization }: { organization: View
         to={ORGANIZATION_REPOSITORIES_ROUTE}
       >
         Repositories
+      </Link>
+      <Link
+        {...APP_SIDEBAR_NAVIGATION_LINK_PROPS}
+        className={APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME}
+        params={params}
+        to={ORGANIZATION_STACKS_ROUTE}
+      >
+        Stacks
       </Link>
       <Link
         {...APP_SIDEBAR_NAVIGATION_LINK_PROPS}

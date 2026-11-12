@@ -176,6 +176,8 @@ import type * as repositoryWorkflowAuthority from "../repositoryWorkflowAuthorit
 import type * as resealCredentials from "../resealCredentials.js";
 import type * as sealedSecret from "../sealedSecret.js";
 import type * as slugUtils from "../slugUtils.js";
+import type * as stacks_cloudflareStateStore from "../stacks/cloudflareStateStore.js";
+import type * as stacks_organization from "../stacks/organization.js";
 import type * as starterSeed from "../starterSeed.js";
 import type * as toolRuntime_actionCatalog from "../toolRuntime/actionCatalog.js";
 import type * as toolRuntime_convexSchemas from "../toolRuntime/convexSchemas.js";
@@ -363,6 +365,8 @@ declare const fullApi: ApiFromModules<{
   resealCredentials: typeof resealCredentials;
   sealedSecret: typeof sealedSecret;
   slugUtils: typeof slugUtils;
+  "stacks/cloudflareStateStore": typeof stacks_cloudflareStateStore;
+  "stacks/organization": typeof stacks_organization;
   starterSeed: typeof starterSeed;
   "toolRuntime/actionCatalog": typeof toolRuntime_actionCatalog;
   "toolRuntime/convexSchemas": typeof toolRuntime_convexSchemas;
