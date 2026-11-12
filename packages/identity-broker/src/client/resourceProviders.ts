@@ -57,6 +57,10 @@ export function cloudflareConnection(credentials: Credentials): ResourceProvider
       "workers-scripts.read",
       "workers-scripts.write",
       "account-settings.read",
+      // Reading an Alchemy `Cloudflare.state()` store binds its token secret to a preview Worker,
+      // and Cloudflare binds a Secrets Store secret only with Edit.
+      "secrets-store.read",
+      "secrets-store.write",
       "offline_access",
     ],
     selectAccount: false,
