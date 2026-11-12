@@ -5,7 +5,7 @@ change. If a change needs action from you, the entry says so.
 
 ## 2026-11-12
 
-- **v2346: A Stacks page for your Alchemy state stores.** The new Stacks page of an organization
+- **v2347: A Stacks page for your Alchemy state stores.** The new Stacks page of an organization
   lists every stack in the Alchemy state store of its Cloudflare account (`Cloudflare.state()`) and
   of its Convex team, with the type and status of each resource. To see the Cloudflare stacks, an
   owner connects Cloudflare again on the Providers page and allows Secrets Store Read and Edit:
