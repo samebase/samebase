@@ -151,7 +151,9 @@ A standard client library can send this request. The package's tests use
 | `connectors`                 | The providers that this client signs in through. This member is the hub's own.         | Each provider that the hub gives your repository |
 | `token_endpoint_auth_method` | `client_secret_post` or `client_secret_basic`. Convex Auth needs `client_secret_post`. | `client_secret_basic`                            |
 
-The hub ignores other members, such as `client_name` and `logo_uri`.
+The hub ignores members that only describe the app, such as `client_name` and `logo_uri`. It refuses
+a member that asks for something that it does not have, such as `application_type: "native"`, with
+`invalid_client_metadata`.
 
 The `201` answer:
 
@@ -226,17 +228,17 @@ users return to. The hub's page shows both to the user.
 
 The hub refuses a registration at the first check that fails:
 
-| Check                                                                                                     | Status and `error`            | `reason`                                                                                            |
-| --------------------------------------------------------------------------------------------------------- | ----------------------------- | --------------------------------------------------------------------------------------------------- |
-| GitHub signed the token for a workflow run, and its audience is this hub's issuer                         | `401 invalid_token`           |                                                                                                     |
-| The run is a `pull_request`, or a `push` or `workflow_dispatch` on `main`                                 | `403 insufficient_scope`      | `run_not_allowed`                                                                                   |
-| Each member that the hub reads has a value that the hub can register                                      | `400 invalid_client_metadata` |                                                                                                     |
-| There are 1 to 8 callback URLs, each `https` on a DNS name, with no fragment                              | `400 invalid_redirect_uri`    |                                                                                                     |
-| The hub's policy has not paused the app                                                                   | `403 insufficient_scope`      | `paused`                                                                                            |
-| The hub's rules give this repository each connector that it asks for                                      | `400 invalid_client_metadata` | `invalid_connectors`, with the names that are `allowed`                                             |
-| The hub's administrator has not blocked the repository or its owner                                       | `403 insufficient_scope`      | `blocked`                                                                                           |
-| The repository and its owner are inside their hourly limits                                               | `429 rate_limited`            |                                                                                                     |
-| Each site in `redirect_uris` serves the verification file, and the file names the repository of the token | `400 invalid_redirect_uri`    | `verification_file_missing`, `host_unreachable`, `verification_file_invalid`, `repository_mismatch` |
+| Check                                                                                                                                                                 | Status and `error`            | `reason`                                                                                            |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------- | --------------------------------------------------------------------------------------------------- |
+| GitHub signed the token for a workflow run, and its audience is this hub's issuer                                                                                     | `401 invalid_token`           |                                                                                                     |
+| The run is a `pull_request`, or a `push` or `workflow_dispatch` on `main`                                                                                             | `403 insufficient_scope`      | `run_not_allowed`                                                                                   |
+| Each member that the hub reads has a value that the hub can register                                                                                                  | `400 invalid_client_metadata` |                                                                                                     |
+| There are 1 to 8 callback URLs, each `https` on a DNS name, with no fragment and no `code`, `state`, `iss`, `error`, `error_description`, or `error_uri` in the query | `400 invalid_redirect_uri`    |                                                                                                     |
+| The hub's policy has not paused the app                                                                                                                               | `403 insufficient_scope`      | `paused`                                                                                            |
+| The hub's rules give this repository each connector that it asks for                                                                                                  | `400 invalid_client_metadata` | `invalid_connectors`, with the names that are `allowed`                                             |
+| The hub's administrator has not blocked the repository or its owner                                                                                                   | `403 insufficient_scope`      | `blocked`                                                                                           |
+| The repository and its owner are inside their hourly limits                                                                                                           | `429 rate_limited`            |                                                                                                     |
+| Each site in `redirect_uris` serves the verification file, and the file names the repository of the token                                                             | `400 invalid_redirect_uri`    | `verification_file_missing`, `host_unreachable`, `verification_file_invalid`, `repository_mismatch` |
 
 A refusal is a JSON object with `error` and `error_description` (RFC 7591 section 3.2.2). `reason`
 is the hub's own member. A `401` or a `403` has the `WWW-Authenticate` header of

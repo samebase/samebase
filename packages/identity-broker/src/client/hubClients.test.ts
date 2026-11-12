@@ -822,6 +822,10 @@ describe("POST /register", () => {
       ],
       ["a fragment", { redirect_uris: [`${PRODUCTION_CALLBACK}#top`] }],
       ["an empty fragment", { redirect_uris: [`${PRODUCTION_CALLBACK}#`] }],
+      [
+        "an authorization response parameter in the query",
+        { redirect_uris: [`${PRODUCTION_CALLBACK}?iss=x&keep=1`] },
+      ],
       ["user info", { redirect_uris: ["https://user:pass@ideal-dolphin-15.convex.site/cb"] }],
       ["an IPv4 address", { redirect_uris: ["https://127.0.0.1/cb"] }],
       ["an IPv4 address in hex", { redirect_uris: ["https://0x7f000001/cb"] }],

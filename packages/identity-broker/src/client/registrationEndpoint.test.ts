@@ -240,14 +240,14 @@ describe("the Bearer token (RFC 6750 section 3.1)", () => {
     ["no Authorization header", null],
     ["Basic credentials", "Basic dXNlcjpwYXNz"],
     ["the word Bearer alone", "Bearer"],
-  ])("answers 401 with the bare challenge and no body for %s", async (_, authorization) => {
+  ])("answers 401 with the realm challenge and no body for %s", async (_, authorization) => {
     const h = await createHub();
     const fileRequests = stubProviders();
 
     const response = await postWithAuthorization(h, authorization);
 
     expect(response.status).toBe(401);
-    expect(response.headers.get("WWW-Authenticate")).toBe("Bearer");
+    expect(response.headers.get("WWW-Authenticate")).toBe('Bearer realm="register"');
     expect(await response.text()).toBe("");
     expect(fileRequests).toEqual([]);
   });

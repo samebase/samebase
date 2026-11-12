@@ -384,10 +384,17 @@ provider.
   refused with `invalid_client_metadata`.
 - No loopback exception on redirect URIs: a local deployment registers its exact
   `http://127.0.0.1:<port>/...` URI.
-- `auth_time` is the hub's completion time: when the broker completed the sign-in, after the
-  connector answered. After a fresh login through an OIDC connector it is the provider's `auth_time`
-  instead, which the broker checked against the request's lifetime. The broker never compares an
-  upstream `auth_time` with the value of `max_age`.
+- A redirect URI whose query has a parameter named `code`, `state`, `iss`, `error`,
+  `error_description`, or `error_uri` is not valid: the authorization response adds these
+  parameters, and RFC 6749 section 3.1.2 requires the response to retain the query of the redirect
+  URI.
+- The broker keeps no list of trusted audiences (OIDC Core section 3.1.3.7 item 3) and accepts an
+  upstream ID Token with more audiences only when its `azp` is the broker's own client id, which is
+  the check of `oauth4webapi`.
+- `auth_time` is the time when the provider's callback arrived at the broker, before the broker
+  exchanged the provider's code at the provider's token endpoint. After a fresh login through an
+  OIDC connector it is the provider's `auth_time` instead, which the broker checked against the
+  request's lifetime. The broker never compares an upstream `auth_time` with the value of `max_age`.
 - A replayed authorization code revokes the code, its request, and its broker refresh grant if
   present. Already issued access tokens remain valid: a `/userinfo` token keeps its five minutes,
   and a provider access token follows the provider's expiry and revocation rules.

@@ -332,8 +332,9 @@ export function defineIdentityBroker<C extends Connector, R extends ResourceProv
    */
   const cannotReauthenticate = (connector: Connector) =>
     connector.kind === "oauth" || !connector.promptLogin;
-  const freshLoginRefusal = (connector: Connector) =>
-    `${connector.label} cannot reauthenticate the user, which prompt=login or max_age asked for.`;
+  // Also an error_description at the return address, so no label (RFC 6749 section 4.1.2.1).
+  const freshLoginRefusal =
+    "This sign-in method cannot reauthenticate the user, which prompt=login or max_age asked for.";
 
   /**
    * Sends the user to a connector for a stored request. `refuse` answers a refusal: the hub's
@@ -351,7 +352,7 @@ export function defineIdentityBroker<C extends Connector, R extends ResourceProv
   ): Promise<Response> {
     const { connector, request } = args;
     if (request.freshLogin && cannotReauthenticate(connector)) {
-      return args.refuse("login_required", freshLoginRefusal(connector));
+      return args.refuse("login_required", freshLoginRefusal);
     }
     const start = await startUpstream({
       connector,
@@ -517,7 +518,7 @@ export function defineIdentityBroker<C extends Connector, R extends ResourceProv
     // login that the connector cannot do is refused here, before anything is stored.
     const direct = offered.length === 1 && consent === null ? offered[0] : undefined;
     if (direct !== undefined && freshLogin && cannotReauthenticate(direct)) {
-      return refusePage(freshLoginRefusal(direct));
+      return refusePage(freshLoginRefusal);
     }
     // Every later step needs this cookie: a client that fetches the page itself cannot send a
     // user's browser on from it, and a provider callback finishes only where the sign-in started.
@@ -562,7 +563,7 @@ export function defineIdentityBroker<C extends Connector, R extends ResourceProv
     if (storedDirect !== undefined && freshLogin && cannotReauthenticate(storedDirect)) {
       // Only when a revoked grant left one connector that the snapshot did not go straight to.
       await ctx.runMutation(component.authRequests.abandon, { requestId });
-      return refusePage(freshLoginRefusal(storedDirect));
+      return refusePage(freshLoginRefusal);
     }
     const setCookie = `${txnCookiePrefix}${requestId}=${txnCookie}; ${txnCookieAttributes}; Max-Age=${AUTH_REQUEST_TTL_MS / 1000}`;
     if (storedDirect !== undefined) {
@@ -767,11 +768,13 @@ export function defineIdentityBroker<C extends Connector, R extends ResourceProv
       } catch (error) {
         await ctx.runMutation(component.authRequests.abandon, { requestId: claim.requestId });
         // The provider's error code picks one fixed answer; nothing the provider wrote is echoed.
+        // The connector's label is free text, so no description holds it (RFC 6749 section
+        // 4.1.2.1).
         if (error instanceof oauth.AuthorizationResponseError && error.error === "access_denied") {
           return authorizationError({
             ...back,
             error: "access_denied",
-            description: `${connector.label} sign-in was declined.`,
+            description: "The provider sign-in was declined.",
           });
         }
         if (
@@ -781,7 +784,7 @@ export function defineIdentityBroker<C extends Connector, R extends ResourceProv
           return authorizationError({
             ...back,
             error: "temporarily_unavailable",
-            description: `${connector.label} is temporarily unavailable.`,
+            description: "The provider is temporarily unavailable.",
           });
         }
         // Only the class name: provider errors carry token responses and decoded claims.
@@ -791,7 +794,7 @@ export function defineIdentityBroker<C extends Connector, R extends ResourceProv
         return authorizationError({
           ...back,
           error: "server_error",
-          description: `${connector.label} sign-in failed.`,
+          description: "The provider sign-in failed.",
         });
       }
       let authTime = now;
@@ -810,7 +813,8 @@ export function defineIdentityBroker<C extends Connector, R extends ResourceProv
           return authorizationError({
             ...back,
             error: "login_required",
-            description: `${connector.label} did not confirm a new login, which prompt=login or max_age asked for.`,
+            description:
+              "The provider did not confirm a new login, which prompt=login or max_age asked for.",
           });
         }
         authTime = authTimeSeconds * 1000;
@@ -993,7 +997,7 @@ export function defineIdentityBroker<C extends Connector, R extends ResourceProv
     // Only the Authorization header (RFC 6750 section 2.1): a token in the body or query is none.
     const bearer = readBearerToken(request.headers.get("authorization"));
     if (bearer === null) {
-      return noToken();
+      return noToken("userinfo");
     }
     const verified = await verifyAccessToken({ keySet: keySet(), issuer, token: bearer });
     // A deleted client's tokens die with it (RFC 7592 section 2.3); a paused client's live to expiry.

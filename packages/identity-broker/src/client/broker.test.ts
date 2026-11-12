@@ -467,6 +467,33 @@ describe("authorization code flow with an OAuth connector", () => {
     expect(unlisted.headers.get("location")).toBeNull();
   });
 
+  test("the query of a redirect URI is retained, and one with a response parameter is refused (RFC 6749 section 3.1.2)", async () => {
+    const h = await createHarness({ connectors: [fakeUpstream().connector] });
+    const kept = `${REDIRECT_URI}?keep=1`;
+    const taken = `${REDIRECT_URI}?iss=x&keep=1`;
+    const { clientId } = await h.registerClient({
+      appName: "My app",
+      redirectUri: kept,
+      otherRedirectUris: [taken],
+    });
+    const { challenge } = await pkce();
+
+    const back = await completeUpstream(
+      h,
+      await h.fetchBroker(authorizeUrl(h, { clientId, challenge, extra: { redirect_uri: kept } })),
+    );
+    const location = new URL(back.headers.get("location") ?? "");
+    expect(location.searchParams.get("keep")).toBe("1");
+    expect(location.searchParams.get("code")).toBeTruthy();
+
+    // The host-side registration does not parse its addresses; /authorize refuses this one.
+    const refused = await h.fetchBroker(
+      authorizeUrl(h, { clientId, challenge, extra: { redirect_uri: taken } }),
+    );
+    expect(refused.status).toBe(400);
+    expect(refused.headers.get("location")).toBeNull();
+  });
+
   test("every refusal before the user continued is a page of the hub, never a redirect", async () => {
     const h = await createHarness({ connectors: [fakeUpstream().connector] });
     const { clientId } = await h.registerClient({ appName: "My app", redirectUri: REDIRECT_URI });
@@ -514,7 +541,7 @@ describe("authorization code flow with an OAuth connector", () => {
     for (const extra of [{ prompt: "login" }, { max_age: "300" }]) {
       await refusedWith(
         extra,
-        "Fake cannot reauthenticate the user, which prompt=login or max_age asked for.",
+        "This sign-in method cannot reauthenticate the user, which prompt=login or max_age asked for.",
       );
     }
     // A refused request stores nothing and spends no budget.
@@ -531,7 +558,7 @@ describe("authorization code flow with an OAuth connector", () => {
       const response = await h.fetchBroker(authorizeUrl(h, { clientId, challenge, extra }));
       expect(response.status).toBe(400);
       expect(await response.text()).toContain(
-        "Google cannot reauthenticate the user, which prompt=login or max_age asked for.",
+        "This sign-in method cannot reauthenticate the user, which prompt=login or max_age asked for.",
       );
     }
   });
@@ -620,7 +647,7 @@ describe("authorization code flow with an OAuth connector", () => {
           expect(signIn.location.origin + signIn.location.pathname).toBe(REDIRECT_URI);
           expect(signIn.location.searchParams.get("error")).toBe("login_required");
           expect(signIn.location.searchParams.get("error_description")).toBe(
-            "IdP did not confirm a new login, which prompt=login or max_age asked for.",
+            "The provider did not confirm a new login, which prompt=login or max_age asked for.",
           );
           expect(signIn.location.searchParams.get("code")).toBeNull();
           // The request is abandoned: nothing is left to finish.
@@ -865,7 +892,7 @@ describe("authorization code flow with an OAuth connector", () => {
     // The provider refuses the code; its token response body travels in the thrown error.
     expect(await callback({ code: "refused-code" })).toEqual({
       error: "server_error",
-      description: "Fake sign-in failed.",
+      description: "The provider sign-in failed.",
     });
     expect(logged).toHaveBeenCalledTimes(1);
     expect(logged.mock.calls[0]).toEqual([expect.stringMatching(/^Connector "fake" failed: \w+$/)]);
@@ -873,11 +900,31 @@ describe("authorization code flow with an OAuth connector", () => {
       await callback({ error: "temporarily_unavailable", error_description: "Upstream detail" }),
     ).toEqual({
       error: "temporarily_unavailable",
-      description: "Fake is temporarily unavailable.",
+      description: "The provider is temporarily unavailable.",
     });
     expect(
       await callback({ error: "invalid_scope", error_description: "Upstream detail" }),
-    ).toEqual({ error: "server_error", description: "Fake sign-in failed." });
+    ).toEqual({ error: "server_error", description: "The provider sign-in failed." });
+  });
+
+  test("a declined sign-in through a connector with a non-ASCII label has a valid error_description", async () => {
+    const h = await createHarness({
+      connectors: [{ ...fakeUpstream().connector, label: "Identité" }],
+    });
+    const { clientId } = await h.registerClient({ appName: "My app", redirectUri: REDIRECT_URI });
+    const { challenge } = await pkce();
+    const started = await h.fetchBroker(authorizeUrl(h, { clientId, challenge }));
+    const upstreamUrl = new URL(started.headers.get("location") ?? "");
+    const url = new URL(upstreamUrl.searchParams.get("redirect_uri") ?? "");
+    url.searchParams.set("state", upstreamUrl.searchParams.get("state") ?? "");
+    url.searchParams.set("error", "access_denied");
+    const back = await h.fetchBroker(url, { headers: txnCookie(started) });
+    const location = new URL(back.headers.get("location") ?? "");
+    expect(location.searchParams.get("error")).toBe("access_denied");
+    // RFC 6749 section 4.1.2.1: the characters that error_description may hold.
+    expect(location.searchParams.get("error_description")).toMatch(
+      /^[\x20\x21\x23-\x5B\x5D-\x7E]+$/,
+    );
   });
 
   test("a client authenticates by the method it registered, and by one method only", async () => {
@@ -1692,7 +1739,7 @@ describe("handler rules at their edges", () => {
     }
   });
 
-  test("answers 401 at /userinfo: the bare challenge with no Bearer header, invalid_token for a bad one (RFC 6750 section 3.1)", async () => {
+  test("answers 401 at /userinfo: the realm challenge with no Bearer header, invalid_token for a bad one (RFC 6750 section 3)", async () => {
     const h = await createHarness({ connectors: [fakeUpstream().connector] });
     const form = { "Content-Type": "application/x-www-form-urlencoded" };
     for (const [url, init] of [
@@ -1702,7 +1749,7 @@ describe("handler rules at their edges", () => {
     ] as const) {
       const response = await h.fetchBroker(url, init);
       expect(response.status).toBe(401);
-      expect(response.headers.get("www-authenticate")).toBe("Bearer");
+      expect(response.headers.get("www-authenticate")).toBe('Bearer realm="userinfo"');
       expect(await response.text()).toBe("");
     }
     for (const method of ["GET", "POST"]) {

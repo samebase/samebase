@@ -41,7 +41,13 @@ export function isSecureUrl(url: URL): boolean {
   return url.protocol === "https:" || (url.protocol === "http:" && isLoopbackHost(url.hostname));
 }
 
-/** A redirect URI: absolute, no fragment, and secure. */
+/**
+ * The parameters of the authorization response. The response adds them to the redirect URI's query,
+ * which it must retain (RFC 6749 section 3.1.2), so a redirect URI whose query has one is refused.
+ */
+const RESPONSE_PARAMETERS = ["code", "state", "iss", "error", "error_description", "error_uri"];
+
+/** A redirect URI: absolute, no fragment, secure, and no authorization response parameter. */
 export function parseRedirectUri(value: string): URL | null {
   if (value.length === 0 || value.length > MAX_REDIRECT_URI_LENGTH) {
     return null;
@@ -52,7 +58,11 @@ export function parseRedirectUri(value: string): URL | null {
   } catch {
     return null;
   }
-  return url.hash.length === 0 && isSecureUrl(url) ? url : null;
+  return url.hash.length === 0 &&
+    isSecureUrl(url) &&
+    !RESPONSE_PARAMETERS.some((name) => url.searchParams.has(name))
+    ? url
+    : null;
 }
 
 export type AuthorizeInput = {
