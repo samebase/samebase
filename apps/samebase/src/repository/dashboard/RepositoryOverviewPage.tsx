@@ -71,8 +71,7 @@ function RepositoryHeader({
 }
 
 /**
-A removal in progress or failed has its own notice on the page, so only a repository that is not
-ready for removal shows a reason here.
+The disabled button shows no reason, because the page body already shows the setup or removal state.
 */
 function RepositoryDisconnect({
   onOpenDeleteDialog,
@@ -81,28 +80,20 @@ function RepositoryDisconnect({
   onOpenDeleteDialog: () => void;
   repository: UserRepositoryResult;
 }) {
-  const blockedReason =
-    repository.deletion.state === "not_deleting" &&
-    repository.deletion.deleteAction.state === "disabled"
-      ? repository.deletion.deleteAction.reason
-      : null;
-
   return (
-    <>
-      <Button
-        className="ml-auto"
-        disabled={repository.deletion.state !== "not_deleting" || blockedReason !== null}
-        size="sm"
-        type="button"
-        variant="outline"
-        onClick={onOpenDeleteDialog}
-      >
-        Disconnect
-      </Button>
-      {blockedReason ? (
-        <p className="w-full text-xs leading-5 text-muted-foreground">{blockedReason}</p>
-      ) : null}
-    </>
+    <Button
+      className="ml-auto"
+      disabled={
+        repository.deletion.state !== "not_deleting" ||
+        repository.deletion.deleteAction.state === "disabled"
+      }
+      size="sm"
+      type="button"
+      variant="outline"
+      onClick={onOpenDeleteDialog}
+    >
+      Disconnect
+    </Button>
   );
 }
 

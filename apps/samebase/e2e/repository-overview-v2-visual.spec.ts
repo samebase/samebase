@@ -542,7 +542,6 @@ test("disables Disconnect while provider setup runs", async ({ page }) => {
   await page.setViewportSize({ width: 700, height: 995 });
   const fixture = await openRepositoryOverviewV2(page, "repository-overview-v2-disconnect-blocked");
 
-  await expect(fixture.getByText("Repository setup is still running.")).toBeVisible();
   await expect(fixture.getByRole("button", { name: "Disconnect" })).toBeDisabled();
   await expect(fixture).toHaveScreenshot("repository-overview-v2-disconnect-blocked.png", {
     animations: "disabled",
