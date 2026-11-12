@@ -133,7 +133,7 @@ const providerDefaultBranchSchema = z
     target: z.object({
       __typename: z.literal("Commit"),
       oid: z.string().min(1),
-      messageHeadline: z.string(),
+      message: z.string(),
       committedDate: z.iso.datetime(),
       url: z.url(),
       statusCheckRollup: statusCheckRollupSchema,
@@ -205,7 +205,7 @@ const REPOSITORY_PULL_REQUEST_PAGE_QUERY = `
           __typename
           ... on Commit {
             oid
-            messageHeadline
+            message
             committedDate
             url
             statusCheckRollup { ...StatusCheckRollupFields }
@@ -461,7 +461,9 @@ export function normalizeGitHubPullRequestPage(value: unknown): RepositoryPullRe
           : {
               name: repository.defaultBranch.name,
               headCommitOid: repository.defaultBranch.target.oid,
-              headCommitTitle: repository.defaultBranch.target.messageHeadline,
+              // GitHub's messageHeadline cuts subjects over 72 characters to 69 plus "…".
+              // Keep the whole first line and let the page clamp it to the space it has.
+              headCommitTitle: repository.defaultBranch.target.message.replace(/\r?\n.*/s, ""),
               headCommitCommittedAt: repository.defaultBranch.target.committedDate,
               headCommitUrl: repository.defaultBranch.target.url,
               statusCheckRollup: normalizeStatusCheckRollup(

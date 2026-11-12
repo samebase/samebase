@@ -254,7 +254,7 @@ describe("repository_getStatus", () => {
                 target: {
                   __typename: "Commit",
                   oid: head,
-                  messageHeadline: `Head of ${branch}`,
+                  message: `Head of ${branch}`,
                   committedDate: "2026-09-29T20:45:00Z",
                   url: `https://github.com/scout-owner/scout/commit/${head}`,
                   statusCheckRollup:

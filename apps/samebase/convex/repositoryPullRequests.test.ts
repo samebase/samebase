@@ -26,7 +26,8 @@ function providerPage() {
         target: {
           __typename: "Commit",
           oid: "main123",
-          messageHeadline: "Keep the workspace model explicit",
+          message:
+            "Keep the workspace model explicit so the repository page shows every stack and check\n\nThe body is not part of the title.",
           committedDate: "2026-07-21T09:30:00Z",
           url: "https://github.com/samebase/samebase/commit/main123",
           statusCheckRollup: {
@@ -160,7 +161,8 @@ describe("normalizeGitHubPullRequestPage", () => {
         defaultBranch: {
           name: "main",
           headCommitOid: "main123",
-          headCommitTitle: "Keep the workspace model explicit",
+          headCommitTitle:
+            "Keep the workspace model explicit so the repository page shows every stack and check",
           headCommitCommittedAt: "2026-07-21T09:30:00Z",
           headCommitUrl: "https://github.com/samebase/samebase/commit/main123",
           statusCheckRollup: {
