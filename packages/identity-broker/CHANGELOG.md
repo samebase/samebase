@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.33.6
+
+- README: the sentence about how long a new hub takes is removed. No code change.
+
 ## 0.33.5
 
 - `/authorize` refuses a sign-in request with `id_token_hint` on the hub's error page, with

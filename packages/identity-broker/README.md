@@ -82,7 +82,7 @@ the session.
   start from [samebase/base](https://github.com/samebase/base), which has it from the first deploy.
 - **Run your own hub** for your name on Google's screen, your Google project, and your rules for who
   may register. Start from the [samebase/identity-hub](https://github.com/samebase/identity-hub)
-  template. It takes about 15 minutes.
+  template.
 - **Mount the component** in your own Convex app. Read [Mount it](#mount-it).
 
 ## Use a hub from your app
