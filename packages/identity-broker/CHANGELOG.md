@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.33.3
+
+- README: the title and the first sentence use the package name, `@samebase/identity-broker`. No
+  code change.
+
 ## 0.33.2
 
 - README: removed the statements that only say what the broker does not have or does not do, where
