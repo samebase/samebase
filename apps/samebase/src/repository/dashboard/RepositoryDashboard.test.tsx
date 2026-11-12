@@ -417,7 +417,7 @@ describe("Alchemy stack cards", () => {
       1,
     );
     expect(cards.map((card) => card.textContent)).toEqual([
-      "ideal-dolphin-15.convex.siteState in Convexideal-dolphin-15🇺🇸US East (N. Virginia)",
+      "ideal-dolphin-15.convex.siteideal-dolphin-15🇺🇸US East (N. Virginia)",
     ]);
     expect(
       [...section.querySelectorAll("a")].map((link) => [
@@ -490,10 +490,10 @@ describe("Alchemy stack cards", () => {
       });
 
       expect(
-        [...rootElement.querySelectorAll('[aria-label="Alchemy stack acme/app"]')].map(
-          (card) => card.textContent,
+        [...rootElement.querySelectorAll('[aria-label="Alchemy stack acme/app"]')].map((card) =>
+          card.querySelector("button[aria-label^='Alchemy state in']")?.getAttribute("aria-label"),
         ),
-      ).toEqual(["/State in Cloudflare", "/State in Convex"]);
+      ).toEqual(["Alchemy state in Cloudflare", "Alchemy state in Convex"]);
       expect(error.mock.calls.flat().join("\n")).not.toContain("the same key");
     } finally {
       await act(async () => {
@@ -514,11 +514,11 @@ describe("Alchemy stack cards", () => {
     expect(cards.map((card) => [card.getAttribute("aria-label"), card.textContent])).toEqual([
       [
         "Alchemy stack samebase/samebase",
-        "/clear-butterfly-858.convex.siteState in Convexsamebase-domains*.json.mdsamebase-posthog-proxye.samebase.comclear-butterfly-858",
+        "/clear-butterfly-858.convex.sitesamebase-domains*.json.mdsamebase-posthog-proxye.samebase.comclear-butterfly-858",
       ],
       [
         "Alchemy stack samebase/samebase/apps/sidebars-example",
-        "apps/sidebars-exampleState in Convexsamebase-monorepo-sidebars-examplee.samebase.com",
+        "apps/sidebars-examplesamebase-monorepo-sidebars-examplee.samebase.com",
       ],
     ]);
   });
@@ -546,7 +546,7 @@ describe("Alchemy stack cards", () => {
     );
 
     expect(cards.map((card) => card.textContent)).toEqual([
-      `${folder}State in Convexscout-public-mediascout-workspacesscout-workspaces-prod`,
+      `${folder}scout-public-mediascout-workspacesscout-workspaces-prod`,
     ]);
     expect(
       [...cards[0].querySelectorAll('a[title^="Open R2 bucket"]')].map((link) =>
@@ -592,7 +592,7 @@ describe("Alchemy stack cards", () => {
     );
 
     expect(cards.map((card) => card.textContent)).toEqual([
-      `State in Convexscout-public-mediascout-workspacesscout-workspaces-prod${line}`,
+      `scout-public-mediascout-workspacesscout-workspaces-prod${line}`,
     ]);
   });
 
@@ -783,7 +783,7 @@ describe("Alchemy stack cards", () => {
     // A run from a development machine has no run URL, so its line links nowhere. The address is
     // the one URL of the Worker, so the Worker row shows no URL and no build state.
     expect(cards.map((card) => card.textContent)).toEqual([
-      "tmp-k7m2-rows.pfp.workers.devState in Convexaaaaaaatmp-k7m2-rows",
+      "tmp-k7m2-rows.pfp.workers.devaaaaaaatmp-k7m2-rows",
     ]);
     expect([...cards[0].querySelectorAll("a")].map((link) => link.getAttribute("href"))).toEqual([
       "https://tmp-k7m2-rows.pfp.workers.dev",
@@ -905,7 +905,7 @@ describe("Alchemy stack cards", () => {
       deployment?.querySelector('[aria-label="Cloudflare Worker samebase-domains"]'),
     ).toBeNull();
     expect(cards.map((card) => card.textContent)).toEqual([
-      "apps/mailideal-dolphin-15.convex.siteState in Convexsamebase-domains*.json.mdideal-dolphin-15🇺🇸US East (N. Virginia)mailConvex componentsamebase-posthog-proxye.samebase.comscout-workspaces",
+      "apps/mailideal-dolphin-15.convex.sitesamebase-domains*.json.mdideal-dolphin-15🇺🇸US East (N. Virginia)mailConvex componentsamebase-posthog-proxye.samebase.comscout-workspaces",
     ]);
   });
 
@@ -964,17 +964,17 @@ describe("Alchemy stack cards", () => {
 
     // One card at the root shows no folder, and a preview deployment has no live read or route.
     expect(cards.map((card) => [card.getAttribute("aria-label"), card.textContent])).toEqual([
-      [
-        "Alchemy stack samebase/samebase",
-        "/aware-bobcat-542.convex.siteState in Convex429c121aware-bobcat-542",
-      ],
+      ["Alchemy stack samebase/samebase", "/aware-bobcat-542.convex.site429c121aware-bobcat-542"],
     ]);
     expect([...cards[0].querySelectorAll("a")].map((link) => link.getAttribute("href"))).toEqual([
       "https://aware-bobcat-542.convex.site",
       "https://github.com/samebase/samebase/actions/runs/39756039340/attempts/1",
       "https://dashboard.convex.dev/d/aware-bobcat-542",
     ]);
-    expect(cards[0].querySelectorAll("button")).toHaveLength(0);
+    // The only button says where the state is: a preview card has no menu.
+    expect(
+      [...cards[0].querySelectorAll("button")].map((button) => button.getAttribute("aria-label")),
+    ).toEqual(["Alchemy state in Convex"]);
   });
 });
 

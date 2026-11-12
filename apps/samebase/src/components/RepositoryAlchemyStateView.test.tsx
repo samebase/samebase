@@ -155,11 +155,10 @@ describe("AlchemyStateTree", () => {
     });
 
     expect(
-      Array.from(
-        container.firstElementChild?.children ?? [],
-        (stack) => stack.firstElementChild?.textContent,
+      Array.from(container.firstElementChild?.children ?? [], (stack) =>
+        stack.firstElementChild?.querySelector("button")?.getAttribute("aria-label"),
       ),
-    ).toEqual(["acme/appState in Convex", "acme/appState in Cloudflare"]);
+    ).toEqual(["Alchemy state in Convex", "Alchemy state in Cloudflare"]);
     expect(error.mock.calls.flat().join("\n")).not.toContain("the same key");
     await act(async () => root.unmount());
     error.mockRestore();
@@ -169,9 +168,8 @@ describe("AlchemyStateTree", () => {
     vi.useFakeTimers({ now: new Date("2026-10-22T09:46:35.577Z") });
     const container = renderTree(oneStack("samebase/samebase", [pr1768Stage]));
 
-    // The header of the stack names the store that holds its state.
     expect(container.firstElementChild?.firstElementChild?.firstElementChild?.textContent).toBe(
-      "samebase/samebaseState in Convex",
+      "samebase/samebase",
     );
     expect(
       Array.from(container.querySelectorAll("ul > li > details > summary"), (summary) => {

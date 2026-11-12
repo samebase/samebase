@@ -14,6 +14,13 @@ import type {
 } from "../../shared/alchemyStateModel";
 import { Link } from "@tanstack/react-router";
 import {
+  Popover,
+  PopoverContent,
+  PopoverDescription,
+  PopoverTitle,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
   CloudflareProviderLogo,
   ConvexProviderLogo,
 } from "@/components/repository-dashboard/RepositoryDashboardLogos";
@@ -73,18 +80,42 @@ export function CloudflareStateProblem({
 }
 
 const STATE_STORES = {
-  convex: { label: "State in Convex", icon: <ConvexProviderLogo /> },
-  cloudflare: { label: "State in Cloudflare", icon: <CloudflareProviderLogo /> },
-} satisfies Record<AlchemyStack["store"], { label: string; icon: ReactNode }>;
+  convex: {
+    name: "Convex",
+    icon: <ConvexProviderLogo />,
+    detail:
+      "This stack keeps its Alchemy state in the alchemy-state-store project of the Convex team (Convex.state()). The page updates live.",
+  },
+  cloudflare: {
+    name: "Cloudflare",
+    icon: <CloudflareProviderLogo />,
+    detail:
+      "This stack keeps its Alchemy state in the alchemy-state-store Worker of the Cloudflare account (Cloudflare.state()). Samebase reads it when the page opens.",
+  },
+} satisfies Record<AlchemyStack["store"], { name: string; icon: ReactNode; detail: string }>;
 
-/** The Alchemy state store that holds a stack, in words, since a phone shows no tooltip. */
+/**
+The Alchemy state store that holds a stack: the provider's icon, which says more on hover and on
+tap, since a phone has no hover.
+*/
 export function StackStateStore({ store }: { store: AlchemyStack["store"] }) {
-  const { label, icon } = STATE_STORES[store];
+  const { name, icon, detail } = STATE_STORES[store];
   return (
-    <span className="inline-flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground">
-      {icon}
-      {label}
-    </span>
+    <Popover>
+      <PopoverTrigger asChild nativeButton openOnHover>
+        <button
+          type="button"
+          aria-label={`Alchemy state in ${name}`}
+          className="inline-flex size-10 shrink-0 cursor-pointer items-center justify-center opacity-70 transition-opacity hover:opacity-100 @4xl:size-8"
+        >
+          {icon}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-72 max-w-[calc(100vw-1rem)] gap-1 p-3">
+        <PopoverTitle>Alchemy state in {name}</PopoverTitle>
+        <PopoverDescription>{detail}</PopoverDescription>
+      </PopoverContent>
+    </Popover>
   );
 }
 
@@ -310,8 +341,8 @@ export function AlchemyStateTree({
     <div className="p-3 text-sm">
       {observation.stacks.map((stack) => (
         <div key={`${stack.store}:${stack.name}`}>
-          <div className="flex min-w-0 items-center gap-2 py-1">
-            <span className="min-w-0 truncate font-mono font-medium">{stack.name}</span>
+          <div className="flex min-w-0 items-center justify-between gap-2">
+            <span className="min-w-0 truncate py-1 font-mono font-medium">{stack.name}</span>
             <StackStateStore store={stack.store} />
           </div>
           <ul className="ml-2.5 border-l border-border pl-3">
