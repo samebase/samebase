@@ -123,6 +123,7 @@ import type * as repository from "../repository.js";
 import type * as repository_actions from "../repository/actions.js";
 import type * as repository_alchemyState from "../repository/alchemyState.js";
 import type * as repository_branches from "../repository/branches.js";
+import type * as repository_cloudflareStateStore from "../repository/cloudflareStateStore.js";
 import type * as repository_confirmations from "../repository/confirmations.js";
 import type * as repository_contracts_actionConfirmation from "../repository/contracts/actionConfirmation.js";
 import type * as repository_contracts_connectRepository from "../repository/contracts/connectRepository.js";
@@ -149,6 +150,7 @@ import type * as repository_deletion_state from "../repository/deletion/state.js
 import type * as repository_deletion_workflow from "../repository/deletion/workflow.js";
 import type * as repository_editorModel from "../repository/editorModel.js";
 import type * as repository_eventOrderModel from "../repository/eventOrderModel.js";
+import type * as repository_fixtures_cloudflareStateStore from "../repository/fixtures/cloudflareStateStore.js";
 import type * as repository_fixtures_observedAlchemyState from "../repository/fixtures/observedAlchemyState.js";
 import type * as repository_fixtures_observedConvexComponents from "../repository/fixtures/observedConvexComponents.js";
 import type * as repository_fixtures_observedConvexCustomDomains from "../repository/fixtures/observedConvexCustomDomains.js";
@@ -176,8 +178,6 @@ import type * as repositoryWorkflowAuthority from "../repositoryWorkflowAuthorit
 import type * as resealCredentials from "../resealCredentials.js";
 import type * as sealedSecret from "../sealedSecret.js";
 import type * as slugUtils from "../slugUtils.js";
-import type * as stacks_cloudflareStateStore from "../stacks/cloudflareStateStore.js";
-import type * as stacks_organization from "../stacks/organization.js";
 import type * as starterSeed from "../starterSeed.js";
 import type * as toolRuntime_actionCatalog from "../toolRuntime/actionCatalog.js";
 import type * as toolRuntime_convexSchemas from "../toolRuntime/convexSchemas.js";
@@ -312,6 +312,7 @@ declare const fullApi: ApiFromModules<{
   "repository/actions": typeof repository_actions;
   "repository/alchemyState": typeof repository_alchemyState;
   "repository/branches": typeof repository_branches;
+  "repository/cloudflareStateStore": typeof repository_cloudflareStateStore;
   "repository/confirmations": typeof repository_confirmations;
   "repository/contracts/actionConfirmation": typeof repository_contracts_actionConfirmation;
   "repository/contracts/connectRepository": typeof repository_contracts_connectRepository;
@@ -338,6 +339,7 @@ declare const fullApi: ApiFromModules<{
   "repository/deletion/workflow": typeof repository_deletion_workflow;
   "repository/editorModel": typeof repository_editorModel;
   "repository/eventOrderModel": typeof repository_eventOrderModel;
+  "repository/fixtures/cloudflareStateStore": typeof repository_fixtures_cloudflareStateStore;
   "repository/fixtures/observedAlchemyState": typeof repository_fixtures_observedAlchemyState;
   "repository/fixtures/observedConvexComponents": typeof repository_fixtures_observedConvexComponents;
   "repository/fixtures/observedConvexCustomDomains": typeof repository_fixtures_observedConvexCustomDomains;
@@ -365,8 +367,6 @@ declare const fullApi: ApiFromModules<{
   resealCredentials: typeof resealCredentials;
   sealedSecret: typeof sealedSecret;
   slugUtils: typeof slugUtils;
-  "stacks/cloudflareStateStore": typeof stacks_cloudflareStateStore;
-  "stacks/organization": typeof stacks_organization;
   starterSeed: typeof starterSeed;
   "toolRuntime/actionCatalog": typeof toolRuntime_actionCatalog;
   "toolRuntime/convexSchemas": typeof toolRuntime_convexSchemas;

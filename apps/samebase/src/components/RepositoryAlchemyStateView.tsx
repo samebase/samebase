@@ -1,12 +1,22 @@
 import { Loader2 } from "lucide-react";
-import { AlchemyStateTree, RepositoryAlchemyStateStatus } from "./RepositoryAlchemyStateTree";
+import {
+  AlchemyStateTree,
+  CloudflareStateProblem,
+  RepositoryAlchemyStateStatus,
+} from "./RepositoryAlchemyStateTree";
 import { AppWorkspaceRouteChrome } from "@/components/AppWorkspaceShell";
 import { RepositoryOverviewLoadingPage } from "@/repository/dashboard/RepositoryOverviewPage";
 import { RepositorySelectedWorkspace } from "@/repository/dashboard/RepositorySelectedWorkspace";
 import { useRepositoryWorkspaceModel } from "@/repository/dashboard/useRepositoryWorkspaceModel";
 import type { RepositoryAlchemyState } from "@/repository/dashboard/useRepositoryAlchemyState";
 
-function RepositoryAlchemyStateTree({ state }: { state: RepositoryAlchemyState }) {
+function RepositoryAlchemyStateTree({
+  state,
+  owner,
+}: {
+  state: RepositoryAlchemyState;
+  owner: string;
+}) {
   if (state.state === "loading") {
     return (
       <RepositoryAlchemyStateStatus>
@@ -20,7 +30,16 @@ function RepositoryAlchemyStateTree({ state }: { state: RepositoryAlchemyState }
     return <RepositoryAlchemyStateStatus>{state.error.message}</RepositoryAlchemyStateStatus>;
   }
 
-  return <AlchemyStateTree observation={state.observation} />;
+  return (
+    <AlchemyStateTree
+      cloudflareProblem={
+        state.cloudflareProblem ? (
+          <CloudflareStateProblem owner={owner} problem={state.cloudflareProblem} />
+        ) : null
+      }
+      observation={state.observation}
+    />
+  );
 }
 
 export function RepositoryAlchemyStateView({
@@ -64,7 +83,7 @@ export function RepositoryAlchemyStateView({
             Loading Alchemy state
           </RepositoryAlchemyStateStatus>
         ) : workspace ? (
-          <RepositoryAlchemyStateTree state={workspace.alchemyState} />
+          <RepositoryAlchemyStateTree owner={owner} state={workspace.alchemyState} />
         ) : (
           <RepositoryAlchemyStateStatus>Repository not found.</RepositoryAlchemyStateStatus>
         )}

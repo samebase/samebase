@@ -9,6 +9,7 @@ import {
   testCredential,
 } from "../test.setup";
 import { readAlchemyStacks } from "./alchemyState";
+import { answerCloudflareRequest, cloudflareAccountId } from "./fixtures/cloudflareStateStore";
 import {
   observedAlchemyStackReply,
   observedBaseAlchemyProductionDeployment,
@@ -555,6 +556,86 @@ describe("the stack check before a GitHub repository deletion", () => {
 
   it("passes when the team has no store", async () => {
     await expect(requestDeletion({}, [appProject])).rejects.toThrow(passedTheCheck);
+  });
+
+  /**
+  Deletes the repository, renamed acme/app, of an organization that also connected the Cloudflare
+  account whose Alchemy state store answers `cloudflareStoreReplies`. The team has no store.
+  */
+  async function requestDeletionWithCloudflare(cloudflareStoreReplies: Record<string, unknown>) {
+    const t = makeConvexTest();
+    const { ids, user } = await seedAlchemyRepository(t);
+    await t.run(async (ctx) => {
+      const repository = await ctx.db.get(ids.repositoryId);
+      const credentials = await ctx.db.query("organizationProviderCredentials").first();
+      if (repository?.state !== "connected" || !credentials) {
+        throw new Error("Expected the seeded repository and credentials.");
+      }
+      await ctx.db.patch(repository.organizationId, {
+        githubOwnerLogin: "acme",
+        githubOwnerLoginNormalized: "acme",
+        cloudflareAccount: { accountId: cloudflareAccountId, accountName: "Acme" },
+      });
+      await ctx.db.patch(ids.repositoryId, { githubRepositoryName: "app" });
+      await ctx.db.patch(credentials._id, {
+        cloudflare: {
+          connectedByUserId: ids.userId,
+          auth: { method: "api_key", credential: testCredential("cloudflare-api-token") },
+          updatedAt: 2,
+        },
+      });
+    });
+    await sealTestCredentials(t);
+    installAlchemyStateFetchStub({
+      requests: [],
+      stackReplies: {},
+      storeReply: observedAlchemyStackReply,
+      teamProjects: [],
+    });
+    // Cloudflare answers first: the Convex stub reads each string body as JSON, and the preview
+    // upload sends a multipart body.
+    const convexFetch = fetch;
+    vi.stubGlobal(
+      "fetch",
+      async (input: RequestInfo | URL, init?: RequestInit) =>
+        answerCloudflareRequest(
+          cloudflareStoreReplies,
+          input instanceof Request ? input.url : String(input),
+          init,
+        ) ?? (await convexFetch(input, init)),
+    );
+    return await user.action(api.repository.actions.deleteRepository, {
+      repositoryId: ids.repositoryId,
+      removeGithubRepo: true,
+    });
+  }
+
+  it("refuses while the Cloudflare store holds a stage whose run record names the repository", async () => {
+    await expect(
+      requestDeletionWithCloudflare({
+        "/state/stacks": ["web"],
+        "/state/stacks/web/stages": ["prod"],
+        "/state/stacks/web/stages/prod/output": {
+          "samebase.run": {
+            version: 1,
+            repository: "acme/app",
+            stackFile: "alchemy.run.ts",
+            branch: "main",
+            pullRequest: null,
+            headCommit: "0123456789abcdef0123456789abcdef01234567",
+            runUrl: null,
+            source: "checkout",
+            recordedAt: "2026-11-12T10:00:00.000Z",
+          },
+        },
+        "/state/stacks/web/stages/prod/resources": [],
+      }),
+    ).rejects.toMatchObject({ data: "Destroy your Alchemy stack first." });
+  });
+
+  it("leaves the decision to the team's store when the Cloudflare store cannot be read", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    await expect(requestDeletionWithCloudflare({})).rejects.toThrow(passedTheCheck);
   });
 
   it("refuses without a Convex connection", async () => {

@@ -8,8 +8,11 @@ import {
   stageResources,
 } from "../../shared/alchemyState";
 import type { AlchemyStage, AlchemyStateObservation } from "../../shared/alchemyStateModel";
+import { Link } from "@tanstack/react-router";
 import { formatRelativeTimeAgo } from "@/lib/formatRelativeTime";
 import { resourceTypePresentation } from "@/components/resourceTypePresentation";
+import { ORGANIZATION_PROVIDERS_ROUTE } from "@/organization/organizationRoutes";
+import type { RepositoryAlchemyState } from "@/repository/dashboard/useRepositoryAlchemyState";
 
 type AlchemyRunRecord = AlchemyStage["run"];
 
@@ -36,6 +39,28 @@ function outputEntries(output: unknown, path: string): { path: string; value: st
   }
   return Object.entries(output).flatMap(([key, child]) =>
     outputEntries(child, path ? `${path}.${key}` : key),
+  );
+}
+
+/** The line that a page with no stack shows when the Cloudflare store gave no stacks. */
+export function CloudflareStateProblem({
+  problem,
+  owner,
+}: {
+  problem: NonNullable<Extract<RepositoryAlchemyState, { state: "loaded" }>["cloudflareProblem"]>;
+  /** The GitHub owner of the organization, for its Providers page. */
+  owner: string;
+}) {
+  return problem === "reconnect" ? (
+    <span>
+      An app with its Alchemy state in Cloudflare needs an owner to connect Cloudflare again on{" "}
+      <Link className="underline" params={{ owner }} to={ORGANIZATION_PROVIDERS_ROUTE}>
+        Providers
+      </Link>{" "}
+      and allow Secrets Store Read and Edit.
+    </span>
+  ) : (
+    <span>Could not read the Alchemy state store in Cloudflare.</span>
   );
 }
 
@@ -225,25 +250,36 @@ function AlchemyStageDetails({ stage }: { stage: AlchemyStage }) {
   );
 }
 
-export function AlchemyStateTree({ observation }: { observation: AlchemyStateObservation }) {
+export function AlchemyStateTree({
+  observation,
+  cloudflareProblem,
+}: {
+  observation: AlchemyStateObservation;
+  /** A `CloudflareStateProblem`, shown after the message of a page with no stack. */
+  cloudflareProblem?: ReactNode;
+}) {
+  const status = (message: string) => (
+    <RepositoryAlchemyStateStatus>
+      {cloudflareProblem ? (
+        <span>
+          {message} {cloudflareProblem}
+        </span>
+      ) : (
+        message
+      )}
+    </RepositoryAlchemyStateStatus>
+  );
+
   if (observation.store === "missing") {
-    return (
-      <RepositoryAlchemyStateStatus>
-        No Alchemy state store in this team yet.
-      </RepositoryAlchemyStateStatus>
-    );
+    return status("No Alchemy state store in this team yet.");
   }
 
   if (observation.store === "no_connection") {
-    return (
-      <RepositoryAlchemyStateStatus>
-        This repository has no Convex connection.
-      </RepositoryAlchemyStateStatus>
-    );
+    return status("This repository has no Convex connection.");
   }
 
   if (observation.stacks.length === 0) {
-    return <RepositoryAlchemyStateStatus>No Alchemy state.</RepositoryAlchemyStateStatus>;
+    return status("No Alchemy state.");
   }
 
   return (

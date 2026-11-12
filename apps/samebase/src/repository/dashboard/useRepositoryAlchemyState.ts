@@ -1,4 +1,4 @@
-import { useQuery as useCachedQuery } from "@tanstack/react-query";
+import { useQuery as useCachedQuery, type UseQueryResult } from "@tanstack/react-query";
 import { parse } from "convex-helpers/validators";
 import { ConvexClient } from "convex/browser";
 import { useMatch } from "@tanstack/react-router";
@@ -14,6 +14,7 @@ import {
   vAlchemyRepositoryReply,
   type AlchemyStacksRead,
   type AlchemyStateObservation,
+  type CloudflareStacksRead,
 } from "../../../shared/alchemyStateModel";
 
 const repositoryQuery = makeFunctionReference<"query", Record<string, never>, unknown>(
@@ -27,6 +28,12 @@ export type RepositoryAlchemyState =
       state: "loaded";
       observation: AlchemyStateObservation;
       refreshFailed: boolean;
+      /**
+      Why the Cloudflare store gave no stack: `reconnect` when Cloudflare refused the token,
+      `unreadable` when the read failed or the store version is unknown. Set only when the page has
+      no stack to show, so a repository with stacks never shows it.
+      */
+      cloudflareProblem?: "reconnect" | "unreadable";
       reload: () => void;
     };
 
@@ -57,11 +64,16 @@ function useLoaderRead(repositoryId: Id<"repositories"> | null, convexTeamId: st
 }
 
 /**
-One connection for the selected repository. Cleanup closes it; results belong to its target. The
-loader's read stands until the first subscription result, and the connection starts with its token,
-so the page has the stacks before any request of the browser. A reload connects again.
-`repository` is the GitHub `owner/name` of the repository: the run record of each stage that the
-page shows names it.
+One connection for the selected repository to the store of its Convex team. Cleanup closes it;
+results belong to its target. The loader's read stands until the first subscription result, and the
+connection starts with its token, so the page has the stacks before any request of the browser. A
+reload connects again and reads the Cloudflare store again. `repository` is the GitHub `owner/name`
+of the repository: the run record of each stage that the page shows names it.
+
+The store of the organization's Cloudflare account is read once when the page opens, in the
+browser, because the read takes some seconds and uploads an edge preview at Cloudflare. Its stacks
+join the Convex stacks in one observation, and while it runs, a page with no Convex stack shows its
+loading state.
 */
 export function useRepositoryAlchemyState(
   repositoryId: Id<"repositories"> | null,
@@ -72,23 +84,40 @@ export function useRepositoryAlchemyState(
   const viewer = useQuery(api.users.viewer, isAuthenticated ? {} : "skip");
   const connect = useAction(api.repository.alchemyState.connect);
   const readDeploymentMetadata = useAction(api.repository.alchemyState.readDeploymentMetadata);
+  const readCloudflareStacks = useAction(api.repository.alchemyState.readCloudflareStacks);
   const loaderRead = useLoaderRead(repositoryId, convexTeamId);
   const [attempt, setAttempt] = useState(0);
   const [reloadedRead, setReloadedRead] = useState<typeof loaderRead>();
   const firstRead = loaderRead === reloadedRead ? undefined : loaderRead;
   const userId = isAuthenticated ? viewer?._id : undefined;
+  // The Convex store lives in the repository's Convex team, and no team means no connection to it.
+  const convexRepositoryId = convexTeamId ? repositoryId : null;
   const target = useMemo(
     () =>
-      repositoryId && repository && userId
-        ? { repositoryId, repository, userId, convexTeamId, attempt, firstRead }
+      convexRepositoryId && repository && userId
+        ? { repositoryId: convexRepositoryId, repository, userId, convexTeamId, attempt, firstRead }
         : null,
-    [repositoryId, repository, userId, convexTeamId, attempt, firstRead],
+    [convexRepositoryId, repository, userId, convexTeamId, attempt, firstRead],
   );
   const [result, setResult] = useState<{ target: typeof target; value: StoreResult }>();
+  const cloudflare = useCachedQuery({
+    queryKey: ["repository-alchemy-cloudflare-stacks", repositoryId, userId],
+    queryFn: async () => {
+      if (!repositoryId) throw new Error("Repository is required to read the Cloudflare store.");
+      return await readCloudflareStacks({ repositoryId });
+    },
+    enabled: repositoryId !== null && userId !== undefined,
+    // Each read uploads an edge preview at Cloudflare: no read on focus and no retry. A page that
+    // opens again shows the last read while it reads again.
+    refetchOnWindowFocus: false,
+    retry: false,
+  });
+  const { refetch: refetchCloudflare } = cloudflare;
   const reload = useCallback(() => {
     setReloadedRead(loaderRead);
     setAttempt((current) => current + 1);
-  }, [loaderRead]);
+    void refetchCloudflare();
+  }, [loaderRead, refetchCloudflare]);
   const firstResult = useMemo((): StoreResult | undefined => {
     if (!firstRead) return undefined;
     if (firstRead.state === "failed")
@@ -258,7 +287,6 @@ export function useRepositoryAlchemyState(
     staleTime: 60_000,
   });
 
-  // The store lives in the Convex team of the repository, and no team means no connection to it.
   if (!repositoryId) {
     return {
       state: "loaded",
@@ -267,15 +295,64 @@ export function useRepositoryAlchemyState(
       reload,
     };
   }
-  if (!current) return { state: "loading" };
-  if (current.state === "failed") return { ...current, reload };
-  return {
-    state: "loaded",
-    observation:
-      current.read.store === "found"
-        ? { ...current.read, liveDeployments: metadata.data ?? [] }
-        : current.read,
-    refreshFailed: metadata.isError,
-    reload,
-  };
+  const convex = convexRepositoryId
+    ? current
+    : { state: "loaded" as const, read: { store: "no_connection" as const } };
+  if (!convex) return { state: "loading" };
+  if (convex.state === "failed") return { ...convex, reload };
+  const observation: AlchemyStateObservation =
+    convex.read.store === "found"
+      ? { ...convex.read, liveDeployments: metadata.data ?? [] }
+      : convex.read;
+  return withCloudflareRead(
+    { state: "loaded", observation, refreshFailed: metadata.isError, reload },
+    cloudflare,
+  );
+}
+
+/**
+The loaded Convex read with the Cloudflare read. Nothing flashes: a page without a Convex stack
+waits for the Cloudflare read, and Convex stacks show at once. A read that throws counts as failed.
+*/
+function withCloudflareRead(
+  loaded: Extract<RepositoryAlchemyState, { state: "loaded" }>,
+  query: Pick<UseQueryResult<CloudflareStacksRead>, "data" | "isError">,
+): RepositoryAlchemyState {
+  const cloudflareRead: CloudflareStacksRead | undefined =
+    query.data ?? (query.isError ? { state: "failed" } : undefined);
+  const convexStacks = loaded.observation.store === "found" ? loaded.observation : null;
+  if (!cloudflareRead) {
+    return convexStacks?.stacks.length ? loaded : { state: "loading" };
+  }
+  if (cloudflareRead.state === "found" && cloudflareRead.stacks.length > 0) {
+    return {
+      ...loaded,
+      observation: {
+        store: "found",
+        stacks: [...(convexStacks?.stacks ?? []), ...cloudflareRead.stacks],
+        liveDeployments: [
+          ...(convexStacks?.liveDeployments ?? []),
+          ...cloudflareRead.liveDeployments,
+        ],
+      },
+    };
+  }
+  if (convexStacks?.stacks.length) {
+    return loaded;
+  }
+  switch (cloudflareRead.state) {
+    case "reconnect":
+      return { ...loaded, cloudflareProblem: "reconnect" };
+    case "failed":
+    case "unsupported_version":
+      return { ...loaded, cloudflareProblem: "unreadable" };
+    case "not_connected":
+    case "unsupported_connection":
+    case "no_store":
+    case "found":
+      return loaded;
+    default:
+      cloudflareRead satisfies never;
+      return loaded;
+  }
 }

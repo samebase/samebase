@@ -17,7 +17,7 @@ The key of the run record in a stage output.
 
 @see https://github.com/samebase/samebase/blob/e992b030f0b5cb4da9959a6fa4b17be3d7a23bbf/packages/alchemy-convex/src/RunRecord.ts#L18-L19
 */
-export const RUN_RECORD_KEY = "samebase.run";
+const RUN_RECORD_KEY = "samebase.run";
 
 /**
 Alchemy's `encodeState` writes a `Redacted` value in clear text as `{ "__redacted__": <value> }`, and
@@ -27,6 +27,18 @@ its `reviveState` reads every object with this key as a secret.
 @see https://github.com/alchemy-run/alchemy/blob/v2.0.0-beta.80/packages/alchemy/src/State/StateEncoding.ts#L138-L140
 */
 export const ALCHEMY_REDACTED_MARKER = "__redacted__";
+
+/**
+Alchemy state holds each `Redacted` value in clear text. This parses a JSON text of the state, keeps
+the key of each secret, and replaces its value with `null`, so the value never leaves the action.
+*/
+export function parseWithoutSecretValues(text: string): unknown {
+  return JSON.parse(text, (_key, current: unknown) =>
+    isRecord(current) && ALCHEMY_REDACTED_MARKER in current
+      ? { [ALCHEMY_REDACTED_MARKER]: null }
+      : current,
+  );
+}
 
 /**
 A binding that `bindComponent` writes on a `Convex.Deployment` row: the installed component `path`

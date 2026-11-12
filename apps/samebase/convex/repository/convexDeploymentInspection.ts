@@ -9,13 +9,10 @@ import {
 import { ConvexError, v } from "convex/values";
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
-import { internalQuery, type ActionCtx } from "../_generated/server";
+import { internalQuery, type ActionCtx, type DatabaseReader } from "../_generated/server";
 import type { ConvexCloudDeployment } from "../convexManagementApi/client";
 import { isRecord, toErrorMessage } from "../jsonUtils";
-import {
-  requireOrganizationMembershipRecord,
-  requireRepositoryForUser,
-} from "../organizationAccess";
+import { requireRepositoryForUser } from "../organizationAccess";
 import { getOrganizationProviderConfiguration } from "../organizationProviderCredentials";
 import { organizationProviderCredentialAad } from "../organization/providerCredentialModel";
 import { openSecret, vSealedSecret } from "../sealedSecret";
@@ -68,6 +65,25 @@ const vSealedConvexInspectionTarget = object({
   teamId: string(),
 });
 
+/** A live, connected repository that the user can read, with its GitHub `owner/name`. */
+export async function requireLiveRepositoryForUser(
+  db: DatabaseReader,
+  args: { repositoryId: Id<"repositories">; userId: Id<"users"> },
+) {
+  const repository = await requireRepositoryForUser(db, {
+    userId: args.userId,
+    repositoryId: args.repositoryId,
+  });
+  const organization = await db.get(repository.organizationId);
+  if (!isLiveConnectedRepository(repository) || !organization) {
+    throw new Error("Repository not found.");
+  }
+  return {
+    repository,
+    githubRepositoryFullName: `${organization.githubOwnerLogin}/${repository.githubRepositoryName}`,
+  };
+}
+
 export const readTarget = internalQuery({
   args: {
     repositoryId: id("repositories"),
@@ -75,14 +91,10 @@ export const readTarget = internalQuery({
   },
   returns: vSealedConvexInspectionTarget,
   handler: async (ctx, args) => {
-    const repository = await requireRepositoryForUser(ctx.db, {
-      userId: args.userId,
-      repositoryId: args.repositoryId,
-    });
-    const organization = await ctx.db.get(repository.organizationId);
-    if (!isLiveConnectedRepository(repository) || !organization) {
-      throw new Error("Repository not found.");
-    }
+    const { repository, githubRepositoryFullName } = await requireLiveRepositoryForUser(
+      ctx.db,
+      args,
+    );
 
     const configuration = await getOrganizationProviderConfiguration(
       ctx.db,
@@ -96,72 +108,11 @@ export const readTarget = internalQuery({
       organizationId: repository.organizationId,
       credential: credential.auth.credential,
       authMethod: credential.auth.method,
-      githubRepositoryFullName: `${organization.githubOwnerLogin}/${repository.githubRepositoryName}`,
+      githubRepositoryFullName,
       teamId: convexTeam.teamId,
     };
   },
 });
-
-/**
-The Convex team of an organization with its sealed token, for a member of the organization, or null
-when the organization has no Convex connection.
-*/
-export const readOrganizationTarget = internalQuery({
-  args: {
-    organizationId: id("organizations"),
-    userId: id("users"),
-  },
-  returns: union(
-    object({
-      credential: vSealedSecret,
-      authMethod: vConvexProviderAuthMethod,
-      teamId: string(),
-      teamSlug: union(string(), v.null()),
-    }),
-    v.null(),
-  ),
-  handler: async (ctx, args) => {
-    await requireOrganizationMembershipRecord(ctx.db, {
-      organizationId: args.organizationId,
-      userId: args.userId,
-    });
-    const { convexCredential: credential, convexTeam } = await getOrganizationProviderConfiguration(
-      ctx.db,
-      args.organizationId,
-    );
-    return convexTeam && credential
-      ? {
-          credential: credential.auth.credential,
-          authMethod: credential.auth.method,
-          teamId: convexTeam.teamId,
-          teamSlug: convexTeam.teamSlug ?? null,
-        }
-      : null;
-  },
-});
-
-/** The Convex team of an organization with its token opened, or null without a Convex connection. */
-export async function readOrganizationConvexTarget(
-  ctx: Pick<ActionCtx, "runQuery">,
-  args: { organizationId: Id<"organizations">; userId: Id<"users"> },
-) {
-  const target = await ctx.runQuery(
-    internal.repository.convexDeploymentInspection.readOrganizationTarget,
-    { organizationId: args.organizationId, userId: args.userId },
-  );
-  if (target === null) {
-    return null;
-  }
-  const token = (
-    await openSecret({
-      sealed: target.credential,
-      aad: organizationProviderCredentialAad(args.organizationId, "convex.auth.credential"),
-    })
-  ).trim();
-  return token
-    ? { authMethod: target.authMethod, teamId: target.teamId, teamSlug: target.teamSlug, token }
-    : null;
-}
 
 /** The inspection target of a repository, with the organization's Convex token opened. */
 export async function readConvexInspectionTarget(

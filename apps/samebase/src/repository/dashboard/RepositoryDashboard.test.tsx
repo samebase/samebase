@@ -1734,7 +1734,6 @@ describe("formatRepositorySourceSetupStep", () => {
 });
 
 describe("readRepositoryStackCheck", () => {
-  const withTeam = makeRepositorySettingsBuilderRepository({ convexTeamId: "38516" });
   const loaded = (observation: AlchemyStateObservation) =>
     ({ state: "loaded", observation, refreshFailed: false, reload: () => {} }) as const;
 
@@ -1753,21 +1752,7 @@ describe("readRepositoryStackCheck", () => {
       "has_stack",
     ],
   ])("reads %j as %s", (alchemyState, state) => {
-    expect(readRepositoryStackCheck(withTeam, alchemyState).state).toBe(state);
-  });
-
-  it("asks for Convex when the repository has no team, whose read stays loading", () => {
-    expect(
-      readRepositoryStackCheck(
-        makeRepositorySettingsBuilderRepository({ convexTeamId: undefined }),
-        {
-          state: "loading",
-        },
-      ),
-    ).toEqual({
-      state: "unknown",
-      reason: "Connect Convex so Samebase can check for an Alchemy stack.",
-    });
+    expect(readRepositoryStackCheck(alchemyState).state).toBe(state);
   });
 });
 

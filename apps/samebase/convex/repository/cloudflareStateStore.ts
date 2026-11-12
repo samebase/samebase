@@ -1,15 +1,22 @@
 import { isRecord, notEmpty } from "@samebase/dependent/main";
 import { validate } from "convex-helpers/validators";
 import { v } from "convex/values";
-import {
-  parseStoreJson,
-  storeResource,
-  storeStageRun,
-  type StateStoreRead,
-  type StoreStack,
-} from "../../shared/stateStoreStacks";
+import { parseWithoutSecretValues, readDeployedStacks } from "../../shared/alchemyState";
+import type { AlchemyStack, CloudflareStacksRead } from "../../shared/alchemyStateModel";
+import { internal } from "../_generated/api";
+import type { Id } from "../_generated/dataModel";
+import { internalQuery, type ActionCtx } from "../_generated/server";
+import type { ResolvedCloudflareConnection } from "../cloudflareOAuth";
+import { organizationProviderCredentialAad } from "../organization/providerCredentialModel";
+import { openSecret } from "../sealedSecret";
+import { requireLiveRepositoryForUser } from "./convexDeploymentInspection";
 
-const { array, number, object, optional, string } = v;
+const { array, id, number, object, optional, string } = v;
+
+/** The read of the store for one repository, before the Convex metadata of its deployments. */
+type CloudflareStoreRead =
+  | Exclude<CloudflareStacksRead, { state: "found" }>
+  | { state: "found"; stacks: AlchemyStack[] };
 
 const CLOUDFLARE_API_URL = "https://api.cloudflare.com/client/v4";
 /**
@@ -45,6 +52,18 @@ const vEdgePreviewSession = object({ token: string(), exchange_url: optional(str
 const vExchangedToken = object({ token: string() });
 const vEdgePreview = object({ preview_token: string() });
 const vNames = array(string());
+
+/**
+Parses a JSON text of a Cloudflare reply. A text that is not JSON gives undefined: the error of
+`JSON.parse` can quote the text, and the text can hold a token.
+*/
+function parseStoreJson(text: string): unknown {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return undefined;
+  }
+}
 
 /**
 Ends the read with `state`. The message names the request and its status, never a body: a body can
@@ -212,13 +231,18 @@ function limiter(limit: number) {
 }
 
 /**
-Every stack of the store in name order, each with its stages in name order and their resources in
-fqn order. The store lists only stages that hold a resource. A stack that fails to read is one
-`failed` stack; the others still show. A resource that fails to read keeps its fqn without a type or
-a status, and a resource that a deploy removed during the read is left out. Each row is reduced to
-`storeResource` as soon as it arrives, so no other field of it leaves this function.
+The stacks of `repository` in the store, as `readDeployedStacks` keeps them: the stack name does not
+count, only the run record in the output of a stage. Stacks and stages are in name order, resources
+in fqn order. The resources of a stage are read only when its run record names the repository, and
+a resource that a deploy removed during the read is left out. Each row and output has its secret
+values removed as soon as it arrives, the same as a read of the Convex store, so no secret value
+leaves this function. A request that fails stops the whole read: a partial read could hide a stack.
 */
-async function readStacks(storeUrl: string, bearer: string): Promise<StoreStack[]> {
+async function readStacks(
+  storeUrl: string,
+  bearer: string,
+  repository: string,
+): Promise<AlchemyStack[]> {
   const limited = limiter(STORE_REQUEST_LIMIT);
   const get = async (path: string) =>
     await limited(async () => {
@@ -228,62 +252,72 @@ async function readStacks(storeUrl: string, bearer: string): Promise<StoreStack[
       if (status !== 200) {
         throw new StoreReadStop("failed", `store ${path}: ${status}`);
       }
-      return text.length === 0 ? null : parseStoreJson(text);
+      return text;
     });
   const names = async (path: string) => {
-    const reply = await get(path);
+    const reply = parseStoreJson(await get(path));
     if (!validate(vNames, reply)) {
       throw new StoreReadStop("failed", `store ${path}: unexpected reply`);
     }
     return [...reply].sort();
   };
+  /** The JSON text of a row or an output without its secret values, null when the store has none. */
+  const state = async (path: string) => {
+    const text = await get(path);
+    if (text.length === 0) {
+      return null;
+    }
+    try {
+      return JSON.stringify(parseWithoutSecretValues(text));
+    } catch {
+      throw new StoreReadStop("failed", `store ${path}: not JSON`);
+    }
+  };
 
-  const stackNames = await names("/state/stacks");
-  return await Promise.all(
-    stackNames
+  const stacks = await Promise.all(
+    (await names("/state/stacks"))
       .filter((name) => name !== LEGACY_BOOTSTRAP_STACK)
-      .map(async (name): Promise<StoreStack> => {
+      .map(async (name) => {
         const stackPath = `/state/stacks/${encodeURIComponent(name)}/stages`;
-        try {
-          const stages = await Promise.all(
-            (await names(stackPath)).map(async (stage) => {
-              const stagePath = `${stackPath}/${encodeURIComponent(stage)}`;
-              const [fqns, output] = await Promise.all([
-                names(`${stagePath}/resources`),
-                get(`${stagePath}/output`),
-              ]);
-              const resources = await Promise.all(
-                fqns.map(async (fqn) => {
-                  const row = await get(`${stagePath}/resources/${encodeURIComponent(fqn)}`).catch(
-                    () => undefined,
-                  );
-                  return row === null ? null : storeResource(fqn, row);
-                }),
-              );
-              return {
-                name: stage,
-                run: storeStageRun(output),
-                resources: resources.filter(notEmpty),
-              };
-            }),
-          );
-          return { name, read: "ok", stages };
-        } catch {
-          return { name, read: "failed" };
-        }
+        const stages = await Promise.all(
+          (await names(stackPath)).map(async (stage) => {
+            const stagePath = `${stackPath}/${encodeURIComponent(stage)}`;
+            const output = await state(`${stagePath}/output`);
+            const deployed = readDeployedStacks(
+              [{ name, stages: [{ name: stage, resources: [], output }] }],
+              repository,
+            )
+              .at(0)
+              ?.stages.at(0);
+            if (!deployed) {
+              return null;
+            }
+            const resources = await Promise.all(
+              (await names(`${stagePath}/resources`)).map(async (fqn) => {
+                const value = await state(`${stagePath}/resources/${encodeURIComponent(fqn)}`);
+                return value === null ? null : { fqn, value };
+              }),
+            );
+            return { ...deployed, resources: resources.filter(notEmpty) };
+          }),
+        );
+        const kept = stages.filter(notEmpty);
+        return kept.length === 0 ? null : { name, stages: kept };
       }),
   );
+  return stacks.filter(notEmpty);
 }
 
 /**
-Reads every stack of the Alchemy state store of a Cloudflare account with an API token or an OAuth
-access token. It needs Workers Scripts Edit and Secrets Store Edit: Cloudflare binds a Secrets Store
-secret only with Edit. The store token stays in this function.
+Reads the stacks of `repository` (GitHub `owner/name`) from the Alchemy state store of a Cloudflare
+account with an API token or an OAuth access token. It needs Workers Scripts Edit and Secrets Store
+Edit: Cloudflare binds a Secrets Store secret only with Edit. The store token stays in this function.
 */
 export async function readCloudflareStateStore(args: {
   token: string;
   accountId: string;
-}): Promise<StateStoreRead> {
+  repository: string;
+}): Promise<CloudflareStoreRead> {
   try {
     const subdomain = await cloudflareResult(
       args.token,
@@ -324,7 +358,7 @@ export async function readCloudflareStateStore(args: {
       secretsStoreId: secretsStore.id,
       storeUrl,
     });
-    return { state: "found", stacks: await readStacks(storeUrl, bearer) };
+    return { state: "found", stacks: await readStacks(storeUrl, bearer, args.repository) };
   } catch (error) {
     if (error instanceof StoreReadStop) {
       console.warn("cloudflare_state_store:read_stopped", {
@@ -339,4 +373,67 @@ export async function readCloudflareStateStore(args: {
     });
     return { state: "failed" };
   }
+}
+
+/** The organization and GitHub `owner/name` of a repository that the user can read. */
+export const readTarget = internalQuery({
+  args: { repositoryId: id("repositories"), userId: id("users") },
+  returns: object({ organizationId: id("organizations"), githubRepositoryFullName: string() }),
+  handler: async (ctx, args) => {
+    const { repository, githubRepositoryFullName } = await requireLiveRepositoryForUser(
+      ctx.db,
+      args,
+    );
+    return { organizationId: repository.organizationId, githubRepositoryFullName };
+  },
+});
+
+/**
+The stacks of a repository in the Alchemy state store of its organization's Cloudflare account. It
+checks the user's access to the repository and needs no Convex connection.
+*/
+export async function readRepositoryCloudflareStacks(
+  ctx: Pick<ActionCtx, "runAction" | "runQuery">,
+  args: { repositoryId: Id<"repositories">; userId: Id<"users"> },
+): Promise<CloudflareStoreRead> {
+  const { organizationId, githubRepositoryFullName } = await ctx.runQuery(
+    internal.repository.cloudflareStateStore.readTarget,
+    { repositoryId: args.repositoryId, userId: args.userId },
+  );
+  let connection: ResolvedCloudflareConnection | null;
+  try {
+    connection = await ctx.runAction(internal.cloudflareOAuth.resolveConnectionForOrganization, {
+      organizationId,
+      userId: args.userId,
+    });
+  } catch {
+    // The resolver records a grant that the hub refused to refresh. Only a reconnect repairs it.
+    const current = await ctx.runQuery(
+      internal.organizationProviderCredentials.loadForProviderStatus,
+      { organizationId, userId: args.userId },
+    );
+    return {
+      state:
+        current.cloudflareCredential?.tokenHealth?.status === "invalid" ? "reconnect" : "failed",
+    };
+  }
+  if (connection === null) {
+    return { state: "not_connected" };
+  }
+  // An MCP connection reaches the API only through Cloudflare's MCP server, which cannot upload
+  // the preview Worker that reads the store token.
+  if (connection.auth.method === "mcp_oauth") {
+    return { state: "unsupported_connection" };
+  }
+  const token = (
+    await openSecret({
+      sealed: connection.auth.credential,
+      aad: organizationProviderCredentialAad(organizationId, "cloudflare.auth.credential"),
+    })
+  ).trim();
+  return await readCloudflareStateStore({
+    token,
+    accountId: connection.account.accountId,
+    repository: githubRepositoryFullName,
+  });
 }

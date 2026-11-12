@@ -216,7 +216,7 @@ export function RepositoryDeleteDialog({
         ? repository.deletion.deleteAction.reason
         : null;
 
-  const stackCheck = readRepositoryStackCheck(repository, alchemyState);
+  const stackCheck = readRepositoryStackCheck(alchemyState);
   const target = {
     repositoryId: repository.repositoryId,
     githubRepositoryFullName: repository.githubRepositoryFullName,

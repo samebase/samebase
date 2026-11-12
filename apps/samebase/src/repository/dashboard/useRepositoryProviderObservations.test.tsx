@@ -37,7 +37,7 @@ describe("useRepositoryProviderObservations", () => {
     alchemy.requested.mockClear();
   });
 
-  it("reads no store for a repository without a Convex team", async () => {
+  it("reads a repository without a Convex team, whose stacks can be in Cloudflare", async () => {
     const rootElement = document.createElement("div");
     document.body.append(rootElement);
     const root = createRoot(rootElement);
@@ -57,8 +57,11 @@ describe("useRepositoryProviderObservations", () => {
       await act(async () => {
         root.render(<Probe />);
       });
-      expect(alchemy.requested).toHaveBeenLastCalledWith(null, undefined);
-      expect(latest).toMatchObject({ state: "loaded", observation: { store: "no_connection" } });
+      expect(alchemy.requested).toHaveBeenLastCalledWith(
+        fakeRepositoryId("repository-without-team"),
+        "samebase/without-team",
+      );
+      expect(latest).toMatchObject({ state: "loaded" });
     } finally {
       await act(async () => {
         root.unmount();

@@ -179,7 +179,11 @@ describe("repository removal", () => {
     await fixture.t.finishAllScheduledFunctions(vi.runAllTimers, 1_000);
 
     expect((await readRemoval(fixture)).runStates).toEqual(["succeeded"]);
-    expect(requests).toEqual([expect.stringContaining(TEAM_PROJECTS_URL)]);
+    // The stack check asks the Cloudflare account for its store, which gives none, then the team.
+    expect(requests).toEqual([
+      "https://api.cloudflare.com/client/v4/accounts/cloudflare-account/workers/subdomain",
+      expect.stringContaining(TEAM_PROJECTS_URL),
+    ]);
     expect(githubRepos.delete).toHaveBeenCalledExactlyOnceWith({ owner: "octo-org", repo: "app" });
   });
 

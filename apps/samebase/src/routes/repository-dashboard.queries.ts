@@ -85,7 +85,7 @@ async function connectAlchemyState(
 The loader of the pages that render the repository overview: the overview, and the Alchemy page in
 its left pane. With the dashboard data, the server render waits only for the store connection with
 its first read, so no GitHub read delays the first byte. It returns that connection, or `null` when
-the page reads no store, as `useRepositoryProviderObservations` decides: no dashboard access, a
+the page reads no Convex store, as `useRepositoryAlchemyState` decides: no dashboard access, a
 repository outside the viewer's organizations, a repository without a Convex team, or a repository
 that Samebase is still creating. A navigation in the browser never waits for the store: the action
 calls several outside services, so the new page opens at once and `useRepositoryAlchemyState`

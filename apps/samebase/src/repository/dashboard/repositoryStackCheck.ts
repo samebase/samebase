@@ -1,4 +1,3 @@
-import type { UserRepositoryResult } from "../../../convex/repository/contracts/getUserRepositories";
 import {
   CONNECT_CONVEX_TO_CHECK_STACK,
   DESTROY_ALCHEMY_STACK_FIRST,
@@ -9,15 +8,10 @@ type RepositoryStackCheck =
   | { state: "no_stack" }
   | { state: "has_stack" | "unknown"; reason: string };
 
-/** The store's answer for the dialog. The server checks again in `assertRepositoryHasNoStack`. */
+/** The stores' answer for the dialog. The server checks again in `assertRepositoryHasNoStack`. */
 export function readRepositoryStackCheck(
-  repository: Pick<UserRepositoryResult, "convexTeamId">,
   alchemyState: RepositoryAlchemyState,
 ): RepositoryStackCheck {
-  // The store read of a repository without a Convex team never leaves `loading`.
-  if (!repository.convexTeamId) {
-    return { state: "unknown", reason: CONNECT_CONVEX_TO_CHECK_STACK };
-  }
   switch (alchemyState.state) {
     case "loading":
       return { state: "unknown", reason: "Checking for an Alchemy stack." };

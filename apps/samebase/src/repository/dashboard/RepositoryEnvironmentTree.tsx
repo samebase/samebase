@@ -6,6 +6,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { SamebaseLogoMark } from "@/components/repository-dashboard/RepositoryDashboardLogos";
+import { CloudflareStateProblem } from "@/components/RepositoryAlchemyStateTree";
 import { RepositoryChecksPopover } from "@/repository/dashboard/RepositoryChecksPopover";
 import { resourceTypePresentation } from "@/components/resourceTypePresentation";
 import type {
@@ -295,7 +296,8 @@ export function RepositoryOverviewLoadingLines({ rows = 3 }: { rows?: number }) 
 /**
 What the store read says below the stack cards, null when the cards say it all. A repository_actions
 repository has no stack until its first deployment finishes, and `RepositorySetupStackStatus` says
-so. A repository that is being removed reads nothing, so its failed read is no problem to retry.
+so. A repository that is being removed reads nothing, so its failed read is no problem to retry. A
+message about no stack also names a problem of the Cloudflare store.
 */
 function readStoreNotice({
   alchemyState,
@@ -303,6 +305,7 @@ function readStoreNotice({
 }: Pick<RepositoryWorkspaceSelected, "alchemyState" | "repository">): {
   message: string;
   reload?: () => void;
+  cloudflareProblem?: "reconnect" | "unreadable";
 } | null {
   if (alchemyState.state === "loading" || repository.deletion.state !== "not_deleting") {
     return null;
@@ -312,21 +315,25 @@ function readStoreNotice({
   }
   const { providerPlan } = repository;
   const firstDeploymentPending = providerPlan !== null;
-  const { observation } = alchemyState;
+  const { observation, cloudflareProblem } = alchemyState;
   switch (observation.store) {
     case "no_connection":
       return {
         message: "This repository has no Convex connection, so Samebase cannot read its stacks.",
+        cloudflareProblem,
       };
     case "missing":
       return firstDeploymentPending
         ? null
-        : { message: "This team has no Alchemy state store yet." };
+        : { message: "This team has no Alchemy state store yet.", cloudflareProblem };
     case "found":
       if (observation.stacks.length === 0) {
         return firstDeploymentPending
           ? null
-          : { message: "The team's Alchemy state store holds no stack for this repository." };
+          : {
+              message: "The team's Alchemy state store holds no stack for this repository.",
+              cloudflareProblem,
+            };
       }
       return alchemyState.refreshFailed
         ? { message: "Deploy status may be out of date.", reload: alchemyState.reload }
@@ -495,7 +502,18 @@ export function DefaultBranchSection({
       )}
       {storeNotice ? (
         <div className="mt-2 flex flex-wrap items-center justify-between gap-3 text-sm text-muted-foreground">
-          <span>{storeNotice.message}</span>
+          <span>
+            {storeNotice.message}
+            {storeNotice.cloudflareProblem ? (
+              <>
+                {" "}
+                <CloudflareStateProblem
+                  owner={workspace.repository.githubOwnerLogin}
+                  problem={storeNotice.cloudflareProblem}
+                />
+              </>
+            ) : null}
+          </span>
           {storeNotice.reload ? (
             <Button size="sm" type="button" variant="outline" onClick={storeNotice.reload}>
               Retry
