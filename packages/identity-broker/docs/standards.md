@@ -77,5 +77,16 @@ about the `connectors_supported` extension. The Basic OP plan cannot pass as it 
 requests omit PKCE, which the broker requires. With PKCE added by a test adapter, 13 of its modules
 pass and none fails. The modules that stop are named departures in docs/design.md: the hub's error
 page before the user continued, no sessions for `prompt=none`, and a fresh login only through a
-connector that can reauthenticate. The registration endpoints were not run against the OpenID
-Foundation's dynamic registration test plans.
+connector that can reauthenticate.
+
+On 2026-11-12 suite 5.3.4 ran its dynamic registration plans against a local hub of version 0.33.3.
+The test setup adds PKCE as above, gives the suite a fixed initial access token, and serves the
+verification file for the suite's redirect URIs. `oidcc-test-plan` with `dynamic_client` and the
+code flow gives the same result with `client_secret_basic` and `client_secret_post`: of 51 modules,
+29 pass (8 with warnings, and 6 after a review of the hub's error page), 14 stop at named
+departures, the suite skips 7 for features that the hub does not declare, and 1 needs a manual key
+rotation. `oidcc-dynamic-certification-test-plan` cannot pass, because it registers with
+`private_key_jwt`, which registration refuses with `invalid_client_metadata`: of its 23 modules, 1
+passes, 18 stop at named departures, the suite skips 3, and 1 needs a manual key rotation. No module
+shows a defect. Each module deletes its client at the end (RFC 7592); the suite has no module for
+the read.
