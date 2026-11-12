@@ -1,5 +1,118 @@
 # Changelog
 
+## 0.33.6
+
+- README: the sentence about how long a new hub takes is removed. No code change.
+
+## 0.33.5
+
+- `/authorize` refuses a sign-in request with `id_token_hint` on the hub's error page, with
+  `login_required` (OIDC Core section 3.1.2.2). The hint was ignored, so a sign-in could end as
+  another user.
+- `/authorize` answers `400` on the hub's error page, with no redirect, to a `response_mode` other
+  than `query` (OIDC Core section 3.1.2.6). The parameter was ignored.
+- The connector callback refuses an upstream id that makes a `sub` longer than 255 characters or not
+  ASCII (OIDC Core section 2), with `server_error` at the redirect URI. Google and GitHub ids are
+  not affected.
+- `/userinfo` answers a request with no Bearer token in the `Authorization` header with
+  `WWW-Authenticate: Bearer realm="userinfo"` and no body (RFC 6750 section 3.1). It was
+  `invalid_token`.
+- `POST /register` and `/register/<client>` answer a request with no Bearer token with
+  `WWW-Authenticate: Bearer realm="register"`. It was `Bearer` with no parameter, which RFC 6750
+  section 3 does not allow.
+- No `error_description` holds the label of a connector. A label such as `Identité` gave characters
+  that RFC 6749 section 4.1.2.1 does not allow.
+- A redirect URI whose query has `code`, `state`, `iss`, `error`, `error_description`, or
+  `error_uri` is refused: registration answers `invalid_redirect_uri`, and `/authorize` and `/token`
+  answer `invalid_request`. The authorization response replaced these values, where RFC 6749 section
+  3.1.2 requires the query to be retained.
+- README, docs/design.md and docs/standards.md: false claims about sign-in, `auth_time`, and the
+  registration members that the hub ignores are corrected. The missing CORS headers and the check of
+  an upstream ID Token with more than one audience are named departures.
+
+## 0.33.4
+
+- `/token` and `/revoke` treat a parameter with an empty value as omitted. `resource=` on a code
+  exchange or a refresh no longer answers `invalid_target`.
+- `/token` and `/revoke` answer `400 invalid_request` to a body that is not
+  `application/x-www-form-urlencoded`. It was `415`.
+- `/token` answers `400 invalid_request` when `grant_type` is missing or empty. It was
+  `unsupported_grant_type`.
+- A refresh request with `scope` answers `400 invalid_scope`. The provider is not called and the
+  grant stays.
+- No `error_description` holds a `"` character (RFC 6749 sections 4.1.2.1 and 5.2).
+
+## 0.33.3
+
+- README: the title and the first sentence use the package name, `@samebase/identity-broker`. No
+  code change.
+
+## 0.33.2
+
+- README: removed the statements that only say what the broker does not have or does not do, where
+  no reader expects the opposite. The certification status is in `docs/standards.md`. No code
+  change.
+
+## 0.33.1
+
+- README: the first two sentences say what the component implements and what that gives you. A table
+  near the top lists each standard and the main differences from it. Shorter text in each section.
+  No code change.
+
+## 0.33.0
+
+- Breaking: the hub's registration endpoint is RFC 7591's, `POST /register`, in place of
+  `POST /hub-clients`, which is gone. The Bearer is the same proof, now the RFC's initial access
+  token. The body and the answers use the RFC's names:
+  - `redirectUris` is `redirect_uris`, `app` is `software_id`, `softwareVersion` is
+    `software_version`. `connectors` keeps its name.
+  - `software_id` takes the app name alone or the full form `<tenant id>/<app name>`, such as
+    `gh-123456789/weather-app`, whose repository must be the proof's. The answer always holds the
+    full form.
+  - New optional members: `token_endpoint_auth_method` (`client_secret_post` or
+    `client_secret_basic`, default `client_secret_basic`), `grant_types`, `response_types`,
+    `application_type` (`web` only), `subject_type` (`public` only), and
+    `id_token_signed_response_alg` (`RS256` only). Without `software_id` the app is `app`, without
+    `software_version` the version is `unknown`, and without `connectors` the client enrolls in
+    every connector the policy and the repository's grants allow. Members the hub cannot honor, such
+    as `sector_identifier_uri` and the encryption members, are refused; other members are ignored.
+  - The 201 answer adds `client_id_issued_at`, `client_secret_expires_at` (`0`), `client_name` (the
+    stage: `prod`, `pr-<n>`, or `development`), `software_id`, `software_version`,
+    `token_endpoint_auth_method`, `grant_types`, `response_types`, `application_type`,
+    `subject_type`, and `id_token_signed_response_alg`, with `Cache-Control: no-store` and
+    `Pragma: no-cache`.
+  - Errors: 401 `invalid_token` for no or a malformed `Authorization` header is 401 with
+    `WWW-Authenticate: Bearer` and no body (RFC 6750 section 3.1). 401 `invalid_token` for a bad
+    proof also has `WWW-Authenticate: Bearer error="invalid_token"`. 403 `not_allowed` with a
+    `reason` is 403 `insufficient_scope` with the same `reason` and its challenge. 400
+    `invalid_request` is 400 `invalid_client_metadata`, or `invalid_redirect_uri` for the return
+    addresses. 400 `invalid_connectors` is 400 `invalid_client_metadata` with
+    `reason: "invalid_connectors"` and `allowed`. 403 `not_allowed` for a verification file
+    (`verification_file_missing`, `host_unreachable`, `verification_file_invalid`,
+    `repository_mismatch`) is 400 `invalid_redirect_uri` with that `reason`. Every refusal has
+    `error_description`. The `hub_event` line keeps its `reason` values.
+  - The RFC 7592 read of `/register/<client>` also answers `registration_access_token`, the Bearer
+    it was sent. 403 `access_denied` for a suspended client or a production client's delete is 403
+    `insufficient_scope` with `WWW-Authenticate: Bearer error="insufficient_scope"`. `PUT` answers
+    405 with `Allow: GET, DELETE`.
+  - Discovery in hub mode has `registration_endpoint` and `op_tos_uri`.
+- `IdentityHub.Client` of `@samebase/alchemy-convex` 0.40.0 speaks this endpoint. No table changes.
+- `/userinfo` answers 401 `invalid_token` for the access token of a deleted client (RFC 7592 section
+  2.3).
+
+## 0.32.2
+
+- The README only, no code change. It starts with the `redirect_uri_mismatch` problem, shows a
+  sign-in in four steps and the `id_token` an app gets, and gives the steps for an app that uses a
+  hub: the verification file, the registration request with its answer, and each refusal.
+
+## 0.32.1
+
+- The README only, no code change. It starts with the three ways to use the broker, shows the
+  sign-in page, and lists what the broker does. The registration reference is in sections, and it
+  now names the `redirectUris` list of 0.31.0, the GitHub connection, and the `hub_event` line of
+  0.32.0.
+
 ## 0.32.0
 
 - The broker writes one console line, `hub_event` and a JSON object, for each sign-in that ends with

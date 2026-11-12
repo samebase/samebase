@@ -15,6 +15,7 @@ import {
   authorizationResponse,
   json,
   oauthError,
+  readParameters,
   redirect,
 } from "./responses.js";
 import {
@@ -314,8 +315,12 @@ export function resourceEndpoints(options: {
     client: TokenInput["client"],
   ): Promise<Response> {
     const refreshToken = params.get("refresh_token");
-    if (refreshToken === null || refreshToken === "")
+    if (refreshToken === null)
       return oauthError(400, "invalid_request", "refresh_token is required.");
+    // RFC 6749 section 3.3: the broker cannot narrow the provider's token and keeps no grant scope,
+    // so a response could not say which scope the token has.
+    if (params.has("scope"))
+      return oauthError(400, "invalid_scope", "A refresh cannot change the scope of this grant.");
     if (params.getAll("resource").length > 1)
       return oauthError(400, "invalid_target", "Request one API resource.");
     const resource = params.get("resource") ?? undefined;
@@ -404,18 +409,13 @@ export function resourceEndpoints(options: {
   }
 
   const revoke = httpActionGeneric(async (ctx, request) => {
-    if (
-      !request.headers
-        .get("content-type")
-        ?.toLowerCase()
-        .startsWith("application/x-www-form-urlencoded")
-    )
+    const params = await readParameters(request);
+    if (params === null)
       return oauthError(
-        415,
+        400,
         "invalid_request",
         "The body must be application/x-www-form-urlencoded.",
       );
-    const params = new URLSearchParams(await request.text());
     const auth = readClientAuthentication(request.headers.get("authorization"), params);
     if (!auth.ok)
       return oauthError(
@@ -425,8 +425,7 @@ export function resourceEndpoints(options: {
         auth.status === 401 ? challenge : {},
       );
     const token = params.get("token");
-    if (token === null || token === "")
-      return oauthError(400, "invalid_request", "token is required.");
+    if (token === null) return oauthError(400, "invalid_request", "token is required.");
     const authenticated = await ctx.runMutation(component.resourceRequests.revoke, {
       clientId: auth.value.clientId,
       clientSecretHash: await sha256Hex(auth.value.clientSecret),

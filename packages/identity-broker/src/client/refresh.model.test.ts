@@ -196,7 +196,7 @@ function stopReason(model: Model, client: Client) {
   return null;
 }
 
-/** The three clients of a story, registered at `POST /hub-clients` by runs of their repository. */
+/** The three clients of a story, registered at `POST /register` by runs of their repository. */
 async function registerClients(h: Harness, world: World) {
   const clients: Client[] = [];
   for (const [index, spec] of CLIENTS.entries()) {
@@ -204,9 +204,9 @@ async function registerClients(h: Harness, world: World) {
     world.hosts.serve({ outcome: "present", repositoryId: spec.repository });
     const redirectUri = `https://app-a-${spec.stage}.r${spec.repository}.example/auth/hub/callback`;
     const response = await postHubClient(h, proof.token, {
-      app: "app-a",
-      redirectUris: [redirectUri],
-      softwareVersion: "abc123",
+      software_id: "app-a",
+      redirect_uris: [redirectUri],
+      software_version: "abc123",
       connectors: ["fake"],
     });
     if (response.status !== 201) {

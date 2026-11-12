@@ -5,14 +5,15 @@ import {
   type HttpRouter,
 } from "convex/server";
 import type { ComponentApi } from "../component/_generated/component.js";
+import { SIGNING_ALGORITHM } from "./keys.js";
 import { readBearerToken } from "./protocol.js";
 import { json } from "./responses.js";
 import type { PolicyFunction } from "./policy.js";
 import { randomToken, sha256Hex } from "./subject.js";
 
 /**
- * The hub mode. With this option the broker mounts `POST /hub-clients`, where a GitHub Actions run or
- * a development server with the app's initial access token gets a client
+ * The hub mode. With this option the broker mounts `POST /register` (RFC 7591), where a GitHub
+ * Actions run or a development server with the app's initial access token gets a client
  * (src/client/hubClients.ts), `/register/<client>`, where each client reads and deletes its own
  * record with its own registration access token (RFC 7592), and `/moderation/*` for the hub's
  * administrator.
@@ -48,27 +49,49 @@ export type RegistrationConfig<
 
 type TokenMethod = "client_secret_post" | "client_secret_basic";
 
-const registrationError = (status: number, error: string, description: string) =>
-  json({ error, error_description: description }, status);
+/**
+ * The answer to a request with no Bearer token: a challenge with no error code (RFC 6750 section
+ * 3.1), but with `realm`, because the scheme needs at least one parameter (section 3).
+ */
+export const noToken = (realm: "register" | "userinfo") =>
+  new Response(null, {
+    status: 401,
+    headers: { "WWW-Authenticate": `Bearer realm="${realm}"`, "Cache-Control": "no-store" },
+  });
 
-const invalidToken = () =>
+/** The answer to a refused Bearer token (RFC 6750 section 3.1). */
+export const invalidToken = () =>
   json({ error: "invalid_token", error_description: "The token is invalid." }, 401, {
     "WWW-Authenticate": 'Bearer error="invalid_token"',
   });
 
 /**
- * The client information response (RFC 7591 section 3.2.1), without what only the first holds.
- * `connectors` is the enrollment, the hub's own field.
+ * The answer to a good token whose holder may not do this (RFC 6750 section 3.1). `reason` is the
+ * hub's own member: the rule that refused the request.
  */
-function clientInformation(args: {
+export const insufficientScope = (description: string, more: { reason?: string } = {}) =>
+  json({ error: "insufficient_scope", error_description: description, ...more }, 403, {
+    "WWW-Authenticate": 'Bearer error="insufficient_scope"',
+  });
+
+/**
+ * The client information response (RFC 7591 section 3.2.1), without what only the first holds.
+ * `software_id` is `<tenant id>/<app name>`: the app, the same for every deployment of the app.
+ * `client_name` is the stage that the hub derived from the proof. `grant_types` is the hub's own,
+ * as discovery's `grant_types_supported`. `connectors` is the enrollment, the hub's own field.
+ */
+export function clientInformation(args: {
   issuer: string;
   clientId: string;
   createdAt: number;
   redirectUris: string[];
   clientName: string;
-  softwareId: string;
+  tenantId: string;
+  app: string;
   softwareVersion: string;
   tokenEndpointAuthMethod: TokenMethod;
+  /** The hub has API resources, so a client gets refresh tokens. */
+  refreshTokens: boolean;
   connectors: string[];
 }) {
   return {
@@ -78,11 +101,16 @@ function clientInformation(args: {
     registration_client_uri: `${args.issuer}/register/${args.clientId}`,
     redirect_uris: args.redirectUris,
     client_name: args.clientName,
-    software_id: args.softwareId,
+    software_id: `${args.tenantId}/${args.app}`,
     software_version: args.softwareVersion,
     token_endpoint_auth_method: args.tokenEndpointAuthMethod,
-    grant_types: ["authorization_code"],
+    grant_types: args.refreshTokens
+      ? ["authorization_code", "refresh_token"]
+      : ["authorization_code"],
     response_types: ["code"],
+    application_type: "web",
+    subject_type: "public",
+    id_token_signed_response_alg: SIGNING_ALGORITHM,
     connectors: args.connectors,
   };
 }
@@ -114,66 +142,91 @@ export function registrationEndpoints(args: {
   component: ComponentApi;
   issuer: string;
   path: (suffix: string) => string;
+  /** The hub has API resources, so a client gets refresh tokens. */
+  refreshTokens: boolean;
 }) {
   const { component, issuer, path } = args;
 
-  /** The client id and the token of a request to the client configuration endpoint. */
+  /**
+   * The client id and the token of a request to the client configuration endpoint, or the refusal:
+   * `noToken` without a Bearer token, as at `POST /register`, and `invalid_token` without
+   * a client id.
+   */
   async function clientRequest(request: Request) {
-    const clientId = new URL(request.url).pathname.split("/").at(-1) ?? "";
     const token = readBearerToken(request.headers.get("authorization"));
-    return token === null || clientId === ""
-      ? null
-      : { clientId, registrationTokenHash: await sha256Hex(token) };
+    if (token === null) {
+      return noToken("register");
+    }
+    const clientId = new URL(request.url).pathname.split("/").at(-1) ?? "";
+    if (clientId === "") {
+      return invalidToken();
+    }
+    return { clientId, token, registrationTokenHash: await sha256Hex(token) };
   }
 
   const read = httpActionGeneric(async (ctx: GenericActionCtx<GenericDataModel>, request) => {
     const target = await clientRequest(request);
-    if (target === null) {
-      return invalidToken();
+    if (target instanceof Response) {
+      return target;
     }
     const result = await ctx.runMutation(component.registration.renew, {
-      ...target,
+      clientId: target.clientId,
+      registrationTokenHash: target.registrationTokenHash,
       now: Date.now(),
     });
     if (!result.ok) {
       // RFC 7592 section 2.1: a client that is gone answers 401, one that may not read answers 403.
       return result.error === "suspended"
-        ? registrationError(403, "access_denied", "This client is suspended.")
+        ? insufficientScope("This client is suspended.")
         : invalidToken();
     }
-    return json(
-      clientInformation({
+    // The hub stores only the hash of the registration access token, so the read echoes the token
+    // that the request presented (RFC 7592 section 3). It never has the client's secret.
+    return json({
+      ...clientInformation({
         issuer,
         clientId: target.clientId,
         createdAt: result.createdAt,
         redirectUris: result.redirectUris,
         clientName: result.clientName,
-        softwareId: result.appId,
+        tenantId: result.tenantId,
+        app: result.app,
         softwareVersion: result.softwareVersion,
         tokenEndpointAuthMethod: result.tokenEndpointAuthMethod,
+        refreshTokens: args.refreshTokens,
         connectors: result.connectors,
       }),
-    );
+      registration_access_token: target.token,
+    });
   });
 
   const remove = httpActionGeneric(async (ctx, request) => {
     const target = await clientRequest(request);
-    if (target === null) {
-      return invalidToken();
+    if (target instanceof Response) {
+      return target;
     }
-    const result = await ctx.runMutation(component.registration.remove, target);
+    const result = await ctx.runMutation(component.registration.remove, {
+      clientId: target.clientId,
+      registrationTokenHash: target.registrationTokenHash,
+    });
     if (!result.ok) {
       return result.error === "production"
-        ? registrationError(403, "access_denied", "A production client cannot delete itself.")
+        ? insufficientScope("A production client cannot delete itself.")
         : invalidToken();
     }
     return new Response(null, { status: 204 });
   });
 
+  /** A client cannot update itself (RFC 7592 section 2.2): it registers a new client instead. */
+  const update = httpActionGeneric(
+    async () => new Response(null, { status: 405, headers: { Allow: "GET, DELETE" } }),
+  );
+
   return {
     addRoutes(http: HttpRouter): void {
       http.route({ pathPrefix: path("/register/"), method: "GET", handler: read });
       http.route({ pathPrefix: path("/register/"), method: "DELETE", handler: remove });
+      http.route({ pathPrefix: path("/register/"), method: "PUT", handler: update });
     },
   };
 }

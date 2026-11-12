@@ -76,9 +76,10 @@ declared in `convex/convex.config.ts` and handed down the same way, and a name i
 
 ## Register an app
 
-An app needs no step on the hub. Every app gets its clients at `POST /hub-clients`, from the
-`IdentityHub.Client` resource of `@samebase/alchemy-convex/identity-hub` in its Alchemy stack, which
-also writes the client into the deployment's variables:
+An app needs no step on the hub. Every app gets its clients at `POST /register`, the RFC 7591
+registration endpoint, from the `IdentityHub.Client` resource of
+`@samebase/alchemy-convex/identity-hub` in its Alchemy stack, which also writes the client into the
+deployment's variables:
 
 ```ts
 const client =
@@ -94,12 +95,11 @@ The app's name on the hub defaults to the stack's path in its repository (`app` 
 after the repository); `app` overrides it. A client lists every return address its deployment
 serves, one per handler, such as a sign-in callback and a connections callback.
 
-A production or preview deployment asks in its own GitHub Actions run, with GitHub's OIDC token. The
-hub checks the token, the `/samebase-verification.json` file of the site, the policy, the hourly
-limits, and the blocks. No Samebase account is needed. The answer to a production registration holds
-the app's initial access token, and a development server asks with it for a development client. Each
-client reads and deletes its own record at `/register/<client>`, and the broker serves no
-`/register`.
+A production or preview deployment asks in its own GitHub Actions run, with GitHub's OIDC token as
+the initial access token. The hub checks the token, the `/samebase-verification.json` file of the
+site, the policy, the hourly limits, and the blocks. No Samebase account is needed. The answer to a
+production registration holds the app's initial access token, and a development server asks with it
+for a development client. Each client reads and deletes its own record at `/register/<client>`.
 
 `connectors` is the client's enrollment: the connectors its sign-ins may use, which the policy
 intersects at each sign-in and which never changes on a client. The policy in `convex/broker.ts`

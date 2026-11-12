@@ -373,10 +373,13 @@ resources and output, from the store function `state:readStack({ stack })` in on
   - A destroy deletes a preview or development client. It does nothing to a production client,
     because the production deployment can stay.
   - `hub` is the identity hub to register at, required: `{ issuer }`, such as
-    `{ issuer: "https://id.samebase.com" }`. The run asks at `<issuer>/hub-clients` with a GitHub
-    token whose audience is the issuer, and the answer must name that issuer. A client is renewed
-    only at the hub that issued it: a changed hub registers a new client there, and the old one
-    stays at the old hub.
+    `{ issuer: "https://id.samebase.com" }`. The run registers at `<issuer>/register`, the client
+    registration endpoint of RFC 7591, with a GitHub token whose audience is the issuer, and the
+    answer must name that issuer. The request sends `redirect_uris`, `software_id` (the app name),
+    `software_version`, `token_endpoint_auth_method` (`client_secret_post`), and the hub's own
+    `connectors`. The hub must run `@samebase/identity-broker` 0.33.0 or later. An earlier hub
+    answers 404, and the client gets the off values. A client is renewed only at the hub that issued
+    it: a changed hub registers a new client there, and the old one stays at the old hub.
 
 - `Convex.LocalDeployment`: `{ rootDir?, env }` writes the `env` of the logged-in local deployment
   of the folder `rootDir` (the working directory without it), which

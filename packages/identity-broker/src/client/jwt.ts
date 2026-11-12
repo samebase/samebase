@@ -69,14 +69,19 @@ export async function verifyAccessToken(args: {
   keySet: KeySet;
   issuer: string;
   token: string;
-}): Promise<IdentityClaims | null> {
+}): Promise<{ clientId: string; claims: IdentityClaims } | null> {
   try {
     const { payload } = await jwtVerify(args.token, createLocalJWKSet(publicJwks(args.keySet)), {
       issuer: args.issuer,
       audience: args.issuer,
       algorithms: [SIGNING_ALGORITHM],
     });
-    if (typeof payload.sub !== "string" || typeof payload["connector"] !== "string") {
+    const clientId = payload["client_id"];
+    if (
+      typeof payload.sub !== "string" ||
+      typeof payload["connector"] !== "string" ||
+      typeof clientId !== "string"
+    ) {
       return null;
     }
     const claims: IdentityClaims = { sub: payload.sub, connector: payload["connector"] };
@@ -92,7 +97,7 @@ export async function verifyAccessToken(args: {
     if (typeof payload["picture"] === "string") {
       claims.picture = payload["picture"];
     }
-    return claims;
+    return { clientId, claims };
   } catch {
     return null;
   }

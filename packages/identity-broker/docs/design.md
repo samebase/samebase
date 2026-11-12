@@ -42,11 +42,12 @@ itself.
 
 The broker holds every row and every rule of a hub (RFC 135), so every copy of a hub has the same
 caps, expiry, blocks, history, and moderation. A hub is configuration: connectors, resources, env,
-keys. `POST /hub-clients` (`src/client/hubClients.ts`) takes GitHub's OIDC token of a GitHub Actions
-run, or the app's initial access token in development, and checks that the return address names the
-repository. It is GitHub-first on purpose: the proof is one section of that file, and everything
-after it works on GitHub's ids. A second proof would be a second section, not a change to the rest.
-A host with another proof can still call `component.registration.register` with
+keys. `POST /register` (`src/client/hubClients.ts`) is the client registration endpoint of RFC 7591.
+Its Bearer is the initial access token of RFC 7591 section 3: GitHub's OIDC token of a GitHub
+Actions run, or the app's own initial access token in development. The hub checks that each return
+address names the repository. It is GitHub-first on purpose: the proof is one section of that file,
+and everything after it works on GitHub's ids. A second proof would be a second section, not a
+change to the rest. A host with another proof can still call `component.registration.register` with
 `newClientCredentials` itself.
 
 The checks run in two transactions with a fetch between them. `hubClients.admit` reads the blocks
@@ -65,11 +66,19 @@ repository back and delete the new owner's initial access tokens. A tenant with 
 (one registered before 0.22.0) accepts the next token of any owner and records it.
 
 Every app belongs to a tenant, such as `gh-<repository id>`. The first client of an app id creates
-the app. Each client enrolls in connectors at registration (`connectors` in the body: at least one
+the app. `software_id` names the app. A request sends the app name alone (`weather-app`) or the full
+form `<tenant id>/<app name>` (`gh-123456789/weather-app`); the hub registers and answers the full
+form, so it is unique at the hub. The repository part always comes from the proof: a full form that
+names another repository is refused with `invalid_client_metadata`. Without `software_id` the app
+name is `app`, without `software_version` the version is `unknown`, and without
+`token_endpoint_auth_method` the method is `client_secret_basic`, the RFC's default.
+
+Each client enrolls in connectors at registration (`connectors`, the hub's own member: at least one
 name, `[a-z0-9-]{1,64}`, duplicates collapsed, stored sorted), and the enrollment never changes: a
 deployment that wants another set registers a new client, as it does for another return address.
-Each client holds its own registration access token, and reads (which renews it) or deletes its own
-record at `/register/<client>` (RFC 7592).
+Without `connectors`, the client enrolls in every connector that the policy and the repository's
+grants allow it, and an empty set is refused. Each client holds its own registration access token,
+and reads (which renews it) or deletes its own record at `/register/<client>` (RFC 7592).
 
 A row in `blocks` stops a repository, or every repository of an owner: registration, renewal,
 sign-in, code exchange, and provider refresh read it. It is the one block state, and
@@ -162,23 +171,23 @@ revocation, self-delete, and moderation alone, so a short pause ends without exp
 block is stronger than the pause. A withdrawn connector, resource, or pause stops later issuance
 only: an id_token and an access token live to their expiry, `/userinfo` answers a valid access
 token, a provider access token already released stays usable at the provider, and an app's session
-is the app's.
+is the app's. A client delete is different: `/userinfo` refuses the access token of a deleted client
+(RFC 7592 section 2.3), while an id_token already issued cannot be recalled.
 
 ## Sign-in page
 
 `/authorize` stores the request's set: the connectors the `connector` parameter named (a
 space-delimited list, as `scope` and `prompt` are; an empty or whitespace value counts as omitted),
-else every connector the client may use now. A name outside the enrollment answers
-`invalid_request`; the set is then intersected with the policy's connectors, and an empty set is
-"Sign-in is off" (403). With one connector in the set and no page to ask for consent (no hub mode,
-or an exemption), the browser goes straight to the provider; otherwise one page offers a "Continue
-with" button per connector of the set. When it asks for consent, the page also names the host that
-gets the sign-in (which served the repository's verification file, or is the user's own computer),
-the deploy and the GitHub repository that registered the client, what the app receives, and links
-the hub's privacy notice and terms. The picker and the consent are one page, so no user sees two
-pickers. `/continue`, the callback, and code exchange accept only a connector in the set, the
-enrollment, and the policy of the moment. The id_token keeps `connector` as one string, the
-connector the user signed in with.
+else every connector the client may use now. A name outside the enrollment ends on the hub's error
+page; the set is then intersected with the policy's connectors, and an empty set is "Sign-in is off"
+(403). With one connector in the set and no page to ask for consent (no hub mode, or an exemption),
+the browser goes straight to the provider; otherwise one page offers a "Continue with" button per
+connector of the set. When it asks for consent, the page also names the host that gets the sign-in
+(which served the repository's verification file, or is the user's own computer), the deploy and the
+GitHub repository that registered the client, what the app receives, and links the hub's privacy
+notice and terms. The picker and the consent are one page, so no user sees two pickers. `/continue`,
+the callback, and code exchange accept only a connector in the set, the enrollment, and the policy
+of the moment. The id_token keeps `connector` as one string, the connector the user signed in with.
 
 Whether the page asks for consent is decided once, at the `/authorize` that stores the request: an
 exemption set or removed later does not change a request that already passed it, in either
@@ -209,17 +218,21 @@ the code redeemable, and a code redeems once.
 Without `resource`, `/authorize` keeps the OIDC sign-in contract and requires `openid`. A request
 with one exact configured `resource` instead uses RFC 6749 authorization code flow with RFC 7636
 S256 and RFC 8707 resource indicators. Each provider has one configured scope, so the broker ignores
-a requested `scope` (RFC 6749 section 3.3) and returns the scope the provider granted. Convex's team
-authorization has no scope parameter, so a requested scope answers `invalid_scope`. Unknown or
-multiple resources answer `invalid_target`. The code binds the resource, so `/token` can omit it; if
-supplied, it must match exactly. Neither this response nor refresh issues an ID Token.
+a requested `scope` (RFC 6749 section 3.3) and returns the scope the provider granted. Convex and
+GitHub take no scope parameter, so with them `/authorize` refuses a requested scope. At
+`/authorize`, this refusal and an unknown or repeated resource end on an error page of the hub,
+because the user has not continued from a page. The code binds the resource, so `/token` can omit
+it; if supplied, it must match exactly, and a different or second resource answers `invalid_target`.
+Neither this response nor refresh issues an ID Token.
 
 The policy's `resources` names the providers a client may authorize, checked at API authorization,
 at the exchange of a resource code, and at both evaluations of a refresh (below). The broker adds no
 consent screen of its own here: the provider supplies its authorization screen, and a refusal before
 it is an error page of the hub. The two OAuth legs have independent state and PKCE values. The
 browser cookie binds the upstream callback to the initiating browser. The downstream response
-includes `iss`, and its code lasts 60 seconds and is usable once.
+includes `iss`, and its code lasts 60 seconds and is usable once. The code and the broker refresh
+token are 43 characters (32 random bytes in base64url); the access token has the size that the
+provider gives it (RFC 6749 sections 4.1.2 and 5.1).
 
 The broker returns the provider's bearer access token unchanged. The resource server remains the
 provider API; a broker issuer on the authorization response does not claim that the broker signed
@@ -321,6 +334,9 @@ provider.
 - No sessions at the broker, so it can never answer without interaction: `prompt=none` ends on the
   hub's error page by the rule above, where OIDC Core section 3.1.2.6 sends `login_required` to the
   client. There is no logout protocol.
+- No `id_token_hint`, which OIDC Core section 15.1 does not require: without sessions the hub cannot
+  make sure that the user is the one the hint names (section 3.1.2.2), so a sign-in request with it
+  ends on the hub's error page with `login_required` by the rule above.
 - PKCE with S256 is required of every client, confidential ones included, as OAuth 2.1 requires.
   OIDC Core does not require it, so the OpenID Basic OP certification plan, whose requests omit it,
   cannot pass.
@@ -330,11 +346,12 @@ provider.
   the provider to return `auth_time` (OIDC Core 3.1.2.1), and a provider can still reuse its
   session, so the OIDC sign-in completes only when that `auth_time` falls between the second the
   request was created and now, each widened by 60 seconds of clock skew; a missing, older, or later
-  `auth_time` answers `login_required`. A connector that cannot reauthenticate answers
-  `login_required` before anything goes upstream: a plain OAuth connector such as GitHub, which has
-  no `auth_time` to check, and Google, which documents no `login` value for `prompt`. A freshness
-  request against these is refused rather than pretended. Other `prompt` values, such as `consent`
-  and `select_account`, answer `invalid_request`.
+  `auth_time` answers `login_required`. A connector that cannot reauthenticate refuses before
+  anything goes upstream: a plain OAuth connector such as GitHub, which has no `auth_time` to check,
+  and Google, which documents no `login` value for `prompt`. The refusal is the hub's error page, or
+  `login_required` at the redirect URI after the user continued from the page. A freshness request
+  against these is refused rather than pretended. Other `prompt` values, such as `consent` and
+  `select_account`, end on the hub's error page.
 - Subjects are public (OIDC Core section 8), not pairwise, against the consideration of section
   17.3: every app can correlate a user with every other app and with the provider account. See
   Subjects for the reasons.
@@ -343,22 +360,47 @@ provider.
   the host (RFC 9700 section 4.11.2). The browser's Back leaves; the app learns nothing, and the
   request expires. The app's own name is not on the page: client metadata is self-asserted (RFC 7591
   section 5), and the host and the repository are what the hub checked.
-- A read of a client (RFC 7592 section 2.1) renews it, and answers without `client_secret` and
-  `registration_access_token`, which the section includes. The hub keeps only their hashes, and the
-  client already holds both. No request changes a secret: a client that lost it registers a new
-  client, and the old one stays valid, because the hub cannot know which one a deployment holds.
+- An initial access token is required: there is no open registration, which RFC 7591 section 3 and
+  OpenID Connect Registration section 3 recommend.
+- A read of a client (RFC 7592 section 2.1) renews a preview or development client. That is inside
+  OpenID Connect Registration section 4.2, which asks a read not to change the client configuration
+  or the registered metadata: the renewal moves only the hub's removal date, which is neither. The
+  departure is the answer: the read answers without `client_secret`, because the hub keeps only its
+  hash. It echoes the `registration_access_token` that the request presented. No request changes a
+  secret: a client that lost it registers a new client, and the old one stays valid, because the hub
+  cannot know which one a deployment holds.
+- No update: `PUT` answers 405 (RFC 7592 section 2.2).
 - A production client cannot delete itself, which RFC 7592 section 2.3 allows a server to refuse. A
   stack destroy can leave a production deployment running, so only the hub's administrator deletes
   one.
+- No CORS on the registration endpoint, which OpenID Connect Registration section 3 recommends: a
+  deploy registers, never a browser.
+- No CORS on the discovery document, the JWKS, `/token`, or `/userinfo`, which OpenID Connect
+  Discovery sections 3 and 4 and OIDC Core section 5.3 recommend: every client is a confidential
+  `web` client, so its server calls them, never a browser.
+- Software statements are ignored, which RFC 7591 section 3.1.1 permits.
+- Only `web` clients, `public` subjects, and RS256 ID Tokens. A request for anything else, or with a
+  metadata member the hub cannot honor, such as `sector_identifier_uri` or an encryption member, is
+  refused with `invalid_client_metadata`.
 - No loopback exception on redirect URIs: a local deployment registers its exact
   `http://127.0.0.1:<port>/...` URI.
-- `auth_time` is the hub's completion time: when the broker completed the sign-in, after the
-  connector answered. After a fresh login through an OIDC connector it is the provider's `auth_time`
-  instead, which the broker checked against the request's lifetime. The broker never compares an
-  upstream `auth_time` with the value of `max_age`.
+- A redirect URI whose query has a parameter named `code`, `state`, `iss`, `error`,
+  `error_description`, or `error_uri` is not valid: the authorization response adds these
+  parameters, and RFC 6749 section 3.1.2 requires the response to retain the query of the redirect
+  URI.
+- The broker keeps no list of trusted audiences (OIDC Core section 3.1.3.7 item 3) and accepts an
+  upstream ID Token with more audiences only when its `azp` is the broker's own client id, which is
+  the check of `oauth4webapi`.
+- `auth_time` is the time when the provider's callback arrived at the broker, before the broker
+  exchanged the provider's code at the provider's token endpoint. After a fresh login through an
+  OIDC connector it is the provider's `auth_time` instead, which the broker checked against the
+  request's lifetime. The broker never compares an upstream `auth_time` with the value of `max_age`.
 - A replayed authorization code revokes the code, its request, and its broker refresh grant if
   present. Already issued access tokens remain valid: a `/userinfo` token keeps its five minutes,
   and a provider access token follows the provider's expiry and revocation rules.
+- A refresh request that carries `scope` answers `invalid_scope`, where RFC 6749 section 6 lets a
+  client ask for a narrower scope. The broker cannot narrow a provider's token and does not keep the
+  scope of a grant, so its response could not tell the client which scope it got (section 3.3).
 
 ## Keys
 

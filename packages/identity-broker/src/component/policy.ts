@@ -46,7 +46,7 @@ export const vPolicyDecision = object({
 export type PolicyDecision = Infer<typeof vPolicyDecision>;
 
 /**
- * The facts of `client`, or null for a client that a host registered outside `/hub-clients`: a
+ * The facts of `client`, or null for a client that a host registered outside `POST /register`: a
  * tenant that is not a repository's, or one with no recorded owner. A hub refuses such a client; a
  * broker without hub mode has no policy to feed.
  */

@@ -1,6 +1,6 @@
 // IdentityHub.Client against a fake GitHub and identity hub behind a stubbed fetch. The hub
-// answers `/hub-clients` as packages/identity-broker/src/client/hubClients.ts does, and a client's own record as
-// `registrationEndpoints` of @samebase/identity-broker does.
+// answers `POST /register` (RFC 7591) and a client's own record (RFC 7592) as the registration
+// wire format of @samebase/identity-broker 0.33.0 says.
 import { adopt } from "alchemy/AdoptPolicy";
 import * as Output from "alchemy/Output";
 import { encodeState, type PersistedState, reviveState, State } from "alchemy/State";
@@ -27,13 +27,13 @@ const OIDC_REQUEST_URL = "https://oidc.test/token?api-version=2.0";
 const OIDC_REQUEST_TOKEN = "oidc-request-token";
 const OIDC_TOKEN = "oidc-token";
 /** Where a run asks for a new client. */
-const HUB_CLIENTS = `${ISSUER}/hub-clients`;
+const REGISTER = `${ISSUER}/register`;
 /** The clients' own records at the hub, which a renewal and a delete read. */
 const RECORDS = `${ISSUER}/register/`;
-/** The 201 answers of `POST /hub-clients`, recorded from the hub of RFC 133. */
-const PRODUCTION_ANSWER = hubFixture("hub-clients-production.json");
-const PREVIEW_ANSWER = hubFixture("hub-clients-preview.json");
-const DEVELOPMENT_ANSWER = hubFixture("hub-clients-development.json");
+/** The 201 answers of `POST /register`, recorded from the hub of RFC 133. */
+const PRODUCTION_ANSWER = hubFixture("register-production.json");
+const PREVIEW_ANSWER = hubFixture("register-preview.json");
+const DEVELOPMENT_ANSWER = hubFixture("register-development.json");
 /** The hub of every test, unless a test names another. */
 const HUB: IdentityHub.Hub = { issuer: ISSUER };
 /** A second hub, for the tests that change the hub. */
@@ -81,10 +81,11 @@ const development = (overrides: Partial<DevelopmentProps> = {}): DevelopmentProp
 
 /** The body of a registration, as the fake and the tests expect it. */
 const requestBody = (overrides: Record<string, unknown> = {}) => ({
-  app: "scout",
-  redirectUris: [REDIRECT_URI],
-  softwareVersion: "abc",
+  redirect_uris: [REDIRECT_URI],
+  software_id: "scout",
+  software_version: "abc",
   connectors: ["google"],
+  token_endpoint_auth_method: "client_secret_post",
   ...overrides,
 });
 
@@ -138,11 +139,13 @@ const OFF = {
   repository: "",
 };
 
-/** The body of POST /hub-clients. */
+/** The body of POST /register: the client metadata of RFC 7591 section 2 that the hub reads. */
 const ClientRequest = Schema.Struct({
-  app: Schema.String,
-  redirectUris: Schema.Array(Schema.String),
+  redirect_uris: Schema.Array(Schema.String),
+  software_id: Schema.String,
+  software_version: Schema.String,
   connectors: Schema.Array(Schema.String),
+  token_endpoint_auth_method: Schema.Literal("client_secret_post"),
 });
 
 /** One request that reached the fake. */
@@ -161,17 +164,37 @@ const networkDown: Answer = ({ authorization }) => {
   throw new TypeError(`fetch failed: ${authorization}`);
 };
 
-/** The answers of POST /hub-clients that give no client. */
+/** The refusal of a token, as the hub answers it (RFC 6750 section 3). */
+const invalidToken = () =>
+  Response.json(
+    { error: "invalid_token", error_description: "The token is invalid." },
+    { status: 401 },
+  );
+
+/** The answers of POST /register that give no client. */
 const REFUSALS: readonly (readonly [string, Answer])[] = [
-  ["invalid_request", () => Response.json({ error: "invalid_request" }, { status: 400 })],
-  ["a refused token", () => Response.json({ error: "invalid_token" }, { status: 401 })],
-  ["not_allowed", () => Response.json({ error: "not_allowed" }, { status: 403 })],
+  [
+    "invalid_client_metadata",
+    () => Response.json({ error: "invalid_client_metadata" }, { status: 400 }),
+  ],
+  ["invalid_redirect_uri", () => Response.json({ error: "invalid_redirect_uri" }, { status: 400 })],
+  ["a refused token", invalidToken],
+  // RFC 6750 section 3.1: a request without credentials gets no error code and no body.
+  [
+    "a bare 401",
+    () => new Response(null, { status: 401, headers: { "WWW-Authenticate": "Bearer" } }),
+  ],
+  ["insufficient_scope", () => Response.json({ error: "insufficient_scope" }, { status: 403 })],
   ["a missing endpoint", () => new Response("Not Found", { status: 404 })],
   [
     "rate_limited",
     () => Response.json({ error: "rate_limited", window: "repository" }, { status: 429 }),
   ],
   ["github_unavailable", () => Response.json({ error: "github_unavailable" }, { status: 502 })],
+  [
+    "temporarily_unavailable",
+    () => Response.json({ error: "temporarily_unavailable" }, { status: 503 }),
+  ],
   ["a network error", networkDown],
   [
     "a 201 without a client secret",
@@ -195,7 +218,7 @@ const REFUSALS: readonly (readonly [string, Answer])[] = [
       Response.json(
         {
           ...PREVIEW_ANSWER,
-          redirect_uris: Schema.decodeUnknownSync(ClientRequest)(body).redirectUris,
+          redirect_uris: Schema.decodeUnknownSync(ClientRequest)(body).redirect_uris,
           issuer: "https://auth.other.test",
         },
         { status: 201 },
@@ -207,7 +230,7 @@ const REFUSALS: readonly (readonly [string, Answer])[] = [
       Response.json(
         {
           ...PREVIEW_ANSWER,
-          redirect_uris: Schema.decodeUnknownSync(ClientRequest)(body).redirectUris,
+          redirect_uris: Schema.decodeUnknownSync(ClientRequest)(body).redirect_uris,
           connectors: ["google", "github"],
         },
         { status: 201 },
@@ -218,7 +241,7 @@ const REFUSALS: readonly (readonly [string, Answer])[] = [
     ({ body }) => {
       const { connectors: _connectors, ...answer } = PREVIEW_ANSWER;
       return Response.json(
-        { ...answer, redirect_uris: Schema.decodeUnknownSync(ClientRequest)(body).redirectUris },
+        { ...answer, redirect_uris: Schema.decodeUnknownSync(ClientRequest)(body).redirect_uris },
         { status: 201 },
       );
     },
@@ -230,9 +253,11 @@ class FakeServices {
   readonly sent: Sent[] = [];
   /** The clients on the hub, with the token of each. */
   readonly clients = new Map<string, string>();
+  /** The client information of each client, which a read of its own record answers (RFC 7592). */
+  private readonly records = new Map<string, Record<string, unknown>>();
   /** Set: the answers of the service in place of the normal ones. */
   github: Answer | undefined;
-  /** `POST /hub-clients`. */
+  /** `POST /register`. */
   registrar: Answer | undefined;
   /** A client's own record at the hub. */
   hub: Answer | undefined;
@@ -262,9 +287,16 @@ class FakeServices {
       .map(({ method, url }) => `${method} ${url}`);
   }
 
+  /** The requests for a new client to any hub, as "METHOD URL". */
+  registrations() {
+    return this.sent
+      .filter(({ url }) => new URL(url).pathname === "/register")
+      .map(({ method, url }) => `${method} ${url}`);
+  }
+
   private answerOf(url: string) {
     if (url.startsWith("https://oidc.test")) return this.github ?? this.answerGitHub;
-    if (new URL(url).pathname === "/hub-clients") return this.registrar ?? this.answerRegistrar;
+    if (new URL(url).pathname === "/register") return this.registrar ?? this.answerRegistrar;
     return new URL(url).pathname.startsWith("/register/")
       ? (this.hub ?? this.answerHub)
       : undefined;
@@ -295,16 +327,24 @@ class FakeServices {
   /** Any hub: the answer names the issuer that the request went to. */
   private readonly answerRegistrar: Answer = ({ authorization, body, url }) => {
     const issuer = new URL(url).origin;
+    if (!authorization.startsWith("Bearer ")) {
+      return new Response(null, { status: 401, headers: { "WWW-Authenticate": "Bearer" } });
+    }
     const bearer = authorization.replace(/^Bearer /, "");
     const withGitHub = bearer === OIDC_TOKEN;
     if (!withGitHub && !this.initialAccessTokens.has(bearer)) {
-      return Response.json({ error: "invalid_token" }, { status: 401 });
+      return invalidToken();
     }
-    const { redirectUris, connectors } = Schema.decodeUnknownSync(ClientRequest)(body);
+    const request = Schema.decodeUnknownSync(ClientRequest)(body);
+    const { connectors } = request;
     // The hub's policy allows these; another name is refused with the allowed ones, as the hub does.
     if (!connectors.every((name) => this.allowedConnectors.includes(name))) {
       return Response.json(
-        { error: "invalid_connectors", allowed: this.allowedConnectors },
+        {
+          error: "invalid_client_metadata",
+          reason: "invalid_connectors",
+          allowed: this.allowedConnectors,
+        },
         { status: 400 },
       );
     }
@@ -313,17 +353,36 @@ class FakeServices {
     this.clients.set(clientId, token);
     const production = withGitHub && this.production;
     if (production) this.initialAccessTokens.add(`iat-of-${clientId}`);
+    const {
+      client_secret: _secret,
+      issuer: _issuer,
+      terms: _terms,
+      initial_access_token: _initialAccessToken,
+      repository: _repository,
+      ...recorded
+    } = withGitHub ? (production ? PRODUCTION_ANSWER : PREVIEW_ANSWER) : DEVELOPMENT_ANSWER;
+    // The hub answers `software_id` in the full form, `<tenant id>/<app name>`.
+    const record = {
+      ...recorded,
+      client_id: clientId,
+      registration_access_token: token,
+      registration_client_uri: `${issuer}/register/${clientId}`,
+      redirect_uris: request.redirect_uris,
+      software_id: `gh-${REPOSITORY_ID}/${request.software_id}`,
+      software_version: request.software_version,
+      token_endpoint_auth_method: request.token_endpoint_auth_method,
+      connectors,
+    };
+    this.records.set(clientId, record);
     return Response.json(
       {
-        ...(withGitHub ? (production ? PRODUCTION_ANSWER : PREVIEW_ANSWER) : DEVELOPMENT_ANSWER),
-        issuer,
-        client_id: clientId,
+        ...record,
         client_secret: `secret-of-${clientId}`,
-        registration_access_token: token,
-        registration_client_uri: `${issuer}/register/${clientId}`,
-        redirect_uris: redirectUris,
-        connectors,
-        ...(production ? { initial_access_token: `iat-of-${clientId}` } : {}),
+        issuer,
+        terms: PREVIEW_ANSWER["terms"],
+        ...(production
+          ? { initial_access_token: `iat-of-${clientId}`, repository: REPOSITORY_ID }
+          : {}),
       },
       { status: 201 },
     );
@@ -332,13 +391,14 @@ class FakeServices {
   private readonly answerHub: Answer = ({ authorization, method, url }) => {
     const clientId = url.split("/").at(-1) ?? "";
     if (authorization !== `Bearer ${this.clients.get(clientId)}`) {
-      return Response.json({ error: "invalid_token" }, { status: 401 });
+      return invalidToken();
     }
     if (method === "DELETE") {
       this.clients.delete(clientId);
       return new Response(null, { status: 204 });
     }
-    return Response.json({ client_id: clientId });
+    // The client information without the secret, with the presented token echoed.
+    return Response.json(this.records.get(clientId));
   };
 }
 
@@ -395,9 +455,16 @@ describe("IdentityHub.Client", () => {
         },
         {
           method: "POST",
-          url: HUB_CLIENTS,
+          url: REGISTER,
           authorization: `Bearer ${OIDC_TOKEN}`,
-          body: requestBody(),
+          // The client registration request of RFC 7591, with every member that the client sends.
+          body: {
+            redirect_uris: [REDIRECT_URI],
+            software_id: "scout",
+            software_version: "abc",
+            connectors: ["google"],
+            token_endpoint_auth_method: "client_secret_post",
+          },
         },
       ]);
     }),
@@ -422,13 +489,13 @@ describe("IdentityHub.Client", () => {
       );
       const sorted = [REDIRECT_URI, OTHER_REDIRECT_URI].sort();
       expect(made.redirectUris).toEqual(sorted);
-      expect(fake.sent.at(-1)?.body).toEqual(requestBody({ redirectUris: sorted }));
+      expect(fake.sent.at(-1)?.body).toEqual(requestBody({ redirect_uris: sorted }));
       // The same set in another order renews that client.
       fake.sent.length = 0;
       expect(
         yield* stack.deploy(client(props({ redirectUris: [OTHER_REDIRECT_URI, REDIRECT_URI] }))),
       ).toEqual(made);
-      expect(fake.calls(HUB_CLIENTS)).toEqual([]);
+      expect(fake.registrations()).toEqual([]);
     }),
   );
 
@@ -439,7 +506,7 @@ describe("IdentityHub.Client", () => {
       fake.sent.length = 0;
       const renamed = yield* stack.deploy(client(props({ app: "scout-admin" })));
       expect(renamed).toEqual({ ...issued("cl_2"), app: "scout-admin" });
-      expect(fake.sent.at(-1)?.body).toEqual(requestBody({ app: "scout-admin" }));
+      expect(fake.sent.at(-1)?.body).toEqual(requestBody({ software_id: "scout-admin" }));
       expect(fake.calls(RECORDS)).toEqual([]);
     }),
   );
@@ -505,7 +572,7 @@ describe("IdentityHub.Client", () => {
         yield* stack.deploy(client(props({ connectors: ["github", "google", "github"] }))),
       ).toEqual(changed);
       expect(fake.calls(RECORDS)).toEqual([`GET ${ISSUER}/register/cl_2`]);
-      expect(fake.calls(HUB_CLIENTS)).toEqual([]);
+      expect(fake.registrations()).toEqual([]);
     }),
   );
 
@@ -548,7 +615,11 @@ describe("IdentityHub.Client", () => {
       const fake = new FakeServices().install();
       fake.registrar = ({ authorization }) =>
         Response.json(
-          { error: "invalid_connectors", allowed: [authorization, "Google", "evil example"] },
+          {
+            error: "invalid_client_metadata",
+            reason: "invalid_connectors",
+            allowed: [authorization, "Google", "evil example"],
+          },
           { status: 400 },
         );
       const { layer, lines } = capturedLogs();
@@ -570,7 +641,7 @@ describe("IdentityHub.Client", () => {
       expect(fake.calls(OIDC_REQUEST_URL)).toEqual([
         `GET ${OIDC_REQUEST_URL}&audience=${encodeURIComponent(OTHER_HUB.issuer)}`,
       ]);
-      expect(fake.calls(OTHER_HUB.issuer)).toEqual([`POST ${OTHER_HUB.issuer}/hub-clients`]);
+      expect(fake.calls(OTHER_HUB.issuer)).toEqual([`POST ${OTHER_HUB.issuer}/register`]);
       expect(fake.calls(ISSUER)).toEqual([]);
     }),
   );
@@ -581,7 +652,7 @@ describe("IdentityHub.Client", () => {
       yield* stack.deploy(client(props()));
       fake.sent.length = 0;
       yield* stack.deploy(client(props({ hub: OTHER_HUB })));
-      expect(fake.calls(OTHER_HUB.issuer)).toEqual([`POST ${OTHER_HUB.issuer}/hub-clients`]);
+      expect(fake.calls(OTHER_HUB.issuer)).toEqual([`POST ${OTHER_HUB.issuer}/register`]);
       expect(fake.calls(ISSUER)).toEqual([]);
     }),
   );
@@ -634,7 +705,7 @@ describe("IdentityHub.Client", () => {
         expect(yield* stack.deploy(client(production))).toEqual(saved);
         // The renewal answer has no token, and the deploy keeps the saved one.
         expect(yield* stack.deploy(client(production))).toEqual(saved);
-        expect(fake.calls(HUB_CLIENTS)).toHaveLength(1);
+        expect(fake.registrations()).toHaveLength(1);
       }),
   );
 
@@ -663,7 +734,7 @@ describe("IdentityHub.Client", () => {
       expect(String(exit)).not.toContain("secret-of");
       expect(String(exit)).not.toContain("iat-of");
       // No request asks for a client that would replace the saved one.
-      expect(fake.calls(HUB_CLIENTS)).toHaveLength(1);
+      expect(fake.registrations()).toHaveLength(1);
     }),
   );
 
@@ -676,7 +747,7 @@ describe("IdentityHub.Client", () => {
 
       // The same client: no new registration and no delete, only the renewal of cl_1.
       expect(yield* stack.deploy(client(props()))).toEqual(issued());
-      expect(fake.calls(HUB_CLIENTS)).toHaveLength(1);
+      expect(fake.registrations()).toHaveLength(1);
       expect(fake.calls(RECORDS)).toEqual([`GET ${ISSUER}/register/cl_1`]);
       expect(yield* typeOfRow(stack, stack.stage, "Client")).toBe("IdentityHub.Client");
     }),
@@ -700,7 +771,7 @@ describe("IdentityHub.Client", () => {
       expect(Exit.isFailure(exit)).toBe(true);
       expect(String(exit)).toContain("cannot be read by this version");
       expect(String(exit)).not.toContain("secret-of");
-      expect(fake.calls(HUB_CLIENTS)).toHaveLength(1);
+      expect(fake.registrations()).toHaveLength(1);
     }),
   );
 
@@ -731,7 +802,7 @@ describe("IdentityHub.Client", () => {
           {
             ...DEVELOPMENT_ANSWER,
             issuer: ISSUER,
-            redirect_uris: Schema.decodeUnknownSync(ClientRequest)(body).redirectUris,
+            redirect_uris: Schema.decodeUnknownSync(ClientRequest)(body).redirect_uris,
             initial_access_token: "not-for-a-development-client",
             repository: "1",
           },
@@ -751,18 +822,18 @@ describe("IdentityHub.Client", () => {
       Effect.gen(function* () {
         const fake = new FakeServices().install();
         yield* stack.deploy(client(props()));
-        fake.hub = () => Response.json({ error: "access_denied" }, { status: 403 });
+        fake.hub = () => Response.json({ error: "insufficient_scope" }, { status: 403 });
         fake.sent.length = 0;
         const { layer, lines } = capturedLogs();
         const suspended = yield* stack.deploy(client(props())).pipe(Effect.provide(layer));
         expect(suspended).toEqual({ ...issued(), status: "suspended" });
-        expect(fake.calls(HUB_CLIENTS)).toEqual([]);
+        expect(fake.registrations()).toEqual([]);
         expect(warningsIn(lines)).toHaveLength(1);
 
         // The hub lifts the suspension, and the same client serves again.
         fake.hub = undefined;
         expect(yield* stack.deploy(client(props()))).toEqual(issued());
-        expect(fake.calls(HUB_CLIENTS)).toEqual([]);
+        expect(fake.registrations()).toEqual([]);
       }),
   );
 
@@ -781,7 +852,7 @@ describe("IdentityHub.Client", () => {
         const { layer, lines } = capturedLogs();
         const again = yield* stack.deploy(client(props())).pipe(Effect.provide(layer));
         expect(again).toEqual(first);
-        expect(fake.calls(HUB_CLIENTS)).toEqual([]);
+        expect(fake.registrations()).toEqual([]);
         expect(warningsIn(lines)).toEqual([
           expect.stringContaining(`${REDIRECT_URI} keeps the saved client`),
         ]);
@@ -795,7 +866,7 @@ describe("IdentityHub.Client", () => {
       Effect.gen(function* () {
         const fake = new FakeServices().install();
         fake.registrar = () =>
-          Response.json({ error: "not_allowed", reason: "blocked" }, { status: 403 });
+          Response.json({ error: "insufficient_scope", reason: "blocked" }, { status: 403 });
         const exit = yield* Effect.exit(stack.deploy(client(props({ required: true }))));
         expect(Exit.isFailure(exit)).toBe(true);
         expect(String(exit)).toContain("is required and has no working client (off)");
@@ -844,19 +915,32 @@ describe("IdentityHub.Client", () => {
     }),
   );
 
-  for (const [reason, text] of [
-    ["verification_file_missing", "does not serve /samebase-verification.json"],
-    ["repository_mismatch", "names another repository"],
-    ["blocked", "Samebase blocked this repository or its owner"],
-    ["paused", "this app is paused on the identity hub"],
+  for (const [status, error, reason, text] of [
+    [
+      400,
+      "invalid_redirect_uri",
+      "verification_file_missing",
+      "does not serve /samebase-verification.json",
+    ],
+    [
+      400,
+      "invalid_redirect_uri",
+      "host_unreachable",
+      "could not reach the host of the return address",
+    ],
+    [400, "invalid_redirect_uri", "verification_file_invalid", "holds no repository id"],
+    [400, "invalid_redirect_uri", "repository_mismatch", "names another repository"],
+    [403, "insufficient_scope", "blocked", "Samebase blocked this repository or its owner"],
+    [403, "insufficient_scope", "paused", "this app is paused on the identity hub"],
+    [403, "insufficient_scope", "stale_proof", "took a newer GitHub OIDC token of this repository"],
   ] as const) {
-    test.provider(`a 403 for ${reason} says why in the log`, (stack) =>
+    test.provider(`a ${status} for ${reason} says why in the log`, (stack) =>
       Effect.gen(function* () {
         const fake = new FakeServices().install();
-        fake.registrar = () => Response.json({ error: "not_allowed", reason }, { status: 403 });
+        fake.registrar = () => Response.json({ error, reason }, { status });
         const { layer, lines } = capturedLogs();
         yield* stack.deploy(client(props())).pipe(Effect.provide(layer));
-        expect(warningsIn(lines)).toEqual([expect.stringContaining(`${text} (HTTP 403)`)]);
+        expect(warningsIn(lines)).toEqual([expect.stringContaining(`${text} (HTTP ${status})`)]);
       }),
     );
   }
@@ -877,19 +961,28 @@ describe("IdentityHub.Client", () => {
     );
   }
 
-  test.provider("a 403 with an unknown reason logs no text of the answer", (stack) =>
-    Effect.gen(function* () {
-      const fake = new FakeServices().install();
-      fake.registrar = () =>
-        Response.json({ error: "not_allowed", reason: "toString" }, { status: 403 });
-      const { layer, lines } = capturedLogs();
-      yield* stack.deploy(client(props())).pipe(Effect.provide(layer));
-      expect(warningsIn(lines)).toEqual([
-        expect.stringContaining("does not allow this repository or return address (HTTP 403)"),
-      ]);
-      expect(lines.filter((line) => line.includes("toString"))).toEqual([]);
-    }),
-  );
+  for (const [status, error, text] of [
+    [400, "invalid_redirect_uri", "or http on a loopback host for a development client (HTTP 400)"],
+    [
+      400,
+      "invalid_client_metadata",
+      "refused the client metadata, such as the app name (HTTP 400)",
+    ],
+    [403, "insufficient_scope", "the identity hub does not allow this repository (HTTP 403)"],
+  ] as const) {
+    test.provider(
+      `a ${status} ${error} with an unknown reason logs no text of the answer`,
+      (stack) =>
+        Effect.gen(function* () {
+          const fake = new FakeServices().install();
+          fake.registrar = () => Response.json({ error, reason: "toString" }, { status });
+          const { layer, lines } = capturedLogs();
+          yield* stack.deploy(client(props())).pipe(Effect.provide(layer));
+          expect(warningsIn(lines)).toEqual([expect.stringContaining(text)]);
+          expect(lines.filter((line) => line.includes("toString"))).toEqual([]);
+        }),
+    );
+  }
 
   test.provider("a deploy with the off values asks again", (stack) =>
     Effect.gen(function* () {
@@ -959,7 +1052,7 @@ describe("IdentityHub.Client", () => {
         fake.github = answer;
         const { layer, lines } = capturedLogs();
         expect(yield* stack.deploy(client(props())).pipe(Effect.provide(layer))).toEqual(OFF);
-        expect(fake.calls(HUB_CLIENTS)).toEqual([]);
+        expect(fake.registrations()).toEqual([]);
         expect(warningsIn(lines)).toHaveLength(1);
       }),
     );
@@ -1237,7 +1330,7 @@ describe("IdentityHub.Client for a development client", () => {
         expect(fake.sent).toEqual([
           {
             method: "POST",
-            url: HUB_CLIENTS,
+            url: REGISTER,
             authorization: `Bearer ${INITIAL_ACCESS_TOKEN}`,
             body: requestBody(),
           },
@@ -1284,7 +1377,7 @@ describe("IdentityHub.Client for a development client", () => {
         issued("cl_2", REDIRECT_URI, "development"),
       );
       expect(fake.calls(RECORDS)).toEqual([]);
-      expect(fake.calls(HUB_CLIENTS)).toEqual([`POST ${HUB_CLIENTS}`]);
+      expect(fake.registrations()).toEqual([`POST ${REGISTER}`]);
     }),
   );
 
@@ -1303,18 +1396,18 @@ describe("IdentityHub.Client for a development client", () => {
     Effect.gen(function* () {
       const fake = new FakeServices().install();
       yield* stack.deploy(client(development()));
-      fake.hub = () => Response.json({ error: "access_denied" }, { status: 403 });
+      fake.hub = () => Response.json({ error: "insufficient_scope" }, { status: 403 });
       fake.sent.length = 0;
       expect(yield* stack.deploy(client(development()))).toEqual({
         ...DEVELOPED,
         status: "suspended",
       });
-      expect(fake.calls(HUB_CLIENTS)).toEqual([]);
+      expect(fake.registrations()).toEqual([]);
 
       // The hub lifts the suspension, and the same client serves again.
       fake.hub = undefined;
       expect(yield* stack.deploy(client(development()))).toEqual(DEVELOPED);
-      expect(fake.calls(HUB_CLIENTS)).toEqual([]);
+      expect(fake.registrations()).toEqual([]);
     }),
   );
 
@@ -1337,7 +1430,7 @@ describe("IdentityHub.Client for a development client", () => {
     ["a refused token", undefined, "the identity hub refused the initial access token (HTTP 401)"],
     [
       "app_mismatch",
-      () => Response.json({ error: "not_allowed", reason: "app_mismatch" }, { status: 403 }),
+      () => Response.json({ error: "insufficient_scope", reason: "app_mismatch" }, { status: 403 }),
       "the initial access token belongs to another app on the identity hub (HTTP 403)",
     ],
   ] satisfies readonly (readonly [string, Answer | undefined, string])[]) {
@@ -1621,19 +1714,19 @@ describe("the development stage of the starter", () => {
         const { name, siteUrl } = yield* stack.deploy(app).pipe(Effect.provide(layer));
         expect(name).toBe(selected);
         const callback = `${siteUrl}/auth/hub/callback`;
-        expect(services.sent.filter(({ url }) => url === HUB_CLIENTS)).toEqual([
+        expect(services.sent.filter(({ url }) => url === REGISTER)).toEqual([
           {
             method: "POST",
-            url: HUB_CLIENTS,
+            url: REGISTER,
             authorization: "Bearer iat-of-cl_1",
-            body: requestBody({ redirectUris: [callback], softwareVersion: "unknown" }),
+            body: requestBody({ redirect_uris: [callback], software_version: "unknown" }),
           },
         ]);
         const at = (pattern: RegExp) =>
           services.timeline.flatMap((line, index) => (pattern.test(line) ? [index] : []));
         // The repository id is written before the request for the client, which the hub needs to
         // read the file, and the three variables after it.
-        const [register] = at(/\/hub-clients$/);
+        const [register] = at(/\/register$/);
         const writes = at(/\/update_environment_variables$/);
         expect(writes[0]).toBeLessThan(register ?? -1);
         expect(writes.at(-1)).toBeGreaterThan(register ?? Infinity);

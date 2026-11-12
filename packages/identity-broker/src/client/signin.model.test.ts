@@ -360,7 +360,7 @@ function checkHop(
 }
 
 /**
- * A client of the repository, registered at `POST /hub-clients` by a run of its current owner.
+ * A client of the repository, registered at `POST /register` by a run of its current owner.
  * Null when the hub refused the run.
  */
 async function registerClient(
@@ -373,9 +373,9 @@ async function registerClient(
   world.hosts.serve({ outcome: "present", repositoryId: spec.repository });
   const redirectUri = `https://app-a-${spec.stage}.r${spec.repository}.example/auth/hub/callback`;
   const response = await postHubClient(h, proof.token, {
-    app: "app-a",
-    redirectUris: [redirectUri],
-    softwareVersion: "abc123",
+    software_id: "app-a",
+    redirect_uris: [redirectUri],
+    software_version: "abc123",
     connectors: [...spec.connectors],
   });
   if (response.status !== 201) {

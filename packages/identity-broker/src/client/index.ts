@@ -49,7 +49,9 @@ import {
   type Registration,
 } from "./policy.js";
 import {
+  invalidToken,
   newClientCredentials,
+  noToken,
   registrationEndpoints,
   type RegistrationConfig,
 } from "./registration.js";
@@ -107,7 +109,7 @@ export type IdentityBrokerConfig<
    */
   previewClientIdleDays?: number;
   /**
-   * The hub mode: `POST /hub-clients`, `/register/<client>` (RFC 7592), `/moderation/*`, and the
+   * The hub mode: `POST /register` (RFC 7591), `/register/<client>` (RFC 7592), `/moderation/*`, and the
    * policy. Absent: none of these endpoints, and the host is its own policy.
    */
   registration?: RegistrationConfig<C["name"], R["name"]>;
@@ -272,6 +274,11 @@ export function defineIdentityBroker<C extends Connector, R extends ResourceProv
     token_endpoint: `${issuer}/token`,
     userinfo_endpoint: `${issuer}/userinfo`,
     jwks_uri: `${issuer}/.well-known/jwks.json`,
+    // The client registration endpoint of RFC 7591, in hub mode. It needs an initial access token.
+    // `op_tos_uri` is the terms that every new client's answer names (OpenID Connect Discovery).
+    ...(registration === undefined
+      ? {}
+      : { registration_endpoint: `${issuer}/register`, op_tos_uri: registration.terms }),
     scopes_supported: [...SCOPES, ...resources.scopes],
     // An extension: the names a registration may enroll in. What a client may use is in its
     // registration answer.
@@ -325,8 +332,9 @@ export function defineIdentityBroker<C extends Connector, R extends ResourceProv
    */
   const cannotReauthenticate = (connector: Connector) =>
     connector.kind === "oauth" || !connector.promptLogin;
-  const freshLoginRefusal = (connector: Connector) =>
-    `${connector.label} cannot reauthenticate the user, which prompt=login or max_age asked for.`;
+  // Also an error_description at the return address, so no label (RFC 6749 section 4.1.2.1).
+  const freshLoginRefusal =
+    "This sign-in method cannot reauthenticate the user, which prompt=login or max_age asked for.";
 
   /**
    * Sends the user to a connector for a stored request. `refuse` answers a refusal: the hub's
@@ -344,7 +352,7 @@ export function defineIdentityBroker<C extends Connector, R extends ResourceProv
   ): Promise<Response> {
     const { connector, request } = args;
     if (request.freshLogin && cannotReauthenticate(connector)) {
-      return args.refuse("login_required", freshLoginRefusal(connector));
+      return args.refuse("login_required", freshLoginRefusal);
     }
     const start = await startUpstream({
       connector,
@@ -510,7 +518,7 @@ export function defineIdentityBroker<C extends Connector, R extends ResourceProv
     // login that the connector cannot do is refused here, before anything is stored.
     const direct = offered.length === 1 && consent === null ? offered[0] : undefined;
     if (direct !== undefined && freshLogin && cannotReauthenticate(direct)) {
-      return refusePage(freshLoginRefusal(direct));
+      return refusePage(freshLoginRefusal);
     }
     // Every later step needs this cookie: a client that fetches the page itself cannot send a
     // user's browser on from it, and a provider callback finishes only where the sign-in started.
@@ -555,7 +563,7 @@ export function defineIdentityBroker<C extends Connector, R extends ResourceProv
     if (storedDirect !== undefined && freshLogin && cannotReauthenticate(storedDirect)) {
       // Only when a revoked grant left one connector that the snapshot did not go straight to.
       await ctx.runMutation(component.authRequests.abandon, { requestId });
-      return refusePage(freshLoginRefusal(storedDirect));
+      return refusePage(freshLoginRefusal);
     }
     const setCookie = `${txnCookiePrefix}${requestId}=${txnCookie}; ${txnCookieAttributes}; Max-Age=${AUTH_REQUEST_TTL_MS / 1000}`;
     if (storedDirect !== undefined) {
@@ -753,14 +761,20 @@ export function defineIdentityBroker<C extends Connector, R extends ResourceProv
           codeVerifier: claim.upstreamCodeVerifier,
           nonce: claim.upstreamNonce,
         });
+        // OIDC Core section 2: `sub` must not exceed 255 ASCII characters.
+        if (!/^\p{ASCII}{1,255}$/u.test(`${connector.provider}:${upstream.identity.upstreamId}`)) {
+          throw new Error("The upstream id does not fit in a sub");
+        }
       } catch (error) {
         await ctx.runMutation(component.authRequests.abandon, { requestId: claim.requestId });
         // The provider's error code picks one fixed answer; nothing the provider wrote is echoed.
+        // The connector's label is free text, so no description holds it (RFC 6749 section
+        // 4.1.2.1).
         if (error instanceof oauth.AuthorizationResponseError && error.error === "access_denied") {
           return authorizationError({
             ...back,
             error: "access_denied",
-            description: `${connector.label} sign-in was declined.`,
+            description: "The provider sign-in was declined.",
           });
         }
         if (
@@ -770,7 +784,7 @@ export function defineIdentityBroker<C extends Connector, R extends ResourceProv
           return authorizationError({
             ...back,
             error: "temporarily_unavailable",
-            description: `${connector.label} is temporarily unavailable.`,
+            description: "The provider is temporarily unavailable.",
           });
         }
         // Only the class name: provider errors carry token responses and decoded claims.
@@ -780,7 +794,7 @@ export function defineIdentityBroker<C extends Connector, R extends ResourceProv
         return authorizationError({
           ...back,
           error: "server_error",
-          description: `${connector.label} sign-in failed.`,
+          description: "The provider sign-in failed.",
         });
       }
       let authTime = now;
@@ -799,7 +813,8 @@ export function defineIdentityBroker<C extends Connector, R extends ResourceProv
           return authorizationError({
             ...back,
             error: "login_required",
-            description: `${connector.label} did not confirm a new login, which prompt=login or max_age asked for.`,
+            description:
+              "The provider did not confirm a new login, which prompt=login or max_age asked for.",
           });
         }
         authTime = authTimeSeconds * 1000;
@@ -858,15 +873,15 @@ export function defineIdentityBroker<C extends Connector, R extends ResourceProv
   }
 
   const token = httpActionGeneric(async (ctx, request) => {
-    const contentType = request.headers.get("content-type")?.toLowerCase() ?? "";
-    if (!contentType.startsWith("application/x-www-form-urlencoded")) {
+    const params = await readParameters(request);
+    // RFC 6749 section 5.2: every token error but invalid_client answers 400.
+    if (params === null) {
       return oauthError(
-        415,
+        400,
         "invalid_request",
         "The body must be application/x-www-form-urlencoded.",
       );
     }
-    const params = new URLSearchParams(await request.text());
     const authorization = request.headers.get("authorization");
     // A 401 carries a challenge (RFC 9110 section 15.5.2), which also names the scheme this endpoint
     // takes for a client that sent its secret in the body (RFC 6749 section 5.2).
@@ -978,23 +993,21 @@ export function defineIdentityBroker<C extends Connector, R extends ResourceProv
     });
   });
 
-  const userinfo = httpActionGeneric(async (_ctx, request) => {
+  const userinfo = httpActionGeneric(async (ctx, request) => {
+    // Only the Authorization header (RFC 6750 section 2.1): a token in the body or query is none.
     const bearer = readBearerToken(request.headers.get("authorization"));
-    const claims =
-      bearer === null ? null : await verifyAccessToken({ keySet: keySet(), issuer, token: bearer });
-    if (claims === null) {
-      return json(
-        {
-          error: "invalid_token",
-          error_description: "The access token is missing, invalid or expired.",
-        },
-        401,
-        {
-          "WWW-Authenticate": 'Bearer error="invalid_token"',
-        },
-      );
+    if (bearer === null) {
+      return noToken("userinfo");
     }
-    return json(claims);
+    const verified = await verifyAccessToken({ keySet: keySet(), issuer, token: bearer });
+    // A deleted client's tokens die with it (RFC 7592 section 2.3); a paused client's live to expiry.
+    if (
+      verified === null ||
+      (await ctx.runQuery(component.clients.get, { clientId: verified.clientId })) === null
+    ) {
+      return invalidToken();
+    }
+    return json(verified.claims);
   });
 
   return {
@@ -1026,14 +1039,20 @@ export function defineIdentityBroker<C extends Connector, R extends ResourceProv
         });
       }
       if (registration !== undefined) {
-        registrationEndpoints({ component, issuer, path }).addRoutes(http);
+        registrationEndpoints({
+          component,
+          issuer,
+          path,
+          refreshTokens: resources.enabled,
+        }).addRoutes(http);
         http.route({
-          path: path("/hub-clients"),
+          path: path("/register"),
           method: "POST",
           handler: hubClientsEndpoint({
             component,
             issuer,
             registration,
+            refreshTokens: resources.enabled,
             connectors: [...connectors.keys()],
           }),
         });
@@ -1048,7 +1067,7 @@ export function defineIdentityBroker<C extends Connector, R extends ResourceProv
 
     /**
      * The credentials of a client for `component.registration.register`, for a host that proves its
-     * callers in another way than `POST /hub-clients`. Call it in an action: the secret and the
+     * callers in another way than `POST /register`. Call it in an action: the secret and the
      * registration access token go to the caller of the host's endpoint, and nowhere else.
      */
     newClientCredentials: async () => await newClientCredentials(issuer),

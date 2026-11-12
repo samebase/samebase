@@ -18,7 +18,7 @@ export const vDeploymentType = union(
 );
 
 /**
- * Who made a client at `POST /hub-clients`, as of that registration: the owner is the one of that
+ * Who made a client at `POST /register`, as of that registration: the owner is the one of that
  * moment, so a transfer of the repository later changes nothing here. `github`: a GitHub Actions run,
  * with what GitHub's OIDC token said about it. `initial_access_token`: a development server with
  * the app's token, with the repository and owner of the token's production run.
@@ -59,7 +59,7 @@ export const vSignInPageTarget = union(
 /** The target of the events before broker 0.29.0, one app: history only, never read for decisions. */
 const vAppTarget = object({ scope: literal("app"), appId: string(), ownerId: string() });
 
-/** The windows of `POST /hub-clients`. `new_owners` is the one window of all owners new to the hub. */
+/** The windows of `POST /register`. `new_owners` is the one window of all owners new to the hub. */
 export const vRateLimitScope = union(
   literal("repository"),
   literal("owner"),
@@ -211,7 +211,7 @@ export default defineSchema({
 
   /**
    * Append-only history, never changed or deleted. `registration`: one row per client that
-   * `POST /hub-clients` created, written with the client; it outlives the client, so it answers the
+   * `POST /register` created, written with the client; it outlives the client, so it answers the
    * registration counts and whether an owner has ever registered. `block_change`: one row per block
    * and unblock that changed something. `sign_in_page_change`: one row per exemption from the
    * sign-in page that was set (`skip`) or removed (`show`), when it changed something.
@@ -273,7 +273,7 @@ export default defineSchema({
   /**
    * The initial access token of an app (RFC 7591 section 1.2), one row per repository and app name.
    * A production registration at
-   * `POST /hub-clients` answers the token once and writes its hash here, in the transaction that
+   * `POST /register` answers the token once and writes its hash here, in the transaction that
    * creates the client, replacing the row of the app, so the previous token stops. A registration
    * under another owner deletes the repository's rows. The row holds no token.
    */
@@ -293,7 +293,7 @@ export default defineSchema({
     .index("by_repository_and_app", ["githubRepositoryDatabaseId", "app"]),
 
   /**
-   * The fixed one-hour windows of `POST /hub-clients`, one row per repository, per owner, and one
+   * The fixed one-hour windows of `POST /register`, one row per repository, per owner, and one
    * for all new owners. The repository and owner rows count admitted requests; the new-owners row
    * counts owners whose first registration succeeded.
    */

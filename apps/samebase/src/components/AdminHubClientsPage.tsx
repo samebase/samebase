@@ -157,7 +157,7 @@ function useHub(): Hub {
 }
 
 /**
-Every client at one identity hub with who made it at `/hub-clients` (a repository's GitHub Actions
+Every client at one identity hub with who made it at `/register` (a repository's GitHub Actions
 run with its actor, or a development server with the app's initial access token), grouped by
 repository, and the blocks and their events. The switch picks samebase.com's own hub or the public
 hub; switching remounts the hub's view, so no dialog, outcome, or answer of one hub reaches the

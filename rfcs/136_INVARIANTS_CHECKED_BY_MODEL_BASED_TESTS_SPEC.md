@@ -15,8 +15,8 @@ commit engine and the broker). Reviewed by Codex (test design) before the build.
    verification file. A fake provider can hold a refresh answer open, so a block or a delete can
    land during the call. One fetch dispatcher serves all of them and reports any request it did not
    plan. After each step, every invariant that the answers and the rows can show is checked.
-   - Property A: registration and ownership (`POST /hub-clients`, laptops, renew, self-delete,
-     blocks, transfers, the clock).
+   - Property A: registration and ownership (`POST /register`, laptops, renew, self-delete, blocks,
+     transfers, the clock).
    - Property B: API authorization and refresh (authorize, refresh start and finish as two steps,
      revoke, self-delete, admin delete, blocks, cleanup).
 3. The tests land with the fixes in one PR. Each counterexample that a property found on the base
