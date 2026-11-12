@@ -178,17 +178,16 @@ is the app's. A client delete is different: `/userinfo` refuses the access token
 
 `/authorize` stores the request's set: the connectors the `connector` parameter named (a
 space-delimited list, as `scope` and `prompt` are; an empty or whitespace value counts as omitted),
-else every connector the client may use now. A name outside the enrollment answers
-`invalid_request`; the set is then intersected with the policy's connectors, and an empty set is
-"Sign-in is off" (403). With one connector in the set and no page to ask for consent (no hub mode,
-or an exemption), the browser goes straight to the provider; otherwise one page offers a "Continue
-with" button per connector of the set. When it asks for consent, the page also names the host that
-gets the sign-in (which served the repository's verification file, or is the user's own computer),
-the deploy and the GitHub repository that registered the client, what the app receives, and links
-the hub's privacy notice and terms. The picker and the consent are one page, so no user sees two
-pickers. `/continue`, the callback, and code exchange accept only a connector in the set, the
-enrollment, and the policy of the moment. The id_token keeps `connector` as one string, the
-connector the user signed in with.
+else every connector the client may use now. A name outside the enrollment ends on the hub's error
+page; the set is then intersected with the policy's connectors, and an empty set is "Sign-in is off"
+(403). With one connector in the set and no page to ask for consent (no hub mode, or an exemption),
+the browser goes straight to the provider; otherwise one page offers a "Continue with" button per
+connector of the set. When it asks for consent, the page also names the host that gets the sign-in
+(which served the repository's verification file, or is the user's own computer), the deploy and the
+GitHub repository that registered the client, what the app receives, and links the hub's privacy
+notice and terms. The picker and the consent are one page, so no user sees two pickers. `/continue`,
+the callback, and code exchange accept only a connector in the set, the enrollment, and the policy
+of the moment. The id_token keeps `connector` as one string, the connector the user signed in with.
 
 Whether the page asks for consent is decided once, at the `/authorize` that stores the request: an
 exemption set or removed later does not change a request that already passed it, in either
@@ -344,11 +343,12 @@ provider.
   the provider to return `auth_time` (OIDC Core 3.1.2.1), and a provider can still reuse its
   session, so the OIDC sign-in completes only when that `auth_time` falls between the second the
   request was created and now, each widened by 60 seconds of clock skew; a missing, older, or later
-  `auth_time` answers `login_required`. A connector that cannot reauthenticate answers
-  `login_required` before anything goes upstream: a plain OAuth connector such as GitHub, which has
-  no `auth_time` to check, and Google, which documents no `login` value for `prompt`. A freshness
-  request against these is refused rather than pretended. Other `prompt` values, such as `consent`
-  and `select_account`, answer `invalid_request`.
+  `auth_time` answers `login_required`. A connector that cannot reauthenticate refuses before
+  anything goes upstream: a plain OAuth connector such as GitHub, which has no `auth_time` to check,
+  and Google, which documents no `login` value for `prompt`. The refusal is the hub's error page, or
+  `login_required` at the redirect URI after the user continued from the page. A freshness request
+  against these is refused rather than pretended. Other `prompt` values, such as `consent` and
+  `select_account`, end on the hub's error page.
 - Subjects are public (OIDC Core section 8), not pairwise, against the consideration of section
   17.3: every app can correlate a user with every other app and with the provider account. See
   Subjects for the reasons.
@@ -372,6 +372,9 @@ provider.
   one.
 - No CORS on the registration endpoint, which OpenID Connect Registration section 3 recommends: a
   deploy registers, never a browser.
+- No CORS on the discovery document, the JWKS, `/token`, or `/userinfo`, which OpenID Connect
+  Discovery sections 3 and 4 and OIDC Core section 5.3 recommend: every client is a confidential
+  `web` client, so its server calls them, never a browser.
 - Software statements are ignored, which RFC 7591 section 3.1.1 permits.
 - Only `web` clients, `public` subjects, and RS256 ID Tokens. A request for anything else, or with a
   metadata member the hub cannot honor, such as `sector_identifier_uri` or an encryption member, is

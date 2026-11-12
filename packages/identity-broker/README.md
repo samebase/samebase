@@ -43,7 +43,7 @@ A **hub** is a Convex deployment that runs this component.
   [checks](#what-the-hub-checks) that the repository controls that URL, and returns a client ID and
   secret for that deployment.
 - **At sign-in**, the app runs the OpenID Connect code flow against the hub. The hub's page names
-  the app, and the user picks Google or GitHub.
+  the app's host and its GitHub repository, and the user picks Google or GitHub.
 
 <p align="center">
   <picture>
