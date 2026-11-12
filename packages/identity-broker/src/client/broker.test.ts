@@ -508,7 +508,7 @@ describe("authorization code flow with an OAuth connector", () => {
       expect(refused.headers.get("content-type")).toMatch(/text\/html/);
       expect(await refused.text()).toContain(description);
     };
-    await refusedWith({ scope: "email" }, "scope must include &quot;openid&quot;.");
+    await refusedWith({ scope: "email" }, "scope must include openid.");
     await refusedWith({ prompt: "none" }, "This provider has no session to reuse.");
     // An OAuth connector cannot force a fresh login, whether prompt=login or max_age asked for it.
     for (const extra of [{ prompt: "login" }, { max_age: "300" }]) {
@@ -1593,11 +1593,38 @@ describe("handler rules at their edges", () => {
         headers: { "Content-Type": contentType },
         body,
       });
-      expect(response.status).toBe(415);
+      expect(response.status).toBe(400);
       expect(await response.json()).toMatchObject({ error: "invalid_request" });
     }
     // The refused requests did not spend the code.
     expect((await exchange(h, { code, clientId, clientSecret, verifier })).status).toBe(200);
+  });
+
+  test("answers invalid_request for a missing or empty grant_type, and unsupported_grant_type for an unknown one", async () => {
+    const h = await createHarness({ connectors: [fakeUpstream().connector] });
+    const { clientId, clientSecret } = await h.registerClient({
+      appName: "My app",
+      redirectUri: REDIRECT_URI,
+    });
+    for (const [grantType, error] of [
+      [undefined, "invalid_request"],
+      ["", "invalid_request"],
+      ["password", "unsupported_grant_type"],
+    ] as const) {
+      const response = await h.fetchBroker(`${ISSUER}/token`, {
+        method: "POST",
+        body: new URLSearchParams({
+          ...(grantType === undefined ? {} : { grant_type: grantType }),
+          client_id: clientId,
+          client_secret: clientSecret,
+        }),
+      });
+      expect(response.status).toBe(400);
+      const body: { error: string; error_description: string } = await response.json();
+      expect(body.error).toBe(error);
+      // RFC 6749 section 5.2: the characters that error_description may hold.
+      expect(body.error_description).toMatch(/^[\x20\x21\x23-\x5B\x5D-\x7E]+$/);
+    }
   });
 
   test("answers 401 at /userinfo for a missing or invalid bearer token", async () => {

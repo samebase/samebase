@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.33.4
+
+- `/token` and `/revoke` treat a parameter with an empty value as omitted. `resource=` on a code
+  exchange or a refresh no longer answers `invalid_target`.
+- `/token` and `/revoke` answer `400 invalid_request` to a body that is not
+  `application/x-www-form-urlencoded`. It was `415`.
+- `/token` answers `400 invalid_request` when `grant_type` is missing or empty. It was
+  `unsupported_grant_type`.
+- A refresh request with `scope` answers `400 invalid_scope`. The provider is not called and the
+  grant stays.
+- No `error_description` holds a `"` character (RFC 6749 sections 4.1.2.1 and 5.2).
+
 ## 0.33.3
 
 - README: the title and the first sentence use the package name, `@samebase/identity-broker`. No

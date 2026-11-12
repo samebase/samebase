@@ -231,7 +231,9 @@ at the exchange of a resource code, and at both evaluations of a refresh (below)
 consent screen of its own here: the provider supplies its authorization screen, and a refusal before
 it is an error page of the hub. The two OAuth legs have independent state and PKCE values. The
 browser cookie binds the upstream callback to the initiating browser. The downstream response
-includes `iss`, and its code lasts 60 seconds and is usable once.
+includes `iss`, and its code lasts 60 seconds and is usable once. The code and the broker refresh
+token are 43 characters (32 random bytes in base64url); the access token has the size that the
+provider gives it (RFC 6749 sections 4.1.2 and 5.1).
 
 The broker returns the provider's bearer access token unchanged. The resource server remains the
 provider API; a broker issuer on the authorization response does not claim that the broker signed
@@ -383,11 +385,9 @@ provider.
 - A replayed authorization code revokes the code, its request, and its broker refresh grant if
   present. Already issued access tokens remain valid: a `/userinfo` token keeps its five minutes,
   and a provider access token follows the provider's expiry and revocation rules.
-- A request to `/token` or `/revoke` whose body is not `application/x-www-form-urlencoded` answers
-  `415 invalid_request`, where RFC 6749 section 5.2 gives 400 for every error but `invalid_client`.
-- RFC 6749 sections 4.1.2 and 5.1 recommend that the server documents the size of each value it
-  issues: in API authorization, the code and the broker refresh token are 43 characters (32 random
-  bytes in base64url), and the access token has the size that the provider gives it.
+- A refresh request that carries `scope` answers `invalid_scope`, where RFC 6749 section 6 lets a
+  client ask for a narrower scope. The broker cannot narrow a provider's token and does not keep the
+  scope of a grant, so its response could not tell the client which scope it got (section 3.3).
 
 ## Keys
 

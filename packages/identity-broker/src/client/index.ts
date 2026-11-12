@@ -863,15 +863,15 @@ export function defineIdentityBroker<C extends Connector, R extends ResourceProv
   }
 
   const token = httpActionGeneric(async (ctx, request) => {
-    const contentType = request.headers.get("content-type")?.toLowerCase() ?? "";
-    if (!contentType.startsWith("application/x-www-form-urlencoded")) {
+    const params = await readParameters(request);
+    // RFC 6749 section 5.2: every token error but invalid_client answers 400.
+    if (params === null) {
       return oauthError(
-        415,
+        400,
         "invalid_request",
         "The body must be application/x-www-form-urlencoded.",
       );
     }
-    const params = new URLSearchParams(await request.text());
     const authorization = request.headers.get("authorization");
     // A 401 carries a challenge (RFC 9110 section 15.5.2), which also names the scheme this endpoint
     // takes for a client that sent its secret in the body (RFC 6749 section 5.2).
