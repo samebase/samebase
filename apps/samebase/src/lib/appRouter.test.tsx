@@ -247,6 +247,14 @@ vi.mock("@/components/LandingPreviewPage", () => ({
   DocsTheStackPage: () => <div data-testid="docs-the-stack-page">Docs the stack page</div>,
 }));
 
+vi.mock("@/components/TemplatesPage", () => ({
+  TemplatesGalleryPage: () => <div data-testid="templates-page">Templates page</div>,
+  TemplateBasePage: () => <div data-testid="template-base-page">Template base page</div>,
+  TemplateIdentityHubPage: () => (
+    <div data-testid="template-identity-hub-page">Template identity hub page</div>
+  ),
+}));
+
 vi.mock("@/repository/editor/FileView", () => ({
   FileView: () => <div data-testid="file-view-page">File view page</div>,
 }));

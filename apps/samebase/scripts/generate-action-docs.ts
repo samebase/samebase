@@ -261,10 +261,12 @@ HTML pages. Action and operate docs are raw markdown only.
 - [The big migration](https://samebase.com/docs/the-big-migration.md): how Samebase works with
   Alchemy, and how to move a Worker or Convex app
 - [The stack](https://samebase.com/docs/the-stack.md): what the app template ships
-- [Do it yourself](https://samebase.com/docs/do-it-yourself.md): the template repositories and the
-  settings each one needs, with no Samebase account
+- [Do it yourself](https://samebase.com/docs/do-it-yourself.md): deploy the same stack in three
+  steps, with no Samebase account
 - [Receipts](https://samebase.com/docs/receipts.md): every factual claim with its primary source
   and the date it was last checked
+- [Templates](https://samebase.com/templates): the template repositories, with the GitHub secrets
+  and variables each one needs
 - [Pricing](https://samebase.com/pricing.md): free during the beta, with repository and member
   limits
 - [Changelog](https://samebase.com/changelog.md): what changed in Samebase, newest first

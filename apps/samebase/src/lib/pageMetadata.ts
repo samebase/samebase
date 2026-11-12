@@ -8,6 +8,9 @@ import {
   DOCS_RECEIPTS_ROUTE,
   DOCS_THE_BIG_MIGRATION_ROUTE,
   DOCS_THE_STACK_ROUTE,
+  TEMPLATE_BASE_ROUTE,
+  TEMPLATE_IDENTITY_HUB_ROUTE,
+  TEMPLATES_ROUTE,
 } from "@/routeSearch/landingPreview";
 import { LOCAL_STORAGE_ROUTE } from "./localStorageRoute";
 import { SAMEBASE_BRAND_COPY } from "./samebaseBrandCopy";
@@ -121,8 +124,7 @@ export const DOCS_INDEX_PAGE_METADATA: PageMetadata = {
 
 export const DOCS_DO_IT_YOURSELF_PAGE_METADATA: PageMetadata = {
   title: "Do it yourself | Samebase",
-  description:
-    "The template repositories of Samebase and the settings each one needs, with no Samebase account.",
+  description: "Deploy the Samebase stack in three steps, with no Samebase account.",
   canonicalPath: DOCS_DO_IT_YOURSELF_ROUTE,
   robots: "index,follow",
   openGraphType: "website",
@@ -148,6 +150,31 @@ export const DOCS_RECEIPTS_PAGE_METADATA: PageMetadata = {
   title: "Receipts | Samebase",
   description: "Every factual Samebase claim with its primary source and check date.",
   canonicalPath: DOCS_RECEIPTS_ROUTE,
+  robots: "index,follow",
+  openGraphType: "website",
+};
+
+export const TEMPLATES_PAGE_METADATA: PageMetadata = {
+  title: "Templates | Samebase",
+  description:
+    "Public GitHub repositories that deploy themselves with Alchemy, and the settings each one needs.",
+  canonicalPath: TEMPLATES_ROUTE,
+  robots: "index,follow",
+  openGraphType: "website",
+};
+
+export const TEMPLATE_BASE_PAGE_METADATA: PageMetadata = {
+  title: "Web app template | Samebase",
+  description: "A Convex app with sign-in on every pull request preview, deployed by Alchemy.",
+  canonicalPath: TEMPLATE_BASE_ROUTE,
+  robots: "index,follow",
+  openGraphType: "website",
+};
+
+export const TEMPLATE_IDENTITY_HUB_PAGE_METADATA: PageMetadata = {
+  title: "Identity hub template | Samebase",
+  description: "Your own Google and GitHub sign-in for every deployment of your apps.",
+  canonicalPath: TEMPLATE_IDENTITY_HUB_ROUTE,
   robots: "index,follow",
   openGraphType: "website",
 };
@@ -245,6 +272,18 @@ export function resolveAppPageTitle(pathname: string): string {
     return DOCS_RECEIPTS_PAGE_METADATA.title;
   }
 
+  if (pathname === TEMPLATES_ROUTE) {
+    return TEMPLATES_PAGE_METADATA.title;
+  }
+
+  if (pathname === TEMPLATE_BASE_ROUTE) {
+    return TEMPLATE_BASE_PAGE_METADATA.title;
+  }
+
+  if (pathname === TEMPLATE_IDENTITY_HUB_ROUTE) {
+    return TEMPLATE_IDENTITY_HUB_PAGE_METADATA.title;
+  }
+
   if (pathname === LOCAL_STORAGE_ROUTE) {
     return LOCAL_STORAGE_PAGE_METADATA.title;
   }
@@ -302,6 +341,18 @@ export function resolvePageMetadata(args: {
 
   if (args.pathname === DOCS_RECEIPTS_ROUTE) {
     return DOCS_RECEIPTS_PAGE_METADATA;
+  }
+
+  if (args.pathname === TEMPLATES_ROUTE) {
+    return TEMPLATES_PAGE_METADATA;
+  }
+
+  if (args.pathname === TEMPLATE_BASE_ROUTE) {
+    return TEMPLATE_BASE_PAGE_METADATA;
+  }
+
+  if (args.pathname === TEMPLATE_IDENTITY_HUB_ROUTE) {
+    return TEMPLATE_IDENTITY_HUB_PAGE_METADATA;
   }
 
   if (args.pathname === LOCAL_STORAGE_ROUTE) {
