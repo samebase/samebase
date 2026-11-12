@@ -94,8 +94,8 @@ function PullRequestRow({
       data-pull-request-number={pullRequest.number}
     >
       {/* Same shape as the main branch row: branch and time on top, checks at the right. */}
-      <div className="flex min-w-0 items-center gap-3">
-        <div className="flex min-w-0 flex-1 flex-wrap gap-x-2.5 text-xs leading-5 text-muted-foreground">
+      <div className="flex min-w-0 flex-wrap items-center justify-end gap-x-3">
+        <div className="flex min-w-0 flex-[1_1_6rem] flex-wrap gap-x-2.5 text-xs leading-5 text-muted-foreground">
           {/* Most pull requests target the default branch, so only another base is named. */}
           <span className="[overflow-wrap:anywhere]">
             {headLabel}

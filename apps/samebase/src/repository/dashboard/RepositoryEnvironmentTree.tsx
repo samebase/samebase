@@ -105,7 +105,7 @@ function DestinationResource({
       className="grid min-h-10 min-w-0 py-1.5"
       role="group"
     >
-      <div className="flex min-w-0 items-center gap-1">
+      <div className="flex min-w-0 flex-wrap items-center gap-x-1">
         <a
           className="inline-flex min-h-10 min-w-0 items-center gap-2.5 text-foreground no-underline hover:no-underline"
           href={resource.href}
@@ -140,7 +140,7 @@ function DestinationResource({
               className="min-w-0"
               role="group"
             >
-              <div className="flex min-h-10 min-w-0 items-center gap-2.5 py-1.5">
+              <div className="flex min-h-10 min-w-0 flex-wrap items-center gap-x-2.5 py-1.5">
                 <span className="min-w-0 text-sm font-medium leading-5 text-foreground [overflow-wrap:anywhere]">
                   {component.path}
                 </span>
@@ -422,8 +422,8 @@ function DefaultBranchCommit({
   return (
     <div className="min-w-0">
       {/* Same shape as a pull request row: branch and time on top, checks at the right. */}
-      <div className="flex min-w-0 items-center gap-2">
-        <div className="flex min-w-0 flex-1 flex-wrap gap-x-2.5 text-xs leading-5 text-muted-foreground">
+      <div className="flex min-w-0 flex-wrap items-center justify-end gap-x-2">
+        <div className="flex min-w-0 flex-[1_1_6rem] flex-wrap gap-x-2.5 text-xs leading-5 text-muted-foreground">
           <span className="[overflow-wrap:anywhere]">{branch.name}</span>
           <span>{relativeCommitTime}</span>
         </div>
@@ -547,7 +547,7 @@ function CloudflareWorkerResource({ worker }: { worker: RepositoryEnvironmentWor
       </div>
       {worker.destination.state !== "absent" || worker.actions.length > 0 ? (
         <div className="ml-2.5 grid min-w-0 gap-1.5 border-l border-border pl-3">
-          <div className="flex min-w-0 items-center gap-1 text-sm">
+          <div className="flex min-w-0 flex-wrap items-center gap-x-1 text-sm">
             {worker.destination.state === "available" ? (
               <a
                 className="inline-flex min-h-10 min-w-0 items-center gap-1.5 text-muted-foreground underline decoration-border underline-offset-4 hover:text-foreground @4xl:min-h-8"
