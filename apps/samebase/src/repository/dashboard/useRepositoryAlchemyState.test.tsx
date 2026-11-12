@@ -513,18 +513,25 @@ describe("useRepositoryAlchemyState with the Cloudflare store", () => {
     const answerCloudflare = holdCloudflareRead();
     await render();
     await act(async () => client().value?.(liveRead));
-    await flush();
-    expect(latest).toMatchObject({ state: "loaded", observation: { stacks: liveStacks } });
+    // The metadata of the Convex stacks arrives by its own read, so wait for it by result.
+    await vi.waitFor(() =>
+      expect(latest).toMatchObject({
+        state: "loaded",
+        observation: { stacks: liveStacks, liveDeployments: deploymentMetadata },
+      }),
+    );
 
     await answerCloudflare(cloudflareFound);
-    expect(latest).toMatchObject({
-      state: "loaded",
-      observation: {
-        store: "found",
-        stacks: [...liveStacks, cloudflareStack],
-        liveDeployments: [...deploymentMetadata, ...cloudflareDeployments],
-      },
-    });
+    await vi.waitFor(() =>
+      expect(latest).toMatchObject({
+        state: "loaded",
+        observation: {
+          store: "found",
+          stacks: [...liveStacks, cloudflareStack],
+          liveDeployments: [...deploymentMetadata, ...cloudflareDeployments],
+        },
+      }),
+    );
   });
 
   it("stays loading while the Cloudflare read runs and the Convex store has no stack", async () => {
