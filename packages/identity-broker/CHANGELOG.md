@@ -2,11 +2,10 @@
 
 ## 0.34.0
 
-- `cloudflareConnection` also asks for `secrets-store.read` and `secrets-store.write`. Alchemy's
-  `Cloudflare.state()` keeps its token in the Secrets Store, and Cloudflare binds a Secrets Store
-  secret only with Edit, so an app reads or deploys that store only with these scopes. Before you
-  deploy this version, add Secrets Store Read and Secrets Store Edit to your Cloudflare OAuth
-  client. Optional scopes are enough.
+- `cloudflareConnection` takes `scopes`, the Cloudflare API scopes that your apps need, and adds
+  `offline_access`. It asked for a fixed list before, which was samebase.com's. To ask for the same
+  scopes as before, pass
+  `["workers-ci.read", "workers-ci.write", "workers-scripts.read", "workers-scripts.write", "account-settings.read"]`.
 
 ## 0.33.6
 

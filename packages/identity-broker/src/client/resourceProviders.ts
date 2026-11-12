@@ -40,10 +40,17 @@ export function convexConnection(credentials: Credentials): ResourceProvider<"co
   };
 }
 
-/** Cloudflare OAuth Applications, using API permission scopes and its documented token endpoint. */
-export function cloudflareConnection(credentials: Credentials): ResourceProvider<"cloudflare"> {
+/**
+ * Cloudflare OAuth Applications, using API permission scopes and its documented token endpoint.
+ * `scopes` are the Cloudflare API scopes that the hub's apps need, such as `workers-scripts.write`,
+ * and the hub's Cloudflare OAuth client must list each one. The broker adds `offline_access`: a
+ * Cloudflare access token lasts one hour, and the broker's refresh grant needs a refresh token.
+ */
+export function cloudflareConnection(
+  options: Credentials & { scopes: readonly string[] },
+): ResourceProvider<"cloudflare"> {
   return {
-    ...credentials,
+    ...options,
     name: "cloudflare",
     resource: "https://api.cloudflare.com/client/v4/",
     server: {
@@ -51,18 +58,7 @@ export function cloudflareConnection(credentials: Credentials): ResourceProvider
       authorization_endpoint: "https://dash.cloudflare.com/oauth2/auth",
       token_endpoint: "https://dash.cloudflare.com/oauth2/token",
     },
-    scopes: [
-      "workers-ci.read",
-      "workers-ci.write",
-      "workers-scripts.read",
-      "workers-scripts.write",
-      "account-settings.read",
-      // Reading an Alchemy `Cloudflare.state()` store binds its token secret to a preview Worker,
-      // and Cloudflare binds a Secrets Store secret only with Edit.
-      "secrets-store.read",
-      "secrets-store.write",
-      "offline_access",
-    ],
+    scopes: [...new Set([...options.scopes, "offline_access"])],
     selectAccount: false,
     tokenEndpointAuthMethod: "client_secret_basic",
   };

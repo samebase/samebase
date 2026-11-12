@@ -469,10 +469,18 @@ import {
 
 const resources = [
   convexConnection({ clientId: convexClientId, clientSecret: convexClientSecret }),
-  cloudflareConnection({ clientId: cloudflareClientId, clientSecret: cloudflareClientSecret }),
+  cloudflareConnection({
+    clientId: cloudflareClientId,
+    clientSecret: cloudflareClientSecret,
+    scopes: ["workers-scripts.read", "workers-scripts.write"],
+  }),
   githubConnection({ clientId: githubAppClientId, clientSecret: githubAppClientSecret }),
 ];
 ```
+
+`scopes` are the Cloudflare API scopes that your apps need. Your Cloudflare OAuth client must list
+each one. The broker adds `offline_access` for the refresh token. Convex and GitHub Apps have no
+scopes: a Convex grant covers the team, and a GitHub App's permissions set its access.
 
 | Provider   | The `resource` an app asks for          | Redirect URL to set at the provider        | Token endpoint method of your client there |
 | ---------- | --------------------------------------- | ------------------------------------------ | ------------------------------------------ |

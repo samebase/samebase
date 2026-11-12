@@ -11,7 +11,7 @@ import { cloudflareConnection, convexConnection, githubConnection } from "./reso
 const REDIRECT = "https://preview.example.com/oauth/hub/callback";
 const credentials = { clientId: () => "provider-client", clientSecret: () => "provider-secret" };
 const convex = convexConnection(credentials);
-const cloudflare = cloudflareConnection(credentials);
+const cloudflare = cloudflareConnection({ ...credentials, scopes: ["workers-scripts.read"] });
 const github = githubConnection(credentials);
 // GitHub's documented response: https://docs.github.com/en/apps/creating-github-apps/authenticating-with-a-github-app/refreshing-user-access-tokens
 const githubToken = {
@@ -477,11 +477,11 @@ test("an empty resource at /token counts as omitted, at the code exchange and at
   expect(refreshed.status).toBe(200);
 });
 
-test("the provider gets its configured scope, whatever the client requests", async () => {
+test("the provider gets the hub's scopes and offline_access, whatever the client requests", async () => {
   const args = await setup();
   const { start } = await authorize(args, cloudflare.resource, { scope: "openid" });
   const upstream = new URL(start.headers.get("location") ?? "");
-  expect(upstream.searchParams.get("scope")).toBe(cloudflare.scopes.join(" "));
+  expect(upstream.searchParams.get("scope")).toBe("workers-scripts.read offline_access");
   expect(upstream.searchParams.has("prompt")).toBe(false);
 });
 
