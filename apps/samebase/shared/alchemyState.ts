@@ -29,6 +29,18 @@ its `reviveState` reads every object with this key as a secret.
 export const ALCHEMY_REDACTED_MARKER = "__redacted__";
 
 /**
+Alchemy state holds each `Redacted` value in clear text. This parses a JSON text of the state, keeps
+the key of each secret, and replaces its value with `null`, so the value never leaves the action.
+*/
+export function parseWithoutSecretValues(text: string): unknown {
+  return JSON.parse(text, (_key, current: unknown) =>
+    isRecord(current) && ALCHEMY_REDACTED_MARKER in current
+      ? { [ALCHEMY_REDACTED_MARKER]: null }
+      : current,
+  );
+}
+
+/**
 A binding that `bindComponent` writes on a `Convex.Deployment` row: the installed component `path`
 from the app's `convex.config.ts`, such as `mail` or `workspace/mail`, owns the resources of the
 Alchemy `namespace` in the same stack and stage. `namespace` lists the namespace ids from the stack
@@ -214,11 +226,12 @@ under `samebase.run`, names `repository`. A stage while its first deploy runs, a
 did not complete, and a stage that an older stack wrote without a run record have no such output.
 The `output` of a stage is the JSON of its output without the run record. A stack without a stage
 that Samebase shows is left out. Stacks and stages keep the order of the store. A store read on the
-server removes the secret values before it calls this.
+server removes the secret values before it calls this. `store` is the store that gave the stages.
 */
 export function readDeployedStacks(
   stacks: readonly { name: string; stages: readonly AlchemyStoredStage[] }[],
   repository: string,
+  store: AlchemyStack["store"],
 ): AlchemyStack[] {
   return stacks.flatMap((stack) => {
     const stages = stack.stages.flatMap((stage) => {
@@ -238,7 +251,7 @@ export function readDeployedStacks(
           ]
         : [];
     });
-    return stages.length === 0 ? [] : [{ name: stack.name, stages }];
+    return stages.length === 0 ? [] : [{ name: stack.name, store, stages }];
   });
 }
 
@@ -314,6 +327,7 @@ export function stackCards({
       return [
         {
           stack: stack.name,
+          store: stack.store,
           stackFile: run.stackFile,
           folder: directory === "." ? REPOSITORY_ROOT_DIRECTORY : directory,
           run:
@@ -336,7 +350,9 @@ export function stackCards({
     })
     .sort(
       (left, right) =>
-        left.stackFile.localeCompare(right.stackFile) || left.stack.localeCompare(right.stack),
+        left.stackFile.localeCompare(right.stackFile) ||
+        left.stack.localeCompare(right.stack) ||
+        left.store.localeCompare(right.store),
     );
 
   return cards.map((card) => ({

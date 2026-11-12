@@ -125,6 +125,7 @@ const githubRepository = {
 const [capturedStack] = readDeployedStacks(
   observedBaseAlchemyRepositoryReply.stacks,
   "samebase/base-alchemy",
+  "convex",
 );
 const [capturedStage] = capturedStack.stages;
 /** The captured Deployment row with `rootDir`, which the row of a store from 0.7.0 lacks. */
@@ -134,6 +135,7 @@ const capturedResources = capturedStage.resources.map((resource) => ({
 }));
 const stack: AlchemyStack = {
   name: capturedStack.name,
+  store: "convex",
   stages: [{ ...capturedStage, resources: capturedResources }],
 };
 const deployedCommit = capturedStage.run.headCommit;

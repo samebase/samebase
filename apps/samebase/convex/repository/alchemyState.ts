@@ -1,7 +1,7 @@
 import { parse, validate } from "convex-helpers/validators";
 import { ConvexError, Infer, v } from "convex/values";
 import {
-  ALCHEMY_REDACTED_MARKER,
+  parseWithoutSecretValues,
   readAlchemySetupStatus,
   readDeployedStacks,
   vAlchemyConvexDeploymentState,
@@ -9,19 +9,23 @@ import {
 } from "../../shared/alchemyState";
 import {
   ALCHEMY_CONNECTION_UNAVAILABLE,
+  CLOUDFLARE_STORE_UNREADABLE,
   CONNECT_CONVEX_TO_CHECK_STACK,
   DESTROY_ALCHEMY_STACK_FIRST,
+  RECONNECT_CLOUDFLARE_TO_CHECK_STACK,
   vAlchemyNoConnection,
   vAlchemyLiveDeployments,
   vAlchemyRepositoryReply,
   vAlchemySetupStatus,
   vAlchemyStacksRead,
   vAlchemyStoredStage,
+  vCloudflareStacksRead,
   type AlchemySetupStatus,
   type AlchemyStack,
   type AlchemyStacksRead,
   type AlchemyStateObservation,
   type AlchemyStoredStage,
+  type CloudflareStacksRead,
 } from "../../shared/alchemyStateModel";
 import type { Id } from "../_generated/dataModel";
 import { env, type ActionCtx } from "../_generated/server";
@@ -31,7 +35,7 @@ import {
 } from "../convexManagementApi/client";
 import { ConvexManagement } from "../convexManagementApi/generated/sdk.gen";
 import { action } from "../functions";
-import { isRecord } from "../jsonUtils";
+import { readRepositoryCloudflareStacks } from "./cloudflareStateStore";
 import {
   CONVEX_CONNECTION_REQUIRED,
   fetchConvexDeploymentJson,
@@ -72,18 +76,6 @@ const vStoreStackReply = object({
   status: literal("success"),
   value: object({ stages: array(vAlchemyStoredStage) }),
 });
-
-/**
-Alchemy state holds each `Redacted` value in clear text. This parses a JSON text of the state, keeps
-the key of each secret, and replaces its value with `null`, so the value never leaves the action.
-*/
-function parseWithoutSecretValues(text: string): unknown {
-  return JSON.parse(text, (_key, current: unknown) =>
-    isRecord(current) && ALCHEMY_REDACTED_MARKER in current
-      ? { [ALCHEMY_REDACTED_MARKER]: null }
-      : current,
-  );
-}
 
 /** A stored stage without secret values, as `reader:repository` gives it. */
 function withoutSecretValues(stage: AlchemyStoredStage): AlchemyStoredStage {
@@ -171,6 +163,7 @@ export async function readAlchemyStacks(args: {
         stages: parse(vStoreStackReply, reply).value.stages.map(withoutSecretValues),
       })),
       args.repository,
+      "convex",
     ),
   };
 }
@@ -211,12 +204,38 @@ async function readStoreTarget(
 Throws unless the team's store holds no stack named for the repository: deleting the GitHub
 repository deletes the Destroy app workflow and leaves the stack running. This reads names, so it
 also counts a stack that `readAlchemyStacks` drops, such as one whose deploys never completed or
-whose outputs hold no run record.
+whose outputs hold no run record. The store of the organization's Cloudflare account is checked
+first, by the same names and also by run record, since a stack there can have any name. A Cloudflare
+store that Samebase cannot read throws: it could hold a stack. Only no connection, an MCP connection,
+and an account without a store leave the decision to the team's store.
 */
 export async function assertRepositoryHasNoStack(
-  ctx: Pick<ActionCtx, "runQuery">,
+  ctx: Pick<ActionCtx, "runAction" | "runQuery">,
   args: { repositoryId: Id<"repositories">; userId: Id<"users"> },
 ) {
+  const cloudflare = await readRepositoryCloudflareStacks(ctx, {
+    repositoryId: args.repositoryId,
+    userId: args.userId,
+    stopAtNamedStack: true,
+  });
+  switch (cloudflare.state) {
+    case "found":
+      if (cloudflare.namedStack || cloudflare.stacks.length > 0) {
+        throw new ConvexError(DESTROY_ALCHEMY_STACK_FIRST);
+      }
+      break;
+    case "reconnect":
+      throw new ConvexError(RECONNECT_CLOUDFLARE_TO_CHECK_STACK);
+    case "failed":
+    case "unsupported_version":
+      throw new ConvexError(CLOUDFLARE_STORE_UNREADABLE);
+    case "not_connected":
+    case "unsupported_connection":
+    case "no_store":
+      break;
+    default:
+      cloudflare satisfies never;
+  }
   const target = await readStoreTarget(ctx, args);
   if (!target) {
     throw new ConvexError(CONNECT_CONVEX_TO_CHECK_STACK);
@@ -429,12 +448,41 @@ export const connectWithSnapshot = action({
         ...connection,
         snapshot: {
           store: value.store,
-          stacks: readDeployedStacks(value.stacks, target.githubRepositoryFullName),
+          stacks: readDeployedStacks(value.stacks, target.githubRepositoryFullName, "convex"),
         },
       };
     } catch {
       throw new ConvexError(ALCHEMY_CONNECTION_UNAVAILABLE);
     }
+  },
+});
+
+/**
+The stacks of a repository in the Alchemy state store of its organization's Cloudflare account
+(`Cloudflare.state()`), with the metadata of their Convex production deployments when the
+organization has a Convex connection to the repository's team. It needs no Convex connection. The
+read takes some seconds, so the page starts it in the browser and does not wait for it.
+*/
+export const readCloudflareStacks = action({
+  access: "access_dashboard",
+  args: { repositoryId: id("repositories") },
+  returns: vCloudflareStacksRead,
+  handler: async (ctx, args): Promise<CloudflareStacksRead> => {
+    const reader = { repositoryId: args.repositoryId, userId: ctx.viewer.userId };
+    const read = await readRepositoryCloudflareStacks(ctx, {
+      repositoryId: reader.repositoryId,
+      userId: reader.userId,
+      stopAtNamedStack: false,
+    });
+    if (read.state !== "found") {
+      return read;
+    }
+    const target = read.stacks.length > 0 ? await readStoreTarget(ctx, reader) : null;
+    return {
+      state: "found",
+      stacks: read.stacks,
+      liveDeployments: target ? await readLiveDeployments(read.stacks, target) : [],
+    };
   },
 });
 

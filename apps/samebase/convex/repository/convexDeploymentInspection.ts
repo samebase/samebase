@@ -9,7 +9,7 @@ import {
 import { ConvexError, v } from "convex/values";
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
-import { internalQuery, type ActionCtx } from "../_generated/server";
+import { internalQuery, type ActionCtx, type DatabaseReader } from "../_generated/server";
 import type { ConvexCloudDeployment } from "../convexManagementApi/client";
 import { isRecord, toErrorMessage } from "../jsonUtils";
 import { requireRepositoryForUser } from "../organizationAccess";
@@ -65,6 +65,25 @@ const vSealedConvexInspectionTarget = object({
   teamId: string(),
 });
 
+/** A live, connected repository that the user can read, with its GitHub `owner/name`. */
+export async function requireLiveRepositoryForUser(
+  db: DatabaseReader,
+  args: { repositoryId: Id<"repositories">; userId: Id<"users"> },
+) {
+  const repository = await requireRepositoryForUser(db, {
+    userId: args.userId,
+    repositoryId: args.repositoryId,
+  });
+  const organization = await db.get(repository.organizationId);
+  if (!isLiveConnectedRepository(repository) || !organization) {
+    throw new Error("Repository not found.");
+  }
+  return {
+    repository,
+    githubRepositoryFullName: `${organization.githubOwnerLogin}/${repository.githubRepositoryName}`,
+  };
+}
+
 export const readTarget = internalQuery({
   args: {
     repositoryId: id("repositories"),
@@ -72,14 +91,10 @@ export const readTarget = internalQuery({
   },
   returns: vSealedConvexInspectionTarget,
   handler: async (ctx, args) => {
-    const repository = await requireRepositoryForUser(ctx.db, {
-      userId: args.userId,
-      repositoryId: args.repositoryId,
-    });
-    const organization = await ctx.db.get(repository.organizationId);
-    if (!isLiveConnectedRepository(repository) || !organization) {
-      throw new Error("Repository not found.");
-    }
+    const { repository, githubRepositoryFullName } = await requireLiveRepositoryForUser(
+      ctx.db,
+      args,
+    );
 
     const configuration = await getOrganizationProviderConfiguration(
       ctx.db,
@@ -93,7 +108,7 @@ export const readTarget = internalQuery({
       organizationId: repository.organizationId,
       credential: credential.auth.credential,
       authMethod: credential.auth.method,
-      githubRepositoryFullName: `${organization.githubOwnerLogin}/${repository.githubRepositoryName}`,
+      githubRepositoryFullName,
       teamId: convexTeam.teamId,
     };
   },

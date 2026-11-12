@@ -218,6 +218,7 @@ describe("useRepositoryPullRequests", () => {
       stacks: [
         {
           name: "samebase/base-alchemy",
+          store: "convex" as const,
           stages: [
             {
               name: "pr-24",

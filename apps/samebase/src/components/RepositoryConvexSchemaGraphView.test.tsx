@@ -65,6 +65,7 @@ const stacks = readDeployedStacks(
     ),
   })),
   "samebase/samebase",
+  "convex",
 );
 const foundStacks: RepositoryAlchemyState = {
   state: "loaded",

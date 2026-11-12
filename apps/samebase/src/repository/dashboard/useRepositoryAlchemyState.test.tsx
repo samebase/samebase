@@ -22,6 +22,38 @@ type Connection = (typeof api.repository.alchemyState.connect)["_returnType"];
 type LoaderRead = NonNullable<Awaited<ReturnType<typeof loadRepositoryOverview>>>;
 type DeploymentMetadata =
   (typeof api.repository.alchemyState.readDeploymentMetadata)["_returnType"];
+type CloudflareRead = (typeof api.repository.alchemyState.readCloudflareStacks)["_returnType"];
+/** A stack of the Cloudflare store whose name is not `owner/name`. The server filtered it. */
+const cloudflareStack = {
+  name: "web",
+  store: "cloudflare" as const,
+  stages: [
+    {
+      name: "prod",
+      run: {
+        version: 1 as const,
+        repository: "acme/app",
+        stackFile: "alchemy.run.ts",
+        branch: "main",
+        pullRequest: null,
+        headCommit: "0123456789abcdef0123456789abcdef01234567",
+        runUrl: null,
+        source: "checkout" as const,
+        recordedAt: "2026-11-12T10:00:00.000Z",
+      },
+      resources: [],
+      output: "{}",
+    },
+  ],
+};
+const cloudflareDeployments: DeploymentMetadata = [
+  { deploymentName: "happy-otter-123", dashboardUrl: null, region: null, customDomains: [] },
+];
+const cloudflareFound: CloudflareRead = {
+  state: "found",
+  stacks: [cloudflareStack],
+  liveDeployments: cloudflareDeployments,
+};
 const transportError =
   "[CONVEX A(repository/alchemyState:connect)] Connection lost while action was in flight\n  Called by client";
 const deploymentMetadata: DeploymentMetadata = [
@@ -60,7 +92,7 @@ const liveRead = withProdRows(observedSamebaseRepositoryReply, (row) =>
     : row.value,
 );
 /** The stacks of `liveRead` that the page shows: the deploy of `pr-1756` wrote no output. */
-const liveStacks = readDeployedStacks(liveRead.stacks, "samebase/samebase");
+const liveStacks = readDeployedStacks(liveRead.stacks, "samebase/samebase", "convex");
 type ClientState = {
   value: ((value: unknown) => void) | undefined;
   error: ((error: Error) => void) | undefined;
@@ -74,6 +106,7 @@ const mocks = vi.hoisted(() => {
   return {
     connect: vi.fn<() => Promise<Connection>>(),
     metadata: vi.fn<() => Promise<DeploymentMetadata>>(),
+    cloudflare: vi.fn<() => Promise<CloudflareRead>>(),
     clients,
     userId: "user-a",
     authenticated: true,
@@ -89,9 +122,10 @@ vi.mock("convex/react", () => ({
   useConvexAuth: () => ({ isAuthenticated: mocks.authenticated }),
   useQuery: () => ({ _id: mocks.userId }),
   useAction: (reference: Parameters<typeof getFunctionName>[0]) =>
-    getFunctionName(reference) === "repository/alchemyState:connect"
-      ? mocks.connect
-      : mocks.metadata,
+    ({
+      "repository/alchemyState:connect": mocks.connect,
+      "repository/alchemyState:readCloudflareStacks": mocks.cloudflare,
+    })[getFunctionName(reference)] ?? mocks.metadata,
 }));
 vi.mock("convex/browser", () => ({
   ConvexClient: class {
@@ -163,6 +197,8 @@ beforeEach(() => {
   });
   mocks.metadata.mockReset();
   mocks.metadata.mockResolvedValue([]);
+  mocks.cloudflare.mockReset();
+  mocks.cloudflare.mockResolvedValue({ state: "not_connected" });
   // @ts-expect-error Convex ids are strings at runtime; this test needs stable repository identity.
   repositoryId = "repository-a";
   teamId = "team-a";
@@ -440,5 +476,126 @@ describe("useRepositoryAlchemyState", () => {
     await act(async () => client().value?.({ store: "found", stacks: "invalid" }));
     expect(latest.state).toBe("failed");
     expect(client().close).toHaveBeenCalledOnce();
+  });
+});
+
+describe("useRepositoryAlchemyState with the Cloudflare store", () => {
+  /** Lets React Query deliver its results, which it sends on a timer. */
+  async function flush() {
+    await act(async () => await new Promise((resolve) => setTimeout(resolve, 0)));
+  }
+  /** Makes the next Cloudflare read wait until the returned function answers it. */
+  function holdCloudflareRead() {
+    let answer: (read: CloudflareRead) => void = () => {};
+    mocks.cloudflare.mockReturnValue(new Promise((resolve) => (answer = resolve)));
+    return async (read: CloudflareRead) => {
+      answer(read);
+      await flush();
+    };
+  }
+
+  it("shows the Cloudflare stacks when the team has no Convex store", async () => {
+    mocks.connect.mockResolvedValue({ store: "missing" });
+    mocks.cloudflare.mockResolvedValue(cloudflareFound);
+    await render();
+    expect(latest).toMatchObject({
+      state: "loaded",
+      observation: {
+        store: "found",
+        stacks: [cloudflareStack],
+        liveDeployments: cloudflareDeployments,
+      },
+    });
+  });
+
+  it("shows the Convex stacks at once and adds the Cloudflare stacks when they arrive", async () => {
+    mocks.metadata.mockResolvedValue(deploymentMetadata);
+    const answerCloudflare = holdCloudflareRead();
+    await render();
+    await act(async () => client().value?.(liveRead));
+    // The metadata of the Convex stacks arrives by its own read, so wait for it by result.
+    await vi.waitFor(() =>
+      expect(latest).toMatchObject({
+        state: "loaded",
+        observation: { stacks: liveStacks, liveDeployments: deploymentMetadata },
+      }),
+    );
+
+    await answerCloudflare(cloudflareFound);
+    await vi.waitFor(() =>
+      expect(latest).toMatchObject({
+        state: "loaded",
+        observation: {
+          store: "found",
+          stacks: [...liveStacks, cloudflareStack],
+          liveDeployments: [...deploymentMetadata, ...cloudflareDeployments],
+        },
+      }),
+    );
+  });
+
+  it("stays loading while the Cloudflare read runs and the Convex store has no stack", async () => {
+    mocks.connect.mockResolvedValue({ store: "no_connection" });
+    const answerCloudflare = holdCloudflareRead();
+    await render();
+    expect(latest).toEqual({ state: "loading" });
+
+    await answerCloudflare({ state: "not_connected" });
+    expect(latest).toEqual({
+      state: "loaded",
+      observation: { store: "no_connection" },
+      refreshFailed: false,
+      reload: expect.any(Function),
+    });
+  });
+
+  it("names a Cloudflare reconnect next to Convex stacks too, and reads again on reload", async () => {
+    mocks.cloudflare.mockResolvedValue({ state: "reconnect" });
+    await render();
+    await act(async () => client().value?.(liveRead));
+    // The page shows it only without a stack; the delete dialog needs it either way.
+    expect(latest).toMatchObject({
+      state: "loaded",
+      observation: { stacks: liveStacks },
+      cloudflareProblem: "reconnect",
+    });
+
+    const reads = mocks.cloudflare.mock.calls.length;
+    await act(async () => latest.state === "loaded" && latest.reload());
+    expect(mocks.cloudflare).toHaveBeenCalledTimes(reads + 1);
+  });
+
+  it("shows the Cloudflare stacks when the Convex read fails, and retries both on reload", async () => {
+    mocks.connect.mockRejectedValue(new ConvexError("Access denied."));
+    const answerCloudflare = holdCloudflareRead();
+    await render();
+    // The Cloudflare read is still running, so the Convex failure shows.
+    expect(latest).toMatchObject({ state: "failed", error: { data: "Access denied." } });
+
+    await answerCloudflare(cloudflareFound);
+    expect(latest).toEqual({
+      state: "loaded",
+      observation: {
+        store: "found",
+        stacks: [cloudflareStack],
+        liveDeployments: cloudflareDeployments,
+      },
+      refreshFailed: true,
+      reload: expect.any(Function),
+    });
+
+    const connects = mocks.connect.mock.calls.length;
+    const reads = mocks.cloudflare.mock.calls.length;
+    await act(async () => latest.state === "loaded" && latest.reload());
+    expect(mocks.connect).toHaveBeenCalledTimes(connects + 1);
+    expect(mocks.cloudflare).toHaveBeenCalledTimes(reads + 1);
+  });
+
+  it("shows the Convex failure when the Cloudflare store holds no stack", async () => {
+    mocks.connect.mockRejectedValue(new ConvexError("Access denied."));
+    mocks.cloudflare.mockResolvedValue({ state: "found", stacks: [], liveDeployments: [] });
+    await render();
+    await flush();
+    expect(latest).toMatchObject({ state: "failed", error: { data: "Access denied." } });
   });
 });

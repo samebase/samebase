@@ -82,7 +82,11 @@ const liveConnection = {
   token: "reader-token",
   snapshot: {
     store: "found",
-    stacks: readDeployedStacks(observedBaseAlchemyRepositoryReply.stacks, "samebase/base-alchemy"),
+    stacks: readDeployedStacks(
+      observedBaseAlchemyRepositoryReply.stacks,
+      "samebase/base-alchemy",
+      "convex",
+    ),
   },
 } as const;
 

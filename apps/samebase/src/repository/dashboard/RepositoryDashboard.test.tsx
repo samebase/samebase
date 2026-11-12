@@ -158,6 +158,7 @@ function observedBaseAlchemyStack(): RepositoryAlchemyStacks {
     stacks: [
       {
         name: "samebase/base-alchemy",
+        store: "convex",
         stages: [
           {
             name: prod.name,
@@ -223,6 +224,7 @@ function samebaseStacksAfterTheMove(): RepositoryAlchemyStacks {
     stacks: [
       {
         name: "samebase/samebase",
+        store: "convex",
         stages: [
           {
             name: "prod",
@@ -251,6 +253,7 @@ function samebaseStacksAfterTheMove(): RepositoryAlchemyStacks {
       },
       {
         name: "samebase/samebase/apps/sidebars-example",
+        store: "convex",
         stages: [
           {
             name: "prod",
@@ -364,6 +367,7 @@ describe("Alchemy stack cards", () => {
     expect(stackCardsOf(stacks, repository, null)).toEqual([
       {
         stack: "samebase/base-alchemy",
+        store: "convex",
         stackFile: "alchemy.run.ts",
         // The only stack of the repository shows without its root folder.
         folder: null,
@@ -429,6 +433,77 @@ describe("Alchemy stack cards", () => {
     expect(region?.querySelector(".sr-only")?.textContent).toBe("US East (N. Virginia)");
   });
 
+  it("shows the store of each stack, and a stack in both stores as two cards", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const stage = {
+      name: "prod",
+      run: {
+        version: 1 as const,
+        repository: "acme/app",
+        stackFile: "alchemy.run.ts",
+        branch: "main",
+        pullRequest: null,
+        headCommit: "0123456789abcdef0123456789abcdef01234567",
+        runUrl: null,
+        source: "checkout" as const,
+        recordedAt: "2026-11-12T10:00:00.000Z",
+      },
+      resources: [],
+      output: "{}",
+    };
+    const stacks: RepositoryAlchemyStacks = {
+      store: "found",
+      liveDeployments: [],
+      stacks: [
+        { name: "acme/app", store: "convex", stages: [stage] },
+        { name: "acme/app", store: "cloudflare", stages: [stage] },
+      ],
+    };
+    const repository = makeRepositorySettingsBuilderRepository({
+      githubOwnerLogin: "acme",
+      githubRepositoryName: "app",
+      githubRepositoryFullName: "acme/app",
+      convexTeamId: "1",
+    });
+    // A client render, since only it reports a duplicate key.
+    const rootElement = document.createElement("div");
+    document.body.append(rootElement);
+    const root = createRoot(rootElement);
+    try {
+      await act(async () => {
+        root.render(
+          <TestRouterProvider initialEntries={["/repo/acme/app"]}>
+            <DefaultBranchSection
+              filesReadEnabled={false}
+              workspace={{
+                ...makeWorkspace(repository, {
+                  state: "loaded",
+                  observation: stacks,
+                  refreshFailed: false,
+                  reload: () => {},
+                }),
+                productionCards: stackCardsOf(stacks, repository, null),
+              }}
+            />
+          </TestRouterProvider>,
+        );
+      });
+
+      expect(
+        [...rootElement.querySelectorAll('[aria-label="Alchemy stack acme/app"]')].map((card) =>
+          card.querySelector("button[aria-label^='Alchemy state in']")?.getAttribute("aria-label"),
+        ),
+      ).toEqual(["Alchemy state in Cloudflare", "Alchemy state in Convex"]);
+      expect(error.mock.calls.flat().join("\n")).not.toContain("the same key");
+    } finally {
+      await act(async () => {
+        root.unmount();
+      });
+      rootElement.remove();
+      error.mockRestore();
+    }
+  });
+
   it("shows one card for each stack with its folder and rows without type labels", () => {
     const { cards } = renderStackCards(
       samebaseStacksAfterTheMove(),
@@ -458,6 +533,7 @@ describe("Alchemy stack cards", () => {
         ...stacks,
         stacks: stacks.stacks.map((stack) => ({
           name: "samebase/scout",
+          store: stack.store,
           stages: stack.stages.map((stage) => ({
             ...stage,
             run: { ...stage.run, stackFile },
@@ -494,6 +570,7 @@ describe("Alchemy stack cards", () => {
         ...stacks,
         stacks: stacks.stacks.map((stack) => ({
           name: "samebase/scout",
+          store: stack.store,
           stages: stack.stages.map((stage) => ({
             ...stage,
             run: { ...stage.run, stackFile: "alchemy.run.ts" },
@@ -607,6 +684,7 @@ describe("Alchemy stack cards", () => {
         stacks: [
           {
             name: "samebase/samebase",
+            store: "convex",
             stages: [
               {
                 name: prod.name,
@@ -677,6 +755,7 @@ describe("Alchemy stack cards", () => {
       stacks: [
         {
           name: "samebase/tmp-k7m2-rows",
+          store: "convex",
           stages: [
             {
               name: "prod",
@@ -892,7 +971,10 @@ describe("Alchemy stack cards", () => {
       "https://github.com/samebase/samebase/actions/runs/39756039340/attempts/1",
       "https://dashboard.convex.dev/d/aware-bobcat-542",
     ]);
-    expect(cards[0].querySelectorAll("button")).toHaveLength(0);
+    // The only button says where the state is: a preview card has no menu.
+    expect(
+      [...cards[0].querySelectorAll("button")].map((button) => button.getAttribute("aria-label")),
+    ).toEqual(["Alchemy state in Convex"]);
   });
 });
 
@@ -1734,7 +1816,6 @@ describe("formatRepositorySourceSetupStep", () => {
 });
 
 describe("readRepositoryStackCheck", () => {
-  const withTeam = makeRepositorySettingsBuilderRepository({ convexTeamId: "38516" });
   const loaded = (observation: AlchemyStateObservation) =>
     ({ state: "loaded", observation, refreshFailed: false, reload: () => {} }) as const;
 
@@ -1747,27 +1828,53 @@ describe("readRepositoryStackCheck", () => {
     [
       loaded({
         store: "found",
-        stacks: [{ name: "ada/app", stages: [] }],
+        stacks: [{ name: "ada/app", store: "convex", stages: [] }],
         liveDeployments: [],
       }),
       "has_stack",
     ],
   ])("reads %j as %s", (alchemyState, state) => {
-    expect(readRepositoryStackCheck(withTeam, alchemyState).state).toBe(state);
+    expect(readRepositoryStackCheck(alchemyState).state).toBe(state);
   });
 
-  it("asks for Convex when the repository has no team, whose read stays loading", () => {
-    expect(
-      readRepositoryStackCheck(
-        makeRepositorySettingsBuilderRepository({ convexTeamId: undefined }),
-        {
-          state: "loading",
-        },
-      ),
-    ).toEqual({
-      state: "unknown",
-      reason: "Connect Convex so Samebase can check for an Alchemy stack.",
-    });
+  // The server checks the Cloudflare store first, so its answer comes first here too.
+  const convexStack = { name: "acme/app", store: "convex" as const, stages: [] };
+  it.each([
+    [
+      "a Cloudflare stack next to a missing team store",
+      {
+        ...loaded({
+          store: "found",
+          stacks: [{ name: "web", store: "cloudflare", stages: [] }],
+          liveDeployments: [],
+        }),
+        cloudflareProblem: undefined,
+      },
+      { state: "has_stack", reason: "Destroy your Alchemy stack first." },
+    ],
+    [
+      "a Cloudflare reconnect with a Convex stack",
+      {
+        ...loaded({ store: "found", stacks: [convexStack], liveDeployments: [] }),
+        cloudflareProblem: "reconnect" as const,
+      },
+      {
+        state: "unknown",
+        reason:
+          "An owner must connect Cloudflare again on Providers and allow Secrets Store Read and Edit, so Samebase can check for an Alchemy stack.",
+      },
+    ],
+    [
+      "an unreadable Cloudflare store with no team store",
+      { ...loaded({ store: "missing" }), cloudflareProblem: "unreadable" as const },
+      {
+        state: "unknown",
+        reason:
+          "Samebase could not read the Alchemy state store in Cloudflare, so it cannot check for a stack. Try again.",
+      },
+    ],
+  ])("reads %s like the server", (_name, alchemyState, check) => {
+    expect(readRepositoryStackCheck(alchemyState)).toEqual(check);
   });
 });
 

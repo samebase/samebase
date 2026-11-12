@@ -3,6 +3,15 @@
 What changed in Samebase, newest first. Each `v` number is the Samebase version that shipped the
 change. If a change needs action from you, the entry says so.
 
+## 2026-11-12
+
+- **v2347: Stacks with Alchemy state in Cloudflare.** A repository page now also shows the stacks
+  whose Alchemy state is in Cloudflare (`Cloudflare.state()`). The app wraps its state as
+  `withRunRecord(Cloudflare.state())` from `@samebase/alchemy-convex`, so each deploy records its
+  repository. An owner connects Cloudflare again on the Providers page and allows Secrets Store Read
+  and Edit. These stacks load a few seconds after the page and do not update live. Each stack shows
+  where its state is.
+
 ## 2026-11-11
 
 - **v2336: Hub clients register with the public standard.** Both identity hubs now register clients

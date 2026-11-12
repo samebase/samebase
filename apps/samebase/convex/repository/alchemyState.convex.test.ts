@@ -10,6 +10,12 @@ import {
 } from "../test.setup";
 import { readAlchemyStacks } from "./alchemyState";
 import {
+  answerCloudflareRequest,
+  cloudflareAccountId,
+  cloudflareApi,
+  cloudflareStore,
+} from "./fixtures/cloudflareStateStore";
+import {
   observedAlchemyStackReply,
   observedBaseAlchemyProductionDeployment,
   observedBaseAlchemyProject,
@@ -82,6 +88,7 @@ const deployedBaseAlchemy = {
   stacks: [
     {
       name: "samebase/base-alchemy",
+      store: "convex",
       stages: [
         {
           name: "prod",
@@ -555,6 +562,169 @@ describe("the stack check before a GitHub repository deletion", () => {
 
   it("passes when the team has no store", async () => {
     await expect(requestDeletion({}, [appProject])).rejects.toThrow(passedTheCheck);
+  });
+
+  const apiKeyAuth = {
+    method: "api_key" as const,
+    credential: testCredential("cloudflare-api-token"),
+  };
+  /** A Cloudflare MCP connection whose token is still valid, so the resolver refreshes nothing. */
+  const mcpAuth = {
+    method: "mcp_oauth" as const,
+    credential: testCredential("cloudflare-mcp-token"),
+    refreshCredential: testCredential("cloudflare-mcp-refresh"),
+    credentialExpiresAt: Date.now() + 3_600_000,
+    clientId: "mcp-client",
+  };
+  const cloudflareRun = {
+    version: 1,
+    repository: "acme/app",
+    stackFile: "alchemy.run.ts",
+    branch: "main",
+    pullRequest: null,
+    headCommit: "0123456789abcdef0123456789abcdef01234567",
+    runUrl: null,
+    source: "checkout",
+    recordedAt: "2026-11-12T10:00:00.000Z",
+  };
+
+  /**
+  Deletes the repository, renamed acme/app, of an organization that also connected the Cloudflare
+  account whose Alchemy state store answers `cloudflareStoreReplies`, `urls` replacing the answer to
+  whole URLs. `auth` null leaves Cloudflare unconnected. The team has no store.
+  */
+  async function requestDeletionWithCloudflare(
+    cloudflareStoreReplies: Record<string, unknown>,
+    urls: Partial<Record<string, () => Response>> = {},
+    auth: typeof apiKeyAuth | typeof mcpAuth | null = apiKeyAuth,
+  ) {
+    const t = makeConvexTest();
+    const { ids, user } = await seedAlchemyRepository(t);
+    await t.run(async (ctx) => {
+      const repository = await ctx.db.get(ids.repositoryId);
+      const credentials = await ctx.db.query("organizationProviderCredentials").first();
+      if (repository?.state !== "connected" || !credentials) {
+        throw new Error("Expected the seeded repository and credentials.");
+      }
+      await ctx.db.patch(repository.organizationId, {
+        githubOwnerLogin: "acme",
+        githubOwnerLoginNormalized: "acme",
+        cloudflareAccount: { accountId: cloudflareAccountId, accountName: "Acme" },
+      });
+      await ctx.db.patch(ids.repositoryId, { githubRepositoryName: "app" });
+      if (auth) {
+        await ctx.db.patch(credentials._id, {
+          cloudflare: { connectedByUserId: ids.userId, auth, updatedAt: 2 },
+        });
+      }
+    });
+    await sealTestCredentials(t);
+    installAlchemyStateFetchStub({
+      requests: [],
+      stackReplies: {},
+      storeReply: observedAlchemyStackReply,
+      teamProjects: [],
+    });
+    // Cloudflare answers first: the Convex stub reads each string body as JSON, and the preview
+    // upload sends a multipart body.
+    const convexFetch = fetch;
+    vi.stubGlobal("fetch", async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = input instanceof Request ? input.url : String(input);
+      return (
+        urls[url]?.() ??
+        answerCloudflareRequest(cloudflareStoreReplies, url, init) ??
+        (await convexFetch(input, init))
+      );
+    });
+    return await user.action(api.repository.actions.deleteRepository, {
+      repositoryId: ids.repositoryId,
+      removeGithubRepo: true,
+    });
+  }
+
+  it("refuses while the Cloudflare store holds a stage whose run record names the repository", async () => {
+    await expect(
+      requestDeletionWithCloudflare({
+        "/state/stacks": ["web"],
+        "/state/stacks/web/stages": ["prod"],
+        "/state/stacks/web/stages/prod/output": { "samebase.run": cloudflareRun },
+        "/state/stacks/web/stages/prod/resources": [],
+      }),
+    ).rejects.toMatchObject({ data: "Destroy your Alchemy stack first." });
+  });
+
+  // A first deploy that failed after it created resources wrote no output, so no run record.
+  it.each(["acme/app", "acme/app/apps/web"])(
+    "refuses while the Cloudflare store holds %s with resources and no output",
+    async (stack) => {
+      const stages = `/state/stacks/${encodeURIComponent(stack)}/stages`;
+      await expect(
+        requestDeletionWithCloudflare({
+          "/state/stacks": ["acme/application", stack],
+          [stages]: ["prod"],
+          [`${stages}/prod/output`]: "",
+          [`${stages}/prod/resources`]: ["Worker"],
+          [`${stages}/prod/resources/Worker`]: { status: "created", fqn: "Worker" },
+        }),
+      ).rejects.toMatchObject({ data: "Destroy your Alchemy stack first." });
+    },
+  );
+
+  it.each([
+    {
+      outcome: "reconnect",
+      urls: {
+        [`${cloudflareApi}/secrets_store/stores`]: () => new Response(null, { status: 403 }),
+      },
+      message:
+        "An owner must connect Cloudflare again on Providers and allow Secrets Store Read and Edit, so Samebase can check for an Alchemy stack.",
+    },
+    {
+      outcome: "failed",
+      urls: {},
+      message:
+        "Samebase could not read the Alchemy state store in Cloudflare, so it cannot check for a stack. Try again.",
+    },
+    {
+      outcome: "unsupported_version",
+      urls: { [`${cloudflareStore}/version`]: () => Response.json({ version: 9 }) },
+      message:
+        "Samebase could not read the Alchemy state store in Cloudflare, so it cannot check for a stack. Try again.",
+    },
+  ])("refuses when the Cloudflare read is $outcome", async ({ urls, message }) => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    // The store answers 500 to every path, so a read that reaches it fails.
+    await expect(requestDeletionWithCloudflare({}, urls)).rejects.toMatchObject({ data: message });
+  });
+
+  it.each<{
+    outcome: string;
+    auth: Parameters<typeof requestDeletionWithCloudflare>[2];
+    urls: Record<string, () => Response>;
+    store: Record<string, unknown>;
+  }>([
+    {
+      outcome: "found without a stack of the repository",
+      auth: apiKeyAuth,
+      urls: {},
+      store: {
+        "/state/stacks": ["acme/application"],
+        "/state/stacks/acme%2Fapplication/stages": ["prod"],
+        "/state/stacks/acme%2Fapplication/stages/prod/output": {
+          "samebase.run": { ...cloudflareRun, repository: "acme/application" },
+        },
+      },
+    },
+    {
+      outcome: "no_store",
+      auth: apiKeyAuth,
+      urls: { [`${cloudflareStore}/version`]: () => new Response(null, { status: 404 }) },
+      store: {},
+    },
+    { outcome: "unsupported_connection", auth: mcpAuth, urls: {}, store: {} },
+    { outcome: "not_connected", auth: null, urls: {}, store: {} },
+  ])("passes when the Cloudflare read is $outcome", async ({ auth, urls, store }) => {
+    await expect(requestDeletionWithCloudflare(store, urls, auth)).rejects.toThrow(passedTheCheck);
   });
 
   it("refuses without a Convex connection", async () => {
