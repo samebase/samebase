@@ -219,10 +219,12 @@ the code redeemable, and a code redeems once.
 Without `resource`, `/authorize` keeps the OIDC sign-in contract and requires `openid`. A request
 with one exact configured `resource` instead uses RFC 6749 authorization code flow with RFC 7636
 S256 and RFC 8707 resource indicators. Each provider has one configured scope, so the broker ignores
-a requested `scope` (RFC 6749 section 3.3) and returns the scope the provider granted. Convex's team
-authorization has no scope parameter, so a requested scope answers `invalid_scope`. Unknown or
-multiple resources answer `invalid_target`. The code binds the resource, so `/token` can omit it; if
-supplied, it must match exactly. Neither this response nor refresh issues an ID Token.
+a requested `scope` (RFC 6749 section 3.3) and returns the scope the provider granted. Convex and
+GitHub take no scope parameter, so with them `/authorize` refuses a requested scope. At
+`/authorize`, this refusal and an unknown or repeated resource end on an error page of the hub,
+because the user has not continued from a page. The code binds the resource, so `/token` can omit
+it; if supplied, it must match exactly, and a different or second resource answers `invalid_target`.
+Neither this response nor refresh issues an ID Token.
 
 The policy's `resources` names the providers a client may authorize, checked at API authorization,
 at the exchange of a resource code, and at both evaluations of a refresh (below). The broker adds no
@@ -381,6 +383,11 @@ provider.
 - A replayed authorization code revokes the code, its request, and its broker refresh grant if
   present. Already issued access tokens remain valid: a `/userinfo` token keeps its five minutes,
   and a provider access token follows the provider's expiry and revocation rules.
+- A request to `/token` or `/revoke` whose body is not `application/x-www-form-urlencoded` answers
+  `415 invalid_request`, where RFC 6749 section 5.2 gives 400 for every error but `invalid_client`.
+- RFC 6749 sections 4.1.2 and 5.1 recommend that the server documents the size of each value it
+  issues: in API authorization, the code and the broker refresh token are 43 characters (32 random
+  bytes in base64url), and the access token has the size that the provider gives it.
 
 ## Keys
 
