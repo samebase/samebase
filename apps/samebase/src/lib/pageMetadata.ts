@@ -121,7 +121,8 @@ export const DOCS_INDEX_PAGE_METADATA: PageMetadata = {
 
 export const DOCS_DO_IT_YOURSELF_PAGE_METADATA: PageMetadata = {
   title: "Do it yourself | Samebase",
-  description: "Deploy the Samebase stack in three steps, with no Samebase account.",
+  description:
+    "The template repositories of Samebase and the settings each one needs, with no Samebase account.",
   canonicalPath: DOCS_DO_IT_YOURSELF_ROUTE,
   robots: "index,follow",
   openGraphType: "website",
