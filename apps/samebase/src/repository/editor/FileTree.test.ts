@@ -212,7 +212,7 @@ describe("FileTree", () => {
 
     expect(markup).toContain('href="#intro"');
     expect(markup).toContain("gap-0.5");
-    expect(markup).toContain("line-clamp-2");
+    expect(markup).toContain("max-lines-2");
     expect(markup).toContain(">Guide<");
     expect(markup).toContain(">Intro<");
   });

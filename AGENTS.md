@@ -323,6 +323,8 @@ UI code:
 - Make workspace content respond to the container from `PaneFrame`. Use container variants and
   `cqw`, not viewport breakpoints or `vw`; use viewport units only for true viewport concerns such
   as scroll-end space.
+- Names, URLs, branch names, and titles use `max-lines-3` (`max-lines-2` in sidebars). Controls
+  beside a name wrap below it instead of shrinking it.
 - App-internal navigation goes through TanStack Router `Link`/`navigate`; plain anchors only for
   external URLs, downloads, or deliberate reloads; href-bearing internal actions still SPA-route
   ordinary left-clicks.

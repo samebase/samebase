@@ -373,7 +373,7 @@ function TreeNodeComponent({
       ) : (
         <span
           className={cn(
-            "min-w-0 flex-1 line-clamp-2 text-muted-foreground text-sm pointer-fine:text-xs",
+            "min-w-0 flex-1 max-lines-2 text-muted-foreground text-sm pointer-fine:text-xs",
             fileStatusClassName,
             !fileStatus && isSelected && "text-foreground font-medium",
             isSelected && "font-medium",

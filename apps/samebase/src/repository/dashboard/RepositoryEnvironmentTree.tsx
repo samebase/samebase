@@ -30,7 +30,7 @@ const STORE_READ_FAILED = "Could not read the team's Alchemy state store.";
 
 export function RootDirectoryLabel({ rootDirectory }: { rootDirectory: string }) {
   return (
-    <span className="block text-base font-semibold leading-5 text-foreground [overflow-wrap:anywhere]">
+    <span className="max-lines-3 text-base font-semibold leading-5 text-foreground">
       {rootDirectory}
     </span>
   );
@@ -63,14 +63,14 @@ function EnvironmentActionsMenu({
         {actions.map((action) =>
           action.destination === "none" ? (
             <DropdownMenuItem key={`none:${action.label}`}>
-              <span className="min-w-0 break-all">{action.label}</span>
+              <span className="min-w-0 max-lines-3">{action.label}</span>
             </DropdownMenuItem>
           ) : (
             <DropdownMenuItem key={`${action.destination}:${action.href}`} asChild>
               {action.destination === "samebase" ? (
                 <Link className="min-w-0 no-underline" to={action.href}>
                   <SamebaseLogoMark />
-                  <span className="min-w-0 break-all">{action.label}</span>
+                  <span className="min-w-0 max-lines-3">{action.label}</span>
                 </Link>
               ) : (
                 <a
@@ -79,7 +79,7 @@ function EnvironmentActionsMenu({
                   rel="noreferrer noopener"
                   target="_blank"
                 >
-                  <span className="min-w-0 break-all">{action.label}</span>
+                  <span className="min-w-0 max-lines-3">{action.label}</span>
                   <ExternalLink className="shrink-0" />
                 </a>
               )}
@@ -105,7 +105,7 @@ function DestinationResource({
       className="grid min-h-10 min-w-0 py-1.5"
       role="group"
     >
-      <div className="flex min-w-0 items-center gap-1">
+      <div className="flex min-w-0 flex-wrap items-center gap-x-1">
         <a
           className="inline-flex min-h-10 min-w-0 items-center gap-2.5 text-foreground no-underline hover:no-underline"
           href={resource.href}
@@ -116,7 +116,7 @@ function DestinationResource({
           <span className="flex h-4 w-5 shrink-0 items-center justify-center">
             {presentation.icon}
           </span>
-          <span className="min-w-0 text-sm font-medium leading-5 underline decoration-border underline-offset-4 [overflow-wrap:anywhere]">
+          <span className="min-w-0 text-sm font-medium leading-5 underline decoration-border underline-offset-4 max-lines-3">
             {resource.label}
           </span>
           <ExternalLink className="h-3 w-3 shrink-0 text-muted-foreground" />
@@ -140,8 +140,8 @@ function DestinationResource({
               className="min-w-0"
               role="group"
             >
-              <div className="flex min-h-10 min-w-0 items-center gap-2.5 py-1.5">
-                <span className="min-w-0 text-sm font-medium leading-5 text-foreground [overflow-wrap:anywhere]">
+              <div className="flex min-h-10 min-w-0 flex-wrap items-center gap-x-2.5 py-1.5">
+                <span className="min-w-0 max-lines-3 text-sm font-medium leading-5 text-foreground">
                   {component.path}
                 </span>
                 <span className="shrink-0 text-xs text-muted-foreground">Convex component</span>
@@ -185,7 +185,7 @@ function RepositoryEnvironmentResourceRow({
             <span className="flex h-4 w-5 shrink-0 items-center justify-center">
               {resourceTypePresentation("Cloudflare.R2.Bucket").icon}
             </span>
-            <span className="min-w-0 text-sm font-medium leading-5 underline decoration-border underline-offset-4 [overflow-wrap:anywhere]">
+            <span className="min-w-0 text-sm font-medium leading-5 underline decoration-border underline-offset-4 max-lines-3">
               {resource.bucketName}
             </span>
             <ExternalLink className="h-3 w-3 shrink-0 text-muted-foreground" />
@@ -258,9 +258,7 @@ function RepositoryStackCards({ cards }: { cards: readonly RepositoryStackCard[]
                     target="_blank"
                     title={card.address.href}
                   >
-                    <span className="min-w-0 leading-5 [overflow-wrap:anywhere]">
-                      {card.address.label}
-                    </span>
+                    <span className="min-w-0 max-lines-3 leading-5">{card.address.label}</span>
                     <ExternalLink className="h-3 w-3 shrink-0" />
                   </a>
                 ) : null}
@@ -372,9 +370,7 @@ function DefaultBranchCommit({
     </Link>
   ) : null;
   const branchLabel = branch ? (
-    <span className="text-xs leading-5 text-muted-foreground [overflow-wrap:anywhere]">
-      {branch.name}
-    </span>
+    <span className="max-lines-3 text-xs leading-5 text-muted-foreground">{branch.name}</span>
   ) : null;
   if (
     !branch ||
@@ -422,9 +418,9 @@ function DefaultBranchCommit({
   return (
     <div className="min-w-0">
       {/* Same shape as a pull request row: branch and time on top, checks at the right. */}
-      <div className="flex min-w-0 items-center gap-2">
-        <div className="flex min-w-0 flex-1 flex-wrap gap-x-2.5 text-xs leading-5 text-muted-foreground">
-          <span className="[overflow-wrap:anywhere]">{branch.name}</span>
+      <div className="flex min-w-0 flex-wrap items-center justify-end gap-x-2">
+        <div className="flex min-w-0 flex-[1_1_6rem] flex-wrap gap-x-2.5 text-xs leading-5 text-muted-foreground">
+          <span className="max-lines-3">{branch.name}</span>
           <span>{relativeCommitTime}</span>
         </div>
         <RepositoryChecksPopover
@@ -437,7 +433,7 @@ function DefaultBranchCommit({
         {filesLink}
       </div>
       {/* The commit and its title are one GitHub link, like a pull request's number and title. */}
-      <p className="line-clamp-3 text-sm font-medium leading-5 [overflow-wrap:anywhere]">
+      <p className="max-lines-3 text-sm font-medium leading-5">
         <a
           className="text-foreground underline decoration-border underline-offset-4 hover:decoration-foreground"
           href={observation.headCommitUrl}
@@ -541,13 +537,13 @@ function CloudflareWorkerResource({ worker }: { worker: RepositoryEnvironmentWor
         <span className="flex h-4 w-5 shrink-0 items-center justify-center">
           {presentation.icon}
         </span>
-        <span className="min-w-0 text-sm font-medium leading-5 text-foreground [overflow-wrap:anywhere]">
+        <span className="min-w-0 max-lines-3 text-sm font-medium leading-5 text-foreground">
           {worker.workerName}
         </span>
       </div>
       {worker.destination.state !== "absent" || worker.actions.length > 0 ? (
         <div className="ml-2.5 grid min-w-0 gap-1.5 border-l border-border pl-3">
-          <div className="flex min-w-0 items-center gap-1 text-sm">
+          <div className="flex min-w-0 flex-wrap items-center gap-x-1 text-sm">
             {worker.destination.state === "available" ? (
               <a
                 className="inline-flex min-h-10 min-w-0 items-center gap-1.5 text-muted-foreground underline decoration-border underline-offset-4 hover:text-foreground @4xl:min-h-8"
@@ -556,12 +552,12 @@ function CloudflareWorkerResource({ worker }: { worker: RepositoryEnvironmentWor
                 target="_blank"
                 title={worker.destination.title}
               >
-                <span className="min-w-0 break-all leading-5">{worker.destination.label}</span>
+                <span className="min-w-0 max-lines-3 leading-5">{worker.destination.label}</span>
                 <ExternalLink className="h-3 w-3 shrink-0" />
               </a>
             ) : worker.destination.state === "unlinked" ? (
               <span className="inline-flex min-h-10 min-w-0 items-center text-muted-foreground @4xl:min-h-8">
-                <span className="min-w-0 break-all leading-5">{worker.destination.label}</span>
+                <span className="min-w-0 max-lines-3 leading-5">{worker.destination.label}</span>
               </span>
             ) : null}
             {worker.actions.length > 0 ? (

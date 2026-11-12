@@ -183,10 +183,11 @@ test("keeps the Schema route of a stack's production deployment", async ({ page 
   await expect(page).toHaveURL("/repo/samebase/samebase/schema/main/project/839311");
 });
 
-test("shows one card per Alchemy stack on desktop and mobile", async ({ page }) => {
+test("shows one card per Alchemy stack on desktop, mobile and a narrow pane", async ({ page }) => {
   for (const viewport of [
     { width: 1280, height: 900 },
     { width: 390, height: 844 },
+    { width: 200, height: 844 },
   ]) {
     await page.setViewportSize(viewport);
     const fixture = await openRepositoryOverviewV2(page, "repository-overview-v2-r2");

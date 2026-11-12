@@ -258,7 +258,7 @@ function ProviderTargetStatus({
       rel="noreferrer noopener"
       target="_blank"
     >
-      <span className="min-w-0 [overflow-wrap:anywhere]">{name}</span>
+      <span className="min-w-0 max-lines-3">{name}</span>
       <ExternalLink className="size-3.5 shrink-0" aria-hidden="true" />
     </a>
   ) : (
@@ -268,7 +268,7 @@ function ProviderTargetStatus({
   return (
     <div className="min-w-0">
       <div className="min-w-0 text-base leading-5">{target}</div>
-      <div className="mt-0.5 text-xs text-muted-foreground [overflow-wrap:anywhere]">
+      <div className="mt-0.5 max-lines-3 text-xs text-muted-foreground">
         {kind} · {state ?? formatAuthMethod(authMethod, kind)}
         {connectedBy ? (
           <>
@@ -295,7 +295,7 @@ function GitHubOwnerStatus({ organization }: { organization: ViewerOrganization 
           rel="noreferrer noopener"
           target="_blank"
         >
-          <span className="min-w-0 [overflow-wrap:anywhere]">{organization.githubOwnerLogin}</span>
+          <span className="min-w-0 max-lines-3">{organization.githubOwnerLogin}</span>
           <ExternalLink className="size-3.5 shrink-0" aria-hidden="true" />
         </a>
       </div>

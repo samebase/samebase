@@ -338,9 +338,12 @@ declaring one.
   `@2xl:`, `@3xl:`, and `cqw` units against its pane width instead of viewport `sm:`/`md:` variants
   and `vw` units. A pane beside an open sidebar must adapt to its own width, not the window's. At
   the configured minimum width, keep the pane navigable by preserving primary identity, status, and
-  actions before secondary metadata, and bound wrapping with multi-line clamps. Viewport-relative
-  styling remains only for true viewport concerns such as `svh` scroll-end space. Components that
-  declare their own container for an internal layout use a named container
+  actions before secondary metadata. Names, URLs, branch names, and titles use `max-lines-3`
+  (`max-lines-2` in sidebars): it breaks at any character and ends with an ellipsis. Text a person
+  must read or type in full, such as a confirm phrase, an error message, or a scope list, stays
+  unclamped. Controls beside a name wrap to the next line (`flex-wrap`) instead of shrinking the
+  name. Viewport-relative styling remains only for true viewport concerns such as `svh` scroll-end
+  space. Components that declare their own container for an internal layout use a named container
   (`@container/card-header`) so anonymous pane variants keep resolving to the pane. JS that must
   agree with a pane variant (for example gating a WebGL scene behind a `hidden @3xl:block` rail)
   measures the pane-filling element with a `ResizeObserver`, not a viewport media query.
