@@ -108,11 +108,11 @@ export function validateAuthorizeRest(
     return invalid(400, "request_uri_not_supported", "request_uri is not supported.");
   }
   if (params.get("response_type") !== "code") {
-    return invalid(400, "unsupported_response_type", 'response_type must be "code".');
+    return invalid(400, "unsupported_response_type", "response_type must be code.");
   }
   const scopes = (params.get("scope") ?? "").split(/\s+/).filter((scope) => scope.length > 0);
   if (flow === "identity" && !scopes.includes("openid")) {
-    return invalid(400, "invalid_scope", 'scope must include "openid".');
+    return invalid(400, "invalid_scope", "scope must include openid.");
   }
   const state = params.get("state") ?? undefined;
   if (state !== undefined && state.length > MAX_STATE_LENGTH) {
@@ -131,7 +131,7 @@ export function validateAuthorizeRest(
     );
   }
   if (params.get("code_challenge_method") !== "S256") {
-    return invalid(400, "invalid_request", 'code_challenge_method must be "S256".');
+    return invalid(400, "invalid_request", "code_challenge_method must be S256.");
   }
   const prompt = (params.get("prompt") ?? "").split(/\s+/).filter((value) => value.length > 0);
   if (prompt.some((value) => value !== "none" && value !== "login")) {
@@ -237,8 +237,11 @@ export function validateTokenRequest(
   client: TokenInput["client"],
 ): Validation<TokenInput> {
   const grantType = params.get("grant_type");
+  if (grantType === null) {
+    return invalid(400, "invalid_request", "grant_type is required.");
+  }
   if (grantType !== "authorization_code") {
-    return invalid(400, "unsupported_grant_type", 'grant_type must be "authorization_code".');
+    return invalid(400, "unsupported_grant_type", "This grant_type is not supported.");
   }
   const code = params.get("code")?.trim() ?? "";
   if (code.length === 0) {

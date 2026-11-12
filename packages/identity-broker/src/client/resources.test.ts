@@ -360,6 +360,17 @@ test("RFC 7009 revocation authenticates the owner and keeps unknown or another c
       }),
     });
   expect((await revoke(args.registered.clientId, "wrong", initial.refresh_token)).status).toBe(401);
+  const json = await args.h.fetchBroker(`${ISSUER}/revoke`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      client_id: args.registered.clientId,
+      client_secret: args.registered.clientSecret,
+      token: initial.refresh_token,
+    }),
+  });
+  expect(json.status).toBe(400);
+  expect(await json.json()).toMatchObject({ error: "invalid_request" });
   expect((await revoke(other.clientId, other.clientSecret, initial.refresh_token)).status).toBe(
     200,
   );
@@ -409,6 +420,53 @@ test("a refresh leaves out a scope the provider left out", async () => {
     }),
   });
   expect(await refreshed.json()).not.toHaveProperty("scope");
+});
+
+test("a refresh that requests a scope is refused before the provider, and the grant stays", async () => {
+  const args = await setup();
+  const { start, proof } = await authorize(args, cloudflare.resource);
+  const finished = await complete(args.h, start);
+  const response = await redeem(args, finished.url.searchParams.get("code") ?? "", proof.verifier);
+  const initial: { refresh_token: string } = await response.json();
+  const calls = args.tokenCalls.length;
+
+  const refused = await args.h.fetchBroker(`${ISSUER}/token`, {
+    method: "POST",
+    body: new URLSearchParams({
+      grant_type: "refresh_token",
+      client_id: args.registered.clientId,
+      client_secret: args.registered.clientSecret,
+      refresh_token: initial.refresh_token,
+      scope: "workers-scripts.read",
+    }),
+  });
+
+  expect(refused.status).toBe(400);
+  expect(await refused.json()).toMatchObject({ error: "invalid_scope" });
+  expect(args.tokenCalls).toHaveLength(calls);
+  expect((await refreshToken(args, initial.refresh_token)).status).toBe(200);
+});
+
+test("an empty resource at /token counts as omitted, at the code exchange and at refresh", async () => {
+  const args = await setup();
+  const { start, proof } = await authorize(args, cloudflare.resource);
+  const finished = await complete(args.h, start);
+  const code = finished.url.searchParams.get("code") ?? "";
+
+  const response = await redeem(args, code, proof.verifier, { resource: "" });
+  expect(response.status).toBe(200);
+  const initial: { refresh_token: string } = await response.json();
+  const refreshed = await args.h.fetchBroker(`${ISSUER}/token`, {
+    method: "POST",
+    body: new URLSearchParams({
+      grant_type: "refresh_token",
+      client_id: args.registered.clientId,
+      client_secret: args.registered.clientSecret,
+      refresh_token: initial.refresh_token,
+      resource: "",
+    }),
+  });
+  expect(refreshed.status).toBe(200);
 });
 
 test("the provider gets its configured scope, whatever the client requests", async () => {
