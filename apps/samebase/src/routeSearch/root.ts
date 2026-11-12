@@ -27,7 +27,6 @@ import {
 } from "@/routing/searchParamMetadata";
 import { SEARCH_RESET_QUERY_PARAM } from "@/lib/searchReset";
 import { buildPathWithTanStackSearch, parseTanStackSearch } from "@/lib/tanstackSearchParams";
-import { FORCE_PROD_UI_QUERY_PARAM, isProdUiModeEnabled } from "@/lib/prodUiMode";
 import {
   AUTHORIZATION_ERROR_CODES,
   AUTHORIZATION_ERROR_QUERY_PARAM,
@@ -99,10 +98,6 @@ const RouteSearchSchema_root = defineRouteSearchParams({
     access: "access_public",
     suggestion: "hidden",
   }),
-  "prod-ui": routeSearchPresenceParam({
-    access: "access_public",
-    suggestion: "hidden",
-  }),
   [SEARCH_RESET_QUERY_PARAM]: routeSearchPresenceParam({
     access: "access_public",
     // Applying reset drops every visible search param; keep it typeable but out of suggestions so
@@ -169,7 +164,6 @@ const rootRouteSearchParamMetadata = {
   [MOBILE_SIDEBAR_DEBUG_QUERY_PARAM]:
     rootRouteSearchOwnParamMetadata[MOBILE_SIDEBAR_DEBUG_QUERY_PARAM],
   next: rootRouteSearchOwnParamMetadata.next,
-  "prod-ui": rootRouteSearchOwnParamMetadata["prod-ui"],
   [SEARCH_RESET_QUERY_PARAM]: rootRouteSearchOwnParamMetadata[SEARCH_RESET_QUERY_PARAM],
   signup: rootRouteSearchOwnParamMetadata.signup,
 } as const satisfies RouteSearchParamMetadataByKey<RootRouteSearch>;
@@ -216,7 +210,6 @@ a caller clears the key with `undefined` or `null` in a route search patch.
 */
 export const RETAINED_ROOT_SEARCH_KEYS = [
   "devtools",
-  FORCE_PROD_UI_QUERY_PARAM,
   MOBILE_SIDEBAR_DEBUG_QUERY_PARAM,
   ...LOGO_ROUTE_SEARCH_KEYS,
 ] as const satisfies readonly (keyof RootRouteSearch)[];
@@ -278,7 +271,6 @@ export function readCanonicalRouteAddressForRootSearch(args: {
   hash: string;
   pathname: string;
   searchStr: string;
-  stripProdUi: boolean;
 }): string | null {
   // TanStack's beforeLoad search merges raw keys with validated results, so
   // the canonical root search derives from the raw search string instead.
@@ -307,13 +299,7 @@ export function readCanonicalRouteAddressForRootSearch(args: {
     }
   }
 
-  const themeCanonicalSearch = clearConflictingRootThemeModeSearch(rootSearch);
-  const nextSearch =
-    args.stripProdUi && isProdUiModeEnabled(rootSearch)
-      ? applySearchPatch(themeCanonicalSearch, {
-          [FORCE_PROD_UI_QUERY_PARAM]: null,
-        })
-      : themeCanonicalSearch;
+  const nextSearch = clearConflictingRootThemeModeSearch(rootSearch);
   if (hasDroppedSearchKey || nextSearch !== rootSearch) {
     return buildPathWithTanStackSearch({
       pathname: args.pathname,

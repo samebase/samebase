@@ -16,14 +16,14 @@ describe("queueExistingRepositoryAndNavigateToDashboard", () => {
       connectRepository,
       githubRepositoryDatabaseId: "1296269",
       navigateByHref,
-      search: { "prod-ui": true },
+      search: { "swipe-debug": true },
     });
 
     expect(connectRepository).toHaveBeenCalledWith({
       githubRepositoryDatabaseId: "1296269",
     });
-    expect(navigateByHref).toHaveBeenCalledWith("/repo/samebase/plugin?prod-ui", undefined);
-    expect(calls).toEqual(["connect:1296269", "navigate:/repo/samebase/plugin?prod-ui:push"]);
+    expect(navigateByHref).toHaveBeenCalledWith("/repo/samebase/plugin?swipe-debug", undefined);
+    expect(calls).toEqual(["connect:1296269", "navigate:/repo/samebase/plugin?swipe-debug:push"]);
   });
 
   it("replaces the direct file route with the dashboard after queueing", async () => {

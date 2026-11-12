@@ -53,16 +53,16 @@ describe("ProviderOAuthCompletionPage", () => {
     const addressAtCompletion: string[] = [];
     completeProviderOAuthMock.mockImplementation(async () => {
       addressAtCompletion.push(window.location.href);
-      return `${window.location.origin}/org/acme/providers?prod-ui#connections`;
+      return `${window.location.origin}/org/acme/providers?swipe-debug#connections`;
     });
 
     await renderAt(
-      "/oauth/provider-complete?prod-ui#provider=convex&state=state-value&code=code-value",
+      "/oauth/provider-complete?swipe-debug#provider=convex&state=state-value&code=code-value",
     );
 
     await vi.waitFor(() => {
       expect(navigateMock).toHaveBeenCalledWith({
-        href: "/org/acme/providers?prod-ui#connections",
+        href: "/org/acme/providers?swipe-debug#connections",
         replace: true,
       });
     });
@@ -73,7 +73,7 @@ describe("ProviderOAuthCompletionPage", () => {
       code: "code-value",
     });
     expect(addressAtCompletion).toEqual([
-      `${window.location.origin}/oauth/provider-complete?prod-ui`,
+      `${window.location.origin}/oauth/provider-complete?swipe-debug`,
     ]);
     expect(window.history.state).toEqual({ key: "router-entry" });
   });

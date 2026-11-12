@@ -40,17 +40,3 @@ export function getPasswordAuthSurface(
       return "hidden";
   }
 }
-
-/**
- * `?prod-ui` intentionally hides the password controls even on deployments
- * that support them so the landing page can mirror the production shell.
- */
-export function getVisiblePasswordAuthSurface(args: {
-  passwordAuthMode: PublicPasswordAuthMode;
-  prodUiModeEnabled: boolean;
-}): PasswordAuthSurface {
-  if (args.prodUiModeEnabled && args.passwordAuthMode !== "manual") {
-    return "hidden";
-  }
-  return getPasswordAuthSurface(args.passwordAuthMode);
-}

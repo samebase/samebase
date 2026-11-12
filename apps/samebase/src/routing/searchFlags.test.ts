@@ -9,7 +9,7 @@ describe("routeSearchFlags", () => {
   it("formats cursor-stable labels for links that toggle presence flags", () => {
     expect(formatRouteSearchPresenceFlagLinkLabel("dev", true)).toBe("?dev");
     expect(formatRouteSearchPresenceFlagLinkLabel("dev", false)).toBe("?dev-");
-    expect(formatRouteSearchPresenceFlagLinkLabel("prod-ui", false)).toBe("?prod-ui-");
+    expect(formatRouteSearchPresenceFlagLinkLabel("swipe-debug", false)).toBe("?swipe-debug-");
     expect(formatRouteSearchPresenceFlagLinkLabel("dev", false).startsWith("?dev")).toBe(true);
   });
 

@@ -141,7 +141,6 @@ The full protocol for PR bodies, review, labels, and cleanup lives in `docs/agen
   needed, put a separate tappable remote URL beside the locally rendered image.
 - Code references need a precise line or anchor; do not cite only a large file.
 - Link a relevant localhost preview, or say none is running.
-- For preview deploy URLs, use the `?prod-ui` query param.
 - When screenshot or visual regression work changes images, show the relevant before/after or diff
   images in the user-facing response.
 - Prefer key-only boolean query params such as `?diff`.

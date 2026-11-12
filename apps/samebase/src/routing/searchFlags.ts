@@ -16,7 +16,6 @@ export const ROUTE_SEARCH_PRESENCE_FLAG_KEYS = [
   "light",
   "mcp_login_required",
   "openedByCli",
-  "prod-ui",
   "reset",
 ] as const;
 

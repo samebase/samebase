@@ -284,11 +284,11 @@ describe("readRouteAddressReadiness", () => {
     expect(
       readRouteAddressReadinessForTest({
         currentRouteAddress: "/settings?delete-account",
-        draftRouteAddress: "/repo?prod-ui&dark",
+        draftRouteAddress: "/repo?swipe-debug&dark",
       }),
     ).toEqual({
       kind: "readyExact",
-      routeAddress: "/repo?prod-ui&dark",
+      routeAddress: "/repo?swipe-debug&dark",
     });
   });
 

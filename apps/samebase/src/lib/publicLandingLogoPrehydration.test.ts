@@ -36,7 +36,7 @@ describe("publicLandingLogoPrehydration", () => {
   });
 
   it("keeps the SSG fallback visible for non-rendering and non-logo query params", () => {
-    window.history.replaceState(null, "", "/?prod-ui&zoom=0.5");
+    window.history.replaceState(null, "", "/?swipe-debug&zoom=0.5");
 
     runPublicLandingLogoPrehydrationScript();
 

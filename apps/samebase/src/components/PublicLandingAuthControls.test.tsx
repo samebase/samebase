@@ -166,13 +166,13 @@ describe("PasswordAuthForm", () => {
     buildLocationMock.mockImplementation(
       (options: { search: (currentSearch: RootRouteSearch) => RootRouteSearch; to: string }) => {
         expect(options.to).toBe("/");
-        expect(options.search({ "prod-ui": true })).toEqual({
-          "prod-ui": true,
+        expect(options.search({ "swipe-debug": true })).toEqual({
+          "swipe-debug": true,
           auth: undefined,
           "auth-return": "dashboard",
           signup: "github",
         });
-        return { href: "/?prod-ui&auth-return=dashboard&signup=github" };
+        return { href: "/?swipe-debug&auth-return=dashboard&signup=github" };
       },
     );
     const rootElement = document.createElement("div");
@@ -197,7 +197,7 @@ describe("PasswordAuthForm", () => {
 
     expect(signInWithOAuthMock).toHaveBeenCalledWith(
       "github",
-      "/?prod-ui&auth-return=dashboard&signup=github",
+      "/?swipe-debug&auth-return=dashboard&signup=github",
     );
   });
 
@@ -222,22 +222,6 @@ describe("PasswordAuthForm", () => {
     expect(rootElement.querySelector('input[type="password"]')).toBeNull();
   });
 
-  it("hides the landing sidebar password auth in prod-ui mode", () => {
-    componentState.deploymentAuthPolicy = {
-      deploymentProfile: { kind: "preview" },
-      passwordAuthMode: "preview_seed",
-    };
-    componentState.search = { "prod-ui": true };
-
-    const markup = renderToStaticMarkup(
-      <PublicLandingAuthControls oauthAuthFlow="public-signup" />,
-    );
-
-    expect(markup).toContain("GitHub");
-    expect(markup).not.toContain("Password auth (dev)");
-    expect(markup).not.toContain("Password sign in");
-  });
-
   it("offers GitHub next to the password form on a local worktree", () => {
     componentState.deploymentAuthPolicy = {
       deploymentProfile: { kind: "local_worktree" },
@@ -249,21 +233,13 @@ describe("PasswordAuthForm", () => {
     );
     expect(worktreeMarkup).toContain("Continue with GitHub");
     expect(worktreeMarkup).toContain("Password auth (dev)");
-
-    componentState.search = { "prod-ui": true };
-    const prodUiMarkup = renderToStaticMarkup(
-      <PublicLandingAuthControls oauthAuthFlow="public-signup" />,
-    );
-    expect(prodUiMarkup).toContain("Continue with GitHub");
-    expect(prodUiMarkup).not.toContain("Password auth (dev)");
   });
 
-  it("renders manual password auth even in prod-ui mode", async () => {
+  it("renders manual password auth as sign-in only", async () => {
     componentState.deploymentAuthPolicy = {
       deploymentProfile: { kind: "production" },
       passwordAuthMode: "manual",
     };
-    componentState.search = { "prod-ui": true };
     const rootElement = document.createElement("div");
     document.body.append(rootElement);
     const localRoot = createRoot(rootElement);

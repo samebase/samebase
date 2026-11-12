@@ -1,10 +1,7 @@
 import { entries } from "@samebase/dependent/object";
 import type { AppRouter } from "@/router";
 import { normalizeRouteUrlEditorHref } from "@/routing/urlEditor";
-import {
-  isRouteUrlPathReadyForNavigation,
-  readRouteUrlPathSuggestionEnvironment,
-} from "@/routing/urlPathSuggestions";
+import { isRouteUrlPathReadyForNavigation } from "@/routing/urlPathSuggestions";
 import { buildPathWithTanStackSearch, parseTanStackSearch } from "@/lib/tanstackSearchParams";
 import {
   ROOT_ROUTE_GLOBAL_SEARCH_PARAM_SUGGESTIONS,
@@ -25,7 +22,7 @@ import {
   readRouteAddressSearchTokenText,
   type RouteAddressSearchToken,
 } from "@/routing/addressParts";
-import { type RouteEnvironment } from "@/routing/availability";
+import { readRouteEnvironmentForOrigin, type RouteEnvironment } from "@/routing/availability";
 
 type RouteAddressReadinessInput = {
   currentRouteAddress: string;
@@ -172,11 +169,7 @@ function readRouteAddressSearchParamSuggestions(
 ): readonly RouteSearchParamSuggestion[] {
   const routeSearchParamSuggestions = readMatchingRouteSearchParamSuggestions({
     path: args.path,
-    routeEnvironment: readRouteUrlPathSuggestionEnvironment({
-      currentHref: args.currentRouteAddress,
-      draftHref: args.draftRouteAddress,
-      origin: args.origin,
-    }),
+    routeEnvironment: readRouteEnvironmentForOrigin(args.origin),
     routesByPath: args.routesByPath,
     viewer: args.viewer,
   });

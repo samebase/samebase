@@ -34,7 +34,7 @@ describe("GitHub App popup completion", () => {
         origin: "https://samebase.com",
         pathname: "/org/acme/providers",
         replace: returnReplace,
-        search: "?prod-ui",
+        search: "?swipe-debug",
       },
       open: vi.fn(() => popup),
       removeEventListener,
@@ -66,7 +66,7 @@ describe("GitHub App popup completion", () => {
       new MessageEvent("message", {
         data: {
           type: "github-app-setup-complete",
-          returnTo: "https://samebase.com/org/acme/providers?prod-ui#github",
+          returnTo: "https://samebase.com/org/acme/providers?swipe-debug#github",
         },
         origin: "https://samebase.com",
         // @ts-expect-error The fake popup implements the fields used by this boundary.
@@ -74,7 +74,7 @@ describe("GitHub App popup completion", () => {
       }),
     );
     expect(returnReplace).toHaveBeenCalledWith(
-      "https://samebase.com/org/acme/providers?prod-ui#github",
+      "https://samebase.com/org/acme/providers?swipe-debug#github",
     );
     expect(fakeWindow.clearTimeout).toHaveBeenCalledWith(42);
     expect(fakeWindow.clearTimeout).toHaveBeenCalledWith(44);
@@ -83,11 +83,11 @@ describe("GitHub App popup completion", () => {
   });
 
   it.each([
-    { provider: "github-app", returnUrl: "/org/acme/providers?prod-ui#github" },
+    { provider: "github-app", returnUrl: "/org/acme/providers?swipe-debug#github" },
     {
       provider: "github-user",
       returnUrl:
-        "/org/acme/providers?prod-ui=&authorization-provider=github-user&authorization-error=canceled#github",
+        "/org/acme/providers?swipe-debug=&authorization-provider=github-user&authorization-error=canceled#github",
     },
   ] as const)("returns from a closed $provider popup without a callback", async (testCase) => {
     const returnReplace = vi.fn();
@@ -108,7 +108,7 @@ describe("GitHub App popup completion", () => {
         origin: "https://samebase.com",
         pathname: "/org/acme/providers",
         replace: returnReplace,
-        search: "?prod-ui",
+        search: "?swipe-debug",
       },
       open: vi.fn(() => popup),
       removeEventListener: vi.fn(),

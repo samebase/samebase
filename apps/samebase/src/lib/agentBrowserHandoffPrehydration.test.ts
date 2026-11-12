@@ -34,7 +34,7 @@ describe("agent browser handoff prehydration", () => {
     window.history.replaceState(
       { tanstack: "state" },
       "",
-      `/agents/connect#handoff=${token}&returnTo=%2Frepo%2Frepo%3Fprod-ui`,
+      `/agents/connect#handoff=${token}&returnTo=%2Frepo%2Frepo%3Fswipe-debug`,
     );
 
     runAgentBrowserHandoffPrehydrationScript();
@@ -43,13 +43,13 @@ describe("agent browser handoff prehydration", () => {
     expect(
       JSON.parse(window.sessionStorage.getItem(AGENT_BROWSER_HANDOFF_STORAGE_KEY) ?? "{}"),
     ).toEqual({
-      returnToPath: "/repo/repo?prod-ui",
+      returnToPath: "/repo/repo?swipe-debug",
       token,
     });
     expect(window.history.state).toEqual({
       tanstack: "state",
       [AGENT_BROWSER_HANDOFF_HISTORY_STATE_KEY]: {
-        returnToPath: "/repo/repo?prod-ui",
+        returnToPath: "/repo/repo?swipe-debug",
         token,
       },
     });

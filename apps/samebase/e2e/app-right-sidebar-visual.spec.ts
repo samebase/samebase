@@ -261,7 +261,7 @@ test("signed-out GitHub sign-in fits the minimum mobile right pane", async ({ pa
     mobilePane: "right",
     rightMobileWidthPx: 130,
   });
-  await page.goto("/?prod-ui", { waitUntil: "networkidle" });
+  await page.goto("/", { waitUntil: "networkidle" });
 
   const rightPane = getRightPane(page);
   const githubButton = rightPane.getByRole("button", { name: "Continue with GitHub" });

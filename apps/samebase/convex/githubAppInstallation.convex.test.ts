@@ -191,7 +191,7 @@ describe("GitHub App setup", () => {
 
     const result = await asUser(t, userId).mutation(
       api.githubAppInstallation.getGitHubUserAuthorizationUrl,
-      { returnToPath: "/org?prod-ui" },
+      { returnToPath: "/org?swipe-debug" },
     );
     const setupUrl = new URL(result.setupUrl);
     const state = setupUrl.searchParams.get("state");
@@ -215,7 +215,7 @@ describe("GitHub App setup", () => {
       purpose: "user_authorization",
       githubSignInProviderAccountId: "authorization-user-id",
       codeVerifier: expect.any(String),
-      returnToPath: "/org?prod-ui",
+      returnToPath: "/org?swipe-debug",
     });
   });
 
@@ -271,7 +271,7 @@ describe("GitHub App setup", () => {
         state: "organization-installation-state",
         purpose: "installation",
         githubSignInProviderAccountId: "organization-admin-id",
-        returnToPath: "/org?prod-ui",
+        returnToPath: "/org?swipe-debug",
         createdAt: Date.now(),
         expiresAt: Date.now() + 60_000,
       });
@@ -289,7 +289,7 @@ describe("GitHub App setup", () => {
     const response = await t.fetch(
       "/oauth/github/callback?installation_id=5001&state=organization-installation-state",
     );
-    const html = await expectGitHubCompletion(response, "https://samebase.com/org?prod-ui");
+    const html = await expectGitHubCompletion(response, "https://samebase.com/org?swipe-debug");
     const snapshot = await t.run(async (ctx) => ({
       authorization: await ctx.db.get(authorizationId),
       membership: await ctx.db
@@ -386,7 +386,7 @@ describe("GitHub App setup", () => {
         purpose: "installation_reconnect",
         organizationId,
         githubSignInProviderAccountId: "reconnect-user-id",
-        returnToPath: "/org/reconnect-owner/providers?prod-ui",
+        returnToPath: "/org/reconnect-owner/providers?swipe-debug",
         createdAt: Date.now(),
         expiresAt: Date.now() + 60_000,
       });
@@ -406,7 +406,7 @@ describe("GitHub App setup", () => {
     );
     await expectGitHubCompletion(
       response,
-      "https://samebase.com/org/reconnect-owner/providers?prod-ui",
+      "https://samebase.com/org/reconnect-owner/providers?swipe-debug",
     );
     await expect(
       t.run(async (ctx) => ({
@@ -447,7 +447,7 @@ describe("GitHub App setup", () => {
         state: "existing-installation-state",
         purpose: "installation",
         githubSignInProviderAccountId: "existing-admin-id",
-        returnToPath: "/org?prod-ui",
+        returnToPath: "/org?swipe-debug",
         createdAt: Date.now(),
         expiresAt: Date.now() + 60_000,
       });
@@ -470,7 +470,7 @@ describe("GitHub App setup", () => {
       buildAuthorizationErrorUrl(
         buildGitHubOrganizationProvidersReturnUrl({
           githubOwnerLogin: "Existing-Owner",
-          previousReturnUrl: "https://samebase.com/org?prod-ui",
+          previousReturnUrl: "https://samebase.com/org?swipe-debug",
         }),
         { provider: "github-app", code: "organization-owner-required" },
       ),
@@ -506,7 +506,7 @@ describe("GitHub App setup", () => {
         purpose: "user_authorization",
         githubSignInProviderAccountId: "callback-user-id",
         codeVerifier: "code-verifier",
-        returnToPath: "/org?prod-ui#installations",
+        returnToPath: "/org?swipe-debug#installations",
         createdAt: Date.now(),
         expiresAt: Date.now() + 60_000,
       });
@@ -527,7 +527,7 @@ describe("GitHub App setup", () => {
     );
     const html = await expectGitHubCompletion(
       response,
-      "https://samebase.com/org?prod-ui#installations",
+      "https://samebase.com/org?swipe-debug#installations",
     );
     const snapshot = await t.run(async (ctx) => ({
       authorization: await ctx.db

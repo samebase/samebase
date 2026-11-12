@@ -5,7 +5,7 @@ import {
   APP_BUILD_STATUS_BAR_TEST_ID,
   APP_BUILD_VERSION_TEST_ID,
 } from "../src/lib/appBuild";
-import { PRODUCTION_PUBLIC_HOSTNAME } from "../src/lib/prodUiMode";
+import { PRODUCTION_PUBLIC_HOSTNAME } from "../src/routing/availability";
 import { PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID } from "../src/lib/publicLanding";
 import { LANDING_PREVIEW_ARTICLE_TEST_ID } from "../src/routeSearch/landingPreview";
 import { formatRouteSearchPresenceFlagLinkLabel } from "../src/routing/searchFlags";

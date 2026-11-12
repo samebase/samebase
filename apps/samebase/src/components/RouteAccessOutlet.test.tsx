@@ -136,7 +136,7 @@ describe("RouteAccessOutlet", () => {
   });
 
   it("renders public routes with public search params without reading viewer access", () => {
-    locationState.searchStr = "?prod-ui";
+    locationState.searchStr = "?swipe-debug";
 
     const markup = renderToStaticMarkup(<RouteAccessOutlet />);
 
@@ -145,7 +145,7 @@ describe("RouteAccessOutlet", () => {
   });
 
   it("waits for cleanup when a public route has an unauthorized search param", () => {
-    locationState.searchStr = "?delete&prod-ui";
+    locationState.searchStr = "?delete&swipe-debug";
 
     const markup = renderToStaticMarkup(<RouteAccessOutlet />);
 
@@ -154,15 +154,15 @@ describe("RouteAccessOutlet", () => {
   });
 
   it("replaces unauthorized search params once and renders the canonical URL", async () => {
-    locationState.searchStr = "?delete&prod-ui";
+    locationState.searchStr = "?delete&swipe-debug";
 
     const strippedMarkup = await renderRouteAccessOutletAfterEffects();
 
     expect(strippedMarkup).toBe("");
-    expect(routerState.navigateCalls).toEqual([{ href: "/?prod-ui", replace: true }]);
+    expect(routerState.navigateCalls).toEqual([{ href: "/?swipe-debug", replace: true }]);
 
     routerState.navigateCalls = [];
-    locationState.searchStr = "?prod-ui";
+    locationState.searchStr = "?swipe-debug";
 
     const canonicalMarkup = await renderRouteAccessOutletAfterEffects();
 
@@ -171,7 +171,7 @@ describe("RouteAccessOutlet", () => {
   });
 
   it("renders public routes with restricted search params when the viewer has access", () => {
-    locationState.searchStr = "?delete&prod-ui";
+    locationState.searchStr = "?delete&swipe-debug";
     viewerAccessState.result = {
       accessKeys: ["access_public", "access_dashboard"],
     };

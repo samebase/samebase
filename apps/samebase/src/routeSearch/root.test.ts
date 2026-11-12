@@ -42,7 +42,6 @@ describe("rootRouteSearch", () => {
         dev: "",
         devtools: "true",
         primary: "red-600",
-        "prod-ui": "",
         secondary: "cyan-500",
         signup: "google",
         "swipe-debug": "",
@@ -60,7 +59,6 @@ describe("rootRouteSearch", () => {
       dev: true,
       devtools: true,
       primary: "red-600",
-      "prod-ui": true,
       secondary: "cyan-500",
       signup: "google",
       "swipe-debug": true,
@@ -89,12 +87,12 @@ describe("rootRouteSearch", () => {
       validateRootRouteSearch({
         "authorization-provider": "convex",
         "authorization-error": "target-mismatch",
-        "prod-ui": "",
+        devtools: "",
       }),
     ).toEqual({
       "authorization-provider": "convex",
       "authorization-error": "target-mismatch",
-      "prod-ui": true,
+      devtools: true,
     });
     expect(
       validateRootRouteSearch({
@@ -120,7 +118,6 @@ describe("rootRouteSearch", () => {
         dev: "1",
         devtools: "false",
         light: 0,
-        "prod-ui": false,
         "swipe-debug": "false",
       }),
     ).toEqual({
@@ -128,7 +125,6 @@ describe("rootRouteSearch", () => {
       dev: true,
       devtools: true,
       light: true,
-      "prod-ui": true,
       "swipe-debug": true,
     });
   });
@@ -146,20 +142,16 @@ describe("rootRouteSearch", () => {
         hash: "",
         pathname: "/repo/ada/demo/settings",
         searchStr: "?add-cloudflare&add-convex",
-        stripProdUi: false,
       }),
     ).toBe("/repo/ada/demo/settings");
   });
 
   it("parses the root search contract from a search string", () => {
-    expect(
-      readRootRouteSearch("?prod-ui&dev&auth=google&signup=google&primary=red-600&delete"),
-    ).toEqual({
+    expect(readRootRouteSearch("?dev&auth=google&signup=google&primary=red-600&delete")).toEqual({
       auth: "google",
       delete: true,
       dev: true,
       primary: "red-600",
-      "prod-ui": true,
       signup: "google",
     });
   });
@@ -336,7 +328,6 @@ describe("rootRouteSearch", () => {
         pathname: "/logo",
         searchStr: "?dark&reset",
         hash: "",
-        stripProdUi: false,
       }),
     ).toBe("/logo");
   });
@@ -348,7 +339,6 @@ describe("rootRouteSearch", () => {
         pathname: "/logo",
         searchStr: "?dark&dev&light",
         hash: "section",
-        stripProdUi: false,
       }),
     ).toBe("/logo?dev#section");
   });
@@ -360,7 +350,6 @@ describe("rootRouteSearch", () => {
         pathname: "/repo",
         searchStr: "?stale=1",
         hash: "",
-        stripProdUi: false,
       }),
     ).toBe("/repo");
   });
@@ -372,7 +361,6 @@ describe("rootRouteSearch", () => {
         pathname: "/repo",
         searchStr: "?convexAuthCode=oauth-code&unknownKey=1",
         hash: "",
-        stripProdUi: false,
       }),
     ).toBe("/repo?convexAuthCode=oauth-code");
   });
@@ -382,35 +370,10 @@ describe("rootRouteSearch", () => {
       readCanonicalRouteAddressForRootSearch({
         acceptedSearchKeys: ["delete-account"],
         pathname: "/settings",
-        searchStr: "?prod-ui&delete-account&swipe-debug&unknownKey=1",
+        searchStr: "?devtools&delete-account&swipe-debug&unknownKey=1",
         hash: "",
-        stripProdUi: false,
       }),
-    ).toBe("/settings?delete-account&swipe-debug&prod-ui");
-  });
-
-  it("strips prod-ui in production canonicalization while preserving accepted route parts", () => {
-    expect(
-      readCanonicalRouteAddressForRootSearch({
-        acceptedSearchKeys: ["delete-account"],
-        pathname: "/settings",
-        searchStr: "?prod-ui&delete-account&swipe-debug",
-        hash: "ready",
-        stripProdUi: true,
-      }),
-    ).toBe("/settings?delete-account&swipe-debug#ready");
-  });
-
-  it("does not redirect production canonicalization when prod-ui is absent", () => {
-    expect(
-      readCanonicalRouteAddressForRootSearch({
-        acceptedSearchKeys: ["delete-account"],
-        pathname: "/settings",
-        searchStr: "?delete-account&swipe-debug",
-        hash: "ready",
-        stripProdUi: true,
-      }),
-    ).toBe(null);
+    ).toBe("/settings?delete-account&devtools&swipe-debug");
   });
 
   it("does not redirect when every raw key is accepted", () => {
@@ -420,7 +383,6 @@ describe("rootRouteSearch", () => {
         pathname: "/settings",
         searchStr: "?delete-account",
         hash: "",
-        stripProdUi: false,
       }),
     ).toBe(null);
   });

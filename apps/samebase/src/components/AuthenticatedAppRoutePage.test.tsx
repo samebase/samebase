@@ -104,7 +104,7 @@ describe("AuthenticatedAppRoutePage", () => {
     rootSearchState.search = {
       "authorization-provider": "github-app",
       "authorization-error": "canceled",
-      "prod-ui": true,
+      "swipe-debug": true,
     };
 
     await renderAuthenticatedRoutePageAfterEffects();

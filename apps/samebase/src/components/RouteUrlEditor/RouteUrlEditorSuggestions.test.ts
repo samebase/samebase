@@ -514,7 +514,6 @@ describe("readSuggestions", () => {
     expect(values).not.toContain("?auth=");
     expect(values).not.toContain("?dev");
     expect(values).not.toContain("?devtools");
-    expect(values).not.toContain("?prod-ui");
     expect(values).not.toContain("?signup=");
   });
 

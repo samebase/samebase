@@ -9,7 +9,7 @@ describe("buildOrganizationSwitchHref", () => {
         search: {
           checkout: "success",
           customer_session_token: "return-state",
-          "prod-ui": true,
+          "swipe-debug": true,
         },
         target: {
           kind: "organization",
@@ -17,7 +17,7 @@ describe("buildOrganizationSwitchHref", () => {
           section: "settings",
         },
       }),
-    ).toBe("/org/Target-Org/settings?prod-ui#billing");
+    ).toBe("/org/Target-Org/settings?swipe-debug#billing");
   });
 
   it("clears billing state when switching to All repositories and keeps unrelated URL state", () => {
@@ -27,25 +27,25 @@ describe("buildOrganizationSwitchHref", () => {
         search: {
           checkout: "cancel",
           customer_session_token: true,
-          "prod-ui": true,
+          "swipe-debug": true,
           view: "compact",
         },
         target: { kind: "allRepositories" },
       }),
-    ).toBe("/repo?prod-ui&view=compact#billing");
+    ).toBe("/repo?swipe-debug&view=compact#billing");
   });
 
   it("keeps the Members section when switching organizations", () => {
     expect(
       buildOrganizationSwitchHref({
         hash: "",
-        search: { "prod-ui": true },
+        search: { "swipe-debug": true },
         target: {
           kind: "organization",
           owner: "Target-Org",
           section: "members",
         },
       }),
-    ).toBe("/org/Target-Org/settings/members?prod-ui");
+    ).toBe("/org/Target-Org/settings/members?swipe-debug");
   });
 });

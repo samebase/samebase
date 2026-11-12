@@ -25,10 +25,10 @@ describe("authorization error search", () => {
         "authorization-provider": "convex" as const,
         "authorization-error": "target-mismatch" as const,
         "auth-return": "dashboard" as const,
-        "prod-ui": true as const,
+        "swipe-debug": true as const,
         devtools: true as const,
         signup: "github" as const,
       }),
-    ).toEqual({ "prod-ui": true, devtools: true });
+    ).toEqual({ "swipe-debug": true, devtools: true });
   });
 });
