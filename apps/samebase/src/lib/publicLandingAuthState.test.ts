@@ -42,7 +42,7 @@ describe("publicLandingAuthState", () => {
   });
 
   it("maps the public password auth mode to a stable landing surface", () => {
-    expect(getPasswordAuthSurface("preview_seed")).toBe("sign_in");
+    expect(getPasswordAuthSurface("preview_seed")).toBe("hidden");
     expect(getPasswordAuthSurface("manual")).toBe("sign_in");
     expect(getPasswordAuthSurface("local_worktree_seed")).toBe("local_worktree");
     expect(getPasswordAuthSurface("off")).toBe("hidden");

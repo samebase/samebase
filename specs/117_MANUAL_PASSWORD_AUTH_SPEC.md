@@ -15,7 +15,8 @@
 Samebase supports four password authentication modes:
 
 1. `local_worktree_seed` uses the fixed local worktree account and permits sign-in and sign-up.
-2. `preview_seed` uses the preview seed account and permits sign-in only.
+2. `preview_seed` uses the preview seed account and permits sign-in only. The landing page shows no
+   password form on a preview. GitHub sign-in reaches the seed account by its verified email.
 3. `manual` permits sign-in only for operator-created accounts. It is enabled only when
    `PASSWORD_AUTH_ENABLED` has the exact value `true`.
 4. `off` rejects every password authentication flow.

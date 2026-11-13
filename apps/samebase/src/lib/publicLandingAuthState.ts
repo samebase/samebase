@@ -30,9 +30,11 @@ export function getPasswordAuthSurface(
   switch (passwordAuthMode) {
     case "local_worktree_seed":
       return "local_worktree";
-    case "preview_seed":
     case "manual":
       return "sign_in";
+    // A preview looks like production. GitHub sign-in through the hub reaches the preview seed
+    // account, because the hub matches the seed account's verified email.
+    case "preview_seed":
     case "off":
       return "hidden";
     default:

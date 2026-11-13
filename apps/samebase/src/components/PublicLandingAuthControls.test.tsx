@@ -144,10 +144,24 @@ describe("PasswordAuthForm", () => {
     expect(markup).not.toContain("Password sign in");
   });
 
-  it("renders the landing sidebar password auth from the deployment policy", () => {
+  it("shows only GitHub sign-in on a preview", () => {
     componentState.deploymentAuthPolicy = {
       deploymentProfile: { kind: "preview" },
       passwordAuthMode: "preview_seed",
+    };
+
+    const markup = renderToStaticMarkup(
+      <PublicLandingAuthControls oauthAuthFlow="public-signup" />,
+    );
+
+    expect(markup).toContain("Continue with GitHub");
+    expect(markup).not.toContain("Password sign in");
+  });
+
+  it("renders the landing sidebar password auth from the deployment policy", () => {
+    componentState.deploymentAuthPolicy = {
+      deploymentProfile: { kind: "production" },
+      passwordAuthMode: "manual",
     };
 
     const markup = renderToStaticMarkup(
@@ -203,8 +217,8 @@ describe("PasswordAuthForm", () => {
 
   it("hides OAuth and password controls while the OAuth return notice is visible", async () => {
     componentState.deploymentAuthPolicy = {
-      deploymentProfile: { kind: "preview" },
-      passwordAuthMode: "preview_seed",
+      deploymentProfile: { kind: "production" },
+      passwordAuthMode: "manual",
     };
     componentState.search = { signup: "google" };
     const rootElement = document.createElement("div");
@@ -256,8 +270,8 @@ describe("PasswordAuthForm", () => {
 
   it("hides the landing sidebar auth controls after sign-in", () => {
     componentState.deploymentAuthPolicy = {
-      deploymentProfile: { kind: "preview" },
-      passwordAuthMode: "preview_seed",
+      deploymentProfile: { kind: "production" },
+      passwordAuthMode: "manual",
     };
     componentState.isAuthenticated = true;
 
