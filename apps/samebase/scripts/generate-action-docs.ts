@@ -265,6 +265,8 @@ HTML pages. Action and operate docs are raw markdown only.
   steps, with no Samebase account
 - [Receipts](https://samebase.com/docs/receipts.md): every factual claim with its primary source
   and the date it was last checked
+- [Templates](https://samebase.com/templates): the template repositories, with the GitHub secrets
+  and variables each one needs
 - [Pricing](https://samebase.com/pricing.md): free during the beta, with repository and member
   limits
 - [Changelog](https://samebase.com/changelog.md): what changed in Samebase, newest first

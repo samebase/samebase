@@ -13,6 +13,9 @@ describe("prerenderPages", () => {
       "/docs/the-stack",
       "/pricing",
       "/privacy",
+      "/templates",
+      "/templates/base",
+      "/templates/identity-hub",
       "/terms",
     ]);
   });

@@ -14,6 +14,7 @@ import {
   DOCS_THE_BIG_MIGRATION_ROUTE,
   DOCS_THE_STACK_ROUTE,
   LANDING_PAGE_ROUTE,
+  TEMPLATES_ROUTE,
 } from "@/routeSearch/landingPreview";
 import type { AppWorkspaceRouteChromeStaticData } from "@/routing/permissions";
 import { Link, useMatchRoute, type LinkProps } from "@tanstack/react-router";
@@ -37,6 +38,7 @@ const DOCS_SIDEBAR_TREE: readonly (
       { label: "Receipts", to: DOCS_RECEIPTS_ROUTE },
     ],
   },
+  { label: "Templates", to: TEMPLATES_ROUTE },
   { label: "Pricing", to: DOCS_PRICING_ROUTE },
   { label: "Changelog", to: DOCS_CHANGELOG_ROUTE },
 ];
