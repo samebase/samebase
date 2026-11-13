@@ -15,15 +15,15 @@
   "dependencies": {
     "@samebase/alchemy-convex": "0.40.0",
     "@samebase/identity-broker": "workspace:*",
-    "convex": "1.48.0",
-    "convex-helpers": "0.1.128",
-    "jose": "6.2.13"
+    "convex": "1.49.0",
+    "convex-helpers": "0.1.134",
+    "jose": "6.2.15"
   },
   "devDependencies": {
     "@effect/platform-node": "4.1.2",
-    "@types/node": "24.19.2",
+    "@types/node": "26.6.6",
     "alchemy": "2.0.0-beta.85",
-    "convex-test": "0.0.61",
+    "convex-test": "0.0.67",
     "effect": "4.1.2",
     "typescript": "7.0.2",
     "vite-plus": "catalog:"
