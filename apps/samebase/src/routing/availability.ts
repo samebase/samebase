@@ -1,5 +1,7 @@
 import { readIsomorphicOrigin } from "@/lib/isomorphic";
-import { isProductionPublicHostname } from "@/lib/prodUiMode";
+
+export const PRODUCTION_PUBLIC_HOSTNAME = "samebase.com";
+const PRODUCTION_PUBLIC_HOSTNAMES = [PRODUCTION_PUBLIC_HOSTNAME, "www.samebase.com"] as const;
 
 export type RouteEnvironment = "local" | "preview" | "production";
 
@@ -49,7 +51,8 @@ export function resolveRouteEnvironment(args: { hostname: string }): RouteEnviro
     return "local";
   }
 
-  if (isProductionPublicHostname(args.hostname)) {
+  const hostname = normalizeHostname(args.hostname);
+  if (PRODUCTION_PUBLIC_HOSTNAMES.some((productionHostname) => productionHostname === hostname)) {
     return "production";
   }
 

@@ -24,7 +24,6 @@ import {
 import { ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
 import { buildRootHead } from "@/lib/rootHead";
 import { NOT_FOUND_PAGE_METADATA } from "@/lib/pageMetadata";
-import { isProductionPublicOrigin } from "@/lib/prodUiMode";
 import { readRootThemeMode, type RootThemeMode } from "@/lib/rootThemeModeSearch";
 import { loadRoot } from "@/routes/root.queries";
 import { clearRotatedLogoViewStates } from "@/lib/rotatedLogoViewState";
@@ -143,7 +142,6 @@ export const Route = createRootRouteWithContext<AppQueryClients>()({
       pathname: location.pathname,
       searchStr: location.searchStr,
       hash: location.hash,
-      stripProdUi: isProductionPublicOrigin(),
     });
     if (rootCanonicalRouteAddress !== null) {
       throw redirect({

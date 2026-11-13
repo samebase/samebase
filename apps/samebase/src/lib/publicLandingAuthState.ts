@@ -30,7 +30,6 @@ export function getPasswordAuthSurface(
   switch (passwordAuthMode) {
     case "local_worktree_seed":
       return "local_worktree";
-    case "preview_seed":
     case "manual":
       return "sign_in";
     case "off":
@@ -39,18 +38,4 @@ export function getPasswordAuthSurface(
       passwordAuthMode satisfies never;
       return "hidden";
   }
-}
-
-/**
- * `?prod-ui` intentionally hides the password controls even on deployments
- * that support them so the landing page can mirror the production shell.
- */
-export function getVisiblePasswordAuthSurface(args: {
-  passwordAuthMode: PublicPasswordAuthMode;
-  prodUiModeEnabled: boolean;
-}): PasswordAuthSurface {
-  if (args.prodUiModeEnabled && args.passwordAuthMode !== "manual") {
-    return "hidden";
-  }
-  return getPasswordAuthSurface(args.passwordAuthMode);
 }

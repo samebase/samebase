@@ -72,7 +72,7 @@ describe("useAppAuthRuntimeEffects", () => {
     vi.stubGlobal("window", {
       location: {
         pathname: "/settings",
-        search: "?prod-ui&signup=google",
+        search: "?swipe-debug&signup=google",
         hash: "#top",
       },
       history: {
@@ -83,18 +83,18 @@ describe("useAppAuthRuntimeEffects", () => {
     mockCurrentRouteLocationBuilder();
 
     useAppAuthRuntimeEffects({
-      "prod-ui": true,
+      "swipe-debug": true,
       signup: "google",
     });
 
     expect(useAutoSignInMock).toHaveBeenCalledWith({
-      "prod-ui": true,
+      "swipe-debug": true,
       signup: "google",
     });
     expect(replaceStateMock).toHaveBeenCalledWith(
       { __TSR_index: 4, __TSR_key: "landing" },
       "",
-      "/settings?prod-ui#top",
+      "/settings?swipe-debug#top",
     );
     expect(navigateMock).not.toHaveBeenCalled();
   });
@@ -172,13 +172,13 @@ describe("useAppAuthRuntimeEffects", () => {
     expect(
       navigateOptions.search({
         "auth-return": "dashboard",
-        "prod-ui": true,
+        "swipe-debug": true,
         signup: "github",
       }),
     ).toEqual({
       auth: undefined,
       "auth-return": undefined,
-      "prod-ui": true,
+      "swipe-debug": true,
       signup: undefined,
     });
     expect(replaceStateMock).not.toHaveBeenCalled();

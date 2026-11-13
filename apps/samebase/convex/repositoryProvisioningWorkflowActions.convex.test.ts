@@ -127,7 +127,7 @@ async function createManagedRepositoryRun(
     email?: string;
     githubOwnerLogin?: string;
     githubOwnerType?: "organization" | "user";
-    passwordAccount?: true;
+    emailVerified?: true;
   } = {},
 ) {
   const t = makeConvexTest();
@@ -139,14 +139,8 @@ async function createManagedRepositoryRun(
       isApproved: true,
       termsVersion: "2026-08-12",
       termsAcceptedAt: 1,
+      ...(args.emailVerified ? { emailVerificationTime: 1 } : {}),
     });
-    if (args.passwordAccount) {
-      await ctx.db.insert("authAccounts", {
-        userId,
-        provider: "password",
-        providerAccountId: email,
-      });
-    }
     const githubOwnerLogin = args.githubOwnerLogin ?? "octocat";
     const organizationId = await ctx.db.insert("organizations", {
       githubInstallationId: "1001",
@@ -298,7 +292,6 @@ describe("managed repository provisioning identity", () => {
   it("rechecks the seeded personal GitHub credential before repository creation", async () => {
     vi.stubEnv("CONVEX_DEPLOYMENT", "preview:personal-repository-workflow");
     vi.stubEnv("DEV_SEED_AUTH_EMAIL", "preview@example.test");
-    vi.stubEnv("DEV_SEED_AUTH_PASSWORD", "preview-password");
     vi.stubEnv("DEV_SEED_GITHUB_API_KEY", "preview-api-key");
     githubMocks.discoverPreviewSeedGitHubAppInstallations.mockResolvedValue([
       {
@@ -328,7 +321,7 @@ describe("managed repository provisioning identity", () => {
       email: "preview@example.test",
       githubOwnerLogin: "nicu-chiciuc",
       githubOwnerType: "user",
-      passwordAccount: true,
+      emailVerified: true,
     });
 
     await expect(

@@ -1,5 +1,4 @@
 import type { AppRouter } from "@/router";
-import { FORCE_PROD_UI_QUERY_PARAM } from "@/lib/prodUiMode";
 import { readRouteEnvironmentForOrigin, type RouteEnvironment } from "@/routing/availability";
 import { normalizeRouteUrlEditorHref } from "@/routing/urlEditor";
 import {
@@ -55,11 +54,7 @@ export function isRouteUrlPathReadyForNavigation({
   routesByPath,
   viewer,
 }: RouteUrlPathSuggestionsInput): boolean {
-  const routeEnvironment = readRouteUrlPathSuggestionEnvironment({
-    currentHref,
-    draftHref,
-    origin,
-  });
+  const routeEnvironment = readRouteEnvironmentForOrigin(origin);
   const navigablePaths = entries(routesByPath)
     .filter(([path, route]) =>
       isRouteUrlNavigablePath(path, route.options.staticData, viewer, routeEnvironment),
@@ -122,50 +117,6 @@ function compareRouteUrlPathSuggestion(left: string, right: string): number {
   }
 
   return left.localeCompare(right);
-}
-
-/**
- * Chooses which route set path suggestions should come from.
- *
- * Some routes are local-only, preview-only, or production-only. The origin gives
- * the normal environment for this app instance, while `?prod-ui` in either the
- * current URL or editable draft forces production suggestions so the editor
- * doesn't offer local/preview routes while the page is pretending to be prod.
- */
-export function readRouteUrlPathSuggestionEnvironment({
-  currentHref,
-  draftHref,
-  origin,
-}: Omit<RouteUrlPathSuggestionsInput, "routesByPath" | "viewer">): RouteEnvironment {
-  try {
-    const appOrigin = new URL(origin);
-    const currentUrl = new URL(currentHref, appOrigin);
-    if (currentUrl.searchParams.has(FORCE_PROD_UI_QUERY_PARAM)) {
-      return "production";
-    }
-
-    const trimmedDraftHref = draftHref.trim();
-    if (!trimmedDraftHref) {
-      return readRouteEnvironmentForOrigin(origin);
-    }
-
-    const routeHref = normalizeRouteUrlEditorHref({
-      currentHref,
-      origin,
-      rawHref: trimmedDraftHref,
-    });
-    if (routeHref === null) {
-      return readRouteEnvironmentForOrigin(origin);
-    }
-
-    if (new URL(routeHref, appOrigin).searchParams.has(FORCE_PROD_UI_QUERY_PARAM)) {
-      return "production";
-    }
-
-    return readRouteEnvironmentForOrigin(origin);
-  } catch {
-    return "production";
-  }
 }
 
 function readRouteUrlPathSuggestionDraftPath({

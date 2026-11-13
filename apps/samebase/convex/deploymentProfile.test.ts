@@ -73,11 +73,10 @@ describe("deploymentProfile", () => {
     ).toEqual({ kind: "local_development" });
   });
 
-  it("falls back to preview seed envs when runtime deployment metadata is absent", () => {
+  it("falls back to the preview seed email when runtime deployment metadata is absent", () => {
     expect(
       resolveDeploymentProfileFromEnv({
         DEV_SEED_AUTH_EMAIL: "preview@example.com",
-        DEV_SEED_AUTH_PASSWORD: "secret-password",
       }),
     ).toEqual({ kind: "preview" });
   });
@@ -90,7 +89,7 @@ describe("deploymentProfile", () => {
 
   it("derives password auth mode from the explicit deployment profile", () => {
     expect(resolvePasswordAuthMode({ kind: "local_worktree" })).toBe("local_worktree_seed");
-    expect(resolvePasswordAuthMode({ kind: "preview" })).toBe("preview_seed");
+    expect(resolvePasswordAuthMode({ kind: "preview" })).toBe("off");
     expect(resolvePasswordAuthMode({ kind: "local_development" })).toBe("off");
     expect(resolvePasswordAuthMode({ kind: "convex_dev" })).toBe("off");
     expect(resolvePasswordAuthModeFromEnv({ kind: "production" }, {})).toBe("off");
@@ -124,17 +123,6 @@ describe("deploymentProfile", () => {
     expect(
       resolvePasswordAuthModeFromEnv({ kind: "production" }, { PASSWORD_AUTH_ENABLED: " true " }),
     ).toBe("off");
-  });
-
-  it("blocks preview password sign-up while keeping preview sign-in enabled", () => {
-    expect(() => assertPasswordAuthFlowAllowed("preview_seed", "signUp")).toThrowError(
-      "Preview deployments only allow password sign-in for the seeded account",
-    );
-
-    expect(() => assertPasswordAuthFlowAllowed("preview_seed", "signIn")).not.toThrow();
-    expect(() => assertPasswordAuthFlowAllowed("preview_seed", "reset")).toThrowError(
-      "Preview deployments only allow password sign-in for the seeded account",
-    );
   });
 
   it("blocks manual password sign-up while keeping sign-in enabled", () => {

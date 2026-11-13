@@ -54,7 +54,7 @@ async function createRepositoryFixture(
     githubOwnerId?: string;
     githubOwnerLogin?: string;
     githubOwnerType?: "organization" | "user";
-    passwordAccount?: true;
+    emailVerified?: true;
     /** Connect only GitHub and this Convex auth method, with no Cloudflare connection. */
     convexOnly?: "api_key" | "oauth";
   } = {},
@@ -68,14 +68,8 @@ async function createRepositoryFixture(
       isApproved: true,
       termsVersion: "2026-08-12",
       termsAcceptedAt: 1,
+      ...(args.emailVerified ? { emailVerificationTime: 1 } : {}),
     });
-    if (args.passwordAccount) {
-      await ctx.db.insert("authAccounts", {
-        userId,
-        provider: "password",
-        providerAccountId: email,
-      });
-    }
     const githubOwnerLogin = args.githubOwnerLogin ?? "samebase";
     const organizationId = await ctx.db.insert("organizations", {
       githubInstallationId: "installation-1",
@@ -361,7 +355,6 @@ describe("preview personal repository authorization", () => {
   it("uses the seeded GitHub credential for nicu-chiciuc without storing OAuth data", async () => {
     vi.stubEnv("CONVEX_DEPLOYMENT", "preview:personal-repository");
     vi.stubEnv("DEV_SEED_AUTH_EMAIL", "preview@example.test");
-    vi.stubEnv("DEV_SEED_AUTH_PASSWORD", "preview-password");
     vi.stubEnv("DEV_SEED_GITHUB_API_KEY", "preview-api-key");
     providerMocks.discoverPreviewSeedGitHubAppInstallations.mockResolvedValue([
       {
@@ -376,7 +369,7 @@ describe("preview personal repository authorization", () => {
       githubOwnerId: "personal-owner-1",
       githubOwnerLogin: "nicu-chiciuc",
       githubOwnerType: "user",
-      passwordAccount: true,
+      emailVerified: true,
     });
 
     await expect(viewer.query(api.organizations.listForViewer, {})).resolves.toMatchObject([
@@ -412,7 +405,6 @@ describe("preview personal repository authorization", () => {
   it("rejects a personal owner that does not match the seeded GitHub credential", async () => {
     vi.stubEnv("CONVEX_DEPLOYMENT", "preview:personal-repository");
     vi.stubEnv("DEV_SEED_AUTH_EMAIL", "preview@example.test");
-    vi.stubEnv("DEV_SEED_AUTH_PASSWORD", "preview-password");
     vi.stubEnv("DEV_SEED_GITHUB_API_KEY", "preview-api-key");
     providerMocks.discoverPreviewSeedGitHubAppInstallations.mockResolvedValue([
       {
@@ -427,7 +419,7 @@ describe("preview personal repository authorization", () => {
       githubOwnerId: "other-personal-owner",
       githubOwnerLogin: "other-personal-owner",
       githubOwnerType: "user",
-      passwordAccount: true,
+      emailVerified: true,
     });
 
     await expect(

@@ -115,9 +115,6 @@ test("app workspace address chrome exposes the route URL editor", async ({ page 
     0,
   );
   await expect(
-    suggestionsPopover.getByRole("option", { exact: true, name: "&prod-ui" }),
-  ).toHaveCount(0);
-  await expect(
     suggestionsPopover.getByRole("option", { exact: true, name: "&signup=" }),
   ).toHaveCount(0);
   await expect(suggestionsPopover.getByRole("group", { name: "Theme" })).toBeVisible();

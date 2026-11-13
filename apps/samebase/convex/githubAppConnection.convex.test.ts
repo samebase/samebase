@@ -55,13 +55,9 @@ async function insertAuthorizedUser(
   return { authorizationId, userId };
 }
 
-async function insertPasswordUser(ctx: MutationCtx, email: string): Promise<Id<"users">> {
+async function insertVerifiedUser(ctx: MutationCtx, email: string): Promise<Id<"users">> {
   const userId = await insertUser(ctx, email);
-  await ctx.db.insert("authAccounts", {
-    userId,
-    provider: "password",
-    providerAccountId: email,
-  });
+  await ctx.db.patch(userId, { emailVerificationTime: 1 });
   return userId;
 }
 
@@ -205,11 +201,10 @@ describe("GitHub App connection", () => {
   it("lists and connects installations for the exact preview seed account", async () => {
     vi.stubEnv("CONVEX_DEPLOYMENT", "preview:github-connection");
     vi.stubEnv("DEV_SEED_AUTH_EMAIL", "preview@example.test");
-    vi.stubEnv("DEV_SEED_AUTH_PASSWORD", "preview-password");
     vi.stubEnv("DEV_SEED_GITHUB_API_KEY", "preview-api-key");
     const t = makeConvexTest();
     const userId = await t.run(
-      async (ctx) => await insertPasswordUser(ctx, "preview@example.test"),
+      async (ctx) => await insertVerifiedUser(ctx, "preview@example.test"),
     );
     githubAppConnectionMocks.discoverPreviewSeedGitHubAppInstallations.mockResolvedValue([
       {
@@ -256,11 +251,10 @@ describe("GitHub App connection", () => {
   it("does not give another preview account the seeded GitHub access", async () => {
     vi.stubEnv("CONVEX_DEPLOYMENT", "preview:github-connection");
     vi.stubEnv("DEV_SEED_AUTH_EMAIL", "preview@example.test");
-    vi.stubEnv("DEV_SEED_AUTH_PASSWORD", "preview-password");
     const t = makeConvexTest();
     const otherUserId = await t.run(async (ctx) => {
-      await insertPasswordUser(ctx, "preview@example.test");
-      return await insertPasswordUser(ctx, "other@example.test");
+      await insertVerifiedUser(ctx, "preview@example.test");
+      return await insertVerifiedUser(ctx, "other@example.test");
     });
 
     await expect(
@@ -280,10 +274,9 @@ describe("GitHub App connection", () => {
   it("does not use the preview seed access outside a preview deployment", async () => {
     vi.stubEnv("CONVEX_DEPLOYMENT", "dev:github-connection");
     vi.stubEnv("DEV_SEED_AUTH_EMAIL", "preview@example.test");
-    vi.stubEnv("DEV_SEED_AUTH_PASSWORD", "preview-password");
     const t = makeConvexTest();
     const userId = await t.run(
-      async (ctx) => await insertPasswordUser(ctx, "preview@example.test"),
+      async (ctx) => await insertVerifiedUser(ctx, "preview@example.test"),
     );
 
     await expect(

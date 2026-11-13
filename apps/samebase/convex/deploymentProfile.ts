@@ -18,7 +18,6 @@ export type DeploymentProfile = Infer<typeof vDeploymentProfile>;
 export const vPasswordAuthMode = union(
   literal("off"),
   literal("local_worktree_seed"),
-  literal("preview_seed"),
   literal("manual"),
 );
 export type PasswordAuthMode = Infer<typeof vPasswordAuthMode>;
@@ -36,7 +35,6 @@ type DeploymentProfileEnv = {
   CONVEX_SITE_URL?: string;
   PASSWORD_AUTH_ENABLED?: string;
   DEV_SEED_AUTH_EMAIL?: string;
-  DEV_SEED_AUTH_PASSWORD?: string;
   SITE_URL?: string;
 };
 
@@ -68,11 +66,8 @@ function readAgentMode(env: DeploymentProfileEnv): string | null {
   return readTrimmedValue(env.CONVEX_AGENT_MODE)?.toLowerCase() ?? null;
 }
 
-function hasPreviewSeedPasswordAuth(env: DeploymentProfileEnv): boolean {
-  return (
-    readTrimmedValue(env.DEV_SEED_AUTH_EMAIL) !== null &&
-    readTrimmedValue(env.DEV_SEED_AUTH_PASSWORD) !== null
-  );
+function hasPreviewSeedAccount(env: DeploymentProfileEnv): boolean {
+  return readTrimmedValue(env.DEV_SEED_AUTH_EMAIL) !== null;
 }
 
 function hasManualPasswordAuth(env: DeploymentProfileEnv): boolean {
@@ -157,9 +152,8 @@ export function resolveDeploymentProfileFromEnv(env: DeploymentProfileEnv): Depl
   }
 
   // Preview deployments do not reliably expose CONVEX_DEPLOYMENT inside auth
-  // and seed functions yet, so keep preview password-auth rollout tied to the
-  // preview seed env pair until we adopt one explicit deployment-profile env.
-  if (hasPreviewSeedPasswordAuth(env)) {
+  // and seed functions, so the preview seed email identifies a preview.
+  if (hasPreviewSeedAccount(env)) {
     return { kind: "preview" };
   }
 
@@ -176,15 +170,14 @@ export function resolveDeploymentProfile(): DeploymentProfile {
     CONVEX_DEPLOYMENT: readOptionalEnv("CONVEX_DEPLOYMENT") ?? undefined,
     CONVEX_SITE_URL: readOptionalEnv("CONVEX_SITE_URL") ?? undefined,
     DEV_SEED_AUTH_EMAIL: readOptionalEnv("DEV_SEED_AUTH_EMAIL") ?? undefined,
-    DEV_SEED_AUTH_PASSWORD: readOptionalEnv("DEV_SEED_AUTH_PASSWORD") ?? undefined,
     SITE_URL: readOptionalEnv("SITE_URL") ?? undefined,
   });
 }
 
 /**
  * Password auth intentionally stays narrower than the deployment profile:
- * local worktrees and previews use seeded accounts, while other deployments
- * require the explicit manual-account switch.
+ * local worktrees use a seeded account, while other deployments, previews
+ * included, require the explicit manual-account switch.
  */
 export function resolvePasswordAuthModeFromEnv(
   profile: DeploymentProfile,
@@ -193,9 +186,8 @@ export function resolvePasswordAuthModeFromEnv(
   switch (profile.kind) {
     case "local_worktree":
       return "local_worktree_seed";
-    case "preview":
-      return "preview_seed";
     case "local_development":
+    case "preview":
     case "convex_dev":
     case "production":
       return hasManualPasswordAuth(deploymentEnv) ? "manual" : "off";
@@ -212,8 +204,8 @@ export function resolvePasswordAuthMode(profile: DeploymentProfile): PasswordAut
 }
 
 /**
- * Preview and manual-account deployments keep password auth to sign-in only.
- * Local worktrees may still use the full sign-up path because they are
+ * Manual-account deployments keep password auth to sign-in only. Local
+ * worktrees may still use the full sign-up path because they are
  * operator-owned.
  */
 export function assertPasswordAuthFlowAllowed(
@@ -221,11 +213,6 @@ export function assertPasswordAuthFlowAllowed(
   flow: string,
 ): void {
   switch (passwordAuthMode) {
-    case "preview_seed":
-      if (flow !== "signIn") {
-        throw new Error("Preview deployments only allow password sign-in for the seeded account");
-      }
-      return;
     case "manual":
       if (flow !== "signIn") {
         throw new Error(

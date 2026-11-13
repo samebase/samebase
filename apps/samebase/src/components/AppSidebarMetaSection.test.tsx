@@ -160,9 +160,12 @@ describe("AppSidebarMetaSection", () => {
     }
     unmountSidebarMetaSection();
 
-    for (const clientEntry of ["/?dev", "/?prod-ui"]) {
+    for (const [serverEntry, clientEntry] of [
+      ["/", "/?dev"],
+      ["/localStorage", "/localStorage?dev"],
+    ] as const) {
       const recoverableErrors = await hydrateSidebarMetaSectionFromServerMarkup({
-        serverEntry: "/",
+        serverEntry,
         clientEntry,
       });
 
@@ -174,18 +177,6 @@ describe("AppSidebarMetaSection", () => {
       expect(readSidebarLinkLabels(rootElement)).toEqual(["?reset", "/landing", "v?", "test"]);
       unmountSidebarMetaSection();
     }
-
-    const recoverableErrors = await hydrateSidebarMetaSectionFromServerMarkup({
-      serverEntry: "/localStorage",
-      clientEntry: "/localStorage?dev",
-    });
-
-    expect(recoverableErrors).toEqual([]);
-    if (!rootElement) {
-      throw new Error("Expected the hydrated sidebar.");
-    }
-
-    expect(readSidebarLinkLabels(rootElement)).toEqual(["?reset", "/landing", "v?", "test"]);
   });
 
   it("omits the landing preview path link and language shortcut", async () => {

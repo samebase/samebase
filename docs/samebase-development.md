@@ -165,6 +165,6 @@ initial access tokens of the apps `samebase` and `samebase-connections`, which t
 keeps. Each start renews them, so a development client expires 14 days after the last start or use.
 
 Password sign-in is for accounts that only server functions create. Local deployments use their
-seeded password account. Preview deployments use `DEV_SEED_AUTH_EMAIL` and `DEV_SEED_AUTH_PASSWORD`
-(at least 10 characters). Other deployments can use the
-[manual password account runbook](manual-password-auth.md).
+seeded password account. Preview deployments have no password sign-in. `DEV_SEED_AUTH_EMAIL` names
+the preview seed account, and GitHub sign-in through the hub reaches it by its verified email. Other
+deployments can use the [manual password account runbook](manual-password-auth.md).

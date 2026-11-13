@@ -22,9 +22,9 @@ import {
 } from "@/routing/addressParts";
 import {
   readRoutePathSuggestionForDraft,
-  readRouteUrlPathSuggestionEnvironment,
   readRouteUrlPathSuggestions,
 } from "@/routing/urlPathSuggestions";
+import { readRouteEnvironmentForOrigin } from "@/routing/availability";
 import { ROOT_ROUTE_GLOBAL_SEARCH_PARAM_SUGGESTIONS } from "@/routeSearch/root";
 import type { AppRouter } from "@/router";
 
@@ -671,11 +671,7 @@ function readPathRows(args: {
   return readRouteUrlPathSuggestions(
     args.routesByPath,
     args.viewer,
-    readRouteUrlPathSuggestionEnvironment({
-      currentHref: args.routeAddress,
-      draftHref: args.routeAddress,
-      origin,
-    }),
+    readRouteEnvironmentForOrigin(origin),
     routeAddressParts.search?.tokens.some((token) => token.key === "dev") ?? false,
   ).flatMap((routePath): Suggestion[] => {
     const path = readRoutePathSuggestionForDraft(routePath, routeAddressParts.path);
@@ -748,11 +744,7 @@ export function readSuggestions(args: {
 
   const routeSearchParamSuggestions = readMatchingRouteSearchParamSuggestions({
     path: routeAddressParts.path,
-    routeEnvironment: readRouteUrlPathSuggestionEnvironment({
-      currentHref: args.currentRouteAddress,
-      draftHref: args.routeAddress,
-      origin: args.prefix,
-    }),
+    routeEnvironment: readRouteEnvironmentForOrigin(args.prefix),
     routesByPath: args.routesByPath,
     viewer: args.viewer,
   });

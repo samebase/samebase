@@ -19,8 +19,6 @@ const { defaultBrowserType: _landingPreviewMobileBrowserType, ...landingPreviewM
 
 test.setTimeout(120_000);
 
-const LANDING_PAGE_PROD_UI_ROUTE = `${LANDING_PAGE_ROUTE}?prod-ui`;
-
 const expectedLandingPreviewSidebarFiles = [
   "Overview",
   "The big migration",
@@ -96,7 +94,7 @@ test("landing overview preserves its video frame and wide desktop layout", async
   await page.setViewportSize({ width: 1440, height: 1000 });
   await blockLandingYouTubeEmbeds(page);
 
-  await page.goto(LANDING_PAGE_PROD_UI_ROUTE, {
+  await page.goto(LANDING_PAGE_ROUTE, {
     waitUntil: "domcontentloaded",
   });
 
@@ -141,7 +139,7 @@ test("landing preview FAQ answers the direct-agent questions", async ({ page }) 
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.emulateMedia({ reducedMotion: "reduce" });
   await blockLandingYouTubeEmbeds(page);
-  await page.goto(LANDING_PAGE_PROD_UI_ROUTE, {
+  await page.goto(LANDING_PAGE_ROUTE, {
     waitUntil: "domcontentloaded",
   });
   await page.waitForLoadState("networkidle");
@@ -200,7 +198,7 @@ test("landing preview FAQ stays responsive while the closing logo is off screen"
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await blockLandingYouTubeEmbeds(page);
-  await page.goto(LANDING_PAGE_PROD_UI_ROUTE, {
+  await page.goto(LANDING_PAGE_ROUTE, {
     waitUntil: "domcontentloaded",
   });
 
@@ -245,7 +243,7 @@ test("landing preview overview adapts to a narrow pane", async ({ page }) => {
   await page.setViewportSize({ width: 800, height: 900 });
   await blockLandingYouTubeEmbeds(page);
 
-  await page.goto(LANDING_PAGE_PROD_UI_ROUTE, {
+  await page.goto(LANDING_PAGE_ROUTE, {
     waitUntil: "domcontentloaded",
   });
   await page.waitForLoadState("networkidle");
@@ -397,7 +395,7 @@ test.describe("mobile landing preview", () => {
   test("renders the mobile overview", async ({ page }) => {
     await page.setViewportSize({ height: 900, width: 390 });
     await blockLandingYouTubeEmbeds(page);
-    await page.goto(LANDING_PAGE_PROD_UI_ROUTE, {
+    await page.goto(LANDING_PAGE_ROUTE, {
       waitUntil: "domcontentloaded",
     });
     await page.waitForLoadState("networkidle");
@@ -431,7 +429,7 @@ test.describe("mobile landing preview", () => {
     await page.setViewportSize({ height: 1200, width: 390 });
     await page.emulateMedia({ reducedMotion: "reduce" });
     await blockLandingYouTubeEmbeds(page);
-    await page.goto(LANDING_PAGE_PROD_UI_ROUTE, {
+    await page.goto(LANDING_PAGE_ROUTE, {
       waitUntil: "domcontentloaded",
     });
     await page.waitForLoadState("networkidle");

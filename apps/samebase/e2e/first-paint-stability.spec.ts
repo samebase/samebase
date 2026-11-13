@@ -339,10 +339,7 @@ async function withContext(
   }
 }
 
-// The landing page is prerendered, so its first paint offers the hub's sign-in buttons of the
-// production page. This local backend has the `local_worktree` profile and no hub, so its policy
-// would remove them once it loads; `?prod-ui` keeps the production page that visitors get.
-const LANDING_PATH = "/?prod-ui";
+const LANDING_PATH = "/";
 
 test("the signed-out landing page does not jump on a desktop", async ({ browser }) => {
   await withContext(await browser.newContext({ viewport: DESKTOP_VIEWPORT }), (page) =>

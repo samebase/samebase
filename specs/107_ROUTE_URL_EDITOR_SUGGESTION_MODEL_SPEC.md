@@ -34,9 +34,9 @@ grammar: whether selecting a rendered row commits a URL fragment or opens the ne
    cursor after `border=` so value suggestions stay visible.
 3. Sample text must be visually distinct from the editing boundary. In `border=rose-300`, `border=`
    is where the cursor lands and `rose-300` is the seeded value.
-4. Internal auth-flow and deployment-control params, including `auth`, `signup`, and `prod-ui`, are
-   valid for direct URLs but hidden from editor recommendations. Params whose concrete values
-   trigger one-shot runtime effects must also use the manual value type.
+4. Internal auth-flow params, including `auth` and `signup`, are valid for direct URLs but hidden
+   from editor recommendations. Params whose concrete values trigger one-shot runtime effects must
+   also use the manual value type.
 5. Value suggestions can also contain a sample suffix. Tailwind color-family rows use the shade from
    that parameter's sample value. For example, `background=lime-50` produces a `red-50` family row,
    while `primary=emerald-700` produces a `red-700` row. Selecting either row places the cursor

@@ -5,17 +5,10 @@ import { GOOGLE_AUTH_UI_ENABLED } from "@/lib/authMethodAvailability";
 import { DASHBOARD_ROUTE } from "@/lib/dashboardRoute";
 import { useOAuthSignInRejection } from "@/lib/oauthSignInRejection";
 import {
-  getVisiblePasswordAuthSurface,
+  getPasswordAuthSurface,
   shouldRenderOAuthReturnNotice,
   type PasswordAuthSurface,
 } from "@/lib/publicLandingAuthState";
-import {
-  buildPathWithoutProdUiQuery,
-  isProductionPublicOrigin,
-  isProdUiModeActive,
-  isProdUiModeEnabled,
-  shouldStripVisibleProdUiQuery,
-} from "@/lib/prodUiMode";
 import { readRootRouteSearch, readSignInNextHref } from "@/routeSearch/root";
 import { rootQueries } from "@/routes/root.queries";
 import { SignInWithOAuth } from "@/SignInWithOAuth";
@@ -23,7 +16,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "@tanstack/react-router";
 import { useConvexAuth } from "convex/react";
 import { ConvexError } from "convex/values";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { MCP_CONSENT_APP_PATH } from "../../shared/mcpOAuth";
 import { isOrganizationInvitationPath } from "@/organization/organizationInvitationRoute";
 
@@ -42,55 +35,13 @@ function readLocalWorktreePasswordCredentials(): {
   return { email, password };
 }
 
-function usePublicLandingPasswordAuthControls(): {
-  passwordAuthSurface: PasswordAuthSurface;
-} {
-  const location = useLocation({
-    select: (currentLocation) => ({
-      searchStr: currentLocation.searchStr,
-    }),
-  });
-  const rootRouteSearch = readRootRouteSearch(location.searchStr);
-  const prodUiQueryEnabled = isProdUiModeEnabled(rootRouteSearch);
-  const productionPublicOrigin = isProductionPublicOrigin();
+function usePublicLandingPasswordAuthSurface(): PasswordAuthSurface {
   // The root loader fetched the policy for a server render without a session.
   const { data: deploymentAuthPolicy } = useQuery(rootQueries.deploymentAuthPolicy);
-  const deploymentProfile = deploymentAuthPolicy?.deploymentProfile;
-  const prodUiModeEnabled = isProdUiModeActive({
-    deploymentProfile,
-    productionPublicOrigin,
-    search: rootRouteSearch,
-  });
-  const passwordAuthMode =
+  return getPasswordAuthSurface(
     deploymentAuthPolicy?.passwordAuthMode ??
-    (readLocalWorktreePasswordCredentials() ? "local_worktree_seed" : "off");
-  const passwordAuthSurface = getVisiblePasswordAuthSurface({
-    passwordAuthMode,
-    prodUiModeEnabled,
-  });
-
-  useEffect(() => {
-    // Router search state intentionally drives this effect even though the URL
-    // helpers read window.location.search while deciding whether to strip it.
-    if (
-      !shouldStripVisibleProdUiQuery({
-        deploymentProfile,
-        productionPublicOrigin,
-        search: window.location.search,
-      })
-    ) {
-      return;
-    }
-
-    const nextPath = buildPathWithoutProdUiQuery({
-      pathname: window.location.pathname,
-      search: window.location.search,
-      hash: window.location.hash,
-    });
-    window.history.replaceState(window.history.state, "", nextPath);
-  }, [deploymentProfile, prodUiQueryEnabled, productionPublicOrigin]);
-
-  return { passwordAuthSurface };
+      (readLocalWorktreePasswordCredentials() ? "local_worktree_seed" : "off"),
+  );
 }
 
 export function PublicLandingAuthControls({
@@ -112,7 +63,7 @@ export function PublicLandingAuthControls({
     rootRouteSearch,
     signInRejection !== null,
   );
-  const { passwordAuthSurface } = usePublicLandingPasswordAuthControls();
+  const passwordAuthSurface = usePublicLandingPasswordAuthSurface();
 
   if (isAuthenticated || showOAuthReturnNotice) {
     return null;

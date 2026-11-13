@@ -484,7 +484,7 @@ describe("appRouter", () => {
     routeErrorState.providerError = null;
     await act(async () => {
       await router.navigate({
-        search: { "prod-ui": true },
+        search: { "swipe-debug": true },
         to: "/org/$owner/providers",
         params: { owner: "samebase" },
       });
@@ -850,17 +850,17 @@ describe("appRouter", () => {
   });
 
   it("redirects unknown params away from /repo on load", async () => {
-    const router = await renderRoute("/repo?stale=1&prod-ui");
+    const router = await renderRoute("/repo?stale=1&swipe-debug");
 
     const searchParams = new window.URLSearchParams(router.state.location.searchStr);
 
     expect(router.state.location.pathname).toBe("/repo");
     expect(searchParams.has("stale")).toBe(false);
-    expect(searchParams.has("prod-ui")).toBe(true);
+    expect(searchParams.has("swipe-debug")).toBe(true);
   });
 
-  it("retains prod-ui mode across repository navigation", async () => {
-    const router = await renderRoute("/repo?prod-ui");
+  it("retains the swipe debug flag across repository navigation", async () => {
+    const router = await renderRoute("/repo?swipe-debug");
 
     await act(async () => {
       await router.navigate({
@@ -872,7 +872,9 @@ describe("appRouter", () => {
     });
 
     expect(router.state.location.pathname).toBe("/repo/samebase/samebase");
-    expect(new window.URLSearchParams(router.state.location.searchStr).has("prod-ui")).toBe(true);
+    expect(new window.URLSearchParams(router.state.location.searchStr).has("swipe-debug")).toBe(
+      true,
+    );
   });
 
   it("keeps the global swipe debug flag on public routes", async () => {
@@ -957,13 +959,13 @@ describe("appRouter", () => {
   });
 
   it("redirects the organization index to its repository list and keeps search params", async () => {
-    const router = await renderRoute("/org/Samebase?devtools&prod-ui");
+    const router = await renderRoute("/org/Samebase?devtools&swipe-debug");
     const searchParams = new window.URLSearchParams(router.state.location.searchStr);
 
     expect(router.state.location.pathname).toBe("/org/samebase/repositories");
     expect(router.history.canGoBack()).toBe(false);
     expect(searchParams.has("devtools")).toBe(true);
-    expect(searchParams.has("prod-ui")).toBe(true);
+    expect(searchParams.has("swipe-debug")).toBe(true);
   });
 
   it.each([
@@ -994,7 +996,7 @@ describe("appRouter", () => {
   );
 
   it("keeps an unavailable organization URL and shows the unavailable state", async () => {
-    const router = await renderRoute("/org/stale/providers?prod-ui");
+    const router = await renderRoute("/org/stale/providers");
 
     expect(router.state.location.pathname).toBe("/org/stale/providers");
     expect(

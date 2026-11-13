@@ -22,7 +22,7 @@ const anonymousViewer = {
   accessKeys: ROLE_ACCESS_GRANTS.role_anonymous,
 } as const satisfies RouteAccessViewer;
 const localEnvironment = "local";
-const prodUiEnvironment = "production";
+const productionEnvironment = "production";
 const deployedEnvironment = "preview";
 const publicDocsPaths = [
   "/docs",
@@ -196,11 +196,11 @@ describe("readRouteUrlPathSuggestions", () => {
     expect(suggestions).toContain("/pricing");
   });
 
-  it("hides local-only route paths from the prod UI environment", () => {
+  it("hides local-only route paths from the production environment", () => {
     const suggestions = readRouteUrlPathSuggestions(
       routesByPath,
       staffViewer,
-      prodUiEnvironment,
+      productionEnvironment,
       false,
     );
 
