@@ -115,7 +115,7 @@ describe("posthog client setup", () => {
     const event = beforeSend({
       event: "$exception",
       properties: {
-        $current_url: "https://samebase.com/invite/current-secret?swipe-debug#continue",
+        $current_url: "https://samebase.com/invite/current-secret?prod-ui#continue",
         $initial_current_url: "https://samebase.com/invite/initial-secret",
         $initial_pathname: "/invite/initial-path-secret",
         $pathname: "/invite/path-secret",
@@ -139,7 +139,7 @@ describe("posthog client setup", () => {
 
     expect(event).toMatchObject({
       properties: {
-        $current_url: "https://samebase.com/invite/[invitation]?swipe-debug#continue",
+        $current_url: "https://samebase.com/invite/[invitation]?prod-ui#continue",
         $initial_current_url: "https://samebase.com/invite/[invitation]",
         $initial_pathname: "/invite/[invitation]",
         $pathname: "/invite/[invitation]",
@@ -185,13 +185,13 @@ describe("posthog client setup", () => {
     const request = {
       duration: 0,
       entryType: "navigation",
-      name: "https://samebase.com/invite/request-secret?swipe-debug",
+      name: "https://samebase.com/invite/request-secret?prod-ui",
       startTime: 0,
       url: "/invite/request-path-secret#continue",
     };
 
     expect(maskRequest(request)).toMatchObject({
-      name: "https://samebase.com/invite/[invitation]?swipe-debug",
+      name: "https://samebase.com/invite/[invitation]?prod-ui",
       url: "/invite/[invitation]#continue",
     });
     expect(
@@ -200,7 +200,7 @@ describe("posthog client setup", () => {
         properties: {
           $snapshot_data: [
             {
-              data: { href: "https://samebase.com/invite/replay-secret?swipe-debug" },
+              data: { href: "https://samebase.com/invite/replay-secret?prod-ui" },
               timestamp: 1,
               type: 4,
             },
@@ -210,7 +210,7 @@ describe("posthog client setup", () => {
       })?.properties["$snapshot_data"],
     ).toEqual([
       {
-        data: { href: "https://samebase.com/invite/[invitation]?swipe-debug" },
+        data: { href: "https://samebase.com/invite/[invitation]?prod-ui" },
         timestamp: 1,
         type: 4,
       },
@@ -282,23 +282,23 @@ describe("posthog client setup", () => {
         properties: {
           $current_url:
             "https://samebase.com/oauth/provider-complete#provider=convex&state=state_secret&code=code_secret",
-          $session_entry_url: "/oauth/provider-complete?swipe-debug#code=code_secret",
+          $session_entry_url: "/oauth/provider-complete?prod-ui#code=code_secret",
         },
         uuid: "pageleave-event-id",
       })?.properties,
     ).toMatchObject({
       $current_url: "https://samebase.com/oauth/provider-complete",
-      $session_entry_url: "/oauth/provider-complete?swipe-debug",
+      $session_entry_url: "/oauth/provider-complete?prod-ui",
     });
   });
 
   it("replaces invitation codes in pageview URLs", () => {
     expect(
       sanitizeSamebasePostHogPageviewUrl(
-        "/invite/invitation_secret?swipe-debug#continue",
+        "/invite/invitation_secret?prod-ui#continue",
         "https://samebase.com",
       ),
-    ).toBe("https://samebase.com/invite/[invitation]?swipe-debug#continue");
+    ).toBe("https://samebase.com/invite/[invitation]?prod-ui#continue");
     expect(
       sanitizeSamebasePostHogPageviewUrl("/invite/invitation_secret/", "https://samebase.com"),
     ).toBe("https://samebase.com/invite/[invitation]");

@@ -221,7 +221,7 @@ describe("OrganizationContextControl", () => {
       source: "repository",
     };
     testState.location.hash = "#README";
-    testState.location.search = { "swipe-debug": true };
+    testState.location.search = { "prod-ui": true };
     const container = await mountControl();
     const menuItems = [
       ...container.querySelectorAll('[data-testid="organization-context-menu-item"]'),
@@ -233,7 +233,7 @@ describe("OrganizationContextControl", () => {
     });
 
     expect(testState.navigate).toHaveBeenCalledWith({
-      href: "/org/alpha/repositories?swipe-debug#README",
+      href: "/org/alpha/repositories?prod-ui#README",
     });
   });
 

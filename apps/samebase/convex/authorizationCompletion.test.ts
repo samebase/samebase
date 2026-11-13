@@ -21,7 +21,7 @@ async function readCompletionScript(returnUrl: string): Promise<string> {
 
 describe("authorization completion page", () => {
   it("navigates and closes a popup through its opener", async () => {
-    const returnUrl = "https://samebase.com/org/acme/providers?swipe-debug#connections";
+    const returnUrl = "https://samebase.com/org/acme/providers?prod-ui#connections";
     const openerReplace = vi.fn();
     const close = vi.fn();
     const selfReplace = vi.fn();
@@ -44,7 +44,7 @@ describe("authorization completion page", () => {
   });
 
   it("uses a checked message when direct opener navigation is blocked", async () => {
-    const returnUrl = "https://samebase.com/org/acme/providers?swipe-debug#connections";
+    const returnUrl = "https://samebase.com/org/acme/providers?prod-ui#connections";
     const postMessage = vi.fn();
     const close = vi.fn();
 
@@ -72,7 +72,7 @@ describe("authorization completion page", () => {
   });
 
   it("navigates the current window for direct callback navigation", async () => {
-    const returnUrl = "https://samebase.com/org/acme/providers?swipe-debug#connections";
+    const returnUrl = "https://samebase.com/org/acme/providers?prod-ui#connections";
     const selfReplace = vi.fn();
 
     runInNewContext(await readCompletionScript(returnUrl), {

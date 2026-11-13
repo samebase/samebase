@@ -33,9 +33,9 @@ describe("buildProviderOAuthDefaultReturnUrl", () => {
       buildProviderOAuthDefaultReturnUrl({
         appOrigin,
         githubOwnerLogin: "samebase",
-        returnToPath: "/org/samebase/providers?swipe-debug#connections",
+        returnToPath: "/org/samebase/providers?prod-ui#connections",
       }),
-    ).toBe("https://samebase.com/org/samebase/providers?swipe-debug#connections");
+    ).toBe("https://samebase.com/org/samebase/providers?prod-ui#connections");
   });
 
   it("keeps query and hash values when the owner path uses display casing", () => {
@@ -43,9 +43,9 @@ describe("buildProviderOAuthDefaultReturnUrl", () => {
       buildProviderOAuthDefaultReturnUrl({
         appOrigin,
         githubOwnerLogin: "Samebase",
-        returnToPath: "/org/Samebase/providers?swipe-debug#connections",
+        returnToPath: "/org/Samebase/providers?prod-ui#connections",
       }),
-    ).toBe("https://samebase.com/org/Samebase/providers?swipe-debug#connections");
+    ).toBe("https://samebase.com/org/Samebase/providers?prod-ui#connections");
   });
 
   it("removes authorization response and secret query values from the return URL", () => {
@@ -54,17 +54,17 @@ describe("buildProviderOAuthDefaultReturnUrl", () => {
         appOrigin,
         githubOwnerLogin: "samebase",
         returnToPath:
-          "/org/samebase/providers?swipe-debug&code=code-value&state=state-value&access_token=token-value&authorization-error=failed#connections",
+          "/org/samebase/providers?prod-ui&code=code-value&state=state-value&access_token=token-value&authorization-error=failed#connections",
       }),
     );
 
-    expect(Array.from(returnUrl.searchParams.entries())).toEqual([["swipe-debug", ""]]);
+    expect(Array.from(returnUrl.searchParams.entries())).toEqual([["prod-ui", ""]]);
     expect(returnUrl.hash).toBe("#connections");
   });
 
   it("ignores a return path for another route or origin", () => {
     for (const returnToPath of [
-      "/org/samebase/settings?swipe-debug",
+      "/org/samebase/settings?prod-ui",
       "//evil.example/org/samebase/providers",
       "/\\evil.example/org/samebase/providers",
     ]) {

@@ -23,7 +23,7 @@ describe("routeSearchAccess", () => {
     expect(
       routeSearchNeedsViewerAccess({
         matches: publicMatches,
-        searchStr: "?swipe-debug&primary=red-600",
+        searchStr: "?prod-ui&primary=red-600",
       }),
     ).toBe(false);
   });
@@ -32,7 +32,7 @@ describe("routeSearchAccess", () => {
     expect(
       routeSearchNeedsViewerAccess({
         matches: publicMatches,
-        searchStr: "?delete&swipe-debug",
+        searchStr: "?delete&prod-ui",
       }),
     ).toBe(true);
   });
@@ -53,7 +53,7 @@ describe("routeSearchAccess", () => {
             },
           },
         ],
-        searchStr: "?staffOnly&swipe-debug",
+        searchStr: "?staffOnly&prod-ui",
       }),
     ).toBe(true);
   });
@@ -64,12 +64,12 @@ describe("routeSearchAccess", () => {
         location: {
           hash: "top",
           pathname: "/",
-          searchStr: "?delete&swipe-debug&primary=red-600",
+          searchStr: "?delete&prod-ui&primary=red-600",
         },
         matches: publicMatches,
         viewer: publicViewer,
       }),
-    ).toBe("/?swipe-debug&primary=red-600#top");
+    ).toBe("/?prod-ui&primary=red-600#top");
   });
 
   it("keeps restricted search params when the viewer has access", () => {
@@ -78,7 +78,7 @@ describe("routeSearchAccess", () => {
         location: {
           hash: "",
           pathname: "/",
-          searchStr: "?delete&swipe-debug",
+          searchStr: "?delete&prod-ui",
         },
         matches: publicMatches,
         viewer: dashboardViewer,
@@ -121,7 +121,7 @@ describe("routeSearchAccess", () => {
         location: {
           hash: "",
           pathname: "/custom",
-          searchStr: "?staffOnly&swipe-debug",
+          searchStr: "?staffOnly&prod-ui",
         },
         matches: [
           {
@@ -138,6 +138,6 @@ describe("routeSearchAccess", () => {
         ],
         viewer: publicViewer,
       }),
-    ).toBe("/custom?swipe-debug");
+    ).toBe("/custom?prod-ui");
   });
 });

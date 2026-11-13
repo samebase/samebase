@@ -104,16 +104,16 @@ describe("RouteUrlEditorNext", () => {
   }
 
   it("displays the current route hash", () => {
-    const display = renderEditor(["/?swipe-debug#top"]);
+    const display = renderEditor(["/?prod-ui#top"]);
 
-    expect(display.value.endsWith("/?swipe-debug#top")).toBe(true);
+    expect(display.value.endsWith("/?prod-ui#top")).toBe(true);
 
     act(() => {
       display.focus();
     });
 
     const input = readRequiredInput();
-    expect(input.value.endsWith("/?swipe-debug&#top")).toBe(true);
+    expect(input.value.endsWith("/?prod-ui&#top")).toBe(true);
   });
 
   it("does not invent an empty hash marker", () => {

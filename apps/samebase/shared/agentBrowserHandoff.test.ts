@@ -13,7 +13,7 @@ describe("agent browser handoff URLs", () => {
   it("puts the one-time token in the fragment only", () => {
     const url = new URL(
       buildAgentBrowserHandoffUrl({
-        returnToPath: "/repo/samebase/samebase?swipe-debug#files",
+        returnToPath: "/repo/samebase/samebase?prod-ui#files",
         siteUrl: "https://samebase.com/",
         token,
       }),
@@ -23,12 +23,12 @@ describe("agent browser handoff URLs", () => {
     expect(url.pathname).toBe("/agents/connect");
     expect(url.search).toBe("");
     expect(url.hash).toContain(`handoff=${token}`);
-    expect(url.hash).toContain("returnTo=%2Frepo%2Fsamebase%2Fsamebase%3Fswipe-debug%23files");
+    expect(url.hash).toContain("returnTo=%2Frepo%2Fsamebase%2Fsamebase%3Fprod-ui%23files");
   });
 
   it("normalizes return paths to same-origin app paths", () => {
-    expect(normalizeAgentBrowserHandoffReturnToPath("/repo/?swipe-debug#files")).toBe(
-      "/repo/?swipe-debug#files",
+    expect(normalizeAgentBrowserHandoffReturnToPath("/repo/?prod-ui#files")).toBe(
+      "/repo/?prod-ui#files",
     );
     expect(normalizeAgentBrowserHandoffReturnToPath("https://evil.test/vault")).toBe("/repo/");
     expect(normalizeAgentBrowserHandoffReturnToPath("//evil.test/vault")).toBe("/repo/");
@@ -39,7 +39,7 @@ describe("agent browser handoff URLs", () => {
   it("keeps normalized return paths idempotent and same-origin", () => {
     const baseOrigin = "https://samebase.test";
     const inputs = [
-      "/repo/../providers?swipe-debug#github",
+      "/repo/../providers?prod-ui#github",
       "/repo/..//evil.test",
       "/%2e%2e//evil.test",
     ];

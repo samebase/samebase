@@ -1333,7 +1333,7 @@ describe("provider OAuth callback organization returns", () => {
       provider: "convex",
       userId,
       organizationId,
-      returnToPath: "/org/oauth-owner/providers?swipe-debug#connections",
+      returnToPath: "/org/oauth-owner/providers?prod-ui#connections",
       state,
       codeVerifier: "convex-code-verifier",
       createdAt: Date.now(),
@@ -1361,7 +1361,7 @@ describe("provider OAuth callback organization returns", () => {
 
     expect(returnUrl).toBe(
       buildAuthorizationErrorUrl(
-        "https://samebase.com/org/oauth-owner/providers?swipe-debug#connections",
+        "https://samebase.com/org/oauth-owner/providers?prod-ui#connections",
         { provider: "convex", code: "target-mismatch" },
       ),
     );
@@ -1429,7 +1429,7 @@ describe("provider OAuth callback organization returns", () => {
       const commonState = {
         userId,
         organizationId,
-        returnToPath: "/org/oauth-owner/providers?swipe-debug#connections",
+        returnToPath: "/org/oauth-owner/providers?prod-ui#connections",
         state,
         createdAt: Date.now(),
         expiresAt: Date.now() + 60_000,
@@ -1478,7 +1478,7 @@ describe("provider OAuth callback organization returns", () => {
 
       expect(returnUrl).toBe(
         buildAuthorizationErrorUrl(
-          "https://samebase.com/org/oauth-owner/providers?swipe-debug#connections",
+          "https://samebase.com/org/oauth-owner/providers?prod-ui#connections",
           { provider: "cloudflare", code: "target-mismatch" },
         ),
       );

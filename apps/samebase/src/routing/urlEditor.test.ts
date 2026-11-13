@@ -19,9 +19,9 @@ describe("normalizeRouteUrlEditorHref", () => {
       normalizeRouteUrlEditorHref({
         currentHref: "/logo?dev#controls",
         origin: ORIGIN,
-        rawHref: "?swipe-debug#preview",
+        rawHref: "?prod-ui#preview",
       }),
-    ).toBe("/logo?swipe-debug#preview");
+    ).toBe("/logo?prod-ui#preview");
   });
 
   it("rejects full URLs because the editor owns the origin prefix", () => {

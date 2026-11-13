@@ -114,7 +114,7 @@ describe("SignInWithOAuth", () => {
         location: {
           origin: "https://samebase.com",
           pathname: "/",
-          search: stringifyTanStackSearch({ "swipe-debug": true }),
+          search: stringifyTanStackSearch({ "prod-ui": true }),
           hash: "",
         },
       });
@@ -127,7 +127,7 @@ describe("SignInWithOAuth", () => {
       const expectedRedirectTo = buildPathWithTanStackSearch({
         pathname: "/",
         search: {
-          "swipe-debug": "",
+          "prod-ui": "",
           "auth-return": "dashboard",
           signup: provider,
         },
