@@ -86,6 +86,8 @@ minimumReleaseAgeExclude:
   # header decoding), published 2026-10-17 15:06 UTC with npm provenance. Remove after 2026-10-24
   # 15:07 UTC.
   - "postal-mime@4.0.8"
+  # Renovate security update: @hono/node-server@2.1.6
+  - "@hono/node-server@2.1.6"
 minimumReleaseAgeStrict: true
 minimumReleaseAgeIgnoreMissingTime: false
 # Blocks transitive git/tarball dependencies, including the remote GitHub
@@ -120,7 +122,7 @@ audit:
     - GHSA-g3hv-75wg-m249
 overrides:
   "@babel/core": 7.29.7
-  "@hono/node-server": 2.1.5
+  "@hono/node-server": 2.1.6
   "@modelcontextprotocol/sdk": 1.32.1
   "@protobufjs/utf8": 1.1.2
   "ajv@6": 6.15.0
