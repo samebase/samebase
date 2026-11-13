@@ -37,8 +37,8 @@ if (typeof siteUrl !== "string") {
 }
 execFileSync(process.execPath, [convex, "env", "set", "SITE_URL", siteUrl], { stdio: "inherit" });
 
-// The preview's password account, from the DEV_SEED_AUTH_* values of the project's default
-// environment variables for previews.
-execFileSync(process.execPath, [convex, "run", "devAuth:seedPasswordAccount"], {
+// The preview's seed account, the verified user of DEV_SEED_AUTH_EMAIL from the project's default
+// environment variables for previews. GitHub sign-in through the hub reaches it by that email.
+execFileSync(process.execPath, [convex, "run", "devAuth:seedAccount"], {
   stdio: "inherit",
 });

@@ -7,7 +7,7 @@ const localConfigPath = path.join(".convex", "local", "default", "config.json");
 const client = await createLocalConvexAdminClient(localConfigPath);
 
 const result = await client.action(
-  makeFunctionReference<"action", Record<string, never>, unknown>("devAuth:seedPasswordAccount"),
+  makeFunctionReference<"action", Record<string, never>, unknown>("devAuth:seedAccount"),
   {},
 );
 console.log(JSON.stringify(result, null, 2));

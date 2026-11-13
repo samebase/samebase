@@ -12,7 +12,6 @@ import {
   resolveDeploymentProfile,
   resolvePasswordAuthMode,
 } from "../deploymentProfile";
-import { readOptionalEnv } from "../oauthUtils";
 import { type AuthAccountProvider, vAuthAccountProvider } from "./accountModel";
 import { readNonDeletedUser } from "./lifecycle";
 import { buildNewUserNotification } from "./newUserNotification";
@@ -150,8 +149,6 @@ function readSeededPasswordEmail(passwordAuthMode: PasswordAuthMode): string | n
   switch (passwordAuthMode) {
     case "local_worktree_seed":
       return LOCAL_WORKTREE_PASSWORD_AUTH_EMAIL;
-    case "preview_seed":
-      return readOptionalEnv("DEV_SEED_AUTH_EMAIL");
     case "manual":
     case "off":
       return null;

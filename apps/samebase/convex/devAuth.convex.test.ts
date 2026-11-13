@@ -306,7 +306,6 @@ describe("devAuth password account seed", () => {
     const t = makeConvexTest();
     vi.stubEnv("CONVEX_DEPLOYMENT", "preview:organization-context");
     vi.stubEnv("DEV_SEED_AUTH_EMAIL", "preview@example.com");
-    vi.stubEnv("DEV_SEED_AUTH_PASSWORD", "preview-password-123");
     vi.stubEnv("DEV_SEED_GITHUB_API_KEY", "preview-github-api-key");
     vi.stubEnv("DEV_SEED_CONVEX_MANAGEMENT_API_KEY", "preview-convex-credential");
     vi.stubEnv("DEV_SEED_CONVEX_TEAM_ID", "preview-convex-team-id");
@@ -343,7 +342,7 @@ describe("devAuth password account seed", () => {
       },
     ]);
 
-    await expect(t.action(internal.devAuth.seedPasswordAccount, {})).resolves.toEqual({
+    await expect(t.action(internal.devAuth.seedAccount, {})).resolves.toEqual({
       email: "preview@example.com",
       created: true,
     });
@@ -357,16 +356,18 @@ describe("devAuth password account seed", () => {
         .sort((left, right) => left.localeCompare(right)),
     ).toEqual(["101", "202", "303"]);
 
-    const seedUserId = await t.run(async (ctx) => {
-      const seedUser = await ctx.db
-        .query("users")
-        .withIndex("email", (query) => query.eq("email", "preview@example.com"))
-        .unique();
-      if (seedUser === null) {
-        throw new Error("The preview seed user was not created.");
-      }
-      return seedUser._id;
-    });
+    const seedUser = await t.run(
+      async (ctx) =>
+        await ctx.db
+          .query("users")
+          .withIndex("email", (query) => query.eq("email", "preview@example.com"))
+          .unique(),
+    );
+    expect(seedUser).toMatchObject({ emailVerificationTime: expect.any(Number) });
+    if (seedUser === null) {
+      throw new Error("The preview seed user was not created.");
+    }
+    const seedUserId = seedUser._id;
     await t.mutation(internal.organizations.createOrReconnectVerifiedOrganization, {
       userId: seedUserId,
       githubInstallationId: "1004",
@@ -375,7 +376,7 @@ describe("devAuth password account seed", () => {
       githubOwnerLogin: "later-organization",
     });
 
-    await expect(t.action(internal.devAuth.seedPasswordAccount, {})).resolves.toEqual({
+    await expect(t.action(internal.devAuth.seedAccount, {})).resolves.toEqual({
       email: "preview@example.com",
       created: false,
     });
@@ -396,11 +397,7 @@ describe("devAuth password account seed", () => {
         .map(({ githubOwnerId }) => githubOwnerId)
         .sort((left, right) => left.localeCompare(right)),
     ).toEqual(["101", "202", "303", "404"]);
-    expect(snapshot.authAccounts).toHaveLength(1);
-    expect(snapshot.authAccounts[0]).toMatchObject({
-      provider: "password",
-      providerAccountId: "preview@example.com",
-    });
+    expect(snapshot.authAccounts.filter(({ provider }) => provider === "password")).toEqual([]);
     expect(snapshot.githubUserAuthorizations).toEqual([]);
     expect(snapshot.providerCredentials).toHaveLength(3);
     expect(snapshot.ciCredentials).toHaveLength(3);
@@ -481,11 +478,10 @@ describe("devAuth password account seed", () => {
     const t = makeConvexTest();
     vi.stubEnv("CONVEX_DEPLOYMENT", "preview:organization-context");
     vi.stubEnv("DEV_SEED_AUTH_EMAIL", "preview@example.com");
-    vi.stubEnv("DEV_SEED_AUTH_PASSWORD", "preview-password-123");
     vi.stubEnv("DEV_SEED_GITHUB_API_KEY", "preview-github-api-key");
     vi.stubEnv("DEV_SEED_SAMEBASE_CONVEX_MANAGEMENT_API_KEY", "");
 
-    await expect(t.action(internal.devAuth.seedPasswordAccount, {})).rejects.toThrowError(
+    await expect(t.action(internal.devAuth.seedAccount, {})).rejects.toThrowError(
       "DEV_SEED_SAMEBASE_CONVEX_MANAGEMENT_API_KEY is required",
     );
   });

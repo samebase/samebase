@@ -4,7 +4,7 @@ import {
   LOCAL_WORKTREE_PASSWORD_AUTH_PASSWORD,
 } from "../../../runtime/localWorktreePasswordAuth";
 import { internal } from "./_generated/api";
-import { resolveDeploymentProfile, resolvePasswordAuthMode } from "./deploymentProfile";
+import { resolveDeploymentProfile } from "./deploymentProfile";
 import {
   env,
   internalAction,
@@ -46,31 +46,6 @@ function normalizeSeedValue(value: string | null | undefined): string | undefine
 
 function readSeedValue(envName: string): string | undefined {
   return normalizeSeedValue(readOptionalEnv(envName));
-}
-
-function readRequiredSeedPasswordAccountConfig(args: {
-  emailEnvName: string;
-  passwordEnvName: string;
-}): {
-  email: string;
-  password: string;
-} {
-  const email = readSeedValue(args.emailEnvName);
-  const password = readSeedValue(args.passwordEnvName);
-  if (email === undefined && password === undefined) {
-    throw new Error(`${args.emailEnvName} and ${args.passwordEnvName} are required`);
-  }
-  if (email === undefined || password === undefined) {
-    throw new Error(
-      email === undefined
-        ? `${args.emailEnvName} is required when ${args.passwordEnvName} is set`
-        : `${args.passwordEnvName} is required when ${args.emailEnvName} is set`,
-    );
-  }
-  return {
-    email: normalizeAccountEmail(email),
-    password,
-  };
 }
 
 function requireSeedValue(value: string | undefined, envName: string): string {
@@ -249,44 +224,43 @@ function readSeedWorktreeOrganizationConfig(): SeedOrganizationConfig | null {
 }
 
 /**
- * Password account seeding follows the explicit deployment profile instead of
- * inferring preview-vs-local behavior from env var presence alone.
+ * A local worktree seeds a password account. A preview seeds only a user with
+ * the verified `DEV_SEED_AUTH_EMAIL`, which GitHub sign-in through the
+ * identity hub reaches by that verified email.
  */
-function readSeedPasswordAccountConfig():
+function readSeedAccountConfig():
   | {
-      kind: "local_worktree_seed";
+      kind: "local_worktree";
       email: string;
       password: string;
     }
   | {
-      kind: "preview_seed";
+      kind: "preview";
       email: string;
-      password: string;
     } {
   const deploymentProfile = resolveDeploymentProfile();
-  const passwordAuthMode = resolvePasswordAuthMode(deploymentProfile);
 
-  switch (passwordAuthMode) {
-    case "local_worktree_seed":
+  switch (deploymentProfile.kind) {
+    case "local_worktree":
       return {
-        kind: passwordAuthMode,
+        kind: deploymentProfile.kind,
         email: normalizeAccountEmail(LOCAL_WORKTREE_PASSWORD_AUTH_EMAIL),
         password: LOCAL_WORKTREE_PASSWORD_AUTH_PASSWORD,
       };
-    case "preview_seed":
+    case "preview":
       return {
-        kind: passwordAuthMode,
-        ...readRequiredSeedPasswordAccountConfig({
-          emailEnvName: "DEV_SEED_AUTH_EMAIL",
-          passwordEnvName: "DEV_SEED_AUTH_PASSWORD",
-        }),
+        kind: deploymentProfile.kind,
+        email: normalizeAccountEmail(
+          requireSeedValue(readSeedValue("DEV_SEED_AUTH_EMAIL"), "DEV_SEED_AUTH_EMAIL"),
+        ),
       };
-    case "manual":
-    case "off":
-      throw new Error("Password account seeding is disabled for this deployment profile");
+    case "local_development":
+    case "convex_dev":
+    case "production":
+      throw new Error("Account seeding is disabled for this deployment profile");
     default:
-      passwordAuthMode satisfies never;
-      throw new Error("Unsupported password auth mode");
+      deploymentProfile satisfies never;
+      throw new Error("Unsupported deployment profile");
   }
 }
 
@@ -304,7 +278,7 @@ export const approveSeedPasswordAccount = internalMutation({
     if (activeUser === null) {
       throw new Error(`Cannot approve inactive seed user ${args.userId}`);
     }
-    // Seeded preview/local password accounts must skip the access and Terms gates.
+    // Seeded preview and local accounts must skip the access and Terms gates.
     if (
       activeUser.isApproved !== true ||
       activeUser.termsAcceptedAt === undefined ||
@@ -742,6 +716,27 @@ export const applyOrganizationContextAcceptanceFixture = internalMutation({
   },
 });
 
+const vSeedUserResult = object({ created: boolean(), userId: id("users") });
+type SeedUserResult = Infer<typeof vSeedUserResult>;
+
+/** Finds the user with the email, or creates it with the email verified. */
+async function findOrInsertSeedUser(ctx: MutationCtx, email: string): Promise<SeedUserResult> {
+  const emailOwner = await ctx.db
+    .query("users")
+    .withIndex("email", (q) => q.eq("email", email))
+    .first();
+  if (emailOwner !== null) {
+    return { created: false, userId: emailOwner._id };
+  }
+
+  const userId = await ctx.db.insert("users", {
+    state: "active",
+    email,
+    emailVerificationTime: Date.now(),
+  });
+  return { created: true, userId };
+}
+
 /**
 Sets the seed account's password, creating its password identity, and its user when no user has the
 email yet.
@@ -751,48 +746,45 @@ export const writeSeedPasswordAccount = internalMutation({
     email: string(),
     password: string(),
   },
-  returns: object({ created: boolean(), userId: id("users") }),
+  returns: vSeedUserResult,
   handler: async (ctx, args) => {
     const email = normalizeAccountEmail(args.email);
     const account = await readPasswordAccount(ctx.db, email);
-    const emailOwner =
+    const seedUser =
       account === null
-        ? await ctx.db
-            .query("users")
-            .withIndex("email", (q) => q.eq("email", email))
-            .first()
-        : null;
-    const userId =
-      account?.userId ??
-      (emailOwner === null
-        ? await ctx.db.insert("users", {
-            state: "active",
-            email,
-            emailVerificationTime: Date.now(),
-          })
-        : emailOwner._id);
+        ? await findOrInsertSeedUser(ctx, email)
+        : { created: false, userId: account.userId };
 
-    await writePasswordAccount(ctx, { email, password: args.password, userId });
-    return { created: account === null && emailOwner === null, userId };
+    await writePasswordAccount(ctx, { email, password: args.password, userId: seedUser.userId });
+    return seedUser;
   },
 });
 
-const seedPasswordAccountReturns = object({
+/** Finds the preview seed user by email, or creates it with the email verified. */
+export const writeSeedUser = internalMutation({
+  args: {
+    email: string(),
+  },
+  returns: vSeedUserResult,
+  handler: async (ctx, args) => await findOrInsertSeedUser(ctx, normalizeAccountEmail(args.email)),
+});
+
+const seedAccountReturns = object({
   email: string(),
   created: boolean(),
 });
-type SeedPasswordAccountResult = Infer<typeof seedPasswordAccountReturns>;
+type SeedAccountResult = Infer<typeof seedAccountReturns>;
 
-export const seedPasswordAccount = internalAction({
+export const seedAccount = internalAction({
   args: {},
-  returns: seedPasswordAccountReturns,
-  handler: async (ctx): Promise<SeedPasswordAccountResult> => {
-    const accountConfig = readSeedPasswordAccountConfig();
-    const { email, password } = accountConfig;
+  returns: seedAccountReturns,
+  handler: async (ctx): Promise<SeedAccountResult> => {
+    const accountConfig = readSeedAccountConfig();
+    const { email } = accountConfig;
     const worktreeOrganizationConfig =
-      accountConfig.kind === "local_worktree_seed" ? readSeedWorktreeOrganizationConfig() : null;
+      accountConfig.kind === "local_worktree" ? readSeedWorktreeOrganizationConfig() : null;
     let previewSeed: SeedOrganizationConfig[] | null = null;
-    if (accountConfig.kind === "preview_seed") {
+    if (accountConfig.kind === "preview") {
       const samebaseProviderCredentials = readRequiredPreviewSamebaseProviderCredentials();
       const liveTestsProviderCredentials = readRequiredPreviewSeedProviderCredentials();
       const installations = await discoverPreviewSeedGitHubAppInstallations(
@@ -805,10 +797,13 @@ export const seedPasswordAccount = internalAction({
       });
     }
 
-    const { created, userId }: { created: boolean; userId: Id<"users"> } = await ctx.runMutation(
-      internal.devAuth.writeSeedPasswordAccount,
-      { email, password },
-    );
+    const { created, userId }: SeedUserResult =
+      accountConfig.kind === "local_worktree"
+        ? await ctx.runMutation(internal.devAuth.writeSeedPasswordAccount, {
+            email,
+            password: accountConfig.password,
+          })
+        : await ctx.runMutation(internal.devAuth.writeSeedUser, { email });
 
     await ctx.runMutation(internal.devAuth.approveSeedPasswordAccount, { userId });
     if (worktreeOrganizationConfig !== null) {

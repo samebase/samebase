@@ -144,20 +144,6 @@ describe("PasswordAuthForm", () => {
     expect(markup).not.toContain("Password sign in");
   });
 
-  it("shows only GitHub sign-in on a preview", () => {
-    componentState.deploymentAuthPolicy = {
-      deploymentProfile: { kind: "preview" },
-      passwordAuthMode: "preview_seed",
-    };
-
-    const markup = renderToStaticMarkup(
-      <PublicLandingAuthControls oauthAuthFlow="public-signup" />,
-    );
-
-    expect(markup).toContain("Continue with GitHub");
-    expect(markup).not.toContain("Password sign in");
-  });
-
   it("renders the landing sidebar password auth from the deployment policy", () => {
     componentState.deploymentAuthPolicy = {
       deploymentProfile: { kind: "production" },
