@@ -3,6 +3,12 @@
 The broker is a plain OpenID Provider, so Convex Auth v2's generic OAuth method is the whole
 integration.
 
+Install `@convex-dev/auth@2.0.0-beta.0`. Convex Auth 2.0.0 does not export the generic OAuth method
+([convex-auth#836](https://github.com/convex/convex-auth/pull/836)), so the imports below fail on
+it. Convex Auth plans to bring the method back
+([convex-auth#849](https://github.com/convex/convex-auth/pull/849)), and this guide moves to 2.x
+when it does.
+
 ```ts
 // convex/convex.config.ts
 app.use(oauth, {
