@@ -205,7 +205,9 @@ Use any OpenID Connect client library. Discovery is at
 
 For Convex Auth, the
 [consumer guide](https://github.com/samebase/samebase/blob/main/packages/identity-broker/docs/consumers.md)
-has the code.
+has the code. It needs `@convex-dev/auth@2.0.0-beta.0`: Convex Auth 2.0.0 does not export the
+generic OAuth method ([convex-auth#836](https://github.com/convex/convex-auth/pull/836)), and
+[convex-auth#849](https://github.com/convex/convex-auth/pull/849) is the plan to bring it back.
 
 Key each account by `sub`.
 
