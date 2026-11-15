@@ -1,5 +1,4 @@
 import { parse, validate } from "convex-helpers/validators";
-import { createFunctionHandle } from "convex/server";
 import { ConvexError, v, type Infer } from "convex/values";
 
 import { components, internal } from "../_generated/api";
@@ -72,18 +71,16 @@ export function readHubProfile(
 
 /**
 The sign-ins that the `hub-github` and `hub-google` methods of convex/auth.ts hand to the user
-callbacks, with the profile of `readHubProfile`. `accountId` and `profile.id` are the hub's
-subject. The connector and the account id in the subject are the provider and the account id of
-the `authAccounts` key.
+callbacks, with the profile of `readHubProfile`. `profile.id` is the hub's subject. The connector
+and the account id in the subject are the provider and the account id of the `authAccounts` key.
 */
-const vHubSignInProvider = object({
+const vHubSignInMethod = object({
   name: union(literal("hub-github"), literal("hub-google")),
-  accountId: string(),
   profile: vHubClaims
     .omit("sub", "email_verified", "connector")
     .extend({ id: string(), providerAccountId: string(), connector: vAuthAccountProvider }),
 });
-type HubSignInProvider = Infer<typeof vHubSignInProvider>;
+type HubSignInMethod = Infer<typeof vHubSignInMethod>;
 
 /**
 The session the core mints for a sign-in. The core declares no validator for it, so the custom
@@ -91,7 +88,6 @@ sign-in methods declare their results with this one.
 */
 export const vTokenBundle = object({
   accessToken: string(),
-  accessTokenExpiresAt: number(),
   refreshToken: string(),
   refreshTokenExpiresAt: number(),
   userId: string(),
@@ -99,9 +95,28 @@ export const vTokenBundle = object({
 
 type TokenBundle = Infer<typeof vTokenBundle>;
 
-/** The core account names of the sign-in methods that Samebase builds on the core API. */
-const vCustomSignInProviderName = union(literal("password"), literal("agentBrowserHandoff"));
-type CustomSignInProviderName = Infer<typeof vCustomSignInProviderName>;
+/**
+The token and session lifetimes of every sign-in, in seconds: the Convex Auth 2.0.0 defaults. A
+session ends 30 days after it starts; the refresh inactivity timeout is the same, so only that
+maximum ends it. convex/auth.ts gives them to `setupConvexAuth`, which uses them for the hub methods
+and for refreshes, and `startCustomSignInSession` gives them to the core.
+*/
+export const authTtl = {
+  accessTokenTtlSeconds: 60,
+  refreshInactivityTimeoutSeconds: 30 * 24 * 60 * 60,
+  sessionMaxLifetimeSeconds: 30 * 24 * 60 * 60,
+};
+
+/**
+The sign-in methods that Samebase builds on the core API, with the path of the component that
+authenticates each: the password component checks the password. The app itself checks the agent
+browser handoff token, so that path is empty. The core only stores the path on the session.
+*/
+const customSignInComponentPaths = {
+  password: "authPassword",
+  agentBrowserHandoff: "",
+};
+type CustomSignInMethodName = keyof typeof customSignInComponentPaths;
 
 function readProviderLabel(provider: AuthAccountProvider): "Google" | "GitHub" {
   return provider === "google" ? "Google" : "GitHub";
@@ -111,8 +126,8 @@ function readProviderLabel(provider: AuthAccountProvider): "Google" | "GitHub" {
 Reads the identity that a hub sign-in may use. The hub must attest a verified email: Samebase
 matches existing accounts by it and stores it as the account email of a new user.
 */
-function readHubIdentity(provider: HubSignInProvider) {
-  const { connector, providerAccountId, email, name, picture } = provider.profile;
+function readHubIdentity(method: HubSignInMethod) {
+  const { connector, providerAccountId, email, name, picture } = method.profile;
   if (email === undefined) {
     throw new ConvexError(
       `${readProviderLabel(connector)} did not provide a verified email address.`,
@@ -222,17 +237,17 @@ async function assertGitHubAccessIdentity(
 }
 
 /**
-Called by the hub methods the first time the core sees a hub subject. The user is the one that
-`authAccounts` already maps the connector's account to (every identity from before the hub), else
-the user whose verified account email is the hub's verified email, else a new user. The core then
-keeps the subject for that user, so a later sign-in finds it directly. `onSignIn` runs next and
-records the identity.
+Called by the hub methods the first time the `authHub` component sees a hub subject. The user is
+the one that `authAccounts` already maps the connector's account to (every identity from before the
+hub), else the user whose verified account email is the hub's verified email, else a new user. The
+component then keeps the subject for that user, so a later sign-in finds it directly. `onSignIn`
+runs next and records the identity.
 */
 export const createUser = internalMutation({
-  args: { provider: vHubSignInProvider },
+  args: { method: vHubSignInMethod },
   returns: id("users"),
   handler: async (ctx, args) => {
-    const identity = readHubIdentity(args.provider);
+    const identity = readHubIdentity(args.method);
 
     const account = await ctx.db
       .query("authAccounts")
@@ -285,10 +300,10 @@ GitHub App authorization must match. The hub reports no GitHub login, so a GitHu
 login that the GitHub method before the hub observed.
 */
 export const onSignIn = internalMutation({
-  args: { provider: vHubSignInProvider, userId: id("users") },
+  args: { method: vHubSignInMethod, userId: id("users") },
   returns: vNull(),
   handler: async (ctx, args) => {
-    const identity = readHubIdentity(args.provider);
+    const identity = readHubIdentity(args.method);
     requireUserCanSignIn(await ctx.db.get(args.userId));
     if (identity.provider === "github") {
       await assertGitHubAccessIdentity(ctx, args.userId, identity.providerAccountId);
@@ -330,45 +345,22 @@ export const onSignIn = internalMutation({
 });
 
 /**
-The core calls this the first time a Samebase-built sign-in method signs a user in. The method has
-already resolved the user, so this links the core account to it and creates nothing.
-*/
-export const linkExistingUser = internalMutation({
-  args: {
-    provider: object({
-      name: vCustomSignInProviderName,
-      accountId: string(),
-      profile: object({ userId: id("users") }),
-    }),
-  },
-  returns: id("users"),
-  handler: async (_ctx, args) => args.provider.profile.userId,
-});
+Mints a session for a user that a Samebase-built sign-in method resolved. The core stores no
+accounts, so the method passes the user id directly.
 
-/**
-Mints a session for a user that a Samebase-built sign-in method resolved. Each method keeps one core
-account per user, keyed by the user id; the first sign-in creates it through `linkExistingUser`.
+Upstream will replace this path: https://github.com/convex/convex-auth/pull/850 mints sessions only
+from signed attestations and removes `_internal_dangerous_signIn`.
 */
 export async function startCustomSignInSession(
   ctx: MutationCtx,
-  args: { providerName: CustomSignInProviderName; userId: Id<"users"> },
+  args: { methodName: CustomSignInMethodName; userId: Id<"users"> },
 ): Promise<TokenBundle> {
-  const claims = {
-    providerName: args.providerName,
-    providerAccountId: args.userId,
-    profile: { userId: args.userId },
-  };
-  const issuer = env.CONVEX_SITE_URL;
-  const linkedUserId = await ctx.runQuery(components.auth.public.getUserIdByAccount, {
-    provider: args.providerName,
-    providerAccountId: args.userId,
+  return await ctx.runMutation(components.auth.public._internal_dangerous_signIn, {
+    claims: { method: args.methodName, profile: { userId: args.userId } },
+    componentPath: customSignInComponentPaths[args.methodName],
+    userId: args.userId,
+    accessTokenTtlSeconds: authTtl.accessTokenTtlSeconds,
+    refreshInactivityTimeoutSeconds: authTtl.refreshInactivityTimeoutSeconds,
+    sessionMaxLifetimeSeconds: authTtl.sessionMaxLifetimeSeconds,
   });
-  if (linkedUserId === null) {
-    return await ctx.runMutation(components.auth.public.signUp, {
-      claims,
-      createUserHandle: await createFunctionHandle(internal.identity.signIn.linkExistingUser),
-      issuer,
-    });
-  }
-  return await ctx.runMutation(components.auth.public.signIn, { claims, issuer });
 }

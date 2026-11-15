@@ -12,8 +12,6 @@ const app = defineApp({
   env: {
     ACCOUNT_DELETION_GRACE_PERIOD_MS: v.optional(v.literal("0")),
     AUTO_APPROVE_NEW_USERS: v.optional(v.union(v.literal("true"), v.literal("false"))),
-    AUTH_JWKS: v.string(),
-    AUTH_PRIVATE_KEY: v.string(),
     // Optional: a local deployment may have none, and email.ts then skips the send. The production
     // deploy (alchemy.run.ts) writes both; a development deployment holds hand-set values
     // (specs/112_CLOUDFLARE_EMAIL_SENDING_SPEC.md).
@@ -48,18 +46,14 @@ const app = defineApp({
   },
 });
 
-app.use(auth, {
-  httpPrefix: "/auth",
-  env: {
-    AUTH_PRIVATE_KEY: app.env.AUTH_PRIVATE_KEY,
-    AUTH_JWKS: app.env.AUTH_JWKS,
-  },
-});
+// The core signs access tokens with the deployment's own key (convex/auth.config.ts), so it has no
+// env and no HTTP routes.
+app.use(auth);
 // GitHub and Google sign-in run through the team's identity hub, an OpenID Provider at
 // IDENTITY_HUB_ISSUER, with one client per deployment for both methods and for the provider
 // connections (convex/hubResourceOAuth.ts). The client holds two return addresses: the hub sends a
-// sign-in back to <site>/auth/hub/callback, next to the other sign-in routes under /auth, and a
-// connection back to <site>/oauth/hub/callback (convex/http.ts). Convex refuses to bind the
+// sign-in back to <site>/auth/hub/callback and a connection back to <site>/oauth/hub/callback
+// (convex/http.ts). Convex refuses to bind the
 // component's required variables to optional ones, so every deployment holds the three
 // IDENTITY_HUB_ variables; a linked worktree and CI hold no-hub values.
 app.use(oauth, {

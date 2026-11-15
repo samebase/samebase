@@ -9,6 +9,7 @@ import {
 } from "@tanstack/react-router";
 import { pick } from "@samebase/dependent/object";
 import { SessionProvider, sessionBeforeLoad } from "@samebase/convex-auth-tanstack-start";
+import { api } from "../../convex/_generated/api";
 import { AppBootErrorBoundary } from "@/components/AppBootErrorBoundary";
 import { AppRootClient } from "@/components/AppRootClient";
 import { canAccessRouteMatchesAvailability, readRouteEnvironment } from "@/routing/availability";
@@ -61,7 +62,11 @@ function RootComponent() {
   const [renderedWithSession] = useState(() => typeof token === "string");
 
   return (
-    <SessionProvider client={convexQueryClient.convexClient} token={token}>
+    <SessionProvider
+      client={convexQueryClient.convexClient}
+      token={token}
+      isAuthenticated={api.auth.isAuthenticated}
+    >
       <DocumentRenderedWithSessionContext value={renderedWithSession}>
         <RootDocument reactScanEnabled={devtools} themeMode={readRootThemeMode({ dark, light })}>
           <AppBootErrorBoundary>

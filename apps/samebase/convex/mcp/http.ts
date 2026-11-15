@@ -548,6 +548,10 @@ export const authorizeMcpOauthRequest = httpAction(async (ctx, request) => {
   }
 
   const requestId = `mcpar_${randomToken(24)}`;
+  // Convex Auth 2.0.0 types the `runQuery` of `getAuthUserId` as a query context's, which takes an
+  // options argument that an action's `runQuery` does not. It only calls `runQuery(query, args)`,
+  // which an HTTP action supports.
+  // @ts-expect-error The action context's runQuery has no options argument.
   const userId = await getAuthUserId(ctx);
   await ctx.runMutation(internal.mcp.oauth.createAuthRequest, {
     requestId,

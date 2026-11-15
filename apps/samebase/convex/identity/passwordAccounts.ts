@@ -4,6 +4,9 @@ import { components } from "../_generated/api";
 import type { Doc, Id } from "../_generated/dataModel";
 import type { DatabaseReader, MutationCtx } from "../_generated/server";
 
+/** The minimum length of a new password: the password component's own minimum before 2.0.0. */
+const PASSWORD_MINIMUM_LENGTH = 10;
+
 /**
 The password sign-in identity for a normalized email. Its `authAccounts` row keys the identity by
 the email, and the password component keeps the password hash by the user id.
@@ -34,10 +37,10 @@ export async function writePasswordAccount(
     throw new Error(`The password account for ${args.email} belongs to another user.`);
   }
 
-  const result = await ctx.runMutation(components.authPassword.public.setPassword, {
-    userId: args.userId,
-    password: args.password,
-  });
+  const result = await ctx.runMutation(
+    components.authPassword.public._internal_dangerous_setPassword,
+    { userId: args.userId, password: args.password, minimumLength: PASSWORD_MINIMUM_LENGTH },
+  );
   if (!result.success) {
     const { userError } = result;
     switch (userError.error) {
