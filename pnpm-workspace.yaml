@@ -18,9 +18,12 @@ minimumReleaseAgeExclude:
   # (shell-quote quote() command injection). Remove after 2026-10-09, when the
   # 7-day cooling period is complete.
   - "shell-quote@1.12.0"
-  # Reviewed Convex Auth 2 beta (apps/samebase signs in with it, RFC 128), published
-  # 2026-10-15 21:13 UTC. Remove after 2026-10-22 21:14 UTC.
-  - "@convex-dev/auth@2.0.0-beta.0"
+  # Reviewed Convex Auth 2.0.0, the first stable release (apps/samebase signs in with it), published
+  # 2026-11-12 17:22 UTC. Remove after 2026-11-19 17:23 UTC.
+  - "@convex-dev/auth@2.0.0"
+  # Reviewed: the password hashing WASM that @convex-dev/auth@2.0.0 pins, from the same repository
+  # and publisher. Published 2026-11-09 23:53 UTC. Remove after 2026-11-16 23:54 UTC.
+  - "password-hash-wasm@0.0.0"
   # Alchemy 2.0.0-beta.85 with its provider packages, the @alchemy.run and @distilled.cloud versions
   # that they install, and Effect 4.1, which beta.85 requires (Effect 4.0.x now resolves
   # @effect/platform-node-shared 4.1, which needs effect 4.1). apps/samebase, apps/sidebars-example,
@@ -186,9 +189,16 @@ peerDependencyRules:
     vite: "*"
     vitest: "*"
 patchedDependencies:
-  # Adds deleteUser to the Convex Auth 2 core and password components, which account deletion
-  # calls. Remove when upstream ships deletion by user id.
-  "@convex-dev/auth@2.0.0-beta.0": patches/@convex-dev__auth@2.0.0-beta.0.patch
+  # Three parts, each removed by an upstream pull request:
+  # a. Exports ./methods/oauth/server and ./components/oauth/* again, with the public declaration of
+  #    setupOauth, which the identity hub sign-in uses. https://github.com/convex/convex-auth/pull/836
+  #    hid them;
+  #    https://github.com/convex/convex-auth/pull/849 brings the custom OAuth API back.
+  # b. Adds deleteUserAccounts to the oauth component, which account deletion calls:
+  #    https://github.com/convex/convex-auth/pull/925.
+  # c. Adds deleteUser to the password component, which account deletion calls. No upstream pull
+  #    request covers it yet.
+  "@convex-dev/auth@2.0.0": patches/@convex-dev__auth@2.0.0.patch
   # Lets an element opt out of scroll restoration with `data-scroll-restoration-ignore`, which the
   # mobile pane carousel needs. Remove when upstream ships an element opt-out.
   "@tanstack/router-core@1.171.37": patches/@tanstack__router-core@1.171.37.patch

@@ -368,7 +368,7 @@ export default defineConfig({
           include: ["apps/samebase/convex/**/*.convex.test.ts"],
           // Vitest runs external packages in Node, which cannot import a .wasm file. Inlining this
           // one sends its WASM import through the plugin above.
-          server: { deps: { inline: ["argon2id-wasm"] } },
+          server: { deps: { inline: ["password-hash-wasm"] } },
           exclude: ["**/node_modules/**", "dist", "dev-dist"],
         },
       },
