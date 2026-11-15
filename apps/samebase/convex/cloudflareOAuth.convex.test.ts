@@ -98,7 +98,11 @@ describe("Cloudflare connection refresh", () => {
       endpoint: "https://mcp.cloudflare.com/token",
     },
   ])("refreshes $name under the token lease", async ({ auth, endpoint }) => {
+    // convex-test never runs a transaction at a time before the last commit, so the seed writes
+    // commit before `now`, the time that the lease records.
+    vi.setSystemTime(now - 1_000);
     const seed = await seedConnection(auth);
+    vi.setSystemTime(now);
     const fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const request = new Request(input, init);
       expect(request.url).toBe(endpoint);
@@ -146,7 +150,9 @@ describe("Cloudflare connection refresh", () => {
     expect(credentials?.cloudflare).toMatchObject({
       auth: connection.auth,
       tokenHealth: connection.tokenHealth,
-      lastTokenRefreshAt: now,
+      // The save runs after the lease committed at `now`, and convex-test runs every transaction
+      // after the last commit: one millisecond later on the frozen clock.
+      lastTokenRefreshAt: now + 1,
     });
     expect(credentials?.cloudflare?.tokenRefreshLease).toBeUndefined();
     expect(fetch).toHaveBeenCalledOnce();

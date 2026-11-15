@@ -19,7 +19,7 @@ import type {
   ActionCtx as ComponentActionCtx,
   MutationCtx as ComponentMutationCtx,
 } from "../../../packages/git-editor/src/component/_generated/server";
-import { makeConvexTest } from "./test.setup";
+import { makeConvexTest, signInTestUser } from "./test.setup";
 import type { StagedFile } from "@samebase/git-editor/model";
 
 type ConvexTest = ReturnType<typeof makeConvexTest>;
@@ -722,10 +722,7 @@ describe("deletePendingUploadBlob", () => {
       userId,
       replaceExisting: false,
     });
-    const asUser = t.withIdentity({
-      subject: userId,
-      tokenIdentifier: `test:${userId}`,
-    });
+    const asUser = t.withIdentity(await signInTestUser(t, userId));
 
     await asUser.mutation(api.fileStaging.deletePendingUploadBlob, {
       repositoryId,
@@ -799,7 +796,7 @@ describe("deletion snapshots", () => {
       size: blob.size,
       ext: blob.ext,
     });
-    const asUser = t.withIdentity({ subject: userId, tokenIdentifier: `test:${userId}` });
+    const asUser = t.withIdentity(await signInTestUser(t, userId));
     await asUser.mutation(api.fileStaging.markFileForDeletion, {
       repositoryId,
       branch: "main",
@@ -851,7 +848,7 @@ describe("deletion snapshots", () => {
         },
       });
     }
-    const asUser = t.withIdentity({ subject: userId, tokenIdentifier: `test:${userId}` });
+    const asUser = t.withIdentity(await signInTestUser(t, userId));
     await expect(
       asUser.mutation(api.fileStaging.markFileForDeletion, {
         repositoryId,
@@ -890,7 +887,7 @@ describe("deletion snapshots", () => {
         tree: [{ path: "notes.md", mode: "100644", type: "blob", sha: "new-sha" }],
       },
     });
-    const asUser = t.withIdentity({ subject: userId, tokenIdentifier: `test:${userId}` });
+    const asUser = t.withIdentity(await signInTestUser(t, userId));
     await expect(
       asUser.mutation(api.fileStaging.markFileForDeletion, {
         repositoryId,
@@ -919,7 +916,7 @@ describe("deletion snapshots", () => {
       initialContent: "saved base",
       content: "pending edit",
     });
-    const asUser = t.withIdentity({ subject: userId, tokenIdentifier: `test:${userId}` });
+    const asUser = t.withIdentity(await signInTestUser(t, userId));
     await asUser.mutation(api.fileStaging.markFileForDeletion, {
       repositoryId,
       branch: "deleted-branch",
@@ -957,7 +954,7 @@ describe("component scope", () => {
         parentCommitSha: "original-sha",
         userId,
       });
-      const asUser = t.withIdentity({ subject: userId, tokenIdentifier: `test:${userId}` });
+      const asUser = t.withIdentity(await signInTestUser(t, userId));
       await expect(
         asUser.mutation(api.fileStaging.updateStagedFileContent, {
           repositoryId,
@@ -1125,7 +1122,7 @@ describe("released binary storage", () => {
         replaceExisting: false,
       });
     }
-    const asUser = t.withIdentity({ subject: userId, tokenIdentifier: `test:${userId}` });
+    const asUser = t.withIdentity(await signInTestUser(t, userId));
     await asUser.mutation(api.fileStaging.clearAllStaging, {
       repositoryId,
       branch: "main",

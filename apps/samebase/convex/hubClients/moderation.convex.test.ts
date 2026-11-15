@@ -1,7 +1,12 @@
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { api } from "../_generated/api";
-import { insertTestOrganizationBillingAccount, makeConvexTest } from "../test.setup";
+import type { Id } from "../_generated/dataModel";
+import {
+  insertTestOrganizationBillingAccount,
+  makeConvexTest,
+  signInTestUser,
+} from "../test.setup";
 
 type ConvexTest = ReturnType<typeof makeConvexTest>;
 
@@ -211,7 +216,7 @@ async function viewerWith(t: ConvexTest, email: string) {
         termsAcceptedAt: 1,
       }),
   );
-  return t.withIdentity({ subject: userId, tokenIdentifier: `test:${userId}` });
+  return t.withIdentity(await signInTestUser(t, userId));
 }
 
 function turnModerationOn() {
@@ -670,12 +675,11 @@ async function organizationWithMember(t: ConvexTest) {
     await repository(null);
     return { memberId, plainMemberId, outsiderId, organizationId };
   });
-  const viewer = (userId: string) =>
-    t.withIdentity({ subject: userId, tokenIdentifier: `test:${userId}` });
+  const viewer = async (userId: Id<"users">) => t.withIdentity(await signInTestUser(t, userId));
   return {
-    member: viewer(ids.memberId),
-    plainMember: viewer(ids.plainMemberId),
-    outsider: viewer(ids.outsiderId),
+    member: await viewer(ids.memberId),
+    plainMember: await viewer(ids.plainMemberId),
+    outsider: await viewer(ids.outsiderId),
     organizationId: ids.organizationId,
   };
 }

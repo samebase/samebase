@@ -2,8 +2,11 @@ import { createFunctionHandle } from "convex/server";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { ACCOUNT_DELETION_CONFIRMATION_PHRASE } from "../../shared/accountDeletionPhrase";
+import { sessionIdentity } from "@convex-dev/auth/test";
+
 import { api, components, internal } from "../_generated/api";
-import { makeConvexTest, stubConvexAuthEnv } from "../test.setup";
+import { authTtl } from "../identity/signIn";
+import { makeConvexTest, signInTestUser } from "../test.setup";
 
 afterEach(() => {
   vi.unstubAllEnvs();
@@ -20,13 +23,7 @@ async function seedActiveViewer(t: ReturnType<typeof makeConvexTest>, email: str
       termsAcceptedAt: 1,
     });
   });
-  return {
-    userId,
-    viewer: t.withIdentity({
-      subject: userId,
-      tokenIdentifier: `test:${userId}`,
-    }),
-  };
+  return { userId, viewer: t.withIdentity(await signInTestUser(t, userId)) };
 }
 
 async function seedStaffViewer(t: ReturnType<typeof makeConvexTest>) {
@@ -39,13 +36,7 @@ async function seedStaffViewer(t: ReturnType<typeof makeConvexTest>) {
       termsAcceptedAt: 1,
     });
   });
-  return {
-    userId,
-    viewer: t.withIdentity({
-      subject: userId,
-      tokenIdentifier: `test:${userId}`,
-    }),
-  };
+  return { userId, viewer: t.withIdentity(await signInTestUser(t, userId)) };
 }
 
 describe("account deletion request and status", () => {
@@ -76,6 +67,10 @@ describe("account deletion request and status", () => {
   });
 
   it("queues one run for seven days and starts from the callback", async () => {
+    // convex-test never runs a transaction at a time before the last commit, so the seed writes
+    // commit before the time that the test reads.
+    vi.useFakeTimers();
+    vi.setSystemTime(0);
     const t = makeConvexTest();
     const { userId, viewer } = await seedActiveViewer(t, "requester@example.invalid");
     const args = {
@@ -84,7 +79,6 @@ describe("account deletion request and status", () => {
       deletionConfirmationText: ACCOUNT_DELETION_CONFIRMATION_PHRASE,
     };
 
-    vi.useFakeTimers();
     vi.setSystemTime(1_000);
     try {
       const first = await viewer.mutation(api.accountDeletion.index.request, args);
@@ -349,6 +343,10 @@ describe("account deletion request and status", () => {
   });
 
   it("lets staff queue any active user and starts the deletion", async () => {
+    // convex-test never runs a transaction at a time before the last commit, so the seed writes
+    // commit before the time that the test reads.
+    vi.useFakeTimers();
+    vi.setSystemTime(0);
     const t = makeConvexTest();
     const { userId: staffUserId, viewer: staff } = await seedStaffViewer(t);
     const userId = await t.run(async (ctx) => {
@@ -358,7 +356,6 @@ describe("account deletion request and status", () => {
       });
     });
 
-    vi.useFakeTimers();
     vi.setSystemTime(5_000);
     try {
       await expect(
@@ -591,37 +588,50 @@ describe("account deletion request and status", () => {
 
 describe("account deletion with Convex Auth 2", () => {
   it("ends the sessions and frees the GitHub account for a new Samebase account", async () => {
-    await stubConvexAuthEnv();
+    // convex/auth.ts builds the hub sign-in methods from IDENTITY_HUB_ISSUER when it loads.
+    vi.stubEnv("IDENTITY_HUB_ISSUER", "https://hub.example.invalid");
     vi.stubEnv("AUTO_APPROVE_NEW_USERS", "true");
     // A local deployment skips the new-user and completion emails.
     vi.stubEnv("CONVEX_DEPLOYMENT", "local:test");
     vi.useFakeTimers();
     const t = makeConvexTest();
-    const issuer = "https://samebase-test.convex.site";
     const email = "deleted-github-user@example.invalid";
     const password = "deleted-user-password-1234";
-    // The arguments that the hub-github method passes to the core for a first sign-in.
-    const githubSignUp = {
-      claims: {
-        providerName: "hub-github",
-        providerAccountId: "github:deleted-account",
-        profile: {
-          id: "github:deleted-account",
-          connector: "github",
-          providerAccountId: "deleted-account",
-          name: "Deleted User",
-          email,
-          picture: "https://example.com/avatar.png",
+    const providerAccountId = "github:deleted-account";
+    // What the hub-github method does for a first sign-in: the core signs up a user through the
+    // app's callbacks, and the `authHub` component records the hub subject for that user.
+    const signUpWithGithub = async () => {
+      const handles = await t.run(async () => ({
+        createUser: await createFunctionHandle(internal.identity.signIn.createUser),
+        onSignIn: await createFunctionHandle(internal.identity.signIn.onSignIn),
+      }));
+      const tokens = await t.mutation(components.auth.public._internal_dangerous_signUp, {
+        claims: {
+          method: "hub-github",
+          profile: {
+            id: providerAccountId,
+            connector: "github",
+            providerAccountId: "deleted-account",
+            name: "Deleted User",
+            email,
+            picture: "https://example.com/avatar.png",
+          },
         },
-      },
-      ...(await t.run(async () => ({
-        createUserHandle: await createFunctionHandle(internal.identity.signIn.createUser),
-        onSignInHandle: await createFunctionHandle(internal.identity.signIn.onSignIn),
-      }))),
-      issuer,
+        componentPath: "authHub",
+        createUserHandle: handles.createUser,
+        onSignInHandle: handles.onSignIn,
+        accessTokenTtlSeconds: authTtl.accessTokenTtlSeconds,
+        refreshInactivityTimeoutSeconds: authTtl.refreshInactivityTimeoutSeconds,
+        sessionMaxLifetimeSeconds: authTtl.sessionMaxLifetimeSeconds,
+      });
+      await t.mutation(components.authHub.provider._internal_dangerous_createAccount, {
+        providerAccountId,
+        userId: tokens.userId,
+      });
+      return tokens;
     };
 
-    const session = await t.mutation(components.auth.public.signUp, githubSignUp);
+    const session = await signUpWithGithub();
     const userId = await t.run(async (ctx) => {
       const id = ctx.db.normalizeId("users", session.userId);
       if (id === null) {
@@ -632,13 +642,11 @@ describe("account deletion with Convex Auth 2", () => {
     });
     await t.mutation(internal.authAdmin.createOrUpdatePasswordAccount, { email, password });
     await expect(
-      t.query(components.auth.public.getUserIdByAccount, {
-        provider: "hub-github",
-        providerAccountId: "github:deleted-account",
-      }),
+      t.query(components.authHub.provider.getUserIdByAccount, { providerAccountId }),
     ).resolves.toBe(userId);
 
-    const viewer = t.withIdentity({ subject: userId, tokenIdentifier: `test:${userId}` });
+    const viewer = t.withIdentity(sessionIdentity(session));
+    await expect(viewer.query(api.auth.isAuthenticated, {})).resolves.toBe(true);
     const requested = await viewer.mutation(api.accountDeletion.index.request, {
       completionCapability: "f".repeat(64),
       deletionStartMode: "seven_days",
@@ -658,21 +666,26 @@ describe("account deletion with Convex Auth 2", () => {
         user: await ctx.db.get(userId),
       })),
     ).resolves.toMatchObject({ run: { state: "succeeded" }, user: { state: "deleted" } });
+    // The access token of the deleted session is still unexpired, but it names no session.
+    await expect(viewer.query(api.auth.isAuthenticated, {})).resolves.toBe(false);
+    await expect(t.query(components.auth.public.listSessions, { userId })).resolves.toEqual([]);
     await expect(
-      t.mutation(components.auth.public.refresh, { refreshToken: session.refreshToken, issuer }),
+      t.mutation(components.auth.public.refresh, {
+        refreshToken: session.refreshToken,
+        accessTokenTtlSeconds: authTtl.accessTokenTtlSeconds,
+        refreshInactivityTimeoutSeconds: authTtl.refreshInactivityTimeoutSeconds,
+        sessionMaxLifetimeSeconds: authTtl.sessionMaxLifetimeSeconds,
+      }),
     ).resolves.toEqual({ kind: "noSession" });
     await expect(
       t.mutation(components.authPassword.public.verifyPassword, { userId, password }),
     ).rejects.toThrow(`No password stored for userId ${userId}.`);
 
-    // The hub method signs up a subject that the core does not know.
+    // The hub method signs up a subject that the `authHub` component does not know.
     await expect(
-      t.query(components.auth.public.getUserIdByAccount, {
-        provider: "hub-github",
-        providerAccountId: "github:deleted-account",
-      }),
+      t.query(components.authHub.provider.getUserIdByAccount, { providerAccountId }),
     ).resolves.toBeNull();
-    const nextSession = await t.mutation(components.auth.public.signUp, githubSignUp);
+    const nextSession = await signUpWithGithub();
     expect(nextSession.userId).not.toBe(userId);
     await expect(
       t.run(async (ctx) => {

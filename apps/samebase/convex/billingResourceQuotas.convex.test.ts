@@ -2,7 +2,7 @@ import { describe, expect, it } from "vite-plus/test";
 
 import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
-import { makeConvexTest } from "./test.setup";
+import { makeConvexTest, signInTestUser } from "./test.setup";
 
 type ConvexTest = ReturnType<typeof makeConvexTest>;
 type GitHubOwnerType = "organization" | "user";
@@ -168,10 +168,7 @@ describe("pooled organization connection quotas", () => {
         }),
       ).resolves.toBeNull();
       await expect(readConnectionCount(t, ids.organizationId)).resolves.toBe(limit);
-      const asUser = t.withIdentity({
-        subject: ids.userId,
-        tokenIdentifier: `test:${ids.userId}`,
-      });
+      const asUser = t.withIdentity(await signInTestUser(t, ids.userId));
       await expect(
         asUser.query(api.billingResourceQuotas.getViewerBillingResourceUsage, {
           organizationId: ids.organizationId,

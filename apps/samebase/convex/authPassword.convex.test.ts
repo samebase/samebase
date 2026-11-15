@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { api, internal } from "./_generated/api";
-import { makeConvexTest, stubConvexAuthEnv } from "./test.setup";
+import { makeConvexTest } from "./test.setup";
 
 const PASSWORD = "manual-account-password";
 
@@ -17,7 +17,6 @@ async function createManualAccount() {
   vi.stubEnv("CONVEX_AGENT_MODE", "");
   vi.stubEnv("CONVEX_DEPLOYMENT", "dev:test");
   vi.stubEnv("PASSWORD_AUTH_ENABLED", "true");
-  await stubConvexAuthEnv();
   const t = makeConvexTest();
   await t.mutation(internal.authAdmin.createOrUpdatePasswordAccount, {
     email: "manual@example.com",
@@ -112,7 +111,6 @@ describe("password sign-in", () => {
 
   it("creates and signs in to a local worktree account", async () => {
     vi.stubEnv("CONVEX_AGENT_MODE", "anonymous");
-    await stubConvexAuthEnv();
     const t = makeConvexTest();
 
     const signUp = await t.mutation(api.auth.signUpWithPassword, {

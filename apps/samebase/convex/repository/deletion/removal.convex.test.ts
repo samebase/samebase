@@ -17,6 +17,7 @@ import {
   insertTestOrganizationBillingAccount,
   makeConvexTest,
   sealTestCredentials,
+  signInTestUser,
   testCredential,
 } from "../../test.setup";
 
@@ -114,7 +115,7 @@ async function seedRepository() {
   return {
     ...ids,
     t,
-    viewer: t.withIdentity({ subject: ids.userId, tokenIdentifier: `test:${ids.userId}` }),
+    viewer: t.withIdentity(await signInTestUser(t, ids.userId)),
   };
 }
 

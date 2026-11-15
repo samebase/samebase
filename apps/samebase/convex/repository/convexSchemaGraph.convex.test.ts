@@ -6,6 +6,7 @@ import {
   insertTestOrganizationBillingAccount,
   makeConvexTest,
   sealTestCredentials,
+  signInTestUser,
   testCredential,
 } from "../test.setup";
 import { type ConvexProviderCredential } from "../organization/providerCredentialModel";
@@ -25,11 +26,8 @@ type RecordedRequest = {
   url: string;
 };
 
-function asUser(t: ReturnType<typeof makeConvexTest>, userId: Id<"users">) {
-  return t.withIdentity({
-    subject: userId,
-    tokenIdentifier: `test:${userId}`,
-  });
+async function asUser(t: ReturnType<typeof makeConvexTest>, userId: Id<"users">) {
+  return t.withIdentity(await signInTestUser(t, userId));
 }
 
 function jsonResponse(body: unknown): Response {
@@ -164,7 +162,7 @@ async function seedSchemaGraphRepository(
   });
   await sealTestCredentials(t);
 
-  return { ids, user: asUser(t, ids.userId) };
+  return { ids, user: await asUser(t, ids.userId) };
 }
 
 function installSchemaGraphFetchStub(requests: RecordedRequest[]) {

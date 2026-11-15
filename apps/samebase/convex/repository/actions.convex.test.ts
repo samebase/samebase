@@ -19,7 +19,11 @@ vi.mock("../githubApp", async (importOriginal) => {
 });
 
 import { api } from "../_generated/api";
-import { insertTestOrganizationBillingAccount, makeConvexTest } from "../test.setup";
+import {
+  insertTestOrganizationBillingAccount,
+  makeConvexTest,
+  signInTestUser,
+} from "../test.setup";
 
 // Subset of GitHub's official GET /installation/repositories response example.
 // https://docs.github.com/en/rest/apps/installations#list-repositories-accessible-to-the-app-installation
@@ -71,10 +75,7 @@ async function createConnectRepositoryFixture() {
   return {
     ...ids,
     t,
-    viewer: t.withIdentity({
-      subject: ids.userId,
-      tokenIdentifier: `test:${ids.userId}`,
-    }),
+    viewer: t.withIdentity(await signInTestUser(t, ids.userId)),
   };
 }
 

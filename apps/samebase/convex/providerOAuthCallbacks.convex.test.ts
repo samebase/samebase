@@ -38,7 +38,7 @@ vi.mock("../.convex-hosting/version.js", () => ({
 
 import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
-import { makeConvexTest, testCredential } from "./test.setup";
+import { makeConvexTest, signInTestUser, testCredential } from "./test.setup";
 import { buildAuthorizationErrorUrl } from "../shared/authorizationError";
 import { buildProviderOAuthCompletionUrl } from "../shared/providerOAuthReturn";
 import type { OAuthProvider } from "./oauthState";
@@ -286,11 +286,8 @@ async function insertApprovedUser(t: TestBackend, email: string): Promise<Id<"us
   });
 }
 
-function signedInAs(t: TestBackend, userId: Id<"users">) {
-  return t.withIdentity({
-    subject: userId,
-    tokenIdentifier: `test:${userId}`,
-  });
+async function signedInAs(t: TestBackend, userId: Id<"users">) {
+  return t.withIdentity(await signInTestUser(t, userId));
 }
 
 function stubProviderOAuthEnv(provider: OAuthProvider) {
@@ -348,14 +345,13 @@ async function completeAsOwner(
       },
     }),
   });
-  return await signedInAs(t, args.userId).action(
-    api.providerOAuthCompletion.completeProviderOAuth,
-    {
-      provider: args.provider,
-      state: args.state,
-      code: "provider-code",
-    },
-  );
+  return await (
+    await signedInAs(t, args.userId)
+  ).action(api.providerOAuthCompletion.completeProviderOAuth, {
+    provider: args.provider,
+    state: args.state,
+    code: "provider-code",
+  });
 }
 
 async function expectHubRevocation(request: Request | undefined, token: string) {
@@ -418,10 +414,13 @@ describe("provider OAuth callback organization returns", () => {
     const fetch = vi.fn();
     vi.stubGlobal("fetch", fetch);
 
-    const returnUrl = await signedInAs(t, userId).action(
-      api.providerOAuthCompletion.completeProviderOAuth,
-      { provider: "cloudflare", state, code: "provider-code" },
-    );
+    const returnUrl = await (
+      await signedInAs(t, userId)
+    ).action(api.providerOAuthCompletion.completeProviderOAuth, {
+      provider: "cloudflare",
+      state,
+      code: "provider-code",
+    });
 
     expect(returnUrl).toContain("authorization-error=failed");
     expect(fetch).not.toHaveBeenCalled();
@@ -1547,7 +1546,7 @@ describe("provider OAuth completion binding", () => {
 
       const authorizationProvider = scenario.provider === "convex" ? "convex" : "cloudflare";
       await expect(
-        signedInAs(t, victimId).action(api.providerOAuthCompletion.completeProviderOAuth, {
+        (await signedInAs(t, victimId)).action(api.providerOAuthCompletion.completeProviderOAuth, {
           provider: scenario.provider,
           state,
           code: "victim-code",
@@ -1564,7 +1563,7 @@ describe("provider OAuth completion binding", () => {
       });
 
       await expect(
-        signedInAs(t, ownerId).action(api.providerOAuthCompletion.completeProviderOAuth, {
+        (await signedInAs(t, ownerId)).action(api.providerOAuthCompletion.completeProviderOAuth, {
           provider: scenario.provider,
           state,
           code: "victim-code",
@@ -1613,7 +1612,7 @@ describe("provider OAuth completion binding", () => {
     vi.stubGlobal("fetch", providerFetch);
 
     await expect(
-      signedInAs(t, userId).action(api.providerOAuthCompletion.completeProviderOAuth, {
+      (await signedInAs(t, userId)).action(api.providerOAuthCompletion.completeProviderOAuth, {
         provider: "convex",
         state,
         code: "provider-code",

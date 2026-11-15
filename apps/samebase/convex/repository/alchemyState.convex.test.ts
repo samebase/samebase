@@ -6,6 +6,7 @@ import {
   insertTestOrganizationBillingAccount,
   makeConvexTest,
   sealTestCredentials,
+  signInTestUser,
   testCredential,
 } from "../test.setup";
 import { readAlchemyStacks } from "./alchemyState";
@@ -185,10 +186,7 @@ async function seedAlchemyRepository(t: ReturnType<typeof makeConvexTest>) {
 
   return {
     ids,
-    user: t.withIdentity({
-      subject: ids.userId,
-      tokenIdentifier: `test:${ids.userId}`,
-    }),
+    user: t.withIdentity(await signInTestUser(t, ids.userId)),
   };
 }
 

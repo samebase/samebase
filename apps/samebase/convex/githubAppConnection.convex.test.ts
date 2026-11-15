@@ -16,7 +16,7 @@ vi.mock("./githubApp", async (importOriginal) => {
 import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import type { MutationCtx } from "./_generated/server";
-import { makeConvexTest, testCredential } from "./test.setup";
+import { makeConvexTest, signInTestUser, testCredential } from "./test.setup";
 
 async function insertUser(ctx: MutationCtx, email: string): Promise<Id<"users">> {
   return await ctx.db.insert("users", {
@@ -214,10 +214,7 @@ describe("GitHub App connection", () => {
         githubOwnerLogin: "Connect-Owner",
       },
     ]);
-    const asSeedUser = t.withIdentity({
-      subject: userId,
-      tokenIdentifier: `test:${userId}`,
-    });
+    const asSeedUser = t.withIdentity(await signInTestUser(t, userId));
 
     await expect(asSeedUser.action(api.githubAppConnection.listOptions, {})).resolves.toEqual({
       status: "ready",

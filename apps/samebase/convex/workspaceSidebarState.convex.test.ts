@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
 
 import { api } from "./_generated/api";
-import { makeConvexTest } from "./test.setup";
+import { makeConvexTest, signInTestUser } from "./test.setup";
 import type { WorkspaceSidebarState } from "./userPreferenceModel";
 
 const RIGHT_PANE_STATE = {
@@ -47,10 +47,7 @@ describe("workspace sidebar state Convex contract", () => {
         isApproved: false,
       });
     });
-    const asPendingAccess = t.withIdentity({
-      subject: userId,
-      tokenIdentifier: `test:${userId}`,
-    });
+    const asPendingAccess = t.withIdentity(await signInTestUser(t, userId));
 
     await asPendingAccess.mutation(api.workspaceSidebarState.setWorkspaceSidebarState, {
       state: RIGHT_PANE_STATE,

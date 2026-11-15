@@ -1,17 +1,19 @@
 /// <reference types="vite/client" />
 
-import { registerCore } from "@convex-dev/auth/test";
+import { registerCore, sessionIdentity } from "@convex-dev/auth/test";
 import { registerOauth } from "@convex-dev/auth/components/oauth/test";
-import { registerPasswordProvider } from "@convex-dev/auth/components/password/test";
+import { registerPassword } from "@convex-dev/auth/components/password/test";
 import workflowTest from "@convex-dev/workflow/test";
 import { register as registerEmailInbox } from "@samebase/convex-cloudflare-email-inbox/test";
 import { register as registerGitEditor } from "@samebase/git-editor/test";
 import { convexTest } from "convex-test";
 import { vi } from "vitest";
 
+import { components } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import type { DatabaseWriter } from "./_generated/server";
 import { githubUserAuthorizationAad } from "./githubUserAuthorizationModel";
+import { authTtl } from "./identity/signIn";
 import {
   organizationCiCredentialAad,
   organizationProviderCredentialAad,
@@ -37,18 +39,42 @@ const TEST_CREDENTIAL_KEYS = JSON.stringify({
 /**
  * Create an isolated Convex test backend with the same components installed as
  * the app so contract tests exercise registered functions through real refs.
- * It stubs CREDENTIAL_KEYS, which every credential seal and open reads.
+ * It stubs CREDENTIAL_KEYS, which every credential seal and open reads, and
+ * CONVEX_CLOUD_URL, which the Convex Auth core reads to check the issuer of the
+ * access tokens that it signs.
  */
 export function makeConvexTest() {
   vi.stubEnv("CREDENTIAL_KEYS", TEST_CREDENTIAL_KEYS);
+  vi.stubEnv("CONVEX_CLOUD_URL", "https://samebase-test.convex.cloud");
   const t = convexTest(schema, modules);
   workflowTest.register(t);
   registerEmailInbox(t, "mail");
   registerGitEditor(t, "gitEditor");
   registerCore(t);
   registerOauth(t, "authHub");
-  registerPasswordProvider(t);
+  registerPassword(t);
   return t;
+}
+
+/**
+Signs the user in for real and returns the identity to call as: the core mints a session for the
+user, and `sessionIdentity` reads the identity that Convex derives from its access token, whose
+subject is the session id. `getAuthUserId` reads that session, so an identity with
+`subject: userId` is signed out.
+*/
+export async function signInTestUser(
+  t: ReturnType<typeof makeConvexTest>,
+  userId: Id<"users">,
+): Promise<{ subject: string }> {
+  const tokens = await t.mutation(components.auth.public._internal_dangerous_signIn, {
+    claims: { method: "test", profile: {} },
+    componentPath: "",
+    userId,
+    accessTokenTtlSeconds: authTtl.accessTokenTtlSeconds,
+    refreshInactivityTimeoutSeconds: authTtl.refreshInactivityTimeoutSeconds,
+    sessionMaxLifetimeSeconds: authTtl.sessionMaxLifetimeSeconds,
+  });
+  return sessionIdentity(tokens);
 }
 
 const TEST_CREDENTIAL_IV = "placeholder";
@@ -136,36 +162,6 @@ export async function sealTestCredentials(t: ReturnType<typeof makeConvexTest>):
     };
     await t.run(async (ctx) => await ctx.db.patch(_id, patch));
   }
-}
-
-function toBase64(bytes: ArrayBuffer): string {
-  return btoa(String.fromCharCode(...new Uint8Array(bytes)));
-}
-
-/**
-Stubs the signing keys and the issuer that the Convex Auth core reads, for tests that mint sessions.
-The key pair is new for each call, in the format of `npx @convex-dev/auth`.
-*/
-export async function stubConvexAuthEnv(): Promise<void> {
-  const keyPair = await crypto.subtle.generateKey(
-    {
-      name: "RSASSA-PKCS1-v1_5",
-      modulusLength: 2048,
-      publicExponent: new Uint8Array([1, 0, 1]),
-      hash: "SHA-256",
-    },
-    true,
-    ["sign", "verify"],
-  );
-  const pkcs8 = toBase64(await crypto.subtle.exportKey("pkcs8", keyPair.privateKey));
-  const privateKeyPem = `-----BEGIN PRIVATE KEY-----\n${pkcs8.match(/.{1,64}/g)?.join("\n")}\n-----END PRIVATE KEY-----\n`;
-  const publicJwk = await crypto.subtle.exportKey("jwk", keyPair.publicKey);
-  vi.stubEnv("CONVEX_SITE_URL", "https://samebase-test.convex.site");
-  vi.stubEnv("AUTH_PRIVATE_KEY", btoa(privateKeyPem));
-  vi.stubEnv(
-    "AUTH_JWKS",
-    JSON.stringify({ keys: [{ ...publicJwk, kid: "test-key", alg: "RS256", use: "sig" }] }),
-  );
 }
 
 /** Add the billing row that every production organization receives at creation. */

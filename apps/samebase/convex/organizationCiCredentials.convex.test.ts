@@ -16,7 +16,12 @@ import { api } from "./_generated/api";
 import { ConvexManagementApiError } from "./convexManagementApi/errors";
 import { organizationCiCredentialAad } from "./organization/providerCredentialModel";
 import { openSecret } from "./sealedSecret";
-import { insertTestOrganizationBillingAccount, makeConvexTest, testCredential } from "./test.setup";
+import {
+  insertTestOrganizationBillingAccount,
+  makeConvexTest,
+  signInTestUser,
+  testCredential,
+} from "./test.setup";
 
 const cloudflareAccountId = "a".repeat(32);
 
@@ -107,10 +112,7 @@ async function createOrganization(role: "owner" | "member" = "owner") {
   return {
     ...ids,
     t,
-    viewer: t.withIdentity({
-      subject: ids.userId,
-      tokenIdentifier: `test:${ids.userId}`,
-    }),
+    viewer: t.withIdentity(await signInTestUser(t, ids.userId)),
   };
 }
 
