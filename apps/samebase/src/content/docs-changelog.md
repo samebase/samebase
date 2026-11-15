@@ -3,6 +3,12 @@
 What changed in Samebase, newest first. Each `v` number is the Samebase version that shipped the
 change. If a change needs action from you, the entry says so.
 
+## 2026-11-15
+
+- **v2353: Sign in again once.** samebase.com moved to Convex Auth 2.0.0, which keeps sessions in a
+  new form, so every session ended once. Sign in again with the same method as before. Your account,
+  organizations, and repositories stay as they were.
+
 ## 2026-11-12
 
 - **v2347: Stacks with Alchemy state in Cloudflare.** A repository page now also shows the stacks

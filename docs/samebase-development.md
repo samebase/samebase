@@ -121,20 +121,12 @@ browser handoff) is in the `signIn` list of `src/server.ts`, and the browser cal
 token. The server renders a page with the session of the request; a private page under the `_authed`
 layout answers a request without a session with a 307 to `/?next=<page>`.
 
-Every deployment needs these Convex environment variables. The key-generation commands below are for
-a fresh deployment with no existing keys. Do not replace an existing signing key pair or credential
-key ring during routine setup. Replacing the credential key ring loses access to values sealed with
-its old keys. For rotation, follow the
+Every deployment needs these Convex environment variables. The auth component needs none: it signs
+access tokens with the deployment's own key (`convex/auth.config.ts`). The key-generation command
+below is for a fresh deployment with no existing key ring. Do not replace an existing credential key
+ring during routine setup. Replacing it loses access to values sealed with its old keys. For
+rotation, follow the
 [credential encryption contract](../specs/130_PROVIDER_CREDENTIAL_ENCRYPTION_AT_REST_SPEC.md#rotation).
-
-- `AUTH_PRIVATE_KEY` and `AUTH_JWKS`: the signing keys of the auth component. A development checkout
-  gets them from its first `pnpm run dev`, and CI from its bootstrap. For another deployment, run
-  this from `apps/samebase` with the deployment selected (for example `--prod` or
-  `--preview-name <name>` after `set`):
-
-  ```bash
-  node -e 'import("../../scripts/lib/convexAuthKeys.ts").then(({ generateConvexAuthKeys }) => { for (const [name, value] of Object.entries(generateConvexAuthKeys())) require("node:child_process").spawnSync("npx", ["convex", "env", "set", name], { input: value, stdio: ["pipe", "inherit", "inherit"] }); })'
-  ```
 
 - `CREDENTIAL_KEYS`: the key ring that seals the stored provider credentials
   (`specs/130_PROVIDER_CREDENTIAL_ENCRYPTION_AT_REST_SPEC.md`). A development checkout gets it from

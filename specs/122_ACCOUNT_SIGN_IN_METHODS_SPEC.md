@@ -16,23 +16,23 @@
 ## Current Contract
 
 An active or deleting `users` row is one Samebase account. GitHub, Google, and password are sign-in
-methods for that account. Samebase signs in with Convex Auth 2: the core component keeps sessions
-and maps each provider account to a user. GitHub and Google sign-in run through the team's identity
-hub, an OpenID Provider at `IDENTITY_HUB_ISSUER` that holds the GitHub and Google clients: the
-`hub-github` and `hub-google` methods share one OAuth component, and each names its hub connector in
-the authorize URL. The password component runs the password method. An `authAccounts` row is
-Samebase's own record of one sign-in identity of a user. The Convex Auth callbacks and the password
-account functions write it, and Samebase reads a user's identities from it. The Samebase user ID is
-the product identity. An email address or GitHub login is not the product identity. Spec 113 defines
-the terminal PII-free deleted row.
+methods for that account. Samebase signs in with Convex Auth 2: the core component keeps sessions,
+and the `authHub` OAuth component maps each hub subject to a user. GitHub and Google sign-in run
+through the team's identity hub, an OpenID Provider at `IDENTITY_HUB_ISSUER` that holds the GitHub
+and Google clients: the `hub-github` and `hub-google` methods share one OAuth component, and each
+names its hub connector in the authorize URL. The password component runs the password method. An
+`authAccounts` row is Samebase's own record of one sign-in identity of a user. The Convex Auth
+callbacks and the password account functions write it, and Samebase reads a user's identities from
+it. The Samebase user ID is the product identity. An email address or GitHub login is not the
+product identity. Spec 113 defines the terminal PII-free deleted row.
 
 The hub's `sub` is public (RFC 134): the provider and its own account id, such as `github:4076804`,
-so the core keeps one account for each provider account. The id_token also carries `connector`
-(`github` or `google`). The part of `sub` after the provider is the connector's own account id:
-GitHub's numeric user id as a string, or Google's `sub`. A GitHub or Google `authAccounts` row is
-keyed by the connector and that id, the same key as before the hub. A method refuses an id_token
-whose `sub` is not `<connector>:<id>`, with claims of another type, or of another connector than its
-own, with a message on the sign-in page.
+so the `authHub` component keeps one account for each provider account. The id_token also carries
+`connector` (`github` or `google`). The part of `sub` after the provider is the connector's own
+account id: GitHub's numeric user id as a string, or Google's `sub`. A GitHub or Google
+`authAccounts` row is keyed by the connector and that id, the same key as before the hub. A method
+refuses an id_token whose `sub` is not `<connector>:<id>`, with claims of another type, or of
+another connector than its own, with a message on the sign-in page.
 
 `users.email` is one stable, verified email on a non-deleted Samebase account. One normalized
 account email belongs to at most one active Samebase account. A deleted row has no email. The email
@@ -73,10 +73,12 @@ OAuth sign-in resolves the account with these rules, in order:
 A provider identity can create a session only for an active account. Deleting and deleted reject the
 sign-in with a message that the landing page shows. A deleted row cannot match an email because
 account deletion removes it and the user's `authAccounts` rows. The final deletion transaction also
-deletes the user's Convex Auth 2 accounts, sessions, refresh tokens, and stored password. A later
-sign-in with the same GitHub or Google account then creates a new Samebase account. Convex Auth
-2.0.0-beta.0 has no deletion by user id, so `patches/@convex-dev__auth@2.0.0-beta.0.patch` adds
-`deleteUser` to the core and password components until upstream ships it.
+revokes the user's Convex Auth sessions (the core deletes their refresh tokens in a function it
+schedules at once) and deletes the user's `authHub` accounts and stored password. A later sign-in
+with the same GitHub or Google account then creates a new Samebase account. Convex Auth 2.0.0 has no
+deletion of OAuth accounts or passwords by user id, so `patches/@convex-dev__auth@2.0.0.patch` adds
+`deleteUserAccounts` to the OAuth component and `deleteUser` to the password component until
+upstream ships them.
 
 There is no Connect action. A user adds GitHub or Google to an account by signing out and signing in
 with a provider account whose verified email is the account email (rule 3).
