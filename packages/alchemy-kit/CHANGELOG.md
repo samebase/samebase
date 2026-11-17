@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.0
+
+- New entry `@samebase/alchemy-kit/run-record`: `withRunRecord` adds the record of the run to each
+  stage output, over any state layer. It moved from `@samebase/alchemy-convex`, which now takes it
+  from this package.
+
 ## 0.1.2
 
 - No code change. A new README: a diagram of the store, a quick start, the options, the laptop

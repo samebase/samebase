@@ -9,6 +9,7 @@ the part that it imports.
 | Part                                      | Entry                                | What it is                                                                 |
 | ----------------------------------------- | ------------------------------------ | -------------------------------------------------------------------------- |
 | [GitHub state store](#github-state-store) | `@samebase/alchemy-kit/github-state` | The state of a stack on a branch of its GitHub repository, secrets sealed. |
+| [Run record](#run-record)                 | `@samebase/alchemy-kit/run-record`   | A record of the run in each stage output, over any state layer.            |
 
 > The source is in
 > [`packages/alchemy-kit`](https://github.com/samebase/samebase/tree/main/packages/alchemy-kit) of
@@ -169,3 +170,55 @@ open.
 - A ruleset that requires pull requests on all branches, or a tool that deletes stale branches,
   breaks the store. Keep both branches out of such rules.
 - There is no key rotation. A new key cannot open the secrets that the old key sealed.
+
+## Run record
+
+Alchemy state holds no time, commit, branch, or run. `withRunRecord` adds them to each stage output
+that the state writes, under the key `samebase.run`:
+
+```json
+{
+  "url": "https://my-app.example.workers.dev",
+  "samebase.run": {
+    "version": 1,
+    "repository": "my-org/my-app",
+    "stackFile": "alchemy.run.ts",
+    "branch": "feature",
+    "pullRequest": 42,
+    "headCommit": "8af3c5b7932c528939cbc7aa0597b1fc36c8dc83",
+    "runUrl": "https://github.com/my-org/my-app/actions/runs/12345678901/attempts/1",
+    "source": "github-actions",
+    "recordedAt": "2026-10-21T10:00:00.000Z"
+  }
+}
+```
+
+Put it over the state layer of your stack, in `alchemy.run.ts`:
+
+```ts
+import * as GitHubState from "@samebase/alchemy-kit/github-state";
+import { withRunRecord } from "@samebase/alchemy-kit/run-record";
+import * as Alchemy from "alchemy";
+
+export default Alchemy.Stack(
+  "my-app",
+  { providers, state: withRunRecord(GitHubState.state()) },
+  program,
+);
+```
+
+It works over any state layer, such as the Cloudflare state store of Alchemy. Every other call goes
+to that layer as it is.
+
+- **Where the values come from.** On GitHub Actions, from the variables of the run and the event
+  payload: on a pull request, the head branch and the head commit. Else from git in the checkout,
+  which needs a branch and an `origin` remote with `owner/name`. `source` says which.
+- **The stack file** is the working directory of the run, from the repository root, plus
+  `alchemy.run.ts`.
+- **A checkout that gives no record still deploys.** A tarball without git, a checkout without
+  `origin`, or a detached HEAD still reads, plans, and destroys. Its outputs are written without the
+  record, and the log says why.
+- **An output with no place for the key**, such as a string, an array, or a Date, is stored as it
+  is, with a warning in the log. A value that the stack itself put under the key stays.
+- Alchemy writes the output only after a full successful apply, so the record names the last full
+  successful deploy of the stage. It holds no secret.

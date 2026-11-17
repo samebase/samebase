@@ -18,10 +18,10 @@ import {
   type RunRecord,
   runRecord,
   withRunRecord,
-} from "../src/RunRecord.ts";
+} from "../../src/run-record/RunRecord.ts";
 
 const PULL_REQUEST_EVENT = fileURLToPath(
-  new URL("./fixtures/github/pull_request_event.json", import.meta.url),
+  new URL("./fixtures/pull_request_event.json", import.meta.url),
 );
 /** The head of pull request 19 in the recorded payload. */
 const HEAD_SHA = "8af3c5b7932c528939cbc7aa0597b1fc36c8dc83";
@@ -35,7 +35,7 @@ const git = (cwd: string, ...args: string[]) =>
   execFileSync("git", ["-C", cwd, ...args], { encoding: "utf8", stdio: "pipe" }).trim();
 
 beforeEach(() => {
-  dir = realpathSync(mkdtempSync(join(tmpdir(), "alchemy-convex-run-record-")));
+  dir = realpathSync(mkdtempSync(join(tmpdir(), "alchemy-kit-run-record-")));
   checkout = join(dir, "checkout");
   mkdirSync(join(checkout, "apps", "site"), { recursive: true });
   git(checkout, "init", "--quiet", "--initial-branch=main");

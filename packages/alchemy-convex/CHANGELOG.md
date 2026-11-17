@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.40.1
+
+- The run record (`withRunRecord`, `runRecord`, `RunRecordError`, `RUN_RECORD_KEY`, and the type
+  `RunRecord`) now comes from `@samebase/alchemy-kit/run-record`, a new dependency. This package
+  exports the same names, and the API does not change.
+
 ## 0.40.0
 
 - Breaking: `IdentityHub.Client` registers at `POST /register`, the client registration endpoint of

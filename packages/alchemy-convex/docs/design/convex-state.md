@@ -96,12 +96,12 @@ section follows). The engine writes the stage output once, after a full successf
   wire names of version 1.
 - The record, version 1:
   `{ version: 1, repository, stackFile, branch, pullRequest, headCommit, runUrl, source, recordedAt }`,
-  no secret. `src/RunRecord.ts` derives it with no Convex dependency, so any state layer can add it.
-  The derivation runs once, at the first use of the state; `recordedAt` is the time of the write. A
-  checkout that gives no record (a tarball without git, no `origin` remote, a detached HEAD) still
-  reads, plans, and destroys: the first use logs the reason, and the outputs of that run carry no
-  record. A reader treats a missing `samebase.run` as an unknown run, which it does for every output
-  written before 0.7.0 anyway.
+  no secret. `@samebase/alchemy-kit/run-record` derives it with no Convex dependency, so any state
+  layer can add it. The derivation runs once, at the first use of the state; `recordedAt` is the
+  time of the write. A checkout that gives no record (a tarball without git, no `origin` remote, a
+  detached HEAD) still reads, plans, and destroys: the first use logs the reason, and the outputs of
+  that run carry no record. A reader treats a missing `samebase.run` as an unknown run, which it
+  does for every output written before 0.7.0 anyway.
 
 | Field         | GitHub Actions (`GITHUB_ACTIONS` is `true`)                                                                              | A checkout outside GitHub Actions                                                    |
 | ------------- | ------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------ |

@@ -23,7 +23,7 @@
 import { State } from "alchemy/State";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
-import { RUN_RECORD_KEY, runRecord } from "./RunRecord.ts";
+import { RUN_RECORD_KEY, runRecord } from "@samebase/alchemy-kit/run-record";
 
 /** The first text of the comment, which finds it again. */
 const MARKER = "<!-- samebase-stacks -->";

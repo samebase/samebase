@@ -21,7 +21,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fromValues } from "../src/Credentials.ts";
 import { ManagementApi, ManagementApiLive } from "../src/ManagementApi.ts";
 import { createDeployKey } from "../src/Push.ts";
-import { withRunRecord } from "../src/RunRecord.ts";
+import { withRunRecord } from "@samebase/alchemy-kit/run-record";
 import {
   makeConvexState,
   makeFunctionApi,
