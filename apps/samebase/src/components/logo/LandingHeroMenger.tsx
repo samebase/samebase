@@ -22,10 +22,8 @@ import {
   PUBLIC_LANDING_MENGER_FALLBACK_TEST_ID,
   PUBLIC_LANDING_MENGER_TEST_ID,
 } from "@/lib/publicLanding";
-import {
-  PUBLIC_LANDING_LOGO_STATIC_FALLBACK_ATTRIBUTE,
-  PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG,
-} from "@/lib/publicLandingLogo";
+import { PUBLIC_LANDING_LOGO_STATIC_FALLBACK_ATTRIBUTE } from "@/lib/publicLandingLogo";
+import { LOGO_VIEW_SNAP_DRAG_CONFIG } from "@samebase/logo-model/logo-view-snap";
 import { clearPublicLandingLogoStaticFallbackPrehydration } from "@/lib/publicLandingLogoPrehydration";
 import { MENGER_HOVER_DEFAULT_REVEAL_RADIUS } from "@samebase/logo-model/menger-hover";
 import { LOGO_GRID_SIZE_3, MENGER_SPONGE_VOXEL_STATE } from "@samebase/logo-model/voxel";
@@ -401,9 +399,7 @@ export function LandingHeroMenger({ placement }: { placement: "preview" | "root"
             resolutionScale={1}
             revealRadius={MENGER_HOVER_DEFAULT_REVEAL_RADIUS}
             rotationDegrees={view.rotationDegrees}
-            viewDragConfig={
-              routeState.viewSnapEnabled ? PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG : undefined
-            }
+            viewDragConfig={routeState.viewSnapEnabled ? LOGO_VIEW_SNAP_DRAG_CONFIG : undefined}
           />
         </div>
       ) : null}

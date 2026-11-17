@@ -2138,6 +2138,7 @@ export const trackedFilePaths = [
   "packages/logo-model/src/logoSceneCameraDepth.ts",
   "packages/logo-model/src/logoViewDrag.ts",
   "packages/logo-model/src/logoViewDragConstants.ts",
+  "packages/logo-model/src/logoViewSnap.ts",
   "packages/logo-model/src/mengerAutomaticProbe.ts",
   "packages/logo-model/src/mengerDepthTransition.ts",
   "packages/logo-model/src/mengerHover.ts",

@@ -131,7 +131,7 @@ import {
   LOGO_OPACITY_STEP,
   type LogoIsoRouteSearch,
 } from "@/routeSearch/logo";
-import { PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG } from "@/lib/publicLandingLogo";
+import { LOGO_VIEW_SNAP_DRAG_CONFIG } from "@samebase/logo-model/logo-view-snap";
 import { usePacedCommittedState } from "@/lib/usePacedCommittedState";
 import { cn } from "@/lib/utils";
 import { useCreateStore, useSelector } from "@tanstack/react-store";
@@ -471,7 +471,7 @@ function areLogoPreviewRouteStatesEqual(
 
 function resolveLogoPreviewViewState(view: LogoViewState, viewSnapEnabled: boolean): LogoViewState {
   return resolveLogoViewState({
-    config: viewSnapEnabled ? PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG : undefined,
+    config: viewSnapEnabled ? LOGO_VIEW_SNAP_DRAG_CONFIG : undefined,
     view,
   });
 }
@@ -1459,7 +1459,7 @@ export function LogoPreviewPage({
         rotationAxisMode={state.rotationAxisMode}
         rotationDegrees={state.rotationDegrees}
         shuffleAnimation={shuffleAnimation}
-        viewDragConfig={state.viewSnapEnabled ? PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG : undefined}
+        viewDragConfig={state.viewSnapEnabled ? LOGO_VIEW_SNAP_DRAG_CONFIG : undefined}
         voxelState={state.voxelState}
       />
     ) : (
@@ -1488,7 +1488,7 @@ export function LogoPreviewPage({
         animateLeftFaceStripes={state.leftFaceStripeAnimationEnabled}
         fractalDepth={state.fractalDepth}
         voxelEditingEnabled={!isRecursiveDepth}
-        viewDragConfig={state.viewSnapEnabled ? PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG : undefined}
+        viewDragConfig={state.viewSnapEnabled ? LOGO_VIEW_SNAP_DRAG_CONFIG : undefined}
         voxelState={state.voxelState}
       />
     );

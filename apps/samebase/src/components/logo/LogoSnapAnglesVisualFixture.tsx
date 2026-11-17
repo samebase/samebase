@@ -2,9 +2,9 @@ import { NLogoScene } from "@/components/logo/NLogoScene";
 import { DEFAULT_FACE_COLORS, getTailwindColorHex } from "@/components/logo/logoTailwindColors";
 import { STATIC_LOGO_VOXEL_STATE } from "@samebase/logo-model/identity";
 import {
-  PUBLIC_LANDING_LOGO_ORTHOGRAPHIC_ELEVATION_SNAP_DEGREES,
-  PUBLIC_LANDING_LOGO_ORTHOGRAPHIC_ROTATION_SNAP_DEGREES,
-} from "@/lib/publicLandingLogo";
+  LOGO_ORTHOGRAPHIC_ELEVATION_SNAP_DEGREES,
+  LOGO_ORTHOGRAPHIC_ROTATION_SNAP_DEGREES,
+} from "@samebase/logo-model/logo-view-snap";
 import { getRouteApi } from "@tanstack/react-router";
 import { useState } from "react";
 
@@ -23,8 +23,8 @@ export function LogoSnapAnglesVisualFixture() {
   const backgroundColor = getTailwindColorHex("gray-400");
   const [isRenderReady, setIsRenderReady] = useState(false);
   const { elevation, rotation } = visualFixtureRouteApi.useSearch();
-  const rotationDegrees = rotation ?? PUBLIC_LANDING_LOGO_ORTHOGRAPHIC_ROTATION_SNAP_DEGREES[0];
-  const elevationDegrees = elevation ?? PUBLIC_LANDING_LOGO_ORTHOGRAPHIC_ELEVATION_SNAP_DEGREES[0];
+  const rotationDegrees = rotation ?? LOGO_ORTHOGRAPHIC_ROTATION_SNAP_DEGREES[0];
+  const elevationDegrees = elevation ?? LOGO_ORTHOGRAPHIC_ELEVATION_SNAP_DEGREES[0];
 
   return (
     <div

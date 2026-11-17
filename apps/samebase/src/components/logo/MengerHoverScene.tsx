@@ -57,7 +57,7 @@ import {
   getWorldScreenVerticalAxis,
   toRenderedRotationDegrees,
 } from "@samebase/logo-model/rotation";
-import { PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG } from "@/lib/publicLandingLogo";
+import { LOGO_VIEW_SNAP_DRAG_CONFIG } from "@samebase/logo-model/logo-view-snap";
 import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 
@@ -169,7 +169,7 @@ export function MengerHoverScene({
     onInteractionEnd,
     onViewChange,
     rotationDegrees,
-    viewDragConfig: viewSnapEnabled ? PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG : undefined,
+    viewDragConfig: viewSnapEnabled ? LOGO_VIEW_SNAP_DRAG_CONFIG : undefined,
   });
   const leftFaceColor = getTailwindColorHex(faceColors.left);
   const rightFaceColor = getTailwindColorHex(faceColors.right);

@@ -2,11 +2,11 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { expect, test, type Page } from "./visualFixtureTest";
 import {
-  PUBLIC_LANDING_LOGO_DIAGONAL_ELEVATION_SNAP_DEGREES,
-  PUBLIC_LANDING_LOGO_DIAGONAL_ROTATION_SNAP_DEGREES,
-  PUBLIC_LANDING_LOGO_ORTHOGRAPHIC_ELEVATION_SNAP_DEGREES,
-  PUBLIC_LANDING_LOGO_ORTHOGRAPHIC_ROTATION_SNAP_DEGREES,
-} from "../src/lib/publicLandingLogo";
+  LOGO_DIAGONAL_ELEVATION_SNAP_DEGREES,
+  LOGO_DIAGONAL_ROTATION_SNAP_DEGREES,
+  LOGO_ORTHOGRAPHIC_ELEVATION_SNAP_DEGREES,
+  LOGO_ORTHOGRAPHIC_ROTATION_SNAP_DEGREES,
+} from "@samebase/logo-model/logo-view-snap";
 import { expectScreenshotsToMatch, takeStableScreenshot } from "./visualDiff";
 
 const SNAPSHOT_DIRECTORY_PATH = fileURLToPath(
@@ -33,15 +33,15 @@ type RenderedLogoSnapMatrix = LogoSnapMatrix & {
 const LOGO_SNAP_MATRICES = [
   {
     description: "Orthographic rotations use only orthographic elevation snap points.",
-    elevationDegrees: PUBLIC_LANDING_LOGO_ORTHOGRAPHIC_ELEVATION_SNAP_DEGREES,
-    rotationDegrees: PUBLIC_LANDING_LOGO_ORTHOGRAPHIC_ROTATION_SNAP_DEGREES,
+    elevationDegrees: LOGO_ORTHOGRAPHIC_ELEVATION_SNAP_DEGREES,
+    rotationDegrees: LOGO_ORTHOGRAPHIC_ROTATION_SNAP_DEGREES,
     title: "Orthographic snap matrix",
   },
   {
     description:
       "Diagonal rotations keep the shared cardinal elevations plus the isometric elevation family.",
-    elevationDegrees: PUBLIC_LANDING_LOGO_DIAGONAL_ELEVATION_SNAP_DEGREES,
-    rotationDegrees: PUBLIC_LANDING_LOGO_DIAGONAL_ROTATION_SNAP_DEGREES,
+    elevationDegrees: LOGO_DIAGONAL_ELEVATION_SNAP_DEGREES,
+    rotationDegrees: LOGO_DIAGONAL_ROTATION_SNAP_DEGREES,
     title: "Diagonal snap matrix",
   },
 ] as const satisfies readonly LogoSnapMatrix[];

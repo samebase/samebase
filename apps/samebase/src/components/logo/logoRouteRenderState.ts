@@ -49,7 +49,7 @@ import {
   type LogoIsoRouteSearch,
   type LogoRouteSearchBuildState,
 } from "@/routeSearch/logo";
-import { PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG } from "@/lib/publicLandingLogo";
+import { LOGO_VIEW_SNAP_DRAG_CONFIG } from "@samebase/logo-model/logo-view-snap";
 
 export type LogoRouteRenderMode = Exclude<LogoDepthRenderer, "svg">;
 
@@ -213,7 +213,7 @@ function readRouteViewState({
     ...resolveLogoViewState({
       config:
         viewSnapEnabled && (snapFallbackView || hasSearchView)
-          ? PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG
+          ? LOGO_VIEW_SNAP_DRAG_CONFIG
           : undefined,
       view,
     }),

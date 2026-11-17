@@ -4,7 +4,7 @@ import {
   resolveDraggedAngleDegrees,
   resolveLogoViewState,
 } from "@samebase/logo-model/logo-view-drag";
-import { PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG } from "@/lib/publicLandingLogo";
+import { LOGO_VIEW_SNAP_DRAG_CONFIG } from "@samebase/logo-model/logo-view-snap";
 
 const EXACT_ISOMETRIC_ELEVATION_DEGREES = 35.26438968;
 
@@ -79,7 +79,7 @@ describe("resolveLogoViewState", () => {
   it("applies the shared landing snap config to arbitrary view state", () => {
     expect(
       resolveLogoViewState({
-        config: PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG,
+        config: LOGO_VIEW_SNAP_DRAG_CONFIG,
         view: {
           elevationDegrees: 359.1,
           rotationDegrees: 14.3,
@@ -94,7 +94,7 @@ describe("resolveLogoViewState", () => {
   it("keeps free rotation between shared landing snap targets", () => {
     expect(
       resolveLogoViewState({
-        config: PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG,
+        config: LOGO_VIEW_SNAP_DRAG_CONFIG,
         view: {
           elevationDegrees: 22.4,
           rotationDegrees: 43.6,
@@ -109,7 +109,7 @@ describe("resolveLogoViewState", () => {
   it("uses the diagonal elevation snap family for diagonal rotations", () => {
     expect(
       resolveLogoViewState({
-        config: PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG,
+        config: LOGO_VIEW_SNAP_DRAG_CONFIG,
         view: {
           elevationDegrees: 35.6,
           rotationDegrees: 44.1,
@@ -124,7 +124,7 @@ describe("resolveLogoViewState", () => {
   it("keeps the shared cardinal elevation snaps for diagonal rotations", () => {
     expect(
       resolveLogoViewState({
-        config: PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG,
+        config: LOGO_VIEW_SNAP_DRAG_CONFIG,
         view: {
           elevationDegrees: 359.1,
           rotationDegrees: 44.1,
@@ -139,7 +139,7 @@ describe("resolveLogoViewState", () => {
   it("does not use the diagonal elevation snap family for orthographic rotations", () => {
     expect(
       resolveLogoViewState({
-        config: PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG,
+        config: LOGO_VIEW_SNAP_DRAG_CONFIG,
         view: {
           elevationDegrees: 35.6,
           rotationDegrees: 0.9,
@@ -154,7 +154,7 @@ describe("resolveLogoViewState", () => {
   it("lets modifier keys bypass shared landing snaps without adding whole-degree movement", () => {
     expect(
       resolveLogoViewState({
-        config: PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG,
+        config: LOGO_VIEW_SNAP_DRAG_CONFIG,
         disableSnap: true,
         view: {
           elevationDegrees: 359.1,
