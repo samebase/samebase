@@ -43,7 +43,7 @@ export {
   RunRecordError,
   runRecord,
   withRunRecord,
-} from "./RunRecord.ts";
+} from "@samebase/alchemy-kit/run-record";
 export { state, STORE_PROJECT_NAME } from "./State.ts";
 export {
   CodePushFailed,

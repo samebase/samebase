@@ -1,12 +1,13 @@
 {
   "name": "@samebase/alchemy-kit",
-  "version": "0.1.2",
-  "description": "A kit of parts for Alchemy v2: a state store on a branch of a GitHub repository, with sealed secrets",
+  "version": "0.2.0",
+  "description": "A kit of parts for Alchemy v2: a state store on a branch of a GitHub repository, with sealed secrets, and a run record in each stage output",
   "keywords": [
     "alchemy",
     "effect",
     "github",
     "infrastructure-as-code",
+    "run-record",
     "state"
   ],
   "homepage": "https://github.com/samebase/samebase/tree/main/packages/alchemy-kit#readme",
@@ -29,13 +30,18 @@
   "type": "module",
   "sideEffects": false,
   "exports": {
-    "./github-state": "./src/github-state/GitHubState.ts"
+    "./github-state": "./src/github-state/GitHubState.ts",
+    "./run-record": "./src/run-record/RunRecord.ts"
   },
   "publishConfig": {
     "exports": {
       "./github-state": {
         "types": "./lib/github-state.d.ts",
         "import": "./lib/github-state.js"
+      },
+      "./run-record": {
+        "types": "./lib/run-record.d.ts",
+        "import": "./lib/run-record.js"
       }
     },
     "access": "public"

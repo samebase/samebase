@@ -2,7 +2,10 @@ import { defineConfig } from "vite-plus";
 
 export default defineConfig({
   pack: {
-    entry: { "github-state": "src/github-state/GitHubState.ts" },
+    entry: {
+      "github-state": "src/github-state/GitHubState.ts",
+      "run-record": "src/run-record/RunRecord.ts",
+    },
     outDir: "lib",
     // "type": "module" makes the ESM output `github-state.js`, the file that `publishConfig` names.
     fixedExtension: false,

@@ -4,7 +4,8 @@
 // record to the output document under the reserved key `samebase.run`. The
 // record depends on no store: it comes from the GitHub Actions variables, or
 // from git in the checkout that runs the stack, and holds no secret, and the
-// layer goes over any state layer. See docs/design/convex-state.md.
+// layer goes over any state layer. See
+// https://github.com/samebase/samebase/blob/main/packages/alchemy-convex/docs/design/convex-state.md.
 import { execFile } from "node:child_process";
 import { readFile, realpath } from "node:fs/promises";
 import { relative, sep } from "node:path";

@@ -36,7 +36,7 @@
 // The store holds Alchemy's state interface and nothing else, so a stack can
 // use the state store of Alchemy's Cloudflare package in its place. The run
 // record that Samebase reads is a layer over any state: see `withRunRecord` in
-// src/RunRecord.ts.
+// `@samebase/alchemy-kit/run-record`.
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import * as Effect from "effect/Effect";

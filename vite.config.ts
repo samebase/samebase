@@ -86,6 +86,7 @@ export default defineConfig({
       "packages/identity-broker/src/component/_generated/**",
       "packages/alchemy-convex/src/store/*/_generated/**",
       "packages/alchemy-convex/test/fixtures/**",
+      "packages/alchemy-kit/test/run-record/fixtures/**",
       "apps/samebase/AGENTS.md",
       "apps/samebase/CLAUDE.md",
       "apps/samebase/src/routeTree.gen.ts",
@@ -331,6 +332,8 @@ export default defineConfig({
           environment: "node",
           // `test/<part>/live/` makes real API calls; `pnpm run test:live` runs it.
           include: ["packages/alchemy-kit/test/*/*.test.ts"],
+          // The run record tests call process.chdir, which a worker thread cannot.
+          pool: "forks",
         },
       },
       {

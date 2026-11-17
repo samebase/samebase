@@ -240,7 +240,8 @@ stage output of any state layer, `Convex.state()` or `Cloudflare.state()`: the d
 `setOutput` stores is the stack's output plus the key `samebase.run`. Samebase shows a stage only
 when its output has this record. On GitHub Actions the record comes from the run's variables and the
 event payload; on a development machine from git, which needs a branch and an `origin` remote. It
-holds no secret.
+holds no secret. The function comes from `@samebase/alchemy-kit/run-record` and works over any state
+layer.
 
 ```json
 {
