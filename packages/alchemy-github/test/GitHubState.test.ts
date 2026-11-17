@@ -28,13 +28,17 @@ const fakeGitHub = () => {
   const sha = (value: unknown) => createHash("sha1").update(JSON.stringify(value)).digest("hex");
   /** How many of the next ref reads answer with the head before the last. */
   let oldAnswers = 0;
+  /** How many heads back those answers go. */
+  let headsBack = 1;
+  /** An answer for the next request in place of the real one. */
+  let next: readonly [number, unknown, Record<string, string>] | undefined;
 
   const get = (route: string): readonly [number, unknown] => {
     if (route.startsWith("ref/heads/")) {
       const history = heads.get(route.slice("ref/heads/".length)) ?? [];
-      const back = oldAnswers > 0 ? 2 : 1;
+      const back = oldAnswers > 0 ? headsBack : 0;
       oldAnswers = Math.max(0, oldAnswers - 1);
-      const commit = history[history.length - back];
+      const commit = history[history.length - 1 - back];
       return commit === undefined ? [404, {}] : [200, { object: { sha: commit } }];
     }
     if (route.startsWith("trees/")) {
@@ -88,8 +92,12 @@ const fakeGitHub = () => {
   };
 
   return {
-    answerOld: (count: number) => {
+    answerOld: (count: number, back = 1) => {
       oldAnswers = count;
+      headsBack = back;
+    },
+    answerNext: (status: number, json: unknown, headers: Record<string, string>) => {
+      next = [status, json, headers];
     },
     layer: Layer.succeed(
       HttpClient.HttpClient,
@@ -99,8 +107,12 @@ const fakeGitHub = () => {
             request.body._tag === "Uint8Array"
               ? JSON.parse(new TextDecoder().decode(request.body.body))
               : undefined;
-          const [status, json] = answer(request.method, url.pathname, body);
-          return HttpClientResponse.fromWeb(request, Response.json(json, { status }));
+          const [status, json, headers] = next ?? answer(request.method, url.pathname, body);
+          next = undefined;
+          return HttpClientResponse.fromWeb(
+            request,
+            Response.json(json, headers === undefined ? { status } : { status, headers }),
+          );
         }),
       ),
     ),
@@ -144,6 +156,35 @@ describe("makeGitHubObjects", () => {
     expect(result.read).toEqual({ text: "two", version: result.version });
     expect(result.afterDelete).toBeUndefined();
     expect(result.keys).toEqual([]);
+  });
+
+  it("takes no earlier head of its own for the branch, also from before another store's commit", async () => {
+    const github = fakeGitHub();
+    const result = await run(github, (a, b) =>
+      Effect.gen(function* () {
+        yield* a.write("app/prod/A.json", "one");
+        yield* b.write("app/prod/Other.json", "other");
+        yield* a.write("app/prod/A.json", "two");
+        // Two heads back is the head that `a` made first.
+        github.answerOld(2, 2);
+        const read = yield* a.read("app/prod/A.json");
+        github.answerOld(2, 2);
+        return { read, keys: yield* a.listKeys("app/prod/") };
+      }),
+    );
+    expect(result.read?.text).toBe("two");
+    expect([...result.keys].sort()).toEqual(["app/prod/A.json", "app/prod/Other.json"]);
+  });
+
+  it("fails a call whose rate limit answer gives a date to wait for", async () => {
+    const github = fakeGitHub();
+    github.answerNext(
+      429,
+      { message: "rate limit" },
+      { "retry-after": "Wed, 18 Nov 2026 07:28:00 GMT" },
+    );
+    const error = await run(github, (store) => Effect.flip(store.read("app/prod/A.json")));
+    expect(error.message).toContain("retry after Wed, 18 Nov 2026 07:28:00 GMT");
   });
 
   it("gives a version to one of two stores only", async () => {

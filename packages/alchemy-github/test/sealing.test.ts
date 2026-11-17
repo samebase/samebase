@@ -94,6 +94,20 @@ describe("sealRecord and openRecord", () => {
     const error = await failure(openRecord(await newKey(), OBJECT_KEY, record));
     expect(error.message).toContain(`${OBJECT_KEY} holds a secret that is not sealed`);
   });
+
+  // Alchemy reads every object with the field as a secret, whatever else the object holds.
+  it("takes a __redacted__ field beside other fields as a secret", async () => {
+    const key = await newKey();
+    const odd = JSON.stringify({ value: { __redacted__: "beside-other-fields", note: "plain" } });
+    const sealed = await Effect.runPromise(sealRecord(key, OBJECT_KEY, odd));
+    expect(sealed).not.toContain("beside-other-fields");
+    expect(sealed).toContain('"note": "plain"');
+    expect(JSON.parse(await Effect.runPromise(openRecord(key, OBJECT_KEY, sealed)))).toEqual(
+      JSON.parse(odd),
+    );
+    const error = await failure(openRecord(key, OBJECT_KEY, odd));
+    expect(error.message).toContain("holds a secret that is not sealed");
+  });
 });
 
 describe("parseKey", () => {

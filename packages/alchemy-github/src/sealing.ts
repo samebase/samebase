@@ -54,20 +54,20 @@ export const parseKey = (text: string | undefined) =>
     );
   });
 
-/** `value` with `f` applied to the inner value of each `{"__redacted__": X}` in it. */
+/**
+ * `value` with `f` applied to each `__redacted__` field in it. Alchemy reads every object with
+ * that field as a secret, also when the object has other fields, so every such field is one here.
+ */
 const mapSecrets = (
   value: unknown,
   f: (inner: unknown) => Effect.Effect<unknown, StateStoreError>,
 ): Effect.Effect<unknown, StateStoreError> => {
   if (Array.isArray(value)) return Effect.forEach(value, (item) => mapSecrets(item, f));
   if (typeof value !== "object" || value === null) return Effect.succeed(value);
-  const entries = Object.entries(value);
-  const [first] = entries;
-  if (entries.length === 1 && first?.[0] === REDACTED_MARKER) {
-    return f(first[1]).pipe(Effect.map((inner) => ({ [REDACTED_MARKER]: inner })));
-  }
-  return Effect.forEach(entries, ([name, item]) =>
-    mapSecrets(item, f).pipe(Effect.map((mapped) => [name, mapped] as const)),
+  return Effect.forEach(Object.entries(value), ([name, item]) =>
+    (name === REDACTED_MARKER ? f(item) : mapSecrets(item, f)).pipe(
+      Effect.map((mapped) => [name, mapped] as const),
+    ),
   ).pipe(Effect.map(Object.fromEntries));
 };
 
