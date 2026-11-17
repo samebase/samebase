@@ -1,14 +1,16 @@
 // The store against an in-memory GitHub that can answer a ref read with the head before the last.
 import { createHash } from "node:crypto";
+import { State } from "alchemy/State";
 import type { BucketObjects } from "alchemy/State/BucketState";
 import * as Effect from "effect/Effect";
 import * as HttpClient from "effect/http/HttpClient";
 import * as HttpClientResponse from "effect/http/HttpClientResponse";
 import * as Layer from "effect/Layer";
+import * as Redacted from "effect/Redacted";
 import * as Schema from "effect/Schema";
 import { describe, expect, it, vi } from "vitest";
 import { blobSha } from "../../src/github-state/git.ts";
-import { makeGitHubObjects } from "../../src/github-state/GitHubState.ts";
+import { makeGitHubObjects, state } from "../../src/github-state/GitHubState.ts";
 
 const TreeBody = Schema.Struct({
   base_tree: Schema.optional(Schema.String),
@@ -174,6 +176,45 @@ describe("makeGitHubObjects", () => {
     );
     expect(result.read?.text).toBe("two");
     expect([...result.keys].sort()).toEqual(["app/prod/A.json", "app/prod/Other.json"]);
+  });
+
+  it("lists a stack whose name has a slash, and its stages", async () => {
+    const github = fakeGitHub();
+    const result = await Effect.runPromise(
+      Effect.gen(function* () {
+        const objects = yield* makeGitHubObjects({ repository: "o/r" });
+        for (const key of [
+          "owner/name/prod/Deployment.json",
+          "owner/name/pr-4/__stack_output__.json",
+          "owner/name/web/prod/Worker.json",
+          "spike/demo/Label.json",
+          "README.md",
+          "owner/notes.json",
+        ]) {
+          yield* objects.write(key, "{}");
+        }
+        const store = yield* yield* State;
+        return {
+          stacks: yield* store.listStacks(),
+          stages: yield* store.listStages("owner/name"),
+          none: yield* store.listStages("owner"),
+        };
+      }).pipe(
+        Effect.provide(
+          state({
+            repository: "o/r",
+            key: Redacted.make(Buffer.alloc(32).toString("base64")),
+          }),
+        ),
+        Effect.scoped,
+        Effect.provide(github.layer),
+      ),
+    );
+    expect(result).toEqual({
+      stacks: ["owner/name", "owner/name/web", "spike"],
+      stages: ["pr-4", "prod"],
+      none: [],
+    });
   });
 
   it("fails a call whose rate limit answer gives a date to wait for", async () => {

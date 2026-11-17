@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.1
+
+- The GitHub state store lists a stack whose name has a `/`, such as `owner/name`, with its whole
+  name, and lists only the stages of that stack. Before, the list of stacks gave `owner`, so the
+  `alchemy state` commands and a tool that lists the stacks found no stack with such a name.
+
 ## 0.2.0
 
 - New entry `@samebase/alchemy-kit/run-record`: `withRunRecord` adds the record of the run to each

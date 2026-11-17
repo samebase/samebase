@@ -533,11 +533,44 @@ export const state = (
               Effect.flatMap((text) => objects.write(objectKey, text, condition)),
             ),
         };
-        return yield* makeBucketState({
+        const bucket = yield* makeBucketState({
           id: "github",
           label: "GitHub",
           objects: Effect.succeed(sealed),
         });
+        // A state file is `{stack}/{stage}/{file}.json`, and a stack name can hold `/`, such as
+        // `owner/name` beside `owner/name/web`. BucketState lists the first folder below a path,
+        // which gives `owner` as a stack and `web` as a stage of `owner/name`. So both lists come
+        // from the file paths. The call to BucketState stays for its check of the held leases.
+        const stages = objects.listKeys("").pipe(
+          Effect.map((keys) =>
+            keys.flatMap((key) => {
+              const [file, stage, ...stack] = key.split("/").reverse();
+              return stage === undefined || stack.length === 0 || !file?.endsWith(".json")
+                ? []
+                : [{ stack: stack.reverse().join("/"), stage }];
+            }),
+          ),
+        );
+        return {
+          ...bucket,
+          listStacks: () =>
+            bucket.listStacks().pipe(
+              Effect.andThen(stages),
+              Effect.map((found) => [...new Set(found.map(({ stack }) => stack))].sort()),
+            ),
+          listStages: (stack: string) =>
+            bucket.listStages(stack).pipe(
+              Effect.andThen(stages),
+              Effect.map((found) =>
+                [
+                  ...new Set(
+                    found.flatMap((entry) => (entry.stack === stack ? [entry.stage] : [])),
+                  ),
+                ].sort(),
+              ),
+            ),
+        };
       });
       return yield* Effect.cached(
         Scope.provide(make, scope).pipe(Effect.orDie, Effect.provideContext(context)),
