@@ -108,11 +108,11 @@ The sealing is the package's own until Alchemy releases state encryption
 ### From your laptop
 
 The store reads the token and the key from the environment of the process. A `.env` file does not
-set them.
+set them. Keep the key in a file that git ignores, here `.state-key`.
 
 ```sh
 export GITHUB_TOKEN="$(gh auth token)"
-export ALCHEMY_GITHUB_STATE_KEY="$(cat .state-key)" # a file that git ignores
+export ALCHEMY_GITHUB_STATE_KEY="$(cat .state-key)"
 pnpm exec alchemy deploy --stage dev-me
 ```
 
@@ -131,17 +131,18 @@ alchemy-state-store-lock            the deploy lock of each stage
 ```
 
 Both are orphan branches: they share no history with your code. A resource file is plain JSON,
-except its secrets:
+except its secrets. This is `my-app/prod/ApiKey.json`, shortened:
 
-```jsonc
-// my-app/prod/ApiKey.json, shortened
+```json
 {
   "status": "created",
   "resourceType": "Alchemy.Random",
   "props": { "bytes": 16 },
   "attr": {
-    "text": { "__redacted__": { "__sealed__": "v1.<iv>.<ciphertext>" } },
-  },
+    "text": {
+      "__redacted__": { "__sealed__": "v1.<iv>.<ciphertext>" }
+    }
+  }
 }
 ```
 
