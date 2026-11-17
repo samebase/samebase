@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vite-plus/test";
 
 import { api, internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
-import { makeConvexTest } from "../test.setup";
+import { makeConvexTest, signInTestUser } from "../test.setup";
 import { sha256Hex } from "./tokens";
 
 const now = 10_000;
@@ -11,11 +11,8 @@ const handoffToken = `agbh_${"a".repeat(43)}`;
 
 type ConvexTest = ReturnType<typeof makeConvexTest>;
 
-function asUser(t: ConvexTest, userId: Id<"users">) {
-  return t.withIdentity({
-    subject: userId,
-    tokenIdentifier: `test:${userId}`,
-  });
+async function asUser(t: ConvexTest, userId: Id<"users">) {
+  return t.withIdentity(await signInTestUser(t, userId));
 }
 
 async function seedGrants() {
@@ -113,7 +110,7 @@ async function seedGrants() {
 describe("MCP grant management", () => {
   it("paginates only the current user's active grants in newest-first order", async () => {
     const { ids, t } = await seedGrants();
-    const owner = asUser(t, ids.ownerId);
+    const owner = await asUser(t, ids.ownerId);
 
     const firstPage = await owner.query(api.mcp.grants.listCurrentUserGrants, {
       paginationOpts: { cursor: null, numItems: 1 },
@@ -148,8 +145,8 @@ describe("MCP grant management", () => {
 
   it("lets only the owner revoke a grant and audits the transition once", async () => {
     const { ids, t } = await seedGrants();
-    const owner = asUser(t, ids.ownerId);
-    const other = asUser(t, ids.otherUserId);
+    const owner = await asUser(t, ids.ownerId);
+    const other = await asUser(t, ids.otherUserId);
 
     await expect(
       other.mutation(api.mcp.grants.revokeCurrentUserGrant, { grantId: "mcpg_older" }),
@@ -186,8 +183,12 @@ describe("MCP grant management", () => {
   });
 
   it("blocks every credential derived from a revoked grant immediately", async () => {
+    // convex-test never runs a transaction at a time before the last commit, so the seed writes
+    // commit before the time that the handoff sign-in reads.
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(0);
     const { ids, t } = await seedGrants();
-    const owner = asUser(t, ids.ownerId);
+    const owner = await asUser(t, ids.ownerId);
     await t.run(async (ctx) => {
       await ctx.db.insert("mcpAccessTokens", {
         clientId: "mcpc_named",
@@ -248,7 +249,6 @@ describe("MCP grant management", () => {
       ok: false,
       status: 400,
     });
-    vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(now + 1);
     await expect(
       t.mutation(api.agentBrowserHandoff.signInWithAgentBrowserHandoff, { token: handoffToken }),

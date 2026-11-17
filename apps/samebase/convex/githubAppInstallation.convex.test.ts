@@ -31,6 +31,7 @@ import {
   insertTestOrganizationBillingAccount,
   makeConvexTest,
   sealTestCredentials,
+  signInTestUser,
   testCredential,
 } from "./test.setup";
 import { openSecret } from "./sealedSecret";
@@ -115,11 +116,8 @@ async function insertAuthorizedUser(
   return { authorizationId, userId };
 }
 
-function asUser(t: ReturnType<typeof makeConvexTest>, userId: Id<"users">) {
-  return t.withIdentity({
-    subject: userId,
-    tokenIdentifier: `test:${userId}`,
-  });
+async function asUser(t: ReturnType<typeof makeConvexTest>, userId: Id<"users">) {
+  return t.withIdentity(await signInTestUser(t, userId));
 }
 
 const HUB_ISSUER = "https://hub.example.test";
@@ -168,7 +166,7 @@ describe("GitHub App setup", () => {
     const userId = await t.run(async (ctx) => await insertUser(ctx, "no-github@example.test"));
 
     await expect(
-      asUser(t, userId).mutation(api.githubAppInstallation.getGitHubUserAuthorizationUrl, {
+      (await asUser(t, userId)).mutation(api.githubAppInstallation.getGitHubUserAuthorizationUrl, {
         returnToPath: "/org",
       }),
     ).rejects.toThrow("A linked GitHub sign-in is required.");
@@ -189,10 +187,11 @@ describe("GitHub App setup", () => {
       return userId;
     });
 
-    const result = await asUser(t, userId).mutation(
-      api.githubAppInstallation.getGitHubUserAuthorizationUrl,
-      { returnToPath: "/org?prod-ui" },
-    );
+    const result = await (
+      await asUser(t, userId)
+    ).mutation(api.githubAppInstallation.getGitHubUserAuthorizationUrl, {
+      returnToPath: "/org?prod-ui",
+    });
     const setupUrl = new URL(result.setupUrl);
     const state = setupUrl.searchParams.get("state");
     expect(setupUrl.origin + setupUrl.pathname).toBe(`${HUB_ISSUER}/authorize`);
@@ -232,7 +231,7 @@ describe("GitHub App setup", () => {
     });
 
     await expect(
-      asUser(t, userId).mutation(api.githubAppInstallation.getGitHubAppInstallationUrl, {
+      (await asUser(t, userId)).mutation(api.githubAppInstallation.getGitHubAppInstallationUrl, {
         returnToPath: "/org",
       }),
     ).rejects.toThrow("github-authorization-required");
@@ -252,7 +251,7 @@ describe("GitHub App setup", () => {
     });
 
     await expect(
-      asUser(t, userId).mutation(api.githubAppInstallation.getGitHubAppInstallationUrl, {
+      (await asUser(t, userId)).mutation(api.githubAppInstallation.getGitHubAppInstallationUrl, {
         returnToPath: "/org",
       }),
     ).rejects.toThrow("github-authorization-required");

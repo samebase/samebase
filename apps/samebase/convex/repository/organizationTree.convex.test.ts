@@ -2,7 +2,11 @@ import { describe, expect, it } from "vite-plus/test";
 
 import { api } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
-import { insertTestOrganizationBillingAccount, makeConvexTest } from "../test.setup";
+import {
+  insertTestOrganizationBillingAccount,
+  makeConvexTest,
+  signInTestUser,
+} from "../test.setup";
 
 async function seedUser(t: ReturnType<typeof makeConvexTest>, email: string) {
   return await t.run(async (ctx) => {
@@ -38,11 +42,8 @@ async function seedOrganization(
   });
 }
 
-function asUser(t: ReturnType<typeof makeConvexTest>, userId: Id<"users">) {
-  return t.withIdentity({
-    subject: userId,
-    tokenIdentifier: `test:${userId}`,
-  });
+async function asUser(t: ReturnType<typeof makeConvexTest>, userId: Id<"users">) {
+  return t.withIdentity(await signInTestUser(t, userId));
 }
 
 describe("repository organization tree settings", () => {
@@ -58,8 +59,8 @@ describe("repository organization tree settings", () => {
         userId: secondUserId,
       });
     });
-    const firstViewer = asUser(t, firstUserId);
-    const secondViewer = asUser(t, secondUserId);
+    const firstViewer = await asUser(t, firstUserId);
+    const secondViewer = await asUser(t, secondUserId);
 
     await firstViewer.mutation(api.repository.organizationTree.setRepositoryOrganizationCollapsed, {
       collapsed: true,
@@ -93,7 +94,7 @@ describe("repository organization tree settings", () => {
     const t = makeConvexTest();
     const userId = await seedUser(t, "ada@example.com");
     const organizationId = await seedOrganization(t, { owner: "samebase", userId });
-    const viewer = asUser(t, userId);
+    const viewer = await asUser(t, userId);
     await viewer.mutation(api.repository.organizationTree.setRepositoryOrganizationCollapsed, {
       collapsed: true,
       organizationId,

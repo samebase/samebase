@@ -1,0 +1,527 @@
+diff --git a/dist/components/oauth/_generated/component.d.ts b/dist/components/oauth/_generated/component.d.ts
+index eadbc710bc0536dad92391e86915b13aac85f808..5a8a405d3ac8f76de81fa4495fb98e3029d87ae0 100644
+--- a/dist/components/oauth/_generated/component.d.ts
++++ b/dist/components/oauth/_generated/component.d.ts
+@@ -43,6 +43,12 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
+         }, null | {
+             encryptedPayload: string;
+         }, Name>;
++        /** Samebase patch for 2.0.0, part b: see `deleteUserAccounts` in components/oauth/provider.js. */
++        deleteUserAccounts: FunctionReference<"mutation", "internal", {
++            userId: string;
++        }, {
++            deleted: number;
++        }, Name>;
+         getUserIdByAccount: FunctionReference<"query", "internal", {
+             providerAccountId: string;
+         }, string | null, Name>;
+diff --git a/dist/components/oauth/provider.d.ts b/dist/components/oauth/provider.d.ts
+index 71158b85fd311de0eaf0a739f920d4636feffdcd..60d1d1dbe88cf452d51a85c1d311856be0cd54f0 100644
+--- a/dist/components/oauth/provider.d.ts
++++ b/dist/components/oauth/provider.d.ts
+@@ -100,4 +100,13 @@ export declare const _internal_dangerous_createAccount: import("convex/server").
+     userId: string;
+     providerAccountId: string;
+ }, Promise<null>>;
++/**
++ * Samebase patch for 2.0.0, part b: see `deleteUserAccounts` in provider.js.
++ * Remove when https://github.com/convex/convex-auth/pull/925 ships.
++ */
++export declare const deleteUserAccounts: import("convex/server").RegisteredMutation<"public", {
++    userId: string;
++}, Promise<{
++    deleted: number;
++}>>;
+ //# sourceMappingURL=provider.d.ts.map
+\ No newline at end of file
+diff --git a/dist/components/oauth/provider.js b/dist/components/oauth/provider.js
+index cd3da2e092fa081fb09df8dfead27015803e3f0d..3f18c93a940aaf5b0c846d40ed1df1c472454870 100644
+--- a/dist/components/oauth/provider.js
++++ b/dist/components/oauth/provider.js
+@@ -143,4 +143,26 @@ export const _internal_dangerous_createAccount = mutation({
+     returns: v.null(),
+     handler: async (ctx, args) => await dbHelpers.insertAccount(ctx, args),
+ });
++/**
++ * Samebase patch for 2.0.0, part b: the same function as in
++ * https://github.com/convex/convex-auth/pull/925. Remove when that pull
++ * request ships.
++ *
++ * Delete every account of an app user, for an app that deletes the user.
++ * Returns how many there were; `0` when the user connected none.
++ */
++export const deleteUserAccounts = mutation({
++    args: { userId: v.string() },
++    returns: v.object({ deleted: v.number() }),
++    handler: async (ctx, { userId }) => {
++        const accounts = await ctx.db
++            .query("accounts")
++            .withIndex("userId", (q) => q.eq("userId", userId))
++            .collect();
++        for (const account of accounts) {
++            await ctx.db.delete("accounts", account._id);
++        }
++        return { deleted: accounts.length };
++    },
++});
+ //# sourceMappingURL=provider.js.map
+\ No newline at end of file
+diff --git a/dist/components/oauth/schema.d.ts b/dist/components/oauth/schema.d.ts
+index a6a3201d8239d907dac2346a385d96c44ce9600a..bfa3def1e0afab2d42779be7d48db6e12e9477b8 100644
+--- a/dist/components/oauth/schema.d.ts
++++ b/dist/components/oauth/schema.d.ts
+@@ -57,6 +57,8 @@ declare const _default: import("convex/server").SchemaDefinition<{
+         userId: import("convex/values").VString<string, "required">;
+     }, "required", "userId" | "providerAccountId">, {
+         providerAccountId: ["providerAccountId", "_creationTime"];
++        /** Samebase patch for 2.0.0, part b: see `accountsTable` in lib/oauth/schema.js. */
++        userId: ["userId", "_creationTime"];
+     }, {}, {}>;
+ }, true>;
+ export default _default;
+diff --git a/dist/components/password/_generated/component.d.ts b/dist/components/password/_generated/component.d.ts
+index 803786467e1a758891a595e10a1a0187cd255625..ce35eadb333af5ef1cd19feb6b25474e1ae9aa55 100644
+--- a/dist/components/password/_generated/component.d.ts
++++ b/dist/components/password/_generated/component.d.ts
+@@ -20,6 +20,10 @@ import type { FunctionReference } from "convex/server";
+  */
+ export type ComponentApi<Name extends string | undefined = string | undefined> = {
+     public: {
++        /** Samebase patch for 2.0.0, part c: see `deleteUser` in components/password/public.js. */
++        deleteUser: FunctionReference<"mutation", "internal", {
++            userId: string;
++        }, null, Name>;
+         _internal_dangerous_setPassword: FunctionReference<"mutation", "internal", {
+             minimumLength: number;
+             password: string;
+diff --git a/dist/components/password/public.d.ts b/dist/components/password/public.d.ts
+index 39e5e269af3dfa1b2e417e62475efd7f9190a54e..7560da27e21b0dbea5b3c32f38af66d71c590617 100644
+--- a/dist/components/password/public.d.ts
++++ b/dist/components/password/public.d.ts
+@@ -67,4 +67,11 @@ export declare const verifyPassword: import("convex/server").RegisteredMutation<
+     };
+     success: false;
+ }>>;
++/**
++ * Samebase patch for 2.0.0, part c: see `deleteUser` in public.js. No
++ * upstream pull request covers it yet.
++ */
++export declare const deleteUser: import("convex/server").RegisteredMutation<"public", {
++    userId: string;
++}, Promise<null>>;
+ //# sourceMappingURL=public.d.ts.map
+\ No newline at end of file
+diff --git a/dist/components/password/public.js b/dist/components/password/public.js
+index 79a7cc5c03b35bb9d96e2f2194315783d1e7344c..dd5348345f94555db2b7893992e9753e0509c655 100644
+--- a/dist/components/password/public.js
++++ b/dist/components/password/public.js
+@@ -116,6 +116,26 @@ export const verifyPassword = mutation({
+         return { success: true };
+     },
+ });
++/**
++ * Samebase patch for 2.0.0, part c. No upstream pull request covers it yet.
++ * Gap: the password component has no deletion by user id, so a deleted
++ * user's password hash stays.
++ *
++ * Delete the stored password and the verifyPassword rate limit of a user.
++ * Idempotent.
++ */
++export const deleteUser = mutation({
++    args: { userId: v.string() },
++    returns: v.null(),
++    handler: async (ctx, { userId }) => {
++        const row = await passwordByUserId(ctx, userId);
++        if (row !== null) {
++            await ctx.db.delete("passwords", row._id);
++        }
++        await rateLimiter.reset(ctx, "verifyPassword", { key: userId });
++        return null;
++    },
++});
+ function passwordByUserId(ctx, userId) {
+     return ctx.db
+         .query("passwords")
+diff --git a/dist/internal-types/components/oauth/_generated/component.d.ts b/dist/internal-types/components/oauth/_generated/component.d.ts
+index eadbc710bc0536dad92391e86915b13aac85f808..5a8a405d3ac8f76de81fa4495fb98e3029d87ae0 100644
+--- a/dist/internal-types/components/oauth/_generated/component.d.ts
++++ b/dist/internal-types/components/oauth/_generated/component.d.ts
+@@ -43,6 +43,12 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
+         }, null | {
+             encryptedPayload: string;
+         }, Name>;
++        /** Samebase patch for 2.0.0, part b: see `deleteUserAccounts` in components/oauth/provider.js. */
++        deleteUserAccounts: FunctionReference<"mutation", "internal", {
++            userId: string;
++        }, {
++            deleted: number;
++        }, Name>;
+         getUserIdByAccount: FunctionReference<"query", "internal", {
+             providerAccountId: string;
+         }, string | null, Name>;
+diff --git a/dist/internal-types/components/oauth/provider.d.ts b/dist/internal-types/components/oauth/provider.d.ts
+index 71158b85fd311de0eaf0a739f920d4636feffdcd..60d1d1dbe88cf452d51a85c1d311856be0cd54f0 100644
+--- a/dist/internal-types/components/oauth/provider.d.ts
++++ b/dist/internal-types/components/oauth/provider.d.ts
+@@ -100,4 +100,13 @@ export declare const _internal_dangerous_createAccount: import("convex/server").
+     userId: string;
+     providerAccountId: string;
+ }, Promise<null>>;
++/**
++ * Samebase patch for 2.0.0, part b: see `deleteUserAccounts` in provider.js.
++ * Remove when https://github.com/convex/convex-auth/pull/925 ships.
++ */
++export declare const deleteUserAccounts: import("convex/server").RegisteredMutation<"public", {
++    userId: string;
++}, Promise<{
++    deleted: number;
++}>>;
+ //# sourceMappingURL=provider.d.ts.map
+\ No newline at end of file
+diff --git a/dist/internal-types/components/oauth/schema.d.ts b/dist/internal-types/components/oauth/schema.d.ts
+index a6a3201d8239d907dac2346a385d96c44ce9600a..bfa3def1e0afab2d42779be7d48db6e12e9477b8 100644
+--- a/dist/internal-types/components/oauth/schema.d.ts
++++ b/dist/internal-types/components/oauth/schema.d.ts
+@@ -57,6 +57,8 @@ declare const _default: import("convex/server").SchemaDefinition<{
+         userId: import("convex/values").VString<string, "required">;
+     }, "required", "userId" | "providerAccountId">, {
+         providerAccountId: ["providerAccountId", "_creationTime"];
++        /** Samebase patch for 2.0.0, part b: see `accountsTable` in lib/oauth/schema.js. */
++        userId: ["userId", "_creationTime"];
+     }, {}, {}>;
+ }, true>;
+ export default _default;
+diff --git a/dist/internal-types/components/password/_generated/component.d.ts b/dist/internal-types/components/password/_generated/component.d.ts
+index 803786467e1a758891a595e10a1a0187cd255625..ce35eadb333af5ef1cd19feb6b25474e1ae9aa55 100644
+--- a/dist/internal-types/components/password/_generated/component.d.ts
++++ b/dist/internal-types/components/password/_generated/component.d.ts
+@@ -20,6 +20,10 @@ import type { FunctionReference } from "convex/server";
+  */
+ export type ComponentApi<Name extends string | undefined = string | undefined> = {
+     public: {
++        /** Samebase patch for 2.0.0, part c: see `deleteUser` in components/password/public.js. */
++        deleteUser: FunctionReference<"mutation", "internal", {
++            userId: string;
++        }, null, Name>;
+         _internal_dangerous_setPassword: FunctionReference<"mutation", "internal", {
+             minimumLength: number;
+             password: string;
+diff --git a/dist/internal-types/components/password/public.d.ts b/dist/internal-types/components/password/public.d.ts
+index 39e5e269af3dfa1b2e417e62475efd7f9190a54e..7560da27e21b0dbea5b3c32f38af66d71c590617 100644
+--- a/dist/internal-types/components/password/public.d.ts
++++ b/dist/internal-types/components/password/public.d.ts
+@@ -67,4 +67,11 @@ export declare const verifyPassword: import("convex/server").RegisteredMutation<
+     };
+     success: false;
+ }>>;
++/**
++ * Samebase patch for 2.0.0, part c: see `deleteUser` in public.js. No
++ * upstream pull request covers it yet.
++ */
++export declare const deleteUser: import("convex/server").RegisteredMutation<"public", {
++    userId: string;
++}, Promise<null>>;
+ //# sourceMappingURL=public.d.ts.map
+\ No newline at end of file
+diff --git a/dist/internal-types/lib/oauth/schema.d.ts b/dist/internal-types/lib/oauth/schema.d.ts
+index f8867b3f9f8b85f3dc9b02c331072b7d5ba5c186..a034eed54349ddd8e68957aa07254ce58453b4b4 100644
+--- a/dist/internal-types/lib/oauth/schema.d.ts
++++ b/dist/internal-types/lib/oauth/schema.d.ts
+@@ -124,5 +124,7 @@ export declare const accountsTable: import("convex/server").TableDefinition<impo
+     userId: import("convex/values").VString<string, "required">;
+ }, "required", "userId" | "providerAccountId">, {
+     providerAccountId: ["providerAccountId", "_creationTime"];
++    /** Samebase patch for 2.0.0, part b: see `accountsTable` in schema.js. */
++    userId: ["userId", "_creationTime"];
+ }, {}, {}>;
+ //# sourceMappingURL=schema.d.ts.map
+\ No newline at end of file
+diff --git a/dist/lib/oauth/schema.d.ts b/dist/lib/oauth/schema.d.ts
+index f8867b3f9f8b85f3dc9b02c331072b7d5ba5c186..a034eed54349ddd8e68957aa07254ce58453b4b4 100644
+--- a/dist/lib/oauth/schema.d.ts
++++ b/dist/lib/oauth/schema.d.ts
+@@ -124,5 +124,7 @@ export declare const accountsTable: import("convex/server").TableDefinition<impo
+     userId: import("convex/values").VString<string, "required">;
+ }, "required", "userId" | "providerAccountId">, {
+     providerAccountId: ["providerAccountId", "_creationTime"];
++    /** Samebase patch for 2.0.0, part b: see `accountsTable` in schema.js. */
++    userId: ["userId", "_creationTime"];
+ }, {}, {}>;
+ //# sourceMappingURL=schema.d.ts.map
+\ No newline at end of file
+diff --git a/dist/lib/oauth/schema.js b/dist/lib/oauth/schema.js
+index 6dd8caa254da51386747ca5a4b71c2eff3ca8f50..9c831fb36bdf46348e982bb6b51e4daeca1f51a6 100644
+--- a/dist/lib/oauth/schema.js
++++ b/dist/lib/oauth/schema.js
+@@ -70,5 +70,9 @@ export const accountFields = {
+     /** The app user id returned by the app's `createUser` callback. */
+     userId: v.string(),
+ };
+-export const accountsTable = defineTable(accountFields).index("providerAccountId", ["providerAccountId"]);
++// Samebase patch for 2.0.0, part b: the `userId` index serves `deleteUserAccounts` of the oauth
++// component. Remove when https://github.com/convex/convex-auth/pull/925 ships.
++export const accountsTable = defineTable(accountFields)
++    .index("providerAccountId", ["providerAccountId"])
++    .index("userId", ["userId"]);
+ //# sourceMappingURL=schema.js.map
+\ No newline at end of file
+diff --git a/dist/methods/oauth/react.d.ts b/dist/methods/oauth/react.d.ts
+index 4dc5d1701c715d7c7da4c336e8fcfd40ba91bcbe..b9c5b48737029822060908b4f030a27e11136da5 100644
+--- a/dist/methods/oauth/react.d.ts
++++ b/dist/methods/oauth/react.d.ts
+@@ -1,4 +1,4 @@
+-import { type OauthCompleteResult, type OauthFlowError, type OauthStartResult, type SignInOptions } from "./client.ts";
++import { type OauthCompleteResult, type OauthFlowError, type OauthProviderRefs, type OauthStartResult, type SignInOptions } from "./client.ts";
+ export { oauth } from "./client.ts";
+ export type { OauthActions, OauthCompleteResult, OauthFlowError, OauthProviderApi, OauthProviderRefs, OauthStartResult, SignInOptions, } from "./client.ts";
+ /** What {@link useOauth} returns. */
+@@ -38,4 +38,14 @@ export type UseOauthSignInReturn = {
+         }): Promise<OauthStartResult>;
+     };
+ };
++/**
++ * Samebase patch for 2.0.0, part a: the declaration of `useOauthSignIn`, which
++ * the public types of 2.0.0 leave out (it is `@internal`), copied from
++ * dist/internal-types/methods/oauth/react.d.ts. Remove when
++ * https://github.com/convex/convex-auth/pull/849 brings the custom OAuth API
++ * back.
++ *
++ * Run one OAuth provider's sign-in flow from its function references.
++ */
++export declare function useOauthSignIn(refs: OauthProviderRefs): UseOauthSignInReturn;
+ //# sourceMappingURL=react.d.ts.map
+\ No newline at end of file
+diff --git a/dist/methods/oauth/server.d.ts b/dist/methods/oauth/server.d.ts
+index 28a5a67deb03e3f11cdaa6826347e04d8b69381b..9250f87e8dd755aa53ad2c254d027b88bdcaf9ea 100644
+--- a/dist/methods/oauth/server.d.ts
++++ b/dist/methods/oauth/server.d.ts
+@@ -1,3 +1,5 @@
++import type { UserCallbacks } from "../../lib/types.ts";
++import type { AuthCore } from "../../server/setup.ts";
+ import type { ComponentApi } from "../../components/oauth/_generated/component.ts";
+ import type { CallbackMethod } from "../../lib/oauth/http.ts";
+ import { type OidcClaims } from "../../lib/oauth/redemption.ts";
+@@ -94,4 +96,40 @@ export type OauthOptions = {
+      */
+     allowedRedirectOrigins: string[];
+ };
++/**
++ * Samebase patch for 2.0.0, part a: the declaration of `setupOauth`, which the
++ * public types of 2.0.0 leave out (it is `@internal`), copied from
++ * dist/internal-types/methods/oauth/server.d.ts. Remove when
++ * https://github.com/convex/convex-auth/pull/849 brings the custom OAuth API
++ * back.
++ *
++ * Set up OAuth sign-in against a single upstream identity provider.
++ */
++export declare function setupOauth<Provider extends string, Profile extends {
++    id: string;
++}, UsersTable extends string, UserInfo extends Record<string, unknown> = Record<string, unknown>>(core: AuthCore<UsersTable>, providerName: Provider, catalog: OauthCatalog<Profile, UserInfo>, callbacks: UserCallbacks<Provider, Profile, UsersTable>, options: OauthOptions): {
++    startSignIn: import("convex/server").RegisteredMutation<"public", {
++        redirectTo: string;
++    }, Promise<{
++        redirect: string;
++        state: string;
++    }>>;
++    completeSignIn: import("convex/server").RegisteredMutation<"public", {
++        state: string;
++        code: string;
++    }, Promise<{
++        status: "complete";
++        tokens: {
++            accessToken: string;
++            refreshToken: string;
++            refreshTokenExpiresAt: number;
++            userId: string;
++        };
++    } | {
++        status: "error";
++        userError: {
++            error: "INVALID_CODE";
++        };
++    }>>;
++};
+ //# sourceMappingURL=server.d.ts.map
+\ No newline at end of file
+diff --git a/package.json b/package.json
+index a8f79b034c9ad88c23b01ce03286c750bbbe7a35..088e47567c1045d65236cd7f82087bf2fee9e9e1 100644
+--- a/package.json
++++ b/package.json
+@@ -27,6 +27,7 @@
+   ],
+   "type": "module",
+   "sideEffects": false,
++  "//": "Samebase patch for 2.0.0. Part a: the exports ./methods/oauth/server and ./components/oauth/* are back, as in 2.0.0-beta.0, because the identity hub sign-in of apps/samebase uses them. https://github.com/convex/convex-auth/pull/836 hid them; remove this part when https://github.com/convex/convex-auth/pull/849 brings the custom OAuth API back. Parts b and c are in the components/oauth and components/password sources.",
+   "exports": {
+     "./package.json": "./package.json",
+     ".": {
+@@ -163,6 +164,13 @@
+       "types": "./dist/methods/username-passkey/react-custom.d.ts",
+       "default": "./dist/methods/username-passkey/react-custom.js"
+     },
++    "./methods/oauth/server": {
++      "convex-auth-internal-types": {
++        "types": "./dist/internal-types/methods/oauth/server.d.ts"
++      },
++      "types": "./dist/methods/oauth/server.d.ts",
++      "default": "./dist/methods/oauth/server.js"
++    },
+     "./methods/oauth/react": {
+       "convex-auth-internal-types": {
+         "types": "./dist/internal-types/methods/oauth/react.d.ts"
+@@ -414,7 +422,36 @@
+       "types": "./dist/components/github/_generated/component.d.ts",
+       "default": "./dist/components/github/_generated/component.js"
+     },
+-    "./components/github/test": "./src/testing/github.ts"
++    "./components/github/test": "./src/testing/github.ts",
++    "./components/oauth/convex.config.js": {
++      "convex-auth-internal-types": {
++        "types": "./dist/internal-types/components/oauth/convex.config.d.ts"
++      },
++      "types": "./dist/components/oauth/convex.config.d.ts",
++      "default": "./dist/components/oauth/convex.config.js"
++    },
++    "./components/oauth/convex.config": {
++      "convex-auth-internal-types": {
++        "types": "./dist/internal-types/components/oauth/convex.config.d.ts"
++      },
++      "types": "./dist/components/oauth/convex.config.d.ts",
++      "default": "./dist/components/oauth/convex.config.js"
++    },
++    "./components/oauth/_generated/component.js": {
++      "convex-auth-internal-types": {
++        "types": "./dist/internal-types/components/oauth/_generated/component.d.ts"
++      },
++      "types": "./dist/components/oauth/_generated/component.d.ts",
++      "default": "./dist/components/oauth/_generated/component.js"
++    },
++    "./components/oauth/_generated/component": {
++      "convex-auth-internal-types": {
++        "types": "./dist/internal-types/components/oauth/_generated/component.d.ts"
++      },
++      "types": "./dist/components/oauth/_generated/component.d.ts",
++      "default": "./dist/components/oauth/_generated/component.js"
++    },
++    "./components/oauth/test": "./src/testing/oauth.ts"
+   },
+   "dependencies": {
+     "@convex-dev/batch-worker": "^0.3.2",
+diff --git a/src/components/oauth/_generated/component.ts b/src/components/oauth/_generated/component.ts
+index 3cf9949ab39ebab740b3e28a2ee13b086c48806b..ac05f7f60e9e1d9484d09dc53aea2e217416f1a4 100644
+--- a/src/components/oauth/_generated/component.ts
++++ b/src/components/oauth/_generated/component.ts
+@@ -53,6 +53,14 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
+         null | { encryptedPayload: string },
+         Name
+       >;
++      /** Samebase patch for 2.0.0, part b: see `deleteUserAccounts` in ../provider.ts. */
++      deleteUserAccounts: FunctionReference<
++        "mutation",
++        "internal",
++        { userId: string },
++        { deleted: number },
++        Name
++      >;
+       getUserIdByAccount: FunctionReference<
+         "query",
+         "internal",
+diff --git a/src/components/oauth/provider.ts b/src/components/oauth/provider.ts
+index abe1597cd044f752c68ecac661b5ed894e80527d..9ed078db0a20a5dd44370ca9699711a5a01d472e 100644
+--- a/src/components/oauth/provider.ts
++++ b/src/components/oauth/provider.ts
+@@ -165,3 +165,26 @@ export const _internal_dangerous_createAccount = mutation({
+   handler: async (ctx, args) =>
+     await dbHelpers.insertAccount<Doc<"accounts">>(ctx, args),
+ });
++
++/**
++ * Samebase patch for 2.0.0, part b: the same function as in
++ * https://github.com/convex/convex-auth/pull/925. Remove when that pull
++ * request ships.
++ *
++ * Delete every account of an app user, for an app that deletes the user.
++ * Returns how many there were; `0` when the user connected none.
++ */
++export const deleteUserAccounts = mutation({
++  args: { userId: v.string() },
++  returns: v.object({ deleted: v.number() }),
++  handler: async (ctx, { userId }) => {
++    const accounts = await ctx.db
++      .query("accounts")
++      .withIndex("userId", (q) => q.eq("userId", userId))
++      .collect();
++    for (const account of accounts) {
++      await ctx.db.delete("accounts", account._id);
++    }
++    return { deleted: accounts.length };
++  },
++});
+diff --git a/src/components/password/_generated/component.ts b/src/components/password/_generated/component.ts
+index 7676907be53be9e5623a66fe051cc505ac4dcfff..109c1a8ab1fbac416a0c3e042dc0f0cb5b816106 100644
+--- a/src/components/password/_generated/component.ts
++++ b/src/components/password/_generated/component.ts
+@@ -24,6 +24,14 @@ import type { FunctionReference } from "convex/server";
+ export type ComponentApi<Name extends string | undefined = string | undefined> =
+   {
+     public: {
++      /** Samebase patch for 2.0.0, part c: see `deleteUser` in ../public.ts. */
++      deleteUser: FunctionReference<
++        "mutation",
++        "internal",
++        { userId: string },
++        null,
++        Name
++      >;
+       _internal_dangerous_setPassword: FunctionReference<
+         "mutation",
+         "internal",
+diff --git a/src/components/password/public.ts b/src/components/password/public.ts
+index 618c1bca4f9b9ae3f3b9976d730ace04c5fe0a37..f83b5832e4897cf3ccafca030899f7cb598c4575 100644
+--- a/src/components/password/public.ts
++++ b/src/components/password/public.ts
+@@ -153,6 +153,27 @@ export const verifyPassword = mutation({
+   },
+ });
+ 
++/**
++ * Samebase patch for 2.0.0, part c. No upstream pull request covers it yet.
++ * Gap: the password component has no deletion by user id, so a deleted
++ * user's password hash stays.
++ *
++ * Delete the stored password and the verifyPassword rate limit of a user.
++ * Idempotent.
++ */
++export const deleteUser = mutation({
++  args: { userId: v.string() },
++  returns: v.null(),
++  handler: async (ctx, { userId }) => {
++    const row = await passwordByUserId(ctx, userId);
++    if (row !== null) {
++      await ctx.db.delete("passwords", row._id);
++    }
++    await rateLimiter.reset(ctx, "verifyPassword", { key: userId });
++    return null;
++  },
++});
++
+ function passwordByUserId(
+   ctx: QueryCtx,
+   userId: string,
+diff --git a/src/lib/oauth/schema.ts b/src/lib/oauth/schema.ts
+index 9c5725ee2e2c8ef3031816df482f10b16a009fbc..313c29c2f4cad106da394d1118f2e7b8e4d1e033 100644
+--- a/src/lib/oauth/schema.ts
++++ b/src/lib/oauth/schema.ts
+@@ -78,7 +78,8 @@ export const accountFields = {
+   userId: v.string(),
+ };
+ 
+-export const accountsTable = defineTable(accountFields).index(
+-  "providerAccountId",
+-  ["providerAccountId"],
+-);
++// Samebase patch for 2.0.0, part b: the `userId` index serves `deleteUserAccounts` of the oauth
++// component. Remove when https://github.com/convex/convex-auth/pull/925 ships.
++export const accountsTable = defineTable(accountFields)
++  .index("providerAccountId", ["providerAccountId"])
++  .index("userId", ["userId"]);

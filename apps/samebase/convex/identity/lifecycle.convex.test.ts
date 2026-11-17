@@ -6,6 +6,7 @@ import type { MutationCtx } from "../_generated/server";
 import {
   insertTestOrganizationBillingAccount,
   makeConvexTest,
+  signInTestUser,
   testCredential,
 } from "../test.setup";
 import { resolveUserReferencePresentation } from "./lifecycle";
@@ -75,11 +76,8 @@ async function seedLifecycleUser(args: {
   return { t, userId };
 }
 
-function asUser(t: TestBackend, userId: Id<"users">) {
-  return t.withIdentity({
-    subject: userId,
-    tokenIdentifier: `test:${userId}`,
-  });
+async function asUser(t: TestBackend, userId: Id<"users">) {
+  return t.withIdentity(await signInTestUser(t, userId));
 }
 
 async function insertOrganizationRepositoryForUser(
@@ -191,7 +189,7 @@ describe("user lifecycle authorization", () => {
         termsAccepted: testCase.termsAccepted,
       });
       await expect(
-        asUser(t, userId).query(api.users.currentViewerAccess, {}),
+        (await asUser(t, userId)).query(api.users.currentViewerAccess, {}),
       ).resolves.toMatchObject({
         role: testCase.role,
         termsAccepted: testCase.termsAccepted !== false,
@@ -208,10 +206,7 @@ describe("user lifecycle authorization", () => {
     });
     const { organizationId, repositoryId } = await insertOrganizationRepositoryForUser(t, userId);
     await insertProviderConfiguration(t, { organizationId, userId });
-    const viewer = t.withIdentity({
-      subject: userId,
-      tokenIdentifier: `test:${userId}`,
-    });
+    const viewer = t.withIdentity(await signInTestUser(t, userId));
 
     await expect(viewer.query(api.users.currentViewerAccess, {})).resolves.toEqual({
       role: "role_terms_pending",
@@ -287,7 +282,7 @@ describe("user lifecycle authorization", () => {
       isApproved: false,
       termsAccepted: false,
     });
-    const viewer = asUser(t, userId);
+    const viewer = await asUser(t, userId);
 
     await expect(viewer.query(api.users.getSessionRecordingConsent, {})).rejects.toThrow(
       "Access denied",
@@ -351,7 +346,7 @@ describe("user lifecycle authorization", () => {
       isApproved: true,
       termsAccepted: false,
     });
-    const viewer = asUser(t, userId);
+    const viewer = await asUser(t, userId);
 
     await viewer.mutation(api.users.acceptCurrentTerms, {
       termsAccepted: true,
@@ -412,7 +407,7 @@ describe("user lifecycle authorization", () => {
       isApproved: true,
       termsAccepted: true,
     });
-    const viewer = asUser(t, userId);
+    const viewer = await asUser(t, userId);
 
     await expect(viewer.query(api.users.getProductUpdateEmailConsent, {})).resolves.toEqual({
       state: "not_decided",
@@ -432,7 +427,7 @@ describe("user lifecycle authorization", () => {
       isApproved: true,
     });
     await expect(
-      asUser(deleted.t, deleted.userId).query(api.users.currentViewerAccess, {}),
+      (await asUser(deleted.t, deleted.userId)).query(api.users.currentViewerAccess, {}),
     ).rejects.toMatchObject({ data: "authenticated-account-deleted" });
 
     const missing = await seedLifecycleUser({
@@ -442,7 +437,7 @@ describe("user lifecycle authorization", () => {
     });
     await missing.t.run(async (ctx) => await ctx.db.delete(missing.userId));
     await expect(
-      asUser(missing.t, missing.userId).query(api.users.currentViewerAccess, {}),
+      (await asUser(missing.t, missing.userId)).query(api.users.currentViewerAccess, {}),
     ).rejects.toMatchObject({ data: "authenticated-account-reference-invalid" });
   });
 

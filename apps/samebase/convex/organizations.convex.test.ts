@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
 
 import { api, internal } from "./_generated/api";
-import { makeConvexTest, testCredential } from "./test.setup";
+import { makeConvexTest, signInTestUser, testCredential } from "./test.setup";
 
 describe("GitHub-backed organizations", () => {
   it("denies organization inventory before account approval", async () => {
@@ -13,10 +13,7 @@ describe("GitHub-backed organizations", () => {
         isApproved: false,
       });
     });
-    const asPendingUser = t.withIdentity({
-      subject: userId,
-      tokenIdentifier: `test:${userId}`,
-    });
+    const asPendingUser = t.withIdentity(await signInTestUser(t, userId));
 
     await expect(asPendingUser.query(api.organizations.listForViewer, {})).rejects.toThrow(
       "Access denied",
@@ -282,10 +279,7 @@ describe("GitHub-backed organizations", () => {
     }
 
     const organizations = await t
-      .withIdentity({
-        subject: userId,
-        tokenIdentifier: `test:${userId}`,
-      })
+      .withIdentity(await signInTestUser(t, userId))
       .query(api.organizations.listForViewer, {});
 
     expect(organizations.map((organization) => organization.githubOwnerLogin)).toEqual([
@@ -333,10 +327,7 @@ describe("GitHub-backed organizations", () => {
       githubOwnerLogin: "personal-owner",
       githubInstallationId: "personal-installation",
     });
-    const asUser = t.withIdentity({
-      subject: userId,
-      tokenIdentifier: `test:${userId}`,
-    });
+    const asUser = t.withIdentity(await signInTestUser(t, userId));
     const readCapabilities = async () => {
       const organizations = await asUser.query(api.organizations.listForViewer, {});
       return Object.fromEntries(

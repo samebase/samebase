@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { api, components, internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { GITHUB_USER_TOKEN_REFRESH_STALE_LOCK_MS } from "../../shared/githubUserTokenRefresh";
-import { makeConvexTest, sealTestCredentials, testCredential } from "../test.setup";
+import { makeConvexTest, sealTestCredentials, signInTestUser, testCredential } from "../test.setup";
 import { cleanupAccountDataBatchForUser } from "./cleanup";
 
 const workflowId = "account-deletion-organization-boundary";
@@ -1082,10 +1082,7 @@ describe("account deletion organization boundary", () => {
         termsAcceptedAt: 1,
       });
     });
-    const asStaff = t.withIdentity({
-      subject: staffUserId,
-      tokenIdentifier: `test:${staffUserId}`,
-    });
+    const asStaff = t.withIdentity(await signInTestUser(t, staffUserId));
     await expect(
       asStaff.mutation(api.accountDeletion.index.retry, { runId: ids.runId }),
     ).resolves.toMatchObject({

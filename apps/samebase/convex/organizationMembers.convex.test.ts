@@ -31,7 +31,7 @@ vi.mock("@octokit/rest", () => ({
 }));
 
 import { api, internal } from "./_generated/api";
-import { makeConvexTest } from "./test.setup";
+import { makeConvexTest, signInTestUser } from "./test.setup";
 
 const roundedNow = Math.floor(Date.now() / 60_000) * 60_000;
 
@@ -125,18 +125,9 @@ async function seedMembers() {
   return {
     t,
     ids,
-    asOwner: t.withIdentity({
-      subject: ids.ownerUserId,
-      tokenIdentifier: `test:${ids.ownerUserId}`,
-    }),
-    asInvitee: t.withIdentity({
-      subject: ids.inviteeUserId,
-      tokenIdentifier: `test:${ids.inviteeUserId}`,
-    }),
-    asMember: t.withIdentity({
-      subject: ids.memberUserId,
-      tokenIdentifier: `test:${ids.memberUserId}`,
-    }),
+    asOwner: t.withIdentity(await signInTestUser(t, ids.ownerUserId)),
+    asInvitee: t.withIdentity(await signInTestUser(t, ids.inviteeUserId)),
+    asMember: t.withIdentity(await signInTestUser(t, ids.memberUserId)),
   };
 }
 
@@ -780,10 +771,7 @@ describe("organization member lifecycle", () => {
       });
       return userId;
     });
-    const asSecondInvitee = t.withIdentity({
-      subject: secondInviteeUserId,
-      tokenIdentifier: `test:${secondInviteeUserId}`,
-    });
+    const asSecondInvitee = t.withIdentity(await signInTestUser(t, secondInviteeUserId));
 
     const results = await Promise.allSettled([
       asInvitee.mutation(api.organizationMembers.acceptInvitation, { code: firstCode }),

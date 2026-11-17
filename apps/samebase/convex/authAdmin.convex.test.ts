@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { api, internal } from "./_generated/api";
-import { makeConvexTest, stubConvexAuthEnv } from "./test.setup";
+import { makeConvexTest } from "./test.setup";
 
 beforeEach(() => {
   // convex/auth.ts builds the hub sign-in methods from IDENTITY_HUB_ISSUER when it loads.
@@ -87,7 +87,6 @@ describe("authAdmin password accounts", () => {
     vi.stubEnv("CONVEX_AGENT_MODE", "");
     vi.stubEnv("CONVEX_DEPLOYMENT", "dev:test");
     vi.stubEnv("PASSWORD_AUTH_ENABLED", "true");
-    await stubConvexAuthEnv();
     const t = makeConvexTest();
     await t.mutation(internal.authAdmin.createOrUpdatePasswordAccount, {
       email: "rotate@example.com",

@@ -4,7 +4,7 @@ import { closeSync, existsSync, openSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { generateConvexAuthKeys, generateCredentialKeys } from "./lib/convexAuthKeys.ts";
+import { generateCredentialKeys } from "./lib/convexAuthKeys.ts";
 import { samebaseAppFilePath } from "./lib/trackedFilePath.ts";
 
 const samebaseAppDirectory = path.join("apps", "samebase");
@@ -76,7 +76,6 @@ async function main(): Promise<void> {
     );
 
     for (const [key, value] of [
-      ...Object.entries(generateConvexAuthKeys()),
       ...Object.entries(generateCredentialKeys()),
       // CI has no identity hub. convex/convex.config.ts requires these variables, and convex/auth.ts
       // needs a loopback or https issuer to load, so they hold values that name the absence.

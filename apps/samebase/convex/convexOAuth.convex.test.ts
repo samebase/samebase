@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { api, internal } from "./_generated/api";
-import { testCredential, makeConvexTest } from "./test.setup";
+import { testCredential, makeConvexTest, signInTestUser } from "./test.setup";
 
 afterEach(() => {
   vi.unstubAllEnvs();
@@ -47,10 +47,7 @@ describe("organization resource OAuth", () => {
       vi.stubEnv("IDENTITY_HUB_ISSUER", "https://hub.example.test");
       vi.stubEnv("IDENTITY_HUB_CLIENT_ID", "convex-client");
       vi.stubEnv("CONVEX_SITE_URL", "https://samebase.test");
-      const owner = t.withIdentity({
-        subject: userId,
-        tokenIdentifier: `test:${userId}`,
-      });
+      const owner = t.withIdentity(await signInTestUser(t, userId));
       const authorizeUrl =
         provider === "convex"
           ? await owner.mutation(api.convexOAuth.getConvexOAuthUrl, { organizationId })

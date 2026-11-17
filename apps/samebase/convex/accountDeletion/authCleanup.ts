@@ -170,10 +170,21 @@ export const finishIdentityDeletion = internalMutation({
 
     await assertIdentityDeletionReady(ctx, run);
 
-    // Convex Auth 2 keeps its own accounts, sessions, refresh tokens, and password hash by user id.
-    // Deleting them in the transaction that marks the user deleted ends every session of the user,
-    // and a later sign-in with the same provider account creates a new user.
-    await ctx.runMutation(components.auth.public.deleteUser, { userId: run.identity.userId });
+    // Convex Auth 2 keeps sessions in the core, hub accounts in `authHub`, and the password hash in
+    // `authPassword`, all by user id. This transaction, which marks the user deleted, deletes the
+    // session rows, so no token of the user signs in again; the core deletes the refresh tokens of
+    // those sessions in a function that it schedules at once. A later sign-in with the same provider
+    // account creates a new user. The core keeps the user id in `createdUserIds`, as the `users`
+    // row keeps it with the state `deleted`.
+    const sessions = await ctx.runQuery(components.auth.public.listSessions, {
+      userId: run.identity.userId,
+    });
+    await ctx.runMutation(components.auth.public.revokeSessions, {
+      sessionIds: sessions.map((session) => session.sessionId),
+    });
+    await ctx.runMutation(components.authHub.provider.deleteUserAccounts, {
+      userId: run.identity.userId,
+    });
     await ctx.runMutation(components.authPassword.public.deleteUser, {
       userId: run.identity.userId,
     });

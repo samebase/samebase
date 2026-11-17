@@ -31,8 +31,6 @@ type Env = {
   readonly CONVEX_CLOUD_URL: string;
   readonly CONVEX_SITE_URL: string;
   readonly ACCOUNT_DELETION_GRACE_PERIOD_MS: "0" | undefined;
-  readonly AUTH_JWKS: string;
-  readonly AUTH_PRIVATE_KEY: string;
   readonly AUTO_APPROVE_NEW_USERS: "true" | "false" | undefined;
   readonly CLOUDFLARE_EMAIL_ACCOUNT_ID: string | undefined;
   readonly CLOUDFLARE_EMAIL_API_TOKEN: string | undefined;

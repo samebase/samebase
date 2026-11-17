@@ -89,7 +89,6 @@ describe("AgentsConnectRoutePage", () => {
     });
     const tokens = {
       accessToken: "access-token",
-      accessTokenExpiresAt: 1,
       refreshToken: "refresh-token",
       refreshTokenExpiresAt: 2,
       userId: "user-id",

@@ -2,7 +2,11 @@ import { describe, expect, it } from "vite-plus/test";
 
 import type { Id } from "../_generated/dataModel";
 import { api, internal } from "../_generated/api";
-import { insertTestOrganizationBillingAccount, makeConvexTest } from "../test.setup";
+import {
+  insertTestOrganizationBillingAccount,
+  makeConvexTest,
+  signInTestUser,
+} from "../test.setup";
 
 async function seedUser(t: ReturnType<typeof makeConvexTest>, email: string) {
   return await t.run(async (ctx) => {
@@ -65,11 +69,8 @@ async function seedRepository(
   });
 }
 
-function asUser(t: ReturnType<typeof makeConvexTest>, userId: Id<"users">) {
-  return t.withIdentity({
-    subject: userId,
-    tokenIdentifier: `test:${userId}`,
-  });
+async function asUser(t: ReturnType<typeof makeConvexTest>, userId: Id<"users">) {
+  return t.withIdentity(await signInTestUser(t, userId));
 }
 
 describe("organization-scoped repository folders", () => {
@@ -78,7 +79,7 @@ describe("organization-scoped repository folders", () => {
     const userId = await seedUser(t, "ada@example.com");
 
     await expect(
-      asUser(t, userId).query(api.repository.folders.getRepositoryFolderState),
+      (await asUser(t, userId)).query(api.repository.folders.getRepositoryFolderState),
     ).resolves.toEqual({
       assignments: [],
       folders: [],
@@ -90,7 +91,7 @@ describe("organization-scoped repository folders", () => {
     const userId = await seedUser(t, "ada@example.com");
     const firstOrganizationId = await seedOrganization(t, { owner: "first", userId });
     const secondOrganizationId = await seedOrganization(t, { owner: "second", userId });
-    const viewer = asUser(t, userId);
+    const viewer = await asUser(t, userId);
 
     const firstFolderId = await viewer.mutation(api.repository.folders.createRepositoryFolder, {
       name: "  ＦＯＯ  ",
@@ -134,8 +135,8 @@ describe("organization-scoped repository folders", () => {
     const userId = await seedUser(t, "ada@example.com");
     const otherUserId = await seedUser(t, "grace@example.com");
     const organizationId = await seedOrganization(t, { owner: "samebase", userId });
-    const viewer = asUser(t, userId);
-    const otherViewer = asUser(t, otherUserId);
+    const viewer = await asUser(t, userId);
+    const otherViewer = await asUser(t, otherUserId);
     const folderId = await viewer.mutation(api.repository.folders.createRepositoryFolder, {
       name: "Projects",
       organizationId,
@@ -171,8 +172,8 @@ describe("organization-scoped repository folders", () => {
         userId: secondUserId,
       });
     });
-    const firstViewer = asUser(t, firstUserId);
-    const secondViewer = asUser(t, secondUserId);
+    const firstViewer = await asUser(t, firstUserId);
+    const secondViewer = await asUser(t, secondUserId);
 
     const firstFolderId = await firstViewer.mutation(
       api.repository.folders.createRepositoryFolder,
@@ -238,7 +239,7 @@ describe("organization-scoped repository folders", () => {
     const secondOrganizationId = await seedOrganization(t, { owner: "second", userId });
     const firstRepositoryId = await seedRepository(t, firstOrganizationId);
     const secondRepositoryId = await seedRepository(t, secondOrganizationId);
-    const viewer = asUser(t, userId);
+    const viewer = await asUser(t, userId);
     const folderId = await viewer.mutation(api.repository.folders.createRepositoryFolder, {
       name: "Projects",
       organizationId: firstOrganizationId,
@@ -266,7 +267,7 @@ describe("organization-scoped repository folders", () => {
     const userId = await seedUser(t, "ada@example.com");
     const firstOrganizationId = await seedOrganization(t, { owner: "first", userId });
     const secondOrganizationId = await seedOrganization(t, { owner: "second", userId });
-    const viewer = asUser(t, userId);
+    const viewer = await asUser(t, userId);
     const firstFolderId = await viewer.mutation(api.repository.folders.createRepositoryFolder, {
       name: "First",
       organizationId: firstOrganizationId,
@@ -324,7 +325,7 @@ describe("organization-scoped repository folders", () => {
     const t = makeConvexTest();
     const userId = await seedUser(t, "ada@example.com");
     const organizationId = await seedOrganization(t, { owner: "samebase", userId });
-    const viewer = asUser(t, userId);
+    const viewer = await asUser(t, userId);
     const firstFolderId = await viewer.mutation(api.repository.folders.createRepositoryFolder, {
       name: "First",
       organizationId,
@@ -363,7 +364,7 @@ describe("organization-scoped repository folders", () => {
     const userId = await seedUser(t, "ada@example.com");
     const organizationId = await seedOrganization(t, { owner: "samebase", userId });
     const repositoryId = await seedRepository(t, organizationId);
-    const viewer = asUser(t, userId);
+    const viewer = await asUser(t, userId);
     const folderId = await viewer.mutation(api.repository.folders.createRepositoryFolder, {
       name: "Projects",
       organizationId,
@@ -417,7 +418,7 @@ describe("organization-scoped repository folders", () => {
     const userId = await seedUser(t, "ada@example.com");
     const organizationId = await seedOrganization(t, { owner: "samebase", userId });
     const repositoryId = await seedRepository(t, organizationId);
-    const viewer = asUser(t, userId);
+    const viewer = await asUser(t, userId);
     const folderId = await viewer.mutation(api.repository.folders.createRepositoryFolder, {
       name: "Projects",
       organizationId,
@@ -453,7 +454,7 @@ describe("organization-scoped repository folders", () => {
     const userId = await seedUser(t, "ada@example.com");
     const organizationId = await seedOrganization(t, { owner: "samebase", userId });
     const repositoryId = await seedRepository(t, organizationId);
-    const viewer = asUser(t, userId);
+    const viewer = await asUser(t, userId);
     const folderId = await viewer.mutation(api.repository.folders.createRepositoryFolder, {
       name: "Projects",
       organizationId,
@@ -481,7 +482,7 @@ describe("organization-scoped repository folders", () => {
     const userId = await seedUser(t, "ada@example.com");
     const organizationId = await seedOrganization(t, { owner: "samebase", userId });
     const repositoryId = await seedRepository(t, organizationId);
-    const viewer = asUser(t, userId);
+    const viewer = await asUser(t, userId);
     const folderId = await viewer.mutation(api.repository.folders.createRepositoryFolder, {
       name: "Projects",
       organizationId,

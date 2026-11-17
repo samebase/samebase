@@ -25,7 +25,7 @@ vi.mock("./polarBillingState", async (importOriginal) => {
 
 import { api } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
-import { makeConvexTest } from "./test.setup";
+import { makeConvexTest, signInTestUser } from "./test.setup";
 
 const successUrl = "http://localhost/org/billing-owner/settings?checkout=success";
 const returnUrl = "http://localhost/org/billing-owner/settings?checkout=cancel";
@@ -91,10 +91,7 @@ async function seedBillingOrganization(args: {
   return {
     ...ids,
     t,
-    asOwner: t.withIdentity({
-      subject: ids.userId,
-      tokenIdentifier: `test:${ids.userId}`,
-    }),
+    asOwner: t.withIdentity(await signInTestUser(t, ids.userId)),
   };
 }
 
@@ -560,14 +557,10 @@ describe("Polar billing changes", () => {
       });
       return { memberUserId, otherOwnerUserId };
     });
-    const asMember = seed.t.withIdentity({
-      subject: identities.memberUserId,
-      tokenIdentifier: `test:${identities.memberUserId}`,
-    });
-    const asOtherOwner = seed.t.withIdentity({
-      subject: identities.otherOwnerUserId,
-      tokenIdentifier: `test:${identities.otherOwnerUserId}`,
-    });
+    const asMember = seed.t.withIdentity(await signInTestUser(seed.t, identities.memberUserId));
+    const asOtherOwner = seed.t.withIdentity(
+      await signInTestUser(seed.t, identities.otherOwnerUserId),
+    );
 
     await expect(
       asMember.action(api.billing.requestPolarBillingChange, {

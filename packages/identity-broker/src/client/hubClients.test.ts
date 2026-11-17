@@ -1251,6 +1251,9 @@ describe("POST /register with the initial access token", () => {
     const fileRequests = stubProviders();
 
     const response = await postHubClient(h, token, { redirect_uris: [LOOPBACK_CALLBACK] });
+    // The registration runs after the token's commit, and convex-test runs every transaction
+    // after the last commit: one millisecond later on the frozen clock.
+    const registeredAt = 1_800_000_000_001;
 
     expect(response.status).toBe(201);
     expect(fetch).not.toHaveBeenCalled();
@@ -1283,7 +1286,7 @@ describe("POST /register with the initial access token", () => {
       redirectUris: [LOOPBACK_CALLBACK],
       deploymentType: "development",
       clientName: "development",
-      removeAt: 1_800_000_000_000 + 14 * 24 * 60 * 60 * 1_000,
+      removeAt: registeredAt + 14 * 24 * 60 * 60 * 1_000,
       app: "my-app",
       registeredBy: {
         kind: "initial_access_token",
@@ -1303,7 +1306,7 @@ describe("POST /register with the initial access token", () => {
       clientId,
       githubRepositoryDatabaseId: REPOSITORY_ID,
       githubOwnerId: OWNER_ID,
-      at: 1_800_000_000_000,
+      at: registeredAt,
     });
   });
 

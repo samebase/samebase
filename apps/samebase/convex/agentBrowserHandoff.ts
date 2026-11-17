@@ -278,7 +278,7 @@ export const signInWithAgentBrowserHandoff = mutation({
     }
 
     const tokens = await startCustomSignInSession(ctx, {
-      providerName: "agentBrowserHandoff",
+      methodName: "agentBrowserHandoff",
       userId: result.userId,
     });
     return { status: "complete" as const, tokens };

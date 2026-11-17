@@ -2263,7 +2263,7 @@ export const trackedFilePaths = [
   "packages/sure/src/union.ts",
   "packages/sure/src/utils.ts",
   "packages/sure/tsconfig.json",
-  "patches/@convex-dev__auth@2.0.0-beta.0.patch",
+  "patches/@convex-dev__auth@2.0.0.patch",
   "patches/@tanstack__router-core@1.171.37.patch",
   "pnpm-lock.yaml",
   "pnpm-workspace.yaml",

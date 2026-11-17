@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { api, internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
-import { makeConvexTest } from "../test.setup";
+import { makeConvexTest, signInTestUser } from "../test.setup";
 
 type ConvexTest = ReturnType<typeof makeConvexTest>;
 
@@ -176,10 +176,7 @@ describe("organization-owned repositories", () => {
         githubLogin: "personal-owner",
       });
     });
-    const asMember = t.withIdentity({
-      subject: memberUserId,
-      tokenIdentifier: `test:${memberUserId}`,
-    });
+    const asMember = t.withIdentity(await signInTestUser(t, memberUserId));
 
     await expect(asMember.query(api.organizations.listForViewer, {})).resolves.toMatchObject([
       { canCreateRepository: false },
@@ -309,18 +306,9 @@ describe("organization-owned repositories", () => {
       ),
     ).toEqual(["alpha/app-a", "zeta/app-z"]);
 
-    const asMember = t.withIdentity({
-      subject: memberUserId,
-      tokenIdentifier: `test:${memberUserId}`,
-    });
-    const asOtherMember = t.withIdentity({
-      subject: otherMemberUserId,
-      tokenIdentifier: `test:${otherMemberUserId}`,
-    });
-    const asOutsider = t.withIdentity({
-      subject: outsiderUserId,
-      tokenIdentifier: `test:${outsiderUserId}`,
-    });
+    const asMember = t.withIdentity(await signInTestUser(t, memberUserId));
+    const asOtherMember = t.withIdentity(await signInTestUser(t, otherMemberUserId));
+    const asOutsider = t.withIdentity(await signInTestUser(t, outsiderUserId));
 
     await expect(
       asMember.query(api.repository.records.getRepositoryByRepository, {
@@ -444,10 +432,7 @@ describe("organization-owned repositories", () => {
       githubMode: "connect_existing_repository",
       githubRepositoryDatabaseId: "failed-stable-repository-id",
     });
-    const asUser = t.withIdentity({
-      subject: userId,
-      tokenIdentifier: `test:${userId}`,
-    });
+    const asUser = t.withIdentity(await signInTestUser(t, userId));
     await expect(asUser.query(api.repository.list, {})).resolves.toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -555,10 +540,7 @@ describe("organization-owned repositories", () => {
       }),
     ).rejects.toThrow("Repository already exists for this repository name.");
 
-    const asUser = t.withIdentity({
-      subject: userId,
-      tokenIdentifier: `test:${userId}`,
-    });
+    const asUser = t.withIdentity(await signInTestUser(t, userId));
     await expect(asUser.query(api.repository.list, {})).resolves.toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -594,10 +576,7 @@ describe("organization-owned repositories", () => {
       githubInstallationId: "installation-after-rename",
     });
 
-    const asUser = t.withIdentity({
-      subject: userId,
-      tokenIdentifier: `test:${userId}`,
-    });
+    const asUser = t.withIdentity(await signInTestUser(t, userId));
     await expect(
       asUser.query(api.repository.records.getRepositoryByRepository, {
         githubRepositoryFullName: "before-rename/rename-app",

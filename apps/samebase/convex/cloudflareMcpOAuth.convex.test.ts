@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { api, internal } from "./_generated/api";
-import { makeConvexTest } from "./test.setup";
+import { makeConvexTest, signInTestUser } from "./test.setup";
 
 async function seedOrganizationOwner() {
   const t = makeConvexTest();
@@ -60,10 +60,7 @@ describe("getCloudflareMcpOAuthUrl", () => {
     vi.stubGlobal("fetch", fetch);
 
     const authorizeUrl = await t
-      .withIdentity({
-        subject: userId,
-        tokenIdentifier: `test:${userId}`,
-      })
+      .withIdentity(await signInTestUser(t, userId))
       .action(api.cloudflareMcpOAuth.getCloudflareMcpOAuthUrl, { organizationId });
 
     expect(authorizeUrl).toContain("client_id=registered-client");

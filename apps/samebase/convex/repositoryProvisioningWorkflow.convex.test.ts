@@ -40,6 +40,7 @@ import {
   insertTestOrganizationBillingAccount,
   makeConvexTest,
   sealTestCredentials,
+  signInTestUser,
   testCredential,
 } from "./test.setup";
 
@@ -131,6 +132,10 @@ async function createComposedRepository() {
 
 describe("provisioning write lock ownership", () => {
   it("keeps managed provider freshness when infrastructure ownership completes", async () => {
+    // convex-test never runs a transaction at a time before the last commit, so the seed writes
+    // commit before the time that the test reads.
+    vi.useFakeTimers();
+    vi.setSystemTime(0);
     const { ids, t } = await createComposedRepository();
     await t.run(async (ctx) => {
       const writeLock = await ctx.db
@@ -142,7 +147,6 @@ describe("provisioning write lock ownership", () => {
       }
       await ctx.db.patch(writeLock._id, { lastWriteAt: { convex: 3_000, cloudflare: 3_000 } });
     });
-    vi.useFakeTimers();
     try {
       vi.setSystemTime(4_000);
       await t.mutation(
@@ -1016,10 +1020,7 @@ describe("repository_actions provisioning workflow", () => {
       });
       return { runId, userId };
     });
-    const viewer = t.withIdentity({
-      subject: ids.userId,
-      tokenIdentifier: `test:${ids.userId}`,
-    });
+    const viewer = t.withIdentity(await signInTestUser(t, ids.userId));
     const listSetup = async () => {
       const repository = (await viewer.query(api.repository.list, {})).at(0);
       return { sourceSetup: repository?.sourceSetup, providerSetup: repository?.providerSetup };
@@ -1055,10 +1056,7 @@ describe("repository_actions provisioning workflow", () => {
     });
     expect(failed.plan).toMatchObject({ seed: { state: "seeded" } });
     // The dashboard reports the failure as provider setup, which offers the retry.
-    const viewer = t.withIdentity({
-      subject: userId,
-      tokenIdentifier: `test:${userId}`,
-    });
+    const viewer = t.withIdentity(await signInTestUser(t, userId));
     const listed = (await viewer.query(api.repository.list, {})).find(
       (repository) => repository.organizationId === organizationId,
     );

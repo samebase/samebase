@@ -21,7 +21,7 @@ vi.mock("./githubApp", async (importOriginal) => {
 });
 
 import { api, internal } from "./_generated/api";
-import { makeConvexTest } from "./test.setup";
+import { makeConvexTest, signInTestUser } from "./test.setup";
 
 type ConvexTest = ReturnType<typeof makeConvexTest>;
 
@@ -284,10 +284,7 @@ describe("repository GitHub token scope", () => {
     await t.run(async (ctx) => {
       await ctx.db.patch(ownerUserId, { email: "nicu@samebase.com" });
     });
-    const asOwner = t.withIdentity({
-      subject: ownerUserId,
-      tokenIdentifier: `test:${ownerUserId}`,
-    });
+    const asOwner = t.withIdentity(await signInTestUser(t, ownerUserId));
     const listForRef = vi.fn().mockResolvedValue({ data: { check_runs: [] } });
     const getCombinedStatusForRef = vi.fn().mockResolvedValue({ data: { statuses: [] } });
     githubMocks.createRepositoryOctokit.mockResolvedValue({
@@ -362,10 +359,7 @@ describe("viewer GitHub installation health", () => {
         });
       }
     });
-    const asUser = t.withIdentity({
-      subject: userId,
-      tokenIdentifier: `test:${userId}`,
-    });
+    const asUser = t.withIdentity(await signInTestUser(t, userId));
 
     githubMocks.request.mockImplementation(async (route: string) => {
       if (route === "GET /installation/repositories") {
@@ -505,14 +499,8 @@ describe("GitHub identity observation and approval", () => {
     await t.mutation(internal.repository.records.markGithubProvisioningFailed, {
       runId: collision.runId,
     });
-    const asOwner = t.withIdentity({
-      subject: ownerUserId,
-      tokenIdentifier: `test:${ownerUserId}`,
-    });
-    const asMember = t.withIdentity({
-      subject: memberUserId,
-      tokenIdentifier: `test:${memberUserId}`,
-    });
+    const asOwner = t.withIdentity(await signInTestUser(t, ownerUserId));
+    const asMember = t.withIdentity(await signInTestUser(t, memberUserId));
     githubMocks.request.mockImplementation(async (route: string) => {
       if (route === "GET /app/installations/{installation_id}") {
         return { data: appInstallationFixture() };
@@ -612,10 +600,7 @@ describe("GitHub identity observation and approval", () => {
   it("keeps owner identity separate from repository access and rejects another owner", async () => {
     const t = makeConvexTest();
     const { organizationId, ownerUserId, repositoryId } = await createIdentityRepository(t);
-    const asOwner = t.withIdentity({
-      subject: ownerUserId,
-      tokenIdentifier: `test:${ownerUserId}`,
-    });
+    const asOwner = t.withIdentity(await signInTestUser(t, ownerUserId));
     const observe = async () =>
       await asOwner.action(api.github.observeOrganizationGitHubIdentity, { organizationId });
 

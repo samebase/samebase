@@ -16,7 +16,7 @@ vi.mock("./polarClient", async (importOriginal) => {
 
 import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
-import { makeConvexTest } from "./test.setup";
+import { makeConvexTest, signInTestUser } from "./test.setup";
 
 function polarNotFound(): PolarError {
   return new PolarError("Member not found", {
@@ -82,14 +82,8 @@ async function seedPayerTransfer() {
   });
   return {
     ...ids,
-    asCurrentPayer: t.withIdentity({
-      subject: ids.currentPayerUserId,
-      tokenIdentifier: `test:${ids.currentPayerUserId}`,
-    }),
-    asTarget: t.withIdentity({
-      subject: ids.targetUserId,
-      tokenIdentifier: `test:${ids.targetUserId}`,
-    }),
+    asCurrentPayer: t.withIdentity(await signInTestUser(t, ids.currentPayerUserId)),
+    asTarget: t.withIdentity(await signInTestUser(t, ids.targetUserId)),
     t,
   };
 }

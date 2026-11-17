@@ -29,6 +29,7 @@ import {
   insertTestOrganizationBillingAccount,
   makeConvexTest,
   sealTestCredentials,
+  signInTestUser,
   testCredential,
 } from "./test.setup";
 
@@ -206,10 +207,7 @@ describe("viewer GitHub user authorization", () => {
       ]);
       return { organizationId, otherOrganizationId, userId };
     });
-    const asUser = t.withIdentity({
-      subject: userId,
-      tokenIdentifier: `test:${userId}`,
-    });
+    const asUser = t.withIdentity(await signInTestUser(t, userId));
 
     await expect(
       asUser.query(api.githubUserAuthorizations.getViewerPersonalRepositoryAuthorization, {
@@ -324,10 +322,7 @@ describe("viewer GitHub user authorization", () => {
     vi.stubEnv("GITHUB_APP_PRIVATE_KEY", "private-key");
     const hubRequests = stubResourceHub(() => new Response(null, { status: 200 }));
     const result = await t
-      .withIdentity({
-        subject: userId,
-        tokenIdentifier: `test:${userId}`,
-      })
+      .withIdentity(await signInTestUser(t, userId))
       .action(api.githubUserAuthorizations.revokeViewerGitHubUserAuthorization, {});
 
     expect(result).toBeNull();
@@ -381,7 +376,7 @@ describe("viewer GitHub user authorization", () => {
     const hubRequests = stubResourceHub(() => new Response(null, { status: 200 }));
 
     await t
-      .withIdentity({ subject: userId, tokenIdentifier: `test:${userId}` })
+      .withIdentity(await signInTestUser(t, userId))
       .action(api.githubUserAuthorizations.revokeViewerGitHubUserAuthorization, {});
 
     expect(hubRequests[0]?.body.get("token")).toBe("hub-refresh-token");

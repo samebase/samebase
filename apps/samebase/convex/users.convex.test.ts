@@ -7,6 +7,7 @@ import {
   insertTestOrganizationBillingAccount,
   makeConvexTest,
   sealTestCredentials,
+  signInTestUser,
   testCredential,
 } from "./test.setup";
 import { organizationProviderCredentialAad } from "./organization/providerCredentialModel";
@@ -261,14 +262,8 @@ async function makeSeedProviderOrganizationBillingLimited(
 describe("organization provider status", () => {
   it("shows the configured destinations and hides credentials", async () => {
     const { organizationId, outsiderId, t, userId } = await seedProviderOrganization();
-    const asOwner = t.withIdentity({
-      subject: userId,
-      tokenIdentifier: `test:${userId}`,
-    });
-    const asOutsider = t.withIdentity({
-      subject: outsiderId,
-      tokenIdentifier: `test:${outsiderId}`,
-    });
+    const asOwner = t.withIdentity(await signInTestUser(t, userId));
+    const asOutsider = t.withIdentity(await signInTestUser(t, outsiderId));
 
     await expect(
       asOwner.query(api.users.getConvexConnectionStatus, { organizationId }),
@@ -294,10 +289,7 @@ describe("organization provider status", () => {
   it("keeps provider status and health visible while organization work is billing-limited", async () => {
     const { organizationId, t, userId } = await seedProviderOrganization();
     await makeSeedProviderOrganizationBillingLimited(t, organizationId);
-    const asOwner = t.withIdentity({
-      subject: userId,
-      tokenIdentifier: `test:${userId}`,
-    });
+    const asOwner = t.withIdentity(await signInTestUser(t, userId));
 
     await expect(
       asOwner.query(api.users.getConvexConnectionStatus, { organizationId }),
@@ -323,14 +315,8 @@ describe("organization provider status", () => {
     await t.run(async (ctx) => {
       await ctx.db.patch(userId, { displayName: "Provider Owner" });
     });
-    const asOwner = t.withIdentity({
-      subject: userId,
-      tokenIdentifier: `test:${userId}`,
-    });
-    const asMember = t.withIdentity({
-      subject: memberId,
-      tokenIdentifier: `test:${memberId}`,
-    });
+    const asOwner = t.withIdentity(await signInTestUser(t, userId));
+    const asMember = t.withIdentity(await signInTestUser(t, memberId));
 
     await expect(
       asOwner.query(api.users.getConvexConnectionStatus, { organizationId }),
@@ -435,10 +421,7 @@ describe("organization provider status", () => {
 
   it("disconnects credentials but preserves both destinations", async () => {
     const { organizationId, t, userId } = await seedProviderOrganization();
-    const asOwner = t.withIdentity({
-      subject: userId,
-      tokenIdentifier: `test:${userId}`,
-    });
+    const asOwner = t.withIdentity(await signInTestUser(t, userId));
 
     await expect(
       asOwner.action(api.users.disconnectConvex, { organizationId }),
@@ -464,10 +447,7 @@ describe("organization provider status", () => {
 
   it("returns a public error for an invalid Convex team token", async () => {
     const { organizationId, providerCredentialsId, t, userId } = await seedProviderOrganization();
-    const asOwner = t.withIdentity({
-      subject: userId,
-      tokenIdentifier: `test:${userId}`,
-    });
+    const asOwner = t.withIdentity(await signInTestUser(t, userId));
     const credentialBefore = await t.run(
       async (ctx) => (await ctx.db.get(providerCredentialsId))?.convex,
     );
@@ -491,10 +471,7 @@ describe("organization provider status", () => {
 
   it("keeps the configured Convex team when a token belongs to another team", async () => {
     const { organizationId, providerCredentialsId, t, userId } = await seedProviderOrganization();
-    const asOwner = t.withIdentity({
-      subject: userId,
-      tokenIdentifier: `test:${userId}`,
-    });
+    const asOwner = t.withIdentity(await signInTestUser(t, userId));
     const credentialBefore = await t.run(
       async (ctx) => (await ctx.db.get(providerCredentialsId))?.convex,
     );
@@ -527,10 +504,7 @@ describe("organization provider status", () => {
       const { organizationId, t, userId } = await seedProviderOrganization({
         cloudflareAuthMethod,
       });
-      const asOwner = t.withIdentity({
-        subject: userId,
-        tokenIdentifier: `test:${userId}`,
-      });
+      const asOwner = t.withIdentity(await signInTestUser(t, userId));
       const fetch = vi.fn();
       vi.stubGlobal("fetch", fetch);
 
@@ -552,10 +526,7 @@ describe("organization provider status", () => {
     const { organizationId, providerCredentialsId, t, userId } = await seedProviderOrganization({
       cloudflareState: "not_configured",
     });
-    const asOwner = t.withIdentity({
-      subject: userId,
-      tokenIdentifier: `test:${userId}`,
-    });
+    const asOwner = t.withIdentity(await signInTestUser(t, userId));
     const fetch = stubCloudflareApiTokenAccounts("direct-token", [
       { id: primaryCloudflareAccountId, name: "Primary account", type: "standard" },
     ]);
@@ -621,10 +592,7 @@ describe("organization provider status", () => {
     const { organizationId, providerCredentialsId, t, userId } = await seedProviderOrganization({
       cloudflareState: "not_configured",
     });
-    const asOwner = t.withIdentity({
-      subject: userId,
-      tokenIdentifier: `test:${userId}`,
-    });
+    const asOwner = t.withIdentity(await signInTestUser(t, userId));
     stubCloudflareApiTokenAccounts("direct-token", testCase.accounts);
 
     const error = await readActionError(
@@ -650,10 +618,7 @@ describe("organization provider status", () => {
     const { organizationId, providerCredentialsId, t, userId } = await seedProviderOrganization({
       cloudflareAuthMethod: "oauth",
     });
-    const asOwner = t.withIdentity({
-      subject: userId,
-      tokenIdentifier: `test:${userId}`,
-    });
+    const asOwner = t.withIdentity(await signInTestUser(t, userId));
 
     await expect(
       asOwner.action(api.users.disconnectCloudflare, { organizationId }),
@@ -727,10 +692,7 @@ describe("organization provider status", () => {
 
   it("rejects a token that Cloudflare does not verify as a user API token", async () => {
     const { organizationId, providerCredentialsId, t, userId } = await seedProviderOrganization();
-    const asOwner = t.withIdentity({
-      subject: userId,
-      tokenIdentifier: `test:${userId}`,
-    });
+    const asOwner = t.withIdentity(await signInTestUser(t, userId));
     const credentialBefore = await t.run(
       async (ctx) => (await ctx.db.get(providerCredentialsId))?.cloudflare,
     );
@@ -764,10 +726,7 @@ describe("organization provider status", () => {
 
   it("rejects an inactive Cloudflare user API token before account discovery", async () => {
     const { organizationId, providerCredentialsId, t, userId } = await seedProviderOrganization();
-    const asOwner = t.withIdentity({
-      subject: userId,
-      tokenIdentifier: `test:${userId}`,
-    });
+    const asOwner = t.withIdentity(await signInTestUser(t, userId));
     const credentialBefore = await t.run(
       async (ctx) => (await ctx.db.get(providerCredentialsId))?.cloudflare,
     );
@@ -792,10 +751,7 @@ describe("organization provider status", () => {
 
   it("requires an organization owner before checking a Cloudflare API token", async () => {
     const { memberId, organizationId, providerCredentialsId, t } = await seedProviderOrganization();
-    const asMember = t.withIdentity({
-      subject: memberId,
-      tokenIdentifier: `test:${memberId}`,
-    });
+    const asMember = t.withIdentity(await signInTestUser(t, memberId));
     const credentialBefore = await t.run(
       async (ctx) => (await ctx.db.get(providerCredentialsId))?.cloudflare,
     );
@@ -831,10 +787,7 @@ describe("organization provider status", () => {
       async (ctx) => (await ctx.db.get(providerCredentialsId))?.convex,
     );
     const fetch = stubConvexProviderAccess([convexProjectResponse()]);
-    const asOwner = t.withIdentity({
-      subject: userId,
-      tokenIdentifier: `test:${userId}`,
-    });
+    const asOwner = t.withIdentity(await signInTestUser(t, userId));
 
     const access = await asOwner.action(api.convexProviderAccess.checkConvexConnectionAccess, {
       organizationId,
@@ -865,10 +818,7 @@ describe("organization provider status", () => {
 
   it("logs the original Convex provider error", async () => {
     const { organizationId, t, userId } = await seedProviderOrganization();
-    const asOwner = t.withIdentity({
-      subject: userId,
-      tokenIdentifier: `test:${userId}`,
-    });
+    const asOwner = t.withIdentity(await signInTestUser(t, userId));
     vi.stubGlobal(
       "fetch",
       vi.fn(async () => new Response("Invalid access token", { status: 401 })),
@@ -895,10 +845,7 @@ describe("organization provider status", () => {
   it("reports an inaccessible Cloudflare account while provider status is billing-limited", async () => {
     const { organizationId, t, userId } = await seedProviderOrganization();
     await makeSeedProviderOrganizationBillingLimited(t, organizationId);
-    const asOwner = t.withIdentity({
-      subject: userId,
-      tokenIdentifier: `test:${userId}`,
-    });
+    const asOwner = t.withIdentity(await signInTestUser(t, userId));
     const fetch = vi.fn(async (input: string | URL | Request) => {
       const url = new URL(input instanceof Request ? input.url : input.toString());
       switch (url.pathname) {
@@ -937,10 +884,7 @@ describe("organization provider status", () => {
 
   it("logs the original Cloudflare provider error", async () => {
     const { organizationId, t, userId } = await seedProviderOrganization();
-    const asOwner = t.withIdentity({
-      subject: userId,
-      tokenIdentifier: `test:${userId}`,
-    });
+    const asOwner = t.withIdentity(await signInTestUser(t, userId));
     const providerError = {
       success: false,
       errors: [{ code: 971, message: "Please wait and consider throttling your request speed" }],
@@ -978,7 +922,7 @@ describe("organization provider status", () => {
     const { organizationId, t, userId } = await seedProviderOrganization({
       cloudflareAuthMethod: "oauth",
     });
-    const asOwner = t.withIdentity({ subject: userId, tokenIdentifier: `test:${userId}` });
+    const asOwner = t.withIdentity(await signInTestUser(t, userId));
     stubResourceHub();
     vi.stubGlobal(
       "fetch",
@@ -999,7 +943,7 @@ describe("organization provider status", () => {
     const { organizationId, t, userId } = await seedProviderOrganization({
       cloudflareAuthMethod: "oauth",
     });
-    const asOwner = t.withIdentity({ subject: userId, tokenIdentifier: `test:${userId}` });
+    const asOwner = t.withIdentity(await signInTestUser(t, userId));
     stubResourceHub();
     vi.stubGlobal(
       "fetch",
@@ -1017,10 +961,7 @@ describe("organization provider status", () => {
     const { organizationId, providerCredentialsId, t, userId } = await seedProviderOrganization({
       cloudflareAuthMethod: "oauth",
     });
-    const asOwner = t.withIdentity({
-      subject: userId,
-      tokenIdentifier: `test:${userId}`,
-    });
+    const asOwner = t.withIdentity(await signInTestUser(t, userId));
     stubResourceHub();
     const fetch = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
       const url = new URL(input instanceof Request ? input.url : input.toString());
@@ -1092,10 +1033,7 @@ describe("organization provider status", () => {
         cloudflare: { ...credentials.cloudflare, connectedByUserId: memberId },
       });
     });
-    const asOwner = t.withIdentity({
-      subject: userId,
-      tokenIdentifier: `test:${userId}`,
-    });
+    const asOwner = t.withIdentity(await signInTestUser(t, userId));
     const fetch = vi.fn(async (input: string | URL | Request) => {
       const url = input instanceof Request ? input.url : input.toString();
       expect(url).toBe("https://mcp.cloudflare.com/token");

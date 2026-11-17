@@ -7,6 +7,7 @@ import {
   insertTestOrganizationBillingAccount,
   makeConvexTest,
   sealTestCredentials,
+  signInTestUser,
   testCredential,
 } from "../test.setup";
 import {
@@ -31,11 +32,8 @@ vi.mock("./alchemyState", async (importOriginal) => {
 
 type ConvexAuth = ConvexProviderCredential["auth"];
 
-function asUser(t: ReturnType<typeof makeConvexTest>, userId: Id<"users">) {
-  return t.withIdentity({
-    subject: userId,
-    tokenIdentifier: `test:${userId}`,
-  });
+async function asUser(t: ReturnType<typeof makeConvexTest>, userId: Id<"users">) {
+  return t.withIdentity(await signInTestUser(t, userId));
 }
 
 function jsonResponse(body: string): Response {
@@ -116,7 +114,7 @@ async function seedDatabaseEditorRepository(
   });
   await sealTestCredentials(t);
 
-  return { convexProjectId, user: asUser(t, userId) };
+  return { convexProjectId, user: await asUser(t, userId) };
 }
 
 function databaseRouteArgs(convexProjectId: string) {
@@ -354,7 +352,7 @@ async function seedStackRepository(t: ReturnType<typeof makeConvexTest>) {
   });
   await sealTestCredentials(t);
 
-  return asUser(t, userId);
+  return await asUser(t, userId);
 }
 
 /**

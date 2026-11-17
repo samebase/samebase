@@ -5,7 +5,7 @@ import { api, components, internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
 import { readGitHubSignInMatch } from "../githubUserAuthorizations";
-import { makeConvexTest, testCredential } from "../test.setup";
+import { makeConvexTest, signInTestUser, testCredential } from "../test.setup";
 import { readHubProfile } from "./signIn";
 
 type ConvexTest = ReturnType<typeof makeConvexTest>;
@@ -36,7 +36,6 @@ function hubProvider(connector: "github" | "google", identity: HubIdentity) {
   const subject = `${connector}:${identity.id}`;
   return {
     name: `hub-${connector}` as const,
-    accountId: subject,
     profile: readHubProfile(
       {
         iss: "https://auth.samebase.com",
@@ -70,8 +69,8 @@ async function signIn(
   knownUserId?: Id<"users">,
 ) {
   const userId =
-    knownUserId ?? (await t.mutation(internal.identity.signIn.createUser, { provider }));
-  await t.mutation(internal.identity.signIn.onSignIn, { provider, userId });
+    knownUserId ?? (await t.mutation(internal.identity.signIn.createUser, { method: provider }));
+  await t.mutation(internal.identity.signIn.onSignIn, { method: provider, userId });
   return userId;
 }
 
@@ -176,7 +175,7 @@ describe("Samebase OAuth sign-in callbacks", () => {
     ]);
     expect(accounts[0]).not.toHaveProperty("githubLogin");
     await expect(
-      t.withIdentity({ subject: userId }).query(api.users.currentViewerAccess, {}),
+      t.withIdentity(await signInTestUser(t, userId)).query(api.users.currentViewerAccess, {}),
     ).resolves.toMatchObject({ role: "role_terms_pending" });
   });
 

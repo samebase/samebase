@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
 import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
-import { makeConvexTest, stubConvexAuthEnv } from "./test.setup";
+import { makeConvexTest, signInTestUser } from "./test.setup";
 import { ACCESS_BROWSER_LOGIN_HANDOFF } from "../shared/accessModel";
 import { sha256Hex } from "./mcp/tokens";
 
@@ -15,9 +15,11 @@ const rejected = { status: "error", userError: { error: "HANDOFF_REJECTED" } };
 
 type ConvexTest = ReturnType<typeof makeConvexTest>;
 
-beforeEach(async () => {
+beforeEach(() => {
   vi.useFakeTimers({ toFake: ["Date"] });
-  await stubConvexAuthEnv();
+  // convex-test never runs a transaction at a time before the last commit, so the seed writes
+  // commit before the times that the tests read.
+  vi.setSystemTime(0);
 });
 
 afterEach(() => {
@@ -30,9 +32,12 @@ async function signInWithHandoff(
   t: ConvexTest,
   args: { at: number; browserUserId?: Id<"users">; handoffToken?: string },
 ) {
-  vi.setSystemTime(args.at);
+  // The browser session commits before the clock moves to `at`, so the redemption runs at `at`.
   const browser =
-    args.browserUserId === undefined ? t : t.withIdentity({ subject: args.browserUserId });
+    args.browserUserId === undefined
+      ? t
+      : t.withIdentity(await signInTestUser(t, args.browserUserId));
+  vi.setSystemTime(args.at);
   return await browser.mutation(api.agentBrowserHandoff.signInWithAgentBrowserHandoff, {
     token: args.handoffToken ?? token,
   });
@@ -259,6 +264,7 @@ describe("agent browser handoff lifecycle", () => {
       throw new Error("Expected the handoff row to exist.");
     }
 
+    vi.setSystemTime(createArgs.expiresAt);
     await expect(
       t.mutation(internal.agentBrowserHandoff.deleteExpired, { handoffId }),
     ).resolves.toBeNull();

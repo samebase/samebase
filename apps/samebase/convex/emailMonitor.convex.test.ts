@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
 
 import { api, components } from "./_generated/api";
-import { makeConvexTest } from "./test.setup";
+import { makeConvexTest, signInTestUser } from "./test.setup";
 
 async function seedMessage(t: ReturnType<typeof makeConvexTest>) {
   const inboxId = await t.mutation(components.mail.inboxes.create, {
@@ -52,9 +52,7 @@ describe("staff email monitor", () => {
         }
         return userId;
       });
-      const viewer = userId
-        ? t.withIdentity({ subject: userId, tokenIdentifier: `test:${userId}` })
-        : t;
+      const viewer = userId ? t.withIdentity(await signInTestUser(t, userId)) : t;
 
       await expect(viewer.query(api.emailMonitor.listInboxes, {})).rejects.toThrow("Access denied");
       await expect(
@@ -86,10 +84,7 @@ describe("staff email monitor", () => {
           termsAcceptedAt: 1,
         }),
     );
-    const staff = t.withIdentity({
-      subject: userId,
-      tokenIdentifier: `test:${userId}`,
-    });
+    const staff = t.withIdentity(await signInTestUser(t, userId));
 
     await expect(staff.query(api.emailMonitor.listInboxes, {})).resolves.toMatchObject([
       { _id: inboxId, address: "notifications@example.test", label: "Notifications" },

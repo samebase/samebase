@@ -17,6 +17,7 @@ import {
   readHubProfile,
   requireUserCanSignIn,
   sendNewUserNotification,
+  authTtl,
   startCustomSignInSession,
   vTokenBundle,
 } from "./identity/signIn";
@@ -24,8 +25,13 @@ import { readOptionalEnv } from "./oauthUtils";
 
 const { literal, number, object, string, union } = v;
 
-const auth = setupConvexAuth({ component: components.auth });
-export const { signOut, refreshSession } = auth;
+const auth = setupConvexAuth({
+  component: components.auth,
+  accessTokenTtlSeconds: authTtl.accessTokenTtlSeconds,
+  refreshInactivityTimeoutSeconds: authTtl.refreshInactivityTimeoutSeconds,
+  sessionMaxLifetimeSeconds: authTtl.sessionMaxLifetimeSeconds,
+});
+export const { signOut, refreshSession, isAuthenticated } = auth;
 
 // OAuth sign-ins may return only to this deployment's app origins: SITE_URL, where the app runs,
 // and CONVEX_SITE_URL, which serves the same build.
@@ -112,7 +118,7 @@ export const signInWithPassword = mutation({
 
     requireUserCanSignIn(await ctx.db.get(account.userId));
     const tokens = await startCustomSignInSession(ctx, {
-      providerName: "password",
+      methodName: "password",
       userId: account.userId,
     });
     return { status: "complete" as const, tokens };
@@ -139,7 +145,7 @@ export const signUpWithPassword = mutation({
     const userId = await ctx.db.insert("users", { state: "active", email });
     await writePasswordAccount(ctx, { email, password: args.password, userId });
     await sendNewUserNotification(ctx, { email, name: undefined, providerId: "password", userId });
-    const tokens = await startCustomSignInSession(ctx, { providerName: "password", userId });
+    const tokens = await startCustomSignInSession(ctx, { methodName: "password", userId });
     return { status: "complete" as const, tokens };
   },
 });

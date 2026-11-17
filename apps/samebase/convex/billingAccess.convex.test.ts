@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
 
 import { api, internal } from "./_generated/api";
-import { makeConvexTest } from "./test.setup";
+import { makeConvexTest, signInTestUser } from "./test.setup";
 
 async function seedCheckoutContinuation() {
   const t = makeConvexTest();
@@ -71,10 +71,7 @@ describe("organization billing access", () => {
       });
       return { organizationId, userId };
     });
-    const asOwner = t.withIdentity({
-      subject: userId,
-      tokenIdentifier: `test:${userId}`,
-    });
+    const asOwner = t.withIdentity(await signInTestUser(t, userId));
 
     await expect(
       asOwner.query(api.billing.getViewerBillingStatus, { organizationId }),
@@ -144,10 +141,7 @@ describe("organization billing access", () => {
       });
       return { organizationId, userId };
     });
-    const asPendingUser = t.withIdentity({
-      subject: userId,
-      tokenIdentifier: `test:${userId}`,
-    });
+    const asPendingUser = t.withIdentity(await signInTestUser(t, userId));
 
     await expect(
       asPendingUser.query(api.billing.getViewerBillingStatus, { organizationId }),
@@ -188,10 +182,7 @@ describe("organization billing access", () => {
       }),
     ).rejects.toThrow("This organization needs more paid member seats.");
 
-    const asPayer = seed.t.withIdentity({
-      subject: seed.userId,
-      tokenIdentifier: `test:${seed.userId}`,
-    });
+    const asPayer = seed.t.withIdentity(await signInTestUser(seed.t, seed.userId));
     await expect(
       asPayer.query(api.billing.getViewerBillingStatus, {
         organizationId: seed.organizationId,

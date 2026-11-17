@@ -3,7 +3,7 @@ import { describe, expect, it } from "vite-plus/test";
 import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import type { MutationCtx } from "./_generated/server";
-import { makeConvexTest, testCredential } from "./test.setup";
+import { makeConvexTest, signInTestUser, testCredential } from "./test.setup";
 
 async function insertFailedRepositoryRemoval(
   ctx: MutationCtx,
@@ -82,10 +82,7 @@ async function seedDeletableOrganization(t: ReturnType<typeof makeConvexTest>, s
   });
   return {
     ...seed,
-    asOwner: t.withIdentity({
-      subject: seed.ownerId,
-      tokenIdentifier: `test:${seed.ownerId}`,
-    }),
+    asOwner: t.withIdentity(await signInTestUser(t, seed.ownerId)),
   };
 }
 
@@ -366,10 +363,7 @@ describe("organization deletion", () => {
       return memberId;
     });
 
-    const asMember = t.withIdentity({
-      subject: memberId,
-      tokenIdentifier: `test:${memberId}`,
-    });
+    const asMember = t.withIdentity(await signInTestUser(t, memberId));
     await expect(
       asMember.mutation(api.organizations.deleteOrganization, {
         organizationId: seed.organizationId,
