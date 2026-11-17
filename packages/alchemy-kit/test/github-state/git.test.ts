@@ -1,6 +1,6 @@
 // The blob shas, API paths, and commit messages of the state branches.
 import { describe, expect, it } from "vitest";
-import { blobSha, commitMessage, encodePath } from "../src/git.ts";
+import { blobSha, commitMessage, encodePath } from "../../src/github-state/git.ts";
 
 describe("blobSha", () => {
   it("is the sha that git gives the same text", () => {

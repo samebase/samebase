@@ -185,7 +185,7 @@ export const makeGitHubObjects = (options: GitHubStateOptions = {}) =>
             authorization: `Bearer ${token}`,
             accept: "application/vnd.github+json",
             "x-github-api-version": "2022-11-28",
-            "user-agent": "alchemy-github-state",
+            "user-agent": "samebase-alchemy-kit",
           },
         });
         const request = body === undefined ? base : HttpClientRequest.bodyJsonUnsafe(base, body);

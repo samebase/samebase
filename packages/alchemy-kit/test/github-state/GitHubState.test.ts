@@ -7,8 +7,8 @@ import * as HttpClientResponse from "effect/http/HttpClientResponse";
 import * as Layer from "effect/Layer";
 import * as Schema from "effect/Schema";
 import { describe, expect, it, vi } from "vitest";
-import { blobSha } from "../src/git.ts";
-import { makeGitHubObjects } from "../src/GitHubState.ts";
+import { blobSha } from "../../src/github-state/git.ts";
+import { makeGitHubObjects } from "../../src/github-state/GitHubState.ts";
 
 const TreeBody = Schema.Struct({
   base_tree: Schema.optional(Schema.String),

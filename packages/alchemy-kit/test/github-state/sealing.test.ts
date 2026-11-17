@@ -3,7 +3,7 @@ import { encodeState } from "alchemy/State";
 import * as Effect from "effect/Effect";
 import * as Redacted from "effect/Redacted";
 import { describe, expect, it } from "vitest";
-import { openRecord, parseKey, sealRecord } from "../src/sealing.ts";
+import { openRecord, parseKey, sealRecord } from "../../src/github-state/sealing.ts";
 
 const OBJECT_KEY = "app/prod/Secret.json";
 

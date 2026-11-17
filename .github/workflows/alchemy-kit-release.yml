@@ -1,17 +1,17 @@
-# Publishes @samebase/alchemy-github when the version in its package.json is not on npm yet, with
+# Publishes @samebase/alchemy-kit when the version in its package.json is not on npm yet, with
 # provenance through npm trusted publishing. The npm trusted publisher of the package names this
 # file. The tag <name>@<version> records a published version. A merge that bumps no version publishes
 # nothing.
-name: alchemy-github release
+name: alchemy-kit release
 
 on:
   push:
     branches: [main]
     paths:
-      - "packages/alchemy-github/package.json"
+      - "packages/alchemy-kit/package.json"
 
 concurrency:
-  group: alchemy-github-release
+  group: alchemy-kit-release
   cancel-in-progress: false
 
 permissions: {}
@@ -25,7 +25,7 @@ jobs:
       contents: write
       id-token: write
     env:
-      PACKAGE_DIR: packages/alchemy-github
+      PACKAGE_DIR: packages/alchemy-kit
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -64,14 +64,14 @@ jobs:
 
       - name: Check the package
         if: steps.version.outputs.publish == 'true'
-        run: pnpm --filter @samebase/alchemy-github run check
+        run: pnpm --filter @samebase/alchemy-kit run check
 
       # pnpm pack replaces catalog: versions with real ones, and prepack builds.
       - name: Publish the release
         if: steps.version.outputs.publish == 'true'
         run: |
           tarball=$(cd "$PACKAGE_DIR" && pnpm pack --pack-destination "$RUNNER_TEMP" | tail -n 1)
-          pnpm --filter @samebase/alchemy-github exec publint "$tarball"
+          pnpm --filter @samebase/alchemy-kit exec publint "$tarball"
           npx --yes npm@11.21.0 publish "$tarball" --access public --provenance
 
       - name: Tag the release
