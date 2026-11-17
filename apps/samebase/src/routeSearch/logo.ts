@@ -45,7 +45,7 @@ import {
   LOGO_PRESENTATION_TILT_DEFAULT_STRENGTH_SCALE,
   normalizeLogoPresentationTiltRadiusScale,
   normalizeLogoPresentationTiltStrengthScale,
-} from "@/components/logo/logoPresentationTilt";
+} from "@samebase/logo-model/logo-presentation-tilt";
 import {
   MENGER_AUTOMATIC_PROBE_DEFAULT_SETTINGS,
   MENGER_AUTOMATIC_PROBE_DEFAULT_HEIGHT,
@@ -62,7 +62,7 @@ import {
   normalizeMengerAutomaticProbeStartProgress,
   normalizeMengerAutomaticProbeVerticalOffset,
   type MengerAutomaticProbeSettings,
-} from "@/components/logo/mengerAutomaticProbe";
+} from "@samebase/logo-model/menger-automatic-probe";
 import {
   MENGER_TYPE_GPU_ANTIALIASING_MODES,
   MENGER_TYPE_GPU_DEFAULT_ANTIALIASING,
@@ -75,7 +75,7 @@ import {
   normalizeMengerTypeGpuResolutionScale,
   type MengerTypeGpuAntialiasing,
   type MengerHoverRenderer,
-} from "@/components/logo/mengerTypeGpuSettings";
+} from "@samebase/logo-model/menger-type-gpu-settings";
 import {
   DEFAULT_LOGO_SHUFFLE_PARALLEL_MOVES,
   normalizeLogoShuffleParallelMoves,

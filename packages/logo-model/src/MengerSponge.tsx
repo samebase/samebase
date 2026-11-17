@@ -1,12 +1,5 @@
-import {
-  getTailwindColorHex,
-  type FaceColors,
-  type HexColorToken,
-} from "@/components/logo/logoTailwindColors";
-import { createLogoRouteVoxelGrid } from "@/components/logo/logoRouteRenderState";
-import { LOGO_SCENE_CAMERA_EDGE_CLEARANCE_CSS_PIXELS } from "@/components/logo/logoSceneCameraDepth";
-import { createStaticLogoSvgDataUrl } from "@/components/logo/logoStaticSvgAsset";
-import { type LogoViewState } from "@/components/logo/logoViewDrag";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { common, d, std, tgpu } from "typegpu";
 import {
   getLogoPresentationTiltTransitionAlpha,
   getRadialPointerLogoPresentationTiltTarget,
@@ -14,19 +7,13 @@ import {
   LOGO_PRESENTATION_TILT_SUSPEND_ATTRIBUTE,
   NEUTRAL_LOGO_PRESENTATION_TILT_TARGET,
   normalizeLogoPresentationTiltRadiusScale,
-} from "@/components/logo/logoPresentationTilt";
+} from "./logoPresentationTilt.ts";
+import { LOGO_SCENE_CAMERA_EDGE_CLEARANCE_CSS_PIXELS } from "./logoSceneCameraDepth.ts";
+import { type LogoViewDragConfig, type LogoViewState } from "./logoViewDrag.ts";
 import {
   readMengerAutomaticProbePoint,
   type MengerAutomaticProbeMotionSettings,
-} from "@/components/logo/mengerAutomaticProbe";
-import {
-  MENGER_TYPE_GPU_ANTIALIASING_SETTINGS,
-  MENGER_TYPE_GPU_MAXIMUM_DEPTH,
-  type MengerTypeGpuAntialiasing,
-} from "@/components/logo/mengerTypeGpuSettings";
-import { useLogoViewDrag } from "@/components/logo/useLogoViewDrag";
-import { usePrimaryFineHoverPointer } from "@/hooks/pointerCapabilities";
-import { PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG } from "@/lib/publicLandingLogo";
+} from "./mengerAutomaticProbe.ts";
 import {
   MENGER_HOVER_DEFAULT_REVEAL_RADIUS,
   MENGER_HOVER_FRAME_ELAPSED_MAX_MS,
@@ -36,7 +23,12 @@ import {
   MENGER_HOVER_OPENNESS_SMOOTHING_TAU_MS,
   projectMengerHoverLineToVisibleFacePlanes,
   type MengerHoverProbe,
-} from "@samebase/logo-model/menger-hover";
+} from "./mengerHover.ts";
+import {
+  MENGER_TYPE_GPU_ANTIALIASING_SETTINGS,
+  MENGER_TYPE_GPU_MAXIMUM_DEPTH,
+  type MengerTypeGpuAntialiasing,
+} from "./mengerTypeGpuSettings.ts";
 import {
   addVectors,
   crossProduct,
@@ -48,10 +40,10 @@ import {
   scaleVector,
   toRenderedRotationDegrees,
   type Vector3,
-} from "@samebase/logo-model/rotation";
-import { LOGO_GRID_SIZE_3, MENGER_SPONGE_VOXEL_STATE } from "@samebase/logo-model/voxel";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { common, d, std, tgpu } from "typegpu";
+} from "./rotation.ts";
+import { useLogoViewDrag } from "./useLogoViewDrag.ts";
+
+export type HexColor = `#${string}`;
 
 const CAMERA_DISTANCE = 4;
 const CAMERA_FIT_RADIUS = Math.sqrt(3);
@@ -74,11 +66,14 @@ const MENGER_TYPE_GPU_SCENE_STATE = d.struct({
   selectedDepth: d.i32,
   surfaceThreshold: d.f32,
 });
-const STATIC_MENGER_VOXEL_GRID = createLogoRouteVoxelGrid({
-  fractalDepth: 1,
-  gridSize: LOGO_GRID_SIZE_3,
-  voxelState: MENGER_SPONGE_VOXEL_STATE,
-});
+const PRIMARY_FINE_HOVER_POINTER_QUERY = "(hover: hover) and (pointer: fine)";
+const CANVAS_STYLE = {
+  WebkitUserSelect: "none",
+  display: "block",
+  height: "100%",
+  userSelect: "none",
+  width: "100%",
+} as const;
 
 type SceneStatus = "initializing" | "ready" | "unavailable";
 export type MengerTypeGpuPerformanceReport =
@@ -99,10 +94,10 @@ type ClientPoint = {
   y: number;
 };
 type SceneColors = {
-  background: HexColorToken;
-  left: HexColorToken;
-  right: HexColorToken;
-  top: HexColorToken;
+  background: HexColor;
+  left: HexColor;
+  right: HexColor;
+  top: HexColor;
 };
 type Quaternion = readonly [number, number, number, number];
 type HoverProjection = NonNullable<ReturnType<typeof projectMengerHoverLineToVisibleFacePlanes>>;
@@ -128,7 +123,7 @@ function readHexChannel(hex: string, start: number): number {
   return Number.parseInt(hex.slice(start, start + 2), 16) / 255;
 }
 
-function readGpuColor(color: HexColorToken): d.v3f {
+function readGpuColor(color: HexColor): d.v3f {
   const source = color.slice(1);
   const hex =
     source.length === 3
@@ -294,35 +289,30 @@ function readHoverProbe(
   return { probe, projection };
 }
 
-export function MengerTypeGpuScene({
-  antialiasing,
-  automaticProbe,
-  backgroundColor,
-  cameraFrustumPadding,
-  depth,
-  elevationDegrees,
-  faceColors,
-  onInteractionEnd,
-  onPerformanceReport,
-  onRenderReady,
-  onRenderUnavailable,
-  onViewChange,
-  pointerTiltEnabled,
-  pointerTiltRadiusScale,
-  pointerTiltStrengthScale,
-  performanceMeasurementEnabled,
-  resolutionScale,
-  revealRadius,
-  rotationDegrees,
-  viewSnapEnabled,
-}: {
+function subscribeToPrimaryFineHoverPointer(onChange: () => void) {
+  const mediaQueryList = window.matchMedia(PRIMARY_FINE_HOVER_POINTER_QUERY);
+  mediaQueryList.addEventListener("change", onChange);
+  return () => mediaQueryList.removeEventListener("change", onChange);
+}
+
+function readPrimaryFineHoverPointer() {
+  return window.matchMedia(PRIMARY_FINE_HOVER_POINTER_QUERY).matches;
+}
+
+function readServerPrimaryFineHoverPointer() {
+  return false;
+}
+
+export type MengerSpongeProps = {
   antialiasing: MengerTypeGpuAntialiasing;
   automaticProbe: MengerAutomaticProbeMotionSettings;
-  backgroundColor: HexColorToken;
+  backgroundColor: HexColor;
   cameraFrustumPadding: number;
   depth: number;
   elevationDegrees: number;
-  faceColors: FaceColors;
+  faceColors: { left: HexColor; right: HexColor; top: HexColor };
+  /** Image shown while WebGPU starts and when it is not available. */
+  fallbackSrc: string;
   onInteractionEnd: (finalView: LogoViewState) => void;
   onPerformanceReport?: (report: MengerTypeGpuPerformanceReport) => void;
   onRenderReady?: () => void;
@@ -335,9 +325,37 @@ export function MengerTypeGpuScene({
   resolutionScale: number;
   revealRadius: number;
   rotationDegrees: number;
-  viewSnapEnabled: boolean;
-}) {
-  const hasPrimaryFineHoverPointer = usePrimaryFineHoverPointer();
+  viewDragConfig: LogoViewDragConfig | undefined;
+};
+
+export function MengerSponge({
+  antialiasing,
+  automaticProbe,
+  backgroundColor,
+  cameraFrustumPadding,
+  depth,
+  elevationDegrees,
+  faceColors,
+  fallbackSrc,
+  onInteractionEnd,
+  onPerformanceReport,
+  onRenderReady,
+  onRenderUnavailable,
+  onViewChange,
+  pointerTiltEnabled,
+  pointerTiltRadiusScale,
+  pointerTiltStrengthScale,
+  performanceMeasurementEnabled,
+  resolutionScale,
+  revealRadius,
+  rotationDegrees,
+  viewDragConfig,
+}: MengerSpongeProps) {
+  const hasPrimaryFineHoverPointer = useSyncExternalStore(
+    subscribeToPrimaryFineHoverPointer,
+    readPrimaryFineHoverPointer,
+    readServerPrimaryFineHoverPointer,
+  );
   const antialiasingRef = useRef(antialiasing);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -360,9 +378,9 @@ export function MengerTypeGpuScene({
   const viewRef = useRef<LogoViewState>({ elevationDegrees, rotationDegrees });
   const colorsRef = useRef<SceneColors>({
     background: backgroundColor,
-    left: getTailwindColorHex(faceColors.left),
-    right: getTailwindColorHex(faceColors.right),
-    top: getTailwindColorHex(faceColors.top),
+    left: faceColors.left,
+    right: faceColors.right,
+    top: faceColors.top,
   });
   const resizeRef = useRef<() => void>(() => {});
   const writeColorsRef = useRef<(colors: SceneColors) => void>(() => {});
@@ -372,21 +390,10 @@ export function MengerTypeGpuScene({
   const writeDepthRef = useRef<(nextDepth: number) => void>(() => {});
   const writeViewRef = useRef<(view: LogoViewState) => void>(() => {});
   const [status, setStatus] = useState<SceneStatus>("initializing");
-  const leftFaceColor = getTailwindColorHex(faceColors.left);
-  const rightFaceColor = getTailwindColorHex(faceColors.right);
-  const topFaceColor = getTailwindColorHex(faceColors.top);
-  const staticMengerSvgSrc = useMemo(
-    () =>
-      createStaticLogoSvgDataUrl({
-        cameraFrustumPadding,
-        depth: 1,
-        faceColors,
-        filledVoxels: STATIC_MENGER_VOXEL_GRID.filledVoxels,
-        gridSize: STATIC_MENGER_VOXEL_GRID.gridSize,
-        view: { elevationDegrees, rotationDegrees },
-      }),
-    [cameraFrustumPadding, elevationDegrees, faceColors, rotationDegrees],
-  );
+  const [isPointerCaptured, setIsPointerCaptured] = useState(false);
+  const leftFaceColor = faceColors.left;
+  const rightFaceColor = faceColors.right;
+  const topFaceColor = faceColors.top;
   const {
     handleContextMenu,
     handlePointerCancel,
@@ -397,9 +404,11 @@ export function MengerTypeGpuScene({
   } = useLogoViewDrag<HTMLCanvasElement>({
     elevationDegrees,
     onInteractionEnd,
+    onPointerCaptureEnd: () => setIsPointerCaptured(false),
+    onPointerCaptureStart: () => setIsPointerCaptured(true),
     onViewChange,
     rotationDegrees,
-    viewDragConfig: viewSnapEnabled ? PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG : undefined,
+    viewDragConfig,
   });
 
   useEffect(() => {
@@ -1329,7 +1338,12 @@ export function MengerTypeGpuScene({
           clearAutomaticProbeClientPoint("suspended");
         };
         const sceneVisibilityObserver = new IntersectionObserver((entries) => {
-          const entry = entries[0];
+          // The observer watches only the container. When the browser batches several changes,
+          // the last entry holds the newest state.
+          const entry = entries.at(-1);
+          if (entry === undefined) {
+            return;
+          }
           sceneIsVisible = entry.isIntersecting;
           if (sceneIsVisible) {
             restartAutomaticProbeAtStart();
@@ -1570,7 +1584,6 @@ export function MengerTypeGpuScene({
     <div
       ref={containerRef}
       aria-label="Menger sponge hover reveal"
-      className="relative h-full min-h-0 w-full"
       data-menger-antialiasing={antialiasing}
       data-menger-automatic-probe={automaticProbe.enabled ? "play" : "off"}
       data-menger-automatic-probe-path={automaticProbe.path}
@@ -1586,31 +1599,63 @@ export function MengerTypeGpuScene({
       data-renderer-state={status}
       data-testid="logo-menger-hover-scene"
       role="img"
+      style={{ height: "100%", minHeight: 0, position: "relative", width: "100%" }}
     >
       <canvas
         ref={canvasRef}
         aria-hidden="true"
-        className={
-          status === "unavailable"
-            ? "block h-full w-full select-none"
-            : "block h-full w-full cursor-grab touch-none select-none active:cursor-grabbing"
-        }
         onContextMenu={status === "unavailable" ? undefined : handleContextMenu}
         onPointerCancel={status === "unavailable" ? undefined : handlePointerCancel}
         onPointerDown={status === "unavailable" ? undefined : handlePointerDown}
         onPointerMove={status === "unavailable" ? undefined : handlePointerMove}
         onPointerUp={status === "unavailable" ? undefined : handlePointerUp}
+        style={
+          status === "unavailable"
+            ? CANVAS_STYLE
+            : {
+                ...CANVAS_STYLE,
+                cursor: isPointerCaptured ? "grabbing" : "grab",
+                touchAction: "none",
+              }
+        }
       />
       {status === "ready" ? null : (
-        <div className="pointer-events-none absolute inset-0 grid place-items-center">
+        <div
+          style={{
+            display: "grid",
+            inset: 0,
+            placeItems: "center",
+            pointerEvents: "none",
+            position: "absolute",
+          }}
+        >
           <img
             alt=""
             aria-hidden="true"
-            className="h-full w-full object-contain"
-            src={staticMengerSvgSrc}
-            style={{ padding: LOGO_SCENE_CAMERA_EDGE_CLEARANCE_CSS_PIXELS }}
+            src={fallbackSrc}
+            style={{
+              boxSizing: "border-box",
+              display: "block",
+              height: "100%",
+              objectFit: "contain",
+              padding: LOGO_SCENE_CAMERA_EDGE_CLEARANCE_CSS_PIXELS,
+              width: "100%",
+            }}
           />
-          <span className="sr-only" role="status">
+          <span
+            role="status"
+            style={{
+              borderWidth: 0,
+              clipPath: "inset(50%)",
+              height: 1,
+              margin: -1,
+              overflow: "hidden",
+              padding: 0,
+              position: "absolute",
+              whiteSpace: "nowrap",
+              width: 1,
+            }}
+          >
             {status === "unavailable"
               ? "WebGPU is not available. The static logo is shown."
               : "WebGPU is starting."}

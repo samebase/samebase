@@ -114,7 +114,7 @@ import {
   normalizeRotationDegrees,
   type VoxelEdit,
 } from "@samebase/logo-model/voxel";
-import { resolveLogoViewState, type LogoViewState } from "@/components/logo/logoViewDrag";
+import { resolveLogoViewState, type LogoViewState } from "@samebase/logo-model/logo-view-drag";
 import {
   buildLogoThemeColorSearch,
   syncDocumentThemeColorSearch,

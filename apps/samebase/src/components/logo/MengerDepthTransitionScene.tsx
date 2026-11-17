@@ -1,12 +1,12 @@
 import { getTailwindColorHex, type FaceColors } from "@/components/logo/logoTailwindColors";
-import { resolveLogoSceneCameraDepthBounds } from "@/components/logo/logoSceneCameraDepth";
-import { type LogoViewState } from "@/components/logo/logoViewDrag";
+import { resolveLogoSceneCameraDepthBounds } from "@samebase/logo-model/logo-scene-camera-depth";
+import { type LogoViewState } from "@samebase/logo-model/logo-view-drag";
 import {
   MENGER_SCENE_WORLD_SIZE,
   toMengerWorldCoordinate,
   writeMengerVoxelMatrix,
 } from "@/components/logo/mengerSceneCoordinates";
-import { useLogoViewDrag } from "@/components/logo/useLogoViewDrag";
+import { useLogoViewDrag } from "@samebase/logo-model/use-logo-view-drag";
 import { PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG } from "@/lib/publicLandingLogo";
 import {
   readMengerDepthTransitionMoveProgress,

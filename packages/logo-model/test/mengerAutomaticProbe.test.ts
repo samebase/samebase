@@ -7,7 +7,7 @@ import {
   normalizeMengerAutomaticProbeStartProgress,
   normalizeMengerAutomaticProbeVerticalOffset,
   readMengerAutomaticProbePoint,
-} from "@/components/logo/mengerAutomaticProbe";
+} from "../src/mengerAutomaticProbe.ts";
 import { describe, expect, it } from "vite-plus/test";
 
 describe("Menger automatic probe", () => {

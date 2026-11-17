@@ -1,5 +1,5 @@
 import { STATIC_LOGO_ELEVATION_DEGREES } from "@samebase/logo-model/identity";
-import { type LogoViewDragConfig } from "@/components/logo/logoViewDrag";
+import { type LogoViewDragConfig } from "@samebase/logo-model/logo-view-drag";
 
 export const PUBLIC_LANDING_LOGO_ALT = "Samebase logo";
 /**

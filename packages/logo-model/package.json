@@ -1,36 +1,98 @@
 {
   "name": "@samebase/logo-model",
-  "version": "0.0.0",
-  "private": true,
-  "description": "Renderer-independent Samebase logo geometry and identity contracts",
+  "version": "0.1.0",
+  "description": "Samebase logo geometry and an interactive WebGPU Menger sponge for React",
+  "keywords": [
+    "menger-sponge",
+    "react",
+    "typegpu",
+    "webgpu"
+  ],
+  "homepage": "https://github.com/samebase/samebase/tree/main/packages/logo-model#readme",
+  "bugs": {
+    "url": "https://github.com/samebase/samebase/issues"
+  },
   "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/samebase/samebase.git",
+    "directory": "packages/logo-model"
+  },
   "files": [
-    "src"
+    "dist",
+    "README.md",
+    "LICENSE"
   ],
   "type": "module",
+  "sideEffects": false,
   "exports": {
     "./auto-rotation": "./src/autoRotation.ts",
     "./face-treatment": "./src/faceTreatment.ts",
     "./identity": "./src/identity.ts",
     "./left-face-style": "./src/leftFaceStyle.ts",
+    "./logo-presentation-tilt": "./src/logoPresentationTilt.ts",
+    "./logo-scene-camera-depth": "./src/logoSceneCameraDepth.ts",
+    "./logo-view-drag": "./src/logoViewDrag.ts",
+    "./logo-view-drag-constants": "./src/logoViewDragConstants.ts",
+    "./menger-automatic-probe": "./src/mengerAutomaticProbe.ts",
     "./menger-depth-transition": "./src/mengerDepthTransition.ts",
     "./menger-hover": "./src/mengerHover.ts",
+    "./menger-sponge": "./src/MengerSponge.tsx",
+    "./menger-type-gpu-settings": "./src/mengerTypeGpuSettings.ts",
     "./rotation": "./src/rotation.ts",
     "./shuffle": "./src/shuffle.ts",
     "./sierpinski-carpet-hover": "./src/sierpinskiCarpetHover.ts",
     "./surface": "./src/surface.ts",
+    "./use-logo-view-drag": "./src/useLogoViewDrag.ts",
     "./voxel": "./src/voxel.ts"
   },
+  "publishConfig": {
+    "exports": {
+      "./auto-rotation": "./dist/auto-rotation.js",
+      "./face-treatment": "./dist/face-treatment.js",
+      "./identity": "./dist/identity.js",
+      "./left-face-style": "./dist/left-face-style.js",
+      "./logo-presentation-tilt": "./dist/logo-presentation-tilt.js",
+      "./logo-scene-camera-depth": "./dist/logo-scene-camera-depth.js",
+      "./logo-view-drag": "./dist/logo-view-drag.js",
+      "./logo-view-drag-constants": "./dist/logo-view-drag-constants.js",
+      "./menger-automatic-probe": "./dist/menger-automatic-probe.js",
+      "./menger-depth-transition": "./dist/menger-depth-transition.js",
+      "./menger-hover": "./dist/menger-hover.js",
+      "./menger-sponge": "./dist/menger-sponge.js",
+      "./menger-type-gpu-settings": "./dist/menger-type-gpu-settings.js",
+      "./rotation": "./dist/rotation.js",
+      "./shuffle": "./dist/shuffle.js",
+      "./sierpinski-carpet-hover": "./dist/sierpinski-carpet-hover.js",
+      "./surface": "./dist/surface.js",
+      "./use-logo-view-drag": "./dist/use-logo-view-drag.js",
+      "./voxel": "./dist/voxel.js"
+    },
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
   "scripts": {
-    "check": "pnpm run typecheck && pnpm run lint && pnpm run test",
-    "lint": "pnpm --dir ../.. exec vp lint --tsconfig packages/logo-model/tsconfig.json --report-unused-disable-directives packages/logo-model/src packages/logo-model/test",
+    "build": "vp pack",
+    "check": "pnpm run typecheck && pnpm run lint && pnpm run test && pnpm run build",
+    "lint": "pnpm --dir ../.. exec vp lint --tsconfig packages/logo-model/tsconfig.json --report-unused-disable-directives packages/logo-model/src packages/logo-model/test packages/logo-model/vite.config.ts",
+    "prepack": "pnpm run build",
     "test": "pnpm --dir ../.. exec vp test packages/logo-model/test",
     "typecheck": "pnpm --dir ../.. exec tsgo -p packages/logo-model/tsconfig.json --pretty false"
   },
   "dependencies": {
-    "@samebase/dependent": "workspace:*"
+    "typegpu": "0.12.7"
   },
-  "engines": {
-    "node": ">=24.0.0"
+  "devDependencies": {
+    "@arethetypeswrong/core": "0.18.5",
+    "@samebase/dependent": "workspace:*",
+    "@types/react": "19.3.0",
+    "@typescript/native-preview": "7.0.0-dev.20260707.2",
+    "publint": "0.3.25",
+    "react": "19.3.0",
+    "unplugin-typegpu": "0.12.5",
+    "vite-plus": "1.3.0"
+  },
+  "peerDependencies": {
+    "react": ">=19.2.0 <20"
   }
 }

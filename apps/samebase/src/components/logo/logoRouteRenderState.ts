@@ -41,7 +41,7 @@ import {
   type LogoVoxelGrid,
 } from "@samebase/logo-model/voxel";
 import { type LogoRotationAxisMode } from "@samebase/logo-model/rotation";
-import { resolveLogoViewState, type LogoViewState } from "@/components/logo/logoViewDrag";
+import { resolveLogoViewState, type LogoViewState } from "@samebase/logo-model/logo-view-drag";
 import { readLogoThemeColors } from "@/lib/appThemeColorSearch";
 import {
   DEFAULT_LOGO_OPACITY,

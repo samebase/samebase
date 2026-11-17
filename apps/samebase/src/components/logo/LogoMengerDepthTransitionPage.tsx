@@ -3,9 +3,9 @@ import { AppSelectContent, AppSelectItem } from "@/components/AppSelect";
 import { MengerDepthTransitionScene } from "@/components/logo/MengerDepthTransitionScene";
 import { MengerHoverScene } from "@/components/logo/MengerHoverScene";
 import {
-  MengerTypeGpuScene,
+  MengerSponge,
   type MengerTypeGpuPerformanceReport,
-} from "@/components/logo/MengerTypeGpuScene";
+} from "@samebase/logo-model/menger-sponge";
 import { LogoSquareTouchSurface } from "@/components/logo/LogoSquareTouchSurface";
 import {
   LOGO_PRESENTATION_TILT_DEFAULT_RADIUS_SCALE,
@@ -16,9 +16,14 @@ import {
   LOGO_PRESENTATION_TILT_STRENGTH_SCALE_SLIDER_MIN,
   normalizeLogoPresentationTiltRadiusScale,
   normalizeLogoPresentationTiltStrengthScale,
-} from "@/components/logo/logoPresentationTilt";
-import { readLogoRouteRenderState } from "@/components/logo/logoRouteRenderState";
-import { type LogoViewState } from "@/components/logo/logoViewDrag";
+} from "@samebase/logo-model/logo-presentation-tilt";
+import {
+  createLogoRouteVoxelGrid,
+  readLogoRouteRenderState,
+} from "@/components/logo/logoRouteRenderState";
+import { createStaticLogoSvgDataUrl } from "@/components/logo/logoStaticSvgAsset";
+import { getTailwindColorHex } from "@/components/logo/logoTailwindColors";
+import { type LogoViewState } from "@samebase/logo-model/logo-view-drag";
 import {
   MENGER_AUTOMATIC_PROBE_DEFAULT_HEIGHT,
   MENGER_AUTOMATIC_PROBE_DEFAULT_LOOP_DURATION_SECONDS,
@@ -32,7 +37,7 @@ import {
   readMengerAutomaticProbePoint,
   type MengerAutomaticProbeMotionSettings,
   type MengerAutomaticProbeSettings,
-} from "@/components/logo/mengerAutomaticProbe";
+} from "@samebase/logo-model/menger-automatic-probe";
 import {
   MENGER_TYPE_GPU_ANTIALIASING_MODES,
   MENGER_TYPE_GPU_ANTIALIASING_SETTINGS,
@@ -45,11 +50,12 @@ import {
   normalizeMengerTypeGpuResolutionScale,
   type MengerHoverRenderer,
   type MengerTypeGpuAntialiasing,
-} from "@/components/logo/mengerTypeGpuSettings";
+} from "@samebase/logo-model/menger-type-gpu-settings";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectTrigger } from "@/components/ui/select";
 import { useResolvedAppThemeColorState } from "@/lib/appThemeColorSearch";
+import { PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG } from "@/lib/publicLandingLogo";
 import {
   buildLogoMengerHoverRouteSearch,
   buildLogoRouteSearch,
@@ -71,6 +77,7 @@ import {
   MENGER_HOVER_MIN_REVEAL_RADIUS,
   normalizeMengerHoverRevealRadius,
 } from "@samebase/logo-model/menger-hover";
+import { LOGO_GRID_SIZE_3, MENGER_SPONGE_VOXEL_STATE } from "@samebase/logo-model/voxel";
 import { Link } from "@tanstack/react-router";
 import {
   useCallback,
@@ -86,6 +93,12 @@ const TRANSITION_PROGRESS_STEPS = 1_000;
 const GPU_TIMING_SAMPLE_WINDOW = 120;
 const GPU_TIMING_UPDATE_INTERVAL_MS = 500;
 const SIXTY_HERTZ_FRAME_BUDGET_MS = 1_000 / 60;
+const TYPE_GPU_CAMERA_FRUSTUM_PADDING = 1.12;
+const STATIC_MENGER_VOXEL_GRID = createLogoRouteVoxelGrid({
+  fractalDepth: 1,
+  gridSize: LOGO_GRID_SIZE_3,
+  voxelState: MENGER_SPONGE_VOXEL_STATE,
+});
 
 type TransitionPhase = `depth-${number}` | "transition";
 type MengerResearchMode = "hover" | "transition";
@@ -231,6 +244,26 @@ export function LogoMengerDepthTransitionPage({
     elevationDegrees: routeState.elevationDegrees,
     rotationDegrees: routeState.rotationDegrees,
   });
+  const typeGpuFaceColors = useMemo(
+    () => ({
+      left: getTailwindColorHex(faceColors.left),
+      right: getTailwindColorHex(faceColors.right),
+      top: getTailwindColorHex(faceColors.top),
+    }),
+    [faceColors],
+  );
+  const typeGpuFallbackSrc = useMemo(
+    () =>
+      createStaticLogoSvgDataUrl({
+        cameraFrustumPadding: TYPE_GPU_CAMERA_FRUSTUM_PADDING,
+        depth: 1,
+        faceColors,
+        filledVoxels: STATIC_MENGER_VOXEL_GRID.filledVoxels,
+        gridSize: STATIC_MENGER_VOXEL_GRID.gridSize,
+        view,
+      }),
+    [faceColors, view],
+  );
   const activeRenderer: MengerHoverRenderer =
     selectedRenderer === "typegpu" && !typeGpuUnavailable ? "typegpu" : "three";
   const conceptualCellCount = 20 ** hoverMaximumDepth;
@@ -1456,14 +1489,15 @@ export function LogoMengerDepthTransitionPage({
             size={automaticProbeDraft.landingSize ? "landing" : "pane"}
           >
             {activeRenderer === "typegpu" ? (
-              <MengerTypeGpuScene
+              <MengerSponge
                 antialiasing={antialiasing}
                 automaticProbe={automaticProbeMotion}
                 backgroundColor={backgroundColor}
-                cameraFrustumPadding={1.12}
+                cameraFrustumPadding={TYPE_GPU_CAMERA_FRUSTUM_PADDING}
                 depth={hoverMaximumDepth}
                 elevationDegrees={view.elevationDegrees}
-                faceColors={faceColors}
+                faceColors={typeGpuFaceColors}
+                fallbackSrc={typeGpuFallbackSrc}
                 onInteractionEnd={commitView}
                 onPerformanceReport={handlePerformanceReport}
                 onRenderUnavailable={() => {
@@ -1480,7 +1514,9 @@ export function LogoMengerDepthTransitionPage({
                 resolutionScale={resolutionScale}
                 revealRadius={hoverRevealRadius}
                 rotationDegrees={view.rotationDegrees}
-                viewSnapEnabled={routeState.viewSnapEnabled}
+                viewDragConfig={
+                  routeState.viewSnapEnabled ? PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG : undefined
+                }
               />
             ) : (
               <MengerHoverScene

@@ -1,4 +1,4 @@
-import { normalizeLogoFractalDepth } from "@samebase/logo-model/voxel";
+import { normalizeLogoFractalDepth } from "./voxel.ts";
 
 export const MENGER_TYPE_GPU_DEFAULT_DEPTH = 4;
 export const MENGER_TYPE_GPU_MINIMUM_DEPTH = 1;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
-import { resolveLogoSceneCameraDepthBounds } from "@/components/logo/logoSceneCameraDepth";
+import { resolveLogoSceneCameraDepthBounds } from "../src/logoSceneCameraDepth.ts";
 
 describe("resolveLogoSceneCameraDepthBounds", () => {
   it("keeps recursive logo depth inside the orthographic clipping range", () => {

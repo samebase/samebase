@@ -12,7 +12,7 @@ import { LOGO_SECONDARY_LEFT_FACE_STYLE } from "@samebase/logo-model/left-face-s
 import {
   NEUTRAL_LOGO_PRESENTATION_TILT_TARGET,
   type LogoPresentationTiltTarget,
-} from "@/components/logo/logoPresentationTilt";
+} from "@samebase/logo-model/logo-presentation-tilt";
 import { STATIC_LOGO_GRID_SIZE } from "@samebase/logo-model/identity";
 import { createStaticLogoSvgDataUrl } from "@/components/logo/logoStaticSvgAsset";
 import {
