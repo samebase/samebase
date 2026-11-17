@@ -15,6 +15,7 @@ import {
   type AlchemyStacksRead,
   type AlchemyStateObservation,
   type CloudflareStacksRead,
+  type GitHubStacksRead,
 } from "../../../shared/alchemyStateModel";
 
 const repositoryQuery = makeFunctionReference<"query", Record<string, never>, unknown>(
@@ -34,6 +35,8 @@ export type RepositoryAlchemyState =
       when it has no stack to show. The delete dialog uses it in every case.
       */
       cloudflareProblem?: "reconnect" | "unreadable";
+      /** The read of the branch `alchemy-state-store` failed. The page shows it the same way. */
+      githubUnreadable?: true;
       reload: () => void;
     };
 
@@ -67,14 +70,15 @@ function useLoaderRead(repositoryId: Id<"repositories"> | null, convexTeamId: st
 One connection for the selected repository to the store of its Convex team. Cleanup closes it;
 results belong to its target. The loader's read stands until the first subscription result, and the
 connection starts with its token, so the page has the stacks before any request of the browser. A
-reload connects again and reads the Cloudflare store again. `repository` is the GitHub `owner/name`
-of the repository: the run record of each stage that the page shows names it.
+reload connects again and reads the other stores again. `repository` is the GitHub `owner/name` of
+the repository: the run record of each stage that the page shows names it.
 
-The store of the organization's Cloudflare account is read once when the page opens, in the
-browser, because the read takes some seconds and uploads an edge preview at Cloudflare. Its stacks
-join the Convex stacks in one observation, and while it runs, a page with no Convex stack shows its
-loading state. When the Convex read fails, the page shows the Cloudflare stacks with `refreshFailed`,
-and without them it shows the failure.
+The store of the organization's Cloudflare account and the branch `alchemy-state-store` of the
+repository are read once when the page opens, in the browser: the Cloudflare read takes some seconds
+and uploads an edge preview at Cloudflare, and the branch read makes one GitHub request per file.
+Their stacks join the Convex stacks in one observation, and while a read runs, a page with no stack
+yet shows its loading state. When the Convex read fails, the page shows the stacks of the other
+stores with `refreshFailed`, and without them it shows the failure.
 */
 export function useRepositoryAlchemyState(
   repositoryId: Id<"repositories"> | null,
@@ -86,6 +90,7 @@ export function useRepositoryAlchemyState(
   const connect = useAction(api.repository.alchemyState.connect);
   const readDeploymentMetadata = useAction(api.repository.alchemyState.readDeploymentMetadata);
   const readCloudflareStacks = useAction(api.repository.alchemyState.readCloudflareStacks);
+  const readGitHubStacks = useAction(api.repository.alchemyState.readGitHubStacks);
   const loaderRead = useLoaderRead(repositoryId, convexTeamId);
   const [attempt, setAttempt] = useState(0);
   const [reloadedRead, setReloadedRead] = useState<typeof loaderRead>();
@@ -101,24 +106,40 @@ export function useRepositoryAlchemyState(
     [convexRepositoryId, repository, userId, convexTeamId, attempt, firstRead],
   );
   const [result, setResult] = useState<{ target: typeof target; value: StoreResult }>();
+  // The Cloudflare store and the GitHub branch need no Convex team.
+  const otherStoresEnabled = repositoryId !== null && userId !== undefined;
   const cloudflare = useCachedQuery({
     queryKey: ["repository-alchemy-cloudflare-stacks", repositoryId, userId],
     queryFn: async () => {
       if (!repositoryId) throw new Error("Repository is required to read the Cloudflare store.");
       return await readCloudflareStacks({ repositoryId });
     },
-    enabled: repositoryId !== null && userId !== undefined,
+    enabled: otherStoresEnabled,
     // Each read uploads an edge preview at Cloudflare: no read on focus and no retry. A page that
     // opens again shows the last read while it reads again.
     refetchOnWindowFocus: false,
     retry: false,
   });
+  const github = useCachedQuery({
+    queryKey: ["repository-alchemy-github-stacks", repositoryId, userId],
+    queryFn: async () => {
+      if (!repositoryId) throw new Error("Repository is required to read the GitHub store.");
+      return await readGitHubStacks({ repositoryId });
+    },
+    enabled: otherStoresEnabled,
+    // Each read makes one GitHub request per state file: no read on focus and no retry. A page
+    // that opens again shows the last read while it reads again.
+    refetchOnWindowFocus: false,
+    retry: false,
+  });
   const { refetch: refetchCloudflare } = cloudflare;
+  const { refetch: refetchGitHub } = github;
   const reload = useCallback(() => {
     setReloadedRead(loaderRead);
     setAttempt((current) => current + 1);
     void refetchCloudflare();
-  }, [loaderRead, refetchCloudflare]);
+    void refetchGitHub();
+  }, [loaderRead, refetchCloudflare, refetchGitHub]);
   const firstResult = useMemo((): StoreResult | undefined => {
     if (!firstRead) return undefined;
     if (firstRead.state === "failed")
@@ -303,73 +324,82 @@ export function useRepositoryAlchemyState(
     ? current
     : { state: "loaded" as const, read: { store: "no_connection" as const } };
   if (!convex) return { state: "loading" };
-  if (convex.state === "failed") return withCloudflareRead({ ...convex, reload }, cloudflare);
+  if (convex.state === "failed") {
+    return withOtherStoreReads({ ...convex, reload }, { cloudflare, github });
+  }
   const observation: AlchemyStateObservation =
     convex.read.store === "found"
       ? { ...convex.read, liveDeployments: metadata.data ?? [] }
       : convex.read;
-  return withCloudflareRead(
+  return withOtherStoreReads(
     { state: "loaded", observation, refreshFailed: metadata.isError, reload },
-    cloudflare,
+    { cloudflare, github },
   );
 }
 
+/** Why the Cloudflare store gave no stack, by the state of its read. */
+const CLOUDFLARE_PROBLEMS = {
+  found: undefined,
+  not_connected: undefined,
+  unsupported_connection: undefined,
+  no_store: undefined,
+  reconnect: "reconnect",
+  failed: "unreadable",
+  unsupported_version: "unreadable",
+} satisfies Record<CloudflareStacksRead["state"], "reconnect" | "unreadable" | undefined>;
+
 /**
-The Convex read with the Cloudflare read. Nothing flashes: a page without a Convex stack waits for
-the Cloudflare read, and Convex stacks show at once. A read that throws counts as failed. A failed
-Convex read shows the Cloudflare stacks with `refreshFailed`, whose Retry reads both stores again,
-and shows the failure while the Cloudflare read runs or finds no stack.
+The Convex read with the reads of the Cloudflare store and the GitHub branch. Nothing flashes:
+stacks show as soon as a read gives them, and a page without a stack waits for every read. A read
+that throws counts as failed. A failed Convex read shows the stacks of the other stores with
+`refreshFailed`, whose Retry reads every store again, and shows the failure while the other reads
+run or find no stack.
 */
-function withCloudflareRead(
+function withOtherStoreReads(
   convex: Exclude<RepositoryAlchemyState, { state: "loading" }>,
-  query: Pick<UseQueryResult<CloudflareStacksRead>, "data" | "isError">,
+  queries: {
+    cloudflare: Pick<UseQueryResult<CloudflareStacksRead>, "data" | "isError">;
+    github: Pick<UseQueryResult<GitHubStacksRead>, "data" | "isError">;
+  },
 ): RepositoryAlchemyState {
+  const cloudflareRead: CloudflareStacksRead | undefined =
+    queries.cloudflare.data ?? (queries.cloudflare.isError ? { state: "failed" } : undefined);
+  const githubRead: GitHubStacksRead | undefined =
+    queries.github.data ?? (queries.github.isError ? { state: "failed" } : undefined);
+  const others = [cloudflareRead, githubRead].flatMap((read) =>
+    read?.state === "found" && read.stacks.length > 0 ? [read] : [],
+  );
   if (convex.state === "failed") {
-    return query.data?.state === "found" && query.data.stacks.length > 0
+    return others.length > 0
       ? {
           state: "loaded",
           observation: {
             store: "found",
-            stacks: query.data.stacks,
-            liveDeployments: query.data.liveDeployments,
+            stacks: others.flatMap((read) => read.stacks),
+            liveDeployments: others.flatMap((read) => read.liveDeployments),
           },
           refreshFailed: true,
           reload: convex.reload,
         }
       : convex;
   }
-  const cloudflareRead: CloudflareStacksRead | undefined =
-    query.data ?? (query.isError ? { state: "failed" } : undefined);
-  const convexStacks = convex.observation.store === "found" ? convex.observation : null;
-  if (!cloudflareRead) {
-    return convexStacks?.stacks.length ? convex : { state: "loading" };
+  const reads = convex.observation.store === "found" ? [convex.observation, ...others] : others;
+  if ((!cloudflareRead || !githubRead) && !reads.some((read) => read.stacks.length > 0)) {
+    return { state: "loading" };
   }
-  switch (cloudflareRead.state) {
-    case "found":
-      return cloudflareRead.stacks.length === 0
-        ? convex
-        : {
-            ...convex,
-            observation: {
-              store: "found",
-              stacks: [...(convexStacks?.stacks ?? []), ...cloudflareRead.stacks],
-              liveDeployments: [
-                ...(convexStacks?.liveDeployments ?? []),
-                ...cloudflareRead.liveDeployments,
-              ],
-            },
-          };
-    case "reconnect":
-      return { ...convex, cloudflareProblem: "reconnect" };
-    case "failed":
-    case "unsupported_version":
-      return { ...convex, cloudflareProblem: "unreadable" };
-    case "not_connected":
-    case "unsupported_connection":
-    case "no_store":
-      return convex;
-    default:
-      cloudflareRead satisfies never;
-      return convex;
-  }
+
+  return {
+    ...(others.length === 0
+      ? convex
+      : {
+          ...convex,
+          observation: {
+            store: "found",
+            stacks: reads.flatMap((read) => read.stacks),
+            liveDeployments: reads.flatMap((read) => read.liveDeployments),
+          },
+        }),
+    cloudflareProblem: cloudflareRead && CLOUDFLARE_PROBLEMS[cloudflareRead.state],
+    githubUnreadable: githubRead?.state === "failed" || undefined,
+  };
 }

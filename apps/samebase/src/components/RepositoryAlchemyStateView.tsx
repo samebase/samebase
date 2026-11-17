@@ -1,8 +1,8 @@
 import { Loader2 } from "lucide-react";
 import {
   AlchemyStateTree,
-  CloudflareStateProblem,
   RepositoryAlchemyStateStatus,
+  StateStoreProblems,
 } from "./RepositoryAlchemyStateTree";
 import { AppWorkspaceRouteChrome } from "@/components/AppWorkspaceShell";
 import { RepositoryOverviewLoadingPage } from "@/repository/dashboard/RepositoryOverviewPage";
@@ -32,9 +32,13 @@ function RepositoryAlchemyStateTree({
 
   return (
     <AlchemyStateTree
-      cloudflareProblem={
-        state.cloudflareProblem ? (
-          <CloudflareStateProblem owner={owner} problem={state.cloudflareProblem} />
+      storeProblems={
+        state.cloudflareProblem || state.githubUnreadable ? (
+          <StateStoreProblems
+            cloudflareProblem={state.cloudflareProblem}
+            githubUnreadable={state.githubUnreadable}
+            owner={owner}
+          />
         ) : null
       }
       observation={state.observation}

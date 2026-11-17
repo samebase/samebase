@@ -23,6 +23,7 @@ import {
 import {
   CloudflareProviderLogo,
   ConvexProviderLogo,
+  GitHubProviderLogo,
 } from "@/components/repository-dashboard/RepositoryDashboardLogos";
 import { formatRelativeTimeAgo } from "@/lib/formatRelativeTime";
 import { resourceTypePresentation } from "@/components/resourceTypePresentation";
@@ -57,25 +58,40 @@ function outputEntries(output: unknown, path: string): { path: string; value: st
   );
 }
 
-/** The line that a page with no stack shows when the Cloudflare store gave no stacks. */
-export function CloudflareStateProblem({
-  problem,
+/**
+The lines that a page with no stack shows when the Cloudflare store or the branch
+`alchemy-state-store` gave no stacks because of a problem. The caller renders it only with a
+problem.
+*/
+export function StateStoreProblems({
+  cloudflareProblem,
+  githubUnreadable,
   owner,
-}: {
-  problem: NonNullable<Extract<RepositoryAlchemyState, { state: "loaded" }>["cloudflareProblem"]>;
+}: Pick<
+  Extract<RepositoryAlchemyState, { state: "loaded" }>,
+  "cloudflareProblem" | "githubUnreadable"
+> & {
   /** The GitHub owner of the organization, for its Providers page. */
   owner: string;
 }) {
-  return problem === "reconnect" ? (
-    <span>
-      An app with its Alchemy state in Cloudflare needs an owner to connect Cloudflare again on{" "}
-      <Link className="underline" params={{ owner }} to={ORGANIZATION_PROVIDERS_ROUTE}>
-        Providers
-      </Link>{" "}
-      and allow Secrets Store Read and Edit.
-    </span>
-  ) : (
-    <span>Could not read the Alchemy state store in Cloudflare.</span>
+  return (
+    <>
+      {cloudflareProblem === "reconnect" ? (
+        <span>
+          An app with its Alchemy state in Cloudflare needs an owner to connect Cloudflare again on{" "}
+          <Link className="underline" params={{ owner }} to={ORGANIZATION_PROVIDERS_ROUTE}>
+            Providers
+          </Link>{" "}
+          and allow Secrets Store Read and Edit.
+        </span>
+      ) : cloudflareProblem === "unreadable" ? (
+        <span>Could not read the Alchemy state store in Cloudflare.</span>
+      ) : null}
+      {cloudflareProblem && githubUnreadable ? " " : null}
+      {githubUnreadable ? (
+        <span>Could not read the Alchemy state branch alchemy-state-store of this repository.</span>
+      ) : null}
+    </>
   );
 }
 
@@ -91,6 +107,12 @@ const STATE_STORES = {
     icon: <CloudflareProviderLogo />,
     detail:
       "This stack keeps its Alchemy state in the alchemy-state-store Worker of the Cloudflare account (Cloudflare.state()). Samebase reads it when the page opens.",
+  },
+  github: {
+    name: "GitHub",
+    icon: <GitHubProviderLogo />,
+    detail:
+      "This stack keeps its Alchemy state on the alchemy-state-store branch of this repository (@samebase/alchemy-kit). Samebase reads it when the page opens.",
   },
 } satisfies Record<AlchemyStack["store"], { name: string; icon: ReactNode; detail: string }>;
 
@@ -307,17 +329,17 @@ function AlchemyStageDetails({ stage }: { stage: AlchemyStage }) {
 
 export function AlchemyStateTree({
   observation,
-  cloudflareProblem,
+  storeProblems,
 }: {
   observation: AlchemyStateObservation;
-  /** A `CloudflareStateProblem`, shown after the message of a page with no stack. */
-  cloudflareProblem?: ReactNode;
+  /** A `StateStoreProblems`, shown after the message of a page with no stack. */
+  storeProblems?: ReactNode;
 }) {
   const status = (message: string) => (
     <RepositoryAlchemyStateStatus>
-      {cloudflareProblem ? (
+      {storeProblems ? (
         <span>
-          {message} {cloudflareProblem}
+          {message} {storeProblems}
         </span>
       ) : (
         message
