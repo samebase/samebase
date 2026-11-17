@@ -118,6 +118,11 @@ audit:
     # the default, 1. The glob copy bundled in vite-plus uses 2, but only on patterns from this
     # repository's own config, and anyone who can edit those can already run code here.
     - GHSA-g3hv-75wg-m249
+    # TODO(2026-11-17): Remove once picomatch publishes a fix. No patched release exists yet (latest
+    # is 4.0.7). The flaw needs a crafted glob pattern. picomatch only reaches the Alchemy CLI and
+    # build tooling (tinyglobby, fdir, unplugin, the TanStack Start plugin), which match patterns from
+    # this repository's own code and config, not shipped Worker code.
+    - GHSA-fc5q-39xc-vjpf
 overrides:
   "@babel/core": 7.29.7
   "@hono/node-server": 2.1.6
