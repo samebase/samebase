@@ -1,13 +1,13 @@
-import {
-  DRAG_ELEVATION_DEGREES_PER_PIXEL,
-  DRAG_ROTATION_DEGREES_PER_PIXEL,
-} from "@/components/logo/logoViewDragConstants";
+import { useRef, type MouseEvent, type PointerEvent } from "react";
 import {
   resolveLogoViewState,
   type LogoViewDragConfig,
   type LogoViewState,
-} from "@/components/logo/logoViewDrag";
-import { useRef, type MouseEvent, type PointerEvent } from "react";
+} from "./logoViewDrag.ts";
+import {
+  DRAG_ELEVATION_DEGREES_PER_PIXEL,
+  DRAG_ROTATION_DEGREES_PER_PIXEL,
+} from "./logoViewDragConstants.ts";
 
 const DRAG_THRESHOLD_PX = 4;
 

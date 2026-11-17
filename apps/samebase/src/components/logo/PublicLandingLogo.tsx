@@ -13,7 +13,7 @@ import {
   getPointerLogoPresentationTiltTarget,
   NEUTRAL_LOGO_PRESENTATION_TILT_TARGET,
   type LogoPresentationTiltTarget,
-} from "@/components/logo/logoPresentationTilt";
+} from "@samebase/logo-model/logo-presentation-tilt";
 import { usePrimaryFineHoverPointer } from "@/hooks/pointerCapabilities";
 import { DEFAULT_LOGO_FRACTAL_DEPTH } from "@samebase/logo-model/voxel";
 import {

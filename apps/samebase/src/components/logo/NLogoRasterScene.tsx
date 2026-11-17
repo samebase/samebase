@@ -32,8 +32,8 @@ import {
   voxelKey,
   type VoxelCoordinate,
 } from "@samebase/logo-model/voxel";
-import { type LogoViewDragConfig } from "@/components/logo/logoViewDrag";
-import { useLogoViewDrag } from "@/components/logo/useLogoViewDrag";
+import { type LogoViewDragConfig } from "@samebase/logo-model/logo-view-drag";
+import { useLogoViewDrag } from "@samebase/logo-model/use-logo-view-drag";
 import { useCallback, useEffect, useRef } from "react";
 import { type LogoShuffleAnimationConfig } from "@/components/logo/NLogoScene";
 

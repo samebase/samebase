@@ -1,27 +1,31 @@
-import { MENGER_AUTOMATIC_PROBE_DEFAULT_SETTINGS } from "@/components/logo/mengerAutomaticProbe";
+import { MENGER_AUTOMATIC_PROBE_DEFAULT_SETTINGS } from "@samebase/logo-model/menger-automatic-probe";
 import {
   createLogoRouteVoxelGrid,
   readLogoRouteRenderState,
 } from "@/components/logo/logoRouteRenderState";
-import { LOGO_SCENE_CAMERA_EDGE_CLEARANCE_CSS_PIXELS } from "@/components/logo/logoSceneCameraDepth";
+import { LOGO_SCENE_CAMERA_EDGE_CLEARANCE_CSS_PIXELS } from "@samebase/logo-model/logo-scene-camera-depth";
 import { createStaticLogoSvgDataUrl } from "@/components/logo/logoStaticSvgAsset";
-import { type LogoViewState } from "@/components/logo/logoViewDrag";
+import { getTailwindColorHex } from "@/components/logo/logoTailwindColors";
+import { type LogoViewState } from "@samebase/logo-model/logo-view-drag";
 import {
   LOGO_PRESENTATION_TILT_DEFAULT_RADIUS_SCALE,
   LOGO_PRESENTATION_TILT_DEFAULT_STRENGTH_SCALE,
-} from "@/components/logo/logoPresentationTilt";
+} from "@samebase/logo-model/logo-presentation-tilt";
 import {
   MENGER_TYPE_GPU_DEFAULT_ANTIALIASING,
   MENGER_TYPE_GPU_DEFAULT_DEPTH,
   normalizeMengerTypeGpuDepth,
-} from "@/components/logo/mengerTypeGpuSettings";
+} from "@samebase/logo-model/menger-type-gpu-settings";
 import { useResolvedAppThemeColorState } from "@/lib/appThemeColorSearch";
 import { useTouchFirstCoarsePointer } from "@/hooks/pointerCapabilities";
 import {
   PUBLIC_LANDING_MENGER_FALLBACK_TEST_ID,
   PUBLIC_LANDING_MENGER_TEST_ID,
 } from "@/lib/publicLanding";
-import { PUBLIC_LANDING_LOGO_STATIC_FALLBACK_ATTRIBUTE } from "@/lib/publicLandingLogo";
+import {
+  PUBLIC_LANDING_LOGO_STATIC_FALLBACK_ATTRIBUTE,
+  PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG,
+} from "@/lib/publicLandingLogo";
 import { clearPublicLandingLogoStaticFallbackPrehydration } from "@/lib/publicLandingLogoPrehydration";
 import { MENGER_HOVER_DEFAULT_REVEAL_RADIUS } from "@samebase/logo-model/menger-hover";
 import { LOGO_GRID_SIZE_3, MENGER_SPONGE_VOXEL_STATE } from "@samebase/logo-model/voxel";
@@ -38,8 +42,7 @@ import {
 import { useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
-type MengerTypeGpuSceneComponent =
-  typeof import("@/components/logo/MengerTypeGpuScene").MengerTypeGpuScene;
+type MengerTypeGpuSceneComponent = typeof import("@samebase/logo-model/menger-sponge").MengerSponge;
 
 const LANDING_HERO_STATIC_VOXEL_GRID = createLogoRouteVoxelGrid({
   fractalDepth: 1,
@@ -130,10 +133,30 @@ export function LandingHeroMenger({ placement }: { placement: "preview" | "root"
     }),
     [leftFaceColor, rightFaceColor, topFaceColor],
   );
+  const sceneFaceColors = useMemo(
+    () => ({
+      left: getTailwindColorHex(leftFaceColor),
+      right: getTailwindColorHex(rightFaceColor),
+      top: getTailwindColorHex(topFaceColor),
+    }),
+    [leftFaceColor, rightFaceColor, topFaceColor],
+  );
   const [view, setView] = useState<LogoViewState>(() => ({
     elevationDegrees: routeState.elevationDegrees,
     rotationDegrees: routeState.rotationDegrees,
   }));
+  const sceneFallbackSrc = useMemo(
+    () =>
+      createStaticLogoSvgDataUrl({
+        cameraFrustumPadding: 1,
+        depth: 1,
+        faceColors,
+        filledVoxels: LANDING_HERO_STATIC_VOXEL_GRID.filledVoxels,
+        gridSize: LANDING_HERO_STATIC_VOXEL_GRID.gridSize,
+        view,
+      }),
+    [faceColors, view],
+  );
   const [MengerTypeGpuScene, setMengerTypeGpuScene] = useState<MengerTypeGpuSceneComponent | null>(
     () => cachedMengerTypeGpuScene,
   );
@@ -257,14 +280,14 @@ export function LandingHeroMenger({ placement }: { placement: "preview" | "root"
     let frameId = 0;
     let secondFrameId = 0;
     const loadScene = () => {
-      void import("@/components/logo/MengerTypeGpuScene")
+      void import("@samebase/logo-model/menger-sponge")
         .then((module) => {
           if (cancelled) {
             return;
           }
 
-          cachedMengerTypeGpuScene = module.MengerTypeGpuScene;
-          setMengerTypeGpuScene(() => module.MengerTypeGpuScene);
+          cachedMengerTypeGpuScene = module.MengerSponge;
+          setMengerTypeGpuScene(() => module.MengerSponge);
         })
         .catch((error: unknown) => {
           if (cancelled) {
@@ -365,7 +388,8 @@ export function LandingHeroMenger({ placement }: { placement: "preview" | "root"
             cameraFrustumPadding={1}
             depth={mengerDepth}
             elevationDegrees={view.elevationDegrees}
-            faceColors={faceColors}
+            faceColors={sceneFaceColors}
+            fallbackSrc={sceneFallbackSrc}
             onInteractionEnd={commitView}
             onRenderReady={markSceneReady}
             onRenderUnavailable={markSceneUnavailable}
@@ -377,7 +401,9 @@ export function LandingHeroMenger({ placement }: { placement: "preview" | "root"
             resolutionScale={1}
             revealRadius={MENGER_HOVER_DEFAULT_REVEAL_RADIUS}
             rotationDegrees={view.rotationDegrees}
-            viewSnapEnabled={routeState.viewSnapEnabled}
+            viewDragConfig={
+              routeState.viewSnapEnabled ? PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG : undefined
+            }
           />
         </div>
       ) : null}

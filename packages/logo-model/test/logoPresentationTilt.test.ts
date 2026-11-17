@@ -5,7 +5,7 @@ import {
   getRadialPointerLogoPresentationTiltTarget,
   NEUTRAL_LOGO_PRESENTATION_TILT_TARGET,
   resolveLogoPresentationTiltTarget,
-} from "@/components/logo/logoPresentationTilt";
+} from "../src/logoPresentationTilt.ts";
 
 const BOUNDS = {
   bottom: 300,

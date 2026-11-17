@@ -1,4 +1,4 @@
-import { normalizeRotationDegrees } from "@samebase/logo-model/voxel";
+import { normalizeRotationDegrees } from "./voxel.ts";
 
 export type LogoViewDragElevationSnapGroup = {
   elevationDegrees: readonly number[];

@@ -6,13 +6,13 @@ import {
   LOGO_PRESENTATION_TILT_SETTLED_DEGREES,
   NEUTRAL_LOGO_PRESENTATION_TILT_TARGET,
   normalizeLogoPresentationTiltRadiusScale,
-} from "@/components/logo/logoPresentationTilt";
+} from "@samebase/logo-model/logo-presentation-tilt";
 import { usePrimaryFineHoverPointer } from "@/hooks/pointerCapabilities";
 import {
   LOGO_SCENE_CAMERA_EDGE_CLEARANCE_CSS_PIXELS,
   resolveLogoSceneCameraDepthBounds,
-} from "@/components/logo/logoSceneCameraDepth";
-import { type LogoViewState } from "@/components/logo/logoViewDrag";
+} from "@samebase/logo-model/logo-scene-camera-depth";
+import { type LogoViewState } from "@samebase/logo-model/logo-view-drag";
 import {
   createMengerHoverBlockerLinkTexture,
   createMengerHoverCoverGeometry,
@@ -34,8 +34,8 @@ import {
 import {
   readMengerAutomaticProbePoint,
   type MengerAutomaticProbeMotionSettings,
-} from "@/components/logo/mengerAutomaticProbe";
-import { useLogoViewDrag } from "@/components/logo/useLogoViewDrag";
+} from "@samebase/logo-model/menger-automatic-probe";
+import { useLogoViewDrag } from "@samebase/logo-model/use-logo-view-drag";
 import {
   MENGER_DEPTH_TRANSITION_DEFAULT_STAGGER_GROUP_COUNT,
   createMengerDepthTransitionModel,

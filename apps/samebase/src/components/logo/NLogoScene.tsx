@@ -38,13 +38,13 @@ import {
   getLogoSurfaceFitRadius,
   type LogoSurfaceQuad,
 } from "@samebase/logo-model/surface";
-import { resolveLogoSceneCameraDepthBounds } from "@/components/logo/logoSceneCameraDepth";
+import { resolveLogoSceneCameraDepthBounds } from "@samebase/logo-model/logo-scene-camera-depth";
 import {
   getLogoPresentationTiltTransitionAlpha,
   LOGO_PRESENTATION_TILT_SETTLED_DEGREES,
   resolveLogoPresentationTiltTarget,
   type LogoPresentationTiltTarget,
-} from "@/components/logo/logoPresentationTilt";
+} from "@samebase/logo-model/logo-presentation-tilt";
 import {
   DEFAULT_LOGO_FRACTAL_DEPTH,
   DEFAULT_LOGO_GRID_SIZE,
@@ -60,8 +60,8 @@ import {
   type VoxelEdit,
   voxelKey,
 } from "@samebase/logo-model/voxel";
-import { type LogoViewDragConfig, type LogoViewState } from "@/components/logo/logoViewDrag";
-import { useLogoViewDrag } from "@/components/logo/useLogoViewDrag";
+import { type LogoViewDragConfig, type LogoViewState } from "@samebase/logo-model/logo-view-drag";
+import { useLogoViewDrag } from "@samebase/logo-model/use-logo-view-drag";
 import { useEffect, useRef, type MutableRefObject } from "react";
 import * as THREE from "three";
 
