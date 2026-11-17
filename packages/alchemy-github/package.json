@@ -1,0 +1,69 @@
+{
+  "name": "@samebase/alchemy-github",
+  "version": "0.1.0",
+  "description": "An Alchemy v2 state store on a branch of a GitHub repository, with sealed secrets",
+  "keywords": [
+    "alchemy",
+    "effect",
+    "github",
+    "infrastructure-as-code",
+    "state"
+  ],
+  "homepage": "https://github.com/samebase/samebase/tree/main/packages/alchemy-github#readme",
+  "bugs": {
+    "url": "https://github.com/samebase/samebase/issues"
+  },
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/samebase/samebase.git",
+    "directory": "packages/alchemy-github"
+  },
+  "files": [
+    "lib",
+    "src",
+    "README.md",
+    "LICENSE",
+    "NOTICE"
+  ],
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/GitHubState.ts"
+  },
+  "publishConfig": {
+    "exports": {
+      ".": {
+        "types": "./lib/GitHubState.d.ts",
+        "import": "./lib/GitHubState.js"
+      }
+    },
+    "access": "public"
+  },
+  "scripts": {
+    "check": "pnpm run typecheck && pnpm run lint && pnpm run test && pnpm run build",
+    "typecheck": "tsc --noEmit",
+    "test": "pnpm --dir ../.. exec vp test run --project alchemy-github",
+    "test:live": "vp test run test/live",
+    "lint": "pnpm --dir ../.. exec vp lint --tsconfig packages/alchemy-github/tsconfig.json --report-unused-disable-directives packages/alchemy-github",
+    "build": "vp pack",
+    "prepack": "pnpm run build"
+  },
+  "devDependencies": {
+    "@arethetypeswrong/core": "0.18.5",
+    "@types/node": "24.19.2",
+    "alchemy": "2.0.0-beta.85",
+    "effect": "4.1.2",
+    "publint": "0.3.25",
+    "typescript": "6.0.3",
+    "vite-plus": "catalog:",
+    "vitest": "catalog:"
+  },
+  "peerDependencies": {
+    "alchemy": "2.0.0-beta.85",
+    "effect": "^4.1.0"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
