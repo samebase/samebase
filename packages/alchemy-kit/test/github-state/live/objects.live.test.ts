@@ -10,7 +10,7 @@ import * as HttpClient from "effect/http/HttpClient";
 import * as HttpClientRequest from "effect/http/HttpClientRequest";
 import * as Schema from "effect/Schema";
 import { afterAll, describe, expect, test } from "vitest";
-import { makeGitHubObjects } from "../../src/GitHubState.ts";
+import { makeGitHubObjects } from "../../../src/github-state/GitHubState.ts";
 
 const repository = process.env["ALCHEMY_GITHUB_TEST_REPOSITORY"];
 if (!repository) throw new Error("Set ALCHEMY_GITHUB_TEST_REPOSITORY to owner/name.");
@@ -44,7 +44,7 @@ const github = (method: "GET" | "DELETE", path: string) =>
         headers: {
           authorization: `Bearer ${process.env["GITHUB_TOKEN"] ?? ""}`,
           accept: "application/vnd.github+json",
-          "user-agent": "alchemy-github-state-test",
+          "user-agent": "samebase-alchemy-kit-test",
         },
       }),
     );

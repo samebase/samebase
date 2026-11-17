@@ -185,15 +185,19 @@ export const makeGitHubObjects = (options: GitHubStateOptions = {}) =>
             authorization: `Bearer ${token}`,
             accept: "application/vnd.github+json",
             "x-github-api-version": "2022-11-28",
-            "user-agent": "alchemy-github-state",
+            "user-agent": "samebase-alchemy-kit",
           },
         });
         const request = body === undefined ? base : HttpClientRequest.bodyJsonUnsafe(base, body);
-        const response = yield* client
-          .execute(request)
-          .pipe(Effect.mapError((cause) => new Retryable({ message: cause.message })));
-        const text = yield* response.text.pipe(
+        // A call with no answer would hold its callers for good: they wait uninterruptibly.
+        const [response, text] = yield* client.execute(request).pipe(
+          Effect.flatMap((answer) => Effect.map(answer.text, (body) => [answer, body] as const)),
           Effect.mapError((cause) => new Retryable({ message: cause.message })),
+          Effect.timeoutOrElse({
+            duration: "60 seconds",
+            orElse: () =>
+              Effect.fail(new Retryable({ message: `${method} ${path}: no answer in 60 seconds` })),
+          }),
         );
         const json: unknown = yield* Effect.try({
           try: (): unknown => (text === "" ? undefined : JSON.parse(text)),
@@ -208,10 +212,11 @@ export const makeGitHubObjects = (options: GitHubStateOptions = {}) =>
             response.headers["x-ratelimit-remaining"] === "0" ||
             /rate limit/i.test(errorMessage(json)));
         if (limited) {
+          // `retry-after` can also be a date; only a count of at most 120 seconds is waited for.
           const seconds = Number(retryAfter ?? "60");
-          if (seconds > 120) {
+          if (!(seconds >= 0 && seconds <= 120)) {
             return yield* fail(
-              `GitHub rate limit on ${method} ${path}: retry after ${seconds}s (${errorMessage(json)})`,
+              `GitHub rate limit on ${method} ${path}: retry after ${retryAfter} (${errorMessage(json)})`,
             );
           }
           yield* Effect.sleep(`${seconds} seconds`);
@@ -253,17 +258,18 @@ export const makeGitHubObjects = (options: GitHubStateOptions = {}) =>
     const makeBranch = (branch: string, readme: string) =>
       Effect.gen(function* () {
         const queue = yield* Queue.unbounded<Pending>();
-        // The newest head this process knows, the heads its own commits replaced, and the text of
-        // each blob it wrote or read.
+        // The newest head this process knows, each head it saw since its last commit, the heads
+        // that are behind one of its commits, and the text of each blob it wrote or read.
         let known: Head | undefined;
+        const seen = new Set<string>();
         const replaced = new Set<string>();
         const blobs = new Map<string, string>();
 
         /**
          * The branch as GitHub has it now; `undefined` when it does not exist. GitHub can answer
          * with the head from before a write of this process (seen live: 1 read of 40 right after a
-         * write). The branch only moves forward, so a head that this process replaced is an old
-         * answer, and the question is asked again.
+         * write). The branch only moves forward, so a head that is behind a commit of this process
+         * is an old answer, and the question is asked again.
          */
         const current = Effect.gen(function* () {
           for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
@@ -280,6 +286,7 @@ export const makeGitHubObjects = (options: GitHubStateOptions = {}) =>
               continue;
             }
             if (commit === undefined) return undefined;
+            seen.add(commit);
             if (known?.commit === commit) return known;
             const treeResponse = yield* call("GET", `/git/trees/${commit}?recursive=1`);
             if (treeResponse.status !== 200) {
@@ -390,7 +397,12 @@ export const makeGitHubObjects = (options: GitHubStateOptions = {}) =>
               if (refResponse.status !== 200 && refResponse.status !== 201) {
                 return yield* unexpected(`update ref ${branch}`, refResponse);
               }
-              if (base !== undefined) replaced.add(base.commit);
+              // Each head seen so far was the head at some time before this commit landed, so it
+              // is behind this commit: the base, and also an earlier head of this process when
+              // another writer's commit came between.
+              for (const head of seen) replaced.add(head);
+              seen.clear();
+              seen.add(commit);
               known = { commit, tree, files };
               for (const [, change] of effective) {
                 if (change.body !== undefined) blobs.set(blobSha(change.body), change.body);
@@ -410,8 +422,9 @@ export const makeGitHubObjects = (options: GitHubStateOptions = {}) =>
                   discard: true,
                 }),
               ),
-              Effect.catch((error) =>
-                Effect.forEach(batch, (pending) => Deferred.fail(pending.done, error), {
+              // Also a defect goes to the callers: a worker that stops would leave them waiting.
+              Effect.catchCause((cause) =>
+                Effect.forEach(batch, (pending) => Deferred.failCause(pending.done, cause), {
                   discard: true,
                 }),
               ),

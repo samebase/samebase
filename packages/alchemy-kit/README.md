@@ -1,4 +1,9 @@
-# @samebase/alchemy-github
+# @samebase/alchemy-kit
+
+Parts for [Alchemy v2](https://alchemy.run). Each part is its own entry, such as
+`@samebase/alchemy-kit/github-state`.
+
+## GitHub state store
 
 An [Alchemy v2](https://alchemy.run) state store on a branch of your GitHub repository. Each
 resource is one JSON file on the branch. Each secret in it is sealed with AES-256-GCM under a key
@@ -8,18 +13,18 @@ that you keep as a secret. You need no cloud account for the state: the reposito
 The sealing is the package's own until Alchemy releases state encryption
 ([alchemy-run/alchemy#3167](https://github.com/alchemy-run/alchemy/pull/3167)).
 
-## Install
+### Install
 
 ```sh
-pnpm add -D @samebase/alchemy-github alchemy@2.0.0-beta.85 effect
+pnpm add -D @samebase/alchemy-kit alchemy@2.0.0-beta.85 effect
 ```
 
-## Use
+### Use
 
 In `alchemy.run.ts`:
 
 ```ts
-import * as GitHubState from "@samebase/alchemy-github";
+import * as GitHubState from "@samebase/alchemy-kit/github-state";
 
 export default Alchemy.Stack("my-app", { providers, state: GitHubState.state() }, program);
 ```
@@ -32,7 +37,7 @@ Options, all optional:
 
 The token is `GITHUB_TOKEN` or `GH_TOKEN`. It needs write access to the contents of the repository.
 
-## The key
+### The key
 
 Make the key once and keep it as the repository secret `ALCHEMY_GITHUB_STATE_KEY`:
 
@@ -44,7 +49,7 @@ Without the key, the store stops before it reads or writes anything. With a diff
 at the first secret that does not open. If you lose the key, you cannot open the secrets on the
 branch.
 
-## GitHub Actions
+### GitHub Actions
 
 ```yaml
 permissions:
@@ -62,7 +67,7 @@ jobs:
           ALCHEMY_GITHUB_STATE_KEY: ${{ secrets.ALCHEMY_GITHUB_STATE_KEY }}
 ```
 
-## The branch
+### The branch
 
 ```
 alchemy-state-store                 the state
@@ -83,7 +88,7 @@ All the writes that are waiting go into one commit, with a message such as
 new head and tries again. A second deploy of the same stage fails at once while the first holds the
 lock.
 
-## Limits
+### Limits
 
 - Each write is a commit, about 2 seconds.
 - Each read asks GitHub for the head of the branch, one API call, and a record that the run did not

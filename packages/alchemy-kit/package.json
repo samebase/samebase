@@ -1,7 +1,7 @@
 {
-  "name": "@samebase/alchemy-github",
+  "name": "@samebase/alchemy-kit",
   "version": "0.1.0",
-  "description": "An Alchemy v2 state store on a branch of a GitHub repository, with sealed secrets",
+  "description": "A kit of parts for Alchemy v2: a state store on a branch of a GitHub repository, with sealed secrets",
   "keywords": [
     "alchemy",
     "effect",
@@ -9,7 +9,7 @@
     "infrastructure-as-code",
     "state"
   ],
-  "homepage": "https://github.com/samebase/samebase/tree/main/packages/alchemy-github#readme",
+  "homepage": "https://github.com/samebase/samebase/tree/main/packages/alchemy-kit#readme",
   "bugs": {
     "url": "https://github.com/samebase/samebase/issues"
   },
@@ -17,7 +17,7 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/samebase/samebase.git",
-    "directory": "packages/alchemy-github"
+    "directory": "packages/alchemy-kit"
   },
   "files": [
     "lib",
@@ -29,13 +29,13 @@
   "type": "module",
   "sideEffects": false,
   "exports": {
-    ".": "./src/GitHubState.ts"
+    "./github-state": "./src/github-state/GitHubState.ts"
   },
   "publishConfig": {
     "exports": {
-      ".": {
-        "types": "./lib/GitHubState.d.ts",
-        "import": "./lib/GitHubState.js"
+      "./github-state": {
+        "types": "./lib/github-state.d.ts",
+        "import": "./lib/github-state.js"
       }
     },
     "access": "public"
@@ -43,9 +43,9 @@
   "scripts": {
     "check": "pnpm run typecheck && pnpm run lint && pnpm run test && pnpm run build",
     "typecheck": "tsc --noEmit",
-    "test": "pnpm --dir ../.. exec vp test run --project alchemy-github",
-    "test:live": "vp test run test/live",
-    "lint": "pnpm --dir ../.. exec vp lint --tsconfig packages/alchemy-github/tsconfig.json --report-unused-disable-directives packages/alchemy-github",
+    "test": "pnpm --dir ../.. exec vp test run --project alchemy-kit",
+    "test:live": "vp test run test/github-state/live",
+    "lint": "pnpm --dir ../.. exec vp lint --tsconfig packages/alchemy-kit/tsconfig.json --report-unused-disable-directives packages/alchemy-kit",
     "build": "vp pack",
     "prepack": "pnpm run build"
   },
