@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.2
+
+- No code change. A new README: a diagram of the store, a quick start, the options, the laptop
+  setup, and the shape of a state file.
+
 ## 0.1.1
 
 - No code change. The first release that the release workflow publishes, through npm trusted

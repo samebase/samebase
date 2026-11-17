@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 440" width="1200" height="440" role="img" aria-label="A deploy, on your laptop or in GitHub Actions, holds the key ALCHEMY_GITHUB_STATE_KEY and seals each secret before it leaves the run. In your GitHub repository, the deploy takes the lock on the branch alchemy-state-store-lock, then reads and commits the state on the branch alchemy-state-store: one JSON file for each resource. The branch main holds your code and alchemy.run.ts.">
+  <defs>
+    <marker id="head" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#9aa5ad"/>
+    </marker>
+  </defs>
+  <rect width="1200" height="440" fill="#0d1117"/>
+
+  <rect x="28" y="112" width="330" height="276" fill="#0d1117" stroke="#9aa5ad" stroke-width="2"/>
+  <text x="48" y="146" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="16" font-weight="700" fill="#e6edf3">alchemy deploy</text>
+  <text x="48" y="176" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="22" font-weight="700" fill="#e6edf3">A deploy</text>
+  <text x="48" y="204" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="17" fill="#9aa5ad">on your laptop or in</text>
+  <text x="48" y="227" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="17" fill="#9aa5ad">GitHub Actions</text>
+  <line x1="48" y1="266" x2="338" y2="266" stroke="#9aa5ad" stroke-width="1"/>
+  <text x="48" y="304" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="15" font-weight="700" fill="#e6edf3">ALCHEMY_GITHUB_STATE_KEY</text>
+  <text x="48" y="332" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="17" fill="#9aa5ad">seals each secret before</text>
+  <text x="48" y="355" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="17" fill="#9aa5ad">it leaves the run</text>
+
+  <rect x="540" y="28" width="632" height="384" fill="#161b22" stroke="#9aa5ad" stroke-width="2"/>
+  <text x="560" y="62" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="22" font-weight="700" fill="#e6edf3">Your GitHub repository</text>
+  <text x="560" y="90" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="17" fill="#9aa5ad">the only account that the state needs</text>
+
+  <rect x="560" y="112" width="592" height="84" fill="#0d1117" stroke="#9aa5ad" stroke-width="2"/>
+  <text x="580" y="146" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="16" font-weight="700" fill="#e6edf3">main</text>
+  <text x="580" y="174" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="17" fill="#9aa5ad">your code and alchemy.run.ts</text>
+
+  <rect x="560" y="208" width="592" height="84" fill="#0d1117" stroke="#9aa5ad" stroke-width="2"/>
+  <text x="580" y="242" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="16" font-weight="700" fill="#e6edf3">alchemy-state-store</text>
+  <text x="580" y="270" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="17" fill="#9aa5ad">one JSON file for each resource, with sealed secrets</text>
+
+  <rect x="560" y="304" width="592" height="84" fill="#0d1117" stroke="#9aa5ad" stroke-width="2"/>
+  <text x="580" y="338" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="16" font-weight="700" fill="#e6edf3">alchemy-state-store-lock</text>
+  <text x="580" y="366" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="17" fill="#9aa5ad">one deploy of a stage at a time</text>
+
+  <line x1="358" y1="250" x2="554" y2="250" stroke="#9aa5ad" stroke-width="2" marker-end="url(#head)"/>
+  <text x="370" y="238" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="17" fill="#9aa5ad">reads, then commits</text>
+
+  <line x1="358" y1="346" x2="554" y2="346" stroke="#9aa5ad" stroke-width="2" marker-end="url(#head)"/>
+  <text x="370" y="334" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="17" fill="#9aa5ad">takes the lock</text>
+</svg>
