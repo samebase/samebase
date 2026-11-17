@@ -27,9 +27,9 @@ import {
   PUBLIC_LANDING_LOGO_STAGE_TEST_ID,
   PUBLIC_LANDING_LOGO_STATIC_FALLBACK_ATTRIBUTE,
   PUBLIC_LANDING_LOGO_TEST_ID,
-  PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG,
   PUBLIC_LANDING_LOGO_WIDTH,
 } from "@/lib/publicLandingLogo";
+import { LOGO_VIEW_SNAP_DRAG_CONFIG } from "@samebase/logo-model/logo-view-snap";
 import {
   persistRotatedLogoViewState,
   PUBLIC_LANDING_LOGO_VIEW_STATE_KEY,
@@ -594,9 +594,7 @@ export function PublicLandingLogo({
                   : staticLogoVoxelGrid
               }
               voxelEditingEnabled={false}
-              viewDragConfig={
-                routeState.viewSnapEnabled ? PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG : undefined
-              }
+              viewDragConfig={routeState.viewSnapEnabled ? LOGO_VIEW_SNAP_DRAG_CONFIG : undefined}
               voxelState={routeState.voxelState}
             />
           </div>

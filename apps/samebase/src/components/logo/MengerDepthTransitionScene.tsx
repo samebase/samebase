@@ -7,7 +7,7 @@ import {
   writeMengerVoxelMatrix,
 } from "@/components/logo/mengerSceneCoordinates";
 import { useLogoViewDrag } from "@samebase/logo-model/use-logo-view-drag";
-import { PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG } from "@/lib/publicLandingLogo";
+import { LOGO_VIEW_SNAP_DRAG_CONFIG } from "@samebase/logo-model/logo-view-snap";
 import {
   readMengerDepthTransitionMoveProgress,
   readMengerDepthTransitionStage,
@@ -67,7 +67,7 @@ export function MengerDepthTransitionScene({
     onInteractionEnd,
     onViewChange,
     rotationDegrees,
-    viewDragConfig: viewSnapEnabled ? PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG : undefined,
+    viewDragConfig: viewSnapEnabled ? LOGO_VIEW_SNAP_DRAG_CONFIG : undefined,
   });
   const leftFaceColor = getTailwindColorHex(faceColors.left);
   const rightFaceColor = getTailwindColorHex(faceColors.right);

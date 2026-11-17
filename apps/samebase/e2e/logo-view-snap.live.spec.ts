@@ -4,7 +4,7 @@ import {
   DRAG_ROTATION_DEGREES_PER_PIXEL,
 } from "@samebase/logo-model/logo-view-drag-constants";
 import { resolveLogoViewState } from "@samebase/logo-model/logo-view-drag";
-import { PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG } from "../src/lib/publicLandingLogo";
+import { LOGO_VIEW_SNAP_DRAG_CONFIG } from "@samebase/logo-model/logo-view-snap";
 
 test.use({
   launchOptions: {
@@ -65,7 +65,7 @@ function computeExpectedDraggedView(args: {
   const startElevationDegrees = Number(args.startState.elevationDegrees);
   const startRotationDegrees = Number(args.startState.rotationDegrees);
   const resolvedView = resolveLogoViewState({
-    config: PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG,
+    config: LOGO_VIEW_SNAP_DRAG_CONFIG,
     view: {
       elevationDegrees: startElevationDegrees + args.dy * DRAG_ELEVATION_DEGREES_PER_PIXEL,
       rotationDegrees: startRotationDegrees + args.dx * DRAG_ROTATION_DEGREES_PER_PIXEL,

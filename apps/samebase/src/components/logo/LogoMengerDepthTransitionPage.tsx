@@ -55,7 +55,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectTrigger } from "@/components/ui/select";
 import { useResolvedAppThemeColorState } from "@/lib/appThemeColorSearch";
-import { PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG } from "@/lib/publicLandingLogo";
+import { LOGO_VIEW_SNAP_DRAG_CONFIG } from "@samebase/logo-model/logo-view-snap";
 import {
   buildLogoMengerHoverRouteSearch,
   buildLogoRouteSearch,
@@ -1514,9 +1514,7 @@ export function LogoMengerDepthTransitionPage({
                 resolutionScale={resolutionScale}
                 revealRadius={hoverRevealRadius}
                 rotationDegrees={view.rotationDegrees}
-                viewDragConfig={
-                  routeState.viewSnapEnabled ? PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG : undefined
-                }
+                viewDragConfig={routeState.viewSnapEnabled ? LOGO_VIEW_SNAP_DRAG_CONFIG : undefined}
               />
             ) : (
               <MengerHoverScene

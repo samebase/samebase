@@ -27,6 +27,7 @@ export default defineConfig({
       "logo-scene-camera-depth": "src/logoSceneCameraDepth.ts",
       "logo-view-drag": "src/logoViewDrag.ts",
       "logo-view-drag-constants": "src/logoViewDragConstants.ts",
+      "logo-view-snap": "src/logoViewSnap.ts",
       "menger-automatic-probe": "src/mengerAutomaticProbe.ts",
       "menger-depth-transition": "src/mengerDepthTransition.ts",
       "menger-hover": "src/mengerHover.ts",
