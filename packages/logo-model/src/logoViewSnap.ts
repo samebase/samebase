@@ -18,7 +18,6 @@ export const LOGO_DIAGONAL_ELEVATION_SNAP_DEGREES = [
   270,
   360 - STATIC_LOGO_ELEVATION_DEGREES,
 ] as const satisfies readonly number[];
-export const LOGO_ELEVATION_SNAP_DEGREES = LOGO_ORTHOGRAPHIC_ELEVATION_SNAP_DEGREES;
 
 /**
 The samebase.com landing snap: a drag sticks when the view comes within
