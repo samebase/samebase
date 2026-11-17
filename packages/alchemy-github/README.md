@@ -86,8 +86,11 @@ lock.
 ## Limits
 
 - Each write is a commit, about 2 seconds.
-- Each record read is one API call. The `GITHUB_TOKEN` of GitHub Actions allows 1,000 requests per
-  hour per repository.
+- Each read asks GitHub for the head of the branch, one API call, and a record that the run did not
+  read before is one more. A destroy of 40 resources is about 350 calls. The `GITHUB_TOKEN` of
+  GitHub Actions allows 1,000 requests per hour per repository.
+- A run always sees its own writes. Just after a write of another run, GitHub can still answer with
+  the branch from before that write, and the store cannot see that.
 - In a public repository, the state is public, except the sealed secrets.
 - A ruleset that requires pull requests on all branches, or a tool that deletes stale branches,
   breaks the store. Keep both branches out of such rules.

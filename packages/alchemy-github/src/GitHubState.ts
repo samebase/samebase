@@ -41,7 +41,7 @@ export interface GitHubStateOptions {
 }
 
 const API = "https://api.github.com";
-const MAX_CAS_ATTEMPTS = 20;
+const MAX_ATTEMPTS = 20;
 
 const STATE_README = `# Alchemy state
 
@@ -70,12 +70,7 @@ const TreeResponse = Schema.Struct({
   ),
 });
 const ShaResponse = Schema.Struct({ sha: Schema.String });
-const ContentsResponse = Schema.Struct({
-  type: Schema.String,
-  sha: Schema.String,
-  encoding: Schema.String,
-  content: Schema.String,
-});
+const BlobResponse = Schema.Struct({ encoding: Schema.String, content: Schema.String });
 
 class Retryable extends Data.TaggedError("Retryable")<{ readonly message: string }> {}
 
@@ -254,62 +249,94 @@ export const makeGitHubObjects = (options: GitHubStateOptions = {}) =>
         `GitHub state store: ${what} answered ${response.status} ${errorMessage(response.json)}`,
       );
 
-    /** A branch's head and every file in it; `undefined` when the branch does not exist. */
-    const loadHead = (branch: string) =>
-      Effect.gen(function* () {
-        const ref = yield* call("GET", `/git/ref/heads/${encodePath(branch)}`);
-        if (ref.status === 404) return undefined;
-        if (ref.status !== 200) return yield* unexpected(`GET ref ${branch}`, ref);
-        const commit = (yield* decode(RefResponse, "ref")(ref.json)).object.sha;
-        const treeResponse = yield* call("GET", `/git/trees/${commit}?recursive=1`);
-        if (treeResponse.status !== 200) {
-          return yield* unexpected(`GET tree ${branch}`, treeResponse);
-        }
-        const tree = yield* decode(TreeResponse, "tree")(treeResponse.json);
-        if (tree.truncated) {
-          return yield* fail(`GitHub state store: the tree of ${branch} is too large (truncated)`);
-        }
-        const files = new Map<string, string>();
-        for (const entry of tree.tree) if (entry.type === "blob") files.set(entry.path, entry.sha);
-        const head: Head = { commit, tree: tree.sha, files };
-        return head;
-      });
-
-    /** Every file path on a branch, with one call. */
-    const listPaths = (branch: string) =>
-      Effect.gen(function* () {
-        const response = yield* call("GET", `/git/trees/${encodePath(branch)}?recursive=1`);
-        if (response.status === 404 || response.status === 409) return [];
-        if (response.status !== 200) return yield* unexpected(`GET tree ${branch}`, response);
-        const tree = yield* decode(TreeResponse, "tree")(response.json);
-        if (tree.truncated) {
-          return yield* fail(`GitHub state store: the tree of ${branch} is too large (truncated)`);
-        }
-        return tree.tree.filter((entry) => entry.type === "blob").map((entry) => entry.path);
-      });
-
-    /** A queue and the worker that turns everything queued into one commit on `branch`. */
+    /** The reads of one branch, and the worker that turns every queued write into one commit. */
     const makeBranch = (branch: string, readme: string) =>
       Effect.gen(function* () {
         const queue = yield* Queue.unbounded<Pending>();
-        // The head this process last wrote. Used optimistically: the ref update fails if another
-        // writer moved the branch since.
-        let cached: Head | undefined;
+        // The newest head this process knows, the heads its own commits replaced, and the text of
+        // each blob it wrote or read.
+        let known: Head | undefined;
+        const replaced = new Set<string>();
+        const blobs = new Map<string, string>();
+
+        /**
+         * The branch as GitHub has it now; `undefined` when it does not exist. GitHub can answer
+         * with the head from before a write of this process (seen live: 1 read of 40 right after a
+         * write). The branch only moves forward, so a head that this process replaced is an old
+         * answer, and the question is asked again.
+         */
+        const current = Effect.gen(function* () {
+          for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+            const ref = yield* call("GET", `/git/ref/heads/${encodePath(branch)}`);
+            if (ref.status !== 200 && ref.status !== 404) {
+              return yield* unexpected(`GET ref ${branch}`, ref);
+            }
+            const commit =
+              ref.status === 404
+                ? undefined
+                : (yield* decode(RefResponse, "ref")(ref.json)).object.sha;
+            if (commit === undefined ? known !== undefined : replaced.has(commit)) {
+              yield* Effect.sleep("250 millis");
+              continue;
+            }
+            if (commit === undefined) return undefined;
+            if (known?.commit === commit) return known;
+            const treeResponse = yield* call("GET", `/git/trees/${commit}?recursive=1`);
+            if (treeResponse.status !== 200) {
+              return yield* unexpected(`GET tree ${branch}`, treeResponse);
+            }
+            const tree = yield* decode(TreeResponse, "tree")(treeResponse.json);
+            if (tree.truncated) {
+              return yield* fail(
+                `GitHub state store: the tree of ${branch} is too large (truncated)`,
+              );
+            }
+            const files = new Map<string, string>();
+            for (const entry of tree.tree) {
+              if (entry.type === "blob") files.set(entry.path, entry.sha);
+            }
+            const head: Head = { commit, tree: tree.sha, files };
+            // A commit of this process can land while the tree loads.
+            if (!replaced.has(commit)) known = head;
+            return head;
+          }
+          return yield* fail(
+            `GitHub state store: ${branch} kept answering with a head from before this run's last write`,
+          );
+        });
+
+        const read = (path: string) =>
+          Effect.gen(function* () {
+            const version = (yield* current)?.files.get(path);
+            if (version === undefined) return undefined;
+            const held = blobs.get(version);
+            if (held !== undefined) return { text: held, version };
+            const response = yield* call("GET", `/git/blobs/${version}`);
+            if (response.status !== 200) return yield* unexpected(`GET blob ${path}`, response);
+            const blob = yield* decode(BlobResponse, "blob")(response.json);
+            if (blob.encoding !== "base64") {
+              return yield* fail(`GitHub state store: ${path} has encoding ${blob.encoding}`);
+            }
+            const text = Buffer.from(blob.content, "base64").toString("utf8");
+            blobs.set(version, text);
+            return { text, version };
+          });
 
         const commitBatch = (batch: ReadonlyArray<Pending>) =>
           Effect.gen(function* () {
-            for (let attempt = 1; attempt <= MAX_CAS_ATTEMPTS; attempt++) {
-              const fromCache = cached !== undefined;
-              const base = cached ?? (yield* loadHead(branch));
-              cached = undefined;
+            // The first attempt builds on the known head without a question to GitHub: the ref
+            // update fails if another writer moved the branch since.
+            let trusted = known !== undefined;
+            for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+              const base = trusted ? known : yield* current;
               const { files, results, effective, conditionFailed } = applyBatch(base, batch);
-              // A failed condition or "nothing to write" against the cached head may be stale:
-              // check against the branch as it is now.
-              if (fromCache && (conditionFailed || effective.length === 0)) continue;
-              if (effective.length === 0) {
-                cached = base;
-                return results;
+              // A failed condition or "nothing to write" against the known head may be out of
+              // date: check against the branch as it is now.
+              if (trusted && (conditionFailed || effective.length === 0)) {
+                trusted = false;
+                continue;
               }
+              if (effective.length === 0) return results;
               const isLock = branch !== stateBranch;
               const message = commitMessage(
                 effective.map(([key, change]) => ({
@@ -356,15 +383,22 @@ export const makeGitHubObjects = (options: GitHubStateOptions = {}) =>
                       force: false,
                     });
               // 422: another writer moved (or created) the branch. Start again on its head.
-              if (refResponse.status === 422) continue;
+              if (refResponse.status === 422) {
+                trusted = false;
+                continue;
+              }
               if (refResponse.status !== 200 && refResponse.status !== 201) {
                 return yield* unexpected(`update ref ${branch}`, refResponse);
               }
-              cached = { commit, tree, files };
+              if (base !== undefined) replaced.add(base.commit);
+              known = { commit, tree, files };
+              for (const [, change] of effective) {
+                if (change.body !== undefined) blobs.set(blobSha(change.body), change.body);
+              }
               return results;
             }
             return yield* fail(
-              `GitHub state store: ${branch} kept moving; gave up after ${MAX_CAS_ATTEMPTS} attempts`,
+              `GitHub state store: ${branch} kept moving; gave up after ${MAX_ATTEMPTS} attempts`,
             );
           });
 
@@ -387,25 +421,29 @@ export const makeGitHubObjects = (options: GitHubStateOptions = {}) =>
           Effect.forkScoped,
         );
 
-        /** Queue a write or delete; the deferred resolves once its commit is on the branch. */
-        return (key: string, body: string | undefined, condition: WriteCondition | undefined) =>
-          Effect.gen(function* () {
-            const done = yield* Deferred.make<string | undefined, StateStoreError>();
-            yield* Queue.offer(queue, { key, body, condition, done });
-            return done;
-          });
+        return {
+          read,
+          /** Every file path on the branch, with one call when the head is the known one. */
+          paths: current.pipe(Effect.map((head) => Array.from(head?.files.keys() ?? []))),
+          /** Queue a write or delete; the deferred resolves once its commit is on the branch. */
+          enqueue: (key: string, body: string | undefined, condition: WriteCondition | undefined) =>
+            Effect.gen(function* () {
+              const done = yield* Deferred.make<string | undefined, StateStoreError>();
+              yield* Queue.offer(queue, { key, body, condition, done });
+              return done;
+            }),
+        };
       });
 
-    const queueState = yield* makeBranch(stateBranch, STATE_README);
-    const lockBranch = `${stateBranch}-lock`;
-    const queueLock = yield* makeBranch(lockBranch, LOCK_README);
-    const isLease = (key: string) => key === LEASE_FILE || key.endsWith(`/${LEASE_FILE}`);
-    const branchOf = (key: string) => (isLease(key) ? lockBranch : stateBranch);
+    const store = yield* makeBranch(stateBranch, STATE_README);
+    const lock = yield* makeBranch(`${stateBranch}-lock`, LOCK_README);
+    const branchOf = (key: string) =>
+      key === LEASE_FILE || key.endsWith(`/${LEASE_FILE}`) ? lock : store;
     const enqueue = (
       key: string,
       body: string | undefined,
       condition: WriteCondition | undefined,
-    ) => (isLease(key) ? queueLock(key, body, condition) : queueState(key, body, condition));
+    ) => branchOf(key).enqueue(key, body, condition);
     // A queued write lands even when its caller is interrupted, so the caller waits for it.
     // BucketState interrupts a lease renewal before it releases the lease; with an interruptible
     // wait the renewal could land after the release read the lease, and the release then deleted
@@ -415,11 +453,9 @@ export const makeGitHubObjects = (options: GitHubStateOptions = {}) =>
 
     const objects: BucketObjects = {
       listKeys: (prefix) =>
-        listPaths(stateBranch).pipe(
-          Effect.map((paths) => paths.filter((path) => path.startsWith(prefix))),
-        ),
+        store.paths.pipe(Effect.map((paths) => paths.filter((path) => path.startsWith(prefix)))),
       listChildren: (prefix) =>
-        listPaths(stateBranch).pipe(
+        store.paths.pipe(
           Effect.map((paths) => {
             const children = new Set<string>();
             for (const path of paths) {
@@ -431,23 +467,7 @@ export const makeGitHubObjects = (options: GitHubStateOptions = {}) =>
             return Array.from(children);
           }),
         ),
-      read: (key) =>
-        Effect.gen(function* () {
-          const branch = branchOf(key);
-          const response = yield* call(
-            "GET",
-            `/contents/${encodePath(key)}?ref=${encodeURIComponent(branch)}`,
-          );
-          if (response.status === 404) return undefined;
-          if (response.status !== 200) return yield* unexpected(`GET contents ${key}`, response);
-          const file = yield* decode(ContentsResponse, "contents")(response.json);
-          if (file.type !== "file" || file.encoding !== "base64") {
-            return yield* fail(
-              `GitHub state store: ${key} is a ${file.type} with encoding ${file.encoding}, not a file`,
-            );
-          }
-          return { text: Buffer.from(file.content, "base64").toString("utf8"), version: file.sha };
-        }),
+      read: (key) => branchOf(key).read(key),
       write: (key, body, condition) => submit(key, body, condition),
       delete: (key, ifVersion) =>
         submit(key, undefined, ifVersion === undefined ? undefined : { ifVersion }).pipe(

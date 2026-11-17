@@ -1963,6 +1963,7 @@ export const trackedFilePaths = [
   "packages/alchemy-github/src/GitHubState.ts",
   "packages/alchemy-github/src/git.ts",
   "packages/alchemy-github/src/sealing.ts",
+  "packages/alchemy-github/test/GitHubState.test.ts",
   "packages/alchemy-github/test/git.test.ts",
   "packages/alchemy-github/test/live/objects.live.test.ts",
   "packages/alchemy-github/test/sealing.test.ts",
