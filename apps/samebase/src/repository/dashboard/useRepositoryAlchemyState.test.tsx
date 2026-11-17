@@ -23,6 +23,7 @@ type LoaderRead = NonNullable<Awaited<ReturnType<typeof loadRepositoryOverview>>
 type DeploymentMetadata =
   (typeof api.repository.alchemyState.readDeploymentMetadata)["_returnType"];
 type CloudflareRead = (typeof api.repository.alchemyState.readCloudflareStacks)["_returnType"];
+type GitHubRead = (typeof api.repository.alchemyState.readGitHubStacks)["_returnType"];
 /** A stack of the Cloudflare store whose name is not `owner/name`. The server filtered it. */
 const cloudflareStack = {
   name: "web",
@@ -54,6 +55,8 @@ const cloudflareFound: CloudflareRead = {
   stacks: [cloudflareStack],
   liveDeployments: cloudflareDeployments,
 };
+/** The same stack on the branch `alchemy-state-store` of the repository. */
+const githubStack = { ...cloudflareStack, store: "github" as const };
 const transportError =
   "[CONVEX A(repository/alchemyState:connect)] Connection lost while action was in flight\n  Called by client";
 const deploymentMetadata: DeploymentMetadata = [
@@ -107,6 +110,7 @@ const mocks = vi.hoisted(() => {
     connect: vi.fn<() => Promise<Connection>>(),
     metadata: vi.fn<() => Promise<DeploymentMetadata>>(),
     cloudflare: vi.fn<() => Promise<CloudflareRead>>(),
+    github: vi.fn<() => Promise<GitHubRead>>(),
     clients,
     userId: "user-a",
     authenticated: true,
@@ -125,6 +129,7 @@ vi.mock("convex/react", () => ({
     ({
       "repository/alchemyState:connect": mocks.connect,
       "repository/alchemyState:readCloudflareStacks": mocks.cloudflare,
+      "repository/alchemyState:readGitHubStacks": mocks.github,
     })[getFunctionName(reference)] ?? mocks.metadata,
 }));
 vi.mock("convex/browser", () => ({
@@ -199,6 +204,8 @@ beforeEach(() => {
   mocks.metadata.mockResolvedValue([]);
   mocks.cloudflare.mockReset();
   mocks.cloudflare.mockResolvedValue({ state: "not_connected" });
+  mocks.github.mockReset();
+  mocks.github.mockResolvedValue({ state: "no_store" });
   // @ts-expect-error Convex ids are strings at runtime; this test needs stable repository identity.
   repositoryId = "repository-a";
   teamId = "team-a";
@@ -479,7 +486,7 @@ describe("useRepositoryAlchemyState", () => {
   });
 });
 
-describe("useRepositoryAlchemyState with the Cloudflare store", () => {
+describe("useRepositoryAlchemyState with the Cloudflare store and the GitHub branch", () => {
   /** Lets React Query deliver its results, which it sends on a timer. */
   async function flush() {
     await act(async () => await new Promise((resolve) => setTimeout(resolve, 0)));
@@ -597,5 +604,64 @@ describe("useRepositoryAlchemyState with the Cloudflare store", () => {
     await render();
     await flush();
     expect(latest).toMatchObject({ state: "failed", error: { data: "Access denied." } });
+  });
+
+  it("shows the Cloudflare stacks while the GitHub read runs, then adds the GitHub stacks", async () => {
+    mocks.connect.mockResolvedValue({ store: "missing" });
+    mocks.cloudflare.mockResolvedValue(cloudflareFound);
+    let answerGitHub: (read: GitHubRead) => void = () => {};
+    mocks.github.mockReturnValue(new Promise((resolve) => (answerGitHub = resolve)));
+    await render();
+    await flush();
+    expect(latest).toMatchObject({ state: "loaded", observation: { stacks: [cloudflareStack] } });
+
+    await act(async () =>
+      answerGitHub({ state: "found", stacks: [githubStack], liveDeployments: [] }),
+    );
+    await flush();
+    // The same name in two stores stays two stacks.
+    expect(latest).toMatchObject({
+      state: "loaded",
+      observation: {
+        store: "found",
+        stacks: [cloudflareStack, githubStack],
+        liveDeployments: cloudflareDeployments,
+      },
+    });
+  });
+
+  it("stays loading while the GitHub read runs and no store has a stack, then names a failed read", async () => {
+    mocks.connect.mockResolvedValue({ store: "missing" });
+    let failGitHub: (error: Error) => void = () => {};
+    mocks.github.mockReturnValue(new Promise((_resolve, reject) => (failGitHub = reject)));
+    await render();
+    await flush();
+    expect(latest).toEqual({ state: "loading" });
+
+    await act(async () => failGitHub(new Error("Server Error")));
+    await flush();
+    expect(latest).toEqual({
+      state: "loaded",
+      observation: { store: "missing" },
+      refreshFailed: false,
+      githubUnreadable: true,
+      reload: expect.any(Function),
+    });
+  });
+
+  it("shows the GitHub stacks when the Convex read fails, and reads the branch again on reload", async () => {
+    mocks.connect.mockRejectedValue(new ConvexError("Access denied."));
+    mocks.github.mockResolvedValue({ state: "found", stacks: [githubStack], liveDeployments: [] });
+    await render();
+    await flush();
+    expect(latest).toMatchObject({
+      state: "loaded",
+      observation: { store: "found", stacks: [githubStack] },
+      refreshFailed: true,
+    });
+
+    const reads = mocks.github.mock.calls.length;
+    await act(async () => latest.state === "loaded" && latest.reload());
+    expect(mocks.github).toHaveBeenCalledTimes(reads + 1);
   });
 });

@@ -12,6 +12,7 @@ import {
   CLOUDFLARE_STORE_UNREADABLE,
   CONNECT_CONVEX_TO_CHECK_STACK,
   DESTROY_ALCHEMY_STACK_FIRST,
+  GITHUB_STORE_UNREADABLE,
   RECONNECT_CLOUDFLARE_TO_CHECK_STACK,
   vAlchemyNoConnection,
   vAlchemyLiveDeployments,
@@ -20,12 +21,14 @@ import {
   vAlchemyStacksRead,
   vAlchemyStoredStage,
   vCloudflareStacksRead,
+  vGitHubStacksRead,
   type AlchemySetupStatus,
   type AlchemyStack,
   type AlchemyStacksRead,
   type AlchemyStateObservation,
   type AlchemyStoredStage,
   type CloudflareStacksRead,
+  type GitHubStacksRead,
 } from "../../shared/alchemyStateModel";
 import type { Id } from "../_generated/dataModel";
 import { env, type ActionCtx } from "../_generated/server";
@@ -36,6 +39,7 @@ import {
 import { ConvexManagement } from "../convexManagementApi/generated/sdk.gen";
 import { action } from "../functions";
 import { readRepositoryCloudflareStacks } from "./cloudflareStateStore";
+import { readRepositoryGitHubStacks } from "./githubStateStore";
 import {
   CONVEX_CONNECTION_REQUIRED,
   fetchConvexDeploymentJson,
@@ -207,10 +211,13 @@ also counts a stack that `readAlchemyStacks` drops, such as one whose deploys ne
 whose outputs hold no run record. The store of the organization's Cloudflare account is checked
 first, by the same names and also by run record, since a stack there can have any name. A Cloudflare
 store that Samebase cannot read throws: it could hold a stack. Only no connection, an MCP connection,
-and an account without a store leave the decision to the team's store.
+and an account without a store leave the decision to the next store. The branch
+`alchemy-state-store` of the repository is checked next, from its tree alone: any `.json` file in a
+stage folder, with or without a run record, is a stack. A branch that Samebase cannot read throws,
+and a repository without the branch leaves the decision to the team's store.
 */
 export async function assertRepositoryHasNoStack(
-  ctx: Pick<ActionCtx, "runAction" | "runQuery">,
+  ctx: Pick<ActionCtx, "runAction" | "runMutation" | "runQuery">,
   args: { repositoryId: Id<"repositories">; userId: Id<"users"> },
 ) {
   const cloudflare = await readRepositoryCloudflareStacks(ctx, {
@@ -235,6 +242,24 @@ export async function assertRepositoryHasNoStack(
       break;
     default:
       cloudflare satisfies never;
+  }
+  const github = await readRepositoryGitHubStacks(ctx, {
+    repositoryId: args.repositoryId,
+    userId: args.userId,
+    treeOnly: true,
+  });
+  switch (github.state) {
+    case "found":
+      if (github.stageFiles) {
+        throw new ConvexError(DESTROY_ALCHEMY_STACK_FIRST);
+      }
+      break;
+    case "failed":
+      throw new ConvexError(GITHUB_STORE_UNREADABLE);
+    case "no_store":
+      break;
+    default:
+      github satisfies never;
   }
   const target = await readStoreTarget(ctx, args);
   if (!target) {
@@ -473,6 +498,35 @@ export const readCloudflareStacks = action({
       repositoryId: reader.repositoryId,
       userId: reader.userId,
       stopAtNamedStack: false,
+    });
+    if (read.state !== "found") {
+      return read;
+    }
+    const target = read.stacks.length > 0 ? await readStoreTarget(ctx, reader) : null;
+    return {
+      state: "found",
+      stacks: read.stacks,
+      liveDeployments: target ? await readLiveDeployments(read.stacks, target) : [],
+    };
+  },
+});
+
+/**
+The stacks of a repository on its branch `alchemy-state-store` (the GitHub state store of
+`@samebase/alchemy-kit`), with the metadata of their Convex production deployments when the
+organization has a Convex connection to the repository's team. It needs no Convex connection. The
+page starts the read in the browser and does not wait for it.
+*/
+export const readGitHubStacks = action({
+  access: "access_dashboard",
+  args: { repositoryId: id("repositories") },
+  returns: vGitHubStacksRead,
+  handler: async (ctx, args): Promise<GitHubStacksRead> => {
+    const reader = { repositoryId: args.repositoryId, userId: ctx.viewer.userId };
+    const read = await readRepositoryGitHubStacks(ctx, {
+      repositoryId: reader.repositoryId,
+      userId: reader.userId,
+      treeOnly: false,
     });
     if (read.state !== "found") {
       return read;

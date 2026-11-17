@@ -1873,6 +1873,27 @@ describe("readRepositoryStackCheck", () => {
           "Samebase could not read the Alchemy state store in Cloudflare, so it cannot check for a stack. Try again.",
       },
     ],
+    [
+      "a stack on the branch alchemy-state-store next to a missing team store",
+      loaded({
+        store: "found",
+        stacks: [{ name: "web", store: "github", stages: [] }],
+        liveDeployments: [],
+      }),
+      { state: "has_stack", reason: "Destroy your Alchemy stack first." },
+    ],
+    [
+      "an unreadable branch alchemy-state-store with a Convex stack",
+      {
+        ...loaded({ store: "found", stacks: [convexStack], liveDeployments: [] }),
+        githubUnreadable: true as const,
+      },
+      {
+        state: "unknown",
+        reason:
+          "Samebase could not read the Alchemy state branch alchemy-state-store of the repository, so it cannot check for a stack. Try again.",
+      },
+    ],
   ])("reads %s like the server", (_name, alchemyState, check) => {
     expect(readRepositoryStackCheck(alchemyState)).toEqual(check);
   });

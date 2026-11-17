@@ -3,6 +3,16 @@
 What changed in Samebase, newest first. Each `v` number is the Samebase version that shipped the
 change. If a change needs action from you, the entry says so.
 
+## 2026-11-17
+
+- **v2360: Stacks with Alchemy state on a GitHub branch.** A repository page now also shows the
+  stacks whose Alchemy state is on the branch `alchemy-state-store` of the repository, the GitHub
+  state store of `@samebase/alchemy-kit`. The app wraps its state as
+  `withRunRecord(GitHubState.state())`, with `withRunRecord` from
+  `@samebase/alchemy-kit/run-record`, so each deploy records its repository. Samebase reads the
+  branch with its GitHub App and never opens a sealed secret. These stacks load after the page and
+  do not update live.
+
 ## 2026-11-12
 
 - **v2347: Stacks with Alchemy state in Cloudflare.** A repository page now also shows the stacks

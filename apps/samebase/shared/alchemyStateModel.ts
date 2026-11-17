@@ -21,6 +21,10 @@ export const RECONNECT_CLOUDFLARE_TO_CHECK_STACK =
 export const CLOUDFLARE_STORE_UNREADABLE =
   "Samebase could not read the Alchemy state store in Cloudflare, so it cannot check for a stack. Try again.";
 
+/** Why Samebase will not delete a GitHub repository when the read of its state branch fails. */
+export const GITHUB_STORE_UNREADABLE =
+  "Samebase could not read the Alchemy state branch alchemy-state-store of the repository, so it cannot check for a stack. Try again.";
+
 /**
 One stage as the store gives it: Alchemy state only. `resources` are in fqn order. Their values and
 `output` are JSON texts of Alchemy state, and `output` is null for a stage without one.
@@ -82,12 +86,13 @@ export type AlchemyStage = Infer<typeof vAlchemyStage>;
 
 /**
 Stacks and stages are in name order. Resources are in fqn order. `store` is the Alchemy state store
-that holds the stack: the store of the Convex team or of the Cloudflare account. A stack that moved
-its state can be in both, with the same name.
+that holds the stack: the store of the Convex team, of the Cloudflare account, or the branch
+`alchemy-state-store` of the GitHub repository. A stack that moved its state can be in two stores,
+with the same name.
 */
 const vAlchemyStack = object({
   name: string(),
-  store: union(literal("convex"), literal("cloudflare")),
+  store: union(literal("convex"), literal("cloudflare"), literal("github")),
   stages: array(vAlchemyStage),
 });
 export type AlchemyStack = Infer<typeof vAlchemyStack>;
@@ -156,6 +161,24 @@ export const vCloudflareStacksRead = union(
   }),
 );
 export type CloudflareStacksRead = Infer<typeof vCloudflareStacksRead>;
+
+/**
+The read of the GitHub state store of `@samebase/alchemy-kit/github-state`, the branch
+`alchemy-state-store` of the repository, for the repository: the stages whose run record names the
+repository, as `readDeployedStacks` keeps them, with the Convex metadata of their production
+deployments.
+*/
+export const vGitHubStacksRead = union(
+  /** The repository has no branch `alchemy-state-store`. */
+  object({ state: literal("no_store") }),
+  object({ state: literal("failed") }),
+  object({
+    state: literal("found"),
+    stacks: array(vAlchemyStack),
+    liveDeployments: vAlchemyLiveDeployments,
+  }),
+);
+export type GitHubStacksRead = Infer<typeof vGitHubStacksRead>;
 
 /** Samebase holds no Convex connection to the repository's team, so it cannot read the store. */
 export const vAlchemyNoConnection = object({ store: literal("no_connection") });

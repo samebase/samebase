@@ -1,5 +1,13 @@
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
+// The installation token of the repository, without a GitHub App: its requests reach the `fetch`
+// stub.
+vi.mock("../githubApp", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../githubApp")>();
+  const { Octokit } = await import("@octokit/rest");
+  return { ...actual, createGitHubRepositoryInstallationOctokit: async () => new Octokit() };
+});
+
 import { api, internal } from "../_generated/api";
 import { isRecord } from "../jsonUtils";
 import {
@@ -22,6 +30,8 @@ import {
   observedBaseAlchemyRepositoryReply,
 } from "./fixtures/observedAlchemyState";
 import { observedCustomDomainsReply } from "./fixtures/observedConvexCustomDomains";
+import githubStateRefs from "./fixtures/githubStateStore/matchingRefs.json";
+import githubStateTree from "./fixtures/githubStateStore/tree.json";
 
 const storeProject = {
   createTime: 1710000000000,
@@ -196,12 +206,14 @@ async function seedAlchemyRepository(t: ReturnType<typeof makeConvexTest>) {
 Answers the Convex Management API and `POST /api/function` of the store. `state:stacks` answers the
 names of `stackReplies`, and `state:readStack` answers the reply of the stack. By default the store
 holds `samebase/base-alchemy`, the stack of the repository, with `storeReply`, and the stack of
-another repository, `samebase/samebase`.
+another repository, `samebase/samebase`. GitHub answers `githubReplies`, else 404: by default the
+repository has no branch `alchemy-state-store`.
 */
 function installAlchemyStateFetchStub(args: {
   requests: RecordedRequest[];
   storeReply: unknown;
   stackReplies?: Record<string, unknown>;
+  githubReplies?: Record<string, () => Response>;
   teamProjects: unknown[];
   authorizationReply?: unknown;
   /** The answer of `POST /api/query` for `reader:repository` with the issued token. */
@@ -227,6 +239,15 @@ function installAlchemyStateFetchStub(args: {
       "https://api.convex.dev/v1/deployments/ideal-dolphin-15/custom_domains",
       () => args.customDomainsReply ?? jsonResponse({ domains: [] }),
     ],
+    // By default neither repository of these tests has the branch.
+    ...["samebase/base-alchemy", "acme/app"].map(
+      (repository) =>
+        [
+          `https://api.github.com/repos/${repository}/git/matching-refs/heads%2Falchemy-state-store?per_page=100`,
+          () => Response.json([]),
+        ] as const,
+    ),
+    ...Object.entries(args.githubReplies ?? {}),
   ]);
   vi.stubGlobal(
     "fetch",
@@ -525,13 +546,18 @@ for the first time with no output yet, or with an output that holds its run reco
 working or failing.
 */
 describe("the stack check before a GitHub repository deletion", () => {
-  async function requestDeletion(stackReplies: Record<string, unknown>, teamProjects: unknown[]) {
+  async function requestDeletion(
+    stackReplies: Record<string, unknown>,
+    teamProjects: unknown[],
+    githubReplies: Record<string, () => Response> = {},
+  ) {
     const t = makeConvexTest();
     const { ids, user } = await seedAlchemyRepository(t);
     const requests: RecordedRequest[] = [];
     installAlchemyStateFetchStub({
       requests,
       stackReplies,
+      githubReplies,
       storeReply: observedAlchemyStackReply,
       teamProjects,
     });
@@ -562,6 +588,49 @@ describe("the stack check before a GitHub repository deletion", () => {
 
   it("passes when the team has no store", async () => {
     await expect(requestDeletion({}, [appProject])).rejects.toThrow(passedTheCheck);
+  });
+
+  const github = "https://api.github.com/repos/samebase/base-alchemy/git";
+  /** The recorded branch `alchemy-state-store`, with `tree` as the reply of its tree. */
+  const branch = (tree: () => Response) => ({
+    [`${github}/matching-refs/heads%2Falchemy-state-store?per_page=100`]: () =>
+      Response.json(githubStateRefs),
+    [`${github}/trees/${githubStateRefs[0].object.sha}?recursive=1`]: tree,
+  });
+
+  // No run record of the recorded branch names samebase/base-alchemy: the stage `ci` has none.
+  it("refuses while the branch alchemy-state-store holds a stage file, whatever its run record", async () => {
+    await expect(
+      requestDeletion(
+        {},
+        [appProject],
+        branch(() => Response.json(githubStateTree)),
+      ),
+    ).rejects.toMatchObject({ data: "Destroy your Alchemy stack first." });
+  });
+
+  it("passes when the branch alchemy-state-store holds only its README.md", async () => {
+    const readmeOnly = { ...githubStateTree, tree: githubStateTree.tree.slice(0, 1) };
+    await expect(
+      requestDeletion(
+        {},
+        [appProject],
+        branch(() => Response.json(readmeOnly)),
+      ),
+    ).rejects.toThrow(passedTheCheck);
+  });
+
+  it("refuses when the branch alchemy-state-store cannot be read", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    await expect(
+      requestDeletion(
+        {},
+        [appProject],
+        branch(() => new Response(null, { status: 500 })),
+      ),
+    ).rejects.toMatchObject({
+      data: "Samebase could not read the Alchemy state branch alchemy-state-store of the repository, so it cannot check for a stack. Try again.",
+    });
   });
 
   const apiKeyAuth = {
@@ -992,7 +1061,7 @@ describe("the setup status of a repository_actions repository", () => {
     expect(requests.some(({ url }) => url.endsWith("/create_deploy_key"))).toBe(false);
   });
 
-  it("reports a repository without a Convex connection and reads no provider", async () => {
+  it("reports a repository without a Convex connection and reads no store", async () => {
     const t = makeConvexTest();
     const { ids, user } = await seedAlchemyRepository(t);
     await t.run(async (ctx) => {
@@ -1018,7 +1087,10 @@ describe("the setup status of a repository_actions repository", () => {
         repositoryId: ids.repositoryId,
       }),
     ).resolves.toEqual({ store: "no_connection" });
-    expect(requests).toEqual([]);
+    // Only the repository identity that the status reads from GitHub.
+    expect(requests.map(({ url }) => url)).toEqual([
+      "https://api.github.com/repos/samebase/base-alchemy",
+    ]);
   });
 });
 

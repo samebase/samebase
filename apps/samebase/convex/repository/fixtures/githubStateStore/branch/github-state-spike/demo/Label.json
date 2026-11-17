@@ -1,0 +1,27 @@
+{
+  "status": "created",
+  "fqn": "Label",
+  "logicalId": "Label",
+  "instanceId": "8b5b69656b216939a9c717328c70916b",
+  "resourceType": "GitHub.Label",
+  "props": {
+    "owner": "my-org",
+    "repository": "my-app",
+    "name": "spike-demo",
+    "color": "c5def5",
+    "description": "GitHub state store spike, stage demo"
+  },
+  "attr": {
+    "labelId": 13119106831,
+    "nodeId": "LA_kwDOVsRRkc8AAAADDfWvDw",
+    "name": "spike-demo",
+    "color": "c5def5",
+    "description": "GitHub state store spike, stage demo",
+    "url": "https://api.github.com/repos/my-org/my-app/labels/spike-demo",
+    "default": false
+  },
+  "bindings": [],
+  "providerVersion": 0,
+  "downstream": [],
+  "removalPolicy": "destroy"
+}

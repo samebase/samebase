@@ -158,6 +158,7 @@ import type * as repository_fixtures_observedSamebaseAlchemyState from "../repos
 import type * as repository_fixtures_observedScoutR2Resources from "../repository/fixtures/observedScoutR2Resources.js";
 import type * as repository_folderModel from "../repository/folderModel.js";
 import type * as repository_folders from "../repository/folders.js";
+import type * as repository_githubStateStore from "../repository/githubStateStore.js";
 import type * as repository_infrastructureOperation from "../repository/infrastructureOperation.js";
 import type * as repository_model from "../repository/model.js";
 import type * as repository_organizationTree from "../repository/organizationTree.js";
@@ -167,6 +168,7 @@ import type * as repository_provisioningModel from "../repository/provisioningMo
 import type * as repository_pullRequestModel from "../repository/pullRequestModel.js";
 import type * as repository_records from "../repository/records.js";
 import type * as repository_repositoryStatus from "../repository/repositoryStatus.js";
+import type * as repository_requestLimiter from "../repository/requestLimiter.js";
 import type * as repository_state from "../repository/state.js";
 import type * as repository_status from "../repository/status.js";
 import type * as repositoryProvisioningEvents from "../repositoryProvisioningEvents.js";
@@ -347,6 +349,7 @@ declare const fullApi: ApiFromModules<{
   "repository/fixtures/observedScoutR2Resources": typeof repository_fixtures_observedScoutR2Resources;
   "repository/folderModel": typeof repository_folderModel;
   "repository/folders": typeof repository_folders;
+  "repository/githubStateStore": typeof repository_githubStateStore;
   "repository/infrastructureOperation": typeof repository_infrastructureOperation;
   "repository/model": typeof repository_model;
   "repository/organizationTree": typeof repository_organizationTree;
@@ -356,6 +359,7 @@ declare const fullApi: ApiFromModules<{
   "repository/pullRequestModel": typeof repository_pullRequestModel;
   "repository/records": typeof repository_records;
   "repository/repositoryStatus": typeof repository_repositoryStatus;
+  "repository/requestLimiter": typeof repository_requestLimiter;
   "repository/state": typeof repository_state;
   "repository/status": typeof repository_status;
   repositoryProvisioningEvents: typeof repositoryProvisioningEvents;

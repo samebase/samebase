@@ -1,0 +1,22 @@
+{
+  "status": "updated",
+  "fqn": "Note",
+  "logicalId": "Note",
+  "instanceId": "4f87727693dab8297889d7c99960d2ef",
+  "resourceType": "Spike.Note",
+  "props": {
+    "secret": {
+      "__redacted__": {
+        "__sealed__": "v1.fixture.fixture"
+      }
+    },
+    "text": "second"
+  },
+  "attr": {
+    "length": 6
+  },
+  "bindings": [],
+  "providerVersion": 0,
+  "downstream": [],
+  "removalPolicy": "destroy"
+}

@@ -1,0 +1,15 @@
+{
+  "label": "https://api.github.com/repos/my-org/my-app/labels/spike-demo",
+  "length": 6,
+  "samebase.run": {
+    "version": 1,
+    "repository": "my-org/my-app",
+    "stackFile": "github-state/alchemy.run.ts",
+    "branch": "github-state",
+    "pullRequest": null,
+    "headCommit": "1e0931b180249bcf65459b95df837d09910a39d0",
+    "runUrl": null,
+    "source": "checkout",
+    "recordedAt": "2026-11-17T19:31:18.144Z"
+  }
+}
