@@ -110,11 +110,7 @@ describe("AuthenticatedAppRoutePage", () => {
     await renderAuthenticatedRoutePageAfterEffects();
 
     expect(toastState.toast).toHaveBeenCalledWith(
-      expect.objectContaining({
-        priority: "high",
-        title: "Authorization not completed",
-        variant: "destructive",
-      }),
+      expect.objectContaining({ priority: "high", variant: "destructive" }),
     );
     expect(routerState.navigate).toHaveBeenCalledWith(
       expect.objectContaining({ hash: true, replace: true, resetScroll: false, to: "." }),

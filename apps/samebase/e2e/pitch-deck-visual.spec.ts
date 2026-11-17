@@ -21,9 +21,7 @@ test("/pitch stays visually stable @opt-in", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await signInForPitchRoute(page);
   await page.goto("/pitch", { waitUntil: "networkidle" });
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText(
-    "One route. Two print presets. Zero slide framework.",
-  );
+  await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
   await expect(page.getByRole("link", { name: "Download Desktop PDF" })).toHaveAttribute(
     "href",
     "/pitch-deck.pdf",

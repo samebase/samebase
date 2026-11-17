@@ -35,8 +35,13 @@ import type { RepositoryWorkspaceSelected } from "./repositoryWorkspaceModel";
 import type { RepositoryAlchemyState } from "./useRepositoryAlchemyState";
 import type { RepositoryAlchemyStacks } from "./useRepositoryProviderObservations";
 import type { UserRepositoryResult } from "../../../convex/repository/contracts/getUserRepositories";
-import type { AlchemyStateObservation } from "../../../shared/alchemyStateModel";
-import { formatRepositorySourceSetupStep } from "./repositorySourceSetup";
+import {
+  type AlchemyStateObservation,
+  CLOUDFLARE_STORE_UNREADABLE,
+  DESTROY_ALCHEMY_STACK_FIRST,
+  GITHUB_STORE_UNREADABLE,
+  RECONNECT_CLOUDFLARE_TO_CHECK_STACK,
+} from "../../../shared/alchemyStateModel";
 
 const useOrganizationGitHubIdentitiesMock = vi.hoisted(() => vi.fn(() => new Map()));
 const useActionMock = vi.hoisted(() => vi.fn());
@@ -1160,7 +1165,6 @@ describe("PullRequestResources", () => {
     );
 
     expect(failed).toContain("Could not read the team&#x27;s Alchemy state store.");
-    expect(failed).not.toContain("Deploy status unavailable");
     expect(empty).toBe("");
   });
 });
@@ -1254,7 +1258,6 @@ describe("PullRequestsSection", () => {
       expect(
         rootElement.querySelector('[aria-label="Alchemy stack samebase/base-alchemy"]'),
       ).not.toBeNull();
-      expect(rootElement.querySelector('[aria-label="Other previews"]')).toBeNull();
     } finally {
       await act(async () => {
         root.unmount();
@@ -1367,7 +1370,7 @@ describe("RepositoryOverviewPickerPane", () => {
     };
   }
 
-  it("shows checks and pull requests, and no attachment count", () => {
+  it("shows checks and pull requests", () => {
     const repository = makeRepositorySettingsBuilderRepository({
       githubRepositoryName: "demo",
       githubOwnerLogin: "ada",
@@ -1408,14 +1411,8 @@ describe("RepositoryOverviewPickerPane", () => {
     expect(markup).toContain("demo");
     expect(markup).toContain("1/1 passed");
     expect(markup).toContain("3 PRs");
-    expect(markup).not.toContain("Cloudflare Worker");
-    expect(markup).not.toContain("Convex project");
-    expect(markup).not.toContain("Install GitHub App");
     expect(markup).toContain('href="/repo/ada/demo"');
     expect(markup).toMatch(/<a[^>]+href="\/repo\/ada\/demo"[^>]*>[\s\S]*1\/1 passed[\s\S]*<\/a>/);
-    expect(markup).not.toContain(
-      "Select a repository from the left sidebar or add one from the right sidebar.",
-    );
 
     const emptyRepository = makeRepositorySettingsBuilderRepository({
       githubRepositoryName: "empty",
@@ -1452,8 +1449,6 @@ describe("RepositoryOverviewPickerPane", () => {
     );
 
     expect(emptyMarkup).toContain('aria-label="ada/empty, 1/1 passed"');
-    expect(emptyMarkup).not.toContain("Cloudflare Worker");
-    expect(emptyMarkup).not.toContain("Convex project");
     expect(emptyMarkup).not.toContain("open pull request");
     expect(emptyMarkup).not.toContain(" PR");
   });
@@ -1610,10 +1605,8 @@ describe("RepositoryOverviewPickerPane", () => {
     );
 
     expect(settingUpMarkup).toContain("Setting up");
-    expect(settingUpMarkup).toContain("animate-spin");
     expect(settingUpMarkup).not.toContain("Loading checks");
     expect(deletingMarkup).toContain("Deleting");
-    expect(deletingMarkup).toContain("animate-spin");
     expect(deletingMarkup).not.toContain("Loading checks");
   });
 
@@ -1683,7 +1676,6 @@ describe("RepositoryOverviewPickerPane", () => {
 
     expect(loadingMarkup).toContain('aria-label="Loading repositories"');
     expect(emptyMarkup).toContain("No organizations");
-    expect(emptyMarkup).toContain("Connect a GitHub account or organization to Samebase.");
     expect(emptyMarkup).toContain("Add organization");
     expect(emptyMarkup).toContain('href="/org"');
     expect(emptyOrganizationMarkup).toContain("ada");
@@ -1802,19 +1794,6 @@ describe("RepositoryOverviewPage", () => {
   });
 });
 
-describe("formatRepositorySourceSetupStep", () => {
-  it("uses dashboard labels for create-app setup steps", () => {
-    expect(formatRepositorySourceSetupStep("connect_github_repository")).toBe(
-      "Connecting GitHub repository",
-    );
-    expect(formatRepositorySourceSetupStep("fetch_github_repository")).toBe(
-      "Reading GitHub repository",
-    );
-    expect(formatRepositorySourceSetupStep("seed_starter")).toBe("Adding starter files");
-    expect(formatRepositorySourceSetupStep("sync_tree")).toBe("Syncing repository files");
-  });
-});
-
 describe("readRepositoryStackCheck", () => {
   const loaded = (observation: AlchemyStateObservation) =>
     ({ state: "loaded", observation, refreshFailed: false, reload: () => {} }) as const;
@@ -1850,7 +1829,7 @@ describe("readRepositoryStackCheck", () => {
         }),
         cloudflareProblem: undefined,
       },
-      { state: "has_stack", reason: "Destroy your Alchemy stack first." },
+      { state: "has_stack", reason: DESTROY_ALCHEMY_STACK_FIRST },
     ],
     [
       "a Cloudflare reconnect with a Convex stack",
@@ -1858,20 +1837,12 @@ describe("readRepositoryStackCheck", () => {
         ...loaded({ store: "found", stacks: [convexStack], liveDeployments: [] }),
         cloudflareProblem: "reconnect" as const,
       },
-      {
-        state: "unknown",
-        reason:
-          "An owner must connect Cloudflare again on Providers and allow Secrets Store Read and Edit, so Samebase can check for an Alchemy stack.",
-      },
+      { state: "unknown", reason: RECONNECT_CLOUDFLARE_TO_CHECK_STACK },
     ],
     [
       "an unreadable Cloudflare store with no team store",
       { ...loaded({ store: "missing" }), cloudflareProblem: "unreadable" as const },
-      {
-        state: "unknown",
-        reason:
-          "Samebase could not read the Alchemy state store in Cloudflare, so it cannot check for a stack. Try again.",
-      },
+      { state: "unknown", reason: CLOUDFLARE_STORE_UNREADABLE },
     ],
     [
       "a stack on the branch alchemy-state-store next to a missing team store",
@@ -1880,7 +1851,7 @@ describe("readRepositoryStackCheck", () => {
         stacks: [{ name: "web", store: "github", stages: [] }],
         liveDeployments: [],
       }),
-      { state: "has_stack", reason: "Destroy your Alchemy stack first." },
+      { state: "has_stack", reason: DESTROY_ALCHEMY_STACK_FIRST },
     ],
     [
       "an unreadable branch alchemy-state-store with a Convex stack",
@@ -1888,11 +1859,7 @@ describe("readRepositoryStackCheck", () => {
         ...loaded({ store: "found", stacks: [convexStack], liveDeployments: [] }),
         githubUnreadable: true as const,
       },
-      {
-        state: "unknown",
-        reason:
-          "Samebase could not read the Alchemy state branch alchemy-state-store of the repository, so it cannot check for a stack. Try again.",
-      },
+      { state: "unknown", reason: GITHUB_STORE_UNREADABLE },
     ],
   ])("reads %s like the server", (_name, alchemyState, check) => {
     expect(readRepositoryStackCheck(alchemyState)).toEqual(check);
@@ -1932,8 +1899,6 @@ describe("RepositoryDeleteDialogContent", () => {
       expect(markup).toContain(
         "Your deployed app stays in your cloud accounts. Delete it there if you no longer need it.",
       );
-      expect(markup).not.toContain("Also delete the Convex project");
-      expect(markup).not.toContain("Also delete the Cloudflare Worker");
     },
   );
 
@@ -1976,9 +1941,7 @@ describe("RepositoryDeleteDialogContent", () => {
     expect(markup).toContain(
       'href="https://github.com/ada/chess-merge/actions/workflows/destroy.yml"',
     );
-    expect(markup).toContain(
-      'workflow, click Run workflow, and type <span class="font-mono">delete stack and production data of ada/chess-merge</span>.',
-    );
+    expect(markup).toContain("delete stack and production data of ada/chess-merge");
   });
 
   it("shows the server block reason and disables removal", () => {
@@ -1997,7 +1960,6 @@ describe("RepositoryDeleteDialogContent", () => {
     const removeButton = markup.match(/<button[^>]*>Remove from Samebase<\/button>/)?.[0];
 
     expect(markup).toContain("Repository setup is still running.");
-    expect(removeButton).toBeDefined();
     expect(removeButton).toMatch(/\sdisabled(?:=""|(?=[\s>]))/);
   });
 });

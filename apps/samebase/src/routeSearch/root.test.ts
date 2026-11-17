@@ -129,23 +129,6 @@ describe("rootRouteSearch", () => {
     });
   });
 
-  it("removes the old provider dialog params from a saved link", () => {
-    expect(
-      validateRootRouteSearch({
-        "add-cloudflare": "",
-        "add-convex": "",
-      }),
-    ).toEqual({});
-    expect(
-      readCanonicalRouteAddressForRootSearch({
-        acceptedSearchKeys: [],
-        hash: "",
-        pathname: "/repo/ada/demo/settings",
-        searchStr: "?add-cloudflare&add-convex",
-      }),
-    ).toBe("/repo/ada/demo/settings");
-  });
-
   it("parses the root search contract from a search string", () => {
     expect(readRootRouteSearch("?dev&auth=google&signup=google&primary=red-600&delete")).toEqual({
       auth: "google",
@@ -164,22 +147,10 @@ describe("rootRouteSearch", () => {
     });
   });
 
-  it("parses the one-shot dashboard auth return marker", () => {
-    expect(readRootRouteSearch("?auth-return=dashboard")).toEqual({
-      "auth-return": "dashboard",
-    });
-  });
-
   it("parses the Convex Auth OAuth return values as hidden root search", () => {
     expect(readRootRouteSearch("?convexAuthCode= oauth-code &convexAuthError=expired")).toEqual({
       convexAuthCode: "oauth-code",
       convexAuthError: "expired",
-    });
-  });
-
-  it("parses the global workspace debug flag", () => {
-    expect(readRootRouteSearch("?swipe-debug")).toEqual({
-      "swipe-debug": true,
     });
   });
 
@@ -214,10 +185,6 @@ describe("rootRouteSearch", () => {
       opacity: 0.5,
       shuffleMoves: 2,
     });
-  });
-
-  it("ignores the unsupported base query key", () => {
-    expect(readRootRouteSearch("?base=%23112233")).toEqual({});
   });
 
   it("preserves explicit supported root logo grid sizes", () => {

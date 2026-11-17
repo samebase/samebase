@@ -22,13 +22,7 @@ import { fromValues } from "../src/Credentials.ts";
 import { ManagementApi, ManagementApiLive } from "../src/ManagementApi.ts";
 import { createDeployKey } from "../src/Push.ts";
 import { withRunRecord } from "@samebase/alchemy-kit/run-record";
-import {
-  makeConvexState,
-  makeFunctionApi,
-  RUN_KEY_ACTIONS,
-  state,
-  STORE_PROJECT_NAME,
-} from "../src/State.ts";
+import { makeConvexState, makeFunctionApi, state, STORE_PROJECT_NAME } from "../src/State.ts";
 import { STORE_VERSION } from "../src/store/convex/version.ts";
 import { FakeConvex, recorded, stateFixture } from "./fakeConvex.ts";
 
@@ -160,7 +154,11 @@ describe("Convex.state", () => {
     const [runKey, pushKey, pushKeyDelete] = keyCalls(fake);
     expect(Schema.decodeUnknownSync(KeyBody)(runKey?.body)).toEqual({
       name: STORE_PROJECT_NAME,
-      allowedActions: [...RUN_KEY_ACTIONS, "deployment:functions:runInternalActions"],
+      allowedActions: [
+        "deployment:functions:runInternalQueries",
+        "deployment:functions:runInternalMutations",
+        "deployment:functions:runInternalActions",
+      ],
     });
     expect(Schema.decodeUnknownSync(KeyBody)(pushKey?.body).allowedActions).toEqual([
       "deployment:deploy",

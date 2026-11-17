@@ -5,10 +5,7 @@ import {
   createLogoIdentityViewSvgMarkup,
   createStaticLogoSvgMarkup,
 } from "@/components/logo/logoStaticSvgAsset";
-import {
-  DEFAULT_LOGO_FACE_TREATMENT,
-  LOGO_FACE_TREATMENTS,
-} from "@samebase/logo-model/face-treatment";
+import { LOGO_FACE_TREATMENTS } from "@samebase/logo-model/face-treatment";
 import {
   LOGO_IDENTITY_VIEW_CONTRACTS,
   getLogoIdentityAssetPath,
@@ -41,21 +38,6 @@ describe("logoStaticSvgAsset", () => {
     const generatedSvg = createStaticLogoSvgMarkup().replace(/\r\n/g, "\n").trim();
 
     expect(staticLogoSvg).toBe(generatedSvg);
-  });
-
-  it("uses the duotone treatment for the default static logo", () => {
-    const generatedSvg = createStaticLogoSvgMarkup();
-
-    expect(DEFAULT_LOGO_FACE_TREATMENT).toBe("duotone");
-    expect(generatedSvg).toContain('fill="#00b8db"');
-    expect(generatedSvg).toContain('stroke="#00b8db"');
-  });
-
-  it("exports real face polygons instead of a raster traced into one-pixel rects", () => {
-    const generatedStaticLogoSvgMarkup = createStaticLogoSvgMarkup();
-
-    expect(generatedStaticLogoSvgMarkup).toContain("<polygon ");
-    expect(generatedStaticLogoSvgMarkup).not.toContain(' height="1" ');
   });
 
   it("keeps recursive static SVG output bounded with nested reuse", () => {

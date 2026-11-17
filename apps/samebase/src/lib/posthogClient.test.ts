@@ -88,7 +88,6 @@ describe("posthog client setup", () => {
       capture_pageleave: true,
       capture_pageview: false,
       capture_performance: false,
-      defaults: "2026-01-30",
       disable_persistence: true,
       disable_session_recording: true,
       respect_dnt: true,

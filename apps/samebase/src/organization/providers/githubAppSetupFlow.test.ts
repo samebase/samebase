@@ -55,7 +55,6 @@ describe("GitHub App popup completion", () => {
     expect(popupAssign).toHaveBeenCalledWith(
       "https://github.com/apps/samebase/installations/new?state=safe-state",
     );
-    expect(messageHandler).toBeDefined();
     if (messageHandler === undefined) {
       throw new Error("GitHub completion listener was not installed.");
     }

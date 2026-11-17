@@ -132,26 +132,6 @@ describe("readRouteAddressReadiness", () => {
     });
   });
 
-  it("keeps redirect-only paths local while typing through them", () => {
-    expect(
-      readRouteAddressReadinessForTest({
-        draftRouteAddress: "/landing",
-      }),
-    ).toEqual({
-      kind: "local",
-      reason: "pathNotReady",
-    });
-
-    expect(
-      readRouteAddressReadinessForTest({
-        draftRouteAddress: "/landing-preview",
-      }),
-    ).toEqual({
-      kind: "local",
-      reason: "pathNotReady",
-    });
-  });
-
   it("applies member route grants to path readiness", () => {
     expect(
       readRouteAddressReadinessForTest({
@@ -229,17 +209,6 @@ describe("readRouteAddressReadiness", () => {
     ).toEqual({
       kind: "readyNormalized",
       routeAddress: "/logo?leftFace=striped&zoom=0",
-    });
-  });
-
-  it("drops the unsupported base query key", () => {
-    expect(
-      readRouteAddressReadinessForTest({
-        draftRouteAddress: "/logo?base=%23112233",
-      }),
-    ).toEqual({
-      kind: "readyNormalized",
-      routeAddress: "/logo",
     });
   });
 

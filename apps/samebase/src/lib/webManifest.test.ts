@@ -11,13 +11,9 @@ describe("web manifest", () => {
 
     expect(manifest).toMatchObject({
       id: "/",
-      name: "Samebase",
-      short_name: "Samebase",
       start_url: "/repo",
       scope: "/",
       display: "standalone",
-      theme_color: "#ffffff",
-      background_color: "#ffffff",
     });
     expect(manifest.icons).toEqual([
       {

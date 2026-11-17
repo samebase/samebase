@@ -764,8 +764,6 @@ describe("createCommitWithMultipleFiles", () => {
     const deletionEntry = createTreeCall.tree.find((entry) => entry.path === "src/old-name.ts");
     const additionEntry = createTreeCall.tree.find((entry) => entry.path === "src/new-name.ts");
 
-    expect(deletionEntry).toBeDefined();
-    expect(additionEntry).toBeDefined();
     if (!deletionEntry || !additionEntry) {
       throw new Error("Expected rename entries to be present");
     }
@@ -1152,7 +1150,6 @@ describe("createCommitWithMultipleFiles", () => {
       if (!("content" in entry) || typeof entry.content !== "string") {
         throw new Error("Expected tree entry with inline content");
       }
-      expect(entry.content).toBeDefined();
     }
   });
 });

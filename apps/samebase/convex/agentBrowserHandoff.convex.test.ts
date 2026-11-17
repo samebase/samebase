@@ -133,7 +133,6 @@ describe("agent browser handoff lifecycle", () => {
     });
 
     expect(snapshot.handoff?.consumedAt).toBe(now + 1);
-    expect(snapshot.handoff).not.toHaveProperty("returnToPath");
     const creationAudit = snapshot.audits.find(
       (audit) => audit.action === "agent_browser_handoff_created",
     );

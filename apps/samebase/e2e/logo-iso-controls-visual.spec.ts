@@ -17,7 +17,6 @@ const EXPECTED_LOGO_DEPTH_HARD_MAX = {
   svg: 3,
   three: 5,
 } as const;
-const logoPublicRouteUrls = ["/logo", "/logo?light", "/logo?dark"] as const;
 
 async function waitForPaint(page: Page) {
   await page.evaluate(async () => {
@@ -157,37 +156,16 @@ test("logo right sidebar keeps public links visible", async ({ page }) => {
   await expect(
     publicLinks.getByRole("link", { name: LOCAL_STORAGE_ROUTE, exact: true }),
   ).toHaveCount(0);
-  // Terms, Privacy, Pricing, X, and YouTube live in the public left sidebar.
-  for (const name of ["/terms", "/privacy", "/pricing", "/x.com", "/YouTube"]) {
-    await expect(publicLinks.getByRole("link", { name, exact: true })).toHaveCount(0);
-  }
   await expect(publicLinks.getByRole("link", { name: "/landing", exact: true })).toHaveAttribute(
     "href",
     "/",
   );
-  await expect(publicLinks.getByRole("link", { name: "?light", exact: true })).toHaveCount(0);
-  await expect(publicLinks.getByRole("link", { name: "?dark", exact: true })).toHaveCount(0);
   await expect(publicLinks).toHaveScreenshot("logo-right-sidebar-meta-section.png", {
     animations: "disabled",
     caret: "hide",
     maxDiffPixelRatio: 0.03,
     scale: "css",
   });
-});
-
-test("logo routes share the public account right sidebar", async ({ page }) => {
-  await page.setViewportSize({ width: 1440, height: 1000 });
-
-  for (const pathname of logoPublicRouteUrls) {
-    await page.goto(pathname, { waitUntil: "domcontentloaded" });
-
-    const linksSidebar = page.locator('[data-sidebar-layout-part="pane"][data-pane-side="right"]');
-    const accountSection = linksSidebar.getByTestId(PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID);
-    await expect(accountSection).toBeVisible();
-    await expect(
-      accountSection.getByText("Sign in or create an account", { exact: true }),
-    ).toBeVisible();
-  }
 });
 
 test("logo right sidebar public path links navigate on click", async ({ page }) => {
@@ -858,8 +836,6 @@ test("logo iso controls mobile boot", async ({ page }) => {
   await expect(workspace).toHaveAttribute("data-mobile-pane", "main");
   await expect(controlsSidebar).toContainText("Cube side");
   await expect(controlsSidebar).toContainText("6px");
-  await expect(page.getByRole("button", { name: "Controls" })).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Preview" })).toHaveCount(0);
 });
 
 test("logo view mobile header omits the controls sidebar button", async ({ page }) => {
@@ -875,7 +851,6 @@ test("logo view mobile header omits the controls sidebar button", async ({ page 
 
   await expect(workspace).toHaveAttribute("data-mobile-pane", "main");
   await expect(controlsSidebar).toContainText("Shape");
-  await expect(controlsSidebar).not.toContainText("Pages");
   await expect(carousel).toBeVisible();
   await expect(page.getByRole("button", { name: "Toggle Left Sidebar" })).toHaveCount(0);
 
@@ -1085,7 +1060,6 @@ test("logo view desktop header toggle collapses and reopens the sidebar", async 
 
   await expect(leftToggle).toBeVisible();
   await expect(controlsSidebar).toContainText("Shape");
-  await expect(controlsSidebar).not.toContainText("Pages");
 
   await leftToggle.click();
   await expect

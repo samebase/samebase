@@ -14,7 +14,6 @@ describe("key set", () => {
   test("create, serialize, parse", async () => {
     const keySet = await createKeySet();
     expect(keySet.keys).toHaveLength(1);
-    expect(keySet).not.toHaveProperty("pairwiseSalt");
     const parsed = parseKeySet(JSON.stringify(keySet));
     expect(parsed).toEqual(keySet);
     const jwks = publicJwks(parsed);

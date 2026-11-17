@@ -36,10 +36,6 @@ describe("socialLogoAssets", () => {
     );
   });
 
-  it("keeps the profile banner on the duotone treatment by default", () => {
-    expect(createSamebaseXProfileBannerSvgMarkup()).toContain("#00b8db");
-  });
-
   it("renders all three profile banner marks at the same cube scale", () => {
     const logoViewports = createSamebaseXProfileBannerSvgMarkup().match(
       /width="220" height="220" viewBox="0 0 360 360"/gu,

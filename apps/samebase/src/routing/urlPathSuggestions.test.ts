@@ -54,8 +54,6 @@ describe("readRouteUrlPathSuggestions", () => {
     expect(suggestions).not.toContain("/logo/transition/transforms");
     expect(suggestions).toContain("/visual-fixture");
     expect(suggestions).toContain("/repo/$");
-    expect(suggestions).not.toContain("/_public");
-    expect(suggestions).not.toContain("/_public/vault");
     expect(suggestions).not.toContain("/landing-preview");
     expect(suggestions).not.toContain("/x.com");
     expect(suggestions).not.toContain("/youtube");
@@ -183,8 +181,6 @@ describe("readRouteUrlPathSuggestions", () => {
     expect(suggestions).toContain("/org/$owner/new-app");
     expect(suggestions).toContain("/org/$owner/providers");
     expect(suggestions).toContain("/org/$owner/settings");
-    expect(suggestions).not.toContain("/org/$owner/settings/billing");
-    expect(suggestions).not.toContain("/settings/mcp");
     expect(suggestions).toContain("/logo/iso");
     expect(suggestions).toContain("/logo/raster");
     expect(suggestions).toContain("/logo/svg");

@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vite-plus/test";
-import { createCodeChallenge } from "../oauthUtils";
 import {
   createAccessTokenValue,
   createAgentBrowserHandoffTokenValue,
@@ -39,12 +38,10 @@ describe("sha256Hex", () => {
 });
 
 describe("verifyPkceS256", () => {
-  it("validates matching code verifier and challenge", async () => {
-    const verifier = "0123456789012345678901234567890123456789012345678901234567890123";
-    const expectedChallenge = await createCodeChallenge(verifier);
+  it("validates the S256 example of RFC 7636 Appendix B", async () => {
     const valid = await verifyPkceS256({
-      codeVerifier: verifier,
-      expectedCodeChallenge: expectedChallenge,
+      codeVerifier: "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk",
+      expectedCodeChallenge: "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM",
     });
     expect(valid).toBe(true);
   });

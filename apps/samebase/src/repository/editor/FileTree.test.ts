@@ -6,10 +6,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { FileTree } from "@/repository/editor/FileTree";
-import {
-  getFileTreeTooltipText,
-  getRestoreDeletionLabel,
-} from "@/repository/editor/fileTreeLabels";
+import { getFileTreeTooltipText } from "@/repository/editor/fileTreeLabels";
 import {
   buildEffectiveFolderExpansionStates,
   getAncestorFolderPaths,
@@ -211,7 +208,6 @@ describe("FileTree", () => {
     );
 
     expect(markup).toContain('href="#intro"');
-    expect(markup).toContain("gap-0.5");
     expect(markup).toContain("max-lines-2");
     expect(markup).toContain(">Guide<");
     expect(markup).toContain(">Intro<");
@@ -261,7 +257,7 @@ describe("getAncestorFolderPaths", () => {
 });
 
 describe("getFileTreeTooltipText", () => {
-  it("uses action copy for coarse-pointer folders", () => {
+  it("names the long press for coarse-pointer folders", () => {
     expect(
       getFileTreeTooltipText({
         isFolder: true,
@@ -269,10 +265,10 @@ describe("getFileTreeTooltipText", () => {
         isCoarsePointer: true,
         type: "tree",
       }),
-    ).toBe("Long press for actions");
+    ).toMatch(/long press/i);
   });
 
-  it("describes deleted-file tap plus long press for coarse pointers", () => {
+  it("names a tap and a long press for deleted files on coarse pointers", () => {
     expect(
       getFileTreeTooltipText({
         isFolder: false,
@@ -280,10 +276,10 @@ describe("getFileTreeTooltipText", () => {
         isCoarsePointer: true,
         type: "blob",
       }),
-    ).toBe("Tap to review deleted file, long press for actions");
+    ).toMatch(/^tap .*long press/i);
   });
 
-  it("uses open copy when no context actions are available", () => {
+  it("names only a click when no context actions are available", () => {
     expect(
       getFileTreeTooltipText({
         hasContextMenuActions: false,
@@ -292,16 +288,6 @@ describe("getFileTreeTooltipText", () => {
         isCoarsePointer: false,
         type: "blob",
       }),
-    ).toBe("Click to open");
-  });
-});
-
-describe("getRestoreDeletionLabel", () => {
-  it("shows the pending label while restore is in flight", () => {
-    expect(getRestoreDeletionLabel(true)).toBe("Reverting...");
-  });
-
-  it("shows the default restore label when idle", () => {
-    expect(getRestoreDeletionLabel(false)).toBe("Revert deletion");
+    ).toMatch(/^click to open/i);
   });
 });

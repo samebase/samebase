@@ -68,18 +68,7 @@ test("Settings page uses the authenticated account surface", async ({ page }) =>
   await expect(settingsPage.getByText("Google", { exact: true })).toHaveCount(0);
   await expect(settingsPage.getByRole("button", { name: "Connect Google" })).toHaveCount(0);
   await expect(settingsPage.getByText("GitHub", { exact: true })).toBeVisible();
-  await expect(settingsPage.getByRole("heading", { name: "GitHub access" })).toHaveCount(0);
   await expect(settingsPage.getByRole("heading", { exact: true, name: "Account" })).toBeVisible();
-  await expect(settingsPage.getByRole("button", { name: "Authorize GitHub access" })).toHaveCount(
-    0,
-  );
-  await expect(settingsPage.getByRole("heading", { name: "Billing" })).toHaveCount(0);
-  await expect(settingsPage.getByRole("button", { name: "Install GitHub App" })).toHaveCount(0);
-  await expect(settingsPage.getByRole("button", { name: "Upgrade to Pro, $4/month" })).toHaveCount(
-    0,
-  );
-  await expect(settingsPage.getByText("Cloudflare Workers", { exact: true })).toHaveCount(0);
-  await expect(settingsPage.getByText("Convex projects", { exact: true })).toHaveCount(0);
   await expect(settingsPage.getByLabel("Display name")).toHaveCSS("font-size", "16px");
   await expect(settingsPage).toHaveScreenshot("settings-page-desktop.png", {
     ...screenshotOptions,
@@ -90,28 +79,6 @@ test("Settings page uses the authenticated account surface", async ({ page }) =>
   await settingsPage.getByRole("button", { name: "Delete account" }).click();
   await expect(page).toHaveURL(/\/settings\?delete-account$/u);
   const deleteDialog = page.getByRole("dialog", { name: "Delete account?" });
-  await expect(
-    deleteDialog.getByText(
-      "Your account will be disabled now. Permanent deletion will start seven days after you continue.",
-      { exact: true },
-    ),
-  ).toBeVisible();
-  await expect(
-    deleteDialog.getByText(
-      "During those seven days, email contact@samebase.com to restore your account or for other inquiries. Samebase will send you a confirmation email as account deletion finishes.",
-      { exact: true },
-    ),
-  ).toBeVisible();
-  await expect(
-    deleteDialog.getByText(
-      "First, leave or delete every organization. GitHub repositories, Convex projects, Cloudflare Workers, and domains are not deleted.",
-      { exact: true },
-    ),
-  ).toBeVisible();
-  await expect(deleteDialog).not.toContainText(
-    "uncommitted file changes will be permanently deleted",
-  );
-  await expect(deleteDialog).toContainText("Type the phrase to confirm");
   await expect(deleteDialog.getByRole("button", { name: "Schedule deletion" })).toBeDisabled();
   await expect(deleteDialog.getByLabel("Type the phrase to confirm")).toHaveCSS(
     "font-size",

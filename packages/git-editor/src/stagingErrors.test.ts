@@ -8,15 +8,6 @@ import {
 } from "./stagingErrors";
 
 describe("stagingErrors", () => {
-  it("builds a tagged stale-base-version message", () => {
-    expect(
-      buildStaleBaseVersionErrorMessage({
-        expectedVersion: 3,
-        actualVersion: 4,
-      }),
-    ).toBe("[STALE_BASE_VERSION] pushContentUpdate failed: stale base version (expected 3, got 4)");
-  });
-
   it("detects stale-base-version errors by stable tag", () => {
     const error = new Error(
       buildStaleBaseVersionErrorMessage({

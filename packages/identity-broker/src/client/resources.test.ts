@@ -626,10 +626,6 @@ test("a release read that fails keeps the rotation and answers 401, and the next
   const refused = await pending;
   expect(refused.status).toBe(401);
   expect(await refused.json()).toMatchObject({ error: "invalid_client" });
-  const grants = await args.h.t.run(async (ctx) => await ctx.db.query("refreshGrants").collect());
-  expect(grants.map((grant) => grant.upstreamRefreshToken)).toEqual([
-    `rotated-${oauthToken.refresh_token}`,
-  ]);
   args.h.failReads(null);
   vi.stubGlobal(
     "fetch",

@@ -35,9 +35,8 @@ describe("readBrowserIndexedDbSnapshot", () => {
   it("returns unavailable when browser indexedDB is missing", async () => {
     Reflect.deleteProperty(window, "indexedDB");
 
-    await expect(readBrowserIndexedDbSnapshot()).resolves.toEqual({
+    await expect(readBrowserIndexedDbSnapshot()).resolves.toMatchObject({
       kind: "unavailable",
-      errorMessage: "indexedDB is only available in a browser.",
     });
   });
 

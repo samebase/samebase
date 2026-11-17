@@ -92,7 +92,7 @@ export const STORE_PROJECT_NAME = "alchemy-state-store";
  * the store, nothing else. Measured: `deployment:data:view` and
  * `deployment:data:write` do not run an internal function.
  */
-export const RUN_KEY_ACTIONS = [
+const RUN_KEY_ACTIONS = [
   "deployment:functions:runInternalQueries",
   "deployment:functions:runInternalMutations",
 ] as const;

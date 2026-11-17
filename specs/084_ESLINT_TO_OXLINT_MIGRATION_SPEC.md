@@ -14,7 +14,6 @@
   - `apps/remotion-studio/package.json`
   - `apps/samebase/convex/jsonUtils.ts`
   - `apps/samebase/convex/jsonUtils.test.ts`
-  - `apps/samebase/lintConfig.test.ts`
 
 ## Summary
 

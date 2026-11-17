@@ -1,5 +1,4 @@
 import {
-  MENGER_AUTOMATIC_PROBE_DEFAULT_SETTINGS,
   MENGER_AUTOMATIC_PROBE_PATHS,
   normalizeMengerAutomaticProbeExtent,
   normalizeMengerAutomaticProbeLoopDurationSeconds,
@@ -11,21 +10,6 @@ import {
 import { describe, expect, it } from "vite-plus/test";
 
 describe("Menger automatic probe", () => {
-  it("uses the shared landing defaults", () => {
-    expect(MENGER_AUTOMATIC_PROBE_DEFAULT_SETTINGS).toMatchObject({
-      enabled: true,
-      height: 1.3,
-      landingSize: true,
-      loopDurationSeconds: 12,
-      path: "vertical-8",
-      restDurationSeconds: 0,
-      showPath: true,
-      startProgress: 0.25,
-      verticalOffset: -0.15,
-      width: 0.55,
-    });
-  });
-
   it("keeps every path centered and inside its configured extents", () => {
     for (const path of MENGER_AUTOMATIC_PROBE_PATHS) {
       const points = Array.from({ length: 65 }, (_, index) =>

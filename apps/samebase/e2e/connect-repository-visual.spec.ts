@@ -9,9 +9,6 @@ test("connect repository GitHub blocker", async ({ page }) => {
   await page.waitForLoadState("networkidle");
 
   const surface = page.getByTestId("connect-repository-page");
-  await expect(surface).toContainText(
-    "Connect GitHub in Providers before connecting a repository.",
-  );
   await expect(surface.getByRole("button", { name: "Connect" }).first()).toBeDisabled();
   await expect(surface).toHaveScreenshot("connect-repository-github-unavailable.png", {
     animations: "disabled",

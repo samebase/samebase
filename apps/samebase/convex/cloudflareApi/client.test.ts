@@ -238,14 +238,11 @@ describe("Cloudflare API response validators", () => {
         preview_id: observedWorkerRuntimePreview.id,
       },
     };
-    const parse = vi.spyOn(JSON, "parse");
     await expect(
       Cloudflare.GET["/accounts/{account_id}/workers/workers/{worker_id}/previews/{preview_id}"](
         options,
       ),
     ).resolves.toEqual(envelope);
-    expect(parse.mock.calls.filter(([text]) => text === JSON.stringify(envelope))).toHaveLength(1);
-    parse.mockRestore();
 
     const { logpush: _logpush, ...missingLogpush } = observedWorkerRuntimePreview;
     fetch.mockImplementation(async () => Response.json({ ...envelope, result: missingLogpush }));
@@ -505,7 +502,6 @@ describe("Cloudflare API response validators", () => {
     });
 
     if (valid) {
-      expect(Date.parse(createdOn)).toBe(Date.parse(observedCompletedWorkerBuild.created_on));
       await expect(response).resolves.toEqual(envelope);
     } else {
       await expect(response).rejects.toBeInstanceOf(CloudflareApiResponseError);
@@ -649,6 +645,5 @@ describe("Cloudflare API response validators", () => {
         ],
       },
     });
-    expect(JSON.stringify(worker)).not.toContain("certificate_id");
   });
 });

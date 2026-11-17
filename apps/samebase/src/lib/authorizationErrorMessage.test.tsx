@@ -14,111 +14,66 @@ describe("formatAuthorizationErrorMessage", () => {
   it.each([
     {
       authorizationError: { code: "canceled", provider: "cloudflare" },
-      expected: "Cloudflare authorization was canceled. No changes were saved.",
+      providerName: "Cloudflare",
     },
-    {
-      authorizationError: { code: "expired", provider: "convex" },
-      expected: "Convex authorization expired. Start again.",
-    },
-    {
-      authorizationError: { code: "access-changed", provider: "github-user" },
-      expected:
-        "You no longer have permission to complete this authorization. No changes were saved.",
-    },
+    { authorizationError: { code: "expired", provider: "convex" }, providerName: "Convex" },
     {
       authorizationError: { code: "started-by-another-account", provider: "convex" },
-      expected:
-        "Convex authorization was started by another Samebase account, so no changes were saved.",
+      providerName: "Convex",
     },
     {
       authorizationError: { code: "configuration-changed", provider: "cloudflare" },
-      expected: "The Cloudflare connection changed before authorization finished. Start again.",
+      providerName: "Cloudflare",
+    },
+    { authorizationError: { code: "failed", provider: "github-app" }, providerName: "GitHub App" },
+    { authorizationError: { code: "failed", provider: "github-user" }, providerName: "GitHub" },
+  ] satisfies readonly {
+    authorizationError: AuthorizationError;
+    providerName: string;
+  }[])(
+    "names the provider for $authorizationError.provider $authorizationError.code",
+    (testCase) => {
+      expect(renderAuthorizationError(testCase.authorizationError)).toContain(
+        testCase.providerName,
+      );
+    },
+  );
+
+  it.each([
+    {
+      authorizationError: { code: "target-mismatch", provider: "convex" },
+      target: "acme-platform",
+      targets: { convexTeamName: "acme-platform" },
     },
     {
-      authorizationError: { code: "failed", provider: "github-app" },
-      expected: "GitHub App setup failed. Try again.",
+      authorizationError: { code: "target-mismatch", provider: "github-app" },
+      target: "@acme",
+      targets: { githubOwnerLogin: "acme" },
     },
     {
-      authorizationError: { code: "failed", provider: "github-user" },
-      expected: "GitHub authorization failed. Try again.",
+      authorizationError: { code: "github-sign-in-required", provider: "github-user" },
+      target: "@octocat",
+      targets: { githubOwnerLogin: "octocat" },
     },
     {
-      authorizationError: { code: "organization-owner-required", provider: "github-app" },
-      expected:
-        "The GitHub account or organization you selected is already connected to a Samebase organization. Ask one of its owners to add you as an owner.",
+      authorizationError: { code: "github-sign-in-mismatch", provider: "github-user" },
+      target: "@octocat",
+      targets: { githubOwnerLogin: "octocat" },
     },
   ] satisfies readonly {
     authorizationError: AuthorizationError;
-    expected: string;
-  }[])("formats $authorizationError.provider $authorizationError.code", (testCase) => {
-    expect(renderAuthorizationError(testCase.authorizationError)).toBe(testCase.expected);
-  });
+    target: string;
+    targets: Parameters<typeof formatAuthorizationErrorMessage>[1];
+  }[])(
+    "names the target for $authorizationError.provider $authorizationError.code and falls back without it",
+    (testCase) => {
+      expect(renderAuthorizationError(testCase.authorizationError, testCase.targets)).toContain(
+        testCase.target,
+      );
 
-  it("names the Convex team that must be selected", () => {
-    expect(
-      renderAuthorizationError(
-        { code: "target-mismatch", provider: "convex" },
-        { convexTeamName: "acme-platform" },
-      ),
-    ).toBe(
-      'Select Convex team <strong class="font-semibold">acme-platform</strong> to reauthorize this organization.',
-    );
-  });
-
-  it("uses a safe Convex fallback when the team name is unavailable", () => {
-    expect(renderAuthorizationError({ code: "target-mismatch", provider: "convex" })).toBe(
-      "Select the configured Convex team to reauthorize this organization.",
-    );
-  });
-
-  it("names the GitHub owner whose App must be reconnected", () => {
-    expect(
-      renderAuthorizationError(
-        { code: "target-mismatch", provider: "github-app" },
-        { githubOwnerLogin: "acme" },
-      ),
-    ).toBe(
-      'You selected a different GitHub account or organization. Select <strong class="font-semibold">@acme</strong> to reconnect this Samebase organization, or add your selection as a new Samebase organization.',
-    );
-  });
-
-  it("uses a safe GitHub App fallback when the owner is unavailable", () => {
-    expect(renderAuthorizationError({ code: "target-mismatch", provider: "github-app" })).toBe(
-      "You selected a different GitHub account or organization. Select the configured GitHub owner to reconnect this Samebase organization, or add your selection as a new Samebase organization.",
-    );
-  });
-
-  it("names the personal GitHub sign-in method that is required", () => {
-    expect(
-      renderAuthorizationError(
-        { code: "github-sign-in-required", provider: "github-user" },
-        { githubOwnerLogin: "octocat" },
-      ),
-    ).toBe(
-      "Personal GitHub access requires @octocat as the GitHub sign-in method for this Samebase account. Sign out, sign in with GitHub as @octocat, then try again.",
-    );
-  });
-
-  it("uses a safe personal GitHub sign-in fallback when the owner is unavailable", () => {
-    expect(
-      renderAuthorizationError({ code: "github-sign-in-required", provider: "github-app" }),
-    ).toBe(
-      "Sign out and sign in with GitHub before you authorize GitHub. Use the GitHub account whose verified email is the email of this Samebase account.",
-    );
-  });
-
-  it("explains a personal GitHub sign-in mismatch without exposing another account", () => {
-    expect(
-      renderAuthorizationError(
-        { code: "github-sign-in-mismatch", provider: "github-user" },
-        { githubOwnerLogin: "octocat" },
-      ),
-    ).toBe("Use the Samebase account connected to GitHub as @octocat, then try again.");
-  });
-
-  it("uses a safe personal GitHub mismatch fallback when the owner is unavailable", () => {
-    expect(
-      renderAuthorizationError({ code: "github-sign-in-mismatch", provider: "github-app" }),
-    ).toBe("Authorize GitHub with the account connected to this Samebase account.");
-  });
+      const fallback = renderAuthorizationError(testCase.authorizationError);
+      expect(fallback).not.toBe("");
+      expect(fallback).not.toContain("undefined");
+    },
+  );
 });

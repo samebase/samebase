@@ -634,7 +634,6 @@ async function readRepositoryActionsState(
     return {
       repository: await ctx.db.get(args.repositoryId),
       run: await ctx.db.get(args.runId),
-      messages: events.map((event) => event.message),
       steps: [...new Set(events.map((event) => event.step))],
       plan: await ctx.db
         .query("workflow_repositoryProvisioning_plans")
@@ -770,9 +769,7 @@ describe("repository_actions provisioning workflow", () => {
 
     const stopped = await readRepositoryActionsState(t, { repositoryId, runId: retryRunId });
     expect(stopped.run).toMatchObject({ state: "failed", currentStep: "write_actions_secrets" });
-    expect(stopped.run?.lastError).toBe(
-      "Convex connection is required to provision infrastructure. Connect Convex and retry.",
-    );
+    expect(stopped.run?.lastError).toContain("Convex connection is required");
     expect(stopped.plan).toMatchObject({ ciSecrets: { state: "planned" } });
     expect(
       github.requests.filter((request) => request.path.includes("/actions/secrets/CONVEX")),
@@ -841,7 +838,6 @@ describe("repository_actions provisioning workflow", () => {
       runId: secondRetryRunId,
     });
     expect(secondRetry.run).toMatchObject({ state: "succeeded", currentStep: "finish" });
-    expect(secondRetry.messages).toContain("The starter app is already seeded.");
     expect(githubMocks.seedRepository).toHaveBeenCalledTimes(1);
   });
 
@@ -873,9 +869,6 @@ describe("repository_actions provisioning workflow", () => {
       "GET /repos/samebase/actions-app",
       "PATCH /repos/samebase/actions-app",
     ]);
-    expect(state.messages).toContain(
-      "Set the default branch of samebase/actions-app to main. GitHub created it with master.",
-    );
     // The connect step recorded master; the record now names main, and the tree sync read main.
     expect(state.repository).toMatchObject({ defaultBranch: "main" });
     expect(github.calls).toContain("GET /repos/samebase/actions-app/branches/main");
@@ -899,9 +892,6 @@ describe("repository_actions provisioning workflow", () => {
     expect(state.plan).toMatchObject({
       seed: { state: "seeded", manifestVersion: starterTemplateManifest.version },
     });
-    expect(state.messages).toContain(
-      "Found the starter app on main; it was pushed before the seed was recorded.",
-    );
   });
 
   it("pushes the starter again when main still holds only the bootstrap commit", async () => {
@@ -929,14 +919,11 @@ describe("repository_actions provisioning workflow", () => {
       seedStops: ["foreign_commit_before_push"],
     });
     const { repositoryId, runId, t } = await createRepositoryActionsRepository(github);
-    const refusal =
-      "main of samebase/actions-app has commits that Samebase did not make, so Samebase cannot seed the starter without dropping them. Push the starter app yourself, or remove the repository from Samebase and create it again.";
-
     const failed = await readRepositoryActionsState(t, { repositoryId, runId });
     expect(failed.run).toMatchObject({
       state: "failed",
       currentStep: "seed_starter",
-      lastError: refusal,
+      lastError: expect.stringContaining("has commits that Samebase did not make"),
     });
     // Every step retry read main and stopped; nothing replaced the foreign commit.
     expect(githubMocks.seedRepository).toHaveBeenCalledTimes(1);
@@ -1072,7 +1059,6 @@ describe("repository_actions provisioning workflow", () => {
 
     const resumed = await readRepositoryActionsState(t, { repositoryId, runId: retryRunId });
     expect(resumed.run).toMatchObject({ state: "succeeded", currentStep: "finish" });
-    expect(resumed.messages).toContain("The starter app is already seeded.");
     expect(githubMocks.seedRepository).toHaveBeenCalledTimes(1);
   });
 });

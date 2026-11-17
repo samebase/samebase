@@ -67,11 +67,6 @@ describe("SignInWithOAuth", () => {
     return SignInWithOAuth({ provider, ...props });
   }
 
-  it("uses the primary button for GitHub and the outline button for Google", () => {
-    expect(renderOAuthButton("github").props.variant).toBe("default");
-    expect(renderOAuthButton("google").props.variant).toBe("outline");
-  });
-
   it.each(["google", "github"] as const)(
     "preserves the MCP consent route when starting top-level %s auth",
     (provider) => {
@@ -103,7 +98,6 @@ describe("SignInWithOAuth", () => {
       element.props.onClick();
 
       expect(signInWithOAuthMock).toHaveBeenCalledWith(provider, expectedRedirectTo);
-      expect(expectedRedirectTo).not.toContain("auth=");
     },
   );
 

@@ -47,9 +47,6 @@ const combined = after(sureNumber, positiveNum);
 }
 
 {
-  // eslint-disable-next-line no-unused-vars -- type-test scaffolding
-  type InferredSure = typeof combined;
-
   type InferredGood = InferGood<typeof combined>;
   type InferredBad = InferBad<typeof combined>;
   type InferredInput = InferInput<typeof combined>;

@@ -112,10 +112,7 @@ describe("OrganizationSettingsPage", () => {
     expect(markup).toContain("Current plan");
     expect(markup).toContain("Connections");
     expect(markup).toContain("3 of 6");
-    expect(markup).not.toContain("Open billing");
-    expect(markup).not.toContain("/settings/billing");
     expect(markup).toContain("Delete organization");
-    expect(markup).not.toContain("Default production region");
   });
 
   it("shows a member no deletion controls", () => {

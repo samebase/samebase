@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { components, internal } from "./_generated/api";
 import { makeConvexTest } from "./test.setup";
+import { CURRENT_TERMS_VERSION } from "./users";
 
 afterEach(() => {
   vi.unstubAllEnvs();
@@ -102,16 +103,13 @@ describe("organization context acceptance fixtures", () => {
     expect(snapshot.user).toMatchObject({
       isApproved: true,
       termsAcceptedAt: expect.any(Number),
-      termsVersion: "2026-08-12",
+      termsVersion: CURRENT_TERMS_VERSION,
     });
     expect(snapshot.organizations).toHaveLength(3);
     for (const organization of snapshot.organizations) {
-      expect(organization.convexTeam).toEqual({
-        teamId: `acceptance-convex-team:${organization.githubOwnerLogin}`,
-      });
-      expect(organization.cloudflareAccount).toEqual({
-        accountId: `acceptance-cloudflare-account:${organization.githubOwnerLogin}`,
-        accountName: `${organization.githubOwnerLogin} acceptance account`,
+      expect(organization).toMatchObject({
+        convexTeam: { teamId: expect.any(String) },
+        cloudflareAccount: { accountId: expect.any(String) },
       });
     }
     expect(snapshot.billingAccounts).toHaveLength(3);

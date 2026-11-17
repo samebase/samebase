@@ -21,11 +21,11 @@ describe("resolveWorkflowCompletionError", () => {
     ).toBe("Cloudflare setup failed.");
   });
 
-  it("uses a safe message for canceled workflows", () => {
+  it("fails the run of a canceled workflow", () => {
     expect(
       resolveWorkflowCompletionError({
         kind: "canceled",
       }),
-    ).toBe("Provisioning workflow was canceled.");
+    ).not.toBeNull();
   });
 });

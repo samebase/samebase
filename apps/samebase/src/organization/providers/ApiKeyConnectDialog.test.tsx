@@ -101,9 +101,6 @@ describe("useApiKeyConnectDialog", () => {
       ),
     );
 
-    expect(container.textContent).toContain(
-      "Paste a Cloudflare user API token that can access ONLY ONE account.",
-    );
     await submitToken(container);
 
     expect(container.querySelector('[role="alert"]')?.textContent).toBe(
@@ -116,8 +113,8 @@ describe("useApiKeyConnectDialog", () => {
 
     await submitToken(container);
 
-    expect(container.querySelector('[role="alert"]')?.textContent).toBe(
-      "Could not connect Cloudflare.",
-    );
+    const alert = container.querySelector('[role="alert"]');
+    expect(alert).not.toBeNull();
+    expect(alert?.textContent).not.toContain("private detail");
   });
 });

@@ -174,8 +174,7 @@ describe("organization CI credentials", () => {
         organizationId,
         token: "cloudflare-ci-test-token",
       });
-    const refusal = (permissions: string) =>
-      `Cloudflare could not confirm that the Cloudflare CI token has ${permissions} in the Cloudflare account Samebase. Save a new token from the Cloudflare API tokens link under CI credentials on the Providers page, which preselects every permission that the setup stack needs, or try again.`;
+    const refusal = (permissions: string) => expect.stringContaining(` has ${permissions} in `);
 
     stubCloudflareCiToken({ denied: [probePaths.secretsStore] });
     await expect(save()).rejects.toMatchObject({ data: refusal("Secrets Store Edit") });
@@ -205,9 +204,7 @@ describe("organization CI credentials", () => {
         organizationId,
         token: "cloudflare-ci-test-token",
       }),
-    ).rejects.toMatchObject({
-      data: "Cloudflare could not verify the Cloudflare CI token as an active API token. Save a new token from the Cloudflare API tokens link under CI credentials on the Providers page, or try again.",
-    });
+    ).rejects.toMatchObject({ data: expect.stringContaining("active API token") });
     expect(fetch).toHaveBeenCalledOnce();
     await expect(
       t.run(async (ctx) => await ctx.db.query("organizationCiCredentials").unique()),

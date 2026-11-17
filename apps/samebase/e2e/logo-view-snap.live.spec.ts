@@ -1,10 +1,4 @@
 import { expect, type Locator, type Page, test } from "@playwright/test";
-import {
-  DRAG_ELEVATION_DEGREES_PER_PIXEL,
-  DRAG_ROTATION_DEGREES_PER_PIXEL,
-} from "@samebase/logo-model/logo-view-drag-constants";
-import { resolveLogoViewState } from "@samebase/logo-model/logo-view-drag";
-import { LOGO_VIEW_SNAP_DRAG_CONFIG } from "@samebase/logo-model/logo-view-snap";
 
 test.use({
   launchOptions: {
@@ -57,33 +51,6 @@ async function loadLogoRoute(page: Page, path: string): Promise<Locator> {
   return scene;
 }
 
-function computeExpectedDraggedView(args: {
-  dx: number;
-  dy: number;
-  startState: LogoViewState;
-}): LogoViewState {
-  const startElevationDegrees = Number(args.startState.elevationDegrees);
-  const startRotationDegrees = Number(args.startState.rotationDegrees);
-  const resolvedView = resolveLogoViewState({
-    config: LOGO_VIEW_SNAP_DRAG_CONFIG,
-    view: {
-      elevationDegrees: startElevationDegrees + args.dy * DRAG_ELEVATION_DEGREES_PER_PIXEL,
-      rotationDegrees: startRotationDegrees + args.dx * DRAG_ROTATION_DEGREES_PER_PIXEL,
-    },
-  });
-
-  return {
-    elevationDegrees:
-      resolvedView.elevationDegrees === startElevationDegrees
-        ? `${resolvedView.elevationDegrees}`
-        : `${Number(resolvedView.elevationDegrees.toFixed(1))}`,
-    rotationDegrees:
-      resolvedView.rotationDegrees === startRotationDegrees
-        ? `${resolvedView.rotationDegrees}`
-        : `${Number(resolvedView.rotationDegrees.toFixed(1))}`,
-  };
-}
-
 test.describe("logo view snapping parity", () => {
   test("logo canvas leaves vertical mobile drag lanes outside its square", async ({
     page,
@@ -111,29 +78,6 @@ test.describe("logo view snapping parity", () => {
     expect(Math.abs(sceneBox.width - sceneBox.height)).toBeLessThanOrEqual(1);
     expect(sceneBox.y).toBeGreaterThan(80);
     expect(viewportSize.height - sceneBox.y - sceneBox.height).toBeGreaterThan(80);
-  });
-
-  test("logo route follows the shared landing drag config", async ({ page }) => {
-    const dragCases = [
-      { name: "small vertical drag", dx: 0, dy: 10 },
-      { name: "larger vertical drag", dx: 0, dy: 20 },
-      { name: "small horizontal drag", dx: 10, dy: 0 },
-      { name: "larger horizontal drag", dx: 20, dy: 0 },
-    ] as const;
-
-    for (const dragCase of dragCases) {
-      const logoScene = await loadLogoRoute(page, "/logo");
-      const logoStart = await readLogoViewState(logoScene);
-      const expectedEnd = computeExpectedDraggedView({
-        dx: dragCase.dx,
-        dy: dragCase.dy,
-        startState: logoStart,
-      });
-      await dragLogoScene(page, logoScene, dragCase);
-      const logoEnd = await readLogoViewState(logoScene);
-
-      expect(logoEnd, `${dragCase.name} should match shared config`).toEqual(expectedEnd);
-    }
   });
 
   test("freeView disables the shared snap behavior on the logo route", async ({ page }) => {

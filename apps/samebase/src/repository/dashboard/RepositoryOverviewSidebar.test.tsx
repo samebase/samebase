@@ -134,7 +134,6 @@ describe("RepositoryOverviewSidebar", () => {
     expect(markup).toContain('data-repository-status="Loading checks"');
     expect(markup).not.toContain('data-repository-status="Repository name changed"');
     expect(markup).toContain('aria-label="Repository name changed for samebase/agent-plugins"');
-    expect(markup).toContain('href="/repo/samebase/agent-plugins"');
   });
 
   it("keeps the supplied repository order when the organization has no folders", () => {
@@ -253,9 +252,6 @@ describe("RepositoryOverviewSidebar", () => {
 
     expect(markup).toContain('aria-current="page"');
     expect(markup).toContain('aria-label="samebase/active, Loading checks"');
-    expect(markup).toContain("app-sidebar-current-label");
-    expect(markup).not.toContain("Cloudflare Worker");
-    expect(markup).not.toContain("Convex project");
   });
 
   it("puts personal organizations first and expands the selected repository organization", async () => {

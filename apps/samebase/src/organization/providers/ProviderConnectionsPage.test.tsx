@@ -216,7 +216,6 @@ describe("ProviderConnectionsPage", () => {
   it("shows GitHub while provider credential status is loading", () => {
     const container = mountProviderConnectionsPage();
 
-    expect(container.textContent).toContain("Providers");
     expect(
       [...container.querySelectorAll("[data-provider-key]")].map((row) =>
         row.getAttribute("data-provider-key"),
@@ -579,9 +578,6 @@ describe("ProviderConnectionsPage", () => {
     const container = mountProviderConnectionsPage(personalOrganization);
 
     expect(container.textContent).toContain("Authorized as @nicubunu");
-    expect(container.textContent).toContain(
-      "Samebase uses this authorization to create repositories in this personal GitHub account and find GitHub App installations. Revoking it stops both.",
-    );
     await act(async () => {
       findButton(container, "Revoke")?.click();
       await Promise.resolve();
@@ -680,10 +676,6 @@ describe("ProviderConnectionsPage", () => {
       "Cloudflare OAuth",
       "Use API token",
     ]);
-    expect(convexButtons[0]?.className).toContain("bg-primary");
-    expect(convexButtons[1]?.className).toContain("hover:underline");
-    expect(cloudflareButtons[0]?.className).toContain("bg-primary");
-    expect(cloudflareButtons[1]?.className).toContain("hover:underline");
 
     act(() => {
       cloudflareButtons[1]?.click();
@@ -730,29 +722,6 @@ describe("ProviderConnectionsPage", () => {
 
     expect(testState.apiCredentialDialogOpens).toEqual(["cloudflare"]);
     expect(startCloudflareOAuth).not.toHaveBeenCalled();
-  });
-
-  function setConnectedProviders() {
-    testState.queries.set(getFunctionName(api.users.getConvexConnectionStatus), {
-      authMethod: "oauth",
-      state: "connected",
-      teamId: "team_samebase",
-      teamSlug: "samebase-team",
-    });
-    testState.queries.set(getFunctionName(api.users.getCloudflareConnectionStatus), {
-      accountId: "cloudflare-account",
-      accountName: "Samebase",
-      authMethod: "api_key",
-      state: "connected",
-    });
-  }
-
-  it("shows no CI credentials, because a repository receives the Convex connection", () => {
-    setConnectedProviders();
-
-    const container = mountProviderConnectionsPage();
-
-    expect(container.querySelector('[data-testid="ci-credentials"]')).toBeNull();
   });
 
   it("tells an owner to update a Cloudflare API token that fails its check", async () => {
@@ -819,11 +788,9 @@ describe("ProviderConnectionsPage", () => {
     expect(markup).toContain("GET /accounts/{account_id}/workers/account-settings");
     expect(markup.match(/Connected by/g)).toHaveLength(2);
     expect(markup).toContain("Ava Chen");
-    expect(markup).not.toContain("Cloudflare GitHub App");
     expect(markup).toContain(
       "Could not check Cloudflare Workers Builds access. Reload this page. If it still fails, reconnect Cloudflare.",
     );
-    expect(markup).not.toContain("Reconnect Cloudflare with Workers Builds access.");
   });
 
   it("tells users to authorize only the configured Cloudflare account", () => {

@@ -4,7 +4,6 @@ import { describe, expect, it } from "vite-plus/test";
 
 import {
   filterSimpleViewTreeItems,
-  getSimpleViewPreferenceStorageKey,
   hasSimpleViewConfigFile,
   hasStagedSimpleViewConfigFile,
   isStagedSimpleViewConfigDeleted,
@@ -40,14 +39,6 @@ describe("repository documentation", () => {
     });
 
     expect(invalidSpecPaths).toEqual([]);
-  });
-});
-
-describe("getSimpleViewPreferenceStorageKey", () => {
-  it("returns the per-repository key format", () => {
-    expect(getSimpleViewPreferenceStorageKey("repository_123")).toBe(
-      "samebase-simple-view:repository_123",
-    );
   });
 });
 

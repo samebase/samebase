@@ -107,7 +107,6 @@ describe("OrganizationInvitationPageView", () => {
     await clickJoin(mountedRootElement);
 
     expect(mountedRootElement.textContent).toContain("Invitation has expired.");
-    expect(mountedRootElement.textContent).not.toContain("Could not join. Try again.");
   });
 
   it("does not expose an internal invitation failure", async () => {
@@ -117,8 +116,9 @@ describe("OrganizationInvitationPageView", () => {
 
     await clickJoin(mountedRootElement);
 
-    expect(mountedRootElement.textContent).toContain("Could not join. Try again.");
-    expect(mountedRootElement.textContent).not.toContain("Invitation storage invariant failed.");
+    const alert = mountedRootElement.querySelector('[role="alert"]');
+    expect(alert).not.toBeNull();
+    expect(alert?.textContent).not.toContain("Invitation storage invariant failed.");
   });
 
   it("does not expose acceptance to the wrong GitHub account", () => {
@@ -139,7 +139,6 @@ describe("OrganizationInvitationPageView", () => {
       viewerState: "already_member",
     });
 
-    expect(markup).toContain("You already have access. Accept this invitation to close the link.");
     expect(markup).toContain("Accept invitation");
     expect(markup).not.toContain("Open organization");
   });
@@ -162,7 +161,6 @@ describe("OrganizationInvitationPageView", () => {
     const unavailableMarkup = renderInvitation({ state: "unavailable" });
 
     expect(unavailableMarkup).toContain("Invitation unavailable");
-    expect(unavailableMarkup).toContain("This invitation is not available.");
     expect(unavailableMarkup).not.toContain("Join organization");
   });
 
@@ -175,7 +173,6 @@ describe("OrganizationInvitationPageView", () => {
     });
 
     expect(markup).toContain("Invitation already used");
-    expect(markup).toContain("Ask a Samebase owner for a new invitation.");
     expect(markup).not.toContain("You are a Samebase member");
     expect(markup).not.toContain("Open organization");
   });

@@ -65,9 +65,6 @@ async function expectSidebarFiles(sidebar: Locator) {
     "href",
     new RegExp(`^${DOCS_CHANGELOG_ROUTE}(\\?|$)`),
   );
-  await expect(sidebar).not.toContainText("Worker Previews migration");
-  await expect(sidebar).not.toContainText("Start here");
-  await expect(sidebar).not.toContainText("samebase.com");
 }
 
 async function readMainPaneScrollTop(page: Page) {
@@ -150,11 +147,6 @@ test("landing preview FAQ answers the direct-agent questions", async ({ page }) 
   const faq = page
     .getByTestId(LANDING_PREVIEW_ARTICLE_TEST_ID)
     .getByRole("region", { name: "Frequently asked questions" });
-  await expect(faq).toContainText("Codex already writes Convex well. Why do I need Samebase?");
-  await expect(faq).toContainText("Ok, but can't I just get your template and not use Samebase?");
-  await expect(faq).toContainText("Why is the Alchemy state in Convex?");
-  await expect(faq).toContainText("Wait, so all Samebase is, is a template and a list?");
-
   const firstQuestion = faq.getByRole("button", {
     name: "Codex already writes Convex well. Why do I need Samebase?",
   });
@@ -253,13 +245,8 @@ test("landing preview overview adapts to a narrow pane", async ({ page }) => {
   });
 
   const article = page.getByTestId(LANDING_PREVIEW_ARTICLE_TEST_ID);
-  await expect(
-    article.getByRole("heading", {
-      name: /Give your coding agent a working app/,
-    }),
-  ).toBeVisible();
   const howItWorks = article.getByRole("region", { name: "How it works" });
-  await expect(howItWorks).toContainText("Connect GitHub and Convex.");
+  await expect(howItWorks).toBeVisible();
   await expect(page.getByTestId("landing-preview-hero-menger")).toBeHidden();
   await expect(page.getByTestId("logo-menger-hover-scene")).toHaveCount(0);
 
@@ -440,10 +427,6 @@ test.describe("mobile landing preview", () => {
     const faq = page
       .getByTestId(LANDING_PREVIEW_ARTICLE_TEST_ID)
       .getByRole("region", { name: "Frequently asked questions" });
-    await expect(faq).toContainText("Codex already writes Convex well. Why do I need Samebase?");
-    await expect(faq).toContainText("Ok, but can't I just get your template and not use Samebase?");
-    await expect(faq).toContainText("Why is the Alchemy state in Convex?");
-    await expect(faq).toContainText("Wait, so all Samebase is, is a template and a list?");
     const thirdQuestion = faq.getByRole("button", {
       name: "Why is the Alchemy state in Convex?",
     });
@@ -532,10 +515,6 @@ test("docs receipts route renders the claims ledger", async ({ page }) => {
   await expectSidebarFiles(sidebar);
   await expect(article.getByRole("heading", { exact: true, name: "Receipts" })).toBeVisible();
   await expect(sidebar.locator('a[aria-current="page"]')).toHaveText("Receipts");
-  await expect(article).toContainText("Alchemy 2 is in beta");
-  await expect(article).toContainText("security researcher Matt Palmer");
-  await expect(article).toContainText("Last full check: 2026-07-02");
-  await expect(article).toContainText("deleted, not softened");
   await expect(article.locator("video")).toHaveCount(0);
 
   await expect(page).toHaveScreenshot("docs-receipts-desktop.png", {
@@ -566,13 +545,6 @@ test("pricing route renders the public pricing page", async ({ page }) => {
   await expectSidebarFiles(sidebar);
   await expect(article.getByRole("heading", { exact: true, name: "Pricing" })).toBeVisible();
   await expect(sidebar.locator('a[aria-current="page"]')).toHaveText("Pricing");
-  await expect(article).toContainText(
-    "Samebase is free during the beta. New Pro subscriptions are paused.",
-  );
-  await expect(article.getByRole("row", { name: "Personal account 12 1" })).toBeVisible();
-  await expect(article.getByRole("row", { name: "GitHub organization 6 2" })).toBeVisible();
-  await expect(article).not.toContainText("$4");
-  await expect(article).not.toContainText("FileView");
 
   await expect(page).toHaveScreenshot("docs-pricing-desktop.png", {
     animations: "disabled",

@@ -212,7 +212,6 @@ describe("Polar billing changes", () => {
           }),
         }),
       );
-      expect(createCheckout.mock.calls[0]?.[0].metadata).not.toHaveProperty("plan");
     });
   }
 

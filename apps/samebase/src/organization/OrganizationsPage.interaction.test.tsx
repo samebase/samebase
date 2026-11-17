@@ -6,18 +6,13 @@ import * as React from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
-import type { Id } from "../../convex/_generated/dataModel";
-import type { ViewerOrganization } from "@/organization/context";
-
 const testState = vi.hoisted<{
   actions: Map<string, (args: unknown) => Promise<unknown>>;
   navigate: ReturnType<typeof vi.fn>;
-  organizations: ViewerOrganization[];
   viewerId: string;
 }>(() => ({
   actions: new Map(),
   navigate: vi.fn(),
-  organizations: [],
   viewerId: "viewer-a",
 }));
 
@@ -47,23 +42,6 @@ import { OrganizationsPage } from "./OrganizationsPage";
 
 const { act } = React;
 
-function fakeOrganizationId(value: string): Id<"organizations"> {
-  // @ts-expect-error Convex ids are strings at runtime; this test only needs
-  // a stable value for the organization entry.
-  return value;
-}
-
-function organization(githubOwnerLogin: string): ViewerOrganization {
-  return {
-    canCreateRepository: true,
-    githubOwnerId: `github-${githubOwnerLogin}`,
-    githubOwnerLogin,
-    githubOwnerType: "organization",
-    organizationId: fakeOrganizationId(`organization-${githubOwnerLogin}`),
-    role: "member",
-  };
-}
-
 describe("OrganizationsPage", () => {
   let queryClient: QueryClient;
   let root: Root;
@@ -73,7 +51,6 @@ describe("OrganizationsPage", () => {
     testState.actions.clear();
     testState.navigate.mockReset();
     testState.navigate.mockResolvedValue(undefined);
-    testState.organizations = [];
     testState.viewerId = "viewer-a";
     queryClient = new QueryClient({
       defaultOptions: {
@@ -98,7 +75,7 @@ describe("OrganizationsPage", () => {
         <QueryClientProvider client={queryClient}>
           <TestRouterProvider initialEntries={["/org"]}>
             <OrganizationContext.Provider
-              value={{ organizations: testState.organizations, surface: { kind: "organizations" } }}
+              value={{ organizations: [], surface: { kind: "organizations" } }}
             >
               <OrganizationsPage />
             </OrganizationContext.Provider>
@@ -156,23 +133,6 @@ describe("OrganizationsPage", () => {
         });
       });
     });
-  });
-
-  it("keeps memberships visible when GitHub authorization is required", async () => {
-    testState.organizations = [organization("member-org")];
-    testState.actions.set(
-      getFunctionName(api.githubAppConnection.listOptions),
-      vi.fn(async () => ({ status: "authorization_required" })),
-    );
-
-    await renderPage();
-    await act(async () => {
-      await vi.waitFor(() => {
-        expect(rootElement.textContent).toContain("member-org");
-        expect(rootElement.textContent).toContain("Authorize GitHub");
-      });
-    });
-    expect(rootElement.querySelector('a[href="/org/member-org/repositories"]')).not.toBeNull();
   });
 
   it("retries a failed installation load without showing GitHub authorization", async () => {

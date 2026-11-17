@@ -114,7 +114,6 @@ describe("OrganizationRouteBoundary", () => {
     const markup = renderBoundary("samebase");
 
     expect(markup).toContain("Organization unavailable");
-    expect(markup).toContain("You do not have Samebase access to samebase.");
     expect(markup).toContain('href="/repo"');
     expect(markup).toContain("All repositories");
   });

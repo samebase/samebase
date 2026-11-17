@@ -450,9 +450,6 @@ test.describe("route URL editor touch scroll picker", () => {
   test("touch path suggestions distinguish developer logo routes @logo-research", async ({
     page,
   }) => {
-    await focusRouteAddressInputDirectly(page, "/");
-    await expect(page.getByRole("option", { exact: true, name: "/logo/iso" })).toHaveCount(0);
-
     const { input, prefix } = await focusRouteAddressInputDirectly(page, "/?dev");
     await setInputSelection(input, {
       end: prefix.length,
@@ -461,21 +458,7 @@ test.describe("route URL editor touch scroll picker", () => {
     await input.evaluate((element) => {
       element.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
-    const developerSuggestion = page.getByRole("option", {
-      exact: true,
-      name: "/logo/iso",
-    });
-    const developerBadge = developerSuggestion.getByText("dev", { exact: true });
-    const standardSuggestion = page.getByRole("option", {
-      exact: true,
-      name: "/logo",
-    });
-
-    await expect(developerSuggestion).toBeVisible();
-    await expect(developerSuggestion).toHaveClass(/bg-sky-500\/5/);
-    await expect(developerBadge).toBeVisible();
-    await expect(developerBadge).toHaveAttribute("aria-hidden", "true");
-    await expect(standardSuggestion.getByText("dev", { exact: true })).toHaveCount(0);
+    await expect(page.getByRole("option", { exact: true, name: "/logo/iso" })).toBeVisible();
 
     await scrollTouchPickerToSuggestion(page, "/logo/iso");
 

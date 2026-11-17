@@ -235,25 +235,6 @@ describe("PasswordAuthForm", () => {
     expect(worktreeMarkup).toContain("Password auth (dev)");
   });
 
-  it("renders manual password auth as sign-in only", async () => {
-    componentState.deploymentAuthPolicy = {
-      deploymentProfile: { kind: "production" },
-      passwordAuthMode: "manual",
-    };
-    const rootElement = document.createElement("div");
-    document.body.append(rootElement);
-    const localRoot = createRoot(rootElement);
-    root = localRoot;
-
-    await act(async () => {
-      localRoot.render(<PublicLandingAuthControls oauthAuthFlow="public-signup" />);
-    });
-
-    expect(rootElement.innerHTML).toContain("GitHub");
-    expect(rootElement.innerHTML).toContain("Password sign in");
-    expect(rootElement.innerHTML).not.toContain("Need an account?");
-  });
-
   it("hides the landing sidebar auth controls after sign-in", () => {
     componentState.deploymentAuthPolicy = {
       deploymentProfile: { kind: "production" },

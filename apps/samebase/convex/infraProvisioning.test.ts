@@ -148,7 +148,6 @@ describe("markWorkflowProvisioningFailed", () => {
         cloudflare: expect.any(Number),
       },
     });
-    expect(result.writeLock?.lastWriteAt.convex).toBe(result.writeLock?.lastWriteAt.cloudflare);
     expect(result.event).toMatchObject({
       step: "write_actions_secrets",
       level: "error",

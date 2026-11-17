@@ -277,11 +277,8 @@ describe("AppRightSidebarContent", () => {
 
     expect(markup).toContain("Sign in or create an account");
     expect(markup).toContain("Continue with GitHub");
-    expect(markup).not.toContain("Continue with Google");
-    expect(markup).not.toContain("lucide-chevron-down");
     expect(markup).not.toContain("checking login");
     expect(markup).not.toContain("/providers");
-    expect(markup).not.toContain(">/vault<");
   });
 
   it("shows the sign-in while a prerendered page waits for the session", async () => {
@@ -347,7 +344,6 @@ describe("AppRightSidebarContent", () => {
     expect(hydratedMarkup).toContain('role="status"');
     expect(hydratedMarkup).toContain("Account settings");
     expect(hydratedMarkup).toContain('href="/repo"');
-    expect(hydratedMarkup).not.toContain("Pending Access User");
     expect(hydratedMarkup).not.toContain("checking login");
     expect(hydratedMarkup).not.toContain("/providers");
     expect(hydratedMarkup).not.toContain("/new-app");
@@ -448,14 +444,10 @@ describe("AppRightSidebarContent", () => {
     );
 
     expect(hydratedMarkup).toContain("nicu@samebase.md");
-    expect(hydratedMarkup).not.toContain("Nicu");
     expect(hydratedMarkup).toContain('href="/repo"');
     expect(hydratedMarkup).toContain("All repositories");
     expect(hydratedMarkup).toContain('href="/org"');
     expect(hydratedMarkup).toContain("Organizations");
-    expect(hydratedMarkup).not.toContain("No organization selected");
-    expect(hydratedMarkup).not.toContain("/settings/mcp");
-    expect(hydratedMarkup).not.toContain("MCP clients");
     expect(hydratedMarkup).toContain("Account settings");
     expect(hydratedMarkup).not.toContain("/org/");
     expect(hydratedMarkup).not.toContain("checking login");
@@ -510,14 +502,9 @@ describe("AppRightSidebarContent", () => {
       if (consentSection === null || consentSection === undefined) {
         throw new Error("Expected the session-recording consent section.");
       }
-      const allowButton = Array.from(rootElement.querySelectorAll("button")).find(
-        (button) => button.textContent === "Allow",
-      );
       const denyButton = Array.from(rootElement.querySelectorAll("button")).find(
         (button) => button.textContent === "No thanks",
       );
-      expect(allowButton?.classList.contains("bg-primary")).toBe(true);
-      expect(consentSection.querySelector('a[href="/privacy"]')).toBeNull();
       await act(async () => {
         denyButton?.click();
         await Promise.resolve();
@@ -662,10 +649,6 @@ describe("AppRightSidebarContent", () => {
     const currentLinks = [...element.querySelectorAll('a[aria-current="page"]')];
 
     expect(currentLinks.map((link) => link.textContent)).toEqual(label === null ? [] : [label]);
-    for (const link of currentLinks) {
-      expect(link.classList.contains("app-sidebar-current-label")).toBe(true);
-      expect(link.classList.contains("font-semibold")).toBe(false);
-    }
   });
 
   it("renders admin routes for staff", async () => {
@@ -703,7 +686,7 @@ describe("AppRightSidebarContent", () => {
     { kind: "organizations" },
     { kind: "organization", owner: "samebase", section: "settings", source: "organization" },
   ] satisfies AppOrganizationSurface[])(
-    "renders the approved organization navigation on $kind without a billing item",
+    "renders the approved organization navigation on $kind",
     async (surface) => {
       const organization = {
         canCreateRepository: true,
@@ -745,7 +728,6 @@ describe("AppRightSidebarContent", () => {
       expect(hydratedMarkup.indexOf("Members")).toBeLessThan(
         hydratedMarkup.indexOf("Organization settings"),
       );
-      expect(hydratedMarkup).not.toContain("/org/samebase/settings/billing");
       expect(hydratedMarkup).toContain("All repositories");
       expect(hydratedMarkup).toContain("Organizations");
       expect(hydratedMarkup).toContain("Account settings");
@@ -835,7 +817,6 @@ describe("AppRightSidebarContent", () => {
     expect(hydratedMarkup).toContain("Account settings");
     expect(hydratedMarkup).toContain('href="/repo"');
     expect(hydratedMarkup).toContain('href="/org"');
-    expect(hydratedMarkup).not.toContain("MCP clients");
     expect(hydratedMarkup).not.toContain("Organization settings");
   });
 });

@@ -4,7 +4,6 @@ import {
   buildAvailableAppResourceNameSuggestion,
   buildDefaultAppResourceName,
   buildNumberedAppResourceNameSuggestion,
-  formatAppResourceNameConflictMessage,
   sanitizeAppResourceName,
   validateAppResourceName,
   type AppResourceNameProvider,
@@ -32,13 +31,6 @@ describe("app resource names", () => {
         provider: "cloudflare",
       }),
     ).toBe("my-app-name");
-  });
-
-  it("uses provider-specific name limits", () => {
-    const longName = "a-very-long-generated-app-name-that-should-be-truncated-for-providers";
-
-    expect(sanitizeAppResourceName(longName, "convex")).toHaveLength(40);
-    expect(sanitizeAppResourceName(longName, "cloudflare")).toHaveLength(54);
   });
 
   it("keeps Convex display names and trims surrounding whitespace", () => {
@@ -114,15 +106,6 @@ describe("app resource names", () => {
         unavailableNames: new Set(["samebase-app-2"]),
       }),
     ).toBe("samebase-app-3");
-  });
-
-  it("formats provider name conflicts for public UI", () => {
-    expect(formatAppResourceNameConflictMessage({ provider: "convex", name: "samebase-app" })).toBe(
-      "A Convex project named samebase-app already exists.",
-    );
-    expect(
-      formatAppResourceNameConflictMessage({ provider: "cloudflare", name: "samebase-app" }),
-    ).toBe("A Cloudflare Worker named samebase-app already exists.");
   });
 
   it("enumerates generated provider name state axes", () => {

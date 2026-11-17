@@ -54,7 +54,6 @@ export type RepositoryOverviewVisualMode =
   | "repository-overview-v2-auto-pagination"
   | "repository-overview-v2-dev"
   | "repository-overview-v2-loading"
-  | "repository-overview-v2-no-convex"
   | "repository-overview-v2-partial-loading"
   | "repository-overview-v2-provisioning-source"
   | "repository-overview-v2-provisioning-github"
@@ -66,7 +65,6 @@ export type RepositoryOverviewVisualMode =
   | "repository-overview-v2-root"
   | "repository-overview-v2-r2"
   | "repository-overview-v2-disconnect-blocked"
-  | "repository-overview-v2-store-missing"
   | "repository-overview-v2-store-unreadable";
 
 const FIXTURE_NOW = Date.parse("2026-04-03T00:00:12Z");
@@ -960,12 +958,6 @@ export function RepositoryOverviewVisualFixture({ mode }: { mode: RepositoryOver
         error: new Error("Alchemy state is temporarily unavailable."),
         reload: () => {},
       };
-      break;
-    case "repository-overview-v2-store-missing":
-      alchemyState = loadedStore({ store: "missing" });
-      break;
-    case "repository-overview-v2-no-convex":
-      alchemyState = loadedStore({ store: "no_connection" });
       break;
   }
   const sourcePullRequests =

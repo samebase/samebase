@@ -15,8 +15,6 @@ import { assertEqual } from "./typeTestUtils.ts";
 const someArray = array(number);
 
 // Type Checks
-// eslint-disable-next-line no-unused-vars -- type-test scaffolding
-type InferredSure = typeof someArray;
 type InferredGood = InferGood<typeof someArray>;
 type InferredBad = InferBad<typeof someArray>;
 type InferredInput = InferInput<typeof someArray>;

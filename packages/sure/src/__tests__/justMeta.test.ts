@@ -1,10 +1,8 @@
 /* eslint-disable no-unused-vars -- type-test scaffolding */
 import { describe, expect, it } from "vite-plus/test";
-import { MetaNever, MetaObj } from "../core.ts";
-import { InferJustMeta, ExtractPrimitives, justMeta, metaToJsonSchema } from "../meta_wip.ts";
+import { justMeta, metaToJsonSchema } from "../meta_wip.ts";
 import { object, optional } from "../object.ts";
 import { string, number } from "../primitives.ts";
-import { PrettifyRec } from "../utils.ts";
 import { assertEqual } from "./typeTestUtils.ts";
 import { array } from "../array.ts";
 
@@ -17,51 +15,6 @@ const simpleObj = object({
     country: array(string),
   }),
 });
-
-type SimplifyMeta<TMeta extends MetaNever | MetaObj> = TMeta extends MetaObj<infer S> ? S : {};
-
-type InferredJustMeta = InferJustMeta<typeof simpleObj>;
-type Prett = PrettifyRec<InferredJustMeta>;
-
-const temp = optional(number);
-type tempType = InferJustMeta<typeof temp>;
-
-assertEqual<
-  Prett,
-  {
-    type: "object";
-    schema: {
-      name: {
-        type: "optional";
-        schema: {
-          type: "string";
-        };
-      };
-      age: {
-        type: "number";
-      };
-      info: {
-        type: "object";
-        schema: {
-          country: {
-            type: "array";
-            schema: {
-              type: "string";
-            };
-          };
-        };
-      };
-    };
-  }
->(true);
-
-type InferredString = InferJustMeta<typeof string>;
-
-type test3 = ExtractPrimitives<{
-  name: typeof string;
-}>;
-
-//
 
 describe("justMeta", () => {
   it("works", () => {

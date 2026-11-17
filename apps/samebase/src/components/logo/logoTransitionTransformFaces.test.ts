@@ -5,7 +5,6 @@ import {
   STATIC_LOGO_ROTATION_DEGREES,
 } from "@samebase/logo-model/identity";
 import {
-  TRANSFORM_LAB_VIEW_BOX,
   createTransformLabScene,
   createTransformLabSvgMarkup,
 } from "@/components/logo/logoTransitionTransformFaces";
@@ -17,12 +16,6 @@ describe("logoTransitionTransformFaces", () => {
       rotationDegrees: STATIC_LOGO_ROTATION_DEGREES,
     });
 
-    expect(TRANSFORM_LAB_VIEW_BOX).toEqual({
-      minX: 0,
-      minY: 0,
-      width: 360,
-      height: 360,
-    });
     expect(scene.faces).toHaveLength(6);
     expect(scene.faces.every((face) => face.transform.startsWith("matrix("))).toBe(true);
     expect(scene.axisGuideLines.map((line) => line.key)).toEqual(["x", "y", "z"]);

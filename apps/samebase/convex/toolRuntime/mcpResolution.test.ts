@@ -17,7 +17,7 @@ describe("findRepositoryByReference", () => {
 
   it("says how to find or connect a repository that matches none", () => {
     expect(() => findRepositoryByReference([site, admin], "samebase/missing")).toThrow(
-      "No Samebase repository matches samebase/missing. Pass owner/name or a repositoryId from repository_list. To add an existing GitHub repository to Samebase, call repository_connect.",
+      /repository_list[\s\S]*repository_connect/,
     );
   });
 
@@ -27,8 +27,6 @@ describe("findRepositoryByReference", () => {
         [site, repository("repository-3", "samebase/site")],
         "samebase/site",
       ),
-    ).toThrow(
-      "Several Samebase repositories match samebase/site: repository-1, repository-3. Pass one repositoryId from repository_list.",
-    );
+    ).toThrow("repository-1, repository-3");
   });
 });

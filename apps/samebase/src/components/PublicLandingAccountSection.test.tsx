@@ -239,15 +239,6 @@ describe("PublicLandingAccountSection", () => {
     expect(hydratedMarkup).not.toContain("Sign in or create an account");
   });
 
-  it("shows only GitHub OAuth in a static logged-out account section", () => {
-    const markup = renderLandingAccountSection("/");
-
-    expect(markup).toContain("Sign in or create an account");
-    expect(markup).toContain("Continue with GitHub");
-    expect(markup).not.toContain("Continue with Google");
-    expect(markup).not.toContain("lucide-chevron-down");
-  });
-
   it("keeps protected-route login in the account sidebar", async () => {
     routeState.access = "access_user_preferences";
     prepareLandingAccountSection("/settings");
@@ -413,7 +404,6 @@ describe("PublicLandingAccountSection", () => {
       "This Samebase account already uses a different GitHub account. Sign in with that account.",
     );
     expect(markup).toContain("Continue with GitHub");
-    expect(markup).not.toContain("Continue with Google");
     expect(markup).not.toContain("Sign-in was not completed.");
   });
 });

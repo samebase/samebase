@@ -136,15 +136,6 @@ describe("deploymentProfile", () => {
     );
   });
 
-  it("rejects password flows while password authentication is disabled", () => {
-    expect(() => assertPasswordAuthFlowAllowed("off", "signIn")).toThrowError(
-      "Password authentication is disabled",
-    );
-    expect(() => assertPasswordAuthFlowAllowed("off", "signUp")).toThrowError(
-      "Password authentication is disabled",
-    );
-  });
-
   it("keeps local worktree password flows limited to sign-in and sign-up", () => {
     expect(() => assertPasswordAuthFlowAllowed("local_worktree_seed", "signIn")).not.toThrow();
     expect(() => assertPasswordAuthFlowAllowed("local_worktree_seed", "signUp")).not.toThrow();

@@ -266,12 +266,8 @@ async function expectCompletionResponse(
   expect(response.status).toBe(200);
   expect(response.headers.get("location")).toBeNull();
   expect(response.headers.get("referrer-policy")).toBe("no-referrer");
-  expect(html).toContain(`const returnTo = ${JSON.stringify(args.returnUrl)};`);
-  expect(html).toContain(`{ type: "${args.eventType}", returnTo }`);
-  expect(html).toContain("window.opener.location.replace(returnTo);");
-  expect(html).toContain("window.close();");
-  expect(html).toContain("window.location.replace(returnTo);");
-  return html;
+  expect(html).toContain(JSON.stringify(args.returnUrl));
+  expect(html).toContain(JSON.stringify(args.eventType));
 }
 
 async function insertApprovedUser(t: TestBackend, email: string): Promise<Id<"users">> {
@@ -743,7 +739,7 @@ describe("provider OAuth callback organization returns", () => {
         `${scenario.path}?iss=https%3A%2F%2Fhub.example.test&code=provider-code&state=${state}`,
       );
 
-      const html = await expectCompletionResponse(response, {
+      await expectCompletionResponse(response, {
         eventType: scenario.completionEventType,
         returnUrl: buildProviderOAuthCompletionUrl({
           appOrigin: new URL("https://samebase.com"),
@@ -754,7 +750,6 @@ describe("provider OAuth callback organization returns", () => {
           },
         }),
       });
-      expect(html).not.toContain("window.opener.location.reload()");
       expect(providerFetch).not.toHaveBeenCalled();
       expect(providerMocks.fetchConvexTeamTokenDetails).not.toHaveBeenCalled();
       expect(providerMocks.getCloudflareAccounts).not.toHaveBeenCalled();

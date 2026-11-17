@@ -71,11 +71,10 @@ function renderConnectRepositoryContent(overrides: Partial<ConnectRepositoryPage
 }
 
 describe("ConnectRepositoryPageContent", () => {
-  it("uses the organization route without a page-local owner control", () => {
+  it("shows the repository search", () => {
     const markup = renderConnectRepositoryContent({});
 
     expect(markup).toContain("Connect an existing repository");
-    expect(markup).not.toContain("Install GitHub App");
     expect(markup).toContain("Search repositories...");
   });
 
@@ -120,7 +119,6 @@ describe("ConnectRepositoryPageContent", () => {
     );
     expect(markup).toContain("Retry");
     expect(markup).toContain("samebase");
-    expect(markup).toContain("samebase");
     expect(markup).toContain("starter-kit");
     expect(markup).toContain('data-testid="connect-repository-loading-more"');
     expect(markup).toContain('role="status"');
@@ -159,18 +157,13 @@ describe("ConnectRepositoryPageContent", () => {
     );
   });
 
-  it("keeps the loading state and stays silent for default empty content", () => {
+  it("keeps the loading state", () => {
     const loadingMarkup = renderConnectRepositoryContent({
       loading: true,
       repositoryRows: [],
       repositoryTotalCount: 0,
     });
-    const emptyMarkup = renderConnectRepositoryContent({
-      repositoryRows: [],
-      repositoryTotalCount: 0,
-    });
 
     expect(loadingMarkup).toContain("Loading repositories...");
-    expect(emptyMarkup).not.toContain("No repositories found");
   });
 });

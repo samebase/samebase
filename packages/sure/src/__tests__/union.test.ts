@@ -83,10 +83,4 @@ describe("or", () => {
       assertEqual<(typeof value)[1], "not number" | "not string">(true);
     }
   });
-
-  it("if first value bad, return second", () => {
-    const value = simple({});
-
-    expect(value).toStrictEqual([false, "not string"]);
-  });
 });

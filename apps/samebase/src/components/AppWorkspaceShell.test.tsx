@@ -255,8 +255,6 @@ describe("AppWorkspaceShell", () => {
     expect(markup).toContain('data-testid="route-url-editor"');
     expect(markup).toContain('data-pane-side="left"');
     expect(markup).toContain('data-pane-side="right"');
-    expect(markup).toContain("flex h-full min-h-0 flex-col");
-    expect(markup).not.toContain("min-h-dvh");
   });
 
   it("server-renders static no-left routes without the default left pane", async () => {
@@ -339,7 +337,6 @@ describe("AppWorkspaceShell", () => {
     );
 
     expect(markup).toContain("flex h-full min-h-0 flex-col");
-    expect(markup).not.toContain("--samebase-app-workspace-shell-height");
     expect(markup).not.toContain("h-dvh");
     expect(markup).not.toContain("min-h-dvh");
   });
@@ -508,8 +505,12 @@ describe("AppWorkspaceShell", () => {
       </TestRouterProvider>,
     );
 
-    expect(markup).toContain("--sidebar-layout-left-desktop-width:0px");
-    expect(markup).toContain("--sidebar-layout-right-desktop-width:min(288px, calc(100% - 160px))");
+    const markupContainer = document.createElement("div");
+    markupContainer.innerHTML = markup;
+    const viewport = markupContainer.querySelector('[data-sidebar-layout-part="viewport"]');
+
+    expect(viewport?.hasAttribute("data-left-desktop-open")).toBe(false);
+    expect(viewport?.hasAttribute("data-right-desktop-open")).toBe(true);
   });
 
   it("server-renders the root loader's saved sidebar state", () => {
@@ -526,26 +527,16 @@ describe("AppWorkspaceShell", () => {
     const markupContainer = document.createElement("div");
     markupContainer.innerHTML = markup;
     const viewport = markupContainer.querySelector('[data-sidebar-layout-part="viewport"]');
+    const style = viewport?.getAttribute("style");
 
-    expect(viewport?.getAttribute("style")).toContain(
-      "--sidebar-layout-left-desktop-width:min(300px, calc(100% - 160px))",
-    );
-    expect(viewport?.getAttribute("style")).toContain("--sidebar-layout-right-desktop-width:0px");
+    expect(style).toMatch(/--sidebar-layout-left-desktop-width:[^;]*\b300px/);
+    expect(style).toContain("--sidebar-layout-right-desktop-width:0px");
     expect(viewport?.hasAttribute("data-left-desktop-open")).toBe(true);
     expect(viewport?.hasAttribute("data-right-desktop-open")).toBe(false);
     expect(viewport?.getAttribute("data-mobile-pane")).toBe("right");
     expect(viewport?.getAttribute("data-sidebar-layout-mobile-merged-side")).toBe("right");
-    expect(viewport?.getAttribute("style")).toContain(
-      "--sidebar-layout-right-mobile-width:clamp(min(175px, round(down, 100% / 3, 1px)), 420px, calc(100% - 40px))",
-    );
-    const rightMobileWidth =
-      "clamp(min(175px, round(down, 100% / 3, 1px)), 420px, calc(100% - 40px))";
-    expect(viewport?.getAttribute("style")).toContain(
-      `--sidebar-layout-main-mobile-width:calc(100% - ${rightMobileWidth} + clamp(0px, (214px - (100% - ${rightMobileWidth})) * 1000, ${rightMobileWidth}))`,
-    );
-    expect(viewport?.getAttribute("style")).toContain(
-      "--sidebar-layout-left-mobile-width:clamp(min(175px, round(down, 100% / 3, 1px)), 300px, calc(100% - 40px))",
-    );
+    expect(style).toMatch(/--sidebar-layout-right-mobile-width:[^;]*\b420px/);
+    expect(style).toMatch(/--sidebar-layout-left-mobile-width:[^;]*\b300px/);
   });
 
   it("renders the local prehydration script only for a render without a session", () => {

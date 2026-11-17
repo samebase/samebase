@@ -175,7 +175,6 @@ const REPOSITORY_DASHBOARD_VISUAL_MODES = [
   "repository-overview-v2-dev",
   "repository-overview-v2-delete-dialog",
   "repository-overview-v2-loading",
-  "repository-overview-v2-no-convex",
   "repository-overview-v2-partial-loading",
   "repository-overview-v2-provisioning-source",
   "repository-overview-v2-provisioning-github",
@@ -186,7 +185,6 @@ const REPOSITORY_DASHBOARD_VISUAL_MODES = [
   "repository-overview-v2-provisioning-ready",
   "repository-overview-v2-root",
   "repository-overview-v2-disconnect-blocked",
-  "repository-overview-v2-store-missing",
   "repository-overview-v2-store-unreadable",
 ] as const satisfies readonly RepositoryOverviewVisualMode[];
 

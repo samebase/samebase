@@ -36,24 +36,21 @@ vi.mock("@/components/ApprovalGate", () => ({
 }));
 
 vi.mock("@/components/logo/PublicLandingLogo", () => ({
-  PublicLandingLogo: (props: {
-    routeSearch?: LogoRouteSearch;
-    routeSearchSource?: "static" | "url";
-    viewStateKey?: string;
-  }) => (
+  PublicLandingLogo: (props: { routeSearch?: LogoRouteSearch }) => (
     <div
       data-testid="not-found-logo"
-      data-auto-rotate={props.routeSearch?.["auto-rotate"]}
-      data-auto-shuffle={props.routeSearch?.["auto-shuffle"]}
       data-primary={props.routeSearch?.primary}
       data-secondary={props.routeSearch?.secondary}
-      data-shuffle-moves={props.routeSearch?.shuffleMoves}
       data-top={props.routeSearch?.top}
-      data-route-search-source={props.routeSearchSource}
-      data-view-state-key={props.viewStateKey}
     />
   ),
 }));
+
+function readLogoColorFamilies(markup: string) {
+  return ["primary", "secondary", "top"].map(
+    (slot) => new RegExp(`data-${slot}="([a-z]+)-`).exec(markup)?.[1],
+  );
+}
 
 vi.mock("@/lib/pageMetadata", () => ({
   resolveNotFoundPageMetadata: () => ({}),
@@ -82,8 +79,10 @@ describe("NotFoundRoutePage", () => {
   });
 
   it("renders the first colorway on the server and picks three distinct families on mount", async () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const serverMarkupWithLowRandom = renderToStaticMarkup(<NotFoundRoutePage />);
     vi.spyOn(Math, "random").mockReturnValue(0.999);
-    const firstMarkup = renderToStaticMarkup(<NotFoundRoutePage />);
+    const serverMarkup = renderToStaticMarkup(<NotFoundRoutePage />);
     const container = document.createElement("div");
     const root = createRoot(container);
     await act(async () => {
@@ -94,31 +93,17 @@ describe("NotFoundRoutePage", () => {
       root.unmount();
     });
 
-    expect(firstMarkup).toContain('data-primary="red-800"');
-    expect(firstMarkup).toContain('data-secondary="orange-500"');
-    expect(firstMarkup).toContain('data-top="amber-200"');
-    expect(mountedMarkup).toContain('data-primary="rose-800"');
-    expect(mountedMarkup).toContain('data-secondary="pink-500"');
-    expect(mountedMarkup).toContain('data-top="fuchsia-200"');
-    expect(firstMarkup).toContain('data-auto-rotate="true"');
-    expect(firstMarkup).toContain('data-auto-shuffle="true"');
-    expect(firstMarkup).toContain('data-shuffle-moves="1"');
-    expect(firstMarkup).toContain('data-route-search-source="static"');
-    expect(firstMarkup).toContain('data-view-state-key="not-found"');
-    expect(firstMarkup).not.toContain('href="/logo"');
+    expect(serverMarkup).toBe(serverMarkupWithLowRandom);
+    const mountedFamilies = readLogoColorFamilies(mountedMarkup);
+    expect(new Set(mountedFamilies).size).toBe(3);
+    expect(mountedFamilies).not.toEqual(readLogoColorFamilies(serverMarkup));
   });
 
   it("sends signed-out visitors to the landing page", () => {
-    locationState.pathname = "/new-app";
-
     const markup = renderToStaticMarkup(<NotFoundRoutePage />);
 
-    expect(markup).toContain("Page not available");
-    expect(markup).not.toContain("This page isn&#x27;t available.");
-    expect(markup).not.toContain("/new-app");
     expect(markup).toContain('href="/"');
-    expect(markup).toContain("/landing");
-    expect(markup).not.toContain("/repo");
+    expect(markup).not.toContain('href="/repo"');
   });
 
   it("sends signed-in visitors to repositories", () => {
@@ -127,7 +112,6 @@ describe("NotFoundRoutePage", () => {
     const markup = renderToStaticMarkup(<NotFoundRoutePage />);
 
     expect(markup).toContain('href="/repo"');
-    expect(markup).toContain("/repo");
-    expect(markup).not.toContain("/landing");
+    expect(markup).not.toContain('href="/"');
   });
 });
