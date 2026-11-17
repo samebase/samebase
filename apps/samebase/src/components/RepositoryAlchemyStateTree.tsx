@@ -112,7 +112,7 @@ const STATE_STORES = {
     name: "GitHub",
     icon: <GitHubProviderLogo />,
     detail:
-      "This stack keeps its Alchemy state on the alchemy-state-store branch of this repository (@samebase/alchemy-kit). Samebase reads it when the page opens.",
+      "This stack keeps its Alchemy state on the alchemy-state-store branch of this repository (GitHubState.state()). Samebase reads it when the page opens.",
   },
 } satisfies Record<AlchemyStack["store"], { name: string; icon: ReactNode; detail: string }>;
 
