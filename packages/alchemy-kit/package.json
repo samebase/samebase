@@ -1,6 +1,6 @@
 {
   "name": "@samebase/alchemy-kit",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "A kit of parts for Alchemy v2: a state store on a branch of a GitHub repository, with sealed secrets, and a run record in each stage output",
   "keywords": [
     "alchemy",
