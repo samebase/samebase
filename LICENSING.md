@@ -6,7 +6,7 @@ A folder's own license replaces the root license for that folder.
 | ------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------- |
 | `apps/samebase`, and every folder that this table does not list                                                          | [FSL-1.1-ALv2](LICENSE)                                                            |
 | `packages/dependent`, `packages/git-editor`, `packages/logo-model`, `packages/onboarding-video-tools`, `packages/plugin` | Apache-2.0, in the folder's `LICENSE`                                              |
-| `packages/identity-broker`, `apps/identity-hub`, `apps/identity-broker-explainer`                                        | Apache-2.0, in the folder's `LICENSE`                                              |
+| `packages/identity-broker`, `apps/identity-hub`, `apps/identity-broker-explainer`, `packages/alchemy-github`             | Apache-2.0, in the folder's `LICENSE`                                              |
 | `packages/sidebars`, `packages/sure`, `apps/sidebars-example`                                                            | MIT, in the folder's `LICENSE.md`                                                  |
 | `apps/remotion-studio`                                                                                                   | All rights reserved, in the folder's [LICENSE.md](apps/remotion-studio/LICENSE.md) |
 
