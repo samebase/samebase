@@ -8,9 +8,13 @@ record.
 
 | File                                                                         | Request                                                                                                                               |
 | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| ref.json                                                                     | `GET /repos/{owner}/{repo}/git/ref/heads/alchemy-state-store`                                                                         |
-| tree.json                                                                    | `GET /repos/{owner}/{repo}/git/trees/{commit sha}?recursive=1` with the commit of ref.json                                            |
+| matchingRefs.json                                                            | `GET /repos/{owner}/{repo}/git/matching-refs/heads/alchemy-state-store`                                                               |
+| tree.json                                                                    | `GET /repos/{owner}/{repo}/git/trees/{commit sha}?recursive=1` with the commit of the state branch in matchingRefs.json               |
 | branch/github-state-spike/demo/\*.json, branch/github-state-spike/ci/\*.json | `GET /repos/{owner}/{repo}/git/blobs/{sha}` with `Accept: application/vnd.github.raw+json`, the text of each file of the stage folder |
+
+GitHub lists each ref whose name starts with `alchemy-state-store`, so matchingRefs.json also holds
+the lock branch `alchemy-state-store-lock`. The state branch in it is the one of the tree. The lock
+branch was recorded later the same day.
 
 Replaced values: the owner and name of the private repository are `my-org` and `my-app` in every
 payload, URLs and file texts included. Each sealed secret value is `v1.fixture.fixture`. The SHAs

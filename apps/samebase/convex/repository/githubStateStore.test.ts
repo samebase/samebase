@@ -8,13 +8,15 @@ import demoLabel from "./fixtures/githubStateStore/branch/github-state-spike/dem
 import demoNote from "./fixtures/githubStateStore/branch/github-state-spike/demo/Note.json";
 import demoSecret from "./fixtures/githubStateStore/branch/github-state-spike/demo/Secret.json";
 import demoOutput from "./fixtures/githubStateStore/branch/github-state-spike/demo/__stack_output__.json";
-import ref from "./fixtures/githubStateStore/ref.json";
+import matchingRefs from "./fixtures/githubStateStore/matchingRefs.json";
 import recordedTree from "./fixtures/githubStateStore/tree.json";
 import { readGitHubStateStore } from "./githubStateStore";
 
 const api = "https://api.github.com/repos/my-org/my-app";
-const refUrl = `${api}/git/ref/heads%2Falchemy-state-store`;
-const treeUrl = `${api}/git/trees/${ref.object.sha}?recursive=1`;
+/** The recorded refs: the state branch, then the lock branch, whose name starts the same. */
+const [stateRef, lockRef] = matchingRefs;
+const refsUrl = `${api}/git/matching-refs/heads%2Falchemy-state-store?per_page=100`;
+const treeUrl = `${api}/git/trees/${stateRef.object.sha}?recursive=1`;
 /** The recorded files of the branch by path. Alchemy writes each with two spaces of indent. */
 const files: Record<string, unknown> = {
   "github-state-spike/ci/Label.json": ciLabel,
@@ -52,8 +54,8 @@ function fakeGitHub(
     const blob = blobs.get(url);
     return (
       args.urls?.[url]?.() ??
-      (url === refUrl
-        ? Response.json(ref)
+      (url === refsUrl
+        ? Response.json(matchingRefs)
         : url === treeUrl
           ? Response.json(tree)
           : blob !== undefined &&
@@ -177,6 +179,26 @@ describe("readGitHubStateStore", () => {
     });
     // The README.md, the lease, a file outside a stage folder, and a file that is not JSON.
     expect(requests).toHaveLength(2 + 5);
+
+    // The same paths alone are no stage file for the deletion check.
+    const notState = fakeGitHub({
+      tree: {
+        ...tree,
+        tree: tree.tree.filter(
+          (entry) =>
+            !entry.path.endsWith(".json") ||
+            entry.path.endsWith("/__lease__.json") ||
+            entry.path.split("/").length < 3,
+        ),
+      },
+    });
+    expect(
+      await readGitHubStateStore({
+        octokit: notState.octokit,
+        repository: "my-org/my-app",
+        treeOnly: true,
+      }),
+    ).toEqual({ state: "found", stageFiles: false, stacks: [] });
   });
 
   it("reads only the tree for the deletion check", async () => {
@@ -185,7 +207,7 @@ describe("readGitHubStateStore", () => {
     expect(
       await readGitHubStateStore({ octokit, repository: "my-org/my-app", treeOnly: true }),
     ).toEqual({ state: "found", stageFiles: true, stacks: [] });
-    expect(requests).toEqual([refUrl, treeUrl]);
+    expect(requests).toEqual([refsUrl, treeUrl]);
   });
 
   it("finds no stage file on a branch that holds only its README.md", async () => {
@@ -198,16 +220,39 @@ describe("readGitHubStateStore", () => {
     ).toEqual({ state: "found", stageFiles: false, stacks: [] });
   });
 
-  // GitHub answers 409 for a repository without a commit.
-  it.each([404, 409])("finds no store when GitHub answers %i for the branch", async (status) => {
-    const { octokit, requests } = fakeGitHub({
-      urls: { [refUrl]: () => Response.json({ message: "No ref" }, { status }) },
-    });
+  it.each([
+    ["no ref", () => Response.json([])],
+    ["only the lock branch", () => Response.json([lockRef])],
+    // GitHub answers 409 for a repository without a commit.
+    ["409", () => Response.json({ message: "Git Repository is empty." }, { status: 409 })],
+  ])("finds no store when GitHub answers the refs with %s", async (_name, reply) => {
+    const { octokit, requests } = fakeGitHub({ urls: { [refsUrl]: reply } });
 
     expect(
       await readGitHubStateStore({ octokit, repository: "my-org/my-app", treeOnly: false }),
     ).toEqual({ state: "no_store" });
-    expect(requests).toEqual([refUrl]);
+    expect(requests).toEqual([refsUrl]);
+  });
+
+  it.each([
+    // A repository that the access cannot read: not proof that it has no branch.
+    ["404", () => Response.json({ message: "Not Found" }, { status: 404 })],
+    [
+      "a branch that is not a commit",
+      () => Response.json([{ ...stateRef, object: { ...stateRef.object, type: "tag" } }]),
+    ],
+    [
+      "a full page without the branch",
+      () => Response.json(Array.from({ length: 100 }, () => lockRef)),
+    ],
+  ])("fails when GitHub answers the refs with %s", async (_name, reply) => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { octokit, requests } = fakeGitHub({ urls: { [refsUrl]: reply } });
+
+    expect(
+      await readGitHubStateStore({ octokit, repository: "my-org/my-app", treeOnly: true }),
+    ).toEqual({ state: "failed" });
+    expect(requests).toEqual([refsUrl]);
   });
 
   it("fails on a truncated tree, since a partial read could hide a stack", async () => {

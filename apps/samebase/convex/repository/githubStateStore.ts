@@ -33,7 +33,12 @@ const LEASE_FILE = "__lease__.json";
 /** GitHub gives one blob per request. This bounds the requests that run at once. */
 const BLOB_REQUEST_LIMIT = 16;
 
-const vRef = object({ object: object({ sha: string() }) });
+/** GitHub gives this many refs in one reply at most. */
+const MATCHING_REFS_PAGE_SIZE = 100;
+
+const vMatchingRefs = array(
+  object({ ref: string(), object: object({ sha: string(), type: string() }) }),
+);
 const vTree = object({
   truncated: boolean(),
   tree: array(object({ path: string(), type: string(), sha: string() })),
@@ -58,35 +63,55 @@ async function githubData(name: string, request: () => Promise<{ data: unknown }
   }
 }
 
+/** Name order by UTF-16 code unit, which gives two different names an order. */
+const byName = (left: string, right: string) => (left < right ? -1 : left > right ? 1 : 0);
+
 /**
 The stage folders of the branch, in stack name order and then in stage name order, null when the
 repository has no branch `alchemy-state-store`. A file is `{stack}/{stage}/{file}.json`: a stage name
 and a file name have no `/`, and a stack name can have one, such as `owner/name/folder`. Other paths,
 such as the `README.md` at the root, are not state. A truncated tree fails the read: a partial
 read could hide a stack.
+
+The branch is found in the list of the refs that start with its name. GitHub answers that list with
+200 and no ref when no branch matches, so a 404 is a repository that this access cannot read. It
+fails the read: it is not proof that the repository has no branch.
 */
 async function readStageFolders(octokit: Octokit, owner: string, repo: string) {
-  let ref: unknown;
+  let refs: unknown;
   try {
-    ref = (
-      await octokit.request("GET /repos/{owner}/{repo}/git/ref/{ref}", {
+    refs = (
+      await octokit.request("GET /repos/{owner}/{repo}/git/matching-refs/{ref}", {
         owner,
         repo,
         ref: `heads/${STATE_BRANCH}`,
+        per_page: MATCHING_REFS_PAGE_SIZE,
       })
     ).data;
   } catch (error) {
     // GitHub answers 409 for a repository without a commit, which has no branch.
-    // https://docs.github.com/en/rest/git/refs#get-a-reference
-    if (error instanceof RequestError && (error.status === 404 || error.status === 409)) {
+    // https://docs.github.com/en/rest/git/refs#list-matching-references
+    if (error instanceof RequestError && error.status === 409) {
       return null;
     }
     throw new StoreReadFailure(
-      `git ref: ${error instanceof RequestError ? error.status : "no reply"}`,
+      `git matching-refs: ${error instanceof RequestError ? error.status : "no reply"}`,
     );
   }
-  if (!validate(vRef, ref, { allowUnknownFields: true })) {
-    throw new StoreReadFailure("git ref: unexpected reply");
+  if (!validate(vMatchingRefs, refs, { allowUnknownFields: true })) {
+    throw new StoreReadFailure("git matching-refs: unexpected reply");
+  }
+  // The list also holds each other ref that starts with the name, such as the lock branch.
+  const ref = refs.find((candidate) => candidate.ref === `refs/heads/${STATE_BRANCH}`);
+  if (ref === undefined) {
+    // A full page without the branch could have the branch on the next page.
+    if (refs.length >= MATCHING_REFS_PAGE_SIZE) {
+      throw new StoreReadFailure("git matching-refs: too many refs");
+    }
+    return null;
+  }
+  if (ref.object.type !== "commit") {
+    throw new StoreReadFailure("git matching-refs: not a commit");
   }
   const commitSha = ref.object.sha;
   const tree = await githubData(
@@ -135,7 +160,7 @@ async function readStageFolders(octokit: Octokit, owner: string, repo: string) {
     folders.set(folderPath, folder);
   }
   return [...folders.values()].sort(
-    (left, right) => left.stack.localeCompare(right.stack) || left.stage.localeCompare(right.stage),
+    (left, right) => byName(left.stack, right.stack) || byName(left.stage, right.stage),
   );
 }
 
@@ -144,8 +169,9 @@ Reads the stacks of `repository` (GitHub `owner/name`) from the branch `alchemy-
 repository, as `readDeployedStacks` keeps them: only the run record in the output of a stage counts.
 Stacks and stages are in name order, resources in fqn order, and the fqn of a resource is the one
 in its file. The resources of a stage are read only when its run record names the repository. Each
-file has its secret values removed as soon as it arrives, so no secret value and no sealed value
-leaves this function. Samebase has no key to open a sealed value. A request that fails stops the
+file has the values that Alchemy marks as secret removed as soon as it arrives, so no marked secret
+and no value that the store sealed leaves this function. Every other value of a file leaves it, as
+with the other stores. Samebase has no key to open a sealed value. A request that fails stops the
 whole read: a partial read could hide a stack. `treeOnly` is for the check before a GitHub
 repository deletion: a file in a stage folder answers it from the tree alone.
 */
@@ -212,7 +238,7 @@ export async function readGitHubStateStore(args: {
             return { fqn: value.fqn, value: JSON.stringify(value) };
           }),
         );
-        resources.sort((left, right) => left.fqn.localeCompare(right.fqn));
+        resources.sort((left, right) => byName(left.fqn, right.fqn));
         return { stack: folder.stack, stage: { ...deployed, resources } };
       }),
     );

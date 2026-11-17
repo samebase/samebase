@@ -18,7 +18,8 @@ type RepositoryProviderObservationTarget = Pick<
 
 /**
 The read of the repository's stores. A repository without a Convex team reads only the store of its
-organization's Cloudflare account, and the read stays loading while Samebase creates the repository.
+organization's Cloudflare account and its own branch `alchemy-state-store`, and the read stays
+loading while Samebase creates the repository.
 */
 export function useRepositoryProviderObservations(
   repository: RepositoryProviderObservationTarget | null,

@@ -549,7 +549,7 @@ export const trackedFilePaths = [
   "apps/samebase/convex/repository/fixtures/githubStateStore/branch/github-state-spike/demo/Note.json",
   "apps/samebase/convex/repository/fixtures/githubStateStore/branch/github-state-spike/demo/Secret.json",
   "apps/samebase/convex/repository/fixtures/githubStateStore/branch/github-state-spike/demo/__stack_output__.json",
-  "apps/samebase/convex/repository/fixtures/githubStateStore/ref.json",
+  "apps/samebase/convex/repository/fixtures/githubStateStore/matchingRefs.json",
   "apps/samebase/convex/repository/fixtures/githubStateStore/tree.json",
   "apps/samebase/convex/repository/fixtures/observedAlchemyState.ts",
   "apps/samebase/convex/repository/fixtures/observedConvexComponents.ts",

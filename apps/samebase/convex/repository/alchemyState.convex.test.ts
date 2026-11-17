@@ -30,7 +30,7 @@ import {
   observedBaseAlchemyRepositoryReply,
 } from "./fixtures/observedAlchemyState";
 import { observedCustomDomainsReply } from "./fixtures/observedConvexCustomDomains";
-import githubStateRef from "./fixtures/githubStateStore/ref.json";
+import githubStateRefs from "./fixtures/githubStateStore/matchingRefs.json";
 import githubStateTree from "./fixtures/githubStateStore/tree.json";
 
 const storeProject = {
@@ -243,8 +243,8 @@ function installAlchemyStateFetchStub(args: {
     ...["samebase/base-alchemy", "acme/app"].map(
       (repository) =>
         [
-          `https://api.github.com/repos/${repository}/git/ref/heads%2Falchemy-state-store`,
-          () => new Response(null, { status: 404 }),
+          `https://api.github.com/repos/${repository}/git/matching-refs/heads%2Falchemy-state-store?per_page=100`,
+          () => Response.json([]),
         ] as const,
     ),
     ...Object.entries(args.githubReplies ?? {}),
@@ -593,8 +593,9 @@ describe("the stack check before a GitHub repository deletion", () => {
   const github = "https://api.github.com/repos/samebase/base-alchemy/git";
   /** The recorded branch `alchemy-state-store`, with `tree` as the reply of its tree. */
   const branch = (tree: () => Response) => ({
-    [`${github}/ref/heads%2Falchemy-state-store`]: () => Response.json(githubStateRef),
-    [`${github}/trees/${githubStateRef.object.sha}?recursive=1`]: tree,
+    [`${github}/matching-refs/heads%2Falchemy-state-store?per_page=100`]: () =>
+      Response.json(githubStateRefs),
+    [`${github}/trees/${githubStateRefs[0].object.sha}?recursive=1`]: tree,
   });
 
   // No run record of the recorded branch names samebase/base-alchemy: the stage `ci` has none.

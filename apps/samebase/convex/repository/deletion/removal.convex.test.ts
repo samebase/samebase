@@ -24,6 +24,9 @@ import {
 } from "../../test.setup";
 
 const TEAM_PROJECTS_URL = "https://api.convex.dev/v1/teams/38516/projects";
+/** The refs of the repository whose name starts with the name of the state branch. */
+const STATE_REFS_URL =
+  "https://api.github.com/repos/octo-org/app/git/matching-refs/heads%2Falchemy-state-store?per_page=100";
 
 afterEach(() => {
   vi.useRealTimers();
@@ -123,8 +126,8 @@ async function seedRepository() {
 
 /**
 Records every outgoing request, so a provider call cannot pass unseen. The Convex team lists no
-projects and the Cloudflare account has no workers.dev subdomain, so neither has an Alchemy state
-store.
+projects, the Cloudflare account has no workers.dev subdomain, and the repository has no ref that
+starts with `alchemy-state-store`, so none has an Alchemy state store.
 */
 function recordRequests() {
   const requests: string[] = [];
@@ -135,7 +138,9 @@ function recordRequests() {
       requests.push(url);
       return url.startsWith(TEAM_PROJECTS_URL)
         ? Response.json({ items: [], pagination: { hasMore: false } })
-        : new Response(null, { status: 404 });
+        : url === STATE_REFS_URL
+          ? Response.json([])
+          : new Response(null, { status: 404 });
     }),
   );
   return requests;
@@ -187,7 +192,7 @@ describe("repository removal", () => {
     // then the team.
     expect(requests).toEqual([
       "https://api.cloudflare.com/client/v4/accounts/cloudflare-account/workers/subdomain",
-      "https://api.github.com/repos/octo-org/app/git/ref/heads%2Falchemy-state-store",
+      STATE_REFS_URL,
       expect.stringContaining(TEAM_PROJECTS_URL),
     ]);
     expect(githubRepos.delete).toHaveBeenCalledExactlyOnceWith({ owner: "octo-org", repo: "app" });
