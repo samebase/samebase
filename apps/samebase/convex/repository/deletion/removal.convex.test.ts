@@ -4,8 +4,11 @@ const githubRepos = vi.hoisted(() => ({ delete: vi.fn(), get: vi.fn() }));
 
 vi.mock("../../githubAppAccess", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../../githubAppAccess")>();
+  const { Octokit } = await import("@octokit/rest");
   return {
     ...actual,
+    // The stack check reads the branch `alchemy-state-store` through the `fetch` stub.
+    resolveGitHubAppAccess: async () => ({ octokit: new Octokit() }),
     resolveGitHubAppAccessForRepositoryDeletionRun: async () => ({
       octokit: { rest: { repos: githubRepos } },
     }),
@@ -180,9 +183,11 @@ describe("repository removal", () => {
     await fixture.t.finishAllScheduledFunctions(vi.runAllTimers, 1_000);
 
     expect((await readRemoval(fixture)).runStates).toEqual(["succeeded"]);
-    // The stack check asks the Cloudflare account for its store, which gives none, then the team.
+    // The stack check asks the Cloudflare account and the repository for a store, which give none,
+    // then the team.
     expect(requests).toEqual([
       "https://api.cloudflare.com/client/v4/accounts/cloudflare-account/workers/subdomain",
+      "https://api.github.com/repos/octo-org/app/git/ref/heads%2Falchemy-state-store",
       expect.stringContaining(TEAM_PROJECTS_URL),
     ]);
     expect(githubRepos.delete).toHaveBeenCalledExactlyOnceWith({ owner: "octo-org", repo: "app" });

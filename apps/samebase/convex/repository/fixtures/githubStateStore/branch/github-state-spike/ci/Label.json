@@ -1,0 +1,27 @@
+{
+  "status": "created",
+  "fqn": "Label",
+  "logicalId": "Label",
+  "instanceId": "113a37c043b6bd29a9defac48788319e",
+  "resourceType": "GitHub.Label",
+  "props": {
+    "owner": "my-org",
+    "repository": "my-app",
+    "name": "spike-ci",
+    "color": "c5def5",
+    "description": "GitHub state store spike, stage ci"
+  },
+  "attr": {
+    "labelId": 13119135231,
+    "nodeId": "LA_kwDOVsRRkc8AAAADDfYd_w",
+    "name": "spike-ci",
+    "color": "c5def5",
+    "description": "GitHub state store spike, stage ci",
+    "url": "https://api.github.com/repos/my-org/my-app/labels/spike-ci",
+    "default": false
+  },
+  "bindings": [],
+  "providerVersion": 0,
+  "downstream": [],
+  "removalPolicy": "destroy"
+}

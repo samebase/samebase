@@ -1,0 +1,100 @@
+{
+  "sha": "90c3eb7e9754c29d3af91bb76f76a37132697c3c",
+  "url": "https://api.github.com/repos/my-org/my-app/git/trees/90c3eb7e9754c29d3af91bb76f76a37132697c3c",
+  "tree": [
+    {
+      "path": "README.md",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "662ed7d1f7bb282b4434ce2b751e1f0eff5ba384",
+      "size": 457,
+      "url": "https://api.github.com/repos/my-org/my-app/git/blobs/662ed7d1f7bb282b4434ce2b751e1f0eff5ba384"
+    },
+    {
+      "path": "github-state-spike",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "5c6dd4647f2fca04e47ab52fc1c69c663da7af18",
+      "url": "https://api.github.com/repos/my-org/my-app/git/trees/5c6dd4647f2fca04e47ab52fc1c69c663da7af18"
+    },
+    {
+      "path": "github-state-spike/ci",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "89e8a6317a99dd05ef657269a4cc4b75033c7119",
+      "url": "https://api.github.com/repos/my-org/my-app/git/trees/89e8a6317a99dd05ef657269a4cc4b75033c7119"
+    },
+    {
+      "path": "github-state-spike/ci/Label.json",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "538ff8f4a83f153a2b93a4c5ab7510ab24a3b422",
+      "size": 737,
+      "url": "https://api.github.com/repos/my-org/my-app/git/blobs/538ff8f4a83f153a2b93a4c5ab7510ab24a3b422"
+    },
+    {
+      "path": "github-state-spike/ci/Note.json",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "cbbfc9ad74be348b5f05e1a379a30a9d03d52891",
+      "size": 479,
+      "url": "https://api.github.com/repos/my-org/my-app/git/blobs/cbbfc9ad74be348b5f05e1a379a30a9d03d52891"
+    },
+    {
+      "path": "github-state-spike/ci/Secret.json",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "38d7af5afbcd76a95f7fdc1ad8c6d80b1e0ae000",
+      "size": 478,
+      "url": "https://api.github.com/repos/my-org/my-app/git/blobs/38d7af5afbcd76a95f7fdc1ad8c6d80b1e0ae000"
+    },
+    {
+      "path": "github-state-spike/ci/__stack_output__.json",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "05ca45a96c19ee5da798b0730179a1c92a61612b",
+      "size": 107,
+      "url": "https://api.github.com/repos/my-org/my-app/git/blobs/05ca45a96c19ee5da798b0730179a1c92a61612b"
+    },
+    {
+      "path": "github-state-spike/demo",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "f521b8ede1300e912a99f2f1fb7e8d31d7fbf9ee",
+      "url": "https://api.github.com/repos/my-org/my-app/git/trees/f521b8ede1300e912a99f2f1fb7e8d31d7fbf9ee"
+    },
+    {
+      "path": "github-state-spike/demo/Label.json",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "3583feec70ac3d4aeca660048d1cb4819e53e054",
+      "size": 747,
+      "url": "https://api.github.com/repos/my-org/my-app/git/blobs/3583feec70ac3d4aeca660048d1cb4819e53e054"
+    },
+    {
+      "path": "github-state-spike/demo/Note.json",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "e5186941b65b23ddf25aff63963611ef1c45cec9",
+      "size": 480,
+      "url": "https://api.github.com/repos/my-org/my-app/git/blobs/e5186941b65b23ddf25aff63963611ef1c45cec9"
+    },
+    {
+      "path": "github-state-spike/demo/Secret.json",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "06e9651bb80f4d32a89b4543066414d40c1e1582",
+      "size": 478,
+      "url": "https://api.github.com/repos/my-org/my-app/git/blobs/06e9651bb80f4d32a89b4543066414d40c1e1582"
+    },
+    {
+      "path": "github-state-spike/demo/__stack_output__.json",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "63dbff9a6ccb050ff29a7975b009b9417f5549f3",
+      "size": 460,
+      "url": "https://api.github.com/repos/my-org/my-app/git/blobs/63dbff9a6ccb050ff29a7975b009b9417f5549f3"
+    }
+  ],
+  "truncated": false
+}
