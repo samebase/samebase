@@ -320,7 +320,17 @@ export default defineConfig({
             "apps/identity-hub/**",
             "packages/identity-broker/**",
             "packages/alchemy-convex/**",
+            "packages/alchemy-github/**",
           ],
+        },
+      },
+      {
+        extends: true,
+        test: {
+          name: "alchemy-github",
+          environment: "node",
+          // `test/live/` makes real GitHub API calls; `pnpm run test:live` runs it.
+          include: ["packages/alchemy-github/test/*.test.ts"],
         },
       },
       {
