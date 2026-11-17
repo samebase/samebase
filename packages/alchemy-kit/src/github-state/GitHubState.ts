@@ -1,5 +1,6 @@
 import { execFileSync } from "node:child_process";
-import { State, StateStoreError } from "alchemy/State";
+import { encodeFqn } from "alchemy/FQN";
+import { reviveState, State, type StateService, StateStoreError } from "alchemy/State";
 import {
   type BucketObjects,
   makeBucketState,
@@ -500,6 +501,11 @@ export const makeGitHubObjects = (options: GitHubStateOptions = {}) =>
 /**
  * The State layer. It reads the key and builds the store on the first state operation, bound to
  * this layer's scope, so a missing key fails the run before any read or write.
+ *
+ * A `get` or `getOutput` of a stage that the run has not locked takes no lock. So a preview that
+ * reads a resource of `prod` runs beside a deploy of `prod`; with the lock, one of them failed.
+ * Every other call takes the lock of its stage, as BucketState does. A run gives the first answer
+ * of such a read again, and when it later locks that stage, it fails if those files changed.
  */
 export const state = (
   options: GitHubStateOptions = {},
@@ -552,8 +558,113 @@ export const state = (
             }),
           ),
         );
-        return {
+        type Stage = { readonly stack: string; readonly stage: string };
+        // A stage's key is `{stack}/{stage}`, as BucketState keys its lease.
+        const keyOf = ({ stack, stage }: Stage) => `${stack}/${stage}`;
+        // Each file that this run read without the lease, by path, with the first answer.
+        const reads = new Map<
+          string,
+          Stage & { readonly object: { text: string; version: string } | undefined }
+        >();
+        // The check of each stage that this run locked, and each stack that it deleted whole.
+        const checks = new Map<string, Deferred.Deferred<void, StateStoreError>>();
+        const deletedStacks = new Set<string>();
+        const isLocked = (key: string) =>
+          checks.has(key) || [...deletedStacks].some((prefix) => key.startsWith(prefix));
+        // At the first lock of a stage that this run read from, the lease is taken and each read
+        // file must still be at the version that the run saw. Each operation on the stage waits
+        // for this one check, and a failed check fails each of them. It is uninterruptible, so
+        // the operations that wait for it always get its result.
+        const checkOf = (stage: Stage) =>
+          Effect.suspend(() => {
+            const key = keyOf(stage);
+            const started = checks.get(key);
+            if (started !== undefined) return Deferred.await(started);
+            const done = Deferred.makeUnsafe<void, StateStoreError>();
+            checks.set(key, done);
+            const read = [...reads].filter(([, kept]) => keyOf(kept) === key);
+            const check =
+              read.length === 0
+                ? Effect.void
+                : bucket.list(stage).pipe(
+                    Effect.andThen(
+                      Effect.forEach(read, ([path, kept]) =>
+                        objects
+                          .read(path)
+                          .pipe(Effect.map((now) => now?.version === kept.object?.version)),
+                      ),
+                    ),
+                    Effect.flatMap((same) =>
+                      same.every(Boolean)
+                        ? Effect.void
+                        : Effect.fail(
+                            fail(
+                              `GitHub state store: another deploy changed '${key}' after this run read it. Run the deploy again.`,
+                            ),
+                          ),
+                    ),
+                  );
+            return check.pipe(
+              Deferred.into(done),
+              Effect.uninterruptible,
+              Effect.andThen(Deferred.await(done)),
+            );
+          });
+        const locking = <A>(stage: Stage, operation: Effect.Effect<A, StateStoreError>) =>
+          checkOf(stage).pipe(Effect.andThen(operation));
+        // On a stage that this run has not locked, read the one file with BucketState's key and
+        // decoding, and give the first answer again to each later read of that file. The value
+        // has the type that `viaLease` gives for the same file.
+        const pointRead = <A>(
+          request: Stage,
+          file: string,
+          viaLease: Effect.Effect<A, StateStoreError>,
+        ) =>
+          Effect.suspend(() => {
+            const key = keyOf(request);
+            const path = `${key}/${file}`;
+            const lease = locking(request, viaLease);
+            if (file === LEASE_FILE || isLocked(key)) return lease;
+            const kept = reads.get(path);
+            return (kept === undefined ? sealed.read(path) : Effect.succeed(kept.object)).pipe(
+              Effect.flatMap((object) => {
+                // The stage can become locked while the file loads: then the lease answers.
+                if (isLocked(key)) return lease;
+                const { stack, stage } = request;
+                const first = reads.get(path) ?? { stack, stage, object };
+                reads.set(path, first);
+                const text = first.object?.text;
+                return text === undefined
+                  ? Effect.undefined
+                  : Effect.try({
+                      // JSON.parse gives `any`: like BucketState, this trusts the file.
+                      try: (): A => JSON.parse(text, reviveState),
+                      catch: () => fail(`Failed to parse state object '${path}'`),
+                    });
+              }),
+            );
+          });
+        // A deploy locks its stage at its first `list`, before it plans. A preview reads one row of
+        // `prod`; with the lease, that read collided with each deploy of `prod` at the same time.
+        const service: StateService = {
           ...bucket,
+          list: (r) => locking(r, bucket.list(r)),
+          getReplacedResources: (r) => locking(r, bucket.getReplacedResources(r)),
+          set: (r) => locking(r, bucket.set(r)),
+          delete: (r) => locking(r, bucket.delete(r)),
+          setOutput: (r) => locking(r, bucket.setOutput(r)),
+          // Without a stage, BucketState takes the lease of each stage of the stack. Each stage
+          // below it that this run read from is checked first.
+          deleteStack: ({ stack, stage }) =>
+            stage === undefined
+              ? Effect.suspend(() => {
+                  deletedStacks.add(`${stack}/`);
+                  const read = [...reads.values()].filter((kept) => isLocked(keyOf(kept)));
+                  return Effect.forEach(read, checkOf, { discard: true });
+                }).pipe(Effect.andThen(bucket.deleteStack({ stack })))
+              : locking({ stack, stage }, bucket.deleteStack({ stack, stage })),
+          get: (r) => pointRead(r, `${encodeFqn(r.fqn)}.json`, bucket.get(r)),
+          getOutput: (r) => pointRead(r, "__stack_output__.json", bucket.getOutput(r)),
           listStacks: () =>
             bucket.listStacks().pipe(
               Effect.andThen(stages),
@@ -571,6 +682,7 @@ export const state = (
               ),
             ),
         };
+        return service;
       });
       return yield* Effect.cached(
         Scope.provide(make, scope).pipe(Effect.orDie, Effect.provideContext(context)),

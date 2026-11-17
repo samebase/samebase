@@ -1,6 +1,12 @@
 // The store against an in-memory GitHub that can answer a ref read with the head before the last.
 import { createHash } from "node:crypto";
-import { State } from "alchemy/State";
+import {
+  encodeState,
+  type PersistedState,
+  State,
+  type StateService,
+  StateStoreError,
+} from "alchemy/State";
 import type { BucketObjects } from "alchemy/State/BucketState";
 import * as Effect from "effect/Effect";
 import * as HttpClient from "effect/http/HttpClient";
@@ -94,6 +100,13 @@ const fakeGitHub = () => {
   };
 
   return {
+    /** The number of commits on `branch`. */
+    commits: (branch: string) => heads.get(branch)?.length ?? 0,
+    /** The text of `path` at the head of `branch`. */
+    file: (branch: string, path: string) => {
+      const tree = commits.get(heads.get(branch)?.at(-1) ?? "")?.tree ?? "";
+      return blobs.get(trees.get(tree)?.get(path) ?? "");
+    },
     answerOld: (count: number, back = 1) => {
       oldAnswers = count;
       headsBack = back;
@@ -245,5 +258,187 @@ describe("makeGitHubObjects", () => {
     expect(result.won).toBe(blobSha("b"));
     expect(result.lost).toBeUndefined();
     expect(result.text).toBe("b");
+  });
+});
+
+const KEY = Redacted.make(Buffer.alloc(32).toString("base64"));
+const STATE = "alchemy-state-store";
+const LOCK = "alchemy-state-store-lock";
+const PROD = { stack: "owner/name", stage: "prod" };
+const ROW = {
+  kind: "resource",
+  resourceType: "Convex.Project",
+  namespace: undefined,
+  fqn: "Convex/Project",
+  logicalId: "Project",
+  instanceId: "instance-1",
+  providerVersion: 1,
+  status: "created",
+  downstream: [],
+  bindings: [],
+  props: { name: "app", nested: { list: [1, { deep: true }] } },
+  attr: { deployKey: Redacted.make("the-deploy-key"), urls: { cloud: "https://example.test" } },
+} satisfies PersistedState;
+const OUTPUT = { url: "https://example.test", secret: Redacted.make("output-secret"), n: [1, 2] };
+
+/** One process: a State service on `o/r` whose scope, and so its leases, closes after `use`. */
+const inProcess = <A, E, R>(use: (service: StateService) => Effect.Effect<A, E, R>) =>
+  Effect.gen(function* () {
+    return yield* use(yield* yield* State);
+  }).pipe(Effect.provide(state({ repository: "o/r", key: KEY })), Effect.scoped);
+
+/** Two processes on one repository. A's scope stays open while B runs. */
+const twoProcesses = <A, E>(
+  github: ReturnType<typeof fakeGitHub>,
+  use: (a: StateService, b: StateService) => Effect.Effect<A, E>,
+) =>
+  Effect.runPromise(
+    inProcess((a) => inProcess((b) => use(a, b))).pipe(Effect.provide(github.layer)),
+  );
+
+const PREVIEW = { stack: "owner/name", stage: "pr-1" };
+const ROW_FILE = "owner/name/pr-1/Convex__Project.json";
+const CHANGED = "another deploy changed 'owner/name/pr-1' after this run read it";
+/** Writes ROW to `stage` in a process that then closes. */
+const writeRow = (stage: typeof PROD, value: PersistedState = ROW) =>
+  inProcess((other) => other.set({ ...stage, fqn: ROW.fqn, value }));
+
+describe("state", () => {
+  it("reads a row and an output of a stage that another process holds, and takes no lock", async () => {
+    const github = fakeGitHub();
+    const result = await twoProcesses(github, (a, b) =>
+      Effect.gen(function* () {
+        yield* a.list(PROD);
+        yield* a.set({ ...PROD, fqn: ROW.fqn, value: ROW });
+        yield* a.setOutput({ ...PROD, value: OUTPUT });
+        const lease = github.file(LOCK, "owner/name/prod/__lease__.json");
+        const lockCommits = github.commits(LOCK);
+        return {
+          lease,
+          lockCommits,
+          a: { row: yield* a.get({ ...PROD, fqn: ROW.fqn }), output: yield* a.getOutput(PROD) },
+          b: { row: yield* b.get({ ...PROD, fqn: ROW.fqn }), output: yield* b.getOutput(PROD) },
+          leaseAfter: github.file(LOCK, "owner/name/prod/__lease__.json"),
+          lockCommitsAfter: github.commits(LOCK),
+        };
+      }),
+    );
+    expect(result.b).toEqual(result.a);
+    // encodeState opens each Redacted value, so the secrets themselves are compared too.
+    expect(encodeState(result.b.row)).toEqual(encodeState(ROW));
+    expect(encodeState(result.b.output)).toEqual(encodeState(OUTPUT));
+    expect(result.lease).toBeDefined();
+    expect(result.leaseAfter).toBe(result.lease);
+    expect(result.lockCommitsAfter).toBe(result.lockCommits);
+  });
+
+  it("fails a list of a stage that another process holds", async () => {
+    const github = fakeGitHub();
+    const error = await twoProcesses(github, (a, b) =>
+      a.list(PROD).pipe(Effect.andThen(Effect.flip(b.list(PROD)))),
+    );
+    expect(error.message).toContain("another deploy holds");
+  });
+
+  it("gives undefined for a row or an output that does not exist", async () => {
+    const github = fakeGitHub();
+    const result = await twoProcesses(github, (a, b) =>
+      Effect.gen(function* () {
+        yield* a.list(PROD);
+        yield* a.set({ ...PROD, fqn: ROW.fqn, value: ROW });
+        return {
+          row: yield* b.get({ ...PROD, fqn: "Missing" }),
+          output: yield* b.getOutput(PROD),
+        };
+      }),
+    );
+    expect(result).toEqual({ row: undefined, output: undefined });
+  });
+
+  it("fails a list of a stage whose row changed after a point read, and each later call on it", async () => {
+    const github = fakeGitHub();
+    const result = await Effect.runPromise(
+      Effect.gen(function* () {
+        yield* writeRow(PREVIEW);
+        return yield* inProcess((b) =>
+          Effect.gen(function* () {
+            yield* b.get({ ...PREVIEW, fqn: ROW.fqn });
+            yield* writeRow(PREVIEW, { ...ROW, instanceId: "instance-2" });
+            const before = github.file(STATE, ROW_FILE);
+            const list = yield* Effect.flip(b.list(PREVIEW));
+            const set = yield* Effect.flip(b.set({ ...PREVIEW, fqn: ROW.fqn, value: ROW }));
+            return { before, list, set, after: github.file(STATE, ROW_FILE) };
+          }),
+        );
+      }).pipe(Effect.provide(github.layer)),
+    );
+    expect(result.list).toBeInstanceOf(StateStoreError);
+    expect(result.list.message).toContain(CHANGED);
+    expect(result.set.message).toContain(CHANGED);
+    expect(result.before).toBeDefined();
+    expect(result.after).toBe(result.before);
+  });
+
+  it("lists and reads a stage whose row and output did not change after a point read", async () => {
+    const github = fakeGitHub();
+    const result = await Effect.runPromise(
+      Effect.gen(function* () {
+        yield* writeRow(PREVIEW);
+        yield* inProcess((other) => other.setOutput({ ...PREVIEW, value: OUTPUT }));
+        return yield* inProcess((b) =>
+          Effect.gen(function* () {
+            yield* b.get({ ...PREVIEW, fqn: ROW.fqn });
+            yield* b.getOutput(PREVIEW);
+            const list = yield* b.list(PREVIEW);
+            return { list, row: yield* b.get({ ...PREVIEW, fqn: ROW.fqn }) };
+          }),
+        );
+      }).pipe(Effect.provide(github.layer)),
+    );
+    expect(result.list).toEqual([ROW.fqn]);
+    expect(encodeState(result.row)).toEqual(encodeState(ROW));
+  });
+
+  it("fails a list of a stage where a row appeared after a point read found none", async () => {
+    const github = fakeGitHub();
+    const result = await Effect.runPromise(
+      inProcess((b) =>
+        Effect.gen(function* () {
+          const row = yield* b.get({ ...PREVIEW, fqn: ROW.fqn });
+          yield* writeRow(PREVIEW);
+          return { row, list: yield* Effect.flip(b.list(PREVIEW)) };
+        }),
+      ).pipe(Effect.provide(github.layer)),
+    );
+    expect(result.row).toBeUndefined();
+    expect(result.list).toBeInstanceOf(StateStoreError);
+    expect(result.list.message).toContain(CHANGED);
+  });
+
+  it("gives the first answer again to a second point read of a row", async () => {
+    const github = fakeGitHub();
+    const result = await Effect.runPromise(
+      Effect.gen(function* () {
+        yield* writeRow(PROD);
+        return yield* inProcess((b) =>
+          Effect.gen(function* () {
+            const first = yield* b.get({ ...PROD, fqn: ROW.fqn });
+            yield* writeRow(PROD, { ...ROW, instanceId: "instance-2" });
+            return { first, second: yield* b.get({ ...PROD, fqn: ROW.fqn }) };
+          }),
+        );
+      }).pipe(Effect.provide(github.layer)),
+    );
+    expect(encodeState(result.first)).toEqual(encodeState(ROW));
+    expect(encodeState(result.second)).toEqual(encodeState(ROW));
+    expect(result.second).not.toBe(result.first);
+  });
+
+  it("reads the lease file of a stage through the lease", async () => {
+    const github = fakeGitHub();
+    const error = await twoProcesses(github, (a, b) =>
+      a.list(PROD).pipe(Effect.andThen(Effect.flip(b.get({ ...PROD, fqn: "__lease__" })))),
+    );
+    expect(error.message).toContain("another deploy holds");
   });
 });
