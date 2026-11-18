@@ -168,12 +168,10 @@ describe("LandingPage", () => {
 
   it("shows the dashboard's repository page of the example app, with an inert list", () => {
     const markup = renderToStaticMarkup(<LandingPage />);
-    const figure = markup.slice(markup.indexOf("<figure"), markup.indexOf("</figure>"));
-    const box = figure.slice(0, figure.indexOf("<figcaption"));
+    const box = markup.slice(markup.indexOf("<figure"), markup.indexOf("</figure>"));
     const page = box.slice(box.indexOf("</nav>"));
 
-    expect(figure).toContain('aria-label="The Samebase repository page of acme/pantry');
-    expect(figure).toContain("The repository page of an example app.");
+    expect(box).toContain('aria-label="The Samebase repository page of acme/pantry');
     // The list is inert, and the page after it takes clicks with Disconnect disabled.
     expect(box.indexOf('inert=""')).toBeLessThan(box.indexOf('<nav aria-label="Repositories"'));
     expect(page).not.toContain('inert=""');

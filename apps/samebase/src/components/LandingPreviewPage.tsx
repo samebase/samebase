@@ -210,16 +210,11 @@ function LandingSection({ ariaLabel, children }: { ariaLabel?: string; children:
   );
 }
 
-function LandingSectionIntro({ heading, sub }: { heading: ReactNode; sub?: ReactNode }) {
+function LandingSectionIntro({ heading }: { heading: ReactNode }) {
   return (
-    <>
-      <h2 className="max-w-[26ch] text-[clamp(24px,3cqw,32px)] font-semibold leading-[1.25] tracking-[-0.02em]">
-        {heading}
-      </h2>
-      {sub === undefined ? null : (
-        <p className="mt-4 max-w-[52ch] text-base leading-relaxed text-primary">{sub}</p>
-      )}
-    </>
+    <h2 className="max-w-[26ch] text-[clamp(24px,3cqw,32px)] font-semibold leading-[1.25] tracking-[-0.02em]">
+      {heading}
+    </h2>
   );
 }
 
@@ -242,15 +237,9 @@ function LandingDashboardExample() {
   return (
     <figure
       aria-label="The Samebase repository page of acme/pantry: the production stack at pantry.acme.dev with its Convex deployment and a Cloudflare Worker, the deployed commit with passing checks, and three open pull requests with their preview deployments."
-      className="mt-10 @3xl:mt-12"
+      className="mt-10 border border-border @3xl:mt-12"
     >
-      <div className="border border-border">
-        <RepositoryOverviewExample />
-      </div>
-      <figcaption className="mt-2 text-sm text-muted-foreground">
-        The repository page of an example app. Open a pull request to see its preview. The links are
-        off.
-      </figcaption>
+      <RepositoryOverviewExample />
     </figure>
   );
 }
@@ -378,10 +367,7 @@ function LandingPreviewOverview() {
         </LandingSection>
 
         <LandingSection ariaLabel="The parts">
-          <LandingSectionIntro
-            heading="The parts"
-            sub="Built along the way and published on their own, under Apache-2.0 or MIT."
-          />
+          <LandingSectionIntro heading="The parts" />
           <ul className="mt-8 grid gap-4 @3xl:grid-cols-2">
             {LANDING_PARTS.map((part) => (
               <li key={part.name}>
