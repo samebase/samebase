@@ -143,31 +143,36 @@ export function RepositorySelectedWorkspace({
 
   return (
     <>
-      <RepositoryOverviewPage
-        developerToolsVisible={developerToolsVisible}
-        isRetryingRepositoryAction={isRetryingRepositoryAction}
-        workspace={workspace}
-        onOpenDeleteDialog={() => {
-          void navigate({
-            resetScroll: false,
-            to: ".",
-            search: (currentSearch: RootRouteSearch) =>
-              applySearchPatch(currentSearch, { delete: true }),
-            state: (currentState) => ({
-              ...currentState,
-              repositoryDashboardDialog: { dialog: "delete" },
-            }),
-          });
-        }}
-        onRetryInfrastructureProvisioning={() => {
-          void handleRetryInfrastructureProvisioning();
-        }}
-        onRetryRepositoryDeletion={() => {
-          if (repository.deletion.state === "delete_failed") {
-            void handleRetryRepositoryDeletion(repository.deletion.runId);
-          }
-        }}
-      />
+      {/* The scroll-end space belongs to the pane, so the landing page's example of the page ends
+      with its content. */}
+      <div className="min-h-full bg-background">
+        <RepositoryOverviewPage
+          developerToolsVisible={developerToolsVisible}
+          isRetryingRepositoryAction={isRetryingRepositoryAction}
+          workspace={workspace}
+          onOpenDeleteDialog={() => {
+            void navigate({
+              resetScroll: false,
+              to: ".",
+              search: (currentSearch: RootRouteSearch) =>
+                applySearchPatch(currentSearch, { delete: true }),
+              state: (currentState) => ({
+                ...currentState,
+                repositoryDashboardDialog: { dialog: "delete" },
+              }),
+            });
+          }}
+          onRetryInfrastructureProvisioning={() => {
+            void handleRetryInfrastructureProvisioning();
+          }}
+          onRetryRepositoryDeletion={() => {
+            if (repository.deletion.state === "delete_failed") {
+              void handleRetryRepositoryDeletion(repository.deletion.runId);
+            }
+          }}
+        />
+        <div aria-hidden="true" className="h-[20svh] min-h-20" />
+      </div>
       {deleteModeActive ? (
         <RepositoryDeleteDialog
           alchemyState={workspace.alchemyState}

@@ -302,8 +302,7 @@ The repository page of an example app, `acme/pantry`, made of the dashboard's ow
 repositories and repository page with example data. From the `@3xl` width of its container, the list
 shows on the left at the default width of the left pane (240px,
 `APP_WORKSPACE_LEFT_SIDEBAR_DEFAULT_WIDTH_PX`). The page has its own container, so it lays out for
-its own width, as it does in its pane. The page ends with its scroll-end space (20svh), as in its
-pane.
+its own width, as it does in its pane.
 */
 export function RepositoryOverviewExample() {
   const [example] = useState(() => ({

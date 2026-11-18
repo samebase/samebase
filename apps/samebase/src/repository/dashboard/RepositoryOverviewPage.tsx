@@ -202,7 +202,7 @@ export function RepositoryOverviewPage({
   const showRepositoryContent = workspace.repository.hasConnectedGitHubRepository;
 
   return (
-    <div className="min-h-full bg-background text-foreground">
+    <div className="bg-background text-foreground">
       <RepositoryHeader
         owner={workspace.repository.githubOwnerLogin}
         repoName={workspace.repository.githubRepositoryName}
@@ -250,7 +250,6 @@ export function RepositoryOverviewPage({
           />
         ) : null}
       </main>
-      <div aria-hidden="true" className="h-[20svh] min-h-20" />
     </div>
   );
 }
