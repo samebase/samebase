@@ -252,37 +252,6 @@ function expectSidebarMobileMergedSide(root: ParentNode, side: "left" | "right" 
   ).toBe(side);
 }
 
-function expectMobilePaneSeparatorOwnership(
-  root: ParentNode,
-  activePane: "left" | "main" | "right",
-) {
-  expect(
-    root.querySelector('[data-sidebar-layout-part="viewport"]')?.getAttribute("data-mobile-pane"),
-  ).toBe(activePane);
-  const leftPane = getRequiredElement(
-    root,
-    '[data-sidebar-layout-part="pane"][data-pane-side="left"]',
-  );
-  const mainPane = getRequiredElement(
-    root,
-    '[data-sidebar-layout-part="pane"][data-pane-side="main"]',
-  );
-  const rightPane = getRequiredElement(
-    root,
-    '[data-sidebar-layout-part="pane"][data-pane-side="right"]',
-  );
-  const paneEntries = [
-    ["left", leftPane],
-    ["main", mainPane],
-    ["right", rightPane],
-  ] as const;
-
-  for (const [paneName, paneNode] of paneEntries) {
-    expect(paneNode.getAttribute("data-sidebar-layout-part")).toBe("pane");
-    expect(paneNode.getAttribute("data-pane-side")).toBe(paneName);
-  }
-}
-
 describe("getMobilePaneScrollProgress", () => {
   const threePaneGeometry = {
     hasLeftPane: true,
@@ -531,32 +500,6 @@ describe("SidebarLayout mobile boot alignment", () => {
     expect(rightHandle.parentElement?.style.left).toBe(
       `${SIDEBAR_LAYOUT_MOBILE_MAIN_PEEK_WIDTH_PX}px`,
     );
-  });
-
-  it("lets the left sidebar stay borderless while the main pane owns the separator", () => {
-    const mountedRoot = root;
-    if (mountedRoot === null || rootElement === null) {
-      throw new Error("Expected mounted root");
-    }
-
-    act(() => {
-      mountedRoot.render(renderMobileLayout({ mobilePane: "left" }));
-    });
-
-    expectMobilePaneSeparatorOwnership(rootElement, "left");
-  });
-
-  it("lets the sidebars own both separators while the main pane is visible", () => {
-    const mountedRoot = root;
-    if (mountedRoot === null || rootElement === null) {
-      throw new Error("Expected mounted root");
-    }
-
-    act(() => {
-      mountedRoot.render(renderMobileLayout({ mobilePane: "main" }));
-    });
-
-    expectMobilePaneSeparatorOwnership(rootElement, "main");
   });
 
   it("keeps the left pane addressable on mobile layouts without a right pane", () => {
@@ -831,19 +774,6 @@ describe("SidebarLayout mobile boot alignment", () => {
     });
     expect(latestRenderedPaneState?.mobileSurface).toEqual(savedState.mobileSurface);
     expect(setState).not.toHaveBeenCalled();
-  });
-
-  it("lets the right sidebar stay borderless while the main pane owns the separator", () => {
-    const mountedRoot = root;
-    if (mountedRoot === null || rootElement === null) {
-      throw new Error("Expected mounted root");
-    }
-
-    act(() => {
-      mountedRoot.render(renderMobileLayout({ mobilePane: "right" }));
-    });
-
-    expectMobilePaneSeparatorOwnership(rootElement, "right");
   });
 
   it("omits mobile resize grips on the main pane", () => {
@@ -1266,7 +1196,6 @@ describe("SidebarLayout mobile boot alignment", () => {
         rootElement,
         '[data-sidebar-layout-part="pane"][data-pane-side="right"]',
       );
-      const carouselNode = getRequiredElement(rootElement, '[data-sidebar-layout-part="carousel"]');
       const getMainPane = () =>
         getRequiredElement(
           rootElementNode,
@@ -1274,9 +1203,7 @@ describe("SidebarLayout mobile boot alignment", () => {
         );
 
       expect(getMainPane().style.width).toBe("320px");
-      expect(carouselNode.getAttribute("data-sidebar-layout-part")).toBe("carousel");
       expect(rightHandle.getAttribute("data-resize-mode")).toBe("edge");
-      expect(rightHandle.getAttribute("data-sidebar-layout-part")).toBe("resize-handle");
       expect(
         rightHandle.querySelector('[data-sidebar-layout-part="resize-grip-indicator"]'),
       ).toBeNull();
@@ -1379,7 +1306,6 @@ describe("SidebarLayout mobile boot alignment", () => {
 
       expect(getMainPane().style.width).toBe("260px");
       expectSidebarMobileMergedSide(rootElement, "left");
-      expect(carouselNode.getAttribute("data-sidebar-layout-part")).toBe("carousel");
       act(() => {
         carouselNode.scrollLeft = 180;
         carouselNode.dispatchEvent(new Event("scroll", { bubbles: true }));

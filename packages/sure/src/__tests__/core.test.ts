@@ -24,18 +24,6 @@ const sureNumber = pure((value) =>
     : bad("not a number" as const),
 );
 
-const pureNumber = pure((value) =>
-  typeof value === "number" //
-    ? good(value)
-    : bad("not a number" as const),
-);
-
-const rawNumber = (value: unknown) => {
-  return typeof value === "number" //
-    ? ([true, value] as const)
-    : ([false, "not a number"] as const);
-};
-
 /**
 Validator for strings with meta.
  */
@@ -86,36 +74,6 @@ describe("core", () => {
     }
   });
 
-  it("should return good value (pure)", () => {
-    const [isNumber, unsure] = pureNumber(1);
-
-    expect(isNumber).toBe(true);
-    expect(unsure).toBe(1);
-
-    assertIs<number | "not a number">(unsure);
-
-    if (isNumber) {
-      assertIs<number>(unsure);
-    } else {
-      assertIs<"not a number">(unsure);
-    }
-  });
-
-  it("should work with raw function", () => {
-    const [isNumber, unsure] = rawNumber(1);
-
-    expect(isNumber).toBe(true);
-    expect(unsure).toBe(1);
-
-    assertIs<number | "not a number">(unsure);
-
-    if (isNumber) {
-      assertIs<number>(unsure);
-    } else {
-      assertIs<"not a number">(unsure);
-    }
-  });
-
   it("should return bad value", () => {
     const [isNumber, unsure] = sureNumber("1");
 
@@ -142,36 +100,6 @@ describe("core", () => {
     expect(unsure).toBe("empty string");
   });
 
-  it("should have strong types", () => {
-    const [isNumber, unsure] = sureNumber(1);
-
-    assertIs<boolean>(isNumber);
-    assertIs<number | "not a number">(unsure);
-
-    if (isNumber) {
-      assertIs<true>(isNumber);
-      assertIs<number>(unsure);
-    } else {
-      assertIs<false>(isNumber);
-      assertIs<"not a number">(unsure);
-    }
-  });
-
-  it("should have strong types (pure)", () => {
-    const [isNumber, unsure] = pureNumber(1);
-
-    assertIs<boolean>(isNumber);
-    assertIs<number | "not a number">(unsure);
-
-    if (isNumber) {
-      assertIs<true>(isNumber);
-      assertIs<number>(unsure);
-    } else {
-      assertIs<false>(isNumber);
-      assertIs<"not a number">(unsure);
-    }
-  });
-
   it("type inference should work (sure)", () => {
     assertIs<
       Sure<
@@ -190,24 +118,6 @@ describe("core", () => {
     assertEqual<InferMeta<typeof sureNumber>, MetaNever>(true);
   });
 
-  it("type inference should work (pure)", () => {
-    assertIs<
-      Sure<
-        //
-        "not a number",
-        number,
-        unknown,
-        //
-        MetaNever
-      >
-    >(pureNumber);
-
-    assertEqual<InferGood<typeof pureNumber>, number>(true);
-    assertEqual<InferBad<typeof pureNumber>, "not a number">(true);
-    assertEqual<InferInput<typeof pureNumber>, unknown>(true);
-    assertEqual<InferMeta<typeof pureNumber>, MetaNever>(true);
-  });
-
   it("should have strong types with meta", () => {
     assertEqual<
       typeof sureStringMeta,
@@ -219,8 +129,6 @@ describe("core", () => {
         { meta: { myMeta: string } }
       >
     >(true);
-    // eslint-disable-next-line no-unused-vars -- type-test scaffolding
-    type fasdf = InferGood<typeof sureStringMeta>;
 
     assertEqual<InferGood<typeof sureStringMeta>, string>(true);
     assertEqual<InferBad<typeof sureStringMeta>, "not a string">(true);

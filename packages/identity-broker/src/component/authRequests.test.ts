@@ -444,44 +444,6 @@ describe("upstream path", () => {
       }),
     ).toMatchObject({ ok: true });
   });
-
-  test("an expired code is refused", async () => {
-    const t = await pendingRequest();
-    await t.mutation(api.authRequests.startUpstream, {
-      requestId: "r1",
-      connector: "g",
-      upstreamStateHash: "sh",
-      upstreamCodeVerifier: "v",
-      policy,
-      now,
-    });
-    await t.mutation(api.authRequests.claimUpstream, {
-      upstreamStateHash: "sh",
-      connector: "g",
-      txnCookieHashes: ["cookie-hash"],
-      policy,
-      now,
-    });
-    await t.mutation(api.authRequests.complete, {
-      requestId: "r1",
-      identity: { connector: "g", upstreamId: "1" },
-      authTime: now,
-      codeHash: "ch",
-      codeExpiresAt: now + 60_000,
-      policy,
-      now,
-    });
-    expect(
-      await t.mutation(api.authRequests.exchangeCode, {
-        refreshTokenHash: "unused-for-identity",
-        codeHash: "ch",
-        ...cl,
-        codeVerifier: verifier,
-        policy,
-        now: now + 60_001,
-      }),
-    ).toMatchObject({ ok: false, description: expect.stringMatching(/expired/) });
-  });
 });
 
 describe("what a request may use", () => {

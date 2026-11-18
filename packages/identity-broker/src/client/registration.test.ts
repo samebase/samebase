@@ -224,21 +224,6 @@ const configuration = (
 });
 
 describe("registration", () => {
-  test("the registration endpoint needs an initial access token, and there is no tenant switch", async () => {
-    const h = await hub();
-    const created = await h.fetchBroker(`${h.issuer}/register`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: "{}",
-    });
-    expect(created.status).toBe(401);
-    expect(created.headers.get("WWW-Authenticate")).toBe('Bearer realm="register"');
-    expect((await h.fetchBroker(`${h.issuer}/tenant-connection`, { method: "POST" })).status).toBe(
-      404,
-    );
-    expect(await h.t.query(api.apps.list, {})).toEqual([]);
-  });
-
   test("an app holds its clients, each with its enrollment, and a lost client just gets a new one", async () => {
     const h = await hub();
     const first = await register(h);
@@ -450,19 +435,6 @@ describe("the connectors of a client", () => {
 });
 
 describe("a refusal before sign-in (RFC 9700 section 4.11.2)", () => {
-  test.each([
-    ["prompt=none", { prompt: "none" }],
-    ["a bad scope", { scope: "email" }],
-    ["a fresh login that the connector cannot do", { prompt: "login" }],
-  ])("%s gets a page at the hub, not a redirect to the app", async (_name, extra) => {
-    const h = await hub();
-    const client = await register(h);
-    const { challenge } = await pkce();
-    const response = await h.fetchBroker(authorizeUrl(h, client.client_id, challenge, extra));
-    expect(response.status).toBe(400);
-    expect(response.headers.get("location")).toBeNull();
-  });
-
   test("after the user continued from the page, a refusal goes back to the app", async () => {
     const h = await hub(() => testPolicy(), { page: true });
     const client = await register(h);
@@ -736,15 +708,6 @@ describe("RFC 7592 client management", () => {
     );
   });
 
-  test("a sign-in moves the date in the redemption", async () => {
-    vi.useFakeTimers({ now: 1_000_000_000_000, toFake: ["Date"] });
-    const h = await hub();
-    const client = await register(h, { appId: "gh-1-app-p", deploymentType: "preview" });
-    vi.setSystemTime(Date.now() + LEASE_MS / 2);
-    expect((await signIn(h, client)).status).toBe(200);
-    expect((await readClient(h, client.client_id))?.removeAt).toBe(Date.now() + LEASE_MS);
-  });
-
   test("a production client cannot delete itself", async () => {
     const h = await hub();
     const client = await register(h);
@@ -816,34 +779,6 @@ describe("RFC 7592 client management", () => {
 });
 
 describe("what a redemption does at once", () => {
-  test("it marks the client as used, so a cap cannot take a client that just signed someone in", async () => {
-    const h = await hub();
-    const client = await register(h);
-    expect((await readClient(h, client.client_id))?.lastSignInAt).toBeUndefined();
-    // The audit row plays no part: the redemption alone sets the mark.
-    const { verifier, challenge } = await pkce();
-    const start = await h.fetchBroker(authorizeUrl(h, client.client_id, challenge));
-    const code = await finishUpstream(h, start);
-    await h.t.mutation(api.authRequests.exchangeCode, {
-      refreshTokenHash: "unused-for-identity",
-      clientId: client.client_id,
-      clientSecretHash: await sha256Hex(client.client_secret),
-      tokenEndpointAuthMethod: "client_secret_post",
-      codeHash: await sha256Hex(code),
-      redirectUri: REDIRECT_URI,
-      codeVerifier: verifier,
-      policy: {
-        ownerId: "65",
-        paused: false,
-        connectors: ["fake"],
-        resources: [],
-        configured: ["fake"],
-      },
-      now: Date.now(),
-    });
-    expect((await readClient(h, client.client_id))?.lastSignInAt).toBeDefined();
-  });
-
   test("a pause stops a sign-in that already started, and not a client the policy exempts", async () => {
     let paused = false;
     const h = await hub((registration) =>

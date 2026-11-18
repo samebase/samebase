@@ -171,8 +171,6 @@ describe("McpConsentRoutePage workspace shell", () => {
     ).toBeNull();
     expect(rootElement.querySelector('[data-testid="default-right-sidebar"]')).not.toBeNull();
     expect(rootElement.textContent).toContain("Sign in to continue");
-    expect(rootElement.textContent).toContain("Use the account sidebar to sign in");
-    expect(rootElement.textContent).not.toContain("https://x.com/samebasecom");
   });
 
   it("approves account-wide access without an organization selection", async () => {
@@ -205,7 +203,6 @@ describe("McpConsentRoutePage workspace shell", () => {
     expect(rootElement.textContent).toContain("access to your Samebase account");
     expect(rootElement.textContent).toContain("Send approved feedback to Samebase");
     expect(rootElement.textContent).toContain("Open Samebase in a browser as your account");
-    expect(rootElement.textContent).not.toContain("Select an organization");
     const approveButton = [...rootElement.querySelectorAll("button")].find(
       (button) => button.textContent === "Approve",
     );

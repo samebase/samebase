@@ -65,7 +65,6 @@ describe("OrganizationsPageView", () => {
   it("shows memberships before GitHub connection choices", () => {
     const markup = renderPage(readyState({ status: "ready", options }));
 
-    expect(markup).toContain("Organizations");
     expect(markup.indexOf("Member-Org")).toBeLessThan(markup.indexOf("available-org"));
     expect(markup).toContain('aria-label="Open Member-Org in Samebase"');
     expect(markup).toContain('href="/org/Member-Org/repositories"');
@@ -108,7 +107,6 @@ describe("OrganizationsPageView", () => {
     expect(authorizationMarkup).not.toContain("Account settings");
 
     const failedMarkup = renderPage(readyState({ status: "load_failed" }));
-    expect(failedMarkup).toContain("Could not load GitHub App installations.");
     expect(failedMarkup).toContain("Try again");
     expect(failedMarkup).not.toContain("Authorize GitHub");
   });
@@ -121,9 +119,6 @@ describe("OrganizationsPageView", () => {
     });
     expect(emptyMarkup).toContain("No organizations");
     expect(emptyMarkup).toContain("Install GitHub App");
-    expect(emptyMarkup).toContain(
-      "Install the Samebase GitHub App for your GitHub account or an organization you manage.",
-    );
   });
 
   it("waits for the membership list before it presents the directory", () => {

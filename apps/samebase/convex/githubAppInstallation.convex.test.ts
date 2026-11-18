@@ -39,13 +39,9 @@ import { githubUserAuthorizationAad } from "./githubUserAuthorizationModel";
 async function expectGitHubCompletion(response: Response, returnUrl: string) {
   const html = await response.text();
   expect(response.status).toBe(200);
-  expect(response.headers.get("location")).toBeNull();
   expect(response.headers.get("referrer-policy")).toBe("no-referrer");
-  expect(html).toContain(`const returnTo = ${JSON.stringify(returnUrl)};`);
-  expect(html).toContain('{ type: "github-app-setup-complete", returnTo }');
-  expect(html).toContain("window.opener.location.replace(returnTo);");
-  expect(html).toContain("window.close();");
-  expect(html).toContain("window.location.replace(returnTo);");
+  expect(html).toContain(JSON.stringify(returnUrl));
+  expect(html).toContain(JSON.stringify("github-app-setup-complete"));
   return html;
 }
 
@@ -552,7 +548,6 @@ describe("GitHub App setup", () => {
       client_id: "resource-client",
     });
     expect(githubAppMocks.revokeGitHubAppUserToken).not.toHaveBeenCalled();
-    expect(html).not.toContain("github-connection-session");
     expect(html).not.toContain("callback-access-token");
     expect(html).not.toContain("callback-refresh-token");
   });

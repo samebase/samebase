@@ -134,7 +134,6 @@ test("signed-in app right sidebar keeps the account row inside a narrow desktop 
   await expect(rightPane).toHaveCSS("width", "160px");
   await expect(accountSection).toBeVisible();
   await expect(accountSection.getByRole("link", { name: "Account settings" })).toBeVisible();
-  await expect(accountSection.getByRole("button", { name: "Sign out" })).toHaveCount(0);
   await expectNoHorizontalOverflow(rightPane);
   await expectSidebarTextOwnsWrappedLine({
     iconTestId: "dashboard-sidebar-account-icon",
@@ -154,12 +153,8 @@ test("signed-in app right sidebar shows the product-update email choice", async 
 
   const rightPane = getRightPane(page);
   const consentSection = rightPane.getByRole("heading", { name: "Product updates" }).locator("..");
-  await expect(
-    consentSection.getByText("Hear about new Samebase features by email."),
-  ).toBeVisible();
   await expect(consentSection.getByRole("button", { name: "Email me" })).toBeVisible();
   await expect(consentSection.getByRole("button", { name: "No thanks" })).toBeVisible();
-  await expect(rightPane.getByRole("heading", { name: "Help improve Samebase" })).toHaveCount(0);
   await expectNoHorizontalOverflow(consentSection);
   await expect(consentSection).toHaveScreenshot(
     "app-right-sidebar-product-update-email-consent.png",
@@ -192,15 +187,8 @@ test("signed-in app right sidebar shows the session-recording choice", async ({
   const consentSection = rightPane
     .getByRole("heading", { name: "Help improve Samebase" })
     .locator("..");
-  const allowButton = consentSection.getByRole("button", { name: "Allow" });
-  await expect(
-    consentSection.getByText(
-      "Share recordings of how you use Samebase. Inputs and code stay hidden.",
-    ),
-  ).toBeVisible();
-  await expect(allowButton).toHaveClass(/bg-primary/u);
+  await expect(consentSection.getByRole("button", { name: "Allow" })).toBeVisible();
   await expect(consentSection.getByRole("button", { name: "No thanks" })).toBeVisible();
-  await expect(consentSection.getByRole("link", { name: "What gets recorded" })).toHaveCount(0);
   await expectNoHorizontalOverflow(consentSection);
   await expect(consentSection).toHaveScreenshot(
     "app-right-sidebar-session-recording-consent.png",
@@ -293,7 +281,6 @@ test("signed-in app right sidebar renders the account row and dashboard actions"
   await expect(
     hydratedLandingActions.getByRole("button", { name: "Continue with GitHub" }),
   ).toHaveCount(0);
-  await expect(hydratedAccountSection.getByText("Signed in with", { exact: false })).toHaveCount(0);
   for (const linkName of ["Account settings", "All repositories", "Organizations"]) {
     const navigationLink = rightSidebar.getByRole("link", { name: linkName, exact: true });
     await expect(navigationLink).toHaveCSS("font-size", "16px");

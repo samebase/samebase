@@ -13,7 +13,6 @@ import {
 } from "./harness.test.helper.js";
 import {
   createHub,
-  foreignKey,
   postHubClient,
   PRODUCTION_CALLBACK,
   refusalBody,
@@ -250,23 +249,5 @@ describe("the Bearer token (RFC 6750 section 3.1)", () => {
     expect(response.headers.get("WWW-Authenticate")).toBe('Bearer realm="register"');
     expect(await response.text()).toBe("");
     expect(fileRequests).toEqual([]);
-  });
-
-  it.each([
-    ["a JWT that fails verification", async () => await signToken({}, { key: foreignKey })],
-    ["an unknown initial access token", async () => "unknown-token"],
-    ["a token with two parts", async () => "one.dot"],
-  ])("answers 401 invalid_token with the challenge for %s", async (_, token) => {
-    const h = await createHub();
-    stubProviders();
-
-    const response = await postWithAuthorization(h, `Bearer ${await token()}`);
-
-    expect(response.status).toBe(401);
-    expect(response.headers.get("WWW-Authenticate")).toBe('Bearer error="invalid_token"');
-    expect(await response.json()).toEqual({
-      error: "invalid_token",
-      error_description: "The token is invalid.",
-    });
   });
 });

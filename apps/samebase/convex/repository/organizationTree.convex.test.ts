@@ -121,15 +121,5 @@ describe("repository organization tree settings", () => {
         organizationId,
       }),
     ).rejects.toThrow("Organization membership is required.");
-    await t.run(async (ctx) => {
-      expect(
-        await ctx.db
-          .query("ui_repositoryTree_organizationSettings")
-          .withIndex("by_userId_and_organizationId", (query) =>
-            query.eq("userId", userId).eq("organizationId", organizationId),
-          )
-          .unique(),
-      ).not.toBeNull();
-    });
   });
 });

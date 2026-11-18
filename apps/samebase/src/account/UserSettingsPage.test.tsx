@@ -137,10 +137,6 @@ async function mountSettingsPage(
   return rootElement;
 }
 
-function findButton(container: HTMLElement, label: string) {
-  return [...container.querySelectorAll("button")].find((button) => button.textContent === label);
-}
-
 describe("UserSettingsPage", () => {
   beforeEach(() => {
     testState.mutations.clear();
@@ -166,7 +162,7 @@ describe("UserSettingsPage", () => {
     rootElement = null;
   });
 
-  it("lists the sign-in methods without a Connect action", async () => {
+  it("lists the sign-in methods that are not connected", async () => {
     testState.queries.set(getFunctionName(api.users.getUserSettings), {
       accountEmail: "account@samebase.com",
       displayName: "Current name",
@@ -179,8 +175,6 @@ describe("UserSettingsPage", () => {
     const container = await mountSettingsPage();
 
     expect(container.textContent).toContain("Not connected");
-    expect(findButton(container, "Connect GitHub")).toBeUndefined();
-    expect(findButton(container, "Connect Google")).toBeUndefined();
   });
 
   it("shows only account exit actions before Terms acceptance", async () => {
@@ -229,11 +223,6 @@ describe("UserSettingsPage", () => {
     ).toEqual(["GitHub"]);
     expect(signInMethodsSection?.textContent).not.toContain("google@example.com");
     expect(signInMethodsSection?.textContent).toContain("@octocat");
-    expect(findButton(container, "Connect Google")).toBeUndefined();
-    expect(findButton(container, "Connect GitHub")).toBeUndefined();
-    expect(container.textContent).not.toContain("Remove");
-    expect(container.textContent).not.toContain("GitHub access");
-    expect(container.textContent).not.toContain("Personal repository creation");
   });
 
   it("shows the GitHub email of an identity that the hub reported without a login", async () => {
@@ -269,7 +258,6 @@ describe("UserSettingsPage", () => {
 
     expect(accountSection?.textContent).toContain("Account email");
     expect(accountSection?.textContent).toContain("account@samebase.com");
-    expect(accountSection?.textContent).not.toContain("Sign-in email");
   });
 
   it("changes the saved session recording choice", async () => {
@@ -313,7 +301,6 @@ describe("UserSettingsPage", () => {
 
     expect(container.textContent).toContain("Email");
     expect(container.textContent).toContain("Product updates");
-    expect(container.textContent).not.toContain("Receive occasional Samebase product updates");
 
     await act(async () => {
       checkbox?.click();

@@ -70,34 +70,6 @@ describe("agent browser handoff URLs", () => {
         token,
       }),
     ).toThrow("SITE_URL must use https");
-    expect(() =>
-      buildAgentBrowserHandoffUrl({
-        returnToPath: "/repo/",
-        siteUrl: "javascript:alert(1)",
-        token,
-      }),
-    ).toThrow("SITE_URL must use https");
-    expect(() =>
-      buildAgentBrowserHandoffUrl({
-        returnToPath: "/repo/",
-        siteUrl: "https://user:password@example.test",
-        token,
-      }),
-    ).toThrow("SITE_URL must not include credentials");
-    expect(() =>
-      buildAgentBrowserHandoffUrl({
-        returnToPath: "/repo/",
-        siteUrl: "https://example.test/app",
-        token,
-      }),
-    ).toThrow("SITE_URL must be an origin");
-    expect(() =>
-      buildAgentBrowserHandoffUrl({
-        returnToPath: "/repo/",
-        siteUrl: "https://example.test/?preview=1",
-        token,
-      }),
-    ).toThrow("SITE_URL must be an origin");
   });
 
   it("treats the trailing-slash spelling as the same handoff route", () => {

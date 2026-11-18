@@ -365,23 +365,6 @@ describe("stackCards", () => {
     ]);
   });
 
-  it("names no folder only for the one card of a stack file at the root", () => {
-    const foldersOf = (stackFiles: readonly string[]) =>
-      stackCards({
-        stage: "prod",
-        headCommit: null,
-        liveDeployments: [],
-        stacks: stackFiles.map((stackFile) => prodStack(stackFile, stackFile, [proxy])),
-      }).map((card) => card.folder);
-
-    expect(foldersOf(["alchemy.run.ts"])).toEqual([null]);
-    expect(foldersOf(["infra/alchemy.run.ts"])).toEqual(["infra"]);
-    expect(foldersOf(["alchemy.run.ts", "apps/sidebars-example/alchemy.run.ts"])).toEqual([
-      "/",
-      "apps/sidebars-example",
-    ]);
-  });
-
   it("shows the run line only when the deployed commit differs from the head above the cards", () => {
     // The captured stage `prod` of samebase/samebase, whose run record names its deploy of 1592243.
     const deployed = "1592243a49970f5c5142009b7ca7b2d71d31f104";

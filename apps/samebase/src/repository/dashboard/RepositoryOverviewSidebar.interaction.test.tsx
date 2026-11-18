@@ -275,11 +275,12 @@ describe("RepositoryOverviewSidebar direct folder actions", () => {
       await Promise.resolve();
     });
 
-    expect(toastMock).toHaveBeenCalledWith({
-      description: "Folder could not be updated.",
-      title: "Could not update repository folders",
-      variant: "destructive",
-    });
+    expect(toastMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        description: "Folder could not be updated.",
+        variant: "destructive",
+      }),
+    );
   });
 
   it("renames a folder from its action menu", async () => {

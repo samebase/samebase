@@ -15,7 +15,6 @@ function readSubmissionToolNames(): string[] {
   return Object.keys(parsed["tools"]);
 }
 
-const llmsTxt = readFileSync(fileURLToPath(new URL("../public/llms.txt", import.meta.url)), "utf8");
 const contentDirectory = new URL("../src/content/", import.meta.url);
 /** The corpus docs pages, which ship as raw Markdown next to llms.txt. */
 const corpusDocs = readdirSync(contentDirectory)
@@ -27,25 +26,6 @@ const corpusDocs = readdirSync(contentDirectory)
   }));
 
 describe("generated action documentation", () => {
-  it("defines authentication and provider-state boundaries", () => {
-    expect(llmsTxt).toContain("Every Samebase action checks its own authentication.");
-    expect(llmsTxt).toContain("Authentication status is a diagnostic action,\nnot a preflight.");
-    expect(llmsTxt).toContain(
-      "The repository list reports Samebase-owned workflow state. It is not proof of live provider state.",
-    );
-    expect(llmsTxt).toContain(
-      "The repository status reads the Alchemy stacks, URLs, deployed\ncommits, checks, and pull requests of one repository. Use provider-native tools for logs,\nenvironment values, migrations, and domains.",
-    );
-  });
-
-  it("identifies the public plugin marketplace without implying an npm package", () => {
-    expect(llmsTxt).toContain("[samebase/plugin](https://github.com/samebase/plugin) marketplace");
-    expect(llmsTxt).toContain(
-      "`samebase@samebase`. That value means the `samebase` plugin from the `samebase` marketplace.",
-    );
-    expect(llmsTxt).toContain("It is not an npm package name.");
-  });
-
   it("names only MCP tools of the action catalog in the corpus docs", () => {
     const toolNames = new Set<string>(readSubmissionToolNames());
     const namedTools = corpusDocs.flatMap(({ fileName, text }) =>

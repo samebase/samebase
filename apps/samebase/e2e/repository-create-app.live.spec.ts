@@ -23,13 +23,11 @@ async function openOrganizationOnboardingRoute(
 }
 
 test.describe("repository create app live flow", () => {
-  test("shows the new app form without a cancel control", async ({ page }) => {
+  test("opens the new app form from the organization navigation", async ({ page }) => {
     await openOrganizationOnboardingRoute(page, { linkName: "New app", route: "new-app" });
 
     const newAppPage = page.getByTestId("new-app-page");
     await expect(newAppPage).toBeVisible();
     await expect(newAppPage.getByRole("button", { name: "New App" })).toBeVisible();
-    await expect(newAppPage.getByRole("button", { exact: true, name: "Cancel" })).toHaveCount(0);
-    await expect(newAppPage.getByRole("link", { exact: true, name: "Cancel" })).toHaveCount(0);
   });
 });

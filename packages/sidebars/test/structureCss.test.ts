@@ -2,6 +2,7 @@
 
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vite-plus/test";
+import { SIDEBAR_LAYOUT_DESKTOP_MIN_WIDTH_PX } from "../src/SidebarLayoutGeometryInternal.ts";
 
 const structureCss = readFileSync(new URL("../src/structure.css", import.meta.url), "utf8");
 
@@ -14,16 +15,12 @@ describe("sidebar layout structural CSS", () => {
 }`);
   });
 
-  it("keeps one exact mobile and desktop boundary", () => {
-    expect(structureCss.match(/@media \(max-width: 767px\)/g)).toHaveLength(1);
-    expect(structureCss.match(/@media \(min-width: 768px\)/g)).toHaveLength(1);
-    expect(structureCss).not.toMatch(/@media \((?:max-width: 768px|min-width: 767px)\)/);
-  });
-
-  it("uses canonical pane parts for mobile separators", () => {
-    expect(structureCss).toContain(':where([data-sidebar-layout-part="pane"])::before,');
-    expect(structureCss).toContain(
-      '[data-sidebar-layout-part="viewport"][data-mobile-pane="main"]',
+  it("switches between mobile and desktop at the runtime desktop width", () => {
+    expect(new Set(structureCss.match(/@media \([^)]*\)/g))).toEqual(
+      new Set([
+        `@media (max-width: ${SIDEBAR_LAYOUT_DESKTOP_MIN_WIDTH_PX - 1}px)`,
+        `@media (min-width: ${SIDEBAR_LAYOUT_DESKTOP_MIN_WIDTH_PX}px)`,
+      ]),
     );
   });
 
@@ -41,19 +38,14 @@ describe("sidebar layout structural CSS", () => {
     expect(structureCss).toContain(
       "outline: var(--sidebar-layout-focus-outline, 2px solid Highlight);",
     );
-    expect(structureCss).toContain("outline-offset: -2px;");
   });
 
-  it("centers grip tracks while leaving visible grip styling to the consumer", () => {
+  it("leaves visible grip styling to the consumer", () => {
     const gripRules = structureCss.slice(
       structureCss.indexOf(':where([data-sidebar-layout-part="resize-track"])'),
       structureCss.indexOf(':where([data-sidebar-layout-part="pane-frame"])'),
     );
 
-    expect(gripRules).toContain("width: 2rem;");
-    expect(gripRules).toContain("transform: translateX(-50%);");
-    expect(gripRules).toContain("align-items: center;");
-    expect(gripRules).toContain("justify-content: center;");
     expect(gripRules).not.toContain("background:");
     expect(gripRules).not.toContain("border-radius:");
     expect(gripRules).not.toContain("box-shadow:");

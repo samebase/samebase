@@ -15,8 +15,6 @@ test("unknown routes render the animated not-found page", async ({ page }) => {
   const content = page.getByTestId("not-found-route-content");
   await expect(content).toBeVisible();
   await expect(content).toContainText("Page not available");
-  await expect(content).not.toContainText("This page isn't available.");
-  await expect(content).not.toContainText("/missing");
   await expect(content.getByRole("link", { exact: true, name: "/landing" })).toBeVisible();
   await expect(page.getByTestId(PUBLIC_LANDING_LOGO_TEST_ID)).toBeVisible();
 
@@ -46,8 +44,6 @@ test("signed-out protected routes keep auth in the right sidebar", async ({ page
   const content = page.getByTestId("not-found-route-content");
   await expect(content).toBeVisible();
   await expect(content).toContainText("Page not available");
-  await expect(content).not.toContainText("This page isn't available.");
-  await expect(content).not.toContainText("/new-app");
   await expect(content.getByRole("link", { exact: true, name: "/landing" })).toBeVisible();
   await expect(content.getByTestId("public-landing-content")).toHaveCount(0);
   await expect(content.getByPlaceholder("you@example.com")).toHaveCount(0);

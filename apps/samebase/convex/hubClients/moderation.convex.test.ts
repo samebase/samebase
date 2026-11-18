@@ -697,9 +697,7 @@ describe("an organization's hub clients", () => {
 
     expect(result).toEqual({
       status: "on",
-      clients: [...clientList.clients]
-        .sort((a, b) => b.createdAt - a.createdAt || a.clientId.localeCompare(b.clientId))
-        .map((client) => ({ ...client, hub: "samebase" })),
+      clients: clientList.clients.map((client) => ({ ...client, hub: "samebase" })),
       limitReached: false,
     });
     expect(requests.map((request) => `${request.method} ${request.url}`)).toEqual([

@@ -150,7 +150,6 @@ describe("runRecord", () => {
       source: "checkout",
       recordedAt: "2026-10-21T10:00:00.000Z",
     } satisfies RunRecord);
-    expect(record.headCommit).toMatch(/^[0-9a-f]{40}$/);
   });
 
   it("reads the https, ssh, and scp forms of the origin URL", async () => {

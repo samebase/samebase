@@ -163,7 +163,6 @@ describe("RouteUrlEditorNext", () => {
     ]);
     for (const group of groups) {
       const label = group.querySelector<HTMLElement>('[aria-hidden="true"]');
-      expect(label?.classList.contains("font-bold")).toBe(true);
       expect(label?.hasAttribute("data-route-url-editor-suggestion-index")).toBe(false);
     }
     expect(
@@ -218,7 +217,7 @@ describe("RouteUrlEditorNext", () => {
     ).toEqual(["…/inbox", "…"]);
   });
 
-  it("uses a blue pill and subtle blue row tint for developer logo routes in dev mode", () => {
+  it("marks developer logo routes with a dev badge in dev mode", () => {
     const display = renderEditor(["/?dev"]);
 
     act(() => {
@@ -248,13 +247,8 @@ describe("RouteUrlEditorNext", () => {
     );
     const rootDeveloperBadge = rootDeveloperRow?.querySelector<HTMLElement>('[data-slot="badge"]');
 
-    expect(developerValue?.textContent.trim()).toBe("/logo/iso");
-    expect(developerRow?.classList.contains("bg-sky-500/5")).toBe(true);
     expect(developerBadge?.textContent.trim()).toBe("dev");
     expect(developerBadge?.getAttribute("aria-hidden")).toBe("true");
-    expect(developerBadge?.classList.contains("bg-sky-500/10")).toBe(true);
-    expect(rootDeveloperValue?.textContent.trim()).toBe("/logo");
-    expect(rootDeveloperRow?.classList.contains("bg-sky-500/5")).toBe(true);
     expect(rootDeveloperBadge?.textContent.trim()).toBe("dev");
   });
 

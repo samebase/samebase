@@ -2,8 +2,6 @@ import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 const providerMocks = vi.hoisted(() => ({
   listConvexManagementProjects: vi.fn(),
-  createProject: vi.fn(),
-  getProject: vi.fn(),
 }));
 
 const githubMocks = vi.hoisted(() => ({
@@ -18,13 +16,6 @@ vi.mock("../convexManagementApi/client", async (importOriginal) => {
   };
 });
 
-vi.mock("../convexManagementApi/generated/sdk.gen", () => ({
-  ConvexManagement: {
-    GET: { "/projects/{project_id}": providerMocks.getProject },
-    POST: { "/teams/{team_id}/create_project": providerMocks.createProject },
-  },
-}));
-
 vi.mock("../githubAppAccess", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../githubAppAccess")>();
   return {
@@ -34,7 +25,6 @@ vi.mock("../githubAppAccess", async (importOriginal) => {
 });
 
 import { api, internal } from "../_generated/api";
-import type { ConvexManagement } from "../convexManagementApi/generated/sdk.gen";
 import {
   insertTestOrganizationBillingAccount,
   makeConvexTest,
@@ -51,10 +41,7 @@ const convexTeamProject = (id: string, name: string, slug = name) => ({
   teamSlug: "scout-team",
 });
 
-/**
-The repository scout-owner/scout with a Worker named scout and a Convex project named scout: the
-default creation names, which make a Worker and a Convex project share the repository name.
-*/
+/** The connected repository scout-owner/scout of an organization with a Convex connection. */
 async function createScoutFixture() {
   const t = makeConvexTest();
   const ids = await t.run(async (ctx) => {
@@ -140,16 +127,6 @@ beforeEach(() => {
     convexTeamProject("scout-project", "scout"),
     convexTeamProject("free-project", "free-app"),
   ]);
-  providerMocks.createProject.mockResolvedValue({
-    id: "created-project",
-    projectId: "created-project",
-  });
-  providerMocks.getProject.mockImplementation(
-    async ({ path }: Parameters<(typeof ConvexManagement.GET)["/projects/{project_id}"]>[0]) => {
-      const projectId = path.project_id;
-      return convexTeamProject(projectId, projectId === "free-project" ? "free-app" : projectId);
-    },
-  );
 });
 
 describe("repository_list", () => {
@@ -199,15 +176,11 @@ describe("repository_getStatus", () => {
     });
 
     const attention = [
-      {
-        tool: null,
-        problem:
-          "The team's Alchemy state store could not be read, so this status does not say what scout-owner/scout has deployed. Call repository_getStatus again.",
-      },
+      { tool: null, problem: expect.stringContaining("Alchemy state store could not be read") },
     ];
     expect(result).toEqual({
       status: "ok",
-      text: `scout-owner/scout: stacks unreadable, pull requests unavailable. Needs attention: ${attention[0].problem} Could not read the default branch head.`,
+      text: expect.stringContaining("stacks unreadable"),
       structuredContent: {
         repository: "scout-owner/scout",
         defaultBranch: null,

@@ -93,7 +93,6 @@ describe("ApprovalGate", () => {
     const markup = renderApprovalGate();
 
     expect(markup).toContain("Route child");
-    expect(markup).not.toContain("pending access");
   });
 
   it("uses provided route access without starting a duplicate query", () => {

@@ -397,12 +397,10 @@ test("the policy's resources gate the authorization, the code, the admission, an
       now: NOW + 1,
     }),
   ).toBe("refused");
-  const grantRow = await t.run(async (ctx) => await ctx.db.get("refreshGrants", claim.grantId));
-  expect(grantRow?.upstreamRefreshToken).toBe("rotated");
-  expect(grantRow?.refreshStartedAt).toBeUndefined();
   // A policy that failed at the release refuses too, and the next claim works again.
   const again = await t.mutation(api.resourceRequests.claimRefresh, { ...refresh, now: NOW + 2 });
   if (!again.ok) throw new Error("Expected a claim");
+  expect(again).toMatchObject({ upstreamRefreshToken: "rotated" });
   expect(
     await t.mutation(api.resourceRequests.finishRefresh, {
       grantId: again.grantId,
@@ -425,10 +423,6 @@ test("the policy's resources gate the authorization, the code, the admission, an
       now: NOW + 5,
     }),
   ).toBe("refused");
-  expect(
-    (await t.run(async (ctx) => await ctx.db.get("refreshGrants", third.grantId)))
-      ?.upstreamRefreshToken,
-  ).toBe("rotated-thrice");
   expect(
     await t.mutation(api.resourceRequests.claimRefresh, { ...refresh, now: NOW + 6 }),
   ).toMatchObject({ ok: true, upstreamRefreshToken: "rotated-thrice" });

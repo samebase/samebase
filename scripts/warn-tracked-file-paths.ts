@@ -24,7 +24,7 @@ export function readTrackedFilePathsFreshness(repoRoot: string): TrackedFilePath
   fail(`Could not inspect tracked file path type freshness: ${detail}`);
 }
 
-export function formatTrackedFilePathsFreshnessWarning(): string {
+function formatTrackedFilePathsFreshnessWarning(): string {
   return [
     "Tracked file path types are stale.",
     "This is warning-only: script typechecking already regenerated them, so",

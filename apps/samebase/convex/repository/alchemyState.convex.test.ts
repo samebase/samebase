@@ -920,8 +920,7 @@ describe("the setup status of a repository_actions repository", () => {
       attention: [
         {
           tool: null,
-          problem:
-            "No successful deployment recorded yet. Check GitHub Actions. https://github.com/samebase/base-alchemy/actions",
+          problem: expect.stringContaining("https://github.com/samebase/base-alchemy/actions"),
         },
       ],
     });
@@ -1041,13 +1040,7 @@ describe("the setup status of a repository_actions repository", () => {
       pullRequests: { state: "unavailable" },
       stacks: { state: "available", stacks: [] },
       setupStack: null,
-      attention: [
-        {
-          tool: null,
-          problem:
-            "The team's Alchemy state store holds no stack for samebase/base-alchemy, so Samebase cannot see what is deployed. An app deployed another way keeps running. Move it to Alchemy to see it here: https://samebase.com/docs/the-big-migration",
-        },
-      ],
+      attention: [{ tool: null, problem: expect.stringContaining("samebase/base-alchemy") }],
     });
   });
 

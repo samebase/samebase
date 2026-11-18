@@ -189,7 +189,6 @@ describe("create repository through GitHub Actions", () => {
           githubRepositoryName: "actions-app",
         },
       });
-      expect(rows.repository).not.toHaveProperty("cloudflareAccountId");
     },
   );
 
@@ -204,19 +203,6 @@ describe("create repository through GitHub Actions", () => {
     await expect(
       viewer.action(api.repository.create, { organizationId, ...repositoryActionsCreateArgs }),
     ).rejects.toThrow("Only an organization owner can create a repository");
-  });
-
-  it("records no Cloudflare account when the organization has one", async () => {
-    const { organizationId, t, viewer } = await createRepositoryFixture();
-
-    const result = await viewer.action(api.repository.create, {
-      organizationId,
-      ...repositoryActionsCreateArgs,
-    });
-
-    expect(await t.run(async (ctx) => await ctx.db.get(result.repositoryId))).not.toHaveProperty(
-      "cloudflareAccountId",
-    );
   });
 
   it("needs no provisioning argument from an MCP caller", async () => {

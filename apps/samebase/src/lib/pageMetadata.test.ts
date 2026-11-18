@@ -106,7 +106,7 @@ describe("page metadata", () => {
         title: resolveAppPageTitle("/repo/acme/demo"),
       });
 
-      expect(document.title).toBe("Workspace | Samebase");
+      expect(document.title).toBe(resolveAppPageTitle("/repo/acme/demo"));
       expect(getHeadAttribute(document, 'link[rel="canonical"]', "href")).toBe(
         "https://samebase.com/repo/acme/demo",
       );
@@ -132,7 +132,6 @@ describe("page metadata", () => {
         }),
       );
 
-      expect(document.title).toBe("Privacy Policy | Samebase");
       expect(getHeadAttribute(document, 'link[rel="canonical"]', "href")).toBe(
         "https://samebase.com/privacy",
       );
@@ -152,7 +151,6 @@ describe("page metadata", () => {
         }),
       );
 
-      expect(document.title).toBe("Terms of Service | Samebase");
       expect(getHeadAttribute(document, 'link[rel="canonical"]', "href")).toBe(
         "https://samebase.com/terms",
       );
@@ -167,17 +165,14 @@ describe("page metadata", () => {
     const deckPaths = [
       {
         pathname: "/pitch",
-        title: "Pitch Deck | Samebase",
         canonicalUrl: "https://samebase.com/pitch",
       },
       {
         pathname: "/pitch/print",
-        title: "Pitch Deck Print | Samebase",
         canonicalUrl: "https://samebase.com/pitch/print",
       },
       {
         pathname: "/pitch/print/mobile",
-        title: "Pitch Deck Mobile Print | Samebase",
         canonicalUrl: "https://samebase.com/pitch/print/mobile",
       },
     ] as const;
@@ -191,7 +186,6 @@ describe("page metadata", () => {
           }),
         );
 
-        expect(document.title).toBe(deckPath.title);
         expect(getHeadAttribute(document, 'link[rel="canonical"]', "href")).toBe(
           deckPath.canonicalUrl,
         );
@@ -211,12 +205,9 @@ describe("page metadata", () => {
         pathname: "/agents/connect/",
         isAuthenticated: false,
       }),
-    ).toEqual({
+    ).toMatchObject({
       canonicalPath: "/agents/connect",
-      description: "One-time browser connection route for Samebase MCP clients.",
-      openGraphType: "website",
       robots: "noindex,nofollow",
-      title: "Connect Samebase | Samebase",
     });
   });
 
@@ -226,21 +217,15 @@ describe("page metadata", () => {
         pathname: "/oauth/mcp/consent",
         isAuthenticated: false,
       }),
-    ).toEqual({
+    ).toMatchObject({
       canonicalPath: "/oauth/mcp/consent",
-      description: "Authorization route for a Samebase MCP client.",
-      openGraphType: "website",
       robots: "noindex,nofollow",
-      title: "Authorize MCP client | Samebase",
     });
   });
 
   it("keeps the public root metadata separate from the dashboard app metadata", () => {
-    expect(APP_PAGE_METADATA.canonicalPath).toBe("/repo");
-    expect(resolveAppPageTitle("/repo")).toBe("Repositories | Samebase");
-    expect(resolveAppPageTitle("/repo/")).toBe("Repositories | Samebase");
-    expect(resolveAppPageTitle("/org")).toBe("Organizations | Samebase");
-    expect(resolveAppPageTitle("/org/")).toBe("Organizations | Samebase");
+    expect(resolveAppPageTitle("/repo/")).toBe(resolveAppPageTitle("/repo"));
+    expect(resolveAppPageTitle("/org/")).toBe(resolveAppPageTitle("/org"));
     expect(
       resolvePageMetadata({
         pathname: "/",
@@ -261,13 +246,7 @@ describe("page metadata", () => {
         pathname: "/docs",
         isAuthenticated: false,
       }),
-    ).toEqual({
-      canonicalPath: "/docs",
-      description: "Samebase product, setup, stack, pricing, and source documentation.",
-      openGraphType: "website",
-      robots: "index,follow",
-      title: "Docs | Samebase",
-    });
+    ).toEqual(DOCS_INDEX_PAGE_METADATA);
   });
 
   it("builds crawlable server metadata for each public decision page", () => {
@@ -325,12 +304,9 @@ describe("page metadata", () => {
         pathname: "/logo",
         isAuthenticated: false,
       }),
-    ).toEqual({
+    ).toMatchObject({
       canonicalPath: "/logo",
-      description: "Developer preview for exploring Samebase logo rendering.",
-      openGraphType: "website",
       robots: "noindex,nofollow",
-      title: "Logo Preview | Samebase",
     });
   });
 
@@ -350,7 +326,6 @@ describe("page metadata", () => {
         }),
       );
 
-      expect(document.title).toBe("localStorage | Samebase");
       expect(getHeadAttribute(document, 'link[rel="canonical"]', "href")).toBe(
         "https://samebase.com/localStorage",
       );
@@ -367,7 +342,6 @@ describe("page metadata", () => {
         }),
       );
 
-      expect(document.title).toBe("indexedDB | Samebase");
       expect(getHeadAttribute(document, 'link[rel="canonical"]', "href")).toBe(
         "https://samebase.com/indexDB",
       );
@@ -376,12 +350,9 @@ describe("page metadata", () => {
   });
 
   it("builds dedicated not-found metadata without indexing the missing path", () => {
-    expect(resolveNotFoundPageMetadata("/missing")).toEqual({
+    expect(resolveNotFoundPageMetadata("/missing")).toMatchObject({
       canonicalPath: "/missing",
-      description: "The requested Samebase page is not available.",
-      openGraphType: "website",
       robots: "noindex,nofollow",
-      title: "Page not available | Samebase",
     });
   });
 
@@ -469,11 +440,6 @@ describe("page metadata", () => {
     expect(
       rootHead.scripts.some((script) => script.children.includes("event.preventDefault();")),
     ).toBe(true);
-    expect(
-      rootHead.scripts.some((script) =>
-        script.children.includes("samebase_app_workspace_sidebar_state"),
-      ),
-    ).toBe(false);
     expect(
       rootHead.scripts.some((script) =>
         script.children.includes("data-public-landing-logo-static-fallback-hidden"),

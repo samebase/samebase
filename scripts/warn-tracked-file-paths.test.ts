@@ -5,10 +5,7 @@ import path from "node:path";
 import { describe, expect, it } from "vite-plus/test";
 
 import { trackedFilePathsOutputPath } from "./generate-tracked-file-paths.ts";
-import {
-  formatTrackedFilePathsFreshnessWarning,
-  readTrackedFilePathsFreshness,
-} from "./warn-tracked-file-paths.ts";
+import { readTrackedFilePathsFreshness } from "./warn-tracked-file-paths.ts";
 
 function createRepoWithTrackedGeneratedFile(): string {
   const repoRoot = mkdtempSync(path.join(tmpdir(), "tracked-file-paths-warning-test-"));
@@ -43,10 +40,5 @@ describe("warn-tracked-file-paths", () => {
     } finally {
       rmSync(repoRoot, { recursive: true, force: true });
     }
-  });
-
-  it("documents that stale generated output is warning-only", () => {
-    expect(formatTrackedFilePathsFreshnessWarning()).toContain("warning-only");
-    expect(formatTrackedFilePathsFreshnessWarning()).toContain("referenced files disappear");
   });
 });

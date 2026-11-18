@@ -136,7 +136,6 @@ test.describe("fileview mobile", () => {
 
     await scrollFileViewCarouselToPane(page, "right");
 
-    await expect(page.getByTestId("workspace-sidebar-main-scrim")).toHaveCount(0);
     await expect(page.getByTestId("fileview-layout-body-button")).toBeVisible();
     await expect
       .poll(async () =>

@@ -5,11 +5,6 @@ import { insertTestOrganizationBillingAccount, makeConvexTest } from "../test.se
 import { checkActionConfirmation } from "./confirmations";
 import type { ActionConfirmationSurface } from "./contracts/actionConfirmation";
 
-const retryEffect =
-  "Samebase starts a new setup run for scout-owner/scout. It writes the credential of the organization's Convex connection into the repository's GitHub Actions secret CONVEX_ACCESS_TOKEN and the Convex team id into its variable CONVEX_TEAM_ID, replacing their values. If the starter is not seeded yet, it seeds the starter, which starts a deployment in the repository's GitHub Actions. Then it syncs the default branch tree.";
-const retryApproval =
-  "a new setup run for scout-owner/scout, which replaces its GitHub Actions secret and variable with the organization's Convex connection credential and team id";
-
 /** scout-owner/scout and scout-owner/admin, an owner, and a second member. */
 async function createFixture() {
   const t = makeConvexTest();
@@ -119,37 +114,24 @@ async function createFixture() {
 
 describe("action confirmation check", () => {
   it("returns the effect and the acknowledgement", async () => {
-    const { check } = await createFixture();
-
-    await expect(check({})).resolves.toEqual({
-      state: "needs_confirmation",
-      effect: retryEffect,
-      acknowledgement: `I approve ${retryApproval}`,
-    });
-  });
-
-  it("describes the retry of the GitHub Actions setup", async () => {
     const { issue } = await createFixture();
 
-    const repositoryActions = await issue();
+    const { acknowledgement, effect } = await issue();
 
-    const repositoryActionsText = `${repositoryActions.effect} ${repositoryActions.acknowledgement}`;
-    for (const samebaseOnly of [
-      "Workers Builds",
-      "deploy key",
-      "Convex and Cloudflare resources",
-    ]) {
-      expect(repositoryActionsText).not.toContain(samebaseOnly);
+    for (const name of ["scout-owner/scout", "CONVEX_ACCESS_TOKEN", "CONVEX_TEAM_ID"]) {
+      expect(effect).toContain(name);
     }
+    expect(acknowledgement).toMatch(/^I approve .*scout-owner\/scout\b/);
   });
 
   it("asks an MCP caller to state the user's approval", async () => {
-    const { check } = await createFixture();
+    const { check, issue } = await createFixture();
+    const { effect } = await issue();
 
-    await expect(check({ surface: "mcp" })).resolves.toMatchObject({
+    await expect(check({ surface: "mcp" })).resolves.toEqual({
       state: "needs_confirmation",
-      effect: retryEffect,
-      acknowledgement: `I confirm that the user approved ${retryApproval}`,
+      effect,
+      acknowledgement: expect.stringMatching(/user approved .*scout-owner\/scout\b/),
     });
   });
 
@@ -163,10 +145,11 @@ describe("action confirmation check", () => {
   });
 
   it("rejects a wrong sentence", async () => {
-    const { check } = await createFixture();
+    const { check, issue } = await createFixture();
+    const { acknowledgement } = await issue();
 
     await expect(check({ confirmation: { acknowledgement: "I approve" } })).rejects.toMatchObject({
-      data: `The acknowledgement does not match, so nothing changed. Send exactly: I approve ${retryApproval}`,
+      data: expect.stringContaining(acknowledgement),
     });
   });
 

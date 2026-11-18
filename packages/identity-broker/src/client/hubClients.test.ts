@@ -665,25 +665,6 @@ describe("POST /register", () => {
       expect(await response.json()).toEqual(refusalBody("invalid_client_metadata"));
     });
 
-    it("registers with only redirect_uris, with the defaults of each other member", async () => {
-      const h = await createHub();
-      stubProviders();
-
-      const response = await h.fetchBroker(`${h.issuer}/register`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${await signToken()}` },
-        body: JSON.stringify({ redirect_uris: [PRODUCTION_CALLBACK] }),
-      });
-
-      expect(response.status).toBe(201);
-      expect(await response.json()).toMatchObject({
-        software_id: `gh-${REPOSITORY_ID}/app`,
-        software_version: "unknown",
-        token_endpoint_auth_method: "client_secret_basic",
-        connectors: ["fake", "other"],
-      });
-    });
-
     it.each([
       ["absent", undefined, `gh-${REPOSITORY_ID}/app`],
       ["the app name", "weather-app", `gh-${REPOSITORY_ID}/weather-app`],

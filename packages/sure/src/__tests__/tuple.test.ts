@@ -9,7 +9,6 @@ import {
   bad,
   spread_NOT_IMPLEMENTED,
   array,
-  nil,
   undef,
 } from "../index.ts";
 import type {
@@ -248,65 +247,5 @@ describe("tuple", () => {
     type InferSchema = TupleInferGoods<typeof arrSchema>;
 
     assertEqual<InferSchema, [string, ...number[], string]>(true);
-  });
-
-  it("DX: should allow spread tuples", () => {
-    const arrSchema = [
-      //
-      string,
-      spread_NOT_IMPLEMENTED(array(number)),
-      string,
-    ] as const;
-
-    // eslint-disable-next-line no-unused-vars -- type-test scaffolding
-    type InferSchema = typeof arrSchema;
-
-    const schema = tuple([
-      //
-      string,
-      spread_NOT_IMPLEMENTED(array(number)),
-      string,
-    ]);
-
-    type InferredGood = InferGood<typeof schema>;
-
-    assertEqual<InferredGood, [string, ...number[], string]>(true);
-  });
-
-  it("ISSUE: Typescript does not allow multiple rest operators in a tuple", () => {
-    const schema = tuple([
-      //
-      string,
-      spread_NOT_IMPLEMENTED(array(number)),
-
-      nil,
-
-      spread_NOT_IMPLEMENTED(smallSchema),
-    ]);
-
-    type InferredGood = InferGood<typeof schema>;
-
-    // @ts-expect-error TypeScript does not allow multiple rest elements in one tuple.
-    assertEqual<InferredGood, [string, ...number[], null, ...[undefined, ...string[], number]]>(
-      true,
-    );
-
-    // INFO & TODO: The actual type is `[string, ...(string | number | null | undefined)[], number]`
-    //  but it's not possible to type it like this. Needs more docs
-  });
-
-  it.skip("UNIT: should actually validate at runtime", () => {
-    const smallSchema = tuple([
-      //
-      undef,
-      spread_NOT_IMPLEMENTED(array(string)),
-      number,
-    ]);
-
-    const value = smallSchema([undefined, "adf", "aaa", 3]);
-
-    const expected: InferGood<typeof smallSchema> = [undefined, "adf", "aaa", 3];
-
-    expect(value).toStrictEqual(good(expected));
   });
 });

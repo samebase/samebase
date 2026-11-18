@@ -325,9 +325,6 @@ describe("MCP tool runtime boundaries", () => {
       expect(repository).not.toHaveProperty("convexTeamId");
       expect(repository).not.toHaveProperty("defaultBranch");
       expect(repository).not.toHaveProperty("hasConnectedGitHubRepository");
-      expect(repository).not.toHaveProperty("pendingCloudflareSetup");
-      expect(repository).not.toHaveProperty("cloudflareWorkers");
-      expect(repository).not.toHaveProperty("convexProjects");
     }
     expect(result.structuredContent.repositories).toEqual(
       expect.arrayContaining([
@@ -335,7 +332,7 @@ describe("MCP tool runtime boundaries", () => {
           repositoryId: authorizedRepositoryId,
           sourceSetup: {
             status: "failed",
-            message: "Source setup failed. Check this repository in Samebase for recovery steps.",
+            message: expect.stringContaining("Source setup failed"),
           },
         }),
         expect.objectContaining({
@@ -696,7 +693,7 @@ describe("MCP tool runtime boundaries", () => {
 
     expect(result).toEqual({
       status: "error",
-      text: "No Samebase repository matches tool-runtime-owner/missing. Pass owner/name or a repositoryId from repository_list. To add an existing GitHub repository to Samebase, call repository_connect.",
+      text: expect.stringContaining("No Samebase repository matches tool-runtime-owner/missing"),
     });
     expect(fetch).not.toHaveBeenCalled();
   });

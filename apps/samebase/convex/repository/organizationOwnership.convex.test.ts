@@ -247,8 +247,6 @@ describe("organization-owned repositories", () => {
       organizationId,
       githubRepositoryName: "app",
     });
-    expect(repository).not.toHaveProperty("owner");
-    expect(repository).not.toHaveProperty("userId");
     await expect(
       t.mutation(internal.repository.records.createInitializingExistingRepositoryForUser, {
         organizationId,
@@ -614,9 +612,6 @@ describe("organization-owned repositories", () => {
     await expect(asUser.query(api.repository.list)).resolves.toMatchObject([
       { repositoryId, githubRepositoryFullName: "after-rename/rename-app" },
     ]);
-    await expect(t.run(async (ctx) => await ctx.db.get(repositoryId))).resolves.not.toHaveProperty(
-      "owner",
-    );
   });
 
   it("copies organization destinations into both repository creation paths and preserves them", async () => {

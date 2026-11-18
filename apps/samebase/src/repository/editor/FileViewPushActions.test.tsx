@@ -3,68 +3,26 @@ import { describe, expect, it, vi } from "vite-plus/test";
 import { renderToStaticMarkup } from "react-dom/server";
 
 vi.mock("@/components/ui/button", () => ({
-  Button: ({
-    children,
-    className,
-    disabled,
-    size,
-    variant,
-  }: {
-    children?: ReactNode;
-    className?: string;
-    disabled?: boolean;
-    size?: string;
-    variant?: string;
-  }) => (
-    <button className={className} disabled={disabled} data-size={size} data-variant={variant}>
-      {children}
-    </button>
+  Button: ({ children, disabled }: { children?: ReactNode; disabled?: boolean }) => (
+    <button disabled={disabled}>{children}</button>
   ),
 }));
 
 vi.mock("@/components/PullRequestLink", () => ({
-  PullRequestLink: ({
-    pullRequestNumber,
-    pullRequestUrl,
-    className,
-  }: {
-    pullRequestNumber?: number;
-    pullRequestUrl: string;
-    className?: string;
-  }) => (
-    <a
-      className={className}
-      data-component="PullRequestLink"
-      data-pull-request-number={pullRequestNumber}
-      href={pullRequestUrl}
-    >
-      {typeof pullRequestNumber === "number" ? `#${pullRequestNumber}` : "PR"}
-    </a>
-  ),
+  PullRequestLink: ({ pullRequestUrl }: { pullRequestUrl: string }) => <a href={pullRequestUrl} />,
 }));
 
 import { FileViewPushActions } from "./FileViewPushActions";
 
+function readButtons(markup: string) {
+  return [...markup.matchAll(/<button([^>]*)>([^<]*)<\/button>/g)].map(([, attributes, label]) => ({
+    label,
+    disabled: attributes.includes("disabled"),
+  }));
+}
+
 describe("FileViewPushActions", () => {
-  it("matches the default-branch draft and push snapshot", () => {
-    const markup = renderToStaticMarkup(
-      <FileViewPushActions
-        canCreateDraftPullRequest
-        draftButtonLabel="draft"
-        hasChangesToCommit
-        isCreatingDraftPullRequest={false}
-        isPushing={false}
-        onCreateDraftPullRequest={() => {}}
-        onManualCommit={() => {}}
-      />,
-    );
-
-    expect(markup).toMatchInlineSnapshot(
-      `"<button class="h-6 px-2 text-xs border-sky-500 text-sky-700 hover:bg-sky-50" data-size="sm" data-variant="outline">draft</button><button class="h-6 px-2 text-xs bg-green-600 hover:bg-green-700 text-white" data-size="sm" data-variant="default">push</button>"`,
-    );
-  });
-
-  it("matches the branch create-draft and push snapshot", () => {
+  it("offers the draft and push actions when there are changes", () => {
     const markup = renderToStaticMarkup(
       <FileViewPushActions
         canCreateDraftPullRequest
@@ -77,12 +35,13 @@ describe("FileViewPushActions", () => {
       />,
     );
 
-    expect(markup).toMatchInlineSnapshot(
-      `"<button class="h-6 px-2 text-xs border-sky-500 text-sky-700 hover:bg-sky-50" data-size="sm" data-variant="outline">create draft</button><button class="h-6 px-2 text-xs bg-green-600 hover:bg-green-700 text-white" data-size="sm" data-variant="default">push</button>"`,
-    );
+    expect(readButtons(markup)).toEqual([
+      { label: "create draft", disabled: false },
+      { label: "push", disabled: false },
+    ]);
   });
 
-  it("matches the existing PR and synced snapshot", () => {
+  it("links the existing pull request and shows a disabled synced state", () => {
     const markup = renderToStaticMarkup(
       <FileViewPushActions
         canCreateDraftPullRequest={false}
@@ -97,9 +56,8 @@ describe("FileViewPushActions", () => {
       />,
     );
 
-    expect(markup).toMatchInlineSnapshot(
-      `"<a class="text-xs" data-component="PullRequestLink" data-pull-request-number="999" href="https://github.com/samebase/samebase/pull/999">#999</a><button class="h-6 px-2 text-xs border-green-500 text-green-600 hover:bg-green-50" disabled="" data-size="sm" data-variant="outline">All Synced</button>"`,
-    );
+    expect(markup).toContain('href="https://github.com/samebase/samebase/pull/999"');
+    expect(readButtons(markup)).toEqual([{ label: "All Synced", disabled: true }]);
   });
 
   it("disables push while a draft pull request is being created", () => {
@@ -115,8 +73,9 @@ describe("FileViewPushActions", () => {
       />,
     );
 
-    expect(markup).toMatchInlineSnapshot(
-      `"<button class="h-6 px-2 text-xs border-sky-500 text-sky-700 hover:bg-sky-50" disabled="" data-size="sm" data-variant="outline">Creating...</button><button class="h-6 px-2 text-xs bg-green-600 hover:bg-green-700 text-white" disabled="" data-size="sm" data-variant="default">push</button>"`,
-    );
+    expect(readButtons(markup)).toEqual([
+      { label: "Creating...", disabled: true },
+      { label: "push", disabled: true },
+    ]);
   });
 });

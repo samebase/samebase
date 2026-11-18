@@ -87,10 +87,6 @@ describe("useAppAuthRuntimeEffects", () => {
       signup: "google",
     });
 
-    expect(useAutoSignInMock).toHaveBeenCalledWith({
-      "swipe-debug": true,
-      signup: "google",
-    });
     expect(replaceStateMock).toHaveBeenCalledWith(
       { __TSR_index: 4, __TSR_key: "landing" },
       "",
@@ -116,9 +112,6 @@ describe("useAppAuthRuntimeEffects", () => {
       signup: "google",
     });
 
-    expect(useAutoSignInMock).toHaveBeenCalledWith({
-      signup: "google",
-    });
     expect(navigateMock).not.toHaveBeenCalled();
     expect(replaceStateMock).not.toHaveBeenCalled();
   });

@@ -180,31 +180,6 @@ test("desktop v2 fixture keeps the main header fixed while the editor body scrol
   expect(mainHeaderAfter.height).toBe(mainHeaderBefore.height);
 });
 
-test("mobile v2 fixture uses the carousel to move between panes", async ({ page }) => {
-  const viewport = page.viewportSize();
-  test.skip(viewport === null || viewport.width >= 768, "mobile-only repro");
-
-  await openSidebarLayoutFixture(page);
-
-  const layout = page.locator('[data-sidebar-layout-part="viewport"]');
-  await expect(layout).toHaveAttribute("data-mobile-pane", "main");
-
-  await scrollWorkspaceCarouselToPane(page, "left");
-  await expect(
-    page.locator('[data-sidebar-layout-part="resize-handle"][data-resize-side="left"]'),
-  ).toHaveCount(1);
-
-  await scrollWorkspaceCarouselToPane(page, "main");
-  await expect(
-    page.locator('[data-sidebar-layout-part="resize-handle"][data-resize-side="left"]'),
-  ).toHaveCount(0);
-
-  await scrollWorkspaceCarouselToPane(page, "right");
-  await expect(
-    page.locator('[data-sidebar-layout-part="resize-handle"][data-resize-side="right"]'),
-  ).toHaveCount(1);
-});
-
 test("mobile v2 fixture keeps grip targets centered while rendering dots outside the active sidebar", async ({
   page,
 }) => {
@@ -244,24 +219,6 @@ test("mobile v2 fixture keeps grip targets centered while rendering dots outside
   expect(rightGripBox.x).toBeLessThan(rightPaneBox.x);
   expect(rightGripBox.x + rightGripBox.width).toBeGreaterThan(rightPaneBox.x);
   expect(rightDotsBox.x + rightDotsBox.width).toBeLessThanOrEqual(rightPaneBox.x);
-});
-
-test("mobile v2 fixture renders sidebar grip targets on the active sidebar", async ({ page }) => {
-  const viewport = page.viewportSize();
-  test.skip(viewport === null || viewport.width >= 768, "mobile-only repro");
-
-  await openSidebarLayoutFixture(page);
-  await scrollWorkspaceCarouselToPane(page, "left");
-  await expect(
-    page
-      .locator('[data-sidebar-layout-part="resize-handle"][data-resize-side="left"]')
-      .locator('[data-sidebar-layout-part="resize-grip-indicator"]'),
-  ).toHaveCount(1);
-
-  await scrollWorkspaceCarouselToPane(page, "main");
-  await expect(
-    page.locator('[data-sidebar-layout-part="resize-handle"][data-resize-side="left"]'),
-  ).toHaveCount(0);
 });
 
 test("mobile v2 fixture vertical main-editor scrolling reveals later Monaco content", async ({

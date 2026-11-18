@@ -101,7 +101,6 @@ test.provider("changes component bindings without replacing resources or pushing
         .query(api.reader.repository, {});
       expect(result.stacks).toHaveLength(1);
       const value = result.stacks[0]?.stages[0]?.resources[0]?.value;
-      expect(value).toBeDefined();
       expect(JSON.parse(value ?? "null")).toMatchObject({ bindings: [binding] });
     });
   }),

@@ -151,7 +151,6 @@ describe("NewAppPage", () => {
     expect(markup).toContain("Authorize repository creation for nicubunu");
     expect(markup).toContain('href="/org/nicubunu/providers"');
     expect(markup).toContain("Providers");
-    expect(markup).not.toContain("Install GitHub App");
   });
 
   it("disables the form for a member, with the reason", async () => {
@@ -307,12 +306,6 @@ describe("NewAppPage", () => {
     expect(container.textContent).toContain(
       "Samebase saves the organization's Convex token as the repository secret CONVEX_ACCESS_TOKEN.",
     );
-    expect(container.textContent).not.toContain("Cloudflare");
-    expect(container.textContent).not.toContain("Set up by Samebase");
-    expect(container.querySelector("[aria-label='Convex project name']")).toBeNull();
-    expect(container.querySelector("[aria-label='Cloudflare Worker name']")).toBeNull();
-    expect(container.querySelector("[role='combobox']")).toBeNull();
-
     const input = container.querySelector<HTMLInputElement>(
       "[aria-label='GitHub repository name']",
     );

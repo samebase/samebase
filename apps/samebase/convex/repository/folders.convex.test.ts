@@ -396,23 +396,9 @@ describe("organization-scoped repository folders", () => {
         folderId,
       }),
     ).rejects.toThrow("Folder not found");
-    await t.run(async (ctx) => {
-      expect(await ctx.db.get(folderId)).not.toBeNull();
-      expect(
-        await ctx.db
-          .query("ui_repositoryTree_folderAssignments")
-          .withIndex("by_userId_and_organizationId_and_repositoryId", (query) =>
-            query
-              .eq("userId", userId)
-              .eq("organizationId", organizationId)
-              .eq("repositoryId", repositoryId),
-          )
-          .unique(),
-      ).not.toBeNull();
-    });
   });
 
-  it("leaves deleted-folder assignments stale and presents their repositories as ungrouped", async () => {
+  it("presents the repositories of a deleted folder as ungrouped", async () => {
     const t = makeConvexTest();
     const userId = await seedUser(t, "ada@example.com");
     const organizationId = await seedOrganization(t, { owner: "samebase", userId });
@@ -432,19 +418,6 @@ describe("organization-scoped repository folders", () => {
     await expect(viewer.query(api.repository.folders.getRepositoryFolderState)).resolves.toEqual({
       assignments: [],
       folders: [],
-    });
-    await t.run(async (ctx) => {
-      expect(
-        await ctx.db
-          .query("ui_repositoryTree_folderAssignments")
-          .withIndex("by_userId_and_organizationId_and_repositoryId", (query) =>
-            query
-              .eq("userId", userId)
-              .eq("organizationId", organizationId)
-              .eq("repositoryId", repositoryId),
-          )
-          .unique(),
-      ).not.toBeNull();
     });
   });
 

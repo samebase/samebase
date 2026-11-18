@@ -172,39 +172,22 @@ describe("logoRouteSearch", () => {
 
     expect(search).toEqual({});
     expect("animate-colors" in search).toBe(true);
-    expect(search["animate-colors"]).toBeUndefined();
     expect("animate-stripes" in search).toBe(true);
-    expect(search["animate-stripes"]).toBeUndefined();
     expect("auto-rotate" in search).toBe(true);
-    expect(search["auto-rotate"]).toBeUndefined();
     expect("auto-shuffle" in search).toBe(true);
-    expect(search["auto-shuffle"]).toBeUndefined();
     expect("axis" in search).toBe(true);
-    expect(search.axis).toBeUndefined();
     expect("elev" in search).toBe(true);
-    expect(search.elev).toBeUndefined();
     expect("depth" in search).toBe(true);
-    expect(search.depth).toBeUndefined();
     expect("dist" in search).toBe(true);
-    expect(search.dist).toBeUndefined();
     expect("freeView" in search).toBe(true);
-    expect(search.freeView).toBeUndefined();
     expect("gridSize" in search).toBe(true);
-    expect(search.gridSize).toBeUndefined();
     expect("zoom" in search).toBe(true);
-    expect(search.zoom).toBeUndefined();
     expect("leftFace" in search).toBe(true);
-    expect(search.leftFace).toBeUndefined();
     expect("opacity" in search).toBe(true);
-    expect(search.opacity).toBeUndefined();
     expect("rot" in search).toBe(true);
-    expect(search.rot).toBeUndefined();
     expect("rotationSpeed" in search).toBe(true);
-    expect(search.rotationSpeed).toBeUndefined();
     expect("shuffleMoves" in search).toBe(true);
-    expect(search.shuffleMoves).toBeUndefined();
     expect("vox" in search).toBe(true);
-    expect(search.vox).toBeUndefined();
   });
 
   it("preserves non-default logo motion and opacity route state", () => {
@@ -277,9 +260,7 @@ describe("logoRouteSearch", () => {
 
     expect(search).toEqual({});
     expect("isoSide" in search).toBe(true);
-    expect(search.isoSide).toBeUndefined();
     expect("isoStyle" in search).toBe(true);
-    expect(search.isoStyle).toBeUndefined();
   });
 
   it("keeps carpet hover params on the carpet route schema only", () => {
@@ -470,11 +451,8 @@ describe("logoRouteSearch", () => {
 
     expect(search).toEqual({});
     expect("mechanic" in search).toBe(true);
-    expect(search.mechanic).toBeUndefined();
     expect("radius" in search).toBe(true);
-    expect(search.radius).toBeUndefined();
     expect("depth" in search).toBe(true);
-    expect(search.depth).toBeUndefined();
 
     const nonDefaultSearch = buildLogoCarpetHoverRouteSearch({
       ...routeBuildDefaults,
@@ -519,39 +497,22 @@ describe("logoRouteSearch", () => {
     });
     expect(mengerDefaults).toEqual({});
     expect("aa" in mengerDefaults).toBe(true);
-    expect(mengerDefaults.aa).toBeUndefined();
     expect("depth" in mengerDefaults).toBe(true);
-    expect(mengerDefaults.depth).toBeUndefined();
     expect("resolution" in mengerDefaults).toBe(true);
-    expect(mengerDefaults.resolution).toBeUndefined();
     expect("perf" in mengerDefaults).toBe(true);
-    expect(mengerDefaults.perf).toBeUndefined();
     expect("three" in mengerDefaults).toBe(true);
-    expect(mengerDefaults.three).toBeUndefined();
     expect("tilt" in mengerDefaults).toBe(true);
-    expect(mengerDefaults.tilt).toBeUndefined();
     expect("tiltRadius" in mengerDefaults).toBe(true);
-    expect(mengerDefaults.tiltRadius).toBeUndefined();
     expect("tiltStrength" in mengerDefaults).toBe(true);
-    expect(mengerDefaults.tiltStrength).toBeUndefined();
     expect("probe" in mengerDefaults).toBe(true);
-    expect(mengerDefaults.probe).toBeUndefined();
     expect("probeDisabled" in mengerDefaults).toBe(true);
-    expect(mengerDefaults.probeDisabled).toBeUndefined();
     expect("probePath" in mengerDefaults).toBe(true);
-    expect(mengerDefaults.probePath).toBeUndefined();
     expect("probeLanding" in mengerDefaults).toBe(true);
-    expect(mengerDefaults.probeLanding).toBeUndefined();
     expect("probeLandingOff" in mengerDefaults).toBe(true);
-    expect(mengerDefaults.probeLandingOff).toBeUndefined();
     expect("probePathVisible" in mengerDefaults).toBe(true);
-    expect(mengerDefaults.probePathVisible).toBeUndefined();
     expect("probePathHidden" in mengerDefaults).toBe(true);
-    expect(mengerDefaults.probePathHidden).toBeUndefined();
     expect("probeStart" in mengerDefaults).toBe(true);
-    expect(mengerDefaults.probeStart).toBeUndefined();
     expect("probeOffset" in mengerDefaults).toBe(true);
-    expect(mengerDefaults.probeOffset).toBeUndefined();
 
     const automaticProbeSearch = buildLogoMengerHoverRouteSearch({
       ...mengerRouteBuildDefaults,
@@ -815,13 +776,6 @@ describe("logoRouteSearch", () => {
     });
   });
 
-  it("ignores the unsupported base query key", () => {
-    expect(validateLogoRouteSearch({ base: "#112233" })).toEqual({});
-    expect(validateLogoRouteSearch({ background: "#445566", base: "#112233" })).toEqual({
-      background: "#445566",
-    });
-  });
-
   it("keeps grid size and voxel state as one coherent route shape", () => {
     const grid2VoxelState = createDefaultVoxelState(LOGO_GRID_SIZE_2);
     const grid3VoxelState = createDefaultVoxelState(LOGO_GRID_SIZE_3);
@@ -829,7 +783,6 @@ describe("logoRouteSearch", () => {
     const grid5VoxelState = createDefaultVoxelState(LOGO_GRID_SIZE_5);
     const grid10VoxelState = createDefaultVoxelState(MAX_LOGO_GRID_SIZE);
 
-    expect(DEFAULT_LOGO_GRID_SIZE).toBe(LOGO_GRID_SIZE_3);
     expect(validateLogoRouteSearch({ vox: grid3VoxelState })).toEqual({
       vox: grid3VoxelState,
     });
@@ -1072,7 +1025,6 @@ describe("logoRouteSearch", () => {
     expect(defaultStripedSearch).toEqual({
       leftFace: "striped",
     });
-    expect(defaultStripedSearch.leftFace).toBe("striped");
 
     expect(
       buildLogoRouteSearch({
@@ -1164,7 +1116,6 @@ describe("logoRouteSearch", () => {
     const defaultSecondarySearch = validateLogoRouteSearch({ leftFace: "secondary" });
 
     expect(defaultSecondarySearch).toEqual({});
-    expect(defaultSecondarySearch.leftFace).toBeUndefined();
 
     expect(
       buildLogoRouteSearch({

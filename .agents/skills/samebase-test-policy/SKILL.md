@@ -43,6 +43,24 @@ For browser tests that change stored data, create isolated user, organization, a
 it up when the test can do so safely. Do not mutate a shared Playwright account and depend on test
 order.
 
+## Prune tests that guard no behavior
+
+A test stays only when it fails on a regression of a current contract and changes only when that
+contract changes. Do not add, and delete or rewrite against the contract, a test that depends on:
+
+- **The past.** It asserts that a removed feature, route, name, or piece of copy is absent. Removed
+  code cannot regress. A negative assertion stays when it guards a current rule, such as no secret
+  in the output or no access after a member leaves.
+- **Nothing.** No change to the code can make it fail. It tests the browser or a library, asserts
+  what a mock returns, or asserts what the type system already proves.
+- **The implementation.** It changes whenever the code does, even when the contract did not. It
+  computes the expected value with the same logic as the code, reads private state or internal call
+  order, or repeats a copy string or pinned version from the file under test. Assert calls only at
+  an external boundary, such as a provider request.
+
+When a test goes, delete the fixtures, screenshot baselines, and production exports that only it
+used.
+
 ## Choose the run scope
 
 - Run the focused tests that own the changed contracts during a feature task.

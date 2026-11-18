@@ -214,19 +214,8 @@ describe("readSuggestions", () => {
 
     expect(standardRows.some((row) => row.kind === "path" && row.dev)).toBe(false);
     expect(standardRows.map((row) => row.value)).not.toContain("/logo");
-    expect(developerPaths).toEqual([
-      "/logo",
-      "/logo/hover/carpet",
-      "/logo/hover/menger",
-      "/logo/iso",
-      "/logo/raster",
-      "/logo/raster-seams",
-      "/logo/single-cube",
-      "/logo/svg",
-      "/logo/transition",
-      "/logo/transition/menger",
-      "/logo/transition/transforms",
-    ]);
+    expect(developerPaths).toContain("/logo");
+    expect(developerPaths.every((path) => path.startsWith("/logo"))).toBe(true);
   });
 
   it("preserves query text when building path suggestion rows", () => {
@@ -333,20 +322,12 @@ describe("readSuggestions", () => {
       routeTextBeforeCursor: "/terms?",
     });
 
-    expect(
-      logoRows.slice(0, 3).map((row) => [row.kind === "search" ? row.group : null, row.value]),
-    ).toEqual([
-      ["theme", "?background=lime-50"],
-      ["theme", "?border=rose-300"],
-      ["theme", "?dark"],
-    ]);
-    expect(
-      logoRows.map((row) => (row.kind === "search" ? row.group : null)).filter(Boolean),
-    ).toEqual([
-      ...Array(6).fill("theme"),
-      ...Array(12).fill("logo"),
-      ...Array(7).fill("logo-motion"),
-      ...Array(5).fill("logo-view"),
+    const logoGroups = logoRows.flatMap((row) => (row.kind === "search" ? [row.group] : []));
+    expect(logoGroups.filter((group, index) => group !== logoGroups[index - 1])).toEqual([
+      "theme",
+      "logo",
+      "logo-motion",
+      "logo-view",
     ]);
     expect(logoRows.map((row) => row.value)).toEqual(
       expect.arrayContaining([
@@ -358,9 +339,9 @@ describe("readSuggestions", () => {
       ]),
     );
 
-    expect(
-      termsRows.map((row) => (row.kind === "search" ? row.group : null)).filter(Boolean),
-    ).toEqual(Array(6).fill("theme"));
+    expect(new Set(termsRows.flatMap((row) => (row.kind === "search" ? [row.group] : [])))).toEqual(
+      new Set(["theme"]),
+    );
     expect(termsRows.map((row) => row.value)).toEqual(
       expect.arrayContaining(["?dark", "?primary=emerald-700"]),
     );
@@ -381,7 +362,6 @@ describe("readSuggestions", () => {
     });
 
     expect(overviewValues.slice(0, 1)).toEqual(["?delete"]);
-    expect(overviewValues).not.toContain("?attachments");
     expect(overviewValues).not.toContain("?reset");
     expect(termsValues).not.toContain("?delete");
     expect(termsValues).not.toContain("?reset");

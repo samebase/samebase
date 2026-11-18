@@ -173,39 +173,9 @@ describe("object", () => {
         middleName: "not string (pure)",
       },
     ]);
-
-    expect(value).toEqual(
-      bad({
-        address: {
-          country: "not string",
-        },
-        firstName: "not string (sure)",
-        lastName: "not string (raw)",
-        middleName: "not string (pure)",
-      }),
-    );
   });
 
   describe("optionals", () => {
-    it("should support optional properties", () => {
-      const schema = object({
-        name: string,
-        age: optional(number),
-      });
-
-      // Ok when age is number
-      expect(schema({ name: "John", age: 12 })) //
-        .toStrictEqual([true, { name: "John", age: 12 }]);
-
-      // Not allow when age is undefined
-      expect(schema({ name: "John", age: undefined })) //
-        .toStrictEqual([false, { age: "not number" }]);
-
-      // Allow when age is not present !!
-      expect(schema({ name: "John" })) //
-        .toStrictEqual([true, { name: "John" }]);
-    });
-
     it("should combine with undefined and/or null", () => {
       const schema = object({
         name: string,

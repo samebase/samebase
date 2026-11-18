@@ -163,7 +163,6 @@ describe("OrganizationBillingSection", () => {
     expect(container.textContent).toContain(
       "Samebase is free during the beta. New Pro subscriptions are paused.",
     );
-    expect(container.textContent).not.toContain("Upgrade to Pro");
     expect(container.textContent).not.toContain("Add member seat");
     expect(createCheckout).not.toHaveBeenCalled();
   });
@@ -388,7 +387,6 @@ describe("OrganizationBillingSection", () => {
     expect(container.textContent).toContain("Next planFree");
     expect(container.textContent).toContain("Manage subscription");
     expect(container.textContent).not.toContain("Switch to Free");
-    expect(container.textContent).not.toContain("Restore member access");
     expect(container.textContent).not.toContain("Add member seat");
     expect(container.textContent).not.toContain("Remove unused seat");
   });
@@ -412,7 +410,6 @@ describe("OrganizationBillingSection", () => {
     expect(container.textContent).toContain("Pro");
     expect(container.textContent).toContain("3 of 3");
     expect(container.textContent).not.toContain("Manage subscription");
-    expect(container.textContent).not.toContain("Upgrade to Pro");
   });
 
   it("explains why billing actions stop during a payer transfer", async () => {

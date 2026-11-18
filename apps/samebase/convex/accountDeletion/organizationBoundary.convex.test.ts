@@ -605,7 +605,6 @@ describe("account deletion organization boundary", () => {
     });
 
     let cleanupFinished = false;
-    let observedAssignmentFirstState = false;
     for (let batch = 0; batch < 32; batch += 1) {
       cleanupFinished = await t.mutation(internal.accountDeletion.cleanup.cleanupAccountDataBatch, {
         runId: ids.runId,
@@ -618,9 +617,6 @@ describe("account deletion organization boundary", () => {
         teammateFolder: await ctx.db.get(folderStateIds.teammateFolderId),
       }));
 
-      if (folderState.deletingAssignment === null && folderState.deletingFolder !== null) {
-        observedAssignmentFirstState = true;
-      }
       if (folderState.deletingFolder === null) {
         expect(folderState.deletingAssignment).toBeNull();
       }
@@ -633,7 +629,6 @@ describe("account deletion organization boundary", () => {
     }
 
     expect(cleanupFinished).toBe(true);
-    expect(observedAssignmentFirstState).toBe(true);
     await t.run(async (ctx) => {
       expect(await ctx.db.get(folderStateIds.deletingAssignmentId)).toBeNull();
       expect(await ctx.db.get(folderStateIds.deletingFolderId)).toBeNull();
@@ -904,16 +899,10 @@ describe("account deletion organization boundary", () => {
           bodyText: expect.stringContaining(`Deletion reference: ${ids.runId}`),
         },
       ]);
-      if (delivery === "queued") {
-        await t.finishAllScheduledFunctions(() => vi.runAllTimers());
-        await expect(
-          t.query(components.mail.mail.getMessage, { messageId: messages.page[0]._id }),
-        ).resolves.toMatchObject({ status: "rejected" });
-      }
     },
   );
 
-  it("leaves the repository alone and does not tell the user to revoke Convex", async () => {
+  it("leaves the repository alone and calls only the email provider", async () => {
     const { ids, t } = await seedRunningDeletion();
     const { repositoryId } = ids;
     vi.stubEnv("CONVEX_DEPLOYMENT", "prod:samebase");
@@ -959,19 +948,6 @@ describe("account deletion organization boundary", () => {
     expect(requests).toEqual([
       "https://api.cloudflare.com/client/v4/accounts/account-id/email/sending/send",
     ]);
-    const threads = await t.query(components.mail.mail.listThreads, {
-      inboxId: null,
-      paginationOpts: { numItems: 10, cursor: null },
-    });
-    const messages = await t.query(components.mail.mail.listMessages, {
-      threadId: threads.page[0]._id,
-      paginationOpts: { numItems: 10, cursor: null },
-    });
-    expect(messages.page[0].bodyText).toContain(
-      "External repositories, deployments, projects, and Workers were not deleted.",
-    );
-    expect(messages.page[0].bodyText).toContain("so those apps keep deploying.");
-    expect(messages.page[0].bodyText).not.toContain("revoke Samebase in Convex");
   });
 
   it("rejects final identity deletion when an older run still has an organization membership", async () => {

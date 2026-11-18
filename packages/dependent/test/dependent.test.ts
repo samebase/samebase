@@ -157,9 +157,8 @@ describe("dependent type helpers", () => {
     const intersected: { a: 1 } & { b: 2 } = { a: 1, b: 2 };
     const omitted: Omitted = { a: 1 };
 
-    expectType<{ a: 1 } & { b: 2 }>()(intersected, true);
     expectType<Intersected>()(intersected, true);
-    expectType<Omitted>()(omitted, true);
+    expectType<{ a: 1 }>()(omitted, true);
   });
 });
 
@@ -242,41 +241,6 @@ describe("guard", () => {
     void guard<Shape, Circle>((shape) => {
       return shape;
     });
-  });
-
-  it("documents why the throw-based variant does not ship", () => {
-    // Considered alternative: failure is a throw instead of a null result.
-    // It avoids the `| null` in the callback's return annotation, but the
-    // catch-all turns every genuine bug inside the callback into "no match".
-    function guardThrow<Value, Narrowed extends Value>(
-      match: (value: Value) => Narrowed,
-      // eslint-disable-next-line samebase/no-hand-written-type-predicate -- exercises the rejected throw-variant shape
-    ): (value: Value) => value is Narrowed {
-      // eslint-disable-next-line samebase/no-hand-written-type-predicate -- exercises the rejected throw-variant shape
-      return (value): value is Narrowed => {
-        try {
-          return Object.is(match(value), value);
-        } catch {
-          return false;
-        }
-      };
-    }
-
-    const isCircle = guardThrow((shape: Shape): Circle => {
-      if (shape.kind === "circle") return shape;
-      throw new Error("no match");
-    });
-
-    expect(isCircle(circle)).toBe(true);
-    expect(isCircle(square)).toBe(false);
-
-    const buggy = guardThrow((shape: Shape): Circle => {
-      const parsed: unknown = JSON.parse("{"); // stands in for an accidental bug
-      if (shape.kind === "circle" && parsed !== undefined) return shape;
-      throw new Error("no match");
-    });
-
-    expect(buggy(circle)).toBe(false);
   });
 });
 

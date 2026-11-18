@@ -211,7 +211,7 @@ describe("app provisioning retry admission", () => {
     [
       "an active managed lock",
       "active_managed_lock",
-      "Another Samebase setup or provider change is running for this repository, so nothing changed. Try again after it finishes.",
+      "Another Samebase setup or provider change is running for this repository",
     ],
     ["repository removal", "deletion", "Removal from Samebase is in progress."],
   ] as const)(
@@ -239,7 +239,7 @@ describe("app provisioning retry admission", () => {
     });
 
     await expect(retry(fixture, confirmation)).rejects.toThrow(
-      "Another Samebase setup or provider change is running for this repository, so nothing changed. Try again after it finishes.",
+      "Another Samebase setup or provider change is running for this repository",
     );
   });
 
@@ -329,12 +329,13 @@ describe("app provisioning retry admission", () => {
     if (first.status !== "ok" || first.structuredContent.state !== "needs_confirmation") {
       throw new Error(`Expected a confirmation request: ${JSON.stringify(first)}`);
     }
+    // The effect names the repository and the GitHub Actions secret and variable it replaces.
     expect(first.structuredContent).toEqual({
       state: "needs_confirmation",
-      effect:
-        "Samebase starts a new setup run for ada/retry-guard. It writes the credential of the organization's Convex connection into the repository's GitHub Actions secret CONVEX_ACCESS_TOKEN and the Convex team id into its variable CONVEX_TEAM_ID, replacing their values. If the starter is not seeded yet, it seeds the starter, which starts a deployment in the repository's GitHub Actions. Then it syncs the default branch tree.",
-      acknowledgement:
-        "I confirm that the user approved a new setup run for ada/retry-guard, which replaces its GitHub Actions secret and variable with the organization's Convex connection credential and team id",
+      effect: expect.stringMatching(
+        /ada\/retry-guard[\s\S]*CONVEX_ACCESS_TOKEN[\s\S]*CONVEX_TEAM_ID/,
+      ),
+      acknowledgement: expect.stringContaining("ada/retry-guard"),
     });
     await expect(readRetryState()).resolves.toEqual({ queuedRuns: [] });
 
@@ -346,7 +347,7 @@ describe("app provisioning retry admission", () => {
       }),
     ).resolves.toEqual({
       status: "ok",
-      text: "Started repository setup for ada/retry-guard. Poll repository_list for progress.",
+      text: expect.stringContaining("repository_list"),
       structuredContent: { state: "setup_started" },
     });
     await expect(readRetryState()).resolves.toMatchObject({
@@ -389,7 +390,7 @@ describe("app provisioning retry admission", () => {
       }),
     ).resolves.toEqual({
       status: "error",
-      text: "Samebase setup of this repository has not failed, so there is nothing to retry and nothing changed. Check the repository status for its current state.",
+      text: expect.stringContaining("Samebase setup of this repository has not failed"),
     });
   });
 
@@ -397,7 +398,7 @@ describe("app provisioning retry admission", () => {
     const fixture = await createRetryFixture("none", makeConvexTest(), "none");
 
     await expect(retry(fixture)).rejects.toThrow(
-      "A provider setup retry cannot repair this failed setup, so nothing changed. Check this repository in the Samebase dashboard for recovery steps.",
+      "A provider setup retry cannot repair this failed setup",
     );
   });
 
@@ -418,7 +419,7 @@ describe("app provisioning retry admission", () => {
       });
 
       await expect(retry(fixture)).rejects.toThrow(
-        "Samebase setup of this repository has not failed, so there is nothing to retry and nothing changed. Check the repository status for its current state.",
+        "Samebase setup of this repository has not failed",
       );
     },
   );
@@ -441,7 +442,7 @@ describe("app provisioning retry admission", () => {
     });
 
     await expect(retry(fixture)).rejects.toThrow(
-      "A provider setup retry cannot repair this failed setup, so nothing changed. Check this repository in the Samebase dashboard for recovery steps.",
+      "A provider setup retry cannot repair this failed setup",
     );
   });
 

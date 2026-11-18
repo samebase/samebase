@@ -141,11 +141,9 @@ test("shows an old app with no stack on desktop", async ({ page }) => {
     fixture.getByRole("link", { name: "Open samebase/samebase on GitHub" }),
   ).toHaveAttribute("href", "https://github.com/samebase/samebase");
   await expect(fixture.getByRole("button", { name: "Disconnect" })).toBeEnabled();
-  await expect(fixture.getByRole("navigation", { name: "Repository" })).toHaveCount(0);
   await expect(
     fixture.getByRole("link", { name: "#1260 Show the exact preview for each pull request" }),
   ).toHaveAttribute("href", "https://github.com/samebase/samebase/pull/1260");
-  await expect(fixture.getByRole("button", { name: "Filters" })).toHaveCount(0);
   await expect(fixture.locator('[data-pull-request-number="1258"]')).toBeVisible();
   await expect(fixture.getByText("Keep repository provider observations explicit")).toBeVisible();
   await expect(fixture.getByText(NO_STACK_LINE, { exact: true })).toBeVisible();
@@ -234,7 +232,6 @@ test("loads the next pull request page at the scroll end", async ({ page }) => {
     pullRequests.getByRole("heading", { name: "8 open pull requests", exact: true }),
   ).toBeVisible();
   await expect(pullRequests.locator("[data-pull-request-number]")).toHaveCount(6);
-  await expect(pullRequests.getByRole("button", { name: "Load more" })).toHaveCount(0);
   await expect(sentinel).toHaveCount(1);
 
   await sentinel.evaluate((element) => element.scrollIntoView({ block: "end" }));
@@ -260,7 +257,6 @@ test("keeps the overview hierarchy and pull request actions clear on mobile", as
     .click();
   await expect(firstPullRequestRow.getByText("needs review", { exact: true })).toBeVisible();
   await expect(firstPullRequestRow.getByRole("group", { name: /^Alchemy stack / })).toHaveCount(0);
-  await expect(firstPullRequestRow.getByRole("group", { name: "Other previews" })).toHaveCount(0);
   await expect(fixture.getByText(NO_STACK_LINE, { exact: true })).toBeVisible();
   await page.evaluate(() => window.scrollTo(0, 0));
   await expect(fixture).toHaveScreenshot("repository-overview-v2-mobile.png", {
@@ -271,13 +267,7 @@ test("keeps the overview hierarchy and pull request actions clear on mobile", as
   });
 });
 
-test("redirects the retired Worker Previews guide to the big migration", async ({ page }) => {
-  await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto("/docs/cloudflare-previews-migration");
-  await expect(page).toHaveURL(/\/docs\/the-big-migration$/);
-  await expect(
-    page.getByRole("heading", { name: "The big migration", exact: true }),
-  ).toBeInViewport();
+test("serves the big migration guide as a markdown file", async ({ page }) => {
   const markdownResponse = await page.request.get("/docs/the-big-migration.md");
   expect(markdownResponse.status()).toBe(200);
   expect(await markdownResponse.text()).toContain("# The big migration");
@@ -289,11 +279,6 @@ test("covers the mobile repository removal dialog", async ({ page }) => {
 
   const dialog = page.getByRole("dialog");
   await expect(dialog.getByRole("heading", { name: /Remove .* from Samebase/ })).toBeVisible();
-  await expect(
-    dialog.getByText(
-      "Your deployed app stays in your cloud accounts. Delete it there if you no longer need it.",
-    ),
-  ).toBeVisible();
   await expect(dialog.getByRole("checkbox")).toHaveCount(1);
   await expect(dialog).toHaveScreenshot("repository-overview-v2-delete-dialog-mobile.png", {
     animations: "disabled",
@@ -443,28 +428,6 @@ test("keeps the commit and pull requests when the store cannot be read", async (
   });
 });
 
-test("says what is true without a store or a Convex connection", async ({ page }) => {
-  await page.setViewportSize({ width: 700, height: 900 });
-
-  const missingFixture = await openRepositoryOverviewV2(
-    page,
-    "repository-overview-v2-store-missing",
-  );
-  await expect(
-    missingFixture.getByText("This team has no Alchemy state store yet.", { exact: true }),
-  ).toBeVisible();
-  await expect(missingFixture.getByRole("button", { name: "Retry" })).toHaveCount(0);
-
-  const noConvexFixture = await openRepositoryOverviewV2(page, "repository-overview-v2-no-convex");
-  await expect(
-    noConvexFixture.getByText(
-      "This repository has no Convex connection, so Samebase cannot read its stacks.",
-      { exact: true },
-    ),
-  ).toBeVisible();
-  await expect(noConvexFixture.getByRole("button", { name: "Retry" })).toHaveCount(0);
-});
-
 test("reproduces the observed new repository provisioning states", async ({ page }) => {
   await page.setViewportSize({ width: 700, height: 995 });
 
@@ -602,7 +565,5 @@ test("exposes each raw source separately in developer mode", async ({ page }) =>
     '"githubRepositoryFullName": "samebase/samebase"',
   );
   await expect(fixture.getByText("GitHub observations", { exact: true })).toBeVisible();
-  await expect(fixture.getByText("Cloudflare observations", { exact: true })).toHaveCount(0);
-  await expect(fixture.getByText("Convex observations", { exact: true })).toHaveCount(0);
   await expect(fixture.getByText("Derived presentation", { exact: true })).toBeVisible();
 });

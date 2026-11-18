@@ -190,7 +190,7 @@ function parseCloudflareMcpTokenResponse(
   return result.data;
 }
 
-export function buildCloudflareMcpAuthorizeSearchParams(args: {
+function buildCloudflareMcpAuthorizeSearchParams(args: {
   clientId: string;
   redirectUri: string;
   state: string;

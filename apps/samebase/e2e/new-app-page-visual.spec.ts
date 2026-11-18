@@ -8,10 +8,6 @@ test("new app provider blocker", async ({ page }) => {
   await page.waitForLoadState("networkidle");
 
   const surface = page.getByTestId("new-app-provider-blocked");
-  await expect(surface).toContainText("Disconnected from team acme-platform.");
-  await expect(surface).toContainText(
-    "An organization owner must reconnect Convex before an app can be created.",
-  );
   await expect(surface.getByRole("button", { name: "New App" })).toBeDisabled();
   await expect(surface).toHaveScreenshot("new-app-provider-blocked.png", {
     animations: "disabled",

@@ -108,7 +108,6 @@ describe("AppSidebarLayout", () => {
     expect(markup).toContain('data-testid="main-header-actions"');
     expect(markup).toContain("/logo");
     expect(markup).toContain('data-header-visibility="all"');
-    expect(markup).not.toContain("hidden justify-between md:flex");
     expect((markup.match(/hidden h-8 w-8 md:inline-flex/g) ?? []).length).toBe(2);
   });
 

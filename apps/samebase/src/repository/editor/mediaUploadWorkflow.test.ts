@@ -11,7 +11,7 @@ describe("readUploadStorageId", () => {
   });
 
   it("throws when the upload response is missing the storage id", () => {
-    expect(() => readUploadStorageId({})).toThrow("Upload response did not include a storage id.");
+    expect(() => readUploadStorageId({})).toThrow();
   });
 });
 

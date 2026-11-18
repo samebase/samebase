@@ -124,11 +124,9 @@ describe("AccountDeletionPage", () => {
       const signOut = mounted.rootElement.querySelector("button");
       await act(async () => signOut?.click());
 
-      expect(toastState.toast).toHaveBeenCalledWith({
-        description: "Please try again.",
-        title: "Could not sign out",
-        variant: "destructive",
-      });
+      expect(toastState.toast).toHaveBeenCalledWith(
+        expect.objectContaining({ variant: "destructive" }),
+      );
       expect(signOut?.disabled).toBe(false);
       expect(signOut?.textContent).toBe("Sign out");
     } finally {

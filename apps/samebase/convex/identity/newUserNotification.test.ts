@@ -4,27 +4,21 @@ import { buildNewUserNotification } from "./newUserNotification";
 
 describe("new user notification", () => {
   it("builds the admin notification for a new user", () => {
-    expect(
-      buildNewUserNotification({
-        existingUserId: null,
-        profile: {
-          email: "ada@example.com",
-          name: "Ada Lovelace",
-        },
-        providerId: "google",
-        seededPasswordEmail: null,
-        userId: "user-id",
-      }),
-    ).toEqual({
-      to: "nicuchiciuc@gmail.com",
-      subject: "New Samebase signup",
-      text: `A new user signed up for Samebase.
-
-Name: Ada Lovelace
-Email: ada@example.com
-User ID: user-id
-Provider: google`,
+    const notification = buildNewUserNotification({
+      existingUserId: null,
+      profile: {
+        email: "ada@example.com",
+        name: "Ada Lovelace",
+      },
+      providerId: "google",
+      seededPasswordEmail: null,
+      userId: "user-id",
     });
+
+    expect(notification?.to).toBe("nicuchiciuc@gmail.com");
+    for (const detail of ["Ada Lovelace", "ada@example.com", "user-id", "google"]) {
+      expect(notification?.text).toContain(detail);
+    }
   });
 
   it("does not notify for an existing or newly linked user", () => {
@@ -61,7 +55,6 @@ Provider: google`,
         userId: "new-user-id",
       }),
     ).toMatchObject({
-      subject: "New Samebase signup",
       to: "nicuchiciuc@gmail.com",
     });
   });

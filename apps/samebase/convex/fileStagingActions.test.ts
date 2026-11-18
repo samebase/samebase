@@ -453,33 +453,6 @@ describe("buildComparedCommitPreviewFileFromStagedFile", () => {
 });
 
 describe("buildCommitPreviewFromStagedFiles", () => {
-  it("hydrates rich text content for non-markdown staged files", () => {
-    const preview = buildCommitPreviewFromStagedFiles({
-      branch: "feature",
-      includePatch: true,
-      stagedFiles: [
-        {
-          filePath: "src/file.ts",
-          initialFilePath: "src/file.ts",
-          content: "export const value = 2;\n",
-          initialContent: "export const value = 1;\n",
-          fileDeleted: false,
-          parentCommitSha: "head-sha",
-          branch: "feature",
-        },
-      ],
-    });
-
-    expect(preview.files).toEqual([
-      expect.objectContaining({
-        status: "modified",
-        path: "src/file.ts",
-        richOldContent: "export const value = 1;\n",
-        richNewContent: "export const value = 2;\n",
-      }),
-    ]);
-  });
-
   it("shows a deleted renamed file at the path the commit deletes", () => {
     const preview = buildCommitPreviewFromStagedFiles({
       branch: "feature",

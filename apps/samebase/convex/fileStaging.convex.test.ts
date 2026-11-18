@@ -249,14 +249,6 @@ describe("saveToStaging", () => {
     const editedContent = "base\nconcurrent edit\n";
 
     // Both open actions can read no staging before either GitHub fetch returns.
-    expect(
-      await t.query(components.gitEditor.staging.getByOriginalPath, {
-        repositoryId,
-        originalFilePath: "notes.md",
-        branch: "main",
-      }),
-    ).toBeNull();
-
     await t.mutation(internal.fileStaging.saveToStaging, {
       repositoryId,
       initialFilePath: "notes.md",

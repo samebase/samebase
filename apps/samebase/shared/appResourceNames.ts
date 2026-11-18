@@ -128,7 +128,7 @@ export function buildAvailableAppResourceNameSuggestion(args: {
   return null;
 }
 
-export function formatAppResourceNameConflictMessage(args: {
+function formatAppResourceNameConflictMessage(args: {
   provider: AppResourceNameProvider;
   name: string;
 }): string {

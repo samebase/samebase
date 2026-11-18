@@ -179,19 +179,6 @@ describe("AppSidebarMetaSection", () => {
     }
   });
 
-  it("omits the landing preview path link and language shortcut", async () => {
-    const element = await renderSidebarMetaSection("/landing-preview");
-    const landingPreviewPathLink = [...element.querySelectorAll<HTMLAnchorElement>("a")].find(
-      (link) => link.textContent === "/landing-preview",
-    );
-    const romanianQueryLink = element.querySelector<HTMLAnchorElement>(
-      "#landing-preview-romanian-toggle",
-    );
-
-    expect(landingPreviewPathLink).toBeUndefined();
-    expect(romanianQueryLink).toBeNull();
-  });
-
   it.each([
     ["/?dev#overview", "/landing"],
     ["/terms?dev#operator", null],
@@ -201,13 +188,9 @@ describe("AppSidebarMetaSection", () => {
     const currentLinks = [...element.querySelectorAll('a[aria-current="page"]')];
 
     expect(currentLinks.map((link) => link.textContent)).toEqual(label === null ? [] : [label]);
-    for (const link of currentLinks) {
-      expect(link.classList.contains("app-sidebar-current-label")).toBe(true);
-      expect(link.classList.contains("font-semibold")).toBe(false);
-    }
   });
 
-  it("navigates the landing link without hover preview state", async () => {
+  it("navigates the landing link and marks it current", async () => {
     const element = await renderSidebarMetaSection("/terms", {
       extra: <TermsLink />,
     });
@@ -223,13 +206,6 @@ describe("AppSidebarMetaSection", () => {
 
     expect(landingLink.getAttribute("href")).toBe("/");
     expect(landingLink.getAttribute("aria-current")).toBeNull();
-
-    await act(async () => {
-      landingLink.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
-      await settleRouteUpdate();
-    });
-
-    expect(readLocationHref()).toBe("/terms");
 
     await clickLink(landingLink);
 

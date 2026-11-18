@@ -269,9 +269,6 @@ test("shows one organization context across global pages, settings, providers, a
   ).toBeVisible();
   await expect(organizationSettings.getByText("org-context-solo", { exact: true })).toBeVisible();
   await expect(organizationSettings.getByText("Owner", { exact: true })).toBeVisible();
-  await expect(
-    organizationSettings.getByRole("combobox", { name: "Default production region" }),
-  ).toHaveCount(0);
   await expect(organizationSettings.getByTestId("organization-billing-section")).toBeVisible();
   await expect(rightPane.getByRole("heading", { name: "Product updates" })).toBeVisible();
   await expect(page).toHaveScreenshot("organization-context-one-organization-settings.png", {

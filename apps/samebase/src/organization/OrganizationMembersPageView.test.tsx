@@ -265,8 +265,6 @@ describe("OrganizationMembersPageView", () => {
     expect(guestCells.slice(1, 3)).toEqual(["Member", "Member"]);
     expect(ownerRoleLabels).toEqual(["Owner", "Billing payer"]);
     expect(guestRoleLabels).toEqual(["Member"]);
-    expect(rootElement?.textContent).not.toContain("Only Samebase owner");
-    expect(rootElement?.textContent).not.toContain("Add another Samebase owner");
     expect(rootElement?.textContent).toContain("Pending invitations");
     expect(rootElement?.textContent).toContain("Created by");
     expect(rootElement?.textContent).toContain("Nicu");
