@@ -52,12 +52,12 @@ samebase.com is served by its production Convex deployment through
 [convex-hosting](https://github.com/samebase/convex-hosting). The `deploy` script of
 `apps/samebase/package.json` builds the site, uploads `dist/client`, and pushes the functions; the
 push switches the site. A file of `dist/client` answers its path: the assets, and the public pages
-without data (`/`, `/pricing`, `/docs` and its pages, `/privacy`, `/terms`), which the build
-prerenders to `<path>/index.html`. Every other request goes to the server build
-`dist/server/server.js` (from `src/server.ts`), which `convex/http.ts` imports and which renders the
-page with the visitor's session in a Convex HTTP action. `.github/workflows/alchemy.yml` runs the
-deploy with the Alchemy stack in `apps/samebase/alchemy.run.ts`, then the sidebars example with the
-stack in `apps/sidebars-example/alchemy.run.ts`:
+without data (`/`, `/docs` and its pages, `/privacy`, `/terms`), which the build prerenders to
+`<path>/index.html`. Every other request goes to the server build `dist/server/server.js` (from
+`src/server.ts`), which `convex/http.ts` imports and which renders the page with the visitor's
+session in a Convex HTTP action. `.github/workflows/alchemy.yml` runs the deploy with the Alchemy
+stack in `apps/samebase/alchemy.run.ts`, then the sidebars example with the stack in
+`apps/sidebars-example/alchemy.run.ts`:
 
 - Every push to `main` deploys the stage `prod`: the production deployment, through the `deploy`
   script of `apps/samebase`, the account API token that production sends email with, the Workers

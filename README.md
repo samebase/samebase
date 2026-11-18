@@ -47,8 +47,9 @@ What it does:
 - Creates a GitHub repository from the starter. Its first push deploys it, with Google sign-in
   through the identity hub.
 
-Repair lives in the repository: the GitHub Actions log, Alchemy, and your agent. Samebase has no
-built-in AI chat.
+Your apps run in your own GitHub, Convex, and Cloudflare accounts, and deleting your Samebase
+account does not stop them. Repair lives in the repository: the GitHub Actions log, Alchemy, and
+your agent. Samebase has no built-in AI chat.
 
 Also here: [`packages/git-editor`](packages/git-editor) (the file editor),
 [`packages/sure`](packages/sure) and [`packages/dependent`](packages/dependent) (validation and

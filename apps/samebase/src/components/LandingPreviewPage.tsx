@@ -113,7 +113,7 @@ const LANDING_PARTS = [
 const LANDING_FAQS = [
   {
     answer:
-      "Not for the starter or the packages. The dashboard needs one: sign in with GitHub, connect GitHub, and choose the repositories to list.",
+      "Not for the starter or the packages. The dashboard needs one: sign in with GitHub and choose the repositories to connect.",
     question: "Do I need an account?",
   },
   {
