@@ -10,6 +10,9 @@ import {
   DOCS_THE_BIG_MIGRATION_ROUTE,
   DOCS_THE_STACK_ROUTE,
   LANDING_PREVIEW_ROUTE,
+  TEMPLATE_BASE_ROUTE,
+  TEMPLATE_IDENTITY_HUB_ROUTE,
+  TEMPLATES_ROUTE,
 } from "./routeSearch/landingPreview";
 import { LOCAL_STORAGE_ROUTE } from "./lib/localStorageRoute";
 import { AGENT_BROWSER_HANDOFF_ROUTE } from "../shared/agentBrowserHandoff";
@@ -65,6 +68,9 @@ export const routes = rootRoute("root.tsx", [
   route(DOCS_THE_BIG_MIGRATION_ROUTE, "docs-the-big-migration.tsx"),
   route(DOCS_THE_STACK_ROUTE, "docs-the-stack.tsx"),
   route(LANDING_PREVIEW_ROUTE, "landing-preview.tsx"),
+  route(TEMPLATES_ROUTE, "templates.tsx"),
+  route(TEMPLATE_BASE_ROUTE, "templates-base.tsx"),
+  route(TEMPLATE_IDENTITY_HUB_ROUTE, "templates-identity-hub.tsx"),
   route("/pricing", "pricing.tsx"),
   route("/changelog", "changelog.tsx"),
   route(ORGANIZATION_INVITATION_ROUTE, "invite.tsx"),

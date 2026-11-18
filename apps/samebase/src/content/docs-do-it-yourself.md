@@ -2,7 +2,7 @@
 
 The Samebase stack with no Samebase account: your GitHub repository, your Convex project, and GitHub
 Actions that deploy it with [Alchemy](https://alchemy.run). An idle app costs
-[$0/month](/docs/receipts).
+[$0/month](/docs/receipts). [Templates](/templates) lists every template and the settings it needs.
 
 ## 1. Copy the starter
 
@@ -32,10 +32,10 @@ data.
 
 - **Run it locally:** `pnpm run dev`, after the first deploy. The
   [starter README](https://github.com/samebase/base#local-development) has the details.
-- **Delete it:** run the **Destroy app** workflow. It deletes the Convex project and its data. The
-  repository stays.
-- **Sign-in:** guests and Google accounts can sign in. The first deploy gets Google sign-in from
-  Samebase's identity hub, with no Samebase account.
+- **Delete it:** `pnpm exec alchemy destroy --stage prod` from a clone. It deletes the Convex
+  project and its data. The repository stays.
+- **Sign-in:** guests, Google accounts, and GitHub accounts can sign in. The first deploy gets
+  sign-in from Samebase's identity hub, with no Samebase account.
 
 Samebase does the three steps with one click, connects by OAuth instead of a pasted token, and shows
 what every app deployed.

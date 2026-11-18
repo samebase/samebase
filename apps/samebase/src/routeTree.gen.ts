@@ -19,6 +19,7 @@ import { Route as landingPreviewRouteImport } from "./routes/landing-preview";
 import { Route as logoRouteImport } from "./routes/logo";
 import { Route as pricingRouteImport } from "./routes/pricing";
 import { Route as privacyRouteImport } from "./routes/privacy";
+import { Route as templatesRouteImport } from "./routes/templates";
 import { Route as termsRouteImport } from "./routes/terms";
 import { Route as visualFixtureRouteImport } from "./routes/visual-fixture";
 import { Route as xRouteImport } from "./routes/x";
@@ -44,6 +45,8 @@ import { Route as logoRasterSeamsRouteImport } from "./routes/logo-raster-seams"
 import { Route as logoIsoStudyRouteImport } from "./routes/logo-iso-study";
 import { Route as logoSvgRouteImport } from "./routes/logo-svg";
 import { Route as logoTransitionLabRouteImport } from "./routes/logo-transition-lab";
+import { Route as templatesBaseRouteImport } from "./routes/templates-base";
+import { Route as templatesIdentityHubRouteImport } from "./routes/templates-identity-hub";
 import { Route as adminAccountDeletionsRouteImport } from "./routes/admin-account-deletions";
 import { Route as adminEmailsRouteImport } from "./routes/admin-emails";
 import { Route as adminHubClientsRouteImport } from "./routes/admin-hub-clients";
@@ -119,6 +122,11 @@ const pricingRoute = pricingRouteImport.update({
 const privacyRoute = privacyRouteImport.update({
   id: "/privacy",
   path: "/privacy",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const templatesRoute = templatesRouteImport.update({
+  id: "/templates",
+  path: "/templates",
   getParentRoute: () => rootRouteImport,
 } as any);
 const termsRoute = termsRouteImport.update({
@@ -245,6 +253,16 @@ const logoSvgRoute = logoSvgRouteImport.update({
 const logoTransitionLabRoute = logoTransitionLabRouteImport.update({
   id: "/logo/transition",
   path: "/logo/transition",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const templatesBaseRoute = templatesBaseRouteImport.update({
+  id: "/templates/base",
+  path: "/templates/base",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const templatesIdentityHubRoute = templatesIdentityHubRouteImport.update({
+  id: "/templates/identity-hub",
+  path: "/templates/identity-hub",
   getParentRoute: () => rootRouteImport,
 } as any);
 const adminAccountDeletionsRoute = adminAccountDeletionsRouteImport.update({
@@ -397,6 +415,7 @@ export interface FileRoutesByFullPath {
   "/logo": typeof logoRoute;
   "/pricing": typeof pricingRoute;
   "/privacy": typeof privacyRoute;
+  "/templates": typeof templatesRoute;
   "/terms": typeof termsRoute;
   "/visual-fixture": typeof visualFixtureRoute;
   "/x.com": typeof xRoute;
@@ -422,6 +441,8 @@ export interface FileRoutesByFullPath {
   "/logo/single-cube": typeof logoIsoStudyRoute;
   "/logo/svg": typeof logoSvgRoute;
   "/logo/transition": typeof logoTransitionLabRoute;
+  "/templates/base": typeof templatesBaseRoute;
+  "/templates/identity-hub": typeof templatesIdentityHubRoute;
   "/repo/": typeof repositoryDashboardRootRoute;
   "/admin/account-deletions": typeof adminAccountDeletionsRoute;
   "/admin/emails": typeof adminEmailsRoute;
@@ -460,6 +481,7 @@ export interface FileRoutesByTo {
   "/logo": typeof logoRoute;
   "/pricing": typeof pricingRoute;
   "/privacy": typeof privacyRoute;
+  "/templates": typeof templatesRoute;
   "/terms": typeof termsRoute;
   "/visual-fixture": typeof visualFixtureRoute;
   "/x.com": typeof xRoute;
@@ -485,6 +507,8 @@ export interface FileRoutesByTo {
   "/logo/single-cube": typeof logoIsoStudyRoute;
   "/logo/svg": typeof logoSvgRoute;
   "/logo/transition": typeof logoTransitionLabRoute;
+  "/templates/base": typeof templatesBaseRoute;
+  "/templates/identity-hub": typeof templatesIdentityHubRoute;
   "/repo": typeof repositoryDashboardRootRoute;
   "/admin/account-deletions": typeof adminAccountDeletionsRoute;
   "/admin/emails": typeof adminEmailsRoute;
@@ -525,6 +549,7 @@ export interface FileRoutesById {
   "/logo": typeof logoRoute;
   "/pricing": typeof pricingRoute;
   "/privacy": typeof privacyRoute;
+  "/templates": typeof templatesRoute;
   "/terms": typeof termsRoute;
   "/visual-fixture": typeof visualFixtureRoute;
   "/x.com": typeof xRoute;
@@ -550,6 +575,8 @@ export interface FileRoutesById {
   "/logo/single-cube": typeof logoIsoStudyRoute;
   "/logo/svg": typeof logoSvgRoute;
   "/logo/transition": typeof logoTransitionLabRoute;
+  "/templates/base": typeof templatesBaseRoute;
+  "/templates/identity-hub": typeof templatesIdentityHubRoute;
   "/_authed/repo/": typeof repositoryDashboardRootRoute;
   "/_authed/admin/account-deletions": typeof adminAccountDeletionsRoute;
   "/_authed/admin/emails": typeof adminEmailsRoute;
@@ -590,6 +617,7 @@ export interface FileRouteTypes {
     | "/logo"
     | "/pricing"
     | "/privacy"
+    | "/templates"
     | "/terms"
     | "/visual-fixture"
     | "/x.com"
@@ -615,6 +643,8 @@ export interface FileRouteTypes {
     | "/logo/single-cube"
     | "/logo/svg"
     | "/logo/transition"
+    | "/templates/base"
+    | "/templates/identity-hub"
     | "/repo/"
     | "/admin/account-deletions"
     | "/admin/emails"
@@ -653,6 +683,7 @@ export interface FileRouteTypes {
     | "/logo"
     | "/pricing"
     | "/privacy"
+    | "/templates"
     | "/terms"
     | "/visual-fixture"
     | "/x.com"
@@ -678,6 +709,8 @@ export interface FileRouteTypes {
     | "/logo/single-cube"
     | "/logo/svg"
     | "/logo/transition"
+    | "/templates/base"
+    | "/templates/identity-hub"
     | "/repo"
     | "/admin/account-deletions"
     | "/admin/emails"
@@ -717,6 +750,7 @@ export interface FileRouteTypes {
     | "/logo"
     | "/pricing"
     | "/privacy"
+    | "/templates"
     | "/terms"
     | "/visual-fixture"
     | "/x.com"
@@ -742,6 +776,8 @@ export interface FileRouteTypes {
     | "/logo/single-cube"
     | "/logo/svg"
     | "/logo/transition"
+    | "/templates/base"
+    | "/templates/identity-hub"
     | "/_authed/repo/"
     | "/_authed/admin/account-deletions"
     | "/_authed/admin/emails"
@@ -782,6 +818,7 @@ export interface RootRouteChildren {
   logoRoute: typeof logoRoute;
   pricingRoute: typeof pricingRoute;
   privacyRoute: typeof privacyRoute;
+  templatesRoute: typeof templatesRoute;
   termsRoute: typeof termsRoute;
   visualFixtureRoute: typeof visualFixtureRoute;
   xRoute: typeof xRoute;
@@ -800,6 +837,8 @@ export interface RootRouteChildren {
   logoIsoStudyRoute: typeof logoIsoStudyRoute;
   logoSvgRoute: typeof logoSvgRoute;
   logoTransitionLabRoute: typeof logoTransitionLabRoute;
+  templatesBaseRoute: typeof templatesBaseRoute;
+  templatesIdentityHubRoute: typeof templatesIdentityHubRoute;
   logoCarpetHoverResearchRoute: typeof logoCarpetHoverResearchRoute;
   logoMengerHoverResearchRoute: typeof logoMengerHoverResearchRoute;
   logoMengerTransitionResearchRoute: typeof logoMengerTransitionResearchRoute;
@@ -877,6 +916,13 @@ declare module "@tanstack/react-router" {
       path: "/privacy";
       fullPath: "/privacy";
       preLoaderRoute: typeof privacyRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/templates": {
+      id: "/templates";
+      path: "/templates";
+      fullPath: "/templates";
+      preLoaderRoute: typeof templatesRouteImport;
       parentRoute: typeof rootRouteImport;
     };
     "/terms": {
@@ -1052,6 +1098,20 @@ declare module "@tanstack/react-router" {
       path: "/logo/transition";
       fullPath: "/logo/transition";
       preLoaderRoute: typeof logoTransitionLabRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/templates/base": {
+      id: "/templates/base";
+      path: "/templates/base";
+      fullPath: "/templates/base";
+      preLoaderRoute: typeof templatesBaseRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/templates/identity-hub": {
+      id: "/templates/identity-hub";
+      path: "/templates/identity-hub";
+      fullPath: "/templates/identity-hub";
+      preLoaderRoute: typeof templatesIdentityHubRouteImport;
       parentRoute: typeof rootRouteImport;
     };
     "/_authed/admin/account-deletions": {
@@ -1324,6 +1384,7 @@ const rootRouteChildren: RootRouteChildren = {
   logoRoute: logoRoute,
   pricingRoute: pricingRoute,
   privacyRoute: privacyRoute,
+  templatesRoute: templatesRoute,
   termsRoute: termsRoute,
   visualFixtureRoute: visualFixtureRoute,
   xRoute: xRoute,
@@ -1342,6 +1403,8 @@ const rootRouteChildren: RootRouteChildren = {
   logoIsoStudyRoute: logoIsoStudyRoute,
   logoSvgRoute: logoSvgRoute,
   logoTransitionLabRoute: logoTransitionLabRoute,
+  templatesBaseRoute: templatesBaseRoute,
+  templatesIdentityHubRoute: templatesIdentityHubRoute,
   logoCarpetHoverResearchRoute: logoCarpetHoverResearchRoute,
   logoMengerHoverResearchRoute: logoMengerHoverResearchRoute,
   logoMengerTransitionResearchRoute: logoMengerTransitionResearchRoute,

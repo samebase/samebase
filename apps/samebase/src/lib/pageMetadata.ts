@@ -8,6 +8,9 @@ import {
   DOCS_RECEIPTS_ROUTE,
   DOCS_THE_BIG_MIGRATION_ROUTE,
   DOCS_THE_STACK_ROUTE,
+  TEMPLATE_BASE_ROUTE,
+  TEMPLATE_IDENTITY_HUB_ROUTE,
+  TEMPLATES_ROUTE,
 } from "@/routeSearch/landingPreview";
 import { LOCAL_STORAGE_ROUTE } from "./localStorageRoute";
 import { SAMEBASE_BRAND_COPY } from "./samebaseBrandCopy";
@@ -151,6 +154,31 @@ export const DOCS_RECEIPTS_PAGE_METADATA: PageMetadata = {
   openGraphType: "website",
 };
 
+export const TEMPLATES_PAGE_METADATA: PageMetadata = {
+  title: "Templates | Samebase",
+  description:
+    "Public GitHub repositories that deploy themselves with Alchemy, and the settings each one needs.",
+  canonicalPath: TEMPLATES_ROUTE,
+  robots: "index,follow",
+  openGraphType: "website",
+};
+
+export const TEMPLATE_BASE_PAGE_METADATA: PageMetadata = {
+  title: "Web app template | Samebase",
+  description: "A Convex app with sign-in on every pull request preview, deployed by Alchemy.",
+  canonicalPath: TEMPLATE_BASE_ROUTE,
+  robots: "index,follow",
+  openGraphType: "website",
+};
+
+export const TEMPLATE_IDENTITY_HUB_PAGE_METADATA: PageMetadata = {
+  title: "Identity hub template | Samebase",
+  description: "Your own Google and GitHub sign-in for every deployment of your apps.",
+  canonicalPath: TEMPLATE_IDENTITY_HUB_ROUTE,
+  robots: "index,follow",
+  openGraphType: "website",
+};
+
 export const DOCS_PRICING_PAGE_METADATA: PageMetadata = {
   title: "Pricing | Samebase",
   description: "Samebase is free during the beta, with repository and member limits.",
@@ -244,6 +272,18 @@ export function resolveAppPageTitle(pathname: string): string {
     return DOCS_RECEIPTS_PAGE_METADATA.title;
   }
 
+  if (pathname === TEMPLATES_ROUTE) {
+    return TEMPLATES_PAGE_METADATA.title;
+  }
+
+  if (pathname === TEMPLATE_BASE_ROUTE) {
+    return TEMPLATE_BASE_PAGE_METADATA.title;
+  }
+
+  if (pathname === TEMPLATE_IDENTITY_HUB_ROUTE) {
+    return TEMPLATE_IDENTITY_HUB_PAGE_METADATA.title;
+  }
+
   if (pathname === LOCAL_STORAGE_ROUTE) {
     return LOCAL_STORAGE_PAGE_METADATA.title;
   }
@@ -301,6 +341,18 @@ export function resolvePageMetadata(args: {
 
   if (args.pathname === DOCS_RECEIPTS_ROUTE) {
     return DOCS_RECEIPTS_PAGE_METADATA;
+  }
+
+  if (args.pathname === TEMPLATES_ROUTE) {
+    return TEMPLATES_PAGE_METADATA;
+  }
+
+  if (args.pathname === TEMPLATE_BASE_ROUTE) {
+    return TEMPLATE_BASE_PAGE_METADATA;
+  }
+
+  if (args.pathname === TEMPLATE_IDENTITY_HUB_ROUTE) {
+    return TEMPLATE_IDENTITY_HUB_PAGE_METADATA;
   }
 
   if (args.pathname === LOCAL_STORAGE_ROUTE) {

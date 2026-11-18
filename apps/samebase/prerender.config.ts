@@ -43,6 +43,22 @@ const expectedPublicPrerenderMetadataByPath = {
     description: "What the Samebase template ships: Alchemy, Convex, TanStack Start, and Vite+.",
     robots: "index,follow",
   },
+  "/templates": {
+    title: "Templates | Samebase",
+    description:
+      "Public GitHub repositories that deploy themselves with Alchemy, and the settings each one needs.",
+    robots: "index,follow",
+  },
+  "/templates/base": {
+    title: "Web app template | Samebase",
+    description: "A Convex app with sign-in on every pull request preview, deployed by Alchemy.",
+    robots: "index,follow",
+  },
+  "/templates/identity-hub": {
+    title: "Identity hub template | Samebase",
+    description: "Your own Google and GitHub sign-in for every deployment of your apps.",
+    robots: "index,follow",
+  },
   "/pricing": {
     title: "Pricing | Samebase",
     description: "Samebase is free during the beta, with repository and member limits.",

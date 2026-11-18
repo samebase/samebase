@@ -575,7 +575,7 @@ function LandingPreviewOverview() {
   );
 }
 
-function PublicLandingPrimaryAction() {
+export function PublicLandingPrimaryAction() {
   // The landing is prerendered without a session, so it shows the sign-in until the browser's
   // provider confirms one.
   const { isAuthenticated } = useConvexAuth();
