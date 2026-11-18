@@ -844,12 +844,12 @@ test("route URL editor keeps the cursor before a preserved hash after path selec
 });
 
 test("route URL editor scrolls same-page hash destinations into view", async ({ page }) => {
-  const { input, prefix } = await focusRouteAddressInputDirectly(page, "/");
+  const { input, prefix } = await focusRouteAddressInputDirectly(page, "/docs/do-it-yourself");
 
-  await input.fill(`${prefix}#landing-note-risk`);
+  await input.fill(`${prefix}docs/do-it-yourself#after-that`);
 
-  await expect(page).toHaveURL(/\/#landing-note-risk$/);
-  await expect(page.locator("#landing-note-risk")).toBeInViewport();
+  await expect(page).toHaveURL(/\/docs\/do-it-yourself#after-that$/);
+  await expect(page.locator("#after-that")).toBeInViewport();
 });
 
 test("route URL editor filters at the cursor and keeps the draft filter during previews", async ({
@@ -866,18 +866,18 @@ test("route URL editor filters at the cursor and keeps the draft filter during p
   await input.press("Home");
   await expect(page.getByRole("option", { exact: true, name: "/privacy" })).toBeVisible();
 
-  await input.fill(`${prefix}pr`);
-  const pathValues = ["/pricing", "/privacy"];
+  await input.fill(`${prefix}docs/the-`);
+  const pathValues = ["…/the-big-migration", "…/the-stack"];
   await expect(values).toHaveText(pathValues);
-  await expect(values.locator("mark")).toHaveText(["/pr", "/pr"]);
+  await expect(values.locator("mark")).toHaveText(["…", "/the-", "…", "/the-"]);
   await input.press("ArrowLeft");
-  await expect(values.locator("mark")).toHaveText(["/p", "/p"]);
+  await expect(values.locator("mark")).toHaveText(["…", "/the", "…", "/the"]);
   await input.press("ArrowDown");
-  await expect(input).toHaveValue(`${prefix}pricing?`);
+  await expect(input).toHaveValue(`${prefix}docs/the-big-migration?`);
   await expect(values).toHaveText(pathValues);
-  await expect(values.locator("mark")).toHaveText(["/p", "/p"]);
+  await expect(values.locator("mark")).toHaveText(["…", "/the", "…", "/the"]);
   await input.press("ArrowDown");
-  await expect(input).toHaveValue(`${prefix}privacy?`);
+  await expect(input).toHaveValue(`${prefix}docs/the-stack?`);
   await expect(values).toHaveText(pathValues);
   await input.press("Escape");
   await expect(page.getByTestId("route-url-editor-display")).toHaveValue("/terms");

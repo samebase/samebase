@@ -24,12 +24,7 @@ const anonymousViewer = {
 const localEnvironment = "local";
 const productionEnvironment = "production";
 const deployedEnvironment = "preview";
-const publicDocsPaths = [
-  "/docs",
-  "/docs/do-it-yourself",
-  "/docs/receipts",
-  "/docs/the-stack",
-] as const;
+const publicDocsPaths = ["/docs", "/docs/do-it-yourself", "/docs/the-stack"] as const;
 
 describe("readRouteUrlPathSuggestions", () => {
   it("exposes sorted user-facing TanStack route paths", () => {
@@ -41,7 +36,7 @@ describe("readRouteUrlPathSuggestions", () => {
     );
 
     expect(suggestions).toContain("/");
-    expect(suggestions).toContain("/pricing");
+    expect(suggestions).toContain("/changelog");
     for (const path of publicDocsPaths) {
       expect(suggestions).toContain(path);
     }
@@ -123,7 +118,7 @@ describe("readRouteUrlPathSuggestions", () => {
     );
 
     expect(suggestions).toContain("/");
-    expect(suggestions).toContain("/pricing");
+    expect(suggestions).toContain("/changelog");
     for (const path of publicDocsPaths) {
       expect(suggestions).toContain(path);
     }
@@ -189,7 +184,7 @@ describe("readRouteUrlPathSuggestions", () => {
     expect(suggestions).not.toContain("/indexDB");
     expect(suggestions).not.toContain("/localStorage");
     expect(suggestions).not.toContain("/oauth/mcp/consent");
-    expect(suggestions).toContain("/pricing");
+    expect(suggestions).toContain("/changelog");
   });
 
   it("hides local-only route paths from the production environment", () => {

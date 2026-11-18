@@ -5,7 +5,6 @@ import {
   DocsDoItYourselfPage,
   DocsIndexPage,
   DocsChangelogPage,
-  DocsPricingPage,
   DocsTheBigMigrationPage,
   DocsTheStackPage,
   LandingPage,
@@ -13,18 +12,13 @@ import {
 import { DOCS_ROUTE_CHROME } from "@/components/DocsSidebar";
 import docsChangelogMarkdown from "@/content/docs-changelog.md?raw";
 import docsDoItYourselfMarkdown from "@/content/docs-do-it-yourself.md?raw";
-import docsPricingMarkdown from "@/content/docs-pricing.md?raw";
 import docsTheBigMigrationMarkdown from "@/content/docs-the-big-migration.md?raw";
 import docsTheStackMarkdown from "@/content/docs-the-stack.md?raw";
-import { DASHBOARD_ROUTE } from "@/lib/dashboardRoute";
-import { PUBLIC_LANDING_GITHUB_AUTH_SLOT_TEST_ID } from "@/lib/publicLanding";
 import { PUBLIC_LANDING_LOGO_TEST_ID } from "@/lib/publicLandingLogo";
 import { SAMEBASE_PUBLIC_LINKS } from "@/lib/publicLinks";
 import {
   DOCS_CHANGELOG_ROUTE,
   DOCS_DO_IT_YOURSELF_ROUTE,
-  DOCS_PRICING_ROUTE,
-  DOCS_RECEIPTS_ROUTE,
   DOCS_SIDEBAR_TEST_ID,
   DOCS_THE_BIG_MIGRATION_ROUTE,
   DOCS_THE_STACK_ROUTE,
@@ -39,11 +33,14 @@ const policyState = vi.hoisted<{
 
 vi.mock("convex/react", async (importOriginal) => ({
   ...(await importOriginal<typeof import("convex/react")>()),
+  useAction: () => async () => {},
   useConvexAuth: () => authState,
 }));
 
-// The page reads one query: the root loader's deployment auth policy.
-vi.mock("@tanstack/react-query", () => ({
+// The page reads one query: the root loader's deployment auth policy. The dashboard example keeps
+// its own query client.
+vi.mock("@tanstack/react-query", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@tanstack/react-query")>()),
   useQuery: () => ({ data: policyState.deploymentAuthPolicy }),
 }));
 
@@ -143,12 +140,11 @@ describe("LandingPage", () => {
 
     const sectionPositions = [
       "<h1",
-      'data-testid="landing-preview-hero-video"',
-      'aria-label="How it works"',
-      'aria-label="Four claims"',
-      'aria-label="What it costs"',
+      'aria-label="The Samebase repository page of acme/pantry',
+      'aria-label="Why I build it"',
+      'aria-label="What it does"',
+      'aria-label="The parts"',
       'aria-label="Frequently asked questions"',
-      'aria-label="Footnotes"',
       `data-testid="${PUBLIC_LANDING_LOGO_TEST_ID}"`,
     ].map((marker) => markup.indexOf(marker));
     expect(sectionPositions).not.toContain(-1);
@@ -161,18 +157,8 @@ describe("LandingPage", () => {
     expect(markup).toContain(
       'href="https://github.com/samebase/base" rel="noreferrer" target="_blank"',
     );
-    for (const route of [
-      DOCS_DO_IT_YOURSELF_ROUTE,
-      DOCS_RECEIPTS_ROUTE,
-      DOCS_THE_BIG_MIGRATION_ROUTE,
-    ]) {
+    for (const route of [DOCS_DO_IT_YOURSELF_ROUTE, DOCS_THE_STACK_ROUTE]) {
       expect(markup).toContain(`href="${route}"`);
-    }
-
-    const footnoteFragments = Array.from(markup.matchAll(/href="#([^"]+)"/g), (match) => match[1]);
-    expect(footnoteFragments.length).toBeGreaterThan(0);
-    for (const fragment of footnoteFragments) {
-      expect(markup).toContain(`id="${fragment}"`);
     }
 
     const faqQuestionCount = countOccurrences(markup, 'data-slot="accordion-trigger"');
@@ -180,22 +166,36 @@ describe("LandingPage", () => {
     expect(countOccurrences(markup, 'data-slot="accordion-content"')).toBe(faqQuestionCount);
   });
 
-  it("reuses the GitHub OAuth action in both signed-out landing CTA positions", () => {
+  it("shows the dashboard's repository page of the example app, with an inert list", () => {
     const markup = renderToStaticMarkup(<LandingPage />);
+    const box = markup.slice(markup.indexOf("<figure"), markup.indexOf("</figure>"));
+    const page = box.slice(box.indexOf("</nav>"));
 
-    expect(
-      countOccurrences(markup, `data-testid="${PUBLIC_LANDING_GITHUB_AUTH_SLOT_TEST_ID}"`),
-    ).toBe(2);
-    expect(countOccurrences(markup, '<div class="hidden"><a')).toBe(2);
-  });
-
-  it("links both signed-in landing CTA positions to the dashboard", () => {
-    authState.isAuthenticated = true;
-
-    const markup = renderToStaticMarkup(<LandingPage />);
-
-    expect(countOccurrences(markup, `href="${DASHBOARD_ROUTE}"`)).toBe(2);
-    expect(countOccurrences(markup, '<div class="hidden"><button')).toBe(2);
+    expect(box).toContain('aria-label="The Samebase repository page of acme/pantry');
+    // The list is inert, and the page after it takes clicks with Disconnect disabled.
+    expect(box.indexOf('inert=""')).toBeLessThan(box.indexOf('<nav aria-label="Repositories"'));
+    expect(page).not.toContain('inert=""');
+    expect(page).toMatch(/<button[^>]*disabled=""[^>]*>Disconnect<\/button>/);
+    for (const text of [
+      '<nav aria-label="Repositories"',
+      ">garden<",
+      ">recipes<",
+      ">website<",
+      ">pantry</",
+      "Group items by shelf",
+      "pantry.acme.dev",
+      "tidy-otter-412",
+      "pantry-barcode-lookup",
+      "3 open pull requests",
+      "Scan a barcode to add an item",
+      "Warn three days before food expires",
+      "Share the shopping list",
+      ">3h ago<",
+      ">1d ago<",
+      ">2d ago<",
+    ]) {
+      expect(box).toContain(text);
+    }
   });
 
   it("keeps the docs sidebar in the routes' static left pane, not in the page", () => {
@@ -216,8 +216,6 @@ describe("LandingPage", () => {
       DOCS_THE_BIG_MIGRATION_ROUTE,
       DOCS_THE_STACK_ROUTE,
       DOCS_DO_IT_YOURSELF_ROUTE,
-      DOCS_RECEIPTS_ROUTE,
-      DOCS_PRICING_ROUTE,
       DOCS_CHANGELOG_ROUTE,
       "/privacy",
       "/terms",
@@ -240,7 +238,6 @@ describe("LandingPage", () => {
     { name: "the stack", Page: DocsTheStackPage, markdown: docsTheStackMarkdown },
     { name: "big migration", Page: DocsTheBigMigrationPage, markdown: docsTheBigMigrationMarkdown },
     { name: "changelog", Page: DocsChangelogPage, markdown: docsChangelogMarkdown },
-    { name: "pricing", Page: DocsPricingPage, markdown: docsPricingMarkdown },
   ])("renders the $name page from its own markdown file", ({ Page, markdown }) => {
     expect(renderToStaticMarkup(<Page />)).toContain(
       renderToStaticMarkup(<article>{markdown}</article>),

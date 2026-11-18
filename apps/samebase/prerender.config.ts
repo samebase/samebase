@@ -13,24 +13,19 @@ type ExpectedPublicPrerenderMetadata = {
 
 const expectedPublicPrerenderMetadataByPath = {
   "/": {
-    title: "Samebase | Give your coding agent a working app",
+    title: "Samebase | A dashboard for Alchemy",
     description:
-      "A repository in your GitHub, a Convex project in your team, a live URL, Google sign-in, and a preview per pull request. Deployed by Alchemy from your own GitHub Actions.",
+      "Samebase reads the state that Alchemy keeps and shows every app you deploy: its URL, the deployed commit, its checks, and the preview of each pull request.",
     robots: "index,follow",
   },
   "/docs": {
     title: "Docs | Samebase",
-    description: "Samebase product, setup, stack, pricing, and source documentation.",
+    description: "Samebase product, setup, stack, and source documentation.",
     robots: "index,follow",
   },
   "/docs/do-it-yourself": {
     title: "Do it yourself | Samebase",
     description: "Deploy the Samebase stack in three steps, with no Samebase account.",
-    robots: "index,follow",
-  },
-  "/docs/receipts": {
-    title: "Receipts | Samebase",
-    description: "Every factual Samebase claim with its primary source and check date.",
     robots: "index,follow",
   },
   "/docs/the-big-migration": {
@@ -41,11 +36,6 @@ const expectedPublicPrerenderMetadataByPath = {
   "/docs/the-stack": {
     title: "The stack | Samebase",
     description: "What the Samebase template ships: Alchemy, Convex, TanStack Start, and Vite+.",
-    robots: "index,follow",
-  },
-  "/pricing": {
-    title: "Pricing | Samebase",
-    description: "Samebase is free during the beta, with repository and member limits.",
     robots: "index,follow",
   },
   "/changelog": {

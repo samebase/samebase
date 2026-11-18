@@ -5,8 +5,6 @@ import {
   DOCS_DO_IT_YOURSELF_ROUTE,
   DOCS_INDEX_ROUTE,
   DOCS_CHANGELOG_ROUTE,
-  DOCS_PRICING_ROUTE,
-  DOCS_RECEIPTS_ROUTE,
   DOCS_SIDEBAR_TEST_ID,
   DOCS_THE_BIG_MIGRATION_ROUTE,
   DOCS_THE_STACK_ROUTE,
@@ -24,8 +22,6 @@ const expectedLandingPreviewSidebarFiles = [
   "The big migration",
   "The stack",
   "Do it yourself",
-  "Receipts",
-  "Pricing",
   "Changelog",
   "Privacy",
   "Terms",
@@ -53,14 +49,6 @@ async function expectSidebarFiles(sidebar: Locator) {
     "href",
     new RegExp(`^${DOCS_DO_IT_YOURSELF_ROUTE}(\\?|$)`),
   );
-  await expect(sidebar.getByRole("link", { name: "Receipts" })).toHaveAttribute(
-    "href",
-    new RegExp(`^${DOCS_RECEIPTS_ROUTE}(\\?|$)`),
-  );
-  await expect(sidebar.getByRole("link", { name: "Pricing" })).toHaveAttribute(
-    "href",
-    new RegExp(`^${DOCS_PRICING_ROUTE}(\\?|$)`),
-  );
   await expect(sidebar.getByRole("link", { name: "Changelog" })).toHaveAttribute(
     "href",
     new RegExp(`^${DOCS_CHANGELOG_ROUTE}(\\?|$)`),
@@ -73,7 +61,11 @@ async function readMainPaneScrollTop(page: Page) {
     .evaluate((element) => element.scrollTop);
 }
 
-/** Landing YouTube embeds stay offline; screenshots mask the hero embed. */
+/** The first "Do it yourself" link of the landing article, in the "Start an app" half. */
+function readLandingDoItYourselfLink(article: Locator) {
+  return article.getByRole("link", { exact: true, name: "Do it yourself" }).first();
+}
+
 /** A first visit starts with the docs sidebar closed; docs navigation tests open it. */
 async function openDocsSidebar(page: Page) {
   await seedLocalWorkspaceSidebarState(page, {
@@ -83,45 +75,27 @@ async function openDocsSidebar(page: Page) {
   });
 }
 
-async function blockLandingYouTubeEmbeds(page: Page) {
-  await page.route("https://www.youtube-nocookie.com/**", (route) => route.abort());
-}
-
-test("landing overview preserves its video frame and wide desktop layout", async ({ page }) => {
+test("landing overview keeps its wide desktop layout", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
-  await blockLandingYouTubeEmbeds(page);
 
   await page.goto(LANDING_PAGE_ROUTE, {
-    waitUntil: "domcontentloaded",
+    waitUntil: "networkidle",
   });
-
-  const heroVideo = page.getByTestId("landing-preview-hero-video");
-  await expect(heroVideo).toBeVisible();
-  const videoLayout = await heroVideo.evaluate((element) => ({
-    height: element.clientHeight,
-    width: element.clientWidth,
-  }));
-  expect(videoLayout.width / videoLayout.height).toBeCloseTo(16 / 9, 2);
-
-  await page.waitForLoadState("networkidle");
 
   await page.evaluate(async () => {
     await document.fonts.ready;
   });
 
   const article = page.getByTestId(LANDING_PREVIEW_ARTICLE_TEST_ID);
-  const templateLink = article.getByRole("link", {
-    name: "samebase/base",
-  });
-  await expect(templateLink).toBeInViewport();
-  await expect(templateLink).toHaveAttribute("href", "https://github.com/samebase/base");
+  const starterLink = article.getByRole("link", { name: "Use the starter" }).first();
+  await expect(starterLink).toBeInViewport();
+  await expect(starterLink).toHaveAttribute("href", "https://github.com/samebase/base");
 
   // The interactive logo canvases render nondeterministically across GPUs.
   await expect(page).toHaveScreenshot("landing-preview-overview-desktop.png", {
     animations: "disabled",
     caret: "hide",
     mask: [
-      heroVideo,
       page.getByTestId("landing-preview-hero-menger"),
       page.getByTestId("public-landing-logo-stage"),
     ],
@@ -132,10 +106,9 @@ test("landing overview preserves its video frame and wide desktop layout", async
   });
 });
 
-test("landing preview FAQ answers the direct-agent questions", async ({ page }) => {
+test("landing preview FAQ answers the visitor questions", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.emulateMedia({ reducedMotion: "reduce" });
-  await blockLandingYouTubeEmbeds(page);
   await page.goto(LANDING_PAGE_ROUTE, {
     waitUntil: "domcontentloaded",
   });
@@ -147,16 +120,14 @@ test("landing preview FAQ answers the direct-agent questions", async ({ page }) 
   const faq = page
     .getByTestId(LANDING_PREVIEW_ARTICLE_TEST_ID)
     .getByRole("region", { name: "Frequently asked questions" });
-  const firstQuestion = faq.getByRole("button", {
-    name: "Codex already writes Convex well. Why do I need Samebase?",
-  });
+  const firstQuestion = faq.getByRole("button", { name: "Do I need an account?" });
   const secondQuestion = faq.getByRole("button", {
-    name: "Ok, but can't I just get your template and not use Samebase?",
+    name: "Which stacks does the dashboard show?",
   });
-  const firstAnswer = faq.getByText("You don't, for the code.", {
+  const firstAnswer = faq.getByText("Not for the starter or the packages.", {
     exact: false,
   });
-  const secondAnswer = faq.getByText("You can. The template is public", {
+  const secondAnswer = faq.getByText("Stacks whose state carries a run record", {
     exact: false,
   });
 
@@ -189,7 +160,6 @@ test("landing preview FAQ stays responsive while the closing logo is off screen"
   page,
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  await blockLandingYouTubeEmbeds(page);
   await page.goto(LANDING_PAGE_ROUTE, {
     waitUntil: "domcontentloaded",
   });
@@ -217,11 +187,7 @@ test("landing preview FAQ stays responsive while the closing logo is off screen"
   };
 
   const scriptDurationBefore = await readScriptDuration();
-  await faq
-    .getByRole("button", {
-      name: "Codex already writes Convex well. Why do I need Samebase?",
-    })
-    .click();
+  await faq.getByRole("button", { name: "Do I need an account?" }).click();
   await page.waitForTimeout(450);
   const scriptDurationAfter = await readScriptDuration();
 
@@ -233,7 +199,6 @@ test("landing preview overview adapts to a narrow pane", async ({ page }) => {
   // than the viewport md breakpoint. The overview must render its stacked
   // container layout instead of forcing the two-column hero grid.
   await page.setViewportSize({ width: 800, height: 900 });
-  await blockLandingYouTubeEmbeds(page);
 
   await page.goto(LANDING_PAGE_ROUTE, {
     waitUntil: "domcontentloaded",
@@ -245,23 +210,20 @@ test("landing preview overview adapts to a narrow pane", async ({ page }) => {
   });
 
   const article = page.getByTestId(LANDING_PREVIEW_ARTICLE_TEST_ID);
-  const howItWorks = article.getByRole("region", { name: "How it works" });
-  await expect(howItWorks).toBeVisible();
+  const whatItDoes = article.getByRole("region", { name: "What it does" });
+  await expect(whatItDoes).toBeVisible();
   await expect(page.getByTestId("landing-preview-hero-menger")).toBeHidden();
   await expect(page.getByTestId("logo-menger-hover-scene")).toHaveCount(0);
 
   await expect(page).toHaveScreenshot("landing-preview-overview-narrow-pane.png", {
     animations: "disabled",
     caret: "hide",
-    mask: [
-      page.getByTestId("landing-preview-hero-video"),
-      page.getByTestId("public-landing-logo-stage"),
-    ],
+    mask: [page.getByTestId("public-landing-logo-stage")],
     maskColor: "#f5f5f5",
     maxDiffPixelRatio: 0.02,
     scale: "css",
   });
-  await expect(howItWorks).toHaveScreenshot("landing-preview-how-it-works-narrow-pane.png", {
+  await expect(whatItDoes).toHaveScreenshot("landing-preview-what-it-does-narrow-pane.png", {
     animations: "disabled",
     caret: "hide",
     maxDiffPixelRatio: 0.02,
@@ -293,7 +255,6 @@ test("landing document navigation resets pages, restores history, and aligns dir
     };
   });
   await openDocsSidebar(page);
-  await blockLandingYouTubeEmbeds(page);
   await page.goto(LANDING_PAGE_ROUTE, {
     waitUntil: "domcontentloaded",
   });
@@ -303,7 +264,7 @@ test("landing document navigation resets pages, restores history, and aligns dir
   });
 
   const article = page.getByTestId(LANDING_PREVIEW_ARTICLE_TEST_ID);
-  const doItYourselfLink = article.getByRole("link", { name: "do-it-yourself recipe" });
+  const doItYourselfLink = readLandingDoItYourselfLink(article);
   await doItYourselfLink.scrollIntoViewIfNeeded();
   await expect.poll(() => readMainPaneScrollTop(page)).toBeGreaterThan(0);
   const overviewScrollTop = await readMainPaneScrollTop(page);
@@ -381,7 +342,6 @@ test.describe("mobile landing preview", () => {
 
   test("renders the mobile overview", async ({ page }) => {
     await page.setViewportSize({ height: 900, width: 390 });
-    await blockLandingYouTubeEmbeds(page);
     await page.goto(LANDING_PAGE_ROUTE, {
       waitUntil: "domcontentloaded",
     });
@@ -393,19 +353,11 @@ test.describe("mobile landing preview", () => {
 
     const workspace = page.locator('[data-sidebar-layout-part="viewport"]');
     const article = page.getByTestId(LANDING_PREVIEW_ARTICLE_TEST_ID);
-    const heroVideo = article.getByTestId("landing-preview-hero-video");
     await expect(workspace).toHaveAttribute("data-mobile-pane", "main");
-    await expect(
-      article.getByRole("link", {
-        name: "samebase/base",
-      }),
-    ).toBeInViewport();
-    await expect(heroVideo).toBeVisible();
+    await expect(article.getByRole("link", { name: "Use the starter" }).first()).toBeInViewport();
     await expect(page).toHaveScreenshot("landing-preview-hero-mobile.png", {
       animations: "disabled",
       caret: "hide",
-      mask: [heroVideo],
-      maskColor: "#f5f5f5",
       maxDiffPixelRatio: 0.02,
       scale: "css",
       timeout: 30_000,
@@ -415,7 +367,6 @@ test.describe("mobile landing preview", () => {
   test("renders the FAQ for a mobile pane", async ({ page }) => {
     await page.setViewportSize({ height: 1200, width: 390 });
     await page.emulateMedia({ reducedMotion: "reduce" });
-    await blockLandingYouTubeEmbeds(page);
     await page.goto(LANDING_PAGE_ROUTE, {
       waitUntil: "domcontentloaded",
     });
@@ -427,22 +378,20 @@ test.describe("mobile landing preview", () => {
     const faq = page
       .getByTestId(LANDING_PREVIEW_ARTICLE_TEST_ID)
       .getByRole("region", { name: "Frequently asked questions" });
-    const thirdQuestion = faq.getByRole("button", {
-      name: "Why is the Alchemy state in Convex?",
-    });
+    const thirdQuestion = faq.getByRole("button", { name: "Is it free?" });
     await expect(thirdQuestion).toHaveAttribute("aria-expanded", "false");
     await thirdQuestion.click();
     await expect(thirdQuestion).toHaveAttribute("aria-expanded", "true");
     await expect(
-      faq.getByText("A Convex OAuth token has no expiry date", {
+      faq.getByText("A personal account lists up to 12 repositories", {
         exact: false,
       }),
     ).toBeVisible();
-    const fourthQuestion = faq.getByRole("button", {
+    const lastQuestion = faq.getByRole("button", {
       name: "Wait, so all Samebase is, is a template and a list?",
     });
-    await fourthQuestion.click();
-    await expect(fourthQuestion).toHaveAttribute("aria-expanded", "true");
+    await lastQuestion.click();
+    await expect(lastQuestion).toHaveAttribute("aria-expanded", "true");
     await expect(thirdQuestion).toHaveAttribute("aria-expanded", "false");
     await expect(faq.getByText("Kinda.", { exact: true })).toBeVisible();
     await expect(faq).toHaveScreenshot("landing-preview-faq-mobile.png", {
@@ -455,7 +404,6 @@ test.describe("mobile landing preview", () => {
   });
 
   test("opens linked documents at the top of the main pane", async ({ page }) => {
-    await blockLandingYouTubeEmbeds(page);
     await page.goto(LANDING_PAGE_ROUTE, {
       waitUntil: "domcontentloaded",
     });
@@ -467,7 +415,7 @@ test.describe("mobile landing preview", () => {
 
     const workspace = page.locator('[data-sidebar-layout-part="viewport"]');
     const article = page.getByTestId(LANDING_PREVIEW_ARTICLE_TEST_ID);
-    const doItYourselfLink = article.getByRole("link", { name: "do-it-yourself recipe" });
+    const doItYourselfLink = readLandingDoItYourselfLink(article);
     await expect(doItYourselfLink).toBeVisible();
     const mainPaneScroller = page.locator(
       '[data-scroll-restoration-id="workspace-layout-v2-main"]',
@@ -492,65 +440,6 @@ test.describe("mobile landing preview", () => {
         exact: true,
       }),
     ).toBeInViewport();
-  });
-});
-
-test("docs receipts route renders the claims ledger", async ({ page }) => {
-  await page.setViewportSize({ width: 1440, height: 1000 });
-  await openDocsSidebar(page);
-
-  await page.goto(DOCS_RECEIPTS_ROUTE, {
-    waitUntil: "domcontentloaded",
-  });
-  await page.waitForLoadState("networkidle");
-
-  await page.evaluate(async () => {
-    await document.fonts.ready;
-  });
-
-  const article = page.getByTestId(LANDING_PREVIEW_ARTICLE_TEST_ID);
-  const sidebar = page.getByTestId(DOCS_SIDEBAR_TEST_ID);
-
-  await expect(sidebar).toBeVisible();
-  await expectSidebarFiles(sidebar);
-  await expect(article.getByRole("heading", { exact: true, name: "Receipts" })).toBeVisible();
-  await expect(sidebar.locator('a[aria-current="page"]')).toHaveText("Receipts");
-  await expect(article.locator("video")).toHaveCount(0);
-
-  await expect(page).toHaveScreenshot("docs-receipts-desktop.png", {
-    animations: "disabled",
-    caret: "hide",
-    maxDiffPixelRatio: 0.02,
-    scale: "css",
-  });
-});
-
-test("pricing route renders the public pricing page", async ({ page }) => {
-  await page.setViewportSize({ width: 1440, height: 1000 });
-  await openDocsSidebar(page);
-
-  await page.goto(DOCS_PRICING_ROUTE, {
-    waitUntil: "domcontentloaded",
-  });
-  await page.waitForLoadState("networkidle");
-
-  await page.evaluate(async () => {
-    await document.fonts.ready;
-  });
-
-  const article = page.getByTestId(LANDING_PREVIEW_ARTICLE_TEST_ID);
-  const sidebar = page.getByTestId(DOCS_SIDEBAR_TEST_ID);
-
-  await expect(sidebar).toBeVisible();
-  await expectSidebarFiles(sidebar);
-  await expect(article.getByRole("heading", { exact: true, name: "Pricing" })).toBeVisible();
-  await expect(sidebar.locator('a[aria-current="page"]')).toHaveText("Pricing");
-
-  await expect(page).toHaveScreenshot("docs-pricing-desktop.png", {
-    animations: "disabled",
-    caret: "hide",
-    maxDiffPixelRatio: 0.02,
-    scale: "css",
   });
 });
 

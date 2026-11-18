@@ -1,9 +1,6 @@
 import { devices, expect, test, type Locator, type Page } from "@playwright/test";
 import type { WorkspaceSidebarState } from "../convex/userPreferenceModel";
-import {
-  APP_RIGHT_SIDEBAR_ACCOUNT_SECTION_TEST_ID,
-  PUBLIC_LANDING_PRIMARY_ACTION_TEST_ID,
-} from "../src/lib/publicLanding";
+import { APP_RIGHT_SIDEBAR_ACCOUNT_SECTION_TEST_ID } from "../src/lib/publicLanding";
 import { signInIfNeeded } from "./liveHelpers";
 import {
   applyOrganizationContextAcceptanceFixture,
@@ -273,14 +270,6 @@ test("signed-in app right sidebar renders the account row and dashboard actions"
 
   const rightSidebar = getRightSidebar(page);
   const hydratedAccountSection = getSignedInAccountSection(page);
-  const hydratedLandingActions = page.getByTestId(PUBLIC_LANDING_PRIMARY_ACTION_TEST_ID);
-  await expect(hydratedLandingActions).toHaveCount(2);
-  await expect(hydratedLandingActions.getByRole("link", { name: "Go to dashboard" })).toHaveCount(
-    2,
-  );
-  await expect(
-    hydratedLandingActions.getByRole("button", { name: "Continue with GitHub" }),
-  ).toHaveCount(0);
   for (const linkName of ["Account settings", "All repositories", "Organizations"]) {
     const navigationLink = rightSidebar.getByRole("link", { name: linkName, exact: true });
     await expect(navigationLink).toHaveCSS("font-size", "16px");

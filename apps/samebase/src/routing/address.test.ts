@@ -203,7 +203,7 @@ describe("readRouteAddressReadiness", () => {
   it("keeps route-owned params while canonicalizing global params", () => {
     expect(
       readRouteAddressReadinessForTest({
-        currentRouteAddress: "/pricing",
+        currentRouteAddress: "/privacy",
         draftRouteAddress: "/logo?leftFace=striped&zoom=0.0",
       }),
     ).toEqual({
@@ -224,16 +224,16 @@ describe("readRouteAddressReadiness", () => {
     });
   });
 
-  it("drops stale route-owned params before navigating to pricing", () => {
+  it("drops stale route-owned params before navigating to privacy", () => {
     expect(
       readRouteAddressReadinessForTest({
         currentRouteAddress: "/settings?delete-account",
-        draftRouteAddress: "/pricing?delete-account",
+        draftRouteAddress: "/privacy?delete-account",
         viewer: memberViewer,
       }),
     ).toEqual({
       kind: "readyNormalized",
-      routeAddress: "/pricing",
+      routeAddress: "/privacy",
     });
   });
 

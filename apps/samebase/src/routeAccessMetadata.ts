@@ -60,7 +60,6 @@ export const ROUTE_ACCESS_METADATA_BY_PATH = {
   "/docs/cloudflare-setup": { access: "access_public", pathSuggestion: "redirect" },
   "/docs/cloudflare-previews-migration": { access: "access_public", pathSuggestion: "redirect" },
   "/docs/do-it-yourself": { access: "access_public", prerender: true },
-  "/docs/receipts": { access: "access_public", prerender: true },
   "/docs/the-big-migration": { access: "access_public", prerender: true },
   "/docs/the-stack": { access: "access_public", prerender: true },
   "/landing-preview": {
@@ -153,7 +152,6 @@ export const ROUTE_ACCESS_METADATA_BY_PATH = {
     access: "access_admin",
     appWorkspaceRouteChrome: { leftPane: "none" },
   },
-  "/pricing": { access: "access_public", prerender: true },
   "/changelog": { access: "access_public", prerender: true },
   "/privacy": { access: "access_public", prerender: true },
   "/settings": {

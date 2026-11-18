@@ -10,12 +10,13 @@ apps. This page explains how Samebase works now and how to move yours.
 
 ## What Samebase is
 
-Samebase is an opinionated way to use Alchemy. You describe your app in `alchemy.run.ts`, GitHub
-Actions deploys it, and Samebase starts new apps, gives them Google sign-in, and monitors running
-ones.
+Samebase is a dashboard for Alchemy. You describe your app in `alchemy.run.ts`, GitHub Actions
+deploys it, and Samebase shows what is deployed. It also starts new apps from a starter and gives
+them Google sign-in.
 
-The main opinion is where the state lives. Alchemy keeps a record of what it deployed, and Samebase
-puts that record in Convex, in a project called `alchemy-state-store` on your team.
+The starter's default is where the state lives. Alchemy keeps a record of what it deployed, and the
+starter puts that record in Convex, in a project called `alchemy-state-store` on your team. Samebase
+also reads state kept in Cloudflare or on a branch of the repository.
 
 That choice lets you connect with OAuth. A Convex OAuth token has no expiry date, so one click gives
 you one token: Samebase reads your state with it, and your repository deploys with it. A new app

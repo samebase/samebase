@@ -25,12 +25,7 @@ describe("route access metadata", () => {
   });
 
   it("keeps docs public and visible in route suggestions", () => {
-    const publicDocsPaths = [
-      "/docs",
-      "/docs/do-it-yourself",
-      "/docs/receipts",
-      "/docs/the-stack",
-    ] as const;
+    const publicDocsPaths = ["/docs", "/docs/do-it-yourself", "/docs/the-stack"] as const;
 
     for (const path of publicDocsPaths) {
       expect(ROUTE_ACCESS_METADATA_BY_PATH[path]).toMatchObject({

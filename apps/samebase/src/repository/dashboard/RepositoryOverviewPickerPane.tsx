@@ -21,7 +21,9 @@ export type { RepositoryOrganization } from "./repositoryWorkspaceModel";
 
 export function RepositoryOverviewListHeader() {
   return (
-    <div className="min-w-0 truncate px-3 text-sm font-medium @max-[120px]:px-1">Repositories</div>
+    <div className="flex h-full min-w-0 items-center px-3 text-sm font-medium @max-[120px]:px-1">
+      <span className="truncate">Repositories</span>
+    </div>
   );
 }
 

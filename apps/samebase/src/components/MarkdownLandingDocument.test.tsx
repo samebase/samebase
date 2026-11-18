@@ -192,11 +192,11 @@ describe("MarkdownLandingDocument", () => {
 
   it("renders one hash marker for local Markdown links", async () => {
     const element = await renderRouterMarkdown(
-      `[Open leaving test](/docs/receipts#ownership-the-leaving-test)`,
+      `[Open the first step](/docs/do-it-yourself#1-copy-the-starter)`,
     );
 
     expect(element.querySelector("a")?.getAttribute("href")).toBe(
-      "/docs/receipts#ownership-the-leaving-test",
+      "/docs/do-it-yourself#1-copy-the-starter",
     );
   });
 

@@ -244,7 +244,7 @@ describe("useAutoSignIn", () => {
   it("does nothing when the routed auth search is absent", () => {
     vi.stubGlobal("window", {
       location: {
-        pathname: "/pricing",
+        pathname: "/privacy",
         search: "",
         hash: "",
       },
