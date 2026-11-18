@@ -19,8 +19,7 @@ export const s256Challenge = (verifier: string) =>
   Effect.promise(() => calculatePKCECodeChallenge(verifier));
 
 /** URL-safe random token of `bytes` random bytes. */
-export const randomToken = (bytes = 32) =>
-  Effect.gen(function* () {
-    const random = yield* Random;
-    return base64url.encode(yield* random.bytes(bytes));
-  });
+export const randomToken = Effect.fnUntraced(function* (bytes: number) {
+  const random = yield* Random;
+  return base64url.encode(yield* random.bytes(bytes));
+});

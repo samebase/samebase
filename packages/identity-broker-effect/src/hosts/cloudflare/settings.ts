@@ -3,7 +3,7 @@
 import { Schema } from "effect";
 import type { PolicyFunction } from "../../core/policy.ts";
 
-/** `ALLOWED_REPOSITORIES`: GitHub's numeric repository id and owner id pairs, as JSON. */
+/** The allow-list: GitHub's numeric repository id and owner id pairs, as JSON. */
 export const AllowedRepositories = Schema.fromJsonString(
   Schema.Array(Schema.Struct({ repositoryId: Schema.String, ownerId: Schema.String })),
 );

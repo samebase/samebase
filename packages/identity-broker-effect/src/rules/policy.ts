@@ -11,42 +11,43 @@ import type { PolicyDecision } from "./schemas.ts";
  * The facts of `client`, or null for a client that a host registered outside `POST /register`: a
  * tenant that is not a repository's, or one with no recorded owner.
  */
-export const registrationOf = (client: Doc<"clients">, app: Doc<"apps">) =>
-  Effect.gen(function* () {
-    const repositoryId = /^gh-([1-9][0-9]*)$/.exec(app.tenantId)?.[1];
-    const tenant = yield* tenantRow(app.tenantId);
-    const ownerId = tenant?.doc.ownerId;
-    if (repositoryId === undefined || ownerId === undefined) {
-      return null;
-    }
-    return {
-      repositoryId,
-      repository: client.registeredBy.githubRepository,
-      ownerId,
-      app: client.app,
-      deploymentType: client.deploymentType,
-      redirectUris: client.redirectUris,
-      proof:
-        client.registeredBy.kind === "github"
-          ? ("github-actions" as const)
-          : ("initial-access-token" as const),
-    };
-  });
+export const registrationOf = Effect.fnUntraced(function* (
+  client: Doc<"clients">,
+  app: Doc<"apps">,
+) {
+  const repositoryId = /^gh-([1-9][0-9]*)$/.exec(app.tenantId)?.[1];
+  const tenant = yield* tenantRow(app.tenantId);
+  const ownerId = tenant?.doc.ownerId;
+  if (repositoryId === undefined || ownerId === undefined) {
+    return null;
+  }
+  return {
+    repositoryId,
+    repository: client.registeredBy.githubRepository,
+    ownerId,
+    app: client.app,
+    deploymentType: client.deploymentType,
+    redirectUris: client.redirectUris,
+    proof:
+      client.registeredBy.kind === "github"
+        ? ("github-actions" as const)
+        : ("initial-access-token" as const),
+  };
+});
 
 /**
  * Why a decision does not apply to the client: `stale` when the tenant's owner is no longer the one
  * the policy decided on, `paused` when the policy paused the client. Null when it applies.
  */
-export const refusalOf = (decision: PolicyDecision, tenantId: string) =>
-  Effect.gen(function* () {
-    if (
-      decision.ownerId !== undefined &&
-      (yield* tenantRow(tenantId))?.doc.ownerId !== decision.ownerId
-    ) {
-      return "stale" as const;
-    }
-    return decision.paused ? ("paused" as const) : null;
-  });
+export const refusalOf = Effect.fnUntraced(function* (decision: PolicyDecision, tenantId: string) {
+  if (
+    decision.ownerId !== undefined &&
+    (yield* tenantRow(tenantId))?.doc.ownerId !== decision.ownerId
+  ) {
+    return "stale" as const;
+  }
+  return decision.paused ? ("paused" as const) : null;
+});
 
 /**
  * The connectors a request may use now: its set, the client's enrollment, the host's configured

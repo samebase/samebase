@@ -14,16 +14,15 @@ const repositoryRow = (tenantId: string, ownerId: string) =>
  * The exemptions of a client of the repository `tenantId`. The repository's row counts only while
  * the tenant's recorded owner and the owner that registered the client are the row's owner.
  */
-export const exemptionOf = (args: {
+export const exemptionOf = Effect.fnUntraced(function* (args: {
   readonly tenantId: string | undefined;
   readonly tenantOwnerId: string | undefined;
   readonly clientOwnerId: string;
-}) =>
-  Effect.gen(function* () {
-    const everyApp = (yield* everyAppRow) !== undefined;
-    const repository =
-      args.tenantId !== undefined &&
-      args.tenantOwnerId === args.clientOwnerId &&
-      (yield* repositoryRow(args.tenantId, args.clientOwnerId)) !== undefined;
-    return { everyApp, repository };
-  });
+}) {
+  const everyApp = (yield* everyAppRow) !== undefined;
+  const repository =
+    args.tenantId !== undefined &&
+    args.tenantOwnerId === args.clientOwnerId &&
+    (yield* repositoryRow(args.tenantId, args.clientOwnerId)) !== undefined;
+  return { everyApp, repository };
+});

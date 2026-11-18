@@ -1,6 +1,15 @@
-import { Redacted } from "effect";
+import { Predicate, Redacted, Schema } from "effect";
 import * as oauth from "oauth4webapi";
 import type { OauthConnector, OidcConnector, UpstreamIdentity } from "./types.ts";
+
+/**
+ * The provider's metadata cannot be read, or names no authorization endpoint, when a sign-in
+ * goes to it. The router answers 500. It keeps no cause: the provider's answer is not logged.
+ */
+export class ProviderUnavailable extends Schema.TaggedError<ProviderUnavailable>()(
+  "ProviderUnavailable",
+  {},
+) {}
 
 /** The core's `Fetch` service function. */
 export type FetchFunction = (request: Request) => Promise<Response>;
@@ -145,17 +154,18 @@ export async function finishUpstream(args: {
   if (claims === undefined) {
     throw new Error(`Connector "${args.connector.name}" returned no id_token`);
   }
+  // Each profile claim is kept when it has its type and left out when it does not.
   const identity: UpstreamIdentity = { upstreamId: claims.sub };
-  if (typeof claims["email"] === "string") {
+  if (Predicate.isString(claims["email"])) {
     identity.email = claims["email"];
   }
-  if (typeof claims["email_verified"] === "boolean") {
+  if (Predicate.isBoolean(claims["email_verified"])) {
     identity.emailVerified = claims["email_verified"];
   }
-  if (typeof claims["name"] === "string") {
+  if (Predicate.isString(claims["name"])) {
     identity.name = claims["name"];
   }
-  if (typeof claims["picture"] === "string") {
+  if (Predicate.isString(claims["picture"])) {
     identity.picture = claims["picture"];
   }
   // oauth4webapi rejects an id_token whose `auth_time` is present and not a non-negative number.

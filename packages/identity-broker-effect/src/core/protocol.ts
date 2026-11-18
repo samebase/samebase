@@ -13,14 +13,6 @@ const pkceValuePattern = /^[A-Za-z0-9\-._~]{43,128}$/;
 
 export type TokenEndpointAuthMethod = "client_secret_post" | "client_secret_basic";
 
-/** The own enumerable entries of a JSON value, or an empty record for anything but an object. */
-export function asRecord(value: unknown): Record<string, unknown> {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) {
-    return {};
-  }
-  return Object.fromEntries(Object.entries(value));
-}
-
 function invalid<T>(status: number, error: string, description: string): Validation<T> {
   return { ok: false, status, error, description };
 }

@@ -1,6 +1,5 @@
-import { Option, type Redacted, Schema } from "effect";
+import { Option, Predicate, type Redacted, Schema } from "effect";
 import * as oauth from "oauth4webapi";
-import { asRecord } from "../protocol.ts";
 import type { OauthConnector, UpstreamIdentity } from "./types.ts";
 import { oauthFetch, type FetchFunction } from "./upstream.ts";
 
@@ -45,21 +44,23 @@ async function githubIdentity(
   if (Option.isNone(id)) {
     throw new Error("GitHub /user returned no id");
   }
+  // Each profile member is kept when it has its type and left out when it does not.
   const identity: UpstreamIdentity = { upstreamId: String(id.value.id) };
-  const user = asRecord(body);
+  const user: { readonly [member: string]: unknown } = Predicate.isObject(body) ? body : {};
   const name = user["name"] ?? user["login"];
-  if (typeof name === "string" && name.length > 0) {
+  if (Predicate.isString(name) && name.length > 0) {
     identity.name = name;
   }
-  if (typeof user["avatar_url"] === "string") {
+  if (Predicate.isString(user["avatar_url"])) {
     identity.picture = user["avatar_url"];
   }
   const emails = await githubJson(accessToken, EMAILS_URL, fetch);
   if (Array.isArray(emails)) {
-    const entries = emails.map((entry) => asRecord(entry));
-    const verified = entries.filter((entry) => entry["verified"] === true);
+    const verified = emails
+      .filter(Predicate.isObject)
+      .filter((entry) => entry["verified"] === true);
     const primary = verified.find((entry) => entry["primary"] === true) ?? verified[0];
-    if (primary !== undefined && typeof primary["email"] === "string") {
+    if (primary !== undefined && Predicate.isString(primary["email"])) {
       identity.email = primary["email"];
       identity.emailVerified = true;
     }

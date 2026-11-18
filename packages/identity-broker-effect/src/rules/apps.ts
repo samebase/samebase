@@ -21,34 +21,31 @@ export const readBlock = (kind: Doc<"blocks">["kind"], githubId: string) =>
  * Whether no client of the tenant may register, renew, or sign in: its repository is blocked, or
  * `ownerId` is. A tenant that is not a repository's (`gh-<id>`) has no repository block.
  */
-export const isStopped = (tenantId: string, ownerId: string | undefined) =>
-  Effect.gen(function* () {
-    const repositoryId = repositoryIdOf(tenantId);
-    if (
-      repositoryId !== undefined &&
-      (yield* readBlock("repository", repositoryId)) !== undefined
-    ) {
-      return true;
-    }
-    return ownerId !== undefined && (yield* readBlock("owner", ownerId)) !== undefined;
-  });
+export const isStopped = Effect.fnUntraced(function* (
+  tenantId: string,
+  ownerId: string | undefined,
+) {
+  const repositoryId = repositoryIdOf(tenantId);
+  if (repositoryId !== undefined && (yield* readBlock("repository", repositoryId)) !== undefined) {
+    return true;
+  }
+  return ownerId !== undefined && (yield* readBlock("owner", ownerId)) !== undefined;
+});
 
-export const isSuspended = (tenantId: string) =>
-  Effect.gen(function* () {
-    const tenant = yield* tenantRow(tenantId);
-    return yield* isStopped(tenantId, tenant?.doc.ownerId);
-  });
+export const isSuspended = Effect.fnUntraced(function* (tenantId: string) {
+  const tenant = yield* tenantRow(tenantId);
+  return yield* isStopped(tenantId, tenant?.doc.ownerId);
+});
 
 export const appRow = (appId: string) => unique("apps", "by_app_id", [appId]);
 
 /** An app row with what `/authorize` and `/continue` need to know about its tenant. */
-export const appView = (app: Row<"apps">) =>
-  Effect.gen(function* () {
-    return {
-      appId: app.doc.appId,
-      name: app.doc.name,
-      tenantId: app.doc.tenantId,
-      suspended: yield* isSuspended(app.doc.tenantId),
-      createdAt: app.doc.createdAt,
-    };
-  });
+export const appView = Effect.fnUntraced(function* (app: Row<"apps">) {
+  return {
+    appId: app.doc.appId,
+    name: app.doc.name,
+    tenantId: app.doc.tenantId,
+    suspended: yield* isSuspended(app.doc.tenantId),
+    createdAt: app.doc.createdAt,
+  };
+});

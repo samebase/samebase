@@ -176,24 +176,23 @@ const decodeRefusalBody = Schema.decodeUnknownOption(RefusalBody);
  * rule that a 403 names, else its error. The body of a 201 holds the client's secrets, so it is not
  * read.
  */
-const logged = (facts: Registration, response: Response) =>
-  Effect.gen(function* () {
-    if (response.status === 201) {
-      logHubEvent({ event: "registration", facts, connector: null, reason: null });
-      return response;
-    }
-    const body: unknown = yield* Effect.promise(() => response.clone().json());
-    logHubEvent({
-      event: "registration_refused",
-      facts,
-      connector: null,
-      reason: Option.match(decodeRefusalBody(body), {
-        onNone: () => String(response.status),
-        onSome: (refused) => refused.reason ?? refused.error,
-      }),
-    });
+const logged = Effect.fnUntraced(function* (facts: Registration, response: Response) {
+  if (response.status === 201) {
+    logHubEvent({ event: "registration", facts, connector: null, reason: null });
     return response;
+  }
+  const body: unknown = yield* Effect.promise(() => response.clone().json());
+  logHubEvent({
+    event: "registration_refused",
+    facts,
+    connector: null,
+    reason: Option.match(decodeRefusalBody(body), {
+      onNone: () => String(response.status),
+      onSome: (refused) => refused.reason ?? refused.error,
+    }),
   });
+  return response;
+});
 
 // The GitHub Actions proof. Everything after `readRun` works on GitHub's ids, so a second proof
 // would be a second section like this one, not a change to the rest.
@@ -291,29 +290,38 @@ function readRunStage(claims: { event_name: string; ref: string }) {
   }
 }
 
+/**
+ * GitHub's signing keys cannot be read. `message` is the key set's status or the fetch's own
+ * error, never the token.
+ */
+class GitHubUnavailable extends Schema.TaggedError<GitHubUnavailable>()("GitHubUnavailable", {
+  message: Schema.String,
+}) {}
+
 /** The verified run of a GitHub token for `audience`, or the reply that refuses it. */
-const readRun = (token: string, audience: string) =>
-  Effect.gen(function* () {
-    const { fetch } = yield* Fetch;
-    const now = yield* Clock.currentTimeMillis;
-    const verified = yield* Effect.tryPromise({
-      try: () => verifyGitHubToken(fetch, token, audience, now),
-      catch: (error) => error,
-    }).pipe(Effect.result);
-    if (verified._tag === "Failure") {
-      // The message is the key set's status or the fetch's own error, never the token.
-      yield* Effect.logWarning("hub_clients:github_unavailable", {
-        message: verified.failure instanceof Error ? verified.failure.message : "unknown",
-      });
-      return refusal(502, "github_unavailable", "GitHub's signing keys cannot be read.");
-    }
-    const claims = verified.success;
-    if (claims === null) {
-      return invalidToken();
-    }
-    const stage = readRunStage(claims);
-    return stage === null ? denied("run_not_allowed") : { claims, stage };
-  });
+const readRun = Effect.fn("readRun")(function* (token: string, audience: string) {
+  const { fetch } = yield* Fetch;
+  const now = yield* Clock.currentTimeMillis;
+  const claims = yield* Effect.tryPromise({
+    try: () => verifyGitHubToken(fetch, token, audience, now),
+    catch: (error) =>
+      new GitHubUnavailable({ message: error instanceof Error ? error.message : "unknown" }),
+  }).pipe(
+    Effect.catchTag("GitHubUnavailable", (error) =>
+      Effect.logWarning("hub_clients:github_unavailable", { message: error.message }).pipe(
+        Effect.as(refusal(502, "github_unavailable", "GitHub's signing keys cannot be read.")),
+      ),
+    ),
+  );
+  if (claims instanceof Response) {
+    return claims;
+  }
+  if (claims === null) {
+    return invalidToken();
+  }
+  const stage = readRunStage(claims);
+  return stage === null ? denied("run_not_allowed") : { claims, stage };
+});
 
 // The request and the host.
 
@@ -494,17 +502,19 @@ async function verifyHost(
 }
 
 /** Null when every origin serves the file with `repositoryId`, else the first refusal, in order. */
-const verifyHosts = (origins: readonly string[], repositoryId: string) =>
-  Effect.gen(function* () {
-    const { fetch } = yield* Fetch;
-    for (const origin of origins) {
-      const reason = yield* Effect.promise(() => verifyHost(fetch, origin, repositoryId));
-      if (reason !== null) {
-        return reason;
-      }
+const verifyHosts = Effect.fn("verifyHosts")(function* (
+  origins: readonly string[],
+  repositoryId: string,
+) {
+  const { fetch } = yield* Fetch;
+  for (const origin of origins) {
+    const reason = yield* Effect.promise(() => verifyHost(fetch, origin, repositoryId));
+    if (reason !== null) {
+      return reason;
     }
-    return null;
-  });
+  }
+  return null;
+});
 
 /**
  * The app id of `app` in the tenant of the repository: the tenant id, a hyphen, and the first 32 hex
@@ -539,46 +549,49 @@ type HubSettings = Effect.Success<typeof hubSettings>;
  * limit. A failed policy refuses with 503 and writes nothing. It counts an admitted request in the
  * repository and owner windows; a refused one counts nowhere.
  */
-const admit = (hub: HubSettings, facts: Registration, connectors: readonly string[] | undefined) =>
-  Effect.gen(function* () {
-    const policy = evaluate(hub.registration.policy, facts);
-    if (policy === null) {
-      return refusal(503, "temporarily_unavailable", "The hub's policy failed.");
-    }
-    if (policy.paused) {
-      return denied("paused");
-    }
-    // What the policy gives, and what the admin granted the repository for the owner of this proof.
-    // The creating command reads the grants again.
-    const granted = yield* command("connectorGrants.forRegistration", {
-      githubRepositoryDatabaseId: facts.repositoryId,
-      githubOwnerId: facts.ownerId,
-    });
-    // The one rule (`usableNames`), over the hub's configured connectors: the policy's alone for the
-    // creating command, which reads the grants again, and with the grants for this request's answer.
-    const rule = {
-      requested: hub.connectors,
-      enrollment: hub.connectors,
-      configured: hub.connectors,
-    };
-    const policyConnectors = usableNames({ ...rule, policy: policy.connectors, granted: [] });
-    const allowed = usableNames({ ...rule, policy: policy.connectors, granted }).sort();
-    const enrollment = readEnrollment(connectors, allowed);
-    if (enrollment === null) {
-      return invalidConnectors(allowed);
-    }
-    const admission = yield* command("hubClients.admit", {
-      githubRepositoryDatabaseId: facts.repositoryId,
-      githubOwnerId: facts.ownerId,
-    });
-    if (admission.status === "blocked") {
-      return denied("blocked");
-    }
-    if (admission.status === "rate_limited") {
-      return rateLimited(admission.window);
-    }
-    return { enrollment, policyConnectors };
+const admit = Effect.fn("admit")(function* (
+  hub: HubSettings,
+  facts: Registration,
+  connectors: readonly string[] | undefined,
+) {
+  const policy = evaluate(hub.registration.policy, facts);
+  if (policy === null) {
+    return refusal(503, "temporarily_unavailable", "The hub's policy failed.");
+  }
+  if (policy.paused) {
+    return denied("paused");
+  }
+  // What the policy gives, and what the admin granted the repository for the owner of this proof.
+  // The creating command reads the grants again.
+  const granted = yield* command("connectorGrants.forRegistration", {
+    githubRepositoryDatabaseId: facts.repositoryId,
+    githubOwnerId: facts.ownerId,
   });
+  // The one rule (`usableNames`), over the hub's configured connectors: the policy's alone for the
+  // creating command, which reads the grants again, and with the grants for this request's answer.
+  const rule = {
+    requested: hub.connectors,
+    enrollment: hub.connectors,
+    configured: hub.connectors,
+  };
+  const policyConnectors = usableNames({ ...rule, policy: policy.connectors, granted: [] });
+  const allowed = usableNames({ ...rule, policy: policy.connectors, granted }).sort();
+  const enrollment = readEnrollment(connectors, allowed);
+  if (enrollment === null) {
+    return invalidConnectors(allowed);
+  }
+  const admission = yield* command("hubClients.admit", {
+    githubRepositoryDatabaseId: facts.repositoryId,
+    githubOwnerId: facts.ownerId,
+  });
+  if (admission.status === "blocked") {
+    return denied("blocked");
+  }
+  if (admission.status === "rate_limited") {
+    return rateLimited(admission.window);
+  }
+  return { enrollment, policyConnectors };
+});
 
 /** A grant went away while the host checked: the creating command's allowed names. */
 const grantRevoked = (hub: HubSettings, allowed: readonly string[]) =>
@@ -606,201 +619,207 @@ function newClient(
  * A client for a GitHub Actions run, with GitHub's OIDC token. A run of main also gets the app's
  * initial access token, which a development server of the team uses for its development client.
  */
-const registerRun = (hub: HubSettings, request: Request, githubToken: string) =>
-  Effect.gen(function* () {
-    const run = yield* readRun(githubToken, hub.issuer);
-    if (run instanceof Response) {
-      return run;
-    }
-    const body = readBody(
-      yield* Effect.promise(() => request.json().catch(() => null)),
-      run.claims.repository_id,
+const registerRun = Effect.fn("registerRun")(function* (
+  hub: HubSettings,
+  request: Request,
+  githubToken: string,
+) {
+  const run = yield* readRun(githubToken, hub.issuer);
+  if (run instanceof Response) {
+    return run;
+  }
+  const body = readBody(
+    yield* Effect.promise(() => request.json().catch(() => null)),
+    run.claims.repository_id,
+  );
+  if (body instanceof Response) {
+    return body;
+  }
+  // A run's client serves no loopback address: every address is on a verified host.
+  if (body.loopback) {
+    return invalid(
+      "invalid_redirect_uri",
+      "A GitHub Actions run cannot register a loopback redirect URI.",
     );
-    if (body instanceof Response) {
-      return body;
-    }
-    // A run's client serves no loopback address: every address is on a verified host.
-    if (body.loopback) {
-      return invalid(
-        "invalid_redirect_uri",
-        "A GitHub Actions run cannot register a loopback redirect URI.",
-      );
-    }
+  }
 
-    const facts: Registration = {
-      repositoryId: run.claims.repository_id,
-      repository: run.claims.repository,
-      ownerId: run.claims.repository_owner_id,
-      app: body.app,
-      deploymentType: run.stage === "prod" ? "production" : "preview",
-      redirectUris: body.redirectUris,
-      proof: "github-actions",
-    };
-    const admitted = yield* admit(hub, facts, body.connectors);
-    if (admitted instanceof Response) {
-      return yield* logged(facts, admitted);
-    }
-    const { enrollment, policyConnectors } = admitted;
-    const unverified = yield* verifyHosts(body.origins, run.claims.repository_id);
-    if (unverified !== null) {
-      return yield* logged(facts, unverifiedHost(unverified));
-    }
+  const facts: Registration = {
+    repositoryId: run.claims.repository_id,
+    repository: run.claims.repository,
+    ownerId: run.claims.repository_owner_id,
+    app: body.app,
+    deploymentType: run.stage === "prod" ? "production" : "preview",
+    redirectUris: body.redirectUris,
+    proof: "github-actions",
+  };
+  const admitted = yield* admit(hub, facts, body.connectors);
+  if (admitted instanceof Response) {
+    return yield* logged(facts, admitted);
+  }
+  const { enrollment, policyConnectors } = admitted;
+  const unverified = yield* verifyHosts(body.origins, run.claims.repository_id);
+  if (unverified !== null) {
+    return yield* logged(facts, unverifiedHost(unverified));
+  }
 
-    const credentials = yield* newClientCredentials;
-    // 32 random bytes in base64url, so the token has no dot and never looks like a JWT.
-    const initialAccessToken =
-      run.stage === "prod" ? base64url.encode(yield* (yield* Random).bytes(32)) : null;
-    const created = yield* command("hubClients.createClient", {
-      clientId: credentials.clientId,
-      secretHash: credentials.secretHash,
-      registrationTokenHash: credentials.registrationTokenHash,
-      githubRepositoryDatabaseId: run.claims.repository_id,
-      githubOwnerId: run.claims.repository_owner_id,
-      githubRepository: run.claims.repository,
-      githubActorId: run.claims.actor_id,
-      githubActorLogin: run.claims.actor,
-      commitSha: run.claims.sha,
-      proofIssuedAt: run.claims.iat,
-      deployment:
-        initialAccessToken === null
-          ? { type: "preview", stage: run.stage }
-          : {
-              type: "production",
-              initialAccessTokenHash: yield* sha256HexEffect(initialAccessToken),
-            },
-      connectors: enrollment,
-      policyConnectors,
-      configuredConnectors: hub.connectors,
-      app: body.app,
-      appId: yield* appIdOf(run.claims.repository_id, body.app),
-      redirectUris: body.redirectUris,
-      softwareVersion: body.softwareVersion,
-      tokenEndpointAuthMethod: body.tokenEndpointAuthMethod,
-    });
-    if (!created.ok) {
-      if (created.reason === "invalid_connectors") {
-        return yield* logged(facts, grantRevoked(hub, created.allowed));
-      }
-      return yield* logged(
-        facts,
-        created.reason === "new_owners" ? rateLimited("new_owners") : denied(created.reason),
-      );
+  const credentials = yield* newClientCredentials;
+  // 32 random bytes in base64url, so the token has no dot and never looks like a JWT.
+  const initialAccessToken =
+    run.stage === "prod" ? base64url.encode(yield* (yield* Random).bytes(32)) : null;
+  const created = yield* command("hubClients.createClient", {
+    clientId: credentials.clientId,
+    secretHash: credentials.secretHash,
+    registrationTokenHash: credentials.registrationTokenHash,
+    githubRepositoryDatabaseId: run.claims.repository_id,
+    githubOwnerId: run.claims.repository_owner_id,
+    githubRepository: run.claims.repository,
+    githubActorId: run.claims.actor_id,
+    githubActorLogin: run.claims.actor,
+    commitSha: run.claims.sha,
+    proofIssuedAt: run.claims.iat,
+    deployment:
+      initialAccessToken === null
+        ? { type: "preview", stage: run.stage }
+        : {
+            type: "production",
+            initialAccessTokenHash: yield* sha256HexEffect(initialAccessToken),
+          },
+    connectors: enrollment,
+    policyConnectors,
+    configuredConnectors: hub.connectors,
+    app: body.app,
+    appId: yield* appIdOf(run.claims.repository_id, body.app),
+    redirectUris: body.redirectUris,
+    softwareVersion: body.softwareVersion,
+    tokenEndpointAuthMethod: body.tokenEndpointAuthMethod,
+  });
+  if (!created.ok) {
+    if (created.reason === "invalid_connectors") {
+      return yield* logged(facts, grantRevoked(hub, created.allowed));
     }
     return yield* logged(
       facts,
-      json(
-        {
-          ...newClient(hub, credentials, {
-            clientId: credentials.clientId,
-            createdAt: created.createdAt,
-            redirectUris: body.redirectUris,
-            clientName: created.clientName,
-            tenantId: created.tenantId,
-            app: body.app,
-            softwareVersion: body.softwareVersion,
-            tokenEndpointAuthMethod: body.tokenEndpointAuthMethod,
-            connectors: enrollment,
-          }),
-          ...(initialAccessToken === null
-            ? {}
-            : { initial_access_token: initialAccessToken, repository: run.claims.repository_id }),
-        },
-        201,
-      ),
+      created.reason === "new_owners" ? rateLimited("new_owners") : denied(created.reason),
     );
-  });
+  }
+  return yield* logged(
+    facts,
+    json(
+      {
+        ...newClient(hub, credentials, {
+          clientId: credentials.clientId,
+          createdAt: created.createdAt,
+          redirectUris: body.redirectUris,
+          clientName: created.clientName,
+          tenantId: created.tenantId,
+          app: body.app,
+          softwareVersion: body.softwareVersion,
+          tokenEndpointAuthMethod: body.tokenEndpointAuthMethod,
+          connectors: enrollment,
+        }),
+        ...(initialAccessToken === null
+          ? {}
+          : { initial_access_token: initialAccessToken, repository: run.claims.repository_id }),
+      },
+      201,
+    ),
+  );
+});
 
 /**
  * A development client, with the app's initial access token, which only a reader of the state of
  * the app's `prod` stage has. The repository and owner come from the token's row. A loopback
  * return address needs no verification file; an https one needs it, as for a run.
  */
-const registerDevelopment = (hub: HubSettings, request: Request, initialAccessToken: string) =>
-  Effect.gen(function* () {
-    const tokenHash = yield* sha256HexEffect(initialAccessToken);
-    const token = yield* command("hubClients.readInitialAccessToken", { tokenHash });
-    if (token === null) {
-      return invalidToken();
-    }
-    const body = readBody(
-      yield* Effect.promise(() => request.json().catch(() => null)),
-      token.githubRepositoryDatabaseId,
-    );
-    if (body instanceof Response) {
-      return body;
-    }
-    // The app's name: `software_id` in either form names it.
-    if (body.app !== token.app) {
-      return denied("app_mismatch");
-    }
+const registerDevelopment = Effect.fn("registerDevelopment")(function* (
+  hub: HubSettings,
+  request: Request,
+  initialAccessToken: string,
+) {
+  const tokenHash = yield* sha256HexEffect(initialAccessToken);
+  const token = yield* command("hubClients.readInitialAccessToken", { tokenHash });
+  if (token === null) {
+    return invalidToken();
+  }
+  const body = readBody(
+    yield* Effect.promise(() => request.json().catch(() => null)),
+    token.githubRepositoryDatabaseId,
+  );
+  if (body instanceof Response) {
+    return body;
+  }
+  // The app's name: `software_id` in either form names it.
+  if (body.app !== token.app) {
+    return denied("app_mismatch");
+  }
 
-    const facts: Registration = {
-      repositoryId: token.githubRepositoryDatabaseId,
-      repository: token.githubRepository,
-      ownerId: token.githubOwnerId,
-      app: token.app,
-      deploymentType: "development",
-      redirectUris: body.redirectUris,
-      proof: "initial-access-token",
-    };
-    const admitted = yield* admit(hub, facts, body.connectors);
-    if (admitted instanceof Response) {
-      return yield* logged(facts, admitted);
-    }
-    const { enrollment, policyConnectors } = admitted;
-    // A loopback address needs no file; each https origin does.
-    const unverified = yield* verifyHosts(body.origins, token.githubRepositoryDatabaseId);
-    if (unverified !== null) {
-      return yield* logged(facts, unverifiedHost(unverified));
-    }
+  const facts: Registration = {
+    repositoryId: token.githubRepositoryDatabaseId,
+    repository: token.githubRepository,
+    ownerId: token.githubOwnerId,
+    app: token.app,
+    deploymentType: "development",
+    redirectUris: body.redirectUris,
+    proof: "initial-access-token",
+  };
+  const admitted = yield* admit(hub, facts, body.connectors);
+  if (admitted instanceof Response) {
+    return yield* logged(facts, admitted);
+  }
+  const { enrollment, policyConnectors } = admitted;
+  // A loopback address needs no file; each https origin does.
+  const unverified = yield* verifyHosts(body.origins, token.githubRepositoryDatabaseId);
+  if (unverified !== null) {
+    return yield* logged(facts, unverifiedHost(unverified));
+  }
 
-    const credentials = yield* newClientCredentials;
-    // The command reads the token's row again and refuses unless it still names this repository,
-    // owner and app, so the app id below is bound to the row it checks.
-    const created = yield* command("hubClients.createDevelopmentClient", {
-      clientId: credentials.clientId,
-      secretHash: credentials.secretHash,
-      registrationTokenHash: credentials.registrationTokenHash,
-      tokenHash,
-      githubRepositoryDatabaseId: token.githubRepositoryDatabaseId,
-      githubOwnerId: token.githubOwnerId,
-      githubRepository: token.githubRepository,
-      app: token.app,
-      appId: yield* appIdOf(token.githubRepositoryDatabaseId, token.app),
-      connectors: enrollment,
-      policyConnectors,
-      configuredConnectors: hub.connectors,
-      redirectUris: body.redirectUris,
-      softwareVersion: body.softwareVersion,
-      tokenEndpointAuthMethod: body.tokenEndpointAuthMethod,
-    });
-    if (!created.ok) {
-      if (created.reason === "invalid_connectors") {
-        return yield* logged(facts, grantRevoked(hub, created.allowed));
-      }
-      return yield* logged(
-        facts,
-        created.reason === "invalid_token" ? invalidToken() : denied(created.reason),
-      );
+  const credentials = yield* newClientCredentials;
+  // The command reads the token's row again and refuses unless it still names this repository,
+  // owner and app, so the app id below is bound to the row it checks.
+  const created = yield* command("hubClients.createDevelopmentClient", {
+    clientId: credentials.clientId,
+    secretHash: credentials.secretHash,
+    registrationTokenHash: credentials.registrationTokenHash,
+    tokenHash,
+    githubRepositoryDatabaseId: token.githubRepositoryDatabaseId,
+    githubOwnerId: token.githubOwnerId,
+    githubRepository: token.githubRepository,
+    app: token.app,
+    appId: yield* appIdOf(token.githubRepositoryDatabaseId, token.app),
+    connectors: enrollment,
+    policyConnectors,
+    configuredConnectors: hub.connectors,
+    redirectUris: body.redirectUris,
+    softwareVersion: body.softwareVersion,
+    tokenEndpointAuthMethod: body.tokenEndpointAuthMethod,
+  });
+  if (!created.ok) {
+    if (created.reason === "invalid_connectors") {
+      return yield* logged(facts, grantRevoked(hub, created.allowed));
     }
     return yield* logged(
       facts,
-      json(
-        newClient(hub, credentials, {
-          clientId: credentials.clientId,
-          createdAt: created.createdAt,
-          redirectUris: body.redirectUris,
-          clientName: created.clientName,
-          tenantId: created.tenantId,
-          app: token.app,
-          softwareVersion: body.softwareVersion,
-          tokenEndpointAuthMethod: body.tokenEndpointAuthMethod,
-          connectors: enrollment,
-        }),
-        201,
-      ),
+      created.reason === "invalid_token" ? invalidToken() : denied(created.reason),
     );
-  });
+  }
+  return yield* logged(
+    facts,
+    json(
+      newClient(hub, credentials, {
+        clientId: credentials.clientId,
+        createdAt: created.createdAt,
+        redirectUris: body.redirectUris,
+        clientName: created.clientName,
+        tenantId: created.tenantId,
+        app: token.app,
+        softwareVersion: body.softwareVersion,
+        tokenEndpointAuthMethod: body.tokenEndpointAuthMethod,
+        connectors: enrollment,
+      }),
+      201,
+    ),
+  );
+});
 
 /**
  * `POST <prefix>/register`. The Bearer is the proof, told apart by its shape: two dots is a JWT,
@@ -810,20 +829,19 @@ const registerDevelopment = (hub: HubSettings, request: Request, initialAccessTo
  * repository's own namespace and a return address. The client's secret and registration access
  * token stay in this program's memory: they go to the caller and to nothing else.
  */
-export const registerClient = (request: Request) =>
-  Effect.gen(function* () {
-    const hub = yield* hubSettings;
-    const bearer = /^Bearer\s+(\S+)$/i.exec(request.headers.get("Authorization") ?? "")?.[1];
-    if (bearer === undefined) {
-      return noToken("register");
-    }
-    // A JWT has three parts; the initial access token is base64url, which has no dot.
-    const parts = bearer.split(".").length;
-    if (parts === 3) {
-      return yield* registerRun(hub, request, bearer);
-    }
-    if (parts === 1) {
-      return yield* registerDevelopment(hub, request, bearer);
-    }
-    return invalidToken();
-  });
+export const registerClient = Effect.fn("registerClient")(function* (request: Request) {
+  const hub = yield* hubSettings;
+  const bearer = /^Bearer\s+(\S+)$/i.exec(request.headers.get("Authorization") ?? "")?.[1];
+  if (bearer === undefined) {
+    return noToken("register");
+  }
+  // A JWT has three parts; the initial access token is base64url, which has no dot.
+  const parts = bearer.split(".").length;
+  if (parts === 3) {
+    return yield* registerRun(hub, request, bearer);
+  }
+  if (parts === 1) {
+    return yield* registerDevelopment(hub, request, bearer);
+  }
+  return invalidToken();
+});

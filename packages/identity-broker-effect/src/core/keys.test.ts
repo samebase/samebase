@@ -1,3 +1,4 @@
+import { Effect } from "effect";
 import { createLocalJWKSet, decodeProtectedHeader, jwtVerify } from "jose";
 import { describe, expect, test } from "vite-plus/test";
 import { assertKeySetUsable, signIdToken } from "./jwt.ts";
@@ -10,11 +11,14 @@ import {
   rotateKeySet,
 } from "./keys.ts";
 
+/** `parseKeySet` run to its end: a refused key set throws its `KeySetInvalid` error. */
+const parse = (raw: string | undefined) => Effect.runSync(parseKeySet(raw));
+
 describe("key set", () => {
   test("create, serialize, parse", async () => {
     const keySet = await createKeySet();
     expect(keySet.keys).toHaveLength(1);
-    const parsed = parseKeySet(JSON.stringify(keySet));
+    const parsed = parse(JSON.stringify(keySet));
     expect(parsed).toEqual(keySet);
     const jwks = publicJwks(parsed);
     expect(jwks.keys).toHaveLength(1);
@@ -36,11 +40,11 @@ describe("key set", () => {
   });
 
   test("refuses incomplete sets", async () => {
-    expect(() => parseKeySet(undefined)).toThrow(/IDENTITY_BROKER_KEYS/);
-    expect(() => parseKeySet("{}")).toThrow(/version 1/);
+    expect(() => parse(undefined)).toThrow(/IDENTITY_BROKER_KEYS/);
+    expect(() => parse("{}")).toThrow(/version 1/);
     const keySet = await createKeySet();
     const noCurrent = { ...keySet, keys: [] };
-    expect(() => parseKeySet(JSON.stringify(noCurrent))).toThrow(/exactly one current/);
+    expect(() => parse(JSON.stringify(noCurrent))).toThrow(/exactly one current/);
   });
 });
 
@@ -64,7 +68,7 @@ describe("key set validation", () => {
     const created = await createKeySet();
     const rotated = await rotateKeySet(created);
     for (const keySet of [created, rotated]) {
-      const parsed = parseKeySet(JSON.stringify(keySet));
+      const parsed = parse(JSON.stringify(keySet));
       expect(parsed).toEqual(keySet);
       await expect(assertKeySetUsable(parsed)).resolves.toBeUndefined();
     }
@@ -75,7 +79,7 @@ describe("key set validation", () => {
       version: 1,
       keys: [{ kid: "k", status: "current", privateJwk: { kty: "RSA" } }],
     };
-    expect(() => parseKeySet(JSON.stringify(review))).toThrow(
+    expect(() => parse(JSON.stringify(review))).toThrow(
       'IDENTITY_BROKER_KEYS key "k" privateJwk.n must be a non-empty base64url string',
     );
   });
@@ -84,7 +88,7 @@ describe("key set validation", () => {
     const keySet = await createKeySet();
     const { kid, privateJwk } = currentKey(keySet);
     const where = `IDENTITY_BROKER_KEYS key "${kid}" privateJwk`;
-    expect(() => parseKeySet(withPrivateJwk(keySet, { ...privateJwk, kty: "EC" }))).toThrow(
+    expect(() => parse(withPrivateJwk(keySet, { ...privateJwk, kty: "EC" }))).toThrow(
       `${where}.kty must be "RSA"`,
     );
     for (const member of RSA_PRIVATE_MEMBERS) {
@@ -94,12 +98,12 @@ describe("key set validation", () => {
         { ...privateJwk, [member]: 65537 },
         { ...privateJwk, [member]: "a+b/" },
       ]) {
-        expect(() => parseKeySet(withPrivateJwk(keySet, jwk))).toThrow(
+        expect(() => parse(withPrivateJwk(keySet, jwk))).toThrow(
           `${where}.${member} must be a non-empty base64url string`,
         );
       }
     }
-    expect(() => parseKeySet(withPrivateJwk(keySet, { ...privateJwk, alg: 256 }))).toThrow(
+    expect(() => parse(withPrivateJwk(keySet, { ...privateJwk, alg: 256 }))).toThrow(
       `${where}.alg must be a string`,
     );
   });
@@ -114,16 +118,16 @@ describe("key set validation", () => {
     const withPublicJwk = (publicJwk: Record<string, unknown>) =>
       JSON.stringify({ ...rotated, keys: [current, { ...retired, publicJwk }] });
     const where = `IDENTITY_BROKER_KEYS key "${retired.kid}" publicJwk`;
-    expect(() => parseKeySet(withPublicJwk(without(retired.publicJwk, "kty")))).toThrow(
+    expect(() => parse(withPublicJwk(without(retired.publicJwk, "kty")))).toThrow(
       `${where}.kty must be "RSA"`,
     );
-    expect(() => parseKeySet(withPublicJwk({ ...retired.publicJwk, n: "" }))).toThrow(
+    expect(() => parse(withPublicJwk({ ...retired.publicJwk, n: "" }))).toThrow(
       `${where}.n must be a non-empty base64url string`,
     );
-    expect(() => parseKeySet(withPublicJwk(without(retired.publicJwk, "e")))).toThrow(
+    expect(() => parse(withPublicJwk(without(retired.publicJwk, "e")))).toThrow(
       `${where}.e must be a non-empty base64url string`,
     );
-    const leaked = parseKeySet(withPublicJwk({ ...retired.publicJwk, d: "AQAB" }));
+    const leaked = parse(withPublicJwk({ ...retired.publicJwk, d: "AQAB" }));
     expect(leaked.keys[1]).toEqual(retired);
     expect(publicJwks(leaked).keys[1]).not.toHaveProperty("d");
   });
@@ -142,7 +146,7 @@ describe("key set validation", () => {
       ["sign", "verify"],
     );
     const privateJwk = await crypto.subtle.exportKey("jwk", small.privateKey);
-    const parsed = parseKeySet(withPrivateJwk(keySet, { ...privateJwk, kid, use: "sig" }));
+    const parsed = parse(withPrivateJwk(keySet, { ...privateJwk, kid, use: "sig" }));
     await expect(assertKeySetUsable(parsed)).rejects.toThrow(
       `IDENTITY_BROKER_KEYS key "${kid}" fails at sign: RS256 requires key modulusLength to be 2048 bits or larger`,
     );
@@ -151,7 +155,7 @@ describe("key set validation", () => {
   test("the JWKS publishes the current key under its entry's kid, so a token signed with it verifies", async () => {
     const keySet = await createKeySet();
     const { kid, privateJwk } = currentKey(keySet);
-    const parsed = parseKeySet(withPrivateJwk(keySet, { ...privateJwk, kid: "another-kid" }));
+    const parsed = parse(withPrivateJwk(keySet, { ...privateJwk, kid: "another-kid" }));
     expect(publicJwks(parsed).keys.map((jwk) => jwk.kid)).toEqual([kid]);
     const token = await signIdToken({
       keySet: parsed,

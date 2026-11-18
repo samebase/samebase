@@ -5,6 +5,7 @@ import { afterEach, expect, test, vi } from "vite-plus/test";
 import {
   createBroker,
   fakeUpstream,
+  hubLogLine,
   pkce,
   stubFetch,
   txnCookie,
@@ -162,11 +163,26 @@ test("malformed input, provider errors and command failures never echo a credent
     expect(line).not.toContain(MARK);
   }
   // A failed command answers 500 with no detail and logs the allow-listed record alone.
-  expect(logs).toContain(
-    'hub_error {"route":"/connectors/fake/callback","command":"authRequests.claimUpstream","category":"command_failed"}',
-  );
-  expect(logs).toContain(
-    'hub_error {"route":"/token","command":"authRequests.exchangeCode","category":"command_failed"}',
-  );
+  const hubErrors = logs.filter((line) => line.includes('"hub_error"')).map(hubLogLine);
+  expect(hubErrors).toContainEqual({
+    message: "hub_error",
+    level: "ERROR",
+    annotations: {
+      route: "/connectors/fake/callback",
+      command: "authRequests.claimUpstream",
+      category: "command_failed",
+    },
+    spans: {},
+  });
+  expect(hubErrors).toContainEqual({
+    message: "hub_error",
+    level: "ERROR",
+    annotations: {
+      route: "/token",
+      command: "authRequests.exchangeCode",
+      category: "command_failed",
+    },
+    spans: {},
+  });
   expect(outputs).toContainEqual(expect.stringMatching(/^500 .*\{"error":"server_error"\}$/));
 });

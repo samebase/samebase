@@ -46,13 +46,12 @@ const evicted = (
   return [...candidates].sort((a, b) => a.doc.renewedAt - b.doc.renewedAt).at(0);
 };
 
-const clientAt = (clientId: string, registrationTokenHash: string) =>
-  Effect.gen(function* () {
-    const client = yield* clientRow(clientId);
-    return client !== undefined && client.doc.registrationTokenHash === registrationTokenHash
-      ? client
-      : undefined;
-  });
+const clientAt = Effect.fnUntraced(function* (clientId: string, registrationTokenHash: string) {
+  const client = yield* clientRow(clientId);
+  return client !== undefined && client.doc.registrationTokenHash === registrationTokenHash
+    ? client
+    : undefined;
+});
 
 /** The enrollment as stored: sorted and unique. An empty enrollment is a host bug, never a client. */
 const enrollment = (connectors: ReadonlyArray<string>) => {
@@ -97,140 +96,137 @@ export interface RegisterArgs {
  * caller's step also records the registration, so a block or a cap cannot be raced. A client is
  * never replaced: a deployment that lost its client gets a new one.
  */
-export const registerClient = (args: RegisterArgs) =>
-  Effect.gen(function* () {
-    const tx = yield* Tx;
-    const connectors = yield* enrollment(args.connectors);
-    const tenant = yield* tenantRow(args.tenantId);
-    if (yield* isStopped(args.tenantId, args.ownerId ?? tenant?.doc.ownerId)) {
-      return { ok: false as const, error: "suspended" as const };
-    }
-    const app = yield* appRow(args.appId);
-    if (app !== undefined && app.doc.tenantId !== args.tenantId) {
-      return { ok: false as const, error: "app_taken" as const };
-    }
-    if (app === undefined) {
-      const apps = yield* tx.query("apps", "by_tenant_id", {
-        eq: [args.tenantId],
-        order: "asc",
-        limit: MAX_APPS_PER_TENANT,
-      });
-      if (apps.length >= MAX_APPS_PER_TENANT) {
-        return { ok: false as const, error: "too_many_apps" as const };
-      }
-    }
-    // The budget of the new client: `development` and `preview` sort before `production`.
-    const rows =
-      app === undefined
-        ? []
-        : yield* tx.query(
-            "clients",
-            "by_app_id_and_deployment_type",
-            args.deploymentType === "production"
-              ? { eq: [args.appId, "production"], order: "asc", limit: MAX_CLIENTS_PER_APP }
-              : {
-                  eq: [args.appId],
-                  range: [{ op: "lt", value: "production" }],
-                  order: "asc",
-                  limit: MAX_CLIENTS_PER_APP,
-                },
-          );
-    const evictedRow = evicted(rows, args.deploymentType);
-    if (evictedRow === undefined) {
-      return { ok: false as const, error: "too_many_clients" as const };
-    }
-    const redirectUris = yield* redirectUriSet(args.redirectUris);
-    // Every refusal is above this line: a refused registration writes nothing.
-    if (app === undefined) {
-      yield* tx.insert("apps", {
-        appId: args.appId,
-        name: args.appId,
-        tenantId: args.tenantId,
-        createdAt: args.now,
-      });
-    }
-    // A transferred repository gets its new owner here, at its next new client.
-    if (tenant === undefined) {
-      yield* tx.insert("tenants", {
-        tenantId: args.tenantId,
-        ...(args.ownerId === undefined ? {} : { ownerId: args.ownerId }),
-      });
-    } else if (args.ownerId !== undefined && args.ownerId !== tenant.doc.ownerId) {
-      yield* tx.replace("tenants", tenant.id, { ...tenant.doc, ownerId: args.ownerId });
-    }
-    if (evictedRow !== null) {
-      yield* tx.delete("clients", evictedRow.id);
-    }
-    yield* tx.insert("clients", {
-      clientId: args.clientId,
-      appId: args.appId,
-      secretHash: args.secretHash,
-      registrationTokenHash: args.registrationTokenHash,
-      tokenEndpointAuthMethod: args.tokenEndpointAuthMethod,
-      redirectUris,
-      deploymentType: args.deploymentType,
-      clientName: args.clientName,
-      softwareVersion: args.softwareVersion,
-      createdAt: args.now,
-      renewedAt: args.now,
-      ...(args.deploymentType === "production" ? {} : { removeAt: args.now + LEASE_MS }),
-      app: args.app,
-      registeredBy: args.registeredBy,
-      connectors,
+export const registerClient = Effect.fnUntraced(function* (args: RegisterArgs) {
+  const tx = yield* Tx;
+  const connectors = yield* enrollment(args.connectors);
+  const tenant = yield* tenantRow(args.tenantId);
+  if (yield* isStopped(args.tenantId, args.ownerId ?? tenant?.doc.ownerId)) {
+    return { ok: false as const, error: "suspended" as const };
+  }
+  const app = yield* appRow(args.appId);
+  if (app !== undefined && app.doc.tenantId !== args.tenantId) {
+    return { ok: false as const, error: "app_taken" as const };
+  }
+  if (app === undefined) {
+    const apps = yield* tx.query("apps", "by_tenant_id", {
+      eq: [args.tenantId],
+      order: "asc",
+      limit: MAX_APPS_PER_TENANT,
     });
-    return { ok: true as const };
+    if (apps.length >= MAX_APPS_PER_TENANT) {
+      return { ok: false as const, error: "too_many_apps" as const };
+    }
+  }
+  // The budget of the new client: `development` and `preview` sort before `production`.
+  const rows =
+    app === undefined
+      ? []
+      : yield* tx.query(
+          "clients",
+          "by_app_id_and_deployment_type",
+          args.deploymentType === "production"
+            ? { eq: [args.appId, "production"], order: "asc", limit: MAX_CLIENTS_PER_APP }
+            : {
+                eq: [args.appId],
+                range: [{ op: "lt", value: "production" }],
+                order: "asc",
+                limit: MAX_CLIENTS_PER_APP,
+              },
+        );
+  const evictedRow = evicted(rows, args.deploymentType);
+  if (evictedRow === undefined) {
+    return { ok: false as const, error: "too_many_clients" as const };
+  }
+  const redirectUris = yield* redirectUriSet(args.redirectUris);
+  // Every refusal is above this line: a refused registration writes nothing.
+  if (app === undefined) {
+    yield* tx.insert("apps", {
+      appId: args.appId,
+      name: args.appId,
+      tenantId: args.tenantId,
+      createdAt: args.now,
+    });
+  }
+  // A transferred repository gets its new owner here, at its next new client.
+  if (tenant === undefined) {
+    yield* tx.insert("tenants", {
+      tenantId: args.tenantId,
+      ...(args.ownerId === undefined ? {} : { ownerId: args.ownerId }),
+    });
+  } else if (args.ownerId !== undefined && args.ownerId !== tenant.doc.ownerId) {
+    yield* tx.replace("tenants", tenant.id, { ...tenant.doc, ownerId: args.ownerId });
+  }
+  if (evictedRow !== null) {
+    yield* tx.delete("clients", evictedRow.id);
+  }
+  yield* tx.insert("clients", {
+    clientId: args.clientId,
+    appId: args.appId,
+    secretHash: args.secretHash,
+    registrationTokenHash: args.registrationTokenHash,
+    tokenEndpointAuthMethod: args.tokenEndpointAuthMethod,
+    redirectUris,
+    deploymentType: args.deploymentType,
+    clientName: args.clientName,
+    softwareVersion: args.softwareVersion,
+    createdAt: args.now,
+    renewedAt: args.now,
+    ...(args.deploymentType === "production" ? {} : { removeAt: args.now + LEASE_MS }),
+    app: args.app,
+    registeredBy: args.registeredBy,
+    connectors,
   });
+  return { ok: true as const };
+});
 
 /**
  * A deploy of a client reads it (RFC 7592 section 2.1), which also renews it. A preview or
  * development client gets a new removal date. A production client has none and never gets one.
  */
-export const renew = (args: typeof RenewArgs.Type) =>
-  Effect.gen(function* () {
-    const tx = yield* Tx;
-    const client = yield* clientAt(args.clientId, args.registrationTokenHash);
-    if (client === undefined) {
-      return { ok: false as const, error: "invalid_token" as const };
-    }
-    const app = yield* appRow(client.doc.appId);
-    if (app === undefined) {
-      return { ok: false as const, error: "invalid_token" as const };
-    }
-    if (yield* isSuspended(app.doc.tenantId)) {
-      return { ok: false as const, error: "suspended" as const };
-    }
-    yield* tx.replace("clients", client.id, {
-      ...client.doc,
-      renewedAt: args.now,
-      ...(client.doc.removeAt === undefined ? {} : { removeAt: args.now + LEASE_MS }),
-    });
-    return {
-      ok: true as const,
-      redirectUris: client.doc.redirectUris,
-      clientName: client.doc.clientName,
-      softwareVersion: client.doc.softwareVersion,
-      tokenEndpointAuthMethod: client.doc.tokenEndpointAuthMethod,
-      app: client.doc.app,
-      tenantId: app.doc.tenantId,
-      createdAt: client.doc.createdAt,
-      connectors: client.doc.connectors,
-    };
+export const renew = Effect.fnUntraced(function* (args: typeof RenewArgs.Type) {
+  const tx = yield* Tx;
+  const client = yield* clientAt(args.clientId, args.registrationTokenHash);
+  if (client === undefined) {
+    return { ok: false as const, error: "invalid_token" as const };
+  }
+  const app = yield* appRow(client.doc.appId);
+  if (app === undefined) {
+    return { ok: false as const, error: "invalid_token" as const };
+  }
+  if (yield* isSuspended(app.doc.tenantId)) {
+    return { ok: false as const, error: "suspended" as const };
+  }
+  yield* tx.replace("clients", client.id, {
+    ...client.doc,
+    renewedAt: args.now,
+    ...(client.doc.removeAt === undefined ? {} : { removeAt: args.now + LEASE_MS }),
   });
+  return {
+    ok: true as const,
+    redirectUris: client.doc.redirectUris,
+    clientName: client.doc.clientName,
+    softwareVersion: client.doc.softwareVersion,
+    tokenEndpointAuthMethod: client.doc.tokenEndpointAuthMethod,
+    app: client.doc.app,
+    tenantId: app.doc.tenantId,
+    createdAt: client.doc.createdAt,
+    connectors: client.doc.connectors,
+  };
+});
 
 /**
  * A preview or development client deletes itself (RFC 7592 section 2.3). A production client
  * cannot: a stack destroy can leave a production deployment running.
  */
-export const remove = (args: typeof RemoveArgs.Type) =>
-  Effect.gen(function* () {
-    const tx = yield* Tx;
-    const client = yield* clientAt(args.clientId, args.registrationTokenHash);
-    if (client === undefined) {
-      return { ok: false as const, error: "invalid_token" as const };
-    }
-    if (client.doc.deploymentType === "production") {
-      return { ok: false as const, error: "production" as const };
-    }
-    yield* tx.delete("clients", client.id);
-    return { ok: true as const };
-  });
+export const remove = Effect.fnUntraced(function* (args: typeof RemoveArgs.Type) {
+  const tx = yield* Tx;
+  const client = yield* clientAt(args.clientId, args.registrationTokenHash);
+  if (client === undefined) {
+    return { ok: false as const, error: "invalid_token" as const };
+  }
+  if (client.doc.deploymentType === "production") {
+    return { ok: false as const, error: "production" as const };
+  }
+  yield* tx.delete("clients", client.id);
+  return { ok: true as const };
+});

@@ -15,36 +15,34 @@ export const MAX_GRANTS_PER_OWNER = 64;
  * only while the tenant's recorded owner and the owner that registered the client are the row's
  * owner. A client of no repository has none.
  */
-export const grantedTo = (args: {
+export const grantedTo = Effect.fnUntraced(function* (args: {
   readonly tenantId: string | undefined;
   readonly tenantOwnerId: string | undefined;
   readonly clientOwnerId: string;
-}) =>
-  Effect.gen(function* () {
-    const { tenantId, clientOwnerId } = args;
-    if (tenantId === undefined || args.tenantOwnerId !== clientOwnerId) {
-      return [];
-    }
-    const rows = yield* allBelow(
-      "connectorGrants",
-      "by_tenant_id_and_owner_id_and_connector",
-      [tenantId, clientOwnerId],
-      MAX_GRANTS_PER_OWNER + 1,
-    );
-    return rows.map((row) => row.doc.connector);
-  });
+}) {
+  const { tenantId, clientOwnerId } = args;
+  if (tenantId === undefined || args.tenantOwnerId !== clientOwnerId) {
+    return [];
+  }
+  const rows = yield* allBelow(
+    "connectorGrants",
+    "by_tenant_id_and_owner_id_and_connector",
+    [tenantId, clientOwnerId],
+    MAX_GRANTS_PER_OWNER + 1,
+  );
+  return rows.map((row) => row.doc.connector);
+});
 
 /** The connectors granted to `client` now, read in the caller's step. */
-export const grantedToClient = (client: Doc<"clients">) =>
-  Effect.gen(function* () {
-    const app = yield* appRow(client.appId);
-    const tenant = app === undefined ? undefined : yield* tenantRow(app.doc.tenantId);
-    return yield* grantedTo({
-      tenantId: app?.doc.tenantId,
-      tenantOwnerId: tenant?.doc.ownerId,
-      clientOwnerId: client.registeredBy.githubOwnerId,
-    });
+export const grantedToClient = Effect.fnUntraced(function* (client: Doc<"clients">) {
+  const app = yield* appRow(client.appId);
+  const tenant = app === undefined ? undefined : yield* tenantRow(app.doc.tenantId);
+  return yield* grantedTo({
+    tenantId: app?.doc.tenantId,
+    tenantOwnerId: tenant?.doc.ownerId,
+    clientOwnerId: client.registeredBy.githubOwnerId,
   });
+});
 
 /**
  * The connectors granted to the repository that a registration joins, for the owner of its proof.

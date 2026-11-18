@@ -1,5 +1,5 @@
+import { Effect, Predicate, Schema } from "effect";
 import { exportJWK, generateKeyPair, importJWK, type CryptoKey, type JWK } from "jose";
-import { asRecord } from "./protocol.ts";
 
 export const SIGNING_ALGORITHM = "RS256";
 
@@ -82,82 +82,110 @@ const RSA_PUBLIC_MEMBERS = ["n", "e"] as const;
 /** What `createKeySet` writes beside the key material, and the JWKS publishes. */
 const JWK_PARAMETERS = ["kid", "alg", "use"] as const;
 
+/** `IDENTITY_BROKER_KEYS` is not a complete key set. The message names the wrong part. */
+export class KeySetInvalid extends Schema.TaggedError<KeySetInvalid>()("KeySetInvalid", {
+  message: Schema.String,
+}) {}
+
+/** A JSON object's members, or none for any other value. */
+const membersOf = (value: unknown) => (Predicate.isObject(value) ? value : {});
+
+const parseJson = Schema.decodeUnknownEffect(Schema.fromJsonString(Schema.Unknown));
+
 /**
  * An RSA JWK whose `members` are base64url strings, rebuilt from those members and the string
  * parameters, so a private member left in a retired public key never reaches the JWKS. `where`
  * names the JWK in the error.
  */
-function rsaJwk(
+const rsaJwk = Effect.fnUntraced(function* (
   value: unknown,
   where: string,
   members: ReadonlyArray<(typeof RSA_PRIVATE_MEMBERS)[number]>,
-): JWK {
-  const record = asRecord(value);
+) {
+  const record = membersOf(value);
   if (record["kty"] !== "RSA") {
-    throw new Error(`${where}.kty must be "RSA"`);
+    return yield* new KeySetInvalid({ message: `${where}.kty must be "RSA"` });
   }
   const jwk: JWK = { kty: "RSA" };
   for (const name of members) {
     const member = record[name];
-    if (typeof member !== "string" || !BASE64URL.test(member)) {
-      throw new Error(`${where}.${name} must be a non-empty base64url string`);
+    if (!Predicate.isString(member) || !BASE64URL.test(member)) {
+      return yield* new KeySetInvalid({
+        message: `${where}.${name} must be a non-empty base64url string`,
+      });
     }
     jwk[name] = member;
   }
   for (const name of JWK_PARAMETERS) {
     const parameter = record[name];
-    if (typeof parameter === "string") {
+    if (Predicate.isString(parameter)) {
       jwk[name] = parameter;
     } else if (parameter !== undefined) {
-      throw new Error(`${where}.${name} must be a string`);
+      return yield* new KeySetInvalid({ message: `${where}.${name} must be a string` });
     }
   }
   return jwk;
-}
+});
+
+/** One entry of the key set's `keys`. */
+const parseKey = Effect.fnUntraced(function* (entry: unknown) {
+  const key = membersOf(entry);
+  const kid = key["kid"];
+  if (!Predicate.isString(kid)) {
+    return yield* new KeySetInvalid({ message: "IDENTITY_BROKER_KEYS has a key without kid" });
+  }
+  const where = `IDENTITY_BROKER_KEYS key "${kid}"`;
+  if (key["status"] === "current") {
+    const current: KeySet["keys"][number] = {
+      kid,
+      status: "current",
+      privateJwk: yield* rsaJwk(key["privateJwk"], `${where} privateJwk`, RSA_PRIVATE_MEMBERS),
+    };
+    return current;
+  }
+  const retiredAt = key["retiredAt"];
+  if (key["status"] === "retired" && Predicate.isNumber(retiredAt)) {
+    const retired: KeySet["keys"][number] = {
+      kid,
+      status: "retired",
+      retiredAt,
+      publicJwk: yield* rsaJwk(key["publicJwk"], `${where} publicJwk`, RSA_PUBLIC_MEMBERS),
+    };
+    return retired;
+  }
+  return yield* new KeySetInvalid({ message: `${where} is neither current nor retired` });
+});
 
 /**
- * Parses the env var. Throws on anything that is not a complete key set: a hub without keys is
+ * Parses the env var. Fails on anything that is not a complete key set: a hub without keys is
  * down. It checks the shape only; `assertKeySetUsable` signs and verifies with the keys.
  */
-export function parseKeySet(raw: string | undefined): KeySet {
+export const parseKeySet = Effect.fnUntraced(function* (raw: string | undefined) {
   if (raw === undefined || raw.trim().length === 0) {
-    throw new Error(
-      "IDENTITY_BROKER_KEYS is not set; run `identity-broker keys` and store its output",
-    );
+    return yield* new KeySetInvalid({
+      message: "IDENTITY_BROKER_KEYS is not set; run `identity-broker keys` and store its output",
+    });
   }
-  const record = asRecord(JSON.parse(raw));
-  if (record["version"] !== 1 || !Array.isArray(record["keys"])) {
-    throw new Error("IDENTITY_BROKER_KEYS is not a version 1 key set");
+  const record = membersOf(
+    yield* parseJson(raw).pipe(
+      Effect.mapError(() => new KeySetInvalid({ message: "IDENTITY_BROKER_KEYS is not JSON" })),
+    ),
+  );
+  const entries = record["keys"];
+  if (record["version"] !== 1 || !Array.isArray(entries)) {
+    return yield* new KeySetInvalid({
+      message: "IDENTITY_BROKER_KEYS is not a version 1 key set",
+    });
   }
-  const keys = record["keys"].map((entry: unknown): KeySet["keys"][number] => {
-    const key = asRecord(entry);
-    const kid = key["kid"];
-    if (typeof kid !== "string") {
-      throw new Error("IDENTITY_BROKER_KEYS has a key without kid");
-    }
-    const where = `IDENTITY_BROKER_KEYS key "${kid}"`;
-    if (key["status"] === "current") {
-      return {
-        kid,
-        status: "current",
-        privateJwk: rsaJwk(key["privateJwk"], `${where} privateJwk`, RSA_PRIVATE_MEMBERS),
-      };
-    }
-    if (key["status"] === "retired" && typeof key["retiredAt"] === "number") {
-      return {
-        kid,
-        status: "retired",
-        retiredAt: key["retiredAt"],
-        publicJwk: rsaJwk(key["publicJwk"], `${where} publicJwk`, RSA_PUBLIC_MEMBERS),
-      };
-    }
-    throw new Error(`${where} is neither current nor retired`);
-  });
+  const keys = yield* Effect.forEach(entries, parseKey);
   if (keys.filter((key) => key.status === "current").length !== 1) {
-    throw new Error("IDENTITY_BROKER_KEYS must hold exactly one current key");
+    return yield* new KeySetInvalid({
+      message: "IDENTITY_BROKER_KEYS must hold exactly one current key",
+    });
   }
-  return { version: 1, keys };
-}
+  const keySet: KeySet = { version: 1, keys };
+  return keySet;
+});
 
 export function currentKey(keySet: KeySet): { kid: string; privateJwk: JWK } {
   const key = keySet.keys.find((entry) => entry.status === "current");

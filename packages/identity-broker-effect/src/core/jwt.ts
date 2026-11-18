@@ -1,3 +1,4 @@
+import { Option, Predicate, Schema } from "effect";
 import { createLocalJWKSet, jwtVerify, SignJWT, type JWTPayload } from "jose";
 import {
   currentKey,
@@ -65,6 +66,11 @@ export async function signAccessToken(args: {
   );
 }
 
+/** The claims an access token of this hub must hold; a token without them is refused. */
+const decodeAccessTokenClaims = Schema.decodeUnknownOption(
+  Schema.Struct({ sub: Schema.String, connector: Schema.String, client_id: Schema.String }),
+);
+
 export async function verifyAccessToken(args: {
   keySet: KeySet;
   issuer: string;
@@ -76,25 +82,23 @@ export async function verifyAccessToken(args: {
       audience: args.issuer,
       algorithms: [SIGNING_ALGORITHM],
     });
-    const clientId = payload["client_id"];
-    if (
-      typeof payload.sub !== "string" ||
-      typeof payload["connector"] !== "string" ||
-      typeof clientId !== "string"
-    ) {
+    const required = decodeAccessTokenClaims(payload);
+    if (Option.isNone(required)) {
       return null;
     }
-    const claims: IdentityClaims = { sub: payload.sub, connector: payload["connector"] };
-    if (typeof payload["email"] === "string") {
+    const { sub, connector, client_id: clientId } = required.value;
+    // Each profile claim is kept when it has its type and left out when it does not.
+    const claims: IdentityClaims = { sub, connector };
+    if (Predicate.isString(payload["email"])) {
       claims.email = payload["email"];
     }
-    if (typeof payload["email_verified"] === "boolean") {
+    if (Predicate.isBoolean(payload["email_verified"])) {
       claims.email_verified = payload["email_verified"];
     }
-    if (typeof payload["name"] === "string") {
+    if (Predicate.isString(payload["name"])) {
       claims.name = payload["name"];
     }
-    if (typeof payload["picture"] === "string") {
+    if (Predicate.isString(payload["picture"])) {
       claims.picture = payload["picture"];
     }
     return { clientId, claims };

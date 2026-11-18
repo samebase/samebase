@@ -1,6 +1,6 @@
 // Test helpers of the core, for the sign-in tests (B1) and the registration tests (B2). No test
 // framework import: a helper returns values and records, and the test asserts.
-import { Clock, Effect, Layer, Redacted } from "effect";
+import { Clock, Effect, Layer, Redacted, Schema } from "effect";
 import { base64url, exportJWK, generateKeyPair, SignJWT } from "jose";
 import { calculatePKCECodeChallenge } from "oauth4webapi";
 import { makeMemoryStore } from "../../hosts/memory.ts";
@@ -15,8 +15,7 @@ import {
 import type { Doc, IndexName, TableName } from "../../store/tables.ts";
 import { Tx, unique } from "../../store/Tx.ts";
 import { github } from "../connectors/github.ts";
-import { asRecord } from "../protocol.ts";
-import { makeHandle, type Route } from "../router.ts";
+import { hubLogger, makeHandle, type Route } from "../router.ts";
 import { sha256Hex } from "../subject.ts";
 import { google } from "../connectors/google.ts";
 import type { Connector } from "../connectors/types.ts";
@@ -25,7 +24,6 @@ import {
   Fetch,
   HubConfig,
   Keys,
-  makeHubConfig,
   Random,
   type HubConfigInput,
   type RegistrationSettings,
@@ -180,8 +178,9 @@ export function testRegistration(policy: RegistrationSettings["policy"]): Regist
 }
 
 /**
- * Every core service but `Store`, as one layer, with the handles a test needs to steer them.
- * `config` overrides the issuer, the connectors and the hub mode.
+ * Every core service but `Store`, as one layer, with the handles a test needs to steer them, and
+ * the hub's logger, so a test that reads the console reads the hub's own log lines. `config`
+ * overrides the issuer, the connectors and the hub mode.
  */
 export async function coreServices(
   config: Partial<HubConfigInput> = {},
@@ -192,19 +191,46 @@ export async function coreServices(
   const clock = testClock();
   const keySet = await testKeySet();
   const keys = testKeys(JSON.stringify(keySet));
-  const hub = makeHubConfig({
-    issuer: config.issuer ?? TEST_ISSUER,
-    connectors: config.connectors ?? testConnectors(),
-    registration: "registration" in config ? config.registration : undefined,
-  });
+  const hub = Effect.runSync(
+    HubConfig.make({
+      issuer: config.issuer ?? TEST_ISSUER,
+      connectors: config.connectors ?? testConnectors(),
+      registration: "registration" in config ? config.registration : undefined,
+    }),
+  );
   const layer = Layer.mergeAll(
     Layer.succeed(HubConfig, hub),
     Layer.succeed(Keys, keys.service),
     Layer.succeed(Random, seededRandom(seed)),
     Layer.succeed(Fetch, fetch.service),
     Layer.succeed(Clock.Clock, clock.clock),
+    hubLogger,
   );
   return { layer, fetch, clock, keys, keySet, hub };
+}
+
+/**
+ * One console line of the hub's logger (`hubLogger` in src/core/router.ts). A line with another
+ * member, such as a cause, does not decode.
+ */
+const decodeHubLogLine = Schema.decodeUnknownSync(
+  Schema.fromJsonString(
+    Schema.Struct({
+      message: Schema.Unknown,
+      level: Schema.String,
+      timestamp: Schema.String,
+      annotations: Schema.Record(Schema.String, Schema.Unknown),
+      spans: Schema.Record(Schema.String, Schema.Number),
+      fiberId: Schema.String,
+    }),
+  ),
+  { onExcessProperty: "error" },
+);
+
+/** A line of the hub's logger without its time and fiber, which differ on each run. */
+export function hubLogLine(line: unknown) {
+  const { message, level, annotations, spans } = decodeHubLogLine(line);
+  return { message, level, annotations, spans };
 }
 
 /** What the tests use of a Store host: the memory host's API (src/hosts/memory.ts). */
@@ -412,6 +438,11 @@ export async function pkce() {
   return { verifier, challenge: await calculatePKCECodeChallenge(verifier) };
 }
 
+/** The user that the fake plain-OAuth provider's user endpoint answers. */
+const decodeFakeUser = Schema.decodeUnknownSync(
+  Schema.Struct({ id: Schema.String, name: Schema.String, email: Schema.String }),
+);
+
 /**
  * A fake plain-OAuth provider on `fetch`: RFC 8414 metadata without `iss` support, a token endpoint
  * and a user endpoint. Returns the connector pointing at it.
@@ -459,13 +490,8 @@ export function fakeUpstream(fetch: StubFetch, options: { userId?: string } = {}
           headers: { Authorization: `Bearer ${accessToken}` },
         }),
       );
-      const user = asRecord(await response.json());
-      return {
-        upstreamId: String(user["id"]),
-        name: String(user["name"]),
-        email: String(user["email"]),
-        emailVerified: true,
-      };
+      const user = decodeFakeUser(await response.json());
+      return { upstreamId: user.id, name: user.name, email: user.email, emailVerified: true };
     },
   };
   return { connector };

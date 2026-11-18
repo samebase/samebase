@@ -2,11 +2,11 @@
 // callbacks, token and UserInfo. Ported from packages/identity-broker/src/client/index.ts with every
 // check, its order, every status, header, body and error text. `ctx.runQuery` and
 // `ctx.runMutation` are `command(...)`, in the same order; no command is retried.
-import { Cause, Clock, Effect, Redacted, Result } from "effect";
+import { Cause, Clock, Effect, Redacted, Result, Schema } from "effect";
 import * as oauth from "oauth4webapi";
 import { command } from "./command.ts";
 import type { Connector } from "./connectors/types.ts";
-import { finishUpstream, startUpstream } from "./connectors/upstream.ts";
+import { finishUpstream, ProviderUnavailable, startUpstream } from "./connectors/upstream.ts";
 import { errorPage, signInPage, type Consent } from "./html.ts";
 import { logHubEvent } from "./hubEvents.ts";
 import {
@@ -95,11 +95,13 @@ function txnCookies(hub: HubConfigShape) {
   return {
     read,
     /** Whether the browser holds the cookie whose hash the request stores. */
-    bound: (request: Request, stored: { requestId: string; txnCookieHash: string }) =>
-      Effect.gen(function* () {
-        const cookie = read(request).get(stored.requestId);
-        return cookie !== undefined && (yield* sha256HexEffect(cookie)) === stored.txnCookieHash;
-      }),
+    bound: Effect.fnUntraced(function* (
+      request: Request,
+      stored: { requestId: string; txnCookieHash: string },
+    ) {
+      const cookie = read(request).get(stored.requestId);
+      return cookie !== undefined && (yield* sha256HexEffect(cookie)) === stored.txnCookieHash;
+    }),
     /** The Set-Cookie value that deletes a request's cookie, when the browser sent one. */
     clear: (request: Request, requestId: string): string | undefined =>
       read(request).has(requestId) ? `${prefix}${requestId}=; ${attributes}; Max-Age=0` : undefined,
@@ -130,10 +132,10 @@ const unavailablePage = () =>
  */
 const refusePage = (description: string) => errorPage("Sign-in refused", description, 400);
 
-/** The signing keys of this request. A missing or malformed key set is a defect: 500. */
+/** The signing keys of this request. A missing or malformed key set is a defect of the host: 500. */
 const keySet = Effect.gen(function* () {
   const raw = (yield* Keys).read();
-  return parseKeySet(raw === undefined ? undefined : Redacted.value(raw));
+  return yield* parseKeySet(raw === undefined ? undefined : Redacted.value(raw)).pipe(Effect.orDie);
 });
 
 const callbackUrl = (hub: HubConfigShape, connector: Connector) =>
@@ -184,16 +186,14 @@ const metadata = (hub: HubConfigShape) => {
   };
 };
 
-export const discovery = (_request: Request) =>
-  Effect.gen(function* () {
-    const hub = yield* HubConfig;
-    return json(metadata(hub), 200, { "Cache-Control": "public, max-age=300" });
-  });
+export const discovery = Effect.fn("discovery")(function* (_request: Request) {
+  const hub = yield* HubConfig;
+  return json(metadata(hub), 200, { "Cache-Control": "public, max-age=300" });
+});
 
-export const jwks = (_request: Request) =>
-  Effect.gen(function* () {
-    return json(publicJwks(yield* keySet), 200, { "Cache-Control": "public, max-age=300" });
-  });
+export const jwks = Effect.fn("jwks")(function* (_request: Request) {
+  return json(publicJwks(yield* keySet), 200, { "Cache-Control": "public, max-age=300" });
+});
 
 /**
  * Freshness is honored only as prompt=login upstream: a plain OAuth connector, or an OIDC
@@ -210,58 +210,59 @@ const freshLoginRefusal =
  * error page from `/authorize`, where the user has not continued, and the authorization error
  * at the return address from `/continue`, where the user has.
  */
-const startConnector = (args: {
+const startConnector = Effect.fn("startConnector")(function* (args: {
   connector: Connector;
   request: { requestId: string; freshLogin: boolean };
   decision: Decision;
   refuse: (error: string, description: string) => Response;
-}) =>
-  Effect.gen(function* () {
-    const hub = yield* HubConfig;
-    const { fetch } = yield* Fetch;
-    const { connector, request } = args;
-    if (request.freshLogin && cannotReauthenticate(connector)) {
-      return args.refuse("login_required", freshLoginRefusal);
-    }
-    // A discovery failure is a defect, as the source's thrown error: 500.
-    const start = yield* Effect.promise(() =>
+}) {
+  const hub = yield* HubConfig;
+  const { fetch } = yield* Fetch;
+  const { connector, request } = args;
+  if (request.freshLogin && cannotReauthenticate(connector)) {
+    return args.refuse("login_required", freshLoginRefusal);
+  }
+  // A provider whose metadata cannot be read answers 500, as the source's thrown error.
+  const start = yield* Effect.tryPromise({
+    try: () =>
       startUpstream({
         connector,
         callbackUrl: callbackUrl(hub, connector),
         freshLogin: request.freshLogin,
         fetch,
       }),
-    );
-    const now = yield* Clock.currentTimeMillis;
-    const result = yield* command("authRequests.startUpstream", {
-      requestId: request.requestId,
-      connector: connector.name,
-      upstreamStateHash: yield* sha256HexEffect(start.state),
-      upstreamCodeVerifier: start.codeVerifier,
-      ...(start.nonce === undefined ? {} : { upstreamNonce: start.nonce }),
-      policy: args.decision,
-      now,
-    });
-    if (!result.ok) {
-      switch (result.error) {
-        case "not_found":
-          return errorPage(
-            "Sign-in not found",
-            "This sign-in is unknown. Return to the app and try again.",
-            404,
-          );
-        case "expired":
-          return args.refuse("access_denied", "The sign-in expired.");
-        case "wrong_status":
-          return args.refuse("access_denied", "The sign-in already moved on.");
-        case "refused":
-          return args.refuse("access_denied", "That sign-in method is no longer available.");
-        default:
-          return result satisfies never;
-      }
-    }
-    return redirect(start.url);
+    catch: () => new ProviderUnavailable(),
   });
+  const now = yield* Clock.currentTimeMillis;
+  const result = yield* command("authRequests.startUpstream", {
+    requestId: request.requestId,
+    connector: connector.name,
+    upstreamStateHash: yield* sha256HexEffect(start.state),
+    upstreamCodeVerifier: start.codeVerifier,
+    ...(start.nonce === undefined ? {} : { upstreamNonce: start.nonce }),
+    policy: args.decision,
+    now,
+  });
+  if (!result.ok) {
+    switch (result.error) {
+      case "not_found":
+        return errorPage(
+          "Sign-in not found",
+          "This sign-in is unknown. Return to the app and try again.",
+          404,
+        );
+      case "expired":
+        return args.refuse("access_denied", "The sign-in expired.");
+      case "wrong_status":
+        return args.refuse("access_denied", "The sign-in already moved on.");
+      case "refused":
+        return args.refuse("access_denied", "That sign-in method is no longer available.");
+      default:
+        return result satisfies never;
+    }
+  }
+  return redirect(start.url);
+});
 
 const continueHref = (hub: HubConfigShape, requestId: string, connector: Connector) =>
   `${hub.prefix}/continue?request=${encodeURIComponent(requestId)}&connector=${encodeURIComponent(connector.name)}`;
@@ -305,283 +306,293 @@ function consentOf(
  * package, so this answers as the source's resource flow does with no provider: the checks on the
  * client and the policy, then "Request one configured API resource." (design section 9 item 1).
  */
-const resourceAuthorize = (found: Found & { app: { suspended: boolean } | null }) =>
-  Effect.gen(function* () {
-    const hub = yield* HubConfig;
-    if (found.app === null) {
-      return errorPage("API authorization unavailable", "The client's app is gone.", 400);
-    }
-    if (found.app.suspended) {
-      return errorPage("Sign-in is off", "Sign-in for this app is turned off.", 403);
-    }
-    const decision = decideFor(hub, found);
-    if (decision === null) {
-      return errorPage(
-        "API authorization unavailable",
-        "Authorization is not available right now. Try again later.",
-        503,
-      );
-    }
-    if (decision.paused) {
-      return errorPage(
-        "API authorization unavailable",
-        "Authorization is paused. Try again later.",
-        503,
-      );
-    }
-    return errorPage("API authorization refused", "Request one configured API resource.", 400);
-  });
-
-export const authorize = (request: Request) =>
-  Effect.gen(function* () {
-    const hub = yield* HubConfig;
-    const cookies = txnCookies(hub);
-    const params = yield* Effect.promise(() => readParameters(request));
-    if (params === null) {
-      return oauthError(
-        415,
-        "invalid_request",
-        "A POST must be application/x-www-form-urlencoded.",
-      );
-    }
-    const target = validateAuthorizeTarget(params);
-    if (!target.ok) {
-      return errorPage("Invalid sign-in request", target.description, target.status);
-    }
-    const found = yield* command("clients.forAuthorize", { clientId: target.value.clientId });
-    if (found === null) {
-      return errorPage(
-        "Unknown client",
-        "The client_id is not registered with this provider.",
-        400,
-      );
-    }
-    const { client, app } = found;
-    // Exact string comparison, and no redirect to a URI that is not registered (RFC 9700 4.1.3).
-    // The request keeps the one the client named: the code exchange must name the same one.
-    const redirectUri = target.value.redirectUri;
-    if (!client.redirectUris.includes(redirectUri)) {
-      return errorPage(
-        "Invalid redirect URI",
-        "The redirect_uri is not one registered for this client.",
-        400,
-      );
-    }
-    if (params.has("resource")) {
-      return yield* resourceAuthorize(found);
-    }
-    const rest = validateAuthorizeRest(params, target.value);
-    if (!rest.ok) {
-      return refusePage(rest.description);
-    }
-    if (app === null) {
-      return errorPage("Sign-in unavailable", "The client's app is gone.", 400);
-    }
-    /** A refusal of the policy or of a limit, which the hub's operator can act on. */
-    const refused = (reason: string, page: Response) => {
-      logHubEvent({ event: "sign_in_refused", facts: found.registration, connector: null, reason });
-      return page;
-    };
-    if (app.suspended) {
-      return refused("suspended", offPage());
-    }
-    const decision = decideFor(hub, found);
-    if (decision === null) {
-      return refused("unavailable", unavailablePage());
-    }
-    if (decision.paused) {
-      return refused("paused", pausedPage());
-    }
-    if (rest.value.prompt.includes("none")) {
-      // The broker keeps no session, so it can never answer without interaction.
-      return refusePage("This provider has no session to reuse.");
-    }
-    const freshLogin = rest.value.prompt.includes("login") || rest.value.maxAge !== undefined;
-    const scopes = SCOPES.filter((scope) => rest.value.scopes.includes(scope));
-    // The set of the request: the connectors the app named, else every one the client may use
-    // now (what the policy gives, and what the admin granted its repository). A name outside the
-    // enrollment is a request error; an enrolled one that neither allows now is not offered, and
-    // a set with none left is a stopped sign-in.
-    const named = rest.value.connectors;
-    const notEnrolled = named.find((name) => !client.connectors.includes(name));
-    if (notEnrolled !== undefined) {
-      return refusePage(`This client is not enrolled in the connector "${notEnrolled}".`);
-    }
-    const usable = usableNow(decision, client.connectors, found.granted);
-    const offered = connectorsNamed(
-      hub,
-      named.length === 0 ? usable : named.filter((name) => usable.includes(name)),
+const resourceAuthorize = Effect.fn("resourceAuthorize")(function* (
+  found: Found & { app: { suspended: boolean } | null },
+) {
+  const hub = yield* HubConfig;
+  if (found.app === null) {
+    return errorPage("API authorization unavailable", "The client's app is gone.", 400);
+  }
+  if (found.app.suspended) {
+    return errorPage("Sign-in is off", "Sign-in for this app is turned off.", 403);
+  }
+  const decision = decideFor(hub, found);
+  if (decision === null) {
+    return errorPage(
+      "API authorization unavailable",
+      "Authorization is not available right now. Try again later.",
+      503,
     );
-    if (offered.length === 0) {
-      return refused("off", offPage());
-    }
-    // The facts the page names when it asks: a hub asks unless an exemption of its administrator
-    // covers the client (`pageShown`). Decided here only, on this snapshot. Without hub mode, no
-    // page asks.
-    const consent =
-      hub.registration !== undefined && found.registration !== null && pageShown(found.exemption)
-        ? found.registration
-        : null;
-    // One offered connector and no consent to ask: straight to it (decision 5 of RFC 137). A fresh
-    // login that the connector cannot do is refused here, before anything is stored.
-    const direct = offered.length === 1 && consent === null ? offered[0] : undefined;
-    if (direct !== undefined && freshLogin && cannotReauthenticate(direct)) {
-      return refusePage(freshLoginRefusal);
-    }
-    // Every later step needs this cookie: a client that fetches the page itself cannot send a
-    // user's browser on from it, and a provider callback finishes only where the sign-in started.
-    const txnCookie = yield* randomToken(32);
-    const now = yield* Clock.currentTimeMillis;
-    const requestId = yield* randomToken(24);
-    const created = yield* command("authRequests.create", {
-      tenantId: app.tenantId,
-      requestId,
-      appId: app.appId,
-      clientId: client.clientId,
-      redirectUri,
-      scope: scopes.join(" "),
-      ...(rest.value.state === undefined ? {} : { state: rest.value.state }),
-      ...(rest.value.nonce === undefined ? {} : { nonce: rest.value.nonce }),
-      codeChallenge: rest.value.codeChallenge,
-      connectors: offered.map((connector) => connector.name),
-      policy: decision,
-      freshLogin,
-      txnCookieHash: yield* sha256HexEffect(txnCookie),
-      createdAt: now,
-      expiresAt: now + AUTH_REQUEST_TTL_MS,
-    });
-    if (!created.ok) {
-      switch (created.error) {
-        case "rate_limited":
-          return refused(
-            created.error,
-            errorPage("Too many sign-ins", "Too many sign-ins for this app. Try again soon.", 429),
-          );
-        case "suspended":
-        case "off":
-          return refused(created.error, offPage());
-        default:
-          return created.error satisfies never;
-      }
-    }
-    // The stored set, which the rule decided with the grants of its own step: a grant revoked
-    // since this request's read is neither stored nor shown.
-    const stored = connectorsNamed(hub, created.connectors);
-    const storedDirect = stored.length === 1 && consent === null ? stored[0] : undefined;
-    if (storedDirect !== undefined && freshLogin && cannotReauthenticate(storedDirect)) {
-      // Only when a revoked grant left one connector that the snapshot did not go straight to.
-      yield* command("authRequests.abandon", { requestId });
-      return refusePage(freshLoginRefusal);
-    }
-    const setCookie = cookies.set(requestId, txnCookie);
-    if (storedDirect !== undefined) {
-      const response = yield* startConnector({
-        connector: storedDirect,
-        request: { requestId, freshLogin },
-        decision,
-        refuse: (_error, description) => refusePage(description),
-      });
-      response.headers.append("Set-Cookie", setCookie);
-      return response;
-    }
-    const redirectUrl = new URL(redirectUri);
-    const page = signInPage({
-      host: redirectUrl.host,
-      origin: redirectUrl.origin,
-      consent:
-        consent === null
-          ? null
-          : consentOf(hub, consent, client, scopes, LOOPBACK_HOSTS.has(redirectUrl.hostname)),
-      connectors: stored.map((connector) => ({
-        label: connector.label,
-        provider: connector.provider,
-        href: continueHref(hub, requestId, connector),
-      })),
-      legal:
-        hub.registration === undefined
-          ? null
-          : { privacy: hub.registration.privacy, terms: hub.registration.terms },
-    });
-    page.headers.append("Set-Cookie", setCookie);
+  }
+  if (decision.paused) {
+    return errorPage(
+      "API authorization unavailable",
+      "Authorization is paused. Try again later.",
+      503,
+    );
+  }
+  return errorPage("API authorization refused", "Request one configured API resource.", 400);
+});
+
+export const authorize = Effect.fn("authorize")(function* (request: Request) {
+  const hub = yield* HubConfig;
+  const cookies = txnCookies(hub);
+  const params = yield* Effect.promise(() => readParameters(request));
+  if (params === null) {
+    return oauthError(415, "invalid_request", "A POST must be application/x-www-form-urlencoded.");
+  }
+  const target = validateAuthorizeTarget(params);
+  if (!target.ok) {
+    return errorPage("Invalid sign-in request", target.description, target.status);
+  }
+  const found = yield* command("clients.forAuthorize", { clientId: target.value.clientId });
+  if (found === null) {
+    return errorPage("Unknown client", "The client_id is not registered with this provider.", 400);
+  }
+  const { client, app } = found;
+  // Exact string comparison, and no redirect to a URI that is not registered (RFC 9700 4.1.3).
+  // The request keeps the one the client named: the code exchange must name the same one.
+  const redirectUri = target.value.redirectUri;
+  if (!client.redirectUris.includes(redirectUri)) {
+    return errorPage(
+      "Invalid redirect URI",
+      "The redirect_uri is not one registered for this client.",
+      400,
+    );
+  }
+  if (params.has("resource")) {
+    return yield* resourceAuthorize(found);
+  }
+  const rest = validateAuthorizeRest(params, target.value);
+  if (!rest.ok) {
+    return refusePage(rest.description);
+  }
+  if (app === null) {
+    return errorPage("Sign-in unavailable", "The client's app is gone.", 400);
+  }
+  /** A refusal of the policy or of a limit, which the hub's operator can act on. */
+  const refused = (reason: string, page: Response) => {
+    logHubEvent({ event: "sign_in_refused", facts: found.registration, connector: null, reason });
     return page;
+  };
+  if (app.suspended) {
+    return refused("suspended", offPage());
+  }
+  const decision = decideFor(hub, found);
+  if (decision === null) {
+    return refused("unavailable", unavailablePage());
+  }
+  if (decision.paused) {
+    return refused("paused", pausedPage());
+  }
+  if (rest.value.prompt.includes("none")) {
+    // The broker keeps no session, so it can never answer without interaction.
+    return refusePage("This provider has no session to reuse.");
+  }
+  const freshLogin = rest.value.prompt.includes("login") || rest.value.maxAge !== undefined;
+  const scopes = SCOPES.filter((scope) => rest.value.scopes.includes(scope));
+  // The set of the request: the connectors the app named, else every one the client may use
+  // now (what the policy gives, and what the admin granted its repository). A name outside the
+  // enrollment is a request error; an enrolled one that neither allows now is not offered, and
+  // a set with none left is a stopped sign-in.
+  const named = rest.value.connectors;
+  const notEnrolled = named.find((name) => !client.connectors.includes(name));
+  if (notEnrolled !== undefined) {
+    return refusePage(`This client is not enrolled in the connector "${notEnrolled}".`);
+  }
+  const usable = usableNow(decision, client.connectors, found.granted);
+  const offered = connectorsNamed(
+    hub,
+    named.length === 0 ? usable : named.filter((name) => usable.includes(name)),
+  );
+  if (offered.length === 0) {
+    return refused("off", offPage());
+  }
+  // The facts the page names when it asks: a hub asks unless an exemption of its administrator
+  // covers the client (`pageShown`). Decided here only, on this snapshot. Without hub mode, no
+  // page asks.
+  const consent =
+    hub.registration !== undefined && found.registration !== null && pageShown(found.exemption)
+      ? found.registration
+      : null;
+  // One offered connector and no consent to ask: straight to it (decision 5 of RFC 137). A fresh
+  // login that the connector cannot do is refused here, before anything is stored.
+  const direct = offered.length === 1 && consent === null ? offered[0] : undefined;
+  if (direct !== undefined && freshLogin && cannotReauthenticate(direct)) {
+    return refusePage(freshLoginRefusal);
+  }
+  // Every later step needs this cookie: a client that fetches the page itself cannot send a
+  // user's browser on from it, and a provider callback finishes only where the sign-in started.
+  const txnCookie = yield* randomToken(32);
+  const now = yield* Clock.currentTimeMillis;
+  const requestId = yield* randomToken(24);
+  const created = yield* command("authRequests.create", {
+    tenantId: app.tenantId,
+    requestId,
+    appId: app.appId,
+    clientId: client.clientId,
+    redirectUri,
+    scope: scopes.join(" "),
+    ...(rest.value.state === undefined ? {} : { state: rest.value.state }),
+    ...(rest.value.nonce === undefined ? {} : { nonce: rest.value.nonce }),
+    codeChallenge: rest.value.codeChallenge,
+    connectors: offered.map((connector) => connector.name),
+    policy: decision,
+    freshLogin,
+    txnCookieHash: yield* sha256HexEffect(txnCookie),
+    createdAt: now,
+    expiresAt: now + AUTH_REQUEST_TTL_MS,
   });
+  if (!created.ok) {
+    switch (created.error) {
+      case "rate_limited":
+        return refused(
+          created.error,
+          errorPage("Too many sign-ins", "Too many sign-ins for this app. Try again soon.", 429),
+        );
+      case "suspended":
+      case "off":
+        return refused(created.error, offPage());
+      default:
+        return created.error satisfies never;
+    }
+  }
+  // The stored set, which the rule decided with the grants of its own step: a grant revoked
+  // since this request's read is neither stored nor shown.
+  const stored = connectorsNamed(hub, created.connectors);
+  const storedDirect = stored.length === 1 && consent === null ? stored[0] : undefined;
+  if (storedDirect !== undefined && freshLogin && cannotReauthenticate(storedDirect)) {
+    // Only when a revoked grant left one connector that the snapshot did not go straight to.
+    yield* command("authRequests.abandon", { requestId });
+    return refusePage(freshLoginRefusal);
+  }
+  const setCookie = cookies.set(requestId, txnCookie);
+  if (storedDirect !== undefined) {
+    const response = yield* startConnector({
+      connector: storedDirect,
+      request: { requestId, freshLogin },
+      decision,
+      refuse: (_error, description) => refusePage(description),
+    });
+    response.headers.append("Set-Cookie", setCookie);
+    return response;
+  }
+  const redirectUrl = new URL(redirectUri);
+  const page = signInPage({
+    host: redirectUrl.host,
+    origin: redirectUrl.origin,
+    consent:
+      consent === null
+        ? null
+        : consentOf(hub, consent, client, scopes, LOOPBACK_HOSTS.has(redirectUrl.hostname)),
+    connectors: stored.map((connector) => ({
+      label: connector.label,
+      provider: connector.provider,
+      href: continueHref(hub, requestId, connector),
+    })),
+    legal:
+      hub.registration === undefined
+        ? null
+        : { privacy: hub.registration.privacy, terms: hub.registration.terms },
+  });
+  page.headers.append("Set-Cookie", setCookie);
+  return page;
+});
 
 /**
  * A "Continue with" click on the sign-in page: start that connector. The user accepted the
  * return address on the page, so a refusal from here on is an authorization error there. There
  * is no Cancel: a user who does not continue closes the tab, and the request expires.
  */
-export const continueSignIn = (request: Request) =>
-  Effect.gen(function* () {
-    const hub = yield* HubConfig;
-    const cookies = txnCookies(hub);
-    const url = new URL(request.url);
-    const requestId = url.searchParams.get("request") ?? "";
-    const stored = yield* command("authRequests.get", { requestId });
-    if (stored === null) {
-      return errorPage(
-        "Sign-in not found",
-        "This sign-in is unknown or finished. Return to the app and try again.",
-        404,
-      );
-    }
-    if (!(yield* cookies.bound(request, stored))) {
-      return unboundPage();
-    }
-    const back = {
-      redirectUri: stored.redirectUri,
-      issuer: hub.issuer,
-      state: stored.state,
-      clearCookie: cookies.clear(request, requestId),
-    };
-    const refuse = (error: string, description: string) =>
-      authorizationError({ ...back, error, description });
-    if (stored.status === "completed" || stored.status === "claimed") {
-      return errorPage(
-        "Sign-in finished",
-        "This sign-in already finished. Return to the app.",
-        409,
-      );
-    }
-    // The page's link carries the connector, so a user can edit it: only one of the request's set
-    // goes on. The page offered no other, so an edited link gets no redirect.
-    const name = url.searchParams.get("connector") ?? "";
-    const connector = hub.connectorsByName.get(name);
-    if (connector === undefined || !stored.connectors.includes(name)) {
-      return errorPage("Unknown connector", "That sign-in method is not offered here.", 404);
-    }
-    const found = yield* command("clients.withApp", { clientId: stored.clientId });
-    if (found === null || found.app === null) {
-      return refuse("server_error", "The client's app is gone.");
-    }
-    if (found.app.suspended) {
-      return refuse("access_denied", "Sign-in for this app is turned off.");
-    }
-    const decision = decideFor(hub, found);
-    if (decision === null) {
-      return refuse("temporarily_unavailable", "Sign-in is not available right now.");
-    }
-    if (decision.paused) {
-      return refuse("temporarily_unavailable", "Sign-in is paused.");
-    }
-    if (!usableNow(decision, found.client.connectors, found.granted).includes(name)) {
-      return refuse("access_denied", "That sign-in method is no longer available.");
-    }
-    return yield* startConnector({
-      connector,
-      request: { requestId, freshLogin: stored.freshLogin },
-      decision,
-      refuse,
-    });
+export const continueSignIn = Effect.fn("continueSignIn")(function* (request: Request) {
+  const hub = yield* HubConfig;
+  const cookies = txnCookies(hub);
+  const url = new URL(request.url);
+  const requestId = url.searchParams.get("request") ?? "";
+  const stored = yield* command("authRequests.get", { requestId });
+  if (stored === null) {
+    return errorPage(
+      "Sign-in not found",
+      "This sign-in is unknown or finished. Return to the app and try again.",
+      404,
+    );
+  }
+  if (!(yield* cookies.bound(request, stored))) {
+    return unboundPage();
+  }
+  const back = {
+    redirectUri: stored.redirectUri,
+    issuer: hub.issuer,
+    state: stored.state,
+    clearCookie: cookies.clear(request, requestId),
+  };
+  const refuse = (error: string, description: string) =>
+    authorizationError({ ...back, error, description });
+  if (stored.status === "completed" || stored.status === "claimed") {
+    return errorPage("Sign-in finished", "This sign-in already finished. Return to the app.", 409);
+  }
+  // The page's link carries the connector, so a user can edit it: only one of the request's set
+  // goes on. The page offered no other, so an edited link gets no redirect.
+  const name = url.searchParams.get("connector") ?? "";
+  const connector = hub.connectorsByName.get(name);
+  if (connector === undefined || !stored.connectors.includes(name)) {
+    return errorPage("Unknown connector", "That sign-in method is not offered here.", 404);
+  }
+  const found = yield* command("clients.withApp", { clientId: stored.clientId });
+  if (found === null || found.app === null) {
+    return refuse("server_error", "The client's app is gone.");
+  }
+  if (found.app.suspended) {
+    return refuse("access_denied", "Sign-in for this app is turned off.");
+  }
+  const decision = decideFor(hub, found);
+  if (decision === null) {
+    return refuse("temporarily_unavailable", "Sign-in is not available right now.");
+  }
+  if (decision.paused) {
+    return refuse("temporarily_unavailable", "Sign-in is paused.");
+  }
+  if (!usableNow(decision, found.client.connectors, found.granted).includes(name)) {
+    return refuse("access_denied", "That sign-in method is no longer available.");
+  }
+  return yield* startConnector({
+    connector,
+    request: { requestId, freshLogin: stored.freshLogin },
+    decision,
+    refuse,
   });
+});
 
 /** The class name of a failure, for a log line: provider errors carry tokens and claims. */
 const className = (error: unknown) =>
   error instanceof Error ? error.constructor.name : typeof error;
 
+/**
+ * The provider's sign-in did not give an identity. `reason` is the provider's error code when it
+ * picks a fixed answer, else `failed`; nothing else the provider wrote is kept.
+ */
+class ProviderSignInFailed extends Schema.TaggedError<ProviderSignInFailed>()(
+  "ProviderSignInFailed",
+  {
+    reason: Schema.Literals(["access_denied", "temporarily_unavailable", "failed"]),
+    /** The failure's class name, the one part of it that a log line may hold. */
+    className: Schema.String,
+  },
+) {}
+
+const providerSignInFailed = (error: unknown) =>
+  new ProviderSignInFailed({
+    reason:
+      error instanceof oauth.AuthorizationResponseError &&
+      (error.error === "access_denied" || error.error === "temporarily_unavailable")
+        ? error.error
+        : "failed",
+    className: className(error),
+  });
+
 /** The provider's redirect back to the hub, for one connector. */
-export const upstreamCallback = (connector: Connector) => (request: Request) =>
-  Effect.gen(function* () {
+export const upstreamCallback = (connector: Connector) =>
+  Effect.fn("upstreamCallback")(function* (request: Request) {
     const hub = yield* HubConfig;
     const { fetch } = yield* Fetch;
     const cookies = txnCookies(hub);
@@ -691,39 +702,39 @@ export const upstreamCallback = (connector: Connector) => (request: Request) =>
           }
           return upstream;
         },
-        catch: (error) => error,
+        catch: providerSignInFailed,
       }),
     );
     if (Result.isFailure(finished)) {
-      const error = finished.failure;
+      const failure = finished.failure;
       yield* command("authRequests.abandon", { requestId: claim.requestId });
       // The provider's error code picks one fixed answer; nothing the provider wrote is echoed.
       // The connector's label is free text, so no description holds it (RFC 6749 section
       // 4.1.2.1).
-      if (error instanceof oauth.AuthorizationResponseError && error.error === "access_denied") {
-        return authorizationError({
-          ...back,
-          error: "access_denied",
-          description: "The provider sign-in was declined.",
-        });
+      switch (failure.reason) {
+        case "access_denied":
+          return authorizationError({
+            ...back,
+            error: "access_denied",
+            description: "The provider sign-in was declined.",
+          });
+        case "temporarily_unavailable":
+          return authorizationError({
+            ...back,
+            error: "temporarily_unavailable",
+            description: "The provider is temporarily unavailable.",
+          });
+        case "failed":
+          // Only the class name: provider errors carry token responses and decoded claims.
+          console.error(`Connector "${connector.name}" failed: ${failure.className}`);
+          return authorizationError({
+            ...back,
+            error: "server_error",
+            description: "The provider sign-in failed.",
+          });
+        default:
+          return failure.reason satisfies never;
       }
-      if (
-        error instanceof oauth.AuthorizationResponseError &&
-        error.error === "temporarily_unavailable"
-      ) {
-        return authorizationError({
-          ...back,
-          error: "temporarily_unavailable",
-          description: "The provider is temporarily unavailable.",
-        });
-      }
-      // Only the class name: provider errors carry token responses and decoded claims.
-      console.error(`Connector "${connector.name}" failed: ${className(error)}`);
-      return authorizationError({
-        ...back,
-        error: "server_error",
-        description: "The provider sign-in failed.",
-      });
     }
     const upstream = finished.success;
     let authTime = now;
@@ -799,142 +810,140 @@ export const upstreamCallback = (connector: Connector) => (request: Request) =>
     );
   });
 
-export const token = (request: Request) =>
-  Effect.gen(function* () {
-    const hub = yield* HubConfig;
-    const params = yield* Effect.promise(() => readParameters(request));
-    // RFC 6749 section 5.2: every token error but invalid_client answers 400.
-    if (params === null) {
-      return oauthError(
-        400,
-        "invalid_request",
-        "The body must be application/x-www-form-urlencoded.",
-      );
-    }
-    const authorization = request.headers.get("authorization");
-    // A 401 carries a challenge (RFC 9110 section 15.5.2), which also names the scheme this endpoint
-    // takes for a client that sent its secret in the body (RFC 6749 section 5.2).
-    const challenge = { "WWW-Authenticate": 'Basic realm="token"' };
-    const clientAuth = readClientAuthentication(authorization, params);
-    if (!clientAuth.ok) {
-      return oauthError(
-        clientAuth.status,
-        clientAuth.error,
-        clientAuth.description,
-        clientAuth.status === 401 ? challenge : {},
-      );
-    }
-    if (params.getAll("resource").length > 1)
-      return oauthError(400, "invalid_target", "Request one API resource.");
-    const validation = validateTokenRequest(params, clientAuth.value);
-    if (!validation.ok) {
-      return oauthError(validation.status, validation.error, validation.description);
-    }
-    const now = yield* Clock.currentTimeMillis;
-    const resource = params.get("resource") ?? undefined;
-    // The policy is decided on the client's rows of this moment; the rule checks them again.
-    const found = yield* command("clients.withApp", { clientId: clientAuth.value.clientId });
-    if (found === null) {
-      return oauthError(401, "invalid_client", "Client authentication failed.", challenge);
-    }
-    const decision = decideFor(hub, found);
-    if (decision === null) {
-      return oauthError(503, "temporarily_unavailable", "Sign-in is not available right now.");
-    }
-    // The client is authenticated in the step that redeems the code. The secret, the code and the
-    // app's verifier cross the command boundary only as hashes (design section 2.2).
-    const exchange = yield* command("authRequests.exchangeCode", {
-      clientId: clientAuth.value.clientId,
-      clientSecretHash: yield* sha256HexEffect(clientAuth.value.clientSecret),
-      tokenEndpointAuthMethod: clientAuth.value.method,
-      codeHash: yield* sha256HexEffect(validation.value.code),
-      redirectUri: validation.value.redirectUri,
-      codeChallengeOfVerifier: yield* s256Challenge(validation.value.codeVerifier),
-      ...(resource === undefined ? {} : { resource }),
-      policy: decision,
-      now,
-    });
-    if (!exchange.ok) {
-      return exchange.error === "invalid_client"
-        ? oauthError(401, "invalid_client", exchange.description, challenge)
-        : oauthError(400, exchange.error, exchange.description);
-    }
-    const keys = yield* keySet;
-    const connector = hub.connectorsByName.get(exchange.identity.connector);
-    if (connector === undefined) {
-      return yield* Effect.die(
-        new Error(`The connector "${exchange.identity.connector}" of a sign-in is gone`),
-      );
-    }
-    // A public subject (OIDC Core 8): the provider's own id, the same in every app and every broker,
-    // so an app keeps its users' ids when it moves to another broker.
-    const sub = `${connector.provider}:${exchange.identity.upstreamId}`;
-    // Claims follow the granted scopes (OIDC Core 5.4); userinfo reads them from the access token.
-    const scopes = exchange.scope.split(" ");
-    const claims: IdentityClaims = { sub, connector: exchange.identity.connector };
-    if (scopes.includes("email") && exchange.identity.email !== undefined) {
-      claims.email = exchange.identity.email;
-      claims.email_verified = exchange.identity.emailVerified === true;
-    }
-    if (scopes.includes("profile") && exchange.identity.name !== undefined) {
-      claims.name = exchange.identity.name;
-    }
-    if (scopes.includes("profile") && exchange.identity.picture !== undefined) {
-      claims.picture = exchange.identity.picture;
-    }
-    const [idToken, accessToken] = yield* Effect.promise(() =>
-      Promise.all([
-        signIdToken({
-          keySet: keys,
-          issuer: hub.issuer,
-          clientId: exchange.clientId,
-          claims,
-          authTime: exchange.authTime,
-          nonce: exchange.nonce,
-        }),
-        signAccessToken({ keySet: keys, issuer: hub.issuer, clientId: exchange.clientId, claims }),
-      ]),
+export const token = Effect.fn("token")(function* (request: Request) {
+  const hub = yield* HubConfig;
+  const params = yield* Effect.promise(() => readParameters(request));
+  // RFC 6749 section 5.2: every token error but invalid_client answers 400.
+  if (params === null) {
+    return oauthError(
+      400,
+      "invalid_request",
+      "The body must be application/x-www-form-urlencoded.",
     );
-    yield* command("signIns.record", {
-      appId: exchange.appId,
-      clientId: exchange.clientId,
-      connector: exchange.identity.connector,
-      sub,
-      at: now,
-    });
-    logHubEvent({
-      event: "sign_in",
-      facts: found.registration,
-      connector: exchange.identity.connector,
-      reason: null,
-    });
-    return json({
-      access_token: accessToken,
-      token_type: "Bearer",
-      expires_in: TOKEN_TTL_SECONDS,
-      id_token: idToken,
-      scope: exchange.scope,
-    });
+  }
+  const authorization = request.headers.get("authorization");
+  // A 401 carries a challenge (RFC 9110 section 15.5.2), which also names the scheme this endpoint
+  // takes for a client that sent its secret in the body (RFC 6749 section 5.2).
+  const challenge = { "WWW-Authenticate": 'Basic realm="token"' };
+  const clientAuth = readClientAuthentication(authorization, params);
+  if (!clientAuth.ok) {
+    return oauthError(
+      clientAuth.status,
+      clientAuth.error,
+      clientAuth.description,
+      clientAuth.status === 401 ? challenge : {},
+    );
+  }
+  if (params.getAll("resource").length > 1)
+    return oauthError(400, "invalid_target", "Request one API resource.");
+  const validation = validateTokenRequest(params, clientAuth.value);
+  if (!validation.ok) {
+    return oauthError(validation.status, validation.error, validation.description);
+  }
+  const now = yield* Clock.currentTimeMillis;
+  const resource = params.get("resource") ?? undefined;
+  // The policy is decided on the client's rows of this moment; the rule checks them again.
+  const found = yield* command("clients.withApp", { clientId: clientAuth.value.clientId });
+  if (found === null) {
+    return oauthError(401, "invalid_client", "Client authentication failed.", challenge);
+  }
+  const decision = decideFor(hub, found);
+  if (decision === null) {
+    return oauthError(503, "temporarily_unavailable", "Sign-in is not available right now.");
+  }
+  // The client is authenticated in the step that redeems the code. The secret, the code and the
+  // app's verifier cross the command boundary only as hashes (design section 2.2).
+  const exchange = yield* command("authRequests.exchangeCode", {
+    clientId: clientAuth.value.clientId,
+    clientSecretHash: yield* sha256HexEffect(clientAuth.value.clientSecret),
+    tokenEndpointAuthMethod: clientAuth.value.method,
+    codeHash: yield* sha256HexEffect(validation.value.code),
+    redirectUri: validation.value.redirectUri,
+    codeChallengeOfVerifier: yield* s256Challenge(validation.value.codeVerifier),
+    ...(resource === undefined ? {} : { resource }),
+    policy: decision,
+    now,
   });
+  if (!exchange.ok) {
+    return exchange.error === "invalid_client"
+      ? oauthError(401, "invalid_client", exchange.description, challenge)
+      : oauthError(400, exchange.error, exchange.description);
+  }
+  const keys = yield* keySet;
+  const connector = hub.connectorsByName.get(exchange.identity.connector);
+  if (connector === undefined) {
+    return yield* Effect.die(
+      new Error(`The connector "${exchange.identity.connector}" of a sign-in is gone`),
+    );
+  }
+  // A public subject (OIDC Core 8): the provider's own id, the same in every app and every broker,
+  // so an app keeps its users' ids when it moves to another broker.
+  const sub = `${connector.provider}:${exchange.identity.upstreamId}`;
+  // Claims follow the granted scopes (OIDC Core 5.4); userinfo reads them from the access token.
+  const scopes = exchange.scope.split(" ");
+  const claims: IdentityClaims = { sub, connector: exchange.identity.connector };
+  if (scopes.includes("email") && exchange.identity.email !== undefined) {
+    claims.email = exchange.identity.email;
+    claims.email_verified = exchange.identity.emailVerified === true;
+  }
+  if (scopes.includes("profile") && exchange.identity.name !== undefined) {
+    claims.name = exchange.identity.name;
+  }
+  if (scopes.includes("profile") && exchange.identity.picture !== undefined) {
+    claims.picture = exchange.identity.picture;
+  }
+  const [idToken, accessToken] = yield* Effect.promise(() =>
+    Promise.all([
+      signIdToken({
+        keySet: keys,
+        issuer: hub.issuer,
+        clientId: exchange.clientId,
+        claims,
+        authTime: exchange.authTime,
+        nonce: exchange.nonce,
+      }),
+      signAccessToken({ keySet: keys, issuer: hub.issuer, clientId: exchange.clientId, claims }),
+    ]),
+  );
+  yield* command("signIns.record", {
+    appId: exchange.appId,
+    clientId: exchange.clientId,
+    connector: exchange.identity.connector,
+    sub,
+    at: now,
+  });
+  logHubEvent({
+    event: "sign_in",
+    facts: found.registration,
+    connector: exchange.identity.connector,
+    reason: null,
+  });
+  return json({
+    access_token: accessToken,
+    token_type: "Bearer",
+    expires_in: TOKEN_TTL_SECONDS,
+    id_token: idToken,
+    scope: exchange.scope,
+  });
+});
 
-export const userinfo = (request: Request) =>
-  Effect.gen(function* () {
-    const hub = yield* HubConfig;
-    // Only the Authorization header (RFC 6750 section 2.1): a token in the body or query is none.
-    const bearer = readBearerToken(request.headers.get("authorization"));
-    if (bearer === null) {
-      return noToken("userinfo");
-    }
-    const keys = yield* keySet;
-    const verified = yield* Effect.promise(() =>
-      verifyAccessToken({ keySet: keys, issuer: hub.issuer, token: bearer }),
-    );
-    // A deleted client's tokens die with it (RFC 7592 section 2.3); a paused client's live to expiry.
-    if (
-      verified === null ||
-      (yield* command("clients.get", { clientId: verified.clientId })) === null
-    ) {
-      return invalidToken();
-    }
-    return json(verified.claims);
-  });
+export const userinfo = Effect.fn("userinfo")(function* (request: Request) {
+  const hub = yield* HubConfig;
+  // Only the Authorization header (RFC 6750 section 2.1): a token in the body or query is none.
+  const bearer = readBearerToken(request.headers.get("authorization"));
+  if (bearer === null) {
+    return noToken("userinfo");
+  }
+  const keys = yield* keySet;
+  const verified = yield* Effect.promise(() =>
+    verifyAccessToken({ keySet: keys, issuer: hub.issuer, token: bearer }),
+  );
+  // A deleted client's tokens die with it (RFC 7592 section 2.3); a paused client's live to expiry.
+  if (
+    verified === null ||
+    (yield* command("clients.get", { clientId: verified.clientId })) === null
+  ) {
+    return invalidToken();
+  }
+  return json(verified.claims);
+});

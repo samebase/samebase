@@ -9,12 +9,13 @@ import { Tx, unique } from "../store/Tx.ts";
 import type { Connector } from "./connectors/types.ts";
 import { google } from "./connectors/google.ts";
 import type { PolicyFunction } from "./policy.ts";
-import { makeHubConfig, type RegistrationSettings } from "./services.ts";
+import { HubConfig, type HubConfigInput, type RegistrationSettings } from "./services.ts";
 import { sha256Hex } from "./subject.ts";
 import {
   createBroker,
   fakeOidcUpstream,
   fakeUpstream,
+  hubLogLine,
   pkce,
   stubFetch,
   testRegistration,
@@ -165,6 +166,9 @@ async function signedInClaims(h: Broker, clientId: string, clientSecret: string,
 }
 
 describe("configuration", () => {
+  /** `HubConfig.make` run to its end: a refused configuration throws its `HubConfigError`. */
+  const makeHubConfig = (input: HubConfigInput) => Effect.runSync(HubConfig.make(input));
+
   test("the issuer is https, or http on a loopback host", () => {
     const { connector } = fakeUpstream(stubFetch());
     const config = { connectors: [connector], registration: undefined };
@@ -1613,8 +1617,13 @@ describe("handler rules at their edges", () => {
     const response = await h.fetchBroker(`${h.issuer}/.well-known/jwks.json`);
     expect(response.status).toBe(500);
     expect(await response.json()).toEqual({ error: "server_error" });
-    expect(logged.mock.calls).toEqual([
-      ['hub_error {"route":"/.well-known/jwks.json","category":"defect"}'],
+    expect(logged.mock.calls.map(([line]) => hubLogLine(line))).toEqual([
+      {
+        message: "hub_error",
+        level: "ERROR",
+        annotations: { route: "/.well-known/jwks.json", category: "defect" },
+        spans: {},
+      },
     ]);
   });
 

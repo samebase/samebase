@@ -69,52 +69,47 @@ export interface TxShape {
 export class Tx extends Context.Service<Tx, TxShape>()("identity-broker-effect/store/Tx") {}
 
 /** The one row with the full key `eq`, or undefined. Two rows are a broken invariant. */
-export const unique = <T extends TableName>(
+export const unique = Effect.fnUntraced(function* <T extends TableName>(
   table: T,
   index: IndexName<T>,
   eq: ReadonlyArray<IndexValue>,
-) =>
-  Effect.gen(function* () {
-    const tx = yield* Tx;
-    const rows = yield* tx.query(table, index, { eq, order: "asc", limit: 2 });
-    if (rows.length > 1) {
-      return yield* Effect.die(new Error(`Two rows of ${table}.${index} share one key`));
-    }
-    return rows.at(0);
-  });
+) {
+  const tx = yield* Tx;
+  const rows = yield* tx.query(table, index, { eq, order: "asc", limit: 2 });
+  if (rows.length > 1) {
+    return yield* Effect.die(new Error(`Two rows of ${table}.${index} share one key`));
+  }
+  return rows.at(0);
+});
 
 /** The first row in index order with the prefix `eq`, or undefined. */
-export const first = <T extends TableName>(
+export const first = Effect.fnUntraced(function* <T extends TableName>(
   table: T,
   index: IndexName<T>,
   eq: ReadonlyArray<IndexValue>,
-) =>
-  Effect.gen(function* () {
-    const tx = yield* Tx;
-    const rows = yield* tx.query(table, index, { eq, order: "asc", limit: 1 });
-    return rows.at(0);
-  });
+) {
+  const tx = yield* Tx;
+  const rows = yield* tx.query(table, index, { eq, order: "asc", limit: 1 });
+  return rows.at(0);
+});
 
 /**
  * Every row with the prefix `eq`, when an invariant keeps them below `limit`. Reaching `limit` is a
  * broken invariant, so the read stays bounded.
  */
-export const allBelow = <T extends TableName>(
+export const allBelow = Effect.fnUntraced(function* <T extends TableName>(
   table: T,
   index: IndexName<T>,
   eq: ReadonlyArray<IndexValue>,
   limit: number,
-) =>
-  Effect.gen(function* () {
-    const tx = yield* Tx;
-    const rows = yield* tx.query(table, index, { eq, order: "asc", limit });
-    if (rows.length >= limit) {
-      return yield* Effect.die(
-        new Error(`${table}.${index} holds ${limit} or more rows of one key`),
-      );
-    }
-    return rows;
-  });
+) {
+  const tx = yield* Tx;
+  const rows = yield* tx.query(table, index, { eq, order: "asc", limit });
+  if (rows.length >= limit) {
+    return yield* Effect.die(new Error(`${table}.${index} holds ${limit} or more rows of one key`));
+  }
+  return rows;
+});
 
 /** The fields of an index. Dies on an index that the table does not declare. */
 export const indexFields = (table: TableName, index: string): ReadonlyArray<IndexField> => {
