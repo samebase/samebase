@@ -124,10 +124,10 @@ test("landing preview FAQ answers the visitor questions", async ({ page }) => {
   const secondQuestion = faq.getByRole("button", {
     name: "Which stacks does the dashboard show?",
   });
-  const firstAnswer = faq.getByText("Not for the starter or the packages.", {
+  const firstAnswer = faq.getByText("Only for the dashboard.", {
     exact: false,
   });
-  const secondAnswer = faq.getByText("Stacks whose state carries a run record", {
+  const secondAnswer = faq.getByText("Stacks with a run record that names the repo.", {
     exact: false,
   });
 
@@ -384,7 +384,7 @@ test.describe("mobile landing preview", () => {
     await thirdQuestion.click();
     await expect(thirdQuestion).toHaveAttribute("aria-expanded", "true");
     await expect(
-      faq.getByText("A personal account lists up to 12 repositories", {
+      faq.getByText("up to 12 repos on a personal account", {
         exact: false,
       }),
     ).toBeVisible();
