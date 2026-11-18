@@ -22,7 +22,7 @@ export function allowListPolicy(allowed: typeof AllowedRepositories.Type): Polic
   };
 }
 
-/** Each delivered alarm first arms this one, so a batch that throws is tried again an hour later. */
+/** The retry delay of the cleanup job: a batch that throws is tried again an hour later. */
 export const FALLBACK_MS = 60 * 60 * 1000;
 /** The delay to the next batch of a cleanup run that has more to delete. */
 export const NEXT_BATCH_MS = 1000;

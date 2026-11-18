@@ -26,6 +26,10 @@
 // client cannot be bound in the same run. The Worker provider deletes script secrets that leave
 // `env`, so a secret set beside the Worker does not last.
 //
+// The Worker is declared in src/worker.ts in Alchemy's Effect form. The stack attaches the
+// sign-in bindings to it with `site.bind`, so the hub client and the session secret stay here and
+// never run inside the Worker. Their Outputs make the Worker deploy after the client.
+//
 // SESSION_SECRET is an `Alchemy.Random`: made once and kept in the state of the stage, so sessions
 // survive a redeploy. The state is in the team's Convex store (docs/alchemy-deploy-standard.md),
 // under the stack name samebase/samebase/apps/identity-broker-effect-example. A run needs
@@ -37,6 +41,7 @@ import * as IdentityHub from "@samebase/alchemy-convex/identity-hub";
 import * as Alchemy from "alchemy";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import Site, { siteName } from "./src/worker.ts";
 
 /** The test hub, an OpenID Provider of packages/identity-broker-effect. */
 const HUB = { issuer: "https://identity-broker-effect-dev-spike.pfp.workers.dev" };
@@ -53,25 +58,18 @@ export default Alchemy.Stack(
   },
   Effect.gen(function* () {
     const { stage } = yield* Alchemy.Stack;
-    const name = `identity-broker-effect-example-${stage}`;
-
     const hub = IdentityHub.Client.variables(
       yield* IdentityHub.Client("HubClient", {
         hub: HUB,
         connectors: ["google"],
-        redirectUris: [`https://${name}.${WORKERS_DEV}/callback`],
+        redirectUris: [`https://${siteName(stage)}.${WORKERS_DEV}/callback`],
         deploymentType: "preview",
       }),
     );
     const sessionSecret = yield* Alchemy.Random("SessionSecret");
 
-    // The Worker fetches the hub, another Worker on workers.dev in this account: without
-    // `global_fetch_strictly_public` each such fetch gets error 1042.
-    const site = yield* Cloudflare.Worker("Site", {
-      name,
-      main: "./src/worker.ts",
-      workersDev: true,
-      compatibility: { date: "2026-10-28", flags: ["global_fetch_strictly_public"] },
+    const site = yield* Site;
+    yield* site.bind`SignIn`({
       env: {
         IDENTITY_HUB_ISSUER: hub.issuer,
         IDENTITY_HUB_CLIENT_ID: hub.clientId,
