@@ -77,8 +77,8 @@ with npm.
 1. Install the packages at these exact versions, and add `.alchemy` to `.gitignore`:
 
    ```sh
-   pnpm add -D alchemy@2.0.0-beta.85 @alchemy.run/cloudflare@2.0.0-beta.85 \
-     @samebase/alchemy-convex@0.23.0 effect@4.1.2 @effect/platform-node@4.1.2
+   pnpm add -D alchemy@2.0.0-beta.87 @alchemy.run/cloudflare@2.0.0-beta.87 \
+     @samebase/alchemy-convex@0.41.0 effect@4.1.4 @effect/platform-node@4.1.4
    ```
 
    A fresh install can pick a newer `@effect/sql-d1` than `effect`, and Alchemy fails to load, so
