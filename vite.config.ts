@@ -319,6 +319,7 @@ export default defineConfig({
             "dev-dist",
             "apps/samebase/convex/**/*.convex.test.ts",
             "apps/identity-hub/**",
+            "apps/identity-broker-effect-example/**",
             "packages/identity-broker/**",
             "packages/identity-broker-effect/**",
             "packages/alchemy-convex/**",
@@ -369,6 +370,19 @@ export default defineConfig({
           environment: "node",
           include: ["packages/identity-broker-effect/src/**/*.test.ts"],
           exclude: ["**/node_modules/**"],
+        },
+      },
+      {
+        extends: true,
+        test: {
+          name: "identity-broker-effect-example",
+          environment: "node",
+          include: ["apps/identity-broker-effect-example/src/**/*.test.ts"],
+          exclude: ["**/node_modules/**"],
+          // @effect/vitest resolves a vitest of its own peers, so the tests run through Vite here,
+          // with every import of vitest on the runner.
+          alias: { vitest: "vite-plus/test" },
+          server: { deps: { inline: true } },
         },
       },
       {
