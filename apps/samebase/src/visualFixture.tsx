@@ -170,7 +170,6 @@ const LOGO_VISUAL_MODES = ["logo-three-reference", "logo-snap-angles"] as const 
 const REPOSITORY_DASHBOARD_VISUAL_MODES = [
   "repository-overview-v2",
   "repository-overview-v2-r2",
-  "repository-overview-v2-example",
   "repository-overview-v2-auto-pagination",
   "repository-overview-v2-convex-schema",
   "repository-overview-v2-dev",

@@ -33,11 +33,14 @@ const policyState = vi.hoisted<{
 
 vi.mock("convex/react", async (importOriginal) => ({
   ...(await importOriginal<typeof import("convex/react")>()),
+  useAction: () => async () => {},
   useConvexAuth: () => authState,
 }));
 
-// The page reads one query: the root loader's deployment auth policy.
-vi.mock("@tanstack/react-query", () => ({
+// The page reads one query: the root loader's deployment auth policy. The dashboard example keeps
+// its own query client.
+vi.mock("@tanstack/react-query", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@tanstack/react-query")>()),
   useQuery: () => ({ data: policyState.deploymentAuthPolicy }),
 }));
 
@@ -137,7 +140,7 @@ describe("LandingPage", () => {
 
     const sectionPositions = [
       "<h1",
-      'src="/landing-preview/repository-page-desktop-light.webp"',
+      'aria-label="The Samebase repository page of acme/pantry',
       'aria-label="Why I build it"',
       'aria-label="What it does"',
       'aria-label="The parts"',
@@ -161,6 +164,35 @@ describe("LandingPage", () => {
     const faqQuestionCount = countOccurrences(markup, 'data-slot="accordion-trigger"');
     expect(faqQuestionCount).toBeGreaterThan(0);
     expect(countOccurrences(markup, 'data-slot="accordion-content"')).toBe(faqQuestionCount);
+  });
+
+  it("shows the dashboard's repository page of the example app in an inert box", () => {
+    const markup = renderToStaticMarkup(<LandingPage />);
+    const figure = markup.slice(markup.indexOf("<figure"), markup.indexOf("</figure>"));
+    const inertBox = figure.slice(figure.indexOf('inert=""'), figure.indexOf("<figcaption"));
+
+    expect(figure).toContain('aria-label="The Samebase repository page of acme/pantry');
+    expect(figure).toContain("The repository page of an example app.");
+    for (const text of [
+      '<nav aria-label="Repositories"',
+      ">garden<",
+      ">recipes<",
+      ">website<",
+      ">pantry</",
+      "Group items by shelf",
+      "pantry.acme.dev",
+      "tidy-otter-412",
+      "pantry-barcode-lookup",
+      "3 open pull requests",
+      "Scan a barcode to add an item",
+      "Warn three days before food expires",
+      "Share the shopping list",
+      ">3h ago<",
+      ">1d ago<",
+      ">2d ago<",
+    ]) {
+      expect(inertBox).toContain(text);
+    }
   });
 
   it("keeps the docs sidebar in the routes' static left pane, not in the page", () => {

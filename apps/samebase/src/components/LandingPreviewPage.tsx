@@ -23,6 +23,7 @@ import docsDoItYourselfMarkdown from "@/content/docs-do-it-yourself.md?raw";
 import docsChangelogMarkdown from "@/content/docs-changelog.md?raw";
 import docsTheBigMigrationMarkdown from "@/content/docs-the-big-migration.md?raw";
 import docsTheStackMarkdown from "@/content/docs-the-stack.md?raw";
+import { RepositoryOverviewExample } from "@/repository/dashboard/RepositoryOverviewExample";
 import { MENGER_SPONGE_VOXEL_STATE } from "@samebase/logo-model/voxel";
 import { Link } from "@tanstack/react-router";
 import { Star } from "lucide-react";
@@ -46,10 +47,6 @@ const LANDING_CLOSING_LOGO_ROUTE_SEARCH = {
 const LANDING_STARTER_URL = "https://github.com/samebase/base";
 const LANDING_ALCHEMY_KIT_URL =
   "https://github.com/samebase/samebase/tree/main/packages/alchemy-kit";
-
-/** The images of the repository page are captures of `/visual-fixture?mode=repository-overview-v2-example`. */
-const LANDING_DASHBOARD_IMAGE_ALT =
-  "The Samebase repository page of acme/pantry: the production stack at pantry.acme.dev with its Convex deployment and a Cloudflare Worker, the deployed commit with passing checks, and three open pull requests, the first one opened to its preview deployment.";
 
 const LANDING_PARTS = [
   {
@@ -238,49 +235,18 @@ function LandingHalf({ children, heading }: { children: ReactNode; heading: stri
 }
 
 /**
-The phone capture fills narrow containers up to its own width, and the desktop capture takes over
-from `@3xl`. The theme picks the light or the dark capture. A lazy image that is not displayed is not
-loaded.
+The dashboard's own repository page with example data. Its links go to addresses of the example,
+such as github.com/acme/pantry, and its buttons do nothing, so the box is inert: nothing in it takes
+a click or the focus, and assistive technology reads the label of the figure instead.
 */
-function LandingDashboardImage() {
-  const imageClassName = "h-auto w-full border border-border";
+function LandingDashboardExample() {
   return (
-    <figure className="mt-10 @3xl:mt-12">
-      <div className="max-w-[390px] @3xl:hidden">
-        <img
-          alt={LANDING_DASHBOARD_IMAGE_ALT}
-          className={cn(imageClassName, "dark:hidden")}
-          height="731"
-          loading="lazy"
-          src="/landing-preview/repository-page-phone-light.webp"
-          width="390"
-        />
-        <img
-          alt={LANDING_DASHBOARD_IMAGE_ALT}
-          className={cn(imageClassName, "hidden dark:block")}
-          height="731"
-          loading="lazy"
-          src="/landing-preview/repository-page-phone-dark.webp"
-          width="390"
-        />
-      </div>
-      <div className="hidden @3xl:block">
-        <img
-          alt={LANDING_DASHBOARD_IMAGE_ALT}
-          className={cn(imageClassName, "dark:hidden")}
-          height="771"
-          loading="lazy"
-          src="/landing-preview/repository-page-desktop-light.webp"
-          width="1280"
-        />
-        <img
-          alt={LANDING_DASHBOARD_IMAGE_ALT}
-          className={cn(imageClassName, "hidden dark:block")}
-          height="771"
-          loading="lazy"
-          src="/landing-preview/repository-page-desktop-dark.webp"
-          width="1280"
-        />
+    <figure
+      aria-label="The Samebase repository page of acme/pantry: the production stack at pantry.acme.dev with its Convex deployment and a Cloudflare Worker, the deployed commit with passing checks, and three open pull requests with their preview deployments."
+      className="mt-10 @3xl:mt-12"
+    >
+      <div className="border border-border" inert>
+        <RepositoryOverviewExample />
       </div>
       <figcaption className="mt-2 text-sm text-muted-foreground">
         The repository page of an example app.
@@ -347,7 +313,7 @@ function LandingPreviewOverview() {
             </div>
             <LandingHeroMenger placement="preview" />
           </div>
-          <LandingDashboardImage />
+          <LandingDashboardExample />
         </section>
 
         <LandingSection ariaLabel="Why I build it">
