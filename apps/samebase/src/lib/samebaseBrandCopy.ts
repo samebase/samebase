@@ -8,7 +8,7 @@ export const SAMEBASE_BRAND_COPY = {
   homepage: {
     title: "Samebase | A dashboard for Alchemy",
     description:
-      "Samebase reads the state that Alchemy keeps and shows every app you deploy: its URL, the deployed commit, its checks, and the preview of each pull request.",
+      "Samebase reads the Alchemy state and displays all the stacks alongside the repo, commit, and PR that deployed them.",
   },
   socialCard: {
     title: "samebase.com social card",
