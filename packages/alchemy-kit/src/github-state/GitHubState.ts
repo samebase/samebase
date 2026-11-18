@@ -6,6 +6,7 @@ import {
   makeBucketState,
   type WriteCondition,
 } from "alchemy/State/BucketState";
+import type * as SecureRandom from "effect/crypto/SecureRandom";
 import * as Data from "effect/Data";
 import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
@@ -509,12 +510,13 @@ export const makeGitHubObjects = (options: GitHubStateOptions = {}) =>
  */
 export const state = (
   options: GitHubStateOptions = {},
-): Layer.Layer<State, never, HttpClient.HttpClient> =>
+): Layer.Layer<State, never, HttpClient.HttpClient | SecureRandom.SecureRandom> =>
   Layer.effect(
     State,
     Effect.gen(function* () {
       const scope = yield* Effect.scope;
-      const context = yield* Effect.context<HttpClient.HttpClient>();
+      // An Alchemy stack provides both: BucketState makes its lease tokens with SecureRandom.
+      const context = yield* Effect.context<HttpClient.HttpClient | SecureRandom.SecureRandom>();
       const make = Effect.gen(function* () {
         const key = yield* parseKey(
           options.key === undefined ? process.env[KEY_VARIABLE] : Redacted.value(options.key),

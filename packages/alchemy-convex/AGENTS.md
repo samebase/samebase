@@ -1,7 +1,7 @@
 # AGENTS.md
 
 `@samebase/alchemy-convex` is a community Alchemy v2 provider for Convex. It is pinned to
-`alchemy@2.0.0-beta.85` and Effect 4.1.
+`alchemy@2.0.0-beta.87` and Effect 4.1.
 
 ## Ownership rule
 

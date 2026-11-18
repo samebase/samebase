@@ -8,6 +8,7 @@ import {
   StateStoreError,
 } from "alchemy/State";
 import type { BucketObjects } from "alchemy/State/BucketState";
+import * as SecureRandom from "effect/crypto/SecureRandom";
 import * as Effect from "effect/Effect";
 import * as HttpClient from "effect/http/HttpClient";
 import * as HttpClientResponse from "effect/http/HttpClientResponse";
@@ -114,22 +115,26 @@ const fakeGitHub = () => {
     answerNext: (status: number, json: unknown, headers: Record<string, string>) => {
       next = [status, json, headers];
     },
-    layer: Layer.succeed(
-      HttpClient.HttpClient,
-      HttpClient.make((request, url) =>
-        Effect.sync(() => {
-          const body: unknown =
-            request.body._tag === "Uint8Array"
-              ? JSON.parse(new TextDecoder().decode(request.body.body))
-              : undefined;
-          const [status, json, headers] = next ?? answer(request.method, url.pathname, body);
-          next = undefined;
-          return HttpClientResponse.fromWeb(
-            request,
-            Response.json(json, headers === undefined ? { status } : { status, headers }),
-          );
-        }),
+    // With SecureRandom, as an Alchemy stack provides it to the State layer.
+    layer: Layer.mergeAll(
+      Layer.succeed(
+        HttpClient.HttpClient,
+        HttpClient.make((request, url) =>
+          Effect.sync(() => {
+            const body: unknown =
+              request.body._tag === "Uint8Array"
+                ? JSON.parse(new TextDecoder().decode(request.body.body))
+                : undefined;
+            const [status, json, headers] = next ?? answer(request.method, url.pathname, body);
+            next = undefined;
+            return HttpClientResponse.fromWeb(
+              request,
+              Response.json(json, headers === undefined ? { status } : { status, headers }),
+            );
+          }),
+        ),
       ),
+      SecureRandom.layerWebCrypto,
     ),
   };
 };

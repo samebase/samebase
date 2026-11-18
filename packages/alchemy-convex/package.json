@@ -1,6 +1,6 @@
 {
   "name": "@samebase/alchemy-convex",
-  "version": "0.40.1",
+  "version": "0.41.0",
   "description": "The Convex plane for Alchemy v2: projects, deployments, environment variables, and the push of the functions",
   "keywords": [
     "alchemy",
@@ -70,26 +70,26 @@
     "@samebase/alchemy-kit": "workspace:^"
   },
   "devDependencies": {
-    "@alchemy.run/cloudflare": "2.0.0-beta.85",
-    "@alchemy.run/test": "2.0.0-beta.85",
+    "@alchemy.run/cloudflare": "2.0.0-beta.87",
+    "@alchemy.run/test": "2.0.0-beta.87",
     "@arethetypeswrong/core": "0.18.5",
-    "@effect/platform-node": "4.1.2",
-    "@effect/vitest": "4.1.2",
+    "@effect/platform-node": "4.1.4",
+    "@effect/vitest": "4.1.4",
     "@types/node": "24.19.2",
-    "alchemy": "2.0.0-beta.85",
+    "alchemy": "2.0.0-beta.87",
     "convex": "1.48.0",
     "convex-test": "0.0.60",
-    "effect": "4.1.2",
+    "effect": "4.1.4",
     "publint": "0.3.25",
     "typescript": "6.0.3",
     "vite-plus": "catalog:",
     "vitest": "catalog:"
   },
   "peerDependencies": {
-    "@effect/platform-node": "^4.1.0",
-    "alchemy": "2.0.0-beta.85",
+    "@effect/platform-node": "^4.1.4",
+    "alchemy": "2.0.0-beta.87",
     "convex": "^1.48.0",
-    "effect": "^4.1.0"
+    "effect": "^4.1.4"
   },
   "engines": {
     "node": ">=22"
