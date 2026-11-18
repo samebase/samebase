@@ -231,7 +231,7 @@ function LandingDashboardExample() {
       aria-label="The Samebase repository page of acme/pantry: the production stack at pantry.acme.dev with its Convex deployment and a Cloudflare Worker, the deployed commit with passing checks, and three open pull requests with their preview deployments."
       className="mt-10 @3xl:mt-0"
     >
-      <figcaption className="mb-3 text-lg font-semibold">This is how it looks.</figcaption>
+      <figcaption className="mb-1 text-lg font-semibold">This is how it looks.</figcaption>
       <div className="border-x border-t border-border">
         <RepositoryOverviewExample />
         {/* The bottom edge comes after the example in the HTML. On a slow network the browser
