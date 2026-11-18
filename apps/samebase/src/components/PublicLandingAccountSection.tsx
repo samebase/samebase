@@ -82,9 +82,6 @@ function PublicLandingLoggedOutAccountSection() {
       >
         Sign in or create an account
       </div>
-      <p className="mt-3 text-center text-sm text-muted-foreground">
-        The dashboard lists the repositories you connect and shows their Alchemy stacks.
-      </p>
       <div className="mt-3 flex flex-col items-center gap-2">
         {authorizationError !== null ? (
           <AuthorizationErrorNotice>

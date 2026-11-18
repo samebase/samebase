@@ -305,7 +305,10 @@ test("public landing renders the routed landing UI directly", async ({ page }) =
 
   const landingArticle = page.getByTestId(LANDING_PREVIEW_ARTICLE_TEST_ID);
   await expect(landingArticle).toBeVisible();
-  await expect(landingArticle.getByRole("heading", { level: 1 })).toBeVisible();
+  // The dashboard example has the repository page's own h1.
+  await expect(
+    landingArticle.getByRole("heading", { level: 1, name: "A dashboard for Alchemy." }),
+  ).toBeVisible();
   const accountSection = page.getByTestId(PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID);
   await expect(accountSection).toBeVisible();
   await expect(
