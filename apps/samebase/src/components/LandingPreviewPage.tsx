@@ -295,10 +295,6 @@ function LandingPreviewOverview() {
                   Source on GitHub
                 </a>
               </div>
-              <p className="mt-4 max-w-[46ch] text-[15px] leading-relaxed text-muted-foreground">
-                The starter deploys a new app from a GitHub repository with one secret. It needs no
-                Samebase account.
-              </p>
             </div>
             <LandingHeroMenger placement="preview" />
           </div>
@@ -309,17 +305,15 @@ function LandingPreviewOverview() {
           <LandingSectionIntro heading="Why I build it" />
           <div className="mt-6 space-y-4">
             <p className={LANDING_PARAGRAPH_CLASS_NAME}>
-              I'm Nicu. I like building stuff, from static pages to distributed systems. With coding
-              agents, building got fast. Keeping track did not: where each app is deployed, how, and
-              whether it is up to date.
+              I'm Nicu. I like building stuff, from static pages to distributed systems. Coding
+              agents build an app fast, but I still lose track of where each one is deployed, how,
+              and whether it is up to date.
             </p>
             <p className={LANDING_PARAGRAPH_CLASS_NAME}>
               Samebase is how I keep track of mine. I think Alchemy is the correct way to deploy an
-              app, so everything here is built on it, and samebase.com deploys itself the same way.
+              app, so everything here is built on it. samebase.com deploys itself with Alchemy too.
             </p>
-            <p className={LANDING_PARAGRAPH_CLASS_NAME}>
-              One person maintains it. The source is public, and it is in beta, as Alchemy 2 is.
-            </p>
+            <p className={LANDING_PARAGRAPH_CLASS_NAME}>It is in beta, as Alchemy 2 is.</p>
           </div>
         </LandingSection>
 
@@ -328,8 +322,7 @@ function LandingPreviewOverview() {
             <LandingHalf heading="See every app">
               <p className={LANDING_PARAGRAPH_CLASS_NAME}>
                 Alchemy records every resource that it deploys. Samebase reads that record for each
-                repository you connect and shows its stacks: the URL, the resources behind it, the
-                deployed commit, the checks, and the preview of each open pull request.
+                repository you connect.
               </p>
               <p className={LANDING_PARAGRAPH_CLASS_NAME}>
                 The state can live in a Convex project, in Cloudflare, or on a branch of the
@@ -410,21 +403,9 @@ function LandingPreviewOverview() {
 
         <LandingSection>
           <div className="@4xl:grid @4xl:grid-cols-[minmax(0,1fr)_420px] @4xl:items-center @4xl:gap-x-14">
-            <div>
-              <h2 className="max-w-[20ch] text-[clamp(26px,3.4cqw,36px)] font-bold leading-tight tracking-[-0.025em]">
-                Same{" "}
-                <del className="text-muted-foreground" aria-hidden="true">
-                  stack
-                </del>{" "}
-                base. Your accounts. No magic.
-              </h2>
-              <p className="mt-4 max-w-[52ch] text-[15px] leading-relaxed text-muted-foreground">
-                Do it yourself is every step Samebase automates. It doubles as the exit door.
-              </p>
-              <div className="mt-8 flex flex-wrap items-center gap-x-7 gap-y-4">
-                <LandingStarterAction />
-                <LandingInlineLink to={DOCS_DO_IT_YOURSELF_ROUTE}>Do it yourself</LandingInlineLink>
-              </div>
+            <div className="flex flex-wrap items-center gap-x-7 gap-y-4">
+              <LandingStarterAction />
+              <LandingInlineLink to={DOCS_DO_IT_YOURSELF_ROUTE}>Do it yourself</LandingInlineLink>
             </div>
             <div className="mt-12 @4xl:mt-0">
               <PublicLandingLogo
