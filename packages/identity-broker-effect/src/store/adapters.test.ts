@@ -292,7 +292,8 @@ test("memory and node:sqlite give equal results for random operation lists", () 
     }),
     { numRuns: 400 },
   );
-});
+  // 400 runs take about 6 s on a CI runner, above the default limit of one test.
+}, 60_000);
 
 test("a database with another stored layout is refused", () => {
   const database = freshSqlite();
