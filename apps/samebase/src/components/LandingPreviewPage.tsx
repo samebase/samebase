@@ -237,9 +237,12 @@ function LandingDashboardExample() {
   return (
     <figure
       aria-label="The Samebase repository page of acme/pantry: the production stack at pantry.acme.dev with its Convex deployment and a Cloudflare Worker, the deployed commit with passing checks, and three open pull requests with their preview deployments."
-      className="mt-10 border border-border @3xl:mt-12"
+      className="mt-10 border-x border-t border-border @3xl:mt-12"
     >
       <RepositoryOverviewExample />
+      {/* The bottom edge comes after the example in the HTML. On a slow network the browser paints
+      the example while it arrives, and a bottom border of the figure would move down with it. */}
+      <div aria-hidden="true" className="border-b border-border" />
     </figure>
   );
 }
