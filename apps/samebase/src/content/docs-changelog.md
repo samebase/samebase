@@ -3,6 +3,11 @@
 What changed in Samebase, newest first. Each `v` number is the Samebase version that shipped the
 change. If a change needs action from you, the entry says so.
 
+## 2026-11-18
+
+- **v2364: No Pricing and Receipts pages.** samebase.com no longer has `/pricing` and
+  `/docs/receipts`. The FAQ on the overview says what is free.
+
 ## 2026-11-17
 
 - **v2360: Stacks with Alchemy state on a GitHub branch.** A repository page now also shows the

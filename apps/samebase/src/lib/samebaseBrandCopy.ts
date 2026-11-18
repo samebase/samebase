@@ -1,4 +1,4 @@
-const socialCardTaglineLines = ["The correct way", "to build web apps"] as const;
+const socialCardTaglineLines = ["A dashboard", "for Alchemy"] as const;
 const tagline = `${socialCardTaglineLines[0]} ${socialCardTaglineLines[1]}`;
 
 export const SAMEBASE_BRAND_COPY = {
@@ -6,9 +6,9 @@ export const SAMEBASE_BRAND_COPY = {
   siteName: "samebase.com",
   tagline,
   homepage: {
-    title: "Samebase | Give your coding agent a working app",
+    title: "Samebase | A dashboard for Alchemy",
     description:
-      "A repository in your GitHub, a Convex project in your team, a live URL, Google sign-in, and a preview per pull request. Deployed by Alchemy from your own GitHub Actions.",
+      "Samebase reads the state that Alchemy keeps and shows every app you deploy: its URL, the deployed commit, its checks, and the preview of each pull request.",
   },
   socialCard: {
     title: "samebase.com social card",
