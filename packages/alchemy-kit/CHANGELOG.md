@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.2.2
+
+- A preview that reads a resource of `prod` no longer fails with
+  `another deploy holds the GitHub state lock` when a deploy of `prod` runs at the same time. Two
+  previews that read `prod` also run at the same time now. `get` and `getOutput` take no lock on a
+  stage that the run has not locked: they read the one file from the state branch. Everything else
+  locks its stage as before, so a deploy holds the lock of its stage from its first `list`. A run
+  gives the first answer of each such read again. A run that later locks a stage it read from stops
+  with an error if another deploy changed those records in between.
+
 ## 0.2.1
 
 - The GitHub state store lists a stack whose name has a `/`, such as `owner/name`, with its whole

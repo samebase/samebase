@@ -799,6 +799,12 @@ describe("the stack check before a GitHub repository deletion", () => {
   it("refuses without a Convex connection", async () => {
     const t = makeConvexTest();
     const { ids, user } = await seedAlchemyRepository(t);
+    // The check of the branch `alchemy-state-store` comes first: GitHub answers that there is none.
+    installAlchemyStateFetchStub({
+      requests: [],
+      storeReply: observedAlchemyStackReply,
+      teamProjects: [storeProject],
+    });
     await t.run(async (ctx) => {
       const credentials = await ctx.db.query("organizationProviderCredentials").first();
       if (credentials) {
