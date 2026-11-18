@@ -9,9 +9,9 @@ preview of each pull request. This repository is the dashboard and the packages 
   <img src="https://raw.githubusercontent.com/samebase/.github/main/profile/map-light.svg" alt="A push to your GitHub repository runs Alchemy in GitHub Actions. Alchemy deploys to your Convex team: production and one preview per pull request, each serving the backend and the site. The identity hub gives each deployment its own sign-in client. samebase.com reads the Alchemy state and shows what is deployed." width="100%">
 </picture>
 
-I'm Nicu. I build apps with coding agents, from static sites to full-stack ones. Building an app got
-fast. Keeping track of them did not: where each one is deployed, how, and whether it is up to date.
-Samebase is how I keep track of mine.
+I'm Nicu. I like building stuff, from static pages to distributed systems. With coding agents,
+building got fast. Keeping track did not: where each app is deployed, how, and whether it is up to
+date. Samebase is how I keep track of mine.
 
 ## Start an app
 

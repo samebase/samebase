@@ -320,9 +320,9 @@ function LandingPreviewOverview() {
           <LandingSectionIntro heading="Why I build it" />
           <div className="mt-6 space-y-4">
             <p className={LANDING_PARAGRAPH_CLASS_NAME}>
-              I'm Nicu. I build apps with coding agents, from static sites to full-stack ones.
-              Building an app got fast. Keeping track of them did not: where each one is deployed,
-              how, and whether it is up to date.
+              I'm Nicu. I like building stuff, from static pages to distributed systems. With coding
+              agents, building got fast. Keeping track did not: where each app is deployed, how, and
+              whether it is up to date.
             </p>
             <p className={LANDING_PARAGRAPH_CLASS_NAME}>
               Samebase is how I keep track of mine. I think Alchemy is the correct way to deploy an
