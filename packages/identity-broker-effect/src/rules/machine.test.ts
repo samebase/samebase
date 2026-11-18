@@ -381,8 +381,9 @@ describe("the authorization request machine", () => {
   }, 120_000);
 
   test("two requests: every property holds in every reachable state", () => {
-    // Depth 10 is the largest that ends within 60 seconds on the development Mac (about 36 s).
-    const result = search(["r1", "r2"], depthOf("MACHINE_DEPTH_TWO", 10));
+    // Depth 9 takes about 15 s on the development Mac and about 3.5 times that on a CI runner.
+    // Depth 10 (70,742 states, MACHINE_DEPTH_TWO=10) takes about 127 s there, above the limit.
+    const result = search(["r1", "r2"], depthOf("MACHINE_DEPTH_TWO", 9));
     console.log("two requests", result);
     expect(result.states).toBeGreaterThan(1);
   }, 120_000);
