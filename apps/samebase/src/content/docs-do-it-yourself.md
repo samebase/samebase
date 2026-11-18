@@ -1,8 +1,7 @@
 # Do it yourself
 
 The Samebase stack with no Samebase account: your GitHub repository, your Convex project, and GitHub
-Actions that deploy it with [Alchemy](https://alchemy.run). An idle app costs
-[$0/month](/docs/receipts).
+Actions that deploy it with [Alchemy](https://alchemy.run).
 
 ## 1. Copy the starter
 

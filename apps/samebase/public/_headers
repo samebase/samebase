@@ -8,9 +8,6 @@
 /docs/*.md
   X-Robots-Tag: noindex, follow
 
-/pricing.md
-  X-Robots-Tag: noindex, follow
-
 /changelog.md
   X-Robots-Tag: noindex, follow
 

@@ -21,8 +21,6 @@ import {
 import { type LogoRouteSearch } from "@/routeSearch/logo";
 import docsDoItYourselfMarkdown from "@/content/docs-do-it-yourself.md?raw";
 import docsChangelogMarkdown from "@/content/docs-changelog.md?raw";
-import docsPricingMarkdown from "@/content/docs-pricing.md?raw";
-import docsReceiptsMarkdown from "@/content/docs-receipts.md?raw";
 import docsTheBigMigrationMarkdown from "@/content/docs-the-big-migration.md?raw";
 import docsTheStackMarkdown from "@/content/docs-the-stack.md?raw";
 import { MENGER_SPONGE_VOXEL_STATE } from "@samebase/logo-model/voxel";
@@ -35,8 +33,6 @@ type LandingPreviewDocumentKey =
   | "doItYourself"
   | "theBigMigration"
   | "theStack"
-  | "receipts"
-  | "pricing"
   | "changelog";
 
 const LANDING_CLOSING_LOGO_ROUTE_SEARCH = {
@@ -532,26 +528,6 @@ function DocsDoItYourselfDocument() {
   );
 }
 
-function DocsReceiptsDocument() {
-  return (
-    <MarkdownLandingDocument
-      className={DOCS_DOCUMENT_CLASS_NAME}
-      dataTestId={LANDING_PREVIEW_ARTICLE_TEST_ID}
-      markdown={docsReceiptsMarkdown}
-    />
-  );
-}
-
-function DocsPricingDocument() {
-  return (
-    <MarkdownLandingDocument
-      className={DOCS_DOCUMENT_CLASS_NAME}
-      dataTestId={LANDING_PREVIEW_ARTICLE_TEST_ID}
-      markdown={docsPricingMarkdown}
-    />
-  );
-}
-
 function DocsChangelogDocument() {
   return (
     <MarkdownLandingDocument
@@ -573,14 +549,6 @@ function LandingPreviewDocument({ documentKey }: { documentKey: LandingPreviewDo
 
   if (documentKey === "theStack") {
     return <DocsTheStackDocument />;
-  }
-
-  if (documentKey === "receipts") {
-    return <DocsReceiptsDocument />;
-  }
-
-  if (documentKey === "pricing") {
-    return <DocsPricingDocument />;
   }
 
   if (documentKey === "changelog") {
@@ -621,14 +589,6 @@ export function DocsTheBigMigrationPage() {
 
 export function DocsTheStackPage() {
   return <LandingPreviewChromePage documentKey="theStack" />;
-}
-
-export function DocsReceiptsPage() {
-  return <LandingPreviewChromePage documentKey="receipts" />;
-}
-
-export function DocsPricingPage() {
-  return <LandingPreviewChromePage documentKey="pricing" />;
 }
 
 export function DocsChangelogPage() {

@@ -20,17 +20,12 @@ const expectedPublicPrerenderMetadataByPath = {
   },
   "/docs": {
     title: "Docs | Samebase",
-    description: "Samebase product, setup, stack, pricing, and source documentation.",
+    description: "Samebase product, setup, stack, and source documentation.",
     robots: "index,follow",
   },
   "/docs/do-it-yourself": {
     title: "Do it yourself | Samebase",
     description: "Deploy the Samebase stack in three steps, with no Samebase account.",
-    robots: "index,follow",
-  },
-  "/docs/receipts": {
-    title: "Receipts | Samebase",
-    description: "Every factual Samebase claim with its primary source and check date.",
     robots: "index,follow",
   },
   "/docs/the-big-migration": {
@@ -41,11 +36,6 @@ const expectedPublicPrerenderMetadataByPath = {
   "/docs/the-stack": {
     title: "The stack | Samebase",
     description: "What the Samebase template ships: Alchemy, Convex, TanStack Start, and Vite+.",
-    robots: "index,follow",
-  },
-  "/pricing": {
-    title: "Pricing | Samebase",
-    description: "Samebase is free during the beta, with repository and member limits.",
     robots: "index,follow",
   },
   "/changelog": {

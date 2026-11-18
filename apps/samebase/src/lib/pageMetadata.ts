@@ -4,8 +4,6 @@ import {
   DOCS_DO_IT_YOURSELF_ROUTE,
   DOCS_INDEX_ROUTE,
   DOCS_CHANGELOG_ROUTE,
-  DOCS_PRICING_ROUTE,
-  DOCS_RECEIPTS_ROUTE,
   DOCS_THE_BIG_MIGRATION_ROUTE,
   DOCS_THE_STACK_ROUTE,
 } from "@/routeSearch/landingPreview";
@@ -113,7 +111,7 @@ export const INDEXED_DB_PAGE_METADATA: PageMetadata = {
 
 export const DOCS_INDEX_PAGE_METADATA: PageMetadata = {
   title: "Docs | Samebase",
-  description: "Samebase product, setup, stack, pricing, and source documentation.",
+  description: "Samebase product, setup, stack, and source documentation.",
   canonicalPath: DOCS_INDEX_ROUTE,
   robots: "index,follow",
   openGraphType: "website",
@@ -139,22 +137,6 @@ export const DOCS_THE_STACK_PAGE_METADATA: PageMetadata = {
   title: "The stack | Samebase",
   description: "What the Samebase template ships: Alchemy, Convex, TanStack Start, and Vite+.",
   canonicalPath: DOCS_THE_STACK_ROUTE,
-  robots: "index,follow",
-  openGraphType: "website",
-};
-
-export const DOCS_RECEIPTS_PAGE_METADATA: PageMetadata = {
-  title: "Receipts | Samebase",
-  description: "Every factual Samebase claim with its primary source and check date.",
-  canonicalPath: DOCS_RECEIPTS_ROUTE,
-  robots: "index,follow",
-  openGraphType: "website",
-};
-
-export const DOCS_PRICING_PAGE_METADATA: PageMetadata = {
-  title: "Pricing | Samebase",
-  description: "Samebase is free during the beta, with repository and member limits.",
-  canonicalPath: DOCS_PRICING_ROUTE,
   robots: "index,follow",
   openGraphType: "website",
 };
@@ -200,10 +182,6 @@ export function resolveAppPageTitle(pathname: string): string {
     return "Organizations | Samebase";
   }
 
-  if (pathname === "/pricing") {
-    return "Pricing | Samebase";
-  }
-
   if (pathname === "/privacy") {
     return "Privacy Policy | Samebase";
   }
@@ -238,10 +216,6 @@ export function resolveAppPageTitle(pathname: string): string {
 
   if (pathname === DOCS_THE_STACK_ROUTE) {
     return DOCS_THE_STACK_PAGE_METADATA.title;
-  }
-
-  if (pathname === DOCS_RECEIPTS_ROUTE) {
-    return DOCS_RECEIPTS_PAGE_METADATA.title;
   }
 
   if (pathname === LOCAL_STORAGE_ROUTE) {
@@ -297,10 +271,6 @@ export function resolvePageMetadata(args: {
 
   if (args.pathname === DOCS_THE_STACK_ROUTE) {
     return DOCS_THE_STACK_PAGE_METADATA;
-  }
-
-  if (args.pathname === DOCS_RECEIPTS_ROUTE) {
-    return DOCS_RECEIPTS_PAGE_METADATA;
   }
 
   if (args.pathname === LOCAL_STORAGE_ROUTE) {

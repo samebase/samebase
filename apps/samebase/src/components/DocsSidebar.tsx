@@ -8,8 +8,6 @@ import { cn } from "@/lib/utils";
 import {
   DOCS_DO_IT_YOURSELF_ROUTE,
   DOCS_CHANGELOG_ROUTE,
-  DOCS_PRICING_ROUTE,
-  DOCS_RECEIPTS_ROUTE,
   DOCS_SIDEBAR_TEST_ID,
   DOCS_THE_BIG_MIGRATION_ROUTE,
   DOCS_THE_STACK_ROUTE,
@@ -34,10 +32,8 @@ const DOCS_SIDEBAR_TREE: readonly (
       { label: "The big migration", to: DOCS_THE_BIG_MIGRATION_ROUTE },
       { label: "The stack", to: DOCS_THE_STACK_ROUTE },
       { label: "Do it yourself", to: DOCS_DO_IT_YOURSELF_ROUTE },
-      { label: "Receipts", to: DOCS_RECEIPTS_ROUTE },
     ],
   },
-  { label: "Pricing", to: DOCS_PRICING_ROUTE },
   { label: "Changelog", to: DOCS_CHANGELOG_ROUTE },
 ];
 

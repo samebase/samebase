@@ -5,7 +5,6 @@ import {
   DocsDoItYourselfPage,
   DocsIndexPage,
   DocsChangelogPage,
-  DocsPricingPage,
   DocsTheBigMigrationPage,
   DocsTheStackPage,
   LandingPage,
@@ -13,7 +12,6 @@ import {
 import { DOCS_ROUTE_CHROME } from "@/components/DocsSidebar";
 import docsChangelogMarkdown from "@/content/docs-changelog.md?raw";
 import docsDoItYourselfMarkdown from "@/content/docs-do-it-yourself.md?raw";
-import docsPricingMarkdown from "@/content/docs-pricing.md?raw";
 import docsTheBigMigrationMarkdown from "@/content/docs-the-big-migration.md?raw";
 import docsTheStackMarkdown from "@/content/docs-the-stack.md?raw";
 import { PUBLIC_LANDING_LOGO_TEST_ID } from "@/lib/publicLandingLogo";
@@ -21,8 +19,6 @@ import { SAMEBASE_PUBLIC_LINKS } from "@/lib/publicLinks";
 import {
   DOCS_CHANGELOG_ROUTE,
   DOCS_DO_IT_YOURSELF_ROUTE,
-  DOCS_PRICING_ROUTE,
-  DOCS_RECEIPTS_ROUTE,
   DOCS_SIDEBAR_TEST_ID,
   DOCS_THE_BIG_MIGRATION_ROUTE,
   DOCS_THE_STACK_ROUTE,
@@ -185,8 +181,6 @@ describe("LandingPage", () => {
       DOCS_THE_BIG_MIGRATION_ROUTE,
       DOCS_THE_STACK_ROUTE,
       DOCS_DO_IT_YOURSELF_ROUTE,
-      DOCS_RECEIPTS_ROUTE,
-      DOCS_PRICING_ROUTE,
       DOCS_CHANGELOG_ROUTE,
       "/privacy",
       "/terms",
@@ -209,7 +203,6 @@ describe("LandingPage", () => {
     { name: "the stack", Page: DocsTheStackPage, markdown: docsTheStackMarkdown },
     { name: "big migration", Page: DocsTheBigMigrationPage, markdown: docsTheBigMigrationMarkdown },
     { name: "changelog", Page: DocsChangelogPage, markdown: docsChangelogMarkdown },
-    { name: "pricing", Page: DocsPricingPage, markdown: docsPricingMarkdown },
   ])("renders the $name page from its own markdown file", ({ Page, markdown }) => {
     expect(renderToStaticMarkup(<Page />)).toContain(
       renderToStaticMarkup(<article>{markdown}</article>),

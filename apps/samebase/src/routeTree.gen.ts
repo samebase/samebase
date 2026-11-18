@@ -17,7 +17,6 @@ import { Route as docsRouteImport } from "./routes/docs";
 import { Route as landingRouteImport } from "./routes/landing";
 import { Route as landingPreviewRouteImport } from "./routes/landing-preview";
 import { Route as logoRouteImport } from "./routes/logo";
-import { Route as pricingRouteImport } from "./routes/pricing";
 import { Route as privacyRouteImport } from "./routes/privacy";
 import { Route as termsRouteImport } from "./routes/terms";
 import { Route as visualFixtureRouteImport } from "./routes/visual-fixture";
@@ -34,7 +33,6 @@ import { Route as agentsConnectRouteImport } from "./routes/agents-connect";
 import { Route as docsCloudflarePreviewsMigrationRouteImport } from "./routes/docs-cloudflare-previews-migration";
 import { Route as docsCloudflareSetupRouteImport } from "./routes/docs-cloudflare-setup";
 import { Route as docsDoItYourselfRouteImport } from "./routes/docs-do-it-yourself";
-import { Route as docsReceiptsRouteImport } from "./routes/docs-receipts";
 import { Route as docsTheBigMigrationRouteImport } from "./routes/docs-the-big-migration";
 import { Route as docsTheStackRouteImport } from "./routes/docs-the-stack";
 import { Route as inviteRouteImport } from "./routes/invite";
@@ -109,11 +107,6 @@ const landingPreviewRoute = landingPreviewRouteImport.update({
 const logoRoute = logoRouteImport.update({
   id: "/logo",
   path: "/logo",
-  getParentRoute: () => rootRouteImport,
-} as any);
-const pricingRoute = pricingRouteImport.update({
-  id: "/pricing",
-  path: "/pricing",
   getParentRoute: () => rootRouteImport,
 } as any);
 const privacyRoute = privacyRouteImport.update({
@@ -195,11 +188,6 @@ const docsCloudflareSetupRoute = docsCloudflareSetupRouteImport.update({
 const docsDoItYourselfRoute = docsDoItYourselfRouteImport.update({
   id: "/docs/do-it-yourself",
   path: "/docs/do-it-yourself",
-  getParentRoute: () => rootRouteImport,
-} as any);
-const docsReceiptsRoute = docsReceiptsRouteImport.update({
-  id: "/docs/receipts",
-  path: "/docs/receipts",
   getParentRoute: () => rootRouteImport,
 } as any);
 const docsTheBigMigrationRoute = docsTheBigMigrationRouteImport.update({
@@ -395,7 +383,6 @@ export interface FileRoutesByFullPath {
   "/landing": typeof landingRoute;
   "/landing-preview": typeof landingPreviewRoute;
   "/logo": typeof logoRoute;
-  "/pricing": typeof pricingRoute;
   "/privacy": typeof privacyRoute;
   "/terms": typeof termsRoute;
   "/visual-fixture": typeof visualFixtureRoute;
@@ -412,7 +399,6 @@ export interface FileRoutesByFullPath {
   "/docs/cloudflare-previews-migration": typeof docsCloudflarePreviewsMigrationRoute;
   "/docs/cloudflare-setup": typeof docsCloudflareSetupRoute;
   "/docs/do-it-yourself": typeof docsDoItYourselfRoute;
-  "/docs/receipts": typeof docsReceiptsRoute;
   "/docs/the-big-migration": typeof docsTheBigMigrationRoute;
   "/docs/the-stack": typeof docsTheStackRoute;
   "/invite/$code": typeof inviteRoute;
@@ -458,7 +444,6 @@ export interface FileRoutesByTo {
   "/landing": typeof landingRoute;
   "/landing-preview": typeof landingPreviewRoute;
   "/logo": typeof logoRoute;
-  "/pricing": typeof pricingRoute;
   "/privacy": typeof privacyRoute;
   "/terms": typeof termsRoute;
   "/visual-fixture": typeof visualFixtureRoute;
@@ -475,7 +460,6 @@ export interface FileRoutesByTo {
   "/docs/cloudflare-previews-migration": typeof docsCloudflarePreviewsMigrationRoute;
   "/docs/cloudflare-setup": typeof docsCloudflareSetupRoute;
   "/docs/do-it-yourself": typeof docsDoItYourselfRoute;
-  "/docs/receipts": typeof docsReceiptsRoute;
   "/docs/the-big-migration": typeof docsTheBigMigrationRoute;
   "/docs/the-stack": typeof docsTheStackRoute;
   "/invite/$code": typeof inviteRoute;
@@ -523,7 +507,6 @@ export interface FileRoutesById {
   "/landing": typeof landingRoute;
   "/landing-preview": typeof landingPreviewRoute;
   "/logo": typeof logoRoute;
-  "/pricing": typeof pricingRoute;
   "/privacy": typeof privacyRoute;
   "/terms": typeof termsRoute;
   "/visual-fixture": typeof visualFixtureRoute;
@@ -540,7 +523,6 @@ export interface FileRoutesById {
   "/docs/cloudflare-previews-migration": typeof docsCloudflarePreviewsMigrationRoute;
   "/docs/cloudflare-setup": typeof docsCloudflareSetupRoute;
   "/docs/do-it-yourself": typeof docsDoItYourselfRoute;
-  "/docs/receipts": typeof docsReceiptsRoute;
   "/docs/the-big-migration": typeof docsTheBigMigrationRoute;
   "/docs/the-stack": typeof docsTheStackRoute;
   "/invite/$code": typeof inviteRoute;
@@ -588,7 +570,6 @@ export interface FileRouteTypes {
     | "/landing"
     | "/landing-preview"
     | "/logo"
-    | "/pricing"
     | "/privacy"
     | "/terms"
     | "/visual-fixture"
@@ -605,7 +586,6 @@ export interface FileRouteTypes {
     | "/docs/cloudflare-previews-migration"
     | "/docs/cloudflare-setup"
     | "/docs/do-it-yourself"
-    | "/docs/receipts"
     | "/docs/the-big-migration"
     | "/docs/the-stack"
     | "/invite/$code"
@@ -651,7 +631,6 @@ export interface FileRouteTypes {
     | "/landing"
     | "/landing-preview"
     | "/logo"
-    | "/pricing"
     | "/privacy"
     | "/terms"
     | "/visual-fixture"
@@ -668,7 +647,6 @@ export interface FileRouteTypes {
     | "/docs/cloudflare-previews-migration"
     | "/docs/cloudflare-setup"
     | "/docs/do-it-yourself"
-    | "/docs/receipts"
     | "/docs/the-big-migration"
     | "/docs/the-stack"
     | "/invite/$code"
@@ -715,7 +693,6 @@ export interface FileRouteTypes {
     | "/landing"
     | "/landing-preview"
     | "/logo"
-    | "/pricing"
     | "/privacy"
     | "/terms"
     | "/visual-fixture"
@@ -732,7 +709,6 @@ export interface FileRouteTypes {
     | "/docs/cloudflare-previews-migration"
     | "/docs/cloudflare-setup"
     | "/docs/do-it-yourself"
-    | "/docs/receipts"
     | "/docs/the-big-migration"
     | "/docs/the-stack"
     | "/invite/$code"
@@ -780,7 +756,6 @@ export interface RootRouteChildren {
   landingRoute: typeof landingRoute;
   landingPreviewRoute: typeof landingPreviewRoute;
   logoRoute: typeof logoRoute;
-  pricingRoute: typeof pricingRoute;
   privacyRoute: typeof privacyRoute;
   termsRoute: typeof termsRoute;
   visualFixtureRoute: typeof visualFixtureRoute;
@@ -790,7 +765,6 @@ export interface RootRouteChildren {
   docsCloudflarePreviewsMigrationRoute: typeof docsCloudflarePreviewsMigrationRoute;
   docsCloudflareSetupRoute: typeof docsCloudflareSetupRoute;
   docsDoItYourselfRoute: typeof docsDoItYourselfRoute;
-  docsReceiptsRoute: typeof docsReceiptsRoute;
   docsTheBigMigrationRoute: typeof docsTheBigMigrationRoute;
   docsTheStackRoute: typeof docsTheStackRoute;
   inviteRoute: typeof inviteRoute;
@@ -863,13 +837,6 @@ declare module "@tanstack/react-router" {
       path: "/logo";
       fullPath: "/logo";
       preLoaderRoute: typeof logoRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/pricing": {
-      id: "/pricing";
-      path: "/pricing";
-      fullPath: "/pricing";
-      preLoaderRoute: typeof pricingRouteImport;
       parentRoute: typeof rootRouteImport;
     };
     "/privacy": {
@@ -982,13 +949,6 @@ declare module "@tanstack/react-router" {
       path: "/docs/do-it-yourself";
       fullPath: "/docs/do-it-yourself";
       preLoaderRoute: typeof docsDoItYourselfRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/docs/receipts": {
-      id: "/docs/receipts";
-      path: "/docs/receipts";
-      fullPath: "/docs/receipts";
-      preLoaderRoute: typeof docsReceiptsRouteImport;
       parentRoute: typeof rootRouteImport;
     };
     "/docs/the-big-migration": {
@@ -1322,7 +1282,6 @@ const rootRouteChildren: RootRouteChildren = {
   landingRoute: landingRoute,
   landingPreviewRoute: landingPreviewRoute,
   logoRoute: logoRoute,
-  pricingRoute: pricingRoute,
   privacyRoute: privacyRoute,
   termsRoute: termsRoute,
   visualFixtureRoute: visualFixtureRoute,
@@ -1332,7 +1291,6 @@ const rootRouteChildren: RootRouteChildren = {
   docsCloudflarePreviewsMigrationRoute: docsCloudflarePreviewsMigrationRoute,
   docsCloudflareSetupRoute: docsCloudflareSetupRoute,
   docsDoItYourselfRoute: docsDoItYourselfRoute,
-  docsReceiptsRoute: docsReceiptsRoute,
   docsTheBigMigrationRoute: docsTheBigMigrationRoute,
   docsTheStackRoute: docsTheStackRoute,
   inviteRoute: inviteRoute,

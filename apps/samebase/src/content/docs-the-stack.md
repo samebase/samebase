@@ -1,7 +1,6 @@
 # The stack
 
-What [samebase/base](https://github.com/samebase/base) ships. Each piece is the smallest choice that
-still holds when a weekend app turns into a product.
+What [samebase/base](https://github.com/samebase/base) ships.
 
 - **Alchemy deploys.** One `alchemy.run.ts` describes the app. GitHub Actions runs it: `main` to
   production, each pull request to its own preview. The state lives in your Convex team.
@@ -17,5 +16,4 @@ still holds when a weekend app turns into a product.
 
 Cloudflare is optional. Declare a Worker in `alchemy.run.ts` when the app needs one.
 
-Build it by hand with [Do it yourself](/docs/do-it-yourself), or check each claim in
-[Receipts](/docs/receipts).
+Build it by hand with [Do it yourself](/docs/do-it-yourself).

@@ -410,12 +410,12 @@ describe("readSuggestions", () => {
   });
 
   it.each([
-    ["/pr", ["/pricing", "/privacy"]],
-    ["/privacy", ["/privacy"]],
-  ])("ignores path text after cursor prefix %s", (pathPrefix, expected) => {
+    ["/docs/the-", "/docs/the-stack?dark#top", ["/docs/the-big-migration", "/docs/the-stack"]],
+    ["/privacy", "/privacy?dark#top", ["/privacy"]],
+  ])("ignores path text after cursor prefix %s", (pathPrefix, routeAddress, expected) => {
     expect(
       readValues({
-        routeAddress: "/privacy?dark#top",
+        routeAddress,
         routeTextBeforeCursor: pathPrefix,
       }),
     ).toEqual(expected);

@@ -866,18 +866,18 @@ test("route URL editor filters at the cursor and keeps the draft filter during p
   await input.press("Home");
   await expect(page.getByRole("option", { exact: true, name: "/privacy" })).toBeVisible();
 
-  await input.fill(`${prefix}pr`);
-  const pathValues = ["/pricing", "/privacy"];
+  await input.fill(`${prefix}docs/the-`);
+  const pathValues = ["/docs/the-big-migration", "/docs/the-stack"];
   await expect(values).toHaveText(pathValues);
-  await expect(values.locator("mark")).toHaveText(["/pr", "/pr"]);
+  await expect(values.locator("mark")).toHaveText(["/docs/the-", "/docs/the-"]);
   await input.press("ArrowLeft");
-  await expect(values.locator("mark")).toHaveText(["/p", "/p"]);
+  await expect(values.locator("mark")).toHaveText(["/docs/the", "/docs/the"]);
   await input.press("ArrowDown");
-  await expect(input).toHaveValue(`${prefix}pricing?`);
+  await expect(input).toHaveValue(`${prefix}docs/the-big-migration?`);
   await expect(values).toHaveText(pathValues);
-  await expect(values.locator("mark")).toHaveText(["/p", "/p"]);
+  await expect(values.locator("mark")).toHaveText(["/docs/the", "/docs/the"]);
   await input.press("ArrowDown");
-  await expect(input).toHaveValue(`${prefix}privacy?`);
+  await expect(input).toHaveValue(`${prefix}docs/the-stack?`);
   await expect(values).toHaveText(pathValues);
   await input.press("Escape");
   await expect(page.getByTestId("route-url-editor-display")).toHaveValue("/terms");
