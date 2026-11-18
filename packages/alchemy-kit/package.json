@@ -1,6 +1,6 @@
 {
   "name": "@samebase/alchemy-kit",
-  "version": "0.2.2",
+  "version": "0.3.0",
   "description": "A kit of parts for Alchemy v2: a state store on a branch of a GitHub repository, with sealed secrets, and a run record in each stage output",
   "keywords": [
     "alchemy",
@@ -58,16 +58,16 @@
   "devDependencies": {
     "@arethetypeswrong/core": "0.18.5",
     "@types/node": "24.19.2",
-    "alchemy": "2.0.0-beta.85",
-    "effect": "4.1.2",
+    "alchemy": "2.0.0-beta.87",
+    "effect": "4.1.4",
     "publint": "0.3.25",
     "typescript": "6.0.3",
     "vite-plus": "catalog:",
     "vitest": "catalog:"
   },
   "peerDependencies": {
-    "alchemy": "2.0.0-beta.85",
-    "effect": "^4.1.0"
+    "alchemy": "2.0.0-beta.87",
+    "effect": "^4.1.4"
   },
   "engines": {
     "node": ">=22"

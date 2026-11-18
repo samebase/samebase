@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.0
+
+- Breaking: needs `alchemy@2.0.0-beta.87` (was `2.0.0-beta.85`) and `effect` 4.1.4 or later.
+- The layer of `GitHubState.state()` needs `SecureRandom` as well as `HttpClient`. An Alchemy stack
+  provides both, so a stack does not change. Alchemy's `BucketState` makes its lease tokens with
+  `SecureRandom` since beta.86.
+
 ## 0.2.2
 
 - A preview that reads a resource of `prod` no longer fails with

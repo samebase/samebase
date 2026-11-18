@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.41.0
+
+- Breaking: needs `alchemy@2.0.0-beta.87` (was `2.0.0-beta.85`), with `effect` and
+  `@effect/platform-node` 4.1.4 or later. Upgrade them together with this package. The store version
+  does not change, so the state store needs no upgrade.
+
 ## 0.40.1
 
 - The run record (`withRunRecord`, `runRecord`, `RunRecordError`, `RUN_RECORD_KEY`, and the type
