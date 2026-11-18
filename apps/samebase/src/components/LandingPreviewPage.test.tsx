@@ -166,13 +166,18 @@ describe("LandingPage", () => {
     expect(countOccurrences(markup, 'data-slot="accordion-content"')).toBe(faqQuestionCount);
   });
 
-  it("shows the dashboard's repository page of the example app in an inert box", () => {
+  it("shows the dashboard's repository page of the example app, with an inert list", () => {
     const markup = renderToStaticMarkup(<LandingPage />);
     const figure = markup.slice(markup.indexOf("<figure"), markup.indexOf("</figure>"));
-    const inertBox = figure.slice(figure.indexOf('inert=""'), figure.indexOf("<figcaption"));
+    const box = figure.slice(0, figure.indexOf("<figcaption"));
+    const page = box.slice(box.indexOf("</nav>"));
 
     expect(figure).toContain('aria-label="The Samebase repository page of acme/pantry');
     expect(figure).toContain("The repository page of an example app.");
+    // The list is inert, and the page after it takes clicks with Disconnect disabled.
+    expect(box.indexOf('inert=""')).toBeLessThan(box.indexOf('<nav aria-label="Repositories"'));
+    expect(page).not.toContain('inert=""');
+    expect(page).toMatch(/<button[^>]*disabled=""[^>]*>Disconnect<\/button>/);
     for (const text of [
       '<nav aria-label="Repositories"',
       ">garden<",
@@ -191,7 +196,7 @@ describe("LandingPage", () => {
       ">1d ago<",
       ">2d ago<",
     ]) {
-      expect(inertBox).toContain(text);
+      expect(box).toContain(text);
     }
   });
 

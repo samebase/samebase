@@ -235,9 +235,8 @@ function LandingHalf({ children, heading }: { children: ReactNode; heading: stri
 }
 
 /**
-The dashboard's own repository page with example data. Its links go to addresses of the example,
-such as github.com/acme/pantry, and its buttons do nothing, so the box is inert: nothing in it takes
-a click or the focus, and assistive technology reads the label of the figure instead.
+The dashboard's own repository page with example data. A visitor can open its pull requests, checks,
+and menus. `RepositoryOverviewExample` turns off what the example cannot do.
 */
 function LandingDashboardExample() {
   return (
@@ -245,11 +244,12 @@ function LandingDashboardExample() {
       aria-label="The Samebase repository page of acme/pantry: the production stack at pantry.acme.dev with its Convex deployment and a Cloudflare Worker, the deployed commit with passing checks, and three open pull requests with their preview deployments."
       className="mt-10 @3xl:mt-12"
     >
-      <div className="border border-border" inert>
+      <div className="border border-border">
         <RepositoryOverviewExample />
       </div>
       <figcaption className="mt-2 text-sm text-muted-foreground">
-        The repository page of an example app.
+        The repository page of an example app. Open a pull request to see its preview. The links are
+        off.
       </figcaption>
     </figure>
   );

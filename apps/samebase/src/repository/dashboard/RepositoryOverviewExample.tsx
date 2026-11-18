@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientContext } from "@tanstack/react-query";
-import { useState } from "react";
+import { type MouseEvent, useState } from "react";
 import { PaneFrame } from "@samebase/sidebars/PaneFrame";
 import { organizationGitHubIdentityQueryKey } from "@/organization/useOrganizationGitHubIdentity";
 import { RepositoryOverviewPage } from "@/repository/dashboard/RepositoryOverviewPage";
@@ -47,7 +47,10 @@ function exampleRepository(name: string): UserRepositoryResult {
     providerSetup: { status: "ready" },
     providerPlan: null,
     providerWrite: { status: "idle", lastWriteAt: {} },
-    deletion: { state: "not_deleting", deleteAction: { state: "available" } },
+    deletion: {
+      state: "not_deleting",
+      deleteAction: { state: "disabled", reason: "This repository is an example." },
+    },
     isSamebaseManaged: true,
     hasConnectedGitHubRepository: true,
   };
@@ -298,11 +301,27 @@ function exampleQueryClient() {
 const noop = async () => {};
 
 /**
+Stops a click on a link of the example. Its links go to addresses that do not exist, such as
+github.com/acme/pantry, or to pages of the dashboard that need an account. A menu or a popover of the
+page is a portal, and React gives its clicks to this handler too.
+*/
+function stopExampleLink(event: MouseEvent<HTMLDivElement>) {
+  if (event.target instanceof Element && event.target.closest("a")) {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+}
+
+/**
 The repository page of an example app, `acme/pantry`, made of the dashboard's own list of
 repositories and repository page with example data. From the `@3xl` width of its container, the list
 shows on the left at the default width of the left pane (240px,
 `APP_WORKSPACE_LEFT_SIDEBAR_DEFAULT_WIDTH_PX`). The page has its own container, so it lays out for
 its own width, as it does in its pane.
+
+The page takes clicks: a pull request opens, and so do the checks and the menu of a deployment. Its
+links do nothing, and Disconnect is disabled. The list is inert, because each of its controls goes to
+another page of the dashboard or changes the account.
 */
 export function RepositoryOverviewExample() {
   const [example] = useState(() => ({
@@ -315,7 +334,7 @@ export function RepositoryOverviewExample() {
     <QueryClientContext.Provider value={example.queryClient}>
       <div className="@container">
         <div className="@3xl:grid @3xl:grid-cols-[240px_minmax(0,1fr)]">
-          <div className="hidden border-r border-border @3xl:block">
+          <div className="hidden border-r border-border @3xl:block" inert>
             <PaneFrame
               header={<RepositoryOverviewListHeader />}
               content={
@@ -348,7 +367,11 @@ export function RepositoryOverviewExample() {
           </div>
           {/* The page header is sticky in its pane. `overflow-hidden` makes this box its scroll
           container, so the header stays at the top of the example while the landing page scrolls. */}
-          <div className="@container min-w-0 overflow-hidden">
+          <div
+            className="@container min-w-0 overflow-hidden"
+            onAuxClickCapture={stopExampleLink}
+            onClickCapture={stopExampleLink}
+          >
             <RepositoryOverviewPage
               developerToolsVisible={false}
               isRetryingRepositoryAction={false}
