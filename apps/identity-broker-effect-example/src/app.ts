@@ -1,69 +1,46 @@
-// The example app: sign-in with Google through an identity hub, as a relying party of OpenID
-// Connect. A plain function from a Web `Request` to a `Response`. oauth4webapi does discovery, the
-// callback checks (state and the RFC 9207 `iss`), the code exchange with `client_secret_post`, and
-// the ID token checks (signature against the hub's JWKS, issuer, audience, nonce, expiry).
+// The app's routes: the home page, sign-in with Google through the identity hub, sign-out, and the
+// file that the hub reads before it registers this deployment's client.
 //
-// No log line and no page holds a token, a code, a secret, or a URL with its query: the callback
-// URL carries the code. A failure logs only a fixed category.
-import { Schema } from "effect";
-import * as oauth from "oauth4webapi";
-import { seal, unseal } from "./signed.ts";
+// No page and no log line holds a token, a code, a secret, or a URL with its query: the callback
+// URL carries the code. A failed sign-in logs only its route and a fixed category.
+import { Duration, Effect, Option, Schema } from "effect";
+import { HttpServerRequest } from "effect/http/HttpServerRequest";
+import * as HttpServerResponse from "effect/http/HttpServerResponse";
+import {
+  type AnswerWithoutIssuer,
+  HubClient,
+  type HubError,
+  type NoAuthorizationEndpoint,
+  type NoIdToken,
+  PendingSignIn,
+  User,
+} from "./hub-client.ts";
+import { Session } from "./session.ts";
 
-/** The Worker's bindings. */
-export interface Env {
-  /** The hub's issuer, such as `https://identity-broker-effect-dev-spike.pfp.workers.dev`. */
-  readonly IDENTITY_HUB_ISSUER: string;
-  /** The client of this deployment on the hub, or `no-hub`, the off value of IdentityHub.Client. */
-  readonly IDENTITY_HUB_CLIENT_ID: string;
-  readonly IDENTITY_HUB_CLIENT_SECRET: string;
-  /** The key of the signed cookies. */
-  readonly SESSION_SECRET: string;
-  /** The numeric GitHub id of the repository, which `/samebase-verification.json` names. */
-  readonly REPOSITORY_ID: string;
-}
-
-/** Every request to the hub: discovery, JWKS and the token request. Tests route it to the hub. */
-export type FetchHub = (request: Request) => Promise<Response>;
-
-/** IdentityHub.Client gives this client id when the deployment has no client. */
-const OFF_CLIENT_ID = "no-hub";
-/** The hub connector that the sign-in link names. */
-const CONNECTOR = "google";
+/** The numeric GitHub id of samebase/samebase, which the verification file names. */
+const REPOSITORY_ID = "1021726325";
 /** The hub sign-in has this long, from /login to /callback. */
-const SIGN_IN_MS = 10 * 60 * 1000;
+const SIGN_IN_TTL = Duration.minutes(10);
 /** A session lasts this long. */
-const SESSION_MS = 24 * 60 * 60 * 1000;
+const SESSION_TTL = Duration.hours(24);
 
 const SESSION_COOKIE = "__Host-session";
 const SIGN_IN_COOKIE = "__Host-sign-in";
 
-const Session = Schema.Struct({
-  sub: Schema.String,
-  email: Schema.optionalKey(Schema.String),
-  name: Schema.optionalKey(Schema.String),
-  exp: Schema.Number,
-});
-const SignIn = Schema.Struct({
-  state: Schema.String,
-  nonce: Schema.String,
-  verifier: Schema.String,
-  exp: Schema.Number,
-});
-/** The optional claims of the ID token that the page shows. */
-const ProfileClaims = Schema.Struct({
-  email: Schema.optionalKey(Schema.String),
-  name: Schema.optionalKey(Schema.String),
-});
+const SessionCookie = Schema.Struct({ ...User.fields, exp: Schema.Number });
+const SignInCookie = Schema.Struct({ ...PendingSignIn.fields, exp: Schema.Number });
 
-/** A failure that the page names with a fixed reason. */
-class SignInFailed extends Error {
-  constructor(
-    readonly status: number,
-    readonly reason: string,
-  ) {
-    super(reason);
-  }
-}
+/** The sign-in cookie is missing, expired, or from another browser. */
+class SignInExpired extends Schema.TaggedError<SignInExpired>()("SignInExpired", {}) {}
+
+const SECURITY_HEADERS = {
+  "Cache-Control": "no-store",
+  "Content-Security-Policy": "default-src 'none'",
+  "Referrer-Policy": "no-referrer",
+};
+
+/** `__Host-` cookies must have Secure and Path=/, and no Domain. */
+const COOKIE = { path: "/", httpOnly: true, secure: true, sameSite: "lax" } as const;
 
 const escapeHtml = (text: string) =>
   text
@@ -73,222 +50,126 @@ const escapeHtml = (text: string) =>
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#39;");
 
-const SECURITY_HEADERS = {
-  "Cache-Control": "no-store",
-  "Content-Security-Policy": "default-src 'none'",
-  "Referrer-Policy": "no-referrer",
-};
-
 /** A page whose `body` is HTML that the caller escaped. */
-function page(status: number, body: string, cookies: readonly string[] = []): Response {
-  const headers = new Headers({
-    ...SECURITY_HEADERS,
-    "Content-Type": "text/html; charset=utf-8",
-  });
-  for (const cookie of cookies) headers.append("Set-Cookie", cookie);
-  return new Response(
+const page = (status: number, body: string) =>
+  HttpServerResponse.text(
     `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Identity hub example</title></head><body>${body}</body></html>`,
-    { status, headers },
+    { status, contentType: "text/html; charset=utf-8", headers: SECURITY_HEADERS },
   );
-}
 
-function redirect(location: string, cookies: readonly string[]): Response {
-  const headers = new Headers({ ...SECURITY_HEADERS, Location: location });
-  for (const cookie of cookies) headers.append("Set-Cookie", cookie);
-  return new Response(null, { status: 302, headers });
-}
+const redirect = (location: string) =>
+  HttpServerResponse.redirect(location, { headers: SECURITY_HEADERS });
 
-const setCookie = (name: string, value: string, maxAgeMs: number) =>
-  `${name}=${value}; Path=/; Max-Age=${Math.floor(maxAgeMs / 1000)}; HttpOnly; Secure; SameSite=Lax`;
-const clearCookie = (name: string) => `${name}=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax`;
+const NOT_CONFIGURED = "<p>Sign-in is not configured.</p>";
 
-function readCookie(request: Request, name: string): string | undefined {
-  for (const part of (request.headers.get("Cookie") ?? "").split(";")) {
-    const [key, ...value] = part.trim().split("=");
-    if (key === name) return value.join("=");
-  }
-  return undefined;
-}
-
-/** `fetchHub` as oauth4webapi's custom fetch. */
-const hubFetch =
-  (fetchHub: FetchHub) =>
-  <Method extends string, Body extends RequestInit["body"]>(
-    url: string,
-    options: oauth.CustomFetchOptions<Method, Body>,
-  ): Promise<Response> =>
-    fetchHub(
-      new Request(url, {
-        method: options.method,
-        headers: options.headers,
-        body: options.body ?? null,
-        redirect: options.redirect,
-        ...(options.signal === undefined ? {} : { signal: options.signal }),
-      }),
-    );
-
-/** The hub's metadata, from its discovery document. */
-async function discover(env: Env, fetchHub: FetchHub): Promise<oauth.AuthorizationServer> {
-  const issuer = new URL(env.IDENTITY_HUB_ISSUER);
-  const response = await oauth.discoveryRequest(issuer, {
-    algorithm: "oidc",
-    [oauth.customFetch]: hubFetch(fetchHub),
+const home = Effect.gen(function* () {
+  const hub = yield* HubClient;
+  if (!(yield* hub.configured)) return page(200, NOT_CONFIGURED);
+  const request = yield* HttpServerRequest;
+  const session = yield* Session;
+  const user = yield* session.unseal("session", SessionCookie, request.cookies[SESSION_COOKIE]);
+  return Option.match(user, {
+    onNone: () => page(200, '<p><a href="/login">Sign in with Google</a></p>'),
+    onSome: (user) =>
+      page(
+        200,
+        `<dl><dt>Subject</dt><dd>${escapeHtml(user.sub)}</dd><dt>Email</dt><dd>${escapeHtml(user.email ?? "")}</dd><dt>Name</dt><dd>${escapeHtml(user.name ?? "")}</dd></dl><p><a href="/logout">Sign out</a></p>`,
+      ),
   });
-  return await oauth.processDiscoveryResponse(issuer, response);
-}
+});
 
-const callbackUrl = (request: Request) => `${new URL(request.url).origin}/callback`;
-
-async function home(request: Request, env: Env): Promise<Response> {
-  if (env.IDENTITY_HUB_CLIENT_ID === OFF_CLIENT_ID) {
-    return page(200, "<p>Sign-in is not configured.</p>");
-  }
-  const value = readCookie(request, SESSION_COOKIE);
-  const session =
-    value === undefined
-      ? undefined
-      : await unseal(env.SESSION_SECRET, "session", Session, value, Date.now());
-  if (session === undefined) {
-    return page(200, '<p><a href="/login">Sign in with Google</a></p>');
-  }
-  return page(
-    200,
-    `<dl><dt>Subject</dt><dd>${escapeHtml(session.sub)}</dd><dt>Email</dt><dd>${escapeHtml(session.email ?? "")}</dd><dt>Name</dt><dd>${escapeHtml(session.name ?? "")}</dd></dl><p><a href="/logout">Sign out</a></p>`,
+const login = Effect.fn("login")(function* (url: URL) {
+  const hub = yield* HubClient;
+  const session = yield* Session;
+  const { url: authorize, pending } = yield* hub.start(`${url.origin}/callback`);
+  const value = yield* session.seal("sign-in", pending, SIGN_IN_TTL);
+  return redirect(authorize).pipe(
+    HttpServerResponse.setCookieUnsafe(SIGN_IN_COOKIE, value, { ...COOKIE, maxAge: SIGN_IN_TTL }),
   );
-}
+});
 
-async function login(request: Request, env: Env, fetchHub: FetchHub): Promise<Response> {
-  const as = await discover(env, fetchHub);
-  if (as.authorization_endpoint === undefined) {
-    throw new SignInFailed(502, "The identity hub names no authorization endpoint.");
-  }
-  const state = oauth.generateRandomState();
-  const nonce = oauth.generateRandomNonce();
-  const verifier = oauth.generateRandomCodeVerifier();
-  const url = new URL(as.authorization_endpoint);
-  const parameters = {
-    client_id: env.IDENTITY_HUB_CLIENT_ID,
-    redirect_uri: callbackUrl(request),
-    response_type: "code",
-    scope: "openid email profile",
-    connector: CONNECTOR,
-    state,
-    nonce,
-    code_challenge: await oauth.calculatePKCECodeChallenge(verifier),
-    code_challenge_method: "S256",
-  };
-  for (const [name, value] of Object.entries(parameters)) url.searchParams.set(name, value);
-  const value = await seal(
-    env.SESSION_SECRET,
-    "sign-in",
-    { state, nonce, verifier },
-    Date.now() + SIGN_IN_MS,
+const callback = Effect.fn("callback")(function* (url: URL) {
+  const request = yield* HttpServerRequest;
+  const hub = yield* HubClient;
+  const session = yield* Session;
+  const pending = yield* session.unseal("sign-in", SignInCookie, request.cookies[SIGN_IN_COOKIE]);
+  if (Option.isNone(pending)) return yield* new SignInExpired();
+  const user = yield* hub.finish(url, `${url.origin}/callback`, pending.value);
+  const value = yield* session.seal("session", user, SESSION_TTL);
+  return redirect("/").pipe(
+    HttpServerResponse.setCookieUnsafe(SESSION_COOKIE, value, { ...COOKIE, maxAge: SESSION_TTL }),
+    HttpServerResponse.expireCookieUnsafe(SIGN_IN_COOKIE, COOKIE),
   );
-  return redirect(url.href, [setCookie(SIGN_IN_COOKIE, value, SIGN_IN_MS)]);
-}
+});
 
-async function callback(request: Request, env: Env, fetchHub: FetchHub): Promise<Response> {
-  const value = readCookie(request, SIGN_IN_COOKIE);
-  const signIn =
-    value === undefined
-      ? undefined
-      : await unseal(env.SESSION_SECRET, "sign-in", SignIn, value, Date.now());
-  if (signIn === undefined) {
-    throw new SignInFailed(400, "The sign-in expired or started in another browser.");
-  }
-  const currentUrl = new URL(request.url);
-  // RFC 9207: the hub names itself in every answer. oauth4webapi compares the value with the
-  // issuer; this makes it required whatever the metadata says.
-  if (!currentUrl.searchParams.has("iss")) {
-    throw new SignInFailed(400, "The answer does not name the identity hub.");
-  }
-  const as = await discover(env, fetchHub);
-  const client: oauth.Client = { client_id: env.IDENTITY_HUB_CLIENT_ID };
-  const options = { [oauth.customFetch]: hubFetch(fetchHub) };
-  const params = oauth.validateAuthResponse(as, client, currentUrl, signIn.state);
-  const response = await oauth.authorizationCodeGrantRequest(
-    as,
-    client,
-    oauth.ClientSecretPost(env.IDENTITY_HUB_CLIENT_SECRET),
-    params,
-    callbackUrl(request),
-    signIn.verifier,
-    options,
+/** The page of a failed sign-in: a fixed reason, and the sign-in cookie cleared. */
+const failed = Effect.fnUntraced(function* (
+  route: string,
+  status: number,
+  reason: string,
+  category: string,
+) {
+  yield* Effect.logError("sign_in_failed").pipe(Effect.annotateLogs({ route, category }));
+  return page(status, `<p>${escapeHtml(reason)}</p><p><a href="/">Back</a></p>`).pipe(
+    HttpServerResponse.expireCookieUnsafe(SIGN_IN_COOKIE, COOKIE),
   );
-  const tokens = await oauth.processAuthorizationCodeResponse(as, client, response, {
-    expectedNonce: signIn.nonce,
-    requireIdToken: true,
-  });
-  await oauth.validateApplicationLevelSignature(as, response, options);
-  const claims = oauth.getValidatedIdTokenClaims(tokens);
-  if (claims === undefined) {
-    throw new SignInFailed(502, "The identity hub gave no ID token.");
-  }
-  const profile = Schema.decodeUnknownSync(ProfileClaims)(claims);
-  const session = await seal(
-    env.SESSION_SECRET,
-    "session",
-    { sub: claims.sub, ...profile },
-    Date.now() + SESSION_MS,
-  );
-  return redirect("/", [
-    setCookie(SESSION_COOKIE, session, SESSION_MS),
-    clearCookie(SIGN_IN_COOKIE),
-  ]);
-}
+});
 
-/** The fixed reason and the log category of a failed sign-in. No text of the error is kept. */
-function failure(error: unknown): { status: number; reason: string; category: string } {
-  if (error instanceof SignInFailed) {
-    return { status: error.status, reason: error.reason, category: "sign_in" };
-  }
-  if (error instanceof oauth.AuthorizationResponseError) {
-    return { status: 400, reason: "The identity hub did not sign you in.", category: "refused" };
-  }
-  if (error instanceof oauth.OperationProcessingError) {
-    return {
-      status: 502,
-      reason: "The identity hub gave an answer that the app cannot accept.",
-      category: error.code ?? "operation",
-    };
-  }
-  if (error instanceof oauth.ResponseBodyError) {
-    return { status: 502, reason: "The identity hub refused the sign-in.", category: "token" };
-  }
-  return { status: 502, reason: "The identity hub could not be reached.", category: "other" };
-}
+/** /login or /callback, with each failure as its page. */
+const signIn = (
+  route: "/login" | "/callback",
+  attempt: Effect.Effect<
+    HttpServerResponse.HttpServerResponse,
+    SignInExpired | HubError | AnswerWithoutIssuer | NoAuthorizationEndpoint | NoIdToken,
+    HttpServerRequest | HubClient | Session
+  >,
+) =>
+  attempt.pipe(
+    Effect.catchTags({
+      SignInExpired: () =>
+        failed(route, 400, "The sign-in expired or started in another browser.", "sign_in"),
+      AnswerWithoutIssuer: () =>
+        failed(route, 400, "The answer does not name the identity hub.", "sign_in"),
+      NoAuthorizationEndpoint: () =>
+        failed(route, 502, "The identity hub names no authorization endpoint.", "sign_in"),
+      NoIdToken: () => failed(route, 502, "The identity hub gave no ID token.", "sign_in"),
+      HubDeclined: () => failed(route, 400, "The identity hub did not sign you in.", "refused"),
+      HubAnswerRejected: (error) =>
+        failed(
+          route,
+          502,
+          "The identity hub gave an answer that the app cannot accept.",
+          error.code,
+        ),
+      TokenRefused: () => failed(route, 502, "The identity hub refused the sign-in.", "token"),
+      HubUnreachable: () => failed(route, 502, "The identity hub could not be reached.", "other"),
+    }),
+  );
 
 /** The app's request handler. */
-export async function handle(request: Request, env: Env, fetchHub: FetchHub): Promise<Response> {
-  const { pathname } = new URL(request.url);
-  if (request.method !== "GET") {
-    return page(405, "<p>Method not allowed.</p>");
-  }
-  switch (pathname) {
+export const app = Effect.gen(function* () {
+  const request = yield* HttpServerRequest;
+  if (request.method !== "GET") return page(405, "<p>Method not allowed.</p>");
+  const url = new URL(request.originalUrl);
+  switch (url.pathname) {
     case "/":
-      return await home(request, env);
+      return yield* home;
     case "/samebase-verification.json":
-      return Response.json({ repository: env.REPOSITORY_ID }, { headers: SECURITY_HEADERS });
+      return HttpServerResponse.jsonUnsafe(
+        { repository: REPOSITORY_ID },
+        { headers: SECURITY_HEADERS },
+      );
     case "/logout":
-      return redirect("/", [clearCookie(SESSION_COOKIE)]);
+      return redirect("/").pipe(HttpServerResponse.expireCookieUnsafe(SESSION_COOKIE, COOKIE));
     case "/login":
     case "/callback": {
-      if (env.IDENTITY_HUB_CLIENT_ID === OFF_CLIENT_ID) {
-        return page(503, "<p>Sign-in is not configured.</p>");
-      }
-      try {
-        return pathname === "/login"
-          ? await login(request, env, fetchHub)
-          : await callback(request, env, fetchHub);
-      } catch (error) {
-        const { status, reason, category } = failure(error);
-        console.error(`sign_in_failed ${JSON.stringify({ route: pathname, category })}`);
-        return page(status, `<p>${escapeHtml(reason)}</p><p><a href="/">Back</a></p>`, [
-          clearCookie(SIGN_IN_COOKIE),
-        ]);
-      }
+      const hub = yield* HubClient;
+      if (!(yield* hub.configured)) return page(503, NOT_CONFIGURED);
+      return yield* url.pathname === "/login"
+        ? signIn(url.pathname, login(url))
+        : signIn(url.pathname, callback(url));
     }
     default:
       return page(404, "<p>Not found.</p>");
   }
-}
+});

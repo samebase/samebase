@@ -18,6 +18,7 @@
   "devDependencies": {
     "@alchemy.run/cloudflare": "2.0.0-beta.85",
     "@cloudflare/workers-types": "5.20261028.1",
+    "@effect/vitest": "4.1.2",
     "@samebase/alchemy-convex": "0.40.0",
     "@types/node": "24.19.2",
     "alchemy": "2.0.0-beta.85",

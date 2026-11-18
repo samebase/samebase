@@ -1,7 +1,15 @@
 // The example app against the hub's real core (packages/identity-broker-effect) on the memory
 // Store, with no network: the hub registers the app's client after it reads the app's own
-// verification file, then a browser signs in through the hub's page and a fake Google.
-import { describe, expect, it } from "vite-plus/test";
+// verification file, then a browser signs in through the hub's page and a fake Google. The app's
+// services get test Layers: the client's values as plain values, and every hub request served by
+// the hub's core through `FetchHttpClient.Fetch`.
+import { describe, expect, it } from "@effect/vitest";
+import { Effect, Layer, Redacted } from "effect";
+import * as Cookies from "effect/http/Cookies";
+import * as FetchHttpClient from "effect/http/FetchHttpClient";
+import * as HttpServerRequest from "effect/http/HttpServerRequest";
+import * as HttpServerResponse from "effect/http/HttpServerResponse";
+import { TestClock } from "effect/testing";
 import { registrationRoutes } from "../../../packages/identity-broker-effect/src/core/hub/routes.ts";
 import {
   pullRequestClaims,
@@ -15,40 +23,14 @@ import {
   stubFetch,
   testRegistration,
 } from "../../../packages/identity-broker-effect/src/core/testing/harness.ts";
-import { handle, type Env } from "./app.ts";
-import { seal } from "./signed.ts";
+import { app } from "./app.ts";
+import { HubClient } from "./hub-client.ts";
+import { Session } from "./session.ts";
 
 const HUB = "https://hub.example.com";
 const APP = "https://identity-broker-effect-example-pr-1.pfp.workers.dev";
 const REPOSITORY_ID = "1021726325";
 const SESSION_SECRET = "test-session-secret";
-
-/** A browser's cookies, by origin: enough for `__Host-` cookies with Path=/. */
-function cookieJar() {
-  const jar = new Map<string, Map<string, string>>();
-  return {
-    header(url: string): Record<string, string> {
-      const cookies = jar.get(new URL(url).origin) ?? new Map<string, string>();
-      return cookies.size === 0
-        ? {}
-        : { Cookie: [...cookies].map(([name, value]) => `${name}=${value}`).join("; ") };
-    },
-    store(url: string, response: Response) {
-      const origin = new URL(url).origin;
-      const cookies = jar.get(origin) ?? new Map<string, string>();
-      jar.set(origin, cookies);
-      for (const line of response.headers.getSetCookie()) {
-        const [pair = "", ...attributes] = line.split(";");
-        const [name = "", ...value] = pair.split("=");
-        if (attributes.some((attribute) => attribute.trim() === "Max-Age=0")) {
-          cookies.delete(name);
-        } else {
-          cookies.set(name, value.join("="));
-        }
-      }
-    },
-  };
-}
 
 /** The test hub of the deploy: Google only, and only for this repository. */
 async function createTestHub() {
@@ -71,28 +53,13 @@ async function createTestHub() {
   broker.clock.set(Date.now());
   return { ...broker, google, rows: () => broker.memory.db.contents() };
 }
-
-/** The app's request handler, with every hub request served by `hub`. */
-function appOn(hub: Awaited<ReturnType<typeof createTestHub>>, env: Env) {
-  const hubRequests: string[] = [];
-  const app = (request: Request) =>
-    handle(request, env, async (hubRequest) => {
-      const url = new URL(hubRequest.url);
-      hubRequests.push(`${hubRequest.method} ${url.origin}${url.pathname}`);
-      return await hub.fetchBroker(hubRequest.url, {
-        method: hubRequest.method,
-        headers: hubRequest.headers,
-        body: hubRequest.method === "GET" ? null : await hubRequest.text(),
-      });
-    });
-  return { app, hubRequests };
-}
+type TestHub = Awaited<ReturnType<typeof createTestHub>>;
 
 /**
  * `POST /register` as IdentityHub.Client sends it from a pull request's run, with the run's
  * GitHub token for this repository.
  */
-async function registerPreviewClient(hub: Awaited<ReturnType<typeof createTestHub>>) {
+async function registerPreviewClient(hub: TestHub) {
   const token = await signToken(hub, {
     ...pullRequestClaims,
     aud: HUB,
@@ -111,204 +78,272 @@ async function registerPreviewClient(hub: Awaited<ReturnType<typeof createTestHu
   });
 }
 
-const offEnv: Env = {
-  IDENTITY_HUB_ISSUER: "http://127.0.0.1:1",
-  IDENTITY_HUB_CLIENT_ID: "no-hub",
-  IDENTITY_HUB_CLIENT_SECRET: "no-hub",
-  SESSION_SECRET,
-  REPOSITORY_ID,
-};
+const sessionWith = (secret: string) => Session.layerWith(Effect.succeed(Redacted.make(secret)));
 
-describe("sign-in through the hub", () => {
-  it("registers on the app's verification file, signs in with Google, and shows the subject", async () => {
-    const hub = await createTestHub();
-    // The hub reads /samebase-verification.json from the app itself.
-    const verificationRequests: string[] = [];
-    let env: Env = offEnv;
-    await stubProviders(hub, async (request) => {
-      verificationRequests.push(request.url);
-      return await handle(request, env, () => Promise.reject(new Error("no hub call expected")));
-    });
-
-    const registered = await registerPreviewClient(hub);
-    expect(registered.status).toBe(201);
-    expect(verificationRequests).toEqual([`${APP}/samebase-verification.json`]);
-    const client = await readNewClient(registered);
-    env = {
-      IDENTITY_HUB_ISSUER: HUB,
-      IDENTITY_HUB_CLIENT_ID: client.client_id,
-      IDENTITY_HUB_CLIENT_SECRET: client.client_secret,
-      SESSION_SECRET,
-      REPOSITORY_ID,
-    };
-    const { app, hubRequests } = appOn(hub, env);
-    const browser = cookieJar();
-    const get = async (url: string) => {
-      const response = url.startsWith(APP)
-        ? await app(new Request(url, { headers: browser.header(url) }))
-        : await hub.fetchBroker(url, { headers: browser.header(url) });
-      browser.store(url, response);
-      return response;
-    };
-
-    const signedOut = await get(`${APP}/`);
-    expect(await signedOut.text()).toContain('<a href="/login">Sign in with Google</a>');
-
-    // The app sends the browser to the hub.
-    const login = await get(`${APP}/login`);
-    expect(login.status).toBe(302);
-    const authorize = new URL(login.headers.get("location") ?? "");
-    expect(`${authorize.origin}${authorize.pathname}`).toBe(`${HUB}/authorize`);
-    expect(Object.fromEntries(authorize.searchParams)).toMatchObject({
-      client_id: client.client_id,
-      redirect_uri: `${APP}/callback`,
-      scope: "openid email profile",
-      connector: "google",
-      code_challenge_method: "S256",
-    });
-
-    // The hub's sign-in page asks for consent; the user continues with Google.
-    const consent = await get(authorize.href);
-    expect(consent.status).toBe(200);
-    const continueHref = /href="([^"]*\/continue\?[^"]*)"/.exec(await consent.text())?.[1];
-    expect(continueHref).toBeDefined();
-    const toGoogle = await get(new URL((continueHref ?? "").replaceAll("&amp;", "&"), HUB).href);
-    expect(toGoogle.status).toBe(302);
-    const upstream = new URL(toGoogle.headers.get("location") ?? "");
-    expect(upstream.origin).toBe("https://server.example.com");
-
-    // Google signs the user in and sends the browser back to the hub's callback.
-    hub.google.nextIdToken({
-      nonce: upstream.searchParams.get("nonce") ?? "",
-      authTime: undefined,
-    });
-    const hubCallback = new URL(upstream.searchParams.get("redirect_uri") ?? "");
-    hubCallback.searchParams.set("code", "upstream-code");
-    hubCallback.searchParams.set("state", upstream.searchParams.get("state") ?? "");
-    const back = await get(hubCallback.href);
-    expect(back.status).toBe(302);
-    const appCallback = new URL(back.headers.get("location") ?? "");
-    expect(`${appCallback.origin}${appCallback.pathname}`).toBe(`${APP}/callback`);
-    expect(appCallback.searchParams.get("iss")).toBe(HUB);
-
-    // The app exchanges the code and starts its session.
-    const done = await get(appCallback.href);
-    expect(done.status).toBe(302);
-    expect(done.headers.get("location")).toBe("/");
-    expect(hubRequests).toContain(`POST ${HUB}/token`);
-    expect(hubRequests).toContain(`GET ${HUB}/.well-known/jwks.json`);
-
-    const signedIn = await (await get(`${APP}/`)).text();
-    expect(signedIn).toContain("<dt>Subject</dt><dd>google:24400320</dd>");
-    expect(signedIn).toContain('<a href="/logout">Sign out</a>');
-    expect(hub.rows().signIns.map((row) => row.sub)).toEqual(["google:24400320"]);
-
-    // A second use of the same answer is refused: the sign-in cookie is gone.
-    const replay = await get(appCallback.href);
-    expect(replay.status).toBe(400);
-    expect(await replay.text()).not.toContain(appCallback.searchParams.get("code") ?? "");
-
-    const logout = await get(`${APP}/logout`);
-    expect(logout.status).toBe(302);
-    expect(await (await get(`${APP}/`)).text()).toContain("Sign in with Google");
+/** The client of `clientId` on `issuer`, with no hub to reach. */
+const clientWith = (issuer: string, clientId: string, clientSecret: string) =>
+  HubClient.layerWith({
+    issuer: Effect.succeed(issuer),
+    clientId: Effect.succeed(clientId),
+    clientSecret: Effect.succeed(Redacted.make(clientSecret)),
   });
 
-  it.each([
+/** The app as a new stage deploys it first: IdentityHub.Client's off values. */
+const offApp = Layer.mergeAll(
+  clientWith("http://127.0.0.1:1", "no-hub", "no-hub"),
+  sessionWith(SESSION_SECRET),
+);
+
+/** The app with the client `clientId` on the test hub; `hubRequests` records each hub request. */
+const appOn = (hub: TestHub, clientId: string, clientSecret: string, hubRequests: string[]) =>
+  Layer.mergeAll(
+    clientWith(HUB, clientId, clientSecret).pipe(
+      Layer.provide(
+        Layer.succeed(FetchHttpClient.Fetch, async (input, init) => {
+          const request = new Request(input, init);
+          const url = new URL(request.url);
+          hubRequests.push(`${request.method} ${url.origin}${url.pathname}`);
+          return await hub.fetchBroker(request.url, {
+            method: request.method,
+            headers: request.headers,
+            body: request.method === "GET" ? null : await request.text(),
+          });
+        }),
+      ),
+    ),
+    sessionWith(SESSION_SECRET),
+  );
+
+/** The app's Web response to `request`. */
+const serve = (request: Request) =>
+  app.pipe(
+    Effect.provideService(HttpServerRequest.HttpServerRequest, HttpServerRequest.fromWeb(request)),
+    Effect.map((response) => HttpServerResponse.toWeb(response)),
+  );
+
+const text = (response: Response) => Effect.promise(() => response.text());
+
+describe("sign-in through the hub", () => {
+  it.effect(
+    "registers on the app's verification file, signs in with Google, and shows the subject",
+    () =>
+      Effect.gen(function* () {
+        const hub = yield* Effect.promise(createTestHub);
+        // The hub reads /samebase-verification.json from the app itself.
+        const verificationRequests: string[] = [];
+        yield* Effect.promise(() =>
+          stubProviders(hub, (request) => {
+            verificationRequests.push(request.url);
+            return Effect.runPromise(serve(request).pipe(Effect.provide(offApp)));
+          }),
+        );
+
+        const registered = yield* Effect.promise(() => registerPreviewClient(hub));
+        expect(registered.status).toBe(201);
+        expect(verificationRequests).toEqual([`${APP}/samebase-verification.json`]);
+        const client = yield* Effect.promise(() => readNewClient(registered));
+        const hubRequests: string[] = [];
+        const signedInApp = appOn(hub, client.client_id, client.client_secret, hubRequests);
+
+        // A browser: the app and the hub, with the cookies of each origin.
+        let jar: ReadonlyArray<Cookies.Cookie> = [];
+        const get = Effect.fnUntraced(function* (url: string) {
+          const cookie = Cookies.toRequestCookieHeader(jar, url, Date.now());
+          const headers = cookie === undefined ? {} : { Cookie: cookie };
+          const response = url.startsWith(APP)
+            ? yield* serve(new Request(url, { headers })).pipe(Effect.provide(signedInApp))
+            : yield* Effect.promise(() => hub.fetchBroker(url, { headers }));
+          jar = Cookies.mergeIntoArray(
+            jar,
+            url,
+            Cookies.fromSetCookie(response.headers.getSetCookie()),
+            Date.now(),
+          );
+          return response;
+        });
+
+        const signedOut = yield* get(`${APP}/`);
+        expect(yield* text(signedOut)).toContain('<a href="/login">Sign in with Google</a>');
+
+        // The app sends the browser to the hub.
+        const login = yield* get(`${APP}/login`);
+        expect(login.status).toBe(302);
+        const authorize = new URL(login.headers.get("location") ?? "");
+        expect(`${authorize.origin}${authorize.pathname}`).toBe(`${HUB}/authorize`);
+        expect(Object.fromEntries(authorize.searchParams)).toMatchObject({
+          client_id: client.client_id,
+          redirect_uri: `${APP}/callback`,
+          scope: "openid email profile",
+          connector: "google",
+          code_challenge_method: "S256",
+        });
+
+        // The hub's sign-in page asks for consent; the user continues with Google.
+        const consent = yield* get(authorize.href);
+        expect(consent.status).toBe(200);
+        const continueHref = /href="([^"]*\/continue\?[^"]*)"/.exec(yield* text(consent))?.[1];
+        expect(continueHref).toBeDefined();
+        const toGoogle = yield* get(
+          new URL((continueHref ?? "").replaceAll("&amp;", "&"), HUB).href,
+        );
+        expect(toGoogle.status).toBe(302);
+        const upstream = new URL(toGoogle.headers.get("location") ?? "");
+        expect(upstream.origin).toBe("https://server.example.com");
+
+        // Google signs the user in and sends the browser back to the hub's callback.
+        hub.google.nextIdToken({
+          nonce: upstream.searchParams.get("nonce") ?? "",
+          authTime: undefined,
+        });
+        const hubCallback = new URL(upstream.searchParams.get("redirect_uri") ?? "");
+        hubCallback.searchParams.set("code", "upstream-code");
+        hubCallback.searchParams.set("state", upstream.searchParams.get("state") ?? "");
+        const back = yield* get(hubCallback.href);
+        expect(back.status).toBe(302);
+        const appCallback = new URL(back.headers.get("location") ?? "");
+        expect(`${appCallback.origin}${appCallback.pathname}`).toBe(`${APP}/callback`);
+        expect(appCallback.searchParams.get("iss")).toBe(HUB);
+
+        // The app exchanges the code and starts its session.
+        const done = yield* get(appCallback.href);
+        expect(done.status).toBe(302);
+        expect(done.headers.get("location")).toBe("/");
+        expect(hubRequests).toContain(`POST ${HUB}/token`);
+        expect(hubRequests).toContain(`GET ${HUB}/.well-known/jwks.json`);
+
+        const signedIn = yield* text(yield* get(`${APP}/`));
+        expect(signedIn).toContain("<dt>Subject</dt><dd>google:24400320</dd>");
+        expect(signedIn).toContain('<a href="/logout">Sign out</a>');
+        expect(hub.rows().signIns.map((row) => row.sub)).toEqual(["google:24400320"]);
+
+        // A second use of the same answer is refused: the sign-in cookie is gone.
+        const replay = yield* get(appCallback.href);
+        expect(replay.status).toBe(400);
+        expect(yield* text(replay)).not.toContain(appCallback.searchParams.get("code") ?? "");
+
+        const logout = yield* get(`${APP}/logout`);
+        expect(logout.status).toBe(302);
+        expect(yield* text(yield* get(`${APP}/`))).toContain("Sign in with Google");
+      }),
+  );
+
+  it.effect.each([
     ["the state of another sign-in", "other", HUB],
     ["another issuer", undefined, "https://evil.example.com"],
     ["no issuer", undefined, undefined],
-  ])("refuses an answer with %s, and shows no code", async (_, state, iss) => {
-    const hub = await createTestHub();
-    const { app, hubRequests } = appOn(hub, {
-      ...offEnv,
-      IDENTITY_HUB_ISSUER: HUB,
-      IDENTITY_HUB_CLIENT_ID: "cl_x",
-    });
-    const login = await app(new Request(`${APP}/login`));
-    const cookie = (login.headers.get("set-cookie") ?? "").split(";")[0] ?? "";
-    const callback = new URL(`${APP}/callback`);
-    callback.searchParams.set("code", "secret-code");
-    callback.searchParams.set(
-      "state",
-      state ?? new URL(login.headers.get("location") ?? "").searchParams.get("state") ?? "",
-    );
-    if (iss !== undefined) callback.searchParams.set("iss", iss);
+  ])("refuses an answer with %s, and shows no code", ([, state, iss]) =>
+    Effect.gen(function* () {
+      const hub = yield* Effect.promise(createTestHub);
+      const hubRequests: string[] = [];
+      const call = (request: Request) =>
+        serve(request).pipe(Effect.provide(appOn(hub, "cl_x", "no-hub", hubRequests)));
+      const login = yield* call(new Request(`${APP}/login`));
+      const cookie = (login.headers.get("set-cookie") ?? "").split(";")[0] ?? "";
+      const callback = new URL(`${APP}/callback`);
+      callback.searchParams.set("code", "secret-code");
+      callback.searchParams.set(
+        "state",
+        state ?? new URL(login.headers.get("location") ?? "").searchParams.get("state") ?? "",
+      );
+      if (iss !== undefined) callback.searchParams.set("iss", iss);
 
-    const response = await app(new Request(callback, { headers: { Cookie: cookie } }));
+      const response = yield* call(new Request(callback, { headers: { Cookie: cookie } }));
 
-    expect(response.status).toBeGreaterThanOrEqual(400);
-    expect(await response.text()).not.toContain("secret-code");
-    expect(hubRequests).not.toContain(`POST ${HUB}/token`);
-  });
+      expect(response.status).toBeGreaterThanOrEqual(400);
+      expect(yield* text(response)).not.toContain("secret-code");
+      expect(hubRequests).not.toContain(`POST ${HUB}/token`);
+    }),
+  );
 });
 
 describe("the off configuration", () => {
-  it("shows no sign-in link and refuses /login", async () => {
-    const page = await handle(new Request(`${APP}/`), offEnv, () =>
-      Promise.reject(new Error("no hub call expected")),
-    );
-    const text = await page.text();
-    expect(text).toContain("Sign-in is not configured.");
-    expect(text).not.toContain("/login");
+  it.effect("shows no sign-in link and refuses /login", () =>
+    Effect.gen(function* () {
+      const home = yield* text(yield* serve(new Request(`${APP}/`)));
+      expect(home).toContain("Sign-in is not configured.");
+      expect(home).not.toContain("/login");
 
-    const login = await handle(new Request(`${APP}/login`), offEnv, () =>
-      Promise.reject(new Error("no hub call expected")),
-    );
-    expect(login.status).toBe(503);
-  });
+      const login = yield* serve(new Request(`${APP}/login`));
+      expect(login.status).toBe(503);
+    }).pipe(Effect.provide(offApp)),
+  );
 
-  it("still serves the verification file", async () => {
-    const response = await handle(new Request(`${APP}/samebase-verification.json`), offEnv, () =>
-      Promise.reject(new Error("no hub call expected")),
-    );
-    expect(await response.json()).toEqual({ repository: REPOSITORY_ID });
-  });
+  it.effect("still serves the verification file", () =>
+    Effect.gen(function* () {
+      const response = yield* serve(new Request(`${APP}/samebase-verification.json`));
+      expect(yield* Effect.promise(() => response.json())).toEqual({ repository: REPOSITORY_ID });
+    }).pipe(Effect.provide(offApp)),
+  );
+});
+
+describe("requests", () => {
+  it.effect("answers a POST with 405", () =>
+    Effect.gen(function* () {
+      const response = yield* serve(new Request(`${APP}/login`, { method: "POST" }));
+      expect(response.status).toBe(405);
+    }).pipe(Effect.provide(offApp)),
+  );
 });
 
 describe("the session cookie", () => {
-  const onEnv: Env = { ...offEnv, IDENTITY_HUB_ISSUER: HUB, IDENTITY_HUB_CLIENT_ID: "cl_x" };
-  const homeWith = async (value: string) => {
-    const response = await handle(
-      new Request(`${APP}/`, { headers: { Cookie: `__Host-session=${value}` } }),
-      onEnv,
-      () => Promise.reject(new Error("no hub call expected")),
+  const user = { sub: "google:1", name: "<b>Ada</b>" };
+  const onApp = Layer.mergeAll(clientWith(HUB, "cl_x", "no-hub"), sessionWith(SESSION_SECRET));
+
+  /** The home page with `value` as the session cookie. */
+  const homeWith = (value: string) =>
+    serve(new Request(`${APP}/`, { headers: { Cookie: `__Host-session=${value}` } })).pipe(
+      Effect.flatMap(text),
     );
-    return await response.text();
-  };
-  const session = (secret: string, exp: number, sub = "google:1") =>
-    seal(secret, "session", { sub, name: "<b>Ada</b>" }, exp);
-
-  it("shows a valid session, escaped", async () => {
-    const text = await homeWith(await session(SESSION_SECRET, Date.now() + 60_000));
-    expect(text).toContain("<dd>google:1</dd>");
-    expect(text).toContain("<dd>&lt;b&gt;Ada&lt;/b&gt;</dd>");
-  });
-
-  it("refuses a value signed with another secret", async () => {
-    expect(await homeWith(await session("other-secret", Date.now() + 60_000))).toContain(
-      "Sign in with Google",
+  /** `payload` sealed for `purpose` with `secret`, for one minute. */
+  const sealed = (
+    secret: string,
+    purpose: "session" | "sign-in",
+    payload: Readonly<Record<string, string>>,
+  ) =>
+    Session.use((session) => session.seal(purpose, payload, "1 minute")).pipe(
+      Effect.provide(sessionWith(secret)),
     );
-  });
 
-  it("refuses a changed payload", async () => {
-    const [, mac] = (await session(SESSION_SECRET, Date.now() + 60_000)).split(".");
-    const [forged] = (await session("other-secret", Date.now() + 60_000, "google:2")).split(".");
-    expect(await homeWith(`${forged}.${mac}`)).toContain("Sign in with Google");
-  });
+  it.effect("shows a valid session, escaped", () =>
+    Effect.gen(function* () {
+      const page = yield* homeWith(yield* sealed(SESSION_SECRET, "session", user));
+      expect(page).toContain("<dd>google:1</dd>");
+      expect(page).toContain("<dd>&lt;b&gt;Ada&lt;/b&gt;</dd>");
+    }).pipe(Effect.provide(onApp)),
+  );
 
-  it("refuses an expired session", async () => {
-    expect(await homeWith(await session(SESSION_SECRET, Date.now() - 1))).toContain(
-      "Sign in with Google",
-    );
-  });
+  it.effect("refuses a value signed with another secret", () =>
+    Effect.gen(function* () {
+      const page = yield* homeWith(yield* sealed("other-secret", "session", user));
+      expect(page).toContain("Sign in with Google");
+    }).pipe(Effect.provide(onApp)),
+  );
 
-  it("refuses a sign-in cookie used as a session", async () => {
-    const value = await seal(
-      SESSION_SECRET,
-      "sign-in",
-      { sub: "google:1", state: "s", nonce: "n", verifier: "v" },
-      Date.now() + 60_000,
-    );
-    expect(await homeWith(value)).toContain("Sign in with Google");
-  });
+  it.effect("refuses a changed payload", () =>
+    Effect.gen(function* () {
+      const [, mac] = (yield* sealed(SESSION_SECRET, "session", user)).split(".");
+      const [forged] = (yield* sealed("other-secret", "session", { sub: "google:2" })).split(".");
+      expect(yield* homeWith(`${forged}.${mac}`)).toContain("Sign in with Google");
+    }).pipe(Effect.provide(onApp)),
+  );
+
+  it.effect("refuses an expired session", () =>
+    Effect.gen(function* () {
+      const value = yield* sealed(SESSION_SECRET, "session", user);
+      yield* TestClock.adjust("1 minute");
+      expect(yield* homeWith(value)).toContain("Sign in with Google");
+    }).pipe(Effect.provide(onApp)),
+  );
+
+  it.effect("refuses a sign-in cookie used as a session", () =>
+    Effect.gen(function* () {
+      const value = yield* sealed(SESSION_SECRET, "sign-in", {
+        ...user,
+        state: "s",
+        nonce: "n",
+        verifier: "v",
+      });
+      expect(yield* homeWith(value)).toContain("Sign in with Google");
+    }).pipe(Effect.provide(onApp)),
+  );
 });

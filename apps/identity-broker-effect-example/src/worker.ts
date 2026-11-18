@@ -1,12 +1,14 @@
-// The Worker, in Alchemy's Effect form: the app's handler with the global `fetch` toward the hub.
+// The Worker, in Alchemy's Effect form. Its constructor provides the two services; their Layers
+// bring the hub client, the session secret, and the Worker's bindings for them into the deploy.
+//
 // The hub is a Worker on workers.dev in the same account, so this Worker has the compatibility flag
-// `global_fetch_strictly_public`; without it each fetch gets error 1042. The stack attaches the
-// sign-in bindings (alchemy.run.ts), so this file runs nothing of the hub client.
+// `global_fetch_strictly_public`; without it each fetch to the hub gets error 1042.
 import * as Cloudflare from "@alchemy.run/cloudflare";
 import * as Alchemy from "alchemy";
-import { Config, Effect } from "effect";
-import * as HttpServerResponse from "effect/http/HttpServerResponse";
-import { handle } from "./app.ts";
+import { Effect, Layer } from "effect";
+import { app } from "./app.ts";
+import { HubClient } from "./hub-client.ts";
+import { Session } from "./session.ts";
 
 declare global {
   // Alchemy reads `main: import.meta.url` in Node and in the bundle; workerd gives each module its
@@ -16,21 +18,10 @@ declare global {
   }
 }
 
-/** The Worker's script name, which the hub client's return address names too. */
-export const siteName = (stage: string) => `identity-broker-effect-example-${stage}`;
+const siteName = (stage: string) => `identity-broker-effect-example-${stage}`;
+/** The workers.dev subdomain of the Cloudflare account fe57d01d7ab41f60d00ba1aade20eb33. */
+const WORKERS_DEV = "pfp.workers.dev";
 
-/** The bindings of the app, read on the first request of an isolate. */
-const bindings = Effect.gen(function* () {
-  return {
-    IDENTITY_HUB_ISSUER: yield* Config.String("IDENTITY_HUB_ISSUER"),
-    IDENTITY_HUB_CLIENT_ID: yield* Config.String("IDENTITY_HUB_CLIENT_ID"),
-    IDENTITY_HUB_CLIENT_SECRET: yield* Config.String("IDENTITY_HUB_CLIENT_SECRET"),
-    SESSION_SECRET: yield* Config.String("SESSION_SECRET"),
-    REPOSITORY_ID: yield* Config.String("REPOSITORY_ID"),
-  };
-});
-
-/** The app hands back a Web `Response`; `HttpServerResponse.raw` passes it on unchanged. */
 export default class Site extends Cloudflare.Worker<Site>()(
   "Site",
   Effect.gen(function* () {
@@ -43,16 +34,16 @@ export default class Site extends Cloudflare.Worker<Site>()(
     };
   }),
   Effect.gen(function* () {
-    const env = yield* Effect.cached(bindings.pipe(Effect.orDie));
-    return {
-      fetch: Effect.gen(function* () {
-        const request = yield* Cloudflare.Request;
-        const app = yield* env;
-        const response = yield* Effect.promise(() =>
-          handle(request, app, (hubRequest) => fetch(hubRequest)),
-        );
-        return HttpServerResponse.raw(response);
-      }),
-    };
-  }),
+    // Built once per isolate; the request handler only routes.
+    const services = yield* Effect.context<HubClient | Session>();
+    return { fetch: app.pipe(Effect.provide(services)) };
+  }).pipe(
+    Effect.provide(
+      Layer.mergeAll(
+        // The return address needs no output of this Worker: the hub client comes first.
+        HubClient.layer((stage) => `https://${siteName(stage)}.${WORKERS_DEV}/callback`),
+        Session.layer,
+      ),
+    ),
+  ),
 ) {}

@@ -26,59 +26,27 @@
 // client cannot be bound in the same run. The Worker provider deletes script secrets that leave
 // `env`, so a secret set beside the Worker does not last.
 //
-// The Worker is declared in src/worker.ts in Alchemy's Effect form. The stack attaches the
-// sign-in bindings to it with `site.bind`, so the hub client and the session secret stay here and
-// never run inside the Worker. Their Outputs make the Worker deploy after the client.
-//
-// SESSION_SECRET is an `Alchemy.Random`: made once and kept in the state of the stage, so sessions
-// survive a redeploy. The state is in the team's Convex store (docs/alchemy-deploy-standard.md),
-// under the stack name samebase/samebase/apps/identity-broker-effect-example. A run needs
-// CONVEX_ACCESS_TOKEN, CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID, and the permission
-// `id-token: write` for the hub.
+// The Worker (src/worker.ts) brings the rest: the Layers of its two services declare the hub
+// client (`HubClient`) and the session secret (`SessionSecret`) and bind their values to it.
+// The state is in the team's Convex store (docs/alchemy-deploy-standard.md), under the stack name
+// samebase/samebase/apps/identity-broker-effect-example. A run needs CONVEX_ACCESS_TOKEN,
+// CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID, and the permission `id-token: write` for the hub.
 import * as Cloudflare from "@alchemy.run/cloudflare";
 import * as Convex from "@samebase/alchemy-convex";
-import * as IdentityHub from "@samebase/alchemy-convex/identity-hub";
 import * as Alchemy from "alchemy";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import Site, { siteName } from "./src/worker.ts";
-
-/** The test hub, an OpenID Provider of packages/identity-broker-effect. */
-const HUB = { issuer: "https://identity-broker-effect-dev-spike.pfp.workers.dev" };
-/** The workers.dev subdomain of the Cloudflare account fe57d01d7ab41f60d00ba1aade20eb33. */
-const WORKERS_DEV = "pfp.workers.dev";
-/** The numeric GitHub id of samebase/samebase, which the verification file names. */
-const REPOSITORY_ID = "1021726325";
+import Site from "./src/worker.ts";
 
 export default Alchemy.Stack(
   "samebase/samebase/apps/identity-broker-effect-example",
   {
+    // Convex.providers() holds IdentityHub.Client's provider; Cloudflare.providers() holds Random's.
     providers: Layer.mergeAll(Cloudflare.providers(), Convex.providers()),
     state: Convex.withRunRecord(Convex.state()),
   },
   Effect.gen(function* () {
-    const { stage } = yield* Alchemy.Stack;
-    const hub = IdentityHub.Client.variables(
-      yield* IdentityHub.Client("HubClient", {
-        hub: HUB,
-        connectors: ["google"],
-        redirectUris: [`https://${siteName(stage)}.${WORKERS_DEV}/callback`],
-        deploymentType: "preview",
-      }),
-    );
-    const sessionSecret = yield* Alchemy.Random("SessionSecret");
-
     const site = yield* Site;
-    yield* site.bind`SignIn`({
-      env: {
-        IDENTITY_HUB_ISSUER: hub.issuer,
-        IDENTITY_HUB_CLIENT_ID: hub.clientId,
-        IDENTITY_HUB_CLIENT_SECRET: hub.clientSecret,
-        SESSION_SECRET: sessionSecret.text,
-        REPOSITORY_ID,
-      },
-    });
-
     return { url: site.url };
   }),
 );
