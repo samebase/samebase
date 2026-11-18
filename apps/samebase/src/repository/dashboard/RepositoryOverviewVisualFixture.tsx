@@ -64,6 +64,7 @@ export type RepositoryOverviewVisualMode =
   | "repository-overview-v2-provisioning-ready"
   | "repository-overview-v2-root"
   | "repository-overview-v2-r2"
+  | "repository-overview-v2-example"
   | "repository-overview-v2-disconnect-blocked"
   | "repository-overview-v2-store-unreadable";
 
@@ -874,6 +875,234 @@ function RepositoryOverviewDisconnectBlockedFixture() {
   );
 }
 
+const EXAMPLE_ORGANIZATION_ID = fakeOrganizationId("organization-acme");
+const EXAMPLE_ORGANIZATION = {
+  canCreateRepository: true,
+  githubOwnerId: "github-owner-acme",
+  githubOwnerLogin: "acme",
+  githubOwnerType: "organization",
+  organizationId: EXAMPLE_ORGANIZATION_ID,
+  role: "owner",
+} satisfies RepositoryOrganization;
+const EXAMPLE_REPOSITORIES = ["garden", "pantry", "recipes", "website"].map((name, index) => ({
+  ...LIST_SPACING_REPOSITORY,
+  repositoryId: fakeRepositoryId(`jt7f8f6d9v7x5w4m3n2p1q0r1s7c9ex${index}`),
+  organizationId: EXAMPLE_ORGANIZATION_ID,
+  cloudflareAccountId: "0123456789abcdef0123456789abcdef",
+  convexTeamId: "acme-team-id",
+  githubOwnerLogin: "acme",
+  githubRepositoryName: name,
+  githubRepositoryFullName: `acme/${name}`,
+})) satisfies UserRepositoryResult[];
+const [, EXAMPLE_REPOSITORY] = EXAMPLE_REPOSITORIES;
+const EXAMPLE_PRODUCTION_DEPLOYMENT = "tidy-otter-412";
+/** The times of the example are relative to the page load, so the page reads as current. */
+const EXAMPLE_LOADED_AT = Date.now();
+
+/** A captured samebase/samebase row, renamed to the example repository `acme/pantry`. */
+function exampleRow(value: string): string {
+  return value
+    .replaceAll("clear-butterfly-858", EXAMPLE_PRODUCTION_DEPLOYMENT)
+    .replaceAll("samebase-posthog-proxy", "pantry-barcode-lookup")
+    .replaceAll("samebase/samebase", "acme/pantry")
+    .replaceAll('"team":"nicu"', '"team":"acme"')
+    .replaceAll('"name":"samebase"', '"name":"pantry"')
+    .replaceAll('"slug":"samebase"', '"slug":"pantry"')
+    .replaceAll("fe57d01d7ab41f60d00ba1aade20eb33", "0123456789abcdef0123456789abcdef")
+    .replaceAll(".samebase.workers.dev", ".acme.workers.dev")
+    .replaceAll("samebase.com", "pantry.acme.dev")
+    .replaceAll('"rootDir":"apps/samebase"', '"rootDir":"."');
+}
+
+/**
+The repository page of a small example app, `acme/pantry`, for the dashboard image of the landing
+page: one production stack with a Convex deployment and a Worker, and open pull requests with their
+previews.
+*/
+function RepositoryOverviewExampleFixture() {
+  const hoursAgo = (hours: number) => new Date(EXAMPLE_LOADED_AT - hours * 3_600_000).toISOString();
+  const [, preview, prod] = observedSamebaseStackReply.value.stages;
+  const [, , projectRow, siteRow] = prod.resources;
+  const [, , previewSiteRow] = preview.resources;
+  const [, proxyRow] = prod.resources;
+  const workerUrl = "https://pantry-barcode-lookup.acme.workers.dev";
+  const headCommit = "5d41402abc4b2a76b9719d911017c592ae2f7c3e";
+  const record = {
+    version: 1,
+    repository: EXAMPLE_REPOSITORY.githubRepositoryFullName,
+    stackFile: "alchemy.run.ts",
+    branch: "main",
+    pullRequest: null,
+    headCommit,
+    runUrl: "https://github.com/acme/pantry/actions/runs/1001/attempts/1",
+    source: "github-actions",
+    recordedAt: hoursAgo(50),
+  } as const;
+  const pullRequests = [
+    { number: 44, title: "Scan a barcode to add an item", branch: "barcode-scan", hours: 3 },
+    {
+      number: 43,
+      title: "Warn three days before food expires",
+      branch: "expiry-alerts",
+      hours: 26,
+    },
+    { number: 41, title: "Share the shopping list", branch: "shared-list", hours: 70 },
+  ].map(({ number, title, branch, hours }, index): FixturePullRequest => ({
+    id: `pull-request:${number}`,
+    number,
+    title,
+    url: `https://github.com/acme/pantry/pull/${number}`,
+    isDraft: index === 2,
+    isCrossRepository: false,
+    additions: [212, 64, 131][index] ?? 0,
+    deletions: [18, 9, 40][index] ?? 0,
+    changedFiles: [7, 3, 5][index] ?? 0,
+    updatedAt: hoursAgo(hours),
+    baseRefName: "main",
+    headRefName: branch,
+    headRefOid: (index + 1).toString(16).padStart(40, "a"),
+    headRepository: {
+      id: "repository:acme/pantry",
+      nameWithOwner: "acme/pantry",
+      owner: { login: "acme" },
+    },
+    labels: [],
+    statusCheckRollup: null,
+    checks:
+      index === 1
+        ? {
+            ...FIXTURE_NO_CHECKS,
+            state: "running",
+            totalCount: 2,
+            successCount: 1,
+            runningCount: 1,
+          }
+        : { ...FIXTURE_NO_CHECKS, state: "success", totalCount: 2, successCount: 2 },
+  }));
+  const previewNames = ["brave-heron-27", "quiet-lynx-305", "sunny-wren-88"];
+  const alchemyState = loadedStore({
+    store: "found",
+    liveDeployments: [
+      {
+        deploymentName: EXAMPLE_PRODUCTION_DEPLOYMENT,
+        dashboardUrl: `https://dashboard.convex.dev/t/acme/pantry/${EXAMPLE_PRODUCTION_DEPLOYMENT}`,
+        region: "aws-us-east-1",
+        customDomains: [{ domain: "pantry.acme.dev", requestDestination: "convexSite" }],
+      },
+    ],
+    stacks: [
+      {
+        name: EXAMPLE_REPOSITORY.githubRepositoryFullName,
+        store: "convex",
+        stages: [
+          ...pullRequests.map((pullRequest, index) => {
+            const previewName = previewNames[index] ?? "";
+            return {
+              name: `pr-${pullRequest.number}`,
+              run: {
+                ...record,
+                branch: pullRequest.headRefName,
+                pullRequest: pullRequest.number,
+                headCommit: pullRequest.headRefOid,
+                recordedAt: pullRequest.updatedAt,
+              },
+              resources: [
+                {
+                  fqn: previewSiteRow.fqn,
+                  value: exampleRow(previewSiteRow.value)
+                    .replaceAll("aware-bobcat-542", previewName)
+                    .replaceAll("pr-1768", `pr-${pullRequest.number}`),
+                },
+              ],
+              output: `{"url":"https://${previewName}.convex.site"}`,
+            };
+          }),
+          {
+            name: "prod",
+            run: record,
+            resources: [
+              { fqn: projectRow.fqn, value: exampleRow(projectRow.value) },
+              {
+                fqn: siteRow.fqn,
+                value: exampleRow(siteRow.value).replace(
+                  '"type":"prod"',
+                  '"type":"prod","rootDir":"."',
+                ),
+              },
+              {
+                fqn: "BarcodeLookup",
+                value: exampleRow(proxyRow.value)
+                  .replaceAll("PosthogProxy", "BarcodeLookup")
+                  .replace('"urls":[]', `"url":"${workerUrl}","urls":["${workerUrl}"]`),
+              },
+            ],
+            output: '{"url":"https://pantry.acme.dev"}',
+          },
+        ],
+      },
+    ],
+  });
+  const defaultBranch = {
+    headCommitOid: headCommit,
+    headCommitTitle: "Group items by shelf",
+    headCommitCommittedAt: hoursAgo(50),
+    headCommitUrl: `https://github.com/acme/pantry/commit/${headCommit}`,
+    statusCheckRollup: null,
+    checks: { ...FIXTURE_NO_CHECKS, state: "success", totalCount: 2, successCount: 2 },
+  } satisfies RepositoryDefaultBranchObservation;
+  const workspace = buildFixtureWorkspace({
+    alchemyState,
+    githubRepositoryUrl: "https://github.com/acme/pantry",
+    pullRequests: fixturePullRequests(pullRequests, defaultBranch, alchemyState),
+    repository: EXAMPLE_REPOSITORY,
+  });
+
+  return (
+    <TestRouterProvider initialEntries={["/repo/acme/pantry"]}>
+      <SidebarLayoutFixtureFrame
+        left={{
+          header: <RepositoryOverviewListHeader />,
+          content: (
+            <RepositoryOverviewOrganizationSidebar
+              {...FIXTURE_FOLDER_CALLBACKS}
+              folderState={{ assignments: [], folders: [] }}
+              onCreateRepositoryFolder={async () => {}}
+              onSetRepositoryOrganizationCollapsed={async () => {}}
+              organizationTreeSettings={[]}
+              organizations={[EXAMPLE_ORGANIZATION]}
+              organizationsCollapsible
+              selectedRepositoryId={EXAMPLE_REPOSITORY.repositoryId}
+              sidebarSummaries={{
+                state: "loaded",
+                summaries: EXAMPLE_REPOSITORIES.map((repository, index) => ({
+                  repositoryId: repository.repositoryId,
+                  openPullRequestCount: [1, 3, 0, 2][index] ?? 0,
+                  checks: defaultBranch.checks,
+                })),
+              }}
+              repositories={EXAMPLE_REPOSITORIES}
+              workspace={workspace}
+            />
+          ),
+        }}
+        main={{
+          content: (
+            <RepositoryOverviewPage
+              developerToolsVisible={false}
+              isRetryingRepositoryAction={false}
+              workspace={workspace}
+              onOpenDeleteDialog={() => {}}
+              onRetryInfrastructureProvisioning={() => {}}
+              onRetryRepositoryDeletion={() => {}}
+            />
+          ),
+        }}
+        shortcutPaneSide="left"
+      />
+    </TestRouterProvider>
+  );
+}
+
 export function RepositoryOverviewVisualFixture({ mode }: { mode: RepositoryOverviewVisualMode }) {
   const [nextPullRequestPageLoaded, setNextPullRequestPageLoaded] = useState(false);
   const [organizationTreeSettings, setOrganizationTreeSettings] =
@@ -893,6 +1122,8 @@ export function RepositoryOverviewVisualFixture({ mode }: { mode: RepositoryOver
       return <RepositoryOverviewProvisioningFixture mode={mode} />;
     case "repository-overview-v2-disconnect-blocked":
       return <RepositoryOverviewDisconnectBlockedFixture />;
+    case "repository-overview-v2-example":
+      return <RepositoryOverviewExampleFixture />;
   }
 
   if (mode === "repository-overview-v2-root") {

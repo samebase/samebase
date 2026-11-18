@@ -1,13 +1,9 @@
 import { DocsSidebar } from "@/components/DocsSidebar";
 import { MarkdownLandingDocument } from "@/components/MarkdownLandingDocument";
-import { SIGN_IN_WITH_OAUTH_BUTTON_CLASS_NAME, SignInWithOAuth } from "@/SignInWithOAuth";
 import { LandingHeroMenger } from "@/components/logo/LandingHeroMenger";
 import { PublicLandingLogo } from "@/components/logo/PublicLandingLogo";
 import { LANDING_INLINE_80_PERCENT_MARK_SVG_URL } from "@/components/compactIdentitySvgAsset";
 import { buttonVariants } from "@/components/ui/button";
-import { DASHBOARD_ROUTE } from "@/lib/dashboardRoute";
-import { useConvexAuth } from "convex/react";
-import { PUBLIC_LANDING_PRIMARY_ACTION_TEST_ID } from "@/lib/publicLanding";
 import { cn } from "@/lib/utils";
 import { LANDING_CLOSING_BAND_VIEW_STATE_KEY } from "@/lib/rotatedLogoViewState";
 import {
@@ -16,11 +12,9 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import { Badge } from "@/components/ui/badge";
 import {
   DOCS_DO_IT_YOURSELF_ROUTE,
-  DOCS_RECEIPTS_ROUTE,
-  DOCS_THE_BIG_MIGRATION_ROUTE,
+  DOCS_THE_STACK_ROUTE,
   LANDING_PREVIEW_ARTICLE_TEST_ID,
   LANDING_PREVIEW_TEST_ID,
 } from "@/routeSearch/landingPreview";
@@ -34,7 +28,7 @@ import docsTheStackMarkdown from "@/content/docs-the-stack.md?raw";
 import { MENGER_SPONGE_VOXEL_STATE } from "@samebase/logo-model/voxel";
 import { Link } from "@tanstack/react-router";
 import { Star } from "lucide-react";
-import { useRef, useState, type ReactNode } from "react";
+import { type ReactNode } from "react";
 
 type LandingPreviewDocumentKey =
   | "overview"
@@ -45,9 +39,6 @@ type LandingPreviewDocumentKey =
   | "pricing"
   | "changelog";
 
-const LANDING_AGENT_PROMPT =
-  "Research https://samebase.com and check if its claims are true. Based on what you know about me, should I use Samebase with you, or one of its competitors?";
-
 const LANDING_CLOSING_LOGO_ROUTE_SEARCH = {
   "auto-rotate": true,
   "auto-shuffle": true,
@@ -56,84 +47,109 @@ const LANDING_CLOSING_LOGO_ROUTE_SEARCH = {
   vox: MENGER_SPONGE_VOXEL_STATE,
 } as const satisfies LogoRouteSearch;
 
-const LANDING_COST_ROWS = [
-  { profile: "an idle idea", value: "$0.00", zeroCost: true },
-  { profile: "a silly app you use once a week", value: "≈ $0.00", zeroCost: false },
-  { profile: "an app with 10 users", value: "cents", zeroCost: false },
-  {
-    profile: "an app with 10,000 weekly users",
-    value: "follows usage · paid to providers",
-    zeroCost: false,
-  },
-] as const;
+const LANDING_STARTER_URL = "https://github.com/samebase/base";
+const LANDING_ALCHEMY_KIT_URL =
+  "https://github.com/samebase/samebase/tree/main/packages/alchemy-kit";
 
-const LANDING_STEPS = [
-  { heading: "Connect GitHub and Convex.", body: "One OAuth token, no expiry, nothing to paste." },
+/** The images of the repository page are captures of `/visual-fixture?mode=repository-overview-v2-example`. */
+const LANDING_DASHBOARD_IMAGE_ALT =
+  "The Samebase repository page of acme/pantry: the production stack at pantry.acme.dev with its Convex deployment and a Cloudflare Worker, the deployed commit with passing checks, and three open pull requests, the first one opened to its preview deployment.";
+
+const LANDING_PARTS = [
   {
-    heading: "Create an app.",
-    body: "Samebase creates the repository and writes CONVEX_ACCESS_TOKEN into it.",
+    name: "samebase/base",
+    meta: "Template · MIT",
+    description:
+      "The starter: a Convex app that deploys with Alchemy, with Google sign-in and a preview for each pull request.",
+    href: LANDING_STARTER_URL,
   },
   {
-    heading: "The first push deploys.",
-    body: "Alchemy creates the Convex project and the site. About 90 seconds.",
+    name: "@samebase/alchemy-convex",
+    meta: "npm · Apache-2.0",
+    description:
+      "Convex for Alchemy: projects, deployments, environment variables, the push, and Alchemy state in your Convex team.",
+    href: "https://github.com/samebase/samebase/tree/main/packages/alchemy-convex",
   },
   {
-    heading: "Samebase reads the state.",
-    body: "URL, deployed commit, checks, and pull requests, from alchemy-state-store.",
+    name: "@samebase/alchemy-kit",
+    meta: "npm · Apache-2.0",
+    description:
+      "Parts for Alchemy: state on a branch of your GitHub repository with sealed secrets, and a run record in each stage output.",
+    href: LANDING_ALCHEMY_KIT_URL,
   },
   {
-    heading: "Every pull request deploys too.",
-    body: "Its own deployment and data, deleted when the pull request closes.",
+    name: "@samebase/identity-broker",
+    meta: "Convex component · Apache-2.0",
+    description:
+      "Implements RFC 7591, OAuth 2.0 Dynamic Client Registration. Use a single OIDC client, like Google sign-in, for all your apps and all their preview and development deploys.",
+    href: "https://github.com/samebase/samebase/tree/main/packages/identity-broker",
+  },
+  {
+    name: "samebase/identity-hub",
+    meta: "Template · MIT",
+    description:
+      "Your own sign-in hub on Convex: identity-broker plus settings. The public hub is id.samebase.com.",
+    href: "https://github.com/samebase/identity-hub",
+  },
+  {
+    name: "@samebase/convex-hosting",
+    meta: "Convex component · Apache-2.0",
+    description:
+      "Hosts a web app on Convex: static files and server-rendered TanStack Start pages, from the deployment that runs the backend.",
+    href: "https://github.com/samebase/convex-hosting",
+  },
+  {
+    name: "@samebase/sidebars",
+    meta: "npm · MIT",
+    description:
+      "The unstyled React sidebar layout of samebase.com: left and right panes, resizing, and mobile scroll snapping.",
+    href: "https://github.com/samebase/samebase/tree/main/packages/sidebars",
+  },
+  {
+    name: "samebase/plugin",
+    meta: "Agent plugin · Apache-2.0",
+    description:
+      "Samebase for Codex, ChatGPT, and Claude Code: list, create, and connect apps from your agent.",
+    href: "https://github.com/samebase/plugin",
   },
 ] as const;
 
 const LANDING_FAQS = [
   {
     answer:
-      "You don't, for the code. Samebase does the part around it: the repository, the deploy, Google sign-in, previews, and one list of what every app deployed.",
-    question: "Codex already writes Convex well. Why do I need Samebase?",
+      "Not for the starter or the packages. The dashboard needs one: sign in with GitHub, connect GitHub, and choose the repositories to list.",
+    question: "Do I need an account?",
+  },
+  {
+    answer: (
+      <>
+        Stacks whose state carries a run record that names the repository. The starter writes it.
+        For your own stack, put <LandingCode>withRunRecord</LandingCode> from{" "}
+        <LandingExternalLink href={`${LANDING_ALCHEMY_KIT_URL}#run-record`}>
+          @samebase/alchemy-kit
+        </LandingExternalLink>{" "}
+        over the state layer. In the Convex store, the stack name must also be{" "}
+        <LandingCode>owner/name</LandingCode>.
+      </>
+    ),
+    question: "Which stacks does the dashboard show?",
   },
   {
     answer:
-      "You can. The template is public and published from the Samebase repository. Existing apps do not change unless you update them.",
-    question: "Ok, but can't I just get your template and not use Samebase?",
+      "Yes. A personal account lists up to 12 repositories, and a GitHub organization 6 with 2 members. GitHub, Convex, and Cloudflare bill their own usage.",
+    question: "Is it free?",
   },
   {
     answer: (
       <>
-        So you connect with one click. A Convex OAuth token has no expiry date; a Cloudflare one
-        lasts an hour.{" "}
-        <LandingInlineLink to={DOCS_THE_BIG_MIGRATION_ROUTE}>The big migration</LandingInlineLink>{" "}
-        has the details.
+        The packages and the templates are, under Apache-2.0 or MIT. The dashboard is
+        source-available under the{" "}
+        <LandingExternalLink href="https://fsl.software">FSL</LandingExternalLink>: any use except a
+        competing commercial service, and each version becomes Apache-2.0 two years after its
+        release.
       </>
     ),
-    question: "Why is the Alchemy state in Convex?",
-  },
-  {
-    answer:
-      "Yes. Declare a Worker in alchemy.run.ts and add CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID to your repository.",
-    question: "Can I use Cloudflare?",
-  },
-  {
-    answer: (
-      <>
-        It's in beta, and so is{" "}
-        <LandingReceiptLink href="https://alchemy.run">Alchemy 2</LandingReceiptLink>. Your apps
-        keep running either way.
-      </>
-    ),
-    question: "Is Samebase stable?",
-  },
-  {
-    answer: (
-      <>
-        Source-available, not open source. The app is under the{" "}
-        <LandingReceiptLink href="https://fsl.software">FSL</LandingReceiptLink>: use it, change it,
-        run your own, but do not sell a competing service. Each version becomes Apache 2.0 two years
-        after its release. The template and the agent plugin are Apache 2.0.
-      </>
-    ),
-    question: "Is Samebase open source?",
+    question: "Is it open source?",
   },
   {
     answer: "Kinda.",
@@ -141,34 +157,12 @@ const LANDING_FAQS = [
   },
 ] as const;
 
-/**
- * Book-style footnote marker: small, cyan, top-aligned against display-size
- * text, jumping to the receipts block at the bottom of the page.
- */
-function LandingFootnoteMark({
-  fragment,
-  label,
-  marker,
-}: {
-  fragment: string;
-  label: string;
-  marker: string;
-}) {
-  return (
-    <sup className="text-[0.55em] leading-none tracking-normal">
-      <a
-        aria-label={label}
-        className="font-semibold text-secondary no-underline"
-        href={`#${fragment}`}
-      >
-        {marker}
-      </a>
-    </sup>
-  );
-}
+const LANDING_PARAGRAPH_CLASS_NAME = "max-w-[58ch] text-base leading-relaxed text-primary";
+/** The actions are links: `no-underline` overrides the base underline of every link. */
+const LANDING_ACTION_CLASS_NAME = "h-auto px-6 py-2.5 no-underline";
 
-/** External receipt sources open in a new tab; internal navigation stays on Link. */
-function LandingReceiptLink({ children, href }: { children: ReactNode; href: string }) {
+/** External links open in a new tab; internal navigation stays on Link. */
+function LandingExternalLink({ children, href }: { children: ReactNode; href: string }) {
   return (
     <a
       className="underline decoration-current underline-offset-4 hover:text-foreground"
@@ -189,6 +183,28 @@ function LandingInlineLink({ children, to }: { children: ReactNode; to: string }
     >
       {children}
     </Link>
+  );
+}
+
+/** The inline code style of the docs pages (`MarkdownLandingDocument`). */
+function LandingCode({ children }: { children: ReactNode }) {
+  return (
+    <code className="border bg-accent px-1 py-0.5 font-mono text-[0.8125rem] leading-5 text-accent-foreground">
+      {children}
+    </code>
+  );
+}
+
+function LandingStarterAction() {
+  return (
+    <a
+      className={cn(buttonVariants(), LANDING_ACTION_CLASS_NAME)}
+      href={LANDING_STARTER_URL}
+      rel="noreferrer"
+      target="_blank"
+    >
+      Use the starter
+    </a>
   );
 }
 
@@ -214,84 +230,66 @@ function LandingSectionIntro({ heading, sub }: { heading: ReactNode; sub?: React
   );
 }
 
-const COPY_LABEL_RESET_DELAY_MS = 1500;
-
-function LandingCopyPromptButton() {
-  const [copied, setCopied] = useState(false);
-  const resetTimeoutRef = useRef<number | null>(null);
-
-  return (
-    <button
-      className="w-full border-t border-border px-5 py-3 text-left font-mono text-[13px] font-semibold hover:bg-muted @2xl:w-auto @2xl:border-l @2xl:border-t-0 @2xl:text-center"
-      onClick={() => {
-        // The label only flips on a successful write; a denied clipboard
-        // permission leaves the prompt selectable and the button unchanged.
-        void navigator.clipboard
-          .writeText(LANDING_AGENT_PROMPT)
-          .then(() => {
-            setCopied(true);
-            if (resetTimeoutRef.current !== null) {
-              window.clearTimeout(resetTimeoutRef.current);
-            }
-            resetTimeoutRef.current = window.setTimeout(() => {
-              setCopied(false);
-            }, COPY_LABEL_RESET_DELAY_MS);
-          })
-          .catch(() => {});
-      }}
-      type="button"
-    >
-      {copied ? "Copied" : "Copy prompt"}
-    </button>
-  );
-}
-
-function LandingClaim({ children, heading }: { children: ReactNode; heading: ReactNode }) {
+function LandingHalf({ children, heading }: { children: ReactNode; heading: string }) {
   return (
     <div>
       <h2 className="max-w-[30ch] text-[21px] font-semibold leading-[1.3] tracking-[-0.015em] @3xl:text-[23px]">
         {heading}
       </h2>
-      <p className="mt-3 max-w-[52ch] text-base leading-relaxed text-primary">{children}</p>
+      <div className="mt-3 space-y-3">{children}</div>
     </div>
   );
 }
 
-function LandingStep({ body, heading, index }: { body: string; heading: string; index: number }) {
+/**
+The phone capture fills narrow containers up to its own width, and the desktop capture takes over
+from `@3xl`. The theme picks the light or the dark capture. A lazy image that is not displayed is not
+loaded.
+*/
+function LandingDashboardImage() {
+  const imageClassName = "h-auto w-full border border-border";
   return (
-    <li className="grid grid-cols-[26px_minmax(0,1fr)] gap-x-3">
-      <p aria-hidden className="pt-0.5 font-mono text-sm text-secondary">
-        {index}
-      </p>
-      <div>
-        <h3 className="text-base font-semibold tracking-[-0.01em]">{heading}</h3>
-        <p className="mt-1 max-w-[58ch] text-[15px] leading-relaxed text-primary">{body}</p>
+    <figure className="mt-10 @3xl:mt-12">
+      <div className="max-w-[390px] @3xl:hidden">
+        <img
+          alt={LANDING_DASHBOARD_IMAGE_ALT}
+          className={cn(imageClassName, "dark:hidden")}
+          height="731"
+          loading="lazy"
+          src="/landing-preview/repository-page-phone-light.webp"
+          width="390"
+        />
+        <img
+          alt={LANDING_DASHBOARD_IMAGE_ALT}
+          className={cn(imageClassName, "hidden dark:block")}
+          height="731"
+          loading="lazy"
+          src="/landing-preview/repository-page-phone-dark.webp"
+          width="390"
+        />
       </div>
-    </li>
-  );
-}
-
-function LandingFootnote({
-  children,
-  fragment,
-  heading,
-  marker,
-}: {
-  children: ReactNode;
-  fragment: string;
-  heading: string;
-  marker: string;
-}) {
-  return (
-    <div className="grid grid-cols-[26px_minmax(0,1fr)] gap-x-3" id={fragment}>
-      <p aria-hidden className="pt-0.5 font-mono text-sm text-secondary">
-        {marker}
-      </p>
-      <div>
-        <h2 className="text-base font-semibold tracking-[-0.01em]">{heading}</h2>
-        {children}
+      <div className="hidden @3xl:block">
+        <img
+          alt={LANDING_DASHBOARD_IMAGE_ALT}
+          className={cn(imageClassName, "dark:hidden")}
+          height="771"
+          loading="lazy"
+          src="/landing-preview/repository-page-desktop-light.webp"
+          width="1280"
+        />
+        <img
+          alt={LANDING_DASHBOARD_IMAGE_ALT}
+          className={cn(imageClassName, "hidden dark:block")}
+          height="771"
+          loading="lazy"
+          src="/landing-preview/repository-page-desktop-dark.webp"
+          width="1280"
+        />
       </div>
-    </div>
+      <figcaption className="mt-2 text-sm text-muted-foreground">
+        The repository page of an example app.
+      </figcaption>
+    </figure>
   );
 }
 
@@ -304,20 +302,15 @@ function LandingPreviewOverview() {
       <div className="mx-auto w-full max-w-[1200px] px-6 pt-10 @2xl:px-10 @3xl:pt-0">
         <section>
           <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3 @3xl:pt-4">
-            <p className="flex items-center gap-4">
-              <span className="flex items-center gap-1.5">
-                <img
-                  alt=""
-                  className="h-9 w-9 dark:invert"
-                  height="36"
-                  src={LANDING_INLINE_80_PERCENT_MARK_SVG_URL}
-                  width="36"
-                />
-                <span className="text-2xl font-semibold tracking-[-0.01em]">Samebase</span>
-              </span>
-              <Badge className="h-7 -rotate-3 rounded-none border-0 bg-blue-600 px-3 py-0 text-sm font-semibold text-white">
-                BETA
-              </Badge>
+            <p className="flex items-center gap-1.5">
+              <img
+                alt=""
+                className="h-9 w-9 dark:invert"
+                height="36"
+                src={LANDING_INLINE_80_PERCENT_MARK_SVG_URL}
+                width="36"
+              />
+              <span className="text-2xl font-semibold tracking-[-0.01em]">Samebase</span>
             </p>
             <a
               className="flex items-center gap-1.5 text-sm font-medium text-primary hover:text-foreground"
@@ -332,137 +325,119 @@ function LandingPreviewOverview() {
           <div className="@3xl:grid @3xl:grid-cols-2 @3xl:gap-4">
             <div className="pb-4">
               <h1 className="mt-10 max-w-[24ch] text-[clamp(34px,4.6cqw,56px)] font-bold leading-[1.06] tracking-[-0.035em]">
-                Give your coding agent a working app.
+                A dashboard for Alchemy.
               </h1>
               <p className="mt-7 max-w-[46ch] text-lg leading-relaxed text-primary">
-                A repository in your GitHub, a Convex project in your team, a live URL, Google
-                sign-in, and a preview per pull request. Deployed by Alchemy from your own GitHub
-                Actions.
+                Samebase reads the state that{" "}
+                <LandingExternalLink href="https://alchemy.run">Alchemy</LandingExternalLink> keeps
+                and shows every app you deploy: its URL, the deployed commit, its checks, and the
+                preview of each pull request.
               </p>
-              <p className="mt-4 max-w-[46ch] text-lg leading-relaxed text-primary">
-                Or use the{" "}
+              <div className="mt-8 flex flex-wrap items-center gap-3">
+                <LandingStarterAction />
                 <a
-                  className="underline decoration-current underline-offset-4 hover:text-foreground"
-                  href="https://github.com/samebase/base"
+                  className={cn(buttonVariants({ variant: "outline" }), LANDING_ACTION_CLASS_NAME)}
+                  href="https://github.com/samebase"
                   rel="noreferrer"
                   target="_blank"
                 >
-                  samebase/base
-                </a>{" "}
-                template without an account.
+                  Source on GitHub
+                </a>
+              </div>
+              <p className="mt-4 max-w-[46ch] text-[15px] leading-relaxed text-muted-foreground">
+                The starter deploys a new app from a GitHub repository with one secret. It needs no
+                Samebase account.
               </p>
-              <div className="mt-7 border border-border @2xl:flex @2xl:items-stretch">
-                <p className="flex-1 bg-muted/50 px-4 py-3.5 font-mono text-[13px] leading-relaxed">
-                  {LANDING_AGENT_PROMPT}
-                </p>
-                <LandingCopyPromptButton />
-              </div>
-              <div className="mt-9">
-                <PublicLandingPrimaryAction />
-              </div>
             </div>
             <LandingHeroMenger placement="preview" />
           </div>
-          <iframe
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-            allowFullScreen
-            className="mt-8 block aspect-video w-full border-0"
-            data-testid="landing-preview-hero-video"
-            referrerPolicy="strict-origin-when-cross-origin"
-            src="https://www.youtube-nocookie.com/embed/ovMWyoajRMk"
-            title="Samebase logo film"
-          />
+          <LandingDashboardImage />
         </section>
 
-        <LandingSection ariaLabel="How it works">
-          <LandingSectionIntro
-            heading="An opinionated way to use Alchemy."
-            sub={
-              <>
-                <LandingReceiptLink href="https://alchemy.run">Alchemy</LandingReceiptLink> deploys
-                your app from one file. The opinion: its state lives in Convex, so one OAuth click
-                is enough.
-              </>
-            }
-          />
-          <ol className="mt-8 grid gap-5 @3xl:grid-cols-2 @3xl:gap-x-14">
-            {LANDING_STEPS.map((step, index) => (
-              <LandingStep
-                body={step.body}
-                heading={step.heading}
-                index={index + 1}
-                key={step.heading}
-              />
-            ))}
-          </ol>
-          <p className="mt-8 max-w-[58ch] text-base leading-relaxed text-primary">
-            After setup, Samebase changes nothing in your accounts. Your repository deploys, your
-            agent fixes.
-          </p>
+        <LandingSection ariaLabel="Why I build it">
+          <LandingSectionIntro heading="Why I build it" />
+          <div className="mt-6 space-y-4">
+            <p className={LANDING_PARAGRAPH_CLASS_NAME}>
+              I'm Nicu. I have many app ideas, and most of them are small. A coding agent builds one
+              quickly. Keeping track of where each one is deployed, how, and whether it is up to
+              date is the hard part, and it grows with every app.
+            </p>
+            <p className={LANDING_PARAGRAPH_CLASS_NAME}>
+              Samebase is how I keep track of mine. I think Alchemy is the correct way to deploy an
+              app, so everything here is built on it, and samebase.com deploys itself the same way.
+            </p>
+            <p className={LANDING_PARAGRAPH_CLASS_NAME}>
+              One person maintains it. The source is public, and it is in beta, as Alchemy 2 is.
+            </p>
+          </div>
         </LandingSection>
 
-        <LandingSection ariaLabel="Four claims">
+        <LandingSection ariaLabel="What it does">
           <div className="grid gap-x-14 gap-y-10 @3xl:grid-cols-2">
-            <LandingClaim heading="Delete your Samebase account. Your app keeps running.">
-              It keeps deploying too. Swap CONVEX_ACCESS_TOKEN for your own team token before you
-              revoke Samebase at Convex. Google sign-in keeps working. The{" "}
-              <LandingInlineLink to={DOCS_DO_IT_YOURSELF_ROUTE}>
-                do-it-yourself recipe
-              </LandingInlineLink>{" "}
-              is the same stack with no account.
-            </LandingClaim>
-            <LandingClaim
-              heading={
-                <>
-                  No client-facing database to leave open.
-                  <LandingFootnoteMark
-                    fragment="landing-note-risk"
-                    label="footnote: not hypothetical"
-                    marker="§"
-                  />
-                </>
-              }
-            >
-              Convex is reachable only through functions you wrote. Access checks live in code you
-              can read and test.
-            </LandingClaim>
-            <LandingClaim heading="Run agents in parallel. Every PR gets its own preview, with its own database.">
-              Local folder, worktrees, pull requests: each lane has isolated code, data, and deploy.
-            </LandingClaim>
-            <LandingClaim heading="We resell nothing. Not tokens, not hosting.">
-              Providers bill you at their own prices. Idle apps sit in free tiers.
-            </LandingClaim>
+            <LandingHalf heading="See every app">
+              <p className={LANDING_PARAGRAPH_CLASS_NAME}>
+                Alchemy records every resource that it deploys. Samebase reads that record for each
+                repository you connect and shows its stacks: the URL, the resources behind it, the
+                deployed commit, the checks, and the preview of each open pull request.
+              </p>
+              <p className={LANDING_PARAGRAPH_CLASS_NAME}>
+                The state can live in a Convex project, in Cloudflare, or on a branch of the
+                repository.
+              </p>
+              <p className={LANDING_PARAGRAPH_CLASS_NAME}>
+                Your apps run in your own GitHub, Convex, and Cloudflare accounts. Deploys run in
+                your GitHub Actions, and you fix a failed one there, yourself or with your agent.
+              </p>
+            </LandingHalf>
+            <LandingHalf heading="Start an app">
+              <p className={LANDING_PARAGRAPH_CLASS_NAME}>
+                <LandingExternalLink href={LANDING_STARTER_URL}>samebase/base</LandingExternalLink>{" "}
+                is a GitHub template. Add one secret, <LandingCode>CONVEX_ACCESS_TOKEN</LandingCode>
+                , and push. Alchemy creates the Convex project and deploys the site from GitHub
+                Actions.
+              </p>
+              <p className={LANDING_PARAGRAPH_CLASS_NAME}>
+                Each pull request gets its own deployment with its own data. Google sign-in works on
+                every one of them.
+              </p>
+              <p className={LANDING_PARAGRAPH_CLASS_NAME}>
+                Convex is the default backend and host. Any other Alchemy resource goes in{" "}
+                <LandingCode>alchemy.run.ts</LandingCode>, a Cloudflare Worker for example.
+              </p>
+              <p className={LANDING_PARAGRAPH_CLASS_NAME}>
+                In the dashboard, New App does the same steps for you.{" "}
+                <LandingInlineLink to={DOCS_THE_STACK_ROUTE}>The stack</LandingInlineLink> lists
+                what the starter ships, and{" "}
+                <LandingInlineLink to={DOCS_DO_IT_YOURSELF_ROUTE}>Do it yourself</LandingInlineLink>{" "}
+                is the same steps by hand.
+              </p>
+            </LandingHalf>
           </div>
         </LandingSection>
 
-        <LandingSection ariaLabel="What it costs">
-          <LandingSectionIntro heading="What it costs" />
-          <div className="mt-6 max-w-[760px]">
-            {LANDING_COST_ROWS.map((row) => (
-              <div
-                className="flex items-baseline justify-between gap-6 border-t border-border py-3"
-                key={row.profile}
-              >
-                <p className="text-base">{row.profile}</p>
-                <p
-                  className={
-                    row.zeroCost
-                      ? "text-right font-mono text-sm font-semibold text-secondary"
-                      : "text-right font-mono text-sm"
-                  }
+        <LandingSection ariaLabel="The parts">
+          <LandingSectionIntro
+            heading="The parts"
+            sub="Built along the way and published on their own, under Apache-2.0 or MIT."
+          />
+          <ul className="mt-8 grid gap-4 @3xl:grid-cols-2">
+            {LANDING_PARTS.map((part) => (
+              <li key={part.name}>
+                <a
+                  className="block h-full border border-border p-5 no-underline hover:bg-muted"
+                  href={part.href}
+                  rel="noreferrer"
+                  target="_blank"
                 >
-                  {row.value}
-                  {row.zeroCost ? (
-                    <LandingFootnoteMark
-                      fragment="landing-note-zero"
-                      label="footnote: zero"
-                      marker="‡"
-                    />
-                  ) : null}
-                </p>
-              </div>
+                  <p className="font-mono text-[15px] font-semibold">{part.name}</p>
+                  <p className="mt-1 text-sm text-muted-foreground">{part.meta}</p>
+                  <p className="mt-3 text-[15px] leading-relaxed text-primary">
+                    {part.description}
+                  </p>
+                </a>
+              </li>
             ))}
-          </div>
+          </ul>
         </LandingSection>
 
         <LandingSection ariaLabel="Frequently asked questions">
@@ -485,61 +460,6 @@ function LandingPreviewOverview() {
           </Accordion>
         </LandingSection>
 
-        <section className="mt-16 @3xl:mt-24">
-          <blockquote className="max-w-[24ch] text-[clamp(28px,4cqw,40px)] font-semibold leading-[1.2] tracking-[-0.025em]">
-            If your app builder is so good, why is it not building itself?
-          </blockquote>
-          <p className="mt-5 max-w-[52ch] text-base leading-relaxed text-primary">
-            samebase.com deploys itself with Alchemy from its own GitHub Actions.
-          </p>
-        </section>
-
-        <LandingSection ariaLabel="Footnotes">
-          <div className="grid gap-8 @3xl:grid-cols-2 @3xl:gap-x-14">
-            <LandingFootnote fragment="landing-note-zero" heading="$0/month, receipted." marker="‡">
-              <p className="mt-2 max-w-[58ch] text-[15px] leading-relaxed text-primary">
-                GitHub Free: unlimited private repositories and{" "}
-                <LandingReceiptLink href="https://docs.github.com/en/billing/managing-billing-for-your-products/managing-billing-for-github-actions/about-billing-for-github-actions">
-                  2,000 Actions minutes
-                </LandingReceiptLink>{" "}
-                a month.{" "}
-                <LandingReceiptLink href="https://www.convex.dev/pricing">
-                  Convex Free
-                </LandingReceiptLink>
-                : a million function calls a month. Samebase adds no floor of its own.
-              </p>
-            </LandingFootnote>
-            <LandingFootnote fragment="landing-note-risk" heading="Not hypothetical." marker="§">
-              <p className="mt-2 max-w-[58ch] text-[15px] leading-relaxed text-primary">
-                2024:{" "}
-                <LandingReceiptLink href="https://env.fail/posts/firewreck-1/">
-                  916 sites
-                </LandingReceiptLink>{" "}
-                leaked about 125 million records through misconfigured Firebase. 2025:{" "}
-                <LandingReceiptLink href="https://www.superblocks.com/blog/lovable-vulnerabilities">
-                  170 of 1,645 scanned Lovable apps
-                </LandingReceiptLink>{" "}
-                had broken Supabase row-level security (
-                <LandingReceiptLink href="https://nvd.nist.gov/vuln/detail/CVE-2025-48757">
-                  CVE-2025-48757
-                </LandingReceiptLink>
-                ).
-              </p>
-            </LandingFootnote>
-            <LandingFootnote
-              fragment="landing-note-first-customer"
-              heading="First customer: me, Nicu."
-              marker="*"
-            >
-              <p className="mt-2 max-w-[58ch] text-[15px] leading-relaxed text-primary">
-                Then my close friends. No funnels, no VCs. Every claim links a{" "}
-                <LandingInlineLink to={DOCS_RECEIPTS_ROUTE}>dated receipt</LandingInlineLink> your
-                agent can verify.
-              </p>
-            </LandingFootnote>
-          </div>
-        </LandingSection>
-
         <LandingSection>
           <div className="@4xl:grid @4xl:grid-cols-[minmax(0,1fr)_420px] @4xl:items-center @4xl:gap-x-14">
             <div>
@@ -554,9 +474,7 @@ function LandingPreviewOverview() {
                 Do it yourself is every step Samebase automates. It doubles as the exit door.
               </p>
               <div className="mt-8 flex flex-wrap items-center gap-x-7 gap-y-4">
-                <div>
-                  <PublicLandingPrimaryAction />
-                </div>
+                <LandingStarterAction />
                 <LandingInlineLink to={DOCS_DO_IT_YOURSELF_ROUTE}>Do it yourself</LandingInlineLink>
               </div>
             </div>
@@ -572,28 +490,6 @@ function LandingPreviewOverview() {
         </LandingSection>
       </div>
     </article>
-  );
-}
-
-function PublicLandingPrimaryAction() {
-  // The landing is prerendered without a session, so it shows the sign-in until the browser's
-  // provider confirms one.
-  const { isAuthenticated } = useConvexAuth();
-
-  return (
-    <div className="w-fit max-w-full" data-testid={PUBLIC_LANDING_PRIMARY_ACTION_TEST_ID}>
-      <div className={isAuthenticated ? "hidden" : undefined}>
-        <SignInWithOAuth provider="github" authReturn="dashboard" markPublicSignupReturn />
-      </div>
-      <div className={isAuthenticated ? undefined : "hidden"}>
-        <Link
-          className={cn(buttonVariants(), SIGN_IN_WITH_OAUTH_BUTTON_CLASS_NAME)}
-          to={DASHBOARD_ROUTE}
-        >
-          Go to dashboard
-        </Link>
-      </div>
-    </div>
   );
 }
 

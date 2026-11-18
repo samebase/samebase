@@ -16,8 +16,6 @@ import docsDoItYourselfMarkdown from "@/content/docs-do-it-yourself.md?raw";
 import docsPricingMarkdown from "@/content/docs-pricing.md?raw";
 import docsTheBigMigrationMarkdown from "@/content/docs-the-big-migration.md?raw";
 import docsTheStackMarkdown from "@/content/docs-the-stack.md?raw";
-import { DASHBOARD_ROUTE } from "@/lib/dashboardRoute";
-import { PUBLIC_LANDING_GITHUB_AUTH_SLOT_TEST_ID } from "@/lib/publicLanding";
 import { PUBLIC_LANDING_LOGO_TEST_ID } from "@/lib/publicLandingLogo";
 import { SAMEBASE_PUBLIC_LINKS } from "@/lib/publicLinks";
 import {
@@ -143,12 +141,11 @@ describe("LandingPage", () => {
 
     const sectionPositions = [
       "<h1",
-      'data-testid="landing-preview-hero-video"',
-      'aria-label="How it works"',
-      'aria-label="Four claims"',
-      'aria-label="What it costs"',
+      'src="/landing-preview/repository-page-desktop-light.webp"',
+      'aria-label="Why I build it"',
+      'aria-label="What it does"',
+      'aria-label="The parts"',
       'aria-label="Frequently asked questions"',
-      'aria-label="Footnotes"',
       `data-testid="${PUBLIC_LANDING_LOGO_TEST_ID}"`,
     ].map((marker) => markup.indexOf(marker));
     expect(sectionPositions).not.toContain(-1);
@@ -161,41 +158,13 @@ describe("LandingPage", () => {
     expect(markup).toContain(
       'href="https://github.com/samebase/base" rel="noreferrer" target="_blank"',
     );
-    for (const route of [
-      DOCS_DO_IT_YOURSELF_ROUTE,
-      DOCS_RECEIPTS_ROUTE,
-      DOCS_THE_BIG_MIGRATION_ROUTE,
-    ]) {
+    for (const route of [DOCS_DO_IT_YOURSELF_ROUTE, DOCS_THE_STACK_ROUTE]) {
       expect(markup).toContain(`href="${route}"`);
-    }
-
-    const footnoteFragments = Array.from(markup.matchAll(/href="#([^"]+)"/g), (match) => match[1]);
-    expect(footnoteFragments.length).toBeGreaterThan(0);
-    for (const fragment of footnoteFragments) {
-      expect(markup).toContain(`id="${fragment}"`);
     }
 
     const faqQuestionCount = countOccurrences(markup, 'data-slot="accordion-trigger"');
     expect(faqQuestionCount).toBeGreaterThan(0);
     expect(countOccurrences(markup, 'data-slot="accordion-content"')).toBe(faqQuestionCount);
-  });
-
-  it("reuses the GitHub OAuth action in both signed-out landing CTA positions", () => {
-    const markup = renderToStaticMarkup(<LandingPage />);
-
-    expect(
-      countOccurrences(markup, `data-testid="${PUBLIC_LANDING_GITHUB_AUTH_SLOT_TEST_ID}"`),
-    ).toBe(2);
-    expect(countOccurrences(markup, '<div class="hidden"><a')).toBe(2);
-  });
-
-  it("links both signed-in landing CTA positions to the dashboard", () => {
-    authState.isAuthenticated = true;
-
-    const markup = renderToStaticMarkup(<LandingPage />);
-
-    expect(countOccurrences(markup, `href="${DASHBOARD_ROUTE}"`)).toBe(2);
-    expect(countOccurrences(markup, '<div class="hidden"><button')).toBe(2);
   });
 
   it("keeps the docs sidebar in the routes' static left pane, not in the page", () => {
