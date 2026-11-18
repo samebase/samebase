@@ -1,0 +1,34 @@
+{
+  "name": "@samebase/identity-broker-effect",
+  "version": "0.0.0",
+  "private": true,
+  "description": "The identity broker in Effect, one code base for every host. Cloudflare is the first host.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit --project tsconfig.json && tsc --noEmit --project tsconfig.node.json",
+    "lint": "pnpm --dir ../.. exec vp lint --tsconfig packages/identity-broker-effect/tsconfig.node.json --report-unused-disable-directives packages/identity-broker-effect/src packages/identity-broker-effect/alchemy.run.ts",
+    "test": "pnpm --dir ../.. exec vp test run --project identity-broker-effect",
+    "check": "pnpm run typecheck && pnpm run lint && pnpm run test",
+    "deploy": "alchemy deploy",
+    "destroy": "alchemy destroy"
+  },
+  "dependencies": {
+    "effect": "4.1.2",
+    "jose": "6.2.13",
+    "oauth4webapi": "3.8.8"
+  },
+  "devDependencies": {
+    "@alchemy.run/cloudflare": "2.0.0-beta.85",
+    "@cloudflare/workers-types": "5.20261028.1",
+    "@types/node": "24.19.2",
+    "alchemy": "2.0.0-beta.85",
+    "fast-check": "4.10.2",
+    "openid-client": "6.8.8",
+    "typescript": "7.0.2",
+    "vite-plus": "catalog:"
+  },
+  "engines": {
+    "node": ">=24.11.0"
+  }
+}

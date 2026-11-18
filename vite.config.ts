@@ -320,6 +320,7 @@ export default defineConfig({
             "apps/samebase/convex/**/*.convex.test.ts",
             "apps/identity-hub/**",
             "packages/identity-broker/**",
+            "packages/identity-broker-effect/**",
             "packages/alchemy-convex/**",
             "packages/alchemy-kit/**",
           ],
@@ -359,6 +360,15 @@ export default defineConfig({
           include: ["packages/identity-broker/src/**/*.test.ts"],
           // `*.pages.test.ts` are the broker's Playwright screenshots (its playwright.config.ts).
           exclude: ["**/node_modules/**", "dist", "dev-dist", "**/*.pages.test.ts"],
+        },
+      },
+      {
+        extends: true,
+        test: {
+          name: "identity-broker-effect",
+          environment: "node",
+          include: ["packages/identity-broker-effect/src/**/*.test.ts"],
+          exclude: ["**/node_modules/**"],
         },
       },
       {
