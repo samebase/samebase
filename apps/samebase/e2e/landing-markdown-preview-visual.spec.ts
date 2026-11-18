@@ -166,7 +166,8 @@ test("landing preview FAQ stays responsive while the closing logo is off screen"
 
   const article = page.getByTestId(LANDING_PREVIEW_ARTICLE_TEST_ID);
   const faq = article.getByRole("region", { name: "Frequently asked questions" });
-  await faq.scrollIntoViewIfNeeded();
+  // The FAQ ends at the bottom of the viewport, so the closing logo after it is below the fold.
+  await faq.evaluate((element) => element.scrollIntoView({ block: "end" }));
   await page.evaluate(async () => {
     await document.fonts.ready;
   });
