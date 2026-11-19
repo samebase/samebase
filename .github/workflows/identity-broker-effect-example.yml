@@ -175,10 +175,11 @@ jobs:
       - name: Smoke test
         if: *gets-client
         run: |
-          authorization_endpoint=$(curl -fsS --max-time 10 "$HUB_ISSUER/.well-known/openid-configuration" | jq -r .authorization_endpoint)
           deadline=$((SECONDS + 90))
           while :; do
-            # `|| true`: a failed request is a retry, not the end of the step.
+            # `|| true`: a failed request is a retry, not the end of the step. The hub's answer is
+            # read in the loop too: a hub deployed a minute ago can answer one request with 500.
+            authorization_endpoint=$(curl -fsS --max-time 10 "$HUB_ISSUER/.well-known/openid-configuration" | jq -r .authorization_endpoint 2>/dev/null || true)
             home=$(curl -sS --max-time 10 -o /dev/null -w '%{http_code}' "$APP_URL/" || true)
             link=$(curl -sS --max-time 10 "$APP_URL/" | grep -Fc 'href="/login"' || true)
             repository=$(curl -sS --max-time 10 "$APP_URL/samebase-verification.json" | jq -r .repository 2>/dev/null || true)
