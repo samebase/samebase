@@ -18,6 +18,11 @@
     "skipLibCheck": true,
     "isolatedModules": true
   },
-  "include": ["src", "test/conformance/hub.ts", "test/conformance/admin.ts"],
+  "include": [
+    "src",
+    "test/conformance/hub.ts",
+    "test/conformance/admin.ts",
+    "test/convex-app/convex"
+  ],
   "exclude": ["src/**/*.test.ts"]
 }
