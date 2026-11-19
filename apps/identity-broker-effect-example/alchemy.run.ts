@@ -1,8 +1,9 @@
 // The Alchemy stack of the example app of the identity broker in Effect: a Worker that signs in
-// with Google through the test hub. .github/workflows/identity-broker-effect-example.yml runs it
-// from this folder at the stage `pr-<number>` of each pull request that changes the app or the
-// broker, and destroys that stage when the pull request closes. Nothing deploys it from a laptop:
-// the hub registers a client only for a GitHub Actions OIDC token.
+// with Google through the app's own hub (src/hub.ts), which only the stage `prod` deploys.
+// .github/workflows/identity-broker-effect-example.yml runs it from this folder at the stage `prod`
+// on a push to main, and at the stage `pr-<number>` of each pull request that changes the app or
+// the broker, and destroys that stage when the pull request closes. Nothing deploys it from a
+// laptop: the hub registers a client only for a GitHub Actions OIDC token.
 //
 // The order of one deploy, and why it takes two runs on a new stage:
 //
@@ -31,11 +32,14 @@
 // The state is in the team's Convex store (docs/alchemy-deploy-standard.md), under the stack name
 // samebase/samebase/apps/identity-broker-effect-example. A run needs CONVEX_ACCESS_TOKEN,
 // CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID, and the permission `id-token: write` for the hub.
+// The stage `prod` also needs the hub's secrets: EXAMPLE_HUB_GOOGLE_CLIENT_ID,
+// EXAMPLE_HUB_GOOGLE_CLIENT_SECRET and IDENTITY_BROKER_KEYS.
 import * as Cloudflare from "@alchemy.run/cloudflare";
 import * as Convex from "@samebase/alchemy-convex";
 import * as Alchemy from "alchemy";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import Hub from "./src/hub.ts";
 import Site from "./src/worker.ts";
 
 export default Alchemy.Stack(
@@ -46,7 +50,11 @@ export default Alchemy.Stack(
     state: Convex.withRunRecord(Convex.state()),
   },
   Effect.gen(function* () {
+    // One hub for the app, so only `prod` has it. Every stage's client names its fixed issuer and
+    // needs no output of it.
+    const { stage } = yield* Alchemy.Stack;
+    const hub = stage === "prod" ? { hub: (yield* Hub).url } : {};
     const site = yield* Site;
-    return { url: site.url };
+    return { url: site.url, ...hub };
   }),
 );

@@ -11,8 +11,8 @@ import { Context, Effect, Layer, Redacted, Schema } from "effect";
 import * as FetchHttpClient from "effect/http/FetchHttpClient";
 import * as oauth from "oauth4webapi";
 
-/** The test hub, an OpenID Provider of packages/identity-broker-effect. */
-const HUB = { issuer: "https://identity-broker-effect-dev-spike.pfp.workers.dev" };
+/** The app's own hub (src/hub.ts), which the stage `prod` deploys. */
+const HUB = { issuer: "https://identity-broker-effect-example-hub-prod.pfp.workers.dev" };
 /** IdentityHub.Client gives this client id when the deployment has no client. */
 const OFF_CLIENT_ID = "no-hub";
 /** The hub connector that the sign-in link names. */
@@ -207,12 +207,13 @@ export class HubClient extends Context.Service<
     );
 
   /**
-   * The service on Cloudflare, with the client of this deployment on the test hub. Yielding the
-   * client's Outputs here binds them to the Worker as IDENTITY_HUB_* at deploy, and reads them from
-   * the Worker's env per request. The hub registers the client only for a GitHub Actions OIDC
-   * token, after it reads `/samebase-verification.json` at the origin of `redirectUri`; until then
-   * the client gives the off values. `Convex.providers()` in the stack holds the client's provider,
-   * so none of its code runs in the Worker.
+   * The service on Cloudflare, with the client of this deployment on the app's hub: a production
+   * client at the stage `prod`, a preview client at every other stage. Yielding the client's
+   * Outputs here binds them to the Worker as IDENTITY_HUB_* at deploy, and reads them from the
+   * Worker's env per request. The hub registers the client only for a GitHub Actions OIDC token, a
+   * production client only for a run of main, after it reads `/samebase-verification.json` at the
+   * origin of `redirectUri`; until then the client gives the off values. `Convex.providers()` in
+   * the stack holds the client's provider, so none of its code runs in the Worker.
    */
   static readonly layer = (redirectUri: (stage: string) => string) =>
     Layer.unwrap(
@@ -223,7 +224,7 @@ export class HubClient extends Context.Service<
             hub: HUB,
             connectors: [CONNECTOR],
             redirectUris: [redirectUri(stage)],
-            deploymentType: "preview",
+            deploymentType: stage === "prod" ? "production" : "preview",
           }),
         );
         return HubClient.layerWith({
