@@ -70,13 +70,13 @@
     "@samebase/alchemy-kit": "workspace:^"
   },
   "devDependencies": {
-    "@alchemy.run/cloudflare": "2.0.0-beta.87",
+    "@alchemy.run/cloudflare": "https://pkg.alchemy.run/@alchemy.run/cloudflare/pr:3167:44fd6d0",
     "@alchemy.run/test": "2.0.0-beta.87",
     "@arethetypeswrong/core": "0.18.5",
     "@effect/platform-node": "4.1.4",
     "@effect/vitest": "4.1.4",
     "@types/node": "24.19.2",
-    "alchemy": "2.0.0-beta.87",
+    "alchemy": "https://pkg.alchemy.run/alchemy/pr:3167:44fd6d0",
     "convex": "1.48.0",
     "convex-test": "0.0.60",
     "effect": "4.1.4",
