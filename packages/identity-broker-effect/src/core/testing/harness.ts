@@ -239,10 +239,15 @@ export type TestStore = {
   readonly run: <N extends CommandName>(name: N, args: Args<N>) => Result<N>;
   readonly setNow: (ms: number) => void;
   readonly withTx: <A>(effect: Effect.Effect<A, never, Tx>) => A;
+  /** `withTx` for a host whose steps are async; `registerClient` seeds through it. */
+  readonly seed: <A>(effect: Effect.Effect<A, never, Tx>) => Promise<A>;
   readonly db: { readonly contents: () => { readonly [T in TableName]: ReadonlyArray<Doc<T>> } };
 };
 
-let makeTestStore: (now: number) => TestStore = (now) => makeMemoryStore({ now });
+let makeTestStore: (now: number) => TestStore = (now) => {
+  const memory = makeMemoryStore({ now });
+  return { ...memory, seed: async (effect) => memory.withTx(effect) };
+};
 
 /**
  * Runs every later `createBroker` of this test file on `make`: a test file that sets it and then
@@ -285,7 +290,11 @@ const contentsOf = (store: Pick<TestStore, "withTx">) => () =>
  */
 export function sqliteTestStore(database: SqliteDatabase, now: number): TestStore {
   const sqlite = makeSqliteStore(database, { now });
-  return { ...sqlite, db: { contents: contentsOf(sqlite) } };
+  return {
+    ...sqlite,
+    seed: async (effect) => sqlite.withTx(effect),
+    db: { contents: contentsOf(sqlite) },
+  };
 }
 
 /**
@@ -359,7 +368,7 @@ export async function createBroker(
     const connectors = [
       ...new Set(args.connectors ?? core.hub.connectors.map((connector) => connector.name)),
     ].sort();
-    memory.withTx(
+    await memory.seed(
       Effect.gen(function* () {
         const tx = yield* Tx;
         if ((yield* unique("tenants", "by_tenant_id", [tenantId])) === undefined) {

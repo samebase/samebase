@@ -11,8 +11,7 @@
 import {
   httpActionGeneric,
   internalActionGeneric,
-  type GenericActionCtx,
-  type GenericDataModel,
+  type FunctionReference,
   type HttpRouter,
 } from "convex/server";
 import { v } from "convex/values";
@@ -61,8 +60,25 @@ const convexFetch = Layer.succeed(
   Fetch.of({ fetch: (request) => fetch(request, { redirect: "manual" }) }),
 );
 
+/**
+ * The mutation `commands.run` of component/commands.ts: `components.<name>.commands.run` of an
+ * app, or the component's own when its functions are the app (the convex-test suite).
+ */
+type RunCommand = FunctionReference<
+  "mutation",
+  "public" | "internal",
+  { name: string; args: string; now: number },
+  string,
+  string | undefined
+>;
+
 /** What the Store uses of a Convex action's context. */
-type Runner = { readonly runMutation: GenericActionCtx<GenericDataModel>["runMutation"] };
+type Runner = {
+  readonly runMutation: (
+    mutation: RunCommand,
+    args: { name: string; args: string; now: number },
+  ) => Promise<string>;
+};
 
 /**
  * The Store of one action: one `commands.run` mutation per command, never retried (a lost reply
@@ -70,13 +86,13 @@ type Runner = { readonly runMutation: GenericActionCtx<GenericDataModel>["runMut
  * failure of the mutation becomes `StoreUnavailable` with no text: the error can carry a defect's
  * message, which must reach no response and no log line.
  */
-export const convexStore = (ctx: Runner, component: ComponentApi) =>
+export const convexStore = (ctx: Runner, run: RunCommand) =>
   Store.of({
     run: Effect.fn("Store.run")(function* <N extends CommandName>(name: N, args: Args<N>) {
       const encoded = JSON.stringify(Schema.encodeSync(commands[name].args)(args));
       const now = yield* Clock.currentTimeMillis;
       const text = yield* Effect.tryPromise({
-        try: () => ctx.runMutation(component.commands.run, { name, args: encoded, now }),
+        try: () => ctx.runMutation(run, { name, args: encoded, now }),
         catch: () => new StoreUnavailable(),
       });
       return decodeResult(name, parseJson(text));
@@ -104,7 +120,7 @@ export const convexHub = <E>(component: ComponentApi, settings: Layer.Layer<HubC
             Keys.layer,
             Random.layer,
             convexFetch,
-            Layer.succeed(Store, convexStore(ctx, component)),
+            Layer.succeed(Store, convexStore(ctx, component.commands.run)),
             hubLogger,
           ),
         ),
@@ -137,7 +153,7 @@ export const convexHub = <E>(component: ComponentApi, settings: Layer.Layer<HubC
       handler: (ctx) =>
         Effect.runPromise(
           Effect.gen(function* () {
-            const store = convexStore(ctx, component);
+            const store = convexStore(ctx, component.commands.run);
             const cutoff = yield* Clock.currentTimeMillis;
             let more = true;
             while (more) {
