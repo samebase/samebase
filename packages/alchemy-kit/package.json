@@ -58,7 +58,7 @@
   "devDependencies": {
     "@arethetypeswrong/core": "0.18.5",
     "@types/node": "24.19.2",
-    "alchemy": "2.0.0-beta.87",
+    "alchemy": "https://pkg.alchemy.run/alchemy/pr:3167:44fd6d0",
     "effect": "4.1.4",
     "publint": "0.3.25",
     "typescript": "6.0.3",

@@ -1,11 +1,13 @@
 import { execFileSync } from "node:child_process";
 import { encodeFqn } from "alchemy/FQN";
-import { reviveState, State, type StateService, StateStoreError } from "alchemy/State";
+import { State, type StateService, StateStoreError } from "alchemy/State";
 import {
   type BucketObjects,
   makeBucketState,
   type WriteCondition,
 } from "alchemy/State/BucketState";
+import { makeSealingCodec, StateEncryption } from "alchemy/State/StateEncryption";
+import { checkStoreFormat, parseStoreFormat, STORE_FORMAT_FILE } from "alchemy/State/StoreFormat";
 import type * as SecureRandom from "effect/crypto/SecureRandom";
 import * as Data from "effect/Data";
 import * as Deferred from "effect/Deferred";
@@ -14,12 +16,11 @@ import * as HttpClient from "effect/http/HttpClient";
 import * as HttpClientRequest from "effect/http/HttpClientRequest";
 import * as Layer from "effect/Layer";
 import * as Queue from "effect/Queue";
-import * as Redacted from "effect/Redacted";
 import * as Schedule from "effect/Schedule";
 import * as Schema from "effect/Schema";
 import * as Scope from "effect/Scope";
 import { blobSha, commitMessage, encodePath, LEASE_FILE } from "./git.ts";
-import { KEY_VARIABLE, openRecord, parseKey, sealRecord } from "./sealing.ts";
+import { KEY_VARIABLE, openLegacyRecord, parseKey } from "./sealing.ts";
 
 /**
  * An Alchemy state store on a branch of a GitHub repository.
@@ -38,8 +39,6 @@ export interface GitHubStateOptions {
   readonly repository?: string;
   /** @default "alchemy-state-store" */
   readonly branch?: string;
-  /** Base64 of 32 bytes that seals each secret. @default ALCHEMY_GITHUB_STATE_KEY */
-  readonly key?: Redacted.Redacted<string>;
 }
 
 const API = "https://api.github.com";
@@ -50,8 +49,8 @@ const STATE_README = `# Alchemy state
 This branch holds the Alchemy state of this repository. Alchemy deploys write it; do not edit it
 by hand. Each resource is one file, \`{stack}/{stage}/{resource}.json\`.
 
-Each secret value is \`{"__redacted__": {"__sealed__": "v1.<iv>.<ciphertext>"}}\`, sealed with
-AES-256-GCM under the key in ${KEY_VARIABLE}. Every other value is plain JSON.
+A file with a secret starts with an \`alchemy:sealed:1:\` line, and each secret in it is
+\`{"__sealed__": "..."}\`, sealed by Alchemy's state encryption. Every other value is plain JSON.
 
 The deploy lock of each stage is on the branch of the same name with \`-lock\` at the end.
 `;
@@ -500,8 +499,9 @@ export const makeGitHubObjects = (options: GitHubStateOptions = {}) =>
   });
 
 /**
- * The State layer. It reads the key and builds the store on the first state operation, bound to
- * this layer's scope, so a missing key fails the run before any read or write.
+ * The State layer. It builds the store on the first state operation, bound to this layer's scope.
+ * It needs a StateEncryption, such as `passphraseEncryption()`, which seals each secret: a store on
+ * a Git branch keeps no secret in plaintext.
  *
  * A `get` or `getOutput` of a stage that the run has not locked takes no lock. So a preview that
  * reads a resource of `prod` runs beside a deploy of `prod`; with the lock, one of them failed.
@@ -510,19 +510,22 @@ export const makeGitHubObjects = (options: GitHubStateOptions = {}) =>
  */
 export const state = (
   options: GitHubStateOptions = {},
-): Layer.Layer<State, never, HttpClient.HttpClient | SecureRandom.SecureRandom> =>
+): Layer.Layer<State, never, HttpClient.HttpClient | SecureRandom.SecureRandom | StateEncryption> =>
   Layer.effect(
     State,
     Effect.gen(function* () {
       const scope = yield* Effect.scope;
-      // An Alchemy stack provides both: BucketState makes its lease tokens with SecureRandom.
-      const context = yield* Effect.context<HttpClient.HttpClient | SecureRandom.SecureRandom>();
+      // An Alchemy stack provides the first two: BucketState makes its lease tokens with
+      // SecureRandom.
+      const context = yield* Effect.context<
+        HttpClient.HttpClient | SecureRandom.SecureRandom | StateEncryption
+      >();
       const make = Effect.gen(function* () {
-        const key = yield* parseKey(
-          options.key === undefined ? process.env[KEY_VARIABLE] : Redacted.value(options.key),
-        );
+        // One codec for BucketState and the point reads, so a stage mints one data key.
+        const codec = makeSealingCodec(yield* StateEncryption);
+        const legacyKey = yield* Effect.cached(parseKey(process.env[KEY_VARIABLE]));
         const objects = yield* makeGitHubObjects(options);
-        const sealed: BucketObjects = {
+        const opened: BucketObjects = {
           ...objects,
           read: (objectKey) =>
             objects
@@ -531,21 +534,29 @@ export const state = (
                 Effect.flatMap((object) =>
                   object === undefined
                     ? Effect.undefined
-                    : openRecord(key, objectKey, object.text).pipe(
+                    : openLegacyRecord(legacyKey, objectKey, object.text).pipe(
                         Effect.map((text) => ({ text, version: object.version })),
                       ),
                 ),
               ),
-          write: (objectKey, body, condition) =>
-            sealRecord(key, objectKey, body).pipe(
-              Effect.flatMap((text) => objects.write(objectKey, text, condition)),
-            ),
         };
         const bucket = yield* makeBucketState({
           id: "github",
           label: "GitHub",
-          objects: Effect.succeed(sealed),
+          objects: Effect.succeed(opened),
+          codec,
         });
+        // A point read skips BucketState, so it checks the store's format itself.
+        const checkFormat = objects
+          .read(STORE_FORMAT_FILE)
+          .pipe(
+            Effect.flatMap((record) =>
+              checkStoreFormat(
+                "GitHub state store",
+                record === undefined ? undefined : parseStoreFormat(record.text)?.format,
+              ),
+            ),
+          );
         // A state file is `{stack}/{stage}/{file}.json`, and a stack name can hold `/`, such as
         // `owner/name` beside `owner/name/web`. BucketState lists the first folder below a path,
         // which gives `owner` as a stack and `web` as a stage of `owner/name`. So both lists come
@@ -628,7 +639,11 @@ export const state = (
             const lease = locking(request, viaLease);
             if (file === LEASE_FILE || isLocked(key)) return lease;
             const kept = reads.get(path);
-            return (kept === undefined ? sealed.read(path) : Effect.succeed(kept.object)).pipe(
+            return (
+              kept === undefined
+                ? checkFormat.pipe(Effect.andThen(opened.read(path)))
+                : Effect.succeed(kept.object)
+            ).pipe(
               Effect.flatMap((object) => {
                 // The stage can become locked while the file loads: then the lease answers.
                 if (isLocked(key)) return lease;
@@ -636,13 +651,10 @@ export const state = (
                 const first = reads.get(path) ?? { stack, stage, object };
                 reads.set(path, first);
                 const text = first.object?.text;
+                // Decoded only: a stale record is sealed again by the run that locks its stage.
                 return text === undefined
                   ? Effect.undefined
-                  : Effect.try({
-                      // JSON.parse gives `any`: like BucketState, this trusts the file.
-                      try: (): A => JSON.parse(text, reviveState),
-                      catch: () => fail(`Failed to parse state object '${path}'`),
-                    });
+                  : codec.decode<A>(request, text, `state object '${path}'`);
               }),
             );
           });
