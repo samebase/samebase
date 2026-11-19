@@ -5,9 +5,9 @@ change. If a change needs action from you, the entry says so.
 
 ## 2026-11-19
 
-- **v2373: Alchemy stack views.** On a repository's Alchemy page, switch between the tree, a
-  resource inventory, resource dependencies, and Worker bindings. Copy the URL to share a stack,
-  stage, and view.
+- **v2373: Alchemy system diagrams.** Open a repository’s Alchemy page to see its Workers, bindings,
+  and deployment dependencies. Select a resource to inspect its connections. Switch stacks, stages,
+  or views and copy the URL to share the same diagram.
 
 ## 2026-11-18
 

@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vite-plus/test";
-import { stageWorkerBindings } from "./stageWorkerBindings";
+import { stageTopology } from "./stageTopology";
+import { readStageResources, workerBindingGroups } from "./stageWorkerBindings";
+
+const stageWorkerBindings = (rows: Parameters<typeof readStageResources>[0]) =>
+  workerBindingGroups(readStageResources(rows));
 
 function resource(
   fqn: string,
@@ -49,9 +53,27 @@ const bucket = resource("SitePages", "Cloudflare.R2.Bucket", {
   jurisdiction: "default",
 });
 
+it("connects the two Ailegis Workers to their own bound resources and capabilities", () => {
+  const { nodes, edges } = stageTopology({ resources: [reader, ingest, search, bucket] }).bindings;
+  const names = new Map(nodes.map((node) => [node.id, node.name]));
+  expect(edges.map((edge) => [names.get(edge.source), edge.label, names.get(edge.target)])).toEqual(
+    [
+      ["Reader", "PAGES", "PageStore"],
+      ["Reader", "SEARCH", "Search"],
+      ["Reader", "SITE", "SitePages"],
+      ["Ingest", "BROWSER", "Browser Rendering"],
+      ["Ingest", "SITE · NewPages", "Reader"],
+    ],
+  );
+  expect(nodes.find((node) => node.kind === "durable-object")).toMatchObject({
+    name: "PageStore",
+    detail: "Reader",
+  });
+});
+
 describe("stageWorkerBindings", () => {
   it("resolves targets in the selected stage and keeps the scope of each binding name", () => {
-    expect(stageWorkerBindings([ingest, reader, search, bucket])).toEqual([
+    expect(stageWorkerBindings([ingest, reader, search, bucket])).toMatchObject([
       {
         fqn: "Ingest",
         bindings: [

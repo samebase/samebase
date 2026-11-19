@@ -113,6 +113,14 @@ afterEach(() => {
 });
 
 it("compares the selected stack and stage across views, including stacks with the same name", async () => {
+  vi.stubGlobal(
+    "ResizeObserver",
+    class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    },
+  );
   const name = "samebase/samebase";
   const observation = {
     store: "found",
@@ -148,34 +156,30 @@ it("compares the selected stack and stage across views, including stacks with th
     expect(container.querySelector('table[aria-label="Stage resources"]')?.textContent).toContain(
       "PreviewComment",
     );
-    const buttons = () => Array.from(container.querySelectorAll("button"));
-    await act(async () =>
-      buttons()
-        .find((b) => b.textContent === "Dependencies")
-        ?.click(),
-    );
-    const edges = container.querySelector('[aria-label="Resource dependencies"]');
-    expect(Array.from(edges?.children ?? [], (edge) => edge.textContent)).toEqual([
-      "SitePreviewComment",
-      "ProjectSite",
-    ]);
-    await act(async () =>
-      buttons()
-        .find((b) => b.textContent === name)
-        ?.click(),
-    );
-    await act(async () =>
-      buttons()
-        .find((b) => b.textContent === "Worker bindings")
-        ?.click(),
-    );
-    const chosen = container.querySelector('[aria-label="Selected stack"]');
-    expect(chosen?.querySelector("h3")?.textContent).toBe("Worker");
-    expect(chosen?.querySelector("dt")?.textContent).toBe("CONVEX_URL");
-    expect(chosen?.querySelector('[aria-label="Stage"]')?.textContent).toContain("prod");
+    const click = async (label: string) => {
+      const button = Array.from(container.querySelectorAll("button")).find(
+        (b) => b.textContent === label || b.getAttribute("aria-label") === label,
+      );
+      expect(button).toBeDefined();
+      await act(async () => button!.click());
+    };
+    await click("System diagram");
+    expect(container.querySelector('[aria-pressed="true"]')?.textContent).toBe("System diagram");
+    await click("Inspect Site, Convex deployment");
+    const inspector = () => container.querySelector('[aria-label="Selected resource"]');
+    expect(inspector()?.textContent).toContain("Depends onProject");
+    expect(inspector()?.textContent).toContain("Used byPreviewComment");
+    await click("Inventory");
+    await click(name);
+    await click("System diagram");
+    await click("Worker bindings");
+    await click("Inspect Worker, Worker");
+    expect(inspector()?.textContent).toContain("CONVEX_URL");
+    expect(container.querySelector('[aria-label="Stage"]')?.textContent).toContain("prod");
   } finally {
     await act(async () => root.unmount());
     container.remove();
+    vi.unstubAllGlobals();
   }
 });
 

@@ -1,104 +1,174 @@
 import { asRecord, readString } from "../../convex/jsonUtils";
 import type { AlchemyStage } from "../../shared/alchemyStateModel";
+import type { TopologyNode } from "./stageTopology";
 
-type Resource = {
-  fqn: string;
-  type: string;
-  attr: Record<string, unknown>;
-  bindings: unknown;
+// Prefix and escape each part. Logical IDs can themselves contain slashes, dots or colons.
+export const topologyId = (...parts: string[]) => parts.map(encodeURIComponent).join(":");
+
+export function readStageResources(rows: AlchemyStage["resources"]) {
+  return rows.map(({ fqn, value }) => {
+    const state = asRecord(JSON.parse(value));
+    return {
+      fqn,
+      type: readString(state, "resourceType") ?? "unknown",
+      attr: asRecord(state["attr"]),
+      state,
+    };
+  });
+}
+type Resource = ReturnType<typeof readStageResources>[number];
+
+type Binding = {
+  name: string;
+  label: string;
+  target?: string;
+  endpoint?: TopologyNode;
+  entrypoint?: string;
 };
 
-/**
- * Cloudflare persists compiled Worker bindings under `data.bindings` on each Alchemy binding.
- * Use only the target fields for that binding type. Text, JSON and secret bindings carry values
- * in the same object.
- *
- * @see https://github.com/alchemy-run/alchemy/blob/v2.0.0-beta.85/packages/cloudflare/src/Workers/WorkerAsyncBindings.ts
- */
-function bindingTarget(
+const boundResources = {
+  d1: {
+    type: "Cloudflare.D1Database",
+    field: "databaseId",
+    kind: "database",
+    label: "D1 database",
+  },
+  r2_bucket: {
+    type: "Cloudflare.R2.Bucket",
+    field: "bucketName",
+    kind: "bucket",
+    label: "R2 bucket",
+  },
+  service: { type: "Cloudflare.Worker", field: "workerName", kind: "worker", label: "Worker" },
+} as const;
+
+// Cloudflare persists compiled Worker bindings under data.bindings. Only read identifiers for the
+// given binding type: plain text, JSON and secrets store their values alongside these fields.
+// https://github.com/alchemy-run/alchemy/blob/v2.0.0-beta.85/packages/cloudflare/src/Workers/WorkerAsyncBindings.ts
+function describeBinding(
   binding: Record<string, unknown>,
+  name: string,
   type: string,
   worker: Resource,
   resources: Resource[],
-): { label: string; target?: string } {
+): Binding {
   const field = (key: string) => readString(binding, key);
   const environment = field("environment");
-
-  // Physical names can repeat across Cloudflare accounts and R2 jurisdictions. Only replace an
-  // identifier with a logical resource name when the captured state identifies a single target.
-  function resolve(resourceType: string, attribute: string, id: string | undefined) {
+  const account = readString(worker.attr, "accountId");
+  const jurisdiction = field("jurisdiction") ?? "default";
+  // Names can repeat across Cloudflare accounts and R2 jurisdictions. Preserve the provider
+  // identifier if a preview points outside this stage, or a target is ambiguous.
+  function resolve(
+    provider: keyof typeof boundResources,
+    id: string | undefined,
+    env?: string,
+  ): TopologyNode | undefined {
     if (!id) return undefined;
-    const matches = resources.filter(
-      (resource) =>
-        resource.type === resourceType &&
-        resource.attr[attribute] === id &&
-        resource.attr["accountId"] === worker.attr["accountId"] &&
-        (type !== "r2_bucket" ||
-          (resource.attr["jurisdiction"] ?? "default") === (field("jurisdiction") ?? "default")),
-    );
-    return matches.length === 1 ? matches[0].fqn : id;
+    const { type: resourceType, field: attribute, kind, label } = boundResources[provider];
+    const matches = env
+      ? []
+      : resources.filter(
+          (r) =>
+            r.type === resourceType &&
+            r.attr[attribute] === id &&
+            r.attr["accountId"] === worker.attr["accountId"] &&
+            (provider !== "r2_bucket" || (r.attr["jurisdiction"] ?? "default") === jurisdiction),
+        );
+    if (matches.length === 1) {
+      const fqn = matches[0].fqn;
+      return { id: topologyId("resource", fqn), name: fqn, kind, type: label };
+    }
+    return {
+      id: topologyId(
+        "provider",
+        resourceType,
+        account ?? worker.fqn,
+        id,
+        env ?? "",
+        provider === "r2_bucket" ? jurisdiction : "",
+      ),
+      name: env ? `${id} (${env})` : id,
+      kind,
+      type: label,
+      detail: "Provider target",
+    };
   }
 
   switch (type) {
     case "d1":
-      return {
-        label: "D1 database",
-        target: resolve("Cloudflare.D1Database", "databaseId", field("databaseId")),
-      };
-    case "r2_bucket":
-      return {
-        label: "R2 bucket",
-        target: resolve("Cloudflare.R2.Bucket", "bucketName", field("bucketName")),
-      };
+    case "r2_bucket": {
+      const { field: targetField, label } = boundResources[type];
+      const endpoint = resolve(type, field(targetField));
+      return { name, label, target: endpoint?.name, endpoint };
+    }
     case "service":
     case "self_service": {
-      const service = field("service");
-      const name =
+      const endpoint: TopologyNode | undefined =
         type === "self_service"
-          ? worker.fqn
-          : service && environment
-            ? `${service} (${environment})`
-            : resolve("Cloudflare.Worker", "workerName", service);
+          ? {
+              id: topologyId("resource", worker.fqn),
+              name: worker.fqn,
+              kind: "worker",
+              type: "Worker",
+            }
+          : resolve("service", field("service"), environment);
+      const entrypoint = field("entrypoint");
       return {
+        name,
         label: "Worker service",
-        target: [name, field("entrypoint")].filter(Boolean).join("."),
+        target: [endpoint?.name, entrypoint].filter(Boolean).join("."),
+        endpoint,
+        entrypoint,
       };
     }
     case "durable_object_namespace": {
-      const script = field("scriptName");
-      const owner =
-        script && environment
-          ? `${script} (${environment})`
-          : resolve("Cloudflare.Worker", "workerName", script);
+      const owner = resolve("service", field("scriptName"), environment);
+      const className = field("className");
+      const label = field("storage") === "sqlite" ? "Durable Object · SQLite" : "Durable Object";
       return {
-        label: field("storage") === "sqlite" ? "Durable Object · SQLite" : "Durable Object",
-        target: [owner, field("className")].filter(Boolean).join("."),
+        name,
+        label,
+        target: [owner?.name, className].filter(Boolean).join("."),
+        endpoint: className
+          ? {
+              id: topologyId("class", owner?.id ?? topologyId("resource", worker.fqn), className),
+              name: className,
+              kind: "durable-object",
+              type: label,
+              detail: owner?.name ?? worker.fqn,
+            }
+          : undefined,
       };
     }
     case "browser":
-      return { label: "Browser Rendering" };
+      return {
+        name,
+        label: "Browser Rendering",
+        endpoint: {
+          id: topologyId("browser", worker.fqn, name),
+          name: "Browser Rendering",
+          kind: "browser",
+          type: "Browser binding",
+        },
+      };
     case "plain_text":
-      return { label: "Text" };
+      return { name, label: "Text" };
     case "secret_text":
-      return { label: "Secret" };
+      return { name, label: "Secret" };
     case "json":
-      return { label: "JSON" };
+      return { name, label: "JSON" };
     default:
-      return { label: type };
+      return { name, label: type };
   }
 }
 
-export function stageWorkerBindings(rows: AlchemyStage["resources"]) {
-  const resources: Resource[] = rows.flatMap(({ fqn, value }) => {
-    const state = asRecord(JSON.parse(value));
-    const type = readString(state, "resourceType");
-    return type ? [{ fqn, type, attr: asRecord(state["attr"]), bindings: state["bindings"] }] : [];
-  });
-
+export function workerBindingGroups(resources: Resource[]) {
   return resources
-    .filter((resource) => resource.type === "Cloudflare.Worker")
+    .filter((r) => r.type === "Cloudflare.Worker")
     .map((worker) => {
-      const groups: unknown[] = Array.isArray(worker.bindings) ? worker.bindings : [];
+      const groups: unknown[] = Array.isArray(worker.state["bindings"])
+        ? worker.state["bindings"]
+        : [];
       const bindings = groups.flatMap((group) => {
         const parts = asRecord(asRecord(group)["data"])["bindings"];
         const entries: unknown[] = Array.isArray(parts) ? parts : [];
@@ -106,7 +176,7 @@ export function stageWorkerBindings(rows: AlchemyStage["resources"]) {
           const binding = asRecord(entry);
           const name = readString(binding, "name");
           const type = readString(binding, "type");
-          return name && type ? [{ name, ...bindingTarget(binding, type, worker, resources) }] : [];
+          return name && type ? [describeBinding(binding, name, type, worker, resources)] : [];
         });
       });
       return { fqn: worker.fqn, bindings };

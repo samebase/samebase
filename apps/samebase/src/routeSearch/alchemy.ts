@@ -8,7 +8,7 @@ import {
   routeSearchValueParam,
 } from "@/routing/searchParamMetadata";
 
-export const ALCHEMY_VIEWS = ["tree", "inventory", "dependencies", "bindings"] as const;
+export const ALCHEMY_VIEWS = ["diagram", "tree", "inventory", "dependencies", "bindings"] as const;
 
 const RouteSearchSchema_alchemy = defineRouteSearchParams({
   view: routeSearchValueParam(routeSearchStringValue(ALCHEMY_VIEWS), {
