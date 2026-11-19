@@ -1,26 +1,5 @@
-// The test hub's decisions that need no Cloudflare runtime: its policy and the cleanup alarm's
-// schedule. hub.ts wires them to the Worker and the Durable Object; the Node tests import them.
-import { Schema } from "effect";
-import type { PolicyFunction } from "../../core/policy.ts";
-
-/** The allow-list: GitHub's numeric repository id and owner id pairs, as JSON. */
-export const AllowedRepositories = Schema.fromJsonString(
-  Schema.Array(Schema.Struct({ repositoryId: Schema.String, ownerId: Schema.String })),
-);
-
-/**
- * A repository of the list gets both connectors, every other repository gets none, and nothing is
- * paused. The owner id is checked with the repository id: a transferred repository keeps its id.
- */
-export function allowListPolicy(allowed: typeof AllowedRepositories.Type): PolicyFunction {
-  return (registration) => {
-    const listed = allowed.some(
-      (entry) =>
-        entry.repositoryId === registration.repositoryId && entry.ownerId === registration.ownerId,
-    );
-    return { connectors: listed ? ["google", "github"] : [], resources: [], paused: false };
-  };
-}
+// The schedule of the test hub's cleanup alarm, which needs no Cloudflare runtime. hub.ts wires it
+// to the Durable Object; the Node tests import it.
 
 /** The retry delay of the cleanup job: a batch that throws is tried again an hour later. */
 export const FALLBACK_MS = 60 * 60 * 1000;
