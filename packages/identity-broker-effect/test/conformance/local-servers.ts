@@ -213,7 +213,9 @@ export async function startFakeUpstream(
     response.writeHead(404);
     return response.end();
   };
-  return await listen(createServer(tls, served(handle)), port, "127.0.0.1");
+  // All addresses, as the proxy: the suite's browser follows the hub's redirect here from a
+  // container. On Linux a container reaches the host only on the bridge address, not on loopback.
+  return await listen(createServer(tls, served(handle)), port, "0.0.0.0");
 }
 
 /** The suite's callback of the OP plans' clients. */
