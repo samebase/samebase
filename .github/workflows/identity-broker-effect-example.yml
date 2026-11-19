@@ -8,9 +8,10 @@
 # Every stage's client registers on that one hub, with a key that `prod` makes (alchemy.run.ts).
 #
 # One deploy registers the client of a stage and gives the Worker its values. The smoke test then
-# proves the registration: the page shows the sign-in link only with a client. A preview that runs
-# before `prod` made the hub's keys has no key and deploys with sign-in off; the smoke test says so
-# and passes. `prod` must have its client.
+# proves the registration: the page shows the sign-in link only with a client, and the hub sends
+# the browser on to the provider only for a client that it knows. A preview that runs before `prod`
+# made the hub's keys has no key and deploys with sign-in off; the smoke test says so and passes.
+# `prod` must have its client.
 #
 # This file does not call alchemy-deploy.yml: the smoke test after the deploy is this app's own.
 name: Identity broker example
@@ -122,10 +123,10 @@ jobs:
             ${{ github.event_name == 'push' && secrets.EXAMPLE_HUB_IDENTITY_BROKER_KEYS || '' }}
 
       # A new workers.dev route answers error 1042 for about a minute, so each check is retried.
-      # With a client, the page has the sign-in link and /login sends the browser to the hub. A
-      # preview without a client (no key before `prod` made the keys) shows that sign-in is not
-      # configured and answers /login with 503: the step says so and passes. `prod` must have its
-      # client.
+      # With a client, the page has the sign-in link, /login sends the browser to the hub, and the
+      # hub sends it on to the provider. A preview without a client (no key before `prod` made the
+      # keys) shows that sign-in is not configured and answers /login with 503: the step says so
+      # and passes. `prod` must have its client.
       - name: Smoke test
         run: |
           deadline=$((SECONDS + 180))
@@ -139,9 +140,17 @@ jobs:
             off=$(printf '%s' "$page" | grep -Fc 'Sign-in is not configured.' || true)
             login=$(curl -sS --max-time 10 -o /dev/null -w '%{http_code}' "$APP_URL/login" || true)
             location=$(curl -sS --max-time 10 -o /dev/null -w '%{redirect_url}' "$APP_URL/login" || true)
-            if [ "$home" = 200 ] && [ "$link" -ge 1 ] && [ "$login" = 302 ] \
-              && [[ "$location" == "$authorization_endpoint?"* ]]; then
-              echo "GET / is 200 with the sign-in link, and GET /login sends the browser to the hub."
+            # Where the hub sends the browser from there. A hub that does not know the client
+            # answers 400, and an error answer goes back to the app.
+            onward=no
+            if [[ "$location" == "$authorization_endpoint?"* ]]; then
+              next=$(curl -sS --max-time 10 -o /dev/null -w '%{redirect_url}' "$location" || true)
+              if [ -n "$next" ] && [[ "$next" != "$APP_URL/"* ]]; then
+                onward=yes
+              fi
+            fi
+            if [ "$home" = 200 ] && [ "$link" -ge 1 ] && [ "$login" = 302 ] && [ "$onward" = yes ]; then
+              echo "GET / is 200 with the sign-in link, GET /login sends the browser to the hub, and the hub sends it on to the provider."
               exit 0
             fi
             if [ "$STAGE" != prod ] && [ "$home" = 200 ] && [ "$off" -ge 1 ] && [ "$login" = 503 ]; then
@@ -149,8 +158,8 @@ jobs:
               exit 0
             fi
             if [ "$SECONDS" -ge "$deadline" ]; then
-              # Statuses only: the Location holds the sign-in's state and nonce.
-              echo "::error::Smoke test failed after 180 seconds: GET / $home (sign-in links: $link, sign-in off: $off), GET /login $login."
+              # Statuses only: each Location holds the sign-in's state and nonce.
+              echo "::error::Smoke test failed after 180 seconds: GET / $home (sign-in links: $link, sign-in off: $off), GET /login $login, the hub sends the browser on to the provider: $onward."
               exit 1
             fi
             sleep 5
