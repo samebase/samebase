@@ -17,10 +17,7 @@ name: Identity broker example
 
 on:
   push:
-    # The branch entry goes at the merge of pull request 2008. Until then a push to the branch
-    # deploys the hub, which the pull request's preview needs. The hub gives a production client
-    # only to a run of main, so that run stops after the hub check.
-    branches: [main, identity-broker-effect]
+    branches: [main]
     paths: &paths
       - apps/identity-broker-effect-example/**
       - packages/identity-broker-effect/**
@@ -54,7 +51,7 @@ jobs:
     timeout-minutes: 30
     # One run per stage at a time, in the same group as the other stacks of the stage: the state
     # store has no lock. A destroy waits for its running deploy. `prod` has the group of the
-    # other stacks' `prod` (alchemy-deploy.yml), on main and on the branch.
+    # other stacks' `prod` (alchemy-deploy.yml).
     concurrency: &stage
       group:
         alchemy-${{ github.event.pull_request.number && format('pr-{0}',
@@ -142,11 +139,8 @@ jobs:
         run: *wait-for-hub
 
       # A new workers.dev route answers error 1042 for about a minute. The hub reads this file
-      # before it registers the client, so the second deploy waits for it. The hub gives a client
-      # only to a run of a pull request or of main, so a push to another branch ends before this
-      # step and the two after it.
+      # before it registers the client, so the second deploy waits for it.
       - name: Wait for the verification file
-        if: &gets-client github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
         run: |
           deadline=$((SECONDS + 90))
           until [ "$(curl -sS --max-time 10 "$APP_URL/samebase-verification.json" | jq -r .repository 2>/dev/null)" = "$GITHUB_REPOSITORY_ID" ]; do
@@ -160,7 +154,6 @@ jobs:
       # Only a stage whose page has no sign-in link has no client: the first deploy of the stage, or
       # one where the hub could not read the file yet.
       - name: Register the client on a new stage
-        if: *gets-client
         env: *deploy-env
         run: |
           for attempt in 1 2 3; do
@@ -173,7 +166,6 @@ jobs:
           done
 
       - name: Smoke test
-        if: *gets-client
         run: |
           deadline=$((SECONDS + 90))
           while :; do
