@@ -48,19 +48,6 @@ const deploymentEnv = ConfigProvider.make((path) =>
 );
 
 /**
- * The core's outgoing requests, never following a redirect. The Convex runtime's `fetch` ignores
- * the redirect mode of a `Request` (it follows), and its `Request` has no `redirect` getter, so
- * the mode that the core gave cannot be read back here; a mode in the second argument is honored.
- * The core asks for "manual" where a redirect matters (oauth4webapi's requests, an app's
- * verification file). A request that the core sends with the default "follow" (GitHub's Actions
- * keys, a connector's API calls) gets a 3xx answer on Convex where another host follows it.
- */
-const convexFetch = Layer.succeed(
-  Fetch,
-  Fetch.of({ fetch: (request) => fetch(request, { redirect: "manual" }) }),
-);
-
-/**
  * The mutation `commands.run` of component/commands.ts: `components.<name>.commands.run` of an
  * app, or the component's own when its functions are the app (the convex-test suite).
  */
@@ -119,7 +106,7 @@ export const convexHub = <E>(component: ComponentApi, settings: Layer.Layer<HubC
             settings,
             Keys.layer,
             Random.layer,
-            convexFetch,
+            Fetch.layer,
             Layer.succeed(Store, convexStore(ctx, component.commands.run)),
             hubLogger,
           ),
