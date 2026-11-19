@@ -17,7 +17,9 @@ name: Identity broker example
 
 on:
   push:
-    branches: [main]
+    # TEMPORARY, removed before the merge: this branch deploys `prod`, so the example's hub runs
+    # the stack layer and the registration with a key is proven before the merge.
+    branches: [main, identity-broker-effect-stack-layer]
     paths: &paths
       - apps/identity-broker-effect-example/**
       - packages/identity-broker-effect/**
