@@ -312,7 +312,7 @@ resources and output, from the store function `state:readStack({ stack })` in on
     every action, because the command can do more than a push.
 
 - `IdentityHub.Client`, from `import * as IdentityHub from "@samebase/alchemy-convex/identity-hub"`:
-  `{ hub, redirectUris, deploymentType, connectors, app?, initialAccessToken?, softwareVersion? }`
+  `{ hub, redirectUris, deploymentType, connectors, app?, initialAccessToken?, key?, softwareVersion? }`
   gets a client of an identity hub, for an app that deploys in its own GitHub Actions run, on any
   host, and for development as a stage of the same stack. `deploymentType` is `production`,
   `preview`, or `development`. A production or preview client needs `permissions: id-token: write`
@@ -341,6 +341,15 @@ resources and output, from the store function `state:readStack({ stack })` in on
     client asks the hub with this token in place of the GitHub OIDC token, so it works in
     development. With an empty token, the client gets the off values, and the log says "deploy to
     main once for hub sign-in in development". See "The development stage" below.
+  - A client of any `deploymentType` with `key` asks a hub on the stack layer with that key, from
+    any run, with no GitHub token and no verification file. It waits up to about three minutes for
+    the hub to answer discovery, so the run that deploys the hub registers its own client. The hub
+    decides whether the key may register a production client. An undefined key gives the off values,
+    or fails a `required` client.
+  - `IdentityHub.registrationKey(id, { stage })` gives the key `id` as a redacted Output: in the
+    stage that deploys the hub it is an `Alchemy.Random`, kept in state; in any other stage it is
+    read from that stage's row, and it is `undefined` before that stage ran. Bind it to the hub as a
+    secret, and give it to `key`.
   - Each deploy reads the saved client on the hub with its own token. A client that is gone gets a
     new one, and a client with other `redirectUris`, another `app`, another `deploymentType`, or
     other `connectors` too. A replaced production client stays valid on the hub until its

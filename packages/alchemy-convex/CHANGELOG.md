@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.42.0
+
+- `IdentityHub.Client` takes `key`, for any `deploymentType`: the client asks a hub on the stack
+  layer of `@samebase/identity-broker-effect` with that key at `POST /register`, with no GitHub OIDC
+  token and no verification file. It waits for the hub to answer discovery first, up to about three
+  minutes, so the run that deploys the hub registers its own client. An undefined key gives the off
+  values, or fails a `required` client.
+- `IdentityHub.registrationKey(id, { stage })` gives a key of such a hub as a redacted Output: an
+  `Alchemy.Random` in the stage that deploys the hub, and that stage's row in every other stage,
+  `undefined` before that stage ran. A stack can make several keys, each with its own `id`.
+- `Convex.providers()` holds the provider of `Alchemy.Random`.
+- The registration request also sends `client_name` (the stage) and the hub's own `deployment_type`.
+  A hub on the GitHub layer ignores both. The props of the resource and the state do not change, and
+  the store version does not change.
+
 ## 0.41.0
 
 - Breaking: needs `alchemy@2.0.0-beta.87` (was `2.0.0-beta.85`), with `effect` and
