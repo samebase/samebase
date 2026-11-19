@@ -263,6 +263,12 @@ try {
     log(
       `${run.module}: ${run.status} ${run.result ?? ""}${run.stopped === undefined ? "" : ` stopped: ${run.stopped}`}${hubOutcome}`,
     );
+    // The first failure's condition and message: the suite's own text, which names the check and
+    // not a token or secret (those are in other members of the log entry).
+    const failure = run.issues.find((issue) => issue.result === "FAILURE");
+    if (failure !== undefined) {
+      log(`  failure: ${failure.src}: ${failure.msg.slice(0, 300)}`);
+    }
     rows.push({
       plan: run.plan,
       module: run.module,
