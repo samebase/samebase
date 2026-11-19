@@ -10,6 +10,7 @@
     "lint": "pnpm --dir ../.. exec vp lint --tsconfig packages/identity-broker-effect/tsconfig.node.json --report-unused-disable-directives packages/identity-broker-effect/src packages/identity-broker-effect/alchemy.run.ts packages/identity-broker-effect/test",
     "conformance": "node test/conformance/run.ts",
     "test": "pnpm --dir ../.. exec vp test run --project identity-broker-effect",
+    "test:convex": "vp test run test/convex-app",
     "check": "pnpm run typecheck && pnpm run lint && pnpm run test",
     "deploy": "alchemy deploy",
     "destroy": "alchemy destroy"
@@ -24,6 +25,8 @@
     "@cloudflare/workers-types": "5.20261028.1",
     "@types/node": "24.19.2",
     "alchemy": "2.0.0-beta.87",
+    "convex": "1.48.0",
+    "convex-test": "0.0.61",
     "fast-check": "4.10.2",
     "openid-client": "6.8.8",
     "typescript": "7.0.2",
