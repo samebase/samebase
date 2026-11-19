@@ -1,0 +1,30 @@
+{
+  "name": "@samebase/identity-broker-effect-example",
+  "version": "0.0.0",
+  "private": true,
+  "description": "A Cloudflare Worker that signs in with Google through the identity broker in Effect",
+  "license": "Apache-2.0",
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit --project tsconfig.json && tsc --noEmit --project tsconfig.node.json",
+    "lint": "pnpm --dir ../.. exec vp lint --tsconfig apps/identity-broker-effect-example/tsconfig.node.json --report-unused-disable-directives apps/identity-broker-effect-example/src apps/identity-broker-effect-example/alchemy.run.ts",
+    "test": "pnpm --dir ../.. exec vp test run --project identity-broker-effect-example",
+    "check": "pnpm run typecheck && pnpm run lint && pnpm run test"
+  },
+  "dependencies": {
+    "effect": "4.1.4",
+    "oauth4webapi": "3.8.8"
+  },
+  "devDependencies": {
+    "@alchemy.run/cloudflare": "2.0.0-beta.87",
+    "@cloudflare/workers-types": "5.20261028.1",
+    "@effect/vitest": "4.1.4",
+    "@samebase/alchemy-convex": "0.41.0",
+    "@types/node": "24.19.2",
+    "alchemy": "2.0.0-beta.87",
+    "typescript": "7.0.2"
+  },
+  "engines": {
+    "node": ">=24.11.0"
+  }
+}

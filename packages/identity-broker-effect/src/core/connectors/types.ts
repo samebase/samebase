@@ -1,0 +1,67 @@
+import type { Redacted } from "effect";
+
+/** What a connector attested about the user. `upstreamId` is the connector's stable account id. */
+export type UpstreamIdentity = {
+  upstreamId: string;
+  email?: string;
+  emailVerified?: boolean;
+  name?: string;
+  picture?: string;
+};
+
+type Credentials = {
+  /**
+   * The provider whose accounts the connector signs in, such as `google`: lowercase letters, digits,
+   * and hyphens. Every `sub` the connector makes is `<provider>:<upstreamId>`, so two connectors of
+   * one provider, such as two Google clients, give one account the same `sub`.
+   */
+  provider: string;
+  /** Redacted, so a log line or an error that holds the connector does not print them. */
+  clientId: Redacted.Redacted<string>;
+  clientSecret: Redacted.Redacted<string>;
+};
+
+/**
+ * A plain OAuth 2.0 provider found through its RFC 8414 metadata: identity comes from an API call
+ * with the access token.
+ */
+/** `Name` is the connector's name as a literal type, so a hub's policy can only name its own. */
+export type OauthConnector<Name extends string = string> = Credentials & {
+  kind: "oauth";
+  name: Name;
+  /** Shown on the chooser button, e.g. "GitHub". */
+  label: string;
+  issuer: string;
+  scopes: string[];
+  /** `fetch` is the core's `Fetch` service. */
+  identity: (
+    accessToken: string,
+    fetch: (request: Request) => Promise<Response>,
+  ) => Promise<UpstreamIdentity>;
+  /**
+   * Sends `prompt=select_account`, so the provider shows its account screen on each sign-in, as
+   * for an OIDC connector. GitHub documents it for OAuth Apps (changelog 2024-06-07).
+   */
+  selectAccount?: boolean;
+};
+
+/** An OpenID Connect provider found through discovery: identity comes from the id_token. */
+export type OidcConnector<Name extends string = string> = Credentials & {
+  kind: "oidc";
+  name: Name;
+  label: string;
+  issuer: string;
+  scopes: string[];
+  /**
+   * The provider documents `prompt=login`, so a fresh login (`prompt=login` or `max_age`) is sent
+   * upstream as that. Without it, a fresh login answers `login_required`.
+   */
+  promptLogin: boolean;
+  /**
+   * Sends `prompt=select_account`, so the provider shows its account screen on each sign-in and
+   * cannot pass a user through with no click because an earlier app of this hub was approved.
+   */
+  selectAccount?: boolean;
+};
+
+export type Connector<Name extends string = string> = OauthConnector<Name> | OidcConnector<Name>;

@@ -1,0 +1,246 @@
+# Deploys the example app of the identity broker in Effect, the Alchemy stack in
+# apps/identity-broker-effect-example/alchemy.run.ts: at the stage `prod` on a push to main, and at
+# the stage `pr-<number>` of each pull request from this repository, when the push or the pull
+# request changes the app, the broker, or this file. It destroys a `pr-<number>` stage when its pull
+# request closes. The app is a Worker that signs in with Google through the app's own hub
+# (https://identity-broker-effect-example-hub-prod.pfp.workers.dev), which only `prod` deploys.
+# Every stage's client registers on that one hub.
+#
+# A new stage takes two deploys (alchemy.run.ts explains why): the first puts the Worker up with
+# the off values of the hub client, and once the Worker serves /samebase-verification.json, a second
+# deploy registers the client and gives the Worker its values. A later push needs one deploy. The
+# smoke test then proves the registration: the page shows the sign-in link only with a client.
+#
+# This file does not call alchemy-deploy.yml: that file runs one deploy per run and has no step
+# between two deploys, and this app needs the second deploy after the wait.
+name: Identity broker example
+
+on:
+  push:
+    branches: [main]
+    paths: &paths
+      - apps/identity-broker-effect-example/**
+      - packages/identity-broker-effect/**
+      - .github/workflows/identity-broker-effect-example.yml
+  pull_request:
+    types: [opened, synchronize, reopened, closed]
+    paths: *paths
+
+permissions:
+  contents: read
+
+env:
+  STAGE:
+    ${{ github.event_name == 'push' && 'prod' || format('pr-{0}', github.event.pull_request.number)
+    }}
+  # The Worker's workers.dev URL: its name from alchemy.run.ts on the account's subdomain.
+  APP_URL:
+    https://identity-broker-effect-example-${{ github.event_name == 'push' && 'prod' ||
+    format('pr-{0}', github.event.pull_request.number) }}.pfp.workers.dev
+  # The app's hub, src/hub.ts.
+  HUB_ISSUER: https://identity-broker-effect-example-hub-prod.pfp.workers.dev
+
+jobs:
+  deploy:
+    name: Deploy
+    # A pull request from a fork gets no secrets and no OIDC token for this repository.
+    if: >-
+      github.event_name == 'push' || (github.event.action != 'closed' &&
+      github.event.pull_request.head.repo.full_name == github.repository)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # One run per stage at a time, in the same group as the other stacks of the stage: the state
+    # store has no lock. A destroy waits for its running deploy. `prod` has the group of the
+    # other stacks' `prod` (alchemy-deploy.yml).
+    concurrency: &stage
+      group:
+        alchemy-${{ github.event.pull_request.number && format('pr-{0}',
+        github.event.pull_request.number) || 'main' }}
+      queue: max
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      # IdentityHub.Client asks GitHub for an OIDC token, which proves this repository to the hub.
+      id-token: write
+    defaults:
+      run:
+        working-directory: apps/identity-broker-effect-example
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+        with:
+          version: 12.14.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: 24.x
+          check-latest: true
+          cache: pnpm
+
+      - name: Install dependencies
+        working-directory: .
+        run: pnpm install --frozen-lockfile
+
+      # A re-run of an old run must not put older code over newer code. The job token lets git read
+      # the repository; the deploy does not get it.
+      - name: Check that the checkout is the head of the branch
+        working-directory: .
+        env:
+          BRANCH: ${{ github.head_ref || github.ref_name }}
+          TOKEN: ${{ github.token }}
+        run: |
+          auth=$(printf 'x-access-token:%s' "$TOKEN" | base64 | tr -d '\n')
+          head=$(git -c "http.extraheader=AUTHORIZATION: basic $auth" ls-remote origin "refs/heads/$BRANCH" | cut -f1)
+          if [ "$(git rev-parse HEAD)" != "$head" ]; then
+            echo "::error::The checkout is not the head of $BRANCH ($head). Nothing was deployed."
+            exit 1
+          fi
+
+      # A preview's client registers on the hub that `prod` deploys. On a new hub, the push of the
+      # same commit deploys it in another run, so the preview waits for it.
+      - name: Wait for the hub
+        if: github.event_name == 'pull_request'
+        run: &wait-for-hub |
+          deadline=$((SECONDS + 600))
+          until [ "$(curl -sS --max-time 10 "$HUB_ISSUER/.well-known/openid-configuration" | jq -r .issuer 2>/dev/null)" = "$HUB_ISSUER" ]; do
+            if [ "$SECONDS" -ge "$deadline" ]; then
+              echo "::error::$HUB_ISSUER/.well-known/openid-configuration does not name the hub after 600 seconds."
+              exit 1
+            fi
+            sleep 10
+          done
+
+      - name: Deploy
+        run: pnpm exec alchemy deploy --stage "$STAGE" --yes --no-input
+        env: &deploy-env
+          CONVEX_ACCESS_TOKEN: ${{ secrets.CONVEX_ACCESS_TOKEN }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          # The hub's secrets (src/hub.ts), only for `prod`, the one stage that deploys the hub.
+          EXAMPLE_HUB_GOOGLE_CLIENT_ID:
+            ${{ github.event_name == 'push' && secrets.EXAMPLE_HUB_GOOGLE_CLIENT_ID || '' }}
+          EXAMPLE_HUB_GOOGLE_CLIENT_SECRET:
+            ${{ github.event_name == 'push' && secrets.EXAMPLE_HUB_GOOGLE_CLIENT_SECRET || '' }}
+          IDENTITY_BROKER_KEYS:
+            ${{ github.event_name == 'push' && secrets.EXAMPLE_HUB_IDENTITY_BROKER_KEYS || '' }}
+
+      # The hub that this run deployed. A new workers.dev route answers error 1042 for about a
+      # minute.
+      - name: Wait for the new hub
+        if: github.event_name == 'push'
+        run: *wait-for-hub
+
+      # A new workers.dev route answers error 1042 for about a minute. The hub reads this file
+      # before it registers the client, so the second deploy waits for it.
+      - name: Wait for the verification file
+        run: |
+          deadline=$((SECONDS + 90))
+          until [ "$(curl -sS --max-time 10 "$APP_URL/samebase-verification.json" | jq -r .repository 2>/dev/null)" = "$GITHUB_REPOSITORY_ID" ]; do
+            if [ "$SECONDS" -ge "$deadline" ]; then
+              echo "::error::$APP_URL/samebase-verification.json does not name repository $GITHUB_REPOSITORY_ID after 90 seconds."
+              exit 1
+            fi
+            sleep 5
+          done
+
+      # Only a stage whose page has no sign-in link has no client: the first deploy of the stage, or
+      # one where the hub could not read the file yet.
+      - name: Register the client on a new stage
+        env: *deploy-env
+        run: |
+          for attempt in 1 2 3; do
+            if curl -sS --max-time 10 "$APP_URL/" | grep -Fq 'href="/login"'; then
+              exit 0
+            fi
+            echo "The page has no sign-in link: deploy again (attempt $attempt)."
+            pnpm exec alchemy deploy --stage "$STAGE" --yes --no-input
+            sleep 10
+          done
+
+      - name: Smoke test
+        run: |
+          deadline=$((SECONDS + 90))
+          while :; do
+            # `|| true`: a failed request is a retry, not the end of the step. The hub's answer is
+            # read in the loop too: a hub deployed a minute ago can answer one request with 500.
+            authorization_endpoint=$(curl -fsS --max-time 10 "$HUB_ISSUER/.well-known/openid-configuration" | jq -r .authorization_endpoint 2>/dev/null || true)
+            home=$(curl -sS --max-time 10 -o /dev/null -w '%{http_code}' "$APP_URL/" || true)
+            link=$(curl -sS --max-time 10 "$APP_URL/" | grep -Fc 'href="/login"' || true)
+            repository=$(curl -sS --max-time 10 "$APP_URL/samebase-verification.json" | jq -r .repository 2>/dev/null || true)
+            login=$(curl -sS --max-time 10 -o /dev/null -w '%{http_code}' "$APP_URL/login" || true)
+            location=$(curl -sS --max-time 10 -o /dev/null -w '%{redirect_url}' "$APP_URL/login" || true)
+            if [ "$home" = 200 ] && [ "$link" -ge 1 ] && [ "$repository" = "$GITHUB_REPOSITORY_ID" ] \
+              && [ "$login" = 302 ] && [[ "$location" == "$authorization_endpoint?"* ]]; then
+              echo "GET / is 200 with the sign-in link, the verification file names the repository, and GET /login sends the browser to the hub."
+              exit 0
+            fi
+            if [ "$SECONDS" -ge "$deadline" ]; then
+              # Statuses only: the Location holds the sign-in's state and nonce.
+              echo "::error::Smoke test failed after 90 seconds: GET / $home (sign-in links: $link), verification file names '$repository', GET /login $login."
+              exit 1
+            fi
+            sleep 5
+          done
+
+  destroy:
+    name: Destroy the preview
+    # A pull request from a fork got no preview.
+    if: >-
+      github.event.action == 'closed' && github.event.pull_request.head.repo.full_name ==
+      github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    concurrency: *stage
+    defaults:
+      run:
+        working-directory: apps/identity-broker-effect-example
+
+    steps:
+      # The base branch, so a head whose install fails cannot keep the preview.
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.base.ref }}
+          persist-credentials: false
+
+      # The pull request that adds the stack: the base branch does not have it yet.
+      - name: Checkout the head when the base has no stack
+        if: hashFiles('apps/identity-broker-effect-example/alchemy.run.ts') == ''
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+        with:
+          version: 12.14.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: 24.x
+          check-latest: true
+          cache: pnpm
+
+      # No build: the destroy deletes the Worker and the hub client, and forgets the stage.
+      - name: Install dependencies
+        working-directory: .
+        run: pnpm install --frozen-lockfile --ignore-scripts
+
+      - name: Destroy the preview
+        run: |
+          [[ "$STAGE" =~ ^pr-[0-9]+$ ]] || exit 1
+          pnpm exec alchemy destroy --stage "$STAGE" --yes --no-input
+        env:
+          CONVEX_ACCESS_TOKEN: ${{ secrets.CONVEX_ACCESS_TOKEN }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
