@@ -13,9 +13,10 @@
   `src/store/convex/_generated/` and `src/store/component/_generated/`. The store and its readers
   (Samebase) are released and upgraded together; a renamed function is a version bump on both sides.
   See `docs/design/convex-state.md`.
-- The store seals each `Redacted` value in its own functions, with a key in a variable
-  `STATE_KEY_<keyId>` of its deployment. A client makes a key once and never reads a key back. Never
-  write to an existing key variable: a key that a row needs must stay. See
+- The client seals each `Redacted` value with Alchemy's sealing codec before a write. The store
+  deployment makes each data key and wraps it with a key in a variable `STATE_KEY_<keyId>` of its
+  deployment. A client makes a key once and never reads a key back. Never write to an existing key
+  variable, and never remove one: a key that a row needs must stay. See
   `src/store/convex/sealing.ts` and `docs/design/convex-state.md`.
 - `alchemy-convex stack-comment` reads the store and writes a pull request comment. It reads Worker
   and R2 rows of the store, and it depends on no Cloudflare package. GitHub removes most HTML, so
