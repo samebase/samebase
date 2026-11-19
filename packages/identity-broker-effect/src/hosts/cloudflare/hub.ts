@@ -3,18 +3,21 @@
 // `Hub`, whose RPC method `run(name, args)` runs one command of the closed registry as one
 // `transactionSync` step.
 //
+// `hubWorker(options)` makes one hub's Worker; an app's stack deploys the hub that its own module
+// makes with it. This module's default export is the test hub.
+//
 // The Worker's script name, the class name `Hub` and the instance name `hub` are the address of
 // all data: renaming one of them starts from empty storage. The object's binding has the class
 // name too.
 import * as Cloudflare from "@alchemy.run/cloudflare";
 import * as Alchemy from "alchemy";
-import { Clock, Config, Effect, Layer, Schema } from "effect";
+import { Clock, Config, Effect, Layer, type Redacted, Schema } from "effect";
 import * as HttpServerResponse from "effect/http/HttpServerResponse";
 import { github } from "../../core/connectors/github.ts";
 import { google } from "../../core/connectors/google.ts";
 import { registrationRoutes } from "../../core/hub/routes.ts";
 import { hubLogger, makeHandle, type CoreServices } from "../../core/router.ts";
-import { Fetch, HubConfig, Keys, Random } from "../../core/services.ts";
+import { Fetch, HubConfig, Keys, Random, type RegistrationSettings } from "../../core/services.ts";
 import { SIGN_IN_RETENTION_MS } from "../../core/signIn.ts";
 import { commands, CommandNameSchema } from "../../rules/commands.ts";
 import { ensureLayout, sqlTx, type Exec } from "../../store/sql.ts";
@@ -43,14 +46,6 @@ declare global {
     url: string;
   }
 }
-
-/** The Worker's script name in `stage`. Its workers.dev address is the hub's issuer. */
-const scriptName = (stage: string) => `identity-broker-effect-${stage}`;
-
-/** The repositories of the test hub's policy: samebase/samebase and the samebase organization. */
-const ALLOWED_REPOSITORIES: typeof AllowedRepositories.Type = [
-  { repositoryId: "1021726325", ownerId: "285392744" },
-];
 
 const parseJson = Schema.decodeUnknownSync(Schema.fromJsonString(Schema.Unknown));
 
@@ -174,44 +169,75 @@ const HubStore = Layer.effect(
 );
 
 /**
- * The hub's configuration. Each `Config.Redacted` read here declares a secret binding of the
- * Worker at deploy, with the value of the deploying shell's variable, and reads that binding when
- * the Worker starts. A configuration that the hub cannot run with stops the deploy.
+ * A secret of the hub. Each read declares a secret binding of the Worker at deploy, with the value
+ * of the deploying shell's variable of that name, and reads that binding when the Worker starts.
  */
-const HubSettings = Layer.unwrap(
-  Effect.gen(function* () {
-    const { stage } = yield* Alchemy.Stack;
-    return HubConfig.layer({
-      issuer: `https://${scriptName(stage)}.pfp.workers.dev`,
-      // The order of the Convex hub (apps/identity-hub/convex/broker.ts): each asks the provider
-      // for its account screen on every sign-in.
-      connectors: [
-        google({
-          clientId: yield* Config.Redacted("GOOGLE_CLIENT_ID"),
-          clientSecret: yield* Config.Redacted("GOOGLE_CLIENT_SECRET"),
-          selectAccount: true,
-        }),
-        github({
-          clientId: yield* Config.Redacted("AUTH_GITHUB_CLIENT_ID"),
-          clientSecret: yield* Config.Redacted("AUTH_GITHUB_CLIENT_SECRET"),
-          selectAccount: true,
-        }),
-      ],
-      registration: {
-        name: "Samebase identity hub (Effect test)",
-        terms: "https://samebase.com/terms",
-        privacy: "https://samebase.com/privacy",
-        policy: allowListPolicy(ALLOWED_REPOSITORIES),
-      },
-    }).pipe(Layer.orDie);
-  }),
-);
+type Secret = Config.Config<Redacted.Redacted<string>>;
+
+/** The client of the hub at one provider. */
+type ConnectorCredentials = { readonly clientId: Secret; readonly clientSecret: Secret };
+
+/** One hub. The signing keys are the Worker's `IDENTITY_BROKER_KEYS` (src/core/services.ts). */
+export type HubOptions = {
+  /** The module whose default export is this hub's Worker: the caller's `import.meta.url`. */
+  readonly main: string;
+  /** The Worker's script name, the first part of the address of all data. */
+  readonly name: string;
+  /** The issuer, which each client names. Each connector's callback is under it. */
+  readonly issuer: string;
+  /** At least one; the deploy stops without one. */
+  readonly connectors: {
+    readonly google?: ConnectorCredentials;
+    readonly github?: ConnectorCredentials;
+  };
+  /** The repositories that get the connectors (`allowListPolicy`). */
+  readonly allowedRepositories: typeof AllowedRepositories.Type;
+  /** The names that registration answers and the sign-in page show. */
+  readonly registration: Omit<RegistrationSettings, "policy">;
+};
+
+/** The hub's configuration. A configuration that the hub cannot run with stops the deploy. */
+const hubSettings = (options: HubOptions) =>
+  Layer.unwrap(
+    Effect.gen(function* () {
+      const { google: googleClient, github: githubClient } = options.connectors;
+      return HubConfig.layer({
+        issuer: options.issuer,
+        // The order of the Convex hub (apps/identity-hub/convex/broker.ts): each asks the provider
+        // for its account screen on every sign-in.
+        connectors: [
+          ...(googleClient === undefined
+            ? []
+            : [
+                google({
+                  clientId: yield* googleClient.clientId,
+                  clientSecret: yield* googleClient.clientSecret,
+                  selectAccount: true,
+                }),
+              ]),
+          ...(githubClient === undefined
+            ? []
+            : [
+                github({
+                  clientId: yield* githubClient.clientId,
+                  clientSecret: yield* githubClient.clientSecret,
+                  selectAccount: true,
+                }),
+              ]),
+        ],
+        registration: {
+          ...options.registration,
+          policy: allowListPolicy(options.allowedRepositories),
+        },
+      }).pipe(Layer.orDie);
+    }),
+  );
 
 /**
  * The Worker's runtime over its settings: every service of the core on Cloudflare, the hub's
  * logger, and `fetch`. The core takes the Web `Request` and gives a Web `Response`;
  * `HttpServerResponse.raw` hands that `Response` to the platform unchanged (status, body and each
- * `Set-Cookie` field). The Worker below gives it `HubSettings`; the conformance test stack
+ * `Set-Cookie` field). `hubWorker` gives it the settings of its options; the conformance test stack
  * (test/conformance) gives it local settings.
  */
 export const hubRuntime = <E, R>(settings: Layer.Layer<HubConfig, E, R>) =>
@@ -231,14 +257,16 @@ export const hubRuntime = <E, R>(settings: Layer.Layer<HubConfig, E, R>) =>
     ),
   );
 
-/** The Worker. */
-export default class Hub extends Cloudflare.Worker<Hub>()(
-  "Hub",
-  Effect.gen(function* () {
-    const { stage } = yield* Alchemy.Stack;
-    return {
-      name: scriptName(stage),
-      main: import.meta.url,
+/**
+ * The Worker of one hub. The module named by `options.main` default-exports it, so the bundle's
+ * entry imports this Worker; the bundle exports the object's class `Hub` itself.
+ */
+export const hubWorker = (options: HubOptions) =>
+  class Hub extends Cloudflare.Worker<Hub>()(
+    "Hub",
+    {
+      name: options.name,
+      main: options.main,
       workersDev: true,
       // The hub reads the verification file of an app that can be another Worker on workers.dev
       // in this account. Without the flag Cloudflare answers such a fetch with error 1042.
@@ -248,7 +276,33 @@ export default class Hub extends Cloudflare.Worker<Hub>()(
       observability: { enabled: true, logs: { enabled: true, invocationLogs: false } },
       // The object runs the new rules right after a deploy, not up to 5 minutes later.
       codeUpdateStrategy: { mode: "immediate" },
-    };
-  }),
-  hubRuntime(HubSettings),
-) {}
+    },
+    hubRuntime(hubSettings(options)),
+  ) {};
+
+/**
+ * The test hub, deployed at the stage `dev-spike` of alchemy.run.ts. Its issuer is the workers.dev
+ * address of its script.
+ */
+export default hubWorker({
+  main: import.meta.url,
+  name: "identity-broker-effect-dev-spike",
+  issuer: "https://identity-broker-effect-dev-spike.pfp.workers.dev",
+  connectors: {
+    google: {
+      clientId: Config.Redacted("GOOGLE_CLIENT_ID"),
+      clientSecret: Config.Redacted("GOOGLE_CLIENT_SECRET"),
+    },
+    github: {
+      clientId: Config.Redacted("AUTH_GITHUB_CLIENT_ID"),
+      clientSecret: Config.Redacted("AUTH_GITHUB_CLIENT_SECRET"),
+    },
+  },
+  // samebase/samebase and the samebase organization.
+  allowedRepositories: [{ repositoryId: "1021726325", ownerId: "285392744" }],
+  registration: {
+    name: "Samebase identity hub (Effect test)",
+    terms: "https://samebase.com/terms",
+    privacy: "https://samebase.com/privacy",
+  },
+});
