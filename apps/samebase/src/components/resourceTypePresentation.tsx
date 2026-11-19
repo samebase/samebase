@@ -1,4 +1,6 @@
-import { Box } from "lucide-react";
+import { Box, Database } from "lucide-react";
+import { validate } from "convex-helpers/validators";
+import { v } from "convex/values";
 import { ConvexProviderLogo } from "./repository-dashboard/RepositoryDashboardLogos";
 
 /**
@@ -39,6 +41,10 @@ const resourceTypes = new Map([
     },
   ],
   ["Convex.Deployment", { label: "Convex deployment", icon: <ConvexProviderLogo /> }],
+  [
+    "Cloudflare.D1Database",
+    { label: "D1 database", icon: <Database aria-hidden="true" className="size-4" /> },
+  ],
 ]);
 
 export function resourceTypePresentation(resourceType: string) {
@@ -48,4 +54,15 @@ export function resourceTypePresentation(resourceType: string) {
       icon: <Box aria-hidden="true" className="size-4" />,
     }
   );
+}
+
+const { object, string } = v;
+const vResourceState = object({ status: string(), resourceType: string() });
+
+export function resourceStatePresentation(state: unknown) {
+  const resource = validate(vResourceState, state, { allowUnknownFields: true }) ? state : null;
+  return {
+    ...resourceTypePresentation(resource?.resourceType ?? "unknown"),
+    status: resource?.status,
+  };
 }

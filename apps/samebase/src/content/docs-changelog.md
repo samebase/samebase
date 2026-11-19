@@ -3,6 +3,12 @@
 What changed in Samebase, newest first. Each `v` number is the Samebase version that shipped the
 change. If a change needs action from you, the entry says so.
 
+## 2026-11-19
+
+- **v2373: Alchemy stack views.** On a repository's Alchemy page, switch between the tree, a
+  resource inventory, resource dependencies, and Worker bindings. Copy the URL to share a stack,
+  stage, and view.
+
 ## 2026-11-18
 
 - **v2364: No Pricing and Receipts pages.** samebase.com no longer has `/pricing` and

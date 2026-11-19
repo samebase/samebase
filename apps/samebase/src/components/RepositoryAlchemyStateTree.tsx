@@ -1,5 +1,3 @@
-import { validate } from "convex-helpers/validators";
-import { v } from "convex/values";
 import { ChevronRight } from "lucide-react";
 import { Fragment, type ReactNode } from "react";
 import {
@@ -26,16 +24,11 @@ import {
   GitHubProviderLogo,
 } from "@/components/repository-dashboard/RepositoryDashboardLogos";
 import { formatRelativeTimeAgo } from "@/lib/formatRelativeTime";
-import { resourceTypePresentation } from "@/components/resourceTypePresentation";
+import { resourceStatePresentation } from "@/components/resourceTypePresentation";
 import { ORGANIZATION_PROVIDERS_ROUTE } from "@/organization/organizationRoutes";
 import type { RepositoryAlchemyState } from "@/repository/dashboard/useRepositoryAlchemyState";
 
 type AlchemyRunRecord = AlchemyStage["run"];
-
-const { object, string } = v;
-
-/** `resourceType` names the provider of the resource, such as `Convex.Deployment`. */
-const vResourceState = object({ status: string(), resourceType: string() });
 
 const RUN_SOURCE_LABELS = {
   "github-actions": "GitHub Actions",
@@ -170,8 +163,7 @@ function AlchemyStateDetailItem({ detail, name }: { detail: ReactNode; name: Rea
 }
 
 function AlchemyResourceItem({ fqn, state }: { fqn: string; state: unknown }) {
-  const resource = validate(vResourceState, state, { allowUnknownFields: true }) ? state : null;
-  const presentation = resourceTypePresentation(resource?.resourceType ?? "unknown");
+  const presentation = resourceStatePresentation(state);
 
   return (
     <AlchemyStateDetailItem
@@ -181,7 +173,11 @@ function AlchemyResourceItem({ fqn, state }: { fqn: string; state: unknown }) {
           <span className="min-w-0 break-all">{fqn}</span>
         </span>
       }
-      detail={resource ? `${resource.status}, ${presentation.label}` : "unknown"}
+      detail={
+        presentation.status === undefined
+          ? "unknown"
+          : `${presentation.status}, ${presentation.label}`
+      }
     />
   );
 }
@@ -360,7 +356,7 @@ export function AlchemyStateTree({
   }
 
   return (
-    <div className="p-3 text-sm">
+    <div className="text-sm">
       {observation.stacks.map((stack) => (
         <div key={`${stack.store}:${stack.name}`}>
           <div className="flex min-w-0 items-center justify-between gap-2">

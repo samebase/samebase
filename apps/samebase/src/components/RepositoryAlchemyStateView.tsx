@@ -1,4 +1,7 @@
 import { Loader2 } from "lucide-react";
+import { getRouteApi } from "@tanstack/react-router";
+import { AlchemyStackViews } from "./AlchemyStackViews";
+import { applySearchPatch } from "@/routing/searchFlags";
 import {
   AlchemyStateTree,
   RepositoryAlchemyStateStatus,
@@ -10,6 +13,8 @@ import { RepositorySelectedWorkspace } from "@/repository/dashboard/RepositorySe
 import { useRepositoryWorkspaceModel } from "@/repository/dashboard/useRepositoryWorkspaceModel";
 import type { RepositoryAlchemyState } from "@/repository/dashboard/useRepositoryAlchemyState";
 
+const alchemyRoute = getRouteApi("/_authed/repo/$owner/$repository/alchemy");
+
 function RepositoryAlchemyStateTree({
   state,
   owner,
@@ -17,6 +22,8 @@ function RepositoryAlchemyStateTree({
   state: RepositoryAlchemyState;
   owner: string;
 }) {
+  const search = alchemyRoute.useSearch();
+  const navigate = alchemyRoute.useNavigate();
   if (state.state === "loading") {
     return (
       <RepositoryAlchemyStateStatus>
@@ -28,6 +35,24 @@ function RepositoryAlchemyStateTree({
 
   if (state.state === "failed") {
     return <RepositoryAlchemyStateStatus>{state.error.message}</RepositoryAlchemyStateStatus>;
+  }
+
+  if (state.observation.store === "found" && state.observation.stacks.length > 0) {
+    return (
+      <AlchemyStackViews
+        observation={state.observation}
+        search={search}
+        onChange={(patch) => {
+          void navigate({
+            to: ".",
+            replace: true,
+            resetScroll: false,
+            hash: true,
+            search: (current) => applySearchPatch(current, patch),
+          });
+        }}
+      />
+    );
   }
 
   return (
