@@ -18,7 +18,7 @@ import { v } from "convex/values";
 import { Clock, ConfigProvider, Effect, Layer, Schema } from "effect";
 import { command } from "../../core/command.ts";
 import { hubLogger, makeHandle } from "../../core/router.ts";
-import { Fetch, type HubConfig, Keys, Random } from "../../core/services.ts";
+import { Fetch, type HubConfig, Keys, Random, type SignInPage } from "../../core/services.ts";
 import { SIGN_IN_RETENTION_MS } from "../../core/signIn.ts";
 import { githubRoutes } from "../../layers/github/routes.ts";
 import type { GithubSettings } from "../../layers/github/settings.ts";
@@ -86,7 +86,7 @@ export const convexStore = (ctx: Runner, run: RunCommand) =>
  */
 export const convexHub = <E>(
   component: ComponentApi,
-  settings: Layer.Layer<HubConfig | GithubSettings, E>,
+  settings: Layer.Layer<HubConfig | SignInPage | GithubSettings, E>,
 ) => {
   const handle = makeHandle({ routes: githubRoutes });
 

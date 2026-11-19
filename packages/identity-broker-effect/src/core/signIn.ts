@@ -7,7 +7,7 @@ import * as oauth from "oauth4webapi";
 import { command } from "./command.ts";
 import type { Connector } from "./connectors/types.ts";
 import { finishUpstream, ProviderUnavailable, startUpstream } from "./connectors/upstream.ts";
-import { errorPage, signInPage } from "./html.ts";
+import { errorPage, htmlResponse } from "./html.ts";
 import { logHubEvent } from "./hubEvents.ts";
 import {
   signAccessToken,
@@ -34,7 +34,7 @@ import {
   readParameters,
   redirect,
 } from "./responses.ts";
-import { Fetch, HubConfig, Keys, type HubConfigShape } from "./services.ts";
+import { Fetch, HubConfig, Keys, SignInPage, type HubConfigShape } from "./services.ts";
 import { randomToken, s256Challenge, sha256HexEffect } from "./subject.ts";
 
 /** A request lives this long from /authorize to the code redirect. */
@@ -369,17 +369,21 @@ export const authorize = Effect.fn("authorize")(function* (request: Request) {
     return response;
   }
   const redirectUrl = new URL(redirectUri);
-  const page = signInPage({
-    host: redirectUrl.host,
-    origin: redirectUrl.origin,
-    consent: created.confirm ? { scopes, reviewer: hub.service.name } : null,
-    connectors: stored.map((connector) => ({
-      label: connector.label,
-      provider: connector.provider,
-      href: continueHref(hub, requestId, connector),
-    })),
-    legal: { privacy: hub.service.privacy, terms: hub.service.terms },
-  });
+  const { render } = yield* SignInPage;
+  const page = htmlResponse(
+    render({
+      host: redirectUrl.host,
+      origin: redirectUrl.origin,
+      connectors: stored.map((connector) => ({
+        label: connector.label,
+        provider: connector.provider,
+        href: continueHref(hub, requestId, connector),
+      })),
+      scopes: created.confirm ? scopes : null,
+      hub: { name: hub.service.name, privacy: hub.service.privacy, terms: hub.service.terms },
+    }),
+    200,
+  );
   page.headers.append("Set-Cookie", setCookie);
   return page;
 });

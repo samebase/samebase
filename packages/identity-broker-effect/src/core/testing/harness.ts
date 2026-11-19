@@ -21,9 +21,11 @@ import {
   HubConfig,
   Keys,
   Random,
+  SignInPage,
   type HubConfigInput,
   type ServiceSettings,
 } from "../services.ts";
+import type { SignInPageFunction } from "../html.ts";
 
 /**
  * A deterministic `Random`: the same seed gives the same bytes in the same order (xorshift32).
@@ -180,6 +182,8 @@ export async function coreServices(
   seed = 1,
   /** A stub that the test made first, to plan a fake provider whose connector the config needs. */
   fetch: StubFetch = stubFetch(),
+  /** The hub's own page before the provider; the default page without it. */
+  signInPage?: SignInPageFunction,
 ) {
   const clock = testClock();
   const keySet = await testKeySet();
@@ -193,6 +197,7 @@ export async function coreServices(
   );
   const layer = Layer.mergeAll(
     Layer.succeed(HubConfig, hub),
+    SignInPage.layer(signInPage),
     Layer.succeed(Keys, keys.service),
     Layer.succeed(Random, seededRandom(seed)),
     Layer.succeed(Fetch, fetch.service),
@@ -303,9 +308,10 @@ export async function createBroker(
     seed?: number;
     routes?: ReadonlyArray<Route>;
     fetch?: StubFetch;
+    signInPage?: SignInPageFunction;
   } = {},
 ) {
-  const core = await coreServices(options.config, options.seed, options.fetch);
+  const core = await coreServices(options.config, options.seed, options.fetch, options.signInPage);
   // `memory` is the test Store of the run: the memory Store, or node:sqlite (`useTestStore`).
   const memory = makeTestStore(core.clock.now());
   const failing: { commands: ((name: string) => boolean) | null } = { commands: null };

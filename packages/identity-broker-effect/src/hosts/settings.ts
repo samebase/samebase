@@ -5,7 +5,8 @@
 import { Config, Effect, Layer, type Redacted, Schema } from "effect";
 import { github } from "../core/connectors/github.ts";
 import { google } from "../core/connectors/google.ts";
-import { HubConfig, type ServiceSettings } from "../core/services.ts";
+import type { SignInPageFunction } from "../core/html.ts";
+import { HubConfig, SignInPage, type ServiceSettings } from "../core/services.ts";
 import { AllowList } from "../layers/github/schemas.ts";
 import { GithubSettings } from "../layers/github/settings.ts";
 
@@ -34,6 +35,11 @@ export type HubSettings = {
   readonly allowedRepositories: typeof AllowList.Type;
   /** The names that the sign-in page shows and discovery names. */
   readonly service: ServiceSettings;
+  /**
+   * The hub's own page before the provider, from its facts to a whole HTML document; the default
+   * page without it. The hub answers it with its own headers, and its error pages stay its own.
+   */
+  readonly signInPage?: SignInPageFunction;
 };
 
 /**
@@ -74,5 +80,8 @@ export const hubSettings = (options: HubSettings) =>
         }).pipe(Layer.orDie);
       }),
     ),
-    GithubSettings.layer(options.allowedRepositories),
+    Layer.merge(
+      SignInPage.layer(options.signInPage),
+      GithubSettings.layer(options.allowedRepositories),
+    ),
   );

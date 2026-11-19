@@ -7,6 +7,7 @@ import { decodeJwt } from "jose";
 import { afterEach, describe, expect, test, vi } from "vite-plus/test";
 import { first } from "../store/Tx.ts";
 import type { Connector } from "./connectors/types.ts";
+import type { SignInPageFacts } from "./html.ts";
 import { google } from "./connectors/google.ts";
 import type { Route } from "./router.ts";
 import { HubConfig, type HubConfigInput } from "./services.ts";
@@ -1312,6 +1313,55 @@ describe("authorization code flow with an OAuth connector", () => {
       expect(response.headers.get("referrer-policy")).toBe("no-referrer");
       expect(response.headers.get("cache-control")).toBe("no-store");
     }
+  });
+
+  test("a hub's own page gets the facts, and the hub answers it with its own headers", async () => {
+    const fetch = stubFetch();
+    const { connector } = fakeUpstream(fetch);
+    const facts: SignInPageFacts[] = [];
+    const h = await createBroker({
+      fetch,
+      config: { connectors: [connector] },
+      signInPage: (pageFacts) => {
+        facts.push(pageFacts);
+        return `<!doctype html><title>Own</title>${pageFacts.connectors.map((c) => `<a href="${c.href}">${c.label}</a>`).join("")}`;
+      },
+    });
+    const { clientId } = await h.registerClient({
+      appName: "Own",
+      redirectUri: REDIRECT_URI,
+      confirm: true,
+    });
+    const { challenge } = await pkce();
+    const response = await h.fetchBroker(authorizeUrl(h, { clientId, challenge }));
+    expect(response.status).toBe(200);
+    const html = await response.text();
+    expect(html.startsWith("<!doctype html><title>Own</title><a href=")).toBe(true);
+    expect(response.headers.get("content-type")).toBe("text/html; charset=utf-8");
+    expect(response.headers.get("content-security-policy")).toBe("frame-ancestors 'none'");
+    expect(response.headers.get("x-frame-options")).toBe("DENY");
+    expect(response.headers.get("referrer-policy")).toBe("no-referrer");
+    expect(response.headers.get("cache-control")).toBe("no-store");
+    expect(response.headers.get("set-cookie")).toMatch(/^__Host-broker_txn_/);
+    // Exactly these facts: no state, nonce, secret, identity or app name.
+    expect(facts).toEqual([
+      {
+        host: "app.test",
+        origin: "https://app.test",
+        connectors: [
+          {
+            label: connector.label,
+            provider: connector.provider,
+            href: expect.stringMatching(/^\/continue\?request=[^&]+&connector=fake$/),
+          },
+        ],
+        scopes: ["openid", "email", "profile"],
+        hub: { name: TEST_SERVICE.name, privacy: TEST_SERVICE.privacy, terms: TEST_SERVICE.terms },
+      },
+    ]);
+    // An error page stays the hub's own.
+    const unknown = await h.fetchBroker(authorizeUrl(h, { clientId: "cl_unknown", challenge }));
+    expect(await unknown.text()).toContain("Unknown client");
   });
 });
 

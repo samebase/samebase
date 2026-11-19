@@ -4,6 +4,7 @@
 // build theirs in src/core/testing/harness.ts.
 import { Config, Context, Effect, Layer, type Redacted, Schema } from "effect";
 import type { Connector } from "./connectors/types.ts";
+import { signInPage, type SignInPageFunction } from "./html.ts";
 import { isSecureUrl } from "./protocol.ts";
 
 /** The hub's sign-in service as users meet it on the page before the provider and in discovery. */
@@ -104,6 +105,19 @@ export class HubConfig extends Context.Service<HubConfig, HubConfigShape>()(
 
   /** The checked configuration of `input`. */
   static readonly layer = (input: HubConfigInput) => Layer.effect(HubConfig, HubConfig.make(input));
+}
+
+/**
+ * The page before the provider (src/core/html.ts): a function from its facts to a whole HTML
+ * document. The hub answers it with its own headers; its error pages stay the hub's own.
+ */
+export class SignInPage extends Context.Service<
+  SignInPage,
+  { readonly render: SignInPageFunction }
+>()("identity-broker-effect/core/SignInPage") {
+  /** `render`, or the default page without it. */
+  static readonly layer = (render: SignInPageFunction = signInPage) =>
+    Layer.succeed(SignInPage, SignInPage.of({ render }));
 }
 
 /** The signing keys: the content of `IDENTITY_BROKER_KEYS`, read in the request (src/core/keys.ts). */

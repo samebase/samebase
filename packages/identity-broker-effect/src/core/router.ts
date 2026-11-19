@@ -6,7 +6,7 @@ import type { Store } from "../store/Store.ts";
 import type { CommandFailed } from "./command.ts";
 import type { ProviderUnavailable } from "./connectors/upstream.ts";
 import { json } from "./responses.ts";
-import { HubConfig, type Fetch, type Keys, type Random } from "./services.ts";
+import { HubConfig, type Fetch, type Keys, type Random, type SignInPage } from "./services.ts";
 import {
   authorize,
   continueSignIn,
@@ -17,7 +17,7 @@ import {
   userinfo,
 } from "./signIn.ts";
 
-export type CoreServices = Store | HubConfig | Keys | Random | Fetch;
+export type CoreServices = Store | HubConfig | SignInPage | Keys | Random | Fetch;
 
 /** The failures a route leaves to the router: each answers 500 and writes one log line. */
 export type RouteError = CommandFailed | ProviderUnavailable;

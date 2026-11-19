@@ -14,7 +14,7 @@ import * as Alchemy from "alchemy";
 import { Clock, Config, Effect, Layer, Schema } from "effect";
 import * as HttpServerResponse from "effect/http/HttpServerResponse";
 import { hubLogger, makeHandle, type CoreServices } from "../../core/router.ts";
-import { Fetch, type HubConfig, Keys, Random } from "../../core/services.ts";
+import { Fetch, type HubConfig, Keys, Random, type SignInPage } from "../../core/services.ts";
 import { SIGN_IN_RETENTION_MS } from "../../core/signIn.ts";
 import { githubRoutes } from "../../layers/github/routes.ts";
 import type { GithubSettings } from "../../layers/github/settings.ts";
@@ -184,7 +184,9 @@ export type HubOptions = HubSettings & {
  * `Set-Cookie` field). The hub mounts the GitHub layer's routes. `hubWorker` gives it the settings
  * of its options; the conformance test stack (test/conformance) gives it local settings.
  */
-export const hubRuntime = <E, R>(settings: Layer.Layer<HubConfig | GithubSettings, E, R>) =>
+export const hubRuntime = <E, R>(
+  settings: Layer.Layer<HubConfig | SignInPage | GithubSettings, E, R>,
+) =>
   Effect.gen(function* () {
     const handle = makeHandle({ routes: githubRoutes });
     // Built once per isolate, when the Worker starts.
