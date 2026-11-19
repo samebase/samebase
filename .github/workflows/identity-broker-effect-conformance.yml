@@ -1,0 +1,73 @@
+# Runs the OpenID Foundation conformance suite against the identity broker in Effect
+# (packages/identity-broker-effect/test/conformance/run.ts). Everything runs on the runner: the
+# suite in Docker (compose.yml, images pinned by digest), and the hub as its real Cloudflare Worker
+# and SQLite Durable Object in workerd, through `alchemy dev` with a local state file. No secret, no
+# Cloudflare account, no deployed hub.
+#
+# Plans: the Config and Basic OP plans (the hub as the provider; the Basic plan through the named
+# PKCE adapter of local-servers.ts), and the Basic RP plan's modules with client_secret_post (the
+# hub's `suite` connector as the client). Each module is compared with
+# test/conformance/expected.json; a FAILED module, a new warning, or a listed module that changed
+# fails the job. The run writes its table to the job summary.
+#
+# Public logs: run.ts prints one line per module and the table. The generated keys, client secrets
+# and the suite's logs stay in mode-600 files in the runner's temporary folder.
+name: Identity broker conformance
+
+on:
+  pull_request:
+    paths:
+      - packages/identity-broker-effect/**
+      - .github/workflows/identity-broker-effect-conformance.yml
+  push:
+    branches: [main]
+    paths:
+      - packages/identity-broker-effect/**
+      - .github/workflows/identity-broker-effect-conformance.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: identity-broker-effect-conformance-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  conformance:
+    name: OpenID conformance
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: packages/identity-broker-effect
+    env:
+      # compose.yml mounts the run's certificate from this folder.
+      IBE_CONFORMANCE_TLS: ${{ runner.temp }}/conformance
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+        with:
+          version: 12.14.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: 24.x
+          check-latest: true
+          cache: pnpm
+
+      - name: Install dependencies
+        working-directory: .
+        run: pnpm install --frozen-lockfile
+
+      - name: Pull the suite's images
+        run: docker compose -f test/conformance/compose.yml pull --quiet
+
+      - name: Run the conformance plans
+        run: node test/conformance/run.ts --work "$IBE_CONFORMANCE_TLS"

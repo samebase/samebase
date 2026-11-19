@@ -1,0 +1,161 @@
+{
+  "oidcc-config-certification-test-plan": {
+    "oidcc-discovery-endpoint-verification": {
+      "result": "WARNING",
+      "reason": "Discovery names the extension member connectors_supported, which the suite does not know."
+    }
+  },
+  "oidcc-basic-certification-test-plan": {
+    "oidcc-server": {
+      "result": "WARNING",
+      "reason": "The id_token carries the extension claim connector, which the client did not request."
+    },
+    "oidcc-response-type-missing": {
+      "result": "REVIEW",
+      "reason": "The hub shows an error page; the suite asks a person to review its screenshot."
+    },
+    "oidcc-userinfo-post-body": {
+      "result": "WARNING",
+      "reason": "UserInfo reads the access token from the Authorization header only, not from a form body (optional in RFC 6750)."
+    },
+    "oidcc-scope-profile": {
+      "result": "WARNING",
+      "reason": "The hub returns name and picture only, not every standard profile claim."
+    },
+    "oidcc-scope-email": {
+      "result": "WARNING",
+      "reason": "The id_token also carries email; the suite notes that this does not violate the specification."
+    },
+    "oidcc-scope-address": {
+      "result": "SKIPPED",
+      "reason": "Discovery does not offer the address scope."
+    },
+    "oidcc-scope-phone": {
+      "result": "SKIPPED",
+      "reason": "Discovery does not offer the phone scope."
+    },
+    "oidcc-scope-all": {
+      "result": "SKIPPED",
+      "reason": "Discovery does not offer the address and phone scopes."
+    },
+    "oidcc-alternate-happy-flow": {
+      "result": "WARNING",
+      "reason": "The id_token also carries email; the suite notes that this does not violate the specification."
+    },
+    "oidcc-prompt-login": {
+      "result": "REVIEW",
+      "reason": "The second login passes every check; the suite asks a person to review the screenshot of the hub's sign-in page."
+    },
+    "oidcc-prompt-none-not-logged-in": {
+      "result": "INTERRUPTED",
+      "reason": "The hub keeps no session and answers prompt=none with an error page, not a login_required callback."
+    },
+    "oidcc-prompt-none-logged-in": {
+      "result": "INTERRUPTED",
+      "reason": "The hub keeps no session and answers prompt=none with an error page, so no silent sign-in."
+    },
+    "oidcc-max-age-1": {
+      "result": "REVIEW",
+      "reason": "The second login passes every check; the suite asks a person to review the screenshot of the hub's sign-in page."
+    },
+    "oidcc-id-token-hint": {
+      "result": "INTERRUPTED",
+      "reason": "The hub does not take id_token_hint and answers with an error page, not a callback."
+    },
+    "oidcc-ensure-request-with-acr-values-succeeds": {
+      "result": "WARNING",
+      "reason": "The id_token has no acr claim; the hub advertises no ACR support."
+    },
+    "oidcc-codereuse-30seconds": {
+      "result": "WARNING",
+      "reason": "A replayed code is refused, but the access token of the first exchange stays valid until it expires (RFC 6749 SHOULD)."
+    },
+    "oidcc-ensure-registered-redirect-uri": {
+      "result": "REVIEW",
+      "reason": "The hub shows an error page for an unregistered redirect URI; the suite asks a person to review its screenshot."
+    },
+    "oidcc-unsigned-request-object-supported-correctly-or-rejected-as-unsupported": {
+      "result": "INTERRUPTED",
+      "reason": "The hub refuses a Request Object with an error page, not a request_not_supported callback."
+    },
+    "oidcc-claims-essential": {
+      "result": "WARNING",
+      "reason": "The claims parameter is not supported (claims_parameter_supported is false), so name comes only with the profile scope."
+    },
+    "oidcc-ensure-request-object-with-redirect-uri": {
+      "result": "REVIEW",
+      "reason": "The hub shows an error page; the suite asks a person to review its screenshot."
+    },
+    "oidcc-refresh-token": {
+      "result": "SKIPPED",
+      "reason": "The hub issues no refresh tokens."
+    }
+  },
+  "oidcc-client-test-plan": {
+    "oidcc-client-test": {
+      "result": "INTERRUPTED",
+      "hub": "accept",
+      "reason": "The module ends only on a UserInfo request; the connector reads the identity from the id_token and makes none."
+    },
+    "oidcc-client-test-nonce-invalid": {
+      "result": "PASSED",
+      "hub": "reject",
+      "reason": "A wrong nonce must be refused."
+    },
+    "oidcc-client-test-scope-userinfo-claims": {
+      "result": "INTERRUPTED",
+      "hub": "accept",
+      "reason": "The module ends only on a UserInfo request, which the connector does not make."
+    },
+    "oidcc-client-test-kid-absent-single-jwks": {
+      "result": "INTERRUPTED",
+      "hub": "accept",
+      "reason": "The module ends only on a UserInfo request, which the connector does not make."
+    },
+    "oidcc-client-test-kid-absent-multiple-jwks": {
+      "result": "PASSED",
+      "hub": "either",
+      "reason": "The suite lets a client accept or refuse this id_token."
+    },
+    "oidcc-client-test-missing-iat": {
+      "result": "PASSED",
+      "hub": "reject",
+      "reason": "An id_token with no iat must be refused."
+    },
+    "oidcc-client-test-invalid-aud": {
+      "result": "PASSED",
+      "hub": "reject",
+      "reason": "An id_token for another audience must be refused."
+    },
+    "oidcc-client-test-idtoken-sig-none": {
+      "result": "SKIPPED",
+      "hub": "either",
+      "reason": "The suite lets a client of the code flow accept or refuse an unsigned id_token; it skips when no UserInfo request follows."
+    },
+    "oidcc-client-test-idtoken-sig-rs256": {
+      "result": "INTERRUPTED",
+      "hub": "accept",
+      "reason": "The module ends only on a UserInfo request, which the connector does not make."
+    },
+    "oidcc-client-test-missing-sub": {
+      "result": "PASSED",
+      "hub": "reject",
+      "reason": "An id_token with no sub must be refused."
+    },
+    "oidcc-client-test-invalid-sig-rs256": {
+      "result": "PASSED",
+      "hub": "either",
+      "reason": "OIDC Core 3.1.3.7 lets a client skip the signature check of an id_token from the token endpoint over TLS."
+    },
+    "oidcc-client-test-invalid-iss": {
+      "result": "PASSED",
+      "hub": "reject",
+      "reason": "An id_token of another issuer must be refused."
+    },
+    "oidcc-client-test-userinfo-invalid-sub": {
+      "result": "INTERRUPTED",
+      "hub": "accept",
+      "reason": "The connector makes no UserInfo request, so it never sees the wrong sub."
+    }
+  }
+}

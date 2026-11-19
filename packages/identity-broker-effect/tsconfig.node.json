@@ -18,5 +18,6 @@
     "skipLibCheck": true,
     "isolatedModules": true
   },
-  "include": ["alchemy.run.ts", "src/**/*.test.ts"]
+  "include": ["alchemy.run.ts", "src/**/*.test.ts", "test/conformance/*.ts"],
+  "exclude": ["test/conformance/admin.ts"]
 }

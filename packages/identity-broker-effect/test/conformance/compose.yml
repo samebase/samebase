@@ -1,0 +1,37 @@
+# The OpenID Foundation conformance suite, local only: its dev profile supplies a test user, so it
+# needs no Google or GitLab login. `localhost.emobix.co.uk` resolves to 127.0.0.1 in public DNS; in
+# the containers it is the Docker host, where the hub's TLS proxy listens (run.ts). run.ts starts
+# and stops it; `IBE_CONFORMANCE_TLS` is the run's work folder, whose certificate nginx serves, so
+# the hub in workerd trusts the suite with the same one certificate. The image's own certificate
+# names only `localhost`.
+name: ibe-conformance
+services:
+  mongodb:
+    image: mongo:6.0.13@sha256:b415b12f638e2685d06c58ab7fb5943577c50fadec6d9340ef67d21aeac72070
+  server:
+    # Release tags stay in GitLab's registry; the images of a branch build are deleted after days.
+    image: registry.gitlab.com/openid/conformance-suite:release-v5.3.4@sha256:dcc4bd1fb7e9c00f048a67373fe2bec5ecf9feb45a6b5d55e237e5c30e5312c6
+    environment:
+      BASE_URL: https://localhost.emobix.co.uk:8443
+      BASE_MTLS_URL: https://localhost.emobix.co.uk:8444
+      MONGODB_HOST: mongodb
+      SPRING_PROFILES_ACTIVE: dev
+      OIDC_GOOGLE_CLIENTID: unused-local
+      OIDC_GOOGLE_SECRET: unused-local
+      OIDC_GITLAB_CLIENTID: unused-local
+      OIDC_GITLAB_SECRET: unused-local
+      JAVA_EXTRA_ARGS: -Dfintechlabs.starttls=false
+    extra_hosts:
+      - localhost.emobix.co.uk:host-gateway
+    depends_on:
+      - mongodb
+  nginx:
+    image: registry.gitlab.com/openid/conformance-suite/nginx:release-v5.3.4@sha256:9a7850826fcc8690cd43373528f50e9551ba33bf8e4a40b67b13267b0aca3675
+    volumes:
+      - ${IBE_CONFORMANCE_TLS:?}/tls-cert.pem:/etc/ssl/certs/nginx-selfsigned.crt:ro
+      - ${IBE_CONFORMANCE_TLS:?}/tls-key.pem:/etc/ssl/private/nginx-selfsigned.key:ro
+    ports:
+      - 127.0.0.1:8443:8443
+      - 127.0.0.1:8444:8444
+    depends_on:
+      - server

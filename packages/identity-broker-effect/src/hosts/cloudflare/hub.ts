@@ -207,20 +207,31 @@ const HubSettings = Layer.unwrap(
   }),
 );
 
-/** Every service of the core on Cloudflare, and the hub's logger. */
-const HubServices = Layer.mergeAll(
-  HubSettings,
-  Keys.layer,
-  Random.layer,
-  Fetch.layer,
-  HubStore,
-  hubLogger,
-);
-
 /**
- * The Worker. The core takes the Web `Request` and gives a Web `Response`; `HttpServerResponse.raw`
- * hands that `Response` to the platform unchanged (status, body and each `Set-Cookie` field).
+ * The Worker's runtime over its settings: every service of the core on Cloudflare, the hub's
+ * logger, and `fetch`. The core takes the Web `Request` and gives a Web `Response`;
+ * `HttpServerResponse.raw` hands that `Response` to the platform unchanged (status, body and each
+ * `Set-Cookie` field). The Worker below gives it `HubSettings`; the conformance test stack
+ * (test/conformance) gives it local settings.
  */
+export const hubRuntime = <E, R>(settings: Layer.Layer<HubConfig, E, R>) =>
+  Effect.gen(function* () {
+    const handle = makeHandle({ registerRoutes: registrationRoutes });
+    // Built once per isolate, when the Worker starts.
+    const services = yield* Effect.context<CoreServices>();
+    return {
+      fetch: Effect.gen(function* () {
+        const request = yield* Cloudflare.Request;
+        return HttpServerResponse.raw(yield* handle(request).pipe(Effect.provideContext(services)));
+      }),
+    };
+  }).pipe(
+    Effect.provide(
+      Layer.mergeAll(settings, Keys.layer, Random.layer, Fetch.layer, HubStore, hubLogger),
+    ),
+  );
+
+/** The Worker. */
 export default class Hub extends Cloudflare.Worker<Hub>()(
   "Hub",
   Effect.gen(function* () {
@@ -239,15 +250,5 @@ export default class Hub extends Cloudflare.Worker<Hub>()(
       codeUpdateStrategy: { mode: "immediate" },
     };
   }),
-  Effect.gen(function* () {
-    const handle = makeHandle({ registerRoutes: registrationRoutes });
-    // Built once per isolate, when the Worker starts.
-    const services = yield* Effect.context<CoreServices>();
-    return {
-      fetch: Effect.gen(function* () {
-        const request = yield* Cloudflare.Request;
-        return HttpServerResponse.raw(yield* handle(request).pipe(Effect.provideContext(services)));
-      }),
-    };
-  }).pipe(Effect.provide(HubServices)),
+  hubRuntime(HubSettings),
 ) {}
