@@ -222,7 +222,8 @@ export const ExchangeResult = Schema.Union([
     scope: Str,
     nonce: opt(Str),
     identity: UpstreamIdentity,
-    authTime: Num,
+    /** Only for a request that asked for a fresh login: the provider's time of that login. */
+    authTime: opt(Num),
   }),
   Schema.Struct({
     ok: Schema.Literal(false),

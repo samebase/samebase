@@ -445,6 +445,9 @@ export const exchangeCode = Effect.fnUntraced(function* (
     scope: request.scope,
     ...(request.nonce === undefined ? {} : { nonce: request.nonce }),
     identity: request.identity,
-    authTime: request.authTime,
+    // The hub keeps no session, so it knows when the user logged in only when it asked the
+    // provider for a login in this request. Otherwise the provider may have reused its session,
+    // and the token names no time.
+    ...(request.freshLogin ? { authTime: request.authTime } : {}),
   };
 });

@@ -737,6 +737,8 @@ export const upstreamCallback = (connector: Connector) =>
       }
     }
     const upstream = finished.success;
+    // Stored with every completed request; the token carries it only for a fresh login
+    // (authRequests.exchangeCode).
     let authTime = now;
     if (claim.freshLogin) {
       // prompt=login and max_age=0 went upstream, but a provider can still reuse its session;

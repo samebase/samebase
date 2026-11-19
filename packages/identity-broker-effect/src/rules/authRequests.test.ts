@@ -170,12 +170,14 @@ describe.each(hosts)("%s", (_name, make) => {
         ok: false,
         description: expect.stringMatching(/code_verifier/),
       });
-      expect(exchange(t)).toMatchObject({
+      const exchanged = exchange(t);
+      expect(exchanged).toMatchObject({
         ok: true,
         appId: "app",
         identity: { upstreamId: "42" },
-        authTime: now,
       });
+      // The request asked for no fresh login, so the exchange names no login time.
+      expect(exchanged).not.toHaveProperty("authTime");
       expect(get(t)).toBeNull();
       expect(exchange(t)).toMatchObject({
         ok: false,

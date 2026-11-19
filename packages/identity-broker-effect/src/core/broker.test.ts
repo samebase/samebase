@@ -376,8 +376,8 @@ describe("authorization code flow with an OAuth connector", () => {
     expect(claims["email"]).toBe("octo@example.com");
     expect(claims["email_verified"]).toBe(true);
     expect(claims["connector"]).toBe("fake");
-    // The callback's entry time on the test clock, in seconds.
-    expect(claims.auth_time).toBe(Math.floor(h.clock.now() / 1000));
+    // The request asked for no fresh login, so the token names no login time.
+    expect(claims.auth_time).toBeUndefined();
 
     const userinfo = await h.fetchBroker(`${h.issuer}/userinfo`, {
       headers: { Authorization: `Bearer ${body.access_token}` },
@@ -770,7 +770,7 @@ describe("authorization code flow with an OAuth connector", () => {
     }
   });
 
-  test("without a fresh login, the sign-in completes at the hub's time, upstream auth_time or not", async () => {
+  test("without a fresh login, the id_token has no auth_time, upstream auth_time or not", async () => {
     const { h, idp } = await oidcBroker();
     const { clientId, clientSecret } = await h.registerClient({
       appName: "My app",
@@ -789,8 +789,8 @@ describe("authorization code flow with an OAuth connector", () => {
       const tokens = await exchange(h, { code, clientId, clientSecret, verifier: signIn.verifier });
       expect(tokens.status).toBe(200);
       const idToken = decodeJwt((await tokensOf(tokens)).id_token);
-      // The callback's time, never the upstream's hour-old value.
-      expect(idToken.auth_time).toBe(signIn.createdSecond);
+      // Neither the callback's time nor the upstream's hour-old value: the hub cannot know it.
+      expect(idToken.auth_time).toBeUndefined();
       expect(idToken.sub).toBe("idp:24400320");
     }
   });

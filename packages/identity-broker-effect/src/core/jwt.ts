@@ -36,14 +36,15 @@ export async function signIdToken(args: {
   issuer: string;
   clientId: string;
   claims: IdentityClaims;
-  authTime: number;
+  /** In milliseconds. Undefined: the token has no `auth_time` (OIDC Core section 2: optional). */
+  authTime: number | undefined;
   nonce: string | undefined;
 }): Promise<string> {
   return await sign(
     args.keySet,
     {
       ...args.claims,
-      auth_time: Math.floor(args.authTime / 1000),
+      ...(args.authTime === undefined ? {} : { auth_time: Math.floor(args.authTime / 1000) }),
       ...(args.nonce === undefined ? {} : { nonce: args.nonce }),
     },
     args.issuer,
