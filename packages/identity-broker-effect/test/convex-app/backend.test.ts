@@ -11,7 +11,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseEnv } from "node:util";
 import { ConvexHttpClient } from "convex/browser";
-import { Effect, Schema } from "effect";
+import { Schema } from "effect";
 import fc from "fast-check";
 import { base64url, createLocalJWKSet, jwtVerify } from "jose";
 import { afterAll, beforeAll, beforeEach, expect, test } from "vite-plus/test";
@@ -25,8 +25,7 @@ import {
   txnCookie,
   type StubFetch,
 } from "../../src/core/testing/harness.ts";
-import { githubRoutes } from "../../src/layers/github/routes.ts";
-import { GithubSettings } from "../../src/layers/github/settings.ts";
+import { github } from "../../src/layers/github/routes.ts";
 import {
   dyingStep,
   edgeStep,
@@ -238,11 +237,7 @@ const memoryHub = async (): Promise<TestHub> => {
   const h = await createBroker({
     fetch: upstream,
     config: { issuer: siteUrl, connectors: [idp.connector] },
-    routes: githubRoutes.map((route) => ({
-      ...route,
-      handler: (request: Request) =>
-        route.handler(request).pipe(Effect.provide(GithubSettings.layer(ALLOW_LIST))),
-    })),
+    routes: github(ALLOW_LIST),
   });
   h.clock.set(Date.now());
   return {

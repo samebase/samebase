@@ -1,6 +1,6 @@
-// The Alchemy stack of the test hub: the Worker and its SQLite Durable Object, declared in
-// src/hosts/cloudflare/hub.ts. Run from this folder, with each secret read from a file into its
-// environment variable:
+// The Alchemy stack of the test hub: the Worker and its SQLite Durable Object of
+// src/hosts/cloudflare/hub.ts, as src/hub.ts declares them. Run from this folder, with each secret
+// read from a file into its environment variable:
 //   IDENTITY_BROKER_KEYS="$(cat <file>)" GOOGLE_CLIENT_ID=... pnpm exec alchemy deploy --stage dev-spike
 //
 // The state is in the account's Cloudflare state store (`alchemy-state-store`, version 8, which is
@@ -9,7 +9,7 @@
 import * as Cloudflare from "@alchemy.run/cloudflare";
 import * as Alchemy from "alchemy";
 import * as Effect from "effect/Effect";
-import Hub from "./src/hosts/cloudflare/hub.ts";
+import Hub from "./src/hub.ts";
 
 const accountId = "fe57d01d7ab41f60d00ba1aade20eb33";
 

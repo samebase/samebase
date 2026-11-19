@@ -6,6 +6,7 @@
 // are its `IDENTITY_BROKER_KEYS`.
 import { Config } from "effect";
 import { hubWorker } from "../../../packages/identity-broker-effect/src/hosts/cloudflare/hub.ts";
+import { github } from "../../../packages/identity-broker-effect/src/layers/github/routes.ts";
 
 export default hubWorker({
   main: import.meta.url,
@@ -20,7 +21,7 @@ export default hubWorker({
     },
   },
   // samebase/samebase only.
-  allowedRepositories: [{ repositoryId: "1021726325", ownerId: "285392744" }],
+  registration: github([{ repositoryId: "1021726325", ownerId: "285392744" }]),
   service: {
     name: "Identity broker example",
     terms: "https://samebase.com/terms",

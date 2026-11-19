@@ -1,10 +1,17 @@
 import { Clock, Effect, Option, Schema } from "effect";
 import { base64url, createLocalJWKSet, errors as joseErrors, jwtVerify } from "jose";
-import { LOOPBACK_HOSTS, parseRedirectUri } from "../../core/protocol.ts";
 import { invalidToken, json, noToken } from "../../core/responses.ts";
 import { Fetch, HubConfig, Random } from "../../core/services.ts";
 import { sha256HexEffect } from "../../core/subject.ts";
-import { clientInformation, insufficientScope, newClientCredentials } from "./manage.ts";
+import {
+  insufficientScope,
+  invalid,
+  invalidConnectors,
+  MAX_APP_LENGTH,
+  newClient,
+  newClientCredentials,
+  readClientMetadata,
+} from "../clientRegistration.ts";
 import { command, GithubSettings } from "./settings.ts";
 
 // `POST /register`, the client registration endpoint of RFC 7591: a new client for one deployment
@@ -26,67 +33,12 @@ const VERIFICATION_PATH = "/samebase-verification.json";
 const VERIFICATION_TIMEOUT_MS = 5_000;
 /** The file holds one id. A larger body is not this file, and the read stops at this size. */
 const MAX_VERIFICATION_BYTES = 4_096;
-/** The return addresses of one client: a handler per flow of the app, with room to spare. */
-const MAX_REDIRECT_URIS = 8;
-/** Stored on every client row. A commit hash or a version fits many times. */
-const MAX_SOFTWARE_VERSION_LENGTH = 256;
-/** The app's name is stored on every client and shown on the admin page. */
-const MAX_APP_LENGTH = 64;
 
-/** The app of a registration without `software_id`. */
-const DEFAULT_APP = "app";
 /** The full form of `software_id`, `<tenant id>/<app name>`, whose tenant is a repository's. */
 const FULL_SOFTWARE_ID = /^gh-[1-9][0-9]*\//;
 
-// Each schema below accepts unknown members: GitHub and a host send more than these name. They
-// narrow the value that was read (`Schema.is`), so the members that they do not name stay on it.
-
-/**
- * The client metadata of a registration request that the hub reads (RFC 7591 section 2), but
- * `redirect_uris`, which has its own error. Any other member is ignored, as that section requires,
- * but the ones in `UNSUPPORTED_MEMBERS`.
- */
-const RequestBody = Schema.Struct({
-  /**
-   * The app: its name alone, or `<tenant id>/<app name>`. Absent: `DEFAULT_APP`. The same for each
-   * deployment of the app.
-   */
-  software_id: Schema.optionalKey(Schema.String),
-  /** Absent: `unknown`. */
-  software_version: Schema.optionalKey(Schema.String),
-  /**
-   * The enrollment, the hub's own member: at least one connector name. Duplicates collapse. Absent:
-   * every connector that this registration may enroll in.
-   */
-  connectors: Schema.optionalKey(Schema.Array(Schema.String)),
-  /** Absent: `client_secret_basic`, the default of RFC 7591 section 2. */
-  token_endpoint_auth_method: Schema.optionalKey(
-    Schema.Literals(["client_secret_post", "client_secret_basic"]),
-  ),
-  /** The hub answers its own values: a client asks for nothing here that the hub does not have. */
-  grant_types: Schema.optionalKey(
-    Schema.Array(Schema.Literals(["authorization_code", "refresh_token"])),
-  ),
-  response_types: Schema.optionalKey(Schema.Array(Schema.Literal("code"))),
-  // The one value of each that the hub has (OpenID Connect Registration section 2).
-  application_type: Schema.optionalKey(Schema.Literal("web")),
-  subject_type: Schema.optionalKey(Schema.Literal("public")),
-  id_token_signed_response_alg: Schema.optionalKey(Schema.Literal("RS256")),
-});
-
-/** The return addresses: one to `MAX_REDIRECT_URIS`. Duplicates collapse; the order does not matter. */
-const RedirectUris = Schema.Struct({ redirect_uris: Schema.Array(Schema.String) });
-
-/**
- * Members of OpenID Connect Registration that the hub cannot honor, so a request with one is refused
- * rather than given a client that ignores it. Any member with `_encrypted_response_` or
- * `_encryption_` in its name is one too.
- */
-const UNSUPPORTED_MEMBERS = new Set([
-  "sector_identifier_uri",
-  "userinfo_signed_response_alg",
-  "request_object_signing_alg",
-]);
+// Each schema below accepts unknown members: GitHub sends more than these name. They narrow the
+// value that was read (`Schema.is`), so the members that they do not name stay on it.
 
 /** The file's one field: the numeric GitHub repository id, as a string of digits or a JSON number. */
 const VerificationFile = Schema.Struct({
@@ -104,15 +56,6 @@ function refusal(
   more: { reason?: string; allowed?: readonly string[]; window?: string } = {},
 ): Response {
   return json({ error, error_description: description, ...more }, status);
-}
-
-/** A registration error of RFC 7591 section 3.2.2. */
-function invalid(
-  error: "invalid_redirect_uri" | "invalid_client_metadata",
-  description: string,
-  more: { reason?: string; allowed?: readonly string[] } = {},
-): Response {
-  return refusal(400, error, description, more);
 }
 
 /** The sentence of each refusal of a verification file. */
@@ -148,14 +91,6 @@ function denied(reason: keyof typeof DENIALS): Response {
 /** The answer when the repository, its owner, or all new owners used their hourly registrations. */
 const rateLimited = (window: string) =>
   refusal(429, "rate_limited", "The hourly limit of registrations is reached.", { window });
-
-/** The connectors are not ones this registration may enroll in, with the names that are. */
-const invalidConnectors = (allowed: readonly string[]) =>
-  invalid(
-    "invalid_client_metadata",
-    "The connectors are not ones that this registration may enroll in.",
-    { reason: "invalid_connectors", allowed },
-  );
 
 /** The body of every JSON refusal of this endpoint. */
 const RefusalBody = Schema.Struct({
@@ -345,59 +280,18 @@ const readRun = Effect.fn("readRun")(function* (token: string, audience: string)
 // The request and the host.
 
 /**
- * The return address, if `parseRedirectUri` takes it, with no fragment and no user info, and either
- * https on a DNS name, which the verification file proves, or http on a loopback host, which only
- * the initial access token can prove: the hub cannot reach a development server. An IP address or
- * `localhost` over https is never a host that a file can prove. Any port and any path.
+ * The client metadata of the request (`readClientMetadata`), or the answer that refuses it, with
+ * the app's name from a `software_id` whose full form must name `repositoryId`, the proof's
+ * repository. Each https origin of the return addresses must serve the verification file; a
+ * loopback address only the initial access token can prove, as the hub cannot reach a development
+ * server. The enrollment it names is checked by `github.admit`.
  */
-function readRedirectUri(value: string) {
-  // An empty fragment parses to an empty hash, which parseRedirectUri allows.
-  const url = value.includes("#") ? null : parseRedirectUri(value);
-  if (url === null || url.username !== "" || url.password !== "") {
-    return null;
+const readBody = Effect.fnUntraced(function* (request: Request, repositoryId: string) {
+  const metadata = yield* readClientMetadata(request);
+  if (metadata instanceof Response) {
+    return metadata;
   }
-  if (url.protocol === "http:" && LOOPBACK_HOSTS.has(url.hostname)) {
-    return { url, loopback: true };
-  }
-  // The URL parser lowercases the host and writes an IPv4 address in dotted decimal, so a DNS name
-  // is the one form whose last label starts with a letter.
-  return url.protocol === "https:" &&
-    /^(?:[a-z0-9-]+\.)+[a-z][a-z0-9-]*$/.test(url.hostname) &&
-    !url.hostname.endsWith(".localhost")
-    ? { url, loopback: false }
-    : null;
-}
-
-const isRequestBody = Schema.is(RequestBody);
-const isRedirectUris = Schema.is(RedirectUris);
-
-/**
- * The client metadata of the body, or the answer that refuses it: the app's name, from a
- * `software_id` whose full form must name `repositoryId`, the proof's repository; `redirectUris`
- * sorted and unique, each parsed, with `loopback` when any of them is a loopback address. The
- * enrollment it names is checked by `github.admit`.
- */
-function readBody(body: unknown, repositoryId: string) {
-  if (!isRequestBody(body)) {
-    return invalid(
-      "invalid_client_metadata",
-      "The body is not a JSON object of valid client metadata.",
-    );
-  }
-  if (
-    Object.keys(body).some(
-      (name) =>
-        UNSUPPORTED_MEMBERS.has(name) ||
-        name.includes("_encrypted_response_") ||
-        name.includes("_encryption_"),
-    )
-  ) {
-    return invalid(
-      "invalid_client_metadata",
-      "The hub supports only web clients with public subjects and RS256, without encryption.",
-    );
-  }
-  const softwareId = body.software_id ?? DEFAULT_APP;
+  const { softwareId } = metadata;
   const full = FULL_SOFTWARE_ID.test(softwareId);
   if (full && !softwareId.startsWith(`gh-${repositoryId}/`)) {
     return invalid(
@@ -409,36 +303,8 @@ function readBody(body: unknown, repositoryId: string) {
   if (app.length === 0 || app.length > MAX_APP_LENGTH) {
     return invalid("invalid_client_metadata", "The app name of software_id is 1 to 64 characters.");
   }
-  const softwareVersion = body.software_version ?? "unknown";
-  if (softwareVersion.length === 0 || softwareVersion.length > MAX_SOFTWARE_VERSION_LENGTH) {
-    return invalid("invalid_client_metadata", "software_version is 1 to 256 characters.");
-  }
-  if (!isRedirectUris(body)) {
-    return invalid("invalid_redirect_uri", "redirect_uris is a list of 1 to 8 URIs.");
-  }
-  const redirectUris = [...new Set(body.redirect_uris)].sort();
-  if (redirectUris.length === 0 || redirectUris.length > MAX_REDIRECT_URIS) {
-    return invalid("invalid_redirect_uri", "redirect_uris is a list of 1 to 8 URIs.");
-  }
-  const redirects = redirectUris.map(readRedirectUri);
-  const parsed = redirects.filter((redirect) => redirect !== null);
-  if (parsed.length !== redirects.length) {
-    return invalid(
-      "invalid_redirect_uri",
-      "A redirect URI is https on a DNS name, or http on a loopback host for a development client, with no fragment, no user info, and no authorization response parameter in its query.",
-    );
-  }
-  return {
-    app,
-    softwareVersion,
-    connectors: body.connectors,
-    tokenEndpointAuthMethod: body.token_endpoint_auth_method ?? ("client_secret_basic" as const),
-    redirectUris,
-    /** The distinct origins of the https addresses, each of which must serve the verification file. */
-    origins: [...new Set(parsed.filter((r) => !r.loopback).map((r) => r.url.origin))],
-    loopback: parsed.some((redirect) => redirect.loopback),
-  };
-}
+  return { ...metadata, app };
+});
 
 /** The body as text, or null when it is larger than `MAX_VERIFICATION_BYTES`. It reads no further. */
 async function readSmallBody(response: Response) {
@@ -577,24 +443,6 @@ const admit = Effect.fn("admit")(function* (
 });
 
 /**
- * The 201 answer (RFC 7591 section 3.2.1): the client's registered metadata, its secret, and its
- * RFC 7592 token, which go to nothing else. `issuer` and `terms` are the hub's own members.
- */
-function newClient(
-  hub: HubSettings,
-  credentials: Effect.Success<typeof newClientCredentials>,
-  client: Omit<Parameters<typeof clientInformation>[0], "issuer">,
-) {
-  return {
-    ...clientInformation({ ...client, issuer: hub.issuer }),
-    client_secret: credentials.clientSecret,
-    registration_access_token: credentials.registrationAccessToken,
-    issuer: hub.issuer,
-    terms: hub.terms,
-  };
-}
-
-/**
  * A client for a GitHub Actions run, with GitHub's OIDC token. A run of main also gets the app's
  * initial access token, which a development server of the team uses for its development client.
  */
@@ -607,10 +455,7 @@ const registerRun = Effect.fn("registerRun")(function* (
   if (run instanceof Response) {
     return run;
   }
-  const body = readBody(
-    yield* Effect.promise(() => request.json().catch(() => null)),
-    run.claims.repository_id,
-  );
+  const body = yield* readBody(request, run.claims.repository_id);
   if (body instanceof Response) {
     return body;
   }
@@ -683,12 +528,10 @@ const registerRun = Effect.fn("registerRun")(function* (
     json(
       {
         ...newClient(hub, credentials, {
-          clientId: credentials.clientId,
           createdAt: created.createdAt,
           redirectUris: body.redirectUris,
           clientName: created.clientName,
-          tenantId: created.tenantId,
-          app: body.app,
+          softwareId: `${created.tenantId}/${body.app}`,
           softwareVersion: body.softwareVersion,
           tokenEndpointAuthMethod: body.tokenEndpointAuthMethod,
           connectors: enrollment,
@@ -717,10 +560,7 @@ const registerDevelopment = Effect.fn("registerDevelopment")(function* (
   if (token === null) {
     return invalidToken();
   }
-  const body = readBody(
-    yield* Effect.promise(() => request.json().catch(() => null)),
-    token.githubRepositoryDatabaseId,
-  );
+  const body = yield* readBody(request, token.githubRepositoryDatabaseId);
   if (body instanceof Response) {
     return body;
   }
@@ -779,12 +619,10 @@ const registerDevelopment = Effect.fn("registerDevelopment")(function* (
     facts,
     json(
       newClient(hub, credentials, {
-        clientId: credentials.clientId,
         createdAt: created.createdAt,
         redirectUris: body.redirectUris,
         clientName: created.clientName,
-        tenantId: created.tenantId,
-        app: token.app,
+        softwareId: `${created.tenantId}/${token.app}`,
         softwareVersion: body.softwareVersion,
         tokenEndpointAuthMethod: body.tokenEndpointAuthMethod,
         connectors: enrollment,
