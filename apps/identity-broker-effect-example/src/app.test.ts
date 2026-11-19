@@ -1,10 +1,10 @@
 // The example app against the hub's real core (packages/identity-broker-effect) on the memory
-// Store, with no network: the hub registers the app's client after it reads the app's own
-// verification file, then a browser signs in through the hub's page and a fake Google. The app's
-// services get test Layers: the client's values as plain values, and every hub request served by
-// the hub's core through `FetchHttpClient.Fetch`.
+// Store, with no network: the hub, on the stack layer with the app's two keys, registers the app's
+// preview client for the preview key, then a browser signs in through the hub's page and a fake
+// Google. The app's services get test Layers: the client's values as plain values, and every hub
+// request served by the hub's core through `FetchHttpClient.Fetch`.
 import { describe, expect, it } from "@effect/vitest";
-import { Effect, Layer, Redacted } from "effect";
+import { Config, Effect, Layer, Redacted, Schema } from "effect";
 import * as Cookies from "effect/http/Cookies";
 import * as FetchHttpClient from "effect/http/FetchHttpClient";
 import * as HttpServerRequest from "effect/http/HttpServerRequest";
@@ -15,25 +15,19 @@ import {
   fakeOidcUpstream,
   stubFetch,
 } from "../../../packages/identity-broker-effect/src/core/testing/harness.ts";
-import { githubRoutes } from "../../../packages/identity-broker-effect/src/layers/github/routes.ts";
-import { GithubSettings } from "../../../packages/identity-broker-effect/src/layers/github/settings.ts";
-import {
-  OWNER_ID,
-  pullRequestClaims,
-  readNewClient,
-  signToken,
-  stubProviders,
-} from "../../../packages/identity-broker-effect/src/layers/github/testing/hub.ts";
+import { stack } from "../../../packages/identity-broker-effect/src/layers/stack/routes.ts";
 import { app } from "./app.ts";
 import { HubClient } from "./hub-client.ts";
 import { Session } from "./session.ts";
 
 const HUB = "https://hub.example.com";
 const APP = "https://identity-broker-effect-example-pr-1.pfp.workers.dev";
-const REPOSITORY_ID = "1021726325";
 const SESSION_SECRET = "test-session-secret";
+/** The hub's two keys, as `prod` makes them. */
+const PRODUCTION_KEY = "test-production-key";
+const PREVIEW_KEY = "test-preview-key";
 
-/** The test hub of the deploy: Google only, and only for this repository. */
+/** The test hub of the deploy: Google only, and the keys of src/hub.ts with these values. */
 async function createTestHub() {
   const fetch = stubFetch();
   const google = await fakeOidcUpstream(fetch);
@@ -43,18 +37,12 @@ async function createTestHub() {
       issuer: HUB,
       connectors: [{ ...google.connector, name: "google", provider: "google", label: "Google" }],
     },
-    // The allow-list names this repository with the owner of GitHub's documented token.
-    routes: githubRoutes.map((route) => ({
-      ...route,
-      handler: (request: Request) =>
-        route
-          .handler(request)
-          .pipe(
-            Effect.provide(
-              GithubSettings.layer([{ repositoryId: REPOSITORY_ID, ownerId: OWNER_ID }]),
-            ),
-          ),
-    })),
+    routes: stack({
+      keys: {
+        production: { key: Config.succeed(Redacted.make(PRODUCTION_KEY)), permanent: true },
+        preview: { key: Config.succeed(Redacted.make(PREVIEW_KEY)) },
+      },
+    }),
   });
   // The app checks the ID token's times against the real clock.
   broker.clock.set(Date.now());
@@ -62,28 +50,25 @@ async function createTestHub() {
 }
 type TestHub = Awaited<ReturnType<typeof createTestHub>>;
 
-/**
- * `POST /register` as IdentityHub.Client sends it from a pull request's run, with the run's
- * GitHub token for this repository.
- */
-async function registerPreviewClient(hub: TestHub) {
-  const token = await signToken(hub, {
-    ...pullRequestClaims,
-    aud: HUB,
-    repository_id: REPOSITORY_ID,
-  });
+/** `POST /register` as IdentityHub.Client sends it from the stage `pr-1`, with `key`. */
+async function registerPreviewClient(hub: TestHub, key: string) {
   return await hub.fetchBroker(`${HUB}/register`, {
     method: "POST",
-    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
     body: JSON.stringify({
       redirect_uris: [`${APP}/callback`],
       software_id: "apps/identity-broker-effect-example",
       software_version: "test",
+      client_name: "pr-1",
+      deployment_type: "preview",
       connectors: ["google"],
       token_endpoint_auth_method: "client_secret_post",
     }),
   });
 }
+
+/** The members of the 201 answer that the app's deployment gets. */
+const NewClient = Schema.Struct({ client_id: Schema.String, client_secret: Schema.String });
 
 const sessionWith = (secret: string) => Session.layerWith(Effect.succeed(Redacted.make(secret)));
 
@@ -131,107 +116,102 @@ const serve = (request: Request) =>
 const text = (response: Response) => Effect.promise(() => response.text());
 
 describe("sign-in through the hub", () => {
-  it.effect(
-    "registers on the app's verification file, signs in with Google, and shows the subject",
-    () =>
-      Effect.gen(function* () {
-        const hub = yield* Effect.promise(createTestHub);
-        // The hub reads /samebase-verification.json from the app itself.
-        const verificationRequests: string[] = [];
-        yield* Effect.promise(() =>
-          stubProviders(hub, (request) => {
-            verificationRequests.push(request.url);
-            return Effect.runPromise(serve(request).pipe(Effect.provide(offApp)));
-          }),
+  it.effect("registers with the preview key, signs in with Google, and shows the subject", () =>
+    Effect.gen(function* () {
+      const hub = yield* Effect.promise(createTestHub);
+      // Another value than a key of the hub registers nothing.
+      const refused = yield* Effect.promise(() => registerPreviewClient(hub, "not-a-key"));
+      expect(refused.status).toBe(401);
+      expect(hub.rows().clients).toEqual([]);
+
+      const registered = yield* Effect.promise(() => registerPreviewClient(hub, PREVIEW_KEY));
+      expect(registered.status).toBe(201);
+      const client = Schema.decodeUnknownSync(NewClient)(
+        yield* Effect.promise(() => registered.json()),
+      );
+      // The hub made no request to register it: no verification file, no proof.
+      expect(hub.fetch.requests).toEqual([]);
+      expect(hub.rows().clients.map((card) => [card.ref, card.budget, card.gates])).toEqual([
+        ["stack:preview:pr-1", "stack:preview", ["stack:preview"]],
+      ]);
+      const hubRequests: string[] = [];
+      const signedInApp = appOn(hub, client.client_id, client.client_secret, hubRequests);
+
+      // A browser: the app and the hub, with the cookies of each origin.
+      let jar: ReadonlyArray<Cookies.Cookie> = [];
+      const get = Effect.fnUntraced(function* (url: string) {
+        const cookie = Cookies.toRequestCookieHeader(jar, url, Date.now());
+        const headers = cookie === undefined ? {} : { Cookie: cookie };
+        const response = url.startsWith(APP)
+          ? yield* serve(new Request(url, { headers })).pipe(Effect.provide(signedInApp))
+          : yield* Effect.promise(() => hub.fetchBroker(url, { headers }));
+        jar = Cookies.mergeIntoArray(
+          jar,
+          url,
+          Cookies.fromSetCookie(response.headers.getSetCookie()),
+          Date.now(),
         );
+        return response;
+      });
 
-        const registered = yield* Effect.promise(() => registerPreviewClient(hub));
-        expect(registered.status).toBe(201);
-        expect(verificationRequests).toEqual([`${APP}/samebase-verification.json`]);
-        const client = yield* Effect.promise(() => readNewClient(registered));
-        const hubRequests: string[] = [];
-        const signedInApp = appOn(hub, client.client_id, client.client_secret, hubRequests);
+      const signedOut = yield* get(`${APP}/`);
+      expect(yield* text(signedOut)).toContain('<a href="/login">Sign in with Google</a>');
 
-        // A browser: the app and the hub, with the cookies of each origin.
-        let jar: ReadonlyArray<Cookies.Cookie> = [];
-        const get = Effect.fnUntraced(function* (url: string) {
-          const cookie = Cookies.toRequestCookieHeader(jar, url, Date.now());
-          const headers = cookie === undefined ? {} : { Cookie: cookie };
-          const response = url.startsWith(APP)
-            ? yield* serve(new Request(url, { headers })).pipe(Effect.provide(signedInApp))
-            : yield* Effect.promise(() => hub.fetchBroker(url, { headers }));
-          jar = Cookies.mergeIntoArray(
-            jar,
-            url,
-            Cookies.fromSetCookie(response.headers.getSetCookie()),
-            Date.now(),
-          );
-          return response;
-        });
+      // The app sends the browser to the hub.
+      const login = yield* get(`${APP}/login`);
+      expect(login.status).toBe(302);
+      const authorize = new URL(login.headers.get("location") ?? "");
+      expect(`${authorize.origin}${authorize.pathname}`).toBe(`${HUB}/authorize`);
+      expect(Object.fromEntries(authorize.searchParams)).toMatchObject({
+        client_id: client.client_id,
+        redirect_uri: `${APP}/callback`,
+        scope: "openid email profile",
+        connector: "google",
+        code_challenge_method: "S256",
+      });
 
-        const signedOut = yield* get(`${APP}/`);
-        expect(yield* text(signedOut)).toContain('<a href="/login">Sign in with Google</a>');
+      // A card of the stack layer shows no page before the provider, and the app names one
+      // connector: the hub sends the browser straight to Google.
+      const toGoogle = yield* get(authorize.href);
+      expect(toGoogle.status).toBe(302);
+      const upstream = new URL(toGoogle.headers.get("location") ?? "");
+      expect(upstream.origin).toBe("https://server.example.com");
 
-        // The app sends the browser to the hub.
-        const login = yield* get(`${APP}/login`);
-        expect(login.status).toBe(302);
-        const authorize = new URL(login.headers.get("location") ?? "");
-        expect(`${authorize.origin}${authorize.pathname}`).toBe(`${HUB}/authorize`);
-        expect(Object.fromEntries(authorize.searchParams)).toMatchObject({
-          client_id: client.client_id,
-          redirect_uri: `${APP}/callback`,
-          scope: "openid email profile",
-          connector: "google",
-          code_challenge_method: "S256",
-        });
+      // Google signs the user in and sends the browser back to the hub's callback.
+      hub.google.nextIdToken({
+        nonce: upstream.searchParams.get("nonce") ?? "",
+        authTime: undefined,
+      });
+      const hubCallback = new URL(upstream.searchParams.get("redirect_uri") ?? "");
+      hubCallback.searchParams.set("code", "upstream-code");
+      hubCallback.searchParams.set("state", upstream.searchParams.get("state") ?? "");
+      const back = yield* get(hubCallback.href);
+      expect(back.status).toBe(302);
+      const appCallback = new URL(back.headers.get("location") ?? "");
+      expect(`${appCallback.origin}${appCallback.pathname}`).toBe(`${APP}/callback`);
+      expect(appCallback.searchParams.get("iss")).toBe(HUB);
 
-        // The hub's sign-in page asks for consent; the user continues with Google.
-        const consent = yield* get(authorize.href);
-        expect(consent.status).toBe(200);
-        const continueHref = /href="([^"]*\/continue\?[^"]*)"/.exec(yield* text(consent))?.[1];
-        expect(continueHref).toBeDefined();
-        const toGoogle = yield* get(
-          new URL((continueHref ?? "").replaceAll("&amp;", "&"), HUB).href,
-        );
-        expect(toGoogle.status).toBe(302);
-        const upstream = new URL(toGoogle.headers.get("location") ?? "");
-        expect(upstream.origin).toBe("https://server.example.com");
+      // The app exchanges the code and starts its session.
+      const done = yield* get(appCallback.href);
+      expect(done.status).toBe(302);
+      expect(done.headers.get("location")).toBe("/");
+      expect(hubRequests).toContain(`POST ${HUB}/token`);
+      expect(hubRequests).toContain(`GET ${HUB}/.well-known/jwks.json`);
 
-        // Google signs the user in and sends the browser back to the hub's callback.
-        hub.google.nextIdToken({
-          nonce: upstream.searchParams.get("nonce") ?? "",
-          authTime: undefined,
-        });
-        const hubCallback = new URL(upstream.searchParams.get("redirect_uri") ?? "");
-        hubCallback.searchParams.set("code", "upstream-code");
-        hubCallback.searchParams.set("state", upstream.searchParams.get("state") ?? "");
-        const back = yield* get(hubCallback.href);
-        expect(back.status).toBe(302);
-        const appCallback = new URL(back.headers.get("location") ?? "");
-        expect(`${appCallback.origin}${appCallback.pathname}`).toBe(`${APP}/callback`);
-        expect(appCallback.searchParams.get("iss")).toBe(HUB);
+      const signedIn = yield* text(yield* get(`${APP}/`));
+      expect(signedIn).toContain("<dt>Subject</dt><dd>google:24400320</dd>");
+      expect(signedIn).toContain('<a href="/logout">Sign out</a>');
+      expect(hub.rows().signIns.map((row) => row.sub)).toEqual(["google:24400320"]);
 
-        // The app exchanges the code and starts its session.
-        const done = yield* get(appCallback.href);
-        expect(done.status).toBe(302);
-        expect(done.headers.get("location")).toBe("/");
-        expect(hubRequests).toContain(`POST ${HUB}/token`);
-        expect(hubRequests).toContain(`GET ${HUB}/.well-known/jwks.json`);
+      // A second use of the same answer is refused: the sign-in cookie is gone.
+      const replay = yield* get(appCallback.href);
+      expect(replay.status).toBe(400);
+      expect(yield* text(replay)).not.toContain(appCallback.searchParams.get("code") ?? "");
 
-        const signedIn = yield* text(yield* get(`${APP}/`));
-        expect(signedIn).toContain("<dt>Subject</dt><dd>google:24400320</dd>");
-        expect(signedIn).toContain('<a href="/logout">Sign out</a>');
-        expect(hub.rows().signIns.map((row) => row.sub)).toEqual(["google:24400320"]);
-
-        // A second use of the same answer is refused: the sign-in cookie is gone.
-        const replay = yield* get(appCallback.href);
-        expect(replay.status).toBe(400);
-        expect(yield* text(replay)).not.toContain(appCallback.searchParams.get("code") ?? "");
-
-        const logout = yield* get(`${APP}/logout`);
-        expect(logout.status).toBe(302);
-        expect(yield* text(yield* get(`${APP}/`))).toContain("Sign in with Google");
-      }),
+      const logout = yield* get(`${APP}/logout`);
+      expect(logout.status).toBe(302);
+      expect(yield* text(yield* get(`${APP}/`))).toContain("Sign in with Google");
+    }),
   );
 
   it.effect.each([
@@ -272,13 +252,6 @@ describe("the off configuration", () => {
 
       const login = yield* serve(new Request(`${APP}/login`));
       expect(login.status).toBe(503);
-    }).pipe(Effect.provide(offApp)),
-  );
-
-  it.effect("still serves the verification file", () =>
-    Effect.gen(function* () {
-      const response = yield* serve(new Request(`${APP}/samebase-verification.json`));
-      expect(yield* Effect.promise(() => response.json())).toEqual({ repository: REPOSITORY_ID });
     }).pipe(Effect.provide(offApp)),
   );
 });

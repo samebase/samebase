@@ -1,11 +1,14 @@
 {
-  // The code that runs on Cloudflare: Workers types, no Node and no DOM.
+  // The code that runs on Cloudflare: Workers types and no DOM. Node types too, because
+  // src/hub-client.ts declares the hub client with @samebase/alchemy-convex, which this app takes
+  // from the workspace as TypeScript source, and that source's types reach Node modules. None of
+  // its Node code runs in the Worker: the stack runs the client's provider.
   "compilerOptions": {
     "target": "ES2023",
     "module": "ESNext",
     "moduleResolution": "Bundler",
     "lib": ["ES2023"],
-    "types": ["@cloudflare/workers-types"],
+    "types": ["@cloudflare/workers-types", "node"],
     "strict": true,
     "exactOptionalPropertyTypes": true,
     "noUncheckedIndexedAccess": true,
