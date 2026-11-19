@@ -20,7 +20,6 @@ import * as Schedule from "effect/Schedule";
 import * as Schema from "effect/Schema";
 import * as Scope from "effect/Scope";
 import { blobSha, commitMessage, encodePath, LEASE_FILE } from "./git.ts";
-import { KEY_VARIABLE, openLegacyRecord, parseKey } from "./sealing.ts";
 
 /**
  * An Alchemy state store on a branch of a GitHub repository.
@@ -146,6 +145,12 @@ const applyBatch = (base: Head | undefined, batch: ReadonlyArray<Pending>) => {
 };
 
 const fail = (message: string) => new StateStoreError({ message });
+
+/**
+ * A secret that @samebase/alchemy-kit 0.3 or older sealed: `{"__redacted__": {"__sealed__": "v1..."}}`.
+ * Alchemy's codec would read the inner object as the secret's value.
+ */
+const KIT_SECRET = /"__redacted__"\s*:\s*\{\s*"__sealed__"/;
 
 const errorMessage = (json: unknown) =>
   typeof json === "object" && json !== null && "message" in json && typeof json.message === "string"
@@ -523,22 +528,19 @@ export const state = (
       const make = Effect.gen(function* () {
         // One codec for BucketState and the point reads, so a stage mints one data key.
         const codec = makeSealingCodec(yield* StateEncryption);
-        const legacyKey = yield* Effect.cached(parseKey(process.env[KEY_VARIABLE]));
         const objects = yield* makeGitHubObjects(options);
         const opened: BucketObjects = {
           ...objects,
           read: (objectKey) =>
-            objects
-              .read(objectKey)
-              .pipe(
-                Effect.flatMap((object) =>
-                  object === undefined
-                    ? Effect.undefined
-                    : openLegacyRecord(legacyKey, objectKey, object.text).pipe(
-                        Effect.map((text) => ({ text, version: object.version })),
-                      ),
-                ),
+            objects.read(objectKey).pipe(
+              Effect.filterOrFail(
+                (object) => object === undefined || !KIT_SECRET.test(object.text),
+                () =>
+                  fail(
+                    `GitHub state store: ${objectKey} holds secrets that @samebase/alchemy-kit 0.3 or older sealed. Destroy the stage with that version, then deploy again.`,
+                  ),
               ),
+            ),
         };
         const bucket = yield* makeBucketState({
           id: "github",

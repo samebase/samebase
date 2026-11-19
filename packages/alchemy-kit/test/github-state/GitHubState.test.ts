@@ -19,7 +19,6 @@ import * as Schema from "effect/Schema";
 import { describe, expect, it, vi } from "vitest";
 import { blobSha } from "../../src/github-state/git.ts";
 import { makeGitHubObjects, state } from "../../src/github-state/GitHubState.ts";
-import { KIT_0_2_2_KEY, KIT_0_2_2_PATH, KIT_0_2_2_RECORD } from "./kit-0.2.2-record.ts";
 
 const passphrase = (text: string) => passphraseEncryption({ passphrase: Redacted.make(text) });
 const ENCRYPTION = passphrase("test-passphrase");
@@ -269,6 +268,7 @@ describe("makeGitHubObjects", () => {
 const STATE = "alchemy-state-store";
 const LOCK = "alchemy-state-store-lock";
 const PROD = { stack: "owner/name", stage: "prod" };
+const PROD_FILE = "owner/name/prod/Convex__Project.json";
 const ROW = {
   kind: "resource",
   resourceType: "Convex.Project",
@@ -450,7 +450,7 @@ describe("state", () => {
       Effect.gen(function* () {
         yield* writeRow(PROD);
         const row = yield* inProcess((b) => b.get({ ...PROD, fqn: ROW.fqn }));
-        return { row, file: github.file(STATE, KIT_0_2_2_PATH) ?? "" };
+        return { row, file: github.file(STATE, PROD_FILE) ?? "" };
       }).pipe(Effect.provide(github.layer)),
     );
     expect(result.file.startsWith("alchemy:sealed:1:passphrase:")).toBe(true);
@@ -479,44 +479,40 @@ describe("state", () => {
     expect(result.locked).toContain("wrong passphrase");
   });
 
-  it("reads a record that kit 0.2.2 sealed only with its old key, and a locked read seals it again", async () => {
+  it("refuses a record with a secret that kit 0.3 or older sealed, and leaves it as it is", async () => {
     const github = fakeGitHub();
-    const putFixture = makeGitHubObjects({ repository: "o/r" }).pipe(
-      Effect.flatMap((objects) => objects.write(KIT_0_2_2_PATH, KIT_0_2_2_RECORD)),
-      Effect.scoped,
+    // How kit 0.3 wrote ROW: its deployKey sealed under a key of 32 zero bytes.
+    const record = JSON.stringify(
+      {
+        ...ROW,
+        attr: {
+          deployKey: {
+            __redacted__: {
+              __sealed__: "v1.QS3K20nSTlbgJ2rd.bEpXA2tyxvSQ4Y7vnT-5OQ2GBbhFJRqRQDXxQAB9HOM",
+            },
+          },
+          urls: { cloud: "https://example.test" },
+        },
+      },
+      null,
+      2,
     );
-    const get = (b: StateService) => b.get({ ...PROD, fqn: ROW.fqn });
-    const locked = (b: StateService) => b.list(PROD).pipe(Effect.andThen(get(b)));
+    const get = (b: StateService) => Effect.flip(b.get({ ...PROD, fqn: ROW.fqn }));
     const result = await Effect.runPromise(
       Effect.gen(function* () {
-        yield* putFixture;
-        vi.stubEnv("ALCHEMY_GITHUB_STATE_KEY", "");
-        const noKey = {
-          point: (yield* inProcess((b) => Effect.flip(get(b)))).message,
-          locked: (yield* inProcess((b) => Effect.flip(locked(b)))).message,
-        };
-        vi.stubEnv("ALCHEMY_GITHUB_STATE_KEY", Buffer.alloc(32, 1).toString("base64"));
-        const wrongKey = (yield* inProcess((b) => Effect.flip(get(b)))).message;
-        vi.stubEnv("ALCHEMY_GITHUB_STATE_KEY", KIT_0_2_2_KEY);
+        yield* makeGitHubObjects({ repository: "o/r" }).pipe(
+          Effect.flatMap((objects) => objects.write(PROD_FILE, record)),
+          Effect.scoped,
+        );
         const point = yield* inProcess(get);
-        const afterPoint = github.file(STATE, KIT_0_2_2_PATH);
-        const viaLease = yield* inProcess(locked);
-        const afterLock = github.file(STATE, KIT_0_2_2_PATH) ?? "";
-        vi.stubEnv("ALCHEMY_GITHUB_STATE_KEY", "");
-        const later = yield* inProcess(get);
-        return { noKey, wrongKey, point, afterPoint, viaLease, afterLock, later };
+        const locked = yield* inProcess((b) => b.list(PROD).pipe(Effect.andThen(get(b))));
+        return { point: point.message, locked: locked.message };
       }).pipe(Effect.provide(github.layer)),
     );
-    expect(result.noKey.point).toContain("secrets that @samebase/alchemy-kit 0.2 sealed");
-    expect(result.noKey.locked).toContain("secrets that @samebase/alchemy-kit 0.2 sealed");
-    expect(result.wrongKey).toContain(`a secret in ${KIT_0_2_2_PATH} does not open`);
-    expect(encodeState(result.point)).toEqual(encodeState(ROW));
-    // A point read takes no lease, so it writes nothing.
-    expect(result.afterPoint).toBe(KIT_0_2_2_RECORD);
-    expect(encodeState(result.viaLease)).toEqual(encodeState(ROW));
-    expect(result.afterLock.startsWith("alchemy:sealed:1:passphrase:")).toBe(true);
-    expect(result.afterLock).not.toContain("the-deploy-key");
-    expect(encodeState(result.later)).toEqual(encodeState(ROW));
+    const refusal = `${PROD_FILE} holds secrets that @samebase/alchemy-kit 0.3 or older sealed. Destroy the stage with that version, then deploy again.`;
+    expect(result.point).toContain(refusal);
+    expect(result.locked).toContain(refusal);
+    expect(github.file(STATE, PROD_FILE)).toBe(record);
   });
 
   it("refuses a point read of a store in a newer format", async () => {
