@@ -111,8 +111,8 @@ test("fixed steps at the edges give the memory adapter's results, and a step tha
   expect(await play(steps, player, same)).toEqual(fromMemory);
 }, 60_000);
 
-test("-0 is an index value of its own, before 0, unlike the contract", async () => {
-  expect(foundOf(await player(negativeZero.step))).toEqual(negativeZero.foundOnConvex);
+test("-0 and 0 are one index value", async () => {
+  expect(foundOf(await player(negativeZero.step))).toEqual(negativeZero.found);
 });
 
 test("a sign-in through the component's run gives the memory host's results", async () => {

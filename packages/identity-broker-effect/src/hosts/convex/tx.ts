@@ -15,9 +15,17 @@ import {
   type TxShape,
 } from "../../store/Tx.ts";
 
-/** A Convex document value. The encoded documents of `tables.ts` are JSON. */
-const toFields = Schema.decodeUnknownSync(Schema.Record(Schema.String, Schema.MutableJson));
+/**
+ * A Convex document value, from the JSON text of an encoded document of `tables.ts`. JSON text has
+ * no `-0`, so a stored `-0` is `0`, as the contract needs: a Convex index keeps `-0` as a value of
+ * its own, before `0`.
+ */
+const toFields = Schema.decodeUnknownSync(
+  Schema.fromJsonString(Schema.Record(Schema.String, Schema.MutableJson)),
+);
 const decodeId = Schema.decodeUnknownSync(Schema.String);
+/** `-0` as `0`, for the same reason as in `toFields`. */
+const indexValue = (value: IndexValue): IndexValue => (value === 0 ? 0 : value);
 
 /** The calls of a Convex index range that `query` makes. */
 interface Range {
@@ -30,7 +38,7 @@ interface Range {
 
 export const convexTx = (db: GenericDatabaseWriter<GenericDataModel>): TxShape => {
   const encode = (table: TableName, doc: unknown) =>
-    toFields(Schema.encodeUnknownSync(tables[table].schema)(doc));
+    toFields(JSON.stringify(Schema.encodeUnknownSync(tables[table].schema)(doc)));
   const rowOf = <T extends TableName>(table: T, stored: GenericDocument): Row<T> => {
     const { _id, _creationTime, ...fields } = stored;
     return {
@@ -68,14 +76,14 @@ export const convexTx = (db: GenericDatabaseWriter<GenericDataModel>): TxShape =
             if (path === undefined) {
               throw new Error(`${table}.${index}: the prefix is longer than the index`);
             }
-            at = at.eq(path, value);
+            at = at.eq(path, indexValue(value));
           });
           const path = checked.rangeField?.path;
           if (path !== undefined && checked.lower !== undefined) {
-            at = at[checked.lower.op](path, checked.lower.value);
+            at = at[checked.lower.op](path, indexValue(checked.lower.value));
           }
           if (path !== undefined && checked.upper !== undefined) {
-            at = at[checked.upper.op](path, checked.upper.value);
+            at = at[checked.upper.op](path, indexValue(checked.upper.value));
           }
           return at;
         };

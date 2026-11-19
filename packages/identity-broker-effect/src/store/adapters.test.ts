@@ -105,11 +105,10 @@ test("fixed steps at the edges give equal results, and a step that dies writes n
   }
 });
 
-test("-0 and 0 are one index value, except on Convex", async () => {
-  for (const player of [memoryPlayer(), sqlitePlayer(freshSqlite())]) {
+test("-0 and 0 are one index value", async () => {
+  for (const player of [memoryPlayer(), sqlitePlayer(freshSqlite()), convexTestPlayer()]) {
     expect(foundOf(await player(negativeZero.step))).toEqual(negativeZero.found);
   }
-  expect(foundOf(await convexTestPlayer()(negativeZero.step))).toEqual(negativeZero.foundOnConvex);
 });
 
 test("a rule that suspends between two writes stores neither, and its late write meets a closed Tx", async () => {

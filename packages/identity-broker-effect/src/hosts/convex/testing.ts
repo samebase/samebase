@@ -22,7 +22,7 @@ const strings = fc.oneof(
   fc.constantFrom("", "a", "b", "ab", "é", "\u{1F600}", "�", "", "￿", "\u{10000}", "a\u0000"),
   fc.string({ unit: "binary", maxLength: 3 }),
 );
-/** `-0` is left out: SQLite stores it as `0`, and Convex orders it before `0` (`negativeZero`). */
+/** `-0` is left out: the SQLite and Convex adapters store it as `0`, and memory keeps it. */
 const numbers = fc.oneof(
   fc.constantFrom(-1, 0, 1, 2.5, 10, 1e12),
   fc.integer({ min: -3, max: 3 }),
@@ -329,14 +329,13 @@ export const edgeStep: StepInput = {
 
 /**
  * `-0` and `0` as stored values and as query values, and the rows (by `appId`) that each query
- * finds. Under the contract they are one value (`found`). Convex differs (`foundOnConvex`): in its
- * indexes `-0` is a value of its own, ordered before `0`. A stored `-0` itself does not survive
- * every adapter (SQLite's JSON text has no `-0`), so only the rows found are compared.
+ * finds. Under the contract they are one value. A Convex index keeps `-0` as a value of its own,
+ * before `0`, so the Convex `Tx` stores and asks for `0`. A stored `-0` itself does not survive
+ * every adapter (JSON text has no `-0`), so only the rows found are compared.
  */
 export const negativeZero: {
   readonly step: StepInput;
   readonly found: ReadonlyArray<ReadonlyArray<string>>;
-  readonly foundOnConvex: ReadonlyArray<ReadonlyArray<string>>;
 } = {
   step: {
     ops: [
@@ -359,13 +358,6 @@ export const negativeZero: {
     ["plus zero", "minus zero"],
     ["plus zero", "minus zero", "one"],
     ["minus one"],
-  ],
-  foundOnConvex: [
-    ["minus one", "minus zero", "plus zero", "one"],
-    ["plus zero"],
-    ["minus zero"],
-    ["plus zero", "one"],
-    ["minus one", "minus zero"],
   ],
 };
 
