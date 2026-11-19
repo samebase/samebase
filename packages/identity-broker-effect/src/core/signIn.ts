@@ -1,13 +1,13 @@
 // The sign-in endpoints of the broker: discovery, JWKS, authorize, continue, the connector
-// callbacks, token and UserInfo. Ported from packages/identity-broker/src/client/index.ts with every
-// check, its order, every status, header, body and error text. `ctx.runQuery` and
-// `ctx.runMutation` are `command(...)`, in the same order; no command is retried.
+// callbacks, token and UserInfo. Each step that moves a sign-in on is one command that reads the
+// client's card in its own transaction (src/rules/authRequests.ts); a handler decides nothing that
+// a later step relies on. No command is retried.
 import { Cause, Clock, Effect, Redacted, Result, Schema } from "effect";
 import * as oauth from "oauth4webapi";
 import { command } from "./command.ts";
 import type { Connector } from "./connectors/types.ts";
 import { finishUpstream, ProviderUnavailable, startUpstream } from "./connectors/upstream.ts";
-import { errorPage, signInPage, type Consent } from "./html.ts";
+import { errorPage, signInPage } from "./html.ts";
 import { logHubEvent } from "./hubEvents.ts";
 import {
   signAccessToken,
@@ -17,9 +17,7 @@ import {
   type IdentityClaims,
 } from "./jwt.ts";
 import { parseKeySet, publicJwks, SIGNING_ALGORITHM } from "./keys.ts";
-import { decide, pageShown, usableNow, type Decision, type Registration } from "./policy.ts";
 import {
-  LOOPBACK_HOSTS,
   readBearerToken,
   readClientAuthentication,
   validateAuthorizeRest,
@@ -49,21 +47,6 @@ const AUTH_TIME_SKEW_SECONDS = 60;
 const SCOPES = ["openid", "email", "profile"];
 /** How long `cleanup` keeps an audit row of an issued id_token. */
 export const SIGN_IN_RETENTION_MS = 90 * 24 * 60 * 60 * 1000;
-
-/** What `decide` reads of a client's facts. */
-type Found = {
-  readonly client: { readonly connectors: ReadonlyArray<string> };
-  readonly registration: Registration | null;
-};
-
-/** The decision for a client at this request; null when the policy refused it (see `decide`). */
-const decideFor = (hub: HubConfigShape, found: Found): Decision | null =>
-  decide({
-    policy: hub.registration?.policy,
-    registration: found.registration,
-    enrollment: found.client.connectors,
-    configured: [...hub.connectorsByName.keys()],
-  });
 
 /** The configured connectors of these names, in this order. A name no longer configured is skipped. */
 const connectorsNamed = (hub: HubConfigShape, names: ReadonlyArray<string>): Connector[] =>
@@ -116,13 +99,12 @@ const unboundPage = () =>
     "This sign-in did not start in this browser. Return to the app and try again.",
     400,
   );
-/** The tenant of the client is blocked. */
+/** A stop holds the card, or the card offers no connector of the request. */
 const offPage = () => errorPage("Sign-in is off", "Sign-in for this app is turned off.", 403);
-/** The policy pauses the client. */
-const pausedPage = () => errorPage("Sign-in is off", "Sign-in is paused. Try again later.", 503);
-/** The policy failed, or the client has no facts for it. */
-const unavailablePage = () =>
-  errorPage("Sign-in unavailable", "Sign-in is not available right now. Try again later.", 503);
+const unknownClientPage = () =>
+  errorPage("Unknown client", "The client_id is not registered with this provider.", 400);
+const invalidRedirectPage = () =>
+  errorPage("Invalid redirect URI", "The redirect_uri is not one registered for this client.", 400);
 
 /**
  * A refusal before the user continued from the hub's page, or, with no page, before the redirect
@@ -141,23 +123,21 @@ const keySet = Effect.gen(function* () {
 const callbackUrl = (hub: HubConfigShape, connector: Connector) =>
   `${hub.issuer}/connectors/${connector.name}/callback`;
 
-const metadata = (hub: HubConfigShape) => {
-  const { issuer, registration } = hub;
+const metadata = (hub: HubConfigShape, registration: boolean) => {
+  const { issuer } = hub;
   return {
     issuer,
     authorization_endpoint: `${issuer}/authorize`,
     token_endpoint: `${issuer}/token`,
     userinfo_endpoint: `${issuer}/userinfo`,
     jwks_uri: `${issuer}/.well-known/jwks.json`,
-    // The client registration endpoint of RFC 7591, in hub mode. It needs an initial access token.
-    // `op_tos_uri` is the terms that every new client's answer names (OpenID Connect Discovery).
-    ...(registration === undefined
-      ? {}
-      : { registration_endpoint: `${issuer}/register`, op_tos_uri: registration.terms }),
+    // The client registration endpoint of RFC 7591, when a layer mounts it.
+    ...(registration ? { registration_endpoint: `${issuer}/register` } : {}),
+    // The terms of the hub's sign-in service (OpenID Connect Discovery).
+    op_tos_uri: hub.service.terms,
     scopes_supported: SCOPES,
-    // An extension: the names a registration may enroll in. What a client may use is in its
-    // registration answer.
-    connectors_supported: [...hub.connectorsByName.keys()],
+    // An extension: the configured connectors. What a client may use is on its card.
+    connectors_supported: hub.configured,
     response_types_supported: ["code"],
     response_modes_supported: ["query"],
     grant_types_supported: ["authorization_code"],
@@ -186,10 +166,14 @@ const metadata = (hub: HubConfigShape) => {
   };
 };
 
-export const discovery = Effect.fn("discovery")(function* (_request: Request) {
-  const hub = yield* HubConfig;
-  return json(metadata(hub), 200, { "Cache-Control": "public, max-age=300" });
-});
+/** The discovery documents, with `registration_endpoint` when `registration` is mounted. */
+export const discovery = (options: { readonly registration: boolean }) =>
+  Effect.fn("discovery")(function* (_request: Request) {
+    const hub = yield* HubConfig;
+    return json(metadata(hub, options.registration), 200, {
+      "Cache-Control": "public, max-age=300",
+    });
+  });
 
 export const jwks = Effect.fn("jwks")(function* (_request: Request) {
   return json(publicJwks(yield* keySet), 200, { "Cache-Control": "public, max-age=300" });
@@ -213,7 +197,6 @@ const freshLoginRefusal =
 const startConnector = Effect.fn("startConnector")(function* (args: {
   connector: Connector;
   request: { requestId: string; freshLogin: boolean };
-  decision: Decision;
   refuse: (error: string, description: string) => Response;
 }) {
   const hub = yield* HubConfig;
@@ -240,7 +223,7 @@ const startConnector = Effect.fn("startConnector")(function* (args: {
     upstreamStateHash: yield* sha256HexEffect(start.state),
     upstreamCodeVerifier: start.codeVerifier,
     ...(start.nonce === undefined ? {} : { upstreamNonce: start.nonce }),
-    policy: args.decision,
+    configured: hub.configured,
     now,
   });
   if (!result.ok) {
@@ -267,73 +250,6 @@ const startConnector = Effect.fn("startConnector")(function* (args: {
 const continueHref = (hub: HubConfigShape, requestId: string, connector: Connector) =>
   `${hub.prefix}/continue?request=${encodeURIComponent(requestId)}&connector=${encodeURIComponent(connector.name)}`;
 
-/**
- * What a hub's sign-in page names when it asks for consent: the deploy and the repository from
- * the client's facts, which the hub checked (RFC 7591 section 5).
- */
-function consentOf(
-  hub: HubConfigShape,
-  facts: Registration,
-  client: { clientName: string },
-  scopes: string[],
-  loopback: boolean,
-): Consent {
-  let deployment: Consent["deployment"];
-  switch (facts.deploymentType) {
-    case "production":
-      deployment = { kind: "production" };
-      break;
-    case "preview":
-      deployment = { kind: "preview", stage: client.clientName };
-      break;
-    case "development":
-      deployment = { kind: "development" };
-      break;
-    default:
-      return facts.deploymentType satisfies never;
-  }
-  return {
-    loopback,
-    deployment,
-    repository: facts.repository,
-    scopes,
-    reviewer: hub.registration?.name ?? new URL(hub.issuer).host,
-  };
-}
-
-/**
- * An authorization request with `resource`. No API resource provider is configured in this
- * package, so this answers as the source's resource flow does with no provider: the checks on the
- * client and the policy, then "Request one configured API resource." (design section 9 item 1).
- */
-const resourceAuthorize = Effect.fn("resourceAuthorize")(function* (
-  found: Found & { app: { suspended: boolean } | null },
-) {
-  const hub = yield* HubConfig;
-  if (found.app === null) {
-    return errorPage("API authorization unavailable", "The client's app is gone.", 400);
-  }
-  if (found.app.suspended) {
-    return errorPage("Sign-in is off", "Sign-in for this app is turned off.", 403);
-  }
-  const decision = decideFor(hub, found);
-  if (decision === null) {
-    return errorPage(
-      "API authorization unavailable",
-      "Authorization is not available right now. Try again later.",
-      503,
-    );
-  }
-  if (decision.paused) {
-    return errorPage(
-      "API authorization unavailable",
-      "Authorization is paused. Try again later.",
-      503,
-    );
-  }
-  return errorPage("API authorization refused", "Request one configured API resource.", 400);
-});
-
 export const authorize = Effect.fn("authorize")(function* (request: Request) {
   const hub = yield* HubConfig;
   const cookies = txnCookies(hub);
@@ -345,80 +261,55 @@ export const authorize = Effect.fn("authorize")(function* (request: Request) {
   if (!target.ok) {
     return errorPage("Invalid sign-in request", target.description, target.status);
   }
-  const found = yield* command("clients.forAuthorize", { clientId: target.value.clientId });
-  if (found === null) {
-    return errorPage("Unknown client", "The client_id is not registered with this provider.", 400);
+  // A snapshot of the card, to answer a bad request before anything is stored. `create` reads the
+  // card again and decides.
+  const card = yield* command("clients.get", { clientId: target.value.clientId });
+  if (card === null) {
+    return unknownClientPage();
   }
-  const { client, app } = found;
   // Exact string comparison, and no redirect to a URI that is not registered (RFC 9700 4.1.3).
   // The request keeps the one the client named: the code exchange must name the same one.
   const redirectUri = target.value.redirectUri;
-  if (!client.redirectUris.includes(redirectUri)) {
-    return errorPage(
-      "Invalid redirect URI",
-      "The redirect_uri is not one registered for this client.",
-      400,
-    );
+  if (!card.redirectUris.includes(redirectUri)) {
+    return invalidRedirectPage();
   }
   if (params.has("resource")) {
-    return yield* resourceAuthorize(found);
+    // No API resource provider is configured in this package (design section 9 item 1).
+    return errorPage("API authorization refused", "Request one configured API resource.", 400);
   }
   const rest = validateAuthorizeRest(params, target.value);
   if (!rest.ok) {
     return refusePage(rest.description);
   }
-  if (app === null) {
-    return errorPage("Sign-in unavailable", "The client's app is gone.", 400);
-  }
-  /** A refusal of the policy or of a limit, which the hub's operator can act on. */
+  /** A refusal of a stop, the card or a limit, which the hub's operator can act on. */
   const refused = (reason: string, page: Response) => {
-    logHubEvent({ event: "sign_in_refused", facts: found.registration, connector: null, reason });
+    logHubEvent({
+      event: "sign_in_refused",
+      clientId: card.clientId,
+      ref: card.ref,
+      connector: null,
+      reason,
+    });
     return page;
   };
-  if (app.suspended) {
-    return refused("suspended", offPage());
-  }
-  const decision = decideFor(hub, found);
-  if (decision === null) {
-    return refused("unavailable", unavailablePage());
-  }
-  if (decision.paused) {
-    return refused("paused", pausedPage());
-  }
   if (rest.value.prompt.includes("none")) {
     // The broker keeps no session, so it can never answer without interaction.
     return refusePage("This provider has no session to reuse.");
   }
   const freshLogin = rest.value.prompt.includes("login") || rest.value.maxAge !== undefined;
   const scopes = SCOPES.filter((scope) => rest.value.scopes.includes(scope));
-  // The set of the request: the connectors the app named, else every one the client may use
-  // now (what the policy gives, and what the admin granted its repository). A name outside the
-  // enrollment is a request error; an enrolled one that neither allows now is not offered, and
-  // a set with none left is a stopped sign-in.
+  // The connectors the app named, else every one on the card. A name that the card does not hold
+  // is a request error.
   const named = rest.value.connectors;
-  const notEnrolled = named.find((name) => !client.connectors.includes(name));
-  if (notEnrolled !== undefined) {
-    return refusePage(`This client is not enrolled in the connector "${notEnrolled}".`);
+  const notOnCard = named.find((name) => !card.connectors.includes(name));
+  if (notOnCard !== undefined) {
+    return refusePage(`This client cannot use the connector "${notOnCard}".`);
   }
-  const usable = usableNow(decision, client.connectors, found.granted);
-  const offered = connectorsNamed(
-    hub,
-    named.length === 0 ? usable : named.filter((name) => usable.includes(name)),
-  );
-  if (offered.length === 0) {
-    return refused("off", offPage());
-  }
-  // The facts the page names when it asks: a hub asks unless an exemption of its administrator
-  // covers the client (`pageShown`). Decided here only, on this snapshot. Without hub mode, no
-  // page asks.
-  const consent =
-    hub.registration !== undefined && found.registration !== null && pageShown(found.exemption)
-      ? found.registration
-      : null;
-  // One offered connector and no consent to ask: straight to it (decision 5 of RFC 137). A fresh
-  // login that the connector cannot do is refused here, before anything is stored.
-  const direct = offered.length === 1 && consent === null ? offered[0] : undefined;
-  if (direct !== undefined && freshLogin && cannotReauthenticate(direct)) {
+  // A fresh login that the one connector of the snapshot cannot do is refused before anything is
+  // stored or spent; the stored set is checked again below.
+  const offered = connectorsNamed(hub, named.length === 0 ? card.connectors : named);
+  const snapshotDirect = offered.length === 1 && !card.confirm ? offered[0] : undefined;
+  if (snapshotDirect !== undefined && freshLogin && cannotReauthenticate(snapshotDirect)) {
     return refusePage(freshLoginRefusal);
   }
   // Every later step needs this cookie: a client that fetches the page itself cannot send a
@@ -427,17 +318,15 @@ export const authorize = Effect.fn("authorize")(function* (request: Request) {
   const now = yield* Clock.currentTimeMillis;
   const requestId = yield* randomToken(24);
   const created = yield* command("authRequests.create", {
-    tenantId: app.tenantId,
     requestId,
-    appId: app.appId,
-    clientId: client.clientId,
+    clientId: card.clientId,
     redirectUri,
     scope: scopes.join(" "),
     ...(rest.value.state === undefined ? {} : { state: rest.value.state }),
     ...(rest.value.nonce === undefined ? {} : { nonce: rest.value.nonce }),
     codeChallenge: rest.value.codeChallenge,
-    connectors: offered.map((connector) => connector.name),
-    policy: decision,
+    requested: named,
+    configured: hub.configured,
     freshLogin,
     txnCookieHash: yield* sha256HexEffect(txnCookie),
     createdAt: now,
@@ -445,33 +334,35 @@ export const authorize = Effect.fn("authorize")(function* (request: Request) {
   });
   if (!created.ok) {
     switch (created.error) {
+      case "unknown_client":
+        return unknownClientPage();
+      case "redirect_uri":
+        return invalidRedirectPage();
       case "rate_limited":
         return refused(
           created.error,
           errorPage("Too many sign-ins", "Too many sign-ins for this app. Try again soon.", 429),
         );
-      case "suspended":
+      case "stopped":
       case "off":
         return refused(created.error, offPage());
       default:
         return created.error satisfies never;
     }
   }
-  // The stored set, which the rule decided with the grants of its own step: a grant revoked
-  // since this request's read is neither stored nor shown.
+  // The stored set and `confirm`, as the rule read them from the card in its own step.
   const stored = connectorsNamed(hub, created.connectors);
-  const storedDirect = stored.length === 1 && consent === null ? stored[0] : undefined;
-  if (storedDirect !== undefined && freshLogin && cannotReauthenticate(storedDirect)) {
-    // Only when a revoked grant left one connector that the snapshot did not go straight to.
+  // One stored connector and no page to show: straight to it (decision 5 of RFC 137).
+  const direct = stored.length === 1 && !created.confirm ? stored[0] : undefined;
+  if (direct !== undefined && freshLogin && cannotReauthenticate(direct)) {
     yield* command("authRequests.abandon", { requestId });
     return refusePage(freshLoginRefusal);
   }
   const setCookie = cookies.set(requestId, txnCookie);
-  if (storedDirect !== undefined) {
+  if (direct !== undefined) {
     const response = yield* startConnector({
-      connector: storedDirect,
+      connector: direct,
       request: { requestId, freshLogin },
-      decision,
       refuse: (_error, description) => refusePage(description),
     });
     response.headers.append("Set-Cookie", setCookie);
@@ -481,19 +372,13 @@ export const authorize = Effect.fn("authorize")(function* (request: Request) {
   const page = signInPage({
     host: redirectUrl.host,
     origin: redirectUrl.origin,
-    consent:
-      consent === null
-        ? null
-        : consentOf(hub, consent, client, scopes, LOOPBACK_HOSTS.has(redirectUrl.hostname)),
+    consent: created.confirm ? { scopes, reviewer: hub.service.name } : null,
     connectors: stored.map((connector) => ({
       label: connector.label,
       provider: connector.provider,
       href: continueHref(hub, requestId, connector),
     })),
-    legal:
-      hub.registration === undefined
-        ? null
-        : { privacy: hub.registration.privacy, terms: hub.registration.terms },
+    legal: { privacy: hub.service.privacy, terms: hub.service.terms },
   });
   page.headers.append("Set-Cookie", setCookie);
   return page;
@@ -538,27 +423,9 @@ export const continueSignIn = Effect.fn("continueSignIn")(function* (request: Re
   if (connector === undefined || !stored.connectors.includes(name)) {
     return errorPage("Unknown connector", "That sign-in method is not offered here.", 404);
   }
-  const found = yield* command("clients.withApp", { clientId: stored.clientId });
-  if (found === null || found.app === null) {
-    return refuse("server_error", "The client's app is gone.");
-  }
-  if (found.app.suspended) {
-    return refuse("access_denied", "Sign-in for this app is turned off.");
-  }
-  const decision = decideFor(hub, found);
-  if (decision === null) {
-    return refuse("temporarily_unavailable", "Sign-in is not available right now.");
-  }
-  if (decision.paused) {
-    return refuse("temporarily_unavailable", "Sign-in is paused.");
-  }
-  if (!usableNow(decision, found.client.connectors, found.granted).includes(name)) {
-    return refuse("access_denied", "That sign-in method is no longer available.");
-  }
   return yield* startConnector({
     connector,
     request: { requestId, freshLogin: stored.freshLogin },
-    decision,
     refuse,
   });
 });
@@ -602,63 +469,36 @@ export const upstreamCallback = (connector: Connector) =>
       return errorPage("Invalid callback", "The provider sent no state.", 400);
     }
     const now = yield* Clock.currentTimeMillis;
-    const upstreamStateHash = yield* sha256HexEffect(state);
-    const linkUsedPage = () =>
-      errorPage(
-        "Sign-in link used",
-        "This sign-in link is invalid or was already used. Return to the app and try again.",
-        400,
-      );
-    // The waiting request and its client, read before the claim: the user continued from the
-    // page or went straight on, so a refusal from here goes to the return address, once the
-    // browser proves it holds the request's cookie. A failed policy writes nothing.
-    const waiting = yield* command("authRequests.upstreamClient", { upstreamStateHash });
-    if (waiting === null) {
-      return linkUsedPage();
-    }
-    if (!(yield* cookies.bound(request, waiting.request))) {
-      return unboundPage();
-    }
-    const back = {
-      redirectUri: waiting.request.redirectUri,
-      issuer: hub.issuer,
-      state: waiting.request.state,
-      clearCookie: cookies.clear(request, waiting.request.requestId),
-    };
-    const found = waiting.client;
-    if (found === null || found.app === null) {
-      yield* command("authRequests.abandon", { requestId: waiting.request.requestId });
-      return authorizationError({
-        ...back,
-        error: "server_error",
-        description: "The client's app is gone.",
-      });
-    }
-    const decision = decideFor(hub, found);
-    if (decision === null) {
-      return authorizationError({
-        ...back,
-        error: "temporarily_unavailable",
-        description: "Sign-in is not available right now.",
-      });
-    }
     const txnCookieHashes: string[] = [];
     for (const cookie of cookies.read(request).values()) {
       txnCookieHashes.push(yield* sha256HexEffect(cookie));
     }
+    // The claim reads the card in its own step. The user continued from the page or went
+    // straight on, so a refusal from here goes to the return address, once the browser proved
+    // it holds the request's cookie.
     const claim = yield* command("authRequests.claimUpstream", {
-      upstreamStateHash,
+      upstreamStateHash: yield* sha256HexEffect(state),
       connector: connector.name,
       txnCookieHashes,
-      policy: decision,
+      configured: hub.configured,
       now,
     });
     if (claim.status === "missing") {
-      return linkUsedPage();
+      return errorPage(
+        "Sign-in link used",
+        "This sign-in link is invalid or was already used. Return to the app and try again.",
+        400,
+      );
     }
     if (claim.status === "unbound") {
       return unboundPage();
     }
+    const back = {
+      redirectUri: claim.redirectUri,
+      issuer: hub.issuer,
+      state: claim.state,
+      clearCookie: cookies.clear(request, claim.requestId),
+    };
     if (claim.status === "expired") {
       return authorizationError({
         ...back,
@@ -666,21 +506,15 @@ export const upstreamCallback = (connector: Connector) =>
         description: "The sign-in expired.",
       });
     }
-    /** The policy, a block, or a changed owner stops the sign-in: to the app, as refused. */
-    const stoppedNow = (paused: boolean) =>
-      paused
-        ? authorizationError({
-            ...back,
-            error: "temporarily_unavailable",
-            description: "Sign-in is paused.",
-          })
-        : authorizationError({
-            ...back,
-            error: "access_denied",
-            description: "Sign-in for this app is no longer available.",
-          });
+    /** A stop or a change of the card stops the sign-in: to the app, as refused. */
+    const stoppedNow = () =>
+      authorizationError({
+        ...back,
+        error: "access_denied",
+        description: "Sign-in for this app is no longer available.",
+      });
     if (claim.status === "refused") {
-      return stoppedNow(decision.paused);
+      return stoppedNow();
     }
     const finished = yield* Effect.result(
       Effect.tryPromise({
@@ -761,23 +595,10 @@ export const upstreamCallback = (connector: Connector) =>
       }
       authTime = authTimeSeconds * 1000;
     }
-    // The completion: the decision again, on the rows as they are now (the provider took time,
-    // and a block, a transfer, or a policy change may have landed), then the rule, which reads
-    // those rows once more. The provider's code is spent, so whatever fails in here still
+    // The completion reads the card once more (the provider took time, and a stop or a change of
+    // the card may have landed). The provider's code is spent, so whatever fails in here still
     // answers the app, and the request is abandoned when that write goes through.
-    const unavailable = () =>
-      authorizationError({
-        ...back,
-        error: "temporarily_unavailable",
-        description: "Sign-in is not available right now.",
-      });
     return yield* Effect.gen(function* () {
-      const current = yield* command("clients.withApp", { clientId: found.client.clientId });
-      const completion = current === null ? null : decideFor(hub, current);
-      if (completion === null) {
-        yield* command("authRequests.abandon", { requestId: claim.requestId });
-        return unavailable();
-      }
       const code = yield* randomToken(32);
       const completed = yield* command("authRequests.complete", {
         requestId: claim.requestId,
@@ -785,12 +606,12 @@ export const upstreamCallback = (connector: Connector) =>
         authTime,
         codeHash: yield* sha256HexEffect(code),
         codeExpiresAt: now + CODE_TTL_MS,
-        policy: completion,
+        configured: hub.configured,
         now,
       });
       if (!completed.ok) {
         return completed.error === "refused"
-          ? stoppedNow(completion.paused)
+          ? stoppedNow()
           : authorizationError({
               ...back,
               error: "access_denied",
@@ -806,7 +627,11 @@ export const upstreamCallback = (connector: Connector) =>
           );
           // The request stays claimed until it expires when this fails too; nothing can finish it.
           yield* Effect.exit(command("authRequests.abandon", { requestId: claim.requestId }));
-          return unavailable();
+          return authorizationError({
+            ...back,
+            error: "temporarily_unavailable",
+            description: "Sign-in is not available right now.",
+          });
         }),
       ),
     );
@@ -844,17 +669,8 @@ export const token = Effect.fn("token")(function* (request: Request) {
   }
   const now = yield* Clock.currentTimeMillis;
   const resource = params.get("resource") ?? undefined;
-  // The policy is decided on the client's rows of this moment; the rule checks them again.
-  const found = yield* command("clients.withApp", { clientId: clientAuth.value.clientId });
-  if (found === null) {
-    return oauthError(401, "invalid_client", "Client authentication failed.", challenge);
-  }
-  const decision = decideFor(hub, found);
-  if (decision === null) {
-    return oauthError(503, "temporarily_unavailable", "Sign-in is not available right now.");
-  }
-  // The client is authenticated in the step that redeems the code. The secret, the code and the
-  // app's verifier cross the command boundary only as hashes (design section 2.2).
+  // The client is authenticated in the step that redeems the code, from its card. The secret, the
+  // code and the app's verifier cross the command boundary only as hashes (design section 2.2).
   const exchange = yield* command("authRequests.exchangeCode", {
     clientId: clientAuth.value.clientId,
     clientSecretHash: yield* sha256HexEffect(clientAuth.value.clientSecret),
@@ -863,7 +679,7 @@ export const token = Effect.fn("token")(function* (request: Request) {
     redirectUri: validation.value.redirectUri,
     codeChallengeOfVerifier: yield* s256Challenge(validation.value.codeVerifier),
     ...(resource === undefined ? {} : { resource }),
-    policy: decision,
+    configured: hub.configured,
     now,
   });
   if (!exchange.ok) {
@@ -908,15 +724,16 @@ export const token = Effect.fn("token")(function* (request: Request) {
     ]),
   );
   yield* command("signIns.record", {
-    appId: exchange.appId,
     clientId: exchange.clientId,
+    ref: exchange.ref,
     connector: exchange.identity.connector,
     sub,
     at: now,
   });
   logHubEvent({
     event: "sign_in",
-    facts: found.registration,
+    clientId: exchange.clientId,
+    ref: exchange.ref,
     connector: exchange.identity.connector,
     reason: null,
   });
@@ -940,7 +757,8 @@ export const userinfo = Effect.fn("userinfo")(function* (request: Request) {
   const verified = yield* Effect.promise(() =>
     verifyAccessToken({ keySet: keys, issuer: hub.issuer, token: bearer }),
   );
-  // A deleted client's tokens die with it (RFC 7592 section 2.3); a paused client's live to expiry.
+  // A deleted card's tokens die with it (RFC 7592 section 2.3). A stop, a removed connector or
+  // return address leaves tokens already issued usable until they expire.
   if (
     verified === null ||
     (yield* command("clients.get", { clientId: verified.clientId })) === null

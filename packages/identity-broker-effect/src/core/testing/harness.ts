@@ -1,19 +1,15 @@
-// Test helpers of the core, for the sign-in tests (B1) and the registration tests (B2). No test
-// framework import: a helper returns values and records, and the test asserts.
+// Test helpers of the core, for the sign-in tests and, through a layer's own helpers, the
+// registration tests. No test framework import: a helper returns values and records, and the
+// test asserts.
 import { Clock, Effect, Layer, Redacted, Schema } from "effect";
 import { base64url, exportJWK, generateKeyPair, SignJWT } from "jose";
 import { calculatePKCECodeChallenge } from "oauth4webapi";
 import { makeMemoryStore } from "../../hosts/memory.ts";
 import { makeSqliteStore, type SqliteDatabase } from "../../hosts/nodeSqlite.ts";
-import {
-  Store,
-  StoreUnavailable,
-  type Args,
-  type CommandName,
-  type Result,
-} from "../../store/Store.ts";
-import type { Doc, IndexName, TableName } from "../../store/tables.ts";
-import { Tx, unique } from "../../store/Tx.ts";
+import type { Args, CommandName, Result } from "../../store/commands.ts";
+import { Store, StoreUnavailable } from "../../store/Store.ts";
+import type { Doc, IndexName, TableName, Tables } from "../../store/tables.ts";
+import { first, type TxShape } from "../../store/Tx.ts";
 import { github } from "../connectors/github.ts";
 import { hubLogger, makeHandle, type Route } from "../router.ts";
 import { sha256Hex } from "../subject.ts";
@@ -26,7 +22,7 @@ import {
   Keys,
   Random,
   type HubConfigInput,
-  type RegistrationSettings,
+  type ServiceSettings,
 } from "../services.ts";
 
 /**
@@ -167,20 +163,17 @@ export function testConnectors(): Connector[] {
   ];
 }
 
-/** Hub mode settings with `policy`. */
-export function testRegistration(policy: RegistrationSettings["policy"]): RegistrationSettings {
-  return {
-    policy,
-    name: "Test hub",
-    terms: "https://hub.example.com/terms",
-    privacy: "https://hub.example.com/privacy",
-  };
-}
+/** The test hub's sign-in service. */
+export const TEST_SERVICE: ServiceSettings = {
+  name: "Test hub",
+  terms: "https://hub.example.com/terms",
+  privacy: "https://hub.example.com/privacy",
+};
 
 /**
  * Every core service but `Store`, as one layer, with the handles a test needs to steer them, and
  * the hub's logger, so a test that reads the console reads the hub's own log lines. `config`
- * overrides the issuer, the connectors and the hub mode.
+ * overrides the issuer, the connectors and the service.
  */
 export async function coreServices(
   config: Partial<HubConfigInput> = {},
@@ -195,7 +188,7 @@ export async function coreServices(
     HubConfig.make({
       issuer: config.issuer ?? TEST_ISSUER,
       connectors: config.connectors ?? testConnectors(),
-      registration: "registration" in config ? config.registration : undefined,
+      service: config.service ?? TEST_SERVICE,
     }),
   );
   const layer = Layer.mergeAll(
@@ -238,15 +231,15 @@ export type TestStore = {
   readonly store: Store["Service"];
   readonly run: <N extends CommandName>(name: N, args: Args<N>) => Result<N>;
   readonly setNow: (ms: number) => void;
-  readonly withTx: <A>(effect: Effect.Effect<A, never, Tx>) => A;
+  readonly withTx: <A>(body: (tx: TxShape<Tables>) => Effect.Effect<A>) => A;
   /** `withTx` for a host whose steps are async; `registerClient` seeds through it. */
-  readonly seed: <A>(effect: Effect.Effect<A, never, Tx>) => Promise<A>;
+  readonly seed: <A>(body: (tx: TxShape<Tables>) => Effect.Effect<A>) => Promise<A>;
   readonly db: { readonly contents: () => { readonly [T in TableName]: ReadonlyArray<Doc<T>> } };
 };
 
 let makeTestStore: (now: number) => TestStore = (now) => {
   const memory = makeMemoryStore({ now });
-  return { ...memory, seed: async (effect) => memory.withTx(effect) };
+  return { ...memory, seed: async (body) => memory.withTx(body) };
 };
 
 /**
@@ -259,27 +252,26 @@ export function useTestStore(make: (now: number) => TestStore) {
 
 /** Every document of every table, read in one step through each table's first index. */
 const contentsOf = (store: Pick<TestStore, "withTx">) => () =>
-  store.withTx(
+  store.withTx((tx) =>
     Effect.gen(function* () {
-      const tx = yield* Tx;
       const all = <T extends TableName>(table: T, index: IndexName<T>) =>
         tx
           .query(table, index, { eq: [], order: "asc", limit: 100_000 })
           .pipe(Effect.map((rows) => rows.map((row) => row.doc)));
       return {
-        apps: yield* all("apps", "by_app_id"),
-        tenants: yield* all("tenants", "by_tenant_id"),
-        blocks: yield* all("blocks", "by_at"),
-        signInPageExemptions: yield* all("signInPageExemptions", "by_target"),
-        connectorGrants: yield* all("connectorGrants", "by_tenant_id_and_owner_id_and_connector"),
-        events: yield* all("events", "by_kind_and_at"),
-        initialAccessTokens: yield* all("initialAccessTokens", "by_token_hash"),
-        rateLimits: yield* all("rateLimits", "by_scope_and_github_id"),
         clients: yield* all("clients", "by_client_id"),
+        stops: yield* all("stops", "by_key"),
         authRequests: yield* all("authRequests", "by_request_id"),
         authorizationCodes: yield* all("authorizationCodes", "by_code_hash"),
         signIns: yield* all("signIns", "by_at"),
-        signInBudgets: yield* all("signInBudgets", "by_tenant_id"),
+        signInBudgets: yield* all("signInBudgets", "by_key"),
+        apps: yield* all("apps", "by_app_id"),
+        tenants: yield* all("tenants", "by_tenant_id"),
+        signInPageExemptions: yield* all("signInPageExemptions", "by_tenant_id_and_owner_id"),
+        connectorGrants: yield* all("connectorGrants", "by_tenant_id_and_owner_id_and_connector"),
+        events: yield* all("events", "by_github_owner_id"),
+        initialAccessTokens: yield* all("initialAccessTokens", "by_token_hash"),
+        rateLimits: yield* all("rateLimits", "by_scope_and_github_id"),
       };
     }),
   );
@@ -292,7 +284,7 @@ export function sqliteTestStore(database: SqliteDatabase, now: number): TestStor
   const sqlite = makeSqliteStore(database, { now });
   return {
     ...sqlite,
-    seed: async (effect) => sqlite.withTx(effect),
+    seed: async (body) => sqlite.withTx(body),
     db: { contents: contentsOf(sqlite) },
   };
 }
@@ -302,27 +294,28 @@ export function sqliteTestStore(database: SqliteDatabase, now: number): TestStor
  * through `fetchBroker`. The
  * Store's step clock follows the test clock, so `clock.set` and `clock.advance` move both.
  * `failCommands` makes the commands whose name it answers true for fail with `StoreUnavailable`,
- * as a lost RPC reply does, until it is set to null.
+ * as a lost RPC reply does, until it is set to null. `routes` are a layer's routes, each with the
+ * layer's own services provided.
  */
 export async function createBroker(
   options: {
     config?: Partial<HubConfigInput>;
     seed?: number;
-    registerRoutes?: ReadonlyArray<Route>;
+    routes?: ReadonlyArray<Route>;
     fetch?: StubFetch;
   } = {},
 ) {
   const core = await coreServices(options.config, options.seed, options.fetch);
   // `memory` is the test Store of the run: the memory Store, or node:sqlite (`useTestStore`).
   const memory = makeTestStore(core.clock.now());
-  const failing: { commands: ((name: CommandName) => boolean) | null } = { commands: null };
+  const failing: { commands: ((name: string) => boolean) | null } = { commands: null };
   const store = Store.of({
     run: (name, args) =>
       failing.commands?.(name) === true
         ? Effect.fail(new StoreUnavailable())
         : memory.store.run(name, args),
   });
-  const handle = makeHandle({ registerRoutes: options.registerRoutes ?? [] });
+  const handle = makeHandle({ routes: options.routes ?? [] });
   const layer = Layer.merge(core.layer, Layer.succeed(Store, store));
   const clock = {
     now: core.clock.now,
@@ -341,9 +334,9 @@ export async function createBroker(
   }
 
   /**
-   * One client with `redirectUri` (and `otherRedirectUris`) of the app `<appName>-test`, which the
-   * first call creates in the tenant of the repository `gh-1` of owner 65, so a hub's policy has
-   * its facts. The client is enrolled in `connectors`, else in every configured connector.
+   * One card with `redirectUri` (and `otherRedirectUris`), as a layer writes it: its `ref` is
+   * `test:<appName>`, and its budget is the ref's. It offers `connectors`, else every configured
+   * connector, and shows no page unless `confirm`.
    */
   async function registerClient(args: {
     appName: string;
@@ -351,52 +344,65 @@ export async function createBroker(
     otherRedirectUris?: string[];
     connectors?: string[];
     tokenEndpointAuthMethod?: "client_secret_post" | "client_secret_basic";
-    deploymentType?: "production" | "development" | "preview";
-    /** The repository: tenant `gh-<id>`, default "1". The first client creates the tenant. */
-    repositoryId?: string;
-    /** The owner whose proof registered the client, and the new tenant's owner: default "65". */
-    ownerId?: string;
+    gates?: string[];
+    confirm?: boolean;
+    budget?: string;
+    /** Set: a temporary card. */
+    removeAt?: number;
   }) {
-    const appId = `${args.appName.toLowerCase()}-test`;
-    const tenantId = `gh-${args.repositoryId ?? "1"}`;
-    const ownerId = args.ownerId ?? "65";
+    const ref = `test:${args.appName.toLowerCase()}`;
     const clientId = `cl_${randomHex(16)}`;
     const clientSecret = randomHex(32);
     const secretHash = await sha256Hex(clientSecret);
-    const registrationTokenHash = await sha256Hex(randomHex(32));
     const now = clock.now();
     const connectors = [
       ...new Set(args.connectors ?? core.hub.connectors.map((connector) => connector.name)),
     ].sort();
-    await memory.seed(
-      Effect.gen(function* () {
-        const tx = yield* Tx;
-        if ((yield* unique("tenants", "by_tenant_id", [tenantId])) === undefined) {
-          yield* tx.insert("tenants", { tenantId, ownerId });
-        }
-        if ((yield* unique("apps", "by_app_id", [appId])) === undefined) {
-          yield* tx.insert("apps", { appId, name: args.appName, tenantId, createdAt: now });
-        }
-        yield* tx.insert("clients", {
+    await memory.seed((tx) =>
+      Effect.asVoid(
+        tx.insert("clients", {
           clientId,
-          appId,
-          secretHash,
-          registrationTokenHash,
-          tokenEndpointAuthMethod: args.tokenEndpointAuthMethod ?? "client_secret_post",
           redirectUris: [args.redirectUri, ...(args.otherRedirectUris ?? [])].sort(),
-          deploymentType: args.deploymentType ?? "development",
-          clientName: "dev",
-          softwareVersion: "dev-1",
-          createdAt: now,
-          renewedAt: now,
-          ...testClientRecord,
-          registeredBy: { ...testClientRecord.registeredBy, githubOwnerId: ownerId },
+          tokenEndpointAuthMethod: args.tokenEndpointAuthMethod ?? "client_secret_post",
+          secretHash,
           connectors,
-        });
+          gates: args.gates ?? [],
+          confirm: args.confirm ?? false,
+          budget: args.budget ?? ref,
+          ref,
+          ...(args.removeAt === undefined ? {} : { removeAt: args.removeAt }),
+          createdAt: now,
+        }),
+      ),
+    );
+    return { clientId, clientSecret, connectors, ref };
+  }
+
+  /** Replaces the card of `clientId` with `change` applied, in one step, as a layer's rewrite. */
+  const editCard = (clientId: string, change: (card: Doc<"clients">) => Doc<"clients">) =>
+    memory.seed((tx) =>
+      Effect.gen(function* () {
+        const row = yield* first(tx, "clients", "by_client_id", [clientId]);
+        if (row === undefined) {
+          return yield* Effect.die(new Error(`No card ${clientId}`));
+        }
+        yield* tx.replace("clients", row.id, change(row.doc));
       }),
     );
-    return { appId, clientId, clientSecret, connectors };
-  }
+
+  /** Adds (`on`) or removes the stop of `key`, in one step. */
+  const setStop = (key: string, on: boolean) =>
+    memory.seed((tx) =>
+      Effect.gen(function* () {
+        const row = yield* first(tx, "stops", "by_key", [key]);
+        if (on && row === undefined) {
+          yield* tx.insert("stops", { key, at: clock.now() });
+        }
+        if (!on && row !== undefined) {
+          yield* tx.delete("stops", row.id);
+        }
+      }),
+    );
 
   return {
     ...core,
@@ -406,29 +412,15 @@ export async function createBroker(
     layer,
     fetchBroker,
     registerClient,
+    editCard,
+    setStop,
     issuer: core.hub.issuer,
-    failCommands: (commands: ((name: CommandName) => boolean) | null) => {
+    failCommands: (commands: ((name: string) => boolean) | null) => {
       failing.commands = commands;
     },
   };
 }
 export type Broker = Awaited<ReturnType<typeof createBroker>>;
-
-/**
- * The fields that every client row holds besides its credentials, for a test that writes a client
- * row itself. The claims are those of GitHub's documented example token.
- */
-export const testClientRecord = {
-  app: "my-app",
-  registeredBy: {
-    kind: "github",
-    githubRepository: "octo-org/octo-repo",
-    githubOwnerId: "65",
-    githubActorId: "12",
-    githubActorLogin: "octocat",
-    commitSha: "example-sha",
-  },
-} as const;
 
 function randomHex(bytes: number): string {
   const buffer = new Uint8Array(bytes);

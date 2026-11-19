@@ -138,28 +138,21 @@ function hostMarkup(host: string) {
 }
 
 /**
- * What the sign-in page adds when it asks for consent: in hub mode, unless an admin exemption
- * covers the client. An exempt client with several connectors gets the picker alone. An app's name
- * is self-asserted (RFC 7591 section 5), so the page names what the hub checked: the deploy, the
- * GitHub repository that registered the client, and what the app gets.
+ * What the sign-in page adds when it asks for consent, for a card whose `confirm` is set. An app's
+ * name is self-asserted (RFC 7591 section 5), so the page names what the hub checked: the address
+ * the user returns to, and what the app gets.
  */
 export type Consent = {
-  /** A loopback return address: the sign-in ends on the user's own computer. */
-  loopback: boolean;
-  deployment: { kind: "production" } | { kind: "preview"; stage: string } | { kind: "development" };
-  /** `owner/name` of the GitHub repository at registration. */
-  repository: string;
   scopes: string[];
-  /** Who says that it reviewed nothing: the hub's name, or the issuer's host for a broker with none. */
+  /** Who says that it reviewed nothing: the hub's name. */
   reviewer: string;
 };
 
 /**
- * The sign-in page: one "Continue with" button per offered connector, under the host that gets the
- * sign-in, which served the repository's verification file or is the user's own computer. With a
- * consent it also names the deploy, the repository, and what the app gets. It has no Cancel: the
- * browser's Back does that, and it never sends the user to the host, which a stranger's link may
- * have chosen (RFC 9700 section 4.11.2).
+ * The sign-in page: one "Continue with" button per offered connector, under the host of the
+ * validated return address, which gets the sign-in. With a consent it also names what the app
+ * gets. It has no Cancel: the browser's Back does that, and it never sends the user to the host,
+ * which a stranger's link may have chosen (RFC 9700 section 4.11.2).
  */
 export function signInPage(args: {
   /** The host of the client's return address, with its port. */
@@ -171,43 +164,20 @@ export function signInPage(args: {
   origin: string;
   consent: Consent | null;
   connectors: Array<{ label: string; provider: string; href: string }>;
-  /** A hub's privacy notice and terms; null for a broker with no hub mode. */
-  legal: Legal | null;
+  /** The hub's privacy notice and terms. */
+  legal: Legal;
 }): Response {
   const buttons = args.connectors.map(connectorButton).join("\n");
   const { consent, legal } = args;
   const heading = `<h1>Sign in to<br><a class="host" href="${escape(args.origin)}" target="_blank" rel="noopener noreferrer">${hostMarkup(args.host)}</a></h1>`;
-  if (consent === null) {
-    return page(
-      `Sign in to ${args.host}`,
-      `${heading}
-<div class="actions">${buttons}</div>`,
-      200,
-      legal,
-    );
-  }
-  // GitHub names the repository; it opens in a new tab, so the sign-in stays where it is.
-  const repository = `<a href="https://github.com/${escape(consent.repository)}" target="_blank" rel="noopener noreferrer">${escape(consent.repository)}</a>`;
-  let from: string;
-  switch (consent.deployment.kind) {
-    case "production":
-      from = `Production of ${repository}`;
-      break;
-    case "preview":
-      from = `Preview ${escape(consent.deployment.stage)} of ${repository}`;
-      break;
-    case "development":
-      from = `Development server of ${repository}${consent.loopback ? " on this computer" : ""}`;
-      break;
-    default:
-      return consent.deployment satisfies never;
-  }
+  const fine =
+    consent === null
+      ? ""
+      : `\n<p class="fine">${escape(released(consent.scopes))} ${escape(consent.reviewer)} has not reviewed this app.</p>`;
   return page(
     `Sign in to ${args.host}`,
     `${heading}
-<p class="sub">${from}</p>
-<div class="actions">${buttons}</div>
-<p class="fine">${escape(released(consent.scopes))} ${escape(consent.reviewer)} has not reviewed this app.</p>`,
+<div class="actions">${buttons}</div>${fine}`,
     200,
     legal,
   );

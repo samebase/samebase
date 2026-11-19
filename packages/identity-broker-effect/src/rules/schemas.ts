@@ -1,12 +1,6 @@
-// The argument and result schemas of the commands. Plain JSON on both sides of the boundary.
+// The argument and result schemas of the core's commands. Plain JSON on both sides of the boundary.
 import { Schema } from "effect";
-import {
-  DeploymentType,
-  RateLimitScope,
-  RegisteredBy,
-  TokenEndpointAuthMethod,
-  UpstreamIdentity,
-} from "../store/tables.ts";
+import { TokenEndpointAuthMethod, UpstreamIdentity } from "./tables.ts";
 
 const Str = Schema.String;
 const Num = Schema.Finite;
@@ -14,18 +8,8 @@ const Bool = Schema.Boolean;
 const Strs = Schema.Array(Str);
 const opt = Schema.optionalKey;
 
-/**
- * What the host decided for one request. `ownerId` is the tenant owner the policy decided on;
- * absent for a host without hub mode. `connectors` is what the client may use now under the
- * policy; `configured` is the host's configured connectors, the only ones a grant can open.
- */
-export const PolicyDecision = Schema.Struct({
-  ownerId: opt(Str),
-  paused: Bool,
-  connectors: Strs,
-  configured: Strs,
-});
-export type PolicyDecision = typeof PolicyDecision.Type;
+/** The hub's configured connector names, in the order discovery names them. */
+const configured = Strs;
 
 /** Where the user goes back to once a request fails or finishes: the client's exact redirect URI. */
 const returnFields = { redirectUri: Str, state: opt(Str) };
@@ -42,85 +26,30 @@ export const TransitionResult = Schema.Union([
 ]);
 export type TransitionResult = typeof TransitionResult.Type;
 
-const clientFields = {
-  clientId: Str,
-  appId: Str,
-  secretHash: Str,
-  tokenEndpointAuthMethod: TokenEndpointAuthMethod,
-  redirectUris: Strs,
-  deploymentType: DeploymentType,
-  clientName: Str,
-  softwareVersion: Str,
-  createdAt: Num,
-  lastSignInAt: opt(Num),
-  registrationTokenHash: Str,
-  removeAt: opt(Num),
-  renewedAt: Num,
-  app: Str,
-  registeredBy: RegisteredBy,
-  connectors: Strs,
-};
-export const Client = Schema.Struct(clientFields);
-
-/** An app row with what `/authorize` and `/continue` need to know about its tenant. */
-export const AppView = Schema.Struct({
-  appId: Str,
-  name: Str,
-  tenantId: Str,
-  /** The host blocked the tenant of the app, or its owner. */
-  suspended: Bool,
-  createdAt: Num,
-});
-
-/** The facts of a client that the host's policy decides on. */
-export const Registration = Schema.Struct({
-  repositoryId: Str,
-  repository: Str,
-  ownerId: Str,
-  app: Str,
-  deploymentType: DeploymentType,
-  redirectUris: Strs,
-  proof: Schema.Literals(["github-actions", "initial-access-token"]),
-});
-
-const clientWithAppFields = {
-  client: Client,
-  app: Schema.NullOr(AppView),
-  registration: Schema.NullOr(Registration),
-  granted: Strs,
-};
-export const ClientWithApp = Schema.Struct(clientWithAppFields);
-export type ClientWithApp = typeof ClientWithApp.Type;
-
-/** Which exemptions from the sign-in page cover a client. */
-export const Exemption = Schema.Struct({ everyApp: Bool, repository: Bool });
-
 // authRequests
 
 export const CreateArgs = Schema.Struct({
-  /** The tenant of the app, whose budget this request spends. */
-  tenantId: Str,
   requestId: Str,
-  appId: Str,
   clientId: Str,
   redirectUri: Str,
   scope: Str,
   state: opt(Str),
   nonce: opt(Str),
   codeChallenge: Str,
-  /** The set the caller would offer, from its snapshot of the client's facts and grants. */
-  connectors: Strs,
-  policy: PolicyDecision,
+  /** The connectors the request named; none named: every connector of the card. */
+  requested: Strs,
+  configured,
   freshLogin: Bool,
   txnCookieHash: Str,
   createdAt: Num,
   expiresAt: Num,
 });
 export const CreateResult = Schema.Union([
-  Schema.Struct({ ok: Schema.Literal(true), connectors: Strs }),
+  /** The stored set, and whether the page before the provider is shown. */
+  Schema.Struct({ ok: Schema.Literal(true), connectors: Strs, confirm: Bool }),
   Schema.Struct({
     ok: Schema.Literal(false),
-    error: Schema.Literals(["rate_limited", "suspended", "off"]),
+    error: Schema.Literals(["unknown_client", "stopped", "redirect_uri", "off", "rate_limited"]),
   }),
 ]);
 
@@ -146,24 +75,16 @@ export const StartUpstreamArgs = Schema.Struct({
   upstreamStateHash: Str,
   upstreamCodeVerifier: Str,
   upstreamNonce: opt(Str),
-  policy: PolicyDecision,
+  configured,
   now: Num,
 });
-
-export const UpstreamClientArgs = Schema.Struct({ upstreamStateHash: Str });
-export const UpstreamClientResult = Schema.NullOr(
-  Schema.Struct({
-    request: Schema.Struct({ requestId: Str, txnCookieHash: Str, ...returnFields }),
-    client: Schema.NullOr(ClientWithApp),
-  }),
-);
 
 export const ClaimUpstreamArgs = Schema.Struct({
   upstreamStateHash: Str,
   connector: Str,
   /** SHA-256 hex of each transaction cookie the callback request carried. */
   txnCookieHashes: Strs,
-  policy: PolicyDecision,
+  configured,
   now: Num,
 });
 export const ClaimResult = Schema.Union([
@@ -179,7 +100,7 @@ export const ClaimResult = Schema.Union([
     ...returnFields,
   }),
   Schema.Struct({ status: Schema.Literal("expired"), requestId: Str, ...returnFields }),
-  /** The policy stops the sign-in now; the request is deleted. */
+  /** The request may not go on now; it is deleted. */
   Schema.Struct({ status: Schema.Literal("refused"), requestId: Str, ...returnFields }),
   Schema.Struct({ status: Schema.Literal("unbound") }),
   Schema.Struct({ status: Schema.Literal("missing") }),
@@ -192,7 +113,7 @@ export const CompleteArgs = Schema.Struct({
   authTime: Num,
   codeHash: Str,
   codeExpiresAt: Num,
-  policy: PolicyDecision,
+  configured,
   now: Num,
 });
 
@@ -202,7 +123,7 @@ export const ExchangeCodeArgs = Schema.Struct({
   clientId: Str,
   /** SHA-256 hex of the client secret the token request carried. */
   clientSecretHash: Str,
-  /** How the token request carried the credentials; it must be the method the client registered. */
+  /** How the token request carried the credentials; it must be the method on the card. */
   tokenEndpointAuthMethod: TokenEndpointAuthMethod,
   codeHash: Str,
   /** The address the token request names, which must be the one the authorization request named. */
@@ -211,14 +132,15 @@ export const ExchangeCodeArgs = Schema.Struct({
   codeChallengeOfVerifier: Str,
   /** The `resource` parameter of the token request. A sign-in code grants none. */
   resource: opt(Str),
-  policy: PolicyDecision,
+  configured,
   now: Num,
 });
 export const ExchangeResult = Schema.Union([
   Schema.Struct({
     ok: Schema.Literal(true),
-    appId: Str,
     clientId: Str,
+    /** The card's `ref`, for the sign-in record and the log line. */
+    ref: Str,
     scope: Str,
     nonce: opt(Str),
     identity: UpstreamIdentity,
@@ -236,164 +158,15 @@ export type ExchangeResult = typeof ExchangeResult.Type;
 // clients
 
 export const ClientIdArgs = Schema.Struct({ clientId: Str });
-export const ClientResult = Schema.NullOr(Client);
-export const WithAppResult = Schema.NullOr(ClientWithApp);
-export const ForAuthorizeResult = Schema.NullOr(
-  Schema.Struct({ ...clientWithAppFields, exemption: Exemption }),
+export const ClientResult = Schema.NullOr(
+  Schema.Struct({ clientId: Str, ref: Str, redirectUris: Strs, connectors: Strs, confirm: Bool }),
 );
-
-// connectorGrants
-
-export const ForRegistrationArgs = Schema.Struct({
-  githubRepositoryDatabaseId: Str,
-  githubOwnerId: Str,
-});
-export const ForRegistrationResult = Strs;
-
-// hubClients
-
-export const AdmitArgs = Schema.Struct({ githubRepositoryDatabaseId: Str, githubOwnerId: Str });
-export const AdmitResult = Schema.Union([
-  Schema.Struct({ status: Schema.Literal("admitted") }),
-  Schema.Struct({ status: Schema.Literal("blocked") }),
-  Schema.Struct({ status: Schema.Literal("rate_limited"), window: RateLimitScope }),
-]);
-
-const Refusal = Schema.Literals([
-  "blocked",
-  "suspended",
-  "too_many_apps",
-  "too_many_clients",
-  "app_taken",
-]);
-
-/** A created client, with what the registration answer says about it and the request did not. */
-const Created = Schema.Struct({
-  ok: Schema.Literal(true),
-  createdAt: Num,
-  clientName: Str,
-  /** The first part of the answer's full `software_id`, `<tenant id>/<app name>`. */
-  tenantId: Str,
-});
-
-/** An enrollment outside what the policy gives and what the repository is granted. */
-const InvalidConnectors = Schema.Struct({
-  ok: Schema.Literal(false),
-  reason: Schema.Literal("invalid_connectors"),
-  allowed: Strs,
-});
-
-const credentialHashes = { clientId: Str, secretHash: Str, registrationTokenHash: Str };
-
-export const CreateClientArgs = Schema.Struct({
-  ...credentialHashes,
-  githubRepositoryDatabaseId: Str,
-  githubOwnerId: Str,
-  githubRepository: Str,
-  githubActorId: Str,
-  githubActorLogin: Str,
-  commitSha: Str,
-  /** The `iat` of GitHub's OIDC token, in seconds. */
-  proofIssuedAt: Num,
-  deployment: Schema.Union([
-    Schema.Struct({ type: Schema.Literal("production"), initialAccessTokenHash: Str }),
-    Schema.Struct({ type: Schema.Literal("preview"), stage: Str }),
-  ]),
-  /** The enrollment, checked by the host against its connectors, its policy, and the grants. */
-  connectors: Strs,
-  /** The hub's connectors that the policy gives this registration; grants are read here. */
-  policyConnectors: Strs,
-  /** The hub's configured connectors, the only ones a grant can open. */
-  configuredConnectors: Strs,
-  app: Str,
-  /** The app id of `app` in the repository's tenant, computed by the core. */
-  appId: Str,
-  /** The return addresses, each checked by the host. */
-  redirectUris: Strs,
-  softwareVersion: Str,
-  tokenEndpointAuthMethod: TokenEndpointAuthMethod,
-});
-export const CreateClientResult = Schema.Union([
-  Created,
-  Schema.Struct({
-    ok: Schema.Literal(false),
-    reason: Schema.Union([Refusal, Schema.Literals(["stale_proof", "new_owners"])]),
-  }),
-  InvalidConnectors,
-]);
-
-export const ReadInitialAccessTokenArgs = Schema.Struct({ tokenHash: Str });
-export const ReadInitialAccessTokenResult = Schema.NullOr(
-  Schema.Struct({
-    githubRepositoryDatabaseId: Str,
-    githubOwnerId: Str,
-    githubRepository: Str,
-    app: Str,
-  }),
-);
-
-export const CreateDevelopmentClientArgs = Schema.Struct({
-  ...credentialHashes,
-  tokenHash: Str,
-  /** The token's row as the host read it: the facts its policy decided on. */
-  githubRepositoryDatabaseId: Str,
-  githubOwnerId: Str,
-  githubRepository: Str,
-  app: Str,
-  /** The app id of `app` in the tenant of `githubRepositoryDatabaseId`, computed by the core. */
-  appId: Str,
-  connectors: Strs,
-  policyConnectors: Strs,
-  configuredConnectors: Strs,
-  redirectUris: Strs,
-  softwareVersion: Str,
-  tokenEndpointAuthMethod: TokenEndpointAuthMethod,
-});
-export const CreateDevelopmentClientResult = Schema.Union([
-  Created,
-  Schema.Struct({
-    ok: Schema.Literal(false),
-    reason: Schema.Union([Refusal, Schema.Literal("invalid_token")]),
-  }),
-  InvalidConnectors,
-]);
-
-// registration
-
-export const RenewArgs = Schema.Struct({ clientId: Str, registrationTokenHash: Str, now: Num });
-export const RenewResult = Schema.Union([
-  Schema.Struct({
-    ok: Schema.Literal(true),
-    redirectUris: Strs,
-    clientName: Str,
-    softwareVersion: Str,
-    tokenEndpointAuthMethod: TokenEndpointAuthMethod,
-    app: Str,
-    /** The tenant of the client's app: with `app`, the read's full `software_id`. */
-    tenantId: Str,
-    createdAt: Num,
-    connectors: Strs,
-  }),
-  Schema.Struct({
-    ok: Schema.Literal(false),
-    error: Schema.Literals(["invalid_token", "suspended"]),
-  }),
-]);
-
-export const RemoveArgs = Schema.Struct({ clientId: Str, registrationTokenHash: Str });
-export const RemoveResult = Schema.Union([
-  Schema.Struct({ ok: Schema.Literal(true) }),
-  Schema.Struct({
-    ok: Schema.Literal(false),
-    error: Schema.Literals(["invalid_token", "production"]),
-  }),
-]);
 
 // signIns
 
 export const RecordArgs = Schema.Struct({
-  appId: Str,
   clientId: Str,
+  ref: Str,
   connector: Str,
   sub: Str,
   at: Num,
@@ -401,17 +174,11 @@ export const RecordArgs = Schema.Struct({
 
 // lifecycle
 
-export const CleanupArgs = Schema.Struct({
-  now: Num,
-  /** Absent: preview clients are never deleted for being idle. */
-  previewClientMaxAgeMs: opt(Num),
-  signInRetentionMs: Num,
-});
+export const CleanupArgs = Schema.Struct({ now: Num, signInRetentionMs: Num });
 export const CleanupResult = Schema.Struct({
   authRequests: Num,
   authorizationCodes: Num,
-  previewClients: Num,
-  expiredClients: Num,
+  clients: Num,
   signIns: Num,
   /** A category filled its batch: call again with the same arguments. */
   more: Bool,

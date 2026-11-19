@@ -1,20 +1,35 @@
-// The storage contract of one step. A rule is an Effect program over `Tx`; the host decides how it
-// runs (synchronous SQL under a transaction, or memory in tests). A `Tx` is valid only inside its
-// step: every operation dies once the host has closed it.
-import { Context, Effect, Schema } from "effect";
-import {
-  declarations,
-  type Doc,
-  type IndexField,
-  type IndexName,
-  type TableName,
-} from "./tables.ts";
+// The storage contract of one step, over any table catalog. A rule is an Effect program over a `Tx`
+// service whose shape is `TxShape<Catalog>` of the tables it may touch; the host decides how it runs
+// (synchronous SQL under a transaction, or memory in tests). A `Tx` is valid only inside its step:
+// every operation dies once the host has closed it.
+import { Effect, Schema } from "effect";
+
+/** One index field: a path into the document (`target.scope`) and its one declared type. */
+export interface IndexField {
+  readonly path: string;
+  readonly type: "string" | "number";
+}
+
+export const s = (path: string): IndexField => ({ path, type: "string" });
+export const n = (path: string): IndexField => ({ path, type: "number" });
+
+/** Tables declared as data: an Effect Schema for each document and the indexes with their fields. */
+export type Catalog = {
+  readonly [table: string]: {
+    readonly schema: Schema.Top;
+    readonly indexes: { readonly [index: string]: ReadonlyArray<IndexField> };
+  };
+};
+
+export type TableOf<C extends Catalog> = keyof C & string;
+export type DocOf<C extends Catalog, T extends TableOf<C>> = C[T]["schema"]["Type"];
+export type IndexOf<C extends Catalog, T extends TableOf<C>> = keyof C[T]["indexes"] & string;
 
 /**
  * An opaque row handle of table `T`, given by the store and stable across `replace`. Never stored
  * in a document. `key` is the adapter's own row key; two handles of one row have equal keys.
  */
-export class RowId<T extends TableName> {
+export class RowId<T extends string> {
   constructor(
     readonly table: T,
     readonly key: string,
@@ -24,9 +39,9 @@ export class RowId<T extends TableName> {
 /** An index value; `undefined` stands for an absent field, which sorts before every value. */
 export type IndexValue = string | number | undefined;
 
-export interface Row<T extends TableName> {
+export interface Row<C extends Catalog, T extends TableOf<C>> {
   readonly id: RowId<T>;
-  readonly doc: Doc<T>;
+  readonly doc: DocOf<C, T>;
 }
 
 export interface Bound {
@@ -44,37 +59,38 @@ export interface Query {
   readonly limit: number;
 }
 
-export interface TxShape {
-  readonly insert: <T extends TableName>(table: T, doc: Doc<T>) => Effect.Effect<RowId<T>>;
-  readonly get: <T extends TableName>(table: T, id: RowId<T>) => Effect.Effect<Row<T> | undefined>;
-  /** Writes the whole document: a field the new document omits is removed. Dies on a missing row. */
-  readonly replace: <T extends TableName>(
+export interface TxShape<C extends Catalog> {
+  readonly insert: <T extends TableOf<C>>(table: T, doc: DocOf<C, T>) => Effect.Effect<RowId<T>>;
+  readonly get: <T extends TableOf<C>>(
     table: T,
     id: RowId<T>,
-    doc: Doc<T>,
+  ) => Effect.Effect<Row<C, T> | undefined>;
+  /** Writes the whole document: a field the new document omits is removed. Dies on a missing row. */
+  readonly replace: <T extends TableOf<C>>(
+    table: T,
+    id: RowId<T>,
+    doc: DocOf<C, T>,
   ) => Effect.Effect<void>;
   /** Dies on a missing row. */
-  readonly delete: <T extends TableName>(table: T, id: RowId<T>) => Effect.Effect<void>;
+  readonly delete: <T extends TableOf<C>>(table: T, id: RowId<T>) => Effect.Effect<void>;
   /**
    * Rows in index order: the index fields, then insertion order among equal keys (a replace keeps
    * the row's place). Reads see the earlier writes of the same step.
    */
-  readonly query: <T extends TableName>(
+  readonly query: <T extends TableOf<C>>(
     table: T,
-    index: IndexName<T>,
+    index: IndexOf<C, T>,
     query: Query,
-  ) => Effect.Effect<ReadonlyArray<Row<T>>>;
+  ) => Effect.Effect<ReadonlyArray<Row<C, T>>>;
 }
 
-export class Tx extends Context.Service<Tx, TxShape>()("identity-broker-effect/store/Tx") {}
-
 /** The one row with the full key `eq`, or undefined. Two rows are a broken invariant. */
-export const unique = Effect.fnUntraced(function* <T extends TableName>(
+export const unique = Effect.fnUntraced(function* <C extends Catalog, T extends TableOf<C>>(
+  tx: TxShape<C>,
   table: T,
-  index: IndexName<T>,
+  index: IndexOf<C, T>,
   eq: ReadonlyArray<IndexValue>,
 ) {
-  const tx = yield* Tx;
   const rows = yield* tx.query(table, index, { eq, order: "asc", limit: 2 });
   if (rows.length > 1) {
     return yield* Effect.die(new Error(`Two rows of ${table}.${index} share one key`));
@@ -83,12 +99,12 @@ export const unique = Effect.fnUntraced(function* <T extends TableName>(
 });
 
 /** The first row in index order with the prefix `eq`, or undefined. */
-export const first = Effect.fnUntraced(function* <T extends TableName>(
+export const first = Effect.fnUntraced(function* <C extends Catalog, T extends TableOf<C>>(
+  tx: TxShape<C>,
   table: T,
-  index: IndexName<T>,
+  index: IndexOf<C, T>,
   eq: ReadonlyArray<IndexValue>,
 ) {
-  const tx = yield* Tx;
   const rows = yield* tx.query(table, index, { eq, order: "asc", limit: 1 });
   return rows.at(0);
 });
@@ -97,28 +113,19 @@ export const first = Effect.fnUntraced(function* <T extends TableName>(
  * Every row with the prefix `eq`, when an invariant keeps them below `limit`. Reaching `limit` is a
  * broken invariant, so the read stays bounded.
  */
-export const allBelow = Effect.fnUntraced(function* <T extends TableName>(
+export const allBelow = Effect.fnUntraced(function* <C extends Catalog, T extends TableOf<C>>(
+  tx: TxShape<C>,
   table: T,
-  index: IndexName<T>,
+  index: IndexOf<C, T>,
   eq: ReadonlyArray<IndexValue>,
   limit: number,
 ) {
-  const tx = yield* Tx;
   const rows = yield* tx.query(table, index, { eq, order: "asc", limit });
   if (rows.length >= limit) {
     return yield* Effect.die(new Error(`${table}.${index} holds ${limit} or more rows of one key`));
   }
   return rows;
 });
-
-/** The fields of an index. Dies on an index that the table does not declare. */
-export const indexFields = (table: TableName, index: string): ReadonlyArray<IndexField> => {
-  const fields = declarations[table].indexes[index];
-  if (fields === undefined) {
-    throw new Error(`${table} has no index ${index}`);
-  }
-  return fields;
-};
 
 /** A query checked against its index: the prefix fields and the range field with its bounds. */
 export interface CheckedQuery {
@@ -134,9 +141,20 @@ export interface CheckedQuery {
 const typeMatches = (field: IndexField, value: IndexValue) =>
   value === undefined || typeof value === field.type;
 
-/** Checks a query against the declared index. A malformed query is a defect of the rule. */
-export const checkQuery = (table: TableName, index: string, query: Query): CheckedQuery => {
-  const fields = indexFields(table, index);
+/**
+ * Checks a query against the declared index of `catalog`. A malformed query, or an index that the
+ * table does not declare, is a defect of the rule.
+ */
+export const checkQuery = (
+  catalog: Catalog,
+  table: string,
+  index: string,
+  query: Query,
+): CheckedQuery => {
+  const fields = catalog[table]?.indexes[index];
+  if (fields === undefined) {
+    throw new Error(`${table} has no index ${index}`);
+  }
   if (query.eq.length > fields.length) {
     throw new Error(`${table}.${index}: the prefix is longer than the index`);
   }

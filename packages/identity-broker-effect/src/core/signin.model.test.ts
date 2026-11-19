@@ -1,15 +1,13 @@
-// RFC 136, property C (RFC 137): sign-in. Random stories of `/authorize` with a requested set, the
-// page's Continue links (edited ones too), connector callbacks whose provider answer is held
-// between `callbackStart` and `callbackFinish` (also on another connector's route), code
-// redemptions, policy changes, the admin's connector grants and revokes, blocks, repository
-// transfers, and clock steps, played through `fetchBroker` on the memory Store. The model knows
-// each client's enrollment, each request's set, the hub's policy of the moment, and each grant with
-// the owner it is bound to; it never reads what is allowed back from the rows.
+// RFC 136, property C (RFC 137): sign-in on client cards. Random stories of `/authorize` with a
+// requested set, the page's Continue links (edited ones too), connector callbacks whose provider
+// answer is held between `callbackStart` and `callbackFinish` (also on another connector's route),
+// code redemptions, and clock steps, played through `fetchBroker` on the memory Store, while a
+// layer rewrites cards (their connectors, `confirm`, return address, and the owner key among their
+// gates) and stops on gate keys commit and go. The model knows each card as the layer last wrote
+// it, each request's stored set, and the stops; it never reads what is allowed back from the rows.
 //
-// Ported from packages/identity-broker/src/client/signin.model.test.ts. The clients, a transfer's
-// new client, the grants, the exemption and the blocks are written in Store steps: registration is
-// builder B2's property A, and the moderation routes are out of scope. A transfer therefore always
-// lands, and a grant from a stale view changes nothing, as the admin route's 409 does.
+// Ported from packages/identity-broker/src/client/signin.model.test.ts. The cards and the stops
+// are written in Store steps, as a layer's command and an operator write them.
 import fc from "fast-check";
 import { Schema } from "effect";
 import { decodeJwt } from "jose";
@@ -19,12 +17,10 @@ import {
   fakeUpstream,
   pkce,
   stubFetch,
-  testRegistration,
   txnCookie,
   type Broker,
   type StubFetch,
 } from "./testing/harness.ts";
-import { setBlock, setExemption, setGrant, setTenantOwner } from "./testing/seeds.ts";
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -33,56 +29,44 @@ afterEach(() => {
 const REPOSITORIES = ["101", "102"] as const;
 const OWNERS = ["201", "202"] as const;
 const CONNECTORS = ["fake", "other"] as const;
-/** The clients of every story, each with its enrollment. */
+/** The cards of every story, each with its connectors and whether it shows the page. */
 const CLIENTS = [
-  { repository: "101", stage: "prod", connectors: ["fake"] },
-  { repository: "101", stage: "pr-1", connectors: ["fake", "other"] },
-  { repository: "102", stage: "pr-1", connectors: ["other"] },
+  { repository: "101", stage: "prod", connectors: ["fake"], confirm: false },
+  { repository: "101", stage: "pr-1", connectors: ["fake", "other"], confirm: true },
+  { repository: "102", stage: "pr-1", connectors: ["other"], confirm: false },
 ] as const;
-/** What an authorize request names in `connector`, by name. */
-const REQUESTS = { none: [], fake: ["fake"], other: ["other"], both: ["fake", "other"] } as const;
-/** What the hub's policy allows, by name. */
-const POLICIES = {
-  all: ["fake", "other"],
-  fakeOnly: ["fake"],
-  otherOnly: ["other"],
-  none: [],
-} as const;
+/** What an authorize request names in `connector`, and what a layer writes on a card, by name. */
+const SETS = { none: [], fake: ["fake"], other: ["other"], both: ["fake", "other"] } as const;
 /** Around the request's life of ten minutes. */
 const TICKS = [1_000, 61_000, 601_000] as const;
 
 type Repository = (typeof REPOSITORIES)[number];
 type Owner = (typeof OWNERS)[number];
 type ConnectorName = (typeof CONNECTORS)[number];
-type RequestName = keyof typeof REQUESTS;
-type PolicyName = keyof typeof POLICIES;
+type SetName = keyof typeof SETS;
 type Outcome = "identity" | "invalid_grant";
 
+const repositoryKey = (repository: string) => `repository:${repository}`;
+const ownerKey = (owner: string) => `owner:${owner}`;
+const STOP_KEYS = [...REPOSITORIES.map(repositoryKey), ...OWNERS.map(ownerKey)];
+
 type Command =
-  | { kind: "authorize"; client: number; requested: RequestName }
+  | { kind: "authorize"; client: number; requested: SetName }
   | { kind: "continue"; request: number; connector: ConnectorName }
   /** `crossed`: the callback comes back on the other connector's route, with the same state. */
   | { kind: "callbackStart"; upstream: number; route: "own" | "crossed" }
   | { kind: "callbackFinish"; attempt: number; outcome: Outcome }
   | { kind: "redeem"; code: number }
-  | { kind: "policy"; connectors: PolicyName; paused: boolean }
-  /** The admin switches the sign-in page off or on for every app. */
-  | { kind: "exemption"; skip: boolean }
-  /**
-   * The admin grants or revokes a connector for one repository, naming the owner the admin page
-   * shows (`current`) or the other one, as a page that a transfer made stale (`stale`).
-   */
-  | {
-      kind: "grant";
-      repository: Repository;
-      connector: ConnectorName;
-      grant: boolean;
-      view: "current" | "stale";
-    }
-  | { kind: "block"; action: "block" | "unblock"; scope: "repository"; githubId: Repository }
-  | { kind: "block"; action: "block" | "unblock"; scope: "owner"; githubId: Owner }
-  /** GitHub transfers the repository, and a run of its new owner registers a client. */
-  | { kind: "transfer"; repository: Repository; owner: Owner }
+  /** The layer writes a card's connectors. */
+  | { kind: "connectors"; client: number; set: SetName }
+  /** The layer writes a card's `confirm`. */
+  | { kind: "confirm"; client: number; on: boolean }
+  /** The layer takes a card's return address off, or puts it back. */
+  | { kind: "redirect"; client: number; on: boolean }
+  /** A stop on a key commits, or goes. */
+  | { kind: "stop"; key: string; on: boolean }
+  /** A transfer as the core sees it: the repository's cards get the new owner's key. */
+  | { kind: "regate"; repository: Repository; owner: Owner }
   | { kind: "tick"; ms: number };
 
 const repositoryHandle = (id: string) =>
@@ -95,7 +79,7 @@ const commandArbitrary: fc.Arbitrary<Command> = fc.oneof(
     arbitrary: fc.record({
       kind: fc.constant("authorize" as const),
       client: fc.nat({ max: CLIENTS.length - 1 }),
-      requested: fc.constantFrom<RequestName>("none", "fake", "other", "both"),
+      requested: fc.constantFrom<SetName>("none", "fake", "other", "both"),
     }),
   },
   {
@@ -132,49 +116,39 @@ const commandArbitrary: fc.Arbitrary<Command> = fc.oneof(
   {
     weight: 2,
     arbitrary: fc.record({
-      kind: fc.constant("policy" as const),
-      connectors: fc.constantFrom<PolicyName>("all", "fakeOnly", "otherOnly", "none"),
-      paused: fc.boolean(),
-    }),
-  },
-  {
-    weight: 1,
-    arbitrary: fc.oneof(
-      fc.record({
-        kind: fc.constant("block" as const),
-        action: fc.constantFrom("block" as const, "unblock" as const),
-        scope: fc.constant("repository" as const),
-        githubId: fc.constantFrom(...REPOSITORIES),
-      }),
-      fc.record({
-        kind: fc.constant("block" as const),
-        action: fc.constantFrom("block" as const, "unblock" as const),
-        scope: fc.constant("owner" as const),
-        githubId: fc.constantFrom(...OWNERS),
-      }),
-    ),
-  },
-  {
-    weight: 1,
-    arbitrary: fc.record({ kind: fc.constant("exemption" as const), skip: fc.boolean() }),
-  },
-  {
-    weight: 3,
-    arbitrary: fc.record({
-      kind: fc.constant("grant" as const),
-      repository: fc.constantFrom(...REPOSITORIES),
-      connector: fc.constantFrom(...CONNECTORS),
-      grant: fc.boolean(),
-      view: fc.oneof(
-        { weight: 4, arbitrary: fc.constant("current" as const) },
-        { weight: 1, arbitrary: fc.constant("stale" as const) },
-      ),
+      kind: fc.constant("connectors" as const),
+      client: fc.nat({ max: CLIENTS.length - 1 }),
+      set: fc.constantFrom<SetName>("none", "fake", "other", "both"),
     }),
   },
   {
     weight: 1,
     arbitrary: fc.record({
-      kind: fc.constant("transfer" as const),
+      kind: fc.constant("confirm" as const),
+      client: fc.nat({ max: CLIENTS.length - 1 }),
+      on: fc.boolean(),
+    }),
+  },
+  {
+    weight: 1,
+    arbitrary: fc.record({
+      kind: fc.constant("redirect" as const),
+      client: fc.nat({ max: CLIENTS.length - 1 }),
+      on: fc.boolean(),
+    }),
+  },
+  {
+    weight: 2,
+    arbitrary: fc.record({
+      kind: fc.constant("stop" as const),
+      key: fc.constantFrom(...STOP_KEYS),
+      on: fc.boolean(),
+    }),
+  },
+  {
+    weight: 1,
+    arbitrary: fc.record({
+      kind: fc.constant("regate" as const),
       repository: fc.constantFrom(...REPOSITORIES),
       owner: fc.constantFrom(...OWNERS),
     }),
@@ -185,17 +159,19 @@ const commandArbitrary: fc.Arbitrary<Command> = fc.oneof(
   },
 );
 
+/** A card as the model knows it: what the layer last wrote on it. */
 type Client = {
   handle: string;
   clientId: string;
   clientSecret: string;
   redirectUri: string;
   repository: string;
-  /** The tenant's recorded owner at the hub: it moves with a transfer. */
+  /** The owner whose key is among the card's gates. */
   ownerId: string;
-  /** The owner whose run registered the client: it never moves. */
-  registeredOwner: string;
   connectors: readonly string[];
+  confirm: boolean;
+  /** The card holds `redirectUri`. */
+  redirect: boolean;
 };
 
 /** A sign-in page that a browser holds, with its Continue links by connector. */
@@ -205,8 +181,8 @@ type PageRequest = {
   requestId: string;
   cookie: { Cookie: string };
   verifier: string;
-  /** The set of the request: what it named, else the client's enrollment. */
-  requested: readonly string[];
+  /** The set that the request stored. */
+  stored: readonly string[];
   offered: string[];
 };
 
@@ -215,7 +191,7 @@ type Upstream = {
   handle: string;
   client: Client;
   connector: string;
-  requested: readonly string[];
+  stored: readonly string[];
   callback: URL;
   cookie: { Cookie: string };
   verifier: string;
@@ -237,7 +213,7 @@ type Code = {
   handle: string;
   client: Client;
   connector: string;
-  requested: readonly string[];
+  stored: readonly string[];
   code: string;
   verifier: string;
   redeemed: boolean;
@@ -258,15 +234,10 @@ function checkAnswer(checks: Checks, label: string, response: Response) {
   check(checks, "noServerError", response.status !== 500, `${label} answered 500`);
 }
 
-type PolicyState = { connectors: PolicyName; paused: boolean };
-
-function createModel(clients: Client[], policy: PolicyState) {
+function createModel(clients: Client[]) {
   return {
     clients,
-    policy,
-    blocks: new Set<string>(),
-    /** The admin's grants, by `grantKey`: rows of different owners coexist. */
-    grants: new Set<string>(),
+    stops: new Set<string>(),
     pages: new Array<PageRequest>(),
     upstreams: new Array<Upstream>(),
     attempts: new Array<Attempt>(),
@@ -275,40 +246,25 @@ function createModel(clients: Client[], policy: PolicyState) {
 }
 type Model = ReturnType<typeof createModel>;
 
-const grantKey = (repository: string, owner: string, connector: string) =>
-  `${repository}:${owner}:${connector}`;
-
-/**
- * Whether a grant opens `connector` to the client now: its repository has a row of the tenant's
- * recorded owner, and that owner registered the client.
- */
-function grantedNow(model: Model, client: Client, connector: string) {
-  return (
-    client.ownerId === client.registeredOwner &&
-    model.grants.has(grantKey(client.repository, client.ownerId, connector))
-  );
-}
-
-/** The connectors the client may use now, inside the set of a request when one is given. */
-function allowedNow(model: Model, client: Client, requested?: readonly string[]) {
-  const policy: readonly string[] = POLICIES[model.policy.connectors];
+/** The connectors that the card offers now, inside a request's stored set when one is given. */
+function allowedNow(client: Client, stored?: readonly string[]) {
   return client.connectors.filter(
     (name) =>
-      (policy.includes(name) || grantedNow(model, client, name)) &&
-      (requested === undefined || requested.includes(name)),
+      CONNECTORS.some((configured) => configured === name) &&
+      (stored === undefined || stored.includes(name)),
   );
 }
 
-/** Why the client may not sign anyone in now, or null. */
+/** Why the card may not sign anyone in now, or null. */
 function stopReason(model: Model, client: Client) {
-  if (model.blocks.has(`repository:${client.repository}`)) {
-    return `repository ${repositoryHandle(client.repository)} is blocked`;
+  if (model.stops.has(repositoryKey(client.repository))) {
+    return `repository ${repositoryHandle(client.repository)} is stopped`;
   }
-  if (model.blocks.has(`owner:${client.ownerId}`)) {
-    return `owner ${ownerHandle(client.ownerId)} is blocked`;
+  if (model.stops.has(ownerKey(client.ownerId))) {
+    return `owner ${ownerHandle(client.ownerId)} is stopped`;
   }
-  if (model.policy.paused) {
-    return "the policy paused every client";
+  if (!client.redirect) {
+    return "its return address left the card";
   }
   return null;
 }
@@ -335,19 +291,19 @@ const offeredOn = (html: string) =>
     (match) => match.at(1) ?? "",
   );
 
-/** `enrollmentHonored` and `noSignInWhenStopped` at a hop to the provider. */
+/** `cardHonored` and `noSignInWhenStopped` at a hop to the provider. */
 function checkHop(
   checks: Checks,
   model: Model,
   label: string,
   client: Client,
-  requested: readonly string[],
+  stored: readonly string[],
   connector: string,
 ) {
-  const usable = allowedNow(model, client, requested);
+  const usable = allowedNow(client, stored);
   check(
     checks,
-    "enrollmentHonored",
+    "cardHonored",
     usable.includes(connector),
     `${label} went to ${connector}, outside the usable set ${usable.join(", ") || "(none)"}`,
   );
@@ -403,20 +359,26 @@ function heldProvider(fetch: StubFetch) {
 
 type World = { h: Broker; provider: ReturnType<typeof heldProvider> };
 
-/** A client of the repository, registered by a run of `owner`. */
+/** The card of a repository's client, as its layer writes it with the owner's key. */
 async function registerClient(
   world: World,
   model: { clients: Client[] },
-  spec: { repository: string; stage: string; connectors: readonly string[]; owner: string },
+  spec: {
+    repository: string;
+    stage: string;
+    connectors: readonly string[];
+    confirm: boolean;
+    owner: string;
+  },
 ) {
   const redirectUri = `https://app-a-${spec.stage}.r${spec.repository}.example/auth/hub/callback`;
   const created = await world.h.registerClient({
     appName: `app-a-${spec.repository}`,
     redirectUri,
+    otherRedirectUris: ["https://elsewhere.example/auth/hub/callback"],
     connectors: [...spec.connectors],
-    deploymentType: spec.stage === "prod" ? "production" : "preview",
-    repositoryId: spec.repository,
-    ownerId: spec.owner,
+    confirm: spec.confirm,
+    gates: [repositoryKey(spec.repository), ownerKey(spec.owner)],
   });
   const client: Client = {
     handle: `C${model.clients.length + 1}`,
@@ -425,12 +387,25 @@ async function registerClient(
     redirectUri,
     repository: spec.repository,
     ownerId: spec.owner,
-    registeredOwner: spec.owner,
     connectors: spec.connectors,
+    confirm: spec.confirm,
+    redirect: true,
   };
   model.clients.push(client);
   return client;
 }
+
+/** Writes the model's view of `client` onto its card, as the layer's rewrite does. */
+const writeCard = (world: World, client: Client) =>
+  world.h.editCard(client.clientId, (card) => ({
+    ...card,
+    connectors: [...client.connectors],
+    confirm: client.confirm,
+    redirectUris: client.redirect
+      ? [client.redirectUri, "https://elsewhere.example/auth/hub/callback"]
+      : ["https://elsewhere.example/auth/hub/callback"],
+    gates: [repositoryKey(client.repository), ownerKey(client.ownerId)],
+  }));
 
 async function playAuthorize(
   world: World,
@@ -444,7 +419,7 @@ async function playAuthorize(
   if (client === undefined) {
     return;
   }
-  const named: readonly string[] = REQUESTS[command.requested];
+  const named: readonly string[] = SETS[command.requested];
   const { verifier, challenge } = await pkce();
   const params = new URLSearchParams({
     client_id: client.clientId,
@@ -459,17 +434,23 @@ async function playAuthorize(
   const label = `authorize ${client.handle} (${command.requested})`;
   const response = await h.fetchBroker(`${h.issuer}/authorize?${params}`);
   checkAnswer(checks, label, response);
-  const requested = named.length === 0 ? client.connectors : named;
-  const usable = allowedNow(model, client, requested);
+  // The set that `create` stores: what the request named, else the card's, of the card's.
+  const stored = allowedNow(client, named.length === 0 ? undefined : named);
   const stop = stopReason(model, client);
   const hop = providerRedirect(h, response);
   if (hop !== null) {
-    checkHop(checks, model, label, client, requested, hop.connector);
+    checkHop(checks, model, label, client, stored, hop.connector);
+    check(
+      checks,
+      "confirmHonored",
+      !client.confirm && stored.length === 1,
+      `${label} went straight to the provider with confirm ${client.confirm} and ${stored.length} connectors`,
+    );
     const upstream: Upstream = {
       handle: `U${model.upstreams.length + 1}`,
       client,
       connector: hop.connector,
-      requested,
+      stored,
       callback: hop.callback,
       cookie: txnCookie(response),
       verifier,
@@ -483,9 +464,9 @@ async function playAuthorize(
     const outside = named.some((name) => !client.connectors.includes(name));
     check(
       checks,
-      "enrollmentHonored",
-      response.status !== 302 && (outside || usable.length === 0 || stop !== null),
-      `${label} answered ${response.status} with ${usable.join(", ")} usable`,
+      "cardHonored",
+      response.status !== 302 && (outside || stored.length === 0 || stop !== null),
+      `${label} answered ${response.status} with ${stored.join(", ")} usable`,
     );
     return;
   }
@@ -497,16 +478,22 @@ async function playAuthorize(
     requestId: cookie.Cookie.split("=")[0]?.replace("__Host-broker_txn_", "") ?? "",
     cookie,
     verifier,
-    requested,
+    stored,
     offered,
   };
   model.pages.push(page);
   story.trace.push(`${label}: page ${page.handle} offers ${offered.join(", ") || "nothing"}`);
   check(
     checks,
-    "enrollmentHonored",
-    [...offered].sort().join(" ") === [...usable].sort().join(" "),
-    `${page.handle} offers ${offered.join(", ") || "nothing"}, the usable set is ${usable.join(", ") || "empty"}`,
+    "cardHonored",
+    [...offered].sort().join(" ") === [...stored].sort().join(" "),
+    `${page.handle} offers ${offered.join(", ") || "nothing"}, the usable set is ${stored.join(", ") || "empty"}`,
+  );
+  check(
+    checks,
+    "confirmHonored",
+    client.confirm || stored.length > 1,
+    `${page.handle} is a page for a card without confirm and one connector`,
   );
   check(
     checks,
@@ -539,12 +526,12 @@ async function playContinue(
     story.trace.push(`${label}: ${response.status}`);
     return;
   }
-  checkHop(checks, model, label, page.client, page.requested, hop.connector);
+  checkHop(checks, model, label, page.client, page.stored, hop.connector);
   const upstream: Upstream = {
     handle: `U${model.upstreams.length + 1}`,
     client: page.client,
     connector: hop.connector,
-    requested: page.requested,
+    stored: page.stored,
     callback: hop.callback,
     cookie: page.cookie,
     verifier: page.verifier,
@@ -590,10 +577,10 @@ async function playCallbackStart(
     );
     return;
   }
-  const usable = allowedNow(model, client, upstream.requested);
+  const usable = allowedNow(client, upstream.stored);
   check(
     checks,
-    "enrollmentHonored",
+    "cardHonored",
     !crossed && usable.includes(upstream.connector),
     crossed
       ? `${label} reached the provider through another connector's route`
@@ -638,11 +625,11 @@ async function playCallbackFinish(
     story.trace.push(`${label}: ${response.status} ${location.searchParams.get("error") ?? ""}`);
     return;
   }
-  // A code is issued only under the restrictions of this moment.
-  const usable = allowedNow(model, client, upstream.requested);
+  // A code is issued only for the card of this moment.
+  const usable = allowedNow(client, upstream.stored);
   check(
     checks,
-    "enrollmentHonored",
+    "cardHonored",
     usable.includes(upstream.connector),
     `${label} issued a code through ${upstream.connector}, outside the usable set ${usable.join(", ") || "(none)"}`,
   );
@@ -652,7 +639,7 @@ async function playCallbackFinish(
     handle: `K${model.codes.length + 1}`,
     client,
     connector: upstream.connector,
-    requested: upstream.requested,
+    stored: upstream.stored,
     code,
     verifier: upstream.verifier,
     redeemed: false,
@@ -702,54 +689,15 @@ async function playRedeem(world: World, model: Model, code: Code, checks: Checks
     claim === code.connector,
     `${label} issued an id_token whose connector claim is ${JSON.stringify(claim)}`,
   );
-  const usable = allowedNow(model, client, code.requested);
+  const usable = allowedNow(client, code.stored);
   check(
     checks,
-    "enrollmentHonored",
+    "cardHonored",
     usable.includes(code.connector),
     `${label} issued an id_token through ${code.connector}, outside the usable set ${usable.join(", ") || "(none)"}`,
   );
   const stop = stopReason(model, client);
   check(checks, "noSignInWhenStopped", stop === null, `${label} issued an id_token while ${stop}`);
-}
-
-/**
- * The admin grants or revokes a connector. A grant needs the recorded owner the admin saw (a stale
- * view changes nothing, as the admin route's 409); a revoke removes the row of the owner it names.
- */
-function playGrant(
-  world: World,
-  model: Model,
-  command: Extract<Command, { kind: "grant" }>,
-  story: Story,
-) {
-  const tenantOwner =
-    model.clients.find((client) => client.repository === command.repository)?.ownerId ?? "";
-  const shown = command.grant
-    ? tenantOwner
-    : (OWNERS.find((owner) =>
-        model.grants.has(grantKey(command.repository, owner, command.connector)),
-      ) ?? tenantOwner);
-  const named =
-    command.view === "current" ? shown : (OWNERS.find((owner) => owner !== shown) ?? shown);
-  const label = `${command.grant ? "grant" : "revoke"} ${command.connector} for ${repositoryHandle(command.repository)} as ${ownerHandle(named)}`;
-  if (command.grant && named !== tenantOwner) {
-    story.trace.push(`${label}: owner changed, nothing written`);
-    return;
-  }
-  const key = grantKey(command.repository, named, command.connector);
-  const changed = command.grant !== model.grants.has(key);
-  setGrant(
-    world.h.memory,
-    { repositoryId: command.repository, ownerId: named, connector: command.connector },
-    command.grant,
-  );
-  if (command.grant) {
-    model.grants.add(key);
-  } else {
-    model.grants.delete(key);
-  }
-  story.trace.push(`${label}: ${changed ? "changed" : "unchanged"}`);
 }
 
 async function playCommand(
@@ -760,6 +708,7 @@ async function playCommand(
   story: Story,
 ) {
   const { h } = world;
+  const clientAt = (index: number) => model.clients.at(index % model.clients.length);
   switch (command.kind) {
     case "authorize":
       return await playAuthorize(world, model, command, checks, story);
@@ -784,52 +733,48 @@ async function playCommand(
       }
       return await playRedeem(world, model, code, checks, story);
     }
-    case "policy":
-      model.policy.connectors = command.connectors;
-      model.policy.paused = command.paused;
-      story.trace.push(`policy: ${command.connectors}${command.paused ? ", paused" : ""}`);
-      return;
-    case "exemption":
-      setExemption(h.memory, { scope: "every_app" }, command.skip);
-      story.trace.push(`sign-in page ${command.skip ? "off" : "on"} for every app`);
-      return;
-    case "grant":
-      return playGrant(world, model, command, story);
-    case "block": {
-      setBlock(
-        h.memory,
-        { kind: command.scope, githubId: command.githubId },
-        command.action === "block",
-      );
-      const target =
-        command.scope === "owner"
-          ? ownerHandle(command.githubId)
-          : repositoryHandle(command.githubId);
-      story.trace.push(`${command.action} ${command.scope} ${target}`);
-      if (command.action === "block") {
-        model.blocks.add(`${command.scope}:${command.githubId}`);
-      } else {
-        model.blocks.delete(`${command.scope}:${command.githubId}`);
-      }
+    case "connectors": {
+      const client = clientAt(command.client);
+      if (client === undefined) return;
+      client.connectors = SETS[command.set];
+      await writeCard(world, client);
+      story.trace.push(`card ${client.handle}: connectors ${command.set}`);
       return;
     }
-    case "transfer": {
-      const from =
-        model.clients.find((client) => client.repository === command.repository)?.ownerId ?? "";
-      setTenantOwner(h.memory, command.repository, command.owner);
-      for (const owned of model.clients) {
-        if (owned.repository === command.repository) {
-          owned.ownerId = command.owner;
+    case "confirm": {
+      const client = clientAt(command.client);
+      if (client === undefined) return;
+      client.confirm = command.on;
+      await writeCard(world, client);
+      story.trace.push(`card ${client.handle}: confirm ${command.on}`);
+      return;
+    }
+    case "redirect": {
+      const client = clientAt(command.client);
+      if (client === undefined) return;
+      client.redirect = command.on;
+      await writeCard(world, client);
+      story.trace.push(`card ${client.handle}: return address ${command.on ? "on" : "off"}`);
+      return;
+    }
+    case "stop":
+      await h.setStop(command.key, command.on);
+      if (command.on) {
+        model.stops.add(command.key);
+      } else {
+        model.stops.delete(command.key);
+      }
+      story.trace.push(`stop ${command.key} ${command.on ? "on" : "off"}`);
+      return;
+    case "regate": {
+      for (const client of model.clients) {
+        if (client.repository === command.repository) {
+          client.ownerId = command.owner;
+          await writeCard(world, client);
         }
       }
-      const client = await registerClient(world, model, {
-        repository: command.repository,
-        stage: "prod",
-        connectors: ["fake"],
-        owner: command.owner,
-      });
       story.trace.push(
-        `transfer ${repositoryHandle(command.repository)} from ${ownerHandle(from)} to ${ownerHandle(command.owner)}: ${client.handle} registered`,
+        `regate ${repositoryHandle(command.repository)} to ${ownerHandle(command.owner)}`,
       );
       return;
     }
@@ -850,20 +795,12 @@ async function play(commands: Command[], checks: Checks, story: Story) {
   // The hub logs each failed provider exchange by its class name, and each sign-in.
   vi.spyOn(console, "error").mockImplementation(() => undefined);
   vi.spyOn(console, "info").mockImplementation(() => undefined);
-  const policy: PolicyState = { connectors: "all", paused: false };
   const fetch = stubFetch();
   const { connector } = fakeUpstream(fetch);
   const provider = heldProvider(fetch);
   const h = await createBroker({
     fetch,
-    config: {
-      connectors: [connector, { ...connector, name: "other", label: "Other" }],
-      registration: testRegistration(() => ({
-        connectors: [...POLICIES[policy.connectors]],
-        resources: [],
-        paused: policy.paused,
-      })),
-    },
+    config: { connectors: [connector, { ...connector, name: "other", label: "Other" }] },
   });
   const world: World = { h, provider };
   const owners: Record<string, string> = {
@@ -874,7 +811,7 @@ async function play(commands: Command[], checks: Checks, story: Story) {
   for (const spec of CLIENTS) {
     await registerClient(world, setup, { ...spec, owner: owners[spec.repository] ?? "" });
   }
-  const model = createModel(setup.clients, policy);
+  const model = createModel(setup.clients);
   try {
     for (const command of commands) {
       await playCommand(world, model, command, checks, story);
@@ -921,7 +858,8 @@ describe("RFC 136 property C: sign-in", () => {
   }, 600_000);
 });
 
-// Fixed stories of RFC 137's rules, each on the invariant it guards.
+// Fixed stories, each on the invariant it guards: at every step of a sign-in a card change or a
+// stop that commits before the step is the one the step reads.
 describe("RFC 136 property C regressions", () => {
   it("an edited Continue link does not reach a connector outside the request's set", async () => {
     const trace = await replay(
@@ -930,7 +868,7 @@ describe("RFC 136 property C regressions", () => {
         { kind: "continue", request: 0, connector: "other" },
         { kind: "continue", request: 0, connector: "fake" },
       ],
-      "enrollmentHonored",
+      "cardHonored",
     );
     expect(trace).toEqual([
       "authorize C2 (fake): page P1 offers fake",
@@ -942,115 +880,119 @@ describe("RFC 136 property C regressions", () => {
   it("a callback on another connector's route reaches nothing, and the request still waits for its own", async () => {
     const trace = await replay(
       [
-        { kind: "exemption", skip: true },
-        { kind: "authorize", client: 1, requested: "fake" },
+        { kind: "authorize", client: 0, requested: "fake" },
         { kind: "callbackStart", upstream: 0, route: "crossed" },
         { kind: "callbackStart", upstream: 0, route: "own" },
         { kind: "callbackFinish", attempt: 0, outcome: "identity" },
       ],
-      "enrollmentHonored",
+      "cardHonored",
     );
     expect(trace).toContain(
-      "callback U1 (C2, fake) on the route of other: 400 , the provider saw nothing",
+      "callback U1 (C1, fake) on the route of other: 400 , the provider saw nothing",
     );
-    expect(trace).toContain("callback U1 (C2, fake): A1 held at the provider");
-    expect(trace).toContain("callback finish A1 (C2, fake) with identity: K1");
+    expect(trace).toContain("callback U1 (C1, fake): A1 held at the provider");
+    expect(trace).toContain("callback finish A1 (C1, fake) with identity: K1");
   });
 
-  it("a connector withdrawn while the user is at the provider is not completed", async () => {
+  it("a connector taken off the card while the user is at the provider is not completed", async () => {
     const trace = await replay(
       [
-        { kind: "exemption", skip: true },
-        { kind: "authorize", client: 1, requested: "other" },
-        { kind: "policy", connectors: "fakeOnly", paused: false },
+        { kind: "authorize", client: 2, requested: "other" },
+        { kind: "connectors", client: 2, set: "fake" },
         { kind: "callbackStart", upstream: 0, route: "own" },
         { kind: "callbackFinish", attempt: 0, outcome: "identity" },
         { kind: "redeem", code: 0 },
       ],
-      "enrollmentHonored",
+      "cardHonored",
     );
-    expect(trace).toContain("authorize C2 (other): straight to other, U1");
-    expect(trace).toContain("callback U1 (C2, other): 302 access_denied, the provider saw nothing");
+    expect(trace).toContain("authorize C3 (other): straight to other, U1");
+    expect(trace).toContain("callback U1 (C3, other): 302 access_denied, the provider saw nothing");
   });
 
-  it("a connector withdrawn while the provider answers completes no sign-in", async () => {
+  it("a connector taken off the card while the provider answers completes no sign-in", async () => {
     const trace = await replay(
       [
-        { kind: "exemption", skip: true },
         { kind: "authorize", client: 2, requested: "none" },
         { kind: "callbackStart", upstream: 0, route: "own" },
-        { kind: "policy", connectors: "fakeOnly", paused: false },
+        { kind: "connectors", client: 2, set: "fake" },
         { kind: "callbackFinish", attempt: 0, outcome: "identity" },
         { kind: "redeem", code: 0 },
       ],
-      "enrollmentHonored",
+      "cardHonored",
     );
     expect(trace).toContain("callback U1 (C3, other): A1 held at the provider");
     expect(trace).toContain("callback finish A1 (C3, other) with identity: 302 access_denied");
     expect(trace).toContain("redeem: no code yet, skipped");
   });
 
-  it("a grant bound to the new owner after a transfer does not open the old owner's client", async () => {
+  it("a connector taken off the card between the page and Continue sends no one to the provider", async () => {
     const trace = await replay(
       [
-        { kind: "policy", connectors: "fakeOnly", paused: false },
-        { kind: "transfer", repository: "101", owner: "202" },
-        { kind: "grant", repository: "101", connector: "other", grant: true, view: "current" },
-        { kind: "authorize", client: 1, requested: "other" },
-      ],
-      "enrollmentHonored",
-    );
-    expect(trace).toContain("transfer R1 from O1 to O2: C4 registered");
-    expect(trace).toContain("grant other for R1 as O2: changed");
-    // C2 was registered by O1: the grant is O2's, so `other` is not C2's to use.
-    expect(trace.at(-1)).toMatch(/^authorize C2 \(other\): (?!straight)/);
-  });
-
-  it("a grant revoked between the page and Continue sends no one to the provider", async () => {
-    const trace = await replay(
-      [
-        { kind: "policy", connectors: "fakeOnly", paused: false },
-        { kind: "grant", repository: "101", connector: "other", grant: true, view: "current" },
         { kind: "authorize", client: 1, requested: "both" },
-        { kind: "grant", repository: "101", connector: "other", grant: false, view: "current" },
+        { kind: "connectors", client: 1, set: "fake" },
         { kind: "continue", request: 0, connector: "other" },
         { kind: "continue", request: 0, connector: "fake" },
       ],
-      "enrollmentHonored",
+      "cardHonored",
     );
     expect(trace).toContain("authorize C2 (both): page P1 offers fake, other");
-    expect(trace).toContain("revoke other for R1 as O1: changed");
     expect(trace.at(-2)).toMatch(/^continue P1 \(C2\) with other: \d+$/);
     expect(trace.at(-1)).toBe("continue P1 (C2) with fake: to fake, U1");
   });
 
-  it("a grant revoked while the provider answers completes no sign-in", async () => {
+  it("a connector added to the card after the page is not one the request stored", async () => {
     const trace = await replay(
       [
-        { kind: "exemption", skip: true },
-        { kind: "policy", connectors: "fakeOnly", paused: false },
-        { kind: "grant", repository: "102", connector: "other", grant: true, view: "current" },
-        { kind: "authorize", client: 2, requested: "none" },
+        { kind: "connectors", client: 1, set: "fake" },
+        { kind: "authorize", client: 1, requested: "none" },
+        { kind: "connectors", client: 1, set: "both" },
+        { kind: "continue", request: 0, connector: "other" },
+      ],
+      "cardHonored",
+    );
+    expect(trace).toContain("authorize C2 (none): page P1 offers fake");
+    expect(trace.at(-1)).toBe("continue P1 (C2) with other (edited link): 404");
+  });
+
+  it("a return address taken off the card while the provider answers completes no sign-in", async () => {
+    const trace = await replay(
+      [
+        { kind: "authorize", client: 0, requested: "none" },
         { kind: "callbackStart", upstream: 0, route: "own" },
-        { kind: "grant", repository: "102", connector: "other", grant: false, view: "current" },
+        { kind: "redirect", client: 0, on: false },
         { kind: "callbackFinish", attempt: 0, outcome: "identity" },
+        { kind: "redirect", client: 0, on: true },
         { kind: "redeem", code: 0 },
       ],
-      "enrollmentHonored",
+      "noSignInWhenStopped",
     );
-    expect(trace).toContain("authorize C3 (none): straight to other, U1");
-    expect(trace).toContain("callback U1 (C3, other): A1 held at the provider");
-    expect(trace).toContain("callback finish A1 (C3, other) with identity: 302 access_denied");
+    expect(trace).toContain("callback finish A1 (C1, fake) with identity: 302 access_denied");
     expect(trace).toContain("redeem: no code yet, skipped");
   });
 
-  it("a block that lands while the provider answers completes no sign-in", async () => {
+  it("a return address taken off the card after the code refuses the code", async () => {
     const trace = await replay(
       [
-        { kind: "exemption", skip: true },
         { kind: "authorize", client: 0, requested: "none" },
         { kind: "callbackStart", upstream: 0, route: "own" },
-        { kind: "block", action: "block", scope: "owner", githubId: "201" },
+        { kind: "callbackFinish", attempt: 0, outcome: "identity" },
+        { kind: "redirect", client: 0, on: false },
+        { kind: "redeem", code: 0 },
+        { kind: "redirect", client: 0, on: true },
+        { kind: "redeem", code: 0 },
+      ],
+      "noSignInWhenStopped",
+    );
+    expect(trace).toContain("redeem K1 (C1, fake): 400 invalid_grant");
+    expect(trace.at(-1)).toBe("redeem K1 (C1, fake): 200 ");
+  });
+
+  it("a stop that lands while the provider answers completes no sign-in", async () => {
+    const trace = await replay(
+      [
+        { kind: "authorize", client: 0, requested: "none" },
+        { kind: "callbackStart", upstream: 0, route: "own" },
+        { kind: "stop", key: "owner:201", on: true },
         { kind: "callbackFinish", attempt: 0, outcome: "identity" },
       ],
       "noSignInWhenStopped",
@@ -1058,46 +1000,64 @@ describe("RFC 136 property C regressions", () => {
     expect(trace).toContain("callback finish A1 (C1, fake) with identity: 302 access_denied");
   });
 
-  it("a transfer while the provider answers completes the sign-in on the new owner's policy", async () => {
+  it("two stops on one card: the end of one leaves the other, and a code issued before both is good once after them", async () => {
     const trace = await replay(
       [
-        { kind: "exemption", skip: true },
         { kind: "authorize", client: 0, requested: "none" },
         { kind: "callbackStart", upstream: 0, route: "own" },
-        { kind: "transfer", repository: "101", owner: "202" },
+        { kind: "callbackFinish", attempt: 0, outcome: "identity" },
+        { kind: "stop", key: "repository:101", on: true },
+        { kind: "stop", key: "owner:201", on: true },
+        { kind: "redeem", code: 0 },
+        { kind: "stop", key: "repository:101", on: false },
+        { kind: "redeem", code: 0 },
+        { kind: "authorize", client: 0, requested: "none" },
+        { kind: "stop", key: "owner:201", on: false },
+        { kind: "redeem", code: 0 },
+        { kind: "redeem", code: 0 },
+      ],
+      "noSignInWhenStopped",
+    );
+    expect(
+      trace.filter((line) => line === "redeem K1 (C1, fake): 401 invalid_client"),
+    ).toHaveLength(2);
+    expect(trace).toContain("authorize C1 (none): 403");
+    expect(trace.at(-2)).toBe("redeem K1 (C1, fake): 200 ");
+    expect(trace.at(-1)).toBe("redeem K1 (C1, fake): 400 invalid_grant");
+  });
+
+  it("a new owner's key on the cards while the provider answers: the old owner's stop no longer holds, the new owner's does", async () => {
+    const trace = await replay(
+      [
+        { kind: "authorize", client: 0, requested: "none" },
+        { kind: "callbackStart", upstream: 0, route: "own" },
+        { kind: "stop", key: "owner:201", on: true },
+        { kind: "regate", repository: "101", owner: "202" },
         { kind: "callbackFinish", attempt: 0, outcome: "identity" },
         { kind: "redeem", code: 0 },
-        { kind: "block", action: "block", scope: "owner", githubId: "202" },
+        { kind: "stop", key: "owner:202", on: true },
         { kind: "authorize", client: 0, requested: "none" },
       ],
       "noSignInWhenStopped",
     );
-    expect(trace).toContain("transfer R1 from O1 to O2: C4 registered");
     expect(trace).toContain("callback finish A1 (C1, fake) with identity: K1");
     expect(trace).toContain("redeem K1 (C1, fake): 200 ");
-    // The clients of the repository belong to the new owner: its block stops them.
     expect(trace.at(-1)).toBe("authorize C1 (none): 403");
   });
 
-  it("a pause that lands during the sign-in gives no id_token, and its end restores nothing issued", async () => {
+  it("confirm is read at /authorize: a flip after it changes nothing for that sign-in", async () => {
     const trace = await replay(
       [
-        { kind: "exemption", skip: true },
+        { kind: "confirm", client: 0, on: true },
         { kind: "authorize", client: 0, requested: "none" },
-        { kind: "callbackStart", upstream: 0, route: "own" },
-        { kind: "callbackFinish", attempt: 0, outcome: "identity" },
-        { kind: "policy", connectors: "all", paused: true },
-        { kind: "redeem", code: 0 },
-        { kind: "policy", connectors: "all", paused: false },
-        { kind: "redeem", code: 0 },
-        { kind: "redeem", code: 0 },
+        { kind: "confirm", client: 0, on: false },
+        { kind: "continue", request: 0, connector: "fake" },
+        { kind: "authorize", client: 0, requested: "none" },
       ],
-      "noSignInWhenStopped",
+      "confirmHonored",
     );
-    expect(trace).toContain("redeem K1 (C1, fake): 401 invalid_client");
-    // The code is still good once the pause ends, and once only.
-    expect(trace).toContain("redeem K1 (C1, fake): 200 ");
-    expect(trace.filter((line) => line.startsWith("redeem K1"))).toHaveLength(3);
-    expect(trace.at(-1)).toBe("redeem K1 (C1, fake): 400 invalid_grant");
+    expect(trace).toContain("authorize C1 (none): page P1 offers fake");
+    expect(trace).toContain("continue P1 (C1) with fake: to fake, U1");
+    expect(trace.at(-1)).toBe("authorize C1 (none): straight to fake, U2");
   });
 });

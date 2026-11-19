@@ -10,36 +10,44 @@ const hosts = testHosts(() => new DatabaseSync(":memory:"));
 
 const DAY = 24 * 60 * 60 * 1000;
 const NOW = 1_000 * DAY;
-const MAX_AGE = 30 * DAY;
 
-interface Fields {
+/** A card; `layer` gives it fields of a layer beside the core's, which go with the row. */
+const cardOf = (fields: {
   readonly clientId: string;
-  readonly deploymentType: "production" | "development" | "preview";
-  readonly createdAt: number;
-  readonly lastSignInAt?: number;
   readonly removeAt?: number;
-}
-
-const clientOf = (fields: Fields): Doc<"clients"> => ({
-  appId: "app",
-  secretHash: "hash",
-  tokenEndpointAuthMethod: "client_secret_post",
+  readonly layer?: true;
+}): Doc<"clients"> => ({
+  clientId: fields.clientId,
   redirectUris: ["https://app.test/callback"],
-  clientName: "test",
-  softwareVersion: "test",
-  registrationTokenHash: "token-hash",
-  renewedAt: fields.createdAt,
-  app: "my-app",
-  registeredBy: {
-    kind: "github",
-    githubRepository: "octo-org/octo-repo",
-    githubOwnerId: "65",
-    githubActorId: "12",
-    githubActorLogin: "octocat",
-    commitSha: "example-sha",
-  },
+  tokenEndpointAuthMethod: "client_secret_post",
+  secretHash: "hash",
   connectors: ["fake"],
-  ...fields,
+  gates: [],
+  confirm: true,
+  budget: "test:app",
+  ref: "test:app",
+  ...(fields.removeAt === undefined ? {} : { removeAt: fields.removeAt }),
+  createdAt: 0,
+  ...(fields.layer
+    ? {
+        github: {
+          appId: "gh-1-app",
+          app: "app",
+          deploymentType: "development",
+          clientName: "development",
+          softwareVersion: "1",
+          registrationTokenHash: "token-hash",
+          renewedAt: 0,
+          registeredBy: {
+            kind: "initial_access_token",
+            githubRepository: "octo-org/octo-repo",
+            githubOwnerId: "65",
+            issuedAt: 0,
+          },
+          enrollment: ["fake"],
+        },
+      }
+    : {}),
 });
 
 describe.each(hosts)("%s", (_name, make) => {
@@ -48,132 +56,37 @@ describe.each(hosts)("%s", (_name, make) => {
       .map((client) => client.clientId)
       .sort();
   const cleanup = (t: TestHost) =>
-    t.run("lifecycle.cleanup", {
-      now: NOW,
-      previewClientMaxAgeMs: MAX_AGE,
-      signInRetentionMs: 90 * DAY,
+    t.run("lifecycle.cleanup", { now: NOW, signInRetentionMs: 90 * DAY });
+
+  describe("card cleanup", () => {
+    test("a card past its removal date goes with its layer's fields, and a card without one stays", () => {
+      const t = make();
+      seed(t, "clients", [
+        cardOf({ clientId: "layer-past", removeAt: NOW - 1, layer: true }),
+        cardOf({ clientId: "past", removeAt: NOW - 1 }),
+        cardOf({ clientId: "at-cutoff", removeAt: NOW }),
+        cardOf({ clientId: "ahead", removeAt: NOW + 1, layer: true }),
+        cardOf({ clientId: "undated", layer: true }),
+      ]);
+      expect(cleanup(t)).toMatchObject({ clients: 2, more: false });
+      expect(remaining(t)).toEqual(["ahead", "at-cutoff", "undated"]);
+      expect(
+        rowsOf(t, "clients", "by_github_app_id_and_deployment_type").map((row) => row.clientId),
+      ).toEqual(["at-cutoff", "ahead", "undated"]);
     });
 
-  describe("client cleanup", () => {
-    test("idle counts from the last sign-in, or from creation for a client never used", () => {
+    test("a full batch of expired cards leaves the rest to the next call", () => {
       const t = make();
-      const old = NOW - MAX_AGE - DAY;
-      const recent = NOW - DAY;
       seed(
         t,
         "clients",
-        (
-          [
-            { clientId: "never-used-old", deploymentType: "preview", createdAt: old },
-            { clientId: "never-used-recent", deploymentType: "preview", createdAt: recent },
-            {
-              clientId: "used-long-ago",
-              deploymentType: "preview",
-              createdAt: old,
-              lastSignInAt: old,
-            },
-            {
-              clientId: "used-recently",
-              deploymentType: "preview",
-              createdAt: old,
-              lastSignInAt: recent,
-            },
-            {
-              clientId: "used-at-zero",
-              deploymentType: "preview",
-              createdAt: old,
-              lastSignInAt: 0,
-            },
-            {
-              clientId: "used-before-1970",
-              deploymentType: "preview",
-              createdAt: old,
-              lastSignInAt: -1,
-            },
-            { clientId: "production", deploymentType: "production", createdAt: old },
-          ] satisfies ReadonlyArray<Fields>
-        ).map(clientOf),
+        Array.from({ length: BATCH + 1 }, (_, index) =>
+          cardOf({ clientId: `past-${index}`, removeAt: NOW - 1 - index }),
+        ),
       );
-      expect(cleanup(t)).toMatchObject({ previewClients: 4, more: false });
-      expect(remaining(t)).toEqual(["never-used-recent", "production", "used-recently"]);
-    });
-
-    test("a client past its removal date goes, and a client without one stays", () => {
-      const t = make();
-      const old = NOW - MAX_AGE - DAY;
-      seed(
-        t,
-        "clients",
-        (
-          [
-            {
-              clientId: "development-past",
-              deploymentType: "development",
-              createdAt: old,
-              removeAt: NOW - 1,
-            },
-            {
-              clientId: "preview-past",
-              deploymentType: "preview",
-              createdAt: NOW,
-              removeAt: NOW - 1,
-            },
-            {
-              clientId: "development-ahead",
-              deploymentType: "development",
-              createdAt: old,
-              removeAt: NOW + 1,
-            },
-            { clientId: "development-undated", deploymentType: "development", createdAt: old },
-            { clientId: "production", deploymentType: "production", createdAt: old },
-          ] satisfies ReadonlyArray<Fields>
-        ).map(clientOf),
-      );
-      expect(t.run("lifecycle.cleanup", { now: NOW, signInRetentionMs: 90 * DAY })).toMatchObject({
-        expiredClients: 2,
-        previewClients: 0,
-      });
-      expect(remaining(t)).toEqual(["development-ahead", "development-undated", "production"]);
-    });
-
-    test("recent clients in front of the idle ones do not hide them", () => {
-      const t = make();
-      const old = NOW - MAX_AGE - DAY;
-      seed(t, "clients", [
-        // More than a batch of live clients: a read that filtered after its limit would stop here.
-        ...Array.from({ length: BATCH + 5 }, (_, index) =>
-          clientOf({ clientId: `live-${index}`, deploymentType: "preview", createdAt: NOW - DAY }),
-        ),
-        clientOf({
-          clientId: "idle",
-          deploymentType: "preview",
-          createdAt: old,
-          lastSignInAt: old,
-        }),
-      ]);
-      expect(cleanup(t)).toMatchObject({ previewClients: 1 });
-      expect(remaining(t)).not.toContain("idle");
-    });
-
-    test("a batch that spans both reads leaves the rest to the next call", () => {
-      const t = make();
-      const old = NOW - MAX_AGE - DAY;
-      seed(t, "clients", [
-        ...Array.from({ length: BATCH - 1 }, (_, index) =>
-          clientOf({ clientId: `never-${index}`, deploymentType: "preview", createdAt: old }),
-        ),
-        ...Array.from({ length: 2 }, (_, index) =>
-          clientOf({
-            clientId: `used-${index}`,
-            deploymentType: "preview",
-            createdAt: old,
-            lastSignInAt: old,
-          }),
-        ),
-      ]);
-      expect(cleanup(t)).toMatchObject({ previewClients: BATCH, more: true });
+      expect(cleanup(t)).toMatchObject({ clients: BATCH, more: true });
       expect(remaining(t)).toHaveLength(1);
-      expect(cleanup(t)).toMatchObject({ previewClients: 1, more: false });
+      expect(cleanup(t)).toMatchObject({ clients: 1, more: false });
       expect(remaining(t)).toEqual([]);
     });
   });
@@ -182,12 +95,12 @@ describe.each(hosts)("%s", (_name, make) => {
     const t = make();
     const request = {
       status: "pending",
-      appId: "app",
       clientId: "c",
       redirectUri: "https://app.test/cb",
       scope: "openid",
       codeChallenge: "x",
       connectors: ["g"],
+      confirm: true,
       freshLogin: false,
       txnCookieHash: "h",
       createdAt: 0,
@@ -200,7 +113,7 @@ describe.each(hosts)("%s", (_name, make) => {
       { codeHash: "past", requestId: "past", clientId: "c", expiresAt: NOW - 1 },
       { codeHash: "at-cutoff", requestId: "at-cutoff", clientId: "c", expiresAt: NOW },
     ]);
-    const signIn = { appId: "app", clientId: "c", connector: "g", sub: "s" };
+    const signIn = { clientId: "c", ref: "test:app", connector: "g", sub: "s" };
     seed(t, "signIns", [
       { ...signIn, at: NOW - 90 * DAY - 1 },
       { ...signIn, at: NOW - 90 * DAY },
@@ -208,8 +121,7 @@ describe.each(hosts)("%s", (_name, make) => {
     expect(cleanup(t)).toEqual({
       authRequests: 1,
       authorizationCodes: 1,
-      previewClients: 0,
-      expiredClients: 0,
+      clients: 0,
       signIns: 1,
       more: false,
     });

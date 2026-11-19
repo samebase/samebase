@@ -1,6 +1,6 @@
 import { Effect, Schema } from "effect";
-import { CommandNameSchema } from "../rules/commands.ts";
-import { Store, type Args, type CommandName } from "../store/Store.ts";
+import { coreCommands, type CoreCommandName } from "../rules/commands.ts";
+import { Store } from "../store/Store.ts";
 
 /**
  * A command that failed or did not answer. The router answers it with 500 and logs only the
@@ -9,16 +9,29 @@ import { Store, type Args, type CommandName } from "../store/Store.ts";
  * (design section 2.2).
  */
 export class CommandFailed extends Schema.TaggedError<CommandFailed>()("CommandFailed", {
-  command: CommandNameSchema,
+  command: Schema.String,
 }) {}
 
-/** Runs one command of the closed registry, once. Any failure or defect becomes `CommandFailed`. */
-export const command = Effect.fn("command")(function* <N extends CommandName>(
+/**
+ * Runs the command `name` once through the `Store`, with the schemas of its catalog's
+ * `definition`. Any failure or defect becomes `CommandFailed`.
+ */
+export const runCommand = <A, R>(
+  name: string,
+  definition: {
+    readonly args: Schema.Codec<A, unknown>;
+    readonly result: Schema.Codec<R, unknown>;
+  },
+  args: A,
+) =>
+  Effect.gen(function* () {
+    const store = yield* Store;
+    const encoded = yield* store.run(name, Schema.encodeSync(definition.args)(args));
+    return Schema.decodeUnknownSync(definition.result)(encoded);
+  }).pipe(Effect.catchCause(() => Effect.fail(new CommandFailed({ command: name }))));
+
+/** Runs one command of the core, once. */
+export const command = <N extends CoreCommandName>(
   name: N,
-  args: Args<N>,
-) {
-  const store = yield* Store;
-  return yield* store
-    .run(name, args)
-    .pipe(Effect.catchCause(() => Effect.fail(new CommandFailed({ command: name }))));
-});
+  args: (typeof coreCommands)[N]["args"]["Type"],
+) => runCommand(name, coreCommands[name], args);

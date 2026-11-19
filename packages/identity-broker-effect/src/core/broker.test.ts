@@ -1,15 +1,15 @@
-// The sign-in endpoints through `handle`, on the memory Store. Ported from
-// packages/identity-broker/src/client/broker.test.ts. Not ported: the admin functions
-// (deleteClient, deleteApp, cleanup; design section 9 item 4), the compile-time policy name check
-// (the port's policy names are plain strings), and the component's cleanup batches (rules tests).
+// The sign-in endpoints through `handle`, on the memory Store, with cards that the tests write as a
+// layer does. Ported from packages/identity-broker/src/client/broker.test.ts. Not ported: the
+// admin functions (deleteClient, deleteApp, cleanup; design section 9 item 4) and the component's
+// cleanup batches (rules tests).
 import { Effect, Redacted, Schema } from "effect";
 import { decodeJwt } from "jose";
 import { afterEach, describe, expect, test, vi } from "vite-plus/test";
-import { Tx, unique } from "../store/Tx.ts";
+import { first } from "../store/Tx.ts";
 import type { Connector } from "./connectors/types.ts";
 import { google } from "./connectors/google.ts";
-import type { PolicyFunction } from "./policy.ts";
-import { HubConfig, type HubConfigInput, type RegistrationSettings } from "./services.ts";
+import type { Route } from "./router.ts";
+import { HubConfig, type HubConfigInput } from "./services.ts";
 import { sha256Hex } from "./subject.ts";
 import {
   createBroker,
@@ -18,7 +18,7 @@ import {
   hubLogLine,
   pkce,
   stubFetch,
-  testRegistration,
+  TEST_SERVICE,
   txnCookie,
   type Broker,
 } from "./testing/harness.ts";
@@ -52,7 +52,7 @@ async function fakeBroker(
   options: {
     userId?: string;
     issuer?: string;
-    registration?: RegistrationSettings;
+    routes?: ReadonlyArray<Route>;
     connectors?: (fake: Connector) => Connector[];
   } = {},
 ) {
@@ -65,28 +65,11 @@ async function fakeBroker(
     config: {
       connectors: options.connectors?.(connector) ?? [connector],
       ...(options.issuer === undefined ? {} : { issuer: options.issuer }),
-      registration: options.registration,
+      service: { ...TEST_SERVICE, name: "Samebase" },
     },
+    ...(options.routes === undefined ? {} : { routes: options.routes }),
   });
   return { ...h, connector };
-}
-
-/** The hub mode with the given policy, named as the shared hub is. */
-const hubRegistration = (
-  policy: PolicyFunction = () => ({ connectors: ["fake", "other"], resources: [], paused: false }),
-): RegistrationSettings => ({ ...testRegistration(policy), name: "Samebase" });
-
-/** Skips the hub's sign-in page for every app, as the admin's switch does. */
-function skipSignInPage(h: Broker) {
-  h.memory.withTx(
-    Effect.gen(function* () {
-      const tx = yield* Tx;
-      yield* tx.insert("signInPageExemptions", {
-        target: { scope: "every_app" },
-        reason: "A test about what follows the page",
-      });
-    }),
-  );
 }
 
 function authorizeUrl(
@@ -171,14 +154,14 @@ describe("configuration", () => {
 
   test("the issuer is https, or http on a loopback host", () => {
     const { connector } = fakeUpstream(stubFetch());
-    const config = { connectors: [connector], registration: undefined };
+    const config = { connectors: [connector], service: TEST_SERVICE };
     expect(() => makeHubConfig({ ...config, issuer: "http://auth.test" })).toThrow("must be https");
     expect(() => makeHubConfig({ ...config, issuer: "http://127.0.0.1:3211" })).not.toThrow();
   });
 
   test("a provider is [a-z0-9-]+, and its connectors share one issuer", () => {
     const { connector } = fakeUpstream(stubFetch());
-    const config = { issuer: "https://auth.test", registration: undefined };
+    const config = { issuer: "https://auth.test", service: TEST_SERVICE };
     expect(() =>
       makeHubConfig({ ...config, connectors: [{ ...connector, provider: "fake:x" }] }),
     ).toThrow("has a provider that is not [a-z0-9-]+");
@@ -215,6 +198,7 @@ describe("metadata", () => {
         // No API resources (design section 9 item 1).
         scopes_supported: ["openid", "email", "profile"],
         grant_types_supported: ["authorization_code"],
+        op_tos_uri: "https://hub.example.com/terms",
       });
       expect(metadata).not.toHaveProperty("revocation_endpoint");
       expect(metadata).not.toHaveProperty("registration_endpoint");
@@ -223,15 +207,23 @@ describe("metadata", () => {
     expect(jwks["keys"]).toEqual([expect.not.objectContaining({ d: expect.anything() })]);
   });
 
-  test("the hub mode names its registration endpoint and terms", async () => {
-    const h = await fakeBroker({ registration: hubRegistration() });
+  test("a layer's mounted POST /register is the registration endpoint of discovery", async () => {
+    const h = await fakeBroker({
+      routes: [
+        {
+          method: "POST",
+          path: "/register",
+          match: "exact",
+          template: "/register",
+          handler: () => Effect.succeed(new Response(null, { status: 204 })),
+        },
+      ],
+    });
     const metadata = await objectOf(
       await h.fetchBroker(`${h.issuer}/.well-known/openid-configuration`),
     );
-    expect(metadata).toMatchObject({
-      registration_endpoint: `${h.issuer}/register`,
-      op_tos_uri: "https://hub.example.com/terms",
-    });
+    expect(metadata).toMatchObject({ registration_endpoint: `${h.issuer}/register` });
+    expect((await h.fetchBroker(`${h.issuer}/register`, { method: "POST" })).status).toBe(204);
   });
 
   test("HEAD answers as GET with no body, as Convex's HTTP router does", async () => {
@@ -260,16 +252,12 @@ describe("metadata", () => {
   });
 });
 
-/** Deletes a row of `clients` or `apps`, as an administrator's removal does. */
-function deleteRow(h: Broker, table: "clients" | "apps", key: string) {
-  h.memory.withTx(
+/** Deletes a card, as its layer's removal does. */
+function deleteCard(h: Broker, clientId: string) {
+  h.memory.withTx((tx) =>
     Effect.gen(function* () {
-      const tx = yield* Tx;
-      const row =
-        table === "clients"
-          ? yield* unique("clients", "by_client_id", [key])
-          : yield* unique("apps", "by_app_id", [key]);
-      if (row !== undefined) yield* tx.delete(row.id.table, row.id);
+      const row = yield* first(tx, "clients", "by_client_id", [clientId]);
+      if (row !== undefined) yield* tx.delete("clients", row.id);
     }),
   );
 }
@@ -278,7 +266,7 @@ describe("clients", () => {
   test("a deleted client cannot sign in", async () => {
     const h = await fakeBroker();
     const { clientId } = await h.registerClient({ appName: "My app", redirectUri: REDIRECT_URI });
-    deleteRow(h, "clients", clientId);
+    deleteCard(h, clientId);
     const { challenge } = await pkce();
     expect((await h.fetchBroker(authorizeUrl(h, { clientId, challenge }))).status).toBe(400);
   });
@@ -288,6 +276,7 @@ describe("clients", () => {
     const { clientId, clientSecret } = await h.registerClient({
       appName: "My app",
       redirectUri: REDIRECT_URI,
+      gates: ["test:gate"],
     });
     const { verifier, challenge } = await pkce();
     const back = await completeUpstream(
@@ -302,43 +291,67 @@ describe("clients", () => {
         headers: { Authorization: `Bearer ${access_token}` },
       });
     expect((await userinfo()).status).toBe(200);
-    deleteRow(h, "clients", clientId);
+    // A stop leaves the tokens already issued usable until they expire.
+    await h.setStop("test:gate", true);
+    expect((await userinfo()).status).toBe(200);
+    deleteCard(h, clientId);
     const deleted = await userinfo();
     expect(deleted.status).toBe(401);
     expect(deleted.headers.get("www-authenticate")).toBe('Bearer error="invalid_token"');
     expect(await deleted.json()).toMatchObject({ error: "invalid_token" });
   });
 
-  test("with the app row gone, its clients are refused before their rows are", async () => {
+  test("a stop on one of the card's gates turns sign-in off at once, and its removal turns it on", async () => {
     const h = await fakeBroker();
-    const { appId, clientId, clientSecret } = await h.registerClient({
+    const { clientId, clientSecret, ref } = await h.registerClient({
       appName: "My app",
       redirectUri: REDIRECT_URI,
+      gates: ["test:repository", "test:owner"],
     });
     const { verifier, challenge } = await pkce();
     const back = await completeUpstream(
       h,
       await h.fetchBroker(authorizeUrl(h, { clientId, challenge })),
     );
-    deleteRow(h, "apps", appId);
-    expect(h.memory.run("clients.get", { clientId })).not.toBeNull();
+    await h.setStop("test:owner", true);
+    const log = vi.spyOn(console, "info").mockImplementation(() => undefined);
 
     // Nobody has continued from a page: the refusal is a page of the hub, not a redirect.
     const authorized = await h.fetchBroker(authorizeUrl(h, { clientId, challenge }));
-    expect(authorized.status).toBe(400);
+    expect(authorized.status).toBe(403);
     expect(authorized.headers.get("location")).toBeNull();
-    expect(await authorized.text()).toContain("The client's app is gone.");
+    expect(await authorized.text()).toContain("Sign-in for this app is turned off.");
+    // The log line names the client and the card's reference, never a return address.
+    expect(log.mock.calls).toEqual([
+      [
+        `hub_event ${JSON.stringify({ event: "sign_in_refused", clientId, ref, connector: null, reason: "stopped" })}`,
+      ],
+    ]);
 
     const tokens = await exchange(h, { code: codeOf(back), clientId, clientSecret, verifier });
     expect(tokens.status).toBe(401);
     expect((await errorOf(tokens)).error).toBe("invalid_client");
+
+    await h.setStop("test:owner", false);
+    const again = await pkce();
+    const retried = await completeUpstream(
+      h,
+      await h.fetchBroker(authorizeUrl(h, { clientId, challenge: again.challenge })),
+    );
+    const signedIn = await exchange(h, {
+      code: codeOf(retried),
+      clientId,
+      clientSecret,
+      verifier: again.verifier,
+    });
+    expect(signedIn.status).toBe(200);
   });
 });
 
 describe("authorization code flow with an OAuth connector", () => {
-  test("a client enrolled in one connector goes straight upstream and back with a code", async () => {
+  test("a card with one connector and no page goes straight upstream and back with a code", async () => {
     const h = await fakeBroker();
-    const { appId, clientId, clientSecret } = await h.registerClient({
+    const { ref, clientId, clientSecret } = await h.registerClient({
       appName: "My app",
       redirectUri: REDIRECT_URI,
     });
@@ -387,7 +400,7 @@ describe("authorization code flow with an OAuth connector", () => {
 
     const signIns = h.memory.db.contents().signIns;
     expect(signIns).toHaveLength(1);
-    expect(signIns[0]).toMatchObject({ appId, clientId, connector: "fake", sub: claims.sub });
+    expect(signIns[0]).toMatchObject({ ref, clientId, connector: "fake", sub: claims.sub });
     expect(signIns[0]).not.toHaveProperty("email");
 
     // The subject is public: the provider's own id, so another app of the same user gets the same.
@@ -607,7 +620,7 @@ describe("authorization code flow with an OAuth connector", () => {
     await refusedWith({ response_mode: "form_post" }, "response_mode must be query.");
     await refusedWith({ code_challenge_method: "plain" }, "code_challenge_method must be S256.");
     await refusedWith({ max_age: "-1" }, "max_age must be a non-negative integer.");
-    await refusedWith({ connector: "nope" }, "This client is not enrolled in the connector");
+    await refusedWith({ connector: "nope" }, "This client cannot use the connector");
     for (const extra of [{ prompt: "login" }, { max_age: "300" }]) {
       await refusedWith(
         extra,
@@ -979,7 +992,6 @@ describe("authorization code flow with an OAuth connector", () => {
     const { clientId, clientSecret } = await h.registerClient({
       appName: "My app",
       redirectUri: REDIRECT_URI,
-      deploymentType: "preview",
       tokenEndpointAuthMethod: "client_secret_basic",
     });
     const basic = (id: string, secret: string) => `Basic ${btoa(`${id}:${secret}`)}`;
@@ -1063,9 +1075,13 @@ describe("authorization code flow with an OAuth connector", () => {
     }
   });
 
-  test("a hub shows the page before the connector by default", async () => {
-    const h = await fakeBroker({ registration: hubRegistration() });
-    const { clientId } = await h.registerClient({ appName: "Stranger", redirectUri: REDIRECT_URI });
+  test("a card with `confirm` shows the page before the connector", async () => {
+    const h = await fakeBroker();
+    const { clientId } = await h.registerClient({
+      appName: "Stranger",
+      redirectUri: REDIRECT_URI,
+      confirm: true,
+    });
     const { challenge } = await pkce();
     const page = await h.fetchBroker(authorizeUrl(h, { clientId, challenge }));
     expect(page.status).toBe(200);
@@ -1076,15 +1092,16 @@ describe("authorization code flow with an OAuth connector", () => {
     const cookie = setCookie.split(";")[0] ?? "";
     const html = await page.text();
     expect(html).toContain("<title>Sign in to app.test</title>");
-    const repository =
-      '<a href="https://github.com/octo-org/octo-repo" target="_blank" rel="noopener noreferrer">octo-org/octo-repo</a>';
-    expect(html).toContain(`<p class="sub">Development server of ${repository}</p>`);
+    expect(html).not.toContain('class="sub"');
     expect(html).toContain(
       "The app gets your name, picture, and email address. Samebase has not reviewed this app.",
     );
     expect(html).toContain("Continue with Fake");
-    expect(html.match(/<a /g)).toHaveLength(6);
-    expect(html.match(/target="_blank"/g)).toHaveLength(5);
+    // The host, the button, the privacy notice, the terms, and the attribution.
+    expect(html.match(/<a /g)).toHaveLength(5);
+    expect(html.match(/target="_blank"/g)).toHaveLength(4);
+    expect(html).toContain('<a href="https://hub.example.com/privacy"');
+    expect(html).toContain('<a href="https://hub.example.com/terms"');
     expect(html).not.toContain("<script");
     expect(html).not.toContain(REDIRECT_URI);
     expect(html).not.toContain("Stranger");
@@ -1097,61 +1114,37 @@ describe("authorization code flow with an OAuth connector", () => {
     expect(await openidOnly.text()).toContain("The app gets only an id for your account.");
   });
 
-  test("the consent names the deploy: a preview's stage, production, or this computer", async () => {
-    const h = await fakeBroker({ registration: hubRegistration() });
+  test("the page names the host of the validated return address, with its port", async () => {
+    const h = await fakeBroker();
     const { challenge } = await pkce();
     const redirectUri = "https://pr-12.stranger.test/auth/hub/callback";
-    const preview = await h.registerClient({
+    const loopback = "http://localhost:5173/auth/hub/callback";
+    const { clientId } = await h.registerClient({
       appName: "Stranger",
       redirectUri,
-      deploymentType: "preview",
+      otherRedirectUris: [loopback],
+      confirm: true,
     });
     const html = await (
       await h.fetchBroker(
-        authorizeUrl(h, {
-          clientId: preview.clientId,
-          challenge,
-          extra: { redirect_uri: redirectUri },
-        }),
+        authorizeUrl(h, { clientId, challenge, extra: { redirect_uri: redirectUri } }),
       )
     ).text();
-    expect(html).toContain('<p class="sub">Preview dev of <a href="https://github.com/octo-org');
     expect(html).toContain(
       '<h1>Sign in to<br><a class="host" href="https://pr-12.stranger.test" target="_blank" rel="noopener noreferrer"><span class="label">pr-12.</span><wbr><span class="label">stranger.</span><wbr><span class="label">test</span></a></h1>',
     );
-    const production = await h.registerClient({
-      appName: "Stranger",
-      redirectUri: REDIRECT_URI,
-      deploymentType: "production",
-    });
-    const asked = await h.fetchBroker(
-      authorizeUrl(h, { clientId: production.clientId, challenge }),
-    );
-    expect(asked.status).toBe(200);
-    expect(await asked.text()).toContain(
-      '<p class="sub">Production of <a href="https://github.com/octo-org/octo-repo"',
-    );
-    const loopback = "http://localhost:5173/auth/hub/callback";
-    const development = await h.registerClient({ appName: "Stranger", redirectUri: loopback });
     const local = await (
       await h.fetchBroker(
-        authorizeUrl(h, {
-          clientId: development.clientId,
-          challenge,
-          extra: { redirect_uri: loopback },
-        }),
+        authorizeUrl(h, { clientId, challenge, extra: { redirect_uri: loopback } }),
       )
     ).text();
     expect(local).toContain("<title>Sign in to localhost:5173</title>");
-    expect(local).toContain("octo-org/octo-repo</a> on this computer</p>");
   });
 
-  test("with an exemption, one offered connector goes straight on and several get the picker", async () => {
+  test("a card without `confirm`: one connector goes straight on and several get the picker", async () => {
     const h = await fakeBroker({
       connectors: (fake) => [fake, { ...fake, name: "other", label: "Other" }],
-      registration: hubRegistration(),
     });
-    skipSignInPage(h);
     const one = await h.registerClient({
       appName: "One",
       redirectUri: REDIRECT_URI,
@@ -1179,45 +1172,12 @@ describe("authorization code flow with an OAuth connector", () => {
       authorizeUrl(h, { clientId: one.clientId, challenge, extra: { connector: "fake other" } }),
     );
     expect(outside.status).toBe(400);
-    expect(await outside.text()).toContain("not enrolled in the connector &quot;other&quot;");
+    expect(await outside.text()).toContain(
+      "This client cannot use the connector &quot;other&quot;",
+    );
   });
 
-  test("a hub's policy stops sign-in: a failed policy, a paused one, and a client with no facts", async () => {
-    let answer: () => ReturnType<PolicyFunction> = () => ({
-      connectors: ["fake"],
-      resources: [],
-      paused: true,
-    });
-    const h = await fakeBroker({ registration: hubRegistration(() => answer()) });
-    vi.spyOn(console, "error").mockImplementation(() => {});
-    const info = vi.spyOn(console, "info").mockImplementation(() => {});
-    const { clientId } = await h.registerClient({ appName: "My app", redirectUri: REDIRECT_URI });
-    const { challenge } = await pkce();
-    const paused = await h.fetchBroker(authorizeUrl(h, { clientId, challenge }));
-    expect(paused.status).toBe(503);
-    expect(await paused.text()).toContain("Sign-in is paused. Try again later.");
-    answer = () => {
-      throw new Error("policy bug");
-    };
-    const failed = await h.fetchBroker(authorizeUrl(h, { clientId, challenge }));
-    expect(failed.status).toBe(503);
-    expect(await failed.text()).toContain("Sign-in is not available right now. Try again later.");
-    // An answer with a member the contract does not name is malformed.
-    answer = () => ({ connectors: ["fake"], resources: [], paused: false, extra: 1 });
-    expect((await h.fetchBroker(authorizeUrl(h, { clientId, challenge }))).status).toBe(503);
-    answer = () => ({ connectors: [], resources: [], paused: false });
-    const off = await h.fetchBroker(authorizeUrl(h, { clientId, challenge }));
-    expect(off.status).toBe(403);
-    expect(await off.text()).toContain("Sign-in for this app is turned off.");
-    expect(info.mock.calls.map(([line]) => JSON.parse(String(line).slice(10)).reason)).toEqual([
-      "paused",
-      "unavailable",
-      "unavailable",
-      "off",
-    ]);
-  });
-
-  test("a client enrolled only in a connector that is not configured gets no sign-in", async () => {
+  test("a card with only a connector that is not configured gets no sign-in", async () => {
     const h = await fakeBroker();
     vi.spyOn(console, "info").mockImplementation(() => {});
     const { clientId } = await h.registerClient({
@@ -1448,32 +1408,25 @@ describe("handler rules at their edges", () => {
     }
   });
 
-  test("sends no one to the provider when a block lands while the hub reads its discovery", async () => {
-    const providerIssuer = "https://block-during-discovery.test";
+  test("sends no one to the provider when a stop lands while the hub reads its discovery", async () => {
+    const providerIssuer = "https://stop-during-discovery.test";
     const fetch = stubFetch();
     const { connector } = fakeUpstream(fetch);
     const h = await createBroker({
       fetch,
       config: { connectors: [{ ...connector, issuer: providerIssuer }] },
     });
-    const { clientId } = await h.registerClient({ appName: "My app", redirectUri: REDIRECT_URI });
+    const { clientId } = await h.registerClient({
+      appName: "My app",
+      redirectUri: REDIRECT_URI,
+      gates: ["test:repository"],
+    });
     const { challenge } = await pkce();
     fetch.plan({
       match: (request) =>
         request.url === `${providerIssuer}/.well-known/oauth-authorization-server`,
       respond: () => {
-        h.memory.withTx(
-          Effect.gen(function* () {
-            const tx = yield* Tx;
-            yield* tx.insert("blocks", {
-              kind: "repository",
-              githubId: "1",
-              reason: "Blocked during discovery",
-              adminEmail: "admin@example.com",
-              at: h.clock.now(),
-            });
-          }),
-        );
+        h.memory.withTx((tx) => tx.insert("stops", { key: "test:repository", at: h.clock.now() }));
         return Response.json({
           issuer: providerIssuer,
           authorization_endpoint: `${providerIssuer}/authorize`,
@@ -1641,7 +1594,7 @@ describe("handler rules at their edges", () => {
     const h = await fakeBroker();
     expect((await h.fetchBroker(`${h.issuer}/nope`)).status).toBe(404);
     expect((await h.fetchBroker(`${h.issuer}/token`)).status).toBe(404);
-    // Without the hub mode there is no registration endpoint.
+    // Without a layer's routes there is no registration endpoint.
     expect((await h.fetchBroker(`${h.issuer}/register`, { method: "POST" })).status).toBe(404);
   });
 });

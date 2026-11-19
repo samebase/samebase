@@ -3,22 +3,17 @@
 // to a Convex backend as a Convex value, so an absent index value travels as `null` and `-0` keeps
 // its sign.
 import { Effect, Exit, Schema } from "effect";
-import { tables, type Doc, type IndexName } from "./tables.ts";
-import { RowId, Tx, type Bound, type IndexValue, type Query, type TxShape } from "./Tx.ts";
+import { tables, type Doc, type IndexName, type Tables } from "./tables.ts";
+import { RowId, type Bound, type IndexValue, type Query, type TxShape } from "./Tx.ts";
 
 export const testTables = ["signIns", "signInPageExemptions", "clients"] as const;
 type Table = (typeof testTables)[number];
+type Tx = TxShape<Tables>;
 
 export const indexNames = {
-  signIns: ["by_app_id_and_at", "by_at"],
-  signInPageExemptions: ["by_target"],
-  clients: [
-    "by_client_id",
-    "by_app_id",
-    "by_app_id_and_deployment_type",
-    "by_deployment_type_and_activity",
-    "by_remove_at",
-  ],
+  signIns: ["by_at"],
+  signInPageExemptions: ["by_tenant_id_and_owner_id"],
+  clients: ["by_client_id", "by_ref", "by_remove_at", "by_github_app_id_and_deployment_type"],
 } as const satisfies { readonly [T in Table]: ReadonlyArray<IndexName<T>> };
 
 /** An index value; `null` stands for an absent field. */
@@ -107,7 +102,7 @@ const queryOf = (op: QueryOp): Query => {
 const docs = <T extends Table>(rows: ReadonlyArray<{ readonly doc: Doc<T> }>) =>
   rows.map((row) => row.doc);
 
-const runQuery = (tx: TxShape, op: QueryOp) => {
+const runQuery = (tx: Tx, op: QueryOp) => {
   switch (op.table) {
     case "signIns":
       return tx.query(op.table, op.index, queryOf(op)).pipe(Effect.map(docs));
@@ -134,16 +129,16 @@ const scan = (order: "asc" | "desc"): Array<QueryOp> => {
 };
 
 /** Every row of the three tables, in each index's order, both ways. */
-const everything = Effect.gen(function* () {
-  const tx = yield* Tx;
-  const out: Array<unknown> = [];
-  for (const op of [...scan("asc"), ...scan("desc")]) {
-    out.push(yield* runQuery(tx, op));
-  }
-  return out;
-});
+const everything = (tx: Tx) =>
+  Effect.gen(function* () {
+    const out: Array<unknown> = [];
+    for (const op of [...scan("asc"), ...scan("desc")]) {
+      out.push(yield* runQuery(tx, op));
+    }
+    return out;
+  });
 
-const insert = (tx: TxShape, written: typeof Written.Type) => {
+const insert = (tx: Tx, written: typeof Written.Type) => {
   switch (written.table) {
     case "signIns":
       return tx.insert(written.table, written.doc);
@@ -161,9 +156,8 @@ const insert = (tx: TxShape, written: typeof Written.Type) => {
  * whole step dies. A replace writes the op's document into the referenced row, whatever its table,
  * so a document of another table is a logged defect.
  */
-export const playStep = (input: StepInput) =>
+export const playStep = (tx: Tx, input: StepInput) =>
   Effect.gen(function* () {
-    const tx = yield* Tx;
     const rows = input.refs.map((ref) => new RowId<Table>(ref.table, ref.key));
     const added: Array<RowId<Table>> = [];
     const refAt = (ref: number) => {
@@ -212,7 +206,7 @@ export const playStep = (input: StepInput) =>
     const output: StepOutput = {
       log,
       added: added.map((id) => ({ table: id.table, key: id.key })),
-      after: yield* everything,
+      after: yield* everything(tx),
     };
     return output;
   });

@@ -1,57 +1,77 @@
-// A client with its app and the facts the host's policy decides on, read in one step.
+// The client card as the sign-in steps read it: the card of a client id, its stops, and the one
+// rule of whether a request may go on with a connector now.
 import { Effect } from "effect";
-import { unique, type Row } from "../store/Tx.ts";
-import { appRow, appView } from "./apps.ts";
-import { grantedToClient } from "./connectorGrants.ts";
-import { registrationOf } from "./policy.ts";
+import { first, unique, type Row } from "../store/Tx.ts";
 import type { ClientIdArgs } from "./schemas.ts";
-import { exemptionOf } from "./signInPage.ts";
+import { Tx, type CoreTables } from "./tables.ts";
 
-export const clientRow = (clientId: string) => unique("clients", "by_client_id", [clientId]);
+/** How long a temporary card lives after its last sign-in. */
+export const LEASE_MS = 14 * 24 * 60 * 60 * 1000;
 
-/**
- * A client with its app and its policy facts. `registration` is null when the app is gone or the
- * client is not a repository's. `granted` is what the hub's administrator granted the client's
- * repository; every step that moves a sign-in on reads it again.
- */
-export const clientWithApp = Effect.fnUntraced(function* (row: Row<"clients">) {
-  const client = row.doc;
-  const app = yield* appRow(client.appId);
-  return {
-    client,
-    app: app === undefined ? null : yield* appView(app),
-    registration: app === undefined ? null : yield* registrationOf(client, app.doc),
-    granted: yield* grantedToClient(client),
-  };
+type Card = Row<CoreTables, "clients">["doc"];
+
+export const cardRow = Effect.fnUntraced(function* (clientId: string) {
+  return yield* unique(yield* Tx, "clients", "by_client_id", [clientId]);
 });
 
+/** Whether a row of `stops` holds one of the card's gates. */
+export const isStopped = Effect.fnUntraced(function* (card: Card) {
+  const tx = yield* Tx;
+  for (const key of card.gates) {
+    if ((yield* first(tx, "stops", "by_key", [key])) !== undefined) {
+      return true;
+    }
+  }
+  return false;
+});
+
+/**
+ * The card of `request`'s client when the request may go on with `connector` now: the card exists,
+ * no stop holds one of its gates, the request's return address is still on it, and the connector
+ * is in the request's stored set, on the card, and among the hub's `configured` connectors.
+ * Undefined otherwise.
+ */
+export const usableCard = Effect.fnUntraced(function* (
+  request: {
+    readonly clientId: string;
+    readonly redirectUri: string;
+    readonly connectors: ReadonlyArray<string>;
+  },
+  connector: string,
+  configured: ReadonlyArray<string>,
+) {
+  const row = yield* cardRow(request.clientId);
+  if (
+    row === undefined ||
+    (yield* isStopped(row.doc)) ||
+    !row.doc.redirectUris.includes(request.redirectUri) ||
+    !request.connectors.includes(connector) ||
+    !row.doc.connectors.includes(connector) ||
+    !configured.includes(connector)
+  ) {
+    return undefined;
+  }
+  return row;
+});
+
+/** What a sign-in writes on the card it used: a temporary card then lives `LEASE_MS` from now. */
+export const used = (card: Card, now: number): Card => ({
+  ...card,
+  lastSignInAt: now,
+  ...(card.removeAt === undefined ? {} : { removeAt: now + LEASE_MS }),
+});
+
+/** What `/authorize` and UserInfo read of a card. */
 export const get = Effect.fnUntraced(function* (args: typeof ClientIdArgs.Type) {
-  return (yield* clientRow(args.clientId))?.doc ?? null;
-});
-
-/** A client with its app and its policy facts, in one call, for the start of each use of it. */
-export const withApp = Effect.fnUntraced(function* (args: typeof ClientIdArgs.Type) {
-  const row = yield* clientRow(args.clientId);
-  return row === undefined ? null : yield* clientWithApp(row);
-});
-
-/**
- * `withApp` for `/authorize`, with the exemptions from the sign-in page that cover the client, read
- * in the same step as its facts.
- */
-export const forAuthorize = Effect.fnUntraced(function* (args: typeof ClientIdArgs.Type) {
-  const row = yield* clientRow(args.clientId);
+  const row = yield* cardRow(args.clientId);
   if (row === undefined) {
     return null;
   }
-  const found = yield* clientWithApp(row);
   return {
-    ...found,
-    exemption: yield* exemptionOf({
-      tenantId: found.app?.tenantId,
-      // The tenant's recorded owner, which the facts carry; no facts, no exemption.
-      tenantOwnerId: found.registration?.ownerId,
-      clientOwnerId: row.doc.registeredBy.githubOwnerId,
-    }),
+    clientId: row.doc.clientId,
+    ref: row.doc.ref,
+    redirectUris: row.doc.redirectUris,
+    connectors: row.doc.connectors,
+    confirm: row.doc.confirm,
   };
 });

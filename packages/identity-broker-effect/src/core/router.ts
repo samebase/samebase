@@ -22,18 +22,19 @@ export type CoreServices = Store | HubConfig | Keys | Random | Fetch;
 /** The failures a route leaves to the router: each answers 500 and writes one log line. */
 export type RouteError = CommandFailed | ProviderUnavailable;
 
-export type Route = {
+/** A route of the core, or of a layer whose handlers also need its own services `R`. */
+export type Route<R = never> = {
   readonly method: "GET" | "POST" | "DELETE" | "PUT";
   /** After the issuer's path prefix: "/register" (exact) or "/register/" (prefix). */
   readonly path: string;
   readonly match: "exact" | "prefix";
   /** The route's name in a log line, such as "/register/{client}". Never the request's path. */
   readonly template: string;
-  readonly handler: (request: Request) => Effect.Effect<Response, RouteError, CoreServices>;
+  readonly handler: (request: Request) => Effect.Effect<Response, RouteError, CoreServices | R>;
 };
 
 /** A route of the table, with its full path. */
-type Mounted = Route & { readonly fullPath: string };
+type Mounted<R> = Route<R> & { readonly fullPath: string };
 
 /**
  * The hub's logger: one JSON object per line, on the console method of the entry's level, which is
@@ -59,20 +60,29 @@ const serverError = (annotations: {
   );
 
 /**
- * The broker's request handler. `registerRoutes` are the hub mode's routes (src/core/hub), mounted
- * only when `HubConfig.registration` is set.
+ * The broker's request handler. `routes` are the routes of the layers that the hub mounts, such as
+ * the client registration endpoint, beside the core's sign-in routes.
  */
-export function makeHandle(options: { readonly registerRoutes: ReadonlyArray<Route> }) {
+export function makeHandle<R = never>(options: { readonly routes: ReadonlyArray<Route<R>> }) {
+  // RFC 7591: a mounted `POST /register` is the registration endpoint that discovery names.
+  const metadata = discovery({
+    registration: options.routes.some(
+      (route) => route.method === "POST" && route.path === "/register" && route.match === "exact",
+    ),
+  });
   return Effect.fn("handle")(function* (request: Request) {
     const hub = yield* HubConfig;
-    const at = (route: Route): Mounted => ({ ...route, fullPath: `${hub.prefix}${route.path}` });
-    const routes: Mounted[] = [
+    const at = (route: Route<R>): Mounted<R> => ({
+      ...route,
+      fullPath: `${hub.prefix}${route.path}`,
+    });
+    const routes: Mounted<R>[] = [
       at({
         method: "GET",
         path: "/.well-known/openid-configuration",
         match: "exact",
         template: "/.well-known/openid-configuration",
-        handler: discovery,
+        handler: metadata,
       }),
       {
         method: "GET",
@@ -80,7 +90,7 @@ export function makeHandle(options: { readonly registerRoutes: ReadonlyArray<Rou
         fullPath: `/.well-known/oauth-authorization-server${hub.prefix}`,
         match: "exact",
         template: "/.well-known/oauth-authorization-server",
-        handler: discovery,
+        handler: metadata,
       },
       at({
         method: "GET",
@@ -134,7 +144,7 @@ export function makeHandle(options: { readonly registerRoutes: ReadonlyArray<Rou
           handler: upstreamCallback(connector),
         }),
       ),
-      ...(hub.registration === undefined ? [] : options.registerRoutes.map(at)),
+      ...options.routes.map(at),
     ];
     const { pathname } = new URL(request.url);
     // HEAD runs the GET route and loses the body, as in Convex's HTTP router.
