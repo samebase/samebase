@@ -24,6 +24,8 @@
     "@cloudflare/workers-types": "5.20261028.1",
     "@types/node": "24.19.2",
     "alchemy": "2.0.0-beta.87",
+    "convex": "1.48.0",
+    "convex-test": "0.0.61",
     "fast-check": "4.10.2",
     "openid-client": "6.8.8",
     "typescript": "7.0.2",

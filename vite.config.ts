@@ -84,6 +84,7 @@ export default defineConfig({
       "**/convex/_generated/**",
       "packages/git-editor/src/component/_generated/**",
       "packages/identity-broker/src/component/_generated/**",
+      "packages/identity-broker-effect/src/hosts/convex/component/_generated/**",
       "packages/alchemy-convex/src/store/*/_generated/**",
       "packages/alchemy-convex/test/fixtures/**",
       "packages/alchemy-kit/test/run-record/fixtures/**",
@@ -111,6 +112,7 @@ export default defineConfig({
       "**/convex/_generated",
       "packages/git-editor/src/component/_generated/**",
       "packages/identity-broker/src/component/_generated/**",
+      "packages/identity-broker-effect/src/hosts/convex/component/_generated/**",
       "packages/alchemy-convex/src/store/*/_generated/**",
       "packages/alchemy-convex/test/fixtures/**",
       // Hey API owns these SDK and validator files.
