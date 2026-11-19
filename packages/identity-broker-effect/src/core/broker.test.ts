@@ -234,6 +234,16 @@ describe("metadata", () => {
     });
   });
 
+  test("HEAD answers as GET with no body, as Convex's HTTP router does", async () => {
+    const h = await fakeBroker();
+    const response = await h.fetchBroker(`${h.issuer}/.well-known/openid-configuration`, {
+      method: "HEAD",
+    });
+    expect(response.status).toBe(200);
+    expect(response.headers.get("Content-Type")).toContain("application/json");
+    expect(await response.text()).toBe("");
+  });
+
   test("a path issuer serves the RFC 8414 location with the path after the segment", async () => {
     const h = await fakeBroker({ issuer: "https://samebase.test/identity" });
     expect(

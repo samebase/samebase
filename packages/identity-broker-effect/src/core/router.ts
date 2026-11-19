@@ -137,27 +137,30 @@ export function makeHandle(options: { readonly registerRoutes: ReadonlyArray<Rou
       ...(hub.registration === undefined ? [] : options.registerRoutes.map(at)),
     ];
     const { pathname } = new URL(request.url);
+    // HEAD runs the GET route and loses the body, as in Convex's HTTP router.
+    const head = request.method === "HEAD";
+    const method = head ? "GET" : request.method;
     // An exact path wins over a prefix, and a longer prefix over a shorter one, as in Convex's
     // HTTP router.
     const route =
       routes.find(
         (candidate) =>
           candidate.match === "exact" &&
-          candidate.method === request.method &&
+          candidate.method === method &&
           candidate.fullPath === pathname,
       ) ??
       routes
         .filter(
           (candidate) =>
             candidate.match === "prefix" &&
-            candidate.method === request.method &&
+            candidate.method === method &&
             pathname.startsWith(candidate.fullPath),
         )
         .sort((a, b) => b.fullPath.length - a.fullPath.length)[0];
     if (route === undefined) {
       return new Response(null, { status: 404, headers: { "Cache-Control": "no-store" } });
     }
-    return yield* route.handler(request).pipe(
+    const response = yield* route.handler(request).pipe(
       Effect.catchTags({
         CommandFailed: (error) =>
           serverError({
@@ -170,5 +173,6 @@ export function makeHandle(options: { readonly registerRoutes: ReadonlyArray<Rou
       }),
       Effect.catchCause(() => serverError({ route: route.template, category: "defect" })),
     );
+    return head ? new Response(null, response) : response;
   });
 }

@@ -31,6 +31,8 @@ export default class Site extends Cloudflare.Worker<Site>()(
       main: import.meta.url,
       workersDev: true,
       compatibility: { date: "2026-10-28", flags: ["global_fetch_strictly_public"] },
+      // No invocation logs: they keep each request URL, and /callback carries the code and state.
+      observability: { enabled: true, logs: { enabled: true, invocationLogs: false } },
     };
   }),
   Effect.gen(function* () {

@@ -37,28 +37,30 @@ export function oauthFetch(fetch: FetchFunction) {
  * callback to that metadata, so a provider that advertises
  * `authorization_response_iss_parameter_supported` must send `iss` (RFC 9207).
  */
-const discovered = new WeakMap<FetchFunction, Map<string, Promise<oauth.AuthorizationServer>>>();
+const discovered = new WeakMap<FetchFunction, Map<string, oauth.AuthorizationServer>>();
 
-function authorizationServer(
+/**
+ * The cache holds only finished metadata, never a pending request: on Cloudflare the I/O of a
+ * request belongs to that request, so a second request must not wait on it.
+ */
+async function authorizationServer(
   connector: OauthConnector | OidcConnector,
   fetch: FetchFunction,
 ): Promise<oauth.AuthorizationServer> {
-  const cache = discovered.get(fetch) ?? new Map<string, Promise<oauth.AuthorizationServer>>();
+  const cache = discovered.get(fetch) ?? new Map<string, oauth.AuthorizationServer>();
   discovered.set(fetch, cache);
   const cached = cache.get(connector.issuer);
   if (cached !== undefined) {
     return cached;
   }
   const issuer = new URL(connector.issuer);
-  const pending = oauth
-    .discoveryRequest(issuer, {
-      algorithm: connector.kind === "oauth" ? "oauth2" : "oidc",
-      [oauth.customFetch]: oauthFetch(fetch),
-    })
-    .then((response) => oauth.processDiscoveryResponse(issuer, response));
-  cache.set(connector.issuer, pending);
-  pending.catch(() => cache.delete(connector.issuer));
-  return pending;
+  const response = await oauth.discoveryRequest(issuer, {
+    algorithm: connector.kind === "oauth" ? "oauth2" : "oidc",
+    [oauth.customFetch]: oauthFetch(fetch),
+  });
+  const as = await oauth.processDiscoveryResponse(issuer, response);
+  cache.set(connector.issuer, as);
+  return as;
 }
 
 export type UpstreamStart = {
