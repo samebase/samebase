@@ -148,10 +148,16 @@ export class Random extends Context.Service<
  * GitHub Actions keys and the verification files. oauth4webapi gets it as its custom fetch
  * (`oauthFetch` in src/core/connectors/upstream.ts). Tests give a stub that fails on an unplanned
  * call.
+ *
+ * No request of the core follows a redirect. The layer gives the mode in `fetch`'s second
+ * argument: the Convex runtime's `fetch` ignores the mode of a `Request` and follows.
  */
 export class Fetch extends Context.Service<
   Fetch,
   { readonly fetch: (request: Request) => Promise<Response> }
 >()("identity-broker-effect/core/Fetch") {
-  static readonly layer = Layer.succeed(Fetch, Fetch.of({ fetch: (request) => fetch(request) }));
+  static readonly layer = Layer.succeed(
+    Fetch,
+    Fetch.of({ fetch: (request) => fetch(request, { redirect: "manual" }) }),
+  );
 }

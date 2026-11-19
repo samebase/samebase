@@ -232,7 +232,10 @@ const decodeGitHubClaims = Schema.decodeUnknownOption(GitHubClaims);
 /** GitHub's key set, read for each token: the core keeps no memory between requests. */
 async function readGitHubKeySet(fetch: (request: Request) => Promise<Response>) {
   const response = await fetch(
-    new Request(GITHUB_OIDC_JWKS_URL, { signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) }),
+    new Request(GITHUB_OIDC_JWKS_URL, {
+      redirect: "manual",
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    }),
   );
   const keySet: unknown = response.ok ? await response.json() : null;
   if (!isGitHubKeySet(keySet)) {

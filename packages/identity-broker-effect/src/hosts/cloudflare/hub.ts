@@ -11,13 +11,11 @@
 // name too.
 import * as Cloudflare from "@alchemy.run/cloudflare";
 import * as Alchemy from "alchemy";
-import { Clock, Config, Effect, Layer, type Redacted, Schema } from "effect";
+import { Clock, Config, Effect, Layer, Schema } from "effect";
 import * as HttpServerResponse from "effect/http/HttpServerResponse";
-import { github } from "../../core/connectors/github.ts";
-import { google } from "../../core/connectors/google.ts";
 import { registrationRoutes } from "../../core/hub/routes.ts";
 import { hubLogger, makeHandle, type CoreServices } from "../../core/router.ts";
-import { Fetch, HubConfig, Keys, Random, type RegistrationSettings } from "../../core/services.ts";
+import { Fetch, type HubConfig, Keys, Random } from "../../core/services.ts";
 import { SIGN_IN_RETENTION_MS } from "../../core/signIn.ts";
 import { commands, CommandNameSchema } from "../../rules/commands.ts";
 import { ensureLayout, sqlTx, type Exec } from "../../store/sql.ts";
@@ -31,13 +29,8 @@ import {
   type Args,
   type CommandName,
 } from "../../store/Store.ts";
-import {
-  alarmPlan,
-  allowListPolicy,
-  nextDailyAt,
-  FALLBACK_MS,
-  type AllowedRepositories,
-} from "./settings.ts";
+import { hubSettings, type HubSettings } from "../settings.ts";
+import { alarmPlan, nextDailyAt, FALLBACK_MS } from "./settings.ts";
 
 declare global {
   // Alchemy reads `main: import.meta.url` in Node and in the bundle; workerd gives each module its
@@ -169,69 +162,16 @@ const HubStore = Layer.effect(
 );
 
 /**
- * A secret of the hub. Each read declares a secret binding of the Worker at deploy, with the value
- * of the deploying shell's variable of that name, and reads that binding when the Worker starts.
+ * One hub. Each secret of its settings is a `Config` read: it declares a secret binding of the
+ * Worker at deploy, with the value of the deploying shell's variable of that name, and reads that
+ * binding when the Worker starts.
  */
-type Secret = Config.Config<Redacted.Redacted<string>>;
-
-/** The client of the hub at one provider. */
-type ConnectorCredentials = { readonly clientId: Secret; readonly clientSecret: Secret };
-
-/** One hub. The signing keys are the Worker's `IDENTITY_BROKER_KEYS` (src/core/services.ts). */
-export type HubOptions = {
+export type HubOptions = HubSettings & {
   /** The module whose default export is this hub's Worker: the caller's `import.meta.url`. */
   readonly main: string;
   /** The Worker's script name, the first part of the address of all data. */
   readonly name: string;
-  /** The issuer, which each client names. Each connector's callback is under it. */
-  readonly issuer: string;
-  /** At least one; the deploy stops without one. */
-  readonly connectors: {
-    readonly google?: ConnectorCredentials;
-    readonly github?: ConnectorCredentials;
-  };
-  /** The repositories that get the connectors (`allowListPolicy`). */
-  readonly allowedRepositories: typeof AllowedRepositories.Type;
-  /** The names that registration answers and the sign-in page show. */
-  readonly registration: Omit<RegistrationSettings, "policy">;
 };
-
-/** The hub's configuration. A configuration that the hub cannot run with stops the deploy. */
-const hubSettings = (options: HubOptions) =>
-  Layer.unwrap(
-    Effect.gen(function* () {
-      const { google: googleClient, github: githubClient } = options.connectors;
-      return HubConfig.layer({
-        issuer: options.issuer,
-        // The order of the Convex hub (apps/identity-hub/convex/broker.ts): each asks the provider
-        // for its account screen on every sign-in.
-        connectors: [
-          ...(googleClient === undefined
-            ? []
-            : [
-                google({
-                  clientId: yield* googleClient.clientId,
-                  clientSecret: yield* googleClient.clientSecret,
-                  selectAccount: true,
-                }),
-              ]),
-          ...(githubClient === undefined
-            ? []
-            : [
-                github({
-                  clientId: yield* githubClient.clientId,
-                  clientSecret: yield* githubClient.clientSecret,
-                  selectAccount: true,
-                }),
-              ]),
-        ],
-        registration: {
-          ...options.registration,
-          policy: allowListPolicy(options.allowedRepositories),
-        },
-      }).pipe(Layer.orDie);
-    }),
-  );
 
 /**
  * The Worker's runtime over its settings: every service of the core on Cloudflare, the hub's
