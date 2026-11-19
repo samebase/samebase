@@ -2,6 +2,8 @@
 // verification file while the repository moves to another owner, proofs of another owner that are
 // not newer, and credentials that never reach a log line or an error body.
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
+import { txnCookie } from "../../core/testing/harness.ts";
+import { setBlock, setExemption, setGrant } from "./testing/seeds.ts";
 import {
   createClient,
   createHub,
@@ -12,12 +14,12 @@ import {
   LOOPBACK_CALLBACK,
   OWNER_ID,
   postHubClient,
+  PRODUCTION_CALLBACK,
   pullRequestClaims,
   readNewClient,
   REPOSITORY_ID,
   signToken,
   stubProviders,
-  testPolicy,
   type Hub,
 } from "./testing/hub.ts";
 
@@ -89,7 +91,10 @@ describe("a development registration held while the repository moves", () => {
       error_description: "The token is invalid.",
     });
     expect(durableRows(h)).toEqual(before);
-    expect(h.rows().clients.map((row) => row.deploymentType)).toEqual(["production", "preview"]);
+    expect(h.rows().clients.map((row) => row.github?.deploymentType)).toEqual([
+      "production",
+      "preview",
+    ]);
     expect(h.rows().tenants).toEqual([
       { tenantId: `gh-${REPOSITORY_ID}`, ownerId: "66", ownerProofIssuedAt: EPOCH / 1_000 + 1 },
     ]);
@@ -119,7 +124,10 @@ describe("a development registration held while the repository moves", () => {
     release.settle();
 
     expect((await pending).status).toBe(401);
-    expect(h.rows().clients.map((row) => row.deploymentType)).toEqual(["production", "production"]);
+    expect(h.rows().clients.map((row) => row.github?.deploymentType)).toEqual([
+      "production",
+      "production",
+    ]);
   });
 });
 
@@ -169,6 +177,135 @@ describe("a proof of another owner that is not newer", () => {
   });
 });
 
+/**
+ * A run whose verification file is held until `during` ran: the creating step comes after it.
+ * Answers the registration's answer.
+ */
+async function heldRun(h: Hub, connectors: string[], during: () => void) {
+  const reached = deferred();
+  const release = deferred();
+  let held = false;
+  await stubProviders(h, async () => {
+    if (!held) {
+      held = true;
+      reached.settle();
+      await release.promise;
+    }
+    return jsonResponse({ repository: REPOSITORY_ID });
+  });
+  const pending = postHubClient(h, await signToken(h), { connectors });
+  await reached.promise;
+  during();
+  release.settle();
+  return await pending;
+}
+
+describe("admission facts that change while the hosts are verified", () => {
+  it("a block of the owner that lands during the fetch refuses the creation and writes nothing", async () => {
+    const h = await createHub();
+    vi.spyOn(console, "info").mockImplementation(() => undefined);
+    const before = durableRows(h);
+    const response = await heldRun(h, ["fake"], () =>
+      setBlock(h.memory, { kind: "owner", githubId: OWNER_ID }, true),
+    );
+    expect(response.status).toBe(403);
+    expect(await response.json()).toMatchObject({ reason: "blocked" });
+    expect(durableRows(h)).toEqual(before);
+  });
+
+  it("a grant revoked during the fetch refuses the enrollment in its connector and writes nothing", async () => {
+    const h = await createHub({ allowList: [] });
+    vi.spyOn(console, "info").mockImplementation(() => undefined);
+    setGrant(
+      h.memory,
+      { repositoryId: REPOSITORY_ID, ownerId: OWNER_ID, connector: "other" },
+      true,
+    );
+    const before = durableRows(h);
+    const response = await heldRun(h, ["other"], () =>
+      setGrant(
+        h.memory,
+        { repositoryId: REPOSITORY_ID, ownerId: OWNER_ID, connector: "other" },
+        false,
+      ),
+    );
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({ reason: "invalid_connectors", allowed: [] });
+    expect(durableRows(h)).toEqual(before);
+  });
+});
+
+describe("an owner transfer while the provider answers a sign-in", () => {
+  /**
+   * A sign-in of a production client of owner 65 that goes straight to the provider; while the
+   * provider holds its answer, owner 66, with a grant of `other`, registers with a newer proof.
+   * Answers the callback's redirect to the app and the transfer's status.
+   */
+  async function transferDuringSignIn(
+    allowList: ReadonlyArray<{ repositoryId: string; ownerId: string }>,
+  ) {
+    const h = await createHub({ allowList });
+    vi.spyOn(console, "info").mockImplementation(() => undefined);
+    setExemption(h.memory, { repositoryId: REPOSITORY_ID, ownerId: OWNER_ID }, true);
+    setGrant(h.memory, { repositoryId: REPOSITORY_ID, ownerId: "66", connector: "other" }, true);
+    const client = await createClient(h);
+    let moved = 0;
+    const url = new URL(`${h.issuer}/authorize`);
+    url.search = new URLSearchParams({
+      client_id: client.client_id,
+      redirect_uri: PRODUCTION_CALLBACK,
+      response_type: "code",
+      scope: "openid",
+      state: "client-state",
+      code_challenge: "a".repeat(43),
+      code_challenge_method: "S256",
+    }).toString();
+    const started = await h.fetchBroker(url);
+    expect(started.status).toBe(302);
+    const upstream = new URL(started.headers.get("location") ?? "");
+    h.fetch.plan({
+      match: (request) => request.url === "https://upstream.test/token",
+      respond: async () => {
+        h.clock.advance(1_000);
+        const response = await postHubClient(
+          h,
+          await signToken(h, { ...pullRequestClaims, repository_owner_id: "66" }),
+          { connectors: ["other"] },
+        );
+        moved = response.status;
+        return jsonResponse({ access_token: "up-access", token_type: "bearer" });
+      },
+    });
+    const callback = new URL(upstream.searchParams.get("redirect_uri") ?? "");
+    callback.searchParams.set("code", "upstream-code");
+    callback.searchParams.set("state", upstream.searchParams.get("state") ?? "");
+    const back = await h.fetchBroker(callback, { headers: txnCookie(started) });
+    expect(moved).toBe(201);
+    return { h, client, location: new URL(back.headers.get("location") ?? "") };
+  }
+
+  it("issues no code when the new owner may not use the connector, and the card names the new owner", async () => {
+    const { h, client, location } = await transferDuringSignIn([
+      { repositoryId: REPOSITORY_ID, ownerId: OWNER_ID },
+    ]);
+    expect(location.searchParams.get("code")).toBeNull();
+    expect(location.searchParams.get("error")).toBe("access_denied");
+    expect(h.rows().clients.find((row) => row.clientId === client.client_id)).toMatchObject({
+      connectors: [],
+      gates: [`github:repository:${REPOSITORY_ID}`, "github:owner:66"],
+      confirm: true,
+    });
+  });
+
+  it("completes when the allow-list names the repository with the new owner too", async () => {
+    const { location } = await transferDuringSignIn([
+      { repositoryId: REPOSITORY_ID, ownerId: OWNER_ID },
+      { repositoryId: REPOSITORY_ID, ownerId: "66" },
+    ]);
+    expect(location.searchParams.get("code")).toEqual(expect.any(String));
+  });
+});
+
 describe("credentials in logs and error bodies", () => {
   /**
    * Runs `scenario` with every console method recorded, and answers what the hub wrote there
@@ -187,14 +324,7 @@ describe("credentials in logs and error bodies", () => {
   it("never shows a proof token, an initial access token, a client secret, or a registration token", async () => {
     const SENTINEL = "SENTINEL7c1e";
     const sentinels: string[] = [];
-    const h = await createHub({
-      policy: (registration) => {
-        if (registration.app === "throwing-app") {
-          throw new Error(`policy failed for ${SENTINEL}`);
-        }
-        return testPolicy();
-      },
-    });
+    const h = await createHub();
     const text = await observe(async (answers) => {
       // A good registration, whose credentials must not show anywhere afterwards.
       const production = await createClient(h);
@@ -219,8 +349,6 @@ describe("credentials in logs and error bodies", () => {
       const unknownToken = `${SENTINEL}-unknown-initial-access-token`;
       sentinels.push(unknownToken);
       answers.push(await postHubClient(h, unknownToken, { redirect_uris: [LOOPBACK_CALLBACK] }));
-      // The policy throws with a credential in its message.
-      answers.push(await postHubClient(h, goodProof, { software_id: "throwing-app" }));
       // A host whose file quotes a credential.
       await stubProviders(h, () =>
         jsonResponse({ repository: "999", note: production.client_secret }),
@@ -277,7 +405,7 @@ describe("credentials in logs and error bodies", () => {
   it("answers a failed command with a bare 500", async () => {
     const h = await createHub();
     const production = await createClient(h);
-    h.failCommands((name) => name === "hubClients.createDevelopmentClient");
+    h.failCommands((name) => name === "github.createDevelopmentClient");
     vi.spyOn(console, "error").mockImplementation(() => undefined);
 
     const response = await postHubClient(h, production.initial_access_token ?? "", {

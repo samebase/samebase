@@ -1,21 +1,22 @@
-// Test helpers of the hub mode (`POST /register`, `/register/<client>`), on the memory Store and the
-// core services of src/core/testing/harness.ts. No test framework import: a helper returns values,
-// and the test asserts. The port of hub.test.helper.ts of the Convex broker.
+// Test helpers of the GitHub layer (`POST /register`, `/register/<client>`), on the memory Store
+// and the core services of src/core/testing/harness.ts. No test framework import: a helper returns
+// values, and the test asserts. The port of hub.test.helper.ts of the Convex broker.
 import { Effect, Schema } from "effect";
 import { exportJWK, generateKeyPair, SignJWT, type CryptoKey, type JWK } from "jose";
-import { Tx, unique } from "../../../store/Tx.ts";
-import type { Doc } from "../../../store/tables.ts";
-import type { Policy, PolicyFunction } from "../../policy.ts";
 import {
   createBroker,
   fakeUpstream,
   pkce,
   stubFetch,
-  testRegistration,
   TEST_ISSUER,
   txnCookie,
-} from "../../testing/harness.ts";
-import { registrationRoutes } from "../routes.ts";
+} from "../../../core/testing/harness.ts";
+import { first } from "../../../store/Tx.ts";
+import { ownerStop, refOf, repositoryStop, tenantIdOf } from "../clients.ts";
+import { githubRoutes } from "../routes.ts";
+import type { AllowList } from "../schemas.ts";
+import { GithubSettings } from "../settings.ts";
+import { setBlock as setStop, setExemption } from "./seeds.ts";
 
 export const ISSUER = TEST_ISSUER;
 export const REPOSITORY_ID = "74";
@@ -34,31 +35,46 @@ export const EPOCH = 1_800_000_000_000;
 /** The names of the test hub's two connectors, both of the fake provider. */
 export const HUB_CONNECTORS = ["fake", "other"] as const;
 
-/** The policy of the test hub, in the shape of our hub's: every connector, no resources, no pause. */
-export function testPolicy(overrides: Partial<Policy> = {}): Policy {
-  return { connectors: [...HUB_CONNECTORS], resources: [], paused: false, ...overrides };
-}
+/** Every repository and owner that a test of this layer names, each with each. */
+const TEST_REPOSITORIES = [REPOSITORY_ID, "75", "76", "80", "81", "101", "102"];
+const TEST_OWNERS = [OWNER_ID, "66", "90", "201", "202"];
+
+/** The test hub's allow-list: every pair of a test repository and a test owner. */
+export const TEST_ALLOW_LIST: typeof AllowList.Type = TEST_REPOSITORIES.flatMap((repositoryId) =>
+  TEST_OWNERS.map((ownerId) => ({ repositoryId, ownerId })),
+);
 
 /**
- * The broker in the hub mode (`createBroker` of the harness with the registration routes): the
+ * The broker with the GitHub layer (`createBroker` of the harness with the layer's routes): the
  * fake provider's connector `fake` and a second connector `other` of the same provider, and the
- * hub settings with `policy` (the test policy by default). The clock starts at `EPOCH`.
+ * allow-list `allowList` (every test repository and owner by default), which `setAllowList`
+ * changes for the next command. The clock starts at `EPOCH`.
  */
-export async function createHub(options: { policy?: PolicyFunction; seed?: number } = {}) {
+export async function createHub(
+  options: { allowList?: typeof AllowList.Type; seed?: number } = {},
+) {
   const fetch = stubFetch();
   const { connector } = fakeUpstream(fetch);
+  let allowList = options.allowList ?? TEST_ALLOW_LIST;
   const broker = await createBroker({
     fetch,
-    config: {
-      connectors: [connector, { ...connector, name: "other", label: "Other" }],
-      registration: testRegistration(options.policy ?? (() => testPolicy())),
-    },
+    config: { connectors: [connector, { ...connector, name: "other", label: "Other" }] },
     ...(options.seed === undefined ? {} : { seed: options.seed }),
-    registerRoutes: registrationRoutes,
+    // Each request reads the allow-list of that moment, as a host reads its settings.
+    routes: githubRoutes.map((route) => ({
+      ...route,
+      handler: (request: Request) =>
+        Effect.suspend(() =>
+          route.handler(request).pipe(Effect.provideService(GithubSettings, { allowList })),
+        ),
+    })),
   });
   broker.clock.set(EPOCH);
   return {
     ...broker,
+    setAllowList: (next: typeof AllowList.Type) => {
+      allowList = next;
+    },
     /** Every document of every table, in insertion order. */
     rows: () => broker.memory.db.contents(),
   };
@@ -255,15 +271,15 @@ export async function readOwnRecord(
 }
 
 /**
- * A client written straight into the store, as `registration.register` of the Convex component
- * did for a host that proves its callers in another way: the app and the tenant when absent, and a
- * client of a GitHub run enrolled in `fake`, with no registration event. No command of the port
- * writes such a client, so the rows are the seed.
+ * A client and its card written straight into the store, with the app and the tenant (owner
+ * `ownerId`, default `OWNER_ID`) when absent: a card of a GitHub run enrolled in and offering
+ * `fake`, with the page, and no registration event. No command writes such a client; the rows are
+ * the seed of the cap and eviction tests.
  */
 export function seedClient(
   h: Hub,
   args: {
-    tenantId: string;
+    repositoryId: string;
     ownerId?: string;
     appId: string;
     deploymentType: "production" | "preview" | "development";
@@ -274,72 +290,64 @@ export function seedClient(
     now: number;
   },
 ) {
-  h.memory.withTx(
+  const tenantId = tenantIdOf(args.repositoryId);
+  const ownerId = args.ownerId ?? OWNER_ID;
+  h.memory.withTx((tx) =>
     Effect.gen(function* () {
-      const tx = yield* Tx;
-      if ((yield* unique("apps", "by_app_id", [args.appId])) === undefined) {
-        yield* tx.insert("apps", {
-          appId: args.appId,
-          name: args.appId,
-          tenantId: args.tenantId,
-          createdAt: args.now,
-        });
+      if ((yield* first(tx, "apps", "by_app_id", [args.appId])) === undefined) {
+        yield* tx.insert("apps", { appId: args.appId, tenantId });
       }
-      const tenant = yield* unique("tenants", "by_tenant_id", [args.tenantId]);
+      const tenant = yield* first(tx, "tenants", "by_tenant_id", [tenantId]);
       if (tenant === undefined) {
-        yield* tx.insert("tenants", {
-          tenantId: args.tenantId,
-          ...(args.ownerId === undefined ? {} : { ownerId: args.ownerId }),
-        });
-      } else if (args.ownerId !== undefined) {
-        yield* tx.replace("tenants", tenant.id, { ...tenant.doc, ownerId: args.ownerId });
+        yield* tx.insert("tenants", { tenantId, ownerId, ownerProofIssuedAt: 0 });
+      } else {
+        yield* tx.replace("tenants", tenant.id, { ...tenant.doc, ownerId });
       }
-      const client: Doc<"clients"> = {
+      yield* tx.insert("clients", {
         clientId: args.clientId,
-        appId: args.appId,
-        secretHash: "hash",
-        registrationTokenHash: "token-hash",
-        tokenEndpointAuthMethod: "client_secret_post",
         redirectUris: [args.redirectUri ?? PRODUCTION_CALLBACK],
-        deploymentType: args.deploymentType,
-        clientName: args.clientName,
-        softwareVersion: "abc123",
-        createdAt: args.now,
-        renewedAt: args.now,
+        tokenEndpointAuthMethod: "client_secret_post",
+        secretHash: "hash",
+        connectors: ["fake"],
+        gates: [repositoryStop(args.repositoryId), ownerStop(ownerId)],
+        confirm: true,
+        budget: refOf(tenantId),
+        ref: refOf(tenantId),
         ...(args.deploymentType === "production"
           ? {}
           : { removeAt: args.now + 14 * 24 * 60 * 60 * 1000 }),
+        createdAt: args.now,
         ...(args.lastSignInAt === undefined ? {} : { lastSignInAt: args.lastSignInAt }),
-        app: "my-app",
-        registeredBy: {
-          kind: "github",
-          githubRepository: "octo-org/octo-repo",
-          githubOwnerId: args.ownerId ?? OWNER_ID,
-          githubActorId: "12",
-          githubActorLogin: "octocat",
-          commitSha: "example-sha",
+        github: {
+          appId: args.appId,
+          app: "my-app",
+          deploymentType: args.deploymentType,
+          clientName: args.clientName,
+          softwareVersion: "abc123",
+          registrationTokenHash: "token-hash",
+          renewedAt: args.now,
+          registeredBy: {
+            kind: "github",
+            githubRepository: "octo-org/octo-repo",
+            githubOwnerId: ownerId,
+            githubActorId: "12",
+            githubActorLogin: "octocat",
+            commitSha: "example-sha",
+          },
+          enrollment: ["fake"],
         },
-        connectors: ["fake"],
-      };
-      yield* tx.insert("clients", client);
+      });
     }),
   );
 }
 
 /**
- * Skips the hub's sign-in page for every app, as the admin's switch does, so a sign-in with one
- * offered connector goes straight to it. For tests about what follows the page.
+ * Exempts the test repository of the test owner from the sign-in page, so the cards that it
+ * registers after this call send a sign-in with one offered connector straight to it. For tests
+ * about what follows the page.
  */
 export function skipSignInPage(h: Hub) {
-  h.memory.withTx(
-    Effect.gen(function* () {
-      const tx = yield* Tx;
-      yield* tx.insert("signInPageExemptions", {
-        target: { scope: "every_app" },
-        reason: "A test about what follows the page",
-      });
-    }),
-  );
+  setExemption(h.memory, { repositoryId: REPOSITORY_ID, ownerId: OWNER_ID }, true);
 }
 
 /**
@@ -390,27 +398,10 @@ export async function signIn(
   });
 }
 
-/** Sets or removes the block of a repository or an owner, as `moderation.setBlock` writes it. */
+/** Sets or removes the stop of a repository or an owner. */
 export function setBlock(
   h: Hub,
   change: { action: "block" | "unblock"; kind: "repository" | "owner"; githubId: string },
 ) {
-  h.memory.withTx(
-    Effect.gen(function* () {
-      const tx = yield* Tx;
-      const row = yield* unique("blocks", "by_kind_and_github_id", [change.kind, change.githubId]);
-      if (change.action === "block" && row === undefined) {
-        yield* tx.insert("blocks", {
-          kind: change.kind,
-          githubId: change.githubId,
-          reason: "Phishing page",
-          adminEmail: "admin@example.com",
-          at: h.clock.now(),
-        });
-      }
-      if (change.action === "unblock" && row !== undefined) {
-        yield* tx.delete("blocks", row.id);
-      }
-    }),
-  );
+  setStop(h.memory, { kind: change.kind, githubId: change.githubId }, change.action === "block");
 }

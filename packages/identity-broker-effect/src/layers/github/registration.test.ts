@@ -5,7 +5,7 @@
 // `POST /register`, or seed the rows.
 import { Schema } from "effect";
 import { afterEach, describe, expect, test, vi } from "vite-plus/test";
-import { sha256Hex } from "../subject.ts";
+import { sha256Hex } from "../../core/subject.ts";
 import {
   APP_ID,
   createClient,
@@ -25,7 +25,6 @@ import {
   signToken,
   skipSignInPage,
   stubProviders,
-  testPolicy,
   PRODUCTION_CALLBACK,
   type Hub,
   type NewClient,
@@ -87,7 +86,9 @@ describe("RFC 7592 client management", () => {
     // The store keeps only the hashes of the secret and the token.
     const row = clientRow(h, client.client_id);
     expect(row?.secretHash).toBe(await sha256Hex(client.client_secret));
-    expect(row?.registrationTokenHash).toBe(await sha256Hex(client.registration_access_token));
+    expect(row?.github?.registrationTokenHash).toBe(
+      await sha256Hex(client.registration_access_token),
+    );
     const wrong = configuration(client, other.registration_access_token, "GET");
     const refused = await h.fetchBroker(wrong.url, wrong.init);
     expect(refused.status).toBe(401);
@@ -134,38 +135,43 @@ describe("RFC 7592 client management", () => {
     expect(clientRow(h, client.client_id)).toBeDefined();
   });
 
-  test("a read renews a preview client and never dates a production client, paused or not", async () => {
-    let paused = false;
-    const h = await createHub({ policy: () => testPolicy({ paused }) });
+  test("a read renews a preview client and never dates a production client", async () => {
+    const h = await createHub();
     const preview = await createPreview(h);
     const production = await createClient(h);
     expect(clientRow(h, preview.client_id)?.removeAt).toBe(EPOCH + LEASE_MS);
-    paused = true;
     h.clock.advance(LEASE_MS / 2);
     for (const client of [preview, production]) {
       const read = configuration(client, client.registration_access_token, "GET");
       expect((await h.fetchBroker(read.url, read.init)).status).toBe(200);
     }
     expect(clientRow(h, preview.client_id)).toMatchObject({
-      renewedAt: h.clock.now(),
       removeAt: h.clock.now() + LEASE_MS,
+      github: { renewedAt: h.clock.now() },
     });
-    expect(clientRow(h, production.client_id)).toMatchObject({ renewedAt: h.clock.now() });
+    expect(clientRow(h, production.client_id)).toMatchObject({
+      github: { renewedAt: h.clock.now() },
+    });
     expect(clientRow(h, production.client_id)?.removeAt).toBeUndefined();
   });
 
-  test("a read changes no metadata and no credential", async () => {
+  test("a read changes no metadata and no credential, and writes the card from the allow-list of its step", async () => {
     const h = await createHub();
     const client = await createPreview(h);
     const before = clientRow(h, client.client_id);
     h.clock.advance(1_000);
     expect(await readOwnRecord(h, client)).toBe(200);
     const after = clientRow(h, client.client_id);
+    expect(before?.github).toBeDefined();
     expect(after).toEqual({
       ...before,
-      renewedAt: EPOCH + 1_000,
       removeAt: EPOCH + 1_000 + LEASE_MS,
+      github: { ...before?.github, renewedAt: EPOCH + 1_000 },
     });
+    // The repository leaves the allow-list: the next read writes a card that offers nothing.
+    h.setAllowList([]);
+    expect(await readOwnRecord(h, client)).toBe(200);
+    expect(clientRow(h, client.client_id)?.connectors).toEqual([]);
   });
 
   test("a production client cannot delete itself", async () => {
@@ -203,12 +209,11 @@ describe("RFC 7592 client management", () => {
     expect(h.rows()).toEqual(before);
   });
 
-  test("a delete removes only the client that asks, also while paused, and a gone client answers 401", async () => {
-    let paused = false;
-    const h = await createHub({ policy: () => testPolicy({ paused }) });
+  test("a delete removes only the client that asks, also while stopped, and a gone client answers 401", async () => {
+    const h = await createHub();
     const client = await createPreview(h);
     const other = await createPreview(h, 13);
-    paused = true;
+    setBlock(h, { action: "block", kind: "repository", githubId: REPOSITORY_ID });
     const forged = configuration(client, other.registration_access_token, "DELETE");
     expect((await h.fetchBroker(forged.url, forged.init)).status).toBe(401);
     const own = configuration(client, client.registration_access_token, "DELETE");
@@ -234,9 +239,8 @@ describe("RFC 7592 client management", () => {
     expect(clientRow(h, development.client_id)).toBeUndefined();
   });
 
-  test("/userinfo answers the access token of a paused client and refuses a deleted client's (RFC 7592 section 2.3)", async () => {
-    let paused = false;
-    const h = await createHub({ policy: () => testPolicy({ paused }) });
+  test("/userinfo answers the access token of a stopped client and refuses a deleted client's (RFC 7592 section 2.3)", async () => {
+    const h = await createHub();
     skipSignInPage(h);
     const client = await createPreview(h);
     const tokens = await signIn(h, client, PRODUCTION_CALLBACK);
@@ -251,7 +255,7 @@ describe("RFC 7592 client management", () => {
     const signedIn = await userinfo();
     expect(signedIn.status).toBe(200);
     expect(await signedIn.json()).not.toHaveProperty("client_id");
-    paused = true;
+    setBlock(h, { action: "block", kind: "owner", githubId: OWNER_ID });
     expect((await userinfo()).status).toBe(200);
     const own = configuration(client, client.registration_access_token, "DELETE");
     expect((await h.fetchBroker(own.url, own.init)).status).toBe(204);
@@ -276,10 +280,10 @@ describe("the lease", () => {
       now: h.clock.now() + LEASE_MS + 1,
       signInRetentionMs: 1,
     });
-    expect(counts.expiredClients).toBe(1);
+    expect(counts.clients).toBe(1);
     expect(clientRow(h, development.client_id)).toBeUndefined();
     // The production client of the token has no removal date, and stays.
-    expect(h.rows().clients.map((row) => row.clientName)).toEqual(["prod"]);
+    expect(h.rows().clients.map((row) => row.github?.clientName)).toEqual(["prod"]);
   });
 
   test("a preview app over its cap loses the client renewed longest ago", async () => {
@@ -289,7 +293,7 @@ describe("the lease", () => {
     const second = await createPreview(h, 2);
     for (let index = 2; index < 30; index += 1) {
       seedClient(h, {
-        tenantId: `gh-${REPOSITORY_ID}`,
+        repositoryId: REPOSITORY_ID,
         appId: APP_ID,
         deploymentType: "preview",
         clientId: `cl_seeded_${index}`,

@@ -4,8 +4,7 @@
 // ignores.
 import * as client from "openid-client";
 import { describe, expect, it } from "vite-plus/test";
-import { createBroker, txnCookie } from "../testing/harness.ts";
-import { registrationRoutes } from "./routes.ts";
+import { createBroker, txnCookie } from "../../core/testing/harness.ts";
 import {
   createHub,
   ISSUER,
@@ -127,7 +126,7 @@ describe("POST /register with a standard client library", () => {
 });
 
 describe("discovery", () => {
-  it("names the registration endpoint and the terms in the hub mode", async () => {
+  it("names the registration endpoint and the terms with the layer's routes", async () => {
     const h = await createHub();
 
     const document = await h.fetchBroker(`${ISSUER}/.well-known/openid-configuration`);
@@ -138,14 +137,13 @@ describe("discovery", () => {
     });
   });
 
-  it("names neither without the hub mode, and the paths are not served", async () => {
-    const h = await createBroker({ registerRoutes: registrationRoutes });
+  it("names no registration endpoint without the layer's routes, and the paths are not served", async () => {
+    const h = await createBroker();
 
     const document = await h.fetchBroker(`${ISSUER}/.well-known/openid-configuration`);
 
     const metadata = await document.json();
     expect(metadata).not.toHaveProperty("registration_endpoint");
-    expect(metadata).not.toHaveProperty("op_tos_uri");
     const register = await h.fetchBroker(`${ISSUER}/register`, {
       method: "POST",
       headers: { Authorization: "Bearer token" },

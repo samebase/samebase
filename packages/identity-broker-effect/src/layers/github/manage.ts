@@ -1,12 +1,12 @@
-import { Clock, Effect } from "effect";
-import { command } from "../command.ts";
-import { SIGNING_ALGORITHM } from "../keys.ts";
-import { readBearerToken, type TokenEndpointAuthMethod } from "../protocol.ts";
-import { invalidToken, json, noToken } from "../responses.ts";
-import { HubConfig } from "../services.ts";
-import { randomToken, sha256HexEffect } from "../subject.ts";
+import { Effect } from "effect";
+import { SIGNING_ALGORITHM } from "../../core/keys.ts";
+import { readBearerToken, type TokenEndpointAuthMethod } from "../../core/protocol.ts";
+import { invalidToken, json, noToken } from "../../core/responses.ts";
+import { HubConfig } from "../../core/services.ts";
+import { randomToken, sha256HexEffect } from "../../core/subject.ts";
+import { command, GithubSettings } from "./settings.ts";
 
-// Client management (RFC 7592) and what `POST /register` (hubClients.ts) shares with it. Each
+// Client management (RFC 7592) and what `POST /register` (register.ts) shares with it. Each
 // client holds its own registration access token for its own record, so a client can read or
 // delete only itself.
 
@@ -93,18 +93,20 @@ const clientRequest = Effect.fnUntraced(function* (request: Request) {
 
 /**
  * `GET <prefix>/register/<client>`: a deploy of a client reads it (RFC 7592 section 2.1), which
- * also renews it.
+ * also renews it and writes its card again from the settings and the rows of that step.
  */
 export const readClient = Effect.fn("readClient")(function* (request: Request) {
   const target = yield* clientRequest(request);
   if (target instanceof Response) {
     return target;
   }
-  const { issuer } = yield* HubConfig;
-  const result = yield* command("registration.renew", {
+  const hub = yield* HubConfig;
+  const { allowList } = yield* GithubSettings;
+  const result = yield* command("github.renew", {
     clientId: target.clientId,
     registrationTokenHash: target.registrationTokenHash,
-    now: yield* Clock.currentTimeMillis,
+    allowList,
+    configured: hub.configured,
   });
   if (!result.ok) {
     // RFC 7592 section 2.1: a client that is gone answers 401, one that may not read answers 403.
@@ -116,7 +118,7 @@ export const readClient = Effect.fn("readClient")(function* (request: Request) {
   // that the request presented (RFC 7592 section 3). It never has the client's secret.
   return json({
     ...clientInformation({
-      issuer,
+      issuer: hub.issuer,
       clientId: target.clientId,
       createdAt: result.createdAt,
       redirectUris: result.redirectUris,
@@ -141,7 +143,7 @@ export const deleteClient = Effect.fn("deleteClient")(function* (request: Reques
   if (target instanceof Response) {
     return target;
   }
-  const result = yield* command("registration.remove", {
+  const result = yield* command("github.remove", {
     clientId: target.clientId,
     registrationTokenHash: target.registrationTokenHash,
   });

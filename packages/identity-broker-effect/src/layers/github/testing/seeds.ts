@@ -1,21 +1,26 @@
-// The administrator's rows that the sign-in rules read and that nothing in this package writes
-// (design section 7): blocks, connector grants and sign-in page exemptions, plus a tenant's owner
-// as a registration from a new owner records it. Tests write them in one step of the Store.
+// The administrator's rows of the GitHub layer that nothing in this package writes yet: stops of
+// a repository or an owner, connector grants and sign-in page exemptions, plus a tenant's owner as
+// a registration from a new owner records it. Tests write them in one step of the Store. A grant
+// or an exemption reaches a card at its next registration, renewal or rewrite; a stop holds from
+// its commit.
 import { Effect } from "effect";
-import { Tx, unique } from "../../store/Tx.ts";
+import type { Tables } from "../../../store/tables.ts";
+import { first, type TxShape } from "../../../store/Tx.ts";
+import { ownerStop, repositoryStop, tenantIdOf } from "../clients.ts";
 
 /** What a host's test Store gives for seeding: one step over a fresh `Tx`. */
-export type Seedable = { readonly withTx: <A>(effect: Effect.Effect<A, never, Tx>) => A };
+export type Seedable = {
+  readonly withTx: <A>(body: (tx: TxShape<Tables>) => Effect.Effect<A>) => A;
+};
 
 /** Records `ownerId` as the owner of the repository's tenant, as a newer proof does. */
 export const setTenantOwner = (store: Seedable, repositoryId: string, ownerId: string) =>
-  store.withTx(
+  store.withTx((tx) =>
     Effect.gen(function* () {
-      const tx = yield* Tx;
-      const tenantId = `gh-${repositoryId}`;
-      const row = yield* unique("tenants", "by_tenant_id", [tenantId]);
+      const tenantId = tenantIdOf(repositoryId);
+      const row = yield* first(tx, "tenants", "by_tenant_id", [tenantId]);
       if (row === undefined) {
-        yield* tx.insert("tenants", { tenantId, ownerId });
+        yield* tx.insert("tenants", { tenantId, ownerId, ownerProofIssuedAt: 0 });
       } else {
         yield* tx.replace("tenants", row.id, { ...row.doc, ownerId });
       }
@@ -28,11 +33,10 @@ export const setGrant = (
   args: { repositoryId: string; ownerId: string; connector: string },
   on: boolean,
 ) =>
-  store.withTx(
+  store.withTx((tx) =>
     Effect.gen(function* () {
-      const tx = yield* Tx;
-      const tenantId = `gh-${args.repositoryId}`;
-      const row = yield* unique("connectorGrants", "by_tenant_id_and_owner_id_and_connector", [
+      const tenantId = tenantIdOf(args.repositoryId);
+      const row = yield* first(tx, "connectorGrants", "by_tenant_id_and_owner_id_and_connector", [
         tenantId,
         args.ownerId,
         args.connector,
@@ -51,32 +55,25 @@ export const setGrant = (
     }),
   );
 
-/** Adds (`on`) or removes an exemption from the sign-in page. */
+/** Adds (`on`) or removes the exemption of a repository from the sign-in page, for `ownerId`. */
 export const setExemption = (
   store: Seedable,
-  target: { scope: "every_app" } | { scope: "repository"; repositoryId: string; ownerId: string },
+  args: { repositoryId: string; ownerId: string },
   on: boolean,
 ) =>
-  store.withTx(
+  store.withTx((tx) =>
     Effect.gen(function* () {
-      const tx = yield* Tx;
-      const stored =
-        target.scope === "every_app"
-          ? { scope: "every_app" as const }
-          : {
-              scope: "repository" as const,
-              tenantId: `gh-${target.repositoryId}`,
-              ownerId: target.ownerId,
-            };
-      const row = yield* unique(
-        "signInPageExemptions",
-        "by_target",
-        stored.scope === "every_app"
-          ? ["every_app", undefined, undefined]
-          : [stored.scope, stored.tenantId, stored.ownerId],
-      );
+      const tenantId = tenantIdOf(args.repositoryId);
+      const row = yield* first(tx, "signInPageExemptions", "by_tenant_id_and_owner_id", [
+        tenantId,
+        args.ownerId,
+      ]);
       if (on && row === undefined) {
-        yield* tx.insert("signInPageExemptions", { target: stored, reason: "Trusted team" });
+        yield* tx.insert("signInPageExemptions", {
+          tenantId,
+          ownerId: args.ownerId,
+          reason: "Trusted team",
+        });
       }
       if (!on && row !== undefined) {
         yield* tx.delete("signInPageExemptions", row.id);
@@ -84,27 +81,22 @@ export const setExemption = (
     }),
   );
 
-/** Blocks (`on`) or unblocks a repository or an owner. */
+/** Stops (`on`) or lets go a repository or an owner: one row of `stops` with the layer's key. */
 export const setBlock = (
   store: Seedable,
   args: { kind: "repository" | "owner"; githubId: string },
   on: boolean,
 ) =>
-  store.withTx(
+  store.withTx((tx) =>
     Effect.gen(function* () {
-      const tx = yield* Tx;
-      const row = yield* unique("blocks", "by_kind_and_github_id", [args.kind, args.githubId]);
+      const key =
+        args.kind === "repository" ? repositoryStop(args.githubId) : ownerStop(args.githubId);
+      const row = yield* first(tx, "stops", "by_key", [key]);
       if (on && row === undefined) {
-        yield* tx.insert("blocks", {
-          kind: args.kind,
-          githubId: args.githubId,
-          reason: "A test block",
-          adminEmail: "admin@example.com",
-          at: 0,
-        });
+        yield* tx.insert("stops", { key, at: 0 });
       }
       if (!on && row !== undefined) {
-        yield* tx.delete("blocks", row.id);
+        yield* tx.delete("stops", row.id);
       }
     }),
   );
