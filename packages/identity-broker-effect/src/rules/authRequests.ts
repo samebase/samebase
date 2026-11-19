@@ -46,7 +46,6 @@ const baseFields = (request: AuthRequest) => ({
   ...(request.nonce === undefined ? {} : { nonce: request.nonce }),
   codeChallenge: request.codeChallenge,
   connectors: request.connectors,
-  confirm: request.confirm,
   freshLogin: request.freshLogin,
   txnCookieHash: request.txnCookieHash,
   createdAt: request.createdAt,
@@ -91,7 +90,7 @@ const spendBudget = Effect.fnUntraced(function* (key: string, now: number) {
  * Stores a validated /authorize request, from the card as it is in this step: the card must exist,
  * be stopped by no gate and hold the return address. The stored set is what the request named
  * (none named: every connector of the card), of those on the card and configured; `off` when none
- * is left. The card's `confirm` is stored with the request, and the start spends the card's
+ * is left. The answer carries the card's `confirm` of this step, and the start spends the card's
  * `budget`. A refused request writes no row.
  */
 export const create = Effect.fnUntraced(function* (
@@ -118,7 +117,6 @@ export const create = Effect.fnUntraced(function* (
   if (!(yield* spendBudget(card.doc.budget, step.now))) {
     return { ok: false, error: "rate_limited" };
   }
-  const { confirm } = card.doc;
   yield* tx.insert("authRequests", {
     status: "pending",
     requestId: args.requestId,
@@ -129,13 +127,12 @@ export const create = Effect.fnUntraced(function* (
     ...(args.nonce === undefined ? {} : { nonce: args.nonce }),
     codeChallenge: args.codeChallenge,
     connectors,
-    confirm,
     freshLogin: args.freshLogin,
     txnCookieHash: args.txnCookieHash,
     createdAt: args.createdAt,
     expiresAt: args.expiresAt,
   });
-  return { ok: true, connectors, confirm };
+  return { ok: true, connectors, confirm: card.doc.confirm };
 });
 
 /** What the continue handler needs of a request: no upstream state, verifier, or identity. */

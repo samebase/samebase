@@ -174,10 +174,7 @@ const search = (requestIds: ReadonlyArray<string>, depth: number) => {
           // The set and `confirm` are the card's of this step.
           expect(result.connectors).toEqual(before?.connectors);
           expect(result.confirm).toBe(before?.confirm);
-          expect(requestOf(action.r)).toMatchObject({
-            connectors: before?.connectors,
-            confirm: before?.confirm,
-          });
+          expect(requestOf(action.r)).toMatchObject({ connectors: before?.connectors });
         } else if (result.error === "stopped") {
           expect(stopped()).toBe(true);
         } else if (result.error === "redirect_uri") {

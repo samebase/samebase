@@ -70,8 +70,6 @@ const authRequestFields = {
   codeChallenge: Str,
   /** The connectors stored at `/authorize`: a later step goes on only with one of these. */
   connectors: Schema.Array(Str),
-  /** The card's `confirm` when the request was stored. */
-  confirm: Schema.Boolean,
   freshLogin: Schema.Boolean,
   txnCookieHash: Str,
   createdAt: Num,

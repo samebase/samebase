@@ -314,7 +314,7 @@ describe.each(hosts)("%s", (_name, make) => {
   });
 
   describe("what a request may use", () => {
-    test("create stores the card's set and confirm of its step, and spends the card's budget", () => {
+    test("create stores the card's set of its step, answers its confirm, and spends its budget", () => {
       const t = registered();
       editCard(t, (doc) => ({ ...doc, connectors: ["g", "github"], confirm: false }));
       expect(create(t, { requested: ["github", "google"] })).toEqual({
@@ -323,7 +323,6 @@ describe.each(hosts)("%s", (_name, make) => {
         confirm: false,
       });
       expect(get(t)).toMatchObject({ connectors: ["github"] });
-      expect(rowsOf(t, "authRequests", "by_request_id")).toMatchObject([{ confirm: false }]);
       expect(rowsOf(t, "signInBudgets", "by_key")).toMatchObject([{ key: "layer:1" }]);
       // A connector that the hub no longer configures is not stored either.
       expect(create(t, { requestId: "r2", configured: ["g"] })).toMatchObject({
