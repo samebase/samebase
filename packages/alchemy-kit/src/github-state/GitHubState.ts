@@ -529,7 +529,7 @@ export const state = (
         // One codec for BucketState and the point reads, so a stage mints one data key.
         const codec = makeSealingCodec(yield* StateEncryption);
         const objects = yield* makeGitHubObjects(options);
-        const opened: BucketObjects = {
+        const checked: BucketObjects = {
           ...objects,
           read: (objectKey) =>
             objects.read(objectKey).pipe(
@@ -545,7 +545,7 @@ export const state = (
         const bucket = yield* makeBucketState({
           id: "github",
           label: "GitHub",
-          objects: Effect.succeed(opened),
+          objects: Effect.succeed(checked),
           codec,
         });
         // A point read skips BucketState, so it checks the store's format itself.
@@ -643,7 +643,7 @@ export const state = (
             const kept = reads.get(path);
             return (
               kept === undefined
-                ? checkFormat.pipe(Effect.andThen(opened.read(path)))
+                ? checkFormat.pipe(Effect.andThen(checked.read(path)))
                 : Effect.succeed(kept.object)
             ).pipe(
               Effect.flatMap((object) => {
@@ -656,7 +656,7 @@ export const state = (
                 // Decoded only: a stale record is sealed again by the run that locks its stage.
                 return text === undefined
                   ? Effect.undefined
-                  : codec.decode<A>(request, text, `state object '${path}'`);
+                  : codec.decode<A>({ stack, stage }, text, `state object '${path}'`);
               }),
             );
           });
