@@ -29,12 +29,23 @@ its `reviveState` reads every object with this key as a secret.
 export const ALCHEMY_REDACTED_MARKER = "__redacted__";
 
 /**
-Alchemy state holds each `Redacted` value in clear text. This parses a JSON text of the state, keeps
-the key of each secret, and replaces its value with `null`, so the value never leaves the action.
+A state file that Alchemy's state encryption sealed starts with an `alchemy:sealed:1:<by>:<wrapped
+key>` line, then the JSON of the state, in which each secret is `{ "__sealed__": <ciphertext> }`.
+
+@see https://github.com/alchemy-run/alchemy/blob/44fd6d06fb28929e843553b228b7734aadd00908/packages/alchemy/src/State/StateEncryption.ts#L32-L52
+*/
+const ALCHEMY_SEALED_PREFIX = "alchemy:sealed:1:";
+const ALCHEMY_SEALED_MARKER = "__sealed__";
+
+/**
+Alchemy state holds each `Redacted` value in clear text, or sealed. This parses a text of the state,
+keeps the key of each secret, and replaces its value with `{ "__redacted__": null }`, so neither the
+value nor its ciphertext leaves the action.
 */
 export function parseWithoutSecretValues(text: string): unknown {
-  return JSON.parse(text, (_key, current: unknown) =>
-    isRecord(current) && ALCHEMY_REDACTED_MARKER in current
+  const json = text.startsWith(ALCHEMY_SEALED_PREFIX) ? text.slice(text.indexOf("\n") + 1) : text;
+  return JSON.parse(json, (_key, current: unknown) =>
+    isRecord(current) && (ALCHEMY_REDACTED_MARKER in current || ALCHEMY_SEALED_MARKER in current)
       ? { [ALCHEMY_REDACTED_MARKER]: null }
       : current,
   );
