@@ -30,8 +30,11 @@ services:
     volumes:
       - ${IBE_CONFORMANCE_TLS:?}/tls-cert.pem:/etc/ssl/certs/nginx-selfsigned.crt:ro
       - ${IBE_CONFORMANCE_TLS:?}/tls-key.pem:/etc/ssl/private/nginx-selfsigned.key:ro
+    # The suite's browser opens the suite's own address through the Docker host. Docker Desktop
+    # forwards the host's loopback; on Linux the host is the bridge address, so the workflow sets
+    # IBE_SUITE_BIND to 0.0.0.0. The runner takes no connections from outside.
     ports:
-      - 127.0.0.1:8443:8443
-      - 127.0.0.1:8444:8444
+      - ${IBE_SUITE_BIND:-127.0.0.1}:8443:8443
+      - ${IBE_SUITE_BIND:-127.0.0.1}:8444:8444
     depends_on:
       - server
