@@ -40,9 +40,6 @@ jobs:
     defaults:
       run:
         working-directory: packages/identity-broker-effect
-    env:
-      # compose.yml mounts the run's certificate from this folder.
-      IBE_CONFORMANCE_TLS: ${{ runner.temp }}/conformance
 
     steps:
       - name: Checkout code
@@ -66,8 +63,14 @@ jobs:
         working-directory: .
         run: pnpm install --frozen-lockfile
 
+      # compose.yml mounts the run's certificate from IBE_CONFORMANCE_TLS. The `runner` context
+      # exists only in steps, not in the job's `env`.
       - name: Pull the suite's images
+        env:
+          IBE_CONFORMANCE_TLS: ${{ runner.temp }}/conformance
         run: docker compose -f test/conformance/compose.yml pull --quiet
 
       - name: Run the conformance plans
+        env:
+          IBE_CONFORMANCE_TLS: ${{ runner.temp }}/conformance
         run: node test/conformance/run.ts --work "$IBE_CONFORMANCE_TLS"
