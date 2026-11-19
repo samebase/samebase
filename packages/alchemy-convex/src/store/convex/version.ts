@@ -15,4 +15,6 @@
 // 6: a run record's `source` is `github-actions` or `checkout`, no longer `laptop` (0.32.0).
 // 7: Alchemy's state interface only: `set`, `remove`, and `setOutput` take no `run`, `readStack`
 //    and `reader:repository` give stages as `{ name, resources, output }` (0.35.0).
-export const STORE_VERSION = 7;
+// 8: the client seals with Alchemy's sealing codec: `set` and `setOutput` are mutations that refuse
+//    a secret in clear text, with `newDataKey` and `openDataKey`; no `reseal`.
+export const STORE_VERSION = 8;

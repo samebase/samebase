@@ -1,15 +1,19 @@
-// The secrets of the state rows. Alchemy's `encodeState` writes a `Redacted` value in clear text as
-// `{ "__redacted__": <value> }`. A row holds `{ "__redacted__": { "__sealed__": <sealed> } }`, so a
-// table view, a snapshot, or a reader that forgets to remove secrets shows no value.
+// The keys of the store and the secrets of the state rows. Since store version 8 the client seals
+// each secret with Alchemy's sealing codec, under a data key of its stage, before a write. The store
+// is the key service of that codec: `state:newDataKey` makes a data key and gives it back with a
+// copy wrapped under the current key of the store, and `state:openDataKey` opens a wrapped copy for
+// the stage that it was made for. So a row holds no secret in clear text, and the client needs no
+// key of its own.
 //
-// Each key is one variable `STATE_KEY_<keyId>` of the store deployment, and a sealed value names its
-// key. So two runs that make a key at the same time add two variables, and neither can replace a
+// Each key is one variable `STATE_KEY_<keyId>` of the store deployment, and a wrapped data key names
+// its key. So two runs that make a key at the same time add two variables, and neither can replace a
 // key that a row needs. The table `keys` of the component names the current key: that choice is a
-// transaction, so the first run wins, and a write that sealed under an older key cannot commit.
+// transaction, so the first run wins.
 //
-// `state:set` and `state:setOutput` seal in an action, and the reads of a run open in a query.
-// `state:readStack` and `reader:repository` give the rows as they are stored, without their
-// secrets. A value without `__sealed__` is one that `state:reseal` has not reached yet.
+// Store version 7 sealed in the store: a row of that version holds
+// `{ "__redacted__": { "__sealed__": <sealed> } }`, or a secret in clear text that its reseal did not
+// reach. The reads of a run still open such a row (`openText`), and the next write of that resource
+// replaces it.
 import { openSecret, parseKeyRing, sealSecret, type SealedSecret } from "../sealedSecret.ts";
 
 const REDACTED = "__redacted__";
@@ -36,10 +40,10 @@ export const requireKey = (keyId: string) => {
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
-/** The sealed object of a `__redacted__` value, or undefined for a value in clear text. */
-const sealedIn = (value: unknown): SealedSecret | undefined => {
-  if (!isRecord(value) || !isRecord(value[SEALED])) return undefined;
-  const { keyId, iv, ciphertext } = value[SEALED];
+/** `value` as a sealed object, or undefined when it is not one. */
+const sealedOf = (value: unknown): SealedSecret | undefined => {
+  if (!isRecord(value)) return undefined;
+  const { keyId, iv, ciphertext } = value;
   return typeof keyId === "string" && typeof iv === "string" && typeof ciphertext === "string"
     ? { keyId, iv, ciphertext }
     : undefined;
@@ -59,44 +63,67 @@ const mapSecrets = async (
   return Object.fromEntries(entries);
 };
 
-/** True when a JSON text of `encodeState` can hold a secret. */
-export const hasSecret = (text: string) => text.includes(REDACTED);
-
-/** The JSON text with each secret changed. A text without a secret stays the same text. */
-const mapText = async (text: string, change: (secret: unknown) => Promise<unknown>) =>
-  hasSecret(text) ? JSON.stringify(await mapSecrets(JSON.parse(text), change)) : text;
-
-const sealValue = async (value: unknown, aad: string, keyId: string) => ({
-  [SEALED]: await sealSecret(keyRingOf(keyId), { plaintext: JSON.stringify(value), aad }),
-});
-
-const openValue = async (sealed: SealedSecret, aad: string): Promise<unknown> =>
-  JSON.parse(await openSecret(keyRingOf(sealed.keyId), { sealed, aad }));
-
-/** The owner of a resource row: a sealed value opens only in the row that sealed it. */
+/** The owner of a resource row of store version 7: a sealed value opens only in that row. */
 export const resourceAad = (row: { stack: string; stage: string; fqn: string }) =>
   JSON.stringify(["resource", row.stack, row.stage, row.fqn]);
 
-/** The owner of an output row. */
+/** The owner of an output row of store version 7. */
 export const outputAad = (row: { stack: string; stage: string }) =>
   JSON.stringify(["output", row.stack, row.stage]);
 
-/** Seals each secret of a JSON text of `encodeState`. Only an action can call it. */
-export const sealText = (text: string, aad: string, keyId: string) =>
-  mapText(text, (secret) => sealValue(secret, aad, keyId));
+/**
+ * Opens each secret of a row of store version 7, for the reads of a run. A row that the client
+ * sealed holds no `__redacted__` object, and it comes back as the same JSON.
+ */
+export const openText = async (text: string, aad: string) =>
+  text.includes(REDACTED)
+    ? JSON.stringify(
+        await mapSecrets(JSON.parse(text), async (secret) => {
+          const sealed = isRecord(secret) ? sealedOf(secret[SEALED]) : undefined;
+          return sealed === undefined
+            ? secret
+            : JSON.parse(await openSecret(keyRingOf(sealed.keyId), { sealed, aad }));
+        }),
+      )
+    : text;
 
-/** Opens each secret of a row, for the reads of a run. */
-export const openText = (text: string, aad: string) =>
-  mapText(text, async (secret) => {
-    const sealed = sealedIn(secret);
-    return sealed === undefined ? secret : openValue(sealed, aad);
+/**
+ * Fails when a JSON text holds a secret in clear text: an object with the key `__redacted__`. The
+ * client seals each secret before a write, so such a text comes from a client of store version 7.
+ */
+export const refuseClearSecrets = (text: string) => {
+  JSON.parse(text, (key, value: unknown) => {
+    if (key === REDACTED) {
+      throw new Error(
+        "The store takes no secret in clear text. Update @samebase/alchemy-convex: it seals each secret before a write.",
+      );
+    }
+    return value;
   });
+};
 
-/** The row with every secret sealed under `keyId`. Only an action can call it. */
-export const resealText = (text: string, aad: string, keyId: string) =>
-  mapText(text, async (secret) => {
-    const sealed = sealedIn(secret);
-    if (sealed === undefined) return sealValue(secret, aad, keyId);
-    if (sealed.keyId === keyId) return secret;
-    return sealValue(await openValue(sealed, aad), aad, keyId);
-  });
+/** The owner of a data key: it opens only for the stage that it was made for. */
+const dataKeyAad = (scope: { stack: string; stage: string }) =>
+  JSON.stringify(["data-key", scope.stack, scope.stage]);
+
+/**
+ * The data key `dataKey` of a stage, sealed under the key `keyId`: base64 of the JSON of the sealed
+ * object. Only an action can call it.
+ */
+export const wrapDataKey = async (
+  dataKey: string,
+  scope: { stack: string; stage: string },
+  keyId: string,
+) =>
+  btoa(
+    JSON.stringify(
+      await sealSecret(keyRingOf(keyId), { plaintext: dataKey, aad: dataKeyAad(scope) }),
+    ),
+  );
+
+/** The data key of a wrapped copy. It fails for another stage, or when its key is gone. */
+export const unwrapDataKey = (wrapped: string, scope: { stack: string; stage: string }) => {
+  const sealed = sealedOf(JSON.parse(atob(wrapped)));
+  if (sealed === undefined) throw new Error("This is not a data key of the store.");
+  return openSecret(keyRingOf(sealed.keyId), { sealed, aad: dataKeyAad(scope) });
+};
