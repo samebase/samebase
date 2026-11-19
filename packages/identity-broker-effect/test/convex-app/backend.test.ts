@@ -11,11 +11,10 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseEnv } from "node:util";
 import { ConvexHttpClient } from "convex/browser";
-import { Schema } from "effect";
+import { Effect, Schema } from "effect";
 import fc from "fast-check";
 import { base64url, createLocalJWKSet, jwtVerify } from "jose";
 import { afterAll, beforeAll, beforeEach, expect, test } from "vite-plus/test";
-import { registrationRoutes } from "../../src/core/hub/routes.ts";
 import { createKeySet } from "../../src/core/keys.ts";
 import { sha256Hex } from "../../src/core/subject.ts";
 import {
@@ -23,10 +22,11 @@ import {
   fakeOidcUpstream,
   pkce,
   stubFetch,
-  testRegistration,
   txnCookie,
   type StubFetch,
 } from "../../src/core/testing/harness.ts";
+import { githubRoutes } from "../../src/layers/github/routes.ts";
+import { GithubSettings } from "../../src/layers/github/settings.ts";
 import {
   dyingStep,
   edgeStep,
@@ -42,7 +42,7 @@ import {
   stepLists,
   type Player,
 } from "../../src/hosts/convex/testing.ts";
-import type { Args } from "../../src/store/Store.ts";
+import type { Args } from "../../src/store/commands.ts";
 import { StepOutput } from "../../src/store/testing.ts";
 import { api } from "./convex/_generated/api.js";
 import { FAKE_IDP_ISSUER, FAKE_IDP_PORT } from "./convex/fakeIdp.ts";
@@ -154,8 +154,8 @@ type TestHub = {
   readonly issuer: string;
   /** A request to the hub, whose redirects are not followed. */
   readonly fetch: (input: string, init?: RequestInit) => Promise<Response>;
-  /** Runs `hubClients.createClient`, as `POST /register` does after it checked a GitHub proof. */
-  readonly seedProduction: (args: Args<"hubClients.createClient">) => Promise<void>;
+  /** Runs `github.createClient`, as `POST /register` does after it checked a GitHub proof. */
+  readonly seedProduction: (args: Args<"github.createClient">) => Promise<void>;
   /** The fake provider's next id_token. */
   readonly nextIdToken: (value: { nonce: string; authTime: number }) => void;
   /** The provider's calls that it had no answer for. */
@@ -199,8 +199,8 @@ const serveUpstream = (fetch: StubFetch) =>
     server.listen(FAKE_IDP_PORT, "127.0.0.1", () => resolve(server));
   });
 
-/** The registration names of `testRegistration`, which convex/hub.ts uses too. */
-const policy = () => ({ connectors: ["idp"], resources: [], paused: false });
+/** The allow-list of convex/hub.ts: the seeded repository with its owner. */
+const ALLOW_LIST = [{ repositoryId: "1", ownerId: "65" }];
 
 let upstreamServer: Server | undefined;
 const convexUpstream = stubFetch();
@@ -223,7 +223,7 @@ const convexHub = (): TestHub => ({
   fetch: (input, init) => fetch(input, { ...init, redirect: "manual" }),
   seedProduction: async (args) => {
     await client.mutation(api.ops.command, {
-      name: "hubClients.createClient",
+      name: "github.createClient",
       args: JSON.stringify(args),
       now: Date.now(),
     });
@@ -237,19 +237,19 @@ const memoryHub = async (): Promise<TestHub> => {
   const idp = await fakeOidcUpstream(upstream);
   const h = await createBroker({
     fetch: upstream,
-    config: {
-      issuer: siteUrl,
-      connectors: [idp.connector],
-      registration: testRegistration(policy),
-    },
-    registerRoutes: registrationRoutes,
+    config: { issuer: siteUrl, connectors: [idp.connector] },
+    routes: githubRoutes.map((route) => ({
+      ...route,
+      handler: (request: Request) =>
+        route.handler(request).pipe(Effect.provide(GithubSettings.layer(ALLOW_LIST))),
+    })),
   });
   h.clock.set(Date.now());
   return {
     issuer: h.issuer,
     fetch: h.fetchBroker,
     seedProduction: async (args) => {
-      h.memory.run("hubClients.createClient", args);
+      h.memory.run("github.createClient", args);
     },
     nextIdToken: idp.nextIdToken,
     unexpected: upstream.unexpected,
@@ -302,14 +302,14 @@ const seedApp = async (hub: TestHub) => {
       initialAccessTokenHash: await sha256Hex(initialAccessToken),
     },
     connectors: ["idp"],
-    policyConnectors: ["idp"],
-    configuredConnectors: ["idp"],
     app: APP,
-    // `appIdOf` in src/core/hub/hubClients.ts.
+    // `appIdOf` in src/layers/github/register.ts.
     appId: `gh-1-${(await sha256Hex(APP)).slice(0, 32)}`,
     redirectUris: ["https://app.test/cb"],
     softwareVersion: "1",
     tokenEndpointAuthMethod: "client_secret_post",
+    allowList: ALLOW_LIST,
+    configured: ["idp"],
   });
   return initialAccessToken;
 };
@@ -503,7 +503,7 @@ test("the cleanup runs batches until none is left", async () => {
   for (let at = 1; at <= 450; at++) {
     await client.mutation(api.ops.command, {
       name: "signIns.record",
-      args: JSON.stringify({ appId: "a", clientId: "c", connector: "idp", sub: "s", at }),
+      args: JSON.stringify({ clientId: "c", ref: "test:a", connector: "idp", sub: "s", at }),
       now: Date.now(),
     });
   }

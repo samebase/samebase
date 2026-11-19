@@ -1,6 +1,6 @@
 // The hub under the OpenID conformance suite: the real Worker runtime and its SQLite Durable Object
 // (src/hosts/cloudflare/hub.ts), in workerd through `alchemy dev`, with local settings. Only the
-// settings differ from the deployed hub: the issuer, the two connectors, and the policy.
+// settings differ from the deployed hub: the issuer, the two connectors, and the sign-in service.
 //
 // - `fake`: the fake OpenID provider of the OP plans (fake-upstream.ts). The OP plans test the hub
 //   as a provider, not its upstream.
@@ -14,6 +14,7 @@ import * as Cloudflare from "@alchemy.run/cloudflare";
 import { Config, Effect, Layer, Redacted } from "effect";
 import { HubConfig } from "../../src/core/services.ts";
 import { hubRuntime } from "../../src/hosts/cloudflare/hub.ts";
+import { GithubSettings } from "../../src/layers/github/settings.ts";
 import {
   FAKE_CONNECTOR_CLIENT_ID,
   FAKE_ISSUER,
@@ -22,9 +23,6 @@ import {
   SUITE_CONNECTOR_CLIENT_ID,
   SUITE_RP_ISSUER,
 } from "./addresses.ts";
-
-/** The connectors of the local hub, in the order discovery names them. */
-export const CONNECTORS = ["fake", "suite"] as const;
 
 const settings = Layer.unwrap(
   Effect.gen(function* () {
@@ -54,15 +52,17 @@ const settings = Layer.unwrap(
           clientSecret: yield* Config.Redacted("SUITE_CONNECTOR_CLIENT_SECRET"),
         },
       ],
-      registration: {
+      service: {
         name: "Conformance hub",
         terms: `${ISSUER}/terms`,
         privacy: `${ISSUER}/privacy`,
-        // Each client may use what the fixture enrolled it in.
-        policy: () => ({ connectors: [...CONNECTORS], resources: [], paused: false }),
       },
     }).pipe(Layer.orDie);
   }),
+).pipe(
+  // The suite registers no client at `POST /register`: the fixture (admin.ts) writes each card
+  // with its own allow-list.
+  Layer.merge(GithubSettings.layer([])),
 );
 
 export default class ConformanceHub extends Cloudflare.Worker<ConformanceHub>()(

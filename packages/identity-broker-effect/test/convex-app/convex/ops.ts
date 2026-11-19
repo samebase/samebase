@@ -6,7 +6,6 @@ import { Effect, Schema } from "effect";
 import { convexTx } from "../../../src/hosts/convex/tx.ts";
 import { microtaskScheduler } from "../../../src/store/Store.ts";
 import { playStep, StepInput, testTables } from "../../../src/store/testing.ts";
-import { Tx } from "../../../src/store/Tx.ts";
 import { components } from "./_generated/api.js";
 
 const decodeStep = Schema.decodeUnknownSync(StepInput);
@@ -29,10 +28,9 @@ export const reset = mutationGeneric({
 export const step = mutationGeneric({
   args: { step: v.any() },
   handler: (ctx, args) =>
-    Effect.runPromise(
-      playStep(decodeStep(args.step)).pipe(Effect.provideService(Tx, convexTx(ctx.db))),
-      { scheduler: microtaskScheduler() },
-    ),
+    Effect.runPromise(playStep(convexTx(ctx.db), decodeStep(args.step)), {
+      scheduler: microtaskScheduler(),
+    }),
 });
 
 export const command = mutationGeneric({

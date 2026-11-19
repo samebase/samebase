@@ -1,19 +1,14 @@
 import { Effect } from "effect";
 import { expect, test } from "vite-plus/test";
 import { Store } from "../store/Store.ts";
-import { Tx, unique } from "../store/Tx.ts";
+import { unique } from "../store/Tx.ts";
 import { makeMemoryStore } from "./memory.ts";
 
 test("a seeded row is read back by its unique index, and a step clock is settable", () => {
   const hub = makeMemoryStore({ now: 1_000 });
-  hub.withTx(
-    Effect.gen(function* () {
-      const tx = yield* Tx;
-      yield* tx.insert("apps", { appId: "gh-1-a", name: "gh-1-a", tenantId: "gh-1", createdAt: 5 });
-    }),
-  );
-  const row = hub.withTx(unique("apps", "by_app_id", ["gh-1-a"]));
-  expect(row?.doc).toEqual({ appId: "gh-1-a", name: "gh-1-a", tenantId: "gh-1", createdAt: 5 });
+  hub.withTx((tx) => tx.insert("stops", { key: "test:1", at: 5 }));
+  const row = hub.withTx((tx) => unique(tx, "stops", "by_key", ["test:1"]));
+  expect(row?.doc).toEqual({ key: "test:1", at: 5 });
   hub.setNow(2_000);
   expect(hub.now()).toBe(2_000);
   const program = Effect.gen(function* () {

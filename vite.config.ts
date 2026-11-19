@@ -248,6 +248,27 @@ export default defineConfig({
         },
       },
       {
+        // The identity hub's core reads only client cards: no rule or handler of it may import a
+        // layer (src/layers), which writes the cards.
+        files: [
+          "packages/identity-broker-effect/src/core/**/*.ts",
+          "packages/identity-broker-effect/src/rules/**/*.ts",
+        ],
+        rules: {
+          "no-restricted-imports": [
+            "error",
+            {
+              patterns: [
+                {
+                  group: ["**/layers/**"],
+                  message: "The core of the identity hub imports no layer.",
+                },
+              ],
+            },
+          ],
+        },
+      },
+      {
         files: ["packages/identity-broker/src/component/**/*.ts"],
         rules: {
           "@convex-dev/no-old-registered-function-syntax": "error",

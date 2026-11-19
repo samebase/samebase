@@ -134,7 +134,7 @@ export const pullRequestClaims = { event_name: "pull_request", ref: "refs/pull/1
 
 /** A GitHub Actions OIDC token issued at the hub's clock time. */
 export async function signToken(
-  h: Hub,
+  h: Pick<Hub, "clock">,
   claims: Record<string, unknown> = {},
   options: { foreign?: true; expiresInSeconds?: number; withoutExpiry?: true } = {},
 ): Promise<string> {
@@ -154,7 +154,7 @@ export const jsonResponse = (value: unknown, status = 200) =>
  * this repository. Returns the requests for the file. A later call's plans win over an earlier's.
  */
 export async function stubProviders(
-  h: Hub,
+  h: Pick<Hub, "fetch">,
   host: (request: Request) => Response | Promise<Response> = () =>
     jsonResponse({ repository: REPOSITORY_ID }),
 ) {

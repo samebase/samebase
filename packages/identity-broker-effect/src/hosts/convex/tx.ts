@@ -5,15 +5,23 @@
 // no write can reach the database after it.
 import type { GenericDatabaseWriter, GenericDataModel, GenericDocument } from "convex/server";
 import { Effect, Schema } from "effect";
-import { tables, type Doc, type IndexName, type TableName } from "../../store/tables.ts";
 import {
+  tables,
+  type Doc,
+  type IndexName,
+  type TableName,
+  type Tables,
+} from "../../store/tables.ts";
+import {
+  type Row as RowOf,
   checkQuery,
   RowId,
   type IndexValue,
   type Query,
-  type Row,
   type TxShape,
 } from "../../store/Tx.ts";
+
+type Row<T extends TableName> = RowOf<Tables, T>;
 
 /**
  * A Convex document value, from the JSON text of an encoded document of `tables.ts`. JSON text has
@@ -36,7 +44,7 @@ interface Range {
   lte(field: string, value: IndexValue): Range;
 }
 
-export const convexTx = (db: GenericDatabaseWriter<GenericDataModel>): TxShape => {
+export const convexTx = (db: GenericDatabaseWriter<GenericDataModel>): TxShape<Tables> => {
   const encode = (table: TableName, doc: unknown) =>
     toFields(JSON.stringify(Schema.encodeUnknownSync(tables[table].schema)(doc)));
   const rowOf = <T extends TableName>(table: T, stored: GenericDocument): Row<T> => {
@@ -68,7 +76,7 @@ export const convexTx = (db: GenericDatabaseWriter<GenericDataModel>): TxShape =
       Effect.promise(() => db.delete(table, idOf(table, id))),
     query: <T extends TableName>(table: T, index: IndexName<T>, query: Query) =>
       Effect.promise(async (): Promise<ReadonlyArray<Row<T>>> => {
-        const checked = checkQuery(table, index, query);
+        const checked = checkQuery(tables, table, index, query);
         const range = (q: Range) => {
           let at = q;
           checked.eq.forEach((value, field) => {

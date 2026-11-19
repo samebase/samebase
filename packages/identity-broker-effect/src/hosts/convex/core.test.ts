@@ -9,7 +9,6 @@ import { convexTest } from "convex-test";
 import { Effect } from "effect";
 import { useTestStore } from "../../core/testing/harness.ts";
 import { microtaskScheduler } from "../../store/Store.ts";
-import { Tx } from "../../store/Tx.ts";
 import { api } from "./component/_generated/api.ts";
 import schema from "./component/schema.ts";
 import { convexStore } from "./hub.ts";
@@ -25,17 +24,14 @@ useTestStore(() => {
   const t = convexTest(schema, modules);
   return {
     store: convexStore({ runMutation: t.mutation }, api.commands.run),
-    seed: (effect) =>
+    seed: (body) =>
       t.run((ctx) =>
         Effect.runPromise(
-          effect.pipe(
-            Effect.provideService(
-              Tx,
-              // @ts-expect-error convex-test types `ctx.db` with the data model of the component's
-              // schema, whose tables come from a string-keyed record. At run time it is the writer
-              // that `mutationGeneric` gives commands.run as `GenericDatabaseWriter<GenericDataModel>`.
-              convexTx(ctx.db),
-            ),
+          body(
+            // @ts-expect-error convex-test types `ctx.db` with the data model of the component's
+            // schema, whose tables come from a string-keyed record. At run time it is the writer
+            // that `mutationGeneric` gives commands.run as `GenericDatabaseWriter<GenericDataModel>`.
+            convexTx(ctx.db),
           ),
           { scheduler: microtaskScheduler() },
         ),

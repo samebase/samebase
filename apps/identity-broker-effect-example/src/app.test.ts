@@ -10,19 +10,20 @@ import * as FetchHttpClient from "effect/http/FetchHttpClient";
 import * as HttpServerRequest from "effect/http/HttpServerRequest";
 import * as HttpServerResponse from "effect/http/HttpServerResponse";
 import { TestClock } from "effect/testing";
-import { registrationRoutes } from "../../../packages/identity-broker-effect/src/core/hub/routes.ts";
-import {
-  pullRequestClaims,
-  readNewClient,
-  signToken,
-  stubProviders,
-} from "../../../packages/identity-broker-effect/src/core/hub/testing/hub.ts";
 import {
   createBroker,
   fakeOidcUpstream,
   stubFetch,
-  testRegistration,
 } from "../../../packages/identity-broker-effect/src/core/testing/harness.ts";
+import { githubRoutes } from "../../../packages/identity-broker-effect/src/layers/github/routes.ts";
+import { GithubSettings } from "../../../packages/identity-broker-effect/src/layers/github/settings.ts";
+import {
+  OWNER_ID,
+  pullRequestClaims,
+  readNewClient,
+  signToken,
+  stubProviders,
+} from "../../../packages/identity-broker-effect/src/layers/github/testing/hub.ts";
 import { app } from "./app.ts";
 import { HubClient } from "./hub-client.ts";
 import { Session } from "./session.ts";
@@ -41,13 +42,19 @@ async function createTestHub() {
     config: {
       issuer: HUB,
       connectors: [{ ...google.connector, name: "google", provider: "google", label: "Google" }],
-      registration: testRegistration((registration) => ({
-        connectors: registration.repositoryId === REPOSITORY_ID ? ["google"] : [],
-        resources: [],
-        paused: false,
-      })),
     },
-    registerRoutes: registrationRoutes,
+    // The allow-list names this repository with the owner of GitHub's documented token.
+    routes: githubRoutes.map((route) => ({
+      ...route,
+      handler: (request: Request) =>
+        route
+          .handler(request)
+          .pipe(
+            Effect.provide(
+              GithubSettings.layer([{ repositoryId: REPOSITORY_ID, ownerId: OWNER_ID }]),
+            ),
+          ),
+    })),
   });
   // The app checks the ID token's times against the real clock.
   broker.clock.set(Date.now());
