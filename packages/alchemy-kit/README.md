@@ -38,7 +38,7 @@ repository and its `GITHUB_TOKEN` are enough.
 **1. Install.**
 
 ```sh
-pnpm add -D @samebase/alchemy-kit alchemy@https://pkg.alchemy.run/alchemy/pr:3167:44fd6d0 effect
+pnpm add -D @samebase/alchemy-kit alchemy@https://pkg.alchemy.run/alchemy/pr:3167:61500d4 effect
 ```
 
 **2. Give the store to your stack**, in `alchemy.run.ts`. The store needs a state encryption:

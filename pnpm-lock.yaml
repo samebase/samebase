@@ -965,8 +965,8 @@ importers:
         specifier: 24.19.2
         version: 24.19.2
       alchemy:
-        specifier: https://pkg.alchemy.run/alchemy/pr:3167:44fd6d0
-        version: https://pkg.alchemy.run/alchemy/pr:3167:44fd6d0(@arethetypeswrong/core@0.18.5)(@effect/platform-bun@4.1.4(effect@4.1.4))(@effect/platform-node@4.1.4(effect@4.1.4)(redis@6.3.0(@opentelemetry/api@1.9.1)))(@types/node@24.19.2)(@types/react@19.3.0)(@typescript/native-preview@7.0.0-dev.20260707.2)(effect@4.1.4)(esbuild@0.28.2)(jiti@2.7.0)(publint@0.3.25)(terser@5.49.0)(typescript@6.0.3)(ws@8.22.0)
+        specifier: https://pkg.alchemy.run/alchemy/pr:3167:61500d4
+        version: https://pkg.alchemy.run/alchemy/pr:3167:61500d4(@arethetypeswrong/core@0.18.5)(@effect/platform-bun@4.1.4(effect@4.1.4))(@effect/platform-node@4.1.4(effect@4.1.4)(redis@6.3.0(@opentelemetry/api@1.9.1)))(@types/node@24.19.2)(@types/react@19.3.0)(@typescript/native-preview@7.0.0-dev.20260707.2)(effect@4.1.4)(esbuild@0.28.2)(jiti@2.7.0)(publint@0.3.25)(terser@5.49.0)(typescript@6.0.3)(ws@8.22.0)
       effect:
         specifier: 4.1.4
         version: 4.1.4
@@ -4910,12 +4910,12 @@ packages:
       ws:
         optional: true
 
-  alchemy@https://pkg.alchemy.run/alchemy/pr:3167:44fd6d0:
-    resolution: {integrity: sha512-Mmi0quwLhelr5ik1Q8oGryfnVMDdGOxRjQrS78Ksn2huTOz7Kq3XvZK+g1WsV7aTlRTtYiGeKBFTudqueX+xpw==, tarball: https://pkg.alchemy.run/alchemy/-/1cc27e5e012808fc68226129b0c248c78d1139ebc62c656cb40688cc44119ffc.tgz}
+  alchemy@https://pkg.alchemy.run/alchemy/pr:3167:61500d4:
+    resolution: {integrity: sha512-uGsqwGqTx8aGGWVVOE+SznLpawfOcb4v6c+DI7WLOufe+N7jzi6SbJGQRm9+2NzBvQOSCm5yoKSNRceEp6TRvA==, tarball: https://pkg.alchemy.run/alchemy/-/3a58ece9fcea46036df0c42cbc118bdeb73123699bf8cee987a10b64a3230bb6.tgz}
     version: 2.0.0-beta.87
     hasBin: true
     peerDependencies:
-      '@alchemy.run/frontend-frameworks': https://pkg.alchemy.run/@alchemy.run/frontend-frameworks/-/c59e6666eb33abb3af19d1c175b20362acfc0942a6f5045b0f432214b44ff3d0.tgz
+      '@alchemy.run/frontend-frameworks': https://pkg.alchemy.run/@alchemy.run/frontend-frameworks/-/bc0f9e0d403f77bb682e21b9d7af80ec2de0aae2334be7d9abbcd83f1306d362.tgz
       '@effect/platform-bun': ^4.1.4
       '@effect/platform-node': ^4.1.4
       effect: ^4.1.4
@@ -12605,7 +12605,7 @@ snapshots:
       - unrun
       - vue-tsc
 
-  alchemy@https://pkg.alchemy.run/alchemy/pr:3167:44fd6d0(@arethetypeswrong/core@0.18.5)(@effect/platform-bun@4.1.4(effect@4.1.4))(@effect/platform-node@4.1.4(effect@4.1.4)(redis@6.3.0(@opentelemetry/api@1.9.1)))(@types/node@24.19.2)(@types/react@19.3.0)(@typescript/native-preview@7.0.0-dev.20260707.2)(effect@4.1.4)(esbuild@0.28.2)(jiti@2.7.0)(publint@0.3.25)(terser@5.49.0)(typescript@6.0.3)(ws@8.22.0):
+  alchemy@https://pkg.alchemy.run/alchemy/pr:3167:61500d4(@arethetypeswrong/core@0.18.5)(@effect/platform-bun@4.1.4(effect@4.1.4))(@effect/platform-node@4.1.4(effect@4.1.4)(redis@6.3.0(@opentelemetry/api@1.9.1)))(@types/node@24.19.2)(@types/react@19.3.0)(@typescript/native-preview@7.0.0-dev.20260707.2)(effect@4.1.4)(esbuild@0.28.2)(jiti@2.7.0)(publint@0.3.25)(terser@5.49.0)(typescript@6.0.3)(ws@8.22.0):
     dependencies:
       '@alchemy.run/node-utils': https://pkg.alchemy.run/@alchemy.run/node-utils/-/1cd515fe8fa6c02e8ff33fdd14e9147eb327e41ed41edd5cb1f1e3d15a45ad24.tgz(effect@4.1.4)
       '@alchemy.run/sigil': 0.1.0-alpha.4(@types/react@19.3.0)
