@@ -347,6 +347,25 @@ describe("clients", () => {
     });
     expect(signedIn.status).toBe(200);
   });
+
+  test("a return address taken off the card while the user is at the provider gets the hub's page, not a redirect", async () => {
+    const h = await fakeBroker();
+    const { clientId } = await h.registerClient({
+      appName: "My app",
+      redirectUri: REDIRECT_URI,
+      otherRedirectUris: ["https://app.example.com/other"],
+    });
+    const { challenge } = await pkce();
+    const authorized = await h.fetchBroker(authorizeUrl(h, { clientId, challenge }));
+    await h.editCard(clientId, (card) => ({
+      ...card,
+      redirectUris: ["https://app.example.com/other"],
+    }));
+    const back = await completeUpstream(h, authorized);
+    expect(back.status).toBe(400);
+    expect(back.headers.get("location")).toBeNull();
+    expect(await back.text()).toContain("Sign-in for this app is no longer available.");
+  });
 });
 
 describe("authorization code flow with an OAuth connector", () => {

@@ -3,8 +3,9 @@
 // and the properties of design section 6 are asserted on every transition. Between any two steps
 // of a sign-in, a stop on either of the card's two gates can commit or go, the gate in a layer's
 // namespace can leave the layer's live gates or come back, a connector can leave the card or come
-// back, the request's return address can leave the card or come back, and the
-// card's `confirm` can flip: each step must read the card as it is.
+// back, the request's return address can leave the card or come back, and the card's `confirm`
+// can flip: each step must read the card as it is, and no result names a return address that is
+// off the card of its step.
 import { describe, expect, test } from "vite-plus/test";
 import { makeMemoryStore } from "../hosts/memory.ts";
 import type { Args, CommandName, Result } from "../store/commands.ts";
@@ -152,6 +153,15 @@ const search = (requestIds: ReadonlyArray<string>, depth: number) => {
       CONNECTORS.includes(connector)
     );
   };
+  /**
+   * A step's result names the return address exactly when the card holds it in that step: no
+   * result carries an address that is off the card, and a refusal of a card that holds it keeps
+   * it. No step but the exchange writes the card, so the card after the step is the step's card.
+   */
+  const expectBack = (back: { readonly redirectUri: string } | null | undefined) =>
+    expect(back?.redirectUri).toBe(
+      cardOf()?.redirectUris.includes(redirectUri) === true ? redirectUri : undefined,
+    );
 
   // oxlint-disable-next-line complexity -- one case per action of the alphabet, each with its property checks.
   const apply = (model: Model, action: Action): Model => {
@@ -222,6 +232,9 @@ const search = (requestIds: ReadonlyArray<string>, depth: number) => {
           expect(before !== undefined && before.expiresAt > now).toBe(true);
           expect(before?.status === "pending" || before?.status === "upstream").toBe(true);
         }
+        if (result.ok || result.error !== "not_found") {
+          expectBack(result.back);
+        }
         break;
       }
       case "claim": {
@@ -249,6 +262,7 @@ const search = (requestIds: ReadonlyArray<string>, depth: number) => {
         }
         if (result.status === "expired" || result.status === "refused") {
           expect(requestOf(action.r)).toBeUndefined();
+          expectBack(result.back);
         }
         break;
       }
@@ -275,12 +289,22 @@ const search = (requestIds: ReadonlyArray<string>, depth: number) => {
           expect(allowed).toBe(false);
           expect(requestOf(action.r)).toBeUndefined();
         }
+        if (result.ok || result.error !== "not_found") {
+          expectBack(result.back);
+        }
         break;
       }
-      case "abandon":
-        run("authRequests.abandon", { requestId: action.r });
+      case "abandon": {
+        const existed = requestOf(action.r) !== undefined;
+        const back = run("authRequests.abandon", { requestId: action.r });
         expect(requestOf(action.r)).toBeUndefined();
+        if (existed) {
+          expectBack(back);
+        } else {
+          expect(back).toBeNull();
+        }
         break;
+      }
       case "exchange": {
         const request = requestOf(action.r);
         const code = codeOf(action.r);

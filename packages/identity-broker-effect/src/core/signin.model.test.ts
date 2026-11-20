@@ -229,9 +229,23 @@ function check(checks: Checks, invariant: string, holds: boolean, message: strin
   }
 }
 
-/** `noServerError`: no answer of the hub is a 500. */
-function checkAnswer(checks: Checks, label: string, response: Response) {
+/**
+ * `noServerError`: no answer of the hub is a 500. `returnOnCard`: the hub sends the browser to the
+ * card's return address only while the card holds it.
+ */
+function checkAnswer(checks: Checks, label: string, response: Response, client: Client) {
   check(checks, "noServerError", response.status !== 500, `${label} answered 500`);
+  const location = response.status === 302 ? response.headers.get("location") : null;
+  if (location === null) {
+    return;
+  }
+  const target = new URL(location);
+  check(
+    checks,
+    "returnOnCard",
+    client.redirect || target.origin + target.pathname !== client.redirectUri,
+    `${label} sent the browser to ${client.handle}'s return address, which is off the card`,
+  );
 }
 
 function createModel(clients: Client[]) {
@@ -433,7 +447,7 @@ async function playAuthorize(
   });
   const label = `authorize ${client.handle} (${command.requested})`;
   const response = await h.fetchBroker(`${h.issuer}/authorize?${params}`);
-  checkAnswer(checks, label, response);
+  checkAnswer(checks, label, response, client);
   // The set that `create` stores: what the request named, else the card's, of the card's.
   const stored = allowedNow(client, named.length === 0 ? undefined : named);
   const stop = stopReason(model, client);
@@ -520,7 +534,7 @@ async function playContinue(
   const edited = !page.offered.includes(command.connector);
   const label = `continue ${page.handle} (${page.client.handle}) with ${command.connector}${edited ? " (edited link)" : ""}`;
   const response = await h.fetchBroker(link, { headers: page.cookie });
-  checkAnswer(checks, label, response);
+  checkAnswer(checks, label, response, page.client);
   const hop = providerRedirect(h, response);
   if (hop === null) {
     story.trace.push(`${label}: ${response.status}`);
@@ -570,7 +584,7 @@ async function playCallbackStart(
   ]);
   if ("done" in first) {
     provider.cancelExpectSignIn();
-    checkAnswer(checks, label, first.done);
+    checkAnswer(checks, label, first.done, client);
     const location = new URL(first.done.headers.get("location") ?? "", h.issuer);
     story.trace.push(
       `${label}: ${first.done.status} ${location.searchParams.get("error") ?? ""}, the provider saw nothing`,
@@ -618,7 +632,7 @@ async function playCallbackFinish(
   attempt.held.answer(outcome);
   const response = await attempt.response;
   const label = `callback finish ${attempt.handle} (${client.handle}, ${upstream.connector}) with ${outcome}`;
-  checkAnswer(checks, label, response);
+  checkAnswer(checks, label, response, client);
   const location = new URL(response.headers.get("location") ?? "", world.h.issuer);
   const code = location.searchParams.get("code");
   if (code === null) {
@@ -669,7 +683,7 @@ async function playRedeem(world: World, model: Model, code: Code, checks: Checks
       redirect_uri: client.redirectUri,
     }).toString(),
   });
-  checkAnswer(checks, label, response);
+  checkAnswer(checks, label, response, client);
   const answer = Schema.decodeUnknownSync(TokenAnswer)(await response.json());
   story.trace.push(`${label}: ${response.status} ${answer.error ?? ""}`);
   check(
@@ -966,10 +980,10 @@ describe("RFC 136 property C regressions", () => {
       ],
       "noSignInWhenStopped",
     );
-    expect(trace).toContain("callback finish A1 (C1, fake) with identity: 302 access_denied");
+    // The hub's own error page: the address is not on the card when the step refuses.
+    expect(trace).toContain("callback finish A1 (C1, fake) with identity: 400 ");
     expect(trace).toContain("redeem: no code yet, skipped");
   });
-
   it("a return address taken off the card after the code refuses the code", async () => {
     const trace = await replay(
       [

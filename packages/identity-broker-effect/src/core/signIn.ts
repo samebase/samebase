@@ -2,7 +2,7 @@
 // callbacks, token and UserInfo. Each step that moves a sign-in on is one command that reads the
 // client's card in its own transaction (src/rules/authRequests.ts); a handler decides nothing that
 // a later step relies on. No command is retried.
-import { Cause, Clock, Effect, Redacted, Result, Schema } from "effect";
+import { Cause, Clock, Effect, Exit, Redacted, Result, Schema } from "effect";
 import * as oauth from "oauth4webapi";
 import { command } from "./command.ts";
 import type { Connector } from "./connectors/types.ts";
@@ -36,6 +36,7 @@ import {
 } from "./responses.ts";
 import { Fetch, HubConfig, Keys, LiveGates, SignInPage, type HubConfigShape } from "./services.ts";
 import { randomToken, s256Challenge, sha256HexEffect } from "./subject.ts";
+import type { Return } from "../rules/schemas.ts";
 
 /** A request lives this long from /authorize to the code redirect. */
 const AUTH_REQUEST_TTL_MS = 10 * 60 * 1000;
@@ -113,6 +114,19 @@ const invalidRedirectPage = () =>
  * 3.1.2.6, named in docs/design.md).
  */
 const refusePage = (description: string) => errorPage("Sign-in refused", description, 400);
+
+/**
+ * An authorization error at `back`, the return address that a step read on the card, with the
+ * app's state; with no such address, the hub's own error page. The hub sends the user to no
+ * address that is not on the card (RFC 6749 section 4.1.2.1).
+ */
+const toApp = (
+  back: Return | undefined,
+  answer: { issuer: string; clearCookie: string | undefined; error: string; description: string },
+) =>
+  back === undefined
+    ? refusePage(answer.description)
+    : authorizationError({ ...answer, redirectUri: back.redirectUri, state: back.state });
 
 /** The live gates of the hub's registration layer, read for one sign-in step. */
 const liveGates = Effect.gen(function* () {
@@ -195,21 +209,19 @@ const freshLoginRefusal =
   "This sign-in method cannot reauthenticate the user, which prompt=login or max_age asked for.";
 
 /**
- * Sends the user to a connector for a stored request. `refuse` answers a refusal: the hub's
- * error page from `/authorize`, where the user has not continued, and the authorization error
- * at the return address from `/continue`, where the user has.
+ * Sends the user to a connector for a stored request; the caller refused a fresh login that the
+ * connector cannot do. `refuse` answers a refusal of the step, with the return address that the
+ * step read on the card: the hub's error page from `/authorize`, where the user has not
+ * continued, and `toApp` from `/continue`, where the user has.
  */
 const startConnector = Effect.fn("startConnector")(function* (args: {
   connector: Connector;
   request: { requestId: string; freshLogin: boolean };
-  refuse: (error: string, description: string) => Response;
+  refuse: (back: Return | undefined, error: string, description: string) => Response;
 }) {
   const hub = yield* HubConfig;
   const { fetch } = yield* Fetch;
   const { connector, request } = args;
-  if (request.freshLogin && cannotReauthenticate(connector)) {
-    return args.refuse("login_required", freshLoginRefusal);
-  }
   // A provider whose metadata cannot be read answers 500, as the source's thrown error.
   const start = yield* Effect.tryPromise({
     try: () =>
@@ -241,11 +253,15 @@ const startConnector = Effect.fn("startConnector")(function* (args: {
           404,
         );
       case "expired":
-        return args.refuse("access_denied", "The sign-in expired.");
+        return args.refuse(result.back, "access_denied", "The sign-in expired.");
       case "wrong_status":
-        return args.refuse("access_denied", "The sign-in already moved on.");
+        return args.refuse(result.back, "access_denied", "The sign-in already moved on.");
       case "refused":
-        return args.refuse("access_denied", "That sign-in method is no longer available.");
+        return args.refuse(
+          result.back,
+          "access_denied",
+          "That sign-in method is no longer available.",
+        );
       default:
         return result satisfies never;
     }
@@ -370,7 +386,7 @@ export const authorize = Effect.fn("authorize")(function* (request: Request) {
     const response = yield* startConnector({
       connector: direct,
       request: { requestId, freshLogin },
-      refuse: (_error, description) => refusePage(description),
+      refuse: (_back, _error, description) => refusePage(description),
     });
     response.headers.append("Set-Cookie", setCookie);
     return response;
@@ -397,8 +413,9 @@ export const authorize = Effect.fn("authorize")(function* (request: Request) {
 
 /**
  * A "Continue with" click on the sign-in page: start that connector. The user accepted the
- * return address on the page, so a refusal from here on is an authorization error there. There
- * is no Cancel: a user who does not continue closes the tab, and the request expires.
+ * return address on the page, so a refusal from here on is an authorization error there, while
+ * the card holds it (`toApp`). There is no Cancel: a user who does not continue closes the tab,
+ * and the request expires.
  */
 export const continueSignIn = Effect.fn("continueSignIn")(function* (request: Request) {
   const hub = yield* HubConfig;
@@ -416,14 +433,13 @@ export const continueSignIn = Effect.fn("continueSignIn")(function* (request: Re
   if (!(yield* cookies.bound(request, stored))) {
     return unboundPage();
   }
-  const back = {
-    redirectUri: stored.redirectUri,
-    issuer: hub.issuer,
-    state: stored.state,
-    clearCookie: cookies.clear(request, requestId),
-  };
-  const refuse = (error: string, description: string) =>
-    authorizationError({ ...back, error, description });
+  const refuse = (back: Return | undefined, error: string, description: string) =>
+    toApp(back, {
+      issuer: hub.issuer,
+      clearCookie: cookies.clear(request, requestId),
+      error,
+      description,
+    });
   if (stored.status === "completed" || stored.status === "claimed") {
     return errorPage("Sign-in finished", "This sign-in already finished. Return to the app.", 409);
   }
@@ -433,6 +449,9 @@ export const continueSignIn = Effect.fn("continueSignIn")(function* (request: Re
   const connector = hub.connectorsByName.get(name);
   if (connector === undefined || !stored.connectors.includes(name)) {
     return errorPage("Unknown connector", "That sign-in method is not offered here.", 404);
+  }
+  if (stored.freshLogin && cannotReauthenticate(connector)) {
+    return refuse(stored.back, "login_required", freshLoginRefusal);
   }
   return yield* startConnector({
     connector,
@@ -486,7 +505,7 @@ export const upstreamCallback = (connector: Connector) =>
     }
     // The claim reads the card in its own step. The user continued from the page or went
     // straight on, so a refusal from here goes to the return address, once the browser proved
-    // it holds the request's cookie.
+    // it holds the request's cookie and while the card holds the address.
     const claim = yield* command("authRequests.claimUpstream", {
       upstreamStateHash: yield* sha256HexEffect(state),
       connector: connector.name,
@@ -505,29 +524,25 @@ export const upstreamCallback = (connector: Connector) =>
     if (claim.status === "unbound") {
       return unboundPage();
     }
-    const back = {
-      redirectUri: claim.redirectUri,
-      issuer: hub.issuer,
-      state: claim.state,
-      clearCookie: cookies.clear(request, claim.requestId),
-    };
-    if (claim.status === "expired") {
-      return authorizationError({
-        ...back,
-        error: "access_denied",
-        description: "The sign-in expired.",
+    // Each answer to the app goes to the return address that its own step read on the card.
+    const answer = (back: Return | null | undefined, error: string, description: string) =>
+      toApp(back ?? undefined, {
+        issuer: hub.issuer,
+        clearCookie: cookies.clear(request, claim.requestId),
+        error,
+        description,
       });
-    }
+    const expired = "The sign-in expired.";
     /** A stop or a change of the card stops the sign-in: to the app, as refused. */
-    const stoppedNow = () =>
-      authorizationError({
-        ...back,
-        error: "access_denied",
-        description: "Sign-in for this app is no longer available.",
-      });
-    if (claim.status === "refused") {
-      return stoppedNow();
+    const stoppedNow = "Sign-in for this app is no longer available.";
+    if (claim.status === "expired") {
+      return answer(claim.back, "access_denied", expired);
     }
+    if (claim.status === "refused") {
+      return answer(claim.back, "access_denied", stoppedNow);
+    }
+    /** Deletes the claimed request, and answers the return address that the deletion read. */
+    const abandon = command("authRequests.abandon", { requestId: claim.requestId });
     const finished = yield* Effect.result(
       Effect.tryPromise({
         try: async () => {
@@ -553,31 +568,23 @@ export const upstreamCallback = (connector: Connector) =>
     );
     if (Result.isFailure(finished)) {
       const failure = finished.failure;
-      yield* command("authRequests.abandon", { requestId: claim.requestId });
+      const back = yield* abandon;
       // The provider's error code picks one fixed answer; nothing the provider wrote is echoed.
       // The connector's label is free text, so no description holds it (RFC 6749 section
       // 4.1.2.1).
       switch (failure.reason) {
         case "access_denied":
-          return authorizationError({
-            ...back,
-            error: "access_denied",
-            description: "The provider sign-in was declined.",
-          });
+          return answer(back, "access_denied", "The provider sign-in was declined.");
         case "temporarily_unavailable":
-          return authorizationError({
-            ...back,
-            error: "temporarily_unavailable",
-            description: "The provider is temporarily unavailable.",
-          });
+          return answer(
+            back,
+            "temporarily_unavailable",
+            "The provider is temporarily unavailable.",
+          );
         case "failed":
           // Only the class name: provider errors carry token responses and decoded claims.
           console.error(`Connector "${connector.name}" failed: ${failure.className}`);
-          return authorizationError({
-            ...back,
-            error: "server_error",
-            description: "The provider sign-in failed.",
-          });
+          return answer(back, "server_error", "The provider sign-in failed.");
         default:
           return failure.reason satisfies never;
       }
@@ -590,20 +597,19 @@ export const upstreamCallback = (connector: Connector) =>
       // prompt=login and max_age=0 went upstream, but a provider can still reuse its session;
       // only the id_token's auth_time attests a login during this request. It must fall between
       // the request's creation and now, each widened by the clock skew; auth_time is in whole
-      // seconds. A plain OAuth connector has no auth_time, and startConnector already refused it.
+      // seconds. A plain OAuth connector has no auth_time, and /authorize or /continue already
+      // refused it.
       const { authTimeSeconds } = upstream;
       if (
         authTimeSeconds === undefined ||
         authTimeSeconds < Math.floor(claim.createdAt / 1000) - AUTH_TIME_SKEW_SECONDS ||
         authTimeSeconds > Math.floor(now / 1000) + AUTH_TIME_SKEW_SECONDS
       ) {
-        yield* command("authRequests.abandon", { requestId: claim.requestId });
-        return authorizationError({
-          ...back,
-          error: "login_required",
-          description:
-            "The provider did not confirm a new login, which prompt=login or max_age asked for.",
-        });
+        return answer(
+          yield* abandon,
+          "login_required",
+          "The provider did not confirm a new login, which prompt=login or max_age asked for.",
+        );
       }
       authTime = authTimeSeconds * 1000;
     }
@@ -623,28 +629,33 @@ export const upstreamCallback = (connector: Connector) =>
         now,
       });
       if (!completed.ok) {
-        return completed.error === "refused"
-          ? stoppedNow()
-          : authorizationError({
-              ...back,
-              error: "access_denied",
-              description: "The sign-in expired.",
-            });
+        return answer(
+          completed.error === "not_found" ? undefined : completed.back,
+          "access_denied",
+          completed.error === "refused" ? stoppedNow : expired,
+        );
       }
-      return authorizationResponse({ ...back, params: { code } });
+      return authorizationResponse({
+        redirectUri: completed.back.redirectUri,
+        issuer: hub.issuer,
+        state: completed.back.state,
+        clearCookie: cookies.clear(request, claim.requestId),
+        params: { code },
+      });
     }).pipe(
       Effect.catchCause((cause) =>
         Effect.gen(function* () {
           console.error(
             `Connector "${connector.name}" completion failed: ${className(Cause.squash(cause))}`,
           );
-          // The request stays claimed until it expires when this fails too; nothing can finish it.
-          yield* Effect.exit(command("authRequests.abandon", { requestId: claim.requestId }));
-          return authorizationError({
-            ...back,
-            error: "temporarily_unavailable",
-            description: "Sign-in is not available right now.",
-          });
+          // The request stays claimed until it expires when this fails too; nothing can finish
+          // it, and no step read the return address.
+          const abandoned = yield* Effect.exit(abandon);
+          return answer(
+            Exit.isSuccess(abandoned) ? abandoned.value : undefined,
+            "temporarily_unavailable",
+            "Sign-in is not available right now.",
+          );
         }),
       ),
     );
