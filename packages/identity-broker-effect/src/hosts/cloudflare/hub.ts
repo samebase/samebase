@@ -32,10 +32,11 @@ import { Store, StoreUnavailable } from "../../store/Store.ts";
 import { hubSettings, type HubSettings } from "../settings.ts";
 
 /**
- * The one object of a hub, by name. The store of client cards started with this name: an object of
- * another name holds another layout, which this build refuses.
+ * The one object of a hub, by name. The store with the connection tables started with this name: an
+ * object of another name holds another layout, which this build refuses. A new name starts an empty
+ * store, so each client registers again on its next deploy.
  */
-export const HUB_INSTANCE = "cards";
+export const HUB_INSTANCE = "connections";
 import { alarmPlan, nextDailyAt, FALLBACK_MS } from "./settings.ts";
 
 declare global {

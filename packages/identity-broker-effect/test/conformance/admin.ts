@@ -68,7 +68,7 @@ export default {
       configured: body.connectors,
     };
     // `HUB_INSTANCE` of src/hosts/cloudflare/hub.ts, which this Worker does not bundle.
-    const result = await env.HUB.getByName("cards").run(
+    const result = await env.HUB.getByName("connections").run(
       "github.createClient",
       JSON.stringify(args),
     );
