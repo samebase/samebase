@@ -39,6 +39,17 @@ execFileSync(process.execPath, [convex, "env", "set", "SITE_URL", siteUrl], { st
 
 // The preview's seed account, the verified user of DEV_SEED_AUTH_EMAIL from the project's default
 // environment variables for previews. GitHub sign-in through the hub reaches it by that email.
-execFileSync(process.execPath, [convex, "run", "devAuth:seedAccount"], {
-  stdio: "inherit",
-});
+// The seed also connects Convex and Cloudflare to each seeded organization, over what is there, so
+// it runs once per preview: a later push keeps the connections that the developer made or removed.
+// SAMEBASE_PREVIEW_SEEDED is set only after the seed completes, so a push that stopped before then
+// leaves the next push to seed.
+const seeded = execFileSync(process.execPath, [convex, "env", "get", "SAMEBASE_PREVIEW_SEEDED"], {
+  encoding: "utf8",
+  stdio: ["ignore", "pipe", "inherit"],
+}).trim();
+if (seeded.length === 0) {
+  execFileSync(process.execPath, [convex, "run", "devAuth:seedAccount"], { stdio: "inherit" });
+  execFileSync(process.execPath, [convex, "env", "set", "SAMEBASE_PREVIEW_SEEDED", "true"], {
+    stdio: "inherit",
+  });
+}

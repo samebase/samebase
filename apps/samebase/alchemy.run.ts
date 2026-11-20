@@ -133,8 +133,8 @@ export default Alchemy.Stack(
       // A preview's hub callbacks are on its own `.convex.site` URL, and the hub reads the
       // verification file there before it registers a client, so the preview has code first.
       // "Preview" creates the deployment and pushes: built like production with the route
-      // environment `preview`, and the push command also sets SITE_URL to the preview's site URL and
-      // seeds the password account. Its first push takes the off values of the three hub variables
+      // environment `preview`, and the push command also sets SITE_URL to the preview's site URL and,
+      // once per preview, seeds the account. Its first push takes the off values of the three hub variables
       // from the project's default variables for previews. Then the client registers, and "Site"
       // writes its variables, with no push. Each variable keeps the row that owned it before:
       // a row removes a name that leaves its own `env`. Both rows delete the deployment on destroy;
