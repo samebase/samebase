@@ -433,6 +433,14 @@ function installStackFetchStub() {
       ) {
         return json(observedSamebaseStacksReply);
       }
+      // The outputs of the other stacks are not captured: none of them names this repository.
+      if (
+        url === "https://artful-alligator-66.convex.cloud/api/function" &&
+        isRecord(body) &&
+        body["path"] === "state:getOutput"
+      ) {
+        return json({ status: "success", value: null });
+      }
       if (
         url === "https://artful-alligator-66.convex.cloud/api/function" &&
         isRecord(body) &&
