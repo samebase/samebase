@@ -1,7 +1,7 @@
 {
   "name": "@samebase/alchemy-kit",
-  "version": "0.3.0",
-  "description": "A kit of parts for Alchemy v2: a state store on a branch of a GitHub repository, with sealed secrets, and a run record in each stage output",
+  "version": "0.4.0",
+  "description": "A kit of parts for Alchemy v2: a state store on a branch of a GitHub repository, with sealed secrets, a run record in each stage output, and a name and icon for each resource type",
   "keywords": [
     "alchemy",
     "effect",
@@ -31,7 +31,8 @@
   "sideEffects": false,
   "exports": {
     "./github-state": "./src/github-state/GitHubState.ts",
-    "./run-record": "./src/run-record/RunRecord.ts"
+    "./run-record": "./src/run-record/RunRecord.ts",
+    "./ui": "./src/ui/ResourceTypeUI.ts"
   },
   "publishConfig": {
     "exports": {
@@ -42,12 +43,18 @@
       "./run-record": {
         "types": "./lib/run-record.d.ts",
         "import": "./lib/run-record.js"
+      },
+      "./ui": {
+        "types": "./lib/ui.d.ts",
+        "import": "./lib/ui.js"
       }
     },
     "access": "public"
   },
   "scripts": {
-    "check": "pnpm run typecheck && pnpm run lint && pnpm run test && pnpm run build",
+    "check": "pnpm run typecheck && pnpm run lint && pnpm run ui:check && pnpm run test && pnpm run build",
+    "ui:check": "node scripts/ui/check.ts",
+    "ui:generate": "node scripts/ui/generate.ts",
     "typecheck": "tsc --noEmit",
     "test": "pnpm --dir ../.. exec vp test run --project alchemy-kit",
     "test:live": "vp test run test/github-state/live",
