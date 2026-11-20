@@ -310,6 +310,9 @@ importers:
       '@samebase/alchemy-convex':
         specifier: workspace:*
         version: link:../../packages/alchemy-convex
+      '@samebase/identity-broker-effect':
+        specifier: workspace:*
+        version: link:../../packages/identity-broker-effect
       '@types/node':
         specifier: 24.19.2
         version: 24.19.2

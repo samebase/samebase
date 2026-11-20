@@ -5,6 +5,11 @@
   "description": "The identity broker in Effect, one code base for every host. Cloudflare is the first host.",
   "license": "Apache-2.0",
   "type": "module",
+  "exports": {
+    "./cloudflare": "./src/hosts/cloudflare/hub.ts",
+    "./stack": "./src/layers/stack/routes.ts",
+    "./testing": "./src/core/testing/harness.ts"
+  },
   "scripts": {
     "typecheck": "tsc --noEmit --project tsconfig.json && tsc --noEmit --project tsconfig.node.json",
     "lint": "pnpm --dir ../.. exec vp lint --tsconfig packages/identity-broker-effect/tsconfig.node.json --report-unused-disable-directives packages/identity-broker-effect/src packages/identity-broker-effect/alchemy.run.ts packages/identity-broker-effect/test",

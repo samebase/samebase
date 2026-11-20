@@ -14,8 +14,8 @@ import {
   createBroker,
   fakeOidcUpstream,
   stubFetch,
-} from "../../../packages/identity-broker-effect/src/core/testing/harness.ts";
-import { stack } from "../../../packages/identity-broker-effect/src/layers/stack/routes.ts";
+} from "@samebase/identity-broker-effect/testing";
+import { stack } from "@samebase/identity-broker-effect/stack";
 import { app } from "./app.ts";
 import { HubClient } from "./hub-client.ts";
 import { Session } from "./session.ts";

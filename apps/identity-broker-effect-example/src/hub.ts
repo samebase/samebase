@@ -7,8 +7,8 @@
 // `prod`, the preview key only clients with a removal date. The Google client and the signing keys
 // (`IDENTITY_BROKER_KEYS`) are the deploying shell's variables of those names, bound to the Worker.
 import { Config } from "effect";
-import { hubWorker } from "../../../packages/identity-broker-effect/src/hosts/cloudflare/hub.ts";
-import { stack } from "../../../packages/identity-broker-effect/src/layers/stack/routes.ts";
+import { hubWorker } from "@samebase/identity-broker-effect/cloudflare";
+import { stack } from "@samebase/identity-broker-effect/stack";
 
 export default hubWorker({
   main: import.meta.url,
