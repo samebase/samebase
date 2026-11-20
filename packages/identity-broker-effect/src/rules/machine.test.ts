@@ -448,18 +448,18 @@ const depthOf = (name: string, fallback: number) => {
 
 describe("the authorization request machine", () => {
   test("one request: every property holds in every reachable state", () => {
-    // Depth 12 (114,791 states) takes about 24 s on the development Mac; every step of a sign-in
-    // with a card change before each of them fits in it.
+    // Depth 12 (114,791 states) takes about 24 s on the development Mac, and up to 6 times that on
+    // a CI runner that runs other suites beside it; every step of a sign-in with a card change
+    // before each of them fits in it.
     const result = search(["r1"], depthOf("MACHINE_DEPTH_ONE", 12));
     console.log("one request", result);
     expect(result.states).toBeGreaterThan(1);
-  }, 120_000);
+  }, 300_000);
 
   test("two requests: every property holds in every reachable state", () => {
-    // Depth 7 (57,012 states) takes about 10 s on the development Mac and about 3.5 times that on
-    // a CI runner.
+    // Depth 7 (57,012 states) takes about 10 s on the development Mac.
     const result = search(["r1", "r2"], depthOf("MACHINE_DEPTH_TWO", 7));
     console.log("two requests", result);
     expect(result.states).toBeGreaterThan(1);
-  }, 120_000);
+  }, 300_000);
 });
