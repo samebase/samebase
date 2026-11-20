@@ -1768,6 +1768,28 @@ describe("IdentityHub.Client with a key", () => {
     }),
   );
 
+  test.provider("a key goes to no http hub: the registration request is not made", (stack) =>
+    Effect.gen(function* () {
+      const fake = new FakeServices().install();
+      fake.keys.add(KEY);
+      const hub = { issuer: "http://hub.example.com" };
+      const { layer, lines } = capturedLogs();
+      expect(
+        yield* stack.deploy(withKey(Redacted.make(KEY), { hub })).pipe(Effect.provide(layer)),
+      ).toEqual(OFF);
+      expect(warningsIn(lines)).toEqual([
+        expect.stringContaining(
+          "The identity hub is not at an https URL, so no credential was sent to it",
+        ),
+      ]);
+      // Only discovery, which carries no credential, reaches the hub.
+      expect(fake.calls(hub.issuer)).toEqual([
+        `GET ${hub.issuer}/.well-known/openid-configuration`,
+      ]);
+      expect(fake.sent.filter(({ authorization }) => authorization !== "")).toEqual([]);
+    }),
+  );
+
   test.provider(
     "no key gives the off values with no request, or fails a required client",
     (stack) =>

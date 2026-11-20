@@ -357,27 +357,37 @@ const refusalOf = (status: number, body: unknown): string => {
   }
 };
 
+/**
+ * One request to `who` at `url`, with `token` as its Bearer. A token goes only to an https URL:
+ * to any other URL the request is not made.
+ */
 const send = (
   who: string,
   url: string,
   token: string | undefined,
   init: { method: string; body?: string },
 ) =>
-  Effect.tryPromise({
-    try: async () => {
-      const response = await fetch(url, {
-        ...init,
-        headers: {
-          ...(token === undefined ? {} : { Authorization: `Bearer ${token}` }),
-          "Content-Type": "application/json",
+  token !== undefined && !(URL.canParse(url) && new URL(url).protocol === "https:")
+    ? Effect.fail(
+        new IdentityHubClientFailed({
+          reason: `${who} is not at an https URL, so no credential was sent to it`,
+        }),
+      )
+    : Effect.tryPromise({
+        try: async () => {
+          const response = await fetch(url, {
+            ...init,
+            headers: {
+              ...(token === undefined ? {} : { Authorization: `Bearer ${token}` }),
+              "Content-Type": "application/json",
+            },
+            signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+          });
+          const body: unknown = await response.json().catch(() => undefined);
+          return { status: response.status, body };
         },
-        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+        catch: () => new IdentityHubClientFailed({ reason: `${who} gave no answer` }),
       });
-      const body: unknown = await response.json().catch(() => undefined);
-      return { status: response.status, body };
-    },
-    catch: () => new IdentityHubClientFailed({ reason: `${who} gave no answer` }),
-  });
 
 const decode =
   <S extends Schema.Codec<unknown, unknown>>(schema: S, who: string) =>

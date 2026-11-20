@@ -14,6 +14,8 @@
 - The registration request also sends `client_name` (the stage) and the hub's own `deployment_type`.
   A hub on the GitHub layer ignores both. The props of the resource and the state do not change, and
   the store version does not change.
+- `IdentityHub.Client` sends a credential (a key, a token or a client's registration access token)
+  only to an https URL. To any other URL it makes no request and fails as for a hub that refuses.
 
 ## 0.41.0
 
